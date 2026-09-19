@@ -13,6 +13,8 @@ import type { LabelDefinition } from './types.ts';
 
 /** Options for the `sync-labels init` subcommand. */
 interface InitOptions {
+  /** Config file to read, relative to the working directory. Defaults to `CONFIG_FILE_PATH`. */
+  configPath?: string;
   dryRun: boolean;
   force: boolean;
   styles: StreamStyles;
@@ -25,12 +27,17 @@ const WORKFLOW_PATH = '.github/workflows/sync-labels.yaml';
  * Run the `sync-labels init` subcommand.
  *
  * Discovers workspaces and retired packages, scaffolds the caller workflow, then seeds the
- * `repoLabels` block: into a new `.config/release-kit.config.ts` when none exists, or
- * printed to stdout for manual paste when the file is already there — an existing,
- * hand-authored config is never rewritten. Returns 0 on success, 1 on failure.
+ * `repoLabels` block: into a new config file when none exists, or printed to stdout for manual
+ * paste when the file is already there — an existing, hand-authored config is never rewritten.
+ * Returns 0 on success, 1 on failure.
+ *
+ * `configPath` names the config to read. Naming one that does not exist fails the command, so the
+ * scaffolding branch is reached only under the default path and always writes to `CONFIG_FILE_PATH`.
  */
-export async function syncLabelsInitCommand({ dryRun, force, styles }: InitOptions): Promise<number> {
-  if (checkRetiredSyncLabelsConfig()) {
+export async function syncLabelsInitCommand({ configPath, dryRun, force, styles }: InitOptions): Promise<number> {
+  const configFilePath = configPath ?? CONFIG_FILE_PATH;
+
+  if (checkRetiredSyncLabelsConfig(configPath)) {
     return 1;
   }
 
@@ -55,8 +62,10 @@ export async function syncLabelsInitCommand({ dryRun, force, styles }: InitOptio
     console.info(`  Found ${String(workspacePaths.length)} workspaces`);
   }
 
-  const configExists = existsSync(CONFIG_FILE_PATH);
-  const retiredNames = configExists ? await loadRetiredPackageNames(styles) : [];
+  // A named path is always read, so that one which does not exist fails in the loader rather than
+  // silently routing the run into the scaffolding branch.
+  const configExists = configPath !== undefined || existsSync(CONFIG_FILE_PATH);
+  const retiredNames = configExists ? await loadRetiredPackageNames(styles, configPath) : [];
   if (retiredNames === undefined) {
     return 1;
   }
@@ -71,7 +80,7 @@ export async function syncLabelsInitCommand({ dryRun, force, styles }: InitOptio
 
   // Seed the repoLabels block: print for manual paste when the config exists, write a new file otherwise.
   if (configExists) {
-    console.info(`\n> ${CONFIG_FILE_PATH} already exists; add this block to the object passed to defineConfig:\n`);
+    console.info(`\n> ${configFilePath} already exists; add this block to the object passed to defineConfig:\n`);
     console.info(renderRepoLabelsBlock(scopeLabels));
 
     if (workflowResult.outcome === 'failed') {
@@ -81,7 +90,7 @@ export async function syncLabelsInitCommand({ dryRun, force, styles }: InitOptio
 
     console.info(`
 > Next steps
-  1. Paste the block above into ${CONFIG_FILE_PATH}.
+  1. Paste the block above into ${configFilePath}.
   2. Run \`release-kit sync-labels generate\` to produce ${LABELS_OUTPUT_PATH}.
   3. Commit the changes.
   4. Run \`release-kit sync-labels sync\` to apply labels to your GitHub repo.
@@ -132,8 +141,8 @@ export async function syncLabelsInitCommand({ dryRun, force, styles }: InitOptio
  * Returns `undefined` when the config cannot be loaded or validated — init must not seed
  * a label set from a config it cannot read.
  */
-async function loadRetiredPackageNames(styles: StreamStyles): Promise<string[] | undefined> {
-  const result = await loadValidatedConfig(styles.stderr);
+async function loadRetiredPackageNames(styles: StreamStyles, configPath?: string): Promise<string[] | undefined> {
+  const result = await loadValidatedConfig(styles.stderr, configPath);
   if (result.status === 'invalid') {
     return undefined;
   }

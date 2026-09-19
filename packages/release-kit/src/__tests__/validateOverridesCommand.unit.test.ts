@@ -118,7 +118,7 @@ describe(formatValidateOverridesResult, () => {
 
 describe(validateOverridesCommand, () => {
   it('returns exit 0 in a single-package layout with no overrides', async () => {
-    const result = await validateOverridesCommand(RICH_STYLES, {
+    const result = await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () => entriesFromHashes([]),
@@ -128,7 +128,7 @@ describe(validateOverridesCommand, () => {
   });
 
   it('returns exit 1 when validation surfaces only warnings', async () => {
-    const result = await validateOverridesCommand(RICH_STYLES, {
+    const result = await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () => entriesFromHashes([]),
@@ -138,7 +138,7 @@ describe(validateOverridesCommand, () => {
   });
 
   it('returns exit 2 when validation surfaces errors', async () => {
-    const result = await validateOverridesCommand(RICH_STYLES, {
+    const result = await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () => entriesFromHashes([]),
@@ -148,7 +148,7 @@ describe(validateOverridesCommand, () => {
   });
 
   it('returns exit 2 with a config-load failure message', async () => {
-    const result = await validateOverridesCommand(RICH_STYLES, {
+    const result = await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.reject(new Error('boom')),
       validate: () => ({ errors: [], warnings: [] }),
@@ -160,7 +160,7 @@ describe(validateOverridesCommand, () => {
 
   it('returns exit 2 with an Invalid config message when the loaded config fails validation', async () => {
     // `validateConfig` rejects non-record top-level values with "Config must be an object".
-    const result = await validateOverridesCommand(RICH_STYLES, {
+    const result = await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(42),
       validate: () => ({ errors: [], warnings: [] }),
@@ -173,7 +173,7 @@ describe(validateOverridesCommand, () => {
 
   it('passes a project-only scope to validate in single-package mode', async () => {
     let received: { workspaces: number; projectHashes: number } | undefined;
-    await validateOverridesCommand(RICH_STYLES, {
+    await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () => entriesFromHashes(['hash1', 'hash2']),
@@ -198,7 +198,7 @@ describe(validateOverridesCommand, () => {
     // available to the validator. An override targeting a hash in a past release (here:
     // 'aabbcc1234') was reported stale because the validator never saw that hash.
     let capturedHashes: readonly string[] = [];
-    await validateOverridesCommand(RICH_STYLES, {
+    await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () =>
@@ -219,6 +219,45 @@ describe(validateOverridesCommand, () => {
     ]);
   });
 
+  describe('reading the config file named by configPath', () => {
+    let tree: TempTree;
+
+    beforeEach(() => {
+      tree = disposeOnTestFinished(createTempTree({}, { prefix: 'validate-overrides-config-' }));
+      disposeOnTestFinished(pointCwdAt(tree.dir, { chdir: true }));
+    });
+
+    it('reads the named file rather than the default path', async () => {
+      tree.write('elsewhere/alternative.config.ts', 'export default { unknownField: true };');
+
+      const named = await validateOverridesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts', {
+        discoverWorkspaces: () => Promise.resolve(undefined),
+        buildEntries: () => entriesFromHashes([]),
+        validate: () => ({ errors: [], warnings: [] }),
+      });
+      const defaulted = await validateOverridesCommand(RICH_STYLES, undefined, {
+        discoverWorkspaces: () => Promise.resolve(undefined),
+        buildEntries: () => entriesFromHashes([]),
+        validate: () => ({ errors: [], warnings: [] }),
+      });
+
+      expect(named.exitCode).toBe(2);
+      expect(named.message).toContain('unknownField');
+      expect(defaulted.exitCode).toBe(0);
+    });
+
+    it('returns exit 2 when the named file does not exist', async () => {
+      const result = await validateOverridesCommand(RICH_STYLES, 'elsewhere/absent.config.ts', {
+        discoverWorkspaces: () => Promise.resolve(undefined),
+        buildEntries: () => entriesFromHashes([]),
+        validate: () => ({ errors: [], warnings: [] }),
+      });
+
+      expect(result.exitCode).toBe(2);
+      expect(result.message).toContain(`Config file not found: ${tree.resolve('elsewhere/absent.config.ts')}`);
+    });
+  });
+
   describe('against the real validator (writes a temp override file)', () => {
     let tree: TempTree;
 
@@ -236,7 +275,7 @@ describe(validateOverridesCommand, () => {
       const unreleasedHash = '9988aabbccddeeff9988aabbccddeeff9988aabb';
       writeOverrides({ aabbcc12: { audience: 'skip' } });
 
-      const result = await validateOverridesCommand(RICH_STYLES, {
+      const result = await validateOverridesCommand(RICH_STYLES, undefined, {
         discoverWorkspaces: () => Promise.resolve(undefined),
         loadConfig: () => Promise.resolve(undefined),
         buildEntries: () =>
@@ -254,7 +293,7 @@ describe(validateOverridesCommand, () => {
     it('flags an override targeting an unreachable hash as stale', async () => {
       writeOverrides({ deadbeef: { audience: 'skip' } });
 
-      const result = await validateOverridesCommand(RICH_STYLES, {
+      const result = await validateOverridesCommand(RICH_STYLES, undefined, {
         discoverWorkspaces: () => Promise.resolve(undefined),
         loadConfig: () => Promise.resolve(undefined),
         buildEntries: () =>
@@ -272,7 +311,7 @@ describe(validateOverridesCommand, () => {
     it('surfaces an ambiguous-prefix error with file-path attribution', async () => {
       writeOverrides({ aa: { audience: 'skip' } });
 
-      const result = await validateOverridesCommand(RICH_STYLES, {
+      const result = await validateOverridesCommand(RICH_STYLES, undefined, {
         discoverWorkspaces: () => Promise.resolve(undefined),
         loadConfig: () => Promise.resolve(undefined),
         buildEntries: () =>
@@ -332,7 +371,7 @@ describe(validateOverridesCommand, () => {
         deadbeef: { audience: 'skip' }, // unreachable — must be flagged stale
       });
 
-      const result = await validateOverridesCommand(RICH_STYLES, {
+      const result = await validateOverridesCommand(RICH_STYLES, undefined, {
         discoverWorkspaces: () => Promise.resolve(undefined),
         loadConfig: () => Promise.resolve(undefined),
       });
@@ -370,7 +409,7 @@ describe(validateOverridesCommand, () => {
     it('passes per-workspace tagPattern (with legacy identities) and project-tier tagPattern with the union of workspace paths', async () => {
       const calls: { tagPattern: string | undefined; includePaths: readonly string[] | undefined }[] = [];
 
-      await validateOverridesCommand(RICH_STYLES, {
+      await validateOverridesCommand(RICH_STYLES, undefined, {
         discoverWorkspaces: () => Promise.resolve(['packages/foo', 'packages/bar']),
         loadConfig: () =>
           Promise.resolve({
@@ -409,7 +448,7 @@ describe(validateOverridesCommand, () => {
     it('scopes the project tier to a declared project.paths', async () => {
       const calls: { tagPattern: string | undefined; includePaths: readonly string[] | undefined }[] = [];
 
-      await validateOverridesCommand(RICH_STYLES, {
+      await validateOverridesCommand(RICH_STYLES, undefined, {
         discoverWorkspaces: () => Promise.resolve(['packages/foo', 'packages/bar']),
         loadConfig: () => Promise.resolve({ project: { paths: ['**'], tagPrefix: 'mono-v' } }),
         buildEntries: (_config, tagPattern, includePaths) => {

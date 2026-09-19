@@ -40,6 +40,27 @@ describe(showTagPrefixesCommand, () => {
     expect(mockPreview).not.toHaveBeenCalled();
   });
 
+  it('forwards the config path to the preview', async () => {
+    mockPreview.mockResolvedValue({ workspaces: [], collisions: [], undeclaredCandidates: [] });
+    using capture = captureStdio();
+    capture;
+
+    await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts');
+
+    expect(mockPreview).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
+  });
+
+  it('exits 1 and reports when the preview cannot load the config', async () => {
+    mockPreview.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
+    using capture = captureStdio();
+
+    const exitCode = await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/absent.config.ts');
+
+    expect(exitCode).toBe(1);
+    expect(capture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
+    expect(capture.stdout).toBe('');
+  });
+
   it('exits 0 when every workspace derives a prefix and no collisions or undeclared exist', async () => {
     mockPreview.mockResolvedValue({
       workspaces: [

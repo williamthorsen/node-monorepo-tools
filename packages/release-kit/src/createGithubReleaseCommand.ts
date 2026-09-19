@@ -4,6 +4,7 @@
 import { parseArgsOrExit, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { configFlagSchema } from './configFlagSchema.ts';
 import { createGithubReleases } from './createGithubRelease.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
 import { parseRequestedTags } from './parseRequestedTags.ts';
@@ -11,6 +12,7 @@ import { resolveCommandTags } from './resolveCommandTags.ts';
 import { resolveReleaseNotesConfig } from './resolveReleaseNotesConfig.ts';
 
 const createGithubReleaseFlagSchema = {
+  ...configFlagSchema,
   dryRun: { long: '--dry-run', type: 'boolean' as const },
   tags: { long: '--tags', type: 'string' as const },
 };
@@ -46,6 +48,7 @@ export async function createGithubReleaseCommand(argv: string[], styles: StreamS
   }
 
   const { changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig(styles.stderr, {
+    ...(parsed.flags.config !== undefined && { configPath: parsed.flags.config }),
     strictLoad: true,
   });
 

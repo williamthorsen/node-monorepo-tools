@@ -222,4 +222,39 @@ describe(previewTagPrefixes, () => {
 
     expect(result.retiredPackages).toStrictEqual([]);
   });
+
+  it('forwards the config path to the loader', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue([]);
+    mockLoadConfig.mockResolvedValue({});
+    mockDetectUndeclared.mockReturnValue([]);
+    setupTagCounts({});
+
+    await previewTagPrefixes('elsewhere/alternative.config.ts');
+
+    expect(mockLoadConfig).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
+  });
+
+  it('previews against defaults when the default config fails to load', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+    mockLoadConfig.mockRejectedValue(new Error('config read failure'));
+    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
+    mockDetectUndeclared.mockReturnValue([]);
+    setupTagCounts({});
+
+    const result = await previewTagPrefixes();
+
+    expect(result.workspaces).toHaveLength(1);
+  });
+
+  it('rejects rather than falling back when a named config fails to load', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+    mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
+    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
+    mockDetectUndeclared.mockReturnValue([]);
+    setupTagCounts({});
+
+    await expect(previewTagPrefixes('elsewhere/absent.config.ts')).rejects.toThrow(
+      'Config file not found: /repo/elsewhere/absent.config.ts',
+    );
+  });
 });

@@ -63,13 +63,17 @@ export interface ValidateOverridesCommandDependencies {
  *
  * Single-package and monorepo modes are handled uniformly: single-package collapses to one
  * project scope; monorepo expands to a project scope plus one scope per workspace.
+ *
+ * `configPath` names the config file to read, relative to the working directory; it defaults to
+ * `CONFIG_FILE_PATH`.
  */
 export async function validateOverridesCommand(
   styles: StreamStyles,
+  configPath?: string,
   dependencies: ValidateOverridesCommandDependencies = {},
 ): Promise<ValidateOverridesCommandResult> {
   const discover = dependencies.discoverWorkspaces ?? discoverWorkspaces;
-  const load = dependencies.loadConfig ?? loadConfig;
+  const load = dependencies.loadConfig ?? (() => loadConfig(configPath));
   const buildEntries = dependencies.buildEntries ?? defaultBuildEntries;
   const validate = dependencies.validate ?? validateAllChangelogOverrides;
 

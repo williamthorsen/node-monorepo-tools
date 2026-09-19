@@ -136,6 +136,21 @@ describe(createGithubReleaseCommand, () => {
     expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
   });
 
+  it('forwards --config to the release-notes config resolver', async () => {
+    await createGithubReleaseCommand(['--config', 'elsewhere/alternative.config.ts'], RICH_STYLES);
+
+    expect(mockResolveReleaseNotesConfig).toHaveBeenCalledWith('rich', {
+      configPath: 'elsewhere/alternative.config.ts',
+      strictLoad: true,
+    });
+  });
+
+  it('resolves release-notes config against the default path when --config is absent', async () => {
+    await createGithubReleaseCommand([], RICH_STYLES);
+
+    expect(mockResolveReleaseNotesConfig).toHaveBeenCalledWith('rich', { strictLoad: true });
+  });
+
   it('exits with code 1 when no release tags are found on HEAD', async () => {
     mockResolveReleaseTags.mockReturnValue([]);
 

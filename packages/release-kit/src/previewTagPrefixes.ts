@@ -60,13 +60,13 @@ export interface TagPrefixPreview {
  *
  * Discovers workspaces via `discoverWorkspaces()`, derives each workspace's tag prefix
  * via `deriveWorkspaceConfig()`, and records the derivation error on failure rather than aborting.
- * Loads `.config/release-kit.config.ts` to surface declared legacy prefixes per workspace,
- * scans local git tags for undeclared candidate prefixes via `detectUndeclaredTagPrefixes`,
- * and reports collisions across successfully-derived prefixes.
+ * Loads the config file to surface declared legacy prefixes per workspace, scans local git tags for
+ * undeclared candidate prefixes via `detectUndeclaredTagPrefixes`, and reports collisions across
+ * successfully-derived prefixes. Rejects when `configPath` names a file that cannot be loaded.
  */
-export async function previewTagPrefixes(): Promise<TagPrefixPreview> {
+export async function previewTagPrefixes(configPath?: string): Promise<TagPrefixPreview> {
   const workspacePaths = (await discoverWorkspaces()) ?? [];
-  const userConfig = await loadUserConfig();
+  const userConfig = await loadUserConfig(configPath);
   const overridesByDir = buildOverrideMap(userConfig);
 
   const workspaces: TagPrefixPreviewRow[] = Array.from(workspacePaths, (workspacePath) =>
@@ -82,12 +82,20 @@ export async function previewTagPrefixes(): Promise<TagPrefixPreview> {
   return { workspaces, collisions, undeclaredCandidates, retiredPackages };
 }
 
-/** Load and validate `.config/release-kit.config.ts`, returning undefined on absent/invalid. */
-async function loadUserConfig(): Promise<ReleaseKitConfig | undefined> {
+/**
+ * Load and validate the config file, returning undefined on absent/invalid.
+ *
+ * A load failure is swallowed only for the default path, where a broken config still leaves the preview's
+ * derived prefixes worth showing. A named path is a file the caller asked for, so its failure propagates.
+ */
+async function loadUserConfig(configPath?: string): Promise<ReleaseKitConfig | undefined> {
   let raw: unknown;
   try {
-    raw = await loadConfig();
-  } catch {
+    raw = await loadConfig(configPath);
+  } catch (error: unknown) {
+    if (configPath !== undefined) {
+      throw error;
+    }
     return undefined;
   }
   if (raw === undefined) return undefined;

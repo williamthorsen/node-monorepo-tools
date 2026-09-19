@@ -1,4 +1,5 @@
-import { formatStatusLine, type OutputStyle, type StreamStyles } from '@williamthorsen/nmr-core';
+import { formatStatusLine, type OutputStyle, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { detectRepoType } from './init/detectRepoType.ts';
 import { previewTagPrefixes, type TagPrefixPreview, type TagPrefixPreviewRow } from './previewTagPrefixes.ts';
@@ -10,17 +11,25 @@ import { previewTagPrefixes, type TagPrefixPreview, type TagPrefixPreviewRow } f
  * entries, followed by an "Undeclared tag prefixes" section when candidate-shaped tags
  * exist outside the known set. Exits `0` on full derivation success and no collisions;
  * `1` on any derivation failure or collision. Undeclared candidates do not affect the
- * exit code.
+ * exit code. A `configPath` that cannot be loaded reports the failure and exits `1`, rather than
+ * falling back to a default-config preview that would understate the declared legacy prefixes.
  *
  * @returns The exit code the caller should use.
  */
-export async function showTagPrefixesCommand(styles: StreamStyles): Promise<number> {
+export async function showTagPrefixesCommand(styles: StreamStyles, configPath?: string): Promise<number> {
   if (detectRepoType() === 'single-package') {
     process.stdout.write(renderSinglePackage());
     return 0;
   }
 
-  const preview = await previewTagPrefixes();
+  let preview: TagPrefixPreview;
+  try {
+    preview = await previewTagPrefixes(configPath);
+  } catch (error: unknown) {
+    reportError(`Failed to load config: ${describeError(error)}`);
+    return 1;
+  }
+
   process.stdout.write(renderMonorepo(preview, styles.stdout));
   return computeExitCode(preview);
 }

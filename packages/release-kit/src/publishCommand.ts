@@ -8,6 +8,7 @@ import { parseArgsOrExit, reportError, type StreamStyles } from '@williamthorsen
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
+import { configFlagSchema } from './configFlagSchema.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
 import { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
@@ -18,6 +19,7 @@ import { resolveReleaseNotesConfig } from './resolveReleaseNotesConfig.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
 
 const publishFlagSchema = {
+  ...configFlagSchema,
   dryRun: { long: '--dry-run', type: 'boolean' as const },
   noGitChecks: { long: '--no-git-checks', type: 'boolean' as const },
   provenance: { long: '--provenance', type: 'boolean' as const },
@@ -61,7 +63,9 @@ export async function publishCommand(argv: string[], styles: StreamStyles): Prom
   }
 
   const packageManager = detectPackageManager();
-  const { releaseNotes, changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig(styles.stderr);
+  const { releaseNotes, changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig(styles.stderr, {
+    ...(parsed.flags.config !== undefined && { configPath: parsed.flags.config }),
+  });
 
   const shouldInject = releaseNotes.shouldInjectIntoReadme;
 
