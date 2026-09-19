@@ -108,11 +108,11 @@ function isRootEntry(entry: unknown, monorepoRoot: string): boolean {
     return false;
   }
 
-  return readRealPath(entry['path']) === readRealPath(monorepoRoot);
+  return resolveRealPath(entry['path']) === resolveRealPath(monorepoRoot);
 }
 
 /** Resolves symbolic links out of a path, falling back to the resolved path where the target cannot be read. */
-function readRealPath(target: string): string {
+function resolveRealPath(target: string): string {
   try {
     return realpathSync(target);
   } catch {
