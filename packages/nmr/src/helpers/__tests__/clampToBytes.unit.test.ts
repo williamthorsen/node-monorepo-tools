@@ -12,24 +12,24 @@ describe(clampToBytes, () => {
   });
 
   it('cuts a value that would overrun the budget, marking the cut', () => {
-    const clamped = clampToBytes('x'.repeat(600), 64);
+    const clampedText = clampToBytes('x'.repeat(600), 64);
 
-    expect(Buffer.byteLength(clamped)).toBeLessThanOrEqual(64);
-    expect(clamped.endsWith(TRUNCATION_MARK)).toBe(true);
+    expect(Buffer.byteLength(clampedText)).toBeLessThanOrEqual(64);
+    expect(clampedText.endsWith(TRUNCATION_MARK)).toBe(true);
   });
 
   it('counts bytes rather than characters, so a multi-byte value is cut sooner', () => {
-    const clamped = clampToBytes('é'.repeat(100), 40);
+    const clampedText = clampToBytes('é'.repeat(100), 40);
 
-    expect(Buffer.byteLength(clamped)).toBeLessThanOrEqual(40);
-    expect(clamped.length).toBeLessThan(40);
+    expect(Buffer.byteLength(clampedText)).toBeLessThanOrEqual(40);
+    expect(clampedText.length).toBeLessThan(40);
   });
 
   it('cuts between code points, so a multi-byte character is never left in halves', () => {
-    const clamped = clampToBytes('⏭'.repeat(100), 50);
+    const clampedText = clampToBytes('⏭'.repeat(100), 50);
 
-    expect(clamped).toBe(Buffer.from(clamped).toString('utf8'));
-    expect(Buffer.byteLength(clamped)).toBeLessThanOrEqual(50);
+    expect(clampedText).toBe(Buffer.from(clampedText).toString('utf8'));
+    expect(Buffer.byteLength(clampedText)).toBeLessThanOrEqual(50);
   });
 
   it('yields nothing at a budget too small to hold the mark, rather than overrunning it', () => {

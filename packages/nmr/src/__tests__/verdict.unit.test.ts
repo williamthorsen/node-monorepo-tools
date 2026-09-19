@@ -40,8 +40,8 @@ describe(renderVerdict, () => {
     ['empty-override', '⚪ nmr-core: test: skipped, the override is empty'],
     ['empty-workspace', '⚪ nmr-core: test: skipped, the workspace declares no package'],
     ['noop-override', '⚪ nmr-core: test: skipped, the override is a no-op'],
-  ] as const)('distinguishes the %s from a pass', (reason, expected) => {
-    expect(renderVerdict(makeVerdict({ outcome: 'no-op', reason }), 'rich')).toBe(expected);
+  ] as const)('distinguishes the %s from a pass', (reason, expectedLine) => {
+    expect(renderVerdict(makeVerdict({ outcome: 'no-op', reason }), 'rich')).toBe(expectedLine);
   });
 
   it('ends without terminal punctuation, so a later change appends to the line', () => {
@@ -185,22 +185,25 @@ describe(renderVerdict, () => {
 
   describe('the plain style', () => {
     it.each([
-      { expected: 'PASS nmr-core: test: passed in 12s', outcome: { outcome: 'passed', durationMs: 12_000 } },
+      { expectedLine: 'PASS nmr-core: test: passed in 12s', outcome: { outcome: 'passed', durationMs: 12_000 } },
       {
-        expected: 'FAIL nmr-core: test: failed in 1.2s (exit 130)',
+        expectedLine: 'FAIL nmr-core: test: failed in 1.2s (exit 130)',
         outcome: { outcome: 'failed', durationMs: 1_200, exitCode: 130 },
       },
       {
-        expected: 'SKIP nmr-core: test: passed 4m ago on this tree, saved ~12s',
+        expectedLine: 'SKIP nmr-core: test: passed 4m ago on this tree, saved ~12s',
         outcome: { outcome: 'recalled', ageMs: 240_000, savedMs: 12_000 },
       },
       {
-        expected: 'NOOP nmr-core: test: skipped, the override is empty',
+        expectedLine: 'NOOP nmr-core: test: skipped, the override is empty',
         outcome: { outcome: 'no-op', reason: 'empty-override' },
       },
-    ] satisfies { expected: string; outcome: VerdictOutcome }[])('renders `$expected`', ({ expected, outcome }) => {
-      expect(renderVerdict(makeVerdict(outcome), 'plain')).toBe(expected);
-    });
+    ] satisfies { expectedLine: string; outcome: VerdictOutcome }[])(
+      'renders `$expectedLine`',
+      ({ expectedLine, outcome }) => {
+        expect(renderVerdict(makeVerdict(outcome), 'plain')).toBe(expectedLine);
+      },
+    );
 
     it('keeps the detail clause and its separator, which the style does not govern', () => {
       const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: 'Test Files 6 passed (6)' });
@@ -245,28 +248,28 @@ describe(serializeVerdict, () => {
     it.each([
       {
         outcome: { outcome: 'passed', durationMs: 12_449 },
-        expected: { command: 'test', scope: 'nmr-core', outcome: 'passed', durationMs: 12_449 },
+        expectedRecord: { command: 'test', scope: 'nmr-core', outcome: 'passed', durationMs: 12_449 },
         scenario: 'a pass',
       },
       {
         outcome: { outcome: 'failed', durationMs: 1_200, exitCode: 130 },
-        expected: { command: 'test', scope: 'nmr-core', outcome: 'failed', durationMs: 1_200, exitCode: 130 },
+        expectedRecord: { command: 'test', scope: 'nmr-core', outcome: 'failed', durationMs: 1_200, exitCode: 130 },
         scenario: 'a failure',
       },
       {
         outcome: { outcome: 'recalled', ageMs: 240_000, savedMs: 12_000 },
-        expected: { command: 'test', scope: 'nmr-core', outcome: 'recalled', ageMs: 240_000, savedMs: 12_000 },
+        expectedRecord: { command: 'test', scope: 'nmr-core', outcome: 'recalled', ageMs: 240_000, savedMs: 12_000 },
         scenario: 'a recalled pass',
       },
       {
         outcome: { outcome: 'no-op', reason: 'empty-override' },
-        expected: { command: 'test', scope: 'nmr-core', outcome: 'no-op', reason: 'empty-override' },
+        expectedRecord: { command: 'test', scope: 'nmr-core', outcome: 'no-op', reason: 'empty-override' },
         scenario: 'a skipped override',
       },
-    ] satisfies { outcome: VerdictOutcome; expected: unknown; scenario: string }[])(
+    ] satisfies { outcome: VerdictOutcome; expectedRecord: unknown; scenario: string }[])(
       "carries $scenario as the record's own fields",
-      ({ outcome, expected }) => {
-        expect(parseVerdict(serializeVerdict(makeVerdict(outcome)))).toStrictEqual(expected);
+      ({ outcome, expectedRecord }) => {
+        expect(parseVerdict(serializeVerdict(makeVerdict(outcome)))).toStrictEqual(expectedRecord);
       },
     );
 
@@ -356,10 +359,10 @@ describe(serializeVerdict, () => {
     });
 
     it('surrenders the replay outright where the structural fields alone leave no room for it', () => {
-      const parsed = parseVerdict(serializeVerdict(OVERSIZED_STRUCTURE));
+      const parsedVerdict = parseVerdict(serializeVerdict(OVERSIZED_STRUCTURE));
 
-      expect(parsed).not.toHaveProperty('replay');
-      expect(parsed).toMatchObject({ outcome: 'recalled', ageMs: 1_000, savedMs: 1_000 });
+      expect(parsedVerdict).not.toHaveProperty('replay');
+      expect(parsedVerdict).toMatchObject({ outcome: 'recalled', ageMs: 1_000, savedMs: 1_000 });
     });
 
     // The scope and the command are the last thing a record gives up, and it does give them up: a line that
@@ -375,9 +378,9 @@ describe(serializeVerdict, () => {
     // The widest assembly of this shape the ceiling still names in full. Before the ladder shed excerpts
     // ahead of entries, the whole array went at this width and the record named no constituent at all.
     it('keeps every constituent named where the ceiling can hold them all', () => {
-      const parsed = parseVerdict(serializeVerdict(makeAssembly(8, 49)));
+      const parsedVerdict = parseVerdict(serializeVerdict(makeAssembly(8, 49)));
 
-      expect(scopesOf(parsed)).toStrictEqual([
+      expect(scopesOf(parsedVerdict)).toStrictEqual([
         'scope-0',
         'scope-1',
         'scope-2',
@@ -410,10 +413,10 @@ describe(serializeVerdict, () => {
     });
 
     it('sheds the excerpts before the constituents carrying them', () => {
-      const parsed = parseVerdict(serializeVerdict(makeAssembly(8, 49)));
+      const parsedVerdict = parseVerdict(serializeVerdict(makeAssembly(8, 49)));
 
-      expect(excerptsOf(parsed)).toStrictEqual([]);
-      expect(scopesOf(parsed)).toHaveLength(8);
+      expect(excerptsOf(parsedVerdict)).toStrictEqual([]);
+      expect(scopesOf(parsedVerdict)).toHaveLength(8);
     });
 
     // The overrun is shared, so no constituent is emptied to leave a later one whole. Which excerpts would
@@ -471,8 +474,8 @@ const OVERSIZED_STRUCTURE: Verdict = {
 };
 
 /** Reads the excerpts a parsed record's replay carries, skipping an entry the ladder shed the excerpt from. */
-function excerptsOf(parsed: unknown): string[] {
-  return readReplay(parsed).flatMap((line) => (typeof line['excerpt'] === 'string' ? [line['excerpt']] : []));
+function excerptsOf(parsedVerdict: unknown): string[] {
+  return readReplay(parsedVerdict).flatMap((line) => (typeof line['excerpt'] === 'string' ? [line['excerpt']] : []));
 }
 
 /** Reports whether a replay entry parsed back as an object, which every one nmr emits does. */
@@ -501,24 +504,24 @@ function makeVerdict(outcome: VerdictOutcome): Verdict {
 
 /** Parses one serialized verdict, so a case asserts on the record rather than on the bytes. */
 function parseVerdict(line: string): unknown {
-  const parsed: unknown = JSON.parse(line);
+  const parsedVerdict: unknown = JSON.parse(line);
 
-  return parsed;
+  return parsedVerdict;
 }
 
 /** Reads the replay entries a parsed record carries, or none where the ladder shed the array. */
-function readReplay(parsed: unknown): Record<string, unknown>[] {
-  if (typeof parsed !== 'object' || parsed === null || !('replay' in parsed)) {
+function readReplay(parsedVerdict: unknown): Record<string, unknown>[] {
+  if (typeof parsedVerdict !== 'object' || parsedVerdict === null || !('replay' in parsedVerdict)) {
     return [];
   }
-  const { replay } = parsed;
+  const { replay } = parsedVerdict;
 
   return Array.isArray(replay) ? replay.filter(isRecord) : [];
 }
 
 /** Reads the scope each constituent of a parsed record's replay names. */
-function scopesOf(parsed: unknown): string[] {
-  return readReplay(parsed).flatMap((line) => (typeof line['scope'] === 'string' ? [line['scope']] : []));
+function scopesOf(parsedVerdict: unknown): string[] {
+  return readReplay(parsedVerdict).flatMap((line) => (typeof line['scope'] === 'string' ? [line['scope']] : []));
 }
 
 // endregion | Helpers

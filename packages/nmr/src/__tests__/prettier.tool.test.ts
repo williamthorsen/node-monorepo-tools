@@ -83,14 +83,14 @@ describe(definePrettierConfig, () => {
 
   describe('language scoping', () => {
     it('adds only Dockerfile and Shell to the languages Prettier infers', async () => {
-      const withPlugin = await getSupportInfo({ plugins: definePrettierConfig().plugins ?? [] });
-      const withoutPlugin = await getSupportInfo({ plugins: [] });
+      const withPluginInfo = await getSupportInfo({ plugins: definePrettierConfig().plugins ?? [] });
+      const withoutPluginInfo = await getSupportInfo({ plugins: [] });
 
-      const added = withPlugin.languages
+      const addedLanguageNames = withPluginInfo.languages
         .map((language) => language.name)
-        .filter((name) => withoutPlugin.languages.every((language) => language.name !== name));
+        .filter((name) => withoutPluginInfo.languages.every((language) => language.name !== name));
 
-      expect(added.toSorted()).toStrictEqual(['Dockerfile', 'Shell']);
+      expect(addedLanguageNames.toSorted()).toStrictEqual(['Dockerfile', 'Shell']);
     });
 
     it.each(UNCLAIMED_PATHS)('infers no parser for %s', async (file) => {
@@ -143,16 +143,16 @@ describe(definePrettierConfig, () => {
     // would leave nothing to check and nothing to fail.
     it('covers every path Prettier routes to a Markdown printer', async () => {
       const { languages } = await getSupportInfo();
-      const claimed = languages.flatMap((language) =>
+      const claimedPaths = languages.flatMap((language) =>
         MARKDOWN_LANGUAGES.has(language.name)
           ? [...(language.extensions ?? []).map((extension) => `doc${extension}`), ...(language.filenames ?? [])]
           : [],
       );
 
-      expect(claimed).toHaveLength(14);
+      expect(claimedPaths).toHaveLength(14);
 
       const settings = await Promise.all(
-        claimed.map(async (file) => {
+        claimedPaths.map(async (file) => {
           const options = await resolveConfig(path.join(fixturesDir, file), { config: fixtureConfigPath });
 
           return { file, setting: options?.embeddedLanguageFormatting };
@@ -197,19 +197,19 @@ describe(definePrettierConfig, () => {
     });
 
     it('appends to the overrides rather than replacing them', () => {
-      const extra = { files: ['*.md'], options: { proseWrap: 'always' as const } };
-      const config = definePrettierConfig({ additionalOverrides: [extra] });
+      const extraOverride = { files: ['*.md'], options: { proseWrap: 'always' as const } };
+      const config = definePrettierConfig({ additionalOverrides: [extraOverride] });
 
       expect(config.overrides).toHaveLength(3);
-      expect(config.overrides?.at(-1)).toStrictEqual(extra);
+      expect(config.overrides?.at(-1)).toStrictEqual(extraOverride);
     });
 
     it('appends to the plugins rather than replacing them', () => {
-      const extra = { languages: [] };
-      const config = definePrettierConfig({ additionalPlugins: [extra] });
+      const extraPlugin = { languages: [] };
+      const config = definePrettierConfig({ additionalPlugins: [extraPlugin] });
 
       expect(config.plugins).toHaveLength(2);
-      expect(config.plugins?.at(-1)).toBe(extra);
+      expect(config.plugins?.at(-1)).toBe(extraPlugin);
     });
 
     it('rejects a caller that tries to replace the overrides', () => {

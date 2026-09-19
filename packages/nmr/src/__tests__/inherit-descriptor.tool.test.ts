@@ -91,12 +91,12 @@ describe.skipIf(process.env['SANDBOX_RUNTIME'] !== undefined)('descriptor inheri
    */
   function run(argv: readonly [string, ...string[]], cwd: string): { stdout: string } {
     const [file, ...args] = argv;
-    const ambient = readAmbientEnv();
+    const ambientEnv = readAmbientEnv();
 
     const result = spawnSync(file, args, {
       cwd,
       encoding: 'utf8',
-      env: { ...ambient, PATH: `${BIN_DIR}${path.delimiter}${ambient['PATH'] ?? ''}` },
+      env: { ...ambientEnv, PATH: `${BIN_DIR}${path.delimiter}${ambientEnv['PATH'] ?? ''}` },
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 30_000,
     });

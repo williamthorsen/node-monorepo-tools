@@ -92,13 +92,13 @@ describe(findTestFiles, () => {
   // Pinned against the engine Vitest discovers with, because over-reporting is a failure a consumer cannot fix and
   // under-reporting is the silence a conformance check exists to end.
   it('agrees with the collection pattern about which files are in scope', ({ fixtureTree }) => {
-    const globbed = globSync(ALL_TEST_PATTERNS, {
+    const globbedPaths = globSync(ALL_TEST_PATTERNS, {
       cwd: fixtureTree.dir,
       dot: true,
       ignore: TEST_COLLECTION_EXCLUDE.map((dir) => `**/${dir}/**`),
     });
 
-    expect(globbed.toSorted()).toStrictEqual(findTestFiles(fixtureTree.dir));
+    expect(globbedPaths.toSorted()).toStrictEqual(findTestFiles(fixtureTree.dir));
   });
 
   it('returns an empty list for a tree holding no test file', ({ emptyTree }) => {

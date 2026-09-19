@@ -74,9 +74,9 @@ describe('signal handling', () => {
 
 /** The environment the run needs: `nmr` on PATH for the argv spawn, and none of nmr's own variables carried over. */
 function childEnv(): NodeJS.ProcessEnv {
-  const ambient = readAmbientEnv();
+  const ambientEnv = readAmbientEnv();
 
-  return { ...ambient, PATH: `${BIN_DIR}${path.delimiter}${ambient['PATH'] ?? ''}` };
+  return { ...ambientEnv, PATH: `${BIN_DIR}${path.delimiter}${ambientEnv['PATH'] ?? ''}` };
 }
 
 /**
@@ -85,16 +85,16 @@ function childEnv(): NodeJS.ProcessEnv {
  * orphaned by killing nmr goes away on its own rather than lingering past the suite.
  */
 function config(): Record<string, unknown> {
-  const announce = `node -e "require('node:fs').writeFileSync('first-started',''); setTimeout(() => {}, ${FIRST_STEP_WAIT_MS})"`;
-  const second = `node -e "require('node:fs').writeFileSync('second-ran','')"`;
+  const announceCommand = `node -e "require('node:fs').writeFileSync('first-started',''); setTimeout(() => {}, ${FIRST_STEP_WAIT_MS})"`;
+  const secondCommand = `node -e "require('node:fs').writeFileSync('second-ran','')"`;
 
   return {
     rootScripts: {
       control: ['control:first', 'sequence:second'],
       'control:first': `node -e "require('node:fs').writeFileSync('first-started','')"`,
       sequence: ['sequence:first', 'sequence:second'],
-      'sequence:first': announce,
-      'sequence:second': second,
+      'sequence:first': announceCommand,
+      'sequence:second': secondCommand,
     },
   };
 }

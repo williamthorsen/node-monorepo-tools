@@ -221,9 +221,9 @@ function readCalls(tree: TempTree): string[][] {
   const calls: string[][] = [];
   for (const line of tree.read(RECORD_ENTRY).split('\n')) {
     if (line === '') continue;
-    const parsed: unknown = JSON.parse(line);
-    if (!Array.isArray(parsed)) throw new TypeError(`stub recorded a non-array invocation: ${line}`);
-    const args: unknown[] = parsed;
+    const parsedLine: unknown = JSON.parse(line);
+    if (!Array.isArray(parsedLine)) throw new TypeError(`stub recorded a non-array invocation: ${line}`);
+    const args: unknown[] = parsedLine;
     calls.push(args.filter((arg) => typeof arg === 'string'));
   }
 

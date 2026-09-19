@@ -81,28 +81,28 @@ describe(runCli, () => {
     it.for([
       {
         args: ['-F', 'my-pkg', 'build'],
-        expected: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'build'],
+        expectedArgv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'build'],
         scenario: 'a filter pattern the shell reads literally',
       },
       {
         args: ['-F', './packages/*', 'build'],
-        expected: ['pnpm', '--filter', './packages/*', 'exec', 'nmr', 'build'],
+        expectedArgv: ['pnpm', '--filter', './packages/*', 'exec', 'nmr', 'build'],
         scenario: 'a filter pattern the shell would expand',
       },
       {
         args: ['-F', 'my-pkg', 'test', '--reporter=json'],
-        expected: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'test', '--reporter=json'],
+        expectedArgv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'test', '--reporter=json'],
         scenario: 'a passthrough argument needing no quoting',
       },
       {
         args: ['-F', 'my-pkg', 'test', '-t', 'a b'],
-        expected: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'test', '-t', 'a b'],
+        expectedArgv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'test', '-t', 'a b'],
         scenario: 'a passthrough argument holding a space',
       },
-    ])('given $scenario, delegates through pnpm as argv tokens', async ({ args, expected }, { tree }) => {
+    ])('given $scenario, delegates through pnpm as argv tokens', async ({ args, expectedArgv }, { tree }) => {
       await runNmr(args, tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([{ kind: 'structural', argv: expected }]);
+      expect(stepsFromCall()).toStrictEqual([{ kind: 'structural', argv: expectedArgv }]);
     });
 
     // A delegate spawns `pnpm`, not `nmr`, and still inherits: what classifies a step is how nmr composed it.
@@ -139,20 +139,20 @@ describe(runCli, () => {
     it.for([
       {
         args: ['-F', 'my-pkg', '--log', 'test'],
-        expected: { kind: 'structural', argv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', '--log', 'test'] },
+        expectedStep: { kind: 'structural', argv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', '--log', 'test'] },
       },
       {
         args: ['-R', '--log', 'test'],
-        expected: {
+        expectedStep: {
           kind: 'structural',
           argv: ['pnpm', '--recursive', 'exec', 'nmr', '--log', 'test'],
           shouldWithholdInput: true,
         },
       },
-    ])('carries `--log` into the delegate, ahead of the command name', async ({ args, expected }, { tree }) => {
+    ])('carries `--log` into the delegate, ahead of the command name', async ({ args, expectedStep }, { tree }) => {
       await runNmr(args, tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([expected]);
+      expect(stepsFromCall()).toStrictEqual([expectedStep]);
     });
 
     // A fan-out asks every selected scope, so a scope that never ran the command is a gap in a survey rather
@@ -432,9 +432,9 @@ describe(runCli, () => {
       packagelessTree,
     }) => {
       const { stdout } = await runNmrReadingStdout(['--json', 'build'], packagelessTree.dir);
-      const parsed: unknown = JSON.parse(stdout);
+      const parsedVerdict: unknown = JSON.parse(stdout);
 
-      expect(parsed).toMatchObject({ command: 'build', outcome: 'no-op', reason: 'empty-workspace' });
+      expect(parsedVerdict).toMatchObject({ command: 'build', outcome: 'no-op', reason: 'empty-workspace' });
     });
 
     it('leaves a composite carrying no recursive step reaching every constituent', async ({ packagelessTree }) => {
@@ -452,9 +452,9 @@ describe(runCli, () => {
       writePackageScripts(packagelessTree, { build: '' });
 
       const { stdout } = await runNmrReadingStdout(['--json', 'build'], packagelessTree.dir);
-      const parsed: unknown = JSON.parse(stdout);
+      const parsedVerdict: unknown = JSON.parse(stdout);
 
-      expect(parsed).toMatchObject({ outcome: 'no-op', reason: 'empty-override' });
+      expect(parsedVerdict).toMatchObject({ outcome: 'no-op', reason: 'empty-override' });
     });
 
     it('leaves a recursive step standing where the workspace holds a package', async ({ tree }) => {
@@ -621,14 +621,14 @@ describe(runCli, () => {
 
   describe('verbosity', () => {
     it.for([
-      { args: ['-F', 'my-pkg', 'build'], expected: 'full', scenario: 'a loud run' },
-      { args: ['-q', '-F', 'my-pkg', 'build'], expected: 'quiet', scenario: 'a quiet run' },
+      { args: ['-F', 'my-pkg', 'build'], expectedVerbosity: 'full', scenario: 'a loud run' },
+      { args: ['-q', '-F', 'my-pkg', 'build'], expectedVerbosity: 'quiet', scenario: 'a quiet run' },
     ])(
       'given $scenario, hands the resolved verbosity to every process below it',
-      async ({ args, expected }, { tree }) => {
+      async ({ args, expectedVerbosity }, { tree }) => {
         await runNmr(args, tree.dir);
 
-        expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ [COMMAND_VERBOSITY_ENV_VAR]: expected });
+        expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ [COMMAND_VERBOSITY_ENV_VAR]: expectedVerbosity });
       },
     );
 
@@ -641,12 +641,12 @@ describe(runCli, () => {
     // A flag belongs in the rendered string exactly when it changes what the command does, which `-q` does not.
     it('renders the same chain string loud and quiet', async ({ tree }) => {
       await runNmr(['fix'], tree.dir);
-      const loud = renderChain(stepsFromCall() ?? []);
+      const loudChain = renderChain(stepsFromCall() ?? []);
 
       mockedRunSteps.mockClear();
       await runNmr(['-q', 'fix'], tree.dir);
 
-      expect(renderChain(stepsFromCall() ?? [])).toBe(loud);
+      expect(renderChain(stepsFromCall() ?? [])).toBe(loudChain);
     });
 
     it.for([
@@ -655,9 +655,9 @@ describe(runCli, () => {
       { args: ['build'], scenario: 'a command' },
     ])('given an unrecognized inherited value, rejects $scenario before doing anything', async ({ args }, { tree }) => {
       const stdout = new PassThrough();
-      const written: Buffer[] = [];
+      const writtenChunks: Buffer[] = [];
       stdout.on('data', (chunk: Buffer) => {
-        written.push(chunk);
+        writtenChunks.push(chunk);
       });
 
       const { exitCode } = await runCli({
@@ -669,7 +669,7 @@ describe(runCli, () => {
       });
 
       expect(exitCode).toBe(1);
-      expect(Buffer.concat(written)).toHaveLength(0);
+      expect(Buffer.concat(writtenChunks)).toHaveLength(0);
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
 
@@ -731,13 +731,16 @@ describe(runCli, () => {
 
   describe('report format', () => {
     it.for([
-      { args: ['-F', 'my-pkg', 'build'], expected: 'text', scenario: 'a run passing no flag' },
-      { args: ['--json', '-F', 'my-pkg', 'build'], expected: 'json', scenario: 'a run passing the flag' },
-    ])('given $scenario, hands the resolved format to every process below it', async ({ args, expected }, { tree }) => {
-      await runNmr(args, tree.dir);
+      { args: ['-F', 'my-pkg', 'build'], expectedFormat: 'text', scenario: 'a run passing no flag' },
+      { args: ['--json', '-F', 'my-pkg', 'build'], expectedFormat: 'json', scenario: 'a run passing the flag' },
+    ])(
+      'given $scenario, hands the resolved format to every process below it',
+      async ({ args, expectedFormat }, { tree }) => {
+        await runNmr(args, tree.dir);
 
-      expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ [REPORT_FORMAT_ENV_VAR]: expected });
-    });
+        expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ [REPORT_FORMAT_ENV_VAR]: expectedFormat });
+      },
+    );
 
     it('lets an inherited json reach a run that passed no flag', async ({ tree }) => {
       await runNmr(['-F', 'my-pkg', 'build'], tree.dir, { [REPORT_FORMAT_ENV_VAR]: 'json' });
@@ -784,9 +787,9 @@ describe(runCli, () => {
       { args: ['build'], scenario: 'a command' },
     ])('given an unrecognized inherited value, rejects $scenario before doing anything', async ({ args }, { tree }) => {
       const stdout = new PassThrough();
-      const written: Buffer[] = [];
+      const writtenChunks: Buffer[] = [];
       stdout.on('data', (chunk: Buffer) => {
-        written.push(chunk);
+        writtenChunks.push(chunk);
       });
 
       const { exitCode } = await runCli({
@@ -798,7 +801,7 @@ describe(runCli, () => {
       });
 
       expect(exitCode).toBe(1);
-      expect(Buffer.concat(written)).toHaveLength(0);
+      expect(Buffer.concat(writtenChunks)).toHaveLength(0);
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
   });
@@ -807,20 +810,23 @@ describe(runCli, () => {
     it.for([
       {
         args: ['-F', 'my-pkg', 'build'],
-        expected: 'plain',
+        expectedStyle: 'plain',
         scenario: 'a run passing no flag, whose streams are pipes',
       },
-      { args: [OUTPUT_STYLE_FLAG, 'rich', '-F', 'my-pkg', 'build'], expected: 'rich', scenario: 'the flag' },
+      { args: [OUTPUT_STYLE_FLAG, 'rich', '-F', 'my-pkg', 'build'], expectedStyle: 'rich', scenario: 'the flag' },
       {
         args: [`${OUTPUT_STYLE_FLAG}=rich`, '-F', 'my-pkg', 'build'],
-        expected: 'rich',
+        expectedStyle: 'rich',
         scenario: 'the flag written as an assignment',
       },
-    ])('given $scenario, hands the resolved style to every process below it', async ({ args, expected }, { tree }) => {
-      await runNmr(args, tree.dir);
+    ])(
+      'given $scenario, hands the resolved style to every process below it',
+      async ({ args, expectedStyle }, { tree }) => {
+        await runNmr(args, tree.dir);
 
-      expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ [OUTPUT_STYLE_ENV_VAR]: expected });
-    });
+        expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ [OUTPUT_STYLE_ENV_VAR]: expectedStyle });
+      },
+    );
 
     it('lets an inherited rich reach a run that passed no flag', async ({ tree }) => {
       await runNmr(['-F', 'my-pkg', 'build'], tree.dir, { [OUTPUT_STYLE_ENV_VAR]: 'rich' });
@@ -859,9 +865,9 @@ describe(runCli, () => {
       { args: ['build'], scenario: 'a command' },
     ])('given an unrecognized inherited value, rejects $scenario before doing anything', async ({ args }, { tree }) => {
       const stdout = new PassThrough();
-      const written: Buffer[] = [];
+      const writtenChunks: Buffer[] = [];
       stdout.on('data', (chunk: Buffer) => {
-        written.push(chunk);
+        writtenChunks.push(chunk);
       });
 
       const { exitCode } = await runCli({
@@ -873,7 +879,7 @@ describe(runCli, () => {
       });
 
       expect(exitCode).toBe(1);
-      expect(Buffer.concat(written)).toHaveLength(0);
+      expect(Buffer.concat(writtenChunks)).toHaveLength(0);
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
 
@@ -898,7 +904,7 @@ describe(runCli, () => {
     // The remedy follows from where the step was declared, so each origin gets the edit that resolves it.
     it.for([
       {
-        expected:
+        expectedMessage:
           'WARN .config/nmr.config.ts: `rootScripts.probe` reaches nmr through a shell ' +
           "(`nmr fmt && echo done`), so nmr handles the nested run's output as a tool's. " +
           'Write the nmr steps as a step list, and move any others to a `probe:pre` or `probe:post` script.',
@@ -907,7 +913,7 @@ describe(runCli, () => {
         setup: (tree: TempTree) => writeConfig(tree, { rootScripts: { probe: 'nmr fmt && echo done' } }),
       },
       {
-        expected:
+        expectedMessage:
           'WARN package.json: `scripts.fix` reaches nmr through a shell (`nmr lint && nmr fmt`), ' +
           "so nmr handles the nested run's output as a tool's. " +
           "Delete the entry: nmr's own `fix` already runs `nmr lint && nmr fmt`.",
@@ -916,7 +922,7 @@ describe(runCli, () => {
         setup: (tree: TempTree) => writePackageScripts(tree, { fix: 'nmr lint && nmr fmt' }),
       },
       {
-        expected:
+        expectedMessage:
           'WARN package.json: `scripts.fix` reaches nmr through a shell (`nmr lint && rdy compile`), ' +
           "so nmr handles the nested run's output as a tool's. " +
           'Delete the entry and move the steps it adds to a `fix:pre` or `fix:post` script.',
@@ -925,7 +931,7 @@ describe(runCli, () => {
         setup: (tree: TempTree) => writePackageScripts(tree, { fix: 'nmr lint && rdy compile' }),
       },
       {
-        expected:
+        expectedMessage:
           'WARN package.json: `scripts.probe` reaches nmr through a shell (`nmr fmt && tsx sync.ts`), ' +
           "so nmr handles the nested run's output as a tool's. " +
           'A `package.json` script holds no step list: define `probe` in `.config/nmr.config.ts` and move the ' +
@@ -935,7 +941,7 @@ describe(runCli, () => {
         setup: (tree: TempTree) => writePackageScripts(tree, { probe: 'nmr fmt && tsx sync.ts' }),
       },
       {
-        expected:
+        expectedMessage:
           'WARN package.json: `scripts.probe` reaches nmr through a shell (`tsx sync.ts\\nnmr fmt`), ' +
           "so nmr handles the nested run's output as a tool's. " +
           'A `package.json` script holds no step list: define `probe` in `.config/nmr.config.ts` and move the ' +
@@ -946,19 +952,19 @@ describe(runCli, () => {
       },
     ])(
       'given $scenario, names the site and the edit that resolves it',
-      async ({ command, expected, setup }, { tree }) => {
+      async ({ command, expectedMessage, setup }, { tree }) => {
         setup(tree);
 
         const { stderr } = await runNmrReadingStderr([command], tree.dir);
 
-        expect(stderr.trim()).toBe(expected);
+        expect(stderr.trim()).toBe(expectedMessage);
       },
     );
 
     // nmr wraps a hook in no hooks of its own, so a `probe:post:pre` would name a script that never runs.
     it.for([
       {
-        expected:
+        expectedMessage:
           'WARN .config/nmr.config.ts: `rootScripts.probe:post` reaches nmr through a shell ' +
           "(`nmr fmt && echo done`), so nmr handles the nested run's output as a tool's. " +
           'Write the nmr steps as a step list, and move any others to a script of their own that the step ' +
@@ -967,7 +973,7 @@ describe(runCli, () => {
         setup: (tree: TempTree) => writeConfig(tree, { rootScripts: { 'probe:post': 'nmr fmt && echo done' } }),
       },
       {
-        expected:
+        expectedMessage:
           'WARN package.json: `scripts.probe:post` reaches nmr through a shell (`nmr fmt && echo done`), ' +
           "so nmr handles the nested run's output as a tool's. " +
           'A `package.json` script holds no step list: define `probe:post` in `.config/nmr.config.ts` and ' +
@@ -976,12 +982,12 @@ describe(runCli, () => {
         scenario: 'a package.json entry',
         setup: (tree: TempTree) => writePackageScripts(tree, { 'probe:post': 'nmr fmt && echo done' }),
       },
-    ])('given a hook declared by $scenario, names no hook below it', async ({ expected, setup }, { tree }) => {
+    ])('given a hook declared by $scenario, names no hook below it', async ({ expectedMessage, setup }, { tree }) => {
       setup(tree);
 
       const { stderr } = await runNmrReadingStderr(['probe:post'], tree.dir);
 
-      expect(stderr.trim()).toBe(expected);
+      expect(stderr.trim()).toBe(expectedMessage);
     });
 
     it('opens the warning in emoji where the invocation asked for rich', async ({ tree }) => {
@@ -1044,7 +1050,7 @@ describe(runCli, () => {
     // The remedy is a crossing's, the entry having to go either way; the consequence names what is lost here.
     it.for([
       {
-        expected:
+        expectedMessage:
           'package.json: `scripts.build` re-invokes `nmr build` (`nmr build && rdy compile`), ' +
           'so nmr cannot run the steps it chains. ' +
           'Delete the entry and move the steps it adds to a `build:pre` or `build:post` script.',
@@ -1052,7 +1058,7 @@ describe(runCli, () => {
         scripts: { build: 'nmr build && rdy compile' },
       },
       {
-        expected:
+        expectedMessage:
           'package.json: `scripts.build` re-invokes `nmr build` (`rdy compile && nmr build`), ' +
           'so nmr cannot run the steps it chains. ' +
           'Delete the entry and move the steps it adds to a `build:pre` or `build:post` script.',
@@ -1060,7 +1066,7 @@ describe(runCli, () => {
         scripts: { build: 'rdy compile && nmr build' },
       },
       {
-        expected:
+        expectedMessage:
           'package.json: `scripts.probe` re-invokes `nmr probe` (`nmr probe && tsx sync.ts`), ' +
           'so nmr cannot run the steps it chains. ' +
           'A `package.json` script holds no step list: define `probe` in `.config/nmr.config.ts` and move the ' +
@@ -1069,19 +1075,22 @@ describe(runCli, () => {
         scripts: { probe: 'nmr probe && tsx sync.ts' },
       },
       {
-        expected:
+        expectedMessage:
           'package.json: `scripts.build` re-invokes `nmr build` (`nmr build\\nrdy compile`), ' +
           'so nmr cannot run the steps it chains. ' +
           'Delete the entry and move the steps it adds to a `build:pre` or `build:post` script.',
         scenario: 'written across lines, whose entry quotes as the file holds it',
         scripts: { build: 'nmr build\nrdy compile' },
       },
-    ])('given one $scenario, names the site and the edit that resolves it', async ({ expected, scripts }, { tree }) => {
-      writePackageScripts(tree, scripts);
-      const command = Object.keys(scripts)[0] ?? '';
+    ])(
+      'given one $scenario, names the site and the edit that resolves it',
+      async ({ expectedMessage, scripts }, { tree }) => {
+        writePackageScripts(tree, scripts);
+        const command = Object.keys(scripts)[0] ?? '';
 
-      await expect(runNmr([command], tree.dir)).rejects.toThrow(new UserError(expected));
-    });
+        await expect(runNmr([command], tree.dir)).rejects.toThrow(new UserError(expectedMessage));
+      },
+    );
 
     it('runs nothing', async ({ tree }) => {
       writePackageScripts(tree, { build: 'nmr build && rdy compile' });
@@ -1177,19 +1186,19 @@ describe(runCli, () => {
 
     it('reports the same pass as a JSON object, and writes no prose line beside it', async ({ tree }) => {
       const { stdout } = await runNmrReadingStdout(['--json', 'typecheck'], tree.dir);
-      const parsed: unknown = JSON.parse(stdout);
+      const parsedVerdict: unknown = JSON.parse(stdout);
 
       expect(stdout.endsWith('\n')).toBe(true);
-      expect(parsed).toMatchObject({ command: 'typecheck', outcome: 'passed', scope: path.basename(tree.dir) });
+      expect(parsedVerdict).toMatchObject({ command: 'typecheck', outcome: 'passed', scope: path.basename(tree.dir) });
     });
 
     it('reports a skip as a JSON object naming why it ran nothing', async ({ tree }) => {
       writePackageScripts(tree, { typecheck: '' });
 
       const { stdout } = await runNmrReadingStdout(['--json', 'typecheck'], tree.dir);
-      const parsed: unknown = JSON.parse(stdout);
+      const parsedVerdict: unknown = JSON.parse(stdout);
 
-      expect(parsed).toMatchObject({ command: 'typecheck', outcome: 'no-op', reason: 'empty-override' });
+      expect(parsedVerdict).toMatchObject({ command: 'typecheck', outcome: 'no-op', reason: 'empty-override' });
     });
 
     // The override notice is the one message a quiet run withholds, and a machine-readable run is quiet.
@@ -1222,15 +1231,15 @@ describe(runCli, () => {
     });
 
     it.for([
-      { expected: 'the override is empty', script: '', scenario: 'an empty override' },
-      { expected: 'the override is a no-op', script: ':', scenario: 'a no-op override' },
-    ])('given $scenario, reports a skip distinguishable from a pass', async ({ expected, script }, { tree }) => {
+      { expectedReason: 'the override is empty', script: '', scenario: 'an empty override' },
+      { expectedReason: 'the override is a no-op', script: ':', scenario: 'a no-op override' },
+    ])('given $scenario, reports a skip distinguishable from a pass', async ({ expectedReason, script }, { tree }) => {
       writePackageScripts(tree, { typecheck: script });
 
       const { exitCode, stdout } = await runNmrReadingStdout(['typecheck'], tree.dir);
 
       expect(exitCode).toBe(0);
-      expect(stdout).toBe(`NOOP ${path.basename(tree.dir)}: typecheck: skipped, ${expected}\n`);
+      expect(stdout).toBe(`NOOP ${path.basename(tree.dir)}: typecheck: skipped, ${expectedReason}\n`);
     });
 
     // A verdict is a report on a run, and `--log` makes none: the reader gets a refusal instead.

@@ -106,11 +106,11 @@ describe('check-cache', () => {
     });
 
     it('moves when what is installed changes', () => {
-      const before = keyOf(tree.dir);
+      const beforeKey = keyOf(tree.dir);
 
       tree.write('node_modules/.modules.yaml', 'hoistPattern:\n  - "*"\n');
 
-      expect(keyOf(tree.dir)).not.toBe(before);
+      expect(keyOf(tree.dir)).not.toBe(beforeKey);
     });
 
     it('separates an unset environment variable from one set to the empty string', () => {
@@ -422,9 +422,9 @@ describe('check-cache', () => {
 
   describe(readBuildOutputState, () => {
     it('reports a digest for every package nmr’s build covers', async () => {
-      const { a, b } = scaffoldWorkspace(tree);
-      writeBuildDigest(tree, a, 'digest-a');
-      writeBuildDigest(tree, b, 'digest-b');
+      const { aDir, bDir } = scaffoldWorkspace(tree);
+      writeBuildDigest(tree, aDir, 'digest-a');
+      writeBuildDigest(tree, bDir, 'digest-b');
 
       await expect(readBuildOutputState(tree.dir, {})).resolves.toStrictEqual({
         missingPackages: [],
@@ -446,8 +446,8 @@ describe('check-cache', () => {
     it('names the package whose output went missing', async () => {
       // Build output is git-ignored, so the tree hash says nothing about it: without this a cached `ci`
       // would hand back a green exit over a repository that cannot run.
-      const { a } = scaffoldWorkspace(tree);
-      tree.rm(`${a}/dist`);
+      const { aDir } = scaffoldWorkspace(tree);
+      tree.rm(`${aDir}/dist`);
 
       await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missingPackages: ['packages/a'] });
     });
@@ -455,24 +455,24 @@ describe('check-cache', () => {
     it('leaves out a package that overrides build in its package.json', async () => {
       // An override emits somewhere this does not know about, so demanding a `dist` would make the package a
       // permanent miss rather than a covered one.
-      const { a } = scaffoldWorkspace(tree);
-      tree.rm(`${a}/dist`);
-      writePackageJson(tree, a, { build: 'tsup' });
+      const { aDir } = scaffoldWorkspace(tree);
+      tree.rm(`${aDir}/dist`);
+      writePackageJson(tree, aDir, { build: 'tsup' });
 
       await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missingPackages: [] });
     });
 
     it('leaves out a package that overrides compile in its package.json', async () => {
-      const { a } = scaffoldWorkspace(tree);
-      tree.rm(`${a}/dist`);
-      writePackageJson(tree, a, { compile: 'tsc' });
+      const { aDir } = scaffoldWorkspace(tree);
+      tree.rm(`${aDir}/dist`);
+      writePackageJson(tree, aDir, { compile: 'tsc' });
 
       await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missingPackages: [] });
     });
 
     it('leaves out every package when the repo redefines build in its config', async () => {
-      const { a } = scaffoldWorkspace(tree);
-      tree.rm(`${a}/dist`);
+      const { aDir } = scaffoldWorkspace(tree);
+      tree.rm(`${aDir}/dist`);
 
       await expect(readBuildOutputState(tree.dir, { workspaceScripts: { build: 'make' } })).resolves.toStrictEqual({
         missingPackages: [],
@@ -481,9 +481,9 @@ describe('check-cache', () => {
     });
 
     it('expects no output from a package whose sources emit none', async () => {
-      const { a } = scaffoldWorkspace(tree);
-      tree.rm(`${a}/dist`);
-      tree.rm(`${a}/src`);
+      const { aDir } = scaffoldWorkspace(tree);
+      tree.rm(`${aDir}/dist`);
+      tree.rm(`${aDir}/src`);
 
       await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missingPackages: [] });
     });
@@ -491,9 +491,9 @@ describe('check-cache', () => {
     it('expects no output from a package whose own config ignores every entry point', async () => {
       // The build compiles the entry set the package's own options leave; reading a different set here would
       // demand output the build never emits, and one such package takes the whole repo's gate down.
-      const { a } = scaffoldWorkspace(tree);
-      tree.rm(`${a}/dist`);
-      writeWorkspaceConfig(tree, a, { build: { extraIgnorePatterns: ['**/*.ts'] } });
+      const { aDir } = scaffoldWorkspace(tree);
+      tree.rm(`${aDir}/dist`);
+      writeWorkspaceConfig(tree, aDir, { build: { extraIgnorePatterns: ['**/*.ts'] } });
 
       await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missingPackages: [] });
     });
@@ -523,10 +523,10 @@ describe('check-cache', () => {
     });
 
     it.each([
-      { expected: '🟠 ', style: 'rich' },
-      { expected: 'WARN ', style: 'plain' },
-    ] as const)('opens the warning on the $style marker', ({ expected, style }) => {
-      expect(formatMisplacedNoCacheWarning('ci', style).startsWith(expected)).toBe(true);
+      { expectedMarker: '🟠 ', style: 'rich' },
+      { expectedMarker: 'WARN ', style: 'plain' },
+    ] as const)('opens the warning on the $style marker', ({ expectedMarker, style }) => {
+      expect(formatMisplacedNoCacheWarning('ci', style).startsWith(expectedMarker)).toBe(true);
     });
 
     it('says nothing about a gate decision unless asked', () => {
@@ -629,19 +629,19 @@ function scaffoldCollidingWorkspace(tree: TempTree): void {
 }
 
 /** Writes a pnpm workspace holding two packages that look freshly built, and returns their paths in the tree. */
-function scaffoldWorkspace(tree: TempTree): { a: string; b: string } {
+function scaffoldWorkspace(tree: TempTree): { aDir: string; bDir: string } {
   tree.write('pnpm-workspace.yaml', 'packages:\n  - "packages/*"\n');
 
-  const a = 'packages/a';
-  const b = 'packages/b';
+  const aDir = 'packages/a';
+  const bDir = 'packages/b';
   for (const [packagePath, name] of [
-    [a, 'a'],
-    [b, 'b'],
+    [aDir, 'a'],
+    [bDir, 'b'],
   ] as const) {
     scaffoldBuiltPackage(tree, packagePath, name);
   }
 
-  return { a, b };
+  return { aDir, bDir };
 }
 
 /** Writes the sources and emitted output of a package a build has already covered. */

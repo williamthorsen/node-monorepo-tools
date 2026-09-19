@@ -249,14 +249,14 @@ describe(generateHelp, () => {
 
     // Help renders the registry, so a probe reintroduced anywhere would show up as a different listing here.
     it('lists the same commands when the retired variant config is present', ({ tree }) => {
-      const bare = sectionOf(generateHelp({}, tree.dir, false), 'Workspace commands:', 'Root commands:');
+      const bareSection = sectionOf(generateHelp({}, tree.dir, false), 'Workspace commands:', 'Root commands:');
       tree.write('vitest.integration.config.ts', '');
       tree.write('vitest.standalone.config.ts', '');
 
-      const withConfigs = sectionOf(generateHelp({}, tree.dir, false), 'Workspace commands:', 'Root commands:');
+      const withConfigsSection = sectionOf(generateHelp({}, tree.dir, false), 'Workspace commands:', 'Root commands:');
 
-      expect(withConfigs).toBe(bare);
-      expect(withConfigs).not.toContain('vitest.standalone.config.ts');
+      expect(withConfigsSection).toBe(bareSection);
+      expect(withConfigsSection).not.toContain('vitest.standalone.config.ts');
     });
 
     it('lists the root test selections in root context', ({ tree }) => {

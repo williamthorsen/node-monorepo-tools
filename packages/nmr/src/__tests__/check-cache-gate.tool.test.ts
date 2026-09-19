@@ -40,11 +40,11 @@ describe('the check-result cache gate', () => {
       expect((await runNmr(COMMAND, repo)).exitCode).toBe(0);
       expect(runCount()).toBe(1);
 
-      const second = await runNmr(COMMAND, repo);
+      const secondRun = await runNmr(COMMAND, repo);
 
-      expect(second.exitCode).toBe(0);
+      expect(secondRun.exitCode).toBe(0);
       expect(runCount()).toBe(1);
-      expect(second.stdout).toContain('passed');
+      expect(secondRun.stdout).toContain('passed');
     });
 
     it('names the scope, the command, and the tree on the skip line', async () => {
@@ -71,10 +71,10 @@ describe('the check-result cache gate', () => {
     it('reports a shelled nmr step although the run skipped', async () => {
       const bin = writeNmrShim(workspace, log);
       writeConfig(workspace, log, { command: 'nmr ok' });
-      const withShim = { PATH: `${bin}${path.delimiter}${process.env['PATH'] ?? ''}` };
+      const withShimEnv = { PATH: `${bin}${path.delimiter}${process.env['PATH'] ?? ''}` };
 
-      await runNmr(COMMAND, repo, withShim);
-      const { stdout, stderr } = await runNmr(COMMAND, repo, withShim);
+      await runNmr(COMMAND, repo, withShimEnv);
+      const { stdout, stderr } = await runNmr(COMMAND, repo, withShimEnv);
 
       expect(stdout).toContain('passed');
       expect(stderr).toContain('`rootScripts.typecheck` reaches nmr through a shell (`nmr ok`)');
@@ -536,12 +536,12 @@ describe('the check-result cache gate', () => {
      */
     function scaffoldComposite(elements: string[]): string {
       writeConfig(workspace, log, { command: elements });
-      const hashed = hashWorkingTree(repo);
-      if (!hashed.ok) {
-        throw new Error(hashed.reason);
+      const hashResult = hashWorkingTree(repo);
+      if (!hashResult.ok) {
+        throw new Error(hashResult.reason);
       }
 
-      return hashed.hash;
+      return hashResult.hash;
     }
 
     // endregion | Helpers
@@ -556,31 +556,31 @@ describe('the check-result cache gate', () => {
     });
 
     it('restamps the entry it recalls with the run replaying it', async () => {
-      const recorded = await readEntry();
+      const recordedEntry = await readEntry();
 
       await runNmr(COMMAND, repo, { [RUN_ID_ENV_VAR]: RUN });
 
-      const certified = await readEntry();
-      expect(recorded?.retention?.runId).not.toBe(RUN);
-      expect(certified?.retention?.runId).toBe(RUN);
+      const certifiedEntry = await readEntry();
+      expect(recordedEntry?.retention?.runId).not.toBe(RUN);
+      expect(certifiedEntry?.retention?.runId).toBe(RUN);
     });
 
     it('leaves the instant and the duration the earning run recorded alone', async () => {
-      const recorded = await readEntry();
+      const recordedEntry = await readEntry();
 
       await runNmr(COMMAND, repo, { [RUN_ID_ENV_VAR]: RUN });
 
-      const certified = await readEntry();
-      expect(certified?.recordedAt).toBe(recorded?.recordedAt);
-      expect(certified?.durationMs).toBe(recorded?.durationMs);
+      const certifiedEntry = await readEntry();
+      expect(certifiedEntry?.recordedAt).toBe(recordedEntry?.recordedAt);
+      expect(certifiedEntry?.durationMs).toBe(recordedEntry?.durationMs);
     });
 
     it('certifies nothing when the recording describes another presentation environment', async () => {
-      const recorded = await readEntry();
+      const recordedEntry = await readEntry();
 
       await runNmr(COMMAND, repo, { COLUMNS: '80', [RUN_ID_ENV_VAR]: RUN });
 
-      expect((await readEntry())?.retention?.runId).toBe(recorded?.retention?.runId);
+      expect((await readEntry())?.retention?.runId).toBe(recordedEntry?.retention?.runId);
     });
   });
 
@@ -728,7 +728,7 @@ describe('the check-result cache gate', () => {
     extraEnv: Record<string, string> = {},
     options: { terminalFd?: number } = {},
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    const ambient = readAmbientEnv();
+    const ambientEnv = readAmbientEnv();
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
     const stdout = asDestination(new PassThrough(), options.terminalFd);
@@ -743,7 +743,7 @@ describe('the check-result cache gate', () => {
     const { exitCode } = await runCli({
       args: argString.split(/\s+/).filter((argument) => argument.length > 0),
       cwd,
-      env: { ...ambient, ...extraEnv },
+      env: { ...ambientEnv, ...extraEnv },
       stdout,
       stderr,
     });

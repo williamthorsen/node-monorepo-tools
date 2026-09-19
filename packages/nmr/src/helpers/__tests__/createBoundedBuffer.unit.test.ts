@@ -19,13 +19,13 @@ describe(createBoundedBuffer, () => {
   });
 
   it.each([
-    { chunks: ['abc'], expected: 'abc', scenario: 'under both bounds' },
-    { chunks: ['abcdefgh'], expected: 'abcdefgh', scenario: 'exactly filling both bounds' },
-    { chunks: ['ab', 'cd', 'ef'], expected: 'abcdef', scenario: 'split across several chunks' },
+    { chunks: ['abc'], expectedText: 'abc', scenario: 'under both bounds' },
+    { chunks: ['abcdefgh'], expectedText: 'abcdefgh', scenario: 'exactly filling both bounds' },
+    { chunks: ['ab', 'cd', 'ef'], expectedText: 'abcdef', scenario: 'split across several chunks' },
   ])(
     'when the total stays within the bounds ($scenario), retains every byte and adds no marker',
-    ({ chunks, expected }) => {
-      expect(retain(chunks)).toBe(expected);
+    ({ chunks, expectedText }) => {
+      expect(retain(chunks)).toBe(expectedText);
     },
   );
 
@@ -50,11 +50,11 @@ describe(createBoundedBuffer, () => {
   });
 
   it('when a multi-byte character spans two chunks, decodes it intact', () => {
-    const encoded = Buffer.from('€');
+    const encodedBuffer = Buffer.from('€');
     const buffer = createBoundedBuffer();
 
-    buffer.append(encoded.subarray(0, 2));
-    buffer.append(encoded.subarray(2));
+    buffer.append(encodedBuffer.subarray(0, 2));
+    buffer.append(encodedBuffer.subarray(2));
 
     expect(buffer.toBuffer().toString('utf8')).toBe('€');
   });

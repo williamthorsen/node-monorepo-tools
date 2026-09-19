@@ -16,66 +16,66 @@ describe(computeBuildHash, () => {
   it('returns the same digest regardless of entry-point order', async ({ tree }) => {
     tree.writeAll({ 'a.ts': 'export const a = 1;', 'b.ts': 'export const b = 2;' });
 
-    const forward = await computeBuildHash(tree.dir, ['a.ts', 'b.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
-    const reversed = await computeBuildHash(tree.dir, ['b.ts', 'a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
+    const forwardHash = await computeBuildHash(tree.dir, ['a.ts', 'b.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
+    const reversedHash = await computeBuildHash(tree.dir, ['b.ts', 'a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
 
-    expect(reversed).toBe(forward);
+    expect(reversedHash).toBe(forwardHash);
   });
 
   it('changes the digest when a file path changes but its content does not', async ({ tree }) => {
     tree.writeAll({ 'a.ts': 'export const x = 1;', 'b.ts': 'export const x = 1;' });
 
-    const asA = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
-    const asB = await computeBuildHash(tree.dir, ['b.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
+    const asAHash = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
+    const asBHash = await computeBuildHash(tree.dir, ['b.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
 
-    expect(asB).not.toBe(asA);
+    expect(asBHash).not.toBe(asAHash);
   });
 
   it('changes the digest when file content changes', async ({ tree }) => {
     tree.write('a.ts', 'export const x = 1;');
-    const before = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
+    const beforeHash = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
 
     tree.write('a.ts', 'export const x = 2;');
-    const after = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
+    const afterHash = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
 
-    expect(after).not.toBe(before);
+    expect(afterHash).not.toBe(beforeHash);
   });
 
   it('changes the digest when emit config changes', async ({ tree }) => {
     tree.write('a.ts', 'export const x = 1;');
 
-    const esm = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
-    const other = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/cjs/' }, TOOLCHAIN);
+    const esmHash = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
+    const otherHash = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/cjs/' }, TOOLCHAIN);
 
-    expect(other).not.toBe(esm);
+    expect(otherHash).not.toBe(esmHash);
   });
 
   it('changes the digest when the compiler version changes', async ({ tree }) => {
     tree.write('a.ts', 'export const x = 1;');
 
-    const under59 = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
-    const under60 = await computeBuildHash(
+    const underTs59Hash = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
+    const underTs60Hash = await computeBuildHash(
       tree.dir,
       ['a.ts'],
       { outdir: 'dist/esm/' },
       { ...TOOLCHAIN, compilerVersion: '6.0.3' },
     );
 
-    expect(under60).not.toBe(under59);
+    expect(underTs60Hash).not.toBe(underTs59Hash);
   });
 
   it('changes the digest when the toolchain fingerprint changes', async ({ tree }) => {
     tree.write('a.ts', 'export const x = 1;');
 
-    const underOne = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
-    const underNext = await computeBuildHash(
+    const underOneHash = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
+    const underNextHash = await computeBuildHash(
       tree.dir,
       ['a.ts'],
       { outdir: 'dist/esm/' },
       { ...TOOLCHAIN, fingerprint: 'the-next-fingerprint' },
     );
 
-    expect(underNext).not.toBe(underOne);
+    expect(underNextHash).not.toBe(underOneHash);
   });
 
   it('changes the digest when an extended base config in the chain changes', async ({ tree }) => {
@@ -88,12 +88,12 @@ describe(computeBuildHash, () => {
 
     // The base config is reachable only through `extends`; the leaf tsconfig stays byte-identical.
     const files = ['package.json', ...resolveTsconfigChain(packageDir)];
-    const before = await computeBuildHash(packageDir, files, { outdir: 'dist/esm/' }, TOOLCHAIN);
+    const beforeHash = await computeBuildHash(packageDir, files, { outdir: 'dist/esm/' }, TOOLCHAIN);
 
     tree.write('base.json', JSON.stringify({ compilerOptions: { target: 'ES2021' } }));
-    const after = await computeBuildHash(packageDir, files, { outdir: 'dist/esm/' }, TOOLCHAIN);
+    const afterHash = await computeBuildHash(packageDir, files, { outdir: 'dist/esm/' }, TOOLCHAIN);
 
-    expect(after).not.toBe(before);
+    expect(afterHash).not.toBe(beforeHash);
   });
 });
 

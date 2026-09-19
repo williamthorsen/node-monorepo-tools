@@ -21,11 +21,11 @@ describe(resolvePackageDirs, () => {
   });
 
   it('resolves a single-level glob to the directories holding a manifest', () => {
-    const alpha = makePackage('packages/alpha');
-    const beta = makePackage('packages/beta');
+    const alphaDir = makePackage('packages/alpha');
+    const betaDir = makePackage('packages/beta');
     makePackage('packages/no-manifest', false);
 
-    expect(resolvePackageDirs(tree.dir, ['packages/*'])).toStrictEqual([alpha, beta]);
+    expect(resolvePackageDirs(tree.dir, ['packages/*'])).toStrictEqual([alphaDir, betaDir]);
   });
 
   it('resolves an exact path', () => {
@@ -41,61 +41,61 @@ describe(resolvePackageDirs, () => {
   });
 
   it('omits a directory that a negative pattern excludes', () => {
-    const alpha = makePackage('packages/alpha');
+    const alphaDir = makePackage('packages/alpha');
     makePackage('packages/legacy');
 
-    expect(resolvePackageDirs(tree.dir, ['packages/*', '!packages/legacy'])).toStrictEqual([alpha]);
+    expect(resolvePackageDirs(tree.dir, ['packages/*', '!packages/legacy'])).toStrictEqual([alphaDir]);
   });
 
   it('applies a negative pattern declared before the positive pattern it filters', () => {
-    const alpha = makePackage('packages/alpha');
+    const alphaDir = makePackage('packages/alpha');
     makePackage('packages/legacy');
 
-    expect(resolvePackageDirs(tree.dir, ['!packages/legacy', 'packages/*'])).toStrictEqual([alpha]);
+    expect(resolvePackageDirs(tree.dir, ['!packages/legacy', 'packages/*'])).toStrictEqual([alphaDir]);
   });
 
   it('resolves nested packages under a deep glob', () => {
-    const alpha = makePackage('packages/alpha');
-    const nested = makePackage('packages/alpha/nested');
+    const alphaDir = makePackage('packages/alpha');
+    const nestedDir = makePackage('packages/alpha/nested');
 
-    expect(resolvePackageDirs(tree.dir, ['packages/**'])).toStrictEqual([alpha, nested]);
+    expect(resolvePackageDirs(tree.dir, ['packages/**'])).toStrictEqual([alphaDir, nestedDir]);
   });
 
   it('excludes nested packages matched by a deep negative pattern', () => {
-    const alpha = makePackage('packages/alpha');
+    const alphaDir = makePackage('packages/alpha');
     makePackage('packages/alpha/test/fixture');
 
-    expect(resolvePackageDirs(tree.dir, ['packages/**', '!**/test/**'])).toStrictEqual([alpha]);
+    expect(resolvePackageDirs(tree.dir, ['packages/**', '!**/test/**'])).toStrictEqual([alphaDir]);
   });
 
   it('never resolves packages inside node_modules', () => {
-    const alpha = makePackage('packages/alpha');
+    const alphaDir = makePackage('packages/alpha');
     makePackage('packages/alpha/node_modules/installed');
     makePackage('node_modules/installed');
 
-    expect(resolvePackageDirs(tree.dir, ['**'])).toStrictEqual([alpha]);
+    expect(resolvePackageDirs(tree.dir, ['**'])).toStrictEqual([alphaDir]);
   });
 
   it('resolves a symlinked package directory', () => {
-    const alpha = makePackage('packages/alpha');
+    const alphaDir = makePackage('packages/alpha');
     makePackage('external/linked');
     const link = tree.symlink('packages/linked', tree.resolve('external/linked'));
 
-    expect(resolvePackageDirs(tree.dir, ['packages/*'])).toStrictEqual([alpha, link]);
+    expect(resolvePackageDirs(tree.dir, ['packages/*'])).toStrictEqual([alphaDir, link]);
   });
 
   it('returns each directory once when patterns overlap', () => {
-    const alpha = makePackage('packages/alpha');
+    const alphaDir = makePackage('packages/alpha');
 
-    expect(resolvePackageDirs(tree.dir, ['packages/*', 'packages/alpha', 'packages/**'])).toStrictEqual([alpha]);
+    expect(resolvePackageDirs(tree.dir, ['packages/*', 'packages/alpha', 'packages/**'])).toStrictEqual([alphaDir]);
   });
 
   it('returns directories in a deterministic order', () => {
-    const zeta = makePackage('packages/zeta');
-    const alpha = makePackage('packages/alpha');
-    const mu = makePackage('packages/mu');
+    const zetaDir = makePackage('packages/zeta');
+    const alphaDir = makePackage('packages/alpha');
+    const muDir = makePackage('packages/mu');
 
-    expect(resolvePackageDirs(tree.dir, ['packages/*'])).toStrictEqual([alpha, mu, zeta]);
+    expect(resolvePackageDirs(tree.dir, ['packages/*'])).toStrictEqual([alphaDir, muDir, zetaDir]);
   });
 
   it('tolerates a trailing slash on a pattern', () => {
@@ -118,8 +118,8 @@ describe(resolvePackageDirs, () => {
 
   // An unquoted `!pkg` entry parses as a YAML tag, so the manifest can hand over an empty pattern.
   it('ignores an empty pattern', () => {
-    const alpha = makePackage('packages/alpha');
+    const alphaDir = makePackage('packages/alpha');
 
-    expect(resolvePackageDirs(tree.dir, ['packages/*', ''])).toStrictEqual([alpha]);
+    expect(resolvePackageDirs(tree.dir, ['packages/*', ''])).toStrictEqual([alphaDir]);
   });
 });

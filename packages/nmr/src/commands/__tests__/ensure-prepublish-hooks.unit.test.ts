@@ -38,9 +38,9 @@ describe(ensurePrepublishHooks, () => {
       const result = ensurePrepublishHooks(tree.dir, { shouldFix: false, isDryRun: false });
 
       expect(result.hasFailures).toBe(true);
-      const missing = result.packages.filter((p) => p.action === 'missing');
-      expect(missing).toHaveLength(1);
-      expect(missing[0]?.packageName).toBe('@scope/lib-b');
+      const missingPackages = result.packages.filter((p) => p.action === 'missing');
+      expect(missingPackages).toHaveLength(1);
+      expect(missingPackages[0]?.packageName).toBe('@scope/lib-b');
     });
 
     it('skips private packages', ({ tree }) => {
@@ -65,12 +65,12 @@ describe(ensurePrepublishHooks, () => {
       const result = ensurePrepublishHooks(tree.dir, { shouldFix: true, isDryRun: false });
 
       expect(result.hasFailures).toBe(false);
-      const fixed = result.packages.find((p) => p.packageName === '@scope/lib-a');
-      expect(fixed?.action).toBe('fixed');
+      const fixedPackage = result.packages.find((p) => p.packageName === '@scope/lib-a');
+      expect(fixedPackage?.action).toBe('fixed');
 
       // Verify file was actually written
-      const written = readPackageJson(tree.resolve('packages/lib-a'));
-      expect(written.scripts?.['prepublishOnly']).toBe('npm run build');
+      const writtenManifest = readPackageJson(tree.resolve('packages/lib-a'));
+      expect(writtenManifest.scripts?.['prepublishOnly']).toBe('npm run build');
     });
 
     it('creates scripts object if missing', ({ tree }) => {
@@ -78,8 +78,8 @@ describe(ensurePrepublishHooks, () => {
 
       ensurePrepublishHooks(tree.dir, { shouldFix: true, isDryRun: false });
 
-      const written = readPackageJson(tree.resolve('packages/lib-a'));
-      expect(written.scripts).toStrictEqual({ prepublishOnly: 'npm run build' });
+      const writtenManifest = readPackageJson(tree.resolve('packages/lib-a'));
+      expect(writtenManifest.scripts).toStrictEqual({ prepublishOnly: 'npm run build' });
     });
 
     it('uses custom command when provided', ({ tree }) => {
@@ -87,8 +87,8 @@ describe(ensurePrepublishHooks, () => {
 
       ensurePrepublishHooks(tree.dir, { shouldFix: true, isDryRun: false, command: 'pnpm run build' });
 
-      const written = readPackageJson(tree.resolve('packages/lib-a'));
-      expect(written.scripts?.['prepublishOnly']).toBe('pnpm run build');
+      const writtenManifest = readPackageJson(tree.resolve('packages/lib-a'));
+      expect(writtenManifest.scripts?.['prepublishOnly']).toBe('pnpm run build');
     });
 
     it('does not modify private packages', ({ tree }) => {
@@ -110,8 +110,8 @@ describe(ensurePrepublishHooks, () => {
       expect(result.packages[0]?.action).toBe('would-fix');
 
       // Verify file was NOT written
-      const raw = readPackageJson(tree.resolve('packages/lib-a'));
-      expect(raw.scripts).toBeUndefined();
+      const rawManifest = readPackageJson(tree.resolve('packages/lib-a'));
+      expect(rawManifest.scripts).toBeUndefined();
     });
   });
 });
@@ -169,14 +169,14 @@ describe(reportPrepublishHooks, () => {
   });
 
   it.each([
-    { expected: 'PASS a: prepublishOnly = "npm run build"', style: 'plain' },
-    { expected: '✅ a: prepublishOnly = "npm run build"', style: 'rich' },
-  ] as const)('opens a $style line on the status marker', ({ expected, style }) => {
+    { expectedLine: 'PASS a: prepublishOnly = "npm run build"', style: 'plain' },
+    { expectedLine: '✅ a: prepublishOnly = "npm run build"', style: 'rich' },
+  ] as const)('opens a $style line on the status marker', ({ expectedLine, style }) => {
     using silent = silenceConsole(['info']);
 
     reportPrepublishHooks(buildResult([status('a', 'ok')]), DEFAULT_HOOK, style);
 
-    expect(silent.info).toHaveBeenCalledWith(expected);
+    expect(silent.info).toHaveBeenCalledWith(expectedLine);
   });
 
   // Neither outcome: the line reports what a write would do rather than what a package is.

@@ -141,12 +141,12 @@ function parseRecords(stdout: string): Record<string, unknown>[] {
     .split('\n')
     .filter((line) => line !== '')
     .map((line) => {
-      const parsed: unknown = JSON.parse(line);
-      if (!isRecord(parsed)) {
+      const parsedVerdict: unknown = JSON.parse(line);
+      if (!isRecord(parsedVerdict)) {
         throw new Error(`Expected a JSON object on stdout, got: ${line}`);
       }
 
-      return parsed;
+      return parsedVerdict;
     });
 }
 
