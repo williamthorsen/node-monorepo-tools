@@ -1169,44 +1169,44 @@ function parseArgs(args: string[]): ParseResult {
     passthrough: [],
   };
 
-  let i = 0;
-  while (i < args.length) {
-    const arg = args[i];
+  let index = 0;
+  while (index < args.length) {
+    const arg = args[index];
     if (arg === undefined) break;
 
     if (arg === '-F' || arg === '--filter') {
-      i++;
-      const filterValue = args[i];
+      index++;
+      const filterValue = args[index];
       // An empty pattern is rejected with a missing one: composition reads a filter for its truth, so an
       // empty one would run the command unfiltered rather than in the scopes the invocation asked for.
       if (!filterValue) {
         return { ok: false, error: '-F/--filter requires a pattern argument' };
       }
       parsedArgs.filter = filterValue;
-      i++;
+      index++;
       continue;
     }
 
     const booleanFlag = BOOLEAN_FLAGS.get(arg);
     if (booleanFlag !== undefined) {
       parsedArgs[booleanFlag] = true;
-      i++;
+      index++;
       continue;
     }
 
-    const styleArgument = readOutputStyleArgument(args, i);
+    const styleArgument = readOutputStyleArgument(args, index);
     if (styleArgument !== undefined) {
       if (!styleArgument.ok) {
         return styleArgument;
       }
       parsedArgs.outputStyle = styleArgument.value;
-      i += styleArgument.consumedCount;
+      index += styleArgument.consumedCount;
       continue;
     }
 
     // First non-flag argument is the command; rest is passthrough
     parsedArgs.command = arg;
-    parsedArgs.passthrough = args.slice(i + 1);
+    parsedArgs.passthrough = args.slice(index + 1);
     break;
   }
 

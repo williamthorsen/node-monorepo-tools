@@ -303,11 +303,11 @@ function readCommandNames(section: string): string[] {
  * Returns the portion of `help` from `start` up to (but not including) `end`.
  */
 function readSection(help: string, start: string, end: string): string {
-  const startIdx = help.indexOf(start);
-  const endIdx = help.indexOf(end, startIdx + start.length);
-  if (startIdx === -1) return '';
-  if (endIdx === -1) return help.slice(startIdx);
-  return help.slice(startIdx, endIdx);
+  const startIndex = help.indexOf(start);
+  const endIndex = help.indexOf(end, startIndex + start.length);
+  if (startIndex === -1) return '';
+  if (endIndex === -1) return help.slice(startIndex);
+  return help.slice(startIndex, endIndex);
 }
 
 /**
@@ -318,8 +318,8 @@ function readSection(help: string, start: string, end: string): string {
 function findValueColumn(line: string): number {
   // Skip the leading `  ` indent, then skip past the key+marker text, then
   // find the next non-space character which is where the value starts.
-  let i = 2;
-  while (i < line.length && line[i] !== ' ') i++;
-  while (i < line.length && line[i] === ' ') i++;
-  return i;
+  let index = 2;
+  while (index < line.length && line[index] !== ' ') index++;
+  while (index < line.length && line[index] === ' ') index++;
+  return index;
 }

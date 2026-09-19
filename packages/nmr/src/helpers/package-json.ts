@@ -46,37 +46,38 @@ export function readPackageJson(dir: string): PackageJson {
     throw new UserError(`Invalid package.json in ${dir}: expected an object`);
   }
 
-  const pkg: PackageJson = {};
-  if (typeof parsedManifest['name'] === 'string') pkg.name = parsedManifest['name'];
-  if (parsedManifest['private'] === true) pkg.private = true;
-  if (typeof parsedManifest['version'] === 'string') pkg.version = parsedManifest['version'];
-  if (typeof parsedManifest['packageManager'] === 'string') pkg.packageManager = parsedManifest['packageManager'];
+  const packageJson: PackageJson = {};
+  if (typeof parsedManifest['name'] === 'string') packageJson.name = parsedManifest['name'];
+  if (parsedManifest['private'] === true) packageJson.private = true;
+  if (typeof parsedManifest['version'] === 'string') packageJson.version = parsedManifest['version'];
+  if (typeof parsedManifest['packageManager'] === 'string')
+    packageJson.packageManager = parsedManifest['packageManager'];
   if (isObject(parsedManifest['scripts'])) {
-    pkg.scripts = readScriptRecord(dir, parsedManifest['scripts']);
+    packageJson.scripts = readScriptRecord(dir, parsedManifest['scripts']);
   }
   if (isObject(parsedManifest['pnpm'])) {
     const pnpm = parsedManifest['pnpm'];
     if (isObject(pnpm['overrides'])) {
-      pkg.pnpm = { overrides: pnpm['overrides'] };
+      packageJson.pnpm = { overrides: pnpm['overrides'] };
     }
   }
   for (const field of DEPENDENCY_FIELDS) {
     const declaredDependencies = parsedManifest[field];
     if (isObject(declaredDependencies)) {
-      pkg[field] = readStringValues(declaredDependencies);
+      packageJson[field] = readStringValues(declaredDependencies);
     }
   }
 
-  return pkg;
+  return packageJson;
 }
 
 /**
  * Returns the `pnpm.overrides` block a package.json declares, every key it holds and each value as written.
  */
-export function getPnpmOverrides(pkg: PackageJson): Record<string, unknown> | undefined {
-  if (!isObject(pkg.pnpm)) return undefined;
+export function getPnpmOverrides(packageJson: PackageJson): Record<string, unknown> | undefined {
+  if (!isObject(packageJson.pnpm)) return undefined;
 
-  const overrides = pkg.pnpm.overrides;
+  const overrides = packageJson.pnpm.overrides;
 
   return isObject(overrides) ? overrides : undefined;
 }

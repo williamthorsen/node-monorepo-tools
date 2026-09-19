@@ -36,22 +36,22 @@ export function ensurePrepublishHooks(
   const packages: PackageHookStatus[] = [];
 
   for (const packageDir of packageDirs) {
-    const pkg = readPackageJson(packageDir);
-    const packageName = pkg.name ?? path.basename(packageDir);
-    const isPrivate = pkg.private === true;
+    const packageJson = readPackageJson(packageDir);
+    const packageName = packageJson.name ?? path.basename(packageDir);
+    const isPrivate = packageJson.private === true;
 
     if (isPrivate) {
       packages.push({
         packageName,
         packageDir,
         isPrivate: true,
-        prepublishOnly: pkg.scripts?.['prepublishOnly'],
+        prepublishOnly: packageJson.scripts?.['prepublishOnly'],
         action: 'ok',
       });
       continue;
     }
 
-    const existingHook = pkg.scripts?.['prepublishOnly'];
+    const existingHook = packageJson.scripts?.['prepublishOnly'];
 
     if (existingHook) {
       packages.push({
@@ -106,15 +106,15 @@ export function reportPrepublishHooks(
   hookCommand: string,
   style: OutputStyle,
 ): void {
-  const publishablePackages = result.packages.filter((pkg) => !pkg.isPrivate);
+  const publishablePackages = result.packages.filter((packageStatus) => !packageStatus.isPrivate);
 
   if (publishablePackages.length === 0) {
     console.info('No publishable packages found.');
     return;
   }
 
-  for (const pkg of publishablePackages) {
-    console.info(renderHookStatus(pkg, hookCommand, style));
+  for (const packageStatus of publishablePackages) {
+    console.info(renderHookStatus(packageStatus, hookCommand, style));
   }
 
   reportClosing(describeHookRun(publishablePackages));
@@ -141,7 +141,7 @@ function addPrepublishOnly(packageDir: string, command: string): void {
 
 /** Counts the packages a run left in the given state. */
 function countAction(publishablePackages: PackageHookStatus[], action: PackageHookStatus['action']): number {
-  return publishablePackages.filter((pkg) => pkg.action === action).length;
+  return publishablePackages.filter((packageStatus) => packageStatus.action === action).length;
 }
 
 /** Names what a run came to: the packages carrying the hook, or what became of those that were not. */
@@ -173,18 +173,18 @@ function describeHookRun(publishablePackages: PackageHookStatus[]): string {
  * A package carrying the hook and one the run added both pass, so both open on the pass marker; the dry run's
  * `~` is neither outcome and stays the mark of a line reporting what a write would do.
  */
-function renderHookStatus(pkg: PackageHookStatus, hookCommand: string, style: OutputStyle): string {
+function renderHookStatus(packageStatus: PackageHookStatus, hookCommand: string, style: OutputStyle): string {
   const statuses = STATUS_GLYPHS[style];
 
-  switch (pkg.action) {
+  switch (packageStatus.action) {
     case 'ok':
-      return `${statuses.passed.text} ${pkg.packageName}: prepublishOnly = "${pkg.prepublishOnly}"`;
+      return `${statuses.passed.text} ${packageStatus.packageName}: prepublishOnly = "${packageStatus.prepublishOnly}"`;
     case 'missing':
-      return `${statuses.failed.text} ${pkg.packageName}: missing prepublishOnly`;
+      return `${statuses.failed.text} ${packageStatus.packageName}: missing prepublishOnly`;
     case 'fixed':
-      return `${statuses.passed.text} ${pkg.packageName}: added prepublishOnly = "${hookCommand}"`;
+      return `${statuses.passed.text} ${packageStatus.packageName}: added prepublishOnly = "${hookCommand}"`;
     case 'would-fix':
-      return `~ ${pkg.packageName}: would add prepublishOnly = "${hookCommand}"`;
+      return `~ ${packageStatus.packageName}: would add prepublishOnly = "${hookCommand}"`;
   }
 }
 
