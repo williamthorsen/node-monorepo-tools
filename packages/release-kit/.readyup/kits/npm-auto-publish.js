@@ -94,6 +94,9 @@ var packagesChecklist = defineRdyChecklist({
 });
 var npm_auto_publish_default = defineRdyKit({
   fixLocation: "inline",
+  // The release that introduced `CheckOutcome.fix`, on which the provenance check's remediation depends. An older
+  // runner drops that `fix` silently, so failing to load the kit is the lesser harm.
+  minReadyupVersion: "0.37.0",
   checklists: [repoChecklist, packagesChecklist]
 });
 function belongsInPackagesChecklist(workspace) {
@@ -107,8 +110,8 @@ function buildSessionCheck() {
       const capability = getCachedTrustCapability();
       return capability.ok ? { ok: true } : { ok: false, detail: capability.detail };
     },
-    // A plain string rather than a getter, because readyup takes outcome-specific wording in `detail`, which the
-    // check above already carries.
+    // A plain string rather than a getter, because the remediation is the same however the session fails; only
+    // the `detail` above varies.
     fix: 'Restore a usable npm session: log in with "npm login", supplying the one-time password when prompted, or restore access to the registry, which the trusted-publisher check queries directly'
   };
 }
@@ -175,29 +178,13 @@ function buildWorkspaceCheck(workspace) {
 function checkProvenanceMatchesVisibility() {
   const workflowPath = ".github/workflows/publish.yaml";
   const content = readFile(workflowPath);
-  if (content === void 0) {
-    return { ok: false, detail: `Cannot read ${workflowPath} \u2014 check file permissions` };
-  }
-  const hasProvenance = parseProvenanceSetting(content);
-  let isPrivate;
+  let visibility;
   try {
-    isPrivate = isRepoPrivate();
+    visibility = isRepoPrivate() ? "private" : "public";
   } catch {
-    return { ok: false, detail: "Install and authenticate the GitHub CLI: gh auth login" };
+    visibility = "unknown";
   }
-  if (!isPrivate && !hasProvenance) {
-    return {
-      ok: false,
-      detail: "Set provenance: true in .github/workflows/publish.yaml \u2014 public repos should generate provenance attestations"
-    };
-  }
-  if (isPrivate && hasProvenance) {
-    return {
-      ok: false,
-      detail: "Make the GitHub repo public \u2014 OIDC publishing with provenance requires a public repo"
-    };
-  }
-  return { ok: true };
+  return classifyProvenanceSetting(content, visibility);
 }
 function checkTrustedPublisher(packageName) {
   const result = getTrustQueryResult(packageName);
@@ -225,6 +212,38 @@ function classifyNpmAuth(result) {
     return { status: "unreachable", detail: `Cannot reach the npm registry (${error.code})` };
   }
   return { status: "unreachable", detail: `The npm registry query failed (${error.code}): ${error.summary}` };
+}
+function classifyProvenanceSetting(workflowContent, visibility) {
+  if (workflowContent === void 0) {
+    return {
+      ok: false,
+      detail: "Cannot read .github/workflows/publish.yaml",
+      fix: "Check the file's permissions"
+    };
+  }
+  if (visibility === "unknown") {
+    return {
+      ok: false,
+      detail: "The GitHub CLI could not report the repo's visibility",
+      fix: "Install and authenticate the GitHub CLI: gh auth login"
+    };
+  }
+  const hasProvenance = parseProvenanceSetting(workflowContent);
+  if (visibility === "public" && !hasProvenance) {
+    return {
+      ok: false,
+      detail: "The repo is public and publish.yaml does not set provenance: true",
+      fix: "Set provenance: true in .github/workflows/publish.yaml \u2014 public repos should generate provenance attestations"
+    };
+  }
+  if (visibility === "private" && hasProvenance) {
+    return {
+      ok: false,
+      detail: "The repo is private and publish.yaml sets provenance: true",
+      fix: "Make the GitHub repo public \u2014 OIDC publishing with provenance requires a public repo"
+    };
+  }
+  return { ok: true };
 }
 function classifyTrustCapability(auth, probe) {
   if (auth.status !== "authenticated") {
@@ -409,6 +428,7 @@ function skipIfNotPublishable(workspace) {
 export {
   buildWorkspaceCheck,
   classifyNpmAuth,
+  classifyProvenanceSetting,
   classifyTrustCapability,
   classifyTrustQuery,
   npm_auto_publish_default as default,

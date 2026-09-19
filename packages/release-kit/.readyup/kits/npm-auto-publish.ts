@@ -118,6 +118,9 @@ export const packagesChecklist = defineRdyChecklist({
 
 export default defineRdyKit({
   fixLocation: 'inline',
+  // The release that introduced `CheckOutcome.fix`, on which the provenance check's remediation depends. An older
+  // runner drops that `fix` silently, so failing to load the kit is the lesser harm.
+  minReadyupVersion: '0.37.0',
   checklists: [repoChecklist, packagesChecklist],
 });
 
@@ -147,8 +150,8 @@ function buildSessionCheck(): RdyCheck {
       const capability = getCachedTrustCapability();
       return capability.ok ? { ok: true } : { ok: false, detail: capability.detail };
     },
-    // A plain string rather than a getter, because readyup takes outcome-specific wording in `detail`, which the
-    // check above already carries.
+    // A plain string rather than a getter, because the remediation is the same however the session fails; only
+    // the `detail` above varies.
     fix: 'Restore a usable npm session: log in with "npm login", supplying the one-time password when prompted, or restore access to the registry, which the trusted-publisher check queries directly',
   };
 }
@@ -220,39 +223,19 @@ export function buildWorkspaceCheck(workspace: Workspace): RdyCheck {
 }
 
 /** Checks whether the provenance setting in publish.yaml matches the repo's visibility. */
-function checkProvenanceMatchesVisibility(): { ok: boolean; detail?: string } {
+function checkProvenanceMatchesVisibility(): CheckOutcome {
   const workflowPath = '.github/workflows/publish.yaml';
 
   const content = readFile(workflowPath);
-  if (content === undefined) {
-    return { ok: false, detail: `Cannot read ${workflowPath} — check file permissions` };
-  }
 
-  const hasProvenance = parseProvenanceSetting(content);
-
-  let isPrivate: boolean;
+  let visibility: RepoVisibility;
   try {
-    isPrivate = isRepoPrivate();
+    visibility = isRepoPrivate() ? 'private' : 'public';
   } catch {
-    return { ok: false, detail: 'Install and authenticate the GitHub CLI: gh auth login' };
+    visibility = 'unknown';
   }
 
-  if (!isPrivate && !hasProvenance) {
-    return {
-      ok: false,
-      detail:
-        'Set provenance: true in .github/workflows/publish.yaml — public repos should generate provenance attestations',
-    };
-  }
-
-  if (isPrivate && hasProvenance) {
-    return {
-      ok: false,
-      detail: 'Make the GitHub repo public — OIDC publishing with provenance requires a public repo',
-    };
-  }
-
-  return { ok: true };
+  return classifyProvenanceSetting(content, visibility);
 }
 
 /** Reports whether a package's trusted publisher matches this repo's publish workflow. */
@@ -301,6 +284,58 @@ export function classifyNpmAuth(result: NpmCommandResult): NpmAuthStatus {
   }
 
   return { status: 'unreachable', detail: `The npm registry query failed (${error.code}): ${error.summary}` };
+}
+
+/** The repo's visibility, `unknown` where the GitHub CLI could not report it. */
+export type RepoVisibility = 'private' | 'public' | 'unknown';
+
+/**
+ * Classifies the provenance setting in the publish workflow against the repo's visibility.
+ *
+ * An unreadable workflow is reported ahead of an unreportable visibility, so the check names the file it could
+ * not read rather than the CLI that also failed.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function classifyProvenanceSetting(
+  workflowContent: string | undefined,
+  visibility: RepoVisibility,
+): CheckOutcome {
+  if (workflowContent === undefined) {
+    return {
+      ok: false,
+      detail: 'Cannot read .github/workflows/publish.yaml',
+      fix: "Check the file's permissions",
+    };
+  }
+
+  if (visibility === 'unknown') {
+    return {
+      ok: false,
+      detail: "The GitHub CLI could not report the repo's visibility",
+      fix: 'Install and authenticate the GitHub CLI: gh auth login',
+    };
+  }
+
+  const hasProvenance = parseProvenanceSetting(workflowContent);
+
+  if (visibility === 'public' && !hasProvenance) {
+    return {
+      ok: false,
+      detail: 'The repo is public and publish.yaml does not set provenance: true',
+      fix: 'Set provenance: true in .github/workflows/publish.yaml — public repos should generate provenance attestations',
+    };
+  }
+
+  if (visibility === 'private' && hasProvenance) {
+    return {
+      ok: false,
+      detail: 'The repo is private and publish.yaml sets provenance: true',
+      fix: 'Make the GitHub repo public — OIDC publishing with provenance requires a public repo',
+    };
+  }
+
+  return { ok: true };
 }
 
 export type TrustCapability = { ok: true } | { ok: false; detail: string };
