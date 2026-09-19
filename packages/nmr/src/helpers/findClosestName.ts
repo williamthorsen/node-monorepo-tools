@@ -7,17 +7,17 @@
 export function findClosestName(name: string, candidates: Iterable<string>): string | undefined {
   const ceiling = Math.max(1, Math.floor(name.length / 4));
 
-  let closest: string | undefined;
-  let shortest = Infinity;
+  let closestName: string | undefined;
+  let shortestDistance = Infinity;
   for (const candidate of candidates) {
     const distance = measureDistance(name, candidate);
-    if (distance < shortest) {
-      shortest = distance;
-      closest = candidate;
+    if (distance < shortestDistance) {
+      shortestDistance = distance;
+      closestName = candidate;
     }
   }
 
-  return shortest <= ceiling ? closest : undefined;
+  return shortestDistance <= ceiling ? closestName : undefined;
 }
 
 // region | Helpers
@@ -34,21 +34,25 @@ function measureDistance(first: string, second: string): number {
     return Math.max(first.length, second.length);
   }
 
-  let previous = Array.from({ length: second.length + 1 }, (_unused, column) => column);
-  let current: number[] = Array.from({ length: second.length + 1 }, () => 0);
+  let previousRow = Array.from({ length: second.length + 1 }, (_unused, column) => column);
+  let currentRow: number[] = Array.from({ length: second.length + 1 }, () => 0);
 
   for (let row = 1; row <= first.length; row += 1) {
-    current[0] = row;
+    currentRow[0] = row;
     for (let column = 1; column <= second.length; column += 1) {
-      const substitution = readCell(previous, column - 1) + (first[row - 1] === second[column - 1] ? 0 : 1);
-      current[column] = Math.min(readCell(current, column - 1) + 1, readCell(previous, column) + 1, substitution);
+      const substitution = readCell(previousRow, column - 1) + (first[row - 1] === second[column - 1] ? 0 : 1);
+      currentRow[column] = Math.min(
+        readCell(currentRow, column - 1) + 1,
+        readCell(previousRow, column) + 1,
+        substitution,
+      );
     }
-    const completed = current;
-    current = previous;
-    previous = completed;
+    const completedRow = currentRow;
+    currentRow = previousRow;
+    previousRow = completedRow;
   }
 
-  return readCell(previous, second.length);
+  return readCell(previousRow, second.length);
 }
 
 /** Reads one cell of a matrix row. Every index here is bounded by the row's own length, so a gap is a defect. */

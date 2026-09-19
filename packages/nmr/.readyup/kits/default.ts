@@ -188,7 +188,7 @@ export default defineRdyKit({
           name: 'the test suite gates the test-file conventions',
           severity: 'warn',
           check: () => testSuiteGatesTestFileConventions(),
-          fix: "Add a test of the repo's own under a __tests__ directory that declares the check: import { checkTestFileConventions } from '@williamthorsen/nmr/tests'; checkTestFileConventions(); -- passing `exclude` the directory names that the repo passes to `testCollectionExclude`. Without it no test run reports an untiered or misplaced test file, and this kit reports them in its place against nmr's built-in exclusions alone",
+          fix: "Add a test of the repo's own under a __tests__ directory that declares the check: import { checkTestFileConventions } from '@williamthorsen/nmr/tests'; checkTestFileConventions(); -- passing `excludedBasenames` the directory names that the repo passes to `testCollectionExclude`. Without it no test run reports an untiered or misplaced test file, and this kit reports them in its place against nmr's built-in exclusions alone",
         },
         {
           name: 'every test file names its isolation tier',
@@ -202,7 +202,7 @@ export default defineRdyKit({
           severity: 'error',
           skip: () => describeConventionsGuardSkip(),
           check: () => everyTestFileSitsUnderTestsDir(),
-          fix: 'Move each into a __tests__ directory, the only place from which the shared Vitest config collects. No project collects a file outside one, so it runs nowhere and reports nothing. For a file that is not a test, declare checkTestFileConventions with its directory in `exclude` instead, which this check then defers to',
+          fix: 'Move each into a __tests__ directory, the only place from which the shared Vitest config collects. No project collects a file outside one, so it runs nowhere and reports nothing. For a file that is not a test, declare checkTestFileConventions with its directory in `excludedBasenames` instead, which this check then defers to',
         },
         {
           name: 'no package re-exports the ancestor Vitest config',
@@ -354,7 +354,7 @@ function allWorkspacePackagesCanBuild(): boolean | CheckOutcome {
   if (!existsSync(packagesDir)) return true;
 
   const entries = readdirSync(packagesDir, { withFileTypes: true });
-  const failing: string[] = [];
+  const failingPackages: string[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const pkgPath = `packages/${entry.name}/package.json`;
@@ -366,22 +366,22 @@ function allWorkspacePackagesCanBuild(): boolean | CheckOutcome {
       fileExists(`packages/${entry.name}/tsconfig.json`) && existsSync(join(packagesDir, entry.name, 'src'));
 
     if (!hasBuildOverride && !hasDefaultBuildInputs) {
-      failing.push(entry.name);
+      failingPackages.push(entry.name);
     }
   }
 
-  if (failing.length === 0) return true;
+  if (failingPackages.length === 0) return true;
   return {
     ok: false,
-    detail: `missing build override or tsconfig.json + src/: ${failing.join(', ')}`,
+    detail: `missing build override or tsconfig.json + src/: ${failingPackages.join(', ')}`,
   };
 }
 
 /** Reports every file matching the given patterns, passing when there are none. */
 function checkNoMatchingFiles(patterns: string[], cwd: string): boolean | CheckOutcome {
-  const found = findFiles(patterns, cwd);
-  if (found.length === 0) return true;
-  return { ok: false, detail: formatPaths(found) };
+  const foundFiles = findFiles(patterns, cwd);
+  if (foundFiles.length === 0) return true;
+  return { ok: false, detail: formatPaths(foundFiles) };
 }
 
 /** Checks that a root-level Vitest config is present and built on the shared config from nmr. */
@@ -391,11 +391,14 @@ function checkRootVitestConfig(baseName: string, exportName: string, cwd: string
     return { ok: false, detail: `${baseName}.ts is missing` };
   }
 
-  const stale = matches.filter(
+  const staleConfigs = matches.filter(
     (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), exportName, SHARED_VITEST_MODULE),
   );
-  if (stale.length === 0) return true;
-  return { ok: false, detail: `does not import ${exportName} from ${SHARED_VITEST_MODULE}: ${stale.join(', ')}` };
+  if (staleConfigs.length === 0) return true;
+  return {
+    ok: false,
+    detail: `does not import ${exportName} from ${SHARED_VITEST_MODULE}: ${staleConfigs.join(', ')}`,
+  };
 }
 
 /**
@@ -418,21 +421,21 @@ export function prettierConfigBuildsOnSharedConfig(cwd: string = process.cwd()):
     return { ok: false, detail: describeMissingPrettierConfig(cwd) };
   }
 
-  const stale = configs.filter(
+  const staleConfigs = configs.filter(
     (relativePath) =>
       !importsSharedExport(readFileIn(cwd, relativePath), 'definePrettierConfig', SHARED_PRETTIER_MODULE),
   );
-  if (stale.length === 0) return true;
+  if (staleConfigs.length === 0) return true;
   return {
     ok: false,
-    detail: `does not import definePrettierConfig from ${SHARED_PRETTIER_MODULE}: ${stale.join(', ')}`,
+    detail: `does not import definePrettierConfig from ${SHARED_PRETTIER_MODULE}: ${staleConfigs.join(', ')}`,
   };
 }
 
 /** Names the data-only config standing in for an executable one, so the fix says what to convert. */
 function describeMissingPrettierConfig(cwd: string): string {
-  const inert = findFiles(INERT_PRETTIER_CONFIGS, cwd);
-  if (inert.length > 0) return `holds no code to call the factory: ${inert.join(', ')}`;
+  const inertConfigs = findFiles(INERT_PRETTIER_CONFIGS, cwd);
+  if (inertConfigs.length > 0) return `holds no code to call the factory: ${inertConfigs.join(', ')}`;
 
   if (hasPrettierConfigKey(cwd)) {
     return 'holds no code to call the factory: the "prettier" key in package.json';
@@ -452,8 +455,8 @@ function hasPrettierConfigKey(cwd: string): boolean {
   if (manifest === undefined) return false;
 
   try {
-    const parsed: unknown = JSON.parse(manifest);
-    return isRecord(parsed) && parsed['prettier'] !== undefined;
+    const parsedManifest: unknown = JSON.parse(manifest);
+    return isRecord(parsedManifest) && parsedManifest['prettier'] !== undefined;
   } catch {
     return false;
   }
@@ -495,13 +498,13 @@ function discoverMemberWorkspaces(): WorkspaceDiscovery {
  * @internal - Exported only to enable testing
  */
 export async function everyBinTargetIsACommittedWrapper(): Promise<boolean | CheckOutcome> {
-  const discovery = discoverMemberWorkspaces();
-  if (!discovery.ok) return discovery;
+  const workspaceDiscovery = discoverMemberWorkspaces();
+  if (!workspaceDiscovery.ok) return workspaceDiscovery;
 
-  const tracked = await listTrackedFiles();
-  const trackedPaths = tracked === undefined ? undefined : new Set(tracked);
+  const trackedFiles = await listTrackedFiles();
+  const trackedPaths = trackedFiles === undefined ? undefined : new Set(trackedFiles);
 
-  const offenders = discovery.workspaces.flatMap((workspace) =>
+  const offenders = workspaceDiscovery.workspaces.flatMap((workspace) =>
     readBinEntries(workspace).flatMap((entry) => {
       const defect = describeBinTargetDefect(workspace, entry, trackedPaths);
       return defect === undefined ? [] : [`${describeBinEntry(workspace, entry)} (${defect})`];
@@ -526,19 +529,21 @@ export async function everyBinTargetIsACommittedWrapper(): Promise<boolean | Che
  * @internal - Exported only to enable testing
  */
 export function everyBinWrapperTargetIsCoveredByFiles(): boolean | CheckOutcome {
-  const discovery = discoverMemberWorkspaces();
-  if (!discovery.ok) return discovery;
+  const workspaceDiscovery = discoverMemberWorkspaces();
+  if (!workspaceDiscovery.ok) return workspaceDiscovery;
 
   const cwd = process.cwd();
-  const offenders = discovery.workspaces.flatMap((workspace) => {
+  const offenders = workspaceDiscovery.workspaces.flatMap((workspace) => {
     const files = workspace.packageJson['files'];
     if (!Array.isArray(files)) return [];
 
-    const published = new Set(files.flatMap((entry) => (typeof entry === 'string' ? [readFirstSegment(entry)] : [])));
+    const publishedSegments = new Set(
+      files.flatMap((entry) => (typeof entry === 'string' ? [readFirstSegment(entry)] : [])),
+    );
 
     return readBinEntries(workspace).flatMap((entry) => {
       const target = readWrapperTarget(cwd, workspace, entry);
-      if (target === undefined || published.has(readFirstSegment(target))) return [];
+      if (target === undefined || publishedSegments.has(readFirstSegment(target))) return [];
       return [`${describeBinEntry(workspace, entry)} -> ${target}`];
     });
   });
@@ -638,10 +643,10 @@ function readWrapperTarget(cwd: string, workspace: Workspace, entry: BinEntry): 
  * @internal - Exported only to enable testing
  */
 export function everyTestFileNamesItsTier(cwd: string = process.cwd()): boolean | CheckOutcome {
-  const untiered = findUntieredTestFiles(cwd);
+  const untieredFiles = findUntieredTestFiles(cwd);
 
-  if (untiered.length === 0) return true;
-  return { ok: false, detail: formatPaths(untiered) };
+  if (untieredFiles.length === 0) return true;
+  return { ok: false, detail: formatPaths(untieredFiles) };
 }
 
 /**
@@ -653,10 +658,10 @@ export function everyTestFileNamesItsTier(cwd: string = process.cwd()): boolean 
  * @internal - Exported only to enable testing
  */
 export function everyTestFileSitsUnderTestsDir(cwd: string = process.cwd()): boolean | CheckOutcome {
-  const misplaced = findMisplacedTestFiles(cwd);
+  const misplacedFiles = findMisplacedTestFiles(cwd);
 
-  if (misplaced.length === 0) return true;
-  return { ok: false, detail: formatPaths(misplaced) };
+  if (misplacedFiles.length === 0) return true;
+  return { ok: false, detail: formatPaths(misplacedFiles) };
 }
 
 /**
@@ -674,17 +679,17 @@ export function everyTestFileSitsUnderTestsDir(cwd: string = process.cwd()): boo
  * @internal - Exported only to enable testing
  */
 export function everyViteConfigHasVitestConfig(): boolean | CheckOutcome {
-  const discovery = discoverMemberWorkspaces();
-  if (!discovery.ok) return discovery;
+  const workspaceDiscovery = discoverMemberWorkspaces();
+  if (!workspaceDiscovery.ok) return workspaceDiscovery;
 
-  const unpaired = discovery.workspaces.flatMap((workspace) => {
+  const unpairedConfigs = workspaceDiscovery.workspaces.flatMap((workspace) => {
     const viteConfigs = findWorkspaceConfigs(workspace, VITE_CONFIG_PATTERN);
     if (viteConfigs.length === 0) return [];
     return findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN).length > 0 ? [] : viteConfigs;
   });
 
-  if (unpaired.length === 0) return true;
-  return { ok: false, detail: formatPaths(unpaired) };
+  if (unpairedConfigs.length === 0) return true;
+  return { ok: false, detail: formatPaths(unpairedConfigs) };
 }
 
 /**
@@ -720,11 +725,11 @@ function getMinVersion(): string {
   // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
   // Defer the call into a function so module load does not invoke the runtime stub (which throws):
   // This keeps the module importable in tests that bypass the compile step.
-  const picked = pickJson('../../package.json', ['version']);
-  if (typeof picked['version'] !== 'string') {
+  const pickedFields = pickJson('../../package.json', ['version']);
+  if (typeof pickedFields['version'] !== 'string') {
     throw new TypeError("nmr/package.json: 'version' must be a string");
   }
-  return picked['version'];
+  return pickedFields['version'];
 }
 
 export function hasSupportedEslintVersion(): boolean {
@@ -800,14 +805,14 @@ function isReExportOnly(content: string | undefined): boolean {
  * @internal - Exported only to enable testing
  */
 export function noPnpmFieldInPackageJson(cwd: string = process.cwd()): boolean | CheckOutcome {
-  const declaring = findFiles(['**/package.json'], cwd).flatMap((relativePath) => {
+  const declaringFiles = findFiles(['**/package.json'], cwd).flatMap((relativePath) => {
     const keys = readPnpmFieldKeys(readFileIn(cwd, relativePath));
     if (keys === undefined) return [];
     return [keys.length > 0 ? `${relativePath} (${keys.join(', ')})` : relativePath];
   });
 
-  if (declaring.length === 0) return true;
-  return { ok: false, detail: formatPaths(declaring) };
+  if (declaringFiles.length === 0) return true;
+  return { ok: false, detail: formatPaths(declaringFiles) };
 }
 
 /**
@@ -835,12 +840,12 @@ function noRedundantRootScripts(): boolean | CheckOutcome {
   if (!isRecord(scripts)) return true;
 
   const builtInNames = Object.keys(getDefaultRootScripts());
-  const redundant = Object.keys(scripts).filter((name) => builtInNames.includes(name));
+  const redundantNames = Object.keys(scripts).filter((name) => builtInNames.includes(name));
 
-  if (redundant.length === 0) return true;
+  if (redundantNames.length === 0) return true;
   return {
     ok: false,
-    detail: `redundant: ${redundant.join(', ')}`,
+    detail: `redundant: ${redundantNames.join(', ')}`,
   };
 }
 
@@ -866,15 +871,15 @@ export function noRetiredVitestConfigs(cwd: string = process.cwd()): boolean | C
  */
 export function noUnguardedLefthookInstall(cwd: string = process.cwd()): boolean | CheckOutcome {
   const scripts = readRootScripts(cwd);
-  const unguarded = INSTALL_LIFECYCLE_SCRIPTS.flatMap((name) => {
+  const unguardedScripts = INSTALL_LIFECYCLE_SCRIPTS.flatMap((name) => {
     const command = scripts[name];
     if (typeof command !== 'string') return [];
     const isUnguarded = LEFTHOOK_INSTALL_PATTERN.test(command) && !LEFTHOOK_CHECK_INSTALL_PATTERN.test(command);
     return isUnguarded ? [`${name}: ${command}`] : [];
   });
 
-  if (unguarded.length === 0) return true;
-  return { ok: false, detail: formatPaths(unguarded) };
+  if (unguardedScripts.length === 0) return true;
+  return { ok: false, detail: formatPaths(unguardedScripts) };
 }
 
 /** Checks that no workspace package.json references run-workspace-script or "pnpm run ws". */
@@ -914,15 +919,15 @@ function readFileIn(cwd: string, relativePath: string): string | undefined {
 function readPnpmFieldKeys(content: string | undefined): string[] | undefined {
   if (content === undefined) return undefined;
 
-  let parsed: unknown;
+  let parsedManifest: unknown;
   try {
-    parsed = JSON.parse(content);
+    parsedManifest = JSON.parse(content);
   } catch {
     return undefined;
   }
 
-  if (!isRecord(parsed)) return undefined;
-  const pnpm = parsed['pnpm'];
+  if (!isRecord(parsedManifest)) return undefined;
+  const pnpm = parsedManifest['pnpm'];
 
   return isRecord(pnpm) ? Object.keys(pnpm).toSorted() : undefined;
 }
@@ -935,15 +940,15 @@ function readRootScripts(cwd: string): Record<string, unknown> {
   const content = readFileIn(cwd, 'package.json');
   if (content === undefined) return {};
 
-  let parsed: unknown;
+  let parsedManifest: unknown;
   try {
-    parsed = JSON.parse(content);
+    parsedManifest = JSON.parse(content);
   } catch {
     return {};
   }
 
-  if (!isRecord(parsed)) return {};
-  const scripts = parsed['scripts'];
+  if (!isRecord(parsedManifest)) return {};
+  const scripts = parsedManifest['scripts'];
   return isRecord(scripts) ? scripts : {};
 }
 
@@ -968,11 +973,11 @@ export function tazeConfigBuildsOnSharedConfig(cwd: string = process.cwd()): boo
     return { ok: false, detail: describeMissingTazeConfig(cwd) };
   }
 
-  const stale = configs.filter(
+  const staleConfigs = configs.filter(
     (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), 'defineConfig', SHARED_TAZE_MODULE),
   );
-  if (stale.length === 0) return true;
-  return { ok: false, detail: `does not import defineConfig from ${SHARED_TAZE_MODULE}: ${stale.join(', ')}` };
+  if (staleConfigs.length === 0) return true;
+  return { ok: false, detail: `does not import defineConfig from ${SHARED_TAZE_MODULE}: ${staleConfigs.join(', ')}` };
 }
 
 /**
@@ -991,8 +996,8 @@ export function tazeConfigAvoidsClobberedOptions(cwd: string = process.cwd()): b
     const content = readFileIn(cwd, relativePath);
     if (content === undefined) continue;
 
-    const discarded = CLOBBERED_TAZE_OPTIONS.filter(({ pattern }) => pattern.test(content)).map(({ key }) => key);
-    if (discarded.length > 0) findings.push(`${relativePath}: ${discarded.join(', ')}`);
+    const discardedKeys = CLOBBERED_TAZE_OPTIONS.filter(({ pattern }) => pattern.test(content)).map(({ key }) => key);
+    if (discardedKeys.length > 0) findings.push(`${relativePath}: ${discardedKeys.join(', ')}`);
   }
 
   if (findings.length === 0) return true;
@@ -1001,8 +1006,8 @@ export function tazeConfigAvoidsClobberedOptions(cwd: string = process.cwd()): b
 
 /** Names the data-only config standing in for an executable one, so the fix says what to convert. */
 function describeMissingTazeConfig(cwd: string): string {
-  const inert = findFiles(INERT_TAZE_CONFIGS, cwd);
-  if (inert.length > 0) return `holds no code to call the factory: ${inert.join(', ')}`;
+  const inertConfigs = findFiles(INERT_TAZE_CONFIGS, cwd);
+  if (inertConfigs.length > 0) return `holds no code to call the factory: ${inertConfigs.join(', ')}`;
 
   return 'taze.config.ts is missing';
 }
@@ -1028,8 +1033,8 @@ export function testSuiteGatesTestFileConventions(cwd: string = process.cwd()): 
  * Returns the reason the test-file sweeps skip when the repo's suite declares `checkTestFileConventions`, or `false`
  * when it does not.
  *
- * The guard reports the same files under the repo's own `exclude`, which no kit check can read, so a sweep beside it
- * can only repeat its findings or report a directory that the repo has excluded.
+ * The guard reports the same files under the repo's own `excludedBasenames`, which no kit check can read, so a
+ * sweep beside it can only repeat its findings or report a directory that the repo has excluded.
  */
 function describeConventionsGuardSkip(): SkipResult {
   const guard = findConventionsGuard(process.cwd());
@@ -1075,10 +1080,10 @@ export function vitestConfigBuildsOnSharedConfig(): boolean | CheckOutcome {
   const rootConfigs = findFiles([VITEST_CONFIG_PATTERN], cwd);
   if (rootConfigs.length === 0) return { ok: false, detail: 'vitest.config.ts is missing' };
 
-  const discovery = discoverMemberWorkspaces();
-  if (!discovery.ok) return discovery;
+  const workspaceDiscovery = discoverMemberWorkspaces();
+  if (!workspaceDiscovery.ok) return workspaceDiscovery;
 
-  const workspaceConfigs = discovery.workspaces
+  const workspaceConfigs = workspaceDiscovery.workspaces
     .flatMap((workspace) => findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN))
     .filter((relativePath) => !isOwnedByReExportCheck(cwd, relativePath));
 

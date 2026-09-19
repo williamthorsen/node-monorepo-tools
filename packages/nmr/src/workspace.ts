@@ -75,13 +75,13 @@ export function getWorkspacePackageDirs(monorepoRoot: string): string[] {
  */
 export function diagnoseEmptyWorkspace(monorepoRoot: string): EmptyWorkspaceDiagnosis {
   const patterns = readWorkspacePatterns(monorepoRoot);
-  const { excluded, included } = splitWorkspacePatterns(patterns);
+  const { excludedPatterns, includedPatterns } = splitWorkspacePatterns(patterns);
 
-  if (included.length === 0) {
+  if (includedPatterns.length === 0) {
     return { cause: 'no-pattern', patterns };
   }
 
-  if (excluded.length > 0 && matchPackageDirs(monorepoRoot, included, []).length > 0) {
+  if (excludedPatterns.length > 0 && matchPackageDirs(monorepoRoot, includedPatterns, []).length > 0) {
     return { cause: 'all-excluded', patterns };
   }
 
@@ -101,12 +101,12 @@ export function readWorkspaceOverrides(monorepoRoot: string): Record<string, str
     return undefined;
   }
 
-  const parsed: unknown = parse(readFileSync(workspaceFile, 'utf8'));
-  if (!isObject(parsed)) {
+  const parsedManifest: unknown = parse(readFileSync(workspaceFile, 'utf8'));
+  if (!isObject(parsedManifest)) {
     return undefined;
   }
 
-  const overrides = parsed['overrides'];
+  const overrides = parsedManifest['overrides'];
 
   return isObject(overrides) ? readStringValues(overrides) : undefined;
 }
@@ -123,14 +123,14 @@ export function readWorkspacePackageNames(packageDirs: readonly string[]): strin
   const names: string[] = [];
 
   for (const dir of packageDirs) {
-    let parsed: unknown;
+    let parsedManifest: unknown;
     try {
-      parsed = JSON.parse(readFileSync(path.join(dir, PACKAGE_MANIFEST), 'utf8'));
+      parsedManifest = JSON.parse(readFileSync(path.join(dir, PACKAGE_MANIFEST), 'utf8'));
     } catch {
       continue;
     }
-    if (isObject(parsed) && typeof parsed['name'] === 'string') {
-      names.push(parsed['name']);
+    if (isObject(parsedManifest) && typeof parsedManifest['name'] === 'string') {
+      names.push(parsedManifest['name']);
     }
   }
 
@@ -143,9 +143,9 @@ export function readWorkspacePackageNames(packageDirs: readonly string[]): strin
  * Reads the `packages` list a parsed workspace manifest declares, or nothing where it declares no usable one:
  * no `packages` key, a key that is not a list, or a list holding something other than strings.
  */
-function getPackagesFromParsedYaml(parsed: unknown): string[] | undefined {
-  if (!isObject(parsed)) return undefined;
-  const packages = parsed['packages'];
+function getPackagesFromParsedYaml(parsedManifest: unknown): string[] | undefined {
+  if (!isObject(parsedManifest)) return undefined;
+  const packages = parsedManifest['packages'];
   if (!Array.isArray(packages)) return undefined;
   if (!packages.every((p): p is string => typeof p === 'string')) return undefined;
   return packages;
@@ -164,9 +164,9 @@ function readWorkspacePatterns(monorepoRoot: string): string[] {
     throw new UserError(`Not a monorepo root: no ${WORKSPACE_MANIFEST} in ${monorepoRoot}`);
   }
 
-  const parsed: unknown = parse(readFileSync(workspaceFile, 'utf8'));
+  const parsedManifest: unknown = parse(readFileSync(workspaceFile, 'utf8'));
 
-  return getPackagesFromParsedYaml(parsed) ?? [];
+  return getPackagesFromParsedYaml(parsedManifest) ?? [];
 }
 
 // endregion | Helpers

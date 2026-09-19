@@ -26,17 +26,17 @@ const SELECTION_MARKER = 'nmr-selected-scope';
  * root: two of them run in two scopes, while one beside the root may run in that package alone.
  */
 export function readFilterSelection(pattern: string, monorepoRoot: string): FilterSelection {
-  const listing = spawnSync('pnpm', ['ls', '--filter', pattern, '--depth', '-1', '--json'], {
+  const listingRun = spawnSync('pnpm', ['ls', '--filter', pattern, '--depth', '-1', '--json'], {
     cwd: monorepoRoot,
     encoding: 'utf8',
   });
 
-  const reading = interpretSelectionProbe(
-    { error: listing.error, status: listing.status, stdout: listing.stdout },
+  const probeReading = interpretSelectionProbe(
+    { error: listingRun.error, status: listingRun.status, stdout: listingRun.stdout },
     monorepoRoot,
   );
 
-  return reading === 'root-only' ? readDelegateSelection(pattern, monorepoRoot) : reading;
+  return probeReading === 'root-only' ? readDelegateSelection(pattern, monorepoRoot) : probeReading;
 }
 
 /**
@@ -52,22 +52,22 @@ export function interpretSelectionProbe(probe: SelectionProbe, monorepoRoot: str
     return 'unresolved';
   }
 
-  let parsed: unknown;
+  let parsedListing: unknown;
   try {
-    parsed = JSON.parse(probe.stdout);
+    parsedListing = JSON.parse(probe.stdout);
   } catch {
     return 'unresolved';
   }
 
-  if (!Array.isArray(parsed)) {
+  if (!Array.isArray(parsedListing)) {
     return 'unresolved';
   }
 
-  if (parsed.length === 0) {
+  if (parsedListing.length === 0) {
     return 'empty';
   }
 
-  const packageCount = parsed.filter((entry: unknown) => !isRootEntry(entry, monorepoRoot)).length;
+  const packageCount = parsedListing.filter((entry: unknown) => !isRootEntry(entry, monorepoRoot)).length;
   if (packageCount === 0) {
     return 'root-only';
   }
@@ -127,13 +127,13 @@ function readRealPath(target: string): string {
  * itself withholds: its exit code is 0 either way.
  */
 function readDelegateSelection(pattern: string, monorepoRoot: string): FilterSelection {
-  const probe = spawnSync(
+  const probeRun = spawnSync(
     'pnpm',
     ['--filter', pattern, 'exec', process.execPath, '--eval', `process.stdout.write('${SELECTION_MARKER}')`],
     { cwd: monorepoRoot, encoding: 'utf8' },
   );
 
-  return interpretDelegateProbe({ error: probe.error, status: probe.status, stdout: probe.stdout });
+  return interpretDelegateProbe({ error: probeRun.error, status: probeRun.status, stdout: probeRun.stdout });
 }
 
 // endregion | Helpers

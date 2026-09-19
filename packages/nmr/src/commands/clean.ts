@@ -87,9 +87,9 @@ async function clearCheckCache(scopeDir: string, style: OutputStyle): Promise<vo
 }
 
 /** Names what a sweep came to: the packages it cleaned, and any it left to an empty `clean` override. */
-function describeSweep(cleaned: number, skipped: number): string {
-  const packages = cleaned === 1 ? '1 package' : `${cleaned} packages`;
-  const skipClause = skipped === 0 ? '' : `, skipping ${skipped} with an empty clean override`;
+function describeSweep(cleanedCount: number, skippedCount: number): string {
+  const packages = cleanedCount === 1 ? '1 package' : `${cleanedCount} packages`;
+  const skipClause = skippedCount === 0 ? '' : `, skipping ${skippedCount} with an empty clean override`;
 
   return `Cleaned ${packages}${skipClause}.`;
 }
@@ -113,22 +113,22 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
   // Every package resolves the same registry, so it is built once; only tier-3 resolution varies per package.
   const registry = buildWorkspaceRegistry(config);
 
-  let cleaned = 0;
-  let skipped = 0;
+  let cleanedCount = 0;
+  let skippedCount = 0;
 
   for (const packageDir of workspacePackageDirs) {
-    const resolved = resolveScript(CLEAN_COMMAND, registry, packageDir, false);
-    const resolvedCommand = resolved === undefined ? undefined : renderChain(resolved.steps);
+    const resolvedScript = resolveScript(CLEAN_COMMAND, registry, packageDir, false);
+    const resolvedCommand = resolvedScript === undefined ? undefined : renderChain(resolvedScript.steps);
 
     // An empty command is the package.json convention for "skip this script".
     if (resolvedCommand === undefined || resolvedCommand === '') {
-      skipped++;
+      skippedCount++;
       continue;
     }
 
     if (resolvedCommand === BUILT_IN_CLEAN) {
       await cleanPackage(packageDir, style);
-      cleaned++;
+      cleanedCount++;
       continue;
     }
 
@@ -139,10 +139,10 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
     if (exitCode !== 0) {
       throw new Error(`nmr-clean: \`${command}\` failed in ${path.basename(packageDir)} with exit code ${exitCode}.`);
     }
-    cleaned++;
+    cleanedCount++;
   }
 
-  reportClosing(formatGlyphLine(NMR_GLYPHS, style, 'clean', describeSweep(cleaned, skipped)));
+  reportClosing(formatGlyphLine(NMR_GLYPHS, style, 'clean', describeSweep(cleanedCount, skippedCount)));
 }
 
 // endregion | Helpers

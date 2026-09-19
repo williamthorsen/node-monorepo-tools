@@ -183,20 +183,20 @@ export function resolveTsconfigChain(packageDir: string, configFileName = 'tscon
   const seen = new Set<string>();
 
   function walk(configPath: string): void {
-    const normalized = path.resolve(configPath);
-    if (seen.has(normalized)) {
+    const normalizedPath = path.resolve(configPath);
+    if (seen.has(normalizedPath)) {
       return;
     }
-    seen.add(normalized);
-    resolvedChain.push(normalized);
+    seen.add(normalizedPath);
+    resolvedChain.push(normalizedPath);
 
-    const configFile = ts.readConfigFile(normalized, (fileName) => ts.sys.readFile(fileName));
+    const configFile = ts.readConfigFile(normalizedPath, (fileName) => ts.sys.readFile(fileName));
     if (configFile.error) {
-      throw new Error(`nmr-compile: failed to read ${normalized}.\n${formatDiagnostics([configFile.error])}`);
+      throw new Error(`nmr-compile: failed to read ${normalizedPath}.\n${formatDiagnostics([configFile.error])}`);
     }
 
     for (const entry of normalizeExtendsField(configFile.config)) {
-      walk(resolveExtendsTarget(entry, normalized));
+      walk(resolveExtendsTarget(entry, normalizedPath));
     }
   }
 
@@ -235,9 +235,9 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
 
   // Buffer rather than write: the compiler's own `writeFile` would put the emit under `emitDir`, which is
   // still serving the previous build to anything that reads it while this one runs.
-  const emitted = new Map<string, StagedFile>();
+  const emittedFiles = new Map<string, StagedFile>();
   function collect(fileName: string, text: string, writeByteOrderMark: boolean): void {
-    emitted.set(fileName, { text, writeByteOrderMark });
+    emittedFiles.set(fileName, { text, writeByteOrderMark });
   }
 
   const host = createCachingCompilerHost(compilerOptions);
@@ -258,22 +258,22 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
   );
   assertEmitSucceeded(declarationProgram.emit(undefined, collect));
 
-  const staged = new Map<string, StagedFile>();
-  for (const [fileName, file] of emitted) {
-    staged.set(fileName, { ...file, text: rewriteSpecifiers(fileName, file.text, compilerOptions, sourceRoot) });
+  const stagedFiles = new Map<string, StagedFile>();
+  for (const [fileName, file] of emittedFiles) {
+    stagedFiles.set(fileName, { ...file, text: rewriteSpecifiers(fileName, file.text, compilerOptions, sourceRoot) });
   }
 
   // An emit that produces nothing has nothing to publish, and swapping an empty directory into place would
   // leave a `dist` behind for a package whose entry points emit no output.
-  if (staged.size === 0) {
+  if (stagedFiles.size === 0) {
     await rm(emitDir, { force: true, recursive: true });
     return 0;
   }
 
-  writeStagedOutput(staged, emitDir, scratchDirs.staging);
+  writeStagedOutput(stagedFiles, emitDir, scratchDirs.stagingDir);
   await swapIntoPlace(emitDir, scratchDirs);
 
-  return staged.size;
+  return stagedFiles.size;
 }
 
 /** Throws with formatted diagnostics when the compiler skipped an emit. */
@@ -290,17 +290,17 @@ function assertEmitSucceeded(result: ts.EmitResult): void {
  */
 function createCachingCompilerHost(compilerOptions: ts.CompilerOptions): ts.CompilerHost {
   const host = ts.createCompilerHost(compilerOptions);
-  const parsed = new Map<string, ts.SourceFile | undefined>();
+  const parsedFiles = new Map<string, ts.SourceFile | undefined>();
   const readSourceFile = host.getSourceFile.bind(host);
 
   host.getSourceFile = (fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile) => {
     // A file the host cannot read yields `undefined`, which the cache holds so the miss is not re-read.
-    if (parsed.has(fileName)) {
-      return parsed.get(fileName);
+    if (parsedFiles.has(fileName)) {
+      return parsedFiles.get(fileName);
     }
 
     const sourceFile = readSourceFile(fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile);
-    parsed.set(fileName, sourceFile);
+    parsedFiles.set(fileName, sourceFile);
     return sourceFile;
   };
 
@@ -322,8 +322,8 @@ async function discardScratchDirs(scratchDirs: ScratchDirs): Promise<void> {
 
 /** Removes both scratch directories, tolerating their absence. */
 async function removeScratchDirs(scratchDirs: ScratchDirs): Promise<void> {
-  await rm(scratchDirs.previous, { force: true, recursive: true });
-  await rm(scratchDirs.staging, { force: true, recursive: true });
+  await rm(scratchDirs.previousDir, { force: true, recursive: true });
+  await rm(scratchDirs.stagingDir, { force: true, recursive: true });
 }
 
 /**
@@ -332,17 +332,21 @@ async function removeScratchDirs(scratchDirs: ScratchDirs): Promise<void> {
  * sources with it. A caller that misconfigures it has to hear about it rather than lose a tree.
  */
 function resolveEmitDir(packageDir: string, outdir: string): string {
-  const resolved = path.resolve(packageDir, outdir);
-  const relative = path.relative(packageDir, resolved);
+  const resolvedDir = path.resolve(packageDir, outdir);
+  const relativePathFromPackage = path.relative(packageDir, resolvedDir);
 
-  if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+  if (
+    relativePathFromPackage === '' ||
+    relativePathFromPackage.startsWith('..') ||
+    path.isAbsolute(relativePathFromPackage)
+  ) {
     throw new Error(
       `nmr-compile: refusing to build into '${outdir}', which does not resolve inside the package. ` +
         'The build replaces its output directory on each emit, so the directory must sit below the package root.',
     );
   }
 
-  return resolved;
+  return resolvedDir;
 }
 
 /**
@@ -356,15 +360,15 @@ function resolveEmitDir(packageDir: string, outdir: string): string {
 async function swapIntoPlace(emitDir: string, scratchDirs: ScratchDirs): Promise<void> {
   const hadPreviousOutput = existsSync(emitDir);
   if (hadPreviousOutput) {
-    await rename(emitDir, scratchDirs.previous);
+    await rename(emitDir, scratchDirs.previousDir);
   }
 
   try {
-    await rename(scratchDirs.staging, emitDir);
+    await rename(scratchDirs.stagingDir, emitDir);
   } catch (error: unknown) {
-    // Restore only when `previous` holds the outgoing output and nothing has since taken its place.
+    // Restore only when `previousDir` holds the outgoing output and nothing has since taken its place.
     if (hadPreviousOutput && !existsSync(emitDir)) {
-      await rename(scratchDirs.previous, emitDir);
+      await rename(scratchDirs.previousDir, emitDir);
     }
     throw error;
   }
@@ -390,14 +394,14 @@ function synthesizeCompilerOptions(packageDir: string, outdir: string): ts.Compi
     throw new Error(`nmr-compile: failed to read ${configPath}.\n${formatDiagnostics([configFile.error])}`);
   }
 
-  const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, packageDir);
-  if (parsed.errors.length > 0) {
-    throw new Error(`nmr-compile: failed to parse ${configPath}.\n${formatDiagnostics(parsed.errors)}`);
+  const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, packageDir);
+  if (parsedConfig.errors.length > 0) {
+    throw new Error(`nmr-compile: failed to parse ${configPath}.\n${formatDiagnostics(parsedConfig.errors)}`);
   }
 
   const resolvedOutDir = path.resolve(packageDir, outdir);
   return {
-    ...parsed.options,
+    ...parsedConfig.options,
     noEmit: false,
     emitDeclarationOnly: false,
     declaration: true,
@@ -420,8 +424,8 @@ function synthesizeCompilerOptions(packageDir: string, outdir: string): ts.Compi
  * `declarationDir` to the same directory, so this is unreachable -- which is the point: mapping the path across
  * would otherwise discard, in silence, a file a direct emit would have written.
  */
-function writeStagedOutput(staged: Map<string, StagedFile>, emitDir: string, stagingDir: string): void {
-  for (const [fileName, file] of staged) {
+function writeStagedOutput(stagedFiles: Map<string, StagedFile>, emitDir: string, stagingDir: string): void {
+  for (const [fileName, file] of stagedFiles) {
     if (!isWithin(emitDir, fileName)) {
       throw new Error(
         `nmr-compile: the compiler emitted ${fileName}, which is outside the output directory ${emitDir}. ` +
@@ -516,22 +520,22 @@ function resolveSpecifierReplacement(
   aliasPrefixes: string[],
 ): string | undefined {
   if (isRelativeSpecifier(specifier)) {
-    const rewritten = swapTypeScriptExtension(specifier);
-    return rewritten === specifier ? undefined : rewritten;
+    const rewrittenSpecifier = swapTypeScriptExtension(specifier);
+    return rewrittenSpecifier === specifier ? undefined : rewrittenSpecifier;
   }
 
   if (aliasPrefixes.every((prefix) => !(specifier === prefix || specifier.startsWith(prefix)))) {
     return undefined;
   }
 
-  const resolved = ts.resolveModuleName(specifier, sourceContainingFile, compilerOptions, ts.sys).resolvedModule;
-  if (!resolved) {
+  const resolvedModule = ts.resolveModuleName(specifier, sourceContainingFile, compilerOptions, ts.sys).resolvedModule;
+  if (!resolvedModule) {
     throw new Error(
       `nmr-compile: could not resolve aliased import '${specifier}' from ${sourceContainingFile}. ` +
         `Verify the tsconfig 'paths' mapping and that the target file exists.`,
     );
   }
-  if (!isWithin(sourceRoot, resolved.resolvedFileName)) {
+  if (!isWithin(sourceRoot, resolvedModule.resolvedFileName)) {
     // The alias target escapes the package source tree. Re-resolve the way Node will at runtime, which
     // honors none of TypeScript's resolution overlays: `paths`, `baseUrl`, and `rootDirs` each let a
     // non-relative specifier resolve to a location Node cannot reach, so strip all three. A specifier
@@ -540,25 +544,25 @@ function resolveSpecifierReplacement(
     // an unresolvable specifier that fails at runtime, so fail the build instead.
     // eslint-disable-next-line @typescript-eslint/no-deprecated -- named only to strip it; TypeScript still honors it
     const { paths: _paths, baseUrl: _baseUrl, rootDirs: _rootDirs, ...nodeResolutionOptions } = compilerOptions;
-    const bareResolved = ts.resolveModuleName(
+    const bareResolvedModule = ts.resolveModuleName(
       specifier,
       sourceContainingFile,
       nodeResolutionOptions,
       ts.sys,
     ).resolvedModule;
-    if (bareResolved) {
+    if (bareResolvedModule) {
       return undefined;
     }
     throw new Error(
       `nmr-compile: aliased import '${specifier}' from ${sourceContainingFile} resolves to ` +
-        `${resolved.resolvedFileName}, outside the package source root ${sourceRoot}, and does not resolve ` +
+        `${resolvedModule.resolvedFileName}, outside the package source root ${sourceRoot}, and does not resolve ` +
         `the way Node will at runtime, which ignores tsconfig 'paths', 'baseUrl', and 'rootDirs'. The ` +
         `emitted specifier would fail at runtime; re-anchor the alias inside the package.`,
     );
   }
 
-  const relative = toRelativeSpecifier(path.dirname(sourceContainingFile), resolved.resolvedFileName);
-  return swapTypeScriptExtension(relative);
+  const relativeSpecifier = toRelativeSpecifier(path.dirname(sourceContainingFile), resolvedModule.resolvedFileName);
+  return swapTypeScriptExtension(relativeSpecifier);
 }
 
 /** Invokes the callback with every module-specifier string literal found in the file. */
@@ -715,13 +719,13 @@ function resolveExtendsTarget(extendsEntry: string, fromConfigPath: string): str
 
   // A package that ships no `exports` map is reachable only at its `tsconfig.json` path, which is what
   // TypeScript's own config resolver falls back to.
-  const resolved =
+  const resolvedPath =
     resolvePackageSpecifier(extendsEntry, fromConfigPath) ??
     resolvePackageSpecifier(`${extendsEntry}/tsconfig.json`, fromConfigPath);
-  if (resolved === undefined) {
+  if (resolvedPath === undefined) {
     throw new Error(`nmr-compile: ${fromConfigPath} extends '${extendsEntry}', which does not resolve to a file.`);
   }
-  return resolved;
+  return resolvedPath;
 }
 
 /** Resolves a package specifier to a file through Node module resolution, or `undefined` when it does not resolve. */
@@ -740,8 +744,8 @@ function isRelativeSpecifier(specifier: string): boolean {
 }
 
 function isWithin(parent: string, child: string): boolean {
-  const relative = path.relative(parent, child);
-  return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
+  const relativePath = path.relative(parent, child);
+  return relativePath !== '' && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
 }
 
 /**
@@ -758,8 +762,8 @@ function mapOutputToSource(outputFile: string, compilerOptions: ts.CompilerOptio
 
 /** Expresses `targetFile` as a `./`- or `../`-prefixed POSIX specifier relative to `fromDir`. */
 function toRelativeSpecifier(fromDir: string, targetFile: string): string {
-  const relative = path.relative(fromDir, targetFile).split(path.sep).join('/');
-  return relative.startsWith('.') ? relative : `./${relative}`;
+  const relativePath = path.relative(fromDir, targetFile).split(path.sep).join('/');
+  return relativePath.startsWith('.') ? relativePath : `./${relativePath}`;
 }
 
 function scriptKindFor(file: string): ts.ScriptKind {

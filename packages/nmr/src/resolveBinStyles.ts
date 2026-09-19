@@ -16,14 +16,14 @@ import { UserError } from './UserError.ts';
  * for every other failure in what the caller declared.
  */
 export function resolveBinStyles(): StreamStyles {
-  const { invalid, styles } = resolveOutputStyles({
+  const { invalid: invalidStyle, styles } = resolveOutputStyles({
     env: process.env,
     flagValue: undefined,
     stderrIsTty: process.stderr.isTTY,
     stdoutIsTty: process.stdout.isTTY,
   });
-  if (invalid !== undefined) {
-    throw new UserError(describeInvalidOutputStyle(invalid));
+  if (invalidStyle !== undefined) {
+    throw new UserError(describeInvalidOutputStyle(invalidStyle));
   }
 
   return styles;

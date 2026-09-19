@@ -51,14 +51,14 @@ export function ensurePrepublishHooks(
       continue;
     }
 
-    const existing = pkg.scripts?.['prepublishOnly'];
+    const existingHook = pkg.scripts?.['prepublishOnly'];
 
-    if (existing) {
+    if (existingHook) {
       packages.push({
         packageName,
         packageDir,
         isPrivate: false,
-        prepublishOnly: existing,
+        prepublishOnly: existingHook,
         action: 'ok',
       });
       continue;
@@ -106,18 +106,18 @@ export function reportPrepublishHooks(
   hookCommand: string,
   style: OutputStyle,
 ): void {
-  const publishable = result.packages.filter((pkg) => !pkg.isPrivate);
+  const publishablePackages = result.packages.filter((pkg) => !pkg.isPrivate);
 
-  if (publishable.length === 0) {
+  if (publishablePackages.length === 0) {
     console.info('No publishable packages found.');
     return;
   }
 
-  for (const pkg of publishable) {
+  for (const pkg of publishablePackages) {
     console.info(renderHookStatus(pkg, hookCommand, style));
   }
 
-  reportClosing(describeHookRun(publishable));
+  reportClosing(describeHookRun(publishablePackages));
 }
 
 // region | Helpers
@@ -125,45 +125,46 @@ export function reportPrepublishHooks(
 /** Read a package.json, insert `prepublishOnly` into scripts, and write back. */
 function addPrepublishOnly(packageDir: string, command: string): void {
   const filePath = path.join(packageDir, 'package.json');
-  const raw = readFileSync(filePath, 'utf8');
-  const parsed: unknown = JSON.parse(raw);
+  const rawText = readFileSync(filePath, 'utf8');
+  const parsedManifest: unknown = JSON.parse(rawText);
 
-  if (!isObject(parsed)) {
+  if (!isObject(parsedManifest)) {
     throw new TypeError(`Invalid package.json in ${packageDir}: expected an object`);
   }
 
-  const scripts = isObject(parsed['scripts']) ? parsed['scripts'] : {};
+  const scripts = isObject(parsedManifest['scripts']) ? parsedManifest['scripts'] : {};
   scripts['prepublishOnly'] = command;
-  parsed['scripts'] = scripts;
+  parsedManifest['scripts'] = scripts;
 
-  writeFileSync(filePath, JSON.stringify(parsed, null, 2) + '\n', 'utf8');
+  writeFileSync(filePath, JSON.stringify(parsedManifest, null, 2) + '\n', 'utf8');
 }
 
 /** Counts the packages a run left in the given state. */
-function countAction(publishable: PackageHookStatus[], action: PackageHookStatus['action']): number {
-  return publishable.filter((pkg) => pkg.action === action).length;
+function countAction(publishablePackages: PackageHookStatus[], action: PackageHookStatus['action']): number {
+  return publishablePackages.filter((pkg) => pkg.action === action).length;
 }
 
 /** Names what a run came to: the packages carrying the hook, or what became of those that were not. */
-function describeHookRun(publishable: PackageHookStatus[]): string {
-  const packages = publishable.length === 1 ? '1 publishable package' : `${publishable.length} publishable packages`;
+function describeHookRun(publishablePackages: PackageHookStatus[]): string {
+  const packages =
+    publishablePackages.length === 1 ? '1 publishable package' : `${publishablePackages.length} publishable packages`;
 
-  const missing = countAction(publishable, 'missing');
-  if (missing > 0) {
-    return `${missing} of ${packages} ${missing === 1 ? 'is' : 'are'} missing prepublishOnly. Run with --fix to add it.`;
+  const missingCount = countAction(publishablePackages, 'missing');
+  if (missingCount > 0) {
+    return `${missingCount} of ${packages} ${missingCount === 1 ? 'is' : 'are'} missing prepublishOnly. Run with --fix to add it.`;
   }
 
-  const fixed = countAction(publishable, 'fixed');
-  if (fixed > 0) {
-    return `Added prepublishOnly to ${fixed} of ${packages}.`;
+  const fixedCount = countAction(publishablePackages, 'fixed');
+  if (fixedCount > 0) {
+    return `Added prepublishOnly to ${fixedCount} of ${packages}.`;
   }
 
-  const wouldFix = countAction(publishable, 'would-fix');
-  if (wouldFix > 0) {
-    return `Would add prepublishOnly to ${wouldFix} of ${packages}.`;
+  const wouldFixCount = countAction(publishablePackages, 'would-fix');
+  if (wouldFixCount > 0) {
+    return `Would add prepublishOnly to ${wouldFixCount} of ${packages}.`;
   }
 
-  return `${packages} ${publishable.length === 1 ? 'has' : 'have'} prepublishOnly.`;
+  return `${packages} ${publishablePackages.length === 1 ? 'has' : 'have'} prepublishOnly.`;
 }
 
 /**

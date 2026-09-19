@@ -36,8 +36,8 @@ const STREAM_MARKER = '\n… nmr: stderr …\n';
  * stderr on failure is the command's own output going to a stream that may be a terminal, and stripping its
  * color there would be a loss.
  */
-export function cleanTranscript(raw: string): string {
-  return raw
+export function cleanTranscript(rawText: string): string {
+  return rawText
     .replaceAll(ANSI_PATTERN, '')
     .split('\n')
     .map((line) => renderCarriageReturns(line))
@@ -52,8 +52,8 @@ export function cleanTranscript(raw: string): string {
  * failure: nmr reads each through a pipe of its own, so their true interleaving is not among the facts it
  * holds. A stream carrying nothing contributes neither content nor marker.
  */
-export function composeTranscript(retained: RetainedOutput): string | undefined {
-  const streams = [retained.stdout, retained.stderr]
+export function composeTranscript(retainedOutput: RetainedOutput): string | undefined {
+  const streams = [retainedOutput.stdout, retainedOutput.stderr]
     .map((stream) => cleanTranscript(stream.toString('utf8')))
     .filter((stream) => stream.trim() !== '');
   if (streams.length === 0) {
@@ -73,22 +73,22 @@ export function formatElisionMarker(byteCount: number): string {
 
 /** Moves an offset back off the head of a character it lands inside, so a cut never closes on half of one. */
 function alignEnd(buffer: Buffer, end: number): number {
-  let aligned = Math.min(buffer.length, end);
-  while (aligned > 0 && isContinuationByte(buffer[aligned])) {
-    aligned--;
+  let alignedOffset = Math.min(buffer.length, end);
+  while (alignedOffset > 0 && isContinuationByte(buffer[alignedOffset])) {
+    alignedOffset--;
   }
 
-  return aligned;
+  return alignedOffset;
 }
 
 /** Moves an offset forward off the tail of a character it lands inside, so a cut never opens on half of one. */
 function alignStart(buffer: Buffer, start: number): number {
-  let aligned = Math.max(0, start);
-  while (aligned < buffer.length && isContinuationByte(buffer[aligned])) {
-    aligned++;
+  let alignedOffset = Math.max(0, start);
+  while (alignedOffset < buffer.length && isContinuationByte(buffer[alignedOffset])) {
+    alignedOffset++;
   }
 
-  return aligned;
+  return alignedOffset;
 }
 
 /**

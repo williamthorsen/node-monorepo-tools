@@ -11,7 +11,7 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "3323dc61",
+          "hash": "0ae7745f",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -34,7 +34,7 @@
           "path": "../src/resolve-scripts.ts"
         },
         {
-          "hash": "b8cd07d5",
+          "hash": "beb92e94",
           "kind": "module",
           "path": "../src/tiers.ts"
         }
@@ -43,8 +43,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.38.0",
       "source": "kits/default.ts",
-      "sourceHash": "3323dc61",
-      "targetHash": "3145af4e"
+      "sourceHash": "0ae7745f",
+      "targetHash": "4f17d9e3"
     }
   ]
 }

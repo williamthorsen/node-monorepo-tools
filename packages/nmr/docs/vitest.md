@@ -84,17 +84,17 @@ The sweep starts at the monorepo root rather than at the directory Vitest suppli
 
 An exported check rather than a step nmr runs for you, because nothing nmr runs reaches the whole tree: `nmr test` fans out per package, and a direct `vitest` invocation runs no nmr script at all. A test the repo owns also lets the repo scope what the sweep covers.
 
-`exclude` names directory basenames the sweep prunes at any depth, additive to the ones nmr always prunes:
+`excludedBasenames` names directory basenames the sweep prunes at any depth, additive to the ones nmr always prunes:
 
 ```ts
-checkTestFileConventions({ exclude: ['cypress', 'generated'] });
+checkTestFileConventions({ excludedBasenames: ['cypress', 'generated'] });
 ```
 
 **Pass the same array to [`testCollectionExclude`](#what-the-config-excludes).** The two describe one scope, and naming a directory in only one is a defect in either direction. Pruned from the sweep alone, the directory's test files still run and still report nothing, which is the silence this check exists to end. Excluded from collection alone, the sweep reports files a consumer has no reason to act on.
 
 Expect the first run to fail in a repo that has never gated this. Vitest 4 excludes only `node_modules` and `.git` by default, so a `__tests__` tree under a generated or vendored directory is collected and runs today; naming that directory in both lists is the fix, rather than widening what nmr prunes for everyone.
 
-In a repo that has not declared the check, [nmr's readyup kit](../README.md#conformance-checks) reports both halves and warns that the check is missing. Once a test file under `__tests__` imports it, the kit skips both reports and names that file as the reason. Only the check reads the repo's `exclude`, and a kit report beside it could only repeat its findings or name a directory that the repo has pruned.
+In a repo that has not declared the check, [nmr's readyup kit](../README.md#conformance-checks) reports both halves and warns that the check is missing. Once a test file under `__tests__` imports it, the kit skips both reports and names that file as the reason. Only the check reads the repo's `excludedBasenames`, and a kit report beside it could only repeat its findings or name a directory that the repo has pruned.
 
 ## What the config supplies
 

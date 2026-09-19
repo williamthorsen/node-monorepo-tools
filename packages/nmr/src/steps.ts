@@ -323,7 +323,7 @@ function renderStep(step: Step): string {
  */
 function splitSegments(command: string): string[] {
   const segments: string[] = [];
-  let current = '';
+  let currentSegment = '';
   let quote: string | undefined;
   let index = 0;
 
@@ -332,48 +332,48 @@ function splitSegments(command: string): string[] {
 
     if (quote !== undefined) {
       if (char === '\\' && quote === '"') {
-        current += char + (command[index + 1] ?? '');
+        currentSegment += char + (command[index + 1] ?? '');
         index += 2;
         continue;
       }
-      current += char;
+      currentSegment += char;
       if (char === quote) quote = undefined;
       index += 1;
       continue;
     }
 
     if (char === '\\') {
-      current += char + (command[index + 1] ?? '');
+      currentSegment += char + (command[index + 1] ?? '');
       index += 2;
       continue;
     }
 
     if (QUOTES.has(char)) {
       quote = char;
-      current += char;
+      currentSegment += char;
       index += 1;
       continue;
     }
 
     if (SEGMENT_SEPARATORS.has(char)) {
-      if (isRedirectionOperator(char, current, command[index + 1])) {
-        current += char;
+      if (isRedirectionOperator(char, currentSegment, command[index + 1])) {
+        currentSegment += char;
         index += 1;
         continue;
       }
 
       // `&&` and `||` spend two characters on the break a lone `&` or `|` spends one on.
       index += command[index + 1] === char ? 2 : 1;
-      segments.push(current);
-      current = '';
+      segments.push(currentSegment);
+      currentSegment = '';
       continue;
     }
 
-    current += char;
+    currentSegment += char;
     index += 1;
   }
 
-  segments.push(current);
+  segments.push(currentSegment);
   return segments;
 }
 
@@ -393,7 +393,7 @@ function tokenize(element: string): string[] {
  */
 function tokenizeSegment(segment: string): string[] {
   const tokens: string[] = [];
-  let current = '';
+  let currentToken = '';
   let quote: string | undefined;
   let index = 0;
 
@@ -402,44 +402,44 @@ function tokenizeSegment(segment: string): string[] {
 
     if (quote !== undefined) {
       if (char === '\\' && quote === '"') {
-        current += char + (segment[index + 1] ?? '');
+        currentToken += char + (segment[index + 1] ?? '');
         index += 2;
         continue;
       }
-      current += char;
+      currentToken += char;
       if (char === quote) quote = undefined;
       index += 1;
       continue;
     }
 
     if (char === '\\') {
-      current += char + (segment[index + 1] ?? '');
+      currentToken += char + (segment[index + 1] ?? '');
       index += 2;
       continue;
     }
 
     if (QUOTES.has(char)) {
       quote = char;
-      current += char;
+      currentToken += char;
       index += 1;
       continue;
     }
 
     if (TOKEN_SEPARATORS.has(char)) {
-      if (current !== '') {
-        tokens.push(current);
+      if (currentToken !== '') {
+        tokens.push(currentToken);
       }
-      current = '';
+      currentToken = '';
       index += 1;
       continue;
     }
 
-    current += char;
+    currentToken += char;
     index += 1;
   }
 
-  if (current !== '') {
-    tokens.push(current);
+  if (currentToken !== '') {
+    tokens.push(currentToken);
   }
   return tokens;
 }

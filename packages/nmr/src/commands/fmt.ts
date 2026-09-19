@@ -65,26 +65,26 @@ export type ResolveTargetsResult = { ok: true; targets: FormatTargets } | { ok: 
  * success over an empty selection.
  */
 export function runFmt(argv: string[], cwd: string = process.cwd()): number {
-  const parsed = parseFmtArgs(argv);
-  if (!parsed.ok) {
-    reportError(`nmr-fmt: ${parsed.error}`);
+  const parsedArgs = parseFmtArgs(argv);
+  if (!parsedArgs.ok) {
+    reportError(`nmr-fmt: ${parsedArgs.error}`);
     process.stderr.write(`${USAGE}\n`);
     return 1;
   }
 
-  const resolved = resolveFormatTargets(cwd, parsed.pathspecs);
-  if (!resolved.ok) {
-    reportError(`nmr-fmt: ${resolved.error}`);
+  const resolvedTargets = resolveFormatTargets(cwd, parsedArgs.pathspecs);
+  if (!resolvedTargets.ok) {
+    reportError(`nmr-fmt: ${resolvedTargets.error}`);
     return 1;
   }
 
-  const { files, ignorePaths } = resolved.targets;
+  const { files, ignorePaths } = resolvedTargets.targets;
   if (files.length === 0) {
     // A caller who named paths and got nothing back selected nothing, which a clean run looks exactly
     // like. Without pathspecs there is simply nothing to format, and Prettier given no file arguments
     // would read stdin and fail.
-    if (parsed.pathspecs.length > 0) {
-      reportError(`nmr-fmt: no formattable files matched: ${parsed.pathspecs.join(', ')}`);
+    if (parsedArgs.pathspecs.length > 0) {
+      reportError(`nmr-fmt: no formattable files matched: ${parsedArgs.pathspecs.join(', ')}`);
       return 1;
     }
     return 0;
@@ -96,7 +96,7 @@ export function runFmt(argv: string[], cwd: string = process.cwd()): number {
     return 1;
   }
 
-  return runPrettier({ cliPath: cli.cliPath, mode: parsed.mode, files, ignorePaths, cwd });
+  return runPrettier({ cliPath: cli.cliPath, mode: parsedArgs.mode, files, ignorePaths, cwd });
 }
 
 /**
@@ -117,13 +117,13 @@ export function resolveFormatTargets(cwd: string, pathspecs: string[] = []): Res
 
   const repositoryRoot = toplevel.stdout.trim();
 
-  const listed = runGit([...LIST_FILES_ARGS, '--', ...pathspecs], cwd);
-  if (!listed.ok) return listed;
+  const listedFiles = runGit([...LIST_FILES_ARGS, '--', ...pathspecs], cwd);
+  if (!listedFiles.ok) return listedFiles;
 
   const ignoreFiles = runGit([...LIST_FILES_ARGS, '--', IGNORE_FILE_PATHSPEC], repositoryRoot);
   if (!ignoreFiles.ok) return ignoreFiles;
 
-  const discovered = splitNulSeparated(ignoreFiles.stdout)
+  const discoveredIgnorePaths = splitNulSeparated(ignoreFiles.stdout)
     .filter((file) => path.basename(file) === IGNORE_FILENAME)
     .map((file) => path.resolve(repositoryRoot, file));
 
@@ -131,13 +131,13 @@ export function resolveFormatTargets(cwd: string, pathspecs: string[] = []): Res
     ok: true,
     targets: {
       // Sorted for a stable file order across runs; `--cached --others` emits untracked entries first.
-      files: dedupe(splitNulSeparated(listed.stdout))
+      files: dedupe(splitNulSeparated(listedFiles.stdout))
         .filter((file) => isFormattableFile(cwd, file))
         .toSorted(),
       // The repository-root file leads whether or not it exists. Passing any explicit `--ignore-path`
       // suppresses Prettier's working-directory-relative default discovery, and that suppression is what
       // makes the ignore set identical from every directory. Prettier tolerates a path that is not there.
-      ignorePaths: dedupe([path.join(repositoryRoot, IGNORE_FILENAME), ...discovered]),
+      ignorePaths: dedupe([path.join(repositoryRoot, IGNORE_FILENAME), ...discoveredIgnorePaths]),
     },
   };
 }
@@ -164,11 +164,11 @@ function parseFmtArgs(argv: string[]): ParseArgsResult {
 
   for (const arg of argv) {
     if (arg === '--check' || arg === '--write') {
-      const requested: FormatMode = arg === '--check' ? 'check' : 'write';
-      if (mode !== undefined && mode !== requested) {
+      const requestedMode: FormatMode = arg === '--check' ? 'check' : 'write';
+      if (mode !== undefined && mode !== requestedMode) {
         return { ok: false, error: 'Pass --check or --write, not both.' };
       }
-      mode = requested;
+      mode = requestedMode;
       continue;
     }
     if (arg.startsWith('-')) {
@@ -200,7 +200,7 @@ function parseFmtArgs(argv: string[]): ParseArgsResult {
  * correctness nothing.
  */
 function resolvePrettierCli(): { ok: true; cliPath: string } | { ok: false; error: string } {
-  const missing = {
+  const missingResult = {
     ok: false as const,
     error: `\`${PRETTIER_PACKAGE}\` (${PRETTIER_RANGE}) could not be resolved. Install it in this repository.`,
   };
@@ -209,15 +209,15 @@ function resolvePrettierCli(): { ok: true; cliPath: string } | { ok: false; erro
   try {
     manifestPath = createRequire(import.meta.url).resolve(`${PRETTIER_PACKAGE}/package.json`);
   } catch {
-    return missing;
+    return missingResult;
   }
 
   const manifest: unknown = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  if (!isObject(manifest)) return missing;
+  if (!isObject(manifest)) return missingResult;
 
   // Prettier declares a lone CLI, as a bare path in 3.x and as a named map in some releases.
   const bin = isObject(manifest['bin']) ? manifest['bin'][PRETTIER_PACKAGE] : manifest['bin'];
-  if (typeof bin !== 'string') return missing;
+  if (typeof bin !== 'string') return missingResult;
 
   return { ok: true, cliPath: path.resolve(path.dirname(manifestPath), bin) };
 }

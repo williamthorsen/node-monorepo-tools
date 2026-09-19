@@ -137,51 +137,51 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     reportError(parseResult.error, stderr);
     return { exitCode: 1 };
   }
-  const { parsed } = parseResult;
+  const { parsedArgs } = parseResult;
 
   // Ahead of every other outcome, `--version` and `--help` included, so one source's validity has one answer.
   // The levels below the environment wait on the config, which `--version` must keep not loading.
-  const inherited = readPresentation({
+  const presentationRead = readPresentation({
     env,
-    flagValue: parsed.outputStyle,
+    flagValue: parsedArgs.outputStyle,
     stderrIsTty: isTerminalStream(stderr),
     stdoutIsTty: isTerminalStream(stdout),
   });
-  if (!inherited.ok) {
-    reportError(inherited.error, stderr);
+  if (!presentationRead.ok) {
+    reportError(presentationRead.error, stderr);
     return { exitCode: 1 };
   }
-  const { styles } = inherited;
+  const { styles } = presentationRead;
 
-  if (parsed.shouldShowVersion) {
+  if (parsedArgs.shouldShowVersion) {
     stdout.write(`${VERSION}\n`);
     return { exitCode: 0 };
   }
 
   const context = await resolveContext(cwd);
 
-  const format = resolveReportFormat({ envFormat: inherited.format, hasJsonFlag: parsed.shouldEmitJson });
+  const format = resolveReportFormat({ envFormat: presentationRead.format, hasJsonFlag: parsedArgs.shouldEmitJson });
   const verbosity = resolveReportingVerbosity({
     env,
-    envVerbosity: inherited.verbosity,
+    envVerbosity: presentationRead.verbosity,
     format,
     output: context.config.output,
-    hasQuietFlag: parsed.quiet,
+    hasQuietFlag: parsedArgs.quiet,
   });
   const quiet = verbosity === 'quiet';
 
   // Determine which registry to use
-  const shouldUseRoot = parsed.isWorkspaceRoot || context.isRoot;
+  const shouldUseRoot = parsedArgs.isWorkspaceRoot || context.isRoot;
 
   // Anchors registry resolution and execution alike: a script runs in the directory its registry belongs to.
   const anchorDir = shouldUseRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
 
-  if (parsed.shouldShowHelp || !parsed.command) {
+  if (parsedArgs.shouldShowHelp || !parsedArgs.command) {
     stdout.write(`${generateHelp(context.config, anchorDir, shouldUseRoot)}\n`);
     return { exitCode: 0 };
   }
 
-  const { command } = parsed;
+  const { command } = parsedArgs;
 
   const scope = path.basename(anchorDir);
 
@@ -190,18 +190,18 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     config: context.config,
     env,
     monorepoRoot: context.monorepoRoot,
-    passthrough: parsed.passthrough,
+    passthrough: parsedArgs.passthrough,
     stderr,
     style: styles.stderr,
   });
 
-  const shouldBypassCache = parsed.shouldBypassCache || env[NO_CACHE_ENV_VAR] === '1';
+  const shouldBypassCache = parsedArgs.shouldBypassCache || env[NO_CACHE_ENV_VAR] === '1';
   const runId = resolveRunId(env);
   const childEnv = buildChildEnv({
     env,
     format,
     shouldBypassCache,
-    passthrough: parsed.passthrough,
+    passthrough: parsedArgs.passthrough,
     runId,
     snapshot,
     styles,
@@ -215,9 +215,9 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   };
 
   // -F and -R: delegate to pnpm, which runs one nmr per scope it selects
-  const delegation = composeDelegation({ childEnv, command, parsed });
+  const delegation = composeDelegation({ childEnv, command, parsedArgs });
   if (delegation !== undefined) {
-    return runDelegation({ context, delegation, parsed, runOptions, stderr });
+    return runDelegation({ context, delegation, parsedArgs, runOptions, stderr });
   }
 
   const registry = shouldUseRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config);
@@ -225,15 +225,15 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   assertNoSelfReference({
     anchorDir,
     command,
-    isReading: parsed.shouldPrintLog,
-    isWorkspaceRoot: parsed.isWorkspaceRoot,
+    isReading: parsedArgs.shouldPrintLog,
+    isWorkspaceRoot: parsedArgs.isWorkspaceRoot,
     monorepoRoot: context.monorepoRoot,
     registry,
   });
 
-  const resolved = resolveScript(command, registry, anchorDir, parsed.isWorkspaceRoot);
+  const resolvedScript = resolveScript(command, registry, anchorDir, parsedArgs.isWorkspaceRoot);
 
-  if (!resolved) {
+  if (!resolvedScript) {
     if (env[RUN_IF_PRESENT_ENV_VAR] === '1') {
       return { exitCode: 0 };
     }
@@ -243,12 +243,15 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // Ahead of the rendering, which is the cache key and what `--log` resolves: a filter applied later would let
   // a run and a reading of its recording disagree about what the chain was.
-  const { isEmptiedByWorkspace, steps: runnableSteps } = readRunnableSteps(resolved, context.workspacePackageDirs);
+  const { isEmptiedByWorkspace, steps: runnableSteps } = readRunnableSteps(
+    resolvedScript,
+    context.workspacePackageDirs,
+  );
 
   const resolvedCommand = renderChain(runnableSteps);
 
   const noOpReason = findNoOpReason(resolvedCommand, isEmptiedByWorkspace);
-  if (noOpReason !== undefined && !parsed.shouldPrintLog) {
+  if (noOpReason !== undefined && !parsedArgs.shouldPrintLog) {
     reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout, format, styles.stdout);
     return { exitCode: 0 };
   }
@@ -258,29 +261,29 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // Ahead of the recording branch as well as the run, so that reading what a command did and running it answer
   // an unroutable argument the same way.
-  const bound = bindPassthrough(substitutedSteps, parsed.passthrough, command);
-  if (!bound.ok) {
-    reportError(bound.error, stderr);
+  const bindResult = bindPassthrough(substitutedSteps, parsedArgs.passthrough, command);
+  if (!bindResult.ok) {
+    reportError(bindResult.error, stderr);
     return { exitCode: 1 };
   }
 
-  const mainSteps = bound.steps;
+  const mainSteps = bindResult.steps;
 
   // Hook recursion guard: a command ending in `:pre` or `:post` is a leaf operation, and is not itself
   // wrapped in further hook lookups.
   const isHookInvocation = isHookName(command);
   const fullSteps = isHookInvocation
     ? mainSteps
-    : wrapWithHooks(command, mainSteps, registry, anchorDir, parsed.isWorkspaceRoot);
+    : wrapWithHooks(command, mainSteps, registry, anchorDir, parsedArgs.isWorkspaceRoot);
   const fullCommand = renderChain(fullSteps);
 
   reportNmrCrossing({
     config: context.config,
-    isReading: parsed.shouldPrintLog,
-    isWorkspaceRoot: parsed.isWorkspaceRoot,
+    isReading: parsedArgs.shouldPrintLog,
+    isWorkspaceRoot: parsedArgs.isWorkspaceRoot,
     monorepoRoot: context.monorepoRoot,
     registry,
-    resolved,
+    resolvedScript,
     shouldUseRoot,
     stderr,
     style: styles.stderr,
@@ -301,7 +304,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // Reading a recording is not running one: the branch takes over once the key describing this chain is in
   // hand, and nothing below it -- hook, verdict, or cache write -- is reached.
-  if (parsed.shouldPrintLog) {
+  if (parsedArgs.shouldPrintLog) {
     return reportRecording({
       anchorDir,
       command,
@@ -327,7 +330,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     env,
     key,
     monorepoRoot: context.monorepoRoot,
-    overrideNotice: formatOverrideNotice(resolved, registry, command, anchorDir, quiet, styles.stdout),
+    overrideNotice: formatOverrideNotice(resolvedScript, registry, command, anchorDir, quiet, styles.stdout),
     ownSteps: mainSteps,
     runId,
     runOptions,
@@ -361,7 +364,7 @@ interface ParsedArgs {
   passthrough: string[];
 }
 
-type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string };
+type ParseResult = { ok: true; parsedArgs: ParsedArgs } | { ok: false; error: string };
 
 /** A field a flag sets by being written, none of which takes a value of its own. */
 type BooleanFlagName =
@@ -509,15 +512,15 @@ function formatUnroutableArgumentsError(command: string): string {
 function composeDelegation(options: {
   childEnv: NodeJS.ProcessEnv;
   command: string;
-  parsed: ParsedArgs;
+  parsedArgs: ParsedArgs;
 }): { env: NodeJS.ProcessEnv; step: Extract<Step, { kind: 'structural' }> } | undefined {
-  const { childEnv, command, parsed } = options;
+  const { childEnv, command, parsedArgs } = options;
 
   let scope: string[] | undefined;
-  let shouldRunIfPresent = parsed.shouldPrintLog;
-  if (parsed.filter) {
-    scope = ['--filter', parsed.filter];
-  } else if (parsed.recursive) {
+  let shouldRunIfPresent = parsedArgs.shouldPrintLog;
+  if (parsedArgs.filter) {
+    scope = ['--filter', parsedArgs.filter];
+  } else if (parsedArgs.recursive) {
     scope = ['--recursive'];
     shouldRunIfPresent = true;
   }
@@ -525,13 +528,13 @@ function composeDelegation(options: {
     return undefined;
   }
 
-  const flags = parsed.shouldPrintLog ? ['--log'] : [];
+  const flags = parsedArgs.shouldPrintLog ? ['--log'] : [];
 
   return {
     env: shouldRunIfPresent ? { ...childEnv, [RUN_IF_PRESENT_ENV_VAR]: '1' } : childEnv,
     step: {
       kind: 'structural',
-      argv: ['pnpm', ...scope, 'exec', 'nmr', ...flags, command, ...parsed.passthrough],
+      argv: ['pnpm', ...scope, 'exec', 'nmr', ...flags, command, ...parsedArgs.passthrough],
     },
   };
 }
@@ -551,15 +554,16 @@ async function composeRetention(options: {
   command: string;
   key: string;
   monorepoRoot: string;
-  retained: RetainedOutput | undefined;
+  retainedOutput: RetainedOutput | undefined;
   runId: string;
   steps: readonly Step[];
   treeHash: string;
 }): Promise<Retention | undefined> {
-  const { anchorDir, command, key, retained, runId } = options;
+  const { anchorDir, command, key, retainedOutput, runId } = options;
 
-  if (retained !== undefined) {
-    const excerpt = deriveExcerpt(retained.stdout.toString('utf8')) ?? deriveExcerpt(retained.stderr.toString('utf8'));
+  if (retainedOutput !== undefined) {
+    const excerpt =
+      deriveExcerpt(retainedOutput.stdout.toString('utf8')) ?? deriveExcerpt(retainedOutput.stderr.toString('utf8'));
     if (excerpt === undefined) {
       return undefined;
     }
@@ -585,13 +589,13 @@ async function composeRetention(options: {
  * an origin kind added without a remedy fails to compile.
  */
 function describeCrossingRemedy(options: {
-  crossing: string;
+  crossingStep: string;
   isWorkspaceRoot: boolean;
   monorepoRoot: string;
   origin: DiagnosticOrigin;
   registry: ScriptRegistry;
 }): { remedy: string; subject: string } {
-  const { crossing, isWorkspaceRoot, monorepoRoot, origin, registry } = options;
+  const { crossingStep, isWorkspaceRoot, monorepoRoot, origin, registry } = options;
   const configSite = path.relative(monorepoRoot, resolveConfigPath(monorepoRoot));
 
   switch (origin.tier) {
@@ -607,12 +611,12 @@ function describeCrossingRemedy(options: {
       };
     case 'package':
       return {
-        remedy: formatPackageRemedy({ configSite, crossing, isWorkspaceRoot, key: origin.key, registry }),
+        remedy: formatPackageRemedy({ configSite, crossingStep, isWorkspaceRoot, key: origin.key, registry }),
         subject: `${path.relative(monorepoRoot, origin.file)}: \`scripts.${origin.key}\``,
       };
     default: {
-      const unhandled: never = origin;
-      throw new Error(`Unhandled script origin: ${JSON.stringify(unhandled)}`);
+      const unhandledOrigin: never = origin;
+      throw new Error(`Unhandled script origin: ${JSON.stringify(unhandledOrigin)}`);
     }
   }
 }
@@ -667,12 +671,12 @@ function describeOrigin(origin: ScriptOrigin, config: NmrConfig, shouldUseRoot: 
  * rendered chain against the entry, and an escape applied ahead of that comparison would defeat it.
  */
 function escapeControlCharacters(text: string): string {
-  let escaped = text;
+  let escapedText = text;
   for (const [char, escape] of NAMED_ESCAPES) {
-    escaped = escaped.split(char).join(escape);
+    escapedText = escapedText.split(char).join(escape);
   }
 
-  return escaped;
+  return escapedText;
 }
 
 /**
@@ -683,7 +687,7 @@ function escapeControlCharacters(text: string): string {
  * derives the remedy from that site rather than naming one tier for every case.
  */
 function formatNmrCrossingWarning(options: {
-  crossing: string;
+  crossingStep: string;
   isWorkspaceRoot: boolean;
   monorepoRoot: string;
   origin: DiagnosticOrigin;
@@ -694,7 +698,7 @@ function formatNmrCrossingWarning(options: {
 
   return (
     `${STATUS_GLYPHS[options.style].warning.text} ${subject} reaches nmr through a shell ` +
-    `(\`${escapeControlCharacters(options.crossing)}\`), ${CROSSING_CONSEQUENCE} ${remedy}`
+    `(\`${escapeControlCharacters(options.crossingStep)}\`), ${CROSSING_CONSEQUENCE} ${remedy}`
   );
 }
 
@@ -704,7 +708,7 @@ function formatNmrCrossingWarning(options: {
  * tier-3 entry that happens to resolve is not standing in for anything.
  */
 function formatOverrideNotice(
-  resolved: ResolvedScript,
+  resolvedScript: ResolvedScript,
   registry: ScriptRegistry,
   command: string,
   anchorDir: string,
@@ -712,11 +716,11 @@ function formatOverrideNotice(
   style: OutputStyle,
 ): string | undefined {
   const registryEntry = Object.hasOwn(registry, command) ? registry[command] : undefined;
-  if (quiet || resolved.origin.tier !== 'package' || registryEntry === undefined) {
+  if (quiet || resolvedScript.origin.tier !== 'package' || registryEntry === undefined) {
     return undefined;
   }
 
-  const notice = `${path.basename(anchorDir)}: Using override script: ${renderChain(resolved.steps)}`;
+  const notice = `${path.basename(anchorDir)}: Using override script: ${renderChain(resolvedScript.steps)}`;
 
   return `${formatGlyphLine(NMR_GLYPHS, style, 'package', notice)}\n`;
 }
@@ -743,7 +747,7 @@ function formatSelfReferenceRemedy(options: {
 
   const configSite = path.relative(monorepoRoot, resolveConfigPath(monorepoRoot));
 
-  return formatPackageRemedy({ configSite, crossing: script, isWorkspaceRoot, key: command, registry });
+  return formatPackageRemedy({ configSite, crossingStep: script, isWorkspaceRoot, key: command, registry });
 }
 
 /**
@@ -755,12 +759,12 @@ function formatSelfReferenceRemedy(options: {
  */
 function formatPackageRemedy(options: {
   configSite: string;
-  crossing: string;
+  crossingStep: string;
   isWorkspaceRoot: boolean;
   key: string;
   registry: ScriptRegistry;
 }): string {
-  const { configSite, crossing, isWorkspaceRoot, key, registry } = options;
+  const { configSite, crossingStep, isWorkspaceRoot, key, registry } = options;
   const registryEntry = Object.hasOwn(registry, key) ? registry[key] : undefined;
 
   if (registryEntry === undefined) {
@@ -771,7 +775,7 @@ function formatPackageRemedy(options: {
   }
 
   const registryChain = renderChain(expandScript(registryEntry, isWorkspaceRoot));
-  if (registryChain === crossing) {
+  if (registryChain === crossingStep) {
     return `Delete the entry: nmr's own \`${key}\` already runs \`${escapeControlCharacters(registryChain)}\`.`;
   }
 
@@ -784,8 +788,13 @@ function formatPackageRemedy(options: {
  * `--log` names what to print rather than what to run, so an invocation carrying it and no command has asked
  * for nothing; the help text answers a different question and is not a stand-in for the flag's own grammar.
  */
-function findArgError(parsed: ParsedArgs): string | undefined {
-  if (parsed.shouldPrintLog && parsed.command === undefined && !parsed.shouldShowHelp && !parsed.shouldShowVersion) {
+function findArgError(parsedArgs: ParsedArgs): string | undefined {
+  if (
+    parsedArgs.shouldPrintLog &&
+    parsedArgs.command === undefined &&
+    !parsedArgs.shouldShowHelp &&
+    !parsedArgs.shouldShowVersion
+  ) {
     return '--log requires a command name: `nmr --log <command>`';
   }
 
@@ -806,23 +815,23 @@ function findArgError(parsed: ParsedArgs): string | undefined {
  */
 function findEmptySelectionRefusal(options: {
   context: ResolvedContext;
-  parsed: ParsedArgs;
+  parsedArgs: ParsedArgs;
   selection: FilterSelection | undefined;
 }): string | undefined {
-  const { context, parsed, selection } = options;
+  const { context, parsedArgs, selection } = options;
 
   const isPackageless = context.workspacePackageDirs.length === 0;
 
-  if (parsed.filter !== undefined) {
+  if (parsedArgs.filter !== undefined) {
     if (selection !== 'empty') {
       return undefined;
     }
     // A workspace holding no package would have refused whatever the pattern was, so the pattern-shape rules
     // below answer the wrong question there: no name rule and no near-name search repairs a workspace.
     if (isPackageless) {
-      return `${formatFilterRejection(parsed.filter)} ${describeEmptyWorkspace(context.monorepoRoot)}`;
+      return `${formatFilterRejection(parsedArgs.filter)} ${describeEmptyWorkspace(context.monorepoRoot)}`;
     }
-    return formatEmptyFilterError(parsed.filter, readWorkspacePackageNames(context.workspacePackageDirs));
+    return formatEmptyFilterError(parsedArgs.filter, readWorkspacePackageNames(context.workspacePackageDirs));
   }
 
   return isPackageless ? `${RECURSIVE_REJECTION} ${describeEmptyWorkspace(context.monorepoRoot)}` : undefined;
@@ -871,30 +880,30 @@ function formatEmptyFilterError(pattern: string, names: readonly string[]): stri
  */
 function describeEmptyWorkspace(monorepoRoot: string): string {
   const { cause, patterns } = diagnoseEmptyWorkspace(monorepoRoot);
-  const declared = describeDeclaredPatterns(patterns);
+  const declaredClause = describeDeclaredPatterns(patterns);
 
   switch (cause) {
     case 'all-excluded':
       return (
-        `pnpm-workspace.yaml ${declared}, whose \`!\` entries exclude every directory matched by the positive ` +
+        `pnpm-workspace.yaml ${declaredClause}, whose \`!\` entries exclude every directory matched by the positive ` +
         'patterns. Drop or narrow the exclusion.'
       );
     case 'no-manifest':
       return (
-        `pnpm-workspace.yaml ${declared}, and the matcher found no directory holding a \`package.json\`. ` +
+        `pnpm-workspace.yaml ${declaredClause}, and the matcher found no directory holding a \`package.json\`. ` +
         'nmr counts a directory as a package only where it holds `package.json`; unlike pnpm, it recognizes ' +
         'neither `package.yaml` nor `package.json5`. Add a `package.json` to the directory that should be a ' +
         'package, or declare a pattern reaching a directory that holds one.'
       );
     case 'no-pattern':
       return (
-        `pnpm-workspace.yaml ${declared}, so no pattern reaches the matcher. Declare a positive pattern such ` +
+        `pnpm-workspace.yaml ${declaredClause}, so no pattern reaches the matcher. Declare a positive pattern such ` +
         'as `packages/*`, and quote any `!` entry, which YAML reads as a tag rather than a string where it ' +
         'stands bare.'
       );
     default: {
-      const unhandled: never = cause;
-      throw new Error(`Unhandled empty-workspace cause: ${String(unhandled)}`);
+      const unhandledCause: never = cause;
+      throw new Error(`Unhandled empty-workspace cause: ${String(unhandledCause)}`);
     }
   }
 }
@@ -908,18 +917,18 @@ function describeEmptyWorkspace(monorepoRoot: string): string {
  * one case the `no-pattern` remedy is written for.
  */
 function describeDeclaredPatterns(patterns: readonly string[]): string {
-  const quotable = patterns.filter((pattern) => pattern.trim() !== '');
-  const emptied = patterns.length - quotable.length;
+  const quotablePatterns = patterns.filter((pattern) => pattern.trim() !== '');
+  const emptiedCount = patterns.length - quotablePatterns.length;
 
-  if (emptied === 0) {
+  if (emptiedCount === 0) {
     return patterns.length === 0 ? 'declares no `packages` list' : `declares ${renderQuotedList(patterns)}`;
   }
 
-  const emptiedClause = `${emptied} ${emptied === 1 ? 'entry' : 'entries'} that YAML left empty`;
+  const emptiedClause = `${emptiedCount} ${emptiedCount === 1 ? 'entry' : 'entries'} that YAML left empty`;
 
-  return quotable.length === 0
+  return quotablePatterns.length === 0
     ? `declares ${emptiedClause}`
-    : `declares ${renderQuotedList(quotable)}, beside ${emptiedClause}`;
+    : `declares ${renderQuotedList(quotablePatterns)}, beside ${emptiedClause}`;
 }
 
 /** Returns the rejection a filter leads its line with, naming the pattern that selected nothing. */
@@ -940,14 +949,14 @@ function suggestWorkspaceNames(pattern: string, names: readonly string[]): strin
     return '';
   }
 
-  const containing = names.filter((name) => name.toLowerCase().includes(pattern.toLowerCase()));
-  if (containing.length > 0) {
-    return ` Did you mean ${renderQuotedList(containing)}?`;
+  const containingNames = names.filter((name) => name.toLowerCase().includes(pattern.toLowerCase()));
+  if (containingNames.length > 0) {
+    return ` Did you mean ${renderQuotedList(containingNames)}?`;
   }
 
-  const closest = findClosestName(pattern, names);
-  if (closest !== undefined) {
-    return ` Did you mean \`${closest}\`?`;
+  const closestName = findClosestName(pattern, names);
+  if (closestName !== undefined) {
+    return ` Did you mean \`${closestName}\`?`;
   }
 
   return ` The workspace declares ${renderQuotedList(names)}.`;
@@ -955,13 +964,13 @@ function suggestWorkspaceNames(pattern: string, names: readonly string[]): strin
 
 /** Renders a list of items for a diagnostic, backticked and capped so a long one does not fill the terminal. */
 function renderQuotedList(items: readonly string[]): string {
-  const shown = items
+  const shownItems = items
     .slice(0, LIST_CEILING)
     .map((item) => `\`${item}\``)
     .join(', ');
   const remainder = items.length - LIST_CEILING;
 
-  return remainder > 0 ? `${shown}, and ${remainder} more` : shown;
+  return remainder > 0 ? `${shownItems}, and ${remainder} more` : shownItems;
 }
 
 /**
@@ -1042,10 +1051,10 @@ function hasRunnableHook(
     return true;
   }
 
-  const resolved = resolveScript(hookName, registry, anchorDir, isWorkspaceRoot);
-  if (!resolved) return false;
+  const resolvedScript = resolveScript(hookName, registry, anchorDir, isWorkspaceRoot);
+  if (!resolvedScript) return false;
 
-  const chain = renderChain(resolved.steps);
+  const chain = renderChain(resolvedScript.steps);
   return chain !== '' && chain !== ':';
 }
 
@@ -1081,17 +1090,17 @@ async function lookUpRecordedPass(options: {
     return undefined;
   }
 
-  const [missing] = buildOutput.missing;
-  if (missing !== undefined) {
-    writeDebugNote(`running ${command}: ${missing} has no build output`, env, stderr);
+  const [missingPackage] = buildOutput.missingPackages;
+  if (missingPackage !== undefined) {
+    writeDebugNote(`running ${command}: ${missingPackage} has no build output`, env, stderr);
     return undefined;
   }
 
   // Presence alone would let a `dist` compiled from another tree pass for this one: git ignores build output,
   // so restoring a tree restores none of it, and the run that would have rebuilt it is the one being skipped.
-  const stale = findStaleBuildOutput(entry.buildDigests, buildOutput.digests);
-  if (stale !== undefined) {
-    writeDebugNote(`running ${command}: ${stale}'s build output came from a different tree`, env, stderr);
+  const stalePackage = findStaleBuildOutput(entry.buildDigests, buildOutput.digests);
+  if (stalePackage !== undefined) {
+    writeDebugNote(`running ${command}: ${stalePackage}'s build output came from a different tree`, env, stderr);
     return undefined;
   }
 
@@ -1148,7 +1157,7 @@ function openGate(options: {
 }
 
 function parseArgs(args: string[]): ParseResult {
-  const parsed: ParsedArgs = {
+  const parsedArgs: ParsedArgs = {
     isWorkspaceRoot: false,
     quiet: false,
     recursive: false,
@@ -1173,14 +1182,14 @@ function parseArgs(args: string[]): ParseResult {
       if (!filterValue) {
         return { ok: false, error: '-F/--filter requires a pattern argument' };
       }
-      parsed.filter = filterValue;
+      parsedArgs.filter = filterValue;
       i++;
       continue;
     }
 
     const booleanFlag = BOOLEAN_FLAGS.get(arg);
     if (booleanFlag !== undefined) {
-      parsed[booleanFlag] = true;
+      parsedArgs[booleanFlag] = true;
       i++;
       continue;
     }
@@ -1190,20 +1199,20 @@ function parseArgs(args: string[]): ParseResult {
       if (!styleArgument.ok) {
         return styleArgument;
       }
-      parsed.outputStyle = styleArgument.value;
+      parsedArgs.outputStyle = styleArgument.value;
       i += styleArgument.consumed;
       continue;
     }
 
     // First non-flag argument is the command; rest is passthrough
-    parsed.command = arg;
-    parsed.passthrough = args.slice(i + 1);
+    parsedArgs.command = arg;
+    parsedArgs.passthrough = args.slice(i + 1);
     break;
   }
 
-  const error = findArgError(parsed);
+  const error = findArgError(parsedArgs);
 
-  return error === undefined ? { ok: true, parsed } : { ok: false, error };
+  return error === undefined ? { ok: true, parsedArgs } : { ok: false, error };
 }
 
 /**
@@ -1233,7 +1242,7 @@ async function reportRecording(options: {
   const lookup = await resolveRecording({
     anchorDir: options.anchorDir,
     command,
-    current: {
+    currentIdentity: {
       commandString: options.commandString,
       nmrVersion: VERSION,
       nodeVersion: CURRENT_RUNTIME.nodeVersion,
@@ -1280,9 +1289,9 @@ function readPresentation(options: {
     return format;
   }
 
-  const { invalid, styles } = resolveOutputStyles(options);
-  if (invalid !== undefined) {
-    return { ok: false, error: describeInvalidOutputStyle(invalid) };
+  const { invalid: invalidStyle, styles } = resolveOutputStyles(options);
+  if (invalidStyle !== undefined) {
+    return { ok: false, error: describeInvalidOutputStyle(invalidStyle) };
   }
 
   return { ok: true, format: format.format, styles, verbosity: verbosity.verbosity };
@@ -1319,16 +1328,16 @@ function readOutputStyleArgument(args: string[], index: number): OutputStyleArgu
  * the verdict reports as one, so the two are distinguished here rather than read back out of the rendering.
  */
 function readRunnableSteps(
-  resolved: ResolvedScript,
+  resolvedScript: ResolvedScript,
   workspacePackageDirs: readonly string[],
 ): { isEmptiedByWorkspace: boolean; steps: readonly Step[] } {
   if (workspacePackageDirs.length > 0) {
-    return { isEmptiedByWorkspace: false, steps: resolved.steps };
+    return { isEmptiedByWorkspace: false, steps: resolvedScript.steps };
   }
 
-  const steps = dropRecursiveSteps(resolved.steps);
+  const steps = dropRecursiveSteps(resolvedScript.steps);
 
-  return { isEmptiedByWorkspace: steps.length === 0 && resolved.steps.length > 0, steps };
+  return { isEmptiedByWorkspace: steps.length === 0 && resolvedScript.steps.length > 0, steps };
 }
 
 /**
@@ -1344,21 +1353,21 @@ function reportNmrCrossing(options: {
   isWorkspaceRoot: boolean;
   monorepoRoot: string;
   registry: ScriptRegistry;
-  resolved: ResolvedScript;
+  resolvedScript: ResolvedScript;
   shouldUseRoot: boolean;
   stderr: Writable;
   style: OutputStyle;
 }): void {
-  const crossing = findNmrCrossing(options.resolved.steps);
-  if (options.isReading || crossing === undefined) {
+  const crossingStep = findNmrCrossing(options.resolvedScript.steps);
+  if (options.isReading || crossingStep === undefined) {
     return;
   }
 
   const warning = formatNmrCrossingWarning({
-    crossing,
+    crossingStep,
     isWorkspaceRoot: options.isWorkspaceRoot,
     monorepoRoot: options.monorepoRoot,
-    origin: describeOrigin(options.resolved.origin, options.config, options.shouldUseRoot),
+    origin: describeOrigin(options.resolvedScript.origin, options.config, options.shouldUseRoot),
     registry: options.registry,
     style: options.style,
   });
@@ -1416,7 +1425,7 @@ async function recordPass(options: {
   env: NodeJS.ProcessEnv;
   key: string;
   monorepoRoot: string;
-  retained: RetainedOutput | undefined;
+  retainedOutput: RetainedOutput | undefined;
   ownSteps: readonly Step[];
   retentionKey: string;
   runId: string;
@@ -1426,12 +1435,12 @@ async function recordPass(options: {
   const { anchorDir, command, env, monorepoRoot, snapshot, stderr } = options;
 
   // Hashed afresh rather than inherited: an inherited snapshot is the observation this is meant to re-test.
-  const current = resolveTreeSnapshot({ monorepoRoot, env: {} });
-  if (!current.ok) {
-    writeDebugNote(`not recording ${command}: ${current.reason}`, env, stderr);
+  const currentRead = resolveTreeSnapshot({ monorepoRoot, env: {} });
+  if (!currentRead.ok) {
+    writeDebugNote(`not recording ${command}: ${currentRead.reason}`, env, stderr);
     return;
   }
-  if (current.snapshot.hash !== snapshot.hash) {
+  if (currentRead.snapshot.hash !== snapshot.hash) {
     writeDebugNote(`not recording ${command}: the tree changed while it ran`, env, stderr);
     return;
   }
@@ -1439,17 +1448,17 @@ async function recordPass(options: {
   // Read after the chain, so the digests describe the output the pass was actually earned over. A pass over a
   // repository still missing output describes a state no later run should be held to, so it is not recorded.
   const output = await readBuildOutputState(monorepoRoot, options.config);
-  const [missing] = output.missing;
-  if (missing !== undefined) {
-    writeDebugNote(`not recording ${command}: ${missing} has no build output`, env, stderr);
+  const [missingPackage] = output.missingPackages;
+  if (missingPackage !== undefined) {
+    writeDebugNote(`not recording ${command}: ${missingPackage} has no build output`, env, stderr);
     return;
   }
 
   // The check read one output and the entry would record the other, so neither describes the pass. A chain that
   // builds its own covered output disagrees with itself here and declines for the same reason.
-  const changed = findStaleBuildOutput(options.buildOutputBefore.digests, output.digests);
-  if (changed !== undefined) {
-    writeDebugNote(`not recording ${command}: ${changed}'s build output changed while it ran`, env, stderr);
+  const changedPackage = findStaleBuildOutput(options.buildOutputBefore.digests, output.digests);
+  if (changedPackage !== undefined) {
+    writeDebugNote(`not recording ${command}: ${changedPackage}'s build output changed while it ran`, env, stderr);
     return;
   }
 
@@ -1458,14 +1467,14 @@ async function recordPass(options: {
     command,
     key: options.retentionKey,
     monorepoRoot,
-    retained: options.retained,
+    retainedOutput: options.retainedOutput,
     runId: options.runId,
     steps: options.ownSteps,
     treeHash: snapshot.hash,
   });
 
   const ref = { anchorDir, command, monorepoRoot };
-  const transcript = options.retained === undefined ? undefined : composeTranscript(options.retained);
+  const transcript = options.retainedOutput === undefined ? undefined : composeTranscript(options.retainedOutput);
 
   try {
     // Ahead of the entry, and withdrawn again where the entry fails to land, so a reader never dates one
@@ -1553,21 +1562,22 @@ function resolveCacheKey(options: {
 async function runDelegation(options: {
   context: ResolvedContext;
   delegation: { env: NodeJS.ProcessEnv; step: Extract<Step, { kind: 'structural' }> };
-  parsed: ParsedArgs;
+  parsedArgs: ParsedArgs;
   runOptions: RunStepsOptions;
   stderr: Writable;
 }): Promise<RunCliResult> {
-  const { context, delegation, parsed, runOptions, stderr } = options;
+  const { context, delegation, parsedArgs, runOptions, stderr } = options;
 
-  const selection = parsed.filter === undefined ? undefined : readFilterSelection(parsed.filter, context.monorepoRoot);
+  const selection =
+    parsedArgs.filter === undefined ? undefined : readFilterSelection(parsedArgs.filter, context.monorepoRoot);
 
-  const refusal = findEmptySelectionRefusal({ context, parsed, selection });
+  const refusal = findEmptySelectionRefusal({ context, parsedArgs, selection });
   if (refusal !== undefined) {
     reportError(refusal, stderr);
     return { exitCode: 1 };
   }
 
-  const shouldWithholdInput = parsed.filter === undefined || selection === 'multiple';
+  const shouldWithholdInput = parsedArgs.filter === undefined || selection === 'multiple';
   const step = shouldWithholdInput ? { ...delegation.step, shouldWithholdInput } : delegation.step;
 
   return runSteps([step], context.monorepoRoot, { ...runOptions, env: delegation.env });
@@ -1625,7 +1635,7 @@ async function runGated(options: {
       : undefined;
 
   if (gate !== undefined && !options.shouldBypassCache) {
-    const recalled = await lookUpRecordedPass({
+    const recalledPass = await lookUpRecordedPass({
       anchorDir,
       buildOutput: gate.buildOutputBefore,
       command,
@@ -1635,8 +1645,8 @@ async function runGated(options: {
       retentionKey: gate.retentionKey,
       stderr,
     });
-    if (recalled !== undefined) {
-      const { entry, ...recall } = recalled;
+    if (recalledPass !== undefined) {
+      const { entry, ...recall } = recalledPass;
       // An excerpt this run declined to replay is one it has not certified, and vouching for it here would put
       // another environment's output into the assembly a composite above this one records.
       if (recall.replay !== undefined) {
@@ -1652,7 +1662,7 @@ async function runGated(options: {
   }
 
   const startedAt = Date.now();
-  const { exitCode, retained } = await runSteps(options.steps, anchorDir, options.runOptions);
+  const { exitCode, retainedOutput } = await runSteps(options.steps, anchorDir, options.runOptions);
   const durationMs = Date.now() - startedAt;
 
   if (exitCode === 0 && gate !== undefined) {
@@ -1667,7 +1677,7 @@ async function runGated(options: {
       key: gate.key,
       monorepoRoot,
       ownSteps: options.ownSteps,
-      retained,
+      retainedOutput,
       retentionKey: gate.retentionKey,
       runId: options.runId,
       snapshot: gate.snapshot,

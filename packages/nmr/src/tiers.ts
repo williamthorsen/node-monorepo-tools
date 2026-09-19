@@ -82,7 +82,7 @@ export interface TestFileScanOptions {
    * config's `testCollectionExclude`. A directory pruned from the sweep but still collected by Vitest is the
    * silence these sweeps exist to end.
    */
-  exclude?: readonly string[];
+  excludedBasenames?: readonly string[];
 }
 
 /**
@@ -113,14 +113,14 @@ function collectTestFiles(dir: string, relativeDir: string, isInTestDir: boolean
       if (context.pruned.has(entry.name)) continue;
       collectTestFiles(path.join(dir, entry.name), relativePath, isInTestDir || entry.name === TEST_DIR, context);
     } else if (isInTestDir !== context.misplaced && TEST_FILE_PATTERN.test(entry.name)) {
-      context.found.push(relativePath);
+      context.foundPaths.push(relativePath);
     }
   }
 }
 
 /** What one walk carries down the tree. */
 interface WalkContext {
-  found: string[];
+  foundPaths: string[];
   /** Keeps the test files outside a `__tests__` directory instead of the ones inside one. */
   misplaced: boolean;
   pruned: ReadonlySet<string>;
@@ -132,16 +132,16 @@ interface WalkContext {
  * The two halves of the convention read the same pattern and the same prune set, differing only in which side of
  * `__tests__` they keep, so they cannot disagree about what counts as a test file or about what is out of scope.
  */
-function walkTestFiles(rootDir: string, { exclude = [] }: TestFileScanOptions, misplaced: boolean): string[] {
+function walkTestFiles(rootDir: string, { excludedBasenames = [] }: TestFileScanOptions, misplaced: boolean): string[] {
   const context: WalkContext = {
-    found: [],
+    foundPaths: [],
     misplaced,
-    pruned: new Set([...TEST_COLLECTION_EXCLUDE, ...exclude]),
+    pruned: new Set([...TEST_COLLECTION_EXCLUDE, ...excludedBasenames]),
   };
 
   collectTestFiles(rootDir, '', false, context);
 
-  return context.found.toSorted();
+  return context.foundPaths.toSorted();
 }
 
 // endregion | Helpers

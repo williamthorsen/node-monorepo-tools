@@ -87,35 +87,38 @@ export function resolveSourceTarget(
 ): string | undefined {
   if (importer === undefined) return undefined;
 
-  const parsed = parseSpecifier(specifier);
-  if (!parsed) return undefined;
+  const parsedSpecifier = parseSpecifier(specifier);
+  if (!parsedSpecifier) return undefined;
 
-  const packageDir = findPackageDir(parsed.name, path.dirname(importer), context.packageDirs);
+  const packageDir = findPackageDir(parsedSpecifier.name, path.dirname(importer), context.packageDirs);
   if (packageDir === undefined || isInsideNodeModules(packageDir)) return undefined;
 
   const manifest = readManifest(packageDir, context.manifests);
   if (!isObject(manifest)) return undefined;
 
-  const matched = matchSubpath(manifest['exports'], parsed.subpath);
-  if (!matched) return undefined;
+  const matchedSubpath = matchSubpath(manifest['exports'], parsedSpecifier.subpath);
+  if (!matchedSubpath) return undefined;
 
   const environmentCondition = context.environmentName === 'client' ? CLIENT_CONDITION : SERVER_CONDITION;
   const conditions = new Set([environmentCondition, ...SHARED_CONDITIONS]);
-  const selected = selectTarget(matched.value, conditions);
-  if (!selected?.didUseSource) return undefined;
+  const selectedTarget = selectTarget(matchedSubpath.value, conditions);
+  if (!selectedTarget?.didUseSource) return undefined;
 
   // A function replacement, because a `$` sequence in a literal one is a substitution pattern rather than text.
-  const wildcard = matched.wildcard;
-  const declared = wildcard === undefined ? selected.target : selected.target.replaceAll('*', () => wildcard);
-  if (!declared.startsWith('./')) return undefined;
+  const wildcard = matchedSubpath.wildcard;
+  const declaredTarget =
+    wildcard === undefined ? selectedTarget.target : selectedTarget.target.replaceAll('*', () => wildcard);
+  if (!declaredTarget.startsWith('./')) return undefined;
 
-  const declaredPath = path.resolve(packageDir, declared);
+  const declaredPath = path.resolve(packageDir, declaredTarget);
   const target = findTargetFile(declaredPath);
   if (target === undefined) {
-    throw new UserError(formatMissingTarget(parsed.name, parsed.subpath, declared, declaredPath));
+    throw new UserError(
+      formatMissingTarget(parsedSpecifier.name, parsedSpecifier.subpath, declaredTarget, declaredPath),
+    );
   }
 
-  return `${target}${parsed.postfix}`;
+  return `${target}${parsedSpecifier.postfix}`;
 }
 
 // region | Helpers
@@ -135,13 +138,13 @@ function findPackageDir(
   const key = `${fromDir}\0${name}`;
   if (cache?.has(key)) return cache.get(key);
 
-  let found = findSelfReferenceDir(name, fromDir);
+  let foundDir = findSelfReferenceDir(name, fromDir);
   let dir = fromDir;
 
-  while (found === undefined) {
+  while (foundDir === undefined) {
     const candidate = path.join(dir, NODE_MODULES, name);
     if (existsSync(path.join(candidate, 'package.json'))) {
-      found = realpathSync(candidate);
+      foundDir = realpathSync(candidate);
       break;
     }
     const parent = path.dirname(dir);
@@ -149,9 +152,9 @@ function findPackageDir(
     dir = parent;
   }
 
-  cache?.set(key, found);
+  cache?.set(key, foundDir);
 
-  return found;
+  return foundDir;
 }
 
 /**
@@ -164,9 +167,11 @@ function findSelfReferenceDir(name: string, fromDir: string): string | undefined
   for (;;) {
     const file = path.join(dir, 'package.json');
     if (existsSync(file)) {
-      const parsed = parsePackageJson(readFileSync(file, 'utf8'), file);
+      const parsedManifest = parsePackageJson(readFileSync(file, 'utf8'), file);
 
-      return isObject(parsed) && parsed['name'] === name && parsed['exports'] !== undefined ? dir : undefined;
+      return isObject(parsedManifest) && parsedManifest['name'] === name && parsedManifest['exports'] !== undefined
+        ? dir
+        : undefined;
     }
     const parent = path.dirname(dir);
     if (parent === dir) return undefined;
@@ -206,9 +211,9 @@ function findTargetFile(declaredPath: string): string | undefined {
 }
 
 /** Returns the message rejecting a `source` condition that reaches no file the package holds. */
-function formatMissingTarget(name: string, subpath: string, declared: string, target: string): string {
+function formatMissingTarget(name: string, subpath: string, declaredTarget: string, target: string): string {
   return [
-    `Package "${name}" declares a \`source\` export for "${subpath}" at "${declared}", which reaches no file.`,
+    `Package "${name}" declares a \`source\` export for "${subpath}" at "${declaredTarget}", which reaches no file.`,
     `Looked for ${target}, the same path under each of ${TARGET_EXTENSIONS.join(', ')}, and an index under it.`,
     'Point the condition at a file that exists, or remove it so the package resolves through its other conditions.',
   ].join(' ');
@@ -238,10 +243,10 @@ function matchSubpath(exportsValue: unknown, subpath: string): { value: unknown;
     return subpath === '.' ? { value: exportsValue } : undefined;
   }
 
-  const exact = exportsValue[subpath];
-  if (exact !== undefined) return { value: exact };
+  const exactValue = exportsValue[subpath];
+  if (exactValue !== undefined) return { value: exactValue };
 
-  let best: { base: string; value: unknown; wildcard: string } | undefined;
+  let bestMatch: { base: string; value: unknown; wildcard: string } | undefined;
 
   for (const [key, value] of Object.entries(exportsValue)) {
     const star = key.indexOf('*');
@@ -251,12 +256,12 @@ function matchSubpath(exportsValue: unknown, subpath: string): { value: unknown;
     const suffix = key.slice(star + 1);
     if (!subpath.startsWith(base) || !subpath.endsWith(suffix)) continue;
     if (subpath.length < base.length + suffix.length) continue;
-    if (best !== undefined && best.base.length >= base.length) continue;
+    if (bestMatch !== undefined && bestMatch.base.length >= base.length) continue;
 
-    best = { base, value, wildcard: subpath.slice(base.length, subpath.length - suffix.length) };
+    bestMatch = { base, value, wildcard: subpath.slice(base.length, subpath.length - suffix.length) };
   }
 
-  return best && { value: best.value, wildcard: best.wildcard };
+  return bestMatch && { value: bestMatch.value, wildcard: bestMatch.wildcard };
 }
 
 /**
@@ -271,11 +276,11 @@ function parseSpecifier(specifier: string): { name: string; postfix: string; sub
   if (specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('\0')) return undefined;
 
   const suffixIndex = findSuffixIndex(specifier);
-  const bare = suffixIndex === -1 ? specifier : specifier.slice(0, suffixIndex);
-  if (bare.includes(':') || isBuiltin(bare)) return undefined;
+  const bareSpecifier = suffixIndex === -1 ? specifier : specifier.slice(0, suffixIndex);
+  if (bareSpecifier.includes(':') || isBuiltin(bareSpecifier)) return undefined;
 
-  const segments = bare.split('/');
-  const nameLength = bare.startsWith('@') ? 2 : 1;
+  const segments = bareSpecifier.split('/');
+  const nameLength = bareSpecifier.startsWith('@') ? 2 : 1;
   if (segments.length < nameLength || segments.includes('')) return undefined;
 
   const rest = segments.slice(nameLength);
@@ -292,10 +297,10 @@ function readManifest(packageDir: string, cache: Map<string, unknown> | undefine
   if (cache?.has(packageDir)) return cache.get(packageDir);
 
   const file = path.join(packageDir, 'package.json');
-  const parsed = parsePackageJson(readFileSync(file, 'utf8'), file);
-  cache?.set(packageDir, parsed);
+  const parsedManifest = parsePackageJson(readFileSync(file, 'utf8'), file);
+  cache?.set(packageDir, parsedManifest);
 
-  return parsed;
+  return parsedManifest;
 }
 
 /**
@@ -314,8 +319,8 @@ function selectTarget(
 
   if (Array.isArray(value)) {
     for (const entry of value) {
-      const selected = selectTarget(entry, conditions);
-      if (selected) return selected;
+      const selectedTarget = selectTarget(entry, conditions);
+      if (selectedTarget) return selectedTarget;
     }
     return undefined;
   }
@@ -324,15 +329,15 @@ function selectTarget(
 
   const source = value[SOURCE_CONDITION];
   if (source !== undefined) {
-    const selected = selectTarget(source, conditions);
-    if (selected) return { target: selected.target, didUseSource: true };
+    const selectedTarget = selectTarget(source, conditions);
+    if (selectedTarget) return { target: selectedTarget.target, didUseSource: true };
   }
 
   for (const [key, entry] of Object.entries(value)) {
     if (key === SOURCE_CONDITION || !conditions.has(key)) continue;
 
-    const selected = selectTarget(entry, conditions);
-    if (selected) return selected;
+    const selectedTarget = selectTarget(entry, conditions);
+    if (selectedTarget) return selectedTarget;
   }
 
   return undefined;

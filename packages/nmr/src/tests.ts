@@ -4,9 +4,12 @@ import { findMisplacedTestFiles, findUntieredTestFiles, type TestFileScanOptions
 import { findMonorepoRoot } from './workspace.ts';
 
 const MISPLACED_REMEDY =
-  'Every test file must sit under a `__tests__` directory, the only place the shared Vitest config collects from. Move each file below into one, or name its directory in `exclude`.';
+  'Every test file must sit under a `__tests__` directory, the only place the shared Vitest config collects from. Move each file below into one, or name its directory in `excludedBasenames`.';
 
 const UNTIERED_REMEDY = `Every collected test file must name its isolation tier in the segment before \`.test.\`, one of: ${TIER_NAMES.join(', ')}. Rename each file below to <subject>[.<aspect>].<tier>.test.ts.`;
+
+/** Maps each retired option key to the key that replaced it. */
+const RETIRED_OPTION_KEYS: ReadonlyMap<string, string> = new Map([['exclude', 'excludedBasenames']]);
 
 /**
  * Declares a suite asserting that a repo's test files hold to nmr's conventions: every collected file names an
@@ -16,20 +19,22 @@ const UNTIERED_REMEDY = `Every collected test file must name its isolation tier 
  * scopes what the sweep covers. Both halves are silent without it: `unit` is the residual project, so an untiered
  * file runs and passes, and a file outside `__tests__` is collected by nothing at all.
  *
- * `exclude` names directory basenames the sweep prunes at any depth, additive to the ones nmr always prunes. Pass
- * the same array to `defineVitestConfig`'s `testCollectionExclude`, or the sweep and the collection glob describe
- * different trees: a directory pruned here alone still runs the files this suite stopped reporting.
+ * `excludedBasenames` names directory basenames the sweep prunes at any depth, additive to the ones nmr always
+ * prunes. Pass the same array to `defineVitestConfig`'s `testCollectionExclude`, or the sweep and the collection
+ * glob describe different trees: a directory pruned here alone still runs the files this suite stopped reporting.
  */
 export function checkTestFileConventions(options: TestFileConventionsOptions = {}): void {
+  assertNoRetiredOptions(options);
+
   describe('test file conventions', () => {
-    const { misplaced, rootDir, untiered } = reportTestFileConventions(options);
+    const { misplacedFiles, rootDir, untieredFiles } = reportTestFileConventions(options);
 
     it('every collected test file names its tier', () => {
-      expect(untiered, `${UNTIERED_REMEDY} Swept from ${rootDir}.`).toStrictEqual([]);
+      expect(untieredFiles, `${UNTIERED_REMEDY} Swept from ${rootDir}.`).toStrictEqual([]);
     });
 
     it('every test file sits under a __tests__ directory', () => {
-      expect(misplaced, `${MISPLACED_REMEDY} Swept from ${rootDir}.`).toStrictEqual([]);
+      expect(misplacedFiles, `${MISPLACED_REMEDY} Swept from ${rootDir}.`).toStrictEqual([]);
     });
   });
 }
@@ -42,17 +47,17 @@ export function checkTestFileConventions(options: TestFileConventionsOptions = {
  *
  * @internal - Exported only to enable testing
  */
-export function reportTestFileConventions({
-  exclude,
-  rootDir,
-}: TestFileConventionsOptions = {}): TestFileConventionsReport {
+export function reportTestFileConventions(options: TestFileConventionsOptions = {}): TestFileConventionsReport {
+  assertNoRetiredOptions(options);
+
+  const { excludedBasenames, rootDir } = options;
   const sweptRoot = rootDir ?? findMonorepoRoot();
-  const scanOptions: TestFileScanOptions = { ...(exclude !== undefined && { exclude }) };
+  const scanOptions: TestFileScanOptions = { ...(excludedBasenames !== undefined && { excludedBasenames }) };
 
   return {
-    misplaced: findMisplacedTestFiles(sweptRoot, scanOptions),
+    misplacedFiles: findMisplacedTestFiles(sweptRoot, scanOptions),
     rootDir: sweptRoot,
-    untiered: findUntieredTestFiles(sweptRoot, scanOptions),
+    untieredFiles: findUntieredTestFiles(sweptRoot, scanOptions),
   };
 }
 
@@ -61,7 +66,7 @@ export interface TestFileConventionsOptions {
    * Directory basenames the sweep prunes at any depth, additive to the ones nmr always prunes. The array a repo
    * passes here is the array it passes to `defineVitestConfig`'s `testCollectionExclude`.
    */
-  exclude?: readonly string[];
+  excludedBasenames?: readonly string[];
 
   /**
    * The directory to sweep. Defaults to the monorepo root found from the working directory, so one call covers the
@@ -72,7 +77,25 @@ export interface TestFileConventionsOptions {
 
 /** What one sweep found, and the root it found it in. Paths are relative to that root and POSIX-separated. */
 export interface TestFileConventionsReport {
-  misplaced: string[];
+  misplacedFiles: string[];
   rootDir: string;
-  untiered: string[];
+  untieredFiles: string[];
 }
+
+// region | Helpers
+
+/**
+ * Rejects an option key that a release renamed, naming its replacement.
+ *
+ * A `TypeError` rather than nmr's own error type, because Vitest loads the call site rather than nmr's CLI.
+ */
+function assertNoRetiredOptions(options: TestFileConventionsOptions): void {
+  for (const key of Object.keys(options)) {
+    const replacement = RETIRED_OPTION_KEYS.get(key);
+    if (replacement !== undefined) {
+      throw new TypeError(`Invalid test-file-conventions options: \`${key}\` was renamed to \`${replacement}\`.`);
+    }
+  }
+}
+
+// endregion | Helpers

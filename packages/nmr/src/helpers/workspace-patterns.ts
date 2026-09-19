@@ -23,8 +23,8 @@ const ALWAYS_EXCLUDED = ['**/node_modules/**'];
  * same rewriting a full resolution does.
  */
 export interface WorkspacePatternSplit {
-  excluded: string[];
-  included: string[];
+  excludedPatterns: string[];
+  includedPatterns: string[];
 }
 
 /**
@@ -36,17 +36,17 @@ export interface WorkspacePatternSplit {
  */
 export function matchPackageDirs(
   monorepoRoot: string,
-  included: readonly string[],
-  excluded: readonly string[],
+  includedPatterns: readonly string[],
+  excludedPatterns: readonly string[],
 ): string[] {
   const options: GlobOptions = {
     cwd: monorepoRoot,
-    exclude: [...excluded, ...ALWAYS_EXCLUDED],
+    exclude: [...excludedPatterns, ...ALWAYS_EXCLUDED],
     // pnpm's matcher follows symlinks, so a package directory symlinked into the workspace is a package.
     followSymlinks: true,
   };
 
-  const matches = globSync([...included], options);
+  const matches = globSync([...includedPatterns], options);
 
   const dirs = matches.map((match) => path.dirname(path.resolve(monorepoRoot, match)));
 
@@ -61,13 +61,13 @@ export function matchPackageDirs(
  * irrespective of declaration order.
  */
 export function resolvePackageDirs(monorepoRoot: string, patterns: string[]): string[] {
-  const { excluded, included } = splitWorkspacePatterns(patterns);
+  const { excludedPatterns, includedPatterns } = splitWorkspacePatterns(patterns);
 
-  if (included.length === 0) {
+  if (includedPatterns.length === 0) {
     return [];
   }
 
-  return matchPackageDirs(monorepoRoot, included, excluded);
+  return matchPackageDirs(monorepoRoot, includedPatterns, excludedPatterns);
 }
 
 /**
@@ -77,8 +77,8 @@ export function resolvePackageDirs(monorepoRoot: string, patterns: string[]): st
  * result: two readers classifying entries separately could disagree about which condition a manifest is in.
  */
 export function splitWorkspacePatterns(patterns: readonly string[]): WorkspacePatternSplit {
-  const included: string[] = [];
-  const excluded: string[] = [];
+  const includedPatterns: string[] = [];
+  const excludedPatterns: string[] = [];
 
   for (const pattern of patterns) {
     // An unquoted `!pkg` in the manifest parses as a YAML tag rather than a string, leaving an empty
@@ -87,11 +87,11 @@ export function splitWorkspacePatterns(patterns: readonly string[]): WorkspacePa
     if (pattern.trim() === '') continue;
 
     const isNegated = pattern.startsWith('!');
-    const target = isNegated ? excluded : included;
+    const target = isNegated ? excludedPatterns : includedPatterns;
     target.push(toManifestPattern(isNegated ? pattern.slice(1) : pattern));
   }
 
-  return { excluded, included };
+  return { excludedPatterns, includedPatterns };
 }
 
 /** Rewrites a workspace pattern to match the manifest within it, tolerating a trailing slash. */

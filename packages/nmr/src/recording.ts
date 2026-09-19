@@ -31,8 +31,8 @@ export interface Recording {
 export type KeyDifference =
   | { ingredient: 'tree' }
   | { ingredient: 'command-string' }
-  | { ingredient: 'nmr-version'; current: string; recorded: string }
-  | { ingredient: 'node-version'; current: string; recorded: string }
+  | { ingredient: 'nmr-version'; currentVersion: string; recordedVersion: string }
+  | { ingredient: 'node-version'; currentVersion: string; recordedVersion: string }
   | { ingredient: 'other' };
 
 /** What `--log` found for one command at one scope. */
@@ -104,7 +104,7 @@ export function renderRefusal(options: {
 export async function resolveRecording(options: {
   anchorDir: string;
   command: string;
-  current: RunIdentity;
+  currentIdentity: RunIdentity;
   isCacheable: boolean;
   key: string | undefined;
   monorepoRoot: string;
@@ -125,7 +125,10 @@ export async function resolveRecording(options: {
 
   const ageMs = Math.max(0, Date.now() - Date.parse(entry.recordedAt));
   if (entry.key !== options.key) {
-    return { ok: false, refusal: { kind: 'mismatched', ageMs, difference: findKeyDifference(entry, options.current) } };
+    return {
+      ok: false,
+      refusal: { kind: 'mismatched', ageMs, difference: findKeyDifference(entry, options.currentIdentity) },
+    };
   }
 
   const transcript = await readTranscript({ anchorDir, command, monorepoRoot });
@@ -151,14 +154,14 @@ function describeDifference(difference: KeyDifference): string {
     case 'command-string':
       return 'over a command chain this is not';
     case 'nmr-version':
-      return `under nmr ${difference.recorded}, not ${difference.current}`;
+      return `under nmr ${difference.recordedVersion}, not ${difference.currentVersion}`;
     case 'node-version':
-      return `under Node ${difference.recorded}, not ${difference.current}`;
+      return `under Node ${difference.recordedVersion}, not ${difference.currentVersion}`;
     case 'other':
       return 'under an install or environment this run does not share';
     default: {
-      const unhandled: never = difference;
-      throw new Error(`Unhandled key difference: ${JSON.stringify(unhandled)}`);
+      const unhandledDifference: never = difference;
+      throw new Error(`Unhandled key difference: ${JSON.stringify(unhandledDifference)}`);
     }
   }
 }
@@ -177,8 +180,8 @@ function describeRefusal(command: string, refusal: RecordingRefusal): string {
     case 'no-output':
       return `the pass ${formatDuration(refusal.ageMs)} ago retained none, as a run printing nothing or writing to a terminal does`;
     default: {
-      const unhandled: never = refusal;
-      throw new Error(`Unhandled refusal: ${JSON.stringify(unhandled)}`);
+      const unhandledRefusal: never = refusal;
+      throw new Error(`Unhandled refusal: ${JSON.stringify(unhandledRefusal)}`);
     }
   }
 }
@@ -187,18 +190,22 @@ function describeRefusal(command: string, refusal: RecordingRefusal): string {
  * Names the first ingredient a recorded pass and this invocation disagree on, in the order a reader would
  * check them: the tree, then the chain that would run, then the versions the key folds in.
  */
-function findKeyDifference(entry: CheckCacheEntry, current: RunIdentity): KeyDifference {
-  if (current.treeHash !== undefined && entry.treeHash !== current.treeHash) {
+function findKeyDifference(entry: CheckCacheEntry, currentIdentity: RunIdentity): KeyDifference {
+  if (currentIdentity.treeHash !== undefined && entry.treeHash !== currentIdentity.treeHash) {
     return { ingredient: 'tree' };
   }
-  if (entry.commandString !== current.commandString) {
+  if (entry.commandString !== currentIdentity.commandString) {
     return { ingredient: 'command-string' };
   }
-  if (entry.nmrVersion !== current.nmrVersion) {
-    return { ingredient: 'nmr-version', current: current.nmrVersion, recorded: entry.nmrVersion };
+  if (entry.nmrVersion !== currentIdentity.nmrVersion) {
+    return { ingredient: 'nmr-version', currentVersion: currentIdentity.nmrVersion, recordedVersion: entry.nmrVersion };
   }
-  if (entry.nodeVersion !== current.nodeVersion) {
-    return { ingredient: 'node-version', current: current.nodeVersion, recorded: entry.nodeVersion };
+  if (entry.nodeVersion !== currentIdentity.nodeVersion) {
+    return {
+      ingredient: 'node-version',
+      currentVersion: currentIdentity.nodeVersion,
+      recordedVersion: entry.nodeVersion,
+    };
   }
 
   return { ingredient: 'other' };

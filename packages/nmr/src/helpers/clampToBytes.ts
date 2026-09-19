@@ -22,15 +22,15 @@ export function clampToBytes(value: string, budgetBytes: number): string {
     return '';
   }
 
-  let kept = '';
+  let keptText = '';
   let bytes = 0;
 
   for (const character of value) {
     const size = Buffer.byteLength(character);
     if (bytes + size > budget) break;
-    kept += character;
+    keptText += character;
     bytes += size;
   }
 
-  return `${kept}${TRUNCATION_MARK}`;
+  return `${keptText}${TRUNCATION_MARK}`;
 }

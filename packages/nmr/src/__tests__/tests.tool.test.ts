@@ -10,7 +10,7 @@ const CONFIG_SOURCE = path.join(import.meta.dirname, '../vitest.ts');
 
 /**
  * A repo carrying the guard, one violation of each half, and a generated directory holding one of each that the
- * guard's `exclude` and the config's `testCollectionExclude` together keep out of scope.
+ * guard's `excludedBasenames` and the config's `testCollectionExclude` together keep out of scope.
  *
  * Both are imported from source rather than from `dist`, so the test needs no build.
  */
@@ -32,7 +32,7 @@ const REPO_FILES: Record<string, string> = {
   '__tests__/conventions.unit.test.ts': [
     `import { checkTestFileConventions } from ${JSON.stringify(CHECK_SOURCE)};`,
     '',
-    "checkTestFileConventions({ exclude: ['generated'] });",
+    "checkTestFileConventions({ excludedBasenames: ['generated'] });",
     '',
   ].join('\n'),
 
@@ -82,8 +82,8 @@ describe('the exported conventions check, wired into a real run', { timeout: 120
     expect(run.output).toContain('must sit under a `__tests__` directory');
   });
 
-  // The guard's `exclude` and the config's `testCollectionExclude` describe one scope, so a directory named in both
-  // is neither collected nor reported. Named in the sweep alone, its files would still run.
+  // The guard's `excludedBasenames` and the config's `testCollectionExclude` describe one scope, so a directory
+  // named in both is neither collected nor reported. Named in the sweep alone, its files would still run.
   it('reports nothing from the directory both exclusions name', ({ run }) => {
     expect(run.output).not.toContain('generated/__tests__/scaffold.test.ts');
     expect(run.output).not.toContain('generated/scaffold.unit.test.ts');
