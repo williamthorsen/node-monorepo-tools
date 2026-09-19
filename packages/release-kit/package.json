@@ -64,7 +64,7 @@
     "glob": "13.0.6",
     "json-stringify-pretty-compact": "4.0.0",
     "semver": "7.8.5",
-    "yaml": "2.9.0",
+    "yaml": "2.9.1",
     "zod": "4.6.2"
   },
   "devDependencies": {
