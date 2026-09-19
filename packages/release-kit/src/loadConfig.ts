@@ -66,15 +66,21 @@ export function readRootPackageVersion(): { exists: boolean; version: string | u
 export const CONFIG_FILE_PATH = '.config/release-kit.config.ts';
 
 /**
- * Loads the config file at `.config/release-kit.config.ts`, returning the raw config object, or `undefined` when the
- * file does not exist. Throws when the file exists but cannot be imported, or exports neither a default nor a named
- * `config`.
+ * Loads the config file, returning the raw config object.
+ *
+ * `configPath` is resolved against the working directory and defaults to `CONFIG_FILE_PATH`. An absent default
+ * path returns `undefined`, because a repo that declares no config is a supported state; an absent named path
+ * throws, because the caller asked for that file by name. Also throws when the file exists but cannot be
+ * imported, or exports neither a default nor a named `config`.
  */
-export async function loadConfig(): Promise<unknown> {
-  const absoluteConfigPath = path.resolve(process.cwd(), CONFIG_FILE_PATH);
+export async function loadConfig(configPath?: string): Promise<unknown> {
+  const absoluteConfigPath = path.resolve(process.cwd(), configPath ?? CONFIG_FILE_PATH);
 
   if (!existsSync(absoluteConfigPath)) {
-    return undefined;
+    if (configPath === undefined) {
+      return undefined;
+    }
+    throw new Error(`Config file not found: ${absoluteConfigPath}`);
   }
 
   // Node type-strips `.ts` natively across this package's engines range, so the config needs no transform step and no

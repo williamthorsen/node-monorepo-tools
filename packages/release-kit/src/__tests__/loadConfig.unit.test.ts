@@ -102,6 +102,29 @@ describe(loadConfig, () => {
     await expect(loadConfig()).rejects.toThrow('must have a default export or a named `config` export');
   });
 
+  it('loads the named path when one is given', async () => {
+    tree.write('elsewhere/alternative.config.ts', 'export default { formatCommand: "pnpm run alt" };');
+
+    const result = await loadConfig('elsewhere/alternative.config.ts');
+
+    expect(result).toStrictEqual({ formatCommand: 'pnpm run alt' });
+  });
+
+  it('prefers the named path over an existing default config', async () => {
+    writeConfig('export default { formatCommand: "default" };');
+    tree.write('elsewhere/alternative.config.ts', 'export default { formatCommand: "named" };');
+
+    const result = await loadConfig('elsewhere/alternative.config.ts');
+
+    expect(result).toStrictEqual({ formatCommand: 'named' });
+  });
+
+  it('rejects with the resolved path when the named path does not exist', async () => {
+    await expect(loadConfig('elsewhere/absent.config.ts')).rejects.toThrow(
+      `Config file not found: ${tree.resolve('elsewhere/absent.config.ts')}`,
+    );
+  });
+
   /** Writes `source` to the config path the loader resolves under the temp directory standing in for the cwd. */
   function writeConfig(source: string): void {
     tree.write(CONFIG_FILE_PATH, source);
