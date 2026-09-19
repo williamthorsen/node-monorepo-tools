@@ -366,7 +366,7 @@ async function swapIntoPlace(emitDir: string, scratchDirs: ScratchDirs): Promise
   try {
     await rename(scratchDirs.stagingDir, emitDir);
   } catch (error: unknown) {
-    // Restore only when `previous` holds the outgoing output and nothing has since taken its place.
+    // Restore only when `previousDir` holds the outgoing output and nothing has since taken its place.
     if (hadPreviousOutput && !existsSync(emitDir)) {
       await rename(scratchDirs.previousDir, emitDir);
     }

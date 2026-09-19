@@ -140,8 +140,8 @@ function addPrepublishOnly(packageDir: string, command: string): void {
 }
 
 /** Counts the packages a run left in the given state. */
-function countAction(publishable: PackageHookStatus[], action: PackageHookStatus['action']): number {
-  return publishable.filter((pkg) => pkg.action === action).length;
+function countAction(publishablePackages: PackageHookStatus[], action: PackageHookStatus['action']): number {
+  return publishablePackages.filter((pkg) => pkg.action === action).length;
 }
 
 /** Names what a run came to: the packages carrying the hook, or what became of those that were not. */

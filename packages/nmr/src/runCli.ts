@@ -788,8 +788,13 @@ function formatPackageRemedy(options: {
  * `--log` names what to print rather than what to run, so an invocation carrying it and no command has asked
  * for nothing; the help text answers a different question and is not a stand-in for the flag's own grammar.
  */
-function findArgError(parsed: ParsedArgs): string | undefined {
-  if (parsed.shouldPrintLog && parsed.command === undefined && !parsed.shouldShowHelp && !parsed.shouldShowVersion) {
+function findArgError(parsedArgs: ParsedArgs): string | undefined {
+  if (
+    parsedArgs.shouldPrintLog &&
+    parsedArgs.command === undefined &&
+    !parsedArgs.shouldShowHelp &&
+    !parsedArgs.shouldShowVersion
+  ) {
     return '--log requires a command name: `nmr --log <command>`';
   }
 

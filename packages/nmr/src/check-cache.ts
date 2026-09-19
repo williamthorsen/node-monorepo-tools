@@ -308,12 +308,12 @@ export function encodeTreeSnapshot(snapshot: TreeSnapshot): string {
  * the output the earlier observation describes is not the output the later one found.
  */
 export function findStaleBuildOutput(
-  earlier: Record<string, string>,
-  later: Record<string, string>,
+  earlierDigests: Record<string, string>,
+  laterDigests: Record<string, string>,
 ): string | undefined {
-  const names = [...new Set([...Object.keys(earlier), ...Object.keys(later)])].toSorted();
+  const names = [...new Set([...Object.keys(earlierDigests), ...Object.keys(laterDigests)])].toSorted();
 
-  return names.find((name) => earlier[name] !== later[name]);
+  return names.find((name) => earlierDigests[name] !== laterDigests[name]);
 }
 
 /**
@@ -548,12 +548,12 @@ function composeEnvParts(names: readonly string[], env: NodeJS.ProcessEnv): stri
 }
 
 /** Reads a snapshot a parent process encoded, or `undefined` when the value is absent or malformed. */
-function decodeTreeSnapshot(encoded: string | undefined): TreeSnapshot | undefined {
-  if (encoded === undefined) {
+function decodeTreeSnapshot(encodedSnapshot: string | undefined): TreeSnapshot | undefined {
+  if (encodedSnapshot === undefined) {
     return undefined;
   }
 
-  const [hash, headSha] = encoded.split(' ', 2);
+  const [hash, headSha] = encodedSnapshot.split(' ', 2);
   if (hash === undefined || headSha === undefined || hash === '' || headSha === '') {
     return undefined;
   }

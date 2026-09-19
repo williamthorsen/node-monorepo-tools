@@ -1033,8 +1033,8 @@ export function testSuiteGatesTestFileConventions(cwd: string = process.cwd()): 
  * Returns the reason the test-file sweeps skip when the repo's suite declares `checkTestFileConventions`, or `false`
  * when it does not.
  *
- * The guard reports the same files under the repo's own `excludedBasenames`, which no kit check can read, so a sweep beside it
- * can only repeat its findings or report a directory that the repo has excluded.
+ * The guard reports the same files under the repo's own `excludedBasenames`, which no kit check can read, so a
+ * sweep beside it can only repeat its findings or report a directory that the repo has excluded.
  */
 function describeConventionsGuardSkip(): SkipResult {
   const guard = findConventionsGuard(process.cwd());
