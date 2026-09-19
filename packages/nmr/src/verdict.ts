@@ -197,10 +197,12 @@ function flattenDetail(detail: string): string {
  * collapses the whole set on the first pass.
  */
 function findCutTarget(sizesBytes: readonly number[], longestSizeBytes: number, overrunBytes: number): number {
-  const smallerSizes = sizesBytes.filter((size) => size < longestSizeBytes && size > MIN_CUT_BYTES);
+  const smallerSizesBytes = sizesBytes.filter((size) => size < longestSizeBytes && size > MIN_CUT_BYTES);
   const share = Math.ceil(overrunBytes / sizesBytes.filter((size) => size === longestSizeBytes).length);
   const target =
-    smallerSizes.length === 0 ? longestSizeBytes - share : Math.max(...smallerSizes, longestSizeBytes - overrunBytes);
+    smallerSizesBytes.length === 0
+      ? longestSizeBytes - share
+      : Math.max(...smallerSizesBytes, longestSizeBytes - overrunBytes);
 
   return Math.max(MIN_CUT_BYTES, target);
 }
