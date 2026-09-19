@@ -59,7 +59,7 @@ The CLI applies defaults to every discovered workspace and uses the bundled `cli
 ## How it works
 
 1. **Workspace discovery**: reads `pnpm-workspace.yaml` and resolves its `packages` globs to find workspace directories. Each directory containing a `package.json` becomes a workspace. If no workspace file is found, the repo is treated as a single-package project.
-2. **Config loading**: loads `.config/release-kit.config.ts` (if present) and merges it with discovered defaults.
+2. **Config loading**: loads `.config/release-kit.config.ts` (if present), or the file named by `--config`, and merges it with discovered defaults.
 3. **Commit analysis**: for each workspace, finds commits since the last version tag, parses them for type and scope, and determines the appropriate version bump.
 4. **Version bump + changelog**: bumps `package.json` versions, builds structured `ChangelogEntry[]` from `git-cliff --context`, applies any [editorial overrides](docs/editorial-overrides.md) from per-scope `.meta/changelog-overrides.json` files, and renders both `CHANGELOG.md` and `.meta/changelog.json` from that single source. `git-cliff` is invoked only for its `--context` JSON; markdown rendering happens in-process so `.meta/changelog.json` and `CHANGELOG.md` always agree.
 5. **Release tags file**: writes computed tags to `tmp/.release-tags` for the release workflow to read when tagging and pushing.
@@ -86,6 +86,8 @@ The `scope|type:` format scopes a commit to a specific workspace in a monorepo. 
 ## Configuration
 
 Configuration is optional. The CLI works out of the box by auto-discovering workspaces and applying defaults. Create `.config/release-kit.config.ts` only when you need to customize behavior.
+
+Every subcommand that reads a config accepts `--config <path>` to read a file elsewhere. An absent default path means "no config"; an absent `--config` path fails the command. See [Config file location](docs/configuration.md#config-file-location).
 
 ```typescript
 import { defineConfig } from '@williamthorsen/release-kit/config';

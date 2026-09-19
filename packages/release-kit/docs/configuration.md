@@ -4,6 +4,16 @@ The fields of `.config/release-kit.config.ts`, how a workspace declares its prio
 
 A minimal config file is in the [README](../README.md#configuration).
 
+## Config file location
+
+release-kit reads `.config/release-kit.config.ts`, resolved against the working directory. A run reads a different file when the subcommand is given `--config <path>`, which is also resolved against the working directory.
+
+The flag is accepted by every subcommand that reads a config: `prepare`, `publish`, `create-github-release`, `show-tag-prefixes`, `overrides validate`, `sync-labels init`, and `sync-labels generate`. `commit`, `tag`, `push`, and `sync-labels sync` read no config and reject it.
+
+The two paths differ in what an absent file means. An absent default path means the repo declares no config, and the run proceeds on discovered defaults. An absent `--config` path fails the command with an error naming the resolved path, because a caller who names a file expects that file to be read.
+
+`--config` names a file to read, never a write target. `release-kit init --with-config` scaffolds to `.config/release-kit.config.ts` and takes no `--config`, and `sync-labels init` writes its seeded `repoLabels` block to that same path.
+
 ## `ReleaseKitConfig` reference
 
 | Field              | Type                                                      | Description                                                                                                                                                                                   |
