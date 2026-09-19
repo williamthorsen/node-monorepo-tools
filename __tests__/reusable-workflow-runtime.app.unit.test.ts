@@ -93,9 +93,9 @@ function collectRunCommands(content: string): string {
     }
 
     const indent = match[1] ?? '';
-    const inline = match[2] ?? '';
-    if (inline !== '' && !inline.startsWith('|') && !inline.startsWith('>')) {
-      commands.push(inline);
+    const inlineBody = match[2] ?? '';
+    if (inlineBody !== '' && !inlineBody.startsWith('|') && !inlineBody.startsWith('>')) {
+      commands.push(inlineBody);
       continue;
     }
 
