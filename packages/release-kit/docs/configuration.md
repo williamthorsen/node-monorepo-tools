@@ -10,7 +10,7 @@ release-kit reads `.config/release-kit.config.ts`, resolved against the working 
 
 The flag is accepted by every subcommand that reads a config: `prepare`, `publish`, `create-github-release`, `show-tag-prefixes`, `overrides validate`, `sync-labels init`, and `sync-labels generate`. `commit`, `tag`, `push`, and `sync-labels sync` read no config and reject it.
 
-The two paths differ in what an absent file means. An absent default path means the repo declares no config, and the run proceeds on discovered defaults. An absent `--config` path fails the command with an error naming the resolved path, because a caller who names a file expects that file to be read. A file that exists and either fails to load or fails validation is an error on both paths alike.
+The two paths differ in what an absent file means. An absent default path means the repo declares no config, and the run proceeds on discovered defaults. An absent `--config` path fails the command with an error naming the resolved path, because a caller who names a file expects that file to be read. A file that exists and fails validation is an error on both paths alike. A file that fails to load is an error too, except under `publish`, which warns and proceeds on derived defaults when the failing path is the default one.
 
 `--config` names a file to read, never a write target. `release-kit init --with-config` scaffolds to `.config/release-kit.config.ts` and takes no `--config`, and `sync-labels init` writes its seeded `repoLabels` block to that same path.
 
