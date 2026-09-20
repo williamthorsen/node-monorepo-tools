@@ -11,15 +11,16 @@ const PACKAGE_MANIFEST = 'package.json';
 /** The manifest whose presence marks a directory as the monorepo root. */
 const WORKSPACE_MANIFEST = 'pnpm-workspace.yaml';
 
-/** Which of three conditions left a workspace resolving to no package directory. */
-export type EmptyWorkspaceCause = 'all-excluded' | 'no-package' | 'no-pattern';
+/** Which of four conditions left a workspace resolving to no package directory. */
+export type EmptyWorkspaceCause = 'all-excluded' | 'no-package' | 'no-pattern' | 'unreadable-manifest';
 
 /**
  * What resolving a directory's workspace patterns produced: the directory declares no workspace, it resolves
  * to a set of package directories, or it resolves to none and the cause says which condition emptied it.
  *
- * The declared patterns travel with the last two because every message composed from one quotes them back to
- * the reader.
+ * The declared patterns travel with the last two because a message composed from one quotes them back to the
+ * reader. They are empty under `unreadable-manifest`, the one cause whose manifest declares nothing the reader
+ * can see.
  */
 export type WorkspaceResolution =
   | { kind: 'empty'; cause: EmptyWorkspaceCause; patterns: string[] }
@@ -61,12 +62,12 @@ export function isMonorepoRoot(dir: string): boolean {
  * entry whose value is not a string.
  */
 export function readWorkspaceOverrides(monorepoRoot: string): Record<string, string> | undefined {
-  const parsedManifest = readWorkspaceManifest(monorepoRoot);
-  if (!isObject(parsedManifest)) {
+  const manifestRead = readWorkspaceManifest(monorepoRoot);
+  if (manifestRead.kind !== 'parsed' || !isObject(manifestRead.value)) {
     return undefined;
   }
 
-  const overrides = parsedManifest['overrides'];
+  const overrides = manifestRead.value['overrides'];
 
   return isObject(overrides) ? readStringValues(overrides) : undefined;
 }
@@ -105,14 +106,23 @@ export function readWorkspacePackageNames(packageDirs: readonly string[]): strin
  * exclusion set. That runs only where a resolution has already come back empty.
  *
  * `no-pattern` covers every manifest whose `packages` key reaches the matcher with nothing positive: a key that
- * is absent, empty, not a list of strings, or holding only `!` entries, and a manifest that cannot be read or
- * parsed at all. One remedy answers them all, so the conditions below them are not worth telling apart.
+ * is absent, empty, not a list of strings, or holding only `!` entries. One remedy answers them all, so the
+ * conditions below them are not worth telling apart.
+ *
+ * A manifest that the reader cannot parse is `unreadable-manifest` rather than `no-pattern`. It declares
+ * whatever it declares, and the remedy the other causes share — declare a positive pattern — repairs nothing
+ * for a reader who has one and a syntax error above it.
  */
 export function resolveWorkspace(monorepoRoot: string): WorkspaceResolution {
-  const patterns = readWorkspacePatterns(monorepoRoot);
-  if (patterns === undefined) {
+  const manifestRead = readWorkspaceManifest(monorepoRoot);
+  if (manifestRead.kind === 'absent') {
     return { kind: 'not-a-workspace' };
   }
+  if (manifestRead.kind === 'unreadable') {
+    return { cause: 'unreadable-manifest', kind: 'empty', patterns: [] };
+  }
+
+  const patterns = getPackagesFromParsedYaml(manifestRead.value) ?? [];
 
   const packageDirs = resolvePackageDirs(monorepoRoot, patterns);
   if (packageDirs.length > 0) {
@@ -172,35 +182,27 @@ function readStringValues(record: Record<string, unknown>): Record<string, strin
 }
 
 /**
- * Parses the monorepo root's `pnpm-workspace.yaml`, returning nothing where it is absent, unreadable, or
- * holds no valid YAML.
+ * What reading the monorepo root's workspace manifest produced: the directory holds none, the reader could not
+ * read or parse the one it holds, or it parsed to a value.
+ *
+ * An absent manifest is what makes a directory no workspace at all, and an unreadable one is a workspace whose
+ * declarations nobody can see, so the two are told apart rather than sharing an absent value.
  */
-function readWorkspaceManifest(monorepoRoot: string): unknown {
+type ManifestRead = { kind: 'absent' } | { kind: 'parsed'; value: unknown } | { kind: 'unreadable' };
+
+/** Parses the monorepo root's `pnpm-workspace.yaml`, reporting an absent manifest apart from an unreadable one. */
+function readWorkspaceManifest(monorepoRoot: string): ManifestRead {
   const workspaceFile = path.join(monorepoRoot, WORKSPACE_MANIFEST);
 
   if (!existsSync(workspaceFile)) {
-    return undefined;
+    return { kind: 'absent' };
   }
 
   try {
-    return parse(readFileSync(workspaceFile, 'utf8'));
+    return { kind: 'parsed', value: parse(readFileSync(workspaceFile, 'utf8')) };
   } catch {
-    return undefined;
+    return { kind: 'unreadable' };
   }
-}
-
-/**
- * Reads the `packages` list the monorepo root's `pnpm-workspace.yaml` declares.
- *
- * Returns nothing where the directory holds no manifest, which is what makes it no workspace at all, and an
- * empty list where the manifest declares no usable one.
- */
-function readWorkspacePatterns(monorepoRoot: string): string[] | undefined {
-  if (!isMonorepoRoot(monorepoRoot)) {
-    return undefined;
-  }
-
-  return getPackagesFromParsedYaml(readWorkspaceManifest(monorepoRoot)) ?? [];
 }
 
 // endregion | Helpers

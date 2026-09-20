@@ -99,7 +99,8 @@ describe(resolveWorkspace, () => {
     it.for([
       { patterns: undefined, scenario: 'no `packages` key' },
       { patterns: '[]', scenario: 'an empty list' },
-      { patterns: "'packages/*'", scenario: 'a list holding something other than strings' },
+      { patterns: "'packages/*'", scenario: 'a `packages` key that is not a list' },
+      { patterns: '\n  - 42', scenario: 'a list holding something other than strings' },
       { patterns: "\n  - '!packages/legacy'", scenario: 'exclusions alone' },
       { patterns: '\n  - !packages/legacy', scenario: 'an unquoted `!` entry, which YAML leaves empty' },
     ])('reports no-pattern given $scenario', ({ patterns }, { packagesTree }) => {
@@ -111,12 +112,18 @@ describe(resolveWorkspace, () => {
       expect(resolveWorkspace(packagesTree.dir)).toMatchObject({ cause: 'no-pattern', kind: 'empty' });
     });
 
-    // A manifest the parser rejects yields no pattern either, and the one remedy `no-pattern` states —
-    // declare a positive pattern — is what repairs it.
-    it('reports no-pattern given a manifest holding no valid YAML, rather than throwing', ({ packagesTree }) => {
-      packagesTree.write('pnpm-workspace.yaml', 'packages:\n  - "unterminated\n');
+    // The manifest below declares `packages/*`, which `no-pattern` would tell the reader to go and declare.
+    // The fault is the syntax error above it, and the cause has to name that one to be worth reading.
+    it('reports unreadable-manifest given a manifest holding no valid YAML, rather than throwing', ({
+      packagesTree,
+    }) => {
+      packagesTree.write('pnpm-workspace.yaml', 'packages:\n  - "unterminated\n  - packages/*\n');
 
-      expect(resolveWorkspace(packagesTree.dir)).toStrictEqual({ cause: 'no-pattern', kind: 'empty', patterns: [] });
+      expect(resolveWorkspace(packagesTree.dir)).toStrictEqual({
+        cause: 'unreadable-manifest',
+        kind: 'empty',
+        patterns: [],
+      });
     });
 
     it('reports no-package where the pattern matches no directory holding one', ({ toolsTree }) => {

@@ -16,15 +16,16 @@ One divergence from pnpm: a directory counts as a package only if it holds a `pa
 | ----------------- | ------------------------------------------------------------------------------------------------------------ |
 | `not-a-workspace` | Nothing. The directory holds no `pnpm-workspace.yaml`, so it declares no workspace at all.                   |
 | `packages`        | `packageDirs`, the resolved absolute directories, and `patterns`, the `packages` list the manifest declares. |
-| `empty`           | `cause`, which of three conditions emptied the resolution, and the same `patterns`.                          |
+| `empty`           | `cause`, which of four conditions emptied the resolution, and the same `patterns`.                           |
 
-| `cause`        | What left the workspace empty                                                                                                                                           |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `no-pattern`   | No positive pattern reaches the matcher: the `packages` key is absent, empty, not a list of strings, or holds only `!` entries, or the manifest holds no readable YAML. |
-| `no-package`   | The patterns reach the matcher and match no directory holding a `package.json`, which is the divergence above.                                                          |
-| `all-excluded` | The `!` entries exclude every directory matched by the positive patterns.                                                                                               |
+| `cause`               | What left the workspace empty                                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `no-pattern`          | No positive pattern reaches the matcher: the `packages` key is absent, empty, not a list, not a list of strings, or holds only `!` entries. |
+| `no-package`          | The patterns reach the matcher and match no directory holding a `package.json`, which is the divergence above.                              |
+| `all-excluded`        | The `!` entries exclude every directory matched by the positive patterns.                                                                   |
+| `unreadable-manifest` | The manifest holds no valid YAML, so nothing it declares reaches the matcher. `patterns` is empty, and no other cause is decided.           |
 
-One remedy answers every shape of `no-pattern`, so they are not told apart. `all-excluded` is decided by matching the positive patterns a second time without the exclusion set, which reaches the filesystem only on this path, and only where the first resolution came back empty.
+One remedy answers every shape of `no-pattern`, so they are not told apart. A manifest the parser rejects is held apart from them, because that remedy repairs nothing for a reader whose manifest declares a pattern above a syntax error. `all-excluded` is decided by matching the positive patterns a second time without the exclusion set, which reaches the filesystem only on this path, and only where the first resolution came back empty.
 
 `isMonorepoRoot(dir)`, `readWorkspaceOverrides(monorepoRoot)`, and `readWorkspacePackageNames(packageDirs)` are re-exported unchanged. Each returns a value rather than throwing: `readWorkspaceOverrides` returns nothing where the manifest is missing, unreadable, unparseable, or declares no `overrides` block, and `readWorkspacePackageNames` passes over a manifest it cannot read.
 

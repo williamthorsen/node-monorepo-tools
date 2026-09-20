@@ -872,8 +872,9 @@ function formatEmptyFilterError(pattern: string, names: readonly string[]): stri
 }
 
 /**
- * Returns the sentences naming which of the three conditions left the workspace holding no package, and the
- * remedy for that one. Every one of them quotes the `packages` list the manifest declares.
+ * Returns the sentences naming which of the four conditions left the workspace holding no package, and the
+ * remedy for that one. Each quotes the `packages` list the manifest declares, apart from the one whose
+ * manifest the reader could not parse and which therefore has no list to quote.
  *
  * The `package.json` requirement is stated under `no-package` because it is a divergence from pnpm, which
  * recognizes two further manifests, and the reader of a workspace that pnpm resolves has no way to infer it.
@@ -907,6 +908,12 @@ function describeEmptyWorkspace(monorepoRoot: string): string {
         `pnpm-workspace.yaml ${declaredClause}, so no pattern reaches the matcher. Declare a positive pattern such ` +
         'as `packages/*`, and quote any `!` entry, which YAML reads as a tag rather than a string where it ' +
         'stands bare.'
+      );
+    case 'unreadable-manifest':
+      return (
+        `pnpm-workspace.yaml at ${monorepoRoot} holds no valid YAML, so nothing it declares reaches the matcher. ` +
+        'Repair the syntax error and run the command again. An unterminated quoted string and a mis-indented ' +
+        'entry are the usual ones.'
       );
     default: {
       const unhandledCause: never = cause;
