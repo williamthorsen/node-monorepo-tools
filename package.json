@@ -51,7 +51,7 @@
     "v11y-check": "workspace:*",
     "vite": "8.3.0",
     "vitest": "catalog:",
-    "zod": "4.6.2"
+    "zod": "4.6.4"
   },
   "packageManager": "pnpm@12.4.1",
   "engines": {
