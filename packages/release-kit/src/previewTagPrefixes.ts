@@ -7,9 +7,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { detectUndeclaredTagPrefixes, type UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
-import { loadConfig } from './loadConfig.ts';
 import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './types.ts';
-import { validateConfig } from './validateConfig.ts';
 
 /** One workspace's preview row in the tag-prefix preview. */
 export interface TagPrefixPreviewRow {
@@ -60,20 +58,19 @@ export interface TagPrefixPreview {
  *
  * Discovers workspaces via `discoverWorkspaces()`, derives each workspace's tag prefix
  * via `deriveWorkspaceConfig()`, and records the derivation error on failure rather than aborting.
- * Loads the config file to surface declared legacy prefixes per workspace, scans local git tags for
- * undeclared candidate prefixes via `detectUndeclaredTagPrefixes`, and reports collisions across
- * successfully-derived prefixes. Rejects when `configPath` names a file that cannot be loaded.
+ * Reads the already-validated `config` to surface declared legacy prefixes per workspace, scans local
+ * git tags for undeclared candidate prefixes via `detectUndeclaredTagPrefixes`, and reports collisions
+ * across successfully-derived prefixes.
  */
-export async function previewTagPrefixes(configPath?: string): Promise<TagPrefixPreview> {
+export async function previewTagPrefixes(config?: ReleaseKitConfig): Promise<TagPrefixPreview> {
   const workspacePaths = (await discoverWorkspaces()) ?? [];
-  const userConfig = await loadUserConfig(configPath);
-  const overridesByDir = buildOverrideMap(userConfig);
+  const overridesByDir = buildOverrideMap(config);
 
   const workspaces: TagPrefixPreviewRow[] = Array.from(workspacePaths, (workspacePath) =>
     buildPreviewRow(workspacePath, overridesByDir),
   );
 
-  const retiredPackages = buildRetiredPreviewEntries(userConfig?.retiredPackages ?? []);
+  const retiredPackages = buildRetiredPreviewEntries(config?.retiredPackages ?? []);
 
   const collisions = detectCollisions(workspaces);
   const knownPrefixes = collectKnownPrefixes(workspaces, retiredPackages);
@@ -82,33 +79,11 @@ export async function previewTagPrefixes(configPath?: string): Promise<TagPrefix
   return { workspaces, collisions, undeclaredCandidates, retiredPackages };
 }
 
-/**
- * Load and validate the config file, returning undefined on absent/invalid.
- *
- * A load failure is swallowed only for the default path, where a broken config still leaves the preview's
- * derived prefixes worth showing; for a named path it propagates, because the caller asked for that file.
- * A config that loads and then fails validation yields no overrides on either path.
- */
-async function loadUserConfig(configPath?: string): Promise<ReleaseKitConfig | undefined> {
-  let raw: unknown;
-  try {
-    raw = await loadConfig(configPath);
-  } catch (error: unknown) {
-    if (configPath !== undefined) {
-      throw error;
-    }
-    return undefined;
-  }
-  if (raw === undefined) return undefined;
-  const { config, errors } = validateConfig(raw);
-  return errors.length === 0 ? config : undefined;
-}
-
 /** Build a `dir -> legacyIdentities` lookup map from a validated config. */
-function buildOverrideMap(userConfig: ReleaseKitConfig | undefined): Map<string, LegacyIdentity[]> {
+function buildOverrideMap(config: ReleaseKitConfig | undefined): Map<string, LegacyIdentity[]> {
   const map = new Map<string, LegacyIdentity[]>();
-  if (userConfig?.workspaces === undefined) return map;
-  for (const entry of userConfig.workspaces) {
+  if (config?.workspaces === undefined) return map;
+  for (const entry of config.workspaces) {
     if (entry.legacyIdentities !== undefined) {
       map.set(entry.dir, entry.legacyIdentities);
     }

@@ -10,7 +10,7 @@ release-kit reads `.config/release-kit.config.ts`, resolved against the working 
 
 The flag is accepted by every subcommand that reads a config: `prepare`, `publish`, `create-github-release`, `show-tag-prefixes`, `overrides validate`, `sync-labels init`, and `sync-labels generate`. `commit`, `tag`, `push`, and `sync-labels sync` read no config and reject it.
 
-The two paths differ in what an absent file means. An absent default path means the repo declares no config, and the run proceeds on discovered defaults. An absent `--config` path fails the command with an error naming the resolved path, because a caller who names a file expects that file to be read.
+The two paths differ in what an absent file means. An absent default path means the repo declares no config, and the run proceeds on discovered defaults. An absent `--config` path fails the command with an error naming the resolved path, because a caller who names a file expects that file to be read. A file that exists and fails validation is an error on both paths alike. A file that fails to load is an error too, except under `publish`, which warns and proceeds on derived defaults when the failing path is the default one.
 
 `--config` names a file to read, never a write target. `release-kit init --with-config` scaffolds to `.config/release-kit.config.ts` and takes no `--config`, and `sync-labels init` writes its seeded `repoLabels` block to that same path.
 
@@ -98,6 +98,8 @@ The rule is enforced at config load; the resulting error identifies both collidi
 Print a per-workspace table of derived tag prefixes, tag counts, and declared legacy prefixes. Also surfaces any release-shaped tag prefix in the repo that is neither a derived prefix nor declared via `legacyIdentities`, along with a copy-pasteable `workspaces: [...]` config snippet. The snippet uses a `TODO-fill-in-legacy-npm-name` placeholder for each identity's `name`; replace it with the package's prior npm name before pasting.
 
 Exits `0` when every workspace derives a prefix and there are no cross-workspace collisions; exits `1` on any derivation failure or collision. Undeclared candidates do not affect the exit code — they surface as a warning via the `legacy tag prefixes are declared` readyup check.
+
+A config file that exists and either fails to load or fails schema validation reports the failure on stderr and exits `1`, printing no preview, because a config that cannot be read leaves the declared-versus-undeclared verdict wrong in the one dimension the command exists to report on. That holds on the default path and under `--config`, and in single-package mode as well as monorepo mode. An absent default config is a supported state and still previews against derived defaults.
 
 In single-package mode, prints a single row with `workspacePath = .` and `derivedPrefix = v`; legacy entries and undeclared-candidate scanning are not applicable.
 

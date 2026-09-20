@@ -2,7 +2,7 @@ import { formatStatusLine, type OutputStyle, reportError, type StreamStyles } fr
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { detectRepoType } from './init/detectRepoType.ts';
-import { assertConfigLoadable } from './loadConfig.ts';
+import { loadValidatedConfig } from './loadValidatedConfig.ts';
 import { previewTagPrefixes, type TagPrefixPreview, type TagPrefixPreviewRow } from './previewTagPrefixes.ts';
 
 /**
@@ -12,19 +12,16 @@ import { previewTagPrefixes, type TagPrefixPreview, type TagPrefixPreviewRow } f
  * entries, followed by an "Undeclared tag prefixes" section when candidate-shaped tags
  * exist outside the known set. Exits `0` on full derivation success and no collisions;
  * `1` on any derivation failure or collision. Undeclared candidates do not affect the
- * exit code. A `configPath` that cannot be loaded reports the failure and exits `1`, rather than
- * falling back to a default-config preview that would understate the declared legacy prefixes.
+ * exit code. A config that exists and either fails to load or fails validation reports to stderr and
+ * exits `1` in both repo modes, rather than falling back to a default-config preview that would
+ * understate the declared legacy prefixes. An absent default config previews against derived defaults.
  *
  * @returns The exit code the caller should use.
  */
 export async function showTagPrefixesCommand(styles: StreamStyles, configPath?: string): Promise<number> {
-  // The single-package branch below reads no config, so a named path is opened ahead of it.
-  try {
-    await assertConfigLoadable(configPath);
-  } catch (error: unknown) {
-    reportError(`Failed to load config: ${describeError(error)}`);
-    return 1;
-  }
+  // The single-package branch below reads no config, so the config is loaded ahead of it.
+  const result = await loadValidatedConfig(styles.stderr, configPath);
+  if (result.status === 'invalid') return 1;
 
   if (detectRepoType() === 'single-package') {
     process.stdout.write(renderSinglePackage());
@@ -33,7 +30,7 @@ export async function showTagPrefixesCommand(styles: StreamStyles, configPath?: 
 
   let preview: TagPrefixPreview;
   try {
-    preview = await previewTagPrefixes(configPath);
+    preview = await previewTagPrefixes(result.status === 'ok' ? result.config : undefined);
   } catch (error: unknown) {
     reportError(describeError(error));
     return 1;
