@@ -97,19 +97,47 @@ describe(resolveWorkspace, () => {
 
   describe("kind 'empty'", () => {
     it.for([
-      { patterns: undefined, scenario: 'no `packages` key' },
-      { patterns: '[]', scenario: 'an empty list' },
-      { patterns: "'packages/*'", scenario: 'a `packages` key that is not a list' },
-      { patterns: '\n  - 42', scenario: 'a list holding something other than strings' },
       { patterns: "\n  - '!packages/legacy'", scenario: 'exclusions alone' },
       { patterns: '\n  - !packages/legacy', scenario: 'an unquoted `!` entry, which YAML leaves empty' },
     ])('reports no-pattern given $scenario', ({ patterns }, { packagesTree }) => {
-      packagesTree.write(
-        'pnpm-workspace.yaml',
-        patterns === undefined ? 'shamefully-hoist: true\n' : `packages: ${patterns}\n`,
-      );
+      packagesTree.write('pnpm-workspace.yaml', `packages: ${patterns}\n`);
 
       expect(resolveWorkspace(packagesTree.dir)).toMatchObject({ cause: 'no-pattern', kind: 'empty' });
+    });
+
+    // pnpm resolves each of these to the root package alone, so a caller treating an empty resolution as a
+    // failure needs them held apart from a list the reader could not make patterns of.
+    it.for([
+      { manifest: '', scenario: 'an empty file, which YAML parses to no document' },
+      { manifest: '# catalogs only\n', scenario: 'a comment-only file' },
+      { manifest: 'shamefully-hoist: true\n', scenario: 'no `packages` key' },
+      { manifest: 'packages:\n', scenario: 'a `packages` key YAML read as null' },
+      { manifest: 'packages: []\n', scenario: 'an empty list' },
+    ])('reports no-packages-list given $scenario', ({ manifest }, { packagesTree }) => {
+      packagesTree.write('pnpm-workspace.yaml', manifest);
+
+      expect(resolveWorkspace(packagesTree.dir)).toStrictEqual({
+        cause: 'no-packages-list',
+        kind: 'empty',
+        patterns: [],
+      });
+    });
+
+    // A list mixing a valid pattern with a bad entry is the reachable shape: reporting it as declaring nothing
+    // would release the root alone in a repo whose other pattern matches packages.
+    it.for([
+      { patterns: "'packages/*'", scenario: 'a `packages` value that is not a list' },
+      { patterns: '\n  - 42', scenario: 'a list holding something other than strings' },
+      { patterns: '\n  - packages/*\n  - 42', scenario: 'a valid pattern beside a non-string entry' },
+      { patterns: '\n  - packages/*\n  - apps/*:', scenario: 'a valid pattern beside a mis-indented map' },
+    ])('reports unreadable-packages given $scenario', ({ patterns }, { packagesTree }) => {
+      packagesTree.write('pnpm-workspace.yaml', `packages: ${patterns}\n`);
+
+      expect(resolveWorkspace(packagesTree.dir)).toStrictEqual({
+        cause: 'unreadable-packages',
+        kind: 'empty',
+        patterns: [],
+      });
     });
 
     // The manifest below declares `packages/*`, which `no-pattern` would tell the reader to go and declare.
