@@ -2,11 +2,10 @@
 /* eslint unicorn/no-process-exit: off */
 
 import { reportError } from '@williamthorsen/nmr-core';
-import type { WorkspaceResolution } from '@williamthorsen/nmr-core/workspace';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
-import { describeEmptyWorkspace, discoverWorkspaces } from './discoverWorkspaces.ts';
+import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { type ResolvedTag, resolveReleaseTags } from './resolveReleaseTags.ts';
 import type { WorkspaceConfig } from './types.ts';
 
@@ -15,7 +14,7 @@ import type { WorkspaceConfig } from './types.ts';
  * full resolved tag names (e.g., `nmr-core-v1.3.0`), and return the filtered tag list.
  * Works in both single-package and monorepo modes. Exits with an error message on any validation
  * failure — including `deriveWorkspaceConfig()` throws for workspaces missing a `package.json` `name` field,
- * and a declared workspace whose patterns resolve to no package, which is not single-package mode.
+ * and a workspace declaring patterns that resolve to no package, which is not single-package mode.
  *
  * In both modes `deriveWorkspaceConfig` is called so `WorkspaceConfig.isPublishable` (read
  * from `package.json#private`) propagates onto each `ResolvedTag`. Single-package mode now
@@ -25,7 +24,7 @@ import type { WorkspaceConfig } from './types.ts';
  */
 export function resolveCommandTags(tags: string[] | undefined): ResolvedTag[] {
   // Discover workspaces to determine single-package vs monorepo mode.
-  let workspace: WorkspaceResolution;
+  let workspace: WorkspaceDiscovery;
   try {
     workspace = discoverWorkspaces();
   } catch (error: unknown) {
@@ -44,7 +43,7 @@ export function resolveCommandTags(tags: string[] | undefined): ResolvedTag[] {
   let workspaces: WorkspaceConfig[] | undefined;
   let singleWorkspace: WorkspaceConfig | undefined;
   try {
-    if (workspace.kind === 'not-a-workspace') {
+    if (workspace.kind === 'single-package') {
       singleWorkspace = deriveWorkspaceConfig('.');
     } else {
       workspaces = workspace.packageDirs.map((workspacePath) => deriveWorkspaceConfig(workspacePath));

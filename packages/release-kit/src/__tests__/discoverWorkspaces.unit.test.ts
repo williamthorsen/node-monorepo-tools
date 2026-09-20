@@ -2,7 +2,8 @@ import { createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolb
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { describeEmptyWorkspace, discoverWorkspaces, type EmptyWorkspace } from '../discoverWorkspaces.ts';
+import { describeEmptyWorkspace, discoverWorkspaces } from '../discoverWorkspaces.ts';
+import { emptyWorkspace } from '../test-utils/workspaceResolutions.ts';
 
 const PREFIX = 'release-kit-discover-workspaces-';
 
@@ -21,8 +22,20 @@ describe(discoverWorkspaces, () => {
     );
   });
 
-  it('reports not-a-workspace where the root holds no pnpm-workspace.yaml', () => {
-    expect(discoverWorkspaces(tree.dir)).toStrictEqual({ kind: 'not-a-workspace' });
+  it('reports single-package where the root holds no pnpm-workspace.yaml', () => {
+    expect(discoverWorkspaces(tree.dir)).toStrictEqual({ kind: 'single-package' });
+  });
+
+  // pnpm resolves such a manifest to the root package alone, and a workspace file kept for `catalog:` or
+  // `overrides:` alone is an ordinary single-package repo rather than one whose manifest needs repairing.
+  it.each([
+    ['the `packages` key is absent', 'catalog:\n  zod: 4.1.13\n'],
+    ['the `packages` list is empty', 'packages: []\n'],
+    ['the `packages` list holds no string', 'packages:\n  - 123\n'],
+  ])('reports single-package where %s', (_condition, manifest) => {
+    tree.write('pnpm-workspace.yaml', manifest);
+
+    expect(discoverWorkspaces(tree.dir)).toStrictEqual({ kind: 'single-package' });
   });
 
   it('returns the matched packages relative to the root, as POSIX paths', () => {
@@ -88,10 +101,12 @@ describe(discoverWorkspaces, () => {
       expect(discoverWorkspaces(tree.dir)).toMatchObject({ cause: 'no-package', kind: 'empty' });
     });
 
-    it('reports no-pattern where the manifest declares no usable `packages` list', () => {
-      tree.write('pnpm-workspace.yaml', 'shamefully-hoist: true\n');
+    // An unquoted `!excluded` parses as a YAML tag, leaving an entry the matcher drops. The reader declared
+    // packages and got none, which is the condition worth reporting rather than releasing the root.
+    it('reports no-pattern where every declared entry fails to become a positive pattern', () => {
+      tree.write('pnpm-workspace.yaml', 'packages:\n  - !excluded\n');
 
-      expect(discoverWorkspaces(tree.dir)).toStrictEqual({ cause: 'no-pattern', kind: 'empty', patterns: [] });
+      expect(discoverWorkspaces(tree.dir)).toMatchObject({ cause: 'no-pattern', kind: 'empty' });
     });
 
     // Reported rather than thrown, so that a caller composing a message is the one that decides the failure.
@@ -109,11 +124,6 @@ describe(discoverWorkspaces, () => {
 });
 
 describe(describeEmptyWorkspace, () => {
-  /** Builds the empty resolution the describer takes, which only a workspace holding no package produces. */
-  function emptyWorkspace(cause: EmptyWorkspace['cause'], patterns: string[]): EmptyWorkspace {
-    return { cause, kind: 'empty', patterns };
-  }
-
   it('names the exclusions for all-excluded', () => {
     const message = describeEmptyWorkspace(emptyWorkspace('all-excluded', ['packages/*', '!packages/*']));
 

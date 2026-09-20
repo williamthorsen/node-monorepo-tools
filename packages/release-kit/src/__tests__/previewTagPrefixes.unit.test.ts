@@ -25,7 +25,7 @@ vi.mock(import('../detectUndeclaredTagPrefixes.ts'), () => ({
 }));
 
 import { previewTagPrefixes } from '../previewTagPrefixes.ts';
-import { emptyWorkspace, notAWorkspace, resolvedPackages } from '../test-utils/workspaceResolutions.ts';
+import { emptyWorkspace, resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
 
 /** Build a mock implementation for git invocations returning tag counts by prefix. */
 function setupTagCounts(byPrefix: Record<string, string[]>): void {
@@ -165,7 +165,7 @@ describe(previewTagPrefixes, () => {
   });
 
   it('returns detection results as undeclaredCandidates in the preview', () => {
-    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     mockDetectUndeclared.mockReturnValue([
       { prefix: 'orphan-v', tagCount: 1, exampleTags: ['orphan-v1.0.0'], suggestedDir: 'orphan' },
     ]);
@@ -179,7 +179,7 @@ describe(previewTagPrefixes, () => {
   });
 
   it('returns declared retired packages with their tag counts and preserves successor when present', () => {
-    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     const config = {
       retiredPackages: [
         { name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup' },
@@ -215,7 +215,7 @@ describe(previewTagPrefixes, () => {
   });
 
   it('returns an empty retiredPackages array when the config omits the field', () => {
-    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
 

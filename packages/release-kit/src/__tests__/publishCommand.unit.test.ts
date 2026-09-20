@@ -71,7 +71,7 @@ vi.mock(import('../assertCleanWorkingTree.ts'), () => ({
 }));
 
 import { publishCommand } from '../publishCommand.ts';
-import { notAWorkspace, resolvedPackages } from '../test-utils/workspaceResolutions.ts';
+import { resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -80,7 +80,7 @@ describe(publishCommand, () => {
 
   beforeEach(() => {
     capture = captureStdio();
-    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true }]);
     mockDetectPackageManager.mockReturnValue('npm');
     mockLoadConfig.mockResolvedValue(undefined);
@@ -200,7 +200,7 @@ describe(publishCommand, () => {
   });
 
   it('filters resolved tags by --tags in single-package mode', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true }]);
 
     await publishCommand(['--tags=v1.0.0'], RICH_STYLES);

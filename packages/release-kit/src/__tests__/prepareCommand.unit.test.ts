@@ -65,7 +65,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
 import { parseArgs, prepareCommand } from '../prepareCommand.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../releaseFiles.ts';
 import type { ReleasePlan } from '../releasePlan.ts';
-import { emptyWorkspace, notAWorkspace, resolvedPackages } from '../test-utils/workspaceResolutions.ts';
+import { emptyWorkspace, resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -124,7 +124,7 @@ describe(prepareCommand, () => {
   });
 
   it('calls releasePrepare for a single-package repo', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
     await prepareCommand([], RICH_STYLES);
 
@@ -182,7 +182,7 @@ describe(prepareCommand, () => {
   });
 
   it('exits with error for --only on a single-package repo', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
     await expect(prepareCommand(['--only=foo'], RICH_STYLES)).rejects.toThrow(ProcessExitError);
     expect(capture.stderr).toContain('--only is only supported');
@@ -192,7 +192,7 @@ describe(prepareCommand, () => {
     // The orthogonal --force model is only wired into the monorepo executor; the
     // single-package path still uses determineBumpFromCommits, so a bare --force would
     // be silently ignored. Reject it explicitly with a guidance error instead.
-    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
     await expect(prepareCommand(['--force'], RICH_STYLES)).rejects.toThrow(ProcessExitError);
     expect(capture.stderr).toContain('--force without --bump');
@@ -202,7 +202,7 @@ describe(prepareCommand, () => {
   it('accepts --force --bump=X on a single-package repo', async () => {
     // --bump=X carries the release through unconditionally in the single-package path,
     // so --force is a no-op rather than a silent failure when paired with --bump.
-    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
     await prepareCommand(['--force', '--bump=patch'], RICH_STYLES);
 
@@ -567,7 +567,7 @@ describe(prepareCommand, () => {
   });
 
   it('passes setVersion to releasePrepare in single-package mode', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
     await prepareCommand(['--set-version=1.2.3'], RICH_STYLES);
 
@@ -587,7 +587,7 @@ describe(prepareCommand, () => {
   });
 
   it('forwards withReleaseNotes to releasePrepare in single-package mode', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
     await prepareCommand(['--with-release-notes'], RICH_STYLES);
 

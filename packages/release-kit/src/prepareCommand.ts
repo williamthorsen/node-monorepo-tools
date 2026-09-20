@@ -12,13 +12,12 @@ import {
   reportError,
   type StreamStyles,
 } from '@williamthorsen/nmr-core';
-import type { WorkspaceResolution } from '@williamthorsen/nmr-core/workspace';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { configFlagSchema } from './configFlagSchema.ts';
-import { describeEmptyWorkspace, discoverWorkspaces } from './discoverWorkspaces.ts';
+import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
@@ -153,7 +152,7 @@ export async function prepareCommand(argv: string[], styles: StreamStyles): Prom
   const userConfig = await loadAndValidateConfig(styles.stderr, configPath);
 
   // 3. Discover workspaces
-  let workspace: WorkspaceResolution;
+  let workspace: WorkspaceDiscovery;
   try {
     workspace = discoverWorkspaces();
   } catch (error: unknown) {
@@ -167,7 +166,7 @@ export async function prepareCommand(argv: string[], styles: StreamStyles): Prom
   }
 
   // 4. Determine mode, merge config, and run
-  if (workspace.kind === 'not-a-workspace') {
+  if (workspace.kind === 'single-package') {
     runSinglePackageMode(userConfig, options, only, dryRun, styles.stdout);
   } else {
     runMonorepoMode(workspace.packageDirs, userConfig, options, only, setVersion, dryRun, styles.stdout);

@@ -1,10 +1,9 @@
 import { existsSync } from 'node:fs';
 
 import { reportWriteResult, type StreamStyles, writeFileWithCheck } from '@williamthorsen/nmr-core';
-import type { WorkspaceResolution } from '@williamthorsen/nmr-core/workspace';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import { describeEmptyWorkspace, discoverWorkspaces } from '../discoverWorkspaces.ts';
+import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from '../discoverWorkspaces.ts';
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
 import { loadValidatedConfig } from '../loadValidatedConfig.ts';
 import { generateCommand, LABELS_OUTPUT_PATH } from './generateCommand.ts';
@@ -48,7 +47,7 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
 
   console.info('\n> Discovering workspaces');
 
-  let workspace: WorkspaceResolution;
+  let workspace: WorkspaceDiscovery;
   try {
     workspace = discoverWorkspaces();
   } catch (error: unknown) {
@@ -62,7 +61,7 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
     return 1;
   }
 
-  if (workspace.kind === 'not-a-workspace') {
+  if (workspace.kind === 'single-package') {
     console.info('  No pnpm workspaces found (single-package repo)');
   } else {
     console.info(`  Found ${String(workspace.packageDirs.length)} workspaces`);
@@ -77,7 +76,7 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
   }
 
   const scopeLabels: LabelDefinition[] =
-    workspace.kind === 'not-a-workspace' ? [] : buildScopeLabels(workspace.packageDirs, retiredNames);
+    workspace.kind === 'single-package' ? [] : buildScopeLabels(workspace.packageDirs, retiredNames);
 
   // Scaffold caller workflow
   console.info('\n> Scaffolding files');

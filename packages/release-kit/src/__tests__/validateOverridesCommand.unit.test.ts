@@ -4,7 +4,7 @@ import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runGitCliff } from '../runGitCliff.ts';
-import { emptyWorkspace, notAWorkspace, resolvedPackages } from '../test-utils/workspaceResolutions.ts';
+import { emptyWorkspace, resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
 import type { ChangelogEntry } from '../types.ts';
 import { formatValidateOverridesResult, validateOverridesCommand } from '../validateOverridesCommand.ts';
 
@@ -120,7 +120,7 @@ describe(formatValidateOverridesResult, () => {
 describe(validateOverridesCommand, () => {
   it('returns exit 0 in a single-package layout with no overrides', async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: notAWorkspace,
+      discoverWorkspaces: singlePackage,
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () => entriesFromHashes([]),
       validate: () => ({ errors: [], warnings: [] }),
@@ -144,7 +144,7 @@ describe(validateOverridesCommand, () => {
 
   it('returns exit 1 when validation surfaces only warnings', async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: notAWorkspace,
+      discoverWorkspaces: singlePackage,
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () => entriesFromHashes([]),
       validate: () => ({ errors: [], warnings: ['file.json: stale key'] }),
@@ -154,7 +154,7 @@ describe(validateOverridesCommand, () => {
 
   it('returns exit 2 when validation surfaces errors', async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: notAWorkspace,
+      discoverWorkspaces: singlePackage,
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () => entriesFromHashes([]),
       validate: () => ({ errors: ['file.json: ambiguous'], warnings: [] }),
@@ -164,7 +164,7 @@ describe(validateOverridesCommand, () => {
 
   it('returns exit 2 with a config-load failure message', async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: notAWorkspace,
+      discoverWorkspaces: singlePackage,
       loadConfig: () => Promise.reject(new Error('boom')),
       validate: () => ({ errors: [], warnings: [] }),
     });
@@ -176,7 +176,7 @@ describe(validateOverridesCommand, () => {
   it('returns exit 2 with an Invalid config message when the loaded config fails validation', async () => {
     // `validateConfig` rejects non-record top-level values with "Config must be an object".
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: notAWorkspace,
+      discoverWorkspaces: singlePackage,
       loadConfig: () => Promise.resolve(42),
       validate: () => ({ errors: [], warnings: [] }),
     });
@@ -189,7 +189,7 @@ describe(validateOverridesCommand, () => {
   it('passes a project-only scope to validate in single-package mode', async () => {
     let received: { workspaces: number; projectHashes: number } | undefined;
     await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: notAWorkspace,
+      discoverWorkspaces: singlePackage,
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () => entriesFromHashes(['hash1', 'hash2']),
       validate: (inputs) => {
@@ -214,7 +214,7 @@ describe(validateOverridesCommand, () => {
     // 'aabbcc1234') was reported stale because the validator never saw that hash.
     let capturedHashes: readonly string[] = [];
     await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: notAWorkspace,
+      discoverWorkspaces: singlePackage,
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () =>
         entriesFromReleases([
@@ -246,12 +246,12 @@ describe(validateOverridesCommand, () => {
       tree.write('elsewhere/alternative.config.ts', 'export default { unknownField: true };');
 
       const named = await validateOverridesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts', {
-        discoverWorkspaces: notAWorkspace,
+        discoverWorkspaces: singlePackage,
         buildEntries: () => entriesFromHashes([]),
         validate: () => ({ errors: [], warnings: [] }),
       });
       const defaulted = await validateOverridesCommand(RICH_STYLES, undefined, {
-        discoverWorkspaces: notAWorkspace,
+        discoverWorkspaces: singlePackage,
         buildEntries: () => entriesFromHashes([]),
         validate: () => ({ errors: [], warnings: [] }),
       });
@@ -263,7 +263,7 @@ describe(validateOverridesCommand, () => {
 
     it('returns exit 2 when the named file does not exist', async () => {
       const result = await validateOverridesCommand(RICH_STYLES, 'elsewhere/absent.config.ts', {
-        discoverWorkspaces: notAWorkspace,
+        discoverWorkspaces: singlePackage,
         buildEntries: () => entriesFromHashes([]),
         validate: () => ({ errors: [], warnings: [] }),
       });
@@ -291,7 +291,7 @@ describe(validateOverridesCommand, () => {
       writeOverrides({ aabbcc12: { audience: 'skip' } });
 
       const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-        discoverWorkspaces: notAWorkspace,
+        discoverWorkspaces: singlePackage,
         loadConfig: () => Promise.resolve(undefined),
         buildEntries: () =>
           entriesFromReleases([
@@ -309,7 +309,7 @@ describe(validateOverridesCommand, () => {
       writeOverrides({ deadbeef: { audience: 'skip' } });
 
       const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-        discoverWorkspaces: notAWorkspace,
+        discoverWorkspaces: singlePackage,
         loadConfig: () => Promise.resolve(undefined),
         buildEntries: () =>
           entriesFromReleases([
@@ -327,7 +327,7 @@ describe(validateOverridesCommand, () => {
       writeOverrides({ aa: { audience: 'skip' } });
 
       const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-        discoverWorkspaces: notAWorkspace,
+        discoverWorkspaces: singlePackage,
         loadConfig: () => Promise.resolve(undefined),
         buildEntries: () =>
           entriesFromReleases([
@@ -387,7 +387,7 @@ describe(validateOverridesCommand, () => {
       });
 
       const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-        discoverWorkspaces: notAWorkspace,
+        discoverWorkspaces: singlePackage,
         loadConfig: () => Promise.resolve(undefined),
       });
 

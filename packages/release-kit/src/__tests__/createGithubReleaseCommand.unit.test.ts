@@ -39,7 +39,7 @@ vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
 });
 
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
-import { notAWorkspace, resolvedPackages } from '../test-utils/workspaceResolutions.ts';
+import { resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -48,7 +48,7 @@ describe(createGithubReleaseCommand, () => {
 
   beforeEach(() => {
     capture = captureStdio();
-    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true }]);
     mockCreateGithubReleases.mockReturnValue({ created: ['v1.0.0'], skipped: [] });
     mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => ({

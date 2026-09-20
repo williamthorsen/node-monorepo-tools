@@ -23,7 +23,7 @@ vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
 
 import { resolveCommandTags } from '../resolveCommandTags.ts';
 import type { ResolvedTag } from '../resolveReleaseTags.ts';
-import { emptyWorkspace, notAWorkspace, resolvedPackages } from '../test-utils/workspaceResolutions.ts';
+import { emptyWorkspace, resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
 import type { WorkspaceConfig } from '../types.ts';
 
 const TAGS: ResolvedTag[] = [
@@ -94,7 +94,7 @@ describe(resolveCommandTags, () => {
   });
 
   it('derives the single workspace config and passes it to resolveReleaseTags in single-package mode', () => {
-    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     const single = makeWorkspace('root', 'v', '.');
     mockDeriveWorkspaceConfig.mockReset();
     mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
