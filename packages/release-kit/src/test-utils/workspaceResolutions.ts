@@ -1,4 +1,4 @@
-import type { EmptyWorkspace, EmptyWorkspaceCause, WorkspaceDiscovery } from '../discoverWorkspaces.ts';
+import type { EmptyWorkspace, FailingWorkspaceCause, WorkspaceDiscovery } from '../discoverWorkspaces.ts';
 
 /**
  * The discoveries a mocked `discoverWorkspaces` hands back, built here rather than spelled out at each mock
@@ -9,7 +9,7 @@ import type { EmptyWorkspace, EmptyWorkspaceCause, WorkspaceDiscovery } from '..
  */
 
 /** A workspace declaring patterns that resolved to no package directory, which every command fails on. */
-export function emptyWorkspace(cause: EmptyWorkspaceCause, patterns: string[] = ['packages/*']): EmptyWorkspace {
+export function emptyWorkspace(cause: FailingWorkspaceCause, patterns: string[] = ['packages/*']): EmptyWorkspace {
   return { cause, kind: 'empty', patterns };
 }
 

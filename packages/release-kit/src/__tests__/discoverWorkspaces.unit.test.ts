@@ -29,13 +29,30 @@ describe(discoverWorkspaces, () => {
   // pnpm resolves such a manifest to the root package alone, and a workspace file kept for `catalog:` or
   // `overrides:` alone is an ordinary single-package repo rather than one whose manifest needs repairing.
   it.each([
+    ['the file is empty', ''],
     ['the `packages` key is absent', 'catalog:\n  zod: 4.1.13\n'],
+    ['the `packages` key is null', 'packages:\n'],
     ['the `packages` list is empty', 'packages: []\n'],
-    ['the `packages` list holds no string', 'packages:\n  - 123\n'],
   ])('reports single-package where %s', (_condition, manifest) => {
     tree.write('pnpm-workspace.yaml', manifest);
 
     expect(discoverWorkspaces(tree.dir)).toStrictEqual({ kind: 'single-package' });
+  });
+
+  // Releasing the root alone here would tag and publish the wrong thing in a repo that has workspaces, and
+  // pnpm refuses to load two of these manifests outright.
+  it.each([
+    ['the value is not a list', "packages: 'packages/*'\n"],
+    ['a non-string entry stands beside a valid pattern', 'packages:\n  - packages/*\n  - 123\n'],
+    ['a mis-indented map stands beside a valid pattern', 'packages:\n  - packages/*\n  - apps/*:\n'],
+  ])('fails rather than releasing the root where %s', (_condition, manifest) => {
+    tree.write('pnpm-workspace.yaml', manifest);
+
+    expect(discoverWorkspaces(tree.dir)).toStrictEqual({
+      cause: 'unreadable-packages',
+      kind: 'empty',
+      patterns: [],
+    });
   });
 
   it('returns the matched packages relative to the root, as POSIX paths', () => {
@@ -138,10 +155,6 @@ describe(describeEmptyWorkspace, () => {
     expect(message).toContain('`package.json`');
   });
 
-  it('names the missing `packages` list for no-pattern', () => {
-    expect(describeEmptyWorkspace(emptyWorkspace('no-pattern', []))).toContain('declares no `packages` list');
-  });
-
   // An unquoted `!pkg` is what YAML leaves empty, and the `no-pattern` remedy is written for that case.
   it('counts the entries YAML left empty rather than quoting them', () => {
     expect(describeEmptyWorkspace(emptyWorkspace('no-pattern', ['', '']))).toContain(
@@ -155,13 +168,19 @@ describe(describeEmptyWorkspace, () => {
     );
   });
 
-  // The resolver leaves the patterns empty here, and the clause every other cause leads with would read as a
-  // manifest declaring nothing rather than one the reader could not parse.
-  it('names the syntax error for unreadable-manifest, quoting no pattern list', () => {
+  // The resolver leaves the patterns empty for both, so neither message leads with the declared-patterns
+  // clause that the other three share.
+  it('names the syntax error for unreadable-manifest', () => {
     const message = describeEmptyWorkspace(emptyWorkspace('unreadable-manifest', []));
 
     expect(message).toContain('holds no valid YAML');
     expect(message).toContain('Repair the syntax error');
-    expect(message).not.toContain('declares no `packages` list');
+  });
+
+  it('names the required shape for unreadable-packages', () => {
+    const message = describeEmptyWorkspace(emptyWorkspace('unreadable-packages', []));
+
+    expect(message).toContain('not a list of strings');
+    expect(message).toContain('Make it a list whose every entry is a quoted pattern');
   });
 });

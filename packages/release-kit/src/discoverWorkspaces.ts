@@ -14,7 +14,7 @@ export type { EmptyWorkspaceCause } from '@williamthorsen/nmr-core/workspace';
  * single-package case keeps either from standing in for the other.
  */
 export type WorkspaceDiscovery =
-  | { kind: 'empty'; cause: EmptyWorkspaceCause; patterns: string[] }
+  | { kind: 'empty'; cause: FailingWorkspaceCause; patterns: string[] }
   | { kind: 'packages'; packageDirs: string[]; patterns: string[] }
   | { kind: 'single-package' };
 
@@ -22,9 +22,17 @@ export type WorkspaceDiscovery =
 export type EmptyWorkspace = Extract<WorkspaceDiscovery, { kind: 'empty' }>;
 
 /**
- * Returns the sentence naming which of the four conditions left a workspace holding no package directory, and
- * the remedy for that one. Each quotes the `packages` list the manifest declares, apart from the one whose
- * manifest the reader could not parse and which therefore has no list to quote.
+ * The empty-workspace causes that reach a command as a failure.
+ *
+ * `no-packages-list` is absent because a manifest declaring nothing releases as a single package, so no
+ * command ever composes a message for it.
+ */
+export type FailingWorkspaceCause = Exclude<EmptyWorkspaceCause, 'no-packages-list'>;
+
+/**
+ * Returns the sentence naming which of the five conditions left a workspace holding no package directory, and
+ * the remedy for that one. Each quotes the `packages` list the manifest declares, apart from the two that
+ * reach the matcher with no list to quote.
  *
  * The `package.json` requirement is stated under `no-package` because it is a divergence from pnpm, which
  * recognizes two further manifests, and the reader of a workspace that pnpm resolves has no way to infer it.
@@ -56,6 +64,12 @@ export function describeEmptyWorkspace(workspace: EmptyWorkspace): string {
         'syntax error and run the command again. An unterminated quoted string and a mis-indented entry are ' +
         'the usual ones.'
       );
+    case 'unreadable-packages':
+      return (
+        'pnpm-workspace.yaml declares a `packages` value that is not a list of strings, so nothing it ' +
+        'declares reaches the matcher. Make it a list whose every entry is a quoted pattern; a bare value ' +
+        'and an entry YAML read as a number or a map are the usual ones.'
+      );
     default: {
       const unhandledCause: never = workspace.cause;
       throw new Error(`Unhandled empty-workspace cause: ${String(unhandledCause)}`);
@@ -69,8 +83,9 @@ export function describeEmptyWorkspace(workspace: EmptyWorkspace): string {
  *
  * A directory holding no manifest, and one whose manifest declares no `packages` list, both release as a
  * single package: pnpm resolves each to the root package alone, and a workspace file kept for `catalog:`,
- * `overrides:`, or `onlyBuiltDependencies:` is the second of them. A manifest that declares entries none of
- * which reach the matcher is the failure, because the reader asked for packages and got none.
+ * `overrides:`, or `onlyBuiltDependencies:` is the second of them. Every other empty resolution is a failure,
+ * whether the reader declared patterns that matched nothing or a `packages` value the resolver could not read
+ * as patterns at all.
  *
  * `packageDirs` come back relative to `monorepoRoot` as POSIX paths, because that is what every consumer
  * needs: `WorkspaceConfig.paths` feeds `git log -- <paths>`, and `packageFiles` and `changelogPaths` are read
@@ -85,7 +100,9 @@ export function discoverWorkspaces(monorepoRoot: string = process.cwd()): Worksp
   }
 
   if (resolution.kind === 'empty') {
-    return declaresNoPackagesList(resolution) ? { kind: 'single-package' } : resolution;
+    const { cause, patterns } = resolution;
+
+    return cause === 'no-packages-list' ? { kind: 'single-package' } : { cause, kind: 'empty', patterns };
   }
 
   return {
@@ -97,20 +114,9 @@ export function discoverWorkspaces(monorepoRoot: string = process.cwd()): Worksp
 // region | Helpers
 
 /**
- * Reports whether the manifest reached the matcher with no `packages` entry at all, as against entries none
- * of which became a positive pattern.
- *
- * `no-pattern` covers both, and the declared list is what separates them: it is empty where the key is
- * absent, holds no list, or holds a list of non-strings, and non-empty where every entry is an exclusion or
- * an entry YAML left empty.
- */
-function declaresNoPackagesList(workspace: EmptyWorkspace): boolean {
-  return workspace.cause === 'no-pattern' && workspace.patterns.length === 0;
-}
-
-/**
- * Returns the clause naming what the manifest's `packages` key declares, which every empty-workspace message
- * leads with.
+ * Returns the clause naming what the manifest's `packages` key declares, which the three pattern-bearing
+ * empty-workspace messages lead with. Each reaches it with a non-empty list, the resolver reporting a
+ * manifest that declares none under a cause of its own.
  *
  * An entry the parser left empty is what an unquoted `!pkg` becomes, and the matcher drops it. Naming it as an
  * empty entry is what a reader can act on: quoting it renders an empty pair of backticks, and it does so in
@@ -121,7 +127,7 @@ function describeDeclaredPatterns(patterns: readonly string[]): string {
   const emptiedCount = patterns.length - quotablePatterns.length;
 
   if (emptiedCount === 0) {
-    return patterns.length === 0 ? 'declares no `packages` list' : `declares ${renderQuotedList(patterns)}`;
+    return `declares ${renderQuotedList(patterns)}`;
   }
 
   const emptiedClause = `${String(emptiedCount)} ${emptiedCount === 1 ? 'entry' : 'entries'} that YAML left empty`;
