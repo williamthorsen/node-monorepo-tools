@@ -67,6 +67,15 @@ const it = baseIt
     makeFixture(() =>
       createTempTree({ 'pnpm-workspace.yaml': 'packages:\n  - !packages/legacy\n' }, { prefix: 'nmr-runcli-tagged-' }),
     ),
+  )
+  .extend(
+    'unreadableTree',
+    makeFixture(() =>
+      createTempTree(
+        { 'pnpm-workspace.yaml': 'packages:\n  - "unterminated\n  - packages/*\n' },
+        { prefix: 'nmr-runcli-unreadable-' },
+      ),
+    ),
   );
 
 describe(runCli, () => {
@@ -323,7 +332,7 @@ describe(runCli, () => {
     });
 
     // `pnpm --recursive` leaves the root project out, so a workspace with no package fans out to nothing.
-    // `packagelessTree` declares `packages/*` over an empty tree, which is the no-manifest condition.
+    // `packagelessTree` declares `packages/*` over an empty tree, which is the no-package condition.
     it('refuses a recursive delegation in a workspace whose patterns match no manifest', async ({
       packagelessTree,
     }) => {
@@ -355,6 +364,17 @@ describe(runCli, () => {
       expect(stderr).toContain('pnpm-workspace.yaml declares `packages/*`, `!packages/*`');
       expect(stderr).toContain('`!` entries exclude every directory matched by the positive patterns');
       expect(stderr).toContain('Drop or narrow the exclusion');
+    });
+
+    // The manifest declares `packages/*` below a syntax error, so the remedy the other patternless conditions
+    // share would send the reader to declare what is already there.
+    it('names the syntax error where the manifest holds no valid YAML', async ({ unreadableTree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], unreadableTree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('holds no valid YAML');
+      expect(stderr).toContain('Repair the syntax error');
+      expect(stderr).not.toContain('Declare a positive pattern');
     });
 
     // An unquoted `!pkg` reaches the matcher as an empty entry, which is the very case this message's remedy
