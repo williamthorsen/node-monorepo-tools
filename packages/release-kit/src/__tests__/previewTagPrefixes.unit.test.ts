@@ -9,7 +9,10 @@ vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
 }));
 
-vi.mock(import('../discoverWorkspaces.ts'), () => ({
+// Partial, so that `describeEmptyWorkspace` stays the real composer: what a caller does with an empty
+// resolution is the subject here, and its wording is covered against the composer itself.
+vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
@@ -22,6 +25,7 @@ vi.mock(import('../detectUndeclaredTagPrefixes.ts'), () => ({
 }));
 
 import { previewTagPrefixes } from '../previewTagPrefixes.ts';
+import { emptyWorkspace, notAWorkspace, resolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
 /** Build a mock implementation for git invocations returning tag counts by prefix. */
 function setupTagCounts(byPrefix: Record<string, string[]>): void {
@@ -42,8 +46,8 @@ describe(previewTagPrefixes, () => {
     mockDetectUndeclared.mockReset();
   });
 
-  it('returns one row per discovered workspace with derived prefix and tag counts', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/arrays']);
+  it('returns one row per discovered workspace with derived prefix and tag counts', () => {
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/arrays']));
     mockDeriveWorkspaceConfig.mockImplementation((path: string) => {
       if (path === 'packages/core') return { tagPrefix: 'nmr-core-v' };
       if (path === 'packages/arrays') return { tagPrefix: 'arrays-v' };
@@ -55,7 +59,7 @@ describe(previewTagPrefixes, () => {
       'arrays-v': ['arrays-v0.1.0'],
     });
 
-    const result = await previewTagPrefixes();
+    const result = previewTagPrefixes();
 
     expect(result.workspaces).toStrictEqual([
       {
@@ -78,8 +82,8 @@ describe(previewTagPrefixes, () => {
     expect(result.collisions).toStrictEqual([]);
   });
 
-  it('records derivationError and continues when deriveWorkspaceConfig() throws for a workspace', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/good', 'packages/broken']);
+  it('records derivationError and continues when deriveWorkspaceConfig() throws for a workspace', () => {
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/good', 'packages/broken']));
     mockDeriveWorkspaceConfig.mockImplementation((path: string) => {
       if (path === 'packages/good') return { tagPrefix: 'good-v' };
       throw new Error(`packages/broken/package.json is missing a 'name' field`);
@@ -87,7 +91,7 @@ describe(previewTagPrefixes, () => {
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
 
-    const result = await previewTagPrefixes();
+    const result = previewTagPrefixes();
 
     expect(result.workspaces[0]?.derivedPrefix).toBe('good-v');
     expect(result.workspaces[0]?.derivationError).toBeNull();
@@ -96,8 +100,8 @@ describe(previewTagPrefixes, () => {
     expect(result.workspaces[1]?.derivedTagCount).toBe(0);
   });
 
-  it('surfaces declared legacy prefixes with their tag counts', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+  it('surfaces declared legacy prefixes with their tag counts', () => {
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
     const config = {
       workspaces: [
         {
@@ -117,7 +121,7 @@ describe(previewTagPrefixes, () => {
       'old-core-v': [],
     });
 
-    const result = await previewTagPrefixes(config);
+    const result = previewTagPrefixes(config);
 
     expect(result.workspaces[0]?.legacyEntries).toStrictEqual([
       { prefix: 'core-v', tagCount: 2 },
@@ -125,21 +129,21 @@ describe(previewTagPrefixes, () => {
     ]);
   });
 
-  it('detects cross-workspace tag-prefix collisions', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/a-foo', 'packages/b-foo']);
+  it('detects cross-workspace tag-prefix collisions', () => {
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/a-foo', 'packages/b-foo']));
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'foo-v' });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
 
-    const result = await previewTagPrefixes();
+    const result = previewTagPrefixes();
 
     expect(result.collisions).toStrictEqual([
       { tagPrefix: 'foo-v', workspacePaths: ['packages/a-foo', 'packages/b-foo'] },
     ]);
   });
 
-  it('passes the union of derived and declared prefixes to detectUndeclaredTagPrefixes', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+  it('passes the union of derived and declared prefixes to detectUndeclaredTagPrefixes', () => {
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
     const config = {
       workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@old-scope/core', tagPrefix: 'core-v' }] }],
     };
@@ -147,27 +151,35 @@ describe(previewTagPrefixes, () => {
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
 
-    await previewTagPrefixes(config);
+    previewTagPrefixes(config);
 
     expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['nmr-core-v', 'core-v']));
   });
 
-  it('returns detection results as undeclaredCandidates in the preview', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue([]);
+  // `previewTagPrefixes` used to read a resolution of nothing as an empty preview, which showed a clean table
+  // for a workspace whose manifest is the thing that needs repairing.
+  it('throws when the workspace resolves to no package', () => {
+    mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
+
+    expect(() => previewTagPrefixes()).toThrow('No workspace package to preview.');
+  });
+
+  it('returns detection results as undeclaredCandidates in the preview', () => {
+    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
     mockDetectUndeclared.mockReturnValue([
       { prefix: 'orphan-v', tagCount: 1, exampleTags: ['orphan-v1.0.0'], suggestedDir: 'orphan' },
     ]);
     setupTagCounts({});
 
-    const result = await previewTagPrefixes();
+    const result = previewTagPrefixes();
 
     expect(result.undeclaredCandidates).toStrictEqual([
       { prefix: 'orphan-v', tagCount: 1, exampleTags: ['orphan-v1.0.0'], suggestedDir: 'orphan' },
     ]);
   });
 
-  it('returns declared retired packages with their tag counts and preserves successor when present', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue([]);
+  it('returns declared retired packages with their tag counts and preserves successor when present', () => {
+    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
     const config = {
       retiredPackages: [
         { name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup' },
@@ -180,7 +192,7 @@ describe(previewTagPrefixes, () => {
       'dead-v': [],
     });
 
-    const result = await previewTagPrefixes(config);
+    const result = previewTagPrefixes(config);
 
     expect(result.retiredPackages).toStrictEqual([
       { name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup', tagCount: 3 },
@@ -188,8 +200,8 @@ describe(previewTagPrefixes, () => {
     ]);
   });
 
-  it('passes retired tagPrefixes to detectUndeclaredTagPrefixes as known', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+  it('passes retired tagPrefixes to detectUndeclaredTagPrefixes as known', () => {
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
     const config = {
       retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v' }],
     };
@@ -197,17 +209,17 @@ describe(previewTagPrefixes, () => {
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
 
-    await previewTagPrefixes(config);
+    previewTagPrefixes(config);
 
     expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['nmr-core-v', 'preflight-v']));
   });
 
-  it('returns an empty retiredPackages array when the config omits the field', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue([]);
+  it('returns an empty retiredPackages array when the config omits the field', () => {
+    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
 
-    const result = await previewTagPrefixes({});
+    const result = previewTagPrefixes({});
 
     expect(result.retiredPackages).toStrictEqual([]);
   });

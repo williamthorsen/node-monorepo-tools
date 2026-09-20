@@ -310,7 +310,7 @@ if (command === 'push') {
     process.exit(0);
   }
 
-  await pushCommand(flags);
+  pushCommand(flags);
   process.exit(0);
 }
 

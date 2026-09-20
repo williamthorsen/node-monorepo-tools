@@ -6,7 +6,10 @@ const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 
-vi.mock(import('../discoverWorkspaces.ts'), () => ({
+// Partial, so that `describeEmptyWorkspace` stays the real composer: what a caller does with an empty
+// resolution is the subject here, and its wording is covered against the composer itself.
+vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
@@ -20,6 +23,7 @@ vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
 
 import { resolveCommandTags } from '../resolveCommandTags.ts';
 import type { ResolvedTag } from '../resolveReleaseTags.ts';
+import { emptyWorkspace, notAWorkspace, resolvedPackages } from '../test-utils/workspaceResolutions.ts';
 import type { WorkspaceConfig } from '../types.ts';
 
 const TAGS: ResolvedTag[] = [
@@ -46,7 +50,7 @@ describe(resolveCommandTags, () => {
 
   beforeEach(() => {
     capture = captureStdio();
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/cli', 'packages/release-kit']);
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/cli', 'packages/release-kit']));
     mockResolveReleaseTags.mockReturnValue(TAGS);
     mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
       if (workspacePath === 'packages/core') {
@@ -71,14 +75,14 @@ describe(resolveCommandTags, () => {
     vi.restoreAllMocks();
   });
 
-  it('returns all resolved tags when no filter is provided', async () => {
-    const result = await resolveCommandTags(undefined);
+  it('returns all resolved tags when no filter is provided', () => {
+    const result = resolveCommandTags(undefined);
 
     expect(result).toStrictEqual(TAGS);
   });
 
-  it('passes resolved workspaces to resolveReleaseTags in monorepo mode', async () => {
-    await resolveCommandTags(undefined);
+  it('passes resolved workspaces to resolveReleaseTags in monorepo mode', () => {
+    resolveCommandTags(undefined);
 
     expect(mockResolveReleaseTags).toHaveBeenCalledWith({
       workspaces: [
@@ -89,8 +93,8 @@ describe(resolveCommandTags, () => {
     });
   });
 
-  it('derives the single workspace config and passes it to resolveReleaseTags in single-package mode', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+  it('derives the single workspace config and passes it to resolveReleaseTags in single-package mode', () => {
+    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
     const single = makeWorkspace('root', 'v', '.');
     mockDeriveWorkspaceConfig.mockReset();
     mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
@@ -98,22 +102,22 @@ describe(resolveCommandTags, () => {
       throw new Error(`Unexpected workspace path: ${workspacePath}`);
     });
 
-    await resolveCommandTags(undefined);
+    resolveCommandTags(undefined);
 
     expect(mockDeriveWorkspaceConfig).toHaveBeenCalledWith('.');
     expect(mockResolveReleaseTags).toHaveBeenCalledWith({ singleWorkspace: single });
   });
 
-  it('returns only the filtered tag when a single-tag filter is provided', async () => {
-    const result = await resolveCommandTags(['nmr-core-v1.3.0']);
+  it('returns only the filtered tag when a single-tag filter is provided', () => {
+    const result = resolveCommandTags(['nmr-core-v1.3.0']);
 
     expect(result).toStrictEqual([
       { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
   });
 
-  it('returns only the filtered subset when a multi-tag filter is provided', async () => {
-    const result = await resolveCommandTags(['nmr-core-v1.3.0', 'release-kit-v2.1.0']);
+  it('returns only the filtered subset when a multi-tag filter is provided', () => {
+    const result = resolveCommandTags(['nmr-core-v1.3.0', 'release-kit-v2.1.0']);
 
     expect(result).toStrictEqual([
       { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -150,8 +154,22 @@ describe(resolveCommandTags, () => {
     );
   });
 
+  // The defect this change repairs: a workspace resolving to nothing used to read as single-package mode and
+  // release the root as one package.
+  it('exits with code 1 when the workspace resolves to no package', async () => {
+    mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
+
+    const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined));
+
+    expect(error.code).toBe(1);
+    expect(capture.stderrChunks.join('')).toContain('No workspace package to tag.');
+    expect(mockResolveReleaseTags).not.toHaveBeenCalled();
+  });
+
   it('exits with code 1 when discoverWorkspaces throws', async () => {
-    mockDiscoverWorkspaces.mockRejectedValue(new Error('workspace read failure'));
+    mockDiscoverWorkspaces.mockImplementation(() => {
+      throw new Error('workspace read failure');
+    });
 
     const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined));
 
@@ -174,14 +192,14 @@ describe(resolveCommandTags, () => {
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });
 
-  it('returns unpublishable tags alongside publishable ones (no filtering at this layer)', async () => {
+  it('returns unpublishable tags alongside publishable ones (no filtering at this layer)', () => {
     const mixedTags: ResolvedTag[] = [
       { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
     ];
     mockResolveReleaseTags.mockReturnValue(mixedTags);
 
-    const result = await resolveCommandTags(undefined);
+    const result = resolveCommandTags(undefined);
 
     expect(result).toStrictEqual(mixedTags);
   });

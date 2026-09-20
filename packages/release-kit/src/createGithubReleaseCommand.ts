@@ -40,7 +40,7 @@ export async function createGithubReleaseCommand(argv: string[], styles: StreamS
 
   const requestedTags = parseRequestedTags(parsed.flags.tags);
 
-  const resolvedTags = await resolveCommandTags(requestedTags);
+  const resolvedTags = resolveCommandTags(requestedTags);
 
   // Skip unpublishable (private) workspaces cleanly: A private package is versioned and tagged but must not get a
   // GitHub Release. Warn per skipped tag, matching `release-kit publish`. Then short-circuit before loading

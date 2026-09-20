@@ -21,7 +21,10 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-vi.mock(import('../discoverWorkspaces.ts'), () => ({
+// Partial, so that `describeEmptyWorkspace` stays the real composer: what a caller does with an empty
+// resolution is the subject here, and its wording is covered against the composer itself.
+vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
@@ -68,6 +71,7 @@ vi.mock(import('../assertCleanWorkingTree.ts'), () => ({
 }));
 
 import { publishCommand } from '../publishCommand.ts';
+import { notAWorkspace, resolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -76,7 +80,7 @@ describe(publishCommand, () => {
 
   beforeEach(() => {
     capture = captureStdio();
-    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true }]);
     mockDetectPackageManager.mockReturnValue('npm');
     mockLoadConfig.mockResolvedValue(undefined);
@@ -179,7 +183,7 @@ describe(publishCommand, () => {
   });
 
   it('filters resolved tags by --tags in monorepo mode', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit']);
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/release-kit']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
@@ -196,7 +200,7 @@ describe(publishCommand, () => {
   });
 
   it('filters resolved tags by --tags in single-package mode', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true }]);
 
     await publishCommand(['--tags=v1.0.0'], RICH_STYLES);
@@ -210,7 +214,7 @@ describe(publishCommand, () => {
   });
 
   it('exits with code 1 when --tags references an unknown tag', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
@@ -240,7 +244,7 @@ describe(publishCommand, () => {
   });
 
   it('does not invoke any GitHub Release path during publish', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit']);
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/release-kit']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
@@ -260,7 +264,7 @@ describe(publishCommand, () => {
   });
 
   it('prints confirmation listing before publishing', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit']);
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/release-kit']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
@@ -280,7 +284,7 @@ describe(publishCommand, () => {
   });
 
   it('reports successfully published packages when a subsequent publish fails', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit']);
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/release-kit']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
@@ -445,7 +449,7 @@ describe(publishCommand, () => {
 
   describe('publishability filter', () => {
     it('publishes only the publishable subset when implicit resolution mixes publishable and unpublishable tags', async () => {
-      mockDiscoverWorkspaces.mockResolvedValue(['packages/common-utils', 'packages/basic']);
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/common-utils', 'packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         {
           tag: 'common-utils-v2.4.0',
@@ -477,7 +481,7 @@ describe(publishCommand, () => {
     });
 
     it('exits 0 with "Nothing to publish." when implicit resolution yields zero publishable tags', async () => {
-      mockDiscoverWorkspaces.mockResolvedValue(['packages/basic']);
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
       ]);
@@ -489,7 +493,7 @@ describe(publishCommand, () => {
     });
 
     it('skips with a warning and publishes nothing when explicit --tags names an unpublishable tag', async () => {
-      mockDiscoverWorkspaces.mockResolvedValue(['packages/basic']);
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
       ]);
@@ -505,7 +509,7 @@ describe(publishCommand, () => {
     });
 
     it('warns for every unpublishable tag when explicit --tags names multiple unpublishable tags', async () => {
-      mockDiscoverWorkspaces.mockResolvedValue(['packages/basic', 'packages/internal']);
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic', 'packages/internal']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
         { tag: 'internal-v2.0.0', dir: 'internal', workspacePath: 'packages/internal', isPublishable: false },
@@ -524,7 +528,7 @@ describe(publishCommand, () => {
     });
 
     it('publishes the publishable subset and warns past the private tag when explicit --tags mixes both', async () => {
-      mockDiscoverWorkspaces.mockResolvedValue(['packages/common-utils', 'packages/basic']);
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/common-utils', 'packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         {
           tag: 'common-utils-v2.4.0',

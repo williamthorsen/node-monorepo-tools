@@ -1,9 +1,10 @@
 import { existsSync } from 'node:fs';
 
 import { reportWriteResult, type StreamStyles, writeFileWithCheck } from '@williamthorsen/nmr-core';
+import type { WorkspaceResolution } from '@williamthorsen/nmr-core/workspace';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import { discoverWorkspaces } from '../discoverWorkspaces.ts';
+import { describeEmptyWorkspace, discoverWorkspaces } from '../discoverWorkspaces.ts';
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
 import { loadValidatedConfig } from '../loadValidatedConfig.ts';
 import { generateCommand, LABELS_OUTPUT_PATH } from './generateCommand.ts';
@@ -47,19 +48,24 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
 
   console.info('\n> Discovering workspaces');
 
-  let workspacePaths: string[] | undefined;
+  let workspace: WorkspaceResolution;
   try {
-    workspacePaths = await discoverWorkspaces();
+    workspace = discoverWorkspaces();
   } catch (error: unknown) {
     const message = describeError(error);
     process.stderr.write(`  Failed to discover workspaces: ${message}\n`);
     return 1;
   }
 
-  if (workspacePaths === undefined) {
+  if (workspace.kind === 'empty') {
+    process.stderr.write(`  No workspace package to label. ${describeEmptyWorkspace(workspace)}\n`);
+    return 1;
+  }
+
+  if (workspace.kind === 'not-a-workspace') {
     console.info('  No pnpm workspaces found (single-package repo)');
   } else {
-    console.info(`  Found ${String(workspacePaths.length)} workspaces`);
+    console.info(`  Found ${String(workspace.packageDirs.length)} workspaces`);
   }
 
   // A named path is always read, so that one which does not exist fails in the loader rather than
@@ -71,7 +77,7 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
   }
 
   const scopeLabels: LabelDefinition[] =
-    workspacePaths === undefined ? [] : buildScopeLabels(workspacePaths, retiredNames);
+    workspace.kind === 'not-a-workspace' ? [] : buildScopeLabels(workspace.packageDirs, retiredNames);
 
   // Scaffold caller workflow
   console.info('\n> Scaffolding files');

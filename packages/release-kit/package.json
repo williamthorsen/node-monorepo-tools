@@ -61,7 +61,6 @@
   "dependencies": {
     "@williamthorsen/nmr-core": "workspace:*",
     "@williamthorsen/toolbelt.errors": "catalog:",
-    "glob": "13.0.6",
     "json-stringify-pretty-compact": "4.0.0",
     "semver": "7.8.5",
     "yaml": "2.9.1",

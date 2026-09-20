@@ -58,7 +58,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles): Prom
 
   const requestedTags = parseRequestedTags(parsed.flags.tags);
 
-  const resolvedTags = await resolveCommandTags(requestedTags);
+  const resolvedTags = resolveCommandTags(requestedTags);
 
   if (resolvedTags.length === 0) {
     return;

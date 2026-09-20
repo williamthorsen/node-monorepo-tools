@@ -6,7 +6,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { detectUndeclaredTagPrefixes, type UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';
-import { discoverWorkspaces } from './discoverWorkspaces.ts';
+import { describeEmptyWorkspace, discoverWorkspaces } from './discoverWorkspaces.ts';
 import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './types.ts';
 
 /** One workspace's preview row in the tag-prefix preview. */
@@ -56,14 +56,20 @@ export interface TagPrefixPreview {
 /**
  * Build a structured preview of tag-prefix state for every discovered workspace.
  *
- * Discovers workspaces via `discoverWorkspaces()`, derives each workspace's tag prefix
- * via `deriveWorkspaceConfig()`, and records the derivation error on failure rather than aborting.
+ * Derives each workspace's tag prefix via `deriveWorkspaceConfig()`, recording the derivation error on failure
+ * rather than aborting. A repo declaring no workspace previews no row; one whose patterns resolve to no package
+ * throws, because the manifest is then what needs repairing and a clean table would hide that.
  * Reads the already-validated `config` to surface declared legacy prefixes per workspace, scans local
  * git tags for undeclared candidate prefixes via `detectUndeclaredTagPrefixes`, and reports collisions
  * across successfully-derived prefixes.
  */
-export async function previewTagPrefixes(config?: ReleaseKitConfig): Promise<TagPrefixPreview> {
-  const workspacePaths = (await discoverWorkspaces()) ?? [];
+export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview {
+  const workspace = discoverWorkspaces();
+  if (workspace.kind === 'empty') {
+    throw new Error(`No workspace package to preview. ${describeEmptyWorkspace(workspace)}`);
+  }
+
+  const workspacePaths = workspace.kind === 'packages' ? workspace.packageDirs : [];
   const overridesByDir = buildOverrideMap(config);
 
   const workspaces: TagPrefixPreviewRow[] = Array.from(workspacePaths, (workspacePath) =>

@@ -51,7 +51,7 @@ describe(showTagPrefixesCommand, () => {
   it('forwards the loaded config to the preview', async () => {
     const config = { workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@old/core', tagPrefix: 'core-v' }] }] };
     mockLoadValidatedConfig.mockResolvedValue({ status: 'ok', config, configFilePath: CONFIG_FILE_PATH });
-    mockPreview.mockResolvedValue({ workspaces: [], collisions: [], undeclaredCandidates: [] });
+    mockPreview.mockReturnValue({ workspaces: [], collisions: [], undeclaredCandidates: [] });
     using _capture = captureStdio();
 
     await showTagPrefixesCommand(RICH_STYLES);
@@ -70,7 +70,7 @@ describe(showTagPrefixesCommand, () => {
   });
 
   it('previews against derived defaults when no config file exists', async () => {
-    mockPreview.mockResolvedValue({ workspaces: [], collisions: [], undeclaredCandidates: [] });
+    mockPreview.mockReturnValue({ workspaces: [], collisions: [], undeclaredCandidates: [] });
     using capture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES);
@@ -103,7 +103,9 @@ describe(showTagPrefixesCommand, () => {
   });
 
   it('exits 1 and reports when the preview itself fails', async () => {
-    mockPreview.mockRejectedValue(new Error('Failed to read pnpm-workspace.yaml'));
+    mockPreview.mockImplementation(() => {
+      throw new Error('Failed to read pnpm-workspace.yaml');
+    });
     using capture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES);
@@ -114,7 +116,7 @@ describe(showTagPrefixesCommand, () => {
   });
 
   it('exits 0 when every workspace derives a prefix and no collisions or undeclared exist', async () => {
-    mockPreview.mockResolvedValue({
+    mockPreview.mockReturnValue({
       workspaces: [
         {
           workspacePath: 'packages/core',
@@ -139,7 +141,7 @@ describe(showTagPrefixesCommand, () => {
   });
 
   it('surfaces the declared legacy-prefix line with a recognized marker when tags exist', async () => {
-    mockPreview.mockResolvedValue({
+    mockPreview.mockReturnValue({
       workspaces: [
         {
           workspacePath: 'packages/core',
@@ -161,7 +163,7 @@ describe(showTagPrefixesCommand, () => {
   });
 
   it('notes declared-but-empty legacy prefixes', async () => {
-    mockPreview.mockResolvedValue({
+    mockPreview.mockReturnValue({
       workspaces: [
         {
           workspacePath: 'packages/core',
@@ -183,7 +185,7 @@ describe(showTagPrefixesCommand, () => {
   });
 
   it('exits 1 on derivation failure and prints the error', async () => {
-    mockPreview.mockResolvedValue({
+    mockPreview.mockReturnValue({
       workspaces: [
         {
           workspacePath: 'packages/broken',
@@ -211,7 +213,7 @@ describe(showTagPrefixesCommand, () => {
     { style: 'plain', failed: 'FAIL ', passed: 'PASS ', warning: 'WARN ' },
   ] as const)('marks every status in the $style style of stdout', async ({ style, failed, passed, warning }) => {
     const row = { dir: 'core', derivationError: null, legacyEntries: [] };
-    mockPreview.mockResolvedValue({
+    mockPreview.mockReturnValue({
       workspaces: [
         {
           ...row,
@@ -249,7 +251,7 @@ describe(showTagPrefixesCommand, () => {
   });
 
   it('exits 1 on collision and names the colliding workspaces', async () => {
-    mockPreview.mockResolvedValue({
+    mockPreview.mockReturnValue({
       workspaces: [
         {
           workspacePath: 'packages/a-foo',
@@ -281,7 +283,7 @@ describe(showTagPrefixesCommand, () => {
   });
 
   it('prints the undeclared section with a copy-pasteable snippet and does not affect exit code', async () => {
-    mockPreview.mockResolvedValue({
+    mockPreview.mockReturnValue({
       workspaces: [
         {
           workspacePath: 'packages/core',

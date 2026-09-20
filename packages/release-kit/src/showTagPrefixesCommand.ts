@@ -30,7 +30,7 @@ export async function showTagPrefixesCommand(styles: StreamStyles, configPath?: 
 
   let preview: TagPrefixPreview;
   try {
-    preview = await previewTagPrefixes(result.status === 'ok' ? result.config : undefined);
+    preview = previewTagPrefixes(result.status === 'ok' ? result.config : undefined);
   } catch (error: unknown) {
     reportError(describeError(error));
     return 1;

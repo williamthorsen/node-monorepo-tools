@@ -27,7 +27,10 @@ vi.mock(import('../assertCleanWorkingTree.ts'), () => ({
   assertCleanWorkingTree: mockAssertCleanWorkingTree,
 }));
 
-vi.mock(import('../discoverWorkspaces.ts'), () => ({
+// Partial, so that `describeEmptyWorkspace` stays the real composer: what a caller does with an empty
+// resolution is the subject here, and its wording is covered against the composer itself.
+vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
@@ -62,6 +65,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
 import { parseArgs, prepareCommand } from '../prepareCommand.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../releaseFiles.ts';
 import type { ReleasePlan } from '../releasePlan.ts';
+import { emptyWorkspace, notAWorkspace, resolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -70,7 +74,7 @@ describe(prepareCommand, () => {
 
   beforeEach(() => {
     capture = captureStdio();
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/arrays', 'packages/strings']);
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/arrays', 'packages/strings']));
     mockLoadConfig.mockResolvedValue(undefined);
     // Default: pretend the root package.json does not exist. Tests that exercise the project
     // block override this in-test to return a valid version.
@@ -120,7 +124,7 @@ describe(prepareCommand, () => {
   });
 
   it('calls releasePrepare for a single-package repo', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
 
     await prepareCommand([], RICH_STYLES);
 
@@ -166,8 +170,19 @@ describe(prepareCommand, () => {
     );
   });
 
+  // The defect this change repairs: a workspace resolving to nothing used to read as single-package mode and
+  // prepare the root as one package.
+  it('exits with error when the workspace resolves to no package', async () => {
+    mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
+
+    await expect(prepareCommand([], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+    expect(capture.stderr).toContain('No workspace package to release.');
+    expect(mockReleasePrepare).not.toHaveBeenCalled();
+    expect(mockReleasePrepareMono).not.toHaveBeenCalled();
+  });
+
   it('exits with error for --only on a single-package repo', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
 
     await expect(prepareCommand(['--only=foo'], RICH_STYLES)).rejects.toThrow(ProcessExitError);
     expect(capture.stderr).toContain('--only is only supported');
@@ -177,7 +192,7 @@ describe(prepareCommand, () => {
     // The orthogonal --force model is only wired into the monorepo executor; the
     // single-package path still uses determineBumpFromCommits, so a bare --force would
     // be silently ignored. Reject it explicitly with a guidance error instead.
-    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
 
     await expect(prepareCommand(['--force'], RICH_STYLES)).rejects.toThrow(ProcessExitError);
     expect(capture.stderr).toContain('--force without --bump');
@@ -187,7 +202,7 @@ describe(prepareCommand, () => {
   it('accepts --force --bump=X on a single-package repo', async () => {
     // --bump=X carries the release through unconditionally in the single-package path,
     // so --force is a no-op rather than a silent failure when paired with --bump.
-    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
 
     await prepareCommand(['--force', '--bump=patch'], RICH_STYLES);
 
@@ -552,7 +567,7 @@ describe(prepareCommand, () => {
   });
 
   it('passes setVersion to releasePrepare in single-package mode', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
 
     await prepareCommand(['--set-version=1.2.3'], RICH_STYLES);
 
@@ -572,7 +587,7 @@ describe(prepareCommand, () => {
   });
 
   it('forwards withReleaseNotes to releasePrepare in single-package mode', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+    mockDiscoverWorkspaces.mockReturnValue(notAWorkspace());
 
     await prepareCommand(['--with-release-notes'], RICH_STYLES);
 
