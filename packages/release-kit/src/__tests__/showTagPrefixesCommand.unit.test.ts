@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPreview = vi.hoisted(() => vi.fn());
 const mockDetectRepoType = vi.hoisted(() => vi.fn());
-const mockAssertConfigLoadable = vi.hoisted(() => vi.fn());
+const mockLoadValidatedConfig = vi.hoisted(() => vi.fn());
 
 vi.mock(import('../previewTagPrefixes.ts'), () => ({
   previewTagPrefixes: mockPreview,
@@ -14,25 +14,25 @@ vi.mock(import('../init/detectRepoType.ts'), () => ({
   detectRepoType: mockDetectRepoType,
 }));
 
-vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
-  const original = await importOriginal();
-  return { ...original, assertConfigLoadable: mockAssertConfigLoadable };
-});
+vi.mock(import('../loadValidatedConfig.ts'), () => ({
+  loadValidatedConfig: mockLoadValidatedConfig,
+}));
 
 import { showTagPrefixesCommand } from '../showTagPrefixesCommand.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
+const CONFIG_FILE_PATH = '.config/release-kit.config.ts';
 
 describe(showTagPrefixesCommand, () => {
   beforeEach(() => {
     mockDetectRepoType.mockReturnValue('monorepo');
-    mockAssertConfigLoadable.mockResolvedValue(undefined);
+    mockLoadValidatedConfig.mockResolvedValue({ status: 'missing', configFilePath: CONFIG_FILE_PATH });
   });
 
   afterEach(() => {
     mockPreview.mockReset();
     mockDetectRepoType.mockReset();
-    mockAssertConfigLoadable.mockReset();
+    mockLoadValidatedConfig.mockReset();
   });
 
   it('renders a single-package row and exits 0 in single-package mode', async () => {
@@ -48,47 +48,58 @@ describe(showTagPrefixesCommand, () => {
     expect(mockPreview).not.toHaveBeenCalled();
   });
 
-  it('forwards the config path to the preview', async () => {
+  it('forwards the loaded config to the preview', async () => {
+    const config = { workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@old/core', tagPrefix: 'core-v' }] }] };
+    mockLoadValidatedConfig.mockResolvedValue({ status: 'ok', config, configFilePath: CONFIG_FILE_PATH });
     mockPreview.mockResolvedValue({ workspaces: [], collisions: [], undeclaredCandidates: [] });
     using _capture = captureStdio();
 
-    await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts');
+    await showTagPrefixesCommand(RICH_STYLES);
 
-    expect(mockPreview).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
+    expect(mockPreview).toHaveBeenCalledWith(config);
   });
 
-  it('exits 1 and reports when the named config cannot be loaded', async () => {
-    mockAssertConfigLoadable.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
-    using capture = captureStdio();
-
-    const exitCode = await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/absent.config.ts');
-
-    expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
-    expect(capture.stdout).toBe('');
-    expect(mockPreview).not.toHaveBeenCalled();
-  });
-
-  it('exits 1 in single-package mode when the named config cannot be loaded', async () => {
-    mockDetectRepoType.mockReturnValue('single-package');
-    mockAssertConfigLoadable.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
-    using capture = captureStdio();
-
-    const exitCode = await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/absent.config.ts');
-
-    expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
-    expect(capture.stdout).toBe('');
-  });
-
-  it('asserts the named config is loadable before the repo-type branch', async () => {
+  it('forwards the config path to the loader ahead of the repo-type branch', async () => {
     mockDetectRepoType.mockReturnValue('single-package');
     using _capture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts');
 
     expect(exitCode).toBe(0);
-    expect(mockAssertConfigLoadable).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
+    expect(mockLoadValidatedConfig).toHaveBeenCalledWith('rich', 'elsewhere/alternative.config.ts');
+  });
+
+  it('previews against derived defaults when no config file exists', async () => {
+    mockPreview.mockResolvedValue({ workspaces: [], collisions: [], undeclaredCandidates: [] });
+    using capture = captureStdio();
+
+    const exitCode = await showTagPrefixesCommand(RICH_STYLES);
+
+    expect(exitCode).toBe(0);
+    expect(mockPreview).toHaveBeenCalledWith(undefined);
+    expect(capture.stdout).toContain('Workspace tag prefixes:');
+  });
+
+  it('exits 1 and prints no preview when the config is unusable', async () => {
+    mockLoadValidatedConfig.mockResolvedValue({ status: 'invalid', configFilePath: CONFIG_FILE_PATH });
+    using capture = captureStdio();
+
+    const exitCode = await showTagPrefixesCommand(RICH_STYLES);
+
+    expect(exitCode).toBe(1);
+    expect(capture.stdout).toBe('');
+    expect(mockPreview).not.toHaveBeenCalled();
+  });
+
+  it('exits 1 in single-package mode when the config is unusable', async () => {
+    mockDetectRepoType.mockReturnValue('single-package');
+    mockLoadValidatedConfig.mockResolvedValue({ status: 'invalid', configFilePath: CONFIG_FILE_PATH });
+    using capture = captureStdio();
+
+    const exitCode = await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts');
+
+    expect(exitCode).toBe(1);
+    expect(capture.stdout).toBe('');
   });
 
   it('exits 1 and reports when the preview itself fails', async () => {

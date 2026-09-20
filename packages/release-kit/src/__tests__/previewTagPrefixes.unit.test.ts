@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
-const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 const mockDetectUndeclared = vi.hoisted(() => vi.fn());
 
@@ -12,10 +11,6 @@ vi.mock(import('node:child_process'), () => ({
 
 vi.mock(import('../discoverWorkspaces.ts'), () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
-}));
-
-vi.mock(import('../loadConfig.ts'), () => ({
-  loadConfig: mockLoadConfig,
 }));
 
 vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
@@ -43,14 +38,12 @@ describe(previewTagPrefixes, () => {
   afterEach(() => {
     mockExecFileSync.mockReset();
     mockDiscoverWorkspaces.mockReset();
-    mockLoadConfig.mockReset();
     mockDeriveWorkspaceConfig.mockReset();
     mockDetectUndeclared.mockReset();
   });
 
   it('returns one row per discovered workspace with derived prefix and tag counts', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/arrays']);
-    mockLoadConfig.mockResolvedValue(undefined);
     mockDeriveWorkspaceConfig.mockImplementation((path: string) => {
       if (path === 'packages/core') return { tagPrefix: 'nmr-core-v' };
       if (path === 'packages/arrays') return { tagPrefix: 'arrays-v' };
@@ -87,7 +80,6 @@ describe(previewTagPrefixes, () => {
 
   it('records derivationError and continues when deriveWorkspaceConfig() throws for a workspace', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/good', 'packages/broken']);
-    mockLoadConfig.mockResolvedValue(undefined);
     mockDeriveWorkspaceConfig.mockImplementation((path: string) => {
       if (path === 'packages/good') return { tagPrefix: 'good-v' };
       throw new Error(`packages/broken/package.json is missing a 'name' field`);
@@ -106,7 +98,7 @@ describe(previewTagPrefixes, () => {
 
   it('surfaces declared legacy prefixes with their tag counts', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
-    mockLoadConfig.mockResolvedValue({
+    const config = {
       workspaces: [
         {
           dir: 'core',
@@ -116,7 +108,7 @@ describe(previewTagPrefixes, () => {
           ],
         },
       ],
-    });
+    };
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({
@@ -125,7 +117,7 @@ describe(previewTagPrefixes, () => {
       'old-core-v': [],
     });
 
-    const result = await previewTagPrefixes();
+    const result = await previewTagPrefixes(config);
 
     expect(result.workspaces[0]?.legacyEntries).toStrictEqual([
       { prefix: 'core-v', tagCount: 2 },
@@ -135,7 +127,6 @@ describe(previewTagPrefixes, () => {
 
   it('detects cross-workspace tag-prefix collisions', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/a-foo', 'packages/b-foo']);
-    mockLoadConfig.mockResolvedValue(undefined);
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'foo-v' });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
@@ -149,21 +140,20 @@ describe(previewTagPrefixes, () => {
 
   it('passes the union of derived and declared prefixes to detectUndeclaredTagPrefixes', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
-    mockLoadConfig.mockResolvedValue({
+    const config = {
       workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@old-scope/core', tagPrefix: 'core-v' }] }],
-    });
+    };
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
 
-    await previewTagPrefixes();
+    await previewTagPrefixes(config);
 
     expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['nmr-core-v', 'core-v']));
   });
 
   it('returns detection results as undeclaredCandidates in the preview', async () => {
     mockDiscoverWorkspaces.mockResolvedValue([]);
-    mockLoadConfig.mockResolvedValue(undefined);
     mockDetectUndeclared.mockReturnValue([
       { prefix: 'orphan-v', tagCount: 1, exampleTags: ['orphan-v1.0.0'], suggestedDir: 'orphan' },
     ]);
@@ -178,19 +168,19 @@ describe(previewTagPrefixes, () => {
 
   it('returns declared retired packages with their tag counts and preserves successor when present', async () => {
     mockDiscoverWorkspaces.mockResolvedValue([]);
-    mockLoadConfig.mockResolvedValue({
+    const config = {
       retiredPackages: [
         { name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup' },
         { name: '@scope/dead', tagPrefix: 'dead-v' },
       ],
-    });
+    };
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({
       'preflight-v': ['preflight-v1.0.0', 'preflight-v1.1.0', 'preflight-v2.0.0'],
       'dead-v': [],
     });
 
-    const result = await previewTagPrefixes();
+    const result = await previewTagPrefixes(config);
 
     expect(result.retiredPackages).toStrictEqual([
       { name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup', tagCount: 3 },
@@ -200,61 +190,25 @@ describe(previewTagPrefixes, () => {
 
   it('passes retired tagPrefixes to detectUndeclaredTagPrefixes as known', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
-    mockLoadConfig.mockResolvedValue({
+    const config = {
       retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v' }],
-    });
+    };
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
 
-    await previewTagPrefixes();
+    await previewTagPrefixes(config);
 
     expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['nmr-core-v', 'preflight-v']));
   });
 
   it('returns an empty retiredPackages array when the config omits the field', async () => {
     mockDiscoverWorkspaces.mockResolvedValue([]);
-    mockLoadConfig.mockResolvedValue({});
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
 
-    const result = await previewTagPrefixes();
+    const result = await previewTagPrefixes({});
 
     expect(result.retiredPackages).toStrictEqual([]);
-  });
-
-  it('forwards the config path to the loader', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue([]);
-    mockLoadConfig.mockResolvedValue({});
-    mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({});
-
-    await previewTagPrefixes('elsewhere/alternative.config.ts');
-
-    expect(mockLoadConfig).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
-  });
-
-  it('previews against defaults when the default config fails to load', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
-    mockLoadConfig.mockRejectedValue(new Error('config read failure'));
-    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
-    mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({});
-
-    const result = await previewTagPrefixes();
-
-    expect(result.workspaces).toHaveLength(1);
-  });
-
-  it('rejects rather than falling back when a named config fails to load', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
-    mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
-    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
-    mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({});
-
-    await expect(previewTagPrefixes('elsewhere/absent.config.ts')).rejects.toThrow(
-      'Config file not found: /repo/elsewhere/absent.config.ts',
-    );
   });
 });
