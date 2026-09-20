@@ -74,7 +74,7 @@ import {
   type ResolveVerbosityOptions,
 } from './verbosity.ts';
 import { type NoOpReason, type Verdict, type VerdictOutcome, writeVerdict } from './verdict.ts';
-import { diagnoseEmptyWorkspace, readWorkspacePackageNames } from './workspace.ts';
+import { readWorkspacePackageNames, resolveWorkspace } from './workspace.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
 
@@ -875,11 +875,18 @@ function formatEmptyFilterError(pattern: string, names: readonly string[]): stri
  * Returns the sentences naming which of the three conditions left the workspace holding no package, and the
  * remedy for that one. Every one of them quotes the `packages` list the manifest declares.
  *
- * The `package.json` requirement is stated under `no-manifest` because it is a divergence from pnpm, which
+ * The `package.json` requirement is stated under `no-package` because it is a divergence from pnpm, which
  * recognizes two further manifests, and the reader of a workspace that pnpm resolves has no way to infer it.
  */
 function describeEmptyWorkspace(monorepoRoot: string): string {
-  const { cause, patterns } = diagnoseEmptyWorkspace(monorepoRoot);
+  const resolution = resolveWorkspace(monorepoRoot);
+  if (resolution.kind !== 'empty') {
+    // The caller resolved this root at startup and got no package, so anything else means the manifest or the
+    // tree beneath it moved since, and a second run reads the workspace as it now stands.
+    return `pnpm-workspace.yaml at ${monorepoRoot} resolves differently now than it did when the run started.`;
+  }
+
+  const { cause, patterns } = resolution;
   const declaredClause = describeDeclaredPatterns(patterns);
 
   switch (cause) {
@@ -888,7 +895,7 @@ function describeEmptyWorkspace(monorepoRoot: string): string {
         `pnpm-workspace.yaml ${declaredClause}, whose \`!\` entries exclude every directory matched by the positive ` +
         'patterns. Drop or narrow the exclusion.'
       );
-    case 'no-manifest':
+    case 'no-package':
       return (
         `pnpm-workspace.yaml ${declaredClause}, and the matcher found no directory holding a \`package.json\`. ` +
         'nmr counts a directory as a package only where it holds `package.json`; unlike pnpm, it recognizes ' +

@@ -9,7 +9,7 @@ type GlobOptions = GlobOptionsWithoutFileTypes & { followSymlinks?: boolean };
 
 /**
  * The manifest that marks a directory as a package. pnpm also recognizes `package.yaml` and
- * `package.json5`; nmr recognizes only this one.
+ * `package.json5`; nmr-core recognizes only this one.
  */
 const MANIFEST = 'package.json';
 
@@ -60,7 +60,7 @@ export function matchPackageDirs(
  * exclusions, and the matcher decides the rest. Exclusions filter the entire positive match set
  * irrespective of declaration order.
  */
-export function resolvePackageDirs(monorepoRoot: string, patterns: string[]): string[] {
+export function resolvePackageDirs(monorepoRoot: string, patterns: readonly string[]): string[] {
   const { excludedPatterns, includedPatterns } = splitWorkspacePatterns(patterns);
 
   if (includedPatterns.length === 0) {
@@ -94,7 +94,11 @@ export function splitWorkspacePatterns(patterns: readonly string[]): WorkspacePa
   return { excludedPatterns, includedPatterns };
 }
 
+// region | Helpers
+
 /** Rewrites a workspace pattern to match the manifest within it, tolerating a trailing slash. */
 function buildManifestPattern(pattern: string): string {
   return `${pattern.replace(/\/?$/, '')}/${MANIFEST}`;
 }
+
+// endregion | Helpers

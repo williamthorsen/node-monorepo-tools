@@ -17,7 +17,7 @@ describe(resolvePackageDirs, () => {
   }
 
   beforeEach(() => {
-    tree = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-workspace-patterns-' }));
+    tree = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-core-workspace-patterns-' }));
   });
 
   it('resolves a single-level glob to the directories holding a manifest', () => {

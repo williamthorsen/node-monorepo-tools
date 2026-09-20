@@ -1,6 +1,8 @@
 # Workspace introspection
 
-The pnpm-workspace lookups that `@williamthorsen/nmr/workspace` publishes.
+The pnpm-workspace lookups that `@williamthorsen/nmr/workspace` publishes. The resolution itself lives in
+`@williamthorsen/nmr-core/workspace`, which release-kit reads too; nmr re-exports the total primitives and adds
+two projections that throw, so a CLI caller keeps nmr's error boundary.
 
 `findMonorepoRoot(startDir?)` walks up from `startDir`, defaulting to `process.cwd()`, until it reaches a directory containing `pnpm-workspace.yaml`. It throws if it runs out of parent directories without finding one.
 
@@ -8,14 +10,22 @@ The pnpm-workspace lookups that `@williamthorsen/nmr/workspace` publishes.
 
 One divergence from pnpm: a directory counts as a package only if it holds a `package.json`, not a `package.yaml` or `package.json5`.
 
-`diagnoseEmptyWorkspace(monorepoRoot)` reports why that resolution came back empty, for a caller that has one and found it so. It returns the `cause` and the `packages` list the manifest declares, and it throws where `monorepoRoot` holds no `pnpm-workspace.yaml`, as `getWorkspacePackageDirs` does.
+`resolveWorkspace(monorepoRoot)` is the primitive both projections read, and the one a caller reaches for when an empty workspace is not a failure. It throws nothing, returning a discriminated result instead:
 
-| `cause`        | What left the workspace empty                                                                                                   |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `no-pattern`   | No positive pattern reaches the matcher: the `packages` key is absent, empty, not a list of strings, or holds only `!` entries. |
-| `no-manifest`  | The patterns reach the matcher and match no directory holding a `package.json`, which is the divergence above.                  |
-| `all-excluded` | The `!` entries exclude every directory matched by the positive patterns.                                                       |
+| `kind`            | What it carries                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `not-a-workspace` | Nothing. The directory holds no `pnpm-workspace.yaml`, so it declares no workspace at all.                   |
+| `packages`        | `packageDirs`, the resolved absolute directories, and `patterns`, the `packages` list the manifest declares. |
+| `empty`           | `cause`, which of three conditions emptied the resolution, and the same `patterns`.                          |
 
-One remedy answers all four shapes of `no-pattern`, so they are not told apart. `all-excluded` is decided by matching the positive patterns a second time without the exclusion set, which reaches the filesystem only on this path.
+| `cause`        | What left the workspace empty                                                                                                                                           |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `no-pattern`   | No positive pattern reaches the matcher: the `packages` key is absent, empty, not a list of strings, or holds only `!` entries, or the manifest holds no readable YAML. |
+| `no-package`   | The patterns reach the matcher and match no directory holding a `package.json`, which is the divergence above.                                                          |
+| `all-excluded` | The `!` entries exclude every directory matched by the positive patterns.                                                                                               |
+
+One remedy answers every shape of `no-pattern`, so they are not told apart. `all-excluded` is decided by matching the positive patterns a second time without the exclusion set, which reaches the filesystem only on this path, and only where the first resolution came back empty.
+
+`isMonorepoRoot(dir)`, `readWorkspaceOverrides(monorepoRoot)`, and `readWorkspacePackageNames(packageDirs)` are re-exported unchanged. Each returns a value rather than throwing: `readWorkspaceOverrides` returns nothing where the manifest is missing, unreadable, unparseable, or declares no `overrides` block, and `readWorkspacePackageNames` passes over a manifest it cannot read.
 
 Quote exclusion patterns in the manifest — `- '!packages/legacy'`. An unquoted `!` opens a YAML tag rather than a string, so the entry never reaches nmr (or pnpm) as a pattern.

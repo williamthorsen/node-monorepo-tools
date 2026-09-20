@@ -4,11 +4,14 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
+import { UserError } from '../UserError.ts';
 import {
-  diagnoseEmptyWorkspace,
   findMonorepoRoot,
   getWorkspacePackageDirs,
+  isMonorepoRoot,
+  readWorkspaceOverrides,
   readWorkspacePackageNames,
+  resolveWorkspace,
 } from '../workspace.ts';
 
 // The monorepo root is two levels up from packages/nmr
@@ -48,6 +51,11 @@ describe(findMonorepoRoot, () => {
       'Could not find monorepo root: no pnpm-workspace.yaml found in any parent directory',
     );
   });
+
+  // The projection is what gives nmr-core's total primitive nmr's own error boundary.
+  it('throws a UserError, which the CLI reports rather than reporting as a crash', () => {
+    expect(() => findMonorepoRoot('/')).toThrow(UserError);
+  });
 });
 
 describe(getWorkspacePackageDirs, () => {
@@ -64,11 +72,25 @@ describe(getWorkspacePackageDirs, () => {
   });
 
   it('throws a message naming the directory when it holds no manifest', () => {
-    using notARoot = createTempTree({}, { prefix: 'nmr-workspace-test-' });
+    using notARoot = createTempTree({}, { prefix: PREFIX });
 
     expect(() => getWorkspacePackageDirs(notARoot.dir)).toThrow(
       `Not a monorepo root: no pnpm-workspace.yaml in ${notARoot.dir}`,
     );
+  });
+
+  it('throws a UserError, which the CLI reports rather than reporting as a crash', () => {
+    using notARoot = createTempTree({}, { prefix: PREFIX });
+
+    expect(() => getWorkspacePackageDirs(notARoot.dir)).toThrow(UserError);
+  });
+
+  // The empty resolution is the one case the projection flattens rather than throwing on: a workspace that
+  // declares patterns and matches nothing is a workspace whose package list is empty.
+  it('returns nothing when the manifest declares patterns that match no package', ({ toolsTree }) => {
+    toolsTree.write('pnpm-workspace.yaml', "packages:\n  - 'apps/*'\n");
+
+    expect(getWorkspacePackageDirs(toolsTree.dir)).toStrictEqual([]);
   });
 
   describe('exact-path patterns', () => {
@@ -86,8 +108,8 @@ describe(getWorkspacePackageDirs, () => {
     });
   });
 
-  // Pattern semantics are covered against `resolvePackageDirs` directly; this asserts only that the
-  // manifest's patterns reach it intact, exclusions included.
+  // Pattern semantics are covered against nmr-core's resolver directly; this asserts only that the manifest's
+  // patterns reach it intact, exclusions included.
   describe('manifest patterns', () => {
     it('honors an exclusion declared in the manifest', ({ packagesTree }) => {
       packagesTree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n  - '!packages/legacy'\n");
@@ -109,85 +131,35 @@ describe(getWorkspacePackageDirs, () => {
   });
 });
 
-describe(diagnoseEmptyWorkspace, () => {
-  it.for([
-    { patterns: undefined, scenario: 'no `packages` key' },
-    { patterns: '[]', scenario: 'an empty list' },
-    { patterns: "'packages/*'", scenario: 'a list holding something other than strings' },
-    { patterns: "\n  - '!packages/legacy'", scenario: 'exclusions alone' },
-    { patterns: '\n  - !packages/legacy', scenario: 'an unquoted `!` entry, which YAML leaves empty' },
-  ])('reports no-pattern given $scenario', ({ patterns }, { packagesTree }) => {
-    packagesTree.write(
-      'pnpm-workspace.yaml',
-      patterns === undefined ? 'shamefully-hoist: true\n' : `packages: ${patterns}\n`,
-    );
+// The primitives are covered in nmr-core; these assert that `@williamthorsen/nmr/workspace` still publishes
+// them, which its consumers reach them through.
+describe('the re-exported primitives', () => {
+  it('resolves a workspace through `resolveWorkspace`', ({ toolsTree }) => {
+    toolsTree.write('pnpm-workspace.yaml', 'packages:\n  - tools/cli\n');
 
-    expect(diagnoseEmptyWorkspace(packagesTree.dir).cause).toBe('no-pattern');
-  });
-
-  it('reports no-manifest where the pattern matches no directory holding one', ({ toolsTree }) => {
-    toolsTree.mkdir('tools/empty');
-    toolsTree.write('pnpm-workspace.yaml', "packages:\n  - 'tools/empty'\n");
-
-    expect(diagnoseEmptyWorkspace(toolsTree.dir)).toStrictEqual({ cause: 'no-manifest', patterns: ['tools/empty'] });
-  });
-
-  it('reports all-excluded where the exclusions remove every match', ({ packagesTree }) => {
-    packagesTree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n  - '!packages/*'\n");
-
-    expect(diagnoseEmptyWorkspace(packagesTree.dir)).toStrictEqual({
-      cause: 'all-excluded',
-      patterns: ['packages/*', '!packages/*'],
+    expect(resolveWorkspace(toolsTree.dir)).toStrictEqual({
+      kind: 'packages',
+      packageDirs: [path.join(toolsTree.dir, 'tools', 'cli')],
+      patterns: ['tools/cli'],
     });
   });
 
-  // An exclusion that removes some but not all of the matches leaves the workspace non-empty, so the only
-  // exclusion-bearing manifest reaching the diagnosis with no positive match is one whose patterns matched none.
-  it('reports no-manifest where exclusions are declared but the positive patterns matched nothing', ({ toolsTree }) => {
-    toolsTree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n  - '!packages/legacy'\n");
-
-    expect(diagnoseEmptyWorkspace(toolsTree.dir).cause).toBe('no-manifest');
+  it('reports a monorepo root through `isMonorepoRoot`', ({ toolsTree }) => {
+    expect(isMonorepoRoot(MONOREPO_ROOT)).toBe(true);
+    expect(isMonorepoRoot(toolsTree.dir)).toBe(false);
   });
 
-  it('carries the declared patterns, which a message quotes back', ({ packagesTree }) => {
-    packagesTree.write('pnpm-workspace.yaml', "packages:\n  - 'apps/*'\n");
+  it('reads overrides through `readWorkspaceOverrides`', ({ toolsTree }) => {
+    toolsTree.write('pnpm-workspace.yaml', "overrides:\n  semver: '7.8.5'\n");
 
-    expect(diagnoseEmptyWorkspace(packagesTree.dir).patterns).toStrictEqual(['apps/*']);
+    expect(readWorkspaceOverrides(toolsTree.dir)).toStrictEqual({ semver: '7.8.5' });
   });
 
-  it('throws a message naming the directory when it holds no manifest', () => {
-    using notARoot = createTempTree({}, { prefix: PREFIX });
-
-    expect(() => diagnoseEmptyWorkspace(notARoot.dir)).toThrow(
-      `Not a monorepo root: no pnpm-workspace.yaml in ${notARoot.dir}`,
-    );
-  });
-});
-
-describe(readWorkspacePackageNames, () => {
-  it('reads the name each manifest declares', ({ packagesTree }) => {
+  it('reads package names through `readWorkspacePackageNames`', ({ packagesTree }) => {
     packagesTree.write('packages/alpha/package.json', '{"name":"@scope/alpha"}');
-    packagesTree.write('packages/legacy/package.json', '{"name":"legacy"}');
 
-    const names = readWorkspacePackageNames([
-      path.join(packagesTree.dir, 'packages', 'alpha'),
-      path.join(packagesTree.dir, 'packages', 'legacy'),
+    expect(readWorkspacePackageNames([path.join(packagesTree.dir, 'packages', 'alpha')])).toStrictEqual([
+      '@scope/alpha',
     ]);
-
-    expect(names).toStrictEqual(['@scope/alpha', 'legacy']);
-  });
-
-  // The names serve a diagnostic, so a manifest that cannot be read costs its own name and no more.
-  it('passes over a manifest that is missing, unparseable, or nameless', ({ packagesTree }) => {
-    packagesTree.write('packages/alpha/package.json', '{"name":"@scope/alpha"}');
-    packagesTree.write('packages/legacy/package.json', '{ oops');
-
-    const names = readWorkspacePackageNames([
-      path.join(packagesTree.dir, 'packages', 'alpha'),
-      path.join(packagesTree.dir, 'packages', 'legacy'),
-      path.join(packagesTree.dir, 'packages', 'nameless'),
-    ]);
-
-    expect(names).toStrictEqual(['@scope/alpha']);
   });
 });
