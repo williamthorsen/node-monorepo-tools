@@ -14,7 +14,10 @@ vi.mock(import('../init/detectRepoType.ts'), () => ({
   detectRepoType: mockDetectRepoType,
 }));
 
-vi.mock(import('../loadValidatedConfig.ts'), () => ({
+// Partial, so that `reportConfigProblem` stays the real renderer: the stderr form a caller emits on an
+// unusable config is the subject of the assertions below.
+vi.mock(import('../loadValidatedConfig.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
   loadValidatedConfig: mockLoadValidatedConfig,
 }));
 
@@ -50,7 +53,7 @@ describe(showTagPrefixesCommand, () => {
 
   it('forwards the loaded config to the preview', async () => {
     const config = { workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@old/core', tagPrefix: 'core-v' }] }] };
-    mockLoadValidatedConfig.mockResolvedValue({ status: 'ok', config, configFilePath: CONFIG_FILE_PATH });
+    mockLoadValidatedConfig.mockResolvedValue({ status: 'ok', config, configFilePath: CONFIG_FILE_PATH, warnings: [] });
     mockPreview.mockReturnValue({ workspaces: [], collisions: [], undeclaredCandidates: [] });
     using _capture = captureStdio();
 
@@ -66,7 +69,7 @@ describe(showTagPrefixesCommand, () => {
     const exitCode = await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts');
 
     expect(exitCode).toBe(0);
-    expect(mockLoadValidatedConfig).toHaveBeenCalledWith('rich', 'elsewhere/alternative.config.ts');
+    expect(mockLoadValidatedConfig).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
   });
 
   it('previews against derived defaults when no config file exists', async () => {
@@ -80,26 +83,37 @@ describe(showTagPrefixesCommand, () => {
     expect(capture.stdout).toContain('Workspace tag prefixes:');
   });
 
-  it('exits 1 and prints no preview when the config is unusable', async () => {
-    mockLoadValidatedConfig.mockResolvedValue({ status: 'invalid', configFilePath: CONFIG_FILE_PATH });
+  it('exits 1, reports the problem, and prints no preview when the config is unusable', async () => {
+    mockLoadValidatedConfig.mockResolvedValue({
+      status: 'invalid',
+      configFilePath: CONFIG_FILE_PATH,
+      problem: { kind: 'validation', errors: ['workTypes: expected object'] },
+    });
     using capture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES);
 
     expect(exitCode).toBe(1);
     expect(capture.stdout).toBe('');
+    expect(capture.stderrChunks).toContain('Invalid config:\n');
+    expect(capture.stderr).toContain('workTypes: expected object');
     expect(mockPreview).not.toHaveBeenCalled();
   });
 
-  it('exits 1 in single-package mode when the config is unusable', async () => {
+  it('exits 1 and reports the problem in single-package mode when the config is unusable', async () => {
     mockDetectRepoType.mockReturnValue('single-package');
-    mockLoadValidatedConfig.mockResolvedValue({ status: 'invalid', configFilePath: CONFIG_FILE_PATH });
+    mockLoadValidatedConfig.mockResolvedValue({
+      status: 'invalid',
+      configFilePath: 'elsewhere/alternative.config.ts',
+      problem: { kind: 'load', message: 'config read failure' },
+    });
     using capture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts');
 
     expect(exitCode).toBe(1);
     expect(capture.stdout).toBe('');
+    expect(capture.stderr).toContain('Failed to load config: config read failure');
   });
 
   it('exits 1 and reports when the preview itself fails', async () => {

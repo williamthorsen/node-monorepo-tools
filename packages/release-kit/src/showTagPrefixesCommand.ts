@@ -2,7 +2,7 @@ import { formatStatusLine, type OutputStyle, reportError, type StreamStyles } fr
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { detectRepoType } from './init/detectRepoType.ts';
-import { loadValidatedConfig } from './loadValidatedConfig.ts';
+import { loadValidatedConfig, reportConfigProblem } from './loadValidatedConfig.ts';
 import { previewTagPrefixes, type TagPrefixPreview, type TagPrefixPreviewRow } from './previewTagPrefixes.ts';
 
 /**
@@ -20,8 +20,11 @@ import { previewTagPrefixes, type TagPrefixPreview, type TagPrefixPreviewRow } f
  */
 export async function showTagPrefixesCommand(styles: StreamStyles, configPath?: string): Promise<number> {
   // The single-package branch below reads no config, so the config is loaded ahead of it.
-  const result = await loadValidatedConfig(styles.stderr, configPath);
-  if (result.status === 'invalid') return 1;
+  const result = await loadValidatedConfig(configPath);
+  if (result.status === 'invalid') {
+    reportConfigProblem(result.problem, styles.stderr);
+    return 1;
+  }
 
   if (detectRepoType() === 'single-package') {
     process.stdout.write(renderSinglePackage());

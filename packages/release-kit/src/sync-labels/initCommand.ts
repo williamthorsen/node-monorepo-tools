@@ -5,7 +5,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from '../discoverWorkspaces.ts';
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
-import { loadValidatedConfig } from '../loadValidatedConfig.ts';
+import { loadValidatedConfig, reportConfigProblem } from '../loadValidatedConfig.ts';
 import { generateCommand, LABELS_OUTPUT_PATH } from './generateCommand.ts';
 import { checkRetiredSyncLabelsConfig } from './retiredConfig.ts';
 import { buildScopeLabels, renderRepoLabelsBlock, repoLabelsConfigScript, syncLabelsWorkflow } from './templates.ts';
@@ -147,8 +147,9 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
  * a label set from a config it cannot read.
  */
 async function loadRetiredPackageNames(styles: StreamStyles, configPath?: string): Promise<string[] | undefined> {
-  const result = await loadValidatedConfig(styles.stderr, configPath);
+  const result = await loadValidatedConfig(configPath);
   if (result.status === 'invalid') {
+    reportConfigProblem(result.problem, styles.stderr);
     return undefined;
   }
   if (result.status === 'missing') {
