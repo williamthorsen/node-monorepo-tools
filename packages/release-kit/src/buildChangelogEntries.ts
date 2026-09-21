@@ -294,7 +294,8 @@ function extractDescription(message: string): string {
  * Regex patterns for trailer lines to strip from the tail of a commit body.
  *
  * No pattern matches `Migration:`. `extractMigration` reads the stripped body, so a pattern
- * matching the label would drop the migration and leave its continuation lines behind.
+ * matching the label would take the label line off a body-final `Migration:` paragraph and
+ * silently stop yielding `item.migration`.
  */
 const TRAILER_PATTERNS: RegExp[] = [
   /^Change:/i,
