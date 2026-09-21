@@ -8,7 +8,7 @@ import {
   type ValidateAllChangelogOverridesInputs,
   type ValidateAllChangelogOverridesResult,
 } from './changelogOverrides.ts';
-import { discoverWorkspaces } from './discoverWorkspaces.ts';
+import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { buildTagPattern, type GenerateChangelogOptions, getAllTagPrefixes } from './generateChangelogs.ts';
 import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
 import type { ChangelogEntry, MonorepoReleaseConfig, ReleaseConfig, ReleaseKitConfig } from './types.ts';
@@ -39,7 +39,7 @@ export interface ValidateOverridesCommandResult {
 
 /** Injection seams for unit testing. Production callers leave defaults; tests substitute deterministic fakes. */
 export interface ValidateOverridesCommandDependencies {
-  discoverWorkspaces?: () => Promise<string[] | undefined>;
+  discoverWorkspaces?: () => WorkspaceDiscovery;
   loadConfig?: () => Promise<unknown>;
   /**
    * Build changelog entries for a scope. Defaults to `buildChangelogEntries`, the same path
@@ -62,7 +62,8 @@ export interface ValidateOverridesCommandDependencies {
  * {@link validateAllChangelogOverrides}.
  *
  * Single-package and monorepo modes are handled uniformly: single-package collapses to one
- * project scope; monorepo expands to a project scope plus one scope per workspace.
+ * project scope; monorepo expands to a project scope plus one scope per workspace. A workspace declaring
+ * patterns that resolve to no package is neither, and exits `2`.
  *
  * `configPath` names the config file to read, relative to the working directory; it defaults to
  * `CONFIG_FILE_PATH`.
@@ -92,19 +93,26 @@ export async function validateOverridesCommand(
     return { exitCode: 2, message: describeError(error) };
   }
 
-  let discoveredPaths: string[] | undefined;
+  let workspace: WorkspaceDiscovery;
   try {
-    discoveredPaths = await discover();
+    workspace = discover();
   } catch (error: unknown) {
     return { exitCode: 2, message: formatErrorLine(`Failed to discover workspaces: ${describeError(error)}`) };
+  }
+
+  if (workspace.kind === 'empty') {
+    return {
+      exitCode: 2,
+      message: formatErrorLine(`No workspace package to validate. ${describeEmptyWorkspace(workspace)}`),
+    };
   }
 
   let inputs: ValidateAllChangelogOverridesInputs;
   try {
     inputs =
-      discoveredPaths === undefined
+      workspace.kind === 'single-package'
         ? buildSinglePackageInputs(userConfig, buildEntries)
-        : buildMonorepoInputs(discoveredPaths, userConfig, buildEntries);
+        : buildMonorepoInputs(workspace.packageDirs, userConfig, buildEntries);
   } catch (error: unknown) {
     return { exitCode: 2, message: formatErrorLine(`Failed to resolve overrides scope: ${describeError(error)}`) };
   }

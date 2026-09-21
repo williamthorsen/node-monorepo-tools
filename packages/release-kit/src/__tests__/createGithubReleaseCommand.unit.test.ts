@@ -10,7 +10,10 @@ const mockResolveReleaseNotesConfig = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 const mockAssertConfigLoadable = vi.hoisted(() => vi.fn());
 
-vi.mock(import('../discoverWorkspaces.ts'), () => ({
+// Partial, so that `describeEmptyWorkspace` stays the real composer: what a caller does with an empty
+// resolution is the subject here, and its wording is covered against the composer itself.
+vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
@@ -36,6 +39,7 @@ vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
 });
 
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
+import { resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -44,7 +48,7 @@ describe(createGithubReleaseCommand, () => {
 
   beforeEach(() => {
     capture = captureStdio();
-    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true }]);
     mockCreateGithubReleases.mockReturnValue({ created: ['v1.0.0'], skipped: [] });
     mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => ({
@@ -100,7 +104,7 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('filters tags by --tags using full tag names in monorepo mode', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit']);
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/release-kit']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
@@ -117,7 +121,9 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('filters multiple tags by --tags', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit', 'packages/extra']);
+    mockDiscoverWorkspaces.mockReturnValue(
+      resolvedPackages(['packages/core', 'packages/release-kit', 'packages/extra']),
+    );
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
@@ -184,7 +190,7 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('exits with code 1 when --tags references an unmatched tag', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
@@ -198,7 +204,9 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('exits with code 1 when discoverWorkspaces throws', async () => {
-    mockDiscoverWorkspaces.mockRejectedValue(new Error('discovery failed'));
+    mockDiscoverWorkspaces.mockImplementation(() => {
+      throw new Error('discovery failed');
+    });
 
     const error = await captureError(ProcessExitError, () => createGithubReleaseCommand([], RICH_STYLES));
 
@@ -210,7 +218,7 @@ describe(createGithubReleaseCommand, () => {
     // Typo protection lives upstream in resolveCommandTags (which exits 1 on unknown --tags
     // values), so a no-entry skip reaching here is a legitimate "no releasable content"
     // outcome — same as no-audience-content and empty-body.
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/extra']);
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/extra']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       { tag: 'extra-v0.1.0', dir: 'extra', workspacePath: 'packages/extra', isPublishable: true },
@@ -232,7 +240,7 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('exits 0 when --tags is explicit and every skip is no-audience-content', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
@@ -250,7 +258,7 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('exits 0 when --tags is explicit and the only skip reason is empty-body', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
@@ -268,7 +276,7 @@ describe(createGithubReleaseCommand, () => {
   it('logs an info summary when --tags has mixed outcomes including a no-entry skip', async () => {
     // Mirrors the no-audience-content mixed-outcome test below: no-entry is no longer
     // discriminated at this layer because resolveCommandTags already rejects unknown tags.
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/extra']);
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/extra']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       { tag: 'extra-v0.1.0', dir: 'extra', workspacePath: 'packages/extra', isPublishable: true },
@@ -299,7 +307,7 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('logs an info summary when some tags are skipped (intentional reasons) but others succeed', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/extra']);
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/extra']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       { tag: 'extra-v0.1.0', dir: 'extra', workspacePath: 'packages/extra', isPublishable: true },
@@ -345,7 +353,7 @@ describe(createGithubReleaseCommand, () => {
 
   describe('publishability filter', () => {
     it('skips a private workspace with a warning and creates no Release', async () => {
-      mockDiscoverWorkspaces.mockResolvedValue(['packages/basic']);
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
       ]);
@@ -361,7 +369,7 @@ describe(createGithubReleaseCommand, () => {
     it('no-ops without loading release-notes config when every tag is private', async () => {
       // An all-private repo is a clean no-op that must not depend on release-notes config: the
       // partition short-circuits before resolveReleaseNotesConfig, which strictLoad would fail on.
-      mockDiscoverWorkspaces.mockResolvedValue(['packages/basic']);
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
       ]);
@@ -373,7 +381,7 @@ describe(createGithubReleaseCommand, () => {
     });
 
     it('creates Releases for publishable tags and warns past the private one in a mixed set', async () => {
-      mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/basic']);
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
@@ -405,7 +413,7 @@ describe(createGithubReleaseCommand, () => {
     });
 
     it('drops empty segments from --tags=foo, (trailing comma)', async () => {
-      mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       ]);

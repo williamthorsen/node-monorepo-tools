@@ -26,7 +26,7 @@ describe(pushCommand, () => {
 
   beforeEach(() => {
     capture = captureStdio();
-    mockResolveCommandTags.mockResolvedValue(TAGS);
+    mockResolveCommandTags.mockReturnValue(TAGS);
     mockPushRelease.mockReturnValue([]);
     void throwOnProcessExit();
     void silenceConsole(['info']);
@@ -39,33 +39,33 @@ describe(pushCommand, () => {
     vi.restoreAllMocks();
   });
 
-  it('delegates to pushRelease with default options', async () => {
-    await pushCommand([]);
+  it('delegates to pushRelease with default options', () => {
+    pushCommand([]);
 
     expect(mockResolveCommandTags).toHaveBeenCalledWith(undefined);
     expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { dryRun: false, tagsOnly: false });
   });
 
-  it('passes dryRun when --dry-run is provided', async () => {
-    await pushCommand(['--dry-run']);
+  it('passes dryRun when --dry-run is provided', () => {
+    pushCommand(['--dry-run']);
 
     expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { dryRun: true, tagsOnly: false });
   });
 
-  it('passes tagsOnly when --tags-only is provided', async () => {
-    await pushCommand(['--tags-only']);
+  it('passes tagsOnly when --tags-only is provided', () => {
+    pushCommand(['--tags-only']);
 
     expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { dryRun: false, tagsOnly: true });
   });
 
-  it('passes tags filter to resolveCommandTags', async () => {
-    await pushCommand(['--tags=core-v1.2.0,cli-v0.5.0']);
+  it('passes tags filter to resolveCommandTags', () => {
+    pushCommand(['--tags=core-v1.2.0,cli-v0.5.0']);
 
     expect(mockResolveCommandTags).toHaveBeenCalledWith(['core-v1.2.0', 'cli-v0.5.0']);
   });
 
-  it('combines --tags with --tags-only to push only the tag subset', async () => {
-    await pushCommand(['--tags=core-v1.2.0', '--tags-only']);
+  it('combines --tags with --tags-only to push only the tag subset', () => {
+    pushCommand(['--tags=core-v1.2.0', '--tags-only']);
 
     expect(mockResolveCommandTags).toHaveBeenCalledWith(['core-v1.2.0']);
     expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { dryRun: false, tagsOnly: true });
@@ -115,10 +115,10 @@ describe(pushCommand, () => {
     expect(capture.stderrChunks).toContain('Error: push failed\n');
   });
 
-  it('skips pushRelease when no tags are resolved', async () => {
-    mockResolveCommandTags.mockResolvedValue([]);
+  it('skips pushRelease when no tags are resolved', () => {
+    mockResolveCommandTags.mockReturnValue([]);
 
-    await pushCommand([]);
+    pushCommand([]);
 
     expect(mockPushRelease).not.toHaveBeenCalled();
   });

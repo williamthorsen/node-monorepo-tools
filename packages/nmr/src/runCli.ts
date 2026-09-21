@@ -872,9 +872,9 @@ function formatEmptyFilterError(pattern: string, names: readonly string[]): stri
 }
 
 /**
- * Returns the sentences naming which of the four conditions left the workspace holding no package, and the
- * remedy for that one. Each quotes the `packages` list the manifest declares, apart from the one whose
- * manifest the reader could not parse and which therefore has no list to quote.
+ * Returns the sentences naming which of the six conditions left the workspace holding no package, and the
+ * remedy for that one. Each quotes the `packages` list the manifest declares, apart from the three that
+ * reach the matcher with no list to quote.
  *
  * The `package.json` requirement is stated under `no-package` because it is a divergence from pnpm, which
  * recognizes two further manifests, and the reader of a workspace that pnpm resolves has no way to infer it.
@@ -903,11 +903,22 @@ function describeEmptyWorkspace(monorepoRoot: string): string {
         'neither `package.yaml` nor `package.json5`. Add a `package.json` to the directory that should be a ' +
         'package, or declare a pattern reaching a directory that holds one.'
       );
+    case 'no-packages-list':
+      return (
+        `pnpm-workspace.yaml at ${monorepoRoot} declares no \`packages\` list, so the workspace holds the root ` +
+        'package alone. Declare a positive pattern such as `packages/*` to reach the packages beneath it.'
+      );
     case 'no-pattern':
       return (
         `pnpm-workspace.yaml ${declaredClause}, so no pattern reaches the matcher. Declare a positive pattern such ` +
         'as `packages/*`, and quote any `!` entry, which YAML reads as a tag rather than a string where it ' +
         'stands bare.'
+      );
+    case 'unreadable-packages':
+      return (
+        `pnpm-workspace.yaml at ${monorepoRoot} declares a \`packages\` value that is not a list of strings, so ` +
+        'nothing it declares reaches the matcher. Make it a list whose every entry is a quoted pattern; a bare ' +
+        'value and an entry YAML read as a number or a map are the usual ones.'
       );
     case 'unreadable-manifest':
       return (
@@ -923,8 +934,9 @@ function describeEmptyWorkspace(monorepoRoot: string): string {
 }
 
 /**
- * Returns the clause naming what the manifest's `packages` key declares, which every empty-workspace message
- * leads with.
+ * Returns the clause naming what the manifest's `packages` key declares, which the three pattern-bearing
+ * empty-workspace messages lead with. Each reaches it with a non-empty list, the resolver reporting a
+ * manifest that declares none under a cause of its own.
  *
  * An entry the parser left empty is what an unquoted `!pkg` becomes, and the matcher drops it. Naming it as an
  * empty entry is what a reader can act on: quoting it renders an empty pair of backticks, and it does so in the
@@ -935,7 +947,7 @@ function describeDeclaredPatterns(patterns: readonly string[]): string {
   const emptiedCount = patterns.length - quotablePatterns.length;
 
   if (emptiedCount === 0) {
-    return patterns.length === 0 ? 'declares no `packages` list' : `declares ${renderQuotedList(patterns)}`;
+    return `declares ${renderQuotedList(patterns)}`;
   }
 
   const emptiedClause = `${emptiedCount} ${emptiedCount === 1 ? 'entry' : 'entries'} that YAML left empty`;

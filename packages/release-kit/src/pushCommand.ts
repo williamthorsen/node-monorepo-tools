@@ -18,13 +18,13 @@ const pushFlagSchema = {
  * Orchestrate the CLI `push` command: parse flags, resolve tags from HEAD, and push
  * the release commit and each tag individually.
  */
-export async function pushCommand(argv: string[]): Promise<void> {
+export function pushCommand(argv: string[]): void {
   const parsed = parseArgsOrExit(argv, pushFlagSchema);
 
   const { dryRun, tagsOnly } = parsed.flags;
   const requestedTags = parseRequestedTags(parsed.flags.tags);
 
-  const resolvedTags = await resolveCommandTags(requestedTags);
+  const resolvedTags = resolveCommandTags(requestedTags);
 
   if (resolvedTags.length === 0) {
     return;

@@ -11,8 +11,9 @@ const PACKAGE_MANIFEST = 'package.json';
 /** The manifest whose presence marks a directory as the monorepo root. */
 const WORKSPACE_MANIFEST = 'pnpm-workspace.yaml';
 
-/** Which of four conditions left a workspace resolving to no package directory. */
-export type EmptyWorkspaceCause = 'all-excluded' | 'no-package' | 'no-pattern' | 'unreadable-manifest';
+/** Which of six conditions left a workspace resolving to no package directory. */
+export type EmptyWorkspaceCause =
+  'all-excluded' | 'no-package' | 'no-packages-list' | 'no-pattern' | 'unreadable-manifest' | 'unreadable-packages';
 
 /**
  * What resolving a directory's workspace patterns produced: the directory declares no workspace, it resolves
@@ -105,13 +106,17 @@ export function readWorkspacePackageNames(packageDirs: readonly string[]): strin
  * Reaches the filesystem a second time for `all-excluded` alone, re-matching the positive patterns without the
  * exclusion set. That runs only where a resolution has already come back empty.
  *
- * `no-pattern` covers every manifest whose `packages` key reaches the matcher with nothing positive: a key that
- * is absent, empty, not a list of strings, or holding only `!` entries. One remedy answers them all, so the
- * conditions below them are not worth telling apart.
+ * Three causes separate what a manifest declares from what the reader could make of it, because one remedy
+ * does not answer them all. `no-packages-list` is a manifest declaring nothing, an absent `packages` key or an
+ * empty list, which pnpm resolves to the root package alone; `unreadable-packages` is a `packages` value that
+ * is not a list of strings, which declares something the reader refused; and `no-pattern` is a list whose
+ * entries all fail to become a positive pattern, `!` entries and entries YAML emptied. A caller treating an
+ * empty resolution as a failure needs the first held apart from the other two, and a caller composing a
+ * message needs all three.
  *
- * A manifest that the reader cannot parse is `unreadable-manifest` rather than `no-pattern`. It declares
- * whatever it declares, and the remedy the other causes share — declare a positive pattern — repairs nothing
- * for a reader who has one and a syntax error above it.
+ * A manifest that the reader cannot parse at all is `unreadable-manifest`. It declares whatever it declares,
+ * and the remedy the pattern causes share — declare a positive pattern — repairs nothing for a reader who has
+ * one and a syntax error above it.
  */
 export function resolveWorkspace(monorepoRoot: string): WorkspaceResolution {
   const manifestRead = readWorkspaceManifest(monorepoRoot);
@@ -122,7 +127,14 @@ export function resolveWorkspace(monorepoRoot: string): WorkspaceResolution {
     return { cause: 'unreadable-manifest', kind: 'empty', patterns: [] };
   }
 
-  const patterns = getPackagesFromParsedYaml(manifestRead.value) ?? [];
+  const packagesRead = readDeclaredPackages(manifestRead.value);
+  if (packagesRead.kind !== 'patterns') {
+    const cause = packagesRead.kind === 'absent' ? 'no-packages-list' : 'unreadable-packages';
+
+    return { cause, kind: 'empty', patterns: [] };
+  }
+
+  const { patterns } = packagesRead;
 
   const packageDirs = resolvePackageDirs(monorepoRoot, patterns);
   if (packageDirs.length > 0) {
@@ -150,15 +162,26 @@ function diagnoseEmptyCause(monorepoRoot: string, patterns: readonly string[]): 
 }
 
 /**
- * Reads the `packages` list a parsed workspace manifest declares, or nothing where it declares no usable one:
- * no `packages` key, a key that is not a list, or a list holding something other than strings.
+ * What reading a parsed manifest's `packages` key produced: it declares no list, it declares one the reader
+ * could not make patterns of, or it declares patterns.
+ *
+ * Four shapes count as declaring none, because each asks the same of the matcher and pnpm resolves each to
+ * the root package alone: a manifest holding no document at all, which an empty or comment-only file parses
+ * to, a manifest holding no `packages` key, a `packages` key whose value YAML read as null, and an empty
+ * list.
  */
-function getPackagesFromParsedYaml(parsedManifest: unknown): string[] | undefined {
-  if (!isObject(parsedManifest)) return undefined;
+type PackagesRead = { kind: 'absent' } | { kind: 'patterns'; patterns: string[] } | { kind: 'unreadable' };
+
+/** Reads the `packages` list a parsed workspace manifest declares, reporting an absent list apart from an unreadable one. */
+function readDeclaredPackages(parsedManifest: unknown): PackagesRead {
+  if (!isObject(parsedManifest)) return { kind: 'absent' };
+
   const packages = parsedManifest['packages'];
-  if (!Array.isArray(packages)) return undefined;
-  if (!packages.every((p): p is string => typeof p === 'string')) return undefined;
-  return packages;
+  if (packages === undefined || packages === null) return { kind: 'absent' };
+  if (!Array.isArray(packages)) return { kind: 'unreadable' };
+  if (!packages.every((entry): entry is string => typeof entry === 'string')) return { kind: 'unreadable' };
+
+  return packages.length === 0 ? { kind: 'absent' } : { kind: 'patterns', patterns: packages };
 }
 
 /** Narrows an unknown value to a record, which is the shape a parsed manifest has to have to be read. */

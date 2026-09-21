@@ -18,14 +18,16 @@ One divergence from pnpm: a directory counts as a package only if it holds a `pa
 | `packages`        | `packageDirs`, the resolved absolute directories, and `patterns`, the `packages` list the manifest declares. |
 | `empty`           | `cause`, which of four conditions emptied the resolution, and the same `patterns`.                           |
 
-| `cause`               | What left the workspace empty                                                                                                               |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `no-pattern`          | No positive pattern reaches the matcher: the `packages` key is absent, empty, not a list, not a list of strings, or holds only `!` entries. |
-| `no-package`          | The patterns reach the matcher and match no directory holding a `package.json`, which is the divergence above.                              |
-| `all-excluded`        | The `!` entries exclude every directory matched by the positive patterns.                                                                   |
-| `unreadable-manifest` | The manifest holds no valid YAML, so nothing it declares reaches the matcher. `patterns` is empty, and no other cause is decided.           |
+| `cause`               | What left the workspace empty                                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `no-packages-list`    | The manifest declares no `packages` list: it holds no document, no `packages` key, a null value, or an empty list. `patterns` is empty. |
+| `no-pattern`          | The list reaches the matcher with nothing positive, holding only `!` entries or entries YAML left empty.                                |
+| `no-package`          | The patterns reach the matcher and match no directory holding a `package.json`, which is the divergence above.                          |
+| `all-excluded`        | The `!` entries exclude every directory matched by the positive patterns.                                                               |
+| `unreadable-packages` | The `packages` value is not a list of strings, so nothing it declares reaches the matcher. `patterns` is empty.                         |
+| `unreadable-manifest` | The manifest holds no valid YAML, so nothing it declares reaches the matcher. `patterns` is empty, and no other cause is decided.       |
 
-One remedy answers every shape of `no-pattern`, so they are not told apart. A manifest the parser rejects is held apart from them, because that remedy repairs nothing for a reader whose manifest declares a pattern above a syntax error. `all-excluded` is decided by matching the positive patterns a second time without the exclusion set, which reaches the filesystem only on this path, and only where the first resolution came back empty.
+Three causes separate what the manifest declares from what the reader could make of it, because one remedy does not answer them all: `no-packages-list` is a manifest asking for nothing, which pnpm resolves to the root package alone; `unreadable-packages` is a manifest asking for something the reader refused; and `no-pattern` is a list read in full whose every entry failed to become a positive pattern. A caller treating an empty resolution as a failure needs the first held apart from the other two. A manifest the parser rejects outright is `unreadable-manifest`, because the pattern remedies repair nothing for a reader whose manifest declares a pattern above a syntax error. `all-excluded` is decided by matching the positive patterns a second time without the exclusion set, which reaches the filesystem only on this path, and only where the first resolution came back empty.
 
 `isMonorepoRoot(dir)`, `readWorkspaceOverrides(monorepoRoot)`, and `readWorkspacePackageNames(packageDirs)` are re-exported unchanged. Each returns a value rather than throwing: `readWorkspaceOverrides` returns nothing where the manifest is missing, unreadable, unparseable, or declares no `overrides` block, and `readWorkspacePackageNames` passes over a manifest it cannot read.
 

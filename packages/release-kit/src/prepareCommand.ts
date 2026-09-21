@@ -17,7 +17,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { configFlagSchema } from './configFlagSchema.ts';
-import { discoverWorkspaces } from './discoverWorkspaces.ts';
+import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
@@ -152,19 +152,24 @@ export async function prepareCommand(argv: string[], styles: StreamStyles): Prom
   const userConfig = await loadAndValidateConfig(styles.stderr, configPath);
 
   // 3. Discover workspaces
-  let discoveredPaths: string[] | undefined;
+  let workspace: WorkspaceDiscovery;
   try {
-    discoveredPaths = await discoverWorkspaces();
+    workspace = discoverWorkspaces();
   } catch (error: unknown) {
     reportError(`Failed to discover workspaces: ${describeError(error)}`);
     process.exit(1);
   }
 
+  if (workspace.kind === 'empty') {
+    reportError(`No workspace package to release. ${describeEmptyWorkspace(workspace)}`);
+    process.exit(1);
+  }
+
   // 4. Determine mode, merge config, and run
-  if (discoveredPaths === undefined) {
+  if (workspace.kind === 'single-package') {
     runSinglePackageMode(userConfig, options, only, dryRun, styles.stdout);
   } else {
-    runMonorepoMode(discoveredPaths, userConfig, options, only, setVersion, dryRun, styles.stdout);
+    runMonorepoMode(workspace.packageDirs, userConfig, options, only, setVersion, dryRun, styles.stdout);
   }
 }
 

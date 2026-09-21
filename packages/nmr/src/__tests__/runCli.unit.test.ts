@@ -45,9 +45,18 @@ const it = baseIt
     ),
   )
   .extend(
-    'patternlessTree',
+    'listlessTree',
     makeFixture(() =>
-      createTempTree({ 'pnpm-workspace.yaml': 'shamefully-hoist: true\n' }, { prefix: 'nmr-runcli-patternless-' }),
+      createTempTree({ 'pnpm-workspace.yaml': 'shamefully-hoist: true\n' }, { prefix: 'nmr-runcli-listless-' }),
+    ),
+  )
+  .extend(
+    'unreadablePackagesTree',
+    makeFixture(() =>
+      createTempTree(
+        { 'pnpm-workspace.yaml': 'packages:\n  - packages/*\n  - 42\n' },
+        { prefix: 'nmr-runcli-unreadable-packages-' },
+      ),
     ),
   )
   .extend(
@@ -347,14 +356,25 @@ describe(runCli, () => {
       expect(stderr).toContain('Add a `package.json`');
     });
 
-    it('refuses a recursive delegation where the manifest declares no positive pattern', async ({
-      patternlessTree,
-    }) => {
-      const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], patternlessTree.dir);
+    it('refuses a recursive delegation where the manifest declares no `packages` list', async ({ listlessTree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], listlessTree.dir);
 
       expect(exitCode).toBe(1);
-      expect(stderr).toContain('pnpm-workspace.yaml declares no `packages` list, so no pattern reaches the matcher');
+      expect(stderr).toContain('declares no `packages` list, so the workspace holds the root package alone');
       expect(stderr).toContain('Declare a positive pattern such as `packages/*`');
+    });
+
+    // The manifest declares `packages/*` beside the bad entry, so a remedy sending the reader to declare a
+    // pattern would name what is already there; the shape of the list is the fault.
+    it('names the required shape where the `packages` value is not a list of strings', async ({
+      unreadablePackagesTree,
+    }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], unreadablePackagesTree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('declares a `packages` value that is not a list of strings');
+      expect(stderr).toContain('Make it a list whose every entry is a quoted pattern');
+      expect(stderr).not.toContain('Declare a positive pattern');
     });
 
     it('refuses a recursive delegation where the exclusions remove every match', async ({ excludedTree }) => {

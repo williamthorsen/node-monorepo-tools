@@ -53,7 +53,7 @@
     "vitest": "catalog:"
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=24.16.0"
   },
   "publishConfig": {
     "access": "public"

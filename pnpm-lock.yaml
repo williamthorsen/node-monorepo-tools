@@ -345,9 +345,6 @@ importers:
       '@williamthorsen/toolbelt.errors':
         specifier: 'catalog:'
         version: 0.8.1
-      glob:
-        specifier: 13.0.6
-        version: 13.0.6
       json-stringify-pretty-compact:
         specifier: 4.0.0
         version: 4.0.0

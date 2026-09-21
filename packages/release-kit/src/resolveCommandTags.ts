@@ -5,7 +5,7 @@ import { reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
-import { discoverWorkspaces } from './discoverWorkspaces.ts';
+import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { type ResolvedTag, resolveReleaseTags } from './resolveReleaseTags.ts';
 import type { WorkspaceConfig } from './types.ts';
 
@@ -13,7 +13,8 @@ import type { WorkspaceConfig } from './types.ts';
  * Discover workspaces, resolve release tags from HEAD, validate `--tags` names against the
  * full resolved tag names (e.g., `nmr-core-v1.3.0`), and return the filtered tag list.
  * Works in both single-package and monorepo modes. Exits with an error message on any validation
- * failure — including `deriveWorkspaceConfig()` throws for workspaces missing a `package.json` `name` field.
+ * failure — including `deriveWorkspaceConfig()` throws for workspaces missing a `package.json` `name` field,
+ * and a workspace declaring patterns that resolve to no package, which is not single-package mode.
  *
  * In both modes `deriveWorkspaceConfig` is called so `WorkspaceConfig.isPublishable` (read
  * from `package.json#private`) propagates onto each `ResolvedTag`. Single-package mode now
@@ -21,13 +22,18 @@ import type { WorkspaceConfig } from './types.ts';
  * single-package mode skipping the derive step need a `name` field on `./package.json`,
  * but in practice every npm/pnpm package already has one.
  */
-export async function resolveCommandTags(tags: string[] | undefined): Promise<ResolvedTag[]> {
+export function resolveCommandTags(tags: string[] | undefined): ResolvedTag[] {
   // Discover workspaces to determine single-package vs monorepo mode.
-  let discoveredPaths: string[] | undefined;
+  let workspace: WorkspaceDiscovery;
   try {
-    discoveredPaths = await discoverWorkspaces();
+    workspace = discoverWorkspaces();
   } catch (error: unknown) {
     reportError(`Failed to discover workspaces: ${describeError(error)}`);
+    process.exit(1);
+  }
+
+  if (workspace.kind === 'empty') {
+    reportError(`No workspace package to tag. ${describeEmptyWorkspace(workspace)}`);
     process.exit(1);
   }
 
@@ -37,10 +43,10 @@ export async function resolveCommandTags(tags: string[] | undefined): Promise<Re
   let workspaces: WorkspaceConfig[] | undefined;
   let singleWorkspace: WorkspaceConfig | undefined;
   try {
-    if (discoveredPaths === undefined) {
+    if (workspace.kind === 'single-package') {
       singleWorkspace = deriveWorkspaceConfig('.');
     } else {
-      workspaces = discoveredPaths.map((workspacePath) => deriveWorkspaceConfig(workspacePath));
+      workspaces = workspace.packageDirs.map((workspacePath) => deriveWorkspaceConfig(workspacePath));
     }
   } catch (error: unknown) {
     reportError(`Failed to resolve workspaces: ${describeError(error)}`);
