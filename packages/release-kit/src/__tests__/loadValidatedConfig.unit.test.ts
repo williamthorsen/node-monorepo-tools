@@ -1,4 +1,5 @@
-import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { ProcessExitError, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockLoadConfig = vi.hoisted(() => vi.fn());
@@ -9,7 +10,12 @@ vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
 });
 
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
-import { loadValidatedConfig, reportConfigProblem, reportConfigWarnings } from '../loadValidatedConfig.ts';
+import {
+  assertConfigUsable,
+  loadValidatedConfig,
+  reportConfigProblem,
+  reportConfigWarnings,
+} from '../loadValidatedConfig.ts';
 
 describe(loadValidatedConfig, () => {
   afterEach(() => {
@@ -141,5 +147,86 @@ describe(reportConfigWarnings, () => {
 
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
+  });
+});
+
+describe(assertConfigUsable, () => {
+  afterEach(() => {
+    mockLoadConfig.mockReset();
+    vi.restoreAllMocks();
+  });
+
+  it('forwards the config path to the loader', async () => {
+    mockLoadConfig.mockResolvedValue({ formatCommand: 'pnpm run alt' });
+
+    await assertConfigUsable('plain', 'elsewhere/alternative.config.ts');
+
+    expect(mockLoadConfig).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
+  });
+
+  it('resolves cleanly and writes nothing when no default config exists', async () => {
+    mockLoadConfig.mockResolvedValue(undefined);
+    using capture = captureStdio();
+
+    await expect(assertConfigUsable('plain')).resolves.toBeUndefined();
+
+    expect(capture.stderr).toBe('');
+  });
+
+  it('resolves cleanly when the config loads and validates', async () => {
+    mockLoadConfig.mockResolvedValue({ formatCommand: 'pnpm run alt' });
+    using capture = captureStdio();
+
+    await expect(assertConfigUsable('plain')).resolves.toBeUndefined();
+
+    expect(capture.stderr).toBe('');
+  });
+
+  it('exits 1 and reports when a named path does not exist', async () => {
+    mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
+    using capture = captureStdio();
+    using _exit = throwOnProcessExit();
+
+    const error = await captureError(ProcessExitError, () => assertConfigUsable('plain', 'elsewhere/absent.config.ts'));
+
+    expect(error.code).toBe(1);
+    expect(capture.stderrChunks).toContain(
+      'Error: Failed to load config: Config file not found: /repo/elsewhere/absent.config.ts\n',
+    );
+  });
+
+  it('exits 1 and reports when the default config exists and fails to load', async () => {
+    mockLoadConfig.mockRejectedValue(new Error('Unexpected token in config'));
+    using capture = captureStdio();
+    using _exit = throwOnProcessExit();
+
+    const error = await captureError(ProcessExitError, () => assertConfigUsable('plain'));
+
+    expect(error.code).toBe(1);
+    expect(capture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
+  });
+
+  it('exits 1 and reports when the default config fails validation', async () => {
+    mockLoadConfig.mockResolvedValue({ workTypes: 'not-an-object' });
+    using capture = captureStdio();
+    using _exit = throwOnProcessExit();
+
+    const error = await captureError(ProcessExitError, () => assertConfigUsable('plain'));
+
+    expect(error.code).toBe(1);
+    expect(capture.stderrChunks).toContain('Invalid config:\n');
+    expect(capture.stderr).toContain('workTypes');
+  });
+
+  it("emits no warnings, leaving the command's own load the single place that does", async () => {
+    mockLoadConfig.mockResolvedValue({
+      changelogJson: { enabled: false },
+      releaseNotes: { shouldInjectIntoReadme: true },
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await assertConfigUsable('plain');
+
+    expect(warn).not.toHaveBeenCalled();
   });
 });

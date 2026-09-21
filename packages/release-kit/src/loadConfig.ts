@@ -100,18 +100,6 @@ export async function loadConfig(configPath?: string): Promise<unknown> {
 }
 
 /**
- * Opens the named config file and discards its contents, so that a command whose later work may never reach a
- * loader still fails on a path that does not exist. A no-op when no path is named.
- *
- * `import()` caches by URL, so a load that follows on a path that does read the config costs nothing.
- */
-export async function assertConfigLoadable(configPath: string | undefined): Promise<void> {
-  if (configPath !== undefined) {
-    await loadConfig(configPath);
-  }
-}
-
-/**
  * Information about the root `package.json` passed into `mergeMonorepoConfig` when a
  * `project` block is configured. The async I/O lives in `readRootPackageVersion`; this
  * function stays a pure transformation.

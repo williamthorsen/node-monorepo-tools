@@ -8,7 +8,6 @@ const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
 const mockDetectPackageManager = vi.hoisted(() => vi.fn());
 const mockPublishPackage = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
-const mockAssertConfigLoadable = vi.hoisted(() => vi.fn());
 const mockValidateConfig = vi.hoisted(() => vi.fn());
 const mockCreateGithubReleases = vi.hoisted(() => vi.fn());
 const mockInjectReleaseNotesIntoReadme = vi.hoisted(() => vi.fn());
@@ -49,7 +48,6 @@ vi.mock(import('../loadConfig.ts'), async () => {
   return {
     ...actual,
     loadConfig: mockLoadConfig,
-    assertConfigLoadable: mockAssertConfigLoadable,
   };
 });
 
@@ -84,7 +82,6 @@ describe(publishCommand, () => {
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true }]);
     mockDetectPackageManager.mockReturnValue('npm');
     mockLoadConfig.mockResolvedValue(undefined);
-    mockAssertConfigLoadable.mockResolvedValue(undefined);
     mockValidateConfig.mockReturnValue({ config: {}, errors: [], warnings: [] });
     mockResolveReadmePath.mockReturnValue(undefined);
     mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
@@ -111,7 +108,6 @@ describe(publishCommand, () => {
     mockDetectPackageManager.mockReset();
     mockPublishPackage.mockReset();
     mockLoadConfig.mockReset();
-    mockAssertConfigLoadable.mockReset();
     mockValidateConfig.mockReset();
     mockCreateGithubReleases.mockReset();
     mockInjectReleaseNotesIntoReadme.mockReset();
@@ -309,7 +305,7 @@ describe(publishCommand, () => {
 
     it('exits with code 1 for a named config that fails to load before an all-private tag set returns', async () => {
       mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: false }]);
-      mockAssertConfigLoadable.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
+      mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
 
       const error = await captureError(ProcessExitError, () =>
         publishCommand(['--config', 'elsewhere/absent.config.ts'], RICH_STYLES),
@@ -320,10 +316,37 @@ describe(publishCommand, () => {
       expect(console.info).not.toHaveBeenCalledWith('Nothing to publish.');
     });
 
-    it('asserts the named config is loadable before resolving tags', async () => {
-      await publishCommand(['--config', 'elsewhere/alternative.config.ts'], RICH_STYLES);
+    it('exits with code 1 for a default config that fails to load before an all-private tag set returns', async () => {
+      mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: false }]);
+      mockLoadConfig.mockRejectedValue(new Error('Unexpected token in config'));
 
-      expect(mockAssertConfigLoadable).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
+      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES));
+
+      expect(error.code).toBe(1);
+      expect(capture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
+      expect(console.info).not.toHaveBeenCalledWith('Nothing to publish.');
+    });
+
+    it('exits with code 1 for an invalid default config before an all-private tag set returns', async () => {
+      mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: false }]);
+      mockLoadConfig.mockResolvedValue({ bogus: 123 });
+      mockValidateConfig.mockReturnValue({ config: {}, errors: ["Unknown field: 'bogus'"], warnings: [] });
+
+      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES));
+
+      expect(error.code).toBe(1);
+      expect(capture.stderrChunks).toContain('Invalid config:\n');
+      expect(console.info).not.toHaveBeenCalledWith('Nothing to publish.');
+    });
+
+    it('stays a clean no-op when no default config exists and every tag is private', async () => {
+      mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: false }]);
+
+      await publishCommand([], RICH_STYLES);
+
+      expect(console.info).toHaveBeenCalledWith('Nothing to publish.');
+      expect(capture.stderr).toBe('');
+      expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
     it('exits with code 1 rather than falling back to defaults when a named config fails to load', async () => {

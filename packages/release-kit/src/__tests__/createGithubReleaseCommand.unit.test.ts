@@ -8,7 +8,7 @@ const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
 const mockCreateGithubReleases = vi.hoisted(() => vi.fn());
 const mockResolveReleaseNotesConfig = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
-const mockAssertConfigLoadable = vi.hoisted(() => vi.fn());
+const mockLoadConfig = vi.hoisted(() => vi.fn());
 
 // Partial, so that `describeEmptyWorkspace` stays the real composer: what a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
@@ -35,7 +35,7 @@ vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
 
 vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
   const original = await importOriginal();
-  return { ...original, assertConfigLoadable: mockAssertConfigLoadable };
+  return { ...original, loadConfig: mockLoadConfig };
 });
 
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
@@ -66,7 +66,7 @@ describe(createGithubReleaseCommand, () => {
       changelogJsonOutputPath: '.meta/changelog.json',
       sectionOrder: ['Bug fixes', 'Features'],
     });
-    mockAssertConfigLoadable.mockResolvedValue(undefined);
+    mockLoadConfig.mockResolvedValue(undefined);
     void throwOnProcessExit();
     void silenceConsole(['info', 'warn']);
   });
@@ -77,7 +77,7 @@ describe(createGithubReleaseCommand, () => {
     mockResolveReleaseTags.mockReset();
     mockCreateGithubReleases.mockReset();
     mockResolveReleaseNotesConfig.mockReset();
-    mockAssertConfigLoadable.mockReset();
+    mockLoadConfig.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -152,7 +152,7 @@ describe(createGithubReleaseCommand, () => {
 
   it('exits with code 1 for a named config that fails to load before an all-private tag set returns', async () => {
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: false }]);
-    mockAssertConfigLoadable.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
+    mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
 
     const error = await captureError(ProcessExitError, () =>
       createGithubReleaseCommand(['--config', 'elsewhere/absent.config.ts'], RICH_STYLES),
@@ -160,6 +160,28 @@ describe(createGithubReleaseCommand, () => {
 
     expect(error.code).toBe(1);
     expect(capture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
+    expect(mockCreateGithubReleases).not.toHaveBeenCalled();
+  });
+
+  it('exits with code 1 for a default config that fails to load before an all-private tag set returns', async () => {
+    mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: false }]);
+    mockLoadConfig.mockRejectedValue(new Error('Unexpected token in config'));
+
+    const error = await captureError(ProcessExitError, () => createGithubReleaseCommand([], RICH_STYLES));
+
+    expect(error.code).toBe(1);
+    expect(capture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
+    expect(mockCreateGithubReleases).not.toHaveBeenCalled();
+  });
+
+  it('exits with code 1 for an invalid default config before an all-private tag set returns', async () => {
+    mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: false }]);
+    mockLoadConfig.mockResolvedValue({ workTypes: 'not-an-object' });
+
+    const error = await captureError(ProcessExitError, () => createGithubReleaseCommand([], RICH_STYLES));
+
+    expect(error.code).toBe(1);
+    expect(capture.stderrChunks).toContain('Invalid config:\n');
     expect(mockCreateGithubReleases).not.toHaveBeenCalled();
   });
 
@@ -367,7 +389,8 @@ describe(createGithubReleaseCommand, () => {
 
     it('no-ops without loading release-notes config when every tag is private', async () => {
       // An all-private repo is a clean no-op that must not depend on release-notes config: the
-      // partition short-circuits before resolveReleaseNotesConfig ever runs.
+      // partition short-circuits before resolveReleaseNotesConfig ever runs. The eager
+      // `assertConfigUsable` ahead of it is a no-op on an absent default config.
       mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },

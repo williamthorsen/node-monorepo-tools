@@ -1,3 +1,6 @@
+/* eslint n/no-process-exit: off */
+/* eslint unicorn/no-process-exit: off */
+
 import { formatStatusLine, type OutputStyle, printError, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
@@ -54,6 +57,24 @@ export async function loadValidatedConfig(configPath?: string): Promise<LoadVali
   }
 
   return { status: 'ok', config, configFilePath, warnings };
+}
+
+/**
+ * Loads and validates the config, reporting the problem and exiting 1 when it is unusable, so that a command
+ * whose later work may never reach a loader still fails on a config that does.
+ *
+ * An absent default config returns cleanly, which is what keeps a repo that declares no config a supported state.
+ * Reports problems but never warnings: the command's own later load stays the single place that emits those, so
+ * a warning is not printed twice.
+ *
+ * The second load costs nothing: `import()` caches by URL and `validateConfig` is pure.
+ */
+export async function assertConfigUsable(stderrStyle: OutputStyle, configPath?: string): Promise<void> {
+  const result = await loadValidatedConfig(configPath);
+  if (result.status === 'invalid') {
+    reportConfigProblem(result.problem, stderrStyle);
+    process.exit(1);
+  }
 }
 
 /** Writes a config problem to stderr in the form every CLI command uses. */
