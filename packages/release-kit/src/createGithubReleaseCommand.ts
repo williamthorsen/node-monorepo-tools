@@ -59,7 +59,6 @@ export async function createGithubReleaseCommand(argv: string[], styles: StreamS
 
   const { changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig(styles.stderr, {
     ...(parsed.flags.config !== undefined && { configPath: parsed.flags.config }),
-    strictLoad: true,
   });
 
   let outcome;

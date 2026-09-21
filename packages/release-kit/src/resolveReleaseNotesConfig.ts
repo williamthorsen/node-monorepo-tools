@@ -1,13 +1,12 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { formatStatusLine, type OutputStyle, printError, reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors';
+import type { OutputStyle } from '@williamthorsen/nmr-core';
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from './defaults.ts';
-import { loadConfig, resolveWorkTypes } from './loadConfig.ts';
+import { resolveWorkTypes } from './loadConfig.ts';
+import { loadValidatedConfig, reportConfigProblem, reportConfigWarnings } from './loadValidatedConfig.ts';
 import type { ReleaseNotesConfig } from './types.ts';
-import { validateConfig } from './validateConfig.ts';
 
 export interface ResolvedReleaseNotesConfig {
   releaseNotes: ReleaseNotesConfig;
@@ -19,40 +18,29 @@ export interface ResolvedReleaseNotesConfig {
 export interface ResolveReleaseNotesConfigOptions {
   /** Config file to read, relative to the working directory. Defaults to `CONFIG_FILE_PATH`. */
   configPath?: string;
-  /**
-   * When `true`, a `loadConfig()` rejection causes `process.exit(1)` rather than a fallback to
-   * defaults. Use from CLI commands whose entire behavior depends on the resolved config (e.g.
-   * `create-github-release`), so a corrupt or unreadable config cannot silently send the command
-   * to the wrong changelog path.
-   */
-  strictLoad?: boolean;
 }
 
 /**
- * Load and validate the release-kit config.
+ * Loads and validates the release-kit config, resolving the release-notes settings it carries.
  *
- * By default, falls back to defaults when `loadConfig()` rejects (legacy publish behavior).
- * A load failure prints an error and calls `process.exit(1)` when `strictLoad` is `true`, and also when
- * `configPath` names the file: leniency covers a broken default config, not a file the caller asked for.
+ * An unusable config reports to stderr and calls `process.exit(1)`, whether the file failed to load or failed
+ * validation, and whether it was named by the caller or the default one. Both callers are CLI commands whose
+ * whole behavior depends on the resolved config, so neither could proceed on derived defaults without silently
+ * dropping a configured `releaseNotes.shouldInjectIntoReadme`, `changelogJson.outputPath`, or `workTypes`.
+ * An absent default config is a supported state and resolves to the defaults.
  */
 export async function resolveReleaseNotesConfig(
   stderrStyle: OutputStyle,
   options: ResolveReleaseNotesConfigOptions = {},
 ): Promise<ResolvedReleaseNotesConfig> {
-  const { configPath, strictLoad = false } = options;
-  let rawConfig: unknown;
-  try {
-    rawConfig = await loadConfig(configPath);
-  } catch (error: unknown) {
-    const message = describeError(error);
-    if (strictLoad || configPath !== undefined) {
-      reportError(`Failed to load config: ${message}`);
-      process.exit(1);
-    }
-    console.warn(`Warning: failed to load config; using defaults: ${message}`);
+  const result = await loadValidatedConfig(options.configPath);
+
+  if (result.status === 'invalid') {
+    reportConfigProblem(result.problem, stderrStyle);
+    process.exit(1);
   }
 
-  if (rawConfig === undefined) {
+  if (result.status === 'missing') {
     return {
       releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
       changelogJsonOutputPath: DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
@@ -60,18 +48,9 @@ export async function resolveReleaseNotesConfig(
     };
   }
 
-  const { config, errors, warnings } = validateConfig(rawConfig);
-  if (errors.length > 0) {
-    process.stderr.write('Invalid config:\n');
-    for (const err of errors) {
-      printError(err, stderrStyle);
-    }
-    process.exit(1);
-  }
-  for (const warning of warnings) {
-    console.warn(`  ${formatStatusLine(stderrStyle, 'warning', warning)}`);
-  }
+  reportConfigWarnings(result.warnings, stderrStyle);
 
+  const { config } = result;
   return {
     releaseNotes: {
       shouldInjectIntoReadme:

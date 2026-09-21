@@ -168,14 +168,13 @@ describe(createGithubReleaseCommand, () => {
 
     expect(mockResolveReleaseNotesConfig).toHaveBeenCalledWith('rich', {
       configPath: 'elsewhere/alternative.config.ts',
-      strictLoad: true,
     });
   });
 
   it('resolves release-notes config against the default path when --config is absent', async () => {
     await createGithubReleaseCommand([], RICH_STYLES);
 
-    expect(mockResolveReleaseNotesConfig).toHaveBeenCalledWith('rich', { strictLoad: true });
+    expect(mockResolveReleaseNotesConfig).toHaveBeenCalledWith('rich', {});
   });
 
   it('exits with code 1 when no release tags are found on HEAD', async () => {
@@ -346,7 +345,7 @@ describe(createGithubReleaseCommand, () => {
     const error = await captureError(ProcessExitError, () => createGithubReleaseCommand([], RICH_STYLES));
 
     expect(error.code).toBe(1);
-    expect(mockResolveReleaseNotesConfig).toHaveBeenCalledWith('rich', { strictLoad: true });
+    expect(mockResolveReleaseNotesConfig).toHaveBeenCalledWith('rich', {});
     expect(mockCreateGithubReleases).not.toHaveBeenCalled();
     expect(capture.stderrChunks).toContain('Error: Failed to load config: read failure\n');
   });
@@ -368,7 +367,7 @@ describe(createGithubReleaseCommand, () => {
 
     it('no-ops without loading release-notes config when every tag is private', async () => {
       // An all-private repo is a clean no-op that must not depend on release-notes config: the
-      // partition short-circuits before resolveReleaseNotesConfig, which strictLoad would fail on.
+      // partition short-circuits before resolveReleaseNotesConfig ever runs.
       mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },

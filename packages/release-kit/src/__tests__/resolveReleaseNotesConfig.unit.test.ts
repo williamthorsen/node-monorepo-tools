@@ -40,27 +40,14 @@ describe(resolveReleaseNotesConfig, () => {
 
   const defaultSectionOrder = Object.values(DEFAULT_WORK_TYPES).map((entry) => entry.header);
 
-  it('returns defaults when loadConfig throws', async () => {
+  it('exits with code 1 when the default config exists and fails to load', async () => {
     mockLoadConfig.mockRejectedValue(new Error('config read failure'));
 
-    const result = await resolveReleaseNotesConfig('rich');
-
-    expect(result).toStrictEqual({
-      releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
-      changelogJsonOutputPath: DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
-      sectionOrder: defaultSectionOrder,
-    });
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('failed to load config'));
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('config read failure'));
-  });
-
-  it('exits with code 1 when loadConfig throws and strictLoad is true', async () => {
-    mockLoadConfig.mockRejectedValue(new Error('config read failure'));
-
-    const error = await captureError(ProcessExitError, () => resolveReleaseNotesConfig('rich', { strictLoad: true }));
+    const error = await captureError(ProcessExitError, () => resolveReleaseNotesConfig('rich'));
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Failed to load config: config read failure\n');
+    expect(mockValidateConfig).not.toHaveBeenCalled();
   });
 
   it('exits with code 1 when loadConfig throws for a named configPath', async () => {

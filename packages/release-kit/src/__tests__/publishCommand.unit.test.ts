@@ -301,15 +301,6 @@ describe(publishCommand, () => {
   });
 
   describe('config loading', () => {
-    it('uses defaults when loadConfig throws', async () => {
-      mockLoadConfig.mockRejectedValue(new Error('config read failure'));
-
-      await publishCommand([], RICH_STYLES);
-
-      expect(mockPublishPackage).toHaveBeenCalled();
-      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('failed to load config'));
-    });
-
     it('forwards --config to the loader', async () => {
       await publishCommand(['--config', 'elsewhere/alternative.config.ts'], RICH_STYLES);
 
@@ -344,6 +335,16 @@ describe(publishCommand, () => {
 
       expect(error.code).toBe(1);
       expect(capture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
+      expect(mockPublishPackage).not.toHaveBeenCalled();
+    });
+
+    it('exits with code 1 rather than falling back to defaults when the default config fails to load', async () => {
+      mockLoadConfig.mockRejectedValue(new Error('Unexpected token in config'));
+
+      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES));
+
+      expect(error.code).toBe(1);
+      expect(capture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
