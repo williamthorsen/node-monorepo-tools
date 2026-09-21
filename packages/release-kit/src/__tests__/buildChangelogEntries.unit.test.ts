@@ -541,6 +541,51 @@ describe(buildChangelogEntries, () => {
       const items = runAndReadItems(message);
       expect(items[0]).not.toHaveProperty('body');
     });
+
+    it('strips a trailing block of Change trailers', () => {
+      const message = [
+        '#1 feat: Add widget',
+        '',
+        'Body text here.',
+        '',
+        'Change: agents|feat: Adds the parser',
+        'Change: agents|fix: Corrects the guard',
+      ].join('\n');
+      const items = runAndReadItems(message);
+      expect(items[0]?.body).toBe('Body text here.');
+    });
+
+    it('strips Change trailers interleaved with the other trailers', () => {
+      const message = [
+        '#1 feat: Add widget',
+        '',
+        'Body text here.',
+        '',
+        'Change: agents|feat: Adds the parser',
+        'Co-authored-by: Helper <h@example.com>',
+        'Closes #10',
+      ].join('\n');
+      const items = runAndReadItems(message);
+      expect(items[0]?.body).toBe('Body text here.');
+    });
+
+    it('preserves a Change line above non-trailer content', () => {
+      const message = [
+        '#1 feat: Add widget',
+        '',
+        'Change: agents|feat: Adds the parser',
+        '',
+        'Body paragraph two.',
+      ].join('\n');
+      const items = runAndReadItems(message);
+      expect(items[0]?.body).toBe('Change: agents|feat: Adds the parser\n\nBody paragraph two.');
+    });
+
+    it('returns no body when message has only Change trailers', () => {
+      const message = '#1 feat: Add widget\n\nChange: agents|feat: Adds the parser';
+      const items = runAndReadItems(message);
+      expect(items[0]).not.toHaveProperty('body');
+    });
   });
 
   describe('migration extraction', () => {
@@ -577,6 +622,19 @@ describe(buildChangelogEntries, () => {
         '#1 feat: Add widget\n\nMigration: Import from the new subpath.\nSigned-off-by: Author <a@example.com>';
       const items = runAndReadItems(message);
       expect(items[0]?.migration).toBe('Import from the new subpath.');
+    });
+
+    it('extracts the migration when a Change trailer block follows it', () => {
+      const message = [
+        '#1 feat: Add widget',
+        '',
+        'Migration: Import from the new subpath.',
+        '',
+        'Change: agents|feat: Adds the parser',
+      ].join('\n');
+      const items = runAndReadItems(message);
+      expect(items[0]?.migration).toBe('Import from the new subpath.');
+      expect(items[0]?.body).toBe('Migration: Import from the new subpath.');
     });
 
     it('omits migration when the body carries no labeled paragraph', () => {

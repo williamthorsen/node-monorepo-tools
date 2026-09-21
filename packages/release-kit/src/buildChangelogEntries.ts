@@ -290,8 +290,14 @@ function extractDescription(message: string): string {
   return firstLine;
 }
 
-/** Regex patterns for trailer lines to strip from the tail of a commit body. */
+/**
+ * Regex patterns for trailer lines to strip from the tail of a commit body.
+ *
+ * No pattern matches `Migration:`. `extractMigration` reads the stripped body, so a pattern
+ * matching the label would drop the migration and leave its continuation lines behind.
+ */
 const TRAILER_PATTERNS: RegExp[] = [
+  /^Change:/i,
   /^Signed-off-by:/i,
   /^Co-authored-by:/i,
   /^(Closes|Fixes|Resolves)\s+#\d+\s*$/i,
