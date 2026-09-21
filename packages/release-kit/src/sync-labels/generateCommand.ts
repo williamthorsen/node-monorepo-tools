@@ -6,7 +6,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { stringify } from 'yaml';
 
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
-import { loadValidatedConfig } from '../loadValidatedConfig.ts';
+import { loadValidatedConfig, reportConfigProblem } from '../loadValidatedConfig.ts';
 import type { RepoLabelsConfig } from '../types.ts';
 import { hashPresetFile } from './presets.ts';
 import { resolveLabels } from './resolveLabels.ts';
@@ -55,13 +55,14 @@ export async function loadRepoLabelsConfig(
   stderrStyle: OutputStyle,
   configPath?: string,
 ): Promise<RepoLabelsConfig | undefined> {
-  const result = await loadValidatedConfig(stderrStyle, configPath);
+  const result = await loadValidatedConfig(configPath);
 
   if (result.status === 'missing') {
     reportError(`No config file found at ${result.configFilePath}. Run \`release-kit sync-labels init\` first.`);
     return undefined;
   }
   if (result.status === 'invalid') {
+    reportConfigProblem(result.problem, stderrStyle);
     return undefined;
   }
 

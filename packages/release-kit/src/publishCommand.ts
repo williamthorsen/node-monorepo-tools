@@ -12,7 +12,7 @@ import { configFlagSchema } from './configFlagSchema.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
 import { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
-import { assertConfigLoadable } from './loadConfig.ts';
+import { assertConfigUsable } from './loadValidatedConfig.ts';
 import { parseRequestedTags } from './parseRequestedTags.ts';
 import { publishPackage } from './publish.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
@@ -36,13 +36,8 @@ export async function publishCommand(argv: string[], styles: StreamStyles): Prom
 
   const { dryRun, noGitChecks, provenance } = parsed.flags;
 
-  // An all-private tag set returns below without reading a config, so a named path is opened first.
-  try {
-    await assertConfigLoadable(parsed.flags.config);
-  } catch (error: unknown) {
-    reportError(`Failed to load config: ${describeError(error)}`);
-    process.exit(1);
-  }
+  // An all-private tag set returns below without reading a config, so the config is opened and validated first.
+  await assertConfigUsable(styles.stderr, parsed.flags.config);
 
   // Guard against running on a dirty working tree (skip for dry runs and --no-git-checks).
   // Mirrors prepareCommand and tagCommand: release-kit owns the check; pnpm's own check is

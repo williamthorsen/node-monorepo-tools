@@ -10,9 +10,9 @@ import {
 } from './changelogOverrides.ts';
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { buildTagPattern, type GenerateChangelogOptions, getAllTagPrefixes } from './generateChangelogs.ts';
-import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
+import { mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
+import { type ConfigProblem, loadValidatedConfig, type LoadValidatedConfigResult } from './loadValidatedConfig.ts';
 import type { ChangelogEntry, MonorepoReleaseConfig, ReleaseConfig, ReleaseKitConfig } from './types.ts';
-import { validateConfig } from './validateConfig.ts';
 
 /**
  * Synthetic `--tag` value passed to `buildChangelogEntries` during validation. Cliff uses the
@@ -40,7 +40,7 @@ export interface ValidateOverridesCommandResult {
 /** Injection seams for unit testing. Production callers leave defaults; tests substitute deterministic fakes. */
 export interface ValidateOverridesCommandDependencies {
   discoverWorkspaces?: () => WorkspaceDiscovery;
-  loadConfig?: () => Promise<unknown>;
+  loadValidatedConfig?: () => Promise<LoadValidatedConfigResult>;
   /**
    * Build changelog entries for a scope. Defaults to `buildChangelogEntries`, the same path
    * `release-kit prepare` uses — anchoring `validate`'s hash universe to `prepare`'s by
@@ -74,24 +74,15 @@ export async function validateOverridesCommand(
   dependencies: ValidateOverridesCommandDependencies = {},
 ): Promise<ValidateOverridesCommandResult> {
   const discover = dependencies.discoverWorkspaces ?? discoverWorkspaces;
-  const load = dependencies.loadConfig ?? (() => loadConfig(configPath));
+  const load = dependencies.loadValidatedConfig ?? (() => loadValidatedConfig(configPath));
   const buildEntries = dependencies.buildEntries ?? defaultBuildEntries;
   const validate = dependencies.validate ?? validateAllChangelogOverrides;
 
-  let rawConfig: unknown;
-  try {
-    rawConfig = await load();
-  } catch (error: unknown) {
-    return { exitCode: 2, message: formatErrorLine(`Failed to load config: ${describeError(error)}`) };
+  const configResult = await load();
+  if (configResult.status === 'invalid') {
+    return { exitCode: 2, message: formatConfigProblem(configResult.problem) };
   }
-
-  let userConfig: ReleaseKitConfig | undefined;
-  try {
-    // An invalid config is a verdict, not a failed operation — surfaced bare, unlike the load failure above.
-    userConfig = validateLoadedConfig(rawConfig);
-  } catch (error: unknown) {
-    return { exitCode: 2, message: describeError(error) };
-  }
+  const userConfig: ReleaseKitConfig | undefined = configResult.status === 'ok' ? configResult.config : undefined;
 
   let workspace: WorkspaceDiscovery;
   try {
@@ -199,17 +190,16 @@ function flattenEntriesToHashes(entries: readonly ChangelogEntry[]): string[] {
   return hashes;
 }
 
-/** Validate already-loaded config content, throwing an `Invalid config:` report on validation errors. */
-function validateLoadedConfig(rawConfig: unknown): ReleaseKitConfig | undefined {
-  if (rawConfig === undefined) {
-    return undefined;
-  }
-
-  const { config, errors } = validateConfig(rawConfig);
-  if (errors.length > 0) {
-    throw new Error(`Invalid config:\n  - ${errors.join('\n  - ')}`);
-  }
-  return config;
+/**
+ * Render an unusable config as this command's exit-2 message.
+ *
+ * A load failure is a failed operation and takes the error prefix; an invalid config is a verdict and is
+ * surfaced bare. The kind picks the message shape alone: both abort.
+ */
+function formatConfigProblem(problem: ConfigProblem): string {
+  return problem.kind === 'load'
+    ? formatErrorLine(`Failed to load config: ${problem.message}`)
+    : `Invalid config:\n  - ${problem.errors.join('\n  - ')}`;
 }
 
 /**
