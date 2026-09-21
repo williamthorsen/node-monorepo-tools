@@ -5,10 +5,8 @@ import { execSync } from 'node:child_process';
 
 import {
   formatGlyphLine,
-  formatStatusLine,
   type OutputStyle,
   parseArgsOrExit,
-  printError,
   reportError,
   type StreamStyles,
 } from '@williamthorsen/nmr-core';
@@ -21,14 +19,14 @@ import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } f
 import { dim } from './format.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
-import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
+import { mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
+import { loadValidatedConfig, reportConfigProblem, reportConfigWarnings } from './loadValidatedConfig.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 import { applyReleasePlan, type ReleasePlan } from './releasePlan.ts';
 import { releasePrepare } from './releasePrepare.ts';
 import { releasePrepareMono } from './releasePrepareMono.ts';
 import { reportPrepare } from './reportPrepare.ts';
 import type { MonorepoReleaseConfig, ReleaseKitConfig, ReleaseType } from './types.ts';
-import { validateConfig } from './validateConfig.ts';
 import { validateOnlyExcludesStrandedDependents } from './validateOnlyExcludesStrandedDependents.ts';
 
 const VALID_BUMP_TYPES: readonly string[] = ['major', 'minor', 'patch'];
@@ -149,7 +147,17 @@ export async function prepareCommand(argv: string[], styles: StreamStyles): Prom
     }
   }
 
-  const userConfig = await loadAndValidateConfig(styles.stderr, configPath);
+  const configResult = await loadValidatedConfig(configPath);
+  if (configResult.status === 'invalid') {
+    reportConfigProblem(configResult.problem, styles.stderr);
+    process.exit(1);
+  }
+
+  let userConfig: ReleaseKitConfig | undefined;
+  if (configResult.status === 'ok') {
+    reportConfigWarnings(configResult.warnings, styles.stderr);
+    userConfig = configResult.config;
+  }
 
   // 3. Discover workspaces
   let workspace: WorkspaceDiscovery;
@@ -298,39 +306,6 @@ interface PrepareOptions {
   bumpOverride?: ReleaseType;
   setVersion?: string;
   withReleaseNotes?: boolean;
-}
-
-/** Loads and validate the release-kit config file, exiting on errors. */
-async function loadAndValidateConfig(
-  stderrStyle: OutputStyle,
-  configPath?: string,
-): Promise<ReleaseKitConfig | undefined> {
-  let rawConfig: unknown;
-  try {
-    rawConfig = await loadConfig(configPath);
-  } catch (error: unknown) {
-    reportError(`Failed to load config: ${describeError(error)}`);
-    process.exit(1);
-  }
-
-  if (rawConfig === undefined) {
-    return undefined;
-  }
-
-  const { config, errors, warnings } = validateConfig(rawConfig);
-  if (errors.length > 0) {
-    process.stderr.write('Invalid config:\n');
-    for (const err of errors) {
-      printError(err, stderrStyle);
-    }
-    process.exit(1);
-  }
-
-  for (const warning of warnings) {
-    console.warn(`  ${formatStatusLine(stderrStyle, 'warning', warning)}`);
-  }
-
-  return config;
 }
 
 /**
