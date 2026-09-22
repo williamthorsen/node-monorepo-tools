@@ -1,8 +1,8 @@
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
-import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
 import type { RawCommit, ReleaseWindow } from '../enumerateReleaseWindows.ts';
+import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
 import type { ChangelogEntry, ChangelogJsonConfig, ReleaseConfig } from '../types.ts';
 
 // Mock the enumerator so the test exercises buildChangelogEntries' transformation logic
@@ -142,7 +142,7 @@ describe(buildChangelogEntries, () => {
   it('drops every commit the classifier rejects, and the release when none survives', () => {
     // A window holds the whole range, so the classifier is the only filter.
     mockEnumerateReleaseWindows.mockReturnValueOnce([
-      makeWindow('v1.1.0', ['release: v1.1.0', '#4 fmt: Run prettier'], 1710000000),
+      makeWindow('v1.1.0', ['release: v1.1.0', '#4 fmt: Run prettier'], 1_710_000_000),
       makeWindow('v1.0.0', [
         'release: v1.0.0',
         'Merge pull request #7 from owner/branch',
