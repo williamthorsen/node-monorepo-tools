@@ -59,7 +59,7 @@ const CONFIG_EXPORT_PATTERNS = [
 ];
 
 // SHA-256 hashes of release-kit artifacts. Keep in sync. Verified by src/__tests__/kit-hashes.unit.test.ts.
-export const CLIFF_TEMPLATE_HASH = '93b72e0b1393cd6b1fe8e2a0e303cd326fd323435951b0493396b305af32d2ec';
+export const CLIFF_TEMPLATE_HASH = 'e24177556c1b1bf0f60d9e0cd046cd776e872414960ef1f45d59f23e4e18bc65';
 export const COMMON_PRESET_HASH = '8c52654d4eee216c22377dd1e65b89f6bbb0a3478d74379bd28b04a877f0b02a';
 export const SYNC_LABELS_WORKFLOW_HASH = 'd6e2403fb551d2d415f679125989c92760444eec887644565b2e05c9bf8f4c1e';
 export const RELEASE_WORKFLOW_HASH_MONOREPO = '0a9724b7b3c5e24087fd3a8f36fed8e990d699267fcf36028ce048ab40dc2946';

@@ -28,7 +28,11 @@ release-kit bundles a copy of the codeassembly canonical taxonomy in `packages/r
 - **`internal`** — dev-only. `internal`-tier sections appear in dev changelogs but not in public-facing release notes.
 - **`process`** — dev-only. Same audience treatment as `internal`.
 
-Section render order is **tier order (`public` → `internal` → `process`), then row order within tier**. The bundled `cliff.toml.template` encodes this order via hidden `<!-- NN -->` HTML-comment prefixes on each parser's `group` value; tera's `group_by` filter sorts groups lexicographically (now monotonic by row number), and the body template's `striptags` filter erases the prefix from rendered headings.
+Section render order is **tier order (`public` → `internal` → `process`), then row order within tier**. It comes from the declaration order of `work-types.json`: `CANONICAL_SECTION_ORDER` in `buildChangelogEntries.ts` indexes each header by its row, and `transformReleases` sorts a release's sections by that index whatever order the commits arrived in.
+
+## Subject forms
+
+`classifyChangelogCommit` resolves a commit's type through `parseCommitMessage`, so a subject reaches its section under any form that parser accepts: `type:`, `scope|type:`, and the conventional-commit `type(scope):`. The type is matched case-insensitively, so `Feat:` and `FEAT:` resolve like `feat:`. The ticket-ID prefix is still required, and an alias resolves before the section is chosen.
 
 ## `utility` alias
 
@@ -73,7 +77,7 @@ The marker agrees with the version bump:
 
 - A `forbidden`-policy type carrying `!`, such as `refactor!`, gets no marker, just as its `!` raises no bump; the prepare report lists it as a policy violation. An [editorial override](editorial-overrides.md) that sets `breaking: true` restores the marker for one entry.
 - The configured `breakingPolicies` map, `{}` included, decides which types permit the marker.
-- A commit whose type the parser cannot resolve has no policy, so its `!` prefix alone decides.
+- A commit whose type the parser cannot resolve reaches no changelog at all, so no marker question arises.
 
 A `BREAKING CHANGE:` body footer on its own does **not** retroactively mark a changelog item as breaking, even on a type whose policy permits `!`; the changelog signal is tied to the commit prefix. This avoids surprise breaking-marker appearances for older commits written under earlier conventions.
 
@@ -95,13 +99,13 @@ Entries store plain text only — the SSOT is format-agnostic, so consumers appl
 
 ## `fmt`
 
-`fmt:` commits are recognized by `parseCommitMessage` (they contribute to a patch bump) but `fmt` carries `excludedFromChangelog: true`. The bundled `cliff.toml.template` skips `fmt:` commits at the parser level, so they never appear in `CHANGELOG.md`, `changelog.json`, or release notes. The label and emoji are present in `work-types.json` for schema parity with the codeassembly upstream but never render.
+`fmt:` commits are recognized by `parseCommitMessage` (they contribute to a patch bump) but `fmt` carries `excludedFromChangelog: true`, which `DEFAULT_WORK_TYPES` carries onto its `WorkTypeConfig`. `classifyChangelogCommit` rejects a commit whose type sets the flag, so a `fmt:` commit never appears in `CHANGELOG.md`, `changelog.json`, or release notes. The label and emoji are present in `work-types.json` for schema parity with the codeassembly upstream but never render.
 
 ## Custom work types
 
-Work types from your config are merged with these defaults by key — your entries override or extend, they don't replace the full set. Release-notes sections are rendered in the declaration order of the merged work-types record, with any unknown titles trailing the known ones.
+Work types from a config are merged with these defaults by key: a consumer entry overrides or extends, it does not replace the full set. `classifyChangelogCommit` reads the merged record, so an added type reaches the changelog under the `header` it declares, and an entry setting `excludedFromChangelog: true` keeps its commits out. Release-notes sections are rendered in the declaration order of the merged work-types record, with any unknown titles trailing the known ones.
 
-The default `devOnlySections` (excluded from public release notes but still written to `CHANGELOG.md`) are derived from the `internal` and `process` tiers (excluding `fmt`). Override via `changelogJson.devOnlySections` in your config; matching is decorator-tolerant, so a bare-name override like `['Internal features']` keeps working against the emoji-prefixed and prefix-decorated default titles.
+The default `devOnlySections` (excluded from public release notes but still written to `CHANGELOG.md`) are derived from the `internal` and `process` tiers (excluding `fmt`). Override via `changelogJson.devOnlySections`; matching is decorator-tolerant, so a bare-name override like `['Internal features']` keeps working against the emoji-prefixed default titles.
 
 ## Maintaining the bundled taxonomy
 

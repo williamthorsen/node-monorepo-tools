@@ -45,6 +45,21 @@ describe('DEFAULT_WORK_TYPES derivation from work-types.json', () => {
   it('exposes `utility` as an alias of `internal`', () => {
     expect(DEFAULT_WORK_TYPES['internal']?.aliases).toContain('utility');
   });
+
+  it('carries `excludedFromChangelog` through from the JSON for every entry that declares it', () => {
+    for (const entry of workTypesData.types) {
+      const config = DEFAULT_WORK_TYPES[entry.key];
+      const expected = entry.excludedFromChangelog === true ? true : undefined;
+      expect(config?.excludedFromChangelog, `excludedFromChangelog for "${entry.key}"`).toBe(expected);
+    }
+  });
+
+  it('marks `fmt` as excluded from the changelog and no other entry', () => {
+    const excludedKeys = Object.entries(DEFAULT_WORK_TYPES)
+      .filter(([, config]) => config.excludedFromChangelog === true)
+      .map(([key]) => key);
+    expect(excludedKeys).toStrictEqual(['fmt']);
+  });
 });
 
 describe('DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections derivation', () => {

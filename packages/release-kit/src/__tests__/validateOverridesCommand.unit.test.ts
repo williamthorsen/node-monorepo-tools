@@ -391,6 +391,7 @@ describe(validateOverridesCommand, () => {
       // Canned `git-cliff --context` output simulating two releases plus the unreleased range.
       // The past-release commit `aabbcc12…` is what regressed prior to the fix: the narrow
       // `git log <latestTag>..HEAD` universe excluded it, causing a false-positive stale warning.
+      // Each subject carries a ticket prefix, which `classifyChangelogCommit` requires.
       const pastHash = 'aabbcc1234567890aabbcc1234567890aabbcc12';
       const currentHash = 'ddeeff5678901234ddeeff5678901234ddeeff56';
       const unreleasedHash = '9988aabbccddeeff9988aabbccddeeff9988aabb';
@@ -399,16 +400,16 @@ describe(validateOverridesCommand, () => {
           {
             version: 'v1.0.0',
             timestamp: 1_700_000_000,
-            commits: [{ id: pastHash, message: 'feat: past feature', group: 'Features' }],
+            commits: [{ id: pastHash, message: '#1 feat: past feature' }],
           },
           {
             version: 'v2.0.0',
             timestamp: 1_710_000_000,
-            commits: [{ id: currentHash, message: 'feat: current feature', group: 'Features' }],
+            commits: [{ id: currentHash, message: '#2 feat: current feature' }],
           },
           {
             version: 'validate-only',
-            commits: [{ id: unreleasedHash, message: 'feat: unreleased feature', group: 'Features' }],
+            commits: [{ id: unreleasedHash, message: '#3 feat: unreleased feature' }],
           },
         ]),
       );

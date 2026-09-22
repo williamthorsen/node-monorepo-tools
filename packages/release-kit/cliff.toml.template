@@ -1,63 +1,23 @@
 # git-cliff configuration
-# Generates changelogs from conventional-ish commit messages.
+# Splits git history into tag ranges and filters it by path. Nothing here classifies a commit.
 #
-# Commit format: [ticket-prefix ]scope|type[!]: description [#PR]
-# Examples:
-#   #19 rdy|feat: Add utility functions for common check patterns (#26)
-#   AFG-42 panel|fix: Fix button layout (#73)
-#   ## feat: Quick utility added during interactive session
+# `buildChangelogEntries.ts` invokes cliff only for `--context` JSON output, and
+# `classifyChangelogCommit.ts` decides from the commit message whether a commit reaches a changelog
+# and under which section header. Markdown rendering is handled in-process by
+# `renderChangelogMarkdown.ts`, so no `[changelog]` block is needed.
 #
-# Only ticketed commits (leading #NN, PROJ-NN, or ##) are included.
-# Unticketed maintenance commits (deps upgrades, tooling tweaks) are skipped.
-# Use ## as a synthetic ticket prefix for ad-hoc commits that belong in the changelog.
-#
-# Section order: each `group` value carries a hidden `<!-- NN -->` HTML-comment
-# prefix encoding the canonical row position. tera's `group_by` filter sorts
-# groups lexicographically by string, and the body template's `striptags`
-# filter erases the comment from the rendered heading. Numbering is per
-# unique group (not per parser entry) — all parsers routing to the same group
-# share the same prefix.
-
-# Markdown rendering is handled in-process by `renderChangelogMarkdown.ts`. cliff is invoked
-# only for `--context` JSON output (see `buildChangelogEntries.ts`), so no `[changelog]` block
-# is needed. The `[git].commit_parsers` section below remains load-bearing for group
-# assignment in the `--context` payload.
+# The single pass-through parser and `filter_commits = false` together put every commit in the range
+# into the `--context` payload, `release:` and merge commits included. The `group` value that cliff
+# assigns is never read; it exists because cliff requires a parser to emit one.
 
 [git]
 conventional_commits = false
 filter_unconventional = false
 split_commits = false
 commit_preprocessors = []
-# Require a ticket-ID prefix for inclusion.
-# Supported prefixes: "#123 ", "#123-1 ", "#123.1 ", "TOOL-123 ", "## "
-commit_parsers = [
-  { message = "^release:", skip = true },
-  { message = "^Merge", skip = true },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?feat(!)?:", group = "<!-- 01 -->🎉 Features" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?feature(!)?:", group = "<!-- 01 -->🎉 Features" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?drop(!)?:", group = "<!-- 02 -->🪦 Removed" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?deprecate(!)?:", group = "<!-- 03 -->🗑️ Deprecated" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?fix(!)?:", group = "<!-- 04 -->🐛 Bug fixes" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?bugfix(!)?:", group = "<!-- 04 -->🐛 Bug fixes" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?sec(!)?:", group = "<!-- 05 -->🔒 Security" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?security(!)?:", group = "<!-- 05 -->🔒 Security" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?perf(!)?:", group = "<!-- 06 -->⚡ Performance" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?performance(!)?:", group = "<!-- 06 -->⚡ Performance" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?internal(!)?:", group = "<!-- 07 -->🏗️ Internal features" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?utility(!)?:", group = "<!-- 07 -->🏗️ Internal features" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?refactor(!)?:", group = "<!-- 08 -->♻️ Refactoring" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?tests?(!)?:", group = "<!-- 09 -->🧪 Tests" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?tooling(!)?:", group = "<!-- 10 -->⚙️ Tooling" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?ci(!)?:", group = "<!-- 11 -->👷 CI" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?deps?(!)?:", group = "<!-- 12 -->📦 Dependencies" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?ai(!)?:", group = "<!-- 13 -->🤖 Agentic support" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?docs?(!)?:", group = "<!-- 14 -->📚 Documentation" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([^|]+\\|)?fmt(!)?:", skip = true },
-  # Skip unticketed commits (maintenance, deps, initial scaffolding, etc.)
-  { message = ".*", skip = true },
-]
+commit_parsers = [{ message = ".*", group = "unclassified" }]
 protect_breaking_commits = false
-filter_commits = true
+filter_commits = false
 tag_pattern = "v[0-9].*"
 skip_tags = ""
 ignore_tags = ""

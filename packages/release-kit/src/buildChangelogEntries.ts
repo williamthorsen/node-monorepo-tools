@@ -1,6 +1,7 @@
 import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { extractVersion } from './changelogJsonUtils.ts';
+import { classifyChangelogCommit } from './classifyChangelogCommit.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { extractMigration } from './extractMigration.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
@@ -10,9 +11,6 @@ import { runGitCliff } from './runGitCliff.ts';
 import { stripEmojiPrefix } from './stripEmojiPrefix.ts';
 import { isRecord, isUnknownArray } from './typeGuards.ts';
 import type { ChangelogEntry, ChangelogItem, ChangelogSection, ReleaseConfig } from './types.ts';
-
-/** Match a leading `<!-- ... -->` HTML comment, used to strip the canonical-order prefix from cliff group strings. */
-const HTML_COMMENT_PREFIX_PATTERN = /^<!--[^>]*-->/;
 
 /**
  * Canonical bare-section-name → priority index, derived from `DEFAULT_WORK_TYPES`.
@@ -24,9 +22,8 @@ const HTML_COMMENT_PREFIX_PATTERN = /^<!--[^>]*-->/;
  * depend on this in-order serialisation.
  *
  * Headers in `DEFAULT_WORK_TYPES` carry the canonical emoji-prefixed form
- * (e.g. `🐛 Bug fixes`); the bare key is used so the index matches both decorated and
- * bare titles produced by `transformReleases` (which strips `<!-- NN -->` and may strip
- * the emoji depending on the consumer's config).
+ * (e.g. `🐛 Bug fixes`); the bare key is used so the index matches both the decorated titles
+ * `transformReleases` assigns and the bare names a consumer's `workTypes` override may supply.
  */
 const CANONICAL_SECTION_ORDER: ReadonlyMap<string, number> = new Map(
   Object.values(DEFAULT_WORK_TYPES).map((config, index) => [stripGroupDecorations(config.header), index]),
@@ -39,24 +36,24 @@ function canonicalSectionPriority(title: string): number {
 }
 
 /**
- * Strip cliff-template decorations from a group string, returning the bare section name.
+ * Strips a section title down to its bare name.
  *
- * The bundled `cliff.toml.template` encodes canonical row order as a hidden HTML comment
- * (e.g. `"<!-- 04 -->🐛 Bug fixes"`) so tera's `group_by` filter sorts groups predictably.
- * The body template's `striptags` filter erases the comment from the rendered heading,
- * but downstream consumers that read the raw `group` value (changelog.json titles, the
- * dev-vs-public classifier, the drift test) see the prefix and must strip it. The trailing
- * `stripEmojiPrefix` keeps the helper backward-compatible with consumer overrides written
- * as bare names.
+ * A default title carries a leading emoji (e.g. `"🐛 Bug fixes"`), while a consumer's
+ * `devOnlySections` or `workTypes` override may be written as a bare name. Comparing both sides
+ * through this helper lets the two forms match.
  */
 export function stripGroupDecorations(group: string): string {
-  return stripEmojiPrefix(group.replace(HTML_COMMENT_PREFIX_PATTERN, ''));
+  return stripEmojiPrefix(group);
 }
 
-/** Shape of a single commit in git-cliff's `--context` JSON output. */
+/**
+ * Shape of a single commit in git-cliff's `--context` JSON output.
+ *
+ * The `group` that cliff's pass-through parser assigns is deliberately absent:
+ * `classifyChangelogCommit` derives the section from the commit message instead.
+ */
 interface CliffContextCommit {
   message: string;
-  group?: string;
   /** Full commit SHA when present; git-cliff emits it as `id`. */
   id?: string;
 }
@@ -145,16 +142,19 @@ function toCliffContextCommit(value: unknown): CliffContextCommit {
   const commit: CliffContextCommit = {
     message: typeof value['message'] === 'string' ? value['message'] : '',
   };
-  if (typeof value['group'] === 'string') {
-    commit.group = value['group'];
-  }
   if (typeof value['id'] === 'string') {
     commit.id = value['id'];
   }
   return commit;
 }
 
-/** Transform git-cliff context releases into `ChangelogEntry[]`. */
+/**
+ * Transform git-cliff context releases into `ChangelogEntry[]`.
+ *
+ * Cliff emits every commit in the range, so `classifyChangelogCommit` decides which of them reach a
+ * changelog and under which section header. A commit it rejects contributes nothing, and a release
+ * left with no section contributes no entry.
+ */
 function transformReleases(
   releases: CliffContextRelease[],
   devOnlySections: Set<string>,
@@ -162,8 +162,8 @@ function transformReleases(
   breakingPolicies: NonNullable<ReleaseConfig['breakingPolicies']>,
 ): ChangelogEntry[] {
   const entries: ChangelogEntry[] = [];
-  // Normalise dev-only entries once so consumer overrides written as bare names (e.g. `'Internal'`)
-  // match decorated default titles (`<!-- NN -->🏗️ Internal features`) without requiring config updates.
+  // Normalise dev-only entries once so consumer overrides written as bare names (e.g. `'Internal features'`)
+  // match emoji-prefixed default titles (`🏗️ Internal features`) without requiring config updates.
   const devOnlyNormalised = new Set([...devOnlySections].map(stripGroupDecorations));
 
   for (const release of releases) {
@@ -179,9 +179,10 @@ function transformReleases(
 
     const commits = release.commits ?? [];
     for (const commit of commits) {
-      // Strip the canonical-order HTML comment prefix from the group key so changelog.json
-      // titles surface bare (the prefix exists only to drive cliff's group_by sort order).
-      const group = stripCommentPrefix(commit.group ?? 'Other');
+      const group = classifyChangelogCommit(commit.message, workTypes);
+      if (group === undefined) {
+        continue;
+      }
       const description = extractDescription(commit.message);
       const body = extractBody(commit.message);
       const breaking = isBreakingUnderPolicy(commit, workTypes, breakingPolicies);
@@ -234,18 +235,15 @@ function transformReleases(
   return entries;
 }
 
-/** Remove only the leading `<!-- ... -->` HTML comment, preserving any emoji. */
-function stripCommentPrefix(group: string): string {
-  return group.replace(HTML_COMMENT_PREFIX_PATTERN, '');
-}
-
 /**
  * Decides whether a commit's changelog item is breaking.
  *
  * The item is breaking when the subject carries a prefix `!` and the commit's work-type policy permits it, which keeps
- * the item in agreement with the version bump. A commit whose type the parser cannot resolve has no policy, so its
- * prefix `!` alone decides. The subject check comes first because the parse also counts a `BREAKING CHANGE:` footer
- * on an `optional`-policy type, which the changelog ignores.
+ * the item in agreement with the version bump. The subject check comes first because the parse also counts a
+ * `BREAKING CHANGE:` footer on an `optional`-policy type, which the changelog ignores.
+ *
+ * Every commit reaching this point resolved a type in `classifyChangelogCommit`, which parses against the same
+ * `workTypes`; the parse here therefore succeeds, and the `?? true` satisfies the parser's nullable return.
  */
 function isBreakingUnderPolicy(
   commit: CliffContextCommit,

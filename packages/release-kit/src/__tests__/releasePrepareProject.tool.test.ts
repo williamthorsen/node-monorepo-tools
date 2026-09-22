@@ -73,7 +73,7 @@ function setupFixture(): TempTree {
   run('git', ['tag', 'pkg-c-v1.0.0']);
 
   // One feat per workspace plus one fix. The `##` synthetic ticket prefix is required by
-  // the bundled cliff.toml.template's commit_parsers (any unticketed commit is skipped).
+  // `classifyChangelogCommit`, which admits no unticketed commit.
   for (const name of ['pkg-a', 'pkg-b']) {
     tree.write(`packages/${name}/feature.ts`, `export const flag = true;\n`);
     run('git', ['add', '-A']);
