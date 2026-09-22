@@ -26,7 +26,7 @@ export function buildReleaseSummary(result: Pick<PrepareResult, 'project' | 'wor
 
     const lines = [workspace.tag];
     for (const commit of commits) {
-      lines.push(`- ${stripScope(commit.message)}`);
+      lines.push(`- ${stripScope(commit.subject)}`);
     }
 
     sections.push(lines.join('\n'));
@@ -36,7 +36,7 @@ export function buildReleaseSummary(result: Pick<PrepareResult, 'project' | 'wor
   if (project !== undefined && project.status === 'released' && project.commits.length > 0) {
     const lines = [project.tag];
     for (const commit of project.commits) {
-      lines.push(`- ${stripScope(commit.message)}`);
+      lines.push(`- ${stripScope(commit.subject)}`);
     }
     sections.push(lines.join('\n'));
   }

@@ -184,7 +184,9 @@ describe(releasePrepare, () => {
       parsedCommitCount: 0,
       releaseType: 'patch',
     });
-    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([
+      { message: 'chore: update deps', subject: 'chore: update deps', hash: 'abc123' },
+    ]);
   });
 
   it('uses parsed bump type when mix of parseable and unparseable commits exist', () => {
@@ -206,7 +208,9 @@ describe(releasePrepare, () => {
       releaseType: 'minor',
       parsedCommitCount: 1,
     });
-    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'def456' }]);
+    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([
+      { message: 'chore: update deps', subject: 'chore: update deps', hash: 'def456' },
+    ]);
   });
 
   it('renders the format command over package files and changelog paths', () => {

@@ -496,15 +496,17 @@ export type ReleaseKitConfig = z.infer<typeof releaseKitConfigSchema>;
 
 /** A raw commit from the git log. */
 export interface Commit {
-  /** The full commit message (first line). */
+  /** The commit message, subject and body together. */
   message: string;
+  /** The first line of the commit message. */
+  subject: string;
   /** The commit hash. */
   hash: string;
 }
 
 /** A commit that has been parsed to extract structured metadata. */
 export interface ParsedCommit {
-  /** The original commit message. */
+  /** The original commit message, subject and body together. */
   message: string;
   /** The commit hash. */
   hash: string;

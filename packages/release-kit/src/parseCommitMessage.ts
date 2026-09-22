@@ -95,7 +95,7 @@ export function parseCommitMessage(
     return undefined;
   }
 
-  const commit: Commit = { message, hash };
+  const commit: Commit = { message, subject: firstLine, hash };
   const breaking = evaluateBreakingPolicy({
     commit,
     resolvedType,

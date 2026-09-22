@@ -71,7 +71,7 @@ function parseLogOutput(logOutput: string): Commit[] {
     const [message, hash] = trimmedLine.split(FIELD_SEPARATOR);
 
     if (message !== undefined && hash !== undefined && !message.startsWith(RELEASE_COMMIT_PREFIX)) {
-      commits.push({ message, hash });
+      commits.push({ message, subject: message, hash });
     }
   }
 

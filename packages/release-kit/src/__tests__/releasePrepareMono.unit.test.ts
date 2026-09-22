@@ -535,7 +535,9 @@ describe(releasePrepareMono, () => {
     assert(workspace?.status === 'skipped', 'expected skipped');
     expect(workspace.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
     expect(workspace.skipReason).toContain('Pass --force to release at patch');
-    expect(workspace.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+    expect(workspace.unparseableCommits).toStrictEqual([
+      { message: 'chore: update deps', subject: 'chore: update deps', hash: 'abc123' },
+    ]);
   });
 
   it('falls back to patch when commits exist but none are bump-worthy and --force is set', () => {
@@ -577,7 +579,9 @@ describe(releasePrepareMono, () => {
       parsedCommitCount: 0,
       releaseType: 'patch',
     });
-    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([
+      { message: 'chore: update deps', subject: 'chore: update deps', hash: 'abc123' },
+    ]);
   });
 
   it('skips when --bump=X alone is set with commits-but-no-bump-worthy (level chooser, not trigger)', () => {
@@ -756,7 +760,9 @@ describe(releasePrepareMono, () => {
       releaseType: 'minor',
       parsedCommitCount: 1,
     });
-    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'def456' }]);
+    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([
+      { message: 'chore: update deps', subject: 'chore: update deps', hash: 'def456' },
+    ]);
   });
 
   it('bypasses the no-commits check when force is true', () => {

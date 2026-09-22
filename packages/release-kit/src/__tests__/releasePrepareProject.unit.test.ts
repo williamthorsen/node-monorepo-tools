@@ -181,7 +181,9 @@ describe(releasePrepareProject, () => {
     expect(result.parsedCommitCount).toBe(0);
     expect(result.skipReason).toContain('No bump-worthy commits since v0.9.0');
     expect(result.skipReason).toContain('Pass --force to release at patch');
-    expect(result.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+    expect(result.unparseableCommits).toStrictEqual([
+      { message: 'chore: update deps', subject: 'chore: update deps', hash: 'abc123' },
+    ]);
     expect(tags).toStrictEqual([]);
     expect(modifiedFiles).toStrictEqual([]);
   });
@@ -238,7 +240,9 @@ describe(releasePrepareProject, () => {
     expect(result.newVersion).toBe('0.9.1');
     expect(result.commitCount).toBe(1);
     expect(result.parsedCommitCount).toBe(0);
-    expect(result.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+    expect(result.unparseableCommits).toStrictEqual([
+      { message: 'chore: update deps', subject: 'chore: update deps', hash: 'abc123' },
+    ]);
     expect(tags).toStrictEqual(['v0.9.1']);
   });
 

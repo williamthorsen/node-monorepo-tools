@@ -90,7 +90,9 @@ describe(getCommitsSinceTarget, () => {
     const result = getCommitsSinceTarget(['v']);
 
     expect(result.tag).toBe('v1.0.0');
-    expect(result.commits).toStrictEqual([{ message: 'feat: add feature', hash: 'abc123' }]);
+    expect(result.commits).toStrictEqual([
+      { message: 'feat: add feature', subject: 'feat: add feature', hash: 'abc123' },
+    ]);
   });
 
   it('filters out release commits from the result', () => {
@@ -106,8 +108,8 @@ describe(getCommitsSinceTarget, () => {
     const result = getCommitsSinceTarget(['v']);
 
     expect(result.commits).toStrictEqual([
-      { message: 'feat: add feature', hash: 'abc123' },
-      { message: 'fix: patch bug', hash: 'ghi789' },
+      { message: 'feat: add feature', subject: 'feat: add feature', hash: 'abc123' },
+      { message: 'fix: patch bug', subject: 'fix: patch bug', hash: 'ghi789' },
     ]);
   });
 
@@ -136,7 +138,7 @@ describe(getCommitsSinceTarget, () => {
     const result = getCommitsSinceTarget(['v']);
 
     expect(result.tag).toBeUndefined();
-    expect(result.commits).toStrictEqual([{ message: 'fix: patch', hash: 'def456' }]);
+    expect(result.commits).toStrictEqual([{ message: 'fix: patch', subject: 'fix: patch', hash: 'def456' }]);
 
     // Verify git log uses 'HEAD' (not 'undefined..HEAD') when no tag exists
     const logArgs = findLogCallArgs();
@@ -222,7 +224,7 @@ describe(getCommitsSinceTarget, () => {
       const result = getCommitsSinceTarget(['nmr-core-v', 'core-v']);
 
       expect(result.tag).toBe('core-v0.2.7');
-      expect(result.commits).toStrictEqual([{ message: 'feat: add', hash: 'abc123' }]);
+      expect(result.commits).toStrictEqual([{ message: 'feat: add', subject: 'feat: add', hash: 'abc123' }]);
     });
 
     it('returns undefined tag when no prefix in the union matches any reachable tag', () => {
