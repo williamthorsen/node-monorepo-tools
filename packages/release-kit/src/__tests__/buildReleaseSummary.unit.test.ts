@@ -26,8 +26,16 @@ describe(buildReleaseSummary, () => {
           bumpedFiles: [],
           changelogFiles: [],
           commits: [
-            { message: 'release-kit|feat: Add commit command', hash: 'abc' },
-            { message: '#72 release-kit|fix: Propagate bumps (#80)', hash: 'def' },
+            {
+              message: 'release-kit|feat: Add commit command',
+              subject: 'release-kit|feat: Add commit command',
+              hash: 'abc',
+            },
+            {
+              message: '#72 release-kit|fix: Propagate bumps (#80)',
+              subject: '#72 release-kit|fix: Propagate bumps (#80)',
+              hash: 'def',
+            },
           ],
         },
       ],
@@ -36,6 +44,32 @@ describe(buildReleaseSummary, () => {
     expect(buildReleaseSummary(result)).toBe(
       'release-kit-v2.4.0\n- feat: Add commit command\n- #72 fix: Propagate bumps (#80)',
     );
+  });
+
+  it('lists the subject alone for a commit that carries a body', () => {
+    const result = makeResult({
+      workspaces: [
+        {
+          name: 'release-kit',
+          status: 'released',
+          currentVersion: '2.3.0',
+          newVersion: '2.4.0',
+          tag: 'release-kit-v2.4.0',
+          commitCount: 1,
+          bumpedFiles: [],
+          changelogFiles: [],
+          commits: [
+            {
+              message: 'release-kit|feat: Add commit command\n\nRecords one logical unit of work.',
+              subject: 'release-kit|feat: Add commit command',
+              hash: 'abc',
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(buildReleaseSummary(result)).toBe('release-kit-v2.4.0\n- feat: Add commit command');
   });
 
   it('separates multiple workspaces with blank lines', () => {
@@ -50,7 +84,7 @@ describe(buildReleaseSummary, () => {
           commitCount: 1,
           bumpedFiles: [],
           changelogFiles: [],
-          commits: [{ message: 'core|feat: Init', hash: 'a1' }],
+          commits: [{ message: 'core|feat: Init', subject: 'core|feat: Init', hash: 'a1' }],
         },
         {
           name: 'utils',
@@ -61,7 +95,7 @@ describe(buildReleaseSummary, () => {
           commitCount: 1,
           bumpedFiles: [],
           changelogFiles: [],
-          commits: [{ message: 'utils|fix: Bug', hash: 'b2' }],
+          commits: [{ message: 'utils|fix: Bug', subject: 'utils|fix: Bug', hash: 'b2' }],
         },
       ],
     });
@@ -121,7 +155,7 @@ describe(buildReleaseSummary, () => {
             commitCount: 1,
             bumpedFiles: [],
             changelogFiles: [],
-            commits: [{ message: 'arrays|feat: Add compact', hash: 'a1' }],
+            commits: [{ message: 'arrays|feat: Add compact', subject: 'arrays|feat: Add compact', hash: 'a1' }],
           },
         ],
         project: {
@@ -134,7 +168,7 @@ describe(buildReleaseSummary, () => {
           tag: 'v0.10.0',
           bumpedFiles: ['./package.json'],
           changelogFiles: ['./CHANGELOG.md'],
-          commits: [{ message: 'arrays|feat: Add compact', hash: 'a1' }],
+          commits: [{ message: 'arrays|feat: Add compact', subject: 'arrays|feat: Add compact', hash: 'a1' }],
         },
       });
 
@@ -153,7 +187,7 @@ describe(buildReleaseSummary, () => {
           tag: 'v0.9.1',
           bumpedFiles: ['./package.json'],
           changelogFiles: ['./CHANGELOG.md'],
-          commits: [{ message: 'arrays|fix: Patch bug', hash: 'b1' }],
+          commits: [{ message: 'arrays|fix: Patch bug', subject: 'arrays|fix: Patch bug', hash: 'b1' }],
         },
       });
 
@@ -193,7 +227,7 @@ describe(buildReleaseSummary, () => {
             commitCount: 1,
             bumpedFiles: [],
             changelogFiles: [],
-            commits: [{ message: 'arrays|feat: Add compact', hash: 'a1' }],
+            commits: [{ message: 'arrays|feat: Add compact', subject: 'arrays|feat: Add compact', hash: 'a1' }],
           },
         ],
         project: {

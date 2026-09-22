@@ -1,56 +1,4 @@
-import { execFileSync } from 'node:child_process';
-
-import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
-import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
-
-import type { Commit } from './types.ts';
-
-/**
- * Unit separator (U+001F) used to delimit fields in `git log` output.
- * Node.js v24+ rejects null bytes in child-process arguments, so we use
- * this ASCII control character instead. It cannot appear in commit
- * subject lines produced by git.
- */
-const FIELD_SEPARATOR = '\u{1F}';
-
-/**
- * Checks whether an error is the expected "no matching tag" failure from `git describe`.
- *
- * `git describe` exits with code 128 when no tag matches the given pattern.
- */
-function isNoTagError(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && 'status' in err && err.status === 128;
-}
-
-/**
- * Finds the closest reachable git tag whose name matches any of the given prefixes.
- *
- * Invokes `git describe --tags --abbrev=0` with one `--match=<prefix>*` per prefix. Git
- * treats multiple `--match` flags as a logical union, so the single invocation returns the
- * closest reachable ancestor matching any listed prefix.
- *
- * @returns The tag string, or undefined if no matching tag exists.
- * @throws If `tagPrefixes` is empty, or if `git describe` fails for a reason other than "no matching tag".
- */
-function findLatestTag(tagPrefixes: readonly string[]): string | undefined {
-  if (tagPrefixes.length === 0) {
-    throw new Error('findLatestTag: tagPrefixes must contain at least one entry');
-  }
-  const matchArgs = tagPrefixes.map((prefix) => `--match=${prefix}*`);
-  try {
-    const tagResult = execFileSync('git', ['describe', '--tags', '--abbrev=0', ...matchArgs], {
-      encoding: 'utf8',
-      maxBuffer: GIT_OUTPUT_LIMIT,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
-    return tagResult || undefined;
-  } catch (error: unknown) {
-    if (isNoTagError(error)) {
-      return undefined;
-    }
-    throw chainError(`Failed to run 'git describe'`, error);
-  }
-}
+import { enumerateReleaseWindows, type RawCommit } from './enumerateReleaseWindows.ts';
 
 /**
  * Prefix used by the release workflow's commit message (e.g., `release: arrays-v1.0.0`).
@@ -58,32 +6,24 @@ function findLatestTag(tagPrefixes: readonly string[]): string | undefined {
  */
 const RELEASE_COMMIT_PREFIX = 'release:';
 
-/** Parses the raw `git log` output into an array of commits, excluding release commits. */
-function parseLogOutput(logOutput: string): Commit[] {
-  const commits: Commit[] = [];
-
-  for (const line of logOutput.split('\n')) {
-    const trimmedLine = line.trim();
-    if (trimmedLine === '') {
-      continue;
-    }
-
-    const [message, hash] = trimmedLine.split(FIELD_SEPARATOR);
-
-    if (message !== undefined && hash !== undefined && !message.startsWith(RELEASE_COMMIT_PREFIX)) {
-      commits.push({ message, hash });
-    }
-  }
-
-  return commits;
-}
+/**
+ * Placeholder version for the window being built, which this caller reads for its commits alone.
+ */
+const UNRELEASED_TAG = 'unreleased';
 
 /**
  * Gets commits since the latest baseline tag matching any of the given prefixes.
  *
- * Uses `git log` to retrieve commit messages and hashes between the closest reachable
- * baseline tag and HEAD. When no tag matches any prefix, all commits reachable from HEAD
- * are returned.
+ * Reads the newest window `enumerateReleaseWindows` produces: its commits are the ones no
+ * matching tag contains, and the window below it names the newest tag that does. A branch
+ * commit merged after that tag is one no tag contains, so it is reported here. When no tag
+ * matches any prefix, every commit reachable from HEAD falls into the newest window and the
+ * returned tag is undefined.
+ *
+ * Release commits are dropped here rather than in the enumerator, which reports the window as
+ * git records it and leaves each reader to apply its own gate. The window's commits are
+ * reversed back to newest first, the order `git log` gave this caller and the order in which
+ * `buildReleaseSummary` lists them in the release commit's body.
  *
  * Callers must pass at least one prefix; the single-prefix case is the common one (the
  * workspace's derived prefix). Multiple prefixes are used to include historical tag prefixes
@@ -97,32 +37,16 @@ function parseLogOutput(logOutput: string): Commit[] {
 export function getCommitsSinceTarget(
   tagPrefixes: readonly string[],
   paths?: string[],
-): { tag: string | undefined; commits: Commit[] } {
-  const tag = findLatestTag(tagPrefixes);
-  const range = tag === undefined ? 'HEAD' : `${tag}..HEAD`;
-  const format = `%s${FIELD_SEPARATOR}%H`;
+): { tag: string | undefined; commits: RawCommit[] } {
+  const [unreleasedWindow, baselineWindow] = enumerateReleaseWindows({
+    ...(paths !== undefined && { paths }),
+    tagPrefixes,
+    unreleasedTag: UNRELEASED_TAG,
+  });
 
-  const args = ['log', range, `--pretty=format:${format}`];
+  const commits = (unreleasedWindow?.commits ?? [])
+    .filter((commit) => !commit.subject.startsWith(RELEASE_COMMIT_PREFIX))
+    .toReversed();
 
-  // Append path filters after the `--` separator when provided.
-  if (paths !== undefined && paths.length > 0) {
-    args.push('--', ...paths);
-  }
-
-  let logOutput: string;
-  try {
-    logOutput = execFileSync('git', args, {
-      encoding: 'utf8',
-      maxBuffer: GIT_OUTPUT_LIMIT,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
-  } catch (error: unknown) {
-    throw chainError(`Failed to run 'git log' for range '${range}'`, error);
-  }
-
-  if (logOutput === '') {
-    return { tag, commits: [] };
-  }
-
-  return { tag, commits: parseLogOutput(logOutput) };
+  return { tag: baselineWindow?.version, commits };
 }

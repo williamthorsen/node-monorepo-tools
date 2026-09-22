@@ -258,8 +258,8 @@ function formatProjectUnparseable(lines: string[], project: ReleasedProjectResul
   );
   for (const commit of unparseable) {
     const shortHash = commit.hash.slice(0, 7);
-    const truncatedMessage = truncateSubject(commit.message);
-    lines.push(`      · ${shortHash} ${truncatedMessage}`);
+    const truncatedSubject = truncateSubject(commit.subject);
+    lines.push(`      · ${shortHash} ${truncatedSubject}`);
   }
 }
 
@@ -417,8 +417,8 @@ function formatUnparseableWarning(
 
   for (const commit of unparseable) {
     const shortHash = commit.hash.slice(0, 7);
-    const truncatedMessage = truncateSubject(commit.message);
-    lines.push(`${indent}    · ${shortHash} ${truncatedMessage}`);
+    const truncatedSubject = truncateSubject(commit.subject);
+    lines.push(`${indent}    · ${shortHash} ${truncatedSubject}`);
   }
 }
 

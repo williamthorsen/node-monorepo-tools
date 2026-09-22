@@ -14,7 +14,7 @@ const workTypes: Record<string, WorkTypeConfig> = {
 const versionPatterns: VersionPatterns = DEFAULT_VERSION_PATTERNS;
 
 function makeCommit(message: string, hash = 'abc1234'): Commit {
-  return { message, hash };
+  return { message, subject: message.split('\n', 1)[0] ?? '', hash };
 }
 
 describe(determineBumpFromCommits, () => {
@@ -55,8 +55,8 @@ describe(determineBumpFromCommits, () => {
       expect(result.parsedCommitCount).toBe(0);
       expect(result.unparseableCommits).toHaveLength(2);
       expect(result.unparseableCommits).toStrictEqual([
-        { message: 'random noise', hash: 'aaa1111' },
-        { message: 'also unparseable', hash: 'bbb2222' },
+        { message: 'random noise', subject: 'random noise', hash: 'aaa1111' },
+        { message: 'also unparseable', subject: 'also unparseable', hash: 'bbb2222' },
       ]);
     });
 
@@ -76,7 +76,9 @@ describe(determineBumpFromCommits, () => {
 
       expect(result.releaseType).toBe('minor');
       expect(result.parsedCommitCount).toBe(1);
-      expect(result.unparseableCommits).toStrictEqual([{ message: 'not a conventional commit', hash: 'bbb2222' }]);
+      expect(result.unparseableCommits).toStrictEqual([
+        { message: 'not a conventional commit', subject: 'not a conventional commit', hash: 'bbb2222' },
+      ]);
     });
 
     it('returns patch when only fix commits parse alongside unparseable ones', () => {

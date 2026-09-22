@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import { parseCommitMessage, type PolicyViolationHandler } from '../parseCommitMessage.ts';
-import type { WorkTypeConfig } from '../types.ts';
+import type { Commit, WorkTypeConfig } from '../types.ts';
 
 const workTypes: Record<string, WorkTypeConfig> = {
   fix: { header: 'Bug fixes', aliases: ['bugfix'] },
@@ -428,7 +428,7 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     expect(dropBare?.type).toBe('drop');
     expect(dropBare?.breaking).toBe(false);
     expect(onPolicyViolation).toHaveBeenCalledTimes(1);
-    expect(onPolicyViolation).toHaveBeenCalledWith({ message: 'drop: remove API', hash: 'p7' }, 'drop', 'prefix');
+    expect(onPolicyViolation).toHaveBeenCalledWith(expectedCommit('drop: remove API', 'p7'), 'drop', 'prefix');
 
     onPolicyViolation.mockClear();
     const dropBang = parseCommitMessage('drop!: remove API', 'p8', DEFAULT_WORK_TYPES, undefined, {
@@ -471,7 +471,7 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     expect(internalBang?.type).toBe('internal');
     expect(internalBang?.breaking).toBe(false);
     expect(onPolicyViolation).toHaveBeenCalledWith(
-      { message: 'internal!: refactor helper', hash: 'p12' },
+      expectedCommit('internal!: refactor helper', 'p12'),
       'internal',
       'prefix',
     );
@@ -484,7 +484,7 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     expect(utilityBang?.type).toBe('internal');
     expect(utilityBang?.breaking).toBe(false);
     expect(onPolicyViolation).toHaveBeenCalledWith(
-      { message: 'utility!: refactor helper', hash: 'p13' },
+      expectedCommit('utility!: refactor helper', 'p13'),
       'internal',
       'prefix',
     );
@@ -525,7 +525,7 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     });
     expect(result?.type).toBe(canonicalType);
     expect(result?.breaking).toBe(false);
-    expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'h' }, canonicalType, 'prefix');
+    expect(onPolicyViolation).toHaveBeenCalledWith(expectedCommit(message, 'h'), canonicalType, 'prefix');
   });
 
   it('accepts `BREAKING CHANGE:` body footer on an optional-policy type as a valid breaking signal', () => {
@@ -549,7 +549,7 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     });
     expect(result?.type).toBe('refactor');
     expect(result?.breaking).toBe(false);
-    expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'p14' }, 'refactor', 'body');
+    expect(onPolicyViolation).toHaveBeenCalledWith(expectedCommit(message, 'p14'), 'refactor', 'body');
   });
 
   it('reports both prefix and body surfaces independently when both are present on a forbidden type', () => {
@@ -561,8 +561,8 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     });
     expect(result?.breaking).toBe(false);
     expect(onPolicyViolation).toHaveBeenCalledTimes(2);
-    expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'p15' }, 'refactor', 'prefix');
-    expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'p15' }, 'refactor', 'body');
+    expect(onPolicyViolation).toHaveBeenCalledWith(expectedCommit(message, 'p15'), 'refactor', 'prefix');
+    expect(onPolicyViolation).toHaveBeenCalledWith(expectedCommit(message, 'p15'), 'refactor', 'body');
   });
 
   it('does not invoke the policy callback for compliant commits', () => {
@@ -584,3 +584,8 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     expect(onPolicyViolation).not.toHaveBeenCalled();
   });
 });
+
+/** The `Commit` the parser hands to the policy callback, whose subject a body-carrying message does not equal. */
+function expectedCommit(message: string, hash: string): Commit {
+  return { message, subject: message.split('\n', 1)[0] ?? '', hash };
+}

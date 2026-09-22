@@ -253,8 +253,8 @@ describe(reportPrepare, () => {
             bumpedFiles: ['package.json'],
             changelogFiles: ['./CHANGELOG.md'],
             unparseableCommits: [
-              { message: 'chore: update deps', hash: 'abc1234' },
-              { message: 'misc: tidy up', hash: 'def5678' },
+              { message: 'chore: update deps', subject: 'chore: update deps', hash: 'abc1234' },
+              { message: 'misc: tidy up', subject: 'misc: tidy up', hash: 'def5678' },
             ],
           },
         ],
@@ -282,7 +282,7 @@ describe(reportPrepare, () => {
             tag: 'v1.1.0',
             bumpedFiles: ['package.json'],
             changelogFiles: ['./CHANGELOG.md'],
-            unparseableCommits: [{ message: 'chore: update deps', hash: 'abc1234' }],
+            unparseableCommits: [{ message: 'chore: update deps', subject: 'chore: update deps', hash: 'abc1234' }],
           },
         ],
         tags: ['v1.1.0'],
@@ -293,6 +293,38 @@ describe(reportPrepare, () => {
       expect(output).toContain('🟠 1 commit could not be parsed');
       expect(output).not.toContain('defaulting to patch bump');
       expect(output).toContain('· abc1234 chore: update deps');
+    });
+
+    it('renders the subject alone for an unparseable commit that carries a body', () => {
+      const result: PrepareResult = {
+        workspaces: [
+          {
+            status: 'released',
+            previousTag: 'v1.0.0',
+            commitCount: 1,
+            parsedCommitCount: 0,
+            releaseType: 'patch',
+            currentVersion: '1.0.0',
+            newVersion: '1.0.1',
+            tag: 'v1.0.1',
+            bumpedFiles: ['package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            unparseableCommits: [
+              {
+                message: 'chore: update deps\n\nBumps every transitive dependency to its latest release.',
+                subject: 'chore: update deps',
+                hash: 'abc1234',
+              },
+            ],
+          },
+        ],
+        tags: ['v1.0.1'],
+      };
+
+      const output = reportPrepare(result, { applied: true, style: 'rich' });
+
+      expect(output).toContain('· abc1234 chore: update deps');
+      expect(output).not.toContain('Bumps every transitive dependency');
     });
 
     it('does not show unparseable warning when there are no unparseable commits', () => {
@@ -564,7 +596,7 @@ describe(reportPrepare, () => {
             tag: 'arrays-v1.0.1',
             bumpedFiles: ['packages/arrays/package.json'],
             changelogFiles: ['packages/arrays/CHANGELOG.md'],
-            unparseableCommits: [{ message: 'chore: update deps', hash: 'abc1234' }],
+            unparseableCommits: [{ message: 'chore: update deps', subject: 'chore: update deps', hash: 'abc1234' }],
           },
         ],
         tags: ['arrays-v1.0.1'],
@@ -707,7 +739,7 @@ describe(reportPrepare, () => {
           tag: 'v0.10.0',
           bumpedFiles: ['./package.json'],
           changelogFiles: ['./CHANGELOG.md'],
-          commits: [{ message: 'feat: add capability', hash: 'abc1234' }],
+          commits: [{ message: 'feat: add capability', subject: 'feat: add capability', hash: 'abc1234' }],
         },
       };
 
@@ -736,7 +768,7 @@ describe(reportPrepare, () => {
           tag: 'v0.10.0',
           bumpedFiles: ['./package.json'],
           changelogFiles: ['./CHANGELOG.md'],
-          commits: [{ message: 'feat: add capability', hash: 'abc1234' }],
+          commits: [{ message: 'feat: add capability', subject: 'feat: add capability', hash: 'abc1234' }],
         },
       };
 
@@ -785,7 +817,7 @@ describe(reportPrepare, () => {
           tag: 'v0.1.0',
           bumpedFiles: ['./package.json'],
           changelogFiles: ['./CHANGELOG.md'],
-          commits: [{ message: 'feat: add capability', hash: 'abc1234' }],
+          commits: [{ message: 'feat: add capability', subject: 'feat: add capability', hash: 'abc1234' }],
         },
       };
 
@@ -810,7 +842,7 @@ describe(reportPrepare, () => {
           bumpedFiles: ['./package.json'],
           changelogFiles: ['./CHANGELOG.md'],
           commits: [],
-          unparseableCommits: [{ message: 'wip: undocumented', hash: 'abc1234def' }],
+          unparseableCommits: [{ message: 'wip: undocumented', subject: 'wip: undocumented', hash: 'abc1234def' }],
         },
       };
 
@@ -858,7 +890,7 @@ describe(reportPrepare, () => {
           previousTag: 'v0.9.0',
           commitCount: 1,
           parsedCommitCount: 0,
-          unparseableCommits: [{ message: 'chore: deps', hash: 'abc1234' }],
+          unparseableCommits: [{ message: 'chore: deps', subject: 'chore: deps', hash: 'abc1234' }],
           skipReason:
             'No bump-worthy commits since v0.9.0. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.',
         },
@@ -996,7 +1028,7 @@ describe(reportPrepare, () => {
           tag: 'v1.0.1',
           bumpedFiles: ['./package.json'],
           changelogFiles: ['./CHANGELOG.md'],
-          commits: [{ message: 'internal!: refactor cache', hash: 'def5678' }],
+          commits: [{ message: 'internal!: refactor cache', subject: 'internal!: refactor cache', hash: 'def5678' }],
           policyViolations: [
             {
               commitHash: 'def5678',
@@ -1072,7 +1104,7 @@ describe(reportPrepare, () => {
   });
 
   describe('plain style', () => {
-    const unparseableCommits = [{ message: 'tidy things up', hash: 'abc1234def' }];
+    const unparseableCommits = [{ message: 'tidy things up', subject: 'tidy things up', hash: 'abc1234def' }];
     const policyViolations: PolicyViolation[] = [
       { commitHash: 'fed4321cba', commitSubject: 'feat!: drop the old API', type: 'feat', surface: 'prefix' },
     ];

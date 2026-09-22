@@ -7,8 +7,7 @@ import type { PolicyViolation } from './types.ts';
  *
  * Used by all three release-prepare orchestrators (`releasePrepare`, `releasePrepareMono`,
  * `releasePrepareProject`) to collect parser-side `!`-policy violations into a result-attachable
- * array. Centralizing the callback shape keeps the `commitSubject` extraction rule (`firstLine
- * post-split`) consistent across orchestrators.
+ * array. Centralizing the callback shape keeps the violation entry identical across orchestrators.
  */
 export function createPolicyViolationCollector(): {
   violations: PolicyViolation[];
@@ -18,7 +17,7 @@ export function createPolicyViolationCollector(): {
   const onPolicyViolation: PolicyViolationHandler = (commit, type, surface) => {
     violations.push({
       commitHash: commit.hash,
-      commitSubject: commit.message.split('\n', 1)[0] ?? '',
+      commitSubject: commit.subject,
       type,
       surface,
     });

@@ -15,6 +15,8 @@ const mockRenderChangelogMarkdown = vi.hoisted(() => vi.fn());
 const mockRenderChangelogJson = vi.hoisted(() => vi.fn());
 const mockPlanReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 
+const mockGetCommitsSinceTarget = vi.hoisted(() => vi.fn());
+
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
 }));
@@ -27,6 +29,10 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
   rmSync: mockRmSync,
   writeFileSync: mockWriteFileSync,
+}));
+
+vi.mock(import('../getCommitsSinceTarget.ts'), () => ({
+  getCommitsSinceTarget: mockGetCommitsSinceTarget,
 }));
 
 vi.mock(import('../resolveCliffConfigPath.ts'), () => ({
@@ -60,6 +66,7 @@ import {
 } from '../defaults.ts';
 import type { PlannedWrite } from '../releasePlan.ts';
 import { releasePrepareProject } from '../releasePrepareProject.ts';
+import { type CommitStub, makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import type { MonorepoReleaseConfig, WorkspaceConfig } from '../types.ts';
 
 function makeWorkspace(overrides: Partial<WorkspaceConfig> & Pick<WorkspaceConfig, 'dir'>): WorkspaceConfig {
@@ -89,17 +96,7 @@ function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoRelease
 
 /** Default git mock: legacy v0.9.0 baseline tag, one feat commit since. */
 function setupDefaultGit(): void {
-  mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-    if (cmd === 'git' && args[0] === 'describe') {
-      return 'v0.9.0\n';
-    }
-    if (cmd === 'git' && args[0] === 'log') {
-      return 'feat: ship projectabc123';
-    }
-    // git-cliff invocation: returns nothing meaningful in this orchestrator's path (we
-    // only use the args).
-    return '';
-  });
+  stubCommits('v0.9.0', [['feat: ship project', 'abc123']]);
 }
 
 describe(releasePrepareProject, () => {
@@ -130,11 +127,7 @@ describe(releasePrepareProject, () => {
   });
 
   it('returns a structured skipped result when no commits since the last project tag and no force', () => {
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
-      if (cmd === 'git' && args[0] === 'log') return '';
-      return '';
-    });
+    stubCommits('v0.9.0', []);
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
@@ -158,12 +151,8 @@ describe(releasePrepareProject, () => {
   it('returns a structured skipped result when commits exist but none are bump-worthy and no force', () => {
     // Project pipeline matches the per-workspace pipeline: with commits but no bump-worthy
     // parsed type and no --force, the project skips with the "No bump-worthy commits" reason.
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
-      // 'chore' is not in the test workTypes (only feat, fix), so this commit is unparseable.
-      if (cmd === 'git' && args[0] === 'log') return 'chore: update deps\u{1F}abc123';
-      return '';
-    });
+    // 'chore' is not in the test workTypes (only feat, fix), so this commit is unparseable.
+    stubCommits('v0.9.0', [['chore: update deps', 'abc123']]);
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
@@ -181,7 +170,7 @@ describe(releasePrepareProject, () => {
     expect(result.parsedCommitCount).toBe(0);
     expect(result.skipReason).toContain('No bump-worthy commits since v0.9.0');
     expect(result.skipReason).toContain('Pass --force to release at patch');
-    expect(result.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+    expect(result.unparseableCommits).toStrictEqual(makeStubbedCommits([['chore: update deps', 'abc123']]));
     expect(tags).toStrictEqual([]);
     expect(modifiedFiles).toStrictEqual([]);
   });
@@ -189,11 +178,7 @@ describe(releasePrepareProject, () => {
   it('falls back to patch when --force is set with no commits (no --bump)', () => {
     // Row 3 of the behavioral matrix: `--force` alone with no commits is now valid;
     // the project releases at patch. Today this combination was rejected at the CLI.
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
-      if (cmd === 'git' && args[0] === 'log') return '';
-      return '';
-    });
+    stubCommits('v0.9.0', []);
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
@@ -217,11 +202,7 @@ describe(releasePrepareProject, () => {
   it('falls back to patch when --force is set with commits-but-no-bump-worthy', () => {
     // Row 11 of the behavioral matrix: `--force` alone with non-bump-worthy commits releases
     // at patch (rather than skipping).
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
-      if (cmd === 'git' && args[0] === 'log') return 'chore: update deps\u{1F}abc123';
-      return '';
-    });
+    stubCommits('v0.9.0', [['chore: update deps', 'abc123']]);
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
@@ -238,7 +219,7 @@ describe(releasePrepareProject, () => {
     expect(result.newVersion).toBe('0.9.1');
     expect(result.commitCount).toBe(1);
     expect(result.parsedCommitCount).toBe(0);
-    expect(result.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+    expect(result.unparseableCommits).toStrictEqual(makeStubbedCommits([['chore: update deps', 'abc123']]));
     expect(tags).toStrictEqual(['v0.9.1']);
   });
 
@@ -246,11 +227,7 @@ describe(releasePrepareProject, () => {
     // Row 10 of the behavioral matrix: `--bump=X` is now a pure level chooser. With
     // commits that don't parse to a bump-worthy type, the project skips even when
     // `--bump=X` is set without `--force`.
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
-      if (cmd === 'git' && args[0] === 'log') return 'chore: update deps\u{1F}abc123';
-      return '';
-    });
+    stubCommits('v0.9.0', [['chore: update deps', 'abc123']]);
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
@@ -322,11 +299,7 @@ describe(releasePrepareProject, () => {
       tags: [],
     });
 
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'git',
-      ['log', 'v0.9.0..HEAD', expect.any(String), '--', 'packages/arrays/**'],
-      expect.anything(),
-    );
+    expect(mockGetCommitsSinceTarget).toHaveBeenCalledWith(['v'], ['packages/arrays/**']);
     expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
     expect(mockBuildChangelogEntries).toHaveBeenCalledWith(
       expect.anything(),
@@ -349,11 +322,7 @@ describe(releasePrepareProject, () => {
       tags: [],
     });
 
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'git',
-      ['log', 'v0.9.0..HEAD', expect.any(String), '--', '**'],
-      expect.anything(),
-    );
+    expect(mockGetCommitsSinceTarget).toHaveBeenCalledWith(['v'], ['**']);
     expect(mockBuildChangelogEntries).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
@@ -384,11 +353,7 @@ describe(releasePrepareProject, () => {
   });
 
   it('runs with no commits when --force is set with --bump', () => {
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
-      if (cmd === 'git' && args[0] === 'log') return '';
-      return '';
-    });
+    stubCommits('v0.9.0', []);
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
@@ -546,15 +511,12 @@ describe(releasePrepareProject, () => {
   });
 
   it('first-run: legacy v0.9.0 baseline produces a bump derived from the contributing-paths commits', () => {
-    // findLatestTag returns the legacy `v0.9.0` tag; commits since are the source of truth for
+    // The legacy `v0.9.0` tag is the baseline; commits since it are the source of truth for
     // the project bump. The legacy tag shape is the same as the project tagPrefix `v`.
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'fix: patch arrays bugabc\nfeat: ship strings helperdef';
-      }
-      return '';
-    });
+    stubCommits('v0.9.0', [
+      ['fix: patch arrays bug', 'abc'],
+      ['feat: ship strings helper', 'def'],
+    ]);
     const tags: string[] = [];
 
     const result = releasePrepareProject({
@@ -596,11 +558,7 @@ describe(releasePrepareProject, () => {
 
     /** Stub git so the project has a tag but no qualifying commits since it. */
     function stubEmptyRange(): void {
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
-        if (cmd === 'git' && args[0] === 'log') return '';
-        return '';
-      });
+      stubCommits('v0.9.0', []);
     }
 
     /** Count git-cliff *work* invocations (those that pass `--config`). */
@@ -759,27 +717,15 @@ describe(releasePrepareProject, () => {
   });
 
   describe('policy violations', () => {
-    /** ASCII unit separator (U+001F) used by `git log --pretty=format` to delimit subject from hash. */
-    const SEP = String.fromCodePoint(0x1f);
-
-    /** Format a single commit log line as the `getCommitsSinceTarget` parser expects. */
-    function logLine(subject: string, hash: string): string {
-      return `${subject}${SEP}${hash}`;
-    }
-
-    /** Stub git output for the project window with one log line per commit. */
-    function stubLog(tag: string, logBody: string): void {
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return `${tag}\n`;
-        if (cmd === 'git' && args[0] === 'log') return logBody;
-        return '';
-      });
+    /** Stub the project window's history with one commit per entry. */
+    function stubLog(tag: string, ...entries: readonly CommitStub[]): void {
+      stubCommits(tag, entries);
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root', version: '1.0.0' }));
     }
 
     it('omits policyViolations on a project release whose only commit is a clean feat!', () => {
       const config = makeConfig({ workTypes: DEFAULT_WORK_TYPES });
-      stubLog('v1.0.0', logLine('feat!: drop legacy export', 'abc1234'));
+      stubLog('v1.0.0', ['feat!: drop legacy export', 'abc1234']);
 
       const result = releasePrepareProject({
         config,
@@ -796,7 +742,7 @@ describe(releasePrepareProject, () => {
 
     it('records a prefix-surface violation for an internal! commit (forbidden policy)', () => {
       const config = makeConfig({ workTypes: DEFAULT_WORK_TYPES });
-      stubLog('v1.0.0', logLine('internal!: refactor cache', 'def5678'));
+      stubLog('v1.0.0', ['internal!: refactor cache', 'def5678']);
 
       const result = releasePrepareProject({
         config,
@@ -818,7 +764,7 @@ describe(releasePrepareProject, () => {
 
     it('records a prefix-surface violation for a bare drop commit (required policy)', () => {
       const config = makeConfig({ workTypes: DEFAULT_WORK_TYPES });
-      stubLog('v1.0.0', logLine('drop: remove deprecated API', '9abc012'));
+      stubLog('v1.0.0', ['drop: remove deprecated API', '9abc012']);
 
       const result = releasePrepareProject({
         config,
@@ -840,7 +786,7 @@ describe(releasePrepareProject, () => {
 
     it('produces no violations when breakingPolicies is set to {} (opt-out)', () => {
       const config = makeConfig({ workTypes: DEFAULT_WORK_TYPES, breakingPolicies: {} });
-      stubLog('v1.0.0', logLine('internal!: refactor cache', 'def5678'));
+      stubLog('v1.0.0', ['internal!: refactor cache', 'def5678']);
 
       const result = releasePrepareProject({
         config,
@@ -863,7 +809,7 @@ describe(releasePrepareProject, () => {
         workTypes: DEFAULT_WORK_TYPES,
         breakingPolicies: { ...DEFAULT_BREAKING_POLICIES, feat: 'forbidden' },
       });
-      stubLog('v1.0.0', logLine('feat: rework auth (BREAKING CHANGE: removes /v1)', 'body0001'));
+      stubLog('v1.0.0', ['feat: rework auth (BREAKING CHANGE: removes /v1)', 'body0001']);
 
       const result = releasePrepareProject({
         config,
@@ -888,4 +834,9 @@ describe(releasePrepareProject, () => {
 /** Content the staged writes intend for `path`, or undefined when no write targets it. */
 function plannedContent(writes: readonly PlannedWrite[], path: string): string | undefined {
   return writes.find((write) => write.path === path)?.content;
+}
+
+/** Stub the history `getCommitsSinceTarget` reports: a baseline tag and the commits above it. */
+function stubCommits(tag: string | undefined, entries: readonly CommitStub[]): void {
+  mockGetCommitsSinceTarget.mockReturnValue({ tag, commits: makeStubbedCommits(entries) });
 }

@@ -9,6 +9,8 @@ const mockWriteFileSync = vi.hoisted(() => vi.fn());
 const mockHasPrettierConfig = vi.hoisted(() => vi.fn());
 const mockPlanReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 
+const mockGetCommitsSinceTarget = vi.hoisted(() => vi.fn());
+
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
   execSync: mockExecSync,
@@ -18,6 +20,10 @@ vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
   writeFileSync: mockWriteFileSync,
+}));
+
+vi.mock(import('../getCommitsSinceTarget.ts'), () => ({
+  getCommitsSinceTarget: mockGetCommitsSinceTarget,
 }));
 
 vi.mock(import('../resolveCliffConfigPath.ts'), () => ({
@@ -61,6 +67,7 @@ import {
   DEFAULT_WORK_TYPES,
 } from '../defaults.ts';
 import { releasePrepare } from '../releasePrepare.ts';
+import { type CommitStub, makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import type { ReleaseConfig, WorkTypeConfig } from '../types.ts';
 
 const workTypes: Record<string, WorkTypeConfig> = {
@@ -82,15 +89,7 @@ function makeConfig(overrides?: Partial<ReleaseConfig>): ReleaseConfig {
 
 /** Set up git mocks to simulate a repo with a feat commit since v1.0.0. */
 function setupFeatCommit(): void {
-  mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-    if (cmd === 'git' && args[0] === 'describe') {
-      return 'v1.0.0\n';
-    }
-    if (cmd === 'git' && args[0] === 'log') {
-      return 'feat: add feature\u{1F}abc123';
-    }
-    return '';
-  });
+  stubCommits('v1.0.0', [['feat: add feature', 'abc123']]);
   mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 }
 
@@ -146,12 +145,7 @@ describe(releasePrepare, () => {
   });
 
   it('returns a skipped workspace and plans nothing when no commits exist since the tag', () => {
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'v1.0.0\n';
-      }
-      return '';
-    });
+    stubCommits('v1.0.0', []);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepare(makeConfig(), {});
@@ -163,15 +157,7 @@ describe(releasePrepare, () => {
   });
 
   it('applies patch floor when commits exist but none are release-worthy', () => {
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'chore: update deps\u{1F}abc123';
-      }
-      return '';
-    });
+    stubCommits('v1.0.0', [['chore: update deps', 'abc123']]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepare(makeConfig(), {});
@@ -184,19 +170,16 @@ describe(releasePrepare, () => {
       parsedCommitCount: 0,
       releaseType: 'patch',
     });
-    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual(
+      makeStubbedCommits([['chore: update deps', 'abc123']]),
+    );
   });
 
   it('uses parsed bump type when mix of parseable and unparseable commits exist', () => {
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add feature\u{1F}abc123\nchore: update deps\u{1F}def456';
-      }
-      return '';
-    });
+    stubCommits('v1.0.0', [
+      ['feat: add feature', 'abc123'],
+      ['chore: update deps', 'def456'],
+    ]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepare(makeConfig(), {});
@@ -206,7 +189,9 @@ describe(releasePrepare, () => {
       releaseType: 'minor',
       parsedCommitCount: 1,
     });
-    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'def456' }]);
+    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual(
+      makeStubbedCommits([['chore: update deps', 'def456']]),
+    );
   });
 
   it('renders the format command over package files and changelog paths', () => {
@@ -273,15 +258,7 @@ describe(releasePrepare, () => {
   });
 
   it('constructs tags using the configured tagPrefix', () => {
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'my-lib-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add feature\u{1F}abc123';
-      }
-      return '';
-    });
+    stubCommits('my-lib-v1.0.0', [['feat: add feature', 'abc123']]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepare(makeConfig({ tagPrefix: 'my-lib-v' }), {});
@@ -301,15 +278,7 @@ describe(releasePrepare, () => {
   });
 
   it('writes the explicit --set-version value, bypassing commit-derived bumps', () => {
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'v0.5.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'chore: unrelated change\u{1F}abc123';
-      }
-      return '';
-    });
+    stubCommits('v0.5.0', [['chore: unrelated change', 'abc123']]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
     const result = releasePrepare(makeConfig(), { setVersion: '1.0.0' });
@@ -332,15 +301,7 @@ describe(releasePrepare, () => {
   it('writes a synthetic empty-range changelog when --set-version is used with zero commits', () => {
     // `commits.length === 0` routes through the synthetic empty-range entry, bypassing
     // git-cliff entirely and avoiding the `WARN  git_cliff > There is already a tag` noise.
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'v0.5.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return '';
-      }
-      return '';
-    });
+    stubCommits('v0.5.0', []);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
     const result = releasePrepare(makeConfig(), { setVersion: '1.0.0' });
@@ -371,15 +332,7 @@ describe(releasePrepare, () => {
   });
 
   it('throws when --set-version is not greater than the current version', () => {
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'v0.5.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return '';
-      }
-      return '';
-    });
+    stubCommits('v0.5.0', []);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
     expect(() => releasePrepare(makeConfig(), { setVersion: '0.3.0' })).toThrow(
@@ -388,15 +341,7 @@ describe(releasePrepare, () => {
   });
 
   it('throws when --set-version equals the current version', () => {
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'v0.5.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return '';
-      }
-      return '';
-    });
+    stubCommits('v0.5.0', []);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
     expect(() => releasePrepare(makeConfig(), { setVersion: '0.5.0' })).toThrow(
@@ -405,12 +350,7 @@ describe(releasePrepare, () => {
   });
 
   it('fails naming the package file when --set-version meets an unreadable package file', () => {
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'v0.5.0\n';
-      }
-      return '';
-    });
+    stubCommits('v0.5.0', []);
     mockReadFileSync.mockImplementation(() => {
       throw new Error('EACCES: permission denied');
     });
@@ -478,11 +418,7 @@ describe(releasePrepare, () => {
   describe('empty-range (--force / --bump / --set-version with zero commits)', () => {
     /** Stub git to simulate a tag exists but there are no commits since it. */
     function stubEmptyRange(): void {
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'v1.0.0\n';
-        if (cmd === 'git' && args[0] === 'log') return '';
-        return '';
-      });
+      stubCommits('v1.0.0', []);
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
     }
 
@@ -591,15 +527,7 @@ describe(releasePrepare, () => {
   });
 
   it('plans the --set-version tag without writing any file', () => {
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'v0.5.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return '';
-      }
-      return '';
-    });
+    stubCommits('v0.5.0', []);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
     const result = releasePrepare(makeConfig(), { setVersion: '1.0.0' });
@@ -609,13 +537,9 @@ describe(releasePrepare, () => {
   });
 
   describe('policy violations', () => {
-    /** Stub git log to return a single commit message paired with a hash. */
+    /** Stub the history as a single commit with the given subject and hash. */
     function stubLog(message: string, hash: string): void {
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'v1.0.0\n';
-        if (cmd === 'git' && args[0] === 'log') return `${message}${hash}`;
-        return '';
-      });
+      stubCommits('v1.0.0', [[message, hash]]);
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
     }
 
@@ -723,11 +647,7 @@ describe(releasePrepare, () => {
       // single-package legacy path then applies a patch floor since at least one commit
       // exists. The result is `released` (not `skipped`) — verify that policyViolations
       // still propagates onto the released workspace result.
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'v1.0.0\n';
-        if (cmd === 'git' && args[0] === 'log') return 'drop: remove APIxyz9999';
-        return '';
-      });
+      stubCommits('v1.0.0', [['drop: remove API', 'xyz9999']]);
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
       // The single-package legacy path applies a patch floor when commits exist, so this
@@ -769,4 +689,9 @@ function plannedContent(
   path: string,
 ): string | undefined {
   return plan.writes.find((write) => write.path === path)?.content;
+}
+
+/** Stub the history `getCommitsSinceTarget` reports: a baseline tag and the commits above it. */
+function stubCommits(tag: string | undefined, entries: readonly CommitStub[]): void {
+  mockGetCommitsSinceTarget.mockReturnValue({ tag, commits: makeStubbedCommits(entries) });
 }

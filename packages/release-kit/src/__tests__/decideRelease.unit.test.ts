@@ -18,7 +18,7 @@ const skipReasons = {
 };
 
 function makeCommit(message: string, hash = 'abc1234'): Commit {
-  return { message, hash };
+  return { message, subject: message.split('\n', 1)[0] ?? '', hash };
 }
 
 describe(decideRelease, () => {
@@ -176,7 +176,9 @@ describe(decideRelease, () => {
       assert(result.outcome === 'skip');
       expect(result.skipReason).toBe(skipReasons.noBumpWorthy);
       expect(result.parsedCommitCount).toBe(0);
-      expect(result.unparseableCommits).toStrictEqual([{ message: 'chore: deps', hash: 'abc1234' }]);
+      expect(result.unparseableCommits).toStrictEqual([
+        { message: 'chore: deps', subject: 'chore: deps', hash: 'abc1234' },
+      ]);
     });
   });
 
@@ -246,7 +248,9 @@ describe(decideRelease, () => {
 
       expect(result.outcome).toBe('release');
       expect(result.parsedCommitCount).toBe(1);
-      expect(result.unparseableCommits).toStrictEqual([{ message: 'chore: deps', hash: 'def4567' }]);
+      expect(result.unparseableCommits).toStrictEqual([
+        { message: 'chore: deps', subject: 'chore: deps', hash: 'def4567' },
+      ]);
     });
 
     it('returns parsedCommitCount and unparseableCommits on a skip outcome with chore-only commits and no force', () => {
@@ -263,8 +267,8 @@ describe(decideRelease, () => {
       expect(result.outcome).toBe('skip');
       expect(result.parsedCommitCount).toBe(0);
       expect(result.unparseableCommits).toStrictEqual([
-        { message: 'chore: deps', hash: 'def4567' },
-        { message: 'chore: bump', hash: 'ghi8901' },
+        { message: 'chore: deps', subject: 'chore: deps', hash: 'def4567' },
+        { message: 'chore: bump', subject: 'chore: bump', hash: 'ghi8901' },
       ]);
     });
   });
