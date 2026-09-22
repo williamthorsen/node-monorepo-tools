@@ -14,8 +14,9 @@ const UNRELEASED_TAG = 'unreleased';
 /**
  * Gets commits since the latest baseline tag matching any of the given prefixes.
  *
- * Reads the newest window `enumerateReleaseWindows` produces: its commits are the ones since
- * the closest reachable baseline tag, and the window below it names that tag. When no tag
+ * Reads the newest window `enumerateReleaseWindows` produces: its commits are the ones no
+ * matching tag contains, and the window below it names the newest tag that does. A branch
+ * commit merged after that tag is one no tag contains, so it is reported here. When no tag
  * matches any prefix, every commit reachable from HEAD falls into the newest window and the
  * returned tag is undefined.
  *

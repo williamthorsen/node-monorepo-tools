@@ -22,6 +22,20 @@ function seedTwoReleases(repo: GitRepoFixture): void {
   repo.commit('fix: fifth', { 'src/fifth.ts': 'export const fifth = 5;\n' });
 }
 
+/**
+ * Build a history whose branch commit is older by commit date than the tag that does not
+ * contain it: base, a branch commit, a tagged mainline commit, then a no-fast-forward merge.
+ */
+function seedMergedBranch(repo: GitRepoFixture): void {
+  repo.commit('chore: base', { 'src/base.ts': 'export const base = 0;\n' }, { date: '2026-01-01T00:00:00Z' });
+  repo.git('checkout', '--quiet', '-b', 'feat');
+  repo.commit('feat: branch work', { 'src/branch.ts': 'export const branch = 1;\n' }, { date: '2026-01-02T00:00:00Z' });
+  repo.git('checkout', '--quiet', 'main');
+  repo.commit('chore: mainline work', { 'src/main.ts': 'export const main = 2;\n' }, { date: '2026-01-03T00:00:00Z' });
+  repo.tag('pkg-v1.0.0');
+  repo.merge('feat', 'Merge feat', { date: '2026-01-04T00:00:00Z' });
+}
+
 describe(enumerateReleaseWindows, () => {
   it('returns only the unreleased window for a repository with no commits', () => {
     scaffoldGitRepo();
@@ -79,6 +93,35 @@ describe(enumerateReleaseWindows, () => {
     const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
 
     expect(summarize(windows)).toStrictEqual([{ version: 'pkg-v1.0.0', subjects: ['feat: first', 'fix: second'] }]);
+  });
+
+  it("leaves a branch commit merged after a tag out of that tag's window", () => {
+    const repo = scaffoldGitRepo();
+    seedMergedBranch(repo);
+
+    const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.1.0' });
+
+    // `feat: branch work` predates the tag by commit date but is not an ancestor of it.
+    expect(summarize(windows)).toStrictEqual([
+      { version: 'pkg-v1.1.0', subjects: ['feat: branch work', 'Merge feat'] },
+      { version: 'pkg-v1.0.0', subjects: ['chore: base', 'chore: mainline work'] },
+    ]);
+  });
+
+  it('assigns a commit to the oldest tag that contains it when two tags do', () => {
+    const repo = scaffoldGitRepo();
+    repo.commit('feat: first', { 'src/first.ts': 'export const first = 1;\n' });
+    repo.tag('pkg-v1.0.0');
+    repo.commit('feat: second', { 'src/second.ts': 'export const second = 2;\n' });
+    repo.tag('pkg-v1.1.0');
+
+    const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.2.0' });
+
+    expect(summarize(windows)).toStrictEqual([
+      { version: 'pkg-v1.2.0', subjects: [] },
+      { version: 'pkg-v1.1.0', subjects: ['feat: second'] },
+      { version: 'pkg-v1.0.0', subjects: ['feat: first'] },
+    ]);
   });
 
   it('ignores a tag whose prefix is not followed by a digit', () => {

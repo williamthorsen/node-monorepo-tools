@@ -55,9 +55,14 @@ export interface EnumerateReleaseWindowsOptions {
  * windows follow in descending order, one per reachable tag matching a prefix. A tag that
  * HEAD cannot reach is dropped, as git-cliff's revwalk dropped it.
  *
- * Three git invocations serve any number of tags: `git rev-list` for an ordinal index of the
- * history, `git for-each-ref` for the tag names with their creation dates and target commits,
- * and one path-filtered `git log` for the commits themselves.
+ * A commit belongs to the oldest matching tag that contains it, and to the unreleased window
+ * when no matching tag does. Containment is read from the ancestry graph rather than from a
+ * position in a linear walk, because a branch commit authored before a tag and merged after it
+ * is not in that tag's release.
+ *
+ * Three git invocations serve any number of tags: `git rev-list --topo-order --parents` for the
+ * ancestry graph, `git for-each-ref` for the tag names with their creation dates and target
+ * commits, and one path-filtered `git log` for the commits themselves.
  *
  * @throws If `tagPrefixes` is empty, or if any git invocation fails.
  */
@@ -73,25 +78,24 @@ export function enumerateReleaseWindows(options: EnumerateReleaseWindowsOptions)
     commits: [],
   };
 
-  const ordinalsByHash = readCommitOrdinals();
-  if (ordinalsByHash.size === 0) {
+  const ancestry = readAncestry();
+  if (ancestry.parentsByHash.size === 0) {
     return [unreleasedWindow];
   }
 
-  // Ascending ordinal, so the first boundary at or above a commit's ordinal is the release
-  // that first contained it.
-  const boundaries = readTagBoundaries(tagPrefixes, ordinalsByHash);
+  const boundaries = readTagBoundaries(tagPrefixes, ancestry.positionByHash);
   const releasedWindows: ReleaseWindow[] = boundaries.map((boundary) => ({
     version: boundary.tag,
     timestamp: boundary.timestamp,
     commits: [],
   }));
+  const windowIndexByHash = claimAncestors(boundaries, ancestry.parentsByHash);
 
   // Walk oldest first so that each window's commits accumulate in the order it reports them.
   for (const commit of readCommits(paths).toReversed()) {
-    // Both lists come from the same walk, so every logged commit has an ordinal.
-    const ordinal = ordinalsByHash.get(commit.hash) ?? Infinity;
-    findWindow(boundaries, releasedWindows, unreleasedWindow, ordinal).commits.push(commit);
+    const windowIndex = windowIndexByHash.get(commit.hash);
+    const window = windowIndex === undefined ? unreleasedWindow : (releasedWindows[windowIndex] ?? unreleasedWindow);
+    window.commits.push(commit);
   }
 
   return [unreleasedWindow, ...releasedWindows.toReversed()];
@@ -99,39 +103,50 @@ export function enumerateReleaseWindows(options: EnumerateReleaseWindowsOptions)
 
 // region | Helpers
 
-/** A tag's position in the history, with the date under which its release shipped. */
+/** The ancestry graph of the commits reachable from HEAD. */
+interface Ancestry {
+  /** Parent hashes per commit, which is what makes containment answerable. */
+  parentsByHash: Map<string, string[]>;
+  /** Each commit's line in the topological walk; a larger position is older. */
+  positionByHash: Map<string, number>;
+}
+
+/** A tag, the commit it points at, and the date under which its release shipped. */
 interface TagBoundary {
-  /** Position of the tagged commit in the oldest-first ordinal index. */
-  ordinal: number;
+  /** The commit the tag points at, dereferenced for an annotated tag. */
+  hash: string;
+  /** The tagged commit's position in the topological walk. */
+  position: number;
   tag: string;
   /** Unix seconds, from the tag's creation date. */
   timestamp: number;
 }
 
 /**
- * Returns the window that first contained a commit at the given ordinal: the one whose tag
- * is the lowest boundary at or above it, or the unreleased window when no boundary is.
+ * Assigns each reachable commit to the boundary whose release first contained it, as an index
+ * into `boundaries`. A commit no boundary contains is absent from the result.
  *
- * `releasedWindows` runs parallel to `boundaries`, both ascending by ordinal.
+ * `boundaries` runs oldest release first, so each boundary claims only what the releases before
+ * it left unclaimed. A topological walk puts an ancestor after its descendants, which is what
+ * lets the caller order the boundaries without a second traversal.
  */
-function findWindow(
+function claimAncestors(
   boundaries: readonly TagBoundary[],
-  releasedWindows: readonly ReleaseWindow[],
-  unreleasedWindow: ReleaseWindow,
-  ordinal: number,
-): ReleaseWindow {
-  let low = 0;
-  let high = boundaries.length;
-  while (low < high) {
-    const middle = (low + high) >>> 1;
-    const boundary = boundaries[middle];
-    if (boundary !== undefined && boundary.ordinal < ordinal) {
-      low = middle + 1;
-    } else {
-      high = middle;
+  parentsByHash: ReadonlyMap<string, string[]>,
+): Map<string, number> {
+  const windowIndexByHash = new Map<string, number>();
+  for (const [windowIndex, boundary] of boundaries.entries()) {
+    const pending = [boundary.hash];
+    while (pending.length > 0) {
+      const hash = pending.pop();
+      if (hash === undefined || windowIndexByHash.has(hash)) {
+        continue;
+      }
+      windowIndexByHash.set(hash, windowIndex);
+      pending.push(...(parentsByHash.get(hash) ?? []));
     }
   }
-  return releasedWindows[low] ?? unreleasedWindow;
+  return windowIndexByHash;
 }
 
 /** Checks whether a tag name starts with one of the prefixes and continues with a digit. */
@@ -154,23 +169,26 @@ function parseCommitRecord(record: string): RawCommit | undefined {
 }
 
 /**
- * Indexes every commit reachable from HEAD by its position in an oldest-first walk.
+ * Reads the ancestry of every commit reachable from HEAD.
  *
- * `--ignore-missing` makes an unborn HEAD yield an empty index rather than the exit code
- * that git also uses outside a repository, so the empty-history case stays distinguishable
- * from a genuine failure.
+ * `--ignore-missing` makes an unborn HEAD yield an empty graph rather than the exit code that
+ * git also uses outside a repository, so the empty-history case stays distinguishable from a
+ * genuine failure.
  */
-function readCommitOrdinals(): Map<string, number> {
-  const output = runGit(['rev-list', '--ignore-missing', 'HEAD'], `'git rev-list' for HEAD`);
+function readAncestry(): Ancestry {
+  const args = ['rev-list', '--topo-order', '--parents', '--ignore-missing', 'HEAD'];
+  const output = runGit(args, `'git rev-list' for HEAD`);
 
-  const ordinalsByHash = new Map<string, number>();
-  const hashes = output.split('\n').toReversed();
-  for (const [ordinal, hash] of hashes.entries()) {
-    if (hash !== '') {
-      ordinalsByHash.set(hash, ordinal);
+  const ancestry: Ancestry = { parentsByHash: new Map(), positionByHash: new Map() };
+  for (const [position, line] of output.split('\n').entries()) {
+    const [hash, ...parents] = line.split(' ');
+    if (hash === undefined || hash === '') {
+      continue;
     }
+    ancestry.parentsByHash.set(hash, parents);
+    ancestry.positionByHash.set(hash, position);
   }
-  return ordinalsByHash;
+  return ancestry;
 }
 
 /**
@@ -199,12 +217,12 @@ function readCommits(paths: readonly string[] | undefined): RawCommit[] {
 }
 
 /**
- * Reads the tags matching a prefix and reachable from HEAD, ascending by ordinal.
+ * Reads the tags matching a prefix and reachable from HEAD, oldest release first.
  *
  * A tag's `creatordate` resolves to the tagger date for the annotated tags `createTags.ts`
  * writes, and to the commit date for a lightweight one.
  */
-function readTagBoundaries(tagPrefixes: readonly string[], ordinalsByHash: ReadonlyMap<string, number>): TagBoundary[] {
+function readTagBoundaries(tagPrefixes: readonly string[], positionByHash: ReadonlyMap<string, number>): TagBoundary[] {
   const fields = ['%(refname:strip=2)', '%(creatordate:unix)', '%(objectname)', '%(*objectname)'];
   const args = ['for-each-ref', `--format=${fields.join('%1f')}`, 'refs/tags'];
 
@@ -220,13 +238,14 @@ function readTagBoundaries(tagPrefixes: readonly string[], ordinalsByHash: Reado
       continue;
     }
     // An annotated tag names its commit in the dereferenced field; a lightweight tag is the commit.
-    const ordinal = ordinalsByHash.get(dereferencedName || objectName);
-    if (ordinal !== undefined) {
-      boundaries.push({ ordinal, tag, timestamp: Number(creatorDate) });
+    const hash = dereferencedName || objectName;
+    const position = positionByHash.get(hash);
+    if (position !== undefined) {
+      boundaries.push({ hash, position, tag, timestamp: Number(creatorDate) });
     }
   }
 
-  return boundaries.toSorted((left, right) => left.ordinal - right.ordinal);
+  return boundaries.toSorted((left, right) => right.position - left.position);
 }
 
 /** Runs a git command and returns its trimmed stdout, chaining any failure to `description`. */

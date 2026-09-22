@@ -59,6 +59,27 @@ describe(getCommitsSinceTarget, () => {
     expect(result.commits.map((commit) => commit.subject)).toStrictEqual(['fix: third']);
   });
 
+  it('reports a branch commit merged after the baseline tag', () => {
+    const repo = scaffoldGitRepo();
+    repo.commit('chore: base', { 'src/base.ts': 'export const base = 0;\n' }, { date: '2026-01-01T00:00:00Z' });
+    repo.git('checkout', '--quiet', '-b', 'feat');
+    repo.commit(
+      'feat: branch work',
+      { 'src/branch.ts': 'export const branch = 1;\n' },
+      { date: '2026-01-02T00:00:00Z' },
+    );
+    repo.git('checkout', '--quiet', 'main');
+    repo.commit('chore: mainline', { 'src/main.ts': 'export const main = 2;\n' }, { date: '2026-01-03T00:00:00Z' });
+    repo.tag('arrays-v1.0.0');
+    repo.merge('feat', 'Merge feat', { date: '2026-01-04T00:00:00Z' });
+
+    const result = getCommitsSinceTarget(['arrays-v']);
+
+    // The branch commit is older by commit date than the tag, and the tag does not contain it.
+    expect(result.tag).toBe('arrays-v1.0.0');
+    expect(result.commits.map((commit) => commit.subject)).toStrictEqual(['Merge feat', 'feat: branch work']);
+  });
+
   it('searches every listed prefix as a union', () => {
     const repo = scaffoldGitRepo();
     repo.commit('feat: first', { 'src/first.ts': 'export const first = 1;\n' });
