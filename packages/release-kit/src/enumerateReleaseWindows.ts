@@ -42,7 +42,7 @@ export interface EnumerateReleaseWindowsOptions {
   paths?: readonly string[];
   /** Tag prefixes to match as a union; a matching tag name continues with a digit. */
   tagPrefixes: readonly string[];
-  /** The version the unreleased window reports: the tag that the release being prepared will write. */
+  /** The version that the unreleased window reports, such as the tag that the release being prepared will write. */
   unreleasedTag: string;
   /** Returns the current time in epoch milliseconds; dates the unreleased window. */
   now?: () => number;

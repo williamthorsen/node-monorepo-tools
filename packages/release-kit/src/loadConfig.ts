@@ -437,7 +437,7 @@ function assertNoTagPrefixCollisions(
         throw new Error(
           `Tag prefix collision: '${a.prefix}' (${a.label}) and '${b.prefix}' (${b.label}). ` +
             'One prefix is identical to or a strict prefix of the other; ' +
-            'this would cause the changelog tag pattern `<prefix>[0-9].*` to return cross-matches.',
+            'a tag under the longer prefix can then match the shorter one, whose releases would absorb it.',
         );
       }
     }
