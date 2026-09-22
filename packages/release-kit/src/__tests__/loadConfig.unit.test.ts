@@ -549,7 +549,7 @@ describe('mergeMonorepoConfig project block', () => {
   });
 
   it('rejects a project tagPrefix that strict-prefix-collides with a workspace prefix', () => {
-    // `git describe --match=v*` would also match `vue-helpers-v1.0.0` tags.
+    // The unanchored `v[0-9].*` changelog pattern would also match `vue-helpers-v1.0.0` tags.
     mockPackageNames({
       'packages/vue-helpers': '@scope/vue-helpers',
     });

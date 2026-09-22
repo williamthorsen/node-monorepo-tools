@@ -89,7 +89,7 @@ Tag prefixes from distinct owners must not be identical or be a strict prefix of
 - A `retiredPackages[]` entry (one owner per entry).
 - The `project` block, when configured.
 
-release-kit resolves baseline tags via `git describe --match=<prefix>*`, so a strict-prefix overlap between distinct owners would cause that glob to return cross-matches against the wrong owner's history. For example, a project prefix of `v` collides with a workspace prefix of `vue-helpers-v`, since `git describe --match=v*` would return both project tags and `vue-helpers` tags.
+release-kit builds each changelog's tag pattern as `<prefix>[0-9].*`, and that pattern is unanchored, so a strict-prefix overlap between distinct owners would match the wrong owner's history. For example, a project prefix of `v` collides with a workspace prefix of `vue-helpers-v`, since `v[0-9].*` matches both `v1.0.0` and `vue-helpers-v1.0.0`.
 
 The rule is enforced at config load; the resulting error identifies both colliding declarations.
 

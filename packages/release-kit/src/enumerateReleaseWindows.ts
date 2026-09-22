@@ -69,7 +69,7 @@ export function enumerateReleaseWindows(options: EnumerateReleaseWindowsOptions)
 
   const unreleasedWindow: ReleaseWindow = {
     version: unreleasedTag,
-    timestamp: Math.floor(now() / 1000),
+    timestamp: Math.floor(now() / 1_000),
     commits: [],
   };
 
@@ -88,13 +88,13 @@ export function enumerateReleaseWindows(options: EnumerateReleaseWindowsOptions)
   }));
 
   // Walk oldest first so that each window's commits accumulate in the order it reports them.
-  for (const commit of readCommits(paths).reverse()) {
+  for (const commit of readCommits(paths).toReversed()) {
     // Both lists come from the same walk, so every logged commit has an ordinal.
-    const ordinal = ordinalsByHash.get(commit.hash) ?? Number.POSITIVE_INFINITY;
+    const ordinal = ordinalsByHash.get(commit.hash) ?? Infinity;
     findWindow(boundaries, releasedWindows, unreleasedWindow, ordinal).commits.push(commit);
   }
 
-  return [unreleasedWindow, ...releasedWindows.reverse()];
+  return [unreleasedWindow, ...releasedWindows.toReversed()];
 }
 
 // region | Helpers
@@ -164,7 +164,7 @@ function readCommitOrdinals(): Map<string, number> {
   const output = runGit(['rev-list', '--ignore-missing', 'HEAD'], `'git rev-list' for HEAD`);
 
   const ordinalsByHash = new Map<string, number>();
-  const hashes = output.split('\n').reverse();
+  const hashes = output.split('\n').toReversed();
   for (const [ordinal, hash] of hashes.entries()) {
     if (hash !== '') {
       ordinalsByHash.set(hash, ordinal);
@@ -226,7 +226,7 @@ function readTagBoundaries(tagPrefixes: readonly string[], ordinalsByHash: Reado
     }
   }
 
-  return boundaries.sort((left, right) => left.ordinal - right.ordinal);
+  return boundaries.toSorted((left, right) => left.ordinal - right.ordinal);
 }
 
 /** Runs a git command and returns its trimmed stdout, chaining any failure to `description`. */

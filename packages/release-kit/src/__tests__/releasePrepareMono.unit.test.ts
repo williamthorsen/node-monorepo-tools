@@ -10,6 +10,8 @@ const mockWriteFileSync = vi.hoisted(() => vi.fn());
 const mockHasPrettierConfig = vi.hoisted(() => vi.fn());
 const mockPlanReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 
+const mockGetCommitsSinceTarget = vi.hoisted(() => vi.fn());
+
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
   execSync: mockExecSync,
@@ -19,6 +21,10 @@ vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
   writeFileSync: mockWriteFileSync,
+}));
+
+vi.mock(import('../getCommitsSinceTarget.ts'), () => ({
+  getCommitsSinceTarget: mockGetCommitsSinceTarget,
 }));
 
 vi.mock(import('../resolveCliffConfigPath.ts'), () => ({
@@ -73,6 +79,7 @@ import {
   DEFAULT_WORK_TYPES,
 } from '../defaults.ts';
 import { releasePrepareMono } from '../releasePrepareMono.ts';
+import { type CommitStub, makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import type { MonorepoReleaseConfig, WorkspaceConfig, WorkTypeConfig } from '../types.ts';
 
 const workTypes: Record<string, WorkTypeConfig> = {
@@ -187,15 +194,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add utility\u{1F}abc123';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', [['feat: add utility', 'abc123']]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -239,15 +238,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return '';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', []);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -280,12 +271,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', []);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', private: true }));
 
     const result = releasePrepareMono(config, {});
@@ -320,24 +306,9 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        const matchArg = args.find((a: string) => a.startsWith('--match='));
-        if (matchArg?.includes('arrays-v')) {
-          return 'arrays-v1.0.0\n';
-        }
-        if (matchArg?.includes('strings-v')) {
-          return 'strings-v2.0.0\n';
-        }
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        const hasArraysPath = args.includes('packages/arrays/**');
-        if (hasArraysPath) {
-          return 'fix: fix array bug\u{1F}def456';
-        }
-        return '';
-      }
-      return '';
+    stubCommitsByPrefix({
+      'arrays-v': { tag: 'arrays-v1.0.0', entries: [['fix: fix array bug', 'def456']] },
+      'strings-v': { tag: 'strings-v2.0.0', entries: [] },
     });
 
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
@@ -376,15 +347,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add feature\u{1F}abc123';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', [['feat: add feature', 'abc123']]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -430,16 +393,9 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        const matchArg = args.find((a: string) => a.startsWith('--match='));
-        if (matchArg?.includes('arrays-v')) return 'arrays-v1.0.0\n';
-        if (matchArg?.includes('strings-v')) return 'strings-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add feature\u{1F}abc123';
-      }
-      return '';
+    stubCommitsByPrefix({
+      'arrays-v': { tag: 'arrays-v1.0.0', entries: [['feat: add feature', 'abc123']] },
+      'strings-v': { tag: 'strings-v1.0.0', entries: [['feat: add feature', 'abc123']] },
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
@@ -467,15 +423,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'fix: small patch\u{1F}abc123';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', [['fix: small patch', 'abc123']]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, { bumpOverride: 'minor' });
@@ -512,15 +460,7 @@ describe(releasePrepareMono, () => {
     });
 
     // Return a commit whose type (chore) is not in workTypes (only feat, fix).
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'chore: update deps\u{1F}abc123';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', [['chore: update deps', 'abc123']]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -535,9 +475,7 @@ describe(releasePrepareMono, () => {
     assert(workspace?.status === 'skipped', 'expected skipped');
     expect(workspace.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
     expect(workspace.skipReason).toContain('Pass --force to release at patch');
-    expect(workspace.unparseableCommits).toStrictEqual([
-      { message: 'chore: update deps', subject: 'chore: update deps', hash: 'abc123' },
-    ]);
+    expect(workspace.unparseableCommits).toStrictEqual(makeStubbedCommits([['chore: update deps', 'abc123']]));
   });
 
   it('falls back to patch when commits exist but none are bump-worthy and --force is set', () => {
@@ -559,15 +497,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'chore: update deps\u{1F}abc123';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', [['chore: update deps', 'abc123']]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, { force: true });
@@ -579,9 +509,9 @@ describe(releasePrepareMono, () => {
       parsedCommitCount: 0,
       releaseType: 'patch',
     });
-    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([
-      { message: 'chore: update deps', subject: 'chore: update deps', hash: 'abc123' },
-    ]);
+    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual(
+      makeStubbedCommits([['chore: update deps', 'abc123']]),
+    );
   });
 
   it('skips when --bump=X alone is set with commits-but-no-bump-worthy (level chooser, not trigger)', () => {
@@ -603,15 +533,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'chore: update deps\u{1F}abc123';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', [['chore: update deps', 'abc123']]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, { bumpOverride: 'minor' });
@@ -644,15 +566,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return '';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', []);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, { force: true });
@@ -698,20 +612,9 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        const matchArg = args.find((a: string) => a.startsWith('--match='));
-        if (matchArg?.includes('arrays-v')) return 'arrays-v1.0.0\n';
-        if (matchArg?.includes('strings-v')) return 'strings-v2.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        const hasArraysPath = args.includes('packages/arrays/**');
-        if (hasArraysPath) {
-          return 'chore: update deps\u{1F}abc123';
-        }
-        return 'feat: add helper\u{1F}def456';
-      }
-      return '';
+    stubCommitsByPrefix({
+      'arrays-v': { tag: 'arrays-v1.0.0', entries: [['chore: update deps', 'abc123']] },
+      'strings-v': { tag: 'strings-v2.0.0', entries: [['feat: add helper', 'def456']] },
     });
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('arrays')) return JSON.stringify({ version: '1.0.0' });
@@ -742,15 +645,10 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add utility\u{1F}abc123\nchore: update deps\u{1F}def456';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', [
+      ['feat: add utility', 'abc123'],
+      ['chore: update deps', 'def456'],
+    ]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -760,9 +658,9 @@ describe(releasePrepareMono, () => {
       releaseType: 'minor',
       parsedCommitCount: 1,
     });
-    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([
-      { message: 'chore: update deps', subject: 'chore: update deps', hash: 'def456' },
-    ]);
+    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual(
+      makeStubbedCommits([['chore: update deps', 'def456']]),
+    );
   });
 
   it('bypasses the no-commits check when force is true', () => {
@@ -781,15 +679,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return '';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', []);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, { force: true, bumpOverride: 'patch' });
@@ -827,20 +717,9 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        const matchArg = args.find((a: string) => a.startsWith('--match='));
-        if (matchArg?.includes('arrays-v')) return 'arrays-v1.0.0\n';
-        if (matchArg?.includes('strings-v')) return 'strings-v2.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        const hasStringsPath = args.includes('packages/strings/**');
-        if (hasStringsPath) {
-          return 'feat: add string helper\u{1F}abc123';
-        }
-        return '';
-      }
-      return '';
+    stubCommitsByPrefix({
+      'arrays-v': { tag: 'arrays-v1.0.0', entries: [] },
+      'strings-v': { tag: 'strings-v2.0.0', entries: [['feat: add string helper', 'abc123']] },
     });
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('arrays')) return JSON.stringify({ version: '1.0.0' });
@@ -869,15 +748,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return '';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', []);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, { force: true, bumpOverride: 'patch' });
@@ -904,15 +775,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return '';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', []);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -938,15 +801,7 @@ describe(releasePrepareMono, () => {
     });
     mockHasPrettierConfig.mockReturnValue(true);
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add feature\u{1F}abc123';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', [['feat: add feature', 'abc123']]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -973,15 +828,7 @@ describe(releasePrepareMono, () => {
     });
     mockHasPrettierConfig.mockReturnValue(false);
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add feature\u{1F}abc123';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', [['feat: add feature', 'abc123']]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     releasePrepareMono(config, {});
@@ -1005,15 +852,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-      if (cmd === 'git' && args[0] === 'describe') {
-        return 'arrays-v1.0.0\n';
-      }
-      if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add utility\u{1F}abc123';
-      }
-      return '';
-    });
+    stubCommits('arrays-v1.0.0', [['feat: add utility', 'abc123']]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -1060,18 +899,9 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          const matchArg = args.find((a: string) => a.startsWith('--match='));
-          if (matchArg?.includes('core-v')) return 'core-v1.0.0\n';
-          if (matchArg?.includes('app-v')) return 'app-v2.0.0\n';
-        }
-        if (cmd === 'git' && args[0] === 'log') {
-          const hasCorePath = args.includes('packages/core/**');
-          if (hasCorePath) return 'feat: add utility\u{1F}abc123';
-          return '';
-        }
-        return '';
+      stubCommitsByPrefix({
+        'core-v': { tag: 'core-v1.0.0', entries: [['feat: add utility', 'abc123']] },
+        'app-v': { tag: 'app-v2.0.0', entries: [] },
       });
 
       mockReadFileSync.mockImplementation((filePath: string) => {
@@ -1142,18 +972,9 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          const matchArg = args.find((a: string) => a.startsWith('--match='));
-          if (matchArg?.includes('core-v')) return 'core-v1.0.0\n';
-          if (matchArg?.includes('app-v')) return 'app-v1.0.0\n';
-        }
-        if (cmd === 'git' && args[0] === 'log') {
-          const hasCorePath = args.includes('packages/core/**');
-          if (hasCorePath) return 'fix: bug fix\u{1F}abc123';
-          return '';
-        }
-        return '';
+      stubCommitsByPrefix({
+        'core-v': { tag: 'core-v1.0.0', entries: [['fix: bug fix', 'abc123']] },
+        'app-v': { tag: 'app-v1.0.0', entries: [] },
       });
 
       mockReadFileSync.mockImplementation((filePath: string) => {
@@ -1203,11 +1024,7 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'core-v1.0.0\n';
-        if (cmd === 'git' && args[0] === 'log') return 'feat: new feature\u{1F}abc123';
-        return '';
-      });
+      stubCommits('core-v1.0.0', [['feat: new feature', 'abc123']]);
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '1.0.0' }));
 
       const result = releasePrepareMono(config, {});
@@ -1233,11 +1050,7 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'core-v0.5.0\n';
-        if (cmd === 'git' && args[0] === 'log') return '';
-        return '';
-      });
+      stubCommits('core-v0.5.0', []);
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
@@ -1272,11 +1085,7 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'core-v0.5.0\n';
-        if (cmd === 'git' && args[0] === 'log') return '';
-        return '';
-      });
+      stubCommits('core-v0.5.0', []);
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
 
       expect(() => releasePrepareMono(config, { setVersion: '0.3.0' })).toThrow(
@@ -1300,11 +1109,7 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'core-v0.5.0\n';
-        if (cmd === 'git' && args[0] === 'log') return '';
-        return '';
-      });
+      stubCommits('core-v0.5.0', []);
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
 
       expect(() => releasePrepareMono(config, { setVersion: '0.5.0' })).toThrow(
@@ -1328,11 +1133,7 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'core-v0.5.0\n';
-        if (cmd === 'git' && args[0] === 'log') return '';
-        return '';
-      });
+      stubCommits('core-v0.5.0', []);
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
@@ -1401,19 +1202,9 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          const matchArg = args.find((a: string) => a.startsWith('--match='));
-          if (matchArg?.includes('core-v')) return 'core-v1.0.0\n';
-          if (matchArg?.includes('app-v')) return 'app-v2.0.0\n';
-        }
-        if (cmd === 'git' && args[0] === 'log') {
-          // Both have commits.
-          const hasCorePath = args.includes('packages/core/**');
-          if (hasCorePath) return 'fix: core fix\u{1F}abc123';
-          return 'feat: app feature\u{1F}def456';
-        }
-        return '';
+      stubCommitsByPrefix({
+        'core-v': { tag: 'core-v1.0.0', entries: [['fix: core fix', 'abc123']] },
+        'app-v': { tag: 'app-v2.0.0', entries: [['feat: app feature', 'def456']] },
       });
 
       mockReadFileSync.mockImplementation((filePath: string) => {
@@ -1465,11 +1256,7 @@ describe(releasePrepareMono, () => {
 
     /** Stub git so the workspace has a tag but no qualifying commits since it. */
     function stubEmptyRange(): void {
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'arrays-v1.0.0\n';
-        if (cmd === 'git' && args[0] === 'log') return '';
-        return '';
-      });
+      stubCommits('arrays-v1.0.0', []);
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
       mockExistsSync.mockReturnValue(false);
     }
@@ -1535,18 +1322,9 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          const matchArg = args.find((a: string) => a.startsWith('--match='));
-          if (matchArg?.includes('core-v')) return 'core-v1.0.0\n';
-          if (matchArg?.includes('app-v')) return 'app-v1.0.0\n';
-        }
-        if (cmd === 'git' && args[0] === 'log') {
-          const hasCorePath = args.includes('packages/core/**');
-          if (hasCorePath) return 'fix: bug fixabc123';
-          return '';
-        }
-        return '';
+      stubCommitsByPrefix({
+        'core-v': { tag: 'core-v1.0.0', entries: [['fix: bug fix', 'abc123']] },
+        'app-v': { tag: 'app-v1.0.0', entries: [] },
       });
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (filePath.includes('core')) {
@@ -1576,11 +1354,7 @@ describe(releasePrepareMono, () => {
 
     it('keeps workspaces with real commits on the cliff path (no regression)', () => {
       const config = singleWorkspaceConfig();
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'arrays-v1.0.0\n';
-        if (cmd === 'git' && args[0] === 'log') return 'feat: new utilityabc123';
-        return '';
-      });
+      stubCommits('arrays-v1.0.0', [['feat: new utility', 'abc123']]);
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
       releasePrepareMono(config, {});
@@ -1665,15 +1439,10 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          const matchArg = args.find((a: string) => a.startsWith('--match='));
-          if (matchArg?.includes('arrays-v')) return 'arrays-v1.0.0\n';
-          if (matchArg?.includes('strings-v')) return 'strings-v1.0.0\n';
-          if (matchArg?.includes('numbers-v')) return 'numbers-v1.0.0\n';
-        }
-        // No commits for any workspace.
-        return '';
+      stubCommitsByPrefix({
+        'arrays-v': { tag: 'arrays-v1.0.0', entries: [] },
+        'strings-v': { tag: 'strings-v1.0.0', entries: [] },
+        'numbers-v': { tag: 'numbers-v1.0.0', entries: [] },
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       mockExistsSync.mockReturnValue(false);
@@ -1703,11 +1472,7 @@ describe(releasePrepareMono, () => {
 
     /** Stub git so the workspace has a feat commit since the prior tag. */
     function stubFeatCommit(): void {
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'arrays-v1.0.0\n';
-        if (cmd === 'git' && args[0] === 'log') return 'feat: add utilityabc123';
-        return '';
-      });
+      stubCommits('arrays-v1.0.0', [['feat: add utility', 'abc123']]);
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
       mockExistsSync.mockReturnValue(false);
     }
@@ -1738,14 +1503,9 @@ describe(releasePrepareMono, () => {
 
   describe('opportunistic hint when baseline is missing', () => {
     /** Configure mocks for a single workspace with no baseline tag and a bump-worthy commit. */
-    function setupNoBaseline(tagListOutput: string[], bumpCommit: string): void {
+    function setupNoBaseline(tagListOutput: string[], entries: readonly CommitStub[]): void {
+      stubCommits(undefined, entries);
       mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          throw Object.assign(new Error('no tag'), { status: 128 });
-        }
-        if (cmd === 'git' && args[0] === 'log') {
-          return bumpCommit;
-        }
         if (cmd === 'git' && args[0] === 'tag' && args[1] === '--list') {
           return tagListOutput.join('\n') + (tagListOutput.length > 0 ? '\n' : '');
         }
@@ -1769,7 +1529,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      setupNoBaseline(['core-v0.2.7', 'core-v0.2.8'], 'feat: addabc');
+      setupNoBaseline(['core-v0.2.7', 'core-v0.2.8'], [['feat: add', 'abc']]);
       using capture = captureStdio();
 
       releasePrepareMono(config, {});
@@ -1798,7 +1558,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      setupNoBaseline(['core-v0.2.7'], 'feat: addabc');
+      setupNoBaseline(['core-v0.2.7'], [['feat: add', 'abc']]);
       using capture = captureStdio();
 
       releasePrepareMono(config, {});
@@ -1821,7 +1581,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      setupNoBaseline([], 'feat: addabc');
+      setupNoBaseline([], [['feat: add', 'abc']]);
       using capture = captureStdio();
 
       releasePrepareMono(config, {});
@@ -1859,7 +1619,7 @@ describe(releasePrepareMono, () => {
         ],
       });
       // Only tags in the repo belong to the sibling `arrays` workspace. `core` has no baseline.
-      setupNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0'], 'feat: addabc');
+      setupNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0'], [['feat: add', 'abc']]);
       using capture = captureStdio();
 
       releasePrepareMono(config, {});
@@ -1895,7 +1655,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      setupNoBaseline(['arrays-v0.5.0', 'arrays-v0.6.0'], 'feat: addabc');
+      setupNoBaseline(['arrays-v0.5.0', 'arrays-v0.6.0'], [['feat: add', 'abc']]);
       using capture = captureStdio();
 
       releasePrepareMono(config, {});
@@ -1928,7 +1688,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      setupNoBaseline(['core-v0.2.7', 'arrays-v0.1.0'], 'feat: addabc');
+      setupNoBaseline(['core-v0.2.7', 'arrays-v0.1.0'], [['feat: add', 'abc']]);
       using capture = captureStdio();
 
       releasePrepareMono(config, {});
@@ -1953,15 +1713,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          return 'arrays-v1.0.0\n';
-        }
-        if (cmd === 'git' && args[0] === 'log') {
-          return 'feat: addabc';
-        }
-        return '';
-      });
+      stubCommits('arrays-v1.0.0', [['feat: add', 'abc']]);
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
       const result = releasePrepareMono(config, {});
@@ -1987,16 +1739,9 @@ describe(releasePrepareMono, () => {
         ],
         project: { paths: ['packages/arrays/**'], tagPrefix: 'v' },
       });
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          const matchArg = args.find((a: string) => a.startsWith('--match='));
-          if (matchArg === '--match=arrays-v*') return 'arrays-v1.0.0\n';
-          if (matchArg === '--match=v*') return 'v0.9.0\n';
-        }
-        if (cmd === 'git' && args[0] === 'log') {
-          return 'feat: shipabc123';
-        }
-        return '';
+      stubCommitsByPrefix({
+        'arrays-v': { tag: 'arrays-v1.0.0', entries: [['feat: ship', 'abc123']] },
+        v: { tag: 'v0.9.0', entries: [['feat: ship', 'abc123']] },
       });
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
@@ -2030,16 +1775,9 @@ describe(releasePrepareMono, () => {
         ],
         project: { paths: ['packages/arrays/**'], tagPrefix: 'v' },
       });
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          const matchArg = args.find((a: string) => a.startsWith('--match='));
-          if (matchArg === '--match=arrays-v*') return 'arrays-v1.0.0\n';
-          if (matchArg === '--match=v*') return 'v0.9.0\n';
-        }
-        if (cmd === 'git' && args[0] === 'log') {
-          return 'feat: shipabc123';
-        }
-        return '';
+      stubCommitsByPrefix({
+        'arrays-v': { tag: 'arrays-v1.0.0', entries: [['feat: ship', 'abc123']] },
+        v: { tag: 'v0.9.0', entries: [['feat: ship', 'abc123']] },
       });
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
@@ -2072,16 +1810,9 @@ describe(releasePrepareMono, () => {
         ],
         project: { paths: ['packages/arrays/**'], tagPrefix: 'v' },
       });
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          const matchArg = args.find((a: string) => a.startsWith('--match='));
-          if (matchArg === '--match=arrays-v*') return 'arrays-v1.0.0\n';
-          if (matchArg === '--match=v*') return 'v0.9.0\n';
-        }
-        if (cmd === 'git' && args[0] === 'log') {
-          return 'feat: shipabc123';
-        }
-        return '';
+      stubCommitsByPrefix({
+        'arrays-v': { tag: 'arrays-v1.0.0', entries: [['feat: ship', 'abc123']] },
+        v: { tag: 'v0.9.0', entries: [['feat: ship', 'abc123']] },
       });
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
@@ -2114,16 +1845,8 @@ describe(releasePrepareMono, () => {
         ],
         changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
       });
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          return 'arrays-v1.0.0\n';
-        }
-        if (cmd === 'git' && args[0] === 'log') {
-          return 'feat: add utilityabc123';
-        }
-        // git-cliff context output (used when changelogJson.enabled is true)
-        return '[]';
-      });
+      stubCommits('arrays-v1.0.0', [['feat: add utility', 'abc123']]);
+      mockExecFileSync.mockReturnValue('[]');
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       return config;
     }
@@ -2167,15 +1890,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          return 'arrays-v1.0.0\n';
-        }
-        if (cmd === 'git' && args[0] === 'log') {
-          return 'feat: add utilityabc123';
-        }
-        return '';
-      });
+      stubCommits('arrays-v1.0.0', [['feat: add utility', 'abc123']]);
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       using silent = silenceConsole(['warn']);
 
@@ -2204,15 +1919,7 @@ describe(releasePrepareMono, () => {
         ],
         changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
       });
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          return 'arrays-v1.0.0\n';
-        }
-        if (cmd === 'git' && args[0] === 'log') {
-          return '';
-        }
-        return '';
-      });
+      stubCommits('arrays-v1.0.0', []);
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
       releasePrepareMono(config, { withReleaseNotes: true });
@@ -2266,20 +1973,11 @@ describe(releasePrepareMono, () => {
         changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
       });
 
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          const matchArg = args.find((a: string) => a.startsWith('--match='));
-          if (matchArg?.includes('core-v')) return 'core-v1.0.0\n';
-          if (matchArg?.includes('app-v')) return 'app-v2.0.0\n';
-        }
-        if (cmd === 'git' && args[0] === 'log') {
-          const hasCorePath = args.includes('packages/core/**');
-          if (hasCorePath) return 'feat: add utilityabc123';
-          return '';
-        }
-        // git-cliff context output (used when changelogJson.enabled is true)
-        return '[]';
+      stubCommitsByPrefix({
+        'core-v': { tag: 'core-v1.0.0', entries: [['feat: add utility', 'abc123']] },
+        'app-v': { tag: 'app-v2.0.0', entries: [] },
       });
+      mockExecFileSync.mockReturnValue('[]');
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (typeof filePath === 'string' && filePath.includes('core')) {
           return JSON.stringify({ name: '@test/core', version: '1.0.0' });
@@ -2326,31 +2024,27 @@ describe(releasePrepareMono, () => {
 
     it("wraps a Phase 1 (bump-determination) throw with the workspace's release-stage label", async () => {
       const config = makeArraysConfig();
-      // Make the very first git invocation (`getCommitsSinceTarget`) throw — this exercises
-      // the Phase 1 wrap inside `determineDirectBumps`.
-      const underlying = new Error('git describe failed: not a git repo');
-      mockExecFileSync.mockImplementation(() => {
+      // Make `getCommitsSinceTarget` throw — this exercises the Phase 1 wrap inside
+      // `determineDirectBumps`.
+      const underlying = new Error('git rev-list failed: not a git repo');
+      mockGetCommitsSinceTarget.mockImplementation(() => {
         throw underlying;
       });
 
       const wrapped = await captureError(() => releasePrepareMono(config, {}));
 
-      expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*git describe failed: not a git repo$/);
+      expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*git rev-list failed: not a git repo$/);
       // `cause` is preserved through the chain — at minimum, an Error instance.
       expect(wrapped.cause).toBeInstanceOf(Error);
     });
 
     it("wraps a Phase 3 (executeWorkspaceRelease) throw with the workspace's release-stage label", async () => {
       const config = makeArraysConfig();
-      // Phase 1 succeeds (git describe + git log succeed). `buildChangelogEntries` (which
+      // Phase 1 succeeds. `buildChangelogEntries` (which
       // `executeWorkspaceRelease` invokes) throws — this exercises the Phase 3 wrap inside
       // `executeReleaseSet`.
       const underlying = new Error('git-cliff exited with status 1');
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'arrays-v1.0.0\n';
-        if (cmd === 'git' && args[0] === 'log') return 'feat: addabc123';
-        return '';
-      });
+      stubCommits('arrays-v1.0.0', [['feat: add', 'abc123']]);
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       mockBuildChangelogEntries.mockImplementationOnce(() => {
         throw underlying;
@@ -2367,14 +2061,9 @@ describe(releasePrepareMono, () => {
       const config = makeArraysConfig({ project: { paths: ['packages/arrays/**'], tagPrefix: 'v' } });
       // Workspace stage succeeds; `buildChangelogEntries` for the project stage throws.
       const underlying = new Error('cliff exploded on root');
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          const matchArg = args.find((a: string) => a.startsWith('--match='));
-          if (matchArg === '--match=arrays-v*') return 'arrays-v1.0.0\n';
-          if (matchArg === '--match=v*') return 'v0.9.0\n';
-        }
-        if (cmd === 'git' && args[0] === 'log') return `feat: shipabc123`;
-        return '';
+      stubCommitsByPrefix({
+        'arrays-v': { tag: 'arrays-v1.0.0', entries: [['feat: ship', 'abc123']] },
+        v: { tag: 'v0.9.0', entries: [['feat: ship', 'abc123']] },
       });
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
@@ -2398,9 +2087,6 @@ describe(releasePrepareMono, () => {
   });
 
   describe('policy violations', () => {
-    /** ASCII unit separator (U+001F) used by `git log --pretty=format` to delimit subject from hash. */
-    const SEP = String.fromCodePoint(0x1f);
-
     function makeWorkspace(overrides?: Partial<WorkspaceConfig>): WorkspaceConfig {
       return {
         dir: 'arrays',
@@ -2415,24 +2101,15 @@ describe(releasePrepareMono, () => {
       };
     }
 
-    /** Format a single commit log line as the `getCommitsSinceTarget` parser expects. */
-    function logLine(subject: string, hash: string): string {
-      return `${subject}${SEP}${hash}`;
-    }
-
-    /** Stub git output for a single workspace with one log line per commit. */
-    function stubLog(tag: string, logBody: string): void {
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return `${tag}\n`;
-        if (cmd === 'git' && args[0] === 'log') return logBody;
-        return '';
-      });
+    /** Stub a single workspace's history with one commit per entry. */
+    function stubLog(tag: string, ...entries: readonly CommitStub[]): void {
+      stubCommits(tag, entries);
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
     }
 
     it('omits policyViolations on a workspace whose only commit is a clean feat!', () => {
       const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
-      stubLog('arrays-v1.0.0', logLine('feat!: drop legacy export', 'abc1234'));
+      stubLog('arrays-v1.0.0', ['feat!: drop legacy export', 'abc1234']);
 
       const result = releasePrepareMono(config, {});
 
@@ -2441,7 +2118,7 @@ describe(releasePrepareMono, () => {
 
     it('records a prefix-surface violation for an internal! commit (forbidden policy)', () => {
       const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
-      stubLog('arrays-v1.0.0', logLine('internal!: refactor cache', 'def5678'));
+      stubLog('arrays-v1.0.0', ['internal!: refactor cache', 'def5678']);
 
       const result = releasePrepareMono(config, {});
 
@@ -2457,7 +2134,7 @@ describe(releasePrepareMono, () => {
 
     it('records a prefix-surface violation for a bare drop commit (required policy)', () => {
       const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
-      stubLog('arrays-v1.0.0', logLine('drop: remove deprecated API', '9abc012'));
+      stubLog('arrays-v1.0.0', ['drop: remove deprecated API', '9abc012']);
 
       const result = releasePrepareMono(config, {});
 
@@ -2477,7 +2154,7 @@ describe(releasePrepareMono, () => {
         workTypes: DEFAULT_WORK_TYPES,
         breakingPolicies: {},
       });
-      stubLog('arrays-v1.0.0', logLine('internal!: refactor cache', 'def5678'));
+      stubLog('arrays-v1.0.0', ['internal!: refactor cache', 'def5678']);
 
       const result = releasePrepareMono(config, {});
 
@@ -2501,16 +2178,9 @@ describe(releasePrepareMono, () => {
       });
 
       // Per-workspace describe + log responses keyed by --match flags.
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd !== 'git') return '';
-        if (args[0] === 'describe') {
-          if (args.some((a) => a.includes('arrays-v'))) return 'arrays-v1.0.0\n';
-          if (args.some((a) => a.includes('core-v'))) return 'core-v1.0.0\n';
-        } else if (args[0] === 'log') {
-          if (args.includes('packages/arrays/**')) return logLine('internal!: refactor cache', 'def5678');
-          if (args.includes('packages/core/**')) return logLine('feat: add helper', 'aaa1111');
-        }
-        return '';
+      stubCommitsByPrefix({
+        'arrays-v': { tag: 'arrays-v1.0.0', entries: [['internal!: refactor cache', 'def5678']] },
+        'core-v': { tag: 'core-v1.0.0', entries: [['feat: add helper', 'aaa1111']] },
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
@@ -2533,7 +2203,7 @@ describe(releasePrepareMono, () => {
         workTypes: DEFAULT_WORK_TYPES,
         breakingPolicies: { ...DEFAULT_BREAKING_POLICIES, feat: 'forbidden' },
       });
-      stubLog('arrays-v1.0.0', logLine('feat: rework auth (BREAKING CHANGE: removes /v1)', 'body0001'));
+      stubLog('arrays-v1.0.0', ['feat: rework auth (BREAKING CHANGE: removes /v1)', 'body0001']);
 
       const result = releasePrepareMono(config, {});
 
@@ -2577,15 +2247,7 @@ describe(releasePrepareMono, () => {
 
       // Stub git: one commit since the previous tag, with a known hash that does NOT match
       // the override key the workspace file declares.
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') {
-          return 'arrays-v1.0.0\n';
-        }
-        if (cmd === 'git' && args[0] === 'log') {
-          return 'feat: add utilityrealcommithash';
-        }
-        return '';
-      });
+      stubCommits('arrays-v1.0.0', [['feat: add utility', 'realcommithash']]);
 
       // Surface the workspace's `.meta/changelog-overrides.json` to the loader. Every other
       // existsSync probe (e.g., for prettier config) returns false.
@@ -2633,4 +2295,16 @@ function plannedContent(
   path: string,
 ): string | undefined {
   return plan.writes.find((write) => write.path === path)?.content;
+}
+
+/** Stub the history `getCommitsSinceTarget` reports: a baseline tag and the commits above it. */
+function stubCommits(tag: string | undefined, entries: readonly CommitStub[]): void {
+  mockGetCommitsSinceTarget.mockReturnValue({ tag, commits: makeStubbedCommits(entries) });
+}
+/** Stub the history per workspace, keyed by the tag prefix `getCommitsSinceTarget` is called with. */
+function stubCommitsByPrefix(histories: Record<string, { tag: string; entries: readonly CommitStub[] }>): void {
+  mockGetCommitsSinceTarget.mockImplementation((tagPrefixes: readonly string[]) => {
+    const history = tagPrefixes.map((candidate) => histories[candidate]).find((found) => found !== undefined);
+    return { tag: history?.tag, commits: makeStubbedCommits(history?.entries ?? []) };
+  });
 }

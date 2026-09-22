@@ -27,8 +27,9 @@ export interface GitRepoFixture {
 export function scaffoldGitRepo(entries: Record<string, string> = {}): GitRepoFixture {
   const tree = disposeOnTestFinished(createTempTree(entries, { prefix: 'release-kit-git-' }));
 
-  const git = (...args: string[]): string =>
-    execFileSync('git', args, { cwd: tree.dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  function git(...args: string[]): string {
+    return execFileSync('git', args, { cwd: tree.dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  }
 
   git('init', '--quiet', '--initial-branch=main');
   git('config', 'user.email', 'test@example.com');
@@ -41,7 +42,8 @@ export function scaffoldGitRepo(entries: Record<string, string> = {}): GitRepoFi
   return {
     dir: tree.dir,
     commit: (message, files) => {
-      for (const [path, contents] of Object.entries(files ?? {})) {
+      const fileEntries = Object.entries(files ?? {});
+      for (const [path, contents] of fileEntries) {
         tree.write(path, contents);
       }
       git('add', '-A');
