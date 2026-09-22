@@ -32,7 +32,7 @@ export interface ReleaseWindow {
   version: string;
   /** Unix seconds: the tag's creation date for a released window, the clock for the unreleased one. */
   timestamp: number;
-  /** Oldest first, matching the changelog template's `sort_commits = "oldest"`. */
+  /** Oldest first. */
   commits: RawCommit[];
 }
 
@@ -42,7 +42,7 @@ export interface EnumerateReleaseWindowsOptions {
   paths?: readonly string[];
   /** Tag prefixes to match as a union; a matching tag name continues with a digit. */
   tagPrefixes: readonly string[];
-  /** The version the unreleased window reports, as git-cliff's `--tag` supplied it. */
+  /** The version the unreleased window reports: the tag that the release being prepared will write. */
   unreleasedTag: string;
   /** Returns the current time in epoch milliseconds; dates the unreleased window. */
   now?: () => number;
@@ -53,7 +53,7 @@ export interface EnumerateReleaseWindowsOptions {
  *
  * The newest window is always the unreleased one, empty when HEAD sits on a tag. Released
  * windows follow in descending order, one per reachable tag matching a prefix. A tag that
- * HEAD cannot reach is dropped, as git-cliff's revwalk dropped it.
+ * HEAD cannot reach is dropped.
  *
  * A commit belongs to the oldest matching tag that contains it, and to the unreleased window
  * when no matching tag does. Containment is read from the ancestry graph rather than from a

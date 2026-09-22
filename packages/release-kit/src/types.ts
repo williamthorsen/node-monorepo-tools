@@ -32,7 +32,7 @@ export interface ChangelogItem {
    */
   migration?: string;
   /**
-   * Full git commit SHA when known. Captured from git-cliff's `--context` output and
+   * Full git commit SHA when known. Captured from the commit's release window and
    * persisted in `changelog.json` so that override files can target items by hash. Synthetic
    * propagation entries (`buildSyntheticChangelogEntry`, `buildEmptyReleaseEntry`) leave
    * this field absent — they have no underlying commit.
@@ -473,7 +473,6 @@ export const releaseKitConfigSchema = z
   .object({
     breakingPolicies: z.record(z.string(), breakingPolicyValueSchema).optional(),
     changelogJson: changelogJsonInputSchema.optional(),
-    cliffConfigPath: z.string().min(1).optional(),
     formatCommand: z.string().min(1).optional(),
     project: projectConfigSchema.optional(),
     releaseNotes: releaseNotesInputSchema.optional(),
@@ -570,8 +569,6 @@ export interface MonorepoReleaseConfig {
    * arguments. Paths are repo-relative; file paths containing spaces are not supported.
    */
   formatCommand?: string;
-  /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
-  cliffConfigPath?: string;
   /**
    * Maps scope shorthand names to their canonical names.
    * When a commit uses `shorthand|type: description` or `type(shorthand): description`,
@@ -613,8 +610,6 @@ export interface ReleaseConfig {
    * Paths are repo-relative; file paths containing spaces are not supported.
    */
   formatCommand?: string;
-  /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
-  cliffConfigPath?: string;
   /**
    * Maps scope shorthand names to their canonical names.
    * When a commit uses `shorthand|type: description` or `type(shorthand): description`,

@@ -119,7 +119,7 @@ Initialize release-kit in the current repository.
 By default, scaffolds only the GitHub Actions workflow files.
 
 Options:
-  --with-config   Also scaffold .config/release-kit.config.ts and .config/git-cliff.toml
+  --with-config   Also scaffold .config/release-kit.config.ts
   --force         Overwrite existing files instead of skipping them
   --dry-run       Preview changes without writing files
   --help, -h      Show this help message

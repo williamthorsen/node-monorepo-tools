@@ -228,14 +228,6 @@ describe(mergeMonorepoConfig, () => {
     expect(result.formatCommand).toBe('pnpm run fmt');
   });
 
-  it('passes through cliffConfigPath from config', () => {
-    const result = mergeMonorepoConfig(discoveredPaths, {
-      cliffConfigPath: 'custom/cliff.toml',
-    });
-
-    expect(result.cliffConfigPath).toBe('custom/cliff.toml');
-  });
-
   it('passes through scopeAliases from config', () => {
     const result = mergeMonorepoConfig(discoveredPaths, {
       scopeAliases: { api: 'backend-api' },
@@ -549,7 +541,7 @@ describe('mergeMonorepoConfig project block', () => {
   });
 
   it('rejects a project tagPrefix that strict-prefix-collides with a workspace prefix', () => {
-    // The unanchored `v[0-9].*` changelog pattern would also match `vue-helpers-v1.0.0` tags.
+    // Rejected on the prefix alone, though a `vue-helpers-v` tag never continues `v` with a digit.
     mockPackageNames({
       'packages/vue-helpers': '@scope/vue-helpers',
     });
@@ -640,12 +632,10 @@ describe(mergeSinglePackageConfig, () => {
   it('passes through scalar overrides', () => {
     const result = mergeSinglePackageConfig({
       formatCommand: 'pnpm run fmt',
-      cliffConfigPath: 'custom/cliff.toml',
       scopeAliases: { api: 'backend-api' },
     });
 
     expect(result.formatCommand).toBe('pnpm run fmt');
-    expect(result.cliffConfigPath).toBe('custom/cliff.toml');
     expect(result.scopeAliases).toStrictEqual({ api: 'backend-api' });
   });
 

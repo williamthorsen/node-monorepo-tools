@@ -117,7 +117,7 @@ export interface RootPackageInfo {
  *   removes the workspace; unlisted packages keep defaults.
  * - `workTypes`: shallow merge — consumer entries override or add to defaults by key.
  * - `versionPatterns`: consumer value replaces defaults entirely.
- * - `formatCommand`, `cliffConfigPath`, `scopeAliases`: consumer value wins.
+ * - `formatCommand`, `scopeAliases`: consumer value wins.
  * - `project`: present iff `userConfig.project` is declared. Resolves `tagPrefix` to
  *   `DEFAULT_PROJECT_TAG_PREFIX` and `paths` to the union of the retained workspaces' `paths`
  *   when omitted. Requires `rootPackage` to be passed and to contain a valid `version` field;
@@ -195,19 +195,18 @@ export function mergeMonorepoConfig(
 }
 
 /**
- * Copy optional pass-through fields (`formatCommand`, `cliffConfigPath`, `scopeAliases`,
- * `breakingPolicies`) from `userConfig` onto `result`, omitting any that are absent.
+ * Copy optional pass-through fields (`formatCommand`, `scopeAliases`, `breakingPolicies`) from
+ * `userConfig` onto `result`, omitting any that are absent.
  *
  * Extracted from both `mergeMonorepoConfig` and `mergeSinglePackageConfig` to keep their
  * cyclomatic complexity below the project ceiling — each conditional spread contributes a
- * branch to the host's complexity, and inlining all four tipped both functions over.
+ * branch to the host's complexity, and inlining them all tips both functions over.
  * Object-typed fields (`scopeAliases`, `breakingPolicies`) are stored by reference, matching
  * how `scopeAliases` is handled elsewhere in this module.
  */
 function applyOptionalPassthroughFields(
   result: {
     formatCommand?: string;
-    cliffConfigPath?: string;
     scopeAliases?: Record<string, string>;
     breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
   },
@@ -215,9 +214,6 @@ function applyOptionalPassthroughFields(
 ): void {
   if (userConfig?.formatCommand !== undefined) {
     result.formatCommand = userConfig.formatCommand;
-  }
-  if (userConfig?.cliffConfigPath !== undefined) {
-    result.cliffConfigPath = userConfig.cliffConfigPath;
   }
   if (userConfig?.scopeAliases !== undefined) {
     result.scopeAliases = userConfig.scopeAliases;

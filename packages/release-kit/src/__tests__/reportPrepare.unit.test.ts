@@ -3,11 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { bold, dim, sectionHeader } from '../format.ts';
 import { reportPrepare } from '../reportPrepare.ts';
-import { GIT_CLIFF_VERSION } from '../runGitCliff.ts';
 import type { PolicyViolation, PrepareResult, ReleasedWorkspaceResult } from '../types.ts';
-
-/** The dry-run command the report attributes to a changelog file, built from the pin the invocation names. */
-const CLIFF_DRY_RUN_COMMAND = `npx --prefer-offline --yes git-cliff@${GIT_CLIFF_VERSION} ...`;
 
 /** The column budget `reportPrepare` cuts a commit subject to. */
 const SUBJECT_COLUMN_BUDGET = 72;
@@ -116,7 +112,7 @@ describe(reportPrepare, () => {
       const output = reportPrepare(result, { applied: false, style: 'rich' });
 
       expect(output).toContain(dim('  [dry-run] Would bump package.json'));
-      expect(output).toContain(dim(`  [dry-run] Would run: ${CLIFF_DRY_RUN_COMMAND} --output ./CHANGELOG.md`));
+      expect(output).toContain(dim('  [dry-run] Would generate changelog: ./CHANGELOG.md'));
       expect(output).toContain(
         dim('\n  [dry-run] Would run format command: npx prettier --write package.json ./CHANGELOG.md'),
       );
@@ -775,7 +771,7 @@ describe(reportPrepare, () => {
       const output = reportPrepare(result, { applied: false, style: 'rich' });
 
       expect(output).toContain(dim('    [dry-run] Would bump ./package.json'));
-      expect(output).toContain(dim(`    [dry-run] Would run: ${CLIFF_DRY_RUN_COMMAND} --output ./CHANGELOG.md`));
+      expect(output).toContain(dim('    [dry-run] Would generate changelog: ./CHANGELOG.md'));
     });
 
     it('omits the project section entirely when result.project is undefined', () => {

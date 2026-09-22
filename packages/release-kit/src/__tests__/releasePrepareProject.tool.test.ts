@@ -27,9 +27,6 @@ const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
  * - Assert at the file-content level: project tag in result, root `package.json` bumped, root
  *   `CHANGELOG.md` regenerated with expected entries, project tag included alongside the
  *   per-workspace tags.
- *
- * `git-cliff` is invoked through `npx --yes`, so the test environment must have network
- * access to download git-cliff on first run (cached after).
  */
 
 /**
@@ -150,9 +147,8 @@ describe('releasePrepareProject (tool)', () => {
       expect(rootChangelog).toContain('Add feature flag');
       expect(rootChangelog).toContain('Patch latent bug');
       // The v0.9.0 baseline was set against a single unticketed `chore` commit that the
-      // cliff parsers skip, so no entry is emitted for that release. After the SSOT pivot,
-      // empty version entries are dropped (the old cliff template rendered them as empty
-      // headings). Only the new release's heading appears.
+      // classifier rejects, and a release with no surviving entry is dropped, so only the
+      // new release's heading appears.
     });
   }, 60_000);
 
@@ -261,7 +257,7 @@ describe('releasePrepareProject (tool)', () => {
   }, 60_000);
 
   it('overwrites an unparseable existing root changelog.json without warning (no-read at project stage)', () => {
-    // No warning is possible: the stage renders from the cliff entries alone and never parses the existing file.
+    // No warning is possible: the stage renders from the built entries alone and never parses the existing file.
     withinFixture(tree.dir, () => {
       const changelogJsonPath = tree.write('.meta/changelog.json', '{this is not valid JSON');
 
@@ -277,7 +273,7 @@ describe('releasePrepareProject (tool)', () => {
 
       expect(listConsoleLines(silent.warn).join('\n')).not.toContain('could not parse existing');
 
-      // The file was overwritten with cliff-derived content (valid JSON).
+      // The file was overwritten with entries built from history (valid JSON).
       const written = readFileSync(changelogJsonPath, 'utf8');
       const parsed: Array<{ version: string }> = JSON.parse(written);
       expect(Array.isArray(parsed)).toBe(true);
@@ -357,7 +353,7 @@ describe('releasePrepareProject (tool)', () => {
   it('preserves prior changelog.json entries when an empty-range project release runs', () => {
     // Regression: the empty-range project branch must use upsert semantics. A plain
     // overwrite would erase prior structured history because the synthetic branch
-    // produces only the new entry — git-cliff is not consulted to replay the full log.
+    // produces only the new entry — the release windows are not read to replay the full log.
     // Move the project baseline tag to HEAD so the project stage finds zero commits since,
     // forcing the empty-range branch.
     execFileSync('git', ['tag', '--delete', 'v0.9.0'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
