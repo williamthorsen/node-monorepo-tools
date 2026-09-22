@@ -1,5 +1,89 @@
 [
   {
+    "version": "0.39.0",
+    "date": "2026-09-22",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Report why a workspace selects no package, and no-op nmr's own -R steps (#841)",
+            "body": "- Drops a `-R` step that nmr composed into a script where the workspace holds no package, so `typecheck` and the five `test` scripts run there instead of failing the run.\n- Adds a no-op verdict for a command that the drop leaves with no step at all.\n- Replaces the single refusal for a workspace that selects no package with one message per cause.\n\nMigration: In a repo that declares a workspace package pattern and deliberately holds no package, delete the `.config/nmr.config.ts` entries added to work around the `-R` refusal, the `build: ':'` override included.",
+            "migration": "In a repo that declares a workspace package pattern and deliberately holds no package, delete the `.config/nmr.config.ts` entries added to work around the `-R` refusal, the `build: ':'` override included.",
+            "hash": "0b21f4b29a40aab5c56f10026789e8c0e72161ab"
+          },
+          {
+            "description": "Prefix the booleans and reject unrecognized Vitest option keys (#849)",
+            "body": "- Renames two boolean options of `defineVitestConfig` and `defineRootVitestConfig`, the factories that build a repo's Vitest config: `isolateGit` becomes `shouldIsolateGit`, and `resolveFromSource` becomes `shouldResolveFromSource`.\n- Makes both factories reject an option key outside the recognized set, naming the offending keys and the recognized ones, rather than ignoring a misspelled or retired key and letting its option fall back to the default with nothing in the run reporting it.\n- Adds a retired-key check that runs ahead of the unrecognized-key check, reporting the new name for a config that still sets `isolateGit` or `resolveFromSource`.\n\nMigration: In each options object passed to `defineVitestConfig` or `defineRootVitestConfig`, rename `isolateGit` to `shouldIsolateGit` and `resolveFromSource` to `shouldResolveFromSource`, and correct any other key that the factory now rejects. `defineRootVitestConfig` recognizes `monorepoRoot` on the last layer alone, so a config that sets it on an earlier layer now throws where the old code ignored it.",
+            "breaking": true,
+            "migration": "In each options object passed to `defineVitestConfig` or `defineRootVitestConfig`, rename `isolateGit` to `shouldIsolateGit` and `resolveFromSource` to `shouldResolveFromSource`, and correct any other key that the factory now rejects. `defineRootVitestConfig` recognizes `monorepoRoot` on the last layer alone, so a config that sets it on an earlier layer now throws where the old code ignored it.",
+            "hash": "ed2d1ba9a505c3a6d9fd5455c23bd110b9b8a7c5"
+          },
+          {
+            "description": "End nmr's source value names with the kind of the value (#850)",
+            "body": "- Renames two fields of `TestFileConventionsReport`, `misplaced` and `untiered`, to `misplacedFiles` and `untieredFiles`, and renames `TestFileConventionsOptions`'s `exclude` to `excludedBasenames`, in the `@williamthorsen/nmr/tests` entry point.\n- Adds a guard to `checkTestFileConventions` and `reportTestFileConventions` that throws a `TypeError` naming `excludedBasenames` when a call still sets `exclude`.\n\nMigration: Read `report.misplacedFiles` and `report.untieredFiles` in place of `report.misplaced` and `report.untiered`, and pass `excludedBasenames` in place of `exclude`. A call that still sets `exclude` throws rather than running with no exclusions, so the failure surfaces where Vitest loads the call site.",
+            "breaking": true,
+            "migration": "Read `report.misplacedFiles` and `report.untieredFiles` in place of `report.misplaced` and `report.untiered`, and pass `excludedBasenames` in place of `exclude`. A call that still sets `exclude` throws rather than running with no exclusions, so the failure surfaces where Vitest loads the call site.",
+            "hash": "059c249e2857bed87cefcce02e894ce3a9a65970"
+          },
+          {
+            "description": "Hoist the pnpm-workspace resolver into nmr-core as a total API (#864)",
+            "body": "- Adds a `./workspace` subpath export to `@williamthorsen/nmr-core`, whose `resolveWorkspace` returns a pnpm workspace's package directories, or the cause of an empty result, as a value rather than as a thrown error.\n- Reports a `pnpm-workspace.yaml` that the YAML parser rejects under a cause of its own, `unreadable-manifest`, so `nmr -R build` names the syntax error and its remedy in place of failing with the parser's own error.\n- Removes `diagnoseEmptyWorkspace` and `EmptyWorkspaceDiagnosis` from `@williamthorsen/nmr/workspace`, since `resolveWorkspace` reports the same cause in one call.\n\nMigration: Replace each `diagnoseEmptyWorkspace` call with `resolveWorkspace`, which reports the cause on the empty result it already returns, and rename the `no-manifest` cause to `no-package`. `EmptyWorkspaceCause` also gains `unreadable-manifest`, so an exhaustive switch over it stops compiling until it handles the new member; every other export of `@williamthorsen/nmr/workspace` keeps its signature and its `UserError` throws.",
+            "breaking": true,
+            "migration": "Replace each `diagnoseEmptyWorkspace` call with `resolveWorkspace`, which reports the cause on the empty result it already returns, and rename the `no-manifest` cause to `no-package`. `EmptyWorkspaceCause` also gains `unreadable-manifest`, so an exhaustive switch over it stops compiling until it handles the new member; every other export of `@williamthorsen/nmr/workspace` keeps its signature and its `UserError` throws.",
+            "hash": "3196b84c9d5f037ead0e98ee8547fe71e80fb5c6"
+          },
+          {
+            "description": "Adopt the shared workspace resolver in release-kit, honoring exclusions (#865)",
+            "body": "- 🚨 **Breaking:** Narrows `no-pattern` in `@williamthorsen/nmr-core`'s `EmptyWorkspaceCause`, moving an absent or empty `packages` list onto `no-packages-list` and a value that is not a list of strings onto `unreadable-packages`.\n- Stops `release-kit` from tagging, publishing, and label-syncing a package that a `!` entry in `pnpm-workspace.yaml` excludes, which its previous `glob`-based resolution could not remove from the match.\n- Replaces the release of the root package alone with a failure naming the condition that emptied the workspace, when `pnpm-workspace.yaml` does not hold valid YAML or declares a workspace that does not resolve to a package.\n- Replaces the `no-pattern` remedy that `nmr` printed for a `pnpm-workspace.yaml` declaring no `packages` list, and for one declaring a `packages` value that is not a list of strings.\n- Raises `engines.node` to `>=24.16.0` in `@williamthorsen/nmr-core` and `@williamthorsen/release-kit`, because Node 24.0 through 24.15 ignores the `followSymlinks` option that the workspace matcher passes to `globSync` and drops a symlinked package directory from the resolution without reporting it.\n\nMigration: Add a `no-packages-list` arm and an `unreadable-packages` arm to any `switch` that covers `EmptyWorkspaceCause` exhaustively. `no-pattern` now names only a list that the resolver read in full and whose entries all failed to become a positive pattern, so move the handling of an absent `packages` key, an empty list, and a value that is not a list of strings out of the `no-pattern` arm into the two new ones. Route `no-packages-list` to single-package behavior rather than to a failure path: pnpm resolves such a manifest to the root package alone.",
+            "breaking": true,
+            "migration": "Add a `no-packages-list` arm and an `unreadable-packages` arm to any `switch` that covers `EmptyWorkspaceCause` exhaustively. `no-pattern` now names only a list that the resolver read in full and whose entries all failed to become a positive pattern, so move the handling of an absent `packages` key, an empty list, and a value that is not a list of strings out of the `no-pattern` arm into the two new ones. Route `no-packages-list` to single-package behavior rather than to a failure path: pnpm resolves such a manifest to the root package alone.",
+            "hash": "b1126866159402b8f027a9b82f2a19591a6e9e1b"
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Align nmr's function names with naming conventions (#852)",
+            "body": "- Renames the functions in `packages/nmr` to align with naming conventions.",
+            "hash": "8a41a206ebe0374c844b20dca0eded7da6240133"
+          },
+          {
+            "description": "Suffix nmr's unit-measuring numbers and expand its abbreviations (#854)",
+            "body": "- Renames every unit-measuring number and abbreviated identifier under `packages/nmr/src`, adding `Ms`, `Bytes`, and `Offset` suffixes to the quantities and expanding `pkg`, `Len`, and `Idx` to `package`, `Length`, and `Index`. The renames are not part of any public API.",
+            "hash": "f8292228095a475b9a187ba64d700cb222f80305"
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "End nmr's test value names with the kind of the value (#851)",
+            "body": "- Aligns the name of every non-boolean value in `packages/nmr/src/**/__tests__` with naming conventions.\n- Renames `inline` to `inlineBody` in the repo-root `__tests__/reusable-workflow-runtime.app.unit.test.ts`.",
+            "hash": "d12494b2be31f0e73cda1afb7113e7508e9969ee"
+          }
+        ]
+      },
+      {
+        "title": "👷 CI",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Make the release workflow Corepack-agnostic (#842)",
+            "body": "- Removes the `Disable Corepack` step from `release.reusable.yaml`, which Node 25's removal of Corepack from the distribution would make fail with `command not found` once `actions/setup-node` moves past Node 24, and keeps `COREPACK_ENABLE_STRICT: '0'`, which guards the source-build path where the pnpm `packageManager` pin survives.\n- Adds a case to `reusable-workflow-runtime.app.unit.test.ts` that fails the test run on any reusable workflow whose `run:` commands invoke `corepack`, enumerated from `.github/workflows` so that a workflow added later is covered without editing a list.\n- Drops the Corepack recommendation from the README's pnpm prerequisite, which now points at pnpm's installation page, and from the fix text of the `.tool-versions does not list pnpm` check in nmr's readyup kit, which now names the `packageManager` field.",
+            "hash": "dd46b629c3b4448b701ded3301f6794bdea7af6b"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.38.0",
     "date": "2026-09-18",
     "sections": [

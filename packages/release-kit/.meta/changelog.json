@@ -1,5 +1,62 @@
 [
   {
+    "version": "11.0.0",
+    "date": "2026-09-22",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Return the provenance check's remediation as the outcome's fix (#855)",
+            "body": "- Moves the remediation of the `npm-auto-publish` kit's `Provenance setting matches repo visibility` check from the failing outcome's `detail` into its `fix`, so that readyup marks it as a remedy, lists it in the `Fixes` recap, and reports it under `rdy run --json --detail summary` instead of printing it as a plain reason line.\n- Declares `minReadyupVersion: '0.37.0'` on the kit, the readyup release that introduced `CheckOutcome.fix`, which retires the kit's `version-skew` advisory and makes an older runner fail to load the kit.\n\nMigration: Upgrade readyup to 0.37.0 or later before consuming this release of the `npm-auto-publish` kit.",
+            "breaking": true,
+            "migration": "Upgrade readyup to 0.37.0 or later before consuming this release of the `npm-auto-publish` kit.",
+            "hash": "2455edc46611a47e95707f79cdebda539a844431"
+          },
+          {
+            "description": "Accept a --config argument on every config-reading subcommand (#857)",
+            "body": "- Adds `--config <path>` to `prepare`, `publish`, `create-github-release`, `show-tag-prefixes`, `overrides validate`, `sync-labels init`, and `sync-labels generate`, each of which then reads the named file in place of `.config/release-kit.config.ts`.\n- Requires a named `--config` file to exist, failing if it does not; an absent default path continues to mean that the repo declares no config.\n- Confines scaffolding to the default path: `release-kit init` and `sync-labels init` still write `.config/release-kit.config.ts`, and `sync-labels init --config` reads the named file and fails when it is absent.",
+            "hash": "f605a6fd7e48b27b17fb90bad161f4507979e5aa"
+          },
+          {
+            "description": "Adopt the shared workspace resolver in release-kit, honoring exclusions (#865)",
+            "body": "- 🚨 **Breaking:** Narrows `no-pattern` in `@williamthorsen/nmr-core`'s `EmptyWorkspaceCause`, moving an absent or empty `packages` list onto `no-packages-list` and a value that is not a list of strings onto `unreadable-packages`.\n- Stops `release-kit` from tagging, publishing, and label-syncing a package that a `!` entry in `pnpm-workspace.yaml` excludes, which its previous `glob`-based resolution could not remove from the match.\n- Replaces the release of the root package alone with a failure naming the condition that emptied the workspace, when `pnpm-workspace.yaml` does not hold valid YAML or declares a workspace that does not resolve to a package.\n- Replaces the `no-pattern` remedy that `nmr` printed for a `pnpm-workspace.yaml` declaring no `packages` list, and for one declaring a `packages` value that is not a list of strings.\n- Raises `engines.node` to `>=24.16.0` in `@williamthorsen/nmr-core` and `@williamthorsen/release-kit`, because Node 24.0 through 24.15 ignores the `followSymlinks` option that the workspace matcher passes to `globSync` and drops a symlinked package directory from the resolution without reporting it.\n\nMigration: Add a `no-packages-list` arm and an `unreadable-packages` arm to any `switch` that covers `EmptyWorkspaceCause` exhaustively. `no-pattern` now names only a list that the resolver read in full and whose entries all failed to become a positive pattern, so move the handling of an absent `packages` key, an empty list, and a value that is not a list of strings out of the `no-pattern` arm into the two new ones. Route `no-packages-list` to single-package behavior rather than to a failure path: pnpm resolves such a manifest to the root package alone.",
+            "breaking": true,
+            "migration": "Add a `no-packages-list` arm and an `unreadable-packages` arm to any `switch` that covers `EmptyWorkspaceCause` exhaustively. `no-pattern` now names only a list that the resolver read in full and whose entries all failed to become a positive pattern, so move the handling of an absent `packages` key, an empty list, and a value that is not a list of strings out of the `no-pattern` arm into the two new ones. Route `no-packages-list` to single-package behavior rather than to a failure path: pnpm resolves such a manifest to the root package alone.",
+            "hash": "b1126866159402b8f027a9b82f2a19591a6e9e1b"
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Truncate release-kit commit subjects by display column (#840)",
+            "body": "- Fixes the issue that the `release-kit` prepare report cut a commit subject at 69 UTF-16 code units instead of at display columns, so a subject of CJK characters printed about twice the intended 72-column width and a cut inside an emoji left a broken character that a terminal drew as a replacement glyph.\n- Replaces the `...` marker on a truncated subject with `…`, the default of the width-aware truncation that now does the cutting.\n- Exports `truncateToWidth` and `measureWidth` from `@williamthorsen/nmr-core`, which measure and cut text by display width without splitting a grapheme cluster.",
+            "hash": "f75d9b4abd9fbda264d5dd40ca5b7abb64f5a3f3"
+          },
+          {
+            "description": "Abort show-tag-prefixes on an unusable config (#861)",
+            "body": "- Fixes the issue that `release-kit show-tag-prefixes` silently ignored a config file that failed schema validation, which left the preview reading no `legacyIdentities` and no `retiredPackages` and reporting already-declared and retired tag prefixes as undeclared candidates; the command now prints those validation errors and exits 1 with no preview.",
+            "hash": "2177873d9a79247385e5a1f09e95971449488d9f"
+          },
+          {
+            "description": "Abort every config-reading command on an unusable default config (#869)",
+            "body": "- Fixes `publish` proceeding on derived defaults when the default config file exists and fails to load, which silently dropped a configured `releaseNotes.shouldInjectIntoReadme`, `changelogJson.outputPath`, or `workTypes`; it now reports the failure and exits 1, as every other config-reading subcommand does.\n- Fixes `publish` and `create-github-release` ignoring a broken or invalid default config when every requested tag names a private package, a case in which both commands return before any loader runs.",
+            "hash": "5b2873f2b9b7e42f1011d90506ca7ea6945d09a1"
+          },
+          {
+            "description": "Strip trailing Change trailers from changelog item bodies (#870)",
+            "body": "- Fixes a changelog item body that kept a commit's trailing `Change:` trailers, which then appeared verbatim in the rendered release notes, including the notes injected into a README.",
+            "hash": "250e52b3a2947202e3a7246fb39ebcb79e2bd1fc"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "10.9.0",
     "date": "2026-09-18",
     "sections": [

@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.13.0 — 2026-09-22
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Hoist the pnpm-workspace resolver into nmr-core as a total API (#864)
+
+  - Adds a `./workspace` subpath export to `@williamthorsen/nmr-core`, whose `resolveWorkspace` returns a pnpm workspace's package directories, or the cause of an empty result, as a value rather than as a thrown error.
+  - Reports a `pnpm-workspace.yaml` that the YAML parser rejects under a cause of its own, `unreadable-manifest`, so `nmr -R build` names the syntax error and its remedy in place of failing with the parser's own error.
+  - Removes `diagnoseEmptyWorkspace` and `EmptyWorkspaceDiagnosis` from `@williamthorsen/nmr/workspace`, since `resolveWorkspace` reports the same cause in one call.
+
+  Migration: Replace each `diagnoseEmptyWorkspace` call with `resolveWorkspace`, which reports the cause on the empty result it already returns, and rename the `no-manifest` cause to `no-package`. `EmptyWorkspaceCause` also gains `unreadable-manifest`, so an exhaustive switch over it stops compiling until it handles the new member; every other export of `@williamthorsen/nmr/workspace` keeps its signature and its `UserError` throws.
+
+- 🚨 **Breaking:** Adopt the shared workspace resolver in release-kit, honoring exclusions (#865)
+
+  - 🚨 **Breaking:** Narrows `no-pattern` in `@williamthorsen/nmr-core`'s `EmptyWorkspaceCause`, moving an absent or empty `packages` list onto `no-packages-list` and a value that is not a list of strings onto `unreadable-packages`.
+  - Stops `release-kit` from tagging, publishing, and label-syncing a package that a `!` entry in `pnpm-workspace.yaml` excludes, which its previous `glob`-based resolution could not remove from the match.
+  - Replaces the release of the root package alone with a failure naming the condition that emptied the workspace, when `pnpm-workspace.yaml` does not hold valid YAML or declares a workspace that does not resolve to a package.
+  - Replaces the `no-pattern` remedy that `nmr` printed for a `pnpm-workspace.yaml` declaring no `packages` list, and for one declaring a `packages` value that is not a list of strings.
+  - Raises `engines.node` to `>=24.16.0` in `@williamthorsen/nmr-core` and `@williamthorsen/release-kit`, because Node 24.0 through 24.15 ignores the `followSymlinks` option that the workspace matcher passes to `globSync` and drops a symlinked package directory from the resolution without reporting it.
+
+  Migration: Add a `no-packages-list` arm and an `unreadable-packages` arm to any `switch` that covers `EmptyWorkspaceCause` exhaustively. `no-pattern` now names only a list that the resolver read in full and whose entries all failed to become a positive pattern, so move the handling of an absent `packages` key, an empty list, and a value that is not a list of strings out of the `no-pattern` arm into the two new ones. Route `no-packages-list` to single-package behavior rather than to a failure path: pnpm resolves such a manifest to the root package alone.
+
+### 🐛 Bug fixes
+
+- Truncate release-kit commit subjects by display column (#840)
+
+  - Fixes the issue that the `release-kit` prepare report cut a commit subject at 69 UTF-16 code units instead of at display columns, so a subject of CJK characters printed about twice the intended 72-column width and a cut inside an emoji left a broken character that a terminal drew as a replacement glyph.
+  - Replaces the `...` marker on a truncated subject with `…`, the default of the width-aware truncation that now does the cutting.
+  - Exports `truncateToWidth` and `measureWidth` from `@williamthorsen/nmr-core`, which measure and cut text by display width without splitting a grapheme cluster.
+
 ## 0.12.0 — 2026-09-18
 
 ### 🎉 Features
