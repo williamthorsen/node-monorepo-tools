@@ -59,6 +59,31 @@ describe(classifyChangelogCommit, () => {
     });
   });
 
+  describe('every subject form `parseCommitMessage` accepts reaches its section', () => {
+    // The parsers this function replaced required the colon immediately after the type and matched
+    // case-sensitively, so no subject below reached a changelog. Classification now follows
+    // `parseCommitMessage`, which accepts all of them; these assertions pin that widening.
+    it('classifies a conventional-commit parenthesized scope', () => {
+      expect(classifyChangelogCommit('#1 fix(parser): Patch', DEFAULT_WORK_TYPES)).toBe(
+        DEFAULT_WORK_TYPES['fix']?.header,
+      );
+    });
+
+    it('classifies a parenthesized scope carrying a breaking marker', () => {
+      expect(classifyChangelogCommit('#1 fix(parser)!: Patch', DEFAULT_WORK_TYPES)).toBe(
+        DEFAULT_WORK_TYPES['fix']?.header,
+      );
+    });
+
+    it.each(['#1 FEAT: Shout', '#1 Feat: Title case'])('resolves the type case-insensitively in "%s"', (message) => {
+      expect(classifyChangelogCommit(message, DEFAULT_WORK_TYPES)).toBe(DEFAULT_WORK_TYPES['feat']?.header);
+    });
+
+    it('rejects an excluded type under a parenthesized scope', () => {
+      expect(classifyChangelogCommit('#1 fmt(css): Run prettier', DEFAULT_WORK_TYPES)).toBeUndefined();
+    });
+  });
+
   describe('a header comes from the configured work types', () => {
     it('reads the header a consumer override supplies', () => {
       const workTypes = { ...DEFAULT_WORK_TYPES, feat: { header: 'New stuff' } };
