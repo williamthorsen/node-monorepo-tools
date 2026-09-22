@@ -4,7 +4,7 @@
 
 Version-bumping and changelog-generation toolkit for release workflows.
 
-Provides a self-contained CLI that auto-discovers workspaces from `pnpm-workspace.yaml`, parses conventional commits, determines version bumps, updates `package.json` files, and generates changelogs from `git-cliff --context` output rendered in-process (with optional [editorial overrides](docs/editorial-overrides.md)).
+Provides a self-contained CLI that auto-discovers workspaces from `pnpm-workspace.yaml`, parses conventional commits, determines version bumps, updates `package.json` files, and generates changelogs from the same commit history that decides each bump (with optional [editorial overrides](docs/editorial-overrides.md)).
 
 <!-- section:release-notes --><!-- /section:release-notes -->
 
@@ -38,7 +38,7 @@ Example output from `prepare --dry-run` in a monorepo whose `arrays` workspace h
   📦 1.2.0 → 1.3.0 (minor)
     [dry-run] Would bump packages/arrays/package.json
   Generating changelogs...
-    [dry-run] Would run: npx --prefer-offline --yes git-cliff@<version> ... --output packages/arrays/CHANGELOG.md
+    [dry-run] Would generate changelog: packages/arrays/CHANGELOG.md
   🔖 arrays-v1.3.0
 
 ✅ Release preparation complete.
@@ -54,17 +54,17 @@ gh workflow run release.yaml                  # every workspace with release-wor
 gh workflow run release.yaml -f only=arrays   # the named workspaces alone
 ```
 
-The CLI applies defaults to every discovered workspace and uses the bundled `cliff.toml.template` unless the repository provides a git-cliff config of its own. [Releasing](docs/releasing.md) covers `prepare`'s flags, release-notes previews, and the workflow's inputs.
+The CLI applies defaults to every discovered workspace. [Releasing](docs/releasing.md) covers `prepare`'s flags, release-notes previews, and the workflow's inputs.
 
 ## How it works
 
 1. **Workspace discovery**: reads `pnpm-workspace.yaml` and resolves its `packages` patterns to find workspace directories, applying pnpm's semantics — a `!`-prefixed entry excludes what it matches, wherever it appears in the list. Each directory containing a `package.json` becomes a workspace. The repo is treated as a single-package project when it holds no workspace file, and when the workspace file declares no `packages` list — a file kept for `catalog:` or `overrides:` alone, which pnpm likewise resolves to the root package. A workspace file that declares patterns resolving to no package is an error naming the condition that emptied it.
 2. **Config loading**: loads `.config/release-kit.config.ts` (if present), or the file named by `--config`, and merges it with discovered defaults.
 3. **Commit analysis**: for each workspace, finds commits since the last version tag, parses them for type and scope, and determines the appropriate version bump.
-4. **Version bump + changelog**: bumps `package.json` versions, builds structured `ChangelogEntry[]` from `git-cliff --context`, applies any [editorial overrides](docs/editorial-overrides.md) from per-scope `.meta/changelog-overrides.json` files, and renders both `CHANGELOG.md` and `.meta/changelog.json` from that single source. `git-cliff` is invoked only for its `--context` JSON; markdown rendering happens in-process so `.meta/changelog.json` and `CHANGELOG.md` always agree.
+4. **Version bump + changelog**: bumps `package.json` versions, builds structured `ChangelogEntry[]` from the commits between each pair of release tags, applies any [editorial overrides](docs/editorial-overrides.md) from per-scope `.meta/changelog-overrides.json` files, and renders both `CHANGELOG.md` and `.meta/changelog.json` from that single source, so the two always agree.
 5. **Release tags file**: writes computed tags to `tmp/.release-tags` for the release workflow to read when tagging and pushing.
 
-[Changelogs](docs/changelogs.md) covers what reaches a published tarball, the `changelog.json` item schema, and the git-cliff config.
+[Changelogs](docs/changelogs.md) covers what reaches a published tarball, the `changelog.json` item schema, and which commits reach a changelog.
 
 ## Commit format
 
@@ -115,10 +115,7 @@ Node loads the file directly, so a relative import inside it needs an explicit f
 
 ## External dependencies
 
-This package shells out to two external tools:
-
-- **`git`** — must be available on `PATH`. Used to find tags and retrieve commit history.
-- **`git-cliff`** — pinned to an exact version and fetched via `npx` on first invocation, then served from npx's cache. No need to install it as a dev dependency. The pin moves only when a new release-kit version names a newer git-cliff, so two releases cut months apart run the same changelog generator.
+release-kit shells out to `git`, which must be available on `PATH`, to find tags and read commit history.
 
 ## Readiness checks
 
@@ -150,15 +147,13 @@ rdy run --packages
 5. Remove `changeset:*` scripts from `package.json` (no replacement needed — the CLI handles everything).
 6. Create an initial version tag for each package (e.g., `git tag v1.0.0` or `git tag arrays-v1.0.0`).
 
-No cliff config copy is needed — the bundled template is used automatically. To customize, run `release-kit init --with-config`.
-
 ## Documentation
 
 - [Configuration](docs/configuration.md): `ReleaseKitConfig` fields, workspace overrides and legacy identities, retired packages, tag prefixes, and version patterns
 - [Project releases](docs/project-releases.md): the `project` block, and how a project release interacts with `prepare`'s flags
 - [Releasing](docs/releasing.md): `init`, `prepare`'s flags and release-notes previews, and the release workflow
 - [Publishing](docs/publishing.md): `publish`, the publishability filter, and `create-github-release`
-- [Changelogs](docs/changelogs.md): the `changelog.json` item schema, the git-cliff config, and release-notes injection
+- [Changelogs](docs/changelogs.md): the `changelog.json` item schema, which commits reach a changelog, and release-notes injection
 - [Editorial overrides](docs/editorial-overrides.md): correcting generated changelog entries, and `overrides validate`
 - [Work types and tiers](docs/work-types.md): tiers, the `!` policy, markers, custom work types, and maintenance of the bundled taxonomy
 - [Labels](docs/labels.md): `sync-labels`, label configuration, the workflow's triggers, and the `label-map.json` schema

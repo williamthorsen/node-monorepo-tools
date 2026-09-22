@@ -1,6 +1,6 @@
 # Changelogs
 
-What reaches a published tarball, what each `.meta/changelog.json` item contains, how the git-cliff config is resolved, and how release notes reach a README.
+What reaches a published tarball, what each `.meta/changelog.json` item contains, which commits reach a changelog, and how release notes reach a README.
 
 Neither `CHANGELOG.md` nor `.meta/changelog.json` reaches a published tarball on its own. npm stopped including `CHANGELOG` automatically in npm 7, so a package that declares a `files` field ships a changelog only where that field names `CHANGELOG.md` and `.meta/changelog.json`. release-kit's readyup kit reports a publishable workspace whose `files` field omits either.
 
@@ -38,26 +38,17 @@ Three properties are worth knowing:
 
 The label match is exact: `migration:` and `**Migration:**` are not recognized.
 
-## cliff.toml setup
+## What reaches a changelog
 
-The package includes a bundled `cliff.toml.template` that is used automatically when no custom config is found. The resolution order:
+release-kit splits the history reachable from `HEAD` into one window per release tag that matches the scope's tag prefixes, restricted to commits that touch the scope's `paths`. The bump reads the same windows, so a commit counted toward a version bump is one that the changelog also considers.
 
-| Priority | Path                          | Notes                                           |
-| -------- | ----------------------------- | ----------------------------------------------- |
-| 1        | `cliffConfigPath` in config   | Explicit path, returned without existence check |
-| 2        | `.config/git-cliff.toml`      | Project-level override                          |
-| 3        | `cliff.toml`                  | Repo root fallback                              |
-| 4        | Bundled `cliff.toml.template` | Automatic fallback                              |
+A commit in a window reaches the changelog when its subject passes three checks:
 
-The bundled template provides a generic git-cliff configuration that:
+- **A ticket-ID prefix**, such as `#42 `, `TOOL-123 `, or `## `.
+- **A declared work type**, resolved against the merged [work types](work-types.md).
+- **A type not excluded from the changelog** by `excludedFromChangelog: true`.
 
-- Splits history into tag ranges matching `v[0-9].*`, which `--tag-pattern` overrides per scope
-- Emits every commit in a range, `release:` and merge commits included
-- Classifies nothing: which commits reach a changelog, and under which section, is decided by `classifyChangelogCommit` from the commit message
-
-The body template is intentionally empty: release-kit reads cliff's `--context` JSON output and renders `CHANGELOG.md` in-process via `renderChangelogMarkdown` (see [How it works](../README.md#how-it-works) for the rationale). `[git].commit_parsers` holds a single pass-through entry, and the `group` it assigns is never read.
-
-To customize, scaffold a local copy with `release-kit init --with-config` and edit `.config/git-cliff.toml`. Edit the enumeration keys alone: `tag_pattern` and the tag-skipping keys beside it. Body-template changes have no effect, and `commit_parsers` and `filter_commits` must be left as the template writes them. A parser that skips or narrows drops the commit before `classifyChangelogCommit` sees it, so its entry disappears from every changelog with no error.
+`release:` commits and merge commits never reach a changelog. A commit that fails a check is dropped with no error, and a release left with no surviving commit gets no changelog entry. The commit's type decides the section under which its item appears.
 
 ## Release-notes injection
 

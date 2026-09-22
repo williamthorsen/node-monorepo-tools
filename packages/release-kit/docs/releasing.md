@@ -14,7 +14,6 @@ Scaffolded files:
 - `.github/workflows/publish.yaml` — workflow that delegates to a reusable publish workflow
 - `.github/workflows/release.yaml` — workflow that delegates to a reusable release workflow
 - `.config/release-kit.config.ts` — starter config with commented-out customization examples (with `--with-config`)
-- `.config/git-cliff.toml` — copied from the bundled template (with `--with-config`)
 
 ## `release-kit prepare`
 
