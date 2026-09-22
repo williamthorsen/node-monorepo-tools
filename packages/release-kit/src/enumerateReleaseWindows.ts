@@ -38,7 +38,7 @@ export interface ReleaseWindow {
 
 /** Inputs for {@link enumerateReleaseWindows}. */
 export interface EnumerateReleaseWindowsOptions {
-  /** Glob patterns restricting the enumeration to commits that touch them. */
+  /** Git pathspecs restricting the enumeration to commits that touch them. */
   paths?: readonly string[];
   /** Tag prefixes to match as a union; a matching tag name continues with a digit. */
   tagPrefixes: readonly string[];
