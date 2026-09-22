@@ -28,6 +28,9 @@ function deriveDefaultWorkTypes(): Record<string, WorkTypeConfig> {
     if (entry.aliases.length > 0) {
       config.aliases = [...entry.aliases];
     }
+    if (entry.excludedFromChangelog === true) {
+      config.excludedFromChangelog = true;
+    }
     result[entry.key] = config;
   }
   return result;
