@@ -30,6 +30,10 @@ release-kit bundles a copy of the codeassembly canonical taxonomy in `packages/r
 
 Section render order is **tier order (`public` → `internal` → `process`), then row order within tier**. It comes from the declaration order of `work-types.json`: `CANONICAL_SECTION_ORDER` in `buildChangelogEntries.ts` indexes each header by its row, and `transformReleases` sorts a release's sections by that index whatever order the commits arrived in.
 
+## Subject forms
+
+`classifyChangelogCommit` resolves a commit's type through `parseCommitMessage`, so a subject reaches its section under any form that parser accepts: `type:`, `scope|type:`, and the conventional-commit `type(scope):`. The type is matched case-insensitively, so `Feat:` and `FEAT:` resolve like `feat:`. The ticket-ID prefix is still required, and an alias resolves before the section is chosen.
+
 ## `utility` alias
 
 `utility:` is a backward-compat alias for `internal:`. Both forms parse to the same canonical type, route to the same `🏗️ Internal features` section, and are subject to the same `!` policy.

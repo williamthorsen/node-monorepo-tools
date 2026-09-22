@@ -57,7 +57,7 @@ The bundled template provides a generic git-cliff configuration that:
 
 The body template is intentionally empty: release-kit reads cliff's `--context` JSON output and renders `CHANGELOG.md` in-process via `renderChangelogMarkdown` (see [How it works](../README.md#how-it-works) for the rationale). `[git].commit_parsers` holds a single pass-through entry, and the `group` it assigns is never read.
 
-To customize, scaffold a local copy with `release-kit init --with-config` and edit `.config/git-cliff.toml`. Edit only the `[git]` section — body-template changes have no effect.
+To customize, scaffold a local copy with `release-kit init --with-config` and edit `.config/git-cliff.toml`. Edit the enumeration keys alone: `tag_pattern` and the tag-skipping keys beside it. Body-template changes have no effect, and `commit_parsers` and `filter_commits` must be left as the template writes them. A parser that skips or narrows drops the commit before `classifyChangelogCommit` sees it, so its entry disappears from every changelog with no error.
 
 ## Release-notes injection
 
