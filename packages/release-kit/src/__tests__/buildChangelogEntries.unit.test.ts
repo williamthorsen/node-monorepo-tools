@@ -50,9 +50,9 @@ describe(buildChangelogEntries, () => {
         version: 'v1.0.0',
         timestamp: 1_700_000_000,
         commits: [
-          { message: '#1 feat: Add new feature', group: 'Features' },
-          { message: '#2 fix: Fix a bug', group: 'Bug fixes' },
-          { message: '#3 ci: Update pipeline', group: 'CI' },
+          { message: '#1 feat: Add new feature' },
+          { message: '#2 fix: Fix a bug' },
+          { message: '#3 ci: Update pipeline' },
         ],
       },
     ];
@@ -65,21 +65,21 @@ describe(buildChangelogEntries, () => {
     expect(entries[0]?.version).toBe('1.0.0');
     expect(entries[0]?.sections).toHaveLength(3);
 
-    const features = entries[0]?.sections.find((s) => s.title === 'Features');
+    const features = entries[0]?.sections.find((s) => s.title === '🎉 Features');
     expect(features?.audience).toBe('all');
     expect(features?.items[0]?.description).toBe('Add new feature');
 
-    const ci = entries[0]?.sections.find((s) => s.title === 'CI');
+    const ci = entries[0]?.sections.find((s) => s.title === '👷 CI');
     expect(ci?.audience).toBe('dev');
   });
 
   it('omits releases without version', () => {
     const cliffContext = [
-      { commits: [{ message: '#1 feat: Unreleased', group: 'Features' }] },
+      { commits: [{ message: '#1 feat: Unreleased' }] },
       {
         version: 'v1.0.0',
         timestamp: 1_700_000_000,
-        commits: [{ message: '#2 feat: Released', group: 'Features' }],
+        commits: [{ message: '#2 feat: Released' }],
       },
     ];
 
@@ -97,10 +97,10 @@ describe(buildChangelogEntries, () => {
         version: 'v2.0.0',
         timestamp: 1_700_000_000,
         commits: [
-          { message: '#1 feat: Feature', group: 'Features' },
-          { message: '#2 deps: Bump deps', group: 'Dependencies' },
-          { message: '#3 tests: Add test', group: 'Tests' },
-          { message: '#4 fix: Bug fix', group: 'Bug fixes' },
+          { message: '#1 feat: Feature' },
+          { message: '#2 deps: Bump deps' },
+          { message: '#3 tests: Add test' },
+          { message: '#4 fix: Bug fix' },
         ],
       },
     ];
@@ -111,37 +111,40 @@ describe(buildChangelogEntries, () => {
 
     const audiences = Object.fromEntries(entries[0]?.sections.map((s) => [s.title, s.audience]) ?? []);
     expect(audiences).toStrictEqual({
-      Features: 'all',
-      Dependencies: 'dev',
-      Tests: 'dev',
-      'Bug fixes': 'all',
+      '🎉 Features': 'all',
+      '🐛 Bug fixes': 'all',
+      '🧪 Tests': 'dev',
+      '📦 Dependencies': 'dev',
     });
   });
 
   it('classifies emoji-prefixed section titles against bare-name devOnlySections overrides', () => {
-    // A consumer override written as `devOnlySections: ['Internal']` (bare) must keep matching the
-    // emoji-prefixed default title `'🏗️ Internal'` produced by the bundled cliff template, so
-    // upgrading does not silently reclassify their sections.
+    // A consumer override written as `devOnlySections: ['Internal features']` (bare) must keep
+    // matching the emoji-prefixed default title `'🏗️ Internal features'`, so upgrading does not
+    // silently reclassify their sections.
     const cliffContext = [
       {
         version: 'v1.0.0',
         timestamp: 1_700_000_000,
         commits: [
-          { message: '#1 feat: User-facing thing', group: '🎉 Features' },
-          { message: '#2 internal: Plumbing change', group: '🏗️ Internal' },
-          { message: '#3 deps: Bump deps', group: '📦 Dependencies' },
+          { message: '#1 feat: User-facing thing' },
+          { message: '#2 internal: Plumbing change' },
+          { message: '#3 deps: Bump deps' },
         ],
       },
     ];
 
     mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
 
-    const entries = buildChangelogEntries(makeConfig({ devOnlySections: ['Internal', 'Dependencies'] }), 'v1.0.0');
+    const entries = buildChangelogEntries(
+      makeConfig({ devOnlySections: ['Internal features', 'Dependencies'] }),
+      'v1.0.0',
+    );
 
     const audiences = Object.fromEntries(entries[0]?.sections.map((s) => [s.title, s.audience]) ?? []);
     expect(audiences).toStrictEqual({
       '🎉 Features': 'all',
-      '🏗️ Internal': 'dev',
+      '🏗️ Internal features': 'dev',
       '📦 Dependencies': 'dev',
     });
   });
@@ -157,11 +160,11 @@ describe(buildChangelogEntries, () => {
         timestamp: 1_700_000_000,
         commits: [
           // Encounter order is the inverse of canonical order to make a regression visible.
-          { message: '#1 docs: Update guide', group: '<!-- 14 -->📚 Documentation' },
-          { message: '#2 ci: Pin runner', group: '<!-- 11 -->👷 CI' },
-          { message: '#3 internal: Refactor helper', group: '<!-- 07 -->🏗️ Internal features' },
-          { message: '#4 fix: Patch leak', group: '<!-- 04 -->🐛 Bug fixes' },
-          { message: '#5 feat: Add widget', group: '<!-- 01 -->🎉 Features' },
+          { message: '#1 docs: Update guide' },
+          { message: '#2 ci: Pin runner' },
+          { message: '#3 internal: Refactor helper' },
+          { message: '#4 fix: Patch leak' },
+          { message: '#5 feat: Add widget' },
         ],
       },
     ];
@@ -173,12 +176,12 @@ describe(buildChangelogEntries, () => {
     expect(titles).toStrictEqual(['🎉 Features', '🐛 Bug fixes', '🏗️ Internal features', '👷 CI', '📚 Documentation']);
   });
 
-  it('preserves full first line when commit message has no colon separator', () => {
+  it('preserves the full first line when no colon-space pair separates the description', () => {
     const cliffContext = [
       {
         version: 'v1.0.0',
         timestamp: 1_700_000_000,
-        commits: [{ message: 'Initial commit', group: 'Other' }],
+        commits: [{ message: '#1 feat:Add new feature' }],
       },
     ];
 
@@ -186,7 +189,40 @@ describe(buildChangelogEntries, () => {
 
     const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
 
-    expect(entries[0]?.sections[0]?.items[0]?.description).toBe('Initial commit');
+    expect(entries[0]?.sections[0]?.items[0]?.description).toBe('#1 feat:Add new feature');
+  });
+
+  it('drops every commit the classifier rejects, and the release when none survives', () => {
+    // cliff's pass-through parser emits the whole range, so the classifier is the only filter.
+    const cliffContext = [
+      {
+        version: 'v1.0.0',
+        timestamp: 1_700_000_000,
+        commits: [
+          { message: 'release: v1.0.0' },
+          { message: 'Merge pull request #7 from owner/branch' },
+          { message: 'deps: Bump deps' },
+          { message: '#1 fmt: Run prettier' },
+          { message: '#2 chore: Rework build' },
+          { message: '#3 feat: Add widget' },
+        ],
+      },
+      {
+        version: 'v1.1.0',
+        timestamp: 1_710_000_000,
+        commits: [{ message: 'release: v1.1.0' }, { message: '#4 fmt: Run prettier' }],
+      },
+    ];
+
+    mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
+
+    const entries = buildChangelogEntries(makeConfig(), 'v1.1.0');
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.version).toBe('1.0.0');
+    expect(entries[0]?.sections).toStrictEqual([
+      { title: '🎉 Features', audience: 'all', items: [{ description: 'Add widget' }] },
+    ]);
   });
 
   it('always invokes git-cliff and never writes the changelog file', () => {
@@ -195,7 +231,7 @@ describe(buildChangelogEntries, () => {
       {
         version: 'v1.0.0',
         timestamp: 1_700_000_000,
-        commits: [{ message: '#1 feat: Add widget', group: 'Features' }],
+        commits: [{ message: '#1 feat: Add widget' }],
       },
     ];
     mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -212,7 +248,7 @@ describe(buildChangelogEntries, () => {
       {
         version: 'v1.0.0',
         timestamp: 1_700_000_000,
-        commits: [{ message: '#1 feat: Add widget', group: 'Features' }],
+        commits: [{ message: '#1 feat: Add widget' }],
       },
     ];
     mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -259,7 +295,6 @@ describe(buildChangelogEntries, () => {
             {
               id: '8296231173de8be01977dabbe9c1c8e8e1234abc',
               message: '#1 feat: Add widget',
-              group: 'Features',
             },
           ],
         },
@@ -274,7 +309,7 @@ describe(buildChangelogEntries, () => {
         {
           version: 'v1.0.0',
           timestamp: 1_700_000_000,
-          commits: [{ message: '#1 feat: Add widget', group: 'Features' }],
+          commits: [{ message: '#1 feat: Add widget' }],
         },
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -287,7 +322,7 @@ describe(buildChangelogEntries, () => {
         {
           version: 'v1.0.0',
           timestamp: 1_700_000_000,
-          commits: [{ id: '', message: '#1 feat: Add widget', group: 'Features' }],
+          commits: [{ id: '', message: '#1 feat: Add widget' }],
         },
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -302,7 +337,7 @@ describe(buildChangelogEntries, () => {
         {
           version: 'v1.0.0',
           timestamp: 1_700_000_000,
-          commits: [{ message: '#1 feat!: Redesign API', group: 'Features' }],
+          commits: [{ message: '#1 feat!: Redesign API' }],
         },
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -315,7 +350,7 @@ describe(buildChangelogEntries, () => {
         {
           version: 'v1.0.0',
           timestamp: 1_700_000_000,
-          commits: [{ message: '#1 feat: Add widget', group: 'Features' }],
+          commits: [{ message: '#1 feat: Add widget' }],
         },
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -328,7 +363,7 @@ describe(buildChangelogEntries, () => {
         {
           version: 'v1.0.0',
           timestamp: 1_700_000_000,
-          commits: [{ message: '#1 drop!: Remove legacy endpoint', group: 'Removed' }],
+          commits: [{ message: '#1 drop!: Remove legacy endpoint' }],
         },
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -341,7 +376,7 @@ describe(buildChangelogEntries, () => {
         {
           version: 'v1.0.0',
           timestamp: 1_700_000_000,
-          commits: [{ message: '#1 feat(api)!: Redesign endpoint', group: 'Features' }],
+          commits: [{ message: '#1 feat(api)!: Redesign endpoint' }],
         },
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -354,7 +389,7 @@ describe(buildChangelogEntries, () => {
         {
           version: 'v1.0.0',
           timestamp: 1_700_000_000,
-          commits: [{ message: '#1 web|feat!: Reshape API', group: 'Features' }],
+          commits: [{ message: '#1 web|feat!: Reshape API' }],
         },
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -367,7 +402,7 @@ describe(buildChangelogEntries, () => {
         {
           version: 'v1.0.0',
           timestamp: 1_700_000_000,
-          commits: [{ message: '#1 feat: Add widget\n\nBREAKING CHANGE: removes /v1 path', group: 'Features' }],
+          commits: [{ message: '#1 feat: Add widget\n\nBREAKING CHANGE: removes /v1 path' }],
         },
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -376,11 +411,11 @@ describe(buildChangelogEntries, () => {
     });
 
     it.each([
-      ['#1 deprecate!: Deprecate legacy flag', 'Deprecated'],
-      ['#1 refactor!: Restructure parser', 'Refactoring'],
-      ['#1 utility!: Add shared helper', 'Internal features'],
-    ])('omits breaking for `%s`, whose type forbids `!`', (message, group) => {
-      const cliffContext = [{ version: 'v1.0.0', timestamp: 1_700_000_000, commits: [{ message, group }] }];
+      '#1 deprecate!: Deprecate legacy flag',
+      '#1 refactor!: Restructure parser',
+      '#1 utility!: Add shared helper',
+    ])('omits breaking for `%s`, whose type forbids `!`', (message) => {
+      const cliffContext = [{ version: 'v1.0.0', timestamp: 1_700_000_000, commits: [{ message }] }];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
       const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
       expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
@@ -391,7 +426,7 @@ describe(buildChangelogEntries, () => {
         {
           version: 'v1.0.0',
           timestamp: 1_700_000_000,
-          commits: [{ message: '#1 refactor!: Restructure parser', group: 'Refactoring' }],
+          commits: [{ message: '#1 refactor!: Restructure parser' }],
         },
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -404,7 +439,7 @@ describe(buildChangelogEntries, () => {
         {
           version: 'v1.0.0',
           timestamp: 1_700_000_000,
-          commits: [{ message: '#1 feat!: Redesign API', group: 'Features' }],
+          commits: [{ message: '#1 feat!: Redesign API' }],
         },
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -415,17 +450,17 @@ describe(buildChangelogEntries, () => {
       expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
     });
 
-    it('sets breaking: true for a `!` commit whose type is not a configured work type', () => {
+    it('admits no `!` commit whose type is not a configured work type', () => {
       const cliffContext = [
         {
           version: 'v1.0.0',
           timestamp: 1_700_000_000,
-          commits: [{ message: '#1 chore!: Rework build', group: 'Other' }],
+          commits: [{ message: '#1 chore!: Rework build' }],
         },
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
       const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
-      expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
+      expect(entries).toStrictEqual([]);
     });
 
     it('omits breaking for a `!` commit whose type is added by `workTypes` and forbidden by `breakingPolicies`', () => {
@@ -433,7 +468,7 @@ describe(buildChangelogEntries, () => {
         {
           version: 'v1.0.0',
           timestamp: 1_700_000_000,
-          commits: [{ message: '#1 chore!: Rework build', group: 'Chores' }],
+          commits: [{ message: '#1 chore!: Rework build' }],
         },
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -455,7 +490,7 @@ describe(buildChangelogEntries, () => {
         {
           version: 'v1.0.0',
           timestamp: 1_700_000_000,
-          commits: [{ message, group: 'Features' }],
+          commits: [{ message }],
         },
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -594,7 +629,7 @@ describe(buildChangelogEntries, () => {
         {
           version: 'v1.0.0',
           timestamp: 1_700_000_000,
-          commits: [{ message, group: 'Features' }],
+          commits: [{ message }],
         },
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
@@ -656,26 +691,17 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
   });
 
   it('renders public release notes with priority-ordered sections, bodies under bullets, and no dev-only or skipped sections', () => {
-    // Group names mirror the production cliff template: emoji-prefixed, matching DEFAULT_WORK_TYPES headers.
-    const { feat, fix, refactor } = DEFAULT_WORK_TYPES;
-    const featHeader = feat?.header ?? 'Features';
-    const fixHeader = fix?.header ?? 'Bug fixes';
-    const refactorHeader = refactor?.header ?? 'Refactoring';
     const cliffContext = [
       {
         version: 'v0.17.0',
         timestamp: 1_700_000_000,
         commits: [
           // Intentionally emitted out of priority order to prove sort behavior.
-          { message: '#2 feat: Add widget API\n\nIntroduces a widget API for consumers.', group: featHeader },
-          {
-            message: '#3 refactor: Reshape internals\n\nConsolidates helper modules.',
-            group: refactorHeader,
-          },
+          { message: '#2 feat: Add widget API\n\nIntroduces a widget API for consumers.' },
+          { message: '#3 refactor: Reshape internals\n\nConsolidates helper modules.' },
           {
             message:
               '#1 fix: Fix crash on startup\n\nFixes a regression that crashed the app when the config file was missing.\n\nSigned-off-by: Author <a@example.com>',
-            group: fixHeader,
           },
         ],
       },
@@ -689,7 +715,7 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
     const entry = entries[0];
     assert(entry !== undefined);
 
-    // Template intentionally skips `fmt:` commits; confirm no Formatting section ever reaches the JSON.
+    // `fmt` is excluded from the changelog; confirm no Formatting section ever reaches the JSON.
     const sectionTitles = entry.sections.map((section) => section.title);
     expect(sectionTitles).not.toContain('Formatting');
 

@@ -8,8 +8,7 @@ export const COMMIT_PREPROCESSOR_PATTERNS: readonly RegExp[] = [/^##\s+/, /^#\d+
  *
  * Deliberately permissive: `*` is the sanctioned structural scope for changes spanning every
  * workspace, so the atom admits any run of non-pipe characters rather than word characters.
- * `cliff.toml.template` embeds the same atom in every ticketed commit parser, and
- * `cliffConfigAlignment.unit.test.ts` asserts that parity — exported so neither side can drift.
+ * Exported because `buildChangelogEntries.ts` builds its breaking-marker pattern from the same atom.
  */
 export const PIPE_SCOPE_SOURCE = '[^|]+';
 

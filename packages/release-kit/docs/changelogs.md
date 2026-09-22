@@ -51,11 +51,11 @@ The package includes a bundled `cliff.toml.template` that is used automatically 
 
 The bundled template provides a generic git-cliff configuration that:
 
-- Strips issue-ticket prefixes matching `^[A-Z]+-\d+\s+` (e.g., `TOOL-123 `, `AFG-456 `)
-- Handles both `type: description` and `workspace|type: description` commit formats
-- Groups commits by work type via `[git].commit_parsers`
+- Splits history into tag ranges matching `v[0-9].*`, which `--tag-pattern` overrides per scope
+- Emits every commit in a range, `release:` and merge commits included
+- Classifies nothing: which commits reach a changelog, and under which section, is decided by `classifyChangelogCommit` from the commit message
 
-The body template is intentionally empty: release-kit reads cliff's `--context` JSON output and renders `CHANGELOG.md` in-process via `renderChangelogMarkdown` (see [How it works](../README.md#how-it-works) for the rationale). The `[git].commit_parsers` section remains load-bearing for `--context` group assignment.
+The body template is intentionally empty: release-kit reads cliff's `--context` JSON output and renders `CHANGELOG.md` in-process via `renderChangelogMarkdown` (see [How it works](../README.md#how-it-works) for the rationale). `[git].commit_parsers` holds a single pass-through entry, and the `group` it assigns is never read.
 
 To customize, scaffold a local copy with `release-kit init --with-config` and edit `.config/git-cliff.toml`. Edit only the `[git]` section — body-template changes have no effect.
 

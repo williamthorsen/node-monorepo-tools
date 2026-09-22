@@ -43,10 +43,9 @@ export interface ChangelogItem {
 /** A grouped section within a changelog entry (e.g., "Features", "Bug fixes"). */
 export interface ChangelogSection {
   /**
-   * Section title carrying the leading emoji prefix used by `cliff.toml.template` group
-   * definitions (e.g. `"🐛 Bug fixes"`). The `<!-- NN -->` canonical-order HTML comment
-   * is stripped during transform; the emoji remains. Callers that match against `title`
-   * (e.g. `sectionOrder` configs) must include the emoji prefix.
+   * Section title, which `classifyChangelogCommit` reads from the commit's work type. A default
+   * title carries the type's emoji prefix (e.g. `"🐛 Bug fixes"`), so callers that match against
+   * `title` (e.g. `sectionOrder` configs) include that prefix.
    */
   title: string;
   audience: ChangelogAudience;
