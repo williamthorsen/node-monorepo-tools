@@ -9,7 +9,7 @@ export { WORK_TYPES_DATA } from './workTypesData.ts';
  * Compose the rendered section heading for a work-type entry as `${emoji} ${label}`.
  *
  * Single-sourced here so callers (DEFAULT_WORK_TYPES derivation, devOnlySections
- * derivation, cliff-template drift comparison) cannot disagree on the composition rule.
+ * derivation) cannot disagree on the composition rule.
  */
 export function composeHeader(entry: { emoji: string; label: string }): string {
   return `${entry.emoji} ${entry.label}`;

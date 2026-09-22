@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/williamthorsen/node-monorepo-tools/raw/main/packages/release-kit/src/work-types.schema.json",
   "title": "Work types",
-  "description": "Canonical taxonomy of commit work types used by release-kit. Drives section ordering, audience classification, and the `!` (breaking) policy. The structured single-source-of-truth for everything that previously lived in `DEFAULT_WORK_TYPES` and `cliff.toml.template` group definitions.",
+  "description": "Canonical taxonomy of commit work types used by release-kit. Drives section ordering, audience classification, and the `!` (breaking) policy. The structured single source of truth from which `DEFAULT_WORK_TYPES` derives.",
   "type": "object",
   "required": ["tiers", "types", "markers", "version"],
   "additionalProperties": false,

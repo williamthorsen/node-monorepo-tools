@@ -5,7 +5,6 @@ import { computeHash } from 'readyup/check-utils';
 import { describe, expect, it } from 'vitest';
 
 import {
-  CLIFF_TEMPLATE_HASH,
   COMMON_PRESET_HASH,
   CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO,
   CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE,
@@ -27,12 +26,6 @@ const presetsDir = join(packageDir, 'presets', 'labels');
  * On failure, update the constant in `.readyup/kits/default.ts` to the hash the error message names.
  */
 describe('rdy kit hashes match their source artifacts', () => {
-  it('CLIFF_TEMPLATE_HASH matches cliff.toml.template', () => {
-    const actualHash = computeHash(readFileSync(join(packageDir, 'cliff.toml.template'), 'utf8'));
-
-    expect(actualHash, `CLIFF_TEMPLATE_HASH is stale -- update it to: ${actualHash}`).toBe(CLIFF_TEMPLATE_HASH);
-  });
-
   it('COMMON_PRESET_HASH matches presets/labels/common.yaml', () => {
     const actualHash = computeHash(readFileSync(join(presetsDir, 'common.yaml'), 'utf8'));
 

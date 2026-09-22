@@ -3,22 +3,24 @@ import { createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolb
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { runGitCliff } from '../runGitCliff.ts';
+import { enumerateReleaseWindows } from '../enumerateReleaseWindows.ts';
+import type { GenerateChangelogOptions } from '../generateChangelogs.ts';
+import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import { emptyWorkspace, resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
 import type { ChangelogEntry } from '../types.ts';
 import { formatValidateOverridesResult, validateOverridesCommand } from '../validateOverridesCommand.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
-// Stub `runGitCliff` so the near-integration block can exercise the real
+// Stub `enumerateReleaseWindows` so the near-integration block can exercise the real
 // `validateOverridesCommand → buildChangelogEntries → validateAllChangelogOverrides` pipeline
-// without requiring git-cliff on PATH. Other tests in this file inject `buildEntries` directly,
+// without reading git history. Other tests in this file inject `buildEntries` directly,
 // so they never reach the stubbed call site.
-vi.mock(import('../runGitCliff.ts'), () => ({
-  runGitCliff: vi.fn(() => '[]'),
+vi.mock(import('../enumerateReleaseWindows.ts'), () => ({
+  enumerateReleaseWindows: vi.fn(() => []),
 }));
 
-const mockedRunGitCliff = vi.mocked(runGitCliff);
+const mockedEnumerateReleaseWindows = vi.mocked(enumerateReleaseWindows);
 
 /**
  * Wrap a flat list of hashes into the minimal `ChangelogEntry[]` shape that the production
@@ -377,42 +379,41 @@ describe(validateOverridesCommand, () => {
     });
   });
 
-  describe('near-integration: full pipeline with mocked runGitCliff', () => {
+  describe('near-integration: full pipeline with mocked release windows', () => {
     let tree: TempTree;
 
     beforeEach(() => {
       tree = disposeOnTestFinished(createTempTree({}, { prefix: 'validate-overrides-int-' }));
       disposeOnTestFinished(pointCwdAt(tree.dir, { chdir: true }));
-      mockedRunGitCliff.mockReset();
-      mockedRunGitCliff.mockReturnValue('[]');
+      mockedEnumerateReleaseWindows.mockReset();
+      mockedEnumerateReleaseWindows.mockReturnValue([]);
     });
 
-    it('exercises real validateOverridesCommand → buildChangelogEntries → validator with a multi-release cliff context (#398)', async () => {
-      // Canned `git-cliff --context` output simulating two releases plus the unreleased range.
+    it('exercises real validateOverridesCommand → buildChangelogEntries → validator over multiple release windows (#398)', async () => {
+      // Canned windows simulating two releases plus the unreleased range, newest first.
       // The past-release commit `aabbcc12…` is what regressed prior to the fix: the narrow
       // `git log <latestTag>..HEAD` universe excluded it, causing a false-positive stale warning.
       // Each subject carries a ticket prefix, which `classifyChangelogCommit` requires.
       const pastHash = 'aabbcc1234567890aabbcc1234567890aabbcc12';
       const currentHash = 'ddeeff5678901234ddeeff5678901234ddeeff56';
       const unreleasedHash = '9988aabbccddeeff9988aabbccddeeff9988aabb';
-      mockedRunGitCliff.mockReturnValue(
-        JSON.stringify([
-          {
-            version: 'v1.0.0',
-            timestamp: 1_700_000_000,
-            commits: [{ id: pastHash, message: '#1 feat: past feature' }],
-          },
-          {
-            version: 'v2.0.0',
-            timestamp: 1_710_000_000,
-            commits: [{ id: currentHash, message: '#2 feat: current feature' }],
-          },
-          {
-            version: 'validate-only',
-            commits: [{ id: unreleasedHash, message: '#3 feat: unreleased feature' }],
-          },
-        ]),
-      );
+      mockedEnumerateReleaseWindows.mockReturnValue([
+        {
+          version: 'validate-only',
+          timestamp: 1_720_000_000,
+          commits: makeStubbedCommits([['#3 feat: unreleased feature', unreleasedHash]]),
+        },
+        {
+          version: 'v2.0.0',
+          timestamp: 1_710_000_000,
+          commits: makeStubbedCommits([['#2 feat: current feature', currentHash]]),
+        },
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: makeStubbedCommits([['#1 feat: past feature', pastHash]]),
+        },
+      ]);
 
       tree.writeJson('.meta/changelog-overrides.json', {
         aabbcc12: { audience: 'skip' }, // past-release commit — must NOT be stale
@@ -430,14 +431,17 @@ describe(validateOverridesCommand, () => {
       // The genuinely-orphaned key must still be flagged.
       expect(result.message).toContain('deadbeef');
       expect(result.exitCode).toBe(1);
-      // Confirm the production code path actually invoked cliff (proves the pipeline ran).
-      expect(mockedRunGitCliff).toHaveBeenCalled();
+      // The single-package scope reads the configured tag prefix over all paths.
+      expect(mockedEnumerateReleaseWindows).toHaveBeenCalledWith({
+        tagPrefixes: ['v'],
+        unreleasedTag: 'validate-only',
+      });
     });
   });
 
   // Monorepo wiring: pin the per-workspace and project-tier `buildEntries` arguments so a
   // future refactor that drops legacy identities, narrows the project path-union, or otherwise
-  // diverges from `releasePrepareMono.ts:722-723` / `releasePrepareProject.ts:262-266` fails
+  // diverges from `buildWorkspaceEntries` / `planProjectChangelogs` in the prepare path fails
   // here rather than silently producing wrong stale-key reports.
   describe('buildMonorepoInputs (monorepo wiring)', () => {
     let tree: TempTree;
@@ -455,8 +459,8 @@ describe(validateOverridesCommand, () => {
       disposeOnTestFinished(pointCwdAt(tree.dir, { chdir: true }));
     });
 
-    it('passes per-workspace tagPattern (with legacy identities) and project-tier tagPattern with the union of workspace paths', async () => {
-      const calls: { tagPattern: string | undefined; includePaths: readonly string[] | undefined }[] = [];
+    it('passes per-workspace tag prefixes (with legacy identities) and the project tier prefix with the union of workspace paths', async () => {
+      const calls: GenerateChangelogOptions[] = [];
 
       await validateOverridesCommand(RICH_STYLES, undefined, {
         discoverWorkspaces: () => resolvedPackages(['packages/foo', 'packages/bar']),
@@ -470,8 +474,8 @@ describe(validateOverridesCommand, () => {
               project: { tagPrefix: 'mono-v' },
             },
           }),
-        buildEntries: (_config, tagPattern, includePaths) => {
-          calls.push({ tagPattern, includePaths });
+        buildEntries: (_config, options) => {
+          calls.push(options);
           return [];
         },
         validate: () => ({ errors: [], warnings: [] }),
@@ -480,27 +484,27 @@ describe(validateOverridesCommand, () => {
       // Three invocations: foo workspace, bar workspace, project-tier.
       expect(calls).toHaveLength(3);
 
-      // foo: workspace tagPattern is the union of derived + legacy prefixes; includePaths is the workspace glob.
+      // foo: the union of derived + legacy prefixes, over the workspace glob.
       expect(calls[0]).toStrictEqual({
-        tagPattern: '(foo-v|old-foo-v)[0-9].*',
-        includePaths: ['packages/foo/**'],
+        tagPrefixes: ['foo-v', 'old-foo-v'],
+        paths: ['packages/foo/**'],
       });
 
-      // bar: single derived prefix (no legacy identities); includePaths is its workspace glob.
+      // bar: single derived prefix (no legacy identities), over its workspace glob.
       expect(calls[1]).toStrictEqual({
-        tagPattern: 'bar-v[0-9].*',
-        includePaths: ['packages/bar/**'],
+        tagPrefixes: ['bar-v'],
+        paths: ['packages/bar/**'],
       });
 
-      // Project tier: project tagPattern; includePaths defaults to the union of workspace globs.
+      // Project tier: the project prefix; paths default to the union of workspace globs.
       expect(calls[2]).toStrictEqual({
-        tagPattern: 'mono-v[0-9].*',
-        includePaths: ['packages/foo/**', 'packages/bar/**'],
+        tagPrefixes: ['mono-v'],
+        paths: ['packages/foo/**', 'packages/bar/**'],
       });
     });
 
     it('scopes the project tier to a declared project.paths', async () => {
-      const calls: { tagPattern: string | undefined; includePaths: readonly string[] | undefined }[] = [];
+      const calls: GenerateChangelogOptions[] = [];
 
       await validateOverridesCommand(RICH_STYLES, undefined, {
         discoverWorkspaces: () => resolvedPackages(['packages/foo', 'packages/bar']),
@@ -511,16 +515,16 @@ describe(validateOverridesCommand, () => {
             warnings: [],
             config: { project: { paths: ['**'], tagPrefix: 'mono-v' } },
           }),
-        buildEntries: (_config, tagPattern, includePaths) => {
-          calls.push({ tagPattern, includePaths });
+        buildEntries: (_config, options) => {
+          calls.push(options);
           return [];
         },
         validate: () => ({ errors: [], warnings: [] }),
       });
 
       expect(calls[2]).toStrictEqual({
-        tagPattern: 'mono-v[0-9].*',
-        includePaths: ['**'],
+        tagPrefixes: ['mono-v'],
+        paths: ['**'],
       });
     });
   });

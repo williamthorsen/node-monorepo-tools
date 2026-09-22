@@ -66,6 +66,13 @@ function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecation
   const errors: string[] = [];
   const cleaned: Record<string, unknown> = { ...raw };
 
+  if (Object.hasOwn(cleaned, 'cliffConfigPath')) {
+    errors.push(
+      'cliffConfigPath is no longer supported. release-kit reads changelog history from git directly and uses no external config file. Remove this field from your config, and delete the file it names.',
+    );
+    delete cleaned['cliffConfigPath'];
+  }
+
   if (isRecord(cleaned['releaseNotes']) && Object.hasOwn(cleaned['releaseNotes'], 'shouldCreateGithubRelease')) {
     errors.push(
       'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow, which `release-kit init` scaffolds. Remove this field from your config.',

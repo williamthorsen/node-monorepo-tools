@@ -19,7 +19,7 @@ When configured, each `release-kit prepare` run additionally:
 
 - Computes commits since the last project tag (`<tagPrefix><version>`), filtered to `paths` (by default, the union of every contributing workspace's paths).
 - Bumps the root `package.json`'s `version` field using the same bump-derivation rules as workspaces (or the `--bump=...` override).
-- Regenerates the root `./CHANGELOG.md` from the structured `ChangelogEntry[]` produced by `git-cliff --context` (scoped to the project's `tagPrefix` and the same `paths`) and any matching editorial overrides.
+- Regenerates the root `./CHANGELOG.md` from the structured `ChangelogEntry[]` built from the project's release history (scoped to the project's `tagPrefix` and the same `paths`) and any matching editorial overrides.
 - Emits `./.meta/changelog.json` (when `changelogJson.enabled`).
 - With `--with-release-notes`, additionally emits `./docs/RELEASE_NOTES.v<version>.md`.
 - Appends the project tag to `tmp/.release-tags` so `release-kit commit` and `release-kit tag` pick it up alongside per-workspace tags.
@@ -42,7 +42,7 @@ interface ProjectConfig {
 
 By default the contributing workspaces are implicit: every non-excluded discovered workspace contributes its `<dir>/**` glob, and the project release considers commits under their union.
 
-Declare `paths` to choose the window yourself. Each entry reaches two matchers: `git log` as a pathspec, and `git-cliff --include-path` as a glob. A declared value **replaces** the workspace union rather than extending it: `paths: ['docs/**']` drops every workspace commit from the project release.
+Declare `paths` to choose the window yourself. Each entry is a git pathspec, which both the bump and the changelog read. A declared value **replaces** the workspace union rather than extending it: `paths: ['docs/**']` drops every workspace commit from the project release.
 
 A repo whose content lives at the root — where no commit matches any `<dir>/**` glob, so the project release would skip every run — declares the whole tree:
 
@@ -54,13 +54,13 @@ const config: ReleaseKitConfig = {
 
 `'**'` is the whole-tree pattern, matching root-level files, dotfiles, and nested paths alike.
 
-Terminate a directory scope with `/**`. The two matchers agree on `'aws/**'` but diverge on a bare `'aws'`, which git reads as the whole subtree and git-cliff matches against nothing; `'.'` is the same trap for the repo root. A release under such an entry finds commits, bumps the version, and writes the tag, while its changelog gains no entry for them — and nothing reports an error.
+A bare directory such as `'aws'` selects its whole subtree, as `'aws/**'` does.
 
 Validation rules:
 
 - The root `package.json` must exist and declare a `version` field. release-kit reports an error at config-load time if either is missing.
 - The `project` block is rejected in single-package mode (the package's own release already covers the whole repo, so a project tier would only duplicate it).
-- `paths`, when declared, must hold at least one non-empty string. An empty array is rejected: it reaches git and git-cliff as no filter at all, which is the inverse of how it reads.
+- `paths`, when declared, must hold at least one non-empty string. An empty array is rejected: it reaches git as no filter at all, which is the inverse of how it reads.
 - Unknown fields inside `project` are rejected.
 
 CLI flag interactions:

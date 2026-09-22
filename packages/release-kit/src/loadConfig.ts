@@ -117,7 +117,7 @@ export interface RootPackageInfo {
  *   removes the workspace; unlisted packages keep defaults.
  * - `workTypes`: shallow merge — consumer entries override or add to defaults by key.
  * - `versionPatterns`: consumer value replaces defaults entirely.
- * - `formatCommand`, `cliffConfigPath`, `scopeAliases`: consumer value wins.
+ * - `formatCommand`, `scopeAliases`: consumer value wins.
  * - `project`: present iff `userConfig.project` is declared. Resolves `tagPrefix` to
  *   `DEFAULT_PROJECT_TAG_PREFIX` and `paths` to the union of the retained workspaces' `paths`
  *   when omitted. Requires `rootPackage` to be passed and to contain a valid `version` field;
@@ -173,8 +173,8 @@ export function mergeMonorepoConfig(
 
   // Run the strict-prefix collision check across the union of every active, legacy, retired,
   // and (when configured) project tag prefix. Catches both the existing equality case and the
-  // new strict-prefix-of-other case (`v` vs `vue-helpers-v`). Rejecting at load time prevents
-  // `buildTagPattern`'s `<prefix>[0-9].*` from matching the wrong owner's tags.
+  // new strict-prefix-of-other case (`v` vs `v11y-check-v`). Rejecting at load time prevents
+  // a prefix followed by a digit from matching the wrong owner's tags.
   assertNoTagPrefixCollisions(workspaces, userConfig?.retiredPackages, project);
 
   const result: MonorepoReleaseConfig = {
@@ -195,19 +195,18 @@ export function mergeMonorepoConfig(
 }
 
 /**
- * Copy optional pass-through fields (`formatCommand`, `cliffConfigPath`, `scopeAliases`,
- * `breakingPolicies`) from `userConfig` onto `result`, omitting any that are absent.
+ * Copy optional pass-through fields (`formatCommand`, `scopeAliases`, `breakingPolicies`) from
+ * `userConfig` onto `result`, omitting any that are absent.
  *
  * Extracted from both `mergeMonorepoConfig` and `mergeSinglePackageConfig` to keep their
  * cyclomatic complexity below the project ceiling — each conditional spread contributes a
- * branch to the host's complexity, and inlining all four tipped both functions over.
+ * branch to the host's complexity, and inlining them all tips both functions over.
  * Object-typed fields (`scopeAliases`, `breakingPolicies`) are stored by reference, matching
  * how `scopeAliases` is handled elsewhere in this module.
  */
 function applyOptionalPassthroughFields(
   result: {
     formatCommand?: string;
-    cliffConfigPath?: string;
     scopeAliases?: Record<string, string>;
     breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
   },
@@ -215,9 +214,6 @@ function applyOptionalPassthroughFields(
 ): void {
   if (userConfig?.formatCommand !== undefined) {
     result.formatCommand = userConfig.formatCommand;
-  }
-  if (userConfig?.cliffConfigPath !== undefined) {
-    result.cliffConfigPath = userConfig.cliffConfigPath;
   }
   if (userConfig?.scopeAliases !== undefined) {
     result.scopeAliases = userConfig.scopeAliases;
@@ -381,9 +377,9 @@ function resolveProjectConfig(
  * Throw when any pair of declared tag prefixes from distinct owners is identical or one is a
  * strict prefix of the other.
  *
- * The strict-prefix rule extends the equality check to catch pattern-overlap cases: the
- * unanchored `<prefix>[0-9].*` that `buildTagPattern` hands git-cliff matches a tag under
- * either prefix, so a project prefix `'v'` silently matches `'vue-helpers-v1.0.0'`.
+ * The strict-prefix rule extends the equality check to catch pattern-overlap cases: a tag
+ * matches a prefix when its name continues with a digit after it, so a project prefix `'v'`
+ * silently matches `'v11y-check-v1.0.0'`.
  * Operates over the union of: every workspace's derived prefix, every workspace's declared
  * `legacyIdentities[].tagPrefix`, every `retiredPackages[].tagPrefix`, and (when configured)
  * the project's resolved `tagPrefix`. Within a single workspace, prefix overlap between the
@@ -441,7 +437,7 @@ function assertNoTagPrefixCollisions(
         throw new Error(
           `Tag prefix collision: '${a.prefix}' (${a.label}) and '${b.prefix}' (${b.label}). ` +
             'One prefix is identical to or a strict prefix of the other; ' +
-            'this would cause the changelog tag pattern `<prefix>[0-9].*` to return cross-matches.',
+            'a tag under the longer prefix can then match the shorter one, whose releases would absorb it.',
         );
       }
     }

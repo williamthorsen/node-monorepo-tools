@@ -114,7 +114,6 @@ var CONFIG_EXPORT_PATTERNS = [
   /export\s*\{[^}]*\b(?:config|default)\b[^}]*\}/,
   /export\s*\*/
 ];
-var CLIFF_TEMPLATE_HASH = "e24177556c1b1bf0f60d9e0cd046cd776e872414960ef1f45d59f23e4e18bc65";
 var COMMON_PRESET_HASH = "8c52654d4eee216c22377dd1e65b89f6bbb0a3478d74379bd28b04a877f0b02a";
 var SYNC_LABELS_WORKFLOW_HASH = "d6e2403fb551d2d415f679125989c92760444eec887644565b2e05c9bf8f4c1e";
 var RELEASE_WORKFLOW_HASH_MONOREPO = "0a9724b7b3c5e24087fd3a8f36fed8e990d699267fcf36028ce048ab40dc2946";
@@ -297,25 +296,11 @@ var default_default = defineRdyKit({
           fix: "Remove 'shouldCreateGithubRelease' from .config/release-kit.config.ts. Adoption of GitHub Releases is now signaled by installing the create-github-release workflow, which `release-kit init` scaffolds."
         },
         {
-          name: "git-cliff not in devDependencies",
-          severity: "recommend",
-          quiet: true,
-          check: () => !hasDevDependency("git-cliff"),
-          fix: "pnpm remove git-cliff \u2014 release-kit handles changelog generation directly"
-        },
-        {
           name: "@changesets/cli not in devDependencies",
           severity: "recommend",
           quiet: true,
           check: () => !hasDevDependency("@changesets/cli"),
           fix: "pnpm remove @changesets/cli, then delete .changeset/ and any changeset:* scripts; release-kit supersedes changesets"
-        },
-        {
-          name: ".config/git-cliff.toml matches current template",
-          severity: "warn",
-          skip: () => !fileExists(".config/git-cliff.toml") ? "no local cliff config (using fallback)" : false,
-          check: () => fileMatchesHash(".config/git-cliff.toml", CLIFF_TEMPLATE_HASH),
-          fix: "Update .config/git-cliff.toml to match the current cliff.toml.template from release-kit, or delete it to use the bundled fallback"
         },
         {
           name: "sync-labels.yaml workflow exists",
@@ -425,7 +410,6 @@ function resolveChangelogJsonOutputPath() {
   return match?.[1] ?? DEFAULT_CHANGELOG_JSON_PATH;
 }
 export {
-  CLIFF_TEMPLATE_HASH,
   COMMON_PRESET_HASH,
   CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO,
   CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE,

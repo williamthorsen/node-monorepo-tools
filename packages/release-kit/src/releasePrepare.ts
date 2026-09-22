@@ -74,7 +74,7 @@ export interface ReleasePrepareOptions {
  * 1. Gets commits since the last tag.
  * 2. Determines the bump type from commits (or uses the override).
  * 3. Bumps all configured package.json version fields.
- * 4. Generates changelogs via git-cliff.
+ * 4. Generates changelogs from the release windows.
  * 5. Runs the optional format command.
  *
  * Returns a structured `PrepareResult` with all data needed for presentation.
@@ -148,8 +148,8 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
 
   // 4/4b. Generate the CHANGELOG.md files and (optionally) changelog.json. When the release
   // proceeds with zero qualifying commits since the last tag (`--force`, `--bump=X`, or
-  // `--set-version` with no new commits), the routing helper bypasses git-cliff in favor
-  // of the synthetic "Forced version bump." entry — issue #369.
+  // `--set-version` with no new commits), the routing helper writes the synthetic
+  // "Forced version bump." entry in place of the release windows.
   const planWarnings: string[] = [];
   const changelogs = planSinglePackageChangelogs({
     config,
@@ -328,7 +328,7 @@ interface PlanSinglePackageChangelogsArgs {
 }
 
 /**
- * Single-package changelog planner. Builds entries (via cliff or synthetic empty-range), applies
+ * Single-package changelog planner. Builds entries (from release windows or synthetic empty-range), applies
  * editorial overrides, and renders both `changelog.json` and `CHANGELOG.md` from the merged set
  * so the two artifacts reflect the same post-override view.
  *
@@ -349,7 +349,7 @@ function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
 
   const baseEntries = isEmptyRange
     ? [buildEmptyReleaseEntry(newVersion, today)]
-    : buildChangelogEntries(config, newTag);
+    : buildChangelogEntries(config, newTag, { tagPrefixes: [config.tagPrefix] });
   const applied = applyChangelogOverrides(baseEntries, overrides);
   if (applied.errors.length > 0) {
     throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);

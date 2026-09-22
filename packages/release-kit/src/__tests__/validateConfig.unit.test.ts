@@ -483,10 +483,11 @@ describe(validateConfig, () => {
       expectErrorAtPath(errors, 'formatCommand');
     });
 
-    it('validates cliffConfigPath as a string', () => {
-      const { config, errors } = validateConfig({ cliffConfigPath: 'custom/cliff.toml' });
-      expect(errors).toStrictEqual([]);
-      expect(config.cliffConfigPath).toBe('custom/cliff.toml');
+    it('returns a targeted migration error when cliffConfigPath is set', () => {
+      const { errors } = validateConfig({ cliffConfigPath: 'custom/changelog.toml' });
+      expect(errors).toStrictEqual([
+        'cliffConfigPath is no longer supported. release-kit reads changelog history from git directly and uses no external config file. Remove this field from your config, and delete the file it names.',
+      ]);
     });
 
     it('validates scopeAliases as a string record', () => {

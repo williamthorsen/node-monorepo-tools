@@ -18,7 +18,7 @@ import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { decideRelease } from './decideRelease.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
-import { buildTagPattern, getAllTagPrefixes } from './generateChangelogs.ts';
+import { getAllTagPrefixes } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
@@ -597,8 +597,8 @@ interface GenerateWorkspaceChangelogsArgs {
   /**
    * True when this workspace has a direct release with zero qualifying commits since the
    * last tag (e.g., `--force`-bumped, `--bump=X`, or `--set-version` with no new commits).
-   * Routes to the synthetic empty-range path instead of git-cliff so consumers do not see
-   * `WARN  git_cliff > There is already a tag` lines (issue #369).
+   * Routes to the synthetic empty-range path, since the workspace's newest window holds no commit
+   * from which to build an entry.
    */
   isEmptyRange: boolean;
   config: MonorepoReleaseConfig;
@@ -613,7 +613,7 @@ interface GenerateWorkspaceChangelogsArgs {
 
 /**
  * Plan a workspace's changelog artifacts by routing to one of three branches to build the new
- * entries (propagation-only synthetic, empty-range synthetic, or git-cliff), applying editorial
+ * entries (propagation-only synthetic, empty-range synthetic, or release windows), applying editorial
  * overrides, merging with the JSON on disk, and rendering both `changelog.json` and
  * `CHANGELOG.md` from the merged set so the two reflect the same post-override view.
  */
@@ -694,7 +694,7 @@ interface BuildWorkspaceEntriesArgs {
  * Build the new `ChangelogEntry[]` for a workspace from one of three sources:
  * 1. Propagation-only: a single synthetic "Dependency updates" entry.
  * 2. Empty-range: a single synthetic "Forced version bump." entry.
- * 3. Direct bump with commits: git-cliff `--context` output.
+ * 3. Direct bump with commits: the workspace's release windows.
  *
  * Returns the entries that will be merged into the on-disk JSON and rendered.
  */
@@ -709,8 +709,7 @@ function buildWorkspaceEntries(args: BuildWorkspaceEntriesArgs): ChangelogEntry[
     return [buildEmptyReleaseEntry(newVersion, today)];
   }
 
-  const tagPattern = buildTagPattern(getAllTagPrefixes(workspace));
-  return buildChangelogEntries(config, newTag, { tagPattern, includePaths: workspace.paths });
+  return buildChangelogEntries(config, newTag, { tagPrefixes: getAllTagPrefixes(workspace), paths: workspace.paths });
 }
 
 /**

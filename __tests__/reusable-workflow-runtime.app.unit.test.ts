@@ -69,7 +69,7 @@ describe('release.reusable.yaml keeps actions/setup-node', () => {
   it('retains the step that supplies npm and npx', () => {
     expect(
       readWorkflow('release'),
-      '`release-kit prepare` spawns `npx git-cliff` and `npx prettier`, and the consumer path runs `npm install --global`',
+      '`release-kit prepare` spawns `npx prettier`, and the consumer path runs `npm install --global`',
     ).toMatch(/uses:\s*actions\/setup-node@/);
   });
 });

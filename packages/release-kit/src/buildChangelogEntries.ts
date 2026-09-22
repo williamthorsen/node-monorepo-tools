@@ -3,13 +3,11 @@ import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 import { extractVersion } from './changelogJsonUtils.ts';
 import { classifyChangelogCommit } from './classifyChangelogCommit.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from './defaults.ts';
+import { enumerateReleaseWindows, type RawCommit, type ReleaseWindow } from './enumerateReleaseWindows.ts';
 import { extractMigration } from './extractMigration.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
 import { COMMIT_PREPROCESSOR_PATTERNS, parseCommitMessage, PIPE_SCOPE_SOURCE } from './parseCommitMessage.ts';
-import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
-import { runGitCliff } from './runGitCliff.ts';
 import { stripEmojiPrefix } from './stripEmojiPrefix.ts';
-import { isRecord, isUnknownArray } from './typeGuards.ts';
 import type { ChangelogEntry, ChangelogItem, ChangelogSection, ReleaseConfig } from './types.ts';
 
 /**
@@ -47,116 +45,43 @@ export function stripGroupDecorations(group: string): string {
 }
 
 /**
- * Shape of a single commit in git-cliff's `--context` JSON output.
+ * Builds structured changelog entries from the release windows of git history.
  *
- * The `group` that cliff's pass-through parser assigns is deliberately absent:
- * `classifyChangelogCommit` derives the section from the commit message instead.
- */
-interface CliffContextCommit {
-  message: string;
-  /** Full commit SHA when present; git-cliff emits it as `id`. */
-  id?: string;
-}
-
-/** Shape of a single release in git-cliff's `--context` JSON output. */
-interface CliffContextRelease {
-  version?: string;
-  timestamp?: number;
-  commits?: CliffContextCommit[];
-}
-
-/**
- * Build structured changelog entries from git history using git-cliff `--context`.
+ * Pure data: reads the windows from `enumerateReleaseWindows`, the reader that the bump path also
+ * uses, and returns the transformed `ChangelogEntry[]`. Performs no `changelog.json` I/O; callers
+ * persist the entries via `renderChangelogJson`.
  *
- * Pure data: invokes git-cliff, parses its `--context` output, and returns the transformed
- * `ChangelogEntry[]`. Performs no `changelog.json` I/O — callers persist the entries via
- * `renderChangelogJson`.
- *
- * Always invokes git-cliff: dry-run is the caller's concern (it governs whether the file write happens,
- * not whether git-cliff runs). This means dry-run exercises the full git-cliff toolchain and surfaces missing-binary,
- * malformed-config, and template-resolution failures earlier than before.
+ * `tag` names the unreleased window, which holds the commits that no matching tag contains.
  */
 export function buildChangelogEntries(
-  config: Pick<ReleaseConfig, 'breakingPolicies' | 'changelogJson' | 'cliffConfigPath' | 'workTypes'>,
+  config: Pick<ReleaseConfig, 'breakingPolicies' | 'changelogJson' | 'workTypes'>,
   tag: string,
-  options?: GenerateChangelogOptions,
+  options: GenerateChangelogOptions,
 ): ChangelogEntry[] {
-  const resolvedConfigPath = resolveCliffConfigPath(config.cliffConfigPath, import.meta.url);
-
-  const cliffArgs = ['--context', '--tag', tag];
-
-  if (options?.tagPattern !== undefined) {
-    cliffArgs.push('--tag-pattern', options.tagPattern);
-  }
-
-  const includePaths = options?.includePaths ?? [];
-  for (const includePath of includePaths) {
-    cliffArgs.push('--include-path', includePath);
-  }
-
   try {
-    const contextJson = runGitCliff(resolvedConfigPath, cliffArgs);
-
-    const releases = parseCliffContext(contextJson);
+    const windows = enumerateReleaseWindows({
+      ...(options.paths !== undefined && { paths: options.paths }),
+      tagPrefixes: options.tagPrefixes,
+      unreleasedTag: tag,
+    });
     const devOnlySections = new Set(config.changelogJson.devOnlySections);
     const workTypes = config.workTypes ?? DEFAULT_WORK_TYPES;
     const breakingPolicies = config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES;
-    return transformReleases(releases, devOnlySections, workTypes, breakingPolicies);
+    return transformReleases(windows, devOnlySections, workTypes, breakingPolicies);
   } catch (error: unknown) {
     throw chainError(`Failed to build changelog entries for tag ${tag}`, error);
   }
 }
 
-/** Parse the JSON output from `git-cliff --context`. */
-function parseCliffContext(json: string): CliffContextRelease[] {
-  const parsed: unknown = JSON.parse(json);
-  if (!isUnknownArray(parsed)) {
-    throw new TypeError('Expected git-cliff --context output to be an array');
-  }
-  return parsed.map(toCliffContextRelease);
-}
-
-/** Narrow an unknown value to a `CliffContextRelease`, treating non-object entries as empty releases. */
-function toCliffContextRelease(value: unknown): CliffContextRelease {
-  if (!isRecord(value)) {
-    return {};
-  }
-  const release: CliffContextRelease = {};
-  if (typeof value['version'] === 'string') {
-    release.version = value['version'];
-  }
-  if (typeof value['timestamp'] === 'number') {
-    release.timestamp = value['timestamp'];
-  }
-  if (isUnknownArray(value['commits'])) {
-    release.commits = value['commits'].map(toCliffContextCommit);
-  }
-  return release;
-}
-
-/** Narrow an unknown value to a `CliffContextCommit`. */
-function toCliffContextCommit(value: unknown): CliffContextCommit {
-  if (!isRecord(value)) {
-    return { message: '' };
-  }
-  const commit: CliffContextCommit = {
-    message: typeof value['message'] === 'string' ? value['message'] : '',
-  };
-  if (typeof value['id'] === 'string') {
-    commit.id = value['id'];
-  }
-  return commit;
-}
-
 /**
- * Transform git-cliff context releases into `ChangelogEntry[]`.
+ * Transforms release windows into `ChangelogEntry[]`.
  *
- * Cliff emits every commit in the range, so `classifyChangelogCommit` decides which of them reach a
+ * A window holds every commit in its range, so `classifyChangelogCommit` decides which of them reach a
  * changelog and under which section header. A commit it rejects contributes nothing, and a release
  * left with no section contributes no entry.
  */
 function transformReleases(
-  releases: CliffContextRelease[],
+  releases: readonly ReleaseWindow[],
   devOnlySections: Set<string>,
   workTypes: NonNullable<ReleaseConfig['workTypes']>,
   breakingPolicies: NonNullable<ReleaseConfig['breakingPolicies']>,
@@ -167,18 +92,12 @@ function transformReleases(
   const devOnlyNormalised = new Set([...devOnlySections].map(stripGroupDecorations));
 
   for (const release of releases) {
-    if (release.version === undefined) {
-      continue;
-    }
-
     const version = extractVersion(release.version);
-    const date =
-      release.timestamp !== undefined ? new Date(release.timestamp * 1_000).toISOString().slice(0, 10) : 'unreleased';
+    const date = new Date(release.timestamp * 1_000).toISOString().slice(0, 10);
 
     const sectionMap = new Map<string, ChangelogItem[]>();
 
-    const commits = release.commits ?? [];
-    for (const commit of commits) {
+    for (const commit of release.commits) {
       const group = classifyChangelogCommit(commit.message, workTypes);
       if (group === undefined) {
         continue;
@@ -205,9 +124,7 @@ function transformReleases(
       if (migration !== undefined) {
         item.migration = migration;
       }
-      if (commit.id !== undefined && commit.id !== '') {
-        item.hash = commit.id;
-      }
+      item.hash = commit.hash;
       items.push(item);
     }
 
@@ -246,14 +163,14 @@ function transformReleases(
  * `workTypes`; the parse here therefore succeeds, and the `?? true` satisfies the parser's nullable return.
  */
 function isBreakingUnderPolicy(
-  commit: CliffContextCommit,
+  commit: RawCommit,
   workTypes: NonNullable<ReleaseConfig['workTypes']>,
   breakingPolicies: NonNullable<ReleaseConfig['breakingPolicies']>,
 ): boolean {
   if (!subjectHasBreakingMarker(commit.message)) {
     return false;
   }
-  const parsed = parseCommitMessage(commit.message, commit.id ?? '', workTypes, undefined, { breakingPolicies });
+  const parsed = parseCommitMessage(commit.message, commit.hash, workTypes, undefined, { breakingPolicies });
   return parsed?.breaking ?? true;
 }
 

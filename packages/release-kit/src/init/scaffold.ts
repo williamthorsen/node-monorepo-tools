@@ -1,8 +1,4 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
-import { findPackageRoot, writeFileWithCheck, type WriteResult } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors';
+import { writeFileWithCheck, type WriteResult } from '@williamthorsen/nmr-core';
 
 import type { RepoType } from './detectRepoType.ts';
 import { createGithubReleaseWorkflow, publishWorkflow, releaseConfigScript, releaseWorkflow } from './templates.ts';
@@ -12,33 +8,6 @@ interface ScaffoldOptions {
   dryRun: boolean;
   overwrite: boolean;
   withConfig: boolean;
-}
-
-/** Copy the bundled cliff.toml.template to `.config/git-cliff.toml` in the target repo. */
-export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): WriteResult {
-  const destPath = '.config/git-cliff.toml';
-  let root: string;
-  try {
-    root = findPackageRoot(import.meta.url);
-  } catch (error: unknown) {
-    const message = describeError(error);
-    return { filePath: destPath, outcome: 'failed', error: `Failed to resolve package root: ${message}` };
-  }
-  const templatePath = resolve(root, 'cliff.toml.template');
-
-  let content: string;
-  try {
-    content = readFileSync(templatePath, 'utf8');
-  } catch (error: unknown) {
-    const message = describeError(error);
-    return {
-      filePath: destPath,
-      outcome: 'failed',
-      error: `Failed to read bundled template at ${templatePath}: ${message}`,
-    };
-  }
-
-  return writeFileWithCheck(destPath, content, { dryRun, overwrite });
 }
 
 /** Scaffold release-kit files for the target repo. Returns a result for each file attempted. */
@@ -55,7 +24,6 @@ export function scaffoldFiles({ repoType, dryRun, overwrite, withConfig }: Scaff
   if (withConfig) {
     results.push(
       writeFileWithCheck('.config/release-kit.config.ts', releaseConfigScript(repoType), { dryRun, overwrite }),
-      copyCliffTemplate(dryRun, overwrite),
     );
   }
 

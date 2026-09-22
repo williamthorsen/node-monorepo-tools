@@ -9,7 +9,6 @@ import {
 
 import { bold, dim, sectionHeader } from './format.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
-import { GIT_CLIFF_NPX_ARGS } from './runGitCliff.ts';
 import type {
   PolicyViolation,
   PrepareResult,
@@ -19,9 +18,6 @@ import type {
   ReleasedWorkspaceResult,
   WorkspacePrepareResult,
 } from './types.ts';
-
-/** The npx invocation a dry run reports for each changelog file; the `...` stands for the args `runGitCliff` derives. */
-const CLIFF_DRY_RUN_COMMAND = `npx ${GIT_CLIFF_NPX_ARGS.join(' ')} ...`;
 
 /** The rendered width a commit subject is cut to, wherever the report prints one. */
 const SUBJECT_COLUMN_BUDGET = 72;
@@ -234,7 +230,7 @@ function formatProjectSection(
   lines.push(dim('  Generating changelogs...'));
   for (const file of project.changelogFiles) {
     if (dryRun) {
-      lines.push(dim(`    [dry-run] Would run: ${CLIFF_DRY_RUN_COMMAND} --output ${file}`));
+      lines.push(dim(`    [dry-run] Would generate changelog: ${file}`));
     } else {
       lines.push(dim(`    Generating changelog: ${file}`));
     }
@@ -365,7 +361,7 @@ function formatBumpFiles(lines: string[], workspace: ReleasedWorkspaceResult, dr
 function formatChangelogFiles(lines: string[], workspace: ReleasedWorkspaceResult, dryRun: boolean, indent = ''): void {
   for (const file of workspace.changelogFiles) {
     if (dryRun) {
-      lines.push(dim(`${indent}  [dry-run] Would run: ${CLIFF_DRY_RUN_COMMAND} --output ${file}`));
+      lines.push(dim(`${indent}  [dry-run] Would generate changelog: ${file}`));
     } else {
       lines.push(dim(`${indent}  Generating changelog: ${file}`));
     }

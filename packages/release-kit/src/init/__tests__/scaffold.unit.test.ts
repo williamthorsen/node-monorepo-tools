@@ -1,24 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mockReadFileSync = vi.hoisted(() => vi.fn());
-const mockFindPackageRoot = vi.hoisted(() => vi.fn().mockReturnValue('/fake/package'));
 const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
 
-vi.mock(import('node:fs'), () => ({
-  readFileSync: mockReadFileSync,
-}));
-
 vi.mock(import('@williamthorsen/nmr-core'), () => ({
-  findPackageRoot: mockFindPackageRoot,
   writeFileWithCheck: mockWriteFileWithCheck,
 }));
 
-import { copyCliffTemplate, scaffoldFiles } from '../scaffold.ts';
+import { scaffoldFiles } from '../scaffold.ts';
 
 describe('scaffold', () => {
   afterEach(() => {
-    mockReadFileSync.mockReset();
-    mockFindPackageRoot.mockReset().mockReturnValue('/fake/package');
     mockWriteFileWithCheck.mockReset();
   });
 
@@ -78,14 +69,12 @@ describe('scaffold', () => {
       expect(createReleaseCall?.[1]).toContain("'*-v[0-9]*.[0-9]*.[0-9]*'");
     });
 
-    it('creates workflow, publish, create-github-release, config, and cliff template when withConfig is true', () => {
+    it('creates workflow, publish, create-github-release, and config files when withConfig is true', () => {
       mockWriteFileWithCheck
         .mockReturnValueOnce({ filePath: '.github/workflows/create-github-release.yaml', outcome: 'created' })
         .mockReturnValueOnce({ filePath: '.github/workflows/publish.yaml', outcome: 'created' })
         .mockReturnValueOnce({ filePath: '.github/workflows/release.yaml', outcome: 'created' })
-        .mockReturnValueOnce({ filePath: '.config/release-kit.config.ts', outcome: 'created' })
-        .mockReturnValueOnce({ filePath: '.config/git-cliff.toml', outcome: 'created' });
-      mockReadFileSync.mockReturnValue('[changelog]\nbody = "template"');
+        .mockReturnValueOnce({ filePath: '.config/release-kit.config.ts', outcome: 'created' });
 
       const results = scaffoldFiles({
         repoType: 'single-package',
@@ -94,8 +83,12 @@ describe('scaffold', () => {
         withConfig: true,
       });
 
-      expect(results).toHaveLength(5);
-      expect(mockWriteFileWithCheck).toHaveBeenCalledTimes(5);
+      expect(results.map((result) => result.filePath)).toStrictEqual([
+        '.github/workflows/create-github-release.yaml',
+        '.github/workflows/publish.yaml',
+        '.github/workflows/release.yaml',
+        '.config/release-kit.config.ts',
+      ]);
     });
 
     it('returns skipped results when overwrite is false and files exist', () => {
@@ -169,69 +162,6 @@ describe('scaffold', () => {
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/publish.yaml', expect.any(String), {
         dryRun: true,
         overwrite: false,
-      });
-    });
-  });
-
-  describe(copyCliffTemplate, () => {
-    it.each([
-      ['the template file is missing', 'ENOENT: no such file or directory'],
-      ['the template file is unreadable', 'EACCES: permission denied'],
-    ])('returns failed naming the template path and the cause when %s', (_label, cause) => {
-      mockReadFileSync.mockImplementation(() => {
-        throw new Error(cause);
-      });
-
-      const result = copyCliffTemplate(false, false);
-
-      expect(result).toStrictEqual({
-        filePath: '.config/git-cliff.toml',
-        outcome: 'failed',
-        error: `Failed to read bundled template at /fake/package/cliff.toml.template: ${cause}`,
-      });
-      expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
-    });
-
-    it('returns failed with error when findPackageRoot throws', () => {
-      mockFindPackageRoot.mockImplementation(() => {
-        throw new Error('Could not find package root from /fake/path');
-      });
-
-      const result = copyCliffTemplate(false, false);
-
-      expect(result).toStrictEqual({
-        filePath: '.config/git-cliff.toml',
-        outcome: 'failed',
-        error: 'Failed to resolve package root: Could not find package root from /fake/path',
-      });
-      expect(mockReadFileSync).not.toHaveBeenCalled();
-      expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
-    });
-
-    it('reads the template and delegates to writeFileWithCheck', () => {
-      mockReadFileSync.mockReturnValue('[changelog]\nbody = "template content"');
-      mockWriteFileWithCheck.mockReturnValue({ filePath: '.config/git-cliff.toml', outcome: 'created' });
-
-      const result = copyCliffTemplate(false, false);
-
-      expect(mockReadFileSync).toHaveBeenCalledWith(expect.stringContaining('cliff.toml.template'), 'utf8');
-      expect(mockWriteFileWithCheck).toHaveBeenCalledWith(
-        '.config/git-cliff.toml',
-        '[changelog]\nbody = "template content"',
-        { dryRun: false, overwrite: false },
-      );
-      expect(result).toStrictEqual({ filePath: '.config/git-cliff.toml', outcome: 'created' });
-    });
-
-    it('passes dryRun and overwrite options through', () => {
-      mockReadFileSync.mockReturnValue('template content');
-      mockWriteFileWithCheck.mockReturnValue({ filePath: '.config/git-cliff.toml', outcome: 'overwritten' });
-
-      copyCliffTemplate(true, true);
-
-      expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.config/git-cliff.toml', 'template content', {
-        dryRun: true,
-        overwrite: true,
       });
     });
   });

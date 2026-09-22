@@ -92,7 +92,7 @@ export function initCommand({ dryRun, force, styles, withConfig }: InitOptions):
   // Print next steps
   printStep('Next steps');
   const configHint = withConfig
-    ? '1. (Optional) Customize .config/release-kit.config.ts and .config/git-cliff.toml.'
+    ? '1. (Optional) Customize .config/release-kit.config.ts.'
     : '1. (Optional) Run again with --with-config to scaffold config files.';
   console.info(`
   ${configHint}

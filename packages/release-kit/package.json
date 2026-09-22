@@ -43,7 +43,6 @@
     ".readyup/manifest.json",
     "CHANGELOG.md",
     "bin",
-    "cliff.toml.template",
     "dist/*",
     "docs",
     "!docs/*.v*.md",

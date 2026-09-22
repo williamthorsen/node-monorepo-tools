@@ -108,7 +108,6 @@ describe(packsPath, () => {
       '.readyup/manifest.json',
       'bin',
       'dist/*',
-      'cliff.toml.template',
       'presets/**',
       'schemas/**',
       'CHANGELOG.md',
