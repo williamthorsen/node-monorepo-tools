@@ -97,8 +97,8 @@ export interface ReleaseNotesConfig {
  */
 export interface ResolvedProjectConfig {
   /**
-   * Resolved commit window for the project release: the git pathspecs and git-cliff include-paths
-   * that select which commits the stage considers. Defaults to the union of every contributing
+   * Resolved commit window for the project release: the git pathspecs that select which commits
+   * the stage considers. Defaults to the union of every contributing
    * workspace's `paths`.
    */
   paths: string[];

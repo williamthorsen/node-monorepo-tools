@@ -35,10 +35,6 @@ vi.mock(import('../getCommitsSinceTarget.ts'), () => ({
   getCommitsSinceTarget: mockGetCommitsSinceTarget,
 }));
 
-vi.mock(import('../resolveCliffConfigPath.ts'), () => ({
-  resolveCliffConfigPath: () => 'cliff.toml',
-}));
-
 vi.mock(import('../buildChangelogEntries.ts'), () => ({
   buildChangelogEntries: mockBuildChangelogEntries,
 }));
@@ -275,15 +271,13 @@ describe(releasePrepareProject, () => {
     expect(plannedContent(writes, './package.json')).toContain('"version": "0.10.0"');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
 
-    // buildChangelogEntries (cliff `--context` source) was invoked with tag-pattern derived
-    // from the project tagPrefix and the union of contributing paths. Markdown rendering is
-    // in-process now (no `--output` cliff invocation).
+    // buildChangelogEntries reads the project tagPrefix and the union of contributing paths.
     expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
     const buildArgs = mockBuildChangelogEntries.mock.calls[0];
     expect(buildArgs?.[1]).toBe('v0.10.0');
-    expect(buildArgs?.[2]).toMatchObject({
-      tagPattern: 'v[0-9].*',
-      includePaths: ['packages/arrays/**', 'packages/strings/**'],
+    expect(buildArgs?.[2]).toStrictEqual({
+      tagPrefixes: ['v'],
+      paths: ['packages/arrays/**', 'packages/strings/**'],
     });
   });
 
@@ -304,7 +298,7 @@ describe(releasePrepareProject, () => {
     expect(mockBuildChangelogEntries).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
-      expect.objectContaining({ includePaths: ['packages/arrays/**'] }),
+      expect.objectContaining({ paths: ['packages/arrays/**'] }),
     );
   });
 
@@ -326,7 +320,7 @@ describe(releasePrepareProject, () => {
     expect(mockBuildChangelogEntries).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
-      expect.objectContaining({ includePaths: ['**'] }),
+      expect.objectContaining({ paths: ['**'] }),
     );
   });
 
@@ -387,14 +381,9 @@ describe(releasePrepareProject, () => {
     assert(result.status === 'released', 'expected released');
     expect(result.tag).toBe('v0.10.0');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
-    expect(
-      mockExecFileSync.mock.calls.find(
-        (call) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
-      ),
-    ).toBeUndefined();
   });
 
-  it('renders the root changelog.json from the cliff entries alone, with no read-merge', () => {
+  it('renders the root changelog.json from the built entries alone, with no read-merge', () => {
     // The project stage overwrites rather than merging, so a malformed existing file cannot
     // silently discard entries.
     setupDefaultGit();
@@ -552,21 +541,12 @@ describe(releasePrepareProject, () => {
   describe('empty-range project release', () => {
     // Project-stage counterpart to the per-workspace empty-range branch: when `--force` /
     // `--bump=X` triggers a project release with zero qualifying commits since the last
-    // project tag, git-cliff is bypassed in favor of a synthetic "Notes / Forced version
-    // bump." entry. Without this, git-cliff emits the same `WARN  git_cliff > There is
-    // already a tag` lines that surface for empty-range workspaces (issue #369).
+    // project tag, a synthetic "Notes / Forced version bump." entry stands in for the
+    // release windows.
 
     /** Stub git so the project has a tag but no qualifying commits since it. */
     function stubEmptyRange(): void {
       stubCommits('v0.9.0', []);
-    }
-
-    /** Count git-cliff *work* invocations (those that pass `--config`). */
-    function countCliffWorkCalls(): number {
-      return mockExecFileSync.mock.calls.filter(
-        (call: unknown[]) =>
-          call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff') && call[1].includes('--config'),
-      ).length;
     }
 
     it('writes a synthetic Notes / Forced version bump entry for the root CHANGELOG when --force is used with no commits', () => {
@@ -605,7 +585,7 @@ describe(releasePrepareProject, () => {
       );
     });
 
-    it('does not invoke git-cliff for the project stage on the empty-range path', () => {
+    it('does not build entries from history for the project stage on the empty-range path', () => {
       stubEmptyRange();
 
       releasePrepareProject({
@@ -616,7 +596,6 @@ describe(releasePrepareProject, () => {
         tags: [],
       });
 
-      expect(countCliffWorkCalls()).toBe(0);
       expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
     });
 
@@ -648,7 +627,7 @@ describe(releasePrepareProject, () => {
           ]),
         }),
       ]);
-      // Build-via-cliff path must not be exercised on the empty-range branch.
+      // The release-window path must not be exercised on the empty-range branch.
       expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
     });
 
@@ -678,7 +657,7 @@ describe(releasePrepareProject, () => {
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 
-    it('keeps non-empty-range project releases on the cliff path (no regression)', () => {
+    it('keeps non-empty-range project releases on the release-window path (no regression)', () => {
       setupDefaultGit();
 
       releasePrepareProject({
@@ -689,8 +668,6 @@ describe(releasePrepareProject, () => {
         tags: [],
       });
 
-      // Real commits → cliff `--context` is invoked via `buildChangelogEntries` to source
-      // the entries; markdown is rendered in-process.
       expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
     });
 

@@ -27,10 +27,6 @@ vi.mock(import('../getCommitsSinceTarget.ts'), () => ({
   getCommitsSinceTarget: mockGetCommitsSinceTarget,
 }));
 
-vi.mock(import('../resolveCliffConfigPath.ts'), () => ({
-  resolveCliffConfigPath: () => 'cliff.toml',
-}));
-
 vi.mock(import('../hasPrettierConfig.ts'), () => ({
   hasPrettierConfig: mockHasPrettierConfig,
 }));
@@ -41,7 +37,7 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
 
 // Stub out the new helpers for tests in this file that exercise the
 // `changelogJson.enabled: true` path. The default stubs return deterministic values without
-// invoking git-cliff or touching the filesystem.
+// reading git history or touching the filesystem.
 const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
 const mockBuildSyntheticChangelogEntry = vi.hoisted(() => vi.fn());
 const mockBuildEmptyReleaseEntry = vi.hoisted(() => vi.fn());
@@ -97,52 +93,18 @@ function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoRelease
   };
 }
 
-/**
- * Count how many invocations of `buildChangelogEntries` (the cliff `--context` source) were
- * recorded. Replaces the previous `npx git-cliff --output` shape — markdown rendering is now
- * in-process, and `buildChangelogEntries` is the single observable cliff entry point.
- */
-function countCliffCalls(): number {
+/** Counts the recorded `buildChangelogEntries` invocations. */
+function countBuildEntriesCalls(): number {
   return mockBuildChangelogEntries.mock.calls.length;
 }
 
-/**
- * Return the args of the first `buildChangelogEntries` invocation as an array of cliff-style
- * flag-value pairs so existing assertions (`expect(cliffArgs).toContain('--include-path')`,
- * etc.) continue to work without per-test rewrites. Includes synthetic `--output` and
- * `<changelog>/CHANGELOG.md` entries derived from the renderer's first call to keep
- * pre-pivot tests passing — the markdown writer is the new owner of those concepts.
- */
-function findCliffCallArgs(plan: { writes: readonly { path: string }[] }): readonly unknown[] {
+/** Returns the tag and options of the first `buildChangelogEntries` invocation. */
+function findBuildEntriesCall(): { tag: unknown; options: unknown } {
   const buildCall = mockBuildChangelogEntries.mock.calls[0];
   if (buildCall === undefined) {
     throw new Error('buildChangelogEntries was not called');
   }
-  const tag = buildCall[1];
-  const options = buildCall[2] ?? {};
-  const changelogPath = plan.writes.find((write) => write.path.endsWith('CHANGELOG.md'))?.path;
-  const args: unknown[] = ['git-cliff', '--config', '<resolved>'];
-  if (typeof tag === 'string') {
-    args.push('--tag', tag);
-  }
-  if (isCliffOptions(options)) {
-    if (typeof options.tagPattern === 'string') {
-      args.push('--tag-pattern', options.tagPattern);
-    }
-    const includePaths = options.includePaths ?? [];
-    for (const includePath of includePaths) {
-      args.push('--include-path', includePath);
-    }
-  }
-  if (changelogPath !== undefined) {
-    args.push('--output', changelogPath);
-  }
-  return args;
-}
-
-/** Type guard for the third positional argument passed to `buildChangelogEntries`. */
-function isCliffOptions(value: unknown): value is { tagPattern?: string; includePaths?: string[] } {
-  return typeof value === 'object' && value !== null;
+  return { tag: buildCall[1], options: buildCall[2] };
 }
 
 describe(releasePrepareMono, () => {
@@ -214,12 +176,12 @@ describe(releasePrepareMono, () => {
     expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
 
-    // Verify git-cliff was called for the workspace's changelog path
-    const cliffArgs = findCliffCallArgs(result);
-    expect(cliffArgs).toContain('--output');
-    expect(cliffArgs).toContain('packages/arrays/CHANGELOG.md');
-    expect(cliffArgs).toContain('--include-path');
-    expect(cliffArgs).toContain('packages/arrays/**');
+    // Verify the entries were built from the workspace's own tag prefixes and paths
+    expect(findBuildEntriesCall().options).toStrictEqual({
+      tagPrefixes: ['arrays-v'],
+      paths: ['packages/arrays/**'],
+    });
+    expect(result.writes.map((write) => write.path)).toContain('packages/arrays/CHANGELOG.md');
   });
 
   it('skips a workspace with no commits', () => {
@@ -252,7 +214,7 @@ describe(releasePrepareMono, () => {
       parsedCommitCount: 0,
     });
     expect(mockWriteFileSync).not.toHaveBeenCalled();
-    expect(countCliffCalls()).toBe(0);
+    expect(countBuildEntriesCalls()).toBe(0);
   });
 
   it('skips a workspace with no commits whose package.json has no version', () => {
@@ -325,9 +287,8 @@ describe(releasePrepareMono, () => {
     expect(result.writes.map((write) => write.path)).not.toContain('packages/strings/package.json');
 
     // Only arrays changelog should be generated
-    expect(countCliffCalls()).toBe(1);
-    const cliffArgs = findCliffCallArgs(result);
-    expect(cliffArgs).toContain('packages/arrays/CHANGELOG.md');
+    expect(countBuildEntriesCalls()).toBe(1);
+    expect(result.writes.map((write) => write.path)).toContain('packages/arrays/CHANGELOG.md');
   });
 
   it('plans files and the format command without performing either', () => {
@@ -354,7 +315,7 @@ describe(releasePrepareMono, () => {
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
-    expect(countCliffCalls()).toBe(1);
+    expect(countBuildEntriesCalls()).toBe(1);
     expect(mockExecSync).not.toHaveBeenCalled();
 
     expect(result.writes.map((write) => write.path)).toStrictEqual([
@@ -433,9 +394,7 @@ describe(releasePrepareMono, () => {
     // Should use the override (minor) rather than the commit-derived type (patch)
     expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
 
-    const cliffArgs = findCliffCallArgs(result);
-    expect(cliffArgs).toContain('--tag');
-    expect(cliffArgs).toContain('arrays-v1.1.0');
+    expect(findBuildEntriesCall().tag).toBe('arrays-v1.1.0');
   });
 
   it('skips when commits exist but none are bump-worthy and no --force is given', () => {
@@ -686,9 +645,9 @@ describe(releasePrepareMono, () => {
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.0.1"');
-    // Empty-range release: git-cliff is bypassed in favor of the synthetic
-    // "Notes / Forced version bump." entry (issue #369).
-    expect(countCliffCalls()).toBe(0);
+    // Empty-range release: the synthetic "Notes / Forced version bump." entry stands in for
+    // the release windows.
+    expect(countBuildEntriesCalls()).toBe(0);
   });
 
   it('force-bumps a workspace with no commits while also bumping one with commits', () => {
@@ -732,7 +691,7 @@ describe(releasePrepareMono, () => {
     expect(result.tags).toStrictEqual(['arrays-v1.0.1', 'strings-v2.0.1']);
   });
 
-  it('force-bumps an empty range without writing or invoking git-cliff', () => {
+  it('force-bumps an empty range without writing or building entries from history', () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -755,7 +714,7 @@ describe(releasePrepareMono, () => {
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
-    expect(countCliffCalls()).toBe(0);
+    expect(countBuildEntriesCalls()).toBe(0);
   });
 
   it('does not run formatCommand when no workspaces have commits', () => {
@@ -864,9 +823,9 @@ describe(releasePrepareMono, () => {
       'packages/arrays/CHANGELOG.md',
       'packages/arrays/docs/CHANGELOG.md',
     ]);
-    // After the SSOT pivot, cliff `--context` is invoked once per workspace (it returns the
-    // full release history) and the markdown renderer is called once per `changelogPaths` entry.
-    expect(countCliffCalls()).toBe(1);
+    // Entries are built once per workspace (they span the full release history) and the markdown
+    // renderer is called once per `changelogPaths` entry.
+    expect(countBuildEntriesCalls()).toBe(1);
     expect(
       result.writes.filter((write) => write.path.endsWith('CHANGELOG.md')).map((write) => write.path),
     ).toStrictEqual(['packages/arrays/CHANGELOG.md', 'packages/arrays/docs/CHANGELOG.md']);
@@ -994,10 +953,9 @@ describe(releasePrepareMono, () => {
 
       const result = releasePrepareMono(config, {});
 
-      // git-cliff (via buildChangelogEntries) is called only for core (direct), not for app (propagated).
-      expect(countCliffCalls()).toBe(1);
-      const cliffArgs = findCliffCallArgs(result);
-      expect(cliffArgs).toContain('packages/core/CHANGELOG.md');
+      // buildChangelogEntries is called only for core (direct), not for app (propagated).
+      expect(countBuildEntriesCalls()).toBe(1);
+      expect(result.writes.map((write) => write.path)).toContain('packages/core/CHANGELOG.md');
 
       // Synthetic propagation entry constructor was called for the app workspace.
       expect(mockBuildSyntheticChangelogEntry).toHaveBeenCalledTimes(1);
@@ -1235,9 +1193,8 @@ describe(releasePrepareMono, () => {
 
   describe('empty-range releases', () => {
     // When a workspace is forced to release (`--force`, `--bump=X`, or `--set-version`) with
-    // zero qualifying commits since its last tag, git-cliff is bypassed in favor of a
-    // synthetic "Notes / Forced version bump." entry. Without this branch, git-cliff emits
-    // 2 × N `WARN  git_cliff > There is already a tag` lines per prepare run (issue #369).
+    // zero qualifying commits since its last tag, a synthetic "Notes / Forced version bump."
+    // entry stands in for the release windows, whose newest window holds nothing to render.
 
     /** Helper config with one empty-range workspace. */
     function singleWorkspaceConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
@@ -1274,12 +1231,12 @@ describe(releasePrepareMono, () => {
       expect(result.writes.map((write) => write.path)).toContain('packages/arrays/CHANGELOG.md');
     });
 
-    it('does not invoke git-cliff for an empty-range workspace', () => {
+    it('does not build entries from history for an empty-range workspace', () => {
       stubEmptyRange();
 
       releasePrepareMono(singleWorkspaceConfig(), { bumpOverride: 'minor' });
 
-      expect(countCliffCalls()).toBe(0);
+      expect(countBuildEntriesCalls()).toBe(0);
     });
 
     it('upserts a synthetic empty-range entry into changelog.json when enabled', () => {
@@ -1347,20 +1304,20 @@ describe(releasePrepareMono, () => {
       // entry. Both constructors are mocked, so observe the call counts.
       expect(mockBuildSyntheticChangelogEntry).toHaveBeenCalledTimes(1);
       // For the app workspace specifically, the empty-range entry is NOT used.
-      // (The test only has core + app, and core is on the cliff path → no empty-range
+      // (The test only has core + app, and core is on the release-window path → no empty-range
       // build for any workspace.)
       expect(mockBuildEmptyReleaseEntry).not.toHaveBeenCalled();
     });
 
-    it('keeps workspaces with real commits on the cliff path (no regression)', () => {
+    it('keeps workspaces with real commits on the release-window path (no regression)', () => {
       const config = singleWorkspaceConfig();
       stubCommits('arrays-v1.0.0', [['feat: new utility', 'abc123']]);
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
       releasePrepareMono(config, {});
 
-      // Real commits → cliff path runs.
-      expect(countCliffCalls()).toBe(1);
+      // Real commits → the release-window path runs.
+      expect(countBuildEntriesCalls()).toBe(1);
     });
 
     it('does not write synthetic entries for workspaces correctly skipped (no commits, no --force)', () => {
@@ -1396,13 +1353,7 @@ describe(releasePrepareMono, () => {
       expect(changelogWrites).toHaveLength(0);
     });
 
-    it('does not invoke git-cliff for any empty-range unit in a multi-workspace --force run', () => {
-      // Pins the SHOULD-have acceptance criterion: a `prepare --force` run against multiple
-      // zero-commit workspaces does not invoke `runGitCliff` for those workspaces — the
-      // root cause of the `2 × N` `WARN  git_cliff > There is already a tag` amplification
-      // (issue #369). For each empty-range workspace, today's behavior would emit two
-      // git-cliff invocations (one for `generateChangelog`, one for `buildChangelogEntries
-      // --context`); the synthetic path bypasses both.
+    it('does not build entries from history for any empty-range unit in a multi-workspace --force run', () => {
       const config = makeConfig({
         changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
         workspaces: [
@@ -1449,8 +1400,8 @@ describe(releasePrepareMono, () => {
 
       releasePrepareMono(config, { force: true });
 
-      // Three workspaces, all empty-range, all forced — git-cliff must be invoked zero times.
-      expect(countCliffCalls()).toBe(0);
+      // Three workspaces, all empty-range, all forced — no entries are built from history.
+      expect(countBuildEntriesCalls()).toBe(0);
     });
   });
 
@@ -2043,7 +1994,7 @@ describe(releasePrepareMono, () => {
       // Phase 1 succeeds. `buildChangelogEntries` (which
       // `executeWorkspaceRelease` invokes) throws — this exercises the Phase 3 wrap inside
       // `executeReleaseSet`.
-      const underlying = new Error('git-cliff exited with status 1');
+      const underlying = new Error('git log exited with status 1');
       stubCommits('arrays-v1.0.0', [['feat: add', 'abc123']]);
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       mockBuildChangelogEntries.mockImplementationOnce(() => {
@@ -2052,7 +2003,7 @@ describe(releasePrepareMono, () => {
 
       const wrapped = await captureError(() => releasePrepareMono(config, {}));
 
-      expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*git-cliff exited with status 1$/);
+      expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*git log exited with status 1$/);
       // `cause` is preserved through the chain — at minimum, an Error instance.
       expect(wrapped.cause).toBeInstanceOf(Error);
     });
@@ -2060,7 +2011,7 @@ describe(releasePrepareMono, () => {
     it('wraps a project-stage throw with the project release-stage label', async () => {
       const config = makeArraysConfig({ project: { paths: ['packages/arrays/**'], tagPrefix: 'v' } });
       // Workspace stage succeeds; `buildChangelogEntries` for the project stage throws.
-      const underlying = new Error('cliff exploded on root');
+      const underlying = new Error('git log failed on root');
       stubCommitsByPrefix({
         'arrays-v': { tag: 'arrays-v1.0.0', entries: [['feat: ship', 'abc123']] },
         v: { tag: 'v0.9.0', entries: [['feat: ship', 'abc123']] },
@@ -2070,8 +2021,7 @@ describe(releasePrepareMono, () => {
         return JSON.stringify({ version: '1.0.0' });
       });
       // First call (workspace stage) returns the default stub; second call (project stage)
-      // throws. `buildChangelogEntries` is the cliff entry point in both stages after the
-      // SSOT pivot.
+      // throws.
       let buildCallCount = 0;
       mockBuildChangelogEntries.mockImplementation(() => {
         buildCallCount += 1;
@@ -2081,7 +2031,7 @@ describe(releasePrepareMono, () => {
 
       const wrapped = await captureError(() => releasePrepareMono(config, {}));
 
-      expect(wrapped.message).toMatch(/^project release stage: .*cliff exploded on root$/);
+      expect(wrapped.message).toMatch(/^project release stage: .*git log failed on root$/);
       expect(wrapped.cause).toBeInstanceOf(Error);
     });
   });

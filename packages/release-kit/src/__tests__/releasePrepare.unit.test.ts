@@ -26,10 +26,6 @@ vi.mock(import('../getCommitsSinceTarget.ts'), () => ({
   getCommitsSinceTarget: mockGetCommitsSinceTarget,
 }));
 
-vi.mock(import('../resolveCliffConfigPath.ts'), () => ({
-  resolveCliffConfigPath: () => 'cliff.toml',
-}));
-
 vi.mock(import('../hasPrettierConfig.ts'), () => ({
   hasPrettierConfig: mockHasPrettierConfig,
 }));
@@ -38,8 +34,7 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
   planReleaseNotesPreviews: mockPlanReleaseNotesPreviews,
 }));
 
-// Stub the new helpers when tests exercise the changelogJson-enabled path, so no git-cliff
-// invocation or filesystem access is required.
+// Stub the changelog helpers so that no test reads git history or touches the filesystem.
 const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
 const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
 const mockRenderChangelogMarkdown = vi.hoisted(() => vi.fn());
@@ -269,6 +264,16 @@ describe(releasePrepare, () => {
     });
   });
 
+  it('builds changelog entries from the configured tagPrefix, over all paths', () => {
+    setupFeatCommit();
+
+    releasePrepare(makeConfig({ tagPrefix: 'my-lib-v' }), {});
+
+    expect(mockBuildChangelogEntries).toHaveBeenCalledWith(expect.anything(), 'my-lib-v1.1.0', {
+      tagPrefixes: ['my-lib-v'],
+    });
+  });
+
   it('populates tags on the plan', () => {
     setupFeatCommit();
 
@@ -299,8 +304,7 @@ describe(releasePrepare, () => {
   });
 
   it('writes a synthetic empty-range changelog when --set-version is used with zero commits', () => {
-    // `commits.length === 0` routes through the synthetic empty-range entry, bypassing
-    // git-cliff entirely and avoiding the `WARN  git_cliff > There is already a tag` noise.
+    // `commits.length === 0` routes through the synthetic empty-range entry.
     stubCommits('v0.5.0', []);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
@@ -327,7 +331,7 @@ describe(releasePrepare, () => {
       expect.anything(),
     );
 
-    // Build-via-cliff path must not be exercised on the empty-range branch.
+    // The release-window path must not be exercised on the empty-range branch.
     expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
   });
 
@@ -422,14 +426,6 @@ describe(releasePrepare, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
     }
 
-    /** Count git-cliff *work* invocations (those that pass `--config`). */
-    function countCliffWorkCalls(): number {
-      return mockExecFileSync.mock.calls.filter(
-        (call: unknown[]) =>
-          call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff') && call[1].includes('--config'),
-      ).length;
-    }
-
     it('writes a synthetic Notes / Forced version bump entry when --force is used with no commits', () => {
       stubEmptyRange();
 
@@ -459,14 +455,12 @@ describe(releasePrepare, () => {
       );
     });
 
-    it('does not invoke git-cliff for empty-range releases', () => {
+    it('does not build entries from history for empty-range releases', () => {
       stubEmptyRange();
 
       releasePrepare(makeConfig(), { bumpOverride: 'minor' });
 
-      // Empty-range releases must bypass git-cliff entirely so consumers do not see
-      // `WARN  git_cliff > There is already a tag` lines (issue #369).
-      expect(countCliffWorkCalls()).toBe(0);
+      expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
     });
 
     it('upserts a synthetic empty-range entry into changelog.json when enabled', () => {
@@ -490,7 +484,7 @@ describe(releasePrepare, () => {
           ],
         },
       ]);
-      // Build-via-cliff path must not be exercised on the empty-range branch.
+      // The release-window path must not be exercised on the empty-range branch.
       expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
     });
 

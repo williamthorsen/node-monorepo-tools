@@ -9,17 +9,16 @@ import {
   type ValidateAllChangelogOverridesResult,
 } from './changelogOverrides.ts';
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
-import { buildTagPattern, type GenerateChangelogOptions, getAllTagPrefixes } from './generateChangelogs.ts';
+import { type GenerateChangelogOptions, getAllTagPrefixes } from './generateChangelogs.ts';
 import { mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
 import { type ConfigProblem, loadValidatedConfig, type LoadValidatedConfigResult } from './loadValidatedConfig.ts';
 import type { ChangelogEntry, MonorepoReleaseConfig, ReleaseConfig, ReleaseKitConfig } from './types.ts';
 
 /**
- * Synthetic `--tag` value passed to `buildChangelogEntries` during validation. Cliff uses the
- * tag only as a label for the unreleased range; the matching universe is determined by cliff's
- * history walk (filtered by `tagPattern`), not by this label. `validate` persists nothing, so
- * any non-empty string is acceptable — a clearly synthetic literal aids debugging if the value
- * ever surfaces.
+ * Synthetic unreleased-tag label passed to `buildChangelogEntries` during validation. The label
+ * names the unreleased window alone; the tag prefixes and paths decide which commits the windows
+ * hold. `validate` persists nothing, so any non-empty string is acceptable — a clearly synthetic
+ * literal aids debugging if the value ever surfaces.
  */
 const SYNTHETIC_VALIDATE_TAG = 'validate-only';
 
@@ -44,12 +43,11 @@ export interface ValidateOverridesCommandDependencies {
   /**
    * Build changelog entries for a scope. Defaults to `buildChangelogEntries`, the same path
    * `release-kit prepare` uses — anchoring `validate`'s hash universe to `prepare`'s by
-   * construction. `tagPattern` and `includePaths` are passed straight through to git-cliff.
+   * construction.
    */
   buildEntries?: (
-    config: Pick<ReleaseConfig, 'cliffConfigPath' | 'changelogJson'>,
-    tagPattern?: string,
-    includePaths?: string[],
+    config: Pick<ReleaseConfig, 'breakingPolicies' | 'changelogJson' | 'workTypes'>,
+    options: GenerateChangelogOptions,
   ) => ChangelogEntry[];
   /** Pluggable validator (default: the production library function). Tests use this to drive specific result shapes through the formatter. */
   validate?: (inputs: ValidateAllChangelogOverridesInputs) => ValidateAllChangelogOverridesResult;
@@ -150,25 +148,11 @@ function pluralize(count: number, noun: string): string {
   return count === 1 ? `${count} ${noun}` : `${count} ${noun}s`;
 }
 
-/**
- * Default entry builder — delegates to `buildChangelogEntries`, the same function `prepare`
- * uses. The synthetic tag label is throwaway; cliff's history walk is what produces the
- * matching universe.
- */
+/** Delegates to `buildChangelogEntries`, the same function `prepare` uses, under a throwaway tag label. */
 function defaultBuildEntries(
-  config: Pick<ReleaseConfig, 'cliffConfigPath' | 'changelogJson'>,
-  tagPattern?: string,
-  includePaths?: string[],
+  config: Pick<ReleaseConfig, 'breakingPolicies' | 'changelogJson' | 'workTypes'>,
+  options: GenerateChangelogOptions,
 ): ChangelogEntry[] {
-  // Build options conditionally — `exactOptionalPropertyTypes` distinguishes "omitted" from
-  // "present-but-undefined", and `GenerateChangelogOptions` requires omission for the absent case.
-  const options: GenerateChangelogOptions = {};
-  if (tagPattern !== undefined) {
-    options.tagPattern = tagPattern;
-  }
-  if (includePaths !== undefined) {
-    options.includePaths = includePaths;
-  }
   return buildChangelogEntries(config, SYNTHETIC_VALIDATE_TAG, options);
 }
 
@@ -205,15 +189,15 @@ function formatConfigProblem(problem: ConfigProblem): string {
 /**
  * Build validation inputs for a single-package repo (no `pnpm-workspace.yaml`).
  *
- * Mirrors `releasePrepare.ts`'s `buildChangelogEntries(config, newTag)` call: no
- * `tagPattern`/`includePaths`, letting cliff emit every release across all paths.
+ * Mirrors `releasePrepare.ts`'s `buildChangelogEntries` call: the configured tag prefix, and no
+ * paths, so every release across all paths contributes.
  */
 function buildSinglePackageInputs(
   userConfig: ReleaseKitConfig | undefined,
   buildEntries: NonNullable<ValidateOverridesCommandDependencies['buildEntries']>,
 ): ValidateAllChangelogOverridesInputs {
   const config: ReleaseConfig = mergeSinglePackageConfig(userConfig);
-  const hashes = flattenEntriesToHashes(buildEntries(config));
+  const hashes = flattenEntriesToHashes(buildEntries(config, { tagPrefixes: [config.tagPrefix] }));
   return {
     project: { filePath: resolveOverridePath('.'), hashes },
   };
@@ -222,11 +206,10 @@ function buildSinglePackageInputs(
 /**
  * Build validation inputs for a monorepo, mirroring the per-scope hash universes `prepare` would compute.
  *
- * Workspace scopes mirror `buildWorkspaceEntries` in `releasePrepareMono.ts`: `buildTagPattern`
- * over the workspace's derived prefix plus any legacy-identity prefixes, with the workspace's
- * `includePaths`. The project scope mirrors `planProjectChangelogs` in
- * `releasePrepareProject.ts`: `buildTagPattern([project.tagPrefix])` with the resolved
- * `project.paths`.
+ * Workspace scopes mirror `buildWorkspaceEntries` in `releasePrepareMono.ts`: the workspace's
+ * derived prefix plus any legacy-identity prefixes, with the workspace's `paths`. The project
+ * scope mirrors `planProjectChangelogs` in `releasePrepareProject.ts`: the project's tag prefix
+ * with the resolved `project.paths`.
  */
 function buildMonorepoInputs(
   discoveredPaths: string[],
@@ -237,10 +220,10 @@ function buildMonorepoInputs(
   const config: MonorepoReleaseConfig = mergeMonorepoConfig(discoveredPaths, userConfig, rootPackage);
 
   const workspaces = config.workspaces.map((workspace) => {
-    const tagPattern = buildTagPattern(getAllTagPrefixes(workspace));
+    const options = { tagPrefixes: getAllTagPrefixes(workspace), paths: workspace.paths };
     return {
       filePath: resolveOverridePath(workspace.workspacePath),
-      hashes: flattenEntriesToHashes(buildEntries(config, tagPattern, workspace.paths)),
+      hashes: flattenEntriesToHashes(buildEntries(config, options)),
     };
   });
 
@@ -249,8 +232,8 @@ function buildMonorepoInputs(
     filePath: resolveOverridePath('.'),
   };
   if (project !== undefined) {
-    const projectTagPattern = buildTagPattern([project.tagPrefix]);
-    projectScope.hashes = flattenEntriesToHashes(buildEntries(config, projectTagPattern, project.paths));
+    const options = { tagPrefixes: [project.tagPrefix], paths: project.paths };
+    projectScope.hashes = flattenEntriesToHashes(buildEntries(config, options));
   }
 
   return { project: projectScope, workspaces };

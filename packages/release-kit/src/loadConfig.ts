@@ -173,8 +173,8 @@ export function mergeMonorepoConfig(
 
   // Run the strict-prefix collision check across the union of every active, legacy, retired,
   // and (when configured) project tag prefix. Catches both the existing equality case and the
-  // new strict-prefix-of-other case (`v` vs `vue-helpers-v`). Rejecting at load time prevents
-  // `buildTagPattern`'s `<prefix>[0-9].*` from matching the wrong owner's tags.
+  // new strict-prefix-of-other case (`v` vs `v11y-check-v`). Rejecting at load time prevents
+  // a prefix followed by a digit from matching the wrong owner's tags.
   assertNoTagPrefixCollisions(workspaces, userConfig?.retiredPackages, project);
 
   const result: MonorepoReleaseConfig = {
@@ -381,9 +381,9 @@ function resolveProjectConfig(
  * Throw when any pair of declared tag prefixes from distinct owners is identical or one is a
  * strict prefix of the other.
  *
- * The strict-prefix rule extends the equality check to catch pattern-overlap cases: the
- * unanchored `<prefix>[0-9].*` that `buildTagPattern` hands git-cliff matches a tag under
- * either prefix, so a project prefix `'v'` silently matches `'vue-helpers-v1.0.0'`.
+ * The strict-prefix rule extends the equality check to catch pattern-overlap cases: a tag
+ * matches a prefix when its name continues with a digit after it, so a project prefix `'v'`
+ * silently matches `'v11y-check-v1.0.0'`.
  * Operates over the union of: every workspace's derived prefix, every workspace's declared
  * `legacyIdentities[].tagPrefix`, every `retiredPackages[].tagPrefix`, and (when configured)
  * the project's resolved `tagPrefix`. Within a single workspace, prefix overlap between the

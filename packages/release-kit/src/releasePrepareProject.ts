@@ -7,7 +7,6 @@ import { applyChangelogOverrides } from './changelogOverrides.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { decideRelease } from './decideRelease.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
-import { buildTagPattern } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 import { planVersionBump } from './planVersionBump.ts';
@@ -152,8 +151,8 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   const newTag = `${project.tagPrefix}${bump.newVersion}`;
 
   // 7/8. Plan the root CHANGELOG and (optionally) changelog.json via the routing helper.
-  //      When `commits.length === 0` (forced empty-range project release) the helper bypasses
-  //      git-cliff in favor of the synthetic "Forced version bump." entry — issue #369.
+  //      When `commits.length === 0` (forced empty-range project release) the helper writes the
+  //      synthetic "Forced version bump." entry in place of the release windows.
   const changelogs = planProjectChangelogs({
     config,
     project,
@@ -252,11 +251,11 @@ interface PlanProjectChangelogsArgs {
 }
 
 /**
- * Builds the project's new entries (cliff or synthetic empty-range), applies editorial
+ * Builds the project's new entries (release windows or synthetic empty-range), applies editorial
  * overrides, and renders `changelog.json` and `CHANGELOG.md` from the resulting set.
  *
- * The cliff path renders a fresh overwrite because git-cliff returns the FULL release history in
- * `--context` mode and the project changelog is regenerated in full each run. The empty-range
+ * The release-window path renders a fresh overwrite because the windows span the full release
+ * history and the project changelog is regenerated in full each run. The empty-range
  * path merges with what is on disk so prior synthetic entries are preserved.
  *
  * Returns the rendered writes alongside the entry set they carry, so the caller can render the
@@ -281,11 +280,10 @@ function planProjectChangelogs(args: PlanProjectChangelogsArgs): {
   } = args;
   const isEmptyRange = commits.length === 0;
   const today = new Date().toISOString().slice(0, 10);
-  const tagPattern = buildTagPattern([project.tagPrefix]);
 
   const newEntries: ChangelogEntry[] = isEmptyRange
     ? [buildEmptyReleaseEntry(newVersion, today)]
-    : buildChangelogEntries(config, newTag, { tagPattern, includePaths: contributingPaths });
+    : buildChangelogEntries(config, newTag, { tagPrefixes: [project.tagPrefix], paths: contributingPaths });
 
   const applied = applyChangelogOverrides(newEntries, rootOverrides);
   if (applied.errors.length > 0) {
@@ -301,7 +299,7 @@ function planProjectChangelogs(args: PlanProjectChangelogsArgs): {
   const changelogJsonPath = resolveChangelogJsonPath(config, ROOT_CHANGELOG_PATH);
   const sectionOrder = deriveSectionOrder(config.workTypes ?? { ...DEFAULT_WORK_TYPES });
 
-  // For the cliff path, render fresh (cliff returns full history). For empty-range, merge
+  // Render the release-window path fresh, since it spans the full history. For empty-range, merge
   // with disk to preserve prior synthetic entries.
   const renderEntries: ChangelogEntry[] = isEmptyRange
     ? mergeChangelogEntriesWithDisk(changelogJsonPath, applied.entries)
