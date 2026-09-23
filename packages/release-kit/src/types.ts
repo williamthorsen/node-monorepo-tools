@@ -357,8 +357,9 @@ export interface WorkTypeConfig {
   /** Optional aliases that map to this work type (e.g., 'feature' -> 'feat'). */
   aliases?: string[] | undefined;
   /**
-   * Keeps commits of this type out of every changelog while leaving them recognizable to the
-   * parser, so they still contribute to the version bump. `classifyChangelogCommit` reads it.
+   * Keeps commits and change-record entries of this type out of every changelog. They yield no
+   * item, so they contribute nothing to the version bump, and the release report does not list
+   * them as unparseable.
    */
   excludedFromChangelog?: boolean | undefined;
 }

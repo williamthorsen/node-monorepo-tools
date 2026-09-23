@@ -1,5 +1,9 @@
-import { COMMIT_PREPROCESSOR_PATTERNS, parseCommitMessage } from './parseCommitMessage.ts';
-import type { WorkTypeConfig } from './types.ts';
+import {
+  COMMIT_PREPROCESSOR_PATTERNS,
+  parseCommitMessage,
+  type ParseCommitMessageOptions,
+} from './parseCommitMessage.ts';
+import type { Commit, WorkTypeConfig } from './types.ts';
 
 /** Matches the subject of a release commit, which records version bumps rather than a change to report. */
 const RELEASE_SUBJECT_PATTERN = /^release:/;
@@ -8,41 +12,55 @@ const RELEASE_SUBJECT_PATTERN = /^release:/;
 const MERGE_SUBJECT_PATTERN = /^Merge/;
 
 /**
- * Returns the changelog section header for a commit that belongs in a changelog, and `undefined` for one
- * that does not.
+ * How a commit's title places it in a changelog: under a section header, excluded by design, or unreadable.
  *
- * Four gates decide, in order: a `release:` subject, a `Merge` subject, a subject carrying no ticket-ID
- * prefix, and a type that `parseCommitMessage` cannot resolve against `workTypes` or that `workTypes`
- * excludes from the changelog. A commit that passes all four takes the header its type declares.
+ * `breaking` is the parser's flag under the breaking policies passed in, which a `BREAKING CHANGE:` footer can set.
+ */
+export type ChangelogClassification =
+  { kind: 'header'; header: string; type: string; breaking: boolean } | { kind: 'excluded' } | { kind: 'unparseable' };
+
+/**
+ * Classifies a commit by its title.
+ *
+ * Four gates decide, in order: a `release:` or `Merge` subject is excluded; a subject carrying no ticket-ID prefix is
+ * unparseable; a type that `parseCommitMessage` cannot resolve against `workTypes` is unparseable; and a type that
+ * `workTypes` excludes from the changelog is excluded. A commit that passes all four takes the header its type declares.
+ *
+ * `options` reaches the parse, so a policy violation is reported for every ticketed commit whose type resolves,
+ * excluded types included.
  *
  * The header carries no order encoding. `buildChangelogEntries` sorts sections by canonical priority, so
  * the position a section occupies comes from the taxonomy rather than from the header string.
  */
 export function classifyChangelogCommit(
-  message: string,
+  commit: Pick<Commit, 'hash' | 'message'>,
   workTypes: Record<string, WorkTypeConfig>,
-): string | undefined {
-  const subject = message.split('\n', 1)[0] ?? '';
+  options?: ParseCommitMessageOptions,
+): ChangelogClassification {
+  const subject = commit.message.split('\n', 1)[0] ?? '';
 
   if (isNonChangeSubject(subject)) {
-    return undefined;
+    return { kind: 'excluded' };
   }
 
   if (!hasTicketPrefix(subject)) {
-    return undefined;
+    return { kind: 'unparseable' };
   }
 
-  const parsed = parseCommitMessage(message, '', workTypes);
+  const parsed = parseCommitMessage(commit.message, commit.hash, workTypes, undefined, options);
   if (parsed === undefined) {
-    return undefined;
+    return { kind: 'unparseable' };
   }
 
   const config = workTypes[parsed.type];
-  if (config === undefined || config.excludedFromChangelog === true) {
-    return undefined;
+  if (config === undefined) {
+    return { kind: 'unparseable' };
+  }
+  if (config.excludedFromChangelog === true) {
+    return { kind: 'excluded' };
   }
 
-  return config.header;
+  return { kind: 'header', header: config.header, type: parsed.type, breaking: parsed.breaking };
 }
 
 /**

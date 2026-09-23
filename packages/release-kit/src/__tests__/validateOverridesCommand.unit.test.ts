@@ -399,7 +399,7 @@ describe(validateOverridesCommand, () => {
       const unreleasedHash = '9988aabbccddeeff9988aabbccddeeff9988aabb';
       mockedEnumerateReleaseWindows.mockReturnValue([
         {
-          version: 'validate-only',
+          version: 'unreleased',
           timestamp: 1_720_000_000,
           commits: makeStubbedCommits([['#3 feat: unreleased feature', unreleasedHash]]),
         },
@@ -434,7 +434,7 @@ describe(validateOverridesCommand, () => {
       // The single-package scope reads the configured tag prefix over all paths.
       expect(mockedEnumerateReleaseWindows).toHaveBeenCalledWith({
         tagPrefixes: ['v'],
-        unreleasedTag: 'validate-only',
+        unreleasedTag: 'unreleased',
       });
     });
   });

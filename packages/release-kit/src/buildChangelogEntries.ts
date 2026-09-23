@@ -2,7 +2,8 @@ import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { extractVersion } from './changelogJsonUtils.ts';
 import { classifyChangelogCommit, isNonChangeSubject } from './classifyChangelogCommit.ts';
-import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from './defaults.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
+import { type BumpSignal, determineBumpType } from './determineBumpType.ts';
 import { enumerateReleaseWindows, type RawCommit, type ReleaseWindow } from './enumerateReleaseWindows.ts';
 import { extractMigration } from './extractMigration.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
@@ -10,7 +11,6 @@ import { type ChangeRecordEntry, parseChangeRecordBlock, stripChangeRecordBlocks
 import {
   COMMIT_PREPROCESSOR_PATTERNS,
   evaluateBreakingPolicy,
-  parseCommitMessage,
   PIPE_SCOPE_SOURCE,
   resolveType,
 } from './parseCommitMessage.ts';
@@ -22,8 +22,16 @@ import type {
   MalformedChangeRecordBlock,
   PolicyViolation,
   ReleaseConfig,
+  ReleaseType,
   UndeclaredEntryType,
+  VersionPatterns,
 } from './types.ts';
+
+/** Matches the subject of a release commit, which the unreleased window's commit list leaves out. */
+const RELEASE_SUBJECT_PATTERN = /^release:/;
+
+/** Placeholder version for the unreleased window, whose tag is unknown until its bump is decided. */
+const UNRELEASED_TAG = 'unreleased';
 
 /**
  * Canonical bare-section-name → priority index, derived from `DEFAULT_WORK_TYPES`.
@@ -60,125 +68,248 @@ export function stripGroupDecorations(group: string): string {
 }
 
 /**
- * Builds structured changelog entries from the release windows of git history.
+ * Builds structured changelog entries from the release windows of git history, naming the unreleased window `tag`.
  *
- * Pure data: reads the windows from `enumerateReleaseWindows`, the reader that the bump path also
- * uses, and returns the transformed `ChangelogEntry[]` with the diagnostics of the unreleased window.
- * Performs no `changelog.json` I/O; callers persist the entries via `renderChangelogJson`.
- *
- * `tag` names the unreleased window, which holds the commits that no matching tag contains.
+ * Composes `readReleaseHistory` and `toChangelogEntries` for a caller that knows the tag before it reads. Performs no
+ * `changelog.json` I/O; callers persist the entries via `renderChangelogJson`.
  */
 export function buildChangelogEntries(
-  config: Pick<ReleaseConfig, 'breakingPolicies' | 'changelogJson' | 'workTypes'>,
+  config: ReleaseHistoryConfig,
   tag: string,
   options: GenerateChangelogOptions,
 ): { entries: ChangelogEntry[]; diagnostics: ChangelogDiagnostics } {
-  try {
-    const windows = enumerateReleaseWindows({
-      ...(options.paths !== undefined && { paths: options.paths }),
-      tagPrefixes: options.tagPrefixes,
-      unreleasedTag: tag,
-    });
-    const devOnlySections = new Set(config.changelogJson.devOnlySections);
-    const workTypes = config.workTypes ?? DEFAULT_WORK_TYPES;
-    const breakingPolicies = config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES;
-    return transformReleases(windows, devOnlySections, workTypes, breakingPolicies);
-  } catch (error: unknown) {
-    throw chainError(`Failed to build changelog entries for tag ${tag}`, error);
-  }
+  const history = readReleaseHistory(config, options);
+  return { entries: toChangelogEntries(history, tag), diagnostics: history.unreleased.diagnostics };
 }
 
-/** What the unreleased window's change-record blocks yielded that the release report shows. */
+/** What reading the unreleased window reports beyond its items. */
 export interface ChangelogDiagnostics {
   malformedBlocks: MalformedChangeRecordBlock[];
-  /** Breaking-policy violations of change-record entries, each with surface `'entry'`. */
+  /** Breaking-policy violations of the window's titles and change-record entries. */
   policyViolations: PolicyViolation[];
   undeclaredEntryTypes: UndeclaredEntryType[];
 }
 
 /**
- * Transforms release windows into `ChangelogEntry[]`.
+ * Reads a scope's release windows once and returns the changelog items of every window, with what the unreleased
+ * window decides: its commits, its bump, and its diagnostics.
  *
  * A commit whose last `change-record` block records entries yields one item per entry; any other commit is
  * classified by its title through `classifyChangelogCommit`. A `release:` or merge subject yields nothing either
- * way. A release left with no section contributes no entry. Only the first window, the unreleased one, records
- * diagnostics, since the released windows were reported when they were prepared.
+ * way. Only the unreleased window records diagnostics, since the released windows were reported when they were
+ * prepared.
  */
-function transformReleases(
-  releases: readonly ReleaseWindow[],
-  devOnlySections: Set<string>,
-  workTypes: NonNullable<ReleaseConfig['workTypes']>,
-  breakingPolicies: NonNullable<ReleaseConfig['breakingPolicies']>,
-): { entries: ChangelogEntry[]; diagnostics: ChangelogDiagnostics } {
-  const entries: ChangelogEntry[] = [];
+export function readReleaseHistory(config: ReleaseHistoryConfig, options: GenerateChangelogOptions): ReleaseHistory {
+  try {
+    const windows = enumerateReleaseWindows({
+      ...(options.paths !== undefined && { paths: options.paths }),
+      tagPrefixes: options.tagPrefixes,
+      unreleasedTag: UNRELEASED_TAG,
+    });
+    const context: ReadContext = {
+      breakingPolicies: config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES,
+      devOnlySections: new Set(config.changelogJson.devOnlySections.map(stripGroupDecorations)),
+      versionPatterns: config.versionPatterns ?? DEFAULT_VERSION_PATTERNS,
+      workTypes: config.workTypes ?? DEFAULT_WORK_TYPES,
+    };
+    return transformReleases(windows, context);
+  } catch (error: unknown) {
+    throw chainError(`Failed to read the release history for ${options.tagPrefixes.join(', ')}`, error);
+  }
+}
+
+/** The configuration that `readReleaseHistory` reads. */
+export type ReleaseHistoryConfig = Pick<
+  ReleaseConfig,
+  'breakingPolicies' | 'changelogJson' | 'versionPatterns' | 'workTypes'
+>;
+
+/** One read of a scope's release windows. */
+export interface ReleaseHistory {
+  /** The newest matching tag that HEAD reaches; undefined when none does. */
+  previousTag: string | undefined;
+  /** Entries of the released windows, newest first; a window that yields no item contributes none. */
+  releasedEntries: ChangelogEntry[];
+  unreleased: UnreleasedWindowReading;
+}
+
+/** The unreleased window: its changelog sections and commits, and the bump and diagnostics that they determine. */
+export interface UnreleasedWindowReading {
+  /** The highest bump that the window's items call for; undefined when the window yields no item. */
+  bump: ReleaseType | undefined;
+  /** The window's commits, newest first, without release commits. */
+  commits: RawCommit[];
+  /** The date of the window's entry, from the time of the read. */
+  date: string;
+  diagnostics: ChangelogDiagnostics;
+  /** The number of commits that yield at least one item. */
+  parsedCommitCount: number;
+  sections: ChangelogSection[];
+  /**
+   * Commits that yield no item and that neither an exclusion nor a diagnostic accounts for, newest first; undefined
+   * when none.
+   */
+  unparseableCommits: RawCommit[] | undefined;
+}
+
+/** Labels the unreleased window of `history` with `tag` and returns the entries of every window, newest first. */
+export function toChangelogEntries(history: ReleaseHistory, tag: string): ChangelogEntry[] {
+  const { unreleased } = history;
+  if (unreleased.sections.length === 0) {
+    return [...history.releasedEntries];
+  }
+  return [
+    { version: extractVersion(tag), date: unreleased.date, sections: unreleased.sections },
+    ...history.releasedEntries,
+  ];
+}
+
+/** What every window's read shares. */
+interface ReadContext {
+  breakingPolicies: NonNullable<ReleaseConfig['breakingPolicies']>;
+  /** Dev-only section titles, stripped of decorations. */
+  devOnlySections: ReadonlySet<string>;
+  versionPatterns: VersionPatterns;
+  workTypes: NonNullable<ReleaseConfig['workTypes']>;
+}
+
+/** An item with the section header under which it is filed and the signal that it contributes to the bump. */
+interface DerivedItem {
+  header: string;
+  item: ChangelogItem;
+  signal: BumpSignal;
+}
+
+/** Transforms the windows that `enumerateReleaseWindows` returns, the unreleased one first, into a history. */
+function transformReleases(windows: readonly ReleaseWindow[], context: ReadContext): ReleaseHistory {
+  const [unreleasedWindow, baselineWindow] = windows;
   const diagnostics: ChangelogDiagnostics = { malformedBlocks: [], policyViolations: [], undeclaredEntryTypes: [] };
-  // Normalise dev-only entries once so consumer overrides written as bare names (e.g. `'Internal features'`)
-  // match emoji-prefixed default titles (`🏗️ Internal features`) without requiring config updates.
-  const devOnlyNormalised = new Set([...devOnlySections].map(stripGroupDecorations));
+  const signals: BumpSignal[] = [];
+  const unparseable: RawCommit[] = [];
+  let parsedCommitCount = 0;
 
-  for (const [index, release] of releases.entries()) {
-    const version = extractVersion(release.version);
-    const date = new Date(release.timestamp * 1_000).toISOString().slice(0, 10);
-    const windowDiagnostics = index === 0 ? diagnostics : undefined;
-
-    const sectionMap = new Map<string, ChangelogItem[]>();
-
-    for (const commit of release.commits) {
-      if (isNonChangeSubject(commit.subject)) {
-        continue;
-      }
-
-      const reading = parseChangeRecordBlock(commit.message);
-      if (reading.kind === 'malformed') {
-        windowDiagnostics?.malformedBlocks.push({
-          commitHash: commit.hash,
-          commitSubject: commit.subject,
-          reason: reading.reason,
-        });
-      }
-      if (reading.kind === 'read' && reading.entries.length > 0) {
-        for (const [entryIndex, entry] of reading.entries.entries()) {
-          const derived = buildEntryItem(commit, entry, entryIndex + 1, reading.prNumber, {
-            breakingPolicies,
-            diagnostics: windowDiagnostics,
-            workTypes,
-          });
-          if (derived !== undefined) {
-            appendItem(sectionMap, derived.header, derived.item);
-          }
-        }
-        continue;
-      }
-
-      const group = classifyChangelogCommit(commit.message, workTypes);
-      if (group === undefined) {
-        continue;
-      }
-      appendItem(sectionMap, group, buildTitleItem(commit, workTypes, breakingPolicies));
+  const sectionMap = new Map<string, ChangelogItem[]>();
+  const unreleasedCommits = unreleasedWindow?.commits ?? [];
+  for (const commit of unreleasedCommits) {
+    const reading = readCommit(commit, context, diagnostics);
+    for (const derived of reading.items) {
+      appendItem(sectionMap, derived.header, derived.item);
+      signals.push(derived.signal);
     }
-
-    const sections: ChangelogSection[] = [];
-    for (const [title, items] of sectionMap) {
-      if (items.length === 0) {
-        continue;
-      }
-      sections.push({
-        title,
-        audience: devOnlyNormalised.has(stripGroupDecorations(title)) ? 'dev' : 'all',
-        items,
-      });
-    }
-
-    // Sort by canonical priority so `changelog.json` emits sections in tier-then-row order.
-    // Stable sort preserves encounter order for unknown sections (priority = Infinity).
-    sections.sort((a, b) => canonicalSectionPriority(a.title) - canonicalSectionPriority(b.title));
-
-    if (sections.length > 0) {
-      entries.push({ version, date, sections });
+    if (reading.items.length > 0) {
+      parsedCommitCount += 1;
+    } else if (reading.isUnparseable) {
+      unparseable.push(commit);
     }
   }
 
-  return { entries, diagnostics };
+  const releasedEntries: ChangelogEntry[] = [];
+  for (const release of windows.slice(1)) {
+    const releaseSections = new Map<string, ChangelogItem[]>();
+    for (const commit of release.commits) {
+      for (const derived of readCommit(commit, context, undefined).items) {
+        appendItem(releaseSections, derived.header, derived.item);
+      }
+    }
+    const sections = buildSections(releaseSections, context.devOnlySections);
+    if (sections.length > 0) {
+      releasedEntries.push({ version: extractVersion(release.version), date: formatDate(release.timestamp), sections });
+    }
+  }
+
+  return {
+    previousTag: baselineWindow?.version,
+    releasedEntries,
+    unreleased: {
+      bump: determineBumpType(signals, context.workTypes, context.versionPatterns),
+      commits: unreleasedCommits.filter((commit) => !RELEASE_SUBJECT_PATTERN.test(commit.subject)).toReversed(),
+      date: formatDate(unreleasedWindow?.timestamp ?? Math.floor(Date.now() / 1_000)),
+      diagnostics,
+      parsedCommitCount,
+      sections: buildSections(sectionMap, context.devOnlySections),
+      unparseableCommits: unparseable.length > 0 ? unparseable.toReversed() : undefined,
+    },
+  };
+}
+
+/**
+ * Reads the items that one commit yields.
+ *
+ * `isUnparseable` is true for a commit that yields no item because its title has no ticket prefix or no resolvable
+ * type, and that no malformed-block diagnostic already reports. `diagnostics` is undefined for a released window,
+ * which reports nothing.
+ */
+function readCommit(
+  commit: RawCommit,
+  context: ReadContext,
+  diagnostics: ChangelogDiagnostics | undefined,
+): { items: DerivedItem[]; isUnparseable: boolean } {
+  if (isNonChangeSubject(commit.subject)) {
+    return { items: [], isUnparseable: false };
+  }
+
+  const reading = parseChangeRecordBlock(commit.message);
+  if (reading.kind === 'malformed') {
+    diagnostics?.malformedBlocks.push({
+      commitHash: commit.hash,
+      commitSubject: commit.subject,
+      reason: reading.reason,
+    });
+  }
+  if (reading.kind === 'read' && reading.entries.length > 0) {
+    const items = reading.entries.flatMap(
+      (entry, entryIndex) =>
+        buildEntryItem(commit, entry, entryIndex + 1, reading.prNumber, context, diagnostics) ?? [],
+    );
+    return { items, isUnparseable: false };
+  }
+
+  const classification = classifyChangelogCommit(commit, context.workTypes, {
+    breakingPolicies: context.breakingPolicies,
+    ...(diagnostics !== undefined && {
+      onPolicyViolation: (violating, type, surface) => {
+        diagnostics.policyViolations.push({
+          commitHash: violating.hash,
+          commitSubject: violating.subject,
+          type,
+          surface,
+        });
+      },
+    }),
+  });
+  if (classification.kind !== 'header') {
+    return { items: [], isUnparseable: classification.kind === 'unparseable' && reading.kind !== 'malformed' };
+  }
+  const item = buildTitleItem(commit, classification.breaking);
+  return {
+    items: [
+      { header: classification.header, item, signal: { type: classification.type, breaking: item.breaking === true } },
+    ],
+    isUnparseable: false,
+  };
+}
+
+/** Turns grouped items into sections in canonical order, marking each dev-only section. */
+function buildSections(
+  sectionMap: ReadonlyMap<string, ChangelogItem[]>,
+  devOnlySections: ReadonlySet<string>,
+): ChangelogSection[] {
+  const sections: ChangelogSection[] = [];
+  for (const [title, items] of sectionMap) {
+    sections.push({
+      title,
+      audience: devOnlySections.has(stripGroupDecorations(title)) ? 'dev' : 'all',
+      items,
+    });
+  }
+  // Sort by canonical priority so `changelog.json` emits sections in tier-then-row order.
+  // Stable sort preserves encounter order for unknown sections (priority = Infinity).
+  return sections.toSorted((a, b) => canonicalSectionPriority(a.title) - canonicalSectionPriority(b.title));
+}
+
+/** Formats Unix seconds as an ISO calendar date. */
+function formatDate(timestamp: number): string {
+  return new Date(timestamp * 1_000).toISOString().slice(0, 10);
 }
 
 /** Adds an item to the section that `header` names, creating the section on first use. */
@@ -203,13 +334,10 @@ function buildEntryItem(
   entry: ChangeRecordEntry,
   position: number,
   prNumber: number | undefined,
-  context: {
-    breakingPolicies: NonNullable<ReleaseConfig['breakingPolicies']>;
-    diagnostics: ChangelogDiagnostics | undefined;
-    workTypes: NonNullable<ReleaseConfig['workTypes']>;
-  },
-): { header: string; item: ChangelogItem } | undefined {
-  const { breakingPolicies, diagnostics, workTypes } = context;
+  context: ReadContext,
+  diagnostics: ChangelogDiagnostics | undefined,
+): DerivedItem | undefined {
+  const { breakingPolicies, workTypes } = context;
   const type = resolveType(entry.type, workTypes);
   if (type === undefined) {
     diagnostics?.undeclaredEntryTypes.push({
@@ -257,24 +385,24 @@ function buildEntryItem(
   }
   item.hash = commit.hash;
   item.entry = position;
-  return { header: config.header, item };
+  return { header: config.header, item, signal: { type, breaking } };
 }
 
 /**
  * Builds the item that a commit without a usable change-record block yields from its title and body. The body leaves
  * out any block, which records data rather than prose.
+ *
+ * `isParsedBreaking` is the parser's policy-evaluated flag. The item is breaking only when the subject also carries a
+ * prefix `!`, because the parse also counts a `BREAKING CHANGE:` footer on an `optional`-policy type, which the
+ * changelog ignores.
  */
-function buildTitleItem(
-  commit: RawCommit,
-  workTypes: NonNullable<ReleaseConfig['workTypes']>,
-  breakingPolicies: NonNullable<ReleaseConfig['breakingPolicies']>,
-): ChangelogItem {
+function buildTitleItem(commit: RawCommit, isParsedBreaking: boolean): ChangelogItem {
   const body = extractBody(stripChangeRecordBlocks(commit.message));
   const item: ChangelogItem = { description: extractDescription(commit.message) };
   if (body !== undefined) {
     item.body = body;
   }
-  if (isBreakingUnderPolicy(commit, workTypes, breakingPolicies)) {
+  if (isParsedBreaking && subjectHasBreakingMarker(commit.message)) {
     item.breaking = true;
   }
   // Derive from the trailer-stripped body rather than the raw message, so the field comes
@@ -287,28 +415,6 @@ function buildTitleItem(
   return item;
 }
 
-/**
- * Decides whether a commit's changelog item is breaking.
- *
- * The item is breaking when the subject carries a prefix `!` and the commit's work-type policy permits it, which keeps
- * the item in agreement with the version bump. The subject check comes first because the parse also counts a
- * `BREAKING CHANGE:` footer on an `optional`-policy type, which the changelog ignores.
- *
- * Every commit reaching this point resolved a type in `classifyChangelogCommit`, which parses against the same
- * `workTypes`; the parse here therefore succeeds, and the `?? true` satisfies the parser's nullable return.
- */
-function isBreakingUnderPolicy(
-  commit: RawCommit,
-  workTypes: NonNullable<ReleaseConfig['workTypes']>,
-  breakingPolicies: NonNullable<ReleaseConfig['breakingPolicies']>,
-): boolean {
-  if (!subjectHasBreakingMarker(commit.message)) {
-    return false;
-  }
-  const parsed = parseCommitMessage(commit.message, commit.hash, workTypes, undefined, { breakingPolicies });
-  return parsed?.breaking ?? true;
-}
-
 /** Matches a type-token with an optional scope (parenthesized or pipe-prefixed) followed by `!:`. */
 const SUBJECT_BREAKING_MARKER_PATTERN = new RegExp(String.raw`^(?:${PIPE_SCOPE_SOURCE}\|)?\w+(?:\([^)]+\))?!:`);
 
@@ -318,7 +424,7 @@ const SUBJECT_BREAKING_MARKER_PATTERN = new RegExp(String.raw`^(?:${PIPE_SCOPE_S
  * Matches `type!:`, `type(scope)!:`, and `scope|type!:` formats at the start of the first line, after any leading
  * ticket prefix (e.g. `#42 `, `TOOL-123 `, `## `) is stripped via `COMMIT_PREPROCESSOR_PATTERNS`.
  * The `BREAKING CHANGE:` body footer is not considered. The marker alone does not make an item breaking: The commit's
- * work-type policy must also permit `!` (see `isBreakingUnderPolicy`).
+ * work-type policy must also permit `!` (see `buildTitleItem`).
  * The regex is anchored so descriptions containing `!:` later in the line (e.g. `"Fix edge case using field!: value
  * notation"`) are not misclassified as breaking.
  */
