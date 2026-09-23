@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockAssertCleanWorkingTree = vi.hoisted(() => vi.fn());
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
-const mockGetCommitsSinceTarget = vi.hoisted(() => vi.fn());
+const mockReadReleaseHistory = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -34,8 +34,9 @@ vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
-vi.mock(import('../getCommitsSinceTarget.ts'), () => ({
-  getCommitsSinceTarget: mockGetCommitsSinceTarget,
+vi.mock(import('../buildChangelogEntries.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
+  readReleaseHistory: mockReadReleaseHistory,
 }));
 
 vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
@@ -65,6 +66,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
 import { parseArgs, prepareCommand } from '../prepareCommand.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../releaseFiles.ts';
 import type { ReleasePlan } from '../releasePlan.ts';
+import { makeReleaseHistory } from '../test-utils/releaseHistories.ts';
 import { emptyWorkspace, resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
@@ -91,7 +93,7 @@ describe(prepareCommand, () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult());
     mockReleasePrepare.mockReturnValue(makePrepareResult());
     // Default: no commits anywhere, so the stranded-dependents validator stays silent.
-    mockGetCommitsSinceTarget.mockReturnValue({ tag: undefined, commits: [] });
+    mockReadReleaseHistory.mockReturnValue(makeReleaseHistory());
     mockWriteFileWithCheck.mockImplementation((path: string) => ({ filePath: path, outcome: 'created' }));
     void throwOnProcessExit();
     void silenceConsole(['info']);
@@ -106,7 +108,7 @@ describe(prepareCommand, () => {
     mockReadFileSync.mockReset();
     mockReleasePrepareMono.mockReset();
     mockReleasePrepare.mockReset();
-    mockGetCommitsSinceTarget.mockReset();
+    mockReadReleaseHistory.mockReset();
     mockWriteFileWithCheck.mockReset();
     mockExecSync.mockReset();
     vi.restoreAllMocks();
@@ -188,20 +190,15 @@ describe(prepareCommand, () => {
     expect(capture.stderr).toContain('--only is only supported');
   });
 
-  it('exits with error for --force without --bump on a single-package repo', async () => {
-    // The orthogonal --force model is only wired into the monorepo executor; the
-    // single-package path still uses determineBumpFromCommits, so a bare --force would
-    // be silently ignored. Reject it explicitly with a guidance error instead.
+  it('passes a bare --force to a single-package release', async () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
-    await expect(prepareCommand(['--force'], RICH_STYLES)).rejects.toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('--force without --bump');
-    expect(mockReleasePrepare).not.toHaveBeenCalled();
+    await prepareCommand(['--force'], RICH_STYLES);
+
+    expect(mockReleasePrepare).toHaveBeenCalledWith(expect.any(Object), { force: true });
   });
 
-  it('accepts --force --bump=X on a single-package repo', async () => {
-    // --bump=X carries the release through unconditionally in the single-package path,
-    // so --force is a no-op rather than a silent failure when paired with --bump.
+  it('passes --force --bump=X to a single-package release', async () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
     await prepareCommand(['--force', '--bump=patch'], RICH_STYLES);
@@ -229,12 +226,13 @@ describe(prepareCommand, () => {
       }
       throw new Error(`Unexpected readFileSync call for path: ${filePath}`);
     });
-    mockGetCommitsSinceTarget.mockImplementation((tagPrefixes: readonly string[]) => {
-      if (tagPrefixes.includes('arrays-v'))
-        return { tag: 'arrays-v1.0.0', commits: [{ message: 'feat: x', hash: 'h1' }] };
-      if (tagPrefixes.includes('strings-v'))
-        return { tag: 'strings-v1.0.0', commits: [{ message: 'feat: y', hash: 'h2' }] };
-      return { tag: undefined, commits: [] };
+    // Commits without a bump still strand a dependent: the check judges by commit presence.
+    mockReadReleaseHistory.mockImplementation((_config: unknown, options: { tagPrefixes: readonly string[] }) => {
+      if (options.tagPrefixes.includes('arrays-v'))
+        return makeReleaseHistory({ previousTag: 'arrays-v1.0.0', commits: [['#1 feat: x', 'h1']], bump: 'minor' });
+      if (options.tagPrefixes.includes('strings-v'))
+        return makeReleaseHistory({ previousTag: 'strings-v1.0.0', commits: [['Update readme', 'h2']] });
+      return makeReleaseHistory();
     });
 
     await expect(prepareCommand(['--only=arrays'], RICH_STYLES)).rejects.toThrow(ProcessExitError);

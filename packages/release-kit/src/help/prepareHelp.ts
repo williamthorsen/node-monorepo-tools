@@ -11,14 +11,12 @@ Run release preparation with automatic workspace discovery.
 Options:
   --config <path>       Path to config file (default: .config/release-kit.config.ts)
   --dry-run             Run without modifying any files
-  --bump=major|minor|patch  Override the bump type for all workspaces
-  --set-version=X.Y.Z   Set an explicit version; bypasses commit-derived bumps. In monorepo
+  --bump=major|minor|patch  Set the level of every release that happens; does not trigger one
+  --set-version=X.Y.Z   Set an explicit version; bypasses the changelog-derived bump. In monorepo
                          mode it requires --only, and is rejected when a 'project' block is configured.
   --force               Release even when no commits or no bump-worthy commits exist
-                         since the last tag. In monorepo and project mode, defaults to
-                         patch when --bump is not given; use --bump=X for a different
-                         level. In single-package mode, a bare --force is rejected —
-                         pass --bump=major|minor|patch.
+                         since the last tag. Defaults to patch when --bump is not given;
+                         use --bump=X for a different level.
   --no-git-checks, -n   Skip the clean-working-tree check
   --only=name1,name2    Only process the named workspaces (comma-separated, monorepo only).
                          When a 'project' block is configured, the project release is skipped.

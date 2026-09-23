@@ -10,8 +10,6 @@ const mockWriteFileSync = vi.hoisted(() => vi.fn());
 const mockHasPrettierConfig = vi.hoisted(() => vi.fn());
 const mockPlanReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 
-const mockGetCommitsSinceTarget = vi.hoisted(() => vi.fn());
-
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
   execSync: mockExecSync,
@@ -23,10 +21,6 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-vi.mock(import('../getCommitsSinceTarget.ts'), () => ({
-  getCommitsSinceTarget: mockGetCommitsSinceTarget,
-}));
-
 vi.mock(import('../hasPrettierConfig.ts'), () => ({
   hasPrettierConfig: mockHasPrettierConfig,
 }));
@@ -35,18 +29,19 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
   planReleaseNotesPreviews: mockPlanReleaseNotesPreviews,
 }));
 
-// Stub out the new helpers for tests in this file that exercise the
-// `changelogJson.enabled: true` path. The default stubs return deterministic values without
-// reading git history or touching the filesystem.
-const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
+// Stub the history reader and the changelog constructors and renderers. The default stubs return
+// deterministic values without reading git history or touching the filesystem; `toChangelogEntries`
+// stays real, so a history's sections reach the planned changelog labeled with the new tag.
+const mockReadReleaseHistory = vi.hoisted(() => vi.fn());
 const mockBuildSyntheticChangelogEntry = vi.hoisted(() => vi.fn());
 const mockBuildEmptyReleaseEntry = vi.hoisted(() => vi.fn());
 const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
 const mockRenderChangelogMarkdown = vi.hoisted(() => vi.fn());
 const mockRenderChangelogJson = vi.hoisted(() => vi.fn());
 
-vi.mock(import('../buildChangelogEntries.ts'), () => ({
-  buildChangelogEntries: mockBuildChangelogEntries,
+vi.mock(import('../buildChangelogEntries.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
+  readReleaseHistory: mockReadReleaseHistory,
 }));
 
 vi.mock(import('../buildSyntheticChangelogEntry.ts'), () => ({
@@ -68,16 +63,34 @@ vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
   renderChangelogMarkdown: mockRenderChangelogMarkdown,
 }));
 
-import {
-  DEFAULT_BREAKING_POLICIES,
-  DEFAULT_CHANGELOG_JSON_CONFIG,
-  DEFAULT_RELEASE_NOTES_CONFIG,
-  DEFAULT_WORK_TYPES,
-} from '../defaults.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
 import { releasePrepareMono } from '../releasePrepareMono.ts';
-import { makeChangelogBuild } from '../test-utils/changelogBuilds.ts';
-import { type CommitStub, makeStubbedCommits } from '../test-utils/commitStubs.ts';
-import type { MonorepoReleaseConfig, WorkspaceConfig, WorkTypeConfig } from '../types.ts';
+import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
+import { makeReleaseHistory, type ReleaseHistoryStub } from '../test-utils/releaseHistories.ts';
+import type {
+  ChangelogEntry,
+  ChangelogSection,
+  MalformedChangeRecordBlock,
+  MonorepoReleaseConfig,
+  PolicyViolation,
+  UndeclaredEntryType,
+  WorkspaceConfig,
+  WorkTypeConfig,
+} from '../types.ts';
+
+/** The entry that the mocked `buildEmptyReleaseEntry` returns. */
+const FORCED_BUMP_ENTRY: ChangelogEntry = {
+  version: '0.0.0',
+  date: '2024-01-01',
+  sections: [{ title: 'Notes', audience: 'dev', items: [{ description: 'Forced version bump.' }] }],
+};
+
+/** An entry of a released window, which a history reports alongside its unreleased window. */
+const RELEASED_ENTRY: ChangelogEntry = {
+  version: '1.0.0',
+  date: '2023-12-01',
+  sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Initial release', hash: 'old0001' }] }],
+};
 
 const workTypes: Record<string, WorkTypeConfig> = {
   feat: { header: 'Features' },
@@ -94,31 +107,13 @@ function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoRelease
   };
 }
 
-/** Counts the recorded `buildChangelogEntries` invocations. */
-function countBuildEntriesCalls(): number {
-  return mockBuildChangelogEntries.mock.calls.length;
-}
-
-/** Returns the tag and options of the first `buildChangelogEntries` invocation. */
-function findBuildEntriesCall(): { tag: unknown; options: unknown } {
-  const buildCall = mockBuildChangelogEntries.mock.calls[0];
-  if (buildCall === undefined) {
-    throw new Error('buildChangelogEntries was not called');
-  }
-  return { tag: buildCall[1], options: buildCall[2] };
-}
-
 describe(releasePrepareMono, () => {
   beforeEach(() => {
-    // Default: pretend buildChangelogEntries returned no entries and the synthetic constructor
-    // returned an empty stub entry. Individual tests can override if needed.
-    mockBuildChangelogEntries.mockReturnValue(makeChangelogBuild([]));
+    // Default: every scope reads an empty history, and the synthetic constructor returns an empty
+    // stub entry. Individual tests can override if needed.
+    mockReadReleaseHistory.mockReturnValue(makeReleaseHistory());
     mockBuildSyntheticChangelogEntry.mockReturnValue({ version: '0.0.0', date: '2024-01-01', sections: [] });
-    mockBuildEmptyReleaseEntry.mockReturnValue({
-      version: '0.0.0',
-      date: '2024-01-01',
-      sections: [{ title: 'Notes', audience: 'dev', items: [{ description: 'Forced version bump.' }] }],
-    });
+    mockBuildEmptyReleaseEntry.mockReturnValue(FORCED_BUMP_ENTRY);
     mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
     mockRenderChangelogJson.mockReturnValue('[]\n');
@@ -133,7 +128,7 @@ describe(releasePrepareMono, () => {
     mockWriteFileSync.mockReset();
     mockHasPrettierConfig.mockReset();
     mockPlanReleaseNotesPreviews.mockReset();
-    mockBuildChangelogEntries.mockReset();
+    mockReadReleaseHistory.mockReset();
     mockBuildSyntheticChangelogEntry.mockReset();
     mockBuildEmptyReleaseEntry.mockReset();
     mockMergeChangelogEntriesWithDisk.mockReset();
@@ -157,7 +152,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommits('arrays-v1.0.0', [['feat: add utility', 'abc123']]);
+    stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -177,11 +172,8 @@ describe(releasePrepareMono, () => {
     expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
 
-    // Verify the entries were built from the workspace's own tag prefixes and paths
-    expect(findBuildEntriesCall().options).toStrictEqual({
-      tagPrefixes: ['arrays-v'],
-      paths: ['packages/arrays/**'],
-    });
+    // Verify the history was read once, under the workspace's own tag prefixes and paths
+    expect(listReadOptions()).toStrictEqual([{ tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'] }]);
     expect(result.writes.map((write) => write.path)).toContain('packages/arrays/CHANGELOG.md');
   });
 
@@ -201,7 +193,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommits('arrays-v1.0.0', []);
+    stubHistory({ previousTag: 'arrays-v1.0.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -213,9 +205,13 @@ describe(releasePrepareMono, () => {
       status: 'skipped',
       commitCount: 0,
       parsedCommitCount: 0,
+      previousTag: 'arrays-v1.0.0',
     });
+    assert(result.workspaces[0]?.status === 'skipped', 'expected skipped');
+    expect(result.workspaces[0].skipReason).toContain('No commits for arrays since arrays-v1.0.0');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
-    expect(countBuildEntriesCalls()).toBe(0);
+    expect(result.writes).toStrictEqual([]);
+    expect(listReadOptions()).toStrictEqual([{ tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'] }]);
   });
 
   it('skips a workspace with no commits whose package.json has no version', () => {
@@ -234,7 +230,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommits('arrays-v1.0.0', []);
+    stubHistory({ previousTag: 'arrays-v1.0.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', private: true }));
 
     const result = releasePrepareMono(config, {});
@@ -269,9 +265,9 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommitsByPrefix({
-      'arrays-v': { tag: 'arrays-v1.0.0', entries: [['fix: fix array bug', 'def456']] },
-      'strings-v': { tag: 'strings-v2.0.0', entries: [] },
+    stubHistoryByPrefix({
+      'arrays-v': { previousTag: 'arrays-v1.0.0', commits: [['fix: fix array bug', 'def456']], bump: 'patch' },
+      'strings-v': { previousTag: 'strings-v2.0.0' },
     });
 
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
@@ -288,8 +284,14 @@ describe(releasePrepareMono, () => {
     expect(result.writes.map((write) => write.path)).not.toContain('packages/strings/package.json');
 
     // Only arrays changelog should be generated
-    expect(countBuildEntriesCalls()).toBe(1);
     expect(result.writes.map((write) => write.path)).toContain('packages/arrays/CHANGELOG.md');
+    expect(result.writes.map((write) => write.path)).not.toContain('packages/strings/CHANGELOG.md');
+
+    // Each workspace's history is read once, the skipped one included
+    expect(listReadOptions()).toStrictEqual([
+      { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'] },
+      { tagPrefixes: ['strings-v'], paths: ['packages/strings/**'] },
+    ]);
   });
 
   it('plans files and the format command without performing either', () => {
@@ -309,14 +311,13 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommits('arrays-v1.0.0', [['feat: add feature', 'abc123']]);
+    stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
-    expect(countBuildEntriesCalls()).toBe(1);
     expect(mockExecSync).not.toHaveBeenCalled();
 
     expect(result.writes.map((write) => write.path)).toStrictEqual([
@@ -355,9 +356,9 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommitsByPrefix({
-      'arrays-v': { tag: 'arrays-v1.0.0', entries: [['feat: add feature', 'abc123']] },
-      'strings-v': { tag: 'strings-v1.0.0', entries: [['feat: add feature', 'abc123']] },
+    stubHistoryByPrefix({
+      'arrays-v': { previousTag: 'arrays-v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' },
+      'strings-v': { previousTag: 'strings-v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' },
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
@@ -369,7 +370,7 @@ describe(releasePrepareMono, () => {
     );
   });
 
-  it('uses bumpOverride instead of commit-derived bump type', () => {
+  it("prefers bumpOverride over the history's bump and labels the changelog with the overridden tag", () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -385,25 +386,26 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommits('arrays-v1.0.0', [['fix: small patch', 'abc123']]);
+    const sections: ChangelogSection[] = [
+      { title: 'Bug fixes', audience: 'all', items: [{ description: 'Small patch', hash: 'abc123' }] },
+    ];
+    stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['fix: small patch', 'abc123']], bump: 'patch', sections });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, { bumpOverride: 'minor' });
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
 
-    // Should use the override (minor) rather than the commit-derived type (patch)
+    // Should use the override (minor) rather than the history's bump (patch)
     expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
+    expect(result.workspaces[0]).toMatchObject({ releaseType: 'minor', bumpOverride: 'minor' });
 
-    expect(findBuildEntriesCall().tag).toBe('arrays-v1.1.0');
+    expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith(expect.any(String), [
+      { version: '1.1.0', date: '2024-01-01', sections },
+    ]);
   });
 
-  it('skips when commits exist but none are bump-worthy and no --force is given', () => {
-    // Under the orthogonal-flag model, the per-workspace path no longer applies a patch
-    // floor when there are commits but none map to a bump-worthy work type. The pipeline
-    // now requires a release signal: a natural bump (parseable bump-worthy commits) OR
-    // `--force`. With neither, the workspace skips with the new "No bump-worthy commits"
-    // skipReason.
+  it('skips when the history has commits but no bump and no --force is given', () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -419,8 +421,11 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    // Return a commit whose type (chore) is not in workTypes (only feat, fix).
-    stubCommits('arrays-v1.0.0', [['chore: update deps', 'abc123']]);
+    stubHistory({
+      previousTag: 'arrays-v1.0.0',
+      commits: [['chore: update deps', 'abc123']],
+      unparseableCommits: [['chore: update deps', 'abc123']],
+    });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -438,10 +443,7 @@ describe(releasePrepareMono, () => {
     expect(workspace.unparseableCommits).toStrictEqual(makeStubbedCommits([['chore: update deps', 'abc123']]));
   });
 
-  it('falls back to patch when commits exist but none are bump-worthy and --force is set', () => {
-    // Row 11 of the behavioral matrix: `--force` alone with commits-but-no-bump-worthy
-    // releases at patch. Today the CLI rejected `--force` without `--bump`; with the
-    // validation removed, this combination is now a valid invocation.
+  it('falls back to patch when the history has commits but no bump and --force is set', () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -457,7 +459,11 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommits('arrays-v1.0.0', [['chore: update deps', 'abc123']]);
+    stubHistory({
+      previousTag: 'arrays-v1.0.0',
+      commits: [['chore: update deps', 'abc123']],
+      unparseableCommits: [['chore: update deps', 'abc123']],
+    });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, { force: true });
@@ -474,10 +480,7 @@ describe(releasePrepareMono, () => {
     );
   });
 
-  it('skips when --bump=X alone is set with commits-but-no-bump-worthy (level chooser, not trigger)', () => {
-    // Row 10 of the behavioral matrix: `--bump=X` is now a pure level chooser; it does
-    // not trigger a release on its own. With commits that don't parse to a bump-worthy
-    // type, the workspace skips even when `--bump=X` is set without `--force`.
+  it('skips when --bump=X alone is set and the history has commits but no bump (level chooser, not trigger)', () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -493,7 +496,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommits('arrays-v1.0.0', [['chore: update deps', 'abc123']]);
+    stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['chore: update deps', 'abc123']] });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, { bumpOverride: 'minor' });
@@ -509,8 +512,6 @@ describe(releasePrepareMono, () => {
   });
 
   it('falls back to patch when --force is set with no commits (no --bump)', () => {
-    // Row 3 of the behavioral matrix: `--force` alone with no commits is now a valid
-    // invocation that releases at patch. Today this combination was rejected at the CLI.
     const config = makeConfig({
       workspaces: [
         {
@@ -526,7 +527,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommits('arrays-v1.0.0', []);
+    stubHistory({ previousTag: 'arrays-v1.0.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, { force: true });
@@ -544,9 +545,8 @@ describe(releasePrepareMono, () => {
   });
 
   it('mixed-sibling case: --force alone uses natural bump for one workspace and patch fallback for another', () => {
-    // With `--force` alone (no `--bump`), workspaces with bump-worthy commits use their
-    // natural bump (e.g., feat → minor); workspaces without bump-worthy commits fall back
-    // to patch. This is the mixed-hygiene operator use case the orthogonal model unlocks.
+    // With `--force` alone (no `--bump`), a workspace whose history calls for a bump keeps it;
+    // one whose history calls for none falls back to patch.
     const config = makeConfig({
       workspaces: [
         {
@@ -572,9 +572,9 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommitsByPrefix({
-      'arrays-v': { tag: 'arrays-v1.0.0', entries: [['chore: update deps', 'abc123']] },
-      'strings-v': { tag: 'strings-v2.0.0', entries: [['feat: add helper', 'def456']] },
+    stubHistoryByPrefix({
+      'arrays-v': { previousTag: 'arrays-v1.0.0', commits: [['chore: update deps', 'abc123']] },
+      'strings-v': { previousTag: 'strings-v2.0.0', commits: [['feat: add helper', 'def456']], bump: 'minor' },
     });
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('arrays')) return JSON.stringify({ version: '1.0.0' });
@@ -583,13 +583,13 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { force: true });
 
-    // arrays falls back to patch (chore is not bump-worthy); strings uses natural minor (feat).
+    // arrays falls back to patch; strings keeps its natural minor.
     expect(result.tags).toStrictEqual(['arrays-v1.0.1', 'strings-v2.1.0']);
     expect(result.workspaces[0]).toMatchObject({ name: 'arrays', status: 'released', releaseType: 'patch' });
     expect(result.workspaces[1]).toMatchObject({ name: 'strings', status: 'released', releaseType: 'minor' });
   });
 
-  it('uses parsed bump type when mix of parseable and unparseable commits exist', () => {
+  it("carries the history's bump, parsed count, and unparseable commits onto a released result", () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -605,10 +605,16 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommits('arrays-v1.0.0', [
-      ['feat: add utility', 'abc123'],
-      ['chore: update deps', 'def456'],
-    ]);
+    stubHistory({
+      previousTag: 'arrays-v1.0.0',
+      commits: [
+        ['feat: add utility', 'abc123'],
+        ['chore: update deps', 'def456'],
+      ],
+      bump: 'minor',
+      parsedCommitCount: 1,
+      unparseableCommits: [['chore: update deps', 'def456']],
+    });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -616,7 +622,12 @@ describe(releasePrepareMono, () => {
     expect(result.workspaces[0]).toMatchObject({
       status: 'released',
       releaseType: 'minor',
+      commitCount: 2,
       parsedCommitCount: 1,
+      commits: makeStubbedCommits([
+        ['feat: add utility', 'abc123'],
+        ['chore: update deps', 'def456'],
+      ]),
     });
     expect(result.workspaces[0]?.unparseableCommits).toStrictEqual(
       makeStubbedCommits([['chore: update deps', 'def456']]),
@@ -639,7 +650,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommits('arrays-v1.0.0', []);
+    stubHistory({ previousTag: 'arrays-v1.0.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, { force: true, bumpOverride: 'patch' });
@@ -648,7 +659,8 @@ describe(releasePrepareMono, () => {
     expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.0.1"');
     // Empty-range release: the synthetic "Notes / Forced version bump." entry stands in for
     // the release windows.
-    expect(countBuildEntriesCalls()).toBe(0);
+    expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledExactlyOnceWith('1.0.1', expect.any(String));
+    expect(listReadOptions()).toStrictEqual([{ tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'] }]);
   });
 
   it('force-bumps a workspace with no commits while also bumping one with commits', () => {
@@ -677,9 +689,9 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommitsByPrefix({
-      'arrays-v': { tag: 'arrays-v1.0.0', entries: [] },
-      'strings-v': { tag: 'strings-v2.0.0', entries: [['feat: add string helper', 'abc123']] },
+    stubHistoryByPrefix({
+      'arrays-v': { previousTag: 'arrays-v1.0.0' },
+      'strings-v': { previousTag: 'strings-v2.0.0', commits: [['feat: add string helper', 'abc123']], bump: 'minor' },
     });
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('arrays')) return JSON.stringify({ version: '1.0.0' });
@@ -688,11 +700,11 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { force: true, bumpOverride: 'patch' });
 
-    // arrays is bumped via --force (0 commits); strings is bumped via commits; both use bumpOverride: 'patch'
+    // arrays is bumped via --force (0 commits); strings via its history's bump; both use bumpOverride: 'patch'
     expect(result.tags).toStrictEqual(['arrays-v1.0.1', 'strings-v2.0.1']);
   });
 
-  it('force-bumps an empty range without writing or building entries from history', () => {
+  it('force-bumps an empty range from the synthetic entry without writing', () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -708,14 +720,14 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommits('arrays-v1.0.0', []);
+    stubHistory({ previousTag: 'arrays-v1.0.0', releasedEntries: [RELEASED_ENTRY] });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, { force: true, bumpOverride: 'patch' });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
-    expect(countBuildEntriesCalls()).toBe(0);
+    expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith(expect.any(String), [FORCED_BUMP_ENTRY]);
   });
 
   it('does not run formatCommand when no workspaces have commits', () => {
@@ -735,7 +747,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommits('arrays-v1.0.0', []);
+    stubHistory({ previousTag: 'arrays-v1.0.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -761,7 +773,7 @@ describe(releasePrepareMono, () => {
     });
     mockHasPrettierConfig.mockReturnValue(true);
 
-    stubCommits('arrays-v1.0.0', [['feat: add feature', 'abc123']]);
+    stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -788,7 +800,7 @@ describe(releasePrepareMono, () => {
     });
     mockHasPrettierConfig.mockReturnValue(false);
 
-    stubCommits('arrays-v1.0.0', [['feat: add feature', 'abc123']]);
+    stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     releasePrepareMono(config, {});
@@ -812,7 +824,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    stubCommits('arrays-v1.0.0', [['feat: add utility', 'abc123']]);
+    stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     const result = releasePrepareMono(config, {});
@@ -824,9 +836,10 @@ describe(releasePrepareMono, () => {
       'packages/arrays/CHANGELOG.md',
       'packages/arrays/docs/CHANGELOG.md',
     ]);
-    // Entries are built once per workspace (they span the full release history) and the markdown
+    // The history is read once per workspace (it spans the full release history), and the markdown
     // renderer is called once per `changelogPaths` entry.
-    expect(countBuildEntriesCalls()).toBe(1);
+    expect(mockReadReleaseHistory).toHaveBeenCalledTimes(1);
+    expect(mockRenderChangelogMarkdown).toHaveBeenCalledTimes(2);
     expect(
       result.writes.filter((write) => write.path.endsWith('CHANGELOG.md')).map((write) => write.path),
     ).toStrictEqual(['packages/arrays/CHANGELOG.md', 'packages/arrays/docs/CHANGELOG.md']);
@@ -859,9 +872,9 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      stubCommitsByPrefix({
-        'core-v': { tag: 'core-v1.0.0', entries: [['feat: add utility', 'abc123']] },
-        'app-v': { tag: 'app-v2.0.0', entries: [] },
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' },
+        'app-v': { previousTag: 'app-v2.0.0' },
       });
 
       mockReadFileSync.mockImplementation((filePath: string) => {
@@ -932,9 +945,9 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      stubCommitsByPrefix({
-        'core-v': { tag: 'core-v1.0.0', entries: [['fix: bug fix', 'abc123']] },
-        'app-v': { tag: 'app-v1.0.0', entries: [] },
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0', commits: [['fix: bug fix', 'abc123']], bump: 'patch' },
+        'app-v': { previousTag: 'app-v1.0.0' },
       });
 
       mockReadFileSync.mockImplementation((filePath: string) => {
@@ -954,8 +967,12 @@ describe(releasePrepareMono, () => {
 
       const result = releasePrepareMono(config, {});
 
-      // buildChangelogEntries is called only for core (direct), not for app (propagated).
-      expect(countBuildEntriesCalls()).toBe(1);
+      // Each workspace's history is read once, in Phase 1; building the propagated app's changelog
+      // reads nothing more.
+      expect(listReadOptions()).toStrictEqual([
+        { tagPrefixes: ['core-v'], paths: ['packages/core/**'] },
+        { tagPrefixes: ['app-v'], paths: ['packages/app/**'] },
+      ]);
       expect(result.writes.map((write) => write.path)).toContain('packages/core/CHANGELOG.md');
 
       // Synthetic propagation entry constructor was called for the app workspace.
@@ -983,7 +1000,7 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      stubCommits('core-v1.0.0', [['feat: new feature', 'abc123']]);
+      stubHistory({ previousTag: 'core-v1.0.0', commits: [['feat: new feature', 'abc123']], bump: 'minor' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '1.0.0' }));
 
       const result = releasePrepareMono(config, {});
@@ -1009,7 +1026,7 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      stubCommits('core-v0.5.0', []);
+      stubHistory({ previousTag: 'core-v0.5.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
@@ -1028,6 +1045,52 @@ describe(releasePrepareMono, () => {
       expect(plannedContent(result, 'packages/core/package.json')).toContain('"version": "1.0.0"');
     });
 
+    it("builds a --set-version changelog from the workspace's one history read, leaving the decision's counts off", () => {
+      const config = makeConfig({
+        workspaces: [
+          {
+            dir: 'core',
+            name: '@test/core',
+            tagPrefix: 'core-v',
+            workspacePath: 'packages/core',
+            isPublishable: true,
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+        ],
+      });
+      const sections: ChangelogSection[] = [
+        { title: 'Bug fixes', audience: 'all', items: [{ description: 'Core fix', hash: 'abc123' }] },
+      ];
+      stubHistory({
+        previousTag: 'core-v0.5.0',
+        commits: [
+          ['fix: core fix', 'abc123'],
+          ['chore: tidy', 'def456'],
+        ],
+        bump: 'patch',
+        parsedCommitCount: 1,
+        unparseableCommits: [['chore: tidy', 'def456']],
+        sections,
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
+      mockExistsSync.mockReturnValue(false);
+
+      const result = releasePrepareMono(config, { setVersion: '1.0.0' });
+
+      expect(listReadOptions()).toStrictEqual([{ tagPrefixes: ['core-v'], paths: ['packages/core/**'] }]);
+      expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith(expect.any(String), [
+        { version: '1.0.0', date: '2024-01-01', sections },
+      ]);
+      const coreResult = result.workspaces[0];
+      assert(coreResult?.status === 'released', 'expected released');
+      expect(coreResult).toMatchObject({ commitCount: 2, setVersion: '1.0.0', previousTag: 'core-v0.5.0' });
+      expect(coreResult.releaseType).toBeUndefined();
+      expect(coreResult.parsedCommitCount).toBeUndefined();
+      expect(coreResult.unparseableCommits).toBeUndefined();
+    });
+
     it('throws when --set-version is not greater than the current version', () => {
       const config = makeConfig({
         workspaces: [
@@ -1044,7 +1107,7 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      stubCommits('core-v0.5.0', []);
+      stubHistory({ previousTag: 'core-v0.5.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
 
       expect(() => releasePrepareMono(config, { setVersion: '0.3.0' })).toThrow(
@@ -1068,7 +1131,7 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      stubCommits('core-v0.5.0', []);
+      stubHistory({ previousTag: 'core-v0.5.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
 
       expect(() => releasePrepareMono(config, { setVersion: '0.5.0' })).toThrow(
@@ -1092,7 +1155,7 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      stubCommits('core-v0.5.0', []);
+      stubHistory({ previousTag: 'core-v0.5.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
@@ -1161,9 +1224,9 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      stubCommitsByPrefix({
-        'core-v': { tag: 'core-v1.0.0', entries: [['fix: core fix', 'abc123']] },
-        'app-v': { tag: 'app-v2.0.0', entries: [['feat: app feature', 'def456']] },
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0', commits: [['fix: core fix', 'abc123']], bump: 'patch' },
+        'app-v': { previousTag: 'app-v2.0.0', commits: [['feat: app feature', 'def456']], bump: 'minor' },
       });
 
       mockReadFileSync.mockImplementation((filePath: string) => {
@@ -1212,9 +1275,9 @@ describe(releasePrepareMono, () => {
       return makeConfig({ workspaces: [workspace], ...overrides });
     }
 
-    /** Stub git so the workspace has a tag but no qualifying commits since it. */
+    /** Stubs a history with a baseline tag but no commits since it. */
     function stubEmptyRange(): void {
-      stubCommits('arrays-v1.0.0', []);
+      stubHistory({ previousTag: 'arrays-v1.0.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
       mockExistsSync.mockReturnValue(false);
     }
@@ -1232,12 +1295,28 @@ describe(releasePrepareMono, () => {
       expect(result.writes.map((write) => write.path)).toContain('packages/arrays/CHANGELOG.md');
     });
 
-    it('does not build entries from history for an empty-range workspace', () => {
+    it("builds an empty-range workspace's changelog from the synthetic entry alone, not its history", () => {
+      stubEmptyRange();
+      stubHistory({ previousTag: 'arrays-v1.0.0', releasedEntries: [RELEASED_ENTRY] });
+
+      const result = releasePrepareMono(singleWorkspaceConfig(), { force: true, bumpOverride: 'minor' });
+
+      expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
+      expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledExactlyOnceWith('1.1.0', expect.any(String));
+      expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith(expect.any(String), [
+        FORCED_BUMP_ENTRY,
+      ]);
+      expect(mockReadReleaseHistory).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips an empty-range workspace when --bump=X is set without --force', () => {
       stubEmptyRange();
 
-      releasePrepareMono(singleWorkspaceConfig(), { bumpOverride: 'minor' });
+      const result = releasePrepareMono(singleWorkspaceConfig(), { bumpOverride: 'minor' });
 
-      expect(countBuildEntriesCalls()).toBe(0);
+      expect(result.tags).toStrictEqual([]);
+      expect(result.workspaces[0]).toMatchObject({ status: 'skipped', commitCount: 0 });
+      expect(mockBuildEmptyReleaseEntry).not.toHaveBeenCalled();
     });
 
     it('upserts a synthetic empty-range entry into changelog.json when enabled', () => {
@@ -1250,7 +1329,7 @@ describe(releasePrepareMono, () => {
 
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledTimes(1);
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledWith('1.0.1', expect.any(String));
-      expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
+      expect(mockReadReleaseHistory).toHaveBeenCalledTimes(1);
       expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
     });
 
@@ -1280,9 +1359,9 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      stubCommitsByPrefix({
-        'core-v': { tag: 'core-v1.0.0', entries: [['fix: bug fix', 'abc123']] },
-        'app-v': { tag: 'app-v1.0.0', entries: [] },
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0', commits: [['fix: bug fix', 'abc123']], bump: 'patch' },
+        'app-v': { previousTag: 'app-v1.0.0' },
       });
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (filePath.includes('core')) {
@@ -1312,13 +1391,26 @@ describe(releasePrepareMono, () => {
 
     it('keeps workspaces with real commits on the release-window path (no regression)', () => {
       const config = singleWorkspaceConfig();
-      stubCommits('arrays-v1.0.0', [['feat: new utility', 'abc123']]);
+      const sections: ChangelogSection[] = [
+        { title: 'Features', audience: 'all', items: [{ description: 'New utility', hash: 'abc123' }] },
+      ];
+      stubHistory({
+        previousTag: 'arrays-v1.0.0',
+        commits: [['feat: new utility', 'abc123']],
+        bump: 'minor',
+        sections,
+        releasedEntries: [RELEASED_ENTRY],
+      });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
       releasePrepareMono(config, {});
 
-      // Real commits → the release-window path runs.
-      expect(countBuildEntriesCalls()).toBe(1);
+      // Real commits → the unreleased window, labeled with the new tag, leads the released windows.
+      expect(mockBuildEmptyReleaseEntry).not.toHaveBeenCalled();
+      expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith(expect.any(String), [
+        { version: '1.1.0', date: '2024-01-01', sections },
+        RELEASED_ENTRY,
+      ]);
     });
 
     it('does not write synthetic entries for workspaces correctly skipped (no commits, no --force)', () => {
@@ -1328,6 +1420,7 @@ describe(releasePrepareMono, () => {
 
       expect(result.tags).toStrictEqual([]);
       expect(result.workspaces[0]).toMatchObject({ status: 'skipped' });
+      expect(mockBuildEmptyReleaseEntry).not.toHaveBeenCalled();
       // No CHANGELOG.md write for the skipped workspace.
       const changelogWrites = mockWriteFileSync.mock.calls.filter(
         (call: unknown[]) => call[0] === 'packages/arrays/CHANGELOG.md',
@@ -1354,7 +1447,7 @@ describe(releasePrepareMono, () => {
       expect(changelogWrites).toHaveLength(0);
     });
 
-    it('does not build entries from history for any empty-range unit in a multi-workspace --force run', () => {
+    it('reads each history once and builds every empty-range changelog from the synthetic entry in a multi-workspace --force run', () => {
       const config = makeConfig({
         changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
         workspaces: [
@@ -1391,18 +1484,24 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      stubCommitsByPrefix({
-        'arrays-v': { tag: 'arrays-v1.0.0', entries: [] },
-        'strings-v': { tag: 'strings-v1.0.0', entries: [] },
-        'numbers-v': { tag: 'numbers-v1.0.0', entries: [] },
+      stubHistoryByPrefix({
+        'arrays-v': { previousTag: 'arrays-v1.0.0' },
+        'strings-v': { previousTag: 'strings-v1.0.0' },
+        'numbers-v': { previousTag: 'numbers-v1.0.0' },
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       mockExistsSync.mockReturnValue(false);
 
       releasePrepareMono(config, { force: true });
 
-      // Three workspaces, all empty-range, all forced — no entries are built from history.
-      expect(countBuildEntriesCalls()).toBe(0);
+      // Three workspaces, all empty-range, all forced: each reads its history once, and each changelog
+      // comes from the synthetic entry.
+      expect(listReadOptions()).toStrictEqual([
+        { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'] },
+        { tagPrefixes: ['strings-v'], paths: ['packages/strings/**'] },
+        { tagPrefixes: ['numbers-v'], paths: ['packages/numbers/**'] },
+      ]);
+      expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -1422,9 +1521,9 @@ describe(releasePrepareMono, () => {
       return makeConfig({ workspaces: [workspace], ...overrides });
     }
 
-    /** Stub git so the workspace has a feat commit since the prior tag. */
+    /** Stubs a history whose one commit since the prior tag calls for a minor bump. */
     function stubFeatCommit(): void {
-      stubCommits('arrays-v1.0.0', [['feat: add utility', 'abc123']]);
+      stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
       mockExistsSync.mockReturnValue(false);
     }
@@ -1454,9 +1553,9 @@ describe(releasePrepareMono, () => {
   });
 
   describe('opportunistic hint when baseline is missing', () => {
-    /** Configure mocks for a single workspace with no baseline tag and a bump-worthy commit. */
-    function setupNoBaseline(tagListOutput: string[], entries: readonly CommitStub[]): void {
-      stubCommits(undefined, entries);
+    /** Configure mocks for a single workspace with no baseline tag and a commit that calls for a minor bump. */
+    function setupNoBaseline(tagListOutput: string[]): void {
+      stubHistory({ commits: [['feat: add', 'abc']], bump: 'minor' });
       mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
         if (cmd === 'git' && args[0] === 'tag' && args[1] === '--list') {
           return tagListOutput.join('\n') + (tagListOutput.length > 0 ? '\n' : '');
@@ -1481,7 +1580,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      setupNoBaseline(['core-v0.2.7', 'core-v0.2.8'], [['feat: add', 'abc']]);
+      setupNoBaseline(['core-v0.2.7', 'core-v0.2.8']);
       using capture = captureStdio();
 
       releasePrepareMono(config, {});
@@ -1510,7 +1609,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      setupNoBaseline(['core-v0.2.7'], [['feat: add', 'abc']]);
+      setupNoBaseline(['core-v0.2.7']);
       using capture = captureStdio();
 
       releasePrepareMono(config, {});
@@ -1533,7 +1632,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      setupNoBaseline([], [['feat: add', 'abc']]);
+      setupNoBaseline([]);
       using capture = captureStdio();
 
       releasePrepareMono(config, {});
@@ -1571,7 +1670,7 @@ describe(releasePrepareMono, () => {
         ],
       });
       // Only tags in the repo belong to the sibling `arrays` workspace. `core` has no baseline.
-      setupNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0'], [['feat: add', 'abc']]);
+      setupNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0']);
       using capture = captureStdio();
 
       releasePrepareMono(config, {});
@@ -1607,7 +1706,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      setupNoBaseline(['arrays-v0.5.0', 'arrays-v0.6.0'], [['feat: add', 'abc']]);
+      setupNoBaseline(['arrays-v0.5.0', 'arrays-v0.6.0']);
       using capture = captureStdio();
 
       releasePrepareMono(config, {});
@@ -1640,7 +1739,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      setupNoBaseline(['core-v0.2.7', 'arrays-v0.1.0'], [['feat: add', 'abc']]);
+      setupNoBaseline(['core-v0.2.7', 'arrays-v0.1.0']);
       using capture = captureStdio();
 
       releasePrepareMono(config, {});
@@ -1665,7 +1764,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      stubCommits('arrays-v1.0.0', [['feat: add', 'abc']]);
+      stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add', 'abc']], bump: 'minor' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
       const result = releasePrepareMono(config, {});
@@ -1691,9 +1790,9 @@ describe(releasePrepareMono, () => {
         ],
         project: { paths: ['packages/arrays/**'], tagPrefix: 'v' },
       });
-      stubCommitsByPrefix({
-        'arrays-v': { tag: 'arrays-v1.0.0', entries: [['feat: ship', 'abc123']] },
-        v: { tag: 'v0.9.0', entries: [['feat: ship', 'abc123']] },
+      stubHistoryByPrefix({
+        'arrays-v': { previousTag: 'arrays-v1.0.0', commits: [['feat: ship', 'abc123']], bump: 'minor' },
+        v: { previousTag: 'v0.9.0', commits: [['feat: ship', 'abc123']], bump: 'minor' },
       });
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
@@ -1709,6 +1808,11 @@ describe(releasePrepareMono, () => {
       expect(project.releaseType).toBe('minor');
       expect(result.tags).toContain('arrays-v1.1.0');
       expect(result.tags).toContain('v0.10.0');
+      // The workspace and the project each read their history once.
+      expect(listReadOptions()).toStrictEqual([
+        { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'] },
+        { tagPrefixes: ['v'], paths: ['packages/arrays/**'] },
+      ]);
     });
 
     it('skips the project release and warns when the run is narrowed by --only', () => {
@@ -1727,9 +1831,9 @@ describe(releasePrepareMono, () => {
         ],
         project: { paths: ['packages/arrays/**'], tagPrefix: 'v' },
       });
-      stubCommitsByPrefix({
-        'arrays-v': { tag: 'arrays-v1.0.0', entries: [['feat: ship', 'abc123']] },
-        v: { tag: 'v0.9.0', entries: [['feat: ship', 'abc123']] },
+      stubHistoryByPrefix({
+        'arrays-v': { previousTag: 'arrays-v1.0.0', commits: [['feat: ship', 'abc123']], bump: 'minor' },
+        v: { previousTag: 'v0.9.0', commits: [['feat: ship', 'abc123']], bump: 'minor' },
       });
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
@@ -1743,6 +1847,7 @@ describe(releasePrepareMono, () => {
       expect(result.tags).not.toContain('v0.10.0');
       expect(result.warnings?.join('\n')).toContain('Project release skipped');
       expect(result.warnings?.join('\n')).toContain('arrays');
+      expect(listReadOptions()).toStrictEqual([{ tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'] }]);
     });
 
     it('passes project files to the format command alongside per-workspace files', () => {
@@ -1762,9 +1867,9 @@ describe(releasePrepareMono, () => {
         ],
         project: { paths: ['packages/arrays/**'], tagPrefix: 'v' },
       });
-      stubCommitsByPrefix({
-        'arrays-v': { tag: 'arrays-v1.0.0', entries: [['feat: ship', 'abc123']] },
-        v: { tag: 'v0.9.0', entries: [['feat: ship', 'abc123']] },
+      stubHistoryByPrefix({
+        'arrays-v': { previousTag: 'arrays-v1.0.0', commits: [['feat: ship', 'abc123']], bump: 'minor' },
+        v: { previousTag: 'v0.9.0', commits: [['feat: ship', 'abc123']], bump: 'minor' },
       });
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
@@ -1797,7 +1902,7 @@ describe(releasePrepareMono, () => {
         ],
         changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
       });
-      stubCommits('arrays-v1.0.0', [['feat: add utility', 'abc123']]);
+      stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' });
       mockExecFileSync.mockReturnValue('[]');
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       return config;
@@ -1842,7 +1947,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      stubCommits('arrays-v1.0.0', [['feat: add utility', 'abc123']]);
+      stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       using silent = silenceConsole(['warn']);
 
@@ -1871,7 +1976,7 @@ describe(releasePrepareMono, () => {
         ],
         changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
       });
-      stubCommits('arrays-v1.0.0', []);
+      stubHistory({ previousTag: 'arrays-v1.0.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
       releasePrepareMono(config, { withReleaseNotes: true });
@@ -1925,9 +2030,9 @@ describe(releasePrepareMono, () => {
         changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
       });
 
-      stubCommitsByPrefix({
-        'core-v': { tag: 'core-v1.0.0', entries: [['feat: add utility', 'abc123']] },
-        'app-v': { tag: 'app-v2.0.0', entries: [] },
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' },
+        'app-v': { previousTag: 'app-v2.0.0' },
       });
       mockExecFileSync.mockReturnValue('[]');
       mockReadFileSync.mockImplementation((filePath: string) => {
@@ -1974,12 +2079,11 @@ describe(releasePrepareMono, () => {
       });
     }
 
-    it("wraps a Phase 1 (bump-determination) throw with the workspace's release-stage label", async () => {
+    it("wraps a Phase 1 (history-read) throw with the workspace's release-stage label", async () => {
       const config = makeArraysConfig();
-      // Make `getCommitsSinceTarget` throw — this exercises the Phase 1 wrap inside
-      // `determineDirectBumps`.
+      // Make `readReleaseHistory` throw, which exercises the Phase 1 wrap inside `determineDirectBumps`.
       const underlying = new Error('git rev-list failed: not a git repo');
-      mockGetCommitsSinceTarget.mockImplementation(() => {
+      mockReadReleaseHistory.mockImplementation(() => {
         throw underlying;
       });
 
@@ -1992,43 +2096,37 @@ describe(releasePrepareMono, () => {
 
     it("wraps a Phase 3 (executeWorkspaceRelease) throw with the workspace's release-stage label", async () => {
       const config = makeArraysConfig();
-      // Phase 1 succeeds. `buildChangelogEntries` (which
-      // `executeWorkspaceRelease` invokes) throws — this exercises the Phase 3 wrap inside
-      // `executeReleaseSet`.
-      const underlying = new Error('git log exited with status 1');
-      stubCommits('arrays-v1.0.0', [['feat: add', 'abc123']]);
+      // Phase 1 succeeds. `renderChangelogMarkdown` (which `executeWorkspaceRelease` reaches)
+      // throws — this exercises the Phase 3 wrap inside `executeReleaseSet`.
+      const underlying = new Error('markdown render failed');
+      stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add', 'abc123']], bump: 'minor' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
-      mockBuildChangelogEntries.mockImplementationOnce(() => {
+      mockRenderChangelogMarkdown.mockImplementationOnce(() => {
         throw underlying;
       });
 
       const wrapped = await captureError(() => releasePrepareMono(config, {}));
 
-      expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*git log exited with status 1$/);
+      expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*markdown render failed$/);
       // `cause` is preserved through the chain — at minimum, an Error instance.
       expect(wrapped.cause).toBeInstanceOf(Error);
     });
 
     it('wraps a project-stage throw with the project release-stage label', async () => {
       const config = makeArraysConfig({ project: { paths: ['packages/arrays/**'], tagPrefix: 'v' } });
-      // Workspace stage succeeds; `buildChangelogEntries` for the project stage throws.
+      // The workspace stage's read succeeds; the project stage's read throws.
       const underlying = new Error('git log failed on root');
-      stubCommitsByPrefix({
-        'arrays-v': { tag: 'arrays-v1.0.0', entries: [['feat: ship', 'abc123']] },
-        v: { tag: 'v0.9.0', entries: [['feat: ship', 'abc123']] },
-      });
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
         return JSON.stringify({ version: '1.0.0' });
       });
-      // First call (workspace stage) returns the default stub; second call (project stage)
-      // throws.
-      let buildCallCount = 0;
-      mockBuildChangelogEntries.mockImplementation(() => {
-        buildCallCount += 1;
-        if (buildCallCount >= 2) throw underlying;
-        return makeChangelogBuild([]);
-      });
+      mockReadReleaseHistory
+        .mockReturnValueOnce(
+          makeReleaseHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: ship', 'abc123']], bump: 'minor' }),
+        )
+        .mockImplementationOnce(() => {
+          throw underlying;
+        });
 
       const wrapped = await captureError(() => releasePrepareMono(config, {}));
 
@@ -2037,7 +2135,7 @@ describe(releasePrepareMono, () => {
     });
   });
 
-  describe('policy violations', () => {
+  describe('changelog diagnostics', () => {
     function makeWorkspace(overrides?: Partial<WorkspaceConfig>): WorkspaceConfig {
       return {
         dir: 'arrays',
@@ -2052,100 +2150,102 @@ describe(releasePrepareMono, () => {
       };
     }
 
-    /** Stub a single workspace's history with one commit per entry. */
-    function stubLog(tag: string, ...entries: readonly CommitStub[]): void {
-      stubCommits(tag, entries);
-      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
-    }
+    const malformedBlock: MalformedChangeRecordBlock = {
+      commitHash: 'aaa1111',
+      commitSubject: 'Squash',
+      reason: '`entries` is not a list',
+    };
+    const undeclared: UndeclaredEntryType = {
+      commitHash: 'bbb2222',
+      commitSubject: 'Merge PR',
+      entryPosition: 2,
+      type: 'chore',
+    };
+    const prefixViolation: PolicyViolation = {
+      commitHash: 'def5678',
+      commitSubject: 'internal!: refactor cache',
+      type: 'internal',
+      surface: 'prefix',
+    };
+    const entryViolation: PolicyViolation = {
+      commitHash: 'bbb2222',
+      commitSubject: 'Merge PR',
+      type: 'drop',
+      surface: 'entry',
+      entryPosition: 1,
+    };
 
-    it('omits policyViolations on a workspace whose only commit is a clean feat!', () => {
-      const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
-      stubLog('arrays-v1.0.0', ['feat!: drop legacy export', 'abc1234']);
+    it('reads each history with the run config, whose breaking policies decide the violations', () => {
+      const config = makeConfig({ workspaces: [makeWorkspace()], breakingPolicies: {} });
+      stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add', 'abc1234']], bump: 'minor' });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+      releasePrepareMono(config, {});
+
+      expect(mockReadReleaseHistory).toHaveBeenCalledExactlyOnceWith(config, expect.any(Object));
+    });
+
+    it('omits every diagnostic list that the history leaves empty', () => {
+      const config = makeConfig({ workspaces: [makeWorkspace()] });
+      stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat!: drop legacy export', 'abc1234']], bump: 'major' });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
       const result = releasePrepareMono(config, {});
 
+      expect(result.workspaces[0]?.status).toBe('released');
+      expect(result.workspaces[0]?.malformedBlocks).toBeUndefined();
       expect(result.workspaces[0]?.policyViolations).toBeUndefined();
+      expect(result.workspaces[0]?.undeclaredEntryTypes).toBeUndefined();
     });
 
-    it("attaches the changelog build's diagnostics, appending entry violations to the bump-side ones", () => {
-      const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
-      stubLog('arrays-v1.0.0', ['internal!: refactor cache', 'def5678']);
-      const malformedBlock = { commitHash: 'aaa1111', commitSubject: 'Squash', reason: '`entries` is not a list' };
-      const undeclared = { commitHash: 'bbb2222', commitSubject: 'Merge PR', entryPosition: 2, type: 'chore' };
-      const entryViolation = {
-        commitHash: 'bbb2222',
-        commitSubject: 'Merge PR',
-        type: 'drop',
-        surface: 'entry' as const,
-        entryPosition: 1,
-      };
-      mockBuildChangelogEntries.mockReturnValue(
-        makeChangelogBuild([], {
+    it("attaches the history's diagnostics to a released result", () => {
+      const config = makeConfig({ workspaces: [makeWorkspace()] });
+      stubHistory({
+        previousTag: 'arrays-v1.0.0',
+        commits: [['internal!: refactor cache', 'def5678']],
+        bump: 'patch',
+        diagnostics: {
           malformedBlocks: [malformedBlock],
+          policyViolations: [prefixViolation, entryViolation],
           undeclaredEntryTypes: [undeclared],
-          policyViolations: [entryViolation],
-        }),
-      );
+        },
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
       const result = releasePrepareMono(config, {});
 
       expect(result.workspaces[0]).toMatchObject({
+        status: 'released',
         malformedBlocks: [malformedBlock],
         undeclaredEntryTypes: [undeclared],
-        policyViolations: [
-          { commitHash: 'def5678', commitSubject: 'internal!: refactor cache', type: 'internal', surface: 'prefix' },
-          entryViolation,
-        ],
+        policyViolations: [prefixViolation, entryViolation],
       });
     });
 
-    it('records a prefix-surface violation for an internal! commit (forbidden policy)', () => {
-      const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
-      stubLog('arrays-v1.0.0', ['internal!: refactor cache', 'def5678']);
-
-      const result = releasePrepareMono(config, {});
-
-      expect(result.workspaces[0]?.policyViolations).toStrictEqual([
-        {
-          commitHash: 'def5678',
-          commitSubject: 'internal!: refactor cache',
-          type: 'internal',
-          surface: 'prefix',
+    it("attaches the history's diagnostics to a skipped result", () => {
+      const config = makeConfig({ workspaces: [makeWorkspace()] });
+      stubHistory({
+        previousTag: 'arrays-v1.0.0',
+        commits: [['Merge PR', 'bbb2222']],
+        diagnostics: {
+          malformedBlocks: [malformedBlock],
+          policyViolations: [entryViolation],
+          undeclaredEntryTypes: [undeclared],
         },
-      ]);
-    });
-
-    it('records a prefix-surface violation for a bare drop commit (required policy)', () => {
-      const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
-      stubLog('arrays-v1.0.0', ['drop: remove deprecated API', '9abc012']);
-
-      const result = releasePrepareMono(config, {});
-
-      expect(result.workspaces[0]?.policyViolations).toStrictEqual([
-        {
-          commitHash: '9abc012',
-          commitSubject: 'drop: remove deprecated API',
-          type: 'drop',
-          surface: 'prefix',
-        },
-      ]);
-    });
-
-    it('produces no violations when breakingPolicies is set to {} (opt-out)', () => {
-      const config = makeConfig({
-        workspaces: [makeWorkspace()],
-        workTypes: DEFAULT_WORK_TYPES,
-        breakingPolicies: {},
       });
-      stubLog('arrays-v1.0.0', ['internal!: refactor cache', 'def5678']);
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
       const result = releasePrepareMono(config, {});
 
-      expect(result.workspaces[0]?.policyViolations).toBeUndefined();
+      expect(result.workspaces[0]).toMatchObject({
+        status: 'skipped',
+        malformedBlocks: [malformedBlock],
+        undeclaredEntryTypes: [undeclared],
+        policyViolations: [entryViolation],
+      });
     });
 
-    it('attaches violations only to the workspace whose commits triggered them', () => {
-      // Two workspaces; one has an internal! commit (violation), the other has a clean feat.
+    it('attaches diagnostics only to the workspace whose history reported them', () => {
       const cleanWorkspace = makeWorkspace({
         dir: 'core',
         name: '@test/core',
@@ -2155,15 +2255,15 @@ describe(releasePrepareMono, () => {
         changelogPaths: ['packages/core'],
         paths: ['packages/core/**'],
       });
-      const config = makeConfig({
-        workspaces: [makeWorkspace(), cleanWorkspace],
-        workTypes: DEFAULT_WORK_TYPES,
-      });
-
-      // Per-workspace describe + log responses keyed by --match flags.
-      stubCommitsByPrefix({
-        'arrays-v': { tag: 'arrays-v1.0.0', entries: [['internal!: refactor cache', 'def5678']] },
-        'core-v': { tag: 'core-v1.0.0', entries: [['feat: add helper', 'aaa1111']] },
+      const config = makeConfig({ workspaces: [makeWorkspace(), cleanWorkspace] });
+      stubHistoryByPrefix({
+        'arrays-v': {
+          previousTag: 'arrays-v1.0.0',
+          commits: [['internal!: refactor cache', 'def5678']],
+          bump: 'patch',
+          diagnostics: { policyViolations: [prefixViolation] },
+        },
+        'core-v': { previousTag: 'core-v1.0.0', commits: [['feat: add helper', 'aaa1111']], bump: 'minor' },
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
@@ -2171,40 +2271,9 @@ describe(releasePrepareMono, () => {
 
       const arraysResult = result.workspaces.find((w) => w.name === 'arrays');
       const coreResult = result.workspaces.find((w) => w.name === 'core');
-      expect(arraysResult?.policyViolations).toHaveLength(1);
+      expect(arraysResult?.policyViolations).toStrictEqual([prefixViolation]);
       expect(coreResult?.policyViolations).toBeUndefined();
     });
-
-    it('records a body-surface violation when BREAKING CHANGE: appears under a custom forbidden feat policy', () => {
-      // The parser invokes `message.includes('BREAKING CHANGE:')` on the raw commit message;
-      // any commit whose `.message` contains that literal triggers the body-surface code path.
-      // Real git-log subjects (--pretty=format:%s) don't carry body footers, but the wiring still
-      // needs to surface body-surface violations correctly when they appear (here: a subject
-      // that itself contains the literal string).
-      const config = makeConfig({
-        workspaces: [makeWorkspace()],
-        workTypes: DEFAULT_WORK_TYPES,
-        breakingPolicies: { ...DEFAULT_BREAKING_POLICIES, feat: 'forbidden' },
-      });
-      stubLog('arrays-v1.0.0', ['feat: rework auth (BREAKING CHANGE: removes /v1)', 'body0001']);
-
-      const result = releasePrepareMono(config, {});
-
-      expect(result.workspaces[0]?.policyViolations).toStrictEqual([
-        {
-          commitHash: 'body0001',
-          commitSubject: 'feat: rework auth (BREAKING CHANGE: removes /v1)',
-          type: 'feat',
-          surface: 'body',
-        },
-      ]);
-    });
-
-    // Note: there is no orchestrator-reachable path where a SkippedWorkspaceResult also
-    // carries policyViolations — the unified `decideRelease` algorithm only enters the skip
-    // branch when zero commits parsed, which means no violation could have fired. The
-    // `SkippedResult.policyViolations` field is wired defensively for parity with the
-    // released path but not exercised here.
   });
 
   describe('editorial overrides wiring', () => {
@@ -2228,9 +2297,17 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      // Stub git: one commit since the previous tag, with a known hash that does NOT match
-      // the override key the workspace file declares.
-      stubCommits('arrays-v1.0.0', [['feat: add utility', 'realcommithash']]);
+      // Stub the history: one commit since the previous tag, whose item carries a known hash that
+      // does NOT match the override key the workspace file declares; the override is therefore
+      // stale and the workspace-tier rule warns immediately.
+      stubHistory({
+        previousTag: 'arrays-v1.0.0',
+        commits: [['feat: add utility', 'realcommithash']],
+        bump: 'minor',
+        sections: [
+          { title: 'Features', audience: 'all', items: [{ description: 'Add utility', hash: 'realcommithash' }] },
+        ],
+      });
 
       // Surface the workspace's `.meta/changelog-overrides.json` to the loader. Every other
       // existsSync probe (e.g., for prettier config) returns false.
@@ -2242,24 +2319,6 @@ describe(releasePrepareMono, () => {
         }
         return JSON.stringify({ name: '@test/arrays', version: '1.0.0' });
       });
-
-      // Provide a stub changelog entry whose hash does NOT match the override key; the
-      // override is therefore stale and the workspace-tier rule warns immediately.
-      mockBuildChangelogEntries.mockReturnValue(
-        makeChangelogBuild([
-          {
-            version: '1.1.0',
-            date: '2024-01-01',
-            sections: [
-              {
-                title: 'Features',
-                audience: 'all',
-                items: [{ description: 'Add utility', hash: 'realcommithash' }],
-              },
-            ],
-          },
-        ]),
-      );
 
       const result = releasePrepareMono(config, {});
 
@@ -2282,14 +2341,20 @@ function plannedContent(
   return plan.writes.find((write) => write.path === path)?.content;
 }
 
-/** Stub the history `getCommitsSinceTarget` reports: a baseline tag and the commits above it. */
-function stubCommits(tag: string | undefined, entries: readonly CommitStub[]): void {
-  mockGetCommitsSinceTarget.mockReturnValue({ tag, commits: makeStubbedCommits(entries) });
+/** Stubs the release history that `readReleaseHistory` returns for every scope. */
+function stubHistory(stub: ReleaseHistoryStub): void {
+  mockReadReleaseHistory.mockReturnValue(makeReleaseHistory(stub));
 }
-/** Stub the history per workspace, keyed by the tag prefix `getCommitsSinceTarget` is called with. */
-function stubCommitsByPrefix(histories: Record<string, { tag: string; entries: readonly CommitStub[] }>): void {
-  mockGetCommitsSinceTarget.mockImplementation((tagPrefixes: readonly string[]) => {
-    const history = tagPrefixes.map((candidate) => histories[candidate]).find((found) => found !== undefined);
-    return { tag: history?.tag, commits: makeStubbedCommits(history?.entries ?? []) };
+
+/** Stubs the release history per scope, keyed by a tag prefix that `readReleaseHistory` receives. */
+function stubHistoryByPrefix(stubs: Record<string, ReleaseHistoryStub>): void {
+  mockReadReleaseHistory.mockImplementation((_config: unknown, options: { tagPrefixes: readonly string[] }) => {
+    const stub = options.tagPrefixes.map((prefix) => stubs[prefix]).find((found) => found !== undefined);
+    return makeReleaseHistory(stub);
   });
+}
+
+/** Returns the options of every `readReleaseHistory` call, in call order. */
+function listReadOptions(): unknown[] {
+  return mockReadReleaseHistory.mock.calls.map((call: unknown[]) => call[1]);
 }

@@ -9,13 +9,11 @@ const mockMkdirSync = vi.hoisted(() => vi.fn());
 const mockMkdtempSync = vi.hoisted(() => vi.fn());
 const mockRmSync = vi.hoisted(() => vi.fn());
 const mockCopyFileSync = vi.hoisted(() => vi.fn());
-const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
+const mockReadReleaseHistory = vi.hoisted(() => vi.fn());
 const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
 const mockRenderChangelogMarkdown = vi.hoisted(() => vi.fn());
 const mockRenderChangelogJson = vi.hoisted(() => vi.fn());
 const mockPlanReleaseNotesPreviews = vi.hoisted(() => vi.fn());
-
-const mockGetCommitsSinceTarget = vi.hoisted(() => vi.fn());
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -31,12 +29,9 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-vi.mock(import('../getCommitsSinceTarget.ts'), () => ({
-  getCommitsSinceTarget: mockGetCommitsSinceTarget,
-}));
-
-vi.mock(import('../buildChangelogEntries.ts'), () => ({
-  buildChangelogEntries: mockBuildChangelogEntries,
+vi.mock(import('../buildChangelogEntries.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
+  readReleaseHistory: mockReadReleaseHistory,
 }));
 
 vi.mock(import('../changelogJsonFile.ts'), () => ({
@@ -54,51 +49,59 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
   planReleaseNotesPreviews: mockPlanReleaseNotesPreviews,
 }));
 
-import {
-  DEFAULT_BREAKING_POLICIES,
-  DEFAULT_CHANGELOG_JSON_CONFIG,
-  DEFAULT_RELEASE_NOTES_CONFIG,
-  DEFAULT_WORK_TYPES,
-} from '../defaults.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
 import type { PlannedWrite } from '../releasePlan.ts';
 import { releasePrepareProject } from '../releasePrepareProject.ts';
-import { makeChangelogBuild } from '../test-utils/changelogBuilds.ts';
-import { type CommitStub, makeStubbedCommits } from '../test-utils/commitStubs.ts';
-import type { MonorepoReleaseConfig, WorkspaceConfig } from '../types.ts';
+import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
+import { makeReleaseHistory, type ReleaseHistoryStub } from '../test-utils/releaseHistories.ts';
+import type {
+  ChangelogEntry,
+  ChangelogSection,
+  MalformedChangeRecordBlock,
+  MonorepoReleaseConfig,
+  PolicyViolation,
+  UndeclaredEntryType,
+  WorkspaceConfig,
+} from '../types.ts';
 
-function makeWorkspace(overrides: Partial<WorkspaceConfig> & Pick<WorkspaceConfig, 'dir'>): WorkspaceConfig {
-  const { dir } = overrides;
-  return {
-    name: `@test/${dir}`,
-    tagPrefix: `${dir}-v`,
-    workspacePath: `packages/${dir}`,
-    isPublishable: true,
-    packageFiles: [`packages/${dir}/package.json`],
-    changelogPaths: [`packages/${dir}`],
-    paths: [`packages/${dir}/**`],
-    ...overrides,
-  };
-}
+/** The unreleased window's sections in the default history. */
+const UNRELEASED_SECTIONS: ChangelogSection[] = [
+  { title: 'Features', audience: 'all', items: [{ description: 'ship project', hash: 'abc123' }] },
+];
 
-function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
-  return {
-    workspaces: [makeWorkspace({ dir: 'arrays' }), makeWorkspace({ dir: 'strings' })],
-    workTypes: { feat: { header: 'Features' }, fix: { header: 'Bug fixes' } },
-    changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false },
-    releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
-    project: { paths: ['packages/arrays/**', 'packages/strings/**'], tagPrefix: 'v' },
-    ...overrides,
-  };
-}
+/** A released window's entry, which the project changelog keeps below the new one. */
+const RELEASED_ENTRY: ChangelogEntry = {
+  version: '0.9.0',
+  date: '2023-12-01',
+  sections: [{ title: 'Bug fixes', audience: 'all', items: [{ description: 'patch arrays', hash: 'fed987' }] }],
+};
 
-/** Default git mock: legacy v0.9.0 baseline tag, one feat commit since. */
-function setupDefaultGit(): void {
-  stubCommits('v0.9.0', [['feat: ship project', 'abc123']]);
-}
+/** The entry that the default history's unreleased window yields under the default release's tag. */
+const NEW_ENTRY: ChangelogEntry = { version: '0.10.0', date: '2024-01-01', sections: UNRELEASED_SECTIONS };
+
+const MALFORMED_BLOCK: MalformedChangeRecordBlock = {
+  commitHash: 'aaa1111',
+  commitSubject: 'Squash',
+  reason: '`entries` is not a list',
+};
+
+const UNDECLARED_ENTRY_TYPE: UndeclaredEntryType = {
+  commitHash: 'bbb2222',
+  commitSubject: 'Merge PR',
+  entryPosition: 2,
+  type: 'chore',
+};
+
+const ENTRY_VIOLATION: PolicyViolation = {
+  commitHash: 'bbb2222',
+  commitSubject: 'Merge PR',
+  type: 'drop',
+  surface: 'entry',
+  entryPosition: 1,
+};
 
 describe(releasePrepareProject, () => {
   beforeEach(() => {
-    mockBuildChangelogEntries.mockReturnValue(makeChangelogBuild([]));
     mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
     mockRenderChangelogJson.mockReturnValue('[]\n');
@@ -116,7 +119,7 @@ describe(releasePrepareProject, () => {
     mockMkdtempSync.mockReset();
     mockRmSync.mockReset();
     mockCopyFileSync.mockReset();
-    mockBuildChangelogEntries.mockReset();
+    mockReadReleaseHistory.mockReset();
     mockMergeChangelogEntriesWithDisk.mockReset();
     mockRenderChangelogMarkdown.mockReset();
     mockRenderChangelogJson.mockReset();
@@ -124,12 +127,13 @@ describe(releasePrepareProject, () => {
   });
 
   it('returns a structured skipped result when no commits since the last project tag and no force', () => {
-    stubCommits('v0.9.0', []);
+    stubHistory({ previousTag: 'v0.9.0' });
+    const config = makeConfig();
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
     const result = releasePrepareProject({
-      config: makeConfig(),
+      config,
       options: {},
       modifiedFiles,
       writes: [],
@@ -143,18 +147,26 @@ describe(releasePrepareProject, () => {
     expect(result.skipReason).toBe('No commits since v0.9.0. Pass --force to release at patch. Skipping.');
     expect(tags).toStrictEqual([]);
     expect(modifiedFiles).toStrictEqual([]);
+    expectOneHistoryRead(config, ['packages/arrays/**', 'packages/strings/**']);
   });
 
-  it('returns a structured skipped result when commits exist but none are bump-worthy and no force', () => {
-    // Project pipeline matches the per-workspace pipeline: with commits but no bump-worthy
-    // parsed type and no --force, the project skips with the "No bump-worthy commits" reason.
-    // 'chore' is not in the test workTypes (only feat, fix), so this commit is unparseable.
-    stubCommits('v0.9.0', [['chore: update deps', 'abc123']]);
+  it("skips a window whose commits call for no bump, carrying the history's counts and diagnostics", () => {
+    stubHistory({
+      previousTag: 'v0.9.0',
+      commits: [['chore: update deps', 'abc123']],
+      unparseableCommits: [['chore: update deps', 'abc123']],
+      diagnostics: {
+        malformedBlocks: [MALFORMED_BLOCK],
+        policyViolations: [ENTRY_VIOLATION],
+        undeclaredEntryTypes: [UNDECLARED_ENTRY_TYPE],
+      },
+    });
+    const config = makeConfig();
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
     const result = releasePrepareProject({
-      config: makeConfig(),
+      config,
       options: {},
       modifiedFiles,
       writes: [],
@@ -168,14 +180,16 @@ describe(releasePrepareProject, () => {
     expect(result.skipReason).toContain('No bump-worthy commits since v0.9.0');
     expect(result.skipReason).toContain('Pass --force to release at patch');
     expect(result.unparseableCommits).toStrictEqual(makeStubbedCommits([['chore: update deps', 'abc123']]));
+    expect(result.malformedBlocks).toStrictEqual([MALFORMED_BLOCK]);
+    expect(result.undeclaredEntryTypes).toStrictEqual([UNDECLARED_ENTRY_TYPE]);
+    expect(result.policyViolations).toStrictEqual([ENTRY_VIOLATION]);
     expect(tags).toStrictEqual([]);
     expect(modifiedFiles).toStrictEqual([]);
+    expectOneHistoryRead(config, ['packages/arrays/**', 'packages/strings/**']);
   });
 
   it('falls back to patch when --force is set with no commits (no --bump)', () => {
-    // Row 3 of the behavioral matrix: `--force` alone with no commits is now valid;
-    // the project releases at patch. Today this combination was rejected at the CLI.
-    stubCommits('v0.9.0', []);
+    stubHistory({ previousTag: 'v0.9.0' });
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
@@ -196,10 +210,12 @@ describe(releasePrepareProject, () => {
     expect(tags).toStrictEqual(['v0.9.1']);
   });
 
-  it('falls back to patch when --force is set with commits-but-no-bump-worthy', () => {
-    // Row 11 of the behavioral matrix: `--force` alone with non-bump-worthy commits releases
-    // at patch (rather than skipping).
-    stubCommits('v0.9.0', [['chore: update deps', 'abc123']]);
+  it('releases at patch when --force is set on a window whose commits call for no bump', () => {
+    stubHistory({
+      previousTag: 'v0.9.0',
+      commits: [['chore: update deps', 'abc123']],
+      unparseableCommits: [['chore: update deps', 'abc123']],
+    });
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
@@ -220,11 +236,8 @@ describe(releasePrepareProject, () => {
     expect(tags).toStrictEqual(['v0.9.1']);
   });
 
-  it('skips when --bump=X alone is set with commits-but-no-bump-worthy (level chooser, not trigger)', () => {
-    // Row 10 of the behavioral matrix: `--bump=X` is now a pure level chooser. With
-    // commits that don't parse to a bump-worthy type, the project skips even when
-    // `--bump=X` is set without `--force`.
-    stubCommits('v0.9.0', [['chore: update deps', 'abc123']]);
+  it('skips when --bump=X alone is set on a window whose commits call for no bump (level chooser, not trigger)', () => {
+    stubHistory({ previousTag: 'v0.9.0', commits: [['chore: update deps', 'abc123']] });
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
@@ -243,14 +256,14 @@ describe(releasePrepareProject, () => {
   });
 
   it('bumps root package.json, writes ./CHANGELOG.md, appends tag, and appends modified files', () => {
-    setupDefaultGit();
+    stubDefaultHistory();
+    const config = makeConfig();
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
-
     const writes: PlannedWrite[] = [];
 
     const result = releasePrepareProject({
-      config: makeConfig(),
+      config,
       options: {},
       modifiedFiles,
       writes,
@@ -272,18 +285,25 @@ describe(releasePrepareProject, () => {
     expect(plannedContent(writes, './package.json')).toContain('"version": "0.10.0"');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
 
-    // buildChangelogEntries reads the project tagPrefix and the union of contributing paths.
-    expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
-    const buildArgs = mockBuildChangelogEntries.mock.calls[0];
-    expect(buildArgs?.[1]).toBe('v0.10.0');
-    expect(buildArgs?.[2]).toStrictEqual({
-      tagPrefixes: ['v'],
-      paths: ['packages/arrays/**', 'packages/strings/**'],
-    });
+    expectOneHistoryRead(config, ['packages/arrays/**', 'packages/strings/**']);
   });
 
-  it('scopes both the commit query and the changelog build to the resolved project paths', () => {
-    setupDefaultGit();
+  it("labels the unreleased window's sections with the new tag, ahead of the released entries", () => {
+    stubDefaultHistory({ releasedEntries: [RELEASED_ENTRY] });
+
+    releasePrepareProject({
+      config: makeConfig(),
+      options: {},
+      modifiedFiles: [],
+      writes: [],
+      tags: [],
+    });
+
+    expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith([NEW_ENTRY, RELEASED_ENTRY], expect.anything());
+  });
+
+  it('reads the history once under the resolved project paths', () => {
+    stubDefaultHistory();
     const config = makeConfig({ project: { paths: ['packages/arrays/**'], tagPrefix: 'v' } });
 
     releasePrepareProject({
@@ -294,19 +314,13 @@ describe(releasePrepareProject, () => {
       tags: [],
     });
 
-    expect(mockGetCommitsSinceTarget).toHaveBeenCalledWith(['v'], ['packages/arrays/**']);
-    expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
-    expect(mockBuildChangelogEntries).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      expect.objectContaining({ paths: ['packages/arrays/**'] }),
-    );
+    expectOneHistoryRead(config, ['packages/arrays/**']);
   });
 
   // The workspace union is resolved into `project.paths` at config load, so a declared value
   // must win here even when it disagrees with `config.workspaces`.
   it('ignores config.workspaces when resolving the window', () => {
-    setupDefaultGit();
+    stubDefaultHistory();
     const config = makeConfig({ project: { paths: ['**'], tagPrefix: 'v' } });
 
     releasePrepareProject({
@@ -317,16 +331,11 @@ describe(releasePrepareProject, () => {
       tags: [],
     });
 
-    expect(mockGetCommitsSinceTarget).toHaveBeenCalledWith(['v'], ['**']);
-    expect(mockBuildChangelogEntries).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      expect.objectContaining({ paths: ['**'] }),
-    );
+    expectOneHistoryRead(config, ['**']);
   });
 
-  it('uses bumpOverride instead of commit-derived bump type', () => {
-    setupDefaultGit();
+  it("uses bumpOverride instead of the history's bump", () => {
+    stubDefaultHistory();
     // Use a 1.x baseline so the major bump is not collapsed by the pre-1.0 rule in `bumpVersion`.
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root', version: '1.5.2' }));
     const tags: string[] = [];
@@ -348,7 +357,7 @@ describe(releasePrepareProject, () => {
   });
 
   it('runs with no commits when --force is set with --bump', () => {
-    stubCommits('v0.9.0', []);
+    stubHistory({ previousTag: 'v0.9.0' });
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
@@ -367,7 +376,7 @@ describe(releasePrepareProject, () => {
   });
 
   it('plans the project release without writing any file', () => {
-    setupDefaultGit();
+    stubDefaultHistory();
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
@@ -384,10 +393,10 @@ describe(releasePrepareProject, () => {
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
-  it('renders the root changelog.json from the built entries alone, with no read-merge', () => {
+  it("renders the root changelog.json from the history's entries alone, with no read-merge", () => {
     // The project stage overwrites rather than merging, so a malformed existing file cannot
     // silently discard entries.
-    setupDefaultGit();
+    stubDefaultHistory({ releasedEntries: [RELEASED_ENTRY] });
     const config = makeConfig({
       changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
     });
@@ -396,28 +405,24 @@ describe(releasePrepareProject, () => {
     releasePrepareProject({
       config,
       options: {},
-      modifiedFiles: modifiedFiles,
+      modifiedFiles,
       writes: [],
       tags: [],
     });
 
-    expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
     expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
-    expect(mockRenderChangelogJson).toHaveBeenCalledWith(expect.any(Array));
+    expect(mockRenderChangelogJson).toHaveBeenCalledWith([NEW_ENTRY, RELEASED_ENTRY]);
+    expect(mockMergeChangelogEntriesWithDisk).not.toHaveBeenCalled();
     expect(modifiedFiles).toContain('./.meta/changelog.json');
   });
 
   it('does not warn or short-circuit when the existing root changelog.json is unparseable', () => {
-    // The project stage no longer reads the existing root changelog.json: an unparseable
-    // existing file produces no warning and does not affect output. Acceptance criterion
-    // from ticket #324: "an unparseable existing root `changelog.json` does NOT cause a
-    // warning or affect output (because it's not read)".
-    setupDefaultGit();
+    // Acceptance criterion from ticket #324: "an unparseable existing root `changelog.json`
+    // does NOT cause a warning or affect output (because it's not read)".
+    stubDefaultHistory();
     const config = makeConfig({
       changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
     });
-    // Existing file present and unparseable; with the project stage's no-read design, this
-    // never reaches the parse path.
     mockExistsSync.mockImplementation((path: string) => path.endsWith('/.meta/changelog.json'));
     mockReadFileSync.mockImplementation((path: string) => {
       if (typeof path === 'string' && path.endsWith('/.meta/changelog.json')) return '{invalid json';
@@ -437,27 +442,8 @@ describe(releasePrepareProject, () => {
     expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
   });
 
-  it('invokes buildChangelogEntries whenever the project releases', () => {
-    setupDefaultGit();
-    const config = makeConfig({
-      changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
-    });
-    const modifiedFiles: string[] = [];
-
-    releasePrepareProject({
-      config,
-      options: {},
-      modifiedFiles,
-      writes: [],
-      tags: [],
-    });
-
-    expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
-    expect(modifiedFiles).toContain('./.meta/changelog.json');
-  });
-
   it('emits release-notes previews when --with-release-notes is set and changelogJson.enabled', () => {
-    setupDefaultGit();
+    stubDefaultHistory({ releasedEntries: [RELEASED_ENTRY] });
     const config = makeConfig({
       changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
     });
@@ -477,14 +463,14 @@ describe(releasePrepareProject, () => {
       expect.objectContaining({
         workspacePath: '.',
         tag: 'v0.10.0',
-        entries: expect.any(Array),
+        entries: [NEW_ENTRY, RELEASED_ENTRY],
         sectionOrder: expect.any(Array),
       }),
     );
   });
 
   it('does not emit release-notes previews when the flag is omitted', () => {
-    setupDefaultGit();
+    stubDefaultHistory();
     const config = makeConfig({
       changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
     });
@@ -500,13 +486,18 @@ describe(releasePrepareProject, () => {
     expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
   });
 
-  it('first-run: legacy v0.9.0 baseline produces a bump derived from the contributing-paths commits', () => {
-    // The legacy `v0.9.0` tag is the baseline; commits since it are the source of truth for
-    // the project bump. The legacy tag shape is the same as the project tagPrefix `v`.
-    stubCommits('v0.9.0', [
-      ['fix: patch arrays bug', 'abc'],
-      ['feat: ship strings helper', 'def'],
-    ]);
+  it("releases at the history's bump, reporting its baseline tag, commits, and counts", () => {
+    stubHistory({
+      previousTag: 'v0.9.0',
+      commits: [
+        ['fix: patch arrays bug', 'abc'],
+        ['ship strings helper', 'def'],
+      ],
+      bump: 'minor',
+      parsedCommitCount: 1,
+      unparseableCommits: [['ship strings helper', 'def']],
+      sections: UNRELEASED_SECTIONS,
+    });
     const tags: string[] = [];
 
     const result = releasePrepareProject({
@@ -520,7 +511,15 @@ describe(releasePrepareProject, () => {
     assert(result.status === 'released', 'expected released');
     expect(result.previousTag).toBe('v0.9.0');
     expect(result.commitCount).toBe(2);
-    expect(result.releaseType).toBe('minor'); // feat triggers minor over fix's patch
+    expect(result.parsedCommitCount).toBe(1);
+    expect(result.commits).toStrictEqual(
+      makeStubbedCommits([
+        ['fix: patch arrays bug', 'abc'],
+        ['ship strings helper', 'def'],
+      ]),
+    );
+    expect(result.unparseableCommits).toStrictEqual(makeStubbedCommits([['ship strings helper', 'def']]));
+    expect(result.releaseType).toBe('minor');
     expect(result.newVersion).toBe('0.10.0');
     expect(tags).toStrictEqual(['v0.10.0']);
   });
@@ -537,6 +536,7 @@ describe(releasePrepareProject, () => {
         tags: [],
       }),
     ).toThrow(/without a configured project block/);
+    expect(mockReadReleaseHistory).not.toHaveBeenCalled();
   });
 
   describe('empty-range project release', () => {
@@ -545,13 +545,8 @@ describe(releasePrepareProject, () => {
     // project tag, a synthetic "Notes / Forced version bump." entry stands in for the
     // release windows.
 
-    /** Stub git so the project has a tag but no qualifying commits since it. */
-    function stubEmptyRange(): void {
-      stubCommits('v0.9.0', []);
-    }
-
     it('writes a synthetic Notes / Forced version bump entry for the root CHANGELOG when --force is used with no commits', () => {
-      stubEmptyRange();
+      stubHistory({ previousTag: 'v0.9.0' });
       const tags: string[] = [];
       const modifiedFiles: string[] = [];
 
@@ -568,8 +563,6 @@ describe(releasePrepareProject, () => {
       expect(result.changelogFiles).toContain('CHANGELOG.md');
       expect(tags).toStrictEqual(['v0.9.1']);
 
-      // The empty-range branch builds the synthetic entry and routes it through the markdown
-      // renderer. Assert on the rendered entries the renderer received.
       expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
@@ -586,22 +579,27 @@ describe(releasePrepareProject, () => {
       );
     });
 
-    it('does not build entries from history for the project stage on the empty-range path', () => {
-      stubEmptyRange();
+    it("reads the history once and renders the synthetic entry in place of the history's windows", () => {
+      stubHistory({ previousTag: 'v0.9.0', releasedEntries: [RELEASED_ENTRY] });
+      const config = makeConfig();
 
       releasePrepareProject({
-        config: makeConfig(),
+        config,
         options: { force: true },
         modifiedFiles: [],
         writes: [],
         tags: [],
       });
 
-      expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
+      expectOneHistoryRead(config, ['packages/arrays/**', 'packages/strings/**']);
+      expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
+        [expect.objectContaining({ version: '0.9.1' })],
+        expect.anything(),
+      );
     });
 
     it('writes a synthetic empty-range entry into the root changelog.json when enabled', () => {
-      stubEmptyRange();
+      stubHistory({ previousTag: 'v0.9.0' });
       const config = makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } });
 
       releasePrepareProject({
@@ -628,12 +626,10 @@ describe(releasePrepareProject, () => {
           ]),
         }),
       ]);
-      // The release-window path must not be exercised on the empty-range branch.
-      expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
     });
 
     it('plans the synthetic files without writing them, and still appends tag and modified files', () => {
-      stubEmptyRange();
+      stubHistory({ previousTag: 'v0.9.0' });
       const tags: string[] = [];
       const modifiedFiles: string[] = [];
       const writes: PlannedWrite[] = [];
@@ -659,7 +655,7 @@ describe(releasePrepareProject, () => {
     });
 
     it('keeps non-empty-range project releases on the release-window path (no regression)', () => {
-      setupDefaultGit();
+      stubDefaultHistory();
 
       releasePrepareProject({
         config: makeConfig(),
@@ -669,11 +665,12 @@ describe(releasePrepareProject, () => {
         tags: [],
       });
 
-      expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
+      expect(mockMergeChangelogEntriesWithDisk).not.toHaveBeenCalled();
+      expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith([NEW_ENTRY], expect.anything());
     });
 
     it('leaves a skipped-project result unchanged (no synthetic entries for skipped projects)', () => {
-      stubEmptyRange();
+      stubHistory({ previousTag: 'v0.9.0' });
       const tags: string[] = [];
       const modifiedFiles: string[] = [];
 
@@ -688,165 +685,107 @@ describe(releasePrepareProject, () => {
       expect(result.status).toBe('skipped');
       expect(tags).toStrictEqual([]);
       expect(modifiedFiles).toStrictEqual([]);
-      // No CHANGELOG.md write for the skipped project.
-      const changelogWrites = mockWriteFileSync.mock.calls.filter((call: unknown[]) => call[0] === 'CHANGELOG.md');
-      expect(changelogWrites).toHaveLength(0);
+      expect(mockRenderChangelogMarkdown).not.toHaveBeenCalled();
     });
   });
 
-  describe('policy violations', () => {
-    /** Stub the project window's history with one commit per entry. */
-    function stubLog(tag: string, ...entries: readonly CommitStub[]): void {
-      stubCommits(tag, entries);
-      mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root', version: '1.0.0' }));
-    }
-
-    it('omits policyViolations on a project release whose only commit is a clean feat!', () => {
-      const config = makeConfig({ workTypes: DEFAULT_WORK_TYPES });
-      stubLog('v1.0.0', ['feat!: drop legacy export', 'abc1234']);
+  describe('changelog diagnostics', () => {
+    it('omits every diagnostic list from a released result when the history reports none', () => {
+      stubDefaultHistory();
 
       const result = releasePrepareProject({
-        config,
+        config: makeConfig(),
         options: {},
         modifiedFiles: [],
         writes: [],
         tags: [],
       });
 
-      expect(result.status).toBe('released');
       assert(result.status === 'released', 'expected released');
+      expect(result.malformedBlocks).toBeUndefined();
       expect(result.policyViolations).toBeUndefined();
+      expect(result.undeclaredEntryTypes).toBeUndefined();
     });
 
-    it("attaches the changelog build's diagnostics, appending entry violations to the bump-side ones", () => {
-      const config = makeConfig({ workTypes: DEFAULT_WORK_TYPES });
-      stubLog('v1.0.0', ['internal!: refactor cache', 'def5678']);
-      const malformedBlock = { commitHash: 'aaa1111', commitSubject: 'Squash', reason: '`entries` is not a list' };
-      const undeclared = { commitHash: 'bbb2222', commitSubject: 'Merge PR', entryPosition: 2, type: 'chore' };
-      const entryViolation = {
-        commitHash: 'bbb2222',
-        commitSubject: 'Merge PR',
-        type: 'drop',
-        surface: 'entry' as const,
-        entryPosition: 1,
-      };
-      mockBuildChangelogEntries.mockReturnValue(
-        makeChangelogBuild([], {
-          malformedBlocks: [malformedBlock],
-          undeclaredEntryTypes: [undeclared],
-          policyViolations: [entryViolation],
-        }),
-      );
-
-      const result = releasePrepareProject({ config, options: {}, modifiedFiles: [], writes: [], tags: [] });
-
-      expect(result).toMatchObject({
-        malformedBlocks: [malformedBlock],
-        undeclaredEntryTypes: [undeclared],
-        policyViolations: [
-          { commitHash: 'def5678', commitSubject: 'internal!: refactor cache', type: 'internal', surface: 'prefix' },
-          entryViolation,
-        ],
-      });
-    });
-
-    it('records a prefix-surface violation for an internal! commit (forbidden policy)', () => {
-      const config = makeConfig({ workTypes: DEFAULT_WORK_TYPES });
-      stubLog('v1.0.0', ['internal!: refactor cache', 'def5678']);
-
-      const result = releasePrepareProject({
-        config,
-        options: {},
-        modifiedFiles: [],
-        writes: [],
-        tags: [],
-      });
-
-      expect(result.policyViolations).toStrictEqual([
-        {
-          commitHash: 'def5678',
-          commitSubject: 'internal!: refactor cache',
-          type: 'internal',
-          surface: 'prefix',
+    it("attaches the history's diagnostics to a released result as they are", () => {
+      stubDefaultHistory({
+        diagnostics: {
+          malformedBlocks: [MALFORMED_BLOCK],
+          policyViolations: [ENTRY_VIOLATION],
+          undeclaredEntryTypes: [UNDECLARED_ENTRY_TYPE],
         },
-      ]);
-    });
-
-    it('records a prefix-surface violation for a bare drop commit (required policy)', () => {
-      const config = makeConfig({ workTypes: DEFAULT_WORK_TYPES });
-      stubLog('v1.0.0', ['drop: remove deprecated API', '9abc012']);
+      });
 
       const result = releasePrepareProject({
-        config,
+        config: makeConfig(),
         options: {},
         modifiedFiles: [],
         writes: [],
         tags: [],
       });
 
-      expect(result.policyViolations).toStrictEqual([
-        {
-          commitHash: '9abc012',
-          commitSubject: 'drop: remove deprecated API',
-          type: 'drop',
-          surface: 'prefix',
-        },
-      ]);
-    });
-
-    it('produces no violations when breakingPolicies is set to {} (opt-out)', () => {
-      const config = makeConfig({ workTypes: DEFAULT_WORK_TYPES, breakingPolicies: {} });
-      stubLog('v1.0.0', ['internal!: refactor cache', 'def5678']);
-
-      const result = releasePrepareProject({
-        config,
-        options: {},
-        modifiedFiles: [],
-        writes: [],
-        tags: [],
-      });
-
-      expect(result.policyViolations).toBeUndefined();
-    });
-
-    it('records a body-surface violation when BREAKING CHANGE: appears under a custom forbidden feat policy', () => {
-      // The parser invokes `message.includes('BREAKING CHANGE:')` on the raw commit message;
-      // any commit whose `.message` contains that literal triggers the body-surface code path.
-      // Real git-log subjects (--pretty=format:%s) don't carry body footers, but the wiring still
-      // needs to surface body-surface violations correctly when they appear (here: a subject
-      // that itself contains the literal string).
-      const config = makeConfig({
-        workTypes: DEFAULT_WORK_TYPES,
-        breakingPolicies: { ...DEFAULT_BREAKING_POLICIES, feat: 'forbidden' },
-      });
-      stubLog('v1.0.0', ['feat: rework auth (BREAKING CHANGE: removes /v1)', 'body0001']);
-
-      const result = releasePrepareProject({
-        config,
-        options: {},
-        modifiedFiles: [],
-        writes: [],
-        tags: [],
-      });
-
-      expect(result.policyViolations).toStrictEqual([
-        {
-          commitHash: 'body0001',
-          commitSubject: 'feat: rework auth (BREAKING CHANGE: removes /v1)',
-          type: 'feat',
-          surface: 'body',
-        },
-      ]);
+      assert(result.status === 'released', 'expected released');
+      expect(result.malformedBlocks).toStrictEqual([MALFORMED_BLOCK]);
+      expect(result.policyViolations).toStrictEqual([ENTRY_VIOLATION]);
+      expect(result.undeclaredEntryTypes).toStrictEqual([UNDECLARED_ENTRY_TYPE]);
     });
   });
 });
 
-/** Content the staged writes intend for `path`, or undefined when no write targets it. */
+// region | Helpers
+
+/** Asserts that the run read the project's history exactly once, under the project tag prefix and `paths`. */
+function expectOneHistoryRead(config: MonorepoReleaseConfig, paths: string[]): void {
+  expect(mockReadReleaseHistory).toHaveBeenCalledTimes(1);
+  expect(mockReadReleaseHistory).toHaveBeenCalledWith(config, { tagPrefixes: ['v'], paths });
+}
+
+/** Builds a monorepo config with two workspaces and a project block spanning both. */
+function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
+  return {
+    workspaces: [makeWorkspace({ dir: 'arrays' }), makeWorkspace({ dir: 'strings' })],
+    workTypes: { feat: { header: 'Features' }, fix: { header: 'Bug fixes' } },
+    changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false },
+    releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
+    project: { paths: ['packages/arrays/**', 'packages/strings/**'], tagPrefix: 'v' },
+    ...overrides,
+  };
+}
+
+/** Builds a workspace config under `packages/<dir>`. */
+function makeWorkspace(overrides: Partial<WorkspaceConfig> & Pick<WorkspaceConfig, 'dir'>): WorkspaceConfig {
+  const { dir } = overrides;
+  return {
+    name: `@test/${dir}`,
+    tagPrefix: `${dir}-v`,
+    workspacePath: `packages/${dir}`,
+    isPublishable: true,
+    packageFiles: [`packages/${dir}/package.json`],
+    changelogPaths: [`packages/${dir}`],
+    paths: [`packages/${dir}/**`],
+    ...overrides,
+  };
+}
+
+/** Returns the content that the staged writes intend for `path`, or undefined when no write targets it. */
 function plannedContent(writes: readonly PlannedWrite[], path: string): string | undefined {
   return writes.find((write) => write.path === path)?.content;
 }
 
-/** Stub the history `getCommitsSinceTarget` reports: a baseline tag and the commits above it. */
-function stubCommits(tag: string | undefined, entries: readonly CommitStub[]): void {
-  mockGetCommitsSinceTarget.mockReturnValue({ tag, commits: makeStubbedCommits(entries) });
+/** Stubs a history above the `v0.9.0` baseline whose one feature commit calls for a minor bump. */
+function stubDefaultHistory(overrides: ReleaseHistoryStub = {}): void {
+  stubHistory({
+    previousTag: 'v0.9.0',
+    commits: [['#1 feat: ship project', 'abc123']],
+    bump: 'minor',
+    sections: UNRELEASED_SECTIONS,
+    ...overrides,
+  });
 }
+
+/** Stubs the history that `readReleaseHistory` returns. */
+function stubHistory(stub: ReleaseHistoryStub): void {
+  mockReadReleaseHistory.mockReturnValue(makeReleaseHistory(stub));
+}
+
+// endregion | Helpers

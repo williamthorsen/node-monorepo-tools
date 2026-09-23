@@ -3,7 +3,7 @@ import { join as joinPath } from 'node:path';
 import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
-import { buildChangelogEntries, type ChangelogDiagnostics } from './buildChangelogEntries.ts';
+import { readReleaseHistory, type ReleaseHistory, toChangelogEntries } from './buildChangelogEntries.ts';
 import { buildDependencyGraph, type DependencyGraph } from './buildDependencyGraph.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
@@ -15,12 +15,9 @@ import {
   formatStaleOverrideKeyWarning,
   type OverrideContext,
 } from './changelogOverrides.ts';
-import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { decideRelease } from './decideRelease.ts';
-import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
 import { getAllTagPrefixes } from './generateChangelogs.ts';
-import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
@@ -33,9 +30,7 @@ import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type {
   ChangelogEntry,
-  Commit,
   MonorepoReleaseConfig,
-  PolicyViolation,
   ProjectPrepareResult,
   ReleasedWorkspaceResult,
   ReleaseType,
@@ -47,14 +42,10 @@ import type {
 /** Intermediate result from Phase 1 (determine direct bumps). */
 interface DirectBumpResult {
   workspace: WorkspaceConfig;
-  tag: string | undefined;
-  commits: Commit[];
-  /** Release type determined from commits (or the override). Undefined when `setVersion` is used. */
+  /** The workspace's one read of its release windows, from which Phase 3 builds its changelog entries. */
+  history: ReleaseHistory;
+  /** Release type from the decision. Undefined when `setVersion` is used. */
   releaseType: ReleaseType | undefined;
-  parsedCommitCount: number | undefined;
-  unparseableCommits: Commit[] | undefined;
-  /** Policy violations collected while parsing this workspace's commits; undefined when none. */
-  policyViolations: PolicyViolation[] | undefined;
   /** Set when `--bump=X` was supplied for this workspace's direct release; surfaced to renderer. */
   bumpOverride: ReleaseType | undefined;
   /** Explicit version from `--set-version`, present only for the overridden workspace. */
@@ -64,12 +55,7 @@ interface DirectBumpResult {
 /** Intermediate result for a skipped workspace. */
 interface SkippedResult {
   workspace: WorkspaceConfig;
-  tag: string | undefined;
-  commitCount: number;
-  parsedCommitCount: number | undefined;
-  unparseableCommits: Commit[] | undefined;
-  /** Policy violations collected while parsing this workspace's commits; undefined when none. */
-  policyViolations: PolicyViolation[] | undefined;
+  history: ReleaseHistory;
   skipReason: string;
 }
 
@@ -115,10 +101,10 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   // Build a lookup of previous tags for all workspaces (needed for propagated ones).
   const previousTags = new Map<string, string | undefined>();
   for (const result of directResults.values()) {
-    previousTags.set(result.workspace.dir, result.tag);
+    previousTags.set(result.workspace.dir, result.history.previousTag);
   }
   for (const skipped of skippedResults) {
-    previousTags.set(skipped.workspace.dir, skipped.tag);
+    previousTags.set(skipped.workspace.dir, skipped.history.previousTag);
   }
 
   // === Phase 2: Build graph and propagate bumps ===
@@ -221,7 +207,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   };
 }
 
-/** Determine direct bumps from commits for each workspace. */
+/** Determine each workspace's direct bump from its release history. */
 function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): Phase1Result {
   const { force, bumpOverride, setVersion } = options;
 
@@ -231,10 +217,6 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
   if (setVersion !== undefined && config.workspaces.length !== 1) {
     throw new Error(`--set-version requires exactly one workspace; received ${config.workspaces.length}`);
   }
-
-  const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
-  const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
-  const breakingPolicies = config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES;
 
   const directBumps = new Map<string, ReleaseEntry>();
   const directResults = new Map<string, DirectBumpResult>();
@@ -248,9 +230,10 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
     const name = workspace.dir;
     const stageLabel = workspaceStageLabel(workspace.dir);
 
-    const { tag, commits } = tryStage(stageLabel, () =>
-      getCommitsSinceTarget(getAllTagPrefixes(workspace), workspace.paths),
+    const history = tryStage(stageLabel, () =>
+      readReleaseHistory(config, { tagPrefixes: getAllTagPrefixes(workspace), paths: workspace.paths }),
     );
+    const tag = history.previousTag;
     const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
 
     if (tag === undefined) {
@@ -265,64 +248,37 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
       directBumps.set(workspace.dir, { releaseType: 'patch', newVersionOverride: setVersion });
       directResults.set(workspace.dir, {
         workspace,
-        tag,
-        commits,
+        history,
         releaseType: undefined,
-        parsedCommitCount: undefined,
-        unparseableCommits: undefined,
-        policyViolations: undefined,
         bumpOverride: undefined,
         setVersion,
       });
       continue;
     }
 
-    // Apply the unified release-decision algorithm: `--bump=X` is purely a level chooser;
-    // `--force` is purely a release trigger that defaults to patch when no level is given.
-    // Always parses commits so `parsedCommitCount` and `unparseableCommits` are populated for
-    // diagnostic surfacing regardless of whether `bumpOverride` was supplied.
-    const collector = createPolicyViolationCollector();
-    const decision = tryStage(stageLabel, () =>
-      decideRelease({
-        commits,
-        force,
-        bumpOverride,
-        workTypes,
-        versionPatterns,
-        scopeAliases: config.scopeAliases,
-        breakingPolicies,
-        onPolicyViolation: collector.onPolicyViolation,
-        skipReasons: {
-          noCommits: `No commits for ${name} ${since}. Pass --force to release at patch. Skipping.`,
-          noBumpWorthy: `No bump-worthy commits for ${name} ${since}. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.`,
-        },
-      }),
-    );
-
-    const policyViolations = collector.violations.length > 0 ? collector.violations : undefined;
+    // `--bump=X` is purely a level chooser; `--force` is purely a release trigger that defaults
+    // to patch when no level is given.
+    const decision = decideRelease({
+      naturalBump: history.unreleased.bump,
+      commitCount: history.unreleased.commits.length,
+      force,
+      bumpOverride,
+      skipReasons: {
+        noCommits: `No commits for ${name} ${since}. Pass --force to release at patch. Skipping.`,
+        noBumpWorthy: `No bump-worthy commits for ${name} ${since}. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.`,
+      },
+    });
 
     if (decision.outcome === 'skip') {
-      skippedResults.push({
-        workspace,
-        tag,
-        commitCount: commits.length,
-        parsedCommitCount: decision.parsedCommitCount,
-        unparseableCommits: decision.unparseableCommits,
-        policyViolations,
-        skipReason: decision.skipReason,
-      });
+      skippedResults.push({ workspace, history, skipReason: decision.skipReason });
       continue;
     }
 
     directBumps.set(workspace.dir, { releaseType: decision.releaseType });
     directResults.set(workspace.dir, {
       workspace,
-      tag,
-      commits,
+      history,
       releaseType: decision.releaseType,
-      parsedCommitCount: decision.parsedCommitCount,
-      unparseableCommits: decision.unparseableCommits,
-      policyViolations,
       bumpOverride,
     });
   }
@@ -340,24 +296,21 @@ function collectSkippedWorkspaces(
     if (fullReleaseSet.has(skipped.workspace.dir)) {
       continue;
     }
+    const { previousTag, unreleased } = skipped.history;
     const result: SkippedWorkspaceResult = {
       name: skipped.workspace.dir,
       status: 'skipped',
-      commitCount: skipped.commitCount,
+      commitCount: unreleased.commits.length,
+      parsedCommitCount: unreleased.parsedCommitCount,
       skipReason: skipped.skipReason,
     };
-    if (skipped.tag !== undefined) {
-      result.previousTag = skipped.tag;
+    if (previousTag !== undefined) {
+      result.previousTag = previousTag;
     }
-    if (skipped.parsedCommitCount !== undefined) {
-      result.parsedCommitCount = skipped.parsedCommitCount;
+    if (unreleased.unparseableCommits !== undefined) {
+      result.unparseableCommits = unreleased.unparseableCommits;
     }
-    if (skipped.unparseableCommits !== undefined) {
-      result.unparseableCommits = skipped.unparseableCommits;
-    }
-    if (skipped.policyViolations !== undefined) {
-      result.policyViolations = skipped.policyViolations;
-    }
+    attachChangelogDiagnostics(result, unreleased.diagnostics);
     workspaces.push(result);
   }
   return workspaces;
@@ -496,17 +449,13 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     ...workspace.changelogPaths.map((changelogPath) => joinPath(changelogPath, 'CHANGELOG.md')),
   );
 
-  const isPropagationOnly = directResult === undefined;
-  // A workspace is empty-range when it has a direct release (i.e., not propagation-only) but
-  // its commit window is empty — the `--force` / `--bump=X` / `--set-version` paths land here.
-  const isEmptyRange = directResult !== undefined && directResult.commits.length === 0;
-  const { changelogFiles, diagnostics, previewFiles } = generateWorkspaceChangelogs({
+  const directCommits = directResult?.history.unreleased.commits;
+  const { changelogFiles, previewFiles } = generateWorkspaceChangelogs({
     workspace,
     releaseEntry,
     newTag,
     newVersion: bump.newVersion,
-    isPropagationOnly,
-    isEmptyRange,
+    history: directResult?.history,
     config,
     today,
     modifiedFiles,
@@ -520,7 +469,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
   const released: ReleasedWorkspaceResult = {
     name: dir,
     status: 'released',
-    commitCount: directResult?.commits.length ?? 0,
+    commitCount: directCommits?.length ?? 0,
     currentVersion: bump.currentVersion,
     newVersion: bump.newVersion,
     tag: newTag,
@@ -529,12 +478,11 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     ...(previewFiles.length > 0 && { previewFiles }),
   };
   attachReleasedWorkspaceOptionals(released, {
-    previousTag: directResult?.tag ?? previousTags.get(dir),
+    previousTag: directResult?.history.previousTag ?? previousTags.get(dir),
     directResult,
     releaseEntry,
     setVersionTarget,
   });
-  attachChangelogDiagnostics(released, diagnostics);
   workspaces.push(released);
 }
 
@@ -547,13 +495,12 @@ interface AttachReleasedOptionalsArgs {
 }
 
 /**
- * Attach the optional fields of a `ReleasedWorkspaceResult` (previousTag, parsedCommitCount,
- * releaseType, commits, unparseableCommits, policyViolations, propagatedFrom, bumpOverride,
- * setVersion) using the conditional-assignment rules from the surrounding executor.
+ * Attach the optional fields of a `ReleasedWorkspaceResult` (previousTag, the unreleased window's
+ * commits and diagnostics, releaseType, propagatedFrom, bumpOverride, setVersion) using the
+ * conditional-assignment rules from the surrounding executor.
  *
  * Extracted from `executeWorkspaceRelease` so each conditional branch lives outside the host
- * function's cyclomatic-complexity budget; with the addition of `policyViolations` the inline
- * version pushes the host past the project's complexity ceiling.
+ * function's cyclomatic-complexity budget.
  */
 function attachReleasedWorkspaceOptionals(released: ReleasedWorkspaceResult, args: AttachReleasedOptionalsArgs): void {
   const { previousTag, directResult, releaseEntry, setVersionTarget } = args;
@@ -561,22 +508,13 @@ function attachReleasedWorkspaceOptionals(released: ReleasedWorkspaceResult, arg
   if (previousTag !== undefined) {
     released.previousTag = previousTag;
   }
-  if (directResult?.parsedCommitCount !== undefined) {
-    released.parsedCommitCount = directResult.parsedCommitCount;
-  }
-  // For --set-version workspaces releaseType is left undefined so reporting can branch
-  // on the override case without conflating it with a bump type.
+  // For --set-version workspaces releaseType and the parse counts are left undefined so
+  // reporting can branch on the override case without conflating it with a bump type.
   if (setVersionTarget === undefined) {
     released.releaseType = releaseEntry.releaseType;
   }
-  if (directResult?.commits !== undefined) {
-    released.commits = directResult.commits;
-  }
-  if (directResult?.unparseableCommits !== undefined) {
-    released.unparseableCommits = directResult.unparseableCommits;
-  }
-  if (directResult?.policyViolations !== undefined) {
-    released.policyViolations = directResult.policyViolations;
+  if (directResult !== undefined) {
+    attachDirectHistory(released, directResult.history.unreleased, setVersionTarget === undefined);
   }
   if (releaseEntry.propagatedFrom !== undefined) {
     released.propagatedFrom = releaseEntry.propagatedFrom;
@@ -589,20 +527,33 @@ function attachReleasedWorkspaceOptionals(released: ReleasedWorkspaceResult, arg
   }
 }
 
+/**
+ * Attaches a direct release's commits and diagnostics, and, unless `--set-version` chose the version, the counts that
+ * the decision read.
+ */
+function attachDirectHistory(
+  released: ReleasedWorkspaceResult,
+  unreleased: ReleaseHistory['unreleased'],
+  hasDecidedBump: boolean,
+): void {
+  released.commits = unreleased.commits;
+  if (hasDecidedBump) {
+    released.parsedCommitCount = unreleased.parsedCommitCount;
+    if (unreleased.unparseableCommits !== undefined) {
+      released.unparseableCommits = unreleased.unparseableCommits;
+    }
+  }
+  attachChangelogDiagnostics(released, unreleased.diagnostics);
+}
+
 /** Arguments for generating changelog files for a single workspace. */
 interface GenerateWorkspaceChangelogsArgs {
   workspace: WorkspaceConfig;
   releaseEntry: ReleaseEntry;
   newTag: string;
   newVersion: string;
-  isPropagationOnly: boolean;
-  /**
-   * True when this workspace has a direct release with zero qualifying commits since the
-   * last tag (e.g., `--force`-bumped, `--bump=X`, or `--set-version` with no new commits).
-   * Routes to the synthetic empty-range path, since the workspace's newest window holds no commit
-   * from which to build an entry.
-   */
-  isEmptyRange: boolean;
+  /** The history of a direct release; undefined for a propagation-only one. */
+  history: ReleaseHistory | undefined;
   config: MonorepoReleaseConfig;
   today: string;
   modifiedFiles: string[];
@@ -621,7 +572,6 @@ interface GenerateWorkspaceChangelogsArgs {
  */
 function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
   changelogFiles: string[];
-  diagnostics: ChangelogDiagnostics | undefined;
   previewFiles: string[];
 } {
   const {
@@ -629,8 +579,7 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
     releaseEntry,
     newTag,
     newVersion,
-    isPropagationOnly,
-    isEmptyRange,
+    history,
     config,
     today,
     modifiedFiles,
@@ -641,18 +590,9 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
     sectionOrder,
   } = args;
 
-  const built = buildWorkspaceEntries({
-    workspace,
-    releaseEntry,
-    newTag,
-    newVersion,
-    isPropagationOnly,
-    isEmptyRange,
-    config,
-    today,
-  });
+  const entries = buildWorkspaceEntries({ workspace, releaseEntry, newTag, newVersion, history, today });
 
-  const applied = applyWorkspaceOverrides(built.entries, workspace.workspacePath, overrideContext);
+  const applied = applyWorkspaceOverrides(entries, workspace.workspacePath, overrideContext);
 
   const changelogFiles: string[] = [];
   let firstMergedEntries: ChangelogEntry[] | undefined;
@@ -678,7 +618,7 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
   const previews = planPreviews(workspace, newTag, firstMergedEntries, previewOptions, warnings);
   writes.push(...previews);
 
-  return { changelogFiles, diagnostics: built.diagnostics, previewFiles: previews.map((write) => write.path) };
+  return { changelogFiles, previewFiles: previews.map((write) => write.path) };
 }
 
 /** Arguments for {@link buildWorkspaceEntries}. */
@@ -687,39 +627,34 @@ interface BuildWorkspaceEntriesArgs {
   releaseEntry: ReleaseEntry;
   newTag: string;
   newVersion: string;
-  isPropagationOnly: boolean;
-  isEmptyRange: boolean;
-  config: MonorepoReleaseConfig;
+  history: ReleaseHistory | undefined;
   today: string;
 }
 
 /**
  * Build the new `ChangelogEntry[]` for a workspace from one of three sources:
  * 1. Propagation-only: a single synthetic "Dependency updates" entry.
- * 2. Empty-range: a single synthetic "Forced version bump." entry.
- * 3. Direct bump with commits: the workspace's release windows.
+ * 2. Empty-range: a single synthetic "Forced version bump." entry, for a direct release whose unreleased window
+ *    holds no commit (`--force`, `--bump=X`, or `--set-version` with no new commits).
+ * 3. Direct bump with commits: the workspace's release history.
  *
- * Returns the entries that will be merged into the on-disk JSON and rendered, with the diagnostics of the release
- * windows when they were read.
+ * Returns the entries that will be merged into the on-disk JSON and rendered.
  */
-function buildWorkspaceEntries(args: BuildWorkspaceEntriesArgs): {
-  entries: ChangelogEntry[];
-  diagnostics: ChangelogDiagnostics | undefined;
-} {
-  const { workspace, releaseEntry, newTag, newVersion, isPropagationOnly, isEmptyRange, config, today } = args;
+function buildWorkspaceEntries(args: BuildWorkspaceEntriesArgs): ChangelogEntry[] {
+  const { workspace, releaseEntry, newTag, newVersion, history, today } = args;
 
-  if (isPropagationOnly && releaseEntry.propagatedFrom !== undefined) {
-    return {
-      entries: [buildSyntheticChangelogEntry(releaseEntry.propagatedFrom, newVersion, today)],
-      diagnostics: undefined,
-    };
+  if (history === undefined) {
+    if (releaseEntry.propagatedFrom === undefined) {
+      throw new Error(`Workspace '${workspace.dir}' has neither a direct release nor a propagation source`);
+    }
+    return [buildSyntheticChangelogEntry(releaseEntry.propagatedFrom, newVersion, today)];
   }
 
-  if (isEmptyRange) {
-    return { entries: [buildEmptyReleaseEntry(newVersion, today)], diagnostics: undefined };
+  if (history.unreleased.commits.length === 0) {
+    return [buildEmptyReleaseEntry(newVersion, today)];
   }
 
-  return buildChangelogEntries(config, newTag, { tagPrefixes: getAllTagPrefixes(workspace), paths: workspace.paths });
+  return toChangelogEntries(history, newTag);
 }
 
 /**

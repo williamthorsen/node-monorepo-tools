@@ -120,7 +120,7 @@ export interface PropagationSource {
 }
 
 /**
- * A `!`-policy violation detected while parsing commits during release preparation.
+ * A `!`-policy violation detected while reading the unreleased window during release preparation.
  *
  * Surfaces from `releasePrepare`, `releasePrepareMono`, and `releasePrepareProject` via the
  * `policyViolations` field on each per-workspace/project result. The policy itself is enforced
@@ -168,9 +168,8 @@ export interface UndeclaredEntryType {
  * Result of preparing a single workspace (package) for release when a release was produced.
  *
  * `currentVersion`, `newVersion`, `tag`, `bumpedFiles`, and `changelogFiles` are always
- * populated. `releaseType` stays optional because it is left undefined for
- * `--set-version` workspaces. `parsedCommitCount` stays optional because the legacy
- * single-package bump-override path does not populate it. `commits` stays optional
+ * populated. `releaseType` and `parsedCommitCount` stay optional because they are left
+ * undefined for `--set-version` and propagation-only workspaces. `commits` stays optional
  * because propagation-only releases have no direct commits.
  */
 export interface ReleasedWorkspaceResult {
@@ -180,20 +179,14 @@ export interface ReleasedWorkspaceResult {
   previousTag?: string;
   commitCount: number;
   /**
-   * Count of commits that parsed into a recognized work type. Always populated for
-   * results produced by the unified `decideRelease` algorithm (the monorepo path),
-   * including the no-commits case where it is `0`. May be absent for results
-   * produced by the legacy single-package executor's bump-override path. Use
-   * `bumpOverride` (not `parsedCommitCount === undefined`) as the signal for "the
-   * user supplied --bump=X".
+   * Count of commits that yield at least one changelog item — `0` when there are no commits or
+   * when none does. Absent for `--set-version` and propagation-only workspaces. Use
+   * `bumpOverride` as the signal for "the user supplied --bump=X".
    */
   parsedCommitCount?: number;
-  /** Commits that could not be parsed into a recognized work type. */
+  /** Commits that yield no changelog item and that no exclusion or diagnostic accounts for. */
   unparseableCommits?: Commit[];
-  /**
-   * Policy violations detected while parsing this workspace's commits and reading the change-record entries of its
-   * unreleased window; omitted when none.
-   */
+  /** Policy violations of the unreleased window's titles and change-record entries; omitted when none. */
   policyViolations?: PolicyViolation[];
   /** Commits of the unreleased window whose `change-record` block could not be read; omitted when none. */
   malformedBlocks?: MalformedChangeRecordBlock[];
@@ -238,10 +231,14 @@ export interface SkippedWorkspaceResult {
    * produced by the legacy single-package executor's bump-override path.
    */
   parsedCommitCount?: number;
-  /** Commits that could not be parsed into a recognized work type. */
+  /** Commits that yield no changelog item and that no exclusion or diagnostic accounts for. */
   unparseableCommits?: Commit[];
-  /** Policy violations detected while parsing this workspace's commits; omitted when none. */
+  /** Policy violations of the unreleased window's titles and change-record entries; omitted when none. */
   policyViolations?: PolicyViolation[];
+  /** Commits of the unreleased window whose `change-record` block could not be read; omitted when none. */
+  malformedBlocks?: MalformedChangeRecordBlock[];
+  /** Change-record entries of the unreleased window whose type is undeclared; omitted when none. */
+  undeclaredEntryTypes?: UndeclaredEntryType[];
   skipReason: string;
 }
 
@@ -266,18 +263,14 @@ export interface ReleasedProjectResult {
   previousTag?: string;
   commitCount: number;
   /**
-   * Count of commits that parsed into a recognized work type. Always populated by the
-   * unified `decideRelease` algorithm — `0` when there are no commits or when none
-   * parse. Use `bumpOverride` (not `parsedCommitCount === 0`) as the signal for "the
+   * Count of commits that yield at least one changelog item — `0` when there are no commits or
+   * when none does. Use `bumpOverride` (not `parsedCommitCount === 0`) as the signal for "the
    * user supplied --bump=X".
    */
   parsedCommitCount: number;
-  /** Commits that could not be parsed into a recognized work type. */
+  /** Commits that yield no changelog item and that no exclusion or diagnostic accounts for. */
   unparseableCommits?: Commit[];
-  /**
-   * Policy violations detected while parsing the project's commits and reading the change-record entries of its
-   * unreleased window; omitted when none.
-   */
+  /** Policy violations of the unreleased window's titles and change-record entries; omitted when none. */
   policyViolations?: PolicyViolation[];
   /** Commits of the unreleased window whose `change-record` block could not be read; omitted when none. */
   malformedBlocks?: MalformedChangeRecordBlock[];
@@ -311,16 +304,16 @@ export interface SkippedProjectResult {
   status: 'skipped';
   previousTag?: string;
   commitCount: number;
-  /**
-   * Count of commits that parsed into a recognized work type. Always populated by the
-   * unified `decideRelease` algorithm — `0` when there are no commits or when none
-   * parse.
-   */
+  /** Count of commits that yield at least one changelog item — `0` when there are no commits or when none does. */
   parsedCommitCount: number;
-  /** Commits that could not be parsed into a recognized work type. */
+  /** Commits that yield no changelog item and that no exclusion or diagnostic accounts for. */
   unparseableCommits?: Commit[];
-  /** Policy violations detected while parsing the project's commits; omitted when none. */
+  /** Policy violations of the unreleased window's titles and change-record entries; omitted when none. */
   policyViolations?: PolicyViolation[];
+  /** Commits of the unreleased window whose `change-record` block could not be read; omitted when none. */
+  malformedBlocks?: MalformedChangeRecordBlock[];
+  /** Change-record entries of the unreleased window whose type is undeclared; omitted when none. */
+  undeclaredEntryTypes?: UndeclaredEntryType[];
   skipReason: string;
 }
 

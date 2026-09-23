@@ -1,14 +1,12 @@
 import { join as joinPath } from 'node:path';
 
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
-import { buildChangelogEntries, type ChangelogDiagnostics } from './buildChangelogEntries.ts';
+import { readReleaseHistory, type ReleaseHistory, toChangelogEntries } from './buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import { applyChangelogOverrides } from './changelogOverrides.ts';
-import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { decideRelease } from './decideRelease.ts';
-import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
-import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
+import { DEFAULT_WORK_TYPES } from './defaults.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 import { planVersionBump } from './planVersionBump.ts';
 import type { PlannedWrite } from './releasePlan.ts';
@@ -26,7 +24,7 @@ import type {
 /** File path for the root `package.json` bumped during the project release stage. */
 const ROOT_PACKAGE_FILE = './package.json';
 
-/** Path argument passed to `generateChangelog` and `resolveChangelogJsonPath`; resolves to root paths at runtime. */
+/** Root changelog directory, passed to `resolveChangelogJsonPath` and joined with `CHANGELOG.md`. */
 const ROOT_CHANGELOG_PATH = '.';
 
 /** Inputs to the project-release stage. */
@@ -69,7 +67,7 @@ export interface ReleasePrepareProjectArgs {
 /**
  * Run the project-level release stage.
  *
- * Mirrors the per-workspace pipeline shape — find baseline tag → derive bump → bump version →
+ * Mirrors the per-workspace pipeline shape — read the history → decide the bump → bump version →
  * regenerate CHANGELOG → optionally emit changelog.json and release-notes previews — but
  * targets the root `package.json` and the root `CHANGELOG.md`. Contributing paths come from
  * the resolved `project.paths`, which defaults to the union of every (already-filtered)
@@ -93,72 +91,58 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   }
 
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
-  const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
-  const breakingPolicies = config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES;
 
-  // 1. Contributing paths, resolved at config load.
-  const contributingPaths = project.paths;
-
-  // 2. Find the most recent project tag and the commits since it under contributing paths.
-  const { tag, commits } = getCommitsSinceTarget([project.tagPrefix], contributingPaths);
+  // 1. Read the project's history once under its contributing paths, resolved at config load.
+  const history = readReleaseHistory(config, { tagPrefixes: [project.tagPrefix], paths: project.paths });
+  const { commits, diagnostics, parsedCommitCount, unparseableCommits } = history.unreleased;
+  const tag = history.previousTag;
   const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
 
-  // 3. Apply the unified release-decision algorithm. `--bump=X` is purely a level chooser;
-  //    `--force` is purely a release trigger that defaults to patch when no level is given.
-  const collector = createPolicyViolationCollector();
+  // 2. Decide the release. `--bump=X` is purely a level chooser; `--force` is purely a release
+  //    trigger that defaults to patch when no level is given.
   const decision = decideRelease({
-    commits,
+    naturalBump: history.unreleased.bump,
+    commitCount: commits.length,
     force,
     bumpOverride,
-    workTypes,
-    versionPatterns,
-    scopeAliases: config.scopeAliases,
-    breakingPolicies,
-    onPolicyViolation: collector.onPolicyViolation,
     skipReasons: {
       noCommits: `No commits ${since}. Pass --force to release at patch. Skipping.`,
       noBumpWorthy: `No bump-worthy commits ${since}. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.`,
     },
   });
 
-  const policyViolations = collector.violations.length > 0 ? collector.violations : undefined;
-
   if (decision.outcome === 'skip') {
     const skipped: SkippedProjectResult = {
       status: 'skipped',
       commitCount: commits.length,
-      parsedCommitCount: decision.parsedCommitCount,
+      parsedCommitCount,
       skipReason: decision.skipReason,
     };
     if (tag !== undefined) {
       skipped.previousTag = tag;
     }
-    if (decision.unparseableCommits !== undefined) {
-      skipped.unparseableCommits = decision.unparseableCommits;
+    if (unparseableCommits !== undefined) {
+      skipped.unparseableCommits = unparseableCommits;
     }
-    if (policyViolations !== undefined) {
-      skipped.policyViolations = policyViolations;
-    }
+    attachChangelogDiagnostics(skipped, diagnostics);
     return skipped;
   }
 
-  const { releaseType, parsedCommitCount, unparseableCommits } = decision;
+  const { releaseType } = decision;
 
-  // 4/5. Plan the root package.json bump.
+  // 3. Plan the root package.json bump.
   const bump = planVersionBump([ROOT_PACKAGE_FILE], releaseType);
   writes.push(...bump.writes);
 
-  // 6. Compose the project tag.
+  // 4. Compose the project tag.
   const newTag = `${project.tagPrefix}${bump.newVersion}`;
 
-  // 7/8. Plan the root CHANGELOG and (optionally) changelog.json via the routing helper.
-  //      When `commits.length === 0` (forced empty-range project release) the helper writes the
-  //      synthetic "Forced version bump." entry in place of the release windows.
+  // 5. Plan the root CHANGELOG and (optionally) changelog.json via the routing helper.
+  //    When `commits.length === 0` (forced empty-range project release) the helper writes the
+  //    synthetic "Forced version bump." entry in place of the release windows.
   const changelogs = planProjectChangelogs({
     config,
-    project,
-    commits,
-    contributingPaths,
+    history,
     newTag,
     newVersion: bump.newVersion,
     rootOverrides,
@@ -168,7 +152,7 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   const { changelogFiles, changelogJsonFiles } = changelogs;
   writes.push(...changelogs.writes);
 
-  // 9. Optional release-notes previews under root docs/, rendered from the entries this stage
+  // 6. Optional release-notes previews under root docs/, rendered from the entries this stage
   // plans to write rather than from the file it has not written yet.
   const previewFiles: string[] = [];
   if (withReleaseNotes === true && config.changelogJson.enabled && changelogJsonFiles.length > 0) {
@@ -183,12 +167,12 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     previewFiles.push(...previews.writes.map((write) => write.path));
   }
 
-  // 10. Append the project tag and modified files to the shared aggregators so downstream
+  // 7. Append the project tag and modified files to the shared aggregators so downstream
   // commands (`commit`, `tag`, format command) see them alongside per-workspace artifacts.
   tags.push(newTag);
   modifiedFiles.push(ROOT_PACKAGE_FILE, ...changelogFiles, ...changelogJsonFiles);
 
-  // 11. Build and return the result.
+  // 8. Build and return the result.
   const result: ProjectPrepareResult = {
     status: 'released',
     commitCount: commits.length,
@@ -210,13 +194,10 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   if (unparseableCommits !== undefined) {
     result.unparseableCommits = unparseableCommits;
   }
-  if (policyViolations !== undefined) {
-    result.policyViolations = policyViolations;
-  }
   if (bumpOverride !== undefined) {
     result.bumpOverride = bumpOverride;
   }
-  attachChangelogDiagnostics(result, changelogs.diagnostics);
+  attachChangelogDiagnostics(result, diagnostics);
   return result;
 }
 
@@ -242,9 +223,7 @@ function resolveOptionalOverrideArgs(args: ReleasePrepareProjectArgs): {
 /** Inputs to {@link planProjectChangelogs}. */
 interface PlanProjectChangelogsArgs {
   config: MonorepoReleaseConfig;
-  project: NonNullable<MonorepoReleaseConfig['project']>;
-  commits: ReadonlyArray<unknown>;
-  contributingPaths: string[];
+  history: ReleaseHistory;
   newTag: string;
   newVersion: string;
   rootOverrides: Map<string, ChangelogOverride>;
@@ -266,29 +245,16 @@ interface PlanProjectChangelogsArgs {
 function planProjectChangelogs(args: PlanProjectChangelogsArgs): {
   changelogFiles: string[];
   changelogJsonFiles: string[];
-  diagnostics: ChangelogDiagnostics | undefined;
   entries: ChangelogEntry[];
   writes: PlannedWrite[];
 } {
-  const {
-    config,
-    project,
-    commits,
-    contributingPaths,
-    newTag,
-    newVersion,
-    rootOverrides,
-    overrideWarnings,
-    globalMatchedRootKeys,
-  } = args;
-  const isEmptyRange = commits.length === 0;
+  const { config, history, newTag, newVersion, rootOverrides, overrideWarnings, globalMatchedRootKeys } = args;
+  const isEmptyRange = history.unreleased.commits.length === 0;
   const today = new Date().toISOString().slice(0, 10);
 
-  const built = isEmptyRange
-    ? { entries: [buildEmptyReleaseEntry(newVersion, today)], diagnostics: undefined }
-    : buildChangelogEntries(config, newTag, { tagPrefixes: [project.tagPrefix], paths: contributingPaths });
+  const builtEntries = isEmptyRange ? [buildEmptyReleaseEntry(newVersion, today)] : toChangelogEntries(history, newTag);
 
-  const applied = applyChangelogOverrides(built.entries, rootOverrides);
+  const applied = applyChangelogOverrides(builtEntries, rootOverrides);
   if (applied.errors.length > 0) {
     throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);
   }
@@ -318,11 +284,5 @@ function planProjectChangelogs(args: PlanProjectChangelogsArgs): {
   const changelogFile = joinPath(ROOT_CHANGELOG_PATH, 'CHANGELOG.md');
   writes.push({ path: changelogFile, content: renderChangelogMarkdown(renderEntries, { sectionOrder }) });
 
-  return {
-    changelogFiles: [changelogFile],
-    changelogJsonFiles,
-    diagnostics: built.diagnostics,
-    entries: renderEntries,
-    writes,
-  };
+  return { changelogFiles: [changelogFile], changelogJsonFiles, entries: renderEntries, writes };
 }

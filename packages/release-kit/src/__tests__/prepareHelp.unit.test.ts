@@ -34,12 +34,10 @@ describe(prepareHelpText, () => {
     expect(prepareHelpText).toMatch(/'project' block is configured, the project release is skipped/);
   });
 
-  it('documents the single-package --force rejection caveat', () => {
-    expect(prepareHelpText).toContain('single-package mode');
-    // Tie the reject-stem to the caveat's distinctive `bare --force` marker (which appears
-    // nowhere else in the help text), order-independent so an active/passive rewording does
-    // not trip the guard while a dropped caveat still does.
-    expect(prepareHelpText).toMatch(/bare --force[^.]*reject|reject[^.]*bare --force/i);
+  it('documents --force and --bump as orthogonal in every mode', () => {
+    expect(prepareHelpText).toContain('Defaults to patch when --bump is not given');
+    expect(prepareHelpText).toContain('does not trigger one');
+    expect(prepareHelpText).not.toContain('bare --force');
   });
 });
 

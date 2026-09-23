@@ -844,12 +844,23 @@ describe(readReleaseHistory, () => {
         'body',
       ],
       ['a marker on an excluded type that forbids it', '#1 fmt!: Reformat', 'fmt', 'prefix'],
+      ['a marker on an internal type', '#1 internal!: Refactor the cache', 'internal', 'prefix'],
     ])('reports %s', (_label, message, type, surface) => {
       const [subject = ''] = message.split('\n', 1);
 
       expect(readUnreleased([message]).diagnostics.policyViolations).toStrictEqual([
         { commitHash: fakeHash(0), commitSubject: subject, type, surface },
       ]);
+    });
+
+    it('reports nothing when `breakingPolicies` is `{}`', () => {
+      mockEnumerateReleaseWindows.mockReturnValueOnce([
+        makeWindow('unreleased', ['#1 internal!: Refactor the cache', '#2 drop: Remove the flag']),
+      ]);
+
+      const history = readReleaseHistory({ ...makeConfig(), breakingPolicies: {} }, OPTIONS);
+
+      expect(history.unreleased.diagnostics.policyViolations).toStrictEqual([]);
     });
 
     it('reports nothing for a released window', () => {

@@ -1,7 +1,7 @@
 import { join as joinPath } from 'node:path';
 
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
-import { buildChangelogEntries, type ChangelogDiagnostics } from './buildChangelogEntries.ts';
+import { readReleaseHistory, type ReleaseHistory, toChangelogEntries } from './buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
@@ -10,10 +10,7 @@ import {
   formatStaleOverrideKeyWarning,
   loadOverridesForScopes,
 } from './changelogOverrides.ts';
-import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
-import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
-import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
-import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
+import { decideRelease } from './decideRelease.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
@@ -24,8 +21,6 @@ import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type {
   ChangelogEntry,
   ChangelogOverride,
-  Commit,
-  PolicyViolation,
   ReleaseConfig,
   ReleasedWorkspaceResult,
   ReleaseType,
@@ -40,12 +35,11 @@ import type {
  */
 export interface ReleasePrepareOptions {
   /**
-   * Release even when no commits or no bump-worthy commits exist since the last tag
-   * (monorepo only). Orthogonal to `bumpOverride`: when `bumpOverride` is not given,
-   * the release falls back to `patch`.
+   * Release even when no commits or no bump-worthy commits exist since the last tag.
+   * Orthogonal to `bumpOverride`: when `bumpOverride` is not given, the release falls back to `patch`.
    */
   force?: boolean;
-  /** Override the bump type instead of determining it from commits. */
+  /** Choose the level of a release instead of the level that the changelog items call for; triggers no release. */
   bumpOverride?: ReleaseType;
   /**
    * Explicit target version (canonical `N.N.N`) that bypasses commit-derived bump logic.
@@ -72,20 +66,17 @@ export interface ReleasePrepareOptions {
 /**
  * Orchestrate the release preparation workflow for a single package.
  *
- * 1. Gets commits since the last tag.
- * 2. Determines the bump type from commits (or uses the override).
+ * 1. Reads the release history once.
+ * 2. Decides the release from the history's bump, `--force`, and `--bump` (or takes `--set-version`).
  * 3. Bumps all configured package.json version fields.
- * 4. Generates changelogs from the release windows.
- * 5. Runs the optional format command.
+ * 4. Generates changelogs from the same history.
+ * 5. Renders the optional format command.
  *
  * Returns a structured `PrepareResult` with all data needed for presentation.
  */
 export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOptions): ReleasePlan {
-  const { bumpOverride, setVersion, withReleaseNotes } = options;
+  const { bumpOverride, force, setVersion, withReleaseNotes } = options;
   const writes: PlannedWrite[] = [];
-  const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
-  const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
-  const breakingPolicies = config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES;
 
   // Load editorial overrides for the project tier. Single-package mode collapses to one tier
   // (no workspaces to compose), so there's nothing to bundle into an `OverrideContext`.
@@ -97,39 +88,31 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   }
   const overrides = overridesResult.project;
 
-  // 1. Get commits since last tag
-  const { tag, commits } = getCommitsSinceTarget([config.tagPrefix]);
+  // 1. Read the release history once.
+  const history = readReleaseHistory(config, { tagPrefixes: [config.tagPrefix] });
+  const { commits } = history.unreleased;
+  const tag = history.previousTag;
+  const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
 
-  // 2. Determine bump type (or use the explicit setVersion bypass)
+  // 2. Decide the release (or use the explicit setVersion bypass). `--bump=X` is purely a level
+  //    chooser; `--force` is purely a release trigger that defaults to patch when no level is given.
   let releaseType: ReleaseType | undefined;
-  let parsedCommitCount: number | undefined;
-  let unparseableCommits: Commit[] | undefined;
-  const collector = createPolicyViolationCollector();
   let bump: VersionBumpPlan;
 
-  if (setVersion !== undefined) {
-    bump = planVersionSet(config.packageFiles, setVersion);
-  } else {
-    if (bumpOverride === undefined) {
-      const determination = determineBumpFromCommits(commits, workTypes, versionPatterns, config.scopeAliases, {
-        breakingPolicies,
-        onPolicyViolation: collector.onPolicyViolation,
-      });
-      parsedCommitCount = determination.parsedCommitCount;
-      unparseableCommits = determination.unparseableCommits;
-      releaseType = determination.releaseType;
-    } else {
-      releaseType = bumpOverride;
-    }
+  if (setVersion === undefined) {
+    const decision = decideRelease({
+      naturalBump: history.unreleased.bump,
+      commitCount: commits.length,
+      force,
+      bumpOverride,
+      skipReasons: {
+        noCommits: `No commits ${since}. Pass --force to release at patch. Skipping.`,
+        noBumpWorthy: `No bump-worthy commits ${since}. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.`,
+      },
+    });
 
-    if (releaseType === undefined) {
-      const skipped = buildSkippedSinglePackage({
-        commitCount: commits.length,
-        previousTag: tag,
-        parsedCommitCount,
-        unparseableCommits,
-        policyViolations: collector.violations.length > 0 ? collector.violations : undefined,
-      });
+    if (decision.outcome === 'skip') {
+      const skipped = buildSkippedSinglePackage(history, decision.skipReason);
       return {
         workspaces: [skipped],
         tags: [],
@@ -140,7 +123,10 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     }
 
     // 3. Plan the version bumps.
+    releaseType = decision.releaseType;
     bump = planVersionBump(config.packageFiles, releaseType);
+  } else {
+    bump = planVersionSet(config.packageFiles, setVersion);
   }
 
   writes.push(...bump.writes);
@@ -148,13 +134,13 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   const newTag = `${config.tagPrefix}${bump.newVersion}`;
 
   // 4/4b. Generate the CHANGELOG.md files and (optionally) changelog.json. When the release
-  // proceeds with zero qualifying commits since the last tag (`--force`, `--bump=X`, or
-  // `--set-version` with no new commits), the routing helper writes the synthetic
+  // proceeds with zero commits since the last tag (`--force` or `--set-version` with no new
+  // commits), the routing helper writes the synthetic
   // "Forced version bump." entry in place of the release windows.
   const planWarnings: string[] = [];
   const changelogs = planSinglePackageChangelogs({
     config,
-    commits,
+    history,
     newTag,
     newVersion: bump.newVersion,
     overrides,
@@ -187,19 +173,15 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   }
 
   const released = buildReleasedSinglePackage({
-    commits,
+    history,
     bump,
     newTag,
     changelogFiles,
-    previousTag: tag,
-    parsedCommitCount,
     releaseType,
-    unparseableCommits,
-    policyViolations: collector.violations.length > 0 ? collector.violations : undefined,
+    bumpOverride: setVersion === undefined ? bumpOverride : undefined,
     setVersion,
     previewFiles: previewWrites.map((write) => write.path),
   });
-  attachChangelogDiagnostics(released, changelogs.diagnostics);
 
   const plan: ReleasePlan = {
     workspaces: [released],
@@ -214,54 +196,38 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   return plan;
 }
 
-/** Inputs to {@link buildSkippedSinglePackage}. */
-interface BuildSkippedSinglePackageArgs {
-  commitCount: number;
-  previousTag: string | undefined;
-  parsedCommitCount: number | undefined;
-  unparseableCommits: Commit[] | undefined;
-  policyViolations: PolicyViolation[] | undefined;
-}
-
 /**
- * Build a `SkippedWorkspaceResult` for the single-package "no release-worthy changes" path,
- * attaching only defined optional fields. Extracted from `releasePrepare` so the host stays
- * within the project's cyclomatic-complexity ceiling — each conditional optional-field
- * assignment is one branch.
+ * Build a `SkippedWorkspaceResult` for the single-package skip path from the history that the
+ * decision read, attaching only defined optional fields.
  */
-function buildSkippedSinglePackage(args: BuildSkippedSinglePackageArgs): SkippedWorkspaceResult {
+function buildSkippedSinglePackage(history: ReleaseHistory, skipReason: string): SkippedWorkspaceResult {
+  const { unreleased } = history;
   const skipped: SkippedWorkspaceResult = {
     status: 'skipped',
-    commitCount: args.commitCount,
-    skipReason: 'No release-worthy changes found. Skipping.',
+    commitCount: unreleased.commits.length,
+    parsedCommitCount: unreleased.parsedCommitCount,
+    skipReason,
   };
-  if (args.previousTag !== undefined) {
-    skipped.previousTag = args.previousTag;
+  if (history.previousTag !== undefined) {
+    skipped.previousTag = history.previousTag;
   }
-  if (args.parsedCommitCount !== undefined) {
-    skipped.parsedCommitCount = args.parsedCommitCount;
+  if (unreleased.unparseableCommits !== undefined) {
+    skipped.unparseableCommits = unreleased.unparseableCommits;
   }
-  if (args.unparseableCommits !== undefined) {
-    skipped.unparseableCommits = args.unparseableCommits;
-  }
-  if (args.policyViolations !== undefined) {
-    skipped.policyViolations = args.policyViolations;
-  }
+  attachChangelogDiagnostics(skipped, unreleased.diagnostics);
   return skipped;
 }
 
 /** Inputs to {@link buildReleasedSinglePackage}. */
 interface BuildReleasedSinglePackageArgs {
-  commits: Commit[];
+  history: ReleaseHistory;
   bump: VersionBumpPlan;
   newTag: string;
   changelogFiles: string[];
   previewFiles: string[];
-  previousTag: string | undefined;
-  parsedCommitCount: number | undefined;
+  /** Undefined when `--set-version` chose the version, which also leaves the parse counts off the result. */
   releaseType: ReleaseType | undefined;
-  unparseableCommits: Commit[] | undefined;
-  policyViolations: PolicyViolation[] | undefined;
+  bumpOverride: ReleaseType | undefined;
   setVersion: string | undefined;
 }
 
@@ -272,18 +238,8 @@ interface BuildReleasedSinglePackageArgs {
  * each contribute to complexity, and inlining them tips the host over the threshold.
  */
 function buildReleasedSinglePackage(args: BuildReleasedSinglePackageArgs): ReleasedWorkspaceResult {
-  const {
-    commits,
-    bump,
-    newTag,
-    changelogFiles,
-    previousTag,
-    parsedCommitCount,
-    releaseType,
-    unparseableCommits,
-    policyViolations,
-    setVersion,
-  } = args;
+  const { history, bump, newTag, changelogFiles, releaseType, bumpOverride, setVersion } = args;
+  const { commits, diagnostics, parsedCommitCount, unparseableCommits } = history.unreleased;
   const released: ReleasedWorkspaceResult = {
     status: 'released',
     commitCount: commits.length,
@@ -294,21 +250,20 @@ function buildReleasedSinglePackage(args: BuildReleasedSinglePackageArgs): Relea
     changelogFiles,
     commits,
   };
-  if (previousTag !== undefined) {
-    released.previousTag = previousTag;
-  }
-  if (parsedCommitCount !== undefined) {
-    released.parsedCommitCount = parsedCommitCount;
+  if (history.previousTag !== undefined) {
+    released.previousTag = history.previousTag;
   }
   if (releaseType !== undefined) {
     released.releaseType = releaseType;
+    released.parsedCommitCount = parsedCommitCount;
+    if (unparseableCommits !== undefined) {
+      released.unparseableCommits = unparseableCommits;
+    }
   }
-  if (unparseableCommits !== undefined) {
-    released.unparseableCommits = unparseableCommits;
+  if (bumpOverride !== undefined) {
+    released.bumpOverride = bumpOverride;
   }
-  if (policyViolations !== undefined) {
-    released.policyViolations = policyViolations;
-  }
+  attachChangelogDiagnostics(released, diagnostics);
   if (setVersion !== undefined) {
     released.setVersion = setVersion;
   }
@@ -321,7 +276,7 @@ function buildReleasedSinglePackage(args: BuildReleasedSinglePackageArgs): Relea
 /** Inputs to {@link planSinglePackageChangelogs}. */
 interface PlanSinglePackageChangelogsArgs {
   config: ReleaseConfig;
-  commits: Commit[];
+  history: ReleaseHistory;
   newTag: string;
   newVersion: string;
   overrides: Map<string, ChangelogOverride>;
@@ -342,18 +297,15 @@ interface PlanSinglePackageChangelogsArgs {
 function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
   changelogFiles: string[];
   changelogJsonFiles: string[];
-  diagnostics: ChangelogDiagnostics | undefined;
   entries: ChangelogEntry[];
   writes: PlannedWrite[];
 } {
-  const { config, commits, newTag, newVersion, overrides, overrideWarnings } = args;
-  const isEmptyRange = commits.length === 0;
+  const { config, history, newTag, newVersion, overrides, overrideWarnings } = args;
+  const isEmptyRange = history.unreleased.commits.length === 0;
   const today = new Date().toISOString().slice(0, 10);
 
-  const built = isEmptyRange
-    ? { entries: [buildEmptyReleaseEntry(newVersion, today)], diagnostics: undefined }
-    : buildChangelogEntries(config, newTag, { tagPrefixes: [config.tagPrefix] });
-  const applied = applyChangelogOverrides(built.entries, overrides);
+  const builtEntries = isEmptyRange ? [buildEmptyReleaseEntry(newVersion, today)] : toChangelogEntries(history, newTag);
+  const applied = applyChangelogOverrides(builtEntries, overrides);
   if (applied.errors.length > 0) {
     throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);
   }
@@ -392,7 +344,7 @@ function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
     changelogFiles.push(changelogFile);
   }
 
-  return { changelogFiles, changelogJsonFiles, diagnostics: built.diagnostics, entries: firstMergedEntries, writes };
+  return { changelogFiles, changelogJsonFiles, entries: firstMergedEntries, writes };
 }
 
 /**
