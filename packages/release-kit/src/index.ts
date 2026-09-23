@@ -1,5 +1,6 @@
 export {
   type ChangelogOverrideScope,
+  type OverrideTargetItem,
   validateAllChangelogOverrides,
   type ValidateAllChangelogOverridesInputs,
   type ValidateAllChangelogOverridesResult,

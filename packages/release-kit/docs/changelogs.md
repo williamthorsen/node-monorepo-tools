@@ -14,8 +14,8 @@ Each item under a section in `.meta/changelog.json` carries one required field a
 | `body`        | `string`  | The commit body, with trailing trailer metadata and any `change-record` block stripped. Absent on an item derived from a change-record entry.                                                                            |
 | `breaking`    | `boolean` | Present and `true` where the commit subject carried the `!` prefix, or the change-record entry set `breaking: true`, and the type permits it. See [`!` (breaking change) policy](work-types.md#-breaking-change-policy). |
 | `migration`   | `string`  | The migration step for a consumer. See below.                                                                                                                                                                            |
-| `hash`        | `string`  | The full commit SHA, and the key on which an override entry matches. Absent on synthetic propagation entries.                                                                                                            |
-| `entry`       | `number`  | The 1-based position of the change-record entry from which the item derives. Absent on an item derived from the commit's title.                                                                                          |
+| `hash`        | `string`  | The full commit SHA, which an override key matches by prefix. Absent on synthetic propagation entries.                                                                                                                   |
+| `entry`       | `number`  | The 1-based position of the change-record entry from which the item derives, which an override key `<hash>:<n>` matches. Absent on an item derived from the commit's title.                                              |
 
 Every optional field is omitted rather than emitted as `null`, so a consumer tests for presence.
 
@@ -82,7 +82,7 @@ Each entry yields one item, whether or not the commit subject carries a ticket-I
 - **`migration`**: the entry's `migration`, when present. There is no `body`.
 - **`hash`** and **`entry`**: the commit's hash, and the entry's 1-based position among all the block's entries, including those that yield no item.
 
-An entry whose type is excluded from the changelog yields no item. A bare-hash override key matches every item of the commit, so an override `description` replaces the text of each, and an override `body` gives each the same body while each keeps its own `migration`.
+An entry whose type is excluded from the changelog yields no item. An override targets one of these items by the key `<hash>:<n>`, where `n` is the item's `entry`. A bare `<hash>` key matches every item of the commit, and it fails when it sets `description` or `body` on a commit with several items; see [Keys](editorial-overrides.md#keys).
 
 ### Fallback to the title
 

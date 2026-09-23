@@ -74,8 +74,9 @@ export interface ChangelogJsonConfig {
 }
 
 /**
- * Editorial override for a single changelog item, keyed by commit hash (or hash prefix) in
- * the override file. All fields are optional; an entry with no fields is a validation error.
+ * Editorial override for changelog items, keyed in the override file by `<hash>` (every item of the commit) or
+ * `<hash>:<n>` (the item derived from the commit's `n`th change-record entry), where the hash is lowercase hex
+ * matched as a prefix. All fields are optional; an entry with no fields is a validation error.
  *
  * `audience` declares the full forward-compatible vocabulary, but only `'skip'` is currently
  * supported at runtime. `'all'` and `'dev'` reclassification is reserved for a v2 follow-up
@@ -89,7 +90,10 @@ export interface ChangelogOverride {
   breaking?: boolean;
 }
 
-/** On-disk shape of `.meta/changelog-overrides.json`: a flat record keyed by commit hash or prefix. */
+/**
+ * Overrides in `.meta/changelog-overrides.json`: a flat record keyed by `<hash>` or `<hash>:<n>`. The file may also contain
+ * a top-level `$schema` string, which the loader drops.
+ */
 export type ChangelogOverridesFile = Record<string, ChangelogOverride>;
 
 /** Configuration for release notes consumption (README injection). */

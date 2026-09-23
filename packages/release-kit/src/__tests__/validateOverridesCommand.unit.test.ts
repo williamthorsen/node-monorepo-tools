@@ -216,7 +216,7 @@ describe(validateOverridesCommand, () => {
   });
 
   it('passes a project-only scope to validate in single-package mode', async () => {
-    let received: { workspaces: number; projectHashes: number } | undefined;
+    let received: { workspaces: number; projectItems: number } | undefined;
     await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: singlePackage,
       loadValidatedConfig: () =>
@@ -225,12 +225,12 @@ describe(validateOverridesCommand, () => {
       validate: (inputs) => {
         received = {
           workspaces: inputs.workspaces?.length ?? 0,
-          projectHashes: inputs.project?.hashes?.length ?? 0,
+          projectItems: inputs.project?.items?.length ?? 0,
         };
         return { errors: [], warnings: [] };
       },
     });
-    expect(received).toStrictEqual({ workspaces: 0, projectHashes: 2 });
+    expect(received).toStrictEqual({ workspaces: 0, projectItems: 2 });
   });
 
   // Bug-fix coverage: the validator's hash universe must be byte-equal to what `prepare`
@@ -254,7 +254,7 @@ describe(validateOverridesCommand, () => {
           { version: 'validate-only', hashes: ['9988aabbccddeeff9988aabbccddeeff9988aabb'] },
         ]),
       validate: (inputs) => {
-        capturedHashes = inputs.project?.hashes ?? [];
+        capturedHashes = (inputs.project?.items ?? []).map((item) => item.hash);
         return { errors: [], warnings: [] };
       },
     });
@@ -263,6 +263,38 @@ describe(validateOverridesCommand, () => {
       'ddeeff5678901234ddeeff5678901234ddeeff56',
       '9988aabbccddeeff9988aabbccddeeff9988aabb',
     ]);
+  });
+
+  it("delivers each item's entry position to the validator", async () => {
+    let captured: unknown;
+    await validateOverridesCommand(RICH_STYLES, undefined, {
+      discoverWorkspaces: singlePackage,
+      loadValidatedConfig: () =>
+        Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
+      buildEntries: () => [
+        {
+          version: 'validate-only',
+          date: '0000-00-00',
+          sections: [
+            {
+              title: 'Features',
+              audience: 'all',
+              items: [
+                { description: 'First', hash: 'abc111', entry: 1 },
+                { description: 'Second', hash: 'abc111', entry: 2 },
+                { description: 'Titled', hash: 'def222' },
+                { description: 'Synthetic' },
+              ],
+            },
+          ],
+        },
+      ],
+      validate: (inputs) => {
+        captured = inputs.project?.items;
+        return { errors: [], warnings: [] };
+      },
+    });
+    expect(captured).toStrictEqual([{ hash: 'abc111', entry: 1 }, { hash: 'abc111', entry: 2 }, { hash: 'def222' }]);
   });
 
   describe('reading the config file named by configPath', () => {

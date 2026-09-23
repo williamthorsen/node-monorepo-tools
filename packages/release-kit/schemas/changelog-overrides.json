@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "changelog-overrides",
+  "description": "Editorial overrides that release-kit applies to generated changelog items. Each key is a lowercase hex commit hash or prefix, which targets every item of the commit, optionally followed by `:<n>`, which targets the item derived from the commit's `n`th change-record entry.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference for editor support."
+    }
+  },
+  "patternProperties": {
+    "^[0-9a-f]+(:[1-9][0-9]*)?$": {
+      "type": "object",
+      "description": "Override for the items that the key targets. At least one field must be set.",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "audience": {
+          "enum": ["all", "dev", "skip"],
+          "description": "`skip` removes the items. `all` and `dev` are reserved and not yet supported."
+        },
+        "description": {
+          "type": "string",
+          "description": "Replaces the item's headline."
+        },
+        "body": {
+          "type": "string",
+          "description": "Replaces the item's body."
+        },
+        "breaking": {
+          "type": "boolean",
+          "description": "Sets whether the item is marked as breaking."
+        }
+      }
+    }
+  }
+}

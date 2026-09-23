@@ -3,6 +3,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import {
+  type OverrideTargetItem,
   resolveOverridePath,
   validateAllChangelogOverrides,
   type ValidateAllChangelogOverridesInputs,
@@ -29,7 +30,7 @@ const SYNTHETIC_VALIDATE_TAG = 'validate-only';
  * Exit codes:
  * - `0` — clean: no errors, no warnings.
  * - `1` — only stale-key warnings.
- * - `2` — schema/parse or ambiguous-prefix errors (errors dominate when both classes exist).
+ * - `2` — schema/parse errors or keys that fail to match (ambiguous prefix, overlapping keys, a bare key setting fields on several items) (errors dominate when both classes exist).
  */
 export interface ValidateOverridesCommandResult {
   exitCode: 0 | 1 | 2;
@@ -42,7 +43,7 @@ export interface ValidateOverridesCommandDependencies {
   loadValidatedConfig?: () => Promise<LoadValidatedConfigResult>;
   /**
    * Build changelog entries for a scope. Defaults to `buildChangelogEntries`, the same path
-   * `release-kit prepare` uses — anchoring `validate`'s hash universe to `prepare`'s by
+   * `release-kit prepare` uses — anchoring `validate`'s item universe to `prepare`'s by
    * construction.
    */
   buildEntries?: (
@@ -56,7 +57,7 @@ export interface ValidateOverridesCommandDependencies {
 /**
  * Validate every changelog override file across the project and per-workspace scopes, and
  * return a tiered exit-code-plus-message result. Performs workspace discovery, config load,
- * and per-scope hash collection, then delegates the actual validation to
+ * and per-scope item collection, then delegates the actual validation to
  * {@link validateAllChangelogOverrides}.
  *
  * Single-package and monorepo modes are handled uniformly: single-package collapses to one
@@ -157,21 +158,20 @@ function defaultBuildEntries(
 }
 
 /**
- * Project every release's items down to a flat list of commit hashes. Synthetic propagation
+ * Project every release's items down to a flat list of hashes and entry positions. Synthetic propagation
  * entries (no `hash`) contribute nothing — they cannot match an override key.
  */
-function flattenEntriesToHashes(entries: readonly ChangelogEntry[]): string[] {
-  const hashes: string[] = [];
+function flattenEntriesToItems(entries: readonly ChangelogEntry[]): OverrideTargetItem[] {
+  const items: OverrideTargetItem[] = [];
   for (const entry of entries) {
     for (const section of entry.sections) {
-      for (const item of section.items) {
-        if (item.hash !== undefined) {
-          hashes.push(item.hash);
-        }
+      for (const { hash, entry: position } of section.items) {
+        if (hash === undefined) continue;
+        items.push(position === undefined ? { hash } : { hash, entry: position });
       }
     }
   }
-  return hashes;
+  return items;
 }
 
 /**
@@ -197,14 +197,14 @@ function buildSinglePackageInputs(
   buildEntries: NonNullable<ValidateOverridesCommandDependencies['buildEntries']>,
 ): ValidateAllChangelogOverridesInputs {
   const config: ReleaseConfig = mergeSinglePackageConfig(userConfig);
-  const hashes = flattenEntriesToHashes(buildEntries(config, { tagPrefixes: [config.tagPrefix] }));
+  const items = flattenEntriesToItems(buildEntries(config, { tagPrefixes: [config.tagPrefix] }));
   return {
-    project: { filePath: resolveOverridePath('.'), hashes },
+    project: { filePath: resolveOverridePath('.'), items },
   };
 }
 
 /**
- * Build validation inputs for a monorepo, mirroring the per-scope hash universes `prepare` would compute.
+ * Build validation inputs for a monorepo, mirroring the per-scope item universes `prepare` would compute.
  *
  * Workspace scopes mirror `buildWorkspaceEntries` in `releasePrepareMono.ts`: the workspace's
  * derived prefix plus any legacy-identity prefixes, with the workspace's `paths`. The project
@@ -223,17 +223,17 @@ function buildMonorepoInputs(
     const options = { tagPrefixes: getAllTagPrefixes(workspace), paths: workspace.paths };
     return {
       filePath: resolveOverridePath(workspace.workspacePath),
-      hashes: flattenEntriesToHashes(buildEntries(config, options)),
+      items: flattenEntriesToItems(buildEntries(config, options)),
     };
   });
 
   const project = config.project;
-  const projectScope: { filePath: string; hashes?: readonly string[] } = {
+  const projectScope: { filePath: string; items?: readonly OverrideTargetItem[] } = {
     filePath: resolveOverridePath('.'),
   };
   if (project !== undefined) {
     const options = { tagPrefixes: [project.tagPrefix], paths: project.paths };
-    projectScope.hashes = flattenEntriesToHashes(buildEntries(config, options));
+    projectScope.items = flattenEntriesToItems(buildEntries(config, options));
   }
 
   return { project: projectScope, workspaces };

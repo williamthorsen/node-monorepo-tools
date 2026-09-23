@@ -13,6 +13,8 @@ import {
   loadChangelogOverrides,
   loadOverridesForScopes,
   type OverrideContext,
+  type OverrideTargetItem,
+  parseOverrideKey,
   resolveOverridePath,
   validateAllChangelogOverrides,
   validateChangelogOverrides,
@@ -125,9 +127,45 @@ describe(validateChangelogOverrides, () => {
     expect(result.overrides.get('abc')).toStrictEqual({ description: 'New', body: 'Detail', breaking: true });
   });
 
-  it('rejects an empty-string key', () => {
-    const result = validateChangelogOverrides({ '': { audience: 'skip' } });
-    expect(result.errors[0]).toMatch(/empty-string key/);
+  it('accepts a bare hash key and an ordinal key', () => {
+    const result = validateChangelogOverrides({
+      abc1234: { audience: 'skip' },
+      'abc1234:2': { description: 'Second' },
+    });
+    expect(result.errors).toStrictEqual([]);
+    expect(result.overrides.keys().toArray()).toStrictEqual(['abc1234', 'abc1234:2']);
+  });
+
+  it.each(['', 'ABC1234', 'xyz', 'abc:0', 'abc:01', 'abc:', ':1', 'abc:1:2'])('rejects the malformed key %j', (key) => {
+    const result = validateChangelogOverrides({ [key]: { audience: 'skip' } });
+    expect(result.errors).toStrictEqual([
+      `overrides['${key}']: key must be a lowercase hex commit hash or prefix, optionally followed by ':<n>'`,
+    ]);
+    expect(result.overrides.size).toBe(0);
+  });
+
+  it('accepts a `$schema` string and leaves it out of the overrides', () => {
+    const result = validateChangelogOverrides({
+      $schema: 'https://example.com/schema.json',
+      abc: { audience: 'skip' },
+    });
+    expect(result.errors).toStrictEqual([]);
+    expect(result.overrides.keys().toArray()).toStrictEqual(['abc']);
+  });
+
+  it('rejects a non-string `$schema`', () => {
+    const result = validateChangelogOverrides({ $schema: 42 });
+    expect(result.errors).toStrictEqual(["Override file: '$schema' must be a string"]);
+  });
+});
+
+describe(parseOverrideKey, () => {
+  it('returns the hash prefix alone for a bare key', () => {
+    expect(parseOverrideKey('abc1234')).toStrictEqual({ hashPrefix: 'abc1234' });
+  });
+
+  it('returns the hash prefix and entry position for an ordinal key', () => {
+    expect(parseOverrideKey('abc1234:12')).toStrictEqual({ hashPrefix: 'abc1234', entry: 12 });
   });
 });
 
@@ -141,6 +179,20 @@ describe(applyChangelogOverrides, () => {
           title: 'Features',
           audience: 'all',
           items: hashes.map((hash) => ({ description: `Item ${hash}`, hash })),
+        },
+      ],
+    };
+  }
+
+  function makeEntryFromItems(...items: [hash: string, entry: number][]): ChangelogEntry {
+    return {
+      version: '1.0.0',
+      date: '2024-01-01',
+      sections: [
+        {
+          title: 'Features',
+          audience: 'all',
+          items: items.map(([hash, entry]) => ({ description: `Item ${hash}:${entry}`, hash, entry })),
         },
       ],
     };
@@ -184,17 +236,93 @@ describe(applyChangelogOverrides, () => {
     expect(result.entries[0]?.sections[0]?.items[0]?.description).toBe('Item abc111');
   });
 
-  it("applies a key to every item of one commit, since a commit's several items share its hash", () => {
-    const entries = [makeEntry(['abc111', 'abc111', 'def222'])];
-    const overrides = new Map([['abc', { description: 'Same commit' }]]);
+  it('applies a bare key to every item of the commit', () => {
+    const entries = [makeEntryFromItems(['abc111', 1], ['abc111', 2], ['def222', 1])];
+    const overrides = new Map([['abc', { audience: 'skip' as const }]]);
     const result = applyChangelogOverrides(entries, overrides);
     expect(result.errors).toStrictEqual([]);
     expect(result.matchedKeys).toStrictEqual(['abc']);
+    expect(result.entries[0]?.sections[0]?.items.map((item) => item.description)).toStrictEqual(['Item def222:1']);
+  });
+
+  it('applies an ordinal key to the item derived from that entry alone', () => {
+    const entries = [makeEntryFromItems(['abc111', 1], ['abc111', 2])];
+    const overrides = new Map([['abc:2', { description: 'Second, reworded' }]]);
+    const result = applyChangelogOverrides(entries, overrides);
+    expect(result.errors).toStrictEqual([]);
+    expect(result.matchedKeys).toStrictEqual(['abc:2']);
     expect(result.entries[0]?.sections[0]?.items.map((item) => item.description)).toStrictEqual([
-      'Same commit',
-      'Same commit',
-      'Item def222',
+      'Item abc111:1',
+      'Second, reworded',
     ]);
+  });
+
+  it.each([
+    [{ description: 'Reworded' }, 'description'],
+    [{ body: 'Reworded' }, 'body'],
+    [{ description: 'Reworded', body: 'Reworded' }, 'description and body'],
+  ])('reports a bare key that sets %j on a commit with several items, naming the ordinal keys', (override, fields) => {
+    const entries = [makeEntryFromItems(['abc111', 2], ['abc111', 1])];
+    const result = applyChangelogOverrides(entries, new Map([['abc', override]]));
+    expect(result.errors).toStrictEqual([
+      `Override key 'abc' sets ${fields} on a commit with several items; use abc:1, abc:2`,
+    ]);
+    expect(result.matchedKeys).toStrictEqual([]);
+    expect(result.entries[0]?.sections[0]?.items.map((item) => item.description)).toStrictEqual([
+      'Item abc111:2',
+      'Item abc111:1',
+    ]);
+  });
+
+  it('omits an ordinal key whose entry position the commit lacks from matchedKeys', () => {
+    const entries = [makeEntryFromItems(['abc111', 1], ['abc111', 2])];
+    const result = applyChangelogOverrides(entries, new Map([['abc:3', { audience: 'skip' as const }]]));
+    expect(result.errors).toStrictEqual([]);
+    expect(result.matchedKeys).toStrictEqual([]);
+    expect(result.entries[0]?.sections[0]?.items).toHaveLength(2);
+  });
+
+  it('never matches an ordinal key to a title-derived item', () => {
+    const entries = [makeEntry(['abc111'])];
+    const result = applyChangelogOverrides(entries, new Map([['abc:1', { audience: 'skip' as const }]]));
+    expect(result.errors).toStrictEqual([]);
+    expect(result.matchedKeys).toStrictEqual([]);
+    expect(result.entries[0]?.sections[0]?.items).toHaveLength(1);
+  });
+
+  it('reports an error when the prefix of an ordinal key matches multiple hashes', () => {
+    const entries = [makeEntryFromItems(['abc111', 1], ['abc222', 1])];
+    const result = applyChangelogOverrides(entries, new Map([['abc:1', { audience: 'skip' as const }]]));
+    expect(result.errors).toStrictEqual([
+      "Override key 'abc:1' is ambiguous: matches multiple commits (abc111, abc222). Use a longer prefix or the full commit hash.",
+    ]);
+    expect(result.matchedKeys).toStrictEqual([]);
+  });
+
+  it('reports a bare key and an ordinal key that match the same item, and applies neither', () => {
+    const entries = [makeEntryFromItems(['abc111', 1], ['abc111', 2])];
+    const overrides = new Map<string, ChangelogOverride>([
+      ['abc', { breaking: true }],
+      ['abc111:2', { description: 'Second, reworded' }],
+    ]);
+    const result = applyChangelogOverrides(entries, overrides);
+    expect(result.errors).toStrictEqual([
+      "Override keys 'abc' and 'abc111:2' both match the item at abc111:2; keep one",
+    ]);
+    expect(result.matchedKeys).toStrictEqual([]);
+    expect(result.entries).toStrictEqual(entries);
+  });
+
+  it('reports two different prefixes of one commit, naming both keys', () => {
+    const entries = [makeEntry(['abc111'])];
+    const overrides = new Map<string, ChangelogOverride>([
+      ['abc', { audience: 'skip' }],
+      ['abc111', { description: 'Reworded' }],
+    ]);
+    const result = applyChangelogOverrides(entries, overrides);
+    expect(result.errors).toStrictEqual(["Override keys 'abc' and 'abc111' both match commit abc111; keep one"]);
+    expect(result.matchedKeys).toStrictEqual([]);
+    expect(result.entries).toStrictEqual(entries);
   });
 
   it('omits a zero-match key from matchedKeys (caller decides whether to warn)', () => {
@@ -309,7 +437,7 @@ describe(applyChangelogOverrides, () => {
     expect(result.entries[0]?.sections[0]?.items[0]?.migration).toBe('Import from the new subpath.');
   });
 
-  it("keeps each change-record entry's migration when a body override applies to the commit's items", () => {
+  it("keeps each change-record entry's migration when a body override applies to its item", () => {
     const entries: ChangelogEntry[] = [
       {
         version: '1.0.0',
@@ -326,7 +454,10 @@ describe(applyChangelogOverrides, () => {
         ],
       },
     ];
-    const overrides = new Map([['abc1234', { body: 'Migration: Replaced prose.' }]]);
+    const overrides = new Map([
+      ['abc1234:1', { body: 'Migration: Replaced prose.' }],
+      ['abc1234:2', { body: 'Migration: Replaced prose.' }],
+    ]);
     const result = applyChangelogOverrides(entries, overrides);
     expect(result.entries[0]?.sections[0]?.items).toStrictEqual([
       {
@@ -478,7 +609,7 @@ describe(loadOverridesForScopes, () => {
     const workspaceB = join(tree.dir, 'packages/b');
     tree.write('project/.meta/changelog-overrides.json', '{not-valid');
     tree.write('packages/a/.meta/changelog-overrides.json', '[]');
-    tree.writeJson('packages/b/.meta/changelog-overrides.json', { valid1: { audience: 'skip' } });
+    tree.writeJson('packages/b/.meta/changelog-overrides.json', { beef01: { audience: 'skip' } });
 
     const result = loadOverridesForScopes({
       project: projectRoot,
@@ -487,7 +618,7 @@ describe(loadOverridesForScopes, () => {
     expect(result.errors.some((message) => message.includes('Failed to parse override file'))).toBe(true);
     expect(result.errors.some((message) => message.includes('top-level value must be an object'))).toBe(true);
     // The valid file is still loaded so the report is comprehensive even when peers fail.
-    expect(result.perWorkspace.get(workspaceB)?.get('valid1')).toStrictEqual({ audience: 'skip' });
+    expect(result.perWorkspace.get(workspaceB)?.get('beef01')).toStrictEqual({ audience: 'skip' });
   });
 });
 
@@ -611,6 +742,23 @@ describe(applyWorkspaceOverrides, () => {
     expect(context.overrideWarnings).toStrictEqual([]);
   });
 
+  it('throws when a root key and a non-identical workspace key match the same item', () => {
+    const context = makeContext(
+      new Map([['aaa1111', { audience: 'skip' }]]),
+      new Map([['packages/foo', new Map([['aaa1111:1', { description: 'Workspace description' }]])]]),
+    );
+    const entries: ChangelogEntry[] = [
+      {
+        version: '1.0.0',
+        date: '2024-01-01',
+        sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Item', hash: 'aaa1111', entry: 1 }] }],
+      },
+    ];
+    expect(() => applyWorkspaceOverrides(entries, 'packages/foo', context)).toThrow(
+      "Override keys 'aaa1111' and 'aaa1111:1' both match the item at aaa1111:1; keep one",
+    );
+  });
+
   // Scenario 6: a workspace key that doesn't match in its own workspace warns immediately.
   it('emits an immediate stale-key warning for an unmatched per-workspace key', () => {
     const context = makeContext(
@@ -666,8 +814,8 @@ describe(validateAllChangelogOverrides, () => {
 
   it('returns no findings when override files are absent (missing files are no-ops)', () => {
     const result = validateAllChangelogOverrides({
-      project: { filePath: join(tree.dir, 'missing-project.json'), hashes: ['aaa1111'] },
-      workspaces: [{ filePath: join(tree.dir, 'missing-workspace.json'), hashes: ['bbb2222'] }],
+      project: { filePath: join(tree.dir, 'missing-project.json'), items: toItems(['aaa1111']) },
+      workspaces: [{ filePath: join(tree.dir, 'missing-workspace.json'), items: toItems(['bbb2222']) }],
     });
     expect(result.errors).toStrictEqual([]);
     expect(result.warnings).toStrictEqual([]);
@@ -679,7 +827,7 @@ describe(validateAllChangelogOverrides, () => {
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
-      workspaces: [{ filePath: workspaceFile, hashes: ['aaa1111aaa', 'bbb2222bbb'] }],
+      workspaces: [{ filePath: workspaceFile, items: toItems(['aaa1111aaa', 'bbb2222bbb']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -691,8 +839,8 @@ describe(validateAllChangelogOverrides, () => {
     const workspaceFile = tree.write('workspace-a/overrides.json', '[]');
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFile, hashes: [] },
-      workspaces: [{ filePath: workspaceFile, hashes: [] }],
+      project: { filePath: projectFile, items: toItems([]) },
+      workspaces: [{ filePath: workspaceFile, items: toItems([]) }],
     });
 
     expect(result.errors).toHaveLength(2);
@@ -706,7 +854,7 @@ describe(validateAllChangelogOverrides, () => {
     const projectFile = tree.writeJson('overrides.json', { abc: { unknown: true } });
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFile, hashes: [] },
+      project: { filePath: projectFile, items: toItems([]) },
     });
 
     expect(result.errors).toHaveLength(1);
@@ -718,7 +866,7 @@ describe(validateAllChangelogOverrides, () => {
     const workspaceFile = tree.writeJson('workspace-a/overrides.json', { abc: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
-      workspaces: [{ filePath: workspaceFile, hashes: ['abc111', 'abc222'] }],
+      workspaces: [{ filePath: workspaceFile, items: toItems(['abc111', 'abc222']) }],
     });
 
     expect(result.errors).toHaveLength(1);
@@ -730,7 +878,7 @@ describe(validateAllChangelogOverrides, () => {
     const projectFile = tree.writeJson('overrides.json', { abc: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFile, hashes: ['abc111', 'abc222'] },
+      project: { filePath: projectFile, items: toItems(['abc111', 'abc222']) },
     });
 
     expect(result.errors).toHaveLength(1);
@@ -746,7 +894,7 @@ describe(validateAllChangelogOverrides, () => {
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
-      workspaces: [{ filePath: workspaceFile, hashes: ['abc111aaa', 'abc222bbb'] }],
+      workspaces: [{ filePath: workspaceFile, items: toItems(['abc111aaa', 'abc222bbb']) }],
     });
 
     expect(result.errors).toHaveLength(1);
@@ -756,32 +904,32 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('warns on a workspace-tier stale key with the workspace file path', () => {
-    const workspaceFile = tree.writeJson('workspace-a/overrides.json', { stale12: { audience: 'skip' } });
+    const workspaceFile = tree.writeJson('workspace-a/overrides.json', { dead012: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
-      workspaces: [{ filePath: workspaceFile, hashes: ['real0001', 'real0002'] }],
+      workspaces: [{ filePath: workspaceFile, items: toItems(['real0001', 'real0002']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toContain(workspaceFile);
-    expect(result.warnings[0]).toContain("'stale12'");
+    expect(result.warnings[0]).toContain("'dead012'");
     expect(result.warnings[0]).toMatch(/this workspace's history/);
   });
 
   it('warns on a root-tier key matched in no scope', () => {
-    const projectFile = tree.writeJson('overrides.json', { stale99: { audience: 'skip' } });
+    const projectFile = tree.writeJson('overrides.json', { dead099: { audience: 'skip' } });
     const workspaceFile = tree.write('workspace-a/overrides.json', '{}');
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
-      workspaces: [{ filePath: workspaceFile, hashes: ['real1234'] }],
+      workspaces: [{ filePath: workspaceFile, items: toItems(['real1234']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toContain(projectFile);
-    expect(result.warnings[0]).toContain("'stale99'");
+    expect(result.warnings[0]).toContain("'dead099'");
     expect(result.warnings[0]).toMatch(/any scope/);
   });
 
@@ -793,8 +941,8 @@ describe(validateAllChangelogOverrides, () => {
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
       workspaces: [
-        { filePath: fileA, hashes: ['aaa1111ext'] },
-        { filePath: fileB, hashes: ['unrelated'] },
+        { filePath: fileA, items: toItems(['aaa1111ext']) },
+        { filePath: fileB, items: toItems(['unrelated']) },
       ],
     });
 
@@ -807,8 +955,8 @@ describe(validateAllChangelogOverrides, () => {
     const workspaceFile = tree.write('workspace-a/overrides.json', '{}');
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFile, hashes: ['aaa1111ext'] },
-      workspaces: [{ filePath: workspaceFile, hashes: ['unrelated'] }],
+      project: { filePath: projectFile, items: toItems(['aaa1111ext']) },
+      workspaces: [{ filePath: workspaceFile, items: toItems(['unrelated']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -824,7 +972,7 @@ describe(validateAllChangelogOverrides, () => {
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
-      workspaces: [{ filePath: workspaceFile, hashes: ['aaa1111ext'] }],
+      workspaces: [{ filePath: workspaceFile, items: toItems(['aaa1111ext']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -834,33 +982,153 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('reports both errors and warnings simultaneously when both classes occur', () => {
-    const projectFile = tree.writeJson('overrides.json', { stale99: { audience: 'skip' } });
+    const projectFile = tree.writeJson('overrides.json', { dead099: { audience: 'skip' } });
     const workspaceFile = tree.writeJson('workspace-a/overrides.json', { abc: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
-      workspaces: [{ filePath: workspaceFile, hashes: ['abc111', 'abc222'] }],
+      workspaces: [{ filePath: workspaceFile, items: toItems(['abc111', 'abc222']) }],
     });
 
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toMatch(/ambiguous/);
     expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]).toContain("'stale99'");
+    expect(result.warnings[0]).toContain("'dead099'");
+  });
+
+  it('warns on an ordinal key whose entry position the commit lacks', () => {
+    const workspaceFile = tree.writeJson('workspace-a/overrides.json', { 'abc111:3': { audience: 'skip' } });
+
+    const result = validateAllChangelogOverrides({
+      workspaces: [
+        {
+          filePath: workspaceFile,
+          items: [
+            { hash: 'abc111', entry: 1 },
+            { hash: 'abc111', entry: 2 },
+          ],
+        },
+      ],
+    });
+
+    expect(result.errors).toStrictEqual([]);
+    expect(result.warnings).toStrictEqual([
+      `${workspaceFile}: Override key 'abc111:3' did not match any item in this workspace's history (likely a stale reference)`,
+    ]);
+  });
+
+  it('does not warn on an ordinal key that matches an item', () => {
+    const projectFile = tree.writeJson('overrides.json', { 'abc111:2': { description: 'Second' } });
+
+    const result = validateAllChangelogOverrides({
+      project: {
+        filePath: projectFile,
+        items: [
+          { hash: 'abc111', entry: 1 },
+          { hash: 'abc111', entry: 2 },
+        ],
+      },
+    });
+
+    expect(result).toStrictEqual({ errors: [], warnings: [] });
+  });
+
+  it('reports an ordinal key with an ambiguous prefix as an error and not as stale', () => {
+    const projectFile = tree.writeJson('overrides.json', { 'abc:1': { audience: 'skip' } });
+
+    const result = validateAllChangelogOverrides({
+      project: {
+        filePath: projectFile,
+        items: [
+          { hash: 'abc111', entry: 1 },
+          { hash: 'abc222', entry: 1 },
+        ],
+      },
+    });
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(`${projectFile}: Override key 'abc:1' is ambiguous`);
+    expect(result.warnings).toStrictEqual([]);
+  });
+
+  it('reports a bare key that sets a field on a commit with several items', () => {
+    const projectFile = tree.writeJson('overrides.json', { abc: { description: 'Reworded' } });
+
+    const result = validateAllChangelogOverrides({
+      project: {
+        filePath: projectFile,
+        items: [
+          { hash: 'abc111', entry: 1 },
+          { hash: 'abc111', entry: 2 },
+        ],
+      },
+    });
+
+    expect(result).toStrictEqual({
+      errors: [`${projectFile}: Override key 'abc' sets description on a commit with several items; use abc:1, abc:2`],
+      warnings: [],
+    });
+  });
+
+  it('reports overlapping keys in one file against that file, once', () => {
+    const projectFile = tree.writeJson('overrides.json', { beef: { audience: 'skip' } });
+    const workspaceFile = tree.writeJson('workspace-a/overrides.json', {
+      abc: { breaking: true },
+      'abc111:2': { description: 'Second' },
+    });
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile },
+      workspaces: [
+        {
+          filePath: workspaceFile,
+          items: [{ hash: 'abc111', entry: 1 }, { hash: 'abc111', entry: 2 }, { hash: 'beef01' }],
+        },
+      ],
+    });
+
+    expect(result).toStrictEqual({
+      errors: [`${workspaceFile}: Override keys 'abc' and 'abc111:2' both match the item at abc111:2; keep one`],
+      warnings: [],
+    });
+  });
+
+  it('reports a root key and a workspace key that match the same item against the workspace file', () => {
+    const projectFile = tree.writeJson('overrides.json', { abc111: { audience: 'skip' } });
+    const workspaceFile = tree.writeJson('workspace-a/overrides.json', { 'abc111:1': { description: 'First' } });
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile },
+      workspaces: [
+        {
+          filePath: workspaceFile,
+          items: [
+            { hash: 'abc111', entry: 1 },
+            { hash: 'abc111', entry: 2 },
+          ],
+        },
+      ],
+    });
+
+    expect(result).toStrictEqual({
+      errors: [`${workspaceFile}: Override keys 'abc111' and 'abc111:1' both match the item at abc111:1; keep one`],
+      warnings: [],
+    });
   });
 
   it('handles single-package mode (project scope only, no workspaces)', () => {
     const projectFile = tree.writeJson('overrides.json', {
       aaa1111: { audience: 'skip' },
-      stale99: { audience: 'skip' },
+      dead099: { audience: 'skip' },
     });
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFile, hashes: ['aaa1111ext'] },
+      project: { filePath: projectFile, items: toItems(['aaa1111ext']) },
     });
 
     expect(result.errors).toStrictEqual([]);
     expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]).toContain("'stale99'");
+    expect(result.warnings[0]).toContain("'dead099'");
   });
 });
 
@@ -920,3 +1188,12 @@ describe(createOverrideContext, () => {
     });
   });
 });
+
+// region | Helpers
+
+/** Build title-derived override target items from commit hashes. */
+function toItems(hashes: string[]): OverrideTargetItem[] {
+  return hashes.map((hash) => ({ hash }));
+}
+
+// endregion | Helpers
