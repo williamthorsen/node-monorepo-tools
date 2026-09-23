@@ -18,7 +18,13 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-import { buildChangelogEntries, readReleaseHistory, toChangelogEntries } from '../buildChangelogEntries.ts';
+import {
+  buildChangelogEntries,
+  readReleaseHistory,
+  toChangelogEntries,
+  toReleaseEntries,
+} from '../buildChangelogEntries.ts';
+import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
 
 const defaultChangelogJsonConfig: ChangelogJsonConfig = {
   enabled: true,
@@ -897,6 +903,38 @@ describe(toChangelogEntries, () => {
     const history = readReleaseHistory(makeConfig(), OPTIONS);
 
     expect(toChangelogEntries(history, 'v1.0.1').map((entry) => entry.version)).toStrictEqual(['1.0.0']);
+  });
+});
+
+describe(toReleaseEntries, () => {
+  beforeEach(() => {
+    mockEnumerateReleaseWindows.mockReset();
+  });
+
+  it.each([
+    ['no commits', []],
+    ['commits that yield no item', ['#2 fmt: Reformat', 'Update readme']],
+  ])('puts the synthetic entry ahead of the released entries for a window with %s', (_label, messages) => {
+    mockEnumerateReleaseWindows.mockReturnValueOnce([
+      makeWindow('unreleased', messages),
+      makeWindow('v1.0.0', ['#1 feat: Old']),
+    ]);
+    const history = readReleaseHistory(makeConfig(), OPTIONS);
+
+    const entries = toReleaseEntries(history, 'v1.0.1', '2026-09-23');
+
+    expect(entries).toStrictEqual([buildEmptyReleaseEntry('1.0.1', '2026-09-23'), ...history.releasedEntries]);
+    expect(entries.map((entry) => entry.version)).toStrictEqual(['1.0.1', '1.0.0']);
+  });
+
+  it('returns what `toChangelogEntries` returns for a window that yields items', () => {
+    mockEnumerateReleaseWindows.mockReturnValueOnce([
+      makeWindow('unreleased', ['#2 fix: Current', '#3 fmt: Reformat']),
+      makeWindow('v1.0.0', ['#1 feat: Old']),
+    ]);
+    const history = readReleaseHistory(makeConfig(), OPTIONS);
+
+    expect(toReleaseEntries(history, 'v1.0.1', '2026-09-23')).toStrictEqual(toChangelogEntries(history, 'v1.0.1'));
   });
 });
 

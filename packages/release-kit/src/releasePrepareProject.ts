@@ -1,8 +1,7 @@
 import { join as joinPath } from 'node:path';
 
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
-import { readReleaseHistory, type ReleaseHistory, toChangelogEntries } from './buildChangelogEntries.ts';
-import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
+import { readReleaseHistory, type ReleaseHistory, toReleaseEntries } from './buildChangelogEntries.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import { applyChangelogOverrides } from './changelogOverrides.ts';
 import { decideRelease } from './decideRelease.ts';
@@ -137,14 +136,12 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   // 4. Compose the project tag.
   const newTag = `${project.tagPrefix}${bump.newVersion}`;
 
-  // 5. Plan the root CHANGELOG and (optionally) changelog.json via the routing helper.
-  //    When `commits.length === 0` (forced empty-range project release) the helper writes the
-  //    synthetic "Forced version bump." entry in place of the release windows.
+  // 5. Plan the root CHANGELOG and (optionally) changelog.json. When the window yields no changelog item (a forced
+  //    project release), the planner records the synthetic "Forced version bump." entry for the new version.
   const changelogs = planProjectChangelogs({
     config,
     history,
     newTag,
-    newVersion: bump.newVersion,
     rootOverrides,
     overrideWarnings,
     globalMatchedRootKeys,
@@ -225,19 +222,16 @@ interface PlanProjectChangelogsArgs {
   config: MonorepoReleaseConfig;
   history: ReleaseHistory;
   newTag: string;
-  newVersion: string;
   rootOverrides: Map<string, ChangelogOverride>;
   overrideWarnings: string[];
   globalMatchedRootKeys: Set<string>;
 }
 
 /**
- * Builds the project's new entries (release windows or synthetic empty-range), applies editorial
- * overrides, and renders `changelog.json` and `CHANGELOG.md` from the resulting set.
- *
- * The release-window path renders a fresh overwrite because the windows span the full release
- * history and the project changelog is regenerated in full each run. The empty-range
- * path merges with what is on disk so prior synthetic entries are preserved.
+ * Builds the project's new entries (release windows, or the synthetic entry when the unreleased window yields no
+ * item), applies editorial overrides, merges them with the `changelog.json` on disk, and renders `changelog.json` and
+ * `CHANGELOG.md` from the merged set. The merge keeps the synthetic entries of earlier releases, which the release
+ * windows do not yield.
  *
  * Returns the rendered writes alongside the entry set they carry, so the caller can render the
  * release-notes previews from the same entries rather than re-reading the file.
@@ -248,11 +242,10 @@ function planProjectChangelogs(args: PlanProjectChangelogsArgs): {
   entries: ChangelogEntry[];
   writes: PlannedWrite[];
 } {
-  const { config, history, newTag, newVersion, rootOverrides, overrideWarnings, globalMatchedRootKeys } = args;
-  const isEmptyRange = history.unreleased.commits.length === 0;
+  const { config, history, newTag, rootOverrides, overrideWarnings, globalMatchedRootKeys } = args;
   const today = new Date().toISOString().slice(0, 10);
 
-  const builtEntries = isEmptyRange ? [buildEmptyReleaseEntry(newVersion, today)] : toChangelogEntries(history, newTag);
+  const builtEntries = toReleaseEntries(history, newTag, today);
 
   const applied = applyChangelogOverrides(builtEntries, rootOverrides);
   if (applied.errors.length > 0) {
@@ -268,11 +261,7 @@ function planProjectChangelogs(args: PlanProjectChangelogsArgs): {
   const changelogJsonPath = resolveChangelogJsonPath(config, ROOT_CHANGELOG_PATH);
   const sectionOrder = deriveSectionOrder(config.workTypes ?? { ...DEFAULT_WORK_TYPES });
 
-  // Render the release-window path fresh, since it spans the full history. For empty-range, merge
-  // with disk to preserve prior synthetic entries.
-  const renderEntries: ChangelogEntry[] = isEmptyRange
-    ? mergeChangelogEntriesWithDisk(changelogJsonPath, applied.entries)
-    : applied.entries;
+  const renderEntries = mergeChangelogEntriesWithDisk(changelogJsonPath, applied.entries);
 
   const writes: PlannedWrite[] = [];
   const changelogJsonFiles: string[] = [];
