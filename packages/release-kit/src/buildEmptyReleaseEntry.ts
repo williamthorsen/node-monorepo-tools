@@ -5,7 +5,7 @@ import type { ChangelogEntry } from './types.ts';
  *
  * Produces a single `ChangelogEntry` with one `'Notes'` section (audience `'dev'`)
  * containing a single `'Forced version bump.'` item. Used when `release-kit prepare`
- * proceeds via `--force`, `--bump=X`, or `--set-version` against a unit whose window
+ * proceeds via `--force` or `--set-version` against a unit whose window
  * yields no item, whether or not it has commits. Pure function: no I/O.
  */
 export function buildEmptyReleaseEntry(version: string, date: string): ChangelogEntry {

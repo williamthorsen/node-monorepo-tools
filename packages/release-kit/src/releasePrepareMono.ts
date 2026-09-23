@@ -634,7 +634,7 @@ interface BuildWorkspaceEntriesArgs {
  * Build the new `ChangelogEntry[]` for a workspace from one of two sources:
  * 1. Propagation-only: a single synthetic "Dependency updates" entry.
  * 2. Direct release: the workspace's release history, with the synthetic "Forced version bump." entry in place of
- *    the unreleased window when that window yields no item (`--force`, `--bump=X`, or `--set-version`).
+ *    the unreleased window when that window yields no item (`--force` or `--set-version`).
  *
  * Returns the entries that will be merged into the on-disk JSON and rendered.
  */

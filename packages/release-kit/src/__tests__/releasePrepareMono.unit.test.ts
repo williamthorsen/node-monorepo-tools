@@ -1259,7 +1259,7 @@ describe(releasePrepareMono, () => {
   });
 
   describe('releases whose window yields no item', () => {
-    // When a workspace is forced to release (`--force`, `--bump=X`, or `--set-version`) although
+    // When a workspace is forced to release (`--force` or `--set-version`) although
     // its unreleased window yields no changelog item, a synthetic "Notes / Forced version bump."
     // entry stands in for that window.
 
