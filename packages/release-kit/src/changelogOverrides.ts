@@ -17,7 +17,13 @@ const VALID_AUDIENCE_VALUES = new Set(['all', 'dev', 'skip']);
 const V1_SUPPORTED_AUDIENCE_VALUES = new Set(['skip']);
 
 /** Known fields on a single override entry; presence of any other field is a validation error. */
-const KNOWN_OVERRIDE_FIELDS = new Set(['audience', 'description', 'body', 'breaking']);
+export const KNOWN_OVERRIDE_FIELDS = new Set(['audience', 'description', 'body', 'breaking']);
+
+/** Form of an override key: a lowercase hex commit hash or prefix, optionally followed by `:<n>`, a 1-based entry position. */
+export const OVERRIDE_KEY_PATTERN = /^[0-9a-f]+(:[1-9][0-9]*)?$/;
+
+/** Top-level key that names the file's JSON Schema for editor support; not an override. */
+const SCHEMA_KEY = '$schema';
 
 /** Result of loading an override file: either parsed overrides or a list of structured errors. */
 export type LoadChangelogOverridesResult = { overrides: Map<string, ChangelogOverride> } | { errors: string[] };
@@ -81,8 +87,16 @@ export function validateChangelogOverrides(raw: unknown): {
   }
 
   for (const [key, rawEntry] of Object.entries(raw)) {
-    if (key === '') {
-      errors.push('Override file: empty-string key is not a valid commit hash');
+    if (key === SCHEMA_KEY) {
+      if (typeof rawEntry !== 'string') {
+        errors.push(`Override file: '${SCHEMA_KEY}' must be a string`);
+      }
+      continue;
+    }
+    if (!OVERRIDE_KEY_PATTERN.test(key)) {
+      errors.push(
+        `overrides['${key}']: key must be a lowercase hex commit hash or prefix, optionally followed by ':<n>'`,
+      );
       continue;
     }
     const validated = validateSingleOverride(key, rawEntry, errors);
@@ -92,6 +106,15 @@ export function validateChangelogOverrides(raw: unknown): {
   }
 
   return { overrides, errors };
+}
+
+/** Split a valid override key into its hash prefix and, for an ordinal key, its 1-based entry position. */
+export function parseOverrideKey(key: string): { hashPrefix: string; entry?: number } {
+  const separatorIndex = key.indexOf(':');
+  if (separatorIndex === -1) {
+    return { hashPrefix: key };
+  }
+  return { hashPrefix: key.slice(0, separatorIndex), entry: Number(key.slice(separatorIndex + 1)) };
 }
 
 /**

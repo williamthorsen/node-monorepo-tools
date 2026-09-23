@@ -13,6 +13,7 @@ import {
   loadChangelogOverrides,
   loadOverridesForScopes,
   type OverrideContext,
+  parseOverrideKey,
   resolveOverridePath,
   validateAllChangelogOverrides,
   validateChangelogOverrides,
@@ -125,9 +126,45 @@ describe(validateChangelogOverrides, () => {
     expect(result.overrides.get('abc')).toStrictEqual({ description: 'New', body: 'Detail', breaking: true });
   });
 
-  it('rejects an empty-string key', () => {
-    const result = validateChangelogOverrides({ '': { audience: 'skip' } });
-    expect(result.errors[0]).toMatch(/empty-string key/);
+  it('accepts a bare hash key and an ordinal key', () => {
+    const result = validateChangelogOverrides({
+      abc1234: { audience: 'skip' },
+      'abc1234:2': { description: 'Second' },
+    });
+    expect(result.errors).toStrictEqual([]);
+    expect(result.overrides.keys().toArray()).toStrictEqual(['abc1234', 'abc1234:2']);
+  });
+
+  it.each(['', 'ABC1234', 'xyz', 'abc:0', 'abc:01', 'abc:', ':1', 'abc:1:2'])('rejects the malformed key %j', (key) => {
+    const result = validateChangelogOverrides({ [key]: { audience: 'skip' } });
+    expect(result.errors).toStrictEqual([
+      `overrides['${key}']: key must be a lowercase hex commit hash or prefix, optionally followed by ':<n>'`,
+    ]);
+    expect(result.overrides.size).toBe(0);
+  });
+
+  it('accepts a `$schema` string and leaves it out of the overrides', () => {
+    const result = validateChangelogOverrides({
+      $schema: 'https://example.com/schema.json',
+      abc: { audience: 'skip' },
+    });
+    expect(result.errors).toStrictEqual([]);
+    expect(result.overrides.keys().toArray()).toStrictEqual(['abc']);
+  });
+
+  it('rejects a non-string `$schema`', () => {
+    const result = validateChangelogOverrides({ $schema: 42 });
+    expect(result.errors).toStrictEqual(["Override file: '$schema' must be a string"]);
+  });
+});
+
+describe(parseOverrideKey, () => {
+  it('returns the hash prefix alone for a bare key', () => {
+    expect(parseOverrideKey('abc1234')).toStrictEqual({ hashPrefix: 'abc1234' });
+  });
+
+  it('returns the hash prefix and entry position for an ordinal key', () => {
+    expect(parseOverrideKey('abc1234:12')).toStrictEqual({ hashPrefix: 'abc1234', entry: 12 });
   });
 });
 
@@ -478,7 +515,7 @@ describe(loadOverridesForScopes, () => {
     const workspaceB = join(tree.dir, 'packages/b');
     tree.write('project/.meta/changelog-overrides.json', '{not-valid');
     tree.write('packages/a/.meta/changelog-overrides.json', '[]');
-    tree.writeJson('packages/b/.meta/changelog-overrides.json', { valid1: { audience: 'skip' } });
+    tree.writeJson('packages/b/.meta/changelog-overrides.json', { beef01: { audience: 'skip' } });
 
     const result = loadOverridesForScopes({
       project: projectRoot,
@@ -487,7 +524,7 @@ describe(loadOverridesForScopes, () => {
     expect(result.errors.some((message) => message.includes('Failed to parse override file'))).toBe(true);
     expect(result.errors.some((message) => message.includes('top-level value must be an object'))).toBe(true);
     // The valid file is still loaded so the report is comprehensive even when peers fail.
-    expect(result.perWorkspace.get(workspaceB)?.get('valid1')).toStrictEqual({ audience: 'skip' });
+    expect(result.perWorkspace.get(workspaceB)?.get('beef01')).toStrictEqual({ audience: 'skip' });
   });
 });
 
@@ -756,7 +793,7 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('warns on a workspace-tier stale key with the workspace file path', () => {
-    const workspaceFile = tree.writeJson('workspace-a/overrides.json', { stale12: { audience: 'skip' } });
+    const workspaceFile = tree.writeJson('workspace-a/overrides.json', { dead012: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
       workspaces: [{ filePath: workspaceFile, hashes: ['real0001', 'real0002'] }],
@@ -765,12 +802,12 @@ describe(validateAllChangelogOverrides, () => {
     expect(result.errors).toStrictEqual([]);
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toContain(workspaceFile);
-    expect(result.warnings[0]).toContain("'stale12'");
+    expect(result.warnings[0]).toContain("'dead012'");
     expect(result.warnings[0]).toMatch(/this workspace's history/);
   });
 
   it('warns on a root-tier key matched in no scope', () => {
-    const projectFile = tree.writeJson('overrides.json', { stale99: { audience: 'skip' } });
+    const projectFile = tree.writeJson('overrides.json', { dead099: { audience: 'skip' } });
     const workspaceFile = tree.write('workspace-a/overrides.json', '{}');
 
     const result = validateAllChangelogOverrides({
@@ -781,7 +818,7 @@ describe(validateAllChangelogOverrides, () => {
     expect(result.errors).toStrictEqual([]);
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toContain(projectFile);
-    expect(result.warnings[0]).toContain("'stale99'");
+    expect(result.warnings[0]).toContain("'dead099'");
     expect(result.warnings[0]).toMatch(/any scope/);
   });
 
@@ -834,7 +871,7 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('reports both errors and warnings simultaneously when both classes occur', () => {
-    const projectFile = tree.writeJson('overrides.json', { stale99: { audience: 'skip' } });
+    const projectFile = tree.writeJson('overrides.json', { dead099: { audience: 'skip' } });
     const workspaceFile = tree.writeJson('workspace-a/overrides.json', { abc: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
@@ -845,13 +882,13 @@ describe(validateAllChangelogOverrides, () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toMatch(/ambiguous/);
     expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]).toContain("'stale99'");
+    expect(result.warnings[0]).toContain("'dead099'");
   });
 
   it('handles single-package mode (project scope only, no workspaces)', () => {
     const projectFile = tree.writeJson('overrides.json', {
       aaa1111: { audience: 'skip' },
-      stale99: { audience: 'skip' },
+      dead099: { audience: 'skip' },
     });
 
     const result = validateAllChangelogOverrides({
@@ -860,7 +897,7 @@ describe(validateAllChangelogOverrides, () => {
 
     expect(result.errors).toStrictEqual([]);
     expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]).toContain("'stale99'");
+    expect(result.warnings[0]).toContain("'dead099'");
   });
 });
 

@@ -2315,7 +2315,7 @@ describe(releasePrepareMono, () => {
       mockExistsSync.mockImplementation((path: string) => path.endsWith(workspaceOverridePath));
       mockReadFileSync.mockImplementation((path: string) => {
         if (typeof path === 'string' && path.endsWith(workspaceOverridePath)) {
-          return JSON.stringify({ staleKeyAaa: { audience: 'skip' } });
+          return JSON.stringify({ deadaaa: { audience: 'skip' } });
         }
         return JSON.stringify({ name: '@test/arrays', version: '1.0.0' });
       });
@@ -2327,7 +2327,7 @@ describe(releasePrepareMono, () => {
       // the orchestrator's final aggregation.
       expect(result.warnings).toBeDefined();
       const warnings = result.warnings ?? [];
-      expect(warnings.some((message) => message.includes("'staleKeyAaa'"))).toBe(true);
+      expect(warnings.some((message) => message.includes("'deadaaa'"))).toBe(true);
       expect(warnings.some((message) => /stale reference/.test(message))).toBe(true);
     });
   });
