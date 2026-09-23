@@ -43,7 +43,7 @@ The label match is exact: `migration:` and `**Migration:**` are not recognized.
 
 ## What reaches a changelog
 
-release-kit splits the history reachable from `HEAD` into one window per release tag that matches the scope's tag prefixes, restricted to commits that touch the scope's `paths`. The bump reads the same windows, so a commit counted toward a version bump is one that the changelog also considers.
+release-kit splits the history reachable from `HEAD` into one window per release tag that matches the scope's tag prefixes, restricted to commits that touch the scope's `paths`. The bump reads the same items: Its level is the highest that the unreleased window's items call for, so a commit that bumps is one that the changelog lists.
 
 A commit whose last `change-record` block records entries yields its items from those entries, as [Change-record blocks](#change-record-blocks) describes. Any other commit in a window reaches the changelog when its subject passes three checks:
 
@@ -51,7 +51,7 @@ A commit whose last `change-record` block records entries yields its items from 
 - **A declared work type**, resolved against the merged [work types](work-types.md).
 - **A type not excluded from the changelog** by `excludedFromChangelog: true`.
 
-`release:` commits and merge commits whose subject git wrote (`Merge …`) never reach a changelog, whether or not they carry a block. A commit that fails a check is dropped with no error, and a release left with no surviving commit gets no changelog entry. The commit's type decides the section under which its item appears.
+`release:` commits and merge commits whose subject git wrote (`Merge …`) never reach a changelog, whether or not they carry a block. A commit that fails a check yields no item and raises no bump, and a release left with no surviving commit gets no changelog entry. The prepare report lists a commit of the unreleased window that fails the first or the second check as unparseable, unless a malformed-block warning already reports it; it lists none that fails the third. The commit's type decides the section under which its item appears.
 
 Every item of a commit reaches every workspace whose window contains the commit, because windows are selected by the paths that the commit touches.
 
@@ -96,7 +96,7 @@ A commit is read from its title, as [What reaches a changelog](#what-reaches-a-c
 - **An entry whose type is not declared**, with its position. It yields no item.
 - **An entry that violates its type's breaking policy**, as a policy violation at the entry's position. Its item is not marked breaking.
 
-The result that `prepare` returns carries these as `malformedBlocks`, `undeclaredEntryTypes`, and `policyViolations` entries whose `surface` is `'entry'`.
+The result that `prepare` returns carries these as `malformedBlocks`, `undeclaredEntryTypes`, and `policyViolations` entries whose `surface` is `'entry'`, whether the target releases or is skipped. A block whose entries are all undeclared or excluded yields no item, so the commit raises no bump.
 
 ## Release-notes injection
 

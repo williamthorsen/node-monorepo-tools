@@ -21,22 +21,28 @@ Run release preparation with automatic workspace discovery.
 
 Workspace names for `--only` match the package directory name (e.g., `arrays`, `release-kit`).
 
-`--bump` and `--force` are orthogonal: `--bump` is purely a level chooser; `--force` is purely a release trigger. Examples:
+`prepare` reads each target's history once and builds the changelog items of its unreleased commits. The bump is the highest level that those items call for, under [`versionPatterns`](configuration.md#versionpatterns), so the bump and the changelog describe the same release: A `feat` entry in a [change-record block](changelogs.md#change-record-blocks) bumps minor under a `docs:` title, and a breaking item bumps major.
+
+- A commit that yields no item bumps nothing: one without a ticket-ID prefix, one of a type excluded from the changelog (such as `fmt`), and one whose change-record entries are all undeclared or excluded.
+- A `BREAKING CHANGE:` footer raises no major bump. Only a subject's `!` and an entry's `breaking: true` mark an item breaking; on a type whose policy forbids `!`, the footer is reported as a [policy violation](work-types.md#policy-enforcement).
+- A target whose commits yield no item is skipped. The prepare report lists the commits that could not be parsed and the change-record diagnostics, skipped targets included.
+
+`--bump` and `--force` are orthogonal in every mode, single-package included: `--bump` is purely a level chooser; `--force` is purely a release trigger. Examples:
 
 ```sh
 # Release every target at its natural bump level (no flags).
 release-kit prepare
 
-# Force a release even when no bump-worthy commits exist; defaults to patch
-# per target, with each target keeping its natural bump if one is derivable.
+# Force a release even when no commit yields a changelog item; defaults to
+# patch per target, with each target keeping its natural bump if it has one.
 release-kit prepare --force
 
 # Force a release at a uniform level across every releasing target.
 release-kit prepare --force --bump=minor
 
-# --bump=X alone is a level chooser, NOT a trigger. If a target has no
-# bump-worthy commits, it skips with a "Pass --force..." reason. If it has
-# bump-worthy commits, the override applies.
+# --bump=X alone is a level chooser, NOT a trigger. If no commit of a target
+# yields a changelog item, it skips with a "Pass --force..." reason. Otherwise
+# the override applies.
 release-kit prepare --bump=minor
 ```
 
@@ -63,7 +69,7 @@ docs/*.v*.md
 
 ### Setting an explicit version with `--set-version`
 
-The `--set-version` flag is a first-class escape hatch for the cases where commit-derived bump logic produces the wrong version — most notably, promoting a pre-1.0 package to 1.0.0. Pre-1.0 packages collapse a `feat!` breaking change to a minor bump (matching semantic-release's `initialMajor: false` and release-please's `bump-minor-pre-major`), so a deliberate promotion to 1.0.0 must be requested explicitly.
+The `--set-version` flag is a first-class escape hatch for the cases where the derived bump produces the wrong version — most notably, promoting a pre-1.0 package to 1.0.0. Pre-1.0 packages collapse a `feat!` breaking change to a minor bump (matching semantic-release's `initialMajor: false` and release-please's `bump-minor-pre-major`), so a deliberate promotion to 1.0.0 must be requested explicitly.
 
 The flag validates that:
 
