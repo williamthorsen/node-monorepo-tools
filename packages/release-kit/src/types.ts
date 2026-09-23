@@ -226,11 +226,8 @@ export interface SkippedWorkspaceResult {
   name?: string;
   previousTag?: string;
   commitCount: number;
-  /**
-   * Count of commits that parsed into a recognized work type. May be absent for results
-   * produced by the legacy single-package executor's bump-override path.
-   */
-  parsedCommitCount?: number;
+  /** Count of commits that yield at least one changelog item — `0` when there are no commits or when none does. */
+  parsedCommitCount: number;
   /** Commits that yield no changelog item and that no exclusion or diagnostic accounts for. */
   unparseableCommits?: Commit[];
   /** Policy violations of the unreleased window's titles and change-record entries; omitted when none. */

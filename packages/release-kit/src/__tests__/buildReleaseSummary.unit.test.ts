@@ -130,6 +130,7 @@ describe(buildReleaseSummary, () => {
           name: 'skipped-pkg',
           status: 'skipped',
           commitCount: 0,
+          parsedCommitCount: 0,
           skipReason: 'No changes',
         },
       ],

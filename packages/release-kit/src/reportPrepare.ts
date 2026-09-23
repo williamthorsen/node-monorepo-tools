@@ -14,7 +14,6 @@ import type {
   PrepareResult,
   ProjectPrepareResult,
   PropagationSource,
-  ReleasedProjectResult,
   ReleasedWorkspaceResult,
   WorkspacePrepareResult,
 } from './types.ts';
@@ -75,6 +74,7 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
   formatPolicyViolations(lines, workspace.policyViolations, style);
 
   if (workspace.status === 'skipped') {
+    formatChangeRecordWarnings(lines, workspace, style);
     lines.push(formatStatusLine(style, 'skipped', workspace.skipReason));
     formatWarnings(lines, result, style);
     return lines.join('\n');
@@ -178,11 +178,7 @@ function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptio
  * so the rendering branches are simpler than `formatWorkspaceSection`.
  *
  * For skipped projects, mirrors `formatWorkspaceSection`'s skipped rendering: section
- * header, "Found N commits …" line, and the skip reason — then returns early. The
- * `parsedCommitCount` and `unparseableCommits` diagnostic data remains on the
- * structured `ProjectPrepareResult` returned to programmatic callers; it is
- * intentionally suppressed in the terminal rendering for symmetry with the existing
- * skipped workspace rendering.
+ * header, "Found N commits …" line, the diagnostics, and the skip reason.
  */
 function formatProjectSection(
   lines: string[],
@@ -198,6 +194,8 @@ function formatProjectSection(
   formatPolicyViolations(lines, project.policyViolations, style, '  ');
 
   if (project.status === 'skipped') {
+    formatUnparseableWarning(lines, project, style, '  ');
+    formatChangeRecordWarnings(lines, project, style, '  ');
     lines.push(`  ${formatStatusLine(style, 'skipped', project.skipReason)}`);
     return;
   }
@@ -214,7 +212,7 @@ function formatProjectSection(
     lines.push(`  Using bump override: ${project.bumpOverride}`);
   }
 
-  formatProjectUnparseable(lines, project, style);
+  formatUnparseableWarning(lines, project, style, '  ');
   formatChangeRecordWarnings(lines, project, style, '  ');
 
   lines.push(
@@ -243,25 +241,6 @@ function formatProjectSection(
   lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(tag))}`);
 }
 
-/** Append the unparseable-commit warning lines for a project release, if any. */
-function formatProjectUnparseable(lines: string[], project: ReleasedProjectResult, style: OutputStyle): void {
-  const unparseable = project.unparseableCommits;
-  if (unparseable === undefined || unparseable.length === 0) {
-    return;
-  }
-  const count = unparseable.length;
-  const isPatchFloor = project.parsedCommitCount === 0;
-  const suffix = isPatchFloor ? ' (defaulting to patch bump)' : '';
-  lines.push(
-    `    ${formatStatusLine(style, 'warning', `${count} commit${count === 1 ? '' : 's'} could not be parsed${suffix}`)}`,
-  );
-  for (const commit of unparseable) {
-    const shortHash = commit.hash.slice(0, 7);
-    const truncatedSubject = truncateSubject(commit.subject);
-    lines.push(`      · ${shortHash} ${truncatedSubject}`);
-  }
-}
-
 /** Render a single workspace's section within multi-workspace output. */
 function formatWorkspaceSection(
   lines: string[],
@@ -277,6 +256,9 @@ function formatWorkspaceSection(
   lines.push(dim(`  Found ${workspace.commitCount} commits ${since}`));
 
   if (workspace.status === 'skipped') {
+    formatUnparseableWarning(lines, workspace, style, '  ');
+    formatPolicyViolations(lines, workspace.policyViolations, style, '  ');
+    formatChangeRecordWarnings(lines, workspace, style, '  ');
     lines.push(`  ${formatStatusLine(style, 'skipped', workspace.skipReason)}`);
     return;
   }
@@ -399,20 +381,18 @@ function formatPreviewFiles(
  */
 function formatUnparseableWarning(
   lines: string[],
-  workspace: WorkspacePrepareResult,
+  release: Pick<ReleasedWorkspaceResult, 'unparseableCommits'>,
   style: OutputStyle,
   indent = '',
 ): void {
-  const unparseable = workspace.unparseableCommits;
+  const unparseable = release.unparseableCommits;
   if (unparseable === undefined || unparseable.length === 0) {
     return;
   }
 
   const count = unparseable.length;
-  const isPatchFloor = workspace.parsedCommitCount === 0;
-  const suffix = isPatchFloor ? ' (defaulting to patch bump)' : '';
   lines.push(
-    `${indent}  ${formatStatusLine(style, 'warning', `${count} commit${count === 1 ? '' : 's'} could not be parsed${suffix}`)}`,
+    `${indent}  ${formatStatusLine(style, 'warning', `${count} commit${count === 1 ? '' : 's'} could not be parsed`)}`,
   );
 
   for (const commit of unparseable) {
