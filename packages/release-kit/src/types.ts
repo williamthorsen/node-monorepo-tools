@@ -190,8 +190,15 @@ export interface ReleasedWorkspaceResult {
   parsedCommitCount?: number;
   /** Commits that could not be parsed into a recognized work type. */
   unparseableCommits?: Commit[];
-  /** Policy violations detected while parsing this workspace's commits; omitted when none. */
+  /**
+   * Policy violations detected while parsing this workspace's commits and reading the change-record entries of its
+   * unreleased window; omitted when none.
+   */
   policyViolations?: PolicyViolation[];
+  /** Commits of the unreleased window whose `change-record` block could not be read; omitted when none. */
+  malformedBlocks?: MalformedChangeRecordBlock[];
+  /** Change-record entries of the unreleased window whose type is undeclared; omitted when none. */
+  undeclaredEntryTypes?: UndeclaredEntryType[];
   releaseType?: ReleaseType;
   currentVersion: string;
   newVersion: string;
@@ -267,8 +274,15 @@ export interface ReleasedProjectResult {
   parsedCommitCount: number;
   /** Commits that could not be parsed into a recognized work type. */
   unparseableCommits?: Commit[];
-  /** Policy violations detected while parsing the project's commits; omitted when none. */
+  /**
+   * Policy violations detected while parsing the project's commits and reading the change-record entries of its
+   * unreleased window; omitted when none.
+   */
   policyViolations?: PolicyViolation[];
+  /** Commits of the unreleased window whose `change-record` block could not be read; omitted when none. */
+  malformedBlocks?: MalformedChangeRecordBlock[];
+  /** Change-record entries of the unreleased window whose type is undeclared; omitted when none. */
+  undeclaredEntryTypes?: UndeclaredEntryType[];
   releaseType: ReleaseType;
   currentVersion: string;
   newVersion: string;

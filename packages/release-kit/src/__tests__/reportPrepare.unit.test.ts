@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { bold, dim, sectionHeader } from '../format.ts';
 import { reportPrepare } from '../reportPrepare.ts';
-import type { PolicyViolation, PrepareResult, ReleasedWorkspaceResult } from '../types.ts';
+import type { PolicyViolation, PrepareResult, ReleasedProjectResult, ReleasedWorkspaceResult } from '../types.ts';
 
 /** The column budget `reportPrepare` cuts a commit subject to. */
 const SUBJECT_COLUMN_BUDGET = 72;
@@ -1096,6 +1096,96 @@ describe(reportPrepare, () => {
       const output = reportViolation(subject);
 
       expect(readViolationSubject(output)).toBe(subject);
+    });
+  });
+
+  describe('change-record diagnostics rendering', () => {
+    const SUBJECT = '#867 release-kit|feat: Read the change record (#42)';
+    const diagnostics: Pick<ReleasedWorkspaceResult, 'malformedBlocks' | 'policyViolations' | 'undeclaredEntryTypes'> =
+      {
+        malformedBlocks: [{ commitHash: 'abc1234def', commitSubject: SUBJECT, reason: '`entries[0].text` is missing' }],
+        undeclaredEntryTypes: [{ commitHash: 'abc1234def', commitSubject: SUBJECT, entryPosition: 2, type: 'chore' }],
+        policyViolations: [
+          { commitHash: 'abc1234def', commitSubject: SUBJECT, type: 'drop', surface: 'entry', entryPosition: 3 },
+        ],
+      };
+    const expectedLines = [
+      '1 change-record block could not be read (item taken from the title):',
+      `· abc1234 '${SUBJECT}' — \`entries[0].text\` is missing`,
+      '1 change-record entry has an undeclared type (no item):',
+      `· abc1234 '${SUBJECT}' — type 'chore' at entry 2`,
+      '1 policy violation:',
+      `· abc1234 '${SUBJECT}' — type 'drop' at entry 3`,
+    ];
+
+    it('renders each diagnostic kind in a single-package report', () => {
+      const output = reportPrepare(
+        { workspaces: [makeReleasedWorkspace(diagnostics)], tags: ['v1.0.1'] },
+        { applied: false, style: 'rich' },
+      );
+
+      for (const line of expectedLines) {
+        expect(output).toContain(line);
+      }
+    });
+
+    it('renders each diagnostic kind in a monorepo workspace section', () => {
+      const output = reportPrepare(
+        { workspaces: [makeReleasedWorkspace({ name: 'arrays', ...diagnostics })], tags: ['arrays-v1.0.1'] },
+        { applied: false, style: 'rich' },
+      );
+
+      for (const line of expectedLines) {
+        expect(output).toContain(line);
+      }
+    });
+
+    it('renders each diagnostic kind in a project section', () => {
+      const project: ReleasedProjectResult = {
+        status: 'released',
+        commitCount: 1,
+        parsedCommitCount: 1,
+        releaseType: 'patch',
+        currentVersion: '1.0.0',
+        newVersion: '1.0.1',
+        tag: 'v1.0.1',
+        bumpedFiles: ['./package.json'],
+        changelogFiles: ['./CHANGELOG.md'],
+        commits: [],
+        ...diagnostics,
+      };
+
+      const output = reportPrepare({ workspaces: [], tags: ['v1.0.1'], project }, { applied: false, style: 'rich' });
+
+      for (const line of expectedLines) {
+        expect(output).toContain(line);
+      }
+    });
+
+    it('pluralizes the headers', () => {
+      const block = { commitHash: 'abc1234', commitSubject: SUBJECT, reason: 'bad' };
+      const entry = { commitHash: 'abc1234', commitSubject: SUBJECT, entryPosition: 1, type: 'chore' };
+      const output = reportPrepare(
+        {
+          workspaces: [
+            makeReleasedWorkspace({ malformedBlocks: [block, block], undeclaredEntryTypes: [entry, entry] }),
+          ],
+          tags: ['v1.0.1'],
+        },
+        { applied: false, style: 'rich' },
+      );
+
+      expect(output).toContain('2 change-record blocks could not be read (item taken from the title):');
+      expect(output).toContain('2 change-record entries have undeclared types (no item):');
+    });
+
+    it('renders no change-record lines when the result carries none', () => {
+      const output = reportPrepare(
+        { workspaces: [makeReleasedWorkspace()], tags: ['v1.0.1'] },
+        { applied: false, style: 'rich' },
+      );
+
+      expect(output).not.toContain('change-record');
     });
   });
 

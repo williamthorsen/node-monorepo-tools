@@ -2067,6 +2067,38 @@ describe(releasePrepareMono, () => {
       expect(result.workspaces[0]?.policyViolations).toBeUndefined();
     });
 
+    it("attaches the changelog build's diagnostics, appending entry violations to the bump-side ones", () => {
+      const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
+      stubLog('arrays-v1.0.0', ['internal!: refactor cache', 'def5678']);
+      const malformedBlock = { commitHash: 'aaa1111', commitSubject: 'Squash', reason: '`entries` is not a list' };
+      const undeclared = { commitHash: 'bbb2222', commitSubject: 'Merge PR', entryPosition: 2, type: 'chore' };
+      const entryViolation = {
+        commitHash: 'bbb2222',
+        commitSubject: 'Merge PR',
+        type: 'drop',
+        surface: 'entry' as const,
+        entryPosition: 1,
+      };
+      mockBuildChangelogEntries.mockReturnValue(
+        makeChangelogBuild([], {
+          malformedBlocks: [malformedBlock],
+          undeclaredEntryTypes: [undeclared],
+          policyViolations: [entryViolation],
+        }),
+      );
+
+      const result = releasePrepareMono(config, {});
+
+      expect(result.workspaces[0]).toMatchObject({
+        malformedBlocks: [malformedBlock],
+        undeclaredEntryTypes: [undeclared],
+        policyViolations: [
+          { commitHash: 'def5678', commitSubject: 'internal!: refactor cache', type: 'internal', surface: 'prefix' },
+          entryViolation,
+        ],
+      });
+    });
+
     it('records a prefix-surface violation for an internal! commit (forbidden policy)', () => {
       const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
       stubLog('arrays-v1.0.0', ['internal!: refactor cache', 'def5678']);
