@@ -217,13 +217,16 @@ export function formatStaleOverrideKeyWarning(key: string): string {
 /**
  * Apply overrides to a `ChangelogEntry[]`, returning a new array. Pure: no mutation, no I/O.
  *
- * Match algorithm: each override key is treated as a string-prefix against the distinct `ChangelogItem.hash`
- * values, so a commit that yields several items counts as one match.
+ * Match algorithm: each key's hash prefix is matched against the distinct `ChangelogItem.hash` values.
  * - 0 matches → key is recorded as unmatched in this batch (no warning emitted here).
- * - 1 match → apply each present override field to every item of the matched commit, record key as matched.
+ * - 1 match → a bare key resolves to every item of that commit, and an ordinal key `<hash>:<n>` to the items whose
+ *   `entry` is `n`. A key that resolves to no item is unmatched, so an ordinal key on a title-derived item goes stale.
  * - 2+ matches → error (ambiguous prefix).
  *
- * `matchedKeys` lists the override keys that resolved to exactly one commit in this batch.
+ * Two more conditions are errors, and the keys involved apply nowhere: a bare key that sets `description` or `body` on a
+ * commit with several items, and two keys that resolve to the same item.
+ *
+ * `matchedKeys` lists the override keys that resolved to at least one item without error in this batch.
  * Callers are responsible for computing stale-key warnings: in a monorepo run, an override
  * may target a commit that lives in another workspace, so the per-batch zero-match signal is
  * insufficient on its own. Single-package and monorepo orchestrators format warnings using
@@ -244,55 +247,21 @@ export function applyChangelogOverrides(
   overrides: Map<string, ChangelogOverride>,
 ): { entries: ChangelogEntry[]; warnings: string[]; errors: string[]; matchedKeys: string[] } {
   const warnings: string[] = [];
-  const errors: string[] = [];
-  const matchedKeys: string[] = [];
 
   if (overrides.size === 0) {
-    return { entries: entries.map(cloneEntry), warnings, errors, matchedKeys };
+    return { entries: entries.map(cloneEntry), warnings, errors: [], matchedKeys: [] };
   }
 
-  // Pre-compute every hash present in the entry tree so each override key can resolve its
-  // matches in one pass over the keyset rather than re-walking the tree per key.
-  const hashSet = new Set<string>();
-  for (const entry of entries) {
-    for (const section of entry.sections) {
-      for (const item of section.items) {
-        if (item.hash !== undefined) {
-          hashSet.add(item.hash);
-        }
-      }
-    }
-  }
-  const allHashes = [...hashSet];
+  const { errors, itemIdToKey } = resolveOverrideKeys(indexEntryPositions(entries), overrides);
 
-  // Resolve each override key to its set of matching hashes. Zero-match keys are not warned
-  // at this layer (caller aggregates across batches); ambiguous prefixes are an error.
-  const keyToMatchedHashes = new Map<string, string[]>();
-  for (const overrideKey of overrides.keys()) {
-    const matches = allHashes.filter((hash) => hash.startsWith(overrideKey));
-    if (matches.length === 0) {
-      continue;
-    }
-    if (matches.length > 1) {
-      errors.push(
-        `Override key '${overrideKey}' is ambiguous: matches multiple commits (${matches.join(', ')}). ` +
-          'Use a longer prefix or the full commit hash.',
-      );
-      continue;
-    }
-    keyToMatchedHashes.set(overrideKey, matches);
-    matchedKeys.push(overrideKey);
-  }
-
-  // Build a hash → override lookup so the iteration loop can dispatch overrides per item.
-  const hashToOverride = new Map<string, ChangelogOverride>();
-  for (const [overrideKey, matchedHashes] of keyToMatchedHashes) {
+  const itemIdToOverride = new Map<string, ChangelogOverride>();
+  for (const [itemId, overrideKey] of itemIdToKey) {
     const override = overrides.get(overrideKey);
-    if (override === undefined) continue;
-    for (const hash of matchedHashes) {
-      hashToOverride.set(hash, override);
+    if (override !== undefined) {
+      itemIdToOverride.set(itemId, override);
     }
   }
+  const matchedKeys = [...new Set(itemIdToKey.values())];
 
   // Walk the entry → version → section → item tree once, applying overrides and pruning
   // skipped items. This is the dispatch site for current and future per-item override
@@ -301,7 +270,7 @@ export function applyChangelogOverrides(
   for (const entry of entries) {
     const transformedSections: ChangelogSection[] = [];
     for (const section of entry.sections) {
-      const transformedItems = applyOverridesToItems(section.items, hashToOverride);
+      const transformedItems = applyOverridesToItems(section.items, itemIdToOverride);
       if (transformedItems.length === 0) {
         continue;
       }
@@ -313,10 +282,130 @@ export function applyChangelogOverrides(
   return { entries: transformedEntries, warnings, errors, matchedKeys };
 }
 
+/**
+ * Resolve every override key to the items that it targets, and report ambiguous prefixes, field overrides on a bare
+ * key that spans several items, and keys that overlap on an item. Returns the item-to-key map with every erroring key
+ * removed.
+ */
+function resolveOverrideKeys(
+  positionsByHash: Map<string, Set<number | undefined>>,
+  overrides: Map<string, ChangelogOverride>,
+): { errors: string[]; itemIdToKey: Map<string, string> } {
+  const errors: string[] = [];
+  const failedKeys = new Set<string>();
+  const itemIdToKey = new Map<string, string>();
+  const overlapItemIds = new Set<string>();
+
+  for (const [overrideKey, override] of overrides) {
+    const resolution = resolveOverrideKey(overrideKey, positionsByHash);
+    if (resolution.kind === 'ambiguous') {
+      errors.push(
+        `Override key '${overrideKey}' is ambiguous: matches multiple commits (${resolution.hashes.join(', ')}). ` +
+          'Use a longer prefix or the full commit hash.',
+      );
+      continue;
+    }
+    if (resolution.kind === 'none') {
+      continue;
+    }
+
+    const { hash, positions } = resolution;
+    if (parseOverrideKey(overrideKey).entry === undefined && positions.length > 1) {
+      const fieldsSet = (['description', 'body'] as const).filter((field) => override[field] !== undefined);
+      if (fieldsSet.length > 0) {
+        const ordinalKeys = positions.map((position) => `${overrideKey}:${position}`).join(', ');
+        errors.push(
+          `Override key '${overrideKey}' sets ${fieldsSet.join(' and ')} on a commit with several items; use ${ordinalKeys}`,
+        );
+        failedKeys.add(overrideKey);
+        continue;
+      }
+    }
+
+    for (const position of positions) {
+      const itemId = formatItemId(hash, position);
+      const claimingKey = itemIdToKey.get(itemId);
+      if (claimingKey === undefined) {
+        itemIdToKey.set(itemId, overrideKey);
+        continue;
+      }
+      const target = position === undefined ? `commit ${hash}` : `the item at ${hash}:${position}`;
+      errors.push(`Override keys '${claimingKey}' and '${overrideKey}' both match ${target}; keep one`);
+      failedKeys.add(claimingKey);
+      failedKeys.add(overrideKey);
+      overlapItemIds.add(itemId);
+    }
+  }
+
+  for (const [itemId, overrideKey] of itemIdToKey) {
+    if (failedKeys.has(overrideKey) || overlapItemIds.has(itemId)) {
+      itemIdToKey.delete(itemId);
+    }
+  }
+  return { errors, itemIdToKey };
+}
+
+/**
+ * Resolve one override key against the commits' entry positions. `positions` lists the targeted items' `entry` values,
+ * ascending, with `undefined` standing for a title-derived item; it is empty when the commit has no item that the key
+ * targets.
+ */
+function resolveOverrideKey(
+  overrideKey: string,
+  positionsByHash: Map<string, Set<number | undefined>>,
+):
+  | { kind: 'none' }
+  | { kind: 'ambiguous'; hashes: string[] }
+  | { kind: 'items'; hash: string; positions: (number | undefined)[] } {
+  const { hashPrefix, entry } = parseOverrideKey(overrideKey);
+  const hashes = positionsByHash
+    .keys()
+    .filter((hash) => hash.startsWith(hashPrefix))
+    .toArray();
+  const [hash] = hashes;
+  if (hash === undefined) {
+    return { kind: 'none' };
+  }
+  if (hashes.length > 1) {
+    return { kind: 'ambiguous', hashes };
+  }
+
+  const available = [...(positionsByHash.get(hash) ?? [])];
+  const positions =
+    entry === undefined
+      ? available.toSorted((left, right) => (left ?? 0) - (right ?? 0))
+      : available.filter((position) => position === entry);
+  return positions.length === 0 ? { kind: 'none' } : { kind: 'items', hash, positions };
+}
+
+/** Collect, for each commit hash in the entry tree, the distinct `entry` positions of its items. */
+function indexEntryPositions(entries: readonly ChangelogEntry[]): Map<string, Set<number | undefined>> {
+  return indexItemPositions(entries.flatMap((entry) => entry.sections.flatMap((section) => section.items)));
+}
+
+/** Collect, for each hash, the distinct `entry` positions of the items that carry it. */
+function indexItemPositions(
+  items: readonly { hash?: string | undefined; entry?: number | undefined }[],
+): Map<string, Set<number | undefined>> {
+  const positionsByHash = new Map<string, Set<number | undefined>>();
+  for (const item of items) {
+    if (item.hash === undefined) continue;
+    const positions = positionsByHash.get(item.hash) ?? new Set<number | undefined>();
+    positions.add(item.entry);
+    positionsByHash.set(item.hash, positions);
+  }
+  return positionsByHash;
+}
+
+/** Identify an item by its commit hash and entry position. */
+function formatItemId(hash: string, entry: number | undefined): string {
+  return entry === undefined ? hash : `${hash}:${entry}`;
+}
+
 /** Apply per-item overrides, dropping items whose `audience` resolves to `'skip'`. */
 function applyOverridesToItems(
   items: ChangelogItem[],
-  hashToOverride: Map<string, ChangelogOverride>,
+  itemIdToOverride: Map<string, ChangelogOverride>,
 ): ChangelogItem[] {
   const result: ChangelogItem[] = [];
   for (const item of items) {
@@ -324,7 +413,7 @@ function applyOverridesToItems(
       result.push(cloneItem(item));
       continue;
     }
-    const override = hashToOverride.get(item.hash);
+    const override = itemIdToOverride.get(formatItemId(item.hash, item.entry));
     if (override === undefined) {
       result.push(cloneItem(item));
       continue;
@@ -448,8 +537,8 @@ export function loadOverridesForScopes(scopes: {
  *
  * Byte-equal-key shadowing: when a workspace key string-equals a root key, the workspace
  * entry wins entirely (no field-level merge) and supplants the root entry in the result.
- * Different-prefix keys that happen to resolve to the same commit do NOT shadow here — they
- * fall through to the existing ambiguous-prefix error in {@link applyChangelogOverrides}.
+ * Non-identical keys that resolve to the same item do NOT shadow here: {@link applyChangelogOverrides}
+ * reports them as overlapping.
  *
  * Pure: never mutates inputs.
  */
