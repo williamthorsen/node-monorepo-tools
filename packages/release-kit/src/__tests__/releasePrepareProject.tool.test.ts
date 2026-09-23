@@ -64,7 +64,7 @@ function setupFixture(): TempTree {
   run('git', ['add', '-A']);
   run('git', ['commit', '--quiet', '-m', 'chore: initial commit']);
   run('git', ['tag', 'v0.9.0']);
-  // Per-workspace baselines so per-workspace `getCommitsSinceTarget` finds a tag.
+  // Per-workspace baselines so that each workspace's history read finds a tag.
   run('git', ['tag', 'pkg-a-v1.0.0']);
   run('git', ['tag', 'pkg-b-v1.0.0']);
   run('git', ['tag', 'pkg-c-v1.0.0']);
@@ -200,6 +200,66 @@ describe('releasePrepareProject (tool)', () => {
 
       const rootChangelog = readFileSync(join(tree.dir, 'CHANGELOG.md'), 'utf8');
       expect(rootChangelog).toContain('Document the deployment runbook');
+    });
+  }, 60_000);
+
+  it('skips a window whose commits yield no changelog item, reporting them, and releases it at patch under --force', () => {
+    anchorProjectBaseline(tree);
+    tree.write('packages/pkg-a/notes.md', '# Notes\n');
+    commitAll(tree, 'Update notes');
+    tree.write('packages/pkg-a/index.ts', 'export const pkg_a = "pkg-a";\n\n');
+    commitAll(tree, '## pkg-a|fmt: Reformat the entry point');
+
+    withinFixture(tree.dir, () => {
+      const config = mergeMonorepoConfig(
+        ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
+        { project: {}, changelogJson: { enabled: false } },
+        { exists: true, version: '0.9.1' },
+      );
+
+      const skipped = releasePrepareMono(config, {}).project;
+      assert(skipped?.status === 'skipped', 'expected skipped project');
+      expect(skipped.skipReason).toContain('No bump-worthy commits since v0.9.1');
+      expect(skipped.commitCount).toBe(2);
+      expect(skipped.parsedCommitCount).toBe(0);
+      expect(skipped.unparseableCommits?.map((commit) => commit.subject)).toStrictEqual(['Update notes']);
+
+      const forced = releasePrepareMono(config, { force: true }).project;
+      assert(forced?.status === 'released', 'expected released project');
+      expect(forced.releaseType).toBe('patch');
+      expect(forced.tag).toBe('v0.9.2');
+    });
+  }, 60_000);
+
+  it('bumps from a change-record entry that outranks its title', () => {
+    anchorProjectBaseline(tree);
+    tree.write('packages/pkg-b/guide.md', '# Guide\n');
+    commitAll(
+      tree,
+      [
+        '## pkg-b|docs: Update the guide (#7)',
+        '',
+        '```change-record',
+        'pr_number: 7',
+        'entries:',
+        '  - type: feat',
+        '    text: Adds a guided setup.',
+        '```',
+      ].join('\n'),
+    );
+
+    withinFixture(tree.dir, () => {
+      const config = mergeMonorepoConfig(
+        ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
+        { project: {}, changelogJson: { enabled: false } },
+        { exists: true, version: '0.9.1' },
+      );
+
+      const project = releasePrepareMono(config, {}).project;
+      assert(project?.status === 'released', 'expected released project');
+      expect(project.releaseType).toBe('minor');
+      expect(project.parsedCommitCount).toBe(1);
+      expect(project.tag).toBe('v0.10.0');
     });
   }, 60_000);
 
@@ -470,4 +530,17 @@ function gitStatus(repoDir: string): string {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   }).trim();
+}
+
+/** Tags a `v0.9.1` project baseline past the fixture's workspace commits, behind a `release:` commit. */
+function anchorProjectBaseline(tree: TempTree): void {
+  tree.writeJson('package.json', { name: 'fixture-monorepo', version: '0.9.1', private: true });
+  commitAll(tree, 'release: v0.9.1');
+  execFileSync('git', ['tag', 'v0.9.1'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+/** Stages every change in the fixture and commits it with `message`. */
+function commitAll(tree: TempTree, message: string): void {
+  execFileSync('git', ['add', '-A'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
+  execFileSync('git', ['commit', '--quiet', '-m', message], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
 }

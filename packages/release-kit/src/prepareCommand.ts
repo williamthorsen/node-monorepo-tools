@@ -13,11 +13,12 @@ import {
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
+import { readReleaseHistory } from './buildChangelogEntries.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { configFlagSchema } from './configFlagSchema.ts';
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
-import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
+import { getAllTagPrefixes } from './generateChangelogs.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
 import { mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
 import { loadValidatedConfig, reportConfigProblem, reportConfigWarnings } from './loadValidatedConfig.ts';
@@ -193,20 +194,6 @@ function runSinglePackageMode(
     process.exit(1);
   }
 
-  // The orthogonal `--force` model — release at patch when no commits or no bump-worthy
-  // commits exist — is implemented only in `releasePrepareMono`. The single-package
-  // executor (`releasePrepare`) deliberately retains the legacy `determineBumpFromCommits`
-  // semantics, so a bare `--force` is silently ignored there. Reject it explicitly rather
-  // than letting the user discover the gap from a missing release. `--force --bump=X` is
-  // accepted because the `--bump` override carries the release through unconditionally.
-  if (options.force && options.bumpOverride === undefined) {
-    reportError(
-      '--force without --bump is only supported for monorepo configurations. ' +
-        'Use --bump=major|minor|patch to set the level for a single-package release.',
-    );
-    process.exit(1);
-  }
-
   const config = mergeSinglePackageConfig(userConfig);
   runAndReport(() => releasePrepare(config, options), dryRun, style);
 }
@@ -262,12 +249,8 @@ function runMonorepoMode(
     // the full pre-filter graph.
     const graph = buildDependencyGraph(config.workspaces);
     const violations = validateOnlyExcludesStrandedDependents(config.workspaces, only, graph, (workspace) => {
-      const tagPrefixes = [
-        workspace.tagPrefix,
-        ...(workspace.legacyIdentities?.map((identity) => identity.tagPrefix) ?? []),
-      ];
-      const result = getCommitsSinceTarget(tagPrefixes, workspace.paths);
-      return { has: result.commits.length > 0, tag: result.tag };
+      const history = readReleaseHistory(config, { tagPrefixes: getAllTagPrefixes(workspace), paths: workspace.paths });
+      return { has: history.unreleased.commits.length > 0, tag: history.previousTag };
     });
 
     if (violations !== undefined) {

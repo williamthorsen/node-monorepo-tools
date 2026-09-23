@@ -18,7 +18,7 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-import { buildChangelogEntries } from '../buildChangelogEntries.ts';
+import { buildChangelogEntries, readReleaseHistory, toChangelogEntries } from '../buildChangelogEntries.ts';
 
 const defaultChangelogJsonConfig: ChangelogJsonConfig = {
   enabled: true,
@@ -173,16 +173,20 @@ describe(buildChangelogEntries, () => {
     expect(entries).toHaveLength(1);
   });
 
-  it('reads the windows for the tag prefixes and paths, naming the unreleased one after the tag', () => {
-    mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('foo-v1.0.0', ['#1 feat: Add widget'])]);
+  it('reads the windows for the tag prefixes and paths, naming the unreleased entry after the tag', () => {
+    mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('unreleased', ['#1 feat: Add widget'])]);
 
-    buildChangelogEntries(makeConfig(), 'foo-v1.0.0', { tagPrefixes: ['foo-v', 'old-foo-v'], paths: ['packages/foo'] });
+    const { entries } = buildChangelogEntries(makeConfig(), 'foo-v1.0.0', {
+      tagPrefixes: ['foo-v', 'old-foo-v'],
+      paths: ['packages/foo'],
+    });
 
     expect(mockEnumerateReleaseWindows).toHaveBeenCalledWith({
       paths: ['packages/foo'],
       tagPrefixes: ['foo-v', 'old-foo-v'],
-      unreleasedTag: 'foo-v1.0.0',
+      unreleasedTag: 'unreleased',
     });
+    expect(entries[0]?.version).toBe('1.0.0');
   });
 
   it('reads every path when no paths are given', () => {
@@ -190,16 +194,16 @@ describe(buildChangelogEntries, () => {
 
     buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
 
-    expect(mockEnumerateReleaseWindows).toHaveBeenCalledWith({ tagPrefixes: ['v'], unreleasedTag: 'v1.0.0' });
+    expect(mockEnumerateReleaseWindows).toHaveBeenCalledWith({ tagPrefixes: ['v'], unreleasedTag: 'unreleased' });
   });
 
-  it('wraps thrown errors from the helper with site-specific context', () => {
+  it('wraps thrown errors from the helper with the tag prefixes that it read', () => {
     mockEnumerateReleaseWindows.mockImplementationOnce(() => {
       throw new Error('git log exited with code 1');
     });
 
-    expect(() => buildChangelogEntries(makeConfig(), 'v9.9.9', OPTIONS)).toThrow(
-      'Failed to build changelog entries for tag v9.9.9: git log exited with code 1',
+    expect(() => buildChangelogEntries(makeConfig(), 'v9.9.9', { tagPrefixes: ['v', 'old-v'] })).toThrow(
+      'Failed to read the release history for v, old-v: git log exited with code 1',
     );
   });
 
@@ -712,6 +716,190 @@ entries:
   });
 });
 
+describe(readReleaseHistory, () => {
+  beforeEach(() => {
+    mockEnumerateReleaseWindows.mockReset();
+  });
+
+  describe('bump', () => {
+    it.each([
+      [
+        'a `feat` entry under a `docs` title',
+        [mergeMessage('entries:\n  - type: feat\n    text: Adds.', '#1 docs: Guide')],
+        'minor',
+      ],
+      ['a breaking entry', [mergeMessage('entries:\n  - type: fix\n    breaking: true\n    text: Breaks.')], 'major'],
+      ['a `feat!:` title', ['#1 feat!: Redesign API'], 'major'],
+      ['the highest of several items', ['#1 fix: Patch', '#2 feat: Add', '#3 docs: Guide'], 'minor'],
+      ['a `BREAKING CHANGE:` footer on a `feat` title', ['#1 feat: Add\n\nBREAKING CHANGE: removes /v1'], 'minor'],
+      ['a dev-only section', ['#1 tests: Cover the parser'], 'patch'],
+    ])('is the maximum over the items for %s', (_label, messages, bump) => {
+      expect(readUnreleased(messages).bump).toBe(bump);
+    });
+
+    it.each([
+      ['an unticketed `feat`', ['feat: Add widget']],
+      ['an excluded type', ['#1 fmt: Run prettier']],
+      [
+        'a block whose entries are all undeclared or excluded',
+        [mergeMessage('entries:\n  - type: chore\n    text: T.\n  - type: fmt\n    text: F.')],
+      ],
+      ['no commits', []],
+    ])('is undefined for %s', (_label, messages) => {
+      expect(readUnreleased(messages).bump).toBeUndefined();
+    });
+
+    it('reads only the unreleased window', () => {
+      mockEnumerateReleaseWindows.mockReturnValueOnce([
+        makeWindow('unreleased', ['#2 fix: Current']),
+        makeWindow('v1.0.0', ['#1 feat!: Old']),
+      ]);
+
+      expect(readReleaseHistory(makeConfig(), OPTIONS).unreleased.bump).toBe('patch');
+    });
+
+    it('follows the configured version patterns', () => {
+      mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('unreleased', ['#1 perf: Speed up'])]);
+
+      const history = readReleaseHistory(
+        { ...makeConfig(), versionPatterns: { major: ['!'], minor: ['feat', 'perf'] } },
+        OPTIONS,
+      );
+
+      expect(history.unreleased.bump).toBe('minor');
+    });
+  });
+
+  describe('commits', () => {
+    it('lists the unreleased commits newest first, without release commits', () => {
+      const { commits } = readUnreleased(['#1 feat: First', 'release: v1.1.0', "Merge branch 'main'", '#2 fix: Last']);
+
+      expect(commits.map((commit) => commit.subject)).toStrictEqual([
+        '#2 fix: Last',
+        "Merge branch 'main'",
+        '#1 feat: First',
+      ]);
+    });
+
+    it('names the window below the unreleased one as the previous tag', () => {
+      mockEnumerateReleaseWindows.mockReturnValueOnce([
+        makeWindow('unreleased', ['#2 fix: Current']),
+        makeWindow('v1.1.0', ['#1 feat: Old']),
+        makeWindow('v1.0.0', ['#0 feat: Older']),
+      ]);
+
+      expect(readReleaseHistory(makeConfig(), OPTIONS).previousTag).toBe('v1.1.0');
+    });
+
+    it('has no previous tag when no tag matches', () => {
+      mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('unreleased', ['#1 feat: First'])]);
+
+      expect(readReleaseHistory(makeConfig(), OPTIONS).previousTag).toBeUndefined();
+    });
+  });
+
+  describe('parsed and unparseable commits', () => {
+    it('counts the commits that yield at least one item', () => {
+      const unreleased = readUnreleased([
+        '#1 feat: Add',
+        mergeMessage('entries:\n  - type: fix\n    text: A.\n  - type: tests\n    text: B.'),
+        '#3 fmt: Reformat',
+        'Update readme',
+      ]);
+
+      expect(unreleased.parsedCommitCount).toBe(2);
+    });
+
+    it('lists, newest first, the commits whose titles have no ticket prefix or no resolvable type', () => {
+      const unreleased = readUnreleased(['Update readme', '#1 chore: Tidy', '#2 feat: Add', 'feat: Unticketed']);
+
+      expect(unreleased.unparseableCommits?.map((commit) => commit.subject)).toStrictEqual([
+        'feat: Unticketed',
+        '#1 chore: Tidy',
+        'Update readme',
+      ]);
+    });
+
+    it('lists no commit that an exclusion or a diagnostic accounts for', () => {
+      const unreleased = readUnreleased([
+        'release: v1.1.0',
+        "Merge branch 'main'",
+        '#1 fmt: Reformat',
+        mergeMessage('entries:\n  - type: chore\n    text: Tidies.'),
+        `Squash the branch\n\n${block('entries: 3')}`,
+      ]);
+
+      expect(unreleased.unparseableCommits).toBeUndefined();
+      expect(unreleased.parsedCommitCount).toBe(0);
+    });
+  });
+
+  describe('title policy violations', () => {
+    it.each([
+      ['a bare `drop:`', '#1 drop: Remove the flag', 'drop', 'prefix'],
+      [
+        'a footer on a type that forbids it',
+        '#1 refactor: Rework\n\nBREAKING CHANGE: renames the export',
+        'refactor',
+        'body',
+      ],
+      ['a marker on an excluded type that forbids it', '#1 fmt!: Reformat', 'fmt', 'prefix'],
+      ['a marker on an internal type', '#1 internal!: Refactor the cache', 'internal', 'prefix'],
+    ])('reports %s', (_label, message, type, surface) => {
+      const [subject = ''] = message.split('\n', 1);
+
+      expect(readUnreleased([message]).diagnostics.policyViolations).toStrictEqual([
+        { commitHash: fakeHash(0), commitSubject: subject, type, surface },
+      ]);
+    });
+
+    it('reports nothing when `breakingPolicies` is `{}`', () => {
+      mockEnumerateReleaseWindows.mockReturnValueOnce([
+        makeWindow('unreleased', ['#1 internal!: Refactor the cache', '#2 drop: Remove the flag']),
+      ]);
+
+      const history = readReleaseHistory({ ...makeConfig(), breakingPolicies: {} }, OPTIONS);
+
+      expect(history.unreleased.diagnostics.policyViolations).toStrictEqual([]);
+    });
+
+    it('reports nothing for a released window', () => {
+      mockEnumerateReleaseWindows.mockReturnValueOnce([
+        makeWindow('unreleased', ['#2 fix: Current']),
+        makeWindow('v1.0.0', ['#1 drop: Remove the flag']),
+      ]);
+
+      expect(readReleaseHistory(makeConfig(), OPTIONS).unreleased.diagnostics.policyViolations).toStrictEqual([]);
+    });
+  });
+});
+
+describe(toChangelogEntries, () => {
+  beforeEach(() => {
+    mockEnumerateReleaseWindows.mockReset();
+  });
+
+  it('labels the unreleased window with the tag, ahead of the released entries', () => {
+    mockEnumerateReleaseWindows.mockReturnValueOnce([
+      makeWindow('unreleased', ['#2 fix: Current']),
+      makeWindow('v1.0.0', ['#1 feat: Old']),
+    ]);
+    const history = readReleaseHistory(makeConfig(), OPTIONS);
+
+    expect(toChangelogEntries(history, 'v1.0.1').map((entry) => entry.version)).toStrictEqual(['1.0.1', '1.0.0']);
+  });
+
+  it('omits the unreleased window when it yields no item', () => {
+    mockEnumerateReleaseWindows.mockReturnValueOnce([
+      makeWindow('unreleased', ['#2 fmt: Reformat']),
+      makeWindow('v1.0.0', ['#1 feat: Old']),
+    ]);
+    const history = readReleaseHistory(makeConfig(), OPTIONS);
+
+    expect(toChangelogEntries(history, 'v1.0.1').map((entry) => entry.version)).toStrictEqual(['1.0.0']);
+  });
+});
+
 describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
   beforeEach(() => {
     mockEnumerateReleaseWindows.mockReset();
@@ -789,8 +977,17 @@ function block(payload: string): string {
 }
 
 /** Builds a squash-merge message whose body ends with a `change-record` block. */
-function mergeMessage(payload: string): string {
-  return [MERGE_SUBJECT, '', 'Lede paragraph.', '', block(payload)].join('\n');
+function mergeMessage(payload: string, subject = MERGE_SUBJECT): string {
+  return [subject, '', 'Lede paragraph.', '', block(payload)].join('\n');
+}
+
+/** Reads a history whose only window is an unreleased one holding `messages`, oldest first. */
+function readUnreleased(messages: readonly string[]): ReturnType<typeof readReleaseHistory>['unreleased'] {
+  mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('unreleased', messages)]);
+  return readReleaseHistory(
+    { ...makeConfig(), breakingPolicies: DEFAULT_BREAKING_POLICIES, workTypes: DEFAULT_WORK_TYPES },
+    OPTIONS,
+  ).unreleased;
 }
 
 /** Returns a 40-character hash that encodes an index. */

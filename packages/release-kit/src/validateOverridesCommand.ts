@@ -16,7 +16,7 @@ import type { ChangelogEntry, MonorepoReleaseConfig, ReleaseConfig, ReleaseKitCo
 
 /**
  * Synthetic unreleased-tag label passed to `buildChangelogEntries` during validation. The label
- * names the unreleased window alone; the tag prefixes and paths decide which commits the windows
+ * names the unreleased entry alone; the tag prefixes and paths decide which commits the windows
  * hold. `validate` persists nothing, so any non-empty string is acceptable — a clearly synthetic
  * literal aids debugging if the value ever surfaces.
  */
@@ -148,7 +148,7 @@ function pluralize(count: number, noun: string): string {
   return count === 1 ? `${count} ${noun}` : `${count} ${noun}s`;
 }
 
-/** Delegates to `buildChangelogEntries`, the same function `prepare` uses, under a throwaway tag label. */
+/** Delegates to `buildChangelogEntries`, which reads the release history as `prepare` does, under a throwaway tag label. */
 function defaultBuildEntries(
   config: Pick<ReleaseConfig, 'breakingPolicies' | 'changelogJson' | 'workTypes'>,
   options: GenerateChangelogOptions,

@@ -104,7 +104,7 @@ In single-package mode, prints a single row with `workspacePath = .` and `derive
 
 ## `VersionPatterns`
 
-Defines which commit types trigger major or minor bumps. Any recognized type not listed defaults to a patch bump.
+Defines which work types trigger major or minor bumps. `prepare` applies it to each changelog item of the unreleased window and takes the highest level. An item of a type not listed bumps patch.
 
 ```typescript
 interface VersionPatterns {

@@ -1,4 +1,10 @@
-import type { ParsedCommit, ReleaseType, VersionPatterns, WorkTypeConfig } from './types.ts';
+import type { ReleaseType, VersionPatterns, WorkTypeConfig } from './types.ts';
+
+/** The part of a changelog item or parsed commit that decides its bump: its resolved work type and breaking flag. */
+export interface BumpSignal {
+  type: string;
+  breaking: boolean;
+}
 
 /** Priority of release types, from highest to lowest. */
 const RELEASE_PRIORITY: Record<ReleaseType, number> = {
@@ -8,19 +14,14 @@ const RELEASE_PRIORITY: Record<ReleaseType, number> = {
 };
 
 /**
- * Determines the overall bump type from a set of parsed commits.
+ * Determines the overall bump type from a set of changes, returning undefined when none has a known work type.
  *
- * Uses `versionPatterns` to decide which commit types trigger major/minor bumps.
- * The `'!'` sentinel in `versionPatterns.major` means "any breaking commit triggers major".
- * Any recognized commit type not listed in major or minor patterns defaults to patch.
- *
- * @param commits - The parsed commits to analyze.
- * @param workTypes - The work type configurations to verify recognized types.
- * @param versionPatterns - Rules for determining major and minor bumps.
- * @returns The determined release type, or undefined if no commits match a known work type.
+ * Uses `versionPatterns` to decide which types trigger major/minor bumps.
+ * The `'!'` sentinel in `versionPatterns.major` means "any breaking change triggers major".
+ * Any recognized type not listed in major or minor patterns defaults to patch.
  */
 export function determineBumpType(
-  commits: readonly ParsedCommit[],
+  changes: readonly BumpSignal[],
   workTypes: Record<string, WorkTypeConfig>,
   versionPatterns: VersionPatterns,
 ): ReleaseType | undefined {
@@ -29,24 +30,22 @@ export function determineBumpType(
   let highestPriority = 0;
   let result: ReleaseType | undefined;
 
-  for (const commit of commits) {
+  for (const change of changes) {
     // Breaking changes: check if '!' sentinel is in versionPatterns.major
-    if (commit.breaking && versionPatterns.major.includes('!')) {
+    if (change.breaking && versionPatterns.major.includes('!')) {
       return 'major';
     }
 
-    const commitType = commit.type;
-
     // Skip unrecognized types
-    if (!knownTypes.has(commitType)) {
+    if (!knownTypes.has(change.type)) {
       continue;
     }
 
     // Check if the type itself is listed in major patterns (non-sentinel)
     let bump: ReleaseType;
-    if (versionPatterns.major.includes(commitType)) {
+    if (versionPatterns.major.includes(change.type)) {
       bump = 'major';
-    } else if (versionPatterns.minor.includes(commitType)) {
+    } else if (versionPatterns.minor.includes(change.type)) {
       bump = 'minor';
     } else {
       bump = 'patch';

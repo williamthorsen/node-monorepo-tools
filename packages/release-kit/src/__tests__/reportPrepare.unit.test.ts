@@ -3,7 +3,14 @@ import { describe, expect, it } from 'vitest';
 
 import { bold, dim, sectionHeader } from '../format.ts';
 import { reportPrepare } from '../reportPrepare.ts';
-import type { PolicyViolation, PrepareResult, ReleasedProjectResult, ReleasedWorkspaceResult } from '../types.ts';
+import type {
+  PolicyViolation,
+  PrepareResult,
+  ReleasedProjectResult,
+  ReleasedWorkspaceResult,
+  SkippedProjectResult,
+  SkippedWorkspaceResult,
+} from '../types.ts';
 
 /** The column budget `reportPrepare` cuts a commit subject to. */
 const SUBJECT_COLUMN_BUDGET = 72;
@@ -160,6 +167,7 @@ describe(reportPrepare, () => {
             status: 'skipped',
             previousTag: 'v1.0.0',
             commitCount: 1,
+            parsedCommitCount: 0,
             skipReason: 'No release-worthy changes found. Skipping.',
           },
         ],
@@ -234,7 +242,7 @@ describe(reportPrepare, () => {
       expect(output).not.toContain('Using bump override:');
     });
 
-    it('shows unparseable commit warning when all commits are unparseable (patch floor)', () => {
+    it('shows unparseable commit warning when a forced release has no parsed commit', () => {
       const result: PrepareResult = {
         workspaces: [
           {
@@ -259,7 +267,7 @@ describe(reportPrepare, () => {
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
-      expect(output).toContain('🟠 2 commits could not be parsed (defaulting to patch bump)');
+      expect(output).toContain('🟠 2 commits could not be parsed\n');
       expect(output).toContain('· abc1234 chore: update deps');
       expect(output).toContain('· def5678 misc: tidy up');
     });
@@ -478,6 +486,7 @@ describe(reportPrepare, () => {
             status: 'skipped',
             previousTag: 'strings-v2.0.0',
             commitCount: 0,
+            parsedCommitCount: 0,
             skipReason: 'No changes for strings since strings-v2.0.0. Skipping.',
           },
         ],
@@ -566,6 +575,7 @@ describe(reportPrepare, () => {
             status: 'skipped',
             previousTag: 'arrays-v1.0.0',
             commitCount: 0,
+            parsedCommitCount: 0,
             skipReason: 'No changes for arrays since arrays-v1.0.0. Skipping.',
           },
         ],
@@ -600,7 +610,7 @@ describe(reportPrepare, () => {
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
-      expect(output).toContain('🟠 1 commit could not be parsed (defaulting to patch bump)');
+      expect(output).toContain('🟠 1 commit could not be parsed\n');
       expect(output).toContain('· abc1234 chore: update deps');
     });
 
@@ -844,7 +854,7 @@ describe(reportPrepare, () => {
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
-      expect(output).toContain('🟠 1 commit could not be parsed (defaulting to patch bump)');
+      expect(output).toContain('🟠 1 commit could not be parsed\n');
       expect(output).toContain('· abc1234 wip: undocumented');
     });
 
@@ -874,10 +884,7 @@ describe(reportPrepare, () => {
       expect(output).not.toContain('Generating changelogs...');
     });
 
-    it('renders a skipped project section with parsedCommitCount but suppresses unparseable warnings', () => {
-      // Diagnostic data (parsedCommitCount, unparseableCommits) remains on the structured
-      // result for JSON output and tests, but the terminal rendering for skipped projects
-      // intentionally suppresses these for symmetry with skipped workspace rendering.
+    it('renders a skipped project section with its unparseable commits and no parsed count', () => {
       const result: PrepareResult = {
         workspaces: [],
         tags: [],
@@ -897,8 +904,8 @@ describe(reportPrepare, () => {
       expect(output).toContain(sectionHeader('project'));
       expect(output).toContain(dim('  Found 1 commits since v0.9.0'));
       expect(output).toContain('⏩ No bump-worthy commits since v0.9.0');
-      // Unparseable warning is intentionally suppressed in the skipped rendering.
-      expect(output).not.toContain('could not be parsed');
+      expect(output).toContain('🟠 1 commit could not be parsed\n');
+      expect(output).toContain('· abc1234 chore: deps');
       expect(output).not.toContain('Parsed 0 typed commits');
     });
   });
@@ -1109,6 +1116,8 @@ describe(reportPrepare, () => {
           { commitHash: 'abc1234def', commitSubject: SUBJECT, type: 'drop', surface: 'entry', entryPosition: 3 },
         ],
       };
+    const unparseableCommits = [{ message: 'Update readme', subject: 'Update readme', hash: 'fed4321cba' }];
+    const expectedUnparseableLines = ['1 commit could not be parsed', '· fed4321 Update readme'];
     const expectedLines = [
       '1 change-record block could not be read (item taken from the title):',
       `· abc1234 '${SUBJECT}' — \`entries[0].text\` is missing`,
@@ -1158,6 +1167,45 @@ describe(reportPrepare, () => {
       const output = reportPrepare({ workspaces: [], tags: ['v1.0.1'], project }, { applied: false, style: 'rich' });
 
       for (const line of expectedLines) {
+        expect(output).toContain(line);
+      }
+    });
+
+    it('renders each diagnostic kind and the unparseable commits in a skipped single-package report', () => {
+      const output = reportPrepare(
+        { workspaces: [makeSkippedWorkspace({ ...diagnostics, unparseableCommits })], tags: [] },
+        { applied: false, style: 'rich' },
+      );
+
+      for (const line of [...expectedLines, ...expectedUnparseableLines]) {
+        expect(output).toContain(line);
+      }
+    });
+
+    it('renders each diagnostic kind and the unparseable commits in a skipped monorepo workspace section', () => {
+      const output = reportPrepare(
+        { workspaces: [makeSkippedWorkspace({ name: 'arrays', ...diagnostics, unparseableCommits })], tags: [] },
+        { applied: false, style: 'rich' },
+      );
+
+      for (const line of [...expectedLines, ...expectedUnparseableLines]) {
+        expect(output).toContain(line);
+      }
+    });
+
+    it('renders each diagnostic kind and the unparseable commits in a skipped project section', () => {
+      const project: SkippedProjectResult = {
+        status: 'skipped',
+        commitCount: 2,
+        parsedCommitCount: 0,
+        skipReason: 'No bump-worthy commits since v1.0.0. Skipping.',
+        unparseableCommits,
+        ...diagnostics,
+      };
+
+      const output = reportPrepare({ workspaces: [], tags: [], project }, { applied: false, style: 'rich' });
+
+      for (const line of [...expectedLines, ...expectedUnparseableLines]) {
         expect(output).toContain(line);
       }
     });
@@ -1214,7 +1262,14 @@ describe(reportPrepare, () => {
         name: 'a skipped single package',
         result: {
           workspaces: [
-            { status: 'skipped', commitCount: 1, unparseableCommits, policyViolations, skipReason: 'No changes.' },
+            {
+              status: 'skipped',
+              commitCount: 1,
+              parsedCommitCount: 0,
+              unparseableCommits,
+              policyViolations,
+              skipReason: 'No changes.',
+            },
           ],
           tags: [],
           warnings: ['README.md not found'],
@@ -1226,7 +1281,13 @@ describe(reportPrepare, () => {
           workspaces: [
             { ...released, name: 'arrays', tag: 'arrays-v1.0.1' },
             { ...overridden, name: 'strings', tag: 'strings-v3.0.0' },
-            { status: 'skipped', name: 'numbers', commitCount: 0, skipReason: 'No changes for numbers.' },
+            {
+              status: 'skipped',
+              name: 'numbers',
+              commitCount: 0,
+              parsedCommitCount: 0,
+              skipReason: 'No changes for numbers.',
+            },
           ],
           tags: ['arrays-v1.0.1', 'strings-v3.0.0', 'v0.9.1'],
           formatCommand,
@@ -1251,7 +1312,9 @@ describe(reportPrepare, () => {
       {
         name: 'a monorepo in which nothing is released',
         result: {
-          workspaces: [{ status: 'skipped', name: 'numbers', commitCount: 0, skipReason: 'No changes.' }],
+          workspaces: [
+            { status: 'skipped', name: 'numbers', commitCount: 0, parsedCommitCount: 0, skipReason: 'No changes.' },
+          ],
           tags: [],
           project: {
             status: 'skipped',
@@ -1294,7 +1357,7 @@ describe(reportPrepare, () => {
 
     it('marks a skip with the plain skip marker', () => {
       const result: PrepareResult = {
-        workspaces: [{ status: 'skipped', commitCount: 0, skipReason: 'No changes. Skipping.' }],
+        workspaces: [{ status: 'skipped', commitCount: 0, parsedCommitCount: 0, skipReason: 'No changes. Skipping.' }],
         tags: [],
       };
 
@@ -1324,6 +1387,18 @@ function makeReleasedWorkspace(overrides: Partial<ReleasedWorkspaceResult> = {})
     tag: 'v1.0.1',
     bumpedFiles: ['package.json'],
     changelogFiles: ['./CHANGELOG.md'],
+    ...overrides,
+  };
+}
+
+/** Builds a skipped workspace result, with the given fields overriding a bump-less default. */
+function makeSkippedWorkspace(overrides: Partial<SkippedWorkspaceResult> = {}): SkippedWorkspaceResult {
+  return {
+    status: 'skipped',
+    previousTag: 'v1.0.0',
+    commitCount: 2,
+    parsedCommitCount: 0,
+    skipReason: 'No bump-worthy commits since v1.0.0. Skipping.',
     ...overrides,
   };
 }

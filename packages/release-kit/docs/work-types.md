@@ -48,11 +48,11 @@ Each work-type carries a `breakingPolicy` value:
 
 ### Policy enforcement
 
-`parseCommitMessage` enforces the `!` policy at release time and treats a violation as a warning. Commits already in the log cannot be rewritten, so a policy-violating commit is parsed using its canonical type with `breaking: false` (the `!` is dropped from the parse) and an `onPolicyViolation` callback fires. Callers (`decideRelease` etc.) can collect these warnings and surface them in the release report. A single legacy `internal!` in a year-old log does not block releases.
+`parseCommitMessage` enforces the `!` policy at release time and treats a violation as a warning. Commits already in the log cannot be rewritten, so a policy-violating commit is parsed using its canonical type with `breaking: false` (the `!` is dropped from the parse) and an `onPolicyViolation` callback fires. `readReleaseHistory` collects these warnings while it builds the items of the unreleased window, and the release report lists them. A single legacy `internal!` in a year-old log does not block releases.
 
-A `BREAKING CHANGE:` body footer on a `forbidden`-policy type triggers the same warning path as the prefix `!` does: A type that cannot be breaking is parsed as non-breaking whichever surface carries the signal.
+A `BREAKING CHANGE:` body footer on a `forbidden`-policy type triggers the same warning path as the prefix `!` does: A type that cannot be breaking is parsed as non-breaking whichever surface carries the signal. The warning is all that a footer triggers; it raises no bump (see [`🚨 **Breaking:**` bullet marker](#-breaking-bullet-marker)).
 
-The release-prepare orchestrators (`releasePrepare`, `releasePrepareMono`, `releasePrepareProject`) apply `DEFAULT_BREAKING_POLICIES` automatically. Violations encountered while parsing each workspace's or project's commit window are collected onto the corresponding result's `policyViolations` field and rendered under the section in the prepare report:
+The release-prepare orchestrators (`releasePrepare`, `releasePrepareMono`, `releasePrepareProject`) apply `DEFAULT_BREAKING_POLICIES` automatically. Violations in the titles and change-record entries of each workspace's or project's unreleased window are collected onto the corresponding result's `policyViolations` field, on a skipped result as on a released one, and rendered under the section in the prepare report:
 
 ```
 arrays
@@ -79,7 +79,7 @@ The marker agrees with the version bump:
 - The configured `breakingPolicies` map, `{}` included, decides which types permit the marker.
 - A commit whose type the parser cannot resolve reaches no changelog at all, so no marker question arises.
 
-A `BREAKING CHANGE:` body footer on its own does **not** retroactively mark a changelog item as breaking, even on a type whose policy permits `!`; the changelog signal is tied to the commit prefix. This avoids surprise breaking-marker appearances for older commits written under earlier conventions.
+A `BREAKING CHANGE:` body footer on its own does **not** retroactively mark a changelog item as breaking, even on a type whose policy permits `!`; the changelog signal is tied to the commit prefix. This avoids surprise breaking-marker appearances for older commits written under earlier conventions. The bump follows the items, so a footer raises no major bump either: A consumer that marks breaking changes with the footer alone gets the bump of the commit's type.
 
 The emoji and label of this marker are sourced from the `markers.breaking` entry in `work-types.json` (see [Section markers](#section-markers)) so consumers that render their own breaking-changes section draw from the same SSOT.
 
@@ -99,11 +99,11 @@ Entries store plain text only — the SSOT is format-agnostic, so consumers appl
 
 ## `fmt`
 
-`fmt:` commits are recognized by `parseCommitMessage` (they contribute to a patch bump) but `fmt` carries `excludedFromChangelog: true`, which `DEFAULT_WORK_TYPES` carries onto its `WorkTypeConfig`. `classifyChangelogCommit` rejects a commit whose type sets the flag, so a `fmt:` commit never appears in `CHANGELOG.md`, `changelog.json`, or release notes. The label and emoji are present in `work-types.json` for schema parity with the codeassembly upstream but never render.
+`fmt:` commits are recognized by `parseCommitMessage`, but `fmt` carries `excludedFromChangelog: true`, which `DEFAULT_WORK_TYPES` carries onto its `WorkTypeConfig`. `classifyChangelogCommit` excludes a commit whose type sets the flag, so a `fmt:` commit never appears in `CHANGELOG.md`, `changelog.json`, or release notes. It yields no item, so it raises no bump, and the release report does not list it as unparseable. The label and emoji are present in `work-types.json` for schema parity with the codeassembly upstream but never render.
 
 ## Custom work types
 
-Work types from a config are merged with these defaults by key: a consumer entry overrides or extends, it does not replace the full set. `classifyChangelogCommit` reads the merged record, so an added type reaches the changelog under the `header` it declares, and an entry setting `excludedFromChangelog: true` keeps its commits out. Release-notes sections are rendered in the declaration order of the merged work-types record, with any unknown titles trailing the known ones.
+Work types from a config are merged with these defaults by key: a consumer entry overrides or extends, it does not replace the full set. `classifyChangelogCommit` reads the merged record, so an added type reaches the changelog under the `header` it declares, and an entry setting `excludedFromChangelog: true` keeps its commits out of the changelog and the bump. Release-notes sections are rendered in the declaration order of the merged work-types record, with any unknown titles trailing the known ones.
 
 The default `devOnlySections` (excluded from public release notes but still written to `CHANGELOG.md`) are derived from the `internal` and `process` tiers (excluding `fmt`). Override via `changelogJson.devOnlySections`; matching is decorator-tolerant, so a bare-name override like `['Internal features']` keeps working against the emoji-prefixed default titles.
 

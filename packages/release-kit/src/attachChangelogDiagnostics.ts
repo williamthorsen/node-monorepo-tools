@@ -1,17 +1,11 @@
 import type { ChangelogDiagnostics } from './buildChangelogEntries.ts';
 import type { ReleasedWorkspaceResult } from './types.ts';
 
-/**
- * Attaches a build's diagnostics to a released result, omitting each empty list and appending entry policy violations
- * to those that the bump side collected.
- */
+/** Attaches a history's diagnostics to a released or skipped result, omitting each empty list. */
 export function attachChangelogDiagnostics(
   result: Pick<ReleasedWorkspaceResult, 'malformedBlocks' | 'policyViolations' | 'undeclaredEntryTypes'>,
-  diagnostics: ChangelogDiagnostics | undefined,
+  diagnostics: ChangelogDiagnostics,
 ): void {
-  if (diagnostics === undefined) {
-    return;
-  }
   if (diagnostics.malformedBlocks.length > 0) {
     result.malformedBlocks = diagnostics.malformedBlocks;
   }
@@ -19,6 +13,6 @@ export function attachChangelogDiagnostics(
     result.undeclaredEntryTypes = diagnostics.undeclaredEntryTypes;
   }
   if (diagnostics.policyViolations.length > 0) {
-    result.policyViolations = [...(result.policyViolations ?? []), ...diagnostics.policyViolations];
+    result.policyViolations = diagnostics.policyViolations;
   }
 }

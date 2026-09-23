@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_VERSION_PATTERNS } from '../defaults.ts';
-import { determineBumpType } from '../determineBumpType.ts';
-import type { ParsedCommit, VersionPatterns, WorkTypeConfig } from '../types.ts';
+import { type BumpSignal, determineBumpType } from '../determineBumpType.ts';
+import type { VersionPatterns, WorkTypeConfig } from '../types.ts';
 
 const workTypes: Record<string, WorkTypeConfig> = {
   fix: { header: 'Bug fixes', aliases: ['bugfix'] },
@@ -13,14 +13,8 @@ const workTypes: Record<string, WorkTypeConfig> = {
 
 const versionPatterns = DEFAULT_VERSION_PATTERNS;
 
-function makeCommit(overrides: Partial<ParsedCommit> & Pick<ParsedCommit, 'type'>): ParsedCommit {
-  return {
-    message: `${overrides.type}: test`,
-    hash: 'abc123',
-    description: 'test',
-    breaking: false,
-    ...overrides,
-  };
+function makeCommit(overrides: Partial<BumpSignal> & Pick<BumpSignal, 'type'>): BumpSignal {
+  return { breaking: false, ...overrides };
 }
 
 describe(determineBumpType, () => {
