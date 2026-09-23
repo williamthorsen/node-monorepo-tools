@@ -216,12 +216,13 @@ function showOverridesValidateHelp(): void {
 Usage: release-kit overrides validate
 
 Validate every \`.meta/changelog-overrides.json\` file across the project and per-workspace
-scopes. Reports schema/parse errors, ambiguous-prefix errors, and stale-key warnings.
+scopes. Reports schema/parse errors, ambiguous-prefix errors, conflicting-key errors, and
+stale-key warnings.
 
 Exit codes:
   0    Clean — no errors, no stale keys
   1    Stale-key warnings only (no errors)
-  2    Schema/parse or ambiguous-prefix errors (errors dominate)
+  2    Schema/parse, ambiguous-prefix, or conflicting-key errors (errors dominate)
 
 Options:
   --config <path>  Path to config file (default: .config/release-kit.config.ts)
