@@ -65,7 +65,7 @@ There is no `migration` key: the field is derived from `body`, so an override th
 
 ## Hash-prefix matching
 
-Keys can be either the full 40-character commit SHA or a non-ambiguous prefix. The matcher walks every `ChangelogItem.hash` value present in the entry tree and resolves each override key to its set of matching hashes:
+Keys can be either the full 40-character commit SHA or a non-ambiguous prefix. The matcher collects the distinct `ChangelogItem.hash` values present in the entry tree and resolves each override key to its set of matching hashes. A commit whose [change-record block](changelogs.md#change-record-blocks) yields several items counts as one hit, and the override applies to each of those items:
 
 - **Exact prefix match (1 hit)** — the override applies. A 7-character prefix is usually unambiguous within a single repo's history; longer prefixes are always safe.
 - **No matches (0 hits)** — the override is treated as a stale reference (probably from a rebase or branch deletion) and prepare reports a warning. The release continues.
