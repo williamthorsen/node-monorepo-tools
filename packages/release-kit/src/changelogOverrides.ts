@@ -294,7 +294,6 @@ function resolveOverrideKeys(
   const errors: string[] = [];
   const failedKeys = new Set<string>();
   const itemIdToKey = new Map<string, string>();
-  const overlapItemIds = new Set<string>();
 
   for (const [overrideKey, override] of overrides) {
     const resolution = resolveOverrideKey(overrideKey, positionsByHash);
@@ -317,7 +316,6 @@ function resolveOverrideKeys(
         errors.push(
           `Override key '${overrideKey}' sets ${fieldsSet.join(' and ')} on a commit with several items; use ${ordinalKeys}`,
         );
-        failedKeys.add(overrideKey);
         continue;
       }
     }
@@ -333,12 +331,11 @@ function resolveOverrideKeys(
       errors.push(`Override keys '${claimingKey}' and '${overrideKey}' both match ${target}; keep one`);
       failedKeys.add(claimingKey);
       failedKeys.add(overrideKey);
-      overlapItemIds.add(itemId);
     }
   }
 
   for (const [itemId, overrideKey] of itemIdToKey) {
-    if (failedKeys.has(overrideKey) || overlapItemIds.has(itemId)) {
+    if (failedKeys.has(overrideKey)) {
       itemIdToKey.delete(itemId);
     }
   }
