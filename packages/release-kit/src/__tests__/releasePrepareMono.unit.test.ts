@@ -919,7 +919,9 @@ describe(releasePrepareMono, () => {
         newVersion: '2.0.1',
         commitCount: 0,
         propagatedFrom: [{ packageName: '@test/core', newVersion: '1.1.0' }],
+        propagatedOnly: true,
       });
+      expect(coreResult).not.toHaveProperty('propagatedOnly');
     });
 
     it('writes a synthetic changelog for propagated-only workspaces', () => {
@@ -1255,6 +1257,7 @@ describe(releasePrepareMono, () => {
         releaseType: 'minor',
         propagatedFrom: [{ packageName: '@test/core', newVersion: '1.0.1' }],
       });
+      expect(appResult).not.toHaveProperty('propagatedOnly');
     });
   });
 
@@ -2307,6 +2310,63 @@ describe(releasePrepareMono, () => {
       const coreResult = result.workspaces.find((w) => w.name === 'core');
       expect(arraysResult?.policyViolations).toStrictEqual([prefixViolation]);
       expect(coreResult?.policyViolations).toBeUndefined();
+    });
+
+    it('attaches the skipped history to a workspace that propagation promotes', () => {
+      const coreWorkspace = makeWorkspace({
+        dir: 'core',
+        name: '@test/core',
+        tagPrefix: 'core-v',
+        workspacePath: 'packages/core',
+        packageFiles: ['packages/core/package.json'],
+        changelogPaths: ['packages/core'],
+        paths: ['packages/core/**'],
+      });
+      const config = makeConfig({ workspaces: [coreWorkspace, makeWorkspace()] });
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0', commits: [['feat: add helper', 'aaa1111']], bump: 'minor' },
+        'arrays-v': {
+          previousTag: 'arrays-v1.0.0',
+          commits: [
+            ['Merge PR', 'bbb2222'],
+            ['tidy up', 'ccc3333'],
+          ],
+          unparseableCommits: [['tidy up', 'ccc3333']],
+          diagnostics: {
+            malformedBlocks: [malformedBlock],
+            policyViolations: [entryViolation],
+            undeclaredEntryTypes: [undeclared],
+          },
+        },
+      });
+      mockReadFileSync.mockImplementation((filePath: string) =>
+        filePath.includes('arrays')
+          ? JSON.stringify({ name: '@test/arrays', version: '1.0.0', dependencies: { '@test/core': 'workspace:*' } })
+          : JSON.stringify({ name: '@test/core', version: '1.0.0' }),
+      );
+      mockExistsSync.mockReturnValue(false);
+
+      const result = releasePrepareMono(config, {});
+
+      const arraysResult = result.workspaces.find((w) => w.name === 'arrays');
+      expect(arraysResult).toMatchObject({
+        status: 'released',
+        previousTag: 'arrays-v1.0.0',
+        commitCount: 2,
+        commits: makeStubbedCommits([
+          ['Merge PR', 'bbb2222'],
+          ['tidy up', 'ccc3333'],
+        ]),
+        unparseableCommits: makeStubbedCommits([['tidy up', 'ccc3333']]),
+        malformedBlocks: [malformedBlock],
+        undeclaredEntryTypes: [undeclared],
+        policyViolations: [entryViolation],
+        propagatedOnly: true,
+      });
+      expect(arraysResult?.parsedCommitCount).toBeUndefined();
+      expect(result.workspaces.find((w) => w.name === 'core')).not.toHaveProperty('propagatedOnly');
+      expect(mockBuildSyntheticChangelogEntry).toHaveBeenCalledTimes(1);
+      expect(result.summary).toContain('arrays-v1.0.1\n- Merge PR\n- tidy up');
     });
   });
 

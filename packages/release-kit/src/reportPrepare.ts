@@ -264,7 +264,7 @@ function formatWorkspaceSection(
   }
 
   const { propagatedFrom } = workspace;
-  const isPropagatedOnly = propagatedFrom !== undefined && workspace.commitCount === 0;
+  const isPropagatedOnly = workspace.propagatedOnly === true;
 
   formatCommitSummary(lines, workspace, propagatedFrom, isPropagatedOnly);
   formatUnparseableWarning(lines, workspace, style, '  ');
@@ -281,7 +281,7 @@ function formatWorkspaceSection(
   lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(workspace.tag))}`);
 }
 
-/** Append the commit-count summary line for a workspace (propagation-only or parsed counts). */
+/** Append the line under the commit count: the dependencies behind a propagation-only bump, or the parsed count. */
 function formatCommitSummary(
   lines: string[],
   workspace: ReleasedWorkspaceResult,
@@ -290,7 +290,7 @@ function formatCommitSummary(
 ): void {
   if (isPropagatedOnly && propagatedFrom !== undefined) {
     const depNames = propagatedFrom.map((p) => p.packageName).join(', ');
-    lines.push(dim(`  0 commits (bumped via dependency: ${depNames})`));
+    lines.push(dim(`  Bumped via dependency: ${depNames}`));
   } else if (workspace.parsedCommitCount !== undefined && workspace.parsedCommitCount > 0) {
     // Suppress "Parsed 0 typed commits", which says nothing about a forced release with no
     // parsed commit.
