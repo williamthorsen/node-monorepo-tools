@@ -51,6 +51,7 @@ vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
 }));
 
 import type { ChangelogDiagnostics } from '../buildChangelogEntries.ts';
+import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
 import { releasePrepare, type ReleasePrepareOptions } from '../releasePrepare.ts';
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
@@ -531,7 +532,7 @@ describe(releasePrepare, () => {
     expect(plan.workspaces[0]).toMatchObject({ previewFiles: ['docs/RELEASE_NOTES.v1.1.0.md'] });
   });
 
-  describe('empty-range (--force / --set-version with zero commits)', () => {
+  describe('window that yields no item (--force / --set-version)', () => {
     /** Stubs a history whose tag has no commits above it, over a package at 1.0.0. */
     function stubEmptyRange(): void {
       stubHistory({ previousTag: 'v1.0.0' });
@@ -586,7 +587,31 @@ describe(releasePrepare, () => {
       );
     });
 
-    it("upserts only the synthetic entry into changelog.json, leaving out the history's released entries", () => {
+    it.each([
+      ['--force', { force: true }, '1.0.1'],
+      ['--set-version', { setVersion: '2.0.0' }, '2.0.0'],
+    ])(
+      'writes the synthetic entry under %s when the window has commits but yields no item',
+      (_label, options, version) => {
+        stubHistory({
+          previousTag: 'v1.0.0',
+          commits: [
+            ['fmt: reformat', 'abc123'],
+            ['update readme', 'def456'],
+          ],
+        });
+        stubPackageVersion('1.0.0');
+
+        releasePrepare(makeConfig(), options);
+
+        expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
+          [{ ...buildEmptyReleaseEntry(version, ''), date: expect.any(String) }],
+          expect.anything(),
+        );
+      },
+    );
+
+    it("upserts the synthetic entry into changelog.json ahead of the history's released entries", () => {
       stubHistory({
         previousTag: 'v1.0.0',
         releasedEntries: [{ version: '1.0.0', date: '2023-12-01', sections: [featureSection] }],
@@ -610,6 +635,7 @@ describe(releasePrepare, () => {
             },
           ],
         },
+        { version: '1.0.0', sections: [featureSection] },
       ]);
     });
 

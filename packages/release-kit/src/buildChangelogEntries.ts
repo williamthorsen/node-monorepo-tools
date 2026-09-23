@@ -1,5 +1,6 @@
 import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
+import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { extractVersion } from './changelogJsonUtils.ts';
 import { classifyChangelogCommit, isNonChangeSubject, isReleaseSubject } from './classifyChangelogCommit.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
@@ -159,6 +160,18 @@ export function toChangelogEntries(history: ReleaseHistory, tag: string): Change
     { version: extractVersion(tag), date: unreleased.date, sections: unreleased.sections },
     ...history.releasedEntries,
   ];
+}
+
+/**
+ * Returns the entries that a direct release tagged `tag` records: those of `toChangelogEntries`, or, when the
+ * unreleased window yields no item, the synthetic "Forced version bump." entry dated `today` ahead of the released
+ * entries.
+ */
+export function toReleaseEntries(history: ReleaseHistory, tag: string, today: string): ChangelogEntry[] {
+  if (history.unreleased.sections.length === 0) {
+    return [buildEmptyReleaseEntry(extractVersion(tag), today), ...history.releasedEntries];
+  }
+  return toChangelogEntries(history, tag);
 }
 
 /** What every window's read shares. */

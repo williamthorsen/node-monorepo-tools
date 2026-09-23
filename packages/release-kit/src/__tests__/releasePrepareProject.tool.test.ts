@@ -231,6 +231,49 @@ describe('releasePrepareProject (tool)', () => {
     });
   }, 60_000);
 
+  it('records a forced release whose window yields no item, and keeps its entry through the next release', () => {
+    anchorProjectBaseline(tree);
+    tree.write('packages/pkg-a/notes.md', '# Notes\n');
+    commitAll(tree, 'Update notes');
+    tree.write('packages/pkg-a/index.ts', 'export const pkg_a = "pkg-a";\n\n');
+    commitAll(tree, '## pkg-a|fmt: Reformat the entry point');
+
+    withinFixture(tree.dir, () => {
+      const forcedConfig = mergeMonorepoConfig(
+        ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
+        { project: {} },
+        { exists: true, version: '0.9.1' },
+      );
+      const forced = prepareAndApply(forcedConfig, { force: true }).project;
+      assert(forced?.status === 'released', 'expected released project');
+      expect(forced.tag).toBe('v0.9.2');
+      expect(readFileSync(join(tree.dir, 'CHANGELOG.md'), 'utf8')).toMatch(
+        /## 0\.9\.2 — [\d-]+\n\n### Notes\n\n- Forced version bump\./,
+      );
+
+      commitAll(tree, 'release: v0.9.2');
+      execFileSync('git', ['tag', 'v0.9.2'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
+      tree.write('packages/pkg-b/widget.ts', 'export const widget = true;\n');
+      commitAll(tree, '## pkg-b|feat: Add widget');
+
+      const nextConfig = mergeMonorepoConfig(
+        ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
+        { project: {} },
+        { exists: true, version: '0.9.2' },
+      );
+      const next = prepareAndApply(nextConfig, {}).project;
+      assert(next?.status === 'released', 'expected released project');
+      expect(next.tag).toBe('v0.10.0');
+
+      const written: Array<{ version: string; sections: Array<{ items: Array<{ description: string }> }> }> =
+        JSON.parse(readFileSync(join(tree.dir, '.meta', 'changelog.json'), 'utf8'));
+      expect(written.map((entry) => entry.version)).toContain('0.10.0');
+      expect(written.find((entry) => entry.version === '0.9.2')?.sections[0]?.items).toStrictEqual([
+        { description: 'Forced version bump.' },
+      ]);
+    });
+  }, 60_000);
+
   it('bumps from a change-record entry that outranks its title', () => {
     anchorProjectBaseline(tree);
     tree.write('packages/pkg-b/guide.md', '# Guide\n');
@@ -316,8 +359,7 @@ describe('releasePrepareProject (tool)', () => {
     });
   }, 60_000);
 
-  it('overwrites an unparseable existing root changelog.json without warning (no-read at project stage)', () => {
-    // No warning is possible: the stage renders from the built entries alone and never parses the existing file.
+  it("warns about an unparseable existing root changelog.json and replaces it with the history's entries", () => {
     withinFixture(tree.dir, () => {
       const changelogJsonPath = tree.write('.meta/changelog.json', '{this is not valid JSON');
 
@@ -331,9 +373,8 @@ describe('releasePrepareProject (tool)', () => {
 
       prepareAndApply(config, {});
 
-      expect(listConsoleLines(silent.warn).join('\n')).not.toContain('could not parse existing');
+      expect(listConsoleLines(silent.warn).join('\n')).toContain('could not parse existing');
 
-      // The file was overwritten with entries built from history (valid JSON).
       const written = readFileSync(changelogJsonPath, 'utf8');
       const parsed: Array<{ version: string }> = JSON.parse(written);
       expect(Array.isArray(parsed)).toBe(true);

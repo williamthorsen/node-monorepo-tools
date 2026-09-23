@@ -1,4 +1,3 @@
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
@@ -49,6 +48,7 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
   planReleaseNotesPreviews: mockPlanReleaseNotesPreviews,
 }));
 
+import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
 import type { PlannedWrite } from '../releasePlan.ts';
 import { releasePrepareProject } from '../releasePrepareProject.ts';
@@ -393,9 +393,16 @@ describe(releasePrepareProject, () => {
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
-  it("renders the root changelog.json from the history's entries alone, with no read-merge", () => {
-    // The project stage overwrites rather than merging, so a malformed existing file cannot
-    // silently discard entries.
+  it("renders the root changelog.json from the history's entries merged with the entries on disk", () => {
+    const earlierForcedEntry: ChangelogEntry = {
+      version: '0.8.1',
+      date: '2023-11-01',
+      sections: [{ title: 'Notes', audience: 'dev', items: [{ description: 'Forced version bump.' }] }],
+    };
+    mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: ChangelogEntry[]) => [
+      ...entries,
+      earlierForcedEntry,
+    ]);
     stubDefaultHistory({ releasedEntries: [RELEASED_ENTRY] });
     const config = makeConfig({
       changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
@@ -410,36 +417,12 @@ describe(releasePrepareProject, () => {
       tags: [],
     });
 
-    expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
-    expect(mockRenderChangelogJson).toHaveBeenCalledWith([NEW_ENTRY, RELEASED_ENTRY]);
-    expect(mockMergeChangelogEntriesWithDisk).not.toHaveBeenCalled();
+    expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith('./.meta/changelog.json', [
+      NEW_ENTRY,
+      RELEASED_ENTRY,
+    ]);
+    expect(mockRenderChangelogJson).toHaveBeenCalledExactlyOnceWith([NEW_ENTRY, RELEASED_ENTRY, earlierForcedEntry]);
     expect(modifiedFiles).toContain('./.meta/changelog.json');
-  });
-
-  it('does not warn or short-circuit when the existing root changelog.json is unparseable', () => {
-    // Acceptance criterion from ticket #324: "an unparseable existing root `changelog.json`
-    // does NOT cause a warning or affect output (because it's not read)".
-    stubDefaultHistory();
-    const config = makeConfig({
-      changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
-    });
-    mockExistsSync.mockImplementation((path: string) => path.endsWith('/.meta/changelog.json'));
-    mockReadFileSync.mockImplementation((path: string) => {
-      if (typeof path === 'string' && path.endsWith('/.meta/changelog.json')) return '{invalid json';
-      return JSON.stringify({ name: 'root', version: '0.9.0' });
-    });
-    using silent = silenceConsole(['warn']);
-
-    releasePrepareProject({
-      config,
-      options: {},
-      modifiedFiles: [],
-      writes: [],
-      tags: [],
-    });
-
-    expect(silent.warn).not.toHaveBeenCalled();
-    expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
   });
 
   it('emits release-notes previews when --with-release-notes is set and changelogJson.enabled', () => {
@@ -539,11 +522,9 @@ describe(releasePrepareProject, () => {
     expect(mockReadReleaseHistory).not.toHaveBeenCalled();
   });
 
-  describe('empty-range project release', () => {
-    // Project-stage counterpart to the per-workspace empty-range branch: when `--force` /
-    // `--bump=X` triggers a project release with zero qualifying commits since the last
-    // project tag, a synthetic "Notes / Forced version bump." entry stands in for the
-    // release windows.
+  describe('project release whose window yields no item', () => {
+    // When `--force` triggers a project release although the unreleased window yields no
+    // changelog item, a synthetic "Notes / Forced version bump." entry stands in for that window.
 
     it('writes a synthetic Notes / Forced version bump entry for the root CHANGELOG when --force is used with no commits', () => {
       stubHistory({ previousTag: 'v0.9.0' });
@@ -579,7 +560,30 @@ describe(releasePrepareProject, () => {
       );
     });
 
-    it("reads the history once and renders the synthetic entry in place of the history's windows", () => {
+    it('writes the synthetic entry under --force when the window has commits but yields no item', () => {
+      stubHistory({
+        previousTag: 'v0.9.0',
+        commits: [
+          ['fmt: reformat', 'abc123'],
+          ['update readme', 'def456'],
+        ],
+      });
+
+      releasePrepareProject({
+        config: makeConfig(),
+        options: { force: true },
+        modifiedFiles: [],
+        writes: [],
+        tags: [],
+      });
+
+      expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
+        [{ ...buildEmptyReleaseEntry('0.9.1', ''), date: expect.any(String) }],
+        expect.anything(),
+      );
+    });
+
+    it("reads the history once and renders the synthetic entry ahead of the history's released entries", () => {
       stubHistory({ previousTag: 'v0.9.0', releasedEntries: [RELEASED_ENTRY] });
       const config = makeConfig();
 
@@ -593,7 +597,7 @@ describe(releasePrepareProject, () => {
 
       expectOneHistoryRead(config, ['packages/arrays/**', 'packages/strings/**']);
       expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
-        [expect.objectContaining({ version: '0.9.1' })],
+        [expect.objectContaining({ version: '0.9.1' }), RELEASED_ENTRY],
         expect.anything(),
       );
     });
@@ -610,8 +614,6 @@ describe(releasePrepareProject, () => {
         tags: [],
       });
 
-      // Empty-range branch merges the new synthetic entry with on-disk entries (preserving
-      // any prior synthetic entries), then writes the merged set fresh.
       expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
       expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
       const writeEntries = mockRenderChangelogJson.mock.calls[0]?.[0];
@@ -654,18 +656,17 @@ describe(releasePrepareProject, () => {
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 
-    it('keeps non-empty-range project releases on the release-window path (no regression)', () => {
+    it("renders a window that yields items from the history's entries, with no synthetic entry", () => {
       stubDefaultHistory();
 
       releasePrepareProject({
         config: makeConfig(),
-        options: {},
+        options: { force: true },
         modifiedFiles: [],
         writes: [],
         tags: [],
       });
 
-      expect(mockMergeChangelogEntriesWithDisk).not.toHaveBeenCalled();
       expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith([NEW_ENTRY], expect.anything());
     });
 

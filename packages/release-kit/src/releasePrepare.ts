@@ -1,8 +1,7 @@
 import { join as joinPath } from 'node:path';
 
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
-import { readReleaseHistory, type ReleaseHistory, toChangelogEntries } from './buildChangelogEntries.ts';
-import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
+import { readReleaseHistory, type ReleaseHistory, toReleaseEntries } from './buildChangelogEntries.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import {
@@ -134,15 +133,13 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   const newTag = `${config.tagPrefix}${bump.newVersion}`;
 
   // 4/4b. Generate the CHANGELOG.md files and (optionally) changelog.json. When the release
-  // proceeds with zero commits since the last tag (`--force` or `--set-version` with no new
-  // commits), the routing helper writes the synthetic
-  // "Forced version bump." entry in place of the release windows.
+  // proceeds although its window yields no changelog item (`--force` or `--set-version`), the
+  // planner records the synthetic "Forced version bump." entry for the new version.
   const planWarnings: string[] = [];
   const changelogs = planSinglePackageChangelogs({
     config,
     history,
     newTag,
-    newVersion: bump.newVersion,
     overrides,
     overrideWarnings: planWarnings,
   });
@@ -278,14 +275,13 @@ interface PlanSinglePackageChangelogsArgs {
   config: ReleaseConfig;
   history: ReleaseHistory;
   newTag: string;
-  newVersion: string;
   overrides: Map<string, ChangelogOverride>;
   /** Mutated in-place to surface override warnings (zero-match keys) on the plan. */
   overrideWarnings: string[];
 }
 
 /**
- * Single-package changelog planner. Builds entries (from release windows or synthetic empty-range), applies
+ * Single-package changelog planner. Builds entries (from release windows, or the synthetic entry when the unreleased window yields no item), applies
  * editorial overrides, and renders both `changelog.json` and `CHANGELOG.md` from the merged set
  * so the two artifacts reflect the same post-override view.
  *
@@ -300,11 +296,10 @@ function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
   entries: ChangelogEntry[];
   writes: PlannedWrite[];
 } {
-  const { config, history, newTag, newVersion, overrides, overrideWarnings } = args;
-  const isEmptyRange = history.unreleased.commits.length === 0;
+  const { config, history, newTag, overrides, overrideWarnings } = args;
   const today = new Date().toISOString().slice(0, 10);
 
-  const builtEntries = isEmptyRange ? [buildEmptyReleaseEntry(newVersion, today)] : toChangelogEntries(history, newTag);
+  const builtEntries = toReleaseEntries(history, newTag, today);
   const applied = applyChangelogOverrides(builtEntries, overrides);
   if (applied.errors.length > 0) {
     throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);

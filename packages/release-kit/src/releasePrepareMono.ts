@@ -3,9 +3,8 @@ import { join as joinPath } from 'node:path';
 import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
-import { readReleaseHistory, type ReleaseHistory, toChangelogEntries } from './buildChangelogEntries.ts';
+import { readReleaseHistory, type ReleaseHistory, toReleaseEntries } from './buildChangelogEntries.ts';
 import { buildDependencyGraph, type DependencyGraph } from './buildDependencyGraph.ts';
-import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
 import { buildSyntheticChangelogEntry } from './buildSyntheticChangelogEntry.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
@@ -565,8 +564,8 @@ interface GenerateWorkspaceChangelogsArgs {
 }
 
 /**
- * Plan a workspace's changelog artifacts by routing to one of three branches to build the new
- * entries (propagation-only synthetic, empty-range synthetic, or release windows), applying editorial
+ * Plan a workspace's changelog artifacts by building the new entries (propagation-only synthetic, or release
+ * windows with the synthetic forced-release entry when the unreleased window yields no item), applying editorial
  * overrides, merging with the JSON on disk, and rendering both `changelog.json` and
  * `CHANGELOG.md` from the merged set so the two reflect the same post-override view.
  */
@@ -632,11 +631,10 @@ interface BuildWorkspaceEntriesArgs {
 }
 
 /**
- * Build the new `ChangelogEntry[]` for a workspace from one of three sources:
+ * Build the new `ChangelogEntry[]` for a workspace from one of two sources:
  * 1. Propagation-only: a single synthetic "Dependency updates" entry.
- * 2. Empty-range: a single synthetic "Forced version bump." entry, for a direct release whose unreleased window
- *    holds no commit (`--force`, `--bump=X`, or `--set-version` with no new commits).
- * 3. Direct bump with commits: the workspace's release history.
+ * 2. Direct release: the workspace's release history, with the synthetic "Forced version bump." entry in place of
+ *    the unreleased window when that window yields no item (`--force`, `--bump=X`, or `--set-version`).
  *
  * Returns the entries that will be merged into the on-disk JSON and rendered.
  */
@@ -650,11 +648,7 @@ function buildWorkspaceEntries(args: BuildWorkspaceEntriesArgs): ChangelogEntry[
     return [buildSyntheticChangelogEntry(releaseEntry.propagatedFrom, newVersion, today)];
   }
 
-  if (history.unreleased.commits.length === 0) {
-    return [buildEmptyReleaseEntry(newVersion, today)];
-  }
-
-  return toChangelogEntries(history, newTag);
+  return toReleaseEntries(history, newTag, today);
 }
 
 /**

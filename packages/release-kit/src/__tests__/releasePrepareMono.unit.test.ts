@@ -727,7 +727,10 @@ describe(releasePrepareMono, () => {
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
-    expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith(expect.any(String), [FORCED_BUMP_ENTRY]);
+    expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith(expect.any(String), [
+      FORCED_BUMP_ENTRY,
+      RELEASED_ENTRY,
+    ]);
   });
 
   it('does not run formatCommand when no workspaces have commits', () => {
@@ -1255,10 +1258,10 @@ describe(releasePrepareMono, () => {
     });
   });
 
-  describe('empty-range releases', () => {
-    // When a workspace is forced to release (`--force`, `--bump=X`, or `--set-version`) with
-    // zero qualifying commits since its last tag, a synthetic "Notes / Forced version bump."
-    // entry stands in for the release windows, whose newest window holds nothing to render.
+  describe('releases whose window yields no item', () => {
+    // When a workspace is forced to release (`--force`, `--bump=X`, or `--set-version`) although
+    // its unreleased window yields no changelog item, a synthetic "Notes / Forced version bump."
+    // entry stands in for that window.
 
     /** Helper config with one empty-range workspace. */
     function singleWorkspaceConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
@@ -1295,7 +1298,32 @@ describe(releasePrepareMono, () => {
       expect(result.writes.map((write) => write.path)).toContain('packages/arrays/CHANGELOG.md');
     });
 
-    it("builds an empty-range workspace's changelog from the synthetic entry alone, not its history", () => {
+    it.each([
+      ['--force', { force: true }, '1.0.1'],
+      ['--set-version', { setVersion: '2.0.0' }, '2.0.0'],
+    ])(
+      'writes the synthetic entry under %s when the window has commits but yields no item',
+      (_label, options, version) => {
+        stubEmptyRange();
+        stubHistory({
+          previousTag: 'arrays-v1.0.0',
+          commits: [
+            ['fmt: reformat', 'abc123'],
+            ['update readme', 'def456'],
+          ],
+        });
+
+        const result = releasePrepareMono(singleWorkspaceConfig(), options);
+
+        expect(result.tags).toStrictEqual([`arrays-v${version}`]);
+        expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledExactlyOnceWith(version, expect.any(String));
+        expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith(expect.any(String), [
+          FORCED_BUMP_ENTRY,
+        ]);
+      },
+    );
+
+    it("puts the synthetic entry ahead of the workspace's released entries", () => {
       stubEmptyRange();
       stubHistory({ previousTag: 'arrays-v1.0.0', releasedEntries: [RELEASED_ENTRY] });
 
@@ -1305,6 +1333,7 @@ describe(releasePrepareMono, () => {
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledExactlyOnceWith('1.1.0', expect.any(String));
       expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith(expect.any(String), [
         FORCED_BUMP_ENTRY,
+        RELEASED_ENTRY,
       ]);
       expect(mockReadReleaseHistory).toHaveBeenCalledTimes(1);
     });
@@ -1360,7 +1389,12 @@ describe(releasePrepareMono, () => {
       });
 
       stubHistoryByPrefix({
-        'core-v': { previousTag: 'core-v1.0.0', commits: [['fix: bug fix', 'abc123']], bump: 'patch' },
+        'core-v': {
+          previousTag: 'core-v1.0.0',
+          commits: [['fix: bug fix', 'abc123']],
+          bump: 'patch',
+          sections: [{ title: 'Bug fixes', audience: 'all', items: [{ description: 'Bug fix', hash: 'abc123' }] }],
+        },
         'app-v': { previousTag: 'app-v1.0.0' },
       });
       mockReadFileSync.mockImplementation((filePath: string) => {
