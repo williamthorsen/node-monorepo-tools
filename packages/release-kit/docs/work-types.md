@@ -32,7 +32,7 @@ Section render order is **tier order (`public` → `internal` → `process`), th
 
 ## Subject forms
 
-`classifyChangelogCommit` resolves a commit's type through `parseCommitMessage`, so a subject reaches its section under any form that parser accepts: `type:`, `scope|type:`, and the conventional-commit `type(scope):`. The type is matched case-insensitively, so `Feat:` and `FEAT:` resolve like `feat:`. The ticket-ID prefix is still required, and an alias resolves before the section is chosen.
+`classifyChangelogCommit` resolves a commit's type through `parseCommitMessage`, so a subject reaches its section under any form that parser accepts: `type:`, `scope|type:`, and the conventional-commit `type(scope):`. The type is matched case-insensitively, so `Feat:` and `FEAT:` resolve like `feat:`. The ticket-ID prefix is still required, and an alias resolves before the section is chosen. A commit whose [change-record block](changelogs.md#change-record-blocks) records entries takes its sections from the entries' types instead of from its subject.
 
 ## `utility` alias
 

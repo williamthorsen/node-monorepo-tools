@@ -184,6 +184,19 @@ describe(applyChangelogOverrides, () => {
     expect(result.entries[0]?.sections[0]?.items[0]?.description).toBe('Item abc111');
   });
 
+  it("applies a key to every item of one commit, since a commit's several items share its hash", () => {
+    const entries = [makeEntry(['abc111', 'abc111', 'def222'])];
+    const overrides = new Map([['abc', { description: 'Same commit' }]]);
+    const result = applyChangelogOverrides(entries, overrides);
+    expect(result.errors).toStrictEqual([]);
+    expect(result.matchedKeys).toStrictEqual(['abc']);
+    expect(result.entries[0]?.sections[0]?.items.map((item) => item.description)).toStrictEqual([
+      'Same commit',
+      'Same commit',
+      'Item def222',
+    ]);
+  });
+
   it('omits a zero-match key from matchedKeys (caller decides whether to warn)', () => {
     const entries = [makeEntry(['abc111'])];
     const overrides = new Map([['xyz999', { description: 'Stale' }]]);
@@ -294,6 +307,37 @@ describe(applyChangelogOverrides, () => {
     const overrides = new Map([['abc1234', { description: 'Reworded headline' }]]);
     const result = applyChangelogOverrides(entries, overrides);
     expect(result.entries[0]?.sections[0]?.items[0]?.migration).toBe('Import from the new subpath.');
+  });
+
+  it("keeps each change-record entry's migration when a body override applies to the commit's items", () => {
+    const entries: ChangelogEntry[] = [
+      {
+        version: '1.0.0',
+        date: '2024-01-01',
+        sections: [
+          {
+            title: 'Features',
+            audience: 'all',
+            items: [
+              { description: 'First', migration: 'Rename `a` to `b`.', hash: 'abc1234', entry: 1 },
+              { description: 'Second', hash: 'abc1234', entry: 2 },
+            ],
+          },
+        ],
+      },
+    ];
+    const overrides = new Map([['abc1234', { body: 'Migration: Replaced prose.' }]]);
+    const result = applyChangelogOverrides(entries, overrides);
+    expect(result.entries[0]?.sections[0]?.items).toStrictEqual([
+      {
+        description: 'First',
+        body: 'Migration: Replaced prose.',
+        migration: 'Rename `a` to `b`.',
+        hash: 'abc1234',
+        entry: 1,
+      },
+      { description: 'Second', body: 'Migration: Replaced prose.', hash: 'abc1234', entry: 2 },
+    ]);
   });
 
   it('toggles breaking on an existing item', () => {

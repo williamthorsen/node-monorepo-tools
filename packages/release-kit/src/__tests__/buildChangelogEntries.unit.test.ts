@@ -45,7 +45,7 @@ describe(buildChangelogEntries, () => {
       makeWindow('v1.0.0', ['#1 feat: Add new feature', '#2 fix: Fix a bug', '#3 ci: Update pipeline']),
     ]);
 
-    const entries = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
+    const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
 
     expect(entries).toHaveLength(1);
     expect(entries[0]?.version).toBe('1.0.0');
@@ -65,7 +65,7 @@ describe(buildChangelogEntries, () => {
       makeWindow('v1.0.0', ['#1 feat: Released']),
     ]);
 
-    const entries = buildChangelogEntries(makeConfig(), 'v1.1.0', OPTIONS);
+    const { entries } = buildChangelogEntries(makeConfig(), 'v1.1.0', OPTIONS);
 
     expect(entries.map(({ version, date }) => ({ version, date }))).toStrictEqual([
       { version: '1.1.0', date: '2024-03-09' },
@@ -78,7 +78,7 @@ describe(buildChangelogEntries, () => {
       makeWindow('v2.0.0', ['#1 feat: Feature', '#2 deps: Bump deps', '#3 tests: Add test', '#4 fix: Bug fix']),
     ]);
 
-    const entries = buildChangelogEntries(makeConfig(), 'v2.0.0', OPTIONS);
+    const { entries } = buildChangelogEntries(makeConfig(), 'v2.0.0', OPTIONS);
 
     const audiences = Object.fromEntries(entries[0]?.sections.map((s) => [s.title, s.audience]) ?? []);
     expect(audiences).toStrictEqual({
@@ -97,7 +97,7 @@ describe(buildChangelogEntries, () => {
       makeWindow('v1.0.0', ['#1 feat: User-facing thing', '#2 internal: Plumbing change', '#3 deps: Bump deps']),
     ]);
 
-    const entries = buildChangelogEntries(
+    const { entries } = buildChangelogEntries(
       makeConfig({ devOnlySections: ['Internal features', 'Dependencies'] }),
       'v1.0.0',
       OPTIONS,
@@ -125,7 +125,7 @@ describe(buildChangelogEntries, () => {
       ]),
     ]);
 
-    const entries = buildChangelogEntries(makeConfig(), 'v3.0.0', OPTIONS);
+    const { entries } = buildChangelogEntries(makeConfig(), 'v3.0.0', OPTIONS);
 
     const titles = entries[0]?.sections.map((s) => s.title);
     expect(titles).toStrictEqual(['🎉 Features', '🐛 Bug fixes', '🏗️ Internal features', '👷 CI', '📚 Documentation']);
@@ -134,7 +134,7 @@ describe(buildChangelogEntries, () => {
   it('preserves the full first line when no colon-space pair separates the description', () => {
     mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', ['#1 feat:Add new feature'])]);
 
-    const entries = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
+    const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
 
     expect(entries[0]?.sections[0]?.items[0]?.description).toBe('#1 feat:Add new feature');
   });
@@ -153,7 +153,7 @@ describe(buildChangelogEntries, () => {
       ]),
     ]);
 
-    const entries = buildChangelogEntries(makeConfig(), 'v1.1.0', OPTIONS);
+    const { entries } = buildChangelogEntries(makeConfig(), 'v1.1.0', OPTIONS);
 
     expect(entries).toHaveLength(1);
     expect(entries[0]?.version).toBe('1.0.0');
@@ -166,7 +166,7 @@ describe(buildChangelogEntries, () => {
     // Persistence is the caller's concern, so this helper never short-circuits.
     mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', ['#1 feat: Add widget'])]);
 
-    const entries = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
+    const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
 
     expect(mockEnumerateReleaseWindows).toHaveBeenCalledTimes(1);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -220,7 +220,7 @@ describe(buildChangelogEntries, () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([
         { version: 'v1.0.0', timestamp: 1_700_000_000, commits: [makeCommit('#1 feat: Add widget', hash)] },
       ]);
-      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
+      const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
       expect(entries[0]?.sections[0]?.items[0]?.hash).toBe(hash);
     });
   });
@@ -228,31 +228,31 @@ describe(buildChangelogEntries, () => {
   describe('breaking marker', () => {
     it('sets breaking: true for a `feat!:` commit', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', ['#1 feat!: Redesign API'])]);
-      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
+      const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
       expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
     });
 
     it('omits breaking for a `feat:` commit (no `!`)', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', ['#1 feat: Add widget'])]);
-      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
+      const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
       expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
     });
 
     it('sets breaking: true for a `drop!:` commit', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', ['#1 drop!: Remove legacy endpoint'])]);
-      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
+      const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
       expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
     });
 
     it('sets breaking: true for a scoped `type(scope)!:` commit', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', ['#1 feat(api)!: Redesign endpoint'])]);
-      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
+      const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
       expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
     });
 
     it('sets breaking: true for a pipe-scoped `scope|type!:` commit', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', ['#1 web|feat!: Reshape API'])]);
-      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
+      const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
       expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
     });
 
@@ -260,7 +260,7 @@ describe(buildChangelogEntries, () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([
         makeWindow('v1.0.0', ['#1 feat: Add widget\n\nBREAKING CHANGE: removes /v1 path']),
       ]);
-      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
+      const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
       expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
     });
 
@@ -270,19 +270,19 @@ describe(buildChangelogEntries, () => {
       '#1 utility!: Add shared helper',
     ])('omits breaking for `%s`, whose type forbids `!`', (message) => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', [message])]);
-      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
+      const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
       expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
     });
 
     it('sets breaking: true for a `refactor!:` commit when `breakingPolicies` is `{}`', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', ['#1 refactor!: Restructure parser'])]);
-      const entries = buildChangelogEntries({ ...makeConfig(), breakingPolicies: {} }, 'v1.0.0', OPTIONS);
+      const { entries } = buildChangelogEntries({ ...makeConfig(), breakingPolicies: {} }, 'v1.0.0', OPTIONS);
       expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
     });
 
     it('omits breaking for a `feat!:` commit when `breakingPolicies` forbids `feat`', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', ['#1 feat!: Redesign API'])]);
-      const entries = buildChangelogEntries(
+      const { entries } = buildChangelogEntries(
         { ...makeConfig(), breakingPolicies: { ...DEFAULT_BREAKING_POLICIES, feat: 'forbidden' } },
         'v1.0.0',
         OPTIONS,
@@ -292,13 +292,13 @@ describe(buildChangelogEntries, () => {
 
     it('admits no `!` commit whose type is not a configured work type', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', ['#1 chore!: Rework build'])]);
-      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
+      const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
       expect(entries).toStrictEqual([]);
     });
 
     it('omits breaking for a `!` commit whose type is added by `workTypes` and forbidden by `breakingPolicies`', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', ['#1 chore!: Rework build'])]);
-      const entries = buildChangelogEntries(
+      const { entries } = buildChangelogEntries(
         {
           ...makeConfig(),
           workTypes: { ...DEFAULT_WORK_TYPES, chore: { header: 'Chores' } },
@@ -314,7 +314,7 @@ describe(buildChangelogEntries, () => {
   describe('body extraction', () => {
     function runAndReadItems(message: string): ChangelogEntry['sections'][number]['items'] {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', [message])]);
-      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
+      const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
       return entries[0]?.sections[0]?.items ?? [];
     }
 
@@ -446,7 +446,7 @@ describe(buildChangelogEntries, () => {
   describe('migration extraction', () => {
     function runAndReadItems(message: string): ChangelogEntry['sections'][number]['items'] {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', [message])]);
-      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
+      const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
       return entries[0]?.sections[0]?.items ?? [];
     }
 
@@ -495,6 +495,221 @@ describe(buildChangelogEntries, () => {
       expect(items[0]).not.toHaveProperty('migration');
     });
   });
+
+  describe('change-record blocks', () => {
+    function build(messages: readonly string[]): ReturnType<typeof buildChangelogEntries> {
+      mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.1.0', messages)]);
+      return buildChangelogEntries(
+        { ...makeConfig(), breakingPolicies: DEFAULT_BREAKING_POLICIES, workTypes: DEFAULT_WORK_TYPES },
+        'v1.1.0',
+        OPTIONS,
+      );
+    }
+
+    it('yields one item per entry, sectioned by its type, with its breaking flag, migration, suffix, and position', () => {
+      const message = mergeMessage(`
+pr_number: 42
+entries:
+  - type: feat
+    scopes: [release-kit]
+    breaking: true
+    text: adds the reader.
+    migration: Read \`entries\` instead.
+  - type: fix
+    text: Corrects the guard.
+  - type: tests
+    text: Covers the reader.
+`);
+
+      const { entries, diagnostics } = build([message]);
+
+      expect(entries[0]?.sections).toStrictEqual([
+        {
+          title: DEFAULT_WORK_TYPES['feat']?.header,
+          audience: 'all',
+          items: [
+            {
+              description: 'adds the reader. (#42)',
+              breaking: true,
+              migration: 'Read `entries` instead.',
+              hash: fakeHash(0),
+              entry: 1,
+            },
+          ],
+        },
+        {
+          title: DEFAULT_WORK_TYPES['fix']?.header,
+          audience: 'all',
+          items: [{ description: 'Corrects the guard. (#42)', hash: fakeHash(0), entry: 2 }],
+        },
+        {
+          title: DEFAULT_WORK_TYPES['tests']?.header,
+          audience: 'dev',
+          items: [{ description: 'Covers the reader. (#42)', hash: fakeHash(0), entry: 3 }],
+        },
+      ]);
+      expect(diagnostics).toStrictEqual({ malformedBlocks: [], policyViolations: [], undeclaredEntryTypes: [] });
+    });
+
+    it('omits the suffix when the block records no `pr_number`', () => {
+      const { entries } = build([mergeMessage('entries:\n  - type: fix\n    text: Corrects the guard.')]);
+
+      expect(entries[0]?.sections[0]?.items[0]?.description).toBe('Corrects the guard.');
+    });
+
+    it('carries no body, even when the commit message has one', () => {
+      const { entries } = build([mergeMessage('entries:\n  - type: fix\n    text: Corrects the guard.')]);
+
+      expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('body');
+    });
+
+    it('resolves an entry type through the work-type aliases', () => {
+      const { entries } = build([mergeMessage('entries:\n  - type: feature\n    text: Adds a thing.')]);
+
+      expect(entries[0]?.sections[0]?.title).toBe(DEFAULT_WORK_TYPES['feat']?.header);
+    });
+
+    it('bypasses the ticket-prefix and title-type gates', () => {
+      const message = ['Squash the branch', '', block('entries:\n  - type: fix\n    text: Corrects the guard.')].join(
+        '\n',
+      );
+
+      const { entries } = build([message]);
+
+      expect(entries[0]?.sections[0]?.items[0]?.description).toBe('Corrects the guard.');
+    });
+
+    it('drops an excluded entry silently while counting it in the positions', () => {
+      const message = mergeMessage('entries:\n  - type: fmt\n    text: Reformats.\n  - type: fix\n    text: Fixes.');
+
+      const { entries, diagnostics } = build([message]);
+
+      expect(entries[0]?.sections.flatMap((section) => section.items)).toStrictEqual([
+        { description: 'Fixes.', hash: fakeHash(0), entry: 2 },
+      ]);
+      expect(diagnostics.undeclaredEntryTypes).toStrictEqual([]);
+    });
+
+    it('reports an undeclared entry type and yields no item for it', () => {
+      const message = mergeMessage('entries:\n  - type: chore\n    text: Tidies.\n  - type: fix\n    text: Fixes.');
+
+      const { entries, diagnostics } = build([message]);
+
+      expect(entries[0]?.sections.flatMap((section) => section.items)).toStrictEqual([
+        { description: 'Fixes.', hash: fakeHash(0), entry: 2 },
+      ]);
+      expect(diagnostics.undeclaredEntryTypes).toStrictEqual([
+        { commitHash: fakeHash(0), commitSubject: MERGE_SUBJECT, entryPosition: 1, type: 'chore' },
+      ]);
+    });
+
+    it('reports a breaking entry whose type forbids it, and does not mark the item breaking', () => {
+      const { entries, diagnostics } = build([
+        mergeMessage(
+          'entries:\n  - type: fix\n    text: Fixes.\n  - type: deprecate\n    breaking: true\n    text: Deprecates.',
+        ),
+      ]);
+
+      const deprecated = entries[0]?.sections.find(
+        (section) => section.title === DEFAULT_WORK_TYPES['deprecate']?.header,
+      );
+      expect(deprecated?.items[0]).not.toHaveProperty('breaking');
+      expect(diagnostics.policyViolations).toStrictEqual([
+        {
+          commitHash: fakeHash(0),
+          commitSubject: MERGE_SUBJECT,
+          type: 'deprecate',
+          surface: 'entry',
+          entryPosition: 2,
+        },
+      ]);
+    });
+
+    it('reports a non-breaking entry whose type requires breaking', () => {
+      const { diagnostics } = build([mergeMessage('entries:\n  - type: drop\n    text: Removes the flag.')]);
+
+      expect(diagnostics.policyViolations).toStrictEqual([
+        { commitHash: fakeHash(0), commitSubject: MERGE_SUBJECT, type: 'drop', surface: 'entry', entryPosition: 1 },
+      ]);
+    });
+
+    it('treats a type with no policy entry as optional', () => {
+      mockEnumerateReleaseWindows.mockReturnValueOnce([
+        makeWindow('v1.1.0', [mergeMessage('entries:\n  - type: drop\n    breaking: true\n    text: Removes.')]),
+      ]);
+
+      const { entries, diagnostics } = buildChangelogEntries(
+        { ...makeConfig(), breakingPolicies: {} },
+        'v1.1.0',
+        OPTIONS,
+      );
+
+      expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
+      expect(diagnostics.policyViolations).toStrictEqual([]);
+    });
+
+    it.each([
+      ['absent', '#9 fix: Title fix\n\nNo block here.'],
+      ['empty', `#9 fix: Title fix\n\n${block('pr_number: 3\nentries: []')}`],
+    ])('falls back to the title when the block is %s, reporting nothing', (_label, message) => {
+      const { entries, diagnostics } = build([message]);
+
+      expect(entries[0]?.sections[0]?.items).toHaveLength(1);
+      expect(entries[0]?.sections[0]?.items[0]).toMatchObject({ description: 'Title fix', hash: fakeHash(0) });
+      expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('entry');
+      expect(diagnostics.malformedBlocks).toStrictEqual([]);
+    });
+
+    it('falls back to the title for a malformed block, and reports the block', () => {
+      const message = `#9 fix: Title fix\n\nLede paragraph.\n\n${block('entries:\n  - type: fix')}`;
+
+      const { entries, diagnostics } = build([message]);
+
+      expect(entries[0]?.sections[0]?.items).toStrictEqual([
+        { description: 'Title fix', body: 'Lede paragraph.', hash: fakeHash(0) },
+      ]);
+      expect(diagnostics.malformedBlocks).toStrictEqual([
+        { commitHash: fakeHash(0), commitSubject: '#9 fix: Title fix', reason: '`entries[0].text` is missing' },
+      ]);
+    });
+
+    it('yields nothing for a malformed block on a commit whose title does not classify, and still reports it', () => {
+      const { entries, diagnostics } = build([`Squash the branch\n\n${block('entries: 3')}`]);
+
+      expect(entries).toStrictEqual([]);
+      expect(diagnostics.malformedBlocks).toHaveLength(1);
+    });
+
+    it.each([
+      ['release:', 'release: v1.1.0'],
+      ['Merge', "Merge branch 'main'"],
+    ])('skips a `%s` commit that carries a block, reading nothing from it', (_label, subject) => {
+      const { entries, diagnostics } = build([`${subject}\n\n${block('entries: 3')}`]);
+
+      expect(entries).toStrictEqual([]);
+      expect(diagnostics.malformedBlocks).toStrictEqual([]);
+    });
+
+    it('builds items from a released window but records diagnostics only for the unreleased one', () => {
+      mockEnumerateReleaseWindows.mockReturnValueOnce([
+        makeWindow('v1.1.0', ['#2 fix: Current']),
+        makeWindow('v1.0.0', [
+          mergeMessage('entries:\n  - type: chore\n    text: Tidies.\n  - type: fix\n    text: Fixes.'),
+          `#1 fix: Old\n\n${block('entries: 3')}`,
+          mergeMessage('entries:\n  - type: drop\n    text: Removes.'),
+        ]),
+      ]);
+
+      const { entries, diagnostics } = buildChangelogEntries(makeConfig(), 'v1.1.0', OPTIONS);
+
+      expect(entries[1]?.sections.flatMap((section) => section.items.map((item) => item.description))).toStrictEqual([
+        'Removes.',
+        'Fixes.',
+        'Old',
+      ]);
+      expect(diagnostics).toStrictEqual({ malformedBlocks: [], policyViolations: [], undeclaredEntryTypes: [] });
+    });
+  });
 });
 
 describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
@@ -512,7 +727,7 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
       ]),
     ]);
 
-    const entries = buildChangelogEntries(
+    const { entries } = buildChangelogEntries(
       makeConfig({ devOnlySections: DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections }),
       'v0.17.0',
       OPTIONS,
@@ -563,6 +778,19 @@ function makeCommit(message: string, hash: string): RawCommit {
 /** Builds a release window whose commits carry `fakeHash` of their position in it. */
 function makeWindow(version: string, messages: readonly string[], timestamp = 1_700_000_000): ReleaseWindow {
   return { version, timestamp, commits: messages.map((message, index) => makeCommit(message, fakeHash(index))) };
+}
+
+/** The subject of the merge commit that `mergeMessage` builds. */
+const MERGE_SUBJECT = '#867 release-kit|feat: Read the change record (#42)';
+
+/** Wraps a YAML payload in a `change-record` fence. */
+function block(payload: string): string {
+  return ['```change-record', payload.trim(), '```'].join('\n');
+}
+
+/** Builds a squash-merge message whose body ends with a `change-record` block. */
+function mergeMessage(payload: string): string {
+  return [MERGE_SUBJECT, '', 'Lede paragraph.', '', block(payload)].join('\n');
 }
 
 /** Returns a 40-character hash that encodes an index. */

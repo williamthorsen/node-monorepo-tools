@@ -20,8 +20,11 @@ export const PIPE_SCOPE_SOURCE = '[^|]+';
 // Group 5: description
 const COMMIT_SUBJECT_PATTERN = new RegExp(String.raw`^(?:(${PIPE_SCOPE_SOURCE})\|)?(\w+)(?:\(([^)]+)\))?(!)?:\s*(.*)$`);
 
-/** Surface where a `!`/`BREAKING CHANGE:` policy violation was detected. */
-export type PolicyViolationSurface = 'prefix' | 'body';
+/**
+ * Surface where a breaking-policy violation was detected: a subject's `!`, a `BREAKING CHANGE:` footer, or a
+ * change-record entry's `breaking`.
+ */
+export type PolicyViolationSurface = 'prefix' | 'body' | 'entry';
 
 /**
  * Callback invoked when `parseCommitMessage` detects a `!`-policy violation.
@@ -123,13 +126,16 @@ export function parseCommitMessage(
 }
 
 /** Inputs for {@link evaluateBreakingPolicy}. */
-interface BreakingPolicyInputs {
+export interface BreakingPolicyInputs {
   commit: Commit;
   resolvedType: string;
+  /** Whether the marker that `prefixSurface` names is present. */
   hasPrefixBreaking: boolean;
   hasFooterBreaking: boolean;
   policy: 'forbidden' | 'optional' | 'required';
   onPolicyViolation: PolicyViolationHandler | undefined;
+  /** The surface reported for a violation of the marker; `'prefix'` when omitted. */
+  prefixSurface?: PolicyViolationSurface;
 }
 
 /**
@@ -138,11 +144,12 @@ interface BreakingPolicyInputs {
  * A violation invokes `onPolicyViolation` and drops the marker (`breaking: false`); the
  * commit still parses.
  */
-function evaluateBreakingPolicy(inputs: BreakingPolicyInputs): boolean {
+export function evaluateBreakingPolicy(inputs: BreakingPolicyInputs): boolean {
   const { commit, resolvedType, hasPrefixBreaking, hasFooterBreaking, policy, onPolicyViolation } = inputs;
+  const prefixSurface = inputs.prefixSurface ?? 'prefix';
   if (policy === 'forbidden') {
     if (hasPrefixBreaking) {
-      onPolicyViolation?.(commit, resolvedType, 'prefix');
+      onPolicyViolation?.(commit, resolvedType, prefixSurface);
     }
     if (hasFooterBreaking) {
       onPolicyViolation?.(commit, resolvedType, 'body');
@@ -154,7 +161,7 @@ function evaluateBreakingPolicy(inputs: BreakingPolicyInputs): boolean {
     // is changelog-decoration only and is intentionally not consulted, so a `required`-policy
     // commit without `!` is a single prefix violation regardless of footer content.
     if (!hasPrefixBreaking) {
-      onPolicyViolation?.(commit, resolvedType, 'prefix');
+      onPolicyViolation?.(commit, resolvedType, prefixSurface);
       return false;
     }
     return true;
@@ -166,7 +173,7 @@ function evaluateBreakingPolicy(inputs: BreakingPolicyInputs): boolean {
 /**
  * Resolves a raw type string to its canonical type name using the record keys and aliases.
  */
-function resolveType(rawType: string, workTypes: Record<string, WorkTypeConfig>): string | undefined {
+export function resolveType(rawType: string, workTypes: Record<string, WorkTypeConfig>): string | undefined {
   const lowered = rawType.toLowerCase();
 
   for (const [key, config] of Object.entries(workTypes)) {

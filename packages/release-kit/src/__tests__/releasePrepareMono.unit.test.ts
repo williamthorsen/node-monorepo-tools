@@ -75,6 +75,7 @@ import {
   DEFAULT_WORK_TYPES,
 } from '../defaults.ts';
 import { releasePrepareMono } from '../releasePrepareMono.ts';
+import { makeChangelogBuild } from '../test-utils/changelogBuilds.ts';
 import { type CommitStub, makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import type { MonorepoReleaseConfig, WorkspaceConfig, WorkTypeConfig } from '../types.ts';
 
@@ -111,7 +112,7 @@ describe(releasePrepareMono, () => {
   beforeEach(() => {
     // Default: pretend buildChangelogEntries returned no entries and the synthetic constructor
     // returned an empty stub entry. Individual tests can override if needed.
-    mockBuildChangelogEntries.mockReturnValue([]);
+    mockBuildChangelogEntries.mockReturnValue(makeChangelogBuild([]));
     mockBuildSyntheticChangelogEntry.mockReturnValue({ version: '0.0.0', date: '2024-01-01', sections: [] });
     mockBuildEmptyReleaseEntry.mockReturnValue({
       version: '0.0.0',
@@ -2026,7 +2027,7 @@ describe(releasePrepareMono, () => {
       mockBuildChangelogEntries.mockImplementation(() => {
         buildCallCount += 1;
         if (buildCallCount >= 2) throw underlying;
-        return [];
+        return makeChangelogBuild([]);
       });
 
       const wrapped = await captureError(() => releasePrepareMono(config, {}));
@@ -2064,6 +2065,38 @@ describe(releasePrepareMono, () => {
       const result = releasePrepareMono(config, {});
 
       expect(result.workspaces[0]?.policyViolations).toBeUndefined();
+    });
+
+    it("attaches the changelog build's diagnostics, appending entry violations to the bump-side ones", () => {
+      const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
+      stubLog('arrays-v1.0.0', ['internal!: refactor cache', 'def5678']);
+      const malformedBlock = { commitHash: 'aaa1111', commitSubject: 'Squash', reason: '`entries` is not a list' };
+      const undeclared = { commitHash: 'bbb2222', commitSubject: 'Merge PR', entryPosition: 2, type: 'chore' };
+      const entryViolation = {
+        commitHash: 'bbb2222',
+        commitSubject: 'Merge PR',
+        type: 'drop',
+        surface: 'entry' as const,
+        entryPosition: 1,
+      };
+      mockBuildChangelogEntries.mockReturnValue(
+        makeChangelogBuild([], {
+          malformedBlocks: [malformedBlock],
+          undeclaredEntryTypes: [undeclared],
+          policyViolations: [entryViolation],
+        }),
+      );
+
+      const result = releasePrepareMono(config, {});
+
+      expect(result.workspaces[0]).toMatchObject({
+        malformedBlocks: [malformedBlock],
+        undeclaredEntryTypes: [undeclared],
+        policyViolations: [
+          { commitHash: 'def5678', commitSubject: 'internal!: refactor cache', type: 'internal', surface: 'prefix' },
+          entryViolation,
+        ],
+      });
     });
 
     it('records a prefix-surface violation for an internal! commit (forbidden policy)', () => {
@@ -2212,19 +2245,21 @@ describe(releasePrepareMono, () => {
 
       // Provide a stub changelog entry whose hash does NOT match the override key; the
       // override is therefore stale and the workspace-tier rule warns immediately.
-      mockBuildChangelogEntries.mockReturnValue([
-        {
-          version: '1.1.0',
-          date: '2024-01-01',
-          sections: [
-            {
-              title: 'Features',
-              audience: 'all',
-              items: [{ description: 'Add utility', hash: 'realcommithash' }],
-            },
-          ],
-        },
-      ]);
+      mockBuildChangelogEntries.mockReturnValue(
+        makeChangelogBuild([
+          {
+            version: '1.1.0',
+            date: '2024-01-01',
+            sections: [
+              {
+                title: 'Features',
+                audience: 'all',
+                items: [{ description: 'Add utility', hash: 'realcommithash' }],
+              },
+            ],
+          },
+        ]),
+      );
 
       const result = releasePrepareMono(config, {});
 

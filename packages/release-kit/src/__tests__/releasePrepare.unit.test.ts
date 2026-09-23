@@ -62,6 +62,7 @@ import {
   DEFAULT_WORK_TYPES,
 } from '../defaults.ts';
 import { releasePrepare } from '../releasePrepare.ts';
+import { makeChangelogBuild } from '../test-utils/changelogBuilds.ts';
 import { type CommitStub, makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import type { ReleaseConfig, WorkTypeConfig } from '../types.ts';
 
@@ -90,7 +91,7 @@ function setupFeatCommit(): void {
 
 describe(releasePrepare, () => {
   beforeEach(() => {
-    mockBuildChangelogEntries.mockReturnValue([]);
+    mockBuildChangelogEntries.mockReturnValue(makeChangelogBuild([]));
     mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
     mockRenderChangelogJson.mockReturnValue('[]\n');
@@ -547,6 +548,37 @@ describe(releasePrepare, () => {
       const result = releasePrepare(configWithDefaultWorkTypes(), {});
 
       expect(result.workspaces[0]?.policyViolations).toBeUndefined();
+    });
+
+    it("attaches the changelog build's diagnostics, appending entry violations to the bump-side ones", () => {
+      stubLog('internal!: refactor cache', 'def5678');
+      const malformedBlock = { commitHash: 'aaa1111', commitSubject: 'Squash', reason: '`entries` is not a list' };
+      const undeclared = { commitHash: 'bbb2222', commitSubject: 'Merge PR', entryPosition: 2, type: 'chore' };
+      const entryViolation = {
+        commitHash: 'bbb2222',
+        commitSubject: 'Merge PR',
+        type: 'drop',
+        surface: 'entry' as const,
+        entryPosition: 1,
+      };
+      mockBuildChangelogEntries.mockReturnValue(
+        makeChangelogBuild([], {
+          malformedBlocks: [malformedBlock],
+          undeclaredEntryTypes: [undeclared],
+          policyViolations: [entryViolation],
+        }),
+      );
+
+      const result = releasePrepare(configWithDefaultWorkTypes(), {});
+
+      expect(result.workspaces[0]).toMatchObject({
+        malformedBlocks: [malformedBlock],
+        undeclaredEntryTypes: [undeclared],
+        policyViolations: [
+          { commitHash: 'def5678', commitSubject: 'internal!: refactor cache', type: 'internal', surface: 'prefix' },
+          entryViolation,
+        ],
+      });
     });
 
     it('records a prefix-surface violation for an internal! commit (forbidden policy)', () => {

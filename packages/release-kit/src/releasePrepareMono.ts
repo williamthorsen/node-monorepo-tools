@@ -2,7 +2,8 @@ import { join as joinPath } from 'node:path';
 
 import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
-import { buildChangelogEntries } from './buildChangelogEntries.ts';
+import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
+import { buildChangelogEntries, type ChangelogDiagnostics } from './buildChangelogEntries.ts';
 import { buildDependencyGraph, type DependencyGraph } from './buildDependencyGraph.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
@@ -499,7 +500,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
   // A workspace is empty-range when it has a direct release (i.e., not propagation-only) but
   // its commit window is empty — the `--force` / `--bump=X` / `--set-version` paths land here.
   const isEmptyRange = directResult !== undefined && directResult.commits.length === 0;
-  const { changelogFiles, previewFiles } = generateWorkspaceChangelogs({
+  const { changelogFiles, diagnostics, previewFiles } = generateWorkspaceChangelogs({
     workspace,
     releaseEntry,
     newTag,
@@ -533,6 +534,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     releaseEntry,
     setVersionTarget,
   });
+  attachChangelogDiagnostics(released, diagnostics);
   workspaces.push(released);
 }
 
@@ -619,6 +621,7 @@ interface GenerateWorkspaceChangelogsArgs {
  */
 function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
   changelogFiles: string[];
+  diagnostics: ChangelogDiagnostics | undefined;
   previewFiles: string[];
 } {
   const {
@@ -638,7 +641,7 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
     sectionOrder,
   } = args;
 
-  const newEntries = buildWorkspaceEntries({
+  const built = buildWorkspaceEntries({
     workspace,
     releaseEntry,
     newTag,
@@ -649,7 +652,7 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
     today,
   });
 
-  const applied = applyWorkspaceOverrides(newEntries, workspace.workspacePath, overrideContext);
+  const applied = applyWorkspaceOverrides(built.entries, workspace.workspacePath, overrideContext);
 
   const changelogFiles: string[] = [];
   let firstMergedEntries: ChangelogEntry[] | undefined;
@@ -675,7 +678,7 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
   const previews = planPreviews(workspace, newTag, firstMergedEntries, previewOptions, warnings);
   writes.push(...previews);
 
-  return { changelogFiles, previewFiles: previews.map((write) => write.path) };
+  return { changelogFiles, diagnostics: built.diagnostics, previewFiles: previews.map((write) => write.path) };
 }
 
 /** Arguments for {@link buildWorkspaceEntries}. */
@@ -696,17 +699,24 @@ interface BuildWorkspaceEntriesArgs {
  * 2. Empty-range: a single synthetic "Forced version bump." entry.
  * 3. Direct bump with commits: the workspace's release windows.
  *
- * Returns the entries that will be merged into the on-disk JSON and rendered.
+ * Returns the entries that will be merged into the on-disk JSON and rendered, with the diagnostics of the release
+ * windows when they were read.
  */
-function buildWorkspaceEntries(args: BuildWorkspaceEntriesArgs): ChangelogEntry[] {
+function buildWorkspaceEntries(args: BuildWorkspaceEntriesArgs): {
+  entries: ChangelogEntry[];
+  diagnostics: ChangelogDiagnostics | undefined;
+} {
   const { workspace, releaseEntry, newTag, newVersion, isPropagationOnly, isEmptyRange, config, today } = args;
 
   if (isPropagationOnly && releaseEntry.propagatedFrom !== undefined) {
-    return [buildSyntheticChangelogEntry(releaseEntry.propagatedFrom, newVersion, today)];
+    return {
+      entries: [buildSyntheticChangelogEntry(releaseEntry.propagatedFrom, newVersion, today)],
+      diagnostics: undefined,
+    };
   }
 
   if (isEmptyRange) {
-    return [buildEmptyReleaseEntry(newVersion, today)];
+    return { entries: [buildEmptyReleaseEntry(newVersion, today)], diagnostics: undefined };
   }
 
   return buildChangelogEntries(config, newTag, { tagPrefixes: getAllTagPrefixes(workspace), paths: workspace.paths });

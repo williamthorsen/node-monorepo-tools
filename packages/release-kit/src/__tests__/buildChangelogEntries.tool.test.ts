@@ -17,7 +17,7 @@ describe(buildChangelogEntries, () => {
     repo.commit('#3 feat: Add an unrelated tool', { 'tools/other.ts': 'export const other = 3;\n' });
 
     const bump = getCommitsSinceTarget(['aws-v'], ['aws']);
-    const entries = buildChangelogEntries(CONFIG, 'aws-v1.1.0', { tagPrefixes: ['aws-v'], paths: ['aws'] });
+    const { entries } = buildChangelogEntries(CONFIG, 'aws-v1.1.0', { tagPrefixes: ['aws-v'], paths: ['aws'] });
 
     expect(bump.commits.map((commit) => commit.hash)).toStrictEqual([fixHash]);
     expect(summarize(entries)).toStrictEqual([
@@ -30,10 +30,39 @@ describe(buildChangelogEntries, () => {
     const repo = scaffoldGitRepo();
     const hash = repo.commit('#1 feat: Add the parser\n\nParses the manifest.\n\nSigned-off-by: A <a@example.com>');
 
-    const entries = buildChangelogEntries(CONFIG, 'v1.0.0', { tagPrefixes: ['v'] });
+    const { entries } = buildChangelogEntries(CONFIG, 'v1.0.0', { tagPrefixes: ['v'] });
 
     expect(entries[0]?.sections[0]?.items).toStrictEqual([
       { description: 'Add the parser', body: 'Parses the manifest.', hash },
+    ]);
+  });
+
+  it("builds one item per entry from a real commit's change-record block", () => {
+    const repo = scaffoldGitRepo();
+    const hash = repo.commit(
+      [
+        '#867 release-kit|feat: Read the change record (#42)',
+        '',
+        'Lede paragraph.',
+        '',
+        '```change-record',
+        'pr_number: 42',
+        'entries:',
+        '  - type: feat',
+        '    scopes: [release-kit]',
+        '    breaking: false',
+        '    text: Adds the reader.',
+        '  - type: fix',
+        '    text: Corrects the guard.',
+        '```',
+      ].join('\n'),
+    );
+
+    const { entries } = buildChangelogEntries(CONFIG, 'v1.0.0', { tagPrefixes: ['v'] });
+
+    expect(entries[0]?.sections.map((section) => section.items)).toStrictEqual([
+      [{ description: 'Adds the reader. (#42)', hash, entry: 1 }],
+      [{ description: 'Corrects the guard. (#42)', hash, entry: 2 }],
     ]);
   });
 });

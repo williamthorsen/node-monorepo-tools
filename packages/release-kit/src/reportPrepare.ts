@@ -114,6 +114,8 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
     );
   }
 
+  formatChangeRecordWarnings(lines, workspace, style);
+
   // Bump file details
   formatBumpFiles(lines, workspace, dryRun);
 
@@ -213,6 +215,7 @@ function formatProjectSection(
   }
 
   formatProjectUnparseable(lines, project, style);
+  formatChangeRecordWarnings(lines, project, style, '  ');
 
   lines.push(
     dim(`  Bumping versions (${releaseType})...`),
@@ -284,6 +287,7 @@ function formatWorkspaceSection(
   formatCommitSummary(lines, workspace, propagatedFrom, isPropagatedOnly);
   formatUnparseableWarning(lines, workspace, style, '  ');
   formatPolicyViolations(lines, workspace.policyViolations, style, '  ');
+  formatChangeRecordWarnings(lines, workspace, style, '  ');
   formatBumpLabels(lines, workspace, isPropagatedOnly);
   formatVersionLine(lines, workspace, propagatedFrom, isPropagatedOnly, style);
 
@@ -446,9 +450,44 @@ function formatPolicyViolations(
     const shortHash = violation.commitHash.slice(0, 7);
     const subject = violation.commitSubject;
     const truncatedSubject = truncateSubject(subject);
-    lines.push(
-      `${indent}    · ${shortHash} '${truncatedSubject}' — type '${violation.type}' at ${violation.surface} surface`,
-    );
+    const location =
+      violation.surface === 'entry' ? `entry ${violation.entryPosition ?? '?'}` : `${violation.surface} surface`;
+    lines.push(`${indent}    · ${shortHash} '${truncatedSubject}' — type '${violation.type}' at ${location}`);
+  }
+}
+
+/**
+ * Append warning lines for the change-record blocks that could not be read and the entries whose type is undeclared.
+ *
+ * `indent` follows the same convention as {@link formatUnparseableWarning}.
+ */
+function formatChangeRecordWarnings(
+  lines: string[],
+  release: Pick<ReleasedWorkspaceResult, 'malformedBlocks' | 'undeclaredEntryTypes'>,
+  style: OutputStyle,
+  indent = '',
+): void {
+  const { malformedBlocks = [], undeclaredEntryTypes = [] } = release;
+  if (malformedBlocks.length > 0) {
+    const count = malformedBlocks.length;
+    const header = `${count} change-record block${count === 1 ? '' : 's'} could not be read (item taken from the title)`;
+    lines.push(`${indent}  ${formatStatusLine(style, 'warning', `${header}:`)}`);
+    for (const block of malformedBlocks) {
+      lines.push(
+        `${indent}    · ${block.commitHash.slice(0, 7)} '${truncateSubject(block.commitSubject)}' — ${block.reason}`,
+      );
+    }
+  }
+  if (undeclaredEntryTypes.length > 0) {
+    const count = undeclaredEntryTypes.length;
+    const header = `${count} change-record entr${count === 1 ? 'y has an' : 'ies have'} undeclared type${count === 1 ? '' : 's'} (no item)`;
+    lines.push(`${indent}  ${formatStatusLine(style, 'warning', `${header}:`)}`);
+    for (const entry of undeclaredEntryTypes) {
+      const shortHash = entry.commitHash.slice(0, 7);
+      lines.push(
+        `${indent}    · ${shortHash} '${truncateSubject(entry.commitSubject)}' — type '${entry.type}' at entry ${entry.entryPosition}`,
+      );
+    }
   }
 }
 

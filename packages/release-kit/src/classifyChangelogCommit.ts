@@ -24,7 +24,7 @@ export function classifyChangelogCommit(
 ): string | undefined {
   const subject = message.split('\n', 1)[0] ?? '';
 
-  if (RELEASE_SUBJECT_PATTERN.test(subject) || MERGE_SUBJECT_PATTERN.test(subject)) {
+  if (isNonChangeSubject(subject)) {
     return undefined;
   }
 
@@ -43,6 +43,14 @@ export function classifyChangelogCommit(
   }
 
   return config.header;
+}
+
+/**
+ * Reports whether a subject belongs to a commit that never reaches a changelog: a `release:` commit, which records
+ * version bumps, or a git merge commit, whose content the merged commits already report.
+ */
+export function isNonChangeSubject(subject: string): boolean {
+  return RELEASE_SUBJECT_PATTERN.test(subject) || MERGE_SUBJECT_PATTERN.test(subject);
 }
 
 // region | Helpers

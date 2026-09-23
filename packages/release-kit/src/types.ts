@@ -14,8 +14,9 @@ export interface ChangelogItem {
   /**
    * Whether this item represents a breaking change.
    *
-   * `true` when the commit subject carries the `!` prefix (e.g. `feat!:` or `drop(scope)!:`) and
-   * the commit's work-type policy permits it, so the item agrees with the version bump.
+   * `true` when the commit subject carries the `!` prefix (e.g. `feat!:` or `drop(scope)!:`), or the
+   * change-record entry from which the item derives sets `breaking: true`, and the work-type policy
+   * permits it, so the item agrees with the version bump.
    * The `BREAKING CHANGE:` body footer is intentionally NOT considered here. Renderers prefix
    * breaking-item bullets with the marker constructed from `WORK_TYPES_DATA.markers.breaking`
    * (rendered as `🚨 **Breaking:** ` with the canonical SSOT values) to surface them prominently
@@ -23,10 +24,11 @@ export interface ChangelogItem {
    */
   breaking?: boolean;
   /**
-   * Migration instruction for a consumer, taken from the `Migration:` paragraph of `body`.
+   * Migration instruction for a consumer, taken from the `Migration:` paragraph of `body`, or from
+   * the `migration` of the change-record entry from which the item derives.
    *
-   * Derived from `body` wherever `body` is set, and absent where the body carries no labeled
-   * paragraph. Independent of `breaking`: a `deprecate` commit cannot carry `!` under the default
+   * On a title-derived item, derived from `body` wherever `body` is set, and absent where the body
+   * carries no labeled paragraph. Independent of `breaking`: a `deprecate` commit cannot carry `!` under the default
    * breaking policy and still calls for a migration. `body` keeps the paragraph, so
    * `CHANGELOG.md` goes on rendering it in place.
    */
@@ -38,12 +40,17 @@ export interface ChangelogItem {
    * this field absent — they have no underlying commit.
    */
   hash?: string;
+  /**
+   * 1-based position of the change-record entry from which this item derives, counted over the block's entries as
+   * written. Absent for an item derived from the commit's title.
+   */
+  entry?: number;
 }
 
 /** A grouped section within a changelog entry (e.g., "Features", "Bug fixes"). */
 export interface ChangelogSection {
   /**
-   * Section title, which `classifyChangelogCommit` reads from the commit's work type. A default
+   * Section title, read from the work type of the commit or of its change-record entry. A default
    * title carries the type's emoji prefix (e.g. `"🐛 Bug fixes"`), so callers that match against
    * `title` (e.g. `sectionOrder` configs) include that prefix.
    */
@@ -126,8 +133,35 @@ export interface PolicyViolation {
   commitSubject: string;
   /** Resolved canonical work type whose policy was violated. */
   type: string;
-  /** Where the violation was detected: `'prefix'` for `!`, `'body'` for `BREAKING CHANGE:` footer. */
-  surface: 'prefix' | 'body';
+  /**
+   * Where the violation was detected: `'prefix'` for `!`, `'body'` for `BREAKING CHANGE:` footer, `'entry'` for a
+   * change-record entry's `breaking`.
+   */
+  surface: 'prefix' | 'body' | 'entry';
+  /** 1-based position of the offending change-record entry; present only for surface `'entry'`. */
+  entryPosition?: number;
+}
+
+/** A commit whose `change-record` block could not be read, so that its changelog item came from its title. */
+export interface MalformedChangeRecordBlock {
+  /** Full hash of the commit. */
+  commitHash: string;
+  /** First line of the commit message. */
+  commitSubject: string;
+  /** The defect that stopped the read. */
+  reason: string;
+}
+
+/** A change-record entry whose type the work-type taxonomy does not declare, so that it yielded no changelog item. */
+export interface UndeclaredEntryType {
+  /** Full hash of the commit. */
+  commitHash: string;
+  /** First line of the commit message. */
+  commitSubject: string;
+  /** 1-based position of the entry in its block. */
+  entryPosition: number;
+  /** The type as the entry declares it. */
+  type: string;
 }
 
 /**
@@ -156,8 +190,15 @@ export interface ReleasedWorkspaceResult {
   parsedCommitCount?: number;
   /** Commits that could not be parsed into a recognized work type. */
   unparseableCommits?: Commit[];
-  /** Policy violations detected while parsing this workspace's commits; omitted when none. */
+  /**
+   * Policy violations detected while parsing this workspace's commits and reading the change-record entries of its
+   * unreleased window; omitted when none.
+   */
   policyViolations?: PolicyViolation[];
+  /** Commits of the unreleased window whose `change-record` block could not be read; omitted when none. */
+  malformedBlocks?: MalformedChangeRecordBlock[];
+  /** Change-record entries of the unreleased window whose type is undeclared; omitted when none. */
+  undeclaredEntryTypes?: UndeclaredEntryType[];
   releaseType?: ReleaseType;
   currentVersion: string;
   newVersion: string;
@@ -233,8 +274,15 @@ export interface ReleasedProjectResult {
   parsedCommitCount: number;
   /** Commits that could not be parsed into a recognized work type. */
   unparseableCommits?: Commit[];
-  /** Policy violations detected while parsing the project's commits; omitted when none. */
+  /**
+   * Policy violations detected while parsing the project's commits and reading the change-record entries of its
+   * unreleased window; omitted when none.
+   */
   policyViolations?: PolicyViolation[];
+  /** Commits of the unreleased window whose `change-record` block could not be read; omitted when none. */
+  malformedBlocks?: MalformedChangeRecordBlock[];
+  /** Change-record entries of the unreleased window whose type is undeclared; omitted when none. */
+  undeclaredEntryTypes?: UndeclaredEntryType[];
   releaseType: ReleaseType;
   currentVersion: string;
   newVersion: string;

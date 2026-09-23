@@ -1,6 +1,7 @@
 import { join as joinPath } from 'node:path';
 
-import { buildChangelogEntries } from './buildChangelogEntries.ts';
+import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
+import { buildChangelogEntries, type ChangelogDiagnostics } from './buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
@@ -198,6 +199,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     setVersion,
     previewFiles: previewWrites.map((write) => write.path),
   });
+  attachChangelogDiagnostics(released, changelogs.diagnostics);
 
   const plan: ReleasePlan = {
     workspaces: [released],
@@ -340,6 +342,7 @@ interface PlanSinglePackageChangelogsArgs {
 function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
   changelogFiles: string[];
   changelogJsonFiles: string[];
+  diagnostics: ChangelogDiagnostics | undefined;
   entries: ChangelogEntry[];
   writes: PlannedWrite[];
 } {
@@ -347,10 +350,10 @@ function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
   const isEmptyRange = commits.length === 0;
   const today = new Date().toISOString().slice(0, 10);
 
-  const baseEntries = isEmptyRange
-    ? [buildEmptyReleaseEntry(newVersion, today)]
+  const built = isEmptyRange
+    ? { entries: [buildEmptyReleaseEntry(newVersion, today)], diagnostics: undefined }
     : buildChangelogEntries(config, newTag, { tagPrefixes: [config.tagPrefix] });
-  const applied = applyChangelogOverrides(baseEntries, overrides);
+  const applied = applyChangelogOverrides(built.entries, overrides);
   if (applied.errors.length > 0) {
     throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);
   }
@@ -389,7 +392,7 @@ function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
     changelogFiles.push(changelogFile);
   }
 
-  return { changelogFiles, changelogJsonFiles, entries: firstMergedEntries, writes };
+  return { changelogFiles, changelogJsonFiles, diagnostics: built.diagnostics, entries: firstMergedEntries, writes };
 }
 
 /**

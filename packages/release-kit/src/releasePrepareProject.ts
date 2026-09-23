@@ -1,6 +1,7 @@
 import { join as joinPath } from 'node:path';
 
-import { buildChangelogEntries } from './buildChangelogEntries.ts';
+import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
+import { buildChangelogEntries, type ChangelogDiagnostics } from './buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import { applyChangelogOverrides } from './changelogOverrides.ts';
@@ -215,6 +216,7 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   if (bumpOverride !== undefined) {
     result.bumpOverride = bumpOverride;
   }
+  attachChangelogDiagnostics(result, changelogs.diagnostics);
   return result;
 }
 
@@ -264,6 +266,7 @@ interface PlanProjectChangelogsArgs {
 function planProjectChangelogs(args: PlanProjectChangelogsArgs): {
   changelogFiles: string[];
   changelogJsonFiles: string[];
+  diagnostics: ChangelogDiagnostics | undefined;
   entries: ChangelogEntry[];
   writes: PlannedWrite[];
 } {
@@ -281,11 +284,11 @@ function planProjectChangelogs(args: PlanProjectChangelogsArgs): {
   const isEmptyRange = commits.length === 0;
   const today = new Date().toISOString().slice(0, 10);
 
-  const newEntries: ChangelogEntry[] = isEmptyRange
-    ? [buildEmptyReleaseEntry(newVersion, today)]
+  const built = isEmptyRange
+    ? { entries: [buildEmptyReleaseEntry(newVersion, today)], diagnostics: undefined }
     : buildChangelogEntries(config, newTag, { tagPrefixes: [project.tagPrefix], paths: contributingPaths });
 
-  const applied = applyChangelogOverrides(newEntries, rootOverrides);
+  const applied = applyChangelogOverrides(built.entries, rootOverrides);
   if (applied.errors.length > 0) {
     throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);
   }
@@ -315,5 +318,11 @@ function planProjectChangelogs(args: PlanProjectChangelogsArgs): {
   const changelogFile = joinPath(ROOT_CHANGELOG_PATH, 'CHANGELOG.md');
   writes.push({ path: changelogFile, content: renderChangelogMarkdown(renderEntries, { sectionOrder }) });
 
-  return { changelogFiles: [changelogFile], changelogJsonFiles, entries: renderEntries, writes };
+  return {
+    changelogFiles: [changelogFile],
+    changelogJsonFiles,
+    diagnostics: built.diagnostics,
+    entries: renderEntries,
+    writes,
+  };
 }

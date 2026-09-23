@@ -61,11 +61,11 @@ Per-entry fields are all optional, but at least one must be present per entry:
 | `body`        | `string`                   | Replaces the entry's body (the prose that renders below the bullet). Other fields are preserved.                                  |
 | `breaking`    | `boolean`                  | Toggles the `🚨 **Breaking:** ` marker on the bullet.                                                                             |
 
-There is no `migration` key: the field is derived from `body`, so an override that replaces `body` re-derives it. See [The `migration` field](changelogs.md#the-migration-field).
+There is no `migration` key: On a title-derived item the field is derived from `body`, so an override that replaces `body` re-derives it, and an item derived from a change-record entry keeps its entry's `migration`. See [The `migration` field](changelogs.md#the-migration-field).
 
 ## Hash-prefix matching
 
-Keys can be either the full 40-character commit SHA or a non-ambiguous prefix. The matcher walks every `ChangelogItem.hash` value present in the entry tree and resolves each override key to its set of matching hashes:
+Keys can be either the full 40-character commit SHA or a non-ambiguous prefix. The matcher collects the distinct `ChangelogItem.hash` values present in the entry tree and resolves each override key to its set of matching hashes. A commit whose [change-record block](changelogs.md#change-record-blocks) yields several items counts as one hit, and the override applies to each of those items:
 
 - **Exact prefix match (1 hit)** — the override applies. A 7-character prefix is usually unambiguous within a single repo's history; longer prefixes are always safe.
 - **No matches (0 hits)** — the override is treated as a stale reference (probably from a rebase or branch deletion) and prepare reports a warning. The release continues.
