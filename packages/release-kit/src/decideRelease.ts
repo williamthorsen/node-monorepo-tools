@@ -31,8 +31,8 @@ export type DecideReleaseResult =
  *   shouldRelease = naturalBump !== undefined OR force === true
  *   releaseLevel  = bumpOverride ?? naturalBump ?? 'patch'
  *
- * No patch floor applies, so `--bump=X` chooses a level without triggering a release, and `--force` triggers one
- * without choosing a level.
+ * A window without a natural bump releases only under `--force`, so `--bump=X` chooses a level without triggering a
+ * release, and `--force` triggers one without choosing a level.
  */
 export function decideRelease(args: DecideReleaseArgs): DecideReleaseResult {
   const { naturalBump, commitCount, force = false, bumpOverride, skipReasons } = args;

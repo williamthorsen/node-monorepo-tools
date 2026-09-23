@@ -30,8 +30,8 @@ export type PolicyViolationSurface = 'prefix' | 'body' | 'entry';
  * Callback invoked when `parseCommitMessage` detects a `!`-policy violation.
  *
  * The parser warns and continues on a violation, so legacy log entries don't block releases.
- * Callers (`decideRelease`, `releasePrepareMono`, etc.) collect callback invocations and
- * surface them in the release report.
+ * `readReleaseHistory` collects the invocations for the unreleased window, and the release
+ * report lists them.
  */
 export type PolicyViolationHandler = (commit: Commit, type: string, surface: PolicyViolationSurface) => void;
 

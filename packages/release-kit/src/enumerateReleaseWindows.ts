@@ -194,8 +194,7 @@ function readAncestry(): Ancestry {
 /**
  * Reads every commit reachable from HEAD that touches one of the paths, newest first.
  *
- * `git log` applies its default history simplification, which is what the bump path has
- * always read.
+ * `git log` applies its default history simplification.
  */
 function readCommits(paths: readonly string[] | undefined): RawCommit[] {
   const format = `%H${FIELD_SEPARATOR}%s${FIELD_SEPARATOR}%B${RECORD_SEPARATOR}`;
