@@ -61,7 +61,7 @@ Per-entry fields are all optional, but at least one must be present per entry:
 | `body`        | `string`                   | Replaces the entry's body (the prose that renders below the bullet). Other fields are preserved.                                  |
 | `breaking`    | `boolean`                  | Toggles the `🚨 **Breaking:** ` marker on the bullet.                                                                             |
 
-There is no `migration` key: the field is derived from `body`, so an override that replaces `body` re-derives it. See [The `migration` field](changelogs.md#the-migration-field).
+There is no `migration` key: On a title-derived item the field is derived from `body`, so an override that replaces `body` re-derives it, and an item derived from a change-record entry keeps its entry's `migration`. See [The `migration` field](changelogs.md#the-migration-field).
 
 ## Hash-prefix matching
 

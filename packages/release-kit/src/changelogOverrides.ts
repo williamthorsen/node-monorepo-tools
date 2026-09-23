@@ -318,10 +318,10 @@ function applyOverridesToItems(
 /**
  * Apply a single override's per-field replacements to a `ChangelogItem`.
  *
- * Replaces `description`, `body`, and `breaking` when each is present on the override, and
- * re-derives `migration` from a replacement body so the two cannot disagree. `migration` is not
- * settable from an override file; it lives in the body that the override already replaces.
- * Leaves the original `hash` intact so future override applications continue to match.
+ * Replaces `description`, `body`, and `breaking` when each is present on the override. A title-derived
+ * item re-derives `migration` from a replacement body so the two cannot disagree; an item derived from a
+ * change-record entry keeps the entry's `migration`, which no body contains. `migration` is not settable
+ * from an override file. Leaves the original `hash` intact so future override applications continue to match.
  */
 function applyOverrideToItem(item: ChangelogItem, override: ChangelogOverride): ChangelogItem {
   const result: ChangelogItem = { ...item };
@@ -330,6 +330,8 @@ function applyOverrideToItem(item: ChangelogItem, override: ChangelogOverride): 
   }
   if (override.body !== undefined) {
     result.body = override.body;
+  }
+  if (override.body !== undefined && item.entry === undefined) {
     const migration = extractMigration(override.body);
     if (migration === undefined) {
       // The spread carried a migration extracted from the superseded body.

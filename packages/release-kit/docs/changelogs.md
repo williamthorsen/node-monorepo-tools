@@ -37,7 +37,7 @@ Three properties are worth knowing:
 
 - **It is independent of `breaking`.** A `deprecate` cannot carry `!` under the default breaking policy, and a `deprecate` still calls for a migration. Filter on `migration` to find every step; filter on `breaking` to find every breaking change.
 - **`body` keeps the paragraph.** The field is an extraction, not a move, so `CHANGELOG.md` and `.meta/changelog.json` go on agreeing.
-- **It is derived, not authored.** `migration` is not a field an override file can set (see [File shape](editorial-overrides.md#file-shape)); it is re-derived from whatever `body` an override installs, and cleared where that body carries no labeled paragraph. To change the migration text, override `body`.
+- **An override cannot set it.** `migration` is not a field an override file can set (see [File shape](editorial-overrides.md#file-shape)). On a title-derived item it is re-derived from whatever `body` an override installs, and cleared where that body carries no labeled paragraph, so overriding `body` changes the migration text. An entry-derived item keeps its entry's `migration` whatever `body` an override installs.
 
 The label match is exact: `migration:` and `**Migration:**` are not recognized.
 
@@ -82,7 +82,7 @@ Each entry yields one item, whether or not the commit subject carries a ticket-I
 - **`migration`**: the entry's `migration`, when present. There is no `body`.
 - **`hash`** and **`entry`**: the commit's hash, and the entry's 1-based position among all the block's entries, including those that yield no item.
 
-An entry whose type is excluded from the changelog yields no item. A bare-hash override key matches every item of the commit, so an override `description` replaces the text of each.
+An entry whose type is excluded from the changelog yields no item. A bare-hash override key matches every item of the commit, so an override `description` replaces the text of each, and an override `body` gives each the same body while each keeps its own `migration`.
 
 ### Fallback to the title
 

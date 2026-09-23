@@ -27,8 +27,8 @@ export interface ChangelogItem {
    * Migration instruction for a consumer, taken from the `Migration:` paragraph of `body`, or from
    * the `migration` of the change-record entry from which the item derives.
    *
-   * Derived from `body` wherever `body` is set, and absent where the body carries no labeled
-   * paragraph. Independent of `breaking`: a `deprecate` commit cannot carry `!` under the default
+   * On a title-derived item, derived from `body` wherever `body` is set, and absent where the body
+   * carries no labeled paragraph. Independent of `breaking`: a `deprecate` commit cannot carry `!` under the default
    * breaking policy and still calls for a migration. `body` keeps the paragraph, so
    * `CHANGELOG.md` goes on rendering it in place.
    */

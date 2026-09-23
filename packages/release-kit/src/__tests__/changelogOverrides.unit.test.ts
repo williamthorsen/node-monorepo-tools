@@ -309,6 +309,37 @@ describe(applyChangelogOverrides, () => {
     expect(result.entries[0]?.sections[0]?.items[0]?.migration).toBe('Import from the new subpath.');
   });
 
+  it("keeps each change-record entry's migration when a body override applies to the commit's items", () => {
+    const entries: ChangelogEntry[] = [
+      {
+        version: '1.0.0',
+        date: '2024-01-01',
+        sections: [
+          {
+            title: 'Features',
+            audience: 'all',
+            items: [
+              { description: 'First', migration: 'Rename `a` to `b`.', hash: 'abc1234', entry: 1 },
+              { description: 'Second', hash: 'abc1234', entry: 2 },
+            ],
+          },
+        ],
+      },
+    ];
+    const overrides = new Map([['abc1234', { body: 'Migration: Replaced prose.' }]]);
+    const result = applyChangelogOverrides(entries, overrides);
+    expect(result.entries[0]?.sections[0]?.items).toStrictEqual([
+      {
+        description: 'First',
+        body: 'Migration: Replaced prose.',
+        migration: 'Rename `a` to `b`.',
+        hash: 'abc1234',
+        entry: 1,
+      },
+      { description: 'Second', body: 'Migration: Replaced prose.', hash: 'abc1234', entry: 2 },
+    ]);
+  });
+
   it('toggles breaking on an existing item', () => {
     const entries: ChangelogEntry[] = [
       {
