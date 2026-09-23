@@ -1,7 +1,7 @@
 import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { extractVersion } from './changelogJsonUtils.ts';
-import { classifyChangelogCommit, isNonChangeSubject } from './classifyChangelogCommit.ts';
+import { classifyChangelogCommit, isNonChangeSubject, isReleaseSubject } from './classifyChangelogCommit.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { type BumpSignal, determineBumpType } from './determineBumpType.ts';
 import { enumerateReleaseWindows, type RawCommit, type ReleaseWindow } from './enumerateReleaseWindows.ts';
@@ -26,9 +26,6 @@ import type {
   UndeclaredEntryType,
   VersionPatterns,
 } from './types.ts';
-
-/** Matches the subject of a release commit, which the unreleased window's commit list leaves out. */
-const RELEASE_SUBJECT_PATTERN = /^release:/;
 
 /** Placeholder version for the unreleased window, whose tag is unknown until its bump is decided. */
 const UNRELEASED_TAG = 'unreleased';
@@ -222,7 +219,7 @@ function transformReleases(windows: readonly ReleaseWindow[], context: ReadConte
     releasedEntries,
     unreleased: {
       bump: determineBumpType(signals, context.workTypes, context.versionPatterns),
-      commits: unreleasedCommits.filter((commit) => !RELEASE_SUBJECT_PATTERN.test(commit.subject)).toReversed(),
+      commits: unreleasedCommits.filter((commit) => !isReleaseSubject(commit.subject)).toReversed(),
       date: formatDate(unreleasedWindow?.timestamp ?? Math.floor(Date.now() / 1_000)),
       diagnostics,
       parsedCommitCount,

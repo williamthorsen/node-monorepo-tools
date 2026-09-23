@@ -68,7 +68,12 @@ export function classifyChangelogCommit(
  * version bumps, or a git merge commit, whose content the merged commits already report.
  */
 export function isNonChangeSubject(subject: string): boolean {
-  return RELEASE_SUBJECT_PATTERN.test(subject) || MERGE_SUBJECT_PATTERN.test(subject);
+  return isReleaseSubject(subject) || MERGE_SUBJECT_PATTERN.test(subject);
+}
+
+/** Reports whether a subject belongs to a `release:` commit, which records version bumps rather than a change. */
+export function isReleaseSubject(subject: string): boolean {
+  return RELEASE_SUBJECT_PATTERN.test(subject);
 }
 
 // region | Helpers
