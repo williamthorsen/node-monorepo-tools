@@ -13,6 +13,7 @@ import {
   loadChangelogOverrides,
   loadOverridesForScopes,
   type OverrideContext,
+  type OverrideTargetItem,
   parseOverrideKey,
   resolveOverridePath,
   validateAllChangelogOverrides,
@@ -813,8 +814,8 @@ describe(validateAllChangelogOverrides, () => {
 
   it('returns no findings when override files are absent (missing files are no-ops)', () => {
     const result = validateAllChangelogOverrides({
-      project: { filePath: join(tree.dir, 'missing-project.json'), hashes: ['aaa1111'] },
-      workspaces: [{ filePath: join(tree.dir, 'missing-workspace.json'), hashes: ['bbb2222'] }],
+      project: { filePath: join(tree.dir, 'missing-project.json'), items: toItems(['aaa1111']) },
+      workspaces: [{ filePath: join(tree.dir, 'missing-workspace.json'), items: toItems(['bbb2222']) }],
     });
     expect(result.errors).toStrictEqual([]);
     expect(result.warnings).toStrictEqual([]);
@@ -826,7 +827,7 @@ describe(validateAllChangelogOverrides, () => {
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
-      workspaces: [{ filePath: workspaceFile, hashes: ['aaa1111aaa', 'bbb2222bbb'] }],
+      workspaces: [{ filePath: workspaceFile, items: toItems(['aaa1111aaa', 'bbb2222bbb']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -838,8 +839,8 @@ describe(validateAllChangelogOverrides, () => {
     const workspaceFile = tree.write('workspace-a/overrides.json', '[]');
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFile, hashes: [] },
-      workspaces: [{ filePath: workspaceFile, hashes: [] }],
+      project: { filePath: projectFile, items: toItems([]) },
+      workspaces: [{ filePath: workspaceFile, items: toItems([]) }],
     });
 
     expect(result.errors).toHaveLength(2);
@@ -853,7 +854,7 @@ describe(validateAllChangelogOverrides, () => {
     const projectFile = tree.writeJson('overrides.json', { abc: { unknown: true } });
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFile, hashes: [] },
+      project: { filePath: projectFile, items: toItems([]) },
     });
 
     expect(result.errors).toHaveLength(1);
@@ -865,7 +866,7 @@ describe(validateAllChangelogOverrides, () => {
     const workspaceFile = tree.writeJson('workspace-a/overrides.json', { abc: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
-      workspaces: [{ filePath: workspaceFile, hashes: ['abc111', 'abc222'] }],
+      workspaces: [{ filePath: workspaceFile, items: toItems(['abc111', 'abc222']) }],
     });
 
     expect(result.errors).toHaveLength(1);
@@ -877,7 +878,7 @@ describe(validateAllChangelogOverrides, () => {
     const projectFile = tree.writeJson('overrides.json', { abc: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFile, hashes: ['abc111', 'abc222'] },
+      project: { filePath: projectFile, items: toItems(['abc111', 'abc222']) },
     });
 
     expect(result.errors).toHaveLength(1);
@@ -893,7 +894,7 @@ describe(validateAllChangelogOverrides, () => {
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
-      workspaces: [{ filePath: workspaceFile, hashes: ['abc111aaa', 'abc222bbb'] }],
+      workspaces: [{ filePath: workspaceFile, items: toItems(['abc111aaa', 'abc222bbb']) }],
     });
 
     expect(result.errors).toHaveLength(1);
@@ -906,7 +907,7 @@ describe(validateAllChangelogOverrides, () => {
     const workspaceFile = tree.writeJson('workspace-a/overrides.json', { dead012: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
-      workspaces: [{ filePath: workspaceFile, hashes: ['real0001', 'real0002'] }],
+      workspaces: [{ filePath: workspaceFile, items: toItems(['real0001', 'real0002']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -922,7 +923,7 @@ describe(validateAllChangelogOverrides, () => {
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
-      workspaces: [{ filePath: workspaceFile, hashes: ['real1234'] }],
+      workspaces: [{ filePath: workspaceFile, items: toItems(['real1234']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -940,8 +941,8 @@ describe(validateAllChangelogOverrides, () => {
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
       workspaces: [
-        { filePath: fileA, hashes: ['aaa1111ext'] },
-        { filePath: fileB, hashes: ['unrelated'] },
+        { filePath: fileA, items: toItems(['aaa1111ext']) },
+        { filePath: fileB, items: toItems(['unrelated']) },
       ],
     });
 
@@ -954,8 +955,8 @@ describe(validateAllChangelogOverrides, () => {
     const workspaceFile = tree.write('workspace-a/overrides.json', '{}');
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFile, hashes: ['aaa1111ext'] },
-      workspaces: [{ filePath: workspaceFile, hashes: ['unrelated'] }],
+      project: { filePath: projectFile, items: toItems(['aaa1111ext']) },
+      workspaces: [{ filePath: workspaceFile, items: toItems(['unrelated']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -971,7 +972,7 @@ describe(validateAllChangelogOverrides, () => {
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
-      workspaces: [{ filePath: workspaceFile, hashes: ['aaa1111ext'] }],
+      workspaces: [{ filePath: workspaceFile, items: toItems(['aaa1111ext']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -986,13 +987,133 @@ describe(validateAllChangelogOverrides, () => {
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
-      workspaces: [{ filePath: workspaceFile, hashes: ['abc111', 'abc222'] }],
+      workspaces: [{ filePath: workspaceFile, items: toItems(['abc111', 'abc222']) }],
     });
 
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toMatch(/ambiguous/);
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toContain("'dead099'");
+  });
+
+  it('warns on an ordinal key whose entry position the commit lacks', () => {
+    const workspaceFile = tree.writeJson('workspace-a/overrides.json', { 'abc111:3': { audience: 'skip' } });
+
+    const result = validateAllChangelogOverrides({
+      workspaces: [
+        {
+          filePath: workspaceFile,
+          items: [
+            { hash: 'abc111', entry: 1 },
+            { hash: 'abc111', entry: 2 },
+          ],
+        },
+      ],
+    });
+
+    expect(result.errors).toStrictEqual([]);
+    expect(result.warnings).toStrictEqual([
+      `${workspaceFile}: Override key 'abc111:3' did not match any commit in this workspace's history (likely a stale reference)`,
+    ]);
+  });
+
+  it('does not warn on an ordinal key that matches an item', () => {
+    const projectFile = tree.writeJson('overrides.json', { 'abc111:2': { description: 'Second' } });
+
+    const result = validateAllChangelogOverrides({
+      project: {
+        filePath: projectFile,
+        items: [
+          { hash: 'abc111', entry: 1 },
+          { hash: 'abc111', entry: 2 },
+        ],
+      },
+    });
+
+    expect(result).toStrictEqual({ errors: [], warnings: [] });
+  });
+
+  it('reports an ordinal key with an ambiguous prefix as an error and not as stale', () => {
+    const projectFile = tree.writeJson('overrides.json', { 'abc:1': { audience: 'skip' } });
+
+    const result = validateAllChangelogOverrides({
+      project: {
+        filePath: projectFile,
+        items: [
+          { hash: 'abc111', entry: 1 },
+          { hash: 'abc222', entry: 1 },
+        ],
+      },
+    });
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(`${projectFile}: Override key 'abc:1' is ambiguous`);
+    expect(result.warnings).toStrictEqual([]);
+  });
+
+  it('reports a bare key that sets a field on a commit with several items', () => {
+    const projectFile = tree.writeJson('overrides.json', { abc: { description: 'Reworded' } });
+
+    const result = validateAllChangelogOverrides({
+      project: {
+        filePath: projectFile,
+        items: [
+          { hash: 'abc111', entry: 1 },
+          { hash: 'abc111', entry: 2 },
+        ],
+      },
+    });
+
+    expect(result).toStrictEqual({
+      errors: [`${projectFile}: Override key 'abc' sets description on a commit with several items; use abc:1, abc:2`],
+      warnings: [],
+    });
+  });
+
+  it('reports overlapping keys in one file against that file, once', () => {
+    const projectFile = tree.writeJson('overrides.json', { beef: { audience: 'skip' } });
+    const workspaceFile = tree.writeJson('workspace-a/overrides.json', {
+      abc: { breaking: true },
+      'abc111:2': { description: 'Second' },
+    });
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile },
+      workspaces: [
+        {
+          filePath: workspaceFile,
+          items: [{ hash: 'abc111', entry: 1 }, { hash: 'abc111', entry: 2 }, { hash: 'beef01' }],
+        },
+      ],
+    });
+
+    expect(result).toStrictEqual({
+      errors: [`${workspaceFile}: Override keys 'abc' and 'abc111:2' both match the item at abc111:2; keep one`],
+      warnings: [],
+    });
+  });
+
+  it('reports a root key and a workspace key that match the same item against the workspace file', () => {
+    const projectFile = tree.writeJson('overrides.json', { abc111: { audience: 'skip' } });
+    const workspaceFile = tree.writeJson('workspace-a/overrides.json', { 'abc111:1': { description: 'First' } });
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile },
+      workspaces: [
+        {
+          filePath: workspaceFile,
+          items: [
+            { hash: 'abc111', entry: 1 },
+            { hash: 'abc111', entry: 2 },
+          ],
+        },
+      ],
+    });
+
+    expect(result).toStrictEqual({
+      errors: [`${workspaceFile}: Override keys 'abc111' and 'abc111:1' both match the item at abc111:1; keep one`],
+      warnings: [],
+    });
   });
 
   it('handles single-package mode (project scope only, no workspaces)', () => {
@@ -1002,7 +1123,7 @@ describe(validateAllChangelogOverrides, () => {
     });
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFile, hashes: ['aaa1111ext'] },
+      project: { filePath: projectFile, items: toItems(['aaa1111ext']) },
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -1067,3 +1188,12 @@ describe(createOverrideContext, () => {
     });
   });
 });
+
+// region | Helpers
+
+/** Build title-derived override target items from commit hashes. */
+function toItems(hashes: string[]): OverrideTargetItem[] {
+  return hashes.map((hash) => ({ hash }));
+}
+
+// endregion | Helpers
