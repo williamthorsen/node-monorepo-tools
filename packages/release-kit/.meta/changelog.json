@@ -1,5 +1,65 @@
 [
   {
+    "version": "12.0.0",
+    "date": "2026-09-23",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Assign changelog sections from the work-type taxonomy (#877)",
+            "body": "- Adds `excludedFromChangelog` to a `workTypes` entry, which keeps commits of that type out of every changelog while they still count toward the version bump.\n- Fixes the silent omission of a ticketed commit written as `type(scope):` or with a capitalized type such as `FEAT:`, which counted toward the version bump but reached no changelog.\n- Documents that a scaffolded `.config/git-cliff.toml` may vary its enumeration keys alone: a `commit_parsers` entry that skips or narrows drops the commit before classification, with no error.",
+            "hash": "52d4ea928d35b99101947e0509da6699f06f821a"
+          },
+          {
+            "description": "Build changelog items from a merge commit's change-record block (#882)",
+            "body": "Builds `release-kit` changelog items from a commit's `change-record` block, the fenced YAML block at the end of a squash-merge commit that lists the change's outcomes, so that a merge with several outcomes of different types yields one item per outcome, each under its own type's section. Makes `release-kit prepare` warn about a block that cannot be read, an entry whose type is undeclared, and an entry that violates its type's breaking policy. Keeps reading a commit with no usable block from its title, as before.",
+            "hash": "094aac7048a54b6f07d1c97cd37fff570630b936"
+          },
+          {
+            "description": "Derive the version bump from the changelog items (#885)",
+            "body": "Derives the version bump in every `release-kit prepare` path (single-package, project, and monorepo) from the changelog items of the unreleased commits, so that the bump and the changelog describe the same release. A commit that yields no changelog item no longer bumps, and a `BREAKING CHANGE:` footer no longer raises a major bump. Single-package mode now follows the monorepo rules for `--bump` and `--force`, and the `prepare` report shows the diagnostics of a skipped target.\n\nMigration: Mark a breaking change with a `!` on the commit subject or with `breaking: true` on its change-record entry, because a `BREAKING CHANGE:` footer alone now gets the bump of the commit's type. Give each commit that should bump a ticket-ID prefix and a type that the changelog does not exclude. In single-package mode, add `--force` to a release that used `--bump=X` alone, or that relied on the patch floor, when no commit yields a changelog item; without it, `prepare` skips the release.",
+            "breaking": true,
+            "migration": "Mark a breaking change with a `!` on the commit subject or with `breaking: true` on its change-record entry, because a `BREAKING CHANGE:` footer alone now gets the bump of the commit's type. Give each commit that should bump a ticket-ID prefix and a type that the changelog does not exclude. In single-package mode, add `--force` to a release that used `--bump=X` alone, or that relied on the patch floor, when no commit yields a changelog item; without it, `prepare` skips the release.",
+            "hash": "f3d0d8f01d6cd5b5638012a4798e64ab3a3def6d"
+          },
+          {
+            "description": "Key an editorial override to one of several items on a commit (#886)",
+            "body": "Adds the `<hash>:<n>` key to `.meta/changelog-overrides.json`. It targets one of the several changelog items that a commit's change-record block yields, while a bare `<hash>` key still targets all of them. Also makes `release-kit prepare` and `release-kit overrides validate` fail when override keys conflict on an item, and publishes a JSON Schema for the override file.\n\nMigration: Replace a bare key that sets `description` or `body` on a commit with several items with one `<hash>:<n>` key per item, as listed by the error message. Where two keys match the same item, such as `abc1234` beside `abc1234:2`, remove one of them. This includes a root-file key that overlaps a workspace-file key, which now fails even though the two files are separate. In each scope passed to `validateAllChangelogOverrides`, rename `hashes` to `items` and pass `OverrideTargetItem` objects (`{ hash, entry? }`) instead of hash strings.",
+            "breaking": true,
+            "migration": "Replace a bare key that sets `description` or `body` on a commit with several items with one `<hash>:<n>` key per item, as listed by the error message. Where two keys match the same item, such as `abc1234` beside `abc1234:2`, remove one of them. This includes a root-file key that overlaps a workspace-file key, which now fails even though the two files are separate. In each scope passed to `validateAllChangelogOverrides`, rename `hashes` to `items` and pass `OverrideTargetItem` objects (`{ hash, entry? }`) instead of hash strings.",
+            "hash": "f90db5596196e501fef1734bcd978d23f9a0540a"
+          }
+        ]
+      },
+      {
+        "title": "🪦 Removed",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Build changelogs from release-kit's own enumeration and remove git-cliff (#880)",
+            "body": "Removes git-cliff from `@williamthorsen/release-kit`: `prepare` now builds every changelog from the same commit history that decides each version bump, and no longer fetches a git-cliff binary through `npx`. A config that still sets `cliffConfigPath` now fails validation. Two ways in which the changelog and the bump read different commits are gone, affecting single-package repositories with a tag prefix other than `v` and `paths` entries that name a bare directory.\n\nMigration: Remove `cliffConfigPath` from `.config/release-kit.config.ts`, and delete `.config/git-cliff.toml` or `cliff.toml` if the repository has one. Any customization in that file, such as `tag_pattern` or its tag-skipping keys, no longer has an effect: `release-kit` now splits the changelog on the configured tag prefixes alone.",
+            "breaking": true,
+            "migration": "Remove `cliffConfigPath` from `.config/release-kit.config.ts`, and delete `.config/git-cliff.toml` or `cliff.toml` if the repository has one. Any customization in that file, such as `tag_pattern` or its tag-skipping keys, no longer has an effect: `release-kit` now splits the changelog on the configured tag prefixes alone.",
+            "hash": "3dc091ff6067f1c2cbe1576a55114c481294ce22"
+          }
+        ]
+      },
+      {
+        "title": "🏗️ Internal features",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Enumerate release windows and read them on the bump path (#879)",
+            "body": "Adds `enumerateReleaseWindows`, which splits the history reachable from HEAD into release windows from tag prefixes and a path list, and rebuilds `getCommitsSinceTarget` on the newest of those windows in place of its `git describe` baseline lookup. Leaves the changelog on git-cliff's enumeration.",
+            "hash": "30586d1e045ed69dbf81a1c35773c97b89e0c8dc"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "11.0.0",
     "date": "2026-09-22",
     "sections": [
@@ -408,7 +468,7 @@
           },
           {
             "description": "Adopt `isError` and consolidate errno narrowing on a shared helper (#697)",
-            "body": "Replaces every hand-rolled `instanceof Error` narrowing with `hasErrnoCode`, a new predicate exported from `@williamthorsen/nmr-core`, or with `isError` from `@williamthorsen/toolbelt.errors`. Previously the errno question was answered by inline copies alongside two private helpers of differing shape; both helpers are removed.\r\n\r\nSeparately, `eslint.config.ts` now bans `instanceof Error` in every position rather than in a ternary alone.",
+            "body": "Replaces every hand-rolled `instanceof Error` narrowing with `hasErrnoCode`, a new predicate exported from `@williamthorsen/nmr-core`, or with `isError` from `@williamthorsen/toolbelt.errors`. Previously the errno question was answered by inline copies alongside two private helpers of differing shape; both helpers are removed.\n\nSeparately, `eslint.config.ts` now bans `instanceof Error` in every position rather than in a ternary alone.",
             "hash": "c5e8e8a5e006b451e8c5aeea75d35772926d503c"
           }
         ]
@@ -529,7 +589,7 @@
           },
           {
             "description": "Make prepare all-or-nothing and report the tags file by path (#601)",
-            "body": "Fixes an issue where a failed `prepare` could leave the release flow in a broken intermediate state. A release now lands completely or not at all, and a formatting failure no longer discards one that already landed. When a write fails partway, the error names every file that reached disk, every file that did not, and the commands that undo them.\r\n\r\n`commit` and `tag` now report the full path of the tags file they looked for, and distinguish a missing file from one that could not be read, so that running from the wrong directory or worktree is no longer reported as a release that never happened.\r\n\r\nRuns with `--with-release-notes` now list the preview files they write, and `--dry-run` names the ones a real run would write.",
+            "body": "Fixes an issue where a failed `prepare` could leave the release flow in a broken intermediate state. A release now lands completely or not at all, and a formatting failure no longer discards one that already landed. When a write fails partway, the error names every file that reached disk, every file that did not, and the commands that undo them.\n\n`commit` and `tag` now report the full path of the tags file they looked for, and distinguish a missing file from one that could not be read, so that running from the wrong directory or worktree is no longer reported as a release that never happened.\n\nRuns with `--with-release-notes` now list the preview files they write, and `--dry-run` names the ones a real run would write.",
             "hash": "83ac6e45cf9d4b5371650cda42d7830ed4988660"
           }
         ]
