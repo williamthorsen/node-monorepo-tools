@@ -62,6 +62,7 @@ import {
 } from '../defaults.ts';
 import type { PlannedWrite } from '../releasePlan.ts';
 import { releasePrepareProject } from '../releasePrepareProject.ts';
+import { makeChangelogBuild } from '../test-utils/changelogBuilds.ts';
 import { type CommitStub, makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import type { MonorepoReleaseConfig, WorkspaceConfig } from '../types.ts';
 
@@ -97,7 +98,7 @@ function setupDefaultGit(): void {
 
 describe(releasePrepareProject, () => {
   beforeEach(() => {
-    mockBuildChangelogEntries.mockReturnValue([]);
+    mockBuildChangelogEntries.mockReturnValue(makeChangelogBuild([]));
     mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
     mockRenderChangelogJson.mockReturnValue('[]\n');

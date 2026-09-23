@@ -283,7 +283,7 @@ function planProjectChangelogs(args: PlanProjectChangelogsArgs): {
 
   const newEntries: ChangelogEntry[] = isEmptyRange
     ? [buildEmptyReleaseEntry(newVersion, today)]
-    : buildChangelogEntries(config, newTag, { tagPrefixes: [project.tagPrefix], paths: contributingPaths });
+    : buildChangelogEntries(config, newTag, { tagPrefixes: [project.tagPrefix], paths: contributingPaths }).entries;
 
   const applied = applyChangelogOverrides(newEntries, rootOverrides);
   if (applied.errors.length > 0) {

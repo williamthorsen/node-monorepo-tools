@@ -184,6 +184,19 @@ describe(applyChangelogOverrides, () => {
     expect(result.entries[0]?.sections[0]?.items[0]?.description).toBe('Item abc111');
   });
 
+  it("applies a key to every item of one commit, since a commit's several items share its hash", () => {
+    const entries = [makeEntry(['abc111', 'abc111', 'def222'])];
+    const overrides = new Map([['abc', { description: 'Same commit' }]]);
+    const result = applyChangelogOverrides(entries, overrides);
+    expect(result.errors).toStrictEqual([]);
+    expect(result.matchedKeys).toStrictEqual(['abc']);
+    expect(result.entries[0]?.sections[0]?.items.map((item) => item.description)).toStrictEqual([
+      'Same commit',
+      'Same commit',
+      'Item def222',
+    ]);
+  });
+
   it('omits a zero-match key from matchedKeys (caller decides whether to warn)', () => {
     const entries = [makeEntry(['abc111'])];
     const overrides = new Map([['xyz999', { description: 'Stale' }]]);

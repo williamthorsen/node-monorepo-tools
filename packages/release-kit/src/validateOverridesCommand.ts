@@ -153,7 +153,7 @@ function defaultBuildEntries(
   config: Pick<ReleaseConfig, 'breakingPolicies' | 'changelogJson' | 'workTypes'>,
   options: GenerateChangelogOptions,
 ): ChangelogEntry[] {
-  return buildChangelogEntries(config, SYNTHETIC_VALIDATE_TAG, options);
+  return buildChangelogEntries(config, SYNTHETIC_VALIDATE_TAG, options).entries;
 }
 
 /**

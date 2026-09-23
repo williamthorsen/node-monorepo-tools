@@ -194,12 +194,13 @@ export function formatStaleOverrideKeyWarning(key: string): string {
 /**
  * Apply overrides to a `ChangelogEntry[]`, returning a new array. Pure: no mutation, no I/O.
  *
- * Match algorithm: each override key is treated as a string-prefix against `ChangelogItem.hash`.
+ * Match algorithm: each override key is treated as a string-prefix against the distinct `ChangelogItem.hash`
+ * values, so a commit that yields several items counts as one match.
  * - 0 matches → key is recorded as unmatched in this batch (no warning emitted here).
- * - 1 match → apply each present override field to the matched item, record key as matched.
+ * - 1 match → apply each present override field to every item of the matched commit, record key as matched.
  * - 2+ matches → error (ambiguous prefix).
  *
- * `matchedKeys` lists the override keys that resolved to exactly one item in this batch.
+ * `matchedKeys` lists the override keys that resolved to exactly one commit in this batch.
  * Callers are responsible for computing stale-key warnings: in a monorepo run, an override
  * may target a commit that lives in another workspace, so the per-batch zero-match signal is
  * insufficient on its own. Single-package and monorepo orchestrators format warnings using
@@ -229,16 +230,17 @@ export function applyChangelogOverrides(
 
   // Pre-compute every hash present in the entry tree so each override key can resolve its
   // matches in one pass over the keyset rather than re-walking the tree per key.
-  const allHashes: string[] = [];
+  const hashSet = new Set<string>();
   for (const entry of entries) {
     for (const section of entry.sections) {
       for (const item of section.items) {
         if (item.hash !== undefined) {
-          allHashes.push(item.hash);
+          hashSet.add(item.hash);
         }
       }
     }
   }
+  const allHashes = [...hashSet];
 
   // Resolve each override key to its set of matching hashes. Zero-match keys are not warned
   // at this layer (caller aggregates across batches); ambiguous prefixes are an error.

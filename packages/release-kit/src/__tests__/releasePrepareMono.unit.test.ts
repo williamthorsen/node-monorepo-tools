@@ -75,6 +75,7 @@ import {
   DEFAULT_WORK_TYPES,
 } from '../defaults.ts';
 import { releasePrepareMono } from '../releasePrepareMono.ts';
+import { makeChangelogBuild } from '../test-utils/changelogBuilds.ts';
 import { type CommitStub, makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import type { MonorepoReleaseConfig, WorkspaceConfig, WorkTypeConfig } from '../types.ts';
 
@@ -111,7 +112,7 @@ describe(releasePrepareMono, () => {
   beforeEach(() => {
     // Default: pretend buildChangelogEntries returned no entries and the synthetic constructor
     // returned an empty stub entry. Individual tests can override if needed.
-    mockBuildChangelogEntries.mockReturnValue([]);
+    mockBuildChangelogEntries.mockReturnValue(makeChangelogBuild([]));
     mockBuildSyntheticChangelogEntry.mockReturnValue({ version: '0.0.0', date: '2024-01-01', sections: [] });
     mockBuildEmptyReleaseEntry.mockReturnValue({
       version: '0.0.0',
@@ -2026,7 +2027,7 @@ describe(releasePrepareMono, () => {
       mockBuildChangelogEntries.mockImplementation(() => {
         buildCallCount += 1;
         if (buildCallCount >= 2) throw underlying;
-        return [];
+        return makeChangelogBuild([]);
       });
 
       const wrapped = await captureError(() => releasePrepareMono(config, {}));
@@ -2212,19 +2213,21 @@ describe(releasePrepareMono, () => {
 
       // Provide a stub changelog entry whose hash does NOT match the override key; the
       // override is therefore stale and the workspace-tier rule warns immediately.
-      mockBuildChangelogEntries.mockReturnValue([
-        {
-          version: '1.1.0',
-          date: '2024-01-01',
-          sections: [
-            {
-              title: 'Features',
-              audience: 'all',
-              items: [{ description: 'Add utility', hash: 'realcommithash' }],
-            },
-          ],
-        },
-      ]);
+      mockBuildChangelogEntries.mockReturnValue(
+        makeChangelogBuild([
+          {
+            version: '1.1.0',
+            date: '2024-01-01',
+            sections: [
+              {
+                title: 'Features',
+                audience: 'all',
+                items: [{ description: 'Add utility', hash: 'realcommithash' }],
+              },
+            ],
+          },
+        ]),
+      );
 
       const result = releasePrepareMono(config, {});
 

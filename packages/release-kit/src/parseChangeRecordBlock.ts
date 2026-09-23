@@ -30,6 +30,18 @@ export function parseChangeRecordBlock(message: string): ChangeRecordBlockReadin
 }
 
 /**
+ * Removes every `change-record` block from a message, fences included. A block that never closes runs to the end of
+ * the message, as a Markdown renderer reads it.
+ */
+export function stripChangeRecordBlocks(message: string): string {
+  const lines = message.split(/\r?\n/);
+  const fences = findFences(lines);
+  return lines
+    .filter((_line, index) => fences.every((fence) => index < fence.open || index > (fence.close ?? lines.length)))
+    .join('\n');
+}
+
+/**
  * What a commit's last `change-record` block reads as: absent, malformed with the defect named, or the entries that
  * it records with the merge's pull-request number and ticket reference when the block declares them.
  */
@@ -138,7 +150,7 @@ function readPayload(payload: unknown): ChangeRecordBlockReading {
   if (
     prNumber !== undefined &&
     prNumber !== null &&
-    (typeof prNumber !== 'number' || !Number.isInteger(prNumber) || prNumber <= 0)
+    (typeof prNumber !== 'number' || !Number.isSafeInteger(prNumber) || prNumber <= 0)
   ) {
     return { kind: 'malformed', reason: '`pr_number` is not a positive integer' };
   }

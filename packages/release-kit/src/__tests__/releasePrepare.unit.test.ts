@@ -62,6 +62,7 @@ import {
   DEFAULT_WORK_TYPES,
 } from '../defaults.ts';
 import { releasePrepare } from '../releasePrepare.ts';
+import { makeChangelogBuild } from '../test-utils/changelogBuilds.ts';
 import { type CommitStub, makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import type { ReleaseConfig, WorkTypeConfig } from '../types.ts';
 
@@ -90,7 +91,7 @@ function setupFeatCommit(): void {
 
 describe(releasePrepare, () => {
   beforeEach(() => {
-    mockBuildChangelogEntries.mockReturnValue([]);
+    mockBuildChangelogEntries.mockReturnValue(makeChangelogBuild([]));
     mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
     mockRenderChangelogJson.mockReturnValue('[]\n');

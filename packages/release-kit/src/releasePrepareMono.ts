@@ -709,7 +709,8 @@ function buildWorkspaceEntries(args: BuildWorkspaceEntriesArgs): ChangelogEntry[
     return [buildEmptyReleaseEntry(newVersion, today)];
   }
 
-  return buildChangelogEntries(config, newTag, { tagPrefixes: getAllTagPrefixes(workspace), paths: workspace.paths });
+  return buildChangelogEntries(config, newTag, { tagPrefixes: getAllTagPrefixes(workspace), paths: workspace.paths })
+    .entries;
 }
 
 /**

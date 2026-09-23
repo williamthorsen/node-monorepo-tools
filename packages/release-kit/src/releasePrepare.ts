@@ -349,7 +349,7 @@ function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
 
   const baseEntries = isEmptyRange
     ? [buildEmptyReleaseEntry(newVersion, today)]
-    : buildChangelogEntries(config, newTag, { tagPrefixes: [config.tagPrefix] });
+    : buildChangelogEntries(config, newTag, { tagPrefixes: [config.tagPrefix] }).entries;
   const applied = applyChangelogOverrides(baseEntries, overrides);
   if (applied.errors.length > 0) {
     throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);

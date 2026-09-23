@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseChangeRecordBlock } from '../parseChangeRecordBlock.ts';
+import { parseChangeRecordBlock, stripChangeRecordBlocks } from '../parseChangeRecordBlock.ts';
 
 describe(parseChangeRecordBlock, () => {
   it('reads a message with no block as absent', () => {
@@ -200,6 +200,18 @@ entries:
 
       expect(parseChangeRecordBlock(message)).toStrictEqual({ kind: 'malformed', reason: '`entries` is not a list' });
     });
+  });
+});
+
+describe(stripChangeRecordBlocks, () => {
+  it('removes every block, fences included, and keeps the other lines', () => {
+    const message = `Subject\n\nLede.\n\n${block('entries: []')}\n\n\`\`\`ts\nconst a = 1;\n\`\`\`\n\n${block('pr_number: 1')}`;
+
+    expect(stripChangeRecordBlocks(message)).toBe('Subject\n\nLede.\n\n\n```ts\nconst a = 1;\n```\n');
+  });
+
+  it('removes an unclosed block to the end of the message', () => {
+    expect(stripChangeRecordBlocks('Subject\n\nLede.\n```change-record\nentries: []')).toBe('Subject\n\nLede.');
   });
 });
 
