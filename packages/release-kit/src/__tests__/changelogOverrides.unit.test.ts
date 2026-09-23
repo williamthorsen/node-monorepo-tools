@@ -1013,7 +1013,7 @@ describe(validateAllChangelogOverrides, () => {
 
     expect(result.errors).toStrictEqual([]);
     expect(result.warnings).toStrictEqual([
-      `${workspaceFile}: Override key 'abc111:3' did not match any commit in this workspace's history (likely a stale reference)`,
+      `${workspaceFile}: Override key 'abc111:3' did not match any item in this workspace's history (likely a stale reference)`,
     ]);
   });
 

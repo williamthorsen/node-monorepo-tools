@@ -211,7 +211,7 @@ function validateAudience(key: string, value: unknown, errors: string[]): 'skip'
  * so single-package and monorepo flows produce identical warning text.
  */
 export function formatStaleOverrideKeyWarning(key: string): string {
-  return `Override key '${key}' did not match any commit hash in the changelog (likely a stale reference)`;
+  return `Override key '${key}' did not match any item in the changelog (likely a stale reference)`;
 }
 
 /**
@@ -847,11 +847,11 @@ function prefixWithFilePath(filePath: string, message: string): string {
 }
 
 function formatWorkspaceStaleWarning(filePath: string, key: string): string {
-  return `${filePath}: Override key '${key}' did not match any commit in this workspace's history (likely a stale reference)`;
+  return `${filePath}: Override key '${key}' did not match any item in this workspace's history (likely a stale reference)`;
 }
 
 function formatRootStaleWarning(filePath: string, key: string): string {
-  return `${filePath}: Override key '${key}' did not match any commit in any scope (likely a stale reference)`;
+  return `${filePath}: Override key '${key}' did not match any item in any scope (likely a stale reference)`;
 }
 
 /**
