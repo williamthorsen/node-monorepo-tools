@@ -6,7 +6,7 @@ A minimal config file is in the [README](../README.md#configuration).
 
 ## Config file location
 
-release-kit reads `.config/release-kit.config.ts`, resolved against the working directory. A run reads a different file when the subcommand is given `--config <path>`, which is also resolved against the working directory.
+release-kit reads `.config/release-kit.config.ts`, resolved against the repo root, which release-kit locates from the directory that it was invoked from. A run reads a different file when the subcommand is given `--config <path>`, which is resolved against the invocation directory rather than the root, so that a relative path means what it means in the caller's shell.
 
 The flag is accepted by every subcommand that reads a config: `prepare`, `publish`, `create-github-release`, `show-tag-prefixes`, `overrides validate`, `sync-labels init`, and `sync-labels generate`. `commit`, `tag`, `push`, and `sync-labels sync` read no config and reject it.
 

@@ -27,6 +27,7 @@ import { applyReleasePlan, type ReleasePlan } from './releasePlan.ts';
 import { releasePrepare } from './releasePrepare.ts';
 import { releasePrepareMono } from './releasePrepareMono.ts';
 import { reportPrepare } from './reportPrepare.ts';
+import { resolveConfigFlag } from './resolveConfigFlag.ts';
 import type { MonorepoReleaseConfig, ReleaseKitConfig, ReleaseType } from './types.ts';
 import { validateOnlyExcludesStrandedDependents } from './validateOnlyExcludesStrandedDependents.ts';
 
@@ -122,9 +123,20 @@ export function parseArgs(argv: string[]): {
  * 3. Merges discovered defaults with user config.
  * 4. Delegates to `releasePrepare` or `releasePrepareMono` to compute the release plan.
  * 5. Applies the plan, runs the format command, and prints the result via `reportPrepare`.
+ *
+ * A relative `--config` resolves against `invocationDir`.
  */
-export async function prepareCommand(argv: string[], styles: StreamStyles): Promise<void> {
-  const { configPath, dryRun, force, noGitChecks, bumpOverride, only, setVersion, withReleaseNotes } = parseArgs(argv);
+export async function prepareCommand(argv: string[], styles: StreamStyles, invocationDir: string): Promise<void> {
+  const {
+    configPath: configFlag,
+    dryRun,
+    force,
+    noGitChecks,
+    bumpOverride,
+    only,
+    setVersion,
+    withReleaseNotes,
+  } = parseArgs(argv);
   const options = {
     force,
     ...(bumpOverride !== undefined && { bumpOverride }),
@@ -148,7 +160,7 @@ export async function prepareCommand(argv: string[], styles: StreamStyles): Prom
     }
   }
 
-  const configResult = await loadValidatedConfig(configPath);
+  const configResult = await loadValidatedConfig(resolveConfigFlag(configFlag, invocationDir));
   if (configResult.status === 'invalid') {
     reportConfigProblem(configResult.problem, styles.stderr);
     process.exit(1);

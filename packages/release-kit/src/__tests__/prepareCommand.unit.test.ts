@@ -115,7 +115,7 @@ describe(prepareCommand, () => {
   });
 
   it('discovers workspaces and calls releasePrepareMono for a monorepo', async () => {
-    await prepareCommand([], RICH_STYLES);
+    await prepareCommand([], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -128,7 +128,7 @@ describe(prepareCommand, () => {
   it('calls releasePrepare for a single-package repo', async () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
-    await prepareCommand([], RICH_STYLES);
+    await prepareCommand([], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepare).toHaveBeenCalledWith(expect.objectContaining({ tagPrefix: 'v' }), {
       force: false,
@@ -136,7 +136,7 @@ describe(prepareCommand, () => {
   });
 
   it('passes dryRun from --dry-run flag', async () => {
-    await prepareCommand(['--dry-run'], RICH_STYLES);
+    await prepareCommand(['--dry-run'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), {
       force: false,
@@ -144,7 +144,7 @@ describe(prepareCommand, () => {
   });
 
   it('passes bumpOverride from --bump flag', async () => {
-    await prepareCommand(['--bump=minor'], RICH_STYLES);
+    await prepareCommand(['--bump=minor'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), {
       force: false,
@@ -153,7 +153,7 @@ describe(prepareCommand, () => {
   });
 
   it('passes force from --force flag', async () => {
-    await prepareCommand(['--force', '--bump=patch'], RICH_STYLES);
+    await prepareCommand(['--force', '--bump=patch'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), {
       force: true,
@@ -162,7 +162,7 @@ describe(prepareCommand, () => {
   });
 
   it('filters workspaces when --only is provided', async () => {
-    await prepareCommand(['--only=arrays'], RICH_STYLES);
+    await prepareCommand(['--only=arrays'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -177,7 +177,7 @@ describe(prepareCommand, () => {
   it('exits with error when the workspace resolves to no package', async () => {
     mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
 
-    await expect(prepareCommand([], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(capture.stderr).toContain('No workspace package to release.');
     expect(mockReleasePrepare).not.toHaveBeenCalled();
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
@@ -186,14 +186,14 @@ describe(prepareCommand, () => {
   it('exits with error for --only on a single-package repo', async () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
-    await expect(prepareCommand(['--only=foo'], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+    await expect(prepareCommand(['--only=foo'], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(capture.stderr).toContain('--only is only supported');
   });
 
   it('passes a bare --force to a single-package release', async () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
-    await prepareCommand(['--force'], RICH_STYLES);
+    await prepareCommand(['--force'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepare).toHaveBeenCalledWith(expect.any(Object), { force: true });
   });
@@ -201,7 +201,7 @@ describe(prepareCommand, () => {
   it('passes --force --bump=X to a single-package release', async () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
-    await prepareCommand(['--force', '--bump=patch'], RICH_STYLES);
+    await prepareCommand(['--force', '--bump=patch'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepare).toHaveBeenCalledWith(expect.any(Object), {
       force: true,
@@ -210,7 +210,9 @@ describe(prepareCommand, () => {
   });
 
   it('exits with error for --only with an unknown workspace name in monorepo mode', async () => {
-    await expect(prepareCommand(['--only=arrays,nonexistent'], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+    await expect(prepareCommand(['--only=arrays,nonexistent'], RICH_STYLES, process.cwd())).rejects.toThrow(
+      ProcessExitError,
+    );
     expect(capture.stderr).toContain('nonexistent');
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
   });
@@ -235,7 +237,7 @@ describe(prepareCommand, () => {
       return makeReleaseHistory();
     });
 
-    await expect(prepareCommand(['--only=arrays'], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+    await expect(prepareCommand(['--only=arrays'], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(capture.stderr).toContain('stranded by the release');
     expect(capture.stderr).toContain('strings');
     expect(capture.stderr).toContain('downstream of arrays');
@@ -245,19 +247,25 @@ describe(prepareCommand, () => {
   it('exits with error when loadConfig throws', async () => {
     mockLoadConfig.mockRejectedValue(new Error('parse error'));
 
-    await expect(prepareCommand([], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(capture.stderr).toContain('Failed to load config');
     expect(capture.stderr).toContain('parse error');
   });
 
-  it('forwards --config to the loader', async () => {
-    await prepareCommand(['--config', 'elsewhere/alternative.config.ts'], RICH_STYLES);
+  it('forwards a relative --config to the loader resolved against the invocation directory', async () => {
+    await prepareCommand(['--config', 'elsewhere/alternative.config.ts'], RICH_STYLES, '/invoked/from');
 
-    expect(mockLoadConfig).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
+    expect(mockLoadConfig).toHaveBeenCalledWith('/invoked/from/elsewhere/alternative.config.ts');
+  });
+
+  it('forwards an absolute --config to the loader unchanged', async () => {
+    await prepareCommand(['--config', '/elsewhere/alternative.config.ts'], RICH_STYLES, '/invoked/from');
+
+    expect(mockLoadConfig).toHaveBeenCalledWith('/elsewhere/alternative.config.ts');
   });
 
   it('reads the default path when --config is absent', async () => {
-    await prepareCommand([], RICH_STYLES);
+    await prepareCommand([], RICH_STYLES, '/invoked/from');
 
     expect(mockLoadConfig).toHaveBeenCalledWith(undefined);
   });
@@ -265,7 +273,7 @@ describe(prepareCommand, () => {
   it('exits with error when config is invalid', async () => {
     mockLoadConfig.mockResolvedValue({ unknownField: true });
 
-    await expect(prepareCommand([], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(capture.stderrChunks).toContain('Invalid config:\n');
     expect(capture.stderr).toContain('unknownField');
   });
@@ -273,7 +281,9 @@ describe(prepareCommand, () => {
   it('reports config errors in the style of stderr', async () => {
     mockLoadConfig.mockResolvedValue({ unknownField: true });
 
-    await expect(prepareCommand([], { stderr: 'plain', stdout: 'rich' })).rejects.toThrow(ProcessExitError);
+    await expect(prepareCommand([], { stderr: 'plain', stdout: 'rich' }, process.cwd())).rejects.toThrow(
+      ProcessExitError,
+    );
 
     expect(capture.stderr).toMatch(/^ {2}FAIL {2}.*unknownField/m);
     expect(capture.stderr).not.toMatch(/\p{Extended_Pictographic}/u);
@@ -286,7 +296,7 @@ describe(prepareCommand, () => {
     });
     using silent = silenceConsole(['warn']);
 
-    await prepareCommand([], { stderr: 'plain', stdout: 'rich' });
+    await prepareCommand([], { stderr: 'plain', stdout: 'rich' }, process.cwd());
 
     expect(silent.warn).toHaveBeenCalledWith(
       expect.stringMatching(/^ {2}WARN {2}releaseNotes\.shouldInjectIntoReadme/),
@@ -297,7 +307,7 @@ describe(prepareCommand, () => {
     { style: 'rich', banner: '\n🔍 DRY RUN — no files will be modified\n' },
     { style: 'plain', banner: '\nDRY RUN — no files will be modified\n' },
   ] as const)('prints the dry-run banner in the $style style of stdout', async ({ style, banner }) => {
-    await prepareCommand(['--dry-run'], { stderr: 'rich', stdout: style });
+    await prepareCommand(['--dry-run'], { stderr: 'rich', stdout: style }, process.cwd());
 
     expect(console.info).toHaveBeenCalledWith(banner);
   });
@@ -305,7 +315,7 @@ describe(prepareCommand, () => {
   it('writes release tags after applying the plan', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
 
-    await prepareCommand([], RICH_STYLES);
+    await prepareCommand([], RICH_STYLES, process.cwd());
 
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0', {
       dryRun: false,
@@ -322,7 +332,7 @@ describe(prepareCommand, () => {
       }),
     );
 
-    await prepareCommand(['--dry-run'], RICH_STYLES);
+    await prepareCommand(['--dry-run'], RICH_STYLES, process.cwd());
 
     expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
   });
@@ -335,7 +345,7 @@ describe(prepareCommand, () => {
       }),
     );
 
-    await prepareCommand([], RICH_STYLES);
+    await prepareCommand([], RICH_STYLES, process.cwd());
 
     expect(writtenPaths()).toStrictEqual(['packages/arrays/package.json', RELEASE_TAGS_FILE]);
   });
@@ -343,7 +353,7 @@ describe(prepareCommand, () => {
   it('joins multiple tags with newlines in the release tags file', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0', 'strings-v2.0.1'] }));
 
-    await prepareCommand([], RICH_STYLES);
+    await prepareCommand([], RICH_STYLES, process.cwd());
 
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith(
       RELEASE_TAGS_FILE,
@@ -357,7 +367,7 @@ describe(prepareCommand, () => {
       throw new Error("workspace 'arrays' release stage: planVersionBump failed: ENOENT");
     });
 
-    await expect(prepareCommand([], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(capture.stderrChunks).toContain("Error: workspace 'arrays' release stage: planVersionBump failed: ENOENT\n");
     expect(capture.stderr).not.toContain('Error preparing release');
   });
@@ -367,7 +377,7 @@ describe(prepareCommand, () => {
       throw new Error("workspace 'arrays' release stage: ENOBUFS");
     });
 
-    await expect(prepareCommand([], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(capture.stderrChunks).toContain('No files were written; the working tree is unchanged.\n');
   });
 
@@ -387,7 +397,7 @@ describe(prepareCommand, () => {
         : { filePath: path, outcome: 'created' },
     );
 
-    await expect(prepareCommand([], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(capture.stderr).toContain('permission denied');
     expect(capture.stderr).toContain('packages/arrays/package.json');
     expect(capture.stderr).toContain('Not written:');
@@ -404,7 +414,7 @@ describe(prepareCommand, () => {
       throw new Error('prettier exited with code 2');
     });
 
-    await expect(prepareCommand([], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0', expect.any(Object));
     expect(capture.stderr).toContain('the release is prepared');
   });
@@ -412,7 +422,7 @@ describe(prepareCommand, () => {
   it('prints release tags file path when tags are produced', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
 
-    await prepareCommand([], RICH_STYLES);
+    await prepareCommand([], RICH_STYLES, process.cwd());
 
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Release tags file:'));
   });
@@ -420,7 +430,7 @@ describe(prepareCommand, () => {
   it('does not print release tags file path during a dry run', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
 
-    await prepareCommand(['--dry-run'], RICH_STYLES);
+    await prepareCommand(['--dry-run'], RICH_STYLES, process.cwd());
 
     expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Release tags file:'));
   });
@@ -428,7 +438,7 @@ describe(prepareCommand, () => {
   it('does not print release tags file path when no tags are produced', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult());
 
-    await prepareCommand([], RICH_STYLES);
+    await prepareCommand([], RICH_STYLES, process.cwd());
 
     expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Release tags file:'));
   });
@@ -441,7 +451,7 @@ describe(prepareCommand, () => {
       }),
     );
 
-    await prepareCommand([], RICH_STYLES);
+    await prepareCommand([], RICH_STYLES, process.cwd());
 
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith(
       RELEASE_SUMMARY_FILE,
@@ -453,7 +463,7 @@ describe(prepareCommand, () => {
   it('does not write the release summary file when the plan carries none', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['core-v1.0.0'] }));
 
-    await prepareCommand([], RICH_STYLES);
+    await prepareCommand([], RICH_STYLES, process.cwd());
 
     expect(mockWriteFileWithCheck).not.toHaveBeenCalledWith(
       RELEASE_SUMMARY_FILE,
@@ -465,7 +475,7 @@ describe(prepareCommand, () => {
   it('prints follow-up message after successful non-dry-run with tags', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['v1.0.0'] }));
 
-    await prepareCommand([], RICH_STYLES);
+    await prepareCommand([], RICH_STYLES, process.cwd());
 
     expect(capture.stderr).toContain("Run 'release-kit commit'");
   });
@@ -473,7 +483,7 @@ describe(prepareCommand, () => {
   it('does not print follow-up message during dry run', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['v1.0.0'] }));
 
-    await prepareCommand(['--dry-run'], RICH_STYLES);
+    await prepareCommand(['--dry-run'], RICH_STYLES, process.cwd());
 
     expect(capture.stderr).not.toContain("Run 'release-kit commit'");
   });
@@ -483,7 +493,7 @@ describe(prepareCommand, () => {
       workspaces: [{ dir: 'strings', shouldExclude: true }],
     });
 
-    await prepareCommand([], RICH_STYLES);
+    await prepareCommand([], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -496,7 +506,7 @@ describe(prepareCommand, () => {
   it('writes the result of reportPrepare to stdout', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult());
 
-    await prepareCommand([], RICH_STYLES);
+    await prepareCommand([], RICH_STYLES, process.cwd());
 
     expect(capture.stdout).not.toBe('');
   });
@@ -506,30 +516,30 @@ describe(prepareCommand, () => {
       throw new Error('Working tree has uncommitted changes.');
     });
 
-    await expect(prepareCommand([], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(capture.stderr).toContain('uncommitted changes');
   });
 
   it('skips the clean-tree check when --no-git-checks is provided', async () => {
-    await prepareCommand(['--no-git-checks'], RICH_STYLES);
+    await prepareCommand(['--no-git-checks'], RICH_STYLES, process.cwd());
 
     expect(mockAssertCleanWorkingTree).not.toHaveBeenCalled();
   });
 
   it('skips the clean-tree check when -n is provided', async () => {
-    await prepareCommand(['-n'], RICH_STYLES);
+    await prepareCommand(['-n'], RICH_STYLES, process.cwd());
 
     expect(mockAssertCleanWorkingTree).not.toHaveBeenCalled();
   });
 
   it('skips the clean-tree check during dry run', async () => {
-    await prepareCommand(['--dry-run'], RICH_STYLES);
+    await prepareCommand(['--dry-run'], RICH_STYLES, process.cwd());
 
     expect(mockAssertCleanWorkingTree).not.toHaveBeenCalled();
   });
 
   it('passes setVersion to releasePrepareMono when --only matches exactly one workspace', async () => {
-    await prepareCommand(['--only=arrays', '--set-version=1.0.0'], RICH_STYLES);
+    await prepareCommand(['--only=arrays', '--set-version=1.0.0'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -540,15 +550,15 @@ describe(prepareCommand, () => {
   });
 
   it('exits with an error when --set-version is used without --only in monorepo mode', async () => {
-    await expect(prepareCommand(['--set-version=1.0.0'], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+    await expect(prepareCommand(['--set-version=1.0.0'], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(capture.stderr).toContain('--set-version requires --only');
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
   });
 
   it('exits with an error when --only matches multiple workspaces under --set-version', async () => {
-    await expect(prepareCommand(['--only=arrays,strings', '--set-version=1.0.0'], RICH_STYLES)).rejects.toThrow(
-      ProcessExitError,
-    );
+    await expect(
+      prepareCommand(['--only=arrays,strings', '--set-version=1.0.0'], RICH_STYLES, process.cwd()),
+    ).rejects.toThrow(ProcessExitError);
     expect(capture.stderr).toContain('exactly one workspace');
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
   });
@@ -557,9 +567,9 @@ describe(prepareCommand, () => {
     // A non-matching --only name is caught by the unknown-workspace guard in prepareCommand
     // (which runs before the --set-version narrowing check), so the error mentions the
     // unknown name rather than the "exactly one workspace" message.
-    await expect(prepareCommand(['--only=nonexistent', '--set-version=1.0.0'], RICH_STYLES)).rejects.toThrow(
-      ProcessExitError,
-    );
+    await expect(
+      prepareCommand(['--only=nonexistent', '--set-version=1.0.0'], RICH_STYLES, process.cwd()),
+    ).rejects.toThrow(ProcessExitError);
     expect(capture.stderr).toContain('nonexistent');
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
   });
@@ -567,7 +577,7 @@ describe(prepareCommand, () => {
   it('passes setVersion to releasePrepare in single-package mode', async () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
-    await prepareCommand(['--set-version=1.2.3'], RICH_STYLES);
+    await prepareCommand(['--set-version=1.2.3'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepare).toHaveBeenCalledWith(
       expect.any(Object),
@@ -576,7 +586,7 @@ describe(prepareCommand, () => {
   });
 
   it('forwards withReleaseNotes to releasePrepareMono when --with-release-notes is set', async () => {
-    await prepareCommand(['--with-release-notes'], RICH_STYLES);
+    await prepareCommand(['--with-release-notes'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(
       expect.any(Object),
@@ -587,7 +597,7 @@ describe(prepareCommand, () => {
   it('forwards withReleaseNotes to releasePrepare in single-package mode', async () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
-    await prepareCommand(['--with-release-notes'], RICH_STYLES);
+    await prepareCommand(['--with-release-notes'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepare).toHaveBeenCalledWith(
       expect.any(Object),
@@ -596,7 +606,7 @@ describe(prepareCommand, () => {
   });
 
   it('omits withReleaseNotes from options when the flag is not set', async () => {
-    await prepareCommand([], RICH_STYLES);
+    await prepareCommand([], RICH_STYLES, process.cwd());
 
     const callArgs = mockReleasePrepareMono.mock.calls[0]?.[1];
     expect(callArgs).not.toHaveProperty('withReleaseNotes');
@@ -620,7 +630,7 @@ describe(prepareCommand, () => {
     });
 
     it('accepts --only and passes the narrowing through to the orchestrator', async () => {
-      await prepareCommand(['--only=arrays'], RICH_STYLES);
+      await prepareCommand(['--only=arrays'], RICH_STYLES, process.cwd());
 
       expect(mockReleasePrepareMono).toHaveBeenCalledWith(
         expect.objectContaining({ workspaces: [expect.objectContaining({ tagPrefix: 'arrays-v' })] }),
@@ -629,33 +639,37 @@ describe(prepareCommand, () => {
     });
 
     it('omits the narrowing from the orchestrator options when --only is absent', async () => {
-      await prepareCommand([], RICH_STYLES);
+      await prepareCommand([], RICH_STYLES, process.cwd());
 
       expect(mockReleasePrepareMono.mock.calls[0]?.[1]).not.toHaveProperty('only');
     });
 
     it('still rejects --only with an unknown workspace name', async () => {
-      await expect(prepareCommand(['--only=nonexistent'], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+      await expect(prepareCommand(['--only=nonexistent'], RICH_STYLES, process.cwd())).rejects.toThrow(
+        ProcessExitError,
+      );
       expect(capture.stderr).toContain('nonexistent');
       expect(mockReleasePrepareMono).not.toHaveBeenCalled();
     });
 
     it('runs normally without --only when project is configured', async () => {
-      await prepareCommand([], RICH_STYLES);
+      await prepareCommand([], RICH_STYLES, process.cwd());
       expect(mockReleasePrepareMono).toHaveBeenCalled();
     });
 
     it('rejects --set-version with the project-aware error (not the transitive --only error)', async () => {
-      await expect(prepareCommand(['--set-version=1.2.3'], RICH_STYLES)).rejects.toThrow(ProcessExitError);
+      await expect(prepareCommand(['--set-version=1.2.3'], RICH_STYLES, process.cwd())).rejects.toThrow(
+        ProcessExitError,
+      );
       expect(capture.stderr).toContain('--set-version cannot be combined with a project release');
       expect(capture.stderr).not.toContain('requires --only');
       expect(mockReleasePrepareMono).not.toHaveBeenCalled();
     });
 
     it('rejects --set-version + --only with the project-aware error', async () => {
-      await expect(prepareCommand(['--set-version=1.2.3', '--only=arrays'], RICH_STYLES)).rejects.toThrow(
-        ProcessExitError,
-      );
+      await expect(
+        prepareCommand(['--set-version=1.2.3', '--only=arrays'], RICH_STYLES, process.cwd()),
+      ).rejects.toThrow(ProcessExitError);
       expect(capture.stderr).toContain('--set-version cannot be combined with a project release');
       expect(mockReleasePrepareMono).not.toHaveBeenCalled();
     });

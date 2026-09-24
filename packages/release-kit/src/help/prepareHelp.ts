@@ -9,7 +9,8 @@ Usage: release-kit prepare [options]
 Run release preparation with automatic workspace discovery.
 
 Options:
-  --config <path>       Path to config file (default: .config/release-kit.config.ts)
+  --config <path>       Config file, relative to the current directory
+                         (default: .config/release-kit.config.ts at the repo root)
   --dry-run             Run without modifying any files
   --bump=major|minor|patch  Set the level of every release that happens; does not trigger one
   --set-version=X.Y.Z   Set an explicit version; bypasses the changelog-derived bump. In monorepo

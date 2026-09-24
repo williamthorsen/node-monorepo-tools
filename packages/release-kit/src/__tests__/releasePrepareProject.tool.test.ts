@@ -514,7 +514,7 @@ describe('releasePrepareProject (tool)', () => {
     using _silent = silenceConsole(['info']);
 
     try {
-      await prepareCommand(['--only=pkg-a', '--no-git-checks'], RICH_STYLES);
+      await prepareCommand(['--only=pkg-a', '--no-git-checks'], RICH_STYLES, process.cwd());
     } finally {
       exit[Symbol.dispose]();
     }

@@ -10,6 +10,7 @@ import { formatPrivateSkip } from './formatPrivateSkip.ts';
 import { assertConfigUsable } from './loadValidatedConfig.ts';
 import { parseRequestedTags } from './parseRequestedTags.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
+import { resolveConfigFlag } from './resolveConfigFlag.ts';
 import { resolveReleaseNotesConfig } from './resolveReleaseNotesConfig.ts';
 
 const createGithubReleaseFlagSchema = {
@@ -23,15 +24,21 @@ const createGithubReleaseFlagSchema = {
  * for tags on HEAD (or a comma-separated `--tags` subset), without requiring npm publish.
  *
  * Private/unpublishable workspaces are skipped with a warning and never get a Release, matching
- * `release-kit publish`; an all-private tag set is a clean no-op.
+ * `release-kit publish`; an all-private tag set is a clean no-op. A relative `--config` resolves against
+ * `invocationDir`.
  */
-export async function createGithubReleaseCommand(argv: string[], styles: StreamStyles): Promise<void> {
+export async function createGithubReleaseCommand(
+  argv: string[],
+  styles: StreamStyles,
+  invocationDir: string,
+): Promise<void> {
   const parsed = parseArgsOrExit(argv, createGithubReleaseFlagSchema);
+  const configPath = resolveConfigFlag(parsed.flags.config, invocationDir);
 
   const { dryRun } = parsed.flags;
 
   // An all-private tag set returns below without reading a config, so the config is opened and validated first.
-  await assertConfigUsable(styles.stderr, parsed.flags.config);
+  await assertConfigUsable(styles.stderr, configPath);
 
   const requestedTags = parseRequestedTags(parsed.flags.tags);
 
@@ -53,7 +60,7 @@ export async function createGithubReleaseCommand(argv: string[], styles: StreamS
   }
 
   const { changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig(styles.stderr, {
-    ...(parsed.flags.config !== undefined && { configPath: parsed.flags.config }),
+    ...(configPath !== undefined && { configPath }),
   });
 
   let outcome;
