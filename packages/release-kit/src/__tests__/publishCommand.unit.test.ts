@@ -119,7 +119,7 @@ describe(publishCommand, () => {
   });
 
   it('calls publishPackage for each resolved tag', async () => {
-    await publishCommand([], RICH_STYLES);
+    await publishCommand([], RICH_STYLES, process.cwd());
 
     expect(mockPublishPackage).toHaveBeenCalledWith(
       { tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true },
@@ -129,7 +129,7 @@ describe(publishCommand, () => {
   });
 
   it('passes dryRun when --dry-run is provided', async () => {
-    await publishCommand(['--dry-run'], RICH_STYLES);
+    await publishCommand(['--dry-run'], RICH_STYLES, process.cwd());
 
     expect(mockPublishPackage).toHaveBeenCalledWith(
       expect.anything(),
@@ -139,7 +139,7 @@ describe(publishCommand, () => {
   });
 
   it('does not thread --no-git-checks into publishPackage options', async () => {
-    await publishCommand(['--no-git-checks'], RICH_STYLES);
+    await publishCommand(['--no-git-checks'], RICH_STYLES, process.cwd());
 
     expect(mockPublishPackage).toHaveBeenCalledWith(
       expect.anything(),
@@ -150,7 +150,7 @@ describe(publishCommand, () => {
   });
 
   it('passes provenance when --provenance is provided', async () => {
-    await publishCommand(['--provenance'], RICH_STYLES);
+    await publishCommand(['--provenance'], RICH_STYLES, process.cwd());
 
     expect(mockPublishPackage).toHaveBeenCalledWith(
       expect.anything(),
@@ -160,7 +160,7 @@ describe(publishCommand, () => {
   });
 
   it('exits with code 1 on unknown flags', async () => {
-    const error = await captureError(ProcessExitError, () => publishCommand(['--unknown'], RICH_STYLES));
+    const error = await captureError(ProcessExitError, () => publishCommand(['--unknown'], RICH_STYLES, process.cwd()));
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
@@ -170,7 +170,7 @@ describe(publishCommand, () => {
   it('exits with code 1 when no release tags are found on HEAD', async () => {
     mockResolveReleaseTags.mockReturnValue([]);
 
-    const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES));
+    const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain(
@@ -185,7 +185,7 @@ describe(publishCommand, () => {
       { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
     ]);
 
-    await publishCommand(['--tags=core-v1.3.0'], RICH_STYLES);
+    await publishCommand(['--tags=core-v1.3.0'], RICH_STYLES, process.cwd());
 
     expect(mockPublishPackage).toHaveBeenCalledTimes(1);
     expect(mockPublishPackage).toHaveBeenCalledWith(
@@ -199,7 +199,7 @@ describe(publishCommand, () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true }]);
 
-    await publishCommand(['--tags=v1.0.0'], RICH_STYLES);
+    await publishCommand(['--tags=v1.0.0'], RICH_STYLES, process.cwd());
 
     expect(mockPublishPackage).toHaveBeenCalledTimes(1);
     expect(mockPublishPackage).toHaveBeenCalledWith(
@@ -215,14 +215,18 @@ describe(publishCommand, () => {
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
 
-    const error = await captureError(ProcessExitError, () => publishCommand(['--tags=missing-v9.9.9'], RICH_STYLES));
+    const error = await captureError(ProcessExitError, () =>
+      publishCommand(['--tags=missing-v9.9.9'], RICH_STYLES, process.cwd()),
+    );
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Unknown tag "missing-v9.9.9" in --tags. Available: core-v1.3.0\n');
   });
 
   it('exits with code 1 when --only is passed (flag removed)', async () => {
-    const error = await captureError(ProcessExitError, () => publishCommand(['--only=core'], RICH_STYLES));
+    const error = await captureError(ProcessExitError, () =>
+      publishCommand(['--only=core'], RICH_STYLES, process.cwd()),
+    );
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Unknown option: --only\n');
@@ -233,7 +237,7 @@ describe(publishCommand, () => {
       throw new Error('publish failed');
     });
 
-    const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES));
+    const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: publish failed\n');
@@ -246,7 +250,7 @@ describe(publishCommand, () => {
       { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
     ]);
 
-    await publishCommand([], RICH_STYLES);
+    await publishCommand([], RICH_STYLES, process.cwd());
 
     expect(mockCreateGithubReleases).not.toHaveBeenCalled();
   });
@@ -254,7 +258,7 @@ describe(publishCommand, () => {
   it('uses the detected package manager', async () => {
     mockDetectPackageManager.mockReturnValue('pnpm');
 
-    await publishCommand([], RICH_STYLES);
+    await publishCommand([], RICH_STYLES, process.cwd());
 
     expect(mockPublishPackage).toHaveBeenCalledWith(expect.anything(), 'pnpm', expect.anything());
   });
@@ -266,7 +270,7 @@ describe(publishCommand, () => {
       { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
     ]);
 
-    await publishCommand([], RICH_STYLES);
+    await publishCommand([], RICH_STYLES, process.cwd());
 
     expect(console.info).toHaveBeenCalledWith('Publishing:');
     expect(console.info).toHaveBeenCalledWith('  core-v1.3.0 (packages/core)');
@@ -274,7 +278,7 @@ describe(publishCommand, () => {
   });
 
   it('prints dry-run confirmation listing', async () => {
-    await publishCommand(['--dry-run'], RICH_STYLES);
+    await publishCommand(['--dry-run'], RICH_STYLES, process.cwd());
 
     expect(console.info).toHaveBeenCalledWith('[dry-run] Would publish:');
   });
@@ -291,16 +295,16 @@ describe(publishCommand, () => {
       }
     });
 
-    await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES));
+    await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
     expect(console.warn).toHaveBeenCalledWith('Packages published before failure:');
     expect(console.warn).toHaveBeenCalledWith('  core-v1.3.0');
   });
 
   describe('config loading', () => {
-    it('forwards --config to the loader', async () => {
-      await publishCommand(['--config', 'elsewhere/alternative.config.ts'], RICH_STYLES);
+    it('forwards --config to the loader resolved against the invocation directory', async () => {
+      await publishCommand(['--config', 'elsewhere/alternative.config.ts'], RICH_STYLES, '/invoked/from');
 
-      expect(mockLoadConfig).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
+      expect(mockLoadConfig).toHaveBeenCalledWith('/invoked/from/elsewhere/alternative.config.ts');
     });
 
     it('exits with code 1 for a named config that fails to load before an all-private tag set returns', async () => {
@@ -308,7 +312,7 @@ describe(publishCommand, () => {
       mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
 
       const error = await captureError(ProcessExitError, () =>
-        publishCommand(['--config', 'elsewhere/absent.config.ts'], RICH_STYLES),
+        publishCommand(['--config', 'elsewhere/absent.config.ts'], RICH_STYLES, process.cwd()),
       );
 
       expect(error.code).toBe(1);
@@ -320,7 +324,7 @@ describe(publishCommand, () => {
       mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: false }]);
       mockLoadConfig.mockRejectedValue(new Error('Unexpected token in config'));
 
-      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES));
+      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
       expect(error.code).toBe(1);
       expect(capture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
@@ -332,7 +336,7 @@ describe(publishCommand, () => {
       mockLoadConfig.mockResolvedValue({ bogus: 123 });
       mockValidateConfig.mockReturnValue({ config: {}, errors: ["Unknown field: 'bogus'"], warnings: [] });
 
-      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES));
+      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
       expect(error.code).toBe(1);
       expect(capture.stderrChunks).toContain('Invalid config:\n');
@@ -342,7 +346,7 @@ describe(publishCommand, () => {
     it('stays a clean no-op when no default config exists and every tag is private', async () => {
       mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: false }]);
 
-      await publishCommand([], RICH_STYLES);
+      await publishCommand([], RICH_STYLES, process.cwd());
 
       expect(console.info).toHaveBeenCalledWith('Nothing to publish.');
       expect(capture.stderr).toBe('');
@@ -353,7 +357,7 @@ describe(publishCommand, () => {
       mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
 
       const error = await captureError(ProcessExitError, () =>
-        publishCommand(['--config', 'elsewhere/absent.config.ts'], RICH_STYLES),
+        publishCommand(['--config', 'elsewhere/absent.config.ts'], RICH_STYLES, process.cwd()),
       );
 
       expect(error.code).toBe(1);
@@ -364,7 +368,7 @@ describe(publishCommand, () => {
     it('exits with code 1 rather than falling back to defaults when the default config fails to load', async () => {
       mockLoadConfig.mockRejectedValue(new Error('Unexpected token in config'));
 
-      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES));
+      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
       expect(error.code).toBe(1);
       expect(capture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
@@ -379,7 +383,7 @@ describe(publishCommand, () => {
         warnings: ['releaseNotes.shouldInjectIntoReadme is enabled but changelogJson.enabled is false'],
       });
 
-      await publishCommand([], RICH_STYLES);
+      await publishCommand([], RICH_STYLES, process.cwd());
 
       expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('shouldInjectIntoReadme'));
     });
@@ -392,7 +396,7 @@ describe(publishCommand, () => {
         warnings: [],
       });
 
-      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES));
+      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
       expect(error.code).toBe(1);
       expect(capture.stderrChunks).toContain('Invalid config:\n');
@@ -417,7 +421,7 @@ describe(publishCommand, () => {
       mockResolveReadmePath.mockReturnValue('/pkg/README.md');
       mockInjectReleaseNotesIntoReadme.mockReturnValue('# Original README\n');
 
-      await publishCommand([], RICH_STYLES);
+      await publishCommand([], RICH_STYLES, process.cwd());
 
       expect(mockInjectReleaseNotesIntoReadme).toHaveBeenCalledTimes(1);
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);
@@ -431,14 +435,14 @@ describe(publishCommand, () => {
         throw new Error('publish failed');
       });
 
-      await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES));
+      await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
       expect(mockWriteFileSync).toHaveBeenCalledWith('/pkg/README.md', '# Original README\n', 'utf8');
     });
 
     it('skips injection when resolveReadmePath returns undefined', async () => {
       mockResolveReadmePath.mockReturnValue(undefined);
 
-      await publishCommand([], RICH_STYLES);
+      await publishCommand([], RICH_STYLES, process.cwd());
 
       expect(mockInjectReleaseNotesIntoReadme).not.toHaveBeenCalled();
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);
@@ -448,7 +452,7 @@ describe(publishCommand, () => {
       mockResolveReadmePath.mockReturnValue('/pkg/README.md');
       mockInjectReleaseNotesIntoReadme.mockReturnValue(undefined);
 
-      await publishCommand([], RICH_STYLES);
+      await publishCommand([], RICH_STYLES, process.cwd());
 
       expect(mockInjectReleaseNotesIntoReadme).toHaveBeenCalledTimes(1);
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);
@@ -464,7 +468,7 @@ describe(publishCommand, () => {
         warnings: [],
       });
 
-      await publishCommand([], RICH_STYLES);
+      await publishCommand([], RICH_STYLES, process.cwd());
 
       expect(mockResolveReadmePath).not.toHaveBeenCalled();
       expect(mockInjectReleaseNotesIntoReadme).not.toHaveBeenCalled();
@@ -484,7 +488,7 @@ describe(publishCommand, () => {
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
       ]);
 
-      await publishCommand([], RICH_STYLES);
+      await publishCommand([], RICH_STYLES, process.cwd());
 
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);
       expect(mockPublishPackage).toHaveBeenCalledWith(
@@ -510,7 +514,7 @@ describe(publishCommand, () => {
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
       ]);
 
-      await publishCommand([], RICH_STYLES);
+      await publishCommand([], RICH_STYLES, process.cwd());
 
       expect(console.info).toHaveBeenCalledWith('Nothing to publish.');
       expect(mockPublishPackage).not.toHaveBeenCalled();
@@ -522,7 +526,7 @@ describe(publishCommand, () => {
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
       ]);
 
-      await publishCommand(['--tags=basic-v1.0.0'], RICH_STYLES);
+      await publishCommand(['--tags=basic-v1.0.0'], RICH_STYLES, process.cwd());
 
       // Explicit naming of an unpublishable tag warns and skips rather than exiting non-zero.
       expect(console.warn).toHaveBeenCalledWith(
@@ -539,7 +543,7 @@ describe(publishCommand, () => {
         { tag: 'internal-v2.0.0', dir: 'internal', workspacePath: 'packages/internal', isPublishable: false },
       ]);
 
-      await publishCommand(['--tags=basic-v1.0.0,internal-v2.0.0'], RICH_STYLES);
+      await publishCommand(['--tags=basic-v1.0.0,internal-v2.0.0'], RICH_STYLES, process.cwd());
 
       expect(console.warn).toHaveBeenCalledWith(
         'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
@@ -563,7 +567,7 @@ describe(publishCommand, () => {
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
       ]);
 
-      await publishCommand(['--tags=common-utils-v2.4.0,basic-v1.0.0'], RICH_STYLES);
+      await publishCommand(['--tags=common-utils-v2.4.0,basic-v1.0.0'], RICH_STYLES, process.cwd());
 
       // The private tag is skipped with a warning; the publishable tag still publishes.
       expect(console.warn).toHaveBeenCalledWith(
@@ -589,7 +593,7 @@ describe(publishCommand, () => {
         throw new Error('Working tree has uncommitted changes.');
       });
 
-      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES));
+      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
       expect(error.code).toBe(1);
       expect(capture.stderr).toContain('uncommitted changes');
@@ -598,21 +602,21 @@ describe(publishCommand, () => {
     });
 
     it('proceeds when the working tree is clean', async () => {
-      await publishCommand([], RICH_STYLES);
+      await publishCommand([], RICH_STYLES, process.cwd());
 
       expect(mockAssertCleanWorkingTree).toHaveBeenCalledTimes(1);
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);
     });
 
     it('skips the check when --no-git-checks is provided', async () => {
-      await publishCommand(['--no-git-checks'], RICH_STYLES);
+      await publishCommand(['--no-git-checks'], RICH_STYLES, process.cwd());
 
       expect(mockAssertCleanWorkingTree).not.toHaveBeenCalled();
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);
     });
 
     it('skips the check when --dry-run is provided', async () => {
-      await publishCommand(['--dry-run'], RICH_STYLES);
+      await publishCommand(['--dry-run'], RICH_STYLES, process.cwd());
 
       expect(mockAssertCleanWorkingTree).not.toHaveBeenCalled();
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);

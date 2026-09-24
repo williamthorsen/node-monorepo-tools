@@ -16,6 +16,7 @@ import { assertConfigUsable } from './loadValidatedConfig.ts';
 import { parseRequestedTags } from './parseRequestedTags.ts';
 import { publishPackage } from './publish.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
+import { resolveConfigFlag } from './resolveConfigFlag.ts';
 import { resolveReleaseNotesConfig } from './resolveReleaseNotesConfig.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
 
@@ -30,14 +31,16 @@ const publishFlagSchema = {
 /**
  * Orchestrate the CLI `publish` command: parse flags, open a named config, discover workspaces, resolve tags
  * from HEAD, detect the package manager, validate `--tags`, and publish each tag with inject/restore lifecycle.
+ * A relative `--config` resolves against `invocationDir`.
  */
-export async function publishCommand(argv: string[], styles: StreamStyles): Promise<void> {
+export async function publishCommand(argv: string[], styles: StreamStyles, invocationDir: string): Promise<void> {
   const parsed = parseArgsOrExit(argv, publishFlagSchema);
+  const configPath = resolveConfigFlag(parsed.flags.config, invocationDir);
 
   const { dryRun, noGitChecks, provenance } = parsed.flags;
 
   // An all-private tag set returns below without reading a config, so the config is opened and validated first.
-  await assertConfigUsable(styles.stderr, parsed.flags.config);
+  await assertConfigUsable(styles.stderr, configPath);
 
   // Guard against running on a dirty working tree (skip for dry runs and --no-git-checks).
   // Mirrors prepareCommand and tagCommand: release-kit owns the check; pnpm's own check is
@@ -68,7 +71,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles): Prom
 
   const packageManager = detectPackageManager();
   const { releaseNotes, changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig(styles.stderr, {
-    ...(parsed.flags.config !== undefined && { configPath: parsed.flags.config }),
+    ...(configPath !== undefined && { configPath }),
   });
 
   const shouldInject = releaseNotes.shouldInjectIntoReadme;

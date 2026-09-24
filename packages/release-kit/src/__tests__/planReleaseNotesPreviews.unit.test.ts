@@ -59,6 +59,15 @@ describe(planReleaseNotesPreviews, () => {
     ]);
   });
 
+  it('plans relative paths under docs/ for a workspace at the repo root', () => {
+    const plan = planReleaseNotesPreviews(previewOptions({ workspacePath: '.' }));
+
+    expect(plan.writes.map((write) => write.path)).toStrictEqual([
+      'docs/README.v1.2.3.md',
+      'docs/RELEASE_NOTES.v1.2.3.md',
+    ]);
+  });
+
   it('renders from the supplied entries rather than from a changelog file', () => {
     const entries = [{ version: '1.2.3', date: '2024-01-01', sections: [] }];
 

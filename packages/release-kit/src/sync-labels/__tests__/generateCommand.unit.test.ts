@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import type { StreamStyles } from '@williamthorsen/nmr-core';
 import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
@@ -205,6 +207,57 @@ describe(generateCommand, () => {
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       LABELS_OUTPUT_PATH,
       expect.stringContaining('# Source: elsewhere/alternative.config.ts'),
+      'utf8',
+    );
+  });
+
+  it('names an absolute config path in the header relative to the working directory', async () => {
+    mockExistsSync.mockReturnValue(false);
+    givenValidConfig({ repoLabels: {} });
+    mockResolveLabels.mockReturnValue([]);
+    using _silent = silenceConsole(['info']);
+
+    await generateCommand({
+      configPath: path.join(process.cwd(), 'elsewhere/alternative.config.ts'),
+      styles: RICH_STYLES,
+    });
+
+    expect(mockWriteFileSync).toHaveBeenCalledWith(
+      LABELS_OUTPUT_PATH,
+      expect.stringContaining('# Source: elsewhere/alternative.config.ts\n'),
+      'utf8',
+    );
+  });
+
+  it('names a config outside the working directory in the header by its ../ path', async () => {
+    mockExistsSync.mockReturnValue(false);
+    givenValidConfig({ repoLabels: {} });
+    mockResolveLabels.mockReturnValue([]);
+    using _silent = silenceConsole(['info']);
+
+    await generateCommand({
+      configPath: path.join(path.dirname(process.cwd()), 'shared/release-kit.config.ts'),
+      styles: RICH_STYLES,
+    });
+
+    expect(mockWriteFileSync).toHaveBeenCalledWith(
+      LABELS_OUTPUT_PATH,
+      expect.stringContaining('# Source: ../shared/release-kit.config.ts\n'),
+      'utf8',
+    );
+  });
+
+  it('names the default config in the header when no configPath is given', async () => {
+    mockExistsSync.mockReturnValue(false);
+    givenValidConfig({ repoLabels: {} });
+    mockResolveLabels.mockReturnValue([]);
+    using _silent = silenceConsole(['info']);
+
+    await generateCommand({ styles: RICH_STYLES });
+
+    expect(mockWriteFileSync).toHaveBeenCalledWith(
+      LABELS_OUTPUT_PATH,
+      expect.stringContaining('# Source: .config/release-kit.config.ts\n'),
       'utf8',
     );
   });

@@ -477,9 +477,8 @@ describe(releasePrepare, () => {
     );
   });
 
-  it('calls planReleaseNotesPreviews when --with-release-notes is set and changelogJson is enabled', () => {
+  it('calls planReleaseNotesPreviews with the relative root path when --with-release-notes is set and changelogJson is enabled', () => {
     stubMinorRelease();
-    vi.spyOn(process, 'cwd').mockReturnValue('/single-pkg');
 
     releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
       withReleaseNotes: true,
@@ -488,7 +487,7 @@ describe(releasePrepare, () => {
     expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledTimes(1);
     expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledWith(
       expect.objectContaining({
-        workspacePath: '/single-pkg',
+        workspacePath: '.',
         tag: 'v1.1.0',
         sectionOrder: expect.any(Array),
         entries: expect.any(Array),

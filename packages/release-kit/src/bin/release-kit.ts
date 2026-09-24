@@ -11,11 +11,13 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { commitCommand } from '../commitCommand.ts';
 import { configFlagSchema } from '../configFlagSchema.ts';
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
+import { enterRepoRoot, type RepoLocation } from '../enterRepoRoot.ts';
 import { showPrepareHelp } from '../help/prepareHelp.ts';
 import { initCommand } from '../init/initCommand.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { publishCommand } from '../publishCommand.ts';
 import { pushCommand } from '../pushCommand.ts';
+import { resolveConfigFlag } from '../resolveConfigFlag.ts';
 import { OUTPUT_STYLE_ENV_VAR, resolveStylesOrExit } from '../resolveStylesOrExit.ts';
 import { showTagPrefixesCommand } from '../showTagPrefixesCommand.ts';
 import { generateCommand } from '../sync-labels/generateCommand.ts';
@@ -80,7 +82,8 @@ retired packages, then generate .github/labels.yaml. When the config file alread
 exists, print the block for manual paste instead of rewriting the file.
 
 Options:
-  --config <path>  Path to config file (default: .config/release-kit.config.ts)
+  --config <path>  Config file, relative to the current directory
+                   (default: .config/release-kit.config.ts at the repo root)
   --dry-run        Preview changes without writing files
   --force          Overwrite existing files instead of skipping them
   --help, -h       Show this help message
@@ -95,7 +98,8 @@ Regenerate .github/labels.yaml from the repoLabels block of .config/release-kit.
 
 Options:
   --check          Report whether .github/labels.yaml is stale instead of writing it
-  --config <path>  Path to config file (default: .config/release-kit.config.ts)
+  --config <path>  Config file, relative to the current directory
+                   (default: .config/release-kit.config.ts at the repo root)
   --help, -h       Show this help message
 `);
 }
@@ -175,7 +179,8 @@ Create GitHub Releases from changelog.json for tags on HEAD. Private
 (package.json#private) workspaces are skipped with a warning and get no Release.
 
 Options:
-  --config <path>        Path to config file (default: .config/release-kit.config.ts)
+  --config <path>        Config file, relative to the current directory
+                         (default: .config/release-kit.config.ts at the repo root)
   --dry-run              Preview without creating releases
   --tags=tag1,tag2       Only create releases for the named tags (comma-separated, full tag names)
   --help, -h             Show this help message
@@ -192,7 +197,8 @@ derived prefix nor declared in \`legacyIdentities\`, with a copy-pasteable
 config snippet.
 
 Options:
-  --config <path>  Path to config file (default: .config/release-kit.config.ts)
+  --config <path>  Config file, relative to the current directory
+                   (default: .config/release-kit.config.ts at the repo root)
   --help, -h       Show this help message
 `);
 }
@@ -225,7 +231,8 @@ Exit codes:
   2    Schema/parse, ambiguous-prefix, or conflicting-key errors (errors dominate)
 
 Options:
-  --config <path>  Path to config file (default: .config/release-kit.config.ts)
+  --config <path>  Config file, relative to the current directory
+                   (default: .config/release-kit.config.ts at the repo root)
   --help, -h       Show this help message
 `);
 }
@@ -240,13 +247,24 @@ silently filtered out. With --tags, an unpublishable tag is skipped with a warni
 any publishable tags still publish.
 
 Options:
-  --config <path>        Path to config file (default: .config/release-kit.config.ts)
+  --config <path>        Config file, relative to the current directory
+                         (default: .config/release-kit.config.ts at the repo root)
   --dry-run              Preview without publishing
   --no-git-checks        Skip the clean-working-tree check
   --tags=tag1,tag2       Only publish the named tags (comma-separated, full tag names)
   --provenance           Generate provenance statement (requires OIDC, not supported by classic yarn)
   --help, -h             Show this help message
 `);
+}
+
+/** Moves the process to the repo root, or reports why none was found and exits. */
+function enterRepoRootOrExit(): RepoLocation {
+  try {
+    return enterRepoRoot();
+  } catch (error: unknown) {
+    reportError(describeError(error));
+    process.exit(1);
+  }
 }
 
 const args = process.argv.slice(2);
@@ -276,7 +294,9 @@ if (command === 'prepare') {
     process.exit(0);
   }
 
-  await prepareCommand(flags, styles);
+  const { invocationDir } = enterRepoRootOrExit();
+
+  await prepareCommand(flags, styles, invocationDir);
   process.exit(0);
 }
 
@@ -285,6 +305,8 @@ if (command === 'commit') {
     showCommitHelp();
     process.exit(0);
   }
+
+  enterRepoRootOrExit();
 
   try {
     commitCommand(flags);
@@ -301,6 +323,8 @@ if (command === 'tag') {
     process.exit(0);
   }
 
+  enterRepoRootOrExit();
+
   tagCommand(flags, styles);
   process.exit(0);
 }
@@ -310,6 +334,8 @@ if (command === 'push') {
     showPushHelp();
     process.exit(0);
   }
+
+  enterRepoRootOrExit();
 
   pushCommand(flags);
   process.exit(0);
@@ -321,7 +347,9 @@ if (command === 'create-github-release') {
     process.exit(0);
   }
 
-  await createGithubReleaseCommand(flags, styles);
+  const { invocationDir } = enterRepoRootOrExit();
+
+  await createGithubReleaseCommand(flags, styles, invocationDir);
   process.exit(0);
 }
 
@@ -331,7 +359,9 @@ if (command === 'publish') {
     process.exit(0);
   }
 
-  await publishCommand(flags, styles);
+  const { invocationDir } = enterRepoRootOrExit();
+
+  await publishCommand(flags, styles, invocationDir);
   process.exit(0);
 }
 
@@ -341,8 +371,10 @@ if (command === 'show-tag-prefixes') {
     process.exit(0);
   }
 
+  const { invocationDir } = enterRepoRootOrExit();
+
   const { config } = parseArgsOrExit(flags, configFlagSchema).flags;
-  const exitCode = await showTagPrefixesCommand(styles, config);
+  const exitCode = await showTagPrefixesCommand(styles, resolveConfigFlag(config, invocationDir));
   process.exit(exitCode);
 }
 
@@ -351,6 +383,8 @@ if (command === 'init') {
     showInitHelp();
     process.exit(0);
   }
+
+  enterRepoRootOrExit();
 
   const initFlagSchema = {
     dryRun: { long: '--dry-run', type: 'boolean' as const },
@@ -379,6 +413,8 @@ if (command === 'sync-labels') {
       process.exit(0);
     }
 
+    const { invocationDir } = enterRepoRootOrExit();
+
     const syncLabelsInitFlagSchema = {
       ...configFlagSchema,
       dryRun: { long: '--dry-run', type: 'boolean' as const },
@@ -386,8 +422,9 @@ if (command === 'sync-labels') {
     };
 
     const { config, dryRun, force } = parseArgsOrExit(subflags, syncLabelsInitFlagSchema).flags;
+    const configPath = resolveConfigFlag(config, invocationDir);
     const exitCode = await syncLabelsInitCommand({
-      ...(config !== undefined && { configPath: config }),
+      ...(configPath !== undefined && { configPath }),
       dryRun,
       force,
       styles,
@@ -401,13 +438,16 @@ if (command === 'sync-labels') {
       process.exit(0);
     }
 
+    const { invocationDir } = enterRepoRootOrExit();
+
     const generateFlagSchema = {
       ...configFlagSchema,
       check: { long: '--check', type: 'boolean' as const },
     };
 
     const { check, config } = parseArgsOrExit(subflags, generateFlagSchema).flags;
-    const exitCode = await generateCommand({ check, ...(config !== undefined && { configPath: config }), styles });
+    const configPath = resolveConfigFlag(config, invocationDir);
+    const exitCode = await generateCommand({ check, ...(configPath !== undefined && { configPath }), styles });
     process.exit(exitCode);
   }
 
@@ -421,6 +461,8 @@ if (command === 'sync-labels') {
       reportError(`Unknown option: ${subflags[0]}`);
       process.exit(1);
     }
+
+    enterRepoRootOrExit();
 
     const exitCode = syncLabelsCommand();
     process.exit(exitCode);
@@ -447,8 +489,10 @@ if (command === 'overrides') {
       process.exit(0);
     }
 
+    const { invocationDir } = enterRepoRootOrExit();
+
     const { config } = parseArgsOrExit(subflags, configFlagSchema).flags;
-    const result = await validateOverridesCommand(styles, config);
+    const result = await validateOverridesCommand(styles, resolveConfigFlag(config, invocationDir));
     if (result.exitCode === 0) {
       console.info(result.message);
     } else {

@@ -68,7 +68,8 @@ export const CONFIG_FILE_PATH = '.config/release-kit.config.ts';
 /**
  * Loads the config file, returning the raw config object.
  *
- * `configPath` is resolved against the working directory and defaults to `CONFIG_FILE_PATH`. An absent default
+ * `configPath` is resolved against the working directory, which the CLI sets to the repo root, and defaults to
+ * `CONFIG_FILE_PATH`. The CLI resolves a `--config` value to an absolute path before passing it. An absent default
  * path returns `undefined`, because a repo that declares no config is a supported state; an absent named path
  * throws, because the caller asked for that file by name. Also throws when the file exists but cannot be
  * imported, or exports neither a default nor a named `config`.

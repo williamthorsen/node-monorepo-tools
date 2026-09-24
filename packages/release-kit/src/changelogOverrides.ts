@@ -599,7 +599,10 @@ export interface OverrideTargetItem {
 
 /** Per-scope input to {@link validateAllChangelogOverrides}. */
 export interface ChangelogOverrideScope {
-  /** Path to the override file (relative to the repo root). Used to load the file and to attribute findings. */
+  /**
+   * Path to the override file, used to load the file and to attribute findings. A relative path resolves against the
+   * process working directory.
+   */
   filePath: string;
   /** Items in this scope's history window. Each override key is matched against these. */
   items: readonly OverrideTargetItem[];
@@ -641,8 +644,11 @@ export interface ValidateAllChangelogOverridesResult {
  * project release window). Library callers that construct `inputs` directly are responsible
  * for supplying the same item universes if they want this guarantee.
  *
- * Every returned string is prefixed with the relative override-file path it pertains to so
+ * Every returned string is prefixed with the override-file path it pertains to so
  * consumers can locate the offending file without further structuring.
+ *
+ * A relative `filePath`, in any scope, resolves against the process working directory, not against the repo root.
+ * A caller running from elsewhere passes absolute paths or changes directory first.
  */
 export function validateAllChangelogOverrides(
   inputs: ValidateAllChangelogOverridesInputs,
