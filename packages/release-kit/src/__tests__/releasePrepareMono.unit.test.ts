@@ -1565,27 +1565,36 @@ describe(releasePrepareMono, () => {
       mockExistsSync.mockReturnValue(false);
     }
 
-    it('plans no changelog.json write when changelogJson.enabled is false', () => {
+    it('plans no changelog.json write or format when changelogJson.enabled is false', () => {
       stubFeatCommit();
 
-      releasePrepareMono(
-        singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false } }),
+      const plan = releasePrepareMono(
+        singleWorkspaceConfig({
+          formatCommand: 'npx prettier --write',
+          changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false },
+        }),
         {},
       );
 
       expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
+      expect(plan.formatCommand).toBeDefined();
+      expect(plan.formatCommand?.files).not.toContain('packages/arrays/.meta/changelog.json');
     });
 
-    it('plans a changelog.json write when changelogJson.enabled is true', () => {
+    it('plans a changelog.json write and formats it when changelogJson.enabled is true', () => {
       stubFeatCommit();
 
       const plan = releasePrepareMono(
-        singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
+        singleWorkspaceConfig({
+          formatCommand: 'npx prettier --write',
+          changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
+        }),
         {},
       );
 
       expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
       expect(plan.writes.map((write) => write.path)).toContain('packages/arrays/.meta/changelog.json');
+      expect(plan.formatCommand?.files).toContain('packages/arrays/.meta/changelog.json');
     });
   });
 
