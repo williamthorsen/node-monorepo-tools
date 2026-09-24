@@ -93,7 +93,7 @@
     "@williamthorsen/toolbelt.filesystem": "catalog:",
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
-    "prettier": "3.9.6",
+    "prettier": "catalog:",
     "readyup": "catalog:",
     "tinyglobby": "0.2.17",
     "typescript": "6.0.3",

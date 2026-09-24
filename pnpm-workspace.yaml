@@ -7,8 +7,8 @@ catalog:
   '@williamthorsen/toolbelt.terminal': 0.2.0
   '@williamthorsen/toolbelt.testing': 0.6.1
   '@williamthorsen/toolbelt.vitest': 0.10.1
-  esbuild: ^0.28.2
-  'readyup': 0.38.0
+  prettier: 3.9.8
+  readyup: 0.38.0
   vitest: 4.1.11
 
 allowBuilds:

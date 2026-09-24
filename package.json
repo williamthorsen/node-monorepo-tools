@@ -44,7 +44,7 @@
     "codeassembly": "0.16.0",
     "eslint": "10.10.0",
     "lefthook": "2.1.14",
-    "prettier": "3.9.6",
+    "prettier": "catalog:",
     "readyup": "catalog:",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.0",
