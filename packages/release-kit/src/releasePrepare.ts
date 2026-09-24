@@ -367,7 +367,7 @@ function planSinglePackagePreviews(
   }
 
   const previews = planReleaseNotesPreviews({
-    workspacePath: process.cwd(),
+    workspacePath: '.',
     tag: newTag,
     entries,
     sectionOrder: deriveSectionOrder(resolveWorkTypes(config.workTypes)),

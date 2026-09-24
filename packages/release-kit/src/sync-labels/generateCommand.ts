@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import path from 'node:path';
 
 import { type OutputStyle, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
@@ -91,6 +91,9 @@ interface GenerateOptions {
  * Loads the `repoLabels` block from the config file, resolves presets and label adjustments, and writes
  * `.github/labels.yaml` -- or, with `check`, regenerates in memory and reports whether the committed file
  * is stale, writing nothing. Returns 0 on success, 1 on failure.
+ *
+ * The header names the config by its POSIX path relative to the working directory, the repo root, so that the file
+ * does not depend on where the command was invoked from or on the machine it ran on.
  */
 export async function generateCommand({ check = false, configPath, styles }: GenerateOptions): Promise<number> {
   if (checkRetiredSyncLabelsConfig(configPath)) {
@@ -117,14 +120,14 @@ export async function generateCommand({ check = false, configPath, styles }: Gen
     presetHashes.set(presetName, hashPresetFile(presetName));
   }
 
-  const content = formatLabelsYaml(labels, presetHashes, configPath);
+  const content = formatLabelsYaml(labels, presetHashes, toRootRelativePosixPath(configPath ?? CONFIG_FILE_PATH));
 
   if (check) {
     return compareAgainstCommittedFile(content);
   }
 
   try {
-    mkdirSync(dirname(LABELS_OUTPUT_PATH), { recursive: true });
+    mkdirSync(path.dirname(LABELS_OUTPUT_PATH), { recursive: true });
     writeFileSync(LABELS_OUTPUT_PATH, content, 'utf8');
   } catch (error: unknown) {
     const message = describeError(error);
@@ -155,6 +158,11 @@ function compareAgainstCommittedFile(expected: string): number {
 
   console.info(`${LABELS_OUTPUT_PATH} is up to date.`);
   return 0;
+}
+
+/** Converts a path to POSIX form relative to the working directory; a path outside it keeps its `../` segments. */
+function toRootRelativePosixPath(filePath: string): string {
+  return path.relative(process.cwd(), path.resolve(filePath)).split(path.sep).join('/');
 }
 
 // endregion | Helpers
