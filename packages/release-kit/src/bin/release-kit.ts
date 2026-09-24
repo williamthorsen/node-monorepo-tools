@@ -11,6 +11,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { commitCommand } from '../commitCommand.ts';
 import { configFlagSchema } from '../configFlagSchema.ts';
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
+import { enterRepoRoot, type RepoLocation } from '../enterRepoRoot.ts';
 import { showPrepareHelp } from '../help/prepareHelp.ts';
 import { initCommand } from '../init/initCommand.ts';
 import { prepareCommand } from '../prepareCommand.ts';
@@ -249,6 +250,16 @@ Options:
 `);
 }
 
+/** Moves the process to the repo root, or reports why none was found and exits. */
+function enterRepoRootOrExit(): RepoLocation {
+  try {
+    return enterRepoRoot();
+  } catch (error: unknown) {
+    reportError(describeError(error));
+    process.exit(1);
+  }
+}
+
 const args = process.argv.slice(2);
 const command = args[0];
 
@@ -276,6 +287,8 @@ if (command === 'prepare') {
     process.exit(0);
   }
 
+  enterRepoRootOrExit();
+
   await prepareCommand(flags, styles);
   process.exit(0);
 }
@@ -285,6 +298,8 @@ if (command === 'commit') {
     showCommitHelp();
     process.exit(0);
   }
+
+  enterRepoRootOrExit();
 
   try {
     commitCommand(flags);
@@ -301,6 +316,8 @@ if (command === 'tag') {
     process.exit(0);
   }
 
+  enterRepoRootOrExit();
+
   tagCommand(flags, styles);
   process.exit(0);
 }
@@ -310,6 +327,8 @@ if (command === 'push') {
     showPushHelp();
     process.exit(0);
   }
+
+  enterRepoRootOrExit();
 
   pushCommand(flags);
   process.exit(0);
@@ -321,6 +340,8 @@ if (command === 'create-github-release') {
     process.exit(0);
   }
 
+  enterRepoRootOrExit();
+
   await createGithubReleaseCommand(flags, styles);
   process.exit(0);
 }
@@ -330,6 +351,8 @@ if (command === 'publish') {
     showPublishHelp();
     process.exit(0);
   }
+
+  enterRepoRootOrExit();
 
   await publishCommand(flags, styles);
   process.exit(0);
@@ -341,6 +364,8 @@ if (command === 'show-tag-prefixes') {
     process.exit(0);
   }
 
+  enterRepoRootOrExit();
+
   const { config } = parseArgsOrExit(flags, configFlagSchema).flags;
   const exitCode = await showTagPrefixesCommand(styles, config);
   process.exit(exitCode);
@@ -351,6 +376,8 @@ if (command === 'init') {
     showInitHelp();
     process.exit(0);
   }
+
+  enterRepoRootOrExit();
 
   const initFlagSchema = {
     dryRun: { long: '--dry-run', type: 'boolean' as const },
@@ -379,6 +406,8 @@ if (command === 'sync-labels') {
       process.exit(0);
     }
 
+    enterRepoRootOrExit();
+
     const syncLabelsInitFlagSchema = {
       ...configFlagSchema,
       dryRun: { long: '--dry-run', type: 'boolean' as const },
@@ -401,6 +430,8 @@ if (command === 'sync-labels') {
       process.exit(0);
     }
 
+    enterRepoRootOrExit();
+
     const generateFlagSchema = {
       ...configFlagSchema,
       check: { long: '--check', type: 'boolean' as const },
@@ -421,6 +452,8 @@ if (command === 'sync-labels') {
       reportError(`Unknown option: ${subflags[0]}`);
       process.exit(1);
     }
+
+    enterRepoRootOrExit();
 
     const exitCode = syncLabelsCommand();
     process.exit(exitCode);
@@ -446,6 +479,8 @@ if (command === 'overrides') {
       showOverridesValidateHelp();
       process.exit(0);
     }
+
+    enterRepoRootOrExit();
 
     const { config } = parseArgsOrExit(subflags, configFlagSchema).flags;
     const result = await validateOverridesCommand(styles, config);
