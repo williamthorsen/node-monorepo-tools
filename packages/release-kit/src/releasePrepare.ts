@@ -20,7 +20,7 @@ import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type {
   ChangelogEntry,
   ChangelogOverride,
-  ReleaseConfig,
+  PrepareConfig,
   ReleasedWorkspaceResult,
   ReleaseType,
   SkippedWorkspaceResult,
@@ -73,7 +73,7 @@ export interface ReleasePrepareOptions {
  *
  * Returns a structured `PrepareResult` with all data needed for presentation.
  */
-export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOptions): ReleasePlan {
+export function releasePrepare(config: PrepareConfig, options: ReleasePrepareOptions): ReleasePlan {
   const { bumpOverride, force, setVersion, withReleaseNotes } = options;
   const writes: PlannedWrite[] = [];
 
@@ -272,7 +272,7 @@ function buildReleasedSinglePackage(args: BuildReleasedSinglePackageArgs): Relea
 
 /** Inputs to {@link planSinglePackageChangelogs}. */
 interface PlanSinglePackageChangelogsArgs {
-  config: ReleaseConfig;
+  config: PrepareConfig;
   history: ReleaseHistory;
   newTag: string;
   overrides: Map<string, ChangelogOverride>;
@@ -350,7 +350,7 @@ function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
  */
 function planSinglePackagePreviews(
   withReleaseNotes: boolean,
-  config: ReleaseConfig,
+  config: PrepareConfig,
   newTag: string,
   entries: readonly ChangelogEntry[],
   warnings: string[],

@@ -630,6 +630,9 @@ export interface MonorepoReleaseConfig {
   project?: ResolvedProjectConfig;
 }
 
+/** Monorepo config as seen by the prepare workflow, which does not read release-notes configuration. */
+export type MonorepoPrepareConfig = Omit<MonorepoReleaseConfig, 'releaseNotes'>;
+
 /** Configuration for the release workflow. */
 export interface ReleaseConfig {
   /** The git tag prefix used to identify version tags (e.g., 'v'). */
@@ -665,3 +668,6 @@ export interface ReleaseConfig {
   /** Controls release notes consumption (README injection). */
   releaseNotes: ReleaseNotesConfig;
 }
+
+/** Single-package config as seen by the prepare workflow, which does not read release-notes configuration. */
+export type PrepareConfig = Omit<ReleaseConfig, 'releaseNotes'>;

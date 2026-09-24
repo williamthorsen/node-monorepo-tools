@@ -29,7 +29,7 @@ import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type {
   ChangelogEntry,
-  MonorepoReleaseConfig,
+  MonorepoPrepareConfig,
   ProjectPrepareResult,
   ReleasedWorkspaceResult,
   ReleaseType,
@@ -73,7 +73,7 @@ interface Phase1Result {
  * Phase 2b: Topologically sort the full release set.
  * Phase 3: Execute bumps and generate changelogs in dependency order.
  */
-export function releasePrepareMono(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): ReleasePlan {
+export function releasePrepareMono(config: MonorepoPrepareConfig, options: ReleasePrepareOptions): ReleasePlan {
   const { only, withReleaseNotes } = options;
   const writes: PlannedWrite[] = [];
   const warnings: string[] = [];
@@ -201,7 +201,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
 }
 
 /** Determine each workspace's direct bump from its release history. */
-function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): Phase1Result {
+function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePrepareOptions): Phase1Result {
   const { force, bumpOverride, setVersion } = options;
 
   // Enforce the `--set-version` contract at the orchestration layer. The CLI layer
@@ -321,7 +321,7 @@ interface PreviewOptions {
 interface ExecuteReleaseSetArgs {
   sortedDirs: string[];
   fullReleaseSet: Map<string, ReleaseEntry>;
-  config: MonorepoReleaseConfig;
+  config: MonorepoPrepareConfig;
   directResults: Map<string, DirectBumpResult>;
   /** The histories that Phase 1 read for the workspaces that it skipped, keyed by dir. */
   skippedHistories: Map<string, ReleaseHistory>;
@@ -397,7 +397,7 @@ interface ExecuteWorkspaceReleaseArgs {
   directResult: DirectBumpResult | undefined;
   /** The history that Phase 1 read for a workspace that it skipped; undefined for a direct release. */
   skippedHistory: ReleaseHistory | undefined;
-  config: MonorepoReleaseConfig;
+  config: MonorepoPrepareConfig;
   today: string;
   tags: string[];
   modifiedFiles: string[];
@@ -572,7 +572,7 @@ interface GenerateWorkspaceChangelogsArgs {
   newVersion: string;
   /** The history of a direct release; undefined for a propagation-only one. */
   history: ReleaseHistory | undefined;
-  config: MonorepoReleaseConfig;
+  config: MonorepoPrepareConfig;
   today: string;
   modifiedFiles: string[];
   writes: PlannedWrite[];
@@ -703,7 +703,7 @@ function planPreviews(
  * caller runs it once the plan is on disk.
  */
 function planFormatCommand(
-  config: MonorepoReleaseConfig,
+  config: MonorepoPrepareConfig,
   tags: string[],
   modifiedFiles: string[],
 ): ReleasePlan['formatCommand'] {

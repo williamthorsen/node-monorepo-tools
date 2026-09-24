@@ -15,7 +15,7 @@ import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type {
   ChangelogEntry,
   ChangelogOverride,
-  MonorepoReleaseConfig,
+  MonorepoPrepareConfig,
   ProjectPrepareResult,
   SkippedProjectResult,
 } from './types.ts';
@@ -29,7 +29,7 @@ const ROOT_CHANGELOG_PATH = '.';
 /** Inputs to the project-release stage. */
 export interface ReleasePrepareProjectArgs {
   /** Resolved monorepo config; `config.project` must be defined when this function is called. */
-  config: MonorepoReleaseConfig;
+  config: MonorepoPrepareConfig;
   options: ReleasePrepareOptions;
   /** Mutated in-place to append project-level files (root package.json, root CHANGELOG.md, root changelog.json). */
   modifiedFiles: string[];
@@ -219,7 +219,7 @@ function resolveOptionalOverrideArgs(args: ReleasePrepareProjectArgs): {
 
 /** Inputs to {@link planProjectChangelogs}. */
 interface PlanProjectChangelogsArgs {
-  config: MonorepoReleaseConfig;
+  config: MonorepoPrepareConfig;
   history: ReleaseHistory;
   newTag: string;
   rootOverrides: Map<string, ChangelogOverride>;
