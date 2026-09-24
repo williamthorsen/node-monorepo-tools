@@ -58,6 +58,8 @@ The CLI applies defaults to every discovered workspace. [Releasing](docs/releasi
 
 ## How it works
 
+Every command other than `--version` and `--help` first locates the repo root and runs from it, so it can be invoked from any directory in the repo. The root is the nearest directory at or above the invocation directory that holds `pnpm-workspace.yaml`, or else the invocation directory itself when it holds a `package.json`; when neither exists, the command fails. A `pnpm-workspace.yaml` takes precedence wherever it is, as it does for pnpm, so a single-package repo checked out below a pnpm workspace resolves to that outer workspace.
+
 1. **Workspace discovery**: reads `pnpm-workspace.yaml` and resolves its `packages` patterns to find workspace directories, applying pnpm's semantics — a `!`-prefixed entry excludes what it matches, wherever it appears in the list. Each directory containing a `package.json` becomes a workspace. The repo is treated as a single-package project when it holds no workspace file, and when the workspace file declares no `packages` list — a file kept for `catalog:` or `overrides:` alone, which pnpm likewise resolves to the root package. A workspace file that declares patterns resolving to no package is an error naming the condition that emptied it.
 2. **Config loading**: loads `.config/release-kit.config.ts` (if present) from the repo root, or the file named by `--config` relative to the invocation directory, and merges it with discovered defaults.
 3. **Commit analysis**: for each workspace, reads the history once, builds the changelog items of the commits since the last version tag, and takes the bump as the highest level that those items call for.
