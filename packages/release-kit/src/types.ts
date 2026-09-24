@@ -172,9 +172,8 @@ export interface UndeclaredEntryType {
  * Result of preparing a single workspace (package) for release when a release was produced.
  *
  * `currentVersion`, `newVersion`, `tag`, `bumpedFiles`, and `changelogFiles` are always
- * populated. `releaseType` and `parsedCommitCount` stay optional because they are left
- * undefined for `--set-version` and propagation-only workspaces. `commits` stays optional
- * because propagation-only releases have no direct commits.
+ * populated. `releaseType` is left undefined for `--set-version`, and `parsedCommitCount` for
+ * `--set-version` and propagation-only workspaces.
  */
 export interface ReleasedWorkspaceResult {
   status: 'released';
@@ -204,7 +203,7 @@ export interface ReleasedWorkspaceResult {
   changelogFiles: string[];
   /** Release-notes preview files; present only under `--with-release-notes`. */
   previewFiles?: string[];
-  /** Raw commits associated with this workspace (present for direct releases, absent for propagation-only). */
+  /** Raw commits of the workspace's unreleased window. */
   commits?: Commit[];
   /**
    * Present when `--bump=X` was supplied and selected the release level for this workspace.
@@ -214,6 +213,8 @@ export interface ReleasedWorkspaceResult {
   bumpOverride?: ReleaseType;
   /** Dependencies that triggered a propagated bump (present for propagated or mixed workspaces). */
   propagatedFrom?: PropagationSource[];
+  /** Present when propagation alone set the bump, the workspace's own commits having called for none. */
+  propagatedOnly?: true;
   /** Present when this workspace was written via `--set-version`; the explicit version that was applied. */
   setVersion?: string;
 }

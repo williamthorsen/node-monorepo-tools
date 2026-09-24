@@ -553,6 +553,7 @@ describe(reportPrepare, () => {
             bumpedFiles: ['packages/app/package.json'],
             changelogFiles: ['packages/app/CHANGELOG.md'],
             propagatedFrom: [{ packageName: '@test/core', newVersion: '1.0.0' }],
+            propagatedOnly: true,
           },
         ],
         tags: ['core-v1.0.0', 'app-v2.0.1'],
@@ -703,6 +704,7 @@ describe(reportPrepare, () => {
             bumpedFiles: ['packages/app/package.json'],
             changelogFiles: ['packages/app/CHANGELOG.md'],
             propagatedFrom: [{ packageName: '@scope/core', newVersion: '1.0.1' }],
+            propagatedOnly: true,
           },
         ],
         tags: ['core-v1.0.1', 'app-v2.0.1'],
@@ -710,8 +712,73 @@ describe(reportPrepare, () => {
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
-      expect(output).toContain('0 commits (bumped via dependency: @scope/core)');
+      expect(output).toContain(dim('  Bumped via dependency: @scope/core'));
       expect(output).toContain('(patch, dependency: @scope/core)');
+    });
+
+    it("renders a propagated-only workspace's own commits and diagnostics", () => {
+      const result: PrepareResult = {
+        workspaces: [
+          {
+            name: 'app',
+            status: 'released',
+            previousTag: 'app-v2.0.0',
+            commitCount: 2,
+            commits: [
+              { message: 'Merge PR', subject: 'Merge PR', hash: 'bbb2222' },
+              { message: 'tidy up', subject: 'tidy up', hash: 'ccc3333' },
+            ],
+            unparseableCommits: [{ message: 'tidy up', subject: 'tidy up', hash: 'ccc3333' }],
+            policyViolations: [
+              { commitHash: 'bbb2222', commitSubject: 'Merge PR', type: 'drop', surface: 'entry', entryPosition: 1 },
+            ],
+            releaseType: 'patch',
+            currentVersion: '2.0.0',
+            newVersion: '2.0.1',
+            tag: 'app-v2.0.1',
+            bumpedFiles: ['packages/app/package.json'],
+            changelogFiles: ['packages/app/CHANGELOG.md'],
+            propagatedFrom: [{ packageName: '@scope/core', newVersion: '1.0.1' }],
+            propagatedOnly: true,
+          },
+        ],
+        tags: ['app-v2.0.1'],
+      };
+
+      const output = reportPrepare(result, { applied: true, style: 'plain' });
+
+      expect(output).toContain(dim('  Found 2 commits since app-v2.0.0'));
+      expect(output).toContain('1 commit could not be parsed');
+      expect(output).toContain('1 policy violation:');
+      expect(output).toContain(dim('  Bumped via dependency: @scope/core'));
+      expect(output).toContain('(patch, dependency: @scope/core)');
+    });
+
+    it('omits the propagation label from a direct release that a dependency also bumps', () => {
+      const result: PrepareResult = {
+        workspaces: [
+          {
+            name: 'app',
+            status: 'released',
+            previousTag: 'app-v2.0.0',
+            commitCount: 0,
+            parsedCommitCount: 0,
+            releaseType: 'patch',
+            currentVersion: '2.0.0',
+            newVersion: '2.0.1',
+            tag: 'app-v2.0.1',
+            bumpedFiles: ['packages/app/package.json'],
+            changelogFiles: ['packages/app/CHANGELOG.md'],
+            propagatedFrom: [{ packageName: '@scope/core', newVersion: '1.0.1' }],
+          },
+        ],
+        tags: ['app-v2.0.1'],
+      };
+
+      const output = reportPrepare(result, { applied: true, style: 'plain' });
+
+      expect(output).not.toContain('Bumped via dependency');
+      expect(output).not.toContain('dependency: @scope/core');
     });
   });
 

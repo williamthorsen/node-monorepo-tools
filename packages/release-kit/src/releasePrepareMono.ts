@@ -97,14 +97,8 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   // === Phase 1: Determine direct bumps ===
   const { directBumps, directResults, skippedResults } = determineDirectBumps(config, options);
 
-  // Build a lookup of previous tags for all workspaces (needed for propagated ones).
-  const previousTags = new Map<string, string | undefined>();
-  for (const result of directResults.values()) {
-    previousTags.set(result.workspace.dir, result.history.previousTag);
-  }
-  for (const skipped of skippedResults) {
-    previousTags.set(skipped.workspace.dir, skipped.history.previousTag);
-  }
+  // Keep each skipped workspace's history for when propagation promotes it to a release.
+  const skippedHistories = new Map(skippedResults.map((skipped) => [skipped.workspace.dir, skipped.history]));
 
   // === Phase 2: Build graph and propagate bumps ===
   const graph = buildDependencyGraph(config.workspaces);
@@ -130,7 +124,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     fullReleaseSet,
     config,
     directResults,
-    previousTags,
+    skippedHistories,
     writes,
     warnings,
     workspaces,
@@ -329,7 +323,8 @@ interface ExecuteReleaseSetArgs {
   fullReleaseSet: Map<string, ReleaseEntry>;
   config: MonorepoReleaseConfig;
   directResults: Map<string, DirectBumpResult>;
-  previousTags: Map<string, string | undefined>;
+  /** The histories that Phase 1 read for the workspaces that it skipped, keyed by dir. */
+  skippedHistories: Map<string, ReleaseHistory>;
   /** Mutated in-place to append every file the release set intends to write. */
   writes: PlannedWrite[];
   /** Mutated in-place to append warnings raised while planning, such as preview skips. */
@@ -347,7 +342,7 @@ function executeReleaseSet(args: ExecuteReleaseSetArgs): { tags: string[]; modif
     fullReleaseSet,
     config,
     directResults,
-    previousTags,
+    skippedHistories,
     writes,
     warnings,
     workspaces,
@@ -376,7 +371,7 @@ function executeReleaseSet(args: ExecuteReleaseSetArgs): { tags: string[]; modif
         workspace,
         releaseEntry,
         directResult: directResults.get(dir),
-        previousTags,
+        skippedHistory: skippedHistories.get(dir),
         config,
         today,
         tags,
@@ -400,7 +395,8 @@ interface ExecuteWorkspaceReleaseArgs {
   workspace: WorkspaceConfig;
   releaseEntry: ReleaseEntry;
   directResult: DirectBumpResult | undefined;
-  previousTags: Map<string, string | undefined>;
+  /** The history that Phase 1 read for a workspace that it skipped; undefined for a direct release. */
+  skippedHistory: ReleaseHistory | undefined;
   config: MonorepoReleaseConfig;
   today: string;
   tags: string[];
@@ -420,7 +416,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     workspace,
     releaseEntry,
     directResult,
-    previousTags,
+    skippedHistory,
     config,
     today,
     tags,
@@ -448,7 +444,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     ...workspace.changelogPaths.map((changelogPath) => joinPath(changelogPath, 'CHANGELOG.md')),
   );
 
-  const directCommits = directResult?.history.unreleased.commits;
+  const phase1History = directResult?.history ?? skippedHistory;
   const { changelogFiles, previewFiles } = generateWorkspaceChangelogs({
     workspace,
     releaseEntry,
@@ -468,7 +464,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
   const released: ReleasedWorkspaceResult = {
     name: dir,
     status: 'released',
-    commitCount: directCommits?.length ?? 0,
+    commitCount: phase1History?.unreleased.commits.length ?? 0,
     currentVersion: bump.currentVersion,
     newVersion: bump.newVersion,
     tag: newTag,
@@ -477,8 +473,9 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     ...(previewFiles.length > 0 && { previewFiles }),
   };
   attachReleasedWorkspaceOptionals(released, {
-    previousTag: directResult?.history.previousTag ?? previousTags.get(dir),
+    previousTag: phase1History?.previousTag,
     directResult,
+    skippedHistory,
     releaseEntry,
     setVersionTarget,
   });
@@ -489,20 +486,21 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
 interface AttachReleasedOptionalsArgs {
   previousTag: string | undefined;
   directResult: DirectBumpResult | undefined;
+  skippedHistory: ReleaseHistory | undefined;
   releaseEntry: ReleaseEntry;
   setVersionTarget: string | undefined;
 }
 
 /**
  * Attach the optional fields of a `ReleasedWorkspaceResult` (previousTag, the unreleased window's
- * commits and diagnostics, releaseType, propagatedFrom, bumpOverride, setVersion) using the
- * conditional-assignment rules from the surrounding executor.
+ * commits and diagnostics, releaseType, propagatedFrom, propagatedOnly, bumpOverride, setVersion)
+ * using the conditional-assignment rules from the surrounding executor.
  *
  * Extracted from `executeWorkspaceRelease` so each conditional branch lives outside the host
  * function's cyclomatic-complexity budget.
  */
 function attachReleasedWorkspaceOptionals(released: ReleasedWorkspaceResult, args: AttachReleasedOptionalsArgs): void {
-  const { previousTag, directResult, releaseEntry, setVersionTarget } = args;
+  const { previousTag, directResult, skippedHistory, releaseEntry, setVersionTarget } = args;
 
   if (previousTag !== undefined) {
     released.previousTag = previousTag;
@@ -514,6 +512,8 @@ function attachReleasedWorkspaceOptionals(released: ReleasedWorkspaceResult, arg
   }
   if (directResult !== undefined) {
     attachDirectHistory(released, directResult.history.unreleased, setVersionTarget === undefined);
+  } else {
+    attachPropagatedHistory(released, skippedHistory?.unreleased);
   }
   if (releaseEntry.propagatedFrom !== undefined) {
     released.propagatedFrom = releaseEntry.propagatedFrom;
@@ -541,6 +541,25 @@ function attachDirectHistory(
     if (unreleased.unparseableCommits !== undefined) {
       released.unparseableCommits = unreleased.unparseableCommits;
     }
+  }
+  attachChangelogDiagnostics(released, unreleased.diagnostics);
+}
+
+/**
+ * Marks a release that propagation alone set and attaches the commits and diagnostics of the window that Phase 1
+ * read and skipped. `parsedCommitCount` stays absent, since no bump was decided from it.
+ */
+function attachPropagatedHistory(
+  released: ReleasedWorkspaceResult,
+  unreleased: ReleaseHistory['unreleased'] | undefined,
+): void {
+  released.propagatedOnly = true;
+  if (unreleased === undefined) {
+    return;
+  }
+  released.commits = unreleased.commits;
+  if (unreleased.unparseableCommits !== undefined) {
+    released.unparseableCommits = unreleased.unparseableCommits;
   }
   attachChangelogDiagnostics(released, unreleased.diagnostics);
 }
