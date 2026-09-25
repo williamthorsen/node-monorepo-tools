@@ -53,28 +53,40 @@ A commit whose last `change-record` block records entries yields its items from 
 
 `release:` commits and merge commits whose subject git wrote (`Merge …`) never reach a changelog, whether or not they carry a block. A commit that fails a check yields no item and raises no bump, so a window without an item calls for no release. A release forced by `--force` or `--set-version` whose window yields no item records a "Forced version bump." entry under Notes for its version, whether or not the window has commits. Because history does not yield that entry again, `release-kit prepare` keeps it by merging each release's entries with the `changelog.json` on disk. The prepare report lists a commit of the unreleased window that fails the first or the second check as unparseable, unless a malformed-block warning already reports it; it lists none that fails the third. The commit's type decides the section under which its item appears.
 
-Every item of a commit reaches every workspace whose window contains the commit, because windows are selected by the paths that the commit touches.
+### Routing to workspaces
+
+A workspace's window contains every commit that touches the workspace's paths. An item derived from a title reaches every workspace whose window contains its commit. An item derived from a change-record entry reaches a workspace in that window only when the entry's `scopes` route it there:
+
+- **A scope that names the workspace's `dir`** routes the item to that workspace. release-kit resolves each scope through [`scopeAliases`](configuration.md) before it compares the scope with the `dir`.
+- **`*`, or an empty or absent `scopes`,** routes the item to every workspace in the window.
+- **`root`** names no workspace, so it routes the item nowhere and is not reported. A workspace whose `dir` is `root` is the exception: `root` then names that workspace.
+
+A scope narrows the window and never widens it: A scope that names a workspace whose window does not contain the commit routes the item to no workspace, and `prepare` reports it (see [Reported diagnostics](#reported-diagnostics)). The project changelog and a single-package repo take every entry, whatever its scopes.
+
+A workspace's bump reads the items routed to it, so a breaking entry scoped to one workspace does not raise a major bump in another that the same commit touched. A workspace whose window has commits but no routed item calls for no release.
+
+Each `prepare` rebuilds a workspace's released windows with the same routing, so an item that an earlier release recorded under a workspace that its scopes do not name leaves that workspace's past section. A path window does not follow a renamed directory, and legacy identities do not rename scopes: An entry scoped to a workspace's old directory name reaches the workspace only through a `scopeAliases` entry from the old name to the new one, and until one exists, `prepare` reports the scope for each such commit in the unreleased window.
 
 ## Change-record blocks
 
 A squash-merge commit composed from a pull request can end with a fenced block whose info string is exactly `change-record`. Its payload is YAML, with the grammar that codeassembly's `change-record.md` specifies. release-kit reads these keys and ignores any other:
 
-| Key                   | Type     | Meaning                                                                         |
-| --------------------- | -------- | ------------------------------------------------------------------------------- |
-| `entries`             | list     | The change entries, one per outcome of the change, in the order that they read. |
-| `entries[].type`      | `string` | A work type, resolved through the declared types and their aliases. Required.   |
-| `entries[].text`      | `string` | The sentence that reports the outcome. Required.                                |
-| `entries[].breaking`  | boolean  | Whether the outcome breaks consumers.                                           |
-| `entries[].scopes`    | list     | The scopes that the outcome touched, each a string. Validated but not yet used. |
-| `entries[].migration` | `string` | The migration step for a consumer.                                              |
-| `pr_number`           | integer  | The merged pull request's number, a positive integer.                           |
-| `ticket_ref`          | `string` | The ticket that the change serves. Validated but not yet used.                  |
+| Key                   | Type     | Meaning                                                                                                                                                         |
+| --------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entries`             | list     | The change entries, one per outcome of the change, in the order that they read.                                                                                 |
+| `entries[].type`      | `string` | A work type, resolved through the declared types and their aliases. Required.                                                                                   |
+| `entries[].text`      | `string` | The sentence that reports the outcome. Required.                                                                                                                |
+| `entries[].breaking`  | boolean  | Whether the outcome breaks consumers.                                                                                                                           |
+| `entries[].scopes`    | list     | The scopes that the outcome touched, each a string. They decide which workspaces receive the entry's item; see [Routing to workspaces](#routing-to-workspaces). |
+| `entries[].migration` | `string` | The migration step for a consumer.                                                                                                                              |
+| `pr_number`           | integer  | The merged pull request's number, a positive integer.                                                                                                           |
+| `ticket_ref`          | `string` | The ticket that the change serves. Validated but not yet used.                                                                                                  |
 
 release-kit reads the **last** `change-record` fence in the message. A key whose value is null reads as absent.
 
 ### Items from entries
 
-Each entry yields one item, whether or not the commit subject carries a ticket-ID prefix or a declared type:
+Each entry routed to the workspace being read yields one item, whether or not the commit subject carries a ticket-ID prefix or a declared type:
 
 - **Section**: the header of the entry's `type`, so the section order and the audience follow as for a title.
 - **`description`**: the entry's `text` as written, followed by ` (#N)` when the block records `pr_number`.
@@ -95,8 +107,9 @@ A commit is read from its title, as [What reaches a changelog](#what-reaches-a-c
 - **A malformed block**, with the defect that stopped the read.
 - **An entry whose type is not declared**, with its position. It yields no item.
 - **An entry that violates its type's breaking policy**, as a policy violation at the entry's position. Its item is not marked breaking.
+- **An entry scope that names no workspace in its commit's window**, with the commit's hash, the entry's position, and the scope as the entry declares it. release-kit reports it under every workspace whose window contains the commit. A scope that names nothing, or a workspace whose window does not contain the commit, is reported; `*`, `root`, and a scope that names a workspace in the window are not. Under `--only`, a scope that names a configured workspace left out of the run is not reported either. A workspace excluded with `shouldExclude: true` is not a configured workspace, so a scope that names one is reported.
 
-The result that `prepare` returns carries these as `malformedBlocks`, `undeclaredEntryTypes`, and `policyViolations` entries whose `surface` is `'entry'`, whether the target releases or is skipped. A block whose entries are all undeclared or excluded yields no item, so the commit raises no bump.
+The result that `prepare` returns carries these as `malformedBlocks`, `undeclaredEntryTypes`, `policyViolations` entries whose `surface` is `'entry'`, and `unroutedEntryScopes`, whether the target releases or is skipped. A block whose entries are all undeclared or excluded yields no item, so the commit raises no bump.
 
 ## Release-notes injection
 
