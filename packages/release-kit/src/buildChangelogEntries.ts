@@ -95,10 +95,10 @@ export interface ChangelogDiagnostics {
  * Reads a scope's release windows once and returns the changelog items of every window, with what the unreleased
  * window decides: its commits, its bump, and its diagnostics.
  *
- * A commit whose last `change-record` block records entries yields one item per entry that `options.workspaceDir`
- * routes to the read; any other commit is classified by its title through `classifyChangelogCommit`. A `release:` or merge subject yields nothing either
- * way. Only the unreleased window records diagnostics, since the released windows were reported when they were
- * prepared.
+ * A commit whose last `change-record` block records entries yields one item per entry routed to
+ * `options.workspaceDir`; any other commit is classified by its title through `classifyChangelogCommit`. A `release:`
+ * or merge subject yields nothing either way. Only the unreleased window records diagnostics, since the released
+ * windows were reported when they were prepared.
  */
 export function readReleaseHistory(config: ReleaseHistoryConfig, options: GenerateChangelogOptions): ReleaseHistory {
   try {
@@ -369,8 +369,9 @@ function appendItem(sectionMap: Map<string, ChangelogItem[]>, header: string, it
  * Builds the item that one change-record entry yields, with the section header that its type declares.
  *
  * Returns `undefined` for an entry whose scopes route it away from the workspace being read, for one whose type is
- * undeclared, which is recorded as a diagnostic, and for one whose type is excluded from the changelog. An entry whose `breaking` violates its type's policy is recorded as a policy
- * violation and yields an item that is not breaking.
+ * undeclared, which is recorded as a diagnostic, and for one whose type is excluded from the changelog. An entry
+ * whose `breaking` violates its type's policy is recorded as a policy violation and yields an item that is not
+ * breaking.
  */
 function buildEntryItem(
   commit: RawCommit,

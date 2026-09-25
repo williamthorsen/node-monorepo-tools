@@ -200,11 +200,10 @@ function buildSinglePackageInputs(
 /**
  * Build validation inputs for a monorepo, mirroring the per-scope item universes `prepare` would compute.
  *
- * Workspace scopes mirror `buildWorkspaceEntries` in `releasePrepareMono.ts`: the workspace's
- * derived prefix plus any legacy-identity prefixes, with the workspace's `paths`, routing change-record entries to the
- * workspace's `dir`. The project
- * scope mirrors `planProjectChangelogs` in `releasePrepareProject.ts`: the project's tag prefix
- * with the resolved `project.paths`.
+ * Workspace scopes mirror `buildWorkspaceEntries` in `releasePrepareMono.ts`: the workspace's derived prefix plus any
+ * legacy-identity prefixes, with the workspace's `paths`, routing change-record entries to the workspace's `dir`. The
+ * project scope mirrors `planProjectChangelogs` in `releasePrepareProject.ts`: the project's tag prefix with the
+ * resolved `project.paths`.
  */
 function buildMonorepoInputs(
   discoveredPaths: string[],
