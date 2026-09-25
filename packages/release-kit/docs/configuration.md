@@ -8,7 +8,7 @@ A minimal config file is in the [README](../README.md#configuration).
 
 release-kit reads `.config/release-kit.config.ts`, resolved against the repo root, which release-kit locates from the directory that it was invoked from. A run reads a different file when the subcommand is given `--config <path>`, which is resolved against the invocation directory rather than the root, so that a relative path means what it means in the caller's shell.
 
-The flag is accepted by every subcommand that reads a config: `prepare`, `publish`, `create-github-release`, `show-tag-prefixes`, `overrides validate`, `sync-labels init`, and `sync-labels generate`. `commit`, `tag`, `push`, and `sync-labels sync` read no config and reject it.
+The flag is accepted by every subcommand that reads a config: `prepare`, `push`, `publish`, `create-github-release`, `show-tag-prefixes`, `overrides validate`, `sync-labels init`, and `sync-labels generate`. `commit`, `tag`, and `sync-labels sync` read no config and reject it.
 
 The two paths differ in what an absent file means. An absent default path means the repo declares no config, and the run proceeds on discovered defaults. An absent `--config` path fails the command with an error naming the resolved path, because a caller who names a file expects that file to be read. A file that exists and fails validation is an error on both paths alike, and so is one that exists and fails to load.
 
@@ -46,6 +46,8 @@ interface LegacyIdentity {
   tagPrefix: string; // Tag prefix under which historical tags were published (e.g., 'core-v')
 }
 ```
+
+`prepare` never versions or tags an excluded workspace. A tag of one found on HEAD anyway, made by hand or before the exclusion, is skipped with a warning by `push`, `publish`, and `create-github-release`.
 
 `legacyIdentities` captures prior identities of a workspace as complete `(name, tagPrefix)` snapshots. The union of the current `tagPrefix` and each identity's `tagPrefix` is consulted when release-kit searches for the most recent baseline tag and when generating changelogs. Use it when a workspace's historical tags were published under a different npm name, a different tag prefix, or both — typically across a package rename. Both fields are required per identity: each entry must be a complete historical snapshot that stays valid regardless of subsequent renames. Run `release-kit show-tag-prefixes` to detect undeclared candidates and produce a paste-ready config snippet. Listing the current identity (full `(name, tagPrefix)` match) is rejected as a no-op duplicate; an identity whose `tagPrefix` matches the current but whose `name` differs is valid and documents a prior rename that reused the same tag shape. If the workspace no longer exists in this repo at all (the package was extracted or removed), use [`retiredPackages`](#retiredpackage) instead.
 
