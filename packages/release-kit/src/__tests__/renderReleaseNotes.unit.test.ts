@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { matchesAudience, renderReleaseNotesMulti, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
+import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
 import type { ChangelogEntry } from '../types.ts';
 import { WORK_TYPES_DATA } from '../workTypesData.ts';
 
@@ -307,51 +307,5 @@ describe(matchesAudience, () => {
     const predicate = matchesAudience('dev');
     expect(predicate({ title: 'Features', audience: 'all', items: [] })).toBe(true);
     expect(predicate({ title: 'CI', audience: 'dev', items: [] })).toBe(true);
-  });
-});
-
-describe(renderReleaseNotesMulti, () => {
-  it('concatenates multiple entries', () => {
-    const entries: ChangelogEntry[] = [
-      {
-        version: '2.0.0',
-        date: '2024-11-15',
-        sections: [{ title: 'Features', audience: 'all', items: [{ description: 'New feature' }] }],
-      },
-      {
-        version: '1.0.0',
-        date: '2024-01-01',
-        sections: [{ title: 'Bug fixes', audience: 'all', items: [{ description: 'Bug fix' }] }],
-      },
-    ];
-
-    const result = renderReleaseNotesMulti(entries);
-    expect(result).toContain('## 2.0.0');
-    expect(result).toContain('## 1.0.0');
-    expect(result.indexOf('## 2.0.0')).toBeLessThan(result.indexOf('## 1.0.0'));
-  });
-
-  it('skips entries that produce empty output after filtering', () => {
-    const entries: ChangelogEntry[] = [
-      {
-        version: '2.0.0',
-        date: '2024-11-15',
-        sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Public feature' }] }],
-      },
-      {
-        version: '1.0.0',
-        date: '2024-01-01',
-        sections: [{ title: 'CI', audience: 'dev', items: [{ description: 'Dev-only' }] }],
-      },
-    ];
-
-    const result = renderReleaseNotesMulti(entries, { filter: matchesAudience('all') });
-    expect(result).toContain('## 2.0.0');
-    expect(result).not.toContain('## 1.0.0');
-  });
-
-  it('returns empty string when all entries produce empty output', () => {
-    const result = renderReleaseNotesMulti([]);
-    expect(result).toBe('');
   });
 });

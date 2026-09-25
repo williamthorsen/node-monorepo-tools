@@ -115,13 +115,3 @@ function sortSectionsByOrder(sections: ChangelogSection[], order: string[]): Cha
 function indentBodyLines(body: string): string[] {
   return body.split('\n').map((line) => (line.length === 0 ? '' : `  ${line}`));
 }
-
-/**
- * Render multiple `ChangelogEntry` values to a single markdown document.
- *
- * Entries are rendered in the order provided; the caller is responsible for sorting.
- */
-export function renderReleaseNotesMulti(entries: ChangelogEntry[], options?: RenderOptions): string {
-  const parts = entries.map((entry) => renderReleaseNotesSingle(entry, options)).filter((part) => part.length > 0);
-  return parts.join('\n');
-}
