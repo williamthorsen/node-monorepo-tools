@@ -9,15 +9,15 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { configFlagSchema } from './configFlagSchema.ts';
+import { deriveReleaseNotesConfig } from './deriveReleaseNotesConfig.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
 import { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
-import { assertConfigUsable } from './loadValidatedConfig.ts';
+import { loadUsableConfig } from './loadValidatedConfig.ts';
 import { parseRequestedTags } from './parseRequestedTags.ts';
 import { publishPackage } from './publish.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
 import { resolveConfigFlag } from './resolveConfigFlag.ts';
-import { resolveReleaseNotesConfig } from './resolveReleaseNotesConfig.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
 
 const publishFlagSchema = {
@@ -39,8 +39,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
 
   const { dryRun, noGitChecks, provenance } = parsed.flags;
 
-  // An all-private tag set returns below without reading a config, so the config is opened and validated first.
-  await assertConfigUsable(styles.stderr, configPath);
+  const userConfig = await loadUsableConfig(styles.stderr, configPath);
 
   // Guard against running on a dirty working tree (skip for dry runs and --no-git-checks).
   // Mirrors prepareCommand and tagCommand: release-kit owns the check; pnpm's own check is
@@ -56,7 +55,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
 
   const requestedTags = parseRequestedTags(parsed.flags.tags);
 
-  const resolvedTags = resolveCommandTags(requestedTags);
+  const resolvedTags = resolveCommandTags(requestedTags, userConfig);
 
   if (resolvedTags.length === 0) {
     return;
@@ -70,9 +69,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
   }
 
   const packageManager = detectPackageManager();
-  const { releaseNotes, changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig(styles.stderr, {
-    ...(configPath !== undefined && { configPath }),
-  });
+  const { releaseNotes, changelogJsonOutputPath, sectionOrder } = deriveReleaseNotesConfig(userConfig);
 
   const shouldInject = releaseNotes.shouldInjectIntoReadme;
 

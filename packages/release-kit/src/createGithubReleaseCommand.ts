@@ -6,12 +6,12 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { configFlagSchema } from './configFlagSchema.ts';
 import { createGithubReleases } from './createGithubRelease.ts';
+import { deriveReleaseNotesConfig } from './deriveReleaseNotesConfig.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
-import { assertConfigUsable } from './loadValidatedConfig.ts';
+import { loadUsableConfig } from './loadValidatedConfig.ts';
 import { parseRequestedTags } from './parseRequestedTags.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
 import { resolveConfigFlag } from './resolveConfigFlag.ts';
-import { resolveReleaseNotesConfig } from './resolveReleaseNotesConfig.ts';
 
 const createGithubReleaseFlagSchema = {
   ...configFlagSchema,
@@ -37,17 +37,14 @@ export async function createGithubReleaseCommand(
 
   const { dryRun } = parsed.flags;
 
-  // An all-private tag set returns below without reading a config, so the config is opened and validated first.
-  await assertConfigUsable(styles.stderr, configPath);
+  const userConfig = await loadUsableConfig(styles.stderr, configPath);
 
   const requestedTags = parseRequestedTags(parsed.flags.tags);
 
-  const resolvedTags = resolveCommandTags(requestedTags);
+  const resolvedTags = resolveCommandTags(requestedTags, userConfig);
 
   // Skip unpublishable (private) workspaces cleanly: A private package is versioned and tagged but must not get a
-  // GitHub Release. Warn per skipped tag, matching `release-kit publish`. Then short-circuit before loading
-  // release-notes config when nothing publishable remains, so that an all-private repo is a clean no-op that does not
-  // depend on release-notes config being present.
+  // GitHub Release. Warn per skipped tag, matching `release-kit publish`.
   const publishableTags = resolvedTags.filter((resolvedTag) => resolvedTag.isPublishable);
   for (const resolvedTag of resolvedTags) {
     if (!resolvedTag.isPublishable) {
@@ -59,9 +56,7 @@ export async function createGithubReleaseCommand(
     return;
   }
 
-  const { changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig(styles.stderr, {
-    ...(configPath !== undefined && { configPath }),
-  });
+  const { changelogJsonOutputPath, sectionOrder } = deriveReleaseNotesConfig(userConfig);
 
   let outcome;
   try {

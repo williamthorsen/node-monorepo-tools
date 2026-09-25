@@ -164,6 +164,8 @@ Push the release commit and each tag individually, ensuring GitHub Actions
 fires a separate workflow run per tag.
 
 Options:
+  --config <path>        Config file, relative to the current directory
+                         (default: .config/release-kit.config.ts at the repo root)
   --dry-run              Preview without pushing
   --tags=tag1,tag2       Only push the named tags (comma-separated, full tag names)
   --tags-only            Skip the branch push (push tags only)
@@ -335,9 +337,9 @@ if (command === 'push') {
     process.exit(0);
   }
 
-  enterRepoRootOrExit();
+  const { invocationDir } = enterRepoRootOrExit();
 
-  pushCommand(flags);
+  await pushCommand(flags, styles, invocationDir);
   process.exit(0);
 }
 

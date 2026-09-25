@@ -11,7 +11,7 @@ vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
 
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
 import {
-  assertConfigUsable,
+  loadUsableConfig,
   loadValidatedConfig,
   reportConfigProblem,
   reportConfigWarnings,
@@ -150,7 +150,7 @@ describe(reportConfigWarnings, () => {
   });
 });
 
-describe(assertConfigUsable, () => {
+describe(loadUsableConfig, () => {
   afterEach(() => {
     mockLoadConfig.mockReset();
     vi.restoreAllMocks();
@@ -159,25 +159,25 @@ describe(assertConfigUsable, () => {
   it('forwards the config path to the loader', async () => {
     mockLoadConfig.mockResolvedValue({ formatCommand: 'pnpm run alt' });
 
-    await assertConfigUsable('plain', 'elsewhere/alternative.config.ts');
+    await loadUsableConfig('plain', 'elsewhere/alternative.config.ts');
 
     expect(mockLoadConfig).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
   });
 
-  it('resolves cleanly and writes nothing when no default config exists', async () => {
+  it('returns undefined and writes nothing when no default config exists', async () => {
     mockLoadConfig.mockResolvedValue(undefined);
     using capture = captureStdio();
 
-    await expect(assertConfigUsable('plain')).resolves.toBeUndefined();
+    await expect(loadUsableConfig('plain')).resolves.toBeUndefined();
 
     expect(capture.stderr).toBe('');
   });
 
-  it('resolves cleanly when the config loads and validates', async () => {
+  it('returns the validated config when it loads and validates', async () => {
     mockLoadConfig.mockResolvedValue({ formatCommand: 'pnpm run alt' });
     using capture = captureStdio();
 
-    await expect(assertConfigUsable('plain')).resolves.toBeUndefined();
+    await expect(loadUsableConfig('plain')).resolves.toStrictEqual({ formatCommand: 'pnpm run alt' });
 
     expect(capture.stderr).toBe('');
   });
@@ -187,7 +187,7 @@ describe(assertConfigUsable, () => {
     using capture = captureStdio();
     using _exit = throwOnProcessExit();
 
-    const error = await captureError(ProcessExitError, () => assertConfigUsable('plain', 'elsewhere/absent.config.ts'));
+    const error = await captureError(ProcessExitError, () => loadUsableConfig('plain', 'elsewhere/absent.config.ts'));
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain(
@@ -200,7 +200,7 @@ describe(assertConfigUsable, () => {
     using capture = captureStdio();
     using _exit = throwOnProcessExit();
 
-    const error = await captureError(ProcessExitError, () => assertConfigUsable('plain'));
+    const error = await captureError(ProcessExitError, () => loadUsableConfig('plain'));
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
@@ -211,22 +211,22 @@ describe(assertConfigUsable, () => {
     using capture = captureStdio();
     using _exit = throwOnProcessExit();
 
-    const error = await captureError(ProcessExitError, () => assertConfigUsable('plain'));
+    const error = await captureError(ProcessExitError, () => loadUsableConfig('plain'));
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Invalid config:\n');
     expect(capture.stderr).toContain('workTypes');
   });
 
-  it("emits no warnings, leaving the command's own load the single place that does", async () => {
+  it('reports each validation warning', async () => {
     mockLoadConfig.mockResolvedValue({
       changelogJson: { enabled: false },
       releaseNotes: { shouldInjectIntoReadme: true },
     });
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    await assertConfigUsable('plain');
+    await loadUsableConfig('plain');
 
-    expect(warn).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('shouldInjectIntoReadme'));
   });
 });

@@ -15,6 +15,7 @@ import {
   type OverrideContext,
 } from './changelogOverrides.ts';
 import { decideRelease } from './decideRelease.ts';
+import { deriveSectionOrder } from './deriveReleaseNotesConfig.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
 import { getAllTagPrefixes } from './generateChangelogs.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
@@ -26,7 +27,6 @@ import type { PlannedWrite, ReleasePlan } from './releasePlan.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import { releasePrepareProject } from './releasePrepareProject.ts';
 import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
-import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type {
   ChangelogEntry,
   MonorepoPrepareConfig,
