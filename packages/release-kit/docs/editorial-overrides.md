@@ -2,7 +2,7 @@
 
 How to correct a generated changelog entry without rewriting history: where override files live, how they compose, how a key targets items, what an entry may set, and how to validate the files.
 
-Generated changelogs occasionally need editorial correction — typos, redacted scope, reworded entries, or historical commits whose bodies carry verbatim PR-template scaffolding (`## What`, `## Why`, etc.) that renders as literal text in user-facing release notes. Rewriting git history is not viable, and any in-place edit to `CHANGELOG.md` or `.meta/changelog.json` is overwritten on the next release because release-kit regenerates both artifacts from scratch.
+Generated changelogs occasionally need editorial correction — typos, redacted scope, reworded entries, or historical commits whose bodies carry verbatim PR-template scaffolding (`## What`, `## Why`, etc.) that renders as literal text in user-facing release notes. Rewriting git history is not viable, and any in-place edit to a version that release-kit renders in `CHANGELOG.md` or `.meta/changelog.json` is overwritten on the next release, because release-kit regenerates that version in both artifacts from its entries.
 
 Override files are the supported escape hatch. Drop a checked-in JSON file at the conventional path for the scope you want to influence, keyed by commit hash or by commit hash and entry position, and `release-kit prepare` applies the overrides between `buildChangelogEntries` and serialization. Both `CHANGELOG.md` and `.meta/changelog.json` reflect the post-override view, so downstream consumers (the GitHub Release body, the in-app release-notes page, etc.) see the same content.
 
