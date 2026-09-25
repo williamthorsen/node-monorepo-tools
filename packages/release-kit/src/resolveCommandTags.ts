@@ -22,9 +22,10 @@ import type { ReleaseKitConfig, WorkspaceConfig } from './types.ts';
  * which is not single-package mode.
  *
  * In monorepo mode the workspace list is `userConfig` merged over the discovered workspaces, as `prepare` builds it.
- * A tag on HEAD whose workspace the config excludes is dropped with a warning, whether or not `--tags` names it,
- * and still counts as a tag on HEAD, so a HEAD whose tags are all excluded returns an empty list rather than
- * failing. Single-package mode ignores `userConfig`.
+ * A tag on HEAD whose workspace the config excludes still counts as a tag on HEAD, so `--tags` may name it and a
+ * HEAD whose tags are all excluded returns an empty list rather than failing. Each excluded tag that the run
+ * selects, every one without `--tags` or the named ones with it, is dropped with a warning.
+ * Single-package mode ignores `userConfig`.
  *
  * In both modes `deriveWorkspaceConfig` is called so `WorkspaceConfig.isPublishable` (read
  * from `package.json#private`) propagates onto each `ResolvedTag`.
