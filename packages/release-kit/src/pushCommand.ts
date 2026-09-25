@@ -24,7 +24,7 @@ export function pushCommand(argv: string[]): void {
   const { dryRun, tagsOnly } = parsed.flags;
   const requestedTags = parseRequestedTags(parsed.flags.tags);
 
-  const resolvedTags = resolveCommandTags(requestedTags);
+  const resolvedTags = resolveCommandTags(requestedTags, undefined);
 
   if (resolvedTags.length === 0) {
     return;

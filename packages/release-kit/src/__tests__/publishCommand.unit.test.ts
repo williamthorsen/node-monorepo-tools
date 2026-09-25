@@ -48,6 +48,8 @@ vi.mock(import('../loadConfig.ts'), async () => {
   return {
     ...actual,
     loadConfig: mockLoadConfig,
+    // `node:fs` is mocked above, so the real reader cannot reach the root package.json.
+    readRootPackageVersion: () => ({ exists: true, version: '1.0.0' }),
   };
 });
 

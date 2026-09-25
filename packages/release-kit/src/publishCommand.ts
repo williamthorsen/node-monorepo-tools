@@ -56,7 +56,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
 
   const requestedTags = parseRequestedTags(parsed.flags.tags);
 
-  const resolvedTags = resolveCommandTags(requestedTags);
+  const resolvedTags = resolveCommandTags(requestedTags, undefined);
 
   if (resolvedTags.length === 0) {
     return;

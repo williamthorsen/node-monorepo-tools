@@ -42,7 +42,7 @@ describe(pushCommand, () => {
   it('delegates to pushRelease with default options', () => {
     pushCommand([]);
 
-    expect(mockResolveCommandTags).toHaveBeenCalledWith(undefined);
+    expect(mockResolveCommandTags).toHaveBeenCalledWith(undefined, undefined);
     expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { dryRun: false, tagsOnly: false });
   });
 
@@ -61,13 +61,13 @@ describe(pushCommand, () => {
   it('passes tags filter to resolveCommandTags', () => {
     pushCommand(['--tags=core-v1.2.0,cli-v0.5.0']);
 
-    expect(mockResolveCommandTags).toHaveBeenCalledWith(['core-v1.2.0', 'cli-v0.5.0']);
+    expect(mockResolveCommandTags).toHaveBeenCalledWith(['core-v1.2.0', 'cli-v0.5.0'], undefined);
   });
 
   it('combines --tags with --tags-only to push only the tag subset', () => {
     pushCommand(['--tags=core-v1.2.0', '--tags-only']);
 
-    expect(mockResolveCommandTags).toHaveBeenCalledWith(['core-v1.2.0']);
+    expect(mockResolveCommandTags).toHaveBeenCalledWith(['core-v1.2.0'], undefined);
     expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { dryRun: false, tagsOnly: true });
   });
 
