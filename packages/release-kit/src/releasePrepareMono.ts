@@ -224,7 +224,11 @@ function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePre
     const stageLabel = workspaceStageLabel(workspace.dir);
 
     const history = tryStage(stageLabel, () =>
-      readReleaseHistory(config, { tagPrefixes: getAllTagPrefixes(workspace), paths: workspace.paths }),
+      readReleaseHistory(config, {
+        tagPrefixes: getAllTagPrefixes(workspace),
+        paths: workspace.paths,
+        workspaceDir: workspace.dir,
+      }),
     );
     const tag = history.previousTag;
     const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
