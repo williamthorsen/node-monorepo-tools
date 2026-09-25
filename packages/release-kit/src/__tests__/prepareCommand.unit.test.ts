@@ -172,6 +172,20 @@ describe(prepareCommand, () => {
     );
   });
 
+  it('passes every configured workspace dir, taken before --only narrows them', async () => {
+    await prepareCommand(['--only=arrays'], RICH_STYLES, process.cwd());
+
+    expect(mockReleasePrepareMono.mock.calls[0]?.[1]).toMatchObject({
+      configuredWorkspaceDirs: ['arrays', 'strings'],
+    });
+  });
+
+  it('omits the configured workspace dirs when --only is absent', async () => {
+    await prepareCommand([], RICH_STYLES, process.cwd());
+
+    expect(mockReleasePrepareMono.mock.calls[0]?.[1]).not.toHaveProperty('configuredWorkspaceDirs');
+  });
+
   // The defect this change repairs: a workspace resolving to nothing used to read as single-package mode and
   // prepare the root as one package.
   it('exits with error when the workspace resolves to no package', async () => {

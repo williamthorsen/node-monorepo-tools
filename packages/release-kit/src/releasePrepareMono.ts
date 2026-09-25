@@ -17,6 +17,7 @@ import {
 import { decideRelease } from './decideRelease.ts';
 import { deriveSectionOrder } from './deriveReleaseNotesConfig.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
+import { findUnroutedEntryScopes } from './findUnroutedEntryScopes.ts';
 import { getAllTagPrefixes } from './generateChangelogs.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
@@ -96,6 +97,7 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
 
   // === Phase 1: Determine direct bumps ===
   const { directBumps, directResults, skippedResults } = determineDirectBumps(config, options);
+  reportUnroutedEntryScopes([...directResults.values(), ...skippedResults], config, options);
 
   // Keep each skipped workspace's history for when propagation promotes it to a release.
   const skippedHistories = new Map(skippedResults.map((skipped) => [skipped.workspace.dir, skipped.history]));
@@ -281,6 +283,25 @@ function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePre
   }
 
   return { directBumps, directResults, skippedResults };
+}
+
+/**
+ * Appends to each Phase 1 history's diagnostics the entry scopes that route nowhere in its unreleased window, which
+ * only a pass across every workspace's window can find.
+ */
+function reportUnroutedEntryScopes(
+  results: ReadonlyArray<{ workspace: WorkspaceConfig; history: ReleaseHistory }>,
+  config: MonorepoPrepareConfig,
+  options: ReleasePrepareOptions,
+): void {
+  const findings = findUnroutedEntryScopes(
+    results.map(({ workspace, history }) => ({ dir: workspace.dir, commits: history.unreleased.commits })),
+    options.configuredWorkspaceDirs ?? config.workspaces.map((workspace) => workspace.dir),
+    config.scopeAliases ?? {},
+  );
+  for (const { workspace, history } of results) {
+    history.unreleased.diagnostics.unroutedEntryScopes = findings.get(workspace.dir) ?? [];
+  }
 }
 
 /** Collect skipped workspaces, excluding those promoted via propagation. */

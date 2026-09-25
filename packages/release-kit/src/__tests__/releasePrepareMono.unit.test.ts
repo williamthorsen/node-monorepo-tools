@@ -73,7 +73,9 @@ import type {
   MalformedChangeRecordBlock,
   MonorepoReleaseConfig,
   PolicyViolation,
+  ReleaseType,
   UndeclaredEntryType,
+  UnroutedEntryScope,
   WorkspaceConfig,
   WorkTypeConfig,
 } from '../types.ts';
@@ -2389,6 +2391,78 @@ describe(releasePrepareMono, () => {
     });
   });
 
+  describe('unrouted entry scopes', () => {
+    const blockMessage = [
+      '#859 release-kit|feat: Route entries (#43)',
+      '',
+      '```change-record',
+      'entries:',
+      '  - type: feat',
+      '    scopes: [arrays]',
+      '    text: Adds to arrays.',
+      '  - type: fix',
+      '    scopes: [strings]',
+      '    text: Fixes strings.',
+      '  - type: fix',
+      '    scopes: [nothing]',
+      '    text: Fixes nothing.',
+      '```',
+    ].join('\n');
+    const blockCommit = {
+      hash: 'fff9999',
+      subject: '#859 release-kit|feat: Route entries (#43)',
+      body: '',
+      message: blockMessage,
+    };
+    const unroutedFinding = (entryPosition: number, scope: string): UnroutedEntryScope => ({
+      commitHash: 'fff9999',
+      commitSubject: blockCommit.subject,
+      entryPosition,
+      scope,
+    });
+
+    it('attaches the scopes that route nowhere to every released and skipped workspace whose window has the commit', () => {
+      const config = makeConfig({
+        workspaces: [makeRoutedWorkspace('arrays'), makeRoutedWorkspace('core'), makeRoutedWorkspace('strings')],
+      });
+      stubWindows({ 'arrays-v': 'minor', 'core-v': undefined, 'strings-v': 'patch' }, ['arrays-v', 'core-v']);
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+      const result = releasePrepareMono(config, {});
+
+      const expected = [unroutedFinding(2, 'strings'), unroutedFinding(3, 'nothing')];
+      expect(result.workspaces.find((w) => w.name === 'arrays')).toMatchObject({
+        status: 'released',
+        unroutedEntryScopes: expected,
+      });
+      expect(result.workspaces.find((w) => w.name === 'core')).toMatchObject({
+        status: 'skipped',
+        unroutedEntryScopes: expected,
+      });
+      expect(result.workspaces.find((w) => w.name === 'strings')).not.toHaveProperty('unroutedEntryScopes');
+    });
+
+    it('does not report a configured workspace that --only left out of the run', () => {
+      const config = makeConfig({ workspaces: [makeRoutedWorkspace('arrays')] });
+      stubWindows({ 'arrays-v': 'minor' }, ['arrays-v']);
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+      const result = releasePrepareMono(config, { only: ['arrays'], configuredWorkspaceDirs: ['arrays', 'strings'] });
+
+      expect(result.workspaces[0]?.unroutedEntryScopes).toStrictEqual([unroutedFinding(3, 'nothing')]);
+    });
+
+    /** Stubs each prefix's history with its bump, putting the block commit in the windows of `withBlock`. */
+    function stubWindows(bumps: Record<string, ReleaseType | undefined>, withBlock: readonly string[]): void {
+      mockReadReleaseHistory.mockImplementation((_config: unknown, options: { tagPrefixes: readonly string[] }) => {
+        const prefix = options.tagPrefixes[0] ?? '';
+        const history = makeReleaseHistory({ previousTag: `${prefix}1.0.0`, bump: bumps[prefix] });
+        history.unreleased.commits = withBlock.includes(prefix) ? [blockCommit] : [];
+        return history;
+      });
+    }
+  });
+
   describe('editorial overrides wiring', () => {
     // Integration coverage for the per-scope override flow. Helper-level tests in
     // `changelogOverrides.unit.test.ts` cover the per-helper behavior; this group asserts the
@@ -2465,6 +2539,20 @@ function stubHistoryByPrefix(stubs: Record<string, ReleaseHistoryStub>): void {
     const stub = options.tagPrefixes.map((prefix) => stubs[prefix]).find((found) => found !== undefined);
     return makeReleaseHistory(stub);
   });
+}
+
+/** Builds a workspace config whose paths, files, and tag prefix follow from `dir`. */
+function makeRoutedWorkspace(dir: string): WorkspaceConfig {
+  return {
+    dir,
+    name: `@test/${dir}`,
+    tagPrefix: `${dir}-v`,
+    workspacePath: `packages/${dir}`,
+    isPublishable: true,
+    packageFiles: [`packages/${dir}/package.json`],
+    changelogPaths: [`packages/${dir}`],
+    paths: [`packages/${dir}/**`],
+  };
 }
 
 /** Returns the options of every `readReleaseHistory` call, in call order. */

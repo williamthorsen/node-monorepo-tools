@@ -558,7 +558,12 @@ entries:
           items: [{ description: 'Covers the reader. (#42)', hash: fakeHash(0), entry: 3 }],
         },
       ]);
-      expect(diagnostics).toStrictEqual({ malformedBlocks: [], policyViolations: [], undeclaredEntryTypes: [] });
+      expect(diagnostics).toStrictEqual({
+        malformedBlocks: [],
+        policyViolations: [],
+        undeclaredEntryTypes: [],
+        unroutedEntryScopes: [],
+      });
     });
 
     it('omits the suffix when the block records no `pr_number`', () => {
@@ -717,7 +722,12 @@ entries:
         'Fixes.',
         'Old',
       ]);
-      expect(diagnostics).toStrictEqual({ malformedBlocks: [], policyViolations: [], undeclaredEntryTypes: [] });
+      expect(diagnostics).toStrictEqual({
+        malformedBlocks: [],
+        policyViolations: [],
+        undeclaredEntryTypes: [],
+        unroutedEntryScopes: [],
+      });
     });
   });
 });

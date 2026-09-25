@@ -25,6 +25,7 @@ import type {
   ReleaseConfig,
   ReleaseType,
   UndeclaredEntryType,
+  UnroutedEntryScope,
   VersionPatterns,
 } from './types.ts';
 
@@ -86,6 +87,8 @@ export interface ChangelogDiagnostics {
   /** Breaking-policy violations of the window's titles and change-record entries. */
   policyViolations: PolicyViolation[];
   undeclaredEntryTypes: UndeclaredEntryType[];
+  /** Entry scopes that route nowhere, which `releasePrepareMono` fills across workspaces; the read leaves it empty. */
+  unroutedEntryScopes: UnroutedEntryScope[];
 }
 
 /**
@@ -204,7 +207,12 @@ interface DerivedItem {
 /** Transforms the windows that `enumerateReleaseWindows` returns, the unreleased one first, into a history. */
 function transformReleases(windows: readonly ReleaseWindow[], context: ReadContext): ReleaseHistory {
   const [unreleasedWindow, baselineWindow] = windows;
-  const diagnostics: ChangelogDiagnostics = { malformedBlocks: [], policyViolations: [], undeclaredEntryTypes: [] };
+  const diagnostics: ChangelogDiagnostics = {
+    malformedBlocks: [],
+    policyViolations: [],
+    undeclaredEntryTypes: [],
+    unroutedEntryScopes: [],
+  };
   const signals: BumpSignal[] = [];
   const unparseable: RawCommit[] = [];
   let parsedCommitCount = 0;
