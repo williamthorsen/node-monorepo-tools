@@ -244,7 +244,8 @@ describe('releasePrepareProject (tool)', () => {
         { project: {} },
         { exists: true, version: '0.9.1' },
       );
-      const forced = prepareAndApply(forcedConfig, { force: true }).project;
+      const forcedPlan = prepareAndApply(forcedConfig, { force: true });
+      const forced = forcedPlan.project;
       assert(forced?.status === 'released', 'expected released project');
       expect(forced.tag).toBe('v0.9.2');
       expect(readFileSync(join(tree.dir, 'CHANGELOG.md'), 'utf8')).toMatch(
@@ -252,7 +253,9 @@ describe('releasePrepareProject (tool)', () => {
       );
 
       commitAll(tree, 'release: v0.9.2');
-      execFileSync('git', ['tag', 'v0.9.2'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
+      for (const tag of forcedPlan.tags) {
+        execFileSync('git', ['tag', tag], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
+      }
       tree.write('packages/pkg-b/widget.ts', 'export const widget = true;\n');
       commitAll(tree, '## pkg-b|feat: Add widget');
 

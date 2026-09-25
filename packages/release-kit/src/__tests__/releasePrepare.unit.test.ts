@@ -785,6 +785,33 @@ describe(releasePrepare, () => {
     });
   });
 
+  describe('untagged baseline', () => {
+    it.each<[string, ReleasePrepareOptions]>([
+      ['a natural release', {}],
+      ['--force', { force: true }],
+      ['--set-version', { setVersion: '2.0.0' }],
+    ])('throws on %s when the current version is recorded but untagged', (_label, options) => {
+      stubHistory({ previousTag: 'v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
+      stubFiles({ 'package.json': JSON.stringify({ version: '1.1.0' }), 'CHANGELOG.md': '## 1.1.0\n\n## 1.0.0\n' });
+
+      expect(() => releasePrepare(makeConfig(), options)).toThrow('  - package: 1.1.0 (create tag v1.1.0)');
+    });
+
+    it('throws even when the release would be skipped', () => {
+      stubHistory({ previousTag: 'v1.0.0' });
+      stubFiles({ 'package.json': JSON.stringify({ version: '1.1.0' }), 'CHANGELOG.md': '## 1.1.0\n' });
+
+      expect(() => releasePrepare(makeConfig(), {})).toThrow('create tag v1.1.0');
+    });
+
+    it('does not throw when the previous tag is the current version', () => {
+      stubHistory({ previousTag: 'v1.1.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
+      stubFiles({ 'package.json': JSON.stringify({ version: '1.1.0' }), 'CHANGELOG.md': '## 1.1.0\n' });
+
+      expect(releasePrepare(makeConfig(), {}).tags).toStrictEqual(['v1.2.0']);
+    });
+  });
+
   describe('changelogJson.enabled gating', () => {
     it('plans no changelog.json write when changelogJson.enabled is false', () => {
       stubMinorRelease();

@@ -1630,6 +1630,91 @@ describe(releasePrepareMono, () => {
     });
   });
 
+  describe('untagged baseline', () => {
+    /** Stubs `core` and `app` at versions that their changelogs record, above tags of earlier versions. */
+    function stubUntaggedWorkspaces(): MonorepoReleaseConfig {
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' },
+        'app-v': { previousTag: 'app-v2.0.0' },
+      });
+      stubFiles({
+        'packages/core/package.json': JSON.stringify({ version: '1.1.0' }),
+        'packages/core/CHANGELOG.md': '## 1.1.0\n',
+        'packages/app/package.json': JSON.stringify({ version: '2.1.0' }),
+        'packages/app/.meta/changelog.json': JSON.stringify([{ version: '2.1.0', date: '2024-01-01', sections: [] }]),
+      });
+      return makeConfig({ workspaces: [makeRoutedWorkspace('core'), makeRoutedWorkspace('app')] });
+    }
+
+    it('names every untagged workspace in one error that no stage label wraps', () => {
+      const config = stubUntaggedWorkspaces();
+
+      expect(() => releasePrepareMono(config, {})).toThrow(
+        /^The current version is recorded in the changelog[^\n]*\n {2}- workspace 'core': 1\.1\.0 \(create tag core-v1\.1\.0\)\n {2}- workspace 'app': 2\.1\.0 \(create tag app-v2\.1\.0\)\n/,
+      );
+    });
+
+    it('throws under --force', () => {
+      const config = stubUntaggedWorkspaces();
+
+      expect(() => releasePrepareMono(config, { force: true })).toThrow('create tag core-v1.1.0');
+    });
+
+    it('throws under --set-version', () => {
+      const config = stubUntaggedWorkspaces();
+
+      expect(() =>
+        releasePrepareMono({ ...config, workspaces: [makeRoutedWorkspace('core')] }, { setVersion: '3.0.0' }),
+      ).toThrow('create tag core-v1.1.0');
+    });
+
+    it('accepts a baseline tagged under a legacy prefix', () => {
+      stubHistory({ previousTag: 'old-core-v1.1.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' });
+      stubFiles({
+        'packages/core/package.json': JSON.stringify({ version: '1.1.0' }),
+        'packages/core/CHANGELOG.md': '## 1.1.0\n',
+      });
+      const workspace: WorkspaceConfig = {
+        ...makeRoutedWorkspace('core'),
+        legacyIdentities: [{ name: '@old/core', tagPrefix: 'old-core-v' }],
+      };
+
+      expect(releasePrepareMono(makeConfig({ workspaces: [workspace] }), {}).tags).toStrictEqual(['core-v1.2.0']);
+    });
+
+    it('does not fire for a workspace that releases only through propagation', () => {
+      stubPropagationFixture({ '@test/core': 'workspace:*' });
+
+      const result = releasePrepareMono(
+        makeConfig({ workspaces: [makeRoutedWorkspace('core'), makeRoutedWorkspace('app')] }),
+        {},
+      );
+
+      expect(result.tags).toStrictEqual(['core-v1.1.0', 'app-v2.1.1']);
+    });
+
+    it('fires for a skipped workspace that nothing propagates to', () => {
+      stubPropagationFixture({});
+
+      expect(() =>
+        releasePrepareMono(makeConfig({ workspaces: [makeRoutedWorkspace('core'), makeRoutedWorkspace('app')] }), {}),
+      ).toThrow("workspace 'app': 2.1.0 (create tag app-v2.1.0)");
+    });
+
+    /** Stubs `core` releasing directly and `app` skipped above `app-v2.0.0` at a recorded version, with `dependencies`. */
+    function stubPropagationFixture(dependencies: Record<string, string>): void {
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' },
+        'app-v': { previousTag: 'app-v2.0.0' },
+      });
+      stubFiles({
+        'packages/core/package.json': JSON.stringify({ name: '@test/core', version: '1.0.0' }),
+        'packages/app/package.json': JSON.stringify({ name: '@test/app', version: '2.1.0', dependencies }),
+        'packages/app/CHANGELOG.md': '## 2.1.0\n',
+      });
+    }
+  });
+
   describe('changelogJson.enabled gating', () => {
     /** Helper config with one workspace and a feat commit since v1.0.0. */
     function singleWorkspaceConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {

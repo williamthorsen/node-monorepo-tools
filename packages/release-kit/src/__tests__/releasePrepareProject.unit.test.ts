@@ -565,6 +565,37 @@ describe(releasePrepareProject, () => {
     });
   });
 
+  describe('untagged baseline', () => {
+    it.each<[string, boolean]>([
+      ['a natural release', false],
+      ['--force', true],
+    ])('throws on %s when the root version is recorded but untagged', (_label, force) => {
+      stubDefaultHistory();
+      stubFiles({ './package.json': JSON.stringify({ version: '1.0.0' }), 'CHANGELOG.md': '## 1.0.0\n' });
+      const writes: PlannedWrite[] = [];
+
+      expect(() =>
+        releasePrepareProject({ config: makeConfig(), options: { force }, modifiedFiles: [], writes, tags: [] }),
+      ).toThrow('  - project: 1.0.0 (create tag v1.0.0)');
+      expect(writes).toStrictEqual([]);
+    });
+
+    it('does not throw when the previous tag is the root version', () => {
+      stubDefaultHistory();
+      stubFiles({ './package.json': JSON.stringify({ version: '0.9.0' }), 'CHANGELOG.md': '## 0.9.0\n' });
+
+      const result = releasePrepareProject({
+        config: makeConfig(),
+        options: {},
+        modifiedFiles: [],
+        writes: [],
+        tags: [],
+      });
+
+      expect(result.status).toBe('released');
+    });
+  });
+
   describe('project release whose window yields no item', () => {
     // When `--force` triggers a project release although the unreleased window yields no
     // changelog item, a synthetic "Notes / Forced version bump." entry stands in for that window.

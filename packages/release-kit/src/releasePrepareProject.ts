@@ -1,5 +1,6 @@
 import { join as joinPath } from 'node:path';
 
+import { assertTaggedBaseline, findUntaggedBaseline } from './assertTaggedBaseline.ts';
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
 import { readReleaseHistory, type ReleaseHistory, toReleaseEntries } from './buildChangelogEntries.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
@@ -95,6 +96,18 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
 
   // 1. Read the project's history once under its contributing paths, resolved at config load.
   const history = readReleaseHistory(config, { tagPrefixes: [project.tagPrefix], paths: project.paths });
+  assertTaggedBaseline([
+    findUntaggedBaseline(
+      {
+        label: 'project',
+        packageFiles: [ROOT_PACKAGE_FILE],
+        changelogPaths: [ROOT_CHANGELOG_PATH],
+        tagPrefixes: [project.tagPrefix],
+        previousTag: history.previousTag,
+      },
+      config,
+    ),
+  ]);
   const { commits, diagnostics, parsedCommitCount, unparseableCommits } = history.unreleased;
   const tag = history.previousTag;
   const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;

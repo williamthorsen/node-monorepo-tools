@@ -1,5 +1,6 @@
 import { join as joinPath } from 'node:path';
 
+import { assertTaggedBaseline, findUntaggedBaseline } from './assertTaggedBaseline.ts';
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
 import { readReleaseHistory, type ReleaseHistory, toReleaseEntries } from './buildChangelogEntries.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
@@ -73,7 +74,7 @@ export interface ReleasePrepareOptions {
 /**
  * Orchestrate the release preparation workflow for a single package.
  *
- * 1. Reads the release history once.
+ * 1. Reads the release history once, and stops when the current version is recorded but untagged.
  * 2. Decides the release from the history's bump, `--force`, and `--bump` (or takes `--set-version`).
  * 3. Bumps all configured package.json version fields.
  * 4. Generates changelogs from the same history.
@@ -97,6 +98,18 @@ export function releasePrepare(config: PrepareConfig, options: ReleasePrepareOpt
 
   // 1. Read the release history once.
   const history = readReleaseHistory(config, { tagPrefixes: [config.tagPrefix] });
+  assertTaggedBaseline([
+    findUntaggedBaseline(
+      {
+        label: 'package',
+        packageFiles: config.packageFiles,
+        changelogPaths: config.changelogPaths,
+        tagPrefixes: [config.tagPrefix],
+        previousTag: history.previousTag,
+      },
+      config,
+    ),
+  ]);
   const { commits } = history.unreleased;
   const tag = history.previousTag;
   const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
