@@ -6,12 +6,12 @@ import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJso
 import { applyChangelogOverrides } from './changelogOverrides.ts';
 import { decideRelease } from './decideRelease.ts';
 import { DEFAULT_WORK_TYPES } from './defaults.ts';
+import { deriveSectionOrder } from './deriveReleaseNotesConfig.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 import { planVersionBump } from './planVersionBump.ts';
 import type { PlannedWrite } from './releasePlan.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
-import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type {
   ChangelogEntry,
   ChangelogOverride,

@@ -6,7 +6,7 @@ import type { OutputStyle } from '@williamthorsen/nmr-core';
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from './defaults.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
 import { loadValidatedConfig, reportConfigProblem, reportConfigWarnings } from './loadValidatedConfig.ts';
-import type { ReleaseNotesConfig } from './types.ts';
+import type { ReleaseKitConfig, ReleaseNotesConfig } from './types.ts';
 
 export interface ResolvedReleaseNotesConfig {
   releaseNotes: ReleaseNotesConfig;
@@ -41,23 +41,22 @@ export async function resolveReleaseNotesConfig(
   }
 
   if (result.status === 'missing') {
-    return {
-      releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
-      changelogJsonOutputPath: DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
-      sectionOrder: deriveSectionOrder(resolveWorkTypes()),
-    };
+    return deriveReleaseNotesConfig(undefined);
   }
 
   reportConfigWarnings(result.warnings, stderrStyle);
+  return deriveReleaseNotesConfig(result.config);
+}
 
-  const { config } = result;
+/** Derives the release-notes settings from a loaded config, falling back to the defaults for an absent one. */
+export function deriveReleaseNotesConfig(config: ReleaseKitConfig | undefined): ResolvedReleaseNotesConfig {
   return {
     releaseNotes: {
       shouldInjectIntoReadme:
-        config.releaseNotes?.shouldInjectIntoReadme ?? DEFAULT_RELEASE_NOTES_CONFIG.shouldInjectIntoReadme,
+        config?.releaseNotes?.shouldInjectIntoReadme ?? DEFAULT_RELEASE_NOTES_CONFIG.shouldInjectIntoReadme,
     },
-    changelogJsonOutputPath: config.changelogJson?.outputPath ?? DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
-    sectionOrder: deriveSectionOrder(resolveWorkTypes(config.workTypes)),
+    changelogJsonOutputPath: config?.changelogJson?.outputPath ?? DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
+    sectionOrder: deriveSectionOrder(resolveWorkTypes(config?.workTypes)),
   };
 }
 

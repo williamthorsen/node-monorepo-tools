@@ -25,7 +25,7 @@ vi.mock(import('../createGithubRelease.ts'), () => ({
   createGithubReleases: mockCreateGithubReleases,
 }));
 
-vi.mock(import('../resolveReleaseNotesConfig.ts'), () => ({
+vi.mock(import('../deriveReleaseNotesConfig.ts'), () => ({
   resolveReleaseNotesConfig: mockResolveReleaseNotesConfig,
 }));
 

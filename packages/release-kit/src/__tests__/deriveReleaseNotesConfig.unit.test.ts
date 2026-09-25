@@ -20,7 +20,35 @@ vi.mock(import('../validateConfig.ts'), () => ({
   validateConfig: mockValidateConfig,
 }));
 
-import { resolveReleaseNotesConfig } from '../resolveReleaseNotesConfig.ts';
+import { deriveReleaseNotesConfig, resolveReleaseNotesConfig } from '../deriveReleaseNotesConfig.ts';
+
+const defaultSectionOrder = Object.values(DEFAULT_WORK_TYPES).map((entry) => entry.header);
+
+describe(deriveReleaseNotesConfig, () => {
+  it('returns the defaults when there is no config', () => {
+    expect(deriveReleaseNotesConfig(undefined)).toStrictEqual({
+      releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
+      changelogJsonOutputPath: DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
+      sectionOrder: defaultSectionOrder,
+    });
+  });
+
+  it('returns the defaults for a config that sets none of the release-notes fields', () => {
+    expect(deriveReleaseNotesConfig({})).toStrictEqual(deriveReleaseNotesConfig(undefined));
+  });
+
+  it('takes each release-notes field from the config', () => {
+    const result = deriveReleaseNotesConfig({
+      releaseNotes: { shouldInjectIntoReadme: true },
+      changelogJson: { outputPath: 'custom/changelog.json' },
+      workTypes: { chore: { header: 'Chores' } },
+    });
+
+    expect(result.releaseNotes).toStrictEqual({ ...DEFAULT_RELEASE_NOTES_CONFIG, shouldInjectIntoReadme: true });
+    expect(result.changelogJsonOutputPath).toBe('custom/changelog.json');
+    expect(result.sectionOrder).toStrictEqual([...defaultSectionOrder, 'Chores']);
+  });
+});
 
 describe(resolveReleaseNotesConfig, () => {
   let capture: CapturedStdio;
@@ -37,8 +65,6 @@ describe(resolveReleaseNotesConfig, () => {
     mockValidateConfig.mockReset();
     vi.restoreAllMocks();
   });
-
-  const defaultSectionOrder = Object.values(DEFAULT_WORK_TYPES).map((entry) => entry.header);
 
   it('exits with code 1 when the default config exists and fails to load', async () => {
     mockLoadConfig.mockRejectedValue(new Error('config read failure'));

@@ -6,12 +6,12 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { configFlagSchema } from './configFlagSchema.ts';
 import { createGithubReleases } from './createGithubRelease.ts';
+import { resolveReleaseNotesConfig } from './deriveReleaseNotesConfig.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
 import { assertConfigUsable } from './loadValidatedConfig.ts';
 import { parseRequestedTags } from './parseRequestedTags.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
 import { resolveConfigFlag } from './resolveConfigFlag.ts';
-import { resolveReleaseNotesConfig } from './resolveReleaseNotesConfig.ts';
 
 const createGithubReleaseFlagSchema = {
   ...configFlagSchema,

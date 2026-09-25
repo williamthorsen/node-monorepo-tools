@@ -9,6 +9,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { configFlagSchema } from './configFlagSchema.ts';
+import { resolveReleaseNotesConfig } from './deriveReleaseNotesConfig.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
 import { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
@@ -17,7 +18,6 @@ import { parseRequestedTags } from './parseRequestedTags.ts';
 import { publishPackage } from './publish.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
 import { resolveConfigFlag } from './resolveConfigFlag.ts';
-import { resolveReleaseNotesConfig } from './resolveReleaseNotesConfig.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
 
 const publishFlagSchema = {

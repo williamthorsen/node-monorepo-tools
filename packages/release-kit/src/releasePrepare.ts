@@ -10,13 +10,13 @@ import {
   loadOverridesForScopes,
 } from './changelogOverrides.ts';
 import { decideRelease } from './decideRelease.ts';
+import { deriveSectionOrder } from './deriveReleaseNotesConfig.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 import { planVersionBump, planVersionSet, type VersionBumpPlan } from './planVersionBump.ts';
 import type { PlannedWrite, ReleasePlan } from './releasePlan.ts';
 import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
-import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type {
   ChangelogEntry,
   ChangelogOverride,
