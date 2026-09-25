@@ -306,7 +306,29 @@ describe(publishCommand, () => {
     it('forwards --config to the loader resolved against the invocation directory', async () => {
       await publishCommand(['--config', 'elsewhere/alternative.config.ts'], RICH_STYLES, '/invoked/from');
 
-      expect(mockLoadConfig).toHaveBeenCalledWith('/invoked/from/elsewhere/alternative.config.ts');
+      expect(mockLoadConfig).toHaveBeenCalledExactlyOnceWith('/invoked/from/elsewhere/alternative.config.ts');
+    });
+
+    it('does not publish an excluded workspace and reports the skip', async () => {
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/legacy']));
+      mockResolveReleaseTags.mockReturnValue([
+        { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+        { tag: 'legacy-v0.9.0', dir: 'legacy', workspacePath: 'packages/legacy', isPublishable: true },
+      ]);
+      const config = { workspaces: [{ dir: 'legacy', shouldExclude: true }] };
+      mockLoadConfig.mockResolvedValue(config);
+      mockValidateConfig.mockReturnValue({ config, errors: [], warnings: [] });
+
+      await publishCommand([], RICH_STYLES, process.cwd());
+
+      expect(console.warn).toHaveBeenCalledWith(
+        'Skipping legacy-v0.9.0 (packages/legacy): excluded by config (shouldExclude: true).',
+      );
+      expect(mockPublishPackage).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ tag: 'core-v1.3.0' }),
+        expect.anything(),
+        expect.anything(),
+      );
     });
 
     it('exits with code 1 for a named config that fails to load before an all-private tag set returns', async () => {
@@ -387,7 +409,8 @@ describe(publishCommand, () => {
 
       await publishCommand([], RICH_STYLES, process.cwd());
 
-      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('shouldInjectIntoReadme'));
+      expect(mockLoadConfig).toHaveBeenCalledTimes(1);
+      expect(console.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('shouldInjectIntoReadme'));
     });
 
     it('exits with code 1 when config has validation errors', async () => {

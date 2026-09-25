@@ -60,21 +60,27 @@ export async function loadValidatedConfig(configPath?: string): Promise<LoadVali
 }
 
 /**
- * Loads and validates the config, reporting the problem and exiting 1 when it is unusable, so that a command
- * whose later work may never reach a loader still fails on a config that does.
+ * Loads and validates the config for a CLI command, returning it, or `undefined` when no default config exists.
  *
- * An absent default config returns cleanly, which is what keeps a repo that declares no config a supported state.
- * Reports problems but never warnings: the command's own later load stays the single place that emits those, so
- * a warning is not printed twice.
- *
- * The second load costs nothing: `import()` caches by URL and `validateConfig` is pure.
+ * An unusable config reports to stderr and exits 1, whether the file failed to load or failed validation, and
+ * whether it was named by the caller or the default one. Validation warnings print to stderr.
  */
-export async function assertConfigUsable(stderrStyle: OutputStyle, configPath?: string): Promise<void> {
+export async function loadUsableConfig(
+  stderrStyle: OutputStyle,
+  configPath?: string,
+): Promise<ReleaseKitConfig | undefined> {
   const result = await loadValidatedConfig(configPath);
   if (result.status === 'invalid') {
     reportConfigProblem(result.problem, stderrStyle);
     process.exit(1);
   }
+
+  if (result.status === 'missing') {
+    return undefined;
+  }
+
+  reportConfigWarnings(result.warnings, stderrStyle);
+  return result.config;
 }
 
 /** Writes a config problem to stderr in the form every CLI command uses. */

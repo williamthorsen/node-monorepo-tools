@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
 const mockCreateGithubReleases = vi.hoisted(() => vi.fn());
-const mockResolveReleaseNotesConfig = vi.hoisted(() => vi.fn());
+const mockDeriveReleaseNotesConfig = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 
@@ -26,7 +26,7 @@ vi.mock(import('../createGithubRelease.ts'), () => ({
 }));
 
 vi.mock(import('../deriveReleaseNotesConfig.ts'), () => ({
-  resolveReleaseNotesConfig: mockResolveReleaseNotesConfig,
+  deriveReleaseNotesConfig: mockDeriveReleaseNotesConfig,
 }));
 
 vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
@@ -35,7 +35,11 @@ vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
 
 vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
   const original = await importOriginal();
-  return { ...original, loadConfig: mockLoadConfig };
+  return {
+    ...original,
+    loadConfig: mockLoadConfig,
+    readRootPackageVersion: () => ({ exists: true, version: '1.0.0' }),
+  };
 });
 
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
@@ -61,7 +65,7 @@ describe(createGithubReleaseCommand, () => {
       changelogPaths: [workspacePath],
       paths: [`${workspacePath}/**`],
     }));
-    mockResolveReleaseNotesConfig.mockResolvedValue({
+    mockDeriveReleaseNotesConfig.mockReturnValue({
       releaseNotes: { shouldInjectIntoReadme: false },
       changelogJsonOutputPath: '.meta/changelog.json',
       sectionOrder: ['Bug fixes', 'Features'],
@@ -76,7 +80,7 @@ describe(createGithubReleaseCommand, () => {
     mockDiscoverWorkspaces.mockReset();
     mockResolveReleaseTags.mockReset();
     mockCreateGithubReleases.mockReset();
-    mockResolveReleaseNotesConfig.mockReset();
+    mockDeriveReleaseNotesConfig.mockReset();
     mockLoadConfig.mockReset();
     vi.restoreAllMocks();
   });
@@ -191,18 +195,69 @@ describe(createGithubReleaseCommand, () => {
     expect(mockCreateGithubReleases).not.toHaveBeenCalled();
   });
 
-  it('forwards --config to the release-notes config resolver resolved against the invocation directory', async () => {
+  it('loads a named --config once, resolved against the invocation directory', async () => {
     await createGithubReleaseCommand(['--config', 'elsewhere/alternative.config.ts'], RICH_STYLES, '/invoked/from');
 
-    expect(mockResolveReleaseNotesConfig).toHaveBeenCalledWith('rich', {
-      configPath: '/invoked/from/elsewhere/alternative.config.ts',
+    expect(mockLoadConfig).toHaveBeenCalledExactlyOnceWith('/invoked/from/elsewhere/alternative.config.ts');
+  });
+
+  it('derives release-notes settings from the loaded config', async () => {
+    mockLoadConfig.mockResolvedValue({ changelogJson: { outputPath: 'custom/changelog.json' } });
+
+    await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+
+    expect(mockLoadConfig).toHaveBeenCalledTimes(1);
+    expect(mockDeriveReleaseNotesConfig).toHaveBeenCalledWith({
+      changelogJson: { outputPath: 'custom/changelog.json' },
     });
   });
 
-  it('resolves release-notes config against the default path when --config is absent', async () => {
+  it('prints each config warning once', async () => {
+    mockLoadConfig.mockResolvedValue({
+      changelogJson: { enabled: false },
+      releaseNotes: { shouldInjectIntoReadme: true },
+    });
+
     await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
 
-    expect(mockResolveReleaseNotesConfig).toHaveBeenCalledWith('rich', {});
+    const warnings = vi
+      .mocked(console.warn)
+      .mock.calls.filter(([message]) => String(message).includes('shouldInjectIntoReadme'));
+    expect(warnings).toHaveLength(1);
+  });
+
+  it('creates no Release for an excluded workspace and reports the skip', async () => {
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/legacy']));
+    mockResolveReleaseTags.mockReturnValue([
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+      { tag: 'legacy-v0.9.0', dir: 'legacy', workspacePath: 'packages/legacy', isPublishable: true },
+    ]);
+    mockLoadConfig.mockResolvedValue({ workspaces: [{ dir: 'legacy', shouldExclude: true }] });
+
+    await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+
+    expect(console.warn).toHaveBeenCalledWith(
+      'Skipping legacy-v0.9.0 (packages/legacy): excluded by config (shouldExclude: true).',
+    );
+    expect(mockCreateGithubReleases).toHaveBeenCalledWith(
+      [{ tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true }],
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it('exits 0 without creating a Release when every tag on HEAD is excluded', async () => {
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/legacy']));
+    mockResolveReleaseTags.mockReturnValue([
+      { tag: 'legacy-v0.9.0', dir: 'legacy', workspacePath: 'packages/legacy', isPublishable: true },
+    ]);
+    mockLoadConfig.mockResolvedValue({ workspaces: [{ dir: 'legacy', shouldExclude: true }] });
+
+    await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+
+    expect(mockCreateGithubReleases).not.toHaveBeenCalled();
+    expect(capture.stderr).toBe('');
   });
 
   it('exits with code 1 when no release tags are found on HEAD', async () => {
@@ -369,23 +424,6 @@ describe(createGithubReleaseCommand, () => {
     expect(capture.stderrChunks).toContain('Error: Failed to create GitHub Releases: gh release failed\n');
   });
 
-  it('exits with code 1 when resolveReleaseNotesConfig fails to load config', async () => {
-    mockResolveReleaseNotesConfig.mockImplementation(() => {
-      // The real resolver calls process.exit(1) internally; throwing ProcessExitError is what the caller observes.
-      process.stderr.write('Error: Failed to load config: read failure\n');
-      throw new ProcessExitError(1);
-    });
-
-    const error = await captureError(ProcessExitError, () =>
-      createGithubReleaseCommand([], RICH_STYLES, process.cwd()),
-    );
-
-    expect(error.code).toBe(1);
-    expect(mockResolveReleaseNotesConfig).toHaveBeenCalledWith('rich', {});
-    expect(mockCreateGithubReleases).not.toHaveBeenCalled();
-    expect(capture.stderrChunks).toContain('Error: Failed to load config: read failure\n');
-  });
-
   describe('publishability filter', () => {
     it('skips a private workspace with a warning and creates no Release', async () => {
       mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic']));
@@ -401,10 +439,7 @@ describe(createGithubReleaseCommand, () => {
       expect(mockCreateGithubReleases).not.toHaveBeenCalled();
     });
 
-    it('no-ops without loading release-notes config when every tag is private', async () => {
-      // An all-private repo is a clean no-op that must not depend on release-notes config: the
-      // partition short-circuits before resolveReleaseNotesConfig ever runs. The eager
-      // `assertConfigUsable` ahead of it is a no-op on an absent default config.
+    it('no-ops without deriving release-notes settings when every tag is private', async () => {
       mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
@@ -412,7 +447,7 @@ describe(createGithubReleaseCommand, () => {
 
       await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
 
-      expect(mockResolveReleaseNotesConfig).not.toHaveBeenCalled();
+      expect(mockDeriveReleaseNotesConfig).not.toHaveBeenCalled();
       expect(capture.stderr).toBe('');
     });
 
