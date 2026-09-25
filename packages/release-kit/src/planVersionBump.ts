@@ -53,6 +53,11 @@ export function planVersionSet(packageFiles: readonly string[], newVersion: stri
   return { currentVersion, newVersion, writes: renderVersionWrites(packageFiles, firstFile, firstPkg, newVersion) };
 }
 
+/** Reads a workspace's current version from its first package file, as the version planners do. */
+export function readCurrentVersion(packageFiles: readonly string[]): string {
+  return readPrimaryPackage(packageFiles).firstPkg.version;
+}
+
 /**
  * Reads the first package file, which supplies the pre-change version for the whole workspace.
  *

@@ -2,6 +2,7 @@ import { join as joinPath } from 'node:path';
 
 import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
+import { assertTaggedBaseline, findUntaggedBaseline, type UntaggedBaseline } from './assertTaggedBaseline.ts';
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
 import { readReleaseHistory, type ReleaseHistory, toReleaseEntries } from './buildChangelogEntries.ts';
 import { buildDependencyGraph, type DependencyGraph } from './buildDependencyGraph.ts';
@@ -24,12 +25,14 @@ import { resolveWorkTypes } from './loadConfig.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 import { planVersionBump, planVersionSet } from './planVersionBump.ts';
 import { propagateBumps, type ReleaseEntry } from './propagateBumps.ts';
+import { planPreservedSections } from './readChangelogSections.ts';
 import type { PlannedWrite, ReleasePlan } from './releasePlan.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import { releasePrepareProject } from './releasePrepareProject.ts';
 import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
 import type {
   ChangelogEntry,
+  ChangelogPreservation,
   MonorepoPrepareConfig,
   ProjectPrepareResult,
   ReleasedWorkspaceResult,
@@ -64,6 +67,8 @@ interface Phase1Result {
   directBumps: Map<string, ReleaseEntry>;
   directResults: Map<string, DirectBumpResult>;
   skippedResults: SkippedResult[];
+  /** Untagged baselines, keyed by workspace `dir`. */
+  untaggedBaselines: Map<string, UntaggedBaseline>;
 }
 
 /**
@@ -96,7 +101,7 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
   const overrideContext = createOverrideContext(config.workspaces);
 
   // === Phase 1: Determine direct bumps ===
-  const { directBumps, directResults, skippedResults } = determineDirectBumps(config, options);
+  const { directBumps, directResults, skippedResults, untaggedBaselines } = determineDirectBumps(config, options);
   reportUnroutedEntryScopes([...directResults.values(), ...skippedResults], config, options);
 
   // Keep each skipped workspace's history for when propagation promotes it to a release.
@@ -105,6 +110,14 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
   // === Phase 2: Build graph and propagate bumps ===
   const graph = buildDependencyGraph(config.workspaces);
   const fullReleaseSet = propagateBumps(directBumps, graph);
+
+  // A workspace that releases through propagation alone renders no entry from its window, so its baseline does not
+  // matter. Throw outside `tryStage` so that one error names every other workspace's missing tag.
+  assertTaggedBaseline(
+    [...untaggedBaselines]
+      .filter(([dir]) => directBumps.has(dir) || !fullReleaseSet.has(dir))
+      .map(([, untagged]) => untagged),
+  );
 
   // === Phase 2b: Topologically sort the release set ===
   const { sorted: sortedDirs, cyclicDirs } = topologicalSort(fullReleaseSet, graph);
@@ -202,7 +215,7 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
   };
 }
 
-/** Determine each workspace's direct bump from its release history. */
+/** Determine each workspace's direct bump from its release history, and find its untagged baseline. */
 function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePrepareOptions): Phase1Result {
   const { force, bumpOverride, setVersion } = options;
 
@@ -216,6 +229,7 @@ function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePre
   const directBumps = new Map<string, ReleaseEntry>();
   const directResults = new Map<string, DirectBumpResult>();
   const skippedResults: SkippedResult[] = [];
+  const untaggedBaselines = new Map<string, UntaggedBaseline>();
   const hintState: BaselineHintState = { emitted: false };
   // Build once: the union of every workspace's derived and declared tag prefixes. Passed into
   // the baseline hint so sibling workspaces' tags aren't misclassified as undeclared candidates.
@@ -225,13 +239,25 @@ function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePre
     const name = workspace.dir;
     const stageLabel = workspaceStageLabel(workspace.dir);
 
+    const tagPrefixes = getAllTagPrefixes(workspace);
     const history = tryStage(stageLabel, () =>
-      readReleaseHistory(config, {
-        tagPrefixes: getAllTagPrefixes(workspace),
-        paths: workspace.paths,
-        workspaceDir: workspace.dir,
-      }),
+      readReleaseHistory(config, { tagPrefixes, paths: workspace.paths, workspaceDir: workspace.dir }),
     );
+    const untagged = tryStage(stageLabel, () =>
+      findUntaggedBaseline(
+        {
+          label: `workspace '${workspace.dir}'`,
+          packageFiles: workspace.packageFiles,
+          changelogPaths: workspace.changelogPaths,
+          tagPrefixes,
+          previousTag: history.previousTag,
+        },
+        config,
+      ),
+    );
+    if (untagged !== undefined) {
+      untaggedBaselines.set(workspace.dir, untagged);
+    }
     const tag = history.previousTag;
     const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
 
@@ -282,7 +308,7 @@ function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePre
     });
   }
 
-  return { directBumps, directResults, skippedResults };
+  return { directBumps, directResults, skippedResults, untaggedBaselines };
 }
 
 /**
@@ -470,7 +496,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
   );
 
   const phase1History = directResult?.history ?? skippedHistory;
-  const { changelogFiles, previewFiles } = generateWorkspaceChangelogs({
+  const { changelogFiles, changelogPreservation, previewFiles } = generateWorkspaceChangelogs({
     workspace,
     releaseEntry,
     newTag,
@@ -496,6 +522,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     bumpedFiles: bump.writes.map((write) => write.path),
     changelogFiles,
     ...(previewFiles.length > 0 && { previewFiles }),
+    ...(changelogPreservation.length > 0 && { changelogPreservation }),
   };
   attachReleasedWorkspaceOptionals(released, {
     previousTag: phase1History?.previousTag,
@@ -611,10 +638,12 @@ interface GenerateWorkspaceChangelogsArgs {
  * Plan a workspace's changelog artifacts by building the new entries (propagation-only synthetic, or release
  * windows with the synthetic forced-release entry when the unreleased window yields no item), applying editorial
  * overrides, merging with the JSON on disk, and rendering both `changelog.json` and
- * `CHANGELOG.md` from the merged set so the two reflect the same post-override view.
+ * `CHANGELOG.md` from the merged set so the two reflect the same post-override view. `CHANGELOG.md` also keeps the
+ * existing sections whose versions the merged set lacks.
  */
 function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
   changelogFiles: string[];
+  changelogPreservation: ChangelogPreservation[];
   previewFiles: string[];
 } {
   const {
@@ -638,6 +667,7 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
   const applied = applyWorkspaceOverrides(entries, workspace.workspacePath, overrideContext);
 
   const changelogFiles: string[] = [];
+  const changelogPreservation: ChangelogPreservation[] = [];
   let firstMergedEntries: ChangelogEntry[] | undefined;
 
   for (const changelogPath of workspace.changelogPaths) {
@@ -654,14 +684,21 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
     }
 
     const changelogFile = joinPath(changelogPath, 'CHANGELOG.md');
-    writes.push({ path: changelogFile, content: renderChangelogMarkdown(mergedEntries, { sectionOrder }) });
+    const preserved = planPreservedSections(changelogFile, mergedEntries);
+    writes.push({
+      path: changelogFile,
+      content: renderChangelogMarkdown(mergedEntries, { sectionOrder, preservedSections: preserved.sections }),
+    });
     changelogFiles.push(changelogFile);
+    if (preserved.preservation !== undefined) {
+      changelogPreservation.push(preserved.preservation);
+    }
   }
 
   const previews = planPreviews(workspace, newTag, firstMergedEntries, previewOptions, warnings);
   writes.push(...previews);
 
-  return { changelogFiles, previewFiles: previews.map((write) => write.path) };
+  return { changelogFiles, changelogPreservation, previewFiles: previews.map((write) => write.path) };
 }
 
 /** Arguments for {@link buildWorkspaceEntries}. */

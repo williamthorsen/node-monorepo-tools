@@ -1336,6 +1336,76 @@ describe(reportPrepare, () => {
     });
   });
 
+  describe('existing changelog sections', () => {
+    const preservingRelease: ReleasedWorkspaceResult = {
+      status: 'released',
+      previousTag: 'v1.0.0',
+      commitCount: 1,
+      releaseType: 'minor',
+      currentVersion: '1.0.0',
+      newVersion: '1.1.0',
+      tag: 'v1.1.0',
+      bumpedFiles: ['package.json'],
+      changelogFiles: ['CHANGELOG.md', 'docs/CHANGELOG.md'],
+      changelogPreservation: [
+        { file: 'CHANGELOG.md', preservedVersions: ['0.9.0', '0.8.0'], droppedUnversionedHeadings: [] },
+        {
+          file: 'docs/CHANGELOG.md',
+          preservedVersions: [],
+          droppedUnversionedHeadings: ['## Unreleased', '## Notes'],
+        },
+      ],
+    };
+
+    it('lists the kept versions and warns about the dropped sections under each changelog file', () => {
+      const output = reportPrepare(
+        { workspaces: [preservingRelease], tags: ['v1.1.0'] },
+        { applied: false, style: 'plain' },
+      );
+
+      expect(output).toContain(
+        [
+          dim('  [dry-run] Would generate changelog: CHANGELOG.md'),
+          dim('    Kept from the existing file: 0.9.0, 0.8.0'),
+          dim('  [dry-run] Would generate changelog: docs/CHANGELOG.md'),
+          '    WARN  Dropped 2 sections with no version: ## Unreleased, ## Notes',
+        ].join('\n'),
+      );
+    });
+
+    it('reports kept versions for a monorepo workspace and the project', () => {
+      const project: ReleasedProjectResult = {
+        status: 'released',
+        commitCount: 1,
+        parsedCommitCount: 1,
+        releaseType: 'minor',
+        currentVersion: '1.0.0',
+        newVersion: '1.1.0',
+        tag: 'v1.1.0',
+        bumpedFiles: ['./package.json'],
+        changelogFiles: ['CHANGELOG.md'],
+        commits: [],
+        changelogPreservation: [
+          { file: 'CHANGELOG.md', preservedVersions: ['0.5.0'], droppedUnversionedHeadings: ['## Credits'] },
+        ],
+      };
+
+      const output = reportPrepare(
+        { workspaces: [{ ...preservingRelease, name: 'core' }], tags: ['core-v1.1.0', 'v1.1.0'], project },
+        { applied: true, style: 'plain' },
+      );
+
+      expect(output).toContain(dim('      Kept from the existing file: 0.9.0, 0.8.0'));
+      expect(output).toContain(
+        [
+          dim('    Generating changelog: CHANGELOG.md'),
+          dim('      Kept from the existing file: 0.5.0'),
+          '      WARN  Dropped 1 section with no version: ## Credits',
+        ].join('\n'),
+      );
+    });
+  });
+
   describe('plain style', () => {
     const unparseableCommits = [{ message: 'tidy things up', subject: 'tidy things up', hash: 'abc1234def' }];
     const policyViolations: PolicyViolation[] = [

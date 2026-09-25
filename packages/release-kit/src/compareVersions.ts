@@ -1,3 +1,5 @@
+import semver from 'semver';
+
 /** Canonical semver regex used to validate `N.N.N` strings (no pre-release or build metadata). */
 const CANONICAL_SEMVER_PATTERN = /^(\d+)\.(\d+)\.(\d+)$/;
 
@@ -30,6 +32,25 @@ function parseCanonicalSemver(version: string): ParsedVersion {
     minor: Number.parseInt(minor, 10),
     patch: Number.parseInt(patch, 10),
   };
+}
+
+/**
+ * Compare two version strings in descending order (newest first).
+ *
+ * Valid SemVer inputs are ordered per SemVer §11 (delegated to `semver.rcompare`): prerelease
+ * versions precede the corresponding release (`1.2.3-alpha < 1.2.3`), and build metadata is
+ * ignored for ordering. Inputs that fail `semver.valid` sort to the bottom of the descending
+ * list, ordered lexically among themselves. The comparator never throws.
+ */
+export function compareVersionsDescending(a: string, b: string): number {
+  const aValid = semver.valid(a);
+  const bValid = semver.valid(b);
+  if (aValid && bValid) return semver.rcompare(aValid, bValid);
+  if (aValid) return -1;
+  if (bValid) return 1;
+  if (a > b) return -1;
+  if (a < b) return 1;
+  return 0;
 }
 
 /**

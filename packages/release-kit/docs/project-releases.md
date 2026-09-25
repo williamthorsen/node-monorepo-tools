@@ -19,7 +19,7 @@ When configured, each `release-kit prepare` run additionally:
 
 - Computes commits since the last project tag (`<tagPrefix><version>`), filtered to `paths` (by default, the union of every contributing workspace's paths).
 - Bumps the root `package.json`'s `version` field using the same bump-derivation rules as workspaces (or the `--bump=...` override).
-- Regenerates the root `./CHANGELOG.md` from the structured `ChangelogEntry[]` built from the project's release history (scoped to the project's `tagPrefix` and the same `paths`) and any matching editorial overrides.
+- Regenerates the root `./CHANGELOG.md` from the structured `ChangelogEntry[]` built from the project's release history (scoped to the project's `tagPrefix` and the same `paths`) and any matching editorial overrides, keeping the [existing sections](changelogs.md#existing-changelogmd-sections) whose versions those entries lack.
 - Emits `./.meta/changelog.json` (when `changelogJson.enabled`).
 - With `--with-release-notes`, additionally emits `./docs/RELEASE_NOTES.v<version>.md`.
 - Appends the project tag to `tmp/.release-tags` so `release-kit commit` and `release-kit tag` pick it up alongside per-workspace tags.

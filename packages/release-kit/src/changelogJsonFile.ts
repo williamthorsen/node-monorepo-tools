@@ -3,9 +3,9 @@ import { join } from 'node:path';
 
 import { describeError } from '@williamthorsen/toolbelt.errors';
 import stringify from 'json-stringify-pretty-compact';
-import semver from 'semver';
 
 import { isChangelogEntry } from './changelogJsonUtils.ts';
+import { compareVersionsDescending } from './compareVersions.ts';
 import { isUnknownArray } from './typeGuards.ts';
 import type { ChangelogEntry, ReleaseConfig } from './types.ts';
 
@@ -75,23 +75,4 @@ function mergeEntries(newEntries: ChangelogEntry[], existingEntries: ChangelogEn
   }
 
   return sortNewestFirst(versionMap.values());
-}
-
-/**
- * Compare two version strings in descending order (newest first).
- *
- * Valid SemVer inputs are ordered per SemVer §11 (delegated to `semver.rcompare`): prerelease
- * versions precede the corresponding release (`1.2.3-alpha < 1.2.3`), and build metadata is
- * ignored for ordering. Inputs that fail `semver.valid` sort to the bottom of the descending
- * list, ordered lexically among themselves. The comparator never throws.
- */
-function compareVersionsDescending(a: string, b: string): number {
-  const aValid = semver.valid(a);
-  const bValid = semver.valid(b);
-  if (aValid && bValid) return semver.rcompare(aValid, bValid);
-  if (aValid) return -1;
-  if (bValid) return 1;
-  if (a > b) return -1;
-  if (a < b) return 1;
-  return 0;
 }

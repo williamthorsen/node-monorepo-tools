@@ -53,6 +53,16 @@ A commit whose last `change-record` block records entries yields its items from 
 
 `release:` commits and merge commits whose subject git wrote (`Merge …`) never reach a changelog, whether or not they carry a block. A commit that fails a check yields no item and raises no bump, so a window without an item calls for no release. A release forced by `--force` or `--set-version` whose window yields no item records a "Forced version bump." entry under Notes for its version, whether or not the window has commits. Because history does not yield that entry again, `release-kit prepare` keeps it by merging each release's entries with the `changelog.json` on disk. The prepare report lists a commit of the unreleased window that fails the first or the second check as unparseable, unless a malformed-block warning already reports it; it lists none that fails the third. The commit's type decides the section under which its item appears.
 
+### Existing `CHANGELOG.md` sections
+
+`prepare` also reads the `CHANGELOG.md` that it regenerates, so a version recorded only there, such as history written by hand before release-kit was adopted, survives. The first SemVer token in a `##` heading names the section's version: `## 1.2.0`, `## v1.2.0`, and `## [1.2.0] - 2024-01-01` all name 1.2.0, and so does `## Upgrading from 1.2.0`.
+
+- **A version that neither the release windows nor `changelog.json` contain** keeps its section verbatim, placed among the rendered sections in version order.
+- **A version that either contains** is rendered from its entries, and its old text is discarded.
+- **A section whose heading names no version**, such as `## Unreleased`, is dropped.
+
+The header above the first section and the footer comment are regenerated. The prepare report lists the versions kept for each changelog and warns about each section dropped. Kept sections never enter `changelog.json`.
+
 ### Routing to workspaces
 
 A workspace's window contains every commit that touches the workspace's paths. An item derived from a title reaches every workspace whose window contains its commit. An item derived from a change-record entry reaches a workspace in that window only when the entry's `scopes` route it there:

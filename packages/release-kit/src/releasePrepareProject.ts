@@ -1,5 +1,6 @@
 import { join as joinPath } from 'node:path';
 
+import { assertTaggedBaseline, findUntaggedBaseline } from './assertTaggedBaseline.ts';
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
 import { readReleaseHistory, type ReleaseHistory, toReleaseEntries } from './buildChangelogEntries.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
@@ -9,12 +10,14 @@ import { DEFAULT_WORK_TYPES } from './defaults.ts';
 import { deriveSectionOrder } from './deriveReleaseNotesConfig.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 import { planVersionBump } from './planVersionBump.ts';
+import { planPreservedSections } from './readChangelogSections.ts';
 import type { PlannedWrite } from './releasePlan.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
 import type {
   ChangelogEntry,
   ChangelogOverride,
+  ChangelogPreservation,
   MonorepoPrepareConfig,
   ProjectPrepareResult,
   SkippedProjectResult,
@@ -93,6 +96,18 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
 
   // 1. Read the project's history once under its contributing paths, resolved at config load.
   const history = readReleaseHistory(config, { tagPrefixes: [project.tagPrefix], paths: project.paths });
+  assertTaggedBaseline([
+    findUntaggedBaseline(
+      {
+        label: 'project',
+        packageFiles: [ROOT_PACKAGE_FILE],
+        changelogPaths: [ROOT_CHANGELOG_PATH],
+        tagPrefixes: [project.tagPrefix],
+        previousTag: history.previousTag,
+      },
+      config,
+    ),
+  ]);
   const { commits, diagnostics, parsedCommitCount, unparseableCommits } = history.unreleased;
   const tag = history.previousTag;
   const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
@@ -185,6 +200,9 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   if (previewFiles.length > 0) {
     result.previewFiles = previewFiles;
   }
+  if (changelogs.changelogPreservation.length > 0) {
+    result.changelogPreservation = changelogs.changelogPreservation;
+  }
   if (tag !== undefined) {
     result.previousTag = tag;
   }
@@ -231,7 +249,7 @@ interface PlanProjectChangelogsArgs {
  * Builds the project's new entries (release windows, or the synthetic entry when the unreleased window yields no
  * item), applies editorial overrides, merges them with the `changelog.json` on disk, and renders `changelog.json` and
  * `CHANGELOG.md` from the merged set. The merge keeps the synthetic entries of earlier releases, which the release
- * windows do not yield.
+ * windows do not yield, and `CHANGELOG.md` also keeps the existing sections whose versions the merged set lacks.
  *
  * Returns the rendered writes alongside the entry set they carry, so the caller can render the
  * release-notes previews from the same entries rather than re-reading the file.
@@ -239,6 +257,7 @@ interface PlanProjectChangelogsArgs {
 function planProjectChangelogs(args: PlanProjectChangelogsArgs): {
   changelogFiles: string[];
   changelogJsonFiles: string[];
+  changelogPreservation: ChangelogPreservation[];
   entries: ChangelogEntry[];
   writes: PlannedWrite[];
 } {
@@ -271,7 +290,17 @@ function planProjectChangelogs(args: PlanProjectChangelogsArgs): {
   }
 
   const changelogFile = joinPath(ROOT_CHANGELOG_PATH, 'CHANGELOG.md');
-  writes.push({ path: changelogFile, content: renderChangelogMarkdown(renderEntries, { sectionOrder }) });
+  const preserved = planPreservedSections(changelogFile, renderEntries);
+  writes.push({
+    path: changelogFile,
+    content: renderChangelogMarkdown(renderEntries, { sectionOrder, preservedSections: preserved.sections }),
+  });
 
-  return { changelogFiles: [changelogFile], changelogJsonFiles, entries: renderEntries, writes };
+  return {
+    changelogFiles: [changelogFile],
+    changelogJsonFiles,
+    changelogPreservation: preserved.preservation === undefined ? [] : [preserved.preservation],
+    entries: renderEntries,
+    writes,
+  };
 }

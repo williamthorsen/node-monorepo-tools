@@ -87,6 +87,20 @@ release-kit prepare --only arrays --set-version 1.0.0
 
 An empty changelog section is expected for a bare promotion, because the changelog is generated from commits since the last tag. To include a narrative entry, land a descriptive release commit (e.g., a `feat!` describing the stable API) before running `prepare`.
 
+### Adopting release-kit in a repo with untagged releases
+
+`prepare` finds a target's previous release by its tag. When a target's current version was released and recorded in its `CHANGELOG.md` or `changelog.json` but never tagged, the unreleased window would reach back to the start of history: The new version would absorb every earlier commit, and its bump would be derived from all of them. `prepare` stops before writing anything instead, under `--force` and `--set-version` too, and names each target, its version, and the tag to create:
+
+```text
+The current version is recorded in the changelog, but its tag is not the previous tag reachable from HEAD:
+  - workspace 'api': 1.2.0 (create tag api-v1.2.0)
+Tag the commit that released each version, then run prepare again.
+```
+
+Tag each named version at the commit that released it, then run `prepare` again. In a monorepo, `prepare` checks the project only after every workspace passes, so a second run can name the project's tag. The check skips a first release, whose version no changelog records, and a workspace that releases only through propagation.
+
+Each new tag closes a release window. When that window's commits yield items, `prepare` renders the tagged version from them, in place of its hand-written section; it keeps every other hand-written version as [Existing `CHANGELOG.md` sections](changelogs.md#existing-changelogmd-sections) describes.
+
 ## GitHub Actions workflow
 
 The `init` command scaffolds a release workflow at `.github/workflows/release.yaml` that delegates to a reusable release workflow. The scaffolded workflow accepts these inputs:
