@@ -54,6 +54,12 @@ export interface ReleasePrepareOptions {
    */
   only?: string[];
   /**
+   * Every configured workspace `dir`, taken before `--only` narrowed `config.workspaces`; the unrouted-scope report
+   * does not report a scope naming one of them that the run did not read. Defaults to the `dir`s of
+   * `config.workspaces`.
+   */
+  configuredWorkspaceDirs?: readonly string[];
+  /**
    * If true, write per-workspace release-notes previews under `{workspacePath}/docs/`
    * (`README.v{version}.md` and `RELEASE_NOTES.v{version}.md`) after each workspace's
    * `changelog.json` is produced. Requires `config.changelogJson.enabled`; when disabled,

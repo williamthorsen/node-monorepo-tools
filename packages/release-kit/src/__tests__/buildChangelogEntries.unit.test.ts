@@ -3,7 +3,7 @@ import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import type { RawCommit, ReleaseWindow } from '../enumerateReleaseWindows.ts';
 import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
-import type { ChangelogEntry, ChangelogJsonConfig, ReleaseConfig } from '../types.ts';
+import type { ChangelogEntry, ChangelogJsonConfig, ChangelogSection, ReleaseConfig } from '../types.ts';
 
 // Mock the enumerator so the test exercises buildChangelogEntries' transformation logic
 // without reading git history. `buildChangelogEntries.tool.test.ts` covers the real reader.
@@ -558,7 +558,12 @@ entries:
           items: [{ description: 'Covers the reader. (#42)', hash: fakeHash(0), entry: 3 }],
         },
       ]);
-      expect(diagnostics).toStrictEqual({ malformedBlocks: [], policyViolations: [], undeclaredEntryTypes: [] });
+      expect(diagnostics).toStrictEqual({
+        malformedBlocks: [],
+        policyViolations: [],
+        undeclaredEntryTypes: [],
+        unroutedEntryScopes: [],
+      });
     });
 
     it('omits the suffix when the block records no `pr_number`', () => {
@@ -717,7 +722,12 @@ entries:
         'Fixes.',
         'Old',
       ]);
-      expect(diagnostics).toStrictEqual({ malformedBlocks: [], policyViolations: [], undeclaredEntryTypes: [] });
+      expect(diagnostics).toStrictEqual({
+        malformedBlocks: [],
+        policyViolations: [],
+        undeclaredEntryTypes: [],
+        unroutedEntryScopes: [],
+      });
     });
   });
 });
@@ -837,6 +847,90 @@ describe(readReleaseHistory, () => {
 
       expect(unreleased.unparseableCommits).toBeUndefined();
       expect(unreleased.parsedCommitCount).toBe(0);
+    });
+  });
+
+  describe('entry routing', () => {
+    const ROUTED_MESSAGE = mergeMessage(`
+entries:
+  - type: feat
+    scopes: [nmr]
+    text: Adds to nmr.
+  - type: fix
+    scopes: [core-alias]
+    text: Fixes core.
+  - type: fix
+    scopes: [release-kit, nmr]
+    text: Fixes both.
+  - type: tests
+    text: Covers everything.
+  - type: tests
+    scopes: ['*']
+    text: Covers every workspace.
+  - type: internal
+    scopes: [root]
+    text: Tidies the root.
+`);
+
+    it.each([
+      ['nmr', ['Adds to nmr.', 'Fixes both.', 'Covers everything.', 'Covers every workspace.']],
+      ['nmr-core', ['Fixes core.', 'Covers everything.', 'Covers every workspace.']],
+      ['release-kit', ['Fixes both.', 'Covers everything.', 'Covers every workspace.']],
+      ['arrays', ['Covers everything.', 'Covers every workspace.']],
+    ])(
+      "keeps, for workspace '%s', the entries whose resolved scopes name it, are empty, or contain `*`",
+      (workspaceDir, descriptions) => {
+        expect(describeItems(readRouted([ROUTED_MESSAGE], workspaceDir).sections)).toStrictEqual(descriptions);
+      },
+    );
+
+    it('keeps every entry for a read without a workspace', () => {
+      expect(describeItems(readUnreleased([ROUTED_MESSAGE]).sections)).toHaveLength(6);
+    });
+
+    it('does not raise the bump for a breaking entry scoped to another workspace', () => {
+      const message = mergeMessage(`
+entries:
+  - type: feat
+    scopes: [release-kit]
+    breaking: true
+    text: Breaks release-kit.
+  - type: fix
+    scopes: [nmr]
+    text: Fixes nmr.
+`);
+
+      expect(readRouted([message], 'nmr').bump).toBe('patch');
+      expect(readRouted([message], 'release-kit').bump).toBe('major');
+    });
+
+    it('counts a block commit whose entries all route elsewhere as neither parsed nor unparseable', () => {
+      const unreleased = readRouted(
+        [mergeMessage('entries:\n  - type: feat\n    scopes: [nmr]\n    text: A.')],
+        'arrays',
+      );
+
+      expect(unreleased.bump).toBeUndefined();
+      expect(unreleased.parsedCommitCount).toBe(0);
+      expect(unreleased.unparseableCommits).toBeUndefined();
+    });
+
+    it('keeps the item of a commit with no block', () => {
+      expect(readRouted(['#1 release-kit|feat: Add'], 'nmr').bump).toBe('minor');
+    });
+
+    it('routes the entries of released windows', () => {
+      mockEnumerateReleaseWindows.mockReturnValueOnce([
+        makeWindow('unreleased', []),
+        makeWindow('v1.0.0', [ROUTED_MESSAGE]),
+      ]);
+
+      const history = readReleaseHistory(routedConfig(), { ...OPTIONS, workspaceDir: 'arrays' });
+
+      expect(describeItems(history.releasedEntries[0]?.sections ?? [])).toStrictEqual([
+        'Covers everything.',
+        'Covers every workspace.',
+      ]);
     });
   });
 
@@ -1026,6 +1120,30 @@ function readUnreleased(messages: readonly string[]): ReturnType<typeof readRele
     { ...makeConfig(), breakingPolicies: DEFAULT_BREAKING_POLICIES, workTypes: DEFAULT_WORK_TYPES },
     OPTIONS,
   ).unreleased;
+}
+
+/** Lists the item descriptions of `sections`, in section order. */
+function describeItems(sections: readonly ChangelogSection[]): string[] {
+  return sections.flatMap((section) => section.items.map((item) => item.description));
+}
+
+/** Reads, for `workspaceDir`, a history whose only window is an unreleased one holding `messages`, oldest first. */
+function readRouted(
+  messages: readonly string[],
+  workspaceDir: string,
+): ReturnType<typeof readReleaseHistory>['unreleased'] {
+  mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('unreleased', messages)]);
+  return readReleaseHistory(routedConfig(), { ...OPTIONS, workspaceDir }).unreleased;
+}
+
+/** Returns the default configuration with a `core-alias` → `nmr-core` scope alias. */
+function routedConfig(): Parameters<typeof readReleaseHistory>[0] {
+  return {
+    ...makeConfig(),
+    breakingPolicies: DEFAULT_BREAKING_POLICIES,
+    scopeAliases: { 'core-alias': 'nmr-core' },
+    workTypes: DEFAULT_WORK_TYPES,
+  };
 }
 
 /** Returns a 40-character hash that encodes an index. */

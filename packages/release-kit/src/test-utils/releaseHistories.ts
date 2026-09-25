@@ -26,7 +26,13 @@ export function makeReleaseHistory(stub: ReleaseHistoryStub = {}): ReleaseHistor
       bump: stub.bump,
       commits,
       date: '2024-01-01',
-      diagnostics: { malformedBlocks: [], policyViolations: [], undeclaredEntryTypes: [], ...stub.diagnostics },
+      diagnostics: {
+        malformedBlocks: [],
+        policyViolations: [],
+        undeclaredEntryTypes: [],
+        unroutedEntryScopes: [],
+        ...stub.diagnostics,
+      },
       parsedCommitCount: stub.parsedCommitCount ?? (stub.bump === undefined ? 0 : commits.length),
       sections: stub.sections ?? [],
       unparseableCommits:

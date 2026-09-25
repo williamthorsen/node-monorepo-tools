@@ -1294,6 +1294,38 @@ describe(reportPrepare, () => {
       expect(output).toContain('2 change-record entries have undeclared types (no item):');
     });
 
+    it.each([
+      ['released', makeReleasedWorkspace],
+      ['skipped', makeSkippedWorkspace],
+    ])('renders the unrouted entry scopes of a %s monorepo workspace', (_status, makeWorkspace) => {
+      const unroutedEntryScopes = [
+        { commitHash: 'abc1234def', commitSubject: SUBJECT, entryPosition: 2, scope: 'nmr' },
+      ];
+
+      const output = reportPrepare(
+        { workspaces: [makeWorkspace({ name: 'arrays', unroutedEntryScopes })], tags: [] },
+        { applied: false, style: 'rich' },
+      );
+
+      expect(output).toContain(
+        "1 change-record entry scope matches no workspace in the commit's window (no item there):",
+      );
+      expect(output).toContain(`· abc1234 '${SUBJECT}' — scope 'nmr' at entry 2`);
+    });
+
+    it('pluralizes the unrouted entry scopes header', () => {
+      const finding = { commitHash: 'abc1234', commitSubject: SUBJECT, entryPosition: 1, scope: 'nmr' };
+
+      const output = reportPrepare(
+        { workspaces: [makeReleasedWorkspace({ name: 'arrays', unroutedEntryScopes: [finding, finding] })], tags: [] },
+        { applied: false, style: 'rich' },
+      );
+
+      expect(output).toContain(
+        "2 change-record entry scopes match no workspace in the commit's window (no item there):",
+      );
+    });
+
     it('renders no change-record lines when the result carries none', () => {
       const output = reportPrepare(
         { workspaces: [makeReleasedWorkspace()], tags: ['v1.0.1'] },

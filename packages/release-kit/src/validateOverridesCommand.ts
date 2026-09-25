@@ -1,7 +1,7 @@
 import { formatErrorLine, formatStatusLine, type OutputStyle, type StreamStyles } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import { buildChangelogEntries } from './buildChangelogEntries.ts';
+import { buildChangelogEntries, type ReleaseHistoryConfig } from './buildChangelogEntries.ts';
 import {
   type OverrideTargetItem,
   resolveOverridePath,
@@ -46,10 +46,7 @@ export interface ValidateOverridesCommandDependencies {
    * `release-kit prepare` uses — anchoring `validate`'s item universe to `prepare`'s by
    * construction.
    */
-  buildEntries?: (
-    config: Pick<ReleaseConfig, 'breakingPolicies' | 'changelogJson' | 'workTypes'>,
-    options: GenerateChangelogOptions,
-  ) => ChangelogEntry[];
+  buildEntries?: (config: ReleaseHistoryConfig, options: GenerateChangelogOptions) => ChangelogEntry[];
   /** Pluggable validator (default: the production library function). Tests use this to drive specific result shapes through the formatter. */
   validate?: (inputs: ValidateAllChangelogOverridesInputs) => ValidateAllChangelogOverridesResult;
 }
@@ -150,10 +147,7 @@ function pluralize(count: number, noun: string): string {
 }
 
 /** Delegates to `buildChangelogEntries`, which reads the release history as `prepare` does, under a throwaway tag label. */
-function defaultBuildEntries(
-  config: Pick<ReleaseConfig, 'breakingPolicies' | 'changelogJson' | 'workTypes'>,
-  options: GenerateChangelogOptions,
-): ChangelogEntry[] {
+function defaultBuildEntries(config: ReleaseHistoryConfig, options: GenerateChangelogOptions): ChangelogEntry[] {
   return buildChangelogEntries(config, SYNTHETIC_VALIDATE_TAG, options).entries;
 }
 
@@ -206,10 +200,10 @@ function buildSinglePackageInputs(
 /**
  * Build validation inputs for a monorepo, mirroring the per-scope item universes `prepare` would compute.
  *
- * Workspace scopes mirror `buildWorkspaceEntries` in `releasePrepareMono.ts`: the workspace's
- * derived prefix plus any legacy-identity prefixes, with the workspace's `paths`. The project
- * scope mirrors `planProjectChangelogs` in `releasePrepareProject.ts`: the project's tag prefix
- * with the resolved `project.paths`.
+ * Workspace scopes mirror `buildWorkspaceEntries` in `releasePrepareMono.ts`: the workspace's derived prefix plus any
+ * legacy-identity prefixes, with the workspace's `paths`, routing change-record entries to the workspace's `dir`. The
+ * project scope mirrors `planProjectChangelogs` in `releasePrepareProject.ts`: the project's tag prefix with the
+ * resolved `project.paths`.
  */
 function buildMonorepoInputs(
   discoveredPaths: string[],
@@ -220,7 +214,7 @@ function buildMonorepoInputs(
   const config: MonorepoReleaseConfig = mergeMonorepoConfig(discoveredPaths, userConfig, rootPackage);
 
   const workspaces = config.workspaces.map((workspace) => {
-    const options = { tagPrefixes: getAllTagPrefixes(workspace), paths: workspace.paths };
+    const options = { tagPrefixes: getAllTagPrefixes(workspace), paths: workspace.paths, workspaceDir: workspace.dir };
     return {
       filePath: resolveOverridePath(workspace.workspacePath),
       items: flattenEntriesToItems(buildEntries(config, options)),

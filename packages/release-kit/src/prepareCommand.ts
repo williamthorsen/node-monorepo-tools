@@ -243,6 +243,7 @@ function runMonorepoMode(
     process.exit(1);
   }
 
+  let configuredWorkspaceDirs: string[] | undefined;
   if (only !== undefined) {
     const knownNames = config.workspaces.map((w) => w.dir);
 
@@ -278,6 +279,7 @@ function runMonorepoMode(
       process.exit(1);
     }
 
+    configuredWorkspaceDirs = knownNames;
     config.workspaces = config.workspaces.filter((w) => only.includes(w.dir));
   }
 
@@ -293,7 +295,16 @@ function runMonorepoMode(
     }
   }
 
-  runAndReport(() => releasePrepareMono(config, { ...options, ...(only !== undefined && { only }) }), dryRun, style);
+  runAndReport(
+    () =>
+      releasePrepareMono(config, {
+        ...options,
+        ...(only !== undefined && { only }),
+        ...(configuredWorkspaceDirs !== undefined && { configuredWorkspaceDirs }),
+      }),
+    dryRun,
+    style,
+  );
 }
 
 interface PrepareOptions {

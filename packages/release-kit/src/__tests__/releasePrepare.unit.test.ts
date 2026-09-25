@@ -75,6 +75,7 @@ const diagnostics: ChangelogDiagnostics = {
     { commitHash: 'bbb2222', commitSubject: 'Merge PR', type: 'drop', surface: 'entry', entryPosition: 1 },
   ],
   undeclaredEntryTypes: [{ commitHash: 'bbb2222', commitSubject: 'Merge PR', entryPosition: 2, type: 'chore' }],
+  unroutedEntryScopes: [{ commitHash: 'bbb2222', commitSubject: 'Merge PR', entryPosition: 3, scope: 'other' }],
 };
 
 function makeConfig(overrides?: Partial<ReleaseConfig>): ReleaseConfig {

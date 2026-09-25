@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildChangelogEntries, readReleaseHistory } from '../buildChangelogEntries.ts';
+import { buildChangelogEntries, readReleaseHistory, toChangelogEntries } from '../buildChangelogEntries.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
 import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
 import type { ChangelogEntry } from '../types.ts';
@@ -188,6 +188,39 @@ describe(readReleaseHistory, () => {
     expect(commit?.message).toBe('#1 feat: Add a thing\n\nAdds a thing.');
   });
 
+  it("routes a real commit's entries to the workspaces that their scopes name", () => {
+    const repo = scaffoldGitRepo();
+    repo.commit(
+      [
+        '#859 release-kit|feat: Route entries (#43)',
+        '',
+        '```change-record',
+        'entries:',
+        '  - type: feat',
+        '    breaking: true',
+        '    scopes: [arrays]',
+        '    text: Breaks arrays.',
+        '  - type: fix',
+        '    scopes: [strings]',
+        '    text: Fixes strings.',
+        '```',
+      ].join('\n'),
+      { 'packages/arrays/index.ts': 'export const a = 1;\n', 'packages/strings/index.ts': 'export const s = 1;\n' },
+    );
+
+    const arrays = readRouted('arrays');
+    const strings = readRouted('strings');
+
+    expect(summarize(toChangelogEntries(arrays, 'arrays-v1.0.0'))).toStrictEqual([
+      { version: '1.0.0', descriptions: ['Breaks arrays.'] },
+    ]);
+    expect(arrays.unreleased.bump).toBe('major');
+    expect(summarize(toChangelogEntries(strings, 'strings-v1.0.0'))).toStrictEqual([
+      { version: '1.0.0', descriptions: ['Fixes strings.'] },
+    ]);
+    expect(strings.unreleased.bump).toBe('patch');
+  });
+
   it('throws when the prefix array is empty', () => {
     scaffoldGitRepo();
 
@@ -200,6 +233,11 @@ describe(readReleaseHistory, () => {
 /** Reads the history of the scaffolded repo under the default configuration. */
 function readHistory(tagPrefixes: readonly string[], paths?: readonly string[]): ReturnType<typeof readReleaseHistory> {
   return readReleaseHistory(CONFIG, { tagPrefixes, ...(paths !== undefined && { paths }) });
+}
+
+/** Reads the history of the scaffolded repo's `packages/{dir}` workspace, routed to `dir`. */
+function readRouted(dir: string): ReturnType<typeof readReleaseHistory> {
+  return readReleaseHistory(CONFIG, { tagPrefixes: [`${dir}-v`], paths: [`packages/${dir}`], workspaceDir: dir });
 }
 
 /** Builds a tagged baseline with two commits above it. */

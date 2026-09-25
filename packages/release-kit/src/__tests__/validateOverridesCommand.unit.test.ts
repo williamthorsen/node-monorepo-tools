@@ -520,19 +520,60 @@ describe(validateOverridesCommand, () => {
       expect(calls[0]).toStrictEqual({
         tagPrefixes: ['foo-v', 'old-foo-v'],
         paths: ['packages/foo/**'],
+        workspaceDir: 'foo',
       });
 
       // bar: single derived prefix (no legacy identities), over its workspace glob.
       expect(calls[1]).toStrictEqual({
         tagPrefixes: ['bar-v'],
         paths: ['packages/bar/**'],
+        workspaceDir: 'bar',
       });
 
-      // Project tier: the project prefix; paths default to the union of workspace globs.
+      // Project tier: the project prefix; paths default to the union of workspace globs, and every entry is kept.
       expect(calls[2]).toStrictEqual({
         tagPrefixes: ['mono-v'],
         paths: ['packages/foo/**', 'packages/bar/**'],
       });
+    });
+
+    it("excludes from a workspace's items an entry whose scopes route it to another workspace", async () => {
+      const hash = 'abcdef1234567890abcdef1234567890abcdef12';
+      const message = [
+        '#859 foo|feat: Route entries (#43)',
+        '',
+        '```change-record',
+        'entries:',
+        '  - type: feat',
+        '    scopes: [foo]',
+        '    text: Adds to foo.',
+        '  - type: fix',
+        '    scopes: [bar]',
+        '    text: Fixes bar.',
+        '```',
+      ].join('\n');
+      mockedEnumerateReleaseWindows.mockReset();
+      mockedEnumerateReleaseWindows.mockReturnValue([
+        {
+          version: 'unreleased',
+          timestamp: 1_720_000_000,
+          commits: [{ hash, subject: '#859 foo|feat: Route entries (#43)', body: '', message }],
+        },
+      ]);
+      tree.writeJson('packages/foo/.meta/changelog-overrides.json', {
+        'abcdef12:1': { audience: 'skip' },
+        'abcdef12:2': { audience: 'skip' },
+      });
+
+      const result = await validateOverridesCommand(RICH_STYLES, undefined, {
+        discoverWorkspaces: () => resolvedPackages(['packages/foo', 'packages/bar']),
+        loadValidatedConfig: () =>
+          Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
+      });
+
+      expect(result.message).toContain("'abcdef12:2'");
+      expect(result.message).not.toContain("'abcdef12:1'");
+      expect(result.exitCode).toBe(1);
     });
 
     it('scopes the project tier to a declared project.paths', async () => {

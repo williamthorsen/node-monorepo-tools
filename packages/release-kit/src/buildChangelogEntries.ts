@@ -25,6 +25,7 @@ import type {
   ReleaseConfig,
   ReleaseType,
   UndeclaredEntryType,
+  UnroutedEntryScope,
   VersionPatterns,
 } from './types.ts';
 
@@ -86,16 +87,18 @@ export interface ChangelogDiagnostics {
   /** Breaking-policy violations of the window's titles and change-record entries. */
   policyViolations: PolicyViolation[];
   undeclaredEntryTypes: UndeclaredEntryType[];
+  /** Entry scopes that route nowhere, which `releasePrepareMono` fills across workspaces; the read leaves it empty. */
+  unroutedEntryScopes: UnroutedEntryScope[];
 }
 
 /**
  * Reads a scope's release windows once and returns the changelog items of every window, with what the unreleased
  * window decides: its commits, its bump, and its diagnostics.
  *
- * A commit whose last `change-record` block records entries yields one item per entry; any other commit is
- * classified by its title through `classifyChangelogCommit`. A `release:` or merge subject yields nothing either
- * way. Only the unreleased window records diagnostics, since the released windows were reported when they were
- * prepared.
+ * A commit whose last `change-record` block records entries yields one item per entry routed to
+ * `options.workspaceDir`; any other commit is classified by its title through `classifyChangelogCommit`. A `release:`
+ * or merge subject yields nothing either way. Only the unreleased window records diagnostics, since the released
+ * windows were reported when they were prepared.
  */
 export function readReleaseHistory(config: ReleaseHistoryConfig, options: GenerateChangelogOptions): ReleaseHistory {
   try {
@@ -107,6 +110,9 @@ export function readReleaseHistory(config: ReleaseHistoryConfig, options: Genera
     const context: ReadContext = {
       breakingPolicies: config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES,
       devOnlySections: new Set(config.changelogJson.devOnlySections.map(stripGroupDecorations)),
+      ...(options.workspaceDir !== undefined && {
+        routing: { workspaceDir: options.workspaceDir, scopeAliases: config.scopeAliases ?? {} },
+      }),
       versionPatterns: config.versionPatterns ?? DEFAULT_VERSION_PATTERNS,
       workTypes: config.workTypes ?? DEFAULT_WORK_TYPES,
     };
@@ -119,7 +125,7 @@ export function readReleaseHistory(config: ReleaseHistoryConfig, options: Genera
 /** The configuration that `readReleaseHistory` reads. */
 export type ReleaseHistoryConfig = Pick<
   ReleaseConfig,
-  'breakingPolicies' | 'changelogJson' | 'versionPatterns' | 'workTypes'
+  'breakingPolicies' | 'changelogJson' | 'scopeAliases' | 'versionPatterns' | 'workTypes'
 >;
 
 /** One read of a scope's release windows. */
@@ -179,8 +185,16 @@ interface ReadContext {
   breakingPolicies: NonNullable<ReleaseConfig['breakingPolicies']>;
   /** Dev-only section titles, stripped of decorations. */
   devOnlySections: ReadonlySet<string>;
+  /** The workspace to which entries are routed; undefined for a read that takes every entry. */
+  routing?: EntryRouting;
   versionPatterns: VersionPatterns;
   workTypes: NonNullable<ReleaseConfig['workTypes']>;
+}
+
+/** The workspace that a read routes change-record entries to, and the aliases that resolve their scopes. */
+interface EntryRouting {
+  scopeAliases: Readonly<Record<string, string>>;
+  workspaceDir: string;
 }
 
 /** An item with the section header under which it is filed and the signal that it contributes to the bump. */
@@ -193,7 +207,12 @@ interface DerivedItem {
 /** Transforms the windows that `enumerateReleaseWindows` returns, the unreleased one first, into a history. */
 function transformReleases(windows: readonly ReleaseWindow[], context: ReadContext): ReleaseHistory {
   const [unreleasedWindow, baselineWindow] = windows;
-  const diagnostics: ChangelogDiagnostics = { malformedBlocks: [], policyViolations: [], undeclaredEntryTypes: [] };
+  const diagnostics: ChangelogDiagnostics = {
+    malformedBlocks: [],
+    policyViolations: [],
+    undeclaredEntryTypes: [],
+    unroutedEntryScopes: [],
+  };
   const signals: BumpSignal[] = [];
   const unparseable: RawCommit[] = [];
   let parsedCommitCount = 0;
@@ -317,6 +336,20 @@ function buildSections(
   return sections.toSorted((a, b) => canonicalSectionPriority(a.title) - canonicalSectionPriority(b.title));
 }
 
+/**
+ * Reports whether an entry with `scopes` reaches the routed workspace: Its scopes are empty, contain `*`, or name the
+ * workspace's `dir` once `scopeAliases` resolves them.
+ */
+function isRoutedTo(scopes: readonly string[], routing: EntryRouting): boolean {
+  if (scopes.length === 0) {
+    return true;
+  }
+  return scopes.some((scope) => {
+    const resolved = routing.scopeAliases[scope] ?? scope;
+    return resolved === '*' || resolved === routing.workspaceDir;
+  });
+}
+
 /** Formats Unix seconds as an ISO calendar date. */
 function formatDate(timestamp: number): string {
   return new Date(timestamp * 1_000).toISOString().slice(0, 10);
@@ -335,9 +368,10 @@ function appendItem(sectionMap: Map<string, ChangelogItem[]>, header: string, it
 /**
  * Builds the item that one change-record entry yields, with the section header that its type declares.
  *
- * Returns `undefined` for an entry whose type is undeclared, which is recorded as a diagnostic, and for one whose
- * type is excluded from the changelog. An entry whose `breaking` violates its type's policy is recorded as a policy
- * violation and yields an item that is not breaking.
+ * Returns `undefined` for an entry whose scopes route it away from the workspace being read, for one whose type is
+ * undeclared, which is recorded as a diagnostic, and for one whose type is excluded from the changelog. An entry
+ * whose `breaking` violates its type's policy is recorded as a policy violation and yields an item that is not
+ * breaking.
  */
 function buildEntryItem(
   commit: RawCommit,
@@ -347,7 +381,10 @@ function buildEntryItem(
   context: ReadContext,
   diagnostics: ChangelogDiagnostics | undefined,
 ): DerivedItem | undefined {
-  const { breakingPolicies, workTypes } = context;
+  const { breakingPolicies, routing, workTypes } = context;
+  if (routing !== undefined && !isRoutedTo(entry.scopes, routing)) {
+    return undefined;
+  }
   const type = resolveType(entry.type, workTypes);
   if (type === undefined) {
     diagnostics?.undeclaredEntryTypes.push({

@@ -168,6 +168,18 @@ export interface UndeclaredEntryType {
   type: string;
 }
 
+/** A change-record entry scope that names no workspace whose unreleased window contains its commit. */
+export interface UnroutedEntryScope {
+  /** Full hash of the commit. */
+  commitHash: string;
+  /** First line of the commit message. */
+  commitSubject: string;
+  /** 1-based position of the entry in its block. */
+  entryPosition: number;
+  /** The scope as the entry declares it. */
+  scope: string;
+}
+
 /**
  * Result of preparing a single workspace (package) for release when a release was produced.
  *
@@ -195,6 +207,8 @@ export interface ReleasedWorkspaceResult {
   malformedBlocks?: MalformedChangeRecordBlock[];
   /** Change-record entries of the unreleased window whose type is undeclared; omitted when none. */
   undeclaredEntryTypes?: UndeclaredEntryType[];
+  /** Change-record entry scopes of the unreleased window that route their entry nowhere; omitted when none. */
+  unroutedEntryScopes?: UnroutedEntryScope[];
   releaseType?: ReleaseType;
   currentVersion: string;
   newVersion: string;
@@ -241,6 +255,8 @@ export interface SkippedWorkspaceResult {
   malformedBlocks?: MalformedChangeRecordBlock[];
   /** Change-record entries of the unreleased window whose type is undeclared; omitted when none. */
   undeclaredEntryTypes?: UndeclaredEntryType[];
+  /** Change-record entry scopes of the unreleased window that route their entry nowhere; omitted when none. */
+  unroutedEntryScopes?: UnroutedEntryScope[];
   skipReason: string;
 }
 

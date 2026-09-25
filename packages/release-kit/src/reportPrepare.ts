@@ -437,17 +437,18 @@ function formatPolicyViolations(
 }
 
 /**
- * Append warning lines for the change-record blocks that could not be read and the entries whose type is undeclared.
+ * Append warning lines for the change-record blocks that could not be read, the entries whose type is undeclared, and
+ * the entry scopes that match no workspace in the commit's window.
  *
  * `indent` follows the same convention as {@link formatUnparseableWarning}.
  */
 function formatChangeRecordWarnings(
   lines: string[],
-  release: Pick<ReleasedWorkspaceResult, 'malformedBlocks' | 'undeclaredEntryTypes'>,
+  release: Pick<ReleasedWorkspaceResult, 'malformedBlocks' | 'undeclaredEntryTypes' | 'unroutedEntryScopes'>,
   style: OutputStyle,
   indent = '',
 ): void {
-  const { malformedBlocks = [], undeclaredEntryTypes = [] } = release;
+  const { malformedBlocks = [], undeclaredEntryTypes = [], unroutedEntryScopes = [] } = release;
   if (malformedBlocks.length > 0) {
     const count = malformedBlocks.length;
     const header = `${count} change-record block${count === 1 ? '' : 's'} could not be read (item taken from the title)`;
@@ -466,6 +467,17 @@ function formatChangeRecordWarnings(
       const shortHash = entry.commitHash.slice(0, 7);
       lines.push(
         `${indent}    · ${shortHash} '${truncateSubject(entry.commitSubject)}' — type '${entry.type}' at entry ${entry.entryPosition}`,
+      );
+    }
+  }
+  if (unroutedEntryScopes.length > 0) {
+    const count = unroutedEntryScopes.length;
+    const header = `${count} change-record entry scope${count === 1 ? ' matches' : 's match'} no workspace in the commit's window (no item there)`;
+    lines.push(`${indent}  ${formatStatusLine(style, 'warning', `${header}:`)}`);
+    for (const finding of unroutedEntryScopes) {
+      const shortHash = finding.commitHash.slice(0, 7);
+      lines.push(
+        `${indent}    · ${shortHash} '${truncateSubject(finding.commitSubject)}' — scope '${finding.scope}' at entry ${finding.entryPosition}`,
       );
     }
   }
