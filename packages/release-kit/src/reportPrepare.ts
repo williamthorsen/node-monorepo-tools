@@ -121,7 +121,7 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
 
   // Changelog info
   lines.push(dim('Generating changelogs...'));
-  formatChangelogFiles(lines, workspace, dryRun);
+  formatChangelogFiles(lines, workspace, dryRun, style);
   formatPreviewFiles(lines, workspace, dryRun);
 
   // Format command
@@ -229,13 +229,7 @@ function formatProjectSection(
   }
 
   lines.push(dim('  Generating changelogs...'));
-  for (const file of project.changelogFiles) {
-    if (dryRun) {
-      lines.push(dim(`    [dry-run] Would generate changelog: ${file}`));
-    } else {
-      lines.push(dim(`    Generating changelog: ${file}`));
-    }
-  }
+  formatChangelogFiles(lines, project, dryRun, style, '  ');
   formatPreviewFiles(lines, project, dryRun, '  ');
 
   lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(tag))}`);
@@ -275,7 +269,7 @@ function formatWorkspaceSection(
 
   formatBumpFiles(lines, workspace, dryRun, '  ');
   lines.push(dim('  Generating changelogs...'));
-  formatChangelogFiles(lines, workspace, dryRun, '  ');
+  formatChangelogFiles(lines, workspace, dryRun, style, '  ');
   formatPreviewFiles(lines, workspace, dryRun, '  ');
 
   lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(workspace.tag))}`);
@@ -343,13 +337,34 @@ function formatBumpFiles(lines: string[], workspace: ReleasedWorkspaceResult, dr
   }
 }
 
-/** Append changelog file detail lines. */
-function formatChangelogFiles(lines: string[], workspace: ReleasedWorkspaceResult, dryRun: boolean, indent = ''): void {
-  for (const file of workspace.changelogFiles) {
+/**
+ * Append a line per generated changelog file, each followed by the versions kept from its existing sections and a
+ * warning naming the sections dropped for having no version.
+ */
+function formatChangelogFiles(
+  lines: string[],
+  release: Pick<ReleasedWorkspaceResult, 'changelogFiles' | 'changelogPreservation'>,
+  dryRun: boolean,
+  style: OutputStyle,
+  indent = '',
+): void {
+  for (const file of release.changelogFiles) {
     if (dryRun) {
       lines.push(dim(`${indent}  [dry-run] Would generate changelog: ${file}`));
     } else {
       lines.push(dim(`${indent}  Generating changelog: ${file}`));
+    }
+    const preservation = release.changelogPreservation?.find((candidate) => candidate.file === file);
+    if (preservation === undefined) {
+      continue;
+    }
+    if (preservation.preservedVersions.length > 0) {
+      lines.push(dim(`${indent}    Kept from the existing file: ${preservation.preservedVersions.join(', ')}`));
+    }
+    const dropped = preservation.droppedUnversionedHeadings;
+    if (dropped.length > 0) {
+      const message = `Dropped ${dropped.length} section${dropped.length === 1 ? '' : 's'} with no version: ${dropped.join(', ')}`;
+      lines.push(`${indent}    ${formatStatusLine(style, 'warning', message)}`);
     }
   }
 }

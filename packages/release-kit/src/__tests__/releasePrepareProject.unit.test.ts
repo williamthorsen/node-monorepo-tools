@@ -522,6 +522,49 @@ describe(releasePrepareProject, () => {
     expect(mockReadReleaseHistory).not.toHaveBeenCalled();
   });
 
+  describe('existing CHANGELOG.md sections', () => {
+    it('keeps the root sections whose versions the entries lack and reports them', () => {
+      stubDefaultHistory({ releasedEntries: [RELEASED_ENTRY] });
+      stubFiles({
+        './package.json': JSON.stringify({ name: 'root', version: '0.9.0' }),
+        'CHANGELOG.md': '# Changelog\n\n## 0.9.0\n\n- Stale\n\n## 0.8.0\n\n- Hand-written\n\n## Credits\n\n- People\n',
+      });
+
+      const result = releasePrepareProject({
+        config: makeConfig(),
+        options: {},
+        modifiedFiles: [],
+        writes: [],
+        tags: [],
+      });
+
+      expect(mockRenderChangelogMarkdown).toHaveBeenCalledExactlyOnceWith(
+        [NEW_ENTRY, RELEASED_ENTRY],
+        expect.objectContaining({ preservedSections: [{ version: '0.8.0', text: '## 0.8.0\n\n- Hand-written' }] }),
+      );
+      expect(result).toMatchObject({
+        status: 'released',
+        changelogPreservation: [
+          { file: 'CHANGELOG.md', preservedVersions: ['0.8.0'], droppedUnversionedHeadings: ['## Credits'] },
+        ],
+      });
+    });
+
+    it('omits changelogPreservation when there is no existing root changelog', () => {
+      stubDefaultHistory();
+
+      const result = releasePrepareProject({
+        config: makeConfig(),
+        options: {},
+        modifiedFiles: [],
+        writes: [],
+        tags: [],
+      });
+
+      expect(result).not.toHaveProperty('changelogPreservation');
+    });
+  });
+
   describe('project release whose window yields no item', () => {
     // When `--force` triggers a project release although the unreleased window yields no
     // changelog item, a synthetic "Notes / Forced version bump." entry stands in for that window.
@@ -781,6 +824,16 @@ function stubDefaultHistory(overrides: ReleaseHistoryStub = {}): void {
     bump: 'minor',
     sections: UNRELEASED_SECTIONS,
     ...overrides,
+  });
+}
+
+/** Stubs the filesystem as containing exactly `files`, keyed by path. */
+function stubFiles(files: Record<string, string>): void {
+  mockExistsSync.mockImplementation((path: string) => Object.hasOwn(files, path));
+  mockReadFileSync.mockImplementation((path: string) => {
+    const content = files[path];
+    if (content === undefined) throw new Error(`ENOENT: ${path}`);
+    return content;
   });
 }
 

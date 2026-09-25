@@ -1552,6 +1552,84 @@ describe(releasePrepareMono, () => {
     });
   });
 
+  describe('existing CHANGELOG.md sections', () => {
+    it('keeps markdown-only sections for a direct release and a propagation-only one', () => {
+      const config = makeConfig({ workspaces: [makeRoutedWorkspace('core'), makeRoutedWorkspace('app')] });
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' },
+        'app-v': { previousTag: 'app-v2.0.0' },
+      });
+      stubFiles({
+        'packages/core/package.json': JSON.stringify({ name: '@test/core', version: '1.0.0' }),
+        'packages/core/CHANGELOG.md': '# Changelog\n\n## 1.0.0\n\n- Core one\n',
+        'packages/app/package.json': JSON.stringify({
+          name: '@test/app',
+          version: '2.0.0',
+          dependencies: { '@test/core': 'workspace:*' },
+        }),
+        'packages/app/CHANGELOG.md': '# Changelog\n\n## 2.0.0\n\n- App two\n',
+      });
+
+      const result = releasePrepareMono(config, {});
+
+      expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ preservedSections: [{ version: '1.0.0', text: '## 1.0.0\n\n- Core one' }] }),
+      );
+      expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ preservedSections: [{ version: '2.0.0', text: '## 2.0.0\n\n- App two' }] }),
+      );
+      expect(result.workspaces.find((workspace) => workspace.name === 'app')).toMatchObject({
+        propagatedOnly: true,
+        changelogPreservation: [
+          { file: 'packages/app/CHANGELOG.md', preservedVersions: ['2.0.0'], droppedUnversionedHeadings: [] },
+        ],
+      });
+    });
+
+    it('renders a version from the entries when the history also yields it', () => {
+      const config = makeConfig({ workspaces: [makeRoutedWorkspace('core')] });
+      stubHistory({
+        previousTag: 'core-v1.0.0',
+        commits: [['feat: add utility', 'abc123']],
+        bump: 'minor',
+        releasedEntries: [RELEASED_ENTRY],
+      });
+      stubFiles({
+        'packages/core/package.json': JSON.stringify({ version: '1.0.0' }),
+        'packages/core/CHANGELOG.md': '## 1.0.0\n\n- Stale\n',
+      });
+
+      const result = releasePrepareMono(config, {});
+
+      expect(mockRenderChangelogMarkdown).toHaveBeenCalledExactlyOnceWith(
+        [FORCED_BUMP_ENTRY, RELEASED_ENTRY],
+        expect.objectContaining({ preservedSections: [] }),
+      );
+      expect(result.workspaces[0]).not.toHaveProperty('changelogPreservation');
+    });
+
+    it('records what it kept and dropped for each changelog path', () => {
+      const workspace = { ...makeRoutedWorkspace('core'), changelogPaths: ['packages/core', 'docs/core'] };
+      stubHistory({ previousTag: 'core-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' });
+      stubFiles({
+        'packages/core/package.json': JSON.stringify({ version: '1.0.0' }),
+        'packages/core/CHANGELOG.md': '## 0.9.0\n\n- Old\n',
+        'docs/core/CHANGELOG.md': '## Notes\n\n- Prose\n',
+      });
+
+      const result = releasePrepareMono(makeConfig({ workspaces: [workspace] }), {});
+
+      expect(result.workspaces[0]).toMatchObject({
+        changelogPreservation: [
+          { file: 'packages/core/CHANGELOG.md', preservedVersions: ['0.9.0'], droppedUnversionedHeadings: [] },
+          { file: 'docs/core/CHANGELOG.md', preservedVersions: [], droppedUnversionedHeadings: ['## Notes'] },
+        ],
+      });
+    });
+  });
+
   describe('changelogJson.enabled gating', () => {
     /** Helper config with one workspace and a feat commit since v1.0.0. */
     function singleWorkspaceConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
@@ -2526,6 +2604,16 @@ function plannedContent(
   path: string,
 ): string | undefined {
   return plan.writes.find((write) => write.path === path)?.content;
+}
+
+/** Stubs the filesystem as containing exactly `files`, keyed by path. */
+function stubFiles(files: Record<string, string>): void {
+  mockExistsSync.mockImplementation((path: string) => Object.hasOwn(files, path));
+  mockReadFileSync.mockImplementation((path: string) => {
+    const content = files[path];
+    if (content === undefined) throw new Error(`ENOENT: ${path}`);
+    return content;
+  });
 }
 
 /** Stubs the release history that `readReleaseHistory` returns for every scope. */

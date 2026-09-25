@@ -703,6 +703,88 @@ describe(releasePrepare, () => {
     });
   });
 
+  describe('existing CHANGELOG.md sections', () => {
+    const existingChangelog = [
+      '# Changelog',
+      '',
+      '## Unreleased',
+      '',
+      '- pending',
+      '',
+      '## 1.0.0 — 2023-12-01',
+      '',
+      '- Stale text for a version the entries render',
+      '',
+      '## 0.9.0',
+      '',
+      '- Hand-written',
+      '',
+    ].join('\n');
+    const releasedEntry: ChangelogEntry = {
+      version: '1.0.0',
+      date: '2023-12-01',
+      sections: [{ title: 'Bug fixes', audience: 'all', items: [{ description: 'Fix bug' }] }],
+    };
+
+    it('keeps the sections whose versions the entries lack and reports them', () => {
+      stubHistory({
+        previousTag: 'v1.0.0',
+        commits: [['feat: add feature', 'abc123']],
+        bump: 'minor',
+        sections: [featureSection],
+        releasedEntries: [releasedEntry],
+      });
+      stubFiles({ 'package.json': JSON.stringify({ version: '1.0.0' }), 'CHANGELOG.md': existingChangelog });
+
+      const result = releasePrepare(makeConfig(), {});
+
+      expect(mockRenderChangelogMarkdown).toHaveBeenCalledExactlyOnceWith(
+        [expect.objectContaining({ version: '1.1.0' }), releasedEntry],
+        expect.objectContaining({ preservedSections: [{ version: '0.9.0', text: '## 0.9.0\n\n- Hand-written' }] }),
+      );
+      expect(result.workspaces[0]).toMatchObject({
+        changelogPreservation: [
+          { file: 'CHANGELOG.md', preservedVersions: ['0.9.0'], droppedUnversionedHeadings: ['## Unreleased'] },
+        ],
+      });
+    });
+
+    it('treats a version in changelog.json as rendered from the entries', () => {
+      stubHistory({
+        previousTag: 'v1.0.0',
+        commits: [['feat: add feature', 'abc123']],
+        bump: 'minor',
+        sections: [featureSection],
+        releasedEntries: [releasedEntry],
+      });
+      stubFiles({ 'package.json': JSON.stringify({ version: '1.0.0' }), 'CHANGELOG.md': existingChangelog });
+      mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: ChangelogEntry[]) => [
+        ...entries,
+        { version: '0.9.0', date: '2023-06-01', sections: [] },
+      ]);
+
+      const result = releasePrepare(makeConfig(), {});
+
+      expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ preservedSections: [] }),
+      );
+      expect(result.workspaces[0]).toMatchObject({
+        changelogPreservation: [
+          { file: 'CHANGELOG.md', preservedVersions: [], droppedUnversionedHeadings: ['## Unreleased'] },
+        ],
+      });
+    });
+
+    it('omits changelogPreservation when the existing file has nothing to keep or drop', () => {
+      stubMinorRelease();
+
+      const result = releasePrepare(makeConfig(), {});
+
+      expect(result.workspaces[0]).not.toHaveProperty('changelogPreservation');
+    });
+  });
+
   describe('changelogJson.enabled gating', () => {
     it('plans no changelog.json write when changelogJson.enabled is false', () => {
       stubMinorRelease();
@@ -735,6 +817,16 @@ function plannedContent(
   path: string,
 ): string | undefined {
   return plan.writes.find((write) => write.path === path)?.content;
+}
+
+/** Stubs the filesystem as containing exactly `files`, keyed by path. */
+function stubFiles(files: Record<string, string>): void {
+  mockExistsSync.mockImplementation((path: string) => Object.hasOwn(files, path));
+  mockReadFileSync.mockImplementation((path: string) => {
+    const content = files[path];
+    if (content === undefined) throw new Error(`ENOENT: ${path}`);
+    return content;
+  });
 }
 
 /** Stubs the history that `readReleaseHistory` returns. */

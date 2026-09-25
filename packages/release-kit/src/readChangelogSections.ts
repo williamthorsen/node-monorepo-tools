@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 
 import semver from 'semver';
 
+import type { ChangelogEntry, ChangelogPreservation } from './types.ts';
+
 /** A `##` section of a `CHANGELOG.md` whose heading names a version. */
 export interface VersionedMarkdownSection {
   version: string;
@@ -14,6 +16,31 @@ export interface ChangelogMarkdownSections {
   versioned: VersionedMarkdownSection[];
   /** Headings of the `##` sections that name no version, as written. */
   unversionedHeadings: string[];
+}
+
+/**
+ * Plans which sections of the existing `CHANGELOG.md` at `changelogFile` to keep when the file is regenerated from
+ * `entries`: every versioned section whose version no entry has. Also returns what to report about the file, or
+ * undefined when nothing was kept and nothing was dropped.
+ */
+export function planPreservedSections(
+  changelogFile: string,
+  entries: readonly ChangelogEntry[],
+): { sections: VersionedMarkdownSection[]; preservation: ChangelogPreservation | undefined } {
+  const { versioned, unversionedHeadings } = readChangelogSections(changelogFile);
+  const renderedVersions = new Set(entries.map((entry) => entry.version));
+  const sections = versioned.filter((section) => !renderedVersions.has(section.version));
+  if (sections.length === 0 && unversionedHeadings.length === 0) {
+    return { sections, preservation: undefined };
+  }
+  return {
+    sections,
+    preservation: {
+      file: changelogFile,
+      preservedVersions: sections.map((section) => section.version),
+      droppedUnversionedHeadings: unversionedHeadings,
+    },
+  };
 }
 
 /**

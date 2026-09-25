@@ -15,11 +15,13 @@ import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 import { planVersionBump, planVersionSet, type VersionBumpPlan } from './planVersionBump.ts';
+import { planPreservedSections } from './readChangelogSections.ts';
 import type { PlannedWrite, ReleasePlan } from './releasePlan.ts';
 import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
 import type {
   ChangelogEntry,
   ChangelogOverride,
+  ChangelogPreservation,
   PrepareConfig,
   ReleasedWorkspaceResult,
   ReleaseType,
@@ -149,7 +151,7 @@ export function releasePrepare(config: PrepareConfig, options: ReleasePrepareOpt
     overrides,
     overrideWarnings: planWarnings,
   });
-  const { changelogFiles, changelogJsonFiles } = changelogs;
+  const { changelogFiles, changelogJsonFiles, changelogPreservation } = changelogs;
 
   // 4c. Plan release-notes previews (optional, opt-in via --with-release-notes)
   const previewWrites = planSinglePackagePreviews(
@@ -180,6 +182,7 @@ export function releasePrepare(config: PrepareConfig, options: ReleasePrepareOpt
     bump,
     newTag,
     changelogFiles,
+    changelogPreservation,
     releaseType,
     bumpOverride: setVersion === undefined ? bumpOverride : undefined,
     setVersion,
@@ -227,6 +230,7 @@ interface BuildReleasedSinglePackageArgs {
   bump: VersionBumpPlan;
   newTag: string;
   changelogFiles: string[];
+  changelogPreservation: ChangelogPreservation[];
   previewFiles: string[];
   /** Undefined when `--set-version` chose the version, which also leaves the parse counts off the result. */
   releaseType: ReleaseType | undefined;
@@ -273,6 +277,9 @@ function buildReleasedSinglePackage(args: BuildReleasedSinglePackageArgs): Relea
   if (args.previewFiles.length > 0) {
     released.previewFiles = args.previewFiles;
   }
+  if (args.changelogPreservation.length > 0) {
+    released.changelogPreservation = args.changelogPreservation;
+  }
   return released;
 }
 
@@ -289,7 +296,8 @@ interface PlanSinglePackageChangelogsArgs {
 /**
  * Single-package changelog planner. Builds entries (from release windows, or the synthetic entry when the unreleased window yields no item), applies
  * editorial overrides, and renders both `changelog.json` and `CHANGELOG.md` from the merged set
- * so the two artifacts reflect the same post-override view.
+ * so the two artifacts reflect the same post-override view. `CHANGELOG.md` also keeps the existing sections whose
+ * versions the merged set lacks.
  *
  * Override application errors abort the release; warnings (zero-match keys) are accumulated on
  * `overrideWarnings` so the caller can surface them on the plan.
@@ -299,6 +307,7 @@ interface PlanSinglePackageChangelogsArgs {
 function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
   changelogFiles: string[];
   changelogJsonFiles: string[];
+  changelogPreservation: ChangelogPreservation[];
   entries: ChangelogEntry[];
   writes: PlannedWrite[];
 } {
@@ -322,6 +331,7 @@ function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
   const sectionOrder = deriveSectionOrder(resolveWorkTypes(config.workTypes));
   const changelogFiles: string[] = [];
   const changelogJsonFiles: string[] = [];
+  const changelogPreservation: ChangelogPreservation[] = [];
   const writes: PlannedWrite[] = [];
   let firstMergedEntries: ChangelogEntry[] = [];
 
@@ -341,11 +351,18 @@ function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
     }
 
     const changelogFile = joinPath(changelogPath, 'CHANGELOG.md');
-    writes.push({ path: changelogFile, content: renderChangelogMarkdown(mergedEntries, { sectionOrder }) });
+    const preserved = planPreservedSections(changelogFile, mergedEntries);
+    writes.push({
+      path: changelogFile,
+      content: renderChangelogMarkdown(mergedEntries, { sectionOrder, preservedSections: preserved.sections }),
+    });
     changelogFiles.push(changelogFile);
+    if (preserved.preservation !== undefined) {
+      changelogPreservation.push(preserved.preservation);
+    }
   }
 
-  return { changelogFiles, changelogJsonFiles, entries: firstMergedEntries, writes };
+  return { changelogFiles, changelogJsonFiles, changelogPreservation, entries: firstMergedEntries, writes };
 }
 
 /**

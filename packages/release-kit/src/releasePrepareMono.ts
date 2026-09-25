@@ -24,12 +24,14 @@ import { resolveWorkTypes } from './loadConfig.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 import { planVersionBump, planVersionSet } from './planVersionBump.ts';
 import { propagateBumps, type ReleaseEntry } from './propagateBumps.ts';
+import { planPreservedSections } from './readChangelogSections.ts';
 import type { PlannedWrite, ReleasePlan } from './releasePlan.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import { releasePrepareProject } from './releasePrepareProject.ts';
 import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
 import type {
   ChangelogEntry,
+  ChangelogPreservation,
   MonorepoPrepareConfig,
   ProjectPrepareResult,
   ReleasedWorkspaceResult,
@@ -470,7 +472,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
   );
 
   const phase1History = directResult?.history ?? skippedHistory;
-  const { changelogFiles, previewFiles } = generateWorkspaceChangelogs({
+  const { changelogFiles, changelogPreservation, previewFiles } = generateWorkspaceChangelogs({
     workspace,
     releaseEntry,
     newTag,
@@ -496,6 +498,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     bumpedFiles: bump.writes.map((write) => write.path),
     changelogFiles,
     ...(previewFiles.length > 0 && { previewFiles }),
+    ...(changelogPreservation.length > 0 && { changelogPreservation }),
   };
   attachReleasedWorkspaceOptionals(released, {
     previousTag: phase1History?.previousTag,
@@ -611,10 +614,12 @@ interface GenerateWorkspaceChangelogsArgs {
  * Plan a workspace's changelog artifacts by building the new entries (propagation-only synthetic, or release
  * windows with the synthetic forced-release entry when the unreleased window yields no item), applying editorial
  * overrides, merging with the JSON on disk, and rendering both `changelog.json` and
- * `CHANGELOG.md` from the merged set so the two reflect the same post-override view.
+ * `CHANGELOG.md` from the merged set so the two reflect the same post-override view. `CHANGELOG.md` also keeps the
+ * existing sections whose versions the merged set lacks.
  */
 function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
   changelogFiles: string[];
+  changelogPreservation: ChangelogPreservation[];
   previewFiles: string[];
 } {
   const {
@@ -638,6 +643,7 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
   const applied = applyWorkspaceOverrides(entries, workspace.workspacePath, overrideContext);
 
   const changelogFiles: string[] = [];
+  const changelogPreservation: ChangelogPreservation[] = [];
   let firstMergedEntries: ChangelogEntry[] | undefined;
 
   for (const changelogPath of workspace.changelogPaths) {
@@ -654,14 +660,21 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
     }
 
     const changelogFile = joinPath(changelogPath, 'CHANGELOG.md');
-    writes.push({ path: changelogFile, content: renderChangelogMarkdown(mergedEntries, { sectionOrder }) });
+    const preserved = planPreservedSections(changelogFile, mergedEntries);
+    writes.push({
+      path: changelogFile,
+      content: renderChangelogMarkdown(mergedEntries, { sectionOrder, preservedSections: preserved.sections }),
+    });
     changelogFiles.push(changelogFile);
+    if (preserved.preservation !== undefined) {
+      changelogPreservation.push(preserved.preservation);
+    }
   }
 
   const previews = planPreviews(workspace, newTag, firstMergedEntries, previewOptions, warnings);
   writes.push(...previews);
 
-  return { changelogFiles, previewFiles: previews.map((write) => write.path) };
+  return { changelogFiles, changelogPreservation, previewFiles: previews.map((write) => write.path) };
 }
 
 /** Arguments for {@link buildWorkspaceEntries}. */

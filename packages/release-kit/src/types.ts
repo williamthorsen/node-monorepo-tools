@@ -181,6 +181,19 @@ export interface UnroutedEntryScope {
 }
 
 /**
+ * What `prepare` did with the existing `##` sections of one `CHANGELOG.md` that the regenerated file does not render
+ * from entries.
+ */
+export interface ChangelogPreservation {
+  /** The `CHANGELOG.md` path. */
+  file: string;
+  /** Versions whose sections were kept verbatim, because neither the built entries nor `changelog.json` contain them. */
+  preservedVersions: string[];
+  /** Headings of the sections that name no version, which the regenerated file does not contain. */
+  droppedUnversionedHeadings: string[];
+}
+
+/**
  * Result of preparing a single workspace (package) for release when a release was produced.
  *
  * `currentVersion`, `newVersion`, `tag`, `bumpedFiles`, and `changelogFiles` are always
@@ -217,6 +230,8 @@ export interface ReleasedWorkspaceResult {
   changelogFiles: string[];
   /** Release-notes preview files; present only under `--with-release-notes`. */
   previewFiles?: string[];
+  /** Per `CHANGELOG.md`, the existing sections that were kept or dropped; omitted when no file had either. */
+  changelogPreservation?: ChangelogPreservation[];
   /** Raw commits of the workspace's unreleased window. */
   commits?: Commit[];
   /**
@@ -302,6 +317,8 @@ export interface ReleasedProjectResult {
   changelogFiles: string[];
   /** Release-notes preview files; present only under `--with-release-notes`. */
   previewFiles?: string[];
+  /** Per `CHANGELOG.md`, the existing sections that were kept or dropped; omitted when no file had either. */
+  changelogPreservation?: ChangelogPreservation[];
   /** Raw commits in the project's contributing-paths window since the last project tag. */
   commits: Commit[];
   /**
