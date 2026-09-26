@@ -4,11 +4,15 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { globSync } from 'tinyglobby';
 import { defaultClientConditions, defaultServerConditions } from 'vite';
-import { describe, expect, it as baseIt } from 'vitest';
+import { describe, expect, it as baseIt, vi } from 'vitest';
 import type { TestProjectConfiguration, TestProjectInlineConfiguration, ViteUserConfig } from 'vitest/config';
 
+import { listGitIgnoredPaths } from '../git-ignored-paths.ts';
 import { isObject } from '../helpers/type-guards.ts';
 import { defineRootVitestConfig, defineVitestConfig, type VitestConfigOptions } from '../vitest.ts';
+
+// Keeps the config from spawning git, which would lift this file out of the unit tier.
+vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: vi.fn(() => []) }));
 
 /** Every project the shared config declares, in the order it emits them: the residual, then the ladder. */
 const PROJECT_NAMES = ['unit', 'tool', 'localhost', 'remote'];
@@ -199,6 +203,31 @@ describe(defineVitestConfig, () => {
 
     for (const project of getProjects(config)) {
       expect(project.test?.exclude).toStrictEqual(expect.arrayContaining(['**/shared/**', '**/local/**']));
+    }
+  });
+
+  it('excludes each path git ignores under the working directory, anchored to it', () => {
+    vi.mocked(listGitIgnoredPaths).mockReturnValueOnce(['.netlify/', 'src/__tests__/scratch.local.test.ts']);
+
+    const projects = getProjects(defineVitestConfig());
+
+    expect(listGitIgnoredPaths).toHaveBeenLastCalledWith(process.cwd());
+    for (const project of projects) {
+      expect(project.test?.exclude).toStrictEqual(
+        expect.arrayContaining(['.netlify/**', 'src/__tests__/scratch.local.test.ts']),
+      );
+    }
+  });
+
+  it('escapes pattern syntax in an ignored path, so the glob matches that path alone', () => {
+    vi.mocked(listGitIgnoredPaths).mockReturnValueOnce(['out[1]/', '(draft) *.test.ts']);
+
+    const projects = getProjects(defineVitestConfig());
+
+    for (const project of projects) {
+      expect(project.test?.exclude).toStrictEqual(
+        expect.arrayContaining([String.raw`out\[1\]/**`, String.raw`\(draft\) \*.test.ts`]),
+      );
     }
   });
 
@@ -542,6 +571,17 @@ describe(defineVitestConfig, () => {
 });
 
 describe(defineRootVitestConfig, () => {
+  it('excludes each path git ignores under the monorepo root', ({ workspaceTree }) => {
+    vi.mocked(listGitIgnoredPaths).mockReturnValueOnce(['.netlify/']);
+
+    const projects = getProjects(defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }));
+
+    expect(listGitIgnoredPaths).toHaveBeenLastCalledWith(workspaceTree.dir);
+    for (const project of projects) {
+      expect(project.test?.exclude).toContain('.netlify/**');
+    }
+  });
+
   it('derives one sorted, posix-separated glob per workspace package', ({ workspaceTree }) => {
     const projects = getProjects(defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }));
 

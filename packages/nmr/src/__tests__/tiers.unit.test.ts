@@ -1,7 +1,7 @@
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { globSync } from 'tinyglobby';
-import { describe, expect, it as baseIt } from 'vitest';
+import { describe, expect, it as baseIt, vi } from 'vitest';
 
 import {
   ALL_TEST_PATTERNS,
@@ -12,6 +12,9 @@ import {
   TEST_COLLECTION_EXCLUDE,
   TIER_NAMES,
 } from '../tiers.ts';
+
+// Keeps the sweep from spawning git, which would lift this file out of the unit tier.
+vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: () => [] }));
 
 // Each file stands for a boundary the walk has to get right.
 const FIXTURE_FILES = [

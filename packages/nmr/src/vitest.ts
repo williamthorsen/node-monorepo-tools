@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { defaultExclude, mergeConfig, type TestProjectInlineConfiguration, type ViteUserConfig } from 'vitest/config';
 import type { InlineConfig, ProjectConfig } from 'vitest/node';
 
+import { listGitIgnoredPaths } from './git-ignored-paths.ts';
 import { isObject } from './helpers/type-guards.ts';
 import { ALL_TEST_PATTERNS, buildTierPatterns, TEST_COLLECTION_EXCLUDE, TIER_NAMES, type TierName } from './tiers.ts';
 import { createSourceResolutionPlugin } from './vitest-source-resolution.ts';
@@ -42,8 +43,8 @@ export interface VitestConfigOptions {
 
   /**
    * Directory basenames kept out of every project's collection, additive to the ones the shared config always
-   * prunes. Each name is matched at any depth, and every layer's entries are concatenated rather than the last
-   * winning, matching the config's rule for arrays.
+   * prunes and to the paths git ignores. Each name is matched at any depth, and every layer's entries are
+   * concatenated rather than the last winning, matching the config's rule for arrays.
    *
    * The same array declares the scope of nmr's exported test-file conventions check, so the sweep and the
    * collection glob cannot drift. Excluding a directory from the sweep alone leaves a test file that runs and
@@ -138,6 +139,9 @@ const COVERAGE_EXCLUDE = ['**/__{fixtures,mocks,tests}__/**', '**/index.ts', '**
 
 const PACKAGE_COVERAGE_INCLUDE = ['**/src/**/*.{ts,tsx}'];
 
+/** Characters that picomatch reads as pattern syntax, escaped so that a literal path stays literal. */
+const GLOB_SYNTAX_PATTERN = /[!()*+?@[\]{}]/g;
+
 /**
  * Every option key the factories honour, held as a record so an option added to `VitestConfigOptions` without an
  * entry here fails to compile rather than being rejected at run time as unrecognized.
@@ -183,7 +187,9 @@ const MISSING_MONOREPO_ROOT =
 export function defineVitestConfig(...layers: (VitestConfigOptions | undefined)[]): ViteUserConfig {
   assertOptionKeys(layers, RECOGNIZED_OPTION_KEYS);
 
-  return buildConfig(layers, { coverageInclude: PACKAGE_COVERAGE_INCLUDE });
+  // Vitest's default root, against which each project's patterns resolve. nmr runs Vitest from the package
+  // directory; a run given `--root` elsewhere would match these excludes against a different tree.
+  return buildConfig(layers, { coverageInclude: PACKAGE_COVERAGE_INCLUDE, ignoredPathsRoot: process.cwd() });
 }
 
 /**
@@ -209,6 +215,7 @@ export function defineRootVitestConfig(...layers: RootConfigLayers): ViteUserCon
 
   return buildConfig(layers, {
     coverageInclude: [],
+    ignoredPathsRoot: monorepoRoot,
     projectExclude: getWorkspaceExcludePatterns(monorepoRoot),
     projectRoot: monorepoRoot,
   });
@@ -216,13 +223,15 @@ export function defineRootVitestConfig(...layers: RootConfigLayers): ViteUserCon
 
 interface BuildOptions {
   coverageInclude: string[];
+  /** The directory whose git-ignored paths every project excludes: the root against which its patterns resolve. */
+  ignoredPathsRoot: string;
   projectExclude?: string[];
   projectRoot?: string;
 }
 
 function buildConfig(
   declaredLayers: readonly (VitestConfigOptions | undefined)[],
-  { coverageInclude, projectExclude = [], projectRoot }: BuildOptions,
+  { coverageInclude, ignoredPathsRoot, projectExclude = [], projectRoot }: BuildOptions,
 ): ViteUserConfig {
   // Dropping the empty layers here rather than at each fold keeps every consumer of `layers` below total.
   const layers = declaredLayers.filter((layer) => layer !== undefined);
@@ -253,7 +262,7 @@ function buildConfig(
         provider: 'v8',
       },
       passWithNoTests: true, // `nmr test:tool` fans out over packages holding no tool-tier tests
-      projects: buildProjects(layers, projectExclude, projectRoot),
+      projects: buildProjects(layers, projectExclude, projectRoot, ignoredPathsRoot),
       silent: 'passed-only', // see logs from failing tests only
       watch: false, // don't enter watch mode unless the `--watch` flag is passed
     },
@@ -281,6 +290,7 @@ function buildProjects(
   layers: readonly VitestConfigOptions[],
   extraExclude: string[],
   projectRoot: string | undefined,
+  ignoredPathsRoot: string,
 ): TestProjectInlineConfiguration[] {
   const projectTiers: ProjectTier[] = [
     { exclude: TIERED_PATTERNS, include: ALL_TEST_PATTERNS, name: RESIDUAL_TIER },
@@ -292,7 +302,7 @@ function buildProjects(
     })),
   ];
 
-  const collectionExclude = buildCollectionExclude(layers);
+  const collectionExclude = buildCollectionExclude(layers, ignoredPathsRoot);
   const shouldIsolateGit = resolveFlag(layers, 'shouldIsolateGit', true);
 
   return projectTiers.map(({ exclude, include, name, timeoutMs }) => {
@@ -400,17 +410,27 @@ function assertOptionKeys(
 
 /**
  * Builds the collection exclusions every project carries: Vitest's own defaults, the directories the shared config
- * always prunes, and whatever the layers add, each directory name as a glob matching at any depth.
+ * always prunes, and whatever the layers add, each directory name as a glob matching at any depth. Then the paths
+ * git ignores under `ignoredPathsRoot`, each anchored to it, since git reports every depth itself; the test-file
+ * sweeps skip the same paths.
  *
  * Unioned with Vitest's defaults so a later release's addition still reaches every project. `dist/` is excluded from
  * collection but deliberately not from coverage: a stale test copy under it passes green, which a consumer cannot
  * self-diagnose, whereas a `dist/` entry in the coverage report is a visible 0% they can.
  */
-function buildCollectionExclude(layers: readonly VitestConfigOptions[]): string[] {
+function buildCollectionExclude(layers: readonly VitestConfigOptions[], ignoredPathsRoot: string): string[] {
   const declaredDirs = layers.flatMap((layer) => layer.testCollectionExclude ?? []);
   const globs = [...TEST_COLLECTION_EXCLUDE, ...declaredDirs].map((dir) => `**/${dir}/**`);
+  const ignoredGlobs = listGitIgnoredPaths(ignoredPathsRoot).map(buildIgnoredPathGlob);
 
-  return [...new Set([...defaultExclude, ...globs])];
+  return [...new Set([...defaultExclude, ...globs, ...ignoredGlobs])];
+}
+
+/** Turns one git-ignored path into an exclude glob: everything beneath a `dir/` entry, or the file itself. */
+function buildIgnoredPathGlob(ignoredPath: string): string {
+  const escapedPath = ignoredPath.replaceAll(GLOB_SYNTAX_PATTERN, String.raw`\$&`);
+
+  return escapedPath.endsWith('/') ? `${escapedPath}**` : escapedPath;
 }
 
 /** Renders option keys as a sorted, backtick-quoted list. */

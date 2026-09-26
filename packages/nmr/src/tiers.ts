@@ -1,6 +1,8 @@
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
 
+import { listGitIgnoredPaths } from './git-ignored-paths.ts';
+
 /** The directory scope every project in the shared config collects from. A test file outside one runs nowhere. */
 const TEST_DIR = '__tests__';
 
@@ -68,15 +70,16 @@ export function hasTierInfix(filePath: string): boolean {
 /**
  * Directory names that hold no test worth collecting: dependencies, build output, and generated reports.
  *
- * The one point where the collection glob and the walk must agree about scope. Over-reporting is a failure a
- * consumer cannot fix; under-reporting is the silence a conformance check exists to end.
+ * These and the paths git ignores are the scope on which the collection glob and the walk must agree.
+ * Over-reporting is a failure a consumer cannot fix; under-reporting is the silence a conformance check exists to
+ * end.
  */
 export const TEST_COLLECTION_EXCLUDE = ['.git', 'coverage', 'dist', 'node_modules'];
 
 /** Options every sweep over a repo's test files takes. */
 export interface TestFileScanOptions {
   /**
-   * Directory basenames pruned at any depth, additive to `TEST_COLLECTION_EXCLUDE`.
+   * Directory basenames pruned at any depth, additive to `TEST_COLLECTION_EXCLUDE` and to the paths git ignores.
    *
    * Basenames rather than globs, so the array a repo passes here is the array it passes to the shared Vitest
    * config's `testCollectionExclude`. A directory pruned from the sweep but still collected by Vitest is the
@@ -110,9 +113,13 @@ function collectTestFiles(dir: string, relativeDir: string, isInTestDir: boolean
     const relativePath = relativeDir === '' ? entry.name : `${relativeDir}/${entry.name}`;
 
     if (entry.isDirectory()) {
-      if (context.pruned.has(entry.name)) continue;
+      if (context.pruned.has(entry.name) || context.ignoredPaths.has(`${relativePath}/`)) continue;
       collectTestFiles(path.join(dir, entry.name), relativePath, isInTestDir || entry.name === TEST_DIR, context);
-    } else if (isInTestDir !== context.misplaced && TEST_FILE_PATTERN.test(entry.name)) {
+    } else if (
+      isInTestDir !== context.misplaced &&
+      TEST_FILE_PATTERN.test(entry.name) &&
+      !context.ignoredPaths.has(relativePath)
+    ) {
       context.foundPaths.push(relativePath);
     }
   }
@@ -121,6 +128,8 @@ function collectTestFiles(dir: string, relativeDir: string, isInTestDir: boolean
 /** What one walk carries down the tree. */
 interface WalkContext {
   foundPaths: string[];
+  /** Paths under the walk's root that git ignores, a directory's ending in `/`. */
+  ignoredPaths: ReadonlySet<string>;
   /** Keeps the test files outside a `__tests__` directory instead of the ones inside one. */
   misplaced: boolean;
   pruned: ReadonlySet<string>;
@@ -129,12 +138,14 @@ interface WalkContext {
 /**
  * Runs one walk over `rootDir` and sorts what it found.
  *
- * The two halves of the convention read the same pattern and the same prune set, differing only in which side of
- * `__tests__` they keep, so they cannot disagree about what counts as a test file or about what is out of scope.
+ * The two halves of the convention read the same pattern, the same prune set, and the same ignored paths, differing
+ * only in which side of `__tests__` they keep, so they cannot disagree about what counts as a test file or about
+ * what is out of scope.
  */
 function walkTestFiles(rootDir: string, { excludedBasenames = [] }: TestFileScanOptions, misplaced: boolean): string[] {
   const context: WalkContext = {
     foundPaths: [],
+    ignoredPaths: new Set(listGitIgnoredPaths(rootDir)),
     misplaced,
     pruned: new Set([...TEST_COLLECTION_EXCLUDE, ...excludedBasenames]),
   };

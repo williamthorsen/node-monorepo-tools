@@ -22,6 +22,9 @@ const RETIRED_OPTION_KEYS: ReadonlyMap<string, string> = new Map([['exclude', 'e
  * `excludedBasenames` names directory basenames the sweep prunes at any depth, additive to the ones nmr always
  * prunes. Pass the same array to `defineVitestConfig`'s `testCollectionExclude`, or the sweep and the collection
  * glob describe different trees: a directory pruned here alone still runs the files this suite stopped reporting.
+ *
+ * Untracked paths that git ignores are out of scope for the sweep and the shared configs' collection alike, so a
+ * directory that `.gitignore` covers needs no entry. Outside a git repository, only the named directories prune.
  */
 export function checkTestFileConventions(options: TestFileConventionsOptions = {}): void {
   assertNoRetiredOptions(options);
@@ -63,8 +66,8 @@ export function reportTestFileConventions(options: TestFileConventionsOptions = 
 
 export interface TestFileConventionsOptions {
   /**
-   * Directory basenames the sweep prunes at any depth, additive to the ones nmr always prunes. The array a repo
-   * passes here is the array it passes to `defineVitestConfig`'s `testCollectionExclude`.
+   * Directory basenames the sweep prunes at any depth, additive to the ones nmr always prunes and to the paths git
+   * ignores. The array a repo passes here is the array it passes to `defineVitestConfig`'s `testCollectionExclude`.
    */
   excludedBasenames?: readonly string[];
 
