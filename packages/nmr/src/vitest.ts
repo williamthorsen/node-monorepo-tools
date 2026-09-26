@@ -43,8 +43,8 @@ export interface VitestConfigOptions {
 
   /**
    * Directory basenames kept out of every project's collection, additive to the ones the shared config always
-   * prunes. Each name is matched at any depth, and every layer's entries are concatenated rather than the last
-   * winning, matching the config's rule for arrays.
+   * prunes and to the paths git ignores. Each name is matched at any depth, and every layer's entries are
+   * concatenated rather than the last winning, matching the config's rule for arrays.
    *
    * The same array declares the scope of nmr's exported test-file conventions check, so the sweep and the
    * collection glob cannot drift. Excluding a directory from the sweep alone leaves a test file that runs and

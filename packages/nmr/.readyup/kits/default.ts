@@ -188,7 +188,7 @@ export default defineRdyKit({
           name: 'the test suite gates the test-file conventions',
           severity: 'warn',
           check: () => testSuiteGatesTestFileConventions(),
-          fix: "Add a test of the repo's own under a __tests__ directory that declares the check: import { checkTestFileConventions } from '@williamthorsen/nmr/tests'; checkTestFileConventions(); -- passing `excludedBasenames` the directory names that the repo passes to `testCollectionExclude`. Without it no test run reports an untiered or misplaced test file, and this kit reports them in its place against nmr's built-in exclusions alone",
+          fix: "Add a test of the repo's own under a __tests__ directory that declares the check: import { checkTestFileConventions } from '@williamthorsen/nmr/tests'; checkTestFileConventions(); -- passing `excludedBasenames` the directory names that the repo passes to `testCollectionExclude`. Without it no test run reports an untiered or misplaced test file, and this kit reports them in its place against only nmr's built-in exclusions and the paths git ignores",
         },
         {
           name: 'every test file names its isolation tier',

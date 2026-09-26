@@ -92,7 +92,9 @@ checkTestFileConventions({ excludedBasenames: ['cypress', 'generated'] });
 
 **Pass the same array to [`testCollectionExclude`](#what-the-config-excludes).** The two describe one scope, and naming a directory in only one is a defect in either direction. Pruned from the sweep alone, the directory's test files still run and still report nothing, which is the silence this check exists to end. Excluded from collection alone, the sweep reports files a consumer has no reason to act on.
 
-Expect the first run to fail in a repo that has never gated this. Vitest 4 excludes only `node_modules` and `.git` by default, so a `__tests__` tree under a generated or vendored directory is collected and runs today; naming that directory in both lists is the fix, rather than widening what nmr prunes for everyone.
+**Paths that git ignores are out of scope for both.** The sweep skips every untracked path that git ignores under the swept root, and the shared configs exclude the same paths from collection, so local build output such as a stale `.netlify/` directory is neither reported nor run. Git decides what is ignored: a tracked file stays in scope even when it matches an ignore pattern. Outside a git repository, or where git cannot run, nothing counts as ignored and only the named directories prune. A generated directory that the repo's `.gitignore` already covers therefore needs no entry in either list.
+
+Expect the first run to fail in a repo that has never gated this. Vitest 4 excludes only `node_modules` and `.git` by default, so a `__tests__` tree under a generated or vendored directory that git tracks is collected and runs today; naming that directory in both lists is the fix, rather than widening what nmr prunes for everyone.
 
 In a repo that has not declared the check, [nmr's readyup kit](../README.md#conformance-checks) reports both halves and warns that the check is missing. Once a test file under `__tests__` imports it, the kit skips both reports and names that file as the reason. Only the check reads the repo's `excludedBasenames`, and a kit report beside it could only repeat its findings or name a directory that the repo has pruned.
 
@@ -195,7 +197,7 @@ A config file that omits the shared layer still loses those settings, silently -
 
 ## What the config excludes
 
-Collection skips `**/node_modules/**`, `**/.git/**`, `**/coverage/**`, and `**/dist/**`. Coverage skips `**/__{fixtures,mocks,tests}__/**`, `**/index.ts`, and `**/*.d.ts`.
+Collection skips `**/node_modules/**`, `**/.git/**`, `**/coverage/**`, and `**/dist/**`, and every untracked path that git ignores: `defineVitestConfig` asks git about the working directory, which is Vitest's default root, and `defineRootVitestConfig` about `monorepoRoot`. Each ignored path becomes a glob anchored to that root, and a tracked file matching an ignore pattern is still collected. These are the paths that the [conventions check](#gating-the-test-file-conventions) skips; outside a git repository, neither skips anything on git's account. Coverage skips `**/__{fixtures,mocks,tests}__/**`, `**/index.ts`, and `**/*.d.ts`.
 
 `testCollectionExclude` adds to the collection list. It takes directory basenames rather than globs, matched at any depth, so the same array serves the [conventions check](#gating-the-test-file-conventions):
 

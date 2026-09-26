@@ -124,6 +124,20 @@ function getDefaultRootScripts() {
 // src/tiers.ts
 import { readdirSync } from "node:fs";
 import path from "node:path";
+
+// src/git-ignored-paths.ts
+import { spawnSync } from "node:child_process";
+function listGitIgnoredPaths(dir) {
+  const result = spawnSync(
+    "git",
+    ["ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory", "--no-empty-directory"],
+    { cwd: dir, encoding: "utf8" }
+  );
+  if (result.error !== void 0 || result.status !== 0) return [];
+  return result.stdout.split("\0").filter((entry) => entry !== "").toSorted();
+}
+
+// src/tiers.ts
 var TEST_DIR = "__tests__";
 var TEST_EXTENSIONS = "{ts,tsx}";
 var TEST_GLOB_PREFIX = `**/${TEST_DIR}/**`;
@@ -149,9 +163,9 @@ function collectTestFiles(dir, relativeDir, isInTestDir, context) {
   for (const entry of entries) {
     const relativePath = relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
     if (entry.isDirectory()) {
-      if (context.pruned.has(entry.name)) continue;
+      if (context.pruned.has(entry.name) || context.ignoredPaths.has(`${relativePath}/`)) continue;
       collectTestFiles(path.join(dir, entry.name), relativePath, isInTestDir || entry.name === TEST_DIR, context);
-    } else if (isInTestDir !== context.misplaced && TEST_FILE_PATTERN.test(entry.name)) {
+    } else if (isInTestDir !== context.misplaced && TEST_FILE_PATTERN.test(entry.name) && !context.ignoredPaths.has(relativePath)) {
       context.foundPaths.push(relativePath);
     }
   }
@@ -159,6 +173,7 @@ function collectTestFiles(dir, relativeDir, isInTestDir, context) {
 function walkTestFiles(rootDir, { excludedBasenames = [] }, misplaced) {
   const context = {
     foundPaths: [],
+    ignoredPaths: new Set(listGitIgnoredPaths(rootDir)),
     misplaced,
     pruned: /* @__PURE__ */ new Set([...TEST_COLLECTION_EXCLUDE, ...excludedBasenames])
   };
@@ -316,7 +331,7 @@ var default_default = defineRdyKit({
           name: "the test suite gates the test-file conventions",
           severity: "warn",
           check: () => testSuiteGatesTestFileConventions(),
-          fix: "Add a test of the repo's own under a __tests__ directory that declares the check: import { checkTestFileConventions } from '@williamthorsen/nmr/tests'; checkTestFileConventions(); -- passing `excludedBasenames` the directory names that the repo passes to `testCollectionExclude`. Without it no test run reports an untiered or misplaced test file, and this kit reports them in its place against nmr's built-in exclusions alone"
+          fix: "Add a test of the repo's own under a __tests__ directory that declares the check: import { checkTestFileConventions } from '@williamthorsen/nmr/tests'; checkTestFileConventions(); -- passing `excludedBasenames` the directory names that the repo passes to `testCollectionExclude`. Without it no test run reports an untiered or misplaced test file, and this kit reports them in its place against only nmr's built-in exclusions and the paths git ignores"
         },
         {
           name: "every test file names its isolation tier",
