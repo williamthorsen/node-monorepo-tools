@@ -9,6 +9,7 @@ export default defineConfig({
     extends: ['common'],
     labels: {
       'scope:root': { color: '00ff96' },
+      'scope:change-grammar': { color: '00ff96' },
       'scope:core': { color: '00ff96' },
       'scope:nmr': { color: '00ff96' },
       'scope:preflight': { color: '00ff96' },

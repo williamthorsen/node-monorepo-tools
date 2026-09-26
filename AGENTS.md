@@ -8,6 +8,7 @@ A pnpm monorepo of CLI tools for Node.js monorepo development. Packages provide 
 
 Packages live under `packages/`:
 
+- **`@williamthorsen/change-grammar`**: Renders change records as subject lines and parses them back. It has no dependencies.
 - **`@williamthorsen/nmr`**: Context-aware script runner for pnpm monorepos. Detects root vs workspace context and resolves the appropriate script registry.
 - **`@williamthorsen/nmr-core`**: Shared utilities consumed by `nmr`, `release-kit`, and `v11y-check`.
 - **`@williamthorsen/release-kit`**: Version-bumping and changelog-generation toolkit.
