@@ -11,6 +11,7 @@ import { listGitIgnoredPaths } from '../git-ignored-paths.ts';
 import { isObject } from '../helpers/type-guards.ts';
 import { defineRootVitestConfig, defineVitestConfig, type VitestConfigOptions } from '../vitest.ts';
 
+// Keeps the config from spawning git, which would lift this file out of the unit tier.
 vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: vi.fn(() => []) }));
 
 /** Every project the shared config declares, in the order it emits them: the residual, then the ladder. */

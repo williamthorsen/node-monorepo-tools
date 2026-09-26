@@ -1,6 +1,6 @@
 import { pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   everyTestFileNamesItsTier,
@@ -15,6 +15,9 @@ import {
 import { findKitCheck } from '../test-utils/findKitCheck.ts';
 import { buildMonorepo, buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
+
+// Keeps the sweep from spawning git, which would lift this file out of the unit tier.
+vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: () => [] }));
 
 const SHARED_CONFIG =
   "import { defineVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineVitestConfig();\n";

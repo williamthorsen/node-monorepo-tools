@@ -2,9 +2,12 @@ import path from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { describe, expect, it as baseIt } from 'vitest';
+import { describe, expect, it as baseIt, vi } from 'vitest';
 
 import { checkTestFileConventions, reportTestFileConventions } from '../tests.ts';
+
+// Keeps the sweep from spawning git, which would lift this file out of the unit tier.
+vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: () => [] }));
 
 // Derived from this file's own location rather than from the function under test, so the assertion has a second
 // opinion about where the root is.
