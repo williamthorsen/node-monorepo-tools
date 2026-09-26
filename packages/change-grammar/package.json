@@ -37,6 +37,10 @@
     "prepare": "node ../nmr/src/cli-build.ts",
     "prepublishOnly": "nmr build"
   },
+  "devDependencies": {
+    "eslint": "10.10.0",
+    "vitest": "catalog:"
+  },
   "engines": {
     "node": ">=24.16.0"
   },

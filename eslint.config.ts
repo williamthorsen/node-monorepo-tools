@@ -66,6 +66,53 @@ const config = defineConfig([
     },
   }),
   {
+    // The change-grammar package depends on nothing but itself, so that it runs anywhere: no module outside the
+    // package, no package, no Node builtin, and no `process`.
+    files: ['packages/change-grammar/src/**/*.ts'],
+    rules: {
+      'import-x/no-nodejs-modules': 'error',
+      'import-x/no-restricted-paths': [
+        'error',
+        {
+          basePath: import.meta.dirname,
+          zones: [
+            {
+              except: ['./packages/change-grammar'],
+              from: '.',
+              message: 'The change-grammar package imports nothing outside its own directory.',
+              target: './packages/change-grammar/src',
+            },
+          ],
+        },
+      ],
+      'no-restricted-globals': [
+        'error',
+        { message: 'The change-grammar package reads no ambient environment.', name: 'process' },
+      ],
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              message: 'The change-grammar package depends on no package, so it carries none to its consumers.',
+              regex: '^[^.]',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The package's suites stay outside the dependency half of the boundary, because they run ESLint through
+    // Vitest and read the filesystem. The path zone still binds them.
+    files: ['packages/change-grammar/src/**/__tests__/**/*.ts'],
+    rules: {
+      'import-x/no-nodejs-modules': 'off',
+      'no-restricted-globals': 'off',
+      'no-restricted-imports': 'off',
+    },
+  },
+  {
     files: ['**/scripts/**/*'],
     rules: {
       'no-console': 'off',
