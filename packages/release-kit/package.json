@@ -53,9 +53,7 @@
     "build:post": "rdy compile",
     "build:pre": "rdy verify",
     "prepare": "node ../nmr/src/cli-build.ts",
-    "prepublishOnly": "nmr build",
-    "work-types:check": "node scripts/check-work-types.ts",
-    "work-types:sync": "node scripts/sync-work-types.ts"
+    "prepublishOnly": "nmr build"
   },
   "dependencies": {
     "@williamthorsen/change-grammar": "workspace:*",

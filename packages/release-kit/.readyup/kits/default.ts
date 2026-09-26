@@ -45,7 +45,7 @@ function hasPublishablePackages(): boolean {
  * Where release-kit writes the structured changelog when the config names no other path.
  *
  * Mirrors `DEFAULT_CHANGELOG_JSON_CONFIG.outputPath`, which the kit does not import: reaching `src/defaults.ts`
- * would pull the work-types taxonomy and its dependencies into the bundle this package publishes.
+ * would pull change-grammar's taxonomy and its dependencies into the bundle this package publishes.
  * `src/__tests__/kit-changelog-packaging-checks.unit.test.ts` asserts the two stay equal.
  */
 export const DEFAULT_CHANGELOG_JSON_PATH = '.meta/changelog.json';

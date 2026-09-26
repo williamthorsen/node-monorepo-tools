@@ -19,7 +19,7 @@ export interface ChangelogItem {
    * change-record entry from which the item derives sets `breaking: true`, and the work-type policy
    * permits it, so the item agrees with the version bump.
    * The `BREAKING CHANGE:` body footer is intentionally NOT considered here. Renderers prefix
-   * breaking-item bullets with the marker constructed from `WORK_TYPES_DATA.markers.breaking`
+   * breaking-item bullets with the marker constructed from `CANONICAL_TAXONOMY.markers.breaking`
    * (rendered as `🚨 **Breaking:** ` with the canonical SSOT values) to surface them prominently
    * in release notes.
    */
