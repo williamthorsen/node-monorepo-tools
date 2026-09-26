@@ -77,6 +77,19 @@ describe('the build bootstrap', () => {
     expect(resolveFrom(entry.specifier, entry.fromDir, [])).toContain('/dist/');
   });
 
+  it('runs from a prepare that nmr-core is built before, or that reads its source', () => {
+    // pnpm orders `prepare` by workspace dependency, so a package that does not depend on nmr-core runs it
+    // alongside nmr-core's and can reach nmr-core before its `dist` exists.
+    const unordered = readWorkspacePrepares().filter(
+      ({ dependsOnNmrCore, prepareScript }) =>
+        prepareScript.includes('cli-build.ts') &&
+        !dependsOnNmrCore &&
+        !prepareScript.includes(`--conditions ${SOURCE_CONDITION}`),
+    );
+
+    expect(unordered.map(({ name }) => name)).toStrictEqual([]);
+  });
+
   it('builds a package under Node type stripping alone', () => {
     using tree = createTempTree({}, { prefix: 'nmr-bootstrap-' });
     scaffoldPackage(tree);
@@ -141,6 +154,12 @@ interface WorkspaceImport {
   /** The directory the specifier is resolved from, which is what makes the resolution the real one. */
   fromDir: string;
   specifier: string;
+}
+
+interface WorkspacePrepare {
+  dependsOnNmrCore: boolean;
+  name: string;
+  prepareScript: string;
 }
 
 interface NmrCoreWiring {
@@ -256,6 +275,26 @@ function readWorkspacePackageNames(): string[] {
       throw new Error(`${dir} holds no package.json carrying a name`);
     }
     return parsedManifest['name'];
+  });
+}
+
+/** Returns each workspace package's `prepare` script, and whether the package depends on nmr-core. */
+function readWorkspacePrepares(): WorkspacePrepare[] {
+  return getWorkspacePackageDirs(findMonorepoRoot(import.meta.dirname)).flatMap((dir) => {
+    const parsedManifest: unknown = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
+    if (!isObject(parsedManifest) || typeof parsedManifest['name'] !== 'string') {
+      throw new Error(`${dir} holds no package.json carrying a name`);
+    }
+    const { dependencies, devDependencies, name, scripts } = parsedManifest;
+    const prepareScript = isObject(scripts) ? scripts['prepare'] : undefined;
+    if (name === NMR_CORE_SPECIFIER || typeof prepareScript !== 'string') {
+      return [];
+    }
+
+    const dependsOnNmrCore = [dependencies, devDependencies].some(
+      (group) => isObject(group) && Object.hasOwn(group, NMR_CORE_SPECIFIER),
+    );
+    return [{ dependsOnNmrCore, name, prepareScript }];
   });
 }
 

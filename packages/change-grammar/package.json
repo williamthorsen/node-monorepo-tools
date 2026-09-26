@@ -34,7 +34,7 @@
     "schemas"
   ],
   "scripts": {
-    "prepare": "node ../nmr/src/cli-build.ts",
+    "prepare": "node --conditions nmr-source ../nmr/src/cli-build.ts",
     "prepublishOnly": "nmr build"
   },
   "devDependencies": {
