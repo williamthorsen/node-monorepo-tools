@@ -157,7 +157,7 @@ rdy run --packages
 - [Publishing](docs/publishing.md): `publish`, the publishability filter, and `create-github-release`
 - [Changelogs](docs/changelogs.md): the `changelog.json` item schema, which commits reach a changelog, and release-notes injection
 - [Editorial overrides](docs/editorial-overrides.md): correcting generated changelog entries, and `overrides validate`
-- [Work types and tiers](docs/work-types.md): tiers, the `!` policy, markers, custom work types, and maintenance of the bundled taxonomy
+- [Work types and tiers](docs/work-types.md): tiers, the `!` policy, markers, and custom work types
 - [Labels](docs/labels.md): `sync-labels`, label configuration, the workflow's triggers, and where the `label-map.json` schema is published
 - [Readiness checks](docs/readiness-checks.md): both readyup kits, and how to run each
 - [Programmatic API](docs/api.md): `deriveWorkspaceConfig()`, the script-based approach, and `resolveReleaseTags`
