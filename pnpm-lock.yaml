@@ -354,6 +354,9 @@ importers:
 
   packages/release-kit:
     dependencies:
+      '@williamthorsen/change-grammar':
+        specifier: workspace:*
+        version: link:../change-grammar
       '@williamthorsen/nmr-core':
         specifier: workspace:*
         version: link:../nmr-core

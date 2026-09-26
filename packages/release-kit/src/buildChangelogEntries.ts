@@ -9,12 +9,7 @@ import { enumerateReleaseWindows, type RawCommit, type ReleaseWindow } from './e
 import { extractMigration } from './extractMigration.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
 import { type ChangeRecordEntry, parseChangeRecordBlock, stripChangeRecordBlocks } from './parseChangeRecordBlock.ts';
-import {
-  COMMIT_PREPROCESSOR_PATTERNS,
-  evaluateBreakingPolicy,
-  PIPE_SCOPE_SOURCE,
-  resolveType,
-} from './parseCommitMessage.ts';
+import { evaluateBreakingPolicy, parseSubject, resolveType } from './parseCommitMessage.ts';
 import { stripEmojiPrefix } from './stripEmojiPrefix.ts';
 import type {
   ChangelogEntry,
@@ -27,6 +22,7 @@ import type {
   UndeclaredEntryType,
   UnroutedEntryScope,
   VersionPatterns,
+  WorkTypeConfig,
 } from './types.ts';
 
 /** Placeholder version for the unreleased window, whose tag is unknown until its bump is decided. */
@@ -309,7 +305,7 @@ function readCommit(
   if (classification.kind !== 'header') {
     return { items: [], isUnparseable: classification.kind === 'unparseable' && reading.kind !== 'malformed' };
   }
-  const item = buildTitleItem(commit, classification.breaking);
+  const item = buildTitleItem(commit, classification.breaking, context.workTypes);
   return {
     items: [
       { header: classification.header, item, signal: { type: classification.type, breaking: item.breaking === true } },
@@ -443,13 +439,17 @@ function buildEntryItem(
  * prefix `!`, because the parse also counts a `BREAKING CHANGE:` footer on an `optional`-policy type, which the
  * changelog ignores.
  */
-function buildTitleItem(commit: RawCommit, isParsedBreaking: boolean): ChangelogItem {
+function buildTitleItem(
+  commit: RawCommit,
+  isParsedBreaking: boolean,
+  workTypes: Record<string, WorkTypeConfig>,
+): ChangelogItem {
   const body = extractBody(stripChangeRecordBlocks(commit.message));
   const item: ChangelogItem = { description: extractDescription(commit.message) };
   if (body !== undefined) {
     item.body = body;
   }
-  if (isParsedBreaking && subjectHasBreakingMarker(commit.message)) {
+  if (isParsedBreaking && subjectHasBreakingMarker(commit.message, workTypes)) {
     item.breaking = true;
   }
   // Derive from the trailer-stripped body rather than the raw message, so the field comes
@@ -462,35 +462,20 @@ function buildTitleItem(commit: RawCommit, isParsedBreaking: boolean): Changelog
   return item;
 }
 
-/** Matches a type-token with an optional scope (parenthesized or pipe-prefixed) followed by `!:`. */
-const SUBJECT_BREAKING_MARKER_PATTERN = new RegExp(String.raw`^(?:${PIPE_SCOPE_SOURCE}\|)?\w+(?:\([^)]+\))?!:`);
-
 /**
- * Detect a `!` breaking marker on the commit-subject prefix.
- *
- * Matches `type!:`, `type(scope)!:`, and `scope|type!:` formats at the start of the first line, after any leading
- * ticket prefix (e.g. `#42 `, `TOOL-123 `, `## `) is stripped via `COMMIT_PREPROCESSOR_PATTERNS`.
- * The `BREAKING CHANGE:` body footer is not considered. The marker alone does not make an item breaking: The commit's
- * work-type policy must also permit `!` (see `buildTitleItem`).
- * The regex is anchored so descriptions containing `!:` later in the line (e.g. `"Fix edge case using field!: value
- * notation"`) are not misclassified as breaking.
+ * Reports whether the commit subject carries the `!` breaking marker, as change-grammar reads it. The `BREAKING
+ * CHANGE:` body footer is not considered, and the marker alone does not make an item breaking: The commit's work-type
+ * policy must also permit `!` (see `buildTitleItem`).
  */
-function subjectHasBreakingMarker(message: string): boolean {
-  let subject = message.split('\n', 1)[0] ?? '';
-  for (const pattern of COMMIT_PREPROCESSOR_PATTERNS) {
-    subject = subject.replace(pattern, '');
-  }
-  return SUBJECT_BREAKING_MARKER_PATTERN.test(subject);
+function subjectHasBreakingMarker(message: string, workTypes: Record<string, WorkTypeConfig>): boolean {
+  return parseSubject(message.split('\n', 1)[0] ?? '', workTypes)?.breaking === true;
 }
 
-/** Extract the description from a commit message, stripping ticket ID and type prefix. */
+/** Extract the description from a parsed commit message, stripping ticket ID and type prefix. */
 function extractDescription(message: string): string {
   const firstLine = message.split('\n', 1)[0] ?? message;
   const afterColon = firstLine.split(': ').slice(1).join(': ');
-  if (afterColon.length > 0) {
-    return afterColon.charAt(0).toUpperCase() + afterColon.slice(1);
-  }
-  return firstLine;
+  return afterColon.charAt(0).toUpperCase() + afterColon.slice(1);
 }
 
 /**

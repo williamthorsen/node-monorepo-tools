@@ -137,14 +137,6 @@ describe(buildChangelogEntries, () => {
     expect(titles).toStrictEqual(['🎉 Features', '🐛 Bug fixes', '🏗️ Internal features', '👷 CI', '📚 Documentation']);
   });
 
-  it('preserves the full first line when no colon-space pair separates the description', () => {
-    mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', ['#1 feat:Add new feature'])]);
-
-    const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
-
-    expect(entries[0]?.sections[0]?.items[0]?.description).toBe('#1 feat:Add new feature');
-  });
-
   it('drops every commit the classifier rejects, and the release when none survives', () => {
     // A window holds the whole range, so the classifier is the only filter.
     mockEnumerateReleaseWindows.mockReturnValueOnce([
