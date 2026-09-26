@@ -1,5 +1,6 @@
 // Every package's `prepare` runs this file under bare `node`, so this module and everything it reaches must be
-// erasable TypeScript. nmr-core's passes `--conditions nmr-source`, which is what lets the compiler import
+// erasable TypeScript. A `prepare` that pnpm can run before nmr-core is built, nmr-core's own or one in a package
+// that does not depend on nmr-core, passes `--conditions nmr-source`, which is what lets the compiler import
 // `@williamthorsen/nmr-core` before nmr-core's own `dist` exists.
 
 import { reportError } from '@williamthorsen/nmr-core';

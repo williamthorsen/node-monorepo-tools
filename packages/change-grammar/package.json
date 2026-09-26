@@ -1,0 +1,50 @@
+{
+  "name": "@williamthorsen/change-grammar",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Render change records as subject lines, such as commit titles, and parse them back",
+  "keywords": [
+    "changelog",
+    "commits",
+    "grammar"
+  ],
+  "homepage": "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/change-grammar#readme",
+  "bugs": {
+    "url": "https://github.com/williamthorsen/node-monorepo-tools/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/williamthorsen/node-monorepo-tools.git",
+    "directory": "packages/change-grammar"
+  },
+  "license": "ISC",
+  "author": "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "default": "./dist/esm/index.js"
+    }
+  },
+  "files": [
+    ".meta/changelog.json",
+    "CHANGELOG.md",
+    "dist",
+    "schemas"
+  ],
+  "scripts": {
+    "prepare": "node --conditions nmr-source ../nmr/src/cli-build.ts",
+    "prepublishOnly": "nmr build"
+  },
+  "devDependencies": {
+    "eslint": "10.10.0",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=24.16.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -4,12 +4,13 @@
 
 ## Packages
 
-| Package                                               | Description                                                 |
-| ----------------------------------------------------- | ----------------------------------------------------------- |
-| [`@williamthorsen/nmr`](packages/nmr)                 | Context-aware script runner for pnpm monorepos              |
-| [`@williamthorsen/nmr-core`](packages/nmr-core)       | Shared utilities for monorepo tools                         |
-| [`@williamthorsen/release-kit`](packages/release-kit) | Version-bumping and changelog generation                    |
-| [`v11y-check`](packages/v11y-check)                   | Wraps audit-ci with a richer config model and sync workflow |
+| Package                                                     | Description                                                 |
+| ----------------------------------------------------------- | ----------------------------------------------------------- |
+| [`@williamthorsen/change-grammar`](packages/change-grammar) | Renders and parses change subject lines                     |
+| [`@williamthorsen/nmr`](packages/nmr)                       | Context-aware script runner for pnpm monorepos              |
+| [`@williamthorsen/nmr-core`](packages/nmr-core)             | Shared utilities for monorepo tools                         |
+| [`@williamthorsen/release-kit`](packages/release-kit)       | Version-bumping and changelog generation                    |
+| [`v11y-check`](packages/v11y-check)                         | Wraps audit-ci with a richer config model and sync workflow |
 
 ## Getting started
 
