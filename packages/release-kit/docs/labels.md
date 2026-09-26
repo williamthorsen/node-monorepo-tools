@@ -1,6 +1,6 @@
 # Labels
 
-How to declare the repository's labels in `.config/release-kit.config.ts`, how the scaffolded workflow applies them, and the published schema for `.meta/label-map.json`.
+How to declare the repository's labels in `.config/release-kit.config.ts`, how the scaffolded workflow applies them, and where the schema for `.meta/label-map.json` is published.
 
 ## `release-kit sync-labels`
 
@@ -64,22 +64,22 @@ Manual dispatch is not a preview. It matches the `sync` job, so it applies the l
 
 GitHub issues a read-only `GITHUB_TOKEN` to pull requests from forks, and by default holds runs from first-time contributors until a maintainer approves them. The dry-run reads labels and writes nothing, so the check normally runs once approved. A repo that disables workflows on fork pull requests gets no check at all; to preview such a change, push the branch to the base repo and open the pull request from there.
 
-### Published JSON Schema for `.meta/label-map.json`
+### JSON Schema for `.meta/label-map.json`
 
-release-kit publishes a JSON Schema for `.meta/label-map.json` — a separate, generic data file that maps commit-prefix scopes and types to GitHub label names. The schema lives at `packages/release-kit/schemas/label-map.json` in this repo and is reachable via the stable raw URL:
+`.meta/label-map.json` is a separate, generic data file that maps commit-prefix scopes and types to GitHub label names. `@williamthorsen/change-grammar` publishes its JSON Schema, reachable via the stable raw URL:
 
 ```
-https://github.com/williamthorsen/node-monorepo-tools/raw/release-kit-v<version>/packages/release-kit/schemas/label-map.json
+https://github.com/williamthorsen/node-monorepo-tools/raw/change-grammar-v<version>/packages/change-grammar/schemas/label-map.json
 ```
 
 Consumers reference it from the top of their `.meta/label-map.json`:
 
 ```json
 {
-  "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/release-kit-v<version>/packages/release-kit/schemas/label-map.json",
+  "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/change-grammar-v<version>/packages/change-grammar/schemas/label-map.json",
   "types": { "feat": "feature", "fix": "fix" },
   "scopes": { "audit": "scope:audit" }
 }
 ```
 
-release-kit publishes the schema only; it does not generate `.meta/label-map.json`. Generation requires commit-prefix knowledge that lives outside release-kit (in agent-conventions tooling), and is owned by those consumers.
+Earlier releases published the same schema from release-kit, and URLs under existing `release-kit-v*` tags keep resolving. release-kit does not generate `.meta/label-map.json`; change-grammar's `deriveLabelMap` derives one from the taxonomy and the workspace scopes.
