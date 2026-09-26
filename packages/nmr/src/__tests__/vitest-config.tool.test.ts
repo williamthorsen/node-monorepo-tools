@@ -1,9 +1,11 @@
+import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
+import { stageFixtureFiles } from '../test-utils/stageFixtureFiles.ts';
 import { runVitest, scaffoldProject, unlinkNodeModules, type VitestRun } from '../test-utils/vitest-run.ts';
 
 const CONFIG_SOURCE = path.join(import.meta.dirname, '../vitest.ts');
@@ -51,6 +53,22 @@ const PROJECT_FILES: Record<string, string> = {
     '});',
     '',
   ].join('\n'),
+};
+
+/**
+ * A package staged in a repository of its own, whose `.gitignore` ignores one generated directory and one file
+ * pattern, each holding a test file that passes. A tracked file matching a pattern, and an untracked one matching
+ * none, are added after staging.
+ */
+const IGNORED_FILES: Record<string, string> = {
+  '.gitignore': ['.netlify/', 'src/__tests__/*.local.test.ts', ''].join('\n'),
+  'package.json': JSON.stringify({ name: 'vitest-ignored-fixture', private: true, type: 'module' }),
+
+  'vitest.config.ts': `import { defineVitestConfig } from ${JSON.stringify(CONFIG_SOURCE)};\n\nexport default defineVitestConfig();\n`,
+
+  '.netlify/edge-functions/__tests__/utils.test.ts': buildPassingTest(),
+  'src/__tests__/scratch.local.test.ts': buildPassingTest(),
+  'src/__tests__/suite.test.ts': buildPassingTest(),
 };
 
 /**
@@ -262,6 +280,31 @@ const it = baseIt
     return derivedObservations;
   })
   // eslint-disable-next-line no-empty-pattern -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern.
+  .extend('ignored', { scope: 'file' }, ({}, { onCleanup }) => {
+    using stack = new DisposableStack();
+    const tree = stack.use(createTempTree({}, { prefix: 'nmr-vitest-ignored-' }));
+    scaffoldProject(tree, IGNORED_FILES);
+    stageFixtureFiles(tree.dir);
+    tree.write('src/__tests__/untracked.test.ts', buildPassingTest());
+    tree.write('.netlify/__tests__/forced.test.ts', buildPassingTest());
+    execFileSync('git', ['-C', tree.dir, 'add', '--force', '.netlify/__tests__/forced.test.ts'], { stdio: 'ignore' });
+    stack.defer(() => unlinkNodeModules(tree.dir));
+
+    const run = runVitest(tree.dir, ['--reporter=json', '--outputFile=results.json']);
+
+    if (run.status !== 0) {
+      throw new Error(`fixture run failed with status ${String(run.status)}:\n${run.stdout}\n${run.stderr}`);
+    }
+
+    const collectedTestFiles = readCollectedTestFiles(tree);
+    const ownedStack = stack.move();
+    onCleanup(() => {
+      ownedStack.dispose();
+    });
+
+    return { collectedTestFiles };
+  })
+  // eslint-disable-next-line no-empty-pattern -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern.
   .extend('layers', { scope: 'file' }, ({}, { onCleanup }) => {
     using stack = new DisposableStack();
     const tree = stack.use(createTempTree({}, { prefix: 'nmr-vitest-layers-' }));
@@ -327,6 +370,21 @@ describe('the shipped Vitest config, run for real', { timeout: 120_000 }, () => 
 
   it('runs the suite once, leaving the copy under build output uncollected', ({ project }) => {
     expect(project.collectedTestFiles).toStrictEqual(['src/__tests__/suite.test.ts']);
+  });
+});
+
+describe('git-ignored paths, run for real', { timeout: 120_000 }, () => {
+  it('collects no test file in an ignored directory or matching an ignored pattern', ({ ignored }) => {
+    expect(ignored.collectedTestFiles).not.toContain('.netlify/edge-functions/__tests__/utils.test.ts');
+    expect(ignored.collectedTestFiles).not.toContain('src/__tests__/scratch.local.test.ts');
+  });
+
+  it('collects a tracked file under an ignored directory, and an untracked file git does not ignore', ({ ignored }) => {
+    expect(ignored.collectedTestFiles).toStrictEqual([
+      '.netlify/__tests__/forced.test.ts',
+      'src/__tests__/suite.test.ts',
+      'src/__tests__/untracked.test.ts',
+    ]);
   });
 });
 
@@ -397,6 +455,18 @@ describe('tsconfig paths resolution, run for real', { timeout: 120_000 }, () => 
     expect(`${tsconfigPaths.byDefault.stdout}${tsconfigPaths.byDefault.stderr}`).toContain('@alias/target');
   });
 });
+
+/** A test file that passes, so the run's only outcome is which files it collected. */
+function buildPassingTest(): string {
+  return [
+    "import { expect, it } from 'vitest';",
+    '',
+    "it('passes', () => {",
+    '  expect(true).toBe(true);',
+    '});',
+    '',
+  ].join('\n');
+}
 
 function runVitestWithCoverage(cwd: string): VitestRun {
   return runVitest(cwd, [
