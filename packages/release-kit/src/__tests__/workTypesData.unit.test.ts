@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { WORK_TYPES_DATA } from '../defaults.ts';
 import { isRecord } from '../typeGuards.ts';
 
-const ALLOWED_BREAKING_POLICIES = new Set(['forbidden', 'optional', 'required']);
+const ALLOWED_BREAKING_POLICIES = new Set(['forbidden', 'optional']);
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 const workTypesJsonPath = resolve(thisDir, '..', 'work-types.json');
@@ -105,12 +105,6 @@ describe('work-types.json structural invariants', () => {
     const lastEntry = WORK_TYPES_DATA.types.at(-1);
     expect(lastEntry?.key).toBe('fmt');
     expect(lastEntry?.excludedFromChangelog).toBe(true);
-  });
-
-  it('marks `drop` with `breakingPolicy: "required"` as the only required entry', () => {
-    const requiredEntries = WORK_TYPES_DATA.types.filter((entry) => entry.breakingPolicy === 'required');
-    expect(requiredEntries).toHaveLength(1);
-    expect(requiredEntries[0]?.key).toBe('drop');
   });
 
   it('wires `utility` as an alias of `internal`', () => {

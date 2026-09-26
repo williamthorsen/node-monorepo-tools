@@ -3,7 +3,7 @@
  *
  * `work-types.json` is release-kit's copy of the codeassembly canonical. This `.ts` mirror exists for
  * runtime consumption: The compiler baseline does not enable JSON module imports, and a TS constant keeps
- * `breakingPolicy` typed as its three-value union.
+ * `breakingPolicy` typed as its two-value union.
  *
  * `nmr work-types:sync` updates only the JSON, so copy its change here by hand. A drift test
  * (`workTypesData.unit.test.ts`) asserts that this constant deep-equals the parsed contents of
@@ -18,7 +18,7 @@ export interface WorkTypeEntry {
   emoji: string;
   label: string;
   description: string;
-  breakingPolicy: 'forbidden' | 'optional' | 'required';
+  breakingPolicy: 'forbidden' | 'optional';
   excludedFromChangelog?: boolean;
 }
 
@@ -71,7 +71,7 @@ export const WORK_TYPES_DATA: WorkTypesData = {
       emoji: '🪦',
       label: 'Removed',
       description: 'A change that removes a capability or surface on which consumers depend.',
-      breakingPolicy: 'required',
+      breakingPolicy: 'optional',
     },
     {
       tier: 'public',

@@ -632,12 +632,10 @@ entries:
       ]);
     });
 
-    it('reports a non-breaking entry whose type requires breaking', () => {
+    it('reports no violation for a non-breaking `drop` entry', () => {
       const { diagnostics } = build([mergeMessage('entries:\n  - type: drop\n    text: Removes the flag.')]);
 
-      expect(diagnostics.policyViolations).toStrictEqual([
-        { commitHash: fakeHash(0), commitSubject: MERGE_SUBJECT, type: 'drop', surface: 'entry', entryPosition: 1 },
-      ]);
+      expect(diagnostics.policyViolations).toStrictEqual([]);
     });
 
     it('treats a type with no policy entry as optional', () => {
@@ -928,7 +926,6 @@ entries:
 
   describe('title policy violations', () => {
     it.each([
-      ['a bare `drop:`', '#1 drop: Remove the flag', 'drop', 'prefix'],
       [
         'a footer on a type that forbids it',
         '#1 refactor: Rework\n\nBREAKING CHANGE: renames the export',
@@ -947,7 +944,7 @@ entries:
 
     it('reports nothing when `breakingPolicies` is `{}`', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([
-        makeWindow('unreleased', ['#1 internal!: Refactor the cache', '#2 drop: Remove the flag']),
+        makeWindow('unreleased', ['#1 internal!: Refactor the cache', '#2 fmt!: Reformat']),
       ]);
 
       const history = readReleaseHistory({ ...makeConfig(), breakingPolicies: {} }, OPTIONS);
@@ -958,7 +955,7 @@ entries:
     it('reports nothing for a released window', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([
         makeWindow('unreleased', ['#2 fix: Current']),
-        makeWindow('v1.0.0', ['#1 drop: Remove the flag']),
+        makeWindow('v1.0.0', ['#1 internal!: Refactor the cache']),
       ]);
 
       expect(readReleaseHistory(makeConfig(), OPTIONS).unreleased.diagnostics.policyViolations).toStrictEqual([]);

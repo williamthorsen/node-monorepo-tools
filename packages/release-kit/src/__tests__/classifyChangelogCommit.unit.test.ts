@@ -194,7 +194,6 @@ describe(classifyChangelogCommit, () => {
 
   describe('policy violations', () => {
     it.each([
-      ['#1 drop: Remove the flag', 'drop', 'prefix'],
       ['#1 refactor: Restructure\n\nBREAKING CHANGE: renames the export', 'refactor', 'body'],
       ['#1 fmt!: Reformat', 'fmt', 'prefix'],
     ])('reports "%s" with the commit hash', (message, type, surface) => {
@@ -213,7 +212,7 @@ describe(classifyChangelogCommit, () => {
     it('reports nothing for an unticketed commit, which it does not parse', () => {
       const onPolicyViolation = vi.fn();
 
-      classify('drop: Remove the flag', { breakingPolicies: DEFAULT_BREAKING_POLICIES, onPolicyViolation });
+      classify('fmt!: Reformat', { breakingPolicies: DEFAULT_BREAKING_POLICIES, onPolicyViolation });
 
       expect(onPolicyViolation).not.toHaveBeenCalled();
     });

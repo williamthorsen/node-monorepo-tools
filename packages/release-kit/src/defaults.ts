@@ -1,3 +1,5 @@
+import type { BreakingPolicy } from '@williamthorsen/change-grammar';
+
 import type { ChangelogJsonConfig, ReleaseNotesConfig, VersionPatterns, WorkTypeConfig } from './types.ts';
 import { WORK_TYPES_DATA } from './workTypesData.ts';
 
@@ -67,7 +69,7 @@ export const DEFAULT_WORK_TYPES: Record<string, WorkTypeConfig> = deriveDefaultW
  * types tolerate `!` and which trigger a policy-violation warning. Missing entries default
  * to `'optional'` to preserve back-compat for consumers that supply custom work-types.
  */
-export const DEFAULT_BREAKING_POLICIES: Record<string, 'forbidden' | 'optional' | 'required'> = Object.fromEntries(
+export const DEFAULT_BREAKING_POLICIES: Record<string, BreakingPolicy> = Object.fromEntries(
   WORK_TYPES_DATA.types.map((entry) => [entry.key, entry.breakingPolicy]),
 );
 

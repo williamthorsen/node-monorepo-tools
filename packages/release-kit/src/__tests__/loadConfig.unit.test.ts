@@ -238,10 +238,10 @@ describe(mergeMonorepoConfig, () => {
 
   it('passes through breakingPolicies from config', () => {
     const result = mergeMonorepoConfig(discoveredPaths, {
-      breakingPolicies: { feat: 'forbidden', drop: 'required' },
+      breakingPolicies: { feat: 'forbidden', drop: 'optional' },
     });
 
-    expect(result.breakingPolicies).toStrictEqual({ feat: 'forbidden', drop: 'required' });
+    expect(result.breakingPolicies).toStrictEqual({ feat: 'forbidden', drop: 'optional' });
   });
 
   it('omits breakingPolicies when not configured', () => {
@@ -641,10 +641,10 @@ describe(mergeSinglePackageConfig, () => {
 
   it('passes through breakingPolicies from config', () => {
     const result = mergeSinglePackageConfig({
-      breakingPolicies: { feat: 'forbidden', drop: 'required' },
+      breakingPolicies: { feat: 'forbidden', drop: 'optional' },
     });
 
-    expect(result.breakingPolicies).toStrictEqual({ feat: 'forbidden', drop: 'required' });
+    expect(result.breakingPolicies).toStrictEqual({ feat: 'forbidden', drop: 'optional' });
   });
 
   it('omits breakingPolicies when not configured', () => {

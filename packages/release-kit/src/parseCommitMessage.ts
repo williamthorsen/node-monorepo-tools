@@ -1,4 +1,5 @@
 import {
+  type BreakingPolicy,
   type ChangeRecord,
   compileTemplate,
   parse,
@@ -36,7 +37,7 @@ export interface ParseCommitMessageOptions {
    * treated as `'optional'` for backward compatibility with consumers that have not
    * supplied policies.
    */
-  breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
+  breakingPolicies?: Record<string, BreakingPolicy>;
   /** Receives policy-violation notifications. See {@link PolicyViolationHandler}. */
   onPolicyViolation?: PolicyViolationHandler;
 }
@@ -51,8 +52,7 @@ export interface ParseCommitMessageOptions {
  *
  * `!`-policy enforcement is **release-time tolerant**: when the resolved type's policy
  * forbids `!`, the marker is dropped from the parse (`breaking: false`) and
- * `onPolicyViolation` is invoked. When the policy requires `!`, a bare type triggers the
- * same warning path.
+ * `onPolicyViolation` is invoked.
  */
 export function parseCommitMessage(
   message: string,
@@ -113,7 +113,7 @@ export interface BreakingPolicyInputs {
   /** Whether the marker that `prefixSurface` names is present. */
   hasPrefixBreaking: boolean;
   hasFooterBreaking: boolean;
-  policy: 'forbidden' | 'optional' | 'required';
+  policy: BreakingPolicy;
   onPolicyViolation: PolicyViolationHandler | undefined;
   /** The surface reported for a violation of the marker; `'prefix'` when omitted. */
   prefixSurface?: PolicyViolationSurface;
@@ -136,16 +136,6 @@ export function evaluateBreakingPolicy(inputs: BreakingPolicyInputs): boolean {
       onPolicyViolation?.(commit, resolvedType, 'body');
     }
     return false;
-  }
-  if (policy === 'required') {
-    // Only the prefix `!` carries the breaking signal here; a `BREAKING CHANGE:` body footer
-    // is changelog-decoration only and is intentionally not consulted, so a `required`-policy
-    // commit without `!` is a single prefix violation regardless of footer content.
-    if (!hasPrefixBreaking) {
-      onPolicyViolation?.(commit, resolvedType, prefixSurface);
-      return false;
-    }
-    return true;
   }
   // 'optional' policy: either form is acceptable.
   return hasPrefixBreaking || hasFooterBreaking;

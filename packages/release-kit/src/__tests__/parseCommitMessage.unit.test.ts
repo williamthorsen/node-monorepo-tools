@@ -430,7 +430,7 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     expect(securityBang?.breaking).toBe(true);
   });
 
-  it('treats bare `drop:` as a policy violation; accepts `drop!` and `drop(scope)!`', () => {
+  it('accepts bare `drop:` without a policy violation, and `drop!` and `drop(scope)!` as breaking', () => {
     const onPolicyViolation = vi.fn<PolicyViolationHandler>();
 
     const dropBare = parseCommitMessage('drop: remove API', 'p7', DEFAULT_WORK_TYPES, undefined, {
@@ -439,10 +439,8 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     });
     expect(dropBare?.type).toBe('drop');
     expect(dropBare?.breaking).toBe(false);
-    expect(onPolicyViolation).toHaveBeenCalledTimes(1);
-    expect(onPolicyViolation).toHaveBeenCalledWith(expectedCommit('drop: remove API', 'p7'), 'drop', 'prefix');
+    expect(onPolicyViolation).not.toHaveBeenCalled();
 
-    onPolicyViolation.mockClear();
     const dropBang = parseCommitMessage('drop!: remove API', 'p8', DEFAULT_WORK_TYPES, undefined, {
       breakingPolicies: DEFAULT_BREAKING_POLICIES,
       onPolicyViolation,

@@ -97,7 +97,7 @@
         "breakingPolicy": {
           "type": "string",
           "description": "Policy governing the `!` (breaking) marker for this type. `forbidden`: `!` is a policy violation. `optional`: `!` is allowed. `required`: bare type is a policy violation; only the `!` form is accepted.",
-          "enum": ["forbidden", "optional", "required"]
+          "enum": ["forbidden", "optional"]
         },
         "excludedFromChangelog": {
           "type": "boolean",

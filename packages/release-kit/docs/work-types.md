@@ -4,23 +4,23 @@ The taxonomy against which release-kit parses commits: its tiers, the breaking-c
 
 release-kit bundles a copy of the codeassembly canonical taxonomy in `packages/release-kit/src/work-types.json`, kept level by the [maintainer scripts](#maintaining-the-bundled-taxonomy). The taxonomy is split into three tiers that drive section rendering and audience classification.
 
-| Tier     | Key         | Header                    | Aliases       | `!` policy   |
-| -------- | ----------- | ------------------------- | ------------- | ------------ |
-| public   | `feat`      | 🎉 Features               | `feature`     | optional     |
-| public   | `drop`      | 🪦 Removed                |               | **required** |
-| public   | `deprecate` | 🗑️ Deprecated             |               | forbidden    |
-| public   | `fix`       | 🐛 Bug fixes              | `bugfix`      | optional     |
-| public   | `sec`       | 🔒 Security               | `security`    | optional     |
-| public   | `perf`      | ⚡ Performance            | `performance` | optional     |
-| internal | `internal`  | 🏗️ Internal features      | `utility`     | forbidden    |
-| internal | `refactor`  | ♻️ Refactoring            |               | forbidden    |
-| internal | `tests`     | 🧪 Tests                  | `test`        | forbidden    |
-| process  | `tooling`   | ⚙️ Tooling                |               | forbidden    |
-| process  | `ci`        | 👷 CI                     |               | forbidden    |
-| process  | `deps`      | 📦 Dependencies           | `dep`         | forbidden    |
-| process  | `ai`        | 🤖 Agentic support        |               | forbidden    |
-| process  | `docs`      | 📚 Documentation          | `doc`         | forbidden    |
-| process  | `fmt`       | (excluded from changelog) |               | forbidden    |
+| Tier     | Key         | Header                    | Aliases       | `!` policy |
+| -------- | ----------- | ------------------------- | ------------- | ---------- |
+| public   | `feat`      | 🎉 Features               | `feature`     | optional   |
+| public   | `drop`      | 🪦 Removed                |               | optional   |
+| public   | `deprecate` | 🗑️ Deprecated             |               | forbidden  |
+| public   | `fix`       | 🐛 Bug fixes              | `bugfix`      | optional   |
+| public   | `sec`       | 🔒 Security               | `security`    | optional   |
+| public   | `perf`      | ⚡ Performance            | `performance` | optional   |
+| internal | `internal`  | 🏗️ Internal features      | `utility`     | forbidden  |
+| internal | `refactor`  | ♻️ Refactoring            |               | forbidden  |
+| internal | `tests`     | 🧪 Tests                  | `test`        | forbidden  |
+| process  | `tooling`   | ⚙️ Tooling                |               | forbidden  |
+| process  | `ci`        | 👷 CI                     |               | forbidden  |
+| process  | `deps`      | 📦 Dependencies           | `dep`         | forbidden  |
+| process  | `ai`        | 🤖 Agentic support        |               | forbidden  |
+| process  | `docs`      | 📚 Documentation          | `doc`         | forbidden  |
+| process  | `fmt`       | (excluded from changelog) |               | forbidden  |
 
 ## Tier semantics
 
@@ -42,9 +42,8 @@ Section render order is **tier order (`public` → `internal` → `process`), th
 
 Each work-type carries a `breakingPolicy` value:
 
-- `optional` (`feat`, `fix`, `sec`, `perf`): `!` is allowed; both `type:` and `type!:` parse cleanly. Any of these can break consumers, and the marker records when one does: A fix can break consumers who relied on the defective behavior, and a performance change can break a contract to achieve its gain.
+- `optional` (`feat`, `drop`, `fix`, `sec`, `perf`): `!` is allowed; both `type:` and `type!:` parse cleanly. Any of these can break consumers, and the marker records when one does: A removal breaks consumers only when the removed surface was published, a fix can break consumers who relied on the defective behavior, and a performance change can break a contract to achieve its gain.
 - `forbidden` (`deprecate` and every `internal`- and `process`-tier type): `!` is a policy violation. Deprecating a surface keeps it working, and removing it is a `drop`. Internal- and process-tier work does not face consumers; a change that breaks consumers faces them and therefore takes a public-tier type.
-- `required` (`drop`): Bare `drop:` is a policy violation; only `drop!:` is accepted. Removing a public surface always breaks consumers, and the `!` form makes that explicit.
 
 ### Policy enforcement
 

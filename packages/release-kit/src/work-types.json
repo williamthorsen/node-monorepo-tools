@@ -19,7 +19,7 @@
     },
     {
       "aliases": [],
-      "breakingPolicy": "required",
+      "breakingPolicy": "optional",
       "description": "A change that removes a capability or surface on which consumers depend.",
       "emoji": "🪦",
       "key": "drop",
