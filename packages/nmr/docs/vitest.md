@@ -65,13 +65,13 @@ The root registry carries the same six names, so a command means the same thing 
 Both halves of the convention are silent on their own: an untiered file runs under the residual `unit` and passes, and a file outside `__tests__` is collected by nothing at all. `@williamthorsen/nmr/tests` exports a check that reports both, which a repo declares from a one-line test of its own:
 
 ```ts
-// __tests__/test-file-conventions.unit.test.ts
+// __tests__/test-file-conventions.tool.test.ts
 import { checkTestFileConventions } from '@williamthorsen/nmr/tests';
 
 checkTestFileConventions();
 ```
 
-It declares one suite with an assertion per half, each carrying the remedy that fixes it: the four tier names and the rename form, or the `__tests__` directory the file belongs in. The guard names its own tier like any other test file, so a misnamed guard reports itself.
+It declares one suite with an assertion per half, each carrying the remedy that fixes it: the four tier names and the rename form, or the `__tests__` directory the file belongs in. The guard names its own tier like any other test file, so a misnamed guard reports itself. That tier is `tool`, because the check asks git which paths it ignores.
 
 A repo linting with `vitest/require-hook` needs a disable directive on that call, which the rule reads as setup work where it declares the suite:
 
