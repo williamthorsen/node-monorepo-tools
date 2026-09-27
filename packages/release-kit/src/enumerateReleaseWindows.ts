@@ -64,7 +64,7 @@ export interface EnumerateReleaseWindowsOptions {
  * ancestry graph, `git for-each-ref` for the tag names with their creation dates and target
  * commits, and one path-filtered `git log` for the commits themselves.
  *
- * @throws If `tagPrefixes` is empty, or if any git invocation fails.
+ * Throws if `tagPrefixes` is empty, or if any git invocation fails.
  */
 export function enumerateReleaseWindows(options: EnumerateReleaseWindowsOptions): ReleaseWindow[] {
   const { now = Date.now, paths, tagPrefixes, unreleasedTag } = options;

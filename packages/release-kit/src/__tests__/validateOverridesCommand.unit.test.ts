@@ -419,7 +419,7 @@ describe(validateOverridesCommand, () => {
       mockedEnumerateReleaseWindows.mockReturnValue([]);
     });
 
-    it('exercises real validateOverridesCommand → buildChangelogEntries → validator over multiple release windows (#398)', async () => {
+    it('exercises real validateOverridesCommand → buildChangelogEntries → validator over multiple release windows', async () => {
       // Canned windows simulating two releases plus the unreleased range, newest first.
       // A universe limited to `git log <latestTag>..HEAD` would exclude the past-release commit
       // `aabbcc12…` and report its override as stale.

@@ -60,9 +60,8 @@ export function readCurrentVersion(packageFiles: readonly string[]): string {
 }
 
 /**
- * Reads the first package file, which supplies the pre-change version for the whole workspace.
- *
- * @throws If no package files are configured.
+ * Reads the first package file, which supplies the pre-change version for the whole workspace. Throws if no package
+ * files are configured.
  */
 function readPrimaryPackage(packageFiles: readonly string[]): { firstFile: string; firstPkg: PackageJson } {
   const firstFile = packageFiles[0];
@@ -89,9 +88,8 @@ function renderVersionWrites(
 }
 
 /**
- * Reads and parses a package.json file, returning a validated object with a `version` field.
- *
- * @throws If the file cannot be read, contains invalid JSON, or lacks a `version` field.
+ * Reads and parses a package.json file, returning a validated object with a `version` field. Throws if the file cannot
+ * be read, contains invalid JSON, or lacks a `version` field.
  */
 function readPackageJson(filePath: string): PackageJson {
   let content: string;

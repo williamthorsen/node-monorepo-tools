@@ -207,7 +207,7 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
   };
 }
 
-/** Determines each workspace's direct bump from its release history, and find its untagged baseline. */
+/** Determines each workspace's direct bump from its release history, and finds its untagged baseline. */
 function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePrepareOptions): Phase1Result {
   const { force, bumpOverride, setVersion } = options;
 

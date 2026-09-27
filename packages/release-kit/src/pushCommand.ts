@@ -19,7 +19,7 @@ const pushFlagSchema = {
 };
 
 /**
- * Orchestrates the CLI `push` command: parse flags, load the config, resolve tags from HEAD, and push
+ * Orchestrates the CLI `push` command: parses flags, loads the config, resolves tags from HEAD, and pushes
  * the release commit and each tag individually. A relative `--config` resolves against `invocationDir`.
  */
 export async function pushCommand(argv: string[], styles: StreamStyles, invocationDir: string): Promise<void> {
