@@ -54,7 +54,7 @@ These change what a check concludes without moving the hash. Where one applies, 
 
 Committing an already-checked tree also moves the hash, because the commit's tree object is the base of the fold; the next run does the work again. The reverse holds and is useful: a rebase or an amended message that preserves content leaves the hash alone, as does checking out a branch whose tree is identical.
 
-## When the gate stands aside
+## When the cache does not apply
 
 The gate never wrongly skips. Where it cannot be sure, it does nothing and the command runs:
 
@@ -66,7 +66,7 @@ The gate never wrongly skips. Where it cannot be sure, it does nothing and the c
 - Under a `devBin` substitution, which runs a binary built from somewhere the hash does not describe.
 - For any invocation carrying arguments after the command name, and for every step below it: the arguments narrow what runs, and a step served from a recorded pass is a step that did not.
 
-`NMR_DEBUG=1` reports why a run did not skip and why the gate stood aside.
+`NMR_DEBUG=1` reports why a run did not skip and why the cache did not apply.
 
 ## Replaying a skipped run's output
 
@@ -126,7 +126,7 @@ The header is what presents the body as a recording rather than as this invocati
 
 **A composite prints its assembly.** Retaining nothing of its own, a composite prints the excerpts its constituents recorded, one attributed line each. The transcript of any one of them is that constituent's own `--log` to print.
 
-**Nothing to show is said rather than left blank.** A refusal names which it is -- the command is outside the [cacheable set](#what-is-cached), the gate is [standing aside](#when-the-gate-stands-aside), nothing has recorded a pass, the last pass was recorded under something this run does not share, or the pass retained no output, having printed none or written to a terminal -- and exits non-zero, so a caller can tell an empty `stdout` from a recording. A mismatch names the ingredient that moved, the tree or the chain or a version, so a reader whose `git status` is clean is not sent looking there.
+**Nothing to show is said rather than left blank.** A refusal names which it is -- the command is outside the [cacheable set](#what-is-cached), the [cache does not apply](#when-the-cache-does-not-apply), nothing has recorded a pass, the last pass was recorded under something this run does not share, or the pass retained no output, having printed none or written to a terminal -- and exits non-zero, so a caller can tell an empty `stdout` from a recording. A mismatch names the ingredient that moved, the tree or the chain or a version, so a reader whose `git status` is clean is not sent looking there.
 
 ```console
 $ nmr --log test

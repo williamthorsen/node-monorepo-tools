@@ -413,7 +413,7 @@ describe('checkCache command resolution', () => {
   });
 
   // `checkCache` belongs to the root tier, and naming its misplacement is more use than naming a name it holds.
-  it('stands aside for a package config, whose tier rejection is the accurate one', async ({ tree }) => {
+  it('leaves a package config to the tier check, whose rejection is the accurate one', async ({ tree }) => {
     writeConfig(tree, `export default { checkCache: { extraCommands: ['nonesuch-command'] } };`);
 
     await expect(loadWorkspaceConfig(tree.dir)).rejects.toThrow('honors build alone, not checkCache');

@@ -53,12 +53,12 @@ describe('a recording', () => {
       expect(lookup).toStrictEqual({ ok: false, refusal: { kind: 'uncacheable' } });
     });
 
-    it('given a gate standing aside, refuses rather than reading an entry it cannot vouch for', async () => {
+    it('given a command to which the cache does not apply, refuses rather than reading an entry it cannot vouch for', async () => {
       await writeCheckCacheEntry({ ...buildRef(), entry: makeEntry() });
 
       const lookup = await resolveRecording({ ...buildLookup(), key: undefined });
 
-      expect(lookup).toStrictEqual({ ok: false, refusal: { kind: 'gate-aside' } });
+      expect(lookup).toStrictEqual({ ok: false, refusal: { kind: 'cache-inapplicable' } });
     });
 
     it('given nothing recorded at all, refuses', async () => {
@@ -189,7 +189,7 @@ describe('a recording', () => {
   describe(renderRefusal, () => {
     it.each([
       ['uncacheable', { kind: 'uncacheable' }, 'is outside the check-result cache'],
-      ['gate-aside', { kind: 'gate-aside' }, 'standing aside here'],
+      ['cache-inapplicable', { kind: 'cache-inapplicable' }, 'does not apply here'],
       ['unrecorded', { kind: 'unrecorded' }, 'nothing has recorded a pass'],
       [
         'a moved tree',

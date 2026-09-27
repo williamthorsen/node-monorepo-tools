@@ -1,8 +1,9 @@
 import { spawnSync } from 'node:child_process';
+import path from 'node:path';
 
 import { captureStdio, createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { describe, expect, it as baseIt } from 'vitest';
+import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { runFmt, runPrettier } from '../fmt.ts';
 
@@ -47,6 +48,10 @@ const it = baseIt
   );
 
 describe(runFmt, () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('honours a package-level .prettierignore from the repository root', ({ repositoryTree }) => {
     repositoryTree.write('packages/a/protected.js', 'const  badly   =  1\n');
 
@@ -120,6 +125,8 @@ describe(runFmt, () => {
 
   it('fails outside a git repository rather than reporting a clean run', () => {
     using outside = createTempTree({}, { prefix: 'nmr-fmt-bare-' });
+    // Stops git's upward search at the fixture, so a temp root that sits inside some repository cannot answer.
+    vi.stubEnv('GIT_CEILING_DIRECTORIES', path.dirname(outside.dir));
 
     expect(runFmt(['--check'], outside.dir)).toBe(1);
   });

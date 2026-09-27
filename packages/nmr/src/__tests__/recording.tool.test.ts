@@ -132,13 +132,13 @@ describe('a run printed by --log', () => {
     expect(stderr).toContain('nothing has recorded a pass');
   });
 
-  // The refusal points at NMR_DEBUG, so the gate has to have written a note for every way it stands aside.
-  it('reports why the gate stood aside for a command carrying arguments', async () => {
+  // The refusal points at NMR_DEBUG, so the gate has to have written a note for every reason the cache does not apply.
+  it('reports why the cache did not apply to a command carrying arguments', async () => {
     const { exitCode, stderr } = await runNmr(`--log ${COMMAND} --project unit`, { NMR_DEBUG: '1' });
 
     expect(exitCode).toBe(1);
     expect(stderr).toContain(`gate disabled: ${COMMAND} was passed arguments`);
-    expect(stderr).toContain('standing aside here');
+    expect(stderr).toContain('does not apply here');
   });
 
   it('names the flag when no command follows it', async () => {

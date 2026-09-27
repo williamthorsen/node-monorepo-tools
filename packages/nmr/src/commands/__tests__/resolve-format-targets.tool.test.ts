@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { assert, describe, expect, it as baseIt } from 'vitest';
+import { afterEach, assert, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { resolveFormatTargets } from '../fmt.ts';
 
@@ -32,6 +32,10 @@ const it = baseIt.extend(
 );
 
 describe(resolveFormatTargets, () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('selects every tracked file, in a stable order', ({ tree }) => {
     const result = resolveFormatTargets(tree.dir);
 
@@ -156,6 +160,8 @@ describe(resolveFormatTargets, () => {
   it('fails rather than reporting an empty selection outside a git repository', () => {
     using outside = createTempTree({}, { prefix: 'nmr-fmt-bare-' });
     outside.write('stray.js', 'const stray = 1;\n');
+    // Stops git's upward search at the fixture, so a temp root that sits inside some repository cannot answer.
+    vi.stubEnv('GIT_CEILING_DIRECTORIES', path.dirname(outside.dir));
 
     const result = resolveFormatTargets(outside.dir);
 

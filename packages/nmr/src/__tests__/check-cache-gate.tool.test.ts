@@ -7,7 +7,7 @@ import { PassThrough } from 'node:stream';
 import { hashWorkingTree } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { type CheckCacheEntry, readCheckCacheEntry, RUN_ID_ENV_VAR, writeCheckCacheEntry } from '../check-cache.ts';
 import { resolveBuildCachePath } from '../commands/build-output.ts';
@@ -33,6 +33,10 @@ describe('the check-result cache gate', () => {
     // the very tree that the run is being recorded against.
     log = workspace.resolve(LOG_ENTRY);
     scaffoldRepo(workspace, log);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   describe('a tree that has not changed', () => {
@@ -250,7 +254,7 @@ describe('the check-result cache gate', () => {
     });
   });
 
-  describe('when the gate stands aside', () => {
+  describe('when the cache does not apply', () => {
     it('never gates a command the configuration excludes', async () => {
       writeConfig(workspace, log, { checkCache: { excludeCommands: [COMMAND] } });
 
@@ -280,8 +284,10 @@ describe('the check-result cache gate', () => {
       expect(countCacheEntries()).toBe(0);
     });
 
-    it('stands aside outside a git repository, and says why when asked', async () => {
+    it('runs the command every time outside a git repository, and gives the reason under NMR_DEBUG', async () => {
       workspace.rm('repo/.git');
+      // Stops git's upward search at the fixture, so a temp root that sits inside some repository cannot answer.
+      vi.stubEnv('GIT_CEILING_DIRECTORIES', workspace.dir);
 
       await runNmr(COMMAND, repo);
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
@@ -290,7 +296,7 @@ describe('the check-result cache gate', () => {
       expect(stderr).toContain('not a git repository');
     });
 
-    it('stands aside when there is no install fingerprint to read', async () => {
+    it('runs the command every time when there is no install fingerprint to read', async () => {
       workspace.rm('repo/node_modules/.pnpm');
 
       await runNmr(COMMAND, repo);
@@ -300,7 +306,7 @@ describe('the check-result cache gate', () => {
       expect(stderr).toContain('install fingerprint');
     });
 
-    it('stands aside when devBin substitutes a different binary', async () => {
+    it('runs the command every time when devBin substitutes a different binary', async () => {
       // The substitute is built from somewhere the tree hash does not describe, so a pass by it is not a pass
       // by the command the key names.
       writeConfig(workspace, log, {
