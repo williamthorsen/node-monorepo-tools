@@ -1,6 +1,7 @@
 import { readdirSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 
+import { CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
 import { findPackageRoot } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
@@ -20,6 +21,14 @@ const presetNames = readdirSync(presetsDir)
 describe('bundled label presets', () => {
   it('ships at least the common preset', () => {
     expect(presetNames).toContain('common');
+  });
+
+  it('defines the tracker label of every work type in the common preset', () => {
+    const names = loadPreset('common').map((label) => label.name);
+
+    for (const { trackerLabel } of CANONICAL_TAXONOMY.types) {
+      expect(names).toContain(trackerLabel);
+    }
   });
 
   it.each(presetNames)('preset "%s" defines each label name only once, ignoring case', (presetName) => {

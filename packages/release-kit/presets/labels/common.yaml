@@ -1,37 +1,17 @@
 # Common label definitions for GitHub repositories.
 # Compatible with EndBug/label-sync format.
+# Work-type labels are built from change-grammar's taxonomy in src/sync-labels/typeLabels.ts.
 
 # Main categories
-- name: ai
-  color: a2eeef
-  description: Guidance on working in this repo, such as its AGENTS.md or a repo-local skill, or its agent config
 - name: breaking
   color: b60205
   description: Breaking API change or removal of functionality
 - name: bug
   color: d73a4a
   description: "Something isn't working"
-- name: deprecation
-  color: fbca04
-  description: Marks functionality for future removal
-- name: documentation
-  color: a2eeef
-  description: Documentation for human readers, such as a README, a guide, or a code comment
-- name: feature
-  color: '0075ca'
-  description: Added or improved external functionality
-- name: fix
-  color: d73a4a
-  description: Fixes a bug
 - name: operational
   color: '000000'
   description: Actions outside the codebase
-- name: performance
-  color: '0075ca'
-  description: Improves performance without changing behavior
-- name: security
-  color: b60205
-  description: Security vulnerability or hardening
 - name: spike
   color: '000000'
   description: Investigation
@@ -46,26 +26,6 @@
 - name: question
   color: fbca04
   description: Further information is needed
-
-# Refactoring
-- name: ci
-  color: edc287
-  description: CI/CD tooling & configuration
-- name: dependencies
-  color: edc287
-  description: Change to dependencies
-- name: internal
-  color: 1d76db
-  description: Internal change without external impact
-- name: refactoring
-  color: edc287
-  description: Improvement to code without change in functionality
-- name: tests
-  color: edc287
-  description: Tests
-- name: tooling
-  color: edc287
-  description: Development tools
 
 # Priority
 - name: 'priority:critical'
