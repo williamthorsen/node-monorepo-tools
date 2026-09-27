@@ -2,7 +2,7 @@
 /* eslint n/hashbang: off, n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 // The command dispatch is a flat sequence of `process.exit(0)` guards, which the rule reads as
-// fall-through; the dispatch goes away with #445.
+// fall-through.
 /* eslint unicorn/prefer-else-if: "off" */
 
 import { parseArgsOrExit, readPackageVersion, reportError } from '@williamthorsen/nmr-core';
@@ -28,6 +28,7 @@ import { validateOverridesCommand } from '../validateOverridesCommand.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
 
+/** Prints the top-level usage text. */
 function showUsage(): void {
   console.info(`
 Usage: release-kit <command> [options]
@@ -56,6 +57,7 @@ Environment:
 `);
 }
 
+/** Prints the `sync-labels` command's help text. */
 function showSyncLabelsHelp(): void {
   console.info(`
 Usage: release-kit sync-labels <subcommand> [options]
@@ -72,6 +74,7 @@ Options:
 `);
 }
 
+/** Prints the `sync-labels init` subcommand's help text. */
 function showSyncLabelsInitHelp(): void {
   console.info(`
 Usage: release-kit sync-labels init [options]
@@ -90,6 +93,7 @@ Options:
 `);
 }
 
+/** Prints the `sync-labels generate` subcommand's help text. */
 function showSyncLabelsGenerateHelp(): void {
   console.info(`
 Usage: release-kit sync-labels generate [options]
@@ -104,6 +108,7 @@ Options:
 `);
 }
 
+/** Prints the `sync-labels sync` subcommand's help text. */
 function showSyncLabelsSyncHelp(): void {
   console.info(`
 Usage: release-kit sync-labels sync
@@ -115,6 +120,7 @@ Options:
 `);
 }
 
+/** Prints the `init` command's help text. */
 function showInitHelp(): void {
   console.info(`
 Usage: release-kit init [options]
@@ -130,6 +136,7 @@ Options:
 `);
 }
 
+/** Prints the `commit` command's help text. */
 function showCommitHelp(): void {
   console.info(`
 Usage: release-kit commit [options]
@@ -143,6 +150,7 @@ Options:
 `);
 }
 
+/** Prints the `tag` command's help text. */
 function showTagHelp(): void {
   console.info(`
 Usage: release-kit tag [options]
@@ -156,6 +164,7 @@ Options:
 `);
 }
 
+/** Prints the `push` command's help text. */
 function showPushHelp(): void {
   console.info(`
 Usage: release-kit push [options]
@@ -173,6 +182,7 @@ Options:
 `);
 }
 
+/** Prints the `create-github-release` command's help text. */
 function showCreateGithubReleaseHelp(): void {
   console.info(`
 Usage: release-kit create-github-release [options]
@@ -189,6 +199,7 @@ Options:
 `);
 }
 
+/** Prints the `show-tag-prefixes` command's help text. */
 function showShowTagPrefixesHelp(): void {
   console.info(`
 Usage: release-kit show-tag-prefixes [options]
@@ -205,6 +216,7 @@ Options:
 `);
 }
 
+/** Prints the `overrides` command's help text. */
 function showOverridesHelp(): void {
   console.info(`
 Usage: release-kit overrides <subcommand> [options]
@@ -219,6 +231,7 @@ Options:
 `);
 }
 
+/** Prints the `overrides validate` subcommand's help text. */
 function showOverridesValidateHelp(): void {
   console.info(`
 Usage: release-kit overrides validate
@@ -239,6 +252,7 @@ Options:
 `);
 }
 
+/** Prints the `publish` command's help text. */
 function showPublishHelp(): void {
   console.info(`
 Usage: release-kit publish [options]

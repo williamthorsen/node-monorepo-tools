@@ -24,26 +24,20 @@ export type PolicyViolationSurface = 'prefix' | 'body' | 'entry';
 /**
  * Callback invoked when `parseCommitMessage` detects a `!`-policy violation.
  *
- * The parser warns and continues on a violation, so legacy log entries don't block releases.
- * `readReleaseHistory` collects the invocations for the unreleased window, and the release
- * report lists them.
+ * Parsing continues after a violation so that an older commit in the log does not block a release.
  */
 export type PolicyViolationHandler = (commit: Commit, type: string, surface: PolicyViolationSurface) => void;
 
 /** Optional configuration for `parseCommitMessage` beyond the core inputs. */
 export interface ParseCommitMessageOptions {
-  /**
-   * Per-type breaking-policy lookup keyed by canonical type name. Missing entries are
-   * treated as `'optional'` for backward compatibility with consumers that have not
-   * supplied policies.
-   */
+  /** Per-type breaking-policy lookup keyed by canonical type name; a type without an entry is `'optional'`. */
   breakingPolicies?: Record<string, BreakingPolicy>;
   /** Receives policy-violation notifications. See {@link PolicyViolationHandler}. */
   onPolicyViolation?: PolicyViolationHandler;
 }
 
 /**
- * Parse a commit message into structured metadata.
+ * Parses a commit message into structured metadata.
  *
  * Reads the first line through change-grammar's `pipedScope` template (`scope|type: description`, the scope optional),
  * then its `conventionalCommits` template (`type(scope): description`), and takes the first match. Types and aliases
@@ -93,7 +87,7 @@ export function parseCommitMessage(
 
 /**
  * Reads a commit subject into a change record through the templates that release-kit accepts, before any breaking
- * policy applies. Ticket prefixes are stripped by the engine.
+ * policy applies. The engine strips ticket prefixes.
  */
 export function parseSubject(subject: string, workTypes: Record<string, WorkTypeConfig>): ChangeRecord | undefined {
   const taxonomy = toTaxonomy(workTypes);

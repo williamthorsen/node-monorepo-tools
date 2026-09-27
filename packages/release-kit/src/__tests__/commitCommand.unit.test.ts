@@ -16,7 +16,7 @@ vi.mock(import('node:child_process'), () => ({
 
 import { commitCommand } from '../commitCommand.ts';
 
-/** Create an Error with a `code` property, matching Node's ErrnoException shape. */
+/** Creates an Error with a `code` property, matching Node's ErrnoException shape. */
 function errnoError(message: string, code: string): Error {
   return Object.assign(new Error(message), { code });
 }
@@ -115,7 +115,6 @@ describe(commitCommand, () => {
       maxBuffer: GIT_OUTPUT_LIMIT,
     });
     expect(console.info).toHaveBeenCalledWith('\nUncommitted changes:');
-    // Should not call git add or git commit.
     expect(mockExecFileSync).not.toHaveBeenCalledWith('git', expect.arrayContaining(['add']));
     expect(mockExecFileSync).not.toHaveBeenCalledWith('git', expect.arrayContaining(['commit']));
   });

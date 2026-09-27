@@ -301,9 +301,8 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('does not exit when --tags is explicit and every skip is no-entry', async () => {
-    // Typo protection lives upstream in resolveCommandTags (which exits 1 on unknown --tags
-    // values), so a no-entry skip reaching here is a legitimate "no releasable content"
-    // outcome — same as no-audience-content and empty-body.
+    // `resolveCommandTags` exits 1 on an unknown `--tags` value, so a no-entry skip that reaches this command
+    // means "no releasable content", as no-audience-content and empty-body do.
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/extra']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -360,8 +359,7 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('logs an info summary when --tags has mixed outcomes including a no-entry skip', async () => {
-    // Mirrors the no-audience-content mixed-outcome test below: no-entry is no longer
-    // discriminated at this layer because resolveCommandTags already rejects unknown tags.
+    // `resolveCommandTags` rejects an unknown tag, so this command reports a no-entry skip like any other skip.
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/extra']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -474,8 +472,7 @@ describe(createGithubReleaseCommand, () => {
 
   describe('--tags parsing', () => {
     it('rejects --tags= (empty value) with a missing-value error', async () => {
-      // The shared parseArgs helper rejects empty `--flag=` values before the command sees them,
-      // so the user gets a precise error rather than a confusing "Unknown tag" downstream.
+      // The shared parseArgs helper rejects an empty `--flag=` value before the command sees it.
       const error = await captureError(ProcessExitError, () =>
         createGithubReleaseCommand(['--tags='], RICH_STYLES, process.cwd()),
       );

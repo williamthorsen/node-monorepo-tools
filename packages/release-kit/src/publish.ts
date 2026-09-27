@@ -8,7 +8,7 @@ export interface PublishOptions {
   provenance: boolean;
 }
 
-/** Publish a single package by running `{pm} publish` from its workspace directory. */
+/** Publishes a single package by running `{pm} publish` from its workspace directory. */
 export function publishPackage(
   resolvedTag: ResolvedTag,
   packageManager: PackageManager,
@@ -24,7 +24,7 @@ export function publishPackage(
   execFileSync(executable, args, { cwd: resolvedTag.workspacePath, stdio: 'inherit' });
 }
 
-/** Map the `PackageManager` value to the actual CLI executable name. */
+/** Maps the `PackageManager` value to the actual CLI executable name. */
 function resolveExecutable(packageManager: PackageManager): string {
   if (packageManager === 'yarn-berry') {
     return 'yarn';
@@ -33,10 +33,10 @@ function resolveExecutable(packageManager: PackageManager): string {
 }
 
 /**
- * Build the argument list for the publish command.
+ * Builds the argument list for the publish command.
  *
- * `--no-git-checks` is always emitted for pnpm: release-kit performs its own clean-tree check
- * upstream, and the README injection that follows would otherwise trigger pnpm's check.
+ * `--no-git-checks` is always emitted for pnpm: release-kit runs its own clean-tree check before
+ * publishing, and pnpm's check would fail on the README into which release-kit injects release notes.
  */
 function buildPublishArgs(packageManager: PackageManager, options: PublishOptions): string[] {
   const args = packageManager === 'yarn-berry' ? ['npm', 'publish'] : ['publish'];

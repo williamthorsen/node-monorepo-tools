@@ -6,17 +6,17 @@ import type { WorkspaceConfig } from './types.ts';
 
 /** Identities, current versions, and `workspace:` dependency edges of the workspaces' packages. */
 export interface DependencyGraph {
-  /** Resolve a package name to its workspace `dir`. */
+  /** Maps a package name to its workspace `dir`. */
   packageNameToDir: Map<string, string>;
-  /** Resolve a workspace `dir` to its package name (inverse of `packageNameToDir`). */
+  /** Maps a workspace `dir` to its package name (inverse of `packageNameToDir`). */
   dirToPackageName: Map<string, string>;
-  /** Resolve a workspace `dir` to its current version; absent when its `package.json` has no string `version`. */
+  /** Maps a workspace `dir` to its current version; absent when its `package.json` has no string `version`. */
   dirToVersion: Map<string, string>;
-  /** Map a package name to the workspaces that depend on it. */
+  /** Maps a package name to the workspaces that depend on it. */
   dependentsOf: Map<string, WorkspaceConfig[]>;
   /**
-   * Forward adjacency: map a workspace `dir` to the set of `workspace:`-protocol package
-   * names it declares in `dependencies` or `peerDependencies`. Complement of `dependentsOf`.
+   * Maps a workspace `dir` to the `workspace:`-protocol package names that it declares in `dependencies` or
+   * `peerDependencies` (the forward counterpart of `dependentsOf`).
    */
   dependenciesOf: Map<string, Set<string>>;
 }
@@ -28,6 +28,7 @@ interface PackageJsonSubset {
   peerDependencies?: Record<string, string>;
 }
 
+/** Reports whether a parsed value is an object, which the graph reads as a `package.json` subset. */
 function isPackageJsonSubset(value: unknown): value is PackageJsonSubset {
   return typeof value === 'object' && value !== null;
 }
@@ -97,7 +98,7 @@ export function buildDependencyGraph(workspaces: readonly WorkspaceConfig[]): De
   return { packageNameToDir, dirToPackageName, dirToVersion, dependentsOf, dependenciesOf };
 }
 
-/** Read and parse a package.json file, returning only the fields needed for graph building. */
+/** Reads and parses a `package.json` file as the subset of fields that the graph reads. */
 function readPackageJsonSubset(filePath: string): PackageJsonSubset {
   let content: string;
   try {

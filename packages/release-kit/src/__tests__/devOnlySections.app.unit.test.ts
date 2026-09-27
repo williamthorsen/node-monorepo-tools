@@ -12,7 +12,7 @@ import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.t
  */
 const ALL_AUDIENCE_GROUPS = new Set(['Bug fixes', 'Deprecated', 'Features', 'Performance', 'Removed', 'Security']);
 
-/** Bare names of the sections a changelog can carry: one per work type the taxonomy admits. */
+/** Returns the bare names of the sections that a changelog can contain: one per work type that the taxonomy admits. */
 function getChangelogSectionNames(): Set<string> {
   const names = new Set<string>();
   for (const config of Object.values(DEFAULT_WORK_TYPES)) {

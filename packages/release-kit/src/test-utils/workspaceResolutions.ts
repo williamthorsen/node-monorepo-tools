@@ -1,14 +1,14 @@
 import type { EmptyWorkspace, FailingWorkspaceCause, WorkspaceDiscovery } from '../discoverWorkspaces.ts';
 
 /**
- * The discoveries a mocked `discoverWorkspaces` hands back, built here rather than spelled out at each mock
+ * The discoveries that a mocked `discoverWorkspaces` returns, built here rather than spelled out at each mock
  * site so that a suite states which of the three situations it is exercising.
  *
- * A discovery carries the `packages` list the manifest declared, which only a message quotes, so each builder
- * supplies one consistent with the directories rather than asking every caller to.
+ * A discovery contains the patterns from the manifest's `packages` list, which only a message quotes, so each builder
+ * supplies a default rather than asking every caller to.
  */
 
-/** A workspace declaring patterns that resolved to no package directory, which every command fails on. */
+/** A workspace declaring patterns that resolved to no package directory, on which every command fails. */
 export function emptyWorkspace(cause: FailingWorkspaceCause, patterns: string[] = ['packages/*']): EmptyWorkspace {
   return { cause, kind: 'empty', patterns };
 }

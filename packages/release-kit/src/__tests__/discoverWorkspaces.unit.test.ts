@@ -65,8 +65,7 @@ describe(discoverWorkspaces, () => {
     });
   });
 
-  // The defect this change repairs: `glob` never applied a `!` entry, so an excluded package reached every
-  // tag, publish, and label-sync workflow.
+  // An excluded package that discovery returned would reach every tag, publish, and label-sync workflow.
   it('omits a package that a negative pattern excludes', () => {
     tree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n  - '!packages/legacy'\n");
 

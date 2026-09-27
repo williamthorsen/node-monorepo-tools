@@ -6,10 +6,9 @@ import { parseJsonRecord } from './parseJsonRecord.ts';
 export type RepoType = 'monorepo' | 'single-package';
 
 /**
- * Detect whether the current directory is a monorepo or a single-package repo.
+ * Detects whether the current directory is a monorepo or a single-package repo.
  *
- * Returns `'monorepo'` if `pnpm-workspace.yaml` exists or `package.json` has a `workspaces` field.
- * Otherwise returns `'single-package'`.
+ * A monorepo has `pnpm-workspace.yaml` or a `workspaces` array in `package.json`.
  */
 export function detectRepoType(): RepoType {
   if (existsSync('pnpm-workspace.yaml')) {

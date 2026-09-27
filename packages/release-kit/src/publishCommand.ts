@@ -29,8 +29,8 @@ const publishFlagSchema = {
 };
 
 /**
- * Orchestrate the CLI `publish` command: parse flags, open a named config, discover workspaces, resolve tags
- * from HEAD, detect the package manager, validate `--tags`, and publish each tag with inject/restore lifecycle.
+ * Orchestrates the CLI `publish` command: checks for a clean working tree, resolves the tags on HEAD, and publishes
+ * each publishable one, injecting release notes into its README for the duration of the publish.
  * A relative `--config` resolves against `invocationDir`.
  */
 export async function publishCommand(argv: string[], styles: StreamStyles, invocationDir: string): Promise<void> {
@@ -41,9 +41,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
 
   const userConfig = await loadUsableConfig(styles.stderr, configPath);
 
-  // Guard against running on a dirty working tree (skip for dry runs and --no-git-checks).
-  // Mirrors prepareCommand and tagCommand: release-kit owns the check; pnpm's own check is
-  // bypassed downstream because release-kit deliberately mutates the README during publish.
+  // Run release-kit's own clean-tree check: `publishPackage` bypasses pnpm's, which would fail on the injected README.
   if (!dryRun && !noGitChecks) {
     try {
       assertCleanWorkingTree();
@@ -73,7 +71,6 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
 
   const shouldInject = releaseNotes.shouldInjectIntoReadme;
 
-  // Print confirmation listing before publishing.
   console.info(dryRun ? '[dry-run] Would publish:' : 'Publishing:');
   for (const { tag, workspacePath } of publishableTags) {
     console.info(`  ${tag} (${workspacePath})`);
@@ -120,12 +117,11 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
 }
 
 /**
- * Restrict the resolved tag set to publishable workspaces.
+ * Restricts the resolved tag set to publishable workspaces.
  *
  * When the user named tags explicitly via `--tags` (`isExplicit === true`), each unpublishable
  * tag is skipped with a warning and the publishable tags still publish. When resolution was
- * implicit, unpublishable tags are dropped silently. The caller handles the empty-result case
- * (printing `Nothing to publish.` and returning).
+ * implicit, unpublishable tags are dropped silently.
  */
 function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean): ResolvedTag[] {
   const publishable: ResolvedTag[] = [];
@@ -134,10 +130,8 @@ function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean)
     (tag.isPublishable ? publishable : unpublishable).push(tag);
   }
 
-  // Warn only on explicit naming. An implicit HEAD scan routinely surfaces private-but-tagged
-  // workspaces, so a warning per release would be noise; naming a tag is the signal that the
-  // user expected it to publish, so its skip is worth surfacing. Either way the tag is dropped,
-  // never fatal — publishable tags in the same set still publish.
+  // Warn only on explicit naming: an implicit HEAD scan routinely surfaces private-but-tagged workspaces, whereas
+  // naming a tag signals that the user expected it to publish.
   if (isExplicit) {
     for (const resolvedTag of unpublishable) {
       console.warn(formatPrivateSkip(resolvedTag));

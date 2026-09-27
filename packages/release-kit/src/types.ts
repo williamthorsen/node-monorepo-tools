@@ -15,13 +15,10 @@ export interface ChangelogItem {
   /**
    * Whether this item represents a breaking change.
    *
-   * `true` when the commit subject carries the `!` prefix (e.g. `feat!:` or `drop(scope)!:`), or the
+   * `true` when the commit subject has the `!` marker (e.g. `feat!:` or `drop(scope)!:`), or the
    * change-record entry from which the item derives sets `breaking: true`, and the work-type policy
-   * permits it, so the item agrees with the version bump.
-   * The `BREAKING CHANGE:` body footer is intentionally NOT considered here. Renderers prefix
-   * breaking-item bullets with the marker constructed from `CANONICAL_TAXONOMY.markers.breaking`
-   * (rendered as `🚨 **Breaking:** ` with the canonical SSOT values) to surface them prominently
-   * in release notes.
+   * permits it, so that the item agrees with the version bump. The `BREAKING CHANGE:` body footer
+   * does not set it.
    */
   breaking?: boolean;
   /**
@@ -29,7 +26,7 @@ export interface ChangelogItem {
    * the `migration` of the change-record entry from which the item derives.
    *
    * On a title-derived item, derived from `body` wherever `body` is set, and absent where the body
-   * carries no labeled paragraph. Independent of `breaking`: a `deprecate` commit cannot carry `!` under the default
+   * contains no labeled paragraph. Independent of `breaking`: a `deprecate` commit cannot take `!` under the default
    * breaking policy and still calls for a migration. `body` keeps the paragraph, so
    * `CHANGELOG.md` goes on rendering it in place.
    */
@@ -38,7 +35,7 @@ export interface ChangelogItem {
    * Full git commit SHA when known. Captured from the commit's release window and
    * persisted in `changelog.json` so that override files can target items by hash. Synthetic
    * propagation entries (`buildSyntheticChangelogEntry`, `buildEmptyReleaseEntry`) leave
-   * this field absent — they have no underlying commit.
+   * this field absent, because they have no underlying commit.
    */
   hash?: string;
   /**
@@ -52,8 +49,8 @@ export interface ChangelogItem {
 export interface ChangelogSection {
   /**
    * Section title, read from the work type of the commit or of its change-record entry. A default
-   * title carries the type's emoji prefix (e.g. `"🐛 Bug fixes"`), so callers that match against
-   * `title` (e.g. `sectionOrder` configs) include that prefix.
+   * title begins with the type's emoji (e.g. `"🐛 Bug fixes"`), which an exact match against
+   * `title`, such as a `sectionOrder` list, must include.
    */
   title: string;
   audience: ChangelogAudience;
@@ -79,10 +76,8 @@ export interface ChangelogJsonConfig {
  * `<hash>:<n>` (the item derived from the commit's `n`th change-record entry), where the hash is lowercase hex
  * matched as a prefix. All fields are optional; an entry with no fields is a validation error.
  *
- * `audience` declares the full forward-compatible vocabulary, but only `'skip'` is currently
- * supported at runtime. `'all'` and `'dev'` reclassification is reserved for a v2 follow-up
- * and rejected by the validator with an explicit "not yet supported" error so the on-disk
- * format remains stable through the v1→v2 transition.
+ * `audience` admits `'all'` and `'dev'`, but the validator rejects both with a "not yet supported"
+ * error; only `'skip'` takes effect.
  */
 export interface ChangelogOverride {
   audience?: 'all' | 'dev' | 'skip';
@@ -102,16 +97,11 @@ export interface ReleaseNotesConfig {
   shouldInjectIntoReadme: boolean;
 }
 
-/**
- * Project-release config after merging defaults. Mirrors the `ReleaseNotesConfig`/
- * `ResolvedReleaseNotesConfig`-style split: optional fields in `ProjectConfig` become
- * required in `ResolvedProjectConfig`.
- */
+/** Project-release config after merging defaults: `ProjectConfig` with every field required. */
 export interface ResolvedProjectConfig {
   /**
    * Resolved commit window for the project release: the git pathspecs that select which commits
-   * the stage considers. Defaults to the union of every contributing
-   * workspace's `paths`.
+   * the stage considers. Defaults to the union of every contributing workspace's `paths`.
    */
   paths: string[];
   /** Resolved tag prefix for project-level tags. */
@@ -125,11 +115,8 @@ export interface PropagationSource {
 }
 
 /**
- * A `!`-policy violation detected while reading the unreleased window during release preparation.
- *
- * Surfaces from `releasePrepare`, `releasePrepareMono`, and `releasePrepareProject` via the
- * `policyViolations` field on each per-workspace/project result. The policy itself is enforced
- * tolerantly at release time — violations are collected and reported, never fail the release.
+ * A `!`-policy violation detected while reading the unreleased window during release preparation. Violations are
+ * reported and never fail the release.
  */
 export interface PolicyViolation {
   /** Full hash of the offending commit. */
@@ -195,11 +182,8 @@ export interface ChangelogPreservation {
 }
 
 /**
- * Result of preparing a single workspace (package) for release when a release was produced.
- *
- * `currentVersion`, `newVersion`, `tag`, `bumpedFiles`, and `changelogFiles` are always
- * populated. `releaseType` is left undefined for `--set-version`, and `parsedCommitCount` for
- * `--set-version` and propagation-only workspaces.
+ * Result of preparing a single workspace (package) for release when a release was produced. `releaseType` is absent
+ * for `--set-version`.
  */
 export interface ReleasedWorkspaceResult {
   status: 'released';
@@ -208,9 +192,9 @@ export interface ReleasedWorkspaceResult {
   previousTag?: string;
   commitCount: number;
   /**
-   * Count of commits that yield at least one changelog item — `0` when there are no commits or
-   * when none does. Absent for `--set-version` and propagation-only workspaces. Use
-   * `bumpOverride` as the signal for "the user supplied --bump=X".
+   * Count of commits that yield at least one changelog item; `0` when there are no commits or
+   * when none does. Absent for `--set-version` and propagation-only workspaces. `bumpOverride`,
+   * not this count, signals that the user supplied `--bump=X`.
    */
   parsedCommitCount?: number;
   /** Commits that yield no changelog item and that no exclusion or diagnostic accounts for. */
@@ -236,9 +220,8 @@ export interface ReleasedWorkspaceResult {
   /** Raw commits of the workspace's unreleased window. */
   commits?: Commit[];
   /**
-   * Present when `--bump=X` was supplied and selected the release level for this workspace.
-   * Distinguishes a bump-override release from a `--force` fallback or a natural-bump release;
-   * consumed by the renderer to label the release accurately.
+   * Present when `--bump=X` was supplied and selected the release level for this workspace, which
+   * distinguishes a bump-override release from a `--force` fallback or a natural-bump release.
    */
   bumpOverride?: ReleaseType;
   /** Dependencies that triggered a propagated bump (present for propagated or mixed workspaces). */
@@ -250,10 +233,8 @@ export interface ReleasedWorkspaceResult {
 }
 
 /**
- * Result of preparing a single workspace (package) for release when the release was skipped.
- *
- * Carries diagnostic data (`commitCount`, `parsedCommitCount`, `unparseableCommits`,
- * `previousTag`) plus the human-readable `skipReason`. Release-only fields are absent.
+ * Result of preparing a single workspace (package) for release when the release was skipped: the diagnostic fields
+ * and a human-readable `skipReason`, without the release-only fields.
  */
 export interface SkippedWorkspaceResult {
   status: 'skipped';
@@ -287,19 +268,16 @@ export type WorkspacePrepareResult = ReleasedWorkspaceResult | SkippedWorkspaceR
 /**
  * Result of preparing a project-level release when a release was produced.
  *
- * Mirrors `ReleasedWorkspaceResult` minus the workspace-only fields (`name`,
- * `propagatedFrom`, `setVersion`). Project releases never propagate and never use
- * `--set-version`, so `releaseType`, `currentVersion`, `newVersion`, `tag`, and
- * `commits` are all required.
+ * Mirrors `ReleasedWorkspaceResult` without the workspace-only fields. Project releases never propagate and never
+ * use `--set-version`, so `releaseType`, `parsedCommitCount`, and `commits` are required.
  */
 export interface ReleasedProjectResult {
   status: 'released';
   previousTag?: string;
   commitCount: number;
   /**
-   * Count of commits that yield at least one changelog item — `0` when there are no commits or
-   * when none does. Use `bumpOverride` (not `parsedCommitCount === 0`) as the signal for "the
-   * user supplied --bump=X".
+   * Count of commits that yield at least one changelog item; `0` when there are no commits or
+   * when none does. `bumpOverride`, not a zero count, signals that the user supplied `--bump=X`.
    */
   parsedCommitCount: number;
   /** Commits that yield no changelog item and that no exclusion or diagnostic accounts for. */
@@ -323,18 +301,15 @@ export interface ReleasedProjectResult {
   /** Raw commits in the project's contributing-paths window since the last project tag. */
   commits: Commit[];
   /**
-   * Present when `--bump=X` was supplied and selected the release level for the project.
-   * Distinguishes a bump-override release from a `--force` fallback or a natural-bump release;
-   * consumed by the renderer to label the release accurately.
+   * Present when `--bump=X` was supplied and selected the release level for the project, which
+   * distinguishes a bump-override release from a `--force` fallback or a natural-bump release.
    */
   bumpOverride?: ReleaseType;
 }
 
 /**
- * Result of preparing a project-level release when the release was skipped.
- *
- * Carries diagnostic data (`commitCount`, `parsedCommitCount`, `unparseableCommits`,
- * `previousTag`) plus the human-readable `skipReason`. Release-only fields are absent.
+ * Result of preparing a project-level release when the release was skipped: the diagnostic fields and a
+ * human-readable `skipReason`, without the release-only fields.
  */
 export interface SkippedProjectResult {
   status: 'skipped';
@@ -407,12 +382,11 @@ export interface VersionPatterns {
 
 // region | Schemas for consumer-facing config file
 //
-// Defined in zod so the runtime validator and the static type stay in lockstep — adding a
-// field to the schema flows through `z.infer` automatically; nothing can drift. Schemas
-// describe the *input* shape (fields optional, no defaults). Resolved/post-merge shapes
-// (`ChangelogJsonConfig`, `ReleaseNotesConfig`, `WorkspaceConfig`, etc.) stay as
-// hand-written interfaces because they are produced by `mergeMonorepoConfig` after defaults
-// are applied — they have nothing to validate.
+// Defined in zod so that the runtime validator and the static type stay in lockstep: `z.infer`
+// derives each type from its schema. Schemas describe the *input* shape (fields optional, no
+// defaults). Resolved shapes (`ChangelogJsonConfig`, `ReleaseNotesConfig`, `WorkspaceConfig`,
+// etc.) are hand-written interfaces, because config merging produces them after applying
+// defaults and they need no validation.
 
 /**
  * Schema for a single historical identity snapshot for a workspace.
@@ -429,8 +403,8 @@ export const legacyIdentitySchema = z
   .strict();
 
 /**
- * A single historical identity snapshot for a workspace. Both fields are required — a full
- * tuple stays unambiguous across any number of future renames.
+ * A single historical identity snapshot for a workspace. Both fields are required, because a full
+ * tuple stays unambiguous across any number of renames.
  */
 export type LegacyIdentity = z.infer<typeof legacyIdentitySchema>;
 
@@ -522,7 +496,7 @@ export const labelSpecSchema = z
 /**
  * A label's color and optional description; the name is the record key in `repoLabels.labels`.
  * An omitted description resolves to empty, which the generated labels file declares explicitly so that a sync
- * clears whatever description the label carries today.
+ * clears whatever description the label has on the repo.
  */
 export type LabelSpec = z.infer<typeof labelSpecSchema>;
 
@@ -531,7 +505,7 @@ export type LabelSpec = z.infer<typeof labelSpecSchema>;
  * the GitHub repo, distinct from labels applied to PRs and issues).
  *
  * Resolution is an ordered fold with last-writer-wins: presets in `extends` order, then the `labels` record,
- * where an entry adds a label, replaces one an earlier layer defined, or removes it (`null`). Names match
+ * where an entry adds a label, replaces one that an earlier layer defined, or removes it (`null`). Names match
  * case-insensitively, as GitHub matches them, and the replacing layer's spelling wins.
  * Two misstatements are resolve-time errors (`resolveLabels`), not schema errors: `labels` keys that differ only in
  * case, and a `null` naming a label that no earlier layer defined.
@@ -605,12 +579,11 @@ export interface WorkspaceConfig {
   name: string;
   /** The git tag prefix for this workspace (e.g., 'nmr-core-v'), derived from the unscoped `package.json` name. */
   tagPrefix: string;
-  /** Workspace-relative path to the package root (e.g., `packages/core`). */
+  /** Repo-relative path to the package root (e.g., `packages/core`). */
   workspacePath: string;
   /**
    * Whether this workspace can be published to a registry. `true` when `package.json#private`
-   * is absent or `false`; `false` only when `private === true`. Consumed by `release-kit publish`
-   * to filter unpublishable workspaces; other commands ignore this field.
+   * is absent or `false`; `false` only when `private === true`.
    */
   isPublishable: boolean;
   /** Paths to package.json files to bump. */
@@ -658,8 +631,8 @@ export interface MonorepoReleaseConfig {
   /** Controls release notes consumption (README injection). */
   releaseNotes: ReleaseNotesConfig;
   /**
-   * Project-level release config. Present iff the consumer declared `project: {}`.
-   * When present, `releasePrepareMono` runs an additional project-release stage after the per-workspace loop.
+   * Project-level release config. Present when the config declares a `project` block, in which case
+   * `prepare` runs a project-release stage after the per-workspace loop.
    */
   project?: ResolvedProjectConfig;
 }

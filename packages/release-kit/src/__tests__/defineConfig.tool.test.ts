@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 
 const ENTRY_SOURCE_PATH = path.join(import.meta.dirname, '../defineConfig.ts');
 
-/** The erasable type import the entry is written with, and the inline form that silently retains its specifier. */
+/** The erasable type import that the entry uses, and the inline form that silently retains its specifier. */
 const ERASABLE_IMPORT = "import type { ReleaseKitConfig } from './types.ts';";
 const RETAINING_IMPORT = "import { type ReleaseKitConfig } from './types.ts';";
 
@@ -53,7 +53,7 @@ interface ProbeResult {
   stderr: string;
 }
 
-/** Write `source` alone into a temp directory as the entry module, then import it from a Node subprocess. */
+/** Writes `source` alone into a temp directory as the entry module, then imports it from a Node subprocess. */
 function loadStandalone(source: string): ProbeResult {
   using tree = createTempTree({}, { prefix: 'release-kit-config-entry-' });
   // Declare ESM rather than lean on Node's syntax detection, so the module graph is the only thing under test.

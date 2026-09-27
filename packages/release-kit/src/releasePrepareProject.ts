@@ -36,52 +36,42 @@ export interface ReleasePrepareProjectArgs {
   options: ReleasePrepareOptions;
   /** Mutated in-place to append project-level files (root package.json, root CHANGELOG.md, root changelog.json). */
   modifiedFiles: string[];
-  /** Mutated in-place to append every file this stage intends to write. */
+  /** Mutated in-place to append every file that this stage intends to write. */
   writes: PlannedWrite[];
   /** Mutated in-place to append the project tag. */
   tags: string[];
   /**
-   * Mutated in-place to surface warnings this stage raises that are not override-specific
-   * (currently the release-notes previews' skip reasons). Defaults to a discardable sink.
+   * Mutated in-place to receive the warnings that this stage raises and that are not override-specific.
+   * Defaults to a discardable sink.
    */
   warnings?: string[];
   /**
-   * Root-tier editorial overrides loaded once at the top of the prepare run. Defaults to an
-   * empty map when omitted (no overrides applied). The project changelog applies only the
-   * root-tier file — per-workspace files describe per-workspace editorial intent and have no
+   * Root-tier editorial overrides. Defaults to an empty map. The project changelog applies only the
+   * root-tier file: per-workspace files describe per-workspace editorial intent and have no
    * meaning at the aggregated project tier.
    */
   rootOverrides?: Map<string, ChangelogOverride>;
   /**
-   * Mutated in-place to surface override warnings (currently empty by design — stale-key
-   * warnings are emitted by the orchestrator after aggregating across batches). Defaults to
-   * a discardable sink when omitted.
+   * Mutated in-place to receive override-application warnings. Stale-key warnings are not among them: those
+   * depend on the matches of every batch, which `globalMatchedRootKeys` collects. Defaults to a discardable sink.
    */
   overrideWarnings?: string[];
   /**
-   * Mutated in-place: every root-tier override key matched in this stage is added so the
-   * orchestrator can dedupe stale-key warnings across the run. Defaults to a discardable
-   * sink when omitted.
+   * Mutated in-place to receive every root-tier override key that this stage matches, so that stale-key
+   * warnings can cover the whole run. Defaults to a discardable sink.
    */
   globalMatchedRootKeys?: Set<string>;
 }
 
 /**
- * Run the project-level release stage.
+ * Runs the project-level release stage: reads the history, decides the bump, and plans the root `package.json`
+ * bump, the root `CHANGELOG.md`, and optionally `changelog.json` and release-notes previews. Contributing paths
+ * come from the resolved `project.paths`, which defaults to the union of every (already-filtered) workspace's
+ * `paths`.
  *
- * Mirrors the per-workspace pipeline shape — read the history → decide the bump → bump version →
- * regenerate CHANGELOG → optionally emit changelog.json and release-notes previews — but
- * targets the root `package.json` and the root `CHANGELOG.md`. Contributing paths come from
- * the resolved `project.paths`, which defaults to the union of every (already-filtered)
- * workspace's `paths`.
- *
- * Returns a structured `{ status: 'skipped', skipReason, ... }` result when neither
- * commits nor `--force` provide a release signal. The caller should attach the returned
- * result to `PrepareResult.project`. `undefined` is returned only when there is no
- * configured `project` block — handled at the call site, not here.
- *
- * Caller contract: `prepareCommand` rejects `--only` upstream when a project block is
- * configured, so this orchestrator never has to reason about workspace-narrowing flags.
+ * Returns a `skipped` result when neither commits nor `--force` provide a release signal, and throws when
+ * `config.project` is undefined. A run narrowed by `--only` does not reach this stage, so it reads no
+ * narrowing flag.
  */
 export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectPrepareResult {
   const { config, options, modifiedFiles, writes, tags } = args;
@@ -164,8 +154,8 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   const { changelogFiles, changelogJsonFiles } = changelogs;
   writes.push(...changelogs.writes);
 
-  // 6. Optional release-notes previews under root docs/, rendered from the entries this stage
-  // plans to write rather than from the file it has not written yet.
+  // 6. Plan the optional release-notes previews under root docs/ from the planned entries, since the changelog
+  // file is not yet written.
   const previewFiles: string[] = [];
   if (withReleaseNotes === true && config.changelogJson.enabled && changelogJsonFiles.length > 0) {
     const previews = planReleaseNotesPreviews({
@@ -179,8 +169,8 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     previewFiles.push(...previews.writes.map((write) => write.path));
   }
 
-  // 7. Append the project tag and modified files to the shared aggregators so downstream
-  // commands (`commit`, `tag`, format command) see them alongside per-workspace artifacts.
+  // 7. Append the project tag and modified files to the shared aggregators, so that the plan's tags and format
+  // command include them alongside the per-workspace ones.
   tags.push(newTag);
   modifiedFiles.push(ROOT_PACKAGE_FILE, ...changelogFiles, ...changelogJsonFiles);
 
@@ -216,11 +206,7 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   return result;
 }
 
-/**
- * Resolve the optional override-related fields on `ReleasePrepareProjectArgs` to concrete
- * defaults. Hoisted from the main function body so its branch count does not push
- * `releasePrepareProject` past the project's complexity ceiling.
- */
+/** Resolves the optional override-related fields on `ReleasePrepareProjectArgs` to concrete defaults. */
 function resolveOptionalOverrideArgs(args: ReleasePrepareProjectArgs): {
   rootOverrides: Map<string, ChangelogOverride>;
   overrideWarnings: string[];
@@ -251,8 +237,8 @@ interface PlanProjectChangelogsArgs {
  * `CHANGELOG.md` from the merged set. The merge keeps the synthetic entries of earlier releases, which the release
  * windows do not yield, and `CHANGELOG.md` also keeps the existing sections whose versions the merged set lacks.
  *
- * Returns the rendered writes alongside the entry set they carry, so the caller can render the
- * release-notes previews from the same entries rather than re-reading the file.
+ * Returns the rendered writes alongside the entries from which they were rendered, so that the caller can render
+ * the release-notes previews from the same entries.
  */
 function planProjectChangelogs(args: PlanProjectChangelogsArgs): {
   changelogFiles: string[];

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { enumerateReleaseWindows, type ReleaseWindow } from '../enumerateReleaseWindows.ts';
 import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
 
-/** Reduce windows to the shape the splitting assertions compare: version plus commit subjects. */
+/** Reduces windows to the shape that the splitting assertions compare: version plus commit subjects. */
 function summarize(windows: readonly ReleaseWindow[]): Array<{ version: string; subjects: string[] }> {
   return windows.map((window) => ({
     version: window.version,
@@ -11,7 +11,7 @@ function summarize(windows: readonly ReleaseWindow[]): Array<{ version: string; 
   }));
 }
 
-/** Build a three-release history: two tagged windows plus two commits above the newest tag. */
+/** Builds a three-release history: two tagged windows plus two commits above the newest tag. */
 function seedTwoReleases(repo: GitRepoFixture): void {
   repo.commit('feat: first', { 'src/first.ts': 'export const first = 1;\n' });
   repo.tag('pkg-v1.0.0');
@@ -23,7 +23,7 @@ function seedTwoReleases(repo: GitRepoFixture): void {
 }
 
 /**
- * Build a history whose branch commit is older by commit date than the tag that does not
+ * Builds a history whose branch commit is older by commit date than the tag that does not
  * contain it: base, a branch commit, a tagged mainline commit, then a no-fast-forward merge.
  */
 function seedMergedBranch(repo: GitRepoFixture): void {

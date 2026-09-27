@@ -8,7 +8,7 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "a13876a3",
+          "hash": "e71f0450",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -21,12 +21,12 @@
           ]
         },
         {
-          "hash": "850b703f",
+          "hash": "43bb0452",
           "kind": "module",
           "path": "../src/init/detectRepoType.ts"
         },
         {
-          "hash": "b6873aba",
+          "hash": "68354f97",
           "kind": "module",
           "path": "../src/init/parseJsonRecord.ts"
         },
@@ -36,7 +36,7 @@
           "path": "../src/packsPath.ts"
         },
         {
-          "hash": "646fe51b",
+          "hash": "1424b343",
           "kind": "module",
           "path": "../src/typeGuards.ts"
         }
@@ -45,8 +45,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.38.0",
       "source": "kits/default.ts",
-      "sourceHash": "a13876a3",
-      "targetHash": "89d5aa79"
+      "sourceHash": "e71f0450",
+      "targetHash": "69ce314e"
     },
     {
       "checklists": [
@@ -56,7 +56,7 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "c2d2d375",
+          "hash": "c52ec064",
           "kind": "module",
           "path": "kits/npm-auto-publish.ts"
         }
@@ -65,8 +65,8 @@
       "path": "kits/npm-auto-publish.js",
       "readyupVersion": "0.38.0",
       "source": "kits/npm-auto-publish.ts",
-      "sourceHash": "c2d2d375",
-      "targetHash": "9d2d224b"
+      "sourceHash": "c52ec064",
+      "targetHash": "a7db41ab"
     }
   ]
 }

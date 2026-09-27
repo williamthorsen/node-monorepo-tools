@@ -36,6 +36,7 @@ const VALID_BUMP_TYPES: readonly string[] = ['major', 'minor', 'patch'];
 /** Canonical `N.N.N` semver pattern for validating `--set-version` input. */
 const CANONICAL_SEMVER_PATTERN = /^\d+\.\d+\.\d+$/;
 
+/** Narrows a `--bump` value to a `ReleaseType`. */
 function isReleaseType(value: string): value is ReleaseType {
   return VALID_BUMP_TYPES.includes(value);
 }
@@ -116,13 +117,8 @@ export function parseArgs(argv: string[]): {
 }
 
 /**
- * Orchestrates the CLI `prepare` command.
- *
- * 1. Discovers workspaces from `pnpm-workspace.yaml`.
- * 2. Loads and validates `.config/release-kit.config.ts` (if present).
- * 3. Merges discovered defaults with user config.
- * 4. Delegates to `releasePrepare` or `releasePrepareMono` to compute the release plan.
- * 5. Applies the plan, runs the format command, and prints the result via `reportPrepare`.
+ * Orchestrates the CLI `prepare` command: checks the working tree, loads and validates the config, discovers the
+ * workspaces, and prepares the release in single-package or monorepo mode.
  *
  * A relative `--config` resolves against `invocationDir`.
  */
@@ -150,7 +146,6 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
     );
   }
 
-  // Guard against running on a dirty working tree (skip for dry runs and --no-git-checks).
   if (!dryRun && !noGitChecks) {
     try {
       assertCleanWorkingTree();
@@ -172,7 +167,6 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
     userConfig = configResult.config;
   }
 
-  // 3. Discover workspaces
   let workspace: WorkspaceDiscovery;
   try {
     workspace = discoverWorkspaces();
@@ -186,7 +180,6 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
     process.exit(1);
   }
 
-  // 4. Determine mode, merge config, and run
   if (workspace.kind === 'single-package') {
     runSinglePackageMode(userConfig, options, only, dryRun, styles.stdout);
   } else {
@@ -194,6 +187,7 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
   }
 }
 
+/** Prepares a single-package release, rejecting `--only`. */
 function runSinglePackageMode(
   userConfig: ReleaseKitConfig | undefined,
   options: PrepareOptions,
@@ -210,6 +204,7 @@ function runSinglePackageMode(
   runAndReport(() => releasePrepare(config, options), dryRun, style);
 }
 
+/** Prepares a monorepo release, validating `--only` and `--set-version` against the merged config. */
 function runMonorepoMode(
   discoveredPaths: string[],
   userConfig: ReleaseKitConfig | undefined,
@@ -221,8 +216,6 @@ function runMonorepoMode(
 ): void {
   let config: MonorepoReleaseConfig;
   try {
-    // Read the root package.json once so `mergeMonorepoConfig` (a pure transform) can
-    // validate the project block's prerequisites without doing I/O of its own.
     const rootPackage = readRootPackageVersion();
     config = mergeMonorepoConfig(discoveredPaths, userConfig, rootPackage);
   } catch (error: unknown) {
@@ -230,10 +223,8 @@ function runMonorepoMode(
     process.exit(1);
   }
 
-  // Reject `--set-version` when a project block is configured. `--set-version` is a workspace
-  // operation; a project release rolls up every contributing workspace and derives its bump
-  // from commits in the contributing-paths window — there is no flag designed to override the
-  // project version directly, and the two semantics do not compose.
+  // A project release derives its bump from the commits of every contributing workspace, and no flag overrides the
+  // project version, so `--set-version`, which sets one workspace's version, does not compose with it.
   if (setVersion !== undefined && config.project !== undefined) {
     reportError(
       '--set-version cannot be combined with a project release. ' +
@@ -258,7 +249,7 @@ function runMonorepoMode(
     }
 
     // Reject `--only` invocations that would silently strand changes in excluded internal
-    // dependents. Runs before the filter mutates `config.workspaces` so the validator sees
+    // dependents. Run before the filter mutates `config.workspaces` so that the validator sees
     // the full pre-filter graph.
     const graph = buildDependencyGraph(config.workspaces);
     const violations = validateOnlyExcludesStrandedDependents(config.workspaces, only, graph, (workspace) => {
@@ -283,7 +274,6 @@ function runMonorepoMode(
     config.workspaces = config.workspaces.filter((w) => only.includes(w.dir));
   }
 
-  // --set-version requires exactly one target workspace in monorepo mode.
   if (setVersion !== undefined) {
     if (only === undefined) {
       reportError('--set-version requires --only in monorepo mode');
@@ -318,9 +308,9 @@ interface PrepareOptions {
  * Computes the release plan, applies it, runs the format command, and prints the report.
  *
  * The plan is applied before anything is printed, so a partially applied plan is never preceded
- * by a success-shaped report. The format command runs last because it rewrites the very files
- * the plan just put on disk; its failure leaves the release materialized and the tags file in
- * place, so `release-kit commit` still proceeds.
+ * by a success-shaped report. The format command runs last because it rewrites the files that
+ * the plan just wrote; its failure leaves the release on disk and the tags file in place, so
+ * `release-kit commit` still proceeds.
  */
 function runAndReport(computePlan: () => ReleasePlan, dryRun: boolean, style: OutputStyle): void {
   let plan: ReleasePlan;
@@ -380,7 +370,7 @@ function runFormatCommand(formatCommand: ReleasePlan['formatCommand']): string |
   }
 }
 
-/** Reports the tags and summary files the plan carries, in the prepare command's dim style. */
+/** Reports the tags and summary files that the plan writes, in the prepare command's dim style. */
 function reportPlanFiles(plan: ReleasePlan, dryRun: boolean): void {
   if (plan.tags.length === 0) {
     return;

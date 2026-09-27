@@ -21,7 +21,7 @@ export function deriveReleaseNotesConfig(config: ReleaseKitConfig | undefined): 
   };
 }
 
-/** Extract section headers in declaration order from a merged workTypes record. */
+/** Returns the section headers of a merged `workTypes` record, in declaration order. */
 export function deriveSectionOrder(workTypes: Record<string, { header: string }>): string[] {
   return Object.values(workTypes).map((entry) => entry.header);
 }

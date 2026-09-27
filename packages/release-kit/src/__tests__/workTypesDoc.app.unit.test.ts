@@ -44,7 +44,7 @@ describe('docs/work-types.md "Work types and tiers" table alignment with DEFAULT
 });
 
 // region | Helpers
-/** Parse the "Work types and tiers" table from docs/work-types.md and return its rows. */
+/** Parses the "Work types and tiers" table from docs/work-types.md and returns its rows. */
 function parseWorkTypesTable(): DocWorkTypeRow[] {
   const heading = /^# Work types and tiers$/m.exec(docContent);
   if (heading === null) {

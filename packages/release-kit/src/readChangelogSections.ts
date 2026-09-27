@@ -20,8 +20,8 @@ export interface ChangelogMarkdownSections {
 
 /**
  * Plans which sections of the existing `CHANGELOG.md` at `changelogFile` to keep when the file is regenerated from
- * `entries`: every versioned section whose version no entry has. Also returns what to report about the file, or
- * undefined when nothing was kept and nothing was dropped.
+ * `entries`: every versioned section whose version matches none of the entries. Also returns what to report about the
+ * file, or undefined when nothing was kept and nothing was dropped.
  */
 export function planPreservedSections(
   changelogFile: string,
@@ -118,7 +118,7 @@ function extractHeadingVersion(heading: string): string | undefined {
   return semver.valid(token) ?? undefined;
 }
 
-/** Returns trailing blank lines removed from `lines`. */
+/** Returns `lines` with its trailing blank lines removed. */
 function trimTrailingBlankLines(lines: readonly string[]): string[] {
   let end = lines.length;
   while (end > 0 && lines[end - 1]?.trim() === '') {

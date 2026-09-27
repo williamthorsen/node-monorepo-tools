@@ -8,13 +8,12 @@ import { CONFIG_FILE_PATH } from '../loadConfig.ts';
 export const RETIRED_SYNC_LABELS_CONFIG_PATH = '.config/sync-labels.config.ts';
 
 /**
- * Report an actionable migration error when the retired standalone config file is present.
+ * Reports an actionable migration error when the retired standalone config file is present.
  *
  * Returns `true` when the file exists, in which case the caller must abort. The check is
  * unconditional on config content: file presence alone triggers it, so a half-migrated
- * repo cannot silently lose its custom labels. `configPath` names the config to move the labels
- * into; it defaults to `CONFIG_FILE_PATH`, which `sync-labels sync` relies on because it takes
- * no `--config`.
+ * repo cannot silently lose its custom labels. `configPath` names the config into which the
+ * message directs the labels.
  */
 export function checkRetiredSyncLabelsConfig(configPath: string = CONFIG_FILE_PATH): boolean {
   if (!existsSync(RETIRED_SYNC_LABELS_CONFIG_PATH)) {

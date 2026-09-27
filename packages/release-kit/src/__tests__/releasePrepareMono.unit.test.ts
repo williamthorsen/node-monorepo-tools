@@ -99,6 +99,7 @@ const workTypes: Record<string, WorkTypeConfig> = {
   fix: { header: 'Bug fixes' },
 };
 
+/** Builds a monorepo config with no workspaces and the changelog JSON disabled, overriding any field. */
 function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
   return {
     workspaces: [],
@@ -170,7 +171,6 @@ describe(releasePrepareMono, () => {
       changelogFiles: ['packages/arrays/CHANGELOG.md'],
     });
 
-    // Verify the plan carries the new version
     expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
 
@@ -285,11 +285,9 @@ describe(releasePrepareMono, () => {
     expect(result.workspaces[0]).toMatchObject({ name: 'arrays', status: 'released' });
     expect(result.workspaces[1]).toMatchObject({ name: 'strings', status: 'skipped' });
 
-    // Only arrays package.json should be planned
     expect(result.writes.map((write) => write.path)).toContain('packages/arrays/package.json');
     expect(result.writes.map((write) => write.path)).not.toContain('packages/strings/package.json');
 
-    // Only arrays changelog should be generated
     expect(result.writes.map((write) => write.path)).toContain('packages/arrays/CHANGELOG.md');
     expect(result.writes.map((write) => write.path)).not.toContain('packages/strings/CHANGELOG.md');
 
@@ -997,7 +995,7 @@ describe(releasePrepareMono, () => {
     });
 
     it('does not propagate to workspaces excluded from config.workspaces', () => {
-      // Only include "core" in config — "app" that depends on core is not listed.
+      // Only `core` is in the config; `app`, which depends on it, is not.
       const config = makeConfig({
         workspaces: [
           {
@@ -1276,7 +1274,7 @@ describe(releasePrepareMono, () => {
     // its unreleased window yields no changelog item, a synthetic "Notes / Forced version bump."
     // entry stands in for that window.
 
-    /** Helper config with one empty-range workspace. */
+    /** Builds a config whose one workspace is `arrays`. */
     function singleWorkspaceConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
       const workspace: WorkspaceConfig = {
         dir: 'arrays',
@@ -1430,9 +1428,8 @@ describe(releasePrepareMono, () => {
       // The propagation-only path constructs a synthetic propagation entry, not an empty-range
       // entry. Both constructors are mocked, so observe the call counts.
       expect(mockBuildSyntheticChangelogEntry).toHaveBeenCalledTimes(1);
-      // For the app workspace specifically, the empty-range entry is NOT used.
-      // (The test only has core + app, and core is on the release-window path → no empty-range
-      // build for any workspace.)
+      // Core takes the release-window path and app the propagation path, so no workspace builds
+      // an empty-range entry.
       expect(mockBuildEmptyReleaseEntry).not.toHaveBeenCalled();
     });
 
@@ -1716,7 +1713,7 @@ describe(releasePrepareMono, () => {
   });
 
   describe('changelogJson.enabled gating', () => {
-    /** Helper config with one workspace and a feat commit since v1.0.0. */
+    /** Builds a config whose one workspace is `arrays`. */
     function singleWorkspaceConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
       const workspace: WorkspaceConfig = {
         dir: 'arrays',
@@ -1772,7 +1769,7 @@ describe(releasePrepareMono, () => {
   });
 
   describe('opportunistic hint when baseline is missing', () => {
-    /** Configure mocks for a single workspace with no baseline tag and a commit that calls for a minor bump. */
+    /** Configures mocks for a single workspace with no baseline tag and a commit that calls for a minor bump. */
     function setupNoBaseline(tagListOutput: string[]): void {
       stubHistory({ commits: [['feat: add', 'abc']], bump: 'minor' });
       mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
@@ -1860,10 +1857,8 @@ describe(releasePrepareMono, () => {
     });
 
     it("treats sibling workspaces' derived prefixes as known (not undeclared candidates)", () => {
-      // Regression: previously `maybeEmitBaselineHint` passed only `[workspace.tagPrefix]` as the
-      // known-prefix set, so sibling workspaces' tags surfaced as "undeclared candidates" and
-      // fired spurious hints in multi-workspace repos. The hint must NOT fire when the only
-      // candidate-shaped tags in the repo belong to other configured workspaces.
+      // Sibling workspaces' tags are known prefixes, not "undeclared candidates": the hint must NOT
+      // fire when the only candidate-shaped tags in the repo belong to other configured workspaces.
       const config = makeConfig({
         workspaces: [
           {
@@ -1898,8 +1893,8 @@ describe(releasePrepareMono, () => {
     });
 
     it("treats sibling workspaces' declared legacyIdentities as known", () => {
-      // Also a regression case: when a sibling workspace declares its own legacy prefixes, those
-      // must not show up as undeclared candidates when another workspace has no baseline.
+      // A sibling workspace's declared legacy prefixes must not show up as undeclared candidates
+      // when another workspace has no baseline.
       const config = makeConfig({
         workspaces: [
           {
@@ -2224,7 +2219,7 @@ describe(releasePrepareMono, () => {
     it('invokes planReleaseNotesPreviews for both direct-bumped and propagation-only workspaces', () => {
       // Mirrors the `dependency propagation` setup: core is bumped directly (feat commit), and
       // app is bumped only through propagation. Both branches of `generateWorkspaceChangelogs`
-      // must reach `maybeWritePreviews` so previews are written for each workspace.
+      // must reach `maybeWritePreviews` so that previews are written for each workspace.
       const config = makeConfig({
         workspaces: [
           {
@@ -2311,14 +2306,14 @@ describe(releasePrepareMono, () => {
       const wrapped = await captureError(() => releasePrepareMono(config, {}));
 
       expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*git rev-list failed: not a git repo$/);
-      // `cause` is preserved through the chain — at minimum, an Error instance.
+      // `cause` is preserved through the chain: at minimum, an Error instance.
       expect(wrapped.cause).toBeInstanceOf(Error);
     });
 
     it("wraps a Phase 3 (executeWorkspaceRelease) throw with the workspace's release-stage label", async () => {
       const config = makeArraysConfig();
       // Phase 1 succeeds. `renderChangelogMarkdown` (which `executeWorkspaceRelease` reaches)
-      // throws — this exercises the Phase 3 wrap inside `executeReleaseSet`.
+      // throws, which exercises the Phase 3 wrap inside `executeReleaseSet`.
       const underlying = new Error('markdown render failed');
       stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add', 'abc123']], bump: 'minor' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
@@ -2329,7 +2324,7 @@ describe(releasePrepareMono, () => {
       const wrapped = await captureError(() => releasePrepareMono(config, {}));
 
       expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*markdown render failed$/);
-      // `cause` is preserved through the chain — at minimum, an Error instance.
+      // `cause` is preserved through the chain: at minimum, an Error instance.
       expect(wrapped.cause).toBeInstanceOf(Error);
     });
 
@@ -2627,10 +2622,8 @@ describe(releasePrepareMono, () => {
   });
 
   describe('editorial overrides wiring', () => {
-    // Integration coverage for the per-scope override flow. Helper-level tests in
-    // `changelogOverrides.unit.test.ts` cover the per-helper behavior; this group asserts the
-    // orchestrator's threading — that warnings produced by `applyWorkspaceOverrides` reach the
-    // final `PrepareResult.warnings` array.
+    // This group asserts the orchestrator's threading: warnings produced by
+    // `applyWorkspaceOverrides` reach the final `PrepareResult.warnings` array.
     it('surfaces a per-workspace stale-key warning on PrepareResult.warnings', () => {
       const config = makeConfig({
         workspaces: [
@@ -2672,9 +2665,6 @@ describe(releasePrepareMono, () => {
 
       const result = releasePrepareMono(config, {});
 
-      // The per-workspace stale-key warning must surface on PrepareResult.warnings — proves
-      // `applyWorkspaceOverrides`'s `overrideWarnings.push(...)` is correctly threaded through
-      // the orchestrator's final aggregation.
       expect(result.warnings).toBeDefined();
       const warnings = result.warnings ?? [];
       expect(warnings.some((message) => message.includes("'deadaaa'"))).toBe(true);
@@ -2683,7 +2673,7 @@ describe(releasePrepareMono, () => {
   });
 });
 
-/** Content the plan intends to write to `path`, or undefined when the plan does not write it. */
+/** Returns the content that the plan intends to write to `path`, or undefined when the plan does not write it. */
 function plannedContent(
   plan: { writes: readonly { path: string; content: string }[] },
   path: string,

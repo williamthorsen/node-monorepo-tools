@@ -11,9 +11,9 @@ const tagFlagSchema = {
   noGitChecks: { long: '--no-git-checks', type: 'boolean' as const },
 };
 
-/** Orchestrate the CLI `tag` command: parse flags and delegate to `createTags`. */
+/** Runs the CLI `tag` command: parses flags and delegates to `createTags`. */
 export function tagCommand(argv: string[], styles: StreamStyles): void {
-  // Help flags are handled upstream in the CLI entry point (bin/release-kit.ts).
+  // The CLI entry point handles help flags before dispatching here.
   const { dryRun, noGitChecks } = parseArgsOrExit(argv, tagFlagSchema).flags;
 
   try {

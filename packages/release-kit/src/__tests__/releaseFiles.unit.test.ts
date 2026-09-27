@@ -10,7 +10,7 @@ vi.mock(import('node:fs'), () => ({
 
 import { readReleaseTags, RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE, resolveReleaseTagsPath } from '../releaseFiles.ts';
 
-/** Create an Error with a `code` property, matching Node's ErrnoException shape. */
+/** Creates an Error with a `code` property, matching Node's ErrnoException shape. */
 function errnoError(message: string, code: string): Error {
   return Object.assign(new Error(message), { code });
 }

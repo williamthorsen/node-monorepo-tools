@@ -31,13 +31,11 @@ const EXAMPLE_TAG_LIMIT = 3;
 const CANDIDATE_TAG_PATTERN = /^(?<prefix>[a-z][a-z0-9-]*-v)\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/;
 
 /**
- * Scan local git tags for release-shaped tags whose prefix is not in the known set.
+ * Scans local git tags for release-shaped tags whose prefix is not in `knownPrefixes`, the union of derived and
+ * declared prefixes across all workspaces.
  *
- * Reads only the local tag list; callers expecting to see recently-fetched remote tags
- * should `git fetch --tags` first. Returns an empty array when the repo has no tags
- * or no candidate-shaped tags outside the known set.
- *
- * @param knownPrefixes - Union of derived and declared prefixes across all workspaces.
+ * Reads only the local tag list, so a remote tag that has not been fetched is not reported. Returns an empty array
+ * when the repo has no tags or no candidate-shaped tags outside the known set.
  */
 export function detectUndeclaredTagPrefixes(knownPrefixes: readonly string[]): UndeclaredTagPrefix[] {
   const known = new Set(knownPrefixes);
@@ -50,7 +48,7 @@ export function detectUndeclaredTagPrefixes(knownPrefixes: readonly string[]): U
       stdio: ['pipe', 'pipe', 'pipe'],
     });
   } catch {
-    // No accessible git repo or git unavailable — treat as "no candidates" rather than throwing.
+    // Report no candidates when git or the repo is unavailable: the scan feeds advisory output only.
     return [];
   }
 
@@ -81,11 +79,11 @@ export function detectUndeclaredTagPrefixes(knownPrefixes: readonly string[]): U
     });
   }
 
-  // eslint-disable-next-line unicorn/no-array-sort -- toSorted requires Node >=20; engine target is >=18.17.0
+  // eslint-disable-next-line unicorn/no-array-sort -- `results` is a local array that this function builds
   return results.sort((a, b) => a.prefix.localeCompare(b.prefix));
 }
 
-/** Strip the trailing `-v` from a candidate prefix to suggest the workspace `dir`. */
+/** Strips the trailing `-v` from a candidate prefix to suggest the workspace `dir`. */
 function stripTrailingTagMarker(prefix: string): string {
   return prefix.endsWith('-v') ? prefix.slice(0, -2) : prefix;
 }

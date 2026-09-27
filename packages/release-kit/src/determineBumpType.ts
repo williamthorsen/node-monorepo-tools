@@ -14,7 +14,7 @@ const RELEASE_PRIORITY: Record<ReleaseType, number> = {
 };
 
 /**
- * Determines the overall bump type from a set of changes, returning undefined when none has a known work type.
+ * Determines the overall bump type from a set of changes, returning undefined when none triggers a bump.
  *
  * Uses `versionPatterns` to decide which types trigger major/minor bumps.
  * The `'!'` sentinel in `versionPatterns.major` means "any breaking change triggers major".
@@ -31,17 +31,14 @@ export function determineBumpType(
   let result: ReleaseType | undefined;
 
   for (const change of changes) {
-    // Breaking changes: check if '!' sentinel is in versionPatterns.major
     if (change.breaking && versionPatterns.major.includes('!')) {
       return 'major';
     }
 
-    // Skip unrecognized types
     if (!knownTypes.has(change.type)) {
       continue;
     }
 
-    // Check if the type itself is listed in major patterns (non-sentinel)
     let bump: ReleaseType;
     if (versionPatterns.major.includes(change.type)) {
       bump = 'major';

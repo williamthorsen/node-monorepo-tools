@@ -186,8 +186,8 @@ describe(prepareCommand, () => {
     expect(mockReleasePrepareMono.mock.calls[0]?.[1]).not.toHaveProperty('configuredWorkspaceDirs');
   });
 
-  // The defect this change repairs: a workspace resolving to nothing used to read as single-package mode and
-  // prepare the root as one package.
+  // A workspace that resolves to no package is not single-package mode; reading it as one would prepare the root
+  // as one package.
   it('exits with error when the workspace resolves to no package', async () => {
     mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
 
@@ -628,7 +628,7 @@ describe(prepareCommand, () => {
 
   describe('--only and --set-version interactions with project block', () => {
     beforeEach(() => {
-      // Configure the mocks so the project block is loaded and the root package.json is valid.
+      // Configure the mocks so that the project block is loaded and the root package.json is valid.
       mockLoadConfig.mockResolvedValue({ project: {} });
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockImplementation((filePath: string) => {
@@ -725,7 +725,7 @@ describe(parseArgs, () => {
 
   it('rejects --help=value as an unknown option', () => {
     // The bin dispatcher only intercepts bare `--help`/`-h`; the `=value` form slips past it
-    // and reaches parseArgs, where `--help` is no longer a known flag.
+    // and reaches parseArgs, where `--help` is not a known flag.
     expect(() => parseArgs(['--help=value'])).toThrow(ProcessExitError);
     expect(capture.stderr).toContain('Unknown option: --help');
     expect(process.exit).toHaveBeenCalledWith(1);
@@ -807,7 +807,7 @@ describe(parseArgs, () => {
 });
 
 // region | Helpers
-/** Build a minimal PrepareResult for mocking. */
+/** Builds a minimal PrepareResult for mocking. */
 function makePrepareResult(overrides?: Partial<ReleasePlan>): ReleasePlan {
   return {
     workspaces: [],
@@ -818,7 +818,7 @@ function makePrepareResult(overrides?: Partial<ReleasePlan>): ReleasePlan {
   };
 }
 
-/** Paths passed to `writeFileWithCheck`, in call order. */
+/** Returns the paths passed to `writeFileWithCheck`, in call order. */
 function writtenPaths(): string[] {
   return mockWriteFileWithCheck.mock.calls.map((call: unknown[]) => String(call[0]));
 }

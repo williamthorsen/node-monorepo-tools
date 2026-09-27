@@ -11,7 +11,7 @@ import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './types.t
 
 /** One workspace's preview row in the tag-prefix preview. */
 export interface TagPrefixPreviewRow {
-  /** Workspace-relative directory path (e.g., `packages/core`). */
+  /** Directory path relative to the repo root (e.g., `packages/core`). */
   workspacePath: string;
   /** Directory basename (e.g., `core`). */
   dir: string;
@@ -54,15 +54,13 @@ export interface TagPrefixPreview {
 }
 
 /**
- * Build a structured preview of tag-prefix state for every discovered workspace.
+ * Builds a structured preview of tag-prefix state for every discovered workspace.
  *
- * Derives each workspace's tag prefix via `deriveWorkspaceConfig()`, recording the derivation error on failure
- * rather than aborting. A repo releasing as a single package previews no row; one declaring patterns that
- * resolve to no package throws, because the manifest is then what needs repairing and a clean table would
- * hide that.
- * Reads the already-validated `config` to surface declared legacy prefixes per workspace, scans local
- * git tags for undeclared candidate prefixes via `detectUndeclaredTagPrefixes`, and reports collisions
- * across successfully-derived prefixes.
+ * Records a workspace's derivation error rather than aborting. A repo releasing as a single package previews no
+ * row; one declaring patterns that resolve to no package throws, because the manifest is then what needs
+ * repairing and a clean table would hide that. Also reports the legacy prefixes that the validated `config`
+ * declares per workspace, undeclared candidate prefixes among the local git tags, and collisions across the
+ * successfully derived prefixes.
  */
 export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview {
   const workspace = discoverWorkspaces();
@@ -86,7 +84,7 @@ export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview 
   return { workspaces, collisions, undeclaredCandidates, retiredPackages };
 }
 
-/** Build a `dir -> legacyIdentities` lookup map from a validated config. */
+/** Builds a `dir -> legacyIdentities` lookup map from a validated config. */
 function buildOverrideMap(config: ReleaseKitConfig | undefined): Map<string, LegacyIdentity[]> {
   const map = new Map<string, LegacyIdentity[]>();
   if (config?.workspaces === undefined) return map;
@@ -98,7 +96,7 @@ function buildOverrideMap(config: ReleaseKitConfig | undefined): Map<string, Leg
   return map;
 }
 
-/** Construct a single workspace's preview row, catching derivation failures per-workspace. */
+/** Constructs a single workspace's preview row, catching derivation failures per-workspace. */
 function buildPreviewRow(workspacePath: string, overridesByDir: Map<string, LegacyIdentity[]>): TagPrefixPreviewRow {
   const dir = basename(workspacePath);
   let derivedPrefix: string | null = null;
@@ -127,7 +125,7 @@ function buildPreviewRow(workspacePath: string, overridesByDir: Map<string, Lega
   };
 }
 
-/** Return the number of local git tags whose name starts with the given prefix. */
+/** Returns the number of local git tags whose name starts with the given prefix. */
 function countTagsMatching(prefix: string): number {
   try {
     const output = execFileSync('git', ['tag', '--list', `${prefix}*`], {
@@ -141,7 +139,7 @@ function countTagsMatching(prefix: string): number {
   }
 }
 
-/** Identify cross-workspace derived-prefix collisions, excluding rows with failed derivation. */
+/** Identifies cross-workspace derived-prefix collisions, excluding rows with failed derivation. */
 function detectCollisions(rows: readonly TagPrefixPreviewRow[]): TagPrefixCollision[] {
   const pathsByPrefix = new Map<string, string[]>();
   for (const row of rows) {
@@ -163,7 +161,7 @@ function detectCollisions(rows: readonly TagPrefixPreviewRow[]): TagPrefixCollis
   return collisions;
 }
 
-/** Collect the union of successfully-derived prefixes, declared legacy prefixes, and retired prefixes. */
+/** Collects the union of successfully-derived prefixes, declared legacy prefixes, and retired prefixes. */
 function collectKnownPrefixes(
   rows: readonly TagPrefixPreviewRow[],
   retiredPackages: readonly RetiredPackagePreviewEntry[],
@@ -181,7 +179,7 @@ function collectKnownPrefixes(
   return [...known];
 }
 
-/** Build preview entries for each declared retired package, attaching current tag counts. */
+/** Builds preview entries for each declared retired package, attaching current tag counts. */
 function buildRetiredPreviewEntries(retiredPackages: readonly RetiredPackage[]): RetiredPackagePreviewEntry[] {
   return retiredPackages.map((retired) => ({
     name: retired.name,

@@ -19,18 +19,12 @@ import { releasePrepareMono } from '../releasePrepareMono.ts';
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 /**
- * End-to-end project-release tests that:
- * - Create a real git repo in a temp directory.
- * - Seed it with three workspaces, an initial commit, a `v0.9.0` legacy tag, and a mix of
- *   `feat`/`fix` commits per workspace since.
- * - Run `releasePrepareMono` with a `project: {}` block declared in the config.
- * - Assert at the file-content level: project tag in result, root `package.json` bumped, root
- *   `CHANGELOG.md` regenerated with expected entries, project tag included alongside the
- *   per-workspace tags.
+ * End-to-end project-release tests that run against a real git repo in a temp directory and assert at the
+ * file-content level.
  */
 
 /**
- * Build a temp git repo with three workspaces (`pkg-a`, `pkg-b`, `pkg-c`), a legacy `v0.9.0`
+ * Builds a temp git repo with three workspaces (`pkg-a`, `pkg-b`, `pkg-c`), a legacy `v0.9.0`
  * tag at the initial commit, and three feat/fix commits since (one per workspace).
  */
 function setupFixture(): TempTree {
@@ -39,7 +33,7 @@ function setupFixture(): TempTree {
     execFileSync(command, args, { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
   };
 
-  // Initialize a clean repo with deterministic config so `git commit` does not require a
+  // Initialize a clean repo with deterministic config so that `git commit` does not require a
   // global identity to be set on the host.
   run('git', ['init', '--quiet', '--initial-branch=main']);
   run('git', ['config', 'user.email', 'test@example.com']);
@@ -50,11 +44,10 @@ function setupFixture(): TempTree {
   // Root package.json (project block prerequisite).
   tree.writeJson('package.json', { name: 'fixture-monorepo', version: '0.9.0', private: true });
 
-  // pnpm workspace declaration so `discoverWorkspaces` finds the three packages and the
+  // pnpm workspace declaration so that `discoverWorkspaces` finds the three packages and the
   // CLI takes the monorepo branch rather than single-package mode.
   tree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n");
 
-  // Three workspaces.
   for (const name of ['pkg-a', 'pkg-b', 'pkg-c']) {
     tree.writeJson(`packages/${name}/package.json`, { name: `@fixture/${name}`, version: '1.0.0' });
     tree.write(`packages/${name}/index.ts`, `export const ${name.replace('-', '_')} = ${JSON.stringify(name)};\n`);
@@ -69,7 +62,7 @@ function setupFixture(): TempTree {
   run('git', ['tag', 'pkg-b-v1.0.0']);
   run('git', ['tag', 'pkg-c-v1.0.0']);
 
-  // One feat per workspace plus one fix. The `##` synthetic ticket prefix is required by
+  // A feat in pkg-a and pkg-b, and a fix in pkg-c. The `##` synthetic ticket prefix is required by
   // `classifyChangelogCommit`, which admits no unticketed commit.
   for (const name of ['pkg-a', 'pkg-b']) {
     tree.write(`packages/${name}/feature.ts`, `export const flag = true;\n`);
@@ -84,8 +77,8 @@ function setupFixture(): TempTree {
 }
 
 /**
- * Switch CWD to the fixture repo for the duration of the closure. Restores the prior CWD
- * even if the closure throws — release-kit reads `process.cwd()` to resolve paths.
+ * Switches CWD, which release-kit reads to resolve paths, to the fixture repo for the duration of
+ * the closure, and restores the prior CWD even if the closure throws.
  */
 function withinFixture<T>(repoDir: string, fn: () => T): T {
   using _cwd = pointCwdAt(repoDir, { chdir: true });
@@ -93,7 +86,7 @@ function withinFixture<T>(repoDir: string, fn: () => T): T {
   return fn();
 }
 
-/** Compute the release plan and apply it, mirroring what the CLI boundary does. */
+/** Computes the release plan and applies it, mirroring what the CLI boundary does. */
 function prepareAndApply(...args: Parameters<typeof releasePrepareMono>): ReleasePlan {
   const plan = releasePrepareMono(...args);
   applyReleasePlan(plan);
@@ -117,7 +110,6 @@ describe('releasePrepareProject (tool)', () => {
 
       const result = prepareAndApply(config, {});
 
-      // Project release happened.
       const project = result.project;
       assert(project?.status === 'released', 'expected released project');
       expect(project.previousTag).toBe('v0.9.0');
@@ -126,19 +118,16 @@ describe('releasePrepareProject (tool)', () => {
       expect(project.newVersion).toBe('0.10.0');
       expect(project.tag).toBe('v0.10.0');
 
-      // Tags includes both the project tag and per-workspace tags.
       expect(result.tags).toContain('v0.10.0');
       expect(result.tags).toContain('pkg-a-v1.1.0');
       expect(result.tags).toContain('pkg-b-v1.1.0');
       expect(result.tags).toContain('pkg-c-v1.0.1');
 
-      // Root package.json bumped to 0.10.0.
       const rootPackageJson: { version: string } = JSON.parse(readFileSync(join(tree.dir, 'package.json'), 'utf8'));
       expect(rootPackageJson.version).toBe('0.10.0');
 
-      // Root CHANGELOG.md regenerated and contains the new version header. After the SSOT
-      // pivot, `renderChangelogMarkdown` emits `## <version> — <date>` (no brackets, no
-      // leading `v`).
+      // `renderChangelogMarkdown` emits the version header as `## <version> — <date>` (no
+      // brackets, no leading `v`).
       const rootChangelogPath = join(tree.dir, 'CHANGELOG.md');
       expect(existsSync(rootChangelogPath)).toBe(true);
       const rootChangelog = readFileSync(rootChangelogPath, 'utf8');
@@ -310,11 +299,10 @@ describe('releasePrepareProject (tool)', () => {
   }, 60_000);
 
   it('overrides the project bump when --bump=major is supplied (1.x baseline)', () => {
-    // Reset the fixture's root version to 1.x so the major bump is not collapsed by the
-    // pre-1.0 rule in `bumpVersion`. The fixture's three feat/fix commits (created in
-    // `setupFixture`) sit between this freshly-created `v1.0.0` baseline and HEAD when
-    // we tag BEFORE the chore commit, so a natural minor bump is in scope and `--bump=major`
-    // is exercised as a level chooser that overrides the natural bump.
+    // Tag a `v1.0.0` baseline at the initial commit and move the root version to 1.x, so that the
+    // pre-1.0 rule in `bumpVersion` does not collapse the major bump. The fixture's three feat/fix
+    // commits sit above the baseline, so a natural minor bump is in scope and `--bump=major`
+    // overrides it.
     execFileSync('git', ['tag', 'v1.0.0', 'HEAD~3'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
     tree.writeJson('package.json', { name: 'fixture-monorepo', version: '1.0.0', private: true });
     execFileSync('git', ['add', '-A'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -405,8 +393,7 @@ describe('releasePrepareProject (tool)', () => {
 
   it('writes a synthetic Notes / Forced version bump entry for empty-range project releases', () => {
     // Move the project baseline tag to HEAD so the project stage finds zero commits since.
-    // Per-workspace baselines stay at the initial commit, so workspaces still release naturally
-    // (we are testing the project stage's empty-range branch, not the workspace path).
+    // Per-workspace baselines stay at the initial commit, so workspaces still release naturally.
     execFileSync('git', ['tag', '--delete', 'v0.9.0'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
     execFileSync('git', ['tag', 'v0.9.0', 'HEAD'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
 
@@ -419,7 +406,7 @@ describe('releasePrepareProject (tool)', () => {
 
       const result = prepareAndApply(config, { force: true });
 
-      // Project release proceeded under --force, choosing patch level (issue #369 fix).
+      // Under --force, the project releases at patch level.
       const project = result.project;
       assert(project?.status === 'released', 'expected released project');
       expect(project.previousTag).toBe('v0.9.0');
@@ -427,8 +414,8 @@ describe('releasePrepareProject (tool)', () => {
       expect(project.releaseType).toBe('patch');
       expect(project.newVersion).toBe('0.9.1');
 
-      // Root CHANGELOG.md is rendered by `renderChangelogMarkdown` after the SSOT pivot,
-      // so it leads with the `# Changelog` header and the version heading appears below.
+      // `renderChangelogMarkdown` renders the root CHANGELOG.md, so it leads with the
+      // `# Changelog` header and the version heading appears below.
       const rootChangelogPath = join(tree.dir, 'CHANGELOG.md');
       expect(existsSync(rootChangelogPath)).toBe(true);
       const rootChangelog = readFileSync(rootChangelogPath, 'utf8');
@@ -455,9 +442,9 @@ describe('releasePrepareProject (tool)', () => {
   }, 60_000);
 
   it('preserves prior changelog.json entries when an empty-range project release runs', () => {
-    // Regression: the empty-range project branch must use upsert semantics. A plain
-    // overwrite would erase prior structured history because the synthetic branch
-    // produces only the new entry — the release windows are not read to replay the full log.
+    // The empty-range project branch must use upsert semantics. A plain overwrite would erase
+    // prior structured history, because the synthetic branch produces only the new entry and
+    // reads no release window to replay the full log.
     // Move the project baseline tag to HEAD so the project stage finds zero commits since,
     // forcing the empty-range branch.
     execFileSync('git', ['tag', '--delete', 'v0.9.0'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -503,7 +490,7 @@ describe('releasePrepareProject (tool)', () => {
   }, 60_000);
 
   it('narrows to the named workspace via prepareCommand, leaving the project release unreleased', async () => {
-    // Exercise the CLI entry point directly so the test reflects user-observable behavior
+    // Exercise the CLI entry point directly so that the test reflects user-observable behavior
     // end-to-end: the named workspace releases, and the project tier is left alone. The
     // untouched root version and absent root CHANGELOG.md are what prove the skip.
     const { prepareCommand } = await import('../prepareCommand.ts');
@@ -556,7 +543,7 @@ describe('prepare atomicity (tool)', () => {
       );
 
       // The last workspace declares a package file that does not exist, so its bump throws
-      // during the execute phase — after the two workspaces before it have been planned.
+      // during the execute phase, after the two workspaces before it have been planned.
       const lastWorkspace = config.workspaces.at(-1);
       assert(lastWorkspace !== undefined, 'expected a workspace to break');
       lastWorkspace.packageFiles = [...lastWorkspace.packageFiles, 'packages/pkg-c/missing.json'];
@@ -567,7 +554,7 @@ describe('prepare atomicity (tool)', () => {
   }, 60_000);
 });
 
-/** Porcelain status of the fixture repo, trimmed; empty when the tree is clean. */
+/** Returns the porcelain status of the fixture repo, trimmed; empty when the tree is clean. */
 function gitStatus(repoDir: string): string {
   return execFileSync('git', ['status', '--porcelain'], {
     cwd: repoDir,

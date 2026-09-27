@@ -3,13 +3,13 @@ import { execFileSync } from 'node:child_process';
 import { createTempTree, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 
-/** When a commit is dated, which decides the order a date-ordered walk reports it in. */
+/** When a commit is dated, which decides the order in which a date-ordered walk reports it. */
 export interface CommitDate {
-  /** A date git accepts, such as `2026-01-02T00:00:00Z`. Defaults to the clock. */
+  /** A date that git accepts, such as `2026-01-02T00:00:00Z`. Defaults to the clock. */
   date?: string;
 }
 
-/** A temp git repository, with the shorthands a history fixture builds itself from. */
+/** A temp git repository, with the shorthands from which a history fixture builds itself. */
 export interface GitRepoFixture {
   /** The repository's absolute path. */
   dir: string;
@@ -35,6 +35,7 @@ export interface GitRepoFixture {
 export function scaffoldGitRepo(entries: Record<string, string> = {}): GitRepoFixture {
   const tree = disposeOnTestFinished(createTempTree(entries, { prefix: 'release-kit-git-' }));
 
+  /** Runs git in the repository, dating the commit that it creates when `date` is given, and returns trimmed stdout. */
   function runGit(args: readonly string[], date?: string): string {
     return execFileSync('git', args, {
       cwd: tree.dir,

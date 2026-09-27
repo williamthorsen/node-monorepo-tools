@@ -9,7 +9,7 @@ import { checkRetiredSyncLabelsConfig } from './retiredConfig.ts';
 /** Workflow file that must exist before triggering. */
 const WORKFLOW_FILE = '.github/workflows/sync-labels.yaml';
 
-/** Check that the `gh` CLI is available. */
+/** Checks whether the `gh` CLI is available. */
 function checkGhAvailable(): boolean {
   try {
     execSync('gh --version', { maxBuffer: GIT_OUTPUT_LIMIT, stdio: 'pipe' });
@@ -20,10 +20,7 @@ function checkGhAvailable(): boolean {
 }
 
 /**
- * Run the `sync-labels sync` subcommand.
- *
- * Validates prerequisites (gh CLI, workflow file), then triggers the sync-labels workflow
- * via `gh workflow run`. Returns 0 on success, 1 on failure.
+ * Runs the `sync-labels sync` subcommand, which triggers the sync-labels workflow, and returns the process exit code.
  */
 export function syncLabelsCommand(): number {
   if (checkRetiredSyncLabelsConfig()) {

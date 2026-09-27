@@ -59,7 +59,7 @@ describe(configFileExportsConfig, () => {
     expect(configFileExportsConfig()).toBe(false);
   });
 
-  // Each case is a shape `loadConfig` resolves off the module namespace via `imported.default ?? imported.config`.
+  // Each case is a shape that `loadConfig` resolves off the module namespace via `imported.default ?? imported.config`.
   // Rejecting one blocks the five checks nested beneath the gate, so the whole set has to pass.
   it.each([
     ['a default export', 'export default defineConfig({});\n'],
@@ -120,7 +120,7 @@ describe('release-kit config gate', () => {
     ]);
   });
 
-  // A nested check repeating the gate's own skip is what produced the extra lines this gate collapses.
+  // A nested check that repeats the gate's own skip reports the extra lines that the gate collapses.
   it('declares no skip on a nested check other than .github/labels.yaml exists', () => {
     const skipping = (getConfigGate().checks ?? [])
       .filter((check) => check.skip !== undefined)
@@ -186,8 +186,8 @@ describe('changelog packaging checks', () => {
     expect(getCheck().skip?.()).toBe(false);
   });
 
-  // The gate's own skip already covers the nested check; repeating it is what produced the duplicate lines the
-  // config gate's tests guard against.
+  // The gate's own skip already covers the nested check; repeating it would report the duplicate lines against
+  // which the config gate's tests guard.
   it('declares no skip on the nested check', () => {
     const nested = findCheck('published packages ship the changelog JSON', getChangelogJsonGate().checks ?? []);
 
@@ -265,7 +265,7 @@ function buildPublishableWorkspace(): Workspace {
 }
 
 /**
- * Finds a check by name among `siblings`, asserting it exists so a rename fails loudly.
+ * Finds a check by name among `siblings`, asserting it exists so that a rename fails loudly.
  *
  * The caller names the level to search rather than getting a tree walk. Reading the name of every check would fire
  * the `@williamthorsen/release-kit >= x` name getter, whose compile-time-only `pickJson` throws against the
@@ -282,7 +282,7 @@ function getChangelogCheck(): RdyCheck {
   return findCheck(CHANGELOG_CHECK, getReleaseKitChecks());
 }
 
-/** Returns the check the changelog-JSON packaging check hangs beneath. */
+/** Returns the check beneath which the changelog-JSON packaging check hangs. */
 function getChangelogJsonGate(): RdyCheck {
   return findCheck(CHANGELOG_JSON_GATE, getReleaseKitChecks());
 }
@@ -292,7 +292,7 @@ function getChangesetsCheck(): RdyCheck {
   return findCheck(CHANGESETS_CHECK, getReleaseKitChecks());
 }
 
-/** Returns the check that every config-dependent check hangs beneath. */
+/** Returns the check beneath which every config-dependent check hangs. */
 function getConfigGate(): RdyCheck {
   return findCheck(CONFIG_GATE, getReleaseKitChecks());
 }

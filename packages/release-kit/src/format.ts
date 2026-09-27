@@ -1,5 +1,3 @@
-// Styling helpers for terminal output. Each helper emits escapes only for a stream that renders them.
-
 import { styleText } from 'node:util';
 
 /** Styles text bold, returning it unstyled for a stream that cannot render color. */

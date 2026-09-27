@@ -526,10 +526,9 @@ describe(publishCommand, () => {
         'npm',
         expect.objectContaining({ dryRun: false, provenance: false }),
       );
-      // Listing only includes the publishable tag.
       expect(console.info).toHaveBeenCalledWith('  common-utils-v2.4.0 (packages/common-utils)');
       expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('basic-v1.0.0'));
-      // Implicit resolution drops unpublishable tags silently — no warning.
+      // Implicit resolution drops an unpublishable tag without a warning.
       expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining('Skipping'));
     });
 

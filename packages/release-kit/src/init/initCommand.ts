@@ -19,7 +19,7 @@ interface InitOptions {
   withConfig: boolean;
 }
 
-/** Run a required check and print the result. Returns false if the check failed. */
+/** Prints the result of a required check and reports whether it passed. */
 function runRequiredCheck(label: string, result: CheckResult, styles: StreamStyles): boolean {
   if (result.ok) {
     printSuccess(label, styles.stdout);
@@ -29,7 +29,7 @@ function runRequiredCheck(label: string, result: CheckResult, styles: StreamStyl
   return false;
 }
 
-/** Run all eligibility checks. Returns true if all checks pass. */
+/** Runs the eligibility checks, stopping at the first failure, and reports whether all passed. */
 function checkEligibility(styles: StreamStyles): boolean {
   printStep('Checking eligibility');
 
@@ -40,12 +40,7 @@ function checkEligibility(styles: StreamStyles): boolean {
   return true;
 }
 
-/**
- * Run the `release-kit init` command.
- *
- * Checks eligibility, detects repo type, scaffolds files, and prints next steps.
- * Returns the process exit code (0 for success, 1 for failure).
- */
+/** Runs the `release-kit init` command and returns the process exit code. */
 export function initCommand({ dryRun, force, styles, withConfig }: InitOptions): number {
   if (dryRun) {
     console.info('[dry-run mode]');
@@ -60,7 +55,6 @@ export function initCommand({ dryRun, force, styles, withConfig }: InitOptions):
   }
   if (!eligible) return 1;
 
-  // Detect repo type
   printStep('Detecting repo type');
   let repoType: RepoType;
   try {
@@ -71,7 +65,6 @@ export function initCommand({ dryRun, force, styles, withConfig }: InitOptions):
   }
   printSuccess(`Detected: ${repoType}`, styles.stdout);
 
-  // Scaffold files
   printStep('Scaffolding files');
   let results: WriteResult[];
   try {
@@ -89,7 +82,6 @@ export function initCommand({ dryRun, force, styles, withConfig }: InitOptions):
     return 1;
   }
 
-  // Print next steps
   printStep('Next steps');
   const configHint = withConfig
     ? '1. (Optional) Customize .config/release-kit.config.ts.'

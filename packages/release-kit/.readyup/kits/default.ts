@@ -26,6 +26,7 @@ import {
 import { detectRepoType } from '../../src/init/detectRepoType.ts';
 import { packsPath } from '../../src/packsPath.ts';
 
+/** Returns the minimum release-kit version that a consuming repo must declare. */
 function getMinVersion(): string {
   // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
   // Defer the call into a function so module load does not invoke the runtime stub (which throws):
@@ -37,6 +38,7 @@ function getMinVersion(): string {
   return picked['version'];
 }
 
+/** Checks whether the repo contains any publishable workspace. */
 function hasPublishablePackages(): boolean {
   return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
 }
@@ -45,7 +47,7 @@ function hasPublishablePackages(): boolean {
  * Where release-kit writes the structured changelog when the config names no other path.
  *
  * Mirrors `DEFAULT_CHANGELOG_JSON_CONFIG.outputPath`, which the kit does not import: reaching `src/defaults.ts`
- * would pull change-grammar's taxonomy and its dependencies into the bundle this package publishes.
+ * would pull change-grammar's taxonomy and its dependencies into the bundle that this package publishes.
  * `src/__tests__/kit-changelog-packaging-checks.unit.test.ts` asserts the two stay equal.
  */
 export const DEFAULT_CHANGELOG_JSON_PATH = '.meta/changelog.json';
@@ -58,7 +60,8 @@ const CONFIG_EXPORT_PATTERNS = [
   /export\s*\*/,
 ];
 
-// SHA-256 hashes of release-kit artifacts. Keep in sync. Verified by src/__tests__/kit-hashes.unit.test.ts.
+// SHA-256 hashes of the artifacts that release-kit emits;
+// `src/__tests__/kit-hashes.unit.test.ts` fails when one is stale.
 export const COMMON_PRESET_HASH = '618bb5cbcbdd4f4f0c2a777add7e14d992d48483350dd9651bf8cf4c1fa9d418';
 export const SYNC_LABELS_WORKFLOW_HASH = 'd6e2403fb551d2d415f679125989c92760444eec887644565b2e05c9bf8f4c1e';
 export const RELEASE_WORKFLOW_HASH_MONOREPO = '0a9724b7b3c5e24087fd3a8f36fed8e990d699267fcf36028ce048ab40dc2946';
@@ -220,8 +223,8 @@ export default defineRdyKit({
             },
           ],
         },
-        // Deliberately outside the config gate above: that check skips where the config file is absent, and a repo
-        // with no config file still defaults `changelogJson.enabled` to true and still publishes tarballs.
+        // Keep these checks outside the config gate above, which skips where the config file is absent: a repo with no
+        // config file still defaults `changelogJson.enabled` to true and still publishes tarballs.
         {
           name: 'published packages ship CHANGELOG.md',
           severity: 'warn',
@@ -298,8 +301,7 @@ export default defineRdyKit({
 /**
  * Checks whether the repo leaves structured changelog generation on.
  *
- * A repo with no config file inherits the enabled default, so an unreadable config passes rather than reporting
- * an opt-out nobody declared.
+ * A repo with no config file inherits the enabled default, so a missing config file passes.
  *
  * @internal - Exported only to enable testing
  */
@@ -310,12 +312,13 @@ export function changelogJsonIsEnabled(): boolean {
 }
 
 /**
- * Checks that the config file exports a config release-kit can load.
+ * Checks that the config file exports a config that release-kit can load.
  *
  * `loadConfig` resolves `imported.default ?? imported.config` and throws when the file exports neither, so the
  * checks nested beneath this one have nothing to read until it passes. Source text cannot decide a module's export
- * names exactly, and this check gates five others at `error` severity, so the pattern errs wide: a config the
- * regex admits and `loadConfig` rejects costs one honest failure downstream, where the reverse blocks seven lines.
+ * names exactly, and this check gates five others at `error` severity, so the patterns match broadly: a config that
+ * the patterns admit and `loadConfig` rejects produces one failure downstream, whereas the reverse suppresses the
+ * seven checks beneath this one.
  *
  * @internal - Exported only to enable testing
  */
@@ -363,12 +366,10 @@ export function readmeHasReleaseNotesMarkers(content: string): boolean {
 }
 
 /**
- * Checks README markers across the consumer repo, iterating publishable workspaces.
+ * Checks that the README of every publishable workspace contains the release-notes markers.
  *
- * Validates `${dir}/README.md` for each publishable package; aggregates failures into the `CheckOutcome.detail` field.
- * A missing README counts as a failure for that package (no README → no markers).
- * Workspace discovery reports the repo root in both repo types, so a publishable root is checked like any other
- * package and the same loop handles both.
+ * A missing README counts as a failure for its package. Workspace discovery reports the repo root in both repo types,
+ * so a publishable root is checked like any other package.
  */
 export function readmesHaveReleaseNotesMarkers(): boolean | CheckOutcome {
   const failing: string[] = [];
@@ -404,7 +405,7 @@ function releaseNotesConfigIsConsistent(): boolean {
   return !hasReadmeInjection;
 }
 
-/** Check that `releaseNotes.shouldInjectIntoReadme` is explicitly set to true. */
+/** Checks that `releaseNotes.shouldInjectIntoReadme` is explicitly set to true. */
 function releaseNotesInjectsIntoReadme(): boolean {
   const content = readFile('.config/release-kit.config.ts');
   if (content === undefined) return false;
@@ -436,7 +437,7 @@ function reportWorkspacesOmitting(path: string): boolean | CheckOutcome {
 }
 
 /**
- * Resolves the path release-kit writes the structured changelog to.
+ * Resolves the path to which release-kit writes the structured changelog.
  *
  * Reads the raw config text rather than importing the config, as the neighboring config checks do.
  *

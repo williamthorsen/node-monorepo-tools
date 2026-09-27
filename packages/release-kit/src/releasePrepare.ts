@@ -29,19 +29,14 @@ import type {
   SkippedWorkspaceResult,
 } from './types.ts';
 
-/**
- * Options for the release preparation workflow.
- *
- * Carries no dry-run flag: preparation only ever computes a plan, and whether that plan is
- * applied is the caller's decision.
- */
+/** Options for the release preparation workflow. */
 export interface ReleasePrepareOptions {
   /**
    * Release even when no commits or no bump-worthy commits exist since the last tag.
    * Orthogonal to `bumpOverride`: when `bumpOverride` is not given, the release falls back to `patch`.
    */
   force?: boolean;
-  /** Choose the level of a release instead of the level that the changelog items call for; triggers no release. */
+  /** Level of the release, in place of the level that the changelog items call for; it triggers no release. */
   bumpOverride?: ReleaseType;
   /**
    * Explicit target version (canonical `N.N.N`) that bypasses commit-derived bump logic.
@@ -50,7 +45,7 @@ export interface ReleasePrepareOptions {
    */
   setVersion?: string;
   /**
-   * Workspace directories the run was narrowed to by `--only` (monorepo only), with
+   * Workspace directories to which `--only` narrowed the run (monorepo only), with
    * `config.workspaces` already filtered to match. Present only for a narrowed run, which
    * skips the project release: the project tier rolls up every contributing workspace, and
    * the narrowing has changed which workspaces those are.
@@ -63,33 +58,30 @@ export interface ReleasePrepareOptions {
    */
   configuredWorkspaceDirs?: readonly string[];
   /**
-   * If true, write per-workspace release-notes previews under `{workspacePath}/docs/`
-   * (`README.v{version}.md` and `RELEASE_NOTES.v{version}.md`) after each workspace's
-   * `changelog.json` is produced. Requires `config.changelogJson.enabled`; when disabled,
-   * a warning is recorded on the plan and no previews are generated.
+   * If true, plan per-workspace release-notes previews under `{workspacePath}/docs/`
+   * (`README.v{version}.md` and `RELEASE_NOTES.v{version}.md`) from each workspace's
+   * changelog entries. Requires `config.changelogJson.enabled`; when disabled,
+   * a warning is recorded on the plan and no previews are planned.
    */
   withReleaseNotes?: boolean;
 }
 
 /**
- * Orchestrate the release preparation workflow for a single package.
+ * Orchestrates the release preparation workflow for a single package.
  *
  * 1. Reads the release history once, and stops when the current version is recorded but untagged.
  * 2. Decides the release from the history's bump, `--force`, and `--bump` (or takes `--set-version`).
- * 3. Bumps all configured package.json version fields.
- * 4. Generates changelogs from the same history.
+ * 3. Plans the bump of every configured `package.json` version field.
+ * 4. Plans the changelogs from the same history, and the release-notes previews when requested.
  * 5. Renders the optional format command.
  *
- * Returns a structured `PrepareResult` with all data needed for presentation.
+ * Returns the plan without writing any file.
  */
 export function releasePrepare(config: PrepareConfig, options: ReleasePrepareOptions): ReleasePlan {
   const { bumpOverride, force, setVersion, withReleaseNotes } = options;
   const writes: PlannedWrite[] = [];
 
-  // Load editorial overrides for the project tier. Single-package mode collapses to one tier
-  // (no workspaces to compose), so there's nothing to bundle into an `OverrideContext`.
-  // Aborts the release on any malformed file before any writes — same upfront-failure
-  // contract as the monorepo path, just over a single file.
+  // Load the project tier's editorial overrides, aborting on a malformed file before anything is planned.
   const overridesResult = loadOverridesForScopes({ project: '.' });
   if (overridesResult.errors.length > 0) {
     throw new Error(`Failed to load changelog overrides:\n  - ${overridesResult.errors.join('\n  - ')}`);
@@ -153,7 +145,7 @@ export function releasePrepare(config: PrepareConfig, options: ReleasePrepareOpt
 
   const newTag = `${config.tagPrefix}${bump.newVersion}`;
 
-  // 4/4b. Generate the CHANGELOG.md files and (optionally) changelog.json. When the release
+  // 4. Generate the CHANGELOG.md files and (optionally) changelog.json. When the release
   // proceeds although its window yields no changelog item (`--force` or `--set-version`), the
   // planner records the synthetic "Forced version bump." entry for the new version.
   const planWarnings: string[] = [];
@@ -166,7 +158,6 @@ export function releasePrepare(config: PrepareConfig, options: ReleasePrepareOpt
   });
   const { changelogFiles, changelogJsonFiles, changelogPreservation } = changelogs;
 
-  // 4c. Plan release-notes previews (optional, opt-in via --with-release-notes)
   const previewWrites = planSinglePackagePreviews(
     withReleaseNotes === true,
     config,
@@ -177,7 +168,7 @@ export function releasePrepare(config: PrepareConfig, options: ReleasePrepareOpt
   writes.push(...changelogs.writes, ...previewWrites);
 
   // 5. Render the format command over the modified file paths; the caller runs it once the
-  // plan is on disk, since it reformats the very files the plan writes.
+  // plan is on disk, since it reformats the very files that the plan writes.
   const formatCommandStr = config.formatCommand ?? (hasPrettierConfig() ? 'npx prettier --write' : undefined);
   let formatCommand: ReleasePlan['formatCommand'];
 
@@ -216,7 +207,7 @@ export function releasePrepare(config: PrepareConfig, options: ReleasePrepareOpt
 }
 
 /**
- * Build a `SkippedWorkspaceResult` for the single-package skip path from the history that the
+ * Builds a `SkippedWorkspaceResult` for the single-package skip path from the history that the
  * decision read, attaching only defined optional fields.
  */
 function buildSkippedSinglePackage(history: ReleaseHistory, skipReason: string): SkippedWorkspaceResult {
@@ -252,10 +243,8 @@ interface BuildReleasedSinglePackageArgs {
 }
 
 /**
- * Construct a `ReleasedWorkspaceResult` for the single-package path, attaching only
- * defined optional fields. Extracted from `releasePrepare` to keep that function under
- * the project's cyclomatic-complexity ceiling — the conditional optional-field assignments
- * each contribute to complexity, and inlining them tips the host over the threshold.
+ * Constructs a `ReleasedWorkspaceResult` for the single-package path, attaching only
+ * defined optional fields.
  */
 function buildReleasedSinglePackage(args: BuildReleasedSinglePackageArgs): ReleasedWorkspaceResult {
   const { history, bump, newTag, changelogFiles, releaseType, bumpOverride, setVersion } = args;
@@ -307,15 +296,15 @@ interface PlanSinglePackageChangelogsArgs {
 }
 
 /**
- * Single-package changelog planner. Builds entries (from release windows, or the synthetic entry when the unreleased window yields no item), applies
- * editorial overrides, and renders both `changelog.json` and `CHANGELOG.md` from the merged set
- * so the two artifacts reflect the same post-override view. `CHANGELOG.md` also keeps the existing sections whose
- * versions the merged set lacks.
+ * Builds the single-package changelog entries (from release windows, or the synthetic entry when the unreleased window
+ * yields no item), applies editorial overrides, and renders both `changelog.json` and `CHANGELOG.md` from the merged
+ * set so that the two files reflect the same post-override view. `CHANGELOG.md` also keeps the existing sections
+ * whose versions the merged set lacks.
  *
- * Override application errors abort the release; warnings (zero-match keys) are accumulated on
- * `overrideWarnings` so the caller can surface them on the plan.
+ * Override application errors abort the release; warnings (zero-match and stale keys) are accumulated on
+ * `overrideWarnings` so that the caller can surface them on the plan.
  *
- * Returns the entries alongside the writes, so previews render from the same set.
+ * Returns the entries alongside the writes, so that previews render from the same set.
  */
 function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
   changelogFiles: string[];
@@ -350,9 +339,7 @@ function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
 
   for (const changelogPath of config.changelogPaths) {
     const jsonPath = resolveChangelogJsonPath(config, changelogPath);
-    // Merge with what is on disk so the markdown renderer sees prior entries. Only plan the
-    // JSON write when `changelogJson.enabled`; when disabled the merge still runs, so the
-    // markdown reflects the same set either way.
+    // Merge with the entries on disk so that the markdown includes prior releases, whether or not the JSON is written.
     const mergedEntries = mergeChangelogEntriesWithDisk(jsonPath, applied.entries);
     if (changelogFiles.length === 0) {
       firstMergedEntries = mergedEntries;

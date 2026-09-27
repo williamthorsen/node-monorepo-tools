@@ -69,18 +69,17 @@ var packagesChecklist = defineRdyChecklist({
       },
       fix: 'Set "packageManager": "pnpm@..." in root package.json'
     },
-    // Unfalsifiable on readyup 0.33 and later, where discovery reports the repo root and throws on an unreadable
-    // root package.json rather than returning an empty list. It stays for a consumer below that, whose monorepo
-    // mode returns the matched directories alone and so returns nothing when the globs match nothing.
+    // Unfalsifiable on every readyup version that `minReadyupVersion` admits: discovery reports the repo root, and it
+    // throws on an unreadable root package.json instead of returning an empty list.
     {
       name: "At least one workspace discovered",
       check: () => discoverWorkspaces().length > 0,
       fix: "Ensure pnpm-workspace.yaml lists package globs, or that a root package.json exists"
     }
   ],
-  // The gate stands beside the workspace rows rather than above them, so a session that cannot answer trust queries
-  // suppresses the trusted-publisher rows alone and leaves the package.json checks reporting. The rows no longer
-  // hang beneath the gate's skip, so a repo that publishes nothing has to be held to its one line here.
+  // The session gate is a sibling of the workspace rows, not their parent, so a session that cannot answer trust
+  // queries suppresses only the trusted-publisher rows and leaves the package.json checks reporting. The gate's skip
+  // therefore does not cover the rows, and this getter omits them for a repo that publishes nothing.
   get checks() {
     const sessionCheck = buildSessionCheck();
     if (skipIfNothingPublishable() !== false) {
@@ -110,8 +109,6 @@ function buildSessionCheck() {
       const capability = getCachedTrustCapability();
       return capability.ok ? { ok: true } : { ok: false, detail: capability.detail };
     },
-    // A plain string rather than a getter, because the remediation is the same however the session fails; only
-    // the `detail` above varies.
     fix: 'Restore a usable npm session: log in with "npm login", supplying the one-time password when prompted, or restore access to the registry, which the trusted-publisher check queries directly'
   };
 }

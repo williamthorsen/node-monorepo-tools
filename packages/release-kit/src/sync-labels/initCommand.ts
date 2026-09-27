@@ -24,12 +24,11 @@ interface InitOptions {
 const WORKFLOW_PATH = '.github/workflows/sync-labels.yaml';
 
 /**
- * Run the `sync-labels init` subcommand.
+ * Runs the `sync-labels init` subcommand and returns the process exit code.
  *
- * Discovers workspaces and retired packages, scaffolds the caller workflow, then seeds the
- * `repoLabels` block: into a new config file when none exists, or printed to stdout for manual
- * paste when the file is already there — an existing, hand-authored config is never rewritten.
- * Returns 0 on success, 1 on failure.
+ * Scaffolds the caller workflow and seeds the `repoLabels` block with scope labels for the workspaces and retired
+ * packages. The block goes into a new config file when none exists; an existing config is never rewritten, so the
+ * command prints the block for manual paste instead.
  *
  * `configPath` names the config to read. Naming one that does not exist fails the command, so the
  * scaffolding branch is reached only under the default path and always writes to `CONFIG_FILE_PATH`.
@@ -78,12 +77,10 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
   const scopeLabels: LabelDefinition[] =
     workspace.kind === 'single-package' ? [] : buildScopeLabels(workspace.packageDirs, retiredNames);
 
-  // Scaffold caller workflow
   console.info('\n> Scaffolding files');
   const workflowResult = writeFileWithCheck(WORKFLOW_PATH, syncLabelsWorkflow(), { dryRun, overwrite: force });
   reportWriteResult(workflowResult, dryRun, styles);
 
-  // Seed the repoLabels block: print for manual paste when the config exists, write a new file otherwise.
   if (configExists) {
     console.info(`\n> ${configFilePath} already exists; add this block to the object passed to defineConfig:\n`);
     console.info(renderRepoLabelsBlock(scopeLabels));
@@ -114,7 +111,6 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
     return 1;
   }
 
-  // Generate .github/labels.yaml
   if (dryRun) {
     console.info(`\n> [dry-run] Would generate ${LABELS_OUTPUT_PATH}`);
   } else {
@@ -125,7 +121,6 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
     }
   }
 
-  // Print summary
   console.info(`
 > Next steps
   1. Review the generated files:
@@ -141,10 +136,10 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
 }
 
 /**
- * Load the existing config and return the unscoped names of its `retiredPackages`.
+ * Loads the existing config and returns the unscoped names of its `retiredPackages`.
  *
- * Returns `undefined` when the config cannot be loaded or validated — init must not seed
- * a label set from a config it cannot read.
+ * Returns `undefined` when the config cannot be loaded or validated, because init must not seed
+ * a label set from a config that it cannot read.
  */
 async function loadRetiredPackageNames(styles: StreamStyles, configPath?: string): Promise<string[] | undefined> {
   const result = await loadValidatedConfig(configPath);
@@ -158,7 +153,7 @@ async function loadRetiredPackageNames(styles: StreamStyles, configPath?: string
   return (result.config.retiredPackages ?? []).map((retired) => toUnscopedName(retired.name));
 }
 
-/** Strip the npm scope from a package name (`@scope/name` → `name`). */
+/** Strips the npm scope from a package name (`@scope/name` → `name`). */
 function toUnscopedName(name: string): string {
   return name.startsWith('@') ? name.slice(name.indexOf('/') + 1) : name;
 }

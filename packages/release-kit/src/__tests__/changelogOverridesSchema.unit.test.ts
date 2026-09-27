@@ -50,7 +50,7 @@ describe('changelog-overrides.json schema', () => {
 
 // region | Helpers
 
-/** Return the schema's `patternProperties`, failing the test when it is not an object. */
+/** Returns the schema's `patternProperties`, failing the test when it is not an object. */
 function readPatternProperties(schema: unknown): Record<string, unknown> {
   assert(isRecord(schema) && isRecord(schema['patternProperties']));
   return schema['patternProperties'];

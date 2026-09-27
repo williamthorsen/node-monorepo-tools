@@ -9,11 +9,9 @@ import type { WorkspaceConfig } from './types.ts';
 /**
  * Derives a workspace configuration from a workspace-relative path.
  *
- * Reads `package.json` at the workspace path to derive the tag identifier from the
- * package's `name` field (with any leading `@scope/` stripped). The `dir` field remains
- * the basename of the path — it is the stable internal identifier used for `--only`,
- * config overrides, and dependency-graph lookups. The `tagPrefix` is `${unscopedName}-v`,
- * so tags reflect the package identity rather than the directory layout.
+ * The tag prefix is `${unscopedName}-v`, from the `name` in the workspace's `package.json`, so that tags follow the
+ * package's identity rather than the directory layout. `dir` is the basename of the path: the stable internal
+ * identifier for `--only`, config overrides, and dependency-graph lookups.
  */
 export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
   const dir = basename(workspacePath);
@@ -32,8 +30,7 @@ export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
 
   const unscopedName = stripNpmScope(name);
   const privateField = isRecord(parsed) ? parsed['private'] : undefined;
-  // Publishable when `private` is absent or `false`. Any other value (including non-boolean
-  // truthy values) is treated as `private: true` — match how npm/pnpm refuse to publish.
+  // Treat any `private` value other than `false` as private; npm and pnpm refuse to publish on a truthy non-boolean.
   const isPublishable = privateField === undefined || privateField === false;
 
   return {
@@ -49,11 +46,8 @@ export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
 }
 
 /**
- * Strip a leading `@scope/` from an npm package name.
- *
- * Npm package names cannot contain `/` outside the scope separator, so splitting on
- * the first `/` is safe. Intentionally scoped to this module because the concept is
- * distinct from the commit-scope stripping performed by `stripScope.ts`.
+ * Strips a leading `@scope/` from an npm package name. An npm package name contains no `/` outside the scope separator,
+ * so splitting on the first `/` is safe.
  */
 function stripNpmScope(name: string): string {
   if (name.startsWith('@') && name.includes('/')) {

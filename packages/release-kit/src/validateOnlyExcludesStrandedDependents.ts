@@ -13,9 +13,9 @@ export interface CommitsProbeResult {
 export interface StrandedDependentViolation {
   /** The excluded workspace's `dir`. */
   dir: string;
-  /** The released workspace's `dir` whose release would have triggered D's republication. */
+  /** The `dir` of the released (or anticipated-release) dependency whose release republishes this workspace. */
   downstreamOf: string;
-  /** The baseline tag from which D's commits were counted; `undefined` if no prior tag. */
+  /** The baseline tag from which this workspace's commits were counted; `undefined` if no prior tag exists. */
   tag: string | undefined;
 }
 
@@ -23,17 +23,14 @@ export interface StrandedDependentViolation {
 type CommitsProbe = (workspace: WorkspaceConfig) => CommitsProbeResult;
 
 /**
- * Detect `--only` invocations that would silently strand changes in excluded internal dependents.
+ * Detects `--only` invocations that would silently strand changes in excluded internal dependents.
  *
- * Runs in two steps. First, compute the released `--only` set R via fixpoint: start with `--only`
- * workspaces that have own commits, then iteratively add `--only` workspaces whose `workspace:`
- * deps land in R (those will release via propagation). Second, BFS through the reverse-dep graph
- * starting from R, recording each excluded workspace with own commits as a violation. The walk
- * continues *through* such workspaces (anticipating that the user will add them to `--only`,
- * surfacing deeper footguns in one pass), but stops at excluded workspaces with no commits
- * (case-3 barriers — they don't republish, so their downstream dependents aren't affected by R).
+ * First computes R, the `--only` workspaces that will release, then walks the reverse-dependency graph breadth-first
+ * from R and records each excluded workspace with its own commits as a violation. The walk continues through a
+ * violation, as though the user had added it to `--only`, which reports deeper violations in the same pass. It stops
+ * at an excluded workspace without commits, which does not republish, so its dependents are unaffected by R.
  *
- * Returns `undefined` when no violations are found, or a sorted list otherwise.
+ * Returns `undefined` when there is no violation, or the violations sorted by `dir`.
  */
 export function validateOnlyExcludesStrandedDependents(
   workspaces: readonly WorkspaceConfig[],
@@ -54,7 +51,7 @@ export function validateOnlyExcludesStrandedDependents(
 
 // region | Helpers
 
-/** Wrap a commits probe with a per-workspace cache so each workspace is queried at most once. */
+/** Wraps a commits probe with a per-workspace cache so each workspace is queried at most once. */
 function memoizeCommitsProbe(probe: CommitsProbe): CommitsProbe {
   const cache = new Map<string, CommitsProbeResult>();
   return (workspace) => {
@@ -67,10 +64,10 @@ function memoizeCommitsProbe(probe: CommitsProbe): CommitsProbe {
 }
 
 /**
- * Compute R: the set of `--only` workspaces that will release.
+ * Computes R, the set of `--only` workspaces that will release.
  *
- * Initial members are `--only` workspaces with their own commits since their last tag. The fixpoint
- * adds `--only` workspaces whose internal deps land in R, since those will release via propagation.
+ * Initial members are `--only` workspaces with their own commits since their last tag. The fixpoint adds `--only`
+ * workspaces that depend on a member of R, since those will release via propagation.
  */
 function computeReleasedSet(
   only: readonly string[],
@@ -100,7 +97,7 @@ function computeReleasedSet(
   return released;
 }
 
-/** Whether `dir` declares a `workspace:` dep on any workspace in `released`. */
+/** Reports whether `dir` declares a `workspace:` dependency on any workspace in `released`. */
 function hasDependencyIn(dir: string, graph: DependencyGraph, released: ReadonlySet<string>): boolean {
   const forwardDeps = graph.dependenciesOf.get(dir);
   if (forwardDeps === undefined) return false;
@@ -112,9 +109,8 @@ function hasDependencyIn(dir: string, graph: DependencyGraph, released: Readonly
 }
 
 /**
- * BFS through the reverse-dep graph starting from R; record excluded changed dependents as
- * violations. Walks *through* recorded violations (anticipated user fix), but stops at excluded
- * no-commit dependents (case-3 barriers).
+ * Walks the reverse-dependency graph breadth-first from R and returns each excluded dependent with commits as a
+ * violation.
  */
 function collectStrandedViolations(
   released: ReadonlySet<string>,
@@ -160,12 +156,8 @@ function collectStrandedViolations(
 }
 
 /**
- * One node in the BFS frontier. `attributionRoot` is the workspace whose release (or anticipated
- * release) propagation reached this node — the value that downstream violations cite as their
- * `downstreamOf`. When the BFS walks past a node N (either an `--only` ∩ R member or an excluded
- * would-release violation that the user is expected to add to `--only`), the next frontier item's
- * `attributionRoot` becomes N — that node is now the most proximate release point to anything
- * deeper in the chain.
+ * One node in the BFS frontier: a released or anticipated-release workspace. `attributionRoot` is its `dir`, which a
+ * violation among its dependents cites as `downstreamOf`.
  */
 interface BfsFrontierItem {
   packageName: string;
@@ -182,12 +174,11 @@ interface VisitDependentContext {
   violationDirs: Set<string>;
 }
 
-/** Classify a single dependent: skip, walk-through, or record as a violation (and walk through). */
+/** Classifies a single dependent: skip, walk-through, or record as a violation (and walk through). */
 function visitDependent(dependent: WorkspaceConfig, attributionRoot: string, ctx: VisitDependentContext): void {
   if (ctx.onlySet.has(dependent.dir)) {
-    // Walk through `--only` dependents only when they will actually release (i.e., are in R).
-    // A `--only` workspace not in R has no commits and no propagation source — it doesn't
-    // release, so we should not propagate the walk through it.
+    // Walk through an `--only` dependent only when it is in R; one outside R has no commits and no propagation
+    // source, so it does not release.
     if (ctx.released.has(dependent.dir)) {
       enqueueDependent(dependent, ctx);
     }
@@ -195,7 +186,7 @@ function visitDependent(dependent: WorkspaceConfig, attributionRoot: string, ctx
   }
 
   const probe = ctx.probeCommits(dependent);
-  if (!probe.has) return; // Case-3 barrier: excluded with no commits.
+  if (!probe.has) return; // An excluded dependent without commits does not republish.
 
   if (!ctx.violationDirs.has(dependent.dir)) {
     ctx.violationDirs.add(dependent.dir);
@@ -206,15 +197,11 @@ function visitDependent(dependent: WorkspaceConfig, attributionRoot: string, ctx
     });
   }
 
-  // Walk through the violating dependent: anticipate the user adding it to `--only`,
-  // which would put it in R and surface any deeper footguns in this same pass.
+  // Walk through the violation as though the user had added it to `--only`.
   enqueueDependent(dependent, ctx);
 }
 
-/**
- * Push the dependent onto the BFS queue, using its `dir` as the new `attributionRoot` for any
- * deeper violations the BFS uncovers through it.
- */
+/** Pushes the dependent onto the BFS queue as the attribution root for violations among its own dependents. */
 function enqueueDependent(dependent: WorkspaceConfig, ctx: VisitDependentContext): void {
   const packageName = ctx.graph.dirToPackageName.get(dependent.dir);
   if (packageName !== undefined) {

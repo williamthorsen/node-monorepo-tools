@@ -147,7 +147,7 @@ describe(planReleaseNotesPreviews, () => {
   });
 });
 
-/** Build preview options, overriding any field of an otherwise minimal single-workspace run. */
+/** Builds preview options, overriding any field of an otherwise minimal single-workspace run. */
 function previewOptions(
   overrides: Partial<Parameters<typeof planReleaseNotesPreviews>[0]> = {},
 ): Parameters<typeof planReleaseNotesPreviews>[0] {

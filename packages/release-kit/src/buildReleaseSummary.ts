@@ -2,14 +2,8 @@ import { stripScope } from './stripScope.ts';
 import type { PrepareResult } from './types.ts';
 
 /**
- * Build a release commit body from a prepare result.
- *
- * Each released workspace with commits gets a section headed by its tag,
- * followed by scope-stripped commit messages as bullet points. Sections
- * are separated by blank lines. The project release (when present) is
- * appended as a final section using the same format. Returns an empty
- * string when no released workspaces have commits and there is no project
- * release.
+ * Builds a release commit body from a prepare result: one section per released workspace or project that has commits,
+ * the project last, each headed by its tag and listing its scope-stripped commit subjects.
  */
 export function buildReleaseSummary(result: Pick<PrepareResult, 'project' | 'workspaces'>): string {
   const sections: string[] = [];

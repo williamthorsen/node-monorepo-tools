@@ -595,7 +595,7 @@ describe('parseCommitMessage `!` policy enforcement', () => {
   });
 });
 
-/** The `Commit` the parser hands to the policy callback, whose subject a body-carrying message does not equal. */
+/** Builds the `Commit` that the parser passes to the policy callback, whose subject is the message's first line. */
 function expectedCommit(message: string, hash: string): Commit {
   return { message, subject: message.split('\n', 1)[0] ?? '', hash };
 }

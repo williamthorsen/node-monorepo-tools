@@ -10,6 +10,7 @@ vi.mock(import('node:child_process'), () => ({
 import { resolveReleaseTags } from '../resolveReleaseTags.ts';
 import type { WorkspaceConfig } from '../types.ts';
 
+/** Builds a publishable workspace config under `packages/{dir}`, overriding any field. */
 function makeWorkspace(
   overrides: Partial<WorkspaceConfig> & Pick<WorkspaceConfig, 'dir' | 'tagPrefix'>,
 ): WorkspaceConfig {

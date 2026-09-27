@@ -19,6 +19,7 @@ export interface VersionBumpPlan {
   writes: PlannedWrite[];
 }
 
+/** Narrows a parsed value to a package manifest with a string `version`. */
 function isPackageJson(value: unknown): value is PackageJson {
   return typeof value === 'object' && value !== null && 'version' in value && typeof value.version === 'string';
 }
@@ -27,8 +28,8 @@ function isPackageJson(value: unknown): value is PackageJson {
  * Computes the version bump for a workspace's package files without writing them.
  *
  * The current version comes from the first package file, and the new one from the release type.
- * Every file's post-bump content is rendered in full, preserving the fields the file already
- * carries and the two-space indentation with a trailing newline.
+ * Every file's post-bump content is rendered in full, preserving every field that the file already
+ * contains, with two-space indentation and a trailing newline.
  */
 export function planVersionBump(packageFiles: readonly string[], releaseType: ReleaseType): VersionBumpPlan {
   const { firstFile, firstPkg } = readPrimaryPackage(packageFiles);
@@ -59,9 +60,8 @@ export function readCurrentVersion(packageFiles: readonly string[]): string {
 }
 
 /**
- * Reads the first package file, which supplies the pre-change version for the whole workspace.
- *
- * @throws If no package files are configured.
+ * Reads the first package file, which supplies the pre-change version for the whole workspace. Throws if no package
+ * files are configured.
  */
 function readPrimaryPackage(packageFiles: readonly string[]): { firstFile: string; firstPkg: PackageJson } {
   const firstFile = packageFiles[0];
@@ -88,9 +88,8 @@ function renderVersionWrites(
 }
 
 /**
- * Read and parse a package.json file, returning a validated object with a `version` field.
- *
- * @throws If the file cannot be read, contains invalid JSON, or lacks a `version` field.
+ * Reads and parses a package.json file, returning a validated object with a `version` field. Throws if the file cannot
+ * be read, contains invalid JSON, or lacks a `version` field.
  */
 function readPackageJson(filePath: string): PackageJson {
   let content: string;

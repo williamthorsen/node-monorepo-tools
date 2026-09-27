@@ -8,7 +8,7 @@ import type { ReleaseKitConfig } from './types.ts';
 export type { LabelSpec, ReleaseKitConfig, RepoLabelsConfig } from './types.ts';
 
 /**
- * Type-safe identity function for configuration files.
+ * Returns a configuration unchanged, typing it as a `ReleaseKitConfig`.
  *
  * Usage in `.config/release-kit.config.ts`:
  * ```ts

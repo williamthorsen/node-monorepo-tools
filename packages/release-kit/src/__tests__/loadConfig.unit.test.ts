@@ -10,8 +10,8 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-// The loader suite drives the real thing -- a real file on disk, imported by the runtime -- so it needs the unmocked
-// module that the three suites below deliberately replace.
+// The loader suite imports a real file from disk, so it needs the unmocked module that the three suites below
+// replace.
 const actualFs = await vi.importActual<typeof import('node:fs')>('node:fs');
 
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from '../defaults.ts';
@@ -24,7 +24,7 @@ import {
 } from '../loadConfig.ts';
 
 /**
- * Configure `mockReadFileSync` to return a `package.json` with the given `name` per workspace
+ * Configures `mockReadFileSync` to return a `package.json` with the given `name` per workspace
  * path. Any path not in the map triggers a test failure rather than a silent default.
  */
 function mockPackageNames(namesByPath: Record<string, string>): void {
@@ -125,7 +125,7 @@ describe(loadConfig, () => {
     );
   });
 
-  /** Writes `source` to the config path the loader resolves under the temp directory standing in for the cwd. */
+  /** Writes `source` to the config path that the loader resolves under the temp directory standing in for the cwd. */
   function writeConfig(source: string): void {
     tree.write(CONFIG_FILE_PATH, source);
   }
@@ -581,8 +581,6 @@ describe('mergeMonorepoConfig project block', () => {
   });
 
   it('accepts a workspace whose legacyIdentities reuses its own current tagPrefix (different name)', () => {
-    // Existing intra-workspace rename pattern must keep working — a workspace's own current
-    // prefix and its declared legacy identity prefix can match without colliding.
     expect(() =>
       mergeMonorepoConfig(discoveredPaths, {
         workspaces: [

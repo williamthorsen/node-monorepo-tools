@@ -29,23 +29,17 @@ import type {
 const UNRELEASED_TAG = 'unreleased';
 
 /**
- * Canonical bare-section-name → priority index, derived from `DEFAULT_WORK_TYPES`.
+ * The priority of each bare section name, in `DEFAULT_WORK_TYPES` order. `changelog.json` lists sections in this order
+ * whatever the order of the commits, because tools that read the file directly depend on it.
  *
- * Used to sort `ChangelogEntry.sections` into canonical order so the structured
- * `changelog.json` artifact emits sections in tier-then-row order regardless of which
- * commit was encountered first. Render-time consumers (`renderReleaseNotesSingle`) accept
- * an explicit `sectionOrder`, but downstream tools that read `changelog.json` directly
- * depend on this in-order serialisation.
- *
- * Headers in `DEFAULT_WORK_TYPES` carry the canonical emoji-prefixed form
- * (e.g. `🐛 Bug fixes`); the bare key is used so the index matches both the decorated titles
- * `transformReleases` assigns and the bare names a consumer's `workTypes` override may supply.
+ * The key is the bare name, to match both the emoji-prefixed default headers (e.g. `🐛 Bug fixes`) and the bare names
+ * that a `workTypes` override may supply.
  */
 const CANONICAL_SECTION_ORDER: ReadonlyMap<string, number> = new Map(
   Object.values(DEFAULT_WORK_TYPES).map((config, index) => [stripGroupDecorations(config.header), index]),
 );
 
-/** Lookup the canonical priority of a section title. Unknown sections sort to the end. */
+/** Returns the canonical priority of a section title; an unknown title sorts last. */
 function canonicalSectionPriority(title: string): number {
   const index = CANONICAL_SECTION_ORDER.get(stripGroupDecorations(title));
   return index ?? Infinity;
@@ -65,8 +59,7 @@ export function stripGroupDecorations(group: string): string {
 /**
  * Builds structured changelog entries from the release windows of git history, naming the unreleased window `tag`.
  *
- * Composes `readReleaseHistory` and `toChangelogEntries` for a caller that knows the tag before it reads. Performs no
- * `changelog.json` I/O; callers persist the entries via `renderChangelogJson`.
+ * Composes `readReleaseHistory` and `toChangelogEntries` for a caller that knows the tag before it reads.
  */
 export function buildChangelogEntries(
   config: ReleaseHistoryConfig,
@@ -83,7 +76,7 @@ export interface ChangelogDiagnostics {
   /** Breaking-policy violations of the window's titles and change-record entries. */
   policyViolations: PolicyViolation[];
   undeclaredEntryTypes: UndeclaredEntryType[];
-  /** Entry scopes that route nowhere, which `releasePrepareMono` fills across workspaces; the read leaves it empty. */
+  /** Entry scopes that route to no workspace. A read leaves it empty: only a pass over every workspace can fill it. */
   unroutedEntryScopes: UnroutedEntryScope[];
 }
 
@@ -327,8 +320,7 @@ function buildSections(
       items,
     });
   }
-  // Sort by canonical priority so `changelog.json` emits sections in tier-then-row order.
-  // Stable sort preserves encounter order for unknown sections (priority = Infinity).
+  // A stable sort keeps unknown sections, whose priority is `Infinity`, in encounter order.
   return sections.toSorted((a, b) => canonicalSectionPriority(a.title) - canonicalSectionPriority(b.title));
 }
 
@@ -452,8 +444,7 @@ function buildTitleItem(
   if (isParsedBreaking && subjectHasBreakingMarker(commit.message, workTypes)) {
     item.breaking = true;
   }
-  // Derive from the trailer-stripped body rather than the raw message, so the field comes
-  // from exactly the text that lands in `body`.
+  // Derive from the trailer-stripped body so that the migration comes from exactly the text in `body`.
   const migration = extractMigration(body);
   if (migration !== undefined) {
     item.migration = migration;
@@ -471,7 +462,7 @@ function subjectHasBreakingMarker(message: string, workTypes: Record<string, Wor
   return parseSubject(message.split('\n', 1)[0] ?? '', workTypes)?.breaking === true;
 }
 
-/** Extract the description from a parsed commit message, stripping ticket ID and type prefix. */
+/** Extracts the description from a commit subject: the text after its first `: `, capitalized. */
 function extractDescription(message: string): string {
   const firstLine = message.split('\n', 1)[0] ?? message;
   const afterColon = firstLine.split(': ').slice(1).join(': ');
@@ -494,16 +485,13 @@ const TRAILER_PATTERNS: RegExp[] = [
 ];
 
 /**
- * Extract the body from a commit message, stripping trailing trailer metadata.
- *
- * Takes lines 2+ of the commit message, trims leading/trailing blank lines, then walks backward
- * from the end dropping consecutive lines that match trailer patterns or are blank lines adjacent
- * to the trailer block. Returns `undefined` when the resulting body is empty.
+ * Extracts the body from a commit message: the lines after the subject, less its leading blank lines and the blank
+ * and trailer lines at its end; undefined when nothing remains.
  */
 function extractBody(message: string): string | undefined {
   const lines = message.split('\n').slice(1);
 
-  // Walk forward from the first non-blank line.
+  // Skip leading blank lines.
   let start = 0;
   while (start < lines.length && (lines[start] ?? '').trim() === '') {
     start += 1;

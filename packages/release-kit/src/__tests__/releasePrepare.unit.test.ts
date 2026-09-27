@@ -78,6 +78,7 @@ const diagnostics: ChangelogDiagnostics = {
   unroutedEntryScopes: [{ commitHash: 'bbb2222', commitSubject: 'Merge PR', entryPosition: 3, scope: 'other' }],
 };
 
+/** Builds a single-package config tagged under `v`, with the changelog JSON disabled, overriding any field. */
 function makeConfig(overrides?: Partial<ReleaseConfig>): ReleaseConfig {
   return {
     tagPrefix: 'v',

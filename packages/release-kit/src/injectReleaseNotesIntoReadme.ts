@@ -10,11 +10,7 @@ import type { ChangelogEntry } from './types.ts';
 export interface RenderedInjectedReadme {
   /** The README with the release-notes section injected at the marker position. */
   injectedReadme: string;
-  /**
-   * The standalone release-notes markdown for the target version (trimmed), prefixed with a
-   * labeled `## Release notes — v{version} ({date})` heading so the file is self-identifying.
-   * The GitHub-release body is rendered separately (without this heading) by `createGithubRelease`.
-   */
+  /** The standalone release-notes markdown for the target version, trimmed and led by a `## Release notes` heading. */
   releaseNotesMarkdown: string;
 }
 
@@ -36,10 +32,10 @@ export type RenderInjectedReadmeResult =
  * release-notes markdown, from an already-loaded README string and an in-memory entry set.
  *
  * This is the pure rendering core: it reads nothing, writes nothing, and reports nothing, so a
- * caller holding entries a release has computed but not yet written gets the same result as one
- * rendering from a saved file, and each caller words a skip for its own output.
+ * caller holding entries that a release has computed but not yet written gets the same result as
+ * one rendering from a saved file, and each caller words a skip for its own output.
  *
- * Carries the version on a skip because both callers name it in their message and only this
+ * Returns the version on a skip because both callers name it in their message and only this
  * function has derived it from the tag.
  */
 export function renderInjectedReadmeFromEntries(
@@ -65,7 +61,7 @@ export function renderInjectedReadmeFromEntries(
     return { status: 'skipped', reason: 'empty-body', version };
   }
 
-  // Prepend a labeled heading so readers can see both that the content is release notes
+  // Prepend a labeled heading so that readers can see both that the content is release notes
   // and which version they describe. The README-injected form and the standalone preview
   // share this heading; the GitHub-release body (rendered elsewhere) omits it because the
   // release page already shows the tag and date.
@@ -111,9 +107,8 @@ export function renderInjectedReadme(
 }
 
 /**
- * Inject release notes into a README and return the original content for restoration.
- *
- * Returns the original README content, or `undefined` if injection was skipped.
+ * Injects release notes into a README file, returning the original content for restoration, or `undefined` when
+ * injection was skipped.
  */
 export function injectReleaseNotesIntoReadme(
   readmePath: string,
@@ -132,7 +127,7 @@ export function injectReleaseNotesIntoReadme(
   return originalReadme;
 }
 
-/** Find the README file in a workspace directory. */
+/** Returns the path of a workspace's `README.md`, or `undefined` when it has none. */
 export function resolveReadmePath(workspacePath: string): string | undefined {
   const readmePath = join(workspacePath, 'README.md');
   return existsSync(readmePath) ? readmePath : undefined;
@@ -140,7 +135,7 @@ export function resolveReadmePath(workspacePath: string): string | undefined {
 
 // region | Helpers
 
-/** Describes a render skip as a phrase naming the reason and the version it applies to. */
+/** Describes a render skip as a phrase naming the reason and the version to which it applies. */
 function describeRenderSkip(reason: RenderInjectedReadmeSkipReason, version: string): string {
   return reason === 'no-entry'
     ? `no changelog entry for version ${version}`

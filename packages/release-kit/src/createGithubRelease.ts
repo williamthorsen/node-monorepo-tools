@@ -15,12 +15,8 @@ export interface CreateGithubReleaseOptions {
 }
 
 /**
- * Discriminated reason a single tag was skipped.
- *
- * `'no-entry'` is the umbrella for all "data missing" sub-cases (changelog file not found,
- * JSON unparseable, version not in changelog) — distinguishing them programmatically adds no
- * value to the consumer, while the existing `console.warn` messages already discriminate them
- * for human diagnostics.
+ * Why a tag was skipped. `'no-entry'` covers every case of missing data (no changelog file, unparseable JSON, no entry
+ * for the version); the warnings that `createGithubRelease` prints tell them apart.
  */
 export type CreateReleaseSkipReason = 'no-entry' | 'no-audience-content' | 'empty-body';
 
@@ -28,13 +24,11 @@ export type CreateReleaseSkipReason = 'no-entry' | 'no-audience-content' | 'empt
 export type CreateReleaseResult = { status: 'created' } | { status: 'skipped'; reason: CreateReleaseSkipReason };
 
 /**
- * Create a GitHub Release from changelog.json using the `gh` CLI.
+ * Creates a GitHub Release for a tag through the `gh` CLI, with the all-audience notes of the tag's `changelog.json`
+ * entry as its body.
  *
- * Reads the changelog JSON, finds the entry matching the tag's version, renders all-audience
- * release notes, and creates the release. Returns a discriminated `{status: 'skipped', reason}`
- * (with a warning) when the changelog entry is missing, the entry has no all-audience content,
- * or the rendered body is empty. Throws when the `gh` CLI invocation itself fails so callers
- * can surface the failure rather than exit 0 silently.
+ * Returns a skip when the entry is missing (with a warning), has no all-audience content, or renders an empty body.
+ * Throws when `gh` fails, so that the caller does not exit 0 on a failed release.
  */
 export function createGithubRelease(options: CreateGithubReleaseOptions): CreateReleaseResult {
   const { tag, changelogJsonPath, dryRun, sectionOrder } = options;
@@ -91,13 +85,7 @@ export interface CreateGithubReleasesOutcome {
   skipped: Array<{ tag: string; reason: CreateReleaseSkipReason }>;
 }
 
-/**
- * Create GitHub Releases for each provided tag.
- *
- * Per-tag soft-fails (missing changelog entry, no all-audience content, empty rendered body) are
- * recorded in `skipped` with their discriminated reason and do not throw. Hard failures from the
- * `gh` CLI itself throw and short-circuit the loop so callers can surface them.
- */
+/** Creates a GitHub Release for each tag and records each skip with its reason; a `gh` failure throws at once. */
 export function createGithubReleases(
   tags: Array<{ tag: string; workspacePath: string }>,
   changelogJsonOutputPath: string,

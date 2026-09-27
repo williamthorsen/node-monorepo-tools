@@ -23,7 +23,7 @@ export interface PlanReleaseNotesPreviewsOptions {
   sectionOrder: string[];
 }
 
-/** Preview files a release will write, alongside the reasons any were left out. */
+/** Preview files that a release will write, with the reasons for any that were left out. */
 export interface ReleaseNotesPreviewsPlan {
   writes: PlannedWrite[];
   warnings: string[];
@@ -33,10 +33,10 @@ export interface ReleaseNotesPreviewsPlan {
  * Computes the per-workspace release-notes previews under `{workspacePath}/docs/` without
  * writing them:
  *
- * - `docs/README.v{version}.md` — the workspace README with release notes injected at the marker.
- * - `docs/RELEASE_NOTES.v{version}.md` — the standalone release notes for this version.
+ * - `docs/README.v{version}.md`: the workspace README with release notes injected at the marker.
+ * - `docs/RELEASE_NOTES.v{version}.md`: the standalone release notes for this version.
  *
- * Renders from the entries the release will write rather than from a saved `changelog.json`, so
+ * Renders from the entries that the release will write rather than from a saved `changelog.json`, so
  * a preview describes the release being prepared rather than the one already on disk.
  *
  * The injected-README preview is omitted (the standalone file is still planned) when the
@@ -86,7 +86,7 @@ export function planReleaseNotesPreviews(options: PlanReleaseNotesPreviewsOption
  * Describes a skipped preview as a warning naming the workspace, the reason, and the version.
  *
  * The workspace leads because the prepare report collects every workspace's warnings into a single
- * block, so a message naming only the version cannot be traced back to the workspace it describes.
+ * block, so a message naming only the version cannot be traced back to the workspace that it describes.
  */
 function describePreviewSkip(workspacePath: string, reason: RenderInjectedReadmeSkipReason, version: string): string {
   const cause =
@@ -101,7 +101,7 @@ function describePreviewSkip(workspacePath: string, reason: RenderInjectedReadme
  *
  * An empty string still lets the pure renderer produce the standalone release notes, so a
  * workspace with no README loses only the injected-README preview. A read may fail
- * independently of `existsSync` (race, permission error), which earns its own warning.
+ * independently of `existsSync` (race, permission error), and gets its own warning.
  */
 function readWorkspaceReadme(
   readmePath: string,

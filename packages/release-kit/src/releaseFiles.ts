@@ -7,15 +7,15 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 /**
  * File written by the release preparation step, containing one tag per line.
  *
- * Relative to the project root so it works identically in CI and local runs. The reusable
+ * Relative to the project root so that it works identically in CI and local runs. The reusable
  * release workflow reads it at this path, so the path and the line-delimited format are a
- * published contract rather than an internal detail.
+ * published contract.
  */
 export const RELEASE_TAGS_FILE = 'tmp/.release-tags';
 
 /**
  * File written by the release preparation step, containing the commit body summary.
- * Relative to the project root so it works identically in CI and local runs.
+ * Relative to the project root so that it works identically in CI and local runs.
  */
 export const RELEASE_SUMMARY_FILE = 'tmp/.release-summary';
 
@@ -27,10 +27,8 @@ export function resolveReleaseTagsPath(): string {
 /**
  * Reads the tag names written by `prepare`, one per line, discarding blank lines.
  *
- * Both consumers — `commit` and `tag` — share this reader so their diagnostics cannot drift.
- * Failure messages name the path as resolved against `process.cwd()`, which is what separates
- * a genuinely absent file from one the command looked for under a different worktree, and
- * they preserve the underlying errno instead of reporting every failure as a missing file.
+ * A failure message names the path as resolved against `process.cwd()`, which distinguishes an
+ * absent file from one that the command looked for under a different worktree.
  *
  * An empty or blank file yields an empty array; callers decide whether that is an error.
  */
@@ -51,10 +49,10 @@ export function readReleaseTags(): string[] {
 /**
  * Composes the failure message for an unreadable tags file.
  *
- * `ENOENT` is the only code that means "prepare has not produced a release," so it keeps the
- * instruction to run `prepare`. Every other code (`EACCES`, `EISDIR`, and the rest) describes
- * a file the tool could not read rather than one that is absent, and reporting it as missing
- * sends the operator after the wrong cause.
+ * `ENOENT` is the only code that means that `prepare` has not produced a release, so only its
+ * message tells the operator to run `prepare`. Every other code (`EACCES`, `EISDIR`, and the
+ * rest) describes a file that exists but could not be read, and its message includes the
+ * underlying error.
  */
 function describeTagsReadFailure(error: unknown): string {
   const tagsPath = resolveReleaseTagsPath();

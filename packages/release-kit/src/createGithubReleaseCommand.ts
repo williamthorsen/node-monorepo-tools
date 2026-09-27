@@ -20,12 +20,11 @@ const createGithubReleaseFlagSchema = {
 };
 
 /**
- * Orchestrate the CLI `create-github-release` command: Create GitHub Releases from changelog.json
- * for tags on HEAD (or a comma-separated `--tags` subset), without requiring npm publish.
+ * Runs the CLI `create-github-release` command: creates GitHub Releases from `changelog.json` for the tags on HEAD, or
+ * a comma-separated `--tags` subset, without publishing to npm.
  *
- * Private/unpublishable workspaces are skipped with a warning and never get a Release, matching
- * `release-kit publish`; an all-private tag set is a clean no-op. A relative `--config` resolves against
- * `invocationDir`.
+ * A private workspace's tag is skipped with a warning and gets no Release; an all-private tag set is a clean no-op. A
+ * relative `--config` resolves against `invocationDir`.
  */
 export async function createGithubReleaseCommand(
   argv: string[],
@@ -43,8 +42,7 @@ export async function createGithubReleaseCommand(
 
   const resolvedTags = resolveCommandTags(requestedTags, userConfig);
 
-  // Skip unpublishable (private) workspaces cleanly: A private package is versioned and tagged but must not get a
-  // GitHub Release. Warn per skipped tag, matching `release-kit publish`.
+  // A private package is versioned and tagged but gets no GitHub Release.
   const publishableTags = resolvedTags.filter((resolvedTag) => resolvedTag.isPublishable);
   for (const resolvedTag of resolvedTags) {
     if (!resolvedTag.isPublishable) {
@@ -66,10 +64,8 @@ export async function createGithubReleaseCommand(
     process.exit(1);
   }
 
-  // Treat every per-tag skip reason (`no-entry`, `no-audience-content`, `empty-body`) as informational.
-  // Typo protection for `--tags` lives upstream in `resolveCommandTags`, which exits 1 with `Error: Unknown tag "..."`
-  // before any tag reaches `createGithubReleases`. By the time a tag's outcome is `no-entry` here, its existence in git
-  // is guaranteed and the missing entry is a legitimate "no releasable content" outcome (same as the other reasons).
+  // Treat every skip as informational: `resolveCommandTags` has already rejected an unknown tag, so a `no-entry` tag
+  // exists in git and has no releasable content.
   if (outcome.skipped.length > 0) {
     const formatted = outcome.skipped.map((s) => `${s.tag} (${s.reason})`).join(', ');
     console.info(`Skipped ${outcome.skipped.length} tag(s) with no releasable content: ${formatted}.`);
