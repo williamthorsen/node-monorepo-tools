@@ -11,7 +11,7 @@ const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockValidateConfig = vi.hoisted(() => vi.fn());
 const mockResolveLabels = vi.hoisted(() => vi.fn());
-const mockHashPresetFile = vi.hoisted(() => vi.fn());
+const mockHashPreset = vi.hoisted(() => vi.fn());
 const mockMkdirSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
@@ -31,7 +31,7 @@ vi.mock(import('../resolveLabels.ts'), () => ({
 
 vi.mock(import('../presets.ts'), async (importOriginal) => {
   const original = await importOriginal();
-  return { ...original, hashPresetFile: mockHashPresetFile };
+  return { ...original, hashPreset: mockHashPreset };
 });
 
 vi.mock(import('node:fs'), () => ({
@@ -52,7 +52,7 @@ describe(generateCommand, () => {
     mockLoadConfig.mockReset();
     mockValidateConfig.mockReset();
     mockResolveLabels.mockReset();
-    mockHashPresetFile.mockReset();
+    mockHashPreset.mockReset();
     mockMkdirSync.mockReset();
     mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
@@ -133,7 +133,7 @@ describe(generateCommand, () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({ repoLabels: { extends: ['common'] } });
     mockResolveLabels.mockReturnValue(labels);
-    mockHashPresetFile.mockReturnValue('abc123');
+    mockHashPreset.mockReturnValue('abc123');
     using _silent = silenceConsole(['info']);
 
     const exitCode = await generateCommand({ styles: RICH_STYLES });
@@ -152,7 +152,7 @@ describe(generateCommand, () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({ repoLabels: { extends: ['common'] } });
     mockResolveLabels.mockReturnValue(labels);
-    mockHashPresetFile.mockReturnValue('abc123');
+    mockHashPreset.mockReturnValue('abc123');
     using _silent = silenceConsole(['info']);
 
     mockReadFileSync.mockReturnValue(formatLabelsYaml(labels, new Map([['common', 'abc123']])));
@@ -167,7 +167,7 @@ describe(generateCommand, () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({ repoLabels: { extends: ['common'] } });
     mockResolveLabels.mockReturnValue([{ name: 'bug', color: 'd73a4a', description: 'Bug' }]);
-    mockHashPresetFile.mockReturnValue('abc123');
+    mockHashPreset.mockReturnValue('abc123');
     mockReadFileSync.mockReturnValue('# outdated content\n');
     using capture = captureStdio();
 

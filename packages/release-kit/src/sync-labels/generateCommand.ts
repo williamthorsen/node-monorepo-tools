@@ -8,7 +8,7 @@ import { stringify } from 'yaml';
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
 import { loadValidatedConfig, reportConfigProblem } from '../loadValidatedConfig.ts';
 import type { RepoLabelsConfig } from '../types.ts';
-import { hashPresetFile } from './presets.ts';
+import { hashPreset } from './presets.ts';
 import { resolveLabels } from './resolveLabels.ts';
 import { checkRetiredSyncLabelsConfig } from './retiredConfig.ts';
 import type { LabelDefinition } from './types.ts';
@@ -117,7 +117,7 @@ export async function generateCommand({ check = false, configPath, styles }: Gen
   const presetHashes = new Map<string, string>();
   const presetNames = repoLabels.extends ?? [];
   for (const presetName of presetNames) {
-    presetHashes.set(presetName, hashPresetFile(presetName));
+    presetHashes.set(presetName, hashPreset(presetName));
   }
 
   const content = formatLabelsYaml(labels, presetHashes, toRootRelativePosixPath(configPath ?? CONFIG_FILE_PATH));
