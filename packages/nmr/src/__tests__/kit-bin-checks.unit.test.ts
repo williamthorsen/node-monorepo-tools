@@ -1,10 +1,9 @@
-import { pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it } from 'vitest';
 
 import { everyBinWrapperTargetIsCoveredByFiles } from '../../.readyup/kits/default.ts';
-import { buildMonorepo } from '../test-utils/fixture-repo.ts';
+import { buildManifest } from '../test-utils/buildManifest.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
+import { useMonorepo } from '../test-utils/useMonorepo.ts';
 
 /** nmr's own wrapper shape: the build entry named as a bare dynamic import. */
 const IMPORT_WRAPPER = "await import('../dist/esm/cli.js');\n";
@@ -78,17 +77,3 @@ describe(everyBinWrapperTargetIsCoveredByFiles, () => {
     expect(everyBinWrapperTargetIsCoveredByFiles()).toBe(true);
   });
 });
-
-// region | Helpers
-
-/** Renders a workspace manifest with the given fields, which every fixture package here needs a name beside. */
-function buildManifest(fields: Record<string, unknown>): string {
-  return `${JSON.stringify({ name: '@fixture/tool', ...fields }, undefined, 2)}\n`;
-}
-
-/** Builds a fixture monorepo and points `process.cwd()` at it, which is what workspace discovery reads. */
-function useMonorepo(files: Record<string, string>): void {
-  disposeOnTestFinished(pointCwdAt(buildMonorepo(files)));
-}
-
-// endregion | Helpers
