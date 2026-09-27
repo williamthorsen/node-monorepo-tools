@@ -664,7 +664,7 @@ function describeOrigin(origin: ScriptOrigin, config: NmrConfig, shouldUseRoot: 
  * a shell would read a control character. The rendered escape keeps the diagnostic on one line, and it is the text
  * for which the reader will search the file.
  *
- * Only the quoting site calls it. `formatPackageRemedy` decides its delete-the-entry branch by comparing a
+ * Only quoting sites call it. `formatPackageRemedy` decides its delete-the-entry branch by comparing a
  * rendered chain against the entry, and an escape applied ahead of that comparison would defeat it.
  */
 function escapeControlCharacters(text: string): string {

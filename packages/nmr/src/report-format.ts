@@ -13,7 +13,7 @@ export function isReportFormat(value: string): value is ReportFormat {
 }
 
 /**
- * Reads the format the environment names. An unrecognized value is reported as an error, which keeps a
+ * Reads the format the environment names. An unrecognized value is returned as an error, which keeps a
  * misspelling from standing unnoticed for the life of the shell.
  *
  * An unset or empty variable names no format, and `resolveReportFormat` supplies the default.
