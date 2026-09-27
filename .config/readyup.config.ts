@@ -1,8 +1,7 @@
 import { defineRdyConfig } from 'readyup';
 
-/** Readyup configuration for this monorepo. */
 export default defineRdyConfig({
-  // The checks in these packages will be run by `rdy run --packages`.
+  // `rdy run --packages` runs the kit that each of these packages publishes.
   packages: [
     '@williamthorsen/eslint-config-typescript',
     '@williamthorsen/nmr',

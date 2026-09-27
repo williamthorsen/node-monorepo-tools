@@ -32,8 +32,8 @@ describe('every reusable workflow that installs pnpm uses pnpm/setup', () => {
  *
  * `pnpm/setup` omits `npm`, `npx`, and `corepack` from the Node.js archive it installs, so either name
  * falls through to the runner image's copy, at a version no workflow here controls. Only
- * `audit.reusable.yaml` is exercised by a pull request; a reintroduced invocation in the other two
- * would otherwise first surface at release time.
+ * `audit.reusable.yaml` is exercised by a pull request; an invocation in the other two would otherwise
+ * first surface at release time.
  */
 describe('workflows whose runtime comes from pnpm/setup invoke neither npm nor npx', () => {
   it.each(PNPM_RUNTIME_WORKFLOWS)('%s.reusable.yaml', (name) => {
@@ -119,6 +119,7 @@ function listReusableWorkflows(): string[] {
     .toSorted();
 }
 
+/** Reads `<name>.reusable.yaml` from the workflows directory. */
 function readWorkflow(name: string): string {
   return readFileSync(join(workflowsDir, `${name}.reusable.yaml`), 'utf8');
 }

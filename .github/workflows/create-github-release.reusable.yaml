@@ -64,8 +64,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Build release-kit from source to avoid bootstrap problems when
-      # consumers tag a version that introduces new CLI flags.
+      # Run the release-kit at the tag, whose CLI flags the published version may lack.
       - name: Build release-kit from source
         if: ${{ github.repository == 'williamthorsen/node-monorepo-tools' }}
         run: pnpm --filter @williamthorsen/release-kit... run prepare

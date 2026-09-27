@@ -11,11 +11,6 @@ set -euo pipefail
 # This script publishes a minimal `name@0.0.0` placeholder containing only
 # `package.json` and `README.md`. The working repo is never mutated — the
 # placeholder is built in `mktemp -d` and removed via `trap` on exit.
-#
-# Usage:
-#   scripts/publish-bare.sh <package-name>
-#   scripts/publish-bare.sh <package-name> --dry-run
-#   scripts/publish-bare.sh --help
 
 PROG="$(basename "$0")"
 readonly PROG
@@ -25,12 +20,11 @@ readonly MAX_NAME_LEN=214
 # Cleanup state — accessed by EXIT trap after main() returns.
 tmp=""
 
-# Main flow
+# Validates the name and the npm session, builds the placeholder, and publishes it after confirmation.
 main() {
   local name=""
   local dry_run=false
 
-  # Parse arguments
   while [[ $# -gt 0 ]]; do
     case "$1" in
     -h | --help) show_usage 0 ;;
@@ -81,7 +75,7 @@ main() {
 
 # region | Helper functions
 
-# Display command-line syntax. Optionally exit with the provided code.
+# Prints usage to stderr and exits with the given code, 1 by default.
 show_usage() {
   cat >&2 <<USAGE
 Bootstrap publish a placeholder package to npm.
@@ -109,7 +103,7 @@ USAGE
   exit "${1:-1}"
 }
 
-# Reject names that don't match npm's allowed character set or exceed length.
+# Rejects a name that exceeds npm's length limit or falls outside its character set.
 validate_name() {
   local name="$1"
   if [[ ${#name} -gt $MAX_NAME_LEN ]]; then
@@ -123,7 +117,7 @@ validate_name() {
   fi
 }
 
-# Require the npm CLI to be on PATH.
+# Requires the npm CLI on PATH.
 require_npm() {
   if ! command -v npm >/dev/null 2>&1; then
     echo "$PROG: required command 'npm' not found on PATH" >&2
@@ -131,7 +125,7 @@ require_npm() {
   fi
 }
 
-# Require the user to be logged in to npm.
+# Requires the user to be logged in to npm.
 require_login() {
   if ! npm whoami >/dev/null 2>&1; then
     echo "$PROG: not logged in to npm" >&2
@@ -140,8 +134,8 @@ require_login() {
   fi
 }
 
-# Require the package name to be free on the npm registry.
-# Distinguish 404 (free, proceed) from other errors (registry unreachable, abort).
+# Requires the package name to be free on the npm registry, telling a 404 (free) apart from any other error (registry
+# unreachable).
 require_name_available() {
   local name="$1"
   local view_stderr=""
@@ -162,7 +156,7 @@ require_name_available() {
   fi
 }
 
-# Write the placeholder package.json and README.md into the temp dir.
+# Writes the placeholder package.json and README.md into the temp dir.
 build_placeholder() {
   local tmp="$1"
   local name="$2"
@@ -177,7 +171,7 @@ Placeholder for \`$name\` — awaiting first release.
 README
 }
 
-# Print a summary of what will be (or would be) published.
+# Prints a summary of what the run publishes, or would publish under --dry-run.
 print_summary() {
   local tmp="$1"
   local name="$2"
@@ -199,7 +193,7 @@ Bootstrap publish summary:
 SUMMARY
 }
 
-# Prompt for confirmation. Abort with exit 0 on any answer other than y/Y.
+# Prompts for confirmation, exiting 0 on any answer other than y/Y.
 confirm_publish() {
   local ans=""
   read -rp "Publish? [y/N] " ans || ans=""
@@ -209,8 +203,8 @@ confirm_publish() {
   fi
 }
 
-# Remove the placeholder files we created, then the temp dir if empty.
-# Targets files by name to avoid `rm -rf` on a path the script constructs.
+# Removes the placeholder files, then the temp dir if it is empty. Removing files by name avoids `rm -rf` on a path
+# that the script constructs.
 cleanup() {
   [[ -n "${tmp:-}" && -d "$tmp" ]] || return 0
   rm -f -- "$tmp/package.json" "$tmp/README.md"

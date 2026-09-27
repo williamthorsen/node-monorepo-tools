@@ -5,14 +5,12 @@ name: 'Reusable: Release'
 #
 # Installs `@williamthorsen/release-kit` globally and runs `release-kit prepare` to bump versions and generate
 # changelogs. The CLI writes computed tag names to `tmp/.release-tags` (relative to the project root).
-# This workflow reads that file instead of deriving tags independently, so `tagPrefix` in the release config is the
-# single source of truth.
+# This workflow reads that file, so `tagPrefix` in the release config is the single source of truth for tag names.
 #
 # On the consumer path, project dependencies are not installed: release-kit runs git-cliff and prettier via `npx`,
 # so no local node_modules are needed. The source-build path installs them.
 #
-# When running in the `williamthorsen/node-monorepo-tools` repo, release-kit is built from source instead of installed
-# from npm (auto-detected).
+# When running in the `williamthorsen/node-monorepo-tools` repo, the workflow builds release-kit from source.
 #
 # Usage:
 #   jobs:
@@ -78,23 +76,21 @@ jobs:
           cache: true
           install: false
 
-      # `actions/setup-node` stays because this workflow needs `npm` and `npx` at a controlled version, paired with the
-      # Node.js they run under: `release-kit prepare` spawns `npx git-cliff` and `npx prettier`, and the consumer path
-      # installs release-kit with `npm install --global`. `pnpm/setup` omits both from the runtime it installs, leaving
-      # only the runner image's copies.
+      # `release-kit prepare` spawns `npx git-cliff` and `npx prettier`, and the consumer path installs release-kit with
+      # `npm install --global`. `pnpm/setup` omits `npm` and `npx` from the runtime that it installs, so this step
+      # supplies them at a version paired with the Node.js that they run under.
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: '24'
 
-      # Install globally so the binary is on PATH. npm exec / npx binary resolution is unreliable with scoped packages
-      # on newer npm versions (11.x), so explicit install is more robust.
+      # npm 11 resolves the binaries of scoped packages unreliably through `npm exec` and `npx`, so install globally to
+      # put the binary on PATH.
       - name: Install release-kit from npm
         if: ${{ env.BUILD_LOCAL != 'true' }}
         run: npm install --global @williamthorsen/release-kit
 
-      # Build release-kit from source to avoid bootstrap problems when releasing a version
-      # that introduces new CLI flags.
+      # Run the release-kit being released, whose CLI flags the published version may lack.
       - name: Install dependencies
         if: ${{ env.BUILD_LOCAL == 'true' }}
         run: pnpm install --frozen-lockfile

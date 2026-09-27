@@ -27,8 +27,7 @@ const it = baseIt.extend(
  * Guards against a package's whole test suite silently disappearing. `passWithNoTests` means a run collecting
  * nothing exits 0, so a package whose `__tests__` directory was moved or renamed would otherwise report green.
  *
- * There is deliberately no allowlist: the first package that genuinely holds no tests should fail this and get an
- * explicit decision.
+ * A package that genuinely holds no tests fails this guard, which forces an explicit decision about it.
  */
 describe('every workspace package holds at least one collectable test file', () => {
   const packageDirs = getWorkspacePackageDirs(monorepoRoot);
