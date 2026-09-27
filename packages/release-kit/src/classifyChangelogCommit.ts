@@ -1,8 +1,6 @@
-import {
-  COMMIT_PREPROCESSOR_PATTERNS,
-  parseCommitMessage,
-  type ParseCommitMessageOptions,
-} from './parseCommitMessage.ts';
+import { TICKET_PREFIX_PATTERNS } from '@williamthorsen/change-grammar';
+
+import { parseCommitMessage, type ParseCommitMessageOptions } from './parseCommitMessage.ts';
 import type { Commit, WorkTypeConfig } from './types.ts';
 
 /** Matches the subject of a release commit, which records version bumps rather than a change to report. */
@@ -81,11 +79,11 @@ export function isReleaseSubject(subject: string): boolean {
 /**
  * Reports whether a commit subject opens with a ticket-ID prefix.
  *
- * Reuses the patterns `parseCommitMessage` strips, so the accepted ticket forms have one home: a subject
- * is ticketed when some pattern shortens it.
+ * Reuses the patterns that change-grammar strips before parsing, so the accepted ticket forms have one home: a
+ * subject is ticketed when some pattern shortens it.
  */
 function hasTicketPrefix(subject: string): boolean {
-  return COMMIT_PREPROCESSOR_PATTERNS.some((pattern) => pattern.test(subject));
+  return TICKET_PREFIX_PATTERNS.some((pattern) => pattern.test(subject));
 }
 
 // endregion | Helpers

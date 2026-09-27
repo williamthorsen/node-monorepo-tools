@@ -1,8 +1,8 @@
+import { CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
 import { describe, expect, it } from 'vitest';
 
 import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
 import type { ChangelogEntry } from '../types.ts';
-import { WORK_TYPES_DATA } from '../workTypesData.ts';
 
 const sampleEntry: ChangelogEntry = {
   version: '2.0.0',
@@ -176,13 +176,13 @@ describe(renderReleaseNotesSingle, () => {
       expect(result).not.toContain('🚨');
     });
 
-    it('sources the breaking-marker emoji and label from `WORK_TYPES_DATA.markers.breaking`', () => {
+    it('sources the breaking-marker emoji and label from `CANONICAL_TAXONOMY.markers.breaking`', () => {
       // Anchors the constructed prefix to the SSOT so a future intentional change to the
-      // emoji or label in `work-types.json` triggers a visible test update rather than a
+      // emoji or label in the canonical taxonomy triggers a visible test update rather than a
       // silent CHANGELOG.md diff. The literal expectations in the other tests in this block
       // (and in `renderChangelogMarkdown.unit.test.ts`) remain end-to-end string checks.
-      expect(WORK_TYPES_DATA.markers.breaking.emoji).toBe('🚨');
-      expect(WORK_TYPES_DATA.markers.breaking.label).toBe('Breaking');
+      expect(CANONICAL_TAXONOMY.markers.breaking.emoji).toBe('🚨');
+      expect(CANONICAL_TAXONOMY.markers.breaking.label).toBe('Breaking');
       const entry: ChangelogEntry = {
         version: '1.0.0',
         date: '2024-01-01',
@@ -195,7 +195,7 @@ describe(renderReleaseNotesSingle, () => {
         ],
       };
       const result = renderReleaseNotesSingle(entry, { includeHeading: false });
-      const expectedPrefix = `${WORK_TYPES_DATA.markers.breaking.emoji} **${WORK_TYPES_DATA.markers.breaking.label}:** `;
+      const expectedPrefix = `${CANONICAL_TAXONOMY.markers.breaking.emoji} **${CANONICAL_TAXONOMY.markers.breaking.label}:** `;
       expect(result).toContain(`- ${expectedPrefix}Redesign API`);
     });
 

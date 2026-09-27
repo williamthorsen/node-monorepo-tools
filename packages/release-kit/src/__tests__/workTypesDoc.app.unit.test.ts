@@ -66,8 +66,7 @@ function parseWorkTypesTable(): DocWorkTypeRow[] {
         continue;
       }
       inTable = true;
-      // The policy cell bolds `required` for emphasis.
-      rows.push({ key, header: header.trim(), breakingPolicy: policy.replaceAll('*', '') });
+      rows.push({ key, header: header.trim(), breakingPolicy: policy });
       continue;
     }
     if (inTable && line.trim() === '') {

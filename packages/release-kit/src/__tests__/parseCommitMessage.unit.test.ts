@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../defaults.ts';
-import { parseCommitMessage, type PolicyViolationHandler } from '../parseCommitMessage.ts';
+import { parseCommitMessage, parseSubject, type PolicyViolationHandler } from '../parseCommitMessage.ts';
 import type { Commit, WorkTypeConfig } from '../types.ts';
 
 const workTypes: Record<string, WorkTypeConfig> = {
@@ -35,7 +35,7 @@ describe(parseCommitMessage, () => {
     });
   });
 
-  it('parses a "*|type: description" message, `*` being the scope spanning every workspace', () => {
+  it('parses a "*|type: description" message as naming no scope, `*` being the scope spanning every workspace', () => {
     const message = '#64 *|fix: Add repository field to package manifests';
     const result = parseCommitMessage(message, 'stu901', workTypes);
     expect(result).toStrictEqual({
@@ -43,7 +43,6 @@ describe(parseCommitMessage, () => {
       hash: 'stu901',
       type: 'fix',
       description: 'Add repository field to package manifests',
-      scope: '*',
       breaking: false,
     });
   });
@@ -313,15 +312,28 @@ describe(parseCommitMessage, () => {
         breaking: false,
       });
     });
+  });
 
-    it('gives pipe scope precedence over parenthesized scope', () => {
-      const result = parseCommitMessage('web|feat(other): add thing', 'cc6', workTypes);
-      expect(result).toStrictEqual({
-        message: 'web|feat(other): add thing',
-        hash: 'cc6',
-        type: 'feat',
-        description: 'add thing',
-        scope: 'web',
+  describe('subject forms outside the grammar', () => {
+    it.each([
+      ['a pipe scope combined with a parenthesized scope', 'web|feat(other): add thing'],
+      ['no space after the colon', 'feat:add thing'],
+      ['no title', 'feat: '],
+    ])('returns undefined for %s', (_label, message) => {
+      expect(parseCommitMessage(message, 'form1', workTypes)).toBeUndefined();
+    });
+  });
+
+  describe('configured work types', () => {
+    it('resolves a type and alias that only the config declares', () => {
+      const custom: Record<string, WorkTypeConfig> = { ...workTypes, chore: { header: 'Chores', aliases: ['misc'] } };
+
+      expect(parseCommitMessage('api|misc: tidy', 'cfg1', custom)).toStrictEqual({
+        message: 'api|misc: tidy',
+        hash: 'cfg1',
+        type: 'chore',
+        description: 'tidy',
+        scope: 'api',
         breaking: false,
       });
     });
@@ -418,7 +430,7 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     expect(securityBang?.breaking).toBe(true);
   });
 
-  it('treats bare `drop:` as a policy violation; accepts `drop!` and `drop(scope)!`', () => {
+  it('accepts bare `drop:` without a policy violation, and `drop!` and `drop(scope)!` as breaking', () => {
     const onPolicyViolation = vi.fn<PolicyViolationHandler>();
 
     const dropBare = parseCommitMessage('drop: remove API', 'p7', DEFAULT_WORK_TYPES, undefined, {
@@ -427,10 +439,8 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     });
     expect(dropBare?.type).toBe('drop');
     expect(dropBare?.breaking).toBe(false);
-    expect(onPolicyViolation).toHaveBeenCalledTimes(1);
-    expect(onPolicyViolation).toHaveBeenCalledWith(expectedCommit('drop: remove API', 'p7'), 'drop', 'prefix');
+    expect(onPolicyViolation).not.toHaveBeenCalled();
 
-    onPolicyViolation.mockClear();
     const dropBang = parseCommitMessage('drop!: remove API', 'p8', DEFAULT_WORK_TYPES, undefined, {
       breakingPolicies: DEFAULT_BREAKING_POLICIES,
       onPolicyViolation,
@@ -589,3 +599,18 @@ describe('parseCommitMessage `!` policy enforcement', () => {
 function expectedCommit(message: string, hash: string): Commit {
   return { message, subject: message.split('\n', 1)[0] ?? '', hash };
 }
+
+describe(parseSubject, () => {
+  it.each(['#1 api|feat!: Redesign', '#1 feat(api)!: Redesign'])('reports the subject marker in "%s"', (subject) => {
+    expect(parseSubject(subject, workTypes)).toStrictEqual({
+      breaking: true,
+      scope: 'api',
+      title: 'Redesign',
+      type: 'feat',
+    });
+  });
+
+  it('ignores a `!:` later in the title', () => {
+    expect(parseSubject('#1 fix: Handle field!: value notation', workTypes)?.breaking).toBeUndefined();
+  });
+});

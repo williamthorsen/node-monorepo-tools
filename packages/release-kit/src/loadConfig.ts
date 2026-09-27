@@ -209,7 +209,7 @@ function applyOptionalPassthroughFields(
   result: {
     formatCommand?: string;
     scopeAliases?: Record<string, string>;
-    breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
+    breakingPolicies?: ReleaseKitConfig['breakingPolicies'];
   },
   userConfig: ReleaseKitConfig | undefined,
 ): void {

@@ -1,8 +1,9 @@
+import { CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
+
 import type { ChangelogAudience, ChangelogEntry, ChangelogSection } from './types.ts';
-import { WORK_TYPES_DATA } from './workTypesData.ts';
 
 /**
- * Build the per-bullet breaking-marker prefix from the canonical `markers.breaking` SSOT.
+ * Build the per-bullet breaking-marker prefix from change-grammar's canonical `markers.breaking`.
  *
  * Construction template: `${emoji} **${label}:** ` — the colon stays inside the bold to
  * preserve byte-identical rendered output across the `markers`-block adoption. If a future
@@ -10,7 +11,7 @@ import { WORK_TYPES_DATA } from './workTypesData.ts';
  * literal expectations in `renderReleaseNotes.unit.test.ts` / `renderChangelogMarkdown.unit.test.ts`.
  */
 function getBreakingPrefix(): string {
-  const { emoji, label } = WORK_TYPES_DATA.markers.breaking;
+  const { emoji, label } = CANONICAL_TAXONOMY.markers.breaking;
   return `${emoji} **${label}:** `;
 }
 

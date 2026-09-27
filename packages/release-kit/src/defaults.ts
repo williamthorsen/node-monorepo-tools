@@ -1,9 +1,6 @@
-import type { ChangelogJsonConfig, ReleaseNotesConfig, VersionPatterns, WorkTypeConfig } from './types.ts';
-import { WORK_TYPES_DATA } from './workTypesData.ts';
+import { type BreakingPolicy, CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
 
-/** Re-export the runtime taxonomy so consumers don't have to depend on `workTypesData.ts` directly. */
-export type { WorkTypesData } from './workTypesData.ts';
-export { WORK_TYPES_DATA } from './workTypesData.ts';
+import type { ChangelogJsonConfig, ReleaseNotesConfig, VersionPatterns, WorkTypeConfig } from './types.ts';
 
 /**
  * Compose the rendered section heading for a work-type entry as `${emoji} ${label}`.
@@ -18,10 +15,10 @@ export function composeHeader(entry: { emoji: string; label: string }): string {
 /** Tier names treated as dev-only (not surfaced in public release notes). */
 const DEV_ONLY_TIERS = new Set(['internal', 'process']);
 
-/** Derive `DEFAULT_WORK_TYPES` from the loaded work-types data in canonical order. */
+/** Derive `DEFAULT_WORK_TYPES` from the canonical taxonomy in canonical order. */
 function deriveDefaultWorkTypes(): Record<string, WorkTypeConfig> {
   const result: Record<string, WorkTypeConfig> = {};
-  for (const entry of WORK_TYPES_DATA.types) {
+  for (const entry of CANONICAL_TAXONOMY.types) {
     const config: WorkTypeConfig = {
       header: composeHeader(entry),
     };
@@ -36,10 +33,10 @@ function deriveDefaultWorkTypes(): Record<string, WorkTypeConfig> {
   return result;
 }
 
-/** Derive the dev-only section list from the loaded data, skipping `excludedFromChangelog` entries. */
+/** Derive the dev-only section list from the canonical taxonomy, skipping `excludedFromChangelog` entries. */
 function deriveDevOnlySections(): string[] {
   const sections: string[] = [];
-  for (const entry of WORK_TYPES_DATA.types) {
+  for (const entry of CANONICAL_TAXONOMY.types) {
     if (!DEV_ONLY_TIERS.has(entry.tier)) {
       continue;
     }
@@ -54,9 +51,7 @@ function deriveDevOnlySections(): string[] {
 /**
  * Default work types ordered by canonical priority.
  *
- * Derived from `work-types.json` (the canonical SSOT, mirrored at runtime by
- * `workTypesData.ts`). To change the taxonomy, edit `work-types.json` and update
- * `workTypesData.ts` to match — a drift test enforces lockstep.
+ * Derived from change-grammar's `CANONICAL_TAXONOMY`.
  */
 export const DEFAULT_WORK_TYPES: Record<string, WorkTypeConfig> = deriveDefaultWorkTypes();
 
@@ -67,8 +62,8 @@ export const DEFAULT_WORK_TYPES: Record<string, WorkTypeConfig> = deriveDefaultW
  * types tolerate `!` and which trigger a policy-violation warning. Missing entries default
  * to `'optional'` to preserve back-compat for consumers that supply custom work-types.
  */
-export const DEFAULT_BREAKING_POLICIES: Record<string, 'forbidden' | 'optional' | 'required'> = Object.fromEntries(
-  WORK_TYPES_DATA.types.map((entry) => [entry.key, entry.breakingPolicy]),
+export const DEFAULT_BREAKING_POLICIES: Record<string, BreakingPolicy> = Object.fromEntries(
+  CANONICAL_TAXONOMY.types.map((entry) => [entry.key, entry.breakingPolicy]),
 );
 
 /** Default version bump patterns. */

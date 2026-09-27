@@ -5,7 +5,7 @@ import { assert, describe, expect, it } from 'vitest';
 
 import { isRecord, isUnknownArray } from '../packages/release-kit/src/typeGuards.ts';
 
-const schemaPath = join(import.meta.dirname, '..', 'packages', 'release-kit', 'schemas', 'label-map.json');
+const schemaPath = join(import.meta.dirname, '..', 'packages', 'change-grammar', 'schemas', 'label-map.json');
 const labelMapPath = join(import.meta.dirname, '..', '.meta', 'label-map.json');
 
 const parsedSchema: unknown = JSON.parse(readFileSync(schemaPath, 'utf8'));
@@ -28,11 +28,11 @@ if (!isRecord(parsedLabelMap)) {
 
 /**
  * Cross-check that the in-repo `.meta/label-map.json` conforms to the structural
- * contract declared by `packages/release-kit/schemas/label-map.json`. Catches drift
+ * contract declared by `packages/change-grammar/schemas/label-map.json`. Catches drift
  * between the canonical example and the published schema without introducing a
  * full JSON Schema validator dependency.
  */
-describe('.meta/label-map.json conforms to release-kit schema', () => {
+describe('.meta/label-map.json conforms to change-grammar schema', () => {
   it('declares only top-level keys that the schema permits', () => {
     const allowedKeys = Object.keys(properties);
     for (const key of Object.keys(parsedLabelMap)) {

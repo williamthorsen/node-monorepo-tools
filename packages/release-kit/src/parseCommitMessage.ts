@@ -1,24 +1,19 @@
+import {
+  type BreakingPolicy,
+  type ChangeRecord,
+  compileTemplate,
+  parse,
+  type Taxonomy,
+  TEMPLATE_CATALOGUE,
+} from '@williamthorsen/change-grammar';
+
 import type { Commit, ParsedCommit, WorkTypeConfig } from './types.ts';
 
-/** Regex patterns stripped from the start of commit messages before parsing. */
-export const COMMIT_PREPROCESSOR_PATTERNS: readonly RegExp[] = [/^##\s+/, /^#\d+([.-]\d+)?\s+/, /^[A-Z]+-\d+\s+/];
-
-/**
- * Regex source for the pipe-prefixed scope atom (the `web` in `web|feat: ...`).
- *
- * Deliberately permissive: `*` is the sanctioned structural scope for changes spanning every
- * workspace, so the atom admits any run of non-pipe characters rather than word characters.
- * Exported because `buildChangelogEntries.ts` builds its breaking-marker pattern from the same atom.
- */
-export const PIPE_SCOPE_SOURCE = '[^|]+';
-
-// Match pipe-prefixed scope, type, optional parenthesized scope, breaking marker, description.
-// Group 1: pipe-prefixed scope (e.g., "web" in "web|feat: ...")
-// Group 2: type (e.g., "feat")
-// Group 3: parenthesized scope (e.g., "parser" in "fix(parser): ...")
-// Group 4: breaking marker ("!")
-// Group 5: description
-const COMMIT_SUBJECT_PATTERN = new RegExp(String.raw`^(?:(${PIPE_SCOPE_SOURCE})\|)?(\w+)(?:\(([^)]+)\))?(!)?:\s*(.*)$`);
+/** The subject templates that release-kit reads, in the order in which it tries them. */
+const SUBJECT_TEMPLATES = [
+  compileTemplate(TEMPLATE_CATALOGUE.pipedScope),
+  compileTemplate(TEMPLATE_CATALOGUE.conventionalCommits),
+];
 
 /**
  * Surface where a breaking-policy violation was detected: a subject's `!`, a `BREAKING CHANGE:` footer, or a
@@ -42,7 +37,7 @@ export interface ParseCommitMessageOptions {
    * treated as `'optional'` for backward compatibility with consumers that have not
    * supplied policies.
    */
-  breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
+  breakingPolicies?: Record<string, BreakingPolicy>;
   /** Receives policy-violation notifications. See {@link PolicyViolationHandler}. */
   onPolicyViolation?: PolicyViolationHandler;
 }
@@ -50,19 +45,14 @@ export interface ParseCommitMessageOptions {
 /**
  * Parse a commit message into structured metadata.
  *
- * Supports three formats:
- * - `type: description`
- * - `scope|type: description` (pipe-prefixed scope)
- * - `type(scope): description` (conventional commit parenthesized scope)
- *
- * Resolves aliases (e.g., `feature` → `feat`) using the provided work-type configs and the
- * canonical aliases list. Resolves scope aliases when a `scopeAliases` map is provided.
- * Detects breaking changes via `type!:` or `BREAKING CHANGE:` in the message.
+ * Reads the first line through change-grammar's `pipedScope` template (`scope|type: description`, the scope optional),
+ * then its `conventionalCommits` template (`type(scope): description`), and takes the first match. Types and aliases
+ * resolve against `workTypes`, ignoring case; scope aliases resolve when a `scopeAliases` map is provided. Detects
+ * breaking changes via the subject's `!` or `BREAKING CHANGE:` in the message.
  *
  * `!`-policy enforcement is **release-time tolerant**: when the resolved type's policy
  * forbids `!`, the marker is dropped from the parse (`breaking: false`) and
- * `onPolicyViolation` is invoked. When the policy requires `!`, a bare type triggers the
- * same warning path.
+ * `onPolicyViolation` is invoked.
  */
 export function parseCommitMessage(
   message: string,
@@ -71,58 +61,49 @@ export function parseCommitMessage(
   scopeAliases?: Record<string, string>,
   options?: ParseCommitMessageOptions,
 ): ParsedCommit | undefined {
-  // Strip ticket prefixes (e.g., "#8 " or "TOOL-123 ") before matching, and pull off the first line so multi-line
-  // messages (subject + body) parse correctly.
   const firstLine = message.split('\n', 1)[0] ?? '';
-  const stripped = stripTicketPrefix(firstLine);
-
-  const match = stripped.match(COMMIT_SUBJECT_PATTERN);
-  if (!match) {
-    return undefined;
-  }
-
-  const pipeScope = match[1];
-  const rawType = match[2];
-  const parenthesizedScope = match[3];
-  const breakingMarker = match[4];
-  const description = match[5];
-
-  // Both groups are non-optional in the regex, but TypeScript cannot infer that
-  if (rawType === undefined || description === undefined) {
-    return undefined;
-  }
-
-  // Resolve aliases
-  const resolvedType = resolveType(rawType, workTypes);
-  if (resolvedType === undefined) {
+  const record = parseSubject(firstLine, workTypes);
+  if (record?.type === undefined || record.title === undefined) {
     return undefined;
   }
 
   const commit: Commit = { message, subject: firstLine, hash };
   const breaking = evaluateBreakingPolicy({
     commit,
-    resolvedType,
-    hasPrefixBreaking: breakingMarker === '!',
+    resolvedType: record.type,
+    hasPrefixBreaking: record.breaking === true,
     hasFooterBreaking: message.includes('BREAKING CHANGE:'),
-    policy: options?.breakingPolicies?.[resolvedType] ?? 'optional',
+    policy: options?.breakingPolicies?.[record.type] ?? 'optional',
     onPolicyViolation: options?.onPolicyViolation,
   });
 
-  // Pipe scope takes precedence; fall back to parenthesized scope
-  const rawScope = pipeScope ?? parenthesizedScope;
-
-  // Resolve scope alias to canonical name if a mapping is provided
+  const rawScope = record.scope;
   const resolvedScope =
     rawScope !== undefined && scopeAliases !== undefined ? (scopeAliases[rawScope] ?? rawScope) : rawScope;
 
   return {
     message,
     hash,
-    type: resolvedType,
-    description,
+    type: record.type,
+    description: record.title,
     breaking,
     ...(resolvedScope !== undefined && { scope: resolvedScope }),
   };
+}
+
+/**
+ * Reads a commit subject into a change record through the templates that release-kit accepts, before any breaking
+ * policy applies. Ticket prefixes are stripped by the engine.
+ */
+export function parseSubject(subject: string, workTypes: Record<string, WorkTypeConfig>): ChangeRecord | undefined {
+  const taxonomy = toTaxonomy(workTypes);
+  for (const nodes of SUBJECT_TEMPLATES) {
+    const record = parse(nodes, subject, taxonomy);
+    if (record !== undefined) {
+      return record;
+    }
+  }
+  return undefined;
 }
 
 /** Inputs for {@link evaluateBreakingPolicy}. */
@@ -132,7 +113,7 @@ export interface BreakingPolicyInputs {
   /** Whether the marker that `prefixSurface` names is present. */
   hasPrefixBreaking: boolean;
   hasFooterBreaking: boolean;
-  policy: 'forbidden' | 'optional' | 'required';
+  policy: BreakingPolicy;
   onPolicyViolation: PolicyViolationHandler | undefined;
   /** The surface reported for a violation of the marker; `'prefix'` when omitted. */
   prefixSurface?: PolicyViolationSurface;
@@ -155,16 +136,6 @@ export function evaluateBreakingPolicy(inputs: BreakingPolicyInputs): boolean {
       onPolicyViolation?.(commit, resolvedType, 'body');
     }
     return false;
-  }
-  if (policy === 'required') {
-    // Only the prefix `!` carries the breaking signal here; a `BREAKING CHANGE:` body footer
-    // is changelog-decoration only and is intentionally not consulted, so a `required`-policy
-    // commit without `!` is a single prefix violation regardless of footer content.
-    if (!hasPrefixBreaking) {
-      onPolicyViolation?.(commit, resolvedType, prefixSurface);
-      return false;
-    }
-    return true;
   }
   // 'optional' policy: either form is acceptable.
   return hasPrefixBreaking || hasFooterBreaking;
@@ -192,11 +163,14 @@ export function resolveType(rawType: string, workTypes: Record<string, WorkTypeC
   return undefined;
 }
 
-/** Remove ticket-prefix patterns (e.g., "#8 " or "TOOL-123 ") from the start of a message. */
-function stripTicketPrefix(message: string): string {
-  let result = message;
-  for (const pattern of COMMIT_PREPROCESSOR_PATTERNS) {
-    result = result.replace(pattern, '');
-  }
-  return result;
+// region | Helpers
+
+/** Adapts configured work types to the engine's taxonomy; `parse` reads only keys and aliases, so the tier is empty. */
+function toTaxonomy(workTypes: Record<string, WorkTypeConfig>): Taxonomy {
+  return {
+    tiers: [],
+    types: Object.entries(workTypes).map(([key, config]) => ({ aliases: config.aliases ?? [], key, tier: '' })),
+  };
 }
+
+// endregion | Helpers

@@ -503,12 +503,17 @@ describe(validateConfig, () => {
   });
 
   describe('breakingPolicies', () => {
-    it('accepts a record covering all three policy literals', () => {
+    it('accepts a record covering both policy literals', () => {
       const { config, errors } = validateConfig({
-        breakingPolicies: { feat: 'forbidden', drop: 'required', fix: 'optional' },
+        breakingPolicies: { feat: 'forbidden', fix: 'optional' },
       });
       expect(errors).toStrictEqual([]);
-      expect(config.breakingPolicies).toStrictEqual({ feat: 'forbidden', drop: 'required', fix: 'optional' });
+      expect(config.breakingPolicies).toStrictEqual({ feat: 'forbidden', fix: 'optional' });
+    });
+
+    it('rejects the retired `required` policy', () => {
+      const { errors } = validateConfig({ breakingPolicies: { drop: 'required' } });
+      expectErrorAtPath(errors, 'breakingPolicies.drop');
     });
 
     it('accepts an empty object as the documented opt-out', () => {

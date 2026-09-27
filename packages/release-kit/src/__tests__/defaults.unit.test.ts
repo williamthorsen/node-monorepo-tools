@@ -1,18 +1,17 @@
+import { CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
 import { describe, expect, it } from 'vitest';
 
-import { composeHeader, DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES, WORK_TYPES_DATA } from '../defaults.ts';
+import { composeHeader, DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
 
-const workTypesData = WORK_TYPES_DATA;
-
-describe('DEFAULT_WORK_TYPES derivation from work-types.json', () => {
-  it('contains every entry from work-types.json under its canonical key', () => {
-    for (const entry of workTypesData.types) {
+describe('DEFAULT_WORK_TYPES derivation from CANONICAL_TAXONOMY', () => {
+  it('contains every entry from CANONICAL_TAXONOMY under its canonical key', () => {
+    for (const entry of CANONICAL_TAXONOMY.types) {
       expect(DEFAULT_WORK_TYPES, `key "${entry.key}" missing from DEFAULT_WORK_TYPES`).toHaveProperty(entry.key);
     }
   });
 
   it('uses `${emoji} ${label}` (single space) as the composed header for every entry', () => {
-    for (const entry of workTypesData.types) {
+    for (const entry of CANONICAL_TAXONOMY.types) {
       const config = DEFAULT_WORK_TYPES[entry.key];
       expect(config?.header).toBe(`${entry.emoji} ${entry.label}`);
     }
@@ -23,7 +22,7 @@ describe('DEFAULT_WORK_TYPES derivation from work-types.json', () => {
   });
 
   it('preserves the canonical declaration order (tier order, then row order within tier)', () => {
-    const expectedKeys = workTypesData.types.map((entry) => entry.key);
+    const expectedKeys = CANONICAL_TAXONOMY.types.map((entry) => entry.key);
     const actualKeys = Object.keys(DEFAULT_WORK_TYPES);
     expect(actualKeys).toStrictEqual(expectedKeys);
   });
@@ -34,7 +33,7 @@ describe('DEFAULT_WORK_TYPES derivation from work-types.json', () => {
   });
 
   it('wires every alias from the JSON onto its canonical entry', () => {
-    for (const entry of workTypesData.types) {
+    for (const entry of CANONICAL_TAXONOMY.types) {
       const config = DEFAULT_WORK_TYPES[entry.key];
       // An entry with no aliases in the JSON carries no `aliases` key at all on its canonical entry.
       const expected = entry.aliases.length === 0 ? undefined : entry.aliases;
@@ -47,7 +46,7 @@ describe('DEFAULT_WORK_TYPES derivation from work-types.json', () => {
   });
 
   it('carries `excludedFromChangelog` through from the JSON for every entry that declares it', () => {
-    for (const entry of workTypesData.types) {
+    for (const entry of CANONICAL_TAXONOMY.types) {
       const config = DEFAULT_WORK_TYPES[entry.key];
       const expected = entry.excludedFromChangelog === true ? true : undefined;
       expect(config?.excludedFromChangelog, `excludedFromChangelog for "${entry.key}"`).toBe(expected);
@@ -64,7 +63,7 @@ describe('DEFAULT_WORK_TYPES derivation from work-types.json', () => {
 
 describe('DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections derivation', () => {
   it('contains exactly internal and process entries (excluding excludedFromChangelog), in canonical order', () => {
-    const expected = workTypesData.types
+    const expected = CANONICAL_TAXONOMY.types
       .filter(
         (entry) => (entry.tier === 'internal' || entry.tier === 'process') && entry.excludedFromChangelog !== true,
       )

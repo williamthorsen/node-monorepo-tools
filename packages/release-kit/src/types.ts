@@ -1,3 +1,4 @@
+import type { BreakingPolicy } from '@williamthorsen/change-grammar';
 import { z } from 'zod';
 
 /** Semver release type for version bumping. */
@@ -18,7 +19,7 @@ export interface ChangelogItem {
    * change-record entry from which the item derives sets `breaking: true`, and the work-type policy
    * permits it, so the item agrees with the version bump.
    * The `BREAKING CHANGE:` body footer is intentionally NOT considered here. Renderers prefix
-   * breaking-item bullets with the marker constructed from `WORK_TYPES_DATA.markers.breaking`
+   * breaking-item bullets with the marker constructed from `CANONICAL_TAXONOMY.markers.breaking`
    * (rendered as `🚨 **Breaking:** ` with the canonical SSOT values) to surface them prominently
    * in release notes.
    */
@@ -508,7 +509,7 @@ export const versionPatternsSchema = z
   .strict();
 
 /** Schema for a single `breakingPolicies` value. */
-export const breakingPolicyValueSchema = z.enum(['forbidden', 'optional', 'required']);
+export const breakingPolicyValueSchema = z.enum(['forbidden', 'optional'] satisfies BreakingPolicy[]);
 
 /** Schema for a single label's spec in the `repoLabels.labels` record. */
 export const labelSpecSchema = z
@@ -639,7 +640,7 @@ export interface MonorepoReleaseConfig {
    * When provided, replaces the default entirely.
    * Pass `{}` to disable enforcement (parser falls back to `'optional'` for missing types).
    */
-  breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
+  breakingPolicies?: Record<string, BreakingPolicy>;
   /**
    * Shell command to run after all changelogs are generated (e.g., 'pnpm run fmt').
    * Modified file paths (package.json files and CHANGELOGs) are appended as space-separated
@@ -683,7 +684,7 @@ export interface ReleaseConfig {
    * provided, replaces the default entirely. Pass `{}` to disable enforcement (parser falls
    * back to `'optional'` for missing types).
    */
-  breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
+  breakingPolicies?: Record<string, BreakingPolicy>;
   /**
    * Shell command to run after changelog generation (e.g., 'pnpm run fmt').
    * Modified file paths (package.json files and CHANGELOGs) are appended as space-separated arguments.
