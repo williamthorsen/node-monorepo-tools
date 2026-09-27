@@ -122,7 +122,7 @@ describe('cache-store', () => {
     });
 
     it('reads unparseable content as a miss', async ({ tree }) => {
-      // A torn write from a store predating atomic renames, or a truncated disk, must not throw at the caller.
+      // A truncated entry must not throw at the caller.
       const entryPath = tree.write('entry.json', '{"hash": "abc');
 
       await expect(readJsonCacheEntry(entryPath, isHashEntry)).resolves.toBeUndefined();
@@ -163,8 +163,7 @@ describe('cache-store', () => {
     });
 
     it('never exposes a half-written entry to a concurrent reader', async ({ tree }) => {
-      // The write lands in a temporary file and is renamed into place, so a reader racing it sees the previous
-      // entry or the new one. A plain `writeFile` would let a reader observe a truncated prefix.
+      // Each read races the write, so a truncated prefix in `observed` would mean that the write is not atomic.
       const entryPath = path.join(tree.dir, 'entry.hash');
       const previous = 'p'.repeat(1_000_000);
       const next = 'n'.repeat(1_000_000);

@@ -13,7 +13,7 @@ export interface FlagDefinition {
 /** Map of camelCase property names to their flag definitions. */
 export type FlagSchema = Record<string, FlagDefinition>;
 
-/** Infer the result type from a flag schema: booleans become `boolean`, strings become `string | undefined`. */
+/** Infers the result type from a flag schema: booleans become `boolean`, strings become `string | undefined`. */
 export type ParsedFlags<S extends FlagSchema> = {
   [K in keyof S]: S[K]['type'] extends 'boolean' ? boolean : string | undefined;
 };
@@ -53,7 +53,7 @@ export class ParseError extends Error {
 }
 
 /**
- * Parse a pre-sliced argv array against a flag schema.
+ * Parses a pre-sliced argv array against a flag schema.
  *
  * Delegates tokenizing to `node:util.parseArgs` (non-strict, with tokens) and validates the token
  * stream against the schema. Throws `ParseError` on an unknown flag, a missing string-flag value, a
@@ -124,11 +124,7 @@ export function parseArgs<S extends FlagSchema>(
   return { flags, positionals } as ParsedArgs<S>;
 }
 
-/**
- * Parse argv, or print a usage error to stderr and exit non-zero.
- *
- * The canonical "parse or die" entry point for CLI commands that terminate on invalid input.
- */
+/** Parses argv, or prints a usage error to stderr and exits non-zero. */
 export function parseArgsOrExit<S extends FlagSchema>(
   argv: string[],
   schema: S,
@@ -145,7 +141,7 @@ export function parseArgsOrExit<S extends FlagSchema>(
   }
 }
 
-/** Compose the user-facing message for a parse failure, uniformly cased across all kinds. */
+/** Composes the user-facing message for a parse failure, uniformly cased across all kinds. */
 function formatParseErrorMessage(kind: ParseErrorKind, flag: string): string {
   switch (kind) {
     case 'unknown-flag':

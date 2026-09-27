@@ -2,8 +2,8 @@ import { type GlobOptionsWithoutFileTypes, globSync } from 'node:fs';
 import path from 'node:path';
 
 /**
- * `followSymlinks` reached Node in v24.16.0, which this package's `engines` requires, but @types/node
- * does not declare it yet (24.13.3 is the latest release). Drop the intersection once it does.
+ * Declares `followSymlinks`, which Node supports from v24.16.0, the version that this package's `engines`
+ * requires, but which `@types/node` does not declare. Drop the intersection once it does.
  */
 type GlobOptions = GlobOptionsWithoutFileTypes & { followSymlinks?: boolean };
 
@@ -17,10 +17,10 @@ const MANIFEST = 'package.json';
 const ALWAYS_EXCLUDED = ['**/node_modules/**'];
 
 /**
- * The manifest patterns a declared `packages` list resolves to, split by what each entry asks of the matcher.
+ * The manifest patterns that a declared `packages` list resolves to, split by what each entry asks of the matcher.
  *
- * Held as manifest patterns rather than as the entries themselves, so a caller re-matching a subset spends the
- * same rewriting a full resolution does.
+ * Each entry is already rewritten to match a manifest, so that a caller re-matching a subset applies the same
+ * rewriting as a full resolution.
  */
 export interface WorkspacePatternSplit {
   excludedPatterns: string[];
@@ -30,9 +30,6 @@ export interface WorkspacePatternSplit {
 /**
  * Matches manifest patterns against a monorepo root, returning the absolute directories that hold a matched
  * manifest, sorted and free of duplicates.
- *
- * Takes the exclusion set as an argument of its own, so a caller diagnosing an empty resolution can re-match
- * the positive patterns alone and learn whether the exclusions are what emptied it.
  */
 export function matchPackageDirs(
   monorepoRoot: string,
@@ -71,10 +68,8 @@ export function resolvePackageDirs(monorepoRoot: string, patterns: readonly stri
 }
 
 /**
- * Splits a declared `packages` list into the manifest patterns the matcher includes and the ones it excludes.
- *
- * The sole reader of what counts as a positive pattern, shared by a resolution and by a diagnosis of its empty
- * result: two readers classifying entries separately could disagree about which condition a manifest is in.
+ * Splits a declared `packages` list into the manifest patterns that the matcher includes and the ones that it
+ * excludes. A resolution and the diagnosis of its empty result both classify entries here, so that they agree.
  */
 export function splitWorkspacePatterns(patterns: readonly string[]): WorkspacePatternSplit {
   const includedPatterns: string[] = [];

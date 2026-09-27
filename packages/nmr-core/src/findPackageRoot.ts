@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Find the nearest ancestor directory containing `package.json`, starting from
+ * Finds the nearest ancestor directory containing `package.json`, starting from
  * the directory of the given `import.meta.url`.
  *
  * Useful for resolving bundled assets (presets, templates) relative to the

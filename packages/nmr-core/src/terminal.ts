@@ -56,11 +56,7 @@ export interface StreamStyles {
   readonly stdout: OutputStyle;
 }
 
-/**
- * Renders the canonical `Error: <message>` line (without a trailing newline) — the single
- * definition of this shape. Use it where the line is a value rather than a write target,
- * e.g. a command that returns its message for the caller to print.
- */
+/** Renders the canonical `Error: <message>` line, without a trailing newline, for a caller that needs it as a value. */
 export function formatErrorLine(message: string): string {
   return `Error: ${message}`;
 }
@@ -107,11 +103,7 @@ export function printSuccess(message: string, style: OutputStyle = detectStreamS
   console.info(`  ${formatStatusLine(style, 'passed', message)}`);
 }
 
-/**
- * Writes the canonical `Error: <message>` line to a stream (stderr by default) — the single
- * sanctioned door for this output shape. Pass an injected stream for in-process CLIs that
- * route output through a `Writable` rather than touching `process.stderr` directly.
- */
+/** Writes the canonical `Error: <message>` line to `stream`, which an in-process CLI sets to its own `Writable`. */
 export function reportError(message: string, stream: Writable = process.stderr): void {
   stream.write(`${formatErrorLine(message)}\n`);
 }

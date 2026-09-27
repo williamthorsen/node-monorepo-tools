@@ -11,21 +11,20 @@ import { hasErrnoCode } from './hasErrnoCode.ts';
 /**
  * A whole-repo content hash, or the reason one could not be produced. Every degraded condition (no repository,
  * no commit, a git failure, a tree this hash cannot describe) reports `ok: false` rather than a hash a caller
- * might act on. A caller that gates work on the hash therefore does the work whenever the hash is unavailable.
+ * might act on.
  */
 export type WorkingTreeHashResult =
   { ok: true; hash: string; headSha: string; toplevel: string } | { ok: false; reason: string };
 
 /**
- * Names the fold this hash performs. Bump it whenever the fold changes, so entries recorded by an older nmr
- * cannot be mistaken for entries describing the same tree.
+ * Names the fold this hash performs. Bump it whenever the fold changes, so that entries recorded under an older
+ * fold cannot be mistaken for entries describing the same tree.
  */
 const HASH_FORMAT = 'nmr-working-tree-v1';
 
 /**
- * The count of space-separated fields each `--porcelain=v2` record type carries ahead of its path: an ordinary
- * change (`1`), a rename or copy (`2`), an untracked path (`?`), and an unmerged path (`u`). A type absent from
- * this map is one the parser does not recognize, which fails closed.
+ * The count of space-separated fields that precede the path in each `--porcelain=v2` record type. A type absent
+ * from this map is one that the parser does not recognize, which fails closed.
  */
 const PRECEDING_FIELD_COUNTS: Record<string, number | undefined> = {
   1: 8,
@@ -42,10 +41,9 @@ const SUBMODULE_BEARING_TYPES = new Set(['1', '2', 'u']);
  * content of every path git reports as changed or untracked. Two trees holding the same content hash alike, so
  * a `touch` that changes no bytes leaves the hash where it was, while any edit, addition, or deletion moves it.
  *
- * The hash is taken from git's own status rather than by walking the filesystem, which keeps it proportional to
- * what has changed rather than to the size of the repository, and inherits git's ignore rules for free. Nothing
- * here writes to the object database or the index: a hash is an observation, and a repository must look exactly
- * the same after taking one.
+ * Reading git's own status keeps the cost proportional to what has changed rather than to the size of the
+ * repository, and applies git's ignore rules. Nothing here writes to the object database or the index: a hash is
+ * an observation, and a repository must look exactly the same after taking one.
  *
  * Because the commit's tree object is the base of the fold, committing an already-hashed tree moves the hash
  * even though no content changed. The reverse holds too, and usefully: a rebase or an amended message that
@@ -62,7 +60,7 @@ export function hashWorkingTree(cwd: string): WorkingTreeHashResult {
   }
 
   // A submodule's content lives in a repository this hash never looks into, so a tree holding one is a tree
-  // this hash cannot describe. Reporting a hash over the superproject alone would certify unexamined content.
+  // this hash cannot describe.
   if (existsSync(path.join(toplevel, '.gitmodules'))) {
     return { ok: false, reason: 'the repository declares submodules, whose content this hash does not cover' };
   }
@@ -159,8 +157,7 @@ function collectChangedPaths(statusOutput: string): ChangedPathsResult {
       continue;
     }
 
-    // A submodule reports its state in the third field. Its content lives in another repository, so a tree
-    // holding one is beyond what this hash describes even when `.gitmodules` is absent.
+    // A submodule reports its state in the third field; this check catches one that `.gitmodules` does not declare.
     if (SUBMODULE_BEARING_TYPES.has(type) && extractField(record, 2)?.startsWith('S') === true) {
       return { ok: false, reason: 'the working tree holds a submodule, whose content this hash does not cover' };
     }
@@ -191,6 +188,7 @@ function collectChangedPaths(statusOutput: string): ChangedPathsResult {
   return { ok: true, paths };
 }
 
+/** Returns the hex SHA-256 digest of a buffer. */
 function digestBuffer(buffer: Buffer): string {
   return createHash('sha256').update(buffer).digest('hex');
 }
