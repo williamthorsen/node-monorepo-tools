@@ -4,13 +4,8 @@ import { resolve } from 'node:path';
 import { findPackageRoot } from './findPackageRoot.ts';
 
 /**
- * Read the `version` field from the nearest ancestor `package.json`, starting
+ * Reads the `version` field from the nearest ancestor `package.json`, starting
  * from the directory of the given `import.meta.url`.
- *
- * Composes `findPackageRoot` with a `package.json` read so callers get a
- * depth-agnostic version lookup that works in source layouts (`src/...`),
- * compiled layouts (`dist/esm/...`), and consumer layouts (npm-installed,
- * `npx`).
  *
  * Throws if the located `package.json` lacks a string `version` field.
  * Propagates `findPackageRoot`'s own error when no ancestor `package.json`

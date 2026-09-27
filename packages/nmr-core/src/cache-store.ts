@@ -19,7 +19,7 @@ export interface CacheEntryRef extends CacheDirRef {
   extension: string;
   /**
    * Strings folded into the filename digest alongside the absolute scope directory, so that one scope can hold
-   * several entries. Two refs differing only in `slug` would collide were the slug all that separated them.
+   * several entries.
    */
   discriminators?: string[];
 }
