@@ -12,7 +12,7 @@ import type { ChangeRecord } from './types.ts';
  * When the template names no `{breaking}`, `{type}` appends the marker itself and renders `feat!`, which is how a
  * convention that places the marker on the type stays renderable.
  *
- * Output is exactly what the nodes describe: Because no whitespace pass runs, `parse` inverts what `render` produced.
+ * Output is exactly what the nodes describe, whitespace included, so `parse` inverts it.
  */
 export function render(nodes: readonly TemplateNode[], record: ChangeRecord): string {
   const normalized = normalizeChangeRecord(record);
@@ -39,7 +39,7 @@ function namesBreakingToken(nodes: readonly TemplateNode[]): boolean {
   });
 }
 
-/** Walks one run of nodes, dropping each group whose direct tokens are not all populated. */
+/** Walks one run of nodes, dropping each group that has an empty direct token other than `{breaking}`. */
 function renderNodes(nodes: readonly TemplateNode[], record: ChangeRecord, marksBreaking: boolean): string {
   let rendered = '';
   for (const node of nodes) {

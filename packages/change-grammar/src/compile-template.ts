@@ -1,8 +1,7 @@
 import { isTokenName, type TokenName } from './tokens.ts';
 
 /**
- * Compiles a template string into the node tree that `render` and `parse` both walk. One tree serving both directions
- * makes them inverses of each other rather than two implementations kept in step by hand.
+ * Compiles a template string into the node tree that `render` and `parse` both walk.
  *
  * `[` opens an optional group and `]` closes it; groups nest. A backslash escapes `[`, `]`, or another backslash into
  * literal text. A `{...}` run naming a declared token compiles to a token node; any other `{...}` run stays literal, so
@@ -18,7 +17,7 @@ export function compileTemplate(template: string): TemplateNode[] {
   return nodes;
 }
 
-/** An optional group: It renders only when every token directly inside it resolves non-empty. */
+/** An optional group, rendered or dropped as a whole. */
 export interface GroupNode {
   children: TemplateNode[];
   kind: 'group';
@@ -50,6 +49,7 @@ function compileNodes(template: string, start: number, insideGroup: boolean): Co
   let literal = '';
   let index = start;
 
+  /** Moves the pending literal text into `nodes` as one literal node. */
   function flushLiteral(): void {
     if (literal === '') {
       return;

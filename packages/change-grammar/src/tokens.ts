@@ -18,8 +18,6 @@ export function isTokenName(name: string): name is TokenName {
  * Brings a record to the form that the rest of the engine assumes: string values trimmed, the `*` scope and every
  * empty value dropped, and a type spelled with the breaking marker split into its bare key and the flag. Idempotent, so
  * a caller may normalize at its own boundary and still pass the result to `render`.
- *
- * The scope is a list, so `splitScopes` reduces it and the surviving names rejoin under the separator.
  */
 export function normalizeChangeRecord(record: ChangeRecord): ChangeRecord {
   const normalized: ChangeRecord = {};

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { deriveLabelMap } from '../derive-label-map.ts';
 import { CANONICAL_TAXONOMY } from '../taxonomy.ts';
 
-/** codeassembly's hardcoded `TYPE_MAP`, which the canonical taxonomy's tracker labels replace. */
+/** A copy of codeassembly's `TYPE_MAP`, the labels that its trackers already apply. */
 const CODEASSEMBLY_TYPE_MAP = {
   ai: 'ai',
   ci: 'ci',

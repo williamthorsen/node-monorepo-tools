@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
 
-/** The rules declared by the boundary block, each keyed to the reach that it forecloses. */
+/** The rules declared by the package's boundary block in `eslint.config.ts`. */
 const BOUNDARY_RULES = [
   'import-x/no-nodejs-modules',
   'import-x/no-restricted-paths',
@@ -14,8 +14,8 @@ const BOUNDARY_RULES = [
 ];
 
 /**
- * A source breaking all four at once. It is linted under a path already on disk because the TypeScript project
- * service resolves the file before ESLint reaches it, and refuses a path that it cannot find.
+ * A source breaking every boundary rule at once. It is linted under a path already on disk because the TypeScript
+ * project service resolves the file before ESLint reaches it, and refuses a path that it cannot find.
  */
 const VIOLATING_SOURCE = [
   "import { readFile } from 'node:fs/promises';",

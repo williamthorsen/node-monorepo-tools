@@ -1,8 +1,8 @@
 import type { ChangeRecord, Taxonomy } from './types.ts';
 
 /**
- * Reports the breaking-policy violation in a record, or nothing when the record has none. The record is returned
- * untouched: Normalizing a violation away would hide the mistake from the author who can still fix it.
+ * Reports the breaking-policy violation in a record, or nothing when the record has none. The record is left
+ * unchanged: Normalizing a violation away would hide the mistake from the author who can still fix it.
  *
  * A record violates by setting the marker when its type's policy forbids it. A record naming a type not declared by
  * the taxonomy has no policy to break.

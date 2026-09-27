@@ -11,12 +11,12 @@ import type { ChangeRecord, Taxonomy } from './types.ts';
  * the marker, `{scope}` a run bounded by the delimiter that the template itself places after it, and `{title}` a lazy
  * run so that a trailing group wins the tail of the string.
  *
- * When an optional group could be read as present or absent, present wins, which is release-kit's reading. That reading
- * misparses a plain title that contains a pipe and a declared type: Under `[[{scope}|]{type}: ]{title}`, `Rename kb|docs: the shared
- * layer` parses as scope `Rename kb`, type `docs`, title `the shared layer`.
+ * When an optional group could be read as present or absent, present wins. That reading misparses a plain title that
+ * contains a pipe and a declared type: Under `[[{scope}|]{type}: ]{title}`, `Rename kb|docs: the shared layer` parses
+ * as scope `Rename kb`, type `docs`, title `the shared layer`.
  *
- * A template naming `{type}` requires one: A subject that names a scope but no declared type is unmatched. A template
- * naming no `{ticket_ref}` has release-kit's three ticket-prefix forms stripped from the subject first.
+ * A template naming `{type}` matches only a subject that names a declared type. When the template names no
+ * `{ticket_ref}`, `parse` first strips any `TICKET_PREFIX_PATTERNS` prefix from the subject.
  */
 export function parse(nodes: readonly TemplateNode[], subject: string, taxonomy: Taxonomy): ChangeRecord | undefined {
   const options: PatternOptions = {
@@ -107,7 +107,7 @@ function buildTypeAlternation(taxonomy: Taxonomy): string {
     .join('|');
 }
 
-/** Resolves a spelled type to its canonical key, ignoring case as release-kit's parser does. */
+/** Resolves a spelled type to its canonical key, ignoring case. */
 function canonicalizeType(spelling: string, taxonomy: Taxonomy): string | undefined {
   const lowered = spelling.toLowerCase();
   for (const entry of taxonomy.types) {
@@ -202,7 +202,7 @@ interface PatternOptions {
   typeAlternation: string;
 }
 
-/** Removes the ticket-reference forms that release-kit strips before reading a subject. */
+/** Removes each `TICKET_PREFIX_PATTERNS` form from the start of a subject. */
 function stripTicketPrefix(subject: string): string {
   let stripped = subject;
   for (const pattern of TICKET_PREFIX_PATTERNS) {
