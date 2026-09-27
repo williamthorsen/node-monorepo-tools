@@ -71,7 +71,7 @@ jobs:
       # Its position ahead of that step is what keeps that true should this repo ever declare `devEngines.runtime`.
       - name: Set up pnpm
         if: ${{ env.BUILD_LOCAL == 'true' }}
-        uses: pnpm/setup@v2
+        uses: pnpm/setup@v3
         with:
           cache: true
           install: false
