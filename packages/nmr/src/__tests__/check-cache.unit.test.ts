@@ -361,7 +361,7 @@ describe('check-cache', () => {
   describe('a recorded transcript', () => {
     const REF = { anchorDir: '', command: 'test', monorepoRoot: '' };
 
-    /** The ref for this test's temporary root, which `beforeEach` creates afresh. */
+    /** Builds the ref for this test's temporary root, which `beforeEach` creates afresh. */
     function buildRef(command: string, anchorDir?: string) {
       return { ...REF, anchorDir: anchorDir ?? tree.dir, command, monorepoRoot: tree.dir };
     }
@@ -567,7 +567,7 @@ function requireKey(root: string, overrides: Partial<Parameters<typeof computeCa
   return result.key;
 }
 
-/** The baseline key inputs each test varies one ingredient of. */
+/** Builds the baseline key inputs, of which each test varies one ingredient. */
 function buildKeyOptions(root: string): Parameters<typeof computeCacheKey>[0] {
   return {
     anchorDir: root,

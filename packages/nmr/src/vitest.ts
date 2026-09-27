@@ -13,8 +13,8 @@ import { getWorkspacePackageDirs } from './workspace.ts';
 export type { TierName } from './tiers.ts';
 
 /**
- * Test options Vitest honours only at the root of a `projects` config. Derived from Vitest's own types rather than
- * hand-listed, so an option that changes scope in a later release changes scope here too.
+ * Test options Vitest honours only at the root of a `projects` config. Derived from Vitest's own types, so an option
+ * that changes scope in a later release changes scope here too.
  */
 export type RootTestOptions = Omit<InlineConfig, keyof ProjectConfig>;
 
@@ -70,9 +70,9 @@ export interface VitestConfigOptions {
    * Resolves a specifier through the `paths` a `tsconfig.json` declares, so a test reaches an alias the way `tsc`
    * does. Defaults to `false`, matching Vite, and requires Vite 8.
    *
-   * Not a default, because both directions are safe to leave to the consumer: omitting it fails loudly with an
-   * unresolved import, while turning it on for a repo that declares `paths` for `tsc` alone changes which module a
-   * specifier reaches with nothing in the run reporting it. A repo declaring no `paths` is unaffected either way.
+   * Without it, an alias fails loudly as an unresolved import. With it, a repo that declares `paths` for `tsc` alone
+   * changes which module a specifier reaches, and nothing in the run reports the change. A repo declaring no `paths`
+   * is unaffected either way.
    */
   tsconfigPaths?: boolean;
 }
@@ -89,8 +89,8 @@ export interface RootVitestConfigOptions extends VitestConfigOptions {
 /** Any number of shared layers, then the config file's own, which states the monorepo root. */
 type RootConfigLayers = [...(VitestConfigOptions | undefined)[], RootVitestConfigOptions];
 
-// The head of the ladder is the residual: it collects every test file the named tiers don't claim, so a file whose
-// infix matches no tier still runs rather than being dropped by an allow-list.
+// The head of the ladder is the residual: it collects every test file that the named tiers do not claim, so a file
+// whose infix matches no tier still runs.
 const [RESIDUAL_TIER, ...NAMED_TIERS] = TIER_NAMES;
 
 const TIERED_PATTERNS = NAMED_TIERS.flatMap(buildTierPatterns);
@@ -124,9 +124,7 @@ const GIT_ISOLATION_SETUP_FILE = resolveGitIsolationSetupFile();
 // pins both against `vite`'s own exports, which is what holds them complete. Hardcoded rather than read from
 // `vite`, which nmr would otherwise have to declare as a peer dependency for every consumer to satisfy.
 //
-// The `source` condition is deliberately absent: Vitest turns the server list into `--conditions` flags on the
-// worker process, where Node applies every entry to each package that it resolves natively, `node_modules` included.
-// `vitest-source-resolution.ts` resolves that condition inside Vite instead, where the reach is nmr's to decide.
+// The lists omit the `source` condition, which `createSourceResolutionPlugin` resolves; its description says why.
 const CLIENT_CONDITIONS = ['module', 'browser', 'development|production'];
 const SERVER_CONDITIONS = ['module', 'node', 'development|production'];
 
@@ -202,8 +200,7 @@ export function defineVitestConfig(...layers: (VitestConfigOptions | undefined)[
  */
 export function defineRootVitestConfig(...layers: RootConfigLayers): ViteUserConfig {
   // Reading through `unknown` is what keeps the check live: the declared type alone would make it statically
-  // dead. A relative path would resolve against the working directory, which is the resolution this option
-  // exists to replace.
+  // dead. A relative path would resolve against the working directory, which this option exists to avoid.
   const lastLayer: unknown = layers.at(-1);
   const monorepoRoot: unknown = isObject(lastLayer) ? lastLayer['monorepoRoot'] : undefined;
 
@@ -229,6 +226,7 @@ interface BuildOptions {
   projectRoot?: string;
 }
 
+/** Builds the root config and its tier projects from the non-empty layers, then merges each layer's `root` over it. */
 function buildConfig(
   declaredLayers: readonly (VitestConfigOptions | undefined)[],
   { coverageInclude, ignoredPathsRoot, projectExclude = [], projectRoot }: BuildOptions,
@@ -238,10 +236,6 @@ function buildConfig(
 
   assertKnownTiers(layers);
 
-  // The conditions are emitted whichever way `shouldResolveFromSource` is set, because they carry Vite's defaults
-  // rather than anything source resolution contributes: A layer adding one condition would otherwise replace
-  // the defaults rather than extend them.
-  //
   // `tsconfigPaths` shares the block, which a second spread would replace rather than merge into, and needs no
   // `ssr` twin the way the conditions do: Vite holds it outside its per-environment resolve options and spreads
   // the top-level block into every environment's defaults.
@@ -350,8 +344,7 @@ function applyLayer(
 
 /**
  * Rejects a `tiers` key naming no tier. Ignoring it would leave the suite green on whichever budget the key failed
- * to change, which a consumer cannot self-diagnose. A tier renamed in a later nmr release is a breaking change that
- * ships with a migration note, so the throw is that migration's signal rather than a surprise.
+ * to change, which a consumer cannot self-diagnose.
  */
 function assertKnownTiers(layers: readonly VitestConfigOptions[]): void {
   const knownTiers: readonly string[] = TIER_NAMES;
@@ -414,9 +407,9 @@ function assertOptionKeys(
  * git ignores under `ignoredPathsRoot`, each anchored to it, since git reports every depth itself; the test-file
  * sweeps skip the same paths.
  *
- * Unioned with Vitest's defaults so a later release's addition still reaches every project. `dist/` is excluded from
- * collection but deliberately not from coverage: a stale test copy under it passes green, which a consumer cannot
- * self-diagnose, whereas a `dist/` entry in the coverage report is a visible 0% they can.
+ * Unioned with Vitest's defaults so that a later release's addition still reaches every project. `dist/` is excluded
+ * from collection but not from coverage: a stale test copy under it passes green, which a consumer cannot
+ * self-diagnose, whereas a `dist/` entry in the coverage report is a visible 0% that a consumer can.
  */
 function buildCollectionExclude(layers: readonly VitestConfigOptions[], ignoredPathsRoot: string): string[] {
   const declaredDirs = layers.flatMap((layer) => layer.testCollectionExclude ?? []);

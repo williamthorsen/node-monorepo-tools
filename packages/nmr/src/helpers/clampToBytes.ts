@@ -9,8 +9,7 @@ export const TRUNCATION_MARK = '…';
  * Graphemes are left unconsidered, which can separate an emoji from a modifier following it -- a cost paid
  * only at a budget no caller here comes near.
  *
- * A budget too small to hold the mark yields nothing at all, rather than a return that overruns what the
- * caller asked for.
+ * A budget too small to hold the mark yields an empty string, so the return never exceeds the budget.
  */
 export function clampToBytes(value: string, budgetBytes: number): string {
   if (Buffer.byteLength(value) <= budgetBytes) {

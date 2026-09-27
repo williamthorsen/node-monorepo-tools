@@ -1,9 +1,8 @@
 /**
  * Keeps the entries whose value is a string, dropping the rest.
  *
- * A manifest reader that rejected the whole record over one bad value would report nothing about the entries
- * beside it, which for a reporter is silence where there is something to say. YAML's implicit typing makes
- * that easy to reach without malformed intent: an unquoted `18` parses as a number.
+ * Drops rather than rejects, so that one malformed value does not hide the entries beside it. YAML's implicit
+ * typing makes such a value easy to write: An unquoted `18` parses as a number.
  */
 export function readStringValues(record: Record<string, unknown>): Record<string, string> {
   const result: Record<string, string> = {};

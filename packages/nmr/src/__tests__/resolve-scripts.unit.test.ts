@@ -136,8 +136,8 @@ describe(getDefaultRootScripts, () => {
     });
   });
 
-  // The root registry's lint commands cover the tree the workspace registry's cover one package of, so the two
-  // resolve to the same string: a divergence would mean one scope had picked up a flag the other lacks.
+  // The root registry's lint commands cover the tree, and the workspace registry's cover one package of it, so the
+  // two resolve to the same string: a divergence would mean that one scope had picked up a flag that the other lacks.
   it('gives root and workspace lint commands the same form', () => {
     const rootScripts = getDefaultRootScripts();
     const workspaceScripts = getDefaultWorkspaceScripts();
@@ -147,7 +147,7 @@ describe(getDefaultRootScripts, () => {
     }
   });
 
-  // Retained as the isolate-to-root-code counterparts of the collapsed commands, mirroring `root:test`.
+  // A root-only lint command isolates a failure to root code, as `root:test` does.
   it('scopes each root-only lint command away from packages', () => {
     const scripts = getDefaultRootScripts();
 

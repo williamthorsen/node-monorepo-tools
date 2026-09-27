@@ -387,8 +387,7 @@ describe(serializeVerdict, () => {
       expect(line).toContain('…');
     });
 
-    // The widest assembly of this shape the ceiling still names in full. Before the ladder shed excerpts
-    // ahead of entries, the whole array went at this width and the record named no constituent at all.
+    // The widest assembly of this shape that the ceiling still names in full.
     it('keeps every constituent named where the ceiling can hold them all', () => {
       const parsedVerdict = parseVerdict(serializeVerdict(makeAssembly(8, 49)));
 
@@ -431,8 +430,8 @@ describe(serializeVerdict, () => {
       expect(readScopes(parsedVerdict)).toHaveLength(8);
     });
 
-    // The overrun is shared, so no constituent is emptied to leave a later one whole. Which excerpts would
-    // have survived was decided by step order, which carries no meaning for a consumer.
+    // The overrun is shared, so no constituent is emptied to leave a later one whole: step order carries no
+    // meaning for a consumer.
     it("cuts an assembly's excerpts down together rather than spending the overrun on the first", () => {
       const lengths = readExcerpts(parseVerdict(serializeVerdict(makeAssembly(4, 200)))).map(
         (excerpt) => excerpt.length,

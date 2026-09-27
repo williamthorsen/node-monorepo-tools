@@ -215,6 +215,7 @@ function writeRecordingStub(tree: TempTree, exitCode: number): void {
   tree.write(STUB_ENTRY, `${source}\n`);
 }
 
+/** Returns the argument list of each recorded stub invocation, in order. */
 function readCalls(tree: TempTree): string[][] {
   if (!tree.exists(RECORD_ENTRY)) return [];
 
@@ -243,6 +244,7 @@ function scaffoldRepository(files: Record<string, string>): TempTree {
   return tree;
 }
 
+/** Runs git for fixture setup, throwing with git's stderr when it fails. */
 function runGitOrThrow(args: string[], cwd: string): void {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
   if (result.status !== 0) {

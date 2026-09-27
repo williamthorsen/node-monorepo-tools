@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runCli } from '../runCli.ts';
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
+/** Builds a reader and a clearer for the marker log at the path that `getPath` returns. */
 function makeLogHelpers(getPath: () => string): { read: () => string[]; clear: () => void } {
   return {
     read: () => {
@@ -29,17 +30,17 @@ const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
 const NMR_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'nmr');
 const CLI_PATH = path.join(NMR_PACKAGE_DIR, 'dist', 'esm', 'cli.js');
 
-// Default pattern for nmr CLI tests: call `runCli` in-process with PassThrough streams rather than spawning a
-// `node` subprocess. This avoids the cold-start variance that made early subprocess-based tests timeout-prone.
-// Reach for a subprocess test only when verifying real-process behavior the in-process path cannot exercise
-// (signals, env-var inheritance through the bin shim, kernel exit codes).
-//
-// The bin subprocess that hook-wrap spawns for `nmr X:pre` / `nmr X:post` is production behavior and is not touched
-// here — it gets warmed by the file-level `beforeAll`. To debug a failing test, temporarily swap
-// `stdoutStream`/`stderrStream` for `process.stdout`/`process.stderr` to see inner subprocess output live.
-//
-// Arguments are split on whitespace; no shell-style quoting.
-// If a test needs quoted arguments, call `runCli` directly with a pre-built `args` array.
+/**
+ * Runs the CLI in-process with PassThrough streams, which spares each test a `node` cold start. A subprocess test is
+ * for real-process behavior that the in-process path cannot exercise: signals, env-var inheritance through the bin
+ * shim, and kernel exit codes.
+ *
+ * Hooks still spawn the bin for `nmr X:pre` and `nmr X:post`, which the file-level `beforeAll` warms. To see that
+ * inner output live while debugging, swap `stdoutStream`/`stderrStream` for `process.stdout`/`process.stderr`.
+ *
+ * `argString` is split on whitespace, with no shell-style quoting; a test that needs a quoted argument calls
+ * `runCli` directly with a pre-built `args` array.
+ */
 async function runNmr(
   argString: string,
   options: { cwd?: string; env?: Record<string, string> } = {},
@@ -73,9 +74,9 @@ async function runNmr(
 }
 
 describe('nmr CLI', () => {
-  // Warm the OS page cache for `node` + the nmr dist so the inner hook subprocesses (`nmr X:pre`, `nmr X:post`) that
-  // production hook-wrap continues to spawn pay cold-start cost once per file rather than once per `it`. Failure here
-  // is non-fatal: tests still pass against a cold cache, just more slowly.
+  // Warm the OS page cache for `node` and the nmr dist, so that the hook subprocesses (`nmr X:pre`, `nmr X:post`)
+  // pay the cold-start cost once per file rather than once per `it`. A failed warmup is not fatal: the tests still
+  // pass against a cold cache, only more slowly.
   beforeAll(() => {
     try {
       execSync(`node ${CLI_PATH} --help`, { env: readAmbientEnv(), stdio: 'ignore', timeout: 10_000 });
@@ -302,9 +303,8 @@ describe('nmr CLI', () => {
     let logFile: string;
 
     /**
-     * Writes a workspace package whose scripts append a marker line to a log file when invoked.
-     * The `clean` script is overridden because clean is in the default registry (so resolving it triggers the
-     * override path), and we layer hook scripts on top in tier-3 (package.json) where appropriate.
+     * Writes a workspace package manifest that declares `scripts`. The tests override `clean`, which the default
+     * registry defines, so that resolving it takes the override path, and declare its hooks beside it in tier 3.
      */
     function writePackage(packageDir: string, scripts: Record<string, string>, packageName = 'hook-pkg'): void {
       mkdirSync(packageDir, { recursive: true });
@@ -476,7 +476,6 @@ describe('nmr CLI', () => {
 
       const { exitCode, stderr } = await runNmr('clean:pre', { cwd: packageDir });
       expect(exitCode).toBe(0);
-      // Only the pre hook itself should run — no cascading attempt to find pre:pre/pre:post
       expect(readLog()).toStrictEqual(['pre']);
       expect(stderr).not.toContain('Unknown command');
     });
@@ -573,7 +572,6 @@ describe('nmr CLI', () => {
       const { stdout, exitCode } = await runNmr('clean', { cwd: packageDir });
       expect(exitCode).toBe(0);
       expect(readLog()).toStrictEqual(['main', 'post']);
-      // No "Skipping" message should appear for the hook
       expect(stdout).not.toContain('Skipping');
     });
 
@@ -712,8 +710,8 @@ export default defineConfig({
         expect(readConfigLog()).toStrictEqual(['wroot-step1', 'wroot-step2']);
       });
 
-      // Reaches `shouldUseRoot` through `context.isRoot` rather than through the `-w` flag (the two disjuncts at runCli.ts).
-      // This is the path an ordinary root `package.json` script takes.
+      // Reaches `shouldUseRoot` through `context.isRoot` rather than through the `-w` flag, the other disjunct in
+      // `runCli.ts`. This is the path that an ordinary root `package.json` script takes.
       it('resolves tier-3 (root package.json) scripts at the monorepo root', async () => {
         clearConfigLog();
         const { exitCode } = await runNmr('wpkg-cmd', { cwd: configRoot });

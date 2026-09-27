@@ -8,9 +8,7 @@ import { UserError } from './UserError.ts';
 /**
  * Resolves the style of the running process's own output streams, and rejects a variable naming no style.
  *
- * What a standalone bin calls. A bin carries no `--output-style` of its own: the flag is `nmr`'s, and what
- * reaches a bin is the variable that `nmr <command>` exports to it, so a bin run through nmr renders as nmr
- * does and one run on its own detects its streams.
+ * Each standalone bin calls this and passes no flag value, because only `nmr` accepts `OUTPUT_STYLE_FLAG`.
  *
  * Throws rather than exiting, so the bin's own boundary reports the message and sets the exit code, as it does
  * for every other failure in what the caller declared.

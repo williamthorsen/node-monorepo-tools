@@ -645,8 +645,8 @@ describe(runCli, () => {
       ]);
     });
 
-    // A composite's first position is nmr's own, not a leaf tool's: substituting it replaced one link of a
-    // chain and left the rest running the published binary.
+    // A composite's first position is nmr's own, not a leaf tool's: substituting it would replace one link of a
+    // chain and leave the rest running the published binary.
     it('leaves a composite alone, where the first token is the nmr that carries it', async ({ tree }) => {
       writeConfig(tree, { devBin: { nmr: 'node ./cli.js' } });
 

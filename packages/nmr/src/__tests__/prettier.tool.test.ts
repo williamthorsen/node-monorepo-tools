@@ -233,6 +233,7 @@ async function formatResolved(source: string, relativePath: string, configPath =
   return format(source, { ...options, filepath: relativePath });
 }
 
+/** Reads a file from the fixtures directory. */
 function readFixture(name: string): string {
   return readFileSync(path.join(fixturesDir, name), 'utf8');
 }
@@ -244,4 +245,4 @@ function buildFormatOptions(config: Config, filepath: string): Config & { filepa
   return { ...flat, filepath };
 }
 
-// region | Helpers
+// endregion | Helpers

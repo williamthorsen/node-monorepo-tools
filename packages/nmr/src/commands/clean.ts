@@ -46,18 +46,16 @@ export async function cleanPackage(packageDir: string, style: OutputStyle): Prom
  * From within a package this is the built-in clean itself: `nmr` has already resolved `clean` to this bin
  * before invoking it, so resolving again would apply the package's own override twice.
  *
- * This is the default `clean` script, shipped as a bin rather than delegating to `rimraf`. Under pnpm's
- * isolated layout, `pnpm exec` resolves only bins of the consuming project's own direct dependencies, so
- * a `rimraf` in nmr's dependency tree would be unreachable — while nmr's own bins are linked into the
- * consumer's `node_modules/.bin`, nmr being a direct dependency.
+ * This is the default `clean` script, and it ships as a bin because, under pnpm's isolated layout, `pnpm exec`
+ * resolves only the bins of the consuming project's direct dependencies: nmr's own bins reach the consumer's
+ * `node_modules/.bin`, while the bins of nmr's dependencies do not.
  */
 export async function runClean(cwd: string, style: OutputStyle): Promise<void> {
   let monorepoRoot: string;
   try {
     monorepoRoot = findMonorepoRoot(cwd);
   } catch {
-    // Outside a pnpm workspace there is nothing to sweep; clean the package standing here, as nmr-compile
-    // compiles the package standing here.
+    // Outside a pnpm workspace there is nothing to sweep; clean the package at `cwd`.
     await clearCheckCache(cwd, style);
     await cleanPackage(cwd, style);
     return;

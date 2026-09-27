@@ -32,8 +32,8 @@ const it = baseIt.extend(
 );
 
 describe(reportTestFileConventions, () => {
-  // The silent failure the split exists to catch: Vitest starts the run in a package directory, and a sweep of that
-  // directory alone reports clean over every violation elsewhere in the repo.
+  // Vitest starts the run in a package directory, and a sweep of that directory alone reports clean over every
+  // violation elsewhere in the repo.
   it('sweeps the monorepo root when the caller names no directory', () => {
     expect(reportTestFileConventions().rootDir).toBe(REPO_ROOT);
   });
@@ -62,8 +62,8 @@ describe(reportTestFileConventions, () => {
   });
 });
 
-// The guard runs on this entry point too, because it takes the same options object and a consumer reaches it
-// directly rather than through the reporting half.
+// This entry runs the guard itself, because it reaches the reporting half only inside the `describe` callback that it
+// registers.
 describe(checkTestFileConventions, () => {
   it('rejects the retired exclude, naming its replacement', () => {
     // @ts-expect-error - the option was renamed; a JavaScript consumer can still write the old spelling

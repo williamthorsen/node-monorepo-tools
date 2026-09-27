@@ -15,7 +15,7 @@ export type {
 } from './types.ts';
 
 /**
- * Type-safe identity function for configuration files.
+ * Returns `config` unchanged, typing a configuration file's default export as `NmrConfig`.
  *
  * Usage in `.config/nmr.config.ts`:
  * ```ts

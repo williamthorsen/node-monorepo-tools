@@ -105,8 +105,8 @@ export function runFmt(argv: string[], cwd: string = process.cwd()): number {
  * pattern in `packages/<pkg>/.gitignore` is invisible to a root-level run; git knows the whole hierarchy,
  * along with `.git/info/exclude` and `core.excludesFile`, which Prettier cannot read under any flag.
  *
- * File selection is anchored at `cwd` and ignore discovery at the repository root. That split is the point:
- * scoping still follows where the caller stands, while the rules applied to a given file no longer do.
+ * File selection is anchored at `cwd` and ignore discovery at the repository root, so scoping follows `cwd`
+ * while the ignore rules applied to a given file are the same from every directory.
  *
  * `pathspecs` narrow the selection and are passed to git verbatim, so they carry git pathspec semantics
  * rather than shell glob semantics.

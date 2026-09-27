@@ -274,12 +274,12 @@ const BUILD_OUTPUT_DIR = 'dist';
 /**
  * Matches the first relative specifier a bin wrapper names, which is the build entry it loads at runtime.
  *
- * One pattern reaches both shapes in use: `await import('../dist/esm/cli.js')`, and the newer
+ * One pattern reaches both shapes in use: `await import('../dist/esm/cli.js')`, and
  * `new URL('../dist/esm/cli.js', import.meta.url)` whose href the wrapper then imports.
  */
 const WRAPPER_TARGET_PATTERN = /['"](\.\.?\/[^'"]+)['"]/;
 
-/** Extensions a Vite or Vitest config can carry. Globbing `.ts` alone would miss a repo on any other one. */
+/** Extensions that a Vite or Vitest config can take. */
 const CONFIG_EXTENSIONS = '{ts,mts,cts,js,mjs,cjs}';
 
 /** Matches a Vite config, which fills Vitest's one config slot wherever no Vitest config sits beside it. */
@@ -345,9 +345,8 @@ const MIN_STRICT_LINT_VERSION = '9.3.0';
 const WORKSPACE_VERSION_MARKERS = ['catalog:', 'workspace:'];
 
 /**
- * Check that every workspace package can run `nmr build` successfully.
- * A package can build if it has a "build" override in package.json or has the inputs the default
- * single-pass nmr-compile build needs: a tsconfig.json and a src/ directory.
+ * Checks that every workspace package can run `nmr build`: Its package.json overrides "build", or it has the
+ * inputs that the default nmr-compile build needs, a tsconfig.json and a src/ directory.
  */
 function allWorkspacePackagesCanBuild(): boolean | CheckOutcome {
   const packagesDir = join(process.cwd(), 'packages');
@@ -519,8 +518,8 @@ export async function everyBinTargetIsACommittedWrapper(): Promise<boolean | Che
  * Checks that `files` covers the build output each bin wrapper loads at runtime.
  *
  * npm and pnpm publish every `bin` target whatever `files` says, so the wrapper always ships; what `files` can
- * drop is the build entry it reaches for, which publishes a bin resolving to nothing. No package here declares
- * `main`, whose own force-include would otherwise catch the same omission.
+ * drop is the build entry it reaches for, which publishes a bin resolving to nothing. The force-include of `main`
+ * covers that entry only in a package whose `main` names it.
  *
  * A package declaring no `files` skips, as does a target under `dist/`, which is build output rather than a
  * wrapper and belongs to `everyBinTargetIsACommittedWrapper`. An unreadable file and one naming no relative
@@ -721,6 +720,7 @@ function formatPaths(paths: string[]): string {
   return `${paths.length} found:\n${paths.map((path) => `      ${path}`).join('\n')}`;
 }
 
+/** Returns nmr's own version, the minimum that the kit requires of a consuming repo. */
 function getMinVersion(): string {
   // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
   // Defer the call into a function so module load does not invoke the runtime stub (which throws):
@@ -732,12 +732,20 @@ function getMinVersion(): string {
   return pickedFields['version'];
 }
 
+/**
+ * Reports whether the eslint devDependency meets `MIN_ESLINT_VERSION`, exempting a range that defers to the
+ * workspace.
+ */
 export function hasSupportedEslintVersion(): boolean {
   return hasMinDevDependencyVersion('eslint', MIN_ESLINT_VERSION, {
     exempt: resolvesVersionViaWorkspace,
   });
 }
 
+/**
+ * Reports whether the strict-lint devDependency meets `MIN_STRICT_LINT_VERSION`, exempting a range that defers to
+ * the workspace.
+ */
 export function hasSupportedStrictLintVersion(): boolean {
   return hasMinDevDependencyVersion('@williamthorsen/strict-lint', MIN_STRICT_LINT_VERSION, {
     exempt: resolvesVersionViaWorkspace,
@@ -752,8 +760,8 @@ function hasViteConfigBeside(cwd: string, relativePath: string): boolean {
 /**
  * Checks whether a config imports a named export from one of nmr's shared-config modules.
  *
- * `defineVitestConfig` does not match inside `defineRootVitestConfig`,
- * so the root-config and root-tests-config checks cannot satisfy each other.
+ * `defineVitestConfig` does not match inside `defineRootVitestConfig`, so the `vitest.config` and
+ * `vitest.root.config` checks cannot satisfy each other.
  */
 function importsSharedExport(content: string | undefined, exportName: string, moduleSpecifier: string): boolean {
   if (content === undefined) return false;
@@ -1063,9 +1071,8 @@ function toolVersionsHasNoPnpm(): boolean {
  * Checks that the root `vitest.config.*` is present, and that it and every workspace's own build on
  * `defineVitestConfig`.
  *
- * The root config is the ancestor a workspace resolves by walking up from its own directory. Its absence is
- * folded in here rather than split into a check of its own: a repo without it leaves packages walking up
- * past the repo root, which is a worse failure than a wrong config, not a lesser one.
+ * The root config is the ancestor that a workspace resolves by walking up from its own directory, and a repo
+ * without it leaves packages walking up past the repo root.
  *
  * A workspace config that does not call the factory declares no projects, so it fails a tier-selecting run
  * exactly as a missing root config does; presence alone is no evidence the projects model is reached.

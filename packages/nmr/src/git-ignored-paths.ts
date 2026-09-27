@@ -5,8 +5,8 @@ import { spawnSync } from 'node:child_process';
  * directory is one entry ending in `/`, standing for everything beneath it; a tracked file never appears, whatever
  * pattern it matches.
  *
- * Returns an empty list wherever git gives no answer, outside a repository or with git missing. Empty widens scope
- * back to every path under `dir`, so a failure over-reports rather than hiding a test file.
+ * Returns an empty list wherever git gives no answer, outside a repository or with git missing, so that a caller
+ * excluding these paths over-reports rather than hides a path.
  */
 export function listGitIgnoredPaths(dir: string): string[] {
   const result = spawnSync(

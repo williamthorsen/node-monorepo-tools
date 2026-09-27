@@ -30,8 +30,7 @@ export type PackageJson = {
   version?: string;
   packageManager?: string;
   scripts?: Record<string, string>;
-  // Kept unnarrowed: its one reader proves the block absent, and a value dropped on the way in would be a key
-  // the proof never sees.
+  // Kept unnarrowed so that a check for the block's absence sees every key, whatever its value.
   pnpm?: { overrides?: Record<string, unknown> };
 } & { [K in DependencyField]?: Record<string, string> };
 

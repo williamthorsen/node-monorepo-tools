@@ -637,7 +637,7 @@ describe(defineRootVitestConfig, () => {
   });
 
   // A relative root reaches `path.join` and `projectRoot` unresolved, so the config would describe whichever
-  // monorepo the run started in — the resolution this option replaces.
+  // monorepo the run started in.
   it('throws when the monorepo root is not an absolute path', () => {
     for (const monorepoRoot of ['', '.', 'packages/..']) {
       expect(() => defineRootVitestConfig({ monorepoRoot })).toThrow('defineRootVitestConfig requires `monorepoRoot`');
@@ -780,6 +780,7 @@ function getProjects(config: ViteUserConfig): TestProjectInlineConfiguration[] {
   return (config.test?.projects ?? []).filter(isInlineProject);
 }
 
+/** Reports whether a project entry is an inline configuration rather than a path or a pending import. */
 function isInlineProject(project: TestProjectConfiguration): project is TestProjectInlineConfiguration {
   return typeof project === 'object' && !(project instanceof Promise);
 }

@@ -133,8 +133,7 @@ function describeElement(element: string | StepSpec): string {
  * Reads a package.json's `scripts`, rejecting any value that is not a string.
  *
  * npm and pnpm read a script as a string too, so a value of any other type is malformed however it got there.
- * Dropping one silently would run the registry's entry in its place, which is what an array written here after
- * being told a step list resolves a shelled-nmr crossing would otherwise do.
+ * Dropping one silently would run the registry's entry in its place.
  */
 export function readPackageJsonScripts(packageDir: string): Record<string, string> | undefined {
   const file = resolvePackageJsonPath(packageDir);
@@ -211,9 +210,6 @@ export function findChainedSelfReference(packageDir: string | undefined, command
 /**
  * Reports whether a `package.json` entry re-invokes the command it is declared under, wherever the
  * re-invocation stands in it, e.g. `"build": "nmr build"` or `"build": "rdy compile && nmr build"`.
- *
- * Honouring one spawns a shell that runs the same command in the same directory, reaching the same entry
- * again without bound, so resolution discards it.
  */
 export function isSelfReferential(script: string, commandName: string, packageDir: string): boolean {
   return readSelfReference({ anchoredAtRoot: isMonorepoRoot(packageDir), commandName, script }) !== undefined;

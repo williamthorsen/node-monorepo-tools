@@ -128,9 +128,8 @@ function formatRegistry(registry: ScriptRegistry, markedNames: Set<string>, line
   if (keys.length === 0) return;
 
   const maxKeyLength = Math.max(...keys.map((k) => k.length));
-  // +1 so there is room for the `*` marker character on every row, +2 to
-  // preserve the prior gap before the value column. The minimum (20) keeps
-  // narrow registries from collapsing.
+  // Reserve 1 column for the `*` marker on every row and 2 for the gap before
+  // the value column. The minimum (20) keeps narrow registries from collapsing.
   const padWidth = Math.max(maxKeyLength + 1 + 2, 20);
 
   for (const [key, value] of Object.entries(registry)) {

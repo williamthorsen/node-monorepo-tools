@@ -8,7 +8,6 @@ export interface ResolvedContext {
   monorepoRoot: string;
   isRoot: boolean;
   packageDir?: string;
-  /** The workspace's package directories, resolved once here rather than swept for again by each reader. */
   workspacePackageDirs: string[];
   config: NmrConfig;
 }

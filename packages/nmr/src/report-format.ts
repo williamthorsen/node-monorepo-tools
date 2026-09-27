@@ -13,11 +13,10 @@ export function isReportFormat(value: string): value is ReportFormat {
 }
 
 /**
- * Reads the format the environment names. An unrecognized value resolves to nothing at all, since falling back
- * would pick a rendering nobody chose and hide a misspelling for the life of the shell.
+ * Reads the format the environment names. An unrecognized value is reported as an error, which keeps a
+ * misspelling from standing unnoticed for the life of the shell.
  *
- * An unset or empty variable names no format rather than resolving to `text`, which keeps the read symmetric
- * with the one the loudness ladder performs and leaves room for a level below the environment.
+ * An unset or empty variable names no format, and `resolveReportFormat` supplies the default.
  */
 export function readReportFormatEnv(env: NodeJS.ProcessEnv): ReportFormatRead {
   const rawValue = env[REPORT_FORMAT_ENV_VAR];
@@ -33,15 +32,15 @@ export function readReportFormatEnv(env: NodeJS.ProcessEnv): ReportFormatRead {
 }
 
 /**
- * Carries the resolved format down the spawned chain, so `--json` reaches every process rather than the first.
- * Deliberately not a keyed variable: it changes how a run reports and never what a command concludes, so
- * folding it into the cache key would stop a machine-readable run from hitting a pass a prose one recorded.
+ * Carries the resolved format down the spawned chain, so that `--json` reaches every process and not only the
+ * first. It is not a keyed variable: it changes how a run reports and never what a command concludes, so a
+ * machine-readable run recalls a pass that a prose run recorded.
  */
 export const REPORT_FORMAT_ENV_VAR = 'NMR_REPORT_FORMAT';
 
 /**
- * The points on the format ladder. Both are spelled out rather than leaving `text` implicit in the variable's
- * absence, so a format exported for a shell is overridable on one invocation in either direction.
+ * The points on the format ladder. `text` is a named point, so that one invocation can override a format
+ * exported for the shell in either direction.
  */
 export const REPORT_FORMATS = ['text', 'json'] as const;
 
@@ -53,10 +52,6 @@ export type ReportFormatRead = { ok: true; format?: ReportFormat } | { ok: false
 
 /**
  * Resolves the format this process reports in: the flag, then the environment, then `text`.
- *
- * Two levels where the loudness ladder has four. A repo wanting JSON for everyone working in it is not a case
- * anyone has, and detecting a harness would hand every agent JSON in place of the prose the shipped guidance
- * teaches; either is additive later.
  *
  * Total by construction. The environment was validated as it was read, so no rejection is left for this to
  * report and the whole ladder reads in one place.

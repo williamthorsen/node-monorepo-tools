@@ -88,9 +88,9 @@ const RECURSIVE_REJECTION = '-R/--recursive matched no workspace:';
 const LIST_CEILING = 10;
 
 /**
- * The control characters a declaration's text renders as an escape, paired with the escape a JSON string
- * spells them with. `\n` and `\r` are what break a diagnostic across lines; `\t` is the third a script value
- * realistically carries.
+ * The control characters that `escapeControlCharacters` renders as escapes, each paired with the escape that a
+ * JSON string uses for it. `\n` and `\r` break a diagnostic across lines; `\t` is the other one that a script value
+ * realistically contains.
  */
 const NAMED_ESCAPES = new Map([
   ['\n', String.raw`\n`],
@@ -99,8 +99,8 @@ const NAMED_ESCAPES = new Map([
 ]);
 
 /**
- * Marks a run made on a delegating caller's behalf, where a command the registry does not define exits 0
- * rather than failing.
+ * Marks a run made on a delegating caller's behalf, in which a command that the registry does not define, and a
+ * `--log` with nothing to show, exit 0 rather than failing.
  */
 export const RUN_IF_PRESENT_ENV_VAR = 'NMR_RUN_IF_PRESENT';
 
@@ -110,11 +110,11 @@ export interface RunCliOptions {
   args: string[];
   /** Working directory used to resolve the nmr execution context. */
   cwd: string;
-  /** Environment for `runCli` (used for `NMR_RUN_IF_PRESENT` reads and `-R` writes). */
+  /** Environment from which `runCli` reads its settings, and the base of the one that its children inherit. */
   env: NodeJS.ProcessEnv;
-  /** Stream for normal output (help text, override messages). */
+  /** Stream for normal output: help, version, verdicts, recordings, and override notices. */
   stdout: Writable;
-  /** Stream for error output (unknown command, parse errors). */
+  /** Stream for errors, warnings, and debug notes. */
   stderr: Writable;
 }
 
@@ -139,8 +139,8 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   }
   const { parsedArgs } = parseResult;
 
-  // Ahead of every other outcome, `--version` and `--help` included, so one source's validity has one answer.
-  // The levels below the environment wait on the config, which `--version` must keep not loading.
+  // Read the presentation sources ahead of every other outcome, `--version` and `--help` included, so that an
+  // invalid value fails every invocation alike. The config's own levels resolve later: `--version` loads no config.
   const presentationRead = readPresentation({
     env,
     flagValue: parsedArgs.outputStyle,
@@ -170,7 +170,6 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   });
   const quiet = verbosity === 'quiet';
 
-  // Determine which registry to use
   const shouldUseRoot = parsedArgs.isWorkspaceRoot || context.isRoot;
 
   // Anchors registry resolution and execution alike: a script runs in the directory its registry belongs to.
@@ -241,8 +240,8 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     return { exitCode: 1 };
   }
 
-  // Ahead of the rendering, which is the cache key and what `--log` resolves: a filter applied later would let
-  // a run and a reading of its recording disagree about what the chain was.
+  // Filter the steps before rendering the chain, which feeds both the cache key and the `--log` lookup, so that a
+  // run and a reading of its recording agree about what the chain was.
   const { isEmptiedByWorkspace, steps: runnableSteps } = readRunnableSteps(
     resolvedScript,
     context.workspacePackageDirs,
@@ -302,8 +301,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     substitution: substitutedCommand === resolvedCommand ? undefined : substitutedCommand,
   });
 
-  // Reading a recording is not running one: the branch takes over once the key describing this chain is in
-  // hand, and nothing below it -- hook, verdict, or cache write -- is reached.
+  // A `--log` needs the key for the whole chain, and returns before any hook, verdict, or cache write.
   if (parsedArgs.shouldPrintLog) {
     return reportRecording({
       anchorDir,
@@ -412,10 +410,10 @@ const BOOLEAN_FLAGS = new Map<string, BooleanFlagName>([
  * The verbosity is written in both modes, so a chain's loudness is decided once at the top rather than
  * re-derived at every link from an environment a caller may have set.
  *
- * Trailing arguments bypass alongside `--no-cache`, which is why the passthrough is read here rather than
- * folded into `shouldBypassCache` by the caller: `openGate` has already stood this invocation's own gate down for them,
- * but the steps below it are separate nmr invocations carrying none of their own, so a narrowed command would
- * otherwise serve part of its work from a recorded pass.
+ * Trailing arguments bypass the cache for the whole chain, as `--no-cache` does. `openGate` stands this
+ * invocation's own gate aside for them, but the steps below it are separate nmr invocations that receive no
+ * arguments of their own, and without the bypass a narrowed command would serve part of its work from a recorded
+ * pass.
  *
  * The style written down is the resolved one and never `auto`, so a child on a pipe renders as this process
  * does rather than detecting plain on its own descriptor. It is the style stdout resolved to: the verdicts and
@@ -460,11 +458,10 @@ function acceptsArguments(step: Step): boolean {
  * Binds the invocation's trailing arguments to every step that accepts them, leaving a declining step to run
  * unnarrowed, and refuses the invocation where no step accepts them at all.
  *
- * The refusal and the binding read `acceptsArguments` together, so what nmr rejects is exactly what would have left
- * the arguments nowhere to land. Splitting the two is what would let them drift.
+ * The refusal and the binding both read `acceptsArguments`, so nmr refuses exactly the invocations whose
+ * arguments no step would receive.
  *
- * A hook is out of reach here rather than excluded: `wrapWithHooks` wraps what this returns, so a `:pre` or
- * `:post` step is composed after the arguments have already been placed.
+ * A hook never receives the arguments: `wrapWithHooks` adds the `:pre` and `:post` steps after binding.
  */
 function bindPassthrough(
   steps: readonly Step[],
@@ -540,14 +537,14 @@ function composeDelegation(options: {
 }
 
 /**
- * Composes the retention a pass carries, or `undefined` when the run left nothing to replay: a command whose
+ * Composes the retention that a pass records, or `undefined` when the run left nothing to replay: a command whose
  * streams were handed to a terminal retained no copy, one that printed nothing yields no excerpt, and a
  * composite whose constituents recorded none has nothing to assemble.
  *
- * A leaf hands back what its own command wrote, and the excerpt is drawn from stdout, falling back to stderr
- * only where stdout retained nothing, which is where every command the gate covers writes its substance. A
- * composite hands back nothing of its own -- `expandScript` gives a step list that is either one opaque step
- * or all structural ones -- so its retention is the assembly of what its constituents recorded.
+ * A leaf hands back what its own command wrote. The excerpt comes from stdout, where every command that the gate
+ * covers writes its substance, and falls back to stderr only when stdout yields no excerpt. A composite hands
+ * back nothing of its own -- `expandScript` gives a step list that is either one opaque step or all structural
+ * ones -- so its retention is the assembly of what its constituents recorded.
  */
 async function composeRetention(options: {
   anchorDir: string;
@@ -583,10 +580,10 @@ async function composeRetention(options: {
 }
 
 /**
- * Returns what a crossing's line names: the declaration site it leads with, and the edit that resolves it.
+ * Returns what a crossing's warning names: the declaration site with which it leads, and the edit that resolves
+ * the crossing.
  *
- * The remedy follows from the origin rather than naming one tier for every case, so the switch is exhaustive:
- * an origin kind added without a remedy fails to compile.
+ * The switch is exhaustive, so an origin tier added without a remedy fails to compile.
  */
 function describeCrossingRemedy(options: {
   crossingStep: string;
@@ -663,11 +660,11 @@ function describeOrigin(origin: ScriptOrigin, config: NmrConfig, shouldUseRoot: 
 /**
  * Renders a declaration's text as the file holds it, so a value written across lines quotes on one line.
  *
- * A diagnostic names a declaration the reader has to edit, and a JSON string holds an escape sequence where a
- * shell would read a control character. Rendering the escape is what keeps the line one line, and it is the
- * text the reader will search the file for.
+ * A diagnostic names a declaration that the reader has to edit, and a JSON string holds an escape sequence where
+ * a shell would read a control character. The rendered escape keeps the diagnostic on one line, and it is the text
+ * for which the reader will search the file.
  *
- * Renders at the quoting site alone. `formatPackageRemedy` decides its delete-the-entry branch by comparing a
+ * Only the quoting site calls it. `formatPackageRemedy` decides its delete-the-entry branch by comparing a
  * rendered chain against the entry, and an escape applied ahead of that comparison would defeat it.
  */
 function escapeControlCharacters(text: string): string {
@@ -681,10 +678,10 @@ function escapeControlCharacters(text: string): string {
 
 /**
  * Renders the line reporting a step that reaches nmr through a shell, which puts the nested run's output on the
- * channels a tool's takes: withheld as one block under `quiet`, and relayed through this process under `full`.
+ * channels that a tool's output takes: withheld as one block under `quiet`, and relayed through this process
+ * under `full`.
  *
- * Leads with the declaration site, so each report a recursive run emits names the file it is an edit to, and
- * derives the remedy from that site rather than naming one tier for every case.
+ * Leads with the declaration site, so that each report that a recursive run emits names the file to edit.
  */
 function formatNmrCrossingWarning(options: {
   crossingStep: string;
@@ -703,9 +700,9 @@ function formatNmrCrossingWarning(options: {
 }
 
 /**
- * Returns the line announcing that a `package.json` script is standing in for a built-in, or `undefined` when
- * none is due. Only a script replacing a name the registry already defines is worth announcing; an ordinary
- * tier-3 entry that happens to resolve is not standing in for anything.
+ * Returns the line announcing that a `package.json` script is standing in for a built-in, or `undefined` under
+ * `quiet` or when none is due. Only a script replacing a name that the registry already defines is worth
+ * announcing; an ordinary tier-3 entry that happens to resolve is not standing in for anything.
  */
 function formatOverrideNotice(
   resolvedScript: ResolvedScript,
@@ -843,8 +840,8 @@ function findEmptySelectionRefusal(options: {
  * The rule is stated because the mistake it catches is passing a directory name: a package's directory and its
  * manifest `name` differ often enough that the pattern looks right to the reader who wrote it.
  *
- * Three other forms state a rule of their own: a directory pattern, an exclusion, and a changed-since
- * selector. None of them carries a name, so none of them gets a name suggested back.
+ * A pattern of any other recognized form gets the rule for that form and no suggestion, because it contains no
+ * name.
  */
 function formatEmptyFilterError(pattern: string, names: readonly string[]): string {
   const rejection = formatFilterRejection(pattern);
@@ -872,9 +869,8 @@ function formatEmptyFilterError(pattern: string, names: readonly string[]): stri
 }
 
 /**
- * Returns the sentences naming which of the six conditions left the workspace holding no package, and the
- * remedy for that one. Each quotes the `packages` list the manifest declares, apart from the three that
- * reach the matcher with no list to quote.
+ * Returns the sentences naming why the workspace holds no package, and the remedy for that cause. A cause whose
+ * manifest declares a readable `packages` list quotes that list.
  *
  * The `package.json` requirement is stated under `no-package` because it is a divergence from pnpm, which
  * recognizes two further manifests, and the reader of a workspace that pnpm resolves has no way to infer it.
@@ -934,13 +930,12 @@ function describeEmptyWorkspace(monorepoRoot: string): string {
 }
 
 /**
- * Returns the clause naming what the manifest's `packages` key declares, which the three pattern-bearing
- * empty-workspace messages lead with. Each reaches it with a non-empty list, the resolver reporting a
- * manifest that declares none under a cause of its own.
+ * Returns the clause naming what a non-empty `packages` list declares. The resolver reports a manifest that
+ * declares no list under a cause of its own.
  *
- * An entry the parser left empty is what an unquoted `!pkg` becomes, and the matcher drops it. Naming it as an
- * empty entry is what a reader can act on: quoting it renders an empty pair of backticks, and it does so in the
- * one case the `no-pattern` remedy is written for.
+ * An entry that the parser left empty is what an unquoted `!pkg` becomes, and the matcher drops it. Naming it as
+ * an empty entry is what a reader can act on: quoting it renders an empty pair of backticks, and it does so in the
+ * one case for which the `no-pattern` remedy is written.
  */
 function describeDeclaredPatterns(patterns: readonly string[]): string {
   const quotablePatterns = patterns.filter((pattern) => pattern.trim() !== '');
@@ -963,12 +958,12 @@ function formatFilterRejection(pattern: string): string {
 }
 
 /**
- * Returns the sentence pointing a rejected pattern at the names it could have named, or nothing where the
- * workspace declares none.
+ * Returns the sentence pointing a rejected pattern at the names that it could have named, or an empty string where
+ * the workspace declares none.
  *
  * A containing name comes ahead of the nearest one: a directory name commonly stands for a longer manifest
- * name, and `secrets` sits nine edits from `@scope/toolbelt.secrets`, past any ceiling that would still reject
- * a name the user never meant.
+ * name, and `secrets` sits sixteen edits from `@scope/toolbelt.secrets`, past any ceiling that would still reject
+ * a name that the user never meant.
  */
 function suggestWorkspaceNames(pattern: string, names: readonly string[]): string {
   if (names.length === 0) {
@@ -1001,10 +996,9 @@ function renderQuotedList(items: readonly string[]): string {
 
 /**
  * Returns why a resolved command runs nothing, or `undefined` when there is something to run. A command that
- * ran nothing is not a command that passed, and the two exit alike, so the reason is what a verdict spends on
- * telling them apart.
+ * ran nothing exits as one that passed does, and the verdict reports the reason to tell them apart.
  *
- * A chain the package-free filter emptied renders exactly as an `""` override does, so the caller states which
+ * A chain that `readRunnableSteps` emptied renders exactly as an `""` override does, so the caller states which
  * it was rather than leaving the reason to be read back out of the string.
  */
 function findNoOpReason(resolvedCommand: string, isEmptiedByWorkspace: boolean): NoOpReason | undefined {
@@ -1021,16 +1015,12 @@ function findNoOpReason(resolvedCommand: string, isEmptiedByWorkspace: boolean):
 }
 
 /**
- * Rejects a `package.json` entry that chains steps onto a re-invocation of its own command, which resolution
- * discards, leaving those steps to run nowhere. Accepts every other entry in silence.
+ * Throws a `UserError` for a `package.json` entry that chains steps onto a re-invocation of its own command,
+ * which resolution discards, leaving those steps to run nowhere. Accepts every other entry in silence.
  *
- * Ahead of resolution rather than after it, so a command the registry does not define reports the declaration
- * that names it rather than the name it could not find. A `--log` rejects none, running nothing whose steps
- * could go missing.
- *
- * Raised as a `UserError`, the channel a malformed `scripts` value in the same file already takes. The remedy
- * is the one a crossing names, the entry having to go either way; the consequence is not, this entry never
- * running at all.
+ * Runs ahead of resolution, so that a command that the registry does not define reports the declaration that
+ * names it rather than the name that resolution could not find. A `--log` rejects none, running nothing whose
+ * steps could go missing.
  */
 function assertNoSelfReference(options: {
   anchorDir: string;
@@ -1061,9 +1051,8 @@ function assertNoSelfReference(options: {
 }
 
 /**
- * Returns true when a hook script resolves to a runnable command.
- * A hook is runnable when it resolves and the resolved value is neither
- * `""` nor `":"` (both of which mean "skip").
+ * Returns true when a hook resolves to a chain other than the skip values `""` and `":"`, or when its
+ * `package.json` entry chains steps onto a re-invocation of the hook.
  */
 function hasRunnableHook(
   hookName: string,
@@ -1182,6 +1171,7 @@ function openGate(options: {
   return snapshot.snapshot;
 }
 
+/** Parses the CLI arguments into nmr's flags, the command name, and the arguments passed through to it. */
 function parseArgs(args: string[]): ParseResult {
   const parsedArgs: ParsedArgs = {
     isWorkspaceRoot: false,
@@ -1230,7 +1220,6 @@ function parseArgs(args: string[]): ParseResult {
       continue;
     }
 
-    // First non-flag argument is the command; rest is passthrough
     parsedArgs.command = arg;
     parsedArgs.passthrough = args.slice(index + 1);
     break;
@@ -1290,9 +1279,8 @@ async function reportRecording(options: {
 }
 
 /**
- * Reads everything that decides how a run presents itself: the two inherited variables, and the style each
- * output stream resolves to. Read together, so a run carrying two unreadable values is not fixed one release
- * at a time.
+ * Reads everything that decides how a run presents itself: the two inherited variables, and the style that each
+ * output stream resolves to. Reports the first value that cannot be read.
  *
  * The style is resolved here rather than beside its use, so that a value naming no style is rejected where an
  * unreadable variable is, which is ahead of `--version` and of the config load.
@@ -1369,7 +1357,7 @@ function readRunnableSteps(
 /**
  * Reports a step that reaches nmr through a shell, where the resolved script holds one.
  *
- * Ahead of the gate, so a command that usually skips still reports the boundary it carries. A `--log` reports
+ * Ahead of the gate, so a command that usually skips still reports its crossing. A `--log` reports
  * none, running nothing that could cross. Reads the resolved steps rather than the full chain: the line names
  * a declaration to edit, and a hook, a passthrough, and a `devBin` substitution are none.
  */
@@ -1406,8 +1394,7 @@ function reportNmrCrossing(options: {
  *
  * A hook leaf reports none: it is not a command anyone asked for, but part of the chain the level that wrapped
  * it reports on, and a line here would say the same thing twice under a different name. A delegating
- * invocation reports none either, and needs no test here -- it returns before a verdict is composed, every
- * scope it fans out to reporting one of its own.
+ * invocation returns before composing a verdict, and every scope to which it fans out reports its own.
  */
 function reportVerdict(verdict: Verdict, stdout: Writable, format: ReportFormat, style: OutputStyle): void {
   if (isHookName(verdict.command)) {
@@ -1729,10 +1716,7 @@ function quoteForShell(arg: string): string {
  * Wraps a resolved main command's steps with `nmr <command>:pre` and `nmr <command>:post`
  * steps when the corresponding hooks resolve to non-skip values.
  *
- * Hooks are looked up via the same 3-tier registry as the main command. Missing
- * hooks (and explicit `""`/`":"` skips) are silent — they do not appear in the
- * chain and produce no output. Hook failure ends the sequence; the failing exit
- * code propagates.
+ * Omits a hook that `hasRunnableHook` rejects, so a missing or skipped hook adds no step and no output.
  *
  * `-w` is propagated to hook subprocesses so each hook selects the root registry
  * on its own, independent of where the child derives its context from.

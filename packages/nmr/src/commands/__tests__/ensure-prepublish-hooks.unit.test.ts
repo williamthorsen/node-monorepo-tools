@@ -68,7 +68,6 @@ describe(ensurePrepublishHooks, () => {
       const fixedPackage = result.packages.find((p) => p.packageName === '@scope/lib-a');
       expect(fixedPackage?.action).toBe('fixed');
 
-      // Verify file was actually written
       const writtenManifest = readPackageJson(tree.resolve('packages/lib-a'));
       expect(writtenManifest.scripts?.['prepublishOnly']).toBe('npm run build');
     });
@@ -109,7 +108,6 @@ describe(ensurePrepublishHooks, () => {
       expect(result.hasFailures).toBe(false);
       expect(result.packages[0]?.action).toBe('would-fix');
 
-      // Verify file was NOT written
       const rawManifest = readPackageJson(tree.resolve('packages/lib-a'));
       expect(rawManifest.scripts).toBeUndefined();
     });

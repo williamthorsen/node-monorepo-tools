@@ -25,8 +25,6 @@ describe(interpretSelectionProbe, () => {
     expect(interpretSelectionProbe({ error: undefined, status: 0, stdout }, MONOREPO_ROOT)).toBe('multiple');
   });
 
-  // The listing counts the root wherever the filter leaves it standing; the delegate runs there only where the
-  // pattern selects it positively, so this reading is the delegate's to settle.
   it('reads a selection of the root project alone as root-only', () => {
     const stdout = JSON.stringify([ROOT_ENTRY]);
 

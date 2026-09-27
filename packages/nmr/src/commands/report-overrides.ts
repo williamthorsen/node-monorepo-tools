@@ -9,8 +9,6 @@ import { readWorkspaceOverrides } from '../workspace.ts';
 /**
  * Reports the pnpm dependency overrides declared in the monorepo root's `pnpm-workspace.yaml`, and rejects a
  * `pnpm.overrides` block left behind in the root `package.json`.
- *
- * Runs ahead of the report produced by the root `upgrade` script.
  */
 export function reportOverrides(monorepoRoot: string, style: OutputStyle): void {
   const declaredOverrides = listEntries(readWorkspaceOverrides(monorepoRoot));

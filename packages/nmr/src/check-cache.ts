@@ -117,7 +117,7 @@ export const DEBUG_ENV_VAR = 'NMR_DEBUG';
  * The commands cacheable without configuration: those whose whole contribution is an exit status, and that
  * reach nothing beyond a checkout and an install.
  *
- * Excluded on purpose. `audit` and `prepush` consult a vulnerability database that changes without the tree
+ * Excluded commands: `audit` and `prepush` consult a vulnerability database that changes without the tree
  * (`prepush`'s `ci` constituent still skips while its `audit` always runs). `build` and `compile` carry a cache
  * of their own. `fix`, `fmt`, `lint`, and `upgrade` mutate the tree they are asked about. `test:all` reaches
  * whatever the environment supplies. Anything a repo adds here promises exit-status-only semantics through its
@@ -173,9 +173,9 @@ const INSTALL_FINGERPRINT_FILES = [
 const KEY_FORMAT = 'nmr-check-cache-v1';
 
 /**
- * Environment variables a check can read its way to a different conclusion through. A repo needing more folds
- * them in by excluding the affected command rather than by extending this list, which stays fixed so that the
- * key is the same on two machines that merely differ in shell decoration.
+ * Environment variables through which a check can reach a different conclusion. The list is fixed, so that two
+ * machines that differ only in shell decoration compute the same key; a command that reads another variable
+ * belongs in `excludeCommands`.
  */
 const KEYED_ENV_VARS = ['LANG', 'LC_ALL', 'NODE_OPTIONS', 'TZ'];
 
@@ -275,12 +275,11 @@ export function computeCacheKey(options: {
 
 /**
  * Folds what changes a transcript without changing a conclusion onto the pass key: the channel each of the
- * command's output streams ran on, and the environment variables a tool presents itself through.
+ * command's output streams ran on, and the environment variables through which a tool presents itself.
  *
- * Taking the pass key as an ingredient rather than recomputing its parts is what keeps the two from drifting
- * apart. The channel kind is what keeps a run at a terminal from replaying a piped recording; folding in raw
- * TTY-ness instead would be wrong under quiet mode, where the child sees pipes at a terminal and the
- * transcript is reproducible.
+ * The channel kind keeps a run at a terminal from replaying a piped recording. It is the channel's kind and not
+ * whether a terminal is attached: under quiet mode the child writes to pipes at a terminal, and its transcript
+ * is reproducible.
  */
 export function computeRetentionKey(options: {
   channels: OutputChannels;
@@ -318,8 +317,8 @@ export function findStaleBuildOutput(
 
 /**
  * Renders the warning for a `--no-cache` that landed after the command name, where it is an argument to the
- * command rather than a flag to nmr. Passing it on unchanged is the honest thing to do with an argument, so
- * the warning is all that separates this from a silently un-bypassed run.
+ * command rather than a flag to nmr. nmr passes the argument on unchanged, so the warning is the only sign that
+ * nmr did not read it.
  */
 export function formatMisplacedNoCacheWarning(command: string, style: OutputStyle): string {
   return (
@@ -332,8 +331,8 @@ export function formatMisplacedNoCacheWarning(command: string, style: OutputStyl
  * Reports whether a command's passes are recorded at all, which is what separates a command with no recording
  * from one that could never have had one.
  *
- * A hook is excluded here rather than at one caller: it is not a command anyone asks for, so nothing records
- * it, and a repo naming one in `extraCommands` must not make the gate and a reader of its entries disagree.
+ * A hook is never cacheable, even when a repo names one in `extraCommands`: nothing records a hook, and
+ * excluding it here keeps the gate and every reader of its entries in agreement.
  */
 export function isCacheableCommand(checkCache: CheckCacheConfig | undefined, command: string): boolean {
   return !isHookName(command) && checkCache?.enabled !== false && resolveCacheableCommands(checkCache).has(command);
@@ -359,8 +358,7 @@ export async function readBuildOutputState(monorepoRoot: string, config: NmrConf
   }
 
   const registry = buildWorkspaceRegistry(config);
-  // Hoisted out of the loop, where it does not vary: a repo redefining `build` exempts its whole workspace,
-  // and answering that once lets such a repo return without reading a single package.
+  // A repo that redefines `build` exempts its whole workspace, so return before reading any package.
   if (JSON.stringify(registry['build']) !== JSON.stringify(getDefaultWorkspaceScripts()['build'])) {
     return state;
   }
@@ -376,9 +374,8 @@ export async function readBuildOutputState(monorepoRoot: string, config: NmrConf
     const { build } = await loadWorkspaceConfig(packageDir);
     const options = build?.extraIgnorePatterns === undefined ? {} : { extraIgnorePatterns: build.extraIgnorePatterns };
 
-    // Relative to the monorepo root rather than a bare basename: a workspace whose globs yield two packages
-    // with the same directory name would otherwise record one digest for both, and the shadowed package's
-    // output would never be compared. This is the identity `computeCacheKey` already uses for a scope.
+    // Key by the path relative to the monorepo root, the identity that `computeCacheKey` uses for a scope: a
+    // workspace's globs can yield two packages with the same directory name, and each needs its own digest.
     const name = path.relative(monorepoRoot, packageDir);
     if (await hasBuildOutput(packageDir, options)) {
       state.digests[name] = (await readBuildDigest(packageDir)) ?? '';
@@ -394,8 +391,7 @@ export async function readBuildOutputState(monorepoRoot: string, config: NmrConf
  * Reads the entry recorded for one command at one scope, or `undefined` when there is none to trust.
  *
  * Retention is vouched for separately from the pass it rides on: an excerpt of a shape this cannot read is
- * dropped, leaving a pass that skips cleanly and reports its verdict alone. Voiding the pass instead would
- * cost a full run to avoid a line nobody would have printed.
+ * dropped, leaving a pass that skips cleanly and reports its verdict alone.
  */
 export async function readCheckCacheEntry(options: {
   anchorDir: string;
@@ -446,9 +442,8 @@ export async function removeCheckCache(scopeDir: string): Promise<void> {
 }
 
 /**
- * Merges a repo's `checkCache` configuration into the default set. Extending rather than replacing means
- * declaring one command cannot silently drop the defaults; excluding is how a repo retires a name whose chain
- * turned out to do more than report an exit status.
+ * Merges a repo's `checkCache` configuration into the default set: `extraCommands` adds to the defaults, and
+ * `excludeCommands` removes a command whose chain does more than report an exit status.
  */
 export function resolveCacheableCommands(checkCache: CheckCacheConfig | undefined): Set<string> {
   const commands = new Set([...DEFAULT_CACHEABLE_COMMANDS, ...(checkCache?.extraCommands ?? [])]);

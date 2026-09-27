@@ -8,6 +8,7 @@ import { readPackageJson } from '../package-json.ts';
 describe(readPackageJson, () => {
   let tree: TempTree;
 
+  /** Writes `content` to the tree as its `package.json`. */
   function writeManifest(content: unknown): void {
     tree.write('package.json', JSON.stringify(content));
   }

@@ -39,8 +39,7 @@ describe('signal handling', () => {
     if (child?.pid !== undefined && child.exitCode === null) child.kill('SIGKILL');
   });
 
-  // nmr installs no signal handler: the sequence ends because nmr is what holds it, where the shell it used to
-  // spawn outlived the request and ran the rest of the chain with nobody watching.
+  // nmr installs no signal handler: nmr itself holds the sequence, so a signal that ends nmr ends the sequence.
   it('given a signal to nmr alone, never starts the steps after the one that was running', async ({ tree }) => {
     child = spawn(process.execPath, [CLI_PATH, 'sequence'], {
       cwd: tree.dir,
@@ -72,7 +71,7 @@ describe('signal handling', () => {
 
 // region | Helpers
 
-/** The environment the run needs: `nmr` on PATH for the argv spawn, and none of nmr's own variables carried over. */
+/** Builds the environment that the run needs: `nmr` on PATH for the argv spawn, and none of nmr's own variables. */
 function buildChildEnv(): NodeJS.ProcessEnv {
   const ambientEnv = readAmbientEnv();
 
@@ -80,9 +79,9 @@ function buildChildEnv(): NodeJS.ProcessEnv {
 }
 
 /**
- * Two composites over the same second step: `sequence`, whose first step announces itself and then waits long
- * enough to be signalled, and `control`, which runs straight through. The wait is bounded so the process tree
- * orphaned by killing nmr goes away on its own rather than lingering past the suite.
+ * Builds two composites over the same second step: `sequence`, whose first step announces itself and then waits
+ * long enough to be signalled, and `control`, which runs straight through. The wait is bounded so that the process
+ * tree orphaned by killing nmr goes away on its own rather than lingering past the suite.
  */
 function buildConfig(): Record<string, unknown> {
   const announceCommand = `node -e "require('node:fs').writeFileSync('first-started',''); setTimeout(() => {}, ${FIRST_STEP_WAIT_MS})"`;

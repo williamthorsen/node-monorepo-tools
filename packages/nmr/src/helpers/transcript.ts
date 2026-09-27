@@ -94,8 +94,7 @@ function alignStart(buffer: Buffer, startOffset: number): number {
 /**
  * Cuts a transcript that would overrun the ceiling, keeping both ends and marking what fell between them.
  *
- * Both ends, because a run's opening and its closing statement each carry what the other does not, which is
- * the same reason the in-memory copy is bounded the same way.
+ * Keeps both ends because a run's opening and its closing statement each contain what the other does not.
  */
 function clampTranscript(transcript: string): string {
   const buffer = Buffer.from(transcript, 'utf8');

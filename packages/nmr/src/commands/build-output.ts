@@ -24,10 +24,9 @@ export interface ScratchDirs {
 export const DEFAULT_ENTRY_GLOBS = ['src/**/*.ts'];
 
 /**
- * Directories holding test scaffolding rather than shipped code, excluded from entry-point selection so a
- * package does not publish its own helpers. Deliberately not the vitest factory's `COVERAGE_EXCLUDE`: helpers
- * live in `test-utils/` precisely so they stay inside the coverage include set, so the two lists overlap
- * without converging and neither can be derived from the other.
+ * Directories holding test scaffolding rather than shipped code, excluded from entry-point selection so that a
+ * package does not publish its own helpers. The list differs from the vitest factory's `COVERAGE_EXCLUDE`, which
+ * leaves `test-utils/` inside the coverage include set, and neither list can be derived from the other.
  *
  * Ignoring a file removes it as an entry point, not from the emit. The compiler still emits whatever the
  * surviving entry points import, which is what keeps a production module that uses a helper from emitting a
@@ -126,9 +125,8 @@ export function resolveScratchDirs(emitDir: string): ScratchDirs {
 }
 
 /**
- * Resolves the fingerprint of the nmr compiling `packageDir`, which joins the build digest beside the compiler
- * version: the same sources emit differently across nmr versions as they do across TypeScript versions. It is
- * nmr's own build digest where one is on disk, which is what moves on a dev-loop edit the version does not
+ * Resolves the fingerprint of the nmr compiling `packageDir`, the `BuildToolchain` member that identifies nmr. It
+ * is nmr's own build digest where one is on disk, which is what moves on a dev-loop edit that the version does not
  * follow, and nmr's package version otherwise -- the case in a consuming repo, whose installed copy was built
  * elsewhere.
  *

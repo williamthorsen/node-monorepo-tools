@@ -103,10 +103,12 @@ function countBuilds(): number {
   return vi.mocked(ts.createProgram).mock.calls.filter((call) => call[3] === undefined).length;
 }
 
+/** Reports whether a mock result is a TypeScript program. */
 function isProgram(value: unknown): value is ts.Program {
   return typeof value === 'object' && value !== null && 'getSourceFile' in value;
 }
 
+/** Reads an emitted file from the package's emit directory. */
 function readOutput(tree: TempTree, relativePath: string): string {
   return tree.read(`dist/esm/${relativePath}`);
 }
@@ -144,9 +146,8 @@ function scaffoldExtendedBasePackage(tree: TempTree): string {
 
 /**
  * Writes a package under `rootDir/pkg` whose inherited `~/*` alias is anchored at `rootDir` and maps to
- * `rootDir` itself, so an import of `~/rootFile.ts` resolves to a file above the package's `src/`. This
- * reproduces the reported case: a package inheriting a root-anchored alias whose target escapes the
- * package source tree, where the specifier is unresolvable at runtime because Node never sees `paths`.
+ * `rootDir` itself, so an import of `~/rootFile.ts` resolves to a file above the package's `src/`. Node never
+ * sees `paths`, so the emitted specifier is unresolvable at runtime.
  */
 function scaffoldRootEscapingAliasPackage(tree: TempTree): string {
   tree.writeAll({
@@ -618,8 +619,7 @@ describe('buildPackage output-directory ownership', () => {
   });
 
   it('drops output whose source has since become ignored', async ({ tree }) => {
-    // The upgrade path for the packaging defect: a helper emitted by an earlier build has to disappear once
-    // the ignore set covers it, which a rebuild that only writes would leave in place.
+    // A rebuild that only wrote files would leave the helper emitted by the first build in place.
     scaffoldPackage(tree, {
       'index.ts': 'export const value = 1;\n',
       'test-utils/helper.ts': 'export const helper = 1;\n',
@@ -821,7 +821,6 @@ describe('buildPackage caching', () => {
 
     expect(resolveBuildCachePath(tree.dir)).toContain(path.join('node_modules', '.cache', 'nmr-compile'));
     expect(tree.exists(resolveCacheEntry(tree))).toBe(true);
-    // The regression this guards: the digest must not land inside the published dist tree.
     expect(tree.exists('dist/esm/.cache')).toBe(false);
   });
 
@@ -829,8 +828,8 @@ describe('buildPackage caching', () => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
     await buildPackage(tree.dir, { style: 'rich' });
 
-    // The reported failure: the cache lives outside `dist`, so wiping the output leaves the digest
-    // intact. Skipping here would leave an empty `dist` — and pack an empty tarball — without error.
+    // The cache lives outside `dist`, so wiping the output leaves the digest intact. Skipping here would
+    // leave an empty `dist`, and pack an empty tarball, without error.
     tree.rm('dist');
 
     await buildPackage(tree.dir, { style: 'rich' });
@@ -843,7 +842,6 @@ describe('buildPackage caching', () => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
     await buildPackage(tree.dir, { style: 'rich' });
 
-    // What the old `rimraf dist/*` default did: remove the children, leave the directory standing.
     for (const entry of tree.list('dist/esm')) {
       tree.rm(`dist/esm/${entry}`);
     }
@@ -867,8 +865,7 @@ describe('buildPackage caching', () => {
   it('skips a package whose sources are all declaration files instead of reporting missing output', async ({
     tree,
   }) => {
-    // A `.d.ts` file matches the entry glob but emits nothing, so no outdir is ever created. Keying the
-    // check on the entry count rather than on what those entries emit rebuilds such a package forever.
+    // A `.d.ts` file matches the entry glob but emits nothing, so no outdir is ever created.
     scaffoldPackage(tree, { 'ambient.d.ts': 'export declare const value: number;\n' });
     await buildPackage(tree.dir, { style: 'rich' });
 
@@ -939,7 +936,6 @@ describe('buildPackage caching', () => {
     });
     await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow('rebuild failed');
 
-    // The failed rebuild must leave the last successful build's digest intact, not overwrite it.
     expect(tree.read(resolveCacheEntry(tree))).toBe(lastGoodDigest);
 
     // With the failure gone, the next run rebuilds the changed source and refreshes the cache.
@@ -1009,7 +1005,7 @@ describe(resolveBuildCachePath, () => {
   });
 
   it('falls back to the nearest ancestor node_modules for a package that has none', ({ tree }) => {
-    // Mirrors a zero-dependency workspace leaf (e.g. nmr-core): with no node_modules of its own, the
+    // Mirrors a zero-dependency workspace leaf: with no node_modules of its own, the
     // cache must resolve to a hoisted ancestor rather than a stray directory beside dist.
     tree.mkdir('node_modules');
     const packageDir = tree.mkdir('packages/leaf');

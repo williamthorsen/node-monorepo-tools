@@ -21,8 +21,6 @@ interface CataloguedDependency {
  * inside a package drops every dependency a catalog declares -- and a package whose dependencies are all
  * catalogued reports itself up to date. Naming them, and the root a covering pass runs from, is what keeps
  * that from reading as a clean bill of health.
- *
- * Runs ahead of the report produced by the workspace `upgrade` script.
  */
 export function reportCatalog(cwd: string, style: OutputStyle): void {
   const monorepoRoot = findMonorepoRoot(cwd);

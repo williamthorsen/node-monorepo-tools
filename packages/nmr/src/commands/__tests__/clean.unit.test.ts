@@ -58,8 +58,6 @@ describe(cleanPackage, () => {
 
 describe(runClean, () => {
   it('cleans every workspace package when run from the monorepo root', async ({ tree }) => {
-    // One process cleans them all. Re-invoking a bin per package would die as soon as the sweep removed
-    // the output that bin loads from, in a repo that builds nmr itself — leaving the rest uncleaned.
     const { aDir, bDir } = scaffoldWorkspace(tree);
 
     await runClean(tree.dir, 'rich');
@@ -113,9 +111,7 @@ describe(runClean, () => {
   });
 
   it('cleans in-process even when devBin names the built-in clean', async ({ tree }) => {
-    // `devBin` substitutes a dev binary on the spawn path only: the sweep is already running whichever build
-    // devBin selected, and re-spawning the binary whose own output the sweep deletes is the failure the
-    // single-process sweep exists to prevent. The substitute fails if spawned, so a clean sweep proves it was not.
+    // The substitute fails if spawned, so a clean sweep proves that it was not.
     const { aDir, bDir } = scaffoldWorkspace(tree);
     scaffoldConfig(tree, { devBin: { 'nmr-clean': 'exit 7' } });
 

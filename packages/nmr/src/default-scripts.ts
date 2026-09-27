@@ -35,10 +35,9 @@ const TYPECHECK_STEP = { run: 'typecheck', shouldDeclineArguments: true } as con
 const ROOT_TYPECHECK_STEP = { run: 'root:typecheck', shouldDeclineArguments: true } as const;
 
 /**
- * Workspace scripts, identical for every package.
- * Four Vitest projects are recognized: `tool`, `localhost`, `remote`, and `unit`. The latter is also a catch-all.
- * Name a test file with the matching infix to associate it with a project.
- * Example: `nmr test:tool` runs every file carrying the `tool` infix, such as `my-file.tool.test.ts`.
+ * Workspace scripts, identical for every package. A `test:<tier>` script runs the Vitest project of that tier, which
+ * collects the test files that name it: `nmr test:tool` runs `my-file.tool.test.ts`. The `unit` project also
+ * collects every file that names no other tier.
  */
 export const workspaceScripts: ScriptRegistry = {
   build: ['compile'],

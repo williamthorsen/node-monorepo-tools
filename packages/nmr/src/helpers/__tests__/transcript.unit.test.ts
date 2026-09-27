@@ -55,7 +55,7 @@ describe(composeTranscript, () => {
   describe('a transcript overrunning the ceiling', () => {
     const OVERRUN_BYTES = TRANSCRIPT_LIMIT_BYTES + 10_000;
 
-    /** Distinguishable ends around a filler middle, so a cut that kept the wrong end is visible. */
+    /** Composes an overrunning transcript with distinguishable ends, so that a cut keeping the wrong end shows. */
     function composeOverrun(): string {
       const filler = 'x'.repeat(OVERRUN_BYTES - 'HEAD'.length - 'TAIL'.length);
 

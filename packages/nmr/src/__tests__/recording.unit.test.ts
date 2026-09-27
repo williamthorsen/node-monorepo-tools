@@ -257,7 +257,7 @@ describe('a recording', () => {
 
   // region | Helpers
 
-  /** A pass recorded moments ago, which a test varies where the variance is the subject. */
+  /** Builds the entry of a pass recorded moments ago, which a test overrides only in the fields that it is about. */
   function makeEntry(): CheckCacheEntry {
     return {
       key: KEY,
@@ -281,14 +281,17 @@ describe('a recording', () => {
     return lookup.recording;
   }
 
+  /** Builds a lookup that matches the fixture's entry: cacheable, keyed alike, and on the recorded identity. */
   function buildLookup() {
     return { ...buildRef(), currentIdentity: { ...IDENTITY }, isCacheable: true, key: KEY };
   }
 
+  /** Builds the ref for the fixture's command at this test's temporary root. */
   function buildRef() {
     return { anchorDir: root, command: COMMAND, monorepoRoot: root };
   }
 
+  /** Builds the replay line of one constituent's excerpt. */
   function buildReplayLine() {
     return { command: 'typecheck', excerpt: 'no errors', scope: 'nmr-core' };
   }

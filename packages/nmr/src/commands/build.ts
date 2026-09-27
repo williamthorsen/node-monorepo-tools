@@ -145,9 +145,8 @@ export async function buildPackage(packageDir: string, options: BuildPackageOpti
 
 /**
  * Produces a digest of the given files (paths and contents), the emit config, and the toolchain.
- * The file list is sorted so the digest is order-invariant, and each path is folded in so renames are detected.
- * The toolchain joins it because the same sources emit differently across TypeScript versions, and across the
- * nmr versions whose emit logic drives them.
+ * The file list is sorted so that the digest is order-invariant, and each path is folded in so that renames are
+ * detected.
  */
 export async function computeBuildHash(
   packageDir: string,
@@ -172,16 +171,16 @@ export async function computeBuildHash(
 
 /**
  * Resolves a package's full tsconfig `extends` chain, returning every config file in it (the leaf `tsconfig.json` and
- * each base it transitively extends, up to the repo root) as paths relative to `packageDir`.
- * Emit is driven by the fully-resolved compiler options, so the base configs (where `target`, `module`, `paths`,
- * `lib`, and `strict` are actually defined) must be in the cache's hashed input set; otherwise a change to a base
- * config would not bust the cache and stale output could ship. Paths are returned relative to `packageDir`, so
- * `computeBuildHash` reads them and folds a stable, location-independent path string into the digest.
+ * each base that it transitively extends, up to the repo root) as paths relative to `packageDir`.
+ * Emit is driven by the fully-resolved compiler options, so the base configs must be in the cache's hashed input
+ * set; otherwise a change to a base config would not bust the cache and stale output could ship. The relative paths
+ * give `computeBuildHash` a location-independent path string to fold into the digest.
  */
 export function resolveTsconfigChain(packageDir: string, configFileName = 'tsconfig.json'): string[] {
   const resolvedChain: string[] = [];
   const seen = new Set<string>();
 
+  /** Records a config file and recurses into each config that it extends, visiting each file once. */
   function walk(configPath: string): void {
     const normalizedPath = path.resolve(configPath);
     if (seen.has(normalizedPath)) {
@@ -219,7 +218,7 @@ export function resolveTsconfigChain(packageDir: string, configFileName = 'tscon
  * was. The output directory is never observed mid-write: it holds the previous build or the new one, and is
  * absent only between the two renames. Throws with formatted diagnostics when either program cannot be emitted.
  *
- * Reports how many files it published, which is zero for a package whose entry points emit nothing.
+ * Returns how many files it published, which is zero for a package whose entry points emit nothing.
  */
 async function emitPackage(packageDir: string, entryPoints: string[], outdir: string): Promise<number> {
   const compilerOptions = synthesizeCompilerOptions(packageDir, outdir);
@@ -236,6 +235,7 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
   // Buffer rather than write: the compiler's own `writeFile` would put the emit under `emitDir`, which is
   // still serving the previous build to anything that reads it while this one runs.
   const emittedFiles = new Map<string, StagedFile>();
+  /** Buffers one emitted file in place of the compiler's own write. */
   function collect(fileName: string, text: string, writeByteOrderMark: boolean): void {
     emittedFiles.set(fileName, { text, writeByteOrderMark });
   }
@@ -379,13 +379,14 @@ async function swapIntoPlace(emitDir: string, scratchDirs: ScratchDirs): Promise
 /**
  * Loads the package's base tsconfig and overrides the options that turn type-checking config into
  * an emit config: enable `.js` + `.d.ts` output, rewrite relative import extensions, and pin the
- * output directory. Type errors do not block emit (`noEmitOnError: false`) — type-checking stays a
- * separate step, matching the prior esbuild behavior.
+ * output directory. Type errors do not block emit (`noEmitOnError: false`): Type-checking is a separate
+ * step.
  *
  * `declarationDir` is pinned to the same resolved `outDir` so declaration files always co-locate
  * with their `.js` siblings, overriding any `declarationDir` the base tsconfig sets. `mapOutputToSource`
  * relies on every emitted file living under `outDir` to reconstruct its source-resolution context;
- * a stray `declarationDir` would push `.d.ts` files outside that tree and silently skip alias rewriting.
+ * a stray `declarationDir` would push `.d.ts` files outside that tree, where their sources cannot be
+ * reconstructed.
  */
 function synthesizeCompilerOptions(packageDir: string, outdir: string): ts.CompilerOptions {
   const configPath = path.join(packageDir, 'tsconfig.json');
@@ -445,7 +446,7 @@ function writeStagedOutput(stagedFiles: Map<string, StagedFile>, emitDir: string
  * in a TypeScript extension become their `.js` equivalent, and tsconfig `paths` aliases resolve to
  * runnable relative `.js` specifiers. Parsing the text means only real import/export specifiers are
  * touched -- text inside strings and comments is never altered. Returns the text unchanged when nothing
- * needs rewriting, so a caller can skip the write.
+ * needs rewriting.
  *
  * `outputFile` names where the emit lands, not where the text currently sits: `mapOutputToSource`
  * reconstructs the originating source file by swapping the `outDir` prefix, and aliases resolve from
@@ -506,11 +507,8 @@ function rewriteSpecifiers(
  * Computes the runnable specifier for an emitted import, or `undefined` when no change is needed.
  * Relative specifiers ending in a TypeScript extension are re-extensioned to `.js`; `paths` aliases
  * are resolved to the target source file and expressed as a relative `.js` specifier. Bare package
- * specifiers are left untouched. An alias resolving outside the package source tree is emitted verbatim
- * only when it still resolves the way Node will at runtime — genuinely external and runtime-runnable;
- * otherwise the emitted specifier would fail at runtime, so it throws. An alias that matches a known
- * prefix but resolves to nothing is likewise a broken import, so it throws rather than emitting an
- * unrunnable specifier verbatim.
+ * specifiers are left untouched. Throws on an alias that resolves to nothing, or that resolves outside the
+ * package source tree and not the way Node will at runtime.
  */
 function resolveSpecifierReplacement(
   specifier: string,
@@ -567,6 +565,7 @@ function resolveSpecifierReplacement(
 
 /** Invokes the callback with every module-specifier string literal found in the file. */
 function visitModuleSpecifiers(sourceFile: ts.SourceFile, visit: (literal: ts.StringLiteralLike) => void): void {
+  /** Visits the node's module specifier, if it has one, then recurses into its children. */
   function walk(node: ts.Node): void {
     const specifier = getModuleSpecifier(node);
     if (specifier !== undefined) {
@@ -671,6 +670,7 @@ function describeEmit(fileCount: number, outdir: string): string {
   return `Compiled ${fileCount} files to ${outdir.replace(/\/+$/u, '')}.`;
 }
 
+/** Renders compiler diagnostics as colored text with source context. */
 function formatDiagnostics(diagnostics: readonly ts.Diagnostic[]): string {
   return ts.formatDiagnosticsWithColorAndContext(diagnostics, {
     getCurrentDirectory: () => process.cwd(),
@@ -679,6 +679,7 @@ function formatDiagnostics(diagnostics: readonly ts.Diagnostic[]): string {
   });
 }
 
+/** Reports whether an emitted file is one whose module specifiers the build rewrites. */
 function isRewritableOutput(file: string): boolean {
   return file.endsWith('.d.ts') || file.endsWith('.js');
 }
@@ -739,10 +740,12 @@ function resolvePackageSpecifier(specifier: string, fromConfigPath: string): str
   return resolvedModule?.resolvedFileName;
 }
 
+/** Reports whether a specifier starts with `./` or `../`. */
 function isRelativeSpecifier(specifier: string): boolean {
   return specifier.startsWith('./') || specifier.startsWith('../');
 }
 
+/** Reports whether `child` lies strictly inside `parent`. */
 function isWithin(parent: string, child: string): boolean {
   const relativePath = path.relative(parent, child);
   return relativePath !== '' && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
@@ -766,6 +769,7 @@ function buildRelativeSpecifier(fromDir: string, targetFile: string): string {
   return relativePath.startsWith('.') ? relativePath : `./${relativePath}`;
 }
 
+/** Returns the script kind to parse an emitted file as: TypeScript for a declaration file, JavaScript otherwise. */
 function resolveScriptKind(file: string): ts.ScriptKind {
   return file.endsWith('.d.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS;
 }

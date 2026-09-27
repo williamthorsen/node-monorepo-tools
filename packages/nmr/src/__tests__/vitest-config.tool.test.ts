@@ -456,7 +456,7 @@ describe('tsconfig paths resolution, run for real', { timeout: 120_000 }, () => 
   });
 });
 
-/** A test file that passes, so the run's only outcome is which files it collected. */
+/** Builds a test file that passes, so the run's only outcome is which files it collected. */
 function buildPassingTest(): string {
   return [
     "import { expect, it } from 'vitest';",
@@ -468,6 +468,7 @@ function buildPassingTest(): string {
   ].join('\n');
 }
 
+/** Runs Vitest in `cwd` with a JSON coverage summary and a JSON report of the collected test files. */
 function runVitestWithCoverage(cwd: string): VitestRun {
   return runVitest(cwd, [
     '--coverage',
@@ -479,9 +480,9 @@ function runVitestWithCoverage(cwd: string): VitestRun {
 }
 
 /**
- * A setup file that appends its own name to a log beside itself, so the run records the order the two ran in.
- * The name carries whether git isolation was already in place, which is the only evidence that nmr's own setup
- * file ran ahead of the layers': it declares no entry in this log of its own.
+ * Builds a setup file that appends its own name to a log beside itself, so that the run records the order in which
+ * the two ran. The name carries whether git isolation was already in place, which is the only evidence that nmr's
+ * own setup file ran ahead of the layers': it declares no entry in this log of its own.
  */
 function buildSetupFile(name: string): string {
   return [
@@ -493,7 +494,7 @@ function buildSetupFile(name: string): string {
   ].join('\n');
 }
 
-/** One fixture run's report, after failing loudly with the child's own output where the run did not succeed. */
+/** Reads one fixture run's report, failing loudly with the child's own output where the run did not succeed. */
 function readObserved(tree: TempTree, run: VitestRun): unknown {
   if (run.status !== 0) {
     throw new Error(`fixture run failed with status ${String(run.status)}:\n${run.stdout}\n${run.stderr}`);
@@ -502,7 +503,7 @@ function readObserved(tree: TempTree, run: VitestRun): unknown {
   return tree.readJson(OBSERVED_LOG);
 }
 
-/** The files the coverage report measured, relative to the project root. Its keys are absolute paths. */
+/** Reads the files that the coverage report measured, relative to the project root. Its keys are absolute paths. */
 function readCoveredFiles(tree: TempTree): string[] {
   const summary = readJsonObject(tree, 'coverage/coverage-summary.json');
 
@@ -512,7 +513,7 @@ function readCoveredFiles(tree: TempTree): string[] {
     .toSorted();
 }
 
-/** The test files the run collected, relative to the project root. */
+/** Reads the test files that the run collected, relative to the project root. */
 function readCollectedTestFiles(tree: TempTree): string[] {
   const results = readJsonObject(tree, 'results.json');
   const testResults: unknown = 'testResults' in results ? results.testResults : undefined;
@@ -524,7 +525,7 @@ function readCollectedTestFiles(tree: TempTree): string[] {
   return testResults.map((result: unknown) => buildRelativePosixPath(tree.dir, readTestFileName(result))).toSorted();
 }
 
-/** The `name` of one JSON-reporter result, which holds the absolute path of the test file it ran. */
+/** Reads the `name` of one JSON-reporter result, which holds the absolute path of the test file it ran. */
 function readTestFileName(result: unknown): string {
   if (result === null || typeof result !== 'object' || !('name' in result) || typeof result.name !== 'string') {
     throw new TypeError('a testResults entry named no file');
@@ -533,6 +534,7 @@ function readTestFileName(result: unknown): string {
   return result.name;
 }
 
+/** Reads a JSON file in the tree, rejecting any content that is not an object. */
 function readJsonObject(tree: TempTree, entryPath: string): object {
   const parsedJson: unknown = tree.readJson(entryPath);
 
@@ -543,6 +545,7 @@ function readJsonObject(tree: TempTree, entryPath: string): object {
   return parsedJson;
 }
 
+/** Returns the path from `from` to `to` with POSIX separators. */
 function buildRelativePosixPath(from: string, to: string): string {
   return path.relative(from, to).split(path.sep).join('/');
 }

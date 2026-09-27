@@ -32,7 +32,7 @@ export function findMonorepoRoot(startDir?: string): string {
  * directories, applying pnpm's pattern semantics — including `!`-prefixed exclusions.
  *
  * Returns an empty array when the manifest declares no usable `packages` list, and throws when
- * `monorepoRoot` holds no manifest at all — the caller named a directory that is not a monorepo root.
+ * `monorepoRoot` contains no manifest at all.
  */
 export function getWorkspacePackageDirs(monorepoRoot: string): string[] {
   const resolution = resolveWorkspace(monorepoRoot);

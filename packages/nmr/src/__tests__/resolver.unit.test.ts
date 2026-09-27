@@ -424,8 +424,8 @@ describe(resolveScript, () => {
   });
 });
 
-// Guards against reintroducing the retired on-disk probe: nmr once chose a package's test scripts by looking for a
-// `vitest.integration.config.ts`, so the fixture plants exactly that file and asserts it changes nothing.
+// The registry alone chooses a package's test scripts: the second case plants the variant configs that an on-disk
+// probe would look for, and asserts that they change nothing.
 describe('test command resolution ignores the package contents', () => {
   const expectedCommands: Record<string, string> = {
     test: 'pnpm exec vitest --project unit --project tool',

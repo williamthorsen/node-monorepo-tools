@@ -27,11 +27,10 @@ const NON_RULE_CHARACTER = /[^-=_~*+.|:#]/u;
  * Reduces a transcript to the one line a verdict's detail slot carries, or `undefined` when it held nothing.
  *
  * The excerpt is the last blank-line-delimited block: a tool that prints progress separates its closing
- * statement with a blank line, so the blank line is the tool naming where its summary starts. A fixed count of
- * trailing lines fits vitest's four-line summary and v8's six-line coverage summary only by coincidence.
+ * statement with a blank line, so the blank line is the tool naming where its summary starts.
  *
- * The line carries a byte bound of its own, so what a caller persists is bounded. The 512-byte ceiling a
- * verdict line is held to is not applied here, which leaves that line's grammar with the module that owns it.
+ * The line is bounded by `MAX_EXCERPT_BYTES` alone; the ceiling on a verdict line is applied where that line is
+ * composed.
  */
 export function deriveExcerpt(transcript: string): string | undefined {
   const lines = cleanTranscript(transcript).split('\n');
