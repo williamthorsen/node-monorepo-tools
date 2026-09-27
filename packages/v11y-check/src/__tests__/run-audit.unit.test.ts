@@ -378,7 +378,7 @@ describe(resolveAuditCiBin, () => {
     vi.clearAllMocks();
   });
 
-  it('returns fallback "audit-ci" when import.meta.resolve fails', () => {
+  it('returns a non-empty path to the audit-ci bin', () => {
     // audit-ci resolves in this environment, so the assertion accepts either branch's path.
     const result = resolveAuditCiBin();
     expect(result).toBeTypeOf('string');

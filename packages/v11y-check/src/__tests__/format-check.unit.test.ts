@@ -389,6 +389,23 @@ describe(formatCheckText, () => {
     expect(output).not.toContain('Actions:');
   });
 
+  it('shows verbose hint when only allowed vulns exist (no unallowed, no stale)', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [
+          { id: '1', ghsaId: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/1' },
+        ],
+        belowThreshold: [],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
+    expect(output).toContain('Run `v11y check --prod --verbose` for full report');
+    expect(output).not.toContain('v11y sync');
+  });
+
   // -- Actions footer (multi-scope) --
 
   it('appends Actions footer with verbose and sync hints when multi-scope has unallowed vulnerabilities', () => {
@@ -560,23 +577,6 @@ describe(formatCheckText, () => {
     expect(output).toContain('\u{23E9} GHSA-bt: brace-expansion');
     expect(output).toContain('\u{2022} ignored');
     expect(output).toContain('\u{1F4E6} prod: (threshold: \u{1F7E0} moderate)');
-  });
-
-  it('shows verbose hint when only allowed vulns exist (no unallowed, no stale)', () => {
-    const result = makeCheckResult({
-      prod: {
-        allowed: [
-          { id: '1', ghsaId: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/1' },
-        ],
-        belowThreshold: [],
-        stale: [],
-        unallowed: [],
-      },
-    });
-
-    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
-    expect(output).toContain('Run `v11y check --prod --verbose` for full report');
-    expect(output).not.toContain('v11y sync');
   });
 });
 
