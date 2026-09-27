@@ -39,7 +39,7 @@ function namesBreakingToken(nodes: readonly TemplateNode[]): boolean {
   });
 }
 
-/** Walks one run of nodes, dropping each group that has an empty direct token. */
+/** Walks one run of nodes, dropping each group that has an empty direct token other than `{breaking}`. */
 function renderNodes(nodes: readonly TemplateNode[], record: ChangeRecord, marksBreaking: boolean): string {
   let rendered = '';
   for (const node of nodes) {
