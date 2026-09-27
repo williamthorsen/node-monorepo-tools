@@ -1,8 +1,9 @@
 import { execFileSync } from 'node:child_process';
+import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { describe, expect, it as baseIt } from 'vitest';
+import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { encodeTreeSnapshot, resolveTreeSnapshot, TREE_SNAPSHOT_ENV_VAR, type TreeSnapshot } from '../check-cache.ts';
 
@@ -13,6 +14,10 @@ const it = baseIt.extend(
 );
 
 describe(resolveTreeSnapshot, () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('takes the snapshot a parent process already observed', ({ tree }) => {
     // One invocation hashes the tree once; every process below it gates on that same observation.
     initRepo(tree);
@@ -59,6 +64,9 @@ describe(resolveTreeSnapshot, () => {
   });
 
   it('refuses outside a git repository, which is what disables the gate', ({ tree }) => {
+    // Stops git's upward search at the fixture, so a temp root that sits inside some repository cannot answer.
+    vi.stubEnv('GIT_CEILING_DIRECTORIES', path.dirname(tree.dir));
+
     expect(resolveTreeSnapshot({ monorepoRoot: tree.dir, env: {} })).toStrictEqual({
       ok: false,
       reason: expect.stringContaining('not a git repository'),

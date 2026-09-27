@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { describe, expect, it as baseIt } from 'vitest';
+import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { hashWorkingTree } from '../hashWorkingTree.ts';
 
@@ -158,7 +158,14 @@ describe(hashWorkingTree, () => {
   });
 
   describe('when it refuses to answer', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
     it('refuses outside a git repository', ({ tree }) => {
+      // Stops git's upward search at the fixture, so a temp root that sits inside some repository cannot answer.
+      vi.stubEnv('GIT_CEILING_DIRECTORIES', path.dirname(tree.dir));
+
       expect(hashWorkingTree(tree.dir)).toStrictEqual({
         ok: false,
         reason: expect.stringContaining('not a git repository'),

@@ -7,7 +7,7 @@ import { PassThrough } from 'node:stream';
 import { hashWorkingTree } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { type CheckCacheEntry, readCheckCacheEntry, RUN_ID_ENV_VAR, writeCheckCacheEntry } from '../check-cache.ts';
 import { resolveBuildCachePath } from '../commands/build-output.ts';
@@ -33,6 +33,10 @@ describe('the check-result cache gate', () => {
     // the very tree that the run is being recorded against.
     log = workspace.resolve(LOG_ENTRY);
     scaffoldRepo(workspace, log);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   describe('a tree that has not changed', () => {
@@ -282,6 +286,8 @@ describe('the check-result cache gate', () => {
 
     it('stands aside outside a git repository, and says why when asked', async () => {
       workspace.rm('repo/.git');
+      // Stops git's upward search at the fixture, so a temp root that sits inside some repository cannot answer.
+      vi.stubEnv('GIT_CEILING_DIRECTORIES', workspace.dir);
 
       await runNmr(COMMAND, repo);
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
