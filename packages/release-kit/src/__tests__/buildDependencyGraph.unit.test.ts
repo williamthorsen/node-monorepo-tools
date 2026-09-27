@@ -9,6 +9,7 @@ vi.mock(import('node:fs'), () => ({
 import { buildDependencyGraph } from '../buildDependencyGraph.ts';
 import type { WorkspaceConfig } from '../types.ts';
 
+/** Builds a publishable workspace config under `packages/{dir}`. */
 function makeWorkspace(dir: string, packageFile?: string): WorkspaceConfig {
   return {
     dir,

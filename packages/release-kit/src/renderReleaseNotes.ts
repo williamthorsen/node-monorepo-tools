@@ -2,14 +2,7 @@ import { CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
 
 import type { ChangelogAudience, ChangelogEntry, ChangelogSection } from './types.ts';
 
-/**
- * Build the per-bullet breaking-marker prefix from change-grammar's canonical `markers.breaking`.
- *
- * Construction template: `${emoji} **${label}:** ` — the colon stays inside the bold to
- * preserve byte-identical rendered output across the `markers`-block adoption. If a future
- * change to the SSOT (emoji or label) is intentional, regenerate snapshots and update the
- * literal expectations in `renderReleaseNotes.unit.test.ts` / `renderChangelogMarkdown.unit.test.ts`.
- */
+/** Builds the per-bullet breaking-marker prefix from change-grammar's canonical `markers.breaking`. */
 function getBreakingPrefix(): string {
   const { emoji, label } = CANONICAL_TAXONOMY.markers.breaking;
   return `${emoji} **${label}:** `;
@@ -29,16 +22,18 @@ export interface RenderOptions {
   sectionOrder?: string[];
 }
 
+/** Matches every section. */
 function allSections() {
   return true;
 }
 
+/** Matches the sections whose audience is `all`. */
 function publicSections(section: ChangelogSection) {
   return section.audience === 'all';
 }
 
 /**
- * Create a predicate that matches sections visible to the given audience.
+ * Creates a predicate that matches sections visible to the given audience.
  *
  * `"all"` matches only sections with `audience: "all"` (public-facing).
  * `"dev"` matches all sections (developers see everything).
@@ -48,10 +43,8 @@ export function matchesAudience(audience: ChangelogAudience): (section: Changelo
 }
 
 /**
- * Render a single `ChangelogEntry` to markdown.
- *
- * Output format mirrors the existing CHANGELOG.md style: an H2 version heading followed by
- * H3 section headings with bulleted items.
+ * Renders a single `ChangelogEntry` to markdown: an H2 version heading followed by H3 section
+ * headings with bulleted items.
  */
 export function renderReleaseNotesSingle(entry: ChangelogEntry, options?: RenderOptions): string {
   const filter = options?.filter;
@@ -92,7 +85,7 @@ export function renderReleaseNotesSingle(entry: ChangelogEntry, options?: Render
 }
 
 /**
- * Stable-sort sections so that titles appearing in `order` come first in that order.
+ * Stable-sorts sections so that titles appearing in `order` come first, in that order.
  * Unknown titles preserve their relative position after known ones.
  */
 function sortSectionsByOrder(sections: ChangelogSection[], order: string[]): ChangelogSection[] {
@@ -112,7 +105,7 @@ function sortSectionsByOrder(sections: ChangelogSection[], order: string[]): Cha
   return indexed.map(({ section }) => section);
 }
 
-/** Indent each line of a body with two spaces so it renders as nested content under a bullet. */
+/** Indents each line of a body with two spaces so that it renders as nested content under a bullet. */
 function indentBodyLines(body: string): string[] {
   return body.split('\n').map((line) => (line.length === 0 ? '' : `  ${line}`));
 }

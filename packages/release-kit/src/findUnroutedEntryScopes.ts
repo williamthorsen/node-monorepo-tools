@@ -41,7 +41,10 @@ export function findUnroutedEntryScopes(
 
 // region | Helpers
 
-/** Returns the unrouted scopes of one commit's block, in entry order; none for a commit that `readCommit` skips. */
+/**
+ * Returns the unrouted scopes of one commit's change-record block, in entry order; none for a `release:` or merge
+ * subject, or for a commit whose block is absent or malformed.
+ */
 function findCommitUnroutedScopes(
   commit: RawCommit,
   windowDirs: ReadonlySet<string>,

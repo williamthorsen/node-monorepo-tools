@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { renderChangelogMarkdown } from '../renderChangelogMarkdown.ts';
 import type { ChangelogEntry } from '../types.ts';
 
+/** Builds a changelog entry dated 2024-01-01 with one all-audience section holding `items`. */
 function makeEntry(
   version: string,
   sectionTitle: string,

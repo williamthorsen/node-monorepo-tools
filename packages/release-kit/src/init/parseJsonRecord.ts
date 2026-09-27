@@ -1,9 +1,6 @@
 import { isRecord } from '../typeGuards.ts';
 
-/**
- * Parse a JSON string and return the result if it is a plain object (Record<string, unknown>).
- * Returns `undefined` if parsing fails or the result is not a plain object.
- */
+/** Parses a JSON string, returning the result if it is a plain object and `undefined` otherwise. */
 export function parseJsonRecord(raw: string): Record<string, unknown> | undefined {
   let parsed: unknown;
   try {

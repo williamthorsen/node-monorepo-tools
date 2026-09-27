@@ -3,7 +3,7 @@ import { writeFileWithCheck } from '@williamthorsen/nmr-core';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 import type { PrepareResult } from './types.ts';
 
-/** One file a release will write, carried as its complete intended content. */
+/** One file that a release will write, with its complete intended content. */
 export interface PlannedWrite {
   path: string;
   content: string;
@@ -15,7 +15,7 @@ interface AppliedWrite {
   created: boolean;
 }
 
-/** Files a release writes for the next command to read, rather than release content. */
+/** Files that a release writes for the next command to read, as opposed to release content. */
 const HANDOFF_FILES = new Set([RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE]);
 
 /**
@@ -23,10 +23,9 @@ const HANDOFF_FILES = new Set([RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE]);
  *
  * Holding every intended file up front is what lets `prepare` fail during computation without
  * leaving anything on disk. {@link applyReleasePlan} is the only step that mutates the tree, so
- * a dry run is this same plan with the apply step skipped rather than a separate code path.
+ * a dry run is this same plan with the apply step skipped.
  *
- * Extends the reporting view with the two fields only the apply step needs, so `reportPrepare`
- * can render a plan without knowing about file content.
+ * Extends the reporting view with the two fields that only the apply step reads.
  */
 export interface ReleasePlan extends PrepareResult {
   writes: readonly PlannedWrite[];
@@ -35,15 +34,14 @@ export interface ReleasePlan extends PrepareResult {
 }
 
 /**
- * Writes every file a plan describes: content files first, then the summary, then the tags file.
+ * Writes every file that a plan describes: content files first, then the summary, then the tags file.
  *
- * The tags file goes last so its presence means the whole plan landed. Both `release-kit commit`
- * and the reusable release workflow read it as the signal that a release is ready to commit, so
- * writing it earlier would let a failure produce a tree that claims to be releasable.
+ * The tags file goes last so that its presence means that the whole plan reached disk. Both
+ * `release-kit commit` and the reusable release workflow read it as the signal that a release is
+ * ready to commit, so writing it earlier would let a failure produce a tree that claims to be
+ * releasable.
  *
- * Returns the paths written, in order.
- *
- * @throws If any write fails, naming what reached disk and what did not.
+ * Returns the paths written, in order. Throws if any write fails, naming what reached disk and what did not.
  */
 export function applyReleasePlan(plan: ReleasePlan): string[] {
   const ordered = orderPlannedWrites(plan);
@@ -120,7 +118,7 @@ function describeApplyFailure(args: DescribeApplyFailureArgs): string {
  * A replaced file is restored from git; a created file is deleted, since git has no entry to
  * restore it from and a single `git restore` over both fails on the unmatched pathspec. The
  * handoff files are left out: `prepare` overwrites them on its next run, and they sit under a
- * conventionally ignored directory where `git restore` would fail on them too.
+ * conventionally ignored directory, on which `git restore` would fail too.
  */
 function describeRecovery(applied: readonly AppliedWrite[]): string[] {
   const releaseWrites = applied.filter((write) => !HANDOFF_FILES.has(write.path));

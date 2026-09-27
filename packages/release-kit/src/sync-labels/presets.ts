@@ -52,7 +52,7 @@ export function loadPreset(presetName: string): LabelDefinition[] {
       throw new Error(`Preset "${presetName}" contains an invalid label entry: ${JSON.stringify(entry)}`);
     }
     // `description` is optional here as it is in the `repoLabels.labels` record,
-    // so a preset can ship bare labels rather than restating each name.
+    // so that a preset can ship bare labels rather than restating each name.
     const { color, description, name } = entry;
     if (
       typeof name !== 'string' ||

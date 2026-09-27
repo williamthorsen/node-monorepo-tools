@@ -27,10 +27,6 @@ export type DecideReleaseResult =
 /**
  * Decides whether a window releases, and at which level.
  *
- * Algorithm:
- *   shouldRelease = naturalBump !== undefined OR force === true
- *   releaseLevel  = bumpOverride ?? naturalBump ?? 'patch'
- *
  * A window without a natural bump releases only under `--force`, so `--bump=X` chooses a level without triggering a
  * release, and `--force` triggers one without choosing a level.
  */

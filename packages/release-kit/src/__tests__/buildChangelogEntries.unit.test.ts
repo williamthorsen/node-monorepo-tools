@@ -5,7 +5,7 @@ import type { RawCommit, ReleaseWindow } from '../enumerateReleaseWindows.ts';
 import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
 import type { ChangelogEntry, ChangelogJsonConfig, ChangelogSection, ReleaseConfig } from '../types.ts';
 
-// Mock the enumerator so the test exercises buildChangelogEntries' transformation logic
+// Mock the enumerator so that the test exercises buildChangelogEntries' transformation logic
 // without reading git history. `buildChangelogEntries.tool.test.ts` covers the real reader.
 const mockEnumerateReleaseWindows = vi.hoisted(() => vi.fn<() => ReleaseWindow[]>());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
@@ -34,6 +34,7 @@ const defaultChangelogJsonConfig: ChangelogJsonConfig = {
 
 const OPTIONS = { tagPrefixes: ['v'] };
 
+/** Builds a config whose changelog JSON settings override the defaults. */
 function makeConfig(overrides?: Partial<ChangelogJsonConfig>): Pick<ReleaseConfig, 'changelogJson'> {
   return {
     changelogJson: { ...defaultChangelogJsonConfig, ...overrides },
@@ -97,7 +98,7 @@ describe(buildChangelogEntries, () => {
 
   it('classifies emoji-prefixed section titles against bare-name devOnlySections overrides', () => {
     // A consumer override written as `devOnlySections: ['Internal features']` (bare) must keep
-    // matching the emoji-prefixed default title `'🏗️ Internal features'`, so upgrading does not
+    // matching the emoji-prefixed default title `'🏗️ Internal features'`, so that upgrading does not
     // silently reclassify their sections.
     mockEnumerateReleaseWindows.mockReturnValueOnce([
       makeWindow('v1.0.0', ['#1 feat: User-facing thing', '#2 internal: Plumbing change', '#3 deps: Bump deps']),
@@ -119,8 +120,8 @@ describe(buildChangelogEntries, () => {
 
   it('emits sections in canonical tier-then-row order regardless of commit encounter order', () => {
     // A window lists its commits oldest first, so `transformReleases` would otherwise insert
-    // sections in first-seen order. `changelog.json` sections inherit canonical order — verify
-    // directly that an out-of-order window still produces canonical-order output.
+    // sections in first-seen order. `changelog.json` sections follow canonical order, which an
+    // out-of-order window checks directly.
     mockEnumerateReleaseWindows.mockReturnValueOnce([
       makeWindow('v3.0.0', [
         '#1 docs: Update guide',

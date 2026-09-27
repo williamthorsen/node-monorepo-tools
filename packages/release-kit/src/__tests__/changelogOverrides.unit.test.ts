@@ -329,8 +329,8 @@ describe(applyChangelogOverrides, () => {
     const entries = [makeEntry(['abc111'])];
     const overrides = new Map([['xyz999', { description: 'Stale' }]]);
     const result = applyChangelogOverrides(entries, overrides);
-    // The applier no longer emits per-batch zero-match warnings; the orchestrator
-    // aggregates `matchedKeys` across batches and warns on globally-stale keys exactly once.
+    // The applier emits no per-batch zero-match warnings; the orchestrator aggregates
+    // `matchedKeys` across batches and warns on each globally stale key exactly once.
     expect(result.warnings).toStrictEqual([]);
     expect(result.matchedKeys).toStrictEqual([]);
     expect(result.entries[0]?.sections[0]?.items[0]?.description).toBe('Item abc111');
@@ -617,7 +617,7 @@ describe(loadOverridesForScopes, () => {
     });
     expect(result.errors.some((message) => message.includes('Failed to parse override file'))).toBe(true);
     expect(result.errors.some((message) => message.includes('top-level value must be an object'))).toBe(true);
-    // The valid file is still loaded so the report is comprehensive even when peers fail.
+    // The valid file is still loaded so that the report is comprehensive even when peers fail.
     expect(result.perWorkspace.get(workspaceB)?.get('beef01')).toStrictEqual({ audience: 'skip' });
   });
 });
@@ -639,7 +639,7 @@ describe(composeOverrides, () => {
     const root = new Map<string, ChangelogOverride>([['aaa', { audience: 'skip', description: 'Root description' }]]);
     const workspace = new Map<string, ChangelogOverride>([['aaa', { description: 'Workspace description' }]]);
     const composed = composeOverrides(root, workspace);
-    // Workspace entry replaces the root entry entirely — note `audience` is gone.
+    // The workspace entry replaces the root entry entirely: `audience` is gone.
     expect(composed.get('aaa')).toStrictEqual({ description: 'Workspace description' });
   });
 
@@ -687,7 +687,6 @@ describe(applyWorkspaceOverrides, () => {
     };
   }
 
-  // Scenario 1: root-only overrides apply across workspaces.
   it('applies root-only overrides and tracks them in globalMatchedRootKeys', () => {
     const context = makeContext(new Map([['aaa1111', { audience: 'skip' }]]), new Map());
     const entries = [makeEntry(['aaa1111'])];
@@ -697,7 +696,6 @@ describe(applyWorkspaceOverrides, () => {
     expect(context.overrideWarnings).toStrictEqual([]);
   });
 
-  // Scenario 2: per-workspace-only overrides are isolated to that workspace.
   it('applies per-workspace-only overrides without touching globalMatchedRootKeys', () => {
     const context = makeContext(
       new Map(),
@@ -710,7 +708,6 @@ describe(applyWorkspaceOverrides, () => {
     expect(context.overrideWarnings).toStrictEqual([]);
   });
 
-  // Scenario 3: disjoint root + workspace keys both apply.
   it('applies disjoint root and workspace keys side-by-side', () => {
     const context = makeContext(
       new Map([['aaa1111', { audience: 'skip' }]]),
@@ -726,7 +723,6 @@ describe(applyWorkspaceOverrides, () => {
     expect(context.overrideWarnings).toStrictEqual([]);
   });
 
-  // Scenario 4: byte-equal-key shadowing — workspace entry wins entirely; root not counted as matched.
   it('shadows the root entry on byte-equal keys (workspace wins; root match not recorded)', () => {
     const context = makeContext(
       new Map([['aaa1111', { audience: 'skip', description: 'Root description' }]]),
@@ -734,10 +730,10 @@ describe(applyWorkspaceOverrides, () => {
     );
     const entries = [makeEntry(['aaa1111'])];
     const applied = applyWorkspaceOverrides(entries, 'packages/foo', context);
-    // Workspace entry replaced root entry entirely — `audience: 'skip'` is gone.
+    // The workspace entry replaces the root entry entirely: `audience: 'skip'` is gone.
     expect(applied.entries[0]?.sections[0]?.items[0]?.description).toBe('Workspace description');
-    // Root key was shadowed; it must NOT count as a global root match — otherwise an end-of-run
-    // stale check would incorrectly conclude the root key matched somewhere.
+    // The shadowed root key must NOT count as a global root match; otherwise an end-of-run
+    // stale check would conclude that the root key matched somewhere.
     expect(context.globalMatchedRootKeys.size).toBe(0);
     expect(context.overrideWarnings).toStrictEqual([]);
   });
@@ -759,7 +755,6 @@ describe(applyWorkspaceOverrides, () => {
     );
   });
 
-  // Scenario 6: a workspace key that doesn't match in its own workspace warns immediately.
   it('emits an immediate stale-key warning for an unmatched per-workspace key', () => {
     const context = makeContext(
       new Map(),
@@ -780,17 +775,14 @@ describe(applyWorkspaceOverrides, () => {
     expect(context.overrideWarnings[0]).toMatch(/stale reference/);
   });
 
-  // Scenario 7: project changelog isolation. The project-release flow only ever sees
-  // `context.project`; per-workspace files MUST NOT apply at the project tier. We verify by
-  // reproducing the project-flow apply call (`applyChangelogOverrides(entries, context.project)`)
-  // and confirming a per-workspace key targeting one of the project's commits has no effect.
+  // The project-release flow sees only `context.project`, so a per-workspace key that targets one of the
+  // project's commits has no effect at the project tier.
   it("does not apply per-workspace files at the project tier (mimics releasePrepareProject's apply call)", () => {
     const context = makeContext(
       new Map([['aaa1111', { audience: 'skip' }]]),
       new Map([['packages/foo', new Map([['bbb2222', { audience: 'skip' }]])]]),
     );
     const projectEntries = [makeEntry(['aaa1111', 'bbb2222'])];
-    // Project flow uses `context.project` only — never the composed map.
     const applied = applyChangelogOverrides(projectEntries, context.project);
     const remainingHashes = applied.entries[0]?.sections[0]?.items.map((item) => item.hash) ?? [];
     // aaa1111 is dropped via the root override; bbb2222 remains because the workspace file
@@ -966,7 +958,7 @@ describe(validateAllChangelogOverrides, () => {
   it('treats a root key as stale when it is shadowed everywhere and never matches at the root tier', () => {
     // Root key 'aaa1111' is shadowed by an identical workspace key in the only workspace.
     // The workspace match counts toward the workspace tier, not the root, and there is no
-    // project release window — so the root key matches nowhere and should be flagged stale.
+    // project release window, so the root key matches nowhere and should be flagged stale.
     const projectFile = tree.writeJson('overrides.json', { aaa1111: { audience: 'skip' } });
     const workspaceFile = tree.writeJson('workspace-a/overrides.json', { aaa1111: { description: 'Workspace wins' } });
 
@@ -1153,7 +1145,6 @@ describe(createOverrideContext, () => {
     };
   }
 
-  // Scenario 5: any malformed file aborts the run before any writes — both root and workspace.
   it('aborts with a combined error when a per-workspace file is malformed', () => {
     const workspacePath = 'packages/bad';
     tree.write(`${workspacePath}/.meta/changelog-overrides.json`, '{not-valid');
@@ -1191,7 +1182,7 @@ describe(createOverrideContext, () => {
 
 // region | Helpers
 
-/** Build title-derived override target items from commit hashes. */
+/** Builds title-derived override target items from commit hashes. */
 function toItems(hashes: string[]): OverrideTargetItem[] {
   return hashes.map((hash) => ({ hash }));
 }

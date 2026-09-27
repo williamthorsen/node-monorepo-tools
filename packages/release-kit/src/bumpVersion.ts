@@ -1,13 +1,6 @@
 import type { ReleaseType } from './types.ts';
 
-/**
- * Bumps a semver version string by the given release type.
- *
- * @param version - A semver version string (e.g., '1.2.3').
- * @param releaseType - The type of release bump to apply.
- * @returns The bumped version string.
- * @throws If the version string is not a valid semver format.
- */
+/** Bumps a `major.minor.patch` version by the release type; throws on a version of any other form. */
 export function bumpVersion(version: string, releaseType: ReleaseType): string {
   const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
   if (!match) {

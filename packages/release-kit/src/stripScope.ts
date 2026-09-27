@@ -4,14 +4,14 @@ import { TICKET_PREFIX_PATTERNS } from '@williamthorsen/change-grammar';
 const PIPE_SCOPE_PATTERN = /^[^|]+\|(.*)$/;
 
 /**
- * Strip scope indicators from a raw commit message.
+ * Strips scope indicators from a raw commit message.
  *
  * Handles `scope|type: desc`, `type(scope): desc`, and messages with
  * ticket prefixes (e.g., `#72 release-kit|fix: ...`). Returns the
  * message unchanged when no scope is detected.
  */
 export function stripScope(message: string): string {
-  // Detect and remove ticket prefix so we can parse the remainder.
+  // Set the ticket prefix aside to parse the remainder, then restore it on the result.
   let ticketPrefix = '';
   let remainder = message;
 

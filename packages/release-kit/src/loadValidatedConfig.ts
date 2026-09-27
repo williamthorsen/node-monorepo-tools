@@ -16,12 +16,12 @@ import { validateConfig } from './validateConfig.ts';
 export type ConfigProblem = { kind: 'load'; message: string } | { kind: 'validation'; errors: string[] };
 
 /**
- * Outcome of loading and validating the consumer config file. `missing` is not an error
- * here — whether an absent config file is one is the caller's call.
+ * Outcome of loading and validating the consumer config file. `missing` is not an error here; the caller decides
+ * whether an absent config file is one.
  *
- * `configFilePath` names the file the run read: the caller's `configPath`, or `CONFIG_FILE_PATH` when none was
- * given. It stays relative to the working directory, so a message or a generated artifact that splices it reads
- * the same on every machine.
+ * `configFilePath` names the file that the run read: the caller's `configPath`, or `CONFIG_FILE_PATH` when none was
+ * given. The default stays relative to the working directory, so a message or a generated artifact that includes it
+ * reads the same on every machine.
  */
 export type LoadValidatedConfigResult =
   | { status: 'invalid'; configFilePath: string; problem: ConfigProblem }

@@ -130,7 +130,7 @@ describe(buildWorkspaceCheck, () => {
 
   // The gate is what reports a session that cannot answer trust queries; the per-package rows stand down rather
   // than repeating a query whose answer is already known. Both registry-reading checks carry a predicate of their
-  // own, because the rows no longer hang beneath the gate.
+  // own, because the rows do not hang beneath the gate.
   it('gives both registry-reading checks a skip predicate', () => {
     const publishedCheck = findCheck(
       'published to npm',
@@ -490,7 +490,7 @@ function findCheck(name: string, siblings: readonly RdyCheck[]): RdyCheck {
   return check;
 }
 
-/** Returns the named checklist from the kit, asserting it is flat so a staged form fails loudly. */
+/** Returns the named checklist from the kit, asserting it is flat so that a staged form fails loudly. */
 function findChecklist(name: string): RdyChecklist {
   const checklist = kit.checklists.find((candidate) => candidate.name === name);
   assert(checklist && isFlatChecklist(checklist), `Expected the kit to carry a flat "${name}" checklist`);

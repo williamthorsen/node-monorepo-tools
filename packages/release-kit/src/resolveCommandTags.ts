@@ -14,12 +14,10 @@ import { type ResolvedTag, resolveReleaseTags } from './resolveReleaseTags.ts';
 import type { ReleaseKitConfig, WorkspaceConfig } from './types.ts';
 
 /**
- * Discover workspaces, resolve release tags from HEAD, validate `--tags` names against the
- * full resolved tag names (e.g., `nmr-core-v1.3.0`), and return the filtered tag list.
- * Works in both single-package and monorepo modes. Exits with an error message on any validation
- * failure — including `deriveWorkspaceConfig()` throws for workspaces missing a `package.json` `name` field,
- * a config that `mergeMonorepoConfig` rejects, and a workspace declaring patterns that resolve to no package,
- * which is not single-package mode.
+ * Discovers workspaces, resolves release tags from HEAD, validates `--tags` names against the full resolved tag
+ * names (e.g., `nmr-core-v1.3.0`), and returns the filtered tag list. Exits with an error message on any validation
+ * failure, including a workspace whose `package.json` has no `name` field, a config that `mergeMonorepoConfig`
+ * rejects, and a workspace that resolves to no package, which is not single-package mode.
  *
  * In monorepo mode the workspace list is `userConfig` merged over the discovered workspaces, as `prepare` builds it.
  * A tag on HEAD whose workspace the config excludes still counts as a tag on HEAD, so `--tags` may name it and a
@@ -27,8 +25,8 @@ import type { ReleaseKitConfig, WorkspaceConfig } from './types.ts';
  * selects, every one without `--tags` or the named ones with it, is dropped with a warning.
  * Single-package mode ignores `userConfig`.
  *
- * In both modes `deriveWorkspaceConfig` is called so `WorkspaceConfig.isPublishable` (read
- * from `package.json#private`) propagates onto each `ResolvedTag`.
+ * In both modes the workspace configs come from `deriveWorkspaceConfig`, so that `WorkspaceConfig.isPublishable`
+ * (read from `package.json#private`) propagates onto each `ResolvedTag`.
  */
 export function resolveCommandTags(
   tags: string[] | undefined,
@@ -48,9 +46,6 @@ export function resolveCommandTags(
     process.exit(1);
   }
 
-  // Build workspace list so resolveReleaseTags can match tags by tagPrefix (derived from pkg.name)
-  // and propagate isPublishable. In single-package mode, derive the single workspace config from
-  // `./package.json` so its `isPublishable` reaches each ResolvedTag.
   let workspaces: WorkspaceConfig[] | undefined;
   let singleWorkspace: WorkspaceConfig | undefined;
   const excludedDirs = workspace.kind === 'packages' ? collectExcludedDirs(userConfig) : new Set<string>();
@@ -100,8 +95,8 @@ export function resolveCommandTags(
 // region | Helpers
 
 /**
- * Returns the config-merged workspaces followed by the ones the config excludes, so that tag matching sees every
- * discovered prefix and an excluded workspace's tag binds to that workspace rather than to a shorter prefix.
+ * Returns the config-merged workspaces followed by the ones that the config excludes, so that tag matching sees
+ * every discovered prefix and an excluded workspace's tag binds to that workspace rather than to a shorter prefix.
  */
 function buildMonorepoWorkspaces(
   packageDirs: string[],

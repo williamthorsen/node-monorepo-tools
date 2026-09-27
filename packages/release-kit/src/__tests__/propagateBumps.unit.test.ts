@@ -85,7 +85,6 @@ describe(propagateBumps, () => {
 
     const directBumps = new Map<string, ReleaseEntry>([['alpha', { releaseType: 'patch' }]]);
 
-    // Should terminate without infinite loop.
     const result = propagateBumps(directBumps, graph);
 
     expect(result.get('alpha')).toMatchObject({ releaseType: 'patch' });
@@ -178,6 +177,7 @@ describe(propagateBumps, () => {
 });
 
 // region | Helpers
+/** Builds a dependency graph from name, dependents, and version records, with no dependencies. */
 function makeGraph(
   nameToDir: Record<string, string>,
   dependentsOf: Record<string, WorkspaceConfig[]>,
@@ -194,6 +194,7 @@ function makeGraph(
   };
 }
 
+/** Builds a publishable workspace config under `packages/{dir}`. */
 function makeWorkspace(dir: string): WorkspaceConfig {
   return {
     dir,

@@ -367,7 +367,7 @@ describe(formatLabelsYaml, () => {
   });
 
   // `github-label-sync` reads an omitted description as "leave the label's current one alone",
-  // so the file has to declare an empty one to clear a description the repo still carries.
+  // so the file must declare an empty one to clear a description that the repo's label still has.
   it('declares an empty description for a label that carries none', () => {
     const labels: LabelDefinition[] = [{ name: 'scope:nmr', color: '00ff96' }];
 

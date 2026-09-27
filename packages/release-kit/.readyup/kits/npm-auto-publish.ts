@@ -29,7 +29,7 @@ import {
 // npm error codes that mean the caller holds no usable registry credentials.
 const AUTH_ERROR_CODES = new Set(['E401', 'ENEEDAUTH']);
 
-// The npm error code that means the session is authenticated but lacks the elevation a trust query needs.
+// The npm error code that means the session is authenticated but lacks the elevation that a trust query needs.
 const OTP_ERROR_CODE = 'EOTP';
 
 const PUBLISH_WORKFLOW_FILE = 'publish.yaml';
@@ -91,18 +91,17 @@ export const packagesChecklist = defineRdyChecklist({
       },
       fix: 'Set "packageManager": "pnpm@..." in root package.json',
     },
-    // Unfalsifiable on readyup 0.33 and later, where discovery reports the repo root and throws on an unreadable
-    // root package.json rather than returning an empty list. It stays for a consumer below that, whose monorepo
-    // mode returns the matched directories alone and so returns nothing when the globs match nothing.
+    // Unfalsifiable on every readyup version that `minReadyupVersion` admits: discovery reports the repo root, and it
+    // throws on an unreadable root package.json instead of returning an empty list.
     {
       name: 'At least one workspace discovered',
       check: () => discoverWorkspaces().length > 0,
       fix: 'Ensure pnpm-workspace.yaml lists package globs, or that a root package.json exists',
     },
   ],
-  // The gate stands beside the workspace rows rather than above them, so a session that cannot answer trust queries
-  // suppresses the trusted-publisher rows alone and leaves the package.json checks reporting. The rows no longer
-  // hang beneath the gate's skip, so a repo that publishes nothing has to be held to its one line here.
+  // The session gate is a sibling of the workspace rows, not their parent, so a session that cannot answer trust
+  // queries suppresses only the trusted-publisher rows and leaves the package.json checks reporting. The gate's skip
+  // therefore does not cover the rows, and this getter omits them for a repo that publishes nothing.
   get checks(): readonly RdyCheck[] {
     const sessionCheck = buildSessionCheck();
     if (skipIfNothingPublishable() !== false) {
@@ -127,10 +126,10 @@ export default defineRdyKit({
 // region | Helpers
 
 /**
- * Reports whether a workspace earns a row in the per-package checklist.
+ * Reports whether a workspace gets a row in the per-package checklist.
  *
  * Workspace discovery reports the repo root alongside the members, and a private root publishes nothing. A publishable
- * root stays, because it is the only entry a single-package repo has.
+ * root stays, because it is the only entry that a single-package repo has.
  */
 function belongsInPackagesChecklist(workspace: Workspace): boolean {
   return !workspace.isRoot || workspace.isPackage;
@@ -140,7 +139,7 @@ function belongsInPackagesChecklist(workspace: Workspace): boolean {
  * Builds the gate reporting whether the npm session can answer the trusted-publisher queries.
  *
  * `npm whoami` alone is too weak a probe: npm's trust endpoints need a session elevated by two-factor
- * authentication, which `whoami` does not, so an unelevated session passes it and fails every trust query.
+ * authentication, which `whoami` does not require, so an unelevated session passes it and fails every trust query.
  */
 function buildSessionCheck(): RdyCheck {
   return {
@@ -150,8 +149,6 @@ function buildSessionCheck(): RdyCheck {
       const capability = getCachedTrustCapability();
       return capability.ok ? { ok: true } : { ok: false, detail: capability.detail };
     },
-    // A plain string rather than a getter, because the remediation is the same however the session fails; only
-    // the `detail` above varies.
     fix: 'Restore a usable npm session: log in with "npm login", supplying the one-time password when prompted, or restore access to the registry, which the trusted-publisher check queries directly',
   };
 }
@@ -260,8 +257,7 @@ export type NpmAuthStatus =
 /**
  * Classifies the outcome of `npm whoami --json`.
  *
- * A zero exit means authenticated.
- * Any failure other than missing credentials forwards npm's summary and is reported as an unreachable registry.
+ * Any failure other than missing or rejected credentials is reported as an unreachable registry.
  *
  * @internal - Exported only to enable testing
  */
@@ -343,7 +339,7 @@ export type TrustCapability = { ok: true } | { ok: false; detail: string };
 /**
  * Reports whether the npm session can answer trust queries, from the session status and one probe query.
  *
- * The probe is undefined where the repo names no workspace to probe with, which leaves the capability undisproved.
+ * The probe is undefined where the repo has no workspace to probe with; the session status alone then decides.
  *
  * @internal - Exported only to enable testing
  */
@@ -363,10 +359,10 @@ export type TrustQueryResult =
   | { status: 'unanswerable'; detail: string };
 
 /**
- * Returns an object classifying the outcome of `npm trust list <package> --json` against the expected publisher.
+ * Classifies the outcome of `npm trust list <package> --json` against the expected publisher.
  *
  * A query that could not be answered is its own state, distinct from a package that has no trusted publisher.
- * `unanswerable` narrows that further to the failures that no package escapes, so one query settles them all.
+ * `unanswerable` narrows that further to the failures that affect every package alike, so one query settles them all.
  *
  * @internal - Exported only to enable testing
  */
@@ -417,7 +413,7 @@ export function classifyTrustQuery(
       };
 }
 
-/** Renders trust relationships for a failure detail, in the shape the expected publisher is named in. */
+/** Renders trust relationships for a failure detail, in the shape in which the expected publisher is named. */
 function describeTrustRelationships(relationships: TrustRelationship[]): string {
   return relationships
     .map((relationship) => {
@@ -449,7 +445,7 @@ const getCachedTrustCapability: () => TrustCapability = (() => {
   return () => (cached ??= resolveTrustCapability());
 })();
 
-/** Derive {owner}/{repo} from the git remote origin URL. */
+/** Derives {owner}/{repo} from the git remote origin URL. */
 function getOwnerRepo(): string {
   const url = execSync('git remote get-url origin', {
     encoding: 'utf8',
@@ -470,7 +466,7 @@ function getOwnerRepo(): string {
   throw new Error(`Cannot parse GitHub owner/repo from remote URL: ${url}`);
 }
 
-// Keyed by package name so the capability probe is reused by the workspace whose name it queried.
+// Keyed by package name so that the capability probe is reused by the workspace whose name it queried.
 const trustQueryResults = new Map<string, TrustQueryResult>();
 
 /** Returns a package's trust-query result, reaching the registry at most once per package name. */
@@ -535,7 +531,7 @@ function parseProvenanceSetting(workflowContent: string): boolean {
   return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
 }
 
-/** Queries the trust endpoint for the workspace the probe names, where a repo names one. */
+/** Queries the trust endpoint for the workspace that `selectProbeName` picks, where the repo has one. */
 function probeTrustQuery(): TrustQueryResult | undefined {
   const probeName = selectProbeName();
 
@@ -610,7 +606,7 @@ export interface NpmCommandResult {
  * Runs an npm command, capturing stdout whether or not the command exits zero.
  *
  * The command is expected to include `--json`: npm writes its machine-readable error envelope to stdout,
- * which `execSync` hangs on the thrown error rather than returning.
+ * which `execSync` attaches to the thrown error instead of returning it.
  */
 function runNpmJson(command: string): NpmCommandResult {
   try {
@@ -622,11 +618,12 @@ function runNpmJson(command: string): NpmCommandResult {
 }
 
 /**
- * Returns the name the capability probe queries with, or undefined where the repo names no publishable workspace.
+ * Returns the package name with which the capability probe queries, or undefined where the repo has no publishable
+ * workspace.
  *
  * Publishable is the criterion rather than membership of the packages checklist, which also admits a private member.
- * A private member's row is skipped, so its trusted-publisher check never reads the answer the probe memoized, and
- * the query would pay for nothing.
+ * A private member's row is skipped, so its trusted-publisher check never reads the answer that the probe memoized,
+ * and the query would be wasted.
  *
  * @internal - Exported only to enable testing
  */
@@ -639,9 +636,8 @@ export function selectProbeName(): string | undefined {
 /**
  * Skip predicate: Returns the skip reason when the repo publishes nothing, else `false` (the checks should run).
  *
- * Wired into the repo checklist's parent check, and into both the session gate and the checklist shape on the
- * packages side. A repo that publishes nothing reports one line per checklist, and no call for that repo is made
- * to the npm registry or the GitHub API.
+ * A repo that publishes nothing reports one line per checklist and makes no call to the npm registry or the GitHub
+ * API.
  *
  * @internal - Exported only to enable testing
  */
@@ -654,7 +650,6 @@ export function skipIfNothingPublishable(): SkipResult {
  * Skip predicate: Returns the skip reason when a workspace is not for publication
  * (i.e. `package.json#private` is `true`), else `false` (the check should run).
  *
- * Wired into the parent (per-workspace) check via `skip`.
  * Readyup's reporter suppresses descendants of a check whose `skip` returns a string, so a non-publishable workspace
  * appears as a single skipped entry rather than as a tree of false-positive errors.
  *

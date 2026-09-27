@@ -4,17 +4,8 @@ import { isRecord } from './typeGuards.ts';
 import { type ReleaseKitConfig, releaseKitConfigSchema } from './types.ts';
 
 /**
- * Validate a raw config object loaded from `.config/release-kit.config.ts`.
- *
- * Single source of truth: `releaseKitConfigSchema` in `types.ts`, with
- * `ReleaseKitConfig = z.infer<typeof releaseKitConfigSchema>`. Adding a field to the type
- * without updating the schema is impossible because the type *is* derived from the
- * schema.
- *
- * Pipeline: (1) preprocess strips deprecated keys and emits migration-guidance errors;
- * (2) `releaseKitConfigSchema.safeParse` does shape validation; (3) post-parse cross-field
- * checks (full-tuple duplicates, retired-vs-legacy collisions) operate on the typed
- * result.
+ * Validates a raw config object loaded from `.config/release-kit.config.ts`. A config that fails the schema parse
+ * returns `{}` with the errors; one that passes also goes through the cross-field checks.
  */
 export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors: string[]; warnings: string[] } {
   if (!isRecord(raw)) {
@@ -51,14 +42,9 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
 }
 
 /**
- * Strip removed/deprecated config keys and emit migration-guidance errors. The schema
- * uses `.strict()` everywhere, so unknown keys would otherwise be reported with Zod's
- * generic "Unrecognized key" message — losing the per-key migration instructions that
- * existing consumers rely on. This pass owns those messages and removes the keys from
- * the input so the schema parse only sees fields it recognizes.
- *
- * Contract: every removed/renamed config key must be handled here, not via Zod's
- * generic Unrecognized-key path. Future deprecations should add a branch below.
+ * Strips removed config keys from the input and reports a migration-guidance error for each. Every object schema is
+ * `.strict()`, so a removed key left in place would fail with Zod's generic "Unrecognized key" message, which omits
+ * the migration instructions; every removed or renamed key is therefore handled here.
  */
 function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecationErrors: string[] } {
   if (!isRecord(raw)) return { cleaned: raw, deprecationErrors: [] };
@@ -104,21 +90,17 @@ function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecation
   return { cleaned, deprecationErrors: errors };
 }
 
-/**
- * Format a Zod issue as a single-line error string using the project's existing path
- * convention (`object.key`, `array[index]`). Top-level issues without a path render bare.
- *
- * The message body is Zod's default with one targeted exception: `too_small` on strings
- * is rephrased as "must be a non-empty string" because Zod's "Too small: expected string
- * to have >=N characters" reads as a numeric-bound error in CLI output.
- */
+/** Formats a Zod issue as a single-line error prefixed by its path; an issue without a path renders bare. */
 function formatZodIssue(issue: z.core.$ZodIssue): string {
   const path = renderPath(issue.path);
   const message = customizeMessage(issue);
   return path === '' ? message : `${path}: ${message}`;
 }
 
-/** Apply targeted message customizations to Zod's defaults. */
+/**
+ * Returns Zod's message for an issue, except that a string `too_small` issue becomes "must be a non-empty string",
+ * because Zod's "Too small: expected string to have >=N characters" reads as a numeric-bound error in CLI output.
+ */
 function customizeMessage(issue: z.core.$ZodIssue): string {
   if (issue.code === 'too_small' && issue.origin === 'string') {
     return 'must be a non-empty string';
@@ -126,7 +108,7 @@ function customizeMessage(issue: z.core.$ZodIssue): string {
   return issue.message;
 }
 
-/** Render a Zod path as `top.nested[2].leaf`. */
+/** Renders a Zod path as `top.nested[2].leaf`. */
 function renderPath(path: ReadonlyArray<PropertyKey>): string {
   let rendered = '';
   for (const segment of path) {
@@ -142,9 +124,9 @@ function renderPath(path: ReadonlyArray<PropertyKey>): string {
 }
 
 /**
- * Append per-entry errors when two entries in the same workspace's `legacyIdentities`
- * share a full `(name, tagPrefix)` tuple. Two entries with the same `tagPrefix` but
- * different `name` are valid — they document a prior rename that reused the tag shape.
+ * Appends per-entry errors when two entries in the same workspace's `legacyIdentities` share a full
+ * `(name, tagPrefix)` tuple. Two entries with the same `tagPrefix` but different `name` are valid: They document a
+ * prior rename that reused the tag shape.
  */
 function detectLegacyIdentityDuplicates(config: ReleaseKitConfig, errors: string[]): void {
   if (config.workspaces === undefined) return;
@@ -166,9 +148,8 @@ function detectLegacyIdentityDuplicates(config: ReleaseKitConfig, errors: string
 }
 
 /**
- * Append per-entry errors for full `(name, tagPrefix)` duplicates within `retiredPackages`.
- * Two entries with the same `tagPrefix` but different `name` are valid — they document a
- * package renamed before retirement.
+ * Appends per-entry errors for full `(name, tagPrefix)` duplicates within `retiredPackages`. Two entries with the
+ * same `tagPrefix` but different `name` are valid: They document a package renamed before retirement.
  */
 function detectRetiredPackageDuplicates(config: ReleaseKitConfig, errors: string[]): void {
   if (config.retiredPackages === undefined) return;
@@ -185,12 +166,11 @@ function detectRetiredPackageDuplicates(config: ReleaseKitConfig, errors: string
 }
 
 /**
- * Append errors when a `retiredPackages[]` entry's `tagPrefix` matches any workspace's
- * declared `legacyIdentities[].tagPrefix`. The first declaring workspace is named in the
- * error.
+ * Appends errors when a `retiredPackages[]` entry's `tagPrefix` matches any workspace's declared
+ * `legacyIdentities[].tagPrefix`, naming the first workspace that declares it.
  *
- * Collisions with an active workspace's *derived* `tagPrefix` are not checked here — that
- * check requires reading each workspace's `package.json` and lives in `loadConfig`.
+ * A collision with an active workspace's *derived* `tagPrefix` requires reading each workspace's `package.json`, so
+ * `loadConfig` checks it.
  */
 function detectRetiredVsLegacyCollisions(config: ReleaseKitConfig, errors: string[]): void {
   if (config.retiredPackages === undefined || config.workspaces === undefined) return;

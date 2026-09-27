@@ -1,7 +1,7 @@
 import { createTempTree, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 
-/** The `packages:` block a monorepo fixture declares, which is what puts `discoverWorkspaces` into monorepo mode. */
+/** The `packages:` block that a monorepo fixture declares, which puts `discoverWorkspaces` into monorepo mode. */
 export const PNPM_WORKSPACE = 'packages:\n  - packages/*\n';
 
 /**
@@ -11,8 +11,8 @@ export const PNPM_WORKSPACE = 'packages:\n  - packages/*\n';
  * list, so it sees what discovery actually produces, root entry included. A mocked list is free to omit the root,
  * and an `isRoot` or `isPackage` filter then passes every entry through without being exercised.
  *
- * `pointCwdAt` stubs `process.cwd()` rather than calling `process.chdir`, which readyup's check utilities resolve
- * every relative path against, so no real process state moves.
+ * `pointCwdAt` stubs `process.cwd()`, against which readyup's check utilities resolve every relative path, instead
+ * of calling `process.chdir`, so no real process state changes.
  */
 export function scaffoldRepo(entries: Record<string, string>): void {
   const tree = disposeOnTestFinished(createTempTree(entries, { prefix: 'release-kit-repo-' }));

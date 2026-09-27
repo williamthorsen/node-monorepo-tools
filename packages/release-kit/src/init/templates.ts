@@ -1,6 +1,6 @@
 import type { RepoType } from './detectRepoType.ts';
 
-/** Generate the `.config/release-kit.config.ts` starter config with TODOs for customization. */
+/** Generates the `.config/release-kit.config.ts` starter config, with commented-out options to customize. */
 export function releaseConfigScript(repoType: RepoType): string {
   if (repoType === 'monorepo') {
     return `import { defineConfig } from '@williamthorsen/release-kit/config';
@@ -45,10 +45,10 @@ export default defineConfig({
 }
 
 /**
- * Generate the publish.yaml GitHub Actions entry-point workflow.
+ * Generates the publish.yaml GitHub Actions entry-point workflow.
  *
- * The `permissions` block is present for explicitness; the reusable workflow declares its own
- * permissions, so GitHub uses those rather than the caller's block.
+ * The caller's `permissions` block caps what the reusable workflow receives, so it must grant the `id-token: write`
+ * that OIDC publishing needs.
  */
 export function publishWorkflow(repoType: RepoType): string {
   const tagPattern = repoType === 'monorepo' ? "'*-v[0-9]*.[0-9]*.[0-9]*'" : "'v[0-9]*.[0-9]*.[0-9]*'";
@@ -74,11 +74,7 @@ jobs:
 `;
 }
 
-/**
- * Generate the create-github-release.yaml GitHub Actions caller workflow.
- *
- * Fires on tag push and delegates to the reusable workflow under `contents: write`.
- */
+/** Generates the create-github-release.yaml GitHub Actions caller workflow. */
 export function createGithubReleaseWorkflow(repoType: RepoType): string {
   const tagPattern = repoType === 'monorepo' ? "'*-v[0-9]*.[0-9]*.[0-9]*'" : "'v[0-9]*.[0-9]*.[0-9]*'";
 
@@ -101,7 +97,7 @@ jobs:
 `;
 }
 
-/** Generate the release.yaml GitHub Actions workflow. */
+/** Generates the release.yaml GitHub Actions workflow. */
 export function releaseWorkflow(repoType: RepoType): string {
   if (repoType === 'monorepo') {
     return `# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json

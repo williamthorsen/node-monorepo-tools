@@ -9,10 +9,8 @@ export interface ResolvedTag {
   dir: string;
   workspacePath: string;
   /**
-   * Whether the workspace this tag belongs to can be published to a registry. Propagated
-   * from the matched `WorkspaceConfig.isPublishable` (monorepo) or from the single-package
-   * workspace config (single-package mode). Consumed by `release-kit publish` to filter the
-   * tag set; other commands ignore it.
+   * Whether the workspace to which this tag belongs can be published to a registry, copied from the matched
+   * workspace's `WorkspaceConfig.isPublishable`.
    */
   isPublishable: boolean;
 }
@@ -27,7 +25,7 @@ const SEMVER_SUFFIX_PATTERN = /^\d+\.\d+\.\d+/;
 type ResolveReleaseTagsArgs = { workspaces: readonly WorkspaceConfig[] } | { singleWorkspace: WorkspaceConfig };
 
 /**
- * Resolve release tags pointing at HEAD into publishable package descriptors.
+ * Resolves release tags pointing at HEAD into publishable package descriptors.
  *
  * Pass `{ workspaces }` for monorepo mode: each tag is matched against the workspace
  * whose `tagPrefix` it starts with, and that workspace's `isPublishable` propagates onto
@@ -62,7 +60,7 @@ export function resolveReleaseTags(args?: ResolveReleaseTagsArgs): ResolvedTag[]
 }
 
 /**
- * Match single-package tags of the form `v{semver}`, warning if multiple are found.
+ * Matches single-package tags of the form `v{semver}`, warning if multiple are found.
  *
  * `singleWorkspace` is undefined when invoked via the `resolveReleaseTags()` no-arg
  * test form; resolved tags default to `isPublishable: true` in that case.
@@ -83,14 +81,13 @@ function resolveSinglePackageTags(tags: string[], singleWorkspace?: WorkspaceCon
 }
 
 /**
- * Match monorepo tags by scanning workspaces for a matching `tagPrefix`.
+ * Matches monorepo tags by scanning workspaces for a matching `tagPrefix`.
  *
- * When two prefixes nest (e.g., `foo-v` and `foo-bar-v`), prefer the longest match so
- * `foo-bar-v1.0.0` does not bind to `foo-v`.
+ * When two prefixes nest (e.g., `foo-v` and `foo-bar-v`), the longest match wins, so that `foo-bar-v1.0.0` does not
+ * bind to `foo-v`.
  */
 function resolveMonorepoTags(tags: string[], workspaces: readonly WorkspaceConfig[]): ResolvedTag[] {
-  // Sort workspaces by tagPrefix length descending so the longest match wins on nested prefixes.
-  // eslint-disable-next-line unicorn/no-array-sort -- toSorted requires Node 20+; engine target is >=18.17.0
+  // eslint-disable-next-line unicorn/no-array-sort -- the spread already creates a fresh copy
   const sortedWorkspaces = [...workspaces].sort((a, b) => b.tagPrefix.length - a.tagPrefix.length);
 
   const resolved: ResolvedTag[] = [];
@@ -106,11 +103,10 @@ function resolveMonorepoTags(tags: string[], workspaces: readonly WorkspaceConfi
 }
 
 /**
- * Return the workspace whose `tagPrefix` the tag starts with and whose version suffix matches
+ * Returns the workspace whose `tagPrefix` begins the tag and whose version suffix matches
  * `SEMVER_SUFFIX_PATTERN`. Expects `sortedWorkspaces` to be ordered longest-prefix first.
  *
- * `tagPrefix` ends with `v` (e.g., `core-v`), so `tag.slice(w.tagPrefix.length)` yields a bare
- * semver without a leading `v` — matched directly by `SEMVER_SUFFIX_PATTERN`.
+ * `tagPrefix` ends with `v` (e.g., `core-v`), so the suffix after it is a bare semver without a leading `v`.
  */
 function findMatchingWorkspace(tag: string, sortedWorkspaces: readonly WorkspaceConfig[]): WorkspaceConfig | undefined {
   for (const workspace of sortedWorkspaces) {

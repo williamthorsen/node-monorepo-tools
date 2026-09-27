@@ -134,7 +134,7 @@ describe(applyReleasePlan, () => {
 });
 
 // region | Helpers
-/** Build a release plan, overriding any field of an otherwise two-file release. */
+/** Builds a release plan, overriding any field of an otherwise two-file release. */
 function makePlan(overrides: Partial<ReleasePlan> = {}): ReleasePlan {
   return {
     writes: [
@@ -150,7 +150,7 @@ function makePlan(overrides: Partial<ReleasePlan> = {}): ReleasePlan {
 }
 
 /**
- * Make the write of `path` fail, leaving every other write successful.
+ * Makes the write of `path` fail, leaving every other write successful.
  *
  * `successOutcome` decides whether the surviving writes replaced existing files or created them,
  * which is what the recovery commands branch on.
@@ -165,12 +165,12 @@ function failOn(
   );
 }
 
-/** Paths passed to `writeFileWithCheck`, in call order. */
+/** Returns the paths passed to `writeFileWithCheck`, in call order. */
 function writtenPaths(): string[] {
   return mockWriteFileWithCheck.mock.calls.map(([path]) => path);
 }
 
-/** Apply a plan expected to fail, returning the thrown message for multi-part assertions. */
+/** Applies a plan expected to fail, returning the thrown message for multi-part assertions. */
 function captureApplyFailure(plan: ReleasePlan): string {
   try {
     applyReleasePlan(plan);

@@ -16,21 +16,20 @@ import { type ConfigProblem, loadValidatedConfig, type LoadValidatedConfigResult
 import type { ChangelogEntry, MonorepoReleaseConfig, ReleaseConfig, ReleaseKitConfig } from './types.ts';
 
 /**
- * Synthetic unreleased-tag label passed to `buildChangelogEntries` during validation. The label
- * names the unreleased entry alone; the tag prefixes and paths decide which commits the windows
- * hold. `validate` persists nothing, so any non-empty string is acceptable — a clearly synthetic
- * literal aids debugging if the value ever surfaces.
+ * Synthetic unreleased-tag label passed to `buildChangelogEntries` during validation. The label names the unreleased
+ * entry alone; the tag prefixes and paths decide which commits the windows contain. `validate` persists nothing, so
+ * any non-empty string works; a recognizably synthetic literal aids debugging if the value ever surfaces.
  */
 const SYNTHETIC_VALIDATE_TAG = 'validate-only';
 
 /**
- * Result of {@link validateOverridesCommand}: tiered exit code paired with a human-readable
- * message, which keeps the CLI dispatch layer thin.
+ * Result of {@link validateOverridesCommand}: a tiered exit code paired with a human-readable message.
  *
  * Exit codes:
- * - `0` — clean: no errors, no warnings.
- * - `1` — only stale-key warnings.
- * - `2` — schema/parse errors or keys that fail to match (ambiguous prefix, overlapping keys, a bare key setting fields on several items) (errors dominate when both classes exist).
+ * - `0`: clean, with no errors and no warnings.
+ * - `1`: only stale-key warnings.
+ * - `2`: schema or parse errors, or keys that fail to match (an ambiguous prefix, overlapping keys, or a bare key
+ *   that sets fields on several items). Errors take precedence when both classes exist.
  */
 export interface ValidateOverridesCommandResult {
   exitCode: 0 | 1 | 2;
@@ -42,24 +41,23 @@ export interface ValidateOverridesCommandDependencies {
   discoverWorkspaces?: () => WorkspaceDiscovery;
   loadValidatedConfig?: () => Promise<LoadValidatedConfigResult>;
   /**
-   * Build changelog entries for a scope. Defaults to `buildChangelogEntries`, the same path
-   * `release-kit prepare` uses — anchoring `validate`'s item universe to `prepare`'s by
-   * construction.
+   * Builds changelog entries for a scope. Defaults to `buildChangelogEntries`, which `release-kit prepare` also
+   * uses, so that `validate` sees the same items as `prepare`.
    */
   buildEntries?: (config: ReleaseHistoryConfig, options: GenerateChangelogOptions) => ChangelogEntry[];
-  /** Pluggable validator (default: the production library function). Tests use this to drive specific result shapes through the formatter. */
+  /** Validator; defaults to `validateAllChangelogOverrides`. Tests use it to feed specific results to the formatter. */
   validate?: (inputs: ValidateAllChangelogOverridesInputs) => ValidateAllChangelogOverridesResult;
 }
 
 /**
- * Validate every changelog override file across the project and per-workspace scopes, and
- * return a tiered exit-code-plus-message result. Performs workspace discovery, config load,
+ * Validates every changelog override file across the project and per-workspace scopes, and
+ * returns a tiered exit-code-plus-message result. Performs workspace discovery, config load,
  * and per-scope item collection, then delegates the actual validation to
  * {@link validateAllChangelogOverrides}.
  *
  * Single-package and monorepo modes are handled uniformly: single-package collapses to one
- * project scope; monorepo expands to a project scope plus one scope per workspace. A workspace declaring
- * patterns that resolve to no package is neither, and exits `2`.
+ * project scope; monorepo expands to a project scope plus one scope per workspace. A workspace that resolves to
+ * no package is neither, and returns exit code `2`.
  *
  * `configPath` names the config file to read, relative to the working directory; it defaults to
  * `CONFIG_FILE_PATH`.
@@ -109,10 +107,7 @@ export async function validateOverridesCommand(
   return formatValidateOverridesResult(result, styles.stderr);
 }
 
-/**
- * Pure formatter — take an aggregated validation result, return the tiered exit code and a
- * rendered message. Exported for unit testing without going through the full discovery path.
- */
+/** Returns the tiered exit code and rendered message for an aggregated validation result. */
 export function formatValidateOverridesResult(
   result: ValidateAllChangelogOverridesResult,
   style: OutputStyle,
@@ -130,7 +125,7 @@ export function formatValidateOverridesResult(
   return { exitCode, message };
 }
 
-/** Render the leading summary, omitting zero-count categories (e.g., `Found 1 warning:` rather than `Found 0 errors and 1 warning:`). */
+/** Renders the leading summary, omitting a zero-count category (e.g., `Found 1 warning:`). */
 function formatSummaryLine(errorCount: number, warningCount: number): string {
   const parts: string[] = [];
   if (errorCount > 0) {
@@ -142,18 +137,19 @@ function formatSummaryLine(errorCount: number, warningCount: number): string {
   return `Found ${parts.join(' and ')}:`;
 }
 
+/** Formats `count` with `noun`, adding `s` unless the count is 1. */
 function pluralize(count: number, noun: string): string {
   return count === 1 ? `${count} ${noun}` : `${count} ${noun}s`;
 }
 
-/** Delegates to `buildChangelogEntries`, which reads the release history as `prepare` does, under a throwaway tag label. */
+/** Builds changelog entries through `buildChangelogEntries` under a throwaway tag label. */
 function defaultBuildEntries(config: ReleaseHistoryConfig, options: GenerateChangelogOptions): ChangelogEntry[] {
   return buildChangelogEntries(config, SYNTHETIC_VALIDATE_TAG, options).entries;
 }
 
 /**
- * Project every release's items down to a flat list of hashes and entry positions. Synthetic propagation
- * entries (no `hash`) contribute nothing — they cannot match an override key.
+ * Projects every release's items down to a flat list of hashes and entry positions. Synthetic propagation entries
+ * (no `hash`) contribute nothing, because they cannot match an override key.
  */
 function flattenEntriesToItems(entries: readonly ChangelogEntry[]): OverrideTargetItem[] {
   const items: OverrideTargetItem[] = [];
@@ -169,7 +165,7 @@ function flattenEntriesToItems(entries: readonly ChangelogEntry[]): OverrideTarg
 }
 
 /**
- * Render an unusable config as this command's exit-2 message.
+ * Renders an unusable config as this command's exit-2 message.
  *
  * A load failure is a failed operation and takes the error prefix; an invalid config is a verdict and is
  * surfaced bare. The kind picks the message shape alone: both abort.
@@ -181,10 +177,10 @@ function formatConfigProblem(problem: ConfigProblem): string {
 }
 
 /**
- * Build validation inputs for a single-package repo (no `pnpm-workspace.yaml`).
+ * Builds validation inputs for a single-package repo (no `pnpm-workspace.yaml`).
  *
- * Mirrors `releasePrepare.ts`'s `buildChangelogEntries` call: the configured tag prefix, and no
- * paths, so every release across all paths contributes.
+ * Mirrors `releasePrepare.ts`'s release-history read: the configured tag prefix, and no paths, so that every
+ * release across all paths contributes.
  */
 function buildSinglePackageInputs(
   userConfig: ReleaseKitConfig | undefined,
@@ -198,7 +194,7 @@ function buildSinglePackageInputs(
 }
 
 /**
- * Build validation inputs for a monorepo, mirroring the per-scope item universes `prepare` would compute.
+ * Builds validation inputs for a monorepo, mirroring the per-scope item universes that `prepare` would compute.
  *
  * Workspace scopes mirror `buildWorkspaceEntries` in `releasePrepareMono.ts`: the workspace's derived prefix plus any
  * legacy-identity prefixes, with the workspace's `paths`, routing change-record entries to the workspace's `dir`. The

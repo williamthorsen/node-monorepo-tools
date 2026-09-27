@@ -6,10 +6,8 @@ import { isRecord } from './typeGuards.ts';
 export type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'yarn-berry';
 
 /**
- * Detect the repo's package manager by checking the `packageManager` field in root `package.json`,
- * then falling back to lockfile detection, then defaulting to `npm`.
- *
- * Yarn v2+ is returned as `'yarn-berry'` to distinguish it from Yarn Classic.
+ * Detects the repo's package manager from the `packageManager` field of the root `package.json`, then from lockfiles,
+ * and otherwise returns `npm`. Yarn v2+ is `'yarn-berry'`, to distinguish it from Yarn Classic.
  */
 export function detectPackageManager(): PackageManager {
   const packageJsonPath = join(process.cwd(), 'package.json');
@@ -34,7 +32,7 @@ export function detectPackageManager(): PackageManager {
   return detectFromLockfile();
 }
 
-/** Return true when the version string indicates Yarn v2+. */
+/** Reports whether the version string indicates Yarn v2+. */
 function isYarnBerry(version: string | undefined): boolean {
   if (version === undefined) {
     return false;
@@ -43,7 +41,7 @@ function isYarnBerry(version: string | undefined): boolean {
   return !Number.isNaN(major) && major >= 2;
 }
 
-/** Detect the package manager from the presence of lockfiles. */
+/** Detects the package manager from the presence of lockfiles. */
 function detectFromLockfile(): PackageManager {
   const cwd = process.cwd();
 

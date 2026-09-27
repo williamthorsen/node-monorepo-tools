@@ -16,10 +16,10 @@ export interface PushStep {
 }
 
 /**
- * Push the release commit and each tag individually so that GitHub Actions fires
+ * Pushes the release commit and each tag individually so that GitHub Actions fires
  * a separate workflow run per tag.
  *
- * Returns the list of push steps that were executed (or would be executed in dry-run mode).
+ * Returns the push steps, which it runs only outside dry-run mode.
  */
 export function pushRelease(resolvedTags: ResolvedTag[], options: PushReleaseOptions = {}): PushStep[] {
   const { dryRun = false, tagsOnly = false } = options;

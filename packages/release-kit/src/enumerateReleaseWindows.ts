@@ -16,17 +16,17 @@ const RECORD_SEPARATOR = '\u{1E}';
 
 /** A commit as git records it, before any parsing or filtering. */
 export interface RawCommit {
-  /** The full 40-character hash, which `changelogOverrides` keys on. */
+  /** The full 40-character hash. */
   hash: string;
   /** The first line, with a wrapped subject folded onto one line by git. */
   subject: string;
-  /** The message after its first blank line, empty when the commit carries no body. */
+  /** The message after its first blank line, empty when the commit has no body. */
   body: string;
   /** The raw commit message, subject and body together. */
   message: string;
 }
 
-/** The commits one release contains, with the version and date under which they shipped. */
+/** The commits that one release contains, with the version and date under which they shipped. */
 export interface ReleaseWindow {
   /** The tag name for a released window, the caller's unreleased-tag name for the newest one. */
   version: string;
@@ -51,7 +51,7 @@ export interface EnumerateReleaseWindowsOptions {
 /**
  * Splits the history reachable from HEAD into release windows, newest first.
  *
- * The newest window is always the unreleased one, empty when HEAD sits on a tag. Released
+ * The newest window is always the unreleased one, empty when HEAD is at a matching tag. Released
  * windows follow in descending order, one per reachable tag matching a prefix. A tag that
  * HEAD cannot reach is dropped.
  *
@@ -111,9 +111,9 @@ interface Ancestry {
   positionByHash: Map<string, number>;
 }
 
-/** A tag, the commit it points at, and the date under which its release shipped. */
+/** A tag, the commit at which it points, and the date under which its release shipped. */
 interface TagBoundary {
-  /** The commit the tag points at, dereferenced for an annotated tag. */
+  /** The commit at which the tag points, dereferenced for an annotated tag. */
   hash: string;
   /** The tagged commit's position in the topological walk. */
   position: number;
@@ -124,7 +124,7 @@ interface TagBoundary {
 
 /**
  * Assigns each reachable commit to the boundary whose release first contained it, as an index
- * into `boundaries`. A commit no boundary contains is absent from the result.
+ * into `boundaries`. A commit contained by no boundary is absent from the result.
  *
  * `boundaries` runs oldest release first, so each boundary claims only what the releases before
  * it left unclaimed. A topological walk puts an ancestor after its descendants, which is what
@@ -218,7 +218,7 @@ function readCommits(paths: readonly string[] | undefined): RawCommit[] {
 /**
  * Reads the tags matching a prefix and reachable from HEAD, oldest release first.
  *
- * A tag's `creatordate` resolves to the tagger date for the annotated tags `createTags.ts`
+ * A tag's `creatordate` resolves to the tagger date for the annotated tags that `createTags.ts`
  * writes, and to the commit date for a lightweight one.
  */
 function readTagBoundaries(tagPrefixes: readonly string[], positionByHash: ReadonlyMap<string, number>): TagBoundary[] {

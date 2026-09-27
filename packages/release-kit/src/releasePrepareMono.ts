@@ -49,7 +49,7 @@ interface DirectBumpResult {
   history: ReleaseHistory;
   /** Release type from the decision. Undefined when `setVersion` is used. */
   releaseType: ReleaseType | undefined;
-  /** Set when `--bump=X` was supplied for this workspace's direct release; surfaced to renderer. */
+  /** Set when `--bump=X` was supplied for this workspace's direct release. */
   bumpOverride: ReleaseType | undefined;
   /** Explicit version from `--set-version`, present only for the overridden workspace. */
   setVersion?: string;
@@ -72,12 +72,14 @@ interface Phase1Result {
 }
 
 /**
- * Orchestrate release preparation for a monorepo with multiple workspaces.
+ * Orchestrates release preparation for a monorepo with multiple workspaces.
  *
- * Phase 1: Determine direct bumps from commits for each workspace.
- * Phase 2: Build the dependency graph and propagate bumps to dependents.
- * Phase 2b: Topologically sort the full release set.
- * Phase 3: Execute bumps and generate changelogs in dependency order.
+ * Phase 1: Determines direct bumps from commits for each workspace.
+ * Phase 2: Builds the dependency graph and propagates bumps to dependents.
+ * Phase 2b: Sorts the full release set topologically.
+ * Phase 3: Plans bumps and changelogs in dependency order.
+ * Phase 3b: Plans the project release.
+ * Phase 4: Renders the format command.
  */
 export function releasePrepareMono(config: MonorepoPrepareConfig, options: ReleasePrepareOptions): ReleasePlan {
   const { only, withReleaseNotes } = options;
@@ -88,16 +90,10 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
     warnings.push('--with-release-notes requires changelogJson.enabled; skipping preview generation');
   }
 
-  // Derive section order once for all preview and markdown render writes.
   const sectionOrder = deriveSectionOrder(resolveWorkTypes(config.workTypes));
 
-  // Load editorial overrides once per prepare run (root file plus every workspace file).
-  // Failure on any file aborts the release with a clear error before any writes.
-  //
-  // `globalMatchedRootKeys` tracks every ROOT key that matched somewhere — in a workspace or
-  // in the project changelog. After all apply calls complete, root keys NOT in this set are
-  // genuinely stale and warned exactly once. Per-workspace stale warnings emit immediately
-  // against each workspace's own apply context (handled inside the workspace apply site).
+  // Load editorial overrides once per run (root file plus every workspace file); a malformed file aborts the release
+  // before anything is planned.
   const overrideContext = createOverrideContext(config.workspaces);
 
   // === Phase 1: Determine direct bumps ===
@@ -157,13 +153,12 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
   });
 
   // === Phase 3b: Project release ===
-  // Runs after the per-workspace loop (so contributing workspaces are settled) but before
-  // `runFormatCommand` (so root files participate in formatting). A narrowed run skips the
+  // Runs after the per-workspace loop, so that the contributing workspaces are settled, and before
+  // `planFormatCommand`, so that the format command covers the root files. A narrowed run skips the
   // stage: the project release rolls up every contributing workspace, and `--only` has changed
-  // which workspaces those are, so a roll-up would cover a set the caller did not ask for.
+  // which workspaces those are.
   //
-  // `releasePrepareProject` returns a structured `ProjectPrepareResult` for both released
-  // and skipped variants — `undefined` here means "no project block configured, or narrowed away."
+  // `project` stays undefined when no project block is configured or `--only` narrowed the run.
   let project: ProjectPrepareResult | undefined;
   if (config.project !== undefined) {
     if (only === undefined) {
@@ -191,11 +186,8 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
   // === Phase 4: Render the format command ===
   const formatCommand = planFormatCommand(config, tags, modifiedFiles);
 
-  // Emit one stale-key warning per ROOT key that didn't match anywhere — in any workspace
-  // apply call (where it wasn't shadowed) or in the project apply call. Keys matched in at
-  // least one batch are correctly applied; warning about them would be misleading. Per-workspace
-  // stale warnings have already been pushed onto `overrideWarnings` immediately at each
-  // workspace's apply site, so this loop only scans the root-tier keys.
+  // Warn once per root key that matched in no workspace or project apply call. Each workspace's own stale keys were
+  // warned at its apply call.
   for (const overrideKey of overrideContext.project.keys()) {
     if (!overrideContext.globalMatchedRootKeys.has(overrideKey)) {
       overrideContext.overrideWarnings.push(formatStaleOverrideKeyWarning(overrideKey));
@@ -215,13 +207,11 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
   };
 }
 
-/** Determine each workspace's direct bump from its release history, and find its untagged baseline. */
+/** Determines each workspace's direct bump from its release history, and find its untagged baseline. */
 function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePrepareOptions): Phase1Result {
   const { force, bumpOverride, setVersion } = options;
 
-  // Enforce the `--set-version` contract at the orchestration layer. The CLI layer
-  // (`prepareCommand`) normally narrows to a single workspace before calling, but this
-  // guard protects against programmatic misuse.
+  // Guard against a programmatic caller that did not narrow `config.workspaces` to one workspace.
   if (setVersion !== undefined && config.workspaces.length !== 1) {
     throw new Error(`--set-version requires exactly one workspace; received ${config.workspaces.length}`);
   }
@@ -266,7 +256,6 @@ function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePre
     }
 
     // --set-version bypass: skip commit-derived bump logic for the overridden workspace.
-    // Validation that only one workspace is targeted runs in `prepareCommand` before this function.
     if (setVersion !== undefined) {
       // The releaseType in the ReleaseEntry is a sentinel value; `newVersionOverride` takes
       // precedence when propagation computes dependent versions.
@@ -330,7 +319,7 @@ function reportUnroutedEntryScopes(
   }
 }
 
-/** Collect skipped workspaces, excluding those promoted via propagation. */
+/** Collects skipped workspaces, excluding those promoted via propagation. */
 function collectSkippedWorkspaces(
   skippedResults: SkippedResult[],
   fullReleaseSet: Map<string, ReleaseEntry>,
@@ -376,7 +365,7 @@ interface ExecuteReleaseSetArgs {
   directResults: Map<string, DirectBumpResult>;
   /** The histories that Phase 1 read for the workspaces that it skipped, keyed by dir. */
   skippedHistories: Map<string, ReleaseHistory>;
-  /** Mutated in-place to append every file the release set intends to write. */
+  /** Mutated in-place to append every file that the release set intends to write. */
   writes: PlannedWrite[];
   /** Mutated in-place to append warnings raised while planning, such as preview skips. */
   warnings: string[];
@@ -386,7 +375,7 @@ interface ExecuteReleaseSetArgs {
   sectionOrder: string[];
 }
 
-/** Plan bumps and changelogs for each workspace in dependency order. */
+/** Plans bumps and changelogs for each workspace in dependency order. */
 function executeReleaseSet(args: ExecuteReleaseSetArgs): { tags: string[]; modifiedFiles: string[] } {
   const {
     sortedDirs,
@@ -460,7 +449,7 @@ interface ExecuteWorkspaceReleaseArgs {
   sectionOrder: string[];
 }
 
-/** Plan the bump and changelogs, and append the workspace result, for one entry in the release set. */
+/** Plans the bump and changelogs, and appends the workspace result, for one entry in the release set. */
 function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
   const {
     dir,
@@ -480,8 +469,6 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     sectionOrder,
   } = args;
 
-  // Plan the version change for this workspace. For --set-version workspaces, use the explicit
-  // version; otherwise derive the bump from the release type.
   const setVersionTarget = directResult?.setVersion;
   const bump =
     setVersionTarget === undefined
@@ -543,21 +530,14 @@ interface AttachReleasedOptionalsArgs {
   setVersionTarget: string | undefined;
 }
 
-/**
- * Attach the optional fields of a `ReleasedWorkspaceResult` (previousTag, the unreleased window's
- * commits and diagnostics, releaseType, propagatedFrom, propagatedOnly, bumpOverride, setVersion)
- * using the conditional-assignment rules from the surrounding executor.
- *
- * Extracted from `executeWorkspaceRelease` so each conditional branch lives outside the host
- * function's cyclomatic-complexity budget.
- */
+/** Attaches the optional fields of a `ReleasedWorkspaceResult` that apply to this release. */
 function attachReleasedWorkspaceOptionals(released: ReleasedWorkspaceResult, args: AttachReleasedOptionalsArgs): void {
   const { previousTag, directResult, skippedHistory, releaseEntry, setVersionTarget } = args;
 
   if (previousTag !== undefined) {
     released.previousTag = previousTag;
   }
-  // For --set-version workspaces releaseType and the parse counts are left undefined so
+  // For --set-version workspaces, releaseType and the parse counts are left undefined so that
   // reporting can branch on the override case without conflating it with a bump type.
   if (setVersionTarget === undefined) {
     released.releaseType = releaseEntry.releaseType;
@@ -635,11 +615,11 @@ interface GenerateWorkspaceChangelogsArgs {
 }
 
 /**
- * Plan a workspace's changelog artifacts by building the new entries (propagation-only synthetic, or release
+ * Plans a workspace's changelog files by building the new entries (propagation-only synthetic, or release
  * windows with the synthetic forced-release entry when the unreleased window yields no item), applying editorial
- * overrides, merging with the JSON on disk, and rendering both `changelog.json` and
- * `CHANGELOG.md` from the merged set so the two reflect the same post-override view. `CHANGELOG.md` also keeps the
- * existing sections whose versions the merged set lacks.
+ * overrides, merging with the JSON on disk, and rendering both `changelog.json` and `CHANGELOG.md` from the merged
+ * set so that the two reflect the same post-override view. `CHANGELOG.md` also keeps the existing sections whose
+ * versions the merged set lacks.
  */
 function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
   changelogFiles: string[];
@@ -672,9 +652,7 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
 
   for (const changelogPath of workspace.changelogPaths) {
     const jsonPath = resolveChangelogJsonPath(config, changelogPath);
-    // Merge with what is on disk so the markdown renderer sees prior entries. Only plan the JSON
-    // write when `changelogJson.enabled`; the merge runs either way, so the markdown reflects
-    // the same set whether or not the JSON artifact is produced.
+    // Merge with the entries on disk so that the markdown includes prior releases, whether or not the JSON is written.
     const mergedEntries = mergeChangelogEntriesWithDisk(jsonPath, applied.entries);
 
     if (config.changelogJson.enabled) {
@@ -712,7 +690,7 @@ interface BuildWorkspaceEntriesArgs {
 }
 
 /**
- * Build the new `ChangelogEntry[]` for a workspace from one of two sources:
+ * Builds the new `ChangelogEntry[]` for a workspace from one of two sources:
  * 1. Propagation-only: a single synthetic "Dependency updates" entry.
  * 2. Direct release: the workspace's release history, with the synthetic "Forced version bump." entry in place of
  *    the unreleased window when that window yields no item (`--force` or `--set-version`).
@@ -733,8 +711,8 @@ function buildWorkspaceEntries(args: BuildWorkspaceEntriesArgs): ChangelogEntry[
 }
 
 /**
- * Plan a workspace's release-notes previews when previews are enabled and the workspace produced
- * changelog entries, rendering them from those entries rather than from the file not yet written.
+ * Plans a workspace's release-notes previews when previews are enabled and the workspace produced
+ * changelog entries, rendering them from those entries, since the changelog file is not yet written.
  */
 function planPreviews(
   workspace: WorkspaceConfig,
@@ -759,9 +737,9 @@ function planPreviews(
 }
 
 /**
- * Render the format command over the modified files, if configured.
+ * Renders the format command over the modified files, if configured and the plan contains a release.
  *
- * The command is not run here: it reformats the very files the plan has yet to write, so the
+ * The command is not run here: it reformats the very files that the plan has yet to write, so the
  * caller runs it once the plan is on disk.
  */
 function planFormatCommand(
@@ -778,7 +756,7 @@ function planFormatCommand(
   return { command: `${formatCommandStr} ${modifiedFiles.join(' ')}`, files: modifiedFiles };
 }
 
-/** Find a workspace by its `dir` in the workspaces array. */
+/** Finds a workspace by its `dir` in the workspaces array. */
 function findWorkspace(workspaces: readonly WorkspaceConfig[], dir: string): WorkspaceConfig | undefined {
   return workspaces.find((w) => w.dir === dir);
 }
@@ -795,7 +773,7 @@ function tryStage<T>(stageLabel: string, fn: () => T): T {
   }
 }
 
-/** Build the per-workspace stage label used for both Phase 1 and Phase 3 attribution. */
+/** Builds the per-workspace stage label used for both Phase 1 and Phase 3 attribution. */
 function workspaceStageLabel(dir: string): string {
   return `workspace '${dir}' release stage`;
 }
@@ -806,11 +784,11 @@ interface BaselineHintState {
 }
 
 /**
- * Emit a one-line hint to stderr pointing at `release-kit show-tag-prefixes` when a workspace
+ * Emits a one-line hint to stderr pointing at `release-kit show-tag-prefixes` when a workspace
  * has no baseline tag AND the repo contains candidate-shaped tags AND the workspace has no
  * declared `legacyIdentities`.
  *
- * `knownPrefixes` must be the full union across all workspaces so sibling workspaces' tags
+ * `knownPrefixes` must be the full union across all workspaces so that sibling workspaces' tags
  * are not mistaken for undeclared candidates.
  *
  * Prints at most once per prepare run. Does not affect exit code or bump behavior.
@@ -837,7 +815,7 @@ function maybeEmitBaselineHint(
 }
 
 /**
- * Topologically sort workspace dirs so dependencies are processed before their dependents.
+ * Sorts workspace dirs topologically so that dependencies are processed before their dependents.
  *
  * Uses Kahn's algorithm. Workspaces not in the release set are excluded. If the graph has
  * cycles, the remaining nodes are appended in arbitrary order and reported via `cyclicDirs`.
@@ -860,7 +838,7 @@ function topologicalSort(
     forwardEdges.set(dir, []);
   }
 
-  // For each released workspace, find its dependencies that are also in the release set.
+  // Add an edge for each dependency-dependent pair inside the release set.
   for (const [packageName, dependents] of graph.dependentsOf) {
     const depDir = graph.packageNameToDir.get(packageName);
     if (depDir === undefined || !releaseDirs.has(depDir)) {

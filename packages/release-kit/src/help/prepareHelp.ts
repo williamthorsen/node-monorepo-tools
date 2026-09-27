@@ -1,7 +1,6 @@
 /**
- * Single source of truth for the `release-kit prepare` help text. Imported by the bin
- * dispatcher and asserted by the help drift guard test; kept free of import-time side
- * effects so both can load it.
+ * Help text for `release-kit prepare`. The module has no import-time side effects, so that a test can import it
+ * without running the CLI.
  */
 export const prepareHelpText = `
 Usage: release-kit prepare [options]

@@ -10,7 +10,7 @@ interface ScaffoldOptions {
   withConfig: boolean;
 }
 
-/** Scaffold release-kit files for the target repo. Returns a result for each file attempted. */
+/** Scaffolds release-kit files for the target repo, returning a result for each file attempted. */
 export function scaffoldFiles({ repoType, dryRun, overwrite, withConfig }: ScaffoldOptions): WriteResult[] {
   const results: WriteResult[] = [
     writeFileWithCheck('.github/workflows/create-github-release.yaml', createGithubReleaseWorkflow(repoType), {

@@ -27,7 +27,7 @@ vi.mock(import('../detectUndeclaredTagPrefixes.ts'), () => ({
 import { previewTagPrefixes } from '../previewTagPrefixes.ts';
 import { emptyWorkspace, resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
 
-/** Build a mock implementation for git invocations returning tag counts by prefix. */
+/** Builds a mock implementation for git invocations returning tag counts by prefix. */
 function setupTagCounts(byPrefix: Record<string, string[]>): void {
   mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
     if (cmd !== 'git' || args[0] !== 'tag' || args[1] !== '--list') return '';
@@ -156,8 +156,7 @@ describe(previewTagPrefixes, () => {
     expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['nmr-core-v', 'core-v']));
   });
 
-  // `previewTagPrefixes` used to read a resolution of nothing as an empty preview, which showed a clean table
-  // for a workspace whose manifest is the thing that needs repairing.
+  // An empty preview would show a clean table for a workspace whose manifest is the thing that needs repairing.
   it('throws when the workspace resolves to no package', () => {
     mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
 

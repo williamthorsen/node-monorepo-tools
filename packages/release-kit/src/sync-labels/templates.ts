@@ -47,7 +47,7 @@ jobs:
  * Generates scope labels from workspace paths and retired-package names.
  *
  * Workspace labels are named after the path basename; retired-package labels after the unscoped package name.
- * None carries a description: GitHub renders a described label taller and more prominently than a bare one, and
+ * None has a description: GitHub renders a described label taller and more prominently than a bare one, and
  * the scope labels are meant to read as a compact group.
  * Describing only the retired scopes would single them out for that prominence.
  */
@@ -85,7 +85,7 @@ ${labelsBlock}
   },`;
 }
 
-/** Generates a new `.config/release-kit.config.ts` carrying the `repoLabels` block. */
+/** Generates a new `.config/release-kit.config.ts` containing the `repoLabels` block. */
 export function repoLabelsConfigScript(scopeLabels: LabelDefinition[]): string {
   return `import { defineConfig } from '@williamthorsen/release-kit/config';
 

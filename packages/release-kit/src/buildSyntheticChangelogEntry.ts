@@ -1,11 +1,6 @@
 import type { ChangelogEntry, ChangelogItem } from './types.ts';
 
-/**
- * Build a synthetic changelog entry for a propagation-only bump.
- *
- * Produces a single `ChangelogEntry` with one `'Dependency updates'` section (audience `'dev'`)
- * containing one item per propagated-from dependency. Pure function: no I/O.
- */
+/** Builds the changelog entry of a propagation-only bump, with one item per dependency whose bump propagated. */
 export function buildSyntheticChangelogEntry(
   propagatedFrom: ReadonlyArray<{ packageName: string; newVersion: string }>,
   version: string,

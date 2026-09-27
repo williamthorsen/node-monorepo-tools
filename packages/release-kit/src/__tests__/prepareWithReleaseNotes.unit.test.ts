@@ -47,7 +47,7 @@ describe(planReleaseNotesPreviews, () => {
     tree.write('README.md', readmeWithMarker);
   });
 
-  /** Plan the previews for the fixture release, then apply them as the CLI boundary would. */
+  /** Plans the previews for the fixture release, then applies them as the CLI boundary does. */
   function planAndApply(): void {
     const previews = planReleaseNotesPreviews({
       workspacePath: tree.dir,

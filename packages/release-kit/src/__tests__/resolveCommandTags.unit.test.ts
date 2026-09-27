@@ -41,6 +41,7 @@ const TAGS: ResolvedTag[] = [
   { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
 ];
 
+/** Builds a workspace config whose files and paths follow from `workspacePath`. */
 function makeWorkspace(dir: string, tagPrefix: string, workspacePath: string, isPublishable = true): WorkspaceConfig {
   return {
     dir,
@@ -170,8 +171,8 @@ describe(resolveCommandTags, () => {
     );
   });
 
-  // The defect this change repairs: a workspace resolving to nothing used to read as single-package mode and
-  // release the root as one package.
+  // A workspace that resolves to no package is not single-package mode; reading it as one would release the root
+  // as one package.
   it('exits with code 1 when the workspace resolves to no package', async () => {
     mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
 

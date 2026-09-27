@@ -12,7 +12,7 @@ import { formatValidateOverridesResult, validateOverridesCommand } from '../vali
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
-// Stub `enumerateReleaseWindows` so the near-integration block can exercise the real
+// Stub `enumerateReleaseWindows` so that the near-integration block can exercise the real
 // `validateOverridesCommand → buildChangelogEntries → validateAllChangelogOverrides` pipeline
 // without reading git history. Other tests in this file inject `buildEntries` directly,
 // so they never reach the stubbed call site.
@@ -23,7 +23,7 @@ vi.mock(import('../enumerateReleaseWindows.ts'), () => ({
 const mockedEnumerateReleaseWindows = vi.mocked(enumerateReleaseWindows);
 
 /**
- * Wrap a flat list of hashes into the minimal `ChangelogEntry[]` shape that the production
+ * Wraps a flat list of hashes into the minimal `ChangelogEntry[]` shape that the production
  * code's `flattenEntriesToHashes` walks. Use {@link entriesFromReleases} when a test needs to
  * differentiate per-release groupings (e.g., past vs. unreleased).
  */
@@ -31,7 +31,7 @@ function entriesFromHashes(hashes: string[]): ChangelogEntry[] {
   return entriesFromReleases([{ version: '0.0.0-test', hashes }]);
 }
 
-/** Build a multi-release entry tree. Each spec becomes one `ChangelogEntry`. */
+/** Builds a multi-release entry tree. Each spec becomes one `ChangelogEntry`. */
 function entriesFromReleases(specs: { version: string; hashes: string[] }[]): ChangelogEntry[] {
   return specs.map((spec) => ({
     version: spec.version,
@@ -131,8 +131,8 @@ describe(validateOverridesCommand, () => {
     expect(result.exitCode).toBe(0);
   });
 
-  // The defect this change repairs: a workspace resolving to nothing used to read as single-package mode and
-  // validate the root's overrides alone.
+  // A workspace that resolves to no package is not single-package mode; reading it as one would validate the
+  // root's overrides alone.
   it('returns exit 2 when the workspace resolves to no package', async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: () => emptyWorkspace('all-excluded'),
@@ -198,7 +198,7 @@ describe(validateOverridesCommand, () => {
     expect(result.exitCode).toBe(2);
     expect(result.message).toContain('Invalid config');
     expect(result.message).toContain('Config must be an object');
-    // The structured validation report is a verdict, not a command failure — it stays unprefixed.
+    // The structured validation report is a verdict, not a command failure, so it stays unprefixed.
     expect(result.message).not.toContain('Error:');
   });
 
@@ -233,15 +233,13 @@ describe(validateOverridesCommand, () => {
     expect(received).toStrictEqual({ workspaces: 0, projectItems: 2 });
   });
 
-  // Bug-fix coverage: the validator's hash universe must be byte-equal to what `prepare`
-  // walks. Tests below verify that the full multi-release tree (not just the latestTag..HEAD
-  // window the prior implementation used) is delivered to the validator, and that the
-  // downstream classification still surfaces unreachable keys and ambiguous prefixes correctly.
+  // The validator's hash universe must be byte-equal to the one that `prepare` walks: the full
+  // multi-release tree, past releases included. The tests below also check that the downstream
+  // classification still reports unreachable keys and ambiguous prefixes.
 
   it('delivers the full multi-release hash universe to the validator (past releases included)', async () => {
-    // Regression for issue #398: prior to the fix, only the current unreleased window was
-    // available to the validator. An override targeting a hash in a past release (here:
-    // 'aabbcc1234') was reported stale because the validator never saw that hash.
+    // An override targeting a hash in a past release (here: 'aabbcc1234') reads as stale
+    // unless the validator receives that release's window.
     let capturedHashes: readonly string[] = [];
     await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: singlePackage,
@@ -423,8 +421,8 @@ describe(validateOverridesCommand, () => {
 
     it('exercises real validateOverridesCommand → buildChangelogEntries → validator over multiple release windows (#398)', async () => {
       // Canned windows simulating two releases plus the unreleased range, newest first.
-      // The past-release commit `aabbcc12…` is what regressed prior to the fix: the narrow
-      // `git log <latestTag>..HEAD` universe excluded it, causing a false-positive stale warning.
+      // A universe limited to `git log <latestTag>..HEAD` would exclude the past-release commit
+      // `aabbcc12…` and report its override as stale.
       // Each subject carries a ticket prefix, which `classifyChangelogCommit` requires.
       const pastHash = 'aabbcc1234567890aabbcc1234567890aabbcc12';
       const currentHash = 'ddeeff5678901234ddeeff5678901234ddeeff56';
@@ -458,7 +456,7 @@ describe(validateOverridesCommand, () => {
           Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
       });
 
-      // Bug regression gate: aabbcc12 must not appear in any warning.
+      // The past-release hash aabbcc12 must not appear in any warning.
       expect(result.message).not.toContain('aabbcc12');
       // The genuinely-orphaned key must still be flagged.
       expect(result.message).toContain('deadbeef');
@@ -471,7 +469,7 @@ describe(validateOverridesCommand, () => {
     });
   });
 
-  // Monorepo wiring: pin the per-workspace and project-tier `buildEntries` arguments so a
+  // Monorepo wiring: pin the per-workspace and project-tier `buildEntries` arguments so that a
   // future refactor that drops legacy identities, narrows the project path-union, or otherwise
   // diverges from `buildWorkspaceEntries` / `planProjectChangelogs` in the prepare path fails
   // here rather than silently producing wrong stale-key reports.
@@ -481,7 +479,7 @@ describe(validateOverridesCommand, () => {
     beforeEach(() => {
       tree = disposeOnTestFinished(createTempTree({}, { prefix: 'validate-overrides-mono-' }));
       tree.writeAll({
-        // Root package.json — required when the user config declares a `project` block.
+        // Root package.json: required when the user config declares a `project` block.
         'package.json': JSON.stringify({ name: 'mono-root', version: '1.0.0' }),
         // Workspace `foo` with a legacy npm name `old-foo`.
         'packages/foo/package.json': JSON.stringify({ name: 'foo' }),

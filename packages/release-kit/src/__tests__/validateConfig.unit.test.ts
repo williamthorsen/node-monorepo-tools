@@ -359,9 +359,9 @@ describe(validateConfig, () => {
       expect(errors).toContain(
         "retiredPackages[0]: tagPrefix 'old-core-v' collides with a declared legacyIdentities[].tagPrefix on workspace 'core'",
       );
-      // The colliding entry is still written to `config.retiredPackages` — the schema-level
-      // parse succeeds (the entry is structurally valid); the collision is a post-parse
-      // cross-field check that surfaces an error without rejecting the parsed config.
+      // The colliding entry still reaches `config.retiredPackages`: the entry is structurally valid, so the schema
+      // parse succeeds, and the collision is a post-parse cross-field check that reports an error without rejecting
+      // the parsed config.
       expect(config.retiredPackages).toStrictEqual([{ name: '@scope/retired', tagPrefix: 'old-core-v' }]);
     });
 
@@ -775,22 +775,21 @@ describe(validateConfig, () => {
 // region | Helpers
 
 /**
- * Asserts that at least one error in `errors` is attributed to the given field path.
- * Used for cases where the validator's responsibility is to catch the input at the right path.
- * The message text itself is Zod's default and should not be pinned to a specific wording.
+ * Asserts that at least one error in `errors` is attributed to the given field path, without pinning the message,
+ * whose text is Zod's default.
  *
- * For errors with messages we own (deprecation messages, duplicate-detection messages, collision messages,
- * cross-field warnings, our targeted "must be a non-empty string" customization), use
- * `expect(errors).toContain('exact message')` instead. */
+ * An error whose message this package writes (deprecation, duplicate-detection, and collision messages, cross-field
+ * warnings, and the "must be a non-empty string" customization) is asserted with
+ * `expect(errors).toContain('exact message')` instead.
+ */
 function expectErrorAtPath(errors: readonly string[], path: string): void {
   const matched = errors.some((e) => e.startsWith(`${path}:`));
   expect(matched, `expected an error at path '${path}'\nactual errors:\n  ${errors.join('\n  ')}`).toBe(true);
 }
 
 /**
- * Asserts that at least one error in `errors` mentions the given substring.
- * Used for top-level errors that have no path prefix (e.g., a top-level `Unrecognized key: "X"` from Zod's
- * `.strict()` check) where we want to confirm the validator surfaced the offending key without pinning the wording.
+ * Asserts that at least one error in `errors` mentions the given substring, for a top-level error that has no path
+ * prefix, such as Zod's `.strict()` report `Unrecognized key: "X"`, without pinning the wording.
  */
 function expectErrorMentioning(errors: readonly string[], substring: string): void {
   const matched = errors.some((e) => e.includes(substring));

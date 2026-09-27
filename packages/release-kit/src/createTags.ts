@@ -13,9 +13,8 @@ export interface CreateTagsOptions {
 }
 
 /**
- * Read tag names from the tags file produced by `prepare` and create annotated git tags.
- *
- * Returns the list of tag names that were created (or would be created in dry-run mode).
+ * Creates an annotated git tag for each name in the tags file written by `prepare`, then deletes the tags and summary
+ * files, and returns the tag names. In dry-run mode, it only lists the names.
  */
 export function createTags(options: CreateTagsOptions): string[] {
   const { dryRun, noGitChecks, style } = options;
@@ -65,7 +64,7 @@ export function createTags(options: CreateTagsOptions): string[] {
   return tags;
 }
 
-/** Throw if the git working tree has uncommitted changes. */
+/** Throws if a tracked file has staged or unstaged changes. */
 function assertCleanWorkingTree(): void {
   try {
     execFileSync('git', ['diff', '--quiet'], { maxBuffer: GIT_OUTPUT_LIMIT });

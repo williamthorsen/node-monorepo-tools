@@ -2,11 +2,7 @@ import { execFileSync } from 'node:child_process';
 
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 
-/**
- * Verify that the git working tree has no uncommitted changes.
- *
- * @throws If `git status --porcelain` reports any changes.
- */
+/** Throws if `git status --porcelain` reports any uncommitted change in the working tree. */
 export function assertCleanWorkingTree(): void {
   const status = execFileSync('git', ['status', '--porcelain'], {
     encoding: 'utf8',

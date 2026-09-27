@@ -24,7 +24,7 @@ describe(readmeHasReleaseNotesMarkers, () => {
 });
 
 // Exercised against a real tree rather than a mocked `discoverWorkspaces`, so the check sees the workspace list
-// discovery actually produces, root included. A mocked list is free to omit the root, which is what lets an
+// that discovery actually produces, root included. A mocked list is free to omit the root, which is what lets an
 // `isRoot` or `isPackage` filter go unexercised.
 describe(readmesHaveReleaseNotesMarkers, () => {
   describe('single-package mode', () => {

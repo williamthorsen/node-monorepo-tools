@@ -5,7 +5,7 @@ import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import type { PolicyViolationSurface } from '../parseCommitMessage.ts';
 import type { WorkTypeConfig } from '../types.ts';
 
-/** Types whose commits reach a changelog, each paired with the header its type declares. */
+/** Types whose commits reach a changelog, each paired with the header that its type declares. */
 const INCLUDED_TYPES: Array<readonly [string, string]> = Object.entries(DEFAULT_WORK_TYPES)
   .filter(([, config]) => config.excludedFromChangelog !== true)
   .flatMap(([key, config]) => [
@@ -62,9 +62,6 @@ describe(classifyChangelogCommit, () => {
   });
 
   describe('every subject form `parseCommitMessage` accepts reaches its section', () => {
-    // The parsers this function replaced required the colon immediately after the type and matched
-    // case-sensitively, so no subject below reached a changelog. Classification now follows
-    // `parseCommitMessage`, which accepts all of them; these assertions pin that widening.
     it('classifies a conventional-commit parenthesized scope', () => {
       expect(headerOf('#1 fix(parser): Patch', DEFAULT_WORK_TYPES)).toBe(DEFAULT_WORK_TYPES['fix']?.header);
     });

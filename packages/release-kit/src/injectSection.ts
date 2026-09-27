@@ -1,18 +1,18 @@
-/** Marker format for section delimiters in markdown files. */
+/** Returns the opening marker of a delimited section in a markdown file. */
 function openMarker(key: string): string {
   return `<!-- section:${key} -->`;
 }
 
-/** Closing marker for a section delimiter. */
+/** Returns the closing marker of a delimited section. */
 function closeMarker(key: string): string {
   return `<!-- /section:${key} -->`;
 }
 
 /**
- * Replace or insert a delimited section in file content.
+ * Replaces or inserts a delimited section in file content.
  *
- * When markers exist, replaces the content between them. When absent, prepends the section
- * (with markers) at the top of the content. The function is pure — no file I/O.
+ * When both markers exist in order, replaces the content between them. Otherwise, prepends the
+ * section (with markers) at the top of the content.
  */
 export function injectSection(content: string, key: string, injection: string): string {
   const open = openMarker(key);

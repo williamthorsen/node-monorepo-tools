@@ -179,9 +179,9 @@ describe(validateOnlyExcludesStrandedDependents, () => {
 
 // region | Helpers
 /**
- * Build a `DependencyGraph` from a textual edge spec without touching the filesystem.
+ * Builds a `DependencyGraph` from a textual edge spec without touching the filesystem.
  *
- * `edges` maps each workspace `dir` to the set of workspace `dir`s it depends on. The
+ * `edges` maps each workspace `dir` to the set of workspace `dir`s on which it depends. The
  * returned graph mirrors the shape produced by `buildDependencyGraph` so the validator
  * sees identical structure.
  */
@@ -224,12 +224,12 @@ function makeGraph(workspaces: WorkspaceConfig[], edges: Record<string, string[]
   return { packageNameToDir, dirToPackageName, dirToVersion: new Map(), dependentsOf, dependenciesOf };
 }
 
-/** Build a `hasCommits` probe from a map of `dir` to `{ has, tag }`. Defaults to no commits. */
+/** Builds a `hasCommits` probe from a map of `dir` to `{ has, tag }`. Defaults to no commits. */
 function makeProbe(map: Record<string, CommitsProbeResult>): (workspace: WorkspaceConfig) => CommitsProbeResult {
   return (workspace) => map[workspace.dir] ?? { has: false, tag: undefined };
 }
 
-/** Build a minimal `WorkspaceConfig` keyed by `dir` (and a matching `name` derived from it). */
+/** Builds a minimal `WorkspaceConfig` keyed by `dir` (and a matching `name` derived from it). */
 function makeWorkspace(dir: string): WorkspaceConfig {
   return {
     dir,

@@ -12,7 +12,7 @@ import type {
   SkippedWorkspaceResult,
 } from '../types.ts';
 
-/** The column budget `reportPrepare` cuts a commit subject to. */
+/** The column budget to which `reportPrepare` cuts a commit subject. */
 const SUBJECT_COLUMN_BUDGET = 72;
 
 describe(reportPrepare, () => {
@@ -926,8 +926,6 @@ describe(reportPrepare, () => {
     });
 
     it('renders a skipped project section as a header + commit count + skipReason', () => {
-      // Mirrors the per-workspace skipped rendering: section header, "Found N commits"
-      // line, and the skipReason — no bump-override line, no version line, no tag.
       const result: PrepareResult = {
         workspaces: [],
         tags: [],
@@ -1155,7 +1153,7 @@ describe(reportPrepare, () => {
     });
 
     it('cuts a subject at a grapheme boundary rather than inside an emoji sequence', () => {
-      // The old code-unit cut fell inside the ZWJ sequence; the column budget admits the sequence whole.
+      // A cut by code unit would fall inside the ZWJ sequence; the column budget admits the sequence whole.
       const output = reportViolation(`${'x'.repeat(68)}👨‍👩‍👧‍👦 and more`);
 
       const subject = readViolationSubject(output);
@@ -1543,7 +1541,7 @@ function isSurrogate(character: string): boolean {
   return codePoint >= 0xd800 && codePoint <= 0xdfff;
 }
 
-/** Build a released single-package workspace result, overriding any field. */
+/** Builds a released single-package workspace result, overriding any field. */
 function makeReleasedWorkspace(overrides: Partial<ReleasedWorkspaceResult> = {}): ReleasedWorkspaceResult {
   return {
     status: 'released',
@@ -1572,7 +1570,7 @@ function makeSkippedWorkspace(overrides: Partial<SkippedWorkspaceResult> = {}): 
   };
 }
 
-/** Reads back the subject the policy-violation bullet rendered, which the report quotes. */
+/** Reads back the subject that the policy-violation bullet rendered, which the report quotes. */
 function readViolationSubject(output: string): string {
   const match = /· \w+ '(.*)' — type /.exec(output);
   if (match?.[1] === undefined) {

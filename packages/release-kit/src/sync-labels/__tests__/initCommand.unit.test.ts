@@ -223,8 +223,6 @@ describe(syncLabelsInitCommand, () => {
     expect(exitCode).toBe(1);
   });
 
-  // The defect this change repairs: a workspace resolving to nothing used to print the single-package line and
-  // scaffold no scope labels at all.
   it('returns 1 when the workspace resolves to no package', async () => {
     givenExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
@@ -345,7 +343,7 @@ describe(buildScopeLabels, () => {
   });
 
   // Retired scopes are indistinguishable from live ones by design:
-  // Describing only the retired ones would give them the visual prominence the bare-label rule exists to remove.
+  // Describing only the retired ones would give them the visual prominence that the bare-label rule exists to remove.
   it('describes no scope, retired ones included', () => {
     const result = buildScopeLabels(['packages/core'], ['preflight']);
 

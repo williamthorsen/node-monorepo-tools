@@ -18,10 +18,10 @@ import type {
   WorkspacePrepareResult,
 } from './types.ts';
 
-/** The rendered width a commit subject is cut to, wherever the report prints one. */
+/** The rendered width to which the report cuts a commit subject, wherever it prints one. */
 const SUBJECT_COLUMN_BUDGET = 72;
 
-/** How the plan was carried out, which decides the tense the report is rendered in. */
+/** How the plan was carried out, which decides the report's tense. */
 export interface ReportPrepareOptions {
   /** True when the plan was written to disk; false for a dry run. */
   applied: boolean;
@@ -31,9 +31,8 @@ export interface ReportPrepareOptions {
 }
 
 /**
- * Format a release plan into styled terminal output.
+ * Formats a release plan into styled terminal output, without writing it.
  *
- * Pure function: accepts structured data, returns a string. Never writes to stdout.
  * Single-workspace mode (no `name` field) renders flat output; multi-workspace mode
  * renders section headers per workspace, an optional project section, and a tag summary
  * at the end.
@@ -51,7 +50,7 @@ export function reportPrepare(plan: PrepareResult, options: ReportPrepareOptions
   return formatSingleWorkspace(plan, options);
 }
 
-/** Format output for a single-package release. */
+/** Formats output for a single-package release. */
 function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOptions): string {
   const dryRun = !options.applied;
   const { style } = options;
@@ -62,7 +61,6 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
     return '';
   }
 
-  // Commits info
   const since = workspace.previousTag === undefined ? 'the beginning' : workspace.previousTag;
   lines.push(dim(`Found ${workspace.commitCount} commits since ${since}`));
 
@@ -80,14 +78,12 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
     return lines.join('\n');
   }
 
-  // --set-version: render an explicit version-override message instead of a bump label.
   if (workspace.setVersion !== undefined) {
     lines.push(`  Using version override: ${workspace.setVersion}`);
   } else if (workspace.bumpOverride !== undefined) {
     lines.push(`  Using bump override: ${workspace.bumpOverride}`);
   }
 
-  // Bump info
   if (workspace.releaseType !== undefined) {
     lines.push(dim(`Bumping versions (${workspace.releaseType})...`));
   } else if (workspace.setVersion !== undefined) {
@@ -116,21 +112,16 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
 
   formatChangeRecordWarnings(lines, workspace, style);
 
-  // Bump file details
   formatBumpFiles(lines, workspace, dryRun);
 
-  // Changelog info
   lines.push(dim('Generating changelogs...'));
   formatChangelogFiles(lines, workspace, dryRun, style);
   formatPreviewFiles(lines, workspace, dryRun);
 
-  // Format command
   formatFormatCommand(lines, result, options);
 
-  // Warnings
   formatWarnings(lines, result, style);
 
-  // Completion
   lines.push(
     formatStatusLine(style, 'passed', 'Release preparation complete.'),
     `   ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(workspace.tag))}`,
@@ -139,7 +130,7 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
   return lines.join('\n');
 }
 
-/** Format output for a monorepo release with multiple workspaces. */
+/** Formats output for a monorepo release with multiple workspaces. */
 function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptions): string {
   const dryRun = !options.applied;
   const { style } = options;
@@ -153,13 +144,10 @@ function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptio
     formatProjectSection(lines, result.project, dryRun, style);
   }
 
-  // Format command
   formatFormatCommand(lines, result, options);
 
-  // Warnings
   formatWarnings(lines, result, style);
 
-  // Tag summary
   if (result.tags.length > 0) {
     lines.push(`\n${formatStatusLine(style, 'passed', 'Release preparation complete.')}`);
     for (const tag of result.tags) {
@@ -173,12 +161,8 @@ function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptio
 }
 
 /**
- * Render the project release section using the same shape as a workspace section. The
- * project release always corresponds to a single bump (no propagation, no `--set-version`),
- * so the rendering branches are simpler than `formatWorkspaceSection`.
- *
- * For skipped projects, mirrors `formatWorkspaceSection`'s skipped rendering: section
- * header, "Found N commits …" line, the diagnostics, and the skip reason.
+ * Renders the project release section in the shape of a workspace section. A project release has no propagation and
+ * no `--set-version`, so only its bump override and release type label the bump.
  */
 function formatProjectSection(
   lines: string[],
@@ -200,7 +184,6 @@ function formatProjectSection(
     return;
   }
 
-  // Released variant: release-only fields are populated.
   const { releaseType, currentVersion, newVersion, tag } = project;
 
   // Suppress "Parsed 0 typed commits", which says nothing about a forced release with no
@@ -235,7 +218,7 @@ function formatProjectSection(
   lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(tag))}`);
 }
 
-/** Render a single workspace's section within multi-workspace output. */
+/** Renders a single workspace's section within multi-workspace output. */
 function formatWorkspaceSection(
   lines: string[],
   workspace: WorkspacePrepareResult,
@@ -275,7 +258,7 @@ function formatWorkspaceSection(
   lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(workspace.tag))}`);
 }
 
-/** Append the line under the commit count: the dependencies behind a propagation-only bump, or the parsed count. */
+/** Appends the line under the commit count: the dependencies behind a propagation-only bump, or the parsed count. */
 function formatCommitSummary(
   lines: string[],
   workspace: ReleasedWorkspaceResult,
@@ -292,7 +275,7 @@ function formatCommitSummary(
   }
 }
 
-/** Append the bump-override / set-version label and the "Bumping versions..." line. */
+/** Appends the bump-override / set-version label and the "Bumping versions..." line. */
 function formatBumpLabels(lines: string[], workspace: ReleasedWorkspaceResult, isPropagatedOnly: boolean): void {
   if (workspace.setVersion !== undefined) {
     lines.push(`  Using version override: ${workspace.setVersion}`);
@@ -307,7 +290,7 @@ function formatBumpLabels(lines: string[], workspace: ReleasedWorkspaceResult, i
   }
 }
 
-/** Append the `currentVersion → newVersion` line with the appropriate suffix. */
+/** Appends the `currentVersion → newVersion` line with the appropriate suffix. */
 function formatVersionLine(
   lines: string[],
   workspace: ReleasedWorkspaceResult,
@@ -326,7 +309,7 @@ function formatVersionLine(
   }
 }
 
-/** Append bump file detail lines. */
+/** Appends bump file detail lines. */
 function formatBumpFiles(lines: string[], workspace: ReleasedWorkspaceResult, dryRun: boolean, indent = ''): void {
   for (const file of workspace.bumpedFiles) {
     if (dryRun) {
@@ -338,7 +321,7 @@ function formatBumpFiles(lines: string[], workspace: ReleasedWorkspaceResult, dr
 }
 
 /**
- * Append a line per generated changelog file, each followed by the versions kept from its existing sections and a
+ * Appends a line per generated changelog file, each followed by the versions kept from its existing sections and a
  * warning naming the sections dropped for having no version.
  */
 function formatChangelogFiles(
@@ -369,7 +352,7 @@ function formatChangelogFiles(
   }
 }
 
-/** Append release-notes preview file lines, which are present only under `--with-release-notes`. */
+/** Appends release-notes preview file lines, which are present only under `--with-release-notes`. */
 function formatPreviewFiles(
   lines: string[],
   release: Pick<ReleasedWorkspaceResult, 'previewFiles'>,
@@ -387,7 +370,7 @@ function formatPreviewFiles(
 }
 
 /**
- * Append unparseable commit warning lines when applicable.
+ * Appends unparseable commit warning lines when applicable.
  *
  * `indent` is an additional outer indent prepended to both the header and bullet lines; base
  * spacing (2 spaces for the header, 4 for bullets) is encoded in the format strings, so the
@@ -418,16 +401,9 @@ function formatUnparseableWarning(
 }
 
 /**
- * Append policy-violation lines when applicable.
+ * Appends policy-violation lines when applicable: one header line plus one bullet per violation.
  *
- * Renders one header line plus one bullet per violation, cutting each subject through
- * `truncateSubject`. Returns early when no violations were collected, leaving the lines
- * array unchanged.
- *
- * `indent` is an additional outer indent prepended to both the header and bullet lines; base
- * spacing (2 spaces for the header, 4 for bullets) is encoded in the format strings, so the
- * caller passes only the section-level indent (e.g., `''` for single-package, `'  '` for
- * multi-workspace).
+ * `indent` follows the same convention as {@link formatUnparseableWarning}.
  */
 function formatPolicyViolations(
   lines: string[],
@@ -452,7 +428,7 @@ function formatPolicyViolations(
 }
 
 /**
- * Append warning lines for the change-record blocks that could not be read, the entries whose type is undeclared, and
+ * Appends warning lines for the change-record blocks that could not be read, the entries whose type is undeclared, and
  * the entry scopes that match no workspace in the commit's window.
  *
  * `indent` follows the same convention as {@link formatUnparseableWarning}.
@@ -498,7 +474,7 @@ function formatChangeRecordWarnings(
   }
 }
 
-/** Format the propagation suffix for the version bump line (e.g., `, dependency: core`). */
+/** Formats the propagation suffix for the version bump line (e.g., `, dependency: core`). */
 function formatPropagationSuffix(propagatedFrom: PropagationSource[] | undefined): string {
   if (propagatedFrom === undefined || propagatedFrom.length === 0) {
     return '';
@@ -507,7 +483,7 @@ function formatPropagationSuffix(propagatedFrom: PropagationSource[] | undefined
   return `, dependency: ${names}`;
 }
 
-/** Append warning lines when the prepare result includes warnings. */
+/** Appends warning lines when the prepare result includes warnings. */
 function formatWarnings(lines: string[], result: PrepareResult, style: OutputStyle): void {
   const { warnings } = result;
   if (warnings === undefined || warnings.length === 0) {
@@ -520,7 +496,7 @@ function formatWarnings(lines: string[], result: PrepareResult, style: OutputSty
   }
 }
 
-/** Append format command lines. */
+/** Appends format command lines. */
 function formatFormatCommand(lines: string[], result: PrepareResult, options: ReportPrepareOptions): void {
   if (result.formatCommand === undefined) {
     return;

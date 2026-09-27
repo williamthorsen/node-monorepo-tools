@@ -16,7 +16,7 @@ vi.mock(import('node:fs'), () => ({
 import { RETIRED_SYNC_LABELS_CONFIG_PATH } from '../retiredConfig.ts';
 import { syncLabelsCommand } from '../syncCommand.ts';
 
-/** Make only the given repo files exist. */
+/** Makes only the given repo files exist. */
 function givenExistingFiles(...paths: string[]): void {
   mockExistsSync.mockImplementation((path: string) => paths.includes(path));
 }

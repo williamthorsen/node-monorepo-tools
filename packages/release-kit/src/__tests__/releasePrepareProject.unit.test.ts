@@ -281,7 +281,7 @@ describe(releasePrepareProject, () => {
     expect(modifiedFiles).toContain('./package.json');
     expect(modifiedFiles).toContain('CHANGELOG.md');
 
-    // Root package.json is planned with the new version, and written by nobody here.
+    // The plan contains the root package.json at the new version; planning writes no file.
     expect(plannedContent(writes, './package.json')).toContain('"version": "0.10.0"');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
 

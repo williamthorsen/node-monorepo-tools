@@ -8,7 +8,7 @@ vi.mock(import('node:child_process'), () => ({
 
 import { detectUndeclaredTagPrefixes } from '../detectUndeclaredTagPrefixes.ts';
 
-/** Configure the mock to return the given tags from `git tag --list`. */
+/** Configures the mock to return the given tags from `git tag --list`. */
 function setupTagList(tags: string[]): void {
   mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
     if (cmd === 'git' && args[0] === 'tag' && args[1] === '--list') {

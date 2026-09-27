@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildReleaseSummary } from '../buildReleaseSummary.ts';
 import type { PrepareResult } from '../types.ts';
 
-/** Build a minimal PrepareResult for testing. */
+/** Builds a minimal PrepareResult for testing. */
 function makeResult(overrides?: Partial<PrepareResult>): PrepareResult {
   return {
     workspaces: [],
@@ -215,8 +215,7 @@ describe(buildReleaseSummary, () => {
     });
 
     it('omits a skipped project from the summary', () => {
-      // The summary surface only describes the actual release outcome; a skipped project
-      // produces no tag and no commits to attribute, so it must not appear in the summary.
+      // A skipped project produces no tag and no commits to attribute.
       const result = makeResult({
         workspaces: [
           {

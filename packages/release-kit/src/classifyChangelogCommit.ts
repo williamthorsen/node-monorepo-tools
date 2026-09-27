@@ -6,7 +6,7 @@ import type { Commit, WorkTypeConfig } from './types.ts';
 /** Matches the subject of a release commit, which records version bumps rather than a change to report. */
 const RELEASE_SUBJECT_PATTERN = /^release:/;
 
-/** Matches the subject git writes for a merge commit, whose content the merged commits already report. */
+/** Matches the subject that git writes for a merge commit, whose content the merged commits already report. */
 const MERGE_SUBJECT_PATTERN = /^Merge/;
 
 /**
@@ -22,13 +22,11 @@ export type ChangelogClassification =
  *
  * Four gates decide, in order: a `release:` or `Merge` subject is excluded; a subject carrying no ticket-ID prefix is
  * unparseable; a type that `parseCommitMessage` cannot resolve against `workTypes` is unparseable; and a type that
- * `workTypes` excludes from the changelog is excluded. A commit that passes all four takes the header its type declares.
+ * `workTypes` excludes from the changelog is excluded. A commit that passes all four takes the header that its type
+ * declares.
  *
  * `options` reaches the parse, so a policy violation is reported for every ticketed commit whose type resolves,
  * excluded types included.
- *
- * The header carries no order encoding. `buildChangelogEntries` sorts sections by canonical priority, so
- * the position a section occupies comes from the taxonomy rather than from the header string.
  */
 export function classifyChangelogCommit(
   commit: Pick<Commit, 'hash' | 'message'>,
@@ -79,8 +77,8 @@ export function isReleaseSubject(subject: string): boolean {
 /**
  * Reports whether a commit subject opens with a ticket-ID prefix.
  *
- * Reuses the patterns that change-grammar strips before parsing, so the accepted ticket forms have one home: a
- * subject is ticketed when some pattern shortens it.
+ * Reuses the patterns that change-grammar strips before parsing, so that the accepted ticket forms are defined in one
+ * place: A subject is ticketed when some pattern shortens it.
  */
 function hasTicketPrefix(subject: string): boolean {
   return TICKET_PREFIX_PATTERNS.some((pattern) => pattern.test(subject));

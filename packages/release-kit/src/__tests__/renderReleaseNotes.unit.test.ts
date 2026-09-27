@@ -177,10 +177,8 @@ describe(renderReleaseNotesSingle, () => {
     });
 
     it('sources the breaking-marker emoji and label from `CANONICAL_TAXONOMY.markers.breaking`', () => {
-      // Anchors the constructed prefix to the SSOT so a future intentional change to the
-      // emoji or label in the canonical taxonomy triggers a visible test update rather than a
-      // silent CHANGELOG.md diff. The literal expectations in the other tests in this block
-      // (and in `renderChangelogMarkdown.unit.test.ts`) remain end-to-end string checks.
+      // Pin the taxonomy's marker values, so that a change to the emoji or label fails a test here instead of
+      // only changing the rendered CHANGELOG.md.
       expect(CANONICAL_TAXONOMY.markers.breaking.emoji).toBe('🚨');
       expect(CANONICAL_TAXONOMY.markers.breaking.label).toBe('Breaking');
       const entry: ChangelogEntry = {

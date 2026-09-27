@@ -40,7 +40,7 @@ import { initCommand } from '../initCommand.ts';
 // The streams differ so that a helper given the other stream's style fails its assertion.
 const SPLIT_STYLES: StreamStyles = { stderr: 'plain', stdout: 'rich' };
 
-/** Configure all eligibility checks to pass and repo type to single-package. */
+/** Configures every eligibility check to pass and the repo type as single-package. */
 function setupPassingChecks(): void {
   mockIsGitRepo.mockReturnValue({ ok: true });
   mockHasPackageJson.mockReturnValue({ ok: true });

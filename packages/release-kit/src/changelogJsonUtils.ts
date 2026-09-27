@@ -4,11 +4,11 @@ import { isRecord, isUnknownArray } from './typeGuards.ts';
 import type { ChangelogEntry } from './types.ts';
 
 /**
- * Type guard for `ChangelogEntry` values parsed from JSON.
+ * Reports whether a value parsed from JSON is a `ChangelogEntry`.
  *
- * Checks the entry's top level only: `sections` is verified to be an array, and its contents pass
- * through unvalidated. `.meta/changelog.json` is written by release-kit and read tolerantly; strict
- * validation applies to the human-authored `.meta/changelog-overrides.json`, in `changelogOverrides.ts`.
+ * Checks the entry's top level only: `sections` must be an array, and its contents pass through unvalidated.
+ * `.meta/changelog.json` is written by release-kit and read tolerantly; strict validation applies to the
+ * human-authored `.meta/changelog-overrides.json`, in `changelogOverrides.ts`.
  */
 export function isChangelogEntry(value: unknown): value is ChangelogEntry {
   return (
@@ -19,19 +19,13 @@ export function isChangelogEntry(value: unknown): value is ChangelogEntry {
   );
 }
 
-/** Extract the version from a tag by stripping the prefix up to the first digit. */
+/** Extracts the version from a tag: the text from its first `N.N.N` onward, or the whole tag when it contains none. */
 export function extractVersion(tag: string): string {
   const match = /(\d+\.\d+\.\d+.*)$/.exec(tag);
   return match?.[1] ?? tag;
 }
 
-/**
- * Read and parse a changelog JSON file, returning validated entries.
- *
- * Returns `undefined` if the file cannot be read or does not contain a valid array.
- * Silent on parse error — for the warn-and-treat-as-empty variant used by upsert callers,
- * see `readExistingEntries` in `./changelogJsonFile.ts`.
- */
+/** Reads the changelog entries in a JSON file; undefined when the file is missing, unreadable, or holds no array. */
 export function readChangelogEntries(filePath: string): ChangelogEntry[] | undefined {
   if (!existsSync(filePath)) {
     return undefined;

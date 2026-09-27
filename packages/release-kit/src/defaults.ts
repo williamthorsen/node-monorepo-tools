@@ -2,12 +2,7 @@ import { type BreakingPolicy, CANONICAL_TAXONOMY } from '@williamthorsen/change-
 
 import type { ChangelogJsonConfig, ReleaseNotesConfig, VersionPatterns, WorkTypeConfig } from './types.ts';
 
-/**
- * Compose the rendered section heading for a work-type entry as `${emoji} ${label}`.
- *
- * Single-sourced here so callers (DEFAULT_WORK_TYPES derivation, devOnlySections
- * derivation) cannot disagree on the composition rule.
- */
+/** Composes the rendered section heading of a work-type entry as `${emoji} ${label}`. */
 export function composeHeader(entry: { emoji: string; label: string }): string {
   return `${entry.emoji} ${entry.label}`;
 }
@@ -15,7 +10,7 @@ export function composeHeader(entry: { emoji: string; label: string }): string {
 /** Tier names treated as dev-only (not surfaced in public release notes). */
 const DEV_ONLY_TIERS = new Set(['internal', 'process']);
 
-/** Derive `DEFAULT_WORK_TYPES` from the canonical taxonomy in canonical order. */
+/** Derives `DEFAULT_WORK_TYPES` from the canonical taxonomy, in canonical order. */
 function deriveDefaultWorkTypes(): Record<string, WorkTypeConfig> {
   const result: Record<string, WorkTypeConfig> = {};
   for (const entry of CANONICAL_TAXONOMY.types) {
@@ -33,7 +28,7 @@ function deriveDefaultWorkTypes(): Record<string, WorkTypeConfig> {
   return result;
 }
 
-/** Derive the dev-only section list from the canonical taxonomy, skipping `excludedFromChangelog` entries. */
+/** Derives the dev-only section list from the canonical taxonomy, skipping `excludedFromChangelog` entries. */
 function deriveDevOnlySections(): string[] {
   const sections: string[] = [];
   for (const entry of CANONICAL_TAXONOMY.types) {
@@ -48,20 +43,10 @@ function deriveDevOnlySections(): string[] {
   return sections;
 }
 
-/**
- * Default work types ordered by canonical priority.
- *
- * Derived from change-grammar's `CANONICAL_TAXONOMY`.
- */
+/** Default work types, ordered by canonical priority. */
 export const DEFAULT_WORK_TYPES: Record<string, WorkTypeConfig> = deriveDefaultWorkTypes();
 
-/**
- * Per-canonical-type breaking-policy lookup derived from the canonical taxonomy.
- *
- * Pass this to `parseCommitMessage` (or an equivalent caller) so the parser knows which
- * types tolerate `!` and which trigger a policy-violation warning. Missing entries default
- * to `'optional'` to preserve back-compat for consumers that supply custom work-types.
- */
+/** The breaking policy of each canonical work type, which decides whether a `!` on it is a policy violation. */
 export const DEFAULT_BREAKING_POLICIES: Record<string, BreakingPolicy> = Object.fromEntries(
   CANONICAL_TAXONOMY.types.map((entry) => [entry.key, entry.breakingPolicy]),
 );

@@ -8,19 +8,18 @@ export interface ReleaseEntry {
   /** Present when this workspace was bumped (wholly or partly) due to a dependency update. */
   propagatedFrom?: PropagationSource[];
   /**
-   * Explicit new version override used for propagation metadata.
-   * When set, dependents see this value in their `propagatedFrom.newVersion` entry instead of a version computed from
-   * `releaseType`. Used by the `--set-version` CLI path so propagation reflects the overridden version.
+   * Explicit new version, which dependents record in their `propagatedFrom.newVersion` entry in place of a version
+   * computed from `releaseType`.
    */
   newVersionOverride?: string;
 }
 
 /**
- * Walk upward through the dependency graph via BFS, adding `patch` bumps for dependents
- * not already in the release set with a higher bump.
+ * Walks upward through the dependency graph breadth-first, adding a `patch` bump for each dependent
+ * not already in the release set.
  *
- * Returns the full release set (direct + propagated). Direct entries that also have a
- * propagated dependency get `propagatedFrom` metadata without changing their bump type.
+ * Returns the full release set (direct + propagated). An entry already in the set that also has a
+ * propagated dependency gains `propagatedFrom` metadata without a change to its bump type.
  */
 export function propagateBumps(
   directBumps: Map<string, ReleaseEntry>,
@@ -28,7 +27,7 @@ export function propagateBumps(
 ): Map<string, ReleaseEntry> {
   const result = new Map<string, ReleaseEntry>();
 
-  // Copy direct bumps into the result.
+  // Copy each entry: the loop below appends to `propagatedFrom` on existing entries.
   for (const [dir, entry] of directBumps) {
     result.set(dir, { ...entry });
   }
@@ -48,22 +47,18 @@ export function propagateBumps(
     }
     visited.add(dir);
 
-    // Resolve the package name for this workspace dir.
     const packageName = graph.dirToPackageName.get(dir);
     if (packageName === undefined) {
       continue;
     }
 
-    // Compute the new version for this workspace after its bump.
     const currentVersion = graph.dirToVersion.get(dir);
     const entry = result.get(dir);
     if (currentVersion === undefined || entry === undefined) {
       continue;
     }
-    // Prefer the explicit override (--set-version) when present; otherwise compute from releaseType.
     const newVersion = entry.newVersionOverride ?? bumpVersion(currentVersion, entry.releaseType);
 
-    // Find dependents and propagate.
     const dependents = graph.dependentsOf.get(packageName);
     if (dependents === undefined) {
       continue;
@@ -76,7 +71,6 @@ export function propagateBumps(
       const propagationInfo = { packageName, newVersion };
 
       if (existing === undefined) {
-        // New propagated entry.
         result.set(dependentDir, {
           releaseType: 'patch',
           propagatedFrom: [propagationInfo],

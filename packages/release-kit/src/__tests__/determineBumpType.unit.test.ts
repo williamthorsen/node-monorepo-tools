@@ -13,6 +13,7 @@ const workTypes: Record<string, WorkTypeConfig> = {
 
 const versionPatterns = DEFAULT_VERSION_PATTERNS;
 
+/** Builds a non-breaking bump signal, overriding any field. */
 function makeCommit(overrides: Partial<BumpSignal> & Pick<BumpSignal, 'type'>): BumpSignal {
   return { breaking: false, ...overrides };
 }

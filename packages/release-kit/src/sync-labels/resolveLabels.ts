@@ -7,9 +7,9 @@ import type { LabelDefinition } from './types.ts';
  *
  * Resolution is an ordered fold with last-writer-wins: presets are loaded in `extends` order (a later preset replaces
  * an earlier preset's label of the same name), then the `labels` record is applied: An entry adds a label, replaces
- * one an earlier layer defined, or removes it (`null`). Names match case-insensitively, as GitHub matches them, and the
- * replacing layer's spelling becomes the label's name. Replacement is wholesale, so an entry omitting `description`
- * drops the one an earlier layer supplied rather than inheriting it.
+ * one that an earlier layer defined, or removes it (`null`). Names match case-insensitively, as GitHub matches them,
+ * and the replacing layer's spelling becomes the label's name. Replacement is wholesale, so an entry omitting
+ * `description` drops the one that an earlier layer supplied rather than inheriting it.
  * Throws on two misstatements that would otherwise leave no trace in the output diff: keys in the `labels` record that
  * differ only in case, all but one of which the fold would discard, and a dangling `null`, a removal naming a label that
  * no preset defined.

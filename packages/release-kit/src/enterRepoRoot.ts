@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { findMonorepoRoot } from '@williamthorsen/nmr-core/workspace';
 
-/** The directory `release-kit` was invoked from, and the repo root it now runs in. */
+/** The directory from which `release-kit` was invoked, and the repo root in which it now runs. */
 export interface RepoLocation {
   invocationDir: string;
   root: string;

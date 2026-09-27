@@ -6,20 +6,17 @@ import { loadValidatedConfig, reportConfigProblem } from './loadValidatedConfig.
 import { previewTagPrefixes, type TagPrefixPreview, type TagPrefixPreviewRow } from './previewTagPrefixes.ts';
 
 /**
- * Orchestrate the CLI `show-tag-prefixes` command.
+ * Runs the CLI `show-tag-prefixes` command and returns its exit code.
  *
- * Prints a per-workspace table of derived prefixes, tag counts, and declared legacy
- * entries, followed by an "Undeclared tag prefixes" section when candidate-shaped tags
- * exist outside the known set. Exits `0` on full derivation success and no collisions;
- * `1` on any derivation failure or collision. Undeclared candidates do not affect the
- * exit code. A config that exists and either fails to load or fails validation reports to stderr and
- * exits `1` in both repo modes, rather than falling back to a default-config preview that would
- * understate the declared legacy prefixes. An absent default config previews against derived defaults.
- *
- * @returns The exit code the caller should use.
+ * Prints a per-workspace table of derived prefixes, tag counts, and declared legacy entries, followed by an
+ * "Undeclared tag prefixes" section when candidate-shaped tags exist outside the known set. Returns `1` on any
+ * derivation failure or collision and `0` otherwise; undeclared candidates do not affect the exit code. A config
+ * that exists and either fails to load or fails validation is reported to stderr and returns `1` in both repo
+ * modes, because a default-config preview would understate the declared legacy prefixes. An absent default config
+ * previews against derived defaults.
  */
 export async function showTagPrefixesCommand(styles: StreamStyles, configPath?: string): Promise<number> {
-  // The single-package branch below reads no config, so the config is loaded ahead of it.
+  // Load the config before the single-package branch, which reads none, so that an invalid config fails in both modes.
   const result = await loadValidatedConfig(configPath);
   if (result.status === 'invalid') {
     reportConfigProblem(result.problem, styles.stderr);
@@ -43,7 +40,7 @@ export async function showTagPrefixesCommand(styles: StreamStyles, configPath?: 
   return computeExitCode(preview);
 }
 
-/** Render the single-package output: one row with `.` and `v`; no legacy or undeclared sections. */
+/** Renders the single-package output: one row with `.` and `v`; no legacy or undeclared sections. */
 function renderSinglePackage(): string {
   const lines: string[] = [
     'Workspace   Derived prefix   Status',
@@ -53,7 +50,7 @@ function renderSinglePackage(): string {
   return lines.join('\n');
 }
 
-/** Render the full monorepo preview: workspace table, collision footer, undeclared section. */
+/** Renders the full monorepo preview: workspace table, collision footer, undeclared section. */
 function renderMonorepo(preview: TagPrefixPreview, style: OutputStyle): string {
   const lines: string[] = ['Workspace tag prefixes:', ''];
   for (const row of preview.workspaces) {
@@ -95,7 +92,7 @@ function renderMonorepo(preview: TagPrefixPreview, style: OutputStyle): string {
   return lines.join('\n');
 }
 
-/** Render a single workspace's lines: header with derived-prefix status, plus legacy-entry lines. */
+/** Renders a single workspace's lines: header with derived-prefix status, plus legacy-entry lines. */
 function renderWorkspaceRow(row: TagPrefixPreviewRow, style: OutputStyle): string[] {
   const lines: string[] = [];
   if (row.derivedPrefix === null) {
@@ -122,7 +119,7 @@ function renderWorkspaceRow(row: TagPrefixPreviewRow, style: OutputStyle): strin
   return lines;
 }
 
-/** Render a paste-ready `workspaces: [ ... ]` config snippet for the undeclared candidates. */
+/** Renders a paste-ready `workspaces: [ ... ]` config snippet for the undeclared candidates. */
 function renderSuggestedSnippet(candidates: readonly { prefix: string; suggestedDir: string }[]): string {
   const entries = candidates
     .map(
@@ -133,7 +130,7 @@ function renderSuggestedSnippet(candidates: readonly { prefix: string; suggested
   return `  workspaces: [\n${entries}\n  ],`;
 }
 
-/** Exit `1` on any derivation failure or collision; `0` otherwise. Undeclared candidates are non-blocking. */
+/** Returns `1` on any derivation failure or collision and `0` otherwise; undeclared candidates are non-blocking. */
 function computeExitCode(preview: TagPrefixPreview): number {
   const hasDerivationFailure = preview.workspaces.some((row) => row.derivedPrefix === null);
   const hasCollision = preview.collisions.length > 0;
