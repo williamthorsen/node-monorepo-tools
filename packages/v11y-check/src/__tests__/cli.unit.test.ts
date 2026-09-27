@@ -48,13 +48,11 @@ vi.mock(import('../tmp.ts'), () => ({
   withTempDir: mocks.withTempDir,
 }));
 
-// ---------------------------------------------------------------------------
-// Suite setup
-// ---------------------------------------------------------------------------
+// -- Suite setup --
 
 /**
- * Opens a stdio capture and primes the mocks every command in this file depends on. Registered by each suite
- * below rather than at file scope, which would put a hook outside any describe.
+ * Opens a stdio capture and primes the mocks on which every command in this file depends. Each suite registers it,
+ * so that no hook sits outside a describe.
  */
 function primeSuite(): CapturedStdio {
   const capture = captureStdio();
@@ -64,9 +62,7 @@ function primeSuite(): CapturedStdio {
   return capture;
 }
 
-// ---------------------------------------------------------------------------
-// auditCommand
-// ---------------------------------------------------------------------------
+// -- auditCommand --
 
 describe(auditCommand, () => {
   let capture: CapturedStdio;
@@ -239,9 +235,7 @@ describe(auditCommand, () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// checkCommand
-// ---------------------------------------------------------------------------
+// -- checkCommand --
 
 describe(checkCommand, () => {
   let capture: CapturedStdio;
@@ -723,9 +717,7 @@ describe(checkCommand, () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// syncCommand
-// ---------------------------------------------------------------------------
+// -- syncCommand --
 
 describe(syncCommand, () => {
   let capture: CapturedStdio;

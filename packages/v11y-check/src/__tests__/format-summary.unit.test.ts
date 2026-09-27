@@ -4,9 +4,7 @@ import type { CheckResult, ScopeCheckResult } from '../format-check.ts';
 import { deriveSummary } from '../format-summary.ts';
 import type { AuditResult } from '../types.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// -- Helpers --
 
 function emptyScopeResult(): ScopeCheckResult {
   return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
@@ -24,9 +22,7 @@ function fakeAdvisory(id: string): AuditResult {
   return { id, path: 'pkg', paths: ['pkg'], severity: 'high', url: `https://example.com/${id}` };
 }
 
-// ---------------------------------------------------------------------------
-// deriveSummary
-// ---------------------------------------------------------------------------
+// -- deriveSummary --
 
 describe(deriveSummary, () => {
   it('returns status "none" with count 0 when both scopes are empty', () => {

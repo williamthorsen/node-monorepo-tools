@@ -14,7 +14,7 @@ var default_default = defineRdyKit({
     {
       name: "v11y-check",
       checks: [
-        // -- Setup ---------------------------------------------------------------
+        // -- Setup --
         {
           name: "v11y-check in devDependencies",
           severity: "error",
@@ -35,7 +35,7 @@ var default_default = defineRdyKit({
             }
           ]
         },
-        // -- Audit-ci config migration -------------------------------------------
+        // -- Audit-ci config migration --
         {
           name: "audit-ci configs are under .config/audit-ci/",
           severity: "warn",
@@ -43,7 +43,7 @@ var default_default = defineRdyKit({
           check: noLegacyAuditCiDirectory,
           fix: "Move audit-ci configs from .audit-ci/ to .config/audit-ci/ and update references"
         },
-        // -- Audit workflow ------------------------------------------------------
+        // -- Audit workflow --
         {
           name: "audit.yaml workflow exists",
           severity: "warn",

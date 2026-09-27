@@ -277,7 +277,6 @@ describe(extractStaleEntries, () => {
   });
 });
 
-// Import after vi.mock so the mock is active
 const { resolveAuditCiBin, runAudit, runReport } = await import('../run-audit.ts');
 
 describe(runAudit, () => {
@@ -380,8 +379,7 @@ describe(resolveAuditCiBin, () => {
   });
 
   it('returns fallback "audit-ci" when import.meta.resolve fails', () => {
-    // import.meta.resolve for audit-ci may or may not work in the test env;
-    // if it fails, the function returns 'audit-ci' as fallback
+    // audit-ci resolves in this environment, so the assertion accepts either branch's path.
     const result = resolveAuditCiBin();
     expect(result).toBeTypeOf('string');
     expect(result.length).toBeGreaterThan(0);

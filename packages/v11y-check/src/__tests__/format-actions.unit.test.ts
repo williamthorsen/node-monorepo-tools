@@ -141,7 +141,6 @@ describe(formatActionHints, () => {
 
     const output = formatActionHints(result, ['prod']);
     expect(output).toContain('Run `v11y check --prod --verbose` for full report');
-    // No sync hint since nothing to sync
     expect(output).not.toContain('v11y sync');
   });
 

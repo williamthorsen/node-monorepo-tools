@@ -2,7 +2,6 @@
  * Readyup kit for consumers of v11y-check.
  *
  * Verifies that the consuming repo's v11y-check setup is current and correctly configured.
- * The minimum version is read from the v11y-check package's package.json and inlined by esbuild at compile time.
  *
  * Run from a target repo's working directory:
  *   rdy run --from npm:v11y-check
@@ -16,8 +15,7 @@ import { join } from 'node:path';
 import { defineRdyKit, pickJson } from 'readyup';
 import { fileExists, fileMatchesHash, hasDevDependency, hasMinDevDependencyVersion } from 'readyup/check-utils';
 
-// SHA-256 hash of the canonical audit workflow this package scaffolds.
-// Keep in sync — verified by src/__tests__/kit-hashes.unit.test.ts.
+// SHA-256 of `templates/audit.yaml.template`; `src/__tests__/kit-hashes.unit.test.ts` fails when the two differ.
 export const AUDIT_WORKFLOW_HASH = 'cdcab39d794ed7ec5ea45e8f3c887eb5d15edb63eab65e515714556933d9b03f';
 
 export default defineRdyKit({
@@ -25,7 +23,7 @@ export default defineRdyKit({
     {
       name: 'v11y-check',
       checks: [
-        // -- Setup ---------------------------------------------------------------
+        // -- Setup --
         {
           name: 'v11y-check in devDependencies',
           severity: 'error',
@@ -48,7 +46,7 @@ export default defineRdyKit({
           ],
         },
 
-        // -- Audit-ci config migration -------------------------------------------
+        // -- Audit-ci config migration --
         {
           name: 'audit-ci configs are under .config/audit-ci/',
           severity: 'warn',
@@ -57,7 +55,7 @@ export default defineRdyKit({
           fix: 'Move audit-ci configs from .audit-ci/ to .config/audit-ci/ and update references',
         },
 
-        // -- Audit workflow ------------------------------------------------------
+        // -- Audit workflow --
         {
           name: 'audit.yaml workflow exists',
           severity: 'warn',
@@ -79,6 +77,7 @@ export default defineRdyKit({
 
 // region | Helpers
 
+/** Returns the minimum v11y-check version that the kit requires: this package's own version. */
 function getMinVersion(): string {
   // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
   // Defer the call into a function so module load does not invoke the runtime stub (which throws):

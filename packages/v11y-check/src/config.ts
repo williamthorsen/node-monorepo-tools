@@ -29,7 +29,6 @@ export async function loadConfig(configPath?: string, cwd?: string): Promise<Loa
   const filePath = path.resolve(resolvedCwd, configPath ?? DEFAULT_CONFIG_PATH);
   const configDir = path.dirname(filePath);
 
-  // When no explicit path was provided and the default file doesn't exist, use defaults.
   if (configPath === undefined && !existsSync(filePath)) {
     return {
       config: DEFAULT_CONFIG,

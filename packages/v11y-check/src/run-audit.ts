@@ -7,7 +7,6 @@ import type { AuditResult } from './types.ts';
 export function resolveAuditCiBin(): string {
   try {
     const resolved = import.meta.resolve('audit-ci');
-    // Strip the file:// protocol and navigate to the bin entry
     const modulePath = new URL(resolved).pathname;
     // audit-ci v7 ships its CLI at dist/bin.js
     const pkgDir = modulePath.replace(/\/dist\/.*$/, '');
@@ -59,8 +58,6 @@ export function parseAuditCiOutput(jsonString: string): ParseResult {
     return { results: [], warnings };
   }
 
-  // audit-ci outputs an array of action objects; advisories live inside them.
-  // Try multiple known output shapes.
   const advisories = extractAdvisories(parsed);
   const results: AuditResult[] = [];
   for (const advisory of advisories) {
@@ -243,11 +240,7 @@ export interface ReportResult {
   warnings: string[];
 }
 
-/**
- * Invoke audit-ci in report mode (no allowlist filtering, swallows exit code).
- *
- * Always returns exit code 0. Parses JSON output into typed `AuditResult` objects.
- */
+/** Invokes audit-ci with JSON output, ignoring its exit code, and parses the advisories into `AuditResult` objects. */
 export function runReport({ configPath, cwd, reportType }: Omit<RunAuditOptions, 'json'>): ReportResult {
   const bin = resolveAuditCiBin();
   const args = ['--config', configPath, '--output-format', 'json'];

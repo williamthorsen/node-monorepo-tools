@@ -14,9 +14,7 @@ import { formatRelativeTime } from './format-time.ts';
 import { formatMarkedLine, measureRowMarkerColumn, V11Y_GLYPHS, type V11yGlyphName } from './glyphs.ts';
 import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 
-// ---------------------------------------------------------------------------
-// Display constants
-// ---------------------------------------------------------------------------
+// -- Display constants --
 
 const SCOPE_GLYPH_NAMES: Record<AuditScope, V11yGlyphName> = {
   dev: 'scopeDev',
@@ -29,9 +27,7 @@ const MARKER_INDENT = '  ';
 /** Target width, in display columns, of a wrapped description line's content. */
 const WRAP_COLUMNS = 72;
 
-// ---------------------------------------------------------------------------
-// Text formatter
-// ---------------------------------------------------------------------------
+// -- Text formatter --
 
 /** Format the verbose per-vulnerability check output as text. */
 export function formatCheckVerboseText(
@@ -94,7 +90,6 @@ function formatScopeVerbose(
     blocks.push(formatBelowThresholdBlock(vuln, style));
   }
 
-  // Join blocks with a blank line between them.
   return lines.concat(blocks.join('\n\n')).join('\n');
 }
 
@@ -133,7 +128,7 @@ function formatBelowThresholdBlock(vuln: AuditResult, style: OutputStyle): strin
   return [headerLine, ...detail].join('\n');
 }
 
-/** Shared advisory detail lines (title, paths, link, description) for unallowed or allowed entries. */
+/** Builds an advisory's detail lines: title, paths, link, and description. */
 function formatAdvisoryDetail(
   vuln: {
     description?: string | undefined;
@@ -160,10 +155,11 @@ function buildDetailIndent(style: OutputStyle): string {
   return ' '.repeat(MARKER_INDENT.length + measureRowMarkerColumn(style) + 1);
 }
 
-/** Find the index at which to insert the `reason:` line: just after the title (or at top if no title). */
+/**
+ * Finds the index at which to insert the `reason:` line, so that the block reads: header, title, reason, paths,
+ * link, description.
+ */
 function findReasonInsertionIndex(hasTitle: boolean): number {
-  // Title, when present, is the first detail line. Reason goes right after it so the advisory block
-  // reads: id header, title, reason, paths, link, description.
   return hasTitle ? 1 : 0;
 }
 

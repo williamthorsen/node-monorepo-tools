@@ -7,8 +7,6 @@ import path from 'node:path';
  *
  * Creates a unique temp directory under `os.tmpdir()` and removes it
  * (recursively) when the callback completes or throws.
- *
- * @internal Exported for testing.
  */
 export async function withTempDir<T>(fn: (tempDir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(path.join(tmpdir(), 'v11y-check-'));

@@ -50,7 +50,7 @@ export interface SyncResult {
  * Compute the updated allowlist by diffing audit results against the current entries.
  *
  * New advisories are added with an auto-populated reason. Resolved advisories are removed.
- * Existing entries with a non-empty reason are preserved.
+ * Existing entries are kept unchanged.
  */
 export function computeSyncDiff(
   currentAllowlist: AllowlistEntry[],
@@ -65,7 +65,6 @@ export function computeSyncDiff(
   const kept: AllowlistEntry[] = [];
   const removed: AllowlistEntry[] = [];
 
-  // Identify new and kept entries
   const nowIso = formatUtcDatetime(now);
   for (const [id, result] of auditById) {
     const existing = currentById.get(id);
@@ -82,7 +81,6 @@ export function computeSyncDiff(
     }
   }
 
-  // Identify removed entries
   for (const [id, entry] of currentById) {
     if (!auditById.has(id)) {
       removed.push(entry);
@@ -93,7 +91,7 @@ export function computeSyncDiff(
 }
 
 /**
- * Build the updated config by replacing the allowlist for the given scope.
+ * Build the updated config by replacing the allowlist for the given scope with its entries sorted by ID.
  *
  * Returns a new config object; does not mutate the input.
  */
@@ -102,7 +100,7 @@ export function buildUpdatedConfig(
   scope: AuditScope,
   newAllowlist: AllowlistEntry[],
 ): V11yCheckConfig {
-  // eslint-disable-next-line unicorn/no-array-sort -- toSorted requires Node 20+; engine target is >=18.17.0
+  // eslint-disable-next-line unicorn/no-array-sort -- sorts a fresh copy, so the input is not mutated.
   const sorted = [...newAllowlist].sort((a, b) => a.id.localeCompare(b.id));
   return {
     ...config,
@@ -116,7 +114,7 @@ export function buildUpdatedConfig(
 /**
  * Serialize the config to JSON with alphabetically ordered allowlist entry keys.
  *
- * Includes `$schema` when present. Uses `severityThreshold` instead of boolean fields.
+ * Includes `$schema` when present.
  */
 export function serializeConfig(config: V11yCheckConfig): string {
   const serializable = {

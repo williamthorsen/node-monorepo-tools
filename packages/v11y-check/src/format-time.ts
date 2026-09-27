@@ -4,8 +4,6 @@
  *
  * Uses millisecond math for units up through weeks to avoid DST/timezone drift on
  * short intervals, and UTC calendar math for months and years.
- *
- * @internal — exported for test access; consumers should use higher-level formatting helpers.
  */
 export function formatRelativeTime(fromIso: string, now: Date): string {
   const from = parseDateUtc(fromIso);
