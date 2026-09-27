@@ -13,7 +13,7 @@ describe(deriveTypeLabels, () => {
   it('takes the color and description from the presentation row of the type', () => {
     const [label] = deriveTypeLabels({ types: [{ key: 'drop', tier: 'public', trackerLabel: 'removal' }] });
 
-    expect(label).toStrictEqual({ name: 'removal', ...TYPE_LABEL_PRESENTATION.drop });
+    expect(label).toStrictEqual({ name: 'removal', ...TYPE_LABEL_PRESENTATION['drop'] });
   });
 
   it.each([
