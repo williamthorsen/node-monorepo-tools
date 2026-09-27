@@ -16,9 +16,11 @@ import { hashPreset } from '../sync-labels/presets.ts';
 import { syncLabelsWorkflow } from '../sync-labels/templates.ts';
 
 /**
- * Verifies that the hashes embedded in the kit stay in sync with the artifacts they describe. Every anchor is
- * inside this package, so a template edited here fails the check without reaching outside the package boundary.
- * On failure, update the constant in `.readyup/kits/default.ts` to the hash the error message names.
+ * Verifies that the hashes embedded in the kit stay in sync with the artifacts they describe. The workflow anchors are
+ * inside this package, so a template edited here fails the check without reaching outside the package boundary. The
+ * common-preset anchor also depends on change-grammar's taxonomy, so a work-type edit there fails this check too.
+ * On failure, update the constant in `.readyup/kits/default.ts` to the hash that the error message names, then run
+ * `rdy compile` in this package.
  */
 describe('rdy kit hashes match their source artifacts', () => {
   it('COMMON_PRESET_HASH matches the resolved common preset', () => {
