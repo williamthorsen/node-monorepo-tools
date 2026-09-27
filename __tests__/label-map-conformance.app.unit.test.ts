@@ -27,10 +27,9 @@ if (!isRecord(parsedLabelMap)) {
 }
 
 /**
- * Cross-check that the in-repo `.meta/label-map.json` conforms to the structural
- * contract declared by `packages/change-grammar/schemas/label-map.json`. Catches drift
- * between the canonical example and the published schema without introducing a
- * full JSON Schema validator dependency.
+ * Checks the in-repo `.meta/label-map.json` against the top-level keys and value types declared by
+ * `packages/change-grammar/schemas/label-map.json`, catching drift between the canonical example and the published
+ * schema.
  */
 describe('.meta/label-map.json conforms to change-grammar schema', () => {
   it('declares only top-level keys that the schema permits', () => {

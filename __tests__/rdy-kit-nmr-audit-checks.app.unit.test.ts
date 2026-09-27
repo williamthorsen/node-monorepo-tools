@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 const repoRoot = join(import.meta.dirname, '..');
 const workflowPath = join(repoRoot, '.github/workflows/code-quality.yaml');
 
-/** Read a file with a descriptive assertion on existence. */
+/** Reads a file, asserting first that it exists. */
 function readRepoFile(path: string): string {
   expect(existsSync(path), `expected file to exist: ${path}`).toBe(true);
   return readFileSync(path, 'utf8');

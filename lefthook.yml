@@ -1,4 +1,3 @@
-# Configuratino: https://lefthook.dev/configuration/
 pre-commit:
   commands:
     format:

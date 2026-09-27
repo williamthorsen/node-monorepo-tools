@@ -10,13 +10,10 @@ const JSON_IMPORT_ATTRIBUTE_PATTERN = /\b(?:with|assert)\s*\{\s*type\s*:\s*['"]j
 const kitSourceFiles = findKitSources();
 
 /**
- * Guards against reintroducing the JSON-inlining footgun in a `.readyup/kits/*.ts` source.
- * A native `with { type: 'json' }` import causes esbuild (invoked by `rdy compile`)
- * to inline the entire JSON file into the compiled kit. Use `pickJson` instead.
+ * Guards every `.readyup/kits/*.ts` source against a native `with { type: 'json' }` import, which makes esbuild
+ * (invoked by `rdy compile`) inline the entire JSON file into the compiled kit. Use `pickJson` instead.
  */
 describe('rdy kit source files', () => {
-  // A package publishing kits carries its own `.readyup/`, so a guard scanning one fixed directory would stop
-  // covering the kits that move out of it.
   it('finds kit sources to check', () => {
     expect(kitSourceFiles.length).toBeGreaterThan(0);
   });
