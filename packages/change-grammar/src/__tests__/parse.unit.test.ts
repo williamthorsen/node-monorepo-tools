@@ -104,13 +104,13 @@ describe(parse, () => {
       expect(record?.type).toBe('feat');
     });
 
-    it('resolves a type spelled in another case, as release-kit does', () => {
+    it('resolves a type spelled in another case', () => {
       const record = parse(compileTemplate(TEMPLATE_CATALOGUE.typeOnly), 'FEAT: Add foo', TAXONOMY);
 
       expect(record?.type).toBe('feat');
     });
 
-    it('drops the wildcard scope that release-kit keeps, since the engine reads it as no scope', () => {
+    it('drops the wildcard scope, which the engine reads as no scope', () => {
       const record = parse(compileTemplate(FLAT_SCOPE_COMMIT), '*|feat: Add foo', TAXONOMY);
 
       expect(record).toStrictEqual({ title: 'Add foo', type: 'feat' });
