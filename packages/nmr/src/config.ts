@@ -21,8 +21,8 @@ interface ConfigTier {
 }
 
 /**
- * The keys each tier honors, and where the other tier's belong. Every recognized key sits in exactly one tier,
- * so `RECOGNIZED_KEYS` derives from these rather than repeating them and cannot fall out of step with them.
+ * The keys each tier honors, and where the other tier's belong. Every recognized key belongs to exactly one tier,
+ * and `RECOGNIZED_KEYS` is their union.
  */
 const CONFIG_TIERS: Record<'root' | 'workspace', ConfigTier> = {
   root: {

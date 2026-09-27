@@ -26,8 +26,7 @@ export function findClosestName(name: string, candidates: Iterable<string>): str
  * Measures the Levenshtein distance between two strings: the fewest single-character insertions, deletions, and
  * substitutions that turn one into the other.
  *
- * Holds two rows rather than the whole matrix. This runs only while composing a rejection, over the names one
- * repo declares, so the matrix is small and the cost is paid on a path that is already failing.
+ * Holds only the previous and current rows of the matrix.
  */
 function measureDistance(first: string, second: string): number {
   if (first.length === 0 || second.length === 0) {

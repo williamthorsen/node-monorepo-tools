@@ -12,9 +12,8 @@ const SELECTION_MARKER = 'nmr-selected-scope';
  * Asks pnpm what a `-F` pattern selects, so an invocation that would select nothing is caught before it
  * delegates, and one selecting several packages is told from one selecting a single package.
  *
- * pnpm's own selector answers rather than a matcher of nmr's: `-F` means the whole selector language, names
- * and globs alongside `./path`, `{dir}`, `pkg...`, `!negation`, and `[since]`, and a matcher here would leave
- * every form but the simplest silently unchecked.
+ * pnpm answers because `-F` accepts pnpm's whole selector language: names and globs alongside `./path`, `{dir}`,
+ * `pkg...`, `!negation`, and `[since]`.
  *
  * Runs from the monorepo root, where the delegate runs, so a path pattern resolves against the same directory
  * in the probe as in the run it stands in for.

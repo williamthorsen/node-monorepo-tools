@@ -179,9 +179,7 @@ function renderReplay(verdict: Verdict): string | undefined {
 /**
  * Collapses a detail's line breaks into single spaces, so one verdict stays one line.
  *
- * A detail is text lifted from a command's output, which is where line breaks live. The byte ceiling is held
- * here rather than at the call site for the same reason a line's shape is: both belong to the module that owns
- * the grammar, not to whoever fills the slot.
+ * A detail is text lifted from a command's output, which is where line breaks live.
  */
 function flattenDetail(detail: string): string {
   return detail.replaceAll(/[\r\n]+/gu, ' ').trim();

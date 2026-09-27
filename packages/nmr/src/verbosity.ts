@@ -1,10 +1,9 @@
 import type { OutputConfig } from './types.ts';
 
 /**
- * Environment variables a known agent harness sets, whose presence selects quiet when no level above them chose.
- * The identifiers belong to ecosystems nmr does not control and that rename, so `output.extraAgentEnvVars` extends
- * this list rather than a repo waiting for a release. `ROVO_CLI` anticipates a rename of `ROVODEV_CLI` that Rovo
- * has signalled but not made; a variable nobody sets never fires.
+ * Environment variables that a known agent harness sets, whose presence selects quiet when no level above them
+ * chose. `output.extraAgentEnvVars` extends the list. `ROVO_CLI` anticipates a rename of `ROVODEV_CLI` that Rovo
+ * has signalled but not made.
  */
 export const AGENT_ENV_VARS = ['CLAUDECODE', 'ROVODEV_CLI', 'ROVO_CLI'] as const;
 
@@ -16,8 +15,8 @@ export const COMMAND_VERBOSITIES = ['full', 'quiet'] as const;
 
 /**
  * Carries the resolved verbosity down the spawned chain, so `-q` reaches every process rather than the first.
- * Deliberately not a keyed variable: it changes what a run prints and never what a command concludes, so folding
- * it into the cache key would stop a quiet run from hitting a pass a loud one recorded.
+ * The pass key does not include it: it changes what a run prints and never what a command concludes, so a quiet
+ * run can reuse a pass that a full run recorded.
  */
 export const COMMAND_VERBOSITY_ENV_VAR = 'NMR_COMMAND_VERBOSITY';
 
@@ -39,8 +38,8 @@ export function isCommandVerbosity(value: string): value is CommandVerbosity {
 }
 
 /**
- * Reads the verbosity the environment names. An unrecognized value resolves to nothing at all, since falling back
- * would pick a mode nobody chose and hide a misspelling for the life of the shell.
+ * Reads the verbosity the environment names. An unrecognized value is returned as an error, since a fallback would
+ * pick a mode that nobody chose and hide a misspelling for the life of the shell.
  *
  * An unset or empty variable names no verbosity rather than resolving to `full`, which is what leaves the config
  * and detection levels reachable: a floor written in here would outrank both of them.

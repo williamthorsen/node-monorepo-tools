@@ -20,7 +20,7 @@ function collect(stream: PassThrough): () => Buffer {
 }
 
 describe(runCommand, () => {
-  it('when a command writes past the old 1 MiB capture ceiling, passes and forwards every byte', async () => {
+  it('when a command writes past 1 MiB, passes and forwards every byte', async () => {
     const destination = new PassThrough();
     const received = collect(destination);
 

@@ -97,9 +97,8 @@ export function renderRefusal(options: {
  * Resolves what one scope has to show for one command.
  *
  * Admitted on the pass key alone, so `--log` prints exactly what a skip would have recalled and never a
- * recording of some other tree. The retention key is deliberately not consulted: it certifies that a recording
- * describes this presentation environment, which is what a replayed excerpt needs and what a dated recording
- * does not.
+ * recording of some other tree. The retention key is not consulted: it certifies that a recording describes
+ * this presentation environment, which a replayed excerpt needs and a dated recording does not.
  */
 export async function resolveRecording(options: {
   anchorDir: string;

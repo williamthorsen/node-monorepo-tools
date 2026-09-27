@@ -13,8 +13,8 @@ import { resolveBinStyles } from './resolveBinStyles.ts';
 try {
   const { stdout } = resolveBinStyles();
 
-  // `nmr-compile` always runs with the package as its working directory -- from the root recursion, from a
-  // package-level invocation, and from either `prepare` script -- so the package's own config is right here.
+  // `nmr-compile` always runs with the package directory as its working directory, which therefore contains the
+  // package's own config.
   const packageDir = process.cwd();
   const { build } = await loadWorkspaceConfig(packageDir);
 

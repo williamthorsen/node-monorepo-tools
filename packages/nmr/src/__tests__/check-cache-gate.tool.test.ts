@@ -29,8 +29,8 @@ describe('the check-result cache gate', () => {
   beforeEach(() => {
     workspace = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-gate-' }));
     repo = workspace.resolve('repo');
-    // Outside the repository on purpose: a log inside it would be an untracked file, so every run would change
-    // the very tree the run is being recorded against.
+    // Keep the log outside the repository: a log inside it would be an untracked file, so every run would change
+    // the very tree that the run is being recorded against.
     log = workspace.resolve(LOG_ENTRY);
     scaffoldRepo(workspace, log);
   });
@@ -648,8 +648,8 @@ describe('the check-result cache gate', () => {
     });
 
     it('records no pass when the run itself builds output that was absent', async () => {
-      // The shape `nmr ci` takes, whose chain builds what its checks then read. Declining is deliberate: the
-      // pass cannot say which output it was earned over.
+      // The shape that `nmr ci` takes, whose chain builds what its checks then read. The gate declines the pass
+      // because the pass cannot say which output it was earned over.
       const outputDir = path.join(repo, 'packages', 'a', 'dist', 'esm');
       writeConfig(workspace, log, {
         command: `echo ran >> ${log} && mkdir -p ${outputDir} && echo built > ${path.join(outputDir, 'index.js')}`,

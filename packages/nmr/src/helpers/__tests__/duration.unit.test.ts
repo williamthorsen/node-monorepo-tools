@@ -58,9 +58,6 @@ describe(formatSaving, () => {
   });
 
   it.each([NaN, Infinity])('names no saving for the non-finite %d', (milliseconds) => {
-    // A non-finite duration compares false against the threshold, so without its own guard the clause would
-    // reach a reader as `saved ~NaNs`. The check cache rejects one before it is recorded; a later caller of
-    // this shared function has no such validator standing in front of it.
     expect(formatSaving(milliseconds)).toBeUndefined();
   });
 });

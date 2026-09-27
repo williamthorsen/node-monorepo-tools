@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { NMR_GLYPHS, type NmrGlyphName } from '../glyphs.ts';
 
-/** Every name the set defines, so a case reaches each one rather than whichever it happens to spell. */
+/** Every name that the set defines, so that a case reaches each one. */
 const GLYPH_NAMES = ['catalog', 'clean', 'noop', 'overrides', 'package', 'recording'] as const satisfies NmrGlyphName[];
 
 /** The names whose glyph is followed by a word, which is what leaves their plain variant empty. */

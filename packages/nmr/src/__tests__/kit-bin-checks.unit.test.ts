@@ -12,7 +12,7 @@ import { getDetail } from '../test-utils/getDetail.ts';
 /** nmr's own wrapper shape: the build entry named as a bare dynamic import. */
 const IMPORT_WRAPPER = "await import('../dist/esm/cli.js');\n";
 
-/** The wrapper shape used by codeassembly and toolbelt: the build entry named through a URL that the wrapper then imports. */
+/** The other wrapper shape: the build entry named through a URL that the wrapper then imports. */
 const URL_WRAPPER =
   "const entryPoint = new URL('../dist/esm/cli.js', import.meta.url);\nawait import(entryPoint.href);\n";
 

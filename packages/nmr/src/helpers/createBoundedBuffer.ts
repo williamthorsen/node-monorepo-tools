@@ -34,6 +34,7 @@ export function createBoundedBuffer(options: BoundedBufferOptions = {}): Bounded
   let tailBytes = 0;
   let elidedBytes = 0;
 
+  /** Fills the head up to its bound and passes any overflow to the tail ring. */
   function append(chunk: Buffer): void {
     let remainder = chunk;
 
@@ -49,6 +50,7 @@ export function createBoundedBuffer(options: BoundedBufferOptions = {}): Bounded
     }
   }
 
+  /** Writes a chunk into the tail ring, overwriting the oldest bytes and counting them as elided once it is full. */
   function appendToTail(chunk: Buffer): void {
     const ring = (tailRing ??= Buffer.alloc(tailLimitBytes));
 
@@ -71,6 +73,7 @@ export function createBoundedBuffer(options: BoundedBufferOptions = {}): Bounded
     tailBytes = Math.min(tailLimitBytes, tailBytes + chunk.length);
   }
 
+  /** Joins the head, the elision marker when any bytes were dropped, and the tail in stream order. */
   function readBuffer(): Buffer {
     const headBuffer = Buffer.concat(headChunks);
     if (tailRing === undefined) {

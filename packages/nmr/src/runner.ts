@@ -82,7 +82,7 @@ export function resolveChannel(stream: Writable, quiet: boolean): OutputChannel 
 /**
  * Returns the channel a step running an nmr process below this one runs on: nmr's own descriptor whenever it
  * has one, so the child writes where nmr writes and no ancestor stands between them relaying bytes. A stream
- * carrying no descriptor, which is the one a test injects, falls back to a pipe.
+ * without a descriptor falls back to a pipe.
  */
 export function resolveInheritedChannel(stream: Writable): OutputChannel {
   return hasDescriptor(stream) ? stream.fd : 'pipe';
@@ -250,7 +250,7 @@ function runStep(
 
 /**
  * Concatenates in declaration order what each opaque step retained, or reports none when a step's capture fell
- * short of both streams and when the list held no opaque step at all.
+ * short of both streams or when the list held no opaque step at all.
  *
  * A partial capture is reported as none rather than as what was gathered, which would understate the run.
  */
@@ -318,6 +318,7 @@ function awaitCompletion(child: ChildProcess, stopReading: () => void): Promise<
     let graceTimer: NodeJS.Timeout | undefined;
     let isSettled = false;
 
+    /** Resolves with the first completion reported, clearing the grace timer. */
     function settle(completion: CommandCompletion): void {
       if (isSettled) return;
       isSettled = true;

@@ -8,8 +8,7 @@ const SHARED_CONFIG =
   "import { definePrettierConfig } from '@williamthorsen/nmr/prettier';\nexport default definePrettierConfig();\n";
 
 describe(prettierConfigBuildsOnSharedConfig, () => {
-  // Both spellings are configs Prettier reads, so a check matching only one would report a
-  // conformant repo as stale. This repo uses the `.prettierrc.js` form.
+  // Prettier reads every one of these filenames, so a check matching only one would report a conformant repo as stale.
   it.each(['.prettierrc.js', '.prettierrc.mjs', '.prettierrc.ts', 'prettier.config.js', 'prettier.config.mts'])(
     'passes when %s builds on the shared config',
     (filename) => {

@@ -4,7 +4,7 @@ import type { ScriptRegistry } from '../resolve-scripts.ts';
 import { buildRootRegistry, buildWorkspaceRegistry, expandScript } from '../resolver.ts';
 import { renderChain } from '../steps.ts';
 
-/** One default script's chain string, pinned as nmr shelled it before a command resolved to a step list. */
+/** One default script's pinned chain string. */
 interface ChainRow {
   command: string;
   chain: string;
@@ -266,8 +266,8 @@ const ROOT_CHAINS: readonly ChainRow[] = [
   },
 ];
 
-// The invariant #643's remaining children move execution against: no command's chain string moves except where a
-// rewrite intends it. Enumerated rather than spot-checked, because the command that moves is the one nobody picked.
+// No command's chain string moves unless a rewrite intends it. The rows enumerate every command rather than a sample,
+// because the command that moves is the one that nobody picked.
 describe('default script chain rendering', () => {
   it.each([
     { registry: buildWorkspaceRegistry({}), rows: WORKSPACE_CHAINS, scope: 'workspace' },

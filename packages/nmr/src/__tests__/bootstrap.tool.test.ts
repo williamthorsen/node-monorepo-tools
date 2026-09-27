@@ -242,6 +242,7 @@ function readSpecifiers(file: string): string[] {
   );
   const specifiers: string[] = [];
 
+  /** Collects the module specifier of `node`, if it has one, then descends into its children. */
   function walk(node: ts.Node): void {
     const literalNode = getModuleSpecifier(node);
     if (literalNode !== undefined) {

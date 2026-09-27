@@ -231,7 +231,6 @@ describe(generateHelp, () => {
       const help = generateHelp({}, tree.dir, true);
       const rootSection = readSection(help, 'Root commands:', '* Overridden by package.json');
       const rows = rootSection.split('\n').filter((line) => line.startsWith('  ') && line.trim().length > 0);
-      // All rendered rows in the root section should share the same value-column offset
       const valueColumns = new Set(rows.map((line) => findValueColumn(line)));
       expect(valueColumns.size).toBe(1);
     });
@@ -247,7 +246,7 @@ describe(generateHelp, () => {
       expect(workspaceSection).toContain('pnpm exec vitest --project unit --project tool');
     });
 
-    // Help renders the registry, so a probe reintroduced anywhere would show up as a different listing here.
+    // Help renders the registry, so an on-disk probe anywhere in resolution would change the listing here.
     it('lists the same commands when the retired variant config is present', ({ tree }) => {
       const bareSection = readSection(generateHelp({}, tree.dir, false), 'Workspace commands:', 'Root commands:');
       tree.write('vitest.integration.config.ts', '');
@@ -299,8 +298,8 @@ function readCommandNames(section: string): string[] {
 }
 
 /**
- * Extracts the substring between two markers (exclusive of the end marker).
- * Returns the portion of `help` from `start` up to (but not including) `end`.
+ * Returns the part of `help` from `start` up to but not including `end`: the rest of `help` when `end` is absent,
+ * and the empty string when `start` is absent.
  */
 function readSection(help: string, start: string, end: string): string {
   const startIndex = help.indexOf(start);
@@ -316,8 +315,6 @@ function readSection(help: string, start: string, end: string): string {
  * first non-space character following the column padding after the key.
  */
 function findValueColumn(line: string): number {
-  // Skip the leading `  ` indent, then skip past the key+marker text, then
-  // find the next non-space character which is where the value starts.
   let index = 2;
   while (index < line.length && line[index] !== ' ') index++;
   while (index < line.length && line[index] === ' ') index++;

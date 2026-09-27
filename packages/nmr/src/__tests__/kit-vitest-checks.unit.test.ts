@@ -302,7 +302,6 @@ describe(everyTestFileNamesItsTier, () => {
     expect(everyTestFileNamesItsTier(dir)).toBe(true);
   });
 
-  // The retired-infix check this replaces reported the same file, so keeping both would double-report it.
   it('reports a retired infix once, as the untiered file it is', () => {
     const dir = buildRepo({ 'packages/api/src/__tests__/api.int.test.ts': '' });
 

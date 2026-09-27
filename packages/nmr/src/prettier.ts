@@ -134,6 +134,7 @@ function buildShellPlugin(): Plugin {
   };
 }
 
+/** Reports whether a language is one that the narrowed plugin keeps for inference. */
 function isInferredLanguage(language: SupportLanguage): boolean {
   return INFERRED_LANGUAGES.has(language.name);
 }
@@ -155,6 +156,7 @@ function assertNoReplacement(options: PrettierConfigOptions): void {
   if ('plugins' in options) throw buildOwnedKeyError('plugins', 'additionalPlugins');
 }
 
+/** Builds the error that rejects a key owned by this config, naming the key that appends to it. */
 function buildOwnedKeyError(key: string, seam: string): TypeError {
   return new TypeError(`definePrettierConfig: \`${key}\` is owned by this config. Use \`${seam}\` to append to it.`);
 }

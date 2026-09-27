@@ -35,8 +35,8 @@ describe('a run printed by --log', () => {
   beforeEach(() => {
     workspace = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-log-' }));
     repo = workspace.resolve('repo');
-    // Outside the repository on purpose: a log inside it would be an untracked file, so every run would change
-    // the very tree the run is being recorded against.
+    // A log inside the repository would be an untracked file, so every run would change the tree against which the
+    // run is recorded.
     log = workspace.resolve(LOG_ENTRY);
     scaffoldRepo(workspace, log);
   });
@@ -155,6 +155,7 @@ describe('a run printed by --log', () => {
     return workspace.exists(LOG_ENTRY) ? workspace.read(LOG_ENTRY).trim().split('\n').length : 0;
   }
 
+  /** Runs the CLI in-process in the fixture repo and returns what it wrote to each stream. */
   async function runNmr(
     argString: string,
     extraEnv: Record<string, string> = {},

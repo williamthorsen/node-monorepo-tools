@@ -26,7 +26,7 @@ const NODE_MODULES = 'node_modules';
  *
  * Node's `exports` resolution takes the target literally, but `source` is a bundler condition that Node never
  * reads, so a package may point it at an extensionless path or at a directory holding an index. Vite resolves
- * both, and rejecting them here would break a package that resolved before this plugin existed.
+ * both, so this resolver probes for both as well.
  */
 const TARGET_EXTENSIONS = ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'];
 
@@ -50,6 +50,7 @@ export function createSourceResolutionPlugin(): Plugin {
     name: 'nmr:resolve-from-source',
     // Ahead of Vite's own resolver, which would otherwise answer first and never consult the condition.
     enforce: 'pre',
+    /** Resolves a bare specifier through its package's `source` condition, or leaves it to Vite. */
     resolveId(id, importer) {
       // eslint-disable-next-line unicorn/no-this-outside-of-class -- Rollup delivers the plugin context as `this`, which is the only route to the resolving environment.
       return resolveSourceTarget(id, importer, { environmentName: this.environment.name, manifests, packageDirs });

@@ -86,8 +86,8 @@ describe(findTestFiles, () => {
     expect(findTestFiles(fixtureTree.dir)).toStrictEqual(COLLECTED_FILES);
   });
 
-  // The divergence the walk exists to close: `node:fs` globSync skips this file, so a check built on the collection
-  // pattern would report clean while the file runs untiered under the residual project.
+  // `node:fs` globSync skips this file, so a check built on the collection pattern would report clean while the file
+  // runs untiered under the residual project.
   it('descends into a dot-directory', ({ fixtureTree }) => {
     expect(findTestFiles(fixtureTree.dir)).toContain('.readyup/kits/__tests__/kit.unit.test.ts');
   });

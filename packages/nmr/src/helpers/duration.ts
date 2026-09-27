@@ -1,8 +1,8 @@
 /**
  * Renders a duration at the two coarsest units that say something, for a line a reader skims.
  *
- * Truncates at every unit rather than rounding, so a value never reads as more time than elapsed: 90 seconds is
- * `1m 30s`, where rounding would claim `2m`. Below a minute the tenth is kept, since that is the scale at which
+ * Truncates at every unit rather than rounding, so a value never reads as more time than elapsed: 119.9 seconds
+ * is `1m 59s`, where rounding would claim `2m`. Below a minute the tenth is kept, since that is the scale at which
  * one check's runtime differs from another's; a whole number sheds the `.0` rather than reading `12.0s`.
  */
 export function formatDuration(durationMs: number): string {
@@ -22,12 +22,10 @@ export function formatDuration(durationMs: number): string {
 }
 
 /**
- * Renders the clause a skip spends on the time it saved, or `undefined` when there is no saving worth naming.
- * A skip that can say what it saved earns the clause; one that cannot says nothing, and the caller drops it
- * rather than printing a saving of `~0s`.
+ * Renders the clause that a skip spends on the time it saved, or `undefined` for a saving under a second.
  *
- * Guards its own input rather than trusting the caller's, because the clause is shared: a non-finite duration
- * compares false against the threshold, and would reach a reader as `saved ~NaNs`.
+ * A non-finite duration also returns `undefined`: It compares false against the threshold and would otherwise
+ * render as `saved ~NaNs`.
  */
 export function formatSaving(durationMs: number): string | undefined {
   if (!Number.isFinite(durationMs) || durationMs < MILLISECONDS_PER_SECOND) {

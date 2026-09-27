@@ -23,16 +23,10 @@ const STRIPPED_ENV_VARS: ReadonlySet<string> = new Set([...NMR_OWN_ENV_VARS, ...
 /**
  * Returns the environment with the variables nmr reads removed.
  *
- * A suite running under `nmr test` inherits every one of nmr's own, and each reaches the invocations the tests
- * make: a tree snapshot lets one skip on a pass the launching run recorded, a verbosity suppresses the output an
- * assertion reads, a run identity makes the launching run's excerpts admissible into what a fixture records, a
- * report format turns the lines an assertion reads into JSON objects, an output style renders the verdicts in
- * glyphs where an assertion reads plain words, and a run-if-present turns an unresolvable command into the silent
- * success an assertion on `Unknown command` reads as a pass.
- *
- * A harness marker does the same by a longer route: it resolves to quiet through detection, so a suite run under
- * an agent harness would suppress output that the same suite surrenders in CI. A test exercising detection sets
- * the marker on the environment it passes rather than relying on the one it inherited.
+ * A suite running under `nmr test` inherits nmr's own variables, and each one changes what an invocation made by
+ * a test prints or decides, which makes an assertion depend on how the suite was launched. An agent-harness marker
+ * resolves to quiet through detection, with the same effect. A test that exercises detection sets the marker on
+ * the environment that it passes.
  */
 export function readAmbientEnv(): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(process.env).filter(([name]) => !STRIPPED_ENV_VARS.has(name)));

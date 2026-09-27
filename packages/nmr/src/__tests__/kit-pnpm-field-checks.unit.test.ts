@@ -17,8 +17,8 @@ describe(noPnpmFieldInPackageJson, () => {
     expect(noPnpmFieldInPackageJson(dir)).toBe(true);
   });
 
-  // The fixture writes its keys out of order deliberately: the assertion names them sorted, so it pins the sort
-  // rather than the manifest's own order. Two repos declaring the same keys would otherwise render differently.
+  // The fixture writes its keys out of order and the assertion names them sorted, which pins the sort that makes two
+  // repos declaring the same keys render alike.
   it('reports the root and workspace manifests together, each with the keys it holds', () => {
     const dir = buildRepo({
       'package.json': '{ "pnpm": { "patchedDependencies": {}, "overrides": { "tar": ">=6.2.1" } } }\n',

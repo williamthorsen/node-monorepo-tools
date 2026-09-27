@@ -90,7 +90,7 @@ describe('the exported conventions check, wired into a real run', { timeout: 120
   });
 });
 
-/** A test file that passes, so every failure the run reports is the guard's. */
+/** Builds a test file that passes, so that every failure that the run reports is the guard's. */
 function buildPassingTest(): string {
   return [
     "import { expect, it } from 'vitest';",
