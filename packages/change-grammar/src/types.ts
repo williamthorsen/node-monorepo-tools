@@ -35,8 +35,8 @@ export interface ChangeRecord {
 }
 
 /**
- * The work-type taxonomy that the engine is given rather than reads. `tiers` and the order of `types` together rank the
- * entries, so a caller supplying the taxonomy also supplies the ranking.
+ * The work-type taxonomy that a caller passes to the engine. `tiers` and the order of `types` together rank the
+ * entries.
  */
 export interface Taxonomy {
   tiers: readonly string[];

@@ -11,12 +11,10 @@ import type { ChangeRecord, Taxonomy } from './types.ts';
  *
  * The scope is kept when exactly one distinct scope survives two filters. First, the scopes of entries in the
  * taxonomy's last tier are set aside whenever an entry of a higher tier names a scope: Process work such as a
- * dependency move supports the branch's change rather than describing it. Second, `root` is set aside whenever the
- * surviving scopes also name a workspace: `root` holds the files that support a workspace's change, so root work tied
- * to one workspace counts as that workspace's, as the commit conventions state. A branch naming two workspaces names no
- * scope, since none describes it, and a branch naming `root` alone keeps `root`. An entry whose scope names several
- * workspaces contributes each of them, so it counts exactly as the entries that name them one apiece do. An entry whose
- * type the taxonomy does not declare counts as higher-tier, and a one-tier taxonomy sets no entry's scope aside.
+ * dependency move supports the branch's change rather than describing it. Second, `dropIncidentalRoot` sets `root`
+ * aside whenever the surviving scopes also name a workspace. An entry whose scope names several workspaces contributes
+ * each of them. An entry whose type the taxonomy does not declare counts as higher-tier, and a one-tier taxonomy sets
+ * no entry's scope aside.
  */
 export function consolidate(entries: readonly ChangeRecord[], taxonomy: Taxonomy): ChangeRecord {
   const consolidated: ChangeRecord = {};

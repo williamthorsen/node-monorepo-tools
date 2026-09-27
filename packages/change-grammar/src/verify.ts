@@ -5,14 +5,13 @@ import type { TokenName } from './tokens.ts';
 import type { ChangeRecord, Taxonomy } from './types.ts';
 
 /**
- * Reports every reason a template cannot round-trip, empty when it can. A caller refuses the template on a non-empty
- * result; each message names the template and the defect, so the refusal says what to change.
+ * Reports every reason a template cannot round-trip, empty when it can. Each message names the template and the defect.
  *
  * The structural rules run first and hold whatever the values are. Render-and-parse passes over well-formed values then
  * backstop them, because a later grammar extension could otherwise outrun the checker silently.
  *
  * Value-dependent ambiguity is not a defect. Under `[{ticket_ref} ]{title}` a title opening with `#466 ` is
- * indistinguishable from a ticket reference, as it is for release-kit, and the template is accepted.
+ * indistinguishable from a ticket reference, and the template is accepted.
  */
 export function verify(template: string, taxonomy: Taxonomy): string[] {
   let nodes: TemplateNode[];
@@ -118,6 +117,7 @@ function findGroupBoundaryDefects(template: string, nodes: readonly TemplateNode
   const defects: string[] = [];
   let previousLiteral: string | undefined;
 
+  /** Visits each group in document order, tracking the literal that precedes it. */
   function walk(list: readonly TemplateNode[]): void {
     for (const node of list) {
       if (node.kind === 'literal') {
@@ -223,6 +223,7 @@ const FREE_TEXT_TOKENS: ReadonlySet<TokenName> = new Set<TokenName>(['scope', 't
 function mapDroppableTokens(nodes: readonly TemplateNode[]): Map<TokenName, ReadonlySet<TokenName>> {
   const droppable = new Map<TokenName, ReadonlySet<TokenName>>();
 
+  /** Records the droppable tokens of every group, at any depth. */
   function walk(list: readonly TemplateNode[]): void {
     for (const node of list) {
       if (node.kind !== 'group') {
@@ -246,7 +247,7 @@ function mapDroppableTokens(nodes: readonly TemplateNode[]): Map<TokenName, Read
   return droppable;
 }
 
-/** The group's own opening literal, if it opens with one. */
+/** Reads the literal that opens the group, descending into a leading nested group. */
 function readLeadingLiteral(group: GroupNode): string | undefined {
   const first = group.children.at(0);
   if (first?.kind === 'literal') {
