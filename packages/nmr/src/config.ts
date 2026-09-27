@@ -186,7 +186,7 @@ function validateCheckCacheField(value: Record<string, unknown>, configPath: str
  * Reads nothing while every name resolves in the merged registries, and reaches a package's own `scripts` only
  * once one misses them: those are a resolution tier of their own, so a name declared only there is valid.
  *
- * Stands aside outside a monorepo root, where `checkCache` is a key this tier does not honor. `assertTierKeys`
+ * Does nothing outside a monorepo root, where `checkCache` is a key this tier does not honor. `assertTierKeys`
  * reports that, and of the two messages it is the one that names the real mistake.
  */
 function assertResolvableCheckCacheCommands(config: NmrConfig, configPath: string, baseDir: string): void {

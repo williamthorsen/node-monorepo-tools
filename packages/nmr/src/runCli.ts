@@ -1130,7 +1130,7 @@ async function lookUpRecordedPass(options: {
 
 /**
  * Decides whether the check-result cache covers this invocation, and takes the tree snapshot it would gate on.
- * Returns `undefined` when the gate stands aside, which always means the command runs.
+ * Returns `undefined` when the cache does not apply, which always means the command runs.
  *
  * Decided before anything is resolved or spawned, so that a delegating invocation hands the snapshot to its
  * children rather than leaving each of them to hash the tree again. A hook leaf is out of scope because it is
@@ -1519,9 +1519,9 @@ async function recordPass(options: {
 }
 
 /**
- * Computes the key this invocation would be recorded under, or `undefined` when the gate stands aside. A
- * `devBin` substitution takes it aside: the substitute is built from somewhere the tree hash does not describe,
- * so a pass by it is not a pass by the command the key names.
+ * Computes the key this invocation would be recorded under, or `undefined` when the cache does not apply. The
+ * cache does not apply to a `devBin` substitution: the substitute is built from somewhere the tree hash does not
+ * describe, so a pass by it is not a pass by the command the key names.
  */
 function resolveCacheKey(options: {
   anchorDir: string;

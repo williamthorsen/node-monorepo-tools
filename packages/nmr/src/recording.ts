@@ -45,7 +45,7 @@ export type RecordingLookup = { ok: true; recording: Recording } | { ok: false; 
  */
 export type RecordingRefusal =
   | { kind: 'uncacheable' }
-  | { kind: 'gate-aside' }
+  | { kind: 'cache-inapplicable' }
   | { kind: 'unrecorded' }
   | { kind: 'mismatched'; ageMs: number; difference: KeyDifference }
   | { kind: 'no-output'; ageMs: number };
@@ -114,7 +114,7 @@ export async function resolveRecording(options: {
     return { ok: false, refusal: { kind: 'uncacheable' } };
   }
   if (options.key === undefined) {
-    return { ok: false, refusal: { kind: 'gate-aside' } };
+    return { ok: false, refusal: { kind: 'cache-inapplicable' } };
   }
 
   const entry = await readCheckCacheEntry({ anchorDir, command, monorepoRoot });
@@ -170,8 +170,8 @@ function describeRefusal(command: string, refusal: RecordingRefusal): string {
   switch (refusal.kind) {
     case 'uncacheable':
       return `\`${command}\` is outside the check-result cache, so no run of it is recorded`;
-    case 'gate-aside':
-      return 'the check-result cache is standing aside here (NMR_DEBUG=1 reports why)';
+    case 'cache-inapplicable':
+      return 'the check-result cache does not apply here (NMR_DEBUG=1 reports why)';
     case 'unrecorded':
       return 'nothing has recorded a pass for this scope';
     case 'mismatched':
