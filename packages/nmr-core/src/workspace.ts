@@ -150,8 +150,8 @@ function diagnoseEmptyCause(monorepoRoot: string, patterns: readonly string[]): 
 
 /**
  * What reading a parsed manifest's `packages` key produced: it declares no list, it declares one the reader
- * could not make patterns of, or it declares patterns. An empty list counts as none, because pnpm resolves both
- * to the root package alone.
+ * could not make patterns of, or it declares patterns. An empty list counts as none, because pnpm resolves an
+ * empty list, like an absent one, to the root package alone.
  */
 type PackagesRead = { kind: 'absent' } | { kind: 'patterns'; patterns: string[] } | { kind: 'unreadable' };
 

@@ -42,9 +42,8 @@ const SUBMODULE_BEARING_TYPES = new Set(['1', '2', 'u']);
  * a `touch` that changes no bytes leaves the hash where it was, while any edit, addition, or deletion moves it.
  *
  * Reading git's own status keeps the cost proportional to what has changed rather than to the size of the
- * repository, and applies git's ignore rules. Nothing
- * here writes to the object database or the index: a hash is an observation, and a repository must look exactly
- * the same after taking one.
+ * repository, and applies git's ignore rules. Nothing here writes to the object database or the index: a hash is
+ * an observation, and a repository must look exactly the same after taking one.
  *
  * Because the commit's tree object is the base of the fold, committing an already-hashed tree moves the hash
  * even though no content changed. The reverse holds too, and usefully: a rebase or an amended message that
