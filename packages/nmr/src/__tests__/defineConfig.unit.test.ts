@@ -61,7 +61,7 @@ describe(defineConfig, () => {
     expect(config.devBin).toStrictEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
   });
 
-  it('rejects a key the config shape does not declare', () => {
+  it('rejects a key not declared by the config shape', () => {
     const config = defineConfig({
       // @ts-expect-error -- unrecognized config key
       workspacScripts: {},
@@ -70,7 +70,7 @@ describe(defineConfig, () => {
     expect(config).toStrictEqual({ workspacScripts: {} });
   });
 
-  it('is typed by the config types the entry re-exports', () => {
+  it('is typed by the config types re-exported by the entry', () => {
     const build: BuildConfig = { extraIgnorePatterns: ['**/fixtures/**'] };
     const checkCache: CheckCacheConfig = { enabled: false };
     const config: NmrConfig = defineConfig({ build, checkCache });

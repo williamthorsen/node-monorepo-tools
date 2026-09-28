@@ -13,22 +13,22 @@ describe(findClosestName, () => {
     expect(findClosestName('test:unti', COMMANDS)).toBe('test:unit');
   });
 
-  // Three edits from a fifteen-character name, which only the scaled ceiling admits: a ceiling capped at two
+  // Three edits from a fifteen-character name, which only the scaled ceiling admits: A ceiling capped at two
   // would reject it.
   it('names a candidate three edits from a long name', () => {
     expect(findClosestName('root:tst:covrge', COMMANDS)).toBe('root:test:coverage');
   });
 
-  it('names nothing for a name close to no candidate', () => {
+  it('names nothing for a name not close to any candidate', () => {
     expect(findClosestName('zzzzzzzzzzzzzzzzzzzz', COMMANDS)).toBeUndefined();
   });
 
-  // Two edits from a five-character name, where the ceiling is one.
-  it('names nothing where the nearest candidate is past the ceiling', () => {
+  // Two edits from a five-character name, whose ceiling is one.
+  it('names nothing when the nearest candidate is past the ceiling', () => {
     expect(findClosestName('bxxld', COMMANDS)).toBeUndefined();
   });
 
-  it('names nothing when there are no candidates', () => {
+  it('names nothing when the candidate list is empty', () => {
     expect(findClosestName('build', [])).toBeUndefined();
   });
 
