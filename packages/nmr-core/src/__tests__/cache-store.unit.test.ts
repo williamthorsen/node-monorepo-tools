@@ -33,9 +33,9 @@ describe('cache-store', () => {
       );
     });
 
-    it('hoists to the nearest ancestor holding a node_modules', ({ tree }) => {
-      // A zero-dependency package has no `node_modules` of its own; materializing one to hold a cache would
-      // leave a directory the package never asked for.
+    it('hoists to the nearest ancestor containing a node_modules', ({ tree }) => {
+      // A zero-dependency package does not have a `node_modules` of its own; materializing one to store a cache
+      // would leave a directory that the package never asked for.
       tree.mkdir('node_modules');
       const packageDir = tree.mkdir('packages/leaf');
 
@@ -44,7 +44,7 @@ describe('cache-store', () => {
       );
     });
 
-    it('falls back to the scope directory when no ancestor has a node_modules', ({ tree }) => {
+    it('falls back to the scope directory when its ancestors lack a node_modules', ({ tree }) => {
       expect(resolveCacheDir({ tool: TOOL, scopeDir: tree.dir })).toBe(
         path.join(tree.dir, 'node_modules', '.cache', TOOL),
       );
@@ -122,14 +122,14 @@ describe('cache-store', () => {
     });
 
     it('reads unparseable content as a miss', async ({ tree }) => {
-      // A truncated entry must not throw at the caller.
+      // A truncated entry must not make the read throw at the caller.
       const entryPath = tree.write('entry.json', '{"hash": "abc');
 
       await expect(readJsonCacheEntry(entryPath, isHashEntry)).resolves.toBeUndefined();
     });
 
     it('reads content of the wrong shape as a miss', async ({ tree }) => {
-      // An entry written by an older format is content the caller cannot trust, so it may not reach the caller.
+      // An entry written in an older format is content that the caller cannot trust, so the read must not return it.
       const entryPath = tree.writeJson('entry.json', { digest: 'abc' });
 
       await expect(readJsonCacheEntry(entryPath, isHashEntry)).resolves.toBeUndefined();
@@ -154,7 +154,7 @@ describe('cache-store', () => {
       expect(fs.readFileSync(entryPath, 'utf8')).toBe('second');
     });
 
-    it('leaves no temporary file behind', async ({ tree }) => {
+    it('does not leave a temporary file behind', async ({ tree }) => {
       const entryPath = path.join(tree.dir, 'entry.hash');
 
       await writeCacheEntry(entryPath, 'a-digest');
@@ -179,7 +179,7 @@ describe('cache-store', () => {
       expect(observed.every((value) => value === previous || value === next)).toBe(true);
     });
 
-    it('reports a write it could not complete, leaving no temporary file behind', async ({ tree }) => {
+    it('reports a write that it could not complete, without leaving a temporary file behind', async ({ tree }) => {
       // A cache that silently fails to record is a cache that never hits, with nothing to explain why.
       const entryPath = tree.mkdir('occupied');
 
@@ -190,7 +190,7 @@ describe('cache-store', () => {
   });
 
   describe(removeCacheEntry, () => {
-    it('removes the entry it names, leaving its neighbours alone', async ({ tree }) => {
+    it('removes the entry that it names, leaving its neighbours alone', async ({ tree }) => {
       const ref = { tool: TOOL, scopeDir: tree.dir };
       const mine = resolveCacheEntryPath({ ...ref, slug: 'a', extension: '.hash' });
       const neighbour = resolveCacheEntryPath({ ...ref, slug: 'b', extension: '.hash' });
@@ -209,7 +209,7 @@ describe('cache-store', () => {
   });
 
   describe(removeCacheDir, () => {
-    it('removes every entry the tool holds', async ({ tree }) => {
+    it('removes every entry in the tool’s cache', async ({ tree }) => {
       const ref = { tool: TOOL, scopeDir: tree.dir };
       await writeCacheEntry(resolveCacheEntryPath({ ...ref, slug: 'a', extension: '.hash' }), 'one');
       await writeCacheEntry(resolveCacheEntryPath({ ...ref, slug: 'b', extension: '.hash' }), 'two');
@@ -231,7 +231,7 @@ describe('cache-store', () => {
       expect(fs.existsSync(theirEntry)).toBe(true);
     });
 
-    it('is a no-op when the tool has no cache', async ({ tree }) => {
+    it('is a no-op when the tool does not have a cache', async ({ tree }) => {
       await expect(removeCacheDir({ tool: TOOL, scopeDir: tree.dir })).resolves.toBeUndefined();
     });
   });
@@ -239,7 +239,7 @@ describe('cache-store', () => {
 
 // region | Helpers
 
-/** Narrows a parsed entry to the shape these tests store. */
+/** Narrows a parsed entry to the shape that these tests store. */
 function isHashEntry(value: unknown): value is { hash: string } {
   return typeof value === 'object' && value !== null && 'hash' in value && typeof value.hash === 'string';
 }

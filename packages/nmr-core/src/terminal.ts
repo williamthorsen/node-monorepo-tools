@@ -37,7 +37,7 @@ export interface ResolveStreamStylesOptions {
   /** Raw arguments in which to find `flag`; read only when `flag` is given. */
   readonly argv?: readonly string[] | undefined;
   readonly env: Readonly<Record<string, string | undefined>>;
-  /** The environment variable holding the caller's standing preference: `auto`, `plain`, or `rich`. */
+  /** The environment variable containing the caller's standing preference: `auto`, `plain`, or `rich`. */
   readonly envVar: string;
   /** The flag naming a style for one invocation, leading dashes included; it outranks `envVar`. */
   readonly flag?: string | undefined;
@@ -46,7 +46,7 @@ export interface ResolveStreamStylesOptions {
 }
 
 export interface StreamStyleResolution {
-  /** The first value of `flag` or `envVar` that names no setting; resolution continues with the next source. */
+  /** The first value of `flag` or `envVar` that does not name a setting; resolution continues with the next source. */
   readonly invalid?: InvalidOutputStyle | undefined;
   readonly styles: StreamStyles;
 }
@@ -153,7 +153,7 @@ export function reportWriteResult(result: WriteResult, dryRun: boolean, styles?:
 /**
  * Resolves the style of each output stream: the flag when one is named, else the named environment
  * variable, else detection from `CI`, the stream's terminal state, and `TERM`. Never throws; a value
- * that names no setting is returned in `invalid`, for the caller to report with
+ * that does not name a setting is returned in `invalid`, for the caller to report with
  * `describeInvalidOutputStyle`.
  */
 export function resolveStreamStyles(options: ResolveStreamStylesOptions): StreamStyleResolution {

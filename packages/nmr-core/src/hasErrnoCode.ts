@@ -1,7 +1,7 @@
 import { isError } from '@williamthorsen/toolbelt.errors';
 
 /**
- * Narrows a thrown value to an `Error` carrying the given Node errno code.
+ * Narrows a thrown value to an `Error` with the given Node errno code.
  *
  * `isError` recognizes an `Error` crossing a realm boundary, which a bare `instanceof` test reports as false.
  */

@@ -30,7 +30,7 @@ describe(readPackageVersion, () => {
     expect(readPackageVersion(pathToFileURL(deepFile).href)).toBe('4.5.6');
   });
 
-  it('throws when the located package.json has no version field', ({ tree }) => {
+  it('throws when the located package.json does not have a version field', ({ tree }) => {
     tree.writeJson('package.json', { name: 'fixture' });
     const calleeFile = path.join(tree.dir, 'callee.ts');
 

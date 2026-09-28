@@ -30,13 +30,13 @@ export interface ParseArgsOptions {
   allowPositionals?: boolean;
 }
 
-/** Discriminates the failure modes `parseArgs` reports. */
+/** Discriminates the failure modes that `parseArgs` reports. */
 export type ParseErrorKind = 'unknown-flag' | 'missing-value' | 'unexpected-value' | 'unexpected-positional';
 
 /**
  * Error thrown by `parseArgs` on invalid input.
  *
- * Carries the failure `kind` and the offending token in `flag` — a flag as the user typed it, or the
+ * Carries the failure `kind` and the offending token in `flag`: a flag as the user typed it, or the
  * positional value for `'unexpected-positional'`. Its `message` is composed from those fields, so error
  * wording is uniform across every kind.
  */
@@ -57,7 +57,7 @@ export class ParseError extends Error {
  *
  * Delegates tokenizing to `node:util.parseArgs` (non-strict, with tokens) and validates the token
  * stream against the schema. Throws `ParseError` on an unknown flag, a missing string-flag value, a
- * value supplied to a boolean flag, or — unless `options.allowPositionals` is set — an unexpected
+ * value supplied to a boolean flag, or (unless `options.allowPositionals` is set) an unexpected
  * positional argument. Does not write output or exit.
  */
 export function parseArgs<S extends FlagSchema>(
@@ -94,7 +94,7 @@ export function parseArgs<S extends FlagSchema>(
       positionals.push(token.value);
       continue;
     }
-    // Skip the `--` terminator: node emits the trailing arguments as their own positional tokens.
+    // Skip the `--` terminator: Node emits the trailing arguments as their own positional tokens.
     if (token.kind !== 'option') {
       continue;
     }
