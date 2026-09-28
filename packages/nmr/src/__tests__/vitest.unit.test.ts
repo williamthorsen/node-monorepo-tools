@@ -11,43 +11,43 @@ import { listGitIgnoredPaths } from '../git-ignored-paths.ts';
 import { isObject } from '../helpers/type-guards.ts';
 import { defineRootVitestConfig, defineVitestConfig, type VitestConfigOptions } from '../vitest.ts';
 
-// Keeps the config from spawning git, which would lift this file out of the unit tier.
+// Keep the config from spawning git, which would move this file out of the unit tier.
 vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: vi.fn(() => []) }));
 
-/** Every project the shared config declares, in the order it emits them: the residual, then the ladder. */
+/** Every project declared by the shared config, in the order it emits them: the residual, then the ladder. */
 const PROJECT_NAMES = ['unit', 'tool', 'localhost', 'remote'];
 
-// Composed from Vite's own exports rather than spelled out, so a release that changes either default list fails
+// Composed from Vite's own exports rather than spelled out, so that a release that changes either default list fails
 // every assertion reading one, rather than leaving the config to narrow resolution silently.
 const CLIENT_CONDITIONS = [...defaultClientConditions];
 const SERVER_CONDITIONS = [...defaultServerConditions];
 
-/** The plugin the config emits to resolve the `source` condition, named as the config names it. */
+/** The plugin that the config emits to resolve the `source` condition, named as the config names it. */
 const SOURCE_RESOLUTION_PLUGIN = 'nmr:resolve-from-source';
 
 const GIT_ISOLATION_SETUP_FILE = fileURLToPath(new URL('../vitest-git-isolation.ts', import.meta.url));
 
-// Spelled out rather than derived from the config, so the assertion fails if the derivation itself drifts.
+// Spelled out rather than derived from the config, so that the assertion fails if the derivation itself drifts.
 const TIERED_PATTERNS = [
   '**/__tests__/**/*.tool.test.{ts,tsx}',
   '**/__tests__/**/*.localhost.test.{ts,tsx}',
   '**/__tests__/**/*.remote.test.{ts,tsx}',
 ];
 
-// Files the fixture tree holds, each chosen for a tier boundary the config has to get right.
+// Files in the fixture tree, each chosen for a tier boundary that the config has to get right.
 const FIXTURE_FILES = [
-  // A build that copies sources rather than compiling them. The `dist/src/` shape is the one that also survives the
-  // coverage include, so the single fixture stands for both surfaces.
+  // A build that copies sources rather than compiling them. The `dist/src/` shape is the one that the coverage
+  // include also matches, so the single fixture covers both test collection and coverage.
   'dist/src/__tests__/copied.test.ts',
   // Collected until the repo names the directory: Vitest's own defaults prune `node_modules` and `.git` alone.
   'generated/__tests__/scaffold.test.ts',
   'node_modules/pkg/__tests__/dep.test.ts', // excluded by Vitest's own defaults
   'src/__tests__/nested/deep.test.tsx', // nested, and the tsx branch of the brace expansion
   'src/__tests__/plain.test.ts',
-  'src/__tests__/thing.app.test.ts', // the retired project's infix, which must keep landing in the residual
+  'src/__tests__/thing.app.test.ts', // the retired project's infix, which the residual must keep collecting
   'src/__tests__/thing.localhost.test.ts',
   'src/__tests__/thing.remote.test.ts',
-  'src/__tests__/thing.smoke.test.ts', // an infix matching no tier
+  'src/__tests__/thing.smoke.test.ts', // an infix that does not match any tier
   'src/__tests__/thing.tool.test.ts',
   'src/__tests__/thing.unit.test.ts', // the optional, purely informative `unit` infix
   'src/outside.test.ts', // outside a `__tests__` directory
@@ -72,7 +72,7 @@ const it = baseIt
   .extend(
     'singlePackageTree',
     { scope: 'file' },
-    // A pnpm-10 single-package repo: the manifest exists to carry settings and declares no `packages`.
+    // A pnpm-10 single-package repo: The manifest exists to contain settings and does not declare `packages`.
     makeFixture(() =>
       createTempTree(
         { 'pnpm-workspace.yaml': 'onlyBuiltDependencies:\n  - esbuild\n' },
@@ -103,9 +103,9 @@ describe(defineVitestConfig, () => {
 
   // Vitest's defaults are unit-test budgets: 5s for a test, 10s for a hook. A tier test waits on something it
   // doesn't control, and coverage instrumentation multiplies that wait, so the defaults make a green suite flaky
-  // once `test:coverage` collects it. Hooks carry the same budget as tests because a tier that scaffolds in
-  // `beforeAll` moves the wait out from under `testTimeout`, where raising the test budget alone never reaches it.
-  it('gives every tier above unit budgets that survive coverage instrumentation', () => {
+  // once `test:coverage` collects it. Hooks have the same budget as tests because a tier that scaffolds in
+  // `beforeAll` moves the wait out of the scope of `testTimeout`, and raising the test budget alone never covers it.
+  it('gives every tier above unit budgets large enough for coverage instrumentation', () => {
     const budgets = new Map(
       getProjects(defineVitestConfig()).map((project) => [
         project.test?.name,
@@ -119,7 +119,7 @@ describe(defineVitestConfig, () => {
     }
   });
 
-  // Distinct values rather than one, so the assertion would catch a seam that set both budgets from either key.
+  // Distinct values rather than one, so that the assertion would catch a seam that set both budgets from either key.
   it('lets the project seam override both tier budgets', () => {
     const projects = getProjects(defineVitestConfig({ project: { hookTimeout: 2_000, testTimeout: 1_000 } }));
 
@@ -127,9 +127,9 @@ describe(defineVitestConfig, () => {
     expect(projects.map((project) => project.test?.testTimeout)).toStrictEqual(PROJECT_NAMES.map(() => 1_000));
   });
 
-  // Neither has a script, so nothing would surface their absence at run time. An undeclared tier's files fall into
-  // the residual and run in the default gate, which is the silent failure declaring them prevents.
-  it('declares the scriptless tiers, so their files cannot fall into the residual', () => {
+  // Because neither has a script, nothing would report their absence at run time. An undeclared tier's files fall
+  // into the residual and run in the default gate, which is the silent failure that declaring them prevents.
+  it('declares the scriptless tiers, so that their files cannot fall into the residual', () => {
     const names = getProjects(defineVitestConfig()).map((project) => project.test?.name);
 
     expect(names).toContain('localhost');
@@ -148,7 +148,7 @@ describe(defineVitestConfig, () => {
     ]);
   });
 
-  it('carries over the settings the shared config has always applied', () => {
+  it('keeps the settings that the shared config has always applied', () => {
     const rootTest = defineVitestConfig().test ?? {};
 
     expect(rootTest.silent).toBe('passed-only');
@@ -159,13 +159,13 @@ describe(defineVitestConfig, () => {
   });
 
   // Pinned rather than sampled: The risk is an addition, not a removal.
-  it('excludes from coverage only what cannot hold runtime code', () => {
+  it('excludes from coverage only what cannot contain runtime code', () => {
     const rootTest = defineVitestConfig().test ?? {};
 
     expect(rootTest.coverage?.exclude).toStrictEqual(['**/__{fixtures,mocks,tests}__/**', '**/index.ts', '**/*.d.ts']);
   });
 
-  it('accepts a run that collects no test files', () => {
+  it('accepts a run that does not collect any test files', () => {
     expect(defineVitestConfig().test?.passWithNoTests).toBe(true);
   });
 
@@ -181,7 +181,7 @@ describe(defineVitestConfig, () => {
     }
   });
 
-  it('keeps a directory the caller excludes out of every project, after the ones always pruned', () => {
+  it('keeps a directory excluded by the caller out of every project, after the ones always pruned', () => {
     const projects = getProjects(defineVitestConfig({ testCollectionExclude: ['generated'] }));
 
     for (const project of projects) {
@@ -197,8 +197,8 @@ describe(defineVitestConfig, () => {
   });
 
   // Arrays compose across layers everywhere else in this config, and a shared layer's exclusions and a package's
-  // own are both meant to hold.
-  it('concatenates the exclusions every layer declares', () => {
+  // own are both meant to apply.
+  it('concatenates the exclusions declared by every layer', () => {
     const config = defineVitestConfig({ testCollectionExclude: ['shared'] }, { testCollectionExclude: ['local'] });
 
     for (const project of getProjects(config)) {
@@ -206,7 +206,7 @@ describe(defineVitestConfig, () => {
     }
   });
 
-  it('excludes each path git ignores under the working directory, anchored to it', () => {
+  it('excludes each path ignored by git under the working directory, anchored to it', () => {
     vi.mocked(listGitIgnoredPaths).mockReturnValueOnce(['.netlify/', 'src/__tests__/scratch.local.test.ts']);
 
     const projects = getProjects(defineVitestConfig());
@@ -231,7 +231,7 @@ describe(defineVitestConfig, () => {
     }
   });
 
-  it('emits a directory once when a layer names one the shared config already prunes', () => {
+  it('emits a directory once when a layer names one that the shared config already prunes', () => {
     const projects = getProjects(defineVitestConfig({ testCollectionExclude: ['dist'] }));
 
     for (const project of projects) {
@@ -239,10 +239,10 @@ describe(defineVitestConfig, () => {
     }
   });
 
-  // Vitest turns the server list into `--conditions` flags on the worker process, so an entry here reaches every
-  // package Node resolves natively. `source` is therefore resolved by a plugin rather than named here, and what
-  // remains is Vite's own defaults, composed from its exports so a release changing either list fails here.
-  it("emits Vite's default conditions for each environment, and no condition of its own", () => {
+  // Because Vitest turns the server list into `--conditions` flags on the worker process, an entry here applies to
+  // every package that Node resolves natively. `source` is therefore resolved by a plugin rather than named here, and
+  // what remains is Vite's own defaults, composed from its exports so that a release changing either list fails here.
+  it("emits Vite's default conditions for each environment, and does not add any condition of its own", () => {
     const config = defineVitestConfig();
 
     expect(config.resolve?.conditions).toStrictEqual(CLIENT_CONDITIONS);
@@ -255,7 +255,7 @@ describe(defineVitestConfig, () => {
     expect(getPluginNames(defineVitestConfig())).toContain(SOURCE_RESOLUTION_PLUGIN);
   });
 
-  it('drops the plugin, and no other setting, when shouldResolveFromSource is off', () => {
+  it('drops only the plugin when shouldResolveFromSource is off', () => {
     const config = defineVitestConfig({ shouldResolveFromSource: false });
 
     expect(getPluginNames(config)).not.toContain(SOURCE_RESOLUTION_PLUGIN);
@@ -275,10 +275,10 @@ describe(defineVitestConfig, () => {
     expect(config.resolve?.conditions).toStrictEqual([...CLIENT_CONDITIONS, 'development']);
   });
 
-  // Vite holds `tsconfigPaths` outside its per-environment resolve options, so the top-level key is the whole
-  // emission. That it reaches the environment a test's own imports resolve through is held by the tool-tier suite,
-  // which no assertion on the config object can stand in for.
-  it('emits tsconfig paths resolution, and no server twin, when the flag is on', () => {
+  // Vite keeps `tsconfigPaths` outside its per-environment resolve options, so the config emits only the top-level
+  // key. The tool-tier suite verifies that it applies to the environment through which a test's own imports resolve;
+  // an assertion on the config object cannot stand in for that suite.
+  it('emits tsconfig paths resolution without a server-environment copy when the flag is on', () => {
     const config = defineVitestConfig({ tsconfigPaths: true });
 
     expect(config.resolve?.tsconfigPaths).toBe(true);
@@ -291,7 +291,7 @@ describe(defineVitestConfig, () => {
 
   // Both settings contribute to the same `resolve` block. One written over the other would drop the conditions,
   // and a dependency exposing a `module` entry would resolve elsewhere with the suite still green.
-  it('carries the conditions and tsconfig paths together', () => {
+  it('emits the conditions and tsconfig paths together', () => {
     const config = defineVitestConfig({ shouldResolveFromSource: true, tsconfigPaths: true });
 
     expect(config.resolve).toStrictEqual({ conditions: CLIENT_CONDITIONS, tsconfigPaths: true });
@@ -314,7 +314,7 @@ describe(defineVitestConfig, () => {
     );
   });
 
-  it('declares no setup files at all when shouldIsolateGit is off', () => {
+  it('does not declare any setup files when shouldIsolateGit is off', () => {
     const projects = getProjects(defineVitestConfig({ shouldIsolateGit: false }));
 
     expect(projects.map((project) => project.test?.setupFiles)).toStrictEqual(PROJECT_NAMES.map(() => undefined));
@@ -336,7 +336,7 @@ describe(defineVitestConfig, () => {
   });
 
   // The two flags above default on, so one case covers both directions for them. This one defaults off, and each
-  // direction crosses a different branch: One adds the key, the other has to leave the block without it.
+  // direction exercises a different branch: One adds the key, the other has to leave the block without it.
   it('lets a later layer turn tsconfigPaths on', () => {
     const config = defineVitestConfig({ tsconfigPaths: false }, { tsconfigPaths: true });
 
@@ -363,8 +363,8 @@ describe(defineVitestConfig, () => {
     expect(config.resolve?.conditions).toStrictEqual([...CLIENT_CONDITIONS, 'development']);
   });
 
-  // Vitest resolves a test's imports through the server environment, so this is the seam a condition meant for
-  // them travels through; the top-level array reaches the client environment alone.
+  // Because Vitest resolves a test's imports through the server environment, a condition meant for them has to be
+  // set in this array; the top-level array applies to the client environment alone.
   it('concatenates a layer condition onto the server array', () => {
     const config = defineVitestConfig({ root: { ssr: { resolve: { conditions: ['development'] } } } });
 
@@ -400,8 +400,8 @@ describe(defineVitestConfig, () => {
     expect(projects.map((project) => project.test?.testTimeout)).toStrictEqual(PROJECT_NAMES.map(() => 2_000));
   });
 
-  // Order decides which setup runs first, so a shared layer's entry — which establishes the environment the rest
-  // run in — has to stay ahead of whatever a package adds after it.
+  // Order decides which setup runs first. A shared layer's entry, which establishes the environment in which the
+  // rest run, has to stay ahead of whatever a package adds after it.
   it('keeps an earlier layer of array entries ahead of a later one', () => {
     const projects = getProjects(
       defineVitestConfig({ project: { setupFiles: ['./shared.ts'] } }, { project: { setupFiles: ['./package.ts'] } }),
@@ -440,8 +440,8 @@ describe(defineVitestConfig, () => {
     expect(budgets.get('remote')).toBe(30_000);
   });
 
-  // `unit` is the tier a uniform `project` override flattens, so it is the likeliest target — and the one a tier
-  // list meaning "above unit" would leave unreachable.
+  // `unit` is the tier that a uniform `project` override flattens, so it is the likeliest target, and the one that a
+  // tier list meaning "above unit" would leave unreachable.
   it('targets the unit tier, which the list of tiers above unit does not name', () => {
     const budgets = getTestTimeouts(defineVitestConfig({ tiers: { unit: { testTimeout: 500 } } }));
 
@@ -458,9 +458,9 @@ describe(defineVitestConfig, () => {
     expect(budgets.get('unit')).toBe(1_000);
   });
 
-  // Locality beats specificity across layers: The nearer config wins even where the further one was specific.
-  // Pinned because folding every layer's uniform block before any tier target would invert it, and no assertion
-  // about array order would notice; that refactor keeps the entries contiguous.
+  // Locality beats specificity across layers: The nearer config wins even when the further one was specific.
+  // Pinned because folding every layer's uniform block before any tier target would invert it, and an assertion
+  // about array order would not notice; that refactor keeps the entries contiguous.
   it('lets a later uniform block override an earlier layer of tier targets', () => {
     const budgets = getTestTimeouts(
       defineVitestConfig({ tiers: { tool: { testTimeout: 120_000 } } }, { project: { testTimeout: 10_000 } }),
@@ -470,9 +470,9 @@ describe(defineVitestConfig, () => {
     expect(budgets.get('unit')).toBe(10_000);
   });
 
-  // A conditional layer is the idiom a variadic signature invites, and the ternary's empty branch is `undefined`.
+  // A conditional layer is the idiom that a variadic signature invites, and the ternary's empty branch is `undefined`.
   // Every position is covered because the fold, the tier check, and the root merge each walk the list separately.
-  it('skips an empty layer wherever it falls, so a conditional layer needs no spread', () => {
+  it('skips an empty layer wherever it falls, so a conditional layer does not need a spread', () => {
     const config = defineVitestConfig(undefined, { project: { testTimeout: 1_000 } }, undefined);
 
     expect(getTestTimeouts(config).get('unit')).toBe(1_000);
@@ -483,8 +483,8 @@ describe(defineVitestConfig, () => {
     expect(defineVitestConfig(undefined).test?.projects).toHaveLength(PROJECT_NAMES.length);
   });
 
-  // The base sets both budgets from one field so they cannot drift; a tier target sets whichever key it names and
-  // leaves the other alone. Pinned because the config then reads 120s while a hook still fails at 30s.
+  // The base sets both budgets from one field so that they cannot drift; a tier target sets whichever key it names
+  // and leaves the other alone. Pinned because the config then reads 120s while a hook still fails at 30s.
   it('leaves the hook budget alone when a tier target names only the test budget', () => {
     const tool = getProjects(defineVitestConfig({ tiers: { tool: { testTimeout: 120_000 } } })).find(
       ({ test }) => test?.name === 'tool',
@@ -494,11 +494,11 @@ describe(defineVitestConfig, () => {
     expect(tool?.test?.hookTimeout).toBe(30_000);
   });
 
-  // Ignoring it would leave the suite green on the budget the key failed to change, which nothing reports.
-  it('rejects a tiers key naming no tier', () => {
+  // Ignoring it would leave the suite green on the budget that the key failed to change, which nothing reports.
+  it('rejects a tiers key that does not name a tier', () => {
     const build = () =>
       defineVitestConfig({
-        // @ts-expect-error - the key names no tier; a JavaScript consumer can still write it
+        // @ts-expect-error - the key does not name a tier; a JavaScript consumer can still write it
         tiers: { toool: { testTimeout: 1_000 } },
       });
 
@@ -509,7 +509,7 @@ describe(defineVitestConfig, () => {
     const build = () =>
       defineVitestConfig(
         {
-          // @ts-expect-error - the key names no tier; a JavaScript consumer can still write it
+          // @ts-expect-error - the key does not name a tier; a JavaScript consumer can still write it
           tiers: { toool: {} },
         },
         { project: {} },
@@ -534,8 +534,8 @@ describe(defineVitestConfig, () => {
     expect(build).toThrow('Invalid Vitest config: `resolveFromSource` was renamed to `shouldResolveFromSource`.');
   });
 
-  // Asserted whole, because the recognized set is the remedy the consumer acts on: a message naming the bad key
-  // and nothing else leaves them to guess the spelling it should have been.
+  // Asserted whole, because the recognized set is the remedy on which the consumer acts: A message naming the bad
+  // key and nothing else leaves them to guess the spelling that it should have been.
   it('rejects an option key outside the recognized set, naming it and the recognized set', () => {
     // @ts-expect-error - the key is a typo; a JavaScript consumer can still write it
     const build = () => defineVitestConfig({ tsconfigPath: true });
@@ -571,7 +571,7 @@ describe(defineVitestConfig, () => {
 });
 
 describe(defineRootVitestConfig, () => {
-  it('excludes each path git ignores under the monorepo root', ({ workspaceTree }) => {
+  it('excludes each path ignored by git under the monorepo root', ({ workspaceTree }) => {
     vi.mocked(listGitIgnoredPaths).mockReturnValueOnce(['.netlify/']);
 
     const projects = getProjects(defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }));
@@ -598,13 +598,13 @@ describe(defineRootVitestConfig, () => {
     }
   });
 
-  it('takes the resolution flags the package factory takes', ({ workspaceTree }) => {
+  it('takes the resolution flags that the package factory takes', ({ workspaceTree }) => {
     const config = defineRootVitestConfig({ monorepoRoot: workspaceTree.dir, tsconfigPaths: true });
 
     expect(config.resolve?.tsconfigPaths).toBe(true);
   });
 
-  it('takes the collection exclusions the package factory takes', ({ workspaceTree }) => {
+  it('takes the collection exclusions that the package factory takes', ({ workspaceTree }) => {
     const config = defineRootVitestConfig({ monorepoRoot: workspaceTree.dir, testCollectionExclude: ['generated'] });
 
     for (const project of getProjects(config)) {
@@ -620,23 +620,23 @@ describe(defineRootVitestConfig, () => {
     }
   });
 
-  it('throws a message naming the directory when it holds no workspace manifest', ({ notARootTree }) => {
+  it('throws a message naming the directory when it does not contain a workspace manifest', ({ notARootTree }) => {
     expect(() => defineRootVitestConfig({ monorepoRoot: notARootTree.dir })).toThrow(
       `Not a monorepo root: no pnpm-workspace.yaml in ${notARootTree.dir}`,
     );
   });
 
-  it('throws when given no options at all, which types alone cannot prevent in a JavaScript config', () => {
-    // @ts-expect-error -- the argument is required; this is the call a JavaScript consumer can still make.
+  it('throws when called without any options, which types alone cannot prevent in a JavaScript config', () => {
+    // @ts-expect-error -- the argument is required; this is the call that a JavaScript consumer can still make.
     expect(() => defineRootVitestConfig()).toThrow('defineRootVitestConfig requires `monorepoRoot`');
   });
 
-  it('throws when given options carrying no monorepo root', () => {
+  it('throws when given options without a monorepo root', () => {
     // @ts-expect-error -- the option is required; a JavaScript consumer can still omit it.
     expect(() => defineRootVitestConfig({})).toThrow('defineRootVitestConfig requires `monorepoRoot`');
   });
 
-  // A relative root reaches `path.join` and `projectRoot` unresolved, so the config would describe whichever
+  // A relative root is passed to `path.join` and `projectRoot` unresolved, so the config would describe whichever
   // monorepo the run started in.
   it('throws when the monorepo root is not an absolute path', () => {
     for (const monorepoRoot of ['', '.', 'packages/..']) {
@@ -644,7 +644,7 @@ describe(defineRootVitestConfig, () => {
     }
   });
 
-  it('excludes no packages when the manifest declares none, as in a single-package repo', ({ singlePackageTree }) => {
+  it('omits package exclusions when the manifest lists none, as in a single-package repo', ({ singlePackageTree }) => {
     const projects = getProjects(defineRootVitestConfig({ monorepoRoot: singlePackageTree.dir }));
 
     for (const project of projects) {
@@ -665,21 +665,21 @@ describe(defineRootVitestConfig, () => {
     expect(rootTest).not.toHaveProperty('include');
   });
 
-  it('reports no coverage of its own', ({ workspaceTree }) => {
+  it('does not report any coverage of its own', ({ workspaceTree }) => {
     expect(defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }).test?.coverage?.include).toStrictEqual([]);
   });
 
-  it('accepts a run that collects no test files', ({ workspaceTree }) => {
+  it('accepts a run that does not collect any test files', ({ workspaceTree }) => {
     expect(defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }).test?.passWithNoTests).toBe(true);
   });
 
-  it('skips an empty layer ahead of the layer carrying the monorepo root', ({ workspaceTree }) => {
+  it('skips an empty layer ahead of the layer declaring the monorepo root', ({ workspaceTree }) => {
     const config = defineRootVitestConfig(undefined, { monorepoRoot: workspaceTree.dir });
 
     expect(getProjects(config)).toHaveLength(4);
   });
 
-  it('folds a shared layer ahead of the layer carrying the monorepo root', ({ workspaceTree }) => {
+  it('folds a shared layer ahead of the layer declaring the monorepo root', ({ workspaceTree }) => {
     const config = defineRootVitestConfig(
       { project: { setupFiles: ['./shared.ts'] }, root: { resolve: { conditions: ['development'] } } },
       { monorepoRoot: workspaceTree.dir },
@@ -692,18 +692,18 @@ describe(defineRootVitestConfig, () => {
     }
   });
 
-  // A shared layer describes settings, not which repo they belong to, so the root has to ride on the config file's
-  // own layer — the only one whose `import.meta.dirname` states this repo.
-  it('throws when the last layer carries no monorepo root, however many precede it', ({ workspaceTree }) => {
+  // A shared layer describes settings, not which repo they belong to, so the root has to be set on the config file's
+  // own layer: the only one whose `import.meta.dirname` states this repo.
+  it('throws when the last layer does not declare a monorepo root, however many precede it', ({ workspaceTree }) => {
     const build = () =>
-      // @ts-expect-error - the last layer must carry `monorepoRoot`; a JavaScript consumer can still omit it
+      // @ts-expect-error - the last layer must declare `monorepoRoot`; a JavaScript consumer can still omit it
       defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }, { project: {} });
 
     expect(build).toThrow('defineRootVitestConfig requires `monorepoRoot`');
   });
 
   // The final layer recognizes one key more than the rest; the retired-key check runs on it all the same.
-  it('rejects a retired option on the layer carrying the monorepo root', ({ workspaceTree }) => {
+  it('rejects a retired option on the layer declaring the monorepo root', ({ workspaceTree }) => {
     // @ts-expect-error - the option was renamed; a JavaScript consumer can still write the old spelling
     const build = () => defineRootVitestConfig({ isolateGit: false, monorepoRoot: workspaceTree.dir });
 
@@ -727,7 +727,7 @@ describe('project file selection', () => {
     },
   );
 
-  it('runs a file whose infix matches no tier under the unit project', ({ selectionTree }) => {
+  it('runs a file whose infix does not match any tier under the unit project', ({ selectionTree }) => {
     expect(selectFiles('unit', selectionTree.dir)).toContain('src/__tests__/thing.smoke.test.ts');
   });
 
@@ -749,15 +749,15 @@ describe('project file selection', () => {
     expect(collectedFiles).toStrictEqual([...new Set(collectedFiles)]);
   });
 
-  // A copy of the suite under `dist/` runs green against stale code, so no project may collect it.
+  // Because a copy of the suite under `dist/` runs green against stale code, every project has to leave it out.
   it('leaves a test file copied into build output out of every project', ({ selectionTree }) => {
     for (const name of PROJECT_NAMES) {
       expect(selectFiles(name, selectionTree.dir)).not.toContain('dist/src/__tests__/copied.test.ts');
     }
   });
 
-  // The exclusion the repo declares is what keeps the sweep and the collection glob describing one scope. Both
-  // halves are asserted here, because a directory Vitest still collects from is one the sweep must not skip.
+  // The exclusion declared by the repo keeps the sweep and the collection glob describing one scope. Both halves are
+  // asserted here, because the sweep must not skip a directory from which Vitest still collects.
   it('drops a generated directory from collection once the repo excludes it', ({ selectionTree }) => {
     const excludedConfig = { testCollectionExclude: ['generated'] };
 
@@ -768,14 +768,14 @@ describe('project file selection', () => {
   });
 });
 
-/** Names every plugin declared by a config, which is how an assertion reaches one without running Vite. */
+/** Names every plugin declared by a config, so that an assertion can check one without running Vite. */
 function getPluginNames(config: ViteUserConfig): string[] {
   return (config.plugins ?? []).flatMap((plugin) =>
     isObject(plugin) && typeof plugin.name === 'string' ? [plugin.name] : [],
   );
 }
 
-/** Narrows the declared projects to the inline form, which is the only form the factories emit. */
+/** Narrows the declared projects to the inline form, which is the only form that the factories emit. */
 function getProjects(config: ViteUserConfig): TestProjectInlineConfiguration[] {
   return (config.test?.projects ?? []).filter(isInlineProject);
 }
@@ -785,7 +785,7 @@ function isInlineProject(project: TestProjectConfiguration): project is TestProj
   return typeof project === 'object' && !(project instanceof Promise);
 }
 
-/** Maps each tier's name to its test budget, for assertions about which tiers an option reached. */
+/** Maps each tier's name to its test budget, for assertions about which tiers an option applied to. */
 function getTestTimeouts(config: ViteUserConfig): Map<string, number | undefined> {
   const projects = getProjects(config);
 
@@ -794,7 +794,7 @@ function getTestTimeouts(config: ViteUserConfig): Map<string, number | undefined
   );
 }
 
-/** Resolves a project's patterns against the fixture tree using the engine Vitest discovers with. */
+/** Resolves a project's patterns against the fixture tree using the engine with which Vitest discovers files. */
 function selectFiles(name: string, cwd: string, options?: VitestConfigOptions): string[] {
   const project = getProjects(defineVitestConfig(options)).find(({ test }) => test?.name === name);
 

@@ -37,7 +37,7 @@ describe(listGitIgnoredPaths, () => {
     expect(listGitIgnoredPaths(dir)).toStrictEqual([]);
   });
 
-  it('omits an untracked file that no pattern ignores', () => {
+  it('omits an untracked file not matched by any ignore pattern', () => {
     const tree = disposeOnTestFinished(
       createTempTree({ '.gitignore': 'out/\n', 'out/a.ts': '' }, { prefix: 'nmr-git-ignored-' }),
     );
@@ -47,7 +47,7 @@ describe(listGitIgnoredPaths, () => {
     expect(listGitIgnoredPaths(tree.dir)).toStrictEqual(['out/']);
   });
 
-  it('lists paths relative to a subdirectory it is given', () => {
+  it('lists paths relative to a subdirectory that it is given', () => {
     const dir = buildRepo({
       '.gitignore': 'dist/\n',
       'packages/api/dist/__tests__/copy.test.ts': '',
@@ -60,7 +60,7 @@ describe(listGitIgnoredPaths, () => {
 
   it('returns an empty list outside a repository', () => {
     const dir = buildRepo({ 'dist/index.js': '' });
-    // Stops git's upward search at the fixture, so a temp root that sits inside some repository cannot answer.
+    // Stop git's upward search at the fixture so that git does not find a repository that encloses the temp root.
     vi.stubEnv('GIT_CEILING_DIRECTORIES', path.dirname(dir));
 
     expect(listGitIgnoredPaths(dir)).toStrictEqual([]);

@@ -15,18 +15,18 @@ interface CataloguedDependency {
 }
 
 /**
- * Reports the catalogued dependencies a package-scoped upgrade pass cannot see.
+ * Reports the catalogued dependencies that a package-scoped upgrade pass does not read.
  *
- * The upgrade tool reads `pnpm-workspace.yaml` only when it sits at the working directory, so a pass run
- * inside a package drops every dependency a catalog declares -- and a package whose dependencies are all
- * catalogued reports itself up to date. Naming them, and the root a covering pass runs from, is what keeps
- * that from reading as a clean bill of health.
+ * The upgrade tool reads `pnpm-workspace.yaml` only when the file is in the working directory, so a pass run
+ * inside a package drops every dependency declared by a catalog -- and the tool reports a package whose
+ * dependencies are all catalogued as up to date. This report names them, and the root from which a covering
+ * pass runs, to keep the reader from taking that result to mean that every dependency is up to date.
  */
 export function reportCatalog(cwd: string, style: OutputStyle): void {
   const monorepoRoot = findMonorepoRoot(cwd);
   const packageDir = findContainingPackageDir(cwd, getWorkspacePackageDirs(monorepoRoot));
 
-  // A root-scoped pass reads the catalog itself, so it has nothing to be told.
+  // Skip the report for a root-scoped pass, which reads the catalog itself.
   if (packageDir === undefined) {
     return;
   }
@@ -41,7 +41,7 @@ export function reportCatalog(cwd: string, style: OutputStyle): void {
       NMR_GLYPHS,
       style,
       'catalog',
-      'WARN: A package-scoped upgrade does not read the catalogs these come from:',
+      'WARN: A package-scoped upgrade does not read the catalogs from which these come:',
     ),
   );
   for (const { name, specifier } of dependencies) {
@@ -55,7 +55,7 @@ export function reportCatalog(cwd: string, style: OutputStyle): void {
 
 // region | Helpers
 
-/** Names what the report came to: how many dependencies this pass left behind, and the root that reaches them. */
+/** Summarizes the report: how many dependencies this pass left unread, and the root from which to include them. */
 function describeCatalog(count: number, monorepoRoot: string): string {
   const subject = count === 1 ? '1 catalogued dependency went' : `${count} catalogued dependencies went`;
   const object = count === 1 ? 'it' : 'them';
@@ -67,7 +67,7 @@ function describeCatalog(count: number, monorepoRoot: string): string {
  * Returns the package's catalogued dependencies ordered by name, one entry per name.
  *
  * A package may declare the same dependency in more than one field -- a peer range beside a dev pin is the
- * common pair -- and the reader is owed one line per dependency rather than one per declaration.
+ * common pair -- and the report shows one line per dependency rather than one per declaration.
  */
 function findCataloguedDependencies(packageDir: string): CataloguedDependency[] {
   const packageJson = readPackageJson(packageDir);

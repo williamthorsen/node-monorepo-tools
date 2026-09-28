@@ -11,7 +11,7 @@ const it = baseIt.extend(
 );
 
 describe(generateHelp, () => {
-  // The listing reads the same tier-3 scripts resolution does, so a malformed entry stops it rather than being
+  // The listing reads the same tier-3 scripts as resolution does, so a malformed entry stops it rather than being
   // omitted from a help text that looks complete.
   it('rejects a malformed package.json script rather than omitting it', ({ tree }) => {
     tree.writeJson('package.json', { scripts: { build: ['compile'] } });
@@ -111,8 +111,8 @@ describe(generateHelp, () => {
 
     it('omits hook entries from a subpackage package.json', ({ tree }) => {
       // Use a sentinel value that is not present in any default registry entry,
-      // so we can detect leakage of the package-script value distinctly from
-      // unrelated registry rows.
+      // so that we can detect leakage of the package-script value distinctly
+      // from unrelated registry rows.
       tree.writeJson('package.json', {
         name: 'pkg-with-hook',
         scripts: { 'build:post': 'sentinel-hook-value' },
@@ -215,7 +215,7 @@ describe(generateHelp, () => {
       expect(help).not.toContain('* Overridden by package.json');
     });
 
-    it('omits the footnote when no overrides are present', ({ tree }) => {
+    it('omits the footnote when the package.json does not contain any overrides', ({ tree }) => {
       tree.writeJson('package.json', { name: 'plain-pkg' });
 
       const help = generateHelp({}, tree.dir, false);
@@ -278,7 +278,7 @@ describe(generateHelp, () => {
       );
     });
 
-    it('describes a delegating root selection as the steps it runs', ({ tree }) => {
+    it('describes a delegating root selection as the steps that it runs', ({ tree }) => {
       const rootSection = readSection(generateHelp({}, tree.dir, true), 'Root commands:', '* Overridden');
 
       expect(rootSection).toContain('[root:test, -R test]');
@@ -310,7 +310,7 @@ function readSection(help: string, start: string, end: string): string {
 }
 
 /**
- * Returns the column index where the value starts on a registry row.
+ * Returns the column index at which the value starts on a registry row.
  * A row looks like `  <key><marker>   <value>`; the value begins at the
  * first non-space character following the column padding after the key.
  */

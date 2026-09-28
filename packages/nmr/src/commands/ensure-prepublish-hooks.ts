@@ -24,7 +24,7 @@ export interface EnsurePrepublishHooksResult {
 export const DEFAULT_HOOK = 'npm run build';
 
 /**
- * Check (and optionally fix) whether all publishable workspace packages
+ * Checks (and optionally fixes) whether all publishable workspace packages
  * have a `prepublishOnly` script.
  */
 export function ensurePrepublishHooks(
@@ -95,11 +95,11 @@ export function ensurePrepublishHooks(
 }
 
 /**
- * Reports one line per publishable package and closes with what the run came to. Private packages appear in
- * neither: they publish nothing, so a `prepublishOnly` is not theirs to carry.
+ * Reports one line per publishable package and closes with a summary of the run. Private packages appear in
+ * neither: They publish nothing, so they do not need a `prepublishOnly`.
  *
- * Every line goes to stdout, a failure's included, and the exit code is what carries a failure. A report split
- * across two streams leaves no reader holding the whole list.
+ * Every line goes to stdout, a failure's included, and the exit code signals a failure. When a report is split
+ * across two streams, a reader of either stream does not see the whole list.
  */
 export function reportPrepublishHooks(
   result: EnsurePrepublishHooksResult,
@@ -122,7 +122,7 @@ export function reportPrepublishHooks(
 
 // region | Helpers
 
-/** Read a package.json, insert `prepublishOnly` into scripts, and write back. */
+/** Reads a package.json, inserts `prepublishOnly` into scripts, and writes it back. */
 function addPrepublishOnly(packageDir: string, command: string): void {
   const filePath = path.join(packageDir, 'package.json');
   const rawText = readFileSync(filePath, 'utf8');
@@ -139,12 +139,12 @@ function addPrepublishOnly(packageDir: string, command: string): void {
   writeFileSync(filePath, JSON.stringify(parsedManifest, null, 2) + '\n', 'utf8');
 }
 
-/** Counts the packages a run left in the given state. */
+/** Counts the packages that a run left in the given state. */
 function countAction(publishablePackages: PackageHookStatus[], action: PackageHookStatus['action']): number {
   return publishablePackages.filter((packageStatus) => packageStatus.action === action).length;
 }
 
-/** Names what a run came to: the packages carrying the hook, or what became of those that were not. */
+/** Summarizes a run: the packages that have the hook, or what became of those that did not. */
 function describeHookRun(publishablePackages: PackageHookStatus[]): string {
   const packages =
     publishablePackages.length === 1 ? '1 publishable package' : `${publishablePackages.length} publishable packages`;
@@ -168,10 +168,10 @@ function describeHookRun(publishablePackages: PackageHookStatus[]): string {
 }
 
 /**
- * Renders one package's line, naming the hook it carries or the one the run would add.
+ * Renders one package's line, naming the hook that the package has or the one that the run would add.
  *
- * A package carrying the hook and one the run added both pass, so both open on the pass marker; the dry run's
- * `~` is neither outcome and stays the mark of a line reporting what a write would do.
+ * A package that has the hook and one to which the run added it both pass, so both lines open with the pass
+ * marker; the dry run's `~` is neither outcome and stays the mark of a line that reports what a write would do.
  */
 function renderHookStatus(packageStatus: PackageHookStatus, hookCommand: string, style: OutputStyle): string {
   const statuses = STATUS_GLYPHS[style];

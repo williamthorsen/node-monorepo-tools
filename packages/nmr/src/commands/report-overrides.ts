@@ -29,7 +29,7 @@ export function reportOverrides(monorepoRoot: string, style: OutputStyle): void 
 
 // region | Helpers
 
-/** Names what the report came to: how many overrides are declared, and what is owed them. */
+/** Describes the report's outcome: how many overrides are declared, and the follow-up that they need. */
 function describeOverrides(count: number): string {
   return count === 1
     ? '1 override is active. Check whether it is still needed.'
@@ -42,11 +42,11 @@ function listEntries<T>(overrides: Record<string, T> | undefined): [string, T][]
 }
 
 /**
- * Rejects a `pnpm.overrides` block in the root `package.json`, naming every entry it holds.
+ * Rejects a `pnpm.overrides` block in the root `package.json`, naming every entry that it contains.
  *
- * pnpm 11 reads no setting from that field, so the block pins nothing -- while the upgrade tool, which keeps
- * its own list of dependency fields, goes on rewriting the versions in it under `--write`. That leaves a block
- * looking maintained while it governs nothing, and failing here is what keeps the write from happening.
+ * pnpm 11 does not read any setting from that field, so the block pins nothing -- while the upgrade tool, which
+ * keeps its own list of dependency fields, goes on rewriting the versions in it under `--write`. That leaves a
+ * block looking maintained while it governs nothing, and failing here keeps the write from happening.
  */
 function rejectLegacyOverrides(monorepoRoot: string): void {
   const legacyOverrides = listEntries(getPnpmOverrides(readPackageJson(monorepoRoot)));
@@ -57,7 +57,7 @@ function rejectLegacyOverrides(monorepoRoot: string): void {
 
   throw new UserError(
     [
-      'pnpm 11 reads no `pnpm.overrides` from package.json, so these pin nothing while an upgrade run with `--write` goes on rewriting them:',
+      'pnpm 11 does not read `pnpm.overrides` from package.json, so these pin nothing while an upgrade run with `--write` goes on rewriting them:',
       ...legacyOverrides.map(([name, version]) => `- ${name} → ${String(version)}`),
       'Move them to the `overrides` block in pnpm-workspace.yaml, quoting each version, or run `pnpx codemod run pnpm-v10-to-v11`.',
     ].join('\n'),

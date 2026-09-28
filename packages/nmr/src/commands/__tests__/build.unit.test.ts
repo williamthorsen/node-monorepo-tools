@@ -126,7 +126,7 @@ describe(resolveTsconfigChain, () => {
 
   it('resolves a package specifier whose base is reachable only at its tsconfig.json', ({ tree }) => {
     tree.writeAll({
-      // The `@tsconfig/*` family ships this shape: no `exports` map, config at the package root.
+      // The `@tsconfig/*` family is published in this shape: no `exports` map, config at the package root.
       'pkg/node_modules/@fixture/base/package.json': JSON.stringify({ name: '@fixture/base', version: '1.0.0' }),
       'pkg/node_modules/@fixture/base/tsconfig.json': JSON.stringify({ compilerOptions: { strict: true } }),
       'pkg/tsconfig.json': JSON.stringify({ extends: '@fixture/base' }),

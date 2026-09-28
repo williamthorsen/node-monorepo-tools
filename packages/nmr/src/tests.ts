@@ -4,7 +4,7 @@ import { findMisplacedTestFiles, findUntieredTestFiles, type TestFileScanOptions
 import { findMonorepoRoot } from './workspace.ts';
 
 const MISPLACED_REMEDY =
-  'Every test file must sit under a `__tests__` directory, the only place the shared Vitest config collects from. Move each file below into one, or name its directory in `excludedBasenames`.';
+  'Every test file must be under a `__tests__` directory, the only place from which the shared Vitest config collects. Move each file below into one, or name its directory in `excludedBasenames`.';
 
 const UNTIERED_REMEDY = `Every collected test file must name its isolation tier in the segment before \`.test.\`, one of: ${TIER_NAMES.join(', ')}. Rename each file below to <subject>[.<aspect>].<tier>.test.ts.`;
 
@@ -12,19 +12,21 @@ const UNTIERED_REMEDY = `Every collected test file must name its isolation tier 
 const RETIRED_OPTION_KEYS: ReadonlyMap<string, string> = new Map([['exclude', 'excludedBasenames']]);
 
 /**
- * Declares a suite asserting that a repo's test files hold to nmr's conventions: every collected file names an
- * isolation tier, and every test file sits under a `__tests__` directory.
+ * Declares a suite asserting that a repo's test files follow nmr's conventions: Every collected file names an
+ * isolation tier, and every test file is under a `__tests__` directory.
  *
- * Wire it from a one-line test of the repo's own, so the file stays under the repo's `__tests__` and the repo
- * scopes what the sweep covers. Both halves are silent without it: `unit` is the residual project, so an untiered
- * file runs and passes, and a file outside `__tests__` is collected by nothing at all.
+ * Call it from a one-line test of the repo's own, so that the file stays under the repo's `__tests__` and the repo
+ * scopes what the sweep covers. Without it, a violation of either half goes unreported: `unit` is the residual
+ * project, so an untiered file runs and passes, and a file outside `__tests__` is collected by nothing at all.
  *
- * `excludedBasenames` names directory basenames the sweep prunes at any depth, additive to the ones nmr always
+ * `excludedBasenames` names directory basenames that the sweep prunes at any depth, additive to the ones nmr always
  * prunes. Pass the same array to `defineVitestConfig`'s `testCollectionExclude`, or the sweep and the collection
- * glob describe different trees: a directory pruned here alone still runs the files this suite stopped reporting.
+ * glob describe different trees: Vitest still runs the files in a directory pruned here alone, and this suite no
+ * longer reports them.
  *
- * Untracked paths that git ignores are out of scope for the sweep and the shared configs' collection alike, so a
- * directory that `.gitignore` covers needs no entry. Outside a git repository, only the named directories prune.
+ * Because untracked paths that git ignores are out of scope for the sweep and the shared configs' collection alike,
+ * a directory that `.gitignore` covers does not need an entry in `excludedBasenames`. Outside a git repository, only
+ * the named directories are pruned.
  */
 export function checkTestFileConventions(options: TestFileConventionsOptions = {}): void {
   assertNoRetiredOptions(options);
@@ -36,17 +38,17 @@ export function checkTestFileConventions(options: TestFileConventionsOptions = {
       expect(untieredFiles, `${UNTIERED_REMEDY} Swept from ${rootDir}.`).toStrictEqual([]);
     });
 
-    it('every test file sits under a __tests__ directory', () => {
+    it('every test file is under a __tests__ directory', () => {
       expect(misplacedFiles, `${MISPLACED_REMEDY} Swept from ${rootDir}.`).toStrictEqual([]);
     });
   });
 }
 
 /**
- * Sweeps a repo for both halves of the convention, reporting the root it swept alongside what it found.
+ * Sweeps a repo for both halves of the convention, reporting the root that it swept alongside what it found.
  *
- * The root is what makes the result trustworthy, and it is the one thing an assertion cannot check: a sweep
- * started from the directory Vitest supplies covers one package, finds nothing, and passes.
+ * The root makes the result trustworthy, and it is the one thing that an assertion cannot check: A sweep started
+ * from the directory that Vitest supplies covers one package, finds nothing, and passes.
  *
  * @internal - Exported only to enable testing
  */
@@ -66,8 +68,8 @@ export function reportTestFileConventions(options: TestFileConventionsOptions = 
 
 export interface TestFileConventionsOptions {
   /**
-   * Directory basenames the sweep prunes at any depth, additive to the ones nmr always prunes and to the paths git
-   * ignores. The array a repo passes here is the array it passes to `defineVitestConfig`'s `testCollectionExclude`.
+   * Directory basenames that the sweep prunes at any depth, additive to the ones nmr always prunes and to the paths
+   * that git ignores. A repo passes the same array here and to `defineVitestConfig`'s `testCollectionExclude`.
    */
   excludedBasenames?: readonly string[];
 
@@ -78,7 +80,7 @@ export interface TestFileConventionsOptions {
   rootDir?: string;
 }
 
-/** What one sweep found, and the root it found it in. Paths are relative to that root and POSIX-separated. */
+/** What one sweep found, and the root in which it found it. Paths are relative to that root and POSIX-separated. */
 export interface TestFileConventionsReport {
   misplacedFiles: string[];
   rootDir: string;

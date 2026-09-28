@@ -13,7 +13,7 @@ vi.mock(import('node:child_process'), () => ({
 
 const mockedSpawn = vi.mocked(spawn);
 
-/** What a caller writing to a non-terminal destination resolves, which is the arrangement most of these model. */
+/** What a caller writing to a non-terminal destination resolves, which is the arrangement that most of these tests model. */
 const PIPED_CHANNELS: OutputChannels = { stderr: 'pipe', stdout: 'pipe' };
 
 interface FakeChild extends EventEmitter {
@@ -22,7 +22,7 @@ interface FakeChild extends EventEmitter {
 }
 
 /**
- * Installs a spawn mock whose child mirrors the stdio the runner asked for: a pipe becomes a `PassThrough`,
+ * Installs a spawn mock whose child mirrors the stdio that the runner asked for: a pipe becomes a `PassThrough`,
  * a descriptor becomes `null`, exactly as `child_process` behaves.
  */
 function stubSpawn(): () => FakeChild {
@@ -36,7 +36,7 @@ function stubSpawn(): () => FakeChild {
       stderr: stdio[2] === 'pipe' ? new PassThrough() : null,
     });
     child = fakeChild;
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the runner reads only stdout, stderr, and the event methods, so the fake models those alone.
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the fake models only what the runner reads: stdout, stderr, and the event methods.
     return fakeChild as unknown as ReturnType<typeof spawn>;
   });
 
@@ -46,7 +46,7 @@ function stubSpawn(): () => FakeChild {
   };
 }
 
-/** Reads the stdio array the runner passed to spawn. */
+/** Reads the stdio array that the runner passed to spawn. */
 function readStdioFromCall(): unknown[] {
   const options = mockedSpawn.mock.calls[0]?.[2];
   if (!options || !Array.isArray(options.stdio)) throw new Error('Expected stdio to be an array');
@@ -59,7 +59,7 @@ function requireStdout(child: FakeChild): PassThrough {
   return child.stdout;
 }
 
-/** Ends the child's pipes, lets them flush, then emits the exit and close events Node would. */
+/** Ends the child's pipes, lets them flush, then emits the exit and close events that Node would emit. */
 async function endChild(child: FakeChild, code: number | null = 0, signal: NodeJS.Signals | null = null) {
   const flushes: Promise<void>[] = [];
   for (const stream of [child.stdout, child.stderr]) {
@@ -77,7 +77,7 @@ function createTerminalStream() {
   return Object.assign(new PassThrough(), { fd: 1, isTTY: true });
 }
 
-/** Builds a stream carrying a descriptor without being a terminal, which is a redirected stdout. */
+/** Builds a stream that has a descriptor without being a terminal, which is a redirected stdout. */
 function createRedirectedStream() {
   return Object.assign(new PassThrough(), { fd: 1 });
 }
@@ -90,8 +90,7 @@ interface StepOutput {
 
 /**
  * Installs a spawn mock that ends each child as soon as it is created, taking each exit code and each step's
- * output from the queues in turn, so a step list runs to completion without the test driving every child by
- * hand.
+ * output from the queues in turn. A step list runs to completion without the test driving every child by hand.
  */
 function stubSequence(exitCodes: readonly number[], outputs: readonly StepOutput[] = []): void {
   let index = 0;
@@ -111,12 +110,12 @@ function stubSequence(exitCodes: readonly number[], outputs: readonly StepOutput
       if (output.stderr !== undefined) fakeChild.stderr?.write(output.stderr);
       void endChild(fakeChild, exitCode);
     });
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the runner reads only stdout, stderr, and the event methods, so the fake models those alone.
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the fake models only what the runner reads: stdout, stderr, and the event methods.
     return fakeChild as unknown as ReturnType<typeof spawn>;
   });
 }
 
-/** Reads the file each spawn was asked for, in call order. */
+/** Reads the file passed to each spawn, in call order. */
 function readFilesFromCalls(): (string | undefined)[] {
   return mockedSpawn.mock.calls.map((call) => call[0]);
 }
@@ -145,7 +144,7 @@ function collect(stream: PassThrough): () => Buffer {
   return () => Buffer.concat(chunks);
 }
 
-/** Yields to the event loop so piped chunks reach their destination. */
+/** Yields to the event loop so that piped chunks reach their destination. */
 function flushEventLoop(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
 }
@@ -167,7 +166,7 @@ describe(resolveInheritedChannel, () => {
   it.each([
     { channel: 1, scenario: 'a terminal destination', createStream: createTerminalStream },
     { channel: 1, scenario: 'a destination redirected to a file', createStream: createRedirectedStream },
-    { channel: 'pipe', scenario: 'a destination carrying no descriptor', createStream: () => new PassThrough() },
+    { channel: 'pipe', scenario: 'a destination without a descriptor', createStream: () => new PassThrough() },
   ])('given $scenario, resolves to $channel', ({ channel, createStream }) => {
     expect(resolveInheritedChannel(createStream())).toBe(channel);
   });
@@ -183,7 +182,7 @@ describe(runCommand, () => {
   });
 
   describe('stream routing', () => {
-    it('runs each stream on the channel the caller chose', async () => {
+    it('runs each stream on the channel that the caller chose', async () => {
       const getChild = stubSpawn();
 
       const pendingRun = runCommand('cmd', undefined, {
@@ -197,7 +196,7 @@ describe(runCommand, () => {
       expect(readStdioFromCall().slice(1)).toStrictEqual(['pipe', 2]);
     });
 
-    it('given a descriptor channel, retains no copy of that stream', async () => {
+    it('given a descriptor channel, does not retain a copy of that stream', async () => {
       const getChild = stubSpawn();
 
       const pendingRun = runCommand('cmd', undefined, {
@@ -211,7 +210,7 @@ describe(runCommand, () => {
       expect(result.stdout).toBeUndefined();
     });
 
-    it('inherits stdin so an interactive command keeps its input', async () => {
+    it('inherits stdin so that an interactive command keeps its input', async () => {
       const getChild = stubSpawn();
 
       const pendingRun = runCommand('cmd', undefined, {
@@ -304,7 +303,7 @@ describe(runCommand, () => {
       expect(destination.write('later')).toBe(true);
     });
 
-    it('when output exceeds the retained bound, forwards every byte the command produced', async () => {
+    it('when output exceeds the retained bound, forwards every byte that the command produced', async () => {
       const getChild = stubSpawn();
       const destination = new PassThrough();
       const received = collect(destination);
@@ -412,18 +411,18 @@ describe(runCommand, () => {
       const child = getChild();
       requireStdout(child).write('produced');
       await flushEventLoop();
-      // `close` never arrives: the descendant still holds the write end of the pipe.
+      // `close` never arrives: The descendant still holds the write end of the pipe.
       child.emit('exit', 3, null);
       const result = await pendingRun;
 
       expect(result).toMatchObject({ exitCode: 3, outcome: 'exited' });
       expect(requireStdout(child).destroyed).toBe(true);
       expect(received().toString('utf8')).toBe('produced');
-      // What the command wrote before exiting is its whole output, so the retained copy stands.
+      // What the command wrote before exiting is its whole output, so the runner keeps the retained copy.
       expect(result.stdout?.toString('utf8')).toBe('produced');
     }, 20_000);
 
-    it('when a descendant holds the pipe open, leaves no pipe listeners on a shared destination', async () => {
+    it('when a descendant holds the pipe open, does not leave any pipe listeners on a shared destination', async () => {
       vi.useFakeTimers();
       const destination = new PassThrough();
       destination.resume();
@@ -559,7 +558,7 @@ describe(runSteps, () => {
       expect(mockedSpawn.mock.calls[0]?.[2]).toMatchObject({ cwd: '/repo', shell: true });
     });
 
-    it('spawns a structural step by argv, so no shell reads its arguments', async () => {
+    it('spawns a structural step by argv, so a shell does not read its arguments', async () => {
       stubSequence([0]);
 
       await runSteps([{ kind: 'structural', argv: ['nmr', 'test', '-t', 'a b'] }], '/repo', {
@@ -588,7 +587,7 @@ describe(runSteps, () => {
       expect(readStdioFromCall().slice(1)).toStrictEqual(expectedStdio);
     });
 
-    it('falls back to a pipe for a structural step when the stream carries no descriptor', async () => {
+    it('falls back to a pipe for a structural step when the stream does not have a descriptor', async () => {
       stubSequence([0]);
 
       await runSteps([STRUCTURAL_STEP], undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
@@ -596,7 +595,7 @@ describe(runSteps, () => {
       expect(readStdioFromCall().slice(1)).toStrictEqual(['pipe', 'pipe']);
     });
 
-    it('withholds an opaque step under quiet, where a descriptor would leave nothing to withhold', async () => {
+    it('withholds an opaque step under quiet, because a descriptor would leave nothing to withhold', async () => {
       stubSequence([0]);
 
       await runSteps([OPAQUE_STEP], undefined, {
@@ -622,7 +621,7 @@ describe(runSteps, () => {
   });
 
   describe('retention', () => {
-    it('carries back what an opaque step wrote, each stream apart from the other', async () => {
+    it('returns what an opaque step wrote, each stream apart from the other', async () => {
       stubSequence([0], [{ stderr: 'a warning\n', stdout: 'a summary\n' }]);
 
       const result = await runSteps([OPAQUE_STEP], undefined, {
@@ -645,7 +644,7 @@ describe(runSteps, () => {
       expect(result.retainedOutput?.stdout.toString('utf8')).toBe('first\nsecond\n');
     });
 
-    // A composite hands its descriptors to the nmr processes below it, and a destination carrying none makes
+    // A composite hands its descriptors to the nmr processes below it, and a destination without one makes
     // those steps piped like any other, so the kind is the only thing that separates them.
     it('given a list of structural steps alone, retains nothing even though they ran on pipes', async () => {
       stubSequence([0, 0], [{ stdout: 'a constituent verdict\n' }, { stdout: 'another verdict\n' }]);
@@ -689,7 +688,7 @@ describe(runSteps, () => {
       let call = 0;
       mockedSpawn.mockImplementation((_file, _args, options) => {
         const stdio = Array.isArray(options.stdio) ? options.stdio : [];
-        // The second step is the one whose stderr goes to a descriptor, which is a capture short of both streams.
+        // The second step is the one whose stderr goes to a descriptor, which leaves a capture of stdout alone.
         const isPartial = call === 1;
         call++;
         // eslint-disable-next-line unicorn/prefer-event-target -- the runner attaches EventEmitter listeners to the child.
@@ -701,7 +700,7 @@ describe(runSteps, () => {
           fakeChild.stdout?.write('a summary\n');
           void endChild(fakeChild, 0);
         });
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the runner reads only stdout, stderr, and the event methods, so the fake models those alone.
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the fake models only what the runner reads: stdout, stderr, and the event methods.
         return fakeChild as unknown as ReturnType<typeof spawn>;
       });
 
@@ -713,7 +712,7 @@ describe(runSteps, () => {
       expect(result.retainedOutput).toBeUndefined();
     });
 
-    it('given a failing step, still carries back what ran', async () => {
+    it('given a failing step, still returns what ran', async () => {
       stubSequence([1], [{ stdout: 'the failure\n' }]);
 
       const result = await runSteps([OPAQUE_STEP], undefined, {
@@ -727,8 +726,8 @@ describe(runSteps, () => {
   });
 
   describe('quiet mode', () => {
-    // Each process suppresses the output of the command it runs, never of the subtree beneath it: the nmr
-    // process a structural step spawns does its own withholding, so this one forwards whatever reaches it.
+    // Each process suppresses the output of the command that it runs, never of the subtree beneath it: The nmr
+    // process spawned by a structural step does its own withholding, so this one forwards whatever it receives.
     it('forwards a structural step even under quiet', async () => {
       const destination = new PassThrough();
       const received = collect(destination);
@@ -743,7 +742,7 @@ describe(runSteps, () => {
           fakeChild.stdout?.write('a child verdict\n');
           void endChild(fakeChild, 0);
         });
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the runner reads only stdout, stderr, and the event methods, so the fake models those alone.
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the fake models only what the runner reads: stdout, stderr, and the event methods.
         return fakeChild as unknown as ReturnType<typeof spawn>;
       });
 
@@ -757,7 +756,7 @@ describe(runSteps, () => {
       expect(received().toString('utf8')).toBe('a child verdict\n');
     });
 
-    it('surrenders the failing step alone, leaving an earlier step it already withheld unreported', async () => {
+    it('reports the output of the failing step alone, leaving an earlier step that it already withheld unreported', async () => {
       const errorStream = new PassThrough();
       const reported = collect(errorStream);
       let index = 0;
@@ -774,7 +773,7 @@ describe(runSteps, () => {
           fakeChild.stdout?.write(step === 0 ? 'first step chatter\n' : 'second step failure\n');
           void endChild(fakeChild, step === 0 ? 0 : 1);
         });
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the runner reads only stdout, stderr, and the event methods, so the fake models those alone.
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the fake models only what the runner reads: stdout, stderr, and the event methods.
         return fakeChild as unknown as ReturnType<typeof spawn>;
       });
 
@@ -800,7 +799,7 @@ describe(runSteps, () => {
           stderr: stdio[2] === 'pipe' ? new PassThrough() : null,
         });
         setImmediate(() => fakeChild.emit('error', new Error('spawn nmr ENOENT')));
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the runner reads only stdout, stderr, and the event methods, so the fake models those alone.
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the fake models only what the runner reads: stdout, stderr, and the event methods.
         return fakeChild as unknown as ReturnType<typeof spawn>;
       });
 

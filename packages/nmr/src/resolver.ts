@@ -17,7 +17,7 @@ import type { NmrConfig } from './types.ts';
 import { isMonorepoRoot } from './workspace.ts';
 
 /**
- * Replace the first token of a command with a `devBin` substitute.
+ * Replaces the first token of a command with a `devBin` substitute.
  * Relative paths in the replacement are resolved from `monorepoRoot`.
  */
 export function applyDevBin(command: string, devBin: Record<string, string> | undefined, monorepoRoot: string): string {
@@ -41,8 +41,8 @@ export function applyDevBin(command: string, devBin: Record<string, string> | un
 /**
  * Applies a `devBin` substitution to each opaque step, leaving nmr's own compositions alone.
  *
- * A structural step names a command nmr resolves for itself, so substituting its first token would replace the
- * `nmr` that carries the composite rather than the leaf tool `devBin` documents replacing.
+ * A structural step names a command that nmr resolves for itself, so substituting its first token would replace
+ * the `nmr` that runs the composite rather than the leaf tool that `devBin` documents replacing.
  */
 export function applyDevBinToSteps(
   steps: readonly Step[],
@@ -59,11 +59,11 @@ export function applyDevBinToSteps(
 }
 
 /**
- * Resolve relative paths in a replacement command against `monorepoRoot`.
+ * Resolves relative paths in a replacement command against `monorepoRoot`.
  * The first token (the runner binary) is left as-is; subsequent tokens
  * that contain `/` and don't start with `-` are resolved.
  *
- * Limitations: any non-flag token containing `/` is treated as a path,
+ * Limitations: Any non-flag token containing `/` is treated as a path,
  * which may incorrectly resolve URL-like values or glob patterns.
  * Tokens using `--flag=path` syntax are skipped entirely because the
  * leading `-` excludes them; use the spaced form `--flag path` instead.
@@ -84,7 +84,7 @@ function resolveReplacementPaths(replacement: string, monorepoRoot: string): str
  * Where a resolved script was read from.
  *
  * `registry` covers the built-in defaults and the repo-wide config together, which resolution cannot tell
- * apart: it receives the two already merged. A caller holding the config refines the two.
+ * apart: It receives the two already merged. A caller that has the config refines the two.
  */
 export type ScriptOrigin = { tier: 'registry'; key: string } | { tier: 'package'; file: string; key: string };
 
@@ -94,11 +94,11 @@ export interface ResolvedScript {
 }
 
 /**
- * Expands a script value into the ordered steps it runs as: a string is one opaque step, and an array is one
+ * Expands a script value into the ordered steps that it runs as: a string is one opaque step, and an array is one
  * structural step per element.
  *
  * A bare string element and the `{ run }` spec compose the same step. The spec's only addition is the
- * declaration of what the step does with the invocation's trailing arguments, which position cannot carry.
+ * declaration of what the step does with the invocation's trailing arguments, which position cannot express.
  */
 export function expandScript(script: ScriptValue, isWorkspaceRoot: boolean): readonly Step[] {
   if (typeof script === 'string') {
@@ -119,8 +119,8 @@ export function describeScript(script: ScriptValue): string {
 }
 
 /**
- * Renders one composite element for help output, naming a declining step so that two composites reading alike
- * are not routing the trailing arguments differently.
+ * Renders one composite element for help output, naming a declining step so that two composites that pass the
+ * trailing arguments differently do not read alike.
  */
 function describeElement(element: string | StepSpec): string {
   if (typeof element === 'string') {
@@ -180,12 +180,12 @@ export function buildRootRegistry(config: NmrConfig): ScriptRegistry {
 }
 
 /**
- * Returns a `package.json` entry that re-invokes the command it is declared under alongside other steps, or
- * `undefined` where the entry declares no such thing.
+ * Returns a `package.json` entry that re-invokes the command under which it is declared alongside other steps,
+ * or `undefined` when the entry does not.
  *
- * Resolution discards a self-referential entry however it reads, so an entry that chains loses the steps it
+ * Resolution discards a self-referential entry however it reads, so an entry that chains loses the steps that it
  * chained. This is what an invocation rejects on, read where the command runs rather than raised from
- * resolution: the same scripts are resolved speculatively, for packages nobody named.
+ * resolution: The same scripts are resolved speculatively, for packages that nobody named.
  */
 export function findChainedSelfReference(packageDir: string | undefined, commandName: string): string | undefined {
   if (packageDir === undefined) {
@@ -208,8 +208,8 @@ export function findChainedSelfReference(packageDir: string | undefined, command
 }
 
 /**
- * Reports whether a `package.json` entry re-invokes the command it is declared under, wherever the
- * re-invocation stands in it, e.g. `"build": "nmr build"` or `"build": "rdy compile && nmr build"`.
+ * Reports whether a `package.json` entry re-invokes the command under which it is declared, wherever the
+ * re-invocation appears in it, e.g. `"build": "nmr build"` or `"build": "rdy compile && nmr build"`.
  */
 export function isSelfReferential(script: string, commandName: string, packageDir: string): boolean {
   return readSelfReference({ anchoredAtRoot: isMonorepoRoot(packageDir), commandName, script }) !== undefined;
@@ -222,7 +222,7 @@ export function isSelfReferential(script: string, commandName: string, packageDi
  * 3. Per-package overrides (package.json scripts)
  *
  * Returns undefined if the command is not found in the registry. A package.json override of `""` (indicating
- * skip) resolves to a single opaque step carrying it, which renders back to the empty string.
+ * skip) resolves to a single opaque step containing it, which renders back to the empty string.
  */
 export function resolveScript(
   commandName: string,
@@ -244,7 +244,7 @@ export function resolveScript(
     }
   }
 
-  // Check tiers 1+2 (already merged in the registry). The registry is a plain object, so the own-key check is what
+  // Check tiers 1+2 (already merged in the registry). The registry is a plain object, so the own-key check
   // keeps a command named for an `Object.prototype` member from resolving to the inherited value.
   if (!Object.hasOwn(registry, commandName)) {
     return undefined;

@@ -9,22 +9,22 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { RUN_IF_PRESENT_ENV_VAR, runCli } from '../runCli.ts';
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
-/** The cacheable command every test drives; the fixture maps it to a script whose output is recognizable. */
+/** The cacheable command driven by every test; the fixture maps it to a script whose output is recognizable. */
 const COMMAND = 'typecheck';
 
 /** What the fixture's command writes, and so what a recording of it has to print back. */
 const OUTPUT = 'checked 12 files';
 
 /**
- * A composite the package-free fixture drops a step from: `test` resolves to a root step beside a `-R` one,
- * and the workspace this fixture declares holds no package for the fan-out to reach.
+ * A composite from which the package-free fixture drops a step: `test` resolves to a root step beside a `-R`
+ * one, and the workspace that this fixture declares does not contain any package for the fan-out to reach.
  */
 const FANNED_COMMAND = 'test';
 
 /** The constituent that survives the drop, which a recording of the composite has to name as the chain. */
 const SURVIVING_STEP = 'root:test';
 
-/** The run log, which sits beside the repository rather than inside it. */
+/** The run log, which is beside the repository rather than inside it. */
 const LOG_ENTRY = 'log.txt';
 
 describe('a run printed by --log', () => {
@@ -61,7 +61,7 @@ describe('a run printed by --log', () => {
       );
     });
 
-    it('runs nothing and reports no verdict', async () => {
+    it('runs nothing and does not report a verdict', async () => {
       const { stdout } = await runNmr(`--log ${COMMAND}`);
 
       expect(countRuns()).toBe(1);
@@ -83,14 +83,14 @@ describe('a run printed by --log', () => {
       const { exitCode, stderr, stdout } = await runNmr(`--log ${COMMAND}`);
 
       expect(exitCode).toBe(1);
-      expect(stderr).toContain('on a tree this is not');
+      expect(stderr).toContain('on a tree that this is not');
       expect(stdout).toBe('');
     });
   });
 
-  // The fan-out step is dropped before the chain is rendered, and the rendering is what the recording carries.
-  // A filter applied after it would leave the recording naming a step the run never took.
-  it('records the chain the run took, the dropped fan-out step left out of it', async () => {
+  // The fan-out step is dropped before the chain is rendered, and the recording contains the rendering. A filter
+  // applied after it would leave the recording naming a step that the run never took.
+  it('records the chain that the run took, the dropped fan-out step left out of it', async () => {
     await runNmr(FANNED_COMMAND);
 
     const { exitCode, stdout } = await runNmr(`--log ${FANNED_COMMAND}`);
@@ -124,7 +124,7 @@ describe('a run printed by --log', () => {
     expect(stderr).toContain('retained none');
   });
 
-  // A fan-out asks every selected scope, and the delegate marks the scopes it fanned out to.
+  // A fan-out asks every selected scope, and the delegate marks the scopes to which it fanned out.
   it('reports a gap without failing under a delegate', async () => {
     const { exitCode, stderr } = await runNmr(`--log ${COMMAND}`, { [RUN_IF_PRESENT_ENV_VAR]: '1' });
 
@@ -133,7 +133,7 @@ describe('a run printed by --log', () => {
   });
 
   // The refusal points at NMR_DEBUG, so the gate has to have written a note for every reason the cache does not apply.
-  it('reports why the cache did not apply to a command carrying arguments', async () => {
+  it('reports why the cache did not apply to a command with arguments', async () => {
     const { exitCode, stderr } = await runNmr(`--log ${COMMAND} --project unit`, { NMR_DEBUG: '1' });
 
     expect(exitCode).toBe(1);
@@ -141,7 +141,7 @@ describe('a run printed by --log', () => {
     expect(stderr).toContain('does not apply here');
   });
 
-  it('names the flag when no command follows it', async () => {
+  it('names the flag when a command does not follow it', async () => {
     const { exitCode, stderr } = await runNmr('--log');
 
     expect(exitCode).toBe(1);
@@ -194,7 +194,8 @@ describe('a run printed by --log', () => {
 
 /**
  * Decorates a destination as a terminal on the given descriptor, so the runner hands the child that descriptor
- * and nmr sees none of what flows through it. Left undecorated, the stream carries no descriptor and is piped.
+ * and nmr sees none of what flows through it. Left undecorated, the stream does not have a descriptor and is
+ * piped.
  */
 function buildDestination(stream: PassThrough, terminalFd: number | undefined): PassThrough {
   return terminalFd === undefined ? stream : Object.assign(stream, { fd: terminalFd, isTTY: true });
@@ -206,7 +207,7 @@ function runGit(cwd: string, args: string[]): void {
 }
 
 /**
- * Writes a committed git repository under `repo/` in the workspace, holding the pnpm files the install
+ * Writes a committed git repository under `repo/` in the workspace, containing the pnpm files that the install
  * fingerprint reads and a config mapping the cacheable command to a script that both records its run and
  * writes a recognizable line.
  */

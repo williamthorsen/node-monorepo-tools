@@ -66,7 +66,7 @@ describe(prettierConfigBuildsOnSharedConfig, () => {
     expect(getDetail(prettierConfigBuildsOnSharedConfig(dir))).toContain('missing');
   });
 
-  // Every repo this check runs against carries `prettier` as a dependency, so mistaking that entry for a config
+  // Every repo against which this check runs declares `prettier` as a dependency, so mistaking that entry for a config
   // key would make the misreport the common case rather than the edge one.
   it('reads prettier in devDependencies as a dependency, not as a config key', () => {
     const dir = buildRepo({

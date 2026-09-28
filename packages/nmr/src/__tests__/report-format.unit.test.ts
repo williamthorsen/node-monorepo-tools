@@ -12,21 +12,21 @@ describe(readReportFormatEnv, () => {
   it.each([
     { rawValue: undefined, scenario: 'no value at all' },
     { rawValue: '', scenario: 'a value left empty' },
-  ])('given $scenario, names no format, leaving the level below reachable', ({ rawValue }) => {
+  ])('given $scenario, does not name any format, leaving the level below reachable', ({ rawValue }) => {
     const env = rawValue === undefined ? {} : { [REPORT_FORMAT_ENV_VAR]: rawValue };
 
     expect(readReportFormatEnv(env)).toStrictEqual({ ok: true });
   });
 
-  it.each([{ rawValue: 'json' }, { rawValue: 'text' }])('reads a $rawValue the environment names', ({ rawValue }) => {
+  it.each([{ rawValue: 'json' }, { rawValue: 'text' }])('reads a $rawValue from the environment', ({ rawValue }) => {
     expect(readReportFormatEnv({ [REPORT_FORMAT_ENV_VAR]: rawValue })).toStrictEqual({ ok: true, format: rawValue });
   });
 
   it.each([
     { rawValue: 'ndjson', scenario: 'a point that is not on the ladder' },
     { rawValue: 'JSON', scenario: 'a recognized value in the wrong case' },
-    { rawValue: ' json', scenario: 'a recognized value carrying whitespace' },
-  ])('given $scenario, resolves to nothing rather than a rendering nobody chose', ({ rawValue }) => {
+    { rawValue: ' json', scenario: 'a recognized value padded with whitespace' },
+  ])('given $scenario, resolves to nothing rather than a rendering that the user did not choose', ({ rawValue }) => {
     expect(readReportFormatEnv({ [REPORT_FORMAT_ENV_VAR]: rawValue }).ok).toBe(false);
   });
 
@@ -56,8 +56,8 @@ describe(resolveReportFormat, () => {
     expect(resolve({ envFormat: 'text', hasJsonFlag: true })).toBe('json');
   });
 
-  // Both values spelled out is what lets one invocation opt back out of a format exported for the shell.
-  it('given a text environment against no flag, resolves to text', () => {
+  // Spelling out both values lets one invocation opt back out of a format exported for the shell.
+  it('given a text environment without the flag, resolves to text', () => {
     expect(resolve({ envFormat: 'text' })).toBe('text');
   });
 });
@@ -70,7 +70,7 @@ function requireError(read: ReportFormatRead): string {
   return read.error;
 }
 
-/** Resolves against an empty ladder, so each case declares only the levels it is about. */
+/** Resolves against an empty ladder, so that each case declares only the levels that it is about. */
 function resolve(options: { envFormat?: ReportFormat; hasJsonFlag?: boolean }): ReportFormat {
   return resolveReportFormat({ envFormat: options.envFormat, hasJsonFlag: options.hasJsonFlag ?? false });
 }

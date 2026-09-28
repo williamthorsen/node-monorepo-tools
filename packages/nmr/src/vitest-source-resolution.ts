@@ -22,20 +22,20 @@ const SOURCE_CONDITION = 'source';
 const NODE_MODULES = 'node_modules';
 
 /**
- * Extensions probed on a `source` target that names no file on its own, in Vite's own order.
+ * Extensions probed on a `source` target that does not name a file on its own, in Vite's own order.
  *
  * Node's `exports` resolution takes the target literally, but `source` is a bundler condition that Node never
- * reads, so a package may point it at an extensionless path or at a directory holding an index. Vite resolves
- * both, so this resolver probes for both as well.
+ * reads, so a package may point it at an extensionless path or at a directory containing an index. Because Vite
+ * resolves both, this resolver probes for both as well.
  */
 const TARGET_EXTENSIONS = ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'];
 
 /**
- * Builds the plugin that resolves a package's `source` export condition, for a package whose files sit outside
+ * Builds the plugin that resolves a package's `source` export condition, for a package whose files are outside
  * every `node_modules`.
  *
  * The condition cannot be emitted as a `resolve.conditions` entry instead: Vitest turns the server environment's
- * conditions into `--conditions` flags on the worker process, where Node applies them to every package it
+ * conditions into `--conditions` flags on the worker process, where Node applies them to every package that it
  * resolves natively. Node refuses to strip types from a file under `node_modules`, so a dependency declaring a
  * TypeScript `source` entry fails to load as soon as the condition reaches that far.
  *
@@ -52,7 +52,7 @@ export function createSourceResolutionPlugin(): Plugin {
     enforce: 'pre',
     /** Resolves a bare specifier through its package's `source` condition, or leaves it to Vite. */
     resolveId(id, importer) {
-      // eslint-disable-next-line unicorn/no-this-outside-of-class -- Rollup delivers the plugin context as `this`, which is the only route to the resolving environment.
+      // eslint-disable-next-line unicorn/no-this-outside-of-class -- Rollup passes the plugin context as `this`, which is the only route to the resolving environment.
       return resolveSourceTarget(id, importer, { environmentName: this.environment.name, manifests, packageDirs });
     },
   };
@@ -69,17 +69,17 @@ export interface SourceResolutionContext {
 }
 
 /**
- * Resolves a bare specifier to the file that its package's `source` condition names, or nothing where the condition
- * does not reach it.
+ * Resolves a bare specifier to the file that its package's `source` condition names, or to nothing when the
+ * condition does not reach it.
  *
- * Answers a bare specifier naming a package whose real directory sits outside every `node_modules`. Every other
- * specifier returns nothing -- such as a relative or absolute path, a virtual module, a builtin, or a package under
- * `node_modules` -- so Vite resolves the specifier through its own conditions. Throws where the condition reaches no
- * file, because falling through to the build output is the staleness that resolving from source exists to prevent,
- * and nothing in a run reports it.
+ * Answers a bare specifier naming a package whose real directory is outside every `node_modules`. Returns nothing
+ * for every other specifier -- such as a relative or absolute path, a virtual module, a builtin, or a package under
+ * `node_modules` -- so Vite resolves the specifier through its own conditions. Throws when the condition does not
+ * reach any file, because falling through to the build output is the staleness that resolving from source exists
+ * to prevent, and nothing in a run reports it.
  *
- * A query or hash suffix is split off before the `exports` lookup and re-appended to the resolved path, as Vite
- * does, so `pkg/icon.svg?raw` matches the `./icon.svg` entry and still reaches the plugin that reads the suffix.
+ * Because a query or hash suffix is split off before the `exports` lookup and re-appended to the resolved path, as
+ * Vite does, `pkg/icon.svg?raw` matches the `./icon.svg` entry and still reaches the plugin that reads the suffix.
  */
 export function resolveSourceTarget(
   specifier: string,
@@ -129,7 +129,7 @@ export function resolveSourceTarget(
  * The `exports` map that the caller is about to read may not name any entry reached by the default conditions.
  *
  * A self-reference is answered by the importer's own package first, because a package importing itself by name
- * needs no `node_modules` link and often has none. Vite resolves it the same way.
+ * does not need a `node_modules` link and often does not have one. Vite resolves it the same way.
  */
 function findPackageDir(
   name: string,
@@ -159,8 +159,8 @@ function findPackageDir(
 }
 
 /**
- * Finds the package directory that a self-reference names: the importer's nearest manifest, where that manifest
- * declares `exports` and carries the specifier's own package name. Both conditions are Vite's.
+ * Finds the package directory that a self-reference names: the importer's nearest manifest, when that manifest
+ * declares `exports` and its `name` is the specifier's own package name. Both conditions are Vite's.
  */
 function findSelfReferenceDir(name: string, fromDir: string): string | undefined {
   let dir = fromDir;
@@ -180,7 +180,7 @@ function findSelfReferenceDir(name: string, fromDir: string): string | undefined
   }
 }
 
-/** Finds where a query or hash suffix begins, or -1 where the specifier carries neither. */
+/** Finds where a query or hash suffix begins, or -1 when the specifier contains neither. */
 function findSuffixIndex(specifier: string): number {
   const queryIndex = specifier.indexOf('?');
   const hashIndex = specifier.indexOf('#');
@@ -211,12 +211,12 @@ function findTargetFile(declaredPath: string): string | undefined {
   return undefined;
 }
 
-/** Returns the message rejecting a `source` condition that reaches no file the package holds. */
+/** Returns the message rejecting a `source` condition that does not reach any file in the package. */
 function formatMissingTarget(name: string, subpath: string, declaredTarget: string, target: string): string {
   return [
-    `Package "${name}" declares a \`source\` export for "${subpath}" at "${declaredTarget}", which reaches no file.`,
+    `Package "${name}" declares a \`source\` export for "${subpath}" at "${declaredTarget}", which does not reach any file.`,
     `Looked for ${target}, the same path under each of ${TARGET_EXTENSIONS.join(', ')}, and an index under it.`,
-    'Point the condition at a file that exists, or remove it so the package resolves through its other conditions.',
+    'Point the condition at a file that exists, or remove it so that the package resolves through its other conditions.',
   ].join(' ');
 }
 
@@ -225,7 +225,7 @@ function isFile(candidate: string): boolean {
   return statSync(candidate, { throwIfNoEntry: false })?.isFile() === true;
 }
 
-/** Reports whether a real path lies inside a `node_modules` directory, which is what Vitest hands to Node. */
+/** Reports whether a real path is inside a `node_modules` directory, which is what Vitest passes to Node. */
 function isInsideNodeModules(dir: string): boolean {
   return dir.split(path.sep).includes(NODE_MODULES);
 }

@@ -15,7 +15,7 @@ export interface BuildOptions {
   outdir?: string;
 }
 
-/** The pair of directories a build publishes through, both siblings of the emit directory. */
+/** The pair of directories through which a build publishes, both siblings of the emit directory. */
 export interface ScratchDirs {
   previousDir: string;
   stagingDir: string;
@@ -24,29 +24,32 @@ export interface ScratchDirs {
 export const DEFAULT_ENTRY_GLOBS = ['src/**/*.ts'];
 
 /**
- * Directories holding test scaffolding rather than shipped code, excluded from entry-point selection so that a
+ * Directories holding test scaffolding rather than published code, excluded from entry-point selection so that a
  * package does not publish its own helpers. The list differs from the vitest factory's `COVERAGE_EXCLUDE`, which
  * leaves `test-utils/` inside the coverage include set, and neither list can be derived from the other.
  *
  * Ignoring a file removes it as an entry point, not from the emit. The compiler still emits whatever the
- * surviving entry points import, which is what keeps a production module that uses a helper from emitting a
- * dangling specifier. Widening this list can therefore only drop files nothing in production reaches.
+ * surviving entry points import, which keeps a production module that uses a helper from emitting a dangling
+ * specifier. Widening this list can therefore only drop files that production code does not import.
  */
 export const DEFAULT_IGNORE_PATTERNS = ['**/__fixtures__/**', '**/__mocks__/**', '**/__tests__/**', '**/test-utils/**'];
 
 export const DEFAULT_OUTDIR = 'dist/esm/';
 
-/** The cache a build's entries live in. Renaming it orphans every entry a previous build wrote. */
+/** The cache in which a build stores its entries. Renaming it orphans every entry written by a previous build. */
 const BUILD_CACHE_TOOL = 'nmr-compile';
 
-/** The package root of the nmr running this build, whatever bin, symlink, or source layout it was reached through. */
+/**
+ * The package root of the nmr running this build, whether it was invoked through a bin, a symlink, or a source
+ * layout.
+ */
 const SELF_DIR = findPackageRoot(import.meta.url);
 
 /**
- * Reports whether the output a build of `packageDir` would produce is currently on disk. Applies the rule the
- * build applies, on the same options the build was given, so a caller probing for output and the build deciding
- * whether to rebuild cannot disagree: a package whose entry points emit nothing expects no output, and reports
- * present. Passing options the build was not given is what would make the two disagree.
+ * Reports whether the output that a build of `packageDir` would produce is currently on disk. Applies the build's
+ * own rule, on the same options that the build was given, so a caller probing for output and the build deciding
+ * whether to rebuild cannot disagree: A package whose entry points emit nothing does not expect any output, and
+ * reports present. Passing options that the build was not given would make the two disagree.
  */
 export async function hasBuildOutput(packageDir: string, options: BuildOptions = {}): Promise<boolean> {
   const outdir = options.outdir ?? DEFAULT_OUTDIR;
@@ -59,10 +62,10 @@ export async function hasBuildOutput(packageDir: string, options: BuildOptions =
 }
 
 /**
- * Reports whether the output a previous build would have produced is still on disk. Entry points that
- * emit nothing expect no output, so their absent outdir is not deleted output: a `src` tree holding only
- * declaration files, or none at all, would otherwise be reported as missing output and recompiled forever.
- * The emit is what makes an outdir, so what counts is whether any entry point emits, not how many there are.
+ * Reports whether the output that a previous build would have produced is still on disk. Because entry points
+ * that emit nothing do not expect any output, their absent outdir is not deleted output: A `src` tree holding
+ * only declaration files, or none at all, would otherwise be reported as missing output and recompiled forever.
+ * The emit creates an outdir, so the test is whether any entry point emits, not how many there are.
  */
 export function hasExpectedBuildOutput(packageDir: string, outdir: string, entryPoints: string[]): boolean {
   const doesEmitOutput = entryPoints.some((entry) => !entry.endsWith('.d.ts'));
@@ -75,9 +78,10 @@ export function hasExpectedBuildOutput(packageDir: string, outdir: string, entry
 }
 
 /**
- * Returns the digest of the inputs the output currently on disk was built from, or `undefined` when the package
- * has never been built. Two packages holding the same sources report the same digest, and a package whose output
- * came from a different tree reports a different one, which is what tells a stale `dist` from a current one.
+ * Returns the digest of the inputs from which the output currently on disk was built, or `undefined` when the
+ * package has never been built. Two packages containing the same sources report the same digest, and a package
+ * whose output came from a different tree reports a different one, which distinguishes a stale `dist` from a
+ * current one.
  */
 export async function readBuildDigest(packageDir: string): Promise<string | undefined> {
   return readCacheEntry(resolveBuildCachePath(packageDir));
@@ -88,9 +92,9 @@ export async function readBuildDigest(packageDir: string): Promise<string | unde
  * directory is the entry's scope, so the store keys the file to it and packages sharing a hoisted
  * `node_modules` never collide.
  *
- * Three things hold the path where every previously written entry already sits: the `.hash` extension, the
- * package's own directory name as the slug, and the absence of `discriminators`, which would otherwise fold
- * into the digest. Changing any of them strands every entry on disk.
+ * Three things keep the path pointing at every previously written entry: the `.hash` extension, the
+ * package's own directory name as the slug, and the absence of `discriminators`, which would otherwise be added
+ * to the digest. Changing any of them leaves every entry on disk unreachable.
  */
 export function resolveBuildCachePath(packageDir: string): string {
   const absolutePackageDir = path.resolve(packageDir);
@@ -104,15 +108,15 @@ export function resolveBuildCachePath(packageDir: string): string {
 }
 
 /**
- * Resolves the two scratch directories a build publishes through: `staging`, which the emit is written to, and
- * `previous`, which the outgoing output is renamed aside to. Both are siblings of the emit directory, so a
- * rename between them never crosses a filesystem, and both are dot-prefixed so a leftover stays out of the
+ * Resolves the two scratch directories through which a build publishes: `staging`, which the emit is written to,
+ * and `previous`, which the outgoing output is renamed aside to. Both are siblings of the emit directory, so a
+ * rename between them never crosses a filesystem, and both are dot-prefixed so that a leftover stays out of the
  * globs that select sources.
  *
- * The names are fixed rather than unique because the build removes both before use. That removal is what a
- * unique name would need a sweep to accomplish, and a sweep cannot tell a directory orphaned by a killed run
- * from one a concurrent build is still writing. A directory left behind by a failed build is cleared the same
- * way, so the failure path needs no cleanup of its own.
+ * The names are fixed rather than unique because the build removes both before use. A unique name would need a
+ * sweep to accomplish that removal, and a sweep cannot tell a directory orphaned by a killed run from one that a
+ * concurrent build is still writing. Because a directory left behind by a failed build is cleared the same way,
+ * the failure path does not need any cleanup of its own.
  */
 export function resolveScratchDirs(emitDir: string): ScratchDirs {
   const parent = path.dirname(emitDir);
@@ -126,16 +130,16 @@ export function resolveScratchDirs(emitDir: string): ScratchDirs {
 
 /**
  * Resolves the fingerprint of the nmr compiling `packageDir`, the `BuildToolchain` member that identifies nmr. It
- * is nmr's own build digest where one is on disk, which is what moves on a dev-loop edit that the version does not
+ * is nmr's own build digest when one is on disk, which changes on a dev-loop edit that the version does not
  * follow, and nmr's package version otherwise -- the case in a consuming repo, whose installed copy was built
  * elsewhere.
  *
- * A build of nmr itself takes the version too. Its digest is the entry that build is about to overwrite, so
- * folding it would make the key a function of its own previous value, which never settles: nmr would rebuild on
- * every invocation and move the fingerprint every other package reads.
+ * A build of nmr itself takes the version too. Its digest is the entry that the build is about to overwrite, so
+ * including it would make the key a function of its own previous value, which never stops changing: nmr would
+ * rebuild on every invocation and change the fingerprint that every other package reads.
  *
- * What the fingerprint names is the nmr that produced the output, not the sources sitting in `src`, so a package
- * the pre-rebuild binary compiled keeps the old fingerprint and rebuilds on the run after.
+ * Because the fingerprint names the nmr that produced the output, not the sources in `src`, a package compiled by
+ * the pre-rebuild binary keeps the old fingerprint and rebuilds on the next run.
  */
 export async function resolveToolchainFingerprint(packageDir: string, selfDir: string = SELF_DIR): Promise<string> {
   if (!isSameDir(packageDir, selfDir)) {
@@ -151,8 +155,8 @@ export async function resolveToolchainFingerprint(packageDir: string, selfDir: s
 // region | Helpers
 
 /**
- * Reports whether two paths name the same directory, comparing real paths so a checkout reached through a
- * symlink is recognized as the directory it resolves to.
+ * Reports whether two paths name the same directory, comparing real paths so that a checkout accessed through a
+ * symlink is recognized as the directory to which it resolves.
  */
 function isSameDir(left: string, right: string): boolean {
   return resolveRealPath(left) === resolveRealPath(right);

@@ -7,8 +7,9 @@ import { RUN_IF_PRESENT_ENV_VAR } from '../../runCli.ts';
 import { AGENT_ENV_VARS, COMMAND_VERBOSITY_ENV_VAR } from '../../verbosity.ts';
 import { readAmbientEnv } from '../readAmbientEnv.ts';
 
-// Every variable nmr reads out of the environment it runs in. A variable missing here is one a suite running under
-// `nmr test` passes on to the runs its tests make, where it decides their outcome without being asserted on.
+// Every variable that nmr reads out of the environment in which it runs. A variable missing here is one that a suite
+// running under `nmr test` passes on to the runs that its tests make, and in those runs it decides their outcome
+// without being asserted on.
 const STRIPPED_ENV_VARS = [
   ...AGENT_ENV_VARS,
   COMMAND_VERBOSITY_ENV_VAR,
@@ -40,7 +41,7 @@ describe(readAmbientEnv, () => {
     expect(Object.keys(readAmbientEnv()).filter((name) => STRIPPED_ENV_VARS.includes(name))).toStrictEqual([]);
   });
 
-  it('keeps a variable nmr does not own', () => {
+  it('keeps a variable that nmr does not own', () => {
     vi.stubEnv('NMR_UNCLAIMED', 'kept');
 
     expect(readAmbientEnv()['NMR_UNCLAIMED']).toBe('kept');

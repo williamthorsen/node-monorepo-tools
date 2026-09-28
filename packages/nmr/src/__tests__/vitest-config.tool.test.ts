@@ -13,14 +13,14 @@ const SETUP_LOG = 'setup-order.log';
 const OBSERVED_LOG = 'observed.json';
 
 /**
- * A package tree whose files sit on either side of every boundary the exclusions draw.
- * Each fixture exists in an imported and an unimported variant: the unimported one reaches coverage through the
- * file glob, the imported one through `isIncluded()`, and only running Vitest exercises both paths at once.
+ * A package tree whose files are on either side of every boundary drawn by the exclusions.
+ * Each fixture exists in an imported and an unimported variant: The unimported one is included in coverage through
+ * the file glob, the imported one through `isIncluded()`, and only running Vitest exercises both paths at once.
  */
 const PROJECT_FILES: Record<string, string> = {
   'package.json': JSON.stringify({ name: 'vitest-config-fixture', private: true, type: 'module' }),
 
-  // The config under test, imported from source rather than from `dist`, so the test needs no build.
+  // The config under test, imported from source rather than from `dist`, so the test does not need a build.
   'vitest.config.ts': `import { defineVitestConfig } from ${JSON.stringify(CONFIG_SOURCE)};\n\nexport default defineVitestConfig();\n`,
 
   'src/covered.ts': 'export const covered = (): string => "covered";\n',
@@ -57,8 +57,8 @@ const PROJECT_FILES: Record<string, string> = {
 
 /**
  * A package staged in a repository of its own, whose `.gitignore` ignores one generated directory and one file
- * pattern, each holding a test file that passes. A tracked file matching a pattern, and an untracked one matching
- * none, are added after staging.
+ * pattern, each containing a test file that passes. A tracked file matching a pattern, and an untracked one
+ * matching none, are added after staging.
  */
 const IGNORED_FILES: Record<string, string> = {
   '.gitignore': ['.netlify/', 'src/__tests__/*.local.test.ts', ''].join('\n'),
@@ -74,11 +74,11 @@ const IGNORED_FILES: Record<string, string> = {
 /**
  * A tree whose dependencies report which export condition selected each, alongside the two configs that decide.
  *
- * One is reached through a symlink whose target sits outside any `node_modules`, which is the shape of a
- * workspace package and the only shape that source resolution reaches. The other pair is a real `node_modules`
+ * One is reached through a symlink whose target is outside any `node_modules`, which is the shape of a
+ * workspace package and the only shape to which source resolution applies. The other pair is a real `node_modules`
  * dependency importing a second one that declares a TypeScript `source` entry: Vitest externalizes both and
- * hands them to Node, which refuses to strip types under `node_modules`, so the run fails outright wherever
- * `source` reaches that far. The indirection is load-bearing -- importing the TypeScript entry directly does not
+ * hands them to Node, which refuses to strip types under `node_modules`, so the run fails outright if `source`
+ * applies to the second one. The indirection is necessary -- importing the TypeScript entry directly does not
  * reproduce it, because Vitest inlines a `.ts` that Vite resolved itself.
  */
 const DEFAULTS_FILES: Record<string, string> = {
@@ -112,7 +112,7 @@ const DEFAULTS_FILES: Record<string, string> = {
   'dependency/dist/default.js': 'export const entry = "default";\n',
   'dependency/dist/node.js': 'export const entry = "node";\n',
 
-  // A plain-JavaScript dependency whose own import reaches Node's resolver rather than Vite's.
+  // A plain-JavaScript dependency whose own import is resolved by Node's resolver rather than Vite's.
   'src/node_modules/@fixture/client/package.json': JSON.stringify({
     name: '@fixture/client',
     private: true,
@@ -163,7 +163,7 @@ const DEFAULTS_FILES: Record<string, string> = {
 
 /**
  * A package whose config composes two option layers, each contributing a setup file that records when it ran.
- * Only a real run settles the order: the config object shows the array, not which entry Vitest executes first.
+ * Only a real run settles the order: The config object shows the array, not which entry Vitest executes first.
  */
 const LAYER_ORDER_FILES: Record<string, string> = {
   'package.json': JSON.stringify({ name: 'vitest-layer-fixture', private: true, type: 'module' }),
@@ -192,9 +192,9 @@ const LAYER_ORDER_FILES: Record<string, string> = {
 };
 
 /**
- * A tree whose only route to a module is the alias its `tsconfig.json` declares, alongside the two configs that
- * decide whether Vite follows it. The alias target sits outside `src/`, where neither collection nor coverage
- * reaches it, so the import is the only thing that can pull it in.
+ * A tree whose only route to a module is the alias declared in its `tsconfig.json`, alongside the two configs that
+ * decide whether Vite follows it. The alias target is outside `src/`, where neither collection nor coverage
+ * includes it, so only the import can load it.
  */
 const TSCONFIG_PATHS_FILES: Record<string, string> = {
   'package.json': JSON.stringify({ name: 'vitest-tsconfig-paths-fixture', private: true, type: 'module' }),
@@ -230,7 +230,7 @@ const TSCONFIG_PATHS_FILES: Record<string, string> = {
 };
 
 // Each builder owns its tree through a `DisposableStack` and transfers it only past the last statement that can
-// throw: a fixture that fails never reaches its `onCleanup` registration, and both of these throw by design when
+// throw: A fixture that fails never reaches its `onCleanup` registration, and both of these throw by design when
 // the child run does. `createTempTree` resolves through `realpath`, which the relative paths below depend on,
 // because macOS exposes the temp root through a symlink while Vitest reports resolved paths back.
 const it = baseIt
@@ -243,7 +243,7 @@ const it = baseIt
 
     const run = runVitestWithCoverage(tree.dir);
 
-    // Surface the child's own output, or a failure here reads as an unexplained empty result.
+    // Report the child's own output, or a failure here reads as an unexplained empty result.
     if (run.status !== 0) {
       throw new Error(`fixture run failed with status ${String(run.status)}:\n${run.stdout}\n${run.stderr}`);
     }
@@ -264,7 +264,8 @@ const it = baseIt
     using stack = new DisposableStack();
     const tree = stack.use(createTempTree({}, { prefix: 'nmr-vitest-defaults-' }));
     scaffoldProject(tree, DEFAULTS_FILES);
-    // Relative, so the link resolves through the tree rather than through the path this process happens to hold.
+    // Relative, so that the link resolves through the tree rather than through the path that this process
+    // happens to hold.
     tree.symlink('src/node_modules/@fixture/dep', '../../../dependency');
     stack.defer(() => unlinkNodeModules(tree.dir));
 
@@ -334,7 +335,8 @@ const it = baseIt
 
     const derivedObservations = {
       optedIn: readObserved(tree, runVitest(tree.dir, ['--config', 'vitest.optin.config.ts'])),
-      // The default run resolves no alias and so writes no report; its failure is what it has to say.
+      // The default run does not resolve any alias, so it does not write a report.
+      // Its failure is the result under test.
       byDefault: runVitest(tree.dir),
     };
     const ownedStack = stack.move();
@@ -346,13 +348,13 @@ const it = baseIt
   });
 
 /**
- * Runs the shipped config against a real Vitest invocation. The coverage guarantee cannot be asserted from the
+ * Runs the published config against a real Vitest invocation. The coverage guarantee cannot be asserted from the
  * pattern alone: `isIncluded()` matches absolute paths with picomatch's `contains` flag, whose effect is not
  * visible in the pattern, and a unit test replicating that call would keep passing if Vitest stopped passing it.
  */
-// The block's budget rather than the hook's: a file-scoped fixture is built inside the first test that names it,
-// where `testTimeout` governs and the tier's 30 seconds will not cover a real Vitest run.
-describe('the shipped Vitest config, run for real', { timeout: 120_000 }, () => {
+// The block's budget rather than the hook's: A file-scoped fixture is built inside the first test that names it,
+// where `testTimeout` applies and the tier's 30 seconds will not cover a real Vitest run.
+describe('the published Vitest config, run for real', { timeout: 120_000 }, () => {
   // `src/uncovered.ts` appearing here also proves a source untouched by any test is reported rather than dropped.
   it('measures the sources and nothing else', ({ project }) => {
     expect(project.coveredFiles).toStrictEqual(['src/covered.ts', 'src/uncovered.ts']);
@@ -374,12 +376,12 @@ describe('the shipped Vitest config, run for real', { timeout: 120_000 }, () => 
 });
 
 describe('git-ignored paths, run for real', { timeout: 120_000 }, () => {
-  it('collects no test file in an ignored directory or matching an ignored pattern', ({ ignored }) => {
+  it('does not collect any test file in an ignored directory or matching an ignored pattern', ({ ignored }) => {
     expect(ignored.collectedTestFiles).not.toContain('.netlify/edge-functions/__tests__/utils.test.ts');
     expect(ignored.collectedTestFiles).not.toContain('src/__tests__/scratch.local.test.ts');
   });
 
-  it('collects a tracked file under an ignored directory, and an untracked file git does not ignore', ({ ignored }) => {
+  it('collects a tracked file under an ignored directory, and an untracked file not ignored by git', ({ ignored }) => {
     expect(ignored.collectedTestFiles).toStrictEqual([
       '.netlify/__tests__/forced.test.ts',
       'src/__tests__/suite.test.ts',
@@ -389,28 +391,29 @@ describe('git-ignored paths, run for real', { timeout: 120_000 }, () => {
 });
 
 describe('composed option layers, run for real', { timeout: 120_000 }, () => {
-  // A shared entry establishes the environment the later ones run in, so the order is the guarantee rather than
+  // A shared entry establishes the environment in which the later ones run, so the order is the guarantee rather than
   // the membership. Asserting on the config object would pass even if Vitest executed the two the other way round.
   it('runs an earlier layer of setup files before a later one', ({ layers }) => {
     expect(layers.setupOrder.map((entry) => entry.split(':', 1)[0])).toStrictEqual(['shared', 'package']);
   });
 
-  // nmr's own setup file writes nothing to this log, so what the first layer observed is the evidence it ran.
-  it('isolates git before the first setup file a layer supplies', ({ layers }) => {
+  // Because nmr's own setup file does not write anything to this log, what the first layer observed is the evidence
+  // that it ran.
+  it('isolates git before the first setup file supplied by a layer', ({ layers }) => {
     expect(layers.setupOrder[0]).toBe('shared:isolated');
   });
 });
 
-describe('the defaults the factory supplies, run for real', { timeout: 120_000 }, () => {
-  // This run reaches `source` alone. That the emitted list also carries Vite's defaults is held by the unit
-  // test's pin against `vite`'s exports: a replaced list still resolves `node` and `development` under Vitest,
-  // so no run here can tell a complete list from a narrowed one.
+describe('the defaults supplied by the factory, run for real', { timeout: 120_000 }, () => {
+  // This run exercises only `source`. The unit test's pin against `vite`'s exports verifies that the emitted list
+  // also includes Vite's defaults: A replaced list still resolves `node` and `development` under Vitest, so a run
+  // here cannot tell a complete list from a narrowed one.
   it('resolves a linked dependency through its source condition', ({ defaults }) => {
     expect(defaults.supplied).toMatchObject({ entry: 'source' });
   });
 
-  // The run's own success is half the assertion: where `source` reaches Node, this import fails to load at all,
-  // because Node refuses to strip the types from the entry it then selects under `node_modules`.
+  // The run's own success is half the assertion: If Node receives the `source` condition, this import fails to load at
+  // all, because Node refuses to strip the types from the entry that it then selects under `node_modules`.
   it('leaves a dependency under node_modules to resolve without the source condition', ({ defaults }) => {
     expect(defaults.supplied).toMatchObject({ transitiveEntry: 'default' });
   });
@@ -429,26 +432,26 @@ describe('the defaults the factory supplies, run for real', { timeout: 120_000 }
     });
   });
 
-  // Source resolution is what selects the source entry, rather than anything incidental about the fixture:
-  // without it the same tree resolves the `node` entry, which is also what proves `node` was in the emitted list.
-  // The dependency under `node_modules` resolves the same either way, because the flag never reached it.
+  // Source resolution selects the source entry, rather than anything incidental about the fixture: Without it the
+  // same tree resolves the `node` entry, which also proves that `node` was in the emitted list. The dependency under
+  // `node_modules` resolves the same either way, because the flag never applied to it.
   //
-  // The report carries the two entries alone because an unset variable serializes to no key at all, so the
+  // The report contains the two entries alone because an unset variable does not serialize to any key, so the
   // absent nine are the assertion that nothing set them.
   it('falls back to the node entry and the ambient git configuration when both defaults are off', ({ defaults }) => {
     expect(defaults.optedOut).toStrictEqual({ entry: 'node', transitiveEntry: 'default' });
   });
 });
 
-// Vite holds `tsconfigPaths` outside its per-environment resolve options, so the config emits the top-level key
-// alone. Whether that key reaches the environment a test's own imports resolve through is Vite's to decide, and
-// only a run can report it: the emitted config looks identical either way.
+// Because Vite keeps `tsconfigPaths` outside its per-environment resolve options, the config emits the top-level
+// key alone. Whether that key applies to the environment through which a test's own imports resolve is Vite's to
+// decide, and only a run can report it: The emitted config looks identical either way.
 describe('tsconfig paths resolution, run for real', { timeout: 120_000 }, () => {
-  it('reaches a module through the alias the tsconfig declares when the flag is on', ({ tsconfigPaths }) => {
+  it('resolves a module through the alias declared in the tsconfig when the flag is on', ({ tsconfigPaths }) => {
     expect(tsconfigPaths.optedIn).toStrictEqual({ target: 'aliased' });
   });
 
-  // The loud failure is what makes the flag safe to leave off, and it is the same evidence that the opted-in run
+  // The loud failure makes the flag safe to leave off, and it is the same evidence that the opted-in run
   // resolved through the alias rather than through anything incidental about the fixture.
   it('fails naming the unresolved specifier when the flag is off', ({ tsconfigPaths }) => {
     expect(tsconfigPaths.byDefault.status).not.toBe(0);
@@ -456,7 +459,7 @@ describe('tsconfig paths resolution, run for real', { timeout: 120_000 }, () => 
   });
 });
 
-/** Builds a test file that passes, so the run's only outcome is which files it collected. */
+/** Builds a test file that passes, so that the run's only outcome is which files it collected. */
 function buildPassingTest(): string {
   return [
     "import { expect, it } from 'vitest';",
@@ -481,8 +484,8 @@ function runVitestWithCoverage(cwd: string): VitestRun {
 
 /**
  * Builds a setup file that appends its own name to a log beside itself, so that the run records the order in which
- * the two ran. The name carries whether git isolation was already in place, which is the only evidence that nmr's
- * own setup file ran ahead of the layers': it declares no entry in this log of its own.
+ * the two ran. Each entry also states whether git isolation was already in place, which is the only evidence that
+ * nmr's own setup file ran ahead of the layers': It does not declare any entry of its own in this log.
  */
 function buildSetupFile(name: string): string {
   return [
@@ -494,7 +497,7 @@ function buildSetupFile(name: string): string {
   ].join('\n');
 }
 
-/** Reads one fixture run's report, failing loudly with the child's own output where the run did not succeed. */
+/** Reads one fixture run's report, failing loudly with the child's own output when the run did not succeed. */
 function readObserved(tree: TempTree, run: VitestRun): unknown {
   if (run.status !== 0) {
     throw new Error(`fixture run failed with status ${String(run.status)}:\n${run.stdout}\n${run.stderr}`);
@@ -519,16 +522,16 @@ function readCollectedTestFiles(tree: TempTree): string[] {
   const testResults: unknown = 'testResults' in results ? results.testResults : undefined;
 
   if (!Array.isArray(testResults)) {
-    throw new TypeError('the JSON reporter wrote no testResults array');
+    throw new TypeError('the JSON reporter did not write a testResults array');
   }
 
   return testResults.map((result: unknown) => buildRelativePosixPath(tree.dir, readTestFileName(result))).toSorted();
 }
 
-/** Reads the `name` of one JSON-reporter result, which holds the absolute path of the test file it ran. */
+/** Reads the `name` of one JSON-reporter result, which contains the absolute path of the test file that it ran. */
 function readTestFileName(result: unknown): string {
   if (result === null || typeof result !== 'object' || !('name' in result) || typeof result.name !== 'string') {
-    throw new TypeError('a testResults entry named no file');
+    throw new TypeError('a testResults entry did not name a file');
   }
 
   return result.name;

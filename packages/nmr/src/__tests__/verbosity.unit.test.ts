@@ -14,13 +14,13 @@ describe(readVerbosityEnv, () => {
   it.each([
     { rawValue: undefined, scenario: 'no value at all' },
     { rawValue: '', scenario: 'a value left empty' },
-  ])('given $scenario, names no verbosity, leaving the levels below reachable', ({ rawValue }) => {
+  ])('given $scenario, does not name any verbosity, leaving the levels below reachable', ({ rawValue }) => {
     const env = rawValue === undefined ? {} : { [COMMAND_VERBOSITY_ENV_VAR]: rawValue };
 
     expect(readVerbosityEnv(env)).toStrictEqual({ ok: true });
   });
 
-  it.each([{ rawValue: 'full' }, { rawValue: 'quiet' }])('reads a $rawValue the environment names', ({ rawValue }) => {
+  it.each([{ rawValue: 'full' }, { rawValue: 'quiet' }])('reads a $rawValue from the environment', ({ rawValue }) => {
     expect(readVerbosityEnv({ [COMMAND_VERBOSITY_ENV_VAR]: rawValue })).toStrictEqual({
       ok: true,
       verbosity: rawValue,
@@ -30,8 +30,8 @@ describe(readVerbosityEnv, () => {
   it.each([
     { rawValue: 'silent', scenario: 'a point that is not on the ladder' },
     { rawValue: 'QUIET', scenario: 'a recognized value in the wrong case' },
-    { rawValue: ' quiet', scenario: 'a recognized value carrying whitespace' },
-  ])('given $scenario, resolves to nothing rather than a mode nobody chose', ({ rawValue }) => {
+    { rawValue: ' quiet', scenario: 'a recognized value padded with whitespace' },
+  ])('given $scenario, resolves to nothing rather than a mode that the user did not choose', ({ rawValue }) => {
     expect(readVerbosityEnv({ [COMMAND_VERBOSITY_ENV_VAR]: rawValue }).ok).toBe(false);
   });
 
@@ -66,7 +66,7 @@ describe(resolveVerbosity, () => {
       expect(resolve({ env: { [name]: '1' } })).toBe('quiet');
     });
 
-    it('given a marker a repo added, resolves to quiet', () => {
+    it('given a marker added by a repo, resolves to quiet', () => {
       expect(resolve({ env: { MY_CLI: '1' }, output: { extraAgentEnvVars: ['MY_CLI'] } })).toBe('quiet');
     });
   });
@@ -80,27 +80,27 @@ describe(resolveVerbosity, () => {
       expect(resolve({ envVerbosity: 'full', output: { commandVerbosity: 'quiet' } })).toBe('full');
     });
 
-    // A repo declines detection by naming the mode it wants; a switch of its own would say the same thing twice.
+    // A repo declines detection by naming the mode that it wants; a dedicated switch would duplicate that choice.
     it('given a full config against a detected harness, resolves to full', () => {
       expect(resolve({ env: { CLAUDECODE: '1' }, output: { commandVerbosity: 'full' } })).toBe('full');
     });
   });
 
   describe('detection', () => {
-    it('leaves an unrecognized harness loud', () => {
+    it('leaves verbosity full for an unrecognized harness', () => {
       expect(resolve({ env: { SOME_OTHER_CLI: '1' } })).toBe('full');
     });
 
-    it('reads an empty marker as unset, matching how the variable nmr owns reads one', () => {
+    it('reads an empty marker as unset, matching how nmr reads an empty value of its own variable', () => {
       expect(resolve({ env: { CLAUDECODE: '' } })).toBe('full');
     });
 
     // The value convention belongs to the harness, so nmr reads presence and does not interpret what it finds.
-    it('fires on a marker holding any non-empty value', () => {
+    it('fires on a marker set to any non-empty value', () => {
       expect(resolve({ env: { CLAUDECODE: '0' } })).toBe('quiet');
     });
 
-    it('keeps the shipped list when a repo adds to it', () => {
+    it('keeps the built-in list when a repo adds to it', () => {
       expect(resolve({ env: { CLAUDECODE: '1' }, output: { extraAgentEnvVars: ['MY_CLI'] } })).toBe('quiet');
     });
   });
@@ -114,7 +114,7 @@ function requireError(read: VerbosityRead): string {
   return read.error;
 }
 
-/** Resolves against an empty ladder, so each case declares only the levels it is about. */
+/** Resolves against an empty ladder, so that each case declares only the levels that it is about. */
 function resolve(options: {
   env?: NodeJS.ProcessEnv;
   envVerbosity?: CommandVerbosity;

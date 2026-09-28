@@ -6,7 +6,7 @@ import { cleanTranscript, composeTranscript, TRANSCRIPT_LIMIT_BYTES } from '../t
 const NOTHING = Buffer.alloc(0);
 
 describe(cleanTranscript, () => {
-  it('strips the control sequences a command colors its output with', () => {
+  it('strips the control sequences with which a command colors its output', () => {
     expect(cleanTranscript('\u{1B}[32m✓ passed\u{1B}[39m')).toBe('✓ passed');
   });
 
@@ -14,11 +14,11 @@ describe(cleanTranscript, () => {
     expect(cleanTranscript('\u{1B}]8;;https://example.com\u{7}report\u{1B}]8;;\u{7}')).toBe('report');
   });
 
-  it('reduces a redrawn line to the segment a reader was left looking at', () => {
+  it('reduces a redrawn line to the segment that a reader was left looking at', () => {
     expect(cleanTranscript('12 / 40\r28 / 40\r40 / 40')).toBe('40 / 40');
   });
 
-  it('leaves a line carrying neither untouched', () => {
+  it('leaves a line containing neither untouched', () => {
     expect(cleanTranscript('Test Files  6 passed (6)\n')).toBe('Test Files  6 passed (6)\n');
   });
 });
@@ -28,13 +28,13 @@ describe(composeTranscript, () => {
     expect(composeTranscript({ stdout: NOTHING, stderr: Buffer.from('  \n') })).toBeUndefined();
   });
 
-  it('given one stream carrying content, returns it alone and names no stream', () => {
+  it('given one stream with content, returns it alone and does not name a stream', () => {
     const composedTranscript = composeTranscript({ stdout: Buffer.from('all files pass\n'), stderr: NOTHING });
 
     expect(composedTranscript).toBe('all files pass\n');
   });
 
-  it('given both streams carrying content, follows stdout with stderr, naming where it begins', () => {
+  it('given both streams with content, follows stdout with stderr, naming where it begins', () => {
     const composedTranscript = composeTranscript({
       stdout: Buffer.from('ran 6 files\n'),
       stderr: Buffer.from('1 warning\n'),
@@ -80,7 +80,7 @@ describe(composeTranscript, () => {
       expect(Buffer.byteLength(composeOverrun())).toBeLessThan(TRANSCRIPT_LIMIT_BYTES + 100);
     });
 
-    // A cut landing mid-character would store a replacement character in place of the pair it split.
+    // A cut falling mid-character would store a replacement character in place of the pair that it split.
     it('cuts between characters, never inside one', () => {
       const filler = '✓'.repeat(Math.ceil(OVERRUN_BYTES / Buffer.byteLength('✓')));
 

@@ -6,17 +6,23 @@ import { formatDuration } from './helpers/duration.ts';
 
 /**
  * What this invocation would be recorded under, insofar as an entry records the same facts. A mismatch is read
- * against these, so a refusal names the ingredient that moved rather than blaming the tree for all of them.
+ * against these so that a refusal names the ingredient that moved rather than blaming the tree for all of them.
  */
 export interface RunIdentity {
   commandString: string;
   nmrVersion: string;
   nodeVersion: string;
-  /** Absent where no snapshot was taken, which leaves the tree unattributable rather than assumed equal. */
+  /**
+   * Absent when this invocation did not take a snapshot, which leaves the tree unattributable rather than assumed
+   * equal.
+   */
   treeHash: string | undefined;
 }
 
-/** A recorded pass and what it left a reader: its command's own transcript, or the assembly a composite holds. */
+/**
+ * A recorded pass and what it left a reader: its command's own transcript, or the assembly that a composite
+ * stores.
+ */
 export interface Recording {
   entry: CheckCacheEntry;
   /** What the command wrote, absent on a composite, which retains nothing of its own. */
@@ -25,8 +31,8 @@ export interface Recording {
 
 /**
  * Which of the pass key's ingredients a recorded pass and this invocation disagree on, insofar as an entry
- * records enough to tell: the residual covers what it does not, which is the install, the platform, and the
- * environment variables the key folds in.
+ * records enough to tell: The residual covers what it does not, which is the install, the platform, and the
+ * environment variables that the key folds in.
  */
 export type KeyDifference =
   | { ingredient: 'tree' }
@@ -41,7 +47,7 @@ export type RecordingLookup = { ok: true; recording: Recording } | { ok: false; 
 /**
  * Why there is nothing to print. Each is a separate answer to a reader asking for the last run's output, and
  * each names a different next move: run the command, run it on this tree, run it through a pipe, or stop
- * asking for a command no run records.
+ * asking for a command that the check-result cache does not record.
  */
 export type RecordingRefusal =
   | { kind: 'uncacheable' }
@@ -54,9 +60,9 @@ export type RecordingRefusal =
  * Renders a recording as the reader sees it: a header dating what follows, the command string that produced
  * it, and then the run's own bytes.
  *
- * The header is what presents the body as a recording rather than as this invocation's output, which is what
- * lets a reader at a terminal be shown what a piped run wrote. The command string is the whole chain, hooks
- * included, so the header names what earned the pass and not merely what was typed.
+ * The header presents the body as a recording rather than as this invocation's output, which lets nmr show a
+ * reader at a terminal what a piped run wrote. The command string is the whole chain, hooks included, so the
+ * header names what earned the pass and not merely what was typed.
  */
 export function renderRecording(options: {
   command: string;
@@ -79,8 +85,8 @@ export function renderRecording(options: {
 }
 
 /**
- * Renders a refusal on the one line a fan-out can attribute, in the grammar a verdict uses: the scope, the
- * command, and what is missing.
+ * Renders a refusal on the one line that a fan-out can attribute, in the grammar used by a verdict: the scope,
+ * the command, and what is missing.
  */
 export function renderRefusal(options: {
   command: string;
@@ -97,7 +103,7 @@ export function renderRefusal(options: {
  * Resolves what one scope has to show for one command.
  *
  * Admitted on the pass key alone, so `--log` prints exactly what a skip would have recalled and never a
- * recording of some other tree. The retention key is not consulted: it certifies that a recording describes
+ * recording of some other tree. The retention key is not consulted: It certifies that a recording describes
  * this presentation environment, which a replayed excerpt needs and a dated recording does not.
  */
 export async function resolveRecording(options: {
@@ -140,7 +146,7 @@ export async function resolveRecording(options: {
 
 // region | Helpers
 
-/** Terminates a body that does not terminate itself, so a recording never runs into the next prompt. */
+/** Terminates a body that does not terminate itself, so that a recording never runs into the next prompt. */
 function appendNewline(body: string): string {
   return body.endsWith('\n') ? body : `${body}\n`;
 }
@@ -149,15 +155,15 @@ function appendNewline(body: string): string {
 function describeDifference(difference: KeyDifference): string {
   switch (difference.ingredient) {
     case 'tree':
-      return 'on a tree this is not';
+      return 'on a tree that this is not';
     case 'command-string':
-      return 'over a command chain this is not';
+      return 'over a command chain that this is not';
     case 'nmr-version':
       return `under nmr ${difference.recordedVersion}, not ${difference.currentVersion}`;
     case 'node-version':
       return `under Node ${difference.recordedVersion}, not ${difference.currentVersion}`;
     case 'other':
-      return 'under an install or environment this run does not share';
+      return 'under an install or environment that this run does not share';
     default: {
       const unhandledDifference: never = difference;
       throw new Error(`Unhandled key difference: ${JSON.stringify(unhandledDifference)}`);
@@ -165,11 +171,11 @@ function describeDifference(difference: KeyDifference): string {
   }
 }
 
-/** Returns the clause a refusal spends on why there is nothing to print. */
+/** Returns the clause of a refusal that says why there is nothing to print. */
 function describeRefusal(command: string, refusal: RecordingRefusal): string {
   switch (refusal.kind) {
     case 'uncacheable':
-      return `\`${command}\` is outside the check-result cache, so no run of it is recorded`;
+      return `\`${command}\` is outside the check-result cache, so the cache does not record any run of it`;
     case 'cache-inapplicable':
       return 'the check-result cache does not apply here (NMR_DEBUG=1 reports why)';
     case 'unrecorded':
@@ -186,8 +192,8 @@ function describeRefusal(command: string, refusal: RecordingRefusal): string {
 }
 
 /**
- * Names the first ingredient a recorded pass and this invocation disagree on, in the order a reader would
- * check them: the tree, then the chain that would run, then the versions the key folds in.
+ * Names the first ingredient on which a recorded pass and this invocation disagree, in the order a reader
+ * would check them: the tree, then the chain that would run, then the versions that the key folds in.
  */
 function findKeyDifference(entry: CheckCacheEntry, currentIdentity: RunIdentity): KeyDifference {
   if (currentIdentity.treeHash !== undefined && entry.treeHash !== currentIdentity.treeHash) {
@@ -211,11 +217,11 @@ function findKeyDifference(entry: CheckCacheEntry, currentIdentity: RunIdentity)
 }
 
 /**
- * Returns what a recording prints below its header: a leaf's own transcript, and otherwise the excerpts a
- * composite assembled, each attributed to the scope and command that produced it.
+ * Returns what a recording prints below its header: a leaf's own transcript, and otherwise the excerpts
+ * assembled by a composite, each attributed to the scope and command that produced it.
  *
- * The attribution is kept even where one line's own scope and command are the header's, which the verdict
- * line drops: a reader of several lines needs every one of them to say where it came from.
+ * The attribution is kept even when one line's own scope and command are the header's, which the verdict
+ * line drops: A reader of several lines needs every one of them to say where it came from.
  */
 function renderBody(recording: Recording): string {
   if (recording.transcript !== undefined) {

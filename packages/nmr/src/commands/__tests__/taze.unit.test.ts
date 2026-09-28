@@ -8,13 +8,13 @@ import { resolveTazeCliPath, runTaze, type SpawnOutcome } from '../taze.ts';
 const FAKE_CLI_PATH = '/fake/taze/cli.mjs';
 
 describe(runTaze, () => {
-  it("forwards every argument to the taze CLI, in order and unmodified, behind nmr's request timeout", () => {
+  it("forwards every argument to the taze CLI, in order and unmodified, after nmr's request timeout", () => {
     const argv = runCapturingArgv(['--recursive', 'major', '--write']);
 
     expect(argv).toStrictEqual([FAKE_CLI_PATH, '--request-timeout', '30000', '--recursive', 'major', '--write']);
   });
 
-  it('gives taze a request timeout when the invocation carries none', () => {
+  it('gives taze a request timeout when the invocation does not set one', () => {
     expect(runCapturingArgv([])).toStrictEqual([FAKE_CLI_PATH, '--request-timeout', '30000']);
   });
 
@@ -31,7 +31,7 @@ describe(runTaze, () => {
     expect(argv).toStrictEqual([FAKE_CLI_PATH, ...supplied, '--recursive']);
   });
 
-  // taze collects everything past a bare `--` for a downstream tool, so a timeout there is one it never reads.
+  // taze collects everything past a bare `--` for a downstream tool and never reads a timeout there.
   it('still gives taze a request timeout when one appears after a bare --', () => {
     const argv = runCapturingArgv(['--recursive', '--', '--request-timeout', '90000']);
 
@@ -109,8 +109,8 @@ describe(runTaze, () => {
     expect(spawned).toBe(false);
   });
 
-  // A spawn failure carries no exit status, so without this the launcher would return a bare 1 and
-  // leave the operator with no indication that taze never ran.
+  // A spawn failure does not include an exit status, so without this the launcher would return a bare 1
+  // and would not tell the operator that taze never ran.
   it('reports a spawn failure rather than returning a silent 1', () => {
     const { stderr, read } = captureStream();
 
@@ -124,7 +124,7 @@ describe(runTaze, () => {
     expect(read()).toContain('Failed to run taze: spawn ENOENT');
   });
 
-  it('falls back to a failing exit code when taze reports no status', () => {
+  it('falls back to a failing exit code when taze does not report a status', () => {
     const exitCode = runTaze([], {
       resolveCliPath: () => '/fake/taze/cli.mjs',
       spawn: () => ({ status: null }),
@@ -135,7 +135,7 @@ describe(runTaze, () => {
 });
 
 describe(resolveTazeCliPath, () => {
-  // The whole design rests on taze being resolvable from nmr's own tree rather than the consumer's,
+  // The whole design depends on taze being resolvable from nmr's own tree rather than the consumer's,
   // so this exercises the real resolution instead of an injected stand-in.
   it("resolves taze's CLI entry to a file that exists", () => {
     const cliPath = resolveTazeCliPath();
@@ -144,7 +144,7 @@ describe(resolveTazeCliPath, () => {
   });
 });
 
-/** Runs `runTaze` against a stubbed CLI path and spawn, returning the argv the spawn received. */
+/** Runs `runTaze` against a stubbed CLI path and spawn, returning the argv that the spawn received. */
 function runCapturingArgv(args: string[]): string[] {
   let capturedArgs: string[] = [];
 

@@ -11,7 +11,7 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "d5a0cf73",
+          "hash": "5f7bd316",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -24,12 +24,12 @@
           ]
         },
         {
-          "hash": "ae57f177",
+          "hash": "9336f4c0",
           "kind": "module",
           "path": "../src/default-scripts.ts"
         },
         {
-          "hash": "5513747f",
+          "hash": "d4828172",
           "kind": "module",
           "path": "../src/git-ignored-paths.ts"
         },
@@ -39,7 +39,7 @@
           "path": "../src/resolve-scripts.ts"
         },
         {
-          "hash": "a6434031",
+          "hash": "19dec003",
           "kind": "module",
           "path": "../src/tiers.ts"
         }
@@ -48,8 +48,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.38.0",
       "source": "kits/default.ts",
-      "sourceHash": "d5a0cf73",
-      "targetHash": "f1ba0b37"
+      "sourceHash": "5f7bd316",
+      "targetHash": "a384cb40"
     }
   ]
 }

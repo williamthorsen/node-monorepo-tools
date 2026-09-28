@@ -12,11 +12,11 @@ import {
 } from '../output-style.ts';
 
 describe(isTerminalStream, () => {
-  it('reports the stream a test injects as no terminal', () => {
+  it('reports a stream injected by a test as not a terminal', () => {
     expect(isTerminalStream(new PassThrough())).toBe(false);
   });
 
-  it('reports a stream carrying a terminal as one', () => {
+  it('reports a stream attached to a terminal as one', () => {
     expect(isTerminalStream(Object.assign(new PassThrough(), { isTTY: true }))).toBe(true);
   });
 });
@@ -70,13 +70,13 @@ describe(resolveOutputStyles, () => {
     });
   });
 
-  it('reports a flag value naming no style, naming the flag', () => {
+  it('reports a flag value that does not name a style, naming the flag', () => {
     const { invalid } = resolveOutputStyles({ ...BASE_OPTIONS, flagValue: 'bogus' });
 
     expect(invalid).toStrictEqual({ source: OUTPUT_STYLE_FLAG, value: 'bogus' });
   });
 
-  // The value reaches nmr-core as an assignment, so one starting with a dash is rejected rather than read as
+  // The value arrives in nmr-core as an assignment, so one starting with a dash is rejected rather than read as
   // the next argument and dropped.
   it('reports a flag value that looks like another flag', () => {
     const { invalid } = resolveOutputStyles({ ...BASE_OPTIONS, flagValue: '-q' });
@@ -84,13 +84,13 @@ describe(resolveOutputStyles, () => {
     expect(invalid).toStrictEqual({ source: OUTPUT_STYLE_FLAG, value: '-q' });
   });
 
-  it('reports a variable value naming no style, naming the variable', () => {
+  it('reports a variable value that does not name a style, naming the variable', () => {
     const { invalid } = resolveOutputStyles({ ...BASE_OPTIONS, env: { [OUTPUT_STYLE_ENV_VAR]: 'bogus' } });
 
     expect(invalid).toStrictEqual({ source: OUTPUT_STYLE_ENV_VAR, value: 'bogus' });
   });
 
-  it('reports nothing invalid where every source named a style', () => {
+  it('reports nothing invalid when every source named a style', () => {
     expect(resolveOutputStyles({ ...BASE_OPTIONS, flagValue: 'plain' }).invalid).toBeUndefined();
   });
 });
@@ -100,7 +100,7 @@ describe(resolveOutputStyles, () => {
 /** A resolution of neither stream at a terminal and an environment naming nothing, which detection reads as plain. */
 const BASE_OPTIONS: ResolveOutputStylesOptions = { env: {}, stderrIsTty: false, stdoutIsTty: false };
 
-/** Resolves against the base options, so each case declares only the sources it is about. */
+/** Resolves against the base options, so that each case declares only the sources that it is about. */
 function resolve(options: Partial<ResolveOutputStylesOptions> = {}): StreamStyles {
   return resolveOutputStyles({ ...BASE_OPTIONS, ...options }).styles;
 }

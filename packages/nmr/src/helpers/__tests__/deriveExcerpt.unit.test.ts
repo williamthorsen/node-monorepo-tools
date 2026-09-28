@@ -52,7 +52,7 @@ describe(deriveExcerpt, () => {
     expect(deriveExcerpt(transcript)).toBeUndefined();
   });
 
-  it('given a transcript with no blank line, degrades to the last eight lines', () => {
+  it('given a transcript without a blank line, falls back to the last eight lines', () => {
     const transcript = Array.from({ length: 12 }, (_unused, index) => `line ${index + 1}`).join('\n');
 
     expect(deriveExcerpt(transcript)).toBe('line 5 line 6 line 7 line 8 line 9 line 10 line 11 line 12');
@@ -69,11 +69,11 @@ describe(deriveExcerpt, () => {
   it.each([
     { form: 'semicolon-separated', setter: '\u{1B}[38;2;255;0;0m' },
     { form: 'colon-separated', setter: '\u{1B}[38:2:255:0:0m' },
-  ])('strips a $form color escape, so a replayed line leaves no color behind', ({ setter }) => {
+  ])('strips a $form color escape, so a replayed line does not leave any color behind', ({ setter }) => {
     expect(deriveExcerpt(`progress\n\n${setter}2 failed\u{1B}[39m (2)\n`)).toBe('2 failed (2)');
   });
 
-  it('strips the escape sequences a command writes when it colors piped output', () => {
+  it('strips the escape sequences that a command writes when it colors piped output', () => {
     const transcript = 'progress\n\n\u{1B}[32m\u{1B}[1m2 passed\u{1B}[22m\u{1B}[39m (2)\n';
 
     expect(deriveExcerpt(transcript)).toBe('2 passed (2)');

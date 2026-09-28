@@ -29,7 +29,7 @@ describe(loadConfig, () => {
     expect(config.devBin).toStrictEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
   });
 
-  // The class, not the message, is what the CLI boundary reads to print a config error without a stack trace.
+  // The CLI boundary reads the class, not the message, to print a config error without a stack trace.
   it('rejects an invalid config as a UserError', async ({ tree }) => {
     writeConfig(tree, `export default { devBin: { 'my-cli': 123 } };`);
 
@@ -125,7 +125,7 @@ describe(loadConfig, () => {
   });
 
   it('throws naming an unrecognized checkCache subkey', async ({ tree }) => {
-    // A misspelled subkey is a setting nothing reads, which no output of a cached run would reveal.
+    // A misspelled subkey is a setting that nmr never reads, and the output of a cached run would not reveal it.
     writeConfig(tree, `export default { checkCache: { extraCommand: ['verify'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
@@ -156,13 +156,17 @@ describe(loadConfig, () => {
   it('throws naming the composite element and the token that puts it outside the grammar', async ({ tree }) => {
     writeConfig(tree, `export default { rootScripts: { check: ['build && echo done'] } };`);
 
-    await expect(loadConfig(tree.dir)).rejects.toThrow('`rootScripts.check` element `build && echo done` carries `&&`');
+    await expect(loadConfig(tree.dir)).rejects.toThrow(
+      '`rootScripts.check` element `build && echo done` contains `&&`',
+    );
   });
 
-  it('holds a spec element to the same grammar its bare string is held to', async ({ tree }) => {
+  it('holds a spec element to the same grammar as its bare string', async ({ tree }) => {
     writeConfig(tree, `export default { rootScripts: { check: [{ run: 'build && echo done' }] } };`);
 
-    await expect(loadConfig(tree.dir)).rejects.toThrow('`rootScripts.check` element `build && echo done` carries `&&`');
+    await expect(loadConfig(tree.dir)).rejects.toThrow(
+      '`rootScripts.check` element `build && echo done` contains `&&`',
+    );
   });
 
   it('throws naming the shape when an element is neither a string nor a spec', async ({ tree }) => {
@@ -180,7 +184,7 @@ describe(loadConfig, () => {
     );
   });
 
-  // The non-boolean value pins that the shape check leaves a retired key to the hint.
+  // The non-boolean value shows that the shape check lets the rename hint report a retired key.
   it.for(['true', 'false', `'yes'`])(
     'throws naming the replacement when a spec declares the renamed `declinesArgs: %s`',
     async (value, { tree }) => {
@@ -224,7 +228,7 @@ describe(loadConfig, () => {
   });
 
   it.for([
-    { scenario: 'a point that is not on the ladder', value: `'silent'` },
+    { scenario: 'a value that is not a verbosity level', value: `'silent'` },
     { scenario: 'a recognized value in the wrong case', value: `'QUIET'` },
     { scenario: 'a value that is not a string at all', value: '0' },
   ])('throws naming both accepted values given $scenario', async ({ value }, { tree }) => {
@@ -251,7 +255,7 @@ describe(loadConfig, () => {
 });
 
 describe(loadWorkspaceConfig, () => {
-  it('returns an empty config when the package has no config file', async ({ tree }) => {
+  it('returns an empty config when the package does not have a config file', async ({ tree }) => {
     await expect(loadWorkspaceConfig(tree.dir)).resolves.toStrictEqual({});
   });
 
@@ -263,8 +267,8 @@ describe(loadWorkspaceConfig, () => {
     expect(config.build).toStrictEqual({ extraIgnorePatterns: ['**/fixtures/**'] });
   });
 
-  it('throws naming every root-tier key the package config declares', async ({ tree }) => {
-    // Silently dropping these would leave the package running on settings its own config appears to set.
+  it('throws naming every root-tier key that the package config declares', async ({ tree }) => {
+    // Silently dropping these would leave the package running on settings that its own config appears to set.
     writeConfig(
       tree,
       `export default { rootScripts: { a: 'x' }, devBin: { b: 'y' }, output: { commandVerbosity: 'quiet' }, build: {} };`,
@@ -275,7 +279,7 @@ describe(loadWorkspaceConfig, () => {
 });
 
 describe(loadRootConfig, () => {
-  it('returns an empty config when the root has no config file', async ({ tree }) => {
+  it('returns an empty config when the root does not have a config file', async ({ tree }) => {
     await expect(loadRootConfig(tree.dir)).resolves.toStrictEqual({});
   });
 
@@ -303,7 +307,7 @@ describe(loadRootConfig, () => {
     expect(config.checkCache).toStrictEqual({ excludeCommands: ['test:coverage'] });
   });
 
-  it('throws when the root config declares build, which only a package config reaches', async ({ tree }) => {
+  it('throws when the root config declares build, which only a package config accepts', async ({ tree }) => {
     writeConfig(tree, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     await expect(loadRootConfig(tree.dir)).rejects.toThrow(
@@ -314,7 +318,7 @@ describe(loadRootConfig, () => {
 });
 
 describe('checkCache command resolution', () => {
-  it('accepts a name the repo config declares', async ({ tree }) => {
+  it('accepts a name declared by the repo config', async ({ tree }) => {
     makeMonorepoRoot(tree);
     writeConfig(
       tree,
@@ -327,7 +331,7 @@ describe('checkCache command resolution', () => {
     expect(config.checkCache).toStrictEqual({ extraCommands: ['verify:contracts'] });
   });
 
-  it('accepts a name only a package.json declares', async ({ tree }) => {
+  it('accepts a name that only a package.json declares', async ({ tree }) => {
     makeMonorepoRoot(tree);
     writePackage(tree, 'core', { 'verify:contracts': 'node verify.js' });
     writeConfig(tree, `export default { checkCache: { extraCommands: ['verify:contracts'] } };`);
@@ -337,28 +341,28 @@ describe('checkCache command resolution', () => {
     expect(config.checkCache).toStrictEqual({ extraCommands: ['verify:contracts'] });
   });
 
-  it('rejects an extraCommands name that matches no command', async ({ tree }) => {
+  it('rejects an extraCommands name that does not match any command', async ({ tree }) => {
     makeMonorepoRoot(tree);
     writeConfig(tree, `export default { checkCache: { extraCommands: ['nonesuch-command'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
-      '`checkCache.extraCommands` names no command: `nonesuch-command`',
+      '`checkCache.extraCommands` does not name any command: `nonesuch-command`',
     );
   });
 
-  it('rejects an excludeCommands name that matches no command', async ({ tree }) => {
+  it('rejects an excludeCommands name that does not match any command', async ({ tree }) => {
     makeMonorepoRoot(tree);
     writeConfig(tree, `export default { checkCache: { excludeCommands: ['nonesuch-command'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
-      '`checkCache.excludeCommands` names no command: `nonesuch-command`',
+      '`checkCache.excludeCommands` does not name any command: `nonesuch-command`',
     );
   });
 
-  // The sweep is what a repo pays on every invocation, so a config that needs none must not trigger one. A
-  // directory standing where the manifest belongs is the probe: it fails the read itself, which no swallow
-  // covers, so a sweep would surface as `EISDIR`.
-  it('reads no package.json while every name resolves', async ({ tree }) => {
+  // A sweep would slow every invocation, so a config that needs none must not trigger one. The probe is a
+  // directory at the manifest's path: reading it fails outright, and because the sweep does not swallow a failed
+  // read, a sweep would fail with `EISDIR`.
+  it('does not read any package.json while every name resolves', async ({ tree }) => {
     makeMonorepoRoot(tree);
     tree.write('packages/core/package.json/placeholder', '');
     writeConfig(tree, `export default { checkCache: { extraCommands: ['typecheck'] } };`);
@@ -368,15 +372,15 @@ describe('checkCache command resolution', () => {
     expect(config.checkCache).toStrictEqual({ extraCommands: ['typecheck'] });
   });
 
-  // A manifest is swept for the config's sake, so one that is malformed elsewhere in the workspace must not
-  // stand in for the answer the reader asked for.
+  // The config load sweeps a manifest only to resolve the config's names. A malformed manifest elsewhere in the
+  // workspace must not stand in for the answer that the reader asked for.
   it('rejects an unresolvable name past a manifest whose content does not parse', async ({ tree }) => {
     makeMonorepoRoot(tree);
     tree.write('packages/core/package.json', '{ not json');
     writeConfig(tree, `export default { checkCache: { extraCommands: ['nonesuch-command'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
-      '`checkCache.extraCommands` names no command: `nonesuch-command`',
+      '`checkCache.extraCommands` does not name any command: `nonesuch-command`',
     );
   });
 
@@ -405,14 +409,14 @@ describe('checkCache command resolution', () => {
     await expect(loadConfig(tree.dir)).rejects.toThrow('`typechek`. Did you mean `typecheck`?');
   });
 
-  it('offers no suggestion for a name close to nothing', async ({ tree }) => {
+  it('does not offer a suggestion for a name that is not close to any command', async ({ tree }) => {
     makeMonorepoRoot(tree);
     writeConfig(tree, `export default { checkCache: { extraCommands: ['zzzzzzzzzzzzzzzzzzzz'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(/`zzzzzzzzzzzzzzzzzzzz`\.$/);
   });
 
-  // `checkCache` belongs to the root tier, and naming its misplacement is more use than naming a name it holds.
+  // `checkCache` belongs to the root tier, and naming its misplacement helps more than naming a name that it lists.
   it('leaves a package config to the tier check, whose rejection is the accurate one', async ({ tree }) => {
     writeConfig(tree, `export default { checkCache: { extraCommands: ['nonesuch-command'] } };`);
 

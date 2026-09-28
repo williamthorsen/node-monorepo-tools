@@ -8,7 +8,7 @@ import { afterEach, assert, describe, expect, it as baseIt, vi } from 'vitest';
 import { resolveFormatTargets } from '../fmt.ts';
 
 /**
- * Tracked fixture files. `packages/a` carries both kinds of ignore file, so one repository exercises
+ * Tracked fixture files. `packages/a` contains both kinds of ignore file, so one repository exercises
  * the gitignore hierarchy (which git applies during selection) and the prettierignore hierarchy
  * (which it cannot). The root `.prettierignore` mirrors a package pattern the way a repo working
  * around the hierarchy gap does, and is also matched by the `*.prettierignore` pathspec.
@@ -104,7 +104,7 @@ describe(resolveFormatTargets, () => {
     expect(unwrap(result).ignorePaths[0]).toBe(path.join(tree.dir, '.prettierignore'));
   });
 
-  it('omits a file deleted from the working tree but still held in the index', ({ tree }) => {
+  it('omits a file deleted from the working tree but still recorded in the index', ({ tree }) => {
     tree.rm('root.js');
 
     const result = resolveFormatTargets(tree.dir);
@@ -112,7 +112,7 @@ describe(resolveFormatTargets, () => {
     expect(unwrap(result).files).not.toContain('root.js');
   });
 
-  it('omits a submodule gitlink, which Prettier would otherwise recurse into', ({ tree }) => {
+  it('omits a submodule gitlink, into which Prettier would otherwise recurse', ({ tree }) => {
     const submodule = tree.mkdir('vendor/sub');
     tree.write('vendor/sub/sub.js', 'const sub = 1;\n');
     runGitOrThrow(['init', '--quiet'], submodule);
@@ -160,7 +160,7 @@ describe(resolveFormatTargets, () => {
   it('fails rather than reporting an empty selection outside a git repository', () => {
     using outside = createTempTree({}, { prefix: 'nmr-fmt-bare-' });
     outside.write('stray.js', 'const stray = 1;\n');
-    // Stops git's upward search at the fixture, so a temp root that sits inside some repository cannot answer.
+    // Stop git's upward search at the fixture, so that git cannot find a repository enclosing the temp root.
     vi.stubEnv('GIT_CEILING_DIRECTORIES', path.dirname(outside.dir));
 
     const result = resolveFormatTargets(outside.dir);
@@ -171,8 +171,8 @@ describe(resolveFormatTargets, () => {
 });
 
 /**
- * Creates a git repository holding `files`, staged rather than committed: `--cached` reads the index,
- * so staging is enough and the fixture needs no commit identity.
+ * Creates a git repository containing `files`, staged rather than committed: `--cached` reads the
+ * index, so staging is enough and the fixture doesn't need a commit identity.
  */
 function scaffoldRepository(files: Record<string, string>): TempTree {
   const tree = createTempTree(files, { prefix: 'nmr-fmt-' });
@@ -187,7 +187,7 @@ function scaffoldRepository(files: Record<string, string>): TempTree {
 function runGitOrThrow(args: string[], cwd: string): void {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
   if (result.status !== 0) {
-    throw new Error(`fixture setup failed: \`git ${args.join(' ')}\` — ${result.stderr}`);
+    throw new Error(`fixture setup failed: \`git ${args.join(' ')}\` -- ${result.stderr}`);
   }
 }
 

@@ -6,13 +6,13 @@ import { NMR_GLYPHS, type NmrGlyphName } from '../glyphs.ts';
 /** Every name that the set defines, so that a case reaches each one. */
 const GLYPH_NAMES = ['catalog', 'clean', 'noop', 'overrides', 'package', 'recording'] as const satisfies NmrGlyphName[];
 
-/** The names whose glyph is followed by a word, which is what leaves their plain variant empty. */
+/** The names whose glyph is followed by a word, which leaves their plain variant empty. */
 const DECORATIVE_NAMES = ['catalog', 'clean', 'overrides', 'package', 'recording'] as const satisfies NmrGlyphName[];
 
 describe('NMR_GLYPHS', () => {
-  // `defineGlyphSet` throws on a rich variant that no terminal draws two cells wide, so this rebuild is what
-  // holds a later edit to the same rule the module load already enforces.
-  it('holds only variants that defineGlyphSet accepts', () => {
+  // `defineGlyphSet` throws on a rich variant not drawn two cells wide by any terminal, so this rebuild checks
+  // a later edit against the same rule that the module load already enforces.
+  it('contains only variants that defineGlyphSet accepts', () => {
     const variants = Object.fromEntries(
       GLYPH_NAMES.map((name) => [name, { plain: NMR_GLYPHS.plain[name].text, rich: NMR_GLYPHS.rich[name].text }]),
     );
@@ -24,13 +24,13 @@ describe('NMR_GLYPHS', () => {
     expect(NMR_GLYPHS.plain[name].text).toBe('');
   });
 
-  // A word rather than an empty variant: the glyph opens a verdict line whose next token is a scope name.
+  // A word rather than an empty variant: The glyph opens a verdict line whose next token is a scope name.
   it('spells the plain no-op as a word', () => {
     expect(NMR_GLYPHS.plain.noop.text).toBe('NOOP');
   });
 
-  // What lets a verdict line spend no padding column on its marker.
-  it('gives the no-op the width every plain verdict marker has', () => {
+  // A shared width means that a verdict line does not spend any padding column on its marker.
+  it('gives the no-op the same width as every plain verdict marker', () => {
     const verdictMarkers = [
       STATUS_GLYPHS.plain.passed,
       STATUS_GLYPHS.plain.failed,

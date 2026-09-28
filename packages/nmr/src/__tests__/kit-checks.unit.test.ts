@@ -19,7 +19,7 @@ import { findKitCheck } from '../test-utils/findKitCheck.ts';
 
 describe(hasSupportedEslintVersion, () => {
   // The floor is ESLint 10, the release that resolves config per linted file. Pinning the argument is the point
-  // of the test: a floor that drifted below 10 would let the root lint scripts report the wrong rules.
+  // of the test: A floor that drifted below 10 would let the root lint scripts report the wrong rules.
   it('requires eslint 10 or later', () => {
     mockedHasMinDevDependencyVersion.mockReturnValue(true);
 
@@ -54,8 +54,9 @@ describe(hasSupportedStrictLintVersion, () => {
   });
 });
 
-// A repo that overrode nmr's lint scripts away need not carry the linter at all, so an absent tool skips rather
-// than failing. The kit cannot read nmr's resolved registry, so absence of the tool is the signal it uses.
+// A repo that overrode nmr's lint scripts away need not depend on the linter at all, so a check whose tool is absent
+// skips rather than failing. Because the kit cannot read nmr's resolved registry, it uses the tool's absence as the
+// signal.
 describe('lint version-floor checks', () => {
   const cases = [
     { checkName: 'eslint >= 10.0.0', dependency: 'eslint', skipReason: 'eslint not installed' },

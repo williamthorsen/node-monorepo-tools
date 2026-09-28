@@ -38,10 +38,12 @@ const it = baseIt.extend(
 
 // What a level reports is decided by that level's own process, not by the one that composed it, so every case
 // here spawns real child nmr processes. Those children run the built `nmr` on `PATH` rather than this source,
-// which is what the `packaged` segment of the filename records: a stale `dist` fails these and nothing else.
+// as the `packaged` segment of the filename records: A stale `dist` fails these and nothing else.
 describe('reporting through a real chain', () => {
   describe('nesting', () => {
-    it('lets each element of a composite report through the quiet ancestor nmr composed', async ({ tree }) => {
+    it('lets each element of a composite report through the quiet ancestor nmr process that composed it', async ({
+      tree,
+    }) => {
       const { exitCode, stdout } = await runNmr(['-q', 'fanout'], tree.dir);
 
       expect(exitCode).toBe(0);
@@ -49,7 +51,7 @@ describe('reporting through a real chain', () => {
       expect(readVerdictCommands(stdout)).toStrictEqual(['demo:one', 'demo:two', 'fanout']);
     });
 
-    it('reports a delegating hook under the name it delegates to, and never under its own', async ({ tree }) => {
+    it('reports a delegating hook under the name to which it delegates, and never under its own', async ({ tree }) => {
       const { exitCode, stdout } = await runNmr(['-q', 'demo'], tree.dir);
 
       expect(exitCode).toBe(0);
@@ -59,19 +61,19 @@ describe('reporting through a real chain', () => {
   });
 
   describe('output style', () => {
-    // Every stream here is a pipe, which is what each nested process would detect on its own.
-    it('reports every level in the plain words a pipe calls for', async ({ tree }) => {
+    // Every stream here is a pipe, as each nested process would detect on its own.
+    it('reports every level in the plain words that a pipe calls for', async ({ tree }) => {
       const { exitCode, stdout } = await runNmr(['-q', 'fanout'], tree.dir);
 
       expect(exitCode).toBe(0);
       expect(readVerdictMarkers(stdout)).toStrictEqual(['PASS', 'PASS', 'PASS']);
     });
 
-    // `for` rather than `each`: only `for` hands the fixture context to the case body.
+    // `for` rather than `each`: Only `for` hands the fixture context to the case body.
     it.for([
       { args: [OUTPUT_STYLE_FLAG, 'rich', '-q', 'fanout'], overrides: {}, scenario: 'the flag' },
       { args: ['-q', 'fanout'], overrides: { [OUTPUT_STYLE_ENV_VAR]: 'rich' }, scenario: 'an inherited value' },
-    ])('given $scenario, carries the style to every process below it', async ({ args, overrides }, { tree }) => {
+    ])('given $scenario, passes the style to every process below it', async ({ args, overrides }, { tree }) => {
       const { exitCode, stdout } = await runNmr(args, tree.dir, overrides);
 
       expect(exitCode).toBe(0);
@@ -81,7 +83,7 @@ describe('reporting through a real chain', () => {
   });
 
   describe('machine-readable reporting', () => {
-    // `for` rather than `each`: only `for` hands the fixture context to the case body.
+    // `for` rather than `each`: Only `for` hands the fixture context to the case body.
     it.for([
       { args: ['--json', 'fanout'], overrides: {}, scenario: 'the flag' },
       { args: ['fanout'], overrides: { [REPORT_FORMAT_ENV_VAR]: 'json' }, scenario: 'an inherited value' },
@@ -99,14 +101,14 @@ describe('reporting through a real chain', () => {
       },
     );
 
-    it("withholds the commands' own output on both streams where every one of them passed", async ({ tree }) => {
+    it("withholds the commands' own output on both streams when every one of them passed", async ({ tree }) => {
       const { stderr, stdout } = await runNmr(['--json', 'fanout'], tree.dir);
 
       expect(stdout).not.toContain('noise');
       expect(stderr).not.toContain('noise');
     });
 
-    it("surrenders a failing command's output on stderr, leaving stdout parseable", async ({ tree }) => {
+    it("writes a failing command's output to stderr, leaving stdout parseable", async ({ tree }) => {
       const { exitCode, stderr, stdout } = await runNmr(['--json', 'boom'], tree.dir);
 
       expect(exitCode).toBe(1);
@@ -114,7 +116,7 @@ describe('reporting through a real chain', () => {
       expect(parseRecords(stdout)).toMatchObject([{ command: 'boom', exitCode: 1, outcome: 'failed' }]);
     });
 
-    it('lets no escape sequence a command wrote reach the stream', async ({ tree }) => {
+    it('does not let an escape sequence written by a command reach the stream', async ({ tree }) => {
       const { stdout } = await runNmr(['--json', 'colorful'], tree.dir);
 
       expect(stdout).not.toContain('\u{1B}');
@@ -125,16 +127,16 @@ describe('reporting through a real chain', () => {
 
 // region | Helpers
 
-/** Reports whether a parsed line is a JSON object, which every record nmr emits is. */
+/** Reports whether a parsed line is a JSON object, as every record that nmr emits is. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
- * Parses every line a machine-readable run wrote to stdout, throwing on one that is not a JSON object.
+ * Parses every line that a machine-readable run wrote to stdout, throwing on one that is not a JSON object.
  *
- * A stray prose line is what this is here to catch, so it fails the test rather than being filtered away: an
- * assertion matching text instead would pass on a stream a consumer could not read.
+ * This exists to catch a stray prose line, so such a line fails the test rather than being filtered away: An
+ * assertion matching text instead would pass on a stream that a consumer could not read.
  */
 function parseRecords(stdout: string): Record<string, unknown>[] {
   return stdout
@@ -180,7 +182,7 @@ async function runNmr(
   };
 }
 
-/** Reads the command each verdict line names, in the order the lines arrived. */
+/** Reads the command named by each verdict line, in the order the lines arrived. */
 function readVerdictCommands(stdout: string): string[] {
   return stdout
     .split('\n')
@@ -189,7 +191,7 @@ function readVerdictCommands(stdout: string): string[] {
     .map((match) => match.groups?.['command'] ?? '');
 }
 
-/** Reads the marker each verdict line opens with, in the order the lines arrived. */
+/** Reads the marker with which each verdict line opens, in the order the lines arrived. */
 function readVerdictMarkers(stdout: string): string[] {
   return stdout
     .split('\n')

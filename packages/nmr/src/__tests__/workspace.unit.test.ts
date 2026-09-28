@@ -46,13 +46,13 @@ describe(findMonorepoRoot, () => {
     expect(findMonorepoRoot(nestedDir)).toBe(MONOREPO_ROOT);
   });
 
-  it('throws when no pnpm-workspace.yaml is found', () => {
+  it('throws when pnpm-workspace.yaml is not found in any parent directory', () => {
     expect(() => findMonorepoRoot('/')).toThrow(
       'Could not find monorepo root: no pnpm-workspace.yaml found in any parent directory',
     );
   });
 
-  // The projection is what gives nmr-core's total primitive nmr's own error boundary.
+  // The projection gives nmr-core's total primitive nmr's own error boundary.
   it('throws a UserError, which the CLI reports rather than reporting as a crash', () => {
     expect(() => findMonorepoRoot('/')).toThrow(UserError);
   });
@@ -71,7 +71,7 @@ describe(getWorkspacePackageDirs, () => {
     }
   });
 
-  it('throws a message naming the directory when it holds no manifest', () => {
+  it('throws a message naming the directory when it does not contain a manifest', () => {
     using notARoot = createTempTree({}, { prefix: PREFIX });
 
     expect(() => getWorkspacePackageDirs(notARoot.dir)).toThrow(
@@ -85,9 +85,9 @@ describe(getWorkspacePackageDirs, () => {
     expect(() => getWorkspacePackageDirs(notARoot.dir)).toThrow(UserError);
   });
 
-  // The empty resolution is the one case the projection flattens rather than throwing on: a workspace that
+  // The empty resolution is the one case that the projection flattens rather than throwing on: A workspace that
   // declares patterns and matches nothing is a workspace whose package list is empty.
-  it('returns nothing when the manifest declares patterns that match no package', ({ toolsTree }) => {
+  it('returns nothing when the manifest declares patterns that do not match any package', ({ toolsTree }) => {
     toolsTree.write('pnpm-workspace.yaml', "packages:\n  - 'apps/*'\n");
 
     expect(getWorkspacePackageDirs(toolsTree.dir)).toStrictEqual([]);
@@ -100,7 +100,7 @@ describe(getWorkspacePackageDirs, () => {
       expect(dirs).toStrictEqual([path.join(toolsTree.dir, 'tools', 'cli')]);
     });
 
-    it('ignores exact-path patterns where the directory has no package.json', ({ toolsTree }) => {
+    it('ignores exact-path patterns whose directory does not contain package.json', ({ toolsTree }) => {
       toolsTree.mkdir('tools/empty');
       toolsTree.write('pnpm-workspace.yaml', 'packages:\n  - tools/empty\n');
       const dirs = getWorkspacePackageDirs(toolsTree.dir);
@@ -109,7 +109,7 @@ describe(getWorkspacePackageDirs, () => {
   });
 
   // Pattern semantics are covered against nmr-core's resolver directly; this asserts only that the manifest's
-  // patterns reach it intact, exclusions included.
+  // patterns are passed to it intact, exclusions included.
   describe('manifest patterns', () => {
     it('honors an exclusion declared in the manifest', ({ packagesTree }) => {
       packagesTree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n  - '!packages/legacy'\n");
@@ -117,8 +117,8 @@ describe(getWorkspacePackageDirs, () => {
       expect(dirs).toStrictEqual([path.join(packagesTree.dir, 'packages', 'alpha')]);
     });
 
-    // `yaml` resolves an unquoted `!packages/legacy` to an empty string, so the exclusion never reaches
-    // nmr and both packages resolve. A `yaml` release yielding a non-string instead would fail the
+    // `yaml` resolves an unquoted `!packages/legacy` to an empty string, so nmr never receives the
+    // exclusion and both packages resolve. A `yaml` release yielding a non-string instead would fail the
     // all-strings check and empty the result for a workspace that has packages; this pins that seam.
     it('resolves every package when an exclusion is left unquoted', ({ packagesTree }) => {
       packagesTree.write('pnpm-workspace.yaml', 'packages:\n  - packages/*\n  - !packages/legacy\n');
@@ -132,7 +132,7 @@ describe(getWorkspacePackageDirs, () => {
 });
 
 // The primitives are covered in nmr-core; these assert that `@williamthorsen/nmr/workspace` still publishes
-// them, which its consumers reach them through.
+// them, because its consumers import them from that entry point.
 describe('the re-exported primitives', () => {
   it('resolves a workspace through `resolveWorkspace`', ({ toolsTree }) => {
     toolsTree.write('pnpm-workspace.yaml', 'packages:\n  - tools/cli\n');

@@ -7,9 +7,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 /**
- * Guards what the published tarball carries.
+ * Guards what the published tarball contains.
  *
- * This is the only check that exercises `files`: everything else here resolves nmr's guidance through a
+ * This is the only check that exercises `files`: Everything else here resolves nmr's guidance through a
  * `workspace:*` self-link to the live source tree, so a dropped `agents` entry breaks registry installs alone.
  */
 describe('published tarball', () => {
@@ -19,11 +19,11 @@ describe('published tarball', () => {
     packedPaths = listPackedPaths();
   }, 120_000);
 
-  it('carries the CodeAssembly content root declared by codeassembly.content', () => {
+  it('contains the CodeAssembly content root declared by codeassembly.content', () => {
     expect(packedPaths).toContain('agents/guidance/rulebooks/nmr.md');
   });
 
-  it('carries no leftover of the retired sync-agent-files command', () => {
+  it('does not contain any leftover of the retired sync-agent-files command', () => {
     expect(packedPaths).not.toContain('AGENTS.md');
     expect(packedPaths).not.toContain('bin/nmr-sync-agent-files.js');
   });
@@ -32,8 +32,8 @@ describe('published tarball', () => {
 // region | Helpers
 
 /**
- * Returns the package-root-relative paths `pnpm pack` would publish. Scripts are skipped so `prepare` does not
- * compile the package: nothing asserted here reads `dist`, and building it would rewrite the working tree as a
+ * Returns the package-root-relative paths that `pnpm pack` would publish. Scripts are skipped so that `prepare` does
+ * not compile the package: Nothing asserted here reads `dist`, and building it would rewrite the working tree as a
  * side effect of a question about `files`. `pnpm pack` rejects a bare `--ignore-scripts`, hence the `--config`
  * form. An assertion that does read `dist` would have to restore the build, because the list then reports
  * whatever output happens to be on disk.
@@ -47,12 +47,12 @@ function listPackedPaths(): Array<string> {
 
   const parsedReport: unknown = JSON.parse(stdout);
   if (!isPackReport(parsedReport)) {
-    throw new Error(`pnpm pack --json returned no file list: ${stdout}`);
+    throw new Error(`pnpm pack --json did not return a file list: ${stdout}`);
   }
   return parsedReport.files.map((file) => file.path);
 }
 
-/** Narrows `pnpm pack --json` output to the one field this test reads. */
+/** Narrows `pnpm pack --json` output to the one field that this test reads. */
 function isPackReport(value: unknown): value is { files: Array<{ path: string }> } {
   return (
     typeof value === 'object' &&

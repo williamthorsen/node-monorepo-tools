@@ -9,7 +9,7 @@ const PACKAGE_ENTRY = { name: '@scope/pkg', path: '/repo/packages/pkg', version:
 const OTHER_PACKAGE_ENTRY = { name: '@scope/other', path: '/repo/packages/other', version: '1.0.0' };
 
 describe(interpretSelectionProbe, () => {
-  it('reads a resolved selection of no projects as empty', () => {
+  it('reads a resolved selection of zero projects as empty', () => {
     expect(interpretSelectionProbe({ error: undefined, status: 0, stdout: '[]' }, MONOREPO_ROOT)).toBe('empty');
   });
 
@@ -44,8 +44,8 @@ describe(interpretSelectionProbe, () => {
     expect(interpretSelectionProbe({ error: undefined, status: 0, stdout }, MONOREPO_ROOT)).toBe('multiple');
   });
 
-  // The failing exit is what pnpm reports a rejected selector with, and the delegate reports it again.
-  it('leaves a selector pnpm rejected unresolved', () => {
+  // pnpm reports a rejected selector with the failing exit, and the delegate reports it again.
+  it('leaves a selector rejected by pnpm unresolved', () => {
     expect(interpretSelectionProbe({ error: undefined, status: 1, stdout: '' }, MONOREPO_ROOT)).toBe('unresolved');
   });
 
@@ -72,11 +72,11 @@ describe(interpretDelegateProbe, () => {
     expect(interpretDelegateProbe({ error: undefined, status: 0, stdout: 'nmr-selected-scope' })).toBe('single');
   });
 
-  it('reads a run that reached no scope as empty', () => {
+  it('reads a run that did not reach any scope as empty', () => {
     expect(interpretDelegateProbe({ error: undefined, status: 0, stdout: '' })).toBe('empty');
   });
 
-  it('leaves a run pnpm failed unresolved', () => {
+  it('leaves a run that pnpm failed unresolved', () => {
     expect(interpretDelegateProbe({ error: undefined, status: 1, stdout: '' })).toBe('unresolved');
   });
 

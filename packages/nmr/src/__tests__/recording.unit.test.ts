@@ -34,7 +34,7 @@ describe('a recording', () => {
       expect(lookup).toMatchObject({ ok: true, recording: { transcript: 'Test Files  6 passed (6)\n' } });
     });
 
-    it('given a composite, returns the assembly it recorded and no transcript', async () => {
+    it('given a composite, returns the assembly that it recorded without a transcript', async () => {
       const retention = { key: 'a-retention-key', runId: 'a-run', replay: [buildReplayLine()] };
       await writeCheckCacheEntry({ ...buildRef(), entry: { ...makeEntry(), retention } });
 
@@ -53,7 +53,7 @@ describe('a recording', () => {
       expect(lookup).toStrictEqual({ ok: false, refusal: { kind: 'uncacheable' } });
     });
 
-    it('given a command to which the cache does not apply, refuses rather than reading an entry it cannot vouch for', async () => {
+    it('given a command to which the cache does not apply, refuses rather than reading an entry for which it cannot vouch', async () => {
       await writeCheckCacheEntry({ ...buildRef(), entry: makeEntry() });
 
       const lookup = await resolveRecording({ ...buildLookup(), key: undefined });
@@ -67,7 +67,7 @@ describe('a recording', () => {
       expect(lookup).toStrictEqual({ ok: false, refusal: { kind: 'unrecorded' } });
     });
 
-    // The same admission a skip is held to, so `--log` shows what would have been recalled and nothing else.
+    // The same admission to which a skip is held, so `--log` shows what would have been recalled and nothing else.
     it('given a pass recorded under another key, refuses and reports its age', async () => {
       const recordedAt = new Date(Date.now() - 120_000).toISOString();
       await writeCheckCacheEntry({ ...buildRef(), entry: { ...makeEntry(), key: 'another-key', recordedAt } });
@@ -79,8 +79,8 @@ describe('a recording', () => {
       expect(lookup).not.toMatchObject({ ok: true });
     });
 
-    // The key folds in the install, the interpreter, and the chain that would run, so attributing every
-    // mismatch to the tree sends a reader with a clean `git status` looking in the wrong place.
+    // The key folds in the install, the interpreter, and the chain that would run. Attributing every mismatch
+    // to the tree sends a reader with a clean `git status` looking in the wrong place.
     it.each([
       ['the tree moved', { treeHash: 'another-tree' }, { ingredient: 'tree' }],
       ['the chain changed', { commandString: 'vitest run --coverage' }, { ingredient: 'command-string' }],
@@ -103,7 +103,7 @@ describe('a recording', () => {
       expect(lookup).toMatchObject({ ok: false, refusal: { difference } });
     });
 
-    it('leaves the tree unattributed where no snapshot was taken', async () => {
+    it('leaves the tree unattributed when the invocation did not take a snapshot', async () => {
       await writeCheckCacheEntry({ ...buildRef(), entry: { ...makeEntry(), key: 'another-key' } });
 
       const lookup = await resolveRecording({
@@ -148,7 +148,7 @@ describe('a recording', () => {
       expect(renderedText.split('\n', 2)[1]).toBe('$ vitest --project unit');
     });
 
-    it('opens a plain header on the scope, the glyph having no plain variant', () => {
+    it('opens a plain header on the scope, because the glyph does not have a plain variant', () => {
       const recordedAt = new Date(Date.now() - 60_000).toISOString();
       const entry = { ...makeEntry(), recordedAt, durationMs: 12_400, commandString: 'vitest --project unit' };
 
@@ -194,12 +194,12 @@ describe('a recording', () => {
       [
         'a moved tree',
         { kind: 'mismatched', ageMs: 60_000, difference: { ingredient: 'tree' } },
-        'the last pass was 1m ago, on a tree this is not',
+        'the last pass was 1m ago, on a tree that this is not',
       ],
       [
         'a changed chain',
         { kind: 'mismatched', ageMs: 60_000, difference: { ingredient: 'command-string' } },
-        'over a command chain this is not',
+        'over a command chain that this is not',
       ],
       [
         'an upgraded nmr',
@@ -220,9 +220,9 @@ describe('a recording', () => {
         'under Node v24.0.0, not v25.0.0',
       ],
       [
-        'an ingredient the entry does not record',
+        'an ingredient that the entry does not record',
         { kind: 'mismatched', ageMs: 60_000, difference: { ingredient: 'other' } },
-        'under an install or environment this run does not share',
+        'under an install or environment that this run does not share',
       ],
       ['no-output', { kind: 'no-output', ageMs: 60_000 }, 'the pass 1m ago retained none'],
     ] as const)('given %s, names the scope, the command, and what is missing', (_kind, refusal, clause) => {
@@ -232,7 +232,7 @@ describe('a recording', () => {
       expect(renderedText).toContain(clause);
     });
 
-    it('stays on one line, so a fan-out’s gaps stay attributable', () => {
+    it('stays on one line, so that a fan-out’s gaps stay attributable', () => {
       const renderedText = renderRefusal({
         command: COMMAND,
         refusal: { kind: 'unrecorded' },
@@ -272,7 +272,7 @@ describe('a recording', () => {
     };
   }
 
-  /** Resolves what this scope has to show, failing the test where it has nothing. */
+  /** Resolves what this scope has to show, failing the test when it has nothing. */
   async function resolveOrThrow(): Promise<Recording> {
     const lookup = await resolveRecording(buildLookup());
     if (!lookup.ok) {

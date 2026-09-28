@@ -5,24 +5,25 @@ import process from 'node:process';
 
 import { isObject } from './type-guards.ts';
 
-/** What a scope writes when the delegate reaches it, distinctive enough not to be read out of pnpm's own output. */
+/** What a scope writes when the delegate runs in it, distinctive enough not to be mistaken for pnpm's own output. */
 const SELECTION_MARKER = 'nmr-selected-scope';
 
 /**
- * Asks pnpm what a `-F` pattern selects, so an invocation that would select nothing is caught before it
- * delegates, and one selecting several packages is told from one selecting a single package.
+ * Asks pnpm what a `-F` pattern selects, so that an invocation that would select nothing is caught before it
+ * delegates, and one selecting several packages is distinguished from one selecting a single package.
  *
  * pnpm answers because `-F` accepts pnpm's whole selector language: names and globs alongside `./path`, `{dir}`,
  * `pkg...`, `!negation`, and `[since]`.
  *
- * Runs from the monorepo root, where the delegate runs, so a path pattern resolves against the same directory
- * in the probe as in the run it stands in for.
+ * Runs from the monorepo root, where the delegate runs, so that a path pattern resolves against the same
+ * directory in the probe as in the run that it stands in for.
  *
- * The listing counts the root project wherever the filter leaves it standing, while the `exec` a delegation
- * composes runs there only where the pattern selects the root positively: `-F '!./packages/*'` lists the root
- * and executes nowhere. A listing of the root alone is therefore the one reading the listing cannot settle,
- * and it is put to `exec` itself. Every other listing settles on its own, and counts the packages beside the
- * root: two of them run in two scopes, while one beside the root may run in that package alone.
+ * The listing counts the root project wherever the filter does not exclude it, while the `exec` that a
+ * delegation composes runs there only when the pattern selects the root positively: `-F '!./packages/*'` lists
+ * the root and executes nowhere. A listing of the root alone is therefore the one reading that the listing
+ * cannot settle, and that reading is checked against `exec` itself. Every other listing settles on its own, and
+ * counts the packages beside the root: two of them run in two scopes, while one beside the root may run in that
+ * package alone.
  */
 export function readFilterSelection(pattern: string, monorepoRoot: string): FilterSelection {
   const listingRun = spawnSync('pnpm', ['ls', '--filter', pattern, '--depth', '-1', '--json'], {
@@ -41,10 +42,10 @@ export function readFilterSelection(pattern: string, monorepoRoot: string): Filt
 /**
  * Reduces a listing to what it proves about the selection.
  *
- * Every outcome the probe cannot read resolves to `unresolved`, which claims nothing about the selection, and the
- * invocation delegates as it would have. A pattern pnpm rejects rather than resolves, such as a bad git ref in
- * a changed-since selector, is pnpm's to report, and reporting it here as a match failure would name a
- * different fault than the one the user has.
+ * Every outcome that the probe cannot read resolves to `unresolved`, which claims nothing about the selection,
+ * and the invocation delegates as it would have. A pattern that pnpm rejects rather than resolves, such as a bad
+ * git ref in a changed-since selector, is pnpm's to report, and reporting it here as a match failure would name a
+ * different fault than the one that the user has.
  */
 export function interpretSelectionProbe(probe: SelectionProbe, monorepoRoot: string): ProbeReading {
   if (probe.error !== undefined || probe.status !== 0) {
@@ -75,8 +76,8 @@ export function interpretSelectionProbe(probe: SelectionProbe, monorepoRoot: str
 }
 
 /**
- * Reduces a marked delegate run to what it proves: a scope that wrote the marker is a scope the run reached. The
- * run is made only for a listing of the root alone, so that scope is the only one.
+ * Reduces a marked delegate run to what it proves: a scope that wrote the marker is a scope that the run
+ * reached. Because the run is made only for a listing of the root alone, that scope is the only one.
  */
 export function interpretDelegateProbe(probe: SelectionProbe): FilterSelection {
   if (probe.error !== undefined || probe.status !== 0) {
@@ -92,7 +93,7 @@ export type FilterSelection = 'empty' | 'multiple' | 'single' | 'unresolved';
 /** What a listing proves, `root-only` being the reading that only the delegate can settle. */
 export type ProbeReading = FilterSelection | 'root-only';
 
-/** The part of a probe's completion a selection is read from. */
+/** The part of a probe's completion from which a selection is read. */
 export interface SelectionProbe {
   error: Error | undefined;
   status: number | null;
@@ -110,7 +111,7 @@ function isRootEntry(entry: unknown, monorepoRoot: string): boolean {
   return resolveRealPath(entry['path']) === resolveRealPath(monorepoRoot);
 }
 
-/** Resolves symbolic links out of a path, falling back to the resolved path where the target cannot be read. */
+/** Resolves symbolic links out of a path, falling back to the resolved path when the target cannot be read. */
 function resolveRealPath(target: string): string {
   try {
     return realpathSync(target);
@@ -120,10 +121,10 @@ function resolveRealPath(target: string): string {
 }
 
 /**
- * Puts the pattern to the delegate's own selection, running a marker in each scope it reaches.
+ * Tests the pattern against the delegate's own selection, running a marker in each scope that it reaches.
  *
- * The marker is what tells an empty selection from a scope that printed nothing, which is the signal `exec`
- * itself withholds: its exit code is 0 either way.
+ * The marker distinguishes an empty selection from a scope that printed nothing, a distinction that `exec`
+ * itself does not report: its exit code is 0 either way.
  */
 function readDelegateSelection(pattern: string, monorepoRoot: string): FilterSelection {
   const probeRun = spawnSync(

@@ -1,0 +1,1869 @@
+rules:
+  capitalization-after-colon:
+    version: '1'
+    swept-at: 2026-09-28
+    detected: false
+    roots:
+      - packages/nmr
+  doc-descriptions:
+    version: '1'
+    swept-at: 2026-09-28
+    detected: false
+    roots:
+      - packages/nmr
+  em-dash:
+    version: '1'
+    swept-at: 2026-09-28
+    detected: true
+    roots:
+      - packages/nmr
+  inline-comments:
+    version: '1'
+    swept-at: 2026-09-28
+    detected: false
+    roots:
+      - packages/nmr
+  line-wrapping:
+    version: '1'
+    swept-at: 2026-09-28
+    detected: false
+    roots:
+      - packages/nmr
+  negative-quantifier:
+    version: '2'
+    swept-at: 2026-09-28
+    detected: true
+    roots:
+      - packages/nmr
+  plain-speech:
+    version: '9'
+    swept-at: 2026-09-28
+    detected: false
+    roots:
+      - packages/nmr
+  reduced-object-relative:
+    version: '1'
+    swept-at: 2026-09-28
+    detected: true
+    roots:
+      - packages/nmr
+  second-person:
+    version: '1'
+    swept-at: 2026-09-28
+    detected: true
+    roots:
+      - packages/nmr
+  sentence-case:
+    version: '1'
+    swept-at: 2026-09-28
+    detected: false
+    roots:
+      - packages/nmr
+  so:
+    version: '1'
+    swept-at: 2026-09-28
+    detected: true
+    roots:
+      - packages/nmr
+  where:
+    version: '1'
+    swept-at: 2026-09-28
+    detected: true
+    roots:
+      - packages/nmr
+rejections:
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/docs/scripts.md
+    phrase: —
+    ground: 'not prose: an empty-cell placeholder in a table'
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/docs/scripts.md
+    phrase: —
+    ground: 'not prose: an empty-cell placeholder in a table'
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/docs/utilities.md
+    phrase: —
+    ground: 'not prose: an empty-cell placeholder in a table'
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/docs/utilities.md
+    phrase: —
+    ground: 'not prose: an empty-cell placeholder in a table'
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/recording.tool.test.ts
+    phrase: "^${path.basename(repo)}: ${COMMAND} — recorded \\d{4}-.*ago\\), ran in .*\\n\\$ .*echo"
+    ground: "not prose: a regex matching nmr's output; it moves with recording.ts:74 (see questionable)"
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/recording.unit.test.ts
+    phrase: '💾 ${SCOPE}: ${COMMAND} — recorded ${recordedAt} (1m ago), ran in 12.4s'
+    ground: 'not prose: an asserted literal matching recording.ts:74'
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/recording.unit.test.ts
+    phrase: '${SCOPE}: ${COMMAND} — recorded ${recordedAt} (1m ago), ran in 12.4s'
+    ground: 'not prose: an asserted literal matching recording.ts:74'
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/verdict.unit.test.ts
+    phrase: '⏩ nmr-core: test: passed 4m ago on this tree, saved ~12s —'
+    ground: 'not prose: an expected-output literal asserting on the rendered separator'
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/verdict.unit.test.ts
+    phrase: '⏩ nmr-core: test: passed 4m ago on this tree, saved ~12s —'
+    ground: 'not prose: an expected-output literal asserting on the rendered separator'
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/verdict.unit.test.ts
+    phrase: '⏩ nmr-core: test: passed 4m ago on this tree, saved ~12s — replayed: Test Files 6 passed (6)'
+    ground: 'not prose: an expected-output literal asserting on the rendered separator'
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/verdict.unit.test.ts
+    phrase: '✅ nmr-core: test: passed in 12s — first second'
+    ground: 'not prose: an expected-output literal asserting on the rendered separator'
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/verdict.unit.test.ts
+    phrase: '✅ nmr-core: test: passed in 12s — line one line two'
+    ground: 'not prose: an expected-output literal asserting on the rendered separator'
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/verdict.unit.test.ts
+    phrase: '✅ nmr-core: test: passed in 12s — Test Files 6 passed (6)'
+    ground: 'not prose: an expected-output literal asserting on the rendered separator'
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/verdict.unit.test.ts
+    phrase: 'PASS nmr-core: test: passed in 12s — Test Files 6 passed (6)'
+    ground: 'not prose: an expected-output literal asserting on the rendered separator'
+  - rule: em-dash
+    rule-version: '1'
+    file: packages/nmr/src/recording.ts
+    phrase: '${options.scope}: ${options.command} — recorded ${entry.recordedAt} (${age} ago),'
+    ground: "author rejected: changes nmr's --log header format; asserted in recording.unit.test.ts:146,158 and recording.tool.test.ts:60, and quoted in packages/nmr/docs/check-cache.md:112 (outside the batch)"
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: no nmr config file
+    ground: a verbless skip label, which does not contain a verb to negate
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: no package re-exports the ancestor Vitest config
+    ground: 'author rejected: a check name that packages/nmr/CHANGELOG.md cites by name; renaming it goes beyond a prose repair'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: no package.json declares a pnpm field
+    ground: 'author rejected: a check name is printed to users and may be matched by consumers, so renaming it goes beyond a prose repair'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: no retired Vitest config variants
+    ground: a verbless check-name label, which does not contain a verb to negate
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: no root install script runs lefthook install unguarded
+    ground: 'author rejected: a check name is printed to users, so renaming it goes beyond a prose repair'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: no workspace packages reference run-workspace-script or "pnpm run ws"
+    ground: 'author rejected: a check name is printed to users, so renaming it goes beyond a prose repair'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: root package.json has no nmr-provided scripts
+    ground: 'author rejected: a check name is printed to users, so renaming it goes beyond a prose repair'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: taze config declares no option taze discards
+    ground: 'author rejected: a check name is printed to users, so renaming it goes beyond a prose repair (the repair also restores the relativizer)'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/check-cache-gate.tool.test.ts
+    phrase: no pass recorded
+    ground: "not prose: an asserted literal matching nmr's debug output"
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/check-cache-gate.tool.test.ts
+    phrase: 'replayed: a-scope: inner: 27 passed (27); a-scope: other: no issues'
+    ground: 'not prose: an asserted literal built from fixture data'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/check-cache.unit.test.ts
+    phrase: retention with no key
+    ground: 'outside the rule: a verbless label in a test table'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/check-cache.unit.test.ts
+    phrase: retention with no witness
+    ground: 'outside the rule: a verbless label in a test table'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/kit-vitest-checks.unit.test.ts
+    phrase: no readable package.json
+    ground: "not prose: a data literal asserted against the kit's output"
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/output-style.unit.test.ts
+    phrase: no flag at all
+    ground: 'outside the rule: a verbless scenario label, which does not contain a verb to negate'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/recording.unit.test.ts
+    phrase: '🟠 ${SCOPE}: ${COMMAND}: no recording;'
+    ground: 'not prose: an asserted literal matching recording.ts:93'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/recording.unit.test.ts
+    phrase: "nmr-core: typecheck: no errors\\nnmr: lint:check: no problems\\n"
+    ground: 'not prose: asserted fixture content'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/recording.unit.test.ts
+    phrase: no trailing newline
+    ground: 'not prose: fixture transcript content'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/recording.unit.test.ts
+    phrase: no trailing newline\n
+    ground: 'not prose: fixture transcript content'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/recording.unit.test.ts
+    phrase: 'WARN ${SCOPE}: ${COMMAND}: no recording;'
+    ground: 'not prose: an asserted literal matching recording.ts:93'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/report-format.unit.test.ts
+    phrase: no value at all
+    ground: a verbless scenario label, which has no verb to negate
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/resolver.unit.test.ts
+    phrase: '[typecheck (no args), test]'
+    ground: 'not prose: the expected output literal that the test asserts on'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/resolver.unit.test.ts
+    phrase: no entry for the command
+    ground: a verbless scenario label, which has no verb to negate
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/steps.unit.test.ts
+    phrase: no command at all
+    ground: a verbless scenario label, which has no verb to negate
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/taze-config.unit.test.ts
+    phrase: 'The classic «codespan» defaulting bug: 0 is a meaningful value here (no soak at all), not an absent one.'
+    ground: a verbless parenthetical, which does not contain a verb to negate
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/verbosity.unit.test.ts
+    phrase: no value at all
+    ground: a verbless scenario label, which has no verb to negate
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/vitest.unit.test.ts
+    phrase: 'Not a monorepo root: no pnpm-workspace.yaml in ${notARootTree.dir}'
+    ground: 'not prose: the assertion quotes the message defined in src/vitest.ts, outside this batch'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/workspace.unit.test.ts
+    phrase: 'Could not find monorepo root: no pnpm-workspace.yaml found in any parent directory'
+    ground: 'not prose: the assertion quotes the message defined in src/workspace.ts, outside this batch'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/__tests__/workspace.unit.test.ts
+    phrase: 'Not a monorepo root: no pnpm-workspace.yaml in ${notARoot.dir}'
+    ground: 'not prose: the assertion quotes the message defined outside this batch'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/check-cache.ts
+    phrase: 'no install fingerprint: ${relativePath} is unreadable'
+    ground: verbless label before a colon in a debug reason
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: 'ENOSPC: no space left on device'
+    ground: "not prose: a fixture string that quotes the operating system's error message"
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: No changes detected
+    ground: a quotation of the program's verbless status output
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: No changes detected
+    ground: a quotation of the program's verbless status output
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: No changes detected
+    ground: a quotation of the program's verbless status output
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: Only the second (unchanged) build logs "No changes detected"; the first logs "Changes detected".
+    ground: a quotation of the program's verbless status output
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/commands/__tests__/build.unit.test.ts
+    phrase: 'The «codespan» family is published in this shape: no «codespan» map, config at the package root.'
+    ground: 'outside the rule: a verbless list after the colon, without a verb to negate'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/commands/__tests__/ensure-prepublish-hooks.unit.test.ts
+    phrase: No publishable packages found.
+    ground: 'author rejected: the assertion must match the printed string at ensure-prepublish-hooks.ts line 112; change it only together with that site'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/commands/build.ts
+    phrase: '${STATUS_GLYPHS[style].skipped.text} ${packageName}: No changes detected.'
+    ground: a verbless status fragment printed by the program, with no finite verb to negate
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/commands/ensure-prepublish-hooks.ts
+    phrase: No publishable packages found.
+    ground: 'author rejected: the message has no finite verb and may fall under the exemption for verbless labels; the repair changes CLI output, which ensure-prepublish-hooks.unit.test.ts line 161 asserts on, so both files would need the change together'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/helpers/findClosestName.ts
+    phrase: No cell at index ${index} in a row of ${row.length}
+    ground: 'a verbless error message: there is no verb to negate'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/recording.ts
+    phrase: '${text} ${options.scope}: ${options.command}: no recording; ${describeRefusal(options.command, options.refusal)}'
+    ground: "outside the rule: a verbless label in the refusal line's grammar"
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/resolver.ts
+    phrase: ${element.run} (no args)
+    ground: a verbless label in help output
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr/src/runCli.ts
+    phrase: 'running ${command}: no pass recorded for this scope'
+    ground: 'author rejected: printed debug note, possibly asserted in check-cache-gate.tool.test.ts outside the batch'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: misplaced one runs
+    ground: "not the construction: 'runs' is the clause's own verb"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: miss the per-package «codespan» directories
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: not it names
+    ground: "not the construction: 'whether or not it names a tier' is a conditional clause"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: report a dependency pinned
+    ground: "not the construction: 'pinned' is a participle modifying the object"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: tell the two depths
+    ground: "not the construction: 'tell' is a verb with a plain object"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: use the default nmr build have
+    ground: "not the construction: 'have' is the main verb of 'packages that use the default nmr build'"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: workspace packages can build
+    ground: "not the construction: the verb is the sentence's own"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/agents/guidance/rulebooks/nmr.md
+    phrase: case it is
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/agents/guidance/rulebooks/nmr.md
+    phrase: root a command covers
+    ground: "not the construction: 'a command covers' is the clause's own subject and verb"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/agents/guidance/rulebooks/nmr.md
+    phrase: worktree it can resolve
+    ground: "not the construction: 'it can resolve' is the main clause after a prepositional phrase"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/agents/README.md
+    phrase: moment it matters
+    ground: 'outside the rule: an adjunct (time) relative whose gap does not fill an argument position'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/check-cache.md
+    phrase: covered package's recorded
+    ground: "Not the construction: 'covered' is an adjective, not a relative head."
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/check-cache.md
+    phrase: replay each other's excerpts
+    ground: 'Not the construction: a reciprocal possessive, with no relative clause.'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/reporting.md
+    phrase: first ones being emptied
+    ground: 'Not the construction: a gerund clause, not an object relative.'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/scripts.md
+    phrase: default commands do
+    ground: 'not the construction: `commands` is the subject of `do`, and `what` is a fused head'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/scripts.md
+    phrase: extra steps may run
+    ground: 'not the construction: `steps` is the subject of `may run`'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/scripts.md
+    phrase: publish its own tests
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/scripts.md
+    phrase: put the package-specific steps
+    ground: 'not the construction: a verb and its object'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/scripts.md
+    phrase: wherever it appears
+    ground: 'not the construction: a free adjunct relative (the verb was separately changed to `appears`)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/upgrades.md
+    phrase: cache happens to be
+    ground: "Not the construction: an embedded 'how' question, not a relative."
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/upgrades.md
+    phrase: large one runs
+    ground: "Not the construction: 'runs' is the clause's own verb."
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/upgrades.md
+    phrase: report a dependency pinned
+    ground: "Not the construction: 'pinned' is a participle."
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/upgrades.md
+    phrase: report a dependency pinned
+    ground: "Not the construction: 'pinned' is a participle."
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/upgrades.md
+    phrase: see a dependency declared
+    ground: "Not the construction: 'pinned' is a participle."
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/utilities.md
+    phrase: exactly the current emit
+    ground: 'not the construction: a noun phrase'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/utilities.md
+    phrase: keep their doc comments
+    ground: 'not the construction: a verb and its object'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/utilities.md
+    phrase: not the Vitest coverage exclusions
+    ground: 'not the construction: a predicate noun phrase'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/utilities.md
+    phrase: TypeScript 7 does not include
+    ground: 'not the construction: a participial clause followed by the main clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/utilities.md
+    phrase: workspace packages have
+    ground: 'not the construction: `packages` is the subject of `have`'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: collection exclusions do not name
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: counterpart the way a condition does
+    ground: 'not the construction: an adverbial "the way" clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: cover their own sources
+    ground: 'not the construction: a verb and its object'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: cover their own sources
+    ground: 'not the construction: a verb and its object'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: flaky the moment «codespan» collects
+    ground: 'outside the rule: an adjunct relative ("the moment") whose gap does not fill an argument position'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: fold any number of layers
+    ground: 'not the construction: a verb and its object'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: import fails exactly as it would with the flag
+    ground: not the construction
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: merge the factory's inputs
+    ground: 'not the construction: a verb and its object'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: monorepo the run started
+    ground: 'outside the rule: a free relative headed by `whichever`'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: not a test imports
+    ground: 'not the construction: "whether or not a test imports it"'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: not it sets
+    ground: 'not the construction: "whether or not it sets the flag"'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: package the run began
+    ground: 'outside the rule: a free relative headed by `whichever`, which does not admit a relativizer'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: shared configs exclude
+    ground: 'not the construction: `configs` is the subject of `exclude`'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: spawning the compiler binary is
+    ground: 'not the construction: a participial phrase modifying `one`'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/docs/workspace.md
+    phrase: positive patterns matched
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/README.md
+    phrase: install scripts do not run
+    ground: "not the construction: the relative had an overt 'which'"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/README.md
+    phrase: pnpm 11 does not read
+    ground: "not the construction: the relative had an overt 'which'"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/README.md
+    phrase: ran nothing reports
+    ground: "not the construction: 'nothing' is the object of 'ran' and 'reports' is the main verb"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/README.md
+    phrase: ref happens to point
+    ground: "outside the rule: fused head 'whatever'"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/README.md
+    phrase: workspace packages live
+    ground: "not the construction: an embedded question ('which directories its workspace packages live in'), not a relative clause"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/bootstrap.tool.test.ts
+    phrase: wiring guards read
+    ground: 'not the construction: "read" is the sentence''s main verb'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/chain-rendering.unit.test.ts
+    phrase: default script's pinned
+    ground: 'not the construction: a possessive followed by a participial adjective'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache-gate.tool.test.ts
+    phrase: declining one included
+    ground: 'not the construction: an absolute phrase with a participle'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache-gate.tool.test.ts
+    phrase: fixture's one covered
+    ground: "not the construction: 'one covered' modifies 'package'"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache-gate.tool.test.ts
+    phrase: output it was earned
+    ground: 'not the construction: an embedded question, not a relative clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache-gate.tool.test.ts
+    phrase: somewhere the tree hash does not describe
+    ground: "outside the rule: the head is the pro-form 'somewhere', not a lexical noun"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache-gate.tool.test.ts
+    phrase: take the invocation itself
+    ground: 'not the construction: a main-clause verb and its object'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache.unit.test.ts
+    phrase: back the retention recorded
+    ground: 'not the construction: "recorded" is a participle modifying "retention"'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache.unit.test.ts
+    phrase: descriptor a stream ran
+    ground: 'outside the rule: "which descriptor a stream ran on" is an embedded question, not a relative clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache.unit.test.ts
+    phrase: loud one recorded
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache.unit.test.ts
+    phrase: one such package fails
+    ground: 'not the construction: a possessive noun phrase'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache.unit.test.ts
+    phrase: pnpm files read
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache.unit.test.ts
+    phrase: set stays fixed
+    ground: 'not the construction: "stays" is the sentence''s main verb'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache.unit.test.ts
+    phrase: somewhere this does not know
+    ground: 'outside the rule: "somewhere" is a fused head, not a lexical head noun'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache.unit.test.ts
+    phrase: terminal a command wrote
+    ground: 'outside the rule: "which terminal a command wrote to" is an embedded question, not a relative clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/cli-build.tool.test.ts
+    phrase: package it is invoked
+    ground: 'outside the rule: "whichever package it is invoked in" is a free relative with a fused head'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/cli.tool.test.ts
+    phrase: spawn the real built
+    ground: 'not the construction: "spawn" is the main verb and "built" an adjective'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/cli.tool.test.ts
+    phrase: subpackage they should resolve
+    ground: 'not the construction: "they should resolve" is the main clause after the prepositional phrase'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/help.unit.test.ts
+    phrase: override an entry chaining steps
+    ground: "not the construction: 'chaining' is a participle modifying 'entry', not a relative clause"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/kit-checks.unit.test.ts
+    phrase: report the wrong rules
+    ground: "not the construction: 'report' is the verb, not a head noun"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/kit-lefthook-checks.unit.test.ts
+    phrase: flag it adds
+    ground: "outside the rule: 'whatever runner or flag' is a fused-head free relative"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/kit-vitest-checks.unit.test.ts
+    phrase: not it names
+    ground: "not the construction: 'whether or not it names a tier' is not a relative clause"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/kit-vitest-checks.unit.test.ts
+    phrase: wherever they are
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/prettier.tool.test.ts
+    phrase: basename the plugin claims
+    ground: "not the construction: the relative has the overt relativizer 'whose'"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/prettier.tool.test.ts
+    phrase: script the way shfmt does
+    ground: "outside the rule: 'the way shfmt does' is an adjunct relative"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/recording.tool.test.ts
+    phrase: fixture declares does not contain
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/recording.unit.test.ts
+    phrase: fixture's entries were recorded
+    ground: "outside the rule: the head is the fused relative 'What'; the later 'which ... of' already has a relativizer"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/replay-assembly.unit.test.ts
+    phrase: output the leaf path retains
+    ground: "not the construction: a 'whose' relative with an overt relativizer"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/resolve-scripts.unit.test.ts
+    phrase: dir the child would look
+    ground: 'not the construction: the child is the subject of the main clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/resolve-scripts.unit.test.ts
+    phrase: locate the root themselves
+    ground: 'not the construction: a main-clause verb and its object'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/resolve-scripts.unit.test.ts
+    phrase: share the same chain invariants
+    ground: "not the construction: carry is the clause's own verb (repaired separately under plain-speech)"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/resolver.unit.test.ts
+    phrase: pass the moment the defaults
+    ground: "not the construction: 'the moment the defaults declared anything' is an adjunct of time, and 'pass' is not a head with a gap"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/runCli.unit.test.ts
+    phrase: exit 0 would read
+    ground: 'not the construction: `exit 0` is the subject of `would read`'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/runCli.unit.test.ts
+    phrase: outrank a quiet configured
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/runCli.unit.test.ts
+    phrase: package it selects
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/runCli.unit.test.ts
+    phrase: unresolved one leaves
+    ground: 'not the construction: `one` is the subject of `leaves`'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/runCli.unit.test.ts
+    phrase: workspace none would have
+    ground: 'not the construction: `none would have` is an elliptical main clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/runner.unit.test.ts
+    phrase: makes those steps piped
+    ground: 'not the construction: a main-clause verb with an object complement'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/signal-sequence.tool.test.ts
+    phrase: step waits before giving
+    ground: 'not the construction: step is the subject of waits'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/tests.tool.test.ts
+    phrase: 30 seconds will not cover
+    ground: "not the construction: 'the tier's 30 seconds' is the subject of 'will not cover'"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/tiers.unit.test.ts
+    phrase: caller passes can keep
+    ground: "fused head: 'what the caller passes' is outside the rule"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/tiers.unit.test.ts
+    phrase: file runs untiered
+    ground: 'not the construction: file is the subject of runs'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/verdict-nesting.packaged.tool.test.ts
+    phrase: level reports is decided
+    ground: "fused head: 'What a level reports' is outside the rule"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/verdict-nesting.packaged.tool.test.ts
+    phrase: order the lines arrived
+    ground: 'adjunct relative: the gap does not fill an argument position'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/verdict-nesting.packaged.tool.test.ts
+    phrase: order the lines arrived
+    ground: 'adjunct relative: the gap does not fill an argument position'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/verdict.unit.test.ts
+    phrase: corrupt every scope's records
+    ground: 'not the construction: a coordinated main verb and its object'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest-config.tool.test.ts
+    phrase: 30 seconds will not cover
+    ground: "not the construction: 'the tier's 30 seconds' is the subject of 'will not cover'"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest-config.tool.test.ts
+    phrase: configuration it inherited
+    ground: "not prose: the test name inside a fixture file's generated source"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest-config.tool.test.ts
+    phrase: entries it resolved
+    ground: "not prose: the test name inside a fixture file's generated source"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest-config.tool.test.ts
+    phrase: module the alias reached
+    ground: "not prose: the test name inside a fixture file's generated source"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest-config.tool.test.ts
+    phrase: not a test imports
+    ground: "not the construction: 'a test' is the subject of a complete clause with no gap"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest-config.tool.test.ts
+    phrase: not a test imports
+    ground: "not the construction: 'a test' is the subject of a complete clause with no gap"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest-config.tool.test.ts
+    phrase: relative paths below depend
+    ground: "outside the rule: the relativizer 'which' is already present, and the stranded form is an accepted repair"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest-source-resolution.unit.test.ts
+    phrase: link the way pnpm links
+    ground: "not the construction: 'the way pnpm links' is an adjunct relative, and 'link' is not its head"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest.unit.test.ts
+    phrase: key it names
+    ground: "outside the rule: a fused 'whichever' relative, which does not admit a relativizer"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest.unit.test.ts
+    phrase: monorepo the run started
+    ground: "outside the rule: a fused 'whichever' relative"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest.unit.test.ts
+    phrase: order it emits
+    ground: "outside the rule: adjunct relative ('the order it emits them', like 'the way it works'), whose gap does not fill an argument position"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest.unit.test.ts
+    phrase: override both tier budgets
+    ground: "not the construction: 'override' is the verb of the sentence"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest.unit.test.ts
+    phrase: repo they belong
+    ground: 'not the construction: an embedded question, not a relative clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest.unit.test.ts
+    phrase: turn the empty-run allowance back
+    ground: "not the construction: 'turn' is the verb of the sentence"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest.unit.test.ts
+    phrase: wherever it falls
+    ground: 'not the construction: an adverbial clause, not a relative with a lexical head'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/workspace.unit.test.ts
+    phrase: manifest's patterns are passed
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/check-cache.ts
+    phrase: instant the pass completed
+    ground: 'outside the rule: temporal adjunct relative'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/check-cache.ts
+    phrase: mode the child writes
+    ground: 'not the construction: `under quiet mode` is a prepositional phrase before a main clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/check-cache.ts
+    phrase: terminal a command wrote
+    ground: 'not the construction: `which terminal a command wrote to` is an embedded question'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/check-cache.ts
+    phrase: tree the bytes describe
+    ground: 'not the construction: `which tree the bytes describe` is an embedded question'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/check-cache.ts
+    phrase: workspace's globs can yield
+    ground: "not the construction: `a workspace's globs` is the subject of a main clause"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: fixture its own node_modules
+    ground: 'not the construction: a ditransitive verb with two objects'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: not the source files
+    ground: 'not the construction: a detector misparse of "whether or not the source files are shared"'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: order the build created
+    ground: 'outside the rule: an adjunct (manner) relative, and the gap does not fill an argument position'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: outnumber the package's own sources
+    ground: 'not the construction: a main verb and its object'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: point a build can fail
+    ground: 'outside the rule: an adjunct (locative) relative'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: publish needs has already
+    ground: 'outside the rule: an adjunct (locative) relative'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/__tests__/ensure-prepublish-hooks.unit.test.ts
+    phrase: non-private packages have
+    ground: "not the construction: 'have' is the clause's own verb"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/__tests__/ensure-prepublish-hooks.unit.test.ts
+    phrase: publishable packages found
+    ground: "not the construction: 'found' is a participle"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/build-output.ts
+    phrase: tell a directory orphaned
+    ground: "not the construction: 'orphaned' is a participle"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/build.ts
+    phrase: alias prefixes declared
+    ground: 'not the construction: a passive participle'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/build.ts
+    phrase: keep their doc comments
+    ground: 'not the construction: a main verb and its object (the verb itself was repaired under plain-speech)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/build.ts
+    phrase: let a non-relative specifier resolve
+    ground: 'not the construction: a causative with a bare infinitive (the actual reduced relative nearby, "a location Node cannot reach", was applied)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/clean.ts
+    phrase: not the bins of nmr's
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/clean.ts
+    phrase: resolution the root sweep honors
+    ground: overt relativizer 'whose' is present
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/clean.ts
+    phrase: scope the clean was invoked
+    ground: "outside the rule: 'whatever' free relative (fused head) does not admit a relativizer"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/ensure-prepublish-hooks.ts
+    phrase: publishable packages found
+    ground: "not the construction: 'found' is a participle"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/ensure-prepublish-hooks.ts
+    phrase: workspace packages have
+    ground: "not the construction: 'have' is the clause's own verb"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/fmt.ts
+    phrase: alongside its own bytes
+    ground: 'not the construction: prepositional phrase; the real contact clause at this line was repaired'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/fmt.ts
+    phrase: ignore rules applied
+    ground: "not the construction: 'applied' is a participle"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/fmt.ts
+    phrase: not it exists
+    ground: "not the construction: 'whether or not it exists' is a clause without a head noun"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/report-overrides.ts
+    phrase: dependency overrides declared
+    ground: "not the construction: 'declared' is a participle"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/taze.ts
+    phrase: large one takes
+    ground: "not the construction: 'a large one' is the subject of 'takes'"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/taze.ts
+    phrase: launcher runs taze
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/commands/taze.ts
+    phrase: mode all see the caller's
+    ground: 'not the construction: coordinated subject followed by its verb'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/default-scripts.ts
+    phrase: registry it names
+    ground: "not the construction: 'In the root registry' is a prepositional phrase and 'it' is the main-clause subject"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/default-scripts.ts
+    phrase: step runs unnarrowed
+    ground: 'not the construction: subject and verb of a main clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/default-scripts.ts
+    phrase: wherever the build already does
+    ground: 'outside the rule: fused-head adjunct without a head noun'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/git-ignored-paths.ts
+    phrase: pattern it matches
+    ground: "outside the rule: 'whatever' free relative (fused head) does not admit a relativizer"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/helpers/deriveExcerpt.ts
+    phrase: block an excerpt keeps
+    ground: 'not the construction: an embedded interrogative ("how many lines ... an excerpt keeps"), not a relative clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/helpers/deriveExcerpt.ts
+    phrase: cap the flattened line would lead
+    ground: 'not the construction: "cap" is the object of "without", and a main clause follows'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/helpers/deriveExcerpt.ts
+    phrase: pass the whole retained
+    ground: 'not the construction: an embedded interrogative ("how many lines ... an excerpt keeps"), not a relative clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/helpers/filter-selection.ts
+    phrase: wherever the filter does not exclude
+    ground: 'not the construction: an adverbial "wherever" clause (the figure was repaired separately under plain-speech)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/helpers/transcript.ts
+    phrase: bound the same bytes
+    ground: 'not the construction: "that" is present and "bytes" is the object'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/prettier.ts
+    phrase: alongside the house options
+    ground: 'not the construction: a prepositional phrase'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/prettier.ts
+    phrase: covers the JavaScript config files
+    ground: not the construction at this span (the actual relative, "files Prettier is most often configured from", was repaired)
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/prettier.ts
+    phrase: files a silently ignored
+    ground: not the construction at this span (the actual relative, "files Prettier is most often configured from", was repaired)
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/recording.ts
+    phrase: order a reader would check
+    ground: 'outside the rule: an adjunct relative (manner/order), not an argument gap'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/replay-assembly.ts
+    phrase: ran nothing contributes
+    ground: 'not the construction: a "that" relative followed by the main verb'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/resolver.ts
+    phrase: pass the trailing arguments
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: bypass a narrowed command would serve
+    ground: 'not the construction: `without the bypass` is an adjunct before a main clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: corresponding hooks resolve
+    ground: 'not the construction: `the corresponding hooks` is the subject of `resolve`'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: delegate it does
+    ground: 'not the construction: `Under a delegate` is an adjunct before a main clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: empty one would run
+    ground: 'not the construction: `an empty one` is the subject'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: presentation sources came
+    ground: 'outside the rule: fused head `what`'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: ran nothing exits
+    ground: 'not the construction: `that ran nothing` is a subject relative'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: whenever the registry does not define
+    ground: 'not the construction: `Under a delegate` is an adjunct before a main clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/runner.ts
+    phrase: opaque steps produced
+    ground: 'outside the rule: a fused relative ("what")'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/runner.ts
+    phrase: step's channels follow
+    ground: 'not the construction: a subject and its main verb'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/runner.ts
+    phrase: whenever it has
+    ground: 'not the construction: an adverbial clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/steps.ts
+    phrase: package it selects
+    ground: 'outside the rule: a fused relative ("whichever")'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/steps.ts
+    phrase: run another program named
+    ground: 'not the construction: "named by" is a passive participle'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/steps.ts
+    phrase: run the shell reads
+    ground: 'not the construction: a prepositional phrase followed by a main clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/steps.ts
+    phrase: tell its own processes
+    ground: 'not the construction: a verb and its object'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/test-utils/__tests__/readAmbientEnv.unit.test.ts
+    phrase: runs it decides
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/tests.ts
+    phrase: half goes unreported
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/tests.ts
+    phrase: test files follow
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/tiers.ts
+    phrase: named tiers leave
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/verdict.ts
+    phrase: ceiling the newline appended
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/verdict.ts
+    phrase: cuttable strings replaced
+    ground: "not the construction: 'replaced' is a participle complement of 'with'"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/verdict.ts
+    phrase: line this size
+    ground: "not the construction: 'this size' is an adjectival measure phrase, not a relative clause"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/verdict.ts
+    phrase: order an index addresses
+    ground: 'outside the rule: adjunct (manner) relative, the gap does not fill an argument position'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/vitest-git-isolation.ts
+    phrase: config variables leave
+    ground: "not the construction: 'survive' is the main verb; there is no relative clause (the figure itself was repaired under plain-speech)"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/vitest.ts
+    phrase: budget the key failed
+    ground: 'outside the rule: a free relative headed by `whichever`'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/vitest.ts
+    phrase: cover their own sources
+    ground: 'not the construction: a detector misparse (a verb and its object, a participle, an embedded question, a fused head, or a relativizer already present)'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/vitest.ts
+    phrase: module a specifier reaches
+    ground: 'not the construction: an embedded question ("which module a specifier reaches")'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/vitest.ts
+    phrase: monorepo the run happened
+    ground: 'outside the rule: a free relative headed by `whichever`'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/vitest.ts
+    phrase: named tiers do not claim
+    ground: 'not the construction: the relativizer `that` is present'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/vitest.ts
+    phrase: plus the test options
+    ground: 'not the construction: a noun phrase'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/vitest.ts
+    phrase: project's patterns resolve
+    ground: 'not the construction: the relativizer `which` is present ("against which")'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/vitest.ts
+    phrase: repo they belong
+    ground: 'not the construction: an embedded question ("which repo they belong to")'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/vitest.ts
+    phrase: skip the same paths
+    ground: 'not the construction: a verb and its object'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr/src/vitest.ts
+    phrase: twin the way the conditions
+    ground: 'not the construction: an adverbial "the way" clause'
+  - rule: second-person
+    rule-version: '1'
+    file: packages/nmr/agents/guidance/rulebooks/nmr.md
+    phrase: A command whose output you need in full is one to run with «codespan» , which outranks both.
+    ground: the pronoun names the agent that this ambient rulebook instructs
+  - rule: second-person
+    rule-version: '1'
+    file: packages/nmr/agents/guidance/rulebooks/nmr.md
+    phrase: Output that you need in full is a recording to read rather than a command to run again.
+    ground: the pronoun names the agent that this ambient rulebook instructs
+  - rule: second-person
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache-gate.tool.test.ts
+    phrase: Did you mean
+    ground: "not prose: an asserted literal matching nmr's output"
+  - rule: second-person
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/config.unit.test.ts
+    phrase: Did you mean «codespan» ?
+    ground: asserted quotation of a message printed by config.ts, which is outside the batch
+  - rule: second-person
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/runCli.unit.test.ts
+    phrase: Did you mean «codespan» ?
+    ground: asserted quotation of runCli.ts output
+  - rule: second-person
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/runCli.unit.test.ts
+    phrase: Did you mean «codespan» ?
+    ground: asserted quotation of runCli.ts output
+  - rule: second-person
+    rule-version: '1'
+    file: packages/nmr/src/check-cache.ts
+    phrase: Did you mean \ «codespan» ?
+    ground: 'author rejected: interface text addressed to the CLI user, not documentation'
+  - rule: second-person
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: Did you mean \ «codespan» ?
+    ground: "author rejected: interface text addressed to the CLI user rather than documentation; asserted by tests and matches config.ts's wording outside the batch"
+  - rule: second-person
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: Did you mean ${renderQuotedList(containingNames)}?
+    ground: "author rejected: interface text addressed to the CLI user rather than documentation; asserted by tests and matches config.ts's wording outside the batch"
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: Earlier releases pin ESLint to one config and resolve ceilings from the working directory, so nmr's root lint:strict would report the wrong rules for every package
+    ground: the so that it repeats is in a different check's fix string, which readyup prints separately; this so is a lone direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: taze's CLI writes a default for each of them over whatever the config file declares, so taze never uses the file's value (antfu-collective/taze#317).
+    ground: after the em-dash split this is the only so in its sentence, and the so that it repeats is in a different check's fix string; it is a direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/.readyup/kits/default.ts
+    phrase: Vitest does not collect a file outside one, so it runs nowhere and reports nothing.
+    ground: the so that it repeats is in a different check's fix string; this so is a lone direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/docs/check-cache.md
+    phrase: '**nmr captures output at the command, and only when it can see that output.** A command whose stdout or stderr is a terminal writes to a stream that nmr never reads, so an interactive run retains nothing and its progress display is untouched; a piped or redirected run, and any run under «codespan» , retains both streams.'
+    ground: Once the line-85 so was removed, the nearest earlier so is three sentences back, and this lone so states a direct result.
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/docs/check-cache.md
+    phrase: "The assembly is flat: A constituent that is itself a composite contributes its own leaves' lines, so a skipped «codespan» replays a package's «codespan» rather than one opaque «codespan» line."
+    ground: The earlier so at line 87 is three sentences back, and this lone so states a direct result. The later so in the paragraph was the one repaired.
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/docs/reporting.md
+    phrase: "**A fan-out that does not select any scope fails.** A «codespan» pattern matches a package's manifest «codespan» rather than its directory name, so a plausible directory name selects nothing, and pnpm exits 0 over an empty selection as it does over a passing one."
+    ground: A lone so stating a direct result. The only earlier so is 'so does', which is outside the rule.
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/docs/reporting.md
+    phrase: A composite reports, and so does every command into which it expands; a «codespan» or «codespan» hook reports nothing of its own, since the command that it wraps already reports for the chain, though a hook that delegates to a named command reports under that name.
+    ground: "Outside the rule: this so stands in for a predicate ('so does'), not a clause-joining so."
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/docs/utilities.md
+    phrase: '**The build owns its output directory.** Every rebuild replaces «codespan» wholesale, so the directory contains exactly the current emit: A source that was deleted, or that a widened ignore set now covers, leaves nothing behind.'
+    ground: 'no longer repeats: the earlier `so` on line 17 was a bare candidate, repaired with "so that"; this lone `so` states a direct result'
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: "**Git subprocesses are isolated.** Every project loads a setup file that points «codespan» and «codespan» at the null device, sets «codespan» and «codespan» , and injects «codespan» and «codespan» through «codespan» and its key/value pairs, so a test that spawns «codespan» reads neither the developer's identity, nor a signing config that can block on a passphrase, nor their global ignore rules and attributes."
+    ground: 'no longer repeats: the earlier clause-joining `so` on line 105 was repaired with "because", and "and so is" is outside the rule; this lone `so` states a direct result'
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: A package that does not declare a «codespan» condition is unaffected, and so is every package under «codespan» , whatever its «codespan» map declares.
+    ground: 'outside the rule: this `so` stands for a predicate ("and so is")'
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/runCli.unit.test.ts
+    phrase: ( «codespan» ), so nmr handles the nested run's output as a tool's.
+    ground: asserted quotation of runCli.ts output
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/runCli.unit.test.ts
+    phrase: ( «codespan» ), so nmr handles the nested run's output as a tool's.
+    ground: asserted quotation of runCli.ts output
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/runCli.unit.test.ts
+    phrase: The manifest declares «codespan» beside the bad entry, so a remedy sending the reader to declare a pattern would name what is already there; the shape of the list is the fault.
+    ground: a lone so stating a direct result; the nearest composed so is more than three sentences earlier, and the one in between is in quoted output
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: «codespan» is reachable through «codespan» , so a fallback that stripped only «codespan» would resolve it and emit it verbatim, and then Node, ignoring «codespan» , throws at runtime.
+    ground: the earlier so is in a different test's comment; this is a lone so stating a direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: «codespan» resolves (via «codespan» ) to the root-level «codespan» , above the package's «codespan» ; without «codespan» it is unresolvable, so the emitted specifier would fail at runtime.
+    ground: a lone so in its own test comment, stating a direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: Inputs are unchanged, so this run never reaches the emit -- the one path without another sweeper.
+    ground: the earlier so is in a different test's comment; this is a lone so stating a direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/commands/__tests__/build.tool.test.ts
+    phrase: It resolves the same with or without «codespan» , so it is genuinely external and runtime-runnable, and the build must emit it verbatim rather than fail.
+    ground: a lone so in its comment, stating a direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/commands/__tests__/clean.unit.test.ts
+    phrase: «codespan» is the package that the invocation never enters, so its entry proves that the clearing is repo-wide.
+    ground: the earlier so is in a different test's comment; this is a lone so stating a direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/commands/build.ts
+    phrase: If the second rename fails, the outgoing directory is moved back, so a half-completed swap never leaves the package without any output at all.
+    ground: the only so in its paragraph, stating a direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/commands/build.ts
+    phrase: 'The build adds the config file to the digest only when the file exists: «codespan» reads every listed file, so an unconditional entry would fail every package that has none.'
+    ground: the earlier so (line 87) became "so that"; this is a lone so stating a direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/commands/build.ts
+    phrase: The build replaces its output directory on each emit, so the directory must be below the package root.
+    ground: a lone so in a program-printed message, stating a direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/commands/build.ts
+    phrase: The only path that never reaches «codespan» , and so the only one on which a scratch directory left by a run killed mid-publish survives -- as far as a «codespan» build, which skips on unchanged inputs and would pack it.
+    ground: a lone "and so" stating a direct result, in a separate comment
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/commands/clean.ts
+    phrase: "Clear repo-wide, whatever scope the clean was invoked at: A check result records the tree on which it passed, not the package in which it ran, so one package's entries are not separable from the rest."
+    ground: lone so stating a direct result; the earlier so is in a separate doc comment
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/commands/clean.ts
+    phrase: Removes a package's build output and the build-cache entry that describes it, so the package does not keep any state that would make the next build skip.
+    ground: a lone so that states a direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/commands/clean.ts
+    phrase: Removes every recorded check result for «codespan» , so nothing survives to make the next check skip.
+    ground: lone so stating a direct result; the earlier so is in a separate comment on another function
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/commands/report-overrides.ts
+    phrase: 'pnpm 11 does not read «codespan» from package.json, so these pin nothing while an upgrade run with «codespan» goes on rewriting them:'
+    ground: lone so stating a direct result inside a printed message; the earlier so is in the doc comment, not the same passage
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/default-scripts.ts
+    phrase: It declines the invocation's trailing arguments because «codespan» abandons the tsconfig and checks that file under default options, so an argument meant to narrow the run would quietly change what the run means.
+    ground: first so in its doc comment and a direct result; the earlier so is in the separate GATE_PROJECTS comment
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/default-scripts.ts
+    phrase: Neither step is narrowable, so «codespan» is rejected rather than checking that file under default options at the root and searching for it in every package.
+    ground: a lone so that states a direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/default-scripts.ts
+    phrase: The audit takes seconds and «codespan» takes minutes, so the cheap gate fails first.
+    ground: lone so stating a direct result; the earlier so is in a separate inline comment on another registry entry
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/helpers/__tests__/clampToBytes.unit.test.ts
+    phrase: cuts between code points, so a multi-byte character is never left in halves
+    ground: lone so stating a direct result; the earlier so is in a different test title, not the same passage
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/helpers/__tests__/deriveExcerpt.unit.test.ts
+    phrase: collapses whitespace runs inside a line, so one verdict stays one line
+    ground: lone so stating a direct result; the earlier so is in a different test title
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/helpers/__tests__/duration.unit.test.ts
+    phrase: The clause starts appearing at the threshold, so it is the boundary that a reader notices.
+    ground: lone so stating a direct result; the earlier so is in a different test title (the sentence was still rewritten under where and reduced-object-relative)
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: pnpm-workspace.yaml ${declaredClause}, so the matcher does not receive any pattern.
+    ground: 'author rejected: printed CLI message'
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/steps.ts
+    phrase: A backslash escapes outside quotes and inside a double-quoted run; inside a single-quoted run the shell reads it literally, and so does this.
+    ground: 'outside the rule: this `so` stands for a clause ("so does this")'
+  - rule: so
+    rule-version: '1'
+    file: packages/nmr/src/vitest.ts
+    phrase: A package that does not declare a «codespan» condition is unaffected, and so is every package under «codespan» , which Node resolves and to which the condition never applies.
+    ground: 'outside the rule: this `so` stands for a predicate'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/agents/guidance/rulebooks/nmr.md
+    phrase: 'Every test file lives under a «codespan» directory and names its isolation tier last: «codespan» , where any earlier segment is free-form documentation.'
+    ground: defines a placeholder in the preceding expression
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/agents/README.md
+    phrase: Everything else belongs in the topic document under «codespan» that covers it, reachable on demand at «codespan» , with a pointer from the cheatsheet naming the topic and its document so that an agent knows where to look.
+    ground: names a place
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/docs/reporting.md
+    phrase: Where a verbosity comes from
+    ground: "Outside the rule: a heading asking where a value's source is, which is a place-like use."
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/docs/scripts.md
+    phrase: Because discarding an entry that chains anything else onto it ( «codespan» , or «codespan» ) would lose those steps, nmr rejects the invocation instead, naming the file, the key, and where the steps belong.
+    ground: 'outside the rule: names a place (the script where the steps go)'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/docs/scripts.md
+    phrase: 'Declaring a field at the wrong tier fails with a message naming it and where it goes, as does a key that nmr does not recognize at all: A typo cannot degrade into a setting that silently applies nowhere.'
+    ground: 'outside the rule: names a place (the tier where the field belongs)'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/docs/scripts.md
+    phrase: Where trailing arguments go
+    ground: 'outside the rule: names a place; also a heading'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/docs/upgrades.md
+    phrase: A «codespan» block in the root «codespan» fails the command, which names every entry that the block contains and where to move it; see dependency upgrades for why the block is inert.
+    ground: "Outside the rule: 'where' names a place."
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/docs/upgrades.md
+    phrase: 'What it covers depends on where it runs:'
+    ground: "Outside the rule: 'where' names a place (the directory the command runs from)."
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: '**The condition is resolved by a plugin rather than named as a Vite condition, which is what bounds its reach.** Vitest turns «codespan» into «codespan» flags on the worker process, where Node applies every entry to each package that it resolves natively.'
+    ground: 'outside the rule: names a place (in the worker process)'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: A build that copies «codespan» sources rather than compiling them puts a second copy of the suite under «codespan» , where it is collected and passes green against stale code, and nothing in the run says so.
+    ground: 'outside the rule: names a place'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: "A package's «codespan» , plus whatever binaries it spawns, are a good statement of where its «codespan» boundary is: A bundled dependency is inside the package's own closure and is always present, so reaching one is «codespan» ."
+    ground: 'outside the rule: names a place (the location of a boundary)'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/docs/vitest.md
+    phrase: Where to put fixtures
+    ground: 'outside the rule: names a place; also a heading'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/docs/workspace.md
+    phrase: "Patterns follow pnpm's own semantics: «codespan» , deeper globs such as «codespan» , exact paths such as «codespan» , and «codespan» -prefixed exclusions such as «codespan» or «codespan» , which filter every directory that the positive patterns matched regardless of where they appear in the list."
+    ground: "Outside the rule: 'where' names a position in the list, which is a place."
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/README.md
+    phrase: nmr's key feature is that the same command runs different scripts depending on where it is invoked.
+    ground: 'names a place: the invocation directory'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/README.md
+    phrase: Repo-wide tests and scripts often need to know where the monorepo root is, or which directories its workspace packages live in.
+    ground: names a place
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/README.md
+    phrase: Where «codespan» is invoked
+    ground: 'names a place: the invocation directory'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/bootstrap.tool.test.ts
+    phrase: Reads the nmr-core manifest fields on which the bootstrap depends, failing loudly when they are not where expected.
+    ground: 'outside the rule: "where" names a place, the fields'' location in the manifest'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache-gate.tool.test.ts
+    phrase: 'Restoring a tree restores none of its build output: «codespan» and «codespan» leave «codespan» where it was.'
+    ground: 'outside the rule: names a place'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/check-cache-gate.tool.test.ts
+    phrase: The command wrote where nmr never saw it, so the pass stands and there is nothing to replay.
+    ground: 'outside the rule: names a place (the descriptor it wrote to)'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/cli.tool.test.ts
+    phrase: A config mistake names a file to edit; a stack trace names where nmr noticed it, which is nmr's business.
+    ground: 'outside the rule: "where" names a place in nmr''s code'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/cli.tool.test.ts
+    phrase: "import { defineConfig } from '${NMR_PACKAGE_DIR}/dist/esm/defineConfig.js'; export default defineConfig({ rootScripts: { 'anchor-where': 'cat where.txt >> ${anchorLogFile}', 'anchor-chain': 'nmr anchor-inner', 'anchor-inner': 'echo inner >> ${anchorLogFile}', }, workspaceScripts: { 'anchor-where': 'cat where.txt >> ${anchorLogFile}', }, });"
+    ground: 'not prose: a config-file fixture'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/kit-bin-checks.tool.test.ts
+    phrase: passes a committed wrapper outside a git repository, where the check cannot read a tracked listing
+    ground: "outside the rule: 'where' names a place (outside a repository)"
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/kit-pnpm-field-checks.unit.test.ts
+    phrase: A string where a settings object belongs configures nothing, so it is malformed rather than a dead block.
+    ground: "outside the rule: 'where' names a place in the manifest"
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/resolver.unit.test.ts
+    phrase: rejects $scenario, naming where it belongs
+    ground: 'names a place: the config file and key where a step list belongs'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/runCli.unit.test.ts
+    phrase: The remedy follows from where the step was declared, so each origin gets the edit that resolves it.
+    ground: 'names a place: the file in which the step was declared'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/tests.tool.test.ts
+    phrase: names the file outside a tests directory, and where it belongs
+    ground: 'names a place: the directory where the file belongs'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/tests.tool.test.ts
+    phrase: "The block's budget rather than the hook's: A file-scoped fixture is built inside the first test that names it, where «codespan» applies and the tier's 30 seconds will not cover a real Vitest run."
+    ground: 'names a place: the directory where the file belongs'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/tests.unit.test.ts
+    phrase: Derived from this file's own location rather than from the function under test, so that the assertion has an independent source for where the root is.
+    ground: where names a place (the root's location)
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest-config.tool.test.ts
+    phrase: The alias target is outside «codespan» , where neither collection nor coverage includes it, so only the import can load it.
+    ground: 'names a place: the directory outside src/'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest-config.tool.test.ts
+    phrase: "The block's budget rather than the hook's: A file-scoped fixture is built inside the first test that names it, where «codespan» applies and the tier's 30 seconds will not cover a real Vitest run."
+    ground: "names a place: the location 'inside the first test that names it'"
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/__tests__/vitest-source-resolution.unit.test.ts
+    phrase: Because «codespan» is a bundler condition that Node never reads, a package may point it where only Vite's own extension and index resolution reaches.
+    ground: "outside the rule: 'where' names a location on disk; the sentence's so was repaired separately"
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/check-cache.ts
+    phrase: "A list rather than one excerpt: a composite's entry contains its constituents' lines, and a nested one's are spliced into its parent's, where the attribution cannot be re-derived from the entry that contains them."
+    ground: "names a place: the parent's entry"
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/check-cache.ts
+    phrase: Renders the warning for a «codespan» that appears after the command name, where it is an argument to the command rather than a flag to nmr.
+    ground: 'names a place: the position after the command name'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/commands/__tests__/taze.unit.test.ts
+    phrase: Appending would put the flag past a trailing «codespan» , where taze collects it instead of reading it.
+    ground: "outside the rule: 'where' names a position in the argument list"
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/commands/build.ts
+    phrase: '«codespan» names where the emit will be published, not where the text is now: «codespan» reconstructs the originating source file by swapping the «codespan» prefix, and aliases resolve from that source location.'
+    ground: 'outside the rule: both uses name a location on disk (the verbs were repaired under plain-speech)'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/commands/build.ts
+    phrase: «codespan» relies on every emitted file being under «codespan» to reconstruct its source-resolution context; a stray «codespan» would push «codespan» files outside that tree, where their sources cannot be reconstructed.
+    ground: 'outside the rule: names a place (a directory tree)'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/config.ts
+    phrase: Does nothing outside a monorepo root, where «codespan» is a key that this tier does not honor.
+    ground: where names a place (outside a monorepo root)
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/config.ts
+    phrase: Names where a key that this tier does not honor belongs.
+    ground: where names a place (the config in which the key belongs)
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/config.ts
+    phrase: The keys that each tier honors, and where the other tier's belong.
+    ground: where names a place
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/config.ts
+    phrase: Throws when a config declares a recognized key belonging to the other tier, naming the offenders and where they go.
+    ground: where names a place (the config to which the keys move)
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/config.ts
+    phrase: where an element is a command string or «codespan»
+    ground: defines the symbol `element` in the preceding type expression
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/help.ts
+    phrase: Renders each registry entry as «codespan» , where «codespan» is «codespan» for entries in «codespan» and a space otherwise.
+    ground: 'outside the rule: names a place or position, or defines a placeholder'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/helpers/__tests__/transcript.unit.test.ts
+    phrase: given both streams with content, follows stdout with stderr, naming where it begins
+    ground: where names a place (the position in the transcript at which stderr begins)
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/helpers/deriveExcerpt.ts
+    phrase: "The excerpt is the last blank-line-delimited block: a tool that prints progress separates its closing statement with a blank line, and that blank line is the tool's own mark of where its summary starts."
+    ground: names a place in the output
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/helpers/deriveExcerpt.ts
+    phrase: The line is bounded by «codespan» alone; the ceiling on a verdict line is applied where that line is composed.
+    ground: names the place in the code where the line is composed
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/helpers/filter-selection.ts
+    phrase: Runs from the monorepo root, where the delegate runs, so that a path pattern resolves against the same directory in the probe as in the run that it stands in for.
+    ground: names a place (the root directory)
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/helpers/package-json.ts
+    phrase: Returns the message rejecting a «codespan» script value that is not a string, naming where a step list belongs when the value is one.
+    ground: names a place (the config key where a step list belongs)
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/helpers/transcript.ts
+    phrase: Applied where the bytes are stored rather than where they are captured.
+    ground: names places in the code path
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/helpers/transcript.ts
+    phrase: Names where a command's stderr begins, in nmr's voice so that it is not mistaken for the command's own.
+    ground: names a place in the transcript
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/recording.ts
+    phrase: "The attribution is kept even when one line's own scope and command are the header's, which the verdict line drops: A reader of several lines needs every one of them to say where it came from."
+    ground: 'outside the rule: names a place or position, or defines a placeholder'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/report-format.ts
+    phrase: Renders the rejection of a value off the format ladder, naming where it was written.
+    ground: names a place (the source where the value was written)
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/reportCliFailure.ts
+    phrase: A stack records where nmr noticed a problem, which says nothing about the file that a user has to edit; for nmr's own fault it is where a report has to start.
+    ground: names places in the code (where nmr noticed the problem, where a report starts)
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/resolver.ts
+    phrase: 'This is what an invocation rejects on, read where the command runs rather than raised from resolution: The same scripts are resolved speculatively, for packages that nobody named.'
+    ground: names the place in the code where the command runs
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/resolver.ts
+    phrase: Where a resolved script was read from.
+    ground: names a place (the registry or file that the script was read from)
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: «codespan» is propagated to hook subprocesses so that each hook selects the root registry on its own, independent of where the child derives its context from.
+    ground: 'names a place: the source of the context'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: A diagnostic names a declaration that the reader has to edit, and a JSON string contains an escape sequence where a shell would read a control character.
+    ground: 'names a place: the position in the string'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: A flag of nmr's own precedes the command name, where the nmr underneath reads it as its own rather than passing it on to the command.
+    ground: 'names a place: the position before the command name'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: Names where the steps next to an entry's nmr invocations belong.
+    ground: 'names a place: the destination script'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: One structural step, to keep the pattern given to «codespan» and the arguments passed on as argv tokens rather than text spliced into a shell string, and to make the nmr processes underneath write where this one writes although the binary spawned is «codespan» .
+    ground: 'names a place: the output destination'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: The entry has to go either way; where its steps go depends on what the registry already defines for the command, so the remedy tells the reader to delete outright an override that merely restates that entry.
+    ground: 'names a place: the destination of the steps'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/runCli.ts
+    phrase: The excerpt comes from stdout, where every command that the gate covers writes its substance, and falls back to stderr only when stdout does not yield an excerpt.
+    ground: 'names a place: stdout'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/runner.ts
+    phrase: "Returns the channel for a step that runs an nmr process below this one: nmr's own descriptor whenever it has one, so that the child writes where nmr writes, without an ancestor between them relaying bytes."
+    ground: names a place (the shared destination)
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/runner.ts
+    phrase: "Where one of a child's output streams goes: a descriptor to which the child writes, or a pipe read by nmr."
+    ground: names a place (a stream's destination)
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/verbosity.ts
+    phrase: Renders the rejection of a value off the loudness ladder, naming where it was written.
+    ground: 'names a place: the source (flag, variable, or config) in which the value was written'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/verdict.ts
+    phrase: Every other line keeps the attribution naming where it came from, so that a composite replaying one constituent's excerpt does not present it as its own.
+    ground: names an origin, the place from which the excerpt came
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/vitest-source-resolution.ts
+    phrase: Finds where a query or hash suffix begins, or -1 when the specifier contains neither.
+    ground: 'outside the rule: names a place or position, or defines a placeholder'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/vitest-source-resolution.ts
+    phrase: Leaving it on would send «codespan» into the «codespan» map, where it matches a «codespan» pattern that then expands to a path that nobody wrote.
+    ground: 'names a place: the `exports` map'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/vitest-source-resolution.ts
+    phrase: "The condition cannot be emitted as a «codespan» entry instead: Vitest turns the server environment's conditions into «codespan» flags on the worker process, where Node applies them to every package that it resolves natively."
+    ground: 'names a place: the worker process'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/vitest.ts
+    phrase: Only the last layer may state «codespan» , which «codespan» reads from that layer alone; recognizing it on every layer would accept it where nothing reads it, which is the failure that this guard prevents.
+    ground: 'outside the rule: names a place (on a layer where nothing reads it)'
+  - rule: where
+    rule-version: '1'
+    file: packages/nmr/src/vitest.ts
+    phrase: This is where per-project options such as «codespan» go.
+    ground: 'outside the rule: names a place'

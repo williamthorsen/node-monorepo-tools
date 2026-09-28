@@ -9,40 +9,41 @@ import { formatDuration, formatSaving } from './helpers/duration.ts';
 import type { ReportFormat } from './report-format.ts';
 
 /**
- * The ceiling a rendered verdict, its newline included, is held to.
+ * The ceiling to which a rendered verdict, its newline included, is held.
  *
- * POSIX guarantees a write at or below `PIPE_BUF` reaches a pipe whole, and 512 is the smallest bound the
- * standard permits, so one write of a line this size cannot be interleaved by a concurrent scope under
- * `pnpm --recursive`. No Node API reports the platform's own bound, and a per-platform table would move the
- * truncation point from one machine to the next. The ceiling governs pipes: a terminal offers no such
- * guarantee at any size.
+ * POSIX guarantees that a write at or below `PIPE_BUF` arrives in a pipe whole, and 512 is the smallest bound that
+ * the standard permits, so one write of a line this size cannot be interleaved by a concurrent scope under
+ * `pnpm --recursive`. Node does not have an API that reports the platform's own bound, and a per-platform table
+ * would move the truncation point from one machine to the next. The ceiling applies to pipes: A terminal does not
+ * offer that guarantee at any size.
  */
 export const VERDICT_LINE_LIMIT_BYTES = 512;
 
 /**
- * Why a command ran nothing, which the `no-op` outcome carries and `--json` serializes.
+ * Why a command ran nothing, which the `no-op` outcome includes and `--json` serializes.
  *
- * `empty-workspace` and `empty-override` both leave a chain with no step in it, so the reason is what tells
- * a command emptied by the workspace apart from one emptied by an override.
+ * `empty-workspace` and `empty-override` both leave a chain without any step in it, so the reason tells a command
+ * emptied by the workspace apart from one emptied by an override.
  */
 export type NoOpReason = 'empty-override' | 'empty-workspace' | 'noop-override';
 
 /**
- * What a command nmr ran came to, holding the facts a reporting line is rendered from rather than the line
- * itself, so a machine-readable rendering spends the same record a human-readable one does.
+ * The result of a command that nmr ran. It contains the facts from which a reporting line is rendered rather than
+ * the line itself, which lets a machine-readable rendering use the same record as a human-readable one.
  *
- * A recalled pass carries its saving as a duration and not as a decision about whether to mention it: whether
- * one is worth naming belongs to rendering, and a consumer bypassing the renderer inherits neither the
- * threshold nor an obligation to restate it.
+ * A recalled pass records its saving as a duration and not as a decision about whether to mention it: Whether
+ * one is worth naming belongs to rendering, and a consumer bypassing the renderer inherits neither the threshold
+ * nor an obligation to restate it.
  */
 export type Verdict = { command: string; scope: string } & VerdictOutcome;
 
 /**
- * How a command ended, together with the facts that ending carries and no other does, and the trailing detail
- * a line reserves room for.
+ * How a command ended, together with the facts specific to that ending, and the trailing detail for which a line
+ * reserves room.
  *
- * A recalled pass carries the excerpts it replays rather than a composed detail string, so the marker naming
- * them a recording, and the ceiling they are held to, stay with the module that owns the line's grammar.
+ * A recalled pass contains the excerpts that it replays rather than a composed detail string, so that the marker
+ * naming them a recording, and the ceiling to which they are held, stay with the module that owns the line's
+ * grammar.
  */
 export type VerdictOutcome = { detail?: string } & (
   | { outcome: 'passed'; durationMs: number }
@@ -52,14 +53,15 @@ export type VerdictOutcome = { detail?: string } & (
 );
 
 /**
- * Renders a verdict as the line nmr reports it on, without the newline that terminates it.
+ * Renders a verdict as the line on which nmr reports it, without the newline that terminates it.
  *
- * The line ends without terminal punctuation and reserves its tail for `detail`, so a later change appends to
- * the grammar rather than rewriting it. A detail carrying nothing but line breaks takes its whole clause with
- * it, rather than leaving a separator pointing at nothing.
+ * The line ends without terminal punctuation and reserves its tail for `detail`, so that a later change appends to
+ * the grammar rather than rewriting it. When a detail contains nothing but line breaks, the line omits the detail's
+ * whole clause rather than leaving a separator pointing at nothing.
  *
- * The marker takes no padding column: every plain marker a verdict reaches for is four characters, so the
- * lines align by construction. `formatStatusLine` pads to a column that `BLOCK` widens, and no verdict is one.
+ * The marker does not take a padding column. Because every plain marker that a verdict uses is four characters,
+ * the lines align by construction. `formatStatusLine` pads to a column that `BLOCK` widens, and a verdict is never
+ * one.
  */
 export function renderVerdict(verdict: Verdict, style: OutputStyle): string {
   const { marker, phrase } = describeOutcome(verdict, style);
@@ -70,13 +72,12 @@ export function renderVerdict(verdict: Verdict, style: OutputStyle): string {
 }
 
 /**
- * Renders a verdict as the JSON object a machine consumer reads, without the newline that terminates it.
+ * Renders a verdict as the JSON object that a machine consumer reads, without the newline that terminates it.
  *
- * Held to the ceiling the prose line is held to, so one write still reaches a pipe whole where concurrent
- * scopes share a descriptor. Cuts land inside the record's text rather than across its structure, which is
- * what leaves the line parseable, and a record is fitted by rungs, each shedding what a reader can better
- * spare than the rung below it. What the ceiling costs is [documented](../docs/reporting.md#reporting-for-a-machine)
- * in the same order.
+ * Held to the same ceiling as the prose line, so that one write still arrives in a pipe whole when concurrent
+ * scopes share a descriptor. It cuts inside the record's text rather than across its structure, which leaves the
+ * line parseable, and fits a record by rungs, each shedding what a reader can better spare than the rung below it.
+ * Each rung is [documented](../docs/reporting.md#reporting-for-a-machine) in the same order.
  */
 export function serializeVerdict(verdict: Verdict): string {
   const renderedLine = JSON.stringify(verdict);
@@ -85,9 +86,8 @@ export function serializeVerdict(verdict: Verdict): string {
 }
 
 /**
- * Writes a verdict to a stream as a single write, which is what holds a line together when concurrent scopes
- * share one descriptor. Both renderings spend the one record, so neither can come to report what the other
- * does not.
+ * Writes a verdict to a stream as a single write, which keeps a line intact when concurrent scopes share one
+ * descriptor. Both renderings use the one record, so neither can come to report what the other does not.
  */
 export function writeVerdict(verdict: Verdict, stream: Writable, format: ReportFormat, style: OutputStyle): void {
   const line = format === 'json' ? serializeVerdict(verdict) : renderVerdict(verdict, style);
@@ -97,19 +97,19 @@ export function writeVerdict(verdict: Verdict, stream: Writable, format: ReportF
 
 // region | Helpers
 
-/** How much of the ceiling the newline `writeVerdict` appends spends. */
+/** How much of the ceiling the newline appended by `writeVerdict` spends. */
 const NEWLINE_BYTES = 1;
 
-/** What a rendered line may spend, the newline `writeVerdict` appends already taken out of the ceiling. */
+/** What a rendered line may spend, the newline appended by `writeVerdict` already taken out of the ceiling. */
 const LINE_BUDGET_BYTES = VERDICT_LINE_LIMIT_BYTES - NEWLINE_BYTES;
 
-/** What a cut never takes a string below, so every string that was cut still carries the mark saying so. */
+/** What a cut never takes a string below, so that every string that was cut still contains the mark saying so. */
 const MIN_CUT_BYTES = Buffer.byteLength(TRUNCATION_MARK);
 
 /** Marks the detail as a recording of an earlier run rather than as what this invocation produced. */
 const REPLAY_MARKER = 'replayed:';
 
-/** Returns the marker a verdict leads with and the phrase it reports, which no other module composes. */
+/** Returns the marker that a verdict leads with and the phrase that it reports, which only this module composes. */
 function describeOutcome(verdict: Verdict, style: OutputStyle): { marker: string; phrase: string } {
   const statuses = STATUS_GLYPHS[style];
 
@@ -144,7 +144,7 @@ function describeNoOpReason(reason: NoOpReason): string {
     case 'empty-override':
       return 'the override is empty';
     case 'empty-workspace':
-      return 'the workspace declares no package';
+      return 'the workspace does not declare any package';
     case 'noop-override':
       return 'the override is a no-op';
     default: {
@@ -157,8 +157,8 @@ function describeNoOpReason(reason: NoOpReason): string {
 /**
  * Renders a recalled pass's replay for the detail slot, or `undefined` when there is nothing to replay.
  *
- * An excerpt the verdict's own scope and command already name drops its attribution, which is the leaf whose
- * output the line is. Every other line keeps the attribution naming where it came from, so a composite
+ * An excerpt that the verdict's own scope and command already name drops its attribution, which is the leaf whose
+ * output the line is. Every other line keeps the attribution naming where it came from, so that a composite
  * replaying one constituent's excerpt does not present it as its own.
  */
 function renderReplay(verdict: Verdict): string | undefined {
@@ -177,9 +177,9 @@ function renderReplay(verdict: Verdict): string | undefined {
 }
 
 /**
- * Collapses a detail's line breaks into single spaces, so one verdict stays one line.
+ * Collapses a detail's line breaks into single spaces, so that one verdict stays one line.
  *
- * A detail is text lifted from a command's output, which is where line breaks live.
+ * A detail is text taken from a command's output, which can contain line breaks.
  */
 function flattenDetail(detail: string): string {
   return detail.replaceAll(/[\r\n]+/gu, ' ').trim();
@@ -189,10 +189,10 @@ function flattenDetail(detail: string): string {
  * Returns the size to cut the longest of a set of strings down to, so that cutting each in turn brings the set
  * level rather than spending the whole overrun on the first string reached.
  *
- * The target is the next size another string holds; where none does, because every string is already that
- * size, it is this string's share of what is still owed. A string at or below the mark is no size to level
- * toward -- counting one, as the empty detail slot would be every time, puts the target at the mark and
- * collapses the whole set on the first pass.
+ * The target is the next size that another string has; when every string is already that size, the target is this
+ * string's share of the remaining overrun. A string at or below the mark is not a size to level toward -- counting
+ * one, as the empty detail slot would be every time, puts the target at the mark and collapses the whole set on the
+ * first pass.
  */
 function findCutTarget(sizesBytes: readonly number[], longestSizeBytes: number, overrunBytes: number): number {
   const smallerSizesBytes = sizesBytes.filter((size) => size < longestSizeBytes && size > MIN_CUT_BYTES);
@@ -205,12 +205,12 @@ function findCutTarget(sizesBytes: readonly number[], longestSizeBytes: number, 
   return Math.max(MIN_CUT_BYTES, target);
 }
 
-/** Reports whether a rendered line, once the newline is counted, sits inside the ceiling. */
+/** Reports whether a rendered line, once the newline is counted, is within the ceiling. */
 function isWithinBudget(renderedLine: string): boolean {
   return Buffer.byteLength(renderedLine) <= LINE_BUDGET_BYTES;
 }
 
-/** Returns what each constituent of a replay is, with the excerpt it carried gone. */
+/** Returns what each constituent of a replay is, without the excerpt that it contained. */
 function readAttribution(verdict: Verdict): { command: string; scope: string }[] {
   if (verdict.outcome !== 'recalled' || verdict.replay === undefined) {
     return [];
@@ -220,7 +220,7 @@ function readAttribution(verdict: Verdict): { command: string; scope: string }[]
 }
 
 /**
- * Returns the strings a cut can take from, in the order an index addresses them: the detail slot, and then
+ * Returns the strings from which a cut can take, in the order an index addresses them: the detail slot, and then
  * each constituent's excerpt.
  */
 function readCuttableText(verdict: Verdict): string[] {
@@ -260,11 +260,11 @@ function renderClamped(record: Record<string, unknown>): string {
 /**
  * Fits a record that overran the ceiling, by rungs.
  *
- * Each rung sheds what a reader can better spare than the rung below it: the excerpts are shortened toward one
- * another until they fit or every one sits at the mark; then they go, leaving the scope and command that name
- * each constituent; then the constituents themselves go from the end, as the prose line drops its own tail;
- * and last the scope and the command are cut, because a line that overruns can be split across a pipe and
- * corrupt the records of every scope sharing it, where a marked cut costs only its own.
+ * Each rung sheds what a reader can better spare than the rung below it: The excerpts are shortened toward one
+ * another until they fit or every one is at the mark; then they are removed, leaving the scope and command that
+ * name each constituent; then the constituents themselves are removed from the end, as the prose line drops its
+ * own tail; and last the scope and the command are cut, because a line that overruns can be split across a pipe
+ * and corrupt the records of every scope sharing it, whereas a marked cut damages only its own record.
  */
 function renderWithinBudget(verdict: Verdict): string {
   const shortenedVerdict = shortenCuttableText(verdict);
@@ -292,11 +292,11 @@ function renderWithinBudget(verdict: Verdict): string {
 }
 
 /**
- * Shortens the record's cuttable strings toward one another until they fit or every one sits at the mark.
+ * Shortens the record's cuttable strings toward one another until they fit or every one is at the mark.
  *
- * Cutting the longest down toward the next-longest is what spreads the overrun over the whole assembly rather
- * than spending it on whichever constituent happens to be listed first, and the floor at the mark is what
- * leaves every cut string distinguishable from one that recorded nothing.
+ * Cutting the longest down toward the next-longest spreads the overrun over the whole assembly rather than
+ * spending it on whichever constituent happens to be listed first, and the floor at the mark leaves every cut
+ * string distinguishable from one that recorded nothing.
  */
 function shortenCuttableText(verdict: Verdict): Verdict {
   let candidate = verdict;
@@ -316,10 +316,9 @@ function shortenCuttableText(verdict: Verdict): Verdict {
 
 /**
  * Returns the verdict with its longest cuttable string cut toward the next-longest, or `undefined` when every
- * one of them already sits at the mark and there is nothing left to give.
+ * one of them is already at the mark and there is nothing left to give.
  *
- * The cut is always a strict shortening, bounded below by the mark, which is what makes the loop calling this
- * terminate.
+ * The cut is always a strict shortening, bounded below by the mark, which makes the loop calling this terminate.
  */
 function shortenLongestText(verdict: Verdict, overrunBytes: number): Verdict | undefined {
   const texts = readCuttableText(verdict);

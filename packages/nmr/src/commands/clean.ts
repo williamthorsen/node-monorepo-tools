@@ -22,14 +22,15 @@ const CLEAN_COMMAND = 'clean';
 const BUILT_IN_CLEAN = 'nmr-clean';
 
 /**
- * The build-output root a clean removes. `nmr-compile` emits to `dist/esm`, a subdirectory of this
- * root, so removing the root covers the emit wherever it lands inside `dist`.
+ * The build-output root removed by a clean. `nmr-compile` emits to `dist/esm`, a subdirectory of this
+ * root, so removing the root removes the emit wherever `nmr-compile` writes it inside `dist`.
  */
 const OUTPUT_ROOT = 'dist';
 
 /**
- * Removes a package's build output and the build-cache entry that describes it, so no state survives to
- * make the next build skip. Removal is idempotent: an already-clean package is a silent no-op.
+ * Removes a package's build output and the build-cache entry that describes it, so the package does not keep
+ * any state that would make the next build skip. Removal is idempotent: An already-clean package is a silent
+ * no-op.
  */
 export async function cleanPackage(packageDir: string, style: OutputStyle): Promise<void> {
   await rm(path.resolve(packageDir, OUTPUT_ROOT), { recursive: true, force: true });
@@ -46,9 +47,9 @@ export async function cleanPackage(packageDir: string, style: OutputStyle): Prom
  * From within a package this is the built-in clean itself: `nmr` has already resolved `clean` to this bin
  * before invoking it, so resolving again would apply the package's own override twice.
  *
- * This is the default `clean` script, and it ships as a bin because, under pnpm's isolated layout, `pnpm exec`
- * resolves only the bins of the consuming project's direct dependencies: nmr's own bins reach the consumer's
- * `node_modules/.bin`, while the bins of nmr's dependencies do not.
+ * This is the default `clean` script, and it is published as a bin because, under pnpm's isolated layout,
+ * `pnpm exec` resolves only the bins of the consuming project's direct dependencies: pnpm links nmr's own bins
+ * into the consumer's `node_modules/.bin`, but not the bins of nmr's dependencies.
  */
 export async function runClean(cwd: string, style: OutputStyle): Promise<void> {
   let monorepoRoot: string;
@@ -61,8 +62,8 @@ export async function runClean(cwd: string, style: OutputStyle): Promise<void> {
     return;
   }
 
-  // Cleared repo-wide, whatever scope the clean was invoked at: a check result records the tree it passed on,
-  // not the package it ran in, so one package's entries are not separable from the rest.
+  // Clear repo-wide, whatever scope the clean was invoked at: A check result records the tree on which it passed,
+  // not the package in which it ran, so one package's entries are not separable from the rest.
   await clearCheckCache(monorepoRoot, style);
 
   const workspacePackageDirs = getWorkspacePackageDirs(monorepoRoot);
@@ -84,7 +85,7 @@ async function clearCheckCache(scopeDir: string, style: OutputStyle): Promise<vo
   console.info(formatGlyphLine(NMR_GLYPHS, style, 'clean', 'Removed all recorded check results.'));
 }
 
-/** Names what a sweep came to: the packages it cleaned, and any it left to an empty `clean` override. */
+/** Describes a sweep's outcome: the packages that it cleaned, and any that it left to an empty `clean` override. */
 function describeSweep(cleanedCount: number, skippedCount: number): string {
   const packages = cleanedCount === 1 ? '1 package' : `${cleanedCount} packages`;
   const skipClause = skippedCount === 0 ? '' : `, skipping ${skippedCount} with an empty clean override`;
@@ -93,22 +94,23 @@ function describeSweep(cleanedCount: number, skippedCount: number): string {
 }
 
 /**
- * Cleans every workspace package, running each package's resolved `clean` — so a package that overrides
+ * Cleans every workspace package by running each package's resolved `clean`: A package that overrides
  * `clean`, in config or in its own `package.json`, still gets its own command rather than this sweep.
  *
  * The sweep runs in a single process, and only for the built-in clean. In a repo that builds nmr itself,
- * cleaning removes the very output the `nmr` and `nmr-clean` binaries load from, so re-invoking a binary
- * per package dies partway through and leaves most packages uncleaned; one process resolves its imports
- * up front and is immune to deleting them afterwards. An override is an ordinary command that does not
- * load that output, so spawning it is safe.
+ * cleaning removes the very output from which the `nmr` and `nmr-clean` binaries load, so re-invoking a
+ * binary per package fails partway through and leaves most packages uncleaned; one process resolves its
+ * imports up front and is unaffected when they are deleted afterwards. Spawning an override is safe,
+ * because an override is an ordinary command that does not load that output.
  *
  * `devBin` substitution therefore belongs on the spawn path alone, applied to the resolved script only after
- * it is known not to be the built-in: this process is already whichever build `devBin` selects, so rewriting
- * the built-in into a dev binary would spawn the same code per package and forfeit the single-process guarantee.
+ * it is known not to be the built-in. Because this process is already whichever build `devBin` selects,
+ * rewriting the built-in into a dev binary would spawn the same code per package and forfeit the
+ * single-process guarantee.
  */
 async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string[], style: OutputStyle): Promise<void> {
   const config: NmrConfig = await loadRootConfig(monorepoRoot);
-  // Every package resolves the same registry, so it is built once; only tier-3 resolution varies per package.
+  // Build the registry once, because every package resolves the same one; only tier-3 resolution varies per package.
   const registry = buildWorkspaceRegistry(config);
 
   let cleanedCount = 0;

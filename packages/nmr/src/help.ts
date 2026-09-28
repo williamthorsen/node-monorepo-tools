@@ -11,13 +11,13 @@ import {
 import type { NmrConfig } from './types.ts';
 
 /**
- * Generates the help text for the `nmr` CLI. Renders only nmr commands —
+ * Generates the help text for the `nmr` CLI. Renders only nmr commands:
  * names from the workspace and root registries, excluding hooks (`*:pre`,
  * `*:post`).
  *
  * When `packageDir` is provided, tier-3 entries from that package's
  * `package.json:scripts` that match a registry name in the active section
- * are inlined as overrides: the registry value is replaced with the
+ * are inlined as overrides: The registry value is replaced with the
  * override value and the row's command name is suffixed with `*`. The
  * active section is the root section when `shouldUseRoot` is true (root cwd
  * or `-w`), otherwise the workspace section. A footnote is appended once
@@ -91,7 +91,7 @@ function collectOverrides(packageDir: string): Record<string, string> {
  * Applies tier-3 overrides to a section registry in place: for each candidate
  * override whose name matches a registry entry, replaces the registry value
  * with the override value and records the name. Returns the set of marked
- * names so the renderer can attach the `*` marker.
+ * names so that the renderer can attach the `*` marker.
  */
 function applyOverrides(registry: ScriptRegistry, overrides: Record<string, string>): Set<string> {
   const markedNames = new Set<string>();
@@ -120,8 +120,8 @@ function filterHooks(registry: ScriptRegistry): ScriptRegistry {
 /**
  * Renders each registry entry as `  <key><marker>  <value>`, where `marker`
  * is `*` for entries in `markedNames` and a space otherwise. The combined
- * `key + marker` is padded so the value column lines up across marked and
- * unmarked rows.
+ * `key + marker` is padded so that the value column lines up across marked
+ * and unmarked rows.
  */
 function formatRegistry(registry: ScriptRegistry, markedNames: Set<string>, lines: string[]): void {
   const keys = Object.keys(registry);

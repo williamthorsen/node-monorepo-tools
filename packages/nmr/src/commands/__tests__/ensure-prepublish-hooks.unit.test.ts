@@ -115,7 +115,7 @@ describe(ensurePrepublishHooks, () => {
 });
 
 describe(reportPrepublishHooks, () => {
-  it('closes a clean run with the count of packages carrying the hook', () => {
+  it('closes a clean run with the count of packages that have the hook', () => {
     using silent = silenceConsole(['info']);
 
     reportPrepublishHooks(
@@ -153,7 +153,7 @@ describe(reportPrepublishHooks, () => {
     expect(silent.info).toHaveBeenCalledWith('\nWould add prepublishOnly to 1 of 1 publishable package.');
   });
 
-  it('closes a workspace of private packages with the one statement its output is', () => {
+  it('closes a workspace of private packages with the one statement that its output is', () => {
     using silent = silenceConsole(['info']);
 
     reportPrepublishHooks(buildResult([{ ...buildStatus('a', 'ok'), isPrivate: true }]), DEFAULT_HOOK, 'rich');
@@ -161,7 +161,7 @@ describe(reportPrepublishHooks, () => {
     expect(silent.info).toHaveBeenCalledExactlyOnceWith('No publishable packages found.');
   });
 
-  it('reports a miss on the stream its other lines went to, leaving the failure to the exit code', () => {
+  it('reports a miss on the stream to which its other lines went, leaving the failure to the exit code', () => {
     using silent = silenceConsole(['info', 'warn']);
 
     reportPrepublishHooks(buildResult([buildStatus('a', 'ok'), buildStatus('b', 'missing')]), DEFAULT_HOOK, 'rich');
@@ -181,7 +181,7 @@ describe(reportPrepublishHooks, () => {
     expect(silent.info).toHaveBeenCalledWith(expectedLine);
   });
 
-  // Neither outcome: the line reports what a write would do rather than what a package is.
+  // Neither outcome: The line reports what a write would do rather than what a package is.
   it('leaves the dry run’s mark outside the status set', () => {
     using silent = silenceConsole(['info']);
 
@@ -193,13 +193,13 @@ describe(reportPrepublishHooks, () => {
 
 // region | Helpers
 
-/** Wraps package statuses as the result a run hands to the reporter. */
+/** Wraps package statuses as the result that the reporter receives from a run. */
 function buildResult(packages: PackageHookStatus[]): EnsurePrepublishHooksResult {
   return { packages, hasFailures: packages.some((packageStatus) => packageStatus.action === 'missing') };
 }
 
 /**
- * Create a minimal monorepo fixture with a pnpm-workspace.yaml and the given packages under a `packages/` directory.
+ * Creates a minimal monorepo fixture with a pnpm-workspace.yaml and the given packages under a `packages/` directory.
  */
 function createFixture(
   tree: TempTree,
@@ -223,7 +223,7 @@ function createFixture(
   }
 }
 
-/** Builds one package's status, with the hook present exactly when the action says it is. */
+/** Builds one package's status, with the hook present exactly when the action is `ok`. */
 function buildStatus(packageName: string, action: PackageHookStatus['action']): PackageHookStatus {
   return {
     packageName,

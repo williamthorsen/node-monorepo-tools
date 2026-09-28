@@ -16,13 +16,13 @@ interface ConfigTier {
   /** Names the tier in an error message. */
   label: string;
   honoredKeys: string[];
-  /** Names where a key this tier does not honor belongs. */
+  /** Names where a key that this tier does not honor belongs. */
   elsewhere: string;
 }
 
 /**
- * The keys each tier honors, and where the other tier's belong. Every recognized key belongs to exactly one tier,
- * and `RECOGNIZED_KEYS` is their union.
+ * The keys that each tier honors, and where the other tier's belong. Every recognized key belongs to exactly one
+ * tier, and `RECOGNIZED_KEYS` is their union.
  */
 const CONFIG_TIERS: Record<'root' | 'workspace', ConfigTier> = {
   root: {
@@ -88,10 +88,10 @@ function validateScriptField(
 /**
  * Rejects a composite element outside the grammar on either axis.
  *
- * An instruction is a command name optionally preceded by nmr's own flags; one carrying a quoted argument or
- * shell syntax renders as a single quoted token, so accepting it would run a command nobody wrote. A spec
- * carrying a key nmr does not recognize is rejected for the reason every other nested config object is: a
- * misspelled `shouldDeclineArguments` would otherwise read as the default, narrowing a step meant to decline.
+ * An instruction is a command name optionally preceded by nmr's own flags; one containing a quoted argument or
+ * shell syntax renders as a single quoted token, so accepting it would run a command that nobody wrote. A spec
+ * containing a key that nmr does not recognize is rejected for the reason every other nested config object is:
+ * A misspelled `shouldDeclineArguments` would otherwise read as the default, narrowing a step meant to decline.
  */
 function assertValidElements(scripts: Record<string, ScriptValue>, fieldName: string, configPath: string): void {
   for (const [command, script] of Object.entries(scripts)) {
@@ -108,7 +108,7 @@ function assertValidElements(scripts: Record<string, ScriptValue>, fieldName: st
       if (token === undefined) continue;
 
       throw new UserError(
-        `Invalid nmr config at ${configPath}: \`${fieldName}.${command}\` element \`${element}\` carries ` +
+        `Invalid nmr config at ${configPath}: \`${fieldName}.${command}\` element \`${element}\` contains ` +
           `\`${token}\`, which is neither a command name nor an nmr flag. Name it as a script of its own and ` +
           `reference that name here.`,
       );
@@ -176,17 +176,18 @@ function validateCheckCacheField(value: Record<string, unknown>, configPath: str
 }
 
 /**
- * Rejects a `checkCache` name that resolves to no command. Both fields are read by name alone, so a misspelt
- * entry is inert: the command it meant to name goes on running, indistinguishable from one that cannot be
- * cached at all.
+ * Rejects a `checkCache` name that does not resolve to any command. Both fields are read by name alone, so a
+ * misspelt entry is inert: The command that it meant to name goes on running, indistinguishable from one that
+ * cannot be cached at all.
  *
- * The test is resolvability rather than membership of the cacheable set, so an `excludeCommands` entry written
- * against a name a later release moves out of the defaults keeps standing.
+ * Because the test is resolvability rather than membership of the cacheable set, an `excludeCommands` entry
+ * written against a name that a later release moves out of the defaults remains valid.
  *
- * Reads nothing while every name resolves in the merged registries, and reaches a package's own `scripts` only
- * once one misses them: those are a resolution tier of their own, so a name declared only there is valid.
+ * Reads nothing while every name resolves in the merged registries, and reads a package's own `scripts` only
+ * once a name is missing from them: Those are a resolution tier of their own; a name declared only there is
+ * valid.
  *
- * Does nothing outside a monorepo root, where `checkCache` is a key this tier does not honor. `assertTierKeys`
+ * Does nothing outside a monorepo root, where `checkCache` is a key that this tier does not honor. `assertTierKeys`
  * reports that, and of the two messages it is the one that names the real mistake.
  */
 function assertResolvableCheckCacheCommands(config: NmrConfig, configPath: string, baseDir: string): void {
@@ -202,7 +203,7 @@ function assertResolvableCheckCacheCommands(config: NmrConfig, configPath: strin
   if (hook !== undefined) {
     throw new UserError(
       `Invalid nmr config at ${configPath}: \`checkCache.${hook.field}\` names the hook \`${hook.command}\`, ` +
-        'which is never gated on its own: it runs as part of the chain of the command it wraps.',
+        'which is never gated on its own: It runs as part of the chain of the command that it wraps.',
     );
   }
 
@@ -223,23 +224,23 @@ function assertResolvableCheckCacheCommands(config: NmrConfig, configPath: strin
 
   const closestName = findClosestName(unresolvableEntry.command, [...registeredNames, ...declaredNames]);
   throw new UserError(
-    `Invalid nmr config at ${configPath}: \`checkCache.${unresolvableEntry.field}\` names no command: ` +
+    `Invalid nmr config at ${configPath}: \`checkCache.${unresolvableEntry.field}\` does not name any command: ` +
       `\`${unresolvableEntry.command}\`.${closestName === undefined ? '' : ` Did you mean \`${closestName}\`?`}`,
   );
 }
 
 /**
- * Collects the command names the workspace's `package.json` files declare, the resolution tier the merged
- * registries do not describe.
+ * Collects the command names declared by the workspace's `package.json` files, the resolution tier that the
+ * merged registries do not describe.
  *
- * A manifest whose content this cannot read contributes no names, and a readable sibling still contributes its
- * own. The sweep runs for the config's sake rather than the package's, so a manifest that is malformed
- * elsewhere in the workspace must not fail every command run anywhere in it; the package's own runs report it,
- * where the message names something the reader was asking about.
+ * A manifest whose content this cannot read does not contribute any names, and a readable sibling still
+ * contributes its own. The sweep runs for the config's sake rather than the package's, so a manifest that is
+ * malformed elsewhere in the workspace must not fail every command run anywhere in it; the package's own runs
+ * report it, in a message that names something that the reader was asking about.
  *
  * A package manifest that cannot be read at all is a different matter and propagates. An unreadable path is a
- * fault in the checkout rather than a statement about the manifest's content, and one nothing else here would
- * report.
+ * fault in the checkout rather than a statement about the manifest's content, and one that nothing else here
+ * would report.
  */
 function readDeclaredScriptNames(monorepoRoot: string): Set<string> {
   let packageDirs: string[];
@@ -289,7 +290,7 @@ function validateOutputField(value: Record<string, unknown>, configPath: string)
   const commandVerbosity: unknown = output['commandVerbosity'];
   if (commandVerbosity !== undefined) {
     if (typeof commandVerbosity !== 'string' || !isCommandVerbosity(commandVerbosity)) {
-      // A non-string renders through JSON so an object reaches the reader as its shape, not `[object Object]`.
+      // Render a non-string through JSON so that the reader sees an object's shape, not `[object Object]`.
       const renderedValue = typeof commandVerbosity === 'string' ? commandVerbosity : JSON.stringify(commandVerbosity);
       throw new UserError(
         `Invalid nmr config at ${configPath}: ${formatVerbosityRejection('`output.commandVerbosity`', renderedValue)}`,
@@ -351,7 +352,7 @@ function validateConfig(value: unknown, configPath: string, baseDir: string): Nm
   const rootScripts = validateScriptField(value, 'rootScripts', configPath);
   if (rootScripts) config.rootScripts = rootScripts;
 
-  // Last, because it resolves the names against the registries the script fields above contribute to.
+  // Run last, because it resolves the names against the registries to which the script fields above contribute.
   assertResolvableCheckCacheCommands(config, configPath, baseDir);
 
   return config;
@@ -369,8 +370,8 @@ export async function loadConfig(baseDir: string): Promise<NmrConfig> {
     return {};
   }
 
-  // Node type-strips `.ts` natively at this package's engines floor, so the config needs no transform step
-  // and no loader dependency. `import()` takes a URL, not a path: A bare Windows path parses as a scheme.
+  // Node type-strips `.ts` natively at this package's engines floor, so the config does not need a transform
+  // step or a loader dependency. `import()` takes a URL, not a path: A bare Windows path parses as a scheme.
   const importedModule: unknown = await import(pathToFileURL(configPath).href);
   const loadedConfig = isObject(importedModule) ? importedModule['default'] : undefined;
 
@@ -381,7 +382,7 @@ export async function loadConfig(baseDir: string): Promise<NmrConfig> {
  * Loads the monorepo-root `.config/nmr.config.ts`, the tier that feeds script resolution and `devBin`.
  * Returns an empty config if the file doesn't exist.
  *
- * Throws on a recognized key this tier does not honor. `build` governs one package's compile, which reads the
+ * Throws on a recognized key that this tier does not honor. `build` governs one package's compile, which reads the
  * package's own config alone, so a `build` accepted here would apply its patterns nowhere.
  */
 export async function loadRootConfig(monorepoRoot: string): Promise<NmrConfig> {
@@ -392,11 +393,11 @@ export async function loadRootConfig(monorepoRoot: string): Promise<NmrConfig> {
 }
 
 /**
- * Loads a single package's `.config/nmr.config.ts`, the tier `nmr-compile` reads from its working directory.
- * Returns an empty config if the file doesn't exist.
+ * Loads a single package's `.config/nmr.config.ts`, the tier that `nmr-compile` reads from its working
+ * directory. Returns an empty config if the file doesn't exist.
  *
- * Throws on a recognized key this tier does not honor. Dropping one would leave a package building on
- * settings its own config file appears to change, which nothing in the build's output would reveal.
+ * Throws on a recognized key that this tier does not honor. Dropping one would leave a package building on
+ * settings that its own config file appears to change, which nothing in the build's output would reveal.
  */
 export async function loadWorkspaceConfig(packageDir: string): Promise<NmrConfig> {
   const config = await loadConfig(packageDir);
@@ -424,7 +425,7 @@ function assertNoRetiredKeys(
 
 /**
  * Throws on any key outside the recognized set, naming the offenders and the file. An unrecognized key is a
- * typo or a stale spelling, and the setting it appears to make is one nothing reads.
+ * typo or a stale spelling, and the setting that it appears to make is one that nothing reads.
  */
 function assertRecognizedKeys(value: object, recognizedKeys: string[], configPath: string, prefix = ''): void {
   const unrecognizedKeys = Object.keys(value).filter((key) => !recognizedKeys.includes(key));
@@ -440,7 +441,7 @@ function assertRecognizedKeys(value: object, recognizedKeys: string[], configPat
 
 /**
  * Throws when a config declares a recognized key belonging to the other tier, naming the offenders and where
- * they go. Each tier loads the same file shape, so only the loader can tell a key apart from one it honors.
+ * they go. Each tier loads the same file shape, so only the loader can tell a key apart from one that it honors.
  */
 function assertTierKeys(config: NmrConfig, tier: ConfigTier, configPath: string): void {
   const unsupportedKeys = Object.keys(config).filter((key) => !tier.honoredKeys.includes(key));
@@ -454,7 +455,7 @@ function assertTierKeys(config: NmrConfig, tier: ConfigTier, configPath: string)
   );
 }
 
-/** Renders config keys as a sorted, backtick-quoted list, each carrying the prefix of the field holding them. */
+/** Renders config keys as a sorted, backtick-quoted list, each with the prefix of the field containing them. */
 function formatKeyList(keys: string[], prefix: string): string {
   return keys
     .toSorted()

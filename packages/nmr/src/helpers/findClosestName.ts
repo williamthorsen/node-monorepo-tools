@@ -1,5 +1,5 @@
 /**
- * Finds the candidate closest to a name, or `undefined` where none is near enough to be worth naming.
+ * Finds the candidate closest to a name, or `undefined` when none is near enough to be worth naming.
  *
  * The ceiling scales with the name's length, so a short name admits one slip and a long one a few. A fixed
  * ceiling would either miss a typo in `root:test:coverage` or offer `fix` for `ci`.
@@ -26,7 +26,7 @@ export function findClosestName(name: string, candidates: Iterable<string>): str
  * Measures the Levenshtein distance between two strings: the fewest single-character insertions, deletions, and
  * substitutions that turn one into the other.
  *
- * Holds only the previous and current rows of the matrix.
+ * Keeps only the previous and current rows of the matrix.
  */
 function measureDistance(first: string, second: string): number {
   if (first.length === 0 || second.length === 0) {

@@ -9,7 +9,7 @@ import { stageFixtureFiles } from '../test-utils/stageFixtureFiles.ts';
 import { findMisplacedTestFiles, findTestFiles, findUntieredTestFiles } from '../tiers.ts';
 
 describe('the test-file sweeps in a git repository', () => {
-  it('reports nothing from a directory git ignores', () => {
+  it('reports nothing from a directory that git ignores', () => {
     const { dir } = buildStagedTree({
       '.gitignore': '.netlify/\n',
       '.netlify/edge-functions/utils.test.ts': '',
@@ -22,7 +22,7 @@ describe('the test-file sweeps in a git repository', () => {
     expect(findUntieredTestFiles(dir)).toStrictEqual([]);
   });
 
-  it('reports nothing from an ignored file inside a directory holding tracked ones', () => {
+  it('reports nothing from an ignored file inside a directory containing tracked ones', () => {
     const { dir } = buildStagedTree({
       '.gitignore': 'src/__tests__/*.local.test.ts\n',
       'src/__tests__/scratch.local.test.ts': '',

@@ -1,9 +1,10 @@
 /**
- * Renders a duration at the two coarsest units that say something, for a line a reader skims.
+ * Renders a duration at the two coarsest units that say something, for a line that a reader skims.
  *
- * Truncates at every unit rather than rounding, so a value never reads as more time than elapsed: 119.9 seconds
- * is `1m 59s`, where rounding would claim `2m`. Below a minute the tenth is kept, since that is the scale at which
- * one check's runtime differs from another's; a whole number sheds the `.0` rather than reading `12.0s`.
+ * Truncates at every unit rather than rounding, so that a value never reads as more time than elapsed: 119.9
+ * seconds is `1m 59s`, whereas rounding would claim `2m`. Below a minute the tenth is kept, since that is the
+ * scale at which one check's runtime differs from another's; a whole number is rendered without the `.0`, as
+ * `12s` rather than `12.0s`.
  */
 export function formatDuration(durationMs: number): string {
   const total = Math.max(0, durationMs);
@@ -22,7 +23,7 @@ export function formatDuration(durationMs: number): string {
 }
 
 /**
- * Renders the clause that a skip spends on the time it saved, or `undefined` for a saving under a second.
+ * Renders the clause stating the time that a skip saved, or `undefined` for a saving under a second.
  *
  * A non-finite duration also returns `undefined`: It compares false against the threshold and would otherwise
  * render as `saved ~NaNs`.
@@ -42,13 +43,13 @@ const MILLISECONDS_PER_SECOND = 1_000;
 const MINUTES_PER_HOUR = 60;
 const SECONDS_PER_MINUTE = 60;
 
-/** Appends the minor unit to the major one, dropping it when it is zero so `4m` never reads `4m 0s`. */
+/** Appends the minor unit to the major one, dropping it when it is zero so that `4m` never reads `4m 0s`. */
 function joinUnits(major: string, minor: number, minorUnit: string): string {
   return minor === 0 ? major : `${major} ${minor}${minorUnit}`;
 }
 
 /**
- * Renders whole milliseconds as seconds truncated to a tenth, shedding a trailing `.0`.
+ * Renders whole milliseconds as seconds truncated to a tenth, dropping a trailing `.0`.
  *
  * Divides the integer count rather than truncating a seconds float, whose binary representation puts 0.3 just
  * under three tenths and would render it `0.2s`.

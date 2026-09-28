@@ -17,7 +17,7 @@ describe(readPackageJson, () => {
     tree = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-pkgjson-' }));
   });
 
-  it('parses the fields nmr reads', () => {
+  it('parses the fields that nmr reads', () => {
     writeManifest({
       name: 'p',
       private: true,
@@ -37,7 +37,7 @@ describe(readPackageJson, () => {
     });
   });
 
-  it('omits fields the manifest does not declare', () => {
+  it('omits fields that the manifest does not declare', () => {
     writeManifest({ name: 'p' });
 
     expect(readPackageJson(tree.dir)).toStrictEqual({ name: 'p' });
@@ -55,7 +55,7 @@ describe(readPackageJson, () => {
     expect(() => readPackageJson(tree.dir)).toThrow('`scripts.broken` must be a string');
   });
 
-  it('names the config field a step list belongs in', () => {
+  it('names the config field in which a step list belongs', () => {
     writeManifest({ scripts: { build: ['compile'] } });
 
     expect(() => readPackageJson(tree.dir)).toThrow('under `workspaceScripts`');

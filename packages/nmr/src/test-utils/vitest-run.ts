@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import type { TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 
-/** The monorepo root, which holds the `node_modules` a fixture project resolves Vitest through. */
+/** The monorepo root, which contains the `node_modules` through which a fixture project resolves Vitest. */
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
 
 const VITEST_CLI = path.join(REPO_ROOT, 'node_modules/vitest/vitest.mjs');
@@ -21,7 +21,7 @@ export function runVitest(cwd: string, extraArgs: string[] = []): VitestRun {
   });
 }
 
-/** Writes the fixture files into `tree` and links the repository's `node_modules` so Vitest and its coverage provider resolve. */
+/** Writes the fixture files into `tree` and links the repository's `node_modules` so that Vitest and its coverage provider resolve. */
 export function scaffoldProject(tree: TempTree, files: Record<string, string>): void {
   tree.writeAll(files);
 
@@ -30,9 +30,9 @@ export function scaffoldProject(tree: TempTree, files: Record<string, string>): 
 }
 
 /**
- * Unlinks `node_modules`, which is deferred ahead of the tree's own removal so no failure mode can reach the
- * repository's own tree. `node:fs`, because `tree.rm` removes with `force`: were this entry ever a real
- * directory rather than the link, it would go silently where `unlinkSync` throws.
+ * Unlinks `node_modules`, which is deferred ahead of the tree's own removal so that any failure during that removal
+ * cannot affect the repository's own tree. `node:fs`, because `tree.rm` removes with `force`: Were this entry ever
+ * a real directory rather than the link, it would be deleted silently, whereas `unlinkSync` throws.
  */
 export function unlinkNodeModules(projectRoot: string): void {
   const link = path.join(projectRoot, 'node_modules');
@@ -49,11 +49,12 @@ export interface VitestRun {
 // region | Helpers
 
 /**
- * Strips the variables the parent Vitest run exports. Inherited, they leak the parent's worker identity and
+ * Strips the variables that the parent Vitest run exports. Inherited, they leak the parent's worker identity and
  * coverage output directory into the child, which then reports on the wrong run.
  *
- * The git isolation variables are stripped for the same reason: this repo's own suite runs under the isolation the
- * config supplies, so a child inheriting them observes isolation whether or not the config under test asked for any.
+ * The git isolation variables are stripped for the same reason: This repo's own suite runs under the isolation that
+ * the config supplies, so a child inheriting them observes isolation whether or not the config under test asked for
+ * any.
  */
 function buildChildEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};

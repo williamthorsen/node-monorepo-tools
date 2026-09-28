@@ -1,6 +1,6 @@
 import { formatElisionMarker } from './transcript.ts';
 
-/** Bound applied to each end of the retained copy, so a run that overruns still yields both. */
+/** Bound applied to each end of the retained copy, so that a run that overruns still yields both. */
 const DEFAULT_HEAD_LIMIT_BYTES = 1_048_576;
 const DEFAULT_TAIL_LIMIT_BYTES = 1_048_576;
 
@@ -17,8 +17,8 @@ export interface BoundedBuffer {
 }
 
 /**
- * Creates an accumulator that retains the first and last bytes it is fed and drops the middle.
- * Both ends are kept because a failing command's first error and its trailing summary each carry signal
+ * Creates an accumulator that retains the first and last bytes that it is fed and drops the middle.
+ * Both ends are kept because a failing command's first error and its trailing summary each contain information
  * that the other end does not.
  */
 export function createBoundedBuffer(options: BoundedBufferOptions = {}): BoundedBuffer {
@@ -28,7 +28,7 @@ export function createBoundedBuffer(options: BoundedBufferOptions = {}): Bounded
   const headChunks: Buffer[] = [];
   let headBytes = 0;
 
-  // Allocated on the first byte past the head, so a run that stays under the bound never pays for it.
+  // Allocated on the first byte past the head, so that a run that stays under the bound never allocates it.
   let tailRing: Buffer | undefined;
   let tailOffset = 0;
   let tailBytes = 0;

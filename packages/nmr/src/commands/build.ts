@@ -28,27 +28,28 @@ import {
 } from './build-output.ts';
 
 /**
- * The toolchain a build's emit comes from: the resolved compiler and the nmr running it. Both join the build
- * hash, because the same sources can emit differently across either.
+ * The toolchain from which a build's emit comes: the resolved compiler and the nmr running it. `computeBuildHash`
+ * folds both into the build hash, because the same sources can compile to different output under a different
+ * compiler or nmr.
  */
 export interface BuildToolchain {
   compilerVersion: string;
   fingerprint: string;
 }
 
-/** What a build needs beyond its sources: the options shaping the emit, and the style it reports in. */
+/** What a build needs beyond its sources: the options shaping the emit, and the style in which it reports. */
 export interface BuildPackageOptions extends BuildOptions {
   style: OutputStyle;
 }
 
-/** Output-shaping options folded into the build hash so a change to the emit shape busts the cache. */
+/** Output-shaping options folded into the build hash so that a change to the emit shape busts the cache. */
 interface EmitConfig {
   outdir: string;
   declaration: true;
   rewriteRelativeImportExtensions: true;
 }
 
-/** One file the compiler emitted, held in memory until the whole emit is ready to publish. */
+/** One file emitted by the compiler, kept in memory until the whole emit is ready to publish. */
 interface StagedFile {
   text: string;
   writeByteOrderMark: boolean;
@@ -60,7 +61,7 @@ const MINIMUM_TYPESCRIPT_MAJOR = 5;
 const MINIMUM_TYPESCRIPT_MINOR = 7;
 
 /**
- * The supported TypeScript source extension and the JavaScript extension its emit produces.
+ * The supported TypeScript source extension and the JavaScript extension that its emit produces.
  * `nmr-compile` targets ESM-only packages (`type: "module"`), so `.ts` → `.js` is the only supported
  * mapping: under `type: "module"` a `.mjs` emit is redundant with `.js`, a `.cjs` emit from `.cts`
  * would contradict the ESM-only output contract, and `.tsx` is out of scope for these Node packages.
@@ -72,10 +73,10 @@ const JS_EXTENSION = '.js';
 /**
  * Compiles a package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js` and
  * `.d.ts` from two programs and rewriting relative `.ts` specifiers and tsconfig `paths` aliases to
- * runnable relative `.js` specifiers in both outputs. Skips the build only when no input has changed
- * and the previous output is still on disk.
+ * runnable relative `.js` specifiers in both outputs. Skips the build only when every input is
+ * unchanged and the previous output is still on disk.
  *
- * The build owns its output directory: every emit replaces it wholesale, so `dist` is a function of the
+ * The build owns its output directory: Every emit replaces it wholesale, so `dist` is a function of the
  * current inputs rather than an accumulation of every build that ever ran. Assets belong outside it, or in a
  * `build:post` hook, which runs after the output is published.
  */
@@ -84,7 +85,7 @@ export async function buildPackage(packageDir: string, options: BuildPackageOpti
 
   const cachePath = resolveBuildCachePath(packageDir);
   const outdir = options.outdir ?? DEFAULT_OUTDIR;
-  // Resolve before any work, so an outdir that would publish outside the package fails fast.
+  // Resolve before any work, so that an outdir that resolves outside the package fails fast.
   const emitDir = resolveEmitDir(packageDir, outdir);
   const emitConfig: EmitConfig = { outdir, declaration: true, rewriteRelativeImportExtensions: true };
 
@@ -92,10 +93,10 @@ export async function buildPackage(packageDir: string, options: BuildPackageOpti
     cwd: packageDir,
     ignore: [...(options.ignorePatterns ?? DEFAULT_IGNORE_PATTERNS), ...(options.extraIgnorePatterns ?? [])],
   });
-  // The config file joins the digest only when it exists: `computeBuildHash` reads every listed file, so an
-  // unconditional entry would fail every package that has none. Conditional entry still covers all three
-  // edits, because the file's path is hashed alongside its contents -- creating or deleting it moves the
-  // digest exactly as editing it does.
+  // The build adds the config file to the digest only when the file exists: `computeBuildHash` reads every
+  // listed file, so an unconditional entry would fail every package that has none. Conditional entry still
+  // covers all three edits, because the file's path is hashed alongside its contents -- creating or deleting
+  // it changes the digest exactly as editing it does.
   const configPath = resolveConfigPath(packageDir);
   const dependencies = [
     'package.json',
@@ -118,21 +119,21 @@ export async function buildPackage(packageDir: string, options: BuildPackageOpti
     options.style,
   );
   if (!changed) {
-    // The only path that never reaches `emitPackage`, and so the only one where a scratch directory left by a
-    // run killed mid-publish survives -- as far as a `prepublishOnly` build, which skips on unchanged inputs
-    // and would pack it.
+    // The only path that never reaches `emitPackage`, and so the only one on which a scratch directory left
+    // by a run killed mid-publish survives -- as far as a `prepublishOnly` build, which skips on unchanged
+    // inputs and would pack it.
     await discardScratchDirs(resolveScratchDirs(emitDir));
     return;
   }
 
   const emittedFileCount = await emitPackage(packageDir, entryPoints, outdir);
 
-  // Persist the digest only after a successful build, so a failed compile cannot poison the cache
+  // Persist the digest only after a successful build, so that a failed compile cannot poison the cache
   // and cause the next run to skip a never-completed build. Writing it after the output is in place also keeps
-  // the digest from ever advertising output that is not yet published.
+  // the digest from ever describing output that is not yet published.
   await writeCacheEntry(cachePath, currentHash);
 
-  // Reported after the digest lands, so the line describes a build that completed and was recorded.
+  // Report after the digest is written, so that the line describes a build that completed and was recorded.
   console.info(
     formatGlyphLine(
       NMR_GLYPHS,
@@ -173,8 +174,8 @@ export async function computeBuildHash(
  * Resolves a package's full tsconfig `extends` chain, returning every config file in it (the leaf `tsconfig.json` and
  * each base that it transitively extends, up to the repo root) as paths relative to `packageDir`.
  * Emit is driven by the fully-resolved compiler options, so the base configs must be in the cache's hashed input
- * set; otherwise a change to a base config would not bust the cache and stale output could ship. The relative paths
- * give `computeBuildHash` a location-independent path string to fold into the digest.
+ * set; otherwise a change to a base config would not bust the cache and stale output could be released. The
+ * relative paths give `computeBuildHash` a location-independent path string to fold into the digest.
  */
 export function resolveTsconfigChain(packageDir: string, configFileName = 'tsconfig.json'): string[] {
   const resolvedChain: string[] = [];
@@ -207,15 +208,15 @@ export function resolveTsconfigChain(packageDir: string, configFileName = 'tscon
 
 /**
  * Runs two TypeScript program emits, `.js` and then `.d.ts`, rewrites relative `.ts` specifiers and tsconfig
- * `paths` aliases to runnable relative `.js` specifiers, and publishes the result atomically: both emits are
+ * `paths` aliases to runnable relative `.js` specifiers, and publishes the result atomically: Both emits are
  * buffered in memory, written to a staging directory, and swapped into place by rename.
  *
  * The scripts emit runs under the package's own `removeComments` and the declarations emit forces it off, so
- * `.d.ts` files carry their doc comments whatever a package does with its `.js`. Both programs read through
- * one caching host, so the file set is parsed once.
+ * `.d.ts` files keep their doc comments whatever a package does with its `.js`. Both programs read through
+ * one caching host, which parses the file set once.
  *
- * Every throw therefore precedes the first rename, so a failed build leaves the previous output exactly as it
- * was. The output directory is never observed mid-write: it holds the previous build or the new one, and is
+ * Because every throw precedes the first rename, a failed build leaves the previous output exactly as it was.
+ * The output directory is never observed mid-write: It contains the previous build or the new one, and is
  * absent only between the two renames. Throws with formatted diagnostics when either program cannot be emitted.
  *
  * Returns how many files it published, which is zero for a package whose entry points emit nothing.
@@ -227,13 +228,13 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
   const emitDir = resolveEmitDir(packageDir, outdir);
   const scratchDirs = resolveScratchDirs(emitDir);
 
-  // Clear scratch first, so every path out of this function starts from a clean slate. Clearing inside the
-  // staging step instead would let the empty-emit return below carry a leftover forward, and a later build
-  // that skips on unchanged inputs would publish it.
+  // Clear scratch first, so that every path out of this function starts without a leftover scratch directory.
+  // Clearing inside the staging step instead would let the empty-emit return below leave a leftover in place,
+  // and a later build that skips on unchanged inputs would publish it.
   await removeScratchDirs(scratchDirs);
 
-  // Buffer rather than write: the compiler's own `writeFile` would put the emit under `emitDir`, which is
-  // still serving the previous build to anything that reads it while this one runs.
+  // Buffer rather than write: The compiler's own `writeFile` would put the emit under `emitDir`, which
+  // still contains the previous build, and anything may read it while this one runs.
   const emittedFiles = new Map<string, StagedFile>();
   /** Buffers one emitted file in place of the compiler's own write. */
   function collect(fileName: string, text: string, writeByteOrderMark: boolean): void {
@@ -243,13 +244,13 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
   const host = createCachingCompilerHost(compilerOptions);
 
   // `declarationDir` is inert while `declaration` is off: TypeScript reports the pairing only as an options
-  // diagnostic, which this build never surfaces.
+  // diagnostic, which this build never prints.
   const scriptProgram = ts.createProgram(rootNames, { ...compilerOptions, declaration: false }, host);
   assertEmitSucceeded(scriptProgram.emit(undefined, collect));
 
   // `removeComments` governs a whole program, which is why comments need a program of their own. `oldProgram`
-  // carries the module resolutions across; the source files come from the host, so sharing it is what keeps
-  // the file set to a single parse.
+  // supplies the module resolutions; the source files come from the host, so sharing it keeps the file set to
+  // a single parse.
   const declarationProgram = ts.createProgram(
     rootNames,
     { ...compilerOptions, emitDeclarationOnly: true, removeComments: false },
@@ -264,7 +265,7 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
   }
 
   // An emit that produces nothing has nothing to publish, and swapping an empty directory into place would
-  // leave a `dist` behind for a package whose entry points emit no output.
+  // leave a `dist` behind for a package whose entry points do not emit any output.
   if (stagedFiles.size === 0) {
     await rm(emitDir, { force: true, recursive: true });
     return 0;
@@ -294,7 +295,7 @@ function createCachingCompilerHost(compilerOptions: ts.CompilerOptions): ts.Comp
   const readSourceFile = host.getSourceFile.bind(host);
 
   host.getSourceFile = (fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile) => {
-    // A file the host cannot read yields `undefined`, which the cache holds so the miss is not re-read.
+    // A file that the host cannot read yields `undefined`, which the cache stores so that the miss is not re-read.
     if (parsedFiles.has(fileName)) {
       return parsedFiles.get(fileName);
     }
@@ -316,7 +317,7 @@ async function discardScratchDirs(scratchDirs: ScratchDirs): Promise<void> {
   try {
     await removeScratchDirs(scratchDirs);
   } catch {
-    // The removal is advisory: a directory that survives is cleared by the next emit or the next skip.
+    // The removal is advisory: A directory that survives is cleared by the next emit or the next skip.
   }
 }
 
@@ -342,7 +343,7 @@ function resolveEmitDir(packageDir: string, outdir: string): string {
   ) {
     throw new Error(
       `nmr-compile: refusing to build into '${outdir}', which does not resolve inside the package. ` +
-        'The build replaces its output directory on each emit, so the directory must sit below the package root.',
+        'The build replaces its output directory on each emit, so the directory must be below the package root.',
     );
   }
 
@@ -350,12 +351,12 @@ function resolveEmitDir(packageDir: string, outdir: string): string {
 }
 
 /**
- * Publishes the staged output by rename: the outgoing directory moves aside, staging takes its place, and the
- * outgoing copy is discarded. The output directory is therefore absent only between the two renames, rather
+ * Publishes the staged output by rename: It moves the outgoing directory aside, moves staging into its place,
+ * and discards the outgoing copy. The output directory is therefore absent only between the two renames, rather
  * than for the duration of an emit.
  *
- * A second rename that fails puts the outgoing directory back, so a half-completed swap never leaves the
- * package with no output at all.
+ * If the second rename fails, the outgoing directory is moved back, so a half-completed swap never leaves the
+ * package without any output at all.
  */
 async function swapIntoPlace(emitDir: string, scratchDirs: ScratchDirs): Promise<void> {
   const hadPreviousOutput = existsSync(emitDir);
@@ -366,7 +367,7 @@ async function swapIntoPlace(emitDir: string, scratchDirs: ScratchDirs): Promise
   try {
     await rename(scratchDirs.stagingDir, emitDir);
   } catch (error: unknown) {
-    // Restore only when `previousDir` holds the outgoing output and nothing has since taken its place.
+    // Restore only when `previousDir` contains the outgoing output and nothing has since taken its place.
     if (hadPreviousOutput && !existsSync(emitDir)) {
       await rename(scratchDirs.previousDir, emitDir);
     }
@@ -382,11 +383,11 @@ async function swapIntoPlace(emitDir: string, scratchDirs: ScratchDirs): Promise
  * output directory. Type errors do not block emit (`noEmitOnError: false`): Type-checking is a separate
  * step.
  *
- * `declarationDir` is pinned to the same resolved `outDir` so declaration files always co-locate
- * with their `.js` siblings, overriding any `declarationDir` the base tsconfig sets. `mapOutputToSource`
- * relies on every emitted file living under `outDir` to reconstruct its source-resolution context;
- * a stray `declarationDir` would push `.d.ts` files outside that tree, where their sources cannot be
- * reconstructed.
+ * `declarationDir` is pinned to the same resolved `outDir` so that declaration files always co-locate
+ * with their `.js` siblings, overriding any `declarationDir` that the base tsconfig sets.
+ * `mapOutputToSource` relies on every emitted file being under `outDir` to reconstruct its
+ * source-resolution context; a stray `declarationDir` would push `.d.ts` files outside that tree, where
+ * their sources cannot be reconstructed.
  */
 function synthesizeCompilerOptions(packageDir: string, outdir: string): ts.CompilerOptions {
   const configPath = path.join(packageDir, 'tsconfig.json');
@@ -417,13 +418,13 @@ function synthesizeCompilerOptions(packageDir: string, outdir: string): ts.Compi
 }
 
 /**
- * Writes every emitted file into the staging directory, at the path it holds relative to the emit directory it
- * was emitted for. `ts.sys.writeFile` does the writing, so the byte-order mark the compiler asked for survives
+ * Writes every emitted file into the staging directory, at its path relative to the emit directory for which it
+ * was emitted. `ts.sys.writeFile` does the writing, so the byte-order mark that the compiler asked for survives
  * and intermediate directories appear exactly as a direct emit would have created them.
  *
- * A file outside the emit directory fails the build. `synthesizeCompilerOptions` pins `outDir` and
- * `declarationDir` to the same directory, so this is unreachable -- which is the point: mapping the path across
- * would otherwise discard, in silence, a file a direct emit would have written.
+ * A file outside the emit directory fails the build. Because `synthesizeCompilerOptions` pins `outDir` and
+ * `declarationDir` to the same directory, this is unreachable -- which is the point: Mapping the path across
+ * would otherwise discard, in silence, a file that a direct emit would have written.
  */
 function writeStagedOutput(stagedFiles: Map<string, StagedFile>, emitDir: string, stagingDir: string): void {
   for (const [fileName, file] of stagedFiles) {
@@ -448,7 +449,7 @@ function writeStagedOutput(stagedFiles: Map<string, StagedFile>, emitDir: string
  * touched -- text inside strings and comments is never altered. Returns the text unchanged when nothing
  * needs rewriting.
  *
- * `outputFile` names where the emit lands, not where the text currently sits: `mapOutputToSource`
+ * `outputFile` names where the emit will be published, not where the text is now: `mapOutputToSource`
  * reconstructs the originating source file by swapping the `outDir` prefix, and aliases resolve from
  * that source location. A staging path here would resolve them from the wrong directory.
  */
@@ -493,7 +494,7 @@ function rewriteSpecifiers(
     return text;
   }
 
-  // Apply edits from the end of the text backwards so earlier offsets stay valid as it is spliced.
+  // Apply edits from the end of the text backwards so that earlier offsets stay valid as it is spliced.
   const orderedEdits = edits.toSorted((a, b) => b.startOffset - a.startOffset);
   let updatedText = text;
   for (const edit of orderedEdits) {
@@ -503,9 +504,9 @@ function rewriteSpecifiers(
 }
 
 /**
- * Computes the runnable specifier for an emitted import, or `undefined` when no change is needed.
- * Relative specifiers ending in a TypeScript extension are re-extensioned to `.js`; `paths` aliases
- * are resolved to the target source file and expressed as a relative `.js` specifier. Bare package
+ * Computes the runnable specifier for an emitted import, or `undefined` when the specifier does not need
+ * a change. Relative specifiers ending in a TypeScript extension are re-extensioned to `.js`; `paths`
+ * aliases are resolved to the target source file and expressed as a relative `.js` specifier. Bare package
  * specifiers are left untouched. Throws on an alias that resolves to nothing, or that resolves outside the
  * package source tree and not the way Node will at runtime.
  */
@@ -535,10 +536,10 @@ function resolveSpecifierReplacement(
   if (!isWithin(sourceRoot, resolvedModule.resolvedFileName)) {
     // The alias target escapes the package source tree. Re-resolve the way Node will at runtime, which
     // honors none of TypeScript's resolution overlays: `paths`, `baseUrl`, and `rootDirs` each let a
-    // non-relative specifier resolve to a location Node cannot reach, so strip all three. A specifier
-    // that still resolves is genuinely external and runtime-runnable (a type-shim `paths` key shadowing
-    // a real package, or a coarse prefix collision), so emit it verbatim. One that does not would ship
-    // an unresolvable specifier that fails at runtime, so fail the build instead.
+    // non-relative specifier resolve to a location that Node cannot reach, so strip all three. A
+    // specifier that still resolves is genuinely external and runtime-runnable (a type-shim `paths` key
+    // shadowing a real package, or a coarse prefix collision); emit it verbatim. Emitting one that does
+    // not would publish an unresolvable specifier that fails at runtime; fail the build instead.
     // eslint-disable-next-line @typescript-eslint/no-deprecated -- named only to strip it; TypeScript still honors it
     const { paths: _paths, baseUrl: _baseUrl, rootDirs: _rootDirs, ...nodeResolutionOptions } = compilerOptions;
     const bareResolvedModule = ts.resolveModuleName(
@@ -599,12 +600,12 @@ function getModuleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
 
 /**
  * Compares the current input digest against the cached one, reporting whether a build is needed and
- * returning the freshly computed digest. Emits the status line but performs no write, so the caller
- * can persist the digest only after a successful build.
+ * returning the freshly computed digest. Emits the status line but does not write the cache, so that
+ * the caller can persist the digest only after a successful build.
  *
- * Unchanged inputs alone do not license a skip: the cache lives outside `dist`, so wiping the output
- * leaves the digest intact and a digest-only check would skip the build and leave `dist` empty — an
- * empty tarball for a package that publishes it. Missing output is therefore a cache miss.
+ * Unchanged inputs alone do not justify a skip: The cache lives outside `dist`, so wiping the output
+ * leaves the digest intact and a digest-only check would skip the build and leave `dist` empty. A
+ * package that publishes `dist` would pack an empty tarball. Missing output is therefore a cache miss.
  */
 async function detectBuildChanges(
   packageDir: string,
@@ -659,13 +660,13 @@ function collectAliasPrefixes(compilerOptions: ts.CompilerOptions): string[] {
   return Object.keys(compilerOptions.paths).map((pattern) => pattern.replace(/\*$/, ''));
 }
 
-/** Names what an emit came to: the files it published, or their absence. */
+/** Describes the outcome of an emit: the files that it published, or their absence. */
 function describeEmit(fileCount: number, outdir: string): string {
   if (fileCount === 0) {
-    return 'Emitted no output.';
+    return 'Did not emit any output.';
   }
 
-  // Always plural: every emitting source yields a `.js` and a `.d.ts`, so the count never lands on one.
+  // Always plural: Every emitting source yields a `.js` and a `.d.ts`, so the count is never one.
   return `Compiled ${fileCount} files to ${outdir.replace(/\/+$/u, '')}.`;
 }
 
@@ -717,8 +718,8 @@ function resolveExtendsTarget(extendsEntry: string, fromConfigPath: string): str
     throw new Error(`nmr-compile: ${fromConfigPath} extends '${extendsEntry}', which does not exist.`);
   }
 
-  // A package that ships no `exports` map is reachable only at its `tsconfig.json` path, which is what
-  // TypeScript's own config resolver falls back to.
+  // A package that does not declare an `exports` map is reachable only at its `tsconfig.json` path,
+  // which is what TypeScript's own config resolver falls back to.
   const resolvedPath =
     resolvePackageSpecifier(extendsEntry, fromConfigPath) ??
     resolvePackageSpecifier(`${extendsEntry}/tsconfig.json`, fromConfigPath);
@@ -753,7 +754,7 @@ function isWithin(parent: string, child: string): boolean {
 /**
  * Reconstructs the source file that produced an emitted output file by swapping the output
  * directory prefix for the source root and restoring a `.ts` extension. Used as the resolution
- * context for alias specifiers so `paths`/`baseUrl` resolve from the original source location.
+ * context for alias specifiers so that `paths`/`baseUrl` resolve from the original source location.
  */
 function mapOutputToSource(outputFile: string, compilerOptions: ts.CompilerOptions, sourceRoot: string): string {
   const outDir = compilerOptions.outDir ?? path.dirname(outputFile);

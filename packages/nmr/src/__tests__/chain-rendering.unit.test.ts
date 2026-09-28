@@ -8,7 +8,7 @@ import { renderChain } from '../steps.ts';
 interface ChainRow {
   command: string;
   chain: string;
-  /** Omitted where `-w` leaves the chain alone, which is every script the registry holds as a string. */
+  /** Omitted when `-w` leaves the chain alone, which is every script that the registry stores as a string. */
   workspaceRootChain?: string;
 }
 
@@ -266,8 +266,8 @@ const ROOT_CHAINS: readonly ChainRow[] = [
   },
 ];
 
-// No command's chain string moves unless a rewrite intends it. The rows enumerate every command rather than a sample,
-// because the command that moves is the one that nobody picked.
+// A command's chain string does not move unless a rewrite intends it. The rows enumerate every command rather than a
+// sample, because the command that moves is the one that nobody picked.
 describe('default script chain rendering', () => {
   it.each([
     { registry: buildWorkspaceRegistry({}), rows: WORKSPACE_CHAINS, scope: 'workspace' },
@@ -285,7 +285,7 @@ describe('default script chain rendering', () => {
 
 // region | Helpers
 
-/** Renders every command in a registry, in both the scopes `-w` selects between. */
+/** Renders every command in a registry, in both the scopes between which `-w` selects. */
 function renderRegistry(registry: ScriptRegistry): ChainRow[] {
   return Object.entries(registry).map(([command, script]) => ({
     command,

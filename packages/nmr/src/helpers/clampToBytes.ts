@@ -1,4 +1,4 @@
-/** Marks a value that was cut, so a reader can tell a truncated one from a complete one. */
+/** Marks a value that was cut, so that a reader can tell a truncated one from a complete one. */
 export const TRUNCATION_MARK = '…';
 
 /**
@@ -6,10 +6,10 @@ export const TRUNCATION_MARK = '…';
  * long, the mark included.
  *
  * Cuts between code points rather than between bytes, so a multi-byte character is never left in halves.
- * Graphemes are left unconsidered, which can separate an emoji from a modifier following it -- a cost paid
- * only at a budget no caller here comes near.
+ * Graphemes are left unconsidered, which can separate an emoji from a modifier following it -- a risk only
+ * at a budget that the callers here never come near.
  *
- * A budget too small to hold the mark yields an empty string, so the return never exceeds the budget.
+ * The return never exceeds the budget: A budget too small to hold the mark yields an empty string.
  */
 export function clampToBytes(value: string, budgetBytes: number): string {
   if (Buffer.byteLength(value) <= budgetBytes) {
