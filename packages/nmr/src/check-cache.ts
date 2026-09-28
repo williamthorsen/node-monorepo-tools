@@ -30,9 +30,9 @@ import { renderChain } from './steps.ts';
 import type { CheckCacheConfig, NmrConfig } from './types.ts';
 import { getWorkspacePackageDirs } from './workspace.ts';
 
-/** A recorded pass: what ran, on which tree, and what it cost. */
+/** A recorded pass: what ran, on which tree, and how long it took. */
 export interface CheckCacheEntry {
-  /** The full cache key the pass was recorded under; a hit is this matching the key computed now. */
+  /** The full cache key under which the pass was recorded; a hit is this key matching the key computed now. */
   key: string;
   treeHash: string;
   headSha: string;
@@ -43,12 +43,12 @@ export interface CheckCacheEntry {
   /** ISO-8601 instant the pass completed. */
   recordedAt: string;
   /**
-   * The build digest each covered package's output carried when the pass was recorded. Build output is
-   * git-ignored, so the tree hash cannot describe it; comparing these is what separates output built from this
-   * tree from output another tree left behind.
+   * The build digest that each covered package's output had when the pass was recorded. Build output is
+   * git-ignored, so the tree hash cannot describe it; comparing these separates output built from this tree from
+   * output that another tree left behind.
    */
   buildDigests: Record<string, string>;
-  /** What a skip replays in place of the run it recalls, absent on a pass that retained nothing. */
+  /** What a skip replays in place of the run that it recalls, absent on a pass that retained nothing. */
   retention?: Retention;
 }
 
@@ -70,11 +70,11 @@ export interface ReplayLine {
  * What a recalled pass replays, the key certifying the excerpts describe this environment's output, and the
  * run that last vouched for them.
  *
- * A list rather than one excerpt: a composite's entry carries its constituents' lines, and a nested one's are
- * spliced into its parent's, where the attribution cannot be re-derived from the entry that holds them.
+ * A list rather than one excerpt: a composite's entry contains its constituents' lines, and a nested one's are
+ * spliced into its parent's, where the attribution cannot be re-derived from the entry that contains them.
  *
- * The witness is what admits a constituent's line into the assembly its parent records: a run writes it when
- * it records an excerpt, and restamps it when it recalls one and replays it.
+ * The witness admits a constituent's line into the assembly that its parent records: a run writes it when it
+ * records an excerpt, and restamps it when it recalls one and replays it.
  */
 export interface Retention {
   key: string;
@@ -86,7 +86,7 @@ export interface Retention {
 export interface BuildOutputState {
   /** Covered packages whose output is absent. */
   missingPackages: string[];
-  /** The digest of the inputs each covered package's output was built from, keyed by package name. */
+  /** The digest of the inputs from which each covered package's output was built, keyed by package name. */
   digests: Record<string, string>;
 }
 
@@ -103,7 +103,7 @@ export interface TreeSnapshot {
   headSha: string;
 }
 
-/** The interpreter this process is running on, folded into every key and recorded alongside every pass. */
+/** The interpreter on which this process is running, folded into every key and recorded alongside every pass. */
 export const CURRENT_RUNTIME: RuntimeIdentity = {
   arch: process.arch,
   nodeVersion: process.version,
@@ -118,8 +118,8 @@ export const DEBUG_ENV_VAR = 'NMR_DEBUG';
  * reach nothing beyond a checkout and an install.
  *
  * Excluded commands: `audit` and `prepush` consult a vulnerability database that changes without the tree
- * (`prepush`'s `ci` constituent still skips while its `audit` always runs). `build` and `compile` carry a cache
- * of their own. `fix`, `fmt`, `lint`, and `upgrade` mutate the tree they are asked about. `test:all` reaches
+ * (`prepush`'s `ci` constituent still skips while its `audit` always runs). `build` and `compile` have a cache
+ * of their own. `fix`, `fmt`, `lint`, and `upgrade` mutate the tree about which they are asked. `test:all` reaches
  * whatever the environment supplies. Anything a repo adds here promises exit-status-only semantics through its
  * whole chain, hooks included.
  */
@@ -148,16 +148,16 @@ export const DEFAULT_CACHEABLE_COMMANDS = [
 /** Set to `1` for the standing equivalent of `--no-cache`: skip the lookup, still record on success. */
 export const NO_CACHE_ENV_VAR = 'NMR_NO_CACHE';
 
-/** Carries one run's identity down the spawned chain, so an entry can name the run that vouched for it. */
+/** Passes one run's identity down the spawned chain, so that an entry can name the run that vouched for it. */
 export const RUN_ID_ENV_VAR = 'NMR_RUN_ID';
 
-/** Carries the top-level tree snapshot down the spawned chain, so one invocation hashes the tree once. */
+/** Passes the top-level tree snapshot down the spawned chain, to make one invocation hash the tree only once. */
 export const TREE_SNAPSHOT_ENV_VAR = 'NMR_TREE_SNAPSHOT';
 
 /** The default `compile` script: nmr's own build. */
 const BUILT_IN_COMPILE = 'nmr-compile';
 
-/** The tool whose cache directory holds check results. */
+/** The tool whose cache directory stores check results. */
 const CACHE_TOOL = 'nmr-check';
 
 /**
@@ -169,7 +169,7 @@ const INSTALL_FINGERPRINT_FILES = [
   path.join('node_modules', '.pnpm', 'lock.yaml'),
 ];
 
-/** Names the fold. Bump it whenever an ingredient is added or removed, so older entries read as misses. */
+/** Names the fold. Bump it whenever an ingredient is added or removed, so that older entries read as misses. */
 const KEY_FORMAT = 'nmr-check-cache-v1';
 
 /**
@@ -183,28 +183,29 @@ const KEYED_ENV_VARS = ['LANG', 'LC_ALL', 'NODE_OPTIONS', 'TZ'];
 const RETENTION_KEY_FORMAT = 'nmr-retention-v1';
 
 /**
- * Environment variables a tool reads to decide how to present itself. They change what a transcript looks
+ * Environment variables that a tool reads to decide how to present itself. They change what a transcript looks
  * like without changing what the command concludes, so they belong to the retention key alone: a run under a
  * different terminal width recalls the same pass and declines to replay its excerpt.
  *
- * `NMR_OUTPUT_STYLE` is not among them, for the reason `output-style.ts` states: a run declines no recording
- * over a style, and replays a rich excerpt in a plain run as it replays a plain one in a rich run.
+ * `NMR_OUTPUT_STYLE` is not among them, for the reason `output-style.ts` states: a run does not decline any
+ * recording over a style, and replays a rich excerpt in a plain run as it replays a plain one in a rich run.
  */
 const RETENTION_KEYED_ENV_VARS = ['CI', 'COLUMNS', 'FORCE_COLOR', 'NO_COLOR', 'TERM'];
 
-/** Characters a command name may contribute to a file name; every other character becomes a hyphen. */
+/** Characters that a command name may contribute to a file name; every other character becomes a hyphen. */
 const UNSAFE_SLUG_CHARACTERS = /[^\w.-]+/g;
 
 /**
- * Restamps a recalled entry's retention with the run that is replaying it, so an excerpt this run certified
- * can join the assembly a composite above it records.
+ * Restamps a recalled entry's retention with the run that is replaying it, so that an excerpt certified by this
+ * run can join the assembly recorded by a composite above it.
  *
- * A recall certifies as surely as a recording does: the pass key matched, so the excerpt describes this tree,
- * and the caller reaches this only where the retention key matched too, so it describes this presentation
- * environment. Everything else the entry records stands -- the instant and the duration belong to the run that
- * earned the pass, and a recall must not make it read as later or longer than it was.
+ * A recall certifies as surely as a recording does. Because the pass key matched, the excerpt describes this
+ * tree; because the caller calls this only when the retention key matched too, the excerpt also describes this
+ * presentation environment. Everything else the entry records stands -- the instant and the duration belong to
+ * the run that earned the pass, and a recall must not make it read as later or longer than it was.
  *
- * A cache that cannot be written is not worth failing a green run over, so that failure goes to the debug note.
+ * A cache that cannot be written is not worth failing a green run over: `certifyRetention` reports that failure
+ * in the debug note.
  */
 export async function certifyRetention(options: {
   anchorDir: string;
@@ -234,8 +235,8 @@ export async function certifyRetention(options: {
 
 /**
  * Folds everything that can change what a command concludes into one key: the tree's content, the command
- * string that would run, the scope it would run in, nmr's own version, the interpreter, what is installed, and
- * the environment variables a check can read. A hit is this key matching a recorded one, so an ingredient left
+ * string that would run, the scope in which it would run, nmr's own version, the interpreter, what is installed,
+ * and the environment variables that a check can read. A hit is this key matching a recorded one, so an ingredient left
  * out here is an ingredient that could change while the cache still claims a pass.
  *
  * Reports a reason instead of a key when the install fingerprint cannot be read, which disables the gate.
@@ -274,8 +275,8 @@ export function computeCacheKey(options: {
 }
 
 /**
- * Folds what changes a transcript without changing a conclusion onto the pass key: the channel each of the
- * command's output streams ran on, and the environment variables through which a tool presents itself.
+ * Folds what changes a transcript without changing a conclusion onto the pass key: the channel on which each of
+ * the command's output streams ran, and the environment variables through which a tool presents itself.
  *
  * The channel kind keeps a run at a terminal from replaying a piped recording. It is the channel's kind and not
  * whether a terminal is attached: under quiet mode the child writes to pipes at a terminal, and its transcript
@@ -304,7 +305,7 @@ export function encodeTreeSnapshot(snapshot: TreeSnapshot): string {
 /**
  * Names a covered package whose output differs between two observations of it, or `undefined` when every
  * package agrees. A package that has appeared or disappeared between them counts as a disagreement, because
- * the output the earlier observation describes is not the output the later one found.
+ * the output that the earlier observation describes is not the output that the later one found.
  */
 export function findStaleBuildOutput(
   earlierDigests: Record<string, string>,
@@ -316,7 +317,7 @@ export function findStaleBuildOutput(
 }
 
 /**
- * Renders the warning for a `--no-cache` that landed after the command name, where it is an argument to the
+ * Renders the warning for a `--no-cache` that appears after the command name, where it is an argument to the
  * command rather than a flag to nmr. nmr passes the argument on unchanged, so the warning is the only sign that
  * nmr did not read it.
  */
@@ -328,8 +329,8 @@ export function formatMisplacedNoCacheWarning(command: string, style: OutputStyl
 }
 
 /**
- * Reports whether a command's passes are recorded at all, which is what separates a command with no recording
- * from one that could never have had one.
+ * Reports whether a command's passes are recorded at all, which separates a command without a recording from
+ * one that could never have had one.
  *
  * A hook is never cacheable, even when a repo names one in `extraCommands`: nothing records a hook, and
  * excluding it here keeps the gate and every reader of its entries in agreement.
@@ -339,13 +340,13 @@ export function isCacheableCommand(checkCache: CheckCacheConfig | undefined, com
 }
 
 /**
- * Reads the state of the build output nmr's own build covers. Build output is git-ignored, so the tree hash
+ * Reads the state of the build output that nmr's own build covers. Build output is git-ignored, so the tree hash
  * says nothing about it: a `ci` whose `build` constituent is cached would otherwise skip on a tree whose `dist`
  * had been deleted, or whose `dist` was compiled from a different tree, and hand back a green exit over a
  * repository that cannot run.
  *
- * A package whose `build` or `compile` is overridden emits somewhere this does not know about, so it is left
- * out rather than made a permanent miss.
+ * Because a package whose `build` or `compile` is overridden emits to a location that this function does not
+ * know about, it is left out rather than made a permanent miss.
  */
 export async function readBuildOutputState(monorepoRoot: string, config: NmrConfig): Promise<BuildOutputState> {
   const state: BuildOutputState = { missingPackages: [], digests: {} };
@@ -358,7 +359,7 @@ export async function readBuildOutputState(monorepoRoot: string, config: NmrConf
   }
 
   const registry = buildWorkspaceRegistry(config);
-  // A repo that redefines `build` exempts its whole workspace, so return before reading any package.
+  // Return before reading any package: a repo that redefines `build` exempts its whole workspace.
   if (JSON.stringify(registry['build']) !== JSON.stringify(getDefaultWorkspaceScripts()['build'])) {
     return state;
   }
@@ -368,9 +369,9 @@ export async function readBuildOutputState(monorepoRoot: string, config: NmrConf
       continue;
     }
 
-    // Read on the package's own build options, so the entry set here is the one the build actually compiles.
-    // A package whose extra patterns leave nothing to emit expects no output, and reporting it missing would
-    // make it a permanent miss that takes the whole repo's gate down with it.
+    // Read on the package's own build options, so that the entry set here is the one that the build actually
+    // compiles. A package whose extra patterns leave nothing to emit does not expect any output, and reporting
+    // it missing would make it a permanent miss that defeats the whole repo's gate.
     const { build } = await loadWorkspaceConfig(packageDir);
     const options = build?.extraIgnorePatterns === undefined ? {} : { extraIgnorePatterns: build.extraIgnorePatterns };
 
@@ -390,8 +391,8 @@ export async function readBuildOutputState(monorepoRoot: string, config: NmrConf
 /**
  * Reads the entry recorded for one command at one scope, or `undefined` when there is none to trust.
  *
- * Retention is vouched for separately from the pass it rides on: an excerpt of a shape this cannot read is
- * dropped, leaving a pass that skips cleanly and reports its verdict alone.
+ * Retention is vouched for separately from the pass that contains it: an excerpt of a shape that this function
+ * cannot read is dropped, leaving a pass that skips cleanly and reports its verdict alone.
  */
 export async function readCheckCacheEntry(options: {
   anchorDir: string;
@@ -409,9 +410,9 @@ export async function readCheckCacheEntry(options: {
 }
 
 /**
- * Reads the whole output one recorded pass retained, or `undefined` where it retained none.
+ * Reads the whole output that one recorded pass retained, or `undefined` when it retained none.
  *
- * Held to nothing on its own: the entry beside it is what says which tree the bytes describe, and a caller
+ * Held to nothing on its own: the entry beside it says which tree the bytes describe, and a caller
  * that has not matched the entry's key is reading a transcript of some other tree.
  */
 export async function readTranscript(ref: EntryRef): Promise<string | undefined> {
@@ -422,7 +423,7 @@ export async function readTranscript(ref: EntryRef): Promise<string | undefined>
  * Makes the transcript beside one entry be exactly what this pass retained, removing what an earlier pass
  * left when this one retained nothing.
  *
- * A composite retains nothing of its own, so without the removal a leaf's transcript would stand beside an
+ * A composite retains nothing of its own, so without the removal a leaf's transcript would remain beside an
  * entry that never produced it, and `--log` would date another run's bytes by this one's instant.
  */
 export async function recordTranscript(ref: EntryRef, transcript: string | undefined): Promise<void> {
@@ -456,12 +457,12 @@ export function resolveCacheableCommands(checkCache: CheckCacheConfig | undefine
 }
 
 /**
- * Resolves the identity of the run this invocation belongs to: the one an ancestor nmr process passed down,
- * and otherwise a fresh one, this invocation being where the run starts.
+ * Resolves the identity of the run to which this invocation belongs: the one that an ancestor nmr process passed
+ * down, and otherwise a fresh one, because the run starts at this invocation.
  *
- * Unbounded where the tree snapshot is bounded by a HEAD comparison: a process that outlives its run hands a
- * stale identity to the invocations it later makes, and what keeps that harmless is the tree hash every
- * constituent entry is held to before its excerpt joins an assembly.
+ * Unbounded, whereas the tree snapshot is bounded by a HEAD comparison: a process that outlives its run hands a
+ * stale identity to the invocations that it later makes, and the tree hash keeps that harmless, because every
+ * constituent entry is held to it before its excerpt joins an assembly.
  */
 export function resolveRunId(env: NodeJS.ProcessEnv): string {
   const inheritedRunId = env[RUN_ID_ENV_VAR];
@@ -470,11 +471,11 @@ export function resolveRunId(env: NodeJS.ProcessEnv): string {
 }
 
 /**
- * Resolves the tree snapshot this invocation gates on: the one a parent nmr process already took, when there
- * is one, and otherwise a fresh hash of the working tree. Reports a reason instead when no snapshot can be
- * had, which disables the gate.
+ * Resolves the tree snapshot on which this invocation gates: the one that a parent nmr process already took,
+ * when there is one, and otherwise a fresh hash of the working tree. Reports a reason instead when a snapshot
+ * cannot be taken, which disables the gate.
  *
- * The monorepo root must be the git toplevel. A repository holding the monorepo inside a subdirectory has
+ * The monorepo root must be the git toplevel. A repository containing the monorepo inside a subdirectory has
  * content outside it that the checks may still read, and a hash covering more than the monorepo would move
  * for edits that cannot affect it.
  */
@@ -482,9 +483,9 @@ export function resolveTreeSnapshot(options: {
   monorepoRoot: string;
   env: NodeJS.ProcessEnv;
 }): { ok: true; snapshot: TreeSnapshot } | { ok: false; reason: string } {
-  // An inherited snapshot is trusted only while HEAD stands where it did when the snapshot was taken. A
-  // process that outlives the run that spawned it carries the variable with it, and would otherwise gate a
-  // later invocation on an observation of a tree that has since moved on.
+  // An inherited snapshot is trusted only while HEAD points to the commit that it pointed to when the snapshot
+  // was taken. A process that outlives the run that spawned it keeps the variable in its environment, and would
+  // otherwise gate a later invocation on an observation of a tree that has since moved on.
   const inheritedSnapshot = decodeTreeSnapshot(options.env[TREE_SNAPSHOT_ENV_VAR]);
   if (inheritedSnapshot !== undefined && readHeadSha(options.monorepoRoot) === inheritedSnapshot.headSha) {
     return { ok: true, snapshot: inheritedSnapshot };
@@ -534,7 +535,7 @@ export function writeDebugNote(message: string, env: NodeJS.ProcessEnv, stderr: 
 /** A recorded pass as it parses, before the retention beside it has been vouched for. */
 type ParsedCheckCacheEntry = Omit<CheckCacheEntry, 'retention'> & { retention?: unknown };
 
-/** Renders each variable's presence and its value separately, so an unset variable and an empty one differ. */
+/** Renders each variable's presence and its value separately, so that an unset variable and an empty one differ. */
 function composeEnvParts(names: readonly string[], env: NodeJS.ProcessEnv): string[] {
   return names.flatMap((name) => {
     const value = env[name];
@@ -542,7 +543,7 @@ function composeEnvParts(names: readonly string[], env: NodeJS.ProcessEnv): stri
   });
 }
 
-/** Reads a snapshot a parent process encoded, or `undefined` when the value is absent or malformed. */
+/** Reads a snapshot encoded by a parent process, or `undefined` when the value is absent or malformed. */
 function decodeTreeSnapshot(encodedSnapshot: string | undefined): TreeSnapshot | undefined {
   if (encodedSnapshot === undefined) {
     return undefined;
@@ -557,14 +558,14 @@ function decodeTreeSnapshot(encodedSnapshot: string | undefined): TreeSnapshot |
 }
 
 /**
- * Names the kind of channel a stream ran on. The descriptor number is left out: it names which terminal a
+ * Names the kind of channel on which a stream ran. The descriptor number is left out: it names which terminal a
  * command wrote to, not whether what it wrote was a transcript.
  */
 function describeChannel(channel: OutputChannel): string {
   return channel === 'pipe' ? 'pipe' : 'descriptor';
 }
 
-/** Folds an ordered list of ingredients into one digest, delimiting them so two lists cannot collide. */
+/** Folds an ordered list of ingredients into one digest, delimiting them so that two lists cannot collide. */
 function digestParts(parts: readonly string[]): string {
   const hash = createHash('sha256');
   for (const part of parts) {
@@ -577,10 +578,10 @@ function digestParts(parts: readonly string[]): string {
 
 /**
  * Narrows a parsed entry, so that one written by an older format reads as a miss rather than as a pass. The
- * timestamp has to parse and the duration has to be finite, because a recalled pass spends both on its verdict:
- * an entry that would render as `passed NaNs ago` is one no reader can act on.
+ * timestamp has to parse and the duration has to be finite, because a recalled pass uses both in its verdict: an
+ * entry that would render as `passed NaNs ago` is one that a reader cannot act on.
  *
- * The retention an entry may carry is left unread here, so that what a skip replays cannot decide whether the
+ * The retention that an entry may contain is left unread here, so that what a skip replays cannot decide whether the
  * pass beneath it stands.
  */
 function isParsedCheckCacheEntry(value: unknown): value is ParsedCheckCacheEntry {
@@ -603,8 +604,8 @@ function isParsedCheckCacheEntry(value: unknown): value is ParsedCheckCacheEntry
 
 /**
  * Reports whether a package's build output is nmr's own to look for: neither its `build` nor its `compile` is
- * overridden by the package itself. Either overridden, and the package emits on terms this does not know, so
- * demanding a `dist` would make every run a miss.
+ * overridden by the package itself. If either is overridden, the package emits output in a way that this
+ * function does not know, so demanding a `dist` would make every run a miss.
  */
 function isProbeSubject(packageDir: string, registry: ScriptRegistry): boolean {
   const build = resolveScript('build', registry, packageDir, false);
@@ -617,7 +618,7 @@ function isProbeSubject(packageDir: string, registry: ScriptRegistry): boolean {
   return compile !== undefined && renderChain(compile.steps) === BUILT_IN_COMPILE;
 }
 
-/** Narrows a recorded replay line, whose three fields a rendered line spends in full. */
+/** Narrows a recorded replay line, whose three fields a rendered line uses in full. */
 function isReplayLine(value: unknown): value is ReplayLine {
   return (
     isObject(value) &&
@@ -627,7 +628,7 @@ function isReplayLine(value: unknown): value is ReplayLine {
   );
 }
 
-/** Narrows recorded retention, so an entry claiming an excerpt it cannot produce reads as a miss. */
+/** Narrows recorded retention, so that an entry claiming an excerpt that it cannot produce reads as a miss. */
 function isRetention(value: unknown): value is Retention {
   return (
     isObject(value) &&
@@ -639,8 +640,8 @@ function isRetention(value: unknown): value is Retention {
 }
 
 /**
- * Locates one command's entry, or the transcript beside it. Every entry in a monorepo lives in one directory,
- * keyed by the scope and the command, so a single removal clears the whole table however many packages
+ * Locates one command's entry, or the transcript beside it. Because every entry in a monorepo is stored in one
+ * directory, keyed by the scope and the command, a single removal clears the whole table however many packages
  * recorded into it. The pair shares one digest, differing only in extension.
  */
 function resolveEntryPath(options: EntryRef, extension: '.json' | '.log' = '.json'): string {

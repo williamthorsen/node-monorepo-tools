@@ -19,7 +19,7 @@ vi.mock(import('../runner.ts'), async (importOriginal) => ({
   runSteps: vi.fn(),
 }));
 
-// The probe spawns pnpm, which a unit test neither has nor needs: what it answers is the input to the gate.
+// The probe spawns pnpm, which a unit test neither has nor needs: its answer is the input to the gate.
 vi.mock(import('../helpers/filter-selection.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   readFilterSelection: vi.fn(),
@@ -100,22 +100,22 @@ describe(runCli, () => {
       {
         args: ['-F', 'my-pkg', 'build'],
         expectedArgv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'build'],
-        scenario: 'a filter pattern the shell reads literally',
+        scenario: 'a filter pattern that the shell reads literally',
       },
       {
         args: ['-F', './packages/*', 'build'],
         expectedArgv: ['pnpm', '--filter', './packages/*', 'exec', 'nmr', 'build'],
-        scenario: 'a filter pattern the shell would expand',
+        scenario: 'a filter pattern that the shell would expand',
       },
       {
         args: ['-F', 'my-pkg', 'test', '--reporter=json'],
         expectedArgv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'test', '--reporter=json'],
-        scenario: 'a passthrough argument needing no quoting',
+        scenario: 'a passthrough argument that does not need quoting',
       },
       {
         args: ['-F', 'my-pkg', 'test', '-t', 'a b'],
         expectedArgv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'test', '-t', 'a b'],
-        scenario: 'a passthrough argument holding a space',
+        scenario: 'a passthrough argument containing a space',
       },
     ])('given $scenario, delegates through pnpm as argv tokens', async ({ args, expectedArgv }, { tree }) => {
       await runNmr(args, tree.dir);
@@ -123,14 +123,14 @@ describe(runCli, () => {
       expect(readStepsFromCall()).toStrictEqual([{ kind: 'structural', argv: expectedArgv }]);
     });
 
-    // A delegate spawns `pnpm`, not `nmr`, and still inherits: what classifies a step is how nmr composed it.
-    it('classifies the delegate as structural although the binary it spawns is pnpm', async ({ tree }) => {
+    // A delegate spawns `pnpm`, not `nmr`, and still inherits: a step's kind follows from how nmr composed it.
+    it('classifies the delegate as structural although the binary that it spawns is pnpm', async ({ tree }) => {
       await runNmr(['-R', 'build'], tree.dir);
 
       expect(readStepsFromCall()?.[0]?.kind).toBe('structural');
     });
 
-    it('renders the delegate to the chain string it had as one shell command', async ({ tree }) => {
+    it('renders the delegate to the chain string that it had as one shell command', async ({ tree }) => {
       await runNmr(['-F', './packages/*', 'test', '-t', 'a b'], tree.dir);
 
       expect(renderChain(readStepsFromCall() ?? [])).toBe("pnpm --filter './packages/*' exec nmr test -t 'a b'");
@@ -167,7 +167,7 @@ describe(runCli, () => {
           shouldWithholdInput: true,
         },
       },
-    ])('carries `--log` into the delegate, ahead of the command name', async ({ args, expectedStep }, { tree }) => {
+    ])('passes `--log` to the delegate, ahead of the command name', async ({ args, expectedStep }, { tree }) => {
       await runNmr(args, tree.dir);
 
       expect(readStepsFromCall()).toStrictEqual([expectedStep]);
@@ -183,7 +183,7 @@ describe(runCli, () => {
   });
 
   describe('input', () => {
-    it('gives the packages of a recursive delegate no stdin', async ({ tree }) => {
+    it('withholds stdin from the packages of a recursive delegate', async ({ tree }) => {
       await runNmr(['-R', 'build'], tree.dir);
 
       expect(readStepsFromCall()).toStrictEqual([
@@ -191,7 +191,7 @@ describe(runCli, () => {
       ]);
     });
 
-    it('gives no stdin to the packages of a filter selecting several', async ({ tree }) => {
+    it('withholds stdin from the packages of a filter selecting several', async ({ tree }) => {
       mockedReadFilterSelection.mockReturnValue('multiple');
 
       await runNmr(['-F', './packages/*', 'build'], tree.dir);
@@ -228,7 +228,7 @@ describe(runCli, () => {
   });
 
   describe('empty selection', () => {
-    // An empty pattern reads as no filter at all in composition, which would run the command unfiltered.
+    // Composition reads an empty pattern as a missing filter, which would run the command unfiltered.
     it('rejects an empty pattern as it rejects a missing one', async ({ tree }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-F', '', 'build'], tree.dir);
 
@@ -237,7 +237,7 @@ describe(runCli, () => {
       expect(stderr).toContain('-F/--filter requires a pattern argument');
     });
 
-    it('asks pnpm what the pattern selects, from the monorepo root the delegate runs in', async ({ tree }) => {
+    it('asks pnpm what the pattern selects, from the monorepo root in which the delegate runs', async ({ tree }) => {
       await runNmr(['-F', 'my-pkg', 'build'], tree.dir);
 
       expect(mockedReadFilterSelection).toHaveBeenCalledWith('my-pkg', tree.dir);
@@ -265,8 +265,8 @@ describe(runCli, () => {
       expect(stderr).toContain('-F/--filter matched no workspace: `secrets`');
     });
 
-    // A directory name standing in for a longer manifest name is the reported mistake, and it sits too many
-    // edits away for the nearest-name search to reach.
+    // The reported mistake is a directory name standing in for a longer manifest name, which is too many edits
+    // away for the nearest-name search to find.
     it('names a workspace whose name contains the rejected pattern', async ({ tree }) => {
       mockedReadFilterSelection.mockReturnValue('empty');
 
@@ -275,7 +275,7 @@ describe(runCli, () => {
       expect(stderr).toContain('Did you mean `my-pkg`?');
     });
 
-    it('names the nearest workspace where no name contains the pattern', async ({ tree }) => {
+    it('names the nearest workspace when the pattern is not contained in any workspace name', async ({ tree }) => {
       mockedReadFilterSelection.mockReturnValue('empty');
 
       const { stderr } = await runNmrReadingStderr(['-F', 'my-pkq', 'build'], tree.dir);
@@ -298,7 +298,7 @@ describe(runCli, () => {
       },
     );
 
-    // An exclusion that leaves nothing standing is not a misspelt name, and no name would repair it.
+    // An exclusion that leaves nothing selected is not a misspelt name, and a corrected name would not repair it.
     it('states the exclusion rule for a pattern that only excludes', async ({ tree }) => {
       mockedReadFilterSelection.mockReturnValue('empty');
 
@@ -309,8 +309,9 @@ describe(runCli, () => {
       expect(stderr).not.toContain('manifest `name`');
     });
 
-    // Nothing changed is what an empty changed-since selection reports, and no name repairs that either.
-    it('states the changed-since rule for a pattern carrying a git ref', async ({ tree }) => {
+    // An empty changed-since selection reports that nothing changed, and a corrected name does not repair that
+    // either.
+    it('states the changed-since rule for a pattern containing a git ref', async ({ tree }) => {
       mockedReadFilterSelection.mockReturnValue('empty');
 
       const { exitCode, stderr } = await runNmrReadingStderr(['-F', '[origin/main]', 'build'], tree.dir);
@@ -320,7 +321,7 @@ describe(runCli, () => {
       expect(stderr).not.toContain('manifest `name`');
     });
 
-    it('lists the workspace names where the pattern is near none of them', async ({ tree }) => {
+    it('lists the workspace names when the pattern is not near any of them', async ({ tree }) => {
       mockedReadFilterSelection.mockReturnValue('empty');
 
       const { stderr } = await runNmrReadingStderr(['-F', 'zzzzzzzzzz', 'build'], tree.dir);
@@ -328,8 +329,9 @@ describe(runCli, () => {
       expect(stderr).toContain('The workspace declares `my-pkg`.');
     });
 
-    // Only an answered probe refuses: an unread one leaves pnpm to report the selector it rejected.
-    it('delegates where the probe could not resolve the selection', async ({ tree }) => {
+    // nmr refuses only on an answered probe: an unresolved one leaves pnpm to report the selector that it
+    // rejected.
+    it('delegates when the probe could not resolve the selection', async ({ tree }) => {
       mockedReadFilterSelection.mockReturnValue('unresolved');
 
       const { exitCode } = await runNmrReadingStderr(['-F', '[bogus-ref]', 'build'], tree.dir);
@@ -340,9 +342,9 @@ describe(runCli, () => {
       ]);
     });
 
-    // `pnpm --recursive` leaves the root project out, so a workspace with no package fans out to nothing.
+    // `pnpm --recursive` leaves the root project out, so in a workspace without a package it selects nothing.
     // `packagelessTree` declares `packages/*` over an empty tree, which is the no-package condition.
-    it('refuses a recursive delegation in a workspace whose patterns match no manifest', async ({
+    it('refuses a recursive delegation in a workspace whose patterns do not match any manifest', async ({
       packagelessTree,
     }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], packagelessTree.dir);
@@ -356,7 +358,9 @@ describe(runCli, () => {
       expect(stderr).toContain('Add a `package.json`');
     });
 
-    it('refuses a recursive delegation where the manifest declares no `packages` list', async ({ listlessTree }) => {
+    it('refuses a recursive delegation when the manifest does not declare a `packages` list', async ({
+      listlessTree,
+    }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], listlessTree.dir);
 
       expect(exitCode).toBe(1);
@@ -366,7 +370,7 @@ describe(runCli, () => {
 
     // The manifest declares `packages/*` beside the bad entry, so a remedy sending the reader to declare a
     // pattern would name what is already there; the shape of the list is the fault.
-    it('names the required shape where the `packages` value is not a list of strings', async ({
+    it('names the required shape when the `packages` value is not a list of strings', async ({
       unreadablePackagesTree,
     }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], unreadablePackagesTree.dir);
@@ -377,7 +381,7 @@ describe(runCli, () => {
       expect(stderr).not.toContain('Declare a positive pattern');
     });
 
-    it('refuses a recursive delegation where the exclusions remove every match', async ({ excludedTree }) => {
+    it('refuses a recursive delegation when the exclusions remove every match', async ({ excludedTree }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], excludedTree.dir);
 
       expect(exitCode).toBe(1);
@@ -386,9 +390,9 @@ describe(runCli, () => {
       expect(stderr).toContain('Drop or narrow the exclusion');
     });
 
-    // The manifest declares `packages/*` below a syntax error, so the remedy the other patternless conditions
-    // share would send the reader to declare what is already there.
-    it('names the syntax error where the manifest holds no valid YAML', async ({ unreadableTree }) => {
+    // Because the manifest declares `packages/*` below a syntax error, the remedy that the other patternless
+    // conditions share would send the reader to declare what is already there.
+    it('names the syntax error when the manifest is not valid YAML', async ({ unreadableTree }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], unreadableTree.dir);
 
       expect(exitCode).toBe(1);
@@ -397,9 +401,9 @@ describe(runCli, () => {
       expect(stderr).not.toContain('Declare a positive pattern');
     });
 
-    // An unquoted `!pkg` reaches the matcher as an empty entry, which is the very case this message's remedy
-    // names, so quoting it back as an empty pair of backticks is what the reader must not be given.
-    it('names an entry YAML left empty rather than quoting nothing', async ({ taggedTree }) => {
+    // The matcher receives an unquoted `!pkg` as an empty entry, which is the very case that this message's
+    // remedy names, so the message must not quote it back to the reader as an empty pair of backticks.
+    it('names an entry that YAML left empty rather than quoting nothing', async ({ taggedTree }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], taggedTree.dir);
 
       expect(exitCode).toBe(1);
@@ -409,8 +413,8 @@ describe(runCli, () => {
     });
 
     // The pattern-shape rules answer which pattern would have matched, and in a package-free workspace none
-    // would have, so the workspace is the cause to report.
-    it('reports the workspace where a filter is refused in a workspace holding no package', async ({
+    // would have: the workspace is the cause to report.
+    it('reports the workspace when a filter is refused in a workspace without any package', async ({
       packagelessTree,
     }) => {
       mockedReadFilterSelection.mockReturnValue('empty');
@@ -423,7 +427,7 @@ describe(runCli, () => {
       expect(stderr).not.toContain('manifest `name`');
     });
 
-    it('leaves a recursive delegation alone where the workspace declares a package', async ({ tree }) => {
+    it('leaves a recursive delegation alone when the workspace declares a package', async ({ tree }) => {
       const { exitCode } = await runNmrReadingStderr(['-R', 'build'], tree.dir);
 
       expect(exitCode).toBe(0);
@@ -432,7 +436,7 @@ describe(runCli, () => {
       ]);
     });
 
-    // The probe is a filter's own question; a recursive delegation has no pattern to put to pnpm.
+    // The probe is a filter's own question; a recursive delegation does not have a pattern to put to pnpm.
     it('asks pnpm nothing for a recursive delegation', async ({ tree }) => {
       await runNmr(['-R', 'build'], tree.dir);
 
@@ -440,10 +444,11 @@ describe(runCli, () => {
     });
   });
 
-  // A `-R` nmr composed into its own script asked for no fan-out on the caller's behalf, so a workspace with
-  // no package leaves it nothing to do rather than failing the run. A typed `-R` keeps refusing, above.
+  // A `-R` that nmr composed into its own script did not ask for any fan-out on the caller's behalf, so a
+  // workspace without a package leaves it nothing to do rather than failing the run. A typed `-R` keeps
+  // refusing, above.
   describe('a composed recursive step in a package-free workspace', () => {
-    it('drops the recursive step and runs what stands beside it', async ({ packagelessTree }) => {
+    it('drops the recursive step and runs the steps beside it', async ({ packagelessTree }) => {
       await runNmr(['test'], packagelessTree.dir);
 
       expect(readStepsFromCall()).toStrictEqual([{ kind: 'structural', argv: ['nmr', 'root:test'] }]);
@@ -459,7 +464,7 @@ describe(runCli, () => {
       ]);
     });
 
-    it('reports a no-op naming the workspace where the drop leaves no step at all', async ({ packagelessTree }) => {
+    it('reports a no-op naming the workspace when the drop leaves the chain empty', async ({ packagelessTree }) => {
       const { exitCode, stdout } = await runNmrReadingStdout(['build'], packagelessTree.dir);
 
       expect(exitCode).toBe(0);
@@ -477,7 +482,7 @@ describe(runCli, () => {
       expect(parsedVerdict).toMatchObject({ command: 'build', outcome: 'no-op', reason: 'empty-workspace' });
     });
 
-    it('leaves a composite carrying no recursive step reaching every constituent', async ({ packagelessTree }) => {
+    it('leaves a composite without a recursive step running every constituent', async ({ packagelessTree }) => {
       await runNmr(['ci'], packagelessTree.dir);
 
       expect(readStepsFromCall()).toStrictEqual([
@@ -497,7 +502,7 @@ describe(runCli, () => {
       expect(parsedVerdict).toMatchObject({ outcome: 'no-op', reason: 'empty-override' });
     });
 
-    it('leaves a recursive step standing where the workspace holds a package', async ({ tree }) => {
+    it('keeps a recursive step when the workspace contains a package', async ({ tree }) => {
       await runNmr(['test'], tree.dir);
 
       expect(readStepsFromCall()).toStrictEqual([
@@ -523,7 +528,7 @@ describe(runCli, () => {
       expect(readStepsFromCall()).toStrictEqual([{ kind: 'opaque', command: 'eslint --fix .' }]);
     });
 
-    it('propagates `-w` to each element, so a child selects the root registry on its own', async ({ tree }) => {
+    it('propagates `-w` to each element, so that a child selects the root registry on its own', async ({ tree }) => {
       await runNmr(['-w', 'fix'], tree.dir);
 
       expect(readStepsFromCall()).toStrictEqual([
@@ -572,7 +577,7 @@ describe(runCli, () => {
       ]);
     });
 
-    it('runs nothing when no element accepts them, naming the command', async ({ tree }) => {
+    it('runs nothing when every element declines them, naming the command', async ({ tree }) => {
       writeConfig(tree, {
         rootScripts: {
           verify: [
@@ -589,8 +594,8 @@ describe(runCli, () => {
       expect(stderr).toContain('`verify` takes no trailing arguments');
     });
 
-    // The rejection precedes the recording branch, so reading what a command did and running it answer an
-    // unroutable argument alike rather than one reporting nothing recorded.
+    // The rejection precedes the recording branch, so `--log` rejects an unroutable argument as a run does,
+    // rather than reporting that nothing was recorded.
     it('rejects an unroutable argument under --log too', async ({ tree }) => {
       writeConfig(tree, {
         rootScripts: {
@@ -607,8 +612,8 @@ describe(runCli, () => {
       expect(stderr).toContain('`verify` takes no trailing arguments');
     });
 
-    // An empty override resolves to no steps, and no step accepts on an empty list. The no-op check precedes
-    // the rejection so the override keeps reporting as one.
+    // An empty override resolves to an empty step list, which does not have a step to accept the arguments.
+    // The no-op check precedes the rejection so that the override keeps reporting as a no-op.
     it('reports an empty override as a no-op rather than rejecting the argument', async ({ tree }) => {
       writeConfig(tree, { rootScripts: { verify: [] } });
 
@@ -624,7 +629,7 @@ describe(runCli, () => {
       expect(readStepsFromCall()).toStrictEqual([{ kind: 'opaque', command: "eslint --fix . '--max-warnings' '0'" }]);
     });
 
-    it('quotes a structural argument once, where the chain string quotes only what the shell would act on', async ({
+    it('quotes a structural argument once, while the chain string quotes only what the shell would act on', async ({
       tree,
     }) => {
       await runNmr(['fix', '-t', 'a b'], tree.dir);
@@ -635,7 +640,7 @@ describe(runCli, () => {
   });
 
   describe('devBin substitution', () => {
-    it('substitutes a leaf tool, which is the case docs/scripts.md documents', async ({ tree }) => {
+    it('substitutes a leaf tool, which is the case that docs/scripts.md documents', async ({ tree }) => {
       writeConfig(tree, { devBin: { eslint: 'node ./scripts/eslint.js' } });
 
       await runNmr(['lint'], tree.dir);
@@ -647,7 +652,7 @@ describe(runCli, () => {
 
     // A composite's first position is nmr's own, not a leaf tool's: substituting it would replace one link of a
     // chain and leave the rest running the published binary.
-    it('leaves a composite alone, where the first token is the nmr that carries it', async ({ tree }) => {
+    it('leaves a composite alone, whose first token is the nmr that runs it', async ({ tree }) => {
       writeConfig(tree, { devBin: { nmr: 'node ./cli.js' } });
 
       await runNmr(['fix'], tree.dir);
@@ -672,7 +677,7 @@ describe(runCli, () => {
       },
     );
 
-    it('lets an inherited quiet reach a run that passed no flag', async ({ tree }) => {
+    it('lets an inherited quiet apply to a run that did not pass a flag', async ({ tree }) => {
       await runNmr(['-F', 'my-pkg', 'build'], tree.dir, { [COMMAND_VERBOSITY_ENV_VAR]: 'quiet' });
 
       expect(mockedRunSteps.mock.calls[0]?.[2].quiet).toBe(true);
@@ -723,7 +728,7 @@ describe(runCli, () => {
       expect(stdout.trim()).not.toBe('');
     });
 
-    it('takes the verbosity the repo configured', async ({ tree }) => {
+    it('takes the verbosity configured by the repo', async ({ tree }) => {
       writeConfig(tree, { output: { commandVerbosity: 'quiet' } });
 
       await runNmr(['fix'], tree.dir);
@@ -731,7 +736,7 @@ describe(runCli, () => {
       expect(mockedRunSteps.mock.calls[0]?.[2].quiet).toBe(true);
     });
 
-    it('lets an inherited full outrank a quiet the repo configured', async ({ tree }) => {
+    it('lets an inherited full outrank a quiet configured by the repo', async ({ tree }) => {
       writeConfig(tree, { output: { commandVerbosity: 'quiet' } });
 
       await runNmr(['fix'], tree.dir, { [COMMAND_VERBOSITY_ENV_VAR]: 'full' });
@@ -739,13 +744,13 @@ describe(runCli, () => {
       expect(mockedRunSteps.mock.calls[0]?.[2].quiet).toBe(false);
     });
 
-    it('goes quiet under a harness on the shipped list', async ({ tree }) => {
+    it('goes quiet under a harness on the built-in list', async ({ tree }) => {
       await runNmr(['fix'], tree.dir, { CLAUDECODE: '1' });
 
       expect(mockedRunSteps.mock.calls[0]?.[2].quiet).toBe(true);
     });
 
-    it('goes quiet under a harness the repo added', async ({ tree }) => {
+    it('goes quiet under a harness added by the repo', async ({ tree }) => {
       writeConfig(tree, { output: { extraAgentEnvVars: ['MY_CLI'] } });
 
       await runNmr(['fix'], tree.dir, { MY_CLI: '1' });
@@ -753,7 +758,7 @@ describe(runCli, () => {
       expect(mockedRunSteps.mock.calls[0]?.[2].quiet).toBe(true);
     });
 
-    // Declining detection is what a configured `full` says, so no switch of its own exists to turn it off.
+    // A configured `full` declines detection, so nmr does not provide a separate switch to turn detection off.
     it('stays loud under a detected harness when the repo configured full', async ({ tree }) => {
       writeConfig(tree, { output: { commandVerbosity: 'full' } });
 
@@ -771,7 +776,7 @@ describe(runCli, () => {
 
   describe('report format', () => {
     it.for([
-      { args: ['-F', 'my-pkg', 'build'], expectedFormat: 'text', scenario: 'a run passing no flag' },
+      { args: ['-F', 'my-pkg', 'build'], expectedFormat: 'text', scenario: 'a run without the flag' },
       { args: ['--json', '-F', 'my-pkg', 'build'], expectedFormat: 'json', scenario: 'a run passing the flag' },
     ])(
       'given $scenario, hands the resolved format to every process below it',
@@ -782,7 +787,7 @@ describe(runCli, () => {
       },
     );
 
-    it('lets an inherited json reach a run that passed no flag', async ({ tree }) => {
+    it('lets an inherited json apply to a run that did not pass the flag', async ({ tree }) => {
       await runNmr(['-F', 'my-pkg', 'build'], tree.dir, { [REPORT_FORMAT_ENV_VAR]: 'json' });
 
       expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ [REPORT_FORMAT_ENV_VAR]: 'json' });
@@ -794,7 +799,7 @@ describe(runCli, () => {
       expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ [REPORT_FORMAT_ENV_VAR]: 'json' });
     });
 
-    // Stdout carries the objects and nothing else may, so the loudness ladder does not get to fill it.
+    // Stdout contains the objects alone, so the verbosity level cannot add output to it.
     it.for([
       { env: {}, scenario: 'a run with nothing set' },
       { env: { [COMMAND_VERBOSITY_ENV_VAR]: 'full' }, scenario: 'an inherited full' },
@@ -804,7 +809,7 @@ describe(runCli, () => {
       expect(mockedRunSteps.mock.calls[0]?.[2].quiet).toBe(true);
     });
 
-    it('carries the quiet a machine-readable run forces to every process below it', async ({ tree }) => {
+    it('passes the quiet forced by a machine-readable run to every process below it', async ({ tree }) => {
       await runNmr(['--json', '-F', 'my-pkg', 'build'], tree.dir, { [COMMAND_VERBOSITY_ENV_VAR]: 'full' });
 
       expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ [COMMAND_VERBOSITY_ENV_VAR]: 'quiet' });
@@ -851,7 +856,7 @@ describe(runCli, () => {
       {
         args: ['-F', 'my-pkg', 'build'],
         expectedStyle: 'plain',
-        scenario: 'a run passing no flag, whose streams are pipes',
+        scenario: 'a run without the flag, whose streams are pipes',
       },
       { args: [OUTPUT_STYLE_FLAG, 'rich', '-F', 'my-pkg', 'build'], expectedStyle: 'rich', scenario: 'the flag' },
       {
@@ -868,7 +873,7 @@ describe(runCli, () => {
       },
     );
 
-    it('lets an inherited rich reach a run that passed no flag', async ({ tree }) => {
+    it('lets an inherited rich apply to a run that did not pass the flag', async ({ tree }) => {
       await runNmr(['-F', 'my-pkg', 'build'], tree.dir, { [OUTPUT_STYLE_ENV_VAR]: 'rich' });
 
       expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ [OUTPUT_STYLE_ENV_VAR]: 'rich' });
@@ -890,8 +895,8 @@ describe(runCli, () => {
     });
 
     it.for([
-      { args: [OUTPUT_STYLE_FLAG], scenario: 'a flag standing at the end of the arguments' },
-      { args: [`${OUTPUT_STYLE_FLAG}=`], scenario: 'an assignment carrying nothing' },
+      { args: [OUTPUT_STYLE_FLAG], scenario: 'a flag at the end of the arguments' },
+      { args: [`${OUTPUT_STYLE_FLAG}=`], scenario: 'an empty assignment' },
     ])('rejects $scenario', async ({ args }, { tree }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(args, tree.dir);
 
@@ -987,7 +992,7 @@ describe(runCli, () => {
           'A `package.json` script holds no step list: define `probe` in `.config/nmr.config.ts` and move the ' +
           'package-specific steps to a `probe:pre` or `probe:post` script.',
         command: 'probe',
-        scenario: 'a package.json entry written across lines, whose entry quotes as the file holds it',
+        scenario: 'a package.json entry written across lines, which the warning quotes as it appears in the file',
         setup: (tree: TempTree) => writePackageScripts(tree, { probe: 'tsx sync.ts\nnmr fmt' }),
       },
     ])(
@@ -1001,7 +1006,7 @@ describe(runCli, () => {
       },
     );
 
-    // nmr wraps a hook in no hooks of its own, so a `probe:post:pre` would name a script that never runs.
+    // nmr does not wrap a hook in hooks of its own, so a `probe:post:pre` would name a script that never runs.
     it.for([
       {
         expectedMessage:
@@ -1022,15 +1027,18 @@ describe(runCli, () => {
         scenario: 'a package.json entry',
         setup: (tree: TempTree) => writePackageScripts(tree, { 'probe:post': 'nmr fmt && echo done' }),
       },
-    ])('given a hook declared by $scenario, names no hook below it', async ({ expectedMessage, setup }, { tree }) => {
-      setup(tree);
+    ])(
+      'given a hook declared by $scenario, does not name a hook below it',
+      async ({ expectedMessage, setup }, { tree }) => {
+        setup(tree);
 
-      const { stderr } = await runNmrReadingStderr(['probe:post'], tree.dir);
+        const { stderr } = await runNmrReadingStderr(['probe:post'], tree.dir);
 
-      expect(stderr.trim()).toBe(expectedMessage);
-    });
+        expect(stderr.trim()).toBe(expectedMessage);
+      },
+    );
 
-    it('opens the warning in emoji where the invocation asked for rich', async ({ tree }) => {
+    it('opens the warning in emoji when the invocation asked for rich', async ({ tree }) => {
       writeConfig(tree, { rootScripts: { probe: 'nmr fmt' } });
 
       const { stderr } = await runNmrReadingStderr([OUTPUT_STYLE_FLAG, 'rich', 'probe'], tree.dir);
@@ -1038,7 +1046,7 @@ describe(runCli, () => {
       expect(stderr.startsWith('🟠 ')).toBe(true);
     });
 
-    it('spends one line on it', async ({ tree }) => {
+    it('prints it on one line', async ({ tree }) => {
       writeConfig(tree, { rootScripts: { probe: 'nmr fmt' } });
 
       const { stderr } = await runNmrReadingStderr(['probe'], tree.dir);
@@ -1087,14 +1095,15 @@ describe(runCli, () => {
   });
 
   describe('a self-referential package.json entry', () => {
-    // The remedy is a crossing's, the entry having to go either way; the consequence names what is lost here.
+    // The remedy is the one for a crossing, because the entry has to go either way; the consequence names what is
+    // lost here.
     it.for([
       {
         expectedMessage:
           'package.json: `scripts.build` re-invokes `nmr build` (`nmr build && rdy compile`), ' +
           'so nmr cannot run the steps it chains. ' +
           'Delete the entry and move the steps it adds to a `build:pre` or `build:post` script.',
-        scenario: 'standing ahead of the steps it chains',
+        scenario: 'placed ahead of the steps that it chains',
         scripts: { build: 'nmr build && rdy compile' },
       },
       {
@@ -1102,7 +1111,7 @@ describe(runCli, () => {
           'package.json: `scripts.build` re-invokes `nmr build` (`rdy compile && nmr build`), ' +
           'so nmr cannot run the steps it chains. ' +
           'Delete the entry and move the steps it adds to a `build:pre` or `build:post` script.',
-        scenario: 'standing behind the steps it chains, which honouring would re-enter without bound',
+        scenario: 'placed behind the steps that it chains, which honouring would re-enter without bound',
         scripts: { build: 'rdy compile && nmr build' },
       },
       {
@@ -1111,7 +1120,7 @@ describe(runCli, () => {
           'so nmr cannot run the steps it chains. ' +
           'A `package.json` script holds no step list: define `probe` in `.config/nmr.config.ts` and move the ' +
           'package-specific steps to a `probe:pre` or `probe:post` script.',
-        scenario: 'naming a command the registry does not define',
+        scenario: 'naming a command that the registry does not define',
         scripts: { probe: 'nmr probe && tsx sync.ts' },
       },
       {
@@ -1119,7 +1128,7 @@ describe(runCli, () => {
           'package.json: `scripts.build` re-invokes `nmr build` (`nmr build\\nrdy compile`), ' +
           'so nmr cannot run the steps it chains. ' +
           'Delete the entry and move the steps it adds to a `build:pre` or `build:post` script.',
-        scenario: 'written across lines, whose entry quotes as the file holds it',
+        scenario: 'written across lines, which the error quotes as it appears in the file',
         scripts: { build: 'nmr build\nrdy compile' },
       },
     ])(
@@ -1139,7 +1148,7 @@ describe(runCli, () => {
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
 
-    // `--log` reads a recording rather than running one, so no step of the entry could go missing.
+    // `--log` reads a recording rather than running one, so a step of the entry cannot go missing.
     it('is not rejected when the invocation only reads a recording', async ({ tree }) => {
       writePackageScripts(tree, { build: 'nmr build && rdy compile' });
 
@@ -1150,7 +1159,7 @@ describe(runCli, () => {
 
     it.for([
       { scenario: 'standing alone', scripts: { build: 'nmr build' } },
-      { scenario: 'carrying trailing arguments, which declare no step', scripts: { build: 'nmr build --verbose' } },
+      { scenario: 'with trailing arguments, which do not declare a step', scripts: { build: 'nmr build --verbose' } },
     ])('reports nothing for one $scenario, running the registry entry instead', async ({ scripts }, { tree }) => {
       writePackageScripts(tree, scripts);
 
@@ -1161,8 +1170,11 @@ describe(runCli, () => {
       expect(readStepsFromCall()).toStrictEqual([{ kind: 'structural', argv: ['nmr', '-R', 'build'] }]);
     });
 
-    // nmr wraps a hook in no hooks of its own, so naming `lint:post:pre` would name a script that never runs.
-    it('tells a rejected hook to keep its steps, having no script below it to move them to', async ({ tree }) => {
+    // nmr does not wrap a hook in hooks of its own, so naming `lint:post:pre` would name a script that never
+    // runs.
+    it('tells a rejected hook to keep its steps, since it does not have a script below it to move them to', async ({
+      tree,
+    }) => {
       writePackageScripts(tree, { 'lint:post': 'nmr lint:post && rdy compile' });
 
       await expect(runNmr(['lint:post'], tree.dir)).rejects.toThrow(
@@ -1174,8 +1186,11 @@ describe(runCli, () => {
       );
     });
 
-    // The default registry defines no hooks, so a dropped hook is the common case rather than a corner of it.
-    it('wraps a rejected hook the registry does not define, so its own process reports it', async ({ tree }) => {
+    // Because the default registry does not define any hooks, a dropped hook is the common case rather than an
+    // edge case.
+    it('wraps a rejected hook that the registry does not define, so that its own process reports it', async ({
+      tree,
+    }) => {
       writePackageScripts(tree, { 'lint:post': 'nmr lint:post && rdy compile' });
 
       const { exitCode } = await runNmrReadingStderr(['lint'], tree.dir);
@@ -1189,7 +1204,7 @@ describe(runCli, () => {
   });
 
   describe('verdicts', () => {
-    it('reports a pass, naming the scope the command ran at', async ({ tree }) => {
+    it('reports a pass, naming the scope at which the command ran', async ({ tree }) => {
       const { stdout } = await runNmrReadingStdout(['typecheck'], tree.dir);
 
       expect(stdout).toMatch(
@@ -1197,7 +1212,7 @@ describe(runCli, () => {
       );
     });
 
-    it('reports a pass in emoji where the invocation asked for rich', async ({ tree }) => {
+    it('reports a pass in emoji when the invocation asked for rich', async ({ tree }) => {
       const { stdout } = await runNmrReadingStdout([OUTPUT_STYLE_FLAG, 'rich', 'typecheck'], tree.dir);
 
       expect(stdout).toMatch(
@@ -1216,7 +1231,7 @@ describe(runCli, () => {
       expect(stdout).toContain('(exit 130)');
     });
 
-    it('reports in quiet mode, which withholds the command output and not the words nmr writes itself', async ({
+    it('reports in quiet mode, which withholds the command output and not the words that nmr writes itself', async ({
       tree,
     }) => {
       const { stdout } = await runNmrReadingStdout(['-q', 'typecheck'], tree.dir);
@@ -1224,7 +1239,7 @@ describe(runCli, () => {
       expect(stdout).toContain('PASS');
     });
 
-    it('reports the same pass as a JSON object, and writes no prose line beside it', async ({ tree }) => {
+    it('reports the same pass as a JSON object, and does not write a prose line beside it', async ({ tree }) => {
       const { stdout } = await runNmrReadingStdout(['--json', 'typecheck'], tree.dir);
       const parsedVerdict: unknown = JSON.parse(stdout);
 
@@ -1241,8 +1256,8 @@ describe(runCli, () => {
       expect(parsedVerdict).toMatchObject({ command: 'typecheck', outcome: 'no-op', reason: 'empty-override' });
     });
 
-    // The override notice is the one message a quiet run withholds, and a machine-readable run is quiet.
-    it('leaves stdout carrying the object alone where a package script stands in for a built-in', async ({ tree }) => {
+    // The override notice is the one message that a quiet run withholds, and a machine-readable run is quiet.
+    it('leaves stdout containing the object alone when a package script stands in for a built-in', async ({ tree }) => {
       writePackageScripts(tree, { typecheck: 'echo standing-in' });
 
       const { stdout } = await runNmrReadingStdout(['--json', 'typecheck'], tree.dir);
@@ -1255,7 +1270,7 @@ describe(runCli, () => {
       { args: ['typecheck:pre'], scenario: 'a hook leaf, whose chain the level above reports on' },
       { args: ['-R', 'typecheck'], scenario: 'the recursive delegate, whose scopes each report' },
       { args: ['-F', 'my-pkg', 'typecheck'], scenario: 'the filter delegate, whose scope reports' },
-    ])('given $scenario, reports no verdict', async ({ args }, { tree }) => {
+    ])('given $scenario, does not report a verdict', async ({ args }, { tree }) => {
       writeConfig(tree, { rootScripts: { 'typecheck:pre': 'echo hi' } });
 
       const { stdout } = await runNmrReadingStdout(args, tree.dir);
@@ -1263,7 +1278,9 @@ describe(runCli, () => {
       expect(stdout).toBe('');
     });
 
-    it('reports nothing for a command the registry does not define, having none to report on', async ({ tree }) => {
+    it('reports nothing for a command that the registry does not define, having none to report on', async ({
+      tree,
+    }) => {
       const { exitCode, stdout } = await runNmrReadingStdout(['nonexistent'], tree.dir, { NMR_RUN_IF_PRESENT: '1' });
 
       expect(exitCode).toBe(0);
@@ -1286,7 +1303,7 @@ describe(runCli, () => {
     it.for([
       { scenario: 'an empty override', script: '' },
       { scenario: 'a no-op override', script: ':' },
-    ])('given $scenario, reports no skip verdict under --log', async ({ script }, { tree }) => {
+    ])('given $scenario, does not report a skip verdict under --log', async ({ script }, { tree }) => {
       writePackageScripts(tree, { typecheck: script });
 
       const { exitCode, stdout } = await runNmrReadingStdout(['--log', 'typecheck'], tree.dir);
@@ -1297,7 +1314,7 @@ describe(runCli, () => {
       expect(stderr).toContain('no recording');
     });
 
-    it('reports the skip in quiet mode, where a silent exit 0 would read as a pass', async ({ tree }) => {
+    it('reports the skip in quiet mode, in which a silent exit 0 would read as a pass', async ({ tree }) => {
       writePackageScripts(tree, { typecheck: ':' });
 
       const { stdout } = await runNmrReadingStdout(['-q', 'typecheck'], tree.dir);
@@ -1348,7 +1365,7 @@ async function runNmrReadingStderr(
   return { exitCode, stderr: Buffer.concat(chunks).toString('utf8') };
 }
 
-/** Reads the step list the runner was handed. */
+/** Reads the step list passed to the runner. */
 function readStepsFromCall(): readonly Step[] | undefined {
   return mockedRunSteps.mock.calls[0]?.[0];
 }
@@ -1358,7 +1375,7 @@ function writePackageScripts(tree: TempTree, scripts: Record<string, string>): v
   tree.writeJson('package.json', { scripts });
 }
 
-/** Writes a monorepo-root config, which is the only tier that carries `devBin` and the script registries. */
+/** Writes a monorepo-root config, which is the only tier that accepts `devBin` and the script registries. */
 function writeConfig(tree: TempTree, config: Record<string, unknown>): void {
   tree.write('.config/nmr.config.ts', `export default ${JSON.stringify(config)};\n`);
 }
