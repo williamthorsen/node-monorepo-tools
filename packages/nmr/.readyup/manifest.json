@@ -24,12 +24,12 @@
           ]
         },
         {
-          "hash": "ae57f177",
+          "hash": "9336f4c0",
           "kind": "module",
           "path": "../src/default-scripts.ts"
         },
         {
-          "hash": "5513747f",
+          "hash": "d4828172",
           "kind": "module",
           "path": "../src/git-ignored-paths.ts"
         },
@@ -39,7 +39,7 @@
           "path": "../src/resolve-scripts.ts"
         },
         {
-          "hash": "a6434031",
+          "hash": "3f996693",
           "kind": "module",
           "path": "../src/tiers.ts"
         }
@@ -49,7 +49,7 @@
       "readyupVersion": "0.38.0",
       "source": "kits/default.ts",
       "sourceHash": "a15324eb",
-      "targetHash": "c3b1a120"
+      "targetHash": "e9e05558"
     }
   ]
 }

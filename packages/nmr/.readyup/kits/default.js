@@ -64,7 +64,7 @@ var workspaceScripts = {
   "test:unit": "pnpm exec vitest --project unit",
   "test:watch": `pnpm exec vitest ${GATE_PROJECTS} --watch`,
   typecheck: "tsgo --noEmit",
-  // The command is a string because neither half names an nmr command: both are binaries.
+  // The command is a string because neither half names an nmr command: Both are binaries.
   upgrade: "nmr-report-catalog && nmr-taze",
   "view-coverage": "open coverage/index.html"
 };
@@ -75,8 +75,8 @@ var rootScripts = {
   build: ["-R build"],
   check: [TYPECHECK_STEP, "fmt:check", "lint:check", "test"],
   "check:strict": [TYPECHECK_STEP, "fmt:check", "lint:strict", "test"],
-  // Excludes the audit, which in CI has a workflow of its own. The build is what the narrowed check runs
-  // against, so it declines the arguments rather than being narrowed by them.
+  // Excludes the audit, which in CI has a workflow of its own. The narrowed check runs against the build, so
+  // the build declines the arguments rather than being narrowed by them.
   ci: [{ run: "build", shouldDeclineArguments: true }, "check:strict"],
   clean: "nmr-clean",
   fix: ["lint", "fmt"],
@@ -86,8 +86,8 @@ var rootScripts = {
   lint: "eslint --fix .",
   "lint:check": "eslint .",
   "lint:strict": "strict-lint",
-  // The audit costs seconds and `ci` costs minutes, so the cheap gate fails first. The audit reads the
-  // dependency tree, which no argument narrowing the code under test says anything about.
+  // The audit takes seconds and `ci` takes minutes, so the cheap gate fails first. The audit reads the
+  // dependency tree, and an argument narrowing the code under test does not say anything about that tree.
   prepush: [{ run: "audit", shouldDeclineArguments: true }, "ci"],
   "report-overrides": "nmr-report-overrides",
   "root:check": [ROOT_TYPECHECK_STEP, "fmt:check", "root:lint:check", "root:test"],
@@ -99,7 +99,7 @@ var rootScripts = {
   "root:test:tool": "vitest --config ./vitest.root.config.ts --project tool",
   "root:test:unit": "vitest --config ./vitest.root.config.ts --project unit",
   "root:typecheck": "tsgo --noEmit",
-  // Carries the override report for the same reason `upgrade` does: both end in the tool that rewrites a
+  // Includes the override report for the same reason `upgrade` does: Both end in the tool that rewrites a
   // `pnpm.overrides` block, so both need the reporter's rejection ahead of them.
   "root:upgrade": "nmr-report-overrides && nmr-taze",
   test: ["root:test", "-R test"],
@@ -109,9 +109,9 @@ var rootScripts = {
   "test:unit": ["root:test:unit", "-R test:unit"],
   "test:watch": `vitest ${GATE_PROJECTS} --watch`,
   // Neither step is narrowable, so `nmr typecheck <file>` is rejected rather than checking that file under
-  // default options at the root and hunting for it in every package.
+  // default options at the root and searching for it in every package.
   typecheck: [ROOT_TYPECHECK_STEP, { run: "-R typecheck", shouldDeclineArguments: true }],
-  // The command is a string because neither half names an nmr command: both are binaries, and a composite
+  // The command is a string because neither half names an nmr command: Both are binaries, and a composite
   // element can name only a command.
   upgrade: "nmr-report-overrides && nmr-taze --recursive"
 };
