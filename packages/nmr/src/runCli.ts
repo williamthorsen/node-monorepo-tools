@@ -860,7 +860,7 @@ function formatEmptyFilterError(pattern: string, names: readonly string[]): stri
   }
 
   if (pattern.includes('[')) {
-    return `${rejection} A pattern carrying \`[<ref>]\` selects the packages changed since a git ref, and none has changed.`;
+    return `${rejection} A pattern containing \`[<ref>]\` selects the packages changed since a git ref, and none has changed.`;
   }
 
   if (pattern.startsWith('.') || pattern.startsWith('/') || pattern.startsWith('{')) {
@@ -906,7 +906,7 @@ function describeEmptyWorkspace(monorepoRoot: string): string {
         `pnpm-workspace.yaml ${declaredClause}, and the matcher did not find any directory containing a \`package.json\`. ` +
         'nmr counts a directory as a package only when it contains `package.json`; unlike pnpm, it recognizes ' +
         'neither `package.yaml` nor `package.json5`. Add a `package.json` to the directory that should be a ' +
-        'package, or declare a pattern reaching a directory that holds one.'
+        'package, or declare a pattern reaching a directory that contains one.'
       );
     case 'no-packages-list':
       return (
