@@ -69,8 +69,7 @@ function interleavePreservedSections(
   rendered: readonly VersionedMarkdownSection[],
   preserved: readonly VersionedMarkdownSection[],
 ): VersionedMarkdownSection[] {
-  // eslint-disable-next-line unicorn/no-array-sort -- the spread already creates a fresh copy
-  const sorted = [...preserved].sort((a, b) => compareVersionsDescending(a.version, b.version));
+  const sorted = preserved.toSorted((a, b) => compareVersionsDescending(a.version, b.version));
   const pending = sorted.map(withTrailingNewline);
   const result: VersionedMarkdownSection[] = [];
   let index = 0;

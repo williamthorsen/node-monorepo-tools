@@ -494,8 +494,7 @@ function rewriteSpecifiers(
   }
 
   // Apply edits from the end of the text backwards so earlier offsets stay valid as it is spliced.
-  // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy
-  const orderedEdits = [...edits].sort((a, b) => b.startOffset - a.startOffset);
+  const orderedEdits = edits.toSorted((a, b) => b.startOffset - a.startOffset);
   let updatedText = text;
   for (const edit of orderedEdits) {
     updatedText = updatedText.slice(0, edit.startOffset) + edit.text + updatedText.slice(edit.endOffset);

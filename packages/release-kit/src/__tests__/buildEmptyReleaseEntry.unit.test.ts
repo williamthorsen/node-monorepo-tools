@@ -22,7 +22,6 @@ describe(buildEmptyReleaseEntry, () => {
   it('returns no extra top-level keys (round-trip safe)', () => {
     const entry = buildEmptyReleaseEntry('1.2.3', '2026-05-06');
 
-    // eslint-disable-next-line unicorn/no-array-sort -- sorts the fresh array that `Object.keys` returns.
-    expect(Object.keys(entry).sort()).toStrictEqual(['date', 'sections', 'version']);
+    expect(Object.keys(entry).toSorted()).toStrictEqual(['date', 'sections', 'version']);
   });
 });

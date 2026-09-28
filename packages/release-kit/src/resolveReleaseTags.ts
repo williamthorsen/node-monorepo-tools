@@ -87,8 +87,7 @@ function resolveSinglePackageTags(tags: string[], singleWorkspace?: WorkspaceCon
  * bind to `foo-v`.
  */
 function resolveMonorepoTags(tags: string[], workspaces: readonly WorkspaceConfig[]): ResolvedTag[] {
-  // eslint-disable-next-line unicorn/no-array-sort -- the spread already creates a fresh copy
-  const sortedWorkspaces = [...workspaces].sort((a, b) => b.tagPrefix.length - a.tagPrefix.length);
+  const sortedWorkspaces = workspaces.toSorted((a, b) => b.tagPrefix.length - a.tagPrefix.length);
 
   const resolved: ResolvedTag[] = [];
 
