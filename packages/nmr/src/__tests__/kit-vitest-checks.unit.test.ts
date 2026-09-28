@@ -27,7 +27,7 @@ const CONVENTIONS_GUARD =
   "import { checkTestFileConventions } from '@williamthorsen/nmr/tests';\n\ncheckTestFileConventions();\n";
 const TEST_FILE_SWEEP_NAMES = [
   'every test file names its isolation tier',
-  'every test file sits under a __tests__ directory',
+  'every test file is under a __tests__ directory',
 ];
 
 describe(noRetiredVitestConfigs, () => {

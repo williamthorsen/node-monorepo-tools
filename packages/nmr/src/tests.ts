@@ -38,7 +38,7 @@ export function checkTestFileConventions(options: TestFileConventionsOptions = {
       expect(untieredFiles, `${UNTIERED_REMEDY} Swept from ${rootDir}.`).toStrictEqual([]);
     });
 
-    it('every test file sits under a __tests__ directory', () => {
+    it('every test file is under a __tests__ directory', () => {
       expect(misplacedFiles, `${MISPLACED_REMEDY} Swept from ${rootDir}.`).toStrictEqual([]);
     });
   });

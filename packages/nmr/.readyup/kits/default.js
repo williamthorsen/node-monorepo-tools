@@ -341,7 +341,7 @@ var default_default = defineRdyKit({
           fix: `Rename each to <subject>[.<aspect>].<tier>.test.ts, naming one of ${TIER_NAMES.join(", ")}. Use tool for a test that reaches a program supplied by the environment, which is the tier for a retired .int. or .integration. file. Only the segment before .test. selects a project, so an untiered file runs under the residual unit project and reports success`
         },
         {
-          name: "every test file sits under a __tests__ directory",
+          name: "every test file is under a __tests__ directory",
           severity: "error",
           skip: () => describeConventionsGuardSkip(),
           check: () => everyTestFileSitsUnderTestsDir(),
