@@ -250,7 +250,7 @@ describe(runCli, () => {
 
       expect(exitCode).toBe(1);
       expect(readStepsFromCall()).toBeUndefined();
-      expect(stderr).toContain('-F/--filter matched no workspace: `secrets`');
+      expect(stderr).toContain('-F/--filter did not match any workspace: `secrets`');
       expect(stderr).toContain("A pattern matches a package's manifest `name`, not its directory name.");
     });
 
@@ -262,7 +262,7 @@ describe(runCli, () => {
 
       expect(exitCode).toBe(1);
       expect(readStepsFromCall()).toBeUndefined();
-      expect(stderr).toContain('-F/--filter matched no workspace: `secrets`');
+      expect(stderr).toContain('-F/--filter did not match any workspace: `secrets`');
     });
 
     // The reported mistake is a directory name standing in for a longer manifest name, which is too many edits
@@ -292,7 +292,7 @@ describe(runCli, () => {
         const { exitCode, stderr } = await runNmrReadingStderr(['-F', pattern, 'build'], tree.dir);
 
         expect(exitCode).toBe(1);
-        expect(stderr).toContain(`-F/--filter matched no workspace: \`${pattern}\``);
+        expect(stderr).toContain(`-F/--filter did not match any workspace: \`${pattern}\``);
         expect(stderr).toContain('selects the packages under a directory');
         expect(stderr).not.toContain('manifest `name`');
       },
@@ -351,7 +351,7 @@ describe(runCli, () => {
 
       expect(exitCode).toBe(1);
       expect(readStepsFromCall()).toBeUndefined();
-      expect(stderr).toContain('-R/--recursive matched no workspace:');
+      expect(stderr).toContain('-R/--recursive did not match any workspace:');
       expect(stderr).toContain('pnpm-workspace.yaml declares `packages/*`');
       expect(stderr).toContain('the matcher did not find any directory containing a `package.json`');
       expect(stderr).toContain('unlike pnpm, it recognizes neither `package.yaml` nor `package.json5`');
@@ -396,7 +396,7 @@ describe(runCli, () => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], unreadableTree.dir);
 
       expect(exitCode).toBe(1);
-      expect(stderr).toContain('holds no valid YAML');
+      expect(stderr).toContain('is not valid YAML');
       expect(stderr).toContain('Repair the syntax error');
       expect(stderr).not.toContain('Declare a positive pattern');
     });
@@ -422,7 +422,7 @@ describe(runCli, () => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-F', 'my-pkg', 'build'], packagelessTree.dir);
 
       expect(exitCode).toBe(1);
-      expect(stderr).toContain('-F/--filter matched no workspace: `my-pkg`.');
+      expect(stderr).toContain('-F/--filter did not match any workspace: `my-pkg`.');
       expect(stderr).toContain('the matcher did not find any directory containing a `package.json`');
       expect(stderr).not.toContain('manifest `name`');
     });
@@ -1023,7 +1023,7 @@ describe(runCli, () => {
           "so nmr handles the nested run's output as a tool's. " +
           'A `package.json` script cannot contain a step list: define `probe:post` in `.config/nmr.config.ts` and ' +
           'move the package-specific steps to a script of their own that the step list names, because a hook ' +
-          'has no `:pre` or `:post` of its own.',
+          'does not have a `:pre` or `:post` of its own.',
         scenario: 'a package.json entry',
         setup: (tree: TempTree) => writePackageScripts(tree, { 'probe:post': 'nmr fmt && echo done' }),
       },
