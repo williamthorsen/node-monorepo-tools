@@ -6,7 +6,7 @@ import { resolveSourceTarget } from '../vitest-source-resolution.ts';
 
 /**
  * A package outside every `node_modules`, reached through a link the way pnpm links a workspace package, and
- * a second one whose real directory sits inside `node_modules`. The pair is what separates the two outcomes:
+ * a second one whose real directory is inside `node_modules`. The pair separates the two outcomes:
  * Only the real path distinguishes them, since both are reached by a bare specifier from the same importer.
  */
 const TREE_FILES: Record<string, string> = {
@@ -50,7 +50,7 @@ const TREE_FILES: Record<string, string> = {
   'unconditioned/package.json': JSON.stringify({ name: 'unconditioned', exports: './dist/index.js' }),
   'unconditioned/dist/index.js': '',
 
-  // A package that imports itself by name, which no `node_modules` entry serves.
+  // A package that imports itself by name, an import not served by any `node_modules` entry.
   'selfpkg/package.json': JSON.stringify({
     name: '@fixture/selfpkg',
     exports: { '.': { source: './src/index.ts', default: './dist/index.js' } },
@@ -74,21 +74,21 @@ const it = baseIt.extend(
 );
 
 describe(resolveSourceTarget, () => {
-  it('resolves a package whose real directory sits outside node_modules', ({ tree }) => {
+  it('resolves a package whose real directory is outside node_modules', ({ tree }) => {
     expect(resolve(tree, '@fixture/linked')).toBe(tree.resolve('linked/src/index.ts'));
   });
 
-  // The condition reaching this one is the whole defect: Vitest hands the same names to Node, which refuses to
+  // Applying the condition to this one is the whole defect: Vitest passes the same names to Node, which refuses to
   // strip types from a file under `node_modules`, so every entry there has to resolve without it.
-  it('leaves a package whose real directory sits inside node_modules to Vite', ({ tree }) => {
+  it('leaves a package whose real directory is inside node_modules to Vite', ({ tree }) => {
     expect(resolve(tree, '@fixture/inside')).toBeUndefined();
   });
 
-  it('leaves a package declaring no source condition to Vite', ({ tree }) => {
+  it('leaves a package without a source condition to Vite', ({ tree }) => {
     expect(resolve(tree, 'unconditioned')).toBeUndefined();
   });
 
-  it('leaves a subpath whose entry reaches no source condition to Vite', ({ tree }) => {
+  it('leaves a subpath whose entry does not reach a source condition to Vite', ({ tree }) => {
     expect(resolve(tree, '@fixture/linked/plain')).toBeUndefined();
   });
 
@@ -97,7 +97,7 @@ describe(resolveSourceTarget, () => {
   });
 
   // Node picks the pattern with the longest base rather than the first that matches, and both patterns here match:
-  // Taking `./*` would resolve a file that the package does not hold.
+  // Taking `./*` would resolve a file that the package does not contain.
   it('resolves a pattern export, preferring the longest matching base', ({ tree }) => {
     expect(resolve(tree, '@fixture/linked/deep/one')).toBe(tree.resolve('linked/src/deep/one.ts'));
     expect(resolve(tree, '@fixture/linked/thing')).toBe(tree.resolve('linked/src/any-thing.ts'));
@@ -112,9 +112,8 @@ describe(resolveSourceTarget, () => {
     expect(resolve(tree, '@fixture/linked/listed')).toBe(tree.resolve('linked/src/listed.ts'));
   });
 
-  // Falling through to the build output is what nothing in a run reports, and what resolving from source exists
-  // to prevent.
-  it('rejects a source condition that reaches no file', ({ tree }) => {
+  // A run does not report a fall-through to the build output, and resolving from source exists to prevent one.
+  it('rejects a source condition that does not reach any file', ({ tree }) => {
     expect(() => resolve(tree, '@fixture/linked/gone')).toThrow(
       /@fixture\/linked.*"\.\/gone".*"\.\/src\/gone\.ts".*reaches no file/s,
     );
@@ -127,12 +126,12 @@ describe(resolveSourceTarget, () => {
     },
   );
 
-  it('leaves a specifier naming no installed package to Vite', ({ tree }) => {
+  it('leaves a specifier that does not name an installed package to Vite', ({ tree }) => {
     expect(resolve(tree, '@fixture/absent')).toBeUndefined();
   });
 
-  // Vite reads a self-reference off the importer's own manifest, so no `node_modules` entry serves this import and
-  // the walk alone would decline it, leaving the suite to run against the package's build output.
+  // Vite reads a self-reference off the importer's own manifest, so this import is not served by any `node_modules`
+  // entry and the walk alone would decline it, leaving the suite to run against the package's build output.
   it('resolves a package that imports itself by name', ({ tree }) => {
     const importer = tree.resolve('selfpkg/src/importer.ts');
 
@@ -141,30 +140,30 @@ describe(resolveSourceTarget, () => {
     );
   });
 
-  // Vite looks the subpath up without the suffix and re-appends it, so carrying the suffix into the `exports` map
+  // Vite looks the subpath up without the suffix and re-appends it. Including the suffix in the `exports` lookup
   // would expand a `*` pattern into a path that nobody wrote.
-  it('resolves a subpath carrying a query suffix, and keeps the suffix', ({ tree }) => {
+  it('resolves a subpath with a query suffix, and keeps the suffix', ({ tree }) => {
     expect(resolve(tree, '@fixture/linked/asset?raw')).toBe(`${tree.resolve('linked/src/asset.ts')}?raw`);
     expect(resolve(tree, '@fixture/linked/thing?raw')).toBe(`${tree.resolve('linked/src/any-thing.ts')}?raw`);
   });
 
-  it('resolves a subpath carrying a hash suffix, and keeps the suffix', ({ tree }) => {
+  it('resolves a subpath with a hash suffix, and keeps the suffix', ({ tree }) => {
     expect(resolve(tree, '@fixture/linked/asset#frag')).toBe(`${tree.resolve('linked/src/asset.ts')}#frag`);
   });
 
-  // `source` is a bundler condition that Node never reads, so a package may point it where only Vite's own
+  // Because `source` is a bundler condition that Node never reads, a package may point it where only Vite's own
   // extension and index resolution reaches.
   it('resolves a target that names a file only under an extension', ({ tree }) => {
     expect(resolve(tree, '@fixture/linked/extensionless')).toBe(tree.resolve('linked/src/extensionless.ts'));
   });
 
-  it('resolves a target that names a directory holding an index', ({ tree }) => {
+  it('resolves a target that names a directory containing an index', ({ tree }) => {
     expect(resolve(tree, '@fixture/linked/directory')).toBe(tree.resolve('linked/src/directory/index.ts'));
   });
 
   // The environment decides which branch of a dual-target `exports` map is taken, and a run reaches the client
-  // branch only under browser mode, which no suite here runs. Vitest names its environments `client` and `ssr`;
-  // a release renaming either would take the wrong branch here with every suite still green.
+  // branch only under browser mode, which the suites here do not use. Vitest names its environments `client` and
+  // `ssr`; a release renaming either would take the wrong branch here with every suite still green.
   it.for([
     ['client', 'linked/src/browser.ts'],
     ['ssr', 'linked/src/node.ts'],
@@ -176,7 +175,7 @@ describe(resolveSourceTarget, () => {
     },
   );
 
-  it('declines where there is no importer to resolve from', () => {
+  it('declines when it is not given an importer to resolve from', () => {
     expect(resolveSourceTarget('@fixture/linked', undefined, { environmentName: 'ssr' })).toBeUndefined();
   });
 });

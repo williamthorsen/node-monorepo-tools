@@ -14,7 +14,8 @@ const flagSchema = {
 const { shouldFix, isDryRun, command } = parseArgsOrExit(process.argv.slice(2), flagSchema).flags;
 
 try {
-  // Resolved ahead of the work, so a variable naming no style is rejected before `--fix` writes anything.
+  // Resolve the styles ahead of the work, so that a variable that does not name a style is rejected before `--fix`
+  // writes anything.
   const { stdout } = resolveBinStyles();
   const monorepoRoot = findMonorepoRoot();
   const options = command ? { shouldFix, isDryRun, command } : { shouldFix, isDryRun };

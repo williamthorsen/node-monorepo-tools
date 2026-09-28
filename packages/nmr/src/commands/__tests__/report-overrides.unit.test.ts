@@ -11,7 +11,7 @@ describe(reportOverrides, () => {
     tree = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-report-test-' }));
   });
 
-  it('does nothing when no overrides exist', () => {
+  it('does nothing when the repo does not declare any overrides', () => {
     writePackageJson({ name: 'test', version: '1.0.0' });
 
     using silent = silenceConsole(['warn']);
@@ -43,7 +43,7 @@ describe(reportOverrides, () => {
     expect(silent.warn).toHaveBeenCalledWith('\n1 override is active. Check whether it is still needed.');
   });
 
-  it('closes the report with the count of overrides it named', () => {
+  it('closes the report with the count of overrides that it named', () => {
     writePackageJson({ name: 'test', version: '1.0.0' });
     writeWorkspaceManifest('overrides:\n  some-package: 1.2.3\n  other-package: 4.5.6\n');
 
@@ -53,8 +53,9 @@ describe(reportOverrides, () => {
     expect(silent.warn).toHaveBeenCalledWith('\n🔒 2 overrides are active. Check whether they are still needed.');
   });
 
-  // YAML's implicit typing turns an unquoted version into a number, which must not cost the entries beside it.
-  it('keeps the string entries of a workspace block carrying a non-string value', () => {
+  // YAML's implicit typing turns an unquoted version into a number, which must not cause the entries beside it to be
+  // dropped.
+  it('keeps the string entries of a workspace block containing a non-string value', () => {
     writePackageJson({ name: 'test', version: '1.0.0' });
     writeWorkspaceManifest('overrides:\n  react: 18\n  node-fetch: 2.6.7\n');
 
@@ -94,8 +95,8 @@ describe(reportOverrides, () => {
     expect(() => reportOverrides(tree.dir, 'rich')).toThrow(/pnpm-workspace\.yaml/);
   });
 
-  // The gate proves the block absent, so a value it cannot render is still a key the user has to move.
-  it('rejects a pnpm.overrides block carrying a non-string value, naming that entry', () => {
+  // The gate proves the block absent, so a value that it cannot render is still a key for the user to move.
+  it('rejects a pnpm.overrides block containing a non-string value, naming that entry', () => {
     writePackageJson({
       name: 'test',
       version: '1.0.0',

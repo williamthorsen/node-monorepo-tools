@@ -22,7 +22,7 @@ describe(resolveToolchainFingerprint, () => {
     await expect(resolveToolchainFingerprint(packageDir, selfDir)).resolves.toBe('a-build-digest');
   });
 
-  it("returns the running nmr's version when no build digest is on disk", async ({ packageDir, selfDir }) => {
+  it("returns the running nmr's version when a build digest is not on disk", async ({ packageDir, selfDir }) => {
     await expect(resolveToolchainFingerprint(packageDir, selfDir)).resolves.toBe(SELF_VERSION);
   });
 
@@ -30,8 +30,8 @@ describe(resolveToolchainFingerprint, () => {
     await writeCacheEntry(resolveBuildCachePath(selfDir), 'a-build-digest');
     const firstFingerprint = await resolveToolchainFingerprint(selfDir, selfDir);
 
-    // The digest a build writes is the entry this resolution would read, so a self-build that folded it would
-    // key itself on its own previous key and never settle.
+    // The digest written by a build is the entry that this resolution would read, so a self-build that folded it
+    // would key itself on its own previous key and never settle.
     await writeCacheEntry(resolveBuildCachePath(selfDir), 'the-next-build-digest');
 
     await expect(resolveToolchainFingerprint(selfDir, selfDir)).resolves.toBe(firstFingerprint);
@@ -52,7 +52,7 @@ describe(resolveToolchainFingerprint, () => {
 
 // region | Helpers
 
-/** Writes a package holding only a `package.json` and a `node_modules`, which keeps its cache entry inside it. */
+/** Writes a package containing only a `package.json` and a `node_modules`, which keeps its cache entry inside it. */
 function scaffoldPackage(tree: TempTree, entry: string, version: string): string {
   tree.writeAll({
     [`${entry}/node_modules/`]: '',
