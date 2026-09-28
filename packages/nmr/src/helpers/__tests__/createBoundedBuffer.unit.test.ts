@@ -14,7 +14,7 @@ function retain(chunks: string[]): string {
 }
 
 describe(createBoundedBuffer, () => {
-  it('when nothing is appended, retains no bytes', () => {
+  it('when nothing is appended, does not retain any bytes', () => {
     expect(retain([])).toBe('');
   });
 
@@ -23,7 +23,7 @@ describe(createBoundedBuffer, () => {
     { chunks: ['abcdefgh'], expectedText: 'abcdefgh', scenario: 'exactly filling both bounds' },
     { chunks: ['ab', 'cd', 'ef'], expectedText: 'abcdef', scenario: 'split across several chunks' },
   ])(
-    'when the total stays within the bounds ($scenario), retains every byte and adds no marker',
+    'when the total stays within the bounds ($scenario), retains every byte and does not add a marker',
     ({ chunks, expectedText }) => {
       expect(retain(chunks)).toBe(expectedText);
     },

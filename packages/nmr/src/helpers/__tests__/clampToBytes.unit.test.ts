@@ -7,7 +7,7 @@ describe(clampToBytes, () => {
     expect(clampToBytes('passed in 12.4s', 512)).toBe('passed in 12.4s');
   });
 
-  it('leaves a value sitting exactly on the budget untouched', () => {
+  it('leaves a value exactly at the budget untouched', () => {
     expect(clampToBytes('x'.repeat(64), 64)).toBe('x'.repeat(64));
   });
 
@@ -32,11 +32,11 @@ describe(clampToBytes, () => {
     expect(Buffer.byteLength(clampedText)).toBeLessThanOrEqual(50);
   });
 
-  it('yields nothing at a budget too small to hold the mark, rather than overrunning it', () => {
+  it('returns an empty string at a budget too small to fit the mark, rather than overrunning it', () => {
     expect(clampToBytes('anything', 2)).toBe('');
   });
 
-  it('yields the mark alone at a budget that holds it and nothing more', () => {
+  it('returns the mark alone at a budget that fits only the mark', () => {
     expect(clampToBytes('anything', Buffer.byteLength(TRUNCATION_MARK))).toBe(TRUNCATION_MARK);
   });
 });

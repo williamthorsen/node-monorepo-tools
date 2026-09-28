@@ -9,13 +9,13 @@ import { reportError } from '@williamthorsen/nmr-core';
 
 import { isObject } from '../helpers/type-guards.ts';
 
-/** The ignore file Prettier reads but does not discover hierarchically. */
+/** The ignore file that Prettier reads but does not discover hierarchically. */
 const IGNORE_FILENAME = '.prettierignore';
 
 /**
- * Selects tracked files plus untracked files git does not ignore, NUL-delimited so paths containing
- * spaces or newlines survive. Untracked-but-unignored files are included so a newly created file is
- * formatted before it is ever added to the index.
+ * Selects tracked files plus untracked files that git does not ignore, NUL-delimited so that paths
+ * containing spaces or newlines stay intact. Untracked-but-unignored files are included so that a newly
+ * created file is formatted before it is ever added to the index.
  */
 const LIST_FILES_ARGS = ['ls-files', '-z', '--cached', '--others', '--exclude-standard'];
 
@@ -28,13 +28,13 @@ const IGNORE_FILE_PATHSPEC = `*${IGNORE_FILENAME}`;
 
 const PRETTIER_PACKAGE = 'prettier';
 
-/** The peer range, quoted back to a consumer whose repository has no resolvable Prettier. */
+/** The peer range, quoted back to a consumer whose repository does not contain a resolvable Prettier. */
 const PRETTIER_RANGE = '>=3.9.5 <4';
 
 /**
  * Ceiling on the bytes of file arguments handed to one Prettier process, well under the smallest
  * `ARG_MAX` in play. Repositories below it run in a single process, which keeps the output to one
- * "Checking formatting..." banner; larger ones spill into further processes rather than failing.
+ * "Checking formatting..." banner; larger ones are split across further processes rather than failing.
  */
 const ARGUMENT_BUDGET_BYTES = 100_000;
 
@@ -42,7 +42,7 @@ const USAGE = 'Usage: nmr-fmt (--check | --write) [pathspec...]';
 
 export type FormatMode = 'check' | 'write';
 
-/** `--write` keeps `--list-different` so a write run still names the files it changed. */
+/** `--write` keeps `--list-different` so that a write run still names the files that it changed. */
 const MODE_ARGS: Record<FormatMode, string[]> = {
   check: ['--check'],
   write: ['--list-different', '--write'],
@@ -58,7 +58,7 @@ export interface FormatTargets {
 export type ResolveTargetsResult = { ok: true; targets: FormatTargets } | { ok: false; error: string };
 
 /**
- * Formats or checks the files git reports for `cwd`, and returns the exit code to report.
+ * Formats or checks the files that git reports for `cwd`, and returns the exit code to report.
  *
  * Trailing arguments are git pathspecs, not Prettier flags; an unrecognized option is rejected rather
  * than passed along, since git would read it as a pathspec matching nothing and the run would report
@@ -81,10 +81,10 @@ export function runFmt(argv: string[], cwd: string = process.cwd()): number {
   const { files, ignorePaths } = resolvedTargets.targets;
   if (files.length === 0) {
     // A caller who named paths and got nothing back selected nothing, which a clean run looks exactly
-    // like. Without pathspecs there is simply nothing to format, and Prettier given no file arguments
+    // like. Without pathspecs there is simply nothing to format, and Prettier run without file arguments
     // would read stdin and fail.
     if (parsedArgs.pathspecs.length > 0) {
-      reportError(`nmr-fmt: no formattable files matched: ${parsedArgs.pathspecs.join(', ')}`);
+      reportError(`nmr-fmt: the pathspecs did not match any formattable file: ${parsedArgs.pathspecs.join(', ')}`);
       return 1;
     }
     return 0;
@@ -105,11 +105,11 @@ export function runFmt(argv: string[], cwd: string = process.cwd()): number {
  * pattern in `packages/<pkg>/.gitignore` is invisible to a root-level run; git knows the whole hierarchy,
  * along with `.git/info/exclude` and `core.excludesFile`, which Prettier cannot read under any flag.
  *
- * File selection is anchored at `cwd` and ignore discovery at the repository root, so scoping follows `cwd`
- * while the ignore rules applied to a given file are the same from every directory.
+ * Because file selection is anchored at `cwd` and ignore discovery at the repository root, scoping follows
+ * `cwd` while the ignore rules applied to a given file are the same from every directory.
  *
- * `pathspecs` narrow the selection and are passed to git verbatim, so they carry git pathspec semantics
- * rather than shell glob semantics.
+ * `pathspecs` narrow the selection and are passed to git verbatim: They have git pathspec semantics rather
+ * than shell glob semantics.
  */
 export function resolveFormatTargets(cwd: string, pathspecs: string[] = []): ResolveTargetsResult {
   const toplevel = runGit(['rev-parse', '--show-toplevel'], cwd);
@@ -130,26 +130,26 @@ export function resolveFormatTargets(cwd: string, pathspecs: string[] = []): Res
   return {
     ok: true,
     targets: {
-      // Sorted for a stable file order across runs; `--cached --others` emits untracked entries first.
+      // Sort for a stable file order across runs; `--cached --others` emits untracked entries first.
       files: dedupe(splitNulSeparated(listedFiles.stdout))
         .filter((file) => isFormattableFile(cwd, file))
         .toSorted(),
-      // The repository-root file leads whether or not it exists. Passing any explicit `--ignore-path`
-      // suppresses Prettier's working-directory-relative default discovery, and that suppression is what
-      // makes the ignore set identical from every directory. Prettier tolerates a path that is not there.
+      // Put the repository-root file first, whether or not it exists. Passing any explicit `--ignore-path`
+      // suppresses Prettier's working-directory-relative default discovery, and that suppression makes the
+      // ignore set identical from every directory. Prettier tolerates a path that is not there.
       ignorePaths: dedupe([path.join(repositoryRoot, IGNORE_FILENAME), ...discoveredIgnorePaths]),
     },
   };
 }
 
 /**
- * Reports whether a path git named is something Prettier can be handed.
+ * Reports whether Prettier can be handed a path named by git.
  *
- * git answers from the index, which holds paths the filesystem does not: a file deleted but not yet
- * staged, and a broken symlink. Prettier exits 2 on a path that is not there. git also reports a
+ * git lists paths from the index, which contains paths that the filesystem does not: a file deleted but
+ * not yet staged, and a broken symlink. Prettier exits 2 on a path that is not there. git also reports a
  * submodule as a single gitlink, and Prettier handed a directory recurses into it, formatting a
  * separate repository under ignore rules discovered from this one. Both are directories or absences,
- * so one is-a-file check settles them.
+ * so one is-a-file check filters out both.
  */
 function isFormattableFile(cwd: string, file: string): boolean {
   return statSync(path.resolve(cwd, file), { throwIfNoEntry: false })?.isFile() === true;
@@ -187,17 +187,16 @@ function parseFmtArgs(argv: string[]): ParseArgsResult {
 /**
  * Locates the Prettier CLI in the consuming repository's own installation.
  *
- * Prettier is a peer dependency rather than something nmr bundles, because a repository's formatter has
- * to be the one its editor and pre-commit hook also run: a copy of nmr's choosing would reformat files
- * the editor then reformats back. Resolution goes through the module graph rather than PATH so the
- * declared copy is the one that runs — under pnpm's isolated layout the `prettier` first on PATH need
- * not be the one the repository depends on.
+ * Prettier is a peer dependency rather than something that nmr bundles, because a repository's formatter
+ * has to be the one that its editor and pre-commit hook also run: A copy of nmr's choosing would reformat
+ * files that the editor then reformats back. Resolution goes through the module graph rather than PATH so
+ * that the declared copy is the one that runs: Under pnpm's isolated layout, the `prettier` first on PATH
+ * need not be the one on which the repository depends.
  *
- * The floor is a currency policy, not a capability boundary. What the design requires is `--ignore-path`
- * honouring every flag rather than only the last, so that a repository-root ignore file passed alongside
- * a package-level one is not silently dropped; Prettier has done that since 3.0.0. The floor sits at the
- * current release because every consuming repository tracks it, so lowering it to 3.0.0 would cost
- * correctness nothing.
+ * The floor is a currency policy, not a capability boundary. The design requires `--ignore-path` to honour
+ * every flag rather than only the last, so that a repository-root ignore file passed alongside a
+ * package-level one is not silently dropped; Prettier has done that since 3.0.0. The floor is the current
+ * release because every consuming repository tracks it; lowering it to 3.0.0 would not affect correctness.
  */
 function resolvePrettierCli(): { ok: true; cliPath: string } | { ok: false; error: string } {
   const missingResult = {
@@ -229,7 +228,7 @@ export interface RunPrettierOptions {
   files: string[];
   ignorePaths: string[];
   cwd: string;
-  /** Overridable so the multi-batch path is reachable without a fixture that hits the real ceiling. */
+  /** Overridable so that the multi-batch path is reachable without a fixture that hits the real ceiling. */
   budgetBytes?: number;
 }
 
@@ -237,8 +236,8 @@ export interface RunPrettierOptions {
  * Runs Prettier over the selection, returning the first non-zero exit code. Every batch runs even after
  * one fails, so a check reports every offending file rather than only those in the first batch.
  *
- * The CLI runs under this process's own Node rather than through its shebang, so it does not depend on
- * the file's execute bit or on PATH holding a `node`.
+ * Because the CLI runs under this process's own Node rather than through its shebang, it does not depend
+ * on the file's execute bit or on PATH containing a `node`.
  *
  * @internal
  */
@@ -247,7 +246,7 @@ export function runPrettier(options: RunPrettierOptions): number {
 
   const prettierArgs = [
     cliPath,
-    // The file list carries types Prettier has no parser for, ignore files and images among them.
+    // The file list contains types for which Prettier does not have a parser, ignore files and images among them.
     '--ignore-unknown',
     ...ignorePaths.flatMap((ignorePath) => ['--ignore-path', ignorePath]),
     ...MODE_ARGS[mode],
@@ -279,7 +278,7 @@ function batchWithinBudget(files: string[], budgetBytes: number): string[][] {
   let sizeBytes = 0;
 
   for (const file of files) {
-    // The separator each argument costs the caller alongside its own bytes.
+    // Count the separator that each argument adds alongside its own bytes.
     const costBytes = Buffer.byteLength(file) + 1;
     if (batch.length > 0 && sizeBytes + costBytes > budgetBytes) {
       batches.push(batch);
@@ -297,8 +296,8 @@ function batchWithinBudget(files: string[], budgetBytes: number): string[][] {
 
 /**
  * Runs git and returns its stdout, or the reason it failed. A failure must never read as an empty file
- * list: reporting success over a list nothing produced is the silent-green failure this command exists
- * to prevent.
+ * list: Reporting success over a list that nothing produced is the silent-green failure that this command
+ * exists to prevent.
  *
  * Invoked without a shell, because pathspecs originate in user input.
  */
@@ -316,7 +315,7 @@ function runGit(args: string[], cwd: string): { ok: true; stdout: string } | { o
   return { ok: true, stdout: result.stdout };
 }
 
-/** Splits `-z` output, dropping the trailing empty element the final separator leaves behind. */
+/** Splits `-z` output, dropping the trailing empty element left behind by the final separator. */
 function splitNulSeparated(output: string): string[] {
   return output.split('\0').filter((entry) => entry !== '');
 }

@@ -12,7 +12,7 @@ describe(reportClosing, () => {
     expect(log).toHaveBeenCalledWith('\n🧹 Cleaned 4 packages.');
   });
 
-  it('writes the blank line and the statement together, so the closer cannot be interleaved', () => {
+  it('writes the blank line and the statement together, so that the closer cannot be interleaved', () => {
     const log = vi.fn();
 
     reportClosing('🧹 Cleaned 4 packages.', log);
@@ -20,7 +20,7 @@ describe(reportClosing, () => {
     expect(log).toHaveBeenCalledTimes(1);
   });
 
-  it('reports to stdout when no log function is given', () => {
+  it('reports to stdout when the caller does not pass a log function', () => {
     using silent = silenceConsole(['info']);
 
     reportClosing('📚 2 catalogued dependencies went unread.');

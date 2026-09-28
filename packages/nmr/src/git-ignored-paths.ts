@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
  * directory is one entry ending in `/`, standing for everything beneath it; a tracked file never appears, whatever
  * pattern it matches.
  *
- * Returns an empty list wherever git gives no answer, outside a repository or with git missing, so that a caller
+ * Returns an empty list whenever git does not answer, outside a repository or with git missing, so that a caller
  * excluding these paths over-reports rather than hides a path.
  */
 export function listGitIgnoredPaths(dir: string): string[] {
