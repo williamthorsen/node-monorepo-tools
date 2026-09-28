@@ -13,6 +13,7 @@ const VERSION = readPackageVersion(import.meta.url);
 const SUBCOMMANDS = ['check', 'init', 'sync'];
 const MIN_PREFIX_LENGTH = 3;
 
+/** Prints the top-level usage. */
 function showHelp(): void {
   console.info(`
 Usage: v11y [options]
@@ -42,6 +43,7 @@ Environment:
 `);
 }
 
+/** Prints the usage of `v11y init`. */
 function showInitHelp(): void {
   console.info(`
 Usage: v11y init [options]
@@ -55,6 +57,7 @@ Options:
 `);
 }
 
+/** Prints the usage of `v11y sync`. */
 function showSyncHelp(): void {
   console.info(`
 Usage: v11y sync [options]
@@ -72,7 +75,7 @@ Other options:
 `);
 }
 
-/** Parse the shared flags (--dev, --prod, --config, --json, --verbose) from argv. */
+/** Parses the flags shared by every subcommand but `init`. */
 function parseSharedFlags(flags: string[], styles: StreamStyles): CommandOptions {
   const flagSchema = {
     config: { long: '--config', type: 'string' as const },
@@ -101,7 +104,7 @@ function parseSharedFlags(flags: string[], styles: StreamStyles): CommandOptions
   };
 }
 
-/** Check whether a positional arg is a close prefix of a known subcommand. */
+/** Finds the subcommand that a positional argument abbreviates, if any. */
 function findTypoMatch(input: string): string | undefined {
   if (input.length < MIN_PREFIX_LENGTH || input.startsWith('-')) {
     return undefined;
@@ -153,7 +156,7 @@ export async function routeCommand(args: string[]): Promise<number> {
     return handleSubcommand(args.slice(1), styles, syncCommand, showSyncHelp);
   }
 
-  // Check for typos before falling through to the default command
+  // A positional argument that names no subcommand is an error, never input to the default command.
   if (command !== undefined && !command.startsWith('-')) {
     const typoMatch = findTypoMatch(command);
     if (typoMatch !== undefined) {
@@ -164,7 +167,6 @@ export async function routeCommand(args: string[]): Promise<number> {
     return 1;
   }
 
-  // Handle --raw: strip it from args and route to auditCommand (raw passthrough).
   if (args.includes('--raw')) {
     const filteredArgs = args.filter((a) => a !== '--raw');
     return handleSubcommand(filteredArgs, styles, auditCommand);

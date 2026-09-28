@@ -41,7 +41,7 @@ export function buildFlatConfig(scopeConfig: ScopeConfig, scope: AuditScope): Au
  * Generate the audit-ci config file for a scope and write it to disk.
  *
  * The output path is `{outputDir}/audit-ci.{scope}.json`. The caller must
- * ensure `outputDir` already exists (e.g., via `withTempDir`).
+ * ensure that `outputDir` exists.
  */
 export async function generateAuditCiConfig(
   scopeConfig: ScopeConfig,

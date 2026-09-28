@@ -6,9 +6,7 @@ import { formatRelativeTime } from '../format-time.ts';
 import { formatCheckVerboseText } from '../format-verbose.ts';
 import { buildPopulatedCheckResult } from '../test-utils/buildPopulatedCheckResult.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// -- Helpers --
 
 function emptyScopeResult(): ScopeCheckResult {
   return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
@@ -40,9 +38,7 @@ function listDescriptionLines(description: string, style: OutputStyle = 'rich'):
   return lines.slice(linkIndex + 2, lines.indexOf('', linkIndex + 2));
 }
 
-// ---------------------------------------------------------------------------
-// formatCheckVerboseText: unallowed entries
-// ---------------------------------------------------------------------------
+// -- formatCheckVerboseText: unallowed entries --
 
 describe(formatCheckVerboseText, () => {
   it('renders "(none)" for an empty scope', () => {
@@ -252,7 +248,6 @@ describe(formatCheckVerboseText, () => {
     const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('First paragraph.');
     expect(output).toContain('Second paragraph.');
-    // Expect a blank line between the two paragraphs.
     const firstIdx = output.indexOf('First paragraph.');
     const secondIdx = output.indexOf('Second paragraph.');
     const between = output.slice(firstIdx, secondIdx);
@@ -281,9 +276,7 @@ describe(formatCheckVerboseText, () => {
     expect(output).toContain('link: https://example.com/nodesc');
   });
 
-  // --------------------
-  // Allowed entries
-  // --------------------
+  // -- Allowed entries --
 
   it('renders an allowed entry with the passed marker and "allowed X ago (YYYY-MM-DD)"', () => {
     const result = makeCheckResult({
@@ -405,9 +398,7 @@ describe(formatCheckVerboseText, () => {
     expect(output).not.toContain('reason:');
   });
 
-  // --------------------
-  // Stale entries
-  // --------------------
+  // -- Stale entries --
 
   it('renders stale entries as a single "🧹 <id>  not needed" line', () => {
     const result = makeCheckResult({
@@ -479,9 +470,7 @@ describe(formatCheckVerboseText, () => {
     expect(output).not.toContain('Actions:');
   });
 
-  // --------------------
-  // Below-threshold entries
-  // --------------------
+  // -- Below-threshold entries --
 
   it('renders a below-threshold vulnerability with the skipped marker and "ignored (below threshold)" annotation', () => {
     const result = makeCheckResult({
@@ -526,9 +515,7 @@ describe(formatCheckVerboseText, () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// formatCheckVerboseText: plain style
-// ---------------------------------------------------------------------------
+// -- formatCheckVerboseText: plain style --
 
 describe(`${formatCheckVerboseText.name} in plain style`, () => {
   it('prints no pictographic character', () => {
@@ -575,9 +562,7 @@ describe(`${formatCheckVerboseText.name} in rich style`, () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// formatRelativeTime
-// ---------------------------------------------------------------------------
+// -- formatRelativeTime --
 
 describe(formatRelativeTime, () => {
   const nowDate = new Date('2026-04-15T12:00:00Z');

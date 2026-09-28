@@ -155,11 +155,8 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
         const allowlistById = new Map<string, AllowlistEntry>(scopeConfig.allowlist.map((entry) => [entry.id, entry]));
         const scopeResult: ScopeCheckResult = { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
 
-        // Classify results: below threshold first, then allowlist, then unallowed.
-        // Threshold check intentionally precedes the allowlist check. Below-threshold vulns are
-        // never checked against the allowlist because the threshold already excludes them from
-        // the fail/pass decision. Even if someone has explicitly allowlisted a low-severity vuln
-        // and the threshold is "moderate", it shows as "ignored" (not "allowed").
+        // Test the threshold before the allowlist: the threshold already excludes a below-threshold vuln from the
+        // pass/fail decision, so it reports as ignored even when the allowlist names it.
         for (const result of report.results) {
           if (!isSeverityAtOrAbove(result.severity, effectiveThreshold)) {
             scopeResult.belowThreshold.push(result);
@@ -171,7 +168,6 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
           }
         }
 
-        // Detect stale allowlist entries: IDs in the allowlist but not in audit results.
         for (const entry of scopeConfig.allowlist) {
           if (!foundIds.has(entry.id)) {
             scopeResult.stale.push({ id: entry.id });
@@ -267,10 +263,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
+// region | Helpers
 /** Merge an `AuditResult` with an `AllowlistEntry` into an `AllowedVuln`, omitting absent optional fields. */
 function buildAllowedVuln(result: AuditResult, entry: AllowlistEntry | undefined): AllowedVuln {
   const allowed: AllowedVuln = {
@@ -288,3 +281,4 @@ function buildAllowedVuln(result: AuditResult, entry: AllowlistEntry | undefined
   if (entry?.addedAt !== undefined) allowed.addedAt = entry.addedAt;
   return allowed;
 }
+// endregion | Helpers

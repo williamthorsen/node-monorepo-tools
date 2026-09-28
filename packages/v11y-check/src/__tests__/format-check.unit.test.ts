@@ -9,9 +9,7 @@ import {
 } from '../format-check.ts';
 import { buildPopulatedCheckResult } from '../test-utils/buildPopulatedCheckResult.ts';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// -- Helpers --
 
 const FIXED_NOW = new Date('2026-04-15T00:00:00Z');
 
@@ -27,9 +25,7 @@ function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
   };
 }
 
-// ---------------------------------------------------------------------------
-// severityIndicator
-// ---------------------------------------------------------------------------
+// -- severityIndicator --
 
 describe(severityIndicator, () => {
   it.each(['critical', 'high', 'moderate', 'low', 'info'])('returns no indicator for %s in plain style', (severity) => {
@@ -55,12 +51,10 @@ describe(severityIndicator, () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// formatCheckText
-// ---------------------------------------------------------------------------
+// -- formatCheckText --
 
 describe(formatCheckText, () => {
-  // --- All clean ---
+  // -- All clean --
 
   it('prints "No known vulnerabilities found." when both scopes are clean', () => {
     const result = makeCheckResult();
@@ -80,7 +74,7 @@ describe(formatCheckText, () => {
     expect(output).toContain('No known vulnerabilities found.');
   });
 
-  // --- Intro banner ---
+  // -- Intro banner --
 
   it('includes "dev" in the intro banner when only dev is audited', () => {
     const result = makeCheckResult();
@@ -94,7 +88,7 @@ describe(formatCheckText, () => {
     expect(output).toContain('\u{1F52C} Auditing dependencies ...');
   });
 
-  // --- Multi-scope with findings ---
+  // -- Multi-scope with findings --
 
   it('shows scope headers when multiple scopes are audited and at least one has findings', () => {
     const result = makeCheckResult({
@@ -146,7 +140,7 @@ describe(formatCheckText, () => {
     expect(output).toContain('GHSA-dev1');
   });
 
-  // --- Unallowed vulnerabilities ---
+  // -- Unallowed vulnerabilities --
 
   it('lists unallowed vulnerabilities with GHSA ID and severity suffix', () => {
     const result = makeCheckResult({
@@ -201,7 +195,7 @@ describe(formatCheckText, () => {
     expect(output).not.toContain('\u{1F7E0}');
   });
 
-  // --- Allowed vulnerabilities ---
+  // -- Allowed vulnerabilities --
 
   it('annotates allowed vulnerabilities with relative time and addedAt', () => {
     const result = makeCheckResult({
@@ -266,7 +260,7 @@ describe(formatCheckText, () => {
     expect(output).not.toContain('allowed');
   });
 
-  // --- Stale entries ---
+  // -- Stale entries --
 
   it('renders stale entries with bullet format', () => {
     const result = makeCheckResult({
@@ -282,7 +276,7 @@ describe(formatCheckText, () => {
     expect(output).toContain('  \u{2022} \u{1F9F9} GHSA-old \u{2022} not needed');
   });
 
-  // --- Mixed findings ---
+  // -- Mixed findings --
 
   it('renders mixed findings in a single scope', () => {
     const result = makeCheckResult({
@@ -340,7 +334,7 @@ describe(formatCheckText, () => {
     expect(output).not.toContain('GHSA-dev');
   });
 
-  // --- Actions footer ---
+  // -- Actions footer --
 
   it('appends an Actions footer with verbose and sync hints when unallowed vulnerabilities exist', () => {
     const result = makeCheckResult({
@@ -371,7 +365,6 @@ describe(formatCheckText, () => {
     const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('Actions:');
     expect(output).toContain('Run `v11y sync` to remove stale allowlist entries.');
-    // No verbose hint for stale-only
     expect(output).not.toContain('--verbose');
   });
 
@@ -396,7 +389,24 @@ describe(formatCheckText, () => {
     expect(output).not.toContain('Actions:');
   });
 
-  // --- Actions footer (multi-scope) ---
+  it('shows verbose hint when only allowed vulns exist (no unallowed, no stale)', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [
+          { id: '1', ghsaId: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/1' },
+        ],
+        belowThreshold: [],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
+    expect(output).toContain('Run `v11y check --prod --verbose` for full report');
+    expect(output).not.toContain('v11y sync');
+  });
+
+  // -- Actions footer (multi-scope) --
 
   it('appends Actions footer with verbose and sync hints when multi-scope has unallowed vulnerabilities', () => {
     const result = makeCheckResult({
@@ -470,9 +480,7 @@ describe(formatCheckText, () => {
     expect(output).toContain('Run `v11y check --verbose` for full report');
   });
 
-  // --- Actions footer (single-scope) ---
-
-  // --- Below-threshold vulnerabilities ---
+  // -- Below-threshold vulnerabilities --
 
   it('renders below-threshold vulnerabilities with "ignored" annotation', () => {
     const result = makeCheckResult({
@@ -514,7 +522,7 @@ describe(formatCheckText, () => {
     expect(output).not.toContain('No known vulnerabilities found.');
   });
 
-  // --- Threshold annotation ---
+  // -- Threshold annotation --
 
   it('shows threshold in intro banner for single-scope when above low', () => {
     const result = makeCheckResult();
@@ -570,31 +578,9 @@ describe(formatCheckText, () => {
     expect(output).toContain('\u{2022} ignored');
     expect(output).toContain('\u{1F4E6} prod: (threshold: \u{1F7E0} moderate)');
   });
-
-  // --- Existing tests ---
-
-  it('shows verbose hint when only allowed vulns exist (no unallowed, no stale)', () => {
-    const result = makeCheckResult({
-      prod: {
-        allowed: [
-          { id: '1', ghsaId: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/1' },
-        ],
-        belowThreshold: [],
-        stale: [],
-        unallowed: [],
-      },
-    });
-
-    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
-    expect(output).toContain('Run `v11y check --prod --verbose` for full report');
-    // No sync hint since nothing to sync
-    expect(output).not.toContain('v11y sync');
-  });
 });
 
-// ---------------------------------------------------------------------------
-// formatCheckText: plain style
-// ---------------------------------------------------------------------------
+// -- formatCheckText: plain style --
 
 describe(`${formatCheckText.name} in plain style`, () => {
   it('prints no pictographic character for multiple scopes', () => {
@@ -651,9 +637,7 @@ describe(`${formatCheckText.name} in rich style`, () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// formatCheckJson
-// ---------------------------------------------------------------------------
+// -- formatCheckJson --
 
 describe(formatCheckJson, () => {
   it('produces parseable JSON with requested scopes', () => {

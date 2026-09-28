@@ -6,11 +6,9 @@ import { formatRelativeTime } from './format-time.ts';
 import { formatMarkedLine, V11Y_GLYPHS, type V11yGlyphName } from './glyphs.ts';
 import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+// -- Types --
 
-/** Classification of an allowlist entry relative to current audit findings. */
+/** An audit finding that the allowlist admits, with the entry's reason and date. */
 export interface AllowedVuln {
   addedAt?: string | undefined;
   cvss?: { score?: number; vectorString?: string } | undefined;
@@ -44,9 +42,7 @@ export interface CheckResult {
   prod: ScopeCheckResult;
 }
 
-// ---------------------------------------------------------------------------
-// Severity indicator
-// ---------------------------------------------------------------------------
+// -- Severity indicator --
 
 const SEVERITY_GLYPH_NAMES: Record<string, V11yGlyphName> = {
   critical: 'severityHigh',
@@ -63,18 +59,14 @@ export function severityIndicator(severity: string | undefined, style: OutputSty
   return name === undefined ? '' : V11Y_GLYPHS[style][name].text;
 }
 
-// ---------------------------------------------------------------------------
-// Display ID helper
-// ---------------------------------------------------------------------------
+// -- Display ID helper --
 
 /** Resolve the best display ID for a vulnerability: GHSA ID if available, otherwise the numeric ID. */
 export function displayId(vuln: { ghsaId?: string | undefined; id: string }): string {
   return vuln.ghsaId ?? vuln.id;
 }
 
-// ---------------------------------------------------------------------------
-// Scope labels
-// ---------------------------------------------------------------------------
+// -- Scope labels --
 
 const SCOPE_GLYPH_NAMES: Record<AuditScope, V11yGlyphName> = {
   dev: 'scopeDev',
@@ -86,9 +78,7 @@ const SCOPE_NAMES: Record<AuditScope, string> = {
   prod: 'prod',
 };
 
-// ---------------------------------------------------------------------------
-// Text formatter
-// ---------------------------------------------------------------------------
+// -- Text formatter --
 
 /** Format a threshold annotation, e.g. `(threshold: 🟠 moderate)`. Returns empty string for `low` threshold. */
 function formatThresholdAnnotation(threshold: SeverityThreshold | undefined, style: OutputStyle): string {
@@ -214,7 +204,6 @@ export function formatCheckText(
     return lines.join('\n') + '\n';
   }
 
-  // Multiple scopes: show scope headers.
   for (const scope of scopes) {
     const scopeResult = result[scope];
     const annotation = formatThresholdAnnotation(thresholds?.[scope], style);
@@ -236,9 +225,7 @@ export function formatCheckText(
   return lines.join('\n') + '\n';
 }
 
-// ---------------------------------------------------------------------------
-// JSON formatter
-// ---------------------------------------------------------------------------
+// -- JSON formatter --
 
 /** Format check results as a JSON string with a top-level `summary` block derived from the result. */
 export function formatCheckJson(result: CheckResult, scopes: AuditScope[]): string {

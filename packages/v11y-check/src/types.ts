@@ -1,9 +1,7 @@
 import type { StreamStyles } from '@williamthorsen/nmr-core';
 import { z } from 'zod';
 
-// ---------------------------------------------------------------------------
-// Audit scope
-// ---------------------------------------------------------------------------
+// -- Audit scope --
 
 /** The dependency scope to audit: development or production. */
 export type AuditScope = 'dev' | 'prod';
@@ -11,9 +9,7 @@ export type AuditScope = 'dev' | 'prod';
 /** All valid scope values. */
 export const AUDIT_SCOPES: readonly AuditScope[] = ['dev', 'prod'];
 
-// ---------------------------------------------------------------------------
-// Severity threshold
-// ---------------------------------------------------------------------------
+// -- Severity threshold --
 
 /** Valid severity threshold values in ascending order. */
 export const SEVERITY_THRESHOLDS = ['low', 'moderate', 'high', 'critical'] as const;
@@ -21,9 +17,7 @@ export const SEVERITY_THRESHOLDS = ['low', 'moderate', 'high', 'critical'] as co
 /** Severity level at or above which audit-ci should fail. */
 export type SeverityThreshold = (typeof SEVERITY_THRESHOLDS)[number];
 
-// ---------------------------------------------------------------------------
-// Allowlist entry
-// ---------------------------------------------------------------------------
+// -- Allowlist entry --
 
 /** A single allowlisted advisory with metadata for traceability. */
 export interface AllowlistEntry {
@@ -43,9 +37,7 @@ export const allowlistEntrySchema = z.object({
   url: z.string(),
 });
 
-// ---------------------------------------------------------------------------
-// Scope config
-// ---------------------------------------------------------------------------
+// -- Scope config --
 
 /** Configuration for a single audit scope (dev or prod). */
 export interface ScopeConfig {
@@ -62,9 +54,7 @@ export const scopeConfigSchema = z
   })
   .strict();
 
-// ---------------------------------------------------------------------------
-// Top-level config
-// ---------------------------------------------------------------------------
+// -- Top-level config --
 
 /** Source-of-truth configuration for v11y-check. */
 export interface V11yCheckConfig {
@@ -82,9 +72,7 @@ export const v11yCheckConfigSchema = z
   })
   .strict();
 
-// ---------------------------------------------------------------------------
-// Default config
-// ---------------------------------------------------------------------------
+// -- Default config --
 
 /** Built-in defaults used when no config file is present. */
 export const DEFAULT_CONFIG: V11yCheckConfig = {
@@ -92,9 +80,7 @@ export const DEFAULT_CONFIG: V11yCheckConfig = {
   prod: { allowlist: [], severityThreshold: 'low' },
 };
 
-// ---------------------------------------------------------------------------
-// Audit result
-// ---------------------------------------------------------------------------
+// -- Audit result --
 
 /** A single vulnerability found by audit-ci. */
 export interface AuditResult {
@@ -109,9 +95,7 @@ export interface AuditResult {
   url: string;
 }
 
-// ---------------------------------------------------------------------------
-// Command options
-// ---------------------------------------------------------------------------
+// -- Command options --
 
 /** Parsed CLI options shared across subcommands. */
 export interface CommandOptions {
@@ -122,23 +106,18 @@ export interface CommandOptions {
   verbose: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Severity comparison
-// ---------------------------------------------------------------------------
+// -- Severity comparison --
 
 /**
  * Determine whether a severity string is at or above the given threshold.
  *
  * Unrecognized or undefined severities are treated as above threshold
  * (conservative — surfaces unknown vulns rather than hiding them).
- *
- * @internal Exported for testing.
  */
 export function isSeverityAtOrAbove(severity: string | undefined, threshold: SeverityThreshold): boolean {
   if (severity === undefined) return true;
   const levels: readonly string[] = SEVERITY_THRESHOLDS;
   const severityIndex = levels.indexOf(severity);
-  // Unrecognized severity: treat as above threshold.
   if (severityIndex === -1) return true;
   const thresholdIndex = SEVERITY_THRESHOLDS.indexOf(threshold);
   return severityIndex >= thresholdIndex;

@@ -37,8 +37,6 @@ describe(scaffoldConfig, () => {
 
     const result = scaffoldConfig({ dryRun: false });
     expect(result.configResult.outcome).toBe('skipped');
-
-    // Existing file should be unchanged
     expect(tree.readJson(configPath)).toStrictEqual({ existing: true });
   });
 
