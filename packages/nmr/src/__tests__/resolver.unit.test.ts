@@ -29,14 +29,14 @@ describe(applyDevBin, () => {
     expect(result).toBe('tsx /repo/packages/my-cli/src/cli.ts --verbose');
   });
 
-  it('replaces a command with no arguments', () => {
+  it('replaces a command without arguments', () => {
     const devBin = { 'my-cli': 'tsx packages/my-cli/src/cli.ts' };
     const result = applyDevBin('my-cli', devBin, monorepoRoot);
 
     expect(result).toBe('tsx /repo/packages/my-cli/src/cli.ts');
   });
 
-  it('returns the command unchanged when no match exists', () => {
+  it('returns the command unchanged when devBin does not contain a match', () => {
     const devBin = { 'other-cli': 'tsx other.ts' };
     const result = applyDevBin('my-cli --flag', devBin, monorepoRoot);
 
@@ -71,11 +71,11 @@ describe(applyDevBin, () => {
 });
 
 describe(expandScript, () => {
-  it('holds a string script as a single opaque step', () => {
+  it('keeps a string script as a single opaque step', () => {
     expect(expandScript('vitest', false)).toStrictEqual([{ kind: 'opaque', command: 'vitest' }]);
   });
 
-  it('holds a string script as a single opaque step regardless of isWorkspaceRoot', () => {
+  it('keeps a string script as a single opaque step regardless of isWorkspaceRoot', () => {
     expect(expandScript('vitest', true)).toStrictEqual([{ kind: 'opaque', command: 'vitest' }]);
   });
 
@@ -101,18 +101,18 @@ describe(expandScript, () => {
     expect(expandScript(['test'], true)).toStrictEqual([{ kind: 'structural', argv: ['nmr', '-w', 'test'] }]);
   });
 
-  it('composes a `run` spec into the step its bare string composes', () => {
+  it('composes a `run` spec into the step composed from its bare string', () => {
     expect(expandScript([{ run: '-R test' }], false)).toStrictEqual(expandScript(['-R test'], false));
   });
 
-  it('carries a declining spec onto its step', () => {
+  it('marks the step of a declining spec as declining', () => {
     expect(expandScript([{ run: 'typecheck', shouldDeclineArguments: true }, 'test'], false)).toStrictEqual([
       { kind: 'structural', argv: ['nmr', 'typecheck'], shouldDeclineArguments: true },
       { kind: 'structural', argv: ['nmr', 'test'] },
     ]);
   });
 
-  // The check-result cache keys on the rendered chain, so an accepting step that carried the property would
+  // The check-result cache keys on the rendered chain, so an accepting step that included the property would
   // invalidate every recorded pass the moment the defaults declared anything.
   it('leaves an accepting spec indistinguishable from a bare element', () => {
     expect(expandScript([{ run: 'test', shouldDeclineArguments: false }], false)).toStrictEqual([
@@ -136,7 +136,7 @@ describe(describeScript, () => {
     expect(describeScript(['fmt', 'lint'])).toBe('[fmt, lint]');
   });
 
-  it('names a declining element, which reads alike otherwise', () => {
+  it('names a declining element, which otherwise reads the same as an accepting one', () => {
     expect(describeScript([{ run: 'typecheck', shouldDeclineArguments: true }, { run: 'test' }])).toBe(
       '[typecheck (no args), test]',
     );
@@ -175,8 +175,8 @@ describe(buildRootRegistry, () => {
 
 describe(findChainedSelfReference, () => {
   it.for([
-    { scenario: 'ahead of the steps it chains', script: 'nmr build && rdy compile' },
-    { scenario: 'behind the steps it chains', script: 'rdy compile && nmr build' },
+    { scenario: 'ahead of the other steps in its chain', script: 'nmr build && rdy compile' },
+    { scenario: 'behind the other steps in its chain', script: 'rdy compile && nmr build' },
   ])('returns an entry re-invoking its own command $scenario', ({ script }, { tree }) => {
     writeScripts(tree, { build: script });
 
@@ -185,9 +185,9 @@ describe(findChainedSelfReference, () => {
 
   it.for([
     { scenario: 'a self-reference standing alone', scripts: { build: 'nmr build' } },
-    { scenario: 'a self-reference carrying trailing arguments', scripts: { build: 'nmr build --verbose' } },
+    { scenario: 'a self-reference with trailing arguments', scripts: { build: 'nmr build --verbose' } },
     { scenario: 'an entry naming another command', scripts: { build: 'nmr compile && rdy compile' } },
-    { scenario: 'an entry naming no nmr command', scripts: { build: 'tsx build.ts' } },
+    { scenario: 'an entry that does not name any nmr command', scripts: { build: 'tsx build.ts' } },
     { scenario: 'no entry for the command', scripts: { test: 'vitest' } },
   ])('reports nothing for $scenario', ({ scripts }, { tree }) => {
     writeScripts(tree, scripts);
@@ -201,13 +201,13 @@ describe(findChainedSelfReference, () => {
     expect(findChainedSelfReference(tree.dir, 'constructor')).toBeUndefined();
   });
 
-  it('reports nothing when no package anchors the resolution', () => {
+  it('reports nothing without a package to anchor the resolution', () => {
     expect(findChainedSelfReference(undefined, 'build')).toBeUndefined();
   });
 });
 
 describe(resolveScript, () => {
-  it('resolves from the registry when no package override exists', () => {
+  it('resolves from the registry without a package override', () => {
     const registry = { test: 'vitest' };
     const result = resolveScript('test', registry, undefined, false);
 
@@ -331,8 +331,8 @@ describe(resolveScript, () => {
   });
 
   it.for([
-    { scenario: 'ahead of the steps it chains', script: 'nmr build && rdy compile' },
-    { scenario: 'behind the steps it chains', script: 'rdy compile && nmr build' },
+    { scenario: 'ahead of the other steps in its chain', script: 'nmr build && rdy compile' },
+    { scenario: 'behind the other steps in its chain', script: 'rdy compile && nmr build' },
   ])('skips a self-referential package.json override standing $scenario', ({ script }, { tree }) => {
     writeScripts(tree, { build: script });
 
@@ -347,8 +347,8 @@ describe(resolveScript, () => {
     });
   });
 
-  // The build-output probe and the workspace clean sweep resolve scripts for packages nobody named, so a
-  // chained entry must not fail the command that happens to be running.
+  // The build-output probe and the workspace clean sweep resolve scripts for packages that the user did not name,
+  // so a chained entry must not fail the command that happens to be running.
   it('resolves another command from a package whose entry chains a self-reference', ({ tree }) => {
     writeScripts(tree, { build: 'nmr build && rdy compile' });
 
@@ -411,7 +411,7 @@ describe(resolveScript, () => {
     expect(() => resolveScript('build', { build: ['compile'] }, tree.dir, false)).toThrow(UserError);
   });
 
-  it('falls through to registry when package.json has no matching script', ({ tree }) => {
+  it('falls through to registry when package.json does not have a matching script', ({ tree }) => {
     tree.writeJson('package.json', { name: 'test-pkg', scripts: { other: 'echo hi' } });
 
     const registry = { test: 'vitest' };
@@ -424,7 +424,7 @@ describe(resolveScript, () => {
   });
 });
 
-// The registry alone chooses a package's test scripts: the second case plants the variant configs that an on-disk
+// The registry alone chooses a package's test scripts: The second case writes the variant configs that an on-disk
 // probe would look for, and asserts that they change nothing.
 describe('test command resolution ignores the package contents', () => {
   const expectedCommands: Record<string, string> = {
@@ -463,7 +463,7 @@ describe('test command resolution ignores the package contents', () => {
 
 // region | Helpers
 
-/** Writes a `package.json` carrying `scripts` as given, malformed values included. */
+/** Writes a `package.json` containing `scripts` as given, malformed values included. */
 function writeScripts(tree: TempTree, scripts: Record<string, unknown>): void {
   tree.writeJson('package.json', { name: 'test-pkg', scripts });
 }
