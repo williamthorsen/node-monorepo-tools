@@ -7,7 +7,7 @@
  * Run from a target repo's working directory:
  *   rdy run --from npm:@williamthorsen/nmr
  *
- * A check asserting the absence of something declares `quiet`: a conformant repo is already in the passing
+ * A check asserting the absence of something declares `quiet`: A conformant repo is already in the passing
  * state, so only a failure is worth a line.
  */
 import { existsSync, globSync, readdirSync } from 'node:fs';
@@ -76,21 +76,21 @@ export default defineRdyKit({
           severity: 'warn',
           quiet: true,
           check: toolVersionsHasNoPnpm,
-          fix: 'Remove pnpm from .tool-versions — manage via the packageManager field',
+          fix: 'Remove pnpm from .tool-versions, and manage it through the packageManager field',
         },
         {
           name: 'no package.json declares a pnpm field',
           severity: 'error',
           quiet: true,
           check: () => noPnpmFieldInPackageJson(),
-          fix: 'Move these settings into pnpm-workspace.yaml, quoting each version under `overrides`, or run `pnpx codemod run pnpm-v10-to-v11`. pnpm 11 reads no key from the `pnpm` field, so an override left there pins nothing while an upgrade run with `--write` goes on rewriting it',
+          fix: 'Move these settings into pnpm-workspace.yaml, quoting each version under `overrides`, or run `pnpx codemod run pnpm-v10-to-v11`. pnpm 11 does not read any key from the `pnpm` field, so an override left there pins nothing while an upgrade run with `--write` goes on rewriting it',
         },
         {
           name: '.config/nmr.config.ts uses defineConfig',
           severity: 'recommend',
           skip: () => (!fileExists('.config/nmr.config.ts') ? 'no nmr config file' : false),
           check: () => fileContains('.config/nmr.config.ts', /defineConfig/),
-          fix: 'Wrap your config export with defineConfig() from @williamthorsen/nmr/config for type safety',
+          fix: 'Wrap the config export with defineConfig() from @williamthorsen/nmr/config for type safety',
         },
 
         // `error` because falling short produces wrong results rather than a failure. Names and fixes are
@@ -103,7 +103,7 @@ export default defineRdyKit({
           skip: () => (!hasDevDependency('eslint') ? 'eslint not installed' : false),
           check: hasSupportedEslintVersion,
           get fix() {
-            return `pnpm add --save-dev eslint@^${MIN_ESLINT_VERSION} — earlier releases resolve config from the working directory, so nmr's root lint and lint:check would apply the root config to every package`;
+            return `pnpm add --save-dev eslint@^${MIN_ESLINT_VERSION}. Earlier releases resolve config from the working directory, so nmr's root lint and lint:check would apply the root config to every package`;
           },
         },
         {
@@ -114,7 +114,7 @@ export default defineRdyKit({
           skip: () => (!hasDevDependency('@williamthorsen/strict-lint') ? 'strict-lint not installed' : false),
           check: hasSupportedStrictLintVersion,
           get fix() {
-            return `pnpm add --save-dev @williamthorsen/strict-lint@^${MIN_STRICT_LINT_VERSION} — earlier releases pin ESLint to one config and resolve ceilings from the working directory, so nmr's root lint:strict would report the wrong rules for every package`;
+            return `pnpm add --save-dev @williamthorsen/strict-lint@^${MIN_STRICT_LINT_VERSION}. Earlier releases pin ESLint to one config and resolve ceilings from the working directory, so nmr's root lint:strict would report the wrong rules for every package`;
           },
         },
 
@@ -124,7 +124,7 @@ export default defineRdyKit({
           severity: 'warn',
           quiet: true,
           check: noRedundantRootScripts,
-          fix: 'Remove scripts from root package.json that nmr provides as built-in root scripts — invoke via nmr directly',
+          fix: 'Remove scripts from root package.json that nmr provides as built-in root scripts, and invoke them through nmr directly',
         },
 
         // -- Git hooks -----------------------------------------------------------
@@ -149,13 +149,13 @@ export default defineRdyKit({
           name: 'every bin target is a committed wrapper',
           severity: 'error',
           check: () => everyBinTargetIsACommittedWrapper(),
-          fix: `Point each listed entry at a committed wrapper under bin/ that loads the build output at runtime. pnpm links a workspace package's bins during the install's link phase, which runs before anything is built, so a target that is not committed does not exist when pnpm reaches for it — and pnpm never retries, leaving the link missing for the life of the node_modules tree`,
+          fix: `Point each listed entry at a committed wrapper under bin/ that loads the build output at runtime. pnpm links a workspace package's bins during the install's link phase, which runs before anything is built, so a target that is not committed does not exist when pnpm tries to link it. pnpm never retries, which leaves the link missing for the life of the node_modules tree`,
         },
         {
           name: "every bin wrapper's build-output target is covered by files",
           severity: 'warn',
           check: () => everyBinWrapperTargetIsCoveredByFiles(),
-          fix: 'Add the build output directory to `files` in each listed package. npm and pnpm publish the bin target itself whatever `files` says, so the wrapper ships pointing at build output missing from the tarball',
+          fix: 'Add the build output directory to `files` in each listed package. npm and pnpm publish the bin target itself whatever `files` says, so the wrapper is published pointing at build output missing from the tarball',
         },
 
         // -- Vitest projects -----------------------------------------------------
@@ -170,7 +170,7 @@ export default defineRdyKit({
           name: 'every vitest.config builds on @williamthorsen/nmr/vitest',
           severity: 'error',
           check: () => vitestConfigBuildsOnSharedConfig(),
-          fix: "Replace each listed config with: import { defineVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineVitestConfig(); -- a config that does not call the factory declares no projects, so every tier-selecting test command fails against it. Pass your own settings to the factory as layers to keep them",
+          fix: "Replace each listed config with: import { defineVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineVitestConfig(); -- a config that does not call the factory does not declare any projects, so every tier-selecting test command fails against it. Pass the repo's own settings to the factory as layers to keep them",
         },
         {
           name: 'vitest.root.config.ts builds on @williamthorsen/nmr/vitest',
@@ -182,27 +182,27 @@ export default defineRdyKit({
           name: 'every workspace with a Vite config has a Vitest config',
           severity: 'error',
           check: () => everyViteConfigHasVitestConfig(),
-          fix: 'Add a vitest.config.ts calling defineVitestConfig() from @williamthorsen/nmr/vitest beside each listed vite.config -- Vitest stops its config search at the first directory holding either name, so the Vite config otherwise wins and the projects model is never reached',
+          fix: 'Add a vitest.config.ts calling defineVitestConfig() from @williamthorsen/nmr/vitest beside each listed vite.config -- Vitest stops its config search at the first directory containing either name, so the Vite config otherwise wins and the projects model is never reached',
         },
         {
           name: 'the test suite gates the test-file conventions',
           severity: 'warn',
           check: () => testSuiteGatesTestFileConventions(),
-          fix: "Add a test of the repo's own under a __tests__ directory that declares the check: import { checkTestFileConventions } from '@williamthorsen/nmr/tests'; checkTestFileConventions(); -- passing `excludedBasenames` the directory names that the repo passes to `testCollectionExclude`. Without it no test run reports an untiered or misplaced test file, and this kit reports them in its place against only nmr's built-in exclusions and the paths git ignores",
+          fix: "Add a test of the repo's own under a __tests__ directory that declares the check: import { checkTestFileConventions } from '@williamthorsen/nmr/tests'; checkTestFileConventions(); -- passing `excludedBasenames` the directory names that the repo passes to `testCollectionExclude`. Without it, the repo's test run does not report an untiered or misplaced test file, and this kit reports them in its place against only nmr's built-in exclusions and the paths that git ignores",
         },
         {
           name: 'every test file names its isolation tier',
           severity: 'error',
           skip: () => describeConventionsGuardSkip(),
           check: () => everyTestFileNamesItsTier(),
-          fix: `Rename each to <subject>[.<aspect>].<tier>.test.ts, naming one of ${TIER_NAMES.join(', ')}. Use tool for a test that reaches a program the environment supplies, which is where a retired .int. or .integration. file belongs. Only the segment before .test. selects a project, so an untiered file runs under the residual unit project and reports success`,
+          fix: `Rename each to <subject>[.<aspect>].<tier>.test.ts, naming one of ${TIER_NAMES.join(', ')}. Use tool for a test that reaches a program supplied by the environment, which is the tier for a retired .int. or .integration. file. Only the segment before .test. selects a project, so an untiered file runs under the residual unit project and reports success`,
         },
         {
           name: 'every test file sits under a __tests__ directory',
           severity: 'error',
           skip: () => describeConventionsGuardSkip(),
           check: () => everyTestFileSitsUnderTestsDir(),
-          fix: 'Move each into a __tests__ directory, the only place from which the shared Vitest config collects. No project collects a file outside one, so it runs nowhere and reports nothing. For a file that is not a test, declare checkTestFileConventions with its directory in `excludedBasenames` instead, which this check then defers to',
+          fix: 'Move each into a __tests__ directory, the only place from which the shared Vitest config collects. Vitest does not collect a file outside one, so it runs nowhere and reports nothing. For a file that is not a test, declare checkTestFileConventions with its directory in `excludedBasenames` instead, which this check then defers to',
         },
         {
           name: 'no package re-exports the ancestor Vitest config',
@@ -225,14 +225,14 @@ export default defineRdyKit({
           name: 'taze.config.ts builds on @williamthorsen/nmr/taze',
           severity: 'warn',
           check: () => tazeConfigBuildsOnSharedConfig(),
-          fix: "Replace the taze config with: import { defineConfig } from '@williamthorsen/nmr/taze'; export default defineConfig(); — nmr's upgrade policy reaches a repo only through this file, so without it `nmr upgrade` reports nothing where dependencies are pinned to exact versions",
+          fix: "Replace the taze config with: import { defineConfig } from '@williamthorsen/nmr/taze'; export default defineConfig(); -- nmr's upgrade policy applies to a repo only through this file, so without it `nmr upgrade` does not report a dependency pinned to an exact version",
         },
         {
           name: 'taze config declares no option taze discards',
           severity: 'warn',
           quiet: true,
           check: () => tazeConfigAvoidsClobberedOptions(),
-          fix: "Set these through the upgrade script instead, as rootScripts: { upgrade: 'nmr-report-overrides && nmr-taze --recursive --request-timeout 90000' } in .config/nmr.config.ts, keeping the rest of the default script — taze's CLI writes a default for each of them over whatever the config file declares, so the value there never reaches taze (antfu-collective/taze#317). nmr already forwards a 30-second request timeout",
+          fix: "Set these through the upgrade script instead, as rootScripts: { upgrade: 'nmr-report-overrides && nmr-taze --recursive --request-timeout 90000' } in .config/nmr.config.ts, keeping the rest of the default script. taze's CLI writes a default for each of them over whatever the config file declares, so taze never uses the file's value (antfu-collective/taze#317). nmr already forwards a 30-second request timeout",
         },
 
         // -- Audit dependency --------------------------------------------------------
@@ -249,7 +249,7 @@ export default defineRdyKit({
           severity: 'error',
           quiet: true,
           check: () => !fileExists('scripts/run-workspace-script.ts'),
-          fix: 'Delete scripts/run-workspace-script.ts — nmr replaces this custom script runner',
+          fix: 'Delete scripts/run-workspace-script.ts, because nmr replaces this custom script runner',
         },
         {
           name: 'no workspace packages reference run-workspace-script or "pnpm run ws"',
@@ -268,11 +268,11 @@ export default defineRdyKit({
 /** Directories whose contents are generated or vendored, and so are never the source of a finding. */
 const SCAN_EXCLUDE_DIRS = new Set(['.git', 'coverage', 'dist', 'node_modules']);
 
-/** The directory a build writes its output to, which a `bin` target names only where it has skipped the wrapper. */
+/** The directory to which a build writes its output. A `bin` target names it only when it has skipped the wrapper. */
 const BUILD_OUTPUT_DIR = 'dist';
 
 /**
- * Matches the first relative specifier a bin wrapper names, which is the build entry it loads at runtime.
+ * Matches the first relative specifier named by a bin wrapper, which is the build entry that it loads at runtime.
  *
  * One pattern reaches both shapes in use: `await import('../dist/esm/cli.js')`, and
  * `new URL('../dist/esm/cli.js', import.meta.url)` whose href the wrapper then imports.
@@ -282,7 +282,7 @@ const WRAPPER_TARGET_PATTERN = /['"](\.\.?\/[^'"]+)['"]/;
 /** Extensions that a Vite or Vitest config can take. */
 const CONFIG_EXTENSIONS = '{ts,mts,cts,js,mjs,cjs}';
 
-/** Matches a Vite config, which fills Vitest's one config slot wherever no Vitest config sits beside it. */
+/** Matches a Vite config, which Vitest loads as its one config in a directory without a Vitest config. */
 const VITE_CONFIG_PATTERN = `vite.config.${CONFIG_EXTENSIONS}`;
 
 const VITEST_CONFIG_PATTERN = `vitest.config.${CONFIG_EXTENSIONS}`;
@@ -291,23 +291,23 @@ const SHARED_VITEST_MODULE = '@williamthorsen/nmr/vitest';
 
 const SHARED_PRETTIER_MODULE = '@williamthorsen/nmr/prettier';
 
-/** Prettier config forms that hold data rather than code, so none of them can call a factory. */
+/** Prettier config forms that contain data rather than code, so none of them can call a factory. */
 const INERT_PRETTIER_CONFIGS = ['.prettierrc', '.prettierrc.{json,json5,yaml,yml,toml}'];
 
 const SHARED_TAZE_MODULE = '@williamthorsen/nmr/taze';
 
 const SHARED_TESTS_MODULE = '@williamthorsen/nmr/tests';
 
-/** taze config forms that hold data rather than code, so none of them can call a factory. */
+/** taze config forms that contain data rather than code. None of them can call a factory. */
 const INERT_TAZE_CONFIGS = ['.tazerc', '.tazerc.json', 'taze.config.json'];
 
 /**
- * taze options a config file cannot carry, each paired with the pattern that finds a declaration taze discards.
- * Its CLI writes a default for every one of them into the options it merges over the config file.
+ * taze options that a config file cannot set, each paired with the pattern that finds a declaration discarded by
+ * taze. Its CLI writes a default for every one of them into the options that it merges over the config file.
  *
  * `concurrency` and `requestTimeout` lose whatever the file declares, so the key alone is the finding. The other
- * three carry a CLI default equal to taze's own, so only a departure from it is lost, and matching the key alone
- * would report a setting that reaches taze intact.
+ * three have a CLI default equal to taze's own. Only a departure from it is lost, and matching the key alone would
+ * report a setting that taze receives intact.
  */
 const CLOBBERED_TAZE_OPTIONS: ReadonlyArray<{ key: string; pattern: RegExp }> = [
   { key: 'concurrency', pattern: /\bconcurrency\s*:/ },
@@ -405,7 +405,7 @@ function checkRootVitestConfig(baseName: string, exportName: string, cwd: string
  *
  * Both naming families count: Prettier reads `.prettierrc.js` and `prettier.config.js` alike, and matching
  * only the latter would report a conformant repo as stale. A config in one of the data-only forms fails
- * rather than being skipped — it cannot call a factory at all, so skipping would read as conformant when
+ * rather than being skipped: It cannot call a factory at all, so skipping would read as conformant when
  * the repo is in fact the furthest from it.
  *
  * @internal - Exported only to enable testing
@@ -431,7 +431,7 @@ export function prettierConfigBuildsOnSharedConfig(cwd: string = process.cwd()):
   };
 }
 
-/** Names the data-only config standing in for an executable one, so the fix says what to convert. */
+/** Names the data-only config standing in for an executable one, so that the fix says what to convert. */
 function describeMissingPrettierConfig(cwd: string): string {
   const inertConfigs = findFiles(INERT_PRETTIER_CONFIGS, cwd);
   if (inertConfigs.length > 0) return `holds no code to call the factory: ${inertConfigs.join(', ')}`;
@@ -446,8 +446,9 @@ function describeMissingPrettierConfig(cwd: string): string {
 /**
  * Reports whether `package.json` configures Prettier through its own top-level key.
  *
- * Parsed rather than pattern-matched, because `prettier` also appears as a dependency entry in every repo this check
- * runs against — `nmr fmt` requires it as a peer — and a line-anchored pattern cannot tell the two depths apart.
+ * Parsed rather than pattern-matched, because `prettier` also appears as a dependency entry in every repo against
+ * which this check runs (`nmr fmt` requires it as a peer), and a line-anchored pattern cannot tell the two depths
+ * apart.
  */
 function hasPrettierConfigKey(cwd: string): boolean {
   const manifest = readFileIn(cwd, 'package.json');
@@ -467,14 +468,14 @@ type WorkspaceDiscovery = { ok: true; workspaces: Workspace[] } | { ok: false; d
 /**
  * Returns every workspace but the root, or the reason discovery could not enumerate them.
  *
- * A failure is returned rather than thrown, because readyup catches a throw at kit level and one would take
- * the rest of the checklist down with it; it is returned rather than swallowed, because an empty list turns
- * every check built on this one into a pass over a repo it verified nothing about. Discovery throws where the
- * root manifest is unreadable, and where the workspace globs use a YAML or glob feature readyup's discovery
+ * A failure is returned rather than thrown, because readyup catches a throw at kit level and one would abort
+ * the rest of the checklist; it is returned rather than swallowed, because an empty list turns every check
+ * built on this one into a pass over a repo about which it verified nothing. Discovery throws when the root
+ * manifest is unreadable, and when the workspace globs use a YAML or glob feature that readyup's discovery
  * does not support, a negation pattern among them.
  *
- * A check built on this reads `process.cwd()` and can offer no directory of its own: readyup's public entry
- * exports `discoverWorkspaces` alone, not the `discoverWorkspacesAt(dir)` form its source declares.
+ * A check built on this reads `process.cwd()` and cannot offer a directory of its own: readyup's public entry
+ * exports `discoverWorkspaces` alone, not the `discoverWorkspacesAt(dir)` form declared in its source.
  */
 function discoverMemberWorkspaces(): WorkspaceDiscovery {
   try {
@@ -488,10 +489,10 @@ function discoverMemberWorkspaces(): WorkspaceDiscovery {
  * Checks that every workspace `bin` entry points at a committed wrapper rather than at build output.
  *
  * pnpm links a workspace package's bins during the install's link phase, which runs before anything is built, and
- * never retries: a target that is not committed is missing for the life of the `node_modules` tree, and deleting
+ * never retries: A target that is not committed is missing for the life of the `node_modules` tree, and deleting
  * that tree is the only repair. Private packages are in scope, because pnpm links their bins too.
  *
- * Tracking rather than presence is what the second reason reads. A target under `dist/` is on disk in any built
+ * The second reason reads tracking rather than presence. A target under `dist/` is on disk in any built
  * checkout, so its absence is evidence only in a fresh clone, while git's ignorance of it holds either way.
  *
  * @internal - Exported only to enable testing
@@ -515,15 +516,15 @@ export async function everyBinTargetIsACommittedWrapper(): Promise<boolean | Che
 }
 
 /**
- * Checks that `files` covers the build output each bin wrapper loads at runtime.
+ * Checks that `files` covers the build output that each bin wrapper loads at runtime.
  *
- * npm and pnpm publish every `bin` target whatever `files` says, so the wrapper always ships; what `files` can
- * drop is the build entry it reaches for, which publishes a bin resolving to nothing. The force-include of `main`
- * covers that entry only in a package whose `main` names it.
+ * npm and pnpm publish every `bin` target whatever `files` says, so the wrapper is always published; `files` can
+ * drop the build entry that the wrapper loads, which publishes a bin resolving to nothing. The force-include of
+ * `main` covers that entry only in a package whose `main` names it.
  *
- * A package declaring no `files` skips, as does a target under `dist/`, which is build output rather than a
- * wrapper and belongs to `everyBinTargetIsACommittedWrapper`. An unreadable file and one naming no relative
- * specifier skip too: the wrapper's shape is a convention rather than a contract.
+ * A package that does not declare `files` skips, as does a target under `dist/`, which is build output rather than
+ * a wrapper and belongs to `everyBinTargetIsACommittedWrapper`. An unreadable file and one that does not name a
+ * relative specifier skip too: The wrapper's shape is a convention rather than a contract.
  *
  * @internal - Exported only to enable testing
  */
@@ -557,16 +558,16 @@ interface BinEntry {
   readonly target: string;
 }
 
-/** Renders one entry as `{package}:{command} -> {target}`, the form an offender is reported in. */
+/** Renders one entry as `{package}:{command} -> {target}`, the form in which an offender is reported. */
 function describeBinEntry(workspace: Workspace, entry: BinEntry): string {
   return `${workspace.name ?? workspace.dir}:${entry.command} -> ${entry.target}`;
 }
 
 /**
- * Names what is wrong with a `bin` target, or undefined where nothing is.
+ * Names what is wrong with a `bin` target, or undefined when nothing is.
  *
- * A target under `dist/` reports under that reason alone, though it is untracked as well: the two share one fix,
- * and naming the directory is what points at the wrapper pattern. A tree outside a git repository yields no
+ * A target under `dist/` reports under that reason alone, though it is untracked as well: The two share one fix,
+ * and naming the directory points at the wrapper pattern. A tree outside a git repository does not yield a
  * listing, which skips the tracking reason rather than failing it.
  */
 function describeBinTargetDefect(
@@ -579,7 +580,7 @@ function describeBinTargetDefect(
   return trackedPaths.has(`${workspace.dir}/${entry.target}`) ? undefined : 'untracked';
 }
 
-/** Strips a leading `./` from a `bin` target, which no comparison here should have to allow for. */
+/** Strips a leading `./` from a `bin` target, so that the comparisons in this kit do not have to allow for it. */
 function normalizeBinTarget(target: string): string {
   return target.replace(/^\.\//, '');
 }
@@ -605,8 +606,8 @@ function readBinEntries(workspace: Workspace): BinEntry[] {
 /**
  * Reads the leading path segment of a `bin` target or a `files` entry.
  *
- * Comparing at this granularity accepts a `files` entry naming a subdirectory of the target, so `files:
- * ["dist/esm"]` passes a wrapper loading `../dist/cjs/cli.js`. The coarsening under-reports rather than
+ * Comparing at this granularity accepts a `files` entry naming a subdirectory of the target. For example,
+ * `files: ["dist/esm"]` passes a wrapper loading `../dist/cjs/cli.js`. The coarsening under-reports rather than
  * misreports.
  */
 function readFirstSegment(entry: string): string {
@@ -614,11 +615,11 @@ function readFirstSegment(entry: string): string {
 }
 
 /**
- * Resolves the build entry a wrapper loads, as a package-relative path, or undefined where it names none.
+ * Resolves the build entry that a wrapper loads, as a package-relative path, or undefined when it does not name one.
  *
- * A target under `dist/` resolves to undefined: it is build output rather than a wrapper, and in a built
+ * A target under `dist/` resolves to undefined: It is build output rather than a wrapper, and in a built
  * checkout reading it would match the compiled entry's own first relative import. A build directory under any
- * other name is still read as a wrapper, which is the residue of identifying one by `dist/` alone.
+ * other name is still read as a wrapper, which is a limitation of identifying one by `dist/` alone.
  */
 function readWrapperTarget(cwd: string, workspace: Workspace, entry: BinEntry): string | undefined {
   if (readFirstSegment(entry.target) === BUILD_OUTPUT_DIR) return undefined;
@@ -633,11 +634,12 @@ function readWrapperTarget(cwd: string, workspace: Workspace, entry: BinEntry): 
 }
 
 /**
- * Checks that every test file the shared config's projects collect names one of nmr's isolation tiers.
+ * Checks that every test file collected by the shared config's projects names one of nmr's isolation tiers.
  *
  * `unit` is the residual project and the shared config sets `passWithNoTests`, so a file whose tier segment is
- * missing or misspelt runs under `unit` and reports success: no test run distinguishes it from a conformant file.
- * A retired `.int.` or `.integration.` infix fails here too, and is reported once as the untiered file it is.
+ * missing or misspelt runs under `unit` and reports success: The test run does not distinguish it from a conformant
+ * file. A retired `.int.` or `.integration.` infix fails here too, and is reported once as the untiered file that it
+ * is.
  *
  * @internal - Exported only to enable testing
  */
@@ -649,7 +651,7 @@ export function everyTestFileNamesItsTier(cwd: string = process.cwd()): boolean 
 }
 
 /**
- * Checks that every test file sits under a `__tests__` directory.
+ * Checks that every test file is under a `__tests__` directory.
  *
  * The shared config's projects collect only from `__tests__`, so a file outside one runs nowhere and reports nothing.
  * Such a file is reported here whether or not it names a tier, and never by `everyTestFileNamesItsTier`.
@@ -664,15 +666,15 @@ export function everyTestFileSitsUnderTestsDir(cwd: string = process.cwd()): boo
 }
 
 /**
- * Checks that every workspace holding a Vite config holds a Vitest config beside it.
+ * Checks that every workspace containing a Vite config also contains a Vitest config beside it.
  *
  * Vitest resolves one config per run by ascending from the run root and stopping at the first directory
- * holding any of its candidate filenames, `vite.config.*` among them. A workspace carrying only a Vite
- * config ends that search on a config declaring no projects, and every tier-selecting test command then
- * fails with `No projects matched the filter`. Within one directory `vitest.config.*` is tried first, which
+ * containing any of its candidate filenames, `vite.config.*` among them. A workspace containing only a Vite
+ * config ends that search on a config that does not declare any projects, and every tier-selecting test command
+ * then fails with `No projects matched the filter`. Within one directory `vitest.config.*` is tried first, which
  * is why a Vitest config beside the Vite config restores the projects model.
  *
- * Declared workspaces rather than a tree-wide glob: the search only ascends, so a Vite config nested below
+ * Declared workspaces rather than a tree-wide glob: The search only ascends, so a Vite config nested below
  * a workspace root is never reached and reporting it would be a false positive.
  *
  * @internal - Exported only to enable testing
@@ -694,11 +696,11 @@ export function everyViteConfigHasVitestConfig(): boolean | CheckOutcome {
 /**
  * Globs for the given patterns, pruning generated and vendored directories.
  *
- * The `exclude` callback receives a path relative to `cwd`, not a bare name, so the comparison has to be
- * against its basename: an identity check would prune only at depth 0 and miss the per-package
- * `node_modules` directories pnpm creates.
+ * The comparison has to be against the path's basename, because the `exclude` callback receives a path relative
+ * to `cwd` rather than a bare name. An identity check would prune only at depth 0 and miss the per-package
+ * `node_modules` directories created by pnpm.
  *
- * Returns POSIX-separator paths, sorted, so check details are stable across platforms and runs.
+ * Returns POSIX-separator paths, sorted, so that check details are stable across platforms and runs.
  */
 function findFiles(patterns: string[], cwd: string): string[] {
   return globSync(patterns, { cwd, exclude: (path) => SCAN_EXCLUDE_DIRS.has(basename(path)) })
@@ -714,7 +716,7 @@ function findWorkspaceConfigs(workspace: Workspace, pattern: string): string[] {
 /**
  * Renders offending paths as a work list rather than a boolean, one per line under a count.
  *
- * The indent clears readyup's three-space nesting step so a path does not read as a nested check.
+ * The indent clears readyup's three-space nesting step so that a path does not read as a nested check.
  */
 function formatPaths(paths: string[]): string {
   return `${paths.length} found:\n${paths.map((path) => `      ${path}`).join('\n')}`;
@@ -723,7 +725,7 @@ function formatPaths(paths: string[]): string {
 /** Returns nmr's own version, the minimum that the kit requires of a consuming repo. */
 function getMinVersion(): string {
   // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
-  // Defer the call into a function so module load does not invoke the runtime stub (which throws):
+  // Defer the call into a function so that module load does not invoke the runtime stub (which throws):
   // This keeps the module importable in tests that bypass the compile step.
   const pickedFields = pickJson('../../package.json', ['version']);
   if (typeof pickedFields['version'] !== 'string') {
@@ -752,7 +754,7 @@ export function hasSupportedStrictLintVersion(): boolean {
   });
 }
 
-/** Reports whether a Vite config sits in the same directory as the given file. */
+/** Reports whether a Vite config is in the same directory as the given file. */
 function hasViteConfigBeside(cwd: string, relativePath: string): boolean {
   return findFiles([VITE_CONFIG_PATTERN], join(cwd, dirname(relativePath))).length > 0;
 }
@@ -770,9 +772,9 @@ function importsSharedExport(content: string | undefined, exportName: string, mo
 }
 
 /**
- * Reports whether `noReExportOnlyVitestConfigs` owns a config, which is where deleting it is the right fix.
+ * Reports whether `noReExportOnlyVitestConfigs` owns a config, which is the case when deleting it is the right fix.
  *
- * Deleting is right only where nothing else in the directory would take over resolution. A config beside a
+ * Deleting is right only when nothing else in the directory would take over resolution. A config beside a
  * Vite config belongs to `vitestConfigBuildsOnSharedConfig` instead, which tells it to call the factory.
  * Both checks read ownership from here, so within a member workspace exactly one of them reports a config.
  * Outside one, only the re-export check looks, and a config beside a Vite config falls to neither.
@@ -784,7 +786,7 @@ function isOwnedByReExportCheck(cwd: string, relativePath: string): boolean {
 /**
  * Checks whether a config's entire content is a re-export of an ancestor config.
  *
- * A file carrying any substantive statement is a real config and is left alone, as is one whose target is
+ * A file containing any substantive statement is a real config and is left alone, as is one whose target is
  * package-local, which the check's delete fix would break. Missing an exotic re-export spelling is a
  * recommend-severity false negative, which is the cheap direction to err.
  */
@@ -801,13 +803,13 @@ function isReExportOnly(content: string | undefined): boolean {
 }
 
 /**
- * Checks that no `package.json` in the tree declares a `pnpm` field.
+ * Checks that the `package.json` files in the tree do not declare a `pnpm` field.
  *
- * pnpm 11 reads no key from that field, so every setting left in one is inert while still reading as
- * maintained. taze keeps its own list of dependency fields, so an upgrade run with `--write` goes on rewriting
- * the versions in `pnpm.overrides`, which is what makes a dead block look current.
+ * pnpm 11 does not read any key from that field, so every setting left in one is inert while still reading as
+ * maintained. Because taze keeps its own list of dependency fields, an upgrade run with `--write` goes on
+ * rewriting the versions in `pnpm.overrides`, which makes a dead block look current.
  *
- * The whole tree rather than the workspace globs: the field is dead in every manifest, whether or not pnpm
+ * The whole tree rather than the workspace globs: The field is dead in every manifest, whether or not pnpm
  * loads that one.
  *
  * @internal - Exported only to enable testing
@@ -824,11 +826,11 @@ export function noPnpmFieldInPackageJson(cwd: string = process.cwd()): boolean |
 }
 
 /**
- * Checks that no package carries a `vitest.config.*` that only re-exports an ancestor config.
+ * Checks that packages do not have a `vitest.config.*` that only re-exports an ancestor config.
  *
- * Only non-root configs qualify, identified by their path carrying a separator. One beside a Vite config is
- * load-bearing rather than redundant, so it is left to `vitestConfigBuildsOnSharedConfig`: deleting it would
- * hand resolution to the Vite config, producing the failure that check exists to prevent.
+ * Only non-root configs qualify, identified by their path containing a separator. One beside a Vite config is
+ * needed rather than redundant, so it is left to `vitestConfigBuildsOnSharedConfig`: Deleting it would hand
+ * resolution to the Vite config, producing the failure which that check exists to prevent.
  *
  * @internal - Exported only to enable testing
  */
@@ -840,7 +842,7 @@ export function noReExportOnlyVitestConfigs(cwd: string = process.cwd()): boolea
   return { ok: false, detail: formatPaths(reExports) };
 }
 
-/** Check that root package.json has no scripts that duplicate nmr built-in root scripts. */
+/** Checks that root package.json does not define any scripts that duplicate nmr built-in root scripts. */
 function noRedundantRootScripts(): boolean | CheckOutcome {
   const pkg = readPackageJson();
   if (!pkg) return true;
@@ -858,7 +860,7 @@ function noRedundantRootScripts(): boolean | CheckOutcome {
 }
 
 /**
- * Checks that no retired Vitest config variant survives anywhere in the repo.
+ * Checks that the repo does not contain any retired Vitest config variant.
  *
  * @internal - Exported only to enable testing
  */
@@ -870,7 +872,8 @@ export function noRetiredVitestConfigs(cwd: string = process.cwd()): boolean | C
 }
 
 /**
- * Checks that no root script that `pnpm install` runs invokes `lefthook install` without `lefthook check-install`.
+ * Checks that the root scripts that `pnpm install` runs do not invoke `lefthook install` without
+ * `lefthook check-install`.
  *
  * Any `check-install` in the script counts as the guard, so an `if !` spelling passes and an unusual spelling
  * errs toward a false negative. A script run by hand is out of scope, because forcing a reinstall is its purpose.
@@ -890,7 +893,7 @@ export function noUnguardedLefthookInstall(cwd: string = process.cwd()): boolean
   return { ok: false, detail: formatPaths(unguardedScripts) };
 }
 
-/** Checks that no workspace package.json references run-workspace-script or "pnpm run ws". */
+/** Checks that workspace package.json files do not reference run-workspace-script or "pnpm run ws". */
 function noWorkspaceRunScriptReferences(): boolean | CheckOutcome {
   const packagesDir = join(process.cwd(), 'packages');
   if (!existsSync(packagesDir)) return true;
@@ -919,10 +922,10 @@ function readFileIn(cwd: string, relativePath: string): string | undefined {
 }
 
 /**
- * Returns the keys a manifest's `pnpm` field holds, sorted, or undefined when it declares no such field.
+ * Returns the keys in a manifest's `pnpm` field, sorted, or undefined when it does not declare that field.
  *
- * A manifest that does not parse reads as declaring none: this check does not own the file, and throwing would
- * take the rest of the checklist down over it.
+ * A manifest that does not parse reads as declaring none: This check does not own the file, and throwing over it
+ * would abort the rest of the checklist.
  */
 function readPnpmFieldKeys(content: string | undefined): string[] | undefined {
   if (content === undefined) return undefined;
@@ -941,8 +944,8 @@ function readPnpmFieldKeys(content: string | undefined): string[] | undefined {
 }
 
 /**
- * Returns the root manifest's `scripts`, or an empty record when the manifest is absent, does not parse, or declares
- * no scripts object. A malformed manifest is not this check's to report.
+ * Returns the root manifest's `scripts`, or an empty record when the manifest is absent, does not parse, or does
+ * not declare a scripts object. A malformed manifest is not this check's to report.
  */
 function readRootScripts(cwd: string): Record<string, unknown> {
   const content = readFileIn(cwd, 'package.json');
@@ -968,9 +971,9 @@ function resolvesVersionViaWorkspace(range: string): boolean {
 /**
  * Checks that the repo's taze config is present and built on the shared config from nmr.
  *
- * Absence fails rather than skipping: taze reads no config at all without one, so the repo silently loses
- * both the release-maturity soak and the pair of settings that report a dependency pinned to a bare version.
- * A config in one of the data-only forms fails the same way, being unable to call a factory.
+ * Absence fails rather than skipping: taze does not read any config at all without one, so the repo
+ * silently loses both the release-maturity soak and the pair of settings that report a dependency pinned to a bare
+ * version. A config in one of the data-only forms fails the same way, being unable to call a factory.
  *
  * @internal - Exported only to enable testing
  */
@@ -989,10 +992,10 @@ export function tazeConfigBuildsOnSharedConfig(cwd: string = process.cwd()): boo
 }
 
 /**
- * Checks that the repo's taze config declares no option taze's CLI discards.
+ * Checks that the repo's taze config does not declare an option that taze's CLI discards.
  *
- * Reports the setting rather than the file, because the fix is per option: each one moves onto the upgrade
- * script, where it reaches taze as a flag. A repo declaring none of them is already in the passing state.
+ * Reports the setting rather than the file, because the fix is per option: Each one moves onto the upgrade
+ * script, which passes it to taze as a flag. A repo declaring none of them is already in the passing state.
  *
  * @internal - Exported only to enable testing
  */
@@ -1012,7 +1015,7 @@ export function tazeConfigAvoidsClobberedOptions(cwd: string = process.cwd()): b
   return { ok: false, detail: formatPaths(findings) };
 }
 
-/** Names the data-only config standing in for an executable one, so the fix says what to convert. */
+/** Names the data-only config standing in for an executable one, so that the fix says what to convert. */
 function describeMissingTazeConfig(cwd: string): string {
   const inertConfigs = findFiles(INERT_TAZE_CONFIGS, cwd);
   if (inertConfigs.length > 0) return `holds no code to call the factory: ${inertConfigs.join(', ')}`;
@@ -1024,8 +1027,8 @@ function describeMissingTazeConfig(cwd: string): string {
  * Checks that a test file under `__tests__` declares `checkTestFileConventions`, which gates both halves of the
  * test-file convention in the repo's own test run.
  *
- * Without it, an untiered file runs under `unit` and a misplaced one runs nowhere, and no test run reports either.
- * Only the import is matched; an import that nothing calls is lint's to report.
+ * Without it, an untiered file runs under `unit` and a misplaced one runs nowhere, and the test run does not report
+ * either. Only the import is matched; an import that nothing calls is lint's to report.
  *
  * @internal - Exported only to enable testing
  */
@@ -1041,7 +1044,7 @@ export function testSuiteGatesTestFileConventions(cwd: string = process.cwd()): 
  * Returns the reason the test-file sweeps skip when the repo's suite declares `checkTestFileConventions`, or `false`
  * when it does not.
  *
- * The guard reports the same files under the repo's own `excludedBasenames`, which no kit check can read, so a
+ * The guard reports the same files under the repo's own `excludedBasenames`, which a kit check cannot read, so a
  * sweep beside it can only repeat its findings or report a directory that the repo has excluded.
  */
 function describeConventionsGuardSkip(): SkipResult {
@@ -1052,7 +1055,7 @@ function describeConventionsGuardSkip(): SkipResult {
 /**
  * Returns the first test file under `__tests__` that imports `checkTestFileConventions`, or undefined when none does.
  *
- * A guard outside `__tests__` does not count, because no project collects it.
+ * A guard outside `__tests__` does not count, because the shared config's projects do not collect it.
  */
 function findConventionsGuard(cwd: string): string | undefined {
   return findTestFiles(cwd).find((relativePath) =>
@@ -1060,7 +1063,7 @@ function findConventionsGuard(cwd: string): string | undefined {
   );
 }
 
-/** Checks that .tool-versions does not list pnpm. Pass if the file is absent. */
+/** Checks that .tool-versions does not list pnpm. Passes if the file is absent. */
 function toolVersionsHasNoPnpm(): boolean {
   const content = readFile('.tool-versions');
   if (content === undefined) return true;
@@ -1074,10 +1077,10 @@ function toolVersionsHasNoPnpm(): boolean {
  * The root config is the ancestor that a workspace resolves by walking up from its own directory, and a repo
  * without it leaves packages walking up past the repo root.
  *
- * A workspace config that does not call the factory declares no projects, so it fails a tier-selecting run
- * exactly as a missing root config does; presence alone is no evidence the projects model is reached.
+ * A workspace config that does not call the factory does not declare any projects, so it fails a tier-selecting
+ * run exactly as a missing root config does; presence alone does not show that the projects model is reached.
  *
- * A re-export-only config with no Vite config beside it is left to `noReExportOnlyVitestConfigs`, whose fix
+ * A re-export-only config without a Vite config beside it is left to `noReExportOnlyVitestConfigs`, whose fix
  * deletes it rather than rewriting it.
  *
  * @internal - Exported only to enable testing
@@ -1104,7 +1107,7 @@ export function vitestConfigBuildsOnSharedConfig(): boolean | CheckOutcome {
 /**
  * Checks that the root `vitest.root.config.*` is present and built on `defineRootVitestConfig`.
  *
- * nmr's root test scripts name this file by path, and a config declaring no projects makes
+ * nmr's root test scripts name this file by path, and a config that does not declare any projects makes
  * `nmr root:test:tool` exit 1.
  *
  * @internal - Exported only to enable testing

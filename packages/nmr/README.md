@@ -2,7 +2,7 @@
 
 # @williamthorsen/nmr
 
-Context-aware script runner for pnpm monorepos. Ships an `nmr` (node-monorepo run) binary that provides centralized, consistent script execution across workspace packages and the monorepo root.
+Context-aware script runner for pnpm monorepos. Includes an `nmr` (node-monorepo run) binary that provides centralized, consistent script execution across workspace packages and the monorepo root.
 
 <!-- section:release-notes --><!-- /section:release-notes -->
 
@@ -16,16 +16,16 @@ pnpm add -D @williamthorsen/nmr
 
 ### Making `nmr` resolvable
 
-nmr installs as a workspace bin, so the bare `nmr` command works only when your shell can find `<root>/node_modules/.bin/nmr`. Choose one:
+nmr installs as a workspace bin, so the bare `nmr` command works only when the shell can find `<root>/node_modules/.bin/nmr`. Choose one:
 
 - **[direnv](https://direnv.net/)** (recommended for contributors). Add `PATH_add node_modules/.bin` to the repo's `.envrc`, and bare `nmr` works from any subdirectory.
-- **`pnpm exec nmr <command>`**. Works with no setup: pnpm resolves the bin from the workspace root.
+- **`pnpm exec nmr <command>`**. Works without any setup: pnpm resolves the bin from the workspace root.
 
 > **Note:** Avoid `npx nmr`. Inside a git worktree, `npx` can resolve a different nmr binary from outside the working tree, so the command succeeds while running the wrong code.
 
 ## Quick start
 
-nmr works out of the box with no configuration. It ships with built-in scripts for common monorepo tasks.
+nmr works without any configuration. It includes built-in scripts for common monorepo tasks.
 
 From a package directory:
 
@@ -41,7 +41,7 @@ From the monorepo root:
 nmr test    # Run root tests + recursive workspace tests
 nmr build   # Build all packages
 nmr ci      # Build, then run the strict checks
-nmr prepush # Run everything the remote runs, before you push
+nmr prepush # Run everything the remote runs, before a push
 ```
 
 Target packages from anywhere:
@@ -51,19 +51,19 @@ nmr --filter core test # Test only the package whose manifest name is `core`
 nmr --recursive lint   # Lint all workspace packages
 ```
 
-`--recursive`, and a `--filter` that selects more than one package, give each package no terminal input. An interactive command such as `test:watch` needs a filter that selects a single package.
+`--recursive`, and a `--filter` that selects more than one package, do not give any package terminal input. An interactive command such as `test:watch` needs a filter that selects a single package.
 
-Position determines ownership: flags before the command name are nmr's own, and everything after the command name is forwarded untouched to the resolved command.
+Position determines ownership: Flags before the command name are nmr's own, and everything after the command name is forwarded untouched to the resolved command.
 
-`nmr --help` lists every flag and command, with the shell command each command resolves to. Per-package `package.json` files need no script entries.
+`nmr --help` lists every flag and command, with the shell command to which each command resolves. Per-package `package.json` files do not need any script entries.
 
-nmr detects where you are and selects the right scripts automatically — see [context-aware resolution](#context-aware-resolution) below.
+nmr detects the directory from which it is invoked and selects the right scripts automatically. See [context-aware resolution](#context-aware-resolution) below.
 
 ## Context-aware resolution
 
-nmr's key feature is that the same command runs different scripts depending on where you invoke it. It walks up from your current directory to find `pnpm-workspace.yaml`, then checks whether your CWD is inside a workspace package directory.
+nmr's key feature is that the same command runs different scripts depending on where it is invoked. It walks up from the current directory to find `pnpm-workspace.yaml`, then checks whether the current directory is inside a workspace package directory.
 
-| Where you run `nmr`               | Registry used     | Working directory | `nmr test` runs                                                      |
+| Where `nmr` is invoked            | Registry used     | Working directory | `nmr test` runs                                                      |
 | --------------------------------- | ----------------- | ----------------- | -------------------------------------------------------------------- |
 | Monorepo root                     | Root scripts      | Monorepo root     | `root:test`, then `-R test`                                          |
 | Inside a workspace package        | Workspace scripts | The package root  | `pnpm exec vitest --project unit --project tool` (that package only) |
@@ -81,21 +81,21 @@ nmr --workspace-root check
 Two consequences:
 
 - `nmr --workspace-root clean` sweeps every workspace package, as `nmr clean` does from the root.
-- Passthrough paths resolve against the working directory: from `packages/nmr/src/`, `nmr --workspace-root fmt pnpm-workspace.yaml` formats the file at the monorepo root.
+- Passthrough paths resolve against the working directory: From `packages/nmr/src/`, `nmr --workspace-root fmt pnpm-workspace.yaml` formats the file at the monorepo root.
 
 ## Three-tier override system
 
 Scripts resolve through three tiers. Higher tiers override lower ones:
 
-1. **Built-in defaults** — scripts shipped with this package
-2. **Repo-wide config** — additions and overrides in `.config/nmr.config.ts`
-3. **Per-package overrides** — scripts in a package's `package.json`
+1. **Built-in defaults**: Scripts included in this package
+2. **Repo-wide config**: Additions and overrides in `.config/nmr.config.ts`
+3. **Per-package overrides**: Scripts in a package's `package.json`
 
 [Scripts and configuration](docs/scripts.md#three-tier-override-system) shows a worked example, how to skip a script for one package, and what nmr does with a `package.json` entry that re-invokes its own command.
 
 ## Pre and post hooks
 
-Every `nmr X` invocation auto-wraps as the equivalent of `nmr X:pre && nmr X && nmr X:post`. Hooks are first-class scripts that resolve through the same three tiers as any other script (built-in defaults, then `.config/nmr.config.ts`, then per-package `package.json`). Wrapping is uniform: nested invocations from composite expansion get their own hook treatment. A failing hook ends the sequence, and its exit code propagates.
+Every `nmr X` invocation auto-wraps as the equivalent of `nmr X:pre && nmr X && nmr X:post`. Hooks are first-class scripts that resolve through the same three tiers as any other script (built-in defaults, then `.config/nmr.config.ts`, then per-package `package.json`). Wrapping is uniform: Nested invocations from composite expansion get their own hook treatment. A failing hook ends the sequence, and its exit code propagates.
 
 Extend `nmr build` with a pre-build step for every workspace package:
 
@@ -114,7 +114,7 @@ export default defineConfig({
 
 ## Configuration
 
-Create `.config/nmr.config.ts` in the monorepo root to add or override scripts. A package may carry one too, for [build settings of its own](docs/scripts.md#package-level-configuration):
+Create `.config/nmr.config.ts` in the monorepo root to add or override scripts. A package may have one too, for [build settings of its own](docs/scripts.md#package-level-configuration):
 
 ```ts
 import { defineConfig } from '@williamthorsen/nmr/config';
@@ -133,7 +133,7 @@ export default defineConfig({
 
 ## What nmr reports
 
-Every command nmr runs reports one line naming the scope it ran at, the command, the outcome, and the timing:
+Every command that nmr runs reports one line naming the scope at which it ran, the command, the outcome, and the timing:
 
 ```console
 ✅ nmr-core: test: passed in 12.4s
@@ -144,9 +144,9 @@ Every command nmr runs reports one line naming the scope it ran at, the command,
 
 **A pipe and a CI log get words rather than emoji.** The same four lines read `PASS`, `FAIL`, `SKIP`, and `NOOP` there, which `grep FAIL` finds. `--output-style` and `NMR_OUTPUT_STYLE` each force either style.
 
-**Verdicts print in every verbosity.** `-q` withholds the output of the commands nmr runs, never nmr's own words: a passing quiet run reports its verdicts and nothing else. A command that ran nothing reports the skip rather than exiting 0 in silence, which is what separates it from a command that passed: an override resolving to `""` or `":"`, and a fan-out step that a package-free workspace left nothing to do. An `NMR_RUN_IF_PRESENT` miss reports nothing, having no command to report on.
+**Verdicts print in every verbosity.** `-q` withholds the output of the commands that nmr runs, never nmr's own words: A passing quiet run reports its verdicts and nothing else. A command that ran nothing reports the skip rather than exiting 0 in silence, which separates it from a command that passed: an override resolving to `""` or `":"`, and a fan-out step that a package-free workspace left nothing to do. An `NMR_RUN_IF_PRESENT` miss reports nothing, because it does not have a command to report on.
 
-[What nmr reports](docs/reporting.md) covers how verdicts nest, the `--json` format, the output style, and where the verbosity of a run comes from.
+[What nmr reports](docs/reporting.md) covers how verdicts nest, the `--json` format, the output style, and what sets the verbosity of a run.
 
 ## Check-result cache
 
@@ -175,7 +175,7 @@ import { defineVitestConfig } from '@williamthorsen/nmr/vitest';
 export default defineVitestConfig();
 ```
 
-`@williamthorsen/nmr/tests` exports a check that fails a test run on a test file outside `__tests__` or one that names no tier. [Shared Vitest config](docs/vitest.md) covers the test tiers, that check, what the factory supplies, and customizing it by scope.
+`@williamthorsen/nmr/tests` exports a check that fails a test run on a test file outside `__tests__` or one that does not name a tier. [Shared Vitest config](docs/vitest.md) covers the test tiers, that check, what the factory supplies, and customizing it by scope.
 
 ### Shared Prettier config
 
@@ -196,7 +196,7 @@ export default definePrettierConfig();
 
 ### Workspace introspection
 
-Repo-wide tests and scripts often need to know where the monorepo root is, or which directories its workspace packages live in. The `@williamthorsen/nmr/workspace` subpath publishes the two pnpm-workspace lookups nmr uses internally:
+Repo-wide tests and scripts often need to know where the monorepo root is, or which directories its workspace packages live in. The `@williamthorsen/nmr/workspace` subpath publishes the two pnpm-workspace lookups that nmr uses internally:
 
 ```ts
 // __tests__/packages.test.ts
@@ -209,11 +209,11 @@ for (const packageDir of getWorkspacePackageDirs(monorepoRoot)) {
 }
 ```
 
-[Workspace introspection](docs/workspace.md) covers what each lookup returns and where it diverges from pnpm.
+[Workspace introspection](docs/workspace.md) covers what each lookup returns and the cases in which it diverges from pnpm.
 
 ## Agent guidance
 
-nmr ships the rules an agent needs in order to invoke it, as [CodeAssembly](https://github.com/williamthorsen/codeassembly) package content. Adopt it by naming the package in the consuming repo's `.agents/codeassembly.yaml`:
+nmr includes the rules that an agent needs in order to invoke it, as [CodeAssembly](https://github.com/williamthorsen/codeassembly) package content. Adopt it by naming the package in the consuming repo's `.agents/codeassembly.yaml`:
 
 ```yaml
 packages:
@@ -221,7 +221,7 @@ packages:
     - '@williamthorsen/nmr'
 ```
 
-Then add `codeassembly` as a devDependency and run `codeassembly sync`. The guidance is injected into the machine-local guidance file each harness loads at launch; nothing is copied into the repo or committed there. It resolves from the installed package, so upgrading nmr updates it with no second step.
+Then add `codeassembly` as a devDependency and run `codeassembly sync`. The guidance is injected into the machine-local guidance file that each harness loads at launch; nothing is copied into the repo or committed there. It resolves from the installed package, so upgrading nmr updates it without a second step.
 
 Wiring the sync to `postinstall` keeps it current without a hand-run command:
 
@@ -237,7 +237,7 @@ Wiring the sync to `postinstall` keeps it current without a hand-run command:
 
 ## Conformance checks
 
-nmr publishes a `readyup` kit that checks a consuming repo against the current release: the shared Vitest and Prettier configs, the workspace layout, the root script registry, the test-file conventions ([tier names](docs/vitest.md#test-tiers) and `__tests__` placement), that the repo's own suite gates them, that every `bin` target is a committed wrapper rather than build output that pnpm cannot link at install time, that `files` covers the output each wrapper loads, that no root install script runs `lefthook install` without `lefthook check-install`, and that no `package.json` in the tree declares a `pnpm` field, which pnpm 11 reads no key from. Those settings belong in `pnpm-workspace.yaml`, and `pnpx codemod run pnpm-v10-to-v11` moves them. The kit ships inside the package, so it checks against the nmr version installed rather than whatever a repository ref happens to point at, and a tier added or renamed in nmr reaches the repo on upgrade. A repo that declares the [conventions check](docs/vitest.md#gating-the-test-file-conventions) gates both conventions in its own test run, and the kit then leaves the test files to that check.
+nmr publishes a `readyup` kit that checks a consuming repo against the current release: the shared Vitest and Prettier configs, the workspace layout, the root script registry, the test-file conventions ([tier names](docs/vitest.md#test-tiers) and `__tests__` placement), that the repo's own suite gates them, that every `bin` target is a committed wrapper rather than build output that pnpm cannot link at install time, that `files` covers the output that each wrapper loads, that the root install scripts do not run `lefthook install` without `lefthook check-install`, and that the `package.json` files in the tree do not declare a `pnpm` field, from which pnpm 11 does not read any key. Those settings belong in `pnpm-workspace.yaml`, and `pnpx codemod run pnpm-v10-to-v11` moves them. The kit is included in the package, so it checks against the nmr version installed rather than whatever a repository ref happens to point at, and a tier added or renamed in nmr takes effect in the repo when it upgrades nmr. A repo that declares the [conventions check](docs/vitest.md#gating-the-test-file-conventions) gates both conventions in its own test run, and the kit then leaves the test files to that check.
 
 Add `readyup` as a devDependency, then name nmr in its config:
 
@@ -251,20 +251,20 @@ export default defineRdyConfig({
 ```
 
 ```bash
-rdy run --packages                       # every kit each listed package publishes
+rdy run --packages                       # every kit that each listed package publishes
 rdy run --from npm:@williamthorsen/nmr   # nmr's kit alone, without the config entry
 rdy list --from npm:@williamthorsen/nmr  # what nmr publishes
 ```
 
-`--packages` is the form that survives nmr publishing further kits. Both need `readyup` 0.23 or later, and `@williamthorsen/nmr` as a _direct_ devDependency: a strict pnpm layout links nothing else into the project, so a transitive copy is unreachable.
+`--packages` is the form that survives nmr publishing further kits. Both need `readyup` 0.23 or later, and `@williamthorsen/nmr` as a _direct_ devDependency: A strict pnpm layout links nothing else into the project, so a transitive copy is unreachable.
 
 ## Documentation
 
-- [Scripts and configuration](docs/scripts.md): override tiers, script values, hooks, `defineConfig` fields, `devBin`, and the default commands
-- [What nmr reports](docs/reporting.md): verdicts, `--json`, output style, and verbosity
-- [Check-result cache](docs/check-cache.md): what is skipped, what a hit requires, and replaying, reading, and bypassing recorded runs
+- [Scripts and configuration](docs/scripts.md): Override tiers, script values, hooks, `defineConfig` fields, `devBin`, and the default commands
+- [What nmr reports](docs/reporting.md): Verdicts, `--json`, output style, and verbosity
+- [Check-result cache](docs/check-cache.md): What is skipped, what a hit requires, and replaying, reading, and bypassing recorded runs
 - [Dependency upgrades](docs/upgrades.md): `nmr upgrade`, the upgrade policy, `report-catalog`, `report-overrides`, and `nmr-taze`
 - [Standalone utilities](docs/utilities.md): `nmr-clean`, `nmr-compile`, `nmr-fmt`, and `ensure-prepublish-hooks`
-- [Shared Vitest config](docs/vitest.md): test tiers, test selections, the conventions check, and customization
-- [Shared Prettier config](docs/prettier.md): what it formats and how to customize it
-- [Workspace introspection](docs/workspace.md): the two workspace lookups
+- [Shared Vitest config](docs/vitest.md): Test tiers, test selections, the conventions check, and customization
+- [Shared Prettier config](docs/prettier.md): What it formats and how to customize it
+- [Workspace introspection](docs/workspace.md): The two workspace lookups

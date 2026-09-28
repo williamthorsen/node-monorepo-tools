@@ -225,21 +225,21 @@ var default_default = defineRdyKit({
           severity: "warn",
           quiet: true,
           check: toolVersionsHasNoPnpm,
-          fix: "Remove pnpm from .tool-versions \u2014 manage via the packageManager field"
+          fix: "Remove pnpm from .tool-versions, and manage it through the packageManager field"
         },
         {
           name: "no package.json declares a pnpm field",
           severity: "error",
           quiet: true,
           check: () => noPnpmFieldInPackageJson(),
-          fix: "Move these settings into pnpm-workspace.yaml, quoting each version under `overrides`, or run `pnpx codemod run pnpm-v10-to-v11`. pnpm 11 reads no key from the `pnpm` field, so an override left there pins nothing while an upgrade run with `--write` goes on rewriting it"
+          fix: "Move these settings into pnpm-workspace.yaml, quoting each version under `overrides`, or run `pnpx codemod run pnpm-v10-to-v11`. pnpm 11 does not read any key from the `pnpm` field, so an override left there pins nothing while an upgrade run with `--write` goes on rewriting it"
         },
         {
           name: ".config/nmr.config.ts uses defineConfig",
           severity: "recommend",
           skip: () => !fileExists(".config/nmr.config.ts") ? "no nmr config file" : false,
           check: () => fileContains(".config/nmr.config.ts", /defineConfig/),
-          fix: "Wrap your config export with defineConfig() from @williamthorsen/nmr/config for type safety"
+          fix: "Wrap the config export with defineConfig() from @williamthorsen/nmr/config for type safety"
         },
         // `error` because falling short produces wrong results rather than a failure. Names and fixes are
         // getters because their version constants are declared below the kit.
@@ -251,7 +251,7 @@ var default_default = defineRdyKit({
           skip: () => !hasDevDependency("eslint") ? "eslint not installed" : false,
           check: hasSupportedEslintVersion,
           get fix() {
-            return `pnpm add --save-dev eslint@^${MIN_ESLINT_VERSION} \u2014 earlier releases resolve config from the working directory, so nmr's root lint and lint:check would apply the root config to every package`;
+            return `pnpm add --save-dev eslint@^${MIN_ESLINT_VERSION}. Earlier releases resolve config from the working directory, so nmr's root lint and lint:check would apply the root config to every package`;
           }
         },
         {
@@ -262,7 +262,7 @@ var default_default = defineRdyKit({
           skip: () => !hasDevDependency("@williamthorsen/strict-lint") ? "strict-lint not installed" : false,
           check: hasSupportedStrictLintVersion,
           get fix() {
-            return `pnpm add --save-dev @williamthorsen/strict-lint@^${MIN_STRICT_LINT_VERSION} \u2014 earlier releases pin ESLint to one config and resolve ceilings from the working directory, so nmr's root lint:strict would report the wrong rules for every package`;
+            return `pnpm add --save-dev @williamthorsen/strict-lint@^${MIN_STRICT_LINT_VERSION}. Earlier releases pin ESLint to one config and resolve ceilings from the working directory, so nmr's root lint:strict would report the wrong rules for every package`;
           }
         },
         // -- Root script cleanup -------------------------------------------------
@@ -271,7 +271,7 @@ var default_default = defineRdyKit({
           severity: "warn",
           quiet: true,
           check: noRedundantRootScripts,
-          fix: "Remove scripts from root package.json that nmr provides as built-in root scripts \u2014 invoke via nmr directly"
+          fix: "Remove scripts from root package.json that nmr provides as built-in root scripts, and invoke them through nmr directly"
         },
         // -- Git hooks -----------------------------------------------------------
         {
@@ -293,13 +293,13 @@ var default_default = defineRdyKit({
           name: "every bin target is a committed wrapper",
           severity: "error",
           check: () => everyBinTargetIsACommittedWrapper(),
-          fix: `Point each listed entry at a committed wrapper under bin/ that loads the build output at runtime. pnpm links a workspace package's bins during the install's link phase, which runs before anything is built, so a target that is not committed does not exist when pnpm reaches for it \u2014 and pnpm never retries, leaving the link missing for the life of the node_modules tree`
+          fix: `Point each listed entry at a committed wrapper under bin/ that loads the build output at runtime. pnpm links a workspace package's bins during the install's link phase, which runs before anything is built, so a target that is not committed does not exist when pnpm tries to link it. pnpm never retries, which leaves the link missing for the life of the node_modules tree`
         },
         {
           name: "every bin wrapper's build-output target is covered by files",
           severity: "warn",
           check: () => everyBinWrapperTargetIsCoveredByFiles(),
-          fix: "Add the build output directory to `files` in each listed package. npm and pnpm publish the bin target itself whatever `files` says, so the wrapper ships pointing at build output missing from the tarball"
+          fix: "Add the build output directory to `files` in each listed package. npm and pnpm publish the bin target itself whatever `files` says, so the wrapper is published pointing at build output missing from the tarball"
         },
         // -- Vitest projects -----------------------------------------------------
         {
@@ -313,7 +313,7 @@ var default_default = defineRdyKit({
           name: "every vitest.config builds on @williamthorsen/nmr/vitest",
           severity: "error",
           check: () => vitestConfigBuildsOnSharedConfig(),
-          fix: "Replace each listed config with: import { defineVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineVitestConfig(); -- a config that does not call the factory declares no projects, so every tier-selecting test command fails against it. Pass your own settings to the factory as layers to keep them"
+          fix: "Replace each listed config with: import { defineVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineVitestConfig(); -- a config that does not call the factory does not declare any projects, so every tier-selecting test command fails against it. Pass the repo's own settings to the factory as layers to keep them"
         },
         {
           name: "vitest.root.config.ts builds on @williamthorsen/nmr/vitest",
@@ -325,27 +325,27 @@ var default_default = defineRdyKit({
           name: "every workspace with a Vite config has a Vitest config",
           severity: "error",
           check: () => everyViteConfigHasVitestConfig(),
-          fix: "Add a vitest.config.ts calling defineVitestConfig() from @williamthorsen/nmr/vitest beside each listed vite.config -- Vitest stops its config search at the first directory holding either name, so the Vite config otherwise wins and the projects model is never reached"
+          fix: "Add a vitest.config.ts calling defineVitestConfig() from @williamthorsen/nmr/vitest beside each listed vite.config -- Vitest stops its config search at the first directory containing either name, so the Vite config otherwise wins and the projects model is never reached"
         },
         {
           name: "the test suite gates the test-file conventions",
           severity: "warn",
           check: () => testSuiteGatesTestFileConventions(),
-          fix: "Add a test of the repo's own under a __tests__ directory that declares the check: import { checkTestFileConventions } from '@williamthorsen/nmr/tests'; checkTestFileConventions(); -- passing `excludedBasenames` the directory names that the repo passes to `testCollectionExclude`. Without it no test run reports an untiered or misplaced test file, and this kit reports them in its place against only nmr's built-in exclusions and the paths git ignores"
+          fix: "Add a test of the repo's own under a __tests__ directory that declares the check: import { checkTestFileConventions } from '@williamthorsen/nmr/tests'; checkTestFileConventions(); -- passing `excludedBasenames` the directory names that the repo passes to `testCollectionExclude`. Without it, the repo's test run does not report an untiered or misplaced test file, and this kit reports them in its place against only nmr's built-in exclusions and the paths that git ignores"
         },
         {
           name: "every test file names its isolation tier",
           severity: "error",
           skip: () => describeConventionsGuardSkip(),
           check: () => everyTestFileNamesItsTier(),
-          fix: `Rename each to <subject>[.<aspect>].<tier>.test.ts, naming one of ${TIER_NAMES.join(", ")}. Use tool for a test that reaches a program the environment supplies, which is where a retired .int. or .integration. file belongs. Only the segment before .test. selects a project, so an untiered file runs under the residual unit project and reports success`
+          fix: `Rename each to <subject>[.<aspect>].<tier>.test.ts, naming one of ${TIER_NAMES.join(", ")}. Use tool for a test that reaches a program supplied by the environment, which is the tier for a retired .int. or .integration. file. Only the segment before .test. selects a project, so an untiered file runs under the residual unit project and reports success`
         },
         {
           name: "every test file sits under a __tests__ directory",
           severity: "error",
           skip: () => describeConventionsGuardSkip(),
           check: () => everyTestFileSitsUnderTestsDir(),
-          fix: "Move each into a __tests__ directory, the only place from which the shared Vitest config collects. No project collects a file outside one, so it runs nowhere and reports nothing. For a file that is not a test, declare checkTestFileConventions with its directory in `excludedBasenames` instead, which this check then defers to"
+          fix: "Move each into a __tests__ directory, the only place from which the shared Vitest config collects. Vitest does not collect a file outside one, so it runs nowhere and reports nothing. For a file that is not a test, declare checkTestFileConventions with its directory in `excludedBasenames` instead, which this check then defers to"
         },
         {
           name: "no package re-exports the ancestor Vitest config",
@@ -366,14 +366,14 @@ var default_default = defineRdyKit({
           name: "taze.config.ts builds on @williamthorsen/nmr/taze",
           severity: "warn",
           check: () => tazeConfigBuildsOnSharedConfig(),
-          fix: "Replace the taze config with: import { defineConfig } from '@williamthorsen/nmr/taze'; export default defineConfig(); \u2014 nmr's upgrade policy reaches a repo only through this file, so without it `nmr upgrade` reports nothing where dependencies are pinned to exact versions"
+          fix: "Replace the taze config with: import { defineConfig } from '@williamthorsen/nmr/taze'; export default defineConfig(); -- nmr's upgrade policy applies to a repo only through this file, so without it `nmr upgrade` does not report a dependency pinned to an exact version"
         },
         {
           name: "taze config declares no option taze discards",
           severity: "warn",
           quiet: true,
           check: () => tazeConfigAvoidsClobberedOptions(),
-          fix: "Set these through the upgrade script instead, as rootScripts: { upgrade: 'nmr-report-overrides && nmr-taze --recursive --request-timeout 90000' } in .config/nmr.config.ts, keeping the rest of the default script \u2014 taze's CLI writes a default for each of them over whatever the config file declares, so the value there never reaches taze (antfu-collective/taze#317). nmr already forwards a 30-second request timeout"
+          fix: "Set these through the upgrade script instead, as rootScripts: { upgrade: 'nmr-report-overrides && nmr-taze --recursive --request-timeout 90000' } in .config/nmr.config.ts, keeping the rest of the default script. taze's CLI writes a default for each of them over whatever the config file declares, so taze never uses the file's value (antfu-collective/taze#317). nmr already forwards a 30-second request timeout"
         },
         // -- Audit dependency --------------------------------------------------------
         {
@@ -388,7 +388,7 @@ var default_default = defineRdyKit({
           severity: "error",
           quiet: true,
           check: () => !fileExists("scripts/run-workspace-script.ts"),
-          fix: "Delete scripts/run-workspace-script.ts \u2014 nmr replaces this custom script runner"
+          fix: "Delete scripts/run-workspace-script.ts, because nmr replaces this custom script runner"
         },
         {
           name: 'no workspace packages reference run-workspace-script or "pnpm run ws"',
