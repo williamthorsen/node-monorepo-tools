@@ -31,12 +31,12 @@ $ nmr --json check
 
 Every object contains `command`, `scope`, and `outcome`, and then the fields that only that outcome includes:
 
-| `outcome`  | Also contains                                                                                                            |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `passed`   | `durationMs`                                                                                                             |
-| `failed`   | `durationMs`, `exitCode`                                                                                                 |
-| `recalled` | `ageMs`, `savedMs`, and `replay` where the skip has excerpts to [replay](check-cache.md#replaying-a-skipped-runs-output) |
-| `no-op`    | `reason`, one of `empty-override`, `empty-workspace`, or `noop-override`                                                 |
+| `outcome`  | Also contains                                                                                                           |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `passed`   | `durationMs`                                                                                                            |
+| `failed`   | `durationMs`, `exitCode`                                                                                                |
+| `recalled` | `ageMs`, `savedMs`, and `replay` when the skip has excerpts to [replay](check-cache.md#replaying-a-skipped-runs-output) |
+| `no-op`    | `reason`, one of `empty-override`, `empty-workspace`, or `noop-override`                                                |
 
 Both renderings are produced from one record, so neither reports what the other does not. When the prose line makes a presentation decision that the record does not (a saving too small to be worth a clause, for example), the object contains the fact and leaves the decision to whoever reads it.
 
