@@ -15,10 +15,10 @@ import type { ScriptValue } from '../resolve-scripts.ts';
 import { runCli } from '../runCli.ts';
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
-/** The cacheable command every test drives; the fixture maps it to a script whose runs are countable. */
+/** The cacheable command driven by every test; the fixture maps it to a script whose runs are countable. */
 const COMMAND = 'typecheck';
 
-/** The run log, which sits beside the repository rather than inside it. */
+/** The run log, which is beside the repository rather than inside it. */
 const LOG_ENTRY = 'log.txt';
 
 describe('the check-result cache gate', () => {
@@ -29,7 +29,7 @@ describe('the check-result cache gate', () => {
   beforeEach(() => {
     workspace = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-gate-' }));
     repo = workspace.resolve('repo');
-    // Keep the log outside the repository: a log inside it would be an untracked file, so every run would change
+    // Keep the log outside the repository: A log inside it would be an untracked file, so every run would change
     // the very tree that the run is being recorded against.
     log = workspace.resolve(LOG_ENTRY);
     scaffoldRepo(workspace, log);
@@ -84,7 +84,7 @@ describe('the check-result cache gate', () => {
       expect(stderr).toContain('`rootScripts.typecheck` reaches nmr through a shell (`nmr ok`)');
     });
 
-    it('records one pass per scope, so a command run at the root skips at the root', async () => {
+    it('records one pass per scope; a command run at the root skips at the root', async () => {
       await runNmr(COMMAND, repo);
 
       // The same tree, asked the same question, from a subdirectory of the root rather than the root itself.
@@ -126,7 +126,7 @@ describe('the check-result cache gate', () => {
       expect(countRuns()).toBe(2);
     });
 
-    it('does not record a run that changed the tree it was asked about', async () => {
+    it('does not record a run that changed the tree about which it was asked', async () => {
       // A check that rewrites a file describes a tree that no longer exists by the time it finishes.
       writeConfig(workspace, log, { command: `echo ran >> ${log} && echo more >> ${path.join(repo, 'touched.txt')}` });
 
@@ -139,8 +139,8 @@ describe('the check-result cache gate', () => {
 
     it('does not record a run that executed nothing', async () => {
       // `NMR_RUN_IF_PRESENT` turns an unresolvable command into a silent success; nothing ran, so nothing passed.
-      // The package declares `ghost` so the config resolves it, which is the shape a fan-out has: the command
-      // exists in some scopes and not in the one being run.
+      // The package declares `ghost` so that the config resolves it, which is the shape that a fan-out has: The
+      // command exists in some scopes and not in the one being run.
       workspace.write(
         'repo/packages/a/package.json',
         JSON.stringify({ name: 'a', scripts: { ghost: 'true' }, type: 'module' }),
@@ -153,8 +153,8 @@ describe('the check-result cache gate', () => {
       expect(countCacheEntries()).toBe(0);
     });
 
-    it('does not record a command carrying arguments', async () => {
-      // Arguments change what a command does in ways the gate cannot see, so they take it out of scope.
+    it('does not record a command run with arguments', async () => {
+      // Arguments take a command out of scope, because they change what it does in ways the gate cannot see.
       await runNmr(`${COMMAND} --flag`, repo);
 
       expect(countCacheEntries()).toBe(0);
@@ -162,18 +162,18 @@ describe('the check-result cache gate', () => {
   });
 
   describe('--no-cache', () => {
-    it('runs a command the cache would have skipped, and records the result', async () => {
+    it('runs a command that the cache would have skipped, and records the result', async () => {
       await runNmr(COMMAND, repo);
 
       await runNmr(`--no-cache ${COMMAND}`, repo);
       expect(countRuns()).toBe(2);
 
-      // Re-recorded, so the next ordinary run skips again rather than paying for the bypass twice.
+      // The bypass recorded its result: The next ordinary run skips again rather than paying for the bypass twice.
       await runNmr(COMMAND, repo);
       expect(countRuns()).toBe(2);
     });
 
-    it('reaches the whole chain through the environment', async () => {
+    it('applies to the whole chain through the environment', async () => {
       await runNmr(COMMAND, repo);
 
       const { exitCode } = await runNmr(COMMAND, repo, { NMR_NO_CACHE: '1' });
@@ -182,24 +182,24 @@ describe('the check-result cache gate', () => {
       expect(countRuns()).toBe(2);
     });
 
-    it('warns when it lands after the command name, where it is an argument', async () => {
+    it('warns when it follows the command name, which makes it an argument', async () => {
       const { stderr } = await runNmr(`${COMMAND} --no-cache`, repo);
 
       expect(stderr).toContain(`nmr --no-cache ${COMMAND}`);
     });
 
-    it('says nothing about a --no-cache after a command the cache never covers', async () => {
+    it('says nothing about a --no-cache after a command that the cache never covers', async () => {
       const { stderr } = await runNmr('fmt --no-cache', repo);
 
       expect(stderr).not.toContain('Did you mean');
     });
   });
 
-  describe('an invocation carrying arguments', () => {
-    // The arguments take the invocation itself out of scope, but its steps are separate nmr processes carrying
-    // none of their own. A step that declines them would otherwise skip from a recorded pass while its
+  describe('an invocation with arguments', () => {
+    // The arguments take the invocation itself out of scope, but its steps are separate nmr processes without
+    // arguments of their own. A step that declines them would otherwise skip from a recorded pass while its
     // narrowed siblings ran.
-    it('serves no step of its chain from a recorded pass, the declining one included', async () => {
+    it('does not serve any step of its chain from a recorded pass, the declining one included', async () => {
       writeConfig(workspace, log, {
         command: [{ run: 'lint:check', shouldDeclineArguments: true }, 'fmt:check'],
         extraRootScripts: { 'fmt:check': `echo fmt >> ${log}`, 'lint:check': `echo lint >> ${log}` },
@@ -213,7 +213,7 @@ describe('the check-result cache gate', () => {
       expect(countRuns()).toBe(4);
     });
 
-    it('still records the pass a declining step earned, having run its whole work', async () => {
+    it('still records the pass earned by a declining step, having run its whole work', async () => {
       writeConfig(workspace, log, {
         command: [{ run: 'lint:check', shouldDeclineArguments: true }, 'fmt:check'],
         extraRootScripts: { 'fmt:check': `echo fmt >> ${log}`, 'lint:check': `echo lint >> ${log}` },
@@ -230,7 +230,7 @@ describe('the check-result cache gate', () => {
   });
 
   describe('one tree, observed once', () => {
-    it('hands the snapshot down to the processes it spawns', async () => {
+    it('hands the snapshot down to the processes that it spawns', async () => {
       // A chain of nmr invocations gates on one observation rather than re-hashing the tree at every link.
       writeConfig(workspace, log, {
         extraRootScripts: { check: ['show-snapshot'], 'show-snapshot': `printenv NMR_TREE_SNAPSHOT >> ${log}` },
@@ -242,7 +242,7 @@ describe('the check-result cache gate', () => {
     });
 
     it('records every cacheable constituent of one green run', async () => {
-      // One pass of the composite leaves the command it composed skippable on its own.
+      // One pass of the composite leaves the command that it composed skippable on its own.
       writeConfig(workspace, log, { extraRootScripts: { check: [COMMAND] } });
 
       await runNmr('check', repo);
@@ -255,7 +255,7 @@ describe('the check-result cache gate', () => {
   });
 
   describe('when the cache does not apply', () => {
-    it('never gates a command the configuration excludes', async () => {
+    it('never gates a command excluded by the configuration', async () => {
       writeConfig(workspace, log, { checkCache: { excludeCommands: [COMMAND] } });
 
       await runNmr(COMMAND, repo);
@@ -274,7 +274,8 @@ describe('the check-result cache gate', () => {
     });
 
     it('never gates a command outside the cacheable set', async () => {
-      // `fmt` rewrites the tree it was asked about, so a recorded pass would describe a tree that no longer exists.
+      // `fmt` rewrites the tree about which it was asked, so a recorded pass would describe a tree that no longer
+      // exists.
       writeConfig(workspace, log, { extraRootScripts: { fmt: `echo ran >> ${log}` } });
 
       await runNmr('fmt', repo);
@@ -286,7 +287,7 @@ describe('the check-result cache gate', () => {
 
     it('runs the command every time outside a git repository, and gives the reason under NMR_DEBUG', async () => {
       workspace.rm('repo/.git');
-      // Stops git's upward search at the fixture, so a temp root that sits inside some repository cannot answer.
+      // Stop git's upward search at the fixture, so that git does not find a repository that contains the temp root.
       vi.stubEnv('GIT_CEILING_DIRECTORIES', workspace.dir);
 
       await runNmr(COMMAND, repo);
@@ -296,7 +297,7 @@ describe('the check-result cache gate', () => {
       expect(stderr).toContain('not a git repository');
     });
 
-    it('runs the command every time when there is no install fingerprint to read', async () => {
+    it('runs the command every time when the fixture does not have an install fingerprint to read', async () => {
       workspace.rm('repo/node_modules/.pnpm');
 
       await runNmr(COMMAND, repo);
@@ -308,7 +309,7 @@ describe('the check-result cache gate', () => {
 
     it('runs the command every time when devBin substitutes a different binary', async () => {
       // The substitute is built from somewhere the tree hash does not describe, so a pass by it is not a pass
-      // by the command the key names.
+      // by the command that the key names.
       writeConfig(workspace, log, {
         command: 'stand-in',
         devBin: { 'stand-in': `sh -c 'echo ran >> ${log}'` },
@@ -335,7 +336,7 @@ describe('the check-result cache gate', () => {
   });
 
   describe('retained output', () => {
-    it('records an excerpt of the run beside the pass it earned', async () => {
+    it('records an excerpt of the run beside the pass that it earned', async () => {
       writeConfig(workspace, log, { command: `echo ran >> ${log} && echo '27 passed (27)'` });
 
       await runNmr(COMMAND, repo);
@@ -345,7 +346,7 @@ describe('the check-result cache gate', () => {
       ]);
     });
 
-    it('records no retention for a command that printed nothing', async () => {
+    it('does not record any retention for a command that printed nothing', async () => {
       await runNmr(COMMAND, repo);
 
       const entry = await readEntry();
@@ -354,7 +355,7 @@ describe('the check-result cache gate', () => {
       expect(entry?.retention).toBeUndefined();
     });
 
-    it('draws the excerpt from stderr where stdout retained nothing', async () => {
+    it('draws the excerpt from stderr when stdout retained nothing', async () => {
       writeConfig(workspace, log, { command: `echo ran >> ${log} && echo '3 warnings' 1>&2` });
 
       await runNmr(COMMAND, repo);
@@ -378,9 +379,9 @@ describe('the check-result cache gate', () => {
       ]);
     });
 
-    // A composite hands its descriptors to the nmr processes below it and retains nothing of its own, which is
-    // what keeps one verdict line reachable however far the tree beneath it fans out.
-    it('records no retention for a composite, whose steps report for themselves', async () => {
+    // A composite hands its descriptors to the nmr processes below it and retains nothing of its own, which
+    // keeps one verdict line reachable however far the tree beneath it fans out.
+    it('does not record any retention for a composite, whose steps report for themselves', async () => {
       const bin = writeNmrShim(workspace, log, 'a constituent summary');
       writeConfig(workspace, log, { command: ['inner'] });
 
@@ -392,8 +393,8 @@ describe('the check-result cache gate', () => {
       expect(entry?.retention).toBeUndefined();
     });
 
-    it('records a pass and no retention when the command wrote to a descriptor of its own', async () => {
-      // `node:fs`, because the run hands the child an open descriptor, which the tree exposes no form for.
+    it('records a pass without retention when the command wrote to a descriptor of its own', async () => {
+      // `node:fs`, because the run hands the child an open descriptor, for which the tree does not expose any form.
       const terminalFd = fs.openSync(workspace.resolve('terminal.txt'), 'w');
       writeConfig(workspace, log, { command: `echo ran >> ${log} && echo '27 passed (27)'` });
 
@@ -441,7 +442,7 @@ describe('the check-result cache gate', () => {
       expect(stdout).not.toContain('replayed:');
     });
 
-    it('leaves no excerpt behind for a run whose pass was declined', async () => {
+    it('does not leave any excerpt behind for a run whose pass was declined', async () => {
       writeConfig(workspace, log, { command: `echo ran >> ${log} && echo '27 passed (27)' && exit 3` });
 
       await runNmr(COMMAND, repo);
@@ -451,7 +452,7 @@ describe('the check-result cache gate', () => {
   });
 
   describe('an assembled replay', () => {
-    /** The identity the fixture's runs report, standing in for the one a top-level invocation generates. */
+    /** The identity reported by the fixture's runs, standing in for the one generated by a top-level invocation. */
     const RUN = 'the-run';
 
     it('assembles a composite’s retention from what its constituents recorded', async () => {
@@ -479,7 +480,7 @@ describe('the check-result cache gate', () => {
       expect(stdout).not.toContain('passed in');
     });
 
-    it('leaves out an excerpt another run certified', async () => {
+    it('leaves out an excerpt certified by another run', async () => {
       const treeHash = scaffoldComposite(['inner']);
       await plantConstituent({ command: 'inner', excerpt: '27 passed (27)', runId: 'another-run', treeHash });
 
@@ -499,7 +500,7 @@ describe('the check-result cache gate', () => {
 
     // region | Helpers
 
-    /** Writes the entry a constituent's own run would have left behind at the fixture's scope. */
+    /** Writes the entry that a constituent's own run would have left behind at the fixture's scope. */
     async function plantConstituent(options: {
       command: string;
       excerpt: string;
@@ -538,7 +539,8 @@ describe('the check-result cache gate', () => {
 
     /**
      * Maps the fixture's cacheable command to a composite of the given elements, and returns the hash of the
-     * tree that leaves behind: a planted constituent has to describe the tree the run will be recorded against.
+     * tree that leaves behind: A planted constituent has to describe the tree against which the run will be
+     * recorded.
      */
     function scaffoldComposite(elements: string[]): string {
       writeConfig(workspace, log, { command: elements });
@@ -561,7 +563,7 @@ describe('the check-result cache gate', () => {
       await runNmr(COMMAND, repo);
     });
 
-    it('restamps the entry it recalls with the run replaying it', async () => {
+    it('restamps the entry that it recalls with the run replaying it', async () => {
       const recordedEntry = await readEntry();
 
       await runNmr(COMMAND, repo, { [RUN_ID_ENV_VAR]: RUN });
@@ -571,7 +573,7 @@ describe('the check-result cache gate', () => {
       expect(certifiedEntry?.retention?.runId).toBe(RUN);
     });
 
-    it('leaves the instant and the duration the earning run recorded alone', async () => {
+    it('leaves the instant and the duration recorded by the earning run alone', async () => {
       const recordedEntry = await readEntry();
 
       await runNmr(COMMAND, repo, { [RUN_ID_ENV_VAR]: RUN });
@@ -590,10 +592,10 @@ describe('the check-result cache gate', () => {
     });
   });
 
-  describe('build output the tree hash cannot see', () => {
+  describe('build output that the tree hash cannot see', () => {
     it('runs again when a package’s build output has gone missing', async () => {
-      // Output is git-ignored, so its removal moves no hash: only the probe stands between a deleted `dist`
-      // and a green exit over a repository that cannot run.
+      // Output is git-ignored, so its removal does not change any hash: Only the probe stands between a deleted
+      // `dist` and a green exit over a repository that cannot run.
       await runNmr(COMMAND, repo);
 
       workspace.rm('repo/packages/a/dist');
@@ -640,9 +642,9 @@ describe('the check-result cache gate', () => {
   });
 
   describe('build output that moves while the check runs', () => {
-    it('records no pass when a covered package’s digest changes mid-run', async () => {
-      // The build cache lives under gitignored `node_modules/`, so rewriting the digest moves no tree hash:
-      // the comparison of the two reads is the only thing that can catch it.
+    it('does not record a pass when a covered package’s digest changes mid-run', async () => {
+      // The build cache is under gitignored `node_modules/`, so rewriting the digest does not change the tree
+      // hash: The comparison of the two reads is the only thing that can catch it.
       writeConfig(workspace, log, {
         command: `echo ran >> ${log} && ${rebuildDigest('digest-from-a-concurrent-build')}`,
       });
@@ -653,7 +655,7 @@ describe('the check-result cache gate', () => {
       expect(stderr).toContain("packages/a's build output changed while it ran");
     });
 
-    it('records no pass when the run itself builds output that was absent', async () => {
+    it('does not record a pass when the run itself builds output that was absent', async () => {
       // The shape that `nmr ci` takes, whose chain builds what its checks then read. The gate declines the pass
       // because the pass cannot say which output it was earned over.
       const outputDir = path.join(repo, 'packages', 'a', 'dist', 'esm');
@@ -668,9 +670,9 @@ describe('the check-result cache gate', () => {
       expect(stderr).toContain("packages/a's build output changed while it ran");
     });
 
-    it('records no pass under --no-cache when the digest changes mid-run', async () => {
-      // The bypass reaches the lookup, not the recording, so the comparison still stands between this run and
-      // an entry describing output it never saw.
+    it('does not record a pass under --no-cache when the digest changes mid-run', async () => {
+      // The bypass applies to the lookup, not the recording, so the comparison still stands between this run and
+      // an entry describing output that it never saw.
       writeConfig(workspace, log, {
         command: `echo ran >> ${log} && ${rebuildDigest('digest-from-a-concurrent-build')}`,
       });
@@ -681,7 +683,7 @@ describe('the check-result cache gate', () => {
     });
 
     it('settles rather than missing forever once the digest stands still', async () => {
-      // The second run rewrites the same digest the first left behind, so its two reads agree and it records.
+      // The second run rewrites the same digest that the first left behind; its two reads agree, and it records.
       writeConfig(workspace, log, {
         command: `echo ran >> ${log} && ${rebuildDigest('digest-from-a-concurrent-build')}`,
       });
@@ -696,13 +698,13 @@ describe('the check-result cache gate', () => {
 
   // region | Helpers
 
-  /** Counts the entries the cache currently holds for the fixture repository. */
+  /** Counts the entries that the cache currently stores for the fixture repository. */
   function countCacheEntries(): number {
     const cacheDir = 'repo/node_modules/.cache/nmr-check';
     return workspace.exists(cacheDir) ? workspace.list(cacheDir).length : 0;
   }
 
-  /** Returns the lines the fixture's scripts have appended, one per run. */
+  /** Returns the lines appended by the fixture's scripts, one per run. */
   function readLog(): string[] {
     if (!workspace.exists(LOG_ENTRY)) {
       return [];
@@ -725,8 +727,8 @@ describe('the check-result cache gate', () => {
 
   /**
    * Runs the CLI in-process against the fixture. The check-result-cache variables are stripped from the ambient
-   * environment first: this suite may itself be running under `nmr test`, whose snapshot would otherwise reach
-   * these invocations and describe a tree that is not the fixture's.
+   * environment first: This suite may itself be running under `nmr test`, whose snapshot would otherwise be
+   * inherited by these invocations and describe a tree that is not the fixture's.
    */
   async function runNmr(
     argString: string,
@@ -761,7 +763,7 @@ describe('the check-result cache gate', () => {
     };
   }
 
-  /** Reads the entry the fixture's runs record for the cacheable command at the repository root. */
+  /** Reads the entry that the fixture's runs record for the cacheable command at the repository root. */
   async function readEntry(): Promise<CheckCacheEntry | undefined> {
     return readCheckCacheEntry({ anchorDir: repo, command: COMMAND, monorepoRoot: repo });
   }
@@ -773,7 +775,8 @@ describe('the check-result cache gate', () => {
 
 /**
  * Decorates a destination as a terminal on the given descriptor, so the runner hands the child that descriptor
- * and nmr sees none of what flows through it. Left undecorated, the stream carries no descriptor and is piped.
+ * and nmr sees none of what flows through it. Left undecorated, the stream does not have a descriptor and is
+ * piped.
  */
 function buildDestination(stream: PassThrough, terminalFd: number | undefined): PassThrough {
   return terminalFd === undefined ? stream : Object.assign(stream, { fd: terminalFd, isTTY: true });
@@ -787,13 +790,13 @@ function buildDestination(stream: PassThrough, terminalFd: number | undefined): 
 function writeNmrShim(workspace: TempTree, log: string, output?: string): string {
   const echoOutput = output === undefined ? '' : `echo '${output}'\n`;
   const shim = workspace.write('bin/nmr', `#!/bin/sh\necho ran >> ${log}\n${echoOutput}`);
-  // `node:fs`, because the tree's write takes no mode and the shim has to be executable.
+  // `node:fs`, because the tree's write does not take a mode and the shim has to be executable.
   fs.chmodSync(shim, 0o755);
 
   return path.dirname(shim);
 }
 
-/** Writes the digest a build of the package at `packageEntry` would have left beside its output. */
+/** Writes the digest that a build of the package at `packageEntry` would have left beside its output. */
 function writeBuildDigest(workspace: TempTree, packageEntry: string, digest: string): void {
   // The cache path folds a digest of the absolute package directory, so it is resolved and then relativized.
   const cachePath = resolveBuildCachePath(workspace.resolve(packageEntry));
@@ -806,9 +809,9 @@ function runGit(cwd: string, args: string[]): void {
 }
 
 /**
- * Writes a committed pnpm workspace under `repo/` in the workspace tree: one built package, the pnpm files the
- * install fingerprint reads, and a config mapping the cacheable command to a script that appends one line per
- * run. `bin/` and the run log sit beside it, outside the repository.
+ * Writes a committed pnpm workspace under `repo/` in the workspace tree: one built package, the pnpm files that
+ * the install fingerprint reads, and a config mapping the cacheable command to a script that appends one line
+ * per run. `bin/` and the run log are beside it, outside the repository.
  */
 function scaffoldRepo(workspace: TempTree, log: string): void {
   workspace.writeAll({
