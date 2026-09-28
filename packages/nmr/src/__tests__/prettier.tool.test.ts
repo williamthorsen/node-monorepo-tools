@@ -8,7 +8,7 @@ import { definePrettierConfig } from '../prettier.ts';
 
 const fixturesDir = path.join(import.meta.dirname, 'fixtures');
 
-/** A config file holding this factory's output, so Prettier's own resolution applies the overrides. */
+/** A config file containing this factory's output, so that Prettier's own resolution applies the overrides. */
 const fixtureConfigPath = path.join(fixturesDir, 'prettier.config.mjs');
 
 /** The same, with the Markdown carve-out overridden back to `auto` the way a consumer would. */
@@ -27,13 +27,13 @@ const DOCUMENTED_COMMAND = [
 
 const UNFORMATTED_TS_FENCE = '```ts\nconst x = {a:1,   b:2}\n```\n';
 
-/** The languages whose paths Prettier routes to a Markdown printer, and so whose fences the carve-out must cover. */
+/** The languages whose paths Prettier assigns to a Markdown printer, and so whose fences the carve-out must cover. */
 const MARKDOWN_LANGUAGES = new Set(['Markdown', 'MDX']);
 
 /**
  * Paths whose extension or basename the plugin claims but this config drops. Each is a file type
- * whose content the shell parser either fails on or silently rewrites, so inferring a parser for it
- * is the defect being guarded against.
+ * whose content the shell parser either fails on or silently rewrites. Inferring a parser for it
+ * is the defect that these cases guard against.
  */
 const UNCLAIMED_PATHS = [
   '.bash_history',
@@ -60,7 +60,7 @@ const SHELL_PATHS = ['.bashrc', 'thing.bash', 'thing.sh', 'thing.zsh'];
 
 describe(definePrettierConfig, () => {
   describe('shell formatting', () => {
-    it('formats a shell script the way shfmt does with no flags', async () => {
+    it('formats a shell script the way shfmt does without flags', async () => {
       const output = await format(readFixture('messy.sh'), buildFormatOptions(definePrettierConfig(), 'messy.sh'));
 
       expect(output).toBe(readFixture('messy.expected.sh'));
@@ -82,7 +82,7 @@ describe(definePrettierConfig, () => {
   });
 
   describe('language scoping', () => {
-    it('adds only Dockerfile and Shell to the languages Prettier infers', async () => {
+    it('adds only Dockerfile and Shell to the languages that Prettier infers', async () => {
       const withPluginInfo = await getSupportInfo({ plugins: definePrettierConfig().plugins ?? [] });
       const withoutPluginInfo = await getSupportInfo({ plugins: [] });
 
@@ -93,7 +93,7 @@ describe(definePrettierConfig, () => {
       expect(addedLanguageNames.toSorted()).toStrictEqual(['Dockerfile', 'Shell']);
     });
 
-    it.each(UNCLAIMED_PATHS)('infers no parser for %s', async (file) => {
+    it.each(UNCLAIMED_PATHS)('does not infer a parser for %s', async (file) => {
       const info = await getFileInfo(file, { plugins: definePrettierConfig().plugins ?? [] });
 
       expect(info.inferredParser).toBeNull();
@@ -111,8 +111,8 @@ describe(definePrettierConfig, () => {
       expect(info.inferredParser).toBe('dockerfile');
     });
 
-    // Filtering `languages` while leaving `parsers` whole is what keeps this escape hatch open. `APKBUILD` infers
-    // nothing, so the explicit parser is the only thing routing it to the shell printer.
+    // Filtering `languages` while leaving `parsers` whole keeps this escape hatch open. Prettier infers nothing for
+    // `APKBUILD`, so the explicit parser is the only thing sending it to the shell printer.
     it.each(['APKBUILD', 'thing.ebuild'])('formats %s through an explicitly assigned parser', async (file) => {
       const config = definePrettierConfig();
       const output = await format('build() {\n\t\tmake\n}\n', { ...buildFormatOptions(config, file), parser: 'sh' });
@@ -129,7 +129,7 @@ describe(definePrettierConfig, () => {
   });
 
   // These resolve a real config file, the only way `overrides` apply: `format()` ignores them, so the cases built
-  // on `buildFormatOptions` cannot reach the Markdown carve-out at all.
+  // on `buildFormatOptions` cannot exercise the Markdown carve-out at all.
   describe('embedded code in Markdown', () => {
     it.each(['README', 'doc.markdown', 'doc.md', 'doc.mdx', 'docs/deep/nested/doc.md'])(
       'leaves a documented command with angle-bracket placeholders byte-identical in %s',
@@ -138,10 +138,10 @@ describe(definePrettierConfig, () => {
       },
     );
 
-    // A path left out of the carve-out is rewritten silently, so the claim is read back rather than trusted to stay
-    // what it was when the list was written. The count guards the read-back itself: a name that matches no language
-    // would leave nothing to check and nothing to fail.
-    it('covers every path Prettier routes to a Markdown printer', async () => {
+    // Because a path left out of the carve-out is rewritten silently, the test reads the claim back rather than
+    // trusting it to stay what it was when the list was written. The count guards the read-back itself: A name that
+    // does not match any language would leave nothing to check and nothing to fail.
+    it('covers every path that Prettier assigns to a Markdown printer', async () => {
       const { languages } = await getSupportInfo();
       const claimedPaths = languages.flatMap((language) =>
         MARKDOWN_LANGUAGES.has(language.name)
@@ -172,7 +172,7 @@ describe(definePrettierConfig, () => {
       expect(output).toBe('```ts\nconst x = { a: 1, b: 2 };\n```\n');
     });
 
-    it('leaves a shell script formatted, which the carve-out must not reach', async () => {
+    it('leaves a shell script formatted, which the carve-out must not affect', async () => {
       await expect(formatResolved('echo   a>out.txt\n', 'thing.sh')).resolves.toBe('echo a >out.txt\n');
     });
 
@@ -189,7 +189,7 @@ describe(definePrettierConfig, () => {
       expect(definePrettierConfig().singleQuote).toBe(true);
     });
 
-    it('carries the house options through untouched', () => {
+    it('passes the house options through untouched', () => {
       const config = definePrettierConfig();
 
       expect(config.checkIgnorePragma).toBe(true);

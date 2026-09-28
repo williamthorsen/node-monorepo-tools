@@ -27,7 +27,7 @@ describe(everyBinTargetIsACommittedWrapper, () => {
     await expect(everyBinTargetIsACommittedWrapper()).resolves.toBe(true);
   });
 
-  it('reports an untracked target that names no build directory', async () => {
+  it('reports an untracked target that does not name a build directory', async () => {
     useStagedMonorepo({
       '.gitignore': 'build/\n',
       'packages/tool/build/cli.js': WRAPPER,
@@ -75,7 +75,7 @@ describe(everyBinTargetIsACommittedWrapper, () => {
     expect(getDetail(await everyBinTargetIsACommittedWrapper())).toContain('-> dist/esm/cli.js');
   });
 
-  it("names the command after the package where bin is npm's string form", async () => {
+  it("names the command after the package whose bin is npm's string form", async () => {
     useMonorepo({ 'packages/tool/package.json': buildManifest({ bin: './dist/esm/cli.js' }) });
 
     expect(getDetail(await everyBinTargetIsACommittedWrapper())).toContain('@fixture/tool:tool ->');
@@ -91,18 +91,18 @@ describe(everyBinTargetIsACommittedWrapper, () => {
     expect(detail).toContain('@fixture/tool:tool-fmt ->');
   });
 
-  it('passes a committed wrapper outside a git repository, where no tracked listing can be read', async () => {
+  it('passes a committed wrapper outside a git repository, where the check cannot read a tracked listing', async () => {
     const dir = useMonorepo({
       'packages/tool/bin/tool.js': WRAPPER,
       'packages/tool/package.json': buildManifest({ bin: { tool: 'bin/tool.js' } }),
     });
-    // Stops git's upward search at the fixture, so a temp root that sits inside some repository cannot answer.
+    // Stop git's upward search at the fixture so that git does not find a repository that encloses the temp root.
     vi.stubEnv('GIT_CEILING_DIRECTORIES', path.dirname(dir));
 
     await expect(everyBinTargetIsACommittedWrapper()).resolves.toBe(true);
   });
 
-  it('passes a package declaring no bin', async () => {
+  it('passes a package that does not declare a bin', async () => {
     useMonorepo({ 'packages/tool/package.json': buildManifest({}) });
 
     await expect(everyBinTargetIsACommittedWrapper()).resolves.toBe(true);

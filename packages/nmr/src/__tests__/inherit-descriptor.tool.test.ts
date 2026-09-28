@@ -13,12 +13,15 @@ const CLI_PATH = path.join(MONOREPO_ROOT, 'packages', 'nmr', 'dist', 'esm', 'cli
 const BIN_DIR = path.join(MONOREPO_ROOT, 'node_modules', '.bin');
 
 /**
- * A leaf that reports whether the descriptor it inherited is a terminal. The marker is distinctive on both
+ * A leaf that reports whether the descriptor that it inherited is a terminal. The marker is distinctive on both
  * sides, because a `false` reading spelled `not-tty` would satisfy an assertion looking for `tty`.
  */
 const PROBE = String.raw`node -e "process.stdout.write('TTY:' + (process.stdout.isTTY === true) + '\n')"`;
 
-/** A package leaf that reports whether its stdin is a terminal, marked apart from `PROBE` so neither matches the other. */
+/**
+ * A package leaf that reports whether its stdin is a terminal, marked apart from `PROBE` so that neither matches
+ * the other.
+ */
 const STDIN_PROBE = String.raw`node -e "process.stdout.write('STDIN:' + (process.stdin.isTTY === true) + '\n')"`;
 
 // eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
@@ -42,7 +45,7 @@ const it = baseIt.extend(
 // `script(1)` is the only way for a test to run nmr on a pseudo-terminal. The Claude Code sandbox denies the `openpty`
 // call that `script` needs to allocate one; the suite cannot run there.
 describe.skipIf(process.env['SANDBOX_RUNTIME'] !== undefined)('descriptor inheritance', () => {
-  // The pair is what makes this a test of inheritance rather than of `script(1)`: the same composite reports a
+  // The pair makes this a test of inheritance rather than of `script(1)`: The same composite reports a
   // terminal only when nmr had one to pass on.
   it('passes its terminal to the leaf below a structural step', ({ tree }) => {
     // Output through a terminal ends lines in CRLF, and BSD `script` also prefixes `^D\b\b`; the marker is
@@ -52,14 +55,14 @@ describe.skipIf(process.env['SANDBOX_RUNTIME'] !== undefined)('descriptor inheri
     expect(stdout).toContain('TTY:true');
   });
 
-  it('reports no terminal when nmr was given none', ({ tree }) => {
+  it('does not report a terminal when nmr was not given one', ({ tree }) => {
     const { stdout } = run([process.execPath, CLI_PATH, 'probe'], tree.dir);
 
     expect(stdout).toContain('TTY:false');
   });
 
-  // The pair for the cases below: a terminal that reaches a package through pnpm is one a fan-out could withhold.
-  it('passes its terminal to the package a one-package filter selects', ({ tree }) => {
+  // The pair for the cases below: A terminal passed to a package through pnpm is one that a fan-out could withhold.
+  it('passes its terminal to the package selected by a one-package filter', ({ tree }) => {
     const { stdout } = run(wrapInTerminal([process.execPath, CLI_PATH, '-F', 'alpha', 'stdin-probe']), tree.dir);
 
     expect(stdout).toContain('STDIN:true');
@@ -68,7 +71,7 @@ describe.skipIf(process.env['SANDBOX_RUNTIME'] !== undefined)('descriptor inheri
   it.for([
     { args: ['-R', 'stdin-probe'], scenario: 'a recursive run' },
     { args: ['-F', './packages/*', 'stdin-probe'], scenario: 'a filter selecting several packages' },
-  ])('given $scenario, gives every package no terminal input', ({ args }, { tree }) => {
+  ])('given $scenario, does not pass its terminal to any package', ({ args }, { tree }) => {
     const { stdout } = run(wrapInTerminal([process.execPath, CLI_PATH, ...args]), tree.dir);
 
     expect(stdout.match(/STDIN:false/g)).toHaveLength(2);
@@ -82,11 +85,11 @@ describe.skipIf(process.env['SANDBOX_RUNTIME'] !== undefined)('descriptor inheri
   }
 
   /**
-   * Runs a command against the fixture repo. `.bin` joins PATH because a structural step spawns `nmr` by argv,
+   * Runs a command against the fixture repo. It adds `.bin` to PATH because a structural step spawns `nmr` by argv,
    * which a temporary working directory cannot resolve on its own, and nmr's own variables are dropped because
-   * an inherited verbosity would suppress the output these assertions read.
+   * an inherited verbosity would suppress the output that these assertions read.
    *
-   * stdin comes from `/dev/null` rather than the socket `spawnSync` supplies by default: BSD `script` copies
+   * stdin comes from `/dev/null` rather than the socket that `spawnSync` supplies by default: BSD `script` copies
    * its own terminal settings before allocating a pty, and `tcgetattr` on a socket fails outright.
    */
   function run(argv: readonly [string, ...string[]], cwd: string): { stdout: string } {

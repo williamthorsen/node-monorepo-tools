@@ -19,7 +19,7 @@ describe(noPnpmFieldInPackageJson, () => {
 
   // The fixture writes its keys out of order and the assertion names them sorted, which pins the sort that makes two
   // repos declaring the same keys render alike.
-  it('reports the root and workspace manifests together, each with the keys it holds', () => {
+  it('reports the root and workspace manifests together, each with the keys that it declares', () => {
     const dir = buildRepo({
       'package.json': '{ "pnpm": { "patchedDependencies": {}, "overrides": { "tar": ">=6.2.1" } } }\n',
       'packages/api/package.json': '{ "pnpm": { "overrides": { "semver": ">=7.5.2" } } }\n',
@@ -32,8 +32,8 @@ describe(noPnpmFieldInPackageJson, () => {
     expect(detail).toContain('packages/api/package.json (overrides)');
   });
 
-  // The field is the subject, so an empty one is still a declaration; there is simply no key to name.
-  it('reports a pnpm field holding no keys by path alone', () => {
+  // The field is the subject, so an empty one is still a declaration; it simply does not contain any key to name.
+  it('reports by path alone a pnpm field that does not contain any keys', () => {
     const dir = buildRepo({ 'package.json': '{ "pnpm": {} }\n' });
 
     expect(getDetail(noPnpmFieldInPackageJson(dir))).toContain('package.json');

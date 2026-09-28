@@ -5,15 +5,15 @@ import { buildManifest } from '../test-utils/buildManifest.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 import { useMonorepo } from '../test-utils/useMonorepo.ts';
 
-/** nmr's own wrapper shape: the build entry named as a bare dynamic import. */
+/** nmr's own wrapper shape: The build entry named as a bare dynamic import. */
 const IMPORT_WRAPPER = "await import('../dist/esm/cli.js');\n";
 
-/** The other wrapper shape: the build entry named through a URL that the wrapper then imports. */
+/** The other wrapper shape: The build entry named through a URL that the wrapper then imports. */
 const URL_WRAPPER =
   "const entryPoint = new URL('../dist/esm/cli.js', import.meta.url);\nawait import(entryPoint.href);\n";
 
 describe(everyBinWrapperTargetIsCoveredByFiles, () => {
-  it('passes when files names the directory the wrapper loads from', () => {
+  it('passes when files names the directory from which the wrapper loads', () => {
     useMonorepo({
       'packages/tool/bin/tool.js': IMPORT_WRAPPER,
       'packages/tool/package.json': buildManifest({ bin: { tool: 'bin/tool.js' }, files: ['bin', 'dist'] }),
@@ -32,7 +32,7 @@ describe(everyBinWrapperTargetIsCoveredByFiles, () => {
     expect(detail).toContain('@fixture/tool:tool -> bin/tool.js -> dist/esm/cli.js');
   });
 
-  it('reads the build entry a wrapper names through new URL', () => {
+  it('reads the build entry that a wrapper names through new URL', () => {
     useMonorepo({
       'packages/tool/bin/tool.js': URL_WRAPPER,
       'packages/tool/package.json': buildManifest({ bin: { tool: 'bin/tool.js' }, files: ['bin'] }),
@@ -41,7 +41,7 @@ describe(everyBinWrapperTargetIsCoveredByFiles, () => {
     expect(getDetail(everyBinWrapperTargetIsCoveredByFiles())).toContain('-> dist/esm/cli.js');
   });
 
-  it('skips a package declaring no files, which publishes its whole tree', () => {
+  it('skips a package that does not declare files, which publishes its whole tree', () => {
     useMonorepo({
       'packages/tool/bin/tool.js': IMPORT_WRAPPER,
       'packages/tool/package.json': buildManifest({ bin: { tool: 'bin/tool.js' } }),
@@ -50,7 +50,7 @@ describe(everyBinWrapperTargetIsCoveredByFiles, () => {
     expect(everyBinWrapperTargetIsCoveredByFiles()).toBe(true);
   });
 
-  it('skips a wrapper naming no relative specifier', () => {
+  it('skips a wrapper that does not name a relative specifier', () => {
     useMonorepo({
       'packages/tool/bin/tool.js': "import { run } from 'some-package';\nrun();\n",
       'packages/tool/package.json': buildManifest({ bin: { tool: 'bin/tool.js' }, files: ['bin'] }),
@@ -59,9 +59,9 @@ describe(everyBinWrapperTargetIsCoveredByFiles, () => {
     expect(everyBinWrapperTargetIsCoveredByFiles()).toBe(true);
   });
 
-  it('skips a bin target that is no wrapper, which the committed-wrapper check owns', () => {
+  it('skips a bin target that is not a wrapper, which the committed-wrapper check owns', () => {
     useMonorepo({
-      // Build output the target names, whose own first relative import would otherwise read as a wrapper's.
+      // Build output named by the target, whose own first relative import would otherwise read as a wrapper's.
       'packages/tool/dist/esm/cli.js': "import { runCli } from './runCli.js';\nrunCli();\n",
       'packages/tool/package.json': buildManifest({ bin: { tool: 'dist/esm/cli.js' }, files: ['bin'] }),
     });
@@ -69,7 +69,7 @@ describe(everyBinWrapperTargetIsCoveredByFiles, () => {
     expect(everyBinWrapperTargetIsCoveredByFiles()).toBe(true);
   });
 
-  it('skips a bin target with no readable file', () => {
+  it('skips a bin target without a readable file', () => {
     useMonorepo({
       'packages/tool/package.json': buildManifest({ bin: { tool: 'bin/tool.js' }, files: ['bin'] }),
     });

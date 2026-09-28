@@ -45,7 +45,7 @@ describe(noUnguardedLefthookInstall, () => {
     expect(noUnguardedLefthookInstall(dir)).toBe(true);
   });
 
-  it('passes a manifest that declares no scripts', () => {
+  it('passes a manifest that does not declare any scripts', () => {
     const dir = buildRepo({ 'package.json': '{ "name": "root" }\n' });
 
     expect(noUnguardedLefthookInstall(dir)).toBe(true);

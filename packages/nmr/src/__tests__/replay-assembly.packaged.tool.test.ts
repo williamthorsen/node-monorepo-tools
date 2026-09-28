@@ -11,14 +11,14 @@ import { runCli } from '../runCli.ts';
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
 // A composite admits only what its own run certified, so an assembly here is also the proof that the witness
-// reached a real child through the environment of a real spawn. Those children run the built `nmr` on `PATH`
-// rather than this source, which is what the `packaged` segment of the filename records: a stale `dist` fails
+// was passed to a real child through the environment of a real spawn. Those children run the built `nmr` on
+// `PATH` rather than this source, which the `packaged` segment of the filename records: A stale `dist` fails
 // this file and nothing else.
 describe('a composite’s assembled replay', () => {
   let repo: string;
   let scope: string;
 
-  // A fixture per test, so each one decides for itself which of the fixture's commands are already warm.
+  // A fixture per test, so that each one decides for itself which of the fixture's commands are already warm.
   beforeEach(() => {
     const tree = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-assembly-e2e-' }));
     repo = tree.dir;
@@ -87,7 +87,7 @@ describe('a composite’s assembled replay', () => {
     expect(stdout).not.toContain('lint summary');
   });
 
-  it('carries one identity to every scope, so the constituents’ entries name the run above them', async () => {
+  it('passes one identity to every scope, so the constituents’ entries name the run above them', async () => {
     await runNmr(['-q', 'check']);
 
     const [composite, constituent] = await Promise.all([readEntry('check'), readEntry('typecheck')]);
@@ -98,7 +98,7 @@ describe('a composite’s assembled replay', () => {
 
   // region | Helpers
 
-  /** Reads the entry the fixture's runs record for one command at the repository root. */
+  /** Reads the entry that the fixture's runs record for one command at the repository root. */
   async function readEntry(command: string) {
     return readCheckCacheEntry({ anchorDir: repo, command, monorepoRoot: repo });
   }
@@ -127,11 +127,11 @@ function runGit(cwd: string, args: string[]): void {
 }
 
 /**
- * Writes a committed pnpm workspace inside a git repository: the pnpm files the install fingerprint reads, and
- * a cacheable composite whose two cacheable constituents each print one line.
+ * Writes a committed pnpm workspace inside a git repository: the pnpm files that the install fingerprint reads,
+ * and a cacheable composite whose two cacheable constituents each print one line.
  *
- * `node_modules` is ignored because the entries the run records land there: untracked, they would move the
- * very tree hash the run is being recorded against.
+ * `node_modules` is ignored because the run records its entries there: Untracked, they would move the very tree
+ * hash against which the run is being recorded.
  */
 function scaffoldRepo(tree: TempTree): void {
   const config = {

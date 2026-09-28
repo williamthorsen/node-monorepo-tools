@@ -16,7 +16,7 @@ import { findKitCheck } from '../test-utils/findKitCheck.ts';
 import { buildMonorepo, buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 
-// Keeps the sweep from spawning git, which would lift this file out of the unit tier.
+// Keep the sweep from spawning git, which would lift this file out of the unit tier.
 vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: () => [] }));
 
 const SHARED_CONFIG =
@@ -31,13 +31,13 @@ const TEST_FILE_SWEEP_NAMES = [
 ];
 
 describe(noRetiredVitestConfigs, () => {
-  it('passes when no retired variant survives', () => {
+  it('passes when the repo does not contain any retired variant', () => {
     const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
 
     expect(noRetiredVitestConfigs(dir)).toBe(true);
   });
 
-  it('reports both retired variants wherever they sit', () => {
+  it('reports both retired variants wherever they are', () => {
     const dir = buildRepo({
       'packages/api/vitest.integration.config.ts': 'export default {};\n',
       'vitest.standalone.config.ts': 'export default {};\n',
@@ -127,8 +127,8 @@ describe(vitestConfigBuildsOnSharedConfig, () => {
     expect(vitestConfigBuildsOnSharedConfig()).toBe(true);
   });
 
-  // The delete check owns this one, and its fix is correct here: nothing in the directory would take over
-  // resolution. Reporting it twice would hand the reader two fixes that contradict each other.
+  // The delete check owns this one, and its fix is correct here: Nothing in the directory would take over
+  // resolution. Reporting it twice would give the reader two fixes that contradict each other.
   it('leaves a re-export-only workspace config to the delete check', () => {
     useMonorepo({
       'packages/api/package.json': '{ "name": "api" }\n',
@@ -139,7 +139,7 @@ describe(vitestConfigBuildsOnSharedConfig, () => {
     expect(vitestConfigBuildsOnSharedConfig()).toBe(true);
   });
 
-  it('reports a re-export-only workspace config sitting beside a Vite config', () => {
+  it('reports a re-export-only workspace config next to a Vite config', () => {
     useMonorepo({
       'packages/api/package.json': '{ "name": "api" }\n',
       'packages/api/vite.config.ts': 'export default {};\n',
@@ -150,7 +150,7 @@ describe(vitestConfigBuildsOnSharedConfig, () => {
     expect(getDetail(vitestConfigBuildsOnSharedConfig())).toContain('packages/api/vitest.config.ts');
   });
 
-  it('ignores a config below a workspace root, which no run resolves', () => {
+  it('ignores a config below a workspace root, which Vitest does not resolve in any run', () => {
     useMonorepo({
       'packages/api/package.json': '{ "name": "api" }\n',
       'packages/api/src/vitest.config.ts':
@@ -163,7 +163,7 @@ describe(vitestConfigBuildsOnSharedConfig, () => {
 });
 
 describe(everyViteConfigHasVitestConfig, () => {
-  it('passes when no workspace carries a Vite config', () => {
+  it('passes when the workspaces do not contain any Vite config', () => {
     useMonorepo({ 'packages/api/package.json': '{ "name": "api" }\n', 'vitest.config.ts': SHARED_CONFIG });
 
     expect(everyViteConfigHasVitestConfig()).toBe(true);
@@ -179,7 +179,7 @@ describe(everyViteConfigHasVitestConfig, () => {
     expect(getDetail(everyViteConfigHasVitestConfig())).toContain('packages/api/vite.config.ts');
   });
 
-  it('passes when a Vitest config sits beside the Vite config', () => {
+  it('passes when a Vitest config is next to the Vite config', () => {
     useMonorepo({
       'packages/api/package.json': '{ "name": "api" }\n',
       'packages/api/vite.config.ts': 'export default {};\n',
@@ -296,13 +296,13 @@ describe(everyTestFileNamesItsTier, () => {
     expect(getDetail(everyTestFileNamesItsTier(dir))).toContain('.readyup/kits/__tests__/kit.test.ts');
   });
 
-  it('passes a file carrying an aspect segment ahead of its tier', () => {
+  it('passes a file with an aspect segment ahead of its tier', () => {
     const dir = buildRepo({ 'packages/api/src/__tests__/scaffold.packaged.unit.test.ts': '' });
 
     expect(everyTestFileNamesItsTier(dir)).toBe(true);
   });
 
-  it('reports a retired infix once, as the untiered file it is', () => {
+  it('reports a retired infix once, as the untiered file that it is', () => {
     const dir = buildRepo({ 'packages/api/src/__tests__/api.int.test.ts': '' });
 
     const detail = getDetail(everyTestFileNamesItsTier(dir));
@@ -324,7 +324,7 @@ describe(everyTestFileNamesItsTier, () => {
 });
 
 describe(everyTestFileSitsUnderTestsDir, () => {
-  it('passes when every test file sits under a __tests__ directory', () => {
+  it('passes when every test file is under a __tests__ directory', () => {
     const dir = buildRepo({
       '.readyup/kits/__tests__/kit.unit.test.ts': '',
       'packages/api/src/__tests__/api.unit.test.ts': '',
@@ -385,7 +385,7 @@ describe(testSuiteGatesTestFileConventions, () => {
     expect(testSuiteGatesTestFileConventions(dir)).toBe(true);
   });
 
-  it('reports a suite that declares no guard', () => {
+  it('reports a suite that does not declare a guard', () => {
     const dir = buildRepo({ 'packages/api/src/__tests__/api.unit.test.ts': '' });
 
     expect(getDetail(testSuiteGatesTestFileConventions(dir))).toBe(
@@ -393,7 +393,7 @@ describe(testSuiteGatesTestFileConventions, () => {
     );
   });
 
-  it('does not count a guard outside __tests__, which no project collects', () => {
+  it('does not count a guard outside __tests__, which Vitest does not collect in any project', () => {
     const dir = buildRepo({ 'test/test-file-conventions.unit.test.ts': CONVENTIONS_GUARD });
 
     expect(getDetail(testSuiteGatesTestFileConventions(dir))).toContain('no test file under __tests__');
@@ -426,7 +426,7 @@ describe('test-file sweeps', () => {
     );
   });
 
-  it.each(TEST_FILE_SWEEP_NAMES)('runs "%s" when the suite declares no guard', (checkName) => {
+  it.each(TEST_FILE_SWEEP_NAMES)('runs "%s" when the suite does not declare a guard', (checkName) => {
     usePlainRepo({ '__tests__/example.unit.test.ts': '' });
 
     expect(findKitCheck(checkName).skip?.()).toBe(false);
@@ -434,7 +434,7 @@ describe('test-file sweeps', () => {
 });
 
 describe(noReExportOnlyVitestConfigs, () => {
-  it('passes when no package carries a Vitest config', () => {
+  it('passes when the packages do not contain any Vitest config', () => {
     const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
 
     expect(noReExportOnlyVitestConfigs(dir)).toBe(true);
@@ -470,7 +470,7 @@ describe(noReExportOnlyVitestConfigs, () => {
     expect(noReExportOnlyVitestConfigs(dir)).toBe(true);
   });
 
-  // Deleting this one would hand resolution to the Vite config beside it, which is the failure the pairing
+  // Deleting this one would hand resolution to the Vite config beside it, which is the failure that the pairing
   // check exists to prevent. The content check reports it instead, telling it to call the factory.
   it('leaves a re-export beside a Vite config alone, which resolution then depends on', () => {
     const dir = buildRepo({
