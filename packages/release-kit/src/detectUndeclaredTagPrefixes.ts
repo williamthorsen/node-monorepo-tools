@@ -79,8 +79,7 @@ export function detectUndeclaredTagPrefixes(knownPrefixes: readonly string[]): U
     });
   }
 
-  // eslint-disable-next-line unicorn/no-array-sort -- `results` is a local array that this function builds
-  return results.sort((a, b) => a.prefix.localeCompare(b.prefix));
+  return results.toSorted((a, b) => a.prefix.localeCompare(b.prefix));
 }
 
 /** Strips the trailing `-v` from a candidate prefix to suggest the workspace `dir`. */

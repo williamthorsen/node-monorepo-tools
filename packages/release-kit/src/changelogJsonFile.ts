@@ -33,8 +33,7 @@ export function mergeChangelogEntriesWithDisk(filePath: string, entries: Changel
 
 /** Sorts changelog entries newest-first by SemVer-aware version comparison. */
 function sortNewestFirst(entries: Iterable<ChangelogEntry>): ChangelogEntry[] {
-  // eslint-disable-next-line unicorn/no-array-sort -- the spread already creates a fresh copy
-  return [...entries].sort((a, b) => compareVersionsDescending(a.version, b.version));
+  return [...entries].toSorted((a, b) => compareVersionsDescending(a.version, b.version));
 }
 
 /**

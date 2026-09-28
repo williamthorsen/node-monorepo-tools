@@ -93,8 +93,7 @@ export function hashWorkingTree(cwd: string): WorkingTreeHashResult {
   hash.update('\0');
 
   // Sorted so the fold is order-invariant: git's status order is not part of what the hash describes.
-  // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy
-  for (const relativePath of [...pathsResult.paths].sort()) {
+  for (const relativePath of [...pathsResult.paths].toSorted()) {
     const content = digestPathContent(toplevel, relativePath);
     if (!content.ok) {
       return content;

@@ -100,8 +100,7 @@ export function buildUpdatedConfig(
   scope: AuditScope,
   newAllowlist: AllowlistEntry[],
 ): V11yCheckConfig {
-  // eslint-disable-next-line unicorn/no-array-sort -- sorts a fresh copy, so the input is not mutated.
-  const sorted = [...newAllowlist].sort((a, b) => a.id.localeCompare(b.id));
+  const sorted = newAllowlist.toSorted((a, b) => a.id.localeCompare(b.id));
   return {
     ...config,
     [scope]: {
