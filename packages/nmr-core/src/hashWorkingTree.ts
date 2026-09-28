@@ -138,7 +138,7 @@ type PathContentResult = { ok: true; kind: PathKind; digest: string } | { ok: fa
  * that this parser cannot read may name a path whose content would then go unhashed, which is the one failure that
  * a content hash may never have.
  *
- * Record shapes, each a NUL-terminated field: an ordinary change (`1`) and an unmerged path (`u`) have their
+ * Record shapes, each a NUL-terminated field: An ordinary change (`1`) and an unmerged path (`u`) have their
  * path last, after a fixed count of space-separated fields; a rename or copy (`2`) has its new path last and
  * its original path in the field that follows; an untracked path (`?`) has its path alone.
  */

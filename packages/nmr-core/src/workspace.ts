@@ -24,7 +24,7 @@ export type EmptyWorkspaceCause =
   'all-excluded' | 'no-package' | 'no-packages-list' | 'no-pattern' | 'unreadable-manifest' | 'unreadable-packages';
 
 /**
- * What resolving a directory's workspace patterns produced: the directory does not declare a workspace, it
+ * What resolving a directory's workspace patterns produced: The directory does not declare a workspace, it
  * resolves to a set of package directories, or it resolves to none and the cause says which condition emptied it.
  *
  * The last two include the declared patterns because a message composed from one quotes them back to the reader.
@@ -150,7 +150,7 @@ function diagnoseEmptyCause(monorepoRoot: string, patterns: readonly string[]): 
 }
 
 /**
- * What reading a parsed manifest's `packages` key produced: it does not declare a list, it declares one that the
+ * What reading a parsed manifest's `packages` key produced: It does not declare a list, it declares one that the
  * reader could not turn into patterns, or it declares patterns. An empty list counts as none, because pnpm
  * resolves an empty list, like an absent one, to the root package alone.
  */
@@ -189,7 +189,7 @@ function readStringValues(record: Record<string, unknown>): Record<string, strin
 }
 
 /**
- * What reading the monorepo root's workspace manifest produced: the directory does not contain one, the reader
+ * What reading the monorepo root's workspace manifest produced: The directory does not contain one, the reader
  * could not read or parse the one that it contains, or it parsed to a value. An absent manifest means that a
  * directory is not a workspace at all; an unreadable one belongs to a workspace whose declarations the reader
  * cannot see.
