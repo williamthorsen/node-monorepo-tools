@@ -13,8 +13,8 @@ import { getWorkspacePackageDirs } from './workspace.ts';
 export type { TierName } from './tiers.ts';
 
 /**
- * Test options Vitest honours only at the root of a `projects` config. Derived from Vitest's own types, so an option
- * that changes scope in a later release changes scope here too.
+ * Test options that Vitest honours only at the root of a `projects` config. Derived from Vitest's own types, so an
+ * option that changes scope in a later release changes scope here too.
  */
 export type RootTestOptions = Omit<InlineConfig, keyof ProjectConfig>;
 
@@ -26,7 +26,7 @@ export interface VitestConfigOptions {
    * Merged into the root config, which every project inherits because each declares `extends: true`.
    *
    * `resolve` is per-environment. Vitest resolves a test's own imports through the server environment, so a
-   * condition meant for them goes under `ssr`; a top-level `resolve.conditions` entry reaches the client
+   * condition meant for them goes under `ssr`; a top-level `resolve.conditions` entry applies to the client
    * environment, which only browser-mode tests resolve through.
    */
   root?: RootOverrides;
@@ -42,45 +42,46 @@ export interface VitestConfigOptions {
   tiers?: Partial<Record<TierName, ProjectConfig>>;
 
   /**
-   * Directory basenames kept out of every project's collection, additive to the ones the shared config always
-   * prunes and to the paths git ignores. Each name is matched at any depth, and every layer's entries are
+   * Directory basenames kept out of every project's collection, additive to the ones that the shared config always
+   * prunes and to the paths that git ignores. Each name is matched at any depth, and every layer's entries are
    * concatenated rather than the last winning, matching the config's rule for arrays.
    *
    * The same array declares the scope of nmr's exported test-file conventions check, so the sweep and the
    * collection glob cannot drift. Excluding a directory from the sweep alone leaves a test file that runs and
-   * reports nothing; excluding it from collection alone leaves a report a consumer cannot act on. A repo wanting
+   * reports nothing; excluding it from collection alone leaves a report that a consumer cannot act on. A repo wanting
    * a glob rather than a directory name has the `project` seam's own `exclude`.
    */
   testCollectionExclude?: readonly string[];
 
   /**
-   * Loads nmr's git-isolation setup file into every project, ahead of any the layers supply. Defaults to `true`.
-   * Turn it off only where a suite is meant to read the developer's own git configuration.
+   * Loads nmr's git-isolation setup file into every project, ahead of any that the layers supply. Defaults to `true`.
+   * Turn it off only when a suite is meant to read the developer's own git configuration.
    */
   shouldIsolateGit?: boolean;
 
   /**
-   * Resolves a package whose files sit outside every `node_modules` through its `source` export condition, so a
-   * suite runs without a prior build. Defaults to `true`. A package declaring no such condition is unaffected,
-   * and so is every package under `node_modules`, which Node resolves and which the condition never reaches.
+   * Resolves a package whose files are outside every `node_modules` through its `source` export condition, so a
+   * suite runs without a prior build. Defaults to `true`. A package that does not declare a `source` condition is
+   * unaffected, and so is every package under `node_modules`, which Node resolves and to which the condition never
+   * applies.
    */
   shouldResolveFromSource?: boolean;
 
   /**
-   * Resolves a specifier through the `paths` a `tsconfig.json` declares, so a test reaches an alias the way `tsc`
-   * does. Defaults to `false`, matching Vite, and requires Vite 8.
+   * Resolves a test's aliased specifier through the `paths` that a `tsconfig.json` declares, the way `tsc` does.
+   * Defaults to `false`, matching Vite, and requires Vite 8.
    *
    * Without it, an alias fails loudly as an unresolved import. With it, a repo that declares `paths` for `tsc` alone
-   * changes which module a specifier reaches, and nothing in the run reports the change. A repo declaring no `paths`
-   * is unaffected either way.
+   * changes which module a specifier reaches, and nothing in the run reports the change. A repo that does not declare
+   * `paths` is unaffected either way.
    */
   tsconfigPaths?: boolean;
 }
 
 export interface RootVitestConfigOptions extends VitestConfigOptions {
   /**
-   * An absolute path to the monorepo root, which must hold `pnpm-workspace.yaml`. A root config sits at that
-   * directory by construction, so this is `import.meta.dirname`. Stated rather than searched for: resolving it
+   * An absolute path to the monorepo root, which must contain `pnpm-workspace.yaml`. A root config is in that
+   * directory by construction, so this is `import.meta.dirname`. Stated rather than searched for: Resolving it
    * from the working directory would make the config describe whichever monorepo the run happened to start in.
    */
   monorepoRoot: string;
@@ -89,8 +90,8 @@ export interface RootVitestConfigOptions extends VitestConfigOptions {
 /** Any number of shared layers, then the config file's own, which states the monorepo root. */
 type RootConfigLayers = [...(VitestConfigOptions | undefined)[], RootVitestConfigOptions];
 
-// The head of the ladder is the residual: it collects every test file that the named tiers do not claim, so a file
-// whose infix matches no tier still runs.
+// The head of the ladder is the residual: It collects every test file that the named tiers do not claim, including
+// a file whose infix does not match any tier.
 const [RESIDUAL_TIER, ...NAMED_TIERS] = TIER_NAMES;
 
 const TIERED_PATTERNS = NAMED_TIERS.flatMap(buildTierPatterns);
@@ -103,36 +104,36 @@ const TIERED_PATTERNS = NAMED_TIERS.flatMap(buildTierPatterns);
  * One value covers both budgets. A tier that scaffolds in `beforeAll` for speed moves that wait out from under
  * `testTimeout` entirely, so raising the test budget alone leaves the slowest operation on the unit-test default.
  *
- * A per-project value rather than a root one, so the fast tier keeps the tight budget that makes a hung unit test
- * fail quickly. The `project` seam merges over this and reaches every project at once; the `tiers` seam targets one.
+ * A per-project value rather than a root one, so that the fast tier keeps the tight budget that makes a hung unit test
+ * fail quickly. The `project` seam merges over this and applies to every project at once; the `tiers` seam targets one.
  */
 const TIER_TIMEOUT_MS = 30_000;
 
 /**
- * nmr's git-isolation setup file, resolved beside this module and carrying this module's own extension, so a
- * consumer reaching the compiled `.js` twin and nmr's own tests importing this file as `.ts` both land on a file
- * that exists.
+ * nmr's git-isolation setup file, resolved beside this module and with this module's own extension, so that a
+ * consumer importing the compiled `.js` twin and nmr's own tests importing this file as `.ts` both resolve to a
+ * file that exists.
  */
 const GIT_ISOLATION_SETUP_FILE = resolveGitIsolationSetupFile();
 
-// Vite's own defaults for each environment. Vite lets a supplied `conditions` array replace its defaults rather
-// than extend them, so emitting them here is what keeps `module` reachable once a layer adds a condition of its
-// own: a dependency exposing a `module` entry otherwise falls through to whatever its `exports` lists next.
+// Vite's own defaults for each environment. Because Vite lets a supplied `conditions` array replace its defaults
+// rather than extend them, emitting them here keeps `module` reachable once a layer adds a condition of its own: A
+// dependency exposing a `module` entry otherwise falls through to whatever its `exports` lists next.
 //
 // A replaced list still resolves `node` and `development` under Vitest, so only a dependency exposing a `module`
-// entry distinguishes a complete list from a narrowed one, and no fixture here has one. `vitest.unit.test.ts`
-// pins both against `vite`'s own exports, which is what holds them complete. Hardcoded rather than read from
-// `vite`, which nmr would otherwise have to declare as a peer dependency for every consumer to satisfy.
+// entry distinguishes a complete list from a narrowed one, and the fixtures here do not include one.
+// `vitest.unit.test.ts` pins both against `vite`'s own exports, which keeps them complete. Hardcoded rather than read
+// from `vite`, which nmr would otherwise have to declare as a peer dependency for every consumer to satisfy.
 //
 // The lists omit the `source` condition, which `createSourceResolutionPlugin` resolves; its description says why.
 const CLIENT_CONDITIONS = ['module', 'browser', 'development|production'];
 const SERVER_CONDITIONS = ['module', 'node', 'development|production'];
 
-// Fixtures are excluded from coverage but never from collection: a coverage exclude cannot hide a real test, while a
-// collection exclude could swallow one legitimately placed under `fixtures/`. `__snapshots__` needs no entry because
-// `.snap` files never match the include.
+// Fixtures are excluded from coverage but never from collection: A coverage exclude cannot hide a real test, while a
+// collection exclude could hide one legitimately placed under `fixtures/`. `__snapshots__` does not need an entry
+// because `.snap` files never match the include.
 //
-// Each entry names what cannot hold runtime code by construction: a directory, a barrel, a declaration file.
+// Each entry names what cannot contain runtime code by construction: a directory, a barrel, a declaration file.
 const COVERAGE_EXCLUDE = ['**/__{fixtures,mocks,tests}__/**', '**/index.ts', '**/*.d.ts'];
 
 const PACKAGE_COVERAGE_INCLUDE = ['**/src/**/*.{ts,tsx}'];
@@ -141,8 +142,8 @@ const PACKAGE_COVERAGE_INCLUDE = ['**/src/**/*.{ts,tsx}'];
 const GLOB_SYNTAX_PATTERN = /[!()*+?@[\]{}]/g;
 
 /**
- * Every option key the factories honour, held as a record so an option added to `VitestConfigOptions` without an
- * entry here fails to compile rather than being rejected at run time as unrecognized.
+ * Every option key that the factories honour, stored as a record so that an option added to `VitestConfigOptions`
+ * without an entry here fails to compile rather than being rejected at run time as unrecognized.
  */
 const RECOGNIZED_OPTIONS: Record<keyof VitestConfigOptions, true> = {
   project: true,
@@ -170,17 +171,17 @@ const RETIRED_OPTION_KEYS: ReadonlyMap<string, string> = new Map([
 ]);
 
 const MISSING_MONOREPO_ROOT =
-  'defineRootVitestConfig requires `monorepoRoot`, an absolute path to the directory holding pnpm-workspace.yaml. Pass `import.meta.dirname` in the last options layer, from the root config.';
+  'defineRootVitestConfig requires `monorepoRoot`, an absolute path to the directory that contains pnpm-workspace.yaml. Pass `import.meta.dirname` in the last options layer, from the root config.';
 
 /**
  * Builds the shared Vitest config for a workspace package, declaring the `unit`, `tool`, `localhost`, and `remote`
  * projects. Select them at run time with `--project`, which unions when repeated and accepts negation.
  *
  * Layers fold left to right, later winning and arrays composing, so a config file shares settings by passing a
- * layer ahead of its own. Merging two of this function's *outputs* is not the way: both declare the same four
+ * layer ahead of its own. Merging two of this function's *outputs* is not the way: Both declare the same four
  * project names, which Vitest rejects at startup.
  *
- * An `undefined` layer is skipped, so `defineVitestConfig(shared, isCI ? ciLayer : undefined)` composes.
+ * An `undefined` layer is skipped, which lets `defineVitestConfig(shared, isCI ? ciLayer : undefined)` compose.
  */
 export function defineVitestConfig(...layers: (VitestConfigOptions | undefined)[]): ViteUserConfig {
   assertOptionKeys(layers, RECOGNIZED_OPTION_KEYS);
@@ -192,15 +193,15 @@ export function defineVitestConfig(...layers: (VitestConfigOptions | undefined)[
 
 /**
  * Builds the shared Vitest config for repo-root tests. Excludes every workspace package from all projects, and
- * reports no coverage of its own — packages cover their own sources.
+ * does not report any coverage of its own; packages cover their own sources.
  *
- * `monorepoRoot` rides on the last layer, which is the config file's own: a shared layer describes settings, not
+ * `monorepoRoot` is set on the last layer, which is the config file's own: A shared layer describes settings, not
  * which repo they belong to, and only the root config's `import.meta.dirname` states this one. The guard below
- * still catches the JavaScript config that types never reach.
+ * still catches the JavaScript config that type checking never covers.
  */
 export function defineRootVitestConfig(...layers: RootConfigLayers): ViteUserConfig {
-  // Reading through `unknown` is what keeps the check live: the declared type alone would make it statically
-  // dead. A relative path would resolve against the working directory, which this option exists to avoid.
+  // Reading through `unknown` keeps the check live: The declared type alone would make it statically dead. A relative
+  // path would resolve against the working directory, which this option exists to avoid.
   const lastLayer: unknown = layers.at(-1);
   const monorepoRoot: unknown = isObject(lastLayer) ? lastLayer['monorepoRoot'] : undefined;
 
@@ -236,8 +237,8 @@ function buildConfig(
 
   assertKnownTiers(layers);
 
-  // `tsconfigPaths` shares the block, which a second spread would replace rather than merge into, and needs no
-  // `ssr` twin the way the conditions do: Vite holds it outside its per-environment resolve options and spreads
+  // `tsconfigPaths` shares the block, which a second spread would replace rather than merge into, and does not need
+  // an `ssr` twin the way the conditions do: Vite keeps it outside its per-environment resolve options and spreads
   // the top-level block into every environment's defaults.
   const resolve = {
     conditions: CLIENT_CONDITIONS,
@@ -255,7 +256,7 @@ function buildConfig(
         include: coverageInclude,
         provider: 'v8',
       },
-      passWithNoTests: true, // `nmr test:tool` fans out over packages holding no tool-tier tests
+      passWithNoTests: true, // `nmr test:tool` fans out over packages without any tool-tier tests
       projects: buildProjects(layers, projectExclude, projectRoot, ignoredPathsRoot),
       silent: 'passed-only', // see logs from failing tests only
       watch: false, // don't enter watch mode unless the `--watch` flag is passed
@@ -275,7 +276,7 @@ interface ProjectTier {
   exclude: string[];
   include: string[];
   name: TierName;
-  /** Budget for `hookTimeout` and `testTimeout` alike, held as one field so the two cannot drift apart. */
+  /** Budget for `hookTimeout` and `testTimeout` alike, stored as one field so that the two cannot drift apart. */
   timeoutMs?: number;
 }
 
@@ -301,8 +302,8 @@ function buildProjects(
 
   return projectTiers.map(({ exclude, include, name, timeoutMs }) => {
     const project: TestProjectInlineConfiguration = {
-      // Without this, Vitest gives the project no Vite config file at all, so root-level options such as
-      // `resolve.conditions` never reach it.
+      // Without this, Vitest does not give the project any Vite config file at all, so root-level options such as
+      // `resolve.conditions` never apply to it.
       extends: true,
       // Patterns resolve against the project root, which otherwise defaults to the working directory.
       ...(projectRoot !== undefined && { root: projectRoot }),
@@ -327,9 +328,9 @@ function buildProjects(
 /**
  * Applies one layer to one project: its uniform `project` block, then whatever it targets at this tier.
  *
- * Layers apply in sequence rather than being merged with each other first, which is what keeps each layer's array
- * entries contiguous. A shared `setupFiles` entry therefore precedes every entry a later layer adds — load-bearing
- * where the shared entry establishes the environment the later ones run in.
+ * Layers apply in sequence rather than being merged with each other first, which keeps each layer's array entries
+ * contiguous. A shared `setupFiles` entry therefore precedes every entry that a later layer adds, which matters when
+ * the shared entry establishes the environment in which the later ones run.
  */
 function applyLayer(
   project: TestProjectInlineConfiguration,
@@ -343,8 +344,8 @@ function applyLayer(
 }
 
 /**
- * Rejects a `tiers` key naming no tier. Ignoring it would leave the suite green on whichever budget the key failed
- * to change, which a consumer cannot self-diagnose.
+ * Rejects a `tiers` key that does not name a tier. Ignoring it would leave the suite green on whichever budget the
+ * key failed to change, which a consumer cannot self-diagnose.
  */
 function assertKnownTiers(layers: readonly VitestConfigOptions[]): void {
   const knownTiers: readonly string[] = TIER_NAMES;
@@ -361,7 +362,7 @@ function assertKnownTiers(layers: readonly VitestConfigOptions[]): void {
 
 /**
  * Rejects an option key that a release renamed, naming its replacement. Runs ahead of the recognized-key check, so
- * an old spelling is answered with its new one rather than with the whole recognized set.
+ * that the error for an old spelling names the new one rather than the whole recognized set.
  */
 function assertNoRetiredOptions(layer: VitestConfigOptions): void {
   for (const key of Object.keys(layer)) {
@@ -377,7 +378,7 @@ function assertNoRetiredOptions(layer: VitestConfigOptions): void {
  * folds below read each layer by key, so an unrecognized key makes a setting that nothing applies.
  *
  * Only the last layer may state `monorepoRoot`, which `defineRootVitestConfig` reads from that layer alone;
- * recognizing it on every layer would accept it where nothing reads it, which is the failure this guard prevents.
+ * recognizing it on every layer would accept it where nothing reads it, which is the failure that this guard prevents.
  */
 function assertOptionKeys(
   layers: readonly (VitestConfigOptions | undefined)[],
@@ -402,13 +403,13 @@ function assertOptionKeys(
 }
 
 /**
- * Builds the collection exclusions every project carries: Vitest's own defaults, the directories the shared config
- * always prunes, and whatever the layers add, each directory name as a glob matching at any depth. Then the paths
- * git ignores under `ignoredPathsRoot`, each anchored to it, since git reports every depth itself; the test-file
- * sweeps skip the same paths.
+ * Builds the collection exclusions that every project applies: Vitest's own defaults, the directories that the shared
+ * config always prunes, and whatever the layers add, each directory name as a glob matching at any depth. Then the
+ * paths that git ignores under `ignoredPathsRoot`, each anchored to it, since git reports every depth itself; the
+ * test-file sweeps skip the same paths.
  *
- * Unioned with Vitest's defaults so that a later release's addition still reaches every project. `dist/` is excluded
- * from collection but not from coverage: a stale test copy under it passes green, which a consumer cannot
+ * Unioned with Vitest's defaults so that a later release's addition still applies to every project. `dist/` is
+ * excluded from collection but not from coverage: A stale test copy under it passes green, which a consumer cannot
  * self-diagnose, whereas a `dist/` entry in the coverage report is a visible 0% that a consumer can.
  */
 function buildCollectionExclude(layers: readonly VitestConfigOptions[], ignoredPathsRoot: string): string[] {
@@ -442,7 +443,7 @@ function getWorkspaceExcludePatterns(monorepoRoot: string): string[] {
 }
 
 /**
- * Reads one boolean option across the layers, the last to declare it winning, and the caller's default where none
+ * Reads one boolean option across the layers, the last to declare it winning, and the caller's default when none
  * does. Each call site states its own default, so a flag cannot inherit one chosen for a different flag.
  */
 function resolveFlag(
@@ -461,8 +462,8 @@ function resolveFlag(
 }
 
 /**
- * Locates the setup file shipped beside this module. The extension is read from the resolved filesystem path
- * rather than from `import.meta.url`, which Vite may hand over carrying a version query.
+ * Locates the setup file published beside this module. The extension is read from the resolved filesystem path
+ * rather than from `import.meta.url`, which Vite may supply with a version query appended.
  */
 function resolveGitIsolationSetupFile(): string {
   const thisFile = fileURLToPath(import.meta.url);
