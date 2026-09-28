@@ -8,7 +8,7 @@ import { describe, expect, it as baseIt } from 'vitest';
 import { OUTPUT_STYLE_ENV_VAR } from '../output-style.ts';
 
 // The bin runs the source directly under Node's type stripping, exactly as `prepare` does.
-// Driving it as a process is what covers the wiring the unit tests cannot: that `nmr-compile` reads the
+// Driving it as a process covers the wiring that the unit tests cannot: that `nmr-compile` reads the
 // config of whichever package it is invoked in.
 const CLI_PATH = path.join(import.meta.dirname, '..', 'cli-build.ts');
 
@@ -31,7 +31,7 @@ const it = baseIt.extend(
 );
 
 describe('nmr-compile', () => {
-  it('excludes a directory the package config adds to the ignore set', ({ tree }) => {
+  it('excludes a directory that the package config adds to the ignore set', ({ tree }) => {
     scaffoldPackage(
       tree,
       {
@@ -46,7 +46,7 @@ describe('nmr-compile', () => {
     expect(listEmitted(tree)).toStrictEqual(['index.d.ts', 'index.js']);
   });
 
-  it('builds on the defaults when the package has no config', ({ tree }) => {
+  it('builds on the defaults when the package does not have a config', ({ tree }) => {
     scaffoldPackage(tree, {
       'index.ts': 'export const value = 1;\n',
       'test-utils/helper.ts': 'export const helper = 1;\n',
@@ -57,7 +57,7 @@ describe('nmr-compile', () => {
     expect(listEmitted(tree)).toStrictEqual(['index.d.ts', 'index.js']);
   });
 
-  it('fails when the package config declares a key the workspace tier does not honor', ({ tree }) => {
+  it('fails when the package config declares a key that the workspace tier does not honor', ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' }, `export default { rootScripts: {} };\n`);
 
     expect(() => runCompile(tree.dir)).toThrow(/not rootScripts/);
@@ -78,11 +78,11 @@ describe('nmr-compile', () => {
     expect(listEmitted(tree)).toStrictEqual([]);
   });
 
-  // The bin carries no flag of its own; what reaches it is the variable `nmr <command>` exports to it.
+  // The bin does not take a flag of its own; it reads the variable that `nmr <command>` exports to it.
   it.for([
     { marker: '', style: 'plain' },
     { marker: '📦 ', style: 'rich' },
-  ])('reports its build in the $style the variable names', ({ marker, style }, { tree }) => {
+  ])('reports its build in the $style that the variable names', ({ marker, style }, { tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
 
     const lines = runCompile(tree.dir, { [OUTPUT_STYLE_ENV_VAR]: style }).split('\n');
@@ -90,7 +90,7 @@ describe('nmr-compile', () => {
     expect(lines).toContain(`${marker}${path.basename(tree.dir)}: Changes detected.`);
   });
 
-  it('exits 1 on a variable that names no style, in the words every nmr package rejects one with', ({ tree }) => {
+  it('exits 1 on an unknown style name, in the words with which every nmr package rejects one', ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
 
     const { status, stderr } = spawnSync(process.execPath, [CLI_PATH], {
@@ -107,7 +107,7 @@ describe('nmr-compile', () => {
 
 // region | Helpers
 
-/** Lists the files the build emitted, relative to the output directory. */
+/** Lists the files emitted by the build, relative to the output directory. */
 function listEmitted(tree: TempTree): string[] {
   return tree.listFiles('dist/esm');
 }

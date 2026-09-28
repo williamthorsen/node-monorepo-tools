@@ -7,27 +7,30 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { describe, expect, it } from 'vitest';
 
 /**
- * Proof that the `@williamthorsen/nmr/config` entry loads with nothing else on disk, which is what keeps a config
- * load off the rest of the package.
+ * Proof that the `@williamthorsen/nmr/config` entry loads with nothing else on disk, which ensures that loading a
+ * config does not load the rest of the package.
  *
- * The subject is Node's native type stripping, an environment capability the in-process suite never reaches: Vitest
- * transforms TypeScript through its own pipeline, and `tsc` elides an unused specifier that the stripper retains. So
- * the proof runs the source module -- not `dist`, whose form the compiler has already fixed -- through a real `node`.
+ * The subject is Node's native type stripping, an environment capability that the in-process suite never exercises:
+ * Vitest transforms TypeScript through its own pipeline, and `tsc` elides an unused specifier that the stripper
+ * retains. So the proof runs the source module -- not `dist`, whose form the compiler has already fixed -- through a
+ * real `node`.
  */
 
 const ENTRY_BASENAME = 'defineConfig.ts';
-/** The package's own source, which every read below reaches through `node:fs` because it lies outside the tree. */
+/** The package's own source, which every read below accesses through `node:fs` because it lies outside the tree. */
 const ENTRY_SOURCE_PATH = path.join(import.meta.dirname, '..', ENTRY_BASENAME);
 
-/** The erasable type import the entry is written with, and the inline form that silently retains its specifier. */
+/**
+ * The erasable type import with which the entry is written, and the inline form that silently retains its specifier.
+ */
 const ERASABLE_IMPORT = "import type { NmrConfig } from './types.ts';";
 const RETAINING_IMPORT = "import { type NmrConfig } from './types.ts';";
 
-/** A value import, which no toolchain erases. Stands in for any sibling the entry might one day reach for. */
+/** A value import, which no toolchain erases. Stands in for any sibling that the entry might one day import. */
 const VALUE_IMPORT = "import { isObject } from './helpers/type-guards.ts';";
 
 describe('the ./config entry under Node type stripping', () => {
-  it('loads with no other module on disk', () => {
+  it('loads without any other module on disk', () => {
     const result = loadStandalone(readFileSync(ENTRY_SOURCE_PATH, 'utf8'));
 
     expect(result.stderr).toBe('');
@@ -61,7 +64,7 @@ interface ProbeResult {
  * silently no-ops would re-run the passing case above and report a green result for the wrong reason.
  */
 function mutateEntry(search: string, replacement: string): string {
-  // A replacer function, so no `$` sequence in the replacement could be read as a capture reference.
+  // A replacer function, so that a `$` sequence in the replacement cannot be read as a capture reference.
   const source = readFileSync(ENTRY_SOURCE_PATH, 'utf8').replace(search, () => replacement);
   if (!source.includes(replacement)) {
     throw new Error(`The entry module no longer contains \`${search}\``);
@@ -73,7 +76,7 @@ function mutateEntry(search: string, replacement: string): string {
 /** Writes `source` alone into a temp directory as the entry module, then imports it from a Node subprocess. */
 function loadStandalone(source: string): ProbeResult {
   // Nothing else is written, not even a package.json: Node falls back to syntax detection and reads the export as
-  // ESM, so a resolution failure can only come from a specifier the entry itself retained.
+  // ESM, so a resolution failure can only come from a specifier that the entry itself retained.
   using tree = createTempTree({ [ENTRY_BASENAME]: source }, { prefix: 'nmr-config-entry-' });
   const entryPath = tree.resolve(ENTRY_BASENAME);
 

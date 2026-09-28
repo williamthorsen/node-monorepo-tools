@@ -18,7 +18,7 @@ describe(resolveTreeSnapshot, () => {
     vi.unstubAllEnvs();
   });
 
-  it('takes the snapshot a parent process already observed', ({ tree }) => {
+  it('takes the snapshot that a parent process already observed', ({ tree }) => {
     // One invocation hashes the tree once; every process below it gates on that same observation.
     initRepo(tree);
     const snapshot: TreeSnapshot = { hash: 'tree-hash', headSha: readHeadSha(tree.dir) };
@@ -32,7 +32,7 @@ describe(resolveTreeSnapshot, () => {
   });
 
   it('retakes the snapshot when HEAD has moved since the parent observed it', ({ tree }) => {
-    // A process outliving the run that spawned it carries the variable with it. Gating a later invocation on
+    // A process outliving the run that spawned it keeps the variable. Gating a later invocation on
     // an observation of a tree that has since been committed over is the one way this cache wrongly skips.
     initRepo(tree);
     const staleSnapshot: TreeSnapshot = { hash: 'tree-hash', headSha: readHeadSha(tree.dir) };
@@ -48,7 +48,7 @@ describe(resolveTreeSnapshot, () => {
     expect(resolution).not.toStrictEqual({ ok: true, snapshot: staleSnapshot });
   });
 
-  it('hashes the tree itself when no parent passed one down', ({ tree }) => {
+  it('hashes the tree itself when it has not inherited a snapshot from a parent', ({ tree }) => {
     initRepo(tree);
 
     expect(resolveTreeSnapshot({ monorepoRoot: tree.dir, env: {} })).toMatchObject({
@@ -64,7 +64,7 @@ describe(resolveTreeSnapshot, () => {
   });
 
   it('refuses outside a git repository, which is what disables the gate', ({ tree }) => {
-    // Stops git's upward search at the fixture, so a temp root that sits inside some repository cannot answer.
+    // Stop git's upward search at the fixture, so that git cannot find a repository that contains the temp root.
     vi.stubEnv('GIT_CEILING_DIRECTORIES', path.dirname(tree.dir));
 
     expect(resolveTreeSnapshot({ monorepoRoot: tree.dir, env: {} })).toStrictEqual({
@@ -74,8 +74,8 @@ describe(resolveTreeSnapshot, () => {
   });
 
   it('refuses when the monorepo root is not the git toplevel', ({ tree }) => {
-    // A repository holding the monorepo in a subdirectory has content outside it that the checks may still
-    // read, and a hash covering more than the monorepo would move for edits that cannot affect it.
+    // A repository that contains the monorepo in a subdirectory has content outside it that the checks may still
+    // read, and a hash covering more than the monorepo would change for edits that cannot affect it.
     initRepo(tree);
     const nestedDir = tree.mkdir('monorepo');
 
@@ -99,12 +99,12 @@ function runGit(cwd: string, args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
-/** Returns the commit HEAD names in the fixture. */
+/** Returns the commit that HEAD names in the fixture. */
 function readHeadSha(repo: string): string {
   return runGit(repo, ['rev-parse', 'HEAD']).trim();
 }
 
-/** Writes a committed fixture repository holding one source file. */
+/** Writes a committed fixture repository containing one source file. */
 function initRepo(tree: TempTree): void {
   runGit(tree.dir, ['init', '--initial-branch=main']);
   runGit(tree.dir, ['config', 'user.email', 'fixture@example.com']);

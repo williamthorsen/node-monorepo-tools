@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-syntax -- this suite holds no tree, managing its temporary directories by hand until #622 converts it. */
+/* eslint-disable no-restricted-syntax -- this suite does not use a tree, managing its temporary directories by hand until #622 converts it. */
 import { execSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -38,7 +38,7 @@ const CLI_PATH = path.join(NMR_PACKAGE_DIR, 'dist', 'esm', 'cli.js');
  * Hooks still spawn the bin for `nmr X:pre` and `nmr X:post`, which the file-level `beforeAll` warms. To see that
  * inner output live while debugging, swap `stdoutStream`/`stderrStream` for `process.stdout`/`process.stderr`.
  *
- * `argString` is split on whitespace, with no shell-style quoting; a test that needs a quoted argument calls
+ * `argString` is split on whitespace, without shell-style quoting; a test that needs a quoted argument calls
  * `runCli` directly with a pre-built `args` array.
  */
 async function runNmr(
@@ -75,23 +75,23 @@ async function runNmr(
 
 describe('nmr CLI', () => {
   // Warm the OS page cache for `node` and the nmr dist, so that the hook subprocesses (`nmr X:pre`, `nmr X:post`)
-  // pay the cold-start cost once per file rather than once per `it`. A failed warmup is not fatal: the tests still
-  // pass against a cold cache, only more slowly.
+  // start cold once per file rather than once per `it`. A failed warmup is not fatal: The tests still pass against a
+  // cold cache, only more slowly.
   beforeAll(() => {
     try {
       execSync(`node ${CLI_PATH} --help`, { env: readAmbientEnv(), stdio: 'ignore', timeout: 10_000 });
     } catch {
-      // Swallow warmup failure — tests will surface real issues themselves.
+      // Swallow warmup failure; tests will report real issues themselves.
     }
   });
 
-  // The bin (`cli.ts`) sets `process.exitCode` and returns rather than calling `process.exit()`, so output drains
-  // before the process exits. These spawn the real built bin to observe the kernel exit code and prompt termination;
-  // the in-process `runNmr` tests bypass the bin wrapper and cannot exercise that behavior.
+  // The bin (`cli.ts`) sets `process.exitCode` and returns rather than calling `process.exit()`, so that output
+  // drains before the process exits. These spawn the real built bin to observe the kernel exit code and prompt
+  // termination; the in-process `runNmr` tests bypass the bin wrapper and cannot exercise that behavior.
   //
-  // Each spawn runs on the ambient environment: a subprocess inherits `process.env` whole, and this suite running
-  // under `nmr test` would otherwise hand the bin an `NMR_RUN_IF_PRESENT` that turns the unknown command below
-  // into the silent success the assertion is written to catch.
+  // Each spawn runs on the ambient environment: A subprocess inherits `process.env` whole, and this suite running
+  // under `nmr test` would otherwise pass the bin an `NMR_RUN_IF_PRESENT` that turns the unknown command below
+  // into the silent success that the assertion is written to catch.
   describe('process exit behavior via the real bin (subprocess)', () => {
     it('exits 0 for --help', () => {
       const result = spawnSync('node', [CLI_PATH, '--help'], {
@@ -105,7 +105,7 @@ describe('nmr CLI', () => {
     });
 
     // A config mistake names a file to edit; a stack trace names where nmr noticed it, which is nmr's business.
-    it('reports an invalid config as a message alone, with no stack trace', () => {
+    it('reports an invalid config as a message alone, without a stack trace', () => {
       const repo = mkdtempSync(path.join(tmpdir(), 'nmr-config-error-'));
       writeFileSync(path.join(repo, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
       mkdirSync(path.join(repo, '.config'), { recursive: true });
@@ -152,7 +152,7 @@ describe('nmr CLI', () => {
     expect(stdout).toContain('Usage: nmr');
   });
 
-  it('shows help when no command is given', async () => {
+  it('shows help when run without a command', async () => {
     const { stdout, exitCode } = await runNmr('');
     expect(exitCode).toBe(0);
     expect(stdout).toContain('Usage: nmr');
@@ -163,7 +163,7 @@ describe('nmr CLI', () => {
     expect(exitCode).toBe(1);
   });
 
-  it('exits 1 with a canonical Error line when -F has no argument', async () => {
+  it('exits 1 with a canonical Error line when -F is missing its argument', async () => {
     const { stderr, exitCode } = await runNmr('-F');
     expect(exitCode).toBe(1);
     expect(stderr).toContain('Error: -F/--filter requires a pattern argument');
@@ -223,7 +223,7 @@ describe('nmr CLI', () => {
 
     // The registry is a plain object, so an unguarded lookup of `toString` finds the inherited function rather
     // than the `undefined` that suppresses the notice. Exit 0 is the indirect assertion that the script ran.
-    it('announces no override for a script named for an `Object.prototype` member', async () => {
+    it('does not announce an override for a script named for an `Object.prototype` member', async () => {
       const { stdout, exitCode } = await runNmr('toString', { cwd: prototypeNamePackageDir });
 
       expect(exitCode).toBe(0);
@@ -378,7 +378,7 @@ describe('nmr CLI', () => {
       expect(readLog()).toStrictEqual(['main', 'post']);
     });
 
-    it('is a silent no-op when no hooks are defined', async () => {
+    it('is a silent no-op when the package does not define any hooks', async () => {
       const packageDir = path.join(tempRoot, 'packages', 'no-hooks');
       writePackage(packageDir, { clean: `echo main >> ${logFile}` }, 'no-hooks');
       clearLog();
@@ -389,7 +389,7 @@ describe('nmr CLI', () => {
       expect(stderr).toBe('');
     });
 
-    it('short-circuits when pre-hook fails — main and post do not run', async () => {
+    it('short-circuits when pre-hook fails; main and post do not run', async () => {
       const packageDir = path.join(tempRoot, 'packages', 'pre-fails');
       writePackage(
         packageDir,
@@ -407,7 +407,7 @@ describe('nmr CLI', () => {
       expect(readLog()).toStrictEqual(['pre']);
     });
 
-    it('short-circuits when main fails — post does not run', async () => {
+    it('short-circuits when main fails; post does not run', async () => {
       const packageDir = path.join(tempRoot, 'packages', 'main-fails');
       writePackage(
         packageDir,
@@ -500,8 +500,8 @@ describe('nmr CLI', () => {
 
     it('attaches passthrough args to the main command only', async () => {
       const packageDir = path.join(tempRoot, 'packages', 'passthrough');
-      // Use a wrapper script so we can capture argv without shell-redirection
-      // ambiguities (where `>> file --flag` would parse as redirect + extra args).
+      // Use a wrapper script to capture argv without shell-redirection ambiguities,
+      // such as `>> file --flag` parsing as redirect + extra args.
       const captureScript = path.join(packageDir, 'capture.sh');
       writePackage(
         packageDir,
@@ -612,7 +612,7 @@ describe('nmr CLI', () => {
       // Log proves the full chain ran
       expect(readLog()).toStrictEqual(['pre', 'main', 'post']);
       expect(stdout).not.toContain('noise');
-      // Each hook is a leaf of the chain `clean` reports on, so one verdict covers all three.
+      // Each hook is a leaf of the chain on which `clean` reports, so one verdict covers all three.
       expect(stdout.split('\n').filter((line) => line.length > 0)).toHaveLength(1);
     });
 
@@ -643,7 +643,7 @@ describe('nmr CLI', () => {
           }),
         );
 
-        // Composite hook (array) — only allowed in tier 1+2, so requires .config/nmr.config.ts
+        // Composite hook (array): Only allowed in tier 1+2, so requires .config/nmr.config.ts.
         // rootScripts entries also live here; they are reachable only via -w from a package cwd.
         const configContent = `import { defineConfig } from '${NMR_PACKAGE_DIR}/dist/esm/defineConfig.js';
 export default defineConfig({
@@ -690,7 +690,7 @@ export default defineConfig({
         expect(readConfigLog()).toStrictEqual(['step1', 'step2', 'main', 'cfg-post']);
       });
 
-      it('propagates -w to hook subprocesses so they resolve via root registry', async () => {
+      it('propagates -w to hook subprocesses so that they resolve via root registry', async () => {
         clearConfigLog();
         // wroot-cmd and its hooks live only in rootScripts. Without -w propagation,
         // the parent's `shouldUseRoot=true` decision is lost in the subprocess `nmr X:pre` call,
@@ -703,8 +703,8 @@ export default defineConfig({
       it('propagates -w through composite-script step subprocesses', async () => {
         clearConfigLog();
         // wroot-composite and its steps live only in rootScripts. The composite expands to `nmr -w wroot-step1 && nmr
-        // -w wroot-step2` so each child resolves via the root registry. Without -w propagation in expandScript, the
-        // children re-derive a workspace registry from the package cwd and fail with "Unknown command".
+        // -w wroot-step2` so that each child resolves via the root registry. Without -w propagation in expandScript,
+        // the children re-derive a workspace registry from the package cwd and fail with "Unknown command".
         const { exitCode } = await runNmr('-w wroot-composite', { cwd: configPackageDir });
         expect(exitCode).toBe(0);
         expect(readConfigLog()).toStrictEqual(['wroot-step1', 'wroot-step2']);
@@ -722,12 +722,12 @@ export default defineConfig({
       it('resolves tier-3 (root package.json) scripts under -w from a subpackage', async () => {
         clearConfigLog();
         // wpkg-cmd and its hooks live only in the root package.json scripts (tier 3 from root cwd).
-        // Under -w from a subpackage, packageDir must follow shouldUseRoot so the resolver consults root's package.json
-        // instead of the subpackage's, otherwise the command and its hooks fail with "Unknown command".
+        // Under -w from a subpackage, packageDir must follow shouldUseRoot so that the resolver consults root's
+        // package.json instead of the subpackage's, otherwise the command and its hooks fail with "Unknown command".
         const { stdout, exitCode } = await runNmr('-w wpkg-cmd', { cwd: configPackageDir });
         expect(exitCode).toBe(0);
         expect(readConfigLog()).toStrictEqual(['wpkg-pre', 'wpkg-main', 'wpkg-post']);
-        // wpkg-cmd is in no registry, so the override-script message is suppressed: it announces a
+        // wpkg-cmd is not in any registry, so the override-script message is suppressed: It announces a
         // package.json script that *replaces* a built-in, not every tier-3 entry that happens to resolve.
         expect(stdout).not.toContain('Using override script');
       });
@@ -745,9 +745,9 @@ export default defineConfig({
       anchorLogFile = path.join(anchorRoot, 'log.txt');
       writeFileSync(anchorLogFile, '');
 
-      // Each candidate directory holds a `where.txt` naming itself; the scripts `cat where.txt`, so the
-      // logged word is the directory the script ran in. `pwd` would compare a physical path against the
-      // symlinked one mkdtempSync returns on macOS.
+      // Each candidate directory contains a `where.txt` naming itself; the scripts `cat where.txt`. The
+      // logged word is the directory in which the script ran. `pwd` would compare a physical path against the
+      // symlinked one that mkdtempSync returns on macOS.
       writeFileSync(path.join(anchorRoot, 'where.txt'), 'root\n');
 
       // Root context without a workspace package.

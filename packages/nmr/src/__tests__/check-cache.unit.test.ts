@@ -48,8 +48,8 @@ describe('check-cache', () => {
     });
 
     it('leaves out the commands whose result does not follow from the tree', () => {
-      // `audit` consults a vulnerability database that moves on its own; the mutating and build commands
-      // either change the tree they were asked about or carry a cache of their own.
+      // `audit` consults a vulnerability database that changes on its own; the mutating and build commands
+      // either change the tree that they were asked about or keep a cache of their own.
       const commands = resolveCacheableCommands(undefined);
 
       for (const command of ['audit', 'build', 'compile', 'fix', 'fmt', 'lint', 'prepush', 'test:all', 'upgrade']) {
@@ -122,16 +122,17 @@ describe('check-cache', () => {
       expect(requireKey(tree.dir, { env: { EDITOR: 'vim' } })).toBe(requireKey(tree.dir));
     });
 
-    // Loudness changes what a run prints and never what it concludes, so a quiet run hits a pass a loud one
+    // Loudness changes what a run prints and never what it concludes, so a quiet run hits a pass that a loud one
     // recorded. Folding it in would split every recorded pass across the two modes, and silently.
-    it('ignores the verbosity a run was asked for', () => {
+    it('ignores the verbosity that a run was asked for', () => {
       expect(requireKey(tree.dir, { env: { [COMMAND_VERBOSITY_ENV_VAR]: 'quiet' } })).toBe(
         requireKey(tree.dir, { env: { [COMMAND_VERBOSITY_ENV_VAR]: 'full' } }),
       );
     });
 
-    // The format nmr reports its own verdicts in reaches no command, so it cannot change what one concludes.
-    it('ignores the format a run reports in', () => {
+    // Because a command never sees the format in which nmr reports its own verdicts, the format cannot change
+    // what the command concludes.
+    it('ignores the format in which a run reports', () => {
       expect(requireKey(tree.dir, { env: { [REPORT_FORMAT_ENV_VAR]: 'json' } })).toBe(
         requireKey(tree.dir, { env: { [REPORT_FORMAT_ENV_VAR]: 'text' } }),
       );
@@ -165,7 +166,7 @@ describe('check-cache', () => {
     it.each([
       ['stdout', { channels: { stderr: 'pipe', stdout: 1 } }],
       ['stderr', { channels: { stderr: 2, stdout: 'pipe' } }],
-    ] as const)('moves when the channel %s ran on changes', (_label, overrides) => {
+    ] as const)('moves when the channel on which %s ran changes', (_label, overrides) => {
       expect(buildRetentionKey(overrides)).not.toBe(buildRetentionKey());
     });
 
@@ -176,15 +177,15 @@ describe('check-cache', () => {
       );
     });
 
-    // A machine-readable run is quiet, so it leaves a command on the channels a quiet run does and replays
+    // A machine-readable run is quiet, so it leaves a command on the same channels as a quiet run and replays
     // what one recorded. Folding the format in would split every retained excerpt across the two.
-    it('ignores the format a run reports in', () => {
+    it('ignores the format in which a run reports', () => {
       expect(buildRetentionKey({ env: { [REPORT_FORMAT_ENV_VAR]: 'json' } })).toBe(
         buildRetentionKey({ env: { [REPORT_FORMAT_ENV_VAR]: 'text' } }),
       );
     });
 
-    it('moves when the pass it certifies moves', () => {
+    it('moves when the pass that it certifies moves', () => {
       expect(buildRetentionKey({ passKey: 'another-pass' })).not.toBe(buildRetentionKey());
     });
 
@@ -201,14 +202,14 @@ describe('check-cache', () => {
         writeInstallFingerprint(tree);
       });
 
-      it('given a presentation variable, moves while the pass key stands', () => {
+      it('given a presentation variable, moves while the pass key stays the same', () => {
         const passKey = requireKey(tree.dir, { env: { COLUMNS: '80' } });
 
         expect(passKey).toBe(requireKey(tree.dir));
         expect(buildRetentionKey({ env: { COLUMNS: '80' }, passKey })).not.toBe(buildRetentionKey({ passKey }));
       });
 
-      it('given a channel kind, moves while the pass key stands', () => {
+      it('given a channel kind, moves while the pass key stays the same', () => {
         expect(buildRetentionKey({ channels: { stderr: 2, stdout: 1 }, passKey: requireKey(tree.dir) })).not.toBe(
           buildRetentionKey({ passKey: requireKey(tree.dir) }),
         );
@@ -217,11 +218,11 @@ describe('check-cache', () => {
   });
 
   describe(resolveRunId, () => {
-    it('keeps the identity an ancestor passed down, so one run has one identity at every scope', () => {
+    it('keeps the identity that an ancestor passed down, so one run has one identity at every scope', () => {
       expect(resolveRunId({ [RUN_ID_ENV_VAR]: 'the-run' })).toBe('the-run');
     });
 
-    it('starts a run when the environment carries none', () => {
+    it('starts a run when the environment does not contain one', () => {
       expect(resolveRunId({})).not.toBe(resolveRunId({}));
     });
 
@@ -240,7 +241,7 @@ describe('check-cache', () => {
       ).resolves.toStrictEqual(entry);
     });
 
-    it('reports no entry for a command that never recorded one', async () => {
+    it('does not report an entry for a command that never recorded one', async () => {
       await expect(
         readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'typecheck' }),
       ).resolves.toBeUndefined();
@@ -298,7 +299,7 @@ describe('check-cache', () => {
       ).resolves.toStrictEqual(entry);
     });
 
-    it('reads an entry recorded before retention existed as a pass carrying nothing to replay', async () => {
+    it('reads an entry recorded before retention existed as a pass with nothing to replay', async () => {
       await writeCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci', entry: makeEntry() });
 
       const entry = await readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci' });
@@ -315,7 +316,7 @@ describe('check-cache', () => {
         'a replay line missing its excerpt',
         { key: 'a-retention-key', replay: [{ command: 'test', scope: 'nmr' }], runId: 'a-run' },
       ],
-    ])('reads an entry claiming %s as a pass carrying nothing to replay', async (_label, retention) => {
+    ])('reads an entry claiming %s as a pass with nothing to replay', async (_label, retention) => {
       // What a skip would have replayed cannot decide whether the pass beneath it stands.
       await writeCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci', entry: makeEntry() });
       overwriteEntries(tree, JSON.stringify({ ...makeEntry(), retention }));
@@ -326,8 +327,8 @@ describe('check-cache', () => {
       expect(entry?.retention).toBeUndefined();
     });
 
-    it('reads an entry of the wrong shape as no entry', async () => {
-      // An entry written by an older format is not a pass anyone can act on.
+    it('reads an entry of the wrong shape as absent', async () => {
+      // An entry written in an older format is not a pass that anyone can act on.
       await writeCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci', entry: makeEntry() });
       overwriteEntries(tree, JSON.stringify({ treeHash: 'tree-hash' }));
 
@@ -337,7 +338,7 @@ describe('check-cache', () => {
     });
 
     it('clears every scope’s entries at once', async () => {
-      // One removal is the whole table, so distrusting the cache never means hunting through packages.
+      // One removal clears the whole table, so distrusting the cache never means searching through packages.
       const packageDir = tree.resolve('packages/a');
       await writeCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci', entry: makeEntry() });
       await writeCheckCacheEntry({
@@ -391,7 +392,7 @@ describe('check-cache', () => {
       await expect(readTranscript(buildRef('test', packageDir))).resolves.toBe('package output');
     });
 
-    // A composite retains nothing of its own, so a leaf's transcript left standing beside its entry would be
+    // A composite retains nothing of its own, so a leaf's transcript left in place beside its entry would be
     // dated by a run that never produced it.
     it('withdraws what an earlier pass left when this pass retained nothing', async () => {
       await recordTranscript(buildRef('test'), 'an earlier run');
@@ -411,7 +412,7 @@ describe('check-cache', () => {
       ).resolves.toBeDefined();
     });
 
-    it('is cleared with the passes it belongs to', async () => {
+    it('is cleared with the passes to which it belongs', async () => {
       await recordTranscript(buildRef('test'), 'test output');
 
       await removeCheckCache(tree.dir);
@@ -421,7 +422,7 @@ describe('check-cache', () => {
   });
 
   describe(readBuildOutputState, () => {
-    it('reports a digest for every package nmr’s build covers', async () => {
+    it('reports a digest for every package covered by nmr’s build', async () => {
       const { aDir, bDir } = scaffoldWorkspace(tree);
       writeBuildDigest(tree, aDir, 'digest-a');
       writeBuildDigest(tree, bDir, 'digest-b');
@@ -444,8 +445,8 @@ describe('check-cache', () => {
     });
 
     it('names the package whose output went missing', async () => {
-      // Build output is git-ignored, so the tree hash says nothing about it: without this a cached `ci`
-      // would hand back a green exit over a repository that cannot run.
+      // Build output is git-ignored, so the tree hash says nothing about it: Without this a cached `ci`
+      // would report success for a repository that cannot run.
       const { aDir } = scaffoldWorkspace(tree);
       tree.rm(`${aDir}/dist`);
 
@@ -453,8 +454,8 @@ describe('check-cache', () => {
     });
 
     it('leaves out a package that overrides build in its package.json', async () => {
-      // An override emits somewhere this does not know about, so demanding a `dist` would make the package a
-      // permanent miss rather than a covered one.
+      // Because an override emits somewhere this does not know about, demanding a `dist` would make the package
+      // a permanent miss rather than a covered one.
       const { aDir } = scaffoldWorkspace(tree);
       tree.rm(`${aDir}/dist`);
       writePackageJson(tree, aDir, { build: 'tsup' });
@@ -480,7 +481,7 @@ describe('check-cache', () => {
       });
     });
 
-    it('expects no output from a package whose sources emit none', async () => {
+    it('does not expect output from a package whose sources emit none', async () => {
       const { aDir } = scaffoldWorkspace(tree);
       tree.rm(`${aDir}/dist`);
       tree.rm(`${aDir}/src`);
@@ -488,9 +489,9 @@ describe('check-cache', () => {
       await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missingPackages: [] });
     });
 
-    it('expects no output from a package whose own config ignores every entry point', async () => {
-      // The build compiles the entry set the package's own options leave; reading a different set here would
-      // demand output the build never emits, and one such package takes the whole repo's gate down.
+    it('does not expect output from a package whose own config ignores every entry point', async () => {
+      // The build compiles the entry set that the package's own options leave; reading a different set here
+      // would demand output never emitted by the build, and one such package fails the whole repo's gate.
       const { aDir } = scaffoldWorkspace(tree);
       tree.rm(`${aDir}/dist`);
       writeWorkspaceConfig(tree, aDir, { build: { extraIgnorePatterns: ['**/*.ts'] } });
@@ -518,7 +519,7 @@ describe('check-cache', () => {
   });
 
   describe('what the gate says out loud', () => {
-    it('names the flag’s intended position when it lands after the command', () => {
+    it('names the flag’s intended position when it appears after the command', () => {
       expect(formatMisplacedNoCacheWarning('ci', 'rich')).toContain('nmr --no-cache ci');
     });
 
@@ -530,7 +531,7 @@ describe('check-cache', () => {
     });
 
     it('says nothing about a gate decision unless asked', () => {
-      // A reason to run is not news; a line per invocation would bury the output of whatever did run.
+      // A reason to run is not news; a line per invocation would hide the output of whatever did run.
       const stderr = new PassThrough();
       const chunks: Buffer[] = [];
       stderr.on('data', (chunk: Buffer) => {
@@ -558,7 +559,7 @@ describe('check-cache', () => {
 
 // region | Helpers
 
-/** Returns the key for a set of inputs, failing the test if no key could be computed. */
+/** Returns the key for a set of inputs, failing the test if a key could not be computed. */
 function requireKey(root: string, overrides: Partial<Parameters<typeof computeCacheKey>[0]> = {}): string {
   const result = computeCacheKey({ ...buildKeyOptions(root), ...overrides });
   if (!result.ok) {
@@ -591,7 +592,7 @@ function buildRetentionKey(overrides: Partial<Parameters<typeof computeRetention
   });
 }
 
-/** Builds a valid entry, so a test varies only the field it is about. */
+/** Builds a valid entry, so that a test varies only the field that it is about. */
 function makeEntry(overrides: Partial<CheckCacheEntry> = {}): CheckCacheEntry {
   return {
     key: 'a-key',
@@ -607,7 +608,7 @@ function makeEntry(overrides: Partial<CheckCacheEntry> = {}): CheckCacheEntry {
   };
 }
 
-/** Replaces the content of every recorded entry, standing in for one written by an older format. */
+/** Replaces the content of every recorded entry, standing in for one written in an older format. */
 function overwriteEntries(tree: TempTree, content: string): void {
   const cacheDir = 'node_modules/.cache/nmr-check';
   for (const entry of tree.list(cacheDir)) {
@@ -628,7 +629,7 @@ function scaffoldCollidingWorkspace(tree: TempTree): void {
   }
 }
 
-/** Writes a pnpm workspace holding two packages that look freshly built, and returns their paths in the tree. */
+/** Writes a pnpm workspace containing two packages that look freshly built, and returns their paths in the tree. */
 function scaffoldWorkspace(tree: TempTree): { aDir: string; bDir: string } {
   tree.write('pnpm-workspace.yaml', 'packages:\n  - "packages/*"\n');
 
@@ -644,7 +645,7 @@ function scaffoldWorkspace(tree: TempTree): { aDir: string; bDir: string } {
   return { aDir, bDir };
 }
 
-/** Writes the sources and emitted output of a package a build has already covered. */
+/** Writes the sources and emitted output of a package that a build has already covered. */
 function scaffoldBuiltPackage(tree: TempTree, packagePath: string, name: string): void {
   tree.writeAll({
     [`${packagePath}/src/index.ts`]: 'export const value = 1;\n',
@@ -653,7 +654,7 @@ function scaffoldBuiltPackage(tree: TempTree, packagePath: string, name: string)
   writePackageJson(tree, packagePath, undefined, name);
 }
 
-/** Writes the digest a build of the package at `packagePath` would have left behind. */
+/** Writes the digest that a build of the package at `packagePath` would have left behind. */
 function writeBuildDigest(tree: TempTree, packagePath: string, digest: string): void {
   tree.write(resolveBuildCachePath(tree.resolve(packagePath)), digest);
 }
@@ -663,7 +664,7 @@ function writeWorkspaceConfig(tree: TempTree, packagePath: string, config: Recor
   tree.write(`${packagePath}/.config/nmr.config.ts`, `export default ${JSON.stringify(config)};\n`);
 }
 
-/** Writes the pnpm files the install fingerprint reads. */
+/** Writes the pnpm files read by the install fingerprint. */
 function writeInstallFingerprint(tree: TempTree): void {
   tree.writeAll({
     'node_modules/.modules.yaml': 'hoistPattern:\n  - "types"\n',
