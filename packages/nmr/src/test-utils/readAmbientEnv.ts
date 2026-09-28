@@ -6,7 +6,7 @@ import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { RUN_IF_PRESENT_ENV_VAR } from '../runCli.ts';
 import { AGENT_ENV_VARS, COMMAND_VERBOSITY_ENV_VAR } from '../verbosity.ts';
 
-/** nmr's own variables, which a suite running under nmr inherits and must not pass on to the runs it makes. */
+/** nmr's own variables, which a suite running under nmr inherits and must not pass on to the runs that it makes. */
 const NMR_OWN_ENV_VARS: readonly string[] = [
   COMMAND_VERBOSITY_ENV_VAR,
   DEBUG_ENV_VAR,
@@ -21,12 +21,12 @@ const NMR_OWN_ENV_VARS: readonly string[] = [
 const STRIPPED_ENV_VARS: ReadonlySet<string> = new Set([...NMR_OWN_ENV_VARS, ...AGENT_ENV_VARS]);
 
 /**
- * Returns the environment with the variables nmr reads removed.
+ * Returns the environment without the variables that nmr reads.
  *
  * A suite running under `nmr test` inherits nmr's own variables, and each one changes what an invocation made by
- * a test prints or decides, which makes an assertion depend on how the suite was launched. An agent-harness marker
- * resolves to quiet through detection, with the same effect. A test that exercises detection sets the marker on
- * the environment that it passes.
+ * a test prints or decides, which makes an assertion depend on how the suite was launched. nmr detects an
+ * agent-harness marker and resolves the verbosity to quiet, with the same effect. A test that exercises detection
+ * sets the marker on the environment that it passes.
  */
 export function readAmbientEnv(): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(process.env).filter(([name]) => !STRIPPED_ENV_VARS.has(name)));

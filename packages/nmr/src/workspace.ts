@@ -15,7 +15,7 @@ export {
 
 /**
  * Finds the monorepo root by walking up from `startDir` to find `pnpm-workspace.yaml`.
- * Throws if no workspace root is found.
+ * Throws if it does not find a workspace root in `startDir` or any of its parent directories.
  */
 export function findMonorepoRoot(startDir?: string): string {
   const monorepoRoot = findMonorepoRootOrNothing(startDir);
@@ -29,10 +29,10 @@ export function findMonorepoRoot(startDir?: string): string {
 
 /**
  * Reads the workspace patterns from `pnpm-workspace.yaml` and resolves them to absolute package
- * directories, applying pnpm's pattern semantics — including `!`-prefixed exclusions.
+ * directories, applying pnpm's pattern semantics, including `!`-prefixed exclusions.
  *
- * Returns an empty array when the manifest declares no usable `packages` list, and throws when
- * `monorepoRoot` contains no manifest at all.
+ * Returns an empty array when the manifest does not declare a usable `packages` list, and throws when
+ * `monorepoRoot` does not contain a manifest at all.
  */
 export function getWorkspacePackageDirs(monorepoRoot: string): string[] {
   const resolution = resolveWorkspace(monorepoRoot);

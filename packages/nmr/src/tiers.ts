@@ -3,10 +3,12 @@ import path from 'node:path';
 
 import { listGitIgnoredPaths } from './git-ignored-paths.ts';
 
-/** The directory scope every project in the shared config collects from. A test file outside one runs nowhere. */
+/**
+ * The directory scope from which every project in the shared config collects. A test file outside one runs nowhere.
+ */
 const TEST_DIR = '__tests__';
 
-/** Extensions a test file can carry. Held once, so the glob and the walk claim the same set. */
+/** Extensions that a test file can have. Defined once, so that the glob and the walk claim the same set. */
 const TEST_EXTENSIONS = '{ts,tsx}';
 
 const TEST_GLOB_PREFIX = `**/${TEST_DIR}/**`;
@@ -14,7 +16,7 @@ const TEST_GLOB_PREFIX = `**/${TEST_DIR}/**`;
 /** The walk's counterpart to the collection glob's suffix. */
 const TEST_FILE_PATTERN = /\.test\.tsx?$/;
 
-/** Collection patterns for the residual project, which claims every test file the named tiers leave. */
+/** Collection patterns for the residual project, which claims every test file that the named tiers leave. */
 export const ALL_TEST_PATTERNS = [`${TEST_GLOB_PREFIX}/*.test.${TEST_EXTENSIONS}`];
 
 /** Builds the collection patterns for one tier. */
@@ -23,34 +25,34 @@ export function buildTierPatterns(tier: string): string[] {
 }
 
 /**
- * Walks `rootDir` for every `*.test.ts` or `*.test.tsx` file sitting outside a `__tests__` directory, returning
- * paths relative to it, POSIX-separated and sorted.
+ * Walks `rootDir` for every `*.test.ts` or `*.test.tsx` file outside a `__tests__` directory, returning paths
+ * relative to it, POSIX-separated and sorted.
  *
- * No project collects such a file, so it runs nowhere and reports nothing. Only a sweep of the tree tells it apart
- * from a file that runs and passes.
+ * The shared config's projects do not collect such a file, so it runs nowhere and reports nothing. Only a sweep of
+ * the tree tells it apart from a file that runs and passes.
  */
 export function findMisplacedTestFiles(rootDir: string, options: TestFileScanOptions = {}): string[] {
   return walkTestFiles(rootDir, options, true);
 }
 
 /**
- * Walks `rootDir` for every test file the shared config's projects collect, returning paths relative to it,
+ * Walks `rootDir` for every test file that the shared config's projects collect, returning paths relative to it,
  * POSIX-separated and sorted.
  *
- * A walk, because `node:fs` `globSync` does not descend into a dot-directory and honours no option that would make
- * it. Vitest's globber does, so the same pattern string means different things to the two: a check built on the glob
- * would report clean over every test file under a dot-directory.
+ * A walk, because `node:fs` `globSync` does not descend into a dot-directory and does not honour any option that
+ * would make it. Vitest's globber does, so the same pattern string means different things to the two: A check built
+ * on the glob would report clean over every test file under a dot-directory.
  */
 export function findTestFiles(rootDir: string, options: TestFileScanOptions = {}): string[] {
   return walkTestFiles(rootDir, options, false);
 }
 
 /**
- * Walks `rootDir` for every collected test file whose name selects no tier, returning paths relative to it,
+ * Walks `rootDir` for every collected test file whose name does not select a tier, returning paths relative to it,
  * POSIX-separated and sorted.
  *
- * `unit` is the residual project, so such a file runs under it and reports success: no test run tells it apart from
- * a conformant file.
+ * Because `unit` is the residual project, such a file runs under it and reports success: A test run cannot tell it
+ * apart from a conformant file.
  */
 export function findUntieredTestFiles(rootDir: string, options: TestFileScanOptions = {}): string[] {
   return findTestFiles(rootDir, options).filter((file) => !hasTierInfix(file));
@@ -68,30 +70,33 @@ export function hasTierInfix(filePath: string): boolean {
 }
 
 /**
- * Directory names that hold no test worth collecting: dependencies, build output, and generated reports.
+ * Names of directories that do not contain any test worth collecting: dependencies, build output, and generated
+ * reports.
  *
- * These and the paths git ignores are the scope on which the collection glob and the walk must agree.
- * Over-reporting is a failure a consumer cannot fix; under-reporting is the silence a conformance check exists to
- * end.
+ * These and the paths that git ignores are the scope on which the collection glob and the walk must agree.
+ * Over-reporting is a failure that a consumer cannot fix; under-reporting is the silence that a conformance check
+ * exists to end.
  */
 export const TEST_COLLECTION_EXCLUDE = ['.git', 'coverage', 'dist', 'node_modules'];
 
-/** Options every sweep over a repo's test files takes. */
+/** Options that every sweep over a repo's test files takes. */
 export interface TestFileScanOptions {
   /**
-   * Directory basenames pruned at any depth, additive to `TEST_COLLECTION_EXCLUDE` and to the paths git ignores.
+   * Directory basenames pruned at any depth, additive to `TEST_COLLECTION_EXCLUDE` and to the paths that git
+   * ignores.
    *
-   * Basenames rather than globs, so the array a repo passes here is the array it passes to the shared Vitest
-   * config's `testCollectionExclude`. A directory pruned from the sweep but still collected by Vitest is the
-   * silence these sweeps exist to end.
+   * Basenames rather than globs, so that a repo can pass the same array here and to the shared Vitest config's
+   * `testCollectionExclude`. A directory pruned from the sweep but still collected by Vitest is the silence that
+   * these sweeps exist to end.
    */
   excludedBasenames?: readonly string[];
 }
 
 /**
- * The isolation ladder, ordered by the furthest thing a test reaches. A tier names what a test reaches, never how it
- * invokes it: a test driving a compiler through its JavaScript API is `tool`, exactly as one spawning `tsc` would be.
- * Each named tier's name is also its filename infix, so `parse.tool.test.ts` lands in `tool`.
+ * The isolation ladder, ordered by the furthest thing that a test reaches. A tier names what a test reaches, never
+ * how it invokes it: A test driving a compiler through its JavaScript API is `tool`, exactly as one spawning `tsc`
+ * would be. Each named tier's name is also its filename infix, so `parse.tool.test.ts` is collected by the `tool`
+ * project.
  */
 export const TIER_NAMES = ['unit', 'tool', 'localhost', 'remote'] as const;
 
@@ -101,10 +106,11 @@ export type TierName = (typeof TIER_NAMES)[number];
 // region | Helpers
 
 /**
- * Descends one directory, appending every test file the context asks for to the context's own list.
+ * Descends one directory, appending every test file that the context asks for to the context's own list.
  *
- * `relativeDir` is composed with `/` as it descends, so the result needs no separator conversion. A symlinked
- * directory reports as a file here and is skipped, which is what keeps a cyclic tree from hanging the walk.
+ * `relativeDir` is composed with `/` as it descends, so the result does not need any separator conversion.
+ * `readdirSync` reports a symlinked directory as a file here, and the walk skips it, which keeps a cyclic tree from
+ * hanging the walk.
  */
 function collectTestFiles(dir: string, relativeDir: string, isInTestDir: boolean, context: WalkContext): void {
   const entries = readdirSync(dir, { withFileTypes: true });
@@ -125,7 +131,7 @@ function collectTestFiles(dir: string, relativeDir: string, isInTestDir: boolean
   }
 }
 
-/** What one walk carries down the tree. */
+/** What one walk passes down the tree. */
 interface WalkContext {
   foundPaths: string[];
   /** Paths under the walk's root that git ignores, a directory's ending in `/`. */
