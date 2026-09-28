@@ -6,14 +6,14 @@ import { describe, expect, it as baseIt, vi } from 'vitest';
 
 import { checkTestFileConventions, reportTestFileConventions } from '../tests.ts';
 
-// Keeps the sweep from spawning git, which would lift this file out of the unit tier.
+// Keep the sweep from spawning git, which would move this file out of the unit tier.
 vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: () => [] }));
 
-// Derived from this file's own location rather than from the function under test, so the assertion has a second
-// opinion about where the root is.
+// Derived from this file's own location rather than from the function under test, so that the assertion has an
+// independent source for where the root is.
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
 
-// One violation of each half inside a directory only the caller's exclusions prune, and one of each outside it.
+// One violation of each half inside a directory pruned only by the caller's exclusions, and one of each outside it.
 const FIXTURE_FILES = [
   'generated/__tests__/scaffold.test.ts',
   'generated/scaffold.unit.test.ts',
@@ -32,13 +32,13 @@ const it = baseIt.extend(
 );
 
 describe(reportTestFileConventions, () => {
-  // Vitest starts the run in a package directory, and a sweep of that directory alone reports clean over every
-  // violation elsewhere in the repo.
-  it('sweeps the monorepo root when the caller names no directory', () => {
+  // Vitest starts the run in a package directory, and a sweep of that directory alone reports clean while missing
+  // every violation elsewhere in the repo.
+  it('sweeps the monorepo root when the caller does not name a directory', () => {
     expect(reportTestFileConventions().rootDir).toBe(REPO_ROOT);
   });
 
-  it('sweeps the directory the caller names, reporting each half once', ({ tree }) => {
+  it('sweeps the directory that the caller names, reporting each half once', ({ tree }) => {
     expect(reportTestFileConventions({ rootDir: tree.dir })).toStrictEqual({
       misplacedFiles: ['generated/scaffold.unit.test.ts', 'src/outside.unit.test.ts'],
       rootDir: tree.dir,
@@ -62,7 +62,7 @@ describe(reportTestFileConventions, () => {
   });
 });
 
-// This entry runs the guard itself, because it reaches the reporting half only inside the `describe` callback that it
+// This entry runs the guard itself, because it calls the reporting half only inside the `describe` callback that it
 // registers.
 describe(checkTestFileConventions, () => {
   it('rejects the retired exclude, naming its replacement', () => {

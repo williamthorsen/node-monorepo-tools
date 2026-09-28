@@ -13,10 +13,10 @@ import {
   TIER_NAMES,
 } from '../tiers.ts';
 
-// Keeps the sweep from spawning git, which would lift this file out of the unit tier.
+// Keep the sweep from spawning git, which would move this file out of the unit tier.
 vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: () => [] }));
 
-// Each file stands for a boundary the walk has to get right.
+// Each file stands for a boundary that the walk has to get right.
 const FIXTURE_FILES = [
   '.readyup/kits/__tests__/kit.unit.test.ts', // under a dot-directory, which Vitest collects
   'coverage/__tests__/report.unit.test.ts', // under a pruned directory
@@ -41,7 +41,7 @@ const COLLECTED_FILES = [
 
 const MISPLACED_FILES = ['generated/scaffold.unit.test.ts', 'src/nested/outside.test.tsx', 'src/outside.unit.test.ts'];
 
-/** The directory neither prune set holds, so only what the caller passes can keep the walk out of it. */
+/** The directory that neither prune set contains, so only what the caller passes can keep the walk out of it. */
 const CALLER_EXCLUDE = ['generated'];
 
 const it = baseIt
@@ -59,30 +59,30 @@ const it = baseIt
   );
 
 describe(findMisplacedTestFiles, () => {
-  it('reports every test file sitting outside a test directory', ({ fixtureTree }) => {
+  it('reports every test file outside a test directory', ({ fixtureTree }) => {
     expect(findMisplacedTestFiles(fixtureTree.dir)).toStrictEqual(MISPLACED_FILES);
   });
 
-  // The same prune set as the collection half, so a copy of a misplaced file under build output is not a second
-  // report of the same defect.
-  it('prunes the directories the collection half prunes', ({ fixtureTree }) => {
+  // The same prune set as the collection half, so that a copy of a misplaced file under build output is not a
+  // second report of the same defect.
+  it('prunes the directories that the collection half prunes', ({ fixtureTree }) => {
     expect(findMisplacedTestFiles(fixtureTree.dir)).not.toContain('dist/src/copied.unit.test.ts');
   });
 
-  it('prunes a directory the caller excludes', ({ fixtureTree }) => {
+  it('prunes a directory that the caller excludes', ({ fixtureTree }) => {
     expect(findMisplacedTestFiles(fixtureTree.dir, { excludedBasenames: CALLER_EXCLUDE })).toStrictEqual([
       'src/nested/outside.test.tsx',
       'src/outside.unit.test.ts',
     ]);
   });
 
-  it('returns an empty list for a tree holding no test file', ({ emptyTree }) => {
+  it('returns an empty list for a tree without a test file', ({ emptyTree }) => {
     expect(findMisplacedTestFiles(emptyTree.dir)).toStrictEqual([]);
   });
 });
 
 describe(findTestFiles, () => {
-  it('collects every test file the projects claim, and nothing else', ({ fixtureTree }) => {
+  it('collects every test file that the projects claim, and nothing else', ({ fixtureTree }) => {
     expect(findTestFiles(fixtureTree.dir)).toStrictEqual(COLLECTED_FILES);
   });
 
@@ -92,8 +92,8 @@ describe(findTestFiles, () => {
     expect(findTestFiles(fixtureTree.dir)).toContain('.readyup/kits/__tests__/kit.unit.test.ts');
   });
 
-  // Pinned against the engine Vitest discovers with, because over-reporting is a failure a consumer cannot fix and
-  // under-reporting is the silence a conformance check exists to end.
+  // Pinned against the engine with which Vitest discovers files, because over-reporting is a failure that a consumer
+  // cannot fix and under-reporting hides the violations that a conformance check exists to report.
   it('agrees with the collection pattern about which files are in scope', ({ fixtureTree }) => {
     const globbedPaths = globSync(ALL_TEST_PATTERNS, {
       cwd: fixtureTree.dir,
@@ -104,11 +104,11 @@ describe(findTestFiles, () => {
     expect(globbedPaths.toSorted()).toStrictEqual(findTestFiles(fixtureTree.dir));
   });
 
-  it('returns an empty list for a tree holding no test file', ({ emptyTree }) => {
+  it('returns an empty list for a tree without a test file', ({ emptyTree }) => {
     expect(findTestFiles(emptyTree.dir)).toStrictEqual([]);
   });
 
-  it('prunes a directory the caller excludes, at any depth', ({ fixtureTree }) => {
+  it('prunes a directory that the caller excludes, at any depth', ({ fixtureTree }) => {
     expect(findTestFiles(fixtureTree.dir, { excludedBasenames: CALLER_EXCLUDE })).toStrictEqual([
       '.readyup/kits/__tests__/kit.unit.test.ts',
       'src/__tests__/nested/deep.unit.test.tsx',
@@ -118,7 +118,7 @@ describe(findTestFiles, () => {
 });
 
 describe(findUntieredTestFiles, () => {
-  it('reports a collected file whose name selects no tier', ({ fixtureTree }) => {
+  it('reports a collected file whose name does not select a tier', ({ fixtureTree }) => {
     expect(findUntieredTestFiles(fixtureTree.dir)).toStrictEqual(['generated/__tests__/scaffold.test.ts']);
   });
 
@@ -127,11 +127,11 @@ describe(findUntieredTestFiles, () => {
     expect(findUntieredTestFiles(fixtureTree.dir)).not.toContain('src/nested/outside.test.tsx');
   });
 
-  it('prunes a directory the caller excludes', ({ fixtureTree }) => {
+  it('prunes a directory that the caller excludes', ({ fixtureTree }) => {
     expect(findUntieredTestFiles(fixtureTree.dir, { excludedBasenames: CALLER_EXCLUDE })).toStrictEqual([]);
   });
 
-  it('returns an empty list for a tree holding no test file', ({ emptyTree }) => {
+  it('returns an empty list for a tree without a test file', ({ emptyTree }) => {
     expect(findUntieredTestFiles(emptyTree.dir)).toStrictEqual([]);
   });
 });
@@ -145,8 +145,8 @@ describe(hasTierInfix, () => {
     expect(hasTierInfix('thing.unit.test.tsx')).toBe(true);
   });
 
-  // The aspect segment is free-form documentation, so a name carrying one still names its tier.
-  it('accepts a name carrying an aspect segment ahead of the tier', () => {
+  // The aspect segment is free-form documentation, so a name with one still names its tier.
+  it('accepts a name with an aspect segment ahead of the tier', () => {
     expect(hasTierInfix('scaffold.packaged.unit.test.ts')).toBe(true);
   });
 
@@ -154,7 +154,7 @@ describe(hasTierInfix, () => {
     expect(hasTierInfix('packages/nmr/src/__tests__/thing.tool.test.ts')).toBe(true);
   });
 
-  it('rejects a name carrying no infix at all', () => {
+  it('rejects a name without any infix', () => {
     expect(hasTierInfix('thing.test.ts')).toBe(false);
   });
 
@@ -162,7 +162,7 @@ describe(hasTierInfix, () => {
     expect(hasTierInfix('thing.uint.test.ts')).toBe(false);
   });
 
-  // Only the segment immediately before `.test.` selects a project, so a tier name sitting further left is an aspect.
+  // Only the segment immediately before `.test.` selects a project, so a tier name further left is an aspect.
   it('rejects a tier name displaced from the selecting segment', () => {
     expect(hasTierInfix('thing.tool.smoke.test.ts')).toBe(false);
   });

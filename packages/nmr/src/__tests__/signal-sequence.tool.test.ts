@@ -12,7 +12,7 @@ const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
 const CLI_PATH = path.join(MONOREPO_ROOT, 'packages', 'nmr', 'dist', 'esm', 'cli.js');
 const BIN_DIR = path.join(MONOREPO_ROOT, 'node_modules', '.bin');
 
-/** How long the first step waits before giving up, so nothing it spawned outlives the test as an orphan. */
+/** How long the first step waits before giving up, so that nothing it spawned outlives the test as an orphan. */
 const FIRST_STEP_WAIT_MS = 5_000;
 
 /** How long to wait for a marker before calling the step that writes it stalled. */
@@ -39,7 +39,7 @@ describe('signal handling', () => {
     if (child?.pid !== undefined && child.exitCode === null) child.kill('SIGKILL');
   });
 
-  // nmr installs no signal handler: nmr itself holds the sequence, so a signal that ends nmr ends the sequence.
+  // nmr doesn't install a signal handler: nmr itself runs the sequence, so a signal that ends nmr ends the sequence.
   it('given a signal to nmr alone, never starts the steps after the one that was running', async ({ tree }) => {
     child = spawn(process.execPath, [CLI_PATH, 'sequence'], {
       cwd: tree.dir,
@@ -54,9 +54,9 @@ describe('signal handling', () => {
     expect(tree.exists('second-ran')).toBe(false);
   }, 40_000);
 
-  // Keeps the test above honest: absence of the second marker means the signal stopped the sequence, not that
+  // Validates the test above: Absence of the second marker means the signal stopped the sequence, not that
   // the fixture never reached the second step under any circumstances.
-  it('runs the second step when no signal arrives', async ({ tree }) => {
+  it('runs the second step when nmr does not receive a signal', async ({ tree }) => {
     child = spawn(process.execPath, [CLI_PATH, 'control'], {
       cwd: tree.dir,
       env: buildChildEnv(),
@@ -110,7 +110,7 @@ function waitForExit(target: ChildProcess): Promise<number | null> {
   return new Promise((resolve) => target.on('exit', (code: number | null) => resolve(code)));
 }
 
-/** Resolves once the entry exists, so the signal lands while the first step is running rather than before it. */
+/** Resolves once the entry exists, so that the signal arrives while the first step is running rather than before it. */
 async function waitForMarker(tree: TempTree, entryPath: string): Promise<void> {
   const deadlineMs = Date.now() + MARKER_TIMEOUT_MS;
 

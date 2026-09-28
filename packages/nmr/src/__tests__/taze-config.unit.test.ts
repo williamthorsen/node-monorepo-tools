@@ -13,7 +13,7 @@ describe(defineConfig, () => {
     expect(config.packageMode).toStrictEqual({ typescript: 'minor' });
   });
 
-  it("lets a repo hold the range mode below nmr's default", () => {
+  it("lets a repo set the range mode below nmr's default", () => {
     expect(defineConfig({ mode: 'patch' }).mode).toBe('patch');
   });
 
@@ -31,7 +31,7 @@ describe(defineConfig, () => {
   });
 
   // taze inherits pnpm's `minimumReleaseAge` only while `maturityPeriod` is nullish, so clearing the
-  // default is what hands the policy back to pnpm-workspace.yaml.
+  // default hands the policy back to pnpm-workspace.yaml.
   it('lets a repo clear the default with an explicit undefined', () => {
     const config = defineConfig({ maturityPeriod: undefined });
 

@@ -7,7 +7,7 @@ import { type OutputChannels, runCommand } from '../runner.ts';
 
 const PRODUCED_BYTES = 2_000_000;
 
-/** What a caller writing to a non-terminal destination resolves, which is the arrangement these model. */
+/** What a caller writing to a non-terminal destination resolves, which is the arrangement that these tests model. */
 const PIPED_CHANNELS: OutputChannels = { stderr: 'pipe', stdout: 'pipe' };
 
 /** Collects everything written to a stream, for comparison against what the command produced. */
