@@ -37,7 +37,7 @@ const TIERED_PATTERNS = [
 // Files in the fixture tree, each chosen for a tier boundary that the config has to get right.
 const FIXTURE_FILES = [
   // A build that copies sources rather than compiling them. The `dist/src/` shape is the one that the coverage
-  // include also matches, so the single fixture stands for both surfaces.
+  // include also matches, so the single fixture covers both test collection and coverage.
   'dist/src/__tests__/copied.test.ts',
   // Collected until the repo names the directory: Vitest's own defaults prune `node_modules` and `.git` alone.
   'generated/__tests__/scaffold.test.ts',

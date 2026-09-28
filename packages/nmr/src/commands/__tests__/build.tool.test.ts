@@ -984,7 +984,7 @@ describe('buildPackage closing statement', () => {
 
     await buildPackage(tree.dir, { style: 'rich' });
 
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Emitted no output.'));
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Did not emit any output.'));
   });
 
   it('leaves the skip path to its own conclusion', async ({ tree }) => {

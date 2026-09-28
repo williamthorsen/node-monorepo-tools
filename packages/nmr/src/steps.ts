@@ -166,7 +166,7 @@ export function readNmrStep(step: Step): NmrStepTarget | undefined {
  * thereby loses steps from one that declares nothing to lose.
  *
  * A segment that delegates sends the command to other scopes rather than back to this one. `-w` re-enters
- * only from the root, a package's entry reaching the root's registry and `package.json` instead of its own.
+ * only from the root, a package's `-w` entry resolving against the root's registry and `package.json` instead of its own.
  *
  * Partial in the same ways `findNmrCrossing` is, and for the same reason: What goes unrecognized re-enters
  * without bound, which hangs rather than passing quietly.

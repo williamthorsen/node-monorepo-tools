@@ -434,10 +434,10 @@ export function prettierConfigBuildsOnSharedConfig(cwd: string = process.cwd()):
 /** Names the data-only config standing in for an executable one, so that the fix says what to convert. */
 function describeMissingPrettierConfig(cwd: string): string {
   const inertConfigs = findFiles(INERT_PRETTIER_CONFIGS, cwd);
-  if (inertConfigs.length > 0) return `holds no code to call the factory: ${inertConfigs.join(', ')}`;
+  if (inertConfigs.length > 0) return `does not contain code that calls the factory: ${inertConfigs.join(', ')}`;
 
   if (hasPrettierConfigKey(cwd)) {
-    return 'holds no code to call the factory: the "prettier" key in package.json';
+    return 'does not contain code that calls the factory: the "prettier" key in package.json';
   }
 
   return '.prettierrc.js is missing';
@@ -1018,7 +1018,7 @@ export function tazeConfigAvoidsClobberedOptions(cwd: string = process.cwd()): b
 /** Names the data-only config standing in for an executable one, so that the fix says what to convert. */
 function describeMissingTazeConfig(cwd: string): string {
   const inertConfigs = findFiles(INERT_TAZE_CONFIGS, cwd);
-  if (inertConfigs.length > 0) return `holds no code to call the factory: ${inertConfigs.join(', ')}`;
+  if (inertConfigs.length > 0) return `does not contain code that calls the factory: ${inertConfigs.join(', ')}`;
 
   return 'taze.config.ts is missing';
 }
@@ -1036,7 +1036,7 @@ export function testSuiteGatesTestFileConventions(cwd: string = process.cwd()): 
   if (findConventionsGuard(cwd) !== undefined) return true;
   return {
     ok: false,
-    detail: `no test file under __tests__ imports checkTestFileConventions from ${SHARED_TESTS_MODULE}`,
+    detail: `the test files under __tests__ do not import checkTestFileConventions from ${SHARED_TESTS_MODULE}`,
   };
 }
 

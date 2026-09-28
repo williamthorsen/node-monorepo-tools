@@ -130,7 +130,7 @@ The header presents the body as a recording rather than as this invocation's out
 
 ```console
 $ nmr --log test
-🟠 nmr: test: no recording; the last pass was 3m ago, on a tree this is not
+🟠 nmr: test: no recording; the last pass was 3m ago, on a tree that this is not
 ```
 
 **`--log` applies to the scopes that `-F` and `-R` select.** nmr passes the flag to the delegate. Each scope prints its own recording. There a scope with nothing to show reports its gap and exits 0: Partial coverage is normal for a survey, and failing on the first gap would hide every scope that had something to show. A selection that does not include any scope is the other case and fails, as it does for a run: An empty selection is not a partial survey.

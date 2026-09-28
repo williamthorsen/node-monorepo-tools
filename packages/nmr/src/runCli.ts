@@ -85,7 +85,7 @@ const CROSSING_CONSEQUENCE = "so nmr handles the nested run's output as a tool's
  * Leads the line that nmr prints for a recursive invocation when the workspace to which it would fan out does not
  * contain any package.
  */
-const RECURSIVE_REJECTION = '-R/--recursive matched no workspace:';
+const RECURSIVE_REJECTION = '-R/--recursive did not match any workspace:';
 
 /** How many items a diagnostic lists before it reports the rest as a count. */
 const LIST_CEILING = 10;
@@ -494,7 +494,7 @@ function bindPassthrough(
 /** Returns the error for an invocation whose arguments every step declines. */
 function formatUnroutableArgumentsError(command: string): string {
   return (
-    `\`${command}\` takes no trailing arguments: every step of its chain declines them. ` +
+    `\`${command}\` does not take trailing arguments: every step of its chain declines them. ` +
     'Running it unnarrowed is not what the arguments asked for, so nothing ran.'
   );
 }
@@ -631,7 +631,7 @@ function describeCrossingRemedy(options: {
  */
 function describeStepDestination(key: string): string {
   if (isHookName(key)) {
-    return 'a script of their own that the step list names, because a hook has no `:pre` or `:post` of its own';
+    return 'a script of their own that the step list names, because a hook does not have a `:pre` or `:post` of its own';
   }
 
   return `a \`${key}:pre\` or \`${key}:post\` script`;
@@ -744,7 +744,7 @@ function formatSelfReferenceRemedy(options: {
   const { command, isWorkspaceRoot, monorepoRoot, registry, script } = options;
 
   if (isHookName(command)) {
-    return `Delete the re-invocation: \`${command}\` runs the steps standing beside it.`;
+    return `Delete the re-invocation: \`${command}\` runs the steps beside it.`;
   }
 
   const configSite = path.relative(monorepoRoot, resolveConfigPath(monorepoRoot));
@@ -773,7 +773,7 @@ function formatPackageRemedy(options: {
 
   if (registryEntry === undefined) {
     return (
-      `A \`package.json\` script holds no step list: define \`${key}\` in \`${configSite}\` and move the ` +
+      `A \`package.json\` script cannot contain a step list: define \`${key}\` in \`${configSite}\` and move the ` +
       `package-specific steps to ${describeStepDestination(key)}.`
     );
   }
@@ -783,7 +783,7 @@ function formatPackageRemedy(options: {
     return `Delete the entry: nmr's own \`${key}\` already runs \`${escapeControlCharacters(registryChain)}\`.`;
   }
 
-  return `Delete the entry and move the steps it adds to ${describeStepDestination(key)}.`;
+  return `Delete the entry and move the steps that it adds to ${describeStepDestination(key)}.`;
 }
 
 /**
@@ -856,7 +856,7 @@ function formatEmptyFilterError(pattern: string, names: readonly string[]): stri
   const rejection = formatFilterRejection(pattern);
 
   if (pattern.startsWith('!')) {
-    return `${rejection} A pattern beginning with \`!\` excludes what it matches, and this one leaves no package standing.`;
+    return `${rejection} A pattern beginning with \`!\` excludes what it matches, and this one excludes every package.`;
   }
 
   if (pattern.includes('[')) {
@@ -867,7 +867,7 @@ function formatEmptyFilterError(pattern: string, names: readonly string[]): stri
     return (
       `${rejection} ` +
       'A pattern written `./dir`, `/dir`, or `{dir}` selects the packages under a directory, ' +
-      'and no package sits under this one.'
+      'and this directory does not contain any package.'
     );
   }
 
@@ -903,21 +903,21 @@ function describeEmptyWorkspace(monorepoRoot: string): string {
       );
     case 'no-package':
       return (
-        `pnpm-workspace.yaml ${declaredClause}, and the matcher found no directory holding a \`package.json\`. ` +
-        'nmr counts a directory as a package only where it holds `package.json`; unlike pnpm, it recognizes ' +
+        `pnpm-workspace.yaml ${declaredClause}, and the matcher did not find any directory containing a \`package.json\`. ` +
+        'nmr counts a directory as a package only when it contains `package.json`; unlike pnpm, it recognizes ' +
         'neither `package.yaml` nor `package.json5`. Add a `package.json` to the directory that should be a ' +
         'package, or declare a pattern reaching a directory that holds one.'
       );
     case 'no-packages-list':
       return (
-        `pnpm-workspace.yaml at ${monorepoRoot} declares no \`packages\` list, so the workspace holds the root ` +
+        `pnpm-workspace.yaml at ${monorepoRoot} does not declare a \`packages\` list, so the workspace contains the root ` +
         'package alone. Declare a positive pattern such as `packages/*` to reach the packages beneath it.'
       );
     case 'no-pattern':
       return (
-        `pnpm-workspace.yaml ${declaredClause}, so no pattern reaches the matcher. Declare a positive pattern such ` +
-        'as `packages/*`, and quote any `!` entry, which YAML reads as a tag rather than a string where it ' +
-        'stands bare.'
+        `pnpm-workspace.yaml ${declaredClause}, so the matcher does not receive any pattern. Declare a positive ` +
+        'pattern such as `packages/*`, and quote any `!` entry, which YAML reads as a tag rather than a string ' +
+        'when it is unquoted.'
       );
     case 'unreadable-packages':
       return (
@@ -927,7 +927,7 @@ function describeEmptyWorkspace(monorepoRoot: string): string {
       );
     case 'unreadable-manifest':
       return (
-        `pnpm-workspace.yaml at ${monorepoRoot} holds no valid YAML, so nothing it declares reaches the matcher. ` +
+        `pnpm-workspace.yaml at ${monorepoRoot} is not valid YAML, so the matcher does not receive anything that it declares. ` +
         'Repair the syntax error and run the command again. An unterminated quoted string and a mis-indented ' +
         'entry are the usual ones.'
       );
@@ -963,7 +963,7 @@ function describeDeclaredPatterns(patterns: readonly string[]): string {
 
 /** Returns the rejection that leads a filter's line, naming the pattern that selected nothing. */
 function formatFilterRejection(pattern: string): string {
-  return `-F/--filter matched no workspace: \`${pattern}\`.`;
+  return `-F/--filter did not match any workspace: \`${pattern}\`.`;
 }
 
 /**
@@ -1055,7 +1055,7 @@ function assertNoSelfReference(options: {
 
   throw new UserError(
     `${site}: \`scripts.${command}\` re-invokes \`nmr ${command}\` (\`${escapeControlCharacters(script)}\`), ` +
-      `so nmr cannot run the steps it chains. ${remedy}`,
+      `so nmr cannot run the steps that it chains. ${remedy}`,
   );
 }
 
@@ -1116,7 +1116,7 @@ async function lookUpRecordedPass(options: {
 
   const [missingPackage] = buildOutput.missingPackages;
   if (missingPackage !== undefined) {
-    writeDebugNote(`running ${command}: ${missingPackage} has no build output`, env, stderr);
+    writeDebugNote(`running ${command}: ${missingPackage} does not have build output`, env, stderr);
     return undefined;
   }
 
@@ -1476,7 +1476,7 @@ async function recordPass(options: {
   const output = await readBuildOutputState(monorepoRoot, options.config);
   const [missingPackage] = output.missingPackages;
   if (missingPackage !== undefined) {
-    writeDebugNote(`not recording ${command}: ${missingPackage} has no build output`, env, stderr);
+    writeDebugNote(`not recording ${command}: ${missingPackage} does not have build output`, env, stderr);
     return;
   }
 

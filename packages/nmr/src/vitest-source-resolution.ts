@@ -214,7 +214,7 @@ function findTargetFile(declaredPath: string): string | undefined {
 /** Returns the message rejecting a `source` condition that does not reach any file in the package. */
 function formatMissingTarget(name: string, subpath: string, declaredTarget: string, target: string): string {
   return [
-    `Package "${name}" declares a \`source\` export for "${subpath}" at "${declaredTarget}", which reaches no file.`,
+    `Package "${name}" declares a \`source\` export for "${subpath}" at "${declaredTarget}", which does not reach any file.`,
     `Looked for ${target}, the same path under each of ${TARGET_EXTENSIONS.join(', ')}, and an index under it.`,
     'Point the condition at a file that exists, or remove it so that the package resolves through its other conditions.',
   ].join(' ');

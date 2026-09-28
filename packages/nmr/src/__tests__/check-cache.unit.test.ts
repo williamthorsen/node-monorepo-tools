@@ -96,16 +96,16 @@ describe('check-cache', () => {
       ['LANG', { env: { LANG: 'fr_FR.UTF-8' } }],
       ['LC_ALL', { env: { LC_ALL: 'C' } }],
       ['NODE_OPTIONS', { env: { NODE_OPTIONS: '--max-old-space-size=8192' } }],
-    ])('moves when %s changes', (_label, overrides) => {
+    ])('changes when %s changes', (_label, overrides) => {
       expect(requireKey(tree.dir, overrides)).not.toBe(requireKey(tree.dir));
     });
 
-    it('moves when the scope changes', () => {
+    it('changes when the scope changes', () => {
       // One tree can pass `check` at the root and fail it in a package; the two are different questions.
       expect(requireKey(tree.dir, { anchorDir: tree.resolve('packages/a') })).not.toBe(requireKey(tree.dir));
     });
 
-    it('moves when what is installed changes', () => {
+    it('changes when what is installed changes', () => {
       const beforeKey = requireKey(tree.dir);
 
       tree.write('node_modules/.modules.yaml', 'hoistPattern:\n  - "*"\n');
@@ -159,14 +159,14 @@ describe('check-cache', () => {
       ['FORCE_COLOR', { env: { FORCE_COLOR: '3' } }],
       ['NO_COLOR', { env: { NO_COLOR: '1' } }],
       ['TERM', { env: { TERM: 'dumb' } }],
-    ])('moves when %s changes', (_label, overrides) => {
+    ])('changes when %s changes', (_label, overrides) => {
       expect(buildRetentionKey(overrides)).not.toBe(buildRetentionKey());
     });
 
     it.each([
       ['stdout', { channels: { stderr: 'pipe', stdout: 1 } }],
       ['stderr', { channels: { stderr: 2, stdout: 'pipe' } }],
-    ] as const)('moves when the channel on which %s ran changes', (_label, overrides) => {
+    ] as const)('changes when the channel on which %s ran changes', (_label, overrides) => {
       expect(buildRetentionKey(overrides)).not.toBe(buildRetentionKey());
     });
 
@@ -185,7 +185,7 @@ describe('check-cache', () => {
       );
     });
 
-    it('moves when the pass that it certifies moves', () => {
+    it('changes when the pass that it certifies changes', () => {
       expect(buildRetentionKey({ passKey: 'another-pass' })).not.toBe(buildRetentionKey());
     });
 
@@ -202,14 +202,14 @@ describe('check-cache', () => {
         writeInstallFingerprint(tree);
       });
 
-      it('given a presentation variable, moves while the pass key stays the same', () => {
+      it('given a presentation variable, changes while the pass key stays the same', () => {
         const passKey = requireKey(tree.dir, { env: { COLUMNS: '80' } });
 
         expect(passKey).toBe(requireKey(tree.dir));
         expect(buildRetentionKey({ env: { COLUMNS: '80' }, passKey })).not.toBe(buildRetentionKey({ passKey }));
       });
 
-      it('given a channel kind, moves while the pass key stays the same', () => {
+      it('given a channel kind, changes while the pass key stays the same', () => {
         expect(buildRetentionKey({ channels: { stderr: 2, stdout: 1 }, passKey: requireKey(tree.dir) })).not.toBe(
           buildRetentionKey({ passKey: requireKey(tree.dir) }),
         );

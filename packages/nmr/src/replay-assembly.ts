@@ -12,7 +12,7 @@ import { getWorkspacePackageDirs } from './workspace.ts';
  * from the assembly.
  *
  * A constituent is looked up at the scope at which its own process anchors: the composite's anchor, or the
- * monorepo root for an element that passes `-w`, which is how a package-scoped composite reaches a root command.
+ * monorepo root for an element that passes `-w`, which is how a package-scoped composite finds a root command's entry.
  *
  * An entry is admissible when the run that certified it is this one and the tree that it describes is this one.
  * The witness is what a run stamps on an excerpt that it records and on one that it recalls and replays; the

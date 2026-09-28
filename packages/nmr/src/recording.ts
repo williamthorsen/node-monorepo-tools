@@ -155,15 +155,15 @@ function appendNewline(body: string): string {
 function describeDifference(difference: KeyDifference): string {
   switch (difference.ingredient) {
     case 'tree':
-      return 'on a tree this is not';
+      return 'on a tree that this is not';
     case 'command-string':
-      return 'over a command chain this is not';
+      return 'over a command chain that this is not';
     case 'nmr-version':
       return `under nmr ${difference.recordedVersion}, not ${difference.currentVersion}`;
     case 'node-version':
       return `under Node ${difference.recordedVersion}, not ${difference.currentVersion}`;
     case 'other':
-      return 'under an install or environment this run does not share';
+      return 'under an install or environment that this run does not share';
     default: {
       const unhandledDifference: never = difference;
       throw new Error(`Unhandled key difference: ${JSON.stringify(unhandledDifference)}`);

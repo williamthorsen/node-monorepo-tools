@@ -8,7 +8,7 @@ import { resolveTazeCliPath, runTaze, type SpawnOutcome } from '../taze.ts';
 const FAKE_CLI_PATH = '/fake/taze/cli.mjs';
 
 describe(runTaze, () => {
-  it("forwards every argument to the taze CLI, in order and unmodified, behind nmr's request timeout", () => {
+  it("forwards every argument to the taze CLI, in order and unmodified, after nmr's request timeout", () => {
     const argv = runCapturingArgv(['--recursive', 'major', '--write']);
 
     expect(argv).toStrictEqual([FAKE_CLI_PATH, '--request-timeout', '30000', '--recursive', 'major', '--write']);

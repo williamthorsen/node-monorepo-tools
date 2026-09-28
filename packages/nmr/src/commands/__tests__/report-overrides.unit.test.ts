@@ -32,7 +32,7 @@ describe(reportOverrides, () => {
     expect(silent.warn).toHaveBeenCalledWith('\n🔒 1 override is active. Check whether it is still needed.');
   });
 
-  it('drops the glyph in a plain run, the word after it carrying the line', () => {
+  it('drops the glyph in a plain run and keeps the text after it', () => {
     writePackageJson({ name: 'test', version: '1.0.0' });
     writeWorkspaceManifest('overrides:\n  some-package: 1.2.3\n');
 

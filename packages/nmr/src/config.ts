@@ -108,7 +108,7 @@ function assertValidElements(scripts: Record<string, ScriptValue>, fieldName: st
       if (token === undefined) continue;
 
       throw new UserError(
-        `Invalid nmr config at ${configPath}: \`${fieldName}.${command}\` element \`${element}\` carries ` +
+        `Invalid nmr config at ${configPath}: \`${fieldName}.${command}\` element \`${element}\` contains ` +
           `\`${token}\`, which is neither a command name nor an nmr flag. Name it as a script of its own and ` +
           `reference that name here.`,
       );
@@ -224,7 +224,7 @@ function assertResolvableCheckCacheCommands(config: NmrConfig, configPath: strin
 
   const closestName = findClosestName(unresolvableEntry.command, [...registeredNames, ...declaredNames]);
   throw new UserError(
-    `Invalid nmr config at ${configPath}: \`checkCache.${unresolvableEntry.field}\` names no command: ` +
+    `Invalid nmr config at ${configPath}: \`checkCache.${unresolvableEntry.field}\` does not name any command: ` +
       `\`${unresolvableEntry.command}\`.${closestName === undefined ? '' : ` Did you mean \`${closestName}\`?`}`,
   );
 }

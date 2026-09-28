@@ -77,7 +77,7 @@ export function renderVerdict(verdict: Verdict, style: OutputStyle): string {
  * Held to the same ceiling as the prose line, so that one write still arrives in a pipe whole when concurrent
  * scopes share a descriptor. It cuts inside the record's text rather than across its structure, which leaves the
  * line parseable, and fits a record by rungs, each shedding what a reader can better spare than the rung below it.
- * What the ceiling costs is [documented](../docs/reporting.md#reporting-for-a-machine) in the same order.
+ * Each rung is [documented](../docs/reporting.md#reporting-for-a-machine) in the same order.
  */
 export function serializeVerdict(verdict: Verdict): string {
   const renderedLine = JSON.stringify(verdict);
@@ -144,7 +144,7 @@ function describeNoOpReason(reason: NoOpReason): string {
     case 'empty-override':
       return 'the override is empty';
     case 'empty-workspace':
-      return 'the workspace declares no package';
+      return 'the workspace does not declare any package';
     case 'noop-override':
       return 'the override is a no-op';
     default: {

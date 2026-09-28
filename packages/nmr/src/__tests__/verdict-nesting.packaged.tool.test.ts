@@ -41,7 +41,9 @@ const it = baseIt.extend(
 // as the `packaged` segment of the filename records: A stale `dist` fails these and nothing else.
 describe('reporting through a real chain', () => {
   describe('nesting', () => {
-    it('lets each element of a composite report through the quiet ancestor nmr composed', async ({ tree }) => {
+    it('lets each element of a composite report through the quiet ancestor nmr process that composed it', async ({
+      tree,
+    }) => {
       const { exitCode, stdout } = await runNmr(['-q', 'fanout'], tree.dir);
 
       expect(exitCode).toBe(0);

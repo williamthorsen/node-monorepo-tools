@@ -26,7 +26,7 @@ const ENTRY_SOURCE_PATH = path.join(import.meta.dirname, '..', ENTRY_BASENAME);
 const ERASABLE_IMPORT = "import type { NmrConfig } from './types.ts';";
 const RETAINING_IMPORT = "import { type NmrConfig } from './types.ts';";
 
-/** A value import, which no toolchain erases. Stands in for any sibling that the entry might one day import. */
+/** A value import, which type stripping does not erase. Stands in for any sibling that the entry might one day import. */
 const VALUE_IMPORT = "import { isObject } from './helpers/type-guards.ts';";
 
 describe('the ./config entry under Node type stripping', () => {

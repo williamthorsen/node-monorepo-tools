@@ -74,8 +74,8 @@ export function hasTierInfix(filePath: string): boolean {
  * reports.
  *
  * These and the paths that git ignores are the scope on which the collection glob and the walk must agree.
- * Over-reporting is a failure that a consumer cannot fix; under-reporting is the silence that a conformance check
- * exists to end.
+ * Over-reporting is a failure that a consumer cannot fix; under-reporting hides the violations that a conformance
+ * check exists to report.
  */
 export const TEST_COLLECTION_EXCLUDE = ['.git', 'coverage', 'dist', 'node_modules'];
 
@@ -86,8 +86,8 @@ export interface TestFileScanOptions {
    * ignores.
    *
    * Basenames rather than globs, so that a repo can pass the same array here and to the shared Vitest config's
-   * `testCollectionExclude`. A directory pruned from the sweep but still collected by Vitest is the silence that
-   * these sweeps exist to end.
+   * `testCollectionExclude`. Vitest still runs the files in a directory pruned from the sweep alone, and the sweep
+   * does not report them.
    */
   excludedBasenames?: readonly string[];
 }

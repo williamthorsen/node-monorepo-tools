@@ -663,7 +663,7 @@ function collectAliasPrefixes(compilerOptions: ts.CompilerOptions): string[] {
 /** Describes the outcome of an emit: the files that it published, or their absence. */
 function describeEmit(fileCount: number, outdir: string): string {
   if (fileCount === 0) {
-    return 'Emitted no output.';
+    return 'Did not emit any output.';
   }
 
   // Always plural: Every emitting source yields a `.js` and a `.d.ts`, so the count is never one.

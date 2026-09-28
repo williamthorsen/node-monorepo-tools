@@ -496,9 +496,9 @@ function prettierConfigBuildsOnSharedConfig(cwd = process.cwd()) {
 }
 function describeMissingPrettierConfig(cwd) {
   const inertConfigs = findFiles(INERT_PRETTIER_CONFIGS, cwd);
-  if (inertConfigs.length > 0) return `holds no code to call the factory: ${inertConfigs.join(", ")}`;
+  if (inertConfigs.length > 0) return `does not contain code that calls the factory: ${inertConfigs.join(", ")}`;
   if (hasPrettierConfigKey(cwd)) {
-    return 'holds no code to call the factory: the "prettier" key in package.json';
+    return 'does not contain code that calls the factory: the "prettier" key in package.json';
   }
   return ".prettierrc.js is missing";
 }
@@ -769,14 +769,14 @@ function tazeConfigAvoidsClobberedOptions(cwd = process.cwd()) {
 }
 function describeMissingTazeConfig(cwd) {
   const inertConfigs = findFiles(INERT_TAZE_CONFIGS, cwd);
-  if (inertConfigs.length > 0) return `holds no code to call the factory: ${inertConfigs.join(", ")}`;
+  if (inertConfigs.length > 0) return `does not contain code that calls the factory: ${inertConfigs.join(", ")}`;
   return "taze.config.ts is missing";
 }
 function testSuiteGatesTestFileConventions(cwd = process.cwd()) {
   if (findConventionsGuard(cwd) !== void 0) return true;
   return {
     ok: false,
-    detail: `no test file under __tests__ imports checkTestFileConventions from ${SHARED_TESTS_MODULE}`
+    detail: `the test files under __tests__ do not import checkTestFileConventions from ${SHARED_TESTS_MODULE}`
   };
 }
 function describeConventionsGuardSkip() {
