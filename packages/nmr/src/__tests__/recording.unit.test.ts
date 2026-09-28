@@ -194,12 +194,12 @@ describe('a recording', () => {
       [
         'a moved tree',
         { kind: 'mismatched', ageMs: 60_000, difference: { ingredient: 'tree' } },
-        'the last pass was 1m ago, on a tree this is not',
+        'the last pass was 1m ago, on a tree that this is not',
       ],
       [
         'a changed chain',
         { kind: 'mismatched', ageMs: 60_000, difference: { ingredient: 'command-string' } },
-        'over a command chain this is not',
+        'over a command chain that this is not',
       ],
       [
         'an upgraded nmr',
@@ -222,7 +222,7 @@ describe('a recording', () => {
       [
         'an ingredient that the entry does not record',
         { kind: 'mismatched', ageMs: 60_000, difference: { ingredient: 'other' } },
-        'under an install or environment this run does not share',
+        'under an install or environment that this run does not share',
       ],
       ['no-output', { kind: 'no-output', ageMs: 60_000 }, 'the pass 1m ago retained none'],
     ] as const)('given %s, names the scope, the command, and what is missing', (_kind, refusal, clause) => {

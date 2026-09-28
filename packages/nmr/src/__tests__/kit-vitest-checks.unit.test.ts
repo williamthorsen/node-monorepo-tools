@@ -389,14 +389,14 @@ describe(testSuiteGatesTestFileConventions, () => {
     const dir = buildRepo({ 'packages/api/src/__tests__/api.unit.test.ts': '' });
 
     expect(getDetail(testSuiteGatesTestFileConventions(dir))).toBe(
-      'no test file under __tests__ imports checkTestFileConventions from @williamthorsen/nmr/tests',
+      'the test files under __tests__ do not import checkTestFileConventions from @williamthorsen/nmr/tests',
     );
   });
 
   it('does not count a guard outside __tests__, which Vitest does not collect in any project', () => {
     const dir = buildRepo({ 'test/test-file-conventions.unit.test.ts': CONVENTIONS_GUARD });
 
-    expect(getDetail(testSuiteGatesTestFileConventions(dir))).toContain('no test file under __tests__');
+    expect(getDetail(testSuiteGatesTestFileConventions(dir))).toContain('the test files under __tests__ do not import');
   });
 
   it('does not count checkTestFileConventions imported from another module', () => {
@@ -405,7 +405,7 @@ describe(testSuiteGatesTestFileConventions, () => {
         "import { checkTestFileConventions } from '../scripts/conventions.ts';\n\ncheckTestFileConventions();\n",
     });
 
-    expect(getDetail(testSuiteGatesTestFileConventions(dir))).toContain('no test file under __tests__');
+    expect(getDetail(testSuiteGatesTestFileConventions(dir))).toContain('the test files under __tests__ do not import');
   });
 
   it('warns rather than failing the run', () => {

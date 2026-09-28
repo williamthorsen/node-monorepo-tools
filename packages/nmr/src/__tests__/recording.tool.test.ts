@@ -83,7 +83,7 @@ describe('a run printed by --log', () => {
       const { exitCode, stderr, stdout } = await runNmr(`--log ${COMMAND}`);
 
       expect(exitCode).toBe(1);
-      expect(stderr).toContain('on a tree this is not');
+      expect(stderr).toContain('on a tree that this is not');
       expect(stdout).toBe('');
     });
   });

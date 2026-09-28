@@ -38,7 +38,7 @@ describe(renderVerdict, () => {
 
   it.each([
     ['empty-override', '⚪ nmr-core: test: skipped, the override is empty'],
-    ['empty-workspace', '⚪ nmr-core: test: skipped, the workspace declares no package'],
+    ['empty-workspace', '⚪ nmr-core: test: skipped, the workspace does not declare any package'],
     ['noop-override', '⚪ nmr-core: test: skipped, the override is a no-op'],
   ] as const)('distinguishes the %s from a pass', (reason, expectedLine) => {
     expect(renderVerdict(makeVerdict({ outcome: 'no-op', reason }), 'rich')).toBe(expectedLine);

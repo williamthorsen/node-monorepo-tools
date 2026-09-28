@@ -50,7 +50,7 @@ describe(tazeConfigBuildsOnSharedConfig, () => {
     const dir = buildRepo({ [filename]: '{}\n' });
 
     const detail = getDetail(tazeConfigBuildsOnSharedConfig(dir));
-    expect(detail).toContain('holds no code to call the factory');
+    expect(detail).toContain('does not contain code that calls the factory');
     expect(detail).toContain(filename);
   });
 

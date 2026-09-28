@@ -353,7 +353,7 @@ describe(runCli, () => {
       expect(readStepsFromCall()).toBeUndefined();
       expect(stderr).toContain('-R/--recursive matched no workspace:');
       expect(stderr).toContain('pnpm-workspace.yaml declares `packages/*`');
-      expect(stderr).toContain('the matcher found no directory holding a `package.json`');
+      expect(stderr).toContain('the matcher did not find any directory containing a `package.json`');
       expect(stderr).toContain('unlike pnpm, it recognizes neither `package.yaml` nor `package.json5`');
       expect(stderr).toContain('Add a `package.json`');
     });
@@ -364,7 +364,7 @@ describe(runCli, () => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], listlessTree.dir);
 
       expect(exitCode).toBe(1);
-      expect(stderr).toContain('declares no `packages` list, so the workspace holds the root package alone');
+      expect(stderr).toContain('does not declare a `packages` list, so the workspace contains the root package alone');
       expect(stderr).toContain('Declare a positive pattern such as `packages/*`');
     });
 
@@ -423,7 +423,7 @@ describe(runCli, () => {
 
       expect(exitCode).toBe(1);
       expect(stderr).toContain('-F/--filter matched no workspace: `my-pkg`.');
-      expect(stderr).toContain('the matcher found no directory holding a `package.json`');
+      expect(stderr).toContain('the matcher did not find any directory containing a `package.json`');
       expect(stderr).not.toContain('manifest `name`');
     });
 
@@ -469,7 +469,7 @@ describe(runCli, () => {
 
       expect(exitCode).toBe(0);
       expect(mockedRunSteps).not.toHaveBeenCalled();
-      expect(stdout).toContain('build: skipped, the workspace declares no package');
+      expect(stdout).toContain('build: skipped, the workspace does not declare any package');
       expect(stdout).not.toContain('the override is empty');
     });
 
@@ -591,7 +591,7 @@ describe(runCli, () => {
 
       expect(exitCode).toBe(1);
       expect(readStepsFromCall()).toBeUndefined();
-      expect(stderr).toContain('`verify` takes no trailing arguments');
+      expect(stderr).toContain('`verify` does not take trailing arguments');
     });
 
     // The rejection precedes the recording branch, so `--log` rejects an unroutable argument as a run does,
@@ -609,7 +609,7 @@ describe(runCli, () => {
       const { exitCode, stderr } = await runNmrReadingStderr(['--log', 'verify', 'src/'], tree.dir);
 
       expect(exitCode).toBe(1);
-      expect(stderr).toContain('`verify` takes no trailing arguments');
+      expect(stderr).toContain('`verify` does not take trailing arguments');
     });
 
     // An empty override resolves to an empty step list, which does not have a step to accept the arguments.
@@ -970,7 +970,7 @@ describe(runCli, () => {
         expectedMessage:
           'WARN package.json: `scripts.fix` reaches nmr through a shell (`nmr lint && rdy compile`), ' +
           "so nmr handles the nested run's output as a tool's. " +
-          'Delete the entry and move the steps it adds to a `fix:pre` or `fix:post` script.',
+          'Delete the entry and move the steps that it adds to a `fix:pre` or `fix:post` script.',
         command: 'fix',
         scenario: 'a package.json entry adding steps to what nmr already runs',
         setup: (tree: TempTree) => writePackageScripts(tree, { fix: 'nmr lint && rdy compile' }),
@@ -979,7 +979,7 @@ describe(runCli, () => {
         expectedMessage:
           'WARN package.json: `scripts.probe` reaches nmr through a shell (`nmr fmt && tsx sync.ts`), ' +
           "so nmr handles the nested run's output as a tool's. " +
-          'A `package.json` script holds no step list: define `probe` in `.config/nmr.config.ts` and move the ' +
+          'A `package.json` script cannot contain a step list: define `probe` in `.config/nmr.config.ts` and move the ' +
           'package-specific steps to a `probe:pre` or `probe:post` script.',
         command: 'probe',
         scenario: 'a package.json entry whose command the registry does not define',
@@ -989,7 +989,7 @@ describe(runCli, () => {
         expectedMessage:
           'WARN package.json: `scripts.probe` reaches nmr through a shell (`tsx sync.ts\\nnmr fmt`), ' +
           "so nmr handles the nested run's output as a tool's. " +
-          'A `package.json` script holds no step list: define `probe` in `.config/nmr.config.ts` and move the ' +
+          'A `package.json` script cannot contain a step list: define `probe` in `.config/nmr.config.ts` and move the ' +
           'package-specific steps to a `probe:pre` or `probe:post` script.',
         command: 'probe',
         scenario: 'a package.json entry written across lines, which the warning quotes as it appears in the file',
@@ -1013,7 +1013,7 @@ describe(runCli, () => {
           'WARN .config/nmr.config.ts: `rootScripts.probe:post` reaches nmr through a shell ' +
           "(`nmr fmt && echo done`), so nmr handles the nested run's output as a tool's. " +
           'Write the nmr steps as a step list, and move any others to a script of their own that the step ' +
-          'list names, because a hook has no `:pre` or `:post` of its own.',
+          'list names, because a hook does not have a `:pre` or `:post` of its own.',
         scenario: 'a config entry',
         setup: (tree: TempTree) => writeConfig(tree, { rootScripts: { 'probe:post': 'nmr fmt && echo done' } }),
       },
@@ -1021,7 +1021,7 @@ describe(runCli, () => {
         expectedMessage:
           'WARN package.json: `scripts.probe:post` reaches nmr through a shell (`nmr fmt && echo done`), ' +
           "so nmr handles the nested run's output as a tool's. " +
-          'A `package.json` script holds no step list: define `probe:post` in `.config/nmr.config.ts` and ' +
+          'A `package.json` script cannot contain a step list: define `probe:post` in `.config/nmr.config.ts` and ' +
           'move the package-specific steps to a script of their own that the step list names, because a hook ' +
           'has no `:pre` or `:post` of its own.',
         scenario: 'a package.json entry',
@@ -1101,24 +1101,24 @@ describe(runCli, () => {
       {
         expectedMessage:
           'package.json: `scripts.build` re-invokes `nmr build` (`nmr build && rdy compile`), ' +
-          'so nmr cannot run the steps it chains. ' +
-          'Delete the entry and move the steps it adds to a `build:pre` or `build:post` script.',
+          'so nmr cannot run the steps that it chains. ' +
+          'Delete the entry and move the steps that it adds to a `build:pre` or `build:post` script.',
         scenario: 'placed ahead of the steps that it chains',
         scripts: { build: 'nmr build && rdy compile' },
       },
       {
         expectedMessage:
           'package.json: `scripts.build` re-invokes `nmr build` (`rdy compile && nmr build`), ' +
-          'so nmr cannot run the steps it chains. ' +
-          'Delete the entry and move the steps it adds to a `build:pre` or `build:post` script.',
+          'so nmr cannot run the steps that it chains. ' +
+          'Delete the entry and move the steps that it adds to a `build:pre` or `build:post` script.',
         scenario: 'placed behind the steps that it chains, which honouring would re-enter without bound',
         scripts: { build: 'rdy compile && nmr build' },
       },
       {
         expectedMessage:
           'package.json: `scripts.probe` re-invokes `nmr probe` (`nmr probe && tsx sync.ts`), ' +
-          'so nmr cannot run the steps it chains. ' +
-          'A `package.json` script holds no step list: define `probe` in `.config/nmr.config.ts` and move the ' +
+          'so nmr cannot run the steps that it chains. ' +
+          'A `package.json` script cannot contain a step list: define `probe` in `.config/nmr.config.ts` and move the ' +
           'package-specific steps to a `probe:pre` or `probe:post` script.',
         scenario: 'naming a command that the registry does not define',
         scripts: { probe: 'nmr probe && tsx sync.ts' },
@@ -1126,8 +1126,8 @@ describe(runCli, () => {
       {
         expectedMessage:
           'package.json: `scripts.build` re-invokes `nmr build` (`nmr build\\nrdy compile`), ' +
-          'so nmr cannot run the steps it chains. ' +
-          'Delete the entry and move the steps it adds to a `build:pre` or `build:post` script.',
+          'so nmr cannot run the steps that it chains. ' +
+          'Delete the entry and move the steps that it adds to a `build:pre` or `build:post` script.',
         scenario: 'written across lines, which the error quotes as it appears in the file',
         scripts: { build: 'nmr build\nrdy compile' },
       },
@@ -1180,8 +1180,8 @@ describe(runCli, () => {
       await expect(runNmr(['lint:post'], tree.dir)).rejects.toThrow(
         new UserError(
           'package.json: `scripts.lint:post` re-invokes `nmr lint:post` (`nmr lint:post && rdy compile`), ' +
-            'so nmr cannot run the steps it chains. ' +
-            'Delete the re-invocation: `lint:post` runs the steps standing beside it.',
+            'so nmr cannot run the steps that it chains. ' +
+            'Delete the re-invocation: `lint:post` runs the steps beside it.',
         ),
       );
     });

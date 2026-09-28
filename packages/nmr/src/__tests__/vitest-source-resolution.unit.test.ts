@@ -115,7 +115,7 @@ describe(resolveSourceTarget, () => {
   // A run does not report a fall-through to the build output, and resolving from source exists to prevent one.
   it('rejects a source condition that does not reach any file', ({ tree }) => {
     expect(() => resolve(tree, '@fixture/linked/gone')).toThrow(
-      /@fixture\/linked.*"\.\/gone".*"\.\/src\/gone\.ts".*reaches no file/s,
+      /@fixture\/linked.*"\.\/gone".*"\.\/src\/gone\.ts".*does not reach any file/s,
     );
   });
 

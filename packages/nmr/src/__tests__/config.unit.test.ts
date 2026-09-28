@@ -156,13 +156,17 @@ describe(loadConfig, () => {
   it('throws naming the composite element and the token that puts it outside the grammar', async ({ tree }) => {
     writeConfig(tree, `export default { rootScripts: { check: ['build && echo done'] } };`);
 
-    await expect(loadConfig(tree.dir)).rejects.toThrow('`rootScripts.check` element `build && echo done` carries `&&`');
+    await expect(loadConfig(tree.dir)).rejects.toThrow(
+      '`rootScripts.check` element `build && echo done` contains `&&`',
+    );
   });
 
   it('holds a spec element to the same grammar as its bare string', async ({ tree }) => {
     writeConfig(tree, `export default { rootScripts: { check: [{ run: 'build && echo done' }] } };`);
 
-    await expect(loadConfig(tree.dir)).rejects.toThrow('`rootScripts.check` element `build && echo done` carries `&&`');
+    await expect(loadConfig(tree.dir)).rejects.toThrow(
+      '`rootScripts.check` element `build && echo done` contains `&&`',
+    );
   });
 
   it('throws naming the shape when an element is neither a string nor a spec', async ({ tree }) => {
@@ -342,7 +346,7 @@ describe('checkCache command resolution', () => {
     writeConfig(tree, `export default { checkCache: { extraCommands: ['nonesuch-command'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
-      '`checkCache.extraCommands` names no command: `nonesuch-command`',
+      '`checkCache.extraCommands` does not name any command: `nonesuch-command`',
     );
   });
 
@@ -351,7 +355,7 @@ describe('checkCache command resolution', () => {
     writeConfig(tree, `export default { checkCache: { excludeCommands: ['nonesuch-command'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
-      '`checkCache.excludeCommands` names no command: `nonesuch-command`',
+      '`checkCache.excludeCommands` does not name any command: `nonesuch-command`',
     );
   });
 
@@ -376,7 +380,7 @@ describe('checkCache command resolution', () => {
     writeConfig(tree, `export default { checkCache: { extraCommands: ['nonesuch-command'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
-      '`checkCache.extraCommands` names no command: `nonesuch-command`',
+      '`checkCache.extraCommands` does not name any command: `nonesuch-command`',
     );
   });
 
