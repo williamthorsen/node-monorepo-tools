@@ -37,7 +37,8 @@ on:
         type: boolean
         default: false
       tags:
-        description: 'Comma-separated list of full tag names to publish (leave empty to publish every release tag on HEAD)'
+        description: 'Comma-separated list of full tag names to publish (leave empty to
+          publish every release tag on HEAD)'
         required: false
         type: string
         default: ''
@@ -57,7 +58,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up pnpm and Node.js
-        uses: pnpm/setup@v2
+        uses: pnpm/setup@v3
         with:
           runtime: node@${{ inputs.node-version }}
           cache: true

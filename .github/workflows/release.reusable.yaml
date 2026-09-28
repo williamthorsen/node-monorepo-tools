@@ -21,7 +21,8 @@ on:
   workflow_call:
     inputs:
       prepare-command:
-        description: 'Command to run for release preparation (override for repos that need custom logic)'
+        description: 'Command to run for release preparation (override for repos that
+          need custom logic)'
         type: string
         default: 'release-kit prepare'
       only:
@@ -33,7 +34,8 @@ on:
         type: string
         default: ''
       force:
-        description: 'Force a release even when no commits or no bump-worthy commits exist (defaults to patch; combine with --bump for a different level)'
+        description: 'Force a release even when no commits or no bump-worthy commits
+          exist (defaults to patch; combine with --bump for a different level)'
         type: boolean
         default: false
 
@@ -65,13 +67,15 @@ jobs:
       # The field is irrelevant for release preparation.
       - name: Neutralize packageManager field
         if: ${{ env.BUILD_LOCAL != 'true' }}
-        run: node -e "const fs=require('fs'),f='package.json',p=JSON.parse(fs.readFileSync(f));delete p.packageManager;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+        run: node -e "const
+          fs=require('fs'),f='package.json',p=JSON.parse(fs.readFileSync(f));delete
+          p.packageManager;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
 
       # `runtime` is omitted, so this step installs pnpm alone and the Node.js step below owns the runtime.
       # Its position ahead of that step is what keeps that true should this repo ever declare `devEngines.runtime`.
       - name: Set up pnpm
         if: ${{ env.BUILD_LOCAL == 'true' }}
-        uses: pnpm/setup@v2
+        uses: pnpm/setup@v3
         with:
           cache: true
           install: false
