@@ -10,7 +10,8 @@ const config = defineConfig([
     // it here is what fails the gate on one.
     linterOptions: { reportUnusedDisableDirectives: 'error' },
   },
-  globalIgnores([...commonIgnores, ...toolIgnores]),
+  // The revise-prose helper rewrites its record on every sweep, quoting a string as its YAML emitter chooses.
+  globalIgnores([...commonIgnores, ...toolIgnores, '.agents/revise-prose.yaml']),
   {
     files: ['**/*.js', '**/*.cjs', '**/*.mjs', '**/*.ts', '**/*.tsx'],
     rules: {

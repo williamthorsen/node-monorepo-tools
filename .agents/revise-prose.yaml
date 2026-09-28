@@ -259,41 +259,6 @@ rejections:
     ground: a verbless scenario label, which has no verb to negate
   - rule: negative-quantifier
     rule-version: '2'
-    file: packages/nmr/src/__tests__/runCli.unit.test.ts
-    phrase: '-F/--filter matched no workspace: «codespan»'
-    ground: asserted quotation of runCli.ts output
-  - rule: negative-quantifier
-    rule-version: '2'
-    file: packages/nmr/src/__tests__/runCli.unit.test.ts
-    phrase: '-F/--filter matched no workspace: «codespan»'
-    ground: asserted quotation of runCli.ts output
-  - rule: negative-quantifier
-    rule-version: '2'
-    file: packages/nmr/src/__tests__/runCli.unit.test.ts
-    phrase: '-F/--filter matched no workspace: «codespan» .'
-    ground: asserted quotation of runCli.ts output
-  - rule: negative-quantifier
-    rule-version: '2'
-    file: packages/nmr/src/__tests__/runCli.unit.test.ts
-    phrase: "-F/--filter matched no workspace: \\ «codespan»"
-    ground: asserted quotation of runCli.ts output
-  - rule: negative-quantifier
-    rule-version: '2'
-    file: packages/nmr/src/__tests__/runCli.unit.test.ts
-    phrase: '-R/--recursive matched no workspace:'
-    ground: asserted quotation of runCli.ts output
-  - rule: negative-quantifier
-    rule-version: '2'
-    file: packages/nmr/src/__tests__/runCli.unit.test.ts
-    phrase: has no «codespan» or «codespan» of its own.
-    ground: asserted quotation of runCli.ts output
-  - rule: negative-quantifier
-    rule-version: '2'
-    file: packages/nmr/src/__tests__/runCli.unit.test.ts
-    phrase: holds no valid YAML
-    ground: asserted quotation of runCli.ts output
-  - rule: negative-quantifier
-    rule-version: '2'
     file: packages/nmr/src/__tests__/steps.unit.test.ts
     phrase: no command at all
     ground: a verbless scenario label, which has no verb to negate
