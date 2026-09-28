@@ -13,7 +13,7 @@ const it = baseIt
     'tree',
     makeFixture(() => createTempTree({}, { prefix: 'nmr-clean-' })),
   )
-  // `auto`, because no test names the silencer: it exists for its effect on the console.
+  // `auto`, because the tests in this file do not name the silencer: It exists for its effect on the console.
   .extend(
     'silenced',
     { auto: true },
@@ -85,7 +85,7 @@ describe(runClean, () => {
 
   it("runs a package's own clean override from the root instead of sweeping it", async ({ tree }) => {
     // The sweep stands in for a per-package delegation, so a package that overrides `clean` must still get
-    // its own command: a package emitting outside `dist` would otherwise be silently under-cleaned.
+    // its own command: A package emitting outside `dist` would otherwise be silently under-cleaned.
     const { aDir, bDir } = scaffoldWorkspace(tree);
     tree.write(
       `${aDir}/package.json`,
@@ -133,7 +133,7 @@ describe(runClean, () => {
   });
 
   it('clears the whole table when run from inside one package', async ({ tree }) => {
-    // `b` is the package the invocation never enters, so its entry is what proves the clearing is repo-wide.
+    // `b` is the package that the invocation never enters, so its entry proves that the clearing is repo-wide.
     const { aDir, bDir } = scaffoldWorkspace(tree);
     await recordCheckResult(tree.dir, tree.resolve(aDir), 'check');
     await recordCheckResult(tree.dir, tree.resolve(bDir), 'check');
@@ -145,7 +145,7 @@ describe(runClean, () => {
     ).resolves.toBeUndefined();
   });
 
-  it('clears the recorded check results of a package standing outside a workspace', async ({ tree }) => {
+  it('clears the recorded check results of a package outside a workspace', async ({ tree }) => {
     scaffoldBuiltPackage(tree, '.');
     await recordCheckResult(tree.dir, tree.dir, 'check');
 
@@ -156,7 +156,7 @@ describe(runClean, () => {
     ).resolves.toBeUndefined();
   });
 
-  it('closes the sweep with the count of packages it cleaned', async ({ tree }) => {
+  it('closes the sweep with the count of packages that it cleaned', async ({ tree }) => {
     scaffoldWorkspace(tree);
 
     await runClean(tree.dir, 'rich');
@@ -164,7 +164,7 @@ describe(runClean, () => {
     expect(console.info).toHaveBeenCalledWith('\n🧹 Cleaned 2 packages.');
   });
 
-  it('drops the glyph in a plain run, the statement alone carrying the line', async ({ tree }) => {
+  it('drops the glyph in a plain run, leaving the statement alone on the line', async ({ tree }) => {
     scaffoldWorkspace(tree);
 
     await runClean(tree.dir, 'plain');
@@ -172,7 +172,7 @@ describe(runClean, () => {
     expect(console.info).toHaveBeenCalledWith('\nCleaned 2 packages.');
   });
 
-  it('counts in the closing statement the packages it left to an empty clean override', async ({ tree }) => {
+  it('counts in the closing statement the packages that it left to an empty clean override', async ({ tree }) => {
     const { aDir } = scaffoldWorkspace(tree);
     tree.write(`${aDir}/package.json`, JSON.stringify({ name: 'a', type: 'module', scripts: { clean: '' } }));
 
@@ -229,7 +229,7 @@ async function recordCheckResult(monorepoRoot: string, anchorDir: string, comman
   });
 }
 
-/** Resolves the package's build-cache entry, relative to the tree: the store returns the absolute path it keys. */
+/** Resolves the package's build-cache entry, relative to the tree: The store returns the absolute path that it keys. */
 function resolveCacheEntry(tree: TempTree, packageEntry: string): string {
   return path.relative(tree.dir, resolveBuildCachePath(tree.resolve(packageEntry)));
 }
@@ -250,7 +250,7 @@ function scaffoldConfig(tree: TempTree, config: Record<string, unknown>): void {
   tree.write('.config/nmr.config.ts', `export default ${JSON.stringify(config)};\n`);
 }
 
-/** Writes a pnpm workspace root holding two built packages, and returns their tree-relative entries. */
+/** Writes a pnpm workspace root containing two built packages, and returns their tree-relative entries. */
 function scaffoldWorkspace(tree: TempTree): { aDir: string; bDir: string } {
   tree.writeAll({
     'package.json': JSON.stringify({ name: 'root', type: 'module' }),

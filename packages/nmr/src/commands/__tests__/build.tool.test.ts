@@ -9,7 +9,7 @@ import { afterEach, assert, beforeEach, describe, expect, it as baseIt, vi } fro
 import { buildPackage } from '../build.ts';
 import { resolveBuildCachePath, resolveScratchDirs } from '../build-output.ts';
 
-// Default the compiler API to the real implementation so the regression suite compiles for real;
+// Default the compiler API to the real implementation so that the regression suite compiles for real;
 // the cache-integrity tests override createProgram per-call to simulate a failing or transient compile.
 vi.mock(import('typescript'), async (importOriginal) => {
   const actual = await importOriginal();
@@ -20,13 +20,16 @@ vi.mock(import('typescript'), async (importOriginal) => {
   return { ...actual, createProgram };
 });
 
-/** One edit to a package's `.config/nmr.config.ts`, applied to the tree so a case can create, rewrite, or delete it. */
+/**
+ * One edit to a package's `.config/nmr.config.ts`, applied to the tree so that a case can create, rewrite, or
+ * delete it.
+ */
 type ConfigStep = (tree: TempTree) => void;
 
-/** The package config a build reads, which several cases create, rewrite, or delete between runs. */
+/** The package config read by a build, which several cases create, rewrite, or delete between runs. */
 const CONFIG_ENTRY = '.config/nmr.config.ts';
 
-/** A source carrying one comment of every kind whose survival the emit decides. */
+/** A source containing one comment of every kind whose survival the emit decides. */
 const COMMENTED_SOURCE = `/*! @license Fixture 1.0 */
 
 /** Adds two numbers. */
@@ -75,8 +78,8 @@ function scaffoldPackage(
     compilerOptions: { ...TSCONFIG.compilerOptions, ...extraCompilerOptions },
   };
   tree.writeAll({
-    // Give the fixture its own node_modules so the build cache resolves inside the temp dir (hermetic,
-    // cleaned up with it) rather than to some ancestor node_modules above the OS temp root.
+    // Give the fixture its own node_modules so that the build cache resolves inside the temp dir
+    // (hermetic, cleaned up with it) rather than to some ancestor node_modules above the OS temp root.
     'node_modules/': '',
     'package.json': JSON.stringify({ name: 'fixture', type: 'module' }),
     'tsconfig.json': JSON.stringify(tsconfig),
@@ -84,7 +87,7 @@ function scaffoldPackage(
   });
 }
 
-/** Reads the programs the mocked compiler returned, in the order the build created them. */
+/** Reads the programs returned by the mocked compiler, in the order the build created them. */
 function collectPrograms(): ts.Program[] {
   const programs: ts.Program[] = [];
   for (const result of vi.mocked(ts.createProgram).mock.results) {
@@ -96,7 +99,7 @@ function collectPrograms(): ts.Program[] {
 }
 
 /**
- * Counts the builds that reached the compiler. A build creates two programs, the scripts program and the
+ * Counts the builds that called the compiler. A build creates two programs, the scripts program and the
  * declarations program over it, and only the first is created without an `oldProgram`.
  */
 function countBuilds(): number {
@@ -114,10 +117,10 @@ function readOutput(tree: TempTree, relativePath: string): string {
 }
 
 /**
- * Writes a package under `rootDir/pkg` whose own tsconfig declares no `paths`; instead it `extends` a
- * base config in the parent directory that supplies `baseUrl` and `paths`. This mirrors the real
- * package layout (every package inherits `paths` from the repo-root config), where TypeScript anchors
- * inherited `paths` to the base config's directory rather than the leaf's.
+ * Writes a package under `rootDir/pkg` whose own tsconfig does not declare `paths`; instead it
+ * `extends` a base config in the parent directory that supplies `baseUrl` and `paths`. This mirrors
+ * the real package layout (every package inherits `paths` from the repo-root config), in which
+ * TypeScript anchors inherited `paths` to the base config's directory rather than the leaf's.
  */
 function scaffoldExtendedBasePackage(tree: TempTree): string {
   tree.writeAll({
@@ -146,8 +149,8 @@ function scaffoldExtendedBasePackage(tree: TempTree): string {
 
 /**
  * Writes a package under `rootDir/pkg` whose inherited `~/*` alias is anchored at `rootDir` and maps to
- * `rootDir` itself, so an import of `~/rootFile.ts` resolves to a file above the package's `src/`. Node never
- * sees `paths`, so the emitted specifier is unresolvable at runtime.
+ * `rootDir` itself, so an import of `~/rootFile.ts` resolves to a file above the package's `src/`. Because
+ * Node never sees `paths`, the emitted specifier is unresolvable at runtime.
  */
 function scaffoldRootEscapingAliasPackage(tree: TempTree): string {
   tree.writeAll({
@@ -175,10 +178,10 @@ function scaffoldRootEscapingAliasPackage(tree: TempTree): string {
 
 /**
  * Writes a package under `rootDir/pkg` whose inherited alias maps `packages/*` to a sibling `packages/`
- * tree, so `import 'packages/foo/src/x.ts'` escapes the package's `src/`. The target is reachable through
- * the inherited `baseUrl` as well, so a fallback that emulated the runtime by stripping only `paths` would
- * still resolve it and emit it verbatim — yet Node, which honors neither `baseUrl` nor `paths`, cannot
- * load the bare specifier at runtime.
+ * tree, so `import 'packages/foo/src/x.ts'` escapes the package's `src/`. Because the target is reachable
+ * through the inherited `baseUrl` as well, a fallback that emulated the runtime by stripping only `paths`
+ * would still resolve it and emit it verbatim; yet Node, which honors neither `baseUrl` nor `paths`,
+ * cannot load the bare specifier at runtime.
  */
 function scaffoldBaseUrlReachableEscapingAliasPackage(tree: TempTree): string {
   tree.writeAll({
@@ -228,7 +231,7 @@ const it = baseIt
         ].join('\n') + '\n',
     });
 
-    // Silenced for the compile alone. A file-scoped silencer would hand its call history to every later
+    // Silence the console for the compile alone. A file-scoped silencer would hand its call history to every later
     // per-test spy, which is what the caching block's negative `console.info` assertions read.
     {
       using _silent = silenceConsole(['info']);
@@ -302,7 +305,7 @@ describe('buildPackage emit correctness', () => {
 
     // Object identity is the only reliable signal: `structureIsReused` reports the module resolutions alone,
     // and reads `2` whether or not the source files are shared. The whole set is asserted because the `lib.*`
-    // files outnumber the package's own sources 63 to 1 here and carry nearly all of the avoided parse.
+    // files outnumber the package's own sources 63 to 1 here and account for nearly all of the avoided parse.
     const [scriptProgram, declarationProgram] = collectPrograms();
     assert(scriptProgram !== undefined && declarationProgram !== undefined);
     const reparsedFileNames = scriptProgram
@@ -344,8 +347,8 @@ describe('buildPackage emit correctness', () => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
 
     // `ts.versionMajorMinor` is typed as the literal installed version; alias to a widened view so
-    // the spy can return an older value. Force it below the >=5.7 floor and restore in finally so
-    // the override cannot leak into sibling tests.
+    // that the spy can return an older value. Force it below the >=5.7 floor and restore in
+    // finally to keep the override from leaking into sibling tests.
     const tsModule: { versionMajorMinor: string } = ts;
     const versionSpy = vi.spyOn(tsModule, 'versionMajorMinor', 'get').mockReturnValue('5.6');
     try {
@@ -379,7 +382,7 @@ describe('buildPackage comment retention', () => {
     vi.mocked(ts.createProgram).mockClear();
   });
 
-  it('keeps doc comments in the declarations a comment-stripping package emits', async ({ tree }) => {
+  it('keeps doc comments in the declarations emitted by a comment-stripping package', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': COMMENTED_SOURCE }, { removeComments: true });
 
     await buildPackage(tree.dir, { style: 'rich' });
@@ -398,7 +401,7 @@ describe('buildPackage comment retention', () => {
     expect(script).toContain('/*! @license Fixture 1.0 */');
     expect(script).not.toContain('/** Adds two numbers. */');
     expect(script).not.toContain('Sum before returning');
-    // A comment alone in an empty block attaches to no node in the emitted tree.
+    // A comment alone in an empty block does not attach to any node in the emitted tree.
     expect(script).not.toContain('Nothing to do when the addition throws');
   });
 
@@ -448,7 +451,7 @@ describe('buildPackage with extends-inherited tsconfig paths', () => {
     await buildPackage(packageDir, { style: 'rich' });
 
     // Change only the base config; the package's own tsconfig and sources stay byte-identical, so a
-    // cache that ignored the extends chain would skip this rebuild and ship stale output.
+    // cache that ignored the extends chain would skip this rebuild and leave stale output in place.
     tree.write('tsconfig.base.json', tree.read('tsconfig.base.json').replace('"ES2022"', '"ES2021"'));
 
     await buildPackage(packageDir, { style: 'rich' });
@@ -478,7 +481,7 @@ describe('buildPackage with an alias target outside the package source tree', ()
 
   it('fails the build when an escaping alias resolves only through baseUrl, which Node ignores', async ({ tree }) => {
     // `packages/foo/src/x.ts` is reachable through `baseUrl`, so a fallback that stripped only `paths`
-    // would resolve it and emit it verbatim — then Node, ignoring `baseUrl`, throws at runtime.
+    // would resolve it and emit it verbatim, and then Node, ignoring `baseUrl`, throws at runtime.
     const packageDir = scaffoldBaseUrlReachableEscapingAliasPackage(tree);
 
     await expect(buildPackage(packageDir, { style: 'rich' })).rejects.toThrow(
@@ -489,9 +492,9 @@ describe('buildPackage with an alias target outside the package source tree', ()
   it('emits verbatim when an alias-prefix-matched specifier resolves outside src but bare-resolves', async ({
     tree,
   }) => {
-    // A `paths` key `lodash` collides (via `startsWith`) with an innocent `lodash-es` import — a real
+    // A `paths` key `lodash` collides (via `startsWith`) with an innocent `lodash-es` import, a real
     // installed package outside `src/`. It resolves the same with or without `paths`, so it is genuinely
-    // external and runtime-runnable and must ship verbatim rather than failing the build.
+    // external and runtime-runnable, and the build must emit it verbatim rather than fail.
     scaffoldPackage(
       tree,
       { 'index.ts': `import { merge } from 'lodash-es';\nexport const value = merge;\n` },
@@ -524,7 +527,7 @@ describe('buildPackage entry-point selection', () => {
     vi.mocked(ts.createProgram).mockClear();
   });
 
-  // `for` rather than `each`: only `for` hands the fixture context to the case body.
+  // `for` rather than `each`: Only `for` hands the fixture context to the case body.
   it.for(['__fixtures__', '__mocks__', '__tests__', 'test-utils'])(
     'excludes %s/ from the default entry points',
     async (directory, { tree }) => {
@@ -632,7 +635,7 @@ describe('buildPackage output-directory ownership', () => {
     expect(listEmitted(tree)).toStrictEqual(['index.d.ts', 'index.js']);
   });
 
-  // `for` rather than `each`: only `for` hands the fixture context to the case body.
+  // `for` rather than `each`: Only `for` hands the fixture context to the case body.
   it.for(['.', '../escape'])('refuses to build into %s and removes nothing', async (outdir, { tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
 
@@ -643,7 +646,7 @@ describe('buildPackage output-directory ownership', () => {
     expect(tree.exists('src/index.ts')).toBe(true);
   });
 
-  it('builds a package with no entry points without touching an absent output directory', async ({ tree }) => {
+  it('builds a package lacking entry points without touching an absent output directory', async ({ tree }) => {
     scaffoldPackage(tree, { '__tests__/index.test.ts': 'export const covered = 1;\n' });
 
     await buildPackage(tree.dir, { style: 'rich' });
@@ -666,7 +669,7 @@ describe('buildPackage atomic publication', () => {
     await buildPackage(tree.dir, { style: 'rich' });
     const publishedOutput = readOutput(tree, 'index.js');
 
-    // An alias with no target survives the emit and fails in the rewrite pass, which is the furthest point
+    // An alias whose target does not exist survives the emit and fails in the rewrite pass, which is the furthest point
     // a build can fail: everything the publish needs has already been produced.
     tree.write('src/index.ts', `import { missing } from '~/nonexistent.ts';\nexport const value = missing;\n`);
     await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow(/could not resolve aliased import/);
@@ -697,7 +700,7 @@ describe('buildPackage atomic publication', () => {
     tree.write('src/index.ts', 'export const value = 2;\n');
     const compile = vi.mocked(ts.createProgram).getMockImplementation();
     assert(compile !== undefined);
-    // A skipped emit is the emit-path failure that lands after the program is complete.
+    // A skipped emit is the emit-path failure that occurs after the program is complete.
     vi.mocked(ts.createProgram).mockImplementationOnce((...args) => ({
       ...compile(...args),
       emit: () => ({ diagnostics: [], emitSkipped: true }),
@@ -715,7 +718,7 @@ describe('buildPackage atomic publication', () => {
     tree.write('src/index.ts', 'export const value = 2;\n');
     const compile = vi.mocked(ts.createProgram).getMockImplementation();
     assert(compile !== undefined);
-    // The scripts program emits successfully, so the failure lands with a full buffer and nothing published.
+    // The scripts program emits successfully, so the failure occurs when the buffer is full and nothing is published.
     vi.mocked(ts.createProgram)
       .mockImplementationOnce(compile)
       .mockImplementationOnce((...args) => ({
@@ -733,7 +736,7 @@ describe('buildPackage atomic publication', () => {
 
     tree.mkdir(resolveStagingEntry(tree));
 
-    // Inputs are unchanged, so this run never reaches the emit -- the one path with no other sweeper.
+    // Inputs are unchanged, so this run never reaches the emit -- the one path without another sweeper.
     await buildPackage(tree.dir, { style: 'rich' });
 
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('⏩'));
@@ -749,8 +752,9 @@ describe('buildPackage atomic publication', () => {
     tree.write('src/index.ts', 'export const value = 2;\n');
     await buildPackage(tree.dir, { style: 'rich' });
 
-    // The orphan is gone rather than published: a fixed scratch name is cleared before use, so nothing
-    // accumulates and no sweep has to tell an orphan from a directory another build is still writing.
+    // The orphan is gone rather than published: A fixed scratch name is cleared before use, so nothing
+    // accumulates and a sweep does not have to tell an orphan from a directory that another build is
+    // still writing.
     expect(listScratch(tree)).toStrictEqual([]);
     expect(listEmitted(tree)).toStrictEqual(['index.d.ts', 'index.js']);
   });
@@ -788,7 +792,7 @@ describe('buildPackage caching', () => {
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('No changes detected'));
   });
 
-  // Each row carries the config edits as steps, so the parameterized body applies them without branching on
+  // Each row expresses the config edits as steps, so the parameterized body applies them without branching on
   // whether a config is present before or after.
   const leaveAbsent: ConfigStep = () => {};
   const writeEmptyConfig: ConfigStep = (tree) => tree.write(CONFIG_ENTRY, `export default { build: {} };\n`);
@@ -796,7 +800,7 @@ describe('buildPackage caching', () => {
     tree.write(CONFIG_ENTRY, `export default { build: { extraIgnorePatterns: ['**/a/**'] } };\n`);
   const removeConfig: ConfigStep = (tree) => tree.rm(CONFIG_ENTRY);
 
-  // `for` rather than `each`: only `for` hands the fixture context to the case body, and it passes the case
+  // `for` rather than `each`: Only `for` hands the fixture context to the case body, and it passes the case
   // as one argument rather than spreading it.
   it.for([
     ['creating', leaveAbsent, writeIgnorePatterns],
@@ -865,7 +869,7 @@ describe('buildPackage caching', () => {
   it('skips a package whose sources are all declaration files instead of reporting missing output', async ({
     tree,
   }) => {
-    // A `.d.ts` file matches the entry glob but emits nothing, so no outdir is ever created.
+    // A `.d.ts` file matches the entry glob but emits nothing, so the build never creates an outdir.
     scaffoldPackage(tree, { 'ambient.d.ts': 'export declare const value: number;\n' });
     await buildPackage(tree.dir, { style: 'rich' });
 
@@ -876,9 +880,9 @@ describe('buildPackage caching', () => {
   });
 
   it('skips a package whose sources are all ignored instead of reporting missing output', async ({ tree }) => {
-    // Only a test file, which the default ignore excludes: the package has no entry points, so it
-    // emits nothing and its outdir never exists. That absence is not deleted output, and must not be
-    // mistaken for it on every subsequent run.
+    // Only a test file, which the default ignore excludes: The package does not have any entry
+    // points, so it emits nothing and its outdir never exists. That absence is not deleted output,
+    // and must not be mistaken for it on every subsequent run.
     scaffoldPackage(tree, { '__tests__/index.test.ts': 'export const covered = 1;\n' });
     await buildPackage(tree.dir, { style: 'rich' });
 
@@ -915,7 +919,7 @@ describe('buildPackage caching', () => {
     });
     await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow('transient failure');
 
-    // Sources are unchanged: a cache poisoned by the failed run would make this skip the compile.
+    // Sources are unchanged: A cache poisoned by the failed run would make this skip the compile.
     // Instead it must re-attempt, and with the transient failure gone, produce output and cache it.
     await buildPackage(tree.dir, { style: 'rich' });
 
@@ -975,7 +979,7 @@ describe('buildPackage closing statement', () => {
   });
 
   it('closes a package whose entry points emit nothing, which said nothing before', async ({ tree }) => {
-    // A `src` tree of declaration files alone is an entry point the compiler emits no output for.
+    // A `src` tree of declaration files alone is an entry point for which the compiler does not emit any output.
     scaffoldPackage(tree, { 'types.d.ts': 'export type Value = number;\n' });
 
     await buildPackage(tree.dir, { style: 'rich' });
@@ -1005,8 +1009,9 @@ describe(resolveBuildCachePath, () => {
   });
 
   it('falls back to the nearest ancestor node_modules for a package that has none', ({ tree }) => {
-    // Mirrors a zero-dependency workspace leaf: with no node_modules of its own, the
-    // cache must resolve to a hoisted ancestor rather than a stray directory beside dist.
+    // Mirrors a zero-dependency workspace leaf: Because the leaf does not have a
+    // node_modules of its own, the cache must resolve to a hoisted ancestor rather than
+    // a stray directory beside dist.
     tree.mkdir('node_modules');
     const packageDir = tree.mkdir('packages/leaf');
 
@@ -1024,11 +1029,12 @@ describe(resolveBuildCachePath, () => {
     expect(resolveBuildCachePath(aDir)).not.toBe(resolveBuildCachePath(bDir));
   });
 
-  it('resolves to the path entries already on disk were written under', ({ tree }) => {
+  it('resolves to the path under which entries already on disk were written', ({ tree }) => {
     tree.mkdir('pkg/node_modules');
     const packageDir = tree.resolve('pkg');
     // Spelled out rather than derived from the store, so that a change to how the store keys an entry fails
-    // here instead of silently stranding every digest a previous build wrote into a spurious full rebuild.
+    // here instead of silently orphaning every digest written by a previous build, which forces a spurious
+    // full rebuild.
     const digest = createHash('sha256').update(packageDir).digest('hex').slice(0, 8);
 
     expect(resolveBuildCachePath(packageDir)).toBe(
@@ -1044,7 +1050,7 @@ function listEmitted(tree: TempTree): string[] {
   return tree.listFiles('dist/esm');
 }
 
-/** Returns the names of the scratch directories still sitting beside the package's emit directory. */
+/** Returns the names of the scratch directories that still exist beside the package's emit directory. */
 function listScratch(tree: TempTree): string[] {
   // Listed rather than reached through `Object.values`, whose fixed-key overload yields `any[]`.
   const { previousDir, stagingDir } = resolveScratchDirs(tree.resolve('dist/esm'));
@@ -1055,12 +1061,12 @@ function listScratch(tree: TempTree): string[] {
     .map((scratchDir) => path.basename(scratchDir));
 }
 
-/** Resolves the package's build-cache entry, relative to the tree: the store returns the absolute path it keys. */
+/** Resolves the package's build-cache entry, relative to the tree: The store returns the absolute path that it keys. */
 function resolveCacheEntry(tree: TempTree): string {
   return path.relative(tree.dir, resolveBuildCachePath(tree.dir));
 }
 
-/** Resolves the scratch directory a build stages into: `resolveScratchDirs` reports it as an absolute path. */
+/** Resolves the scratch directory into which a build stages:`resolveScratchDirs` reports it as an absolute path. */
 function resolveStagingEntry(tree: TempTree): string {
   return path.relative(tree.dir, resolveScratchDirs(tree.resolve('dist/esm')).stagingDir);
 }
