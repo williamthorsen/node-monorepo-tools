@@ -6,11 +6,12 @@ import { resolveOutputStyles } from './output-style.ts';
 import { UserError } from './UserError.ts';
 
 /**
- * Resolves the style of the running process's own output streams, and rejects a variable naming no style.
+ * Resolves the style of the running process's own output streams, and rejects a variable that does not name any
+ * style.
  *
- * Each standalone bin calls this and passes no flag value, because only `nmr` accepts `OUTPUT_STYLE_FLAG`.
+ * Each standalone bin calls this and does not pass a flag value, because only `nmr` accepts `OUTPUT_STYLE_FLAG`.
  *
- * Throws rather than exiting, so the bin's own boundary reports the message and sets the exit code, as it does
+ * Throws rather than exiting, so that the bin's own boundary reports the message and sets the exit code, as it does
  * for every other failure in what the caller declared.
  */
 export function resolveBinStyles(): StreamStyles {

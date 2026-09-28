@@ -8,25 +8,25 @@ import { reportError } from '@williamthorsen/nmr-core';
 import { createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
 import type { Step } from './steps.ts';
 
-/** Exit codes a shell reserves for a death by signal, offset by the signal number. */
+/** Exit codes that a shell reserves for a death by signal, offset by the signal number. */
 const SIGNAL_EXIT_BASE = 128;
 
 /** How long a completed command's pipes are given to drain before a descendant holding them open is abandoned. */
 const PIPE_DRAIN_GRACE_MS = 2_000;
 
-/** Where one of a child's output streams goes: a descriptor the child writes to, or a pipe nmr reads. */
+/** Where one of a child's output streams goes: a descriptor to which the child writes, or a pipe read by nmr. */
 export type OutputChannel = number | 'pipe';
 
-/** The channel each of a child's output streams runs on. */
+/** The channel on which each of a child's output streams runs. */
 export interface OutputChannels {
   stderr: OutputChannel;
   stdout: OutputChannel;
 }
 
 export interface RunCommandOptions {
-  /** The channel each of the child's output streams runs on. */
+  /** The channel on which each of the child's output streams runs. */
   channels: OutputChannels;
-  /** When true, suppress output on success and write captured output to stderr on failure. */
+  /** When true, suppresses output on success and writes captured output to stderr on failure. */
   quiet?: boolean;
   /** Stream that subprocess stdout flows to in non-quiet mode. Defaults to `process.stdout`. */
   stdout?: Writable;
@@ -54,7 +54,7 @@ export interface RunStepsResult {
   retainedOutput?: RetainedOutput;
 }
 
-/** How a command ended, and the exit code that carries that ending to nmr's own caller. */
+/** How a command ended, and the exit code that reports that ending to nmr's own caller. */
 type CommandCompletion =
   | { outcome: 'exited'; exitCode: number }
   | { outcome: 'signaled'; exitCode: number; signal: NodeJS.Signals }
@@ -63,7 +63,7 @@ type CommandCompletion =
 export type RunCommandResult = CommandCompletion & {
   /**
    * Output retained while the command ran, elided in the middle when it overran the bound.
-   * `undefined` where the stream was handed to the child directly, or where capture stopped early
+   * `undefined` when the stream was handed to the child directly, or when capture stopped early
    * and the retained copy would understate what the command produced.
    */
   stdout: Buffer | undefined;
@@ -71,8 +71,8 @@ export type RunCommandResult = CommandCompletion & {
 };
 
 /**
- * Returns the channel a stream runs on: the stream's own descriptor when it is a terminal and output is not
- * being withheld, so the child's terminal detection matches nmr's, and a pipe everywhere else.
+ * Returns the channel on which a stream runs: the stream's own descriptor when it is a terminal and output is
+ * not being withheld, so that the child's terminal detection matches nmr's, and a pipe everywhere else.
  */
 export function resolveChannel(stream: Writable, quiet: boolean): OutputChannel {
   if (quiet) return 'pipe';
@@ -80,8 +80,8 @@ export function resolveChannel(stream: Writable, quiet: boolean): OutputChannel 
 }
 
 /**
- * Returns the channel a step running an nmr process below this one runs on: nmr's own descriptor whenever it
- * has one, so the child writes where nmr writes and no ancestor stands between them relaying bytes. A stream
+ * Returns the channel for a step that runs an nmr process below this one: nmr's own descriptor whenever it has
+ * one, so that the child writes where nmr writes, without an ancestor between them relaying bytes. A stream
  * without a descriptor falls back to a pipe.
  */
 export function resolveInheritedChannel(stream: Writable): OutputChannel {
@@ -89,15 +89,15 @@ export function resolveInheritedChannel(stream: Writable): OutputChannel {
 }
 
 /**
- * Runs a step list in order and resolves once one fails or all have run, carrying the `&&` semantics nmr
- * promises: the first non-zero exit ends the sequence and is the code returned.
+ * Runs a step list in order and resolves once one fails or all have run, implementing the `&&` semantics that
+ * nmr promises: The first non-zero exit ends the sequence and is the code returned.
  *
- * Sequencing here rather than in a spawned shell is what lets each step run on the channels its kind calls
- * for, and what makes a signal to nmr end the run: the steps after it are never reached, where a shell would
- * have gone on running them unsupervised.
+ * Sequencing here rather than in a spawned shell lets each step run on the channels that its kind calls for, and
+ * makes a signal to nmr end the run: The steps after it are never reached, whereas a shell would have gone on
+ * running them unsupervised.
  *
- * Carries back a bounded copy of what the list's own commands wrote, so a caller can retain it. Only opaque
- * steps contribute: a structural step is another nmr process reporting for the subtree beneath it, and its
+ * Returns a bounded copy of what the list's own commands wrote, so that a caller can retain it. Only opaque
+ * steps contribute: A structural step is another nmr process reporting for the subtree beneath it, and its
  * output is that subtree's to account for.
  */
 export async function runSteps(
@@ -119,7 +119,7 @@ export async function runSteps(
     const result = await runStep(step, cwd, resolvedOptions);
 
     // Read from the step's kind rather than from whether the child handed back a pipe. A structural step runs
-    // on inherited descriptors, but a destination carrying none falls back to a pipe and is captured like any
+    // on inherited descriptors, but a destination without one falls back to a pipe and is captured like any
     // other, which would let a composite's constituents and a `:pre`/`:post` hook contribute output of their
     // own.
     if (step.kind === 'opaque') {
@@ -147,7 +147,7 @@ export async function runSteps(
  * discarding the retained copy on success and writing it to `options.stderr` on failure, so it has nothing to
  * report unless the caller chose a pipe on both streams.
  *
- * Piped stdout and stderr are ordered by arrival rather than by a shared descriptor, so their interleaving
+ * Because piped stdout and stderr are ordered by arrival rather than by a shared descriptor, their interleaving
  * is approximate.
  */
 export async function runCommand(
@@ -160,7 +160,7 @@ export async function runCommand(
 
 // region | Helpers
 
-/** What to hand `spawn`: a whole command line for a shell to parse, or a file and the arguments it receives. */
+/** What to hand `spawn`: a whole command line for a shell to parse, or a file and the arguments that it receives. */
 interface SpawnSpec {
   args: readonly string[];
   file: string;
@@ -205,7 +205,8 @@ async function runSpawned(
     stderr: stderrCapture?.readBuffer(),
   };
 
-  // A spawn failure has no captured output to forward, so quiet mode reports it rather than exiting 1 in silence.
+  // A spawn failure does not have any captured output to forward, so quiet mode reports it rather than exiting 1
+  // in silence.
   if (result.outcome === 'spawn-failed') {
     reportError(result.error.message, stderr);
     return result;
@@ -220,10 +221,10 @@ async function runSpawned(
 }
 
 /**
- * Runs one step on the channels its kind calls for.
+ * Runs one step on the channels that its kind calls for.
  *
- * A structural step runs loud whatever mode this process is in: the nmr process underneath suppresses the
- * output of the command it runs, and an ancestor withholding it as well would be suppressing the subtree.
+ * A structural step runs loud whatever mode this process is in: The nmr process underneath suppresses the
+ * output of the command that it runs, and an ancestor withholding it as well would be suppressing the subtree.
  */
 function runStep(
   step: Step,
@@ -250,7 +251,7 @@ function runStep(
 
 /**
  * Concatenates in declaration order what each opaque step retained, or reports none when a step's capture fell
- * short of both streams or when the list held no opaque step at all.
+ * short of both streams or when the list did not contain any opaque step.
  *
  * A partial capture is reported as none rather than as what was gathered, which would understate the run.
  */
@@ -279,7 +280,7 @@ function captureStream(
   let isComplete = true;
 
   /**
-   * Stops consuming the source. Unpiping first is what releases the listeners `pipe` registered on the
+   * Stops consuming the source. Unpiping first releases the listeners that `pipe` registered on the
    * destination; `destroy` alone leaves them attached, and a shared destination accumulates a set per run.
    */
   function stopReading(): void {
@@ -311,7 +312,7 @@ function captureStream(
   };
 }
 
-/** Resolves once the child has ended, releasing pipes a descendant holds open past the grace period. */
+/** Resolves once the child has ended, releasing pipes that a descendant holds open past the grace period. */
 function awaitCompletion(child: ChildProcess, stopReading: () => void): Promise<CommandCompletion> {
   return new Promise((resolve) => {
     let exitCompletion: CommandCompletion | undefined;
@@ -345,7 +346,7 @@ function awaitCompletion(child: ChildProcess, stopReading: () => void): Promise<
   });
 }
 
-/** Maps a child's exit status onto the code nmr propagates, so a signal death is distinguishable from an exit. */
+/** Maps a child's exit status onto the code nmr propagates, so that a signal death is distinguishable from an exit. */
 function describeExit(code: number | null, signal: NodeJS.Signals | null): CommandCompletion {
   if (signal !== null) {
     return { outcome: 'signaled', exitCode: SIGNAL_EXIT_BASE + os.constants.signals[signal], signal };
@@ -353,7 +354,7 @@ function describeExit(code: number | null, signal: NodeJS.Signals | null): Comma
   return { outcome: 'exited', exitCode: code ?? 1 };
 }
 
-/** Narrows a stream to one carrying a descriptor a child can be handed, terminal or not. */
+/** Narrows a stream to one with a descriptor that a child can be handed, terminal or not. */
 function hasDescriptor(stream: Writable): stream is Writable & { fd: number } {
   return 'fd' in stream && typeof stream.fd === 'number';
 }

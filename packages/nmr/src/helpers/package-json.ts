@@ -10,10 +10,10 @@ import { readStringValues } from './readStringValues.ts';
 import { isObject } from './type-guards.ts';
 
 /**
- * The `package.json` fields that carry a dependency's version specifier.
+ * The `package.json` fields that contain a dependency's version specifier.
  *
  * pnpm accepts the `catalog:` protocol in all four, so a reader looking for catalogued dependencies has to
- * sweep the whole set rather than the two that carry most of them.
+ * sweep the whole set rather than the two that contain most of them.
  */
 export const DEPENDENCY_FIELDS = [
   'dependencies',
@@ -35,7 +35,7 @@ export type PackageJson = {
 } & { [K in DependencyField]?: Record<string, string> };
 
 /**
- * Reads and parses the package.json at the given directory, keeping only the fields nmr reads.
+ * Reads and parses the package.json at the given directory, keeping only the fields that nmr reads.
  */
 export function readPackageJson(dir: string): PackageJson {
   const file = resolvePackageJsonPath(dir);
@@ -72,7 +72,8 @@ export function readPackageJson(dir: string): PackageJson {
 }
 
 /**
- * Returns the `pnpm.overrides` block a package.json declares, every key it holds and each value as written.
+ * Returns the `pnpm.overrides` block declared by a package.json, every key that it contains and each value as
+ * written.
  */
 export function getPnpmOverrides(packageJson: PackageJson): Record<string, unknown> | undefined {
   if (!isObject(packageJson.pnpm)) return undefined;
@@ -85,7 +86,7 @@ export function getPnpmOverrides(packageJson: PackageJson): Record<string, unkno
 /**
  * Parses a `package.json`'s text, rejecting what does not parse.
  *
- * A file the user wrote by hand is theirs to fix, so the failure names it rather than reporting the parser's
+ * A file that the user wrote by hand is theirs to fix, so the failure names it rather than reporting the parser's
  * own stack.
  */
 export function parsePackageJson(rawText: string, file: string): unknown {
@@ -99,8 +100,8 @@ export function parsePackageJson(rawText: string, file: string): unknown {
 /**
  * Narrows a `scripts` record to strings, rejecting any value that is not one.
  *
- * npm and pnpm read a script as a string too, so a value of any other type is malformed however it got there.
- * Dropping one silently would let a caller run something else in its place and report nothing.
+ * A value of any other type is malformed however it got there, because npm and pnpm read a script as a string
+ * too. Dropping one silently would let a caller run something else in its place and report nothing.
  */
 export function readScriptRecord(dir: string, scripts: Record<string, unknown>): Record<string, string> {
   const result: Record<string, string> = {};
@@ -113,7 +114,7 @@ export function readScriptRecord(dir: string, scripts: Record<string, unknown>):
   return result;
 }
 
-/** Resolves the `package.json` path for a directory: the file tier-3 scripts are read from. */
+/** Resolves the `package.json` path for a directory: the file from which tier-3 scripts are read. */
 export function resolvePackageJsonPath(dir: string): string {
   return path.join(dir, 'package.json');
 }
@@ -122,7 +123,7 @@ export function resolvePackageJsonPath(dir: string): string {
 
 /**
  * Returns the message rejecting a `package.json` script value that is not a string, naming where a step list
- * belongs when the value is one. The root's own scripts sit at a different config key than a package's.
+ * belongs when the value is one. The root's own scripts are under a different config key than a package's.
  */
 function formatMalformedScript(dir: string, key: string, value: unknown): string {
   const rejection = `Invalid package.json at ${resolvePackageJsonPath(dir)}: \`scripts.${key}\` must be a string.`;
