@@ -12,7 +12,7 @@ describe(reportCatalog, () => {
     writeWorkspaceManifest();
   });
 
-  it('names every catalogued dependency, its specifier, and the root a covering pass runs from', () => {
+  it('names every catalogued dependency, its specifier, and the root from which a covering pass runs', () => {
     const packageDir = writePackage('a', {
       dependencies: { zod: 'catalog:', semver: '7.5.0' },
       devDependencies: { lodash: 'catalog:legacy' },
@@ -21,7 +21,9 @@ describe(reportCatalog, () => {
     using silent = silenceConsole(['warn']);
     reportCatalog(packageDir, 'rich');
 
-    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('does not read the catalogs these come from'));
+    expect(silent.warn).toHaveBeenCalledWith(
+      expect.stringContaining('does not read the catalogs from which these come'),
+    );
     expect(silent.warn).toHaveBeenCalledWith('- lodash → catalog:legacy');
     expect(silent.warn).toHaveBeenCalledWith('- zod → catalog:');
     expect(silent.warn).toHaveBeenCalledWith(
@@ -29,14 +31,14 @@ describe(reportCatalog, () => {
     );
   });
 
-  it('drops the glyph in a plain run, the word after it carrying the line', () => {
+  it('drops the glyph in a plain run, leaving the word after it to mark the line', () => {
     const packageDir = writePackage('a', { dependencies: { zod: 'catalog:' } });
 
     using silent = silenceConsole(['warn']);
     reportCatalog(packageDir, 'plain');
 
     expect(silent.warn).toHaveBeenCalledWith(
-      'WARN: A package-scoped upgrade does not read the catalogs these come from:',
+      'WARN: A package-scoped upgrade does not read the catalogs from which these come:',
     );
     expect(silent.warn).toHaveBeenCalledWith(
       `\n1 catalogued dependency went unread. Run \`nmr upgrade\` from ${tree.dir} to include it.`,
@@ -52,7 +54,7 @@ describe(reportCatalog, () => {
     expect(silent.warn).not.toHaveBeenCalledWith(expect.stringContaining('semver'));
   });
 
-  it('recognizes the catalog protocol in every field that carries a specifier', () => {
+  it('recognizes the catalog protocol in every field that contains a specifier', () => {
     const packageDir = writePackage('a', {
       dependencies: { zod: 'catalog:' },
       devDependencies: { vitest: 'catalog:default' },
@@ -83,7 +85,7 @@ describe(reportCatalog, () => {
     expect(listConsoleLines(silent.warn).filter((line) => line.includes('typescript'))).toHaveLength(1);
   });
 
-  it('says nothing when the package declares no catalogued dependency', () => {
+  it('says nothing when the package does not declare any catalogued dependency', () => {
     const packageDir = writePackage('a', { dependencies: { semver: '7.5.0' } });
 
     using silent = silenceConsole(['warn']);

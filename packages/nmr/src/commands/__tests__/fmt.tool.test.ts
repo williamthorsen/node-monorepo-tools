@@ -9,8 +9,8 @@ import { runFmt, runPrettier } from '../fmt.ts';
 
 /**
  * Tracked fixture files. The root `.prettierignore` mirrors a package pattern the way a repo working
- * around Prettier's flat ignore discovery does; the package-level one is what that workaround exists
- * to replace.
+ * around Prettier's flat ignore discovery does; that workaround exists to replace the package-level
+ * one.
  */
 const TRACKED_FILES = {
   '.prettierignore': 'packages/a/mirrored.js\n',
@@ -21,14 +21,14 @@ const TRACKED_FILES = {
   'packages/a/protected.js': 'const protectedValue = 1;\n',
 };
 
-/** The stand-in for the Prettier CLI, and the file it appends one line to per invocation. */
+/** The stand-in for the Prettier CLI, and the file to which it appends one line per invocation. */
 const STUB_ENTRY = 'stub.cjs';
 const RECORD_ENTRY = 'calls.jsonl';
 
 /**
- * These run the real Prettier, which is what the design depends on: an ignore file's patterns resolve
- * relative to its own directory, and any explicit `--ignore-path` suppresses working-directory-relative
- * discovery. Asserting the argument set cannot detect either of those changing.
+ * These run the real Prettier, on which the design depends: An ignore file's patterns resolve relative
+ * to its own directory, and any explicit `--ignore-path` suppresses working-directory-relative
+ * discovery. An assertion on the argument set cannot detect a change in either behavior.
  */
 const it = baseIt
   .extend(
@@ -40,7 +40,7 @@ const it = baseIt
     makeFixture(() => scaffoldStub()),
   )
   .extend('cliPath', ({ stubTree }) => stubTree.resolve(STUB_ENTRY))
-  // `auto`, because no test names the capture: it exists for its effect on the streams.
+  // `auto`, because the tests don't name the capture: It exists for its effect on the streams.
   .extend(
     'captured',
     { auto: true },
@@ -66,7 +66,7 @@ describe(runFmt, () => {
     expect(runFmt(['--check'], repositoryTree.dir)).toBe(0);
   });
 
-  it('still reports a badly formatted file that no ignore file covers', ({ repositoryTree }) => {
+  it('still reports a badly formatted file not covered by any ignore file', ({ repositoryTree }) => {
     repositoryTree.write('packages/a/unprotected.js', 'const  badly   =  1\n');
 
     expect(runFmt(['--check'], repositoryTree.dir)).not.toBe(0);
@@ -92,7 +92,7 @@ describe(runFmt, () => {
     expect(repositoryTree.read('packages/a/protected.js')).toBe('const  badly   =  1\n');
   });
 
-  it('does not fail on a path deleted from the working tree but still held in the index', ({ repositoryTree }) => {
+  it('does not fail on a path deleted from the working tree but still recorded in the index', ({ repositoryTree }) => {
     repositoryTree.rm('root.js');
 
     expect(runFmt(['--check'], repositoryTree.dir)).toBe(0);
@@ -108,7 +108,7 @@ describe(runFmt, () => {
     expect(runFmt(['--check', 'nothing-matches-this'], repositoryTree.dir)).toBe(1);
   });
 
-  it('passes quietly when a repository with no pathspecs has nothing to format', () => {
+  it('passes quietly when run without pathspecs in a repository that has nothing to format', () => {
     using empty = createTempTree({}, { prefix: 'nmr-fmt-empty-' });
     runGitOrThrow(['init', '--quiet'], empty.dir);
 
@@ -125,7 +125,7 @@ describe(runFmt, () => {
 
   it('fails outside a git repository rather than reporting a clean run', () => {
     using outside = createTempTree({}, { prefix: 'nmr-fmt-bare-' });
-    // Stops git's upward search at the fixture, so a temp root that sits inside some repository cannot answer.
+    // Stop git's upward search at the fixture, so that git cannot find a repository enclosing the temp root.
     vi.stubEnv('GIT_CEILING_DIRECTORIES', path.dirname(outside.dir));
 
     expect(runFmt(['--check'], outside.dir)).toBe(1);
@@ -134,7 +134,7 @@ describe(runFmt, () => {
 
 /**
  * The argument set handed to Prettier, asserted against a stand-in that records how it was called.
- * `cliPath` is the seam: production resolves the consuming repository's Prettier through the module
+ * `cliPath` is the seam: Production resolves the consuming repository's Prettier through the module
  * graph, and a test substitutes a recorder for it.
  */
 describe(runPrettier, () => {
@@ -161,13 +161,13 @@ describe(runPrettier, () => {
     expect(args).not.toContain('--write');
   });
 
-  it('names the files it rewrites in write mode', ({ cliPath, stubTree }) => {
+  it('names the files that it rewrites in write mode', ({ cliPath, stubTree }) => {
     runPrettier({ cliPath, mode: 'write', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
 
     expect(readCalls(stubTree)[0]).toStrictEqual(expect.arrayContaining(['--list-different', '--write']));
   });
 
-  it('reports the exit code Prettier returned', ({ cliPath, stubTree }) => {
+  it('reports the exit code that Prettier returned', ({ cliPath, stubTree }) => {
     writeRecordingStub(stubTree, 2);
 
     expect(runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir })).toBe(2);
@@ -204,7 +204,7 @@ describe(runPrettier, () => {
   });
 });
 
-/** Creates the stub tree carrying a recorder that exits 0, which most cases in the block take as given. */
+/** Creates the stub tree containing a recorder that exits 0, which most cases in the block take as given. */
 function scaffoldStub(): TempTree {
   const tree = createTempTree({}, { prefix: 'nmr-fmt-stub-' });
   writeRecordingStub(tree, 0);
@@ -239,8 +239,8 @@ function readCalls(tree: TempTree): string[][] {
 }
 
 /**
- * Creates a git repository holding `files`, staged rather than committed: `--cached` reads the index,
- * so staging is enough and the fixture needs no commit identity.
+ * Creates a git repository containing `files`, staged rather than committed: `--cached` reads the
+ * index, so staging is enough and the fixture doesn't need a commit identity.
  */
 function scaffoldRepository(files: Record<string, string>): TempTree {
   const tree = createTempTree(files, { prefix: 'nmr-fmt-run-' });
