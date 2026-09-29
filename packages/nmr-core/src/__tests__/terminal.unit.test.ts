@@ -39,11 +39,11 @@ describe(formatGlyphLine, () => {
     );
   });
 
-  it('spends no leading space where the plain variant is empty', () => {
+  it('does not add a leading space when the plain variant is empty', () => {
     expect(formatGlyphLine(glyphs, 'plain', 'decorated', 'Removed build output.')).toBe('Removed build output.');
   });
 
-  it('separates a plain glyph that carries a word from the message', () => {
+  it('separates a plain glyph that is a word from the message', () => {
     expect(formatGlyphLine(glyphs, 'plain', 'worded', 'nothing ran')).toBe('NOOP nothing ran');
   });
 });
@@ -377,7 +377,7 @@ describe(resolveStreamStyles, () => {
     expect(resolution).toStrictEqual({ styles: { stderr: 'plain', stdout: 'rich' } });
   });
 
-  it('reports a value that names no setting and detects the styles instead of throwing', () => {
+  it('reports a value that does not name any setting and detects the styles instead of throwing', () => {
     const resolution = resolveStreamStyles({
       env: { [envVar]: 'fancy' },
       envVar,

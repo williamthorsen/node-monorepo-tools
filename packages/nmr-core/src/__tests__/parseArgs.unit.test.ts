@@ -79,7 +79,7 @@ describe(parseArgs, () => {
       expect(error.message).toBe('Missing value for option: --output');
     });
 
-    it('throws missing-value when a string flag is at end of argv with no value', () => {
+    it('throws missing-value when a string flag is at end of argv without a value', () => {
       expectParseError(['--output'], mixedSchema, 'missing-value', '--output');
     });
 

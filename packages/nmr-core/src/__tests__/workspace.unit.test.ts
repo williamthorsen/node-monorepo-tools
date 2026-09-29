@@ -45,20 +45,20 @@ describe(findMonorepoRoot, () => {
 });
 
 describe(isMonorepoRoot, () => {
-  it('reports a directory holding the workspace manifest', ({ packagesTree }) => {
+  it('reports a directory containing the workspace manifest', ({ packagesTree }) => {
     packagesTree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n");
 
     expect(isMonorepoRoot(packagesTree.dir)).toBe(true);
   });
 
-  it('reports a directory holding no workspace manifest', ({ packagesTree }) => {
+  it('reports a directory without a workspace manifest', ({ packagesTree }) => {
     expect(isMonorepoRoot(packagesTree.dir)).toBe(false);
   });
 });
 
 describe(resolveWorkspace, () => {
   describe("kind 'not-a-workspace'", () => {
-    it('reports a directory holding no workspace manifest rather than throwing', () => {
+    it('reports a directory without a workspace manifest rather than throwing', () => {
       using notARoot = createTempTree({}, { prefix: PREFIX });
 
       expect(resolveWorkspace(notARoot.dir)).toStrictEqual({ kind: 'not-a-workspace' });
@@ -66,7 +66,7 @@ describe(resolveWorkspace, () => {
   });
 
   describe("kind 'packages'", () => {
-    it('carries the resolved directories and the declared patterns', ({ toolsTree }) => {
+    it('includes the resolved directories and the declared patterns', ({ toolsTree }) => {
       toolsTree.write('pnpm-workspace.yaml', 'packages:\n  - tools/cli\n');
 
       expect(resolveWorkspace(toolsTree.dir)).toStrictEqual({
@@ -87,7 +87,7 @@ describe(resolveWorkspace, () => {
       });
     });
 
-    it('resolves this repository, whose manifest reaches its own package', () => {
+    it('resolves this repository, whose manifest includes its own package', () => {
       expect(resolveWorkspace(MONOREPO_ROOT)).toMatchObject({
         kind: 'packages',
         packageDirs: expect.arrayContaining([NMR_CORE_PACKAGE_DIR]),
@@ -106,12 +106,12 @@ describe(resolveWorkspace, () => {
     });
 
     // pnpm resolves each of these to the root package alone, so a caller treating an empty resolution as a
-    // failure needs them held apart from a list the reader could not make patterns of.
+    // failure needs them distinguished from a list that the reader could not turn into patterns.
     it.for([
-      { manifest: '', scenario: 'an empty file, which YAML parses to no document' },
+      { manifest: '', scenario: 'an empty file, which does not contain any YAML document' },
       { manifest: '# catalogs only\n', scenario: 'a comment-only file' },
       { manifest: 'shamefully-hoist: true\n', scenario: 'no `packages` key' },
-      { manifest: 'packages:\n', scenario: 'a `packages` key YAML read as null' },
+      { manifest: 'packages:\n', scenario: 'a `packages` key that YAML read as null' },
       { manifest: 'packages: []\n', scenario: 'an empty list' },
     ])('reports no-packages-list given $scenario', ({ manifest }, { packagesTree }) => {
       packagesTree.write('pnpm-workspace.yaml', manifest);
@@ -123,11 +123,11 @@ describe(resolveWorkspace, () => {
       });
     });
 
-    // A list mixing a valid pattern with a bad entry is the reachable shape: reporting it as declaring nothing
+    // A list mixing a valid pattern with a bad entry is the reachable shape: Reporting it as declaring nothing
     // would release the root alone in a repo whose other pattern matches packages.
     it.for([
       { patterns: "'packages/*'", scenario: 'a `packages` value that is not a list' },
-      { patterns: '\n  - 42', scenario: 'a list holding something other than strings' },
+      { patterns: '\n  - 42', scenario: 'a list containing something other than strings' },
       { patterns: '\n  - packages/*\n  - 42', scenario: 'a valid pattern beside a non-string entry' },
       { patterns: '\n  - packages/*\n  - apps/*:', scenario: 'a valid pattern beside a mis-indented map' },
     ])('reports unreadable-packages given $scenario', ({ patterns }, { packagesTree }) => {
@@ -142,7 +142,7 @@ describe(resolveWorkspace, () => {
 
     // The manifest below declares `packages/*`, which `no-pattern` would tell the reader to go and declare.
     // The fault is the syntax error above it, and the cause has to name that one to be worth reading.
-    it('reports unreadable-manifest given a manifest holding no valid YAML, rather than throwing', ({
+    it('reports unreadable-manifest given a manifest that is not valid YAML, rather than throwing', ({
       packagesTree,
     }) => {
       packagesTree.write('pnpm-workspace.yaml', 'packages:\n  - "unterminated\n  - packages/*\n');
@@ -154,7 +154,7 @@ describe(resolveWorkspace, () => {
       });
     });
 
-    it('reports no-package where the pattern matches no directory holding one', ({ toolsTree }) => {
+    it('reports no-package when the pattern does not match any directory containing one', ({ toolsTree }) => {
       toolsTree.mkdir('tools/empty');
       toolsTree.write('pnpm-workspace.yaml', "packages:\n  - 'tools/empty'\n");
 
@@ -165,7 +165,7 @@ describe(resolveWorkspace, () => {
       });
     });
 
-    it('reports all-excluded where the exclusions remove every match', ({ packagesTree }) => {
+    it('reports all-excluded when the exclusions remove every match', ({ packagesTree }) => {
       packagesTree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n  - '!packages/*'\n");
 
       expect(resolveWorkspace(packagesTree.dir)).toStrictEqual({
@@ -176,16 +176,15 @@ describe(resolveWorkspace, () => {
     });
 
     // An exclusion that removes some but not all of the matches leaves the workspace non-empty, so the only
-    // exclusion-bearing manifest reaching the diagnosis with no positive match is one whose patterns matched none.
-    it('reports no-package where exclusions are declared but the positive patterns matched nothing', ({
-      toolsTree,
-    }) => {
+    // exclusion-bearing manifest that the diagnosis receives without a positive match is one whose patterns matched
+    // none.
+    it('reports no-package when exclusions are declared but the positive patterns matched nothing', ({ toolsTree }) => {
       toolsTree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n  - '!packages/legacy'\n");
 
       expect(resolveWorkspace(toolsTree.dir)).toMatchObject({ cause: 'no-package', kind: 'empty' });
     });
 
-    it('carries the declared patterns, which a message quotes back', ({ packagesTree }) => {
+    it('includes the declared patterns, which a message quotes back', ({ packagesTree }) => {
       packagesTree.write('pnpm-workspace.yaml', "packages:\n  - 'apps/*'\n");
 
       expect(resolveWorkspace(packagesTree.dir)).toMatchObject({ patterns: ['apps/*'] });
@@ -194,7 +193,7 @@ describe(resolveWorkspace, () => {
 });
 
 describe(readWorkspaceOverrides, () => {
-  it('reads the overrides block the manifest declares', ({ packagesTree }) => {
+  it('reads the overrides block declared by the manifest', ({ packagesTree }) => {
     packagesTree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\noverrides:\n  semver: '7.8.5'\n");
 
     expect(readWorkspaceOverrides(packagesTree.dir)).toStrictEqual({ semver: '7.8.5' });
@@ -206,17 +205,17 @@ describe(readWorkspaceOverrides, () => {
     expect(readWorkspaceOverrides(packagesTree.dir)).toStrictEqual({ zod: '4.6.4' });
   });
 
-  it('returns nothing where the manifest declares no overrides', ({ packagesTree }) => {
+  it('returns nothing when the manifest does not declare any overrides', ({ packagesTree }) => {
     packagesTree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n");
 
     expect(readWorkspaceOverrides(packagesTree.dir)).toBeUndefined();
   });
 
-  it('returns nothing where the directory holds no manifest', ({ packagesTree }) => {
+  it('returns nothing when the directory does not contain a manifest', ({ packagesTree }) => {
     expect(readWorkspaceOverrides(packagesTree.dir)).toBeUndefined();
   });
 
-  it('returns nothing where the manifest holds no valid YAML, rather than throwing', ({ packagesTree }) => {
+  it('returns nothing when the manifest is not valid YAML, rather than throwing', ({ packagesTree }) => {
     packagesTree.write('pnpm-workspace.yaml', 'overrides:\n  semver: "unterminated\n');
 
     expect(readWorkspaceOverrides(packagesTree.dir)).toBeUndefined();
@@ -224,7 +223,7 @@ describe(readWorkspaceOverrides, () => {
 });
 
 describe(readWorkspacePackageNames, () => {
-  it('reads the name each manifest declares', ({ packagesTree }) => {
+  it('reads the name declared by each manifest', ({ packagesTree }) => {
     packagesTree.write('packages/alpha/package.json', '{"name":"@scope/alpha"}');
     packagesTree.write('packages/legacy/package.json', '{"name":"legacy"}');
 
@@ -236,7 +235,7 @@ describe(readWorkspacePackageNames, () => {
     expect(names).toStrictEqual(['@scope/alpha', 'legacy']);
   });
 
-  // The names serve a diagnostic, so a manifest that cannot be read costs its own name and no more.
+  // The names serve a diagnostic, so a manifest that cannot be read drops only its own name from the list.
   it('passes over a manifest that is missing, unparseable, or nameless', ({ packagesTree }) => {
     packagesTree.write('packages/alpha/package.json', '{"name":"@scope/alpha"}');
     packagesTree.write('packages/legacy/package.json', '{ oops');

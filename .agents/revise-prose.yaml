@@ -5,72 +5,84 @@ rules:
     detected: false
     roots:
       - packages/nmr
+      - packages/nmr-core
   doc-descriptions:
     version: '1'
     swept-at: 2026-09-28
     detected: false
     roots:
       - packages/nmr
+      - packages/nmr-core
   em-dash:
     version: '1'
     swept-at: 2026-09-28
     detected: true
     roots:
       - packages/nmr
+      - packages/nmr-core
   inline-comments:
     version: '1'
     swept-at: 2026-09-28
     detected: false
     roots:
       - packages/nmr
+      - packages/nmr-core
   line-wrapping:
     version: '1'
     swept-at: 2026-09-28
     detected: false
     roots:
       - packages/nmr
+      - packages/nmr-core
   negative-quantifier:
     version: '2'
     swept-at: 2026-09-28
     detected: true
     roots:
       - packages/nmr
+      - packages/nmr-core
   plain-speech:
     version: '9'
     swept-at: 2026-09-28
     detected: false
     roots:
       - packages/nmr
+      - packages/nmr-core
   reduced-object-relative:
     version: '1'
     swept-at: 2026-09-28
     detected: true
     roots:
       - packages/nmr
+      - packages/nmr-core
   second-person:
     version: '1'
     swept-at: 2026-09-28
     detected: true
     roots:
       - packages/nmr
+      - packages/nmr-core
   sentence-case:
     version: '1'
     swept-at: 2026-09-28
     detected: false
     roots:
       - packages/nmr
+      - packages/nmr-core
   so:
     version: '1'
     swept-at: 2026-09-28
     detected: true
     roots:
       - packages/nmr
+      - packages/nmr-core
   where:
     version: '1'
     swept-at: 2026-09-28
     detected: true
     roots:
       - packages/nmr
+      - packages/nmr-core
 rejections:
   - rule: em-dash
     rule-version: '1'
@@ -1867,3 +1879,108 @@ rejections:
     file: packages/nmr/src/vitest.ts
     phrase: This is where per-project options such as «codespan» go.
     ground: 'outside the rule: names a place'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr-core/src/__tests__/hasErrnoCode.unit.test.ts
+    phrase: no such file
+    ground: 'not prose: a fixture error message imitating ENOENT'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr-core/src/__tests__/hashWorkingTree.tool.test.ts
+    phrase: no commit at HEAD
+    ground: "not prose: an assertion on the source's message"
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr-core/src/__tests__/terminal.unit.test.ts
+    phrase: 'ENOSPC: no space left on device'
+    ground: "not prose: a fixture reproducing the system's ENOSPC error message"
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr-core/src/__tests__/terminal.unit.test.ts
+    phrase: 'Failed to write some/file.ts: ENOSPC: no space left on device'
+    ground: "not prose: an expected-output literal quoting the system's ENOSPC error message"
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr-core/src/__tests__/workspace.unit.test.ts
+    phrase: no `packages` key
+    ground: a verbless scenario label
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr-core/src/__tests__/writeFileWithCheck.unit.test.ts
+    phrase: 'ENOSPC: no space left on device'
+    ground: "not prose: a fixture reproducing the system's ENOSPC error message"
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr-core/src/hashWorkingTree.ts
+    phrase: 'no commit at HEAD: ${revisionResult.error}'
+    ground: a verbless message label that a test asserts on
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr-core/src/hashWorkingTree.ts
+    phrase: no repository,
+    ground: verbless list items inside a parenthetical
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/nmr-core/src/readPackageVersion.ts
+    phrase: No string "version" field in ${packageJsonPath}
+    ground: a verbless error label that tests match by regex
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr-core/README.md
+    phrase: output it has
+    ground: "not the construction: `it` is the main clause's subject"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr-core/README.md
+    phrase: the build bootstrap's included
+    ground: 'not the construction: an absolute phrase, not a relative clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr-core/src/__tests__/hashWorkingTree.tool.test.ts
+    phrase: shape its fixture produces
+    ground: 'not the construction: an embedded question, not a relative clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr-core/src/__tests__/terminal.unit.test.ts
+    phrase: given the wrong stream's
+    ground: 'not the construction: the head "given" is a participle modifying "helper"'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr-core/src/__tests__/workspace.unit.test.ts
+    phrase: not all of the matches
+    ground: not the construction
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr-core/src/__tests__/workspace.unit.test.ts
+    phrase: positive patterns matched
+    ground: "not the construction: the main clause's subject and verb"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr-core/src/cache-store.ts
+    phrase: caller needs to hear
+    ground: 'outside the rule: a fused-head `what` relative'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr-core/src/hashWorkingTree.ts
+    phrase: whenever the fold changes
+    ground: 'not the construction: an adverbial clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr-core/src/helpers/workspace-patterns.ts
+    phrase: result both classify entries
+    ground: "not the construction: the main clause's subject and verb"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr-core/src/workspace.ts
+    phrase: last two because a message composed
+    ground: not the construction
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr-core/src/workspace.ts
+    phrase: unreadable one belongs
+    ground: "not the construction: the main clause's subject and verb"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/nmr-core/src/workspace.ts
+    phrase: workspace patterns produced
+    ground: 'outside the rule: a fused-head `what` relative'

@@ -10,12 +10,13 @@ const PACKAGE_MANIFEST = 'package.json';
 const WORKSPACE_MANIFEST = 'pnpm-workspace.yaml';
 
 /**
- * The condition that left a workspace resolving to no package directory. Each calls for a different remedy:
+ * The condition under which a workspace resolves to an empty set of package directories. Each calls for a
+ * different remedy:
  *
  * - `all-excluded`: The positive patterns match packages, and the exclusions remove every one.
- * - `no-package`: The positive patterns match no package.
- * - `no-packages-list`: The manifest declares no pattern list, which pnpm resolves to the root package alone.
- * - `no-pattern`: No entry of the list is a positive pattern, as with `!` entries and entries that YAML emptied.
+ * - `no-package`: The positive patterns do not match any package.
+ * - `no-packages-list`: The manifest does not declare a pattern list, which pnpm resolves to the root package alone.
+ * - `no-pattern`: The list does not contain a positive pattern, as with `!` entries and entries that YAML emptied.
  * - `unreadable-manifest`: The manifest cannot be read or parsed, whatever patterns it may declare.
  * - `unreadable-packages`: The `packages` value is not a list of strings.
  */
@@ -23,11 +24,11 @@ export type EmptyWorkspaceCause =
   'all-excluded' | 'no-package' | 'no-packages-list' | 'no-pattern' | 'unreadable-manifest' | 'unreadable-packages';
 
 /**
- * What resolving a directory's workspace patterns produced: the directory declares no workspace, it resolves
- * to a set of package directories, or it resolves to none and the cause says which condition emptied it.
+ * What resolving a directory's workspace patterns produced: The directory does not declare a workspace, it
+ * resolves to a set of package directories, or it resolves to none and the cause says which condition emptied it.
  *
- * The declared patterns travel with the last two because a message composed from one quotes them back to the
- * reader. They are empty when the manifest yields no pattern list.
+ * The last two include the declared patterns because a message composed from one quotes them back to the reader.
+ * The patterns are empty when the manifest does not yield a pattern list.
  */
 export type WorkspaceResolution =
   | { kind: 'empty'; cause: EmptyWorkspaceCause; patterns: string[] }
@@ -36,7 +37,7 @@ export type WorkspaceResolution =
 
 /**
  * Finds the monorepo root by walking up from `startDir`, defaulting to `process.cwd()`, to the first directory
- * holding `pnpm-workspace.yaml`, or returns `undefined` when no ancestor holds one.
+ * containing `pnpm-workspace.yaml`, or returns `undefined` when the walk does not find one.
  */
 export function findMonorepoRoot(startDir?: string): string | undefined {
   let dir = path.resolve(startDir ?? process.cwd());
@@ -59,11 +60,11 @@ export function isMonorepoRoot(dir: string): boolean {
 }
 
 /**
- * Reads the `overrides` block from the monorepo root's `pnpm-workspace.yaml`, the site pnpm reads an override
- * from.
+ * Reads the `overrides` block from the monorepo root's `pnpm-workspace.yaml`, the site from which pnpm reads an
+ * override.
  *
- * Returns nothing when the manifest is missing, unreadable, unparseable, or declares no block, and drops an
- * entry whose value is not a string.
+ * Returns nothing when the manifest is missing, unreadable, unparseable, or does not declare the block, and drops
+ * an entry whose value is not a string.
  */
 export function readWorkspaceOverrides(monorepoRoot: string): Record<string, string> | undefined {
   const manifestRead = readWorkspaceManifest(monorepoRoot);
@@ -99,8 +100,8 @@ export function readWorkspacePackageNames(packageDirs: readonly string[]): strin
 }
 
 /**
- * Resolves the workspace a directory declares, applying pnpm's pattern semantics — including `!`-prefixed
- * exclusions — and reporting which condition left the result empty.
+ * Resolves the workspace declared by a directory, applying pnpm's pattern semantics (including `!`-prefixed
+ * exclusions) and reporting which condition left the result empty.
  *
  * Reaches the filesystem a second time only when the resolution is empty, re-matching the positive patterns
  * without the exclusions to tell `all-excluded` from `no-package`.
@@ -133,7 +134,7 @@ export function resolveWorkspace(monorepoRoot: string): WorkspaceResolution {
 
 // region | Helpers
 
-/** Reports which condition left a workspace whose patterns resolved to no package directory. */
+/** Reports which condition left a workspace whose patterns resolved to an empty set of package directories. */
 function diagnoseEmptyCause(monorepoRoot: string, patterns: readonly string[]): EmptyWorkspaceCause {
   const { excludedPatterns, includedPatterns } = splitWorkspacePatterns(patterns);
 
@@ -149,13 +150,16 @@ function diagnoseEmptyCause(monorepoRoot: string, patterns: readonly string[]): 
 }
 
 /**
- * What reading a parsed manifest's `packages` key produced: it declares no list, it declares one the reader
- * could not make patterns of, or it declares patterns. An empty list counts as none, because pnpm resolves an
- * empty list, like an absent one, to the root package alone.
+ * What reading a parsed manifest's `packages` key produced: It does not declare a list, it declares one that the
+ * reader could not turn into patterns, or it declares patterns. An empty list counts as none, because pnpm
+ * resolves an empty list, like an absent one, to the root package alone.
  */
 type PackagesRead = { kind: 'absent' } | { kind: 'patterns'; patterns: string[] } | { kind: 'unreadable' };
 
-/** Reads the `packages` list a parsed workspace manifest declares, reporting an absent list apart from an unreadable one. */
+/**
+ * Reads the `packages` list declared by a parsed workspace manifest, reporting an absent list apart from an
+ * unreadable one.
+ */
 function readDeclaredPackages(parsedManifest: unknown): PackagesRead {
   if (!isObject(parsedManifest)) return { kind: 'absent' };
 
@@ -167,14 +171,14 @@ function readDeclaredPackages(parsedManifest: unknown): PackagesRead {
   return packages.length === 0 ? { kind: 'absent' } : { kind: 'patterns', patterns: packages };
 }
 
-/** Narrows an unknown value to a record, which is the shape a parsed manifest has to have to be read. */
+/** Narrows an unknown value to a record, which is the shape that a parsed manifest has to have to be read. */
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
  * Keeps the entries whose value is a string, so that one bad value does not hide the entries beside it. YAML's
- * implicit typing produces such a value easily: an unquoted `18` parses as a number.
+ * implicit typing produces such a value easily: An unquoted `18` parses as a number.
  */
 function readStringValues(record: Record<string, unknown>): Record<string, string> {
   const result: Record<string, string> = {};
@@ -185,9 +189,10 @@ function readStringValues(record: Record<string, unknown>): Record<string, strin
 }
 
 /**
- * What reading the monorepo root's workspace manifest produced: the directory holds none, the reader could not
- * read or parse the one it holds, or it parsed to a value. An absent manifest makes a directory no workspace at
- * all; an unreadable one belongs to a workspace whose declarations the reader cannot see.
+ * What reading the monorepo root's workspace manifest produced: The directory does not contain one, the reader
+ * could not read or parse the one that it contains, or it parsed to a value. An absent manifest means that a
+ * directory is not a workspace at all; an unreadable one belongs to a workspace whose declarations the reader
+ * cannot see.
  */
 type ManifestRead = { kind: 'absent' } | { kind: 'parsed'; value: unknown } | { kind: 'unreadable' };
 

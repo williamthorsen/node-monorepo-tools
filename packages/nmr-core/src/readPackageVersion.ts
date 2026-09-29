@@ -8,8 +8,8 @@ import { findPackageRoot } from './findPackageRoot.ts';
  * from the directory of the given `import.meta.url`.
  *
  * Throws if the located `package.json` lacks a string `version` field.
- * Propagates `findPackageRoot`'s own error when no ancestor `package.json`
- * exists.
+ * Propagates `findPackageRoot`'s own error when it does not find an ancestor
+ * `package.json`.
  */
 export function readPackageVersion(fromUrl: string): string {
   const root = findPackageRoot(fromUrl);

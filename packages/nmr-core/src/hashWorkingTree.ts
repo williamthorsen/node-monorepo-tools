@@ -9,15 +9,15 @@ import { GIT_OUTPUT_LIMIT } from './gitOutputLimit.ts';
 import { hasErrnoCode } from './hasErrnoCode.ts';
 
 /**
- * A whole-repo content hash, or the reason one could not be produced. Every degraded condition (no repository,
- * no commit, a git failure, a tree this hash cannot describe) reports `ok: false` rather than a hash a caller
- * might act on.
+ * A whole-repo content hash, or the reason one could not be produced. For every degraded condition (no repository,
+ * no commit, a git failure, a tree that this hash cannot describe), the result is `ok: false` rather than a hash on
+ * which a caller might act.
  */
 export type WorkingTreeHashResult =
   { ok: true; hash: string; headSha: string; toplevel: string } | { ok: false; reason: string };
 
 /**
- * Names the fold this hash performs. Bump it whenever the fold changes, so that entries recorded under an older
+ * Names the fold that this hash performs. Bump it whenever the fold changes, so that entries recorded under an older
  * fold cannot be mistaken for entries describing the same tree.
  */
 const HASH_FORMAT = 'nmr-working-tree-v1';
@@ -33,21 +33,21 @@ const PRECEDING_FIELD_COUNTS: Record<string, number | undefined> = {
   u: 10,
 };
 
-/** The record types that report, in their third field, whether the path they name is a submodule. */
+/** The record types that report, in their third field, whether the path that they name is a submodule. */
 const SUBMODULE_BEARING_TYPES = new Set(['1', '2', 'u']);
 
 /**
  * Produces a content hash of the entire working tree at `cwd`: the commit's tree object folded with the current
- * content of every path git reports as changed or untracked. Two trees holding the same content hash alike, so
- * a `touch` that changes no bytes leaves the hash where it was, while any edit, addition, or deletion moves it.
+ * content of every path that git reports as changed or untracked. Two trees with the same content hash alike, so a
+ * `touch` that does not change any bytes leaves the hash unchanged, while any edit, addition, or deletion moves it.
  *
- * Reading git's own status keeps the cost proportional to what has changed rather than to the size of the
- * repository, and applies git's ignore rules. Nothing here writes to the object database or the index: a hash is
+ * Reading git's own status keeps the running time proportional to what has changed rather than to the size of the
+ * repository, and applies git's ignore rules. Nothing here writes to the object database or the index: A hash is
  * an observation, and a repository must look exactly the same after taking one.
  *
  * Because the commit's tree object is the base of the fold, committing an already-hashed tree moves the hash
- * even though no content changed. The reverse holds too, and usefully: a rebase or an amended message that
- * preserves content leaves the hash alone, as does checking out a branch whose tree is identical.
+ * even though the content did not change. The reverse holds too, and usefully: A rebase or an amended message
+ * that preserves content leaves the hash alone, as does checking out a branch whose tree is identical.
  */
 export function hashWorkingTree(cwd: string): WorkingTreeHashResult {
   const toplevelResult = runGit(['rev-parse', '--show-toplevel'], cwd);
@@ -56,11 +56,11 @@ export function hashWorkingTree(cwd: string): WorkingTreeHashResult {
   }
   const toplevel = toplevelResult.stdout.trim();
   if (toplevel === '') {
-    return { ok: false, reason: 'git reported no repository toplevel' };
+    return { ok: false, reason: 'git did not report a repository toplevel' };
   }
 
-  // A submodule's content lives in a repository this hash never looks into, so a tree holding one is a tree
-  // this hash cannot describe.
+  // A submodule's content is in a repository into which this hash never looks, so a tree containing one is a tree
+  // that this hash cannot describe.
   if (existsSync(path.join(toplevel, '.gitmodules'))) {
     return { ok: false, reason: 'the repository declares submodules, whose content this hash does not cover' };
   }
@@ -71,7 +71,7 @@ export function hashWorkingTree(cwd: string): WorkingTreeHashResult {
   }
   const [headSha, headTreeSha] = revisionResult.stdout.trim().split('\n', 2);
   if (headSha === undefined || headTreeSha === undefined) {
-    return { ok: false, reason: 'git reported no HEAD commit and tree' };
+    return { ok: false, reason: 'git did not report a HEAD commit and tree' };
   }
 
   // `--untracked-files=all` lists untracked files individually; the default collapses a directory to one entry,
@@ -92,7 +92,7 @@ export function hashWorkingTree(cwd: string): WorkingTreeHashResult {
   hash.update(headTreeSha);
   hash.update('\0');
 
-  // Sorted so the fold is order-invariant: git's status order is not part of what the hash describes.
+  // Sort so that the fold is order-invariant: Git's status order is not part of what the hash describes.
   for (const relativePath of [...pathsResult.paths].toSorted()) {
     const content = digestPathContent(toplevel, relativePath);
     if (!content.ok) {
@@ -110,8 +110,9 @@ export function hashWorkingTree(cwd: string): WorkingTreeHashResult {
 }
 
 /**
- * Returns the commit `HEAD` names, or `undefined` when git cannot say. Cheap next to a full hash, so a caller
- * holding an observation of a tree can ask whether the commit still stands where it did without retaking it.
+ * Returns the commit that `HEAD` names, or `undefined` when git cannot say. Because it is cheap next to a full
+ * hash, a caller that has observed a tree can check whether `HEAD` still names the same commit without hashing the
+ * tree again.
  */
 export function readHeadSha(cwd: string): string | undefined {
   const result = runGit(['rev-parse', 'HEAD'], cwd);
@@ -133,13 +134,13 @@ type ChangedPathsResult = { ok: true; paths: Set<string> } | { ok: false; reason
 type PathContentResult = { ok: true; kind: PathKind; digest: string } | { ok: false; reason: string };
 
 /**
- * Extracts every path named by a `--porcelain=v2 -z` status. An unrecognized record type fails closed: a record
- * this parser cannot read may name a path whose content would then go unhashed, which is the one failure a
- * content hash may never have.
+ * Extracts every path named by a `--porcelain=v2 -z` status. An unrecognized record type fails closed: A record
+ * that this parser cannot read may name a path whose content would then go unhashed, which is the one failure that
+ * a content hash may never have.
  *
- * Record shapes, each a NUL-terminated field: an ordinary change (`1`) and an unmerged path (`u`) carry their
- * path last, after a fixed count of space-separated fields; a rename or copy (`2`) carries its new path last and
- * its original path in the field that follows; an untracked path (`?`) carries its path alone.
+ * Record shapes, each a NUL-terminated field: An ordinary change (`1`) and an unmerged path (`u`) have their
+ * path last, after a fixed count of space-separated fields; a rename or copy (`2`) has its new path last and
+ * its original path in the field that follows; an untracked path (`?`) has its path alone.
  */
 function collectChangedPaths(statusOutput: string): ChangedPathsResult {
   const records = statusOutput.split('\0');
@@ -158,7 +159,7 @@ function collectChangedPaths(statusOutput: string): ChangedPathsResult {
 
     // A submodule reports its state in the third field; this check catches one that `.gitmodules` does not declare.
     if (SUBMODULE_BEARING_TYPES.has(type) && extractField(record, 2)?.startsWith('S') === true) {
-      return { ok: false, reason: 'the working tree holds a submodule, whose content this hash does not cover' };
+      return { ok: false, reason: 'the working tree contains a submodule, whose content this hash does not cover' };
     }
 
     const precedingFieldCount = PRECEDING_FIELD_COUNTS[type];
@@ -178,7 +179,7 @@ function collectChangedPaths(statusOutput: string): ChangedPathsResult {
       index++;
       const originalPath = records[index];
       if (originalPath === undefined || originalPath === '') {
-        return { ok: false, reason: 'git status reported a rename with no original path' };
+        return { ok: false, reason: 'git status reported a rename without an original path' };
       }
       paths.add(originalPath);
     }
@@ -193,9 +194,9 @@ function digestBuffer(buffer: Buffer): string {
 }
 
 /**
- * Digests one changed path's current content. A path git named but that is no longer on disk folds as absent,
- * which is what makes a deletion move the hash. A path that exists but cannot be read, or that is neither a
- * file nor a symlink, fails closed: a partial hash would certify content nothing examined.
+ * Digests one changed path's current content. A path that git named but that is no longer on disk folds as
+ * absent, which is what makes a deletion move the hash. A path that exists but cannot be read, or that is neither
+ * a file nor a symlink, fails closed: A partial hash would certify content that it did not examine.
  */
 function digestPathContent(toplevel: string, relativePath: string): PathContentResult {
   const absolutePath = path.join(toplevel, relativePath);
@@ -212,7 +213,7 @@ function digestPathContent(toplevel: string, relativePath: string): PathContentR
 
   try {
     if (stats.isSymbolicLink()) {
-      // A symlink's content is the path it names, which is also what git tracks for it.
+      // A symlink's content is the path that it names, which is also what git tracks for it.
       return { ok: true, kind: 'link', digest: digestBuffer(Buffer.from(readlinkSync(absolutePath))) };
     }
     if (stats.isFile()) {
@@ -226,7 +227,7 @@ function digestPathContent(toplevel: string, relativePath: string): PathContentR
   return { ok: false, reason: `${relativePath} is neither a file nor a symlink, so its content is not hashable` };
 }
 
-/** Returns the space-separated field at `fieldIndex`, or `undefined` when the record has no such field. */
+/** Returns the space-separated field at `fieldIndex`, or `undefined` when the record does not have that field. */
 function extractField(record: string, fieldIndex: number): string | undefined {
   return record.split(' ')[fieldIndex];
 }
@@ -250,10 +251,10 @@ function extractPath(record: string, precedingFieldCount: number): string | unde
 }
 
 /**
- * Runs git and returns its stdout, or the reason it failed. A failure must never read as an empty status: an
+ * Runs git and returns its stdout, or the reason it failed. A failure must never read as an empty status: An
  * unreported change would leave the hash certifying content that is no longer there.
  *
- * Invoked without a shell, so no part of a path or revision is ever interpreted by one.
+ * Invokes git without a shell, so a shell never interprets any part of a path or revision.
  */
 function runGit(args: string[], cwd: string): { ok: true; stdout: string } | { ok: false; error: string } {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8', maxBuffer: GIT_OUTPUT_LIMIT });

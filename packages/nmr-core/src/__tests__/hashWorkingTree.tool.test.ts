@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { hashWorkingTree } from '../hashWorkingTree.ts';
 
-// Resolved to its physical path by `createTempTree`, so it compares equal to the toplevel git reports.
+// Resolved to its physical path by `createTempTree`, so it compares equal to the toplevel that git reports.
 // eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
@@ -47,7 +47,7 @@ describe(hashWorkingTree, () => {
   });
 
   describe('what moves the hash', () => {
-    it('leaves the hash alone when a touch changes no bytes', ({ tree }) => {
+    it('leaves the hash alone when a touch does not change any bytes', ({ tree }) => {
       // Timestamps are not content. A hash that moved on `touch` would miss on every checkout and clone.
       initRepo(tree);
       const before = hashOf(tree.dir);
@@ -96,7 +96,7 @@ describe(hashWorkingTree, () => {
     });
 
     it('moves the hash when a file is renamed', ({ tree }) => {
-      // A staged rename is the one status record carrying two paths; a parser that dropped the original path
+      // A staged rename is the one status record containing two paths; a parser that dropped the original path
       // would hash a rename exactly as it hashes an addition.
       initRepo(tree);
       const before = hashOf(tree.dir);
@@ -129,8 +129,8 @@ describe(hashWorkingTree, () => {
       expect(hashOf(tree.dir)).not.toBe(before);
     });
 
-    it('hashes a conflicted tree by the content standing in it', ({ tree }) => {
-      // An unmerged path carries its own status record shape. Its working-tree content is what a check would
+    it('hashes a conflicted tree by its working-tree content', ({ tree }) => {
+      // An unmerged path has its own status record shape. Its working-tree content is what a check would
       // read, so it is what the hash describes.
       initRepo(tree);
       const conflicted = startConflictingMerge(tree);
@@ -142,9 +142,9 @@ describe(hashWorkingTree, () => {
       expect(hashOf(tree.dir)).not.toBe(before);
     });
 
-    it('agrees across two branches holding identical content', ({ tree }) => {
-      // The commit's tree object is the base of the fold, so two histories that arrive at the same content
-      // hash alike, which is what lets a rebase or an amended message leave the hash where it was.
+    it('agrees across two branches with identical content', ({ tree }) => {
+      // Because the commit's tree object is the base of the fold, two histories that arrive at the same content
+      // hash alike, which lets a rebase or an amended message leave the hash unchanged.
       initRepo(tree);
       const onMain = hashOf(tree.dir);
       git(tree.dir, ['checkout', '-b', 'other']);
@@ -163,7 +163,7 @@ describe(hashWorkingTree, () => {
     });
 
     it('refuses outside a git repository', ({ tree }) => {
-      // Stops git's upward search at the fixture, so a temp root that sits inside some repository cannot answer.
+      // Stop git's upward search at the fixture, so that git does not find a repository enclosing the temp root.
       vi.stubEnv('GIT_CEILING_DIRECTORIES', path.dirname(tree.dir));
 
       expect(hashWorkingTree(tree.dir)).toStrictEqual({
@@ -172,7 +172,7 @@ describe(hashWorkingTree, () => {
       });
     });
 
-    it('refuses a repository with no commit', ({ tree }) => {
+    it('refuses a repository without a commit', ({ tree }) => {
       git(tree.dir, ['init', '--initial-branch=main']);
 
       expect(hashWorkingTree(tree.dir)).toStrictEqual({
@@ -182,8 +182,8 @@ describe(hashWorkingTree, () => {
     });
 
     it('refuses a repository declaring submodules', ({ tree }) => {
-      // A submodule's content lives in a repository this hash never opens, so certifying the superproject
-      // alone would certify content nothing examined.
+      // A submodule's content is in a repository that this hash never opens, so certifying the superproject alone
+      // would certify content that the hash did not examine.
       initRepo(tree);
       tree.write('.gitmodules', '[submodule "vendor"]\n\tpath = vendor\n');
 
@@ -193,8 +193,9 @@ describe(hashWorkingTree, () => {
       });
     });
 
-    it('refuses a tree holding an untracked nested repository', ({ tree }) => {
-      // Git reports a nested repository as one entry and does not look inside it, so neither can the hash.
+    it('refuses a tree containing an untracked nested repository', ({ tree }) => {
+      // Because git reports a nested repository as one entry and does not look inside it, the hash cannot look
+      // inside it either.
       initRepo(tree);
       const nested = tree.mkdir('vendor');
       git(nested, ['init', '--initial-branch=main']);
@@ -266,8 +267,8 @@ function startConflictingMerge(tree: TempTree): string {
 }
 
 /**
- * Returns the leading character of every `--porcelain=v2` record git currently reports, so a test can pin which
- * record shape its fixture produces rather than assume it.
+ * Returns the leading character of every `--porcelain=v2` record that git currently reports, so that a test can
+ * pin which record shape its fixture produces rather than assume it.
  */
 function statusRecordTypes(repo: string): string[] {
   return git(repo, ['status', '--porcelain=v2', '-z', '--untracked-files=all'])

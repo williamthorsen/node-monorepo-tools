@@ -20,7 +20,7 @@ describe(resolvePackageDirs, () => {
     tree = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-core-workspace-patterns-' }));
   });
 
-  it('resolves a single-level glob to the directories holding a manifest', () => {
+  it('resolves a single-level glob to the directories containing a manifest', () => {
     const alphaDir = makePackage('packages/alpha');
     const betaDir = makePackage('packages/beta');
     makePackage('packages/no-manifest', false);
@@ -47,7 +47,7 @@ describe(resolvePackageDirs, () => {
     expect(resolvePackageDirs(tree.dir, ['packages/*', '!packages/legacy'])).toStrictEqual([alphaDir]);
   });
 
-  it('applies a negative pattern declared before the positive pattern it filters', () => {
+  it('applies a negative pattern declared before the positive pattern that it filters', () => {
     const alphaDir = makePackage('packages/alpha');
     makePackage('packages/legacy');
 
@@ -110,13 +110,13 @@ describe(resolvePackageDirs, () => {
     expect(resolvePackageDirs(tree.dir, ['!packages/legacy'])).toStrictEqual([]);
   });
 
-  it('returns nothing when given no patterns', () => {
+  it('returns nothing when given an empty pattern list', () => {
     makePackage('packages/alpha');
 
     expect(resolvePackageDirs(tree.dir, [])).toStrictEqual([]);
   });
 
-  // An unquoted `!pkg` entry parses as a YAML tag, so the manifest can hand over an empty pattern.
+  // An unquoted `!pkg` entry parses as a YAML tag, so the parsed manifest can contain an empty pattern.
   it('ignores an empty pattern', () => {
     const alphaDir = makePackage('packages/alpha');
 

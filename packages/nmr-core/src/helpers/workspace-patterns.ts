@@ -28,7 +28,7 @@ export interface WorkspacePatternSplit {
 }
 
 /**
- * Matches manifest patterns against a monorepo root, returning the absolute directories that hold a matched
+ * Matches manifest patterns against a monorepo root, returning the absolute directories that contain a matched
  * manifest, sorted and free of duplicates.
  */
 export function matchPackageDirs(
