@@ -60,14 +60,14 @@ export function describeEmptyWorkspace(workspace: EmptyWorkspace): string {
     case 'unreadable-manifest':
       return (
         'pnpm-workspace.yaml does not contain valid YAML, so the matcher does not receive anything that it ' +
-        'declares. Repair the syntax error and run the command again. An unterminated quoted string and a mis-indented entry are ' +
-        'the usual ones.'
+        'declares. Repair the syntax error and run the command again. An unterminated quoted string and a ' +
+        'mis-indented entry are the usual ones.'
       );
     case 'unreadable-packages':
       return (
-        'pnpm-workspace.yaml declares a `packages` value that is not a list of strings, so nothing it ' +
-        'declares reaches the matcher. Make it a list whose every entry is a quoted pattern; a bare value ' +
-        'and an entry that YAML read as a number or a map are the usual ones.'
+        'pnpm-workspace.yaml declares a `packages` value that is not a list of strings, so the matcher does ' +
+        'not receive anything that it declares. Make it a list whose every entry is a quoted pattern; a bare ' +
+        'value and an entry that YAML read as a number or a map are the usual ones.'
       );
     default: {
       const unhandledCause: never = workspace.cause;
