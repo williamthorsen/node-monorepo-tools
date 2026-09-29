@@ -262,8 +262,9 @@ var default_default = defineRdyKit({
             }
           ]
         },
-        // Keep these checks outside the config gate above, which skips where the config file is absent: a repo with no
-        // config file still defaults `changelogJson.enabled` to true and still publishes tarballs.
+        // Keep these checks outside the config gate above, which skips when the config file is absent: For a repo
+        // without a config file, release-kit still defaults `changelogJson.enabled` to true, and the repo still
+        // publishes tarballs.
         {
           name: "published packages ship CHANGELOG.md",
           severity: "warn",

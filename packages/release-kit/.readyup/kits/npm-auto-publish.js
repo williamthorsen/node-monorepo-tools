@@ -69,7 +69,7 @@ var packagesChecklist = defineRdyChecklist({
       },
       fix: 'Set "packageManager": "pnpm@..." in root package.json'
     },
-    // Unfalsifiable on every readyup version that `minReadyupVersion` admits: discovery reports the repo root, and it
+    // Unfalsifiable on every readyup version that `minReadyupVersion` admits: Discovery reports the repo root, and it
     // throws on an unreadable root package.json instead of returning an empty list.
     {
       name: "At least one workspace discovered",
@@ -93,8 +93,8 @@ var packagesChecklist = defineRdyChecklist({
 });
 var npm_auto_publish_default = defineRdyKit({
   fixLocation: "inline",
-  // The release that introduced `CheckOutcome.fix`, on which the provenance check's remediation depends. An older
-  // runner drops that `fix` silently, so failing to load the kit is the lesser harm.
+  // The release that introduced `CheckOutcome.fix`, on which the provenance check's remediation depends. Because an
+  // older runner drops that `fix` silently, failing to load the kit is the lesser harm.
   minReadyupVersion: "0.37.0",
   checklists: [repoChecklist, packagesChecklist]
 });
@@ -136,7 +136,7 @@ function buildWorkspaceCheck(workspace) {
     {
       name: "published to npm",
       // `npm view` reads the registry without a session, so a missing login or a missing one-time password leaves
-      // this answerable. An unreachable registry does not: the lookup fails for every package, and reporting that
+      // this answerable. An unreachable registry does not: The lookup fails for every package, and reporting that
       // as unpublished would advise publishing a package that is already there.
       skip: () => {
         const auth = getCachedNpmAuthStatus();

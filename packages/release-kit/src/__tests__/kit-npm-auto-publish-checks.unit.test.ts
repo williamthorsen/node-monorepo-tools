@@ -30,7 +30,7 @@ const WORKFLOW_FILE = 'publish.yaml';
 const WORKFLOW_WITHOUT_PROVENANCE = 'jobs:\n  publish:\n    steps:\n      - run: npm publish\n';
 const WORKFLOW_WITH_PROVENANCE = `${WORKFLOW_WITHOUT_PROVENANCE}        with:\n          provenance: true\n`;
 
-// Repo shapes the discovery-dependent tests scaffold. Discovery reports the root alongside the members and returns
+// Repo shapes that the discovery-dependent tests scaffold. Discovery reports the root alongside the members and returns
 // the matched directories sorted, which is the order every assertion below reads.
 const MONOREPO_PUBLISHING_NOTHING = {
   'package.json': '{"name":"monorepo","private":true}',
@@ -45,12 +45,12 @@ const MONOREPO_WITH_PRIVATE_ROOT = {
   'packages/published/package.json': '{"name":"@scope/published"}',
 };
 
-// A single-package repo declares no workspace globs, so its only entry is the root, here a publishable one.
+// A single-package repo does not declare any workspace globs, so its only entry is the root, here a publishable one.
 const SINGLE_PACKAGE_REPO = { 'package.json': '{"name":"single-package"}' };
 
 describe(selectProbeName, () => {
-  // The private member sorts first, so a checklist-membership filter would have picked it. Its row is skipped,
-  // which would leave the probe's memoized answer unread and the round-trip unpaid for.
+  // Because the private member sorts first, a checklist-membership filter would have picked it. Its row is skipped,
+  // which would leave the probe's memoized answer unread and the round trip wasted.
   it('passes over a private member that sorts ahead of a publishable one', () => {
     scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
 
@@ -128,9 +128,9 @@ describe(buildWorkspaceCheck, () => {
     await expect(Promise.resolve(check.skip?.())).resolves.toBe(false);
   });
 
-  // The gate is what reports a session that cannot answer trust queries; the per-package rows stand down rather
-  // than repeating a query whose answer is already known. Both registry-reading checks carry a predicate of their
-  // own, because the rows do not hang beneath the gate.
+  // The gate reports a session that cannot answer trust queries; the per-package rows skip rather than repeating a
+  // query whose answer is already known. Both registry-reading checks declare a predicate of their own, because the
+  // rows are not nested beneath the gate.
   it('gives both registry-reading checks a skip predicate', () => {
     const publishedCheck = findCheck(
       'published to npm',
@@ -154,7 +154,7 @@ describe(buildWorkspaceCheck, () => {
     expect(unscopedChildren).not.toContain('publishConfig.access is "public"');
   });
 
-  it('falls back to "(unnamed)" when the workspace has no name', () => {
+  it('falls back to "(unnamed)" when the workspace does not have a name', () => {
     const workspace = makeWorkspace({ isPackage: true, name: undefined, packageJson: {} });
 
     const check = buildWorkspaceCheck(workspace);
@@ -243,7 +243,7 @@ describe(classifyProvenanceSetting, () => {
 });
 
 describe(classifyTrustCapability, () => {
-  it('reports an unauthenticated session as incapable, carrying its detail', () => {
+  it('reports an unauthenticated session as incapable, including its detail', () => {
     const auth = classifyNpmAuth({ exitOk: false, stdout: WHOAMI_E401 });
 
     expect(classifyTrustCapability(auth, undefined)).toStrictEqual({
@@ -252,7 +252,7 @@ describe(classifyTrustCapability, () => {
     });
   });
 
-  it('reports an unanswerable probe as incapable, carrying the probe detail', () => {
+  it('reports an unanswerable probe as incapable, including the probe detail', () => {
     const probe = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP }, OWNER_REPO, WORKFLOW_FILE);
 
     expect(classifyTrustCapability({ status: 'authenticated' }, probe)).toStrictEqual({
@@ -269,8 +269,9 @@ describe(classifyTrustCapability, () => {
     expect(classifyTrustCapability({ status: 'authenticated' }, probe)).toStrictEqual({ ok: true });
   });
 
-  // A repo naming no workspace has nothing to probe with, which leaves the session's capability undisproved.
-  it('reports an authenticated session with no probe as capable', () => {
+  // A repo that does not name any workspace has nothing to probe with, which leaves the session's capability
+  // undisproved.
+  it('reports an authenticated session without a probe as capable', () => {
     expect(classifyTrustCapability({ status: 'authenticated' }, undefined)).toStrictEqual({ ok: true });
   });
 });
@@ -371,8 +372,8 @@ describe(classifyTrustQuery, () => {
   });
 });
 
-// Both checklists stand down when the repo publishes nothing. Readyup runs, reports, and counts nothing beneath a
-// check whose `skip` fires, so each checklist's substantive work has to hang beneath one gate.
+// Both checklists skip when the repo publishes nothing. Readyup runs, reports, and counts nothing beneath a check
+// whose `skip` fires, so each checklist's substantive work has to be nested beneath one gate.
 describe('repo checklist', () => {
   it('runs publish.yaml exists as a check rather than a precondition', () => {
     const checklist = findChecklist('repo');
@@ -393,7 +394,7 @@ describe('repo checklist', () => {
     expect(findCheck('publish.yaml exists', findChecklist('repo').checks).skip?.()).toBe(false);
   });
 
-  it('hangs the workflow-content checks beneath publish.yaml exists', () => {
+  it('nests the workflow-content checks beneath publish.yaml exists', () => {
     const gate = findCheck('publish.yaml exists', findChecklist('repo').checks);
 
     expect(gate.checks?.map((check) => check.name)).toStrictEqual([
@@ -434,7 +435,7 @@ describe('packages checklist', () => {
     expect(findCheck(SESSION_GATE, packagesChecklist.checks).skip?.()).toBe(false);
   });
 
-  it('hangs no check beneath the npm session gate', () => {
+  it('does not nest any check beneath the npm session gate', () => {
     scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
 
     expect(findCheck(SESSION_GATE, packagesChecklist.checks).checks).toBeUndefined();
@@ -449,8 +450,8 @@ describe('packages checklist', () => {
   });
 
   // Read names only: The per-workspace `trusted publisher configured` check declares `fix` as a getter that shells
-  // out to git. A private member keeps its row. A private root does not: The row is what reports the workspace
-  // as skipped, and the root is not a workspace a consumer wrote.
+  // out to git. A private member keeps its row. A private root does not: The row reports the workspace as skipped,
+  // and the root is not a workspace that a consumer wrote.
   it('lists a check for every discovered member beside the npm session gate', () => {
     scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
 
@@ -461,10 +462,10 @@ describe('packages checklist', () => {
     ]);
   });
 
-  it('lists no check for a private repo root', () => {
+  it('does not list any check for a private repo root', () => {
     scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
 
-    // Read the unfiltered list first, so the root's absence below is the filter's doing rather than the tree's.
+    // Read the unfiltered list first, so that the root's absence below is the filter's doing rather than the tree's.
     expect(discoverWorkspaces().map((workspace) => workspace.name)).toContain('monorepo');
     expect(packagesChecklist.checks.map((check) => check.name)).not.toContain('monorepo');
   });
@@ -493,7 +494,7 @@ function findCheck(name: string, siblings: readonly RdyCheck[]): RdyCheck {
 /** Returns the named checklist from the kit, asserting it is flat so that a staged form fails loudly. */
 function findChecklist(name: string): RdyChecklist {
   const checklist = kit.checklists.find((candidate) => candidate.name === name);
-  assert(checklist && isFlatChecklist(checklist), `Expected the kit to carry a flat "${name}" checklist`);
+  assert(checklist && isFlatChecklist(checklist), `Expected the kit to contain a flat "${name}" checklist`);
   return checklist;
 }
 

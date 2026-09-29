@@ -8,7 +8,7 @@
  * Run from a target repo's working directory:
  *   rdy run --from npm:@williamthorsen/release-kit
  *
- * A check asserting the absence of something declares `quiet`: a conformant repo is already in the passing
+ * A check asserting the absence of something declares `quiet`: A conformant repo is already in the passing
  * state, so only a failure is worth a line.
  */
 import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
@@ -29,7 +29,7 @@ import { packsPath } from '../../src/packsPath.ts';
 /** Returns the minimum release-kit version that a consuming repo must declare. */
 function getMinVersion(): string {
   // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
-  // Defer the call into a function so module load does not invoke the runtime stub (which throws):
+  // Defer the call into a function so that module load does not invoke the runtime stub (which throws):
   // This keeps the module importable in tests that bypass the compile step.
   const picked = pickJson('../../package.json', ['version']);
   if (typeof picked['version'] !== 'string') {
@@ -44,9 +44,9 @@ function hasPublishablePackages(): boolean {
 }
 
 /**
- * Where release-kit writes the structured changelog when the config names no other path.
+ * Where release-kit writes the structured changelog when the config does not name any other path.
  *
- * Mirrors `DEFAULT_CHANGELOG_JSON_CONFIG.outputPath`, which the kit does not import: reaching `src/defaults.ts`
+ * Mirrors `DEFAULT_CHANGELOG_JSON_CONFIG.outputPath`, which the kit does not import: Importing `src/defaults.ts`
  * would pull change-grammar's taxonomy and its dependencies into the bundle that this package publishes.
  * `src/__tests__/kit-changelog-packaging-checks.unit.test.ts` asserts the two stay equal.
  */
@@ -223,8 +223,9 @@ export default defineRdyKit({
             },
           ],
         },
-        // Keep these checks outside the config gate above, which skips where the config file is absent: a repo with no
-        // config file still defaults `changelogJson.enabled` to true and still publishes tarballs.
+        // Keep these checks outside the config gate above, which skips when the config file is absent: For a repo
+        // without a config file, release-kit still defaults `changelogJson.enabled` to true, and the repo still
+        // publishes tarballs.
         {
           name: 'published packages ship CHANGELOG.md',
           severity: 'warn',
@@ -301,7 +302,7 @@ export default defineRdyKit({
 /**
  * Checks whether the repo leaves structured changelog generation on.
  *
- * A repo with no config file inherits the enabled default, so a missing config file passes.
+ * A repo without a config file inherits the enabled default, so a missing config file passes.
  *
  * @internal - Exported only to enable testing
  */
@@ -315,10 +316,10 @@ export function changelogJsonIsEnabled(): boolean {
  * Checks that the config file exports a config that release-kit can load.
  *
  * `loadConfig` resolves `imported.default ?? imported.config` and throws when the file exports neither, so the
- * checks nested beneath this one have nothing to read until it passes. Source text cannot decide a module's export
- * names exactly, and this check gates five others at `error` severity, so the patterns match broadly: a config that
- * the patterns admit and `loadConfig` rejects produces one failure downstream, whereas the reverse suppresses the
- * seven checks beneath this one.
+ * checks nested beneath this one have nothing to read until it passes. Because source text cannot decide a module's
+ * export names exactly, and this check gates five others at `error` severity, the patterns match broadly: A config
+ * that the patterns admit and `loadConfig` rejects produces one failure downstream, whereas the reverse suppresses
+ * the seven checks beneath this one.
  *
  * @internal - Exported only to enable testing
  */
@@ -417,7 +418,7 @@ function releaseNotesInjectsIntoReadme(): boolean {
  *
  * Workspace discovery reports the repo root in both repo types, so a publishable root is checked like any other
  * package and a `private: true` workspace is filtered out before its `files` field is read. The check does not
- * require `path` to exist on disk: a repo adopting release-kit before its first release should widen `files`
+ * require `path` to exist on disk: A repo adopting release-kit before its first release should widen `files`
  * then, not after the first changelog is generated.
  */
 function reportWorkspacesOmitting(path: string): boolean | CheckOutcome {
