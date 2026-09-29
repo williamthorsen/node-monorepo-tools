@@ -37,7 +37,7 @@ describe('the change-grammar lint boundary', () => {
     expect(reported).toStrictEqual(BOUNDARY_RULES);
   });
 
-  it('binds inside the package alone', { timeout: 60_000 }, async () => {
+  it('applies inside the package alone', { timeout: 60_000 }, async () => {
     const reported = await lintUnder(path.join(REPO_ROOT, 'packages', 'nmr-core', 'src', 'index.ts'));
 
     expect(reported).toStrictEqual([]);

@@ -45,7 +45,7 @@ describe(verify, () => {
       const defects = verify('{scope}{type}: {title}', TAXONOMY);
 
       expect(defects).toContain(
-        'Template "{scope}{type}: {title}" places {scope} and {type} with no literal between them.',
+        'Template "{scope}{type}: {title}" places {scope} and {type} without a literal between them.',
       );
     });
 
@@ -86,7 +86,7 @@ describe(verify, () => {
     });
   });
 
-  describe('the round-trip backstop', () => {
+  describe('the round-trip check', () => {
     it('refuses a template that renders a value which it cannot read back', () => {
       const defects = verify('{title} {scope}', TAXONOMY);
 
@@ -105,7 +105,7 @@ describe(verify, () => {
       expect(defects.some((defect) => defect.includes('does not round-trip'))).toBe(true);
     });
 
-    it('accepts a template that names no token at all', () => {
+    it('accepts a template that does not name any token', () => {
       expect(verify('Release', TAXONOMY)).toStrictEqual([]);
     });
   });

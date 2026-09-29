@@ -9,13 +9,13 @@ import type { ChangeRecord, Taxonomy } from './types.ts';
  * Every token compiles to a constrained sub-pattern, which makes the inversion decidable: `{type}` an alternation over
  * the taxonomy's keys and aliases, `{ticket_ref}` a `#123` or `ABC-123` reference, `{pr_number}` digits, `{breaking}`
  * the marker, `{scope}` a run bounded by the delimiter that the template itself places after it, and `{title}` a lazy
- * run so that a trailing group wins the tail of the string.
+ * run so that a trailing group matches the tail of the string.
  *
  * When an optional group could be read as present or absent, present wins. That reading misparses a plain title that
  * contains a pipe and a declared type: Under `[[{scope}|]{type}: ]{title}`, `Rename kb|docs: the shared layer` parses
  * as scope `Rename kb`, type `docs`, title `the shared layer`.
  *
- * A template naming `{type}` matches only a subject that names a declared type. When the template names no
+ * A template naming `{type}` matches only a subject that names a declared type. When the template does not name
  * `{ticket_ref}`, `parse` first strips any `TICKET_PREFIX_PATTERNS` prefix from the subject.
  */
 export function parse(nodes: readonly TemplateNode[], subject: string, taxonomy: Taxonomy): ChangeRecord | undefined {
@@ -54,7 +54,7 @@ export function parse(nodes: readonly TemplateNode[], subject: string, taxonomy:
   return namesType && record.type === undefined ? undefined : normalizeChangeRecord(record);
 }
 
-/** The ticket-reference forms stripped from a subject whose template names no `{ticket_ref}`. */
+/** The ticket-reference forms stripped from a subject whose template does not name `{ticket_ref}`. */
 export const TICKET_PREFIX_PATTERNS: readonly RegExp[] = [/^##\s+/, /^#\d+([.-]\d+)?\s+/, /^[A-Z]+-\d+\s+/];
 
 // region | Helpers
@@ -90,7 +90,7 @@ function buildTokenPattern(node: TokenNode, options: PatternOptions): string {
     case 'title':
       return '(?<title>.+?)';
     case 'type':
-      // When the template names no `{breaking}`, the marker follows the type, exactly as `render` writes it.
+      // When the template does not name `{breaking}`, the marker follows the type, exactly as `render` writes it.
       return options.namesBreaking
         ? `(?<type>${options.typeAlternation})`
         : `(?<type>${options.typeAlternation})(?<breaking>${escapeForPattern(BREAKING_MARKER)})?`;

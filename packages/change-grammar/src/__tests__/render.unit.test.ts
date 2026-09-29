@@ -90,7 +90,7 @@ describe(render, () => {
       expect(render(compileTemplate(GLOBAL_MERGE), record)).toBe('#466 agents|feat: Add foo (#470)');
     });
 
-    it('renders the marker on the type, since no configured template names {breaking}', () => {
+    it('renders the marker on the type, since the configured templates do not name {breaking}', () => {
       const record = { breaking: true, scope: 'agents', title: TITLE, type: 'feat' };
 
       expect(render(compileTemplate(FLAT_SCOPE_COMMIT), record)).toBe('agents|feat!: Add foo');
@@ -138,7 +138,7 @@ describe(render, () => {
       );
     });
 
-    it('drops the wildcard scope, so its group drops with it', () => {
+    it('drops the wildcard scope and its group with it', () => {
       expect(render(compileTemplate(FLAT_SCOPE_COMMIT), { scope: '*', title: TITLE, type: 'feat' })).toBe('Add foo');
     });
 
@@ -172,7 +172,7 @@ describe(render, () => {
       );
     });
 
-    it('names no scope when every element drops, so the group drops with it', () => {
+    it('does not name a scope when every element drops, so the group drops with it', () => {
       expect(render(compileTemplate(FLAT_SCOPE_COMMIT), { scope: '*,,*', title: TITLE, type: 'feat' })).toBe('Add foo');
     });
   });

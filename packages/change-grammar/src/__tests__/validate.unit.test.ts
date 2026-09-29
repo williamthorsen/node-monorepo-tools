@@ -32,7 +32,7 @@ describe(validate, () => {
     expect(validate({ breaking: true, type: 'feat' }, TAXONOMY)).toBeUndefined();
   });
 
-  it('treats a type declaring no policy as optional', () => {
+  it('treats a type without a declared policy as optional', () => {
     expect(validate({ breaking: true, type: 'tests' }, TAXONOMY)).toBeUndefined();
   });
 

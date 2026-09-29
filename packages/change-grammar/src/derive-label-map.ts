@@ -2,7 +2,7 @@ import { ROOT_SCOPE } from './tokens.ts';
 import type { CanonicalWorkTypeEntry } from './types.ts';
 
 /**
- * Maps each work type to its tracker label and each workspace to its scope label, in the order given. `root` joins the
+ * Maps each work type to its tracker label and each workspace to its scope label, in the order given. Adds `root` to the
  * scopes only when there is a workspace for it to stand apart from.
  */
 export function deriveLabelMap(
