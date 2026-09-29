@@ -31,7 +31,7 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
 
 // Stub the history reader and the changelog constructors and renderers. The default stubs return
 // deterministic values without reading git history or touching the filesystem; `toChangelogEntries`
-// stays real, so a history's sections reach the planned changelog labeled with the new tag.
+// stays real, so the planned changelog contains a history's sections, labeled with the new tag.
 const mockReadReleaseHistory = vi.hoisted(() => vi.fn());
 const mockBuildSyntheticChangelogEntry = vi.hoisted(() => vi.fn());
 const mockBuildEmptyReleaseEntry = vi.hoisted(() => vi.fn());
@@ -99,7 +99,7 @@ const workTypes: Record<string, WorkTypeConfig> = {
   fix: { header: 'Bug fixes' },
 };
 
-/** Builds a monorepo config with no workspaces and the changelog JSON disabled, overriding any field. */
+/** Builds a monorepo config without any workspaces and the changelog JSON disabled, overriding any field. */
 function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
   return {
     workspaces: [],
@@ -181,7 +181,7 @@ describe(releasePrepareMono, () => {
     expect(result.writes.map((write) => write.path)).toContain('packages/arrays/CHANGELOG.md');
   });
 
-  it('skips a workspace with no commits', () => {
+  it('skips a workspace without any commits', () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -220,7 +220,7 @@ describe(releasePrepareMono, () => {
     ]);
   });
 
-  it('skips a workspace with no commits whose package.json has no version', () => {
+  it("skips a workspace without any commits whose package.json doesn't declare a version", () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -409,7 +409,7 @@ describe(releasePrepareMono, () => {
     ]);
   });
 
-  it('skips when the history has commits but no bump and no --force is given', () => {
+  it("skips when the history's commits don't call for a bump and --force is not given", () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -447,7 +447,7 @@ describe(releasePrepareMono, () => {
     expect(workspace.unparseableCommits).toStrictEqual(makeStubbedCommits([['chore: update deps', 'abc123']]));
   });
 
-  it('falls back to patch when the history has commits but no bump and --force is set', () => {
+  it("falls back to patch when the history's commits don't call for a bump and --force is set", () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -484,7 +484,7 @@ describe(releasePrepareMono, () => {
     );
   });
 
-  it('skips when --bump=X alone is set and the history has commits but no bump (level chooser, not trigger)', () => {
+  it("skips when --bump=X alone is set and the history's commits don't call for a bump (level chooser, not trigger)", () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -515,7 +515,7 @@ describe(releasePrepareMono, () => {
     expect(workspace.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
   });
 
-  it('falls back to patch when --force is set with no commits (no --bump)', () => {
+  it('falls back to patch when --force is set without any commits (no --bump)', () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -593,7 +593,7 @@ describe(releasePrepareMono, () => {
     expect(result.workspaces[1]).toMatchObject({ name: 'strings', status: 'released', releaseType: 'minor' });
   });
 
-  it("carries the history's bump, parsed count, and unparseable commits onto a released result", () => {
+  it("reports the history's bump, parsed count, and unparseable commits on a released result", () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -669,7 +669,7 @@ describe(releasePrepareMono, () => {
     ]);
   });
 
-  it('force-bumps a workspace with no commits while also bumping one with commits', () => {
+  it('force-bumps a workspace without any commits while also bumping one with commits', () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -739,7 +739,7 @@ describe(releasePrepareMono, () => {
     ]);
   });
 
-  it('does not run formatCommand when no workspaces have commits', () => {
+  it("does not run formatCommand when the workspaces don't have any commits", () => {
     const config = makeConfig({
       formatCommand: 'npx prettier --write',
       workspaces: [
@@ -765,7 +765,7 @@ describe(releasePrepareMono, () => {
     expect(mockExecSync).not.toHaveBeenCalled();
   });
 
-  it('defaults to prettier when no formatCommand is set and prettier config exists', () => {
+  it("defaults to prettier when the config doesn't set formatCommand and a prettier config exists", () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -792,7 +792,7 @@ describe(releasePrepareMono, () => {
     );
   });
 
-  it('skips formatting when no formatCommand is set and no prettier config exists', () => {
+  it("skips formatting when the config doesn't set formatCommand and the repo doesn't have a prettier config", () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -1269,10 +1269,10 @@ describe(releasePrepareMono, () => {
     });
   });
 
-  describe('releases whose window yields no item', () => {
+  describe("releases whose window doesn't yield an item", () => {
     // When a workspace is forced to release (`--force` or `--set-version`) although
-    // its unreleased window yields no changelog item, a synthetic "Notes / Forced version bump."
-    // entry stands in for that window.
+    // its unreleased window doesn't yield a changelog item, a synthetic
+    // "Notes / Forced version bump." entry stands in for that window.
 
     /** Builds a config whose one workspace is `arrays`. */
     function singleWorkspaceConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
@@ -1289,21 +1289,21 @@ describe(releasePrepareMono, () => {
       return makeConfig({ workspaces: [workspace], ...overrides });
     }
 
-    /** Stubs a history with a baseline tag but no commits since it. */
+    /** Stubs a history whose baseline tag doesn't have any commits after it. */
     function stubEmptyRange(): void {
       stubHistory({ previousTag: 'arrays-v1.0.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
       mockExistsSync.mockReturnValue(false);
     }
 
-    it('writes a synthetic Notes / Forced version bump entry when --force is used with no commits', () => {
+    it('writes a synthetic Notes / Forced version bump entry when --force is used without any commits', () => {
       stubEmptyRange();
 
       const result = releasePrepareMono(singleWorkspaceConfig(), { force: true });
 
       expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
 
-      // The empty-range branch builds a synthetic Notes entry (mocked) and routes it through
+      // The empty-range branch builds a synthetic Notes entry (mocked) and passes it to
       // the markdown renderer; assert on the renderer's args.
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledWith('1.0.1', expect.any(String));
       expect(result.writes.map((write) => write.path)).toContain('packages/arrays/CHANGELOG.md');
@@ -1313,7 +1313,7 @@ describe(releasePrepareMono, () => {
       ['--force', { force: true }, '1.0.1'],
       ['--set-version', { setVersion: '2.0.0' }, '2.0.0'],
     ])(
-      'writes the synthetic entry under %s when the window has commits but yields no item',
+      "writes the synthetic entry under %s when the window has commits but doesn't yield an item",
       (_label, options, version) => {
         stubEmptyRange();
         stubHistory({
@@ -1428,8 +1428,8 @@ describe(releasePrepareMono, () => {
       // The propagation-only path constructs a synthetic propagation entry, not an empty-range
       // entry. Both constructors are mocked, so observe the call counts.
       expect(mockBuildSyntheticChangelogEntry).toHaveBeenCalledTimes(1);
-      // Core takes the release-window path and app the propagation path, so no workspace builds
-      // an empty-range entry.
+      // Because core takes the release-window path and app the propagation path, the workspaces
+      // don't build an empty-range entry.
       expect(mockBuildEmptyReleaseEntry).not.toHaveBeenCalled();
     });
 
@@ -1643,7 +1643,7 @@ describe(releasePrepareMono, () => {
       return makeConfig({ workspaces: [makeRoutedWorkspace('core'), makeRoutedWorkspace('app')] });
     }
 
-    it('names every untagged workspace in one error that no stage label wraps', () => {
+    it('names every untagged workspace in one error not wrapped by a stage label', () => {
       const config = stubUntaggedWorkspaces();
 
       expect(() => releasePrepareMono(config, {})).toThrow(
@@ -1735,7 +1735,7 @@ describe(releasePrepareMono, () => {
       mockExistsSync.mockReturnValue(false);
     }
 
-    it('plans no changelog.json write or format when changelogJson.enabled is false', () => {
+    it('does not plan a changelog.json write or format when changelogJson.enabled is false', () => {
       stubFeatCommit();
 
       const plan = releasePrepareMono(
@@ -1769,7 +1769,7 @@ describe(releasePrepareMono, () => {
   });
 
   describe('opportunistic hint when baseline is missing', () => {
-    /** Configures mocks for a single workspace with no baseline tag and a commit that calls for a minor bump. */
+    /** Configures mocks for a single workspace without a baseline tag and a commit that calls for a minor bump. */
     function setupNoBaseline(tagListOutput: string[]): void {
       stubHistory({ commits: [['feat: add', 'abc']], bump: 'minor' });
       mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
@@ -1781,7 +1781,7 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
     }
 
-    it('emits a hint when no baseline + candidate tags exist + no legacyIdentities', () => {
+    it("emits a hint when the workspace doesn't have a baseline, candidate tags exist, and legacyIdentities is empty", () => {
       const config = makeConfig({
         workspaces: [
           {
@@ -1833,7 +1833,7 @@ describe(releasePrepareMono, () => {
       expect(capture.stderrChunks).toHaveLength(0);
     });
 
-    it('suppresses the hint when no candidate-shaped tags exist', () => {
+    it("suppresses the hint when the repo doesn't have any candidate-shaped tags", () => {
       const config = makeConfig({
         workspaces: [
           {
@@ -1883,7 +1883,7 @@ describe(releasePrepareMono, () => {
           },
         ],
       });
-      // Only tags in the repo belong to the sibling `arrays` workspace. `core` has no baseline.
+      // Only tags in the repo belong to the sibling `arrays` workspace. `core` doesn't have a baseline.
       setupNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0']);
       using capture = captureStdio();
 
@@ -1894,7 +1894,7 @@ describe(releasePrepareMono, () => {
 
     it("treats sibling workspaces' declared legacyIdentities as known", () => {
       // A sibling workspace's declared legacy prefixes must not show up as undeclared candidates
-      // when another workspace has no baseline.
+      // when another workspace doesn't have a baseline.
       const config = makeConfig({
         workspaces: [
           {
@@ -1984,11 +1984,11 @@ describe(releasePrepareMono, () => {
       const result = releasePrepareMono(config, {});
 
       expect(result.project).toBeUndefined();
-      // The arrays workspace was bumped; no project tag was added.
+      // The arrays workspace was bumped; the result doesn't contain a project tag.
       expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
     });
 
-    it('runs the project release when config.project is defined and surfaces it on result.project', () => {
+    it('runs the project release when config.project is defined and returns it on result.project', () => {
       const config = makeConfig({
         workspaces: [
           {
@@ -2200,7 +2200,7 @@ describe(releasePrepareMono, () => {
       expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
     });
 
-    it('carries the planned preview files into the plan', () => {
+    it('includes the planned preview files in the plan', () => {
       const config = setupArraysWithFeat();
 
       mockPlanReleaseNotesPreviews.mockReturnValue({
@@ -2622,9 +2622,9 @@ describe(releasePrepareMono, () => {
   });
 
   describe('editorial overrides wiring', () => {
-    // This group asserts the orchestrator's threading: warnings produced by
-    // `applyWorkspaceOverrides` reach the final `PrepareResult.warnings` array.
-    it('surfaces a per-workspace stale-key warning on PrepareResult.warnings', () => {
+    // This group asserts the orchestrator's threading: The orchestrator adds the warnings produced
+    // by `applyWorkspaceOverrides` to the final `PrepareResult.warnings` array.
+    it('reports a per-workspace stale-key warning on PrepareResult.warnings', () => {
       const config = makeConfig({
         workspaces: [
           {
@@ -2640,9 +2640,9 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      // Stub the history: one commit since the previous tag, whose item carries a known hash that
-      // does NOT match the override key the workspace file declares; the override is therefore
-      // stale and the workspace-tier rule warns immediately.
+      // Stub the history: one commit since the previous tag, whose item has a known hash that
+      // does NOT match the override key that the workspace file declares; the override is
+      // therefore stale and the workspace-tier rule warns immediately.
       stubHistory({
         previousTag: 'arrays-v1.0.0',
         commits: [['feat: add utility', 'realcommithash']],
@@ -2652,7 +2652,7 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      // Surface the workspace's `.meta/changelog-overrides.json` to the loader. Every other
+      // Expose the workspace's `.meta/changelog-overrides.json` to the loader. Every other
       // existsSync probe (e.g., for prettier config) returns false.
       const workspaceOverridePath = 'packages/arrays/.meta/changelog-overrides.json';
       mockExistsSync.mockImplementation((path: string) => path.endsWith(workspaceOverridePath));
