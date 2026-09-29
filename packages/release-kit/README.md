@@ -29,7 +29,7 @@ npx @williamthorsen/release-kit prepare --dry-run
 Example output from `prepare --dry-run` in a monorepo whose `arrays` workspace has two commits since its last release:
 
 ```
-🔍 DRY RUN — no files will be modified
+🔍 DRY RUN: release-kit will not modify any files
 
 ━━━ arrays ━━━
   Found 2 commits since arrays-v1.2.0

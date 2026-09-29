@@ -28,7 +28,7 @@ describe(deriveWorkspaceConfig, () => {
     });
   });
 
-  it('uses unscoped package name verbatim when no scope is present', () => {
+  it('uses unscoped package name verbatim when the name does not have a scope', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'readyup' }));
 
     expect(deriveWorkspaceConfig('packages/readyup')).toStrictEqual({
@@ -59,7 +59,7 @@ describe(deriveWorkspaceConfig, () => {
     expect(result.workspacePath).toBe('libs/core');
   });
 
-  it('throws a descriptive error when package.json has no name field', () => {
+  it('throws a descriptive error when package.json does not have a name field', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     expect(() => deriveWorkspaceConfig('packages/bad')).toThrow(

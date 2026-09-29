@@ -41,7 +41,7 @@ Three properties are worth knowing:
 
 The label match is exact: `migration:` and `**Migration:**` are not recognized.
 
-## What reaches a changelog
+## Which commits appear in a changelog
 
 release-kit splits the history reachable from `HEAD` into one window per release tag that matches the scope's tag prefixes, restricted to commits that touch the scope's `paths`. The bump reads the same items: Its level is the highest that the unreleased window's items call for, so a commit that bumps is one that the changelog lists.
 
@@ -108,7 +108,7 @@ An entry whose type is excluded from the changelog doesn't yield an item. An ove
 
 ### Fallback to the title
 
-A commit is read from its title, as [What reaches a changelog](#what-reaches-a-changelog) describes, when it doesn't have a block, when the block's `entries` is absent or empty, or when the block is malformed. A block is malformed when it never closes, when its payload is not valid YAML or not a mapping, when `entries` is not a list, when an entry is not a mapping, when an entry's `type` or `text` is missing, blank, or not a string, when `breaking` is not a boolean, when `scopes` is not a list of strings, when `migration` or `ticket_ref` is not a string, or when `pr_number` is not a positive integer. One defect makes the whole block malformed.
+A commit is read from its title, as [Which commits appear in a changelog](#which-commits-appear-in-a-changelog) describes, when it doesn't have a block, when the block's `entries` is absent or empty, or when the block is malformed. A block is malformed when it never closes, when its payload is not valid YAML or not a mapping, when `entries` is not a list, when an entry is not a mapping, when an entry's `type` or `text` is missing, blank, or not a string, when `breaking` is not a boolean, when `scopes` is not a list of strings, when `migration` or `ticket_ref` is not a string, or when `pr_number` is not a positive integer. One defect makes the whole block malformed.
 
 ### Reported diagnostics
 

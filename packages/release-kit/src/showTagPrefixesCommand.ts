@@ -97,7 +97,7 @@ function renderWorkspaceRow(row: TagPrefixPreviewRow, style: OutputStyle): strin
   const lines: string[] = [];
   if (row.derivedPrefix === null) {
     const failure = formatStatusLine(style, 'failed', `derivation failed: ${row.derivationError ?? 'unknown error'}`);
-    lines.push(`  ${row.workspacePath} — ${failure}`);
+    lines.push(`  ${row.workspacePath}: ${failure}`);
     return lines;
   }
 
@@ -105,14 +105,14 @@ function renderWorkspaceRow(row: TagPrefixPreviewRow, style: OutputStyle): strin
     row.derivedTagCount > 0
       ? formatStatusLine(style, 'passed', `${row.derivedTagCount} tags`)
       : formatStatusLine(style, 'warning', 'no existing tags');
-  lines.push(`  ${row.workspacePath} — derived prefix '${row.derivedPrefix}', ${statusMarker}`);
+  lines.push(`  ${row.workspacePath}: derived prefix '${row.derivedPrefix}', ${statusMarker}`);
 
   for (const entry of row.legacyEntries) {
     if (entry.tagCount > 0) {
       const recognized = `${entry.tagCount} legacy tags with '${entry.prefix}' prefix (recognized)`;
       lines.push(`      ${formatStatusLine(style, 'passed', recognized)}`);
     } else {
-      const tagless = `recorded legacy prefix '${entry.prefix}' has no tags`;
+      const tagless = `recorded legacy prefix '${entry.prefix}' does not have any tags`;
       lines.push(`      ${formatStatusLine(style, 'warning', tagless)}`);
     }
   }

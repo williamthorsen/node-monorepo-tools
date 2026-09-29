@@ -521,7 +521,7 @@ describe('mergeMonorepoConfig project block', () => {
 
   it('throws when project is configured but the root package.json does not have a version field', () => {
     expect(() => mergeMonorepoConfig(discoveredPaths, { project: {} }, { exists: true, version: undefined })).toThrow(
-      /add a 'version' field to your root package\.json/,
+      /add a 'version' field to the root package\.json/,
     );
   });
 

@@ -173,7 +173,7 @@ describe(describeEmptyWorkspace, () => {
   it('names the syntax error for unreadable-manifest', () => {
     const message = describeEmptyWorkspace(emptyWorkspace('unreadable-manifest', []));
 
-    expect(message).toContain('holds no valid YAML');
+    expect(message).toContain('does not contain valid YAML');
     expect(message).toContain('Repair the syntax error');
   });
 

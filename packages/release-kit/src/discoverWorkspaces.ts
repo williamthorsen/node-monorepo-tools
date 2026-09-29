@@ -59,8 +59,8 @@ export function describeEmptyWorkspace(workspace: EmptyWorkspace): string {
       );
     case 'unreadable-manifest':
       return (
-        'pnpm-workspace.yaml holds no valid YAML, so nothing it declares reaches the matcher. Repair the ' +
-        'syntax error and run the command again. An unterminated quoted string and a mis-indented entry are ' +
+        'pnpm-workspace.yaml does not contain valid YAML, so the matcher does not receive anything that it ' +
+        'declares. Repair the syntax error and run the command again. An unterminated quoted string and a mis-indented entry are ' +
         'the usual ones.'
       );
     case 'unreadable-packages':

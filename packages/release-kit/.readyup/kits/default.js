@@ -211,7 +211,7 @@ var default_default = defineRdyKit({
           severity: "error",
           skip: () => !fileExists(".config/release-kit.config.ts") ? "no release-kit config file" : false,
           check: () => configFileExportsConfig(),
-          fix: "Export the config from .config/release-kit.config.ts as a default export or as a named `config` export; release-kit resolves no other export",
+          fix: "Export the config from .config/release-kit.config.ts as a default export or as a named `config` export; release-kit does not resolve any other export",
           checks: [
             {
               name: "releaseNotes config is consistent with changelogJson",
@@ -223,7 +223,7 @@ var default_default = defineRdyKit({
               name: ".config/release-kit.config.ts uses defineConfig",
               severity: "recommend",
               check: () => fileContains(".config/release-kit.config.ts", /defineConfig/),
-              fix: "Wrap your config export with defineConfig() from @williamthorsen/release-kit/config for type safety"
+              fix: "Wrap the config export with defineConfig() from @williamthorsen/release-kit/config for type safety"
             },
             {
               name: "releaseNotes.shouldInjectIntoReadme is true",
@@ -277,7 +277,7 @@ var default_default = defineRdyKit({
           severity: "recommend",
           skip: () => !hasPublishablePackages() ? "no publishable packages" : false,
           check: () => changelogJsonIsEnabled(),
-          fix: "Remove changelogJson.enabled: false from .config/release-kit.config.ts so release-kit writes the machine-readable changelog that upgrade tooling reads before CHANGELOG.md",
+          fix: "Remove changelogJson.enabled: false from .config/release-kit.config.ts so that release-kit writes the machine-readable changelog that upgrade tooling reads before CHANGELOG.md",
           checks: [
             {
               name: "published packages ship the changelog JSON",

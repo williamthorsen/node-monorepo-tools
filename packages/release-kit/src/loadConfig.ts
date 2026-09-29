@@ -347,7 +347,7 @@ function resolveProjectConfig(
   }
   if (rootPackage.version === undefined) {
     throw new Error(
-      `project block requires root ${ROOT_PACKAGE_JSON_PATH} to have a 'version' field; add a 'version' field to your root package.json`,
+      `project block requires root ${ROOT_PACKAGE_JSON_PATH} to have a 'version' field; add a 'version' field to the root package.json`,
     );
   }
 

@@ -68,6 +68,6 @@ export async function createGithubReleaseCommand(
   // exists in git and doesn't have any releasable content.
   if (outcome.skipped.length > 0) {
     const formatted = outcome.skipped.map((s) => `${s.tag} (${s.reason})`).join(', ');
-    console.info(`Skipped ${outcome.skipped.length} tag(s) with no releasable content: ${formatted}.`);
+    console.info(`Skipped ${outcome.skipped.length} tag(s) without releasable content: ${formatted}.`);
   }
 }

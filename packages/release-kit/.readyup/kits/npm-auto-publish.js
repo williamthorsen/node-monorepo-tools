@@ -41,7 +41,7 @@ var repoChecklist = defineRdyChecklist({
         {
           name: "id-token: write permission declared",
           check: () => fileContains(".github/workflows/publish.yaml", /id-token:\s*write/),
-          fix: 'Add "permissions: { id-token: write, contents: read }" to .github/workflows/publish.yaml \u2014 required for OIDC-based npm authentication'
+          fix: 'Add "permissions: { id-token: write, contents: read }" to .github/workflows/publish.yaml; OIDC-based npm authentication requires it'
         },
         {
           name: "No legacy token references in workflow files",
@@ -109,7 +109,7 @@ function buildSessionCheck() {
       const capability = getCachedTrustCapability();
       return capability.ok ? { ok: true } : { ok: false, detail: capability.detail };
     },
-    fix: 'Restore a usable npm session: log in with "npm login", supplying the one-time password when prompted, or restore access to the registry, which the trusted-publisher check queries directly'
+    fix: 'Restore a usable npm session: Log in with "npm login", supplying the one-time password when prompted, or restore access to the registry, which the trusted-publisher check queries directly'
   };
 }
 function buildWorkspaceCheck(workspace) {
@@ -189,7 +189,7 @@ function checkTrustedPublisher(packageName) {
     case "configured":
       return { ok: true };
     case "not-configured":
-      return { ok: false, detail: "No trusted publisher is configured for this package" };
+      return { ok: false, detail: "The npm registry does not list any trusted publisher for this package" };
     default:
       return { ok: false, detail: result.detail };
   }
@@ -230,14 +230,14 @@ function classifyProvenanceSetting(workflowContent, visibility) {
     return {
       ok: false,
       detail: "The repo is public and publish.yaml does not set provenance: true",
-      fix: "Set provenance: true in .github/workflows/publish.yaml \u2014 public repos should generate provenance attestations"
+      fix: "Set provenance: true in .github/workflows/publish.yaml; public repos should generate provenance attestations"
     };
   }
   if (visibility === "private" && hasProvenance) {
     return {
       ok: false,
       detail: "The repo is private and publish.yaml sets provenance: true",
-      fix: "Make the GitHub repo public \u2014 OIDC publishing with provenance requires a public repo"
+      fix: "Make the GitHub repo public; OIDC publishing with provenance requires a public repo"
     };
   }
   return { ok: true };
@@ -270,7 +270,7 @@ function classifyTrustQuery(result, expectedRepo, expectedFile) {
   }
   const relationships = readTrustRelationships(result.stdout);
   if (relationships === void 0) {
-    return { status: "error", detail: "The npm trust query returned a payload this check cannot read" };
+    return { status: "error", detail: "The npm trust query returned a payload that this check cannot read" };
   }
   if (relationships.length === 0) {
     return { status: "not-configured" };

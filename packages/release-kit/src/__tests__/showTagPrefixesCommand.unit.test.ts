@@ -195,7 +195,7 @@ describe(showTagPrefixesCommand, () => {
 
     await showTagPrefixesCommand(RICH_STYLES);
 
-    expect(capture.stdout).toContain("recorded legacy prefix 'obsolete-v' has no tags");
+    expect(capture.stdout).toContain("recorded legacy prefix 'obsolete-v' does not have any tags");
   });
 
   it('exits 1 on derivation failure and prints the error', async () => {
@@ -255,11 +255,11 @@ describe(showTagPrefixesCommand, () => {
 
     await showTagPrefixesCommand({ stderr: 'rich', stdout: style });
 
-    expect(capture.stdout).toContain(`packages/broken — ${failed} derivation failed: no name`);
+    expect(capture.stdout).toContain(`packages/broken: ${failed} derivation failed: no name`);
     expect(capture.stdout).toContain(`derived prefix 'new-v', ${warning} no existing tags`);
     expect(capture.stdout).toContain(`derived prefix 'core-v', ${passed} 2 tags`);
     expect(capture.stdout).toContain(`      ${passed} 3 legacy tags with 'old-v' prefix (recognized)`);
-    expect(capture.stdout).toContain(`      ${warning} recorded legacy prefix 'obsolete-v' has no tags`);
+    expect(capture.stdout).toContain(`      ${warning} recorded legacy prefix 'obsolete-v' does not have any tags`);
     expect(capture.stdout).toContain(`\n${failed} tag prefix collision: 'core-v' used by`);
     expect(/\p{Extended_Pictographic}/u.test(capture.stdout)).toBe(style === 'rich');
   });

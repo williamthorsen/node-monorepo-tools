@@ -61,7 +61,7 @@ describe(tagCommand, () => {
     expect(mockCreateTags).not.toHaveBeenCalled();
   });
 
-  it('rejects --config, which it reads no config to honor', async () => {
+  it('rejects --config, because the command does not read any config', async () => {
     const error = await captureError(ProcessExitError, () => tagCommand(['--config', 'alt.config.ts'], RICH_STYLES));
 
     expect(error.code).toBe(1);

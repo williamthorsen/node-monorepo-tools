@@ -10,7 +10,7 @@ const mockDeriveReleaseNotesConfig = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 
-// Partial, so that `describeEmptyWorkspace` stays the real composer: what a caller does with an empty
+// Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
 vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -226,7 +226,7 @@ describe(createGithubReleaseCommand, () => {
     expect(warnings).toHaveLength(1);
   });
 
-  it('creates no Release for an excluded workspace and reports the skip', async () => {
+  it('does not create a Release for an excluded workspace, and reports the skip', async () => {
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/legacy']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -260,7 +260,7 @@ describe(createGithubReleaseCommand, () => {
     expect(capture.stderr).toBe('');
   });
 
-  it('exits with code 1 when no release tags are found on HEAD', async () => {
+  it('exits with code 1 when it does not find any release tags on HEAD', async () => {
     mockResolveReleaseTags.mockReturnValue([]);
 
     const error = await captureError(ProcessExitError, () =>
@@ -301,7 +301,7 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('does not exit when --tags is explicit and every skip is no-entry', async () => {
-    // `resolveCommandTags` exits 1 on an unknown `--tags` value, so a no-entry skip that reaches this command
+    // `resolveCommandTags` exits 1 on an unknown `--tags` value, so a no-entry skip that this command receives
     // means "no releasable content", as no-audience-content and empty-body do.
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/extra']));
     mockResolveReleaseTags.mockReturnValue([
@@ -320,7 +320,7 @@ describe(createGithubReleaseCommand, () => {
 
     expect(capture.stderr).toBe('');
     expect(console.info).toHaveBeenCalledWith(
-      'Skipped 2 tag(s) with no releasable content: core-v1.3.0 (no-entry), extra-v0.1.0 (no-entry).',
+      'Skipped 2 tag(s) without releasable content: core-v1.3.0 (no-entry), extra-v0.1.0 (no-entry).',
     );
   });
 
@@ -338,7 +338,7 @@ describe(createGithubReleaseCommand, () => {
 
     expect(capture.stderr).toBe('');
     expect(console.info).toHaveBeenCalledWith(
-      'Skipped 1 tag(s) with no releasable content: core-v1.3.0 (no-audience-content).',
+      'Skipped 1 tag(s) without releasable content: core-v1.3.0 (no-audience-content).',
     );
   });
 
@@ -355,7 +355,7 @@ describe(createGithubReleaseCommand, () => {
     await createGithubReleaseCommand(['--tags=core-v1.3.0'], RICH_STYLES, process.cwd());
 
     expect(capture.stderr).toBe('');
-    expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) with no releasable content: core-v1.3.0 (empty-body).');
+    expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) without releasable content: core-v1.3.0 (empty-body).');
   });
 
   it('logs an info summary when --tags has mixed outcomes including a no-entry skip', async () => {
@@ -373,7 +373,7 @@ describe(createGithubReleaseCommand, () => {
     await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0'], RICH_STYLES, process.cwd());
 
     expect(capture.stderr).toBe('');
-    expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) with no releasable content: extra-v0.1.0 (no-entry).');
+    expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) without releasable content: extra-v0.1.0 (no-entry).');
   });
 
   it('does not exit when --tags is omitted and every tag is skipped', async () => {
@@ -386,7 +386,7 @@ describe(createGithubReleaseCommand, () => {
     await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
 
     expect(console.info).toHaveBeenCalledWith(
-      'Skipped 1 tag(s) with no releasable content: v1.0.0 (no-audience-content).',
+      'Skipped 1 tag(s) without releasable content: v1.0.0 (no-audience-content).',
     );
   });
 
@@ -405,7 +405,7 @@ describe(createGithubReleaseCommand, () => {
 
     expect(capture.stderr).toBe('');
     expect(console.info).toHaveBeenCalledWith(
-      'Skipped 1 tag(s) with no releasable content: extra-v0.1.0 (no-audience-content).',
+      'Skipped 1 tag(s) without releasable content: extra-v0.1.0 (no-audience-content).',
     );
   });
 
@@ -423,7 +423,7 @@ describe(createGithubReleaseCommand, () => {
   });
 
   describe('publishability filter', () => {
-    it('skips a private workspace with a warning and creates no Release', async () => {
+    it('skips a private workspace with a warning and does not create a Release', async () => {
       mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
@@ -449,7 +449,7 @@ describe(createGithubReleaseCommand, () => {
       expect(capture.stderr).toBe('');
     });
 
-    it('creates Releases for publishable tags and warns past the private one in a mixed set', async () => {
+    it('creates Releases for publishable tags and warns about and skips the private one in a mixed set', async () => {
       mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -498,7 +498,7 @@ describe(createGithubReleaseCommand, () => {
       );
     });
 
-    it('treats --tags=, (only commas) as no filter, preserving all HEAD tags', async () => {
+    it('does not filter on --tags=, (only commas), preserving all HEAD tags', async () => {
       await createGithubReleaseCommand(['--tags=,,'], RICH_STYLES, process.cwd());
 
       expect(mockCreateGithubReleases).toHaveBeenCalledWith(

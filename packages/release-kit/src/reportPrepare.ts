@@ -154,7 +154,9 @@ function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptio
       lines.push(`   ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(tag))}`);
     }
   } else {
-    lines.push(`\n${formatStatusLine(style, 'skipped', 'No workspaces had release-worthy changes.')}`);
+    lines.push(
+      `\n${formatStatusLine(style, 'skipped', 'The run did not find release-worthy changes in any workspace.')}`,
+    );
   }
 
   return lines.join('\n');
@@ -346,7 +348,7 @@ function formatChangelogFiles(
     }
     const dropped = preservation.droppedUnversionedHeadings;
     if (dropped.length > 0) {
-      const message = `Dropped ${dropped.length} section${dropped.length === 1 ? '' : 's'} with no version: ${dropped.join(', ')}`;
+      const message = `Dropped ${dropped.length} section${dropped.length === 1 ? '' : 's'} without a version: ${dropped.join(', ')}`;
       lines.push(`${indent}    ${formatStatusLine(style, 'warning', message)}`);
     }
   }
@@ -423,7 +425,7 @@ function formatPolicyViolations(
     const truncatedSubject = truncateSubject(subject);
     const location =
       violation.surface === 'entry' ? `entry ${violation.entryPosition ?? '?'}` : `${violation.surface} surface`;
-    lines.push(`${indent}    · ${shortHash} '${truncatedSubject}' — type '${violation.type}' at ${location}`);
+    lines.push(`${indent}    · ${shortHash} '${truncatedSubject}': type '${violation.type}' at ${location}`);
   }
 }
 
@@ -446,7 +448,7 @@ function formatChangeRecordWarnings(
     lines.push(`${indent}  ${formatStatusLine(style, 'warning', `${header}:`)}`);
     for (const block of malformedBlocks) {
       lines.push(
-        `${indent}    · ${block.commitHash.slice(0, 7)} '${truncateSubject(block.commitSubject)}' — ${block.reason}`,
+        `${indent}    · ${block.commitHash.slice(0, 7)} '${truncateSubject(block.commitSubject)}': ${block.reason}`,
       );
     }
   }
@@ -457,18 +459,18 @@ function formatChangeRecordWarnings(
     for (const entry of undeclaredEntryTypes) {
       const shortHash = entry.commitHash.slice(0, 7);
       lines.push(
-        `${indent}    · ${shortHash} '${truncateSubject(entry.commitSubject)}' — type '${entry.type}' at entry ${entry.entryPosition}`,
+        `${indent}    · ${shortHash} '${truncateSubject(entry.commitSubject)}': type '${entry.type}' at entry ${entry.entryPosition}`,
       );
     }
   }
   if (unroutedEntryScopes.length > 0) {
     const count = unroutedEntryScopes.length;
-    const header = `${count} change-record entry scope${count === 1 ? ' matches' : 's match'} no workspace in the commit's window (no item there)`;
+    const header = `${count} change-record entry scope${count === 1 ? ' does not match' : 's do not match'} any workspace in the commit's window (no item there)`;
     lines.push(`${indent}  ${formatStatusLine(style, 'warning', `${header}:`)}`);
     for (const finding of unroutedEntryScopes) {
       const shortHash = finding.commitHash.slice(0, 7);
       lines.push(
-        `${indent}    · ${shortHash} '${truncateSubject(finding.commitSubject)}' — scope '${finding.scope}' at entry ${finding.entryPosition}`,
+        `${indent}    · ${shortHash} '${truncateSubject(finding.commitSubject)}': scope '${finding.scope}' at entry ${finding.entryPosition}`,
       );
     }
   }

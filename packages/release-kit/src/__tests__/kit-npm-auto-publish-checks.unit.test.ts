@@ -222,7 +222,7 @@ describe(classifyProvenanceSetting, () => {
 
     expect(outcome.detail).toBe('The repo is public and publish.yaml does not set provenance: true');
     expect(outcome.fix).toBe(
-      'Set provenance: true in .github/workflows/publish.yaml — public repos should generate provenance attestations',
+      'Set provenance: true in .github/workflows/publish.yaml; public repos should generate provenance attestations',
     );
   });
 
@@ -230,7 +230,7 @@ describe(classifyProvenanceSetting, () => {
     const outcome = classifyProvenanceSetting(WORKFLOW_WITH_PROVENANCE, 'private');
 
     expect(outcome.detail).toBe('The repo is private and publish.yaml sets provenance: true');
-    expect(outcome.fix).toBe('Make the GitHub repo public — OIDC publishing with provenance requires a public repo');
+    expect(outcome.fix).toBe('Make the GitHub repo public; OIDC publishing with provenance requires a public repo');
   });
 
   it('passes a public repo whose workflow sets provenance', () => {

@@ -142,7 +142,7 @@ describe(reportPrepare, () => {
       expect(output).toContain('     Command failed with exit code 2');
     });
 
-    it('renders the release-notes preview files a release plans', () => {
+    it('renders the release-notes preview files that a release plans', () => {
       const result: PrepareResult = {
         workspaces: [
           makeReleasedWorkspace({
@@ -160,7 +160,7 @@ describe(reportPrepare, () => {
       );
     });
 
-    it('surfaces warnings on a skipped single-package release', () => {
+    it('shows warnings on a skipped single-package release', () => {
       const result: PrepareResult = {
         workspaces: [
           {
@@ -180,7 +180,7 @@ describe(reportPrepare, () => {
       );
     });
 
-    it('surfaces warnings on a single-package release', () => {
+    it('shows warnings on a single-package release', () => {
       const result: PrepareResult = {
         workspaces: [makeReleasedWorkspace()],
         tags: ['v1.0.1'],
@@ -242,7 +242,7 @@ describe(reportPrepare, () => {
       expect(output).not.toContain('Using bump override:');
     });
 
-    it('shows unparseable commit warning when a forced release has no parsed commit', () => {
+    it('shows unparseable commit warning when a forced release does not have any parsed commit', () => {
       const result: PrepareResult = {
         workspaces: [
           {
@@ -299,7 +299,7 @@ describe(reportPrepare, () => {
       expect(output).toContain('· abc1234 chore: update deps');
     });
 
-    it('renders the subject alone for an unparseable commit that carries a body', () => {
+    it('renders the subject alone for an unparseable commit that has a body', () => {
       const result: PrepareResult = {
         workspaces: [
           {
@@ -331,7 +331,7 @@ describe(reportPrepare, () => {
       expect(output).not.toContain('Bumps every transitive dependency');
     });
 
-    it('does not show unparseable warning when there are no unparseable commits', () => {
+    it('does not show unparseable warning when the result does not contain any unparseable commits', () => {
       const result: PrepareResult = {
         workspaces: [
           {
@@ -439,7 +439,7 @@ describe(reportPrepare, () => {
       expect(output).toContain(dim('  Found 4 commits (no previous release found)'));
     });
 
-    it('renders the changelog header with no file entries when changelogFiles is empty', () => {
+    it('renders the changelog header without any file entries when changelogFiles is empty', () => {
       const result: PrepareResult = {
         workspaces: [
           {
@@ -585,7 +585,7 @@ describe(reportPrepare, () => {
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
-      expect(output).toContain('⏩ No workspaces had release-worthy changes.');
+      expect(output).toContain('⏩ The run did not find release-worthy changes in any workspace.');
     });
 
     it('shows unparseable commit warning in monorepo mode', () => {
@@ -949,7 +949,7 @@ describe(reportPrepare, () => {
       expect(output).not.toContain('Generating changelogs...');
     });
 
-    it('renders a skipped project section with its unparseable commits and no parsed count', () => {
+    it('renders a skipped project section with its unparseable commits and without a parsed count', () => {
       const result: PrepareResult = {
         workspaces: [],
         tags: [],
@@ -1006,7 +1006,7 @@ describe(reportPrepare, () => {
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
       expect(output).toContain('1 policy violation:');
-      expect(output).toContain("· def5678 'internal!: refactor cache' — type 'internal' at prefix surface");
+      expect(output).toContain("· def5678 'internal!: refactor cache': type 'internal' at prefix surface");
     });
 
     it('renders multiple policy violations with plural header', () => {
@@ -1044,8 +1044,8 @@ describe(reportPrepare, () => {
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
       expect(output).toContain('2 policy violations:');
-      expect(output).toContain("· aaa1111 'internal!: refactor X' — type 'internal' at prefix surface");
-      expect(output).toContain("· bbb2222 'drop: remove Y' — type 'drop' at prefix surface");
+      expect(output).toContain("· aaa1111 'internal!: refactor X': type 'internal' at prefix surface");
+      expect(output).toContain("· bbb2222 'drop: remove Y': type 'drop' at prefix surface");
     });
 
     it('renders a workspace section in multi-workspace mode with policy violations', () => {
@@ -1078,7 +1078,7 @@ describe(reportPrepare, () => {
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
       expect(output).toContain('1 policy violation:');
-      expect(output).toContain("· def5678 'internal!: refactor cache' — type 'internal' at prefix surface");
+      expect(output).toContain("· def5678 'internal!: refactor cache': type 'internal' at prefix surface");
     });
 
     it('renders a project section with policy violations', () => {
@@ -1111,7 +1111,7 @@ describe(reportPrepare, () => {
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
       expect(output).toContain('1 policy violation:');
-      expect(output).toContain("· def5678 'internal!: refactor cache' — type 'internal' at prefix surface");
+      expect(output).toContain("· def5678 'internal!: refactor cache': type 'internal' at prefix surface");
     });
 
     it('omits the policy-violation block when policyViolations is undefined', () => {
@@ -1185,11 +1185,11 @@ describe(reportPrepare, () => {
     const expectedUnparseableLines = ['1 commit could not be parsed', '· fed4321 Update readme'];
     const expectedLines = [
       '1 change-record block could not be read (item taken from the title):',
-      `· abc1234 '${SUBJECT}' — \`entries[0].text\` is missing`,
+      `· abc1234 '${SUBJECT}': \`entries[0].text\` is missing`,
       '1 change-record entry has an undeclared type (no item):',
-      `· abc1234 '${SUBJECT}' — type 'chore' at entry 2`,
+      `· abc1234 '${SUBJECT}': type 'chore' at entry 2`,
       '1 policy violation:',
-      `· abc1234 '${SUBJECT}' — type 'drop' at entry 3`,
+      `· abc1234 '${SUBJECT}': type 'drop' at entry 3`,
     ];
 
     it('renders each diagnostic kind in a single-package report', () => {
@@ -1306,9 +1306,9 @@ describe(reportPrepare, () => {
       );
 
       expect(output).toContain(
-        "1 change-record entry scope matches no workspace in the commit's window (no item there):",
+        "1 change-record entry scope does not match any workspace in the commit's window (no item there):",
       );
-      expect(output).toContain(`· abc1234 '${SUBJECT}' — scope 'nmr' at entry 2`);
+      expect(output).toContain(`· abc1234 '${SUBJECT}': scope 'nmr' at entry 2`);
     });
 
     it('pluralizes the unrouted entry scopes header', () => {
@@ -1320,11 +1320,11 @@ describe(reportPrepare, () => {
       );
 
       expect(output).toContain(
-        "2 change-record entry scopes match no workspace in the commit's window (no item there):",
+        "2 change-record entry scopes do not match any workspace in the commit's window (no item there):",
       );
     });
 
-    it('renders no change-record lines when the result carries none', () => {
+    it('does not render any change-record lines when the result does not contain any', () => {
       const output = reportPrepare(
         { workspaces: [makeReleasedWorkspace()], tags: ['v1.0.1'] },
         { applied: false, style: 'rich' },
@@ -1366,7 +1366,7 @@ describe(reportPrepare, () => {
           dim('  [dry-run] Would generate changelog: CHANGELOG.md'),
           dim('    Kept from the existing file: 0.9.0, 0.8.0'),
           dim('  [dry-run] Would generate changelog: docs/CHANGELOG.md'),
-          '    WARN  Dropped 2 sections with no version: ## Unreleased, ## Notes',
+          '    WARN  Dropped 2 sections without a version: ## Unreleased, ## Notes',
         ].join('\n'),
       );
     });
@@ -1398,7 +1398,7 @@ describe(reportPrepare, () => {
         [
           dim('    Generating changelog: CHANGELOG.md'),
           dim('      Kept from the existing file: 0.5.0'),
-          '      WARN  Dropped 1 section with no version: ## Credits',
+          '      WARN  Dropped 1 section without a version: ## Credits',
         ].join('\n'),
       );
     });
@@ -1411,7 +1411,7 @@ describe(reportPrepare, () => {
     ];
     const formatCommand = { command: 'npx prettier --write package.json', files: ['package.json'] };
     const released = makeReleasedWorkspace({ unparseableCommits, policyViolations });
-    // A version override carries no release type.
+    // A version override does not have a release type.
     const { releaseType: _releaseType, ...untyped } = released;
     const overridden: ReleasedWorkspaceResult = { ...untyped, setVersion: '3.0.0' };
 
@@ -1497,7 +1497,7 @@ describe(reportPrepare, () => {
     it.each(fixtures)('renders $name without a pictographic character', ({ result }) => {
       const options = { applied: true, formatError: 'Command failed with exit code 2' };
 
-      // The rich render proves that the fixture reaches glyph-bearing branches.
+      // The rich render proves that the fixture exercises glyph-bearing branches.
       expect(reportPrepare(result, { ...options, style: 'rich' })).toMatch(/\p{Extended_Pictographic}/u);
       expect(reportPrepare(result, { ...options, style: 'plain' })).not.toMatch(/\p{Extended_Pictographic}/u);
     });
@@ -1579,7 +1579,7 @@ function readViolationSubject(output: string): string {
   return match[1];
 }
 
-/** Renders a report whose one policy violation carries `commitSubject`. */
+/** Renders a report whose one policy violation has `commitSubject`. */
 function reportViolation(commitSubject: string): string {
   const result: PrepareResult = {
     workspaces: [

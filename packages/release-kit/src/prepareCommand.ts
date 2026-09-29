@@ -142,7 +142,7 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
 
   if (dryRun) {
     console.info(
-      `\n${formatGlyphLine(RELEASE_GLYPHS, styles.stdout, 'dryRun', 'DRY RUN — no files will be modified')}\n`,
+      `\n${formatGlyphLine(RELEASE_GLYPHS, styles.stdout, 'dryRun', 'DRY RUN: release-kit will not modify any files')}\n`,
     );
   }
 

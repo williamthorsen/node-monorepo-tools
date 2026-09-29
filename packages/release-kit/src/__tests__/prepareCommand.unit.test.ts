@@ -318,8 +318,8 @@ describe(prepareCommand, () => {
   });
 
   it.each([
-    { style: 'rich', banner: '\n🔍 DRY RUN — no files will be modified\n' },
-    { style: 'plain', banner: '\nDRY RUN — no files will be modified\n' },
+    { style: 'rich', banner: '\n🔍 DRY RUN: release-kit will not modify any files\n' },
+    { style: 'plain', banner: '\nDRY RUN: release-kit will not modify any files\n' },
   ] as const)('prints the dry-run banner in the $style style of stdout', async ({ style, banner }) => {
     await prepareCommand(['--dry-run'], { stderr: 'rich', stdout: style }, process.cwd());
 
