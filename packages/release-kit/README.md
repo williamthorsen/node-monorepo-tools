@@ -58,15 +58,15 @@ The CLI applies defaults to every discovered workspace. [Releasing](docs/releasi
 
 ## How it works
 
-Every command other than `--version` and `--help` first locates the repo root and runs from it, so it can be invoked from any directory in the repo. The root is the nearest directory at or above the invocation directory that holds `pnpm-workspace.yaml`, or else the invocation directory itself when it holds a `package.json`; when neither exists, the command fails. A `pnpm-workspace.yaml` takes precedence wherever it is, as it does for pnpm, so a single-package repo checked out below a pnpm workspace resolves to that outer workspace.
+Every command other than `--version` and `--help` first locates the repo root and runs from it, so it can be invoked from any directory in the repo. The root is the nearest directory at or above the invocation directory that contains `pnpm-workspace.yaml`, or else the invocation directory itself when it contains a `package.json`; when neither exists, the command fails. Because a `pnpm-workspace.yaml` takes precedence wherever it is, as it does for pnpm, a single-package repo checked out below a pnpm workspace resolves to that outer workspace.
 
-1. **Workspace discovery**: reads `pnpm-workspace.yaml` and resolves its `packages` patterns to find workspace directories, applying pnpm's semantics — a `!`-prefixed entry excludes what it matches, wherever it appears in the list. Each directory containing a `package.json` becomes a workspace. The repo is treated as a single-package project when it holds no workspace file, and when the workspace file declares no `packages` list — a file kept for `catalog:` or `overrides:` alone, which pnpm likewise resolves to the root package. A workspace file that declares patterns resolving to no package is an error naming the condition that emptied it.
-2. **Config loading**: loads `.config/release-kit.config.ts` (if present) from the repo root, or the file named by `--config` relative to the invocation directory, and merges it with discovered defaults.
-3. **Commit analysis**: for each workspace, reads the history once, builds the changelog items of the commits since the last version tag, and takes the bump as the highest level that those items call for.
-4. **Version bump + changelog**: bumps `package.json` versions, builds structured `ChangelogEntry[]` from the commits between each pair of release tags, applies any [editorial overrides](docs/editorial-overrides.md) from per-scope `.meta/changelog-overrides.json` files, and renders both `CHANGELOG.md` and `.meta/changelog.json` from that single source, so the two always agree.
-5. **Release tags file**: writes computed tags to `tmp/.release-tags` for the release workflow to read when tagging and pushing.
+1. **Workspace discovery**: Reads `pnpm-workspace.yaml` and resolves its `packages` patterns to find workspace directories, applying pnpm's semantics: A `!`-prefixed entry excludes what it matches, wherever it appears in the list. Each directory containing a `package.json` becomes a workspace. The repo is treated as a single-package project when it doesn't contain a workspace file, and when the workspace file doesn't declare a `packages` list: a file kept for `catalog:` or `overrides:` alone, which pnpm likewise resolves to the root package. A workspace file that declares patterns that don't resolve to any package is an error naming the condition that emptied it.
+2. **Config loading**: Loads `.config/release-kit.config.ts` (if present) from the repo root, or the file named by `--config` relative to the invocation directory, and merges it with discovered defaults.
+3. **Commit analysis**: For each workspace, reads the history once, builds the changelog items of the commits since the last version tag, and takes the bump as the highest level that those items call for.
+4. **Version bump + changelog**: Bumps `package.json` versions, builds structured `ChangelogEntry[]` from the commits between each pair of release tags, applies any [editorial overrides](docs/editorial-overrides.md) from per-scope `.meta/changelog-overrides.json` files, and renders both `CHANGELOG.md` and `.meta/changelog.json` from that single source, so the two always agree.
+5. **Release tags file**: Writes computed tags to `tmp/.release-tags` for the release workflow to read when tagging and pushing.
 
-[Changelogs](docs/changelogs.md) covers what reaches a published tarball, the `changelog.json` item schema, and which commits reach a changelog.
+[Changelogs](docs/changelogs.md) covers what a published tarball includes, the `changelog.json` item schema, and which commits appear in a changelog.
 
 ## Commit format
 
@@ -81,15 +81,15 @@ scope|type!: description       # scoped breaking change
 type(scope)!: description      # conventional scoped breaking change
 ```
 
-The `scope|type:` format scopes a commit to a specific workspace in a monorepo. Use `scopeAliases` in your config to map shorthand names to canonical scope names.
+The `scope|type:` format scopes a commit to a specific workspace in a monorepo. Use `scopeAliases` in the config to map shorthand names to canonical scope names.
 
 [Work types and tiers](docs/work-types.md) lists the recognized types and how each one affects the bump and the changelog.
 
 ## Configuration
 
-Configuration is optional. The CLI works out of the box by auto-discovering workspaces and applying defaults. Create `.config/release-kit.config.ts` only when you need to customize behavior.
+Configuration is optional. The CLI works out of the box by auto-discovering workspaces and applying defaults. Create `.config/release-kit.config.ts` only to customize behavior.
 
-Every subcommand that reads a config accepts `--config <path>` to read a file elsewhere. An absent default path means "no config"; an absent `--config` path fails the command. See [Config file location](docs/configuration.md#config-file-location).
+Every subcommand that reads a config accepts `--config <path>` to read a file elsewhere. An absent default path means that the repo doesn't declare a config; an absent `--config` path fails the command. See [Config file location](docs/configuration.md#config-file-location).
 
 ```typescript
 import { defineConfig } from '@williamthorsen/release-kit/config';
@@ -109,9 +109,9 @@ export default defineConfig({
 });
 ```
 
-`defineConfig` is a type-safe identity function: it gives the config object validation and completion in `.ts` files and full inference in `.js` ones. The loader also accepts a plain `export default config` or `export const config = { ... }`.
+`defineConfig` is a type-safe identity function: It gives the config object validation and completion in `.ts` files and full inference in `.js` ones. The loader also accepts a plain `export default config` or `export const config = { ... }`.
 
-Node loads the file directly, so a relative import inside it needs an explicit file extension — `./work-types.ts`, not `./work-types`.
+Node loads the file directly, so a relative import inside it needs an explicit file extension: `./work-types.ts`, not `./work-types`.
 
 [Configuration](docs/configuration.md) lists every field and covers legacy identities, retired packages, and tag prefixes. [Project releases](docs/project-releases.md) covers releasing a monorepo as one combined deliverable.
 
@@ -136,7 +136,7 @@ export default defineRdyConfig({
 rdy run --packages
 ```
 
-`rdy run` needs `readyup` 0.23 or later, and `@williamthorsen/release-kit` as a _direct_ devDependency: a strict pnpm layout links nothing else into the project; therefore, a transitive copy is unreachable.
+`rdy run` needs `readyup` 0.23 or later, and `@williamthorsen/release-kit` as a _direct_ devDependency: A strict pnpm layout links nothing else into the project; therefore, a transitive copy is unreachable.
 
 [Readiness checks](docs/readiness-checks.md) covers running each kit alone and what `npm-auto-publish` needs from the npm session.
 
@@ -146,18 +146,18 @@ rdy run --packages
 2. Remove `@changesets/cli` from dev dependencies. The [default readyup kit](#readiness-checks) reports a repo that still declares it.
 3. Delete the `.changeset/` directory.
 4. Run `npx @williamthorsen/release-kit init` to scaffold the release workflows.
-5. Remove `changeset:*` scripts from `package.json` (no replacement needed — the CLI handles everything).
+5. Remove `changeset:*` scripts from `package.json` (they don't need a replacement, because the CLI handles everything).
 6. Create an initial version tag for each package (e.g., `git tag v1.0.0` or `git tag arrays-v1.0.0`).
 
 ## Documentation
 
 - [Configuration](docs/configuration.md): `ReleaseKitConfig` fields, workspace overrides and legacy identities, retired packages, tag prefixes, and version patterns
-- [Project releases](docs/project-releases.md): the `project` block, and how a project release interacts with `prepare`'s flags
+- [Project releases](docs/project-releases.md): The `project` block, and how a project release interacts with `prepare`'s flags
 - [Releasing](docs/releasing.md): `init`, `prepare`'s flags and release-notes previews, and the release workflow
 - [Publishing](docs/publishing.md): `publish`, the publishability filter, and `create-github-release`
-- [Changelogs](docs/changelogs.md): the `changelog.json` item schema, which commits reach a changelog, and release-notes injection
-- [Editorial overrides](docs/editorial-overrides.md): correcting generated changelog entries, and `overrides validate`
-- [Work types and tiers](docs/work-types.md): tiers, the `!` policy, markers, and custom work types
+- [Changelogs](docs/changelogs.md): The `changelog.json` item schema, which commits appear in a changelog, and release-notes injection
+- [Editorial overrides](docs/editorial-overrides.md): Correcting generated changelog entries, and `overrides validate`
+- [Work types and tiers](docs/work-types.md): Tiers, the `!` policy, markers, and custom work types
 - [Labels](docs/labels.md): `sync-labels`, label configuration, the workflow's triggers, and where the `label-map.json` schema is published
-- [Readiness checks](docs/readiness-checks.md): both readyup kits, and how to run each
+- [Readiness checks](docs/readiness-checks.md): Both readyup kits, and how to run each
 - [Programmatic API](docs/api.md): `deriveWorkspaceConfig()`, the script-based approach, and `resolveReleaseTags`
