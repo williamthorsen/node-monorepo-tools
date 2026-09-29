@@ -7,7 +7,7 @@ import { DEFAULT_CONFIG, type V11yCheckConfig, v11yCheckConfigSchema } from './t
 /** Default config file path, relative to the working directory. */
 export const DEFAULT_CONFIG_PATH = '.config/v11y-check.config.json';
 
-/** Discriminate between a config loaded from a file and one built from defaults. */
+/** Discriminates between a config loaded from a file and one built from defaults. */
 export type ConfigSource = 'defaults' | 'file';
 
 /** Result of loading config, including the source discriminator. */
@@ -19,7 +19,7 @@ export interface LoadConfigResult {
 }
 
 /**
- * Load and validate the v11y-check config from disk, falling back to defaults.
+ * Loads and validates the v11y-check config from disk, falling back to defaults.
  *
  * When `configPath` is explicitly provided, the file must exist. When omitted,
  * the default path is tried; if absent, `DEFAULT_CONFIG` is returned.

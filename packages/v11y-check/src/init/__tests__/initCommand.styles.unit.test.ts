@@ -15,7 +15,7 @@ vi.mock(import('../scaffold.ts'), () => ({
   scaffoldFiles: vi.fn(),
 }));
 
-// Each stream gets a different style, so an assertion fails if a helper receives the other stream's.
+// Each stream gets a different style so that an assertion fails if a helper receives the other stream's.
 const STYLES: StreamStyles = { stderr: 'plain', stdout: 'rich' };
 
 describe(initCommand, () => {

@@ -29,7 +29,7 @@ const WRAP_COLUMNS = 72;
 
 // -- Text formatter --
 
-/** Format the verbose per-vulnerability check output as text. */
+/** Formats the verbose per-vulnerability check output as text. */
 export function formatCheckVerboseText(
   result: CheckResult,
   scopes: AuditScope[],
@@ -48,7 +48,7 @@ export function formatCheckVerboseText(
   return body + '\n' + actions + '\n';
 }
 
-/** Format a threshold annotation for scope headers. Returns empty string for `low` or undefined threshold. */
+/** Formats a threshold annotation for scope headers. Returns empty string for `low` or undefined threshold. */
 function formatThresholdSuffix(threshold: SeverityThreshold | undefined, style: OutputStyle): string {
   if (threshold === undefined || threshold === 'low') return '';
   const indicator = severityIndicator(threshold, style);
@@ -56,7 +56,7 @@ function formatThresholdSuffix(threshold: SeverityThreshold | undefined, style: 
   return ` (threshold: ${indicatorPart}${threshold})`;
 }
 
-/** Format a single scope's verbose check results. */
+/** Formats a single scope's verbose check results. */
 function formatScopeVerbose(
   scope: AuditScope,
   result: ScopeCheckResult,
@@ -163,7 +163,7 @@ function findReasonInsertionIndex(hasTitle: boolean): number {
   return hasTitle ? 1 : 0;
 }
 
-/** Build `path:` or `paths:` lines for a single or multiple paths. */
+/** Builds `path:` or `paths:` lines for a single or multiple paths. */
 function formatPathsLines(paths: string[], detailIndent: string): string[] {
   if (paths.length === 0) return [];
   if (paths.length === 1) {
@@ -176,7 +176,7 @@ function formatPathsLines(paths: string[], detailIndent: string): string[] {
   return lines;
 }
 
-/** Build the "allowed X ago (datetime)" suffix for entries with `addedAt`. */
+/** Builds the "allowed X ago (datetime)" suffix for entries with `addedAt`. */
 function formatAllowedSuffix(addedAt: string, now: Date): string {
   const relative = formatRelativeTime(addedAt, now);
   if (relative.length === 0) return `  allowed (${addedAt})`;

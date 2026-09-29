@@ -12,7 +12,7 @@ interface ScaffoldModule {
   copyWorkflowTemplate: (dryRun: boolean, overwrite: boolean) => { filePath: string; outcome: string };
 }
 
-/** Check whether a dynamic import result exports `copyWorkflowTemplate` as a function. */
+/** Checks whether a dynamic import result exports `copyWorkflowTemplate` as a function. */
 function isScaffoldModule(value: unknown): value is ScaffoldModule {
   return (
     typeof value === 'object' &&

@@ -7,8 +7,8 @@ import {
 } from '@williamthorsen/nmr-core';
 
 /**
- * Glyphs that name no status; a status marker comes from nmr-core's `STATUS_GLYPHS`. A plain variant is empty
- * where a word always follows the glyph.
+ * Glyphs that don't name a status; a status marker comes from nmr-core's `STATUS_GLYPHS`. A plain variant is empty
+ * for a glyph that a word always follows.
  */
 export const V11Y_GLYPHS = defineGlyphSet({
   audit: { plain: '', rich: '\u{1F52C}' },
@@ -32,7 +32,7 @@ export function formatMarkedLine(style: OutputStyle, name: RowMarkerName, messag
   return `${glyph.text}${padding} ${message}`;
 }
 
-/** Reports the cells taken by the widest row marker in a style. */
+/** Returns the number of cells taken by the widest row marker in a style. */
 export function measureRowMarkerColumn(style: OutputStyle): number {
   return Math.max(measureGlyphColumn(STATUS_GLYPHS[style]), V11Y_GLYPHS[style].stale.width);
 }

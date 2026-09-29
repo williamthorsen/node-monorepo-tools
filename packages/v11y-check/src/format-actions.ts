@@ -5,7 +5,7 @@ const HINT_ADD = 'Run `v11y sync` to add the listed vulnerabilities to the allow
 const HINT_REMOVE = 'Run `v11y sync` to remove stale allowlist entries.';
 const HINT_BOTH = 'Run `v11y sync` to add the listed vulnerabilities to the allowlist and remove stale entries.';
 
-/** Build the `--verbose` flag string reflecting the original scope flags. */
+/** Builds the `--verbose` flag string reflecting the original scope flags. */
 function buildVerboseFlag(scopes: AuditScope[]): string {
   if (scopes.length === 1) {
     return `--${scopes[0]} --verbose`;
@@ -13,7 +13,7 @@ function buildVerboseFlag(scopes: AuditScope[]): string {
   return '--verbose';
 }
 
-/** Pick the sync hint matching the current mix of unallowed vulns and stale entries. */
+/** Picks the sync hint matching the current mix of unallowed vulns and stale entries. */
 function selectSyncHint(hasUnallowed: boolean, hasStale: boolean): string {
   if (hasUnallowed && hasStale) return HINT_BOTH;
   if (hasUnallowed) return HINT_ADD;
@@ -21,7 +21,7 @@ function selectSyncHint(hasUnallowed: boolean, hasStale: boolean): string {
 }
 
 /**
- * Compute the "Actions:" footer for check output.
+ * Computes the "Actions:" footer for check output.
  *
  * Returns an empty string when the allowlist is fully current. Otherwise returns
  * a bulleted action list with a verbose hint (when vulns exist) and a sync hint.

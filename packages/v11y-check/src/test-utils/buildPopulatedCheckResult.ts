@@ -1,7 +1,7 @@
 import type { CheckResult, ScopeCheckResult } from '../format-check.ts';
 
 /**
- * Builds a check result that reaches every branch of both text formatters: each scope holds an unallowed, an
+ * Builds a check result that exercises every branch of both text formatters: Each scope contains an unallowed, an
  * allowed, a stale, and a below-threshold entry, and between them the entries cover every severity, a
  * multi-path advisory, a reason, and a multi-paragraph description.
  */

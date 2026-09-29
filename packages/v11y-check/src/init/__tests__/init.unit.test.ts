@@ -194,7 +194,7 @@ describe(initCommand, () => {
   });
 
   it('returns 0 when the workflow is already up-to-date', () => {
-    // Pre-populate the workflow with the template content so the second call reports up-to-date.
+    // Pre-populate the workflow with the template content so that the second call reports up-to-date.
     initCommand({ dryRun: false, force: false, styles: RICH_STYLES });
 
     const exitCode = initCommand({ dryRun: false, force: false, styles: RICH_STYLES });
@@ -222,7 +222,7 @@ describe(initCommand, () => {
   });
 
   it('returns 1 when a workflow write fails', () => {
-    // Pre-create the workflow path as a directory so writeFileSync fails with EISDIR when
+    // Pre-create the workflow path as a directory so that writeFileSync fails with EISDIR when
     // --force attempts to overwrite it, producing a `WriteResult` with `outcome: 'failed'`.
     tree.mkdir('.github/workflows/audit.yaml');
 
