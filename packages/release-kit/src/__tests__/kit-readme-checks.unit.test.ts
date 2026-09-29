@@ -23,12 +23,12 @@ describe(readmeHasReleaseNotesMarkers, () => {
   });
 });
 
-// Exercised against a real tree rather than a mocked `discoverWorkspaces`, so the check sees the workspace list
-// that discovery actually produces, root included. A mocked list is free to omit the root, which is what lets an
-// `isRoot` or `isPackage` filter go unexercised.
+// Exercised against a real tree rather than a mocked `discoverWorkspaces`, so that the check sees the workspace list
+// that discovery actually produces, root included. A mocked list is free to omit the root, which lets an `isRoot` or
+// `isPackage` filter go unexercised.
 describe(readmesHaveReleaseNotesMarkers, () => {
   describe('single-package mode', () => {
-    it('returns true when the root README carries both markers', () => {
+    it('returns true when the root README contains both markers', () => {
       scaffoldRepo({ 'package.json': '{"name":"solo"}', 'README.md': MARKERS });
 
       expect(readmesHaveReleaseNotesMarkers()).toBe(true);
@@ -110,7 +110,7 @@ describe(readmesHaveReleaseNotesMarkers, () => {
       expect(readmesHaveReleaseNotesMarkers()).toBe(true);
     });
 
-    it('returns true when no workspace is publishable', () => {
+    it('returns true when the monorepo does not have a publishable workspace', () => {
       scaffoldRepo({
         'package.json': '{"name":"monorepo","private":true}',
         'pnpm-workspace.yaml': PNPM_WORKSPACE,

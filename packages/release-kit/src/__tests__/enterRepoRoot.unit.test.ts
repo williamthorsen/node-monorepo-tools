@@ -41,7 +41,7 @@ describe(enterRepoRoot, () => {
     expect(process.cwd()).toBe(dir);
   });
 
-  it('throws, naming what it looked for and where, when no root is found', () => {
+  it('throws, naming what it looked for and where, when it does not find a root', () => {
     const { dir } = enterFrom({ 'notes.txt': '' }, '.');
 
     expect(() => enterRepoRoot()).toThrow(

@@ -35,7 +35,7 @@ describe(hasPrettierConfig, () => {
     expect(hasPrettierConfig()).toBe(true);
   });
 
-  it('returns false when no prettier config exists', () => {
+  it('returns false when the repo does not have a prettier config', () => {
     mockExistsSync.mockReturnValue(false);
 
     expect(hasPrettierConfig()).toBe(false);

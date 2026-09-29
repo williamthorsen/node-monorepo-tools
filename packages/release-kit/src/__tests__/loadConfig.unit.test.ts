@@ -43,12 +43,12 @@ describe(loadConfig, () => {
   let cwdSpy: MockInstance<() => string>;
 
   beforeEach(() => {
-    // A fresh directory per test. `import()` caches by URL for the process lifetime, so a reused fixture path would
-    // replay the first config and pass every later case for the wrong reason.
+    // Create a fresh directory per test. `import()` caches by URL for the process lifetime, so a reused fixture path
+    // would replay the first config and pass every later case for the wrong reason.
     tree = disposeOnTestFinished(createTempTree({}, { prefix: 'release-kit-config-' }));
     cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tree.dir);
-    // Delegate to the real `existsSync`, so a mistyped fixture path surfaces as a missing config rather than as an
-    // opaque module-resolution failure from the import.
+    // Delegate to the real `existsSync`, so that `loadConfig` reports a mistyped fixture path as a missing config rather
+    // than as an opaque module-resolution failure from the import.
     mockExistsSync.mockImplementation(actualFs.existsSync);
   });
 
@@ -80,7 +80,7 @@ describe(loadConfig, () => {
     expect(result).toStrictEqual({ workTypes: { perf: { header: 'Performance' } } });
   });
 
-  it('returns the named config export when no default is present', async () => {
+  it('returns the named config export when the module does not have a default export', async () => {
     writeConfig('export const config = { formatCommand: "pnpm run fmt" };');
 
     const result = await loadConfig();
@@ -183,12 +183,12 @@ describe(mergeMonorepoConfig, () => {
     expect(result.workspaces[1]?.tagPrefix).toBe('web-app-v');
   });
 
-  it('uses default workTypes when no config is provided', () => {
+  it('uses default workTypes when the caller does not provide a config', () => {
     const result = mergeMonorepoConfig(discoveredPaths, undefined);
     expect(result.workTypes).toStrictEqual(DEFAULT_WORK_TYPES);
   });
 
-  it('uses default versionPatterns when no config is provided', () => {
+  it('uses default versionPatterns when the caller does not provide a config', () => {
     const result = mergeMonorepoConfig(discoveredPaths, undefined);
     expect(result.versionPatterns).toStrictEqual(DEFAULT_VERSION_PATTERNS);
   });
@@ -295,7 +295,7 @@ describe(mergeMonorepoConfig, () => {
     expect(result.workspaces[1]?.legacyIdentities).toBeUndefined();
   });
 
-  it('shallow-clones each identity entry so mutating the override does not leak into merged workspaces', () => {
+  it('shallow-clones each identity entry so that mutating the override does not leak into merged workspaces', () => {
     const identity = { name: '@old-scope/arrays', tagPrefix: 'old-arrays-v' };
     const result = mergeMonorepoConfig(discoveredPaths, {
       workspaces: [{ dir: 'arrays', legacyIdentities: [identity] }],
@@ -420,7 +420,7 @@ describe(readRootPackageVersion, () => {
     expect(readRootPackageVersion()).toStrictEqual({ exists: true, version: '1.2.3' });
   });
 
-  it('returns version=undefined when the root package.json has no version field', () => {
+  it('returns version=undefined when the root package.json does not have a version field', () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root' }));
     expect(readRootPackageVersion()).toStrictEqual({ exists: true, version: undefined });
@@ -519,13 +519,13 @@ describe('mergeMonorepoConfig project block', () => {
     );
   });
 
-  it('throws when project is configured but the root package.json has no version field', () => {
+  it('throws when project is configured but the root package.json does not have a version field', () => {
     expect(() => mergeMonorepoConfig(discoveredPaths, { project: {} }, { exists: true, version: undefined })).toThrow(
       /add a 'version' field to your root package\.json/,
     );
   });
 
-  it('throws when no rootPackage info is supplied alongside a project block', () => {
+  it('throws when the caller does not supply rootPackage info alongside a project block', () => {
     expect(() => mergeMonorepoConfig(discoveredPaths, { project: {} })).toThrow(
       /project block requires a root package\.json/,
     );
@@ -595,7 +595,7 @@ describe('mergeMonorepoConfig project block', () => {
 });
 
 describe(mergeSinglePackageConfig, () => {
-  it('returns defaults when no config is provided', () => {
+  it('returns defaults when the caller does not provide a config', () => {
     const result = mergeSinglePackageConfig(undefined);
 
     expect(result.tagPrefix).toBe('v');

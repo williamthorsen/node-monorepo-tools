@@ -70,8 +70,8 @@ describe(findUnroutedEntryScopes, () => {
   it.each([
     ['a merge commit', makeCommit('a1', "Merge branch 'feat'", blockPayload([['nothing']]))],
     ['a malformed block', makeCommit('a1', SUBJECT, ['```change-record', 'entries: 3', '```'].join('\n'))],
-    ['a block with no entries', makeCommit('a1', SUBJECT, ['```change-record', 'entries: []', '```'].join('\n'))],
-    ['a commit with no block', makeCommit('a1', '#1 feat: Add', '')],
+    ['a block without entries', makeCommit('a1', SUBJECT, ['```change-record', 'entries: []', '```'].join('\n'))],
+    ['a commit without a block', makeCommit('a1', '#1 feat: Add', '')],
   ])('skips %s', (_label, commit) => {
     expect(findUnroutedEntryScopes([window('arrays', [commit])], CONFIGURED, {}).size).toBe(0);
   });
@@ -79,12 +79,12 @@ describe(findUnroutedEntryScopes, () => {
 
 // region | Helpers
 
-/** Builds a commit whose block holds one entry per scope list, in order. */
+/** Builds a commit whose block contains one entry per scope list, in order. */
 function blockCommit(hash: string, scopeLists: ReadonlyArray<readonly string[]>): RawCommit {
   return makeCommit(hash, SUBJECT, blockPayload(scopeLists));
 }
 
-/** Builds a `change-record` block holding one `fix` entry per scope list. */
+/** Builds a `change-record` block containing one `fix` entry per scope list. */
 function blockPayload(scopeLists: ReadonlyArray<readonly string[]>): string {
   const entries = scopeLists.flatMap((scopes, index) => [
     '  - type: fix',
