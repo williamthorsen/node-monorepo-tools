@@ -7,7 +7,7 @@ const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 const mockReadRootPackageVersion = vi.hoisted(() => vi.fn());
 
-// Partial, so that `describeEmptyWorkspace` stays the real composer: what a caller does with an empty
+// Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
 vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -88,7 +88,7 @@ describe(resolveCommandTags, () => {
     vi.restoreAllMocks();
   });
 
-  it('returns all resolved tags when no filter is provided', () => {
+  it('returns all resolved tags when the caller does not provide a filter', () => {
     const result = resolveCommandTags(undefined, undefined);
 
     expect(result).toStrictEqual(TAGS);
@@ -160,20 +160,20 @@ describe(resolveCommandTags, () => {
     );
   });
 
-  it('exits with code 1 when no release tags are found on HEAD', async () => {
+  it('exits with code 1 when it does not find any release tags on HEAD', async () => {
     mockResolveReleaseTags.mockReturnValue([]);
 
     const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined, undefined));
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain(
-      'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.\n',
+      'Error: HEAD does not have any release tags. Create tags with `release-kit tag` first.\n',
     );
   });
 
-  // A workspace that resolves to no package is not single-package mode; reading it as one would release the root
-  // as one package.
-  it('exits with code 1 when the workspace resolves to no package', async () => {
+  // A workspace that does not resolve to any package is not single-package mode; reading it as one would release
+  // the root as one package.
+  it('exits with code 1 when the workspace does not resolve to any package', async () => {
     mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
 
     const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined, undefined));
@@ -209,7 +209,7 @@ describe(resolveCommandTags, () => {
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });
 
-  it('returns unpublishable tags alongside publishable ones (no filtering at this layer)', () => {
+  it('returns unpublishable tags alongside publishable ones (this layer does not filter them)', () => {
     const mixedTags: ResolvedTag[] = [
       { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
@@ -262,7 +262,7 @@ describe(resolveCommandTags, () => {
 
       expect(result).toStrictEqual([]);
       expect(console.warn).toHaveBeenCalledExactlyOnceWith(CLI_SKIP);
-      expect(capture.stderrChunks.join('')).not.toContain('No release tags found on HEAD');
+      expect(capture.stderrChunks.join('')).not.toContain('HEAD does not have any release tags');
     });
 
     it('exits with code 1 when the config fails the merge validation', async () => {

@@ -269,7 +269,7 @@ describe(createGithubReleaseCommand, () => {
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain(
-      'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.\n',
+      'Error: HEAD does not have any release tags. Create tags with `release-kit tag` first.\n',
     );
   });
 

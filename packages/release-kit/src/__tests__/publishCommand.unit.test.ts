@@ -20,7 +20,7 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-// Partial, so that `describeEmptyWorkspace` stays the real composer: what a caller does with an empty
+// Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
 vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -48,7 +48,7 @@ vi.mock(import('../loadConfig.ts'), async () => {
   return {
     ...actual,
     loadConfig: mockLoadConfig,
-    // `node:fs` is mocked above, so the real reader cannot reach the root package.json.
+    // `node:fs` is mocked above, so the real reader cannot read the root package.json.
     readRootPackageVersion: () => ({ exists: true, version: '1.0.0' }),
   };
 });
@@ -140,7 +140,7 @@ describe(publishCommand, () => {
     );
   });
 
-  it('does not thread --no-git-checks into publishPackage options', async () => {
+  it('does not pass --no-git-checks into publishPackage options', async () => {
     await publishCommand(['--no-git-checks'], RICH_STYLES, process.cwd());
 
     expect(mockPublishPackage).toHaveBeenCalledWith(
@@ -169,14 +169,14 @@ describe(publishCommand, () => {
     expect(mockPublishPackage).not.toHaveBeenCalled();
   });
 
-  it('exits with code 1 when no release tags are found on HEAD', async () => {
+  it('exits with code 1 when it does not find any release tags on HEAD', async () => {
     mockResolveReleaseTags.mockReturnValue([]);
 
     const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain(
-      'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.\n',
+      'Error: HEAD does not have any release tags. Create tags with `release-kit tag` first.\n',
     );
   });
 
@@ -367,7 +367,7 @@ describe(publishCommand, () => {
       expect(console.info).not.toHaveBeenCalledWith('Nothing to publish.');
     });
 
-    it('stays a clean no-op when no default config exists and every tag is private', async () => {
+    it('stays a clean no-op when the default config does not exist and every tag is private', async () => {
       mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: false }]);
 
       await publishCommand([], RICH_STYLES, process.cwd());
@@ -552,7 +552,7 @@ describe(publishCommand, () => {
 
       await publishCommand(['--tags=basic-v1.0.0'], RICH_STYLES, process.cwd());
 
-      // Explicit naming of an unpublishable tag warns and skips rather than exiting non-zero.
+      // When --tags names an unpublishable tag, the command warns and skips it rather than exiting non-zero.
       expect(console.warn).toHaveBeenCalledWith(
         'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
       );
@@ -579,7 +579,7 @@ describe(publishCommand, () => {
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
-    it('publishes the publishable subset and warns past the private tag when explicit --tags mixes both', async () => {
+    it('publishes the publishable subset and warns about and skips the private tag when explicit --tags mixes both', async () => {
       mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/common-utils', 'packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         {
