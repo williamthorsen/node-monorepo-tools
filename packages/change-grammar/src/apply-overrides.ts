@@ -31,7 +31,7 @@ export interface Overrides {
 
 // region | Helpers
 
-/** Reads a scope override, where `*` names no scope. */
+/** Reads a scope override, treating `*` as an absent scope. */
 function readScopeOverride(scope: string): string | undefined {
   return scope === SCOPE_WILDCARD ? undefined : scope;
 }

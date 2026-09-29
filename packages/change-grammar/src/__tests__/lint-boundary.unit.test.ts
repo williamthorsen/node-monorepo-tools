@@ -31,13 +31,13 @@ const VIOLATING_SOURCE = [
 ].join('\n');
 
 describe('the change-grammar lint boundary', () => {
-  it('reports every reach that the package forecloses', { timeout: 60_000 }, async () => {
+  it('reports each boundary rule for a source that breaks them all', { timeout: 60_000 }, async () => {
     const reported = await lintUnder(path.join(REPO_ROOT, 'packages', 'change-grammar', 'src', 'index.ts'));
 
     expect(reported).toStrictEqual(BOUNDARY_RULES);
   });
 
-  it('binds inside the package alone', { timeout: 60_000 }, async () => {
+  it('applies inside the package alone', { timeout: 60_000 }, async () => {
     const reported = await lintUnder(path.join(REPO_ROOT, 'packages', 'nmr-core', 'src', 'index.ts'));
 
     expect(reported).toStrictEqual([]);

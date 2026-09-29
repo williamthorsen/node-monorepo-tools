@@ -1,5 +1,5 @@
 /**
- * The subject templates of the conventions that the engine ships with. Each names the shape of a commit subject; a
+ * The subject templates of the conventions that the engine includes. Each names the shape of a commit subject; a
  * surface that decorates one with a ticket reference or a pull-request number wraps it in groups of its own.
  */
 export const TEMPLATE_CATALOGUE = {

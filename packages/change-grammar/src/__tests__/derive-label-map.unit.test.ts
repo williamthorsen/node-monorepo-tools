@@ -37,7 +37,7 @@ describe(deriveLabelMap, () => {
     ]);
   });
 
-  it('derives no scopes, not even root, for an empty workspace list', () => {
+  it('does not derive any scopes, not even root, for an empty workspace list', () => {
     expect(deriveLabelMap(CANONICAL_TAXONOMY, []).scopes).toStrictEqual({});
   });
 

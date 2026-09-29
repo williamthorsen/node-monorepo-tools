@@ -5,7 +5,7 @@ import type { ChangeRecord, Taxonomy } from './types.ts';
  * Derives the consolidated record of a branch's entries: the type that represents the branch, whether the branch is
  * breaking, and the scope if the entries agree on one.
  *
- * The type is the highest-ranked entry, never the most frequent one: breaking outranks non-breaking, then the tier's
+ * The type is the highest-ranked entry, never the most frequent one: Breaking outranks non-breaking, then the tier's
  * position in the taxonomy, then the type's listing order within it. Ranking by frequency would let three routine
  * fixes outrank the one feature that the branch exists for.
  *
@@ -13,8 +13,8 @@ import type { ChangeRecord, Taxonomy } from './types.ts';
  * taxonomy's last tier are set aside whenever an entry of a higher tier names a scope: Process work such as a
  * dependency move supports the branch's change rather than describing it. Second, `dropIncidentalRoot` sets `root`
  * aside whenever the surviving scopes also name a workspace. An entry whose scope names several workspaces contributes
- * each of them. An entry whose type the taxonomy does not declare counts as higher-tier, and a one-tier taxonomy sets
- * no entry's scope aside.
+ * each of them. An entry whose type the taxonomy does not declare counts as higher-tier, and a one-tier taxonomy does
+ * not set any entry's scope aside.
  */
 export function consolidate(entries: readonly ChangeRecord[], taxonomy: Taxonomy): ChangeRecord {
   const consolidated: ChangeRecord = {};
@@ -78,7 +78,7 @@ function outranks(rank: Rank, incumbent: Rank): boolean {
 
 /**
  * Ranks one entry against the taxonomy, lower being stronger, and reports the canonical key that it named. Yields
- * nothing for a type omitted by the taxonomy, which no rank can place.
+ * nothing for a type omitted by the taxonomy, which the ranking cannot place.
  */
 function rankEntry(entry: ChangeRecord, taxonomy: Taxonomy): { key: string; rank: Rank } | undefined {
   const listing = taxonomy.types.findIndex((candidate) => candidate.key === entry.type);

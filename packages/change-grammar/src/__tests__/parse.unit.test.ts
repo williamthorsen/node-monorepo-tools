@@ -110,7 +110,7 @@ describe(parse, () => {
       expect(record?.type).toBe('feat');
     });
 
-    it('drops the wildcard scope, which the engine reads as no scope', () => {
+    it('drops the wildcard scope, which the engine reads as an absent scope', () => {
       const record = parse(compileTemplate(FLAT_SCOPE_COMMIT), '*|feat: Add foo', TAXONOMY);
 
       expect(record).toStrictEqual({ title: 'Add foo', type: 'feat' });
@@ -122,7 +122,7 @@ describe(parse, () => {
       expect(parse(compileTemplate(FLAT_SCOPE_COMMIT), 'Add foo', TAXONOMY)).toBeUndefined();
     });
 
-    it('refuses a subject naming a scope but no type', () => {
+    it('refuses a subject naming a scope but not a type', () => {
       expect(parse(compileTemplate(FLAT_SCOPE_COMMIT), 'agents|: Add foo', TAXONOMY)).toBeUndefined();
     });
 
@@ -130,7 +130,7 @@ describe(parse, () => {
       expect(parse(compileTemplate(FLAT_SCOPE_COMMIT), 'Support a|b: syntax', TAXONOMY)).toBeUndefined();
     });
 
-    it('refuses a scoped subject under a template that names no scope', () => {
+    it('refuses a scoped subject under a template that does not name a scope', () => {
       expect(parse(compileTemplate(TEMPLATE_CATALOGUE.typeOnly), 'feat(agents): Add foo', TAXONOMY)).toBeUndefined();
     });
 
@@ -166,7 +166,7 @@ describe(parse, () => {
   });
 
   describe('the ambiguity that the grammar accepts', () => {
-    it('reads a pipe-carrying title as a scope and a type, since a present group wins', () => {
+    it('reads a title containing a pipe as a scope and a type, since a present group wins', () => {
       const record = parse(compileTemplate(FLAT_SCOPE_COMMIT), 'Rename kb|docs: the shared layer', TAXONOMY);
 
       expect(record).toStrictEqual({ scope: 'Rename kb', title: 'the shared layer', type: 'docs' });
@@ -176,7 +176,7 @@ describe(parse, () => {
 
 // region | Helpers
 
-/** Drops the fields that a template names no token for, which a round trip cannot recover. */
+/** Drops the fields for which a template does not name a token, which a round trip cannot recover. */
 function dropScopelessFields(template: string, record: ChangeRecord): ChangeRecord {
   const normalized = normalizeChangeRecord(record);
   const carried: ChangeRecord = {};

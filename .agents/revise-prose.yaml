@@ -4,6 +4,7 @@ rules:
     swept-at: 2026-09-29
     detected: false
     roots:
+      - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
@@ -12,6 +13,7 @@ rules:
     swept-at: 2026-09-29
     detected: false
     roots:
+      - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
@@ -20,6 +22,7 @@ rules:
     swept-at: 2026-09-29
     detected: true
     roots:
+      - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
@@ -28,6 +31,7 @@ rules:
     swept-at: 2026-09-29
     detected: false
     roots:
+      - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
@@ -36,6 +40,7 @@ rules:
     swept-at: 2026-09-29
     detected: false
     roots:
+      - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
@@ -44,6 +49,7 @@ rules:
     swept-at: 2026-09-29
     detected: true
     roots:
+      - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
@@ -52,6 +58,7 @@ rules:
     swept-at: 2026-09-29
     detected: false
     roots:
+      - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
@@ -60,6 +67,7 @@ rules:
     swept-at: 2026-09-29
     detected: true
     roots:
+      - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
@@ -68,6 +76,7 @@ rules:
     swept-at: 2026-09-29
     detected: true
     roots:
+      - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
@@ -76,6 +85,7 @@ rules:
     swept-at: 2026-09-29
     detected: false
     roots:
+      - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
@@ -84,6 +94,7 @@ rules:
     swept-at: 2026-09-29
     detected: true
     roots:
+      - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
@@ -92,6 +103,7 @@ rules:
     swept-at: 2026-09-29
     detected: true
     roots:
+      - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
@@ -1216,6 +1228,26 @@ rejections:
     file: packages/release-kit/src/sync-labels/templates.ts
     phrase: the gate lives on the job
     ground: the repo's own .github workflow must match this template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts, and that workflow is outside the sweep
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/change-grammar/src/apply-overrides.ts
+    phrase: add the marker supplies
+    ground: 'not the construction: supplies is the main verb of the sentence'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/change-grammar/src/consolidate.ts
+    phrase: whenever the surviving scopes
+    ground: 'not the construction: whenever introduces an adverbial clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/change-grammar/src/parse.ts
+    phrase: ticket-reference forms stripped
+    ground: 'not the construction: stripped is a passive participle'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/change-grammar/src/verify.ts
+    phrase: occurrence a value belongs
+    ground: "not the construction: it is an embedded question after 'decide which', not a relative clause"
   - rule: reduced-object-relative
     rule-version: '1'
     file: packages/nmr-core/README.md
@@ -2713,6 +2745,26 @@ rejections:
     ground: 'not prose: verbatim npm payload fixture'
   - rule: so
     rule-version: '1'
+    file: packages/change-grammar/src/__tests__/compile-template.unit.test.ts
+    phrase: leaves an undeclared token literal, so a misspelling shows up in output
+    ground: a lone so that follows a comma and states a direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/change-grammar/src/__tests__/render.unit.test.ts
+    phrase: leaves an undeclared token in output, so a misspelling is visible
+    ground: a lone so that states a direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/change-grammar/src/__tests__/render.unit.test.ts
+    phrase: so the group drops with it
+    ground: a lone so that states a direct result
+  - rule: so
+    rule-version: '1'
+    file: packages/change-grammar/src/render.ts
+    phrase: 'Each nested group drops or renders on its own, so `[[{scope}|]{type}: ]` keeps the type prefix'
+    ground: a lone so that follows a comma and states a direct result
+  - rule: so
+    rule-version: '1'
     file: packages/nmr/.readyup/kits/default.ts
     phrase: Earlier releases pin ESLint to one config and resolve ceilings from the working directory, so nmr's root lint:strict would report the wrong rules for every package
     ground: the so that it repeats is in a different check's fix string, which readyup prints separately; this so is a lone direct result
@@ -2931,6 +2983,31 @@ rejections:
     file: packages/release-kit/src/sync-labels/templates.ts
     phrase: so that the gate lives on the job
     ground: the repo's own .github workflow must match this template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts, and that workflow is outside the sweep
+  - rule: where
+    rule-version: '1'
+    file: packages/change-grammar/src/__tests__/verify.unit.test.ts
+    phrase: places {breaking} where "!" is not distinguishable from its neighbour.
+    ground: 'where names a place: the position in which the template places the token'
+  - rule: where
+    rule-version: '1'
+    file: packages/change-grammar/src/__tests__/verify.unit.test.ts
+    phrase: refuses {breaking} beside free text, where the marker is not distinguishable
+    ground: 'where names a place: the position beside free text inside the template'
+  - rule: where
+    rule-version: '1'
+    file: packages/change-grammar/src/verify.ts
+    phrase: hiding where the group begins
+    ground: 'where names a place: the position in the string at which the group begins'
+  - rule: where
+    rule-version: '1'
+    file: packages/change-grammar/src/verify.ts
+    phrase: places {${node.name}} where "!" is not distinguishable from its neighbour.
+    ground: 'where names a place: the position in which the template places the token'
+  - rule: where
+    rule-version: '1'
+    file: packages/change-grammar/src/verify.ts
+    phrase: Reports `{breaking}` placed where the marker cannot be told from its neighbours
+    ground: 'where names a place: the position of the token in the template'
   - rule: where
     rule-version: '1'
     file: packages/nmr/agents/guidance/rulebooks/nmr.md

@@ -8,7 +8,8 @@ import type { ChangeRecord, Taxonomy } from './types.ts';
  * Reports every reason a template cannot round-trip, empty when it can. Each message names the template and the defect.
  *
  * The structural rules run first and hold whatever the values are. Render-and-parse passes over well-formed values then
- * backstop them, because a later grammar extension could otherwise outrun the checker silently.
+ * check the template again, because a later grammar extension could otherwise add a defect that the structural rules
+ * do not detect.
  *
  * Value-dependent ambiguity is not a defect. Under `[{ticket_ref} ]{title}` a title opening with `#466 ` is
  * indistinguishable from a ticket reference, and the template is accepted.
@@ -18,7 +19,7 @@ export function verify(template: string, taxonomy: Taxonomy): string[] {
   try {
     nodes = compileTemplate(template);
   } catch (error) {
-    // eslint-disable-next-line no-restricted-syntax -- The package depends on no package, so neither suggested helper is in reach.
+    // eslint-disable-next-line no-restricted-syntax -- The package does not depend on any other package, so neither suggested helper is available.
     return [error instanceof Error ? error.message : `Template ${JSON.stringify(template)} could not be compiled.`];
   }
 
@@ -78,7 +79,7 @@ function describeRecord(record: ChangeRecord | undefined): string {
   return JSON.stringify(Object.entries(record).toSorted(([a], [b]) => a.localeCompare(b)));
 }
 
-/** Reports two tokens with no literal between them, which a parse cannot split. `{breaking}` has its own rule. */
+/** Reports two tokens without a literal between them, which a parse cannot split. `{breaking}` has its own rule. */
 function findAdjacentTokenDefects(template: string, flattened: readonly FlatNode[]): string[] {
   const defects: string[] = [];
   for (const [index, node] of flattened.entries()) {
@@ -87,7 +88,7 @@ function findAdjacentTokenDefects(template: string, flattened: readonly FlatNode
       continue;
     }
     defects.push(
-      `Template ${JSON.stringify(template)} places {${node.name}} and {${next.name}} with no literal between them.`,
+      `Template ${JSON.stringify(template)} places {${node.name}} and {${next.name}} without a literal between them.`,
     );
   }
   return defects;
@@ -142,7 +143,7 @@ function findGroupBoundaryDefects(template: string, nodes: readonly TemplateNode
   return defects;
 }
 
-/** Reports a token named more than once, which leaves a parse no way to decide which occurrence a value belongs to. */
+/** Reports a token named more than once, which leaves a parse unable to decide which occurrence a value belongs to. */
 function findRepeatedTokenDefects(template: string, flattened: readonly FlatNode[]): string[] {
   const counts = new Map<TokenName, number>();
   for (const node of flattened) {
@@ -156,9 +157,9 @@ function findRepeatedTokenDefects(template: string, flattened: readonly FlatNode
 }
 
 /**
- * Renders well-formed values and reads them back, so that a defect that no structural rule names is still reported. One
- * pass includes every token named by the template; one further pass per optional group drops that group, since a group
- * that a parse cannot tell from an absent one is the ordinary case for which a group exists.
+ * Renders well-formed values and reads them back, so that a defect that the structural rules do not name is still
+ * reported. One pass includes every token named by the template; one further pass per optional group drops that group,
+ * since a group that a parse cannot tell from an absent one is the ordinary case for which a group exists.
  *
  * A group containing `{type}` is left populated. Dropping it takes the type out of the rendered string, which the
  * type-required rule then reads as unmatched however well-formed the template is.
@@ -192,7 +193,7 @@ function findRoundTripDefects(
       const parsed = parse(nodes, rendered, taxonomy);
       if (describeRecord(parsed) !== describeRecord(sample)) {
         defects.push(
-          `Template ${JSON.stringify(template)} does not round-trip: it renders ${describeRecord(sample)} as ${JSON.stringify(rendered)}, which reads back as ${describeRecord(parsed)}.`,
+          `Template ${JSON.stringify(template)} does not round-trip: It renders ${describeRecord(sample)} as ${JSON.stringify(rendered)}, which reads back as ${describeRecord(parsed)}.`,
         );
       }
     }

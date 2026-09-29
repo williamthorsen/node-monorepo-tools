@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { compileTemplate } from '../compile-template.ts';
 
 describe(compileTemplate, () => {
-  it('compiles a template with no markup to one literal node', () => {
+  it('compiles a template without markup to one literal node', () => {
     expect(compileTemplate('Add foo')).toStrictEqual([{ kind: 'literal', text: 'Add foo' }]);
   });
 

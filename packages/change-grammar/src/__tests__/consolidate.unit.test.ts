@@ -55,7 +55,7 @@ describe(consolidate, () => {
     expect(consolidate(entries, TAXONOMY)).toStrictEqual({ scope: 'agents', type: 'feat' });
   });
 
-  it('names no scope for a branch with two', () => {
+  it('does not name a scope for a branch with two', () => {
     const entries = [
       { scope: 'agents', type: 'feat' },
       { scope: 'run-core', type: 'fix' },
@@ -70,7 +70,7 @@ describe(consolidate, () => {
     expect(consolidate(entries, TAXONOMY)).toStrictEqual({ scope: 'agents', type: 'feat' });
   });
 
-  it('names no scope for one entry naming two, as two entries naming one apiece do', () => {
+  it('does not name a scope for one entry naming two, just as for two entries naming one apiece', () => {
     const entries = [{ scope: 'agents,kb', type: 'feat' }];
 
     expect(consolidate(entries, TAXONOMY)).toStrictEqual({ type: 'feat' });
@@ -91,7 +91,7 @@ describe(consolidate, () => {
     expect(consolidate(entries, TAXONOMY)).toStrictEqual({ scope: 'agents', type: 'feat' });
   });
 
-  it('names no scope for two workspaces and root', () => {
+  it('does not name a scope for two workspaces and root', () => {
     const entries = [
       { scope: 'agents', type: 'feat' },
       { scope: 'kb', type: 'fix' },
@@ -132,7 +132,7 @@ describe(consolidate, () => {
     expect(consolidate([{ scope: 'web', type: 'deps' }], TAXONOMY)).toStrictEqual({ scope: 'web', type: 'deps' });
   });
 
-  it('keeps a process-tier scope when no higher-tier entry names a scope', () => {
+  it('keeps a process-tier scope when the higher-tier entries do not name a scope', () => {
     const entries = [{ type: 'feat' }, { scope: 'web', type: 'deps' }];
 
     expect(consolidate(entries, TAXONOMY)).toStrictEqual({ scope: 'web', type: 'feat' });
@@ -147,7 +147,7 @@ describe(consolidate, () => {
     expect(consolidate(entries, TAXONOMY)).toStrictEqual({ type: 'feat' });
   });
 
-  it('sets no scope aside under a one-tier taxonomy', () => {
+  it('does not set any scope aside under a one-tier taxonomy', () => {
     const taxonomy: Taxonomy = {
       tiers: ['all'],
       types: [
@@ -178,11 +178,11 @@ describe(consolidate, () => {
     expect(consolidate(entries, TAXONOMY)).toStrictEqual({ type: 'fix' });
   });
 
-  it('yields an empty record for no entries', () => {
+  it('yields an empty record for an empty entry list', () => {
     expect(consolidate([], TAXONOMY)).toStrictEqual({});
   });
 
-  it('yields an empty record when no entry names a declared type', () => {
+  it('yields an empty record when the entries do not name any declared type', () => {
     expect(consolidate([{ title: 'Add foo' }], TAXONOMY)).toStrictEqual({});
   });
 });

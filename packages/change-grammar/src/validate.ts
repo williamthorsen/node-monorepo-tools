@@ -5,7 +5,7 @@ import type { ChangeRecord, Taxonomy } from './types.ts';
  * unchanged: Normalizing a violation away would hide the mistake from the author who can still fix it.
  *
  * A record violates by setting the marker when its type's policy forbids it. A record naming a type not declared by
- * the taxonomy has no policy to break.
+ * the taxonomy does not have a policy to break.
  */
 export function validate(record: ChangeRecord, taxonomy: Taxonomy): PolicyViolation | undefined {
   const workType = taxonomy.types.find((candidate) => candidate.key === record.type);

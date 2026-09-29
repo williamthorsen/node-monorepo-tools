@@ -6,13 +6,13 @@ import type { ChangeRecord } from './types.ts';
  * Renders compiled template nodes against a record, producing the surface string.
  *
  * A group drops, literals included, when a token directly inside it resolves empty. Each nested group drops or renders
- * on its own, so `[[{scope}|]{type}: ]` keeps the type prefix for a change that names no scope. `{breaking}` never
- * decides a group, since a non-breaking change would otherwise drop the prefix that contains it.
+ * on its own, so `[[{scope}|]{type}: ]` keeps the type prefix for a change that does not name a scope. `{breaking}`
+ * never decides a group, since a non-breaking change would otherwise drop the prefix that contains it.
  *
- * When the template names no `{breaking}`, `{type}` appends the marker itself and renders `feat!`, which is how a
+ * When the template does not name `{breaking}`, `{type}` appends the marker itself and renders `feat!`, which is how a
  * convention that places the marker on the type stays renderable.
  *
- * Output is exactly what the nodes describe, whitespace included, so `parse` inverts it.
+ * Because output is exactly what the nodes describe, whitespace included, `parse` inverts it.
  */
 export function render(nodes: readonly TemplateNode[], record: ChangeRecord): string {
   const normalized = normalizeChangeRecord(record);
@@ -72,7 +72,7 @@ function resolveToken(record: ChangeRecord, name: TokenName, marksBreaking: bool
   }
 }
 
-/** Resolves `{type}`, appending the marker when the template names no `{breaking}` to render it. */
+/** Resolves `{type}`, appending the marker when the template does not name `{breaking}` to render it. */
 function resolveTypeToken(record: ChangeRecord, marksBreaking: boolean): string {
   if (record.type === undefined) {
     return '';
