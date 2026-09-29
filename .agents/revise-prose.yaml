@@ -4,127 +4,485 @@ rules:
     swept-at: 2026-09-29
     detected: false
     roots:
+      - .agents
+      - .claude
+      - .config
+      - .editorconfig
+      - .envrc
+      - .github
+      - .gitignore
+      - .meta
+      - .prettierignore
+      - .prettierrc.js
+      - .tool-versions
+      - AGENTS.md
+      - CHANGELOG.md
+      - LICENSE
+      - README.md
+      - __tests__
+      - docs
+      - eslint.config.ts
+      - eslint.restrictions.ts
+      - lefthook.yml
+      - package.json
       - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
       - packages/v11y-check
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts
+      - taze.config.ts
+      - tsconfig.json
+      - vite.config.ts
+      - vitest.config.ts
+      - vitest.root.config.ts
   doc-descriptions:
     version: '1'
     swept-at: 2026-09-29
     detected: false
     roots:
+      - .agents
+      - .claude
+      - .config
+      - .editorconfig
+      - .envrc
+      - .github
+      - .gitignore
+      - .meta
+      - .prettierignore
+      - .prettierrc.js
+      - .tool-versions
+      - AGENTS.md
+      - CHANGELOG.md
+      - LICENSE
+      - README.md
+      - __tests__
+      - docs
+      - eslint.config.ts
+      - eslint.restrictions.ts
+      - lefthook.yml
+      - package.json
       - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
       - packages/v11y-check
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts
+      - taze.config.ts
+      - tsconfig.json
+      - vite.config.ts
+      - vitest.config.ts
+      - vitest.root.config.ts
   em-dash:
     version: '1'
     swept-at: 2026-09-29
     detected: true
     roots:
+      - .agents
+      - .claude
+      - .config
+      - .editorconfig
+      - .envrc
+      - .github
+      - .gitignore
+      - .meta
+      - .prettierignore
+      - .prettierrc.js
+      - .tool-versions
+      - AGENTS.md
+      - CHANGELOG.md
+      - LICENSE
+      - README.md
+      - __tests__
+      - docs
+      - eslint.config.ts
+      - eslint.restrictions.ts
+      - lefthook.yml
+      - package.json
       - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
       - packages/v11y-check
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts
+      - taze.config.ts
+      - tsconfig.json
+      - vite.config.ts
+      - vitest.config.ts
+      - vitest.root.config.ts
   inline-comments:
     version: '1'
     swept-at: 2026-09-29
     detected: false
     roots:
+      - .agents
+      - .claude
+      - .config
+      - .editorconfig
+      - .envrc
+      - .github
+      - .gitignore
+      - .meta
+      - .prettierignore
+      - .prettierrc.js
+      - .tool-versions
+      - AGENTS.md
+      - CHANGELOG.md
+      - LICENSE
+      - README.md
+      - __tests__
+      - docs
+      - eslint.config.ts
+      - eslint.restrictions.ts
+      - lefthook.yml
+      - package.json
       - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
       - packages/v11y-check
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts
+      - taze.config.ts
+      - tsconfig.json
+      - vite.config.ts
+      - vitest.config.ts
+      - vitest.root.config.ts
   line-wrapping:
     version: '1'
     swept-at: 2026-09-29
     detected: false
     roots:
+      - .agents
+      - .claude
+      - .config
+      - .editorconfig
+      - .envrc
+      - .github
+      - .gitignore
+      - .meta
+      - .prettierignore
+      - .prettierrc.js
+      - .tool-versions
+      - AGENTS.md
+      - CHANGELOG.md
+      - LICENSE
+      - README.md
+      - __tests__
+      - docs
+      - eslint.config.ts
+      - eslint.restrictions.ts
+      - lefthook.yml
+      - package.json
       - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
       - packages/v11y-check
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts
+      - taze.config.ts
+      - tsconfig.json
+      - vite.config.ts
+      - vitest.config.ts
+      - vitest.root.config.ts
   negative-quantifier:
     version: '2'
     swept-at: 2026-09-29
     detected: true
     roots:
+      - .agents
+      - .claude
+      - .config
+      - .editorconfig
+      - .envrc
+      - .github
+      - .gitignore
+      - .meta
+      - .prettierignore
+      - .prettierrc.js
+      - .tool-versions
+      - AGENTS.md
+      - CHANGELOG.md
+      - LICENSE
+      - README.md
+      - __tests__
+      - docs
+      - eslint.config.ts
+      - eslint.restrictions.ts
+      - lefthook.yml
+      - package.json
       - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
       - packages/v11y-check
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts
+      - taze.config.ts
+      - tsconfig.json
+      - vite.config.ts
+      - vitest.config.ts
+      - vitest.root.config.ts
   plain-speech:
     version: '9'
     swept-at: 2026-09-29
     detected: false
     roots:
+      - .agents
+      - .claude
+      - .config
+      - .editorconfig
+      - .envrc
+      - .github
+      - .gitignore
+      - .meta
+      - .prettierignore
+      - .prettierrc.js
+      - .tool-versions
+      - AGENTS.md
+      - CHANGELOG.md
+      - LICENSE
+      - README.md
+      - __tests__
+      - docs
+      - eslint.config.ts
+      - eslint.restrictions.ts
+      - lefthook.yml
+      - package.json
       - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
       - packages/v11y-check
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts
+      - taze.config.ts
+      - tsconfig.json
+      - vite.config.ts
+      - vitest.config.ts
+      - vitest.root.config.ts
   reduced-object-relative:
     version: '1'
     swept-at: 2026-09-29
     detected: true
     roots:
+      - .agents
+      - .claude
+      - .config
+      - .editorconfig
+      - .envrc
+      - .github
+      - .gitignore
+      - .meta
+      - .prettierignore
+      - .prettierrc.js
+      - .tool-versions
+      - AGENTS.md
+      - CHANGELOG.md
+      - LICENSE
+      - README.md
+      - __tests__
+      - docs
+      - eslint.config.ts
+      - eslint.restrictions.ts
+      - lefthook.yml
+      - package.json
       - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
       - packages/v11y-check
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts
+      - taze.config.ts
+      - tsconfig.json
+      - vite.config.ts
+      - vitest.config.ts
+      - vitest.root.config.ts
   second-person:
     version: '1'
     swept-at: 2026-09-29
     detected: true
     roots:
+      - .agents
+      - .claude
+      - .config
+      - .editorconfig
+      - .envrc
+      - .github
+      - .gitignore
+      - .meta
+      - .prettierignore
+      - .prettierrc.js
+      - .tool-versions
+      - AGENTS.md
+      - CHANGELOG.md
+      - LICENSE
+      - README.md
+      - __tests__
+      - docs
+      - eslint.config.ts
+      - eslint.restrictions.ts
+      - lefthook.yml
+      - package.json
       - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
       - packages/v11y-check
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts
+      - taze.config.ts
+      - tsconfig.json
+      - vite.config.ts
+      - vitest.config.ts
+      - vitest.root.config.ts
   sentence-case:
     version: '1'
     swept-at: 2026-09-29
     detected: false
     roots:
+      - .agents
+      - .claude
+      - .config
+      - .editorconfig
+      - .envrc
+      - .github
+      - .gitignore
+      - .meta
+      - .prettierignore
+      - .prettierrc.js
+      - .tool-versions
+      - AGENTS.md
+      - CHANGELOG.md
+      - LICENSE
+      - README.md
+      - __tests__
+      - docs
+      - eslint.config.ts
+      - eslint.restrictions.ts
+      - lefthook.yml
+      - package.json
       - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
       - packages/v11y-check
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts
+      - taze.config.ts
+      - tsconfig.json
+      - vite.config.ts
+      - vitest.config.ts
+      - vitest.root.config.ts
   so:
     version: '1'
     swept-at: 2026-09-29
     detected: true
     roots:
+      - .agents
+      - .claude
+      - .config
+      - .editorconfig
+      - .envrc
+      - .github
+      - .gitignore
+      - .meta
+      - .prettierignore
+      - .prettierrc.js
+      - .tool-versions
+      - AGENTS.md
+      - CHANGELOG.md
+      - LICENSE
+      - README.md
+      - __tests__
+      - docs
+      - eslint.config.ts
+      - eslint.restrictions.ts
+      - lefthook.yml
+      - package.json
       - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
       - packages/v11y-check
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts
+      - taze.config.ts
+      - tsconfig.json
+      - vite.config.ts
+      - vitest.config.ts
+      - vitest.root.config.ts
   where:
     version: '1'
     swept-at: 2026-09-29
     detected: true
     roots:
+      - .agents
+      - .claude
+      - .config
+      - .editorconfig
+      - .envrc
+      - .github
+      - .gitignore
+      - .meta
+      - .prettierignore
+      - .prettierrc.js
+      - .tool-versions
+      - AGENTS.md
+      - CHANGELOG.md
+      - LICENSE
+      - README.md
+      - __tests__
+      - docs
+      - eslint.config.ts
+      - eslint.restrictions.ts
+      - lefthook.yml
+      - package.json
       - packages/change-grammar
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
       - packages/v11y-check
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts
+      - taze.config.ts
+      - tsconfig.json
+      - vite.config.ts
+      - vitest.config.ts
+      - vitest.root.config.ts
 rejections:
   - rule: capitalization-after-colon
     rule-version: '1'
     file: packages/release-kit/src/publish.ts
     phrase: 'is always emitted for pnpm: release-kit runs its own'
     ground: '`release-kit` is a lowercase package identifier and keeps its case'
+  - rule: em-dash
+    rule-version: '1'
+    file: .github/workflows/audit.yaml
+    phrase: '# Daily schedule — adjust cron expression per repo if a different cadence is desired.'
+    ground: must match its package template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; the template is outside this sweep
+  - rule: em-dash
+    rule-version: '1'
+    file: docs/agent/20250809-2359Z_learnings.md
+    phrase: '**Never use type assertions** - JSON.parse'
+    ground: a historical record of what was written at the time; rewording it rewrites the record
   - rule: em-dash
     rule-version: '1'
     file: packages/nmr/docs/scripts.md
@@ -215,6 +573,46 @@ rejections:
     file: packages/release-kit/src/sync-labels/generateCommand.ts
     phrase: '# Generated by release-kit sync-labels — do not edit.'
     ground: "generated-file header: changing it makes `sync-labels generate --check` report every consumer's committed labels.yaml as stale"
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: __tests__/test-file-conventions.app.tool.test.ts
+    phrase: 'No exclusions:'
+    ground: a verbless label without a verb to negate
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: __tests__/workflow-pins.app.unit.test.ts
+    phrase: note found
+    ground: a verbless assertion label without a finite verb to negate
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: __tests__/workflow-pins.app.unit.test.ts
+    phrase: reference found
+    ground: a verbless assertion label without a finite verb to negate
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: .github/workflows/audit.reusable.yaml
+    phrase: no vulnerabilities
+    ground: a verbless label in an issue title, matched by prefix
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: .github/workflows/release.reusable.yaml
+    phrase: No release-worthy changes found.
+    ground: a verbless status label that mirrors release-kit's own skip message, rejected under the same ground
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: .github/workflows/release.yaml
+    phrase: Force a release even when no commits or no bump-worthy commits exist
+    ground: must match its package template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; the template is outside this sweep
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: docs/agent/20250809-2359Z_learnings.md
+    phrase: Only create separate types.ts if there's no clear tree-like architecture.
+    ground: a historical record of what was written at the time; rewording it rewrites the record
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: docs/tickets/done/NMR-15.4_Bug_tsconfig.node.json-may-not-disable-emit.md
+    phrase: No type errors occur with single
+    ground: a historical record of what was written at the time; rewording it rewrites the record
   - rule: negative-quantifier
     rule-version: '2'
     file: packages/nmr-core/src/__tests__/hasErrnoCode.unit.test.ts
@@ -1277,6 +1675,16 @@ rejections:
     ground: "not prose: a fixture's `reason` data value"
   - rule: plain-speech
     rule-version: '9'
+    file: .github/workflows/sync-labels.yaml
+    phrase: so that a regenerated labels file cannot sit unapplied.
+    ground: must match its package template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; the template is outside this sweep
+  - rule: plain-speech
+    rule-version: '9'
+    file: docs/agent/20250809-2359Z_learnings.md
+    phrase: Don't get into refactoring rabbit holes without checking in
+    ground: a historical record of what was written at the time; rewording it rewrites the record
+  - rule: plain-speech
+    rule-version: '9'
     file: packages/release-kit/src/__tests__/buildChangelogEntries.tool.test.ts
     phrase: routes a real commit's entries to the workspaces that their scopes name
     ground: "'route' names the feature under test (readRouted, unroutedEntryScopes), and the function under test performs it"
@@ -1295,6 +1703,36 @@ rejections:
     file: packages/release-kit/src/sync-labels/templates.ts
     phrase: the gate lives on the job
     ground: the repo's own .github workflow must match this template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts, and that workflow is outside the sweep
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: __tests__/test-scaffolding-guard.app.unit.test.ts
+    phrase: share the promises-form names
+    ground: 'not the construction: a subject relative'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: __tests__/workflow-pins.app.unit.test.ts
+    phrase: name the same release turns
+    ground: "not the construction: 'turns' is the main verb"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: .github/workflows/audit.yaml
+    phrase: the issues/pull-requests writes the reusable workflow needs.
+    ground: must match its package template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; the template is outside this sweep
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: .github/workflows/release.reusable.yaml
+    phrase: CLI writes computed
+    ground: "not the construction: 'writes' is the sentence's own verb and 'computed' is an adjective"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: .github/workflows/release.reusable.yaml
+    phrase: release-worthy changes found
+    ground: "not the construction: 'found' is a participle"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: .github/workflows/release.reusable.yaml
+    phrase: resolves the binaries of scoped
+    ground: "not the construction: 'resolves' is the main verb and 'scoped' is an adjective"
   - rule: reduced-object-relative
     rule-version: '1'
     file: packages/change-grammar/src/apply-overrides.ts
@@ -2795,6 +3233,16 @@ rejections:
     file: packages/v11y-check/src/format-check.ts
     phrase: known vulnerabilities found
     ground: "not the construction: 'found' is a participle in a verbless status line"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: README.md
+    phrase: honor the version ceilings
+    ground: "not the construction: 'honor' is the main verb"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: vitest.root.config.ts
+    phrase: wherever the run starts
+    ground: 'outside the rule: an adjunct clause'
   - rule: second-person
     rule-version: '1'
     file: packages/nmr/agents/guidance/rulebooks/nmr.md
@@ -2875,6 +3323,21 @@ rejections:
     file: packages/v11y-check/src/init/initCommand.ts
     phrase: Customize .config/v11y-check.config.json with your severity thresholds.
     ground: interface text (printed next steps) addressed to the CLI user, not documentation; consistent with the author's rejection of CLI-user address in nmr
+  - rule: so
+    rule-version: '1'
+    file: .github/workflows/README.md
+    phrase: The second still stands, so removal waits on downstream repos having had a release cycle to adopt that version.
+    ground: a lone so after a comma stating a direct result
+  - rule: so
+    rule-version: '1'
+    file: .github/workflows/sync-labels.yaml
+    phrase: so that the gate lives on the job and this file stays identical across repos.
+    ground: must match its package template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; the template is outside this sweep
+  - rule: so
+    rule-version: '1'
+    file: eslint.restrictions.ts
+    phrase: Matches on the operator rather than the binding's name, so `err` and `e` are caught too.
+    ground: a direct result, and the only so in its passage
   - rule: so
     rule-version: '1'
     file: packages/change-grammar/src/__tests__/compile-template.unit.test.ts
