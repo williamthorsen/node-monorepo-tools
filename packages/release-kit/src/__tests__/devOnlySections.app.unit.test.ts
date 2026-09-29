@@ -7,7 +7,7 @@ import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.t
  * Bare section names intended for all audiences (not dev-only).
  *
  * Comparison against the taxonomy's headers and the `devOnlySections` defaults is performed after
- * `stripEmojiPrefix` normalisation, so the contract this set expresses is "every section, regardless
+ * `stripEmojiPrefix` normalisation, so the contract that this set expresses is "every section, regardless
  * of any decorative emoji prefix, is classified as either dev-only or all-audience by its bare name."
  */
 const ALL_AUDIENCE_GROUPS = new Set(['Bug fixes', 'Deprecated', 'Features', 'Performance', 'Removed', 'Security']);
@@ -28,7 +28,7 @@ describe('devOnlySections drift detection', () => {
   const sectionNames = getChangelogSectionNames();
   const devOnlySectionsBare = new Set(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections.map(stripGroupDecorations));
 
-  it('every devOnlySections default names a section the taxonomy admits', () => {
+  it('every devOnlySections default names a section that the taxonomy admits', () => {
     for (const section of devOnlySectionsBare) {
       expect(sectionNames, `devOnlySections entry "${section}" is not a work-type header`).toContain(section);
     }
@@ -39,12 +39,12 @@ describe('devOnlySections drift detection', () => {
       const isClassified = devOnlySectionsBare.has(section) || ALL_AUDIENCE_GROUPS.has(section);
       expect(
         isClassified,
-        `Section "${section}" is not classified — add it to devOnlySections defaults or ALL_AUDIENCE_GROUPS`,
+        `Section "${section}" is not classified. Add it to devOnlySections defaults or ALL_AUDIENCE_GROUPS`,
       ).toBe(true);
     }
   });
 
-  it('no section appears in both devOnlySections and ALL_AUDIENCE_GROUPS', () => {
+  it('a section does not appear in both devOnlySections and ALL_AUDIENCE_GROUPS', () => {
     for (const section of devOnlySectionsBare) {
       expect(
         ALL_AUDIENCE_GROUPS.has(section),

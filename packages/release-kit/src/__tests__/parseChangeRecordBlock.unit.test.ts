@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseChangeRecordBlock, stripChangeRecordBlocks } from '../parseChangeRecordBlock.ts';
 
 describe(parseChangeRecordBlock, () => {
-  it('reads a message with no block as absent', () => {
+  it('reads a message without a block as absent', () => {
     expect(parseChangeRecordBlock('#1 feat: Add a thing\n\nBody text.')).toStrictEqual({ kind: 'absent' });
   });
 
@@ -162,7 +162,7 @@ entries:
         '`entries[0].scopes` is not a list',
       ],
       [
-        '`scopes` holds a non-string',
+        '`scopes` contains a non-string',
         'entries:\n  - type: fix\n    text: Done.\n    scopes: [a, 1]',
         '`entries[0].scopes[1]` is not a string',
       ],

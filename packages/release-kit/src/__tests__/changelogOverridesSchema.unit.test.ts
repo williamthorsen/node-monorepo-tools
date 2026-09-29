@@ -17,7 +17,7 @@ describe('changelog-overrides.json schema', () => {
     expect(schema).toMatchObject({ $schema: 'http://json-schema.org/draft-07/schema#' });
   });
 
-  it('allows a `$schema` string and no other non-override key', () => {
+  it('allows a `$schema` string and rejects every other non-override key', () => {
     expect(schema).toMatchObject({
       type: 'object',
       additionalProperties: false,

@@ -8,12 +8,12 @@ const MIGRATION_LABEL = /^Migration:[ \t]*/;
  * Extracts the instruction from a commit body's `Migration:` paragraph.
  *
  * The commit convention defines one literal `Migration:` label per body, so the first paragraph
- * opening with it wins and a second is ignored. The match is anchored and case-sensitive, so
- * `migration:` and `**Migration:**` yield nothing.
+ * opening with it is read and a second is ignored. Because the match is anchored and
+ * case-sensitive, `migration:` and `**Migration:**` yield nothing.
  *
  * Newlines inside the paragraph are preserved. The first character is capitalized, which repairs
- * an instruction that continues the label in lowercase. Returns `undefined` when no paragraph
- * opens with the label, or when the label is followed by nothing.
+ * an instruction that continues the label in lowercase. Returns `undefined` when the body does not
+ * contain a paragraph opening with the label, or when the label is followed by nothing.
  */
 export function extractMigration(body: string | undefined): string | undefined {
   if (body === undefined) {

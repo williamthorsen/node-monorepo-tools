@@ -33,7 +33,7 @@ describe(findUntaggedBaseline, () => {
     expect(findUntaggedBaseline(makeTarget({ previousTag: undefined }), config)).toMatchObject({ tag: 'api-v1.3.0' });
   });
 
-  it('finds nothing on a first release, whose version no changelog records', () => {
+  it('finds nothing on a first release, whose version is not recorded in any changelog', () => {
     tree.write('CHANGELOG.md', '## 1.2.0\n');
 
     expect(findUntaggedBaseline(makeTarget({ previousTag: undefined }), config)).toBeUndefined();
@@ -51,7 +51,7 @@ describe(findUntaggedBaseline, () => {
     expect(findUntaggedBaseline(makeTarget({ previousTag: 'old-api-v1.3.0' }), config)).toBeUndefined();
   });
 
-  it('does not read the package files when no changelog exists', () => {
+  it('does not read the package files when the tree does not contain a changelog', () => {
     const target = { ...makeTarget({ previousTag: undefined }), packageFiles: [join(tree.dir, 'missing.json')] };
 
     expect(findUntaggedBaseline(target, config)).toBeUndefined();
@@ -70,7 +70,7 @@ describe(findUntaggedBaseline, () => {
 });
 
 describe(assertTaggedBaseline, () => {
-  it('does not throw when no finding is an untagged baseline', () => {
+  it('does not throw when the findings do not include an untagged baseline', () => {
     expect(() => assertTaggedBaseline([undefined])).not.toThrow();
   });
 

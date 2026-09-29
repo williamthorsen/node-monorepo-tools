@@ -33,9 +33,9 @@ export const ROOT_PACKAGE_JSON_PATH = 'package.json';
  * Reads the root `package.json` and returns its `version` field.
  *
  * Returns `{ exists: false }` when the file is missing, `{ exists: true, version: undefined }`
- * when the file exists but has no `version` field, and `{ exists: true, version }` when both
- * are present; `mergeMonorepoConfig` decides whether the situation is an error. Throws when the
- * file cannot be read or parsed.
+ * when the file exists but does not have a `version` field, and `{ exists: true, version }`
+ * when both are present; `mergeMonorepoConfig` decides whether the situation is an error.
+ * Throws when the file cannot be read or parsed.
  */
 export function readRootPackageVersion(): { exists: boolean; version: string | undefined } {
   const absolutePath = path.resolve(process.cwd(), ROOT_PACKAGE_JSON_PATH);
@@ -71,7 +71,7 @@ export const CONFIG_FILE_PATH = '.config/release-kit.config.ts';
  *
  * `configPath` is resolved against the working directory, which the CLI sets to the repo root, and defaults to
  * `CONFIG_FILE_PATH`. The CLI resolves a `--config` value to an absolute path before passing it. An absent default
- * path returns `undefined`, because a repo that declares no config is a supported state; an absent named path
+ * path returns `undefined`, because a repo that does not declare a config is a supported state; an absent named path
  * throws, because the caller asked for that file by name. Also throws when the file exists but cannot be
  * imported, or exports neither a default nor a named `config`.
  */
@@ -85,12 +85,12 @@ export async function loadConfig(configPath?: string): Promise<unknown> {
     throw new Error(`Config file not found: ${absoluteConfigPath}`);
   }
 
-  // Node type-strips `.ts` natively across this package's engines range, so the config needs no transform step and no
-  // loader dependency. `import()` takes a URL, not a path: A bare Windows path parses as a scheme.
+  // Node type-strips `.ts` natively across this package's engines range, so the config does not need a transform
+  // step or a loader dependency. `import()` takes a URL, not a path: A bare Windows path parses as a scheme.
   const imported: unknown = await import(pathToFileURL(absoluteConfigPath).href);
 
-  // `isRecord` narrows the namespace for property access; reading an undeclared export off it yields `undefined`, so
-  // the fallback needs no membership check.
+  // `isRecord` narrows the namespace for property access. Because reading an undeclared export off it yields
+  // `undefined`, the fallback does not need a membership check.
   const resolved = isRecord(imported) ? (imported['default'] ?? imported['config']) : undefined;
   if (resolved === undefined) {
     throw new Error(
@@ -104,7 +104,7 @@ export async function loadConfig(configPath?: string): Promise<unknown> {
 /**
  * Information about the root `package.json` passed into `mergeMonorepoConfig` when a
  * `project` block is configured. `readRootPackageVersion` performs the read, so that
- * `mergeMonorepoConfig` does no I/O.
+ * `mergeMonorepoConfig` does not perform any I/O.
  */
 export interface RootPackageInfo {
   exists: boolean;
@@ -115,12 +115,12 @@ export interface RootPackageInfo {
  * Resolves a final monorepo config from discovered workspaces and an optional user config overlay.
  *
  * Merging rules:
- * - `workspaces`: match overlay entries by `dir` against discovered list; `shouldExclude: true`
+ * - `workspaces`: Match overlay entries by `dir` against discovered list; `shouldExclude: true`
  *   removes the workspace; unlisted packages keep defaults.
- * - `workTypes`: shallow merge; consumer entries override or add to defaults by key.
- * - `versionPatterns`: consumer value replaces defaults entirely.
- * - Pass-through fields (see `applyOptionalPassthroughFields`): consumer value wins.
- * - `project`: present iff `userConfig.project` is declared. Resolves `tagPrefix` to
+ * - `workTypes`: Shallow merge; consumer entries override or add to defaults by key.
+ * - `versionPatterns`: Consumer value replaces defaults entirely.
+ * - Pass-through fields (see `applyOptionalPassthroughFields`): Consumer value wins.
+ * - `project`: Present iff `userConfig.project` is declared. Resolves `tagPrefix` to
  *   `DEFAULT_PROJECT_TAG_PREFIX` and `paths` to the union of the retained workspaces' `paths`
  *   when omitted. Requires `rootPackage` to be passed and to contain a valid `version` field;
  *   throws otherwise. The resolved prefix is included in the strict-prefix collision check
@@ -133,7 +133,7 @@ export function mergeMonorepoConfig(
 ): MonorepoReleaseConfig {
   let workspaces: WorkspaceConfig[] = discoveredPaths.map((workspacePath) => deriveWorkspaceConfig(workspacePath));
 
-  // Detect duplicate tagPrefix values before filtering so exclusions cannot hide collisions.
+  // Detect duplicate tagPrefix values before filtering so that exclusions cannot hide collisions.
   assertUniqueTagPrefixes(workspaces);
 
   if (userConfig?.workspaces !== undefined) {
@@ -214,7 +214,7 @@ function applyOptionalPassthroughFields(
 /**
  * Resolves a final single-package config from an optional user config overlay.
  *
- * Rejects a configured `project` block: project-level releases are a monorepo-only feature,
+ * Rejects a configured `project` block: Project-level releases are a monorepo-only feature,
  * since the implicit "all non-excluded workspaces contribute" rule is meaningless in a
  * single-package repo.
  */
@@ -272,7 +272,7 @@ function mergeChangelogJsonConfig(partial: ReleaseKitConfig['changelogJson']): C
  *
  * An identity whose full `(name, tagPrefix)` tuple equals the current workspace's
  * `(name, tagPrefix)` is a guaranteed no-op duplicate, almost always a copy-paste mistake.
- * An entry whose `tagPrefix` matches but whose `name` differs is valid: it documents a prior
+ * An entry whose `tagPrefix` matches but whose `name` differs is valid: It documents a prior
  * rename that reused the same tag shape.
  */
 function assertLegacyIdentityDoesNotMatchCurrent(
@@ -347,7 +347,7 @@ function resolveProjectConfig(
   }
   if (rootPackage.version === undefined) {
     throw new Error(
-      `project block requires root ${ROOT_PACKAGE_JSON_PATH} to have a 'version' field; add a 'version' field to your root package.json`,
+      `project block requires root ${ROOT_PACKAGE_JSON_PATH} to have a 'version' field; add a 'version' field to the root package.json`,
     );
   }
 
@@ -415,7 +415,7 @@ function assertNoTagPrefixCollisions(
         throw new Error(
           `Tag prefix collision: '${a.prefix}' (${a.label}) and '${b.prefix}' (${b.label}). ` +
             'One prefix is identical to or a strict prefix of the other; ' +
-            'a tag under the longer prefix can then match the shorter one, whose releases would absorb it.',
+            'a tag under the longer prefix can then match the shorter one and be counted among its releases.',
         );
       }
     }

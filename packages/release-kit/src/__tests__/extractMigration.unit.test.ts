@@ -7,7 +7,7 @@ describe(extractMigration, () => {
     expect(extractMigration(undefined)).toBeUndefined();
   });
 
-  it('returns undefined when no paragraph carries the label', () => {
+  it('returns undefined when the body does not contain a labeled paragraph', () => {
     expect(extractMigration('Adds a widget.\n\nSeparately, renames the helper.')).toBeUndefined();
   });
 
@@ -17,7 +17,7 @@ describe(extractMigration, () => {
     expect(extractMigration(body)).toBe('Change any uses of `oldName` to `newName`.');
   });
 
-  it('extracts the paragraph wherever it sits in the body', () => {
+  it('extracts the paragraph wherever it appears in the body', () => {
     const body = 'Adds a widget.\n\nMigration: Quote every version number.\n\nSeparately, drops the shim.';
 
     expect(extractMigration(body)).toBe('Quote every version number.');
@@ -29,7 +29,7 @@ describe(extractMigration, () => {
     expect(extractMigration(body)).toBe('Quote every version number.');
   });
 
-  it('takes the first labeled paragraph when the body carries two', () => {
+  it('takes the first labeled paragraph when the body contains two', () => {
     const body = 'Migration: Quote every version number.\n\nMigration: Also rename the field.';
 
     expect(extractMigration(body)).toBe('Quote every version number.');

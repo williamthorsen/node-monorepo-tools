@@ -16,13 +16,13 @@ function errnoError(message: string, code: string): Error {
 }
 
 describe('RELEASE_TAGS_FILE', () => {
-  it('is the project-root-relative path the reusable release workflow reads', () => {
+  it('is the project-root-relative path read by the reusable release workflow', () => {
     expect(RELEASE_TAGS_FILE).toBe('tmp/.release-tags');
   });
 });
 
 describe('RELEASE_SUMMARY_FILE', () => {
-  it('is the project-root-relative path the commit command reads', () => {
+  it('is the project-root-relative path read by the commit command', () => {
     expect(RELEASE_SUMMARY_FILE).toBe('tmp/.release-summary');
   });
 });
@@ -44,7 +44,7 @@ describe(readReleaseTags, () => {
     expect(readReleaseTags()).toStrictEqual(['release-kit-v2.4.0', 'core-v1.0.0']);
   });
 
-  it('returns an empty array when the file holds only whitespace', () => {
+  it('returns an empty array when the file contains only whitespace', () => {
     mockReadFileSync.mockReturnValue('  \n  \n');
 
     expect(readReleaseTags()).toStrictEqual([]);
@@ -70,7 +70,7 @@ describe(readReleaseTags, () => {
     );
   });
 
-  it('if the thrown value carries no errno, reports it as unreadable rather than missing', () => {
+  it('if the thrown value does not have an errno code, reports it as unreadable rather than missing', () => {
     mockReadFileSync.mockImplementation(() => {
       throw new Error('something else went wrong');
     });

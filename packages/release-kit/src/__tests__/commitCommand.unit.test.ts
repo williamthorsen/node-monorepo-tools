@@ -164,7 +164,7 @@ describe(commitCommand, () => {
     expect(capture.stderr).toContain('Unknown option');
   });
 
-  it('rejects --config, which it reads no config to honor', () => {
+  it('rejects --config, because the command does not read any config', () => {
     expect(() => commitCommand(['--config', 'alt.config.ts'])).toThrow(ProcessExitError);
     expect(capture.stderr).toContain('Unknown option: --config');
   });

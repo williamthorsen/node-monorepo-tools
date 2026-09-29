@@ -5,11 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { bold, dim, sectionHeader } from '../format.ts';
 
-/** SGR codes that open each style. The closing code is Node's choice, so no assertion pins it. */
+/** SGR codes that open each style. The closing code is Node's choice, so these tests do not assert on it. */
 const BOLD_OPEN = '\u{1B}[1m';
 const DIM_OPEN = '\u{1B}[2m';
 
-/** Stream states for which no escapes are emitted. */
+/** Stream states for which escapes are not emitted. */
 const PLAIN_STATES = [
   { name: 'returns the text unstyled for a pipe', createStream: createPipe, env: {} },
   {
@@ -97,7 +97,7 @@ function createColorTerminal(): NodeJS.WritableStream {
   return Object.assign(stream, { isTTY: true, getColorDepth: () => WriteStream.prototype.getColorDepth.call(stream) });
 }
 
-/** Creates a stream that renders no color, standing in for a pipe or a redirect to a file. */
+/** Creates a stream that does not render color, standing in for a pipe or a redirect to a file. */
 function createPipe(): NodeJS.WritableStream {
   return new PassThrough();
 }

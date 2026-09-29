@@ -120,8 +120,8 @@ describe(buildChangelogEntries, () => {
 
   it('emits sections in canonical tier-then-row order regardless of commit encounter order', () => {
     // A window lists its commits oldest first, so `transformReleases` would otherwise insert
-    // sections in first-seen order. `changelog.json` sections follow canonical order, which an
-    // out-of-order window checks directly.
+    // sections in first-seen order. `changelog.json` sections follow canonical order, which this
+    // test checks directly with an out-of-order window.
     mockEnumerateReleaseWindows.mockReturnValueOnce([
       makeWindow('v3.0.0', [
         '#1 docs: Update guide',
@@ -138,8 +138,8 @@ describe(buildChangelogEntries, () => {
     expect(titles).toStrictEqual(['🎉 Features', '🐛 Bug fixes', '🏗️ Internal features', '👷 CI', '📚 Documentation']);
   });
 
-  it('drops every commit the classifier rejects, and the release when none survives', () => {
-    // A window holds the whole range, so the classifier is the only filter.
+  it('drops every commit rejected by the classifier, and the release when none survives', () => {
+    // A window contains the whole range, so the classifier is the only filter.
     mockEnumerateReleaseWindows.mockReturnValueOnce([
       makeWindow('v1.1.0', ['release: v1.1.0', '#4 fmt: Run prettier'], 1_710_000_000),
       makeWindow('v1.0.0', [
@@ -188,7 +188,7 @@ describe(buildChangelogEntries, () => {
     expect(entries[0]?.version).toBe('1.0.0');
   });
 
-  it('reads every path when no paths are given', () => {
+  it('reads every path when the options omit `paths`', () => {
     mockEnumerateReleaseWindows.mockReturnValueOnce([]);
 
     buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
@@ -218,7 +218,7 @@ describe(buildChangelogEntries, () => {
   });
 
   describe('commit hash capture', () => {
-    it("carries each commit's full hash into `ChangelogItem.hash`", () => {
+    it("copies each commit's full hash into `ChangelogItem.hash`", () => {
       const hash = '8296231173de8be01977dabbe9c1c8e8e1234abc';
       mockEnumerateReleaseWindows.mockReturnValueOnce([
         { version: 'v1.0.0', timestamp: 1_700_000_000, commits: [makeCommit('#1 feat: Add widget', hash)] },
@@ -259,7 +259,7 @@ describe(buildChangelogEntries, () => {
       expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
     });
 
-    it('does NOT set breaking when only the body footer carries `BREAKING CHANGE:` (prefix `!` is required)', () => {
+    it('does NOT set breaking when only the body footer contains `BREAKING CHANGE:` (prefix `!` is required)', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([
         makeWindow('v1.0.0', ['#1 feat: Add widget\n\nBREAKING CHANGE: removes /v1 path']),
       ]);
@@ -293,7 +293,7 @@ describe(buildChangelogEntries, () => {
       expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
     });
 
-    it('admits no `!` commit whose type is not a configured work type', () => {
+    it('does not admit a `!` commit whose type is not a configured work type', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('v1.0.0', ['#1 chore!: Rework build'])]);
       const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
       expect(entries).toStrictEqual([]);
@@ -321,13 +321,13 @@ describe(buildChangelogEntries, () => {
       return entries[0]?.sections[0]?.items ?? [];
     }
 
-    it('omits body field when commit has no body text', () => {
+    it('omits body field when the commit does not have any body text', () => {
       const items = runAndReadItems('#1 feat: Add widget');
       expect(items[0]).toStrictEqual({ description: 'Add widget', hash: fakeHash(0) });
       expect(items[0]).not.toHaveProperty('body');
     });
 
-    it('omits body field when commit message has no newline at all', () => {
+    it('omits body field when the commit message does not contain any newline', () => {
       const items = runAndReadItems('#1 feat: No newline at all');
       expect(items[0]).not.toHaveProperty('body');
     });
@@ -394,7 +394,7 @@ describe(buildChangelogEntries, () => {
       expect(items[0]?.body).toBe('Body paragraph one mentions Closes #10 in passing.\n\nBody paragraph two.');
     });
 
-    it('returns no body when message has only trailer lines', () => {
+    it('omits the body when the message has only trailer lines', () => {
       const message = '#1 feat: Add widget\n\nSigned-off-by: Author <a@example.com>';
       const items = runAndReadItems(message);
       expect(items[0]).not.toHaveProperty('body');
@@ -439,7 +439,7 @@ describe(buildChangelogEntries, () => {
       expect(items[0]?.body).toBe('Change: agents|feat: Adds the parser\n\nBody paragraph two.');
     });
 
-    it('returns no body when message has only Change trailers', () => {
+    it('omits the body when the message has only Change trailers', () => {
       const message = '#1 feat: Add widget\n\nChange: agents|feat: Adds the parser';
       const items = runAndReadItems(message);
       expect(items[0]).not.toHaveProperty('body');
@@ -488,12 +488,12 @@ describe(buildChangelogEntries, () => {
       expect(items[0]?.body).toBe('Migration: Import from the new subpath.');
     });
 
-    it('omits migration when the body carries no labeled paragraph', () => {
+    it('omits migration when the body does not contain a labeled paragraph', () => {
       const items = runAndReadItems('#1 feat: Add widget\n\nIntroduces a widget.');
       expect(items[0]).not.toHaveProperty('migration');
     });
 
-    it('omits migration when the commit has no body', () => {
+    it('omits migration when the commit does not have a body', () => {
       const items = runAndReadItems('#1 feat: Add widget');
       expect(items[0]).not.toHaveProperty('migration');
     });
@@ -559,13 +559,13 @@ entries:
       });
     });
 
-    it('omits the suffix when the block records no `pr_number`', () => {
+    it('omits the suffix when the block does not record a `pr_number`', () => {
       const { entries } = build([mergeMessage('entries:\n  - type: fix\n    text: Corrects the guard.')]);
 
       expect(entries[0]?.sections[0]?.items[0]?.description).toBe('Corrects the guard.');
     });
 
-    it('carries no body, even when the commit message has one', () => {
+    it('omits the body, even when the commit message has one', () => {
       const { entries } = build([mergeMessage('entries:\n  - type: fix\n    text: Corrects the guard.')]);
 
       expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('body');
@@ -598,7 +598,7 @@ entries:
       expect(diagnostics.undeclaredEntryTypes).toStrictEqual([]);
     });
 
-    it('reports an undeclared entry type and yields no item for it', () => {
+    it('reports an undeclared entry type and does not yield an item for it', () => {
       const message = mergeMessage('entries:\n  - type: chore\n    text: Tidies.\n  - type: fix\n    text: Fixes.');
 
       const { entries, diagnostics } = build([message]);
@@ -633,13 +633,13 @@ entries:
       ]);
     });
 
-    it('reports no violation for a non-breaking `drop` entry', () => {
+    it('does not report a violation for a non-breaking `drop` entry', () => {
       const { diagnostics } = build([mergeMessage('entries:\n  - type: drop\n    text: Removes the flag.')]);
 
       expect(diagnostics.policyViolations).toStrictEqual([]);
     });
 
-    it('treats a type with no policy entry as optional', () => {
+    it('treats a type without a policy entry as optional', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([
         makeWindow('v1.1.0', [mergeMessage('entries:\n  - type: drop\n    breaking: true\n    text: Removes.')]),
       ]);
@@ -689,7 +689,7 @@ entries:
     it.each([
       ['release:', 'release: v1.1.0'],
       ['Merge', "Merge branch 'main'"],
-    ])('skips a `%s` commit that carries a block, reading nothing from it', (_label, subject) => {
+    ])('skips a `%s` commit that contains a block, reading nothing from it', (_label, subject) => {
       const { entries, diagnostics } = build([`${subject}\n\n${block('entries: 3')}`]);
 
       expect(entries).toStrictEqual([]);
@@ -798,7 +798,7 @@ describe(readReleaseHistory, () => {
       expect(readReleaseHistory(makeConfig(), OPTIONS).previousTag).toBe('v1.1.0');
     });
 
-    it('has no previous tag when no tag matches', () => {
+    it('leaves the previous tag undefined when the enumerator does not find a matching tag', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('unreleased', ['#1 feat: First'])]);
 
       expect(readReleaseHistory(makeConfig(), OPTIONS).previousTag).toBeUndefined();
@@ -817,7 +817,7 @@ describe(readReleaseHistory, () => {
       expect(unreleased.parsedCommitCount).toBe(2);
     });
 
-    it('lists, newest first, the commits whose titles have no ticket prefix or no resolvable type', () => {
+    it('lists, newest first, the commits whose titles lack a ticket prefix or a resolvable type', () => {
       const unreleased = readUnreleased(['Update readme', '#1 chore: Tidy', '#2 feat: Add', 'feat: Unticketed']);
 
       expect(unreleased.unparseableCommits?.map((commit) => commit.subject)).toStrictEqual([
@@ -827,7 +827,7 @@ describe(readReleaseHistory, () => {
       ]);
     });
 
-    it('lists no commit that an exclusion or a diagnostic accounts for', () => {
+    it('does not list a commit for which an exclusion or a diagnostic accounts', () => {
       const unreleased = readUnreleased([
         'release: v1.1.0',
         "Merge branch 'main'",
@@ -895,7 +895,7 @@ entries:
       expect(readRouted([message], 'release-kit').bump).toBe('major');
     });
 
-    it('counts a block commit whose entries all route elsewhere as neither parsed nor unparseable', () => {
+    it('counts a block commit whose entries are all routed to other workspaces as neither parsed nor unparseable', () => {
       const unreleased = readRouted(
         [mergeMessage('entries:\n  - type: feat\n    scopes: [nmr]\n    text: A.')],
         'arrays',
@@ -906,7 +906,7 @@ entries:
       expect(unreleased.unparseableCommits).toBeUndefined();
     });
 
-    it('keeps the item of a commit with no block', () => {
+    it('keeps the item of a commit without a block', () => {
       expect(readRouted(['#1 release-kit|feat: Add'], 'nmr').bump).toBe('minor');
     });
 
@@ -979,7 +979,7 @@ describe(toChangelogEntries, () => {
     expect(toChangelogEntries(history, 'v1.0.1').map((entry) => entry.version)).toStrictEqual(['1.0.1', '1.0.0']);
   });
 
-  it('omits the unreleased window when it yields no item', () => {
+  it('omits the unreleased window when it does not yield any item', () => {
     mockEnumerateReleaseWindows.mockReturnValueOnce([
       makeWindow('unreleased', ['#2 fmt: Reformat']),
       makeWindow('v1.0.0', ['#1 feat: Old']),
@@ -997,7 +997,7 @@ describe(toReleaseEntries, () => {
 
   it.each([
     ['no commits', []],
-    ['commits that yield no item', ['#2 fmt: Reformat', 'Update readme']],
+    ['commits that do not yield any item', ['#2 fmt: Reformat', 'Update readme']],
   ])('puts the synthetic entry ahead of the released entries for a window with %s', (_label, messages) => {
     mockEnumerateReleaseWindows.mockReturnValueOnce([
       makeWindow('unreleased', messages),
@@ -1028,7 +1028,7 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
     mockWriteFileSync.mockReset();
   });
 
-  it('renders public release notes with priority-ordered sections, bodies under bullets, and no dev-only or skipped sections', () => {
+  it('renders public release notes with priority-ordered sections, bodies under bullets, and without dev-only or skipped sections', () => {
     mockEnumerateReleaseWindows.mockReturnValueOnce([
       makeWindow('v0.17.0', [
         '#2 feat: Add widget API\n\nIntroduces a widget API for consumers.',
@@ -1045,7 +1045,7 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
     const entry = entries[0];
     assert(entry !== undefined);
 
-    // `fmt` is excluded from the changelog; confirm no Formatting section ever reaches the JSON.
+    // `fmt` is excluded from the changelog; confirm that the JSON never contains a Formatting section.
     const sectionTitles = entry.sections.map((section) => section.title);
     expect(sectionTitles).not.toContain('Formatting');
 
@@ -1058,7 +1058,7 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
     });
 
     // Public release notes: Features before Bug fixes (canonical Public-tier order), no Refactoring, no Formatting.
-    // Emoji-tolerant matching: the contract is "a Features section appears before a Bug fixes section",
+    // Emoji-tolerant matching: The contract is "a Features section appears before a Bug fixes section",
     // independent of the specific decorative emoji prefix in the header.
     const bugFixesIndex = rendered.search(/### (?:\S+ )?Bug fixes\b/);
     const featuresIndex = rendered.search(/### (?:\S+ )?Features\b/);
@@ -1085,7 +1085,7 @@ function makeCommit(message: string, hash: string): RawCommit {
   return { hash, subject, body: bodyStart === -1 ? '' : message.slice(bodyStart + 2), message };
 }
 
-/** Builds a release window whose commits carry `fakeHash` of their position in it. */
+/** Builds a release window in which each commit's hash is `fakeHash` of its position. */
 function makeWindow(version: string, messages: readonly string[], timestamp = 1_700_000_000): ReleaseWindow {
   return { version, timestamp, commits: messages.map((message, index) => makeCommit(message, fakeHash(index))) };
 }
@@ -1103,7 +1103,7 @@ function mergeMessage(payload: string, subject = MERGE_SUBJECT): string {
   return [subject, '', 'Lede paragraph.', '', block(payload)].join('\n');
 }
 
-/** Reads a history whose only window is an unreleased one holding `messages`, oldest first. */
+/** Reads a history whose only window is an unreleased one containing `messages`, oldest first. */
 function readUnreleased(messages: readonly string[]): ReturnType<typeof readReleaseHistory>['unreleased'] {
   mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('unreleased', messages)]);
   return readReleaseHistory(
@@ -1117,7 +1117,7 @@ function describeItems(sections: readonly ChangelogSection[]): string[] {
   return sections.flatMap((section) => section.items.map((item) => item.description));
 }
 
-/** Reads, for `workspaceDir`, a history whose only window is an unreleased one holding `messages`, oldest first. */
+/** Reads, for `workspaceDir`, a history whose only window is an unreleased one containing `messages`, oldest first. */
 function readRouted(
   messages: readonly string[],
   workspaceDir: string,

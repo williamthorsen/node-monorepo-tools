@@ -158,7 +158,7 @@ describe(createTags, () => {
 
     createTags({ dryRun: false, noGitChecks: true, style: 'rich' });
 
-    // The dirty check runs `git diff`, so no `diff` call means that the check was skipped.
+    // The dirty check runs `git diff`, so if the mock did not receive any `diff` call, the check was skipped.
     const diffCalls = mockExecFileSync.mock.calls.filter(
       (call: unknown[]) => Array.isArray(call[1]) && call[1][0] === 'diff',
     );

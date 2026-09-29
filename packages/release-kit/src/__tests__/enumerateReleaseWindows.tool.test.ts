@@ -37,7 +37,7 @@ function seedMergedBranch(repo: GitRepoFixture): void {
 }
 
 describe(enumerateReleaseWindows, () => {
-  it('returns only the unreleased window for a repository with no commits', () => {
+  it('returns only the unreleased window for a repository without any commits', () => {
     scaffoldGitRepo();
 
     const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
@@ -64,11 +64,11 @@ describe(enumerateReleaseWindows, () => {
 
     const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.2.0' });
 
-    // `fix: third` carries the `pkg-v1.1.0` tag, so it closes that window instead of opening the next.
+    // `fix: third` is tagged `pkg-v1.1.0`, so it closes that window instead of opening the next.
     expect(windows[1]?.commits.at(-1)?.subject).toBe('fix: third');
   });
 
-  it('leaves the unreleased window empty when HEAD sits on a tag', () => {
+  it('leaves the unreleased window empty when a tag points at HEAD', () => {
     const repo = scaffoldGitRepo();
     repo.commit('feat: first', { 'src/first.ts': 'export const first = 1;\n' });
     repo.tag('pkg-v1.0.0');
@@ -169,7 +169,7 @@ describe(enumerateReleaseWindows, () => {
     expect(summarize(windows)).toStrictEqual([{ version: 'pkg-v1.0.0', subjects: ['feat: in scope'] }]);
   });
 
-  it('carries the hash, subject, body, and full message of each commit', () => {
+  it('includes the hash, subject, body, and full message of each commit', () => {
     const repo = scaffoldGitRepo();
     const hash = repo.commit('feat: add a thing\n\nExplains the thing.\n\nChange: pkg|feat: Adds a thing.', {
       'src/thing.ts': 'export const thing = 1;\n',
@@ -187,7 +187,7 @@ describe(enumerateReleaseWindows, () => {
     ]);
   });
 
-  it('reports an empty body for a commit that carries none', () => {
+  it('reports an empty body for a commit without a body', () => {
     const repo = scaffoldGitRepo();
     repo.commit('feat: subject only', { 'src/thing.ts': 'export const thing = 1;\n' });
 

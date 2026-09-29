@@ -6,13 +6,13 @@ A minimal config file is in the [README](../README.md#configuration).
 
 ## Config file location
 
-release-kit reads `.config/release-kit.config.ts`, resolved against the repo root, which release-kit locates from the directory that it was invoked from. A run reads a different file when the subcommand is given `--config <path>`, which is resolved against the invocation directory rather than the root, so that a relative path means what it means in the caller's shell.
+release-kit reads `.config/release-kit.config.ts`, resolved against the repo root, which release-kit locates from the directory from which it was invoked. A run reads a different file when the subcommand is given `--config <path>`, which is resolved against the invocation directory rather than the root, so that a relative path means what it means in the caller's shell.
 
-The flag is accepted by every subcommand that reads a config: `prepare`, `push`, `publish`, `create-github-release`, `show-tag-prefixes`, `overrides validate`, `sync-labels init`, and `sync-labels generate`. `commit`, `tag`, and `sync-labels sync` read no config and reject it.
+The flag is accepted by every subcommand that reads a config: `prepare`, `push`, `publish`, `create-github-release`, `show-tag-prefixes`, `overrides validate`, `sync-labels init`, and `sync-labels generate`. `commit`, `tag`, and `sync-labels sync` don't read a config, and they reject the flag.
 
-The two paths differ in what an absent file means. An absent default path means the repo declares no config, and the run proceeds on discovered defaults. An absent `--config` path fails the command with an error naming the resolved path, because a caller who names a file expects that file to be read. A file that exists and fails validation is an error on both paths alike, and so is one that exists and fails to load.
+The two paths differ in what an absent file means. An absent default path means that the repo doesn't declare a config, and the run proceeds on discovered defaults. An absent `--config` path fails the command with an error naming the resolved path, because a caller who names a file expects that file to be read. A file that exists and fails validation is an error on both paths alike, and so is one that exists and fails to load.
 
-`--config` names a file to read, never a write target. `release-kit init --with-config` scaffolds to `.config/release-kit.config.ts` and takes no `--config`, and `sync-labels init` writes its seeded `repoLabels` block to that same path.
+`--config` names a file to read, never a write target. `release-kit init --with-config` scaffolds to `.config/release-kit.config.ts` and doesn't take `--config`, and `sync-labels init` writes its seeded `repoLabels` block to that same path.
 
 ## `ReleaseKitConfig` reference
 
@@ -49,7 +49,7 @@ interface LegacyIdentity {
 
 `prepare` never versions or tags an excluded workspace. A tag of one found on HEAD anyway, made by hand or before the exclusion, is skipped with a warning by `push`, `publish`, and `create-github-release`.
 
-`legacyIdentities` captures prior identities of a workspace as complete `(name, tagPrefix)` snapshots. The union of the current `tagPrefix` and each identity's `tagPrefix` is consulted when release-kit searches for the most recent baseline tag and when generating changelogs. Use it when a workspace's historical tags were published under a different npm name, a different tag prefix, or both — typically across a package rename. Both fields are required per identity: each entry must be a complete historical snapshot that stays valid regardless of subsequent renames. Run `release-kit show-tag-prefixes` to detect undeclared candidates and produce a paste-ready config snippet. Listing the current identity (full `(name, tagPrefix)` match) is rejected as a no-op duplicate; an identity whose `tagPrefix` matches the current but whose `name` differs is valid and documents a prior rename that reused the same tag shape. If the workspace no longer exists in this repo at all (the package was extracted or removed), use [`retiredPackages`](#retiredpackage) instead.
+`legacyIdentities` captures prior identities of a workspace as complete `(name, tagPrefix)` snapshots. The union of the current `tagPrefix` and each identity's `tagPrefix` is consulted when release-kit searches for the most recent baseline tag and when generating changelogs. Use it when a workspace's historical tags were published under a different npm name, a different tag prefix, or both, typically across a package rename. Both fields are required per identity: Each entry must be a complete historical snapshot that stays valid regardless of subsequent renames. Run `release-kit show-tag-prefixes` to detect undeclared candidates and produce a paste-ready config snippet. Listing the current identity (full `(name, tagPrefix)` match) is rejected as a no-op duplicate; an identity whose `tagPrefix` matches the current but whose `name` differs is valid and documents a prior rename that reused the same tag shape. If the workspace no longer exists in this repo at all (the package was extracted or removed), use [`retiredPackages`](#retiredpackage) instead.
 
 ## `RetiredPackage`
 
@@ -61,9 +61,9 @@ interface RetiredPackage {
 }
 ```
 
-`retiredPackages` is the repo-level complement to `legacyIdentities`. Use `legacyIdentities` when the workspace still exists in this repo under a new identity; use `retiredPackages` when no workspace for this package exists in this repo anymore — the package was extracted to another repo or removed outright. Retired entries are inert: release-kit never consults them for baseline lookup or changelog attribution. Their declared `tagPrefix` values are recognized as historical, so `show-tag-prefixes` stops flagging them under "Undeclared tag prefixes."
+`retiredPackages` is the repo-level complement to `legacyIdentities`. Use `legacyIdentities` when the workspace still exists in this repo under a new identity; use `retiredPackages` when this repo no longer contains a workspace for this package, because the package was extracted to another repo or removed outright. Retired entries are inert: release-kit never consults them for baseline lookup or changelog attribution. Their declared `tagPrefix` values are recognized as historical, so `show-tag-prefixes` stops flagging them under "Undeclared tag prefixes."
 
-Worked example — `preflight` was extracted from this monorepo and continues as the standalone `readyup` project. Its tags stay in this repo as historical anchors:
+Worked example: `preflight` was extracted from this monorepo and continues as the standalone `readyup` project. Its tags stay in this repo as historical anchors:
 
 ```typescript
 import { defineConfig } from '@williamthorsen/release-kit/config';
@@ -78,7 +78,7 @@ Validation rules:
 - `name` and `tagPrefix` are required per entry and must be non-empty strings.
 - `successor` is optional; if present, it must be a non-empty string.
 - Full-tuple `(name, tagPrefix)` duplicates within `retiredPackages` are rejected.
-- Two entries sharing the same `tagPrefix` but different `name`s are accepted — this documents a package renamed within the repo before being retired.
+- Two entries sharing the same `tagPrefix` but different `name`s are accepted: Such a pair documents a package renamed within the repo before being retired.
 
 `show-tag-prefixes` currently does not render a dedicated "Retired packages" section (deferred). Declaring a retired entry is verifiable by confirming that its `tagPrefix` stops appearing under "Undeclared tag prefixes" in the `show-tag-prefixes` output.
 
@@ -90,17 +90,17 @@ Tag prefixes from distinct owners must not be identical or be a strict prefix of
 - A `retiredPackages[]` entry (one owner per entry).
 - The `project` block, when configured.
 
-release-kit matches a tag to a prefix when the tag name starts with the prefix and continues with a digit, so a strict-prefix overlap between distinct owners can match the wrong owner's tags. For example, a project prefix of `v` collides with a workspace prefix of `v11y-check-v`, since `v11y-check-v1.0.0` starts with `v` followed by a digit. The rule rejects every strict-prefix overlap, including one such as `v` and `vue-helpers-v` that no tag of the longer prefix can reach.
+Because release-kit matches a tag to a prefix when the tag name starts with the prefix and continues with a digit, a strict-prefix overlap between distinct owners can match the wrong owner's tags. For example, a project prefix of `v` collides with a workspace prefix of `v11y-check-v`, since `v11y-check-v1.0.0` starts with `v` followed by a digit. The rule rejects every strict-prefix overlap, including one such as `v` and `vue-helpers-v`, whose shorter prefix can't match any tag of the longer one.
 
 The rule is enforced at config load; the resulting error identifies both colliding declarations.
 
 ## `release-kit show-tag-prefixes`
 
-Print a per-workspace table of derived tag prefixes, tag counts, and declared legacy prefixes. Also surfaces any release-shaped tag prefix in the repo that is neither a derived prefix nor declared via `legacyIdentities`, along with a copy-pasteable `workspaces: [...]` config snippet. The snippet uses a `TODO-fill-in-legacy-npm-name` placeholder for each identity's `name`; replace it with the package's prior npm name before pasting.
+Prints a per-workspace table of derived tag prefixes, tag counts, and declared legacy prefixes. Also reports any release-shaped tag prefix in the repo that is neither a derived prefix nor declared via `legacyIdentities`, along with a copy-pasteable `workspaces: [...]` config snippet. The snippet uses a `TODO-fill-in-legacy-npm-name` placeholder for each identity's `name`; replace it with the package's prior npm name before pasting.
 
-Exits `0` when every workspace derives a prefix and there are no cross-workspace collisions; exits `1` on any derivation failure or collision. Undeclared candidates do not affect the exit code — they surface as a warning via the `legacy tag prefixes are declared` readyup check.
+Exits `0` when every workspace derives a prefix and the workspaces' prefixes don't collide; exits `1` on any derivation failure or collision. Undeclared candidates do not affect the exit code; the `legacy tag prefixes are declared` readyup check reports them as a warning.
 
-A config file that exists and either fails to load or fails schema validation reports the failure on stderr and exits `1`, printing no preview, because a config that cannot be read leaves the declared-versus-undeclared verdict wrong in the one dimension the command exists to report on. That holds on the default path and under `--config`, and in single-package mode as well as monorepo mode. An absent default config is a supported state and still previews against derived defaults.
+When a config file exists and either fails to load or fails schema validation, the command reports the failure on stderr and exits `1` without printing a preview, because a config that cannot be read leaves the declared-versus-undeclared verdict wrong in the one dimension on which the command exists to report. That holds on the default path and under `--config`, and in single-package mode as well as monorepo mode. An absent default config is a supported state and still previews against derived defaults.
 
 In single-package mode, prints a single row with `workspacePath = .` and `derivedPrefix = v`; legacy entries and undeclared-candidate scanning are not applicable.
 
@@ -135,6 +135,6 @@ The variable outranks detection. Under `auto`, release-kit defers to detection, 
 
 1. `CI` is set to anything other than an empty string or `false`.
 2. The stream is not a terminal, as when its output is piped or redirected.
-3. `TERM` is `linux`, the Linux virtual console, which draws no emoji.
+3. `TERM` is `linux`, the Linux virtual console, which doesn't draw emoji.
 
-The style governs emoji alone. Changelog section emoji are file content rather than terminal output, and they are unaffected.
+The style affects only emoji. Changelog section emoji are file content rather than terminal output, and they are unaffected.

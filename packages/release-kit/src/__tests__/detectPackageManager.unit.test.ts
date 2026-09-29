@@ -97,7 +97,7 @@ describe(detectPackageManager, () => {
     expect(detectPackageManager()).toBe('yarn');
   });
 
-  it('defaults to npm when no signal is found', () => {
+  it("defaults to npm when detection doesn't find any signal", () => {
     mockReadFileSync.mockReturnValue('{}');
     mockExistsSync.mockReturnValue(false);
 

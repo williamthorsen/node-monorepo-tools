@@ -14,7 +14,7 @@ export interface VersionedMarkdownSection {
 /** The `##` sections of a `CHANGELOG.md`, split by whether their heading names a version. */
 export interface ChangelogMarkdownSections {
   versioned: VersionedMarkdownSection[];
-  /** Headings of the `##` sections that name no version, as written. */
+  /** Headings of the `##` sections that do not name a version, as written. */
   unversionedHeadings: string[];
 }
 
@@ -45,7 +45,7 @@ export function planPreservedSections(
 
 /**
  * Reads the `##` sections of the `CHANGELOG.md` at `filePath`, excluding the header above the first section and the
- * release-kit footer comment. A missing file has no sections.
+ * release-kit footer comment. For a missing file, returns empty section lists.
  */
 export function readChangelogSections(filePath: string): ChangelogMarkdownSections {
   if (!existsSync(filePath)) {

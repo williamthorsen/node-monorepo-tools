@@ -32,7 +32,7 @@ export function formatLabelsYaml(
     headerLines.push(`# ${name} preset hash: ${hash}`);
   }
 
-  // Declare a description for every label, empty where none is configured.
+  // Declare a description for every label, empty if the config does not set one.
   // `github-label-sync` reads an omitted description as "leave the label's current one alone" and an empty one as
   // "clear it", so omitting the key would leave a description on GitHub after the config stops declaring it.
   const declared = labels.map((label) => ({ ...label, description: label.description ?? '' }));
@@ -46,7 +46,7 @@ export function formatLabelsYaml(
  * Loads the config file and returns its `repoLabels` block.
  *
  * Reports an actionable error and returns `undefined` when the config file is missing,
- * fails to load or validate, or has no `repoLabels` block. Every message names the file
+ * fails to load or validate, or lacks a `repoLabels` block. Every message names the file
  * that this run read, so that `--config` never points the reader at the default path.
  */
 export async function loadRepoLabelsConfig(
@@ -56,7 +56,7 @@ export async function loadRepoLabelsConfig(
   const result = await loadValidatedConfig(configPath);
 
   if (result.status === 'missing') {
-    reportError(`No config file found at ${result.configFilePath}. Run \`release-kit sync-labels init\` first.`);
+    reportError(`Config file not found at ${result.configFilePath}. Run \`release-kit sync-labels init\` first.`);
     return undefined;
   }
   if (result.status === 'invalid') {
@@ -66,7 +66,7 @@ export async function loadRepoLabelsConfig(
 
   if (result.config.repoLabels === undefined) {
     reportError(
-      `No \`repoLabels\` block found in ${result.configFilePath}. Run \`release-kit sync-labels init\` to seed one.`,
+      `The \`repoLabels\` block is missing from ${result.configFilePath}. Run \`release-kit sync-labels init\` to seed one.`,
     );
     return undefined;
   }
@@ -76,7 +76,7 @@ export async function loadRepoLabelsConfig(
 
 /** Options for the `sync-labels generate` subcommand. */
 interface GenerateOptions {
-  /** Compare the regenerated content against the committed file instead of writing. */
+  /** Compares the regenerated content against the committed file instead of writing. */
   check?: boolean;
   /** Config file to read, relative to the working directory. Defaults to `CONFIG_FILE_PATH`. */
   configPath?: string;

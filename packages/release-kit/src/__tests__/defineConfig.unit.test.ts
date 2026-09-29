@@ -11,15 +11,15 @@ const ENTRY_BASENAME = 'defineConfig';
 const packageRoot = path.resolve(import.meta.dirname, '../..');
 
 describe(defineConfig, () => {
-  it('returns the config it is given', () => {
+  it('returns the config passed to it', () => {
     const config: ReleaseKitConfig = { formatCommand: 'npx prettier --write' };
 
     expect(defineConfig(config)).toBe(config);
   });
 
-  it('rejects a property the config schema does not declare', () => {
+  it('rejects a property not declared by the config schema', () => {
     const config = defineConfig({
-      // `releaseKitConfigSchema` is strict, so the inferred type carries no index signature and excess-property
+      // `releaseKitConfigSchema` is strict, so the inferred type doesn't have an index signature and excess-property
       // checking fires on this literal.
       // @ts-expect-error -- unknown config property
       unknownOption: true,
@@ -28,7 +28,7 @@ describe(defineConfig, () => {
     expect(config).toStrictEqual({ unknownOption: true });
   });
 
-  it('is typed by the config types the entry re-exports', () => {
+  it('is typed by the config types that the entry re-exports', () => {
     const labels: Record<string, LabelSpec | null> = { bug: { color: 'b60205' } };
     const repoLabels: RepoLabelsConfig = { extends: ['common'], labels };
     const config: ReleaseKitConfig = defineConfig({ repoLabels });

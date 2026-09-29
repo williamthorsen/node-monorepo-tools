@@ -10,7 +10,7 @@ export interface DependencyGraph {
   packageNameToDir: Map<string, string>;
   /** Maps a workspace `dir` to its package name (inverse of `packageNameToDir`). */
   dirToPackageName: Map<string, string>;
-  /** Maps a workspace `dir` to its current version; absent when its `package.json` has no string `version`. */
+  /** Maps a workspace `dir` to its current version; absent when its `package.json` doesn't have a string `version`. */
   dirToVersion: Map<string, string>;
   /** Maps a package name to the workspaces that depend on it. */
   dependentsOf: Map<string, WorkspaceConfig[]>;

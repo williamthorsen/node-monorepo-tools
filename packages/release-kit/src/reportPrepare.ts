@@ -33,11 +33,11 @@ export interface ReportPrepareOptions {
 /**
  * Formats a release plan into styled terminal output, without writing it.
  *
- * Single-workspace mode (no `name` field) renders flat output; multi-workspace mode
+ * Single-workspace mode (without a `name` field) renders flat output; multi-workspace mode
  * renders section headers per workspace, an optional project section, and a tag summary
  * at the end.
  *
- * Whether the plan was applied is a property of the render, not of the plan: the same plan
+ * Whether the plan was applied is a property of the render, not of the plan: The same plan
  * produces the dry-run report and the applied report.
  */
 export function reportPrepare(plan: PrepareResult, options: ReportPrepareOptions): string {
@@ -154,15 +154,17 @@ function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptio
       lines.push(`   ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(tag))}`);
     }
   } else {
-    lines.push(`\n${formatStatusLine(style, 'skipped', 'No workspaces had release-worthy changes.')}`);
+    lines.push(
+      `\n${formatStatusLine(style, 'skipped', 'The run did not find release-worthy changes in any workspace.')}`,
+    );
   }
 
   return lines.join('\n');
 }
 
 /**
- * Renders the project release section in the shape of a workspace section. A project release has no propagation and
- * no `--set-version`, so only its bump override and release type label the bump.
+ * Renders the project release section in the shape of a workspace section. A project release is neither propagated nor
+ * set by `--set-version`, so only its bump override and release type label the bump.
  */
 function formatProjectSection(
   lines: string[],
@@ -186,7 +188,7 @@ function formatProjectSection(
 
   const { releaseType, currentVersion, newVersion, tag } = project;
 
-  // Suppress "Parsed 0 typed commits", which says nothing about a forced release with no
+  // Suppress "Parsed 0 typed commits", which says nothing about a forced release without a
   // parsed commit.
   if (project.parsedCommitCount > 0) {
     lines.push(dim(`  Parsed ${project.parsedCommitCount} typed commits`));
@@ -269,7 +271,7 @@ function formatCommitSummary(
     const depNames = propagatedFrom.map((p) => p.packageName).join(', ');
     lines.push(dim(`  Bumped via dependency: ${depNames}`));
   } else if (workspace.parsedCommitCount !== undefined && workspace.parsedCommitCount > 0) {
-    // Suppress "Parsed 0 typed commits", which says nothing about a forced release with no
+    // Suppress "Parsed 0 typed commits", which says nothing about a forced release without a
     // parsed commit.
     lines.push(dim(`  Parsed ${workspace.parsedCommitCount} typed commits`));
   }
@@ -322,7 +324,7 @@ function formatBumpFiles(lines: string[], workspace: ReleasedWorkspaceResult, dr
 
 /**
  * Appends a line per generated changelog file, each followed by the versions kept from its existing sections and a
- * warning naming the sections dropped for having no version.
+ * warning naming the sections dropped for lacking a version.
  */
 function formatChangelogFiles(
   lines: string[],
@@ -346,7 +348,7 @@ function formatChangelogFiles(
     }
     const dropped = preservation.droppedUnversionedHeadings;
     if (dropped.length > 0) {
-      const message = `Dropped ${dropped.length} section${dropped.length === 1 ? '' : 's'} with no version: ${dropped.join(', ')}`;
+      const message = `Dropped ${dropped.length} section${dropped.length === 1 ? '' : 's'} without a version: ${dropped.join(', ')}`;
       lines.push(`${indent}    ${formatStatusLine(style, 'warning', message)}`);
     }
   }
@@ -423,13 +425,13 @@ function formatPolicyViolations(
     const truncatedSubject = truncateSubject(subject);
     const location =
       violation.surface === 'entry' ? `entry ${violation.entryPosition ?? '?'}` : `${violation.surface} surface`;
-    lines.push(`${indent}    · ${shortHash} '${truncatedSubject}' — type '${violation.type}' at ${location}`);
+    lines.push(`${indent}    · ${shortHash} '${truncatedSubject}': type '${violation.type}' at ${location}`);
   }
 }
 
 /**
  * Appends warning lines for the change-record blocks that could not be read, the entries whose type is undeclared, and
- * the entry scopes that match no workspace in the commit's window.
+ * the entry scopes that don't match any workspace in the commit's window.
  *
  * `indent` follows the same convention as {@link formatUnparseableWarning}.
  */
@@ -446,7 +448,7 @@ function formatChangeRecordWarnings(
     lines.push(`${indent}  ${formatStatusLine(style, 'warning', `${header}:`)}`);
     for (const block of malformedBlocks) {
       lines.push(
-        `${indent}    · ${block.commitHash.slice(0, 7)} '${truncateSubject(block.commitSubject)}' — ${block.reason}`,
+        `${indent}    · ${block.commitHash.slice(0, 7)} '${truncateSubject(block.commitSubject)}': ${block.reason}`,
       );
     }
   }
@@ -457,18 +459,18 @@ function formatChangeRecordWarnings(
     for (const entry of undeclaredEntryTypes) {
       const shortHash = entry.commitHash.slice(0, 7);
       lines.push(
-        `${indent}    · ${shortHash} '${truncateSubject(entry.commitSubject)}' — type '${entry.type}' at entry ${entry.entryPosition}`,
+        `${indent}    · ${shortHash} '${truncateSubject(entry.commitSubject)}': type '${entry.type}' at entry ${entry.entryPosition}`,
       );
     }
   }
   if (unroutedEntryScopes.length > 0) {
     const count = unroutedEntryScopes.length;
-    const header = `${count} change-record entry scope${count === 1 ? ' matches' : 's match'} no workspace in the commit's window (no item there)`;
+    const header = `${count} change-record entry scope${count === 1 ? ' does not match' : 's do not match'} any workspace in the commit's window (no item there)`;
     lines.push(`${indent}  ${formatStatusLine(style, 'warning', `${header}:`)}`);
     for (const finding of unroutedEntryScopes) {
       const shortHash = finding.commitHash.slice(0, 7);
       lines.push(
-        `${indent}    · ${shortHash} '${truncateSubject(finding.commitSubject)}' — scope '${finding.scope}' at entry ${finding.entryPosition}`,
+        `${indent}    · ${shortHash} '${truncateSubject(finding.commitSubject)}': scope '${finding.scope}' at entry ${finding.entryPosition}`,
       );
     }
   }

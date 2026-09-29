@@ -13,16 +13,16 @@ import { PNPM_WORKSPACE, scaffoldRepo } from '../test-utils/scaffoldRepo.ts';
 const CONFIG_PATH = '.config/release-kit.config.ts';
 
 describe('DEFAULT_CHANGELOG_JSON_PATH', () => {
-  // The kit inlines the default rather than importing `src/defaults.ts`, whose dependencies would land in the
-  // published bundle. This is what catches the two drifting apart.
-  it('equals the outputPath release-kit actually defaults to', () => {
+  // The kit inlines the default rather than importing `src/defaults.ts`, whose dependencies would be included in the
+  // published bundle. This test catches the two drifting apart.
+  it('equals the outputPath to which release-kit actually defaults', () => {
     expect(DEFAULT_CHANGELOG_JSON_PATH).toBe(DEFAULT_CHANGELOG_JSON_CONFIG.outputPath);
   });
 });
 
-// Exercised against a real tree rather than a mocked `discoverWorkspaces`, so the check sees the workspace list
-// that discovery actually produces, root included. A mocked list is free to omit the root, which is what lets an
-// `isRoot` or `isPackage` filter go unexercised.
+// Exercised against a real tree rather than a mocked `discoverWorkspaces`, so that the check sees the workspace list
+// that discovery actually produces, root included. A mocked list is free to omit the root, which lets an `isRoot` or
+// `isPackage` filter go unexercised.
 describe(packagesShipChangelog, () => {
   it('returns true when the sole package names CHANGELOG.md in files', () => {
     scaffoldRepo({ 'package.json': '{"name":"solo","files":["dist","CHANGELOG.md"]}' });
@@ -30,7 +30,7 @@ describe(packagesShipChangelog, () => {
     expect(packagesShipChangelog()).toBe(true);
   });
 
-  it('returns true when the package declares no files field, which packs everything', () => {
+  it('returns true when the package does not declare a files field, which packs everything', () => {
     scaffoldRepo({ 'package.json': '{"name":"solo"}' });
 
     expect(packagesShipChangelog()).toBe(true);
@@ -133,13 +133,13 @@ describe(packagesShipChangelogJson, () => {
 });
 
 describe(changelogJsonIsEnabled, () => {
-  it('returns true when the repo has no config file, which inherits the enabled default', () => {
+  it('returns true for a repo without a config file, which inherits the enabled default', () => {
     scaffoldRepo({ 'package.json': '{"name":"solo"}' });
 
     expect(changelogJsonIsEnabled()).toBe(true);
   });
 
-  it('returns true when the config declares no changelogJson block', () => {
+  it('returns true when the config does not declare a changelogJson block', () => {
     scaffoldRepo({
       'package.json': '{"name":"solo"}',
       [CONFIG_PATH]: 'export default defineConfig({ formatCommand: "npx prettier --write" });\n',
@@ -168,13 +168,13 @@ describe(changelogJsonIsEnabled, () => {
 });
 
 describe(resolveChangelogJsonOutputPath, () => {
-  it('falls back to the default when the repo has no config file', () => {
+  it('falls back to the default when the repo does not have a config file', () => {
     scaffoldRepo({ 'package.json': '{"name":"solo"}' });
 
     expect(resolveChangelogJsonOutputPath()).toBe(DEFAULT_CHANGELOG_JSON_PATH);
   });
 
-  it('falls back to the default when the config names no outputPath', () => {
+  it('falls back to the default when the config does not name an outputPath', () => {
     scaffoldRepo({
       'package.json': '{"name":"solo"}',
       [CONFIG_PATH]: 'export default defineConfig({ changelogJson: { enabled: true } });\n',

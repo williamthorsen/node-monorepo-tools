@@ -18,7 +18,7 @@ import type { ChangelogEntry, MonorepoReleaseConfig, ReleaseConfig, ReleaseKitCo
 /**
  * Synthetic unreleased-tag label passed to `buildChangelogEntries` during validation. The label names the unreleased
  * entry alone; the tag prefixes and paths decide which commits the windows contain. `validate` persists nothing, so
- * any non-empty string works; a recognizably synthetic literal aids debugging if the value ever surfaces.
+ * any non-empty string works; a recognizably synthetic literal aids debugging if the value ever appears in output.
  */
 const SYNTHETIC_VALIDATE_TAG = 'validate-only';
 
@@ -55,9 +55,9 @@ export interface ValidateOverridesCommandDependencies {
  * and per-scope item collection, then delegates the actual validation to
  * {@link validateAllChangelogOverrides}.
  *
- * Single-package and monorepo modes are handled uniformly: single-package collapses to one
- * project scope; monorepo expands to a project scope plus one scope per workspace. A workspace that resolves to
- * no package is neither, and returns exit code `2`.
+ * Single-package and monorepo modes are handled uniformly: Single-package collapses to one
+ * project scope; monorepo expands to a project scope plus one scope per workspace. A workspace that doesn't resolve
+ * to any package is neither, and the command returns exit code `2` for it.
  *
  * `configPath` names the config file to read, relative to the working directory; it defaults to
  * `CONFIG_FILE_PATH`.
@@ -168,7 +168,7 @@ function flattenEntriesToItems(entries: readonly ChangelogEntry[]): OverrideTarg
  * Renders an unusable config as this command's exit-2 message.
  *
  * A load failure is a failed operation and takes the error prefix; an invalid config is a verdict and is
- * surfaced bare. The kind picks the message shape alone: both abort.
+ * returned without it. The kind picks the message shape alone: Both abort.
  */
 function formatConfigProblem(problem: ConfigProblem): string {
   return problem.kind === 'load'
@@ -179,7 +179,7 @@ function formatConfigProblem(problem: ConfigProblem): string {
 /**
  * Builds validation inputs for a single-package repo (no `pnpm-workspace.yaml`).
  *
- * Mirrors `releasePrepare.ts`'s release-history read: the configured tag prefix, and no paths, so that every
+ * Mirrors `releasePrepare.ts`'s release-history read: the configured tag prefix, without any paths, so that every
  * release across all paths contributes.
  */
 function buildSinglePackageInputs(

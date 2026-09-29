@@ -49,7 +49,7 @@ describe('release-kit bin outside a repo', () => {
 });
 
 // region | Helpers
-/** Runs the source bin under bare node from an empty temp directory, which is under no repo root. */
+/** Runs the source bin under bare node from an empty temp directory, which is not under any repo root. */
 function runBinOutsideRepo(args: string[]): SpawnSyncReturns<string> {
   const tree = disposeOnTestFinished(createTempTree({}, { prefix: 'release-kit-norepo-' }));
   return spawnSync(process.execPath, [BIN_PATH, ...args], {

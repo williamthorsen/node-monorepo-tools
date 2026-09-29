@@ -31,7 +31,7 @@ export function loadPreset(presetName: string): LabelDefinition[] {
   const presetPath = resolvePresetPath(presetName);
 
   if (!existsSync(presetPath)) {
-    throw new Error(`Unknown preset "${presetName}". No file found at ${presetPath}`);
+    throw new Error(`Unknown preset "${presetName}". The file ${presetPath} does not exist`);
   }
 
   let content: string;
@@ -52,7 +52,7 @@ export function loadPreset(presetName: string): LabelDefinition[] {
       throw new Error(`Preset "${presetName}" contains an invalid label entry: ${JSON.stringify(entry)}`);
     }
     // `description` is optional here as it is in the `repoLabels.labels` record,
-    // so that a preset can ship bare labels rather than restating each name.
+    // so that a preset can define bare labels rather than restating each name.
     const { color, description, name } = entry;
     if (
       typeof name !== 'string' ||

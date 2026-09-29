@@ -15,7 +15,7 @@ export interface RenderedInjectedReadme {
 }
 
 /**
- * Discriminated reason no release notes were rendered for a tag.
+ * Discriminated reason why release notes were not rendered for a tag.
  *
  * Shares the vocabulary of `CreateReleaseSkipReason` in `createGithubRelease.ts`, which classifies
  * the same two conditions on the GitHub-release path.
@@ -31,8 +31,8 @@ export type RenderInjectedReadmeResult =
  * Renders a README with release notes injected at the marker position, and the standalone
  * release-notes markdown, from an already-loaded README string and an in-memory entry set.
  *
- * This is the pure rendering core: it reads nothing, writes nothing, and reports nothing, so a
- * caller holding entries that a release has computed but not yet written gets the same result as
+ * This is the pure rendering core: It reads nothing, writes nothing, and reports nothing, so a
+ * caller that has entries that a release has computed but not yet written gets the same result as
  * one rendering from a saved file, and each caller words a skip for its own output.
  *
  * Returns the version on a skip because both callers name it in their message and only this
@@ -76,9 +76,9 @@ export function renderInjectedReadmeFromEntries(
  * Path-taking wrapper over {@link renderInjectedReadmeFromEntries} for callers rendering from a
  * saved `changelog.json`, such as the publish-time injection flow.
  *
- * Adds the two skip conditions that only a file can present: the changelog is missing, or it does
- * not parse. Warns on every skip, its own and the renderer's alike, because the publish path has
- * no other channel for the message.
+ * Adds the two skip conditions that only a file can present: The changelog is missing, or it does
+ * not parse. Warns on every skip, its own and the renderer's alike, because the publish path does
+ * not have any other channel for the message.
  */
 export function renderInjectedReadme(
   readme: string,

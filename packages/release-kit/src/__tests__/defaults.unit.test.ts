@@ -17,7 +17,7 @@ describe('DEFAULT_WORK_TYPES derivation from CANONICAL_TAXONOMY', () => {
     }
   });
 
-  it('exposes a `composeHeader` helper that produces the same composition rule', () => {
+  it('exposes a `composeHeader` helper that applies the same composition rule', () => {
     expect(composeHeader({ emoji: '🎉', label: 'Features' })).toBe('🎉 Features');
   });
 
@@ -35,7 +35,7 @@ describe('DEFAULT_WORK_TYPES derivation from CANONICAL_TAXONOMY', () => {
   it('wires every alias from the JSON onto its canonical entry', () => {
     for (const entry of CANONICAL_TAXONOMY.types) {
       const config = DEFAULT_WORK_TYPES[entry.key];
-      // An entry with no aliases in the JSON carries no `aliases` key at all on its canonical entry.
+      // An entry without aliases in the JSON doesn't have an `aliases` key at all on its canonical entry.
       const expected = entry.aliases.length === 0 ? undefined : entry.aliases;
       expect(config?.aliases, `aliases for "${entry.key}"`).toStrictEqual(expected);
     }
@@ -45,7 +45,7 @@ describe('DEFAULT_WORK_TYPES derivation from CANONICAL_TAXONOMY', () => {
     expect(DEFAULT_WORK_TYPES['internal']?.aliases).toContain('utility');
   });
 
-  it('carries `excludedFromChangelog` through from the JSON for every entry that declares it', () => {
+  it('copies `excludedFromChangelog` from the JSON for every entry that declares it', () => {
     for (const entry of CANONICAL_TAXONOMY.types) {
       const config = DEFAULT_WORK_TYPES[entry.key];
       const expected = entry.excludedFromChangelog === true ? true : undefined;
@@ -53,7 +53,7 @@ describe('DEFAULT_WORK_TYPES derivation from CANONICAL_TAXONOMY', () => {
     }
   });
 
-  it('marks `fmt` as excluded from the changelog and no other entry', () => {
+  it('marks `fmt`, and only `fmt`, as excluded from the changelog', () => {
     const excludedKeys = Object.entries(DEFAULT_WORK_TYPES)
       .filter(([, config]) => config.excludedFromChangelog === true)
       .map(([key]) => key);

@@ -28,7 +28,7 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
   planReleaseNotesPreviews: mockPlanReleaseNotesPreviews,
 }));
 
-// Stub the history reader and the changelog writers so that no test reads git history or touches the filesystem.
+// Stub the history reader and the changelog writers so that the tests don't read git history or touch the filesystem.
 const mockReadReleaseHistory = vi.hoisted(() => vi.fn());
 const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
 const mockRenderChangelogMarkdown = vi.hoisted(() => vi.fn());
@@ -97,7 +97,7 @@ describe(releasePrepare, () => {
     mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
     mockRenderChangelogJson.mockReturnValue('[]\n');
     mockPlanReleaseNotesPreviews.mockReturnValue({ writes: [], warnings: [] });
-    // Default `existsSync` to false so synthetic-write paths skip the read-existing-file
+    // Default `existsSync` to false so that synthetic-write paths skip the read-existing-file
     // branch by default. Individual tests override per-call when they exercise prepend behavior.
     mockExistsSync.mockReturnValue(false);
   });
@@ -204,13 +204,13 @@ describe(releasePrepare, () => {
   describe('release decision', () => {
     it.each<{ label: string; stub: ReleaseHistoryStub; options: ReleasePrepareOptions; skipReason: string }>([
       {
-        label: 'no commits exist and no flag is given',
+        label: "the window doesn't have any commits and the options don't set a flag",
         stub: { previousTag: 'v1.0.0' },
         options: {},
         skipReason: 'No commits since v1.0.0. Pass --force to release at patch. Skipping.',
       },
       {
-        label: 'no commits exist and only --bump is given',
+        label: "the window doesn't have any commits and only --bump is given",
         stub: { previousTag: 'v1.0.0' },
         options: { bumpOverride: 'major' },
         skipReason: 'No commits since v1.0.0. Pass --force to release at patch. Skipping.',
@@ -223,13 +223,13 @@ describe(releasePrepare, () => {
           'No bump-worthy commits since v1.0.0. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.',
       },
       {
-        label: 'no previous release and no commits exist',
+        label: "the history doesn't have a previous release or any commits",
         stub: {},
         options: {},
         skipReason: 'No commits (no previous release found). Pass --force to release at patch. Skipping.',
       },
       {
-        label: 'no previous release exists and no commit calls for a bump',
+        label: "the history doesn't have a previous release and its commits don't call for a bump",
         stub: { commits: [['chore: update deps', 'abc123']] },
         options: {},
         skipReason:
@@ -249,7 +249,7 @@ describe(releasePrepare, () => {
       expect(mockReadReleaseHistory).toHaveBeenCalledExactlyOnceWith(expect.anything(), { tagPrefixes: ['v'] });
     });
 
-    it("skips commits that call for no bump, reporting the unparseable commits and the history's diagnostics", () => {
+    it("skips commits that don't call for a bump, reporting the unparseable commits and the history's diagnostics", () => {
       stubHistory({
         previousTag: 'v1.0.0',
         commits: [
@@ -341,7 +341,7 @@ describe(releasePrepare, () => {
     expect(mockExecSync).not.toHaveBeenCalled();
   });
 
-  it('defaults to prettier when no formatCommand is set and prettier config exists', () => {
+  it("defaults to prettier when the config doesn't set formatCommand and a prettier config exists", () => {
     stubMinorRelease();
     mockHasPrettierConfig.mockReturnValue(true);
 
@@ -350,7 +350,7 @@ describe(releasePrepare, () => {
     expect(result.formatCommand).toMatchObject({ command: 'npx prettier --write package.json CHANGELOG.md' });
   });
 
-  it('skips formatting when no formatCommand is set and no prettier config exists', () => {
+  it("skips formatting when the config doesn't set formatCommand and the repo doesn't have a prettier config", () => {
     stubMinorRelease();
     mockHasPrettierConfig.mockReturnValue(false);
 
@@ -431,8 +431,8 @@ describe(releasePrepare, () => {
     assert(workspace?.status === 'released', 'expected released');
     expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
 
-    // The empty-range branch builds the synthetic entry and routes it through the markdown
-    // renderer; assert on the entries the renderer received.
+    // The empty-range branch builds the synthetic entry and passes it to the markdown
+    // renderer; assert on the entries that the renderer received.
     expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
@@ -518,7 +518,7 @@ describe(releasePrepare, () => {
     expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
   });
 
-  it('carries the planned preview files into the plan', () => {
+  it('includes the planned preview files in the plan', () => {
     stubMinorRelease();
     mockPlanReleaseNotesPreviews.mockReturnValue({
       writes: [{ path: 'docs/RELEASE_NOTES.v1.1.0.md', content: '# Notes\n' }],
@@ -533,14 +533,14 @@ describe(releasePrepare, () => {
     expect(plan.workspaces[0]).toMatchObject({ previewFiles: ['docs/RELEASE_NOTES.v1.1.0.md'] });
   });
 
-  describe('window that yields no item (--force / --set-version)', () => {
-    /** Stubs a history whose tag has no commits above it, over a package at 1.0.0. */
+  describe("window that doesn't yield an item (--force / --set-version)", () => {
+    /** Stubs a history whose tag doesn't have any commits above it, over a package at 1.0.0. */
     function stubEmptyRange(): void {
       stubHistory({ previousTag: 'v1.0.0' });
       stubPackageVersion('1.0.0');
     }
 
-    it('writes a synthetic Notes / Forced version bump entry when --force is used with no commits', () => {
+    it('writes a synthetic Notes / Forced version bump entry when --force is used without any commits', () => {
       stubEmptyRange();
 
       const result = releasePrepare(makeConfig(), { force: true });
@@ -551,9 +551,9 @@ describe(releasePrepare, () => {
       expect(workspace.releaseType).toBe('patch');
       expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
 
-      // The empty-range branch builds a synthetic entry and routes it through the markdown
-      // renderer; assert on the entries the renderer received rather than the literal file
-      // bytes (the writer is mocked).
+      // The empty-range branch builds a synthetic entry and passes it to the markdown renderer;
+      // assert on the entries that the renderer received rather than the literal file bytes
+      // (the writer is mocked).
       expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
         [
           expect.objectContaining({
@@ -570,7 +570,7 @@ describe(releasePrepare, () => {
       );
     });
 
-    it('releases at the --bump level under --force --bump with no commits', () => {
+    it('releases at the --bump level under --force --bump without any commits', () => {
       stubEmptyRange();
 
       const result = releasePrepare(makeConfig(), { force: true, bumpOverride: 'minor' });
@@ -592,7 +592,7 @@ describe(releasePrepare, () => {
       ['--force', { force: true }, '1.0.1'],
       ['--set-version', { setVersion: '2.0.0' }, '2.0.0'],
     ])(
-      'writes the synthetic entry under %s when the window has commits but yields no item',
+      "writes the synthetic entry under %s when the window has commits but doesn't yield an item",
       (_label, options, version) => {
         stubHistory({
           previousTag: 'v1.0.0',
@@ -814,7 +814,7 @@ describe(releasePrepare, () => {
   });
 
   describe('changelogJson.enabled gating', () => {
-    it('plans no changelog.json write when changelogJson.enabled is false', () => {
+    it('does not plan a changelog.json write when changelogJson.enabled is false', () => {
       stubMinorRelease();
 
       releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false } }), {});

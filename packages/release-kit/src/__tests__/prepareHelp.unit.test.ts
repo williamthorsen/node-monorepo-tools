@@ -11,7 +11,7 @@ describe(prepareHelpText, () => {
     }
   });
 
-  it('documents no unrecognized --flag tokens', () => {
+  it('does not document any unrecognized --flag tokens', () => {
     // `--help` is documented but handled by the bin dispatcher, so it is not in the schema.
     const known = new Set<string>([...Object.values(prepareFlagSchema).map((flag) => flag.long), '--help']);
     const documented = prepareHelpText.match(/--[a-z][a-z-]*/g) ?? [];
@@ -22,7 +22,7 @@ describe(prepareHelpText, () => {
 
   it('documents --force and its release-even-without-commits behavior', () => {
     expect(prepareHelpText).toContain('--force');
-    expect(prepareHelpText).toContain('Release even when no commits');
+    expect(prepareHelpText).toContain('Release even when the last tag is not followed by any commits');
   });
 
   it('documents the project-block rejection on --set-version alone', () => {

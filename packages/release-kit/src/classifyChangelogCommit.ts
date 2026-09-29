@@ -20,13 +20,13 @@ export type ChangelogClassification =
 /**
  * Classifies a commit by its title.
  *
- * Four gates decide, in order: a `release:` or `Merge` subject is excluded; a subject carrying no ticket-ID prefix is
+ * Four gates decide, in order: A `release:` or `Merge` subject is excluded; a subject without a ticket-ID prefix is
  * unparseable; a type that `parseCommitMessage` cannot resolve against `workTypes` is unparseable; and a type that
  * `workTypes` excludes from the changelog is excluded. A commit that passes all four takes the header that its type
  * declares.
  *
- * `options` reaches the parse, so a policy violation is reported for every ticketed commit whose type resolves,
- * excluded types included.
+ * The function passes `options` to the parse, so a policy violation is reported for every ticketed commit whose type
+ * resolves, excluded types included.
  */
 export function classifyChangelogCommit(
   commit: Pick<Commit, 'hash' | 'message'>,
@@ -60,8 +60,8 @@ export function classifyChangelogCommit(
 }
 
 /**
- * Reports whether a subject belongs to a commit that never reaches a changelog: a `release:` commit, which records
- * version bumps, or a git merge commit, whose content the merged commits already report.
+ * Reports whether a subject belongs to a commit that is never included in a changelog: a `release:` commit, which
+ * records version bumps, or a git merge commit, whose content the merged commits already report.
  */
 export function isNonChangeSubject(subject: string): boolean {
   return isReleaseSubject(subject) || MERGE_SUBJECT_PATTERN.test(subject);

@@ -11,8 +11,8 @@ export interface DecideReleaseArgs {
   /** Explicit `--bump=X` override. When set, the level is X regardless of the natural bump. */
   bumpOverride: ReleaseType | undefined;
   /**
-   * Skip wordings to use when no commits exist (`noCommits`) or when commits exist but none yields a changelog item
-   * (`noBumpWorthy`). Each path passes its own pre-rendered wordings.
+   * Skip wordings to use when the window doesn't contain any commits (`noCommits`) or when it contains commits but none
+   * yields a changelog item (`noBumpWorthy`). Each path passes its own pre-rendered wordings.
    */
   skipReasons: {
     noCommits: string;

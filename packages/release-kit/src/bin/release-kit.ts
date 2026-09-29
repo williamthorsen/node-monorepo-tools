@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* eslint n/hashbang: off, n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
-// The command dispatch is a flat sequence of `process.exit(0)` guards, which the rule reads as
+// The command dispatch is a flat sequence of `process.exit(0)` guards, which the rule treats as
 // fall-through.
 /* eslint unicorn/prefer-else-if: "off" */
 
@@ -169,8 +169,8 @@ function showPushHelp(): void {
   console.info(`
 Usage: release-kit push [options]
 
-Push the release commit and each tag individually, ensuring GitHub Actions
-fires a separate workflow run per tag.
+Push the release commit and each tag individually, so that GitHub Actions
+starts a separate workflow run for each tag.
 
 Options:
   --config <path>        Config file, relative to the current directory
@@ -188,7 +188,8 @@ function showCreateGithubReleaseHelp(): void {
 Usage: release-kit create-github-release [options]
 
 Create GitHub Releases from changelog.json for tags on HEAD. Private
-(package.json#private) workspaces are skipped with a warning and get no Release.
+(package.json#private) workspaces are skipped with a warning, and the command
+doesn't create a Release for them.
 
 Options:
   --config <path>        Config file, relative to the current directory
@@ -205,7 +206,7 @@ function showShowTagPrefixesHelp(): void {
 Usage: release-kit show-tag-prefixes [options]
 
 Print a per-workspace table of derived tag prefixes, tag counts, and declared
-legacy tag prefixes. Surfaces any release-shaped tags whose prefix is neither a
+legacy tag prefixes. Reports any release-shaped tags whose prefix is neither a
 derived prefix nor declared in \`legacyIdentities\`, with a copy-pasteable
 config snippet.
 
@@ -241,9 +242,9 @@ scopes. Reports schema/parse errors, ambiguous-prefix errors, conflicting-key er
 stale-key warnings.
 
 Exit codes:
-  0    Clean — no errors, no stale keys
+  0    Clean: no errors, no stale keys
   1    Stale-key warnings only (no errors)
-  2    Schema/parse, ambiguous-prefix, or conflicting-key errors (errors dominate)
+  2    Schema/parse, ambiguous-prefix, or conflicting-key errors (errors take precedence)
 
 Options:
   --config <path>  Config file, relative to the current directory
@@ -257,10 +258,10 @@ function showPublishHelp(): void {
   console.info(`
 Usage: release-kit publish [options]
 
-Publish packages that have release tags on HEAD. Operates only on workspaces where
+Publish packages that have release tags on HEAD. Operates only on workspaces whose
 package.json#private is absent or false. Without --tags, unpublishable workspaces are
 silently filtered out. With --tags, an unpublishable tag is skipped with a warning while
-any publishable tags still publish.
+any publishable tags are still published.
 
 Options:
   --config <path>        Config file, relative to the current directory

@@ -29,8 +29,8 @@ export interface GitRepoFixture {
  * Release-kit invokes git through child processes that inherit the process's working
  * directory, so the fixture changes it for real rather than stubbing `process.cwd()`.
  *
- * The repository sets its own identity and disables signing, so a commit needs no global git
- * configuration on the host.
+ * Because the repository sets its own identity and disables signing, a commit does not need any
+ * global git configuration on the host.
  */
 export function scaffoldGitRepo(entries: Record<string, string> = {}): GitRepoFixture {
   const tree = disposeOnTestFinished(createTempTree(entries, { prefix: 'release-kit-git-' }));

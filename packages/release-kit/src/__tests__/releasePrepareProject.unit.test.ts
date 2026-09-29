@@ -126,7 +126,7 @@ describe(releasePrepareProject, () => {
     mockPlanReleaseNotesPreviews.mockReset();
   });
 
-  it('returns a structured skipped result when no commits since the last project tag and no force', () => {
+  it("returns a structured skipped result when the window doesn't have any commits since the last project tag and --force is not set", () => {
     stubHistory({ previousTag: 'v0.9.0' });
     const config = makeConfig();
     const tags: string[] = [];
@@ -150,7 +150,7 @@ describe(releasePrepareProject, () => {
     expectOneHistoryRead(config, ['packages/arrays/**', 'packages/strings/**']);
   });
 
-  it("skips a window whose commits call for no bump, carrying the history's counts and diagnostics", () => {
+  it("skips a window whose commits don't call for a bump, reporting the history's counts and diagnostics", () => {
     stubHistory({
       previousTag: 'v0.9.0',
       commits: [['chore: update deps', 'abc123']],
@@ -188,7 +188,7 @@ describe(releasePrepareProject, () => {
     expectOneHistoryRead(config, ['packages/arrays/**', 'packages/strings/**']);
   });
 
-  it('falls back to patch when --force is set with no commits (no --bump)', () => {
+  it('falls back to patch when --force is set without any commits (no --bump)', () => {
     stubHistory({ previousTag: 'v0.9.0' });
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
@@ -210,7 +210,7 @@ describe(releasePrepareProject, () => {
     expect(tags).toStrictEqual(['v0.9.1']);
   });
 
-  it('releases at patch when --force is set on a window whose commits call for no bump', () => {
+  it("releases at patch when --force is set on a window whose commits don't call for a bump", () => {
     stubHistory({
       previousTag: 'v0.9.0',
       commits: [['chore: update deps', 'abc123']],
@@ -236,7 +236,7 @@ describe(releasePrepareProject, () => {
     expect(tags).toStrictEqual(['v0.9.1']);
   });
 
-  it('skips when --bump=X alone is set on a window whose commits call for no bump (level chooser, not trigger)', () => {
+  it("skips when --bump=X alone is set on a window whose commits don't call for a bump (level chooser, not trigger)", () => {
     stubHistory({ previousTag: 'v0.9.0', commits: [['chore: update deps', 'abc123']] });
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
@@ -281,7 +281,7 @@ describe(releasePrepareProject, () => {
     expect(modifiedFiles).toContain('./package.json');
     expect(modifiedFiles).toContain('CHANGELOG.md');
 
-    // The plan contains the root package.json at the new version; planning writes no file.
+    // The plan contains the root package.json at the new version; planning doesn't write any file.
     expect(plannedContent(writes, './package.json')).toContain('"version": "0.10.0"');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
 
@@ -336,7 +336,7 @@ describe(releasePrepareProject, () => {
 
   it("uses bumpOverride instead of the history's bump", () => {
     stubDefaultHistory();
-    // Use a 1.x baseline so the major bump is not collapsed by the pre-1.0 rule in `bumpVersion`.
+    // Use a 1.x baseline so that the major bump is not collapsed by the pre-1.0 rule in `bumpVersion`.
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root', version: '1.5.2' }));
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
@@ -356,7 +356,7 @@ describe(releasePrepareProject, () => {
     expect(tags).toStrictEqual(['v2.0.0']);
   });
 
-  it('runs with no commits when --force is set with --bump', () => {
+  it('runs without any commits when --force is set with --bump', () => {
     stubHistory({ previousTag: 'v0.9.0' });
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
@@ -550,7 +550,7 @@ describe(releasePrepareProject, () => {
       });
     });
 
-    it('omits changelogPreservation when there is no existing root changelog', () => {
+    it("omits changelogPreservation when the root changelog doesn't exist", () => {
       stubDefaultHistory();
 
       const result = releasePrepareProject({
@@ -596,11 +596,11 @@ describe(releasePrepareProject, () => {
     });
   });
 
-  describe('project release whose window yields no item', () => {
-    // When `--force` triggers a project release although the unreleased window yields no
+  describe("project release whose window doesn't yield an item", () => {
+    // When `--force` triggers a project release although the unreleased window doesn't yield a
     // changelog item, a synthetic "Notes / Forced version bump." entry stands in for that window.
 
-    it('writes a synthetic Notes / Forced version bump entry for the root CHANGELOG when --force is used with no commits', () => {
+    it('writes a synthetic Notes / Forced version bump entry for the root CHANGELOG when --force is used without any commits', () => {
       stubHistory({ previousTag: 'v0.9.0' });
       const tags: string[] = [];
       const modifiedFiles: string[] = [];
@@ -634,7 +634,7 @@ describe(releasePrepareProject, () => {
       );
     });
 
-    it('writes the synthetic entry under --force when the window has commits but yields no item', () => {
+    it("writes the synthetic entry under --force when the window has commits but doesn't yield an item", () => {
       stubHistory({
         previousTag: 'v0.9.0',
         commits: [
@@ -730,7 +730,7 @@ describe(releasePrepareProject, () => {
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 
-    it("renders a window that yields items from the history's entries, with no synthetic entry", () => {
+    it("renders a window that yields items from the history's entries, without a synthetic entry", () => {
       stubDefaultHistory();
 
       releasePrepareProject({
@@ -842,7 +842,7 @@ function makeWorkspace(overrides: Partial<WorkspaceConfig> & Pick<WorkspaceConfi
   };
 }
 
-/** Returns the content that the staged writes intend for `path`, or undefined when no write targets it. */
+/** Returns the content that the staged writes intend for `path`, or undefined when the staged writes don't target it. */
 function plannedContent(writes: readonly PlannedWrite[], path: string): string | undefined {
   return writes.find((write) => write.path === path)?.content;
 }

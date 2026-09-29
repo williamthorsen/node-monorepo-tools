@@ -44,7 +44,7 @@ export interface ParseCommitMessageOptions {
  * resolve against `workTypes`, ignoring case; scope aliases resolve when a `scopeAliases` map is provided. Detects
  * breaking changes via the subject's `!` or `BREAKING CHANGE:` in the message.
  *
- * `!`-policy enforcement is **release-time tolerant**: when the resolved type's policy
+ * `!`-policy enforcement is **release-time tolerant**: When the resolved type's policy
  * forbids `!`, the marker is dropped from the parse (`breaking: false`) and
  * `onPolicyViolation` is invoked.
  */
@@ -131,7 +131,7 @@ export function evaluateBreakingPolicy(inputs: BreakingPolicyInputs): boolean {
     }
     return false;
   }
-  // 'optional' policy: either form is acceptable.
+  // 'optional' policy: Either form is acceptable.
   return hasPrefixBreaking || hasFooterBreaking;
 }
 

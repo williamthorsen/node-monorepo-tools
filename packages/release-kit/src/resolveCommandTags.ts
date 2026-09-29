@@ -16,8 +16,9 @@ import type { ReleaseKitConfig, WorkspaceConfig } from './types.ts';
 /**
  * Discovers workspaces, resolves release tags from HEAD, validates `--tags` names against the full resolved tag
  * names (e.g., `nmr-core-v1.3.0`), and returns the filtered tag list. Exits with an error message on any validation
- * failure, including a workspace whose `package.json` has no `name` field, a config that `mergeMonorepoConfig`
- * rejects, and a workspace that resolves to no package, which is not single-package mode.
+ * failure, including a workspace whose `package.json` does not have a `name` field, a config that
+ * `mergeMonorepoConfig` rejects, and a workspace that does not resolve to any package, which is not single-package
+ * mode.
  *
  * In monorepo mode the workspace list is `userConfig` merged over the discovered workspaces, as `prepare` builds it.
  * A tag on HEAD whose workspace the config excludes still counts as a tag on HEAD, so `--tags` may name it and a
@@ -67,11 +68,11 @@ export function resolveCommandTags(
   } else if (singleWorkspace !== undefined) {
     resolvedTags = resolveReleaseTags({ singleWorkspace });
   } else {
-    throw new Error('resolveCommandTags: invariant violated — neither workspaces nor singleWorkspace was derived');
+    throw new Error('resolveCommandTags: invariant violated; neither workspaces nor singleWorkspace was derived');
   }
 
   if (resolvedTags.length === 0) {
-    reportError('No release tags found on HEAD. Create tags with `release-kit tag` first.');
+    reportError('HEAD does not have any release tags. Create tags with `release-kit tag` first.');
     process.exit(1);
   }
 

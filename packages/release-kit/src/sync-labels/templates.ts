@@ -48,7 +48,7 @@ jobs:
  *
  * Workspace labels are named after the path basename; retired-package labels after the unscoped package name.
  * None has a description: GitHub renders a described label taller and more prominently than a bare one, and
- * the scope labels are meant to read as a compact group.
+ * the scope labels are meant to appear as a compact group.
  * Describing only the retired scopes would single them out for that prominence.
  */
 export function buildScopeLabels(workspacePaths: string[], retiredNames: string[] = []): LabelDefinition[] {

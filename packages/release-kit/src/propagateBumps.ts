@@ -27,12 +27,12 @@ export function propagateBumps(
 ): Map<string, ReleaseEntry> {
   const result = new Map<string, ReleaseEntry>();
 
-  // Copy each entry: the loop below appends to `propagatedFrom` on existing entries.
+  // Copy each entry: The loop below appends to `propagatedFrom` on existing entries.
   for (const [dir, entry] of directBumps) {
     result.set(dir, { ...entry });
   }
 
-  // BFS queue: workspace dirs whose dependents need to be checked.
+  // BFS queue: Workspace dirs whose dependents need to be checked.
   const queue: string[] = directBumps.keys().toArray();
   const visited = new Set<string>();
 
@@ -81,7 +81,7 @@ export function propagateBumps(
         existing.propagatedFrom = [...existingPropagated, propagationInfo];
       }
 
-      // Enqueue the dependent so its own dependents are checked (transitive propagation).
+      // Enqueue the dependent so that its own dependents are checked (transitive propagation).
       if (!visited.has(dependentDir)) {
         queue.push(dependentDir);
       }

@@ -41,7 +41,7 @@ export function planVersionBump(packageFiles: readonly string[], releaseType: Re
 
 /**
  * Computes an explicit version assignment for a workspace's package files without writing them,
- * bypassing commit-derived bump logic. Backs the `--set-version` flag, and so rejects a
+ * bypassing commit-derived bump logic. Implements the `--set-version` flag, and so rejects a
  * `newVersion` that is not greater than the current version.
  */
 export function planVersionSet(packageFiles: readonly string[], newVersion: string): VersionBumpPlan {
@@ -60,8 +60,8 @@ export function readCurrentVersion(packageFiles: readonly string[]): string {
 }
 
 /**
- * Reads the first package file, which supplies the pre-change version for the whole workspace. Throws if no package
- * files are configured.
+ * Reads the first package file, which supplies the pre-change version for the whole workspace. Throws if the list of
+ * package files is empty.
  */
 function readPrimaryPackage(packageFiles: readonly string[]): { firstFile: string; firstPkg: PackageJson } {
   const firstFile = packageFiles[0];

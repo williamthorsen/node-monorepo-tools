@@ -8,7 +8,7 @@ const PIPE_SCOPE_PATTERN = /^[^|]+\|(.*)$/;
  *
  * Handles `scope|type: desc`, `type(scope): desc`, and messages with
  * ticket prefixes (e.g., `#72 release-kit|fix: ...`). Returns the
- * message unchanged when no scope is detected.
+ * message unchanged when it does not detect a scope.
  */
 export function stripScope(message: string): string {
   // Set the ticket prefix aside to parse the remainder, then restore it on the result.

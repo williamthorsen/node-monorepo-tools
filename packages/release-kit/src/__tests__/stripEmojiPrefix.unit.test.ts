@@ -9,13 +9,13 @@ describe(stripEmojiPrefix, () => {
     expect(stripEmojiPrefix('⚡ Performance')).toBe('Performance');
   });
 
-  it('strips an emoji that carries a U+FE0F variation selector', () => {
+  it('strips an emoji that includes a U+FE0F variation selector', () => {
     expect(stripEmojiPrefix('🗑️ Deprecated')).toBe('Deprecated');
     expect(stripEmojiPrefix('🏗️ Internal')).toBe('Internal');
     expect(stripEmojiPrefix('♻️ Refactoring')).toBe('Refactoring');
   });
 
-  it('returns the input unchanged when there is no emoji prefix', () => {
+  it('returns the input unchanged when the input does not have an emoji prefix', () => {
     expect(stripEmojiPrefix('Bug fixes')).toBe('Bug fixes');
     expect(stripEmojiPrefix('Internal')).toBe('Internal');
     expect(stripEmojiPrefix('')).toBe('');

@@ -69,7 +69,7 @@ describe(generateCommand, () => {
     expect(mockLoadConfig).not.toHaveBeenCalled();
   });
 
-  it('returns 1 when no config file is found', async () => {
+  it('returns 1 when the config file is missing', async () => {
     mockExistsSync.mockReturnValue(false);
     mockLoadConfig.mockResolvedValue(undefined);
     using capture = captureStdio();
@@ -77,7 +77,7 @@ describe(generateCommand, () => {
     const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('Error: No config file found');
+    expect(capture.stderr).toContain('Error: Config file not found');
   });
 
   it('returns 1 when config loading throws', async () => {
@@ -103,7 +103,7 @@ describe(generateCommand, () => {
     expect(capture.stderr).toContain('repoLabels.extends: invalid');
   });
 
-  it('returns 1 when the config has no repoLabels block', async () => {
+  it('returns 1 when the config lacks a repoLabels block', async () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({});
     using capture = captureStdio();
@@ -247,7 +247,7 @@ describe(generateCommand, () => {
     );
   });
 
-  it('names the default config in the header when no configPath is given', async () => {
+  it('names the default config in the header when configPath is omitted', async () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({ repoLabels: {} });
     mockResolveLabels.mockReturnValue([]);
@@ -262,7 +262,7 @@ describe(generateCommand, () => {
     );
   });
 
-  it('names the config the run read when it is missing', async () => {
+  it('names the config that the run read when it is missing', async () => {
     mockExistsSync.mockReturnValue(false);
     mockLoadConfig.mockResolvedValue(undefined);
     using capture = captureStdio();
@@ -270,10 +270,10 @@ describe(generateCommand, () => {
     const exitCode = await generateCommand({ configPath: 'elsewhere/alternative.config.ts', styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('No config file found at elsewhere/alternative.config.ts');
+    expect(capture.stderr).toContain('Config file not found at elsewhere/alternative.config.ts');
   });
 
-  it('names the config the run read when it carries no repoLabels block', async () => {
+  it('names the config that the run read when it lacks a repoLabels block', async () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({});
     using capture = captureStdio();
@@ -281,10 +281,10 @@ describe(generateCommand, () => {
     const exitCode = await generateCommand({ configPath: 'elsewhere/alternative.config.ts', styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('block found in elsewhere/alternative.config.ts');
+    expect(capture.stderr).toContain('block is missing from elsewhere/alternative.config.ts');
   });
 
-  it('names the config the run read in the retired-config migration message', async () => {
+  it('names the config that the run read in the retired-config migration message', async () => {
     mockExistsSync.mockImplementation((path: string) => path === RETIRED_SYNC_LABELS_CONFIG_PATH);
     using capture = captureStdio();
 
@@ -322,7 +322,7 @@ describe(formatLabelsYaml, () => {
     expect(result).toContain('# Source: .config/release-kit.config.ts');
   });
 
-  it('names the config path it is given as source', () => {
+  it('names the config path passed to it as source', () => {
     const labels: LabelDefinition[] = [{ name: 'bug', color: 'd73a4a', description: 'Bug' }];
 
     const result = formatLabelsYaml(labels, noPresets, 'elsewhere/alternative.config.ts');
@@ -368,7 +368,7 @@ describe(formatLabelsYaml, () => {
 
   // `github-label-sync` reads an omitted description as "leave the label's current one alone",
   // so the file must declare an empty one to clear a description that the repo's label still has.
-  it('declares an empty description for a label that carries none', () => {
+  it('declares an empty description for a label without one', () => {
     const labels: LabelDefinition[] = [{ name: 'scope:nmr', color: '00ff96' }];
 
     const result = formatLabelsYaml(labels, noPresets);

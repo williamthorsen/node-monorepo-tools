@@ -6,7 +6,7 @@ import { deriveReleaseNotesConfig } from '../deriveReleaseNotesConfig.ts';
 const defaultSectionOrder = Object.values(DEFAULT_WORK_TYPES).map((entry) => entry.header);
 
 describe(deriveReleaseNotesConfig, () => {
-  it('returns the defaults when there is no config', () => {
+  it('returns the defaults when the config is undefined', () => {
     expect(deriveReleaseNotesConfig(undefined)).toStrictEqual({
       releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
       changelogJsonOutputPath: DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,

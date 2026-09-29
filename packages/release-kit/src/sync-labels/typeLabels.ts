@@ -2,10 +2,10 @@ import type { CanonicalWorkTypeEntry } from '@williamthorsen/change-grammar';
 
 import type { LabelDefinition } from './types.ts';
 
-/** Color given to the label of a type whose tier has no default color. */
+/** Color given to the label of a type whose tier lacks a default color. */
 const FALLBACK_COLOR = 'ededed';
 
-/** Color given to the label of a type that has no presentation row, by the type's tier. */
+/** Color given to the label of a type without a presentation row, by the type's tier. */
 const TIER_DEFAULT_COLORS: Readonly<Record<string, string>> = {
   internal: '1d76db',
   process: 'edc287',
@@ -14,7 +14,7 @@ const TIER_DEFAULT_COLORS: Readonly<Record<string, string>> = {
 
 /**
  * Builds one label per work type, named by the type's tracker label. A type without a presentation row gets its
- * tier's default color and no description.
+ * tier's default color and does not get a description.
  */
 export function deriveTypeLabels(taxonomy: {
   types: readonly Pick<CanonicalWorkTypeEntry, 'key' | 'tier' | 'trackerLabel'>[];

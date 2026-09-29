@@ -47,7 +47,7 @@ function entriesFromReleases(specs: { version: string; hashes: string[] }[]): Ch
 }
 
 describe(formatValidateOverridesResult, () => {
-  it('returns exit 0 with a success message when there are no findings', () => {
+  it('returns exit 0 with a success message when the result does not contain any findings', () => {
     const result = formatValidateOverridesResult({ errors: [], warnings: [] }, 'rich');
     expect(result.exitCode).toBe(0);
     expect(result.message).toMatch(/valid/);
@@ -120,7 +120,7 @@ describe(formatValidateOverridesResult, () => {
 });
 
 describe(validateOverridesCommand, () => {
-  it('returns exit 0 in a single-package layout with no overrides', async () => {
+  it('returns exit 0 in a single-package layout without any overrides', async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: singlePackage,
       loadValidatedConfig: () =>
@@ -131,9 +131,9 @@ describe(validateOverridesCommand, () => {
     expect(result.exitCode).toBe(0);
   });
 
-  // A workspace that resolves to no package is not single-package mode; reading it as one would validate the
-  // root's overrides alone.
-  it('returns exit 2 when the workspace resolves to no package', async () => {
+  // A workspace that doesn't resolve to any package is not single-package mode; reading it as one would validate
+  // the root's overrides alone.
+  it("returns exit 2 when the workspace doesn't resolve to any package", async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: () => emptyWorkspace('all-excluded'),
       loadValidatedConfig: () =>
@@ -146,7 +146,7 @@ describe(validateOverridesCommand, () => {
     expect(result.message).toContain('No workspace package to validate.');
   });
 
-  it('returns exit 1 when validation surfaces only warnings', async () => {
+  it('returns exit 1 when validation reports only warnings', async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: singlePackage,
       loadValidatedConfig: () =>
@@ -157,7 +157,7 @@ describe(validateOverridesCommand, () => {
     expect(result.exitCode).toBe(1);
   });
 
-  it('returns exit 2 when validation surfaces errors', async () => {
+  it('returns exit 2 when validation reports errors', async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: singlePackage,
       loadValidatedConfig: () =>
@@ -238,7 +238,7 @@ describe(validateOverridesCommand, () => {
   // classification still reports unreachable keys and ambiguous prefixes.
 
   it('delivers the full multi-release hash universe to the validator (past releases included)', async () => {
-    // An override targeting a hash in a past release (here: 'aabbcc1234') reads as stale
+    // An override targeting a hash in a past release (here: 'aabbcc1234') is reported as stale
     // unless the validator receives that release's window.
     let capturedHashes: readonly string[] = [];
     await validateOverridesCommand(RICH_STYLES, undefined, {
@@ -386,7 +386,7 @@ describe(validateOverridesCommand, () => {
       expect(result.message).toContain('stale');
     });
 
-    it('surfaces an ambiguous-prefix error with file-path attribution', async () => {
+    it('reports an ambiguous-prefix error with file-path attribution', async () => {
       writeOverrides({ aa: { audience: 'skip' } });
 
       const result = await validateOverridesCommand(RICH_STYLES, undefined, {
@@ -423,7 +423,7 @@ describe(validateOverridesCommand, () => {
       // Canned windows simulating two releases plus the unreleased range, newest first.
       // A universe limited to `git log <latestTag>..HEAD` would exclude the past-release commit
       // `aabbcc12…` and report its override as stale.
-      // Each subject carries a ticket prefix, which `classifyChangelogCommit` requires.
+      // Each subject has a ticket prefix, which `classifyChangelogCommit` requires.
       const pastHash = 'aabbcc1234567890aabbcc1234567890aabbcc12';
       const currentHash = 'ddeeff5678901234ddeeff5678901234ddeeff56';
       const unreleasedHash = '9988aabbccddeeff9988aabbccddeeff9988aabb';
@@ -446,8 +446,8 @@ describe(validateOverridesCommand, () => {
       ]);
 
       tree.writeJson('.meta/changelog-overrides.json', {
-        aabbcc12: { audience: 'skip' }, // past-release commit — must NOT be stale
-        deadbeef: { audience: 'skip' }, // unreachable — must be flagged stale
+        aabbcc12: { audience: 'skip' }, // past-release commit, which must NOT be stale
+        deadbeef: { audience: 'skip' }, // unreachable hash, which must be flagged stale
       });
 
       const result = await validateOverridesCommand(RICH_STYLES, undefined, {
@@ -469,7 +469,7 @@ describe(validateOverridesCommand, () => {
     });
   });
 
-  // Monorepo wiring: pin the per-workspace and project-tier `buildEntries` arguments so that a
+  // Monorepo wiring: Pin the per-workspace and project-tier `buildEntries` arguments so that a
   // future refactor that drops legacy identities, narrows the project path-union, or otherwise
   // diverges from `buildWorkspaceEntries` / `planProjectChangelogs` in the prepare path fails
   // here rather than silently producing wrong stale-key reports.
@@ -479,7 +479,7 @@ describe(validateOverridesCommand, () => {
     beforeEach(() => {
       tree = disposeOnTestFinished(createTempTree({}, { prefix: 'validate-overrides-mono-' }));
       tree.writeAll({
-        // Root package.json: required when the user config declares a `project` block.
+        // Root package.json: Required when the user config declares a `project` block.
         'package.json': JSON.stringify({ name: 'mono-root', version: '1.0.0' }),
         // Workspace `foo` with a legacy npm name `old-foo`.
         'packages/foo/package.json': JSON.stringify({ name: 'foo' }),
@@ -514,21 +514,21 @@ describe(validateOverridesCommand, () => {
       // Three invocations: foo workspace, bar workspace, project-tier.
       expect(calls).toHaveLength(3);
 
-      // foo: the union of derived + legacy prefixes, over the workspace glob.
+      // foo: The union of derived + legacy prefixes, over the workspace glob.
       expect(calls[0]).toStrictEqual({
         tagPrefixes: ['foo-v', 'old-foo-v'],
         paths: ['packages/foo/**'],
         workspaceDir: 'foo',
       });
 
-      // bar: single derived prefix (no legacy identities), over its workspace glob.
+      // bar: Single derived prefix (no legacy identities), over its workspace glob.
       expect(calls[1]).toStrictEqual({
         tagPrefixes: ['bar-v'],
         paths: ['packages/bar/**'],
         workspaceDir: 'bar',
       });
 
-      // Project tier: the project prefix; paths default to the union of workspace globs, and every entry is kept.
+      // Project tier: The project prefix; paths default to the union of workspace globs, and every entry is kept.
       expect(calls[2]).toStrictEqual({
         tagPrefixes: ['mono-v'],
         paths: ['packages/foo/**', 'packages/bar/**'],

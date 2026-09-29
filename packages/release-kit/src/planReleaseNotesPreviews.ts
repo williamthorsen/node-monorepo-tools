@@ -40,8 +40,8 @@ export interface ReleaseNotesPreviewsPlan {
  * a preview describes the release being prepared rather than the one already on disk.
  *
  * The injected-README preview is omitted (the standalone file is still planned) when the
- * workspace has no readable `README.md`. Both are omitted when the renderer reports no content
- * for this version, with the reason recorded in `warnings`.
+ * workspace does not have a readable `README.md`. Both are omitted when the renderer does not
+ * report any content for this version, with the reason recorded in `warnings`.
  */
 export function planReleaseNotesPreviews(options: PlanReleaseNotesPreviewsOptions): ReleaseNotesPreviewsPlan {
   const { workspacePath, tag, entries, sectionOrder } = options;
@@ -71,7 +71,7 @@ export function planReleaseNotesPreviews(options: PlanReleaseNotesPreviewsOption
     writes.push({ path: path.join(docsDir, `README.v${version}.md`), content: rendered.injectedReadme });
   }
 
-  // The standalone preview ends with a trailing newline for consistency with markdown files.
+  // End the standalone preview with a trailing newline for consistency with markdown files.
   writes.push({
     path: path.join(docsDir, `RELEASE_NOTES.v${version}.md`),
     content: rendered.releaseNotesMarkdown.endsWith('\n')
@@ -85,7 +85,7 @@ export function planReleaseNotesPreviews(options: PlanReleaseNotesPreviewsOption
 /**
  * Describes a skipped preview as a warning naming the workspace, the reason, and the version.
  *
- * The workspace leads because the prepare report collects every workspace's warnings into a single
+ * The workspace comes first because the prepare report collects every workspace's warnings into a single
  * block, so a message naming only the version cannot be traced back to the workspace that it describes.
  */
 function describePreviewSkip(workspacePath: string, reason: RenderInjectedReadmeSkipReason, version: string): string {
@@ -100,7 +100,7 @@ function describePreviewSkip(workspacePath: string, reason: RenderInjectedReadme
  * Reads the workspace README, treating an unreadable file the same as a missing one.
  *
  * An empty string still lets the pure renderer produce the standalone release notes, so a
- * workspace with no README loses only the injected-README preview. A read may fail
+ * workspace without a README loses only the injected-README preview. A read may fail
  * independently of `existsSync` (race, permission error), and gets its own warning.
  */
 function readWorkspaceReadme(

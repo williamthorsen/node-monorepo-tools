@@ -22,7 +22,7 @@ describe(discoverWorkspaces, () => {
     );
   });
 
-  it('reports single-package where the root holds no pnpm-workspace.yaml', () => {
+  it('reports single-package when the root does not contain a pnpm-workspace.yaml', () => {
     expect(discoverWorkspaces(tree.dir)).toStrictEqual({ kind: 'single-package' });
   });
 
@@ -33,7 +33,7 @@ describe(discoverWorkspaces, () => {
     ['the `packages` key is absent', 'catalog:\n  zod: 4.1.13\n'],
     ['the `packages` key is null', 'packages:\n'],
     ['the `packages` list is empty', 'packages: []\n'],
-  ])('reports single-package where %s', (_condition, manifest) => {
+  ])('reports single-package when %s', (_condition, manifest) => {
     tree.write('pnpm-workspace.yaml', manifest);
 
     expect(discoverWorkspaces(tree.dir)).toStrictEqual({ kind: 'single-package' });
@@ -43,9 +43,9 @@ describe(discoverWorkspaces, () => {
   // pnpm refuses to load two of these manifests outright.
   it.each([
     ['the value is not a list', "packages: 'packages/*'\n"],
-    ['a non-string entry stands beside a valid pattern', 'packages:\n  - packages/*\n  - 123\n'],
-    ['a mis-indented map stands beside a valid pattern', 'packages:\n  - packages/*\n  - apps/*:\n'],
-  ])('fails rather than releasing the root where %s', (_condition, manifest) => {
+    ['a non-string entry appears beside a valid pattern', 'packages:\n  - packages/*\n  - 123\n'],
+    ['a mis-indented map appears beside a valid pattern', 'packages:\n  - packages/*\n  - apps/*:\n'],
+  ])('fails rather than releasing the root when %s', (_condition, manifest) => {
     tree.write('pnpm-workspace.yaml', manifest);
 
     expect(discoverWorkspaces(tree.dir)).toStrictEqual({
@@ -65,7 +65,7 @@ describe(discoverWorkspaces, () => {
     });
   });
 
-  // An excluded package that discovery returned would reach every tag, publish, and label-sync workflow.
+  // Every tag, publish, and label-sync workflow would act on an excluded package that discovery returned.
   it('omits a package that a negative pattern excludes', () => {
     tree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n  - '!packages/legacy'\n");
 
@@ -89,7 +89,8 @@ describe(discoverWorkspaces, () => {
     });
   });
 
-  // Every release-kit command calls it with no argument, so the default is the seam the whole CLI reads through.
+  // Every release-kit command calls it without an argument, so the default is the seam through which the whole
+  // CLI reads.
   it('defaults the root to the working directory', () => {
     tree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n");
     disposeOnTestFinished(pointCwdAt(tree.dir));
@@ -100,8 +101,8 @@ describe(discoverWorkspaces, () => {
     });
   });
 
-  describe('a workspace resolving to no package', () => {
-    it('reports all-excluded where the exclusions remove every match', () => {
+  describe('a workspace that does not resolve to any package', () => {
+    it('reports all-excluded when the exclusions remove every match', () => {
       tree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n  - '!packages/*'\n");
 
       expect(discoverWorkspaces(tree.dir)).toStrictEqual({
@@ -111,15 +112,15 @@ describe(discoverWorkspaces, () => {
       });
     });
 
-    it('reports no-package where the patterns match no directory holding one', () => {
+    it('reports no-package when the patterns do not match any directory that contains one', () => {
       tree.write('pnpm-workspace.yaml', "packages:\n  - 'apps/*'\n");
 
       expect(discoverWorkspaces(tree.dir)).toMatchObject({ cause: 'no-package', kind: 'empty' });
     });
 
-    // An unquoted `!excluded` parses as a YAML tag, leaving an entry the matcher drops. The reader declared
+    // An unquoted `!excluded` parses as a YAML tag, leaving an entry that the matcher drops. The reader declared
     // packages and got none, which is the condition worth reporting rather than releasing the root.
-    it('reports no-pattern where every declared entry fails to become a positive pattern', () => {
+    it('reports no-pattern when every declared entry fails to become a positive pattern', () => {
       tree.write('pnpm-workspace.yaml', 'packages:\n  - !excluded\n');
 
       expect(discoverWorkspaces(tree.dir)).toMatchObject({ cause: 'no-pattern', kind: 'empty' });
@@ -127,7 +128,7 @@ describe(discoverWorkspaces, () => {
 
     // Reported rather than thrown, so that a caller composing a message is the one that decides the failure.
     // Held apart from `no-pattern` because declaring a positive pattern repairs nothing above a syntax error.
-    it('reports unreadable-manifest where the manifest holds no valid YAML', () => {
+    it('reports unreadable-manifest when the manifest does not contain valid YAML', () => {
       tree.write('pnpm-workspace.yaml', 'packages:\n  - "unterminated\n');
 
       expect(discoverWorkspaces(tree.dir)).toStrictEqual({
@@ -154,14 +155,14 @@ describe(describeEmptyWorkspace, () => {
     expect(message).toContain('`package.json`');
   });
 
-  // An unquoted `!pkg` is what YAML leaves empty, and the `no-pattern` remedy is written for that case.
-  it('counts the entries YAML left empty rather than quoting them', () => {
+  // YAML leaves an unquoted `!pkg` empty, and the `no-pattern` remedy is written for that case.
+  it('counts the entries that YAML left empty rather than quoting them', () => {
     expect(describeEmptyWorkspace(emptyWorkspace('no-pattern', ['', '']))).toContain(
       'declares 2 entries that YAML left empty',
     );
   });
 
-  it('names an emptied entry beside the patterns it stands with', () => {
+  it('names an emptied entry beside the patterns declared with it', () => {
     expect(describeEmptyWorkspace(emptyWorkspace('no-package', ['packages/*', '']))).toContain(
       'declares `packages/*`, beside 1 entry that YAML left empty',
     );
@@ -172,7 +173,7 @@ describe(describeEmptyWorkspace, () => {
   it('names the syntax error for unreadable-manifest', () => {
     const message = describeEmptyWorkspace(emptyWorkspace('unreadable-manifest', []));
 
-    expect(message).toContain('holds no valid YAML');
+    expect(message).toContain('does not contain valid YAML');
     expect(message).toContain('Repair the syntax error');
   });
 

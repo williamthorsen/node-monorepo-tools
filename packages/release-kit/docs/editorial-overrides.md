@@ -2,9 +2,9 @@
 
 How to correct a generated changelog entry without rewriting history: where override files live, how they compose, how a key targets items, what an entry may set, and how to validate the files.
 
-Generated changelogs occasionally need editorial correction — typos, redacted scope, reworded entries, or historical commits whose bodies carry verbatim PR-template scaffolding (`## What`, `## Why`, etc.) that renders as literal text in user-facing release notes. Rewriting git history is not viable, and any in-place edit to a version that release-kit renders in `CHANGELOG.md` or `.meta/changelog.json` is overwritten on the next release, because release-kit regenerates that version in both artifacts from its entries.
+Generated changelogs occasionally need editorial correction: typos, redacted scope, reworded entries, or historical commits whose bodies contain verbatim PR-template scaffolding (`## What`, `## Why`, etc.) that renders as literal text in user-facing release notes. Rewriting git history is not viable, and any in-place edit to a version that release-kit renders in `CHANGELOG.md` or `.meta/changelog.json` is overwritten on the next release, because release-kit regenerates that version in both artifacts from its entries.
 
-Override files are the supported escape hatch. Drop a checked-in JSON file at the conventional path for the scope you want to influence, keyed by commit hash or by commit hash and entry position, and `release-kit prepare` applies the overrides between `buildChangelogEntries` and serialization. Both `CHANGELOG.md` and `.meta/changelog.json` reflect the post-override view, so downstream consumers (the GitHub Release body, the in-app release-notes page, etc.) see the same content.
+Override files are the supported escape hatch. Add a checked-in JSON file at the conventional path for the scope that it should affect, keyed by commit hash or by commit hash and entry position, and `release-kit prepare` applies the overrides between `buildChangelogEntries` and serialization. Both `CHANGELOG.md` and `.meta/changelog.json` reflect the post-override view, so downstream consumers (the GitHub Release body, the in-app release-notes page, etc.) see the same content.
 
 ## File-location convention
 
@@ -14,7 +14,7 @@ Override files are the supported escape hatch. Drop a checked-in JSON file at th
 | Workspace           | `packages/<ws>/.meta/changelog-overrides.json` | Only that workspace's changelog                         |
 | Single-package mode | `.meta/changelog-overrides.json`               | The package's changelog (collapses to the project case) |
 
-Filenames have no leading dot — the `.meta/` directory already provides the visibility property and parallels its sibling artifacts (`changelog.json`, `label-map.json`).
+Filenames don't have a leading dot, because the `.meta/` directory already provides the visibility property and parallels its sibling artifacts (`changelog.json`, `label-map.json`).
 
 ## Composition: per-key shadowing
 
@@ -22,18 +22,18 @@ When a workspace's changelog is rendered, both files are consulted:
 
 - The root file's overrides apply globally.
 - The workspace file's overrides apply only to that workspace.
-- When the **same key** (string-equal, byte-for-byte) appears in both files, the **workspace entry wins entirely** for that workspace's changelog — no field-level merge, the workspace entry replaces the root entry.
+- When the **same key** (string-equal, byte-for-byte) appears in both files, the **workspace entry wins entirely** for that workspace's changelog: release-kit doesn't merge the two entries field by field; the workspace entry replaces the root entry.
 - Non-identical keys that match the same item, such as a root `abc1234` beside a workspace `abc1234:2`, or two prefixes of one commit, do **not** shadow. The run fails with the [overlapping-keys error](#conflicting-keys), which names both keys.
 - Other keys in the root file still apply for that workspace.
 
-The project-level changelog applies only the root file. Per-workspace files describe per-workspace editorial intent and have no meaning at the aggregated project tier.
+The project-level changelog applies only the root file. Per-workspace files describe per-workspace editorial intent and don't have any meaning at the aggregated project tier.
 
 ## Stale-key warnings
 
 A key that doesn't match any commit gets a stale-reference warning. The warning's scope mirrors the file's scope:
 
 - **Per-workspace files** are warned against their own apply context. A key in `packages/foo/.meta/changelog-overrides.json` that doesn't match any commit in foo's changelog is unambiguously stale and is warned immediately.
-- **Root file** keys are aggregated globally — a root key that matches in any workspace or in the project changelog is non-stale; a root key matched nowhere is warned exactly once after all batches complete.
+- **Root file** keys are aggregated globally: A root key that matches in any workspace or in the project changelog is non-stale; a root key matched nowhere is warned exactly once after all batches complete.
 
 ## File shape
 
@@ -65,7 +65,7 @@ The top-level `$schema` key is optional and names the [published JSON Schema](#p
 | `body`        | `string`                   | Replaces the entry's body (the prose that renders below the bullet). Other fields are preserved.                                  |
 | `breaking`    | `boolean`                  | Toggles the `🚨 **Breaking:** ` marker on the bullet.                                                                             |
 
-There is no `migration` key: On a title-derived item the field is derived from `body`, so an override that replaces `body` re-derives it, and an item derived from a change-record entry keeps its entry's `migration`. See [The `migration` field](changelogs.md#the-migration-field).
+An override entry doesn't take a `migration` key: On a title-derived item the field is derived from `body`, so an override that replaces `body` re-derives it, and an item derived from a change-record entry keeps its entry's `migration`. See [The `migration` field](changelogs.md#the-migration-field).
 
 ## Keys
 
@@ -76,13 +76,13 @@ A key takes one of two forms. In both, the hash part is lowercase hex and matche
 | `<hash>`     | Every item of the commit                                         |
 | `<hash>:<n>` | The one item derived from the commit's `n`th change-record entry |
 
-`n` counts from 1 over the `entries` of the commit's [change-record block](changelogs.md#change-record-blocks), in the order in which the PR lists them, including entries that yield no item. An item derived from the commit's title has no entry position, so `<hash>:<n>` never matches it. Any other key fails loading.
+`n` counts from 1 over the `entries` of the commit's [change-record block](changelogs.md#change-record-blocks), in the order in which the PR lists them, including entries that don't yield an item. An item derived from the commit's title doesn't have an entry position, so `<hash>:<n>` never matches it. Any other key fails loading.
 
 The hash part can be the full 40-character SHA or a prefix. `prepare` resolves it against the distinct commit hashes in the changelog:
 
-- **One commit** — the override applies to the items that the key targets. A 7-character prefix is usually unambiguous within a single repo's history; longer prefixes are always safe.
-- **No commit** — the override is treated as a stale reference (probably from a rebase or branch deletion) and prepare reports a warning. The release continues. An ordinal key whose commit has no item at position `n` is stale in the same way.
-- **Several commits** — the release aborts with an error naming the key and the matching hashes. Lengthen the prefix or use the full SHA.
+- **One commit**: The override applies to the items that the key targets. A 7-character prefix is usually unambiguous within a single repo's history; longer prefixes are always safe.
+- **No commit**: The override is treated as a stale reference (probably from a rebase or branch deletion) and prepare reports a warning. The release continues. An ordinal key whose commit doesn't have an item at position `n` is stale in the same way.
+- **Several commits**: The release aborts with an error naming the key and the matching hashes. Lengthen the prefix or use the full SHA.
 
 ### Conflicting keys
 
@@ -104,13 +104,13 @@ Suppose commit `3f0c9a1` merged a PR whose change record lists three entries. It
 
 A bare `"3f0c9a1": { "audience": "skip" }` would skip all three items instead. Adding it beside the keys above fails the run, because it overlaps each of them.
 
-Override application errors abort the run with a non-zero exit; warnings (zero-match keys) are non-fatal and surface on `PrepareResult.warnings`.
+Override application errors abort the run with a non-zero exit; warnings (zero-match keys) are non-fatal and appear in `PrepareResult.warnings`.
 
 ## Validation
 
-The override file is validated when `release-kit prepare` loads it. Each error names the offending key so you can locate it in your file:
+The override file is validated when `release-kit prepare` loads it. Each error names the offending key so that the developer can locate it in the file:
 
-- Missing file → empty map, no error (the no-op default — projects that do not need overrides skip the file entirely).
+- Missing file → empty map, no error (the no-op default: Projects that do not need overrides skip the file entirely).
 - Malformed JSON → error.
 - A key that is neither `<hash>` nor `<hash>:<n>` (uppercase hex, non-hex characters, `:0`, a leading zero in `n`) → error.
 - A top-level `$schema` that is not a string → error.
@@ -118,7 +118,7 @@ The override file is validated when `release-kit prepare` loads it. Each error n
 - Unknown fields on an entry → error.
 - Wrong field types (e.g., `description` as a number) → error.
 - An entry with no fields set → error (a copy-paste mistake more often than not).
-- `audience: 'all'` or `audience: 'dev'` → error in the current release: only `'skip'` is supported (see below).
+- `audience: 'all'` or `audience: 'dev'` → error in the current release: Only `'skip'` is supported (see below).
 
 Applying the overrides then aborts the run on an ambiguous prefix and on either of the [conflicting-key conditions](#conflicting-keys): a bare key setting `description` or `body` on a commit with several items, and two keys matching the same item.
 
@@ -137,9 +137,9 @@ This walks every `.meta/changelog-overrides.json` file across the project tier a
 | Schema/parse errors | malformed JSON, malformed keys, unknown fields, wrong field types, no-field entries, unsupported `audience` | `2`       |
 | Ambiguous-prefix    | an override key resolves to 2+ commit hashes                                                                | `2`       |
 | Conflicting keys    | a bare key sets `description` or `body` on a commit with several items; two keys match the same item        | `2`       |
-| Stale-key warnings  | an override key resolves to no item in its applicable scope                                                 | `1`       |
+| Stale-key warnings  | an override key doesn't resolve to any item in its applicable scope                                         | `1`       |
 
-Tier-aware stale-key semantics match `release-kit prepare`'s match-set exactly: a workspace-tier key is stale if it does not match in its own workspace's history; a root-tier key is stale only if it matches in **no** scope (no workspace AND not the project release window).
+Tier-aware stale-key semantics match `release-kit prepare`'s match-set exactly: A workspace-tier key is stale if it does not match in its own workspace's history; a root-tier key is stale only if it doesn't match in **any** scope (neither any workspace nor the project release window).
 
 Conflicting keys are found within one file and across the root and workspace files, as `prepare` composes them. An overlap between a root key and a workspace key is reported against the workspace file.
 
@@ -166,13 +166,13 @@ The schema states the key form and the entry fields. It accepts `audience` value
 
 ## Audience semantics: v1 supports `'skip'` only
 
-The on-disk format declares the full `'all' | 'dev' | 'skip'` audience vocabulary so the file format will not need to change when the v2 reclassification feature ships. In the current release, only `'skip'` is supported at runtime; `'all'` and `'dev'` are rejected with an explicit "not yet supported" error.
+The on-disk format declares the full `'all' | 'dev' | 'skip'` audience vocabulary so that the file format will not need to change when the v2 reclassification feature is released. In the current release, only `'skip'` is supported at runtime; `'all'` and `'dev'` are rejected with an explicit "not yet supported" error.
 
-The eventual v2 behavior will let an override move a single item to a different audience section (e.g., reclassifying a `Documentation` entry as `Internal features` to keep it out of public-facing release notes). v1 deliberately leaves that as a separate change so the override mechanism can ship now and the section-split logic can land additively later.
+The eventual v2 behavior will let an override move a single item to a different audience section (e.g., reclassifying a `Documentation` entry as `Internal features` to keep it out of public-facing release notes). v1 deliberately leaves that as a separate change so that the override mechanism can be released now and the section-split logic can be added later.
 
 ## Worked example 1: cleaning up scaffolded historical commits (root file)
 
-Suppose a year-old commit `82962311` was authored from a PR template that left `## What` / `## Why` headings in the body, and that commit now appears in your in-app release notes as literal Markdown headings. Add an override at the project tier:
+Suppose a year-old commit `82962311` was authored from a PR template that left `## What` / `## Why` headings in the body, and that commit now appears in the project's in-app release notes as literal Markdown headings. Add an override at the project tier:
 
 ```json
 // .meta/changelog-overrides.json
@@ -187,9 +187,9 @@ On the next `release-kit prepare` run, the matched item's body is replaced befor
 
 ## Worked example 2: suppressing a cross-attribution spillover (workspace file)
 
-Release-kit attributes commits to workspaces by file path, so a commit that primarily belongs to one workspace can land in another's changelog if it touched files there. Suppose commit `1ce3d2f` renamed the `audit-deps` package to `v11y-check` (scope `v11y-check`) but also edited `packages/nmr/src/default-scripts.ts` and `packages/nmr/README.md`. The commit correctly appears in `packages/v11y-check/CHANGELOG.md`, but it also spills into `packages/nmr/CHANGELOG.md` where it isn't the right editorial framing.
+Release-kit attributes commits to workspaces by file path, so a commit that primarily belongs to one workspace can appear in another's changelog if it touched files there. Suppose commit `1ce3d2f` renamed the `audit-deps` package to `v11y-check` (scope `v11y-check`) but also edited `packages/nmr/src/default-scripts.ts` and `packages/nmr/README.md`. The commit correctly appears in `packages/v11y-check/CHANGELOG.md`, but it also appears in `packages/nmr/CHANGELOG.md`, where it isn't the right editorial framing.
 
-Drop a workspace-tier override at `packages/nmr/.meta/changelog-overrides.json`:
+Add a workspace-tier override at `packages/nmr/.meta/changelog-overrides.json`:
 
 ```json
 // packages/nmr/.meta/changelog-overrides.json
@@ -200,4 +200,4 @@ Drop a workspace-tier override at `packages/nmr/.meta/changelog-overrides.json`:
 }
 ```
 
-The commit is now suppressed in nmr's changelog only — it still appears in v11y-check's, where it belongs. A root-tier `'skip'` would have removed it from both, which is the wrong outcome.
+The commit is now suppressed in nmr's changelog only; it still appears in v11y-check's, where it belongs. A root-tier `'skip'` would have removed it from both, which is the wrong outcome.

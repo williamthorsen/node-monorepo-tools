@@ -46,7 +46,7 @@ describe(buildReleaseSummary, () => {
     );
   });
 
-  it('lists the subject alone for a commit that carries a body', () => {
+  it('lists the subject alone for a commit that has a body', () => {
     const result = makeResult({
       workspaces: [
         {
@@ -139,7 +139,7 @@ describe(buildReleaseSummary, () => {
     expect(buildReleaseSummary(result)).toBe('');
   });
 
-  it('returns empty string when there are no workspaces', () => {
+  it('returns empty string when the result does not contain any workspaces', () => {
     expect(buildReleaseSummary(makeResult())).toBe('');
   });
 
@@ -176,7 +176,7 @@ describe(buildReleaseSummary, () => {
       expect(buildReleaseSummary(result)).toBe('arrays-v1.1.0\n- feat: Add compact\n\nv0.10.0\n- feat: Add compact');
     });
 
-    it('emits only the project section when no workspace contributed commits', () => {
+    it('emits only the project section when the workspaces did not contribute any commits', () => {
       const result = makeResult({
         project: {
           status: 'released',
@@ -195,7 +195,7 @@ describe(buildReleaseSummary, () => {
       expect(buildReleaseSummary(result)).toBe('v0.9.1\n- fix: Patch bug');
     });
 
-    it('omits the project section when no project commits exist', () => {
+    it('omits the project section when the project does not have any commits', () => {
       const result = makeResult({
         project: {
           status: 'released',
@@ -215,7 +215,7 @@ describe(buildReleaseSummary, () => {
     });
 
     it('omits a skipped project from the summary', () => {
-      // A skipped project produces no tag and no commits to attribute.
+      // A skipped project doesn't produce a tag or any commits to attribute.
       const result = makeResult({
         workspaces: [
           {

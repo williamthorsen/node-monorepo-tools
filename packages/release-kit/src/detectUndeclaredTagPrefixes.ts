@@ -35,7 +35,7 @@ const CANDIDATE_TAG_PATTERN = /^(?<prefix>[a-z][a-z0-9-]*-v)\d+\.\d+\.\d+(?:-[A-
  * declared prefixes across all workspaces.
  *
  * Reads only the local tag list, so a remote tag that has not been fetched is not reported. Returns an empty array
- * when the repo has no tags or no candidate-shaped tags outside the known set.
+ * when the repo doesn't have any tags, or any candidate-shaped tags outside the known set.
  */
 export function detectUndeclaredTagPrefixes(knownPrefixes: readonly string[]): UndeclaredTagPrefix[] {
   const known = new Set(knownPrefixes);
@@ -48,7 +48,7 @@ export function detectUndeclaredTagPrefixes(knownPrefixes: readonly string[]): U
       stdio: ['pipe', 'pipe', 'pipe'],
     });
   } catch {
-    // Report no candidates when git or the repo is unavailable: the scan feeds advisory output only.
+    // Don't report any candidates when git or the repo is unavailable: The scan feeds advisory output only.
     return [];
   }
 

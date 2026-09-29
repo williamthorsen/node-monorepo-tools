@@ -48,7 +48,7 @@ function canonicalSectionPriority(title: string): number {
 /**
  * Strips a section title down to its bare name.
  *
- * A default title carries a leading emoji (e.g. `"🐛 Bug fixes"`), while a consumer's
+ * A default title has a leading emoji (e.g. `"🐛 Bug fixes"`), while a consumer's
  * `devOnlySections` or `workTypes` override may be written as a bare name. Comparing both sides
  * through this helper lets the two forms match.
  */
@@ -76,7 +76,10 @@ export interface ChangelogDiagnostics {
   /** Breaking-policy violations of the window's titles and change-record entries. */
   policyViolations: PolicyViolation[];
   undeclaredEntryTypes: UndeclaredEntryType[];
-  /** Entry scopes that route to no workspace. A read leaves it empty: only a pass over every workspace can fill it. */
+  /**
+   * Entry scopes that don't route to any workspace. A read leaves it empty: Only a pass over every workspace can fill
+   * it.
+   */
   unroutedEntryScopes: UnroutedEntryScope[];
 }
 
@@ -86,8 +89,8 @@ export interface ChangelogDiagnostics {
  *
  * A commit whose last `change-record` block records entries yields one item per entry routed to
  * `options.workspaceDir`; any other commit is classified by its title through `classifyChangelogCommit`. A `release:`
- * or merge subject yields nothing either way. Only the unreleased window records diagnostics, since the released
- * windows were reported when they were prepared.
+ * or merge subject yields nothing either way. The read records diagnostics only for the unreleased window, since the
+ * released windows were reported when they were prepared.
  */
 export function readReleaseHistory(config: ReleaseHistoryConfig, options: GenerateChangelogOptions): ReleaseHistory {
   try {
@@ -121,14 +124,14 @@ export type ReleaseHistoryConfig = Pick<
 export interface ReleaseHistory {
   /** The newest matching tag that HEAD reaches; undefined when none does. */
   previousTag: string | undefined;
-  /** Entries of the released windows, newest first; a window that yields no item contributes none. */
+  /** Entries of the released windows, newest first; a window that doesn't yield any item contributes none. */
   releasedEntries: ChangelogEntry[];
   unreleased: UnreleasedWindowReading;
 }
 
 /** The unreleased window: its changelog sections and commits, and the bump and diagnostics that they determine. */
 export interface UnreleasedWindowReading {
-  /** The highest bump that the window's items call for; undefined when the window yields no item. */
+  /** The highest bump that the window's items call for; undefined when the window doesn't yield any item. */
   bump: ReleaseType | undefined;
   /** The window's commits, newest first, without release commits. */
   commits: RawCommit[];
@@ -139,8 +142,8 @@ export interface UnreleasedWindowReading {
   parsedCommitCount: number;
   sections: ChangelogSection[];
   /**
-   * Commits that yield no item and that neither an exclusion nor a diagnostic accounts for, newest first; undefined
-   * when none.
+   * Commits that don't yield any item and that neither an exclusion nor a diagnostic accounts for, newest first;
+   * undefined when none.
    */
   unparseableCommits: RawCommit[] | undefined;
 }
@@ -159,8 +162,8 @@ export function toChangelogEntries(history: ReleaseHistory, tag: string): Change
 
 /**
  * Returns the entries that a direct release tagged `tag` records: those of `toChangelogEntries`, or, when the
- * unreleased window yields no item, the synthetic "Forced version bump." entry dated `today` ahead of the released
- * entries.
+ * unreleased window doesn't yield any item, the synthetic "Forced version bump." entry dated `today` ahead of the
+ * released entries.
  */
 export function toReleaseEntries(history: ReleaseHistory, tag: string, today: string): ChangelogEntry[] {
   if (history.unreleased.sections.length === 0) {
@@ -253,9 +256,9 @@ function transformReleases(windows: readonly ReleaseWindow[], context: ReadConte
 /**
  * Reads the items that one commit yields.
  *
- * `isUnparseable` is true for a commit that yields no item because its title has no ticket prefix or no resolvable
- * type, and that no malformed-block diagnostic already reports. `diagnostics` is undefined for a released window,
- * which reports nothing.
+ * `isUnparseable` is true for a commit that doesn't yield any item, because its title lacks a ticket prefix or a
+ * resolvable type, and that isn't already reported by any malformed-block diagnostic. `diagnostics` is undefined for a
+ * released window, which reports nothing.
  */
 function readCommit(
   commit: RawCommit,
@@ -325,8 +328,8 @@ function buildSections(
 }
 
 /**
- * Reports whether an entry with `scopes` reaches the routed workspace: Its scopes are empty, contain `*`, or name the
- * workspace's `dir` once `scopeAliases` resolves them.
+ * Reports whether an entry with `scopes` is routed to the workspace of `routing`: Its scopes are empty, contain `*`,
+ * or name the workspace's `dir` once `scopeAliases` resolves them.
  */
 function isRoutedTo(scopes: readonly string[], routing: EntryRouting): boolean {
   if (scopes.length === 0) {
@@ -427,7 +430,7 @@ function buildEntryItem(
  * Builds the item that a commit without a usable change-record block yields from its title and body. The body leaves
  * out any block, which records data rather than prose.
  *
- * `isParsedBreaking` is the parser's policy-evaluated flag. The item is breaking only when the subject also carries a
+ * `isParsedBreaking` is the parser's policy-evaluated flag. The item is breaking only when the subject also has a
  * prefix `!`, because the parse also counts a `BREAKING CHANGE:` footer on an `optional`-policy type, which the
  * changelog ignores.
  */
@@ -454,7 +457,7 @@ function buildTitleItem(
 }
 
 /**
- * Reports whether the commit subject carries the `!` breaking marker, as change-grammar reads it. The `BREAKING
+ * Reports whether the commit subject contains the `!` breaking marker, as change-grammar reads it. The `BREAKING
  * CHANGE:` body footer is not considered, and the marker alone does not make an item breaking: The commit's work-type
  * policy must also permit `!` (see `buildTitleItem`).
  */
@@ -472,7 +475,7 @@ function extractDescription(message: string): string {
 /**
  * Regex patterns for trailer lines to strip from the tail of a commit body.
  *
- * No pattern matches `Migration:`. `extractMigration` reads the stripped body, so a pattern
+ * The patterns don't match `Migration:`. `extractMigration` reads the stripped body, so a pattern
  * matching the label would take the label line off a body-final `Migration:` paragraph and
  * silently stop yielding `item.migration`.
  */

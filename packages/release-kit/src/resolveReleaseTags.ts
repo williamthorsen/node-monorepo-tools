@@ -27,13 +27,13 @@ type ResolveReleaseTagsArgs = { workspaces: readonly WorkspaceConfig[] } | { sin
 /**
  * Resolves release tags pointing at HEAD into publishable package descriptors.
  *
- * Pass `{ workspaces }` for monorepo mode: each tag is matched against the workspace
+ * Pass `{ workspaces }` for monorepo mode: Each tag is matched against the workspace
  * whose `tagPrefix` it starts with, and that workspace's `isPublishable` propagates onto
  * the `ResolvedTag`. Because `tagPrefix` is derived from `deriveWorkspaceConfig()` (the
  * same source that produced the tag), encoding and decoding stay colocated.
  *
- * Pass `{ singleWorkspace }` for single-package mode: tags like `v1.2.3` are matched and
- * each carries the workspace's `isPublishable` bit derived from `./package.json#private`.
+ * Pass `{ singleWorkspace }` for single-package mode: Tags like `v1.2.3` are matched and
+ * each has the workspace's `isPublishable` bit derived from `./package.json#private`.
  *
  * The no-arg form is a test-isolation convenience for unit tests that exercise tag
  * matching without needing `isPublishable` propagation; resolved tags default to

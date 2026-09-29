@@ -4,13 +4,13 @@ How to declare the repository's labels in `.config/release-kit.config.ts`, how t
 
 ## `release-kit sync-labels`
 
-Manage GitHub label definitions via the `repoLabels` block of `.config/release-kit.config.ts`.
+Manages GitHub label definitions via the `repoLabels` block of `.config/release-kit.config.ts`.
 
-`init` scaffolds the `.github/workflows/sync-labels.yaml` caller workflow and seeds a `repoLabels` block with scope labels discovered from workspaces and declared `retiredPackages`. When `.config/release-kit.config.ts` does not exist, `init` writes it; when it does, `init` prints the block for manual paste — a hand-authored config is never rewritten. `generate` resolves the block and writes `.github/labels.yaml`; with `--check` it regenerates in memory and exits non-zero if the committed file is stale or missing, writing nothing. `sync` triggers the workflow remotely — it requires the `gh` CLI and an existing workflow file.
+`init` scaffolds the `.github/workflows/sync-labels.yaml` caller workflow and seeds a `repoLabels` block with scope labels discovered from workspaces and declared `retiredPackages`. When `.config/release-kit.config.ts` does not exist, `init` writes it; when it does, `init` prints the block for manual paste; a hand-authored config is never rewritten. `generate` resolves the block and writes `.github/labels.yaml`; with `--check` it regenerates in memory and exits non-zero if the committed file is stale or missing, writing nothing. `sync` triggers the workflow remotely; it requires the `gh` CLI and an existing workflow file.
 
 `init` and `generate` accept `--config <path>` to read a config elsewhere; `sync` reads none and rejects the flag. Under `--config`, `init` reads the named file and prints the block for manual paste, and fails when that file does not exist rather than scaffolding one, so its write target stays `.config/release-kit.config.ts`. See [Config file location](configuration.md#config-file-location).
 
-Every `sync-labels` subcommand refuses to run while the retired `.config/sync-labels.config.ts` is present, so custom labels cannot be silently dropped mid-migration, and the refusal names what to move and where.
+Every `sync-labels` subcommand refuses to run while the retired `.config/sync-labels.config.ts` is present, so that custom labels cannot be silently dropped mid-migration, and the refusal names what to move and where.
 
 ### Label configuration
 
@@ -29,10 +29,10 @@ export default defineConfig({
 });
 ```
 
-The block declares the repository's label registry — the set of labels defined on the GitHub repo, distinct from labels applied to PRs and issues. Resolution is an ordered fold with last-writer-wins:
+The block declares the repository's label registry: the set of labels defined on the GitHub repo, distinct from labels applied to PRs and issues. Resolution is an ordered fold with last-writer-wins:
 
-1. Presets, in `extends` order — a later preset wins on a shared name.
-2. The `labels` record — an entry adds a label, replaces one an earlier layer defined, or removes it (`null`). Replacement is wholesale: an entry omitting `description` resolves to no description rather than inheriting the one an earlier layer supplied.
+1. Presets, in `extends` order: A later preset wins on a shared name.
+2. The `labels` record: An entry adds a label, replaces one that an earlier layer defined, or removes it (`null`). Replacement is wholesale: An entry omitting `description` resolves to a label without a description rather than inheriting the one that an earlier layer supplied.
 
 The `common` preset defines a label for every work type in change-grammar's taxonomy, named by the type's `trackerLabel`, in addition to the labels in its bundled YAML file.
 
@@ -40,11 +40,11 @@ Names match case-insensitively, as GitHub matches them: `Bug` in the `labels` re
 
 `description` is optional throughout, in a preset as in the `labels` record, and `sync-labels init` generates none for a scope label. The generated file spells an absent description `''` because `github-label-sync` reads an omitted description as "leave the label's current one alone"; the empty form clears it.
 
-Overlaps between layers are never errors; order resolves them, and the committed `.github/labels.yaml` diff is where an unexpected change surfaces at review. Two misstatements are config errors, because neither is visible in the output diff: a dangling `null`, which removes a name that no preset defines, and `labels` keys that differ only in case, all but one of which the fold would discard.
+Overlaps between layers are never errors; order resolves them, and the committed `.github/labels.yaml` diff shows any unexpected change at review. Two misstatements are config errors, because neither is visible in the output diff: a dangling `null`, which removes a name not defined by any preset, and `labels` keys that differ only in case, all but one of which the fold would discard.
 
 ### When labels are applied
 
-The scaffolded workflow carries three triggers:
+The scaffolded workflow declares three triggers:
 
 | Trigger                                                   | Job     | Token           | Effect                            |
 | --------------------------------------------------------- | ------- | --------------- | --------------------------------- |
@@ -52,19 +52,19 @@ The scaffolded workflow carries three triggers:
 | Manual dispatch (`release-kit sync-labels sync`)          | `sync`  | `issues: write` | Applies the labels                |
 | Pull request touching `.github/labels.yaml`               | `check` | `issues: read`  | Logs the diff without applying it |
 
-Applying on merge closes the window in which a regenerated `.github/labels.yaml` sits unapplied — a window in which a later manual dispatch would apply a label set nobody reviewed.
+Applying on merge closes the window in which a regenerated `.github/labels.yaml` remains unapplied. In that window, a later manual dispatch would apply an unreviewed label set.
 
-The `check` job runs the same sync in dry-run. Its **Label diff** log group lists every create, edit, rename, and deletion the sync would perform, including deletions of labels the file does not declare — the destructive edits a diff of `.github/labels.yaml` alone cannot show, because a label created by hand or by another workflow is absent from the file both before and after. Read that log; the check reports success whether or not the diff is destructive, so a green check is not evidence that nothing will be deleted.
+The `check` job runs the same sync in dry-run. Its **Label diff** log group lists every create, edit, rename, and deletion that the sync would perform, including deletions of labels that the file does not declare: the destructive edits that a diff of `.github/labels.yaml` alone cannot show, because a label created by hand or by another workflow is absent from the file both before and after. Read that log; the check reports success whether or not the diff is destructive, so a green check is not evidence that nothing will be deleted.
 
-The two jobs are split because a job's permissions are fixed when the run is created and cannot vary by trigger. The split is what keeps a write-scoped token out of pull-request runs.
+The two jobs are split because a job's permissions are fixed when the run is created and cannot vary by trigger. The split keeps a write-scoped token out of pull-request runs.
 
-The push trigger filters on the path alone; the `sync` job compares `github.ref_name` against the repository's default branch. The workflow therefore needs no per-repo edit whatever that branch is named — and a push touching `.github/labels.yaml` on any other branch produces a run whose jobs all skip.
+The push trigger filters on the path alone; the `sync` job compares `github.ref_name` against the repository's default branch. The workflow therefore doesn't need a per-repo edit, whatever that branch is named, and a push touching `.github/labels.yaml` on any other branch produces a run whose jobs all skip.
 
 Manual dispatch is not a preview. It matches the `sync` job, so it applies the labels, deletions included; only the pull-request path runs in dry-run.
 
 ### Dry-run checks on fork pull requests
 
-GitHub issues a read-only `GITHUB_TOKEN` to pull requests from forks, and by default holds runs from first-time contributors until a maintainer approves them. The dry-run reads labels and writes nothing, so the check normally runs once approved. A repo that disables workflows on fork pull requests gets no check at all; to preview such a change, push the branch to the base repo and open the pull request from there.
+GitHub issues a read-only `GITHUB_TOKEN` to pull requests from forks, and by default pauses runs from first-time contributors until a maintainer approves them. Because the dry-run reads labels and writes nothing, the check normally runs once approved. A repo that disables workflows on fork pull requests doesn't get a check at all; to preview such a change, push the branch to the base repo and open the pull request from there.
 
 ### JSON Schema for `.meta/label-map.json`
 

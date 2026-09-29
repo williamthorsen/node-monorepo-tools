@@ -27,7 +27,7 @@ export interface UntaggedBaseline {
 
 /**
  * Throws when any finding is an untagged baseline, naming each one's missing tag. Without that tag, the unreleased
- * window reaches back to the start of history, so the new version would absorb every earlier commit.
+ * window extends back to the start of history, so the new version would include every earlier commit.
  */
 export function assertTaggedBaseline(findings: ReadonlyArray<UntaggedBaseline | undefined>): void {
   const untagged = findings.filter((finding) => finding !== undefined);
@@ -44,8 +44,8 @@ export function assertTaggedBaseline(findings: ReadonlyArray<UntaggedBaseline | 
 
 /**
  * Returns the target's untagged baseline: its current version appears in one of its `CHANGELOG.md` or
- * `changelog.json` files, and its previous tag is not that version under any of its prefixes. A first release, whose
- * version no changelog records yet, has none.
+ * `changelog.json` files, and its previous tag is not that version under any of its prefixes. A first release has
+ * none, because its changelogs do not record its version yet.
  */
 export function findUntaggedBaseline(
   target: BaselineTarget,

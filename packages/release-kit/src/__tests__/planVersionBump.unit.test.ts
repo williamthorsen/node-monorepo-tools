@@ -35,7 +35,7 @@ describe(planVersionBump, () => {
     ]);
   });
 
-  it('renders one write per package file, each carrying the new version', () => {
+  it('renders one write per package file, each containing the new version', () => {
     mockReadFileSync.mockImplementation((filePath: string) => JSON.stringify({ name: filePath, version: '2.1.0' }));
 
     const plan = planVersionBump(['packages/a/package.json', 'packages/b/package.json'], 'patch');
@@ -57,7 +57,7 @@ describe(planVersionBump, () => {
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
-  it('throws when no package files are specified', () => {
+  it('throws when the list of package files is empty', () => {
     expect(() => planVersionBump([], 'patch')).toThrow('No package files specified');
   });
 
@@ -82,7 +82,7 @@ describe(planVersionBump, () => {
     );
   });
 
-  it('names the package file holding invalid JSON', () => {
+  it('names the package file containing invalid JSON', () => {
     mockReadFileSync.mockReturnValue('{ not valid json');
 
     expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(
@@ -90,7 +90,7 @@ describe(planVersionBump, () => {
     );
   });
 
-  it('preserves the underlying error as the cause when a package file holds invalid JSON', () => {
+  it('preserves the underlying error as the cause when a package file contains invalid JSON', () => {
     mockReadFileSync.mockReturnValue('{ not valid json');
 
     expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(
@@ -132,7 +132,7 @@ describe(planVersionSet, () => {
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
-  it('throws when no package files are specified', () => {
+  it('throws when the list of package files is empty', () => {
     expect(() => planVersionSet([], '1.0.0')).toThrow('No package files specified');
   });
 
@@ -152,7 +152,7 @@ describe(planVersionSet, () => {
     );
   });
 
-  it('names the package file when it has no version to compare against', () => {
+  it('names the package file when it does not declare a version to compare against', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg' }));
 
     expect(() => planVersionSet(['packages/a/package.json'], '1.0.0')).toThrow(

@@ -1,6 +1,6 @@
 import { defineGlyphSet } from '@williamthorsen/nmr-core';
 
-/** Glyphs that name no status; a status marker comes from nmr-core's `STATUS_GLYPHS`. */
+/** Glyphs that do not name a status; a status marker comes from nmr-core's `STATUS_GLYPHS`. */
 export const RELEASE_GLYPHS = defineGlyphSet({
   bump: { plain: 'BUMP', rich: '📦' },
   // The words "DRY RUN" follow this glyph, so the plain variant adds nothing.

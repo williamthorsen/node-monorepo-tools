@@ -25,17 +25,17 @@ export interface ChangelogItem {
    * Migration instruction for a consumer, taken from the `Migration:` paragraph of `body`, or from
    * the `migration` of the change-record entry from which the item derives.
    *
-   * On a title-derived item, derived from `body` wherever `body` is set, and absent where the body
-   * contains no labeled paragraph. Independent of `breaking`: a `deprecate` commit cannot take `!` under the default
-   * breaking policy and still calls for a migration. `body` keeps the paragraph, so
-   * `CHANGELOG.md` goes on rendering it in place.
+   * On a title-derived item, derived from `body` whenever `body` is set, and absent when the body
+   * does not contain any labeled paragraph. Independent of `breaking`: A `deprecate` commit cannot
+   * take `!` under the default breaking policy and still calls for a migration. `body` keeps the
+   * paragraph, so `CHANGELOG.md` goes on rendering it in place.
    */
   migration?: string;
   /**
    * Full git commit SHA when known. Captured from the commit's release window and
    * persisted in `changelog.json` so that override files can target items by hash. Synthetic
    * propagation entries (`buildSyntheticChangelogEntry`, `buildEmptyReleaseEntry`) leave
-   * this field absent, because they have no underlying commit.
+   * this field absent, because they do not have any underlying commit.
    */
   hash?: string;
   /**
@@ -74,7 +74,7 @@ export interface ChangelogJsonConfig {
 /**
  * Editorial override for changelog items, keyed in the override file by `<hash>` (every item of the commit) or
  * `<hash>:<n>` (the item derived from the commit's `n`th change-record entry), where the hash is lowercase hex
- * matched as a prefix. All fields are optional; an entry with no fields is a validation error.
+ * matched as a prefix. All fields are optional; an entry without any fields is a validation error.
  *
  * `audience` admits `'all'` and `'dev'`, but the validator rejects both with a "not yet supported"
  * error; only `'skip'` takes effect.
@@ -144,7 +144,10 @@ export interface MalformedChangeRecordBlock {
   reason: string;
 }
 
-/** A change-record entry whose type the work-type taxonomy does not declare, so that it yielded no changelog item. */
+/**
+ * A change-record entry whose type the work-type taxonomy does not declare, so that it did not yield any changelog
+ * item.
+ */
 export interface UndeclaredEntryType {
   /** Full hash of the commit. */
   commitHash: string;
@@ -156,7 +159,7 @@ export interface UndeclaredEntryType {
   type: string;
 }
 
-/** A change-record entry scope that names no workspace whose unreleased window contains its commit. */
+/** A change-record entry scope that does not name any workspace whose unreleased window contains its commit. */
 export interface UnroutedEntryScope {
   /** Full hash of the commit. */
   commitHash: string;
@@ -177,7 +180,7 @@ export interface ChangelogPreservation {
   file: string;
   /** Versions whose sections were kept verbatim, because neither the built entries nor `changelog.json` contain them. */
   preservedVersions: string[];
-  /** Headings of the sections that name no version, which the regenerated file does not contain. */
+  /** Headings of the sections that do not name any version, which the regenerated file does not contain. */
   droppedUnversionedHeadings: string[];
 }
 
@@ -192,12 +195,12 @@ export interface ReleasedWorkspaceResult {
   previousTag?: string;
   commitCount: number;
   /**
-   * Count of commits that yield at least one changelog item; `0` when there are no commits or
-   * when none does. Absent for `--set-version` and propagation-only workspaces. `bumpOverride`,
-   * not this count, signals that the user supplied `--bump=X`.
+   * Count of commits that yield at least one changelog item; `0` when the unreleased window does
+   * not contain any commits or when none does. Absent for `--set-version` and propagation-only
+   * workspaces. `bumpOverride`, not this count, signals that the user supplied `--bump=X`.
    */
   parsedCommitCount?: number;
-  /** Commits that yield no changelog item and that no exclusion or diagnostic accounts for. */
+  /** Commits that do not yield any changelog item and are not accounted for by any exclusion or diagnostic. */
   unparseableCommits?: Commit[];
   /** Policy violations of the unreleased window's titles and change-record entries; omitted when none. */
   policyViolations?: PolicyViolation[];
@@ -215,7 +218,10 @@ export interface ReleasedWorkspaceResult {
   changelogFiles: string[];
   /** Release-notes preview files; present only under `--with-release-notes`. */
   previewFiles?: string[];
-  /** Per `CHANGELOG.md`, the existing sections that were kept or dropped; omitted when no file had either. */
+  /**
+   * Per `CHANGELOG.md`, the existing sections that were kept or dropped; omitted when `prepare` did not keep or drop
+   * any.
+   */
   changelogPreservation?: ChangelogPreservation[];
   /** Raw commits of the workspace's unreleased window. */
   commits?: Commit[];
@@ -242,9 +248,12 @@ export interface SkippedWorkspaceResult {
   name?: string;
   previousTag?: string;
   commitCount: number;
-  /** Count of commits that yield at least one changelog item — `0` when there are no commits or when none does. */
+  /**
+   * Count of commits that yield at least one changelog item; `0` when the unreleased window does not contain any
+   * commits or when none does.
+   */
   parsedCommitCount: number;
-  /** Commits that yield no changelog item and that no exclusion or diagnostic accounts for. */
+  /** Commits that do not yield any changelog item and are not accounted for by any exclusion or diagnostic. */
   unparseableCommits?: Commit[];
   /** Policy violations of the unreleased window's titles and change-record entries; omitted when none. */
   policyViolations?: PolicyViolation[];
@@ -276,11 +285,12 @@ export interface ReleasedProjectResult {
   previousTag?: string;
   commitCount: number;
   /**
-   * Count of commits that yield at least one changelog item; `0` when there are no commits or
-   * when none does. `bumpOverride`, not a zero count, signals that the user supplied `--bump=X`.
+   * Count of commits that yield at least one changelog item; `0` when the unreleased window does
+   * not contain any commits or when none does. `bumpOverride`, not a zero count, signals that the
+   * user supplied `--bump=X`.
    */
   parsedCommitCount: number;
-  /** Commits that yield no changelog item and that no exclusion or diagnostic accounts for. */
+  /** Commits that do not yield any changelog item and are not accounted for by any exclusion or diagnostic. */
   unparseableCommits?: Commit[];
   /** Policy violations of the unreleased window's titles and change-record entries; omitted when none. */
   policyViolations?: PolicyViolation[];
@@ -296,7 +306,10 @@ export interface ReleasedProjectResult {
   changelogFiles: string[];
   /** Release-notes preview files; present only under `--with-release-notes`. */
   previewFiles?: string[];
-  /** Per `CHANGELOG.md`, the existing sections that were kept or dropped; omitted when no file had either. */
+  /**
+   * Per `CHANGELOG.md`, the existing sections that were kept or dropped; omitted when `prepare` did not keep or drop
+   * any.
+   */
   changelogPreservation?: ChangelogPreservation[];
   /** Raw commits in the project's contributing-paths window since the last project tag. */
   commits: Commit[];
@@ -315,9 +328,12 @@ export interface SkippedProjectResult {
   status: 'skipped';
   previousTag?: string;
   commitCount: number;
-  /** Count of commits that yield at least one changelog item — `0` when there are no commits or when none does. */
+  /**
+   * Count of commits that yield at least one changelog item; `0` when the unreleased window does not contain any
+   * commits or when none does.
+   */
   parsedCommitCount: number;
-  /** Commits that yield no changelog item and that no exclusion or diagnostic accounts for. */
+  /** Commits that do not yield any changelog item and are not accounted for by any exclusion or diagnostic. */
   unparseableCommits?: Commit[];
   /** Policy violations of the unreleased window's titles and change-record entries; omitted when none. */
   policyViolations?: PolicyViolation[];
@@ -333,8 +349,8 @@ export interface SkippedProjectResult {
  *
  * Discriminated by `status`: `ReleasedProjectResult` for produced releases,
  * `SkippedProjectResult` for skips. `PrepareResult.project === undefined` means either that
- * no project block is configured or that `--only` narrowed the run, which skips the stage
- * before it can produce a result; the skip is surfaced as a run warning instead.
+ * the config does not declare a `project` block or that `--only` narrowed the run, which skips
+ * the stage before it can produce a result; `prepare` reports the skip as a run warning instead.
  */
 export type ProjectPrepareResult = ReleasedProjectResult | SkippedProjectResult;
 
@@ -348,7 +364,7 @@ export interface PrepareResult {
         files: string[];
       }
     | undefined;
-  /** Warnings surfaced during preparation (e.g., circular dependency detection). */
+  /** Warnings reported during preparation (e.g., circular dependency detection). */
   warnings?: string[] | undefined;
   /** Result of the project-level release stage (present only when `config.project` is configured and the stage ran). */
   project?: ProjectPrepareResult | undefined;
@@ -361,9 +377,9 @@ export interface WorkTypeConfig {
   /** Optional aliases that map to this work type (e.g., 'feature' -> 'feat'). */
   aliases?: string[] | undefined;
   /**
-   * Keeps commits and change-record entries of this type out of every changelog. They yield no
-   * item, so they contribute nothing to the version bump, and the release report does not list
-   * them as unparseable.
+   * Keeps commits and change-record entries of this type out of every changelog. They do not yield
+   * any item, so they contribute nothing to the version bump, and the release report does not
+   * list them as unparseable.
    */
   excludedFromChangelog?: boolean | undefined;
 }
@@ -386,7 +402,7 @@ export interface VersionPatterns {
 // derives each type from its schema. Schemas describe the *input* shape (fields optional, no
 // defaults). Resolved shapes (`ChangelogJsonConfig`, `ReleaseNotesConfig`, `WorkspaceConfig`,
 // etc.) are hand-written interfaces, because config merging produces them after applying
-// defaults and they need no validation.
+// defaults and they do not need any validation.
 
 /**
  * Schema for a single historical identity snapshot for a workspace.
@@ -412,7 +428,7 @@ export type LegacyIdentity = z.infer<typeof legacyIdentitySchema>;
  * Schema for a package that once lived in this repo but has since been extracted or removed.
  *
  * Unlike `legacyIdentitySchema`, retired packages are never consulted for baseline lookup
- * or changelog attribution — they acknowledge historical tag prefixes and suppress
+ * or changelog attribution; they acknowledge historical tag prefixes and suppress
  * undeclared-candidate warnings.
  */
 export const retiredPackageSchema = z
@@ -505,10 +521,10 @@ export type LabelSpec = z.infer<typeof labelSpecSchema>;
  * the GitHub repo, distinct from labels applied to PRs and issues).
  *
  * Resolution is an ordered fold with last-writer-wins: presets in `extends` order, then the `labels` record,
- * where an entry adds a label, replaces one that an earlier layer defined, or removes it (`null`). Names match
+ * in which an entry adds a label, replaces one that an earlier layer defined, or removes it (`null`). Names match
  * case-insensitively, as GitHub matches them, and the replacing layer's spelling wins.
  * Two misstatements are resolve-time errors (`resolveLabels`), not schema errors: `labels` keys that differ only in
- * case, and a `null` naming a label that no earlier layer defined.
+ * case, and a `null` naming a label not defined by any earlier layer.
  */
 export const repoLabelsSchema = z
   .object({

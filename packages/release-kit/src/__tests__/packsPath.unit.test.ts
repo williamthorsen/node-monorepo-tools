@@ -7,7 +7,7 @@ const CHANGELOG_JSON = '.meta/changelog.json';
 
 describe(packsPath, () => {
   describe('absent and malformed files values', () => {
-    // npm packs everything but its ignore rules when no `files` field constrains the tarball.
+    // npm packs every file that its ignore rules do not exclude when the manifest does not declare a `files` field.
     it('returns true when the field is undefined', () => {
       expect(packsPath(undefined, CHANGELOG)).toBe(true);
     });
@@ -16,12 +16,12 @@ describe(packsPath, () => {
       ['a string', 'dist'],
       ['null', null],
       ['an object', { dist: true }],
-      ['an array holding a non-string', ['dist', 42]],
+      ['an array containing a non-string', ['dist', 42]],
     ])('returns true for %s, which constrains nothing npm understands', (_label, filesField) => {
       expect(packsPath(filesField, CHANGELOG)).toBe(true);
     });
 
-    // Verified against npm 11.17.0: an empty array packs only package.json, README, LICENSE, and the main and
+    // Verified against npm 11.17.0: An empty array packs only package.json, README, LICENSE, and the main and
     // bin targets, so it is a real constraint rather than an absent one.
     it('returns false for an empty array', () => {
       expect(packsPath([], CHANGELOG)).toBe(false);
@@ -37,7 +37,7 @@ describe(packsPath, () => {
       expect(packsPath([entry], CHANGELOG)).toBe(true);
     });
 
-    it('returns false when no entry names the file', () => {
+    it('returns false when the file is not named by any entry', () => {
       expect(packsPath(['dist', 'bin'], CHANGELOG)).toBe(false);
     });
 
@@ -55,7 +55,7 @@ describe(packsPath, () => {
       expect(packsPath([entry], CHANGELOG_JSON)).toBe(true);
     });
 
-    it('matches a directory reached through a star, as `dist/*` ships `dist/esm/index.js`', () => {
+    it('matches a directory reached through a star, as `dist/*` includes `dist/esm/index.js`', () => {
       expect(packsPath(['dist/*'], 'dist/esm/index.js')).toBe(true);
     });
 
@@ -78,7 +78,7 @@ describe(packsPath, () => {
       expect(packsPath([entry], path)).toBe(true);
     });
 
-    // A leading globstar spans zero directories, so it reaches a file sitting at the package root.
+    // A leading globstar spans zero directories, so it matches a file at the package root.
     it('matches a root-level file through a leading globstar', () => {
       expect(packsPath(['**/*.json'], 'package-metadata.json')).toBe(true);
     });
@@ -102,7 +102,7 @@ describe(packsPath, () => {
     });
   });
 
-  it('matches the files field release-kit itself declares against the changelog it ships', () => {
+  it('matches the files field declared by release-kit itself against the changelog that it publishes', () => {
     const filesField = [
       '.readyup/kits/*.js',
       '.readyup/manifest.json',

@@ -5,7 +5,7 @@ import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import type { PolicyViolationSurface } from '../parseCommitMessage.ts';
 import type { WorkTypeConfig } from '../types.ts';
 
-/** Types whose commits reach a changelog, each paired with the header that its type declares. */
+/** Types whose commits appear in a changelog, each paired with the header that its type declares. */
 const INCLUDED_TYPES: Array<readonly [string, string]> = Object.entries(DEFAULT_WORK_TYPES)
   .filter(([, config]) => config.excludedFromChangelog !== true)
   .flatMap(([key, config]) => [
@@ -19,7 +19,7 @@ const EXCLUDED_TYPE_NAMES: string[] = Object.entries(DEFAULT_WORK_TYPES)
   .flatMap(([key, config]) => [key, ...(config.aliases ?? [])]);
 
 describe(classifyChangelogCommit, () => {
-  describe('every work type reaches its declared header', () => {
+  describe('every work type is classified under its declared header', () => {
     it.each(INCLUDED_TYPES)('"#1 %s: test" is classified as "%s"', (typeName, header) => {
       expect(headerOf(`#1 ${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
     });
@@ -61,12 +61,12 @@ describe(classifyChangelogCommit, () => {
     });
   });
 
-  describe('every subject form `parseCommitMessage` accepts reaches its section', () => {
+  describe('every subject form that `parseCommitMessage` accepts is classified under its section', () => {
     it('classifies a conventional-commit parenthesized scope', () => {
       expect(headerOf('#1 fix(parser): Patch', DEFAULT_WORK_TYPES)).toBe(DEFAULT_WORK_TYPES['fix']?.header);
     });
 
-    it('classifies a parenthesized scope carrying a breaking marker', () => {
+    it('classifies a parenthesized scope with a breaking marker', () => {
       expect(headerOf('#1 fix(parser)!: Patch', DEFAULT_WORK_TYPES)).toBe(DEFAULT_WORK_TYPES['fix']?.header);
     });
 
@@ -80,23 +80,23 @@ describe(classifyChangelogCommit, () => {
   });
 
   describe('a header comes from the configured work types', () => {
-    it('reads the header a consumer override supplies', () => {
+    it('reads the header supplied by a consumer override', () => {
       const workTypes = { ...DEFAULT_WORK_TYPES, feat: { header: 'New stuff' } };
       expect(headerOf('#1 feat: Add widget', workTypes)).toBe('New stuff');
     });
 
-    it('classifies a type a consumer adds', () => {
+    it('classifies a type added by a consumer', () => {
       const workTypes = { ...DEFAULT_WORK_TYPES, chore: { header: '🧹 Chores' } };
       expect(headerOf('#1 chore: Tidy up', workTypes)).toBe('🧹 Chores');
     });
 
-    it('rejects a type a consumer excludes from the changelog', () => {
+    it('rejects a type that a consumer excludes from the changelog', () => {
       const workTypes = { ...DEFAULT_WORK_TYPES, docs: { header: '📚 Documentation', excludedFromChangelog: true } };
       expect(kindOf('#1 docs: Update guide', workTypes)).toBe('excluded');
     });
   });
 
-  describe('excluded types reach no changelog', () => {
+  describe("excluded types don't appear in any changelog", () => {
     it.each(EXCLUDED_TYPE_NAMES)('"#1 %s: test" is rejected', (typeName) => {
       expect(kindOf(`#1 ${typeName}: test`, DEFAULT_WORK_TYPES)).toBe('excluded');
     });
@@ -113,7 +113,7 @@ describe(classifyChangelogCommit, () => {
     });
   });
 
-  describe('unticketed commits reach no changelog', () => {
+  describe("unticketed commits don't appear in any changelog", () => {
     it.each([
       'feat: Add new feature',
       'scope|fix: Fix bug',
@@ -128,7 +128,7 @@ describe(classifyChangelogCommit, () => {
     });
   });
 
-  describe('release and merge commits reach no changelog', () => {
+  describe("release and merge commits don't appear in any changelog", () => {
     it.each([
       'release: nmr-core-v0.13.0 nmr-v0.39.0',
       'release: v1.0.0',
@@ -140,7 +140,7 @@ describe(classifyChangelogCommit, () => {
     });
   });
 
-  describe('undeclared types reach no changelog', () => {
+  describe("undeclared types don't appear in any changelog", () => {
     it.each([
       '#1 chore: Rework build',
       '#1 chore!: Rework build',
@@ -151,7 +151,7 @@ describe(classifyChangelogCommit, () => {
       expect(kindOf(message, DEFAULT_WORK_TYPES)).toBe('unparseable');
     });
 
-    it('rejects a ticketed subject carrying no type separator', () => {
+    it('rejects a ticketed subject without a type separator', () => {
       expect(kindOf('#1 Add a widget', DEFAULT_WORK_TYPES)).toBe('unparseable');
     });
   });
@@ -168,7 +168,7 @@ describe(classifyChangelogCommit, () => {
     });
   });
 
-  describe('a header result carries the resolved type and the parsed breaking flag', () => {
+  describe('a header result contains the resolved type and the parsed breaking flag', () => {
     it('resolves an alias to its canonical type', () => {
       expect(classify('#1 feature: Add widget')).toStrictEqual({
         kind: 'header',

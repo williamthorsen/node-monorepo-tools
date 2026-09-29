@@ -38,7 +38,7 @@ describe(resolveReleaseTags, () => {
     vi.restoreAllMocks();
   });
 
-  it('returns an empty array when no tags point at HEAD', () => {
+  it('returns an empty array when HEAD is not tagged', () => {
     mockExecFileSync.mockReturnValue('');
 
     expect(resolveReleaseTags()).toStrictEqual([]);
@@ -129,7 +129,7 @@ describe(resolveReleaseTags, () => {
     ]);
   });
 
-  it('returns an empty array when no tags match in monorepo mode', () => {
+  it('returns an empty array when the tags do not match any workspace in monorepo mode', () => {
     mockExecFileSync.mockReturnValue('unrelated-tag\n');
     const workspaces = [makeWorkspace({ dir: 'core', tagPrefix: 'core-v' })];
 
@@ -194,7 +194,7 @@ describe(resolveReleaseTags, () => {
       ]);
     });
 
-    it('defaults single-package isPublishable to true when no singleWorkspace is provided', () => {
+    it('defaults single-package isPublishable to true when singleWorkspace is omitted', () => {
       mockExecFileSync.mockReturnValue('v1.2.3\n');
 
       expect(resolveReleaseTags()).toStrictEqual([

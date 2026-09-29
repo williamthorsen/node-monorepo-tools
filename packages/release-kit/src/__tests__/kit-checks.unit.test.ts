@@ -89,8 +89,8 @@ describe(configFileExportsConfig, () => {
   });
 });
 
-// The gate is what collapses a config-less repo's report to one line: readyup runs, reports, and counts nothing
-// beneath a check whose `skip` fires, so every check that reads the config file has to hang below it.
+// The gate collapses a config-less repo's report to one line: readyup runs, reports, and counts nothing beneath a
+// check whose `skip` fires, so every check that reads the config file has to be nested below it.
 describe('release-kit config gate', () => {
   it('reports the gate as an error', () => {
     expect(getConfigGate().severity).toBe('error');
@@ -108,7 +108,7 @@ describe('release-kit config gate', () => {
     expect(getConfigGate().skip?.()).toBe(false);
   });
 
-  it('hangs every config-dependent check beneath the gate', () => {
+  it('nests every config-dependent check beneath the gate', () => {
     const childNames = getConfigGate().checks?.map((check) => check.name);
 
     expect(childNames).toStrictEqual([
@@ -121,7 +121,7 @@ describe('release-kit config gate', () => {
   });
 
   // A nested check that repeats the gate's own skip reports the extra lines that the gate collapses.
-  it('declares no skip on a nested check other than .github/labels.yaml exists', () => {
+  it('does not declare a skip on any nested check other than .github/labels.yaml exists', () => {
     const skipping = (getConfigGate().checks ?? [])
       .filter((check) => check.skip !== undefined)
       .map((check) => check.name);
@@ -129,7 +129,7 @@ describe('release-kit config gate', () => {
     expect(skipping).toStrictEqual(['.github/labels.yaml exists']);
   });
 
-  it('skips .github/labels.yaml exists when no repoLabels block is declared', () => {
+  it('skips .github/labels.yaml exists when the config does not declare a repoLabels block', () => {
     mockedFileContains.mockReturnValue(false);
 
     expect(findCheck('.github/labels.yaml exists', getConfigGate().checks ?? []).skip?.()).toBe('no repoLabels config');
@@ -142,11 +142,11 @@ describe('release-kit config gate', () => {
   });
 });
 
-// Both checks sit at the top level rather than beneath the config gate, which skips where the config file is
-// absent. A repo with no config file inherits `changelogJson.enabled: true` and still publishes tarballs, so
-// nesting them would mask exactly the repos the checks exist for.
+// Both checks are at the top level rather than beneath the config gate, which skips when the config file is absent.
+// A repo without a config file inherits `changelogJson.enabled: true` and still publishes tarballs, so nesting them
+// would mask exactly the repos for which the checks exist.
 describe('changelog packaging checks', () => {
-  it('hangs neither check beneath the config gate', () => {
+  it('nests neither check beneath the config gate', () => {
     const gateChildNames = getConfigGate().checks?.map((check) => check.name);
 
     expect(gateChildNames).not.toContain(CHANGELOG_CHECK);
@@ -171,7 +171,7 @@ describe('changelog packaging checks', () => {
   it.each([
     ['the CHANGELOG.md check', () => getChangelogCheck()],
     ['the changelogJson gate', () => getChangelogJsonGate()],
-  ])('skips %s where the repo publishes nothing', (_label, getCheck) => {
+  ])('skips %s when the repo publishes nothing', (_label, getCheck) => {
     mockedDiscoverWorkspaces.mockReturnValue([]);
 
     expect(getCheck().skip?.()).toBe('no publishable packages');
@@ -180,7 +180,7 @@ describe('changelog packaging checks', () => {
   it.each([
     ['the CHANGELOG.md check', () => getChangelogCheck()],
     ['the changelogJson gate', () => getChangelogJsonGate()],
-  ])('runs %s where the repo publishes a package', (_label, getCheck) => {
+  ])('runs %s when the repo publishes a package', (_label, getCheck) => {
     mockedDiscoverWorkspaces.mockReturnValue([buildPublishableWorkspace()]);
 
     expect(getCheck().skip?.()).toBe(false);
@@ -188,7 +188,7 @@ describe('changelog packaging checks', () => {
 
   // The gate's own skip already covers the nested check; repeating it would report the duplicate lines against
   // which the config gate's tests guard.
-  it('declares no skip on the nested check', () => {
+  it('does not declare a skip on the nested check', () => {
     const nested = findCheck('published packages ship the changelog JSON', getChangelogJsonGate().checks ?? []);
 
     expect(nested.skip).toBeUndefined();
@@ -220,13 +220,13 @@ describe(CHANGESETS_CHECK, () => {
     expect(getChangesetsCheck().severity).toBe('recommend');
   });
 
-  it('stays quiet where the package is absent', () => {
+  it('stays quiet when the package is absent', () => {
     expect(getChangesetsCheck().quiet).toBe(true);
   });
 });
 
 describe(CREATE_GITHUB_RELEASE_CHECK, () => {
-  it('skips where the repo has not installed the workflow', () => {
+  it('skips when the repo has not installed the workflow', () => {
     mockedFileExists.mockReturnValue(false);
 
     expect(getCreateGithubReleaseCheck().skip?.()).toBe(
@@ -234,7 +234,7 @@ describe(CREATE_GITHUB_RELEASE_CHECK, () => {
     );
   });
 
-  it('runs where the repo has installed the workflow', () => {
+  it('runs when the repo has installed the workflow', () => {
     mockedFileExists.mockImplementation((path) => path === CREATE_GITHUB_RELEASE_PATH);
 
     expect(getCreateGithubReleaseCheck().skip?.()).toBe(false);
@@ -267,9 +267,9 @@ function buildPublishableWorkspace(): Workspace {
 /**
  * Finds a check by name among `siblings`, asserting it exists so that a rename fails loudly.
  *
- * The caller names the level to search rather than getting a tree walk. Reading the name of every check would fire
+ * The caller names the level to search rather than getting a tree walk. Reading the name of every check would invoke
  * the `@williamthorsen/release-kit >= x` name getter, whose compile-time-only `pickJson` throws against the
- * uncompiled source this suite imports.
+ * uncompiled source that this suite imports.
  */
 function findCheck(name: string, siblings: readonly RdyCheck[]): RdyCheck {
   const check = siblings.find((candidate) => candidate.name === name);
@@ -282,7 +282,7 @@ function getChangelogCheck(): RdyCheck {
   return findCheck(CHANGELOG_CHECK, getReleaseKitChecks());
 }
 
-/** Returns the check beneath which the changelog-JSON packaging check hangs. */
+/** Returns the check beneath which the changelog-JSON packaging check is nested. */
 function getChangelogJsonGate(): RdyCheck {
   return findCheck(CHANGELOG_JSON_GATE, getReleaseKitChecks());
 }
@@ -292,7 +292,7 @@ function getChangesetsCheck(): RdyCheck {
   return findCheck(CHANGESETS_CHECK, getReleaseKitChecks());
 }
 
-/** Returns the check beneath which every config-dependent check hangs. */
+/** Returns the check beneath which every config-dependent check is nested. */
 function getConfigGate(): RdyCheck {
   return findCheck(CONFIG_GATE, getReleaseKitChecks());
 }
@@ -305,7 +305,7 @@ function getCreateGithubReleaseCheck(): RdyCheck {
 /** Returns the top-level checks of the kit's `release-kit` checklist. */
 function getReleaseKitChecks(): readonly RdyCheck[] {
   const checklist = kit.checklists.find((candidate) => candidate.name === 'release-kit');
-  assert(checklist && isFlatChecklist(checklist), 'Expected the kit to carry a flat `release-kit` checklist');
+  assert(checklist && isFlatChecklist(checklist), 'Expected the kit to contain a flat `release-kit` checklist');
   return checklist.checks;
 }
 

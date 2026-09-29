@@ -25,7 +25,7 @@ describe(buildChangelogEntries, () => {
     ]);
   });
 
-  it("carries each commit's body and full hash into its item", () => {
+  it("copies each commit's body and full hash into its item", () => {
     const repo = scaffoldGitRepo();
     const hash = repo.commit('#1 feat: Add the parser\n\nParses the manifest.\n\nSigned-off-by: A <a@example.com>');
 
@@ -84,7 +84,7 @@ describe(readReleaseHistory, () => {
     expect(readHistory(['arrays-v']).unreleased.bump).toBe('minor');
   });
 
-  it('returns no commits and no bump when HEAD sits on the baseline tag', () => {
+  it('returns an empty commit list and an undefined bump when HEAD is on the baseline tag', () => {
     const repo = scaffoldGitRepo();
     repo.commit('#1 feat: Released', { 'src/released.ts': 'export const released = 1;\n' });
     repo.tag('arrays-v1.0.0');
@@ -96,7 +96,7 @@ describe(readReleaseHistory, () => {
     expect(history.unreleased.bump).toBeUndefined();
   });
 
-  it('returns every commit and no tag when no matching tag exists', () => {
+  it('returns every commit and an undefined previous tag when the repo does not contain a matching tag', () => {
     const repo = scaffoldGitRepo();
     repo.commit('#1 feat: First', { 'src/first.ts': 'export const first = 1;\n' });
     repo.tag('other-v1.0.0');
@@ -177,7 +177,7 @@ describe(readReleaseHistory, () => {
     expect(subjects(readHistory(['arrays-v'], ['packages/arrays/**']))).toStrictEqual(['#2 feat: In scope']);
   });
 
-  it('carries the body of a commit that has one', () => {
+  it('includes the body of a commit that has one', () => {
     const repo = scaffoldGitRepo();
     repo.commit('#1 feat: Add a thing\n\nAdds a thing.', { 'src/thing.ts': 'export const thing = 1;\n' });
 

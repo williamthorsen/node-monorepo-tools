@@ -35,7 +35,7 @@ describe(parseCommitMessage, () => {
     });
   });
 
-  it('parses a "*|type: description" message as naming no scope, `*` being the scope spanning every workspace', () => {
+  it('parses a "*|type: description" message as not naming a scope, because `*` is the scope that spans every workspace', () => {
     const message = '#64 *|fix: Add repository field to package manifests';
     const result = parseCommitMessage(message, 'stu901', workTypes);
     expect(result).toStrictEqual({
@@ -251,7 +251,7 @@ describe(parseCommitMessage, () => {
     });
   });
 
-  describe('conventional commit format — type(scope): description', () => {
+  describe('conventional commit format: "type(scope): description"', () => {
     it('parses a "type(scope): description" message', () => {
       const result = parseCommitMessage('fix(parser): handle edge case', 'cc1', workTypes);
       expect(result).toStrictEqual({
@@ -369,7 +369,7 @@ describe(parseCommitMessage, () => {
       });
     });
 
-    it('does not resolve scope aliases when no alias map is provided', () => {
+    it('does not resolve scope aliases when the caller does not provide an alias map', () => {
       const result = parseCommitMessage('api|fix: fix timeout', 'ws3', workTypes);
       expect(result).toStrictEqual({
         message: 'api|fix: fix timeout',

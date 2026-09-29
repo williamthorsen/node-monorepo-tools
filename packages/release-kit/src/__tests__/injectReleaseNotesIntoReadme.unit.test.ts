@@ -100,7 +100,7 @@ describe(injectReleaseNotesIntoReadme, () => {
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
-  it('returns undefined when no entry matches the tag version', () => {
+  it('returns undefined when the changelog does not contain an entry matching the tag version', () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('# README\n');
     mockExtractVersion.mockReturnValue('99.0.0');
@@ -225,7 +225,7 @@ describe(renderInjectedReadme, () => {
     );
   });
 
-  it('returns undefined when no changelog entry matches the version', () => {
+  it('returns undefined when the changelog does not contain an entry matching the version', () => {
     mockExistsSync.mockReturnValue(true);
     mockExtractVersion.mockReturnValue('9.9.9');
     mockReadChangelogEntries.mockReturnValue([{ version: '1.0.0', date: '2024-01-01', sections: [] }]);
@@ -305,7 +305,7 @@ describe(renderInjectedReadmeFromEntries, () => {
     });
   });
 
-  it('reports no-entry with the version when no entry matches the tag', () => {
+  it('reports no-entry with the version when the tag does not match any entry', () => {
     mockExtractVersion.mockReturnValue('9.9.9');
 
     const result = renderInjectedReadmeFromEntries('# Pkg\n', entries, 'pkg-v9.9.9');
@@ -344,7 +344,7 @@ describe(resolveReadmePath, () => {
     expect(resolveReadmePath('/pkg')).toBe('/pkg/README.md');
   });
 
-  it('returns undefined when no README exists', () => {
+  it('returns undefined when the package does not have a README', () => {
     mockExistsSync.mockReturnValue(false);
 
     expect(resolveReadmePath('/pkg')).toBeUndefined();

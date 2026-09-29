@@ -6,12 +6,13 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { describe, expect, it } from 'vitest';
 
 /**
- * Proof that the `@williamthorsen/release-kit/config` entry loads with nothing else on disk, which is what keeps a
- * config load off the rest of the package.
+ * Proof that the `@williamthorsen/release-kit/config` entry loads with nothing else on disk, which keeps a config load
+ * from importing the rest of the package.
  *
- * The subject is Node's native type stripping, an environment capability the in-process suite never reaches: Vitest
- * transforms TypeScript through its own pipeline, and `tsc` elides an unused specifier that the stripper retains. So
- * the proof runs the source module -- not `dist`, whose form the compiler has already fixed -- through a real `node`.
+ * The subject is Node's native type stripping, an environment capability that the in-process suite never exercises:
+ * Vitest transforms TypeScript through its own pipeline, and `tsc` elides an unused specifier that the stripper
+ * retains. So the proof runs the source module -- not `dist`, whose form the compiler has already fixed -- through a
+ * real `node`.
  */
 
 const ENTRY_SOURCE_PATH = path.join(import.meta.dirname, '../defineConfig.ts');
@@ -20,13 +21,13 @@ const ENTRY_SOURCE_PATH = path.join(import.meta.dirname, '../defineConfig.ts');
 const ERASABLE_IMPORT = "import type { ReleaseKitConfig } from './types.ts';";
 const RETAINING_IMPORT = "import { type ReleaseKitConfig } from './types.ts';";
 
-/** A static import, which is what a config loader issues, so a retained specifier fails here as it would there. */
+/** A static import, the form that a config loader issues, so that a retained specifier fails here as it would there. */
 const PROBE = ["import { defineConfig } from './defineConfig.ts';", 'process.stdout.write(typeof defineConfig);'].join(
   '\n',
 );
 
 describe('the ./config entry under Node type stripping', () => {
-  it('loads with no other module on disk', () => {
+  it('loads without any other module on disk', () => {
     const result = loadStandalone(readFileSync(ENTRY_SOURCE_PATH, 'utf8'));
 
     expect(result.stderr).toBe('');
@@ -35,7 +36,8 @@ describe('the ./config entry under Node type stripping', () => {
   });
 
   it('fails once a type import is written in the retaining form', () => {
-    // A replacer function, so no `$` sequence in the replacement could be read as a capture reference.
+    // Pass a replacer function so that `replace` cannot read any `$` sequence in the replacement as a capture
+    // reference.
     const source = readFileSync(ENTRY_SOURCE_PATH, 'utf8').replace(ERASABLE_IMPORT, () => RETAINING_IMPORT);
     // Without this the mutation could silently no-op and re-run the case above, which passes for the wrong reason.
     expect(source).toContain(RETAINING_IMPORT);
@@ -56,7 +58,7 @@ interface ProbeResult {
 /** Writes `source` alone into a temp directory as the entry module, then imports it from a Node subprocess. */
 function loadStandalone(source: string): ProbeResult {
   using tree = createTempTree({}, { prefix: 'release-kit-config-entry-' });
-  // Declare ESM rather than lean on Node's syntax detection, so the module graph is the only thing under test.
+  // Declare ESM rather than lean on Node's syntax detection, so that the module graph is the only thing under test.
   tree.writeJson('package.json', { name: 'config-entry-fixture', type: 'module' });
   tree.write('defineConfig.ts', source);
 

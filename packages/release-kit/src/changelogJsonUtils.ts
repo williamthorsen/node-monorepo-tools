@@ -25,7 +25,10 @@ export function extractVersion(tag: string): string {
   return match?.[1] ?? tag;
 }
 
-/** Reads the changelog entries in a JSON file; undefined when the file is missing, unreadable, or holds no array. */
+/**
+ * Reads the changelog entries in a JSON file; undefined when the file is missing or unreadable, or doesn't contain an
+ * array.
+ */
 export function readChangelogEntries(filePath: string): ChangelogEntry[] | undefined {
   if (!existsSync(filePath)) {
     return undefined;

@@ -8,7 +8,7 @@ import type { EmptyWorkspace, FailingWorkspaceCause, WorkspaceDiscovery } from '
  * supplies a default rather than asking every caller to.
  */
 
-/** A workspace declaring patterns that resolved to no package directory, on which every command fails. */
+/** A workspace declaring patterns that did not resolve to any package directory, on which every command fails. */
 export function emptyWorkspace(cause: FailingWorkspaceCause, patterns: string[] = ['packages/*']): EmptyWorkspace {
   return { cause, kind: 'empty', patterns };
 }
@@ -18,7 +18,10 @@ export function resolvedPackages(packageDirs: string[], patterns: string[] = ['p
   return { kind: 'packages', packageDirs, patterns };
 }
 
-/** A repo that releases as one package: it declares no `pnpm-workspace.yaml`, or none that lists packages. */
+/**
+ * A repo that releases as one package: It does not declare a `pnpm-workspace.yaml`, or declares one that does not list
+ * packages.
+ */
 export function singlePackage(): WorkspaceDiscovery {
   return { kind: 'single-package' };
 }

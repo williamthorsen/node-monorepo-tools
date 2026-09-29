@@ -41,7 +41,7 @@ var repoChecklist = defineRdyChecklist({
         {
           name: "id-token: write permission declared",
           check: () => fileContains(".github/workflows/publish.yaml", /id-token:\s*write/),
-          fix: 'Add "permissions: { id-token: write, contents: read }" to .github/workflows/publish.yaml \u2014 required for OIDC-based npm authentication'
+          fix: 'Add "permissions: { id-token: write, contents: read }" to .github/workflows/publish.yaml; OIDC-based npm authentication requires it'
         },
         {
           name: "No legacy token references in workflow files",
@@ -69,7 +69,7 @@ var packagesChecklist = defineRdyChecklist({
       },
       fix: 'Set "packageManager": "pnpm@..." in root package.json'
     },
-    // Unfalsifiable on every readyup version that `minReadyupVersion` admits: discovery reports the repo root, and it
+    // Unfalsifiable on every readyup version that `minReadyupVersion` admits: Discovery reports the repo root, and it
     // throws on an unreadable root package.json instead of returning an empty list.
     {
       name: "At least one workspace discovered",
@@ -93,8 +93,8 @@ var packagesChecklist = defineRdyChecklist({
 });
 var npm_auto_publish_default = defineRdyKit({
   fixLocation: "inline",
-  // The release that introduced `CheckOutcome.fix`, on which the provenance check's remediation depends. An older
-  // runner drops that `fix` silently, so failing to load the kit is the lesser harm.
+  // The release that introduced `CheckOutcome.fix`, on which the provenance check's remediation depends. Because an
+  // older runner drops that `fix` silently, failing to load the kit is the lesser harm.
   minReadyupVersion: "0.37.0",
   checklists: [repoChecklist, packagesChecklist]
 });
@@ -109,7 +109,7 @@ function buildSessionCheck() {
       const capability = getCachedTrustCapability();
       return capability.ok ? { ok: true } : { ok: false, detail: capability.detail };
     },
-    fix: 'Restore a usable npm session: log in with "npm login", supplying the one-time password when prompted, or restore access to the registry, which the trusted-publisher check queries directly'
+    fix: 'Restore a usable npm session: Log in with "npm login", supplying the one-time password when prompted, or restore access to the registry, which the trusted-publisher check queries directly'
   };
 }
 function buildWorkspaceCheck(workspace) {
@@ -136,7 +136,7 @@ function buildWorkspaceCheck(workspace) {
     {
       name: "published to npm",
       // `npm view` reads the registry without a session, so a missing login or a missing one-time password leaves
-      // this answerable. An unreachable registry does not: the lookup fails for every package, and reporting that
+      // this answerable. An unreachable registry does not: The lookup fails for every package, and reporting that
       // as unpublished would advise publishing a package that is already there.
       skip: () => {
         const auth = getCachedNpmAuthStatus();
@@ -189,7 +189,7 @@ function checkTrustedPublisher(packageName) {
     case "configured":
       return { ok: true };
     case "not-configured":
-      return { ok: false, detail: "No trusted publisher is configured for this package" };
+      return { ok: false, detail: "The npm registry does not list any trusted publisher for this package" };
     default:
       return { ok: false, detail: result.detail };
   }
@@ -230,14 +230,14 @@ function classifyProvenanceSetting(workflowContent, visibility) {
     return {
       ok: false,
       detail: "The repo is public and publish.yaml does not set provenance: true",
-      fix: "Set provenance: true in .github/workflows/publish.yaml \u2014 public repos should generate provenance attestations"
+      fix: "Set provenance: true in .github/workflows/publish.yaml; public repos should generate provenance attestations"
     };
   }
   if (visibility === "private" && hasProvenance) {
     return {
       ok: false,
       detail: "The repo is private and publish.yaml sets provenance: true",
-      fix: "Make the GitHub repo public \u2014 OIDC publishing with provenance requires a public repo"
+      fix: "Make the GitHub repo public; OIDC publishing with provenance requires a public repo"
     };
   }
   return { ok: true };
@@ -270,7 +270,7 @@ function classifyTrustQuery(result, expectedRepo, expectedFile) {
   }
   const relationships = readTrustRelationships(result.stdout);
   if (relationships === void 0) {
-    return { status: "error", detail: "The npm trust query returned a payload this check cannot read" };
+    return { status: "error", detail: "The npm trust query returned a payload that this check cannot read" };
   }
   if (relationships.length === 0) {
     return { status: "not-configured" };

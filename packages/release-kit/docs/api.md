@@ -4,7 +4,7 @@ How to build a release config by hand with `deriveWorkspaceConfig()`, the script
 
 ## Using `deriveWorkspaceConfig()` for manual configuration
 
-If you need to build a `MonorepoReleaseConfig` manually (e.g., for the legacy script-based approach), the exported `deriveWorkspaceConfig()` helper creates a `WorkspaceConfig` from a workspace-relative path. It reads the workspace's `package.json` to derive the tag prefix from the package name:
+For a `MonorepoReleaseConfig` built manually (e.g., for the legacy script-based approach), the exported `deriveWorkspaceConfig()` helper creates a `WorkspaceConfig` from a workspace-relative path. It reads the workspace's `package.json` to derive the tag prefix from the package name:
 
 ```typescript
 import { deriveWorkspaceConfig } from '@williamthorsen/release-kit';
@@ -22,9 +22,9 @@ deriveWorkspaceConfig('packages/arrays');
 // }
 ```
 
-`dir` is the basename of the workspace path and is the stable internal identifier used by `--only`, `WorkspaceOverride.dir`, and the dependency graph. `tagPrefix` is derived from the unscoped `package.json` `name` — any leading `@scope/` is stripped — so tags reflect the package identity rather than the directory layout. For example, a workspace at `packages/core` with `"name": "@williamthorsen/nmr-core"` produces `tagPrefix: 'nmr-core-v'`, yielding tags like `nmr-core-v1.3.0`.
+`dir` is the basename of the workspace path and is the stable internal identifier used by `--only`, `WorkspaceOverride.dir`, and the dependency graph. `tagPrefix` is derived from the unscoped `package.json` `name` (with any leading `@scope/` stripped), so tags reflect the package identity rather than the directory layout. For example, a workspace at `packages/core` with `"name": "@williamthorsen/nmr-core"` produces `tagPrefix: 'nmr-core-v'`, yielding tags like `nmr-core-v1.3.0`.
 
-The workspace's `package.json` must declare a non-empty `name` field; `deriveWorkspaceConfig()` throws otherwise. If two workspaces produce the same `tagPrefix` (because their unscoped names collide), `mergeMonorepoConfig()` throws and names the colliding workspaces so you can rename one.
+The workspace's `package.json` must declare a non-empty `name` field; `deriveWorkspaceConfig()` throws otherwise. If two workspaces produce the same `tagPrefix` (because their unscoped names collide), `mergeMonorepoConfig()` throws and names the colliding workspaces so that the developer can rename one.
 
 ## Legacy script-based approach
 
@@ -49,7 +49,7 @@ import { config } from './release.config.ts';
 runReleasePrepare(config);
 ```
 
-The key difference: the script-based approach requires manually listing every workspace, while the CLI auto-discovers them from `pnpm-workspace.yaml`.
+The key difference: The script-based approach requires manually listing every workspace, while the CLI auto-discovers them from `pnpm-workspace.yaml`.
 
 ## `resolveReleaseTags` takes workspaces; `WorkspaceConfig` requires `workspacePath`
 
@@ -58,7 +58,7 @@ Tag resolution is now driven by workspace records rather than a caller-supplied 
 - `resolveReleaseTags` signature changed from `(workspaceMap?: Map<string, string>)` to `(workspaces?: readonly WorkspaceConfig[])`.
 - `WorkspaceConfig` gained a required `workspacePath: string` field.
 
-Replace direct `Map`-based calls with `deriveWorkspaceConfig()`, which now populates `workspacePath` for you:
+Replace direct `Map`-based calls with `deriveWorkspaceConfig()`, which now populates `workspacePath`:
 
 ```diff
 -import { resolveReleaseTags } from '@williamthorsen/release-kit';
@@ -70,4 +70,4 @@ Replace direct `Map`-based calls with `deriveWorkspaceConfig()`, which now popul
 +resolveReleaseTags([deriveWorkspaceConfig('packages/core')]);
 ```
 
-If you construct `WorkspaceConfig` objects directly, add `workspacePath` alongside the other required fields.
+When constructing `WorkspaceConfig` objects directly, add `workspacePath` alongside the other required fields.
