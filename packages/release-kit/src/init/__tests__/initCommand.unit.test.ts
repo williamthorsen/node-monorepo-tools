@@ -190,7 +190,10 @@ describe(initCommand, () => {
 
   it('returns 1 when hasPackageJson fails', () => {
     mockIsGitRepo.mockReturnValue({ ok: true });
-    mockHasPackageJson.mockReturnValue({ ok: false, message: 'No package.json found' });
+    mockHasPackageJson.mockReturnValue({
+      ok: false,
+      message: 'The current directory does not contain a package.json. Run `npm init` or `pnpm init` first.',
+    });
 
     const exitCode = initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
@@ -220,7 +223,10 @@ describe(initCommand, () => {
 
   it('does not call usesPnpm when hasPackageJson fails', () => {
     mockIsGitRepo.mockReturnValue({ ok: true });
-    mockHasPackageJson.mockReturnValue({ ok: false, message: 'No package.json found' });
+    mockHasPackageJson.mockReturnValue({
+      ok: false,
+      message: 'The current directory does not contain a package.json. Run `npm init` or `pnpm init` first.',
+    });
 
     initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
