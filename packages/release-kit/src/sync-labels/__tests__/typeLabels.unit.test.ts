@@ -21,7 +21,7 @@ describe(deriveTypeLabels, () => {
     ['internal', '1d76db'],
     ['process', 'edc287'],
     ['unranked', 'ededed'],
-  ])('gives a type with no presentation row in the %s tier color %s and no description', (tier, color) => {
+  ])('gives a type without a presentation row in the %s tier color %s and omits the description', (tier, color) => {
     const labels = deriveTypeLabels({ types: [{ key: 'novel', tier, trackerLabel: 'novelty' }] });
 
     expect(labels).toStrictEqual([{ name: 'novelty', color }]);

@@ -24,9 +24,9 @@ describe(syncLabelsWorkflow, () => {
     expect(readPath('jobs.sync.with')).toBeUndefined();
   });
 
-  // The template ships to repos whose default branch is not `main`; a branch filter on the
+  // The template is used by repos whose default branch is not `main`; a branch filter on the
   // trigger, or a literal comparison in the gate, would leave those repos never applying on merge.
-  it('gates the apply job on the repository default branch, naming no branch literally', () => {
+  it('gates the apply job on the repository default branch, without naming a branch literally', () => {
     expect(readPath('jobs.sync.if')).toContain('github.ref_name == github.event.repository.default_branch');
     expect(readPath('on.push.branches')).toBeUndefined();
   });
@@ -38,7 +38,7 @@ describe(syncLabelsWorkflow, () => {
     expect(readPath('jobs.check.with')).toStrictEqual({ 'dry-run': true });
   });
 
-  it('declares no workflow-level permissions, so the check job cannot inherit write access', () => {
+  it('does not declare workflow-level permissions, so the check job cannot inherit write access', () => {
     expect(readPath('permissions')).toBeUndefined();
   });
 
@@ -69,7 +69,7 @@ describe(renderRepoLabelsBlock, () => {
     expect(result).toContain("'scope:my-package': { color: '00ff96' },");
   });
 
-  it('renders a description when the label carries one', () => {
+  it('renders a description when the label has one', () => {
     const scopeLabels: LabelDefinition[] = [{ name: 'bug', color: 'd73a4a', description: 'Something broken' }];
 
     const result = renderRepoLabelsBlock(scopeLabels);

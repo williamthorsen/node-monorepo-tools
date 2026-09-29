@@ -5,14 +5,14 @@ import type { LabelDefinition } from './types.ts';
 /**
  * Resolves the repository's label set from a `repoLabels` config block.
  *
- * Resolution is an ordered fold with last-writer-wins: presets are loaded in `extends` order (a later preset replaces
+ * Resolution is an ordered fold with last-writer-wins: Presets are loaded in `extends` order (a later preset replaces
  * an earlier preset's label of the same name), then the `labels` record is applied: An entry adds a label, replaces
  * one that an earlier layer defined, or removes it (`null`). Names match case-insensitively, as GitHub matches them,
  * and the replacing layer's spelling becomes the label's name. Replacement is wholesale, so an entry omitting
  * `description` drops the one that an earlier layer supplied rather than inheriting it.
- * Throws on two misstatements that would otherwise leave no trace in the output diff: keys in the `labels` record that
- * differ only in case, all but one of which the fold would discard, and a dangling `null`, a removal naming a label that
- * no preset defined.
+ * Throws on two misstatements that the output diff would otherwise not show: keys in the `labels` record that differ
+ * only in case, all but one of which the fold would discard, and a dangling `null`, a removal naming a label that the
+ * `extends` presets did not define.
  */
 export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
   const labelEntries = Object.entries(config.labels ?? {});
@@ -39,7 +39,7 @@ export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
     if (spec === null) {
       if (!resolved.has(key)) {
         throw new Error(
-          `Label '${name}' is set to null (remove), but no preset in 'extends' defines it. Fix the name or delete the entry.`,
+          `Label '${name}' is set to null (remove), but the presets in 'extends' don't define it. Fix the name or delete the entry.`,
         );
       }
       resolved.delete(key);

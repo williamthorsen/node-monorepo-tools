@@ -136,7 +136,7 @@ describe(resolveLabels, () => {
     expect(() => resolveLabels(config)).toThrow("'bug' and 'Bug'");
   });
 
-  it('carries no description key for a local entry that omits one', () => {
+  it('omits the description key for a local entry without a description', () => {
     const config: RepoLabelsConfig = { labels: { 'scope:nmr': { color: '00ff96' } } };
 
     const result = resolveLabels(config);
@@ -181,7 +181,7 @@ describe(resolveLabels, () => {
     expect(result).toStrictEqual([featureLabel]);
   });
 
-  it('throws on a null entry naming a label no preset defines', () => {
+  it('throws on a null entry naming a label that the presets do not define', () => {
     mockLoadPreset.mockReturnValue([featureLabel]);
 
     const config: RepoLabelsConfig = {
