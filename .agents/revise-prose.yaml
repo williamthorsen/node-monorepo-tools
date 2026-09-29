@@ -477,7 +477,7 @@ rejections:
     rule-version: '1'
     file: .github/workflows/audit.yaml
     phrase: '# Daily schedule — adjust cron expression per repo if a different cadence is desired.'
-    ground: must match its package template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; the template is outside this sweep
+    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
   - rule: em-dash
     rule-version: '1'
     file: docs/agent/20250809-2359Z_learnings.md
@@ -602,7 +602,7 @@ rejections:
     rule-version: '2'
     file: .github/workflows/release.yaml
     phrase: Force a release even when no commits or no bump-worthy commits exist
-    ground: must match its package template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; the template is outside this sweep
+    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
   - rule: negative-quantifier
     rule-version: '2'
     file: docs/agent/20250809-2359Z_learnings.md
@@ -1442,7 +1442,7 @@ rejections:
     rule-version: '2'
     file: packages/release-kit/src/init/templates.ts
     phrase: Force a release even when no commits or no bump-worthy commits exist
-    ground: the repo's own .github workflow must match this template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts, and that workflow is outside the sweep
+    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
   - rule: negative-quantifier
     rule-version: '2'
     file: packages/release-kit/src/injectReleaseNotesIntoReadme.ts
@@ -1677,7 +1677,7 @@ rejections:
     rule-version: '9'
     file: .github/workflows/sync-labels.yaml
     phrase: so that a regenerated labels file cannot sit unapplied.
-    ground: must match its package template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; the template is outside this sweep
+    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
   - rule: plain-speech
     rule-version: '9'
     file: docs/agent/20250809-2359Z_learnings.md
@@ -1697,12 +1697,12 @@ rejections:
     rule-version: '9'
     file: packages/release-kit/src/sync-labels/templates.ts
     phrase: cannot sit unapplied
-    ground: the repo's own .github workflow must match this template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts, and that workflow is outside the sweep
+    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
   - rule: plain-speech
     rule-version: '9'
     file: packages/release-kit/src/sync-labels/templates.ts
     phrase: the gate lives on the job
-    ground: the repo's own .github workflow must match this template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts, and that workflow is outside the sweep
+    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
   - rule: reduced-object-relative
     rule-version: '1'
     file: __tests__/test-scaffolding-guard.app.unit.test.ts
@@ -1717,7 +1717,7 @@ rejections:
     rule-version: '1'
     file: .github/workflows/audit.yaml
     phrase: the issues/pull-requests writes the reusable workflow needs.
-    ground: must match its package template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; the template is outside this sweep
+    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
   - rule: reduced-object-relative
     rule-version: '1'
     file: .github/workflows/release.reusable.yaml
@@ -3332,7 +3332,7 @@ rejections:
     rule-version: '1'
     file: .github/workflows/sync-labels.yaml
     phrase: so that the gate lives on the job and this file stays identical across repos.
-    ground: must match its package template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; the template is outside this sweep
+    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
   - rule: so
     rule-version: '1'
     file: eslint.restrictions.ts
@@ -3572,12 +3572,12 @@ rejections:
     rule-version: '1'
     file: packages/release-kit/src/sync-labels/templates.ts
     phrase: so applying and previewing are separate jobs
-    ground: the repo's own .github workflow must match this template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts, and that workflow is outside the sweep
+    ground: a direct result of the preceding clause
   - rule: so
     rule-version: '1'
     file: packages/release-kit/src/sync-labels/templates.ts
     phrase: so that the gate lives on the job
-    ground: the repo's own .github workflow must match this template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts, and that workflow is outside the sweep
+    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
   - rule: so
     rule-version: '1'
     file: packages/v11y-check/README.md
