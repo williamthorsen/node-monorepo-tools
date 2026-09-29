@@ -17,7 +17,7 @@ vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
 }));
 
-// Partial, so that `describeEmptyWorkspace` stays the real composer: what a caller does with an empty
+// Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
 vi.mock(import('../../discoverWorkspaces.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -77,7 +77,7 @@ describe(syncLabelsInitCommand, () => {
     expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
   });
 
-  it('writes workflow and config, then generates, when no config exists', async () => {
+  it('writes workflow and config, then generates, when the config does not exist', async () => {
     givenExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/utils']));
     mockGenerateCommand.mockResolvedValue(0);
@@ -223,7 +223,7 @@ describe(syncLabelsInitCommand, () => {
     expect(exitCode).toBe(1);
   });
 
-  it('returns 1 when the workspace resolves to no package', async () => {
+  it('returns 1 when the workspace does not resolve to any package', async () => {
     givenExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
     using _silent = silenceConsole(['info']);
@@ -344,7 +344,7 @@ describe(buildScopeLabels, () => {
 
   // Retired scopes are indistinguishable from live ones by design:
   // Describing only the retired ones would give them the visual prominence that the bare-label rule exists to remove.
-  it('describes no scope, retired ones included', () => {
+  it('does not describe any scope, retired ones included', () => {
     const result = buildScopeLabels(['packages/core'], ['preflight']);
 
     expect(result.every((label) => label.description === undefined)).toBe(true);

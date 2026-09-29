@@ -30,8 +30,8 @@ const WORKFLOW_PATH = '.github/workflows/sync-labels.yaml';
  * packages. The block goes into a new config file when none exists; an existing config is never rewritten, so the
  * command prints the block for manual paste instead.
  *
- * `configPath` names the config to read. Naming one that does not exist fails the command, so the
- * scaffolding branch is reached only under the default path and always writes to `CONFIG_FILE_PATH`.
+ * `configPath` names the config to read. Because the command fails when the named config does not exist, it
+ * reaches the scaffolding branch only under the default path, and that branch always writes to `CONFIG_FILE_PATH`.
  */
 export async function syncLabelsInitCommand({ configPath, dryRun, force, styles }: InitOptions): Promise<number> {
   const configFilePath = configPath ?? CONFIG_FILE_PATH;
@@ -66,8 +66,8 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
     console.info(`  Found ${String(workspace.packageDirs.length)} workspaces`);
   }
 
-  // A named path is always read, so that one which does not exist fails in the loader rather than
-  // silently routing the run into the scaffolding branch.
+  // Always read a named path, so that the loader fails on one that does not exist rather than the
+  // run silently taking the scaffolding branch.
   const configExists = configPath !== undefined || existsSync(CONFIG_FILE_PATH);
   const retiredNames = configExists ? await loadRetiredPackageNames(styles, configPath) : [];
   if (retiredNames === undefined) {
@@ -95,7 +95,7 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
   1. Paste the block above into ${configFilePath}.
   2. Run \`release-kit sync-labels generate\` to produce ${LABELS_OUTPUT_PATH}.
   3. Commit the changes.
-  4. Run \`release-kit sync-labels sync\` to apply labels to your GitHub repo.
+  4. Run \`release-kit sync-labels sync\` to apply labels to the GitHub repo.
 `);
     return 0;
   }
@@ -129,7 +129,7 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
      - ${LABELS_OUTPUT_PATH}
   2. Customize the \`repoLabels\` block in ${CONFIG_FILE_PATH} as needed, then re-run \`release-kit sync-labels generate\`.
   3. Commit the generated files.
-  4. Run \`release-kit sync-labels sync\` to apply labels to your GitHub repo.
+  4. Run \`release-kit sync-labels sync\` to apply labels to the GitHub repo.
 `);
 
   return 0;
