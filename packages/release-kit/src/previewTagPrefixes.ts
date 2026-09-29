@@ -19,7 +19,7 @@ export interface TagPrefixPreviewRow {
   derivedPrefix: string | null;
   /** Human-readable reason derivation failed, or `null` when it succeeded. */
   derivationError: string | null;
-  /** Count of tags matching the derived prefix; `0` when derivation failed or no tags exist. */
+  /** Count of tags matching the derived prefix; `0` when derivation failed or the repo lacks matching tags. */
   derivedTagCount: number;
   /** One entry per declared legacy prefix, with its current tag count. */
   legacyEntries: LegacyTagPrefixEntry[];
@@ -56,11 +56,11 @@ export interface TagPrefixPreview {
 /**
  * Builds a structured preview of tag-prefix state for every discovered workspace.
  *
- * Records a workspace's derivation error rather than aborting. A repo releasing as a single package previews no
- * row; one declaring patterns that resolve to no package throws, because the manifest is then what needs
- * repairing and a clean table would hide that. Also reports the legacy prefixes that the validated `config`
- * declares per workspace, undeclared candidate prefixes among the local git tags, and collisions across the
- * successfully derived prefixes.
+ * Records a workspace's derivation error rather than aborting. For a repo releasing as a single package, the
+ * preview doesn't contain any rows; for one declaring patterns that don't resolve to any package, the function
+ * throws, because the manifest then needs repairing and a clean table would hide that. Also reports the legacy
+ * prefixes that the validated `config` declares per workspace, undeclared candidate prefixes among the local git
+ * tags, and collisions across the successfully derived prefixes.
  */
 export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview {
   const workspace = discoverWorkspaces();

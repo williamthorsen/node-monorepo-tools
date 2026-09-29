@@ -223,8 +223,9 @@ function runMonorepoMode(
     process.exit(1);
   }
 
-  // A project release derives its bump from the commits of every contributing workspace, and no flag overrides the
-  // project version, so `--set-version`, which sets one workspace's version, does not compose with it.
+  // A project release derives its bump from the commits of every contributing workspace, and `prepare` doesn't accept
+  // any flag that overrides the project version, so `--set-version`, which sets one workspace's version, does not
+  // compose with it.
   if (setVersion !== undefined && config.project !== undefined) {
     reportError(
       '--set-version cannot be combined with a project release. ' +
@@ -308,8 +309,8 @@ interface PrepareOptions {
  * Computes the release plan, applies it, runs the format command, and prints the report.
  *
  * The plan is applied before anything is printed, so a partially applied plan is never preceded
- * by a success-shaped report. The format command runs last because it rewrites the files that
- * the plan just wrote; its failure leaves the release on disk and the tags file in place, so
+ * by a report that indicates success. The format command runs last because it rewrites the files
+ * that the plan just wrote. Its failure leaves the release on disk and the tags file in place;
  * `release-kit commit` still proceeds.
  */
 function runAndReport(computePlan: () => ReleasePlan, dryRun: boolean, style: OutputStyle): void {
@@ -318,7 +319,7 @@ function runAndReport(computePlan: () => ReleasePlan, dryRun: boolean, style: Ou
     plan = computePlan();
   } catch (error: unknown) {
     reportError(describeError(error));
-    process.stderr.write('No files were written; the working tree is unchanged.\n');
+    process.stderr.write('The command did not write any files; the working tree is unchanged.\n');
     process.exit(1);
   }
 
@@ -355,7 +356,7 @@ function runAndReport(computePlan: () => ReleasePlan, dryRun: boolean, style: Ou
  * Runs the plan's format command, returning its failure message if it fails.
  *
  * Never throws. By the time this runs the release is already on disk, so a formatting failure is
- * reported rather than allowed to unmake it.
+ * reported rather than allowed to undo it.
  */
 function runFormatCommand(formatCommand: ReleasePlan['formatCommand']): string | undefined {
   if (formatCommand === undefined) {

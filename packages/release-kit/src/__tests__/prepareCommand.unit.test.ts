@@ -27,7 +27,7 @@ vi.mock(import('../assertCleanWorkingTree.ts'), () => ({
   assertCleanWorkingTree: mockAssertCleanWorkingTree,
 }));
 
-// Partial, so that `describeEmptyWorkspace` stays the real composer: what a caller does with an empty
+// Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
 vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -78,7 +78,7 @@ describe(prepareCommand, () => {
     capture = captureStdio();
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/arrays', 'packages/strings']));
     mockLoadConfig.mockResolvedValue(undefined);
-    // Default: pretend the root package.json does not exist. Tests that exercise the project
+    // Default: Pretend the root package.json does not exist. Tests that exercise the project
     // block override this in-test to return a valid version.
     mockExistsSync.mockReturnValue(false);
     mockReadFileSync.mockImplementation((filePath: string) => {
@@ -92,7 +92,7 @@ describe(prepareCommand, () => {
     });
     mockReleasePrepareMono.mockReturnValue(makePrepareResult());
     mockReleasePrepare.mockReturnValue(makePrepareResult());
-    // Default: no commits anywhere, so the stranded-dependents validator stays silent.
+    // Default: The release history doesn't contain any commits, so the stranded-dependents validator stays silent.
     mockReadReleaseHistory.mockReturnValue(makeReleaseHistory());
     mockWriteFileWithCheck.mockImplementation((path: string) => ({ filePath: path, outcome: 'created' }));
     void throwOnProcessExit();
@@ -186,9 +186,9 @@ describe(prepareCommand, () => {
     expect(mockReleasePrepareMono.mock.calls[0]?.[1]).not.toHaveProperty('configuredWorkspaceDirs');
   });
 
-  // A workspace that resolves to no package is not single-package mode; reading it as one would prepare the root
-  // as one package.
-  it('exits with error when the workspace resolves to no package', async () => {
+  // A workspace that doesn't resolve to any package is not single-package mode; reading it as one would prepare the
+  // root as one package.
+  it("exits with error when the workspace doesn't resolve to any package", async () => {
     mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
 
     await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
@@ -232,7 +232,7 @@ describe(prepareCommand, () => {
   });
 
   it('rejects --only when an excluded internal dependent has its own changes', async () => {
-    // Arrange a graph where strings depends on arrays, and both have commits since their last tag.
+    // Arrange a graph in which strings depends on arrays, and both have commits since their last tag.
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath === 'packages/arrays/package.json') {
         return JSON.stringify({ name: '@scope/arrays' });
@@ -242,7 +242,7 @@ describe(prepareCommand, () => {
       }
       throw new Error(`Unexpected readFileSync call for path: ${filePath}`);
     });
-    // Commits without a bump still strand a dependent: the check judges by commit presence.
+    // Commits without a bump still strand a dependent: The check judges by commit presence.
     mockReadReleaseHistory.mockImplementation((_config: unknown, options: { tagPrefixes: readonly string[] }) => {
       if (options.tagPrefixes.includes('arrays-v'))
         return makeReleaseHistory({ previousTag: 'arrays-v1.0.0', commits: [['#1 feat: x', 'h1']], bump: 'minor' });
@@ -376,7 +376,7 @@ describe(prepareCommand, () => {
     );
   });
 
-  it('prints stage-attributed errors with the canonical Error prefix and no "Error preparing release:" wrapper', async () => {
+  it('prints stage-attributed errors with the canonical Error prefix and without the "Error preparing release:" wrapper', async () => {
     mockReleasePrepareMono.mockImplementation(() => {
       throw new Error("workspace 'arrays' release stage: planVersionBump failed: ENOENT");
     });
@@ -392,7 +392,7 @@ describe(prepareCommand, () => {
     });
 
     await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(capture.stderrChunks).toContain('No files were written; the working tree is unchanged.\n');
+    expect(capture.stderrChunks).toContain('The command did not write any files; the working tree is unchanged.\n');
   });
 
   it('exits and names the written and unwritten files when the apply pass fails', async () => {
@@ -449,7 +449,7 @@ describe(prepareCommand, () => {
     expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Release tags file:'));
   });
 
-  it('does not print release tags file path when no tags are produced', async () => {
+  it('does not print release tags file path when the plan does not produce any tags', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult());
 
     await prepareCommand([], RICH_STYLES, process.cwd());
@@ -457,7 +457,7 @@ describe(prepareCommand, () => {
     expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Release tags file:'));
   });
 
-  it('writes the release summary file when the plan carries a summary', async () => {
+  it('writes the release summary file when the plan contains a summary', async () => {
     mockReleasePrepareMono.mockReturnValue(
       makePrepareResult({
         tags: ['release-kit-v2.4.0'],
@@ -474,7 +474,7 @@ describe(prepareCommand, () => {
     );
   });
 
-  it('does not write the release summary file when the plan carries none', async () => {
+  it('does not write the release summary file when the plan does not contain one', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['core-v1.0.0'] }));
 
     await prepareCommand([], RICH_STYLES, process.cwd());
@@ -724,16 +724,16 @@ describe(parseArgs, () => {
   });
 
   it('rejects --help=value as an unknown option', () => {
-    // The bin dispatcher only intercepts bare `--help`/`-h`; the `=value` form slips past it
-    // and reaches parseArgs, where `--help` is not a known flag.
+    // The bin dispatcher only intercepts bare `--help`/`-h`; it passes the `=value` form on to
+    // parseArgs, which does not recognize `--help` as a flag.
     expect(() => parseArgs(['--help=value'])).toThrow(ProcessExitError);
     expect(capture.stderr).toContain('Unknown option: --help');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('accepts --force without --bump and defaults force to true', () => {
-    // `--force` is a pure release trigger; runtime defaults the level to patch when no
-    // `--bump` is supplied. Parsing must accept the flag without requiring `--bump`.
+    // `--force` is a pure release trigger; runtime defaults the level to patch when
+    // `--bump` is not supplied. Parsing must accept the flag without requiring `--bump`.
     const result = parseArgs(['--force']);
     expect(result.force).toBe(true);
     expect(result.bumpOverride).toBeUndefined();

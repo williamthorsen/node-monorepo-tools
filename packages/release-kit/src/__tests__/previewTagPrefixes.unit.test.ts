@@ -9,7 +9,7 @@ vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
 }));
 
-// Partial, so that `describeEmptyWorkspace` stays the real composer: what a caller does with an empty
+// Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
 vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -100,7 +100,7 @@ describe(previewTagPrefixes, () => {
     expect(result.workspaces[1]?.derivedTagCount).toBe(0);
   });
 
-  it('surfaces declared legacy prefixes with their tag counts', () => {
+  it('reports declared legacy prefixes with their tag counts', () => {
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
     const config = {
       workspaces: [
@@ -156,8 +156,8 @@ describe(previewTagPrefixes, () => {
     expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['nmr-core-v', 'core-v']));
   });
 
-  // An empty preview would show a clean table for a workspace whose manifest is the thing that needs repairing.
-  it('throws when the workspace resolves to no package', () => {
+  // An empty preview would show a clean table for a workspace whose manifest needs repairing.
+  it("throws when the workspace doesn't resolve to any package", () => {
     mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
 
     expect(() => previewTagPrefixes()).toThrow('No workspace package to preview.');
