@@ -47,12 +47,12 @@ export interface ReleasePrepareProjectArgs {
   warnings?: string[];
   /**
    * Root-tier editorial overrides. Defaults to an empty map. The project changelog applies only the
-   * root-tier file: per-workspace files describe per-workspace editorial intent and have no
-   * meaning at the aggregated project tier.
+   * root-tier file: Per-workspace files describe per-workspace editorial intent and are
+   * meaningless at the aggregated project tier.
    */
   rootOverrides?: Map<string, ChangelogOverride>;
   /**
-   * Mutated in-place to receive override-application warnings. Stale-key warnings are not among them: those
+   * Mutated in-place to receive override-application warnings. Stale-key warnings are not among them: Those
    * depend on the matches of every batch, which `globalMatchedRootKeys` collects. Defaults to a discardable sink.
    */
   overrideWarnings?: string[];
@@ -70,8 +70,8 @@ export interface ReleasePrepareProjectArgs {
  * `paths`.
  *
  * Returns a `skipped` result when neither commits nor `--force` provide a release signal, and throws when
- * `config.project` is undefined. A run narrowed by `--only` does not reach this stage, so it reads no
- * narrowing flag.
+ * `config.project` is undefined. A run narrowed by `--only` does not reach this stage, so it doesn't
+ * read any narrowing flag.
  */
 export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectPrepareResult {
   const { config, options, modifiedFiles, writes, tags } = args;
@@ -103,7 +103,7 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
 
   // 2. Decide the release. `--bump=X` is purely a level chooser; `--force` is purely a release
-  //    trigger that defaults to patch when no level is given.
+  //    trigger that defaults to patch when `--bump` is absent.
   const decision = decideRelease({
     naturalBump: history.unreleased.bump,
     commitCount: commits.length,
@@ -141,8 +141,8 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   // 4. Compose the project tag.
   const newTag = `${project.tagPrefix}${bump.newVersion}`;
 
-  // 5. Plan the root CHANGELOG and (optionally) changelog.json. When the window yields no changelog item (a forced
-  //    project release), the planner records the synthetic "Forced version bump." entry for the new version.
+  // 5. Plan the root CHANGELOG and (optionally) changelog.json. When the window doesn't yield any changelog item (a
+  //    forced project release), the planner records the synthetic "Forced version bump." entry for the new version.
   const changelogs = planProjectChangelogs({
     config,
     history,
@@ -232,9 +232,9 @@ interface PlanProjectChangelogsArgs {
 }
 
 /**
- * Builds the project's new entries (release windows, or the synthetic entry when the unreleased window yields no
- * item), applies editorial overrides, merges them with the `changelog.json` on disk, and renders `changelog.json` and
- * `CHANGELOG.md` from the merged set. The merge keeps the synthetic entries of earlier releases, which the release
+ * Builds the project's new entries (release windows, or the synthetic entry when the unreleased window doesn't yield
+ * any item), applies editorial overrides, merges them with the `changelog.json` on disk, and renders `changelog.json`
+ * and `CHANGELOG.md` from the merged set. The merge keeps the synthetic entries of earlier releases, which the release
  * windows do not yield, and `CHANGELOG.md` also keeps the existing sections whose versions the merged set lacks.
  *
  * Returns the rendered writes alongside the entries from which they were rendered, so that the caller can render

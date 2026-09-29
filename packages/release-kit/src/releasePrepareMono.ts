@@ -107,8 +107,8 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
   const graph = buildDependencyGraph(config.workspaces);
   const fullReleaseSet = propagateBumps(directBumps, graph);
 
-  // A workspace that releases through propagation alone renders no entry from its window, so its baseline does not
-  // matter. Throw outside `tryStage` so that one error names every other workspace's missing tag.
+  // A workspace that releases through propagation alone doesn't render any entry from its window, so its baseline does
+  // not matter. Throw outside `tryStage` so that one error names every other workspace's missing tag.
   assertTaggedBaseline(
     [...untaggedBaselines]
       .filter(([dir]) => directBumps.has(dir) || !fullReleaseSet.has(dir))
@@ -155,10 +155,10 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
   // === Phase 3b: Project release ===
   // Runs after the per-workspace loop, so that the contributing workspaces are settled, and before
   // `planFormatCommand`, so that the format command covers the root files. A narrowed run skips the
-  // stage: the project release rolls up every contributing workspace, and `--only` has changed
+  // stage: The project release rolls up every contributing workspace, and `--only` has changed
   // which workspaces those are.
   //
-  // `project` stays undefined when no project block is configured or `--only` narrowed the run.
+  // `project` stays undefined when the config lacks a project block or `--only` narrowed the run.
   let project: ProjectPrepareResult | undefined;
   if (config.project !== undefined) {
     if (only === undefined) {
@@ -186,8 +186,8 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
   // === Phase 4: Render the format command ===
   const formatCommand = planFormatCommand(config, tags, modifiedFiles);
 
-  // Warn once per root key that matched in no workspace or project apply call. Each workspace's own stale keys were
-  // warned at its apply call.
+  // Warn once per root key that did not match in any workspace or project apply call. Each workspace's apply call
+  // already warned about that workspace's own stale keys.
   for (const overrideKey of overrideContext.project.keys()) {
     if (!overrideContext.globalMatchedRootKeys.has(overrideKey)) {
       overrideContext.overrideWarnings.push(formatStaleOverrideKeyWarning(overrideKey));
@@ -222,7 +222,8 @@ function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePre
   const untaggedBaselines = new Map<string, UntaggedBaseline>();
   const hintState: BaselineHintState = { emitted: false };
   // Build once: the union of every workspace's derived and declared tag prefixes. Passed into
-  // the baseline hint so sibling workspaces' tags aren't misclassified as undeclared candidates.
+  // the baseline hint so that sibling workspaces' tags aren't misclassified as undeclared
+  // candidates.
   const knownPrefixes = config.workspaces.flatMap(getAllTagPrefixes);
 
   for (const workspace of config.workspaces) {
@@ -271,7 +272,7 @@ function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePre
     }
 
     // `--bump=X` is purely a level chooser; `--force` is purely a release trigger that defaults
-    // to patch when no level is given.
+    // to patch when `--bump` is absent.
     const decision = decideRelease({
       naturalBump: history.unreleased.bump,
       commitCount: history.unreleased.commits.length,
@@ -579,7 +580,7 @@ function attachDirectHistory(
 
 /**
  * Marks a release that propagation alone set and attaches the commits and diagnostics of the window that Phase 1
- * read and skipped. `parsedCommitCount` stays absent, since no bump was decided from it.
+ * read and skipped. `parsedCommitCount` stays absent, since Phase 1 did not decide any bump from it.
  */
 function attachPropagatedHistory(
   released: ReleasedWorkspaceResult,
@@ -616,9 +617,9 @@ interface GenerateWorkspaceChangelogsArgs {
 
 /**
  * Plans a workspace's changelog files by building the new entries (propagation-only synthetic, or release
- * windows with the synthetic forced-release entry when the unreleased window yields no item), applying editorial
- * overrides, merging with the JSON on disk, and rendering both `changelog.json` and `CHANGELOG.md` from the merged
- * set so that the two reflect the same post-override view. `CHANGELOG.md` also keeps the existing sections whose
+ * windows with the synthetic forced-release entry when the unreleased window doesn't yield any item), applying
+ * editorial overrides, merging with the JSON on disk, and rendering both `changelog.json` and `CHANGELOG.md` from the
+ * merged set so that the two reflect the same post-override view. `CHANGELOG.md` also keeps the existing sections whose
  * versions the merged set lacks.
  */
 function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
@@ -691,9 +692,9 @@ interface BuildWorkspaceEntriesArgs {
 
 /**
  * Builds the new `ChangelogEntry[]` for a workspace from one of two sources:
- * 1. Propagation-only: a single synthetic "Dependency updates" entry.
- * 2. Direct release: the workspace's release history, with the synthetic "Forced version bump." entry in place of
- *    the unreleased window when that window yields no item (`--force` or `--set-version`).
+ * 1. Propagation-only: A single synthetic "Dependency updates" entry.
+ * 2. Direct release: The workspace's release history, with the synthetic "Forced version bump." entry in place of
+ *    the unreleased window when that window doesn't yield any item (`--force` or `--set-version`).
  *
  * Returns the entries that will be merged into the on-disk JSON and rendered.
  */
@@ -739,7 +740,7 @@ function planPreviews(
 /**
  * Renders the format command over the modified files, if configured and the plan contains a release.
  *
- * The command is not run here: it reformats the very files that the plan has yet to write, so the
+ * The command is not run here: It reformats the very files that the plan has yet to write, so the
  * caller runs it once the plan is on disk.
  */
 function planFormatCommand(
@@ -778,15 +779,15 @@ function workspaceStageLabel(dir: string): string {
   return `workspace '${dir}' release stage`;
 }
 
-/** Shared single-fire flag so multiple no-baseline workspaces trigger at most one hint per run. */
+/** Shared single-fire flag so that multiple no-baseline workspaces trigger at most one hint per run. */
 interface BaselineHintState {
   emitted: boolean;
 }
 
 /**
  * Emits a one-line hint to stderr pointing at `release-kit show-tag-prefixes` when a workspace
- * has no baseline tag AND the repo contains candidate-shaped tags AND the workspace has no
- * declared `legacyIdentities`.
+ * doesn't have a baseline tag AND the repo contains candidate-shaped tags AND the workspace
+ * doesn't declare any `legacyIdentities`.
  *
  * `knownPrefixes` must be the full union across all workspaces so that sibling workspaces' tags
  * are not mistaken for undeclared candidates.
