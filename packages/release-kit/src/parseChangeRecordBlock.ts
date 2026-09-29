@@ -8,7 +8,7 @@ import { isRecord } from './typeGuards.ts';
  * The block's grammar is codeassembly's `change-record.md`: a fence whose info string is exactly `change-record`,
  * containing a YAML mapping. A merge commit's block contains `entries` plus the top-level `pr_number` and `ticket_ref`.
  * A key that the grammar does not declare is ignored, and a declared key whose value is null reads as absent. Any
- * defect makes the whole block malformed; no entry is salvaged from a defective list.
+ * defect makes the whole block malformed; `parseChangeRecordBlock` does not salvage any entry from a defective list.
  */
 export function parseChangeRecordBlock(message: string): ChangeRecordBlockReading {
   const lines = message.split(/\r?\n/);

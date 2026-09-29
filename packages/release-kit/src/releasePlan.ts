@@ -9,7 +9,7 @@ export interface PlannedWrite {
   content: string;
 }
 
-/** A write that reached disk, and whether it created the file or replaced existing content. */
+/** A write that succeeded, and whether it created the file or replaced existing content. */
 interface AppliedWrite {
   path: string;
   created: boolean;
@@ -21,8 +21,8 @@ const HANDOFF_FILES = new Set([RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE]);
 /**
  * A release computed in full but not yet written.
  *
- * Holding every intended file up front is what lets `prepare` fail during computation without
- * leaving anything on disk. {@link applyReleasePlan} is the only step that mutates the tree, so
+ * Because the plan contains every intended file up front, `prepare` can fail during computation
+ * without leaving anything on disk. {@link applyReleasePlan} is the only step that mutates the tree, so
  * a dry run is this same plan with the apply step skipped.
  *
  * Extends the reporting view with the two fields that only the apply step reads.
@@ -36,12 +36,12 @@ export interface ReleasePlan extends PrepareResult {
 /**
  * Writes every file that a plan describes: content files first, then the summary, then the tags file.
  *
- * The tags file goes last so that its presence means that the whole plan reached disk. Both
- * `release-kit commit` and the reusable release workflow read it as the signal that a release is
- * ready to commit, so writing it earlier would let a failure produce a tree that claims to be
- * releasable.
+ * The tags file goes last so that its presence means that the whole plan was written to disk.
+ * Both `release-kit commit` and the reusable release workflow read it as the signal that a
+ * release is ready to commit, so writing it earlier would let a failure produce a tree that
+ * looks releasable.
  *
- * Returns the paths written, in order. Throws if any write fails, naming what reached disk and what did not.
+ * Returns the paths written, in order. Throws if any write fails, naming what was written and what was not.
  */
 export function applyReleasePlan(plan: ReleasePlan): string[] {
   const ordered = orderPlannedWrites(plan);
@@ -87,7 +87,7 @@ interface DescribeApplyFailureArgs {
  * Composes the failure message for a partially applied plan.
  *
  * Names both sides of the boundary and how to undo the written side. A tree left midway through
- * a release looks like an ordinary set of edits, so the operator has no way to tell the two apart
+ * a release looks like an ordinary set of edits, so the operator cannot tell the two apart
  * without being told which files the run touched.
  */
 function describeApplyFailure(args: DescribeApplyFailureArgs): string {
@@ -115,10 +115,10 @@ function describeApplyFailure(args: DescribeApplyFailureArgs): string {
 /**
  * Renders the commands that undo a partial apply, one per kind of write.
  *
- * A replaced file is restored from git; a created file is deleted, since git has no entry to
- * restore it from and a single `git restore` over both fails on the unmatched pathspec. The
- * handoff files are left out: `prepare` overwrites them on its next run, and they sit under a
- * conventionally ignored directory, on which `git restore` would fail too.
+ * A replaced file is restored from git; a created file is deleted, since git does not have an
+ * entry from which to restore it and a single `git restore` over both fails on the unmatched
+ * pathspec. The handoff files are left out: `prepare` overwrites them on its next run, and they
+ * are in a conventionally ignored directory, on which `git restore` would fail too.
  */
 function describeRecovery(applied: readonly AppliedWrite[]): string[] {
   const releaseWrites = applied.filter((write) => !HANDOFF_FILES.has(write.path));

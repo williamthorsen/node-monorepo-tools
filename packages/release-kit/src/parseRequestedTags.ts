@@ -2,7 +2,7 @@
  * Parses the comma-separated `--tags` flag value into a list of requested tag names.
  *
  * Empty segments (from `--tags=`, leading/trailing commas, or `--tags=,,`) are dropped. When the
- * resulting list is empty, returns `undefined`, which the caller treats as no filter, as when
+ * resulting list is empty, returns `undefined`, and the caller does not filter the tags, as when
  * `--tags` is omitted.
  */
 export function parseRequestedTags(flagValue: string | undefined): string[] | undefined {

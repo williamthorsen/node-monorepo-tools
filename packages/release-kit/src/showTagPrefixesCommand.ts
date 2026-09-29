@@ -10,10 +10,10 @@ import { previewTagPrefixes, type TagPrefixPreview, type TagPrefixPreviewRow } f
  *
  * Prints a per-workspace table of derived prefixes, tag counts, and declared legacy entries, followed by an
  * "Undeclared tag prefixes" section when candidate-shaped tags exist outside the known set. Returns `1` on any
- * derivation failure or collision and `0` otherwise; undeclared candidates do not affect the exit code. A config
- * that exists and either fails to load or fails validation is reported to stderr and returns `1` in both repo
- * modes, because a default-config preview would understate the declared legacy prefixes. An absent default config
- * previews against derived defaults.
+ * derivation failure or collision and `0` otherwise; undeclared candidates do not affect the exit code. When a config
+ * exists and either fails to load or fails validation, the command reports it to stderr and returns `1` in both repo
+ * modes, because a default-config preview would understate the declared legacy prefixes. When the default config is
+ * absent, the command previews against derived defaults.
  */
 export async function showTagPrefixesCommand(styles: StreamStyles, configPath?: string): Promise<number> {
   // Load the config before the single-package branch, which reads none, so that an invalid config fails in both modes.
@@ -40,7 +40,7 @@ export async function showTagPrefixesCommand(styles: StreamStyles, configPath?: 
   return computeExitCode(preview);
 }
 
-/** Renders the single-package output: one row with `.` and `v`; no legacy or undeclared sections. */
+/** Renders the single-package output: one row with `.` and `v`, without legacy or undeclared sections. */
 function renderSinglePackage(): string {
   const lines: string[] = [
     'Workspace   Derived prefix   Status',
@@ -77,14 +77,14 @@ function renderMonorepo(preview: TagPrefixPreview, style: OutputStyle): string {
       '',
       ...preview.undeclaredCandidates.map(
         (candidate) =>
-          `  '${candidate.prefix}' — ${candidate.tagCount} tags (e.g., ${candidate.exampleTags.join(', ')})`,
+          `  '${candidate.prefix}': ${candidate.tagCount} tags (e.g., ${candidate.exampleTags.join(', ')})`,
       ),
       '',
-      'Suggested config snippet (adjust `dir` to match your workspace if the guess is wrong, and replace the `name` placeholder with the legacy npm name):',
+      'Suggested config snippet (adjust `dir` to match the workspace if the guess is wrong, and replace the `name` placeholder with the legacy npm name):',
       '',
       renderSuggestedSnippet(preview.undeclaredCandidates),
       '',
-      "If the suggested `dir` does not match your workspace, adjust before pasting. Each legacy identity requires a `name` — replace the `TODO-fill-in-legacy-npm-name` placeholder with the package's prior npm name.",
+      "If the suggested `dir` does not match the workspace, adjust it before pasting. Each legacy identity requires a `name`: Replace the `TODO-fill-in-legacy-npm-name` placeholder with the package's prior npm name.",
     );
   }
 

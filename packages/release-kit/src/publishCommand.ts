@@ -130,7 +130,7 @@ function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean)
     (tag.isPublishable ? publishable : unpublishable).push(tag);
   }
 
-  // Warn only on explicit naming: an implicit HEAD scan routinely surfaces private-but-tagged workspaces, whereas
+  // Warn only on explicit naming: An implicit HEAD scan routinely finds private-but-tagged workspaces, whereas
   // naming a tag signals that the user expected it to publish.
   if (isExplicit) {
     for (const resolvedTag of unpublishable) {

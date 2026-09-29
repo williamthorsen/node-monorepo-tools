@@ -1,16 +1,16 @@
 /**
  * Reports whether npm would place `path` in the published tarball, given a package.json `files` value.
  *
- * An absent or malformed `files` value packs everything, so it reports `true`; an empty array packs nothing
- * beyond the files npm always includes, so it reports `false`. An entry naming an ancestor directory covers
- * everything beneath it, which is how `files: ["dist/*"]` ships `dist/esm/index.js`, so every ancestor prefix
- * of `path` is tested rather than `path` alone.
+ * npm packs everything when the `files` value is absent or malformed, and `packsPath` reports `true`; for an empty
+ * array, npm packs only the files that it always includes, and `packsPath` reports `false`. An entry naming an
+ * ancestor directory covers everything beneath it, which is how `files: ["dist/*"]` includes `dist/esm/index.js`, so
+ * `packsPath` tests every ancestor prefix of `path` rather than `path` alone.
  *
- * Two approximations of npm's packing rules remain, both failing toward a silent pass: a negation entry
- * (`!dist/*.map`) never counts toward inclusion, because gitignore-style ordered negation is not modeled; and a
- * repo controlling its tarball through `.npmignore` alone declares no `files` field, so it reports `true`
- * without the ignore file being read. For a check that warns about an omission, a missed report costs less than
- * a false one.
+ * Two approximations of npm's packing rules remain, both failing toward a silent pass: A negation entry
+ * (`!dist/*.map`) never counts toward inclusion, because gitignore-style ordered negation is not modeled; and for a
+ * repo controlling its tarball through `.npmignore` alone, which does not declare a `files` field, `packsPath`
+ * reports `true` without reading the ignore file. For a check that warns about an omission, a missed report does
+ * less harm than a false one.
  */
 export function packsPath(filesField: unknown, path: string): boolean {
   if (!isStringArray(filesField)) return true;
@@ -28,7 +28,7 @@ const GLOB_TOKEN_PATTERN = /\*\*\/|\*\*|\*|\?|[^*?]+/g;
 // region | Helpers
 
 /**
- * Compiles one `files` entry into an anchored pattern, or `undefined` where the entry can include nothing.
+ * Compiles one `files` entry into an anchored pattern, or `undefined` when the entry can include nothing.
  *
  * Strips the leading `./` or `/` and the trailing `/` that npm ignores, and rejects a negation entry.
  */
@@ -46,7 +46,7 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }
 
-/** Lists `path` and every directory above it, so an entry matching an ancestor also matches the file beneath it. */
+/** Lists `path` and every directory above it, so that an entry matching an ancestor also matches the file beneath it. */
 function listAncestorPrefixes(path: string): string[] {
   const segments = path.split('/');
   return segments.map((_segment, index) => segments.slice(0, index + 1).join('/'));

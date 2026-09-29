@@ -9,7 +9,7 @@ import type { ReleaseKitConfig } from './types.ts';
 import { validateConfig } from './validateConfig.ts';
 
 /**
- * Why a config file could not be used: the import threw, or the contents failed the schema.
+ * Why a config file could not be used: The import threw, or the contents failed the schema.
  *
  * The distinction exists so that a caller can render the two differently. Every caller aborts on either.
  */
@@ -31,11 +31,11 @@ export type LoadValidatedConfigResult =
 /**
  * Loads the consumer config file and validates it against the shared schema, returning the outcome.
  *
- * Writes nothing to any stream: the caller picks the sink, which is what lets a command that must stay silent
- * reuse this loader. `reportConfigProblem` and `reportConfigWarnings` render the stderr form.
+ * Writes nothing to any stream: The caller picks the sink, which lets a command that must stay silent reuse this
+ * loader. `reportConfigProblem` and `reportConfigWarnings` render the stderr form.
  *
- * `configPath` defaults to `CONFIG_FILE_PATH`. A named path that does not exist is a load failure, so it reports
- * as `invalid` rather than `missing`.
+ * `configPath` defaults to `CONFIG_FILE_PATH`. A named path that does not exist is a load failure, so this function
+ * reports it as `invalid` rather than `missing`.
  */
 export async function loadValidatedConfig(configPath?: string): Promise<LoadValidatedConfigResult> {
   const configFilePath = configPath ?? CONFIG_FILE_PATH;
@@ -60,9 +60,10 @@ export async function loadValidatedConfig(configPath?: string): Promise<LoadVali
 }
 
 /**
- * Loads and validates the config for a CLI command, returning it, or `undefined` when no default config exists.
+ * Loads and validates the config for a CLI command, returning it, or `undefined` when the default config file does
+ * not exist.
  *
- * An unusable config reports to stderr and exits 1, whether the file failed to load or failed validation, and
+ * Reports an unusable config to stderr and exits 1, whether the file failed to load or failed validation, and
  * whether it was named by the caller or the default one. Validation warnings print to stderr.
  */
 export async function loadUsableConfig(
@@ -83,7 +84,7 @@ export async function loadUsableConfig(
   return result.config;
 }
 
-/** Writes a config problem to stderr in the form every CLI command uses. */
+/** Writes a config problem to stderr in the form used by every CLI command. */
 export function reportConfigProblem(problem: ConfigProblem, stderrStyle: OutputStyle): void {
   if (problem.kind === 'load') {
     reportError(`Failed to load config: ${problem.message}`);
