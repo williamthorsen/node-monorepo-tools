@@ -76,7 +76,7 @@ describe(planReleaseNotesPreviews, () => {
     expect(mockRenderInjectedReadmeFromEntries).toHaveBeenCalledWith('# Pkg\n', entries, 'pkg-v1.2.3', ['Features']);
   });
 
-  it('if the workspace has no README, plans only the standalone preview', () => {
+  it('if the workspace does not have a README, plans only the standalone preview', () => {
     mockExistsSync.mockReturnValue(false);
 
     const plan = planReleaseNotesPreviews(previewOptions());
@@ -84,7 +84,7 @@ describe(planReleaseNotesPreviews, () => {
     expect(plan.writes.map((write) => write.path)).toStrictEqual(['packages/a/docs/RELEASE_NOTES.v1.2.3.md']);
   });
 
-  it('if the workspace has no README, warns that the injected preview was skipped', () => {
+  it('if the workspace does not have a README, warns that the injected preview was skipped', () => {
     mockExistsSync.mockReturnValue(false);
 
     const plan = planReleaseNotesPreviews(previewOptions());
@@ -106,7 +106,7 @@ describe(planReleaseNotesPreviews, () => {
     ]);
   });
 
-  it('if the renderer reports no content for the version, plans nothing', () => {
+  it('if the renderer does not report any content for the version, plans nothing', () => {
     mockRenderInjectedReadmeFromEntries.mockReturnValue({ status: 'skipped', reason: 'no-entry', version: '1.2.3' });
 
     const plan = planReleaseNotesPreviews(previewOptions());
@@ -114,7 +114,7 @@ describe(planReleaseNotesPreviews, () => {
     expect(plan.writes).toStrictEqual([]);
   });
 
-  it('if no changelog entry matches the version, warns naming the version', () => {
+  it('if the changelog does not contain an entry for the version, warns naming the version', () => {
     mockRenderInjectedReadmeFromEntries.mockReturnValue({ status: 'skipped', reason: 'no-entry', version: '1.2.3' });
 
     const plan = planReleaseNotesPreviews(previewOptions());
@@ -124,7 +124,7 @@ describe(planReleaseNotesPreviews, () => {
     ]);
   });
 
-  it('if the entry has no user-facing content, warns naming the version', () => {
+  it('if the entry does not have any user-facing content, warns naming the version', () => {
     mockRenderInjectedReadmeFromEntries.mockReturnValue({ status: 'skipped', reason: 'empty-body', version: '1.2.3' });
 
     const plan = planReleaseNotesPreviews(previewOptions());

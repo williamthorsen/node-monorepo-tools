@@ -141,7 +141,7 @@ describe(propagateBumps, () => {
     expect(appEntry?.propagatedFrom).toContainEqual({ packageName: '@scope/utils', newVersion: '2.1.0' });
   });
 
-  it('returns only direct bumps when there are no dependents', () => {
+  it('returns only direct bumps when the bumped workspace does not have any dependents', () => {
     const graph = makeGraph({ '@scope/core': 'core' }, {}, { core: '1.0.0' });
 
     const directBumps = new Map<string, ReleaseEntry>([['core', { releaseType: 'minor' }]]);
@@ -162,7 +162,7 @@ describe(propagateBumps, () => {
     );
 
     // The sentinel releaseType ('patch') would compute 0.5.1 from 0.5.0, but the explicit
-    // override must win so dependents see the set-version value.
+    // override must win so that dependents see the set-version value.
     const directBumps = new Map<string, ReleaseEntry>([
       ['core', { releaseType: 'patch', newVersionOverride: '1.0.0' }],
     ]);
@@ -177,7 +177,7 @@ describe(propagateBumps, () => {
 });
 
 // region | Helpers
-/** Builds a dependency graph from name, dependents, and version records, with no dependencies. */
+/** Builds a dependency graph from name, dependents, and version records, leaving its dependencies map empty. */
 function makeGraph(
   nameToDir: Record<string, string>,
   dependentsOf: Record<string, WorkspaceConfig[]>,

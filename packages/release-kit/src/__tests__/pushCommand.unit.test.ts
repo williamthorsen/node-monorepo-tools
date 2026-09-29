@@ -212,7 +212,7 @@ describe(pushCommand, () => {
     expect(capture.stderrChunks).toContain('Error: push failed\n');
   });
 
-  it('skips pushRelease when no tags are resolved', async () => {
+  it('skips pushRelease when resolveCommandTags does not resolve any tags', async () => {
     mockResolveCommandTags.mockReturnValue([]);
 
     await pushCommand([], RICH_STYLES, process.cwd());

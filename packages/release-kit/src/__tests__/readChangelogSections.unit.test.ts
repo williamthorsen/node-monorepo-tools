@@ -66,7 +66,7 @@ describe(parseChangelogSections, () => {
     expect(parseChangelogSections(`${text}\n`).versioned).toStrictEqual([{ version: '1.0.0', text }]);
   });
 
-  it('reports sections with no version by heading and excludes them from the versioned list', () => {
+  it('reports sections without a version by heading and excludes them from the versioned list', () => {
     const content = ['## Unreleased', '', '- pending', '', '## 1.0.0', '', '- item', '', '## Notes', '', 'x'].join(
       '\n',
     );

@@ -51,7 +51,7 @@ describe(loadValidatedConfig, () => {
     expect(result).toStrictEqual({ status: 'missing', configFilePath: CONFIG_FILE_PATH });
   });
 
-  it('carries validation warnings on the ok result', async () => {
+  it('includes validation warnings in the ok result', async () => {
     mockLoadConfig.mockResolvedValue({
       changelogJson: { enabled: false },
       releaseNotes: { shouldInjectIntoReadme: true },
@@ -77,7 +77,7 @@ describe(loadValidatedConfig, () => {
     });
   });
 
-  it('returns a schema violation as an invalid result carrying every error', async () => {
+  it('returns a schema violation as an invalid result containing every error', async () => {
     mockLoadConfig.mockResolvedValue({ workTypes: 'not-an-object' });
 
     const result = await loadValidatedConfig();
@@ -140,7 +140,7 @@ describe(reportConfigWarnings, () => {
     warn.mockRestore();
   });
 
-  it('writes nothing when there are no warnings', () => {
+  it('writes nothing when the warnings list is empty', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     reportConfigWarnings([], 'plain');
@@ -164,7 +164,7 @@ describe(loadUsableConfig, () => {
     expect(mockLoadConfig).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
   });
 
-  it('returns undefined and writes nothing when no default config exists', async () => {
+  it('returns undefined and writes nothing when the default config does not exist', async () => {
     mockLoadConfig.mockResolvedValue(undefined);
     using capture = captureStdio();
 

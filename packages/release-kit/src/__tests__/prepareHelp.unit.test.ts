@@ -11,7 +11,7 @@ describe(prepareHelpText, () => {
     }
   });
 
-  it('documents no unrecognized --flag tokens', () => {
+  it('does not document any unrecognized --flag tokens', () => {
     // `--help` is documented but handled by the bin dispatcher, so it is not in the schema.
     const known = new Set<string>([...Object.values(prepareFlagSchema).map((flag) => flag.long), '--help']);
     const documented = prepareHelpText.match(/--[a-z][a-z-]*/g) ?? [];
