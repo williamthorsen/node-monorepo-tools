@@ -2,7 +2,7 @@
 version: 2
 
 updates:
-  # Rotates the commit-SHA pins in .github/workflows, restoring the upgrade channel that pinning closes.
+  # Rotates the commit-SHA pins in .github/workflows, restoring the upgrades that pinning otherwise blocks.
   # Grouping every bump into one monthly pull request keeps the pins to one review a month.
   - package-ecosystem: github-actions
     directory: /

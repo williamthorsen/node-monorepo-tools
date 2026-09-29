@@ -14,10 +14,10 @@ const repoRoot = join(import.meta.dirname, '..');
 const workflowsDir = join(repoRoot, '.github', 'workflows');
 
 /**
- * This repo dogfoods the workflow templates its own packages scaffold, so each caller workflow here must be the
- * template's output verbatim -- the same identity the kits enforce in consumer repos.
+ * This repo dogfoods the workflow templates that its own packages scaffold, so each caller workflow here must be the
+ * template's output verbatim -- the same identity that the kits enforce in consumer repos.
  */
-describe('repo workflows match the templates its packages ship', () => {
+describe('repo workflows match the templates that its packages publish', () => {
   it('create-github-release.yaml matches release-kit createGithubReleaseWorkflow("monorepo")', () => {
     const content = readFileSync(join(workflowsDir, 'create-github-release.yaml'), 'utf8');
 

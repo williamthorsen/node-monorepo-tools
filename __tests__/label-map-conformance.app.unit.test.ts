@@ -39,7 +39,7 @@ describe('.meta/label-map.json conforms to change-grammar schema', () => {
     }
   });
 
-  it('declares all keys the schema requires', () => {
+  it('declares all keys that the schema requires', () => {
     for (const key of required) {
       expect(parsedLabelMap, `missing required key '${key}'`).toHaveProperty(key);
     }

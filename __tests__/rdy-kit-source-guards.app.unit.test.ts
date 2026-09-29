@@ -18,7 +18,7 @@ describe('rdy kit source files', () => {
     expect(kitSourceFiles.length).toBeGreaterThan(0);
   });
 
-  it.each(kitSourceFiles)('%s uses no JSON import attributes', (file) => {
+  it.each(kitSourceFiles)('%s does not use JSON import attributes', (file) => {
     const content = readFileSync(join(monorepoRoot, file), 'utf8');
 
     expect(JSON_IMPORT_ATTRIBUTE_PATTERN.test(content)).toBe(false);

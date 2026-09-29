@@ -1,7 +1,7 @@
 /**
  * Vitest configuration for the monorepo's own root-level tests, excluding every workspace package.
  *
- * This file sits at the monorepo root, so `import.meta.dirname` is the root wherever the run starts.
+ * This file is at the monorepo root, so `import.meta.dirname` is the root wherever the run starts.
  */
 import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest';
 

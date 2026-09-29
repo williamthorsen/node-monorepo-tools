@@ -13,7 +13,7 @@ function readRepoFile(path: string): string {
 }
 
 describe('nmr kit audit config migration checks against this repo', () => {
-  it('passes: no legacy .audit-ci/ directory exists', () => {
+  it('passes: the repo does not have a legacy .audit-ci/ directory', () => {
     expect(existsSync(join(repoRoot, '.audit-ci'))).toBe(false);
   });
 

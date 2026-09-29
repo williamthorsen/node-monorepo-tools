@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# publish-bare.sh — Bootstrap publish a placeholder package to npm.
+# publish-bare.sh: Bootstrap publish a placeholder package to npm.
 #
-# A new package on npm needs a one-time placeholder publish so its name is
+# A new package on npm needs a one-time placeholder publish so that its name is
 # registered before `npm trust` can be configured. Once trust is in place,
-# every subsequent version ships through `.github/workflows/publish.yaml` on
-# tag pushes.
+# every subsequent version is published through `.github/workflows/publish.yaml`
+# on tag pushes.
 #
 # This script publishes a minimal `name@0.0.0` placeholder containing only
-# `package.json` and `README.md`. The working repo is never mutated — the
+# `package.json` and `README.md`. The working repo is never mutated: The
 # placeholder is built in `mktemp -d` and removed via `trap` on exit.
 
 PROG="$(basename "$0")"
@@ -17,7 +17,7 @@ readonly PROG
 readonly NAME_REGEX='^(@[a-z0-9][a-z0-9_.-]*/)?[a-z0-9][a-z0-9_.-]*$'
 readonly MAX_NAME_LEN=214
 
-# Cleanup state — accessed by EXIT trap after main() returns.
+# Cleanup state: Accessed by the EXIT trap after main() returns.
 tmp=""
 
 # Validates the name and the npm session, builds the placeholder, and publishes it after confirmation.
@@ -63,7 +63,7 @@ main() {
   print_summary "$tmp" "$name" "$dry_run"
 
   if "$dry_run"; then
-    echo "DRY RUN — nothing was published." >&2
+    echo "DRY RUN: Nothing was published." >&2
     exit 0
   fi
 
@@ -167,7 +167,7 @@ build_placeholder() {
 }
 JSON
   cat >"$tmp/README.md" <<README
-Placeholder for \`$name\` — awaiting first release.
+Placeholder for \`$name\`, awaiting first release.
 README
 }
 
