@@ -23,7 +23,7 @@ describe(detectUndeclaredTagPrefixes, () => {
     mockExecFileSync.mockReset();
   });
 
-  it('returns an empty array when the repo has no tags', () => {
+  it("returns an empty array when the repo doesn't have any tags", () => {
     setupTagList([]);
 
     expect(detectUndeclaredTagPrefixes(['core-v'])).toStrictEqual([]);

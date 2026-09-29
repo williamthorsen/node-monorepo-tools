@@ -78,7 +78,7 @@ describe(validateChangelogOverrides, () => {
     expect(result.errors).toContain("overrides['abc']: unknown field 'unknown'");
   });
 
-  it('rejects an entry with no fields', () => {
+  it('rejects an entry without any fields', () => {
     const result = validateChangelogOverrides({ abc: {} });
     expect(result.errors).toContain("overrides['abc']: at least one override field must be set");
   });
@@ -329,7 +329,7 @@ describe(applyChangelogOverrides, () => {
     const entries = [makeEntry(['abc111'])];
     const overrides = new Map([['xyz999', { description: 'Stale' }]]);
     const result = applyChangelogOverrides(entries, overrides);
-    // The applier emits no per-batch zero-match warnings; the orchestrator aggregates
+    // The applier doesn't emit any per-batch zero-match warnings; the orchestrator aggregates
     // `matchedKeys` across batches and warns on each globally stale key exactly once.
     expect(result.warnings).toStrictEqual([]);
     expect(result.matchedKeys).toStrictEqual([]);
@@ -385,7 +385,7 @@ describe(applyChangelogOverrides, () => {
     expect(result.entries[0]?.sections[0]?.items[0]?.migration).toBe('Import from the new subpath.');
   });
 
-  it('clears a migration that the superseded body carried when the replacement carries none', () => {
+  it("clears a migration that the superseded body contained when the replacement doesn't contain one", () => {
     const entries: ChangelogEntry[] = [
       {
         version: '1.0.0',
@@ -490,7 +490,7 @@ describe(applyChangelogOverrides, () => {
     expect(result.entries[0]?.sections[0]?.items[0]?.breaking).toBe(false);
   });
 
-  it('passes synthetic items (no hash) through untouched', () => {
+  it('passes synthetic items (without a hash) through untouched', () => {
     const entries: ChangelogEntry[] = [
       {
         version: '1.0.0',
@@ -511,7 +511,7 @@ describe(applyChangelogOverrides, () => {
     expect(result.matchedKeys).toStrictEqual([]);
   });
 
-  it('reports each matched key in matchedKeys with no warnings or errors', () => {
+  it('reports each matched key in matchedKeys without any warnings or errors', () => {
     const entries = [makeEntry(['abc1234', 'def5678'])];
     const overrides = new Map([
       ['abc1234', { description: 'First' }],
@@ -523,7 +523,7 @@ describe(applyChangelogOverrides, () => {
     expect(result.errors).toStrictEqual([]);
   });
 
-  it('omits ambiguous-prefix keys from matchedKeys and surfaces an error instead', () => {
+  it('omits ambiguous-prefix keys from matchedKeys and reports an error instead', () => {
     const entries = [makeEntry(['abc111', 'abc222'])];
     const overrides = new Map([['abc', { description: 'Ambiguous' }]]);
     const result = applyChangelogOverrides(entries, overrides);
@@ -565,7 +565,7 @@ describe(loadOverridesForScopes, () => {
     tree = disposeOnTestFinished(createTempTree({}, { prefix: 'test-overrides-scopes-' }));
   });
 
-  it('returns empty maps when no scopes are requested', () => {
+  it("returns empty maps when the caller doesn't request any scope", () => {
     const result = loadOverridesForScopes({});
     expect(result.project.size).toBe(0);
     expect(result.perWorkspace.size).toBe(0);
@@ -635,7 +635,7 @@ describe(composeOverrides, () => {
     expect(composed.get('bbb')).toStrictEqual({ description: 'Replacement' });
   });
 
-  it('shadows root entries on byte-equal keys (workspace wins, no field-level merge)', () => {
+  it('shadows root entries on byte-equal keys (workspace wins, without a field-level merge)', () => {
     const root = new Map<string, ChangelogOverride>([['aaa', { audience: 'skip', description: 'Root description' }]]);
     const workspace = new Map<string, ChangelogOverride>([['aaa', { description: 'Workspace description' }]]);
     const composed = composeOverrides(root, workspace);
@@ -776,7 +776,7 @@ describe(applyWorkspaceOverrides, () => {
   });
 
   // The project-release flow sees only `context.project`, so a per-workspace key that targets one of the
-  // project's commits has no effect at the project tier.
+  // project's commits doesn't have any effect at the project tier.
   it("does not apply per-workspace files at the project tier (mimics releasePrepareProject's apply call)", () => {
     const context = makeContext(
       new Map([['aaa1111', { audience: 'skip' }]]),
@@ -798,13 +798,13 @@ describe(validateAllChangelogOverrides, () => {
     tree = disposeOnTestFinished(createTempTree({}, { prefix: 'test-validate-overrides-' }));
   });
 
-  it('returns no findings when no scopes are provided', () => {
+  it("doesn't report any findings when the caller doesn't provide any scope", () => {
     const result = validateAllChangelogOverrides({});
     expect(result.errors).toStrictEqual([]);
     expect(result.warnings).toStrictEqual([]);
   });
 
-  it('returns no findings when override files are absent (missing files are no-ops)', () => {
+  it("doesn't report any findings when override files are absent (missing files are no-ops)", () => {
     const result = validateAllChangelogOverrides({
       project: { filePath: join(tree.dir, 'missing-project.json'), items: toItems(['aaa1111']) },
       workspaces: [{ filePath: join(tree.dir, 'missing-workspace.json'), items: toItems(['bbb2222']) }],
@@ -813,7 +813,7 @@ describe(validateAllChangelogOverrides, () => {
     expect(result.warnings).toStrictEqual([]);
   });
 
-  it('returns no findings on a clean run with all matched keys', () => {
+  it("doesn't report any findings on a clean run with all matched keys", () => {
     const projectFile = tree.writeJson('overrides.json', { aaa1111: { audience: 'skip' } });
     const workspaceFile = tree.writeJson('workspace-a/overrides.json', { bbb2222: { description: 'Cleaned' } });
 
@@ -879,8 +879,9 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('attributes a project-tier ambiguous-prefix error to the project file when detected via a workspace hash window', () => {
-    // The project key 'abc' resolves ambiguously against workspace A's hashes. The error must
-    // attribute to the project file (where 'abc' lives), not the workspace file (which is empty).
+    // The project key 'abc' resolves ambiguously against workspace A's hashes. The validator must
+    // attribute the error to the project file (where 'abc' lives), not the workspace file (which
+    // is empty).
     const projectFile = tree.writeJson('overrides.json', { abc: { audience: 'skip' } });
     const workspaceFile = tree.write('workspace-a/overrides.json', '{}');
 
@@ -909,7 +910,7 @@ describe(validateAllChangelogOverrides, () => {
     expect(result.warnings[0]).toMatch(/this workspace's history/);
   });
 
-  it('warns on a root-tier key matched in no scope', () => {
+  it('warns on a root-tier key not matched in any scope', () => {
     const projectFile = tree.writeJson('overrides.json', { dead099: { audience: 'skip' } });
     const workspaceFile = tree.write('workspace-a/overrides.json', '{}');
 
@@ -957,8 +958,8 @@ describe(validateAllChangelogOverrides, () => {
 
   it('treats a root key as stale when it is shadowed everywhere and never matches at the root tier', () => {
     // Root key 'aaa1111' is shadowed by an identical workspace key in the only workspace.
-    // The workspace match counts toward the workspace tier, not the root, and there is no
-    // project release window, so the root key matches nowhere and should be flagged stale.
+    // The workspace match counts toward the workspace tier, not the root, and the project scope
+    // doesn't have a release window, so the root key matches nowhere and should be flagged stale.
     const projectFile = tree.writeJson('overrides.json', { aaa1111: { audience: 'skip' } });
     const workspaceFile = tree.writeJson('workspace-a/overrides.json', { aaa1111: { description: 'Workspace wins' } });
 
@@ -1108,7 +1109,7 @@ describe(validateAllChangelogOverrides, () => {
     });
   });
 
-  it('handles single-package mode (project scope only, no workspaces)', () => {
+  it('handles single-package mode (project scope only, without workspaces)', () => {
     const projectFile = tree.writeJson('overrides.json', {
       aaa1111: { audience: 'skip' },
       dead099: { audience: 'skip' },
@@ -1158,7 +1159,7 @@ describe(createOverrideContext, () => {
     expect(() => createOverrideContext([])).toThrow(/Failed to load changelog overrides/);
   });
 
-  it('returns an empty context when no override files exist', () => {
+  it("returns an empty context when the tree doesn't contain any override file", () => {
     const context = createOverrideContext([makeWorkspace('packages/foo')]);
     expect(context.project.size).toBe(0);
     expect(context.perWorkspace.size).toBe(0);
