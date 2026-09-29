@@ -22,8 +22,8 @@ const HANDOFF_FILES = new Set([RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE]);
  * A release computed in full but not yet written.
  *
  * Because the plan contains every intended file up front, `prepare` can fail during computation
- * without leaving anything on disk. {@link applyReleasePlan} is the only step that mutates the tree, so
- * a dry run is this same plan with the apply step skipped.
+ * without leaving anything on disk. {@link applyReleasePlan} is the only step that mutates the
+ * tree, so a dry run is this same plan with the apply step skipped.
  *
  * Extends the reporting view with the two fields that only the apply step reads.
  */

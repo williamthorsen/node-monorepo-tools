@@ -22,7 +22,7 @@ When a workspace's changelog is rendered, both files are consulted:
 
 - The root file's overrides apply globally.
 - The workspace file's overrides apply only to that workspace.
-- When the **same key** (string-equal, byte-for-byte) appears in both files, the **workspace entry wins entirely** for that workspace's changelog: Release-kit doesn't merge the two entries field by field; the workspace entry replaces the root entry.
+- When the **same key** (string-equal, byte-for-byte) appears in both files, the **workspace entry wins entirely** for that workspace's changelog: release-kit doesn't merge the two entries field by field; the workspace entry replaces the root entry.
 - Non-identical keys that match the same item, such as a root `abc1234` beside a workspace `abc1234:2`, or two prefixes of one commit, do **not** shadow. The run fails with the [overlapping-keys error](#conflicting-keys), which names both keys.
 - Other keys in the root file still apply for that workspace.
 

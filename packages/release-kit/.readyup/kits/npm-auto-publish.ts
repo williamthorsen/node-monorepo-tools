@@ -340,7 +340,8 @@ export type TrustCapability = { ok: true } | { ok: false; detail: string };
 /**
  * Reports whether the npm session can answer trust queries, from the session status and one probe query.
  *
- * The probe is undefined when the repo does not have any workspace to probe with; the session status alone then decides.
+ * The probe is undefined when the repo does not have any workspace to probe with; the session status alone then
+ * decides.
  *
  * @internal - Exported only to enable testing
  */

@@ -218,7 +218,10 @@ export interface ReleasedWorkspaceResult {
   changelogFiles: string[];
   /** Release-notes preview files; present only under `--with-release-notes`. */
   previewFiles?: string[];
-  /** Per `CHANGELOG.md`, the existing sections that were kept or dropped; omitted when `prepare` did not keep or drop any. */
+  /**
+   * Per `CHANGELOG.md`, the existing sections that were kept or dropped; omitted when `prepare` did not keep or drop
+   * any.
+   */
   changelogPreservation?: ChangelogPreservation[];
   /** Raw commits of the workspace's unreleased window. */
   commits?: Commit[];
@@ -303,7 +306,10 @@ export interface ReleasedProjectResult {
   changelogFiles: string[];
   /** Release-notes preview files; present only under `--with-release-notes`. */
   previewFiles?: string[];
-  /** Per `CHANGELOG.md`, the existing sections that were kept or dropped; omitted when `prepare` did not keep or drop any. */
+  /**
+   * Per `CHANGELOG.md`, the existing sections that were kept or dropped; omitted when `prepare` did not keep or drop
+   * any.
+   */
   changelogPreservation?: ChangelogPreservation[];
   /** Raw commits in the project's contributing-paths window since the last project tag. */
   commits: Commit[];

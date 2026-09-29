@@ -56,9 +56,9 @@ export interface EnumerateReleaseWindowsOptions {
  * HEAD cannot reach is dropped.
  *
  * A commit belongs to the oldest matching tag that contains it, and to the unreleased window
- * when it is not contained by any matching tag. Containment is read from the ancestry graph rather than from a
- * position in a linear walk, because a branch commit authored before a tag and merged after it
- * is not in that tag's release.
+ * when it is not contained by any matching tag. Containment is read from the ancestry graph
+ * rather than from a position in a linear walk, because a branch commit authored before a tag
+ * and merged after it is not in that tag's release.
  *
  * Three git invocations serve any number of tags: `git rev-list --topo-order --parents` for the
  * ancestry graph, `git for-each-ref` for the tag names with their creation dates and target

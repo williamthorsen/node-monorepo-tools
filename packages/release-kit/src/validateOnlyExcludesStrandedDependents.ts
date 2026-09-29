@@ -5,7 +5,9 @@ import type { WorkspaceConfig } from './types.ts';
 export interface CommitsProbeResult {
   /** Whether the workspace has any commits since its last tag (excluding `release:` commits). */
   has: boolean;
-  /** The baseline tag from which the commits were measured; `undefined` when the workspace does not have a prior tag. */
+  /**
+   * The baseline tag from which the commits were measured; `undefined` when the workspace does not have a prior tag.
+   */
   tag: string | undefined;
 }
 

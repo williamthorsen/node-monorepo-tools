@@ -818,9 +818,9 @@ function formatRootStaleWarning(filePath: string, key: string): string {
  * tier.
  *
  * A workspace key that matched nothing, whether or not the root map has the same key, is stale, and it is warned about
- * at once. It adds each root key that matched without being shadowed to `globalMatchedRootKeys`, from which the caller
- * warns, at the end of the run, about the root keys that matched nowhere. Throws if applying reports any error, such
- * as an ambiguous prefix.
+ * at once. The function adds each root key that matched without being shadowed to `globalMatchedRootKeys`, from which
+ * the caller warns, at the end of the run, about the root keys that matched nowhere. Throws if applying reports any
+ * error, such as an ambiguous prefix.
  */
 export function applyWorkspaceOverrides(
   newEntries: ChangelogEntry[],

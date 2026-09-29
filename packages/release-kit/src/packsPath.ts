@@ -46,7 +46,9 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }
 
-/** Lists `path` and every directory above it, so that an entry matching an ancestor also matches the file beneath it. */
+/**
+ * Lists `path` and every directory above it, so that an entry matching an ancestor also matches the file beneath it.
+ */
 function listAncestorPrefixes(path: string): string[] {
   const segments = path.split('/');
   return segments.map((_segment, index) => segments.slice(0, index + 1).join('/'));
