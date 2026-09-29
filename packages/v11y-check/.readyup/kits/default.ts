@@ -6,8 +6,8 @@
  * Run from a target repo's working directory:
  *   rdy run --from npm:v11y-check
  *
- * A check asserting the absence of something declares `quiet`: a conformant repo is already in the passing
- * state, so only a failure is worth a line.
+ * A check asserting the absence of something declares `quiet`: A conformant repo is already in the passing
+ * state, so only a failure is worth reporting.
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -80,7 +80,7 @@ export default defineRdyKit({
 /** Returns the minimum v11y-check version that the kit requires: this package's own version. */
 function getMinVersion(): string {
   // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
-  // Defer the call into a function so module load does not invoke the runtime stub (which throws):
+  // Defer the call into a function so that module load does not invoke the runtime stub (which throws):
   // This keeps the module importable in tests that bypass the compile step.
   const picked = pickJson('../../package.json', ['version']);
   if (typeof picked['version'] !== 'string') {
@@ -89,7 +89,7 @@ function getMinVersion(): string {
   return picked['version'];
 }
 
-/** Checks that no legacy `.audit-ci/` directory exists. */
+/** Checks that the working directory does not contain a legacy `.audit-ci/` directory. */
 export function noLegacyAuditCiDirectory(): boolean {
   return !existsSync(join(process.cwd(), '.audit-ci'));
 }

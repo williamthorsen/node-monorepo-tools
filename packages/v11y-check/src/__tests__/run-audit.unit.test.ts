@@ -80,7 +80,7 @@ describe(parseAuditCiOutput, () => {
     });
   });
 
-  it('returns empty results and no warnings for invalid JSON when input is empty', () => {
+  it('returns empty results without warnings for invalid JSON when input is empty', () => {
     const { results, warnings } = parseAuditCiOutput('');
     expect(results).toStrictEqual([]);
     expect(warnings).toStrictEqual([]);
@@ -93,7 +93,7 @@ describe(parseAuditCiOutput, () => {
     expect(warnings[0]).toMatch(/Failed to parse/);
   });
 
-  it('returns empty results for JSON with no advisories', () => {
+  it('returns empty results for JSON without advisories', () => {
     const { results } = parseAuditCiOutput(JSON.stringify({}));
     expect(results).toStrictEqual([]);
   });
@@ -206,7 +206,7 @@ describe(parseAuditCiOutput, () => {
     expect(results[0]?.path).toBe('a>b>lodash');
   });
 
-  it('surfaces title, overview as description, and cvss when present in advisory', () => {
+  it('returns title, overview as description, and cvss when present in advisory', () => {
     const json = JSON.stringify({
       advisories: {
         '1234': {
@@ -259,11 +259,11 @@ describe(extractStaleEntries, () => {
     expect(extractStaleEntries(json).entries).toStrictEqual(['GHSA-old1', 'GHSA-old2']);
   });
 
-  it('returns empty entries when no stale entries exist', () => {
+  it('returns empty entries when the output does not contain any stale entries', () => {
     expect(extractStaleEntries(JSON.stringify({})).entries).toStrictEqual([]);
   });
 
-  it('returns empty entries and no warnings for empty input', () => {
+  it('returns empty entries without warnings for empty input', () => {
     const { entries, warnings } = extractStaleEntries('');
     expect(entries).toStrictEqual([]);
     expect(warnings).toStrictEqual([]);

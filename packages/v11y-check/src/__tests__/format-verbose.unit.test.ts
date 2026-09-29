@@ -166,7 +166,7 @@ describe(formatCheckVerboseText, () => {
 
     const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('     Merging');
-    // No single line should contain the whole description.
+    // Check that the output does not put the whole description on a single line.
     const lines = output.split('\n');
     const veryLongLine = lines.find((line) => line.length > 90);
     expect(veryLongLine).toBeUndefined();
@@ -518,7 +518,7 @@ describe(formatCheckVerboseText, () => {
 // -- formatCheckVerboseText: plain style --
 
 describe(`${formatCheckVerboseText.name} in plain style`, () => {
-  it('prints no pictographic character', () => {
+  it('does not print any pictographic character', () => {
     const output = formatCheckVerboseText(buildPopulatedCheckResult(), ['prod', 'dev'], 'plain', FIXED_NOW, {
       dev: 'high',
       prod: 'moderate',

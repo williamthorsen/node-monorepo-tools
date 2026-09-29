@@ -163,7 +163,7 @@ describe(serializeConfig, () => {
     expect(keyOrder).toStrictEqual(['addedAt', 'id', 'path', 'reason', 'url']);
   });
 
-  it('omits addedAt when entry has no addedAt', () => {
+  it('omits addedAt when entry does not have addedAt', () => {
     const config: V11yCheckConfig = {
       dev: {
         allowlist: [{ id: '1001', path: 'lodash', reason: 'test', url: 'https://example.com' }],
@@ -178,7 +178,7 @@ describe(serializeConfig, () => {
     expect(json).not.toContain('"addedAt"');
   });
 
-  it('omits reason key when entry has no reason', () => {
+  it('omits reason key when entry does not have a reason', () => {
     const config: V11yCheckConfig = {
       dev: {
         allowlist: [{ id: '1001', path: 'lodash', url: 'https://example.com' }],

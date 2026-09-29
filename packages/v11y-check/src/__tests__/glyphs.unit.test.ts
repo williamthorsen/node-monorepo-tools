@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { formatMarkedLine, measureRowMarkerColumn, V11Y_GLYPHS } from '../glyphs.ts';
 
 describe('V11Y_GLYPHS', () => {
-  it('has no pictographic character in any plain variant', () => {
+  it('does not include a pictographic character in any plain variant', () => {
     const plainText = Object.values(V11Y_GLYPHS.plain)
       .map((glyph) => glyph.text)
       .join('');

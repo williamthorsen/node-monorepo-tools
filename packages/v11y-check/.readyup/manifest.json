@@ -8,7 +8,7 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "fe1ae3a0",
+          "hash": "46a961ea",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -25,7 +25,7 @@
       "path": "kits/default.js",
       "readyupVersion": "0.38.0",
       "source": "kits/default.ts",
-      "sourceHash": "fe1ae3a0",
+      "sourceHash": "46a961ea",
       "targetHash": "6d02b986"
     }
   ]

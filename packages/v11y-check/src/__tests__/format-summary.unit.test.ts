@@ -38,7 +38,7 @@ describe(deriveSummary, () => {
     expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'vulnerabilities-found', count: 3 });
   });
 
-  it('returns "suppressed-vulnerabilities" with the total allowed count when no unallowed exist', () => {
+  it('returns "suppressed-vulnerabilities" with the total allowed count when the result does not contain any unallowed advisories', () => {
     const result = makeCheckResult({
       prod: {
         ...emptyScopeResult(),
@@ -51,7 +51,7 @@ describe(deriveSummary, () => {
     expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'suppressed-vulnerabilities', count: 2 });
   });
 
-  it('returns "stale-overrides" with the total stale count when no vulnerabilities exist', () => {
+  it('returns "stale-overrides" with the total stale count when the result does not contain any vulnerabilities', () => {
     const result = makeCheckResult({
       prod: { ...emptyScopeResult(), stale: [{ id: 'GHSA-old' }] },
     });
@@ -70,7 +70,7 @@ describe(deriveSummary, () => {
     expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'vulnerabilities-found', count: 1 });
   });
 
-  it('prioritizes allowed over stale when no unallowed exist, and reports only the allowed count', () => {
+  it('prioritizes allowed over stale when the result does not contain any unallowed advisories, and reports only the allowed count', () => {
     const result = makeCheckResult({
       prod: {
         allowed: [{ id: 'GHSA-allowed', path: 'pkg', paths: ['pkg'], url: 'https://example.com/allowed' }],
