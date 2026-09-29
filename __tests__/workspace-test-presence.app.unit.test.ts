@@ -6,11 +6,11 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
-/** Directories that never hold a package's own tests, pruned so the walk stays cheap in a pnpm workspace. */
+/** Directories that never contain a package's own tests, pruned so that the walk stays cheap in a pnpm workspace. */
 const PRUNED = new Set(['node_modules', 'dist', 'coverage']);
 
-/** The directory the shared Vitest config's collection globs are all scoped to. Widening this past what Vitest
- * collects is what would let an uncollected file satisfy the guard. */
+/** The directory to which the shared Vitest config's collection globs are all scoped. Widening this past what
+ * Vitest collects would let an uncollected file satisfy the guard. */
 const TEST_DIR = '__tests__';
 
 const TEST_FILE_PATTERN = /\.test\.tsx?$/;
@@ -27,9 +27,9 @@ const it = baseIt.extend(
  * Guards against a package's whole test suite silently disappearing. `passWithNoTests` means a run collecting
  * nothing exits 0, so a package whose `__tests__` directory was moved or renamed would otherwise report green.
  *
- * A package that genuinely holds no tests fails this guard, which forces an explicit decision about it.
+ * A package that genuinely does not contain any tests fails this guard, which forces an explicit decision about it.
  */
-describe('every workspace package holds at least one collectable test file', () => {
+describe('every workspace package contains at least one collectable test file', () => {
   const packageDirs = getWorkspacePackageDirs(monorepoRoot);
 
   it('finds workspace packages to check', () => {
@@ -48,7 +48,7 @@ describe(hasTestFile, () => {
     expect(hasTestFile(tree.dir)).toBe(true);
   });
 
-  // Vitest collects only from `__tests__`, so a file outside one is not a suite the guard can vouch for.
+  // Vitest collects only from `__tests__`, so a file outside one is not a suite for which the guard can vouch.
   it('ignores a test file outside a __tests__ directory', ({ tree }) => {
     tree.write('src/thing.test.ts', '');
 

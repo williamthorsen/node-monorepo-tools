@@ -7,7 +7,7 @@ const workflowsDir = join(import.meta.dirname, '..', '.github', 'workflows');
 
 const PNPM_WORKFLOWS = ['audit', 'create-github-release', 'publish', 'release'];
 
-/** Workflows whose Node.js runtime comes from `pnpm/setup`, which installs no `npm`, `npx`, or `corepack`. */
+/** Workflows whose Node.js runtime comes from `pnpm/setup`, which does not install `npm`, `npx`, or `corepack`. */
 const PNPM_RUNTIME_WORKFLOWS = ['audit', 'create-github-release', 'publish'];
 
 /** Matches a `corepack` invocation at the start of a command or after a shell separator. */
@@ -30,10 +30,10 @@ describe('every reusable workflow that installs pnpm uses pnpm/setup', () => {
 /**
  * Guards the workflows that take their runtime from `pnpm/setup` against an `npm` or `npx` invocation.
  *
- * `pnpm/setup` omits `npm`, `npx`, and `corepack` from the Node.js archive it installs, so either name
- * falls through to the runner image's copy, at a version no workflow here controls. Only
- * `audit.reusable.yaml` is exercised by a pull request; an invocation in the other two would otherwise
- * first surface at release time.
+ * `pnpm/setup` omits `npm`, `npx`, and `corepack` from the Node.js archive that it installs, so either
+ * name falls through to the runner image's copy, at a version that the workflows here do not control.
+ * Only `audit.reusable.yaml` is exercised by a pull request; an invocation in the other two would
+ * otherwise go undetected until release time.
  */
 describe('workflows whose runtime comes from pnpm/setup invoke neither npm nor npx', () => {
   it.each(PNPM_RUNTIME_WORKFLOWS)('%s.reusable.yaml', (name) => {
@@ -44,7 +44,7 @@ describe('workflows whose runtime comes from pnpm/setup invoke neither npm nor n
     );
     expect(
       collectRunCommands(content),
-      '`pnpm/setup` installs no `npm` or `npx`, so either falls through to the runner image at an uncontrolled version; reach a package binary with `pnpm exec` and an uninstalled one with `pnpm dlx`',
+      '`pnpm/setup` does not install `npm` or `npx`, so either falls through to the runner image at an uncontrolled version; reach a package binary with `pnpm exec` and an uninstalled one with `pnpm dlx`',
     ).not.toMatch(NPM_INVOCATION_PATTERN);
   });
 });
@@ -52,15 +52,15 @@ describe('workflows whose runtime comes from pnpm/setup invoke neither npm nor n
 /**
  * Guards every reusable workflow against a `corepack` invocation.
  *
- * Node 25 removed Corepack from the distribution, so a call to it fails outright on a runner Node
- * that bundles none. `COREPACK_ENABLE_STRICT` in `env:` is unaffected, because an environment
- * variable needs no Corepack to exist.
+ * A call to Corepack fails outright on a runner Node that does not bundle it, because Node 25
+ * removed Corepack from the distribution. `COREPACK_ENABLE_STRICT` in `env:` is unaffected, because
+ * an environment variable does not need Corepack to exist.
  */
-describe('no reusable workflow invokes corepack', () => {
+describe('reusable workflows do not invoke corepack', () => {
   it.each(listReusableWorkflows())('%s.reusable.yaml', (name) => {
     expect(
       collectRunCommands(readWorkflow(name)),
-      'Node 25 and later bundle no `corepack`; neutralize Corepack with the `COREPACK_ENABLE_STRICT` environment variable instead',
+      'Node 25 and later do not bundle `corepack`; neutralize Corepack with the `COREPACK_ENABLE_STRICT` environment variable instead',
     ).not.toMatch(COREPACK_INVOCATION_PATTERN);
   });
 });

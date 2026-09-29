@@ -15,12 +15,12 @@ const ENGINE_NOTE_PATTERN = /Engine verified for (v\d+\.\d+\.\d+): vendors (gith
  * Guards the commit-SHA pin on `EndBug/label-sync` and the provenance recorded against it.
  *
  * The action's floating `v2` tag can move to a bundle with different delete and rename
- * semantics — its unreleased `main` already swaps the vendored engine for
- * `@endbug/github-label-sync@3` — and this workflow deletes every label the config file
- * does not declare.
+ * semantics (its unreleased `main` already swaps the vendored engine for
+ * `@endbug/github-label-sync@3`), and this workflow deletes every label not declared by the
+ * config file.
  *
  * Dependabot rewrites the trailing version comment in step with the SHA, but only while
- * that comment holds the version alone, and it never touches the engine note. Asserting
+ * that comment contains the version alone, and it never touches the engine note. Asserting
  * that the two name the same release turns a rotation into a failing check on the bump
  * itself, rather than a provenance claim that quietly stops being true.
  */
@@ -42,11 +42,11 @@ describe('sync-labels.reusable.yaml pins the label-sync action', () => {
   it('names the release in a trailing comment holding nothing else', () => {
     expect(
       usesMatch?.[2],
-      'keep the trailing comment to `# vX.Y.Z`; dependabot skips comments carrying any other text, stranding the version on the old release',
+      'keep the trailing comment to `# vX.Y.Z`; dependabot skips comments containing any other text, leaving the version on the old release',
     ).toMatch(/^v\d+\.\d+\.\d+$/);
   });
 
-  it('records the vendored engine against the release the pin names', () => {
+  it('records the vendored engine against the release that the pin names', () => {
     expect(engineMatch, 'no `Engine verified for vX.Y.Z: vendors github-label-sync@X.Y.Z` note found').not.toBeNull();
     expect(
       engineMatch?.[1],

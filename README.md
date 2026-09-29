@@ -16,8 +16,8 @@
 
 ### Prerequisites
 
-- **Node** -- the version is pinned in `.tool-versions`, which [asdf](https://asdf-vm.com/) and [mise](https://mise.jdx.dev/) both read.
-- **pnpm** -- the version is pinned by the `packageManager` field in the root `package.json`. pnpm's [installation page](https://pnpm.io/installation) covers the standalone script and the other installation methods.
+- **Node:** The version is pinned in `.tool-versions`, which [asdf](https://asdf-vm.com/) and [mise](https://mise.jdx.dev/) both read.
+- **pnpm:** The version is pinned by the `packageManager` field in the root `package.json`. pnpm's [installation page](https://pnpm.io/installation) covers the standalone script and the other installation methods.
 
 ### Set up a checkout
 
@@ -25,21 +25,21 @@
 pnpm install
 ```
 
-Each package compiles during install, so no separate build step is needed.
+Each package compiles during install, so a checkout does not need a separate build step.
 
-If `nmr` stops running -- `nmr clean` removes the build output it needs, and Vitest and Prettier read it too -- run `pnpm run bootstrap` and then `nmr build`, both from the repo root.
+If `nmr` stops running -- `nmr clean` removes the build output that it needs, and Vitest and Prettier read it too -- run `pnpm run bootstrap` and then `nmr build`, both from the repo root.
 
 ## Recommended setup
 
-Install [direnv](https://direnv.net/) and run `direnv allow` from the repo root. The repo's `.envrc` adds `node_modules/.bin` to your `PATH`, so workspace bins like `nmr`, `release-kit`, and `v11y` resolve directly from any subdirectory.
+Install [direnv](https://direnv.net/) and run `direnv allow` from the repo root. The repo's `.envrc` adds `node_modules/.bin` to the shell's `PATH`, so workspace bins like `nmr`, `release-kit`, and `v11y` resolve directly from any subdirectory.
 
 Without direnv, prefix workspace bins with `pnpm exec` (e.g., `pnpm exec nmr <command>`).
 
 ## Scripts
 
-`nmr` runs this repo's scripts. Scope follows the working directory: from the root a command covers root files and every package; from inside a package, that package alone. `nmr -F <package> <command>` targets one package from anywhere, and `nmr root:<command>` targets root files alone.
+`nmr` runs this repo's scripts. Scope follows the working directory: From the root, a command covers root files and every package; from inside a package, that package alone. `nmr -F <package> <command>` targets one package from anywhere, and `nmr root:<command>` targets root files alone.
 
-Run bare `nmr` to list every command with the shell command it resolves to.
+Run bare `nmr` to list every command with the shell command to which it resolves.
 
 Everyday commands:
 
@@ -52,7 +52,7 @@ nmr test:coverage    # the same tiers, with coverage
 nmr test:watch       # the same tiers, in watch mode
 ```
 
-Tests are grouped into isolation tiers, each named for the furthest thing a test reaches. `nmr test:unit` and `nmr test:tool` narrow to one tier; `nmr test:all` adds the `localhost` and `remote` tiers.
+Tests are grouped into isolation tiers, each named for the furthest thing that a test reaches. `nmr test:unit` and `nmr test:tool` narrow to one tier; `nmr test:all` adds the `localhost` and `remote` tiers.
 
 Before pushing:
 
@@ -74,7 +74,7 @@ nmr root:upgrade
 nmr -F @williamthorsen/nmr upgrade
 ```
 
-These honor the version ceilings declared in `taze.config.ts`, which holds `@types/node` to the Node major the `engines` floor requires and `typescript` below 7. Add `major` to propose major upgrades for the dependencies carrying no such ceiling, and `--write` to apply the proposals:
+These honor the version ceilings declared in `taze.config.ts`, which limits `@types/node` to the Node major that the `engines` floor requires and `typescript` to versions below 7. Add `major` to propose major upgrades for the dependencies that do not have such a ceiling, and `--write` to apply the proposals:
 
 ```shell
 nmr upgrade major

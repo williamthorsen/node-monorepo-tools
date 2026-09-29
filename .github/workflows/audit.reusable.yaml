@@ -11,13 +11,13 @@ name: 'Reusable: Dependency audit'
 #     (prod + dev) with grouped output, maintained on a single standing issue
 #     identified by its bot author and title.
 #
-# The v11y-check CLI is fetched via `pnpm dlx v11y-check@latest`, so no local
-# install step is needed; `@latest` picks up improvements in vulnerability
-# detection.
+# The v11y-check CLI is fetched via `pnpm dlx v11y-check@latest`, so the
+# workflow does not need a local install step; `@latest` picks up improvements
+# in vulnerability detection.
 #
 # Consumer prerequisites: `.config/v11y-check.config.json` (allowlist and scope
 # configuration), and a `devEngines.packageManager` or `packageManager` field
-# pinning pnpm 11 or newer, which is the range `pnpm/setup` installs. The
+# pinning pnpm 11 or newer, which is the range that `pnpm/setup` installs. The
 # audit-ci configs are generated transiently at runtime and need not exist as
 # permanent files.
 #
@@ -181,11 +181,11 @@ jobs:
       # `createdBy` requires the literal `github-actions[bot]`; the API renders the same account's
       # login as `github-actions`, which the filter does not match.
       #
-      # Ordering by `UPDATED_AT` is what bounds `first`: the final step rewrites the standing issue
-      # on every run, so it sorts first however many issues a repo's other workflows have opened.
+      # Ordering by `UPDATED_AT` bounds `first`: The final step rewrites the standing issue on every
+      # run, so it sorts first however many issues a repo's other workflows have opened.
       #
-      # The standing issue carries no label: `gh issue create --label` fails when the label does
-      # not exist, which would make any label a prerequisite for every consumer repo.
+      # The workflow does not label the standing issue: `gh issue create --label` fails when the
+      # label does not exist, which would make any label a prerequisite for every consumer repo.
       - name: Find or create standing issue
         id: find-issue
         run: |

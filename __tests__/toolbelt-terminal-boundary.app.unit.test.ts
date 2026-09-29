@@ -14,7 +14,7 @@ const TERMINAL_DECLARER = 'packages/nmr-core/package.json';
 
 const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'];
 
-/** A quoted specifier of the dependency or one of its subpaths, where an import, a `require`, or a mock names it. */
+/** A quoted specifier of the dependency or one of its subpaths, as named by an import, a `require`, or a mock. */
 const SPECIFIER_PATTERN =
   /(?:from|import|mock|require)\s*\(?\s*["'`]@williamthorsen\/toolbelt\.terminal(?:\/[^"'`]*)?["'`]/;
 
