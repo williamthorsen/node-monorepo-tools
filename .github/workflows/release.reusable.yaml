@@ -8,7 +8,7 @@ name: 'Reusable: Release'
 # This workflow reads that file, so `tagPrefix` in the release config is the single source of truth for tag names.
 #
 # On the consumer path, project dependencies are not installed: release-kit runs git-cliff and prettier via `npx`,
-# so no local node_modules are needed. The source-build path installs them.
+# so the job does not need a local node_modules. The source-build path installs them.
 #
 # When running in the `williamthorsen/node-monorepo-tools` repo, the workflow builds release-kit from source.
 #
@@ -34,8 +34,8 @@ on:
         type: string
         default: ''
       force:
-        description: 'Force a release even when no commits or no bump-worthy commits
-          exist (defaults to patch; combine with --bump for a different level)'
+        description: 'Force a release even when there are not any commits, or any
+          bump-worthy commits, since the last release (defaults to patch; combine with --bump for a different level)'
         type: boolean
         default: false
 
@@ -52,8 +52,8 @@ jobs:
     env:
       BUILD_LOCAL: ${{ github.repository == 'williamthorsen/node-monorepo-tools' }}
       GITHUB_TOKEN: ${{ github.token }}
-      # Keeps Corepack shims from refusing `npm` and `npx` on the source-build path, where the pnpm `packageManager`
-      # pin survives.
+      # Keeps Corepack shims from refusing `npm` and `npx` on the source-build path, which leaves the pnpm
+      # `packageManager` pin in place.
       COREPACK_ENABLE_STRICT: '0'
 
     steps:
@@ -72,7 +72,8 @@ jobs:
           p.packageManager;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
 
       # `runtime` is omitted, so this step installs pnpm alone and the Node.js step below owns the runtime.
-      # Its position ahead of that step is what keeps that true should this repo ever declare `devEngines.runtime`.
+      # Because this step runs ahead of that one, the Node.js step still owns the runtime if this repo ever declares
+      # `devEngines.runtime`.
       - name: Set up pnpm
         if: ${{ env.BUILD_LOCAL == 'true' }}
         uses: pnpm/setup@v3
@@ -88,13 +89,13 @@ jobs:
         with:
           node-version: '24'
 
-      # npm 11 resolves the binaries of scoped packages unreliably through `npm exec` and `npx`, so install globally to
-      # put the binary on PATH.
+      # npm 11 resolves the binaries of scoped packages unreliably through `npm exec` and `npx`. Install globally to put
+      # the binary on PATH.
       - name: Install release-kit from npm
         if: ${{ env.BUILD_LOCAL != 'true' }}
         run: npm install --global @williamthorsen/release-kit
 
-      # Run the release-kit being released, whose CLI flags the published version may lack.
+      # Run the release-kit being released, because its CLI may have flags that the published version lacks.
       - name: Install dependencies
         if: ${{ env.BUILD_LOCAL == 'true' }}
         run: pnpm install --frozen-lockfile
