@@ -135,6 +135,17 @@ describe(releaseWorkflow, () => {
     expect(workflow).not.toContain('inputs.only');
   });
 
+  it.each(['monorepo', 'single-package'] as const)(
+    'offers auto as the default bump and passes it on as an empty bump (%s)',
+    (repoType) => {
+      const workflow = releaseWorkflow(repoType);
+
+      expect(workflow).toContain('default: auto\n        options:\n          - auto\n          - patch');
+      expect(workflow).not.toContain("- ''");
+      expect(workflow).toContain("bump: ${{ inputs.bump != 'auto' && inputs.bump || '' }}");
+    },
+  );
+
   it('does not include version inputs', () => {
     const mono = releaseWorkflow('monorepo');
     const single = releaseWorkflow('single-package');

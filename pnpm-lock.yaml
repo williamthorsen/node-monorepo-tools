@@ -388,6 +388,9 @@ importers:
       '@williamthorsen/toolbelt.vitest':
         specifier: 'catalog:'
         version: 0.10.1(vitest@4.1.11)
+      actionlint:
+        specifier: 2.0.6
+        version: 2.0.6
       readyup:
         specifier: 'catalog:'
         version: 0.38.0(esbuild@0.28.2)
@@ -1385,6 +1388,9 @@ packages:
     resolution: {integrity: sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ==}
     engines: {node: '>=0.4.0'}
     hasBin: true
+
+  actionlint@2.0.6:
+    resolution: {integrity: sha512-tNx8f48yJNSLXTIygGntu5dSZlIZblDt8sR7pIs7EEmmb2PkEF87d+3UKZV2GUgCuN9Awj7k4ZPrwdAxFWEqgw==}
 
   ajv@6.15.0:
     resolution: {integrity: sha512-fgFx7Hfoq60ytK2c7DhnF8jIvzYgOMxfugjLOSMHjLIPgenqa7S7oaagATUq99mV6IYvN2tRmC0wnTYX6iPbMw==}
@@ -3950,6 +3956,8 @@ snapshots:
       acorn: 8.18.0
 
   acorn@8.18.0: {}
+
+  actionlint@2.0.6: {}
 
   ajv@6.15.0:
     dependencies:
