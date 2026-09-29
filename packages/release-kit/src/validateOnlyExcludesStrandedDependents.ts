@@ -5,7 +5,7 @@ import type { WorkspaceConfig } from './types.ts';
 export interface CommitsProbeResult {
   /** Whether the workspace has any commits since its last tag (excluding `release:` commits). */
   has: boolean;
-  /** The baseline tag the commits were measured from; `undefined` when no prior tag exists. */
+  /** The baseline tag from which the commits were measured; `undefined` when the workspace does not have a prior tag. */
   tag: string | undefined;
 }
 
@@ -15,7 +15,10 @@ export interface StrandedDependentViolation {
   dir: string;
   /** The `dir` of the released (or anticipated-release) dependency whose release republishes this workspace. */
   downstreamOf: string;
-  /** The baseline tag from which this workspace's commits were counted; `undefined` if no prior tag exists. */
+  /**
+   * The baseline tag from which this workspace's commits were counted; `undefined` if the workspace does not have a
+   * prior tag.
+   */
   tag: string | undefined;
 }
 
@@ -30,7 +33,7 @@ type CommitsProbe = (workspace: WorkspaceConfig) => CommitsProbeResult;
  * violation, as though the user had added it to `--only`, which reports deeper violations in the same pass. It stops
  * at an excluded workspace without commits, which does not republish, so its dependents are unaffected by R.
  *
- * Returns `undefined` when there is no violation, or the violations sorted by `dir`.
+ * Returns `undefined` when the walk does not find any violation, or the violations sorted by `dir`.
  */
 export function validateOnlyExcludesStrandedDependents(
   workspaces: readonly WorkspaceConfig[],
@@ -51,7 +54,7 @@ export function validateOnlyExcludesStrandedDependents(
 
 // region | Helpers
 
-/** Wraps a commits probe with a per-workspace cache so each workspace is queried at most once. */
+/** Wraps a commits probe with a per-workspace cache so that each workspace is queried at most once. */
 function memoizeCommitsProbe(probe: CommitsProbe): CommitsProbe {
   const cache = new Map<string, CommitsProbeResult>();
   return (workspace) => {
@@ -177,8 +180,8 @@ interface VisitDependentContext {
 /** Classifies a single dependent: skip, walk-through, or record as a violation (and walk through). */
 function visitDependent(dependent: WorkspaceConfig, attributionRoot: string, ctx: VisitDependentContext): void {
   if (ctx.onlySet.has(dependent.dir)) {
-    // Walk through an `--only` dependent only when it is in R; one outside R has no commits and no propagation
-    // source, so it does not release.
+    // Walk through an `--only` dependent only when it is in R; one outside R does not have any commits or any
+    // propagation source, so it does not release.
     if (ctx.released.has(dependent.dir)) {
       enqueueDependent(dependent, ctx);
     }
