@@ -8,6 +8,7 @@ rules:
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
+      - packages/v11y-check
   doc-descriptions:
     version: '1'
     swept-at: 2026-09-29
@@ -17,6 +18,7 @@ rules:
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
+      - packages/v11y-check
   em-dash:
     version: '1'
     swept-at: 2026-09-29
@@ -26,6 +28,7 @@ rules:
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
+      - packages/v11y-check
   inline-comments:
     version: '1'
     swept-at: 2026-09-29
@@ -35,6 +38,7 @@ rules:
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
+      - packages/v11y-check
   line-wrapping:
     version: '1'
     swept-at: 2026-09-29
@@ -44,6 +48,7 @@ rules:
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
+      - packages/v11y-check
   negative-quantifier:
     version: '2'
     swept-at: 2026-09-29
@@ -53,6 +58,7 @@ rules:
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
+      - packages/v11y-check
   plain-speech:
     version: '9'
     swept-at: 2026-09-29
@@ -62,6 +68,7 @@ rules:
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
+      - packages/v11y-check
   reduced-object-relative:
     version: '1'
     swept-at: 2026-09-29
@@ -71,6 +78,7 @@ rules:
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
+      - packages/v11y-check
   second-person:
     version: '1'
     swept-at: 2026-09-29
@@ -80,6 +88,7 @@ rules:
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
+      - packages/v11y-check
   sentence-case:
     version: '1'
     swept-at: 2026-09-29
@@ -89,6 +98,7 @@ rules:
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
+      - packages/v11y-check
   so:
     version: '1'
     swept-at: 2026-09-29
@@ -98,6 +108,7 @@ rules:
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
+      - packages/v11y-check
   where:
     version: '1'
     swept-at: 2026-09-29
@@ -107,6 +118,7 @@ rules:
       - packages/nmr
       - packages/nmr-core
       - packages/release-kit
+      - packages/v11y-check
 rejections:
   - rule: capitalization-after-colon
     rule-version: '1'
@@ -1208,6 +1220,61 @@ rejections:
     file: packages/release-kit/src/validateOverridesCommand.ts
     phrase: No workspace package to validate.
     ground: 'verbless label: a message fragment without a finite verb'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/v11y-check/README.md
+    phrase: No advisories; at least one stale allowlist entry
+    ground: verbless table cell
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/v11y-check/README.md
+    phrase: No findings
+    ground: verbless table cell
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/v11y-check/README.md
+    phrase: No unallowed; at least one allowlisted advisory
+    ground: verbless table cell
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/v11y-check/src/__tests__/cli.unit.test.ts
+    phrase: No known vulnerabilities found.
+    ground: assertion literal quoting the program's printed string at format-check.ts; change it only together with that site
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/v11y-check/src/__tests__/format-check.unit.test.ts
+    phrase: No known vulnerabilities found.
+    ground: a quotation or assertion of the program's printed string at format-check.ts; change it only together with that site
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/v11y-check/src/__tests__/format-verbose.unit.test.ts
+    phrase: 'Accepted risk: no user input reaches this path'
+    ground: 'not prose: fixture data literal and its assertion'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/v11y-check/src/__tests__/format-verbose.unit.test.ts
+    phrase: 'reason: No fix is published.'
+    ground: 'not prose: assertion on fixture data from buildPopulatedCheckResult'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/v11y-check/src/bin/route.ts
+    phrase: 'Default (no args or flag-only args): grouped check command.'
+    ground: a verbless label comment, which does not contain a verb to negate
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/v11y-check/src/format-check.ts
+    phrase: No known vulnerabilities found.
+    ground: a verbless status line printed by the program, which the label exemption covers; the author rejected the same shape in nmr's 'No publishable packages found.', and a repair would change CLI output that the tests assert on
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/v11y-check/src/init/__tests__/scaffold.unit.test.ts
+    phrase: 'ENOENT: no such file or directory'
+    ground: 'not prose: a fixture that reproduces the system error message'
+  - rule: negative-quantifier
+    rule-version: '2'
+    file: packages/v11y-check/src/test-utils/buildPopulatedCheckResult.ts
+    phrase: No fix is published.
+    ground: "not prose: a fixture's `reason` data value"
   - rule: plain-speech
     rule-version: '9'
     file: packages/release-kit/src/__tests__/buildChangelogEntries.tool.test.ts
@@ -2678,6 +2745,56 @@ rejections:
     file: packages/release-kit/src/validateOverridesCommand.ts
     phrase: plus any legacy-identity prefixes
     ground: 'not the construction: a coordinated noun phrase without a relative clause'
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/v11y-check/README.md
+    phrase: at least one allowlisted advisory
+    ground: "not the construction: 'allowlisted' is an adjective"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/v11y-check/README.md
+    phrase: At least one unallowed advisory
+    ground: "not the construction: 'at least one' is a quantifier and 'unallowed' an adjective"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/v11y-check/README.md
+    phrase: whatever a repository ref happens to point at
+    ground: fused head ('whatever'), outside the rule's scope
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/v11y-check/README.md
+    phrase: whatever value they had
+    ground: fused head ('whatever'), outside the rule's scope
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/v11y-check/src/__tests__/cli.unit.test.ts
+    phrase: known vulnerabilities found
+    ground: "not the construction: 'found' is a participle, not a relative clause with an object gap"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/v11y-check/src/__tests__/format-check.unit.test.ts
+    phrase: known vulnerabilities found
+    ground: "not the construction: 'found' is a participle, not a relative clause with an object gap"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/v11y-check/src/__tests__/format-check.unit.test.ts
+    phrase: least one has findings
+    ground: "not the construction: 'at least one' is the subject of the main verb 'has'"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/v11y-check/src/__tests__/format-verbose.unit.test.ts
+    phrase: fill 71 of the 72 columns
+    ground: "not the construction: 'fill' is the sentence's own verb"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/v11y-check/src/__tests__/kit-hashes.unit.test.ts
+    phrase: rdy kit hashes match their source artifacts
+    ground: "not the construction: 'match' is the sentence's own verb"
+  - rule: reduced-object-relative
+    rule-version: '1'
+    file: packages/v11y-check/src/format-check.ts
+    phrase: known vulnerabilities found
+    ground: "not the construction: 'found' is a participle in a verbless status line"
   - rule: second-person
     rule-version: '1'
     file: packages/nmr/agents/guidance/rulebooks/nmr.md
@@ -2743,6 +2860,21 @@ rejections:
     file: packages/release-kit/src/__tests__/kit-npm-auto-publish-checks.unit.test.ts
     phrase: You must be logged in to publish packages.
     ground: 'not prose: verbatim npm payload fixture'
+  - rule: second-person
+    rule-version: '1'
+    file: packages/v11y-check/src/bin/route.ts
+    phrase: Did you mean 'v11y ${typoMatch}'?
+    ground: interface text addressed to the CLI user, not documentation; the author rejected the same idiom in nmr
+  - rule: second-person
+    rule-version: '1'
+    file: packages/v11y-check/src/init/initCommand.ts
+    phrase: Commit the scaffolded .github/workflows/audit.yaml alongside your config.
+    ground: interface text (printed next steps) addressed to the CLI user, not documentation; consistent with the author's rejection of CLI-user address in nmr
+  - rule: second-person
+    rule-version: '1'
+    file: packages/v11y-check/src/init/initCommand.ts
+    phrase: Customize .config/v11y-check.config.json with your severity thresholds.
+    ground: interface text (printed next steps) addressed to the CLI user, not documentation; consistent with the author's rejection of CLI-user address in nmr
   - rule: so
     rule-version: '1'
     file: packages/change-grammar/src/__tests__/compile-template.unit.test.ts
@@ -2983,6 +3115,11 @@ rejections:
     file: packages/release-kit/src/sync-labels/templates.ts
     phrase: so that the gate lives on the job
     ground: the repo's own .github workflow must match this template byte for byte, as __tests__/dogfooded-workflows.app.unit.test.ts asserts, and that workflow is outside the sweep
+  - rule: so
+    rule-version: '1'
+    file: packages/v11y-check/README.md
+    phrase: so it checks against the installed version
+    ground: a lone so that states a direct result
   - rule: where
     rule-version: '1'
     file: packages/change-grammar/src/__tests__/verify.unit.test.ts
