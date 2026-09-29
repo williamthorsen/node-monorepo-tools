@@ -26,7 +26,10 @@ export function hasPackageJson(): CheckResult {
   if (existsSync('package.json')) {
     return { ok: true };
   }
-  return { ok: false, message: 'No package.json found. Run `npm init` or `pnpm init` first.' };
+  return {
+    ok: false,
+    message: 'The current directory does not contain a package.json. Run `npm init` or `pnpm init` first.',
+  };
 }
 
 /** Verifies that the project uses pnpm, signaled by pnpm-lock.yaml or a pnpm `packageManager` field. */

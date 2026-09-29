@@ -9,7 +9,7 @@ export type { EmptyWorkspaceCause } from '@williamthorsen/nmr-core/workspace';
  * set of package directories, or it declares a workspace that resolves to none and the cause says which
  * condition emptied it.
  *
- * Held apart from nmr-core's `WorkspaceResolution`, whose `packageDirs` are absolute, because these are
+ * Kept separate from nmr-core's `WorkspaceResolution`, whose `packageDirs` are absolute, because these are
  * relative to the monorepo root. The two have incompatible path contracts, and a distinct `kind` for the
  * single-package case keeps either from standing in for the other.
  */
@@ -18,23 +18,23 @@ export type WorkspaceDiscovery =
   | { kind: 'packages'; packageDirs: string[]; patterns: string[] }
   | { kind: 'single-package' };
 
-/** A workspace that resolved to no package directory, which every release-kit command treats as a failure. */
+/** A workspace that did not resolve to any package directory, which every release-kit command treats as a failure. */
 export type EmptyWorkspace = Extract<WorkspaceDiscovery, { kind: 'empty' }>;
 
 /**
- * The empty-workspace causes that reach a command as a failure.
+ * The empty-workspace causes that every release-kit command treats as a failure.
  *
- * `no-packages-list` is absent because a manifest declaring nothing releases as a single package, so no
- * command ever composes a message for it.
+ * `no-packages-list` is absent because a manifest declaring nothing releases as a single package, so
+ * release-kit's commands never compose a message for it.
  */
 export type FailingWorkspaceCause = Exclude<EmptyWorkspaceCause, 'no-packages-list'>;
 
 /**
- * Returns the sentence naming which condition left a workspace holding no package directory, and the remedy for
+ * Returns the sentence naming which condition left a workspace without a package directory, and the remedy for
  * it. A message quotes the manifest's `packages` list whenever the manifest declares one that the resolver read.
  *
  * The `package.json` requirement is stated under `no-package` because it is a divergence from pnpm, which
- * recognizes two further manifests, and the reader of a workspace that pnpm resolves has no way to infer it.
+ * recognizes two further manifests, and the reader of a workspace that pnpm resolves cannot infer it.
  */
 export function describeEmptyWorkspace(workspace: EmptyWorkspace): string {
   const declaredClause = describeDeclaredPatterns(workspace.patterns);
@@ -47,15 +47,15 @@ export function describeEmptyWorkspace(workspace: EmptyWorkspace): string {
       );
     case 'no-package':
       return (
-        `pnpm-workspace.yaml ${declaredClause}, and the matcher found no directory holding a \`package.json\`. ` +
-        'Add one to the directory that should be a package, or declare a pattern reaching a directory that ' +
-        'holds one.'
+        `pnpm-workspace.yaml ${declaredClause}, and the matcher did not find any directory containing a ` +
+        '`package.json`. Add one to the directory that should be a package, or declare a pattern matching a ' +
+        'directory that contains one.'
       );
     case 'no-pattern':
       return (
-        `pnpm-workspace.yaml ${declaredClause}, so no pattern reaches the matcher. Declare a positive pattern ` +
-        'such as `packages/*`, and quote any `!` entry, which YAML reads as a tag rather than a string where ' +
-        'it stands bare.'
+        `pnpm-workspace.yaml ${declaredClause}, so the matcher does not receive any pattern. Declare a positive ` +
+        'pattern such as `packages/*`, and quote any `!` entry, which YAML reads as a tag rather than a string ' +
+        'when it is unquoted.'
       );
     case 'unreadable-manifest':
       return (
@@ -67,7 +67,7 @@ export function describeEmptyWorkspace(workspace: EmptyWorkspace): string {
       return (
         'pnpm-workspace.yaml declares a `packages` value that is not a list of strings, so nothing it ' +
         'declares reaches the matcher. Make it a list whose every entry is a quoted pattern; a bare value ' +
-        'and an entry YAML read as a number or a map are the usual ones.'
+        'and an entry that YAML read as a number or a map are the usual ones.'
       );
     default: {
       const unhandledCause: never = workspace.cause;
@@ -80,7 +80,7 @@ export function describeEmptyWorkspace(workspace: EmptyWorkspace): string {
  * Reads `pnpm-workspace.yaml` at `monorepoRoot` and resolves its `packages` patterns, applying pnpm's
  * semantics, `!`-prefixed exclusions included.
  *
- * A directory holding no manifest, and one whose manifest declares no `packages` list, both release as a
+ * A directory without a manifest, and one whose manifest does not declare a `packages` list, both release as a
  * single package: pnpm resolves each to the root package alone, and a workspace file kept for `catalog:`,
  * `overrides:`, or `onlyBuiltDependencies:` is the second of them. Every other empty resolution is a failure,
  * whether the manifest declares patterns that match nothing or a `packages` value that the resolver cannot read
@@ -114,12 +114,12 @@ export function discoverWorkspaces(monorepoRoot: string = process.cwd()): Worksp
 
 /**
  * Returns the clause naming what the manifest's `packages` key declares, with which every pattern-bearing
- * empty-workspace message leads. Each reaches it with a non-empty list, the resolver reporting a manifest that
- * declares none under a cause of its own.
+ * empty-workspace message leads. Each message calls it with a non-empty list, because the resolver reports a
+ * manifest that declares none under a cause of its own.
  *
- * An entry that the parser left empty is what an unquoted `!pkg` becomes, and the matcher drops it. Naming it as
- * an empty entry is what a reader can act on: quoting it renders an empty pair of backticks, and it does so in
- * the one case for which the `no-pattern` remedy is written.
+ * The parser leaves an unquoted `!pkg` as an empty entry, and the matcher drops it. A reader can act on a message
+ * that names it as an empty entry: Quoting it renders an empty pair of backticks, and it does so in the one case
+ * for which the `no-pattern` remedy is written.
  */
 function describeDeclaredPatterns(patterns: readonly string[]): string {
   const quotablePatterns = patterns.filter((pattern) => pattern.trim() !== '');

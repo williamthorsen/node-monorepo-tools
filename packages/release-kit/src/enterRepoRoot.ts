@@ -12,7 +12,7 @@ export interface RepoLocation {
 /**
  * Locates the repo root from `startDir` and makes it the process working directory.
  *
- * The root is the nearest ancestor holding `pnpm-workspace.yaml`, or else `startDir` itself when it holds a
+ * The root is the nearest ancestor containing `pnpm-workspace.yaml`, or else `startDir` itself when it contains a
  * `package.json`. A single-package repo is therefore found only from its own root. Throws when neither applies.
  */
 export function enterRepoRoot(startDir: string = process.cwd()): RepoLocation {
@@ -30,7 +30,7 @@ export function enterRepoRoot(startDir: string = process.cwd()): RepoLocation {
 }
 
 // region | Helpers
-/** Returns `dir` when it holds a `package.json`. */
+/** Returns `dir` when it contains a `package.json`. */
 function findSinglePackageRoot(dir: string): string | undefined {
   return existsSync(path.join(dir, 'package.json')) ? dir : undefined;
 }

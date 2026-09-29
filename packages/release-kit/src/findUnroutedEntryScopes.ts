@@ -10,8 +10,8 @@ export interface WorkspaceWindow {
 }
 
 /**
- * Finds the change-record entry scopes of the unreleased windows that route their entry to no workspace whose window
- * contains the commit, and returns the findings keyed by the `dir` of every workspace whose window contains it.
+ * Finds the change-record entry scopes of the unreleased windows that do not route their entry to any workspace whose
+ * window contains the commit, and returns the findings keyed by the `dir` of every workspace whose window contains it.
  *
  * A scope resolves through `scopeAliases` first. It is not reported when it resolves to `*`, to a workspace whose
  * window contains the commit, or to a `configuredDirs` workspace absent from `windows`, which the run did not read.

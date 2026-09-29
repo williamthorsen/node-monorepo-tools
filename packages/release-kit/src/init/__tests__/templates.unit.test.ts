@@ -118,7 +118,7 @@ describe(createGithubReleaseWorkflow, () => {
 });
 
 describe(releaseWorkflow, () => {
-  it('generates a monorepo workflow with only input but no monorepo flag', () => {
+  it('generates a monorepo workflow with an only input and without a monorepo flag', () => {
     const workflow = releaseWorkflow('monorepo');
 
     expect(workflow).toContain('release.reusable.yaml@workflow/release-v1');

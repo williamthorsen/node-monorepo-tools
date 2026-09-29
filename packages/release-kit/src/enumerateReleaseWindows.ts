@@ -20,13 +20,13 @@ export interface RawCommit {
   hash: string;
   /** The first line, with a wrapped subject folded onto one line by git. */
   subject: string;
-  /** The message after its first blank line, empty when the commit has no body. */
+  /** The message after its first blank line, empty when the commit does not have a body. */
   body: string;
   /** The raw commit message, subject and body together. */
   message: string;
 }
 
-/** The commits that one release contains, with the version and date under which they shipped. */
+/** The commits that one release contains, with the version and date under which they were released. */
 export interface ReleaseWindow {
   /** The tag name for a released window, the caller's unreleased-tag name for the newest one. */
   version: string;
@@ -56,7 +56,7 @@ export interface EnumerateReleaseWindowsOptions {
  * HEAD cannot reach is dropped.
  *
  * A commit belongs to the oldest matching tag that contains it, and to the unreleased window
- * when no matching tag does. Containment is read from the ancestry graph rather than from a
+ * when it is not contained by any matching tag. Containment is read from the ancestry graph rather than from a
  * position in a linear walk, because a branch commit authored before a tag and merged after it
  * is not in that tag's release.
  *
@@ -105,13 +105,13 @@ export function enumerateReleaseWindows(options: EnumerateReleaseWindowsOptions)
 
 /** The ancestry graph of the commits reachable from HEAD. */
 interface Ancestry {
-  /** Parent hashes per commit, which is what makes containment answerable. */
+  /** Parent hashes per commit, which make containment answerable. */
   parentsByHash: Map<string, string[]>;
   /** Each commit's line in the topological walk; a larger position is older. */
   positionByHash: Map<string, number>;
 }
 
-/** A tag, the commit at which it points, and the date under which its release shipped. */
+/** A tag, the commit at which it points, and the date under which its release was published. */
 interface TagBoundary {
   /** The commit at which the tag points, dereferenced for an annotated tag. */
   hash: string;
@@ -124,10 +124,10 @@ interface TagBoundary {
 
 /**
  * Assigns each reachable commit to the boundary whose release first contained it, as an index
- * into `boundaries`. A commit contained by no boundary is absent from the result.
+ * into `boundaries`. A commit not contained by any boundary is absent from the result.
  *
  * `boundaries` runs oldest release first, so each boundary claims only what the releases before
- * it left unclaimed. A topological walk puts an ancestor after its descendants, which is what
+ * it left unclaimed. A topological walk puts an ancestor after its descendants, which
  * lets the caller order the boundaries without a second traversal.
  */
 function claimAncestors(

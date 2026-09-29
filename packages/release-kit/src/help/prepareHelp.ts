@@ -1,6 +1,6 @@
 /**
- * Help text for `release-kit prepare`. The module has no import-time side effects, so that a test can import it
- * without running the CLI.
+ * Help text for `release-kit prepare`. The module does not have any import-time side effects, so that a test can
+ * import it without running the CLI.
  */
 export const prepareHelpText = `
 Usage: release-kit prepare [options]
@@ -14,8 +14,8 @@ Options:
   --bump=major|minor|patch  Set the level of every release that happens; does not trigger one
   --set-version=X.Y.Z   Set an explicit version; bypasses the changelog-derived bump. In monorepo
                          mode it requires --only, and is rejected when a 'project' block is configured.
-  --force               Release even when no commits or no bump-worthy commits exist
-                         since the last tag. Defaults to patch when --bump is not given;
+  --force               Release even when the last tag is not followed by any commits,
+                         or by any bump-worthy ones. Defaults to patch when --bump is not given;
                          use --bump=X for a different level.
   --no-git-checks, -n   Skip the clean-working-tree check
   --only=name1,name2    Only process the named workspaces (comma-separated, monorepo only).
