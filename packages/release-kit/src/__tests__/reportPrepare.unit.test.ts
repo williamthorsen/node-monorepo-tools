@@ -1572,7 +1572,7 @@ function makeSkippedWorkspace(overrides: Partial<SkippedWorkspaceResult> = {}): 
 
 /** Reads back the subject that the policy-violation bullet rendered, which the report quotes. */
 function readViolationSubject(output: string): string {
-  const match = /· \w+ '(.*)' — type /.exec(output);
+  const match = /· \w+ '(.*)': type /.exec(output);
   if (match?.[1] === undefined) {
     throw new Error(`No policy-violation bullet in output:\n${output}`);
   }
