@@ -177,8 +177,8 @@ function validateSingleOverride(key: string, rawEntry: unknown, errors: string[]
 }
 
 /**
- * Validates the `audience` field. The format declares `'all' | 'dev' | 'skip'` so that reclassification needs no
- * schema change, but only `'skip'` is supported; `'all'` and `'dev'` are rejected as not yet supported.
+ * Validates the `audience` field. The format declares `'all' | 'dev' | 'skip'` so that reclassification doesn't need
+ * a schema change, but only `'skip'` is supported; `'all'` and `'dev'` are rejected as not yet supported.
  */
 function validateAudience(key: string, value: unknown, errors: string[]): 'skip' | undefined {
   if (typeof value !== 'string' || !VALID_AUDIENCE_VALUES.has(value)) {
@@ -192,7 +192,7 @@ function validateAudience(key: string, value: unknown, errors: string[]): 'skip'
   return 'skip';
 }
 
-/** Formats the warning for an override key that matched no item in the changelog. */
+/** Formats the warning for an override key that did not match any item in the changelog. */
 export function formatStaleOverrideKeyWarning(key: string): string {
   return `Override key '${key}' did not match any item in the changelog (likely a stale reference)`;
 }
@@ -201,9 +201,10 @@ export function formatStaleOverrideKeyWarning(key: string): string {
  * Applies overrides to changelog entries, returning new entries without mutating the input.
  *
  * Each key's hash prefix is matched against the distinct `ChangelogItem.hash` values:
- * - No match: the key is unmatched in this batch, and no warning is emitted here.
- * - One match: a bare key resolves to every item of that commit, and an ordinal key `<hash>:<n>` to the items whose
- *   `entry` is `n`. A key that resolves to no item is unmatched, so an ordinal key on a title-derived item goes stale.
+ * - No match: The key is unmatched in this batch, and this function doesn't emit a warning.
+ * - One match: A bare key resolves to every item of that commit, and an ordinal key `<hash>:<n>` to the items whose
+ *   `entry` is `n`. A key that doesn't resolve to any item is unmatched, so an ordinal key on a title-derived item
+ *   goes stale.
  * - Several matches: an error (ambiguous prefix).
  *
  * Two more conditions are errors, and the keys involved apply nowhere: a bare key that sets `description` or `body` on a
@@ -213,7 +214,7 @@ export function formatStaleOverrideKeyWarning(key: string): string {
  * warnings, because in a monorepo a key may target a commit in another workspace: A key unmatched in one batch is not
  * necessarily stale.
  *
- * An override whose audience is `'skip'` removes its item, and a section left empty is dropped; an entry left with no
+ * An override whose audience is `'skip'` removes its item, and a section left empty is dropped; an entry left without
  * sections is kept. An item without a `hash`, such as a synthetic propagation item, passes through unmatched. Errors
  * are returned rather than thrown, and the caller decides whether to abort.
  */
@@ -316,8 +317,8 @@ function resolveOverrideKeys(
 
 /**
  * Resolves one override key against the commits' entry positions. `positions` lists the targeted items' `entry` values,
- * ascending, with `undefined` standing for a title-derived item; it is empty when the commit has no item that the key
- * targets.
+ * ascending, with `undefined` standing for a title-derived item; it is empty when the key doesn't target any item of
+ * the commit.
  */
 function resolveOverrideKey(
   overrideKey: string,
@@ -352,7 +353,7 @@ function indexEntryPositions(entries: readonly ChangelogEntry[]): Map<string, Se
   return indexItemPositions(entries.flatMap((entry) => entry.sections.flatMap((section) => section.items)));
 }
 
-/** Collects, for each hash, the distinct `entry` positions of the items that carry it. */
+/** Collects, for each hash, the distinct `entry` positions of the items that have it. */
 function indexItemPositions(
   items: readonly { hash?: string | undefined; entry?: number | undefined }[],
 ): Map<string, Set<number | undefined>> {
@@ -399,8 +400,8 @@ function applyOverridesToItems(
  * Applies one override's field replacements to a `ChangelogItem`.
  *
  * A title-derived item re-derives `migration` from a replacement body so that the two cannot disagree; an item derived
- * from a change-record entry keeps the entry's `migration`, which no body contains. An override file cannot set
- * `migration`. The item keeps its `hash`, so that a later application still matches it.
+ * from a change-record entry keeps the entry's `migration`, which does not appear in any body. An override file
+ * cannot set `migration`. The item keeps its `hash`, so that a later application still matches it.
  */
 function applyOverrideToItem(item: ChangelogItem, override: ChangelogOverride): ChangelogItem {
   const result: ChangelogItem = { ...item };
@@ -413,7 +414,7 @@ function applyOverrideToItem(item: ChangelogItem, override: ChangelogOverride): 
   if (override.body !== undefined && item.entry === undefined) {
     const migration = extractMigration(override.body);
     if (migration === undefined) {
-      // The spread carried a migration extracted from the superseded body.
+      // The spread copied a migration extracted from the superseded body.
       delete result.migration;
     } else {
       result.migration = migration;
@@ -425,12 +426,12 @@ function applyOverrideToItem(item: ChangelogItem, override: ChangelogOverride): 
   return result;
 }
 
-/** Shallow-clones a `ChangelogItem`, so that the result shares no item object with the input. */
+/** Shallow-clones a `ChangelogItem`, so that the result doesn't share any item object with the input. */
 function cloneItem(item: ChangelogItem): ChangelogItem {
   return { ...item };
 }
 
-/** Shallow-clones a `ChangelogEntry` down to its items, so that the result shares no object with the input. */
+/** Shallow-clones a `ChangelogEntry` down to its items, so that the result doesn't share any object with the input. */
 function cloneEntry(entry: ChangelogEntry): ChangelogEntry {
   return {
     ...entry,
@@ -494,7 +495,7 @@ export function loadOverridesForScopes(scopes: {
 /**
  * Composes root and workspace override maps into the effective map for one workspace, without mutating either.
  *
- * A workspace key identical to a root key replaces the root entry entirely, with no field-level merge. Distinct keys
+ * A workspace key identical to a root key replaces the root entry entirely, without a field-level merge. Distinct keys
  * that resolve to the same item do not shadow each other here: {@link applyChangelogOverrides} reports them as
  * overlapping.
  */
@@ -514,8 +515,8 @@ export function composeOverrides(
 /**
  * The loaded per-scope override maps and the run's warning aggregators, shared by every apply of a prepare run.
  *
- * `globalMatchedRootKeys` holds the root keys matched in any apply. Workspace keys are not added: A workspace key that
- * matches nothing in its own workspace is stale, and it is warned about at once rather than at the end of the run.
+ * `globalMatchedRootKeys` contains the root keys matched in any apply. Workspace keys are not added: A workspace key
+ * that matches nothing in its own workspace is stale, and it is warned about at once rather than at the end of the run.
  */
 export interface OverrideContext {
   project: Map<string, ChangelogOverride>;
@@ -572,7 +573,7 @@ export interface ValidateAllChangelogOverridesInputs {
    * - When `items` is provided, the project map is also applied directly to those items
    *   (project release in monorepo mode, or the package's history in single-package mode).
    *
-   * Omit when no project file exists.
+   * Omit when the project file doesn't exist.
    */
   project?: { filePath: string; items?: readonly OverrideTargetItem[] };
   /** Per-workspace scopes. Each workspace's file applies only to its own items. */
@@ -590,7 +591,7 @@ export interface ValidateAllChangelogOverridesResult {
 
 /**
  * Validates every override file against the items of its scopes and returns the aggregated findings. It reads the
- * override files but collects no items: The caller supplies each scope's items.
+ * override files but doesn't collect any items: The caller supplies each scope's items.
  *
  * Items built by `buildChangelogEntries`, as `release-kit prepare` builds them, yield the matches that `prepare`
  * computes, tier asymmetry included: A workspace-tier key is stale when it matches nothing in its own workspace, and a
@@ -802,12 +803,12 @@ function prefixWithFilePath(filePath: string, message: string): string {
   return `${filePath}: ${message}`;
 }
 
-/** Formats the warning for a workspace key that matches no item in its workspace's history. */
+/** Formats the warning for a workspace key that doesn't match any item in its workspace's history. */
 function formatWorkspaceStaleWarning(filePath: string, key: string): string {
   return `${filePath}: Override key '${key}' did not match any item in this workspace's history (likely a stale reference)`;
 }
 
-/** Formats the warning for a root key that matches no item in any scope. */
+/** Formats the warning for a root key that doesn't match any item in any scope. */
 function formatRootStaleWarning(filePath: string, key: string): string {
   return `${filePath}: Override key '${key}' did not match any item in any scope (likely a stale reference)`;
 }
@@ -817,9 +818,9 @@ function formatRootStaleWarning(filePath: string, key: string): string {
  * tier.
  *
  * A workspace key that matched nothing, whether or not the root map has the same key, is stale, and it is warned about
- * at once. A root key that matched without being shadowed joins `globalMatchedRootKeys`, from which the caller warns,
- * at the end of the run, about the root keys that matched nowhere. Throws if applying reports any error, such as an
- * ambiguous prefix.
+ * at once. It adds each root key that matched without being shadowed to `globalMatchedRootKeys`, from which the caller
+ * warns, at the end of the run, about the root keys that matched nowhere. Throws if applying reports any error, such
+ * as an ambiguous prefix.
  */
 export function applyWorkspaceOverrides(
   newEntries: ChangelogEntry[],
@@ -836,7 +837,7 @@ export function applyWorkspaceOverrides(
   overrideWarnings.push(...applied.warnings);
 
   const matchedSet = new Set(applied.matchedKeys);
-  // Workspace tier: every workspace key not in the matched set is stale here and now.
+  // Workspace tier: Every workspace key not in the matched set is stale here and now.
   if (workspaceOverrides !== undefined) {
     for (const key of workspaceOverrides.keys()) {
       if (!matchedSet.has(key)) {
@@ -844,7 +845,7 @@ export function applyWorkspaceOverrides(
       }
     }
   }
-  // Root tier: a matched key that the workspace map lacks came from `project`, the only other source of `composed`.
+  // Root tier: A matched key that the workspace map lacks came from `project`, the only other source of `composed`.
   for (const key of applied.matchedKeys) {
     if (workspaceOverrides?.has(key)) continue;
     globalMatchedRootKeys.add(key);

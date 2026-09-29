@@ -27,8 +27,8 @@ export type CreateReleaseResult = { status: 'created' } | { status: 'skipped'; r
  * Creates a GitHub Release for a tag through the `gh` CLI, with the all-audience notes of the tag's `changelog.json`
  * entry as its body.
  *
- * Returns a skip when the entry is missing (with a warning), has no all-audience content, or renders an empty body.
- * Throws when `gh` fails, so that the caller does not exit 0 on a failed release.
+ * Returns a skip when the entry is missing (with a warning), doesn't have any all-audience content, or renders an empty
+ * body. Throws when `gh` fails, so that the caller does not exit 0 on a failed release.
  */
 export function createGithubRelease(options: CreateGithubReleaseOptions): CreateReleaseResult {
   const { tag, changelogJsonPath, dryRun, sectionOrder } = options;
@@ -85,7 +85,7 @@ export interface CreateGithubReleasesOutcome {
   skipped: Array<{ tag: string; reason: CreateReleaseSkipReason }>;
 }
 
-/** Creates a GitHub Release for each tag and records each skip with its reason; a `gh` failure throws at once. */
+/** Creates a GitHub Release for each tag and records each skip with its reason; throws at once when `gh` fails. */
 export function createGithubReleases(
   tags: Array<{ tag: string; workspacePath: string }>,
   changelogJsonOutputPath: string,

@@ -1,6 +1,6 @@
 import type { ChangelogEntry } from './types.ts';
 
-/** Builds the changelog entry of a forced release whose unreleased window yields no changelog item. */
+/** Builds the changelog entry of a forced release whose unreleased window doesn't yield any changelog item. */
 export function buildEmptyReleaseEntry(version: string, date: string): ChangelogEntry {
   return {
     version,

@@ -7,7 +7,7 @@ export function composeHeader(entry: { emoji: string; label: string }): string {
   return `${entry.emoji} ${entry.label}`;
 }
 
-/** Tier names treated as dev-only (not surfaced in public release notes). */
+/** Tier names treated as dev-only (not shown in public release notes). */
 const DEV_ONLY_TIERS = new Set(['internal', 'process']);
 
 /** Derives `DEFAULT_WORK_TYPES` from the canonical taxonomy, in canonical order. */

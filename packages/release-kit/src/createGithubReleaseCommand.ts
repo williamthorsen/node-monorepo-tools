@@ -23,8 +23,8 @@ const createGithubReleaseFlagSchema = {
  * Runs the CLI `create-github-release` command: creates GitHub Releases from `changelog.json` for the tags on HEAD, or
  * a comma-separated `--tags` subset, without publishing to npm.
  *
- * A private workspace's tag is skipped with a warning and gets no Release; an all-private tag set is a clean no-op. A
- * relative `--config` resolves against `invocationDir`.
+ * A private workspace's tag is skipped with a warning and doesn't get a Release; an all-private tag set is a clean
+ * no-op. A relative `--config` resolves against `invocationDir`.
  */
 export async function createGithubReleaseCommand(
   argv: string[],
@@ -42,7 +42,7 @@ export async function createGithubReleaseCommand(
 
   const resolvedTags = resolveCommandTags(requestedTags, userConfig);
 
-  // A private package is versioned and tagged but gets no GitHub Release.
+  // A private package is versioned and tagged but doesn't get a GitHub Release.
   const publishableTags = resolvedTags.filter((resolvedTag) => resolvedTag.isPublishable);
   for (const resolvedTag of resolvedTags) {
     if (!resolvedTag.isPublishable) {
@@ -65,7 +65,7 @@ export async function createGithubReleaseCommand(
   }
 
   // Treat every skip as informational: `resolveCommandTags` has already rejected an unknown tag, so a `no-entry` tag
-  // exists in git and has no releasable content.
+  // exists in git and doesn't have any releasable content.
   if (outcome.skipped.length > 0) {
     const formatted = outcome.skipped.map((s) => `${s.tag} (${s.reason})`).join(', ');
     console.info(`Skipped ${outcome.skipped.length} tag(s) with no releasable content: ${formatted}.`);

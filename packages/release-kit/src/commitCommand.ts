@@ -22,7 +22,7 @@ export function commitCommand(argv: string[]): void {
     throw new Error(`Tags file at ${resolveReleaseTagsPath()} is empty. Run \`release-kit prepare\` first.`);
   }
 
-  // The summary file is absent when no released target has commits, as in a propagation-only release.
+  // The summary file is absent when every released target lacks commits, as in a propagation-only release.
   let summary = '';
   try {
     summary = readFileSync(RELEASE_SUMMARY_FILE, 'utf8').trim();

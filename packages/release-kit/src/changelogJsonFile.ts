@@ -37,8 +37,8 @@ function sortNewestFirst(entries: Iterable<ChangelogEntry>): ChangelogEntry[] {
 }
 
 /**
- * Reads the changelog entries in a JSON file: none when the file is missing or holds no array, and none with a warning
- * on stderr when it cannot be read or parsed.
+ * Reads the changelog entries in a JSON file: none when the file is missing or doesn't contain an array, and none with
+ * a warning on stderr when it cannot be read or parsed.
  */
 function readExistingEntries(filePath: string): ChangelogEntry[] {
   if (!existsSync(filePath)) {
