@@ -11,7 +11,7 @@ interface AuditCiFlatConfig {
 }
 
 /**
- * Transform a scope config into the flat JSON structure audit-ci expects.
+ * Transforms a scope config into the flat JSON structure that audit-ci expects.
  *
  * Translates `severityThreshold` to the corresponding audit-ci boolean,
  * adds scope-specific flags (`skip-dev` for prod, `extra-args: ["--dev"]` for dev),
@@ -38,7 +38,7 @@ export function buildFlatConfig(scopeConfig: ScopeConfig, scope: AuditScope): Au
 }
 
 /**
- * Generate the audit-ci config file for a scope and write it to disk.
+ * Generates the audit-ci config file for a scope and writes it to disk.
  *
  * The output path is `{outputDir}/audit-ci.{scope}.json`. The caller must
  * ensure that `outputDir` exists.

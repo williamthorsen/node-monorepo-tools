@@ -118,7 +118,7 @@ function findTypoMatch(input: string): string | undefined {
 }
 
 /**
- * Route CLI arguments to the appropriate subcommand.
+ * Routes CLI arguments to the appropriate subcommand.
  *
  * Returns a numeric exit code: 0 for success, 1 for errors.
  */
@@ -156,7 +156,7 @@ export async function routeCommand(args: string[]): Promise<number> {
     return handleSubcommand(args.slice(1), styles, syncCommand, showSyncHelp);
   }
 
-  // A positional argument that names no subcommand is an error, never input to the default command.
+  // A positional argument that doesn't name a subcommand is an error, never input to the default command.
   if (command !== undefined && !command.startsWith('-')) {
     const typoMatch = findTypoMatch(command);
     if (typoMatch !== undefined) {
@@ -176,7 +176,7 @@ export async function routeCommand(args: string[]): Promise<number> {
   return handleSubcommand(args, styles, checkCommand);
 }
 
-/** Parse shared flags and dispatch to a subcommand handler. */
+/** Parses shared flags and dispatches to a subcommand handler. */
 async function handleSubcommand(
   flags: string[],
   styles: StreamStyles,
@@ -204,7 +204,7 @@ async function handleSubcommand(
   }
 }
 
-/** Handle the `init` subcommand with its own flag set. */
+/** Handles the `init` subcommand with its own flag set. */
 function handleInit(flags: string[], styles: StreamStyles): number {
   if (flags.some((f) => f === '--help' || f === '-h')) {
     showInitHelp();

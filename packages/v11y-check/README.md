@@ -14,7 +14,7 @@ Requires Node.js 24 or later.
 pnpm add -D v11y-check
 ```
 
-The package is `v11y-check`; the bin is `v11y`. The package also ships `v11y-check` as a bin alias, so `pnpm exec v11y-check` and `npx v11y-check` continue to work.
+The package is `v11y-check`; the bin is `v11y`. The package also declares `v11y-check` as a bin alias, so `pnpm exec v11y-check` and `npx v11y-check` continue to work.
 
 ## Quick start
 
@@ -32,7 +32,7 @@ npx v11y-check sync
 npx v11y-check --raw
 ```
 
-No config file is required. When `.config/v11y-check.config.json` is absent, the tool uses built-in defaults: `severityThreshold: 'moderate'` for dev, `severityThreshold: 'low'` for prod, and empty allowlists.
+The tool does not require a config file. When `.config/v11y-check.config.json` is absent, the tool uses built-in defaults: `severityThreshold: 'moderate'` for dev, `severityThreshold: 'low'` for prod, and empty allowlists.
 
 ## Configuration
 
@@ -62,16 +62,16 @@ The source-of-truth config lives at `.config/v11y-check.config.json`:
 
 ### Fields
 
-- **`$schema`** (optional) — JSON Schema URL for editor autocomplete and validation. Automatically included by `init` and `sync`.
-- **`dev`** / **`prod`** — Scope-specific settings:
-  - **`severityThreshold`** (optional) — Fail on advisories at or above this severity. Valid values: `'low'`, `'moderate'`, `'high'`, `'critical'`. When omitted, audit-ci uses its own defaults.
-  - **`allowlist`** — Typed advisory entries with `id`, `path`, `url`, and optional `reason` and `addedAt`. `addedAt` is an ISO 8601 UTC datetime (e.g., `2026-04-15T09:30:00.000Z`) populated automatically by `v11y sync` on new entries; existing entries retain whatever value they had. Older `YYYY-MM-DD` values are still accepted.
+- **`$schema`** (optional): JSON Schema URL for editor autocomplete and validation. Automatically included by `init` and `sync`.
+- **`dev`** / **`prod`**: Scope-specific settings:
+  - **`severityThreshold`** (optional): Fail on advisories at or above this severity. Valid values: `'low'`, `'moderate'`, `'high'`, `'critical'`. When omitted, audit-ci uses its own defaults.
+  - **`allowlist`**: Typed advisory entries with `id`, `path`, `url`, and optional `reason` and `addedAt`. `addedAt` is an ISO 8601 UTC datetime (e.g., `2026-04-15T09:30:00.000Z`) populated automatically by `v11y sync` on new entries; existing entries retain whatever value they had. Older `YYYY-MM-DD` values are still accepted.
 
 ### Output style
 
 The `V11Y_CHECK_OUTPUT_STYLE` environment variable sets the style for every command, `init` included: `rich` marks each finding with an emoji, such as ❌ or ✅, and `plain` prints a word in its place, such as `FAIL` or `PASS`, which a reader of a log can search for. `auto`, the default, defers to detection. Any other value is a usage error that exits with code 1.
 
-Detection decides stdout and stderr separately. A stream is plain when `CI` is set to anything other than an empty string or `false`, when the stream is not a terminal, or when `TERM` is `linux`; otherwise it is rich. `--json` output contains no emoji in either style.
+Detection decides stdout and stderr separately. A stream is plain when `CI` is set to anything other than an empty string or `false`, when the stream is not a terminal, or when `TERM` is `linux`; otherwise it is rich. `--json` output does not contain any emoji in either style.
 
 ## CLI reference
 
@@ -134,15 +134,15 @@ Environment:
 
 ## Scaffolded GitHub Actions workflow
 
-`v11y init` scaffolds `.github/workflows/audit.yaml` alongside the config file. The workflow is a thin caller that delegates to the versioned reusable workflow published at `williamthorsen/node-monorepo-tools/.github/workflows/audit.reusable.yaml@workflow/audit-v1`, so your repository tracks the reusable workflow at a stable version tag.
+`v11y init` scaffolds `.github/workflows/audit.yaml` alongside the config file. The workflow is a thin caller that delegates to the versioned reusable workflow published at `williamthorsen/node-monorepo-tools/.github/workflows/audit.reusable.yaml@workflow/audit-v1`, so the consuming repository tracks the reusable workflow at a stable version tag.
 
-The scaffolded workflow triggers on pull requests to `main`/`next`, on a daily schedule, and on manual `workflow_dispatch`. Commit the file into your repository so the caller runs in CI. If the reusable workflow's caller-side requirements change (for example, the tag bumps), re-run `v11y init --force` to refresh the file.
+The scaffolded workflow triggers on pull requests to `main`/`next`, on a daily schedule, and on manual `workflow_dispatch`. Commit the file into the repository so that the caller runs in CI. If the reusable workflow's caller-side requirements change (for example, the tag bumps), re-run `v11y init --force` to refresh the file.
 
-The reusable workflow installs pnpm with [`pnpm/setup`](https://github.com/pnpm/setup), which installs pnpm 11 or newer only and reads the version from your `devEngines.packageManager` or `packageManager` field. A repository pinned below that cannot run it.
+The reusable workflow installs pnpm with [`pnpm/setup`](https://github.com/pnpm/setup), which installs pnpm 11 or newer only and reads the version from the repository's `devEngines.packageManager` or `packageManager` field. A repository pinned below that cannot run it.
 
 ## Readiness checks
 
-v11y-check publishes a [readyup](https://www.npmjs.com/package/readyup) kit that checks a consuming repo against the release it has installed: that v11y-check is a devDependency at or above the current version, that audit-ci configs sit under `.config/audit-ci/`, and that `.github/workflows/audit.yaml` matches the template this package scaffolds. The kit ships inside the package, so it checks against the version you installed rather than whatever a repository ref happens to point at.
+v11y-check publishes a [readyup](https://www.npmjs.com/package/readyup) kit that checks a consuming repo against the release that it has installed: that v11y-check is a devDependency at or above the current version, that audit-ci configs are under `.config/audit-ci/`, and that `.github/workflows/audit.yaml` matches the template scaffolded by this package. The kit is included in the package, so it checks against the installed version rather than whatever a repository ref happens to point at.
 
 Add `readyup` as a devDependency, then name v11y-check in its config:
 
@@ -156,12 +156,12 @@ export default defineRdyConfig({
 ```
 
 ```bash
-rdy run --packages              # every kit each listed package publishes
+rdy run --packages              # every kit that each listed package publishes
 rdy run --from npm:v11y-check   # v11y-check's kit alone, without the config entry
 rdy list --from npm:v11y-check  # what v11y-check publishes
 ```
 
-`--packages` is the form that survives v11y-check publishing further kits. Every form needs `readyup` 0.23 or later, and `v11y-check` as a _direct_ devDependency: a strict pnpm layout links nothing else into the project, so a transitive copy is unreachable.
+`--packages` is the form that keeps working if v11y-check publishes further kits. Every form needs `readyup` 0.23 or later, and `v11y-check` as a _direct_ devDependency: A strict pnpm layout links only direct dependencies into the project, which leaves a transitive copy unreachable.
 
 The kit is no longer reachable through `rdy run --from github:williamthorsen/node-monorepo-tools`. Repos still using that form should switch to one of the invocations above.
 
@@ -169,7 +169,7 @@ The kit is no longer reachable through `rdy run --from github:williamthorsen/nod
 
 v0.4 introduces breaking changes to the config schema:
 
-- **`outDir` removed.** Intermediate audit-ci files are now written to a temp directory and cleaned up automatically. Remove `outDir` from your config.
+- **`outDir` removed.** Intermediate audit-ci files are now written to a temp directory and cleaned up automatically. Remove `outDir` from the config.
 - **Severity booleans replaced by `severityThreshold`.** Replace `"moderate": true` with `"severityThreshold": "moderate"`, `"high": true` with `"severityThreshold": "high"`, etc. Only one threshold per scope is supported.
 - **`generate` subcommand removed.** The `v11y generate` command no longer exists. Flat audit-ci configs are now managed internally.
 - **Config is optional.** All commands now work without a config file, using built-in defaults.
@@ -179,4 +179,4 @@ To migrate an existing config:
 1. Remove the `outDir` field.
 2. Replace severity booleans with `severityThreshold` in each scope.
 3. Optionally add a `$schema` field set to `https://github.com/williamthorsen/node-monorepo-tools/raw/v11y-check-v<version>/packages/v11y-check/schemas/config.json`, with `<version>` replaced by the installed v11y-check version.
-4. Delete any generated `audit-ci.*.json` files that were in your config directory.
+4. Delete any generated `audit-ci.*.json` files that were in the config directory.

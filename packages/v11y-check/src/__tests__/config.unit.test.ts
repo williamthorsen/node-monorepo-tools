@@ -33,7 +33,9 @@ describe(loadConfig, () => {
     expect(result.configSource).toBe('file');
   });
 
-  it('returns defaults when no config file exists and no explicit path is given', async ({ tree }) => {
+  it('returns defaults when the config file does not exist and the caller does not give an explicit path', async ({
+    tree,
+  }) => {
     const result = await loadConfig(undefined, tree.dir);
     expect(result.config).toStrictEqual(DEFAULT_CONFIG);
     expect(result.configSource).toBe('defaults');

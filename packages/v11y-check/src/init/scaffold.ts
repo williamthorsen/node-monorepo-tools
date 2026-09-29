@@ -19,7 +19,7 @@ interface ScaffoldResult {
 }
 
 /**
- * Scaffold the v11y-check config file with sensible defaults, never overwriting an existing one, whose allowlist
+ * Scaffolds the v11y-check config file with sensible defaults, never overwriting an existing one, whose allowlist
  * `v11y sync` maintains.
  */
 export function scaffoldConfig({ dryRun }: { dryRun: boolean }): ScaffoldResult {
@@ -27,7 +27,7 @@ export function scaffoldConfig({ dryRun }: { dryRun: boolean }): ScaffoldResult 
   return { configResult };
 }
 
-/** Copy the bundled audit.yaml.template to `.github/workflows/audit.yaml` in the target repo. */
+/** Copies the bundled audit.yaml.template to `.github/workflows/audit.yaml` in the target repo. */
 export function copyWorkflowTemplate(dryRun: boolean, overwrite: boolean): WriteResult {
   let root: string;
   try {
@@ -53,7 +53,7 @@ export function copyWorkflowTemplate(dryRun: boolean, overwrite: boolean): Write
   return writeFileWithCheck(WORKFLOW_PATH, content, { dryRun, overwrite });
 }
 
-/** Scaffold the GitHub Actions audit workflow to `.github/workflows/audit.yaml`. */
+/** Scaffolds the GitHub Actions audit workflow to `.github/workflows/audit.yaml`. */
 export function scaffoldWorkflow(dryRun: boolean, overwrite: boolean): WriteResult {
   return copyWorkflowTemplate(dryRun, overwrite);
 }

@@ -42,7 +42,7 @@ describe(routeCommand, () => {
     expect(exitCode).toBe(0);
   });
 
-  it('dispatches to checkCommand when no args are given', async () => {
+  it('dispatches to checkCommand when the args are empty', async () => {
     await routeCommand([]);
     expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));
   });
@@ -223,7 +223,7 @@ describe(routeCommand, () => {
   );
 
   it.each([['check'], ['init'], ['sync'], ['--raw'], []])(
-    'returns 1 with the shared usage error for args %j when the variable names no style',
+    'returns 1 with the shared usage error for args %j when the variable does not name a style',
     async (...args) => {
       const capture = disposeOnTestFinished(captureStdio());
       vi.stubEnv('V11Y_CHECK_OUTPUT_STYLE', 'loud');

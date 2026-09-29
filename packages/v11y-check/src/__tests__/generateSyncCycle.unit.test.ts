@@ -92,7 +92,7 @@ describe('generate -> sync cycle', () => {
     expect(content).toHaveProperty('allowlist', []);
   });
 
-  it('returns defaults when no config file exists', async ({ tree }) => {
+  it('returns defaults when the directory does not contain a config file', async ({ tree }) => {
     const emptyDir = tree.mkdir('empty-project');
 
     const result = await loadConfig(undefined, emptyDir);

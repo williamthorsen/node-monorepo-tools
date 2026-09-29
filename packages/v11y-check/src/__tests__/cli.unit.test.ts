@@ -52,7 +52,7 @@ vi.mock(import('../tmp.ts'), () => ({
 
 /**
  * Opens a stdio capture and primes the mocks on which every command in this file depends. Each suite registers it,
- * so that no hook sits outside a describe.
+ * so that every hook in this file is inside a describe.
  */
 function primeSuite(): CapturedStdio {
   const capture = captureStdio();
@@ -225,7 +225,7 @@ describe(auditCommand, () => {
     expect(parsed).toHaveLength(3);
   });
 
-  it('audits both scopes when no scopes are specified', async () => {
+  it('audits both scopes when the options do not specify any scope', async () => {
     setupLoadConfig();
     mocks.runAudit.mockReturnValue({ exitCode: 0, staleEntries: [], stderr: '', stdout: '', warnings: [] });
 
@@ -258,7 +258,7 @@ describe(checkCommand, () => {
     expect(capture.stderr).toContain('Config not found');
   });
 
-  it('returns 0 when no vulnerabilities are found', async () => {
+  it('returns 0 when the report does not contain any vulnerabilities', async () => {
     setupLoadConfig();
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
@@ -894,7 +894,7 @@ function setupLoadConfig(config?: V11yCheckConfig, source: 'defaults' | 'file' =
 }
 
 /**
- * Configure withTempDir mock to execute the callback with a fake temp path.
+ * Configures withTempDir mock to execute the callback with a fake temp path.
  *
  * Must be called before each test that exercises commands using temp dirs.
  */

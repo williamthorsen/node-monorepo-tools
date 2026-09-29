@@ -11,11 +11,11 @@ export interface CheckSummary {
 }
 
 /**
- * Derive the headline summary from a check result.
+ * Derives the headline summary from a check result.
  *
  * Priority is severity-driven: unallowed > allowed > stale > none. The count is the total across
  * the requested scopes for the *active* category only; for `'none'` it is `0`. Below-threshold
- * findings never affect the summary — the threshold already excludes them from pass/fail.
+ * findings never affect the summary: The threshold already excludes them from pass/fail.
  */
 export function deriveSummary(result: CheckResult, scopes: AuditScope[]): CheckSummary {
   const unallowed = scopes.reduce((total, scope) => total + result[scope].unallowed.length, 0);

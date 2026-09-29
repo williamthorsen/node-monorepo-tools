@@ -9,9 +9,9 @@ import { AUDIT_WORKFLOW_HASH } from '../../.readyup/kits/default.ts';
 const packageDir = join(import.meta.dirname, '..', '..');
 
 /**
- * Verifies that the hash embedded in the kit stays in sync with the template it describes. The anchor is the
- * template this package ships and `v11y-check init` scaffolds, so a template edited here fails the check.
- * On failure, update the constant in `.readyup/kits/default.ts` to the hash the error message names.
+ * Verifies that the hash embedded in the kit stays in sync with the template that it describes. The anchor is the
+ * template included in this package and scaffolded by `v11y-check init`, so a template edited here fails the check.
+ * On failure, update the constant in `.readyup/kits/default.ts` to the hash named by the error message.
  */
 describe('rdy kit hashes match their source artifacts', () => {
   it('AUDIT_WORKFLOW_HASH matches templates/audit.yaml.template', () => {

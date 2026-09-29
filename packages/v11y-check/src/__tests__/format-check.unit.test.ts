@@ -28,9 +28,12 @@ function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
 // -- severityIndicator --
 
 describe(severityIndicator, () => {
-  it.each(['critical', 'high', 'moderate', 'low', 'info'])('returns no indicator for %s in plain style', (severity) => {
-    expect(severityIndicator(severity, 'plain')).toBe('');
-  });
+  it.each(['critical', 'high', 'moderate', 'low', 'info'])(
+    'returns an empty string for %s in plain style',
+    (severity) => {
+      expect(severityIndicator(severity, 'plain')).toBe('');
+    },
+  );
 
   it.each([
     ['critical', '\u{1F534}'],
@@ -389,7 +392,7 @@ describe(formatCheckText, () => {
     expect(output).not.toContain('Actions:');
   });
 
-  it('shows verbose hint when only allowed vulns exist (no unallowed, no stale)', () => {
+  it('shows verbose hint when only allowed vulns exist, without any unallowed or stale entries', () => {
     const result = makeCheckResult({
       prod: {
         allowed: [
@@ -583,7 +586,7 @@ describe(formatCheckText, () => {
 // -- formatCheckText: plain style --
 
 describe(`${formatCheckText.name} in plain style`, () => {
-  it('prints no pictographic character for multiple scopes', () => {
+  it('does not print any pictographic character for multiple scopes', () => {
     const output = formatCheckText(buildPopulatedCheckResult(), ['prod', 'dev'], 'plain', FIXED_NOW, {
       dev: 'high',
       prod: 'moderate',
@@ -592,7 +595,7 @@ describe(`${formatCheckText.name} in plain style`, () => {
     expect(output).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 
-  it('prints no pictographic character for a single scope', () => {
+  it('does not print any pictographic character for a single scope', () => {
     const output = formatCheckText(buildPopulatedCheckResult(), ['prod'], 'plain', FIXED_NOW, { prod: 'moderate' });
 
     expect(output).not.toMatch(/\p{Extended_Pictographic}/u);

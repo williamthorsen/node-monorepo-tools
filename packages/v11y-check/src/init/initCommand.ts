@@ -10,7 +10,7 @@ interface InitOptions {
 }
 
 /**
- * Run the `v11y init` command.
+ * Runs the `v11y init` command.
  *
  * Scaffolds the starter config file and the GitHub Actions workflow, then prints next steps.
  * Returns the process exit code (0 for success, 1 if any write failed).

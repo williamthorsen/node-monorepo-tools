@@ -9,7 +9,8 @@ const BIN_PATH = path.resolve(import.meta.dirname, '..', '..', '..', 'dist', 'es
 
 describe('v11y bin process exit', () => {
   beforeAll(() => {
-    // Warm node + the v11y dist so the first measured spawn does not pay cold-start cost near the timeout.
+    // Warm node + the v11y dist so that the cold-start delay does not push the first measured spawn toward the
+    // timeout.
     spawnSync('node', [BIN_PATH, '--help'], { stdio: 'ignore', timeout: 15_000 });
   });
 

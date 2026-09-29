@@ -16,7 +16,7 @@ function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
 }
 
 describe(formatActionHints, () => {
-  it('returns empty string when no unallowed, allowed, or stale entries exist', () => {
+  it('returns empty string when the result does not contain any unallowed, allowed, or stale entries', () => {
     const result = makeCheckResult();
     expect(formatActionHints(result, ['prod', 'dev'])).toBe('');
   });

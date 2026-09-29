@@ -4,19 +4,19 @@ import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import type { AllowlistEntry, AuditResult, AuditScope, ScopeConfig, V11yCheckConfig } from './types.ts';
 
-/** Produce a full ISO 8601 UTC datetime string. */
+/** Produces a full ISO 8601 UTC datetime string. */
 export function formatUtcDatetime(date: Date): string {
   return date.toISOString();
 }
 
-/** Format a Date as a human-friendly UTC string for use in reason messages. */
+/** Formats a Date as a human-friendly UTC string for use in reason messages. */
 export function formatFriendlyUtc(date: Date): string {
   const iso = date.toISOString();
   return iso.slice(0, 10) + ' ' + iso.slice(11, 19) + ' UTC';
 }
 
 /**
- * Serialize an allowlist entry with keys in alphabetical order.
+ * Serializes an allowlist entry with keys in alphabetical order.
  *
  * Produces consistent, reviewable JSON diffs regardless of insertion order.
  */
@@ -30,7 +30,7 @@ function serializeEntry(entry: AllowlistEntry): Record<string, string> {
   };
 }
 
-/** Build a serializable representation of a scope config with ordered keys. */
+/** Builds a serializable representation of a scope config with ordered keys. */
 function serializeScopeConfig(scopeConfig: ScopeConfig): Record<string, unknown> {
   return {
     ...(scopeConfig.severityThreshold !== undefined && { severityThreshold: scopeConfig.severityThreshold }),
@@ -47,7 +47,7 @@ export interface SyncResult {
 }
 
 /**
- * Compute the updated allowlist by diffing audit results against the current entries.
+ * Computes the updated allowlist by diffing audit results against the current entries.
  *
  * New advisories are added with an auto-populated reason. Resolved advisories are removed.
  * Existing entries are kept unchanged.
@@ -91,7 +91,7 @@ export function computeSyncDiff(
 }
 
 /**
- * Build the updated config by replacing the allowlist for the given scope with its entries sorted by ID.
+ * Builds the updated config by replacing the allowlist for the given scope with its entries sorted by ID.
  *
  * Returns a new config object; does not mutate the input.
  */
@@ -111,7 +111,7 @@ export function buildUpdatedConfig(
 }
 
 /**
- * Serialize the config to JSON with alphabetically ordered allowlist entry keys.
+ * Serializes the config to JSON with alphabetically ordered allowlist entry keys.
  *
  * Includes `$schema` when present.
  */
@@ -126,7 +126,7 @@ export function serializeConfig(config: V11yCheckConfig): string {
 }
 
 /**
- * Synchronize the allowlist for a scope by diffing audit results against the current config.
+ * Synchronizes the allowlist for a scope by diffing audit results against the current config.
  *
  * Returns the sync diff and the updated config. Writes the updated config to disk.
  */

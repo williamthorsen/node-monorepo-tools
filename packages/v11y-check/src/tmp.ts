@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 /**
- * Execute a callback with a temporary directory, ensuring cleanup afterward.
+ * Executes a callback with a temporary directory, ensuring cleanup afterward.
  *
  * Creates a unique temp directory under `os.tmpdir()` and removes it
  * (recursively) when the callback completes or throws.

@@ -28,7 +28,7 @@ import {
 } from './types.ts';
 
 /**
- * Run the default audit command (CI mode).
+ * Runs the default audit command (CI mode).
  *
  * Generates config, invokes audit-ci for each scope, and returns a combined exit code.
  */
@@ -102,7 +102,7 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
 const CHECK_SCOPE_ORDER: readonly AuditScope[] = ['prod', 'dev'];
 
 /**
- * Run the default grouped-check command.
+ * Runs the default grouped-check command.
  *
  * Audits each scope without allowlist filtering, cross-references results with
  * the config allowlist, detects stale entries, and produces grouped output.
@@ -134,7 +134,7 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
         const effectiveThreshold = scopeConfig.severityThreshold ?? 'low';
         thresholds[scope] = effectiveThreshold;
 
-        // Generate a stripped config (empty allowlist, low threshold) so audit-ci reports all vulnerabilities.
+        // Generate a stripped config (empty allowlist, low threshold) so that audit-ci reports all vulnerabilities.
         const strippedScope = { ...scopeConfig, allowlist: [], severityThreshold: 'low' as const };
         const strippedConfigPath = await generateAuditCiConfig(strippedScope, scope, tempDir);
 
@@ -155,8 +155,8 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
         const allowlistById = new Map<string, AllowlistEntry>(scopeConfig.allowlist.map((entry) => [entry.id, entry]));
         const scopeResult: ScopeCheckResult = { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
 
-        // Test the threshold before the allowlist: the threshold already excludes a below-threshold vuln from the
-        // pass/fail decision, so it reports as ignored even when the allowlist names it.
+        // Test the threshold before the allowlist: The threshold already excludes a below-threshold vuln from the
+        // pass/fail decision, so the check reports it as ignored even when the allowlist names it.
         for (const result of report.results) {
           if (!isSeverityAtOrAbove(result.severity, effectiveThreshold)) {
             scopeResult.belowThreshold.push(result);
@@ -195,11 +195,11 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
 }
 
 /**
- * Run the `sync` subcommand.
+ * Runs the `sync` subcommand.
  *
  * Audits each scope in report mode without allowlist filtering, then updates
- * the allowlist to match current findings. When no config file exists, creates
- * one at the default path.
+ * the allowlist to match current findings. When the config file doesn't exist,
+ * creates one at the default path.
  */
 export async function syncCommand(options: CommandOptions): Promise<number> {
   let loaded: LoadConfigResult;
@@ -212,7 +212,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
 
   const { configSource } = loaded;
 
-  // When no config exists, scaffold one first so sync operates on a real file.
+  // When the config file doesn't exist, scaffold one first so that sync operates on a real file.
   if (configSource === 'defaults') {
     const { configResult } = scaffoldConfig({ dryRun: false });
     if (configResult.outcome === 'failed') {
@@ -229,7 +229,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
   try {
     return await withTempDir(async (tempDir) => {
       for (const scope of scopes) {
-        // Generate a config without the allowlist so sync sees all vulnerabilities.
+        // Generate a config without the allowlist so that sync sees all vulnerabilities.
         const strippedScope = { ...config[scope], allowlist: [] };
         const strippedConfigPath = await generateAuditCiConfig(strippedScope, scope, tempDir);
 
@@ -264,7 +264,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
 }
 
 // region | Helpers
-/** Merge an `AuditResult` with an `AllowlistEntry` into an `AllowedVuln`, omitting absent optional fields. */
+/** Merges an `AuditResult` with an `AllowlistEntry` into an `AllowedVuln`, omitting absent optional fields. */
 function buildAllowedVuln(result: AuditResult, entry: AllowlistEntry | undefined): AllowedVuln {
   const allowed: AllowedVuln = {
     id: result.id,

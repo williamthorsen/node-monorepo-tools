@@ -32,7 +32,7 @@ describe(buildFlatConfig, () => {
     });
   });
 
-  it('produces an empty allowlist when the source has no entries', () => {
+  it('produces an empty allowlist when the source does not have any entries', () => {
     const scopeConfig: ScopeConfig = { allowlist: [], severityThreshold: 'high' };
     const flat = buildFlatConfig(scopeConfig, 'dev');
     expect(flat).toMatchObject({

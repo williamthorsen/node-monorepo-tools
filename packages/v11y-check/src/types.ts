@@ -42,7 +42,7 @@ export const allowlistEntrySchema = z.object({
 /** Configuration for a single audit scope (dev or prod). */
 export interface ScopeConfig {
   allowlist: AllowlistEntry[];
-  /** Fail on advisories at or above this severity. */
+  /** Severity at or above which an advisory fails the audit. */
   severityThreshold?: SeverityThreshold | undefined;
 }
 
@@ -74,7 +74,7 @@ export const v11yCheckConfigSchema = z
 
 // -- Default config --
 
-/** Built-in defaults used when no config file is present. */
+/** Built-in defaults used when the config file isn't present. */
 export const DEFAULT_CONFIG: V11yCheckConfig = {
   dev: { allowlist: [], severityThreshold: 'moderate' },
   prod: { allowlist: [], severityThreshold: 'low' },
@@ -109,10 +109,10 @@ export interface CommandOptions {
 // -- Severity comparison --
 
 /**
- * Determine whether a severity string is at or above the given threshold.
+ * Determines whether a severity string is at or above the given threshold.
  *
  * Unrecognized or undefined severities are treated as above threshold
- * (conservative — surfaces unknown vulns rather than hiding them).
+ * (conservative: An unknown vuln is reported rather than hidden).
  */
 export function isSeverityAtOrAbove(severity: string | undefined, threshold: SeverityThreshold): boolean {
   if (severity === undefined) return true;

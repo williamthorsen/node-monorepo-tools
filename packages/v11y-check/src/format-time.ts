@@ -1,5 +1,5 @@
 /**
- * Produce a human-readable relative-time string such as "just now", "N minutes ago",
+ * Produces a human-readable relative-time string such as "just now", "N minutes ago",
  * "yesterday", "N months ago", "N years ago".
  *
  * Uses millisecond math for units up through weeks to avoid DST/timezone drift on
@@ -32,14 +32,14 @@ export function formatRelativeTime(fromIso: string, now: Date): string {
   return pluralize(years, 'year');
 }
 
-/** Parse a YYYY-MM-DD (or full ISO) string into a UTC Date; return undefined if invalid. */
+/** Parses a YYYY-MM-DD (or full ISO) string into a UTC Date; returns undefined if invalid. */
 function parseDateUtc(iso: string): Date | undefined {
   // ECMAScript parses date-only ISO strings (YYYY-MM-DD) and full ISO strings as UTC.
   const parsed = new Date(iso);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
-/** Compute the number of whole months between two dates in UTC. */
+/** Computes the number of whole months between two dates in UTC. */
 function diffMonthsUtc(from: Date, now: Date): number {
   let months = (now.getUTCFullYear() - from.getUTCFullYear()) * 12 + (now.getUTCMonth() - from.getUTCMonth());
   if (now.getUTCDate() < from.getUTCDate()) {
@@ -48,7 +48,7 @@ function diffMonthsUtc(from: Date, now: Date): number {
   return Math.max(0, months);
 }
 
-/** Format an integer count + unit, pluralizing with a simple `s`. */
+/** Formats an integer count + unit, pluralizing with a simple `s`. */
 function pluralize(count: number, unit: string): string {
   return `${count} ${unit}${count === 1 ? '' : 's'} ago`;
 }
