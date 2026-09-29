@@ -8,7 +8,7 @@ import {
 } from '../validateOnlyExcludesStrandedDependents.ts';
 
 describe(validateOnlyExcludesStrandedDependents, () => {
-  it('returns undefined when the targeted workspace has no internal dependents (case A)', () => {
+  it('returns undefined when the targeted workspace does not have any internal dependents (case A)', () => {
     const a = makeWorkspace('a');
     const graph = makeGraph([a], {});
     const probe = makeProbe({ a: { has: true, tag: 'a-v1.0.0' } });
@@ -18,7 +18,7 @@ describe(validateOnlyExcludesStrandedDependents, () => {
     expect(result).toBeUndefined();
   });
 
-  it('returns undefined when a dependent has no commits (case B)', () => {
+  it('returns undefined when a dependent does not have any commits (case B)', () => {
     const a = makeWorkspace('a');
     const b = makeWorkspace('b');
     const graph = makeGraph([a, b], { b: ['a'] });
@@ -79,7 +79,7 @@ describe(validateOnlyExcludesStrandedDependents, () => {
     ]);
   });
 
-  it('catches the transitive case where B in --only bridges A to excluded D', () => {
+  it('catches the transitive case in which B in --only bridges A to excluded D', () => {
     // --only=[a, b]. a has commits. b has none but depends on a (joins R via fixpoint).
     // c depends on b, c excluded with own commits → flagged as downstream of b.
     const a = makeWorkspace('a');
@@ -96,7 +96,7 @@ describe(validateOnlyExcludesStrandedDependents, () => {
     expect(result).toStrictEqual([{ dir: 'c', downstreamOf: 'b', tag: 'c-v1.0.0' }]);
   });
 
-  it('walks through anticipated-fix dependents to surface deeper footguns in one pass', () => {
+  it('walks through anticipated-fix dependents to flag deeper stranded dependents in one pass', () => {
     // a (--only, has commits) <- b (excluded, has commits) <- c (excluded, has commits).
     // Both b and c must be flagged in a single pass.
     const a = makeWorkspace('a');
@@ -117,7 +117,7 @@ describe(validateOnlyExcludesStrandedDependents, () => {
     ]);
   });
 
-  it('returns undefined when no --only workspace has commits and none gain entry via propagation', () => {
+  it('returns undefined when the --only workspaces do not have any commits and none gain entry via propagation', () => {
     const a = makeWorkspace('a');
     const x = makeWorkspace('x');
     const graph = makeGraph([a, x], {});
@@ -129,7 +129,7 @@ describe(validateOnlyExcludesStrandedDependents, () => {
   });
 
   it('does not walk through --only workspaces that are not in R', () => {
-    // a (--only, no commits), b (--only, no commits but depends on nothing in R), c (excluded with commits, depends on b).
+    // a (--only, without commits), b (--only, without commits, depends on nothing in R), c (excluded with commits, depends on b).
     // Neither a nor b joins R (no source of commits). c must not be flagged.
     const a = makeWorkspace('a');
     const b = makeWorkspace('b');
@@ -156,7 +156,7 @@ describe(validateOnlyExcludesStrandedDependents, () => {
     expect(result).toStrictEqual([{ dir: 'b', downstreamOf: 'a', tag: undefined }]);
   });
 
-  it('memoizes hasCommits — each workspace is probed at most once', () => {
+  it('memoizes hasCommits, probing each workspace at most once', () => {
     const a = makeWorkspace('a');
     const b = makeWorkspace('b');
     const c = makeWorkspace('c');
@@ -182,7 +182,7 @@ describe(validateOnlyExcludesStrandedDependents, () => {
  * Builds a `DependencyGraph` from a textual edge spec without touching the filesystem.
  *
  * `edges` maps each workspace `dir` to the set of workspace `dir`s on which it depends. The
- * returned graph mirrors the shape produced by `buildDependencyGraph` so the validator
+ * returned graph mirrors the shape produced by `buildDependencyGraph` so that the validator
  * sees identical structure.
  */
 function makeGraph(workspaces: WorkspaceConfig[], edges: Record<string, string[]>): DependencyGraph {
@@ -224,7 +224,7 @@ function makeGraph(workspaces: WorkspaceConfig[], edges: Record<string, string[]
   return { packageNameToDir, dirToPackageName, dirToVersion: new Map(), dependentsOf, dependenciesOf };
 }
 
-/** Builds a `hasCommits` probe from a map of `dir` to `{ has, tag }`. Defaults to no commits. */
+/** Builds a `hasCommits` probe from a map of `dir` to `{ has, tag }`. Defaults to a result without commits. */
 function makeProbe(map: Record<string, CommitsProbeResult>): (workspace: WorkspaceConfig) => CommitsProbeResult {
   return (workspace) => map[workspace.dir] ?? { has: false, tag: undefined };
 }

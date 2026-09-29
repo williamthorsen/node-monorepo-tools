@@ -48,7 +48,7 @@ Initial release.
 
 /**
  * Covers adopting release-kit in a repo shaped like `templates.node-monorepo`: hand-written multi-version changelogs,
- * no `changelog.json`, and released current versions that were never tagged.
+ * a missing `changelog.json`, and released current versions that were never tagged.
  */
 describe('untagged changelog versions (tool)', () => {
   let tree: TempTree;
@@ -57,7 +57,7 @@ describe('untagged changelog versions (tool)', () => {
     tree = setupFixture();
   });
 
-  it('stops until every recorded current version is tagged, then keeps every version the tags do not rebuild', () => {
+  it('stops until every recorded current version is tagged, then keeps every version that the tags do not rebuild', () => {
     using _cwd = pointCwdAt(tree.dir, { chdir: true });
     const config = mergeMonorepoConfig(
       ['packages/api'],
@@ -131,7 +131,7 @@ function listHeadings(content: string): string[] {
 
 /**
  * Builds a git repo with one workspace, `api`, whose released versions are recorded only in hand-written changelogs.
- * The one tag, `v1.0.9`, matches no recorded version.
+ * The one tag, `v1.0.9`, does not match any recorded version.
  */
 function setupFixture(): TempTree {
   const tree = disposeOnTestFinished(createTempTree({}, { prefix: 'release-kit-untagged-' }));

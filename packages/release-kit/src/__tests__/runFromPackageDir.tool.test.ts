@@ -57,7 +57,7 @@ function seedMonorepo(): GitRepoFixture {
   repo.commit('chore: initial commit');
   repo.tag('pkg-a-v1.0.0');
   repo.tag('pkg-b-v1.0.0');
-  // The `##` ticket prefix is required by `classifyChangelogCommit`, which admits no unticketed commit.
+  // The `##` ticket prefix is required by `classifyChangelogCommit`, which rejects every unticketed commit.
   repo.commit('## pkg-a|feat: Add feature flag', { 'packages/pkg-a/feature.ts': 'export const flag = true;\n' });
   repo.commit('## pkg-b|fix: Correct patch', { 'packages/pkg-b/patch.ts': 'export const patched = true;\n' });
   return repo;

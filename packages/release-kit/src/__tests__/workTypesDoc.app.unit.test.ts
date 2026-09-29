@@ -30,7 +30,7 @@ describe('docs/work-types.md "Work types and tiers" table alignment with DEFAULT
       const config = DEFAULT_WORK_TYPES[row.key];
       assert(config !== undefined, `docs/work-types.md lists key "${row.key}" that is not in DEFAULT_WORK_TYPES`);
       // The `fmt` row uses "(excluded from changelog)" instead of the header because
-      // `fmt` carries `excludedFromChangelog: true`, so its header never renders.
+      // `fmt` sets `excludedFromChangelog: true`, so its header never renders.
       const expectedHeader = row.key === 'fmt' ? '(excluded from changelog)' : config.header;
       expect(row.header, `header for "${row.key}"`).toBe(expectedHeader);
     }
@@ -75,7 +75,7 @@ function parseWorkTypesTable(): DocWorkTypeRow[] {
   }
 
   if (rows.length === 0) {
-    throw new Error('docs/work-types.md "Work types and tiers" table has no rows');
+    throw new Error('docs/work-types.md "Work types and tiers" table does not contain any rows');
   }
   return rows;
 }

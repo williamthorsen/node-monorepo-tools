@@ -14,8 +14,8 @@ vi.mock(import('../init/detectRepoType.ts'), () => ({
   detectRepoType: mockDetectRepoType,
 }));
 
-// Partial, so that `reportConfigProblem` stays the real renderer: the stderr form a caller emits on an
-// unusable config is the subject of the assertions below.
+// Partial, so that `reportConfigProblem` stays the real renderer: The stderr form that a caller emits
+// on an unusable config is the subject of the assertions below.
 vi.mock(import('../loadValidatedConfig.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   loadValidatedConfig: mockLoadValidatedConfig,
@@ -72,7 +72,7 @@ describe(showTagPrefixesCommand, () => {
     expect(mockLoadValidatedConfig).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
   });
 
-  it('previews against derived defaults when no config file exists', async () => {
+  it('previews against derived defaults when the config file is missing', async () => {
     mockPreview.mockReturnValue({ workspaces: [], collisions: [], undeclaredCandidates: [] });
     using capture = captureStdio();
 
@@ -83,7 +83,7 @@ describe(showTagPrefixesCommand, () => {
     expect(capture.stdout).toContain('Workspace tag prefixes:');
   });
 
-  it('exits 1, reports the problem, and prints no preview when the config is unusable', async () => {
+  it('exits 1, reports the problem, and does not print a preview when the config is unusable', async () => {
     mockLoadValidatedConfig.mockResolvedValue({
       status: 'invalid',
       configFilePath: CONFIG_FILE_PATH,
@@ -129,7 +129,7 @@ describe(showTagPrefixesCommand, () => {
     expect(capture.stderr).not.toContain('Failed to load config');
   });
 
-  it('exits 0 when every workspace derives a prefix and no collisions or undeclared exist', async () => {
+  it('exits 0 when every workspace derives a prefix and the preview does not report any collision or undeclared prefix', async () => {
     mockPreview.mockReturnValue({
       workspaces: [
         {
@@ -154,7 +154,7 @@ describe(showTagPrefixesCommand, () => {
     expect(capture.stdout).toContain('2 tags');
   });
 
-  it('surfaces the declared legacy-prefix line with a recognized marker when tags exist', async () => {
+  it('prints the declared legacy-prefix line with a recognized marker when tags exist', async () => {
     mockPreview.mockReturnValue({
       workspaces: [
         {

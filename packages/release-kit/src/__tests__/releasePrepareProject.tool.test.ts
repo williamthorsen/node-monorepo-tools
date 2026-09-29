@@ -63,7 +63,7 @@ function setupFixture(): TempTree {
   run('git', ['tag', 'pkg-c-v1.0.0']);
 
   // A feat in pkg-a and pkg-b, and a fix in pkg-c. The `##` synthetic ticket prefix is required by
-  // `classifyChangelogCommit`, which admits no unticketed commit.
+  // `classifyChangelogCommit`, which rejects every unticketed commit.
   for (const name of ['pkg-a', 'pkg-b']) {
     tree.write(`packages/${name}/feature.ts`, `export const flag = true;\n`);
     run('git', ['add', '-A']);
@@ -136,7 +136,7 @@ describe('releasePrepareProject (tool)', () => {
       expect(rootChangelog).toContain('Add feature flag');
       expect(rootChangelog).toContain('Patch latent bug');
       // The v0.9.0 baseline was set against a single unticketed `chore` commit that the
-      // classifier rejects, and a release with no surviving entry is dropped, so only the
+      // classifier rejects, and a release without a surviving entry is dropped, so only the
       // new release's heading appears.
     });
   }, 60_000);
@@ -147,8 +147,8 @@ describe('releasePrepareProject (tool)', () => {
         execFileSync(command, args, { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
       };
 
-      // Anchor a project baseline past the fixture's workspace commits, so the only commit in
-      // the window is the root-level one landed below. The `release:` prefix keeps this commit
+      // Anchor a project baseline past the fixture's workspace commits, so that the only commit
+      // in the window is the root-level one committed below. The `release:` prefix keeps this commit
       // out of the window itself.
       tree.writeJson('package.json', { name: 'fixture-monorepo', version: '0.9.1', private: true });
       run('git', ['add', '-A']);
@@ -192,7 +192,7 @@ describe('releasePrepareProject (tool)', () => {
     });
   }, 60_000);
 
-  it('skips a window whose commits yield no changelog item, reporting them, and releases it at patch under --force', () => {
+  it('skips a window whose commits do not yield any changelog item, reporting them, and releases it at patch under --force', () => {
     anchorProjectBaseline(tree);
     tree.write('packages/pkg-a/notes.md', '# Notes\n');
     commitAll(tree, 'Update notes');
@@ -220,7 +220,7 @@ describe('releasePrepareProject (tool)', () => {
     });
   }, 60_000);
 
-  it('records a forced release whose window yields no item, and keeps its entry through the next release', () => {
+  it('records a forced release whose window does not yield any item, and keeps its entry through the next release', () => {
     anchorProjectBaseline(tree);
     tree.write('packages/pkg-a/notes.md', '# Notes\n');
     commitAll(tree, 'Update notes');
@@ -301,7 +301,7 @@ describe('releasePrepareProject (tool)', () => {
   it('overrides the project bump when --bump=major is supplied (1.x baseline)', () => {
     // Tag a `v1.0.0` baseline at the initial commit and move the root version to 1.x, so that the
     // pre-1.0 rule in `bumpVersion` does not collapse the major bump. The fixture's three feat/fix
-    // commits sit above the baseline, so a natural minor bump is in scope and `--bump=major`
+    // commits follow the baseline, so a natural minor bump is in scope and `--bump=major`
     // overrides it.
     execFileSync('git', ['tag', 'v1.0.0', 'HEAD~3'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
     tree.writeJson('package.json', { name: 'fixture-monorepo', version: '1.0.0', private: true });
@@ -392,7 +392,7 @@ describe('releasePrepareProject (tool)', () => {
   }, 60_000);
 
   it('writes a synthetic Notes / Forced version bump entry for empty-range project releases', () => {
-    // Move the project baseline tag to HEAD so the project stage finds zero commits since.
+    // Move the project baseline tag to HEAD so that the project stage finds zero commits since.
     // Per-workspace baselines stay at the initial commit, so workspaces still release naturally.
     execFileSync('git', ['tag', '--delete', 'v0.9.0'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
     execFileSync('git', ['tag', 'v0.9.0', 'HEAD'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -414,8 +414,8 @@ describe('releasePrepareProject (tool)', () => {
       expect(project.releaseType).toBe('patch');
       expect(project.newVersion).toBe('0.9.1');
 
-      // `renderChangelogMarkdown` renders the root CHANGELOG.md, so it leads with the
-      // `# Changelog` header and the version heading appears below.
+      // `renderChangelogMarkdown` renders the root CHANGELOG.md, which leads with the
+      // `# Changelog` header, with the version heading below it.
       const rootChangelogPath = join(tree.dir, 'CHANGELOG.md');
       expect(existsSync(rootChangelogPath)).toBe(true);
       const rootChangelog = readFileSync(rootChangelogPath, 'utf8');
@@ -444,14 +444,14 @@ describe('releasePrepareProject (tool)', () => {
   it('preserves prior changelog.json entries when an empty-range project release runs', () => {
     // The empty-range project branch must use upsert semantics. A plain overwrite would erase
     // prior structured history, because the synthetic branch produces only the new entry and
-    // reads no release window to replay the full log.
-    // Move the project baseline tag to HEAD so the project stage finds zero commits since,
+    // does not read any release window to replay the full log.
+    // Move the project baseline tag to HEAD so that the project stage finds zero commits since,
     // forcing the empty-range branch.
     execFileSync('git', ['tag', '--delete', 'v0.9.0'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
     execFileSync('git', ['tag', 'v0.9.0', 'HEAD'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
 
-    // Pre-seed the structured changelog with a prior entry that no current run could
-    // reproduce. This entry must survive the empty-range release.
+    // Pre-seed the structured changelog with a prior entry that the current run could
+    // not reproduce. This entry must survive the empty-range release.
     const priorEntry = {
       version: '0.8.0',
       date: '2026-01-15',
@@ -492,7 +492,7 @@ describe('releasePrepareProject (tool)', () => {
   it('narrows to the named workspace via prepareCommand, leaving the project release unreleased', async () => {
     // Exercise the CLI entry point directly so that the test reflects user-observable behavior
     // end-to-end: the named workspace releases, and the project tier is left alone. The
-    // untouched root version and absent root CHANGELOG.md are what prove the skip.
+    // untouched root version and the absent root CHANGELOG.md prove the skip.
     const { prepareCommand } = await import('../prepareCommand.ts');
 
     // Write a minimal release-kit config that declares the project block.
