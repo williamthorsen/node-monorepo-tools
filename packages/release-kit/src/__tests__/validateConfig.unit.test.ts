@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { validateConfig } from '../validateConfig.ts';
 
 describe(validateConfig, () => {
-  it('returns no errors for an empty config object', () => {
+  it("doesn't return any errors for an empty config object", () => {
     const { errors } = validateConfig({});
     expect(errors).toStrictEqual([]);
   });
@@ -219,8 +219,9 @@ describe(validateConfig, () => {
           ],
         });
         expectErrorAtPath(errors, 'workspaces[0].legacyIdentities[1]');
-        // Schema validation is all-or-nothing per field: when any entry is invalid, the
-        // whole `workspaces` field fails parse and downstream consumers see no config at all.
+        // Schema validation is all-or-nothing per field: When any entry is invalid, the
+        // whole `workspaces` field fails parse and downstream consumers don't receive any
+        // config at all.
         expect(config.workspaces).toBeUndefined();
       });
 
@@ -359,7 +360,7 @@ describe(validateConfig, () => {
       expect(errors).toContain(
         "retiredPackages[0]: tagPrefix 'old-core-v' collides with a declared legacyIdentities[].tagPrefix on workspace 'core'",
       );
-      // The colliding entry still reaches `config.retiredPackages`: the entry is structurally valid, so the schema
+      // The colliding entry still appears in `config.retiredPackages`: The entry is structurally valid, so the schema
       // parse succeeds, and the collision is a post-parse cross-field check that reports an error without rejecting
       // the parsed config.
       expect(config.retiredPackages).toStrictEqual([{ name: '@scope/retired', tagPrefix: 'old-core-v' }]);
@@ -395,8 +396,9 @@ describe(validateConfig, () => {
         ],
       });
       expectErrorAtPath(errors, 'retiredPackages[1]');
-      // Schema validation is all-or-nothing per field: when any entry is invalid, the
-      // whole `retiredPackages` field fails parse and downstream consumers see no config at all.
+      // Schema validation is all-or-nothing per field: When any entry is invalid, the
+      // whole `retiredPackages` field fails parse and downstream consumers don't receive any
+      // config at all.
       expect(config.retiredPackages).toBeUndefined();
     });
   });
@@ -486,7 +488,7 @@ describe(validateConfig, () => {
     it('returns a targeted migration error when cliffConfigPath is set', () => {
       const { errors } = validateConfig({ cliffConfigPath: 'custom/changelog.toml' });
       expect(errors).toStrictEqual([
-        'cliffConfigPath is no longer supported. release-kit reads changelog history from git directly and uses no external config file. Remove this field from your config, and delete the file it names.',
+        'cliffConfigPath is no longer supported. release-kit reads changelog history from git directly and does not use any external config file. Remove this field from the config, and delete the file that it names.',
       ]);
     });
 
@@ -624,7 +626,7 @@ describe(validateConfig, () => {
     it('returns a targeted migration error when shouldCreateGithubRelease is set', () => {
       const { errors } = validateConfig({ releaseNotes: { shouldCreateGithubRelease: true } });
       expect(errors).toContain(
-        'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow, which `release-kit init` scaffolds. Remove this field from your config.',
+        'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow, which `release-kit init` scaffolds. Remove this field from the config.',
       );
     });
 
@@ -658,12 +660,12 @@ describe(validateConfig, () => {
       expectErrorAtPath(errors, 'project.paths');
     });
 
-    it('returns an error when paths holds a non-string', () => {
+    it('returns an error when paths contains a non-string', () => {
       const { errors } = validateConfig({ project: { paths: [42] } });
       expectErrorAtPath(errors, 'project.paths[0]');
     });
 
-    it('returns an error when paths holds an empty string', () => {
+    it('returns an error when paths contains an empty string', () => {
       const { errors } = validateConfig({ project: { paths: [''] } });
       expect(errors).toContain('project.paths[0]: must be a non-empty string');
     });
@@ -733,7 +735,7 @@ describe(validateConfig, () => {
       expectErrorAtPath(errors, 'repoLabels.labels.bug.color');
     });
 
-    it('returns an error when a label entry carries an unknown field', () => {
+    it('returns an error when a label entry contains an unknown field', () => {
       const { errors } = validateConfig({
         repoLabels: { labels: { bug: { color: 'd73a4a', description: 'x', override: true } } },
       });
@@ -757,7 +759,7 @@ describe(validateConfig, () => {
       );
     });
 
-    it('returns no warnings when config is consistent', () => {
+    it("doesn't return any warnings when config is consistent", () => {
       const { warnings } = validateConfig({
         changelogJson: { enabled: true },
         releaseNotes: { shouldInjectIntoReadme: true },
@@ -765,7 +767,7 @@ describe(validateConfig, () => {
       expect(warnings).toStrictEqual([]);
     });
 
-    it('returns no warnings for empty config', () => {
+    it("doesn't return any warnings for empty config", () => {
       const { warnings } = validateConfig({});
       expect(warnings).toStrictEqual([]);
     });
@@ -788,7 +790,7 @@ function expectErrorAtPath(errors: readonly string[], path: string): void {
 }
 
 /**
- * Asserts that at least one error in `errors` mentions the given substring, for a top-level error that has no path
+ * Asserts that at least one error in `errors` mentions the given substring, for a top-level error without a path
  * prefix, such as Zod's `.strict()` report `Unrecognized key: "X"`, without pinning the wording.
  */
 function expectErrorMentioning(errors: readonly string[], substring: string): void {

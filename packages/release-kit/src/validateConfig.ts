@@ -4,8 +4,8 @@ import { isRecord } from './typeGuards.ts';
 import { type ReleaseKitConfig, releaseKitConfigSchema } from './types.ts';
 
 /**
- * Validates a raw config object loaded from `.config/release-kit.config.ts`. A config that fails the schema parse
- * returns `{}` with the errors; one that passes also goes through the cross-field checks.
+ * Validates a raw config object loaded from `.config/release-kit.config.ts`. Returns `{}` with the errors for a config
+ * that fails the schema parse, and runs the cross-field checks on one that passes.
  */
 export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors: string[]; warnings: string[] } {
   if (!isRecord(raw)) {
@@ -54,14 +54,14 @@ function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecation
 
   if (Object.hasOwn(cleaned, 'cliffConfigPath')) {
     errors.push(
-      'cliffConfigPath is no longer supported. release-kit reads changelog history from git directly and uses no external config file. Remove this field from your config, and delete the file it names.',
+      'cliffConfigPath is no longer supported. release-kit reads changelog history from git directly and does not use any external config file. Remove this field from the config, and delete the file that it names.',
     );
     delete cleaned['cliffConfigPath'];
   }
 
   if (isRecord(cleaned['releaseNotes']) && Object.hasOwn(cleaned['releaseNotes'], 'shouldCreateGithubRelease')) {
     errors.push(
-      'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow, which `release-kit init` scaffolds. Remove this field from your config.',
+      'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow, which `release-kit init` scaffolds. Remove this field from the config.',
     );
     const releaseNotesCopy = { ...cleaned['releaseNotes'] };
     delete releaseNotesCopy['shouldCreateGithubRelease'];
@@ -90,7 +90,10 @@ function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecation
   return { cleaned, deprecationErrors: errors };
 }
 
-/** Formats a Zod issue as a single-line error prefixed by its path; an issue without a path renders bare. */
+/**
+ * Formats a Zod issue as a single-line error prefixed by its path, or as the bare message when the issue doesn't have
+ * a path.
+ */
 function formatZodIssue(issue: z.core.$ZodIssue): string {
   const path = renderPath(issue.path);
   const message = customizeMessage(issue);
