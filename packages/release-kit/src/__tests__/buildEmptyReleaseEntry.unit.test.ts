@@ -19,7 +19,7 @@ describe(buildEmptyReleaseEntry, () => {
     expect(entry.sections[0]?.items).toStrictEqual([{ description: 'Forced version bump.' }]);
   });
 
-  it('returns no extra top-level keys (round-trip safe)', () => {
+  it('returns an entry without extra top-level keys (round-trip safe)', () => {
     const entry = buildEmptyReleaseEntry('1.2.3', '2026-05-06');
 
     expect(Object.keys(entry).toSorted()).toStrictEqual(['date', 'sections', 'version']);

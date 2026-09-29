@@ -182,7 +182,7 @@ describe(buildDependencyGraph, () => {
     );
   });
 
-  it('omits the version of a workspace whose package.json has no string version', () => {
+  it('omits the version of a workspace whose package.json does not have a string version', () => {
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('private')) {
         return JSON.stringify({ name: '@scope/private', private: true });
@@ -196,7 +196,7 @@ describe(buildDependencyGraph, () => {
     expect(graph.packageNameToDir.size).toBe(2);
   });
 
-  it('returns empty maps when no workspaces have workspace dependencies', () => {
+  it('returns empty maps when the workspaces do not have workspace dependencies', () => {
     const comp = makeWorkspace('standalone');
 
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@scope/standalone', version: '1.0.0' }));
@@ -207,7 +207,7 @@ describe(buildDependencyGraph, () => {
     expect(graph.dependentsOf.size).toBe(0);
   });
 
-  it('handles workspaces with no packageFiles gracefully', () => {
+  it('handles workspaces without packageFiles gracefully', () => {
     const comp: WorkspaceConfig = {
       dir: 'empty',
       name: '@test/empty',
@@ -244,7 +244,7 @@ describe(buildDependencyGraph, () => {
     expect(() => buildDependencyGraph([makeWorkspace('core')])).toThrow(expect.objectContaining({ cause: underlying }));
   });
 
-  it('names the package file holding invalid JSON', () => {
+  it('names the package file containing invalid JSON', () => {
     mockReadFileSync.mockReturnValue('{ not valid json');
 
     expect(() => buildDependencyGraph([makeWorkspace('core')])).toThrow(
@@ -252,7 +252,7 @@ describe(buildDependencyGraph, () => {
     );
   });
 
-  it('preserves the underlying error as the cause when a package file holds invalid JSON', () => {
+  it('preserves the underlying error as the cause when a package file contains invalid JSON', () => {
     mockReadFileSync.mockReturnValue('{ not valid json');
 
     expect(() => buildDependencyGraph([makeWorkspace('core')])).toThrow(

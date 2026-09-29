@@ -42,7 +42,7 @@ describe(extractVersion, () => {
     expect(extractVersion('release-kit-v1.0.0')).toBe('1.0.0');
   });
 
-  it('returns the full tag when no version pattern is found', () => {
+  it('returns the full tag when the tag does not contain a version pattern', () => {
     expect(extractVersion('not-a-version')).toBe('not-a-version');
   });
 

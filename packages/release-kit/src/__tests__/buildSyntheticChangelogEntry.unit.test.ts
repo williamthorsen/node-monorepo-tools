@@ -34,7 +34,7 @@ describe(buildSyntheticChangelogEntry, () => {
     ]);
   });
 
-  it('produces an empty items list when no propagated-from entries are supplied', () => {
+  it('produces an empty items list when the caller does not supply any propagated-from entries', () => {
     const entry = buildSyntheticChangelogEntry([], '0.1.0', '2024-03-01');
 
     expect(entry.sections).toHaveLength(1);
