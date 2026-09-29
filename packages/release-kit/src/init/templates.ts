@@ -111,11 +111,12 @@ on:
         required: false
         type: string
       bump:
-        description: 'Override version bump type (leave empty to auto-detect from commits)'
+        description: 'Version bump type (auto detects it from commits)'
         required: false
         type: choice
+        default: auto
         options:
-          - ''
+          - auto
           - patch
           - minor
           - major
@@ -134,7 +135,7 @@ jobs:
     uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@workflow/release-v1
     with:
       only: \${{ inputs.only }}
-      bump: \${{ inputs.bump }}
+      bump: \${{ inputs.bump != 'auto' && inputs.bump || '' }}
       force: \${{ inputs.force }}
 `;
   }
@@ -146,11 +147,12 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: 'Override version bump type (leave empty to auto-detect from commits)'
+        description: 'Version bump type (auto detects it from commits)'
         required: false
         type: choice
+        default: auto
         options:
-          - ''
+          - auto
           - patch
           - minor
           - major
@@ -168,7 +170,7 @@ jobs:
   release:
     uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@workflow/release-v1
     with:
-      bump: \${{ inputs.bump }}
+      bump: \${{ inputs.bump != 'auto' && inputs.bump || '' }}
       force: \${{ inputs.force }}
 `;
 }
