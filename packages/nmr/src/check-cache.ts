@@ -71,7 +71,7 @@ export interface ReplayLine {
  * run that last vouched for them.
  *
  * A list rather than one excerpt: a composite's entry contains its constituents' lines, and a nested one's are
- * spliced into its parent's, where the attribution cannot be re-derived from the entry that contains them.
+ * spliced into its parent's, after which the attribution cannot be re-derived from the entry that contains them.
  *
  * The witness admits a constituent's line into the assembly that its parent records: a run writes it when it
  * records an excerpt, and restamps it when it recalls one and replays it.
@@ -317,9 +317,9 @@ export function findStaleBuildOutput(
 }
 
 /**
- * Renders the warning for a `--no-cache` that appears after the command name, where it is an argument to the
- * command rather than a flag to nmr. nmr passes the argument on unchanged, so the warning is the only sign that
- * nmr did not read it.
+ * Renders the warning for a `--no-cache` that appears after the command name, which makes it an argument to
+ * the command rather than a flag to nmr. nmr passes the argument on unchanged, so the warning is the only sign
+ * that nmr did not read it.
  */
 export function formatMisplacedNoCacheWarning(command: string, style: OutputStyle): string {
   return (
