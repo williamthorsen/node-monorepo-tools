@@ -353,7 +353,7 @@ const it = baseIt
  * visible in the pattern, and a unit test replicating that call would keep passing if Vitest stopped passing it.
  */
 // The block's budget rather than the hook's: A file-scoped fixture is built inside the first test that names it,
-// where `testTimeout` applies and the tier's 30 seconds will not cover a real Vitest run.
+// so `testTimeout` applies to it, and the tier's 30 seconds will not cover a real Vitest run.
 describe('the published Vitest config, run for real', { timeout: 120_000 }, () => {
   // `src/uncovered.ts` appearing here also proves a source untouched by any test is reported rather than dropped.
   it('measures the sources and nothing else', ({ project }) => {

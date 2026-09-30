@@ -66,7 +66,7 @@ const it = baseIt.extend('run', { scope: 'file' }, ({}, { onCleanup }) => {
  * wrong root finds nothing and passes, which is the same green as a conformant repo's.
  */
 // The block's budget rather than the hook's: A file-scoped fixture is built inside the first test that names it,
-// where `testTimeout` applies and the tier's 30 seconds will not cover a real Vitest run.
+// so `testTimeout` applies to it, and the tier's 30 seconds will not cover a real Vitest run.
 describe('the exported conventions check, wired into a real run', { timeout: 120_000 }, () => {
   it('fails the run into which it is wired', ({ run }) => {
     expect(run.status).not.toBe(0);
