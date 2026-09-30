@@ -9,21 +9,7 @@ import {
 } from '../format-check.ts';
 import { buildPopulatedCheckResult } from '../test-utils/buildPopulatedCheckResult.ts';
 
-// region | Helpers
 const FIXED_NOW = new Date('2026-04-15T00:00:00Z');
-
-function emptyScopeResult(): ScopeCheckResult {
-  return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
-}
-
-function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
-  return {
-    dev: emptyScopeResult(),
-    prod: emptyScopeResult(),
-    ...overrides,
-  };
-}
-// endregion | Helpers
 
 // -- severityIndicator --
 
@@ -769,3 +755,17 @@ describe(formatCheckJson, () => {
     expect(devOnly).toMatchObject({ summary: { status: 'vulnerabilities-found', count: 1 } });
   });
 });
+
+// region | Helpers
+function emptyScopeResult(): ScopeCheckResult {
+  return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
+}
+
+function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
+  return {
+    dev: emptyScopeResult(),
+    prod: emptyScopeResult(),
+    ...overrides,
+  };
+}
+// endregion | Helpers

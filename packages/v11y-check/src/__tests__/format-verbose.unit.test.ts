@@ -6,37 +6,7 @@ import { formatRelativeTime } from '../format-time.ts';
 import { formatCheckVerboseText } from '../format-verbose.ts';
 import { buildPopulatedCheckResult } from '../test-utils/buildPopulatedCheckResult.ts';
 
-// region | Helpers
-function emptyScopeResult(): ScopeCheckResult {
-  return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
-}
-
-function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
-  return {
-    dev: emptyScopeResult(),
-    prod: emptyScopeResult(),
-    ...overrides,
-  };
-}
-
 const FIXED_NOW = new Date('2026-04-15T00:00:00Z');
-
-/** Lists the lines that a description occupies in the verbose output of a single unallowed entry. */
-function listDescriptionLines(description: string, style: OutputStyle = 'rich'): string[] {
-  const result = makeCheckResult({
-    prod: {
-      allowed: [],
-      belowThreshold: [],
-      stale: [],
-      unallowed: [{ description, id: 'GHSA-wrap', path: 'pkg', paths: ['pkg'], url: 'https://example.com/wrap' }],
-    },
-  });
-  const lines = formatCheckVerboseText(result, ['prod'], style, FIXED_NOW).split('\n');
-  const linkIndex = lines.findIndex((line) => line.includes('link: '));
-  // A blank line separates the link from the description, and another ends the block.
-  return lines.slice(linkIndex + 2, lines.indexOf('', linkIndex + 2));
-}
-// endregion | Helpers
 
 // -- formatCheckVerboseText: unallowed entries --
 
@@ -633,3 +603,33 @@ describe(formatRelativeTime, () => {
     expect(formatRelativeTime('not-a-date', nowDate)).toBe('');
   });
 });
+
+// region | Helpers
+function emptyScopeResult(): ScopeCheckResult {
+  return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
+}
+
+/** Lists the lines that a description occupies in the verbose output of a single unallowed entry. */
+function listDescriptionLines(description: string, style: OutputStyle = 'rich'): string[] {
+  const result = makeCheckResult({
+    prod: {
+      allowed: [],
+      belowThreshold: [],
+      stale: [],
+      unallowed: [{ description, id: 'GHSA-wrap', path: 'pkg', paths: ['pkg'], url: 'https://example.com/wrap' }],
+    },
+  });
+  const lines = formatCheckVerboseText(result, ['prod'], style, FIXED_NOW).split('\n');
+  const linkIndex = lines.findIndex((line) => line.includes('link: '));
+  // A blank line separates the link from the description, and another ends the block.
+  return lines.slice(linkIndex + 2, lines.indexOf('', linkIndex + 2));
+}
+
+function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
+  return {
+    dev: emptyScopeResult(),
+    prod: emptyScopeResult(),
+    ...overrides,
+  };
+}
+// endregion | Helpers
