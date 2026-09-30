@@ -121,7 +121,7 @@ on:
           - minor
           - major
       force:
-        description: 'Force a release even when no commits or no bump-worthy commits exist (defaults to patch; combine with --bump for a different level)'
+        description: 'Force a release even when there are not any commits, or any bump-worthy commits, since the last release (defaults to patch; combine with --bump for a different level)'
         required: false
         type: boolean
         default: false
@@ -157,7 +157,7 @@ on:
           - minor
           - major
       force:
-        description: 'Force a release even when no commits or no bump-worthy commits exist (defaults to patch; combine with --bump for a different level)'
+        description: 'Force a release even when there are not any commits, or any bump-worthy commits, since the last release (defaults to patch; combine with --bump for a different level)'
         required: false
         type: boolean
         default: false
