@@ -429,44 +429,11 @@ rules:
       - vitest.config.ts
       - vitest.root.config.ts
   where:
-    version: '1'
-    swept-at: 2026-09-29
+    version: '2'
+    swept-at: 2026-09-30
     detected: true
     roots:
-      - .agents
-      - .claude
-      - .config
-      - .editorconfig
-      - .envrc
-      - .github
-      - .gitignore
-      - .meta
-      - .prettierignore
-      - .prettierrc.js
-      - .tool-versions
-      - AGENTS.md
-      - CHANGELOG.md
-      - LICENSE
-      - README.md
-      - __tests__
-      - docs
-      - eslint.config.ts
-      - eslint.restrictions.ts
-      - lefthook.yml
-      - package.json
-      - packages/change-grammar
-      - packages/nmr
-      - packages/nmr-core
-      - packages/release-kit
-      - packages/v11y-check
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - scripts
-      - taze.config.ts
-      - tsconfig.json
-      - vite.config.ts
-      - vitest.config.ts
-      - vitest.root.config.ts
+      - .
 rejections:
   - rule: capitalization-after-colon
     rule-version: '1'
@@ -3584,447 +3551,437 @@ rejections:
     phrase: so it checks against the installed version
     ground: a lone so that states a direct result
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/change-grammar/src/__tests__/verify.unit.test.ts
     phrase: places {breaking} where "!" is not distinguishable from its neighbour.
-    ground: 'where names a place: the position in which the template places the token'
+    ground: 'names a place: the position in the template at which the token is placed'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/change-grammar/src/__tests__/verify.unit.test.ts
     phrase: refuses {breaking} beside free text, where the marker is not distinguishable
-    ground: 'where names a place: the position beside free text inside the template'
+    ground: 'names a place: the position beside free text in the template'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/change-grammar/src/verify.ts
-    phrase: hiding where the group begins
-    ground: 'where names a place: the position in the string at which the group begins'
+    phrase: hiding where the group begins.
+    ground: 'names a place: the position in the template at which the group begins'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/change-grammar/src/verify.ts
     phrase: places {${node.name}} where "!" is not distinguishable from its neighbour.
-    ground: 'where names a place: the position in which the template places the token'
+    ground: 'names a place: the position in the template at which the token is placed'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/change-grammar/src/verify.ts
     phrase: Reports `{breaking}` placed where the marker cannot be told from its neighbours
-    ground: 'where names a place: the position of the token in the template'
+    ground: 'names a place: the position in the template at which the token is placed'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/agents/guidance/rulebooks/nmr.md
-    phrase: 'Every test file lives under a «codespan» directory and names its isolation tier last: «codespan» , where any earlier segment is free-form documentation.'
-    ground: defines a placeholder in the preceding expression
+    phrase: where any earlier segment is free-form documentation
+    ground: follows the expression `<subject>[.<aspect>].<tier>.test.ts` and says what its earlier segments stand for, which is the definition use
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/agents/README.md
-    phrase: Everything else belongs in the topic document under «codespan» that covers it, reachable on demand at «codespan» , with a pointer from the cheatsheet naming the topic and its document so that an agent knows where to look.
-    ground: names a place
+    phrase: so that an agent knows where to look
+    ground: 'names a place: the document in which to look'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/docs/reporting.md
     phrase: Where a verbosity comes from
-    ground: "Outside the rule: a heading asking where a value's source is, which is a place-like use."
+    ground: a heading that asks where the verbosity comes from, which is a place
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/docs/scripts.md
-    phrase: Because discarding an entry that chains anything else onto it ( «codespan» , or «codespan» ) would lose those steps, nmr rejects the invocation instead, naming the file, the key, and where the steps belong.
-    ground: 'outside the rule: names a place (the script where the steps go)'
+    phrase: where it goes
+    ground: 'names a place: the tier in which the field belongs'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/docs/scripts.md
-    phrase: 'Declaring a field at the wrong tier fails with a message naming it and where it goes, as does a key that nmr does not recognize at all: A typo cannot degrade into a setting that silently applies nowhere.'
-    ground: 'outside the rule: names a place (the tier where the field belongs)'
+    phrase: where the steps belong
+    ground: 'names a place: the location that the steps should move to'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/docs/scripts.md
     phrase: Where trailing arguments go
-    ground: 'outside the rule: names a place; also a heading'
+    ground: a heading that asks where the arguments are placed, which is a place
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/docs/upgrades.md
-    phrase: A «codespan» block in the root «codespan» fails the command, which names every entry that the block contains and where to move it; see dependency upgrades for why the block is inert.
-    ground: "Outside the rule: 'where' names a place."
+    phrase: where it runs
+    ground: 'names a place: the location that the command runs from'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/docs/upgrades.md
-    phrase: 'What it covers depends on where it runs:'
-    ground: "Outside the rule: 'where' names a place (the directory the command runs from)."
+    phrase: where to move it
+    ground: 'names a place: the destination of each entry'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/docs/vitest.md
-    phrase: '**The condition is resolved by a plugin rather than named as a Vite condition, which is what bounds its reach.** Vitest turns «codespan» into «codespan» flags on the worker process, where Node applies every entry to each package that it resolves natively.'
-    ground: 'outside the rule: names a place (in the worker process)'
+    phrase: on the worker process, where Node applies every entry
+    ground: 'locative: Node applies the flags inside that process'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/docs/vitest.md
-    phrase: A build that copies «codespan» sources rather than compiling them puts a second copy of the suite under «codespan» , where it is collected and passes green against stale code, and nothing in the run says so.
-    ground: 'outside the rule: names a place'
+    phrase: where it is collected and passes green against stale code
+    ground: 'names a place: the output directory that contains the copy'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/docs/vitest.md
-    phrase: "A package's «codespan» , plus whatever binaries it spawns, are a good statement of where its «codespan» boundary is: A bundled dependency is inside the package's own closure and is always present, so reaching one is «codespan» ."
-    ground: 'outside the rule: names a place (the location of a boundary)'
+    phrase: where its `unit` boundary is
+    ground: 'names a place: where the boundary is located'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/docs/vitest.md
     phrase: Where to put fixtures
-    ground: 'outside the rule: names a place; also a heading'
+    ground: a heading that asks where fixtures go, which is a place
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/docs/workspace.md
-    phrase: "Patterns follow pnpm's own semantics: «codespan» , deeper globs such as «codespan» , exact paths such as «codespan» , and «codespan» -prefixed exclusions such as «codespan» or «codespan» , which filter every directory that the positive patterns matched regardless of where they appear in the list."
-    ground: "Outside the rule: 'where' names a position in the list, which is a place."
+    phrase: regardless of where they appear in the list
+    ground: 'outside the rule: `where` names a place, the position of the patterns in the list'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/README.md
-    phrase: nmr's key feature is that the same command runs different scripts depending on where it is invoked.
-    ground: 'names a place: the invocation directory'
+    phrase: depending on where it is invoked
+    ground: 'names a place: the directory from which the command is invoked'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/README.md
-    phrase: Repo-wide tests and scripts often need to know where the monorepo root is, or which directories its workspace packages live in.
-    ground: names a place
+    phrase: need to know where the monorepo root is
+    ground: 'names a place: the location of the monorepo root'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/README.md
-    phrase: Where «codespan» is invoked
-    ground: 'names a place: the invocation directory'
+    phrase: Where `nmr` is invoked
+    ground: names a place (the invocation directory), in a verbless table header
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/__tests__/bootstrap.tool.test.ts
-    phrase: Reads the nmr-core manifest fields on which the bootstrap depends, failing loudly when they are not where expected.
-    ground: 'outside the rule: "where" names a place, the fields'' location in the manifest'
+    phrase: failing loudly when they are not where
+    ground: 'names a place: the location in the manifest at which the fields are expected'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/__tests__/check-cache-gate.tool.test.ts
-    phrase: 'Restoring a tree restores none of its build output: «codespan» and «codespan» leave «codespan» where it was.'
-    ground: 'outside the rule: names a place'
+    phrase: leave `dist` where
+    ground: 'names a place: the location of `dist` on disk'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/__tests__/check-cache-gate.tool.test.ts
-    phrase: The command wrote where nmr never saw it, so the pass stands and there is nothing to replay.
-    ground: 'outside the rule: names a place (the descriptor it wrote to)'
+    phrase: The command wrote where nmr never saw it
+    ground: 'names a place: the destination that the command wrote to'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/__tests__/cli.tool.test.ts
-    phrase: A config mistake names a file to edit; a stack trace names where nmr noticed it, which is nmr's business.
-    ground: 'outside the rule: "where" names a place in nmr''s code'
+    phrase: "'anchor-where': 'cat where.txt >> ${anchorLogFile}'"
+    ground: 'not prose: a config-file fixture literal in which `where` appears only in a script name and a filename'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/__tests__/cli.tool.test.ts
-    phrase: "import { defineConfig } from '${NMR_PACKAGE_DIR}/dist/esm/defineConfig.js'; export default defineConfig({ rootScripts: { 'anchor-where': 'cat where.txt >> ${anchorLogFile}', 'anchor-chain': 'nmr anchor-inner', 'anchor-inner': 'echo inner >> ${anchorLogFile}', }, workspaceScripts: { 'anchor-where': 'cat where.txt >> ${anchorLogFile}', }, });"
-    ground: 'not prose: a config-file fixture'
+    phrase: a stack trace names where nmr noticed it
+    ground: "outside the rule: `where` names a place, the location in nmr's code at which it noticed the mistake"
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/__tests__/kit-bin-checks.tool.test.ts
     phrase: passes a committed wrapper outside a git repository, where the check cannot read a tracked listing
-    ground: "outside the rule: 'where' names a place (outside a repository)"
+    ground: '`where` names a place: the location outside a git repository'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/__tests__/kit-pnpm-field-checks.unit.test.ts
-    phrase: A string where a settings object belongs configures nothing, so it is malformed rather than a dead block.
-    ground: "outside the rule: 'where' names a place in the manifest"
+    phrase: A string where a settings object belongs configures nothing
+    ground: '`where` names a place: the position in the config that a settings object should occupy'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/__tests__/resolver.unit.test.ts
     phrase: rejects $scenario, naming where it belongs
-    ground: 'names a place: the config file and key where a step list belongs'
+    ground: '`where` names a place: the location in which the script belongs'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/__tests__/runCli.unit.test.ts
-    phrase: The remedy follows from where the step was declared, so each origin gets the edit that resolves it.
-    ground: 'names a place: the file in which the step was declared'
+    phrase: The remedy follows from where the step was declared
+    ground: '`where` names a place: the file that declares the step (`.config/nmr.config.ts` or `package.json`), as the test cases below it show'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/__tests__/tests.tool.test.ts
     phrase: names the file outside a tests directory, and where it belongs
-    ground: 'names a place: the directory where the file belongs'
+    ground: 'names a place: the directory in which the file belongs'
   - rule: where
-    rule-version: '1'
-    file: packages/nmr/src/__tests__/tests.tool.test.ts
-    phrase: "The block's budget rather than the hook's: A file-scoped fixture is built inside the first test that names it, where «codespan» applies and the tier's 30 seconds will not cover a real Vitest run."
-    ground: 'names a place: the directory where the file belongs'
-  - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/__tests__/tests.unit.test.ts
-    phrase: Derived from this file's own location rather than from the function under test, so that the assertion has an independent source for where the root is.
-    ground: where names a place (the root's location)
+    phrase: an independent source for where the root is
+    ground: '`where` names a place: the location of the repository root'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/__tests__/vitest-config.tool.test.ts
-    phrase: The alias target is outside «codespan» , where neither collection nor coverage includes it, so only the import can load it.
-    ground: 'names a place: the directory outside src/'
+    phrase: The alias target is outside `src/`, where neither collection nor coverage
+    ground: 'names a place: the location outside `src/`'
   - rule: where
-    rule-version: '1'
-    file: packages/nmr/src/__tests__/vitest-config.tool.test.ts
-    phrase: "The block's budget rather than the hook's: A file-scoped fixture is built inside the first test that names it, where «codespan» applies and the tier's 30 seconds will not cover a real Vitest run."
-    ground: "names a place: the location 'inside the first test that names it'"
-  - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/__tests__/vitest-source-resolution.unit.test.ts
-    phrase: Because «codespan» is a bundler condition that Node never reads, a package may point it where only Vite's own extension and index resolution reaches.
-    ground: "outside the rule: 'where' names a location on disk; the sentence's so was repaired separately"
+    phrase: a package may point it where only Vite's own extension and index resolution reaches
+    ground: '`where` names a place: the file location that the `source` condition points to'
   - rule: where
-    rule-version: '1'
-    file: packages/nmr/src/check-cache.ts
-    phrase: "A list rather than one excerpt: a composite's entry contains its constituents' lines, and a nested one's are spliced into its parent's, where the attribution cannot be re-derived from the entry that contains them."
-    ground: "names a place: the parent's entry"
-  - rule: where
-    rule-version: '1'
-    file: packages/nmr/src/check-cache.ts
-    phrase: Renders the warning for a «codespan» that appears after the command name, where it is an argument to the command rather than a flag to nmr.
-    ground: 'names a place: the position after the command name'
-  - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/commands/__tests__/taze.unit.test.ts
-    phrase: Appending would put the flag past a trailing «codespan» , where taze collects it instead of reading it.
-    ground: "outside the rule: 'where' names a position in the argument list"
+    phrase: past a trailing `--`, where taze collects it instead of reading it
+    ground: 'names a place: the position in the argument list after `--`'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/commands/build.ts
-    phrase: '«codespan» names where the emit will be published, not where the text is now: «codespan» reconstructs the originating source file by swapping the «codespan» prefix, and aliases resolve from that source location.'
-    ground: 'outside the rule: both uses name a location on disk (the verbs were repaired under plain-speech)'
+    phrase: '`outputFile` names where the emit will be published, not where the text is now'
+    ground: 'names a place: the file location that is published versus the current one'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/commands/build.ts
-    phrase: «codespan» relies on every emitted file being under «codespan» to reconstruct its source-resolution context; a stray «codespan» would push «codespan» files outside that tree, where their sources cannot be reconstructed.
-    ground: 'outside the rule: names a place (a directory tree)'
+    phrase: would push `.d.ts` files outside that tree, where
+    ground: 'names a place: the location outside the `outDir` tree'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/config.ts
-    phrase: Does nothing outside a monorepo root, where «codespan» is a key that this tier does not honor.
-    ground: where names a place (outside a monorepo root)
+    phrase: Does nothing outside a monorepo root, where
+    ground: "names a place: refers back to the locative 'outside a monorepo root'"
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/config.ts
     phrase: Names where a key that this tier does not honor belongs.
-    ground: where names a place (the config in which the key belongs)
+    ground: 'names a place: the config location to which the key belongs'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
+    file: packages/nmr/src/config.ts
+    phrase: naming the offenders and where they go
+    ground: 'names a place: the config location to which the keys go'
+  - rule: where
+    rule-version: '2'
     file: packages/nmr/src/config.ts
     phrase: The keys that each tier honors, and where the other tier's belong.
-    ground: where names a place
+    ground: "names a place: the config location to which the other tier's keys belong"
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/config.ts
-    phrase: Throws when a config declares a recognized key belonging to the other tier, naming the offenders and where they go.
-    ground: where names a place (the config to which the keys move)
-  - rule: where
-    rule-version: '1'
-    file: packages/nmr/src/config.ts
-    phrase: where an element is a command string or «codespan»
+    phrase: where an element is a command string
     ground: defines the symbol `element` in the preceding type expression
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/help.ts
-    phrase: Renders each registry entry as «codespan» , where «codespan» is «codespan» for entries in «codespan» and a space otherwise.
-    ground: 'outside the rule: names a place or position, or defines a placeholder'
+    phrase: Renders each registry entry as `  <key><marker>  <value>`, where `marker`
+    ground: defines the placeholder `marker` in the preceding expression
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/helpers/__tests__/transcript.unit.test.ts
     phrase: given both streams with content, follows stdout with stderr, naming where it begins
-    ground: where names a place (the position in the transcript at which stderr begins)
+    ground: 'names a place: the position in the transcript at which stderr begins'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/helpers/deriveExcerpt.ts
-    phrase: "The excerpt is the last blank-line-delimited block: a tool that prints progress separates its closing statement with a blank line, and that blank line is the tool's own mark of where its summary starts."
-    ground: names a place in the output
+    phrase: that blank line is the tool's own mark of where its summary starts
+    ground: 'names a place: the position in the output at which the summary starts'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/helpers/deriveExcerpt.ts
-    phrase: The line is bounded by «codespan» alone; the ceiling on a verdict line is applied where that line is composed.
-    ground: names the place in the code where the line is composed
+    phrase: the ceiling on a verdict line is applied where that line is
+    ground: 'names a place: the point in the code at which the line is composed'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/helpers/filter-selection.ts
-    phrase: Runs from the monorepo root, where the delegate runs, so that a path pattern resolves against the same directory in the probe as in the run that it stands in for.
-    ground: names a place (the root directory)
+    phrase: Runs from the monorepo root, where the delegate runs
+    ground: 'names a place: the monorepo root directory'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/helpers/package-json.ts
-    phrase: Returns the message rejecting a «codespan» script value that is not a string, naming where a step list belongs when the value is one.
-    ground: names a place (the config key where a step list belongs)
+    phrase: naming where a step list
+    ground: 'names a place: the config location to which a step list belongs'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/helpers/transcript.ts
     phrase: Applied where the bytes are stored rather than where they are captured.
-    ground: names places in the code path
+    ground: 'names a place: the points in the code at which the bytes are stored and captured'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/helpers/transcript.ts
-    phrase: Names where a command's stderr begins, in nmr's voice so that it is not mistaken for the command's own.
-    ground: names a place in the transcript
+    phrase: Names where a command's stderr begins
+    ground: 'names a place: the position in the transcript at which stderr begins'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/recording.ts
-    phrase: "The attribution is kept even when one line's own scope and command are the header's, which the verdict line drops: A reader of several lines needs every one of them to say where it came from."
-    ground: 'outside the rule: names a place or position, or defines a placeholder'
+    phrase: say where it came from
+    ground: 'names a place: the scope and command that the line came from'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/report-format.ts
-    phrase: Renders the rejection of a value off the format ladder, naming where it was written.
-    ground: names a place (the source where the value was written)
+    phrase: naming where it was written
+    ground: 'names a place: the source (config field, flag, or variable) in which the value was written'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/reportCliFailure.ts
-    phrase: A stack records where nmr noticed a problem, which says nothing about the file that a user has to edit; for nmr's own fault it is where a report has to start.
-    ground: names places in the code (where nmr noticed the problem, where a report starts)
+    phrase: A stack records where nmr noticed a problem
+    ground: 'names a place: the code location that the stack records'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
+    file: packages/nmr/src/reportCliFailure.ts
+    phrase: it is where a report has to start
+    ground: 'names a place: the code location that the stack records'
+  - rule: where
+    rule-version: '2'
     file: packages/nmr/src/resolver.ts
-    phrase: 'This is what an invocation rejects on, read where the command runs rather than raised from resolution: The same scripts are resolved speculatively, for packages that nobody named.'
-    ground: names the place in the code where the command runs
+    phrase: read where the command runs
+    ground: 'names a place: the call site at which the command runs, set against resolution'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/resolver.ts
     phrase: Where a resolved script was read from.
-    ground: names a place (the registry or file that the script was read from)
+    ground: 'names a place: the file from which the script was read'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/runCli.ts
-    phrase: «codespan» is propagated to hook subprocesses so that each hook selects the root registry on its own, independent of where the child derives its context from.
-    ground: 'names a place: the source of the context'
+    phrase: A flag of nmr's own precedes the command name, where the nmr underneath reads it
+    ground: 'names a place: the position in argv before the command name'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/runCli.ts
-    phrase: A diagnostic names a declaration that the reader has to edit, and a JSON string contains an escape sequence where a shell would read a control character.
-    ground: 'names a place: the position in the string'
+    phrase: a JSON string contains an escape sequence where a shell would read a control character
+    ground: 'names a place: the position in the string that the escape sequence occupies'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/runCli.ts
-    phrase: A flag of nmr's own precedes the command name, where the nmr underneath reads it as its own rather than passing it on to the command.
-    ground: 'names a place: the position before the command name'
+    phrase: independent of where the child derives its context from
+    ground: 'names a place: the location from which the child derives its context'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/runCli.ts
     phrase: Names where the steps next to an entry's nmr invocations belong.
-    ground: 'names a place: the destination script'
+    ground: 'names a place: the script to which the steps move'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/runCli.ts
-    phrase: One structural step, to keep the pattern given to «codespan» and the arguments passed on as argv tokens rather than text spliced into a shell string, and to make the nmr processes underneath write where this one writes although the binary spawned is «codespan» .
-    ground: 'names a place: the output destination'
+    phrase: The excerpt comes from stdout, where every command that the gate covers writes its substance
+    ground: 'names a place: stdout as the stream to which the commands write'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/runCli.ts
-    phrase: The entry has to go either way; where its steps go depends on what the registry already defines for the command, so the remedy tells the reader to delete outright an override that merely restates that entry.
+    phrase: where its steps go depends on what the registry already defines for the command
     ground: 'names a place: the destination of the steps'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/runCli.ts
-    phrase: The excerpt comes from stdout, where every command that the gate covers writes its substance, and falls back to stderr only when stdout does not yield an excerpt.
-    ground: 'names a place: stdout'
+    phrase: write where this one writes
+    ground: 'names a place: the output destination that the nested processes share'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/runner.ts
-    phrase: "Returns the channel for a step that runs an nmr process below this one: nmr's own descriptor whenever it has one, so that the child writes where nmr writes, without an ancestor between them relaying bytes."
-    ground: names a place (the shared destination)
+    phrase: so that the child writes where nmr writes
+    ground: 'names a place: the shared output destination'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/runner.ts
-    phrase: "Where one of a child's output streams goes: a descriptor to which the child writes, or a pipe read by nmr."
-    ground: names a place (a stream's destination)
+    phrase: Where one of a child's output streams goes
+    ground: 'names a place: the destination of a stream'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/verbosity.ts
-    phrase: Renders the rejection of a value off the loudness ladder, naming where it was written.
-    ground: 'names a place: the source (flag, variable, or config) in which the value was written'
+    phrase: naming where it was written
+    ground: 'names a place: the source location of the rejected value'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/verdict.ts
-    phrase: Every other line keeps the attribution naming where it came from, so that a composite replaying one constituent's excerpt does not present it as its own.
-    ground: names an origin, the place from which the excerpt came
+    phrase: naming where it came from
+    ground: 'names a place: the constituent that the excerpt came from'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/vitest-source-resolution.ts
-    phrase: Finds where a query or hash suffix begins, or -1 when the specifier contains neither.
-    ground: 'outside the rule: names a place or position, or defines a placeholder'
+    phrase: Finds where a query or hash suffix begins
+    ground: 'names a place: a position in the specifier string'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/vitest-source-resolution.ts
-    phrase: Leaving it on would send «codespan» into the «codespan» map, where it matches a «codespan» pattern that then expands to a path that nobody wrote.
-    ground: 'names a place: the `exports` map'
+    phrase: into the `exports` map, where it matches
+    ground: 'names a place: inside the exports map'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/vitest-source-resolution.ts
-    phrase: "The condition cannot be emitted as a «codespan» entry instead: Vitest turns the server environment's conditions into «codespan» flags on the worker process, where Node applies them to every package that it resolves natively."
-    ground: 'names a place: the worker process'
+    phrase: on the worker process, where Node applies them
+    ground: 'names a place: inside the worker process'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/vitest.ts
-    phrase: Only the last layer may state «codespan» , which «codespan» reads from that layer alone; recognizing it on every layer would accept it where nothing reads it, which is the failure that this guard prevents.
-    ground: 'outside the rule: names a place (on a layer where nothing reads it)'
+    phrase: accept it where nothing reads it
+    ground: 'names a place: the config layers from which nothing reads the option'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/nmr/src/vitest.ts
-    phrase: This is where per-project options such as «codespan» go.
-    ground: 'outside the rule: names a place'
+    phrase: This is where per-project options such as `setupFiles` go.
+    ground: 'names a place: the option slot that the options go into'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/release-kit/.readyup/kits/default.ts
-    phrase: Where release-kit writes the structured changelog
-    ground: 'names a place: the constant is a path'
+    phrase: Where release-kit writes the structured changelog when the config does not name any other path.
+    ground: '`where` names a place: the default path to which release-kit writes the changelog'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/release-kit/docs/changelogs.md
-    phrase: where `n` is the item's `entry`
-    ground: defines a symbol in the preceding expression
+    phrase: "`<hash>:<n>`, where `n` is the item's `entry`"
+    ground: defines a placeholder in the key expression before it
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/release-kit/docs/editorial-overrides.md
-    phrase: where it belongs
-    ground: names a place
+    phrase: it still appears in v11y-check's, where it belongs
+    ground: "names a place: v11y-check's changelog"
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/release-kit/docs/editorial-overrides.md
     phrase: where it isn't the right editorial framing
-    ground: names a place (the nmr changelog file)
+    ground: 'names a place: the changelog section in which the commit appears'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/release-kit/docs/editorial-overrides.md
     phrase: where override files live
-    ground: names a place
+    ground: 'names a place: the location of the override files'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/release-kit/docs/labels.md
-    phrase: names what to move and where
-    ground: names a place (the destination)
+    phrase: the refusal names what to move and where
+    ground: 'names a place: the destination of the move'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/release-kit/docs/labels.md
     phrase: where the schema for `.meta/label-map.json` is published
-    ground: names a place
+    ground: "names a place: the schema's publication location"
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/release-kit/README.md
     phrase: where the `label-map.json` schema is published
-    ground: names a place (the publication URL)
+    ground: '`where` names a place: the location at which the schema is published'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/release-kit/src/__tests__/changelogOverrides.unit.test.ts
-    phrase: (where 'abc' lives)
-    ground: 'names a place: the file in which the key is stored'
+    phrase: the project file (where 'abc' lives)
+    ground: "`where` names a place: the file in which the key 'abc' is stored"
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
+    file: packages/release-kit/src/__tests__/enterRepoRoot.unit.test.ts
+    phrase: throws, naming what it looked for and where, when it does not find a root
+    ground: '`where` names a place: where the function looked'
+  - rule: where
+    rule-version: '2'
     file: packages/release-kit/src/loadConfig.ts
     phrase: The path where the consumer-facing config file is expected.
-    ground: '`where` names a place: a filesystem path'
+    ground: '`where` names a place: the filesystem location at which the file is expected'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/release-kit/src/packsPath.ts
     phrase: Translates a glob into regex source, where `**` spans path separators and `*` and `?` stop at one.
-    ground: "`where` states what the glob's symbols stand for"
+    ground: '`where` follows the glob and states what its symbols stand for: a definition'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/release-kit/src/parseCommitMessage.ts
     phrase: Surface where a breaking-policy violation was detected
-    ground: '`where` names a place: the surface on which the marker appears'
+    ground: '`where` names a place: the location in the message at which the violation was detected'
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/release-kit/src/types.ts
-    phrase: where the hash is lowercase hex matched as a prefix
-    ground: defines the `<hash>` placeholder in the expression before it
+    phrase: where the hash is lowercase hex
+    ground: defines the placeholder `<hash>` in the expression before it
   - rule: where
-    rule-version: '1'
+    rule-version: '2'
     file: packages/release-kit/src/types.ts
     phrase: 'Where the violation was detected:'
-    ground: 'names a place: the part of the commit in which the violation was found'
+    ground: "names a place: the location in the commit ('prefix', 'body', 'entry') at which the violation was found"
