@@ -4,8 +4,7 @@ import type { CheckResult, ScopeCheckResult } from '../format-check.ts';
 import { deriveSummary } from '../format-summary.ts';
 import type { AuditResult } from '../types.ts';
 
-// -- Helpers --
-
+// region | Helpers
 function emptyScopeResult(): ScopeCheckResult {
   return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
 }
@@ -21,6 +20,7 @@ function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
 function fakeAdvisory(id: string): AuditResult {
   return { id, path: 'pkg', paths: ['pkg'], severity: 'high', url: `https://example.com/${id}` };
 }
+// endregion | Helpers
 
 // -- deriveSummary --
 

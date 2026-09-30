@@ -6,8 +6,7 @@ import { formatRelativeTime } from '../format-time.ts';
 import { formatCheckVerboseText } from '../format-verbose.ts';
 import { buildPopulatedCheckResult } from '../test-utils/buildPopulatedCheckResult.ts';
 
-// -- Helpers --
-
+// region | Helpers
 function emptyScopeResult(): ScopeCheckResult {
   return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
 }
@@ -37,6 +36,7 @@ function listDescriptionLines(description: string, style: OutputStyle = 'rich'):
   // A blank line separates the link from the description, and another ends the block.
   return lines.slice(linkIndex + 2, lines.indexOf('', linkIndex + 2));
 }
+// endregion | Helpers
 
 // -- formatCheckVerboseText: unallowed entries --
 

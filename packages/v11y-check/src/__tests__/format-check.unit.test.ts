@@ -9,8 +9,7 @@ import {
 } from '../format-check.ts';
 import { buildPopulatedCheckResult } from '../test-utils/buildPopulatedCheckResult.ts';
 
-// -- Helpers --
-
+// region | Helpers
 const FIXED_NOW = new Date('2026-04-15T00:00:00Z');
 
 function emptyScopeResult(): ScopeCheckResult {
@@ -24,6 +23,7 @@ function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
     ...overrides,
   };
 }
+// endregion | Helpers
 
 // -- severityIndicator --
 
