@@ -59,7 +59,7 @@ Because the format is nmr's own reporting, and nmr does not tell the commands th
 
 `NMR_COMMAND_VERBOSITY` is nmr's own, and sets how loudly a run reports the output of the commands that it runs. Its values are `full` and `quiet`; nmr reports any other non-empty value and exits 1, rather than falling back to a mode that nobody chose, and an empty value reads as unset. Each process in a chain suppresses the output of the command that it runs rather than of everything below it, so the failing command's output still prints on a failure. It governs those commands' output alone: nmr's [verdicts](#what-nmr-reports) print in every verbosity, and the override notice is the one message that a quiet run withholds.
 
-`-q` sets it for the run and outranks an inherited value. Both values are spelled out so that either direction is expressible: Export `NMR_COMMAND_VERBOSITY=quiet` for a quiet shell, and set `full` on one invocation to opt back out.
+`nmr -q <command>` sets it for the run and outranks an inherited value. Both values are spelled out so that either direction is expressible: Export `NMR_COMMAND_VERBOSITY=quiet` for a quiet shell, and set `full` on one invocation to opt back out.
 
 `NMR_OUTPUT_STYLE` is nmr's own as well, and sets the style in which nmr renders every marker that it prints; see [output style](#output-style) below.
 
@@ -83,7 +83,7 @@ Four sources, in precedence order. Each is read once, at the top of a chain: nmr
 
 | Source                                                  | Set it when                                                |
 | ------------------------------------------------------- | ---------------------------------------------------------- |
-| `-q`                                                    | One invocation should be quiet.                            |
+| `nmr -q <command>`                                      | One invocation should be quiet.                            |
 | `NMR_COMMAND_VERBOSITY`                                 | A shell, or a harness that launches one, should be quiet.  |
 | `output.commandVerbosity` in the monorepo-root config   | A repo should be quiet for everyone working in it.         |
 | An agent harness that nmr recognizes in the environment | Nothing above applies and an agent is running the command. |
