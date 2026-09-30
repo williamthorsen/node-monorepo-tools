@@ -8,7 +8,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { defineRdyKit } from "readyup";
 import { fileExists, fileMatchesHash, hasDevDependency, hasMinDevDependencyVersion } from "readyup/check-utils";
-var AUDIT_WORKFLOW_HASH = "cdcab39d794ed7ec5ea45e8f3c887eb5d15edb63eab65e515714556933d9b03f";
+var AUDIT_WORKFLOW_HASH = "ad969e3fefe603cee04de02e300e6f4d4d9dae9e8e58bddb9db81980115bc260";
 var default_default = defineRdyKit({
   checklists: [
     {

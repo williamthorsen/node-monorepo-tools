@@ -442,11 +442,6 @@ rejections:
     ground: '`release-kit` is a lowercase package identifier and keeps its case'
   - rule: em-dash
     rule-version: '1'
-    file: .github/workflows/audit.yaml
-    phrase: '# Daily schedule — adjust cron expression per repo if a different cadence is desired.'
-    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
-  - rule: em-dash
-    rule-version: '1'
     file: docs/agent/20250809-2359Z_learnings.md
     phrase: '**Never use type assertions** - JSON.parse'
     ground: a historical record of what was written at the time; rewording it rewrites the record
@@ -565,11 +560,6 @@ rejections:
     file: .github/workflows/release.reusable.yaml
     phrase: No release-worthy changes found.
     ground: a verbless status label that mirrors release-kit's own skip message, rejected under the same ground
-  - rule: negative-quantifier
-    rule-version: '2'
-    file: .github/workflows/release.yaml
-    phrase: Force a release even when no commits or no bump-worthy commits exist
-    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
   - rule: negative-quantifier
     rule-version: '2'
     file: docs/agent/20250809-2359Z_learnings.md
@@ -1407,11 +1397,6 @@ rejections:
     ground: 'not prose: a mock message in a fixture, and verbless'
   - rule: negative-quantifier
     rule-version: '2'
-    file: packages/release-kit/src/init/templates.ts
-    phrase: Force a release even when no commits or no bump-worthy commits exist
-    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
-  - rule: negative-quantifier
-    rule-version: '2'
     file: packages/release-kit/src/injectReleaseNotesIntoReadme.ts
     phrase: no changelog entry for version ${version}
     ground: 'outside the rule: a verbless fragment of a warning'
@@ -1642,11 +1627,6 @@ rejections:
     ground: "not prose: a fixture's `reason` data value"
   - rule: plain-speech
     rule-version: '9'
-    file: .github/workflows/sync-labels.yaml
-    phrase: so that a regenerated labels file cannot sit unapplied.
-    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
-  - rule: plain-speech
-    rule-version: '9'
     file: docs/agent/20250809-2359Z_learnings.md
     phrase: Don't get into refactoring rabbit holes without checking in
     ground: a historical record of what was written at the time; rewording it rewrites the record
@@ -1660,16 +1640,6 @@ rejections:
     file: packages/release-kit/src/__tests__/buildChangelogEntries.unit.test.ts
     phrase: routes the entries of released windows
     ground: "'route' names the feature under test (readRouted, unroutedEntryScopes), and the function under test performs it"
-  - rule: plain-speech
-    rule-version: '9'
-    file: packages/release-kit/src/sync-labels/templates.ts
-    phrase: cannot sit unapplied
-    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
-  - rule: plain-speech
-    rule-version: '9'
-    file: packages/release-kit/src/sync-labels/templates.ts
-    phrase: the gate lives on the job
-    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
   - rule: reduced-object-relative
     rule-version: '1'
     file: __tests__/test-scaffolding-guard.app.unit.test.ts
@@ -1680,11 +1650,6 @@ rejections:
     file: __tests__/workflow-pins.app.unit.test.ts
     phrase: name the same release turns
     ground: "not the construction: 'turns' is the main verb"
-  - rule: reduced-object-relative
-    rule-version: '1'
-    file: .github/workflows/audit.yaml
-    phrase: the issues/pull-requests writes the reusable workflow needs.
-    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
   - rule: reduced-object-relative
     rule-version: '1'
     file: .github/workflows/release.reusable.yaml
@@ -3297,11 +3262,6 @@ rejections:
     ground: a lone so after a comma stating a direct result
   - rule: so
     rule-version: '1'
-    file: .github/workflows/sync-labels.yaml
-    phrase: so that the gate lives on the job and this file stays identical across repos.
-    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
-  - rule: so
-    rule-version: '1'
     file: eslint.restrictions.ts
     phrase: Matches on the operator rather than the binding's name, so `err` and `e` are caught too.
     ground: a direct result, and the only so in its passage
@@ -3540,11 +3500,6 @@ rejections:
     file: packages/release-kit/src/sync-labels/templates.ts
     phrase: so applying and previewing are separate jobs
     ground: a direct result of the preceding clause
-  - rule: so
-    rule-version: '1'
-    file: packages/release-kit/src/sync-labels/templates.ts
-    phrase: so that the gate lives on the job
-    ground: 'the package template and its dogfooded copy in .github/workflows must change together, as __tests__/dogfooded-workflows.app.unit.test.ts asserts; #940 repairs both'
   - rule: so
     rule-version: '1'
     file: packages/v11y-check/README.md
