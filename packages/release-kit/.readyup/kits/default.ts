@@ -63,7 +63,7 @@ const CONFIG_EXPORT_PATTERNS = [
 // SHA-256 hashes of the artifacts that release-kit emits;
 // `src/__tests__/kit-hashes.unit.test.ts` fails when one is stale.
 export const COMMON_PRESET_HASH = '618bb5cbcbdd4f4f0c2a777add7e14d992d48483350dd9651bf8cf4c1fa9d418';
-export const SYNC_LABELS_WORKFLOW_HASH = '0d0a604b52e4ab6361df353606e2884c93b351bf4ad3211a4b12c7b8522dc35c';
+export const SYNC_LABELS_WORKFLOW_HASH = '6b50015e2919ffa4b16d0b4a1f340e585ff3e5b779a2256010d3c62fa07ff8f2';
 export const RELEASE_WORKFLOW_HASH_MONOREPO = 'f35503bcfc5c131a8309305fed27f8127cb901f422cb8b62978a34b86dda7f7a';
 export const RELEASE_WORKFLOW_HASH_SINGLE = 'd26dd4ca186632b388ea46bd885721124c03d19918e511baa40821d2d760da69';
 export const PUBLISH_WORKFLOW_HASH_MONOREPO = '0afa9ffe914f3dc8f043e68252ebc604c8cc1a953422fcea37a909a4def370ee';
