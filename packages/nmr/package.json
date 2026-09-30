@@ -93,6 +93,7 @@
     "@williamthorsen/toolbelt.filesystem": "catalog:",
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
+    "esbuild": "catalog:",
     "prettier": "catalog:",
     "readyup": "catalog:",
     "tinyglobby": "0.2.17",

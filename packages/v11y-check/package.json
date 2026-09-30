@@ -60,6 +60,7 @@
     "@williamthorsen/toolbelt.filesystem": "catalog:",
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
+    "esbuild": "catalog:",
     "readyup": "catalog:",
     "vitest": "catalog:"
   },
