@@ -4,24 +4,6 @@ import type { CheckResult, ScopeCheckResult } from '../format-check.ts';
 import { deriveSummary } from '../format-summary.ts';
 import type { AuditResult } from '../types.ts';
 
-// -- Helpers --
-
-function emptyScopeResult(): ScopeCheckResult {
-  return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
-}
-
-function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
-  return {
-    dev: emptyScopeResult(),
-    prod: emptyScopeResult(),
-    ...overrides,
-  };
-}
-
-function fakeAdvisory(id: string): AuditResult {
-  return { id, path: 'pkg', paths: ['pkg'], severity: 'high', url: `https://example.com/${id}` };
-}
-
 // -- deriveSummary --
 
 describe(deriveSummary, () => {
@@ -103,3 +85,21 @@ describe(deriveSummary, () => {
     expect(deriveSummary(result, ['dev'])).toStrictEqual({ status: 'vulnerabilities-found', count: 1 });
   });
 });
+
+// region | Helpers
+function emptyScopeResult(): ScopeCheckResult {
+  return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
+}
+
+function fakeAdvisory(id: string): AuditResult {
+  return { id, path: 'pkg', paths: ['pkg'], severity: 'high', url: `https://example.com/${id}` };
+}
+
+function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
+  return {
+    dev: emptyScopeResult(),
+    prod: emptyScopeResult(),
+    ...overrides,
+  };
+}
+// endregion | Helpers

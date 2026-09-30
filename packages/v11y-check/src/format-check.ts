@@ -6,8 +6,7 @@ import { formatRelativeTime } from './format-time.ts';
 import { formatMarkedLine, V11Y_GLYPHS, type V11yGlyphName } from './glyphs.ts';
 import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 
-// -- Types --
-
+// region | Types
 /** An audit finding that the allowlist admits, with the entry's reason and date. */
 export interface AllowedVuln {
   addedAt?: string | undefined;
@@ -41,6 +40,7 @@ export interface CheckResult {
   dev: ScopeCheckResult;
   prod: ScopeCheckResult;
 }
+// endregion | Types
 
 // -- Severity indicator --
 
@@ -59,12 +59,12 @@ export function severityIndicator(severity: string | undefined, style: OutputSty
   return name === undefined ? '' : V11Y_GLYPHS[style][name].text;
 }
 
-// -- Display ID helper --
-
+// region | Display ID helper
 /** Resolves the best display ID for a vulnerability: GHSA ID if available, otherwise the numeric ID. */
 export function displayId(vuln: { ghsaId?: string | undefined; id: string }): string {
   return vuln.ghsaId ?? vuln.id;
 }
+// endregion | Display ID helper
 
 // -- Scope labels --
 
