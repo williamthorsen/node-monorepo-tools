@@ -16,7 +16,7 @@ import {
   type OverrideContext,
 } from './changelogOverrides.ts';
 import { decideRelease } from './decideRelease.ts';
-import { deriveSectionOrder } from './deriveReleaseNotesConfig.ts';
+import { deriveDependenciesHeader, deriveSectionOrder } from './deriveReleaseNotesConfig.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
 import { findUnroutedEntryScopes } from './findUnroutedEntryScopes.ts';
 import { getAllTagPrefixes } from './generateChangelogs.ts';
@@ -90,7 +90,9 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
     warnings.push('--with-release-notes requires changelogJson.enabled; skipping preview generation');
   }
 
-  const sectionOrder = deriveSectionOrder(resolveWorkTypes(config.workTypes));
+  const workTypes = resolveWorkTypes(config.workTypes);
+  const sectionOrder = deriveSectionOrder(workTypes);
+  const dependenciesHeader = deriveDependenciesHeader(workTypes);
 
   // Load editorial overrides once per run (root file plus every workspace file); a malformed file aborts the release
   // before anything is planned.
@@ -142,6 +144,7 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
     previewOptions,
     overrideContext,
     sectionOrder,
+    dependenciesHeader,
   });
 
   // Reorder workspaces to match original config order.
@@ -374,6 +377,7 @@ interface ExecuteReleaseSetArgs {
   previewOptions: PreviewOptions;
   overrideContext: OverrideContext;
   sectionOrder: string[];
+  dependenciesHeader: string;
 }
 
 /** Plans bumps and changelogs for each workspace in dependency order. */
@@ -390,6 +394,7 @@ function executeReleaseSet(args: ExecuteReleaseSetArgs): { tags: string[]; modif
     previewOptions,
     overrideContext,
     sectionOrder,
+    dependenciesHeader,
   } = args;
   const tags: string[] = [];
   const modifiedFiles: string[] = [];
@@ -423,6 +428,7 @@ function executeReleaseSet(args: ExecuteReleaseSetArgs): { tags: string[]; modif
         previewOptions,
         overrideContext,
         sectionOrder,
+        dependenciesHeader,
       }),
     );
   }
@@ -448,6 +454,7 @@ interface ExecuteWorkspaceReleaseArgs {
   previewOptions: PreviewOptions;
   overrideContext: OverrideContext;
   sectionOrder: string[];
+  dependenciesHeader: string;
 }
 
 /** Plans the bump and changelogs, and appends the workspace result, for one entry in the release set. */
@@ -468,6 +475,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     previewOptions,
     overrideContext,
     sectionOrder,
+    dependenciesHeader,
   } = args;
 
   const setVersionTarget = directResult?.setVersion;
@@ -498,6 +506,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     previewOptions,
     overrideContext,
     sectionOrder,
+    dependenciesHeader,
   });
 
   const released: ReleasedWorkspaceResult = {
@@ -613,6 +622,7 @@ interface GenerateWorkspaceChangelogsArgs {
   previewOptions: PreviewOptions;
   overrideContext: OverrideContext;
   sectionOrder: string[];
+  dependenciesHeader: string;
 }
 
 /**
@@ -641,9 +651,18 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
     previewOptions,
     overrideContext,
     sectionOrder,
+    dependenciesHeader,
   } = args;
 
-  const entries = buildWorkspaceEntries({ workspace, releaseEntry, newTag, newVersion, history, today });
+  const entries = buildWorkspaceEntries({
+    workspace,
+    releaseEntry,
+    newTag,
+    newVersion,
+    history,
+    today,
+    dependenciesHeader,
+  });
 
   const applied = applyWorkspaceOverrides(entries, workspace.workspacePath, overrideContext);
 
@@ -688,24 +707,25 @@ interface BuildWorkspaceEntriesArgs {
   newVersion: string;
   history: ReleaseHistory | undefined;
   today: string;
+  dependenciesHeader: string;
 }
 
 /**
  * Builds the new `ChangelogEntry[]` for a workspace from one of two sources:
- * 1. Propagation-only: A single synthetic "Dependency updates" entry.
+ * 1. Propagation-only: A single synthetic entry under the `deps` work type's header.
  * 2. Direct release: The workspace's release history, with the synthetic "Forced version bump." entry in place of
  *    the unreleased window when that window doesn't yield any item (`--force` or `--set-version`).
  *
  * Returns the entries that will be merged into the on-disk JSON and rendered.
  */
 function buildWorkspaceEntries(args: BuildWorkspaceEntriesArgs): ChangelogEntry[] {
-  const { workspace, releaseEntry, newTag, newVersion, history, today } = args;
+  const { workspace, releaseEntry, newTag, newVersion, history, today, dependenciesHeader } = args;
 
   if (history === undefined) {
     if (releaseEntry.propagatedFrom === undefined) {
       throw new Error(`Workspace '${workspace.dir}' has neither a direct release nor a propagation source`);
     }
-    return [buildSyntheticChangelogEntry(releaseEntry.propagatedFrom, newVersion, today)];
+    return [buildSyntheticChangelogEntry(releaseEntry.propagatedFrom, newVersion, today, dependenciesHeader)];
   }
 
   return toReleaseEntries(history, newTag, today);

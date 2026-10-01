@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
-import { deriveReleaseNotesConfig } from '../deriveReleaseNotesConfig.ts';
+import { deriveDependenciesHeader, deriveReleaseNotesConfig } from '../deriveReleaseNotesConfig.ts';
+import { resolveWorkTypes } from '../loadConfig.ts';
 
 const defaultSectionOrder = Object.values(DEFAULT_WORK_TYPES).map((entry) => entry.header);
 
@@ -32,5 +33,21 @@ describe(deriveReleaseNotesConfig, () => {
     expect(result.sectionOrder[fixIndex]).toBe('Fixes');
     expect(result.sectionOrder).toHaveLength(defaultSectionOrder.length + 1);
     expect(result.sectionOrder.at(-1)).toBe('Chores');
+  });
+});
+
+describe(deriveDependenciesHeader, () => {
+  it('returns the default deps header for the default work types', () => {
+    expect(deriveDependenciesHeader(resolveWorkTypes(undefined))).toBe('📦 Dependencies');
+  });
+
+  it('returns the overridden header when the config overrides deps', () => {
+    expect(deriveDependenciesHeader(resolveWorkTypes({ deps: { header: '📦 Deps' } }))).toBe('📦 Deps');
+  });
+
+  it('throws when the record lacks a deps entry', () => {
+    expect(() => deriveDependenciesHeader({ feat: { header: 'Features' } })).toThrow(
+      "Resolved work types do not contain a 'deps' entry",
+    );
   });
 });

@@ -497,7 +497,7 @@ describe(applyChangelogOverrides, () => {
         date: '2024-01-01',
         sections: [
           {
-            title: 'Dependency updates',
+            title: '📦 Dependencies',
             audience: 'dev',
             items: [{ description: 'Bumped foo to 1.0.0' }],
           },

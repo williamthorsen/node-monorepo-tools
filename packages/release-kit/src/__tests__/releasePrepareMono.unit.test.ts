@@ -986,12 +986,66 @@ describe(releasePrepareMono, () => {
       ]);
       expect(result.writes.map((write) => write.path)).toContain('packages/core/CHANGELOG.md');
 
-      // Synthetic propagation entry constructor was called for the app workspace.
+      // Synthetic propagation entry constructor was called for the app workspace, under the default deps header.
       expect(mockBuildSyntheticChangelogEntry).toHaveBeenCalledTimes(1);
       const propagatedFromArg = mockBuildSyntheticChangelogEntry.mock.calls[0]?.[0];
       expect(JSON.stringify(propagatedFromArg)).toContain('@test/core');
+      expect(mockBuildSyntheticChangelogEntry.mock.calls[0]?.[3]).toBe('📦 Dependencies');
       // The app's changelog is planned alongside core's.
       expect(result.writes.map((write) => write.path)).toContain('packages/app/CHANGELOG.md');
+    });
+
+    it('titles the synthetic changelog with the configured deps header', () => {
+      const config = makeConfig({
+        workTypes: { ...workTypes, deps: { header: '📦 Deps' } },
+        workspaces: [
+          {
+            dir: 'core',
+            name: '@test/core',
+            tagPrefix: 'core-v',
+            workspacePath: 'packages/core',
+            isPublishable: true,
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+          {
+            dir: 'app',
+            name: '@test/app',
+            tagPrefix: 'app-v',
+            workspacePath: 'packages/app',
+            isPublishable: true,
+            packageFiles: ['packages/app/package.json'],
+            changelogPaths: ['packages/app'],
+            paths: ['packages/app/**'],
+          },
+        ],
+      });
+
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0', commits: [['fix: bug fix', 'abc123']], bump: 'patch' },
+        'app-v': { previousTag: 'app-v1.0.0' },
+      });
+
+      mockReadFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('core')) {
+          return JSON.stringify({ name: '@test/core', version: '1.0.0' });
+        }
+        if (filePath.includes('app')) {
+          return JSON.stringify({
+            name: '@test/app',
+            version: '1.0.0',
+            dependencies: { '@test/core': 'workspace:*' },
+          });
+        }
+        return '{}';
+      });
+      mockExistsSync.mockReturnValue(false);
+
+      releasePrepareMono(config, {});
+
+      expect(mockBuildSyntheticChangelogEntry).toHaveBeenCalledTimes(1);
+      expect(mockBuildSyntheticChangelogEntry.mock.calls[0]?.[3]).toBe('📦 Deps');
     });
 
     it('does not propagate to workspaces excluded from config.workspaces', () => {
