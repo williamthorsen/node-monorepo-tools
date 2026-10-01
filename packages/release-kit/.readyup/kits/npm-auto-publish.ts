@@ -27,6 +27,8 @@ import {
   type Workspace,
 } from 'readyup/check-utils';
 
+import { hasProvenance } from '../../src/init/hasProvenance.ts';
+
 // npm error codes that mean the caller does not have any usable registry credentials.
 const AUTH_ERROR_CODES = new Set(['E401', 'ENEEDAUTH']);
 
@@ -314,9 +316,9 @@ export function classifyProvenanceSetting(
     };
   }
 
-  const hasProvenance = parseProvenanceSetting(workflowContent);
+  const provenance = hasProvenance(workflowContent);
 
-  if (visibility === 'public' && !hasProvenance) {
+  if (visibility === 'public' && !provenance) {
     return {
       ok: false,
       detail: 'The repo is public and publish.yaml does not set provenance: true',
@@ -324,7 +326,7 @@ export function classifyProvenanceSetting(
     };
   }
 
-  if (visibility === 'private' && hasProvenance) {
+  if (visibility === 'private' && provenance) {
     return {
       ok: false,
       detail: 'The repo is private and publish.yaml sets provenance: true',
@@ -526,11 +528,6 @@ function isRepoPrivate(): boolean {
     encoding: 'utf8',
   }).trim();
   return result === 'true';
-}
-
-/** Checks whether the publish.yaml workflow has provenance enabled. */
-function parseProvenanceSetting(workflowContent: string): boolean {
-  return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
 }
 
 /** Queries the trust endpoint for the workspace that `selectProbeName` picks, if the repo has one. */
