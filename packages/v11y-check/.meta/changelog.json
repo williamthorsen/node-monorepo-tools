@@ -307,7 +307,7 @@
     "date": "2026-08-04",
     "sections": [
       {
-        "title": "Dependency updates",
+        "title": "📦 Dependencies",
         "audience": "dev",
         "items": [{ "description": "Bumped `@williamthorsen/nmr-core` to 0.9.1" }]
       }
