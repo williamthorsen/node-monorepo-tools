@@ -47,11 +47,14 @@ export {
   printStep,
   printSuccess,
   reportError,
+  reportTemplateUpdate,
   reportWriteResult,
   resolveStreamStyles,
   STATUS_GLYPHS,
   truncateToWidth,
   wrapToWidth,
 } from './terminal.ts';
+export type { ManagedFileOutcome, ManagedFileResult } from './updateManagedFile.ts';
+export { updateManagedFile } from './updateManagedFile.ts';
 export type { WriteOutcome, WriteResult } from './writeFileWithCheck.ts';
 export { writeFileWithCheck } from './writeFileWithCheck.ts';

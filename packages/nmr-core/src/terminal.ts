@@ -14,6 +14,7 @@ import {
   type StatusGlyphName,
 } from '@williamthorsen/toolbelt.terminal/candidate';
 
+import type { ManagedFileResult } from './updateManagedFile.ts';
 import type { WriteResult } from './writeFileWithCheck.ts';
 
 export type {
@@ -109,6 +110,33 @@ export function reportError(message: string, stream: Writable = process.stderr):
 }
 
 /**
+ * Prints a status line for a managed-file result, followed by its diff indented beneath it: a failure to stderr,
+ * every other outcome to stdout.
+ */
+export function reportTemplateUpdate(result: ManagedFileResult, dryRun: boolean, styles?: StreamStyles): void {
+  const style = styles?.stdout;
+  switch (result.outcome) {
+    case 'created':
+      printSuccess(dryRun ? `[dry-run] Would create ${result.filePath}` : `Created ${result.filePath}`, style);
+      break;
+    case 'updated':
+      printSuccess(dryRun ? `[dry-run] Would update ${result.filePath}` : `Updated ${result.filePath}`, style);
+      if (result.diff !== undefined && result.diff !== '') {
+        console.info(indentLines(result.diff, ' '.repeat(4)));
+      }
+      break;
+    case 'up-to-date':
+      printSuccess(`${result.filePath} (up to date)`, style);
+      break;
+    case 'failed': {
+      const detail = result.error === undefined ? '' : `: ${result.error}`;
+      printError(`Failed to update ${result.filePath}${detail}`, styles?.stderr);
+      break;
+    }
+  }
+}
+
+/**
  * Prints a terminal message for a write result based on its outcome: a failure to stderr, every
  * other outcome to stdout. Each message takes its own stream's style from `styles`; without
  * `styles`, it takes the style detected for that stream.
@@ -169,5 +197,13 @@ export function resolveStreamStyles(options: ResolveStreamStylesOptions): Stream
 /** Detects the style that the process environment calls for on one of its output streams. */
 function detectStreamStyle(stream: { readonly isTTY?: boolean | undefined }): OutputStyle {
   return detectOutputStyle({ env: process.env, isTty: stream.isTTY === true });
+}
+
+/** Prefixes every line of `text` with `indent`. */
+function indentLines(text: string, indent: string): string {
+  return text
+    .split('\n')
+    .map((line) => `${indent}${line}`)
+    .join('\n');
 }
 // endregion | Helpers

@@ -14,11 +14,13 @@ import {
   printSkip,
   printSuccess,
   reportError,
+  reportTemplateUpdate,
   reportWriteResult,
   resolveStreamStyles,
   STATUS_GLYPHS,
   type StatusGlyphName,
 } from '../terminal.ts';
+import type { ManagedFileResult } from '../updateManagedFile.ts';
 import type { WriteResult } from '../writeFileWithCheck.ts';
 
 describe(formatErrorLine, () => {
@@ -198,6 +200,41 @@ describe(reportError, () => {
 
     expect(writeSpy).toHaveBeenCalledWith('Error: something went wrong\n');
     expect(capture.stderr).toBe('');
+  });
+});
+
+describe(reportTemplateUpdate, () => {
+  it.each([
+    ['created', false, 'Created some/file.yaml'],
+    ['created', true, '[dry-run] Would create some/file.yaml'],
+    ['updated', false, 'Updated some/file.yaml'],
+    ['updated', true, '[dry-run] Would update some/file.yaml'],
+    ['up-to-date', false, 'some/file.yaml (up to date)'],
+  ] as const)('prints the status of a %s file (dryRun: %s)', (outcome, dryRun, expected) => {
+    using silent = silenceConsole(['info']);
+    const result: ManagedFileResult = { filePath: 'some/file.yaml', outcome };
+
+    reportTemplateUpdate(result, dryRun);
+
+    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining(expected));
+  });
+
+  it('prints the diff of an updated file indented beneath its status', () => {
+    using silent = silenceConsole(['info']);
+    const result: ManagedFileResult = { filePath: 'some/file.yaml', outcome: 'updated', diff: '@@ -1 +1 @@\n-a\n+b' };
+
+    reportTemplateUpdate(result, false);
+
+    expect(silent.info).toHaveBeenLastCalledWith('    @@ -1 +1 @@\n    -a\n    +b');
+  });
+
+  it('prints a failure with its detail to stderr', () => {
+    using capture = captureStdio();
+    const result: ManagedFileResult = { filePath: 'some/file.yaml', outcome: 'failed', error: 'EACCES' };
+
+    reportTemplateUpdate(result, false);
+
+    expect(capture.stderr).toContain('Failed to update some/file.yaml: EACCES');
   });
 });
 
