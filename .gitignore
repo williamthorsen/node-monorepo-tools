@@ -58,6 +58,7 @@ logs
 packages/*/docs/*.v*.md
 
 # Testing
+.playwright-mcp/
 coverage/
 .shellspec-local
 .vitest-result.json
