@@ -856,53 +856,12 @@ describe(releasePrepareMono, () => {
 
   describe('dependency propagation', () => {
     it('propagates a patch bump to a dependent when a dependency is bumped', () => {
-      const config = makeConfig({
-        workspaces: [
-          {
-            dir: 'core',
-            name: '@test/core',
-            tagPrefix: 'core-v',
-            workspacePath: 'packages/core',
-            isPublishable: true,
-            packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
-            paths: ['packages/core/**'],
-          },
-          {
-            dir: 'app',
-            name: '@test/app',
-            tagPrefix: 'app-v',
-            workspacePath: 'packages/app',
-            isPublishable: true,
-            packageFiles: ['packages/app/package.json'],
-            changelogPaths: ['packages/app'],
-            paths: ['packages/app/**'],
-          },
-        ],
-      });
+      const config = stubPropagationWorkspaces();
 
       stubHistoryByPrefix({
         'core-v': { previousTag: 'core-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' },
         'app-v': { previousTag: 'app-v2.0.0' },
       });
-
-      mockReadFileSync.mockImplementation((filePath: string) => {
-        if (filePath.includes('core')) {
-          return JSON.stringify({
-            name: '@test/core',
-            version: '1.0.0',
-          });
-        }
-        if (filePath.includes('app')) {
-          return JSON.stringify({
-            name: '@test/app',
-            version: '2.0.0',
-            dependencies: { '@test/core': 'workspace:*' },
-          });
-        }
-        return '{}';
-      });
-      mockExistsSync.mockReturnValue(false);
 
       const result = releasePrepareMono(config, {});
 
@@ -931,50 +890,12 @@ describe(releasePrepareMono, () => {
     });
 
     it('writes a synthetic changelog for propagated-only workspaces', () => {
-      const config = makeConfig({
-        workspaces: [
-          {
-            dir: 'core',
-            name: '@test/core',
-            tagPrefix: 'core-v',
-            workspacePath: 'packages/core',
-            isPublishable: true,
-            packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
-            paths: ['packages/core/**'],
-          },
-          {
-            dir: 'app',
-            name: '@test/app',
-            tagPrefix: 'app-v',
-            workspacePath: 'packages/app',
-            isPublishable: true,
-            packageFiles: ['packages/app/package.json'],
-            changelogPaths: ['packages/app'],
-            paths: ['packages/app/**'],
-          },
-        ],
-      });
+      const config = stubPropagationWorkspaces();
 
       stubHistoryByPrefix({
         'core-v': { previousTag: 'core-v1.0.0', commits: [['fix: bug fix', 'abc123']], bump: 'patch' },
-        'app-v': { previousTag: 'app-v1.0.0' },
+        'app-v': { previousTag: 'app-v2.0.0' },
       });
-
-      mockReadFileSync.mockImplementation((filePath: string) => {
-        if (filePath.includes('core')) {
-          return JSON.stringify({ name: '@test/core', version: '1.0.0' });
-        }
-        if (filePath.includes('app')) {
-          return JSON.stringify({
-            name: '@test/app',
-            version: '1.0.0',
-            dependencies: { '@test/core': 'workspace:*' },
-          });
-        }
-        return '{}';
-      });
-      mockExistsSync.mockReturnValue(false);
 
       const result = releasePrepareMono(config, {});
 
@@ -996,51 +917,12 @@ describe(releasePrepareMono, () => {
     });
 
     it('titles the synthetic changelog with the configured deps header', () => {
-      const config = makeConfig({
-        workTypes: { ...workTypes, deps: { header: '📦 Deps' } },
-        workspaces: [
-          {
-            dir: 'core',
-            name: '@test/core',
-            tagPrefix: 'core-v',
-            workspacePath: 'packages/core',
-            isPublishable: true,
-            packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
-            paths: ['packages/core/**'],
-          },
-          {
-            dir: 'app',
-            name: '@test/app',
-            tagPrefix: 'app-v',
-            workspacePath: 'packages/app',
-            isPublishable: true,
-            packageFiles: ['packages/app/package.json'],
-            changelogPaths: ['packages/app'],
-            paths: ['packages/app/**'],
-          },
-        ],
-      });
+      const config = stubPropagationWorkspaces({ workTypes: { ...workTypes, deps: { header: '📦 Deps' } } });
 
       stubHistoryByPrefix({
         'core-v': { previousTag: 'core-v1.0.0', commits: [['fix: bug fix', 'abc123']], bump: 'patch' },
-        'app-v': { previousTag: 'app-v1.0.0' },
+        'app-v': { previousTag: 'app-v2.0.0' },
       });
-
-      mockReadFileSync.mockImplementation((filePath: string) => {
-        if (filePath.includes('core')) {
-          return JSON.stringify({ name: '@test/core', version: '1.0.0' });
-        }
-        if (filePath.includes('app')) {
-          return JSON.stringify({
-            name: '@test/app',
-            version: '1.0.0',
-            dependencies: { '@test/core': 'workspace:*' },
-          });
-        }
-        return '{}';
-      });
-      mockExistsSync.mockReturnValue(false);
 
       releasePrepareMono(config, {});
 
@@ -1050,20 +932,7 @@ describe(releasePrepareMono, () => {
 
     it('does not propagate to workspaces excluded from config.workspaces', () => {
       // Only `core` is in the config; `app`, which depends on it, is not.
-      const config = makeConfig({
-        workspaces: [
-          {
-            dir: 'core',
-            name: '@test/core',
-            tagPrefix: 'core-v',
-            workspacePath: 'packages/core',
-            isPublishable: true,
-            packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
-            paths: ['packages/core/**'],
-          },
-        ],
-      });
+      const config = makeConfig({ workspaces: [makeRoutedWorkspace('core')] });
 
       stubHistory({ previousTag: 'core-v1.0.0', commits: [['feat: new feature', 'abc123']], bump: 'minor' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '1.0.0' }));
@@ -1076,20 +945,7 @@ describe(releasePrepareMono, () => {
     });
 
     it('writes the explicit --set-version value in monorepo mode', () => {
-      const config = makeConfig({
-        workspaces: [
-          {
-            dir: 'core',
-            name: '@test/core',
-            tagPrefix: 'core-v',
-            workspacePath: 'packages/core',
-            isPublishable: true,
-            packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
-            paths: ['packages/core/**'],
-          },
-        ],
-      });
+      const config = makeConfig({ workspaces: [makeRoutedWorkspace('core')] });
 
       stubHistory({ previousTag: 'core-v0.5.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
@@ -1111,20 +967,7 @@ describe(releasePrepareMono, () => {
     });
 
     it("builds a --set-version changelog from the workspace's one history read, leaving the decision's counts off", () => {
-      const config = makeConfig({
-        workspaces: [
-          {
-            dir: 'core',
-            name: '@test/core',
-            tagPrefix: 'core-v',
-            workspacePath: 'packages/core',
-            isPublishable: true,
-            packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
-            paths: ['packages/core/**'],
-          },
-        ],
-      });
+      const config = makeConfig({ workspaces: [makeRoutedWorkspace('core')] });
       const sections: ChangelogSection[] = [
         { title: 'Bug fixes', audience: 'all', items: [{ description: 'Core fix', hash: 'abc123' }] },
       ];
@@ -1159,20 +1002,7 @@ describe(releasePrepareMono, () => {
     });
 
     it('throws when --set-version is not greater than the current version', () => {
-      const config = makeConfig({
-        workspaces: [
-          {
-            dir: 'core',
-            name: '@test/core',
-            tagPrefix: 'core-v',
-            workspacePath: 'packages/core',
-            isPublishable: true,
-            packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
-            paths: ['packages/core/**'],
-          },
-        ],
-      });
+      const config = makeConfig({ workspaces: [makeRoutedWorkspace('core')] });
 
       stubHistory({ previousTag: 'core-v0.5.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
@@ -1183,20 +1013,7 @@ describe(releasePrepareMono, () => {
     });
 
     it('throws when --set-version equals the current version', () => {
-      const config = makeConfig({
-        workspaces: [
-          {
-            dir: 'core',
-            name: '@test/core',
-            tagPrefix: 'core-v',
-            workspacePath: 'packages/core',
-            isPublishable: true,
-            packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
-            paths: ['packages/core/**'],
-          },
-        ],
-      });
+      const config = makeConfig({ workspaces: [makeRoutedWorkspace('core')] });
 
       stubHistory({ previousTag: 'core-v0.5.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
@@ -1207,20 +1024,7 @@ describe(releasePrepareMono, () => {
     });
 
     it('plans the --set-version tag without writing any file', () => {
-      const config = makeConfig({
-        workspaces: [
-          {
-            dir: 'core',
-            name: '@test/core',
-            tagPrefix: 'core-v',
-            workspacePath: 'packages/core',
-            isPublishable: true,
-            packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
-            paths: ['packages/core/**'],
-          },
-        ],
-      });
+      const config = makeConfig({ workspaces: [makeRoutedWorkspace('core')] });
 
       stubHistory({ previousTag: 'core-v0.5.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
@@ -1235,30 +1039,7 @@ describe(releasePrepareMono, () => {
     it('throws when --set-version is used with more than one workspace', () => {
       // Explicit guard in `determineDirectBumps` enforces the single-workspace contract for
       // --set-version even if a caller bypasses the CLI layer that normally narrows via --only.
-      const config = makeConfig({
-        workspaces: [
-          {
-            dir: 'core',
-            name: '@test/core',
-            tagPrefix: 'core-v',
-            workspacePath: 'packages/core',
-            isPublishable: true,
-            packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
-            paths: ['packages/core/**'],
-          },
-          {
-            dir: 'app',
-            name: '@test/app',
-            tagPrefix: 'app-v',
-            workspacePath: 'packages/app',
-            isPublishable: true,
-            packageFiles: ['packages/app/package.json'],
-            changelogPaths: ['packages/app'],
-            paths: ['packages/app/**'],
-          },
-        ],
-      });
+      const config = makeConfig({ workspaces: [makeRoutedWorkspace('core'), makeRoutedWorkspace('app')] });
 
       expect(() => releasePrepareMono(config, { setVersion: '1.0.0' })).toThrow(
         '--set-version requires exactly one workspace',
@@ -1266,48 +1047,11 @@ describe(releasePrepareMono, () => {
     });
 
     it('preserves a direct higher bump when propagation would add a patch', () => {
-      const config = makeConfig({
-        workspaces: [
-          {
-            dir: 'core',
-            name: '@test/core',
-            tagPrefix: 'core-v',
-            workspacePath: 'packages/core',
-            isPublishable: true,
-            packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
-            paths: ['packages/core/**'],
-          },
-          {
-            dir: 'app',
-            name: '@test/app',
-            tagPrefix: 'app-v',
-            workspacePath: 'packages/app',
-            isPublishable: true,
-            packageFiles: ['packages/app/package.json'],
-            changelogPaths: ['packages/app'],
-            paths: ['packages/app/**'],
-          },
-        ],
-      });
+      const config = stubPropagationWorkspaces();
 
       stubHistoryByPrefix({
         'core-v': { previousTag: 'core-v1.0.0', commits: [['fix: core fix', 'abc123']], bump: 'patch' },
         'app-v': { previousTag: 'app-v2.0.0', commits: [['feat: app feature', 'def456']], bump: 'minor' },
-      });
-
-      mockReadFileSync.mockImplementation((filePath: string) => {
-        if (filePath.includes('core')) {
-          return JSON.stringify({ name: '@test/core', version: '1.0.0' });
-        }
-        if (filePath.includes('app')) {
-          return JSON.stringify({
-            name: '@test/app',
-            version: '2.0.0',
-            dependencies: { '@test/core': 'workspace:*' },
-          });
-        }
-        return '{}';
       });
 
       const result = releasePrepareMono(config, {});
@@ -1428,30 +1172,7 @@ describe(releasePrepareMono, () => {
     });
 
     it('keeps propagation-only workspaces on the propagation path (no regression)', () => {
-      const config = makeConfig({
-        workspaces: [
-          {
-            dir: 'core',
-            name: '@test/core',
-            tagPrefix: 'core-v',
-            workspacePath: 'packages/core',
-            isPublishable: true,
-            packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
-            paths: ['packages/core/**'],
-          },
-          {
-            dir: 'app',
-            name: '@test/app',
-            tagPrefix: 'app-v',
-            workspacePath: 'packages/app',
-            isPublishable: true,
-            packageFiles: ['packages/app/package.json'],
-            changelogPaths: ['packages/app'],
-            paths: ['packages/app/**'],
-          },
-        ],
-      });
+      const config = stubPropagationWorkspaces();
 
       stubHistoryByPrefix({
         'core-v': {
@@ -1460,23 +1181,8 @@ describe(releasePrepareMono, () => {
           bump: 'patch',
           sections: [{ title: 'Bug fixes', audience: 'all', items: [{ description: 'Bug fix', hash: 'abc123' }] }],
         },
-        'app-v': { previousTag: 'app-v1.0.0' },
+        'app-v': { previousTag: 'app-v2.0.0' },
       });
-      mockReadFileSync.mockImplementation((filePath: string) => {
-        if (filePath.includes('core')) {
-          return JSON.stringify({ name: '@test/core', version: '1.0.0' });
-        }
-        if (filePath.includes('app')) {
-          return JSON.stringify({
-            name: '@test/app',
-            version: '1.0.0',
-            dependencies: { '@test/core': 'workspace:*' },
-          });
-        }
-        return '{}';
-      });
-      mockExistsSync.mockReturnValue(false);
-
       releasePrepareMono(config, {});
 
       // The propagation-only path constructs a synthetic propagation entry, not an empty-range
@@ -1605,20 +1311,16 @@ describe(releasePrepareMono, () => {
 
   describe('existing CHANGELOG.md sections', () => {
     it('keeps markdown-only sections for a direct release and a propagation-only one', () => {
-      const config = makeConfig({ workspaces: [makeRoutedWorkspace('core'), makeRoutedWorkspace('app')] });
+      const config = stubPropagationWorkspaces(
+        {},
+        {
+          'packages/core/CHANGELOG.md': '# Changelog\n\n## 1.0.0\n\n- Core one\n',
+          'packages/app/CHANGELOG.md': '# Changelog\n\n## 2.0.0\n\n- App two\n',
+        },
+      );
       stubHistoryByPrefix({
         'core-v': { previousTag: 'core-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' },
         'app-v': { previousTag: 'app-v2.0.0' },
-      });
-      stubFiles({
-        'packages/core/package.json': JSON.stringify({ name: '@test/core', version: '1.0.0' }),
-        'packages/core/CHANGELOG.md': '# Changelog\n\n## 1.0.0\n\n- Core one\n',
-        'packages/app/package.json': JSON.stringify({
-          name: '@test/app',
-          version: '2.0.0',
-          dependencies: { '@test/core': 'workspace:*' },
-        }),
-        'packages/app/CHANGELOG.md': '# Changelog\n\n## 2.0.0\n\n- App two\n',
       });
 
       const result = releasePrepareMono(config, {});
@@ -2274,48 +1976,13 @@ describe(releasePrepareMono, () => {
       // Mirrors the `dependency propagation` setup: core is bumped directly (feat commit), and
       // app is bumped only through propagation. Both branches of `generateWorkspaceChangelogs`
       // must reach `maybeWritePreviews` so that previews are written for each workspace.
-      const config = makeConfig({
-        workspaces: [
-          {
-            dir: 'core',
-            name: '@test/core',
-            tagPrefix: 'core-v',
-            workspacePath: 'packages/core',
-            isPublishable: true,
-            packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
-            paths: ['packages/core/**'],
-          },
-          {
-            dir: 'app',
-            name: '@test/app',
-            tagPrefix: 'app-v',
-            workspacePath: 'packages/app',
-            isPublishable: true,
-            packageFiles: ['packages/app/package.json'],
-            changelogPaths: ['packages/app'],
-            paths: ['packages/app/**'],
-          },
-        ],
-        changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
-      });
+      const config = stubPropagationWorkspaces({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } });
 
       stubHistoryByPrefix({
         'core-v': { previousTag: 'core-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' },
         'app-v': { previousTag: 'app-v2.0.0' },
       });
       mockExecFileSync.mockReturnValue('[]');
-      mockReadFileSync.mockImplementation((filePath: string) => {
-        if (typeof filePath === 'string' && filePath.includes('core')) {
-          return JSON.stringify({ name: '@test/core', version: '1.0.0' });
-        }
-        return JSON.stringify({
-          name: '@test/app',
-          version: '2.0.0',
-          dependencies: { '@test/core': 'workspace:*' },
-        });
-      });
-      mockExistsSync.mockReturnValue(false);
 
       releasePrepareMono(config, { withReleaseNotes: true });
 
@@ -2727,6 +2394,7 @@ describe(releasePrepareMono, () => {
   });
 });
 
+// region | Helpers
 /** Returns the content that the plan intends to write to `path`, or undefined when the plan does not write it. */
 function plannedContent(
   plan: { writes: readonly { path: string; content: string }[] },
@@ -2758,6 +2426,23 @@ function stubHistoryByPrefix(stubs: Record<string, ReleaseHistoryStub>): void {
   });
 }
 
+/** Stubs `core` 1.0.0 and `app` 2.0.0 depending on it, beside any other `files`, and returns their config. */
+function stubPropagationWorkspaces(
+  overrides?: Partial<MonorepoReleaseConfig>,
+  files?: Record<string, string>,
+): MonorepoReleaseConfig {
+  stubFiles({
+    'packages/core/package.json': JSON.stringify({ name: '@test/core', version: '1.0.0' }),
+    'packages/app/package.json': JSON.stringify({
+      name: '@test/app',
+      version: '2.0.0',
+      dependencies: { '@test/core': 'workspace:*' },
+    }),
+    ...files,
+  });
+  return makeConfig({ workspaces: [makeRoutedWorkspace('core'), makeRoutedWorkspace('app')], ...overrides });
+}
+
 /** Builds a workspace config whose paths, files, and tag prefix follow from `dir`. */
 function makeRoutedWorkspace(dir: string): WorkspaceConfig {
   return {
@@ -2776,3 +2461,4 @@ function makeRoutedWorkspace(dir: string): WorkspaceConfig {
 function listReadOptions(): unknown[] {
   return mockReadReleaseHistory.mock.calls.map((call: unknown[]) => call[1]);
 }
+// endregion | Helpers
