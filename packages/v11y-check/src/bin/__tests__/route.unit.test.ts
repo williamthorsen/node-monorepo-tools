@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { auditCommand, checkCommand, syncCommand } from '../../cli.ts';
 import { initCommand } from '../../init/initCommand.ts';
+import { updateTemplatesCommand } from '../../init/updateTemplatesCommand.ts';
 import { routeCommand } from '../route.ts';
 
 vi.mock(import('../../cli.ts'), () => ({
@@ -14,6 +15,10 @@ vi.mock(import('../../cli.ts'), () => ({
 
 vi.mock(import('../../init/initCommand.ts'), () => ({
   initCommand: vi.fn().mockReturnValue(0),
+}));
+
+vi.mock(import('../../init/updateTemplatesCommand.ts'), () => ({
+  updateTemplatesCommand: vi.fn().mockReturnValue(0),
 }));
 
 describe(routeCommand, () => {
@@ -184,6 +189,31 @@ describe(routeCommand, () => {
   it('forwards --force flag to initCommand', async () => {
     await routeCommand(['init', '--force']);
     expect(initCommand).toHaveBeenCalledWith(expect.objectContaining({ dryRun: false, force: true }));
+  });
+
+  it.each([
+    [[], false],
+    [['--dry-run'], true],
+    [['-n'], true],
+  ])('dispatches "update-templates" with args %j to updateTemplatesCommand (dryRun: %s)', async (flags, dryRun) => {
+    await routeCommand(['update-templates', ...flags]);
+    expect(updateTemplatesCommand).toHaveBeenCalledWith(expect.objectContaining({ dryRun }));
+  });
+
+  it('returns 0 for update-templates --help without updating anything', async () => {
+    using _silent = silenceConsole(['info']);
+
+    const exitCode = await routeCommand(['update-templates', '--help']);
+
+    expect(exitCode).toBe(0);
+    expect(updateTemplatesCommand).not.toHaveBeenCalled();
+  });
+
+  it('rejects --force on update-templates', async () => {
+    using _capture = captureStdio();
+
+    await expect(routeCommand(['update-templates', '--force'])).resolves.toBe(1);
+    expect(updateTemplatesCommand).not.toHaveBeenCalled();
   });
 
   it('states the output-style variable and its three values in --help', async () => {

@@ -5,12 +5,13 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { auditCommand, checkCommand, syncCommand } from '../cli.ts';
 import { initCommand } from '../init/initCommand.ts';
+import { updateTemplatesCommand } from '../init/updateTemplatesCommand.ts';
 import { OUTPUT_STYLE_ENV_VAR, resolveStyles } from '../resolveStyles.ts';
 import type { AuditScope, CommandOptions } from '../types.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
 
-const SUBCOMMANDS = ['check', 'init', 'sync'];
+const SUBCOMMANDS = ['check', 'init', 'sync', 'update-templates'];
 const MIN_PREFIX_LENGTH = 3;
 
 /** Prints the top-level usage. */
@@ -23,6 +24,7 @@ Commands:
   check (default)      Grouped vulnerability check with severity indicators
   sync                 Synchronize allowlists with current audit findings
   init                 Scaffold a starter config file and GitHub Actions workflow
+  update-templates     Update the scaffolded workflow to the current template
 
 Scope options:
   --dev                Target dev dependencies only
@@ -72,6 +74,21 @@ Other options:
   --config <path>    Path to config file (default: .config/v11y-check.config.json)
   --json             Output results as JSON
   --help, -h         Show this help message
+`);
+}
+
+/** Prints the usage of `v11y update-templates`. */
+function showUpdateTemplatesHelp(): void {
+  console.info(`
+Usage: v11y update-templates [options]
+
+Update .github/workflows/audit.yaml to the template of the installed version,
+showing what changed. Creates the workflow when it is missing. Never touches
+the config file.
+
+Options:
+  --dry-run, -n   Preview changes without writing files
+  --help, -h      Show this help message
 `);
 }
 
@@ -156,6 +173,10 @@ export async function routeCommand(args: string[]): Promise<number> {
     return handleSubcommand(args.slice(1), styles, syncCommand, showSyncHelp);
   }
 
+  if (command === 'update-templates') {
+    return handleUpdateTemplates(args.slice(1), styles);
+  }
+
   // A positional argument that doesn't name a subcommand is an error, never input to the default command.
   if (command !== undefined && !command.startsWith('-')) {
     const typoMatch = findTypoMatch(command);
@@ -225,4 +246,26 @@ function handleInit(flags: string[], styles: StreamStyles): number {
   }
 
   return initCommand({ dryRun: parsed.flags.dryRun, force: parsed.flags.force, styles });
+}
+
+/** Handles the `update-templates` subcommand with its own flag set. */
+function handleUpdateTemplates(flags: string[], styles: StreamStyles): number {
+  if (flags.some((f) => f === '--help' || f === '-h')) {
+    showUpdateTemplatesHelp();
+    return 0;
+  }
+
+  const updateTemplatesFlagSchema = {
+    dryRun: { long: '--dry-run', type: 'boolean' as const, short: '-n' },
+  };
+
+  let parsed;
+  try {
+    parsed = parseArgs(flags, updateTemplatesFlagSchema);
+  } catch (error: unknown) {
+    reportError(describeError(error));
+    return 1;
+  }
+
+  return updateTemplatesCommand({ dryRun: parsed.flags.dryRun, styles });
 }
