@@ -17,6 +17,13 @@ import {
   readFile,
   readJsonFile
 } from "readyup/check-utils";
+
+// src/init/hasProvenance.ts
+function hasProvenance(workflowContent) {
+  return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
+}
+
+// .readyup/kits/npm-auto-publish.ts
 var AUTH_ERROR_CODES = /* @__PURE__ */ new Set(["E401", "ENEEDAUTH"]);
 var OTP_ERROR_CODE = "EOTP";
 var PUBLISH_WORKFLOW_FILE = "publish.yaml";
@@ -225,15 +232,15 @@ function classifyProvenanceSetting(workflowContent, visibility) {
       fix: "Install and authenticate the GitHub CLI: gh auth login"
     };
   }
-  const hasProvenance = parseProvenanceSetting(workflowContent);
-  if (visibility === "public" && !hasProvenance) {
+  const provenance = hasProvenance(workflowContent);
+  if (visibility === "public" && !provenance) {
     return {
       ok: false,
       detail: "The repo is public and publish.yaml does not set provenance: true",
       fix: "Set provenance: true in .github/workflows/publish.yaml; public repos should generate provenance attestations"
     };
   }
-  if (visibility === "private" && hasProvenance) {
+  if (visibility === "private" && provenance) {
     return {
       ok: false,
       detail: "The repo is private and publish.yaml sets provenance: true",
@@ -362,9 +369,6 @@ function isRepoPrivate() {
     encoding: "utf8"
   }).trim();
   return result === "true";
-}
-function parseProvenanceSetting(workflowContent) {
-  return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
 }
 function probeTrustQuery() {
   const probeName = selectProbeName();

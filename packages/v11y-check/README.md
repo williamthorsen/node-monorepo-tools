@@ -83,6 +83,7 @@ Commands:
   check (default)      Grouped vulnerability check with severity indicators
   sync                 Synchronize allowlists with current audit findings
   init                 Scaffold a starter config file and GitHub Actions workflow
+  update-templates     Update the scaffolded workflow to the current template
 
 Scope options:
   --dev                Target dev dependencies only
@@ -107,6 +108,12 @@ Environment:
 ```
   --dry-run, -n   Preview changes without writing files
   --force, -f     Overwrite an existing workflow (an existing config is never overwritten)
+```
+
+### Update-templates options
+
+```
+  --dry-run, -n   Preview changes without writing files
 ```
 
 ### JSON output shape
@@ -136,7 +143,7 @@ Environment:
 
 `v11y init` scaffolds `.github/workflows/audit.yaml` alongside the config file. The workflow is a thin caller that delegates to the versioned reusable workflow published at `williamthorsen/node-monorepo-tools/.github/workflows/audit.reusable.yaml@workflow/audit-v1`, so the consuming repository tracks the reusable workflow at a stable version tag.
 
-The scaffolded workflow triggers on pull requests to `main`/`next`, on a daily schedule, and on manual `workflow_dispatch`. Commit the file into the repository so that the caller runs in CI. If the reusable workflow's caller-side requirements change (for example, the tag bumps), re-run `v11y init --force` to refresh the file.
+The scaffolded workflow triggers on pull requests to `main`/`next`, on a daily schedule, and on manual `workflow_dispatch`. Commit the file into the repository so that the caller runs in CI. If the reusable workflow's caller-side requirements change (for example, the tag bumps), run `v11y update-templates` to refresh the file, which shows what changed and leaves the config file untouched.
 
 The reusable workflow installs pnpm with [`pnpm/setup`](https://github.com/pnpm/setup), which installs pnpm 11 or newer only and reads the version from the repository's `devEngines.packageManager` or `packageManager` field. A repository pinned below that cannot run it.
 

@@ -14,6 +14,7 @@ import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
 import { enterRepoRoot, type RepoLocation } from '../enterRepoRoot.ts';
 import { showPrepareHelp } from '../help/prepareHelp.ts';
 import { initCommand } from '../init/initCommand.ts';
+import { updateTemplatesCommand } from '../init/updateTemplatesCommand.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { publishCommand } from '../publishCommand.ts';
 import { pushCommand } from '../pushCommand.ts';
@@ -42,6 +43,7 @@ Commands:
   create-github-release  Create GitHub Releases from changelog.json for tags on HEAD
   show-tag-prefixes  Show derived and declared legacy tag prefixes per workspace
   init             Initialize release-kit in the current repository
+  update-templates Update the scaffolded workflows to the current templates
   overrides        Manage editorial changelog overrides
   sync-labels      Manage GitHub label synchronization
 
@@ -131,6 +133,22 @@ By default, scaffolds only the GitHub Actions workflow files.
 Options:
   --with-config   Also scaffold .config/release-kit.config.ts
   --force         Overwrite existing files instead of skipping them
+  --dry-run       Preview changes without writing files
+  --help, -h      Show this help message
+`);
+}
+
+/** Prints the `update-templates` command's help text. */
+function showUpdateTemplatesHelp(): void {
+  console.info(`
+Usage: release-kit update-templates [options]
+
+Update the GitHub Actions workflows that release-kit scaffolds to the templates
+of the installed version, showing what changed in each file. Creates a missing
+workflow that \`init\` would create, and refreshes sync-labels.yaml only when it
+exists. Keeps publish.yaml's provenance setting. Never touches config files.
+
+Options:
   --dry-run       Preview changes without writing files
   --help, -h      Show this help message
 `);
@@ -411,6 +429,23 @@ if (command === 'init') {
 
   const { dryRun, force, withConfig } = parseArgsOrExit(flags, initFlagSchema).flags;
   const exitCode = initCommand({ dryRun, force, styles, withConfig });
+  process.exit(exitCode);
+}
+
+if (command === 'update-templates') {
+  if (flags.some((f) => f === '--help' || f === '-h')) {
+    showUpdateTemplatesHelp();
+    process.exit(0);
+  }
+
+  enterRepoRootOrExit();
+
+  const updateTemplatesFlagSchema = {
+    dryRun: { long: '--dry-run', type: 'boolean' as const },
+  };
+
+  const { dryRun } = parseArgsOrExit(flags, updateTemplatesFlagSchema).flags;
+  const exitCode = updateTemplatesCommand({ dryRun, styles });
   process.exit(exitCode);
 }
 

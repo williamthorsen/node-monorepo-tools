@@ -21,15 +21,16 @@ describe('repo workflows match the templates that its packages publish', () => {
   it('create-github-release.yaml matches release-kit createGithubReleaseWorkflow("monorepo")', () => {
     const content = readFileSync(join(workflowsDir, 'create-github-release.yaml'), 'utf8');
 
-    expect(content, 'Run `release-kit init --force` to regenerate .github/workflows/create-github-release.yaml').toBe(
-      createGithubReleaseWorkflow('monorepo'),
-    );
+    expect(
+      content,
+      'Run `release-kit update-templates` to regenerate .github/workflows/create-github-release.yaml',
+    ).toBe(createGithubReleaseWorkflow('monorepo'));
   });
 
   it('publish.yaml matches release-kit publishWorkflow("monorepo")', () => {
     const content = readFileSync(join(workflowsDir, 'publish.yaml'), 'utf8');
 
-    expect(content, 'Run `release-kit init --force` to regenerate .github/workflows/publish.yaml').toBe(
+    expect(content, 'Run `release-kit update-templates` to regenerate .github/workflows/publish.yaml').toBe(
       publishWorkflow('monorepo'),
     );
   });
@@ -37,7 +38,7 @@ describe('repo workflows match the templates that its packages publish', () => {
   it('release.yaml matches release-kit releaseWorkflow("monorepo")', () => {
     const content = readFileSync(join(workflowsDir, 'release.yaml'), 'utf8');
 
-    expect(content, 'Run `release-kit init --force` to regenerate .github/workflows/release.yaml').toBe(
+    expect(content, 'Run `release-kit update-templates` to regenerate .github/workflows/release.yaml').toBe(
       releaseWorkflow('monorepo'),
     );
   });
@@ -45,7 +46,7 @@ describe('repo workflows match the templates that its packages publish', () => {
   it('sync-labels.yaml matches release-kit syncLabelsWorkflow()', () => {
     const content = readFileSync(join(workflowsDir, 'sync-labels.yaml'), 'utf8');
 
-    expect(content, 'Run `release-kit sync-labels init --force` to regenerate .github/workflows/sync-labels.yaml').toBe(
+    expect(content, 'Run `release-kit update-templates` to regenerate .github/workflows/sync-labels.yaml').toBe(
       syncLabelsWorkflow(),
     );
   });
@@ -54,6 +55,6 @@ describe('repo workflows match the templates that its packages publish', () => {
     const content = readFileSync(join(workflowsDir, 'audit.yaml'), 'utf8');
     const template = readFileSync(join(repoRoot, 'packages', 'v11y-check', 'templates', 'audit.yaml.template'), 'utf8');
 
-    expect(content, 'Run `v11y init --force` to regenerate .github/workflows/audit.yaml').toBe(template);
+    expect(content, 'Run `v11y update-templates` to regenerate .github/workflows/audit.yaml').toBe(template);
   });
 });

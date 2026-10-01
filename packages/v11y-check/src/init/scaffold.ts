@@ -7,7 +7,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { v11yCheckConfigTemplate } from './templates.ts';
 
 const CONFIG_PATH = '.config/v11y-check.config.json';
-const WORKFLOW_PATH = '.github/workflows/audit.yaml';
+export const WORKFLOW_PATH = '.github/workflows/audit.yaml';
 
 interface ScaffoldOptions {
   dryRun: boolean;
@@ -29,28 +29,29 @@ export function scaffoldConfig({ dryRun }: { dryRun: boolean }): ScaffoldResult 
 
 /** Copies the bundled audit.yaml.template to `.github/workflows/audit.yaml` in the target repo. */
 export function copyWorkflowTemplate(dryRun: boolean, overwrite: boolean): WriteResult {
+  const template = readWorkflowTemplate();
+  if ('error' in template) {
+    return { filePath: WORKFLOW_PATH, outcome: 'failed', error: template.error };
+  }
+
+  return writeFileWithCheck(WORKFLOW_PATH, template.content, { dryRun, overwrite });
+}
+
+/** Reads the bundled audit.yaml.template, returning a description of the failure when it cannot. */
+export function readWorkflowTemplate(): { content: string } | { error: string } {
   let root: string;
   try {
     root = findPackageRoot(import.meta.url);
   } catch (error: unknown) {
-    const message = describeError(error);
-    return { filePath: WORKFLOW_PATH, outcome: 'failed', error: `Failed to resolve package root: ${message}` };
+    return { error: `Failed to resolve package root: ${describeError(error)}` };
   }
   const templatePath = resolve(root, 'templates', 'audit.yaml.template');
 
-  let content: string;
   try {
-    content = readFileSync(templatePath, 'utf8');
+    return { content: readFileSync(templatePath, 'utf8') };
   } catch (error: unknown) {
-    const message = describeError(error);
-    return {
-      filePath: WORKFLOW_PATH,
-      outcome: 'failed',
-      error: `Failed to read bundled template at ${templatePath}: ${message}`,
-    };
+    return { error: `Failed to read bundled template at ${templatePath}: ${describeError(error)}` };
   }
-
-  return writeFileWithCheck(WORKFLOW_PATH, content, { dryRun, overwrite });
 }
 
 /** Scaffolds the GitHub Actions audit workflow to `.github/workflows/audit.yaml`. */

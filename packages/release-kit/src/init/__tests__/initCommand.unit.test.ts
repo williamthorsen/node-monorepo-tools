@@ -166,7 +166,7 @@ describe(initCommand, () => {
     initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     const allOutput = listConsoleLines(silent.info).join('\n');
-    expect(allOutput).toContain('provenance: true');
+    expect(allOutput).toContain('If this is a private repo, remove provenance: true');
     expect(allOutput).toContain('trusted publisher');
   });
 

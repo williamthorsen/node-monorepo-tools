@@ -66,7 +66,7 @@ export default defineRdyKit({
               name: 'audit.yaml matches template',
               severity: 'warn',
               check: () => fileMatchesHash('.github/workflows/audit.yaml', AUDIT_WORKFLOW_HASH),
-              fix: 'Run `v11y init --force` to regenerate audit.yaml from the current template',
+              fix: 'Run `v11y update-templates` to regenerate audit.yaml from the current template',
             },
           ],
         },

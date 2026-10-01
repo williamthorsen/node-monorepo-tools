@@ -75,6 +75,13 @@ describe(publishWorkflow, () => {
     expect(workflow).not.toContain('provenance: false');
   });
 
+  it.each(['monorepo', 'single-package'] as const)('omits provenance when provenance is false (%s)', (repoType) => {
+    const workflow = publishWorkflow(repoType, { provenance: false });
+
+    expect(workflow).not.toContain('provenance');
+    expect(workflow).toContain('    with:\n      tags: ${{ github.ref_name }}\n');
+  });
+
   it.each(['monorepo', 'single-package'] as const)(
     'passes tags: ${{ github.ref_name }} to the reusable workflow (%s)',
     (repoType) => {

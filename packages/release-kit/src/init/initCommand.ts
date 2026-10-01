@@ -19,18 +19,8 @@ interface InitOptions {
   withConfig: boolean;
 }
 
-/** Prints the result of a required check and reports whether it passed. */
-function runRequiredCheck(label: string, result: CheckResult, styles: StreamStyles): boolean {
-  if (result.ok) {
-    printSuccess(label, styles.stdout);
-    return true;
-  }
-  printError(result.message ?? `${label} failed`, styles.stderr);
-  return false;
-}
-
 /** Runs the eligibility checks, stopping at the first failure, and reports whether all passed. */
-function checkEligibility(styles: StreamStyles): boolean {
+export function checkEligibility(styles: StreamStyles): boolean {
   printStep('Checking eligibility');
 
   if (!runRequiredCheck('Git repository detected', isGitRepo(), styles)) return false;
@@ -88,7 +78,7 @@ export function initCommand({ dryRun, force, styles, withConfig }: InitOptions):
     : '1. (Optional) Run again with --with-config to scaffold config files.';
   console.info(`
   ${configHint}
-  2. If this is a public repo, set provenance: true in .github/workflows/publish.yaml.
+  2. If this is a private repo, remove provenance: true from .github/workflows/publish.yaml.
   3. Test by running: npx @williamthorsen/release-kit prepare --dry-run
   4. Commit the generated files.
   5. Register each package as a trusted publisher on npmjs.com.
@@ -96,3 +86,15 @@ export function initCommand({ dryRun, force, styles, withConfig }: InitOptions):
 
   return 0;
 }
+
+// region | Helpers
+/** Prints the result of a required check and reports whether it passed. */
+function runRequiredCheck(label: string, result: CheckResult, styles: StreamStyles): boolean {
+  if (result.ok) {
+    printSuccess(label, styles.stdout);
+    return true;
+  }
+  printError(result.message ?? `${label} failed`, styles.stderr);
+  return false;
+}
+// endregion | Helpers

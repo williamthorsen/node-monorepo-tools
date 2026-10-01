@@ -54,6 +54,8 @@ gh workflow run release.yaml                  # every workspace with release-wor
 gh workflow run release.yaml -f only=arrays   # the named workspaces alone
 ```
 
+After upgrading release-kit, run `release-kit update-templates` to update the scaffolded workflows to its templates; it leaves the config files alone.
+
 The CLI applies defaults to every discovered workspace. [Releasing](docs/releasing.md) covers `prepare`'s flags, release-notes previews, and the workflow's inputs.
 
 ## How it works
@@ -153,7 +155,7 @@ rdy run --packages
 
 - [Configuration](docs/configuration.md): `ReleaseKitConfig` fields, workspace overrides and legacy identities, retired packages, tag prefixes, and version patterns
 - [Project releases](docs/project-releases.md): The `project` block, and how a project release interacts with `prepare`'s flags
-- [Releasing](docs/releasing.md): `init`, `prepare`'s flags and release-notes previews, and the release workflow
+- [Releasing](docs/releasing.md): `init`, `update-templates`, `prepare`'s flags and release-notes previews, and the release workflow
 - [Publishing](docs/publishing.md): `publish`, the publishability filter, and `create-github-release`
 - [Changelogs](docs/changelogs.md): The `changelog.json` item schema, which commits appear in a changelog, and release-notes injection
 - [Editorial overrides](docs/editorial-overrides.md): Correcting generated changelog entries, and `overrides validate`
