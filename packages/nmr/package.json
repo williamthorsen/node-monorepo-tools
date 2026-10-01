@@ -86,7 +86,7 @@
     "@williamthorsen/nmr-core": "workspace:*",
     "@williamthorsen/toolbelt.errors": "catalog:",
     "glob": "13.0.6",
-    "prettier-plugin-sh": "0.19.0",
+    "prettier-plugin-sh": "0.20.2",
     "taze": "21.1.0"
   },
   "devDependencies": {
