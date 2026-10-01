@@ -1,5 +1,217 @@
 [
   {
+    "version": "13.0.0",
+    "date": "2026-10-01",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Adds the `--config <path>` flag to `release-kit push`, which now reads the config as `publish` and `create-github-release` do and fails when the file exists but is invalid. (#895)",
+            "hash": "6aea08cf0154f2d1cc253a44cd9b09c283ad3248",
+            "entry": 2
+          },
+          {
+            "description": "Makes `release-kit` add an item derived from a change-record entry to a workspace's changelog and version bump only when the entry's `scopes`, after `scopeAliases` resolution, name the workspace's `dir`, are empty, or contain `*`, and extends that rule to the sections of earlier releases that `release-kit prepare` rebuilds. (#896)",
+            "hash": "066c6bde1ad4fda6705066f538283e9c80a92a1e",
+            "entry": 1
+          },
+          {
+            "description": "Adds a warning to the `release-kit prepare` report that lists each change-record entry scope matching no workspace in its commit's window, such as a misspelled scope or the old name of a renamed directory that has no `scopeAliases` entry. (#896)",
+            "hash": "066c6bde1ad4fda6705066f538283e9c80a92a1e",
+            "entry": 2
+          },
+          {
+            "description": "Makes `release-kit overrides validate` check a workspace's overrides against only the entries routed to that workspace, so that an override keyed to an entry routed elsewhere is reported as stale. (#896)",
+            "hash": "066c6bde1ad4fda6705066f538283e9c80a92a1e",
+            "entry": 3
+          },
+          {
+            "description": "Adds `release-kit update-templates`, which writes each scaffolded workflow that is missing or differs from the installed template, prints a diff of each updated file, refreshes `sync-labels.yaml` only when it exists, keeps `publish.yaml`'s provenance setting, and never reads or writes the config files. (#952)",
+            "hash": "9fac96675e9fb4dd70407cbfb0e3e0ffa7e83ba4",
+            "entry": 1
+          },
+          {
+            "description": "Changes the readyup kits' fix messages for a workflow that differs from its template, or that references a deprecated tag, to recommend `update-templates` rather than `init --force`. (#952)",
+            "hash": "9fac96675e9fb4dd70407cbfb0e3e0ffa7e83ba4",
+            "entry": 3
+          }
+        ]
+      },
+      {
+        "title": "🪦 Removed",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Removes `required` as a `breakingPolicies` value, making `drop` default to `optional` so that an unmarked `drop:` commit no longer reports a policy violation. (#905)",
+            "breaking": true,
+            "migration": "Remove each `'required'` value from `breakingPolicies` in `release-kit.config.ts`, or replace it with `'optional'`.",
+            "hash": "3ccdc8960988b71c2b9ce065f2889cf741c44721",
+            "entry": 1
+          },
+          {
+            "description": "Stops `release-kit` from parsing a commit subject that combines a pipe scope with a parenthesized scope, such as `web|feat(other): ...`, or that lacks a space and a title after the colon, because subjects are now read through `@williamthorsen/change-grammar`. (#905)",
+            "migration": "Rewrite a combined subject such as `web|feat(other): ...` as `web|feat: ...`, and follow the colon with a space and a title.",
+            "hash": "3ccdc8960988b71c2b9ce065f2889cf741c44721",
+            "entry": 2
+          },
+          {
+            "description": "Stops publishing `schemas/label-map.json` from `release-kit`, whose identical schema `@williamthorsen/change-grammar` now publishes; URLs under existing `release-kit-v*` tags keep resolving. (#905)",
+            "migration": "Point the `$schema` of `.meta/label-map.json` at `https://github.com/williamthorsen/node-monorepo-tools/raw/change-grammar-v<version>/packages/change-grammar/schemas/label-map.json`, and keep an existing `release-kit-v*` URL until a `change-grammar-v*` tag exists, since that URL does not resolve before then.",
+            "hash": "3ccdc8960988b71c2b9ce065f2889cf741c44721",
+            "entry": 3
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Record a changelog entry for a forced release whose commits yield no item (#887)",
+            "body": "Makes `release-kit prepare` record the \"Forced version bump.\" changelog entry for any release forced by `--force` or `--set-version` whose commits yield no changelog item, instead of only for a release with no commits at all. It also stops a monorepo's project release from dropping the forced-release entries that earlier releases recorded.",
+            "hash": "e806c32a4f412abde5d7ab22f150506e946b3a87"
+          },
+          {
+            "description": "Stops `release-kit prepare` from reporting `commitCount` 0 and dropping the unparseable commits and change-record and policy diagnostics of a workspace released only because a dependency was bumped, and makes `prepare` list that workspace's commits in the release commit summary under its tag. (#888)",
+            "hash": "d60ac32b7452b850c98571017e5f7f373479fc10",
+            "entry": 1
+          },
+          {
+            "description": "Stops `release-kit prepare` from labeling a direct release that has no commits as bumped via a dependency, by marking a propagation-only release with the new `propagatedOnly` result field, whose report line now reads `Bumped via dependency: …` in place of `0 commits (bumped via dependency: …)`. (#888)",
+            "hash": "d60ac32b7452b850c98571017e5f7f373479fc10",
+            "entry": 2
+          },
+          {
+            "description": "Stops a `release-kit` command run from inside a package from releasing that package as a single-package repo with its own tag and changelog, by running every command from the repo root: the nearest directory that contains `pnpm-workspace.yaml`, or else the working directory when it contains a `package.json`. (#893)",
+            "hash": "97af8314da5dfe135c680310eb79f8309bc9918e",
+            "entry": 1
+          },
+          {
+            "description": "Stops `sync-labels generate` from writing the `--config` path into the `.github/labels.yaml` header as typed, which made the header and the result of `generate --check` depend on the directory from which the command ran; the header now names the config by its path relative to the repo root. (#893)",
+            "hash": "97af8314da5dfe135c680310eb79f8309bc9918e",
+            "entry": 2
+          },
+          {
+            "description": "Stops `push`, `publish`, and `create-github-release` from pushing, publishing, or creating a GitHub Release for a tag on HEAD whose workspace the config excludes with `shouldExclude: true`, which each command now skips with a warning, including when `--tags` names the tag or when every tag on HEAD is excluded. (#895)",
+            "hash": "6aea08cf0154f2d1cc253a44cd9b09c283ad3248",
+            "entry": 1
+          },
+          {
+            "description": "Stops `release-kit prepare` from silently deleting a `CHANGELOG.md` section whose version is absent from both the release windows and `changelog.json`, such as history written by hand before release-kit was adopted; `prepare` now keeps that section verbatim in version order, lists the kept versions in its report, and warns about each `##` section that names no version and is dropped. (#897)",
+            "hash": "9316ba5903b330895e258786d0fc7de005554cae",
+            "entry": 1
+          },
+          {
+            "description": "Stops `release-kit prepare` from folding every earlier commit into the new version, and deriving the bump from all of them, when the current version was released and recorded in the changelog but never tagged; `prepare` now fails before any write, under `--force` and `--set-version` too, and names each target and the tag to create. (#897)",
+            "hash": "9316ba5903b330895e258786d0fc7de005554cae",
+            "entry": 2
+          },
+          {
+            "description": "Adds the missing `removal` and `formatting` labels to the `common` preset by defining a label for every work type in change-grammar's taxonomy, and keeps the names, colors, and descriptions of the existing type labels. (#906)",
+            "hash": "ccdb3aa585d6fb36b2994cceb59df54caea12a79",
+            "entry": 1
+          },
+          {
+            "description": "Fixes the `release.yaml` generated by `release-kit init`, which `actionlint` rejected because its `bump` choice input listed an empty string as the auto-detect option, by offering `auto` as the default option and passing it to the reusable release workflow as an empty `bump`. (#936)",
+            "hash": "9c0ef936a0d5b91fe64c5a1ea1be258f1678ea62",
+            "entry": 1
+          },
+          {
+            "description": "Rewords the error messages, `prepare` report lines, command help, and readyup kit fix strings of `release-kit` that addressed the reader as \"your\", separated a detail from its subject with an em-dash, or stated an absence with \"no\", such as \"No workspaces had release-worthy changes.\" (#937)",
+            "hash": "22ae182082e683ef94bf59db3bd23ca2c5b72c1f",
+            "entry": 1
+          },
+          {
+            "description": "Fixes the issue that the `release.yaml` and `sync-labels.yaml` workflows generated by `release-kit init` and `release-kit sync-labels init` contained unclear wording in two comments and in the `force` input description, which the change rewrites without altering any job, trigger, or input; the release-kit kit check reports a copy generated before this change as stale until `release-kit init --force` or `release-kit sync-labels init --force` regenerates it. (#946)",
+            "hash": "dc1c4bd4b05425ed1c2a7d031105c402c3d01f20",
+            "entry": 1
+          },
+          {
+            "description": "Fixes the issue that `release-kit` titled a propagation-only bump's changelog section `Dependency updates` rather than with the resolved `deps` work type's header, `📦 Dependencies` by default or a consumer's `workTypes.deps.header` override, which broke the heading convention and left the section outside the section order. (#950)",
+            "hash": "5a4771a1cb1e1b324a9ce3cb64fc3527199946a7",
+            "entry": 1
+          },
+          {
+            "description": "Fixes the issue that `release-kit init`'s next steps told a public repo to set `provenance: true` in `publish.yaml`, which the template already sets, and now tells a private repo to remove it instead. (#952)",
+            "hash": "9fac96675e9fb4dd70407cbfb0e3e0ffa7e83ba4",
+            "entry": 4
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Narrows the config accepted by `releasePrepare`, `releasePrepareMono`, `releasePrepareProject`, and the helpers that they pass it to, to the new `PrepareConfig` and `MonorepoPrepareConfig` aliases, which omit `releaseNotes` so that typecheck rejects any read of release-notes configuration on the prepare path. (#890)",
+            "hash": "e2b4e44f37a3f8254a42d98f67bc2f15d9e6c2c5",
+            "entry": 1
+          },
+          {
+            "description": "Derives `DEFAULT_WORK_TYPES`, `DEFAULT_BREAKING_POLICIES`, the default `devOnlySections`, and the release-notes breaking marker from change-grammar's `CANONICAL_TAXONOMY`, removing release-kit's taxonomy copy and its `work-types:check` and `work-types:sync` scripts. (#905)",
+            "hash": "3ccdc8960988b71c2b9ce065f2889cf741c44721",
+            "entry": 4
+          },
+          {
+            "description": "Replaces every `.sort()` call that suppressed `unicorn/no-array-sort` with `toSorted()` and drops the spread copy wherever the source was already an array. (#925)",
+            "hash": "4680fb4e865ffce0bd135fac20d49b766b156992",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Extends the `changelogJson.enabled` tests of `releasePrepareMono` to configure a format command and assert that `formatCommand.files` includes the workspace's `changelog.json` when the feature is enabled and excludes it when the feature is disabled, where the disabled case also requires a format command to exist so that the exclusion cannot pass vacuously. (#889)",
+            "hash": "eaf3782e606b98ba360cde9eab08770e27155d2b",
+            "entry": 1
+          },
+          {
+            "description": "Replaces the inline copies of the fixture in which `app` depends on `core` in `releasePrepareMono.unit.test.ts` with `stubPropagationWorkspaces`, a helper that stubs both manifests at their exact paths and returns the two-workspace config. (#951)",
+            "hash": "c1d511c5ae570e75358cd642b90b4979723fe375",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "📦 Dependencies",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Upgrades all dependencies to the latest versions allowed by the ceilings in `taze.config.ts` and the release quarantine, including pnpm to 12.6.0. (#944)",
+            "hash": "6dffd5df5bc4209dc225d08390ef2b67fe381f1b",
+            "entry": 1
+          },
+          {
+            "description": "Adds `esbuild` 0.28.2 to the pnpm catalog and declares it as a devDependency of `nmr`, `release-kit`, and `v11y-check`, because `readyup` declares it only as an optional peer and `rdy compile` failed in those packages once a regenerated lockfile stopped installing it. (#944)",
+            "hash": "6dffd5df5bc4209dc225d08390ef2b67fe381f1b",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "📚 Documentation",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Revises the comments in `packages/release-kit/src` and the `default` and `npm-auto-publish` readyup kits against the comment-discipline rules, correcting comments that misstated the code, such as the `releasePrepareProject` description that said it returns `undefined` where it throws and the `renderChangelogMarkdown` note that said no logic reads the footer. (#922)",
+            "hash": "176d09caec47686fa0023a31c5f77d4e2362d9bb",
+            "entry": 1
+          },
+          {
+            "description": "Rewrites the prose of the `release-kit` README, the pages under `docs/`, and the package's source comments and test names in plain, literal wording. (#937)",
+            "hash": "22ae182082e683ef94bf59db3bd23ca2c5b72c1f",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "12.0.0",
     "date": "2026-09-23",
     "sections": [

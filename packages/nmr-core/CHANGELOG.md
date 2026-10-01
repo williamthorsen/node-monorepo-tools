@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.13.1 — 2026-10-01
+
+### ♻️ Refactoring
+
+- Replaces every `.sort()` call that suppressed `unicorn/no-array-sort` with `toSorted()` and drops the spread copy wherever the source was already an array. (#925)
+
+### 🧪 Tests
+
+- Stubs `GIT_CEILING_DIRECTORIES` to the fixture's parent in every test that expects git to find no repository, so that a repository above the temp directory can no longer change the test's result. (#923)
+
+### 📚 Documentation
+
+- Revises the comments in `packages/nmr-core/src` against the comment-discipline rules, correcting the `writeFileWithCheck` description, which omitted the `skipped` outcome for an unreadable existing file, and the `WorkspaceResolution` description, which named `unreadable-manifest` as the only cause with no patterns. (#920)
+- Revises the README, doc comments, inline comments, and test titles in `packages/nmr-core` to align with the plain-speech doctrine and the writing conventions, including four failure `reason` strings returned by `hashWorkingTree`. (#934)
+
 ## 0.13.0 — 2026-09-22
 
 ### 🎉 Features

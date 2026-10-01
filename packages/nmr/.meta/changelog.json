@@ -1,5 +1,128 @@
 [
   {
+    "version": "0.40.0",
+    "date": "2026-10-01",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Makes `checkTestFileConventions` and the readyup kit's tier and placement checks skip untracked paths that git ignores, so that local build output such as a stale `.netlify/` directory no longer fails the check. (#898)",
+            "hash": "15132d5e797b734f1fc78bce7abc5d82c7e81974",
+            "entry": 1
+          },
+          {
+            "description": "Excludes untracked paths that git ignores from collection in `defineVitestConfig` and `defineRootVitestConfig`, so that Vitest does not run a test file that the conventions check skips. (#898)",
+            "hash": "15132d5e797b734f1fc78bce7abc5d82c7e81974",
+            "entry": 2
+          },
+          {
+            "description": "Rewords the `nmr --log` refusal for a run that the check-result cache does not cover to `the check-result cache does not apply here (NMR_DEBUG=1 reports why)`, and renames the matching `docs/check-cache.md` heading to \"When the cache does not apply\", which changes its anchor. (#923)",
+            "hash": "71d8c3dfb45aca872ca897ee589aae6351a1f516",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Rewords the messages printed by `nmr`, its bin wrappers, and its readyup kit, which used figures such as \"sits under\" and \"holds\", em-dashes, and \"no\" as a determiner, so that a diagnosis such as \"-F/--filter did not match any workspace\" states its condition directly. (#932)",
+            "hash": "570f1103437d22b81b556f2d2b2e02f1fc32942c",
+            "entry": 1
+          },
+          {
+            "description": "Fixes the issue that the `nmr` rulebook recommended `-q` without stating that nmr reads its own flags only before the command name, which led agents to run `nmr ci -q` and fail when `nmr-fmt` rejected the flag. (#948)",
+            "hash": "b7cf3b3dfcd901db11546f153ec6de61580e6a69",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Replaces every `.sort()` call that suppressed `unicorn/no-array-sort` with `toSorted()` and drops the spread copy wherever the source was already an array. (#925)",
+            "hash": "4680fb4e865ffce0bd135fac20d49b766b156992",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Stubs `GIT_CEILING_DIRECTORIES` to the fixture's parent in every test that expects git to find no repository, so that a repository above the temp directory can no longer change the test's result. (#923)",
+            "hash": "71d8c3dfb45aca872ca897ee589aae6351a1f516",
+            "entry": 2
+          },
+          {
+            "description": "Moves the `everyBinTargetIsACommittedWrapper` tests from `kit-bin-checks.unit.test.ts` to `kit-bin-checks.tool.test.ts`, because they spawn git through readyup's `listTrackedFiles`. (#923)",
+            "hash": "71d8c3dfb45aca872ca897ee589aae6351a1f516",
+            "entry": 3
+          }
+        ]
+      },
+      {
+        "title": "⚙️ Tooling",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Adds a check to `bootstrap.tool.test.ts` that fails when a package's `prepare` runs the build bootstrap without either depending on nmr-core or passing `--conditions nmr-source`, which would make `pnpm install` fail on a fresh clone. (#903)",
+            "hash": "b00b17d277197c1b18133da2e5258cf52719946a",
+            "entry": 3
+          }
+        ]
+      },
+      {
+        "title": "📦 Dependencies",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Adds `esbuild` 0.28.2 to the pnpm catalog and declares it as a devDependency of `nmr`, `release-kit`, and `v11y-check`, because `readyup` declares it only as an optional peer and `rdy compile` failed in those packages once a regenerated lockfile stopped installing it. (#944)",
+            "hash": "6dffd5df5bc4209dc225d08390ef2b67fe381f1b",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "📚 Documentation",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Revises the comments in `packages/nmr/src` and `packages/nmr/.readyup/kits/default.ts` against the comment-discipline rules, correcting comments that misstated the code, such as the Levenshtein distance quoted in `runCli.ts` and a `root-tests-config` kit check that does not exist. (#919)",
+            "hash": "84fe905d4142059425d82eb8d10821b687f522c2",
+            "entry": 1
+          },
+          {
+            "description": "Corrects the truncation example in `packages/nmr/docs/reporting.md`, replacing 90 seconds, which renders as `1m 30s` whether it is truncated or rounded, with 119.9 seconds, which truncates to `1m 59s`. (#919)",
+            "hash": "84fe905d4142059425d82eb8d10821b687f522c2",
+            "entry": 2
+          },
+          {
+            "description": "Rewrites the sentences in the README, the guides under `docs/`, the agent rulebook, and the code comments of `@williamthorsen/nmr` that broke the repository's writing rules on plain speech, em-dashes, second-person address, and relative clauses. (#932)",
+            "hash": "570f1103437d22b81b556f2d2b2e02f1fc32942c",
+            "entry": 2
+          },
+          {
+            "description": "Replaces \"where\" in two doc comments in `packages/nmr/src/check-cache.ts` and in the fixture comment in two tier-budget tests, because each use introduced a consequence rather than a place. (#945)",
+            "hash": "6f2c93ee0c73810ebd4cb4ab76618c00235edc42",
+            "entry": 1
+          },
+          {
+            "description": "Writes `-q` as `nmr -q <command>` in `docs/reporting.md` and in the README's verbosity paragraph. (#948)",
+            "hash": "b7cf3b3dfcd901db11546f153ec6de61580e6a69",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.39.0",
     "date": "2026-09-22",
     "sections": [
@@ -229,7 +352,8 @@
         "items": [
           {
             "description": "Keep global git ignore rules and attributes out of test subprocesses (#773)",
-            "body": "Fixes an issue where a test that spawns `git` read ignore rules and attributes from outside the repository, so a suite could pass or fail on whatever a developer or their machine happened to have configured. The setup file that `defineVitestConfig` loads by default now isolates both, alongside the git configuration already covered.\r\n\r\nMigration: Where a test needs its own `core.excludesFile` or `core.attributesFile`, pass it on the invocation as `git -c core.excludesFile=<path>`. An environment-injected key now outranks repository-local config.",
+            "body": "Fixes an issue where a test that spawns `git` read ignore rules and attributes from outside the repository, so a suite could pass or fail on whatever a developer or their machine happened to have configured. The setup file that `defineVitestConfig` loads by default now isolates both, alongside the git configuration already covered.\n\nMigration: Where a test needs its own `core.excludesFile` or `core.attributesFile`, pass it on the invocation as `git -c core.excludesFile=<path>`. An environment-injected key now outranks repository-local config.",
+            "migration": "Where a test needs its own `core.excludesFile` or `core.attributesFile`, pass it on the invocation as `git -c core.excludesFile=<path>`. An environment-injected key now outranks repository-local config.",
             "hash": "59b454ff3344a7c00d766f041a5862faa1ee6f1f"
           }
         ]
@@ -466,7 +590,7 @@
         "items": [
           {
             "description": "Carry the test-tier convention in the ambient rulebook (#689)",
-            "body": "Adds the test-tier convention to `nmr.md`, the ambient rulebook `codeassembly sync` deploys to each consuming repo's agent guidance. The guidance describes the `<subject>[.<aspect>].<tier>.test.ts` grammar and the four tiers, and warns that tests outside a `__tests__` directory are ignored. Tests not explicitly attributed to a tier are flagged by the ReadyUp kit bundled with `nmr`.\r\n\r\nThe previous guidance is removed from `AGENTS.md`.",
+            "body": "Adds the test-tier convention to `nmr.md`, the ambient rulebook `codeassembly sync` deploys to each consuming repo's agent guidance. The guidance describes the `<subject>[.<aspect>].<tier>.test.ts` grammar and the four tiers, and warns that tests outside a `__tests__` directory are ignored. Tests not explicitly attributed to a tier are flagged by the ReadyUp kit bundled with `nmr`.\n\nThe previous guidance is removed from `AGENTS.md`.",
             "hash": "a1fa0e0eb19362f0506ce4f98cd527b205baf1e7"
           },
           {
@@ -503,7 +627,7 @@
           },
           {
             "description": "Adopt `isError` and consolidate errno narrowing on a shared helper (#697)",
-            "body": "Replaces every hand-rolled `instanceof Error` narrowing with `hasErrnoCode`, a new predicate exported from `@williamthorsen/nmr-core`, or with `isError` from `@williamthorsen/toolbelt.errors`. Previously the errno question was answered by inline copies alongside two private helpers of differing shape; both helpers are removed.\r\n\r\nSeparately, `eslint.config.ts` now bans `instanceof Error` in every position rather than in a ternary alone.",
+            "body": "Replaces every hand-rolled `instanceof Error` narrowing with `hasErrnoCode`, a new predicate exported from `@williamthorsen/nmr-core`, or with `isError` from `@williamthorsen/toolbelt.errors`. Previously the errno question was answered by inline copies alongside two private helpers of differing shape; both helpers are removed.\n\nSeparately, `eslint.config.ts` now bans `instanceof Error` in every position rather than in a ternary alone.",
             "hash": "c5e8e8a5e006b451e8c5aeea75d35772926d503c"
           }
         ]
@@ -581,7 +705,7 @@
         "items": [
           {
             "description": "Derive the shelled-nmr remedy from the declaration site and reject a malformed package.json (#658)",
-            "body": "Fixes a shelled-nmr warning that named `.config/nmr.config.ts` as the remedy for every step it reported, including the `package.json` entries that tier cannot resolve. The line now names the relevant declaration and remedy. Shelled nmr can now be detected not only in a step's first token but anywhere in the step.\r\n\r\nSeparately, a configuration mistake now reports as a plain message rather than a Node stack trace.",
+            "body": "Fixes a shelled-nmr warning that named `.config/nmr.config.ts` as the remedy for every step it reported, including the `package.json` entries that tier cannot resolve. The line now names the relevant declaration and remedy. Shelled nmr can now be detected not only in a step's first token but anywhere in the step.\n\nSeparately, a configuration mistake now reports as a plain message rather than a Node stack trace.",
             "hash": "74ea98c361cf13e213d257952c582a4ebd631d9a"
           }
         ]

@@ -1,0 +1,77 @@
+[
+  {
+    "version": "0.1.0",
+    "date": "2026-10-01",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Adds the `@williamthorsen/change-grammar` package at version `0.0.0` with no dependencies and an initial, empty entry point, as the future home of the code that renders change records as subject lines and parses them back. (#903)",
+            "hash": "b00b17d277197c1b18133da2e5258cf52719946a",
+            "entry": 1
+          },
+          {
+            "description": "Adds the change-grammar engine to `@williamthorsen/change-grammar`, including `compileTemplate`, `render`, `parse`, `verify`, `consolidate`, `validate`, and `TEMPLATE_CATALOGUE`, and exports it under the names that codeassembly imports today. (#904)",
+            "hash": "5a8bf18e56ecde08751b4333a624a97a89d0ba7e",
+            "entry": 1
+          },
+          {
+            "description": "Adds `CANONICAL_TAXONOMY`, the shared work-type taxonomy at version 1.3.0, which gives each type a `trackerLabel` that names the label a tracker applies for it, such as `feature` for `feat`. (#904)",
+            "hash": "5a8bf18e56ecde08751b4333a624a97a89d0ba7e",
+            "entry": 2
+          },
+          {
+            "description": "Adds `deriveLabelMap(taxonomy, workspaces)`, which returns each work type's tracker label and a `scope:<name>` label for each workspace, plus `root` when the list is not empty, and leaves the `$schema` field to the caller that writes the file. (#904)",
+            "hash": "5a8bf18e56ecde08751b4333a624a97a89d0ba7e",
+            "entry": 3
+          },
+          {
+            "description": "Publishes the label-map JSON Schema as `schemas/label-map.json`, which a label-map file can reference through the package's `change-grammar-v<version>` tags. (#904)",
+            "hash": "5a8bf18e56ecde08751b4333a624a97a89d0ba7e",
+            "entry": 4
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Rewords two defect messages returned by `verify`, which reported adjacent tokens as placed \"with no literal between them\" and left the sentence after the colon in its round-trip message lowercase, to read \"without a literal between them\" and to capitalize that sentence. (#938)",
+            "hash": "6397d7e0b69b9f1a33c4a7f512c7f32fa56b2185",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "⚙️ Tooling",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Adds an ESLint block to `eslint.config.ts`, ported from codeassembly, that rejects Node built-ins, `process`, package imports, and imports from outside the package in `change-grammar`'s non-test source. (#903)",
+            "hash": "b00b17d277197c1b18133da2e5258cf52719946a",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "📚 Documentation",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Revises the comments in `packages/change-grammar/src` against the comment-discipline rules, dropping mentions of release-kit from doc comments and test titles and correcting docs that omitted the `{breaking}` exception to optional-group rendering. (#916)",
+            "hash": "cca65446b0759603a90d69deb75e6fa04b8ff571",
+            "entry": 1
+          },
+          {
+            "description": "Rewrites the README, doc comments, and test titles of `change-grammar` in plain, literal wording, negating the verb instead of using \"no\" as a determiner and replacing figurative verbs such as \"backstop\" and \"wins\". (#938)",
+            "hash": "6397d7e0b69b9f1a33c4a7f512c7f32fa56b2185",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  }
+]

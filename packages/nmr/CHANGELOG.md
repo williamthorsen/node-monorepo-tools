@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.40.0 — 2026-10-01
+
+### 🎉 Features
+
+- Makes `checkTestFileConventions` and the readyup kit's tier and placement checks skip untracked paths that git ignores, so that local build output such as a stale `.netlify/` directory no longer fails the check. (#898)
+- Excludes untracked paths that git ignores from collection in `defineVitestConfig` and `defineRootVitestConfig`, so that Vitest does not run a test file that the conventions check skips. (#898)
+- Rewords the `nmr --log` refusal for a run that the check-result cache does not cover to `the check-result cache does not apply here (NMR_DEBUG=1 reports why)`, and renames the matching `docs/check-cache.md` heading to "When the cache does not apply", which changes its anchor. (#923)
+
+### 🐛 Bug fixes
+
+- Rewords the messages printed by `nmr`, its bin wrappers, and its readyup kit, which used figures such as "sits under" and "holds", em-dashes, and "no" as a determiner, so that a diagnosis such as "-F/--filter did not match any workspace" states its condition directly. (#932)
+- Fixes the issue that the `nmr` rulebook recommended `-q` without stating that nmr reads its own flags only before the command name, which led agents to run `nmr ci -q` and fail when `nmr-fmt` rejected the flag. (#948)
+
+### ♻️ Refactoring
+
+- Replaces every `.sort()` call that suppressed `unicorn/no-array-sort` with `toSorted()` and drops the spread copy wherever the source was already an array. (#925)
+
+### 🧪 Tests
+
+- Stubs `GIT_CEILING_DIRECTORIES` to the fixture's parent in every test that expects git to find no repository, so that a repository above the temp directory can no longer change the test's result. (#923)
+- Moves the `everyBinTargetIsACommittedWrapper` tests from `kit-bin-checks.unit.test.ts` to `kit-bin-checks.tool.test.ts`, because they spawn git through readyup's `listTrackedFiles`. (#923)
+
+### ⚙️ Tooling
+
+- Adds a check to `bootstrap.tool.test.ts` that fails when a package's `prepare` runs the build bootstrap without either depending on nmr-core or passing `--conditions nmr-source`, which would make `pnpm install` fail on a fresh clone. (#903)
+
+### 📦 Dependencies
+
+- Adds `esbuild` 0.28.2 to the pnpm catalog and declares it as a devDependency of `nmr`, `release-kit`, and `v11y-check`, because `readyup` declares it only as an optional peer and `rdy compile` failed in those packages once a regenerated lockfile stopped installing it. (#944)
+
+### 📚 Documentation
+
+- Revises the comments in `packages/nmr/src` and `packages/nmr/.readyup/kits/default.ts` against the comment-discipline rules, correcting comments that misstated the code, such as the Levenshtein distance quoted in `runCli.ts` and a `root-tests-config` kit check that does not exist. (#919)
+- Corrects the truncation example in `packages/nmr/docs/reporting.md`, replacing 90 seconds, which renders as `1m 30s` whether it is truncated or rounded, with 119.9 seconds, which truncates to `1m 59s`. (#919)
+- Rewrites the sentences in the README, the guides under `docs/`, the agent rulebook, and the code comments of `@williamthorsen/nmr` that broke the repository's writing rules on plain speech, em-dashes, second-person address, and relative clauses. (#932)
+- Replaces "where" in two doc comments in `packages/nmr/src/check-cache.ts` and in the fixture comment in two tier-budget tests, because each use introduced a consequence rather than a place. (#945)
+- Writes `-q` as `nmr -q <command>` in `docs/reporting.md` and in the README's verbosity paragraph. (#948)
+
 ## 0.39.0 — 2026-09-22
 
 ### 🎉 Features

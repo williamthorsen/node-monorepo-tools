@@ -1,5 +1,49 @@
 [
   {
+    "version": "0.13.1",
+    "date": "2026-10-01",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Replaces every `.sort()` call that suppressed `unicorn/no-array-sort` with `toSorted()` and drops the spread copy wherever the source was already an array. (#925)",
+            "hash": "4680fb4e865ffce0bd135fac20d49b766b156992",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Stubs `GIT_CEILING_DIRECTORIES` to the fixture's parent in every test that expects git to find no repository, so that a repository above the temp directory can no longer change the test's result. (#923)",
+            "hash": "71d8c3dfb45aca872ca897ee589aae6351a1f516",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "📚 Documentation",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Revises the comments in `packages/nmr-core/src` against the comment-discipline rules, correcting the `writeFileWithCheck` description, which omitted the `skipped` outcome for an unreadable existing file, and the `WorkspaceResolution` description, which named `unreadable-manifest` as the only cause with no patterns. (#920)",
+            "hash": "72b361c63e67e58ee5ebfb4dae10d9b144517a85",
+            "entry": 1
+          },
+          {
+            "description": "Revises the README, doc comments, inline comments, and test titles in `packages/nmr-core` to align with the plain-speech doctrine and the writing conventions, including four failure `reason` strings returned by `hashWorkingTree`. (#934)",
+            "hash": "f084ddcecec9be602a97cdf3158eabd5aaebbe09",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.13.0",
     "date": "2026-09-22",
     "sections": [
@@ -168,7 +212,7 @@
           },
           {
             "description": "Adopt `isError` and consolidate errno narrowing on a shared helper (#697)",
-            "body": "Replaces every hand-rolled `instanceof Error` narrowing with `hasErrnoCode`, a new predicate exported from `@williamthorsen/nmr-core`, or with `isError` from `@williamthorsen/toolbelt.errors`. Previously the errno question was answered by inline copies alongside two private helpers of differing shape; both helpers are removed.\r\n\r\nSeparately, `eslint.config.ts` now bans `instanceof Error` in every position rather than in a ternary alone.",
+            "body": "Replaces every hand-rolled `instanceof Error` narrowing with `hasErrnoCode`, a new predicate exported from `@williamthorsen/nmr-core`, or with `isError` from `@williamthorsen/toolbelt.errors`. Previously the errno question was answered by inline copies alongside two private helpers of differing shape; both helpers are removed.\n\nSeparately, `eslint.config.ts` now bans `instanceof Error` in every position rather than in a ternary alone.",
             "hash": "c5e8e8a5e006b451e8c5aeea75d35772926d503c"
           }
         ]

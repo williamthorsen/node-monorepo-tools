@@ -2,6 +2,64 @@
 
 All notable changes to this project will be documented in this file.
 
+## 13.0.0 — 2026-10-01
+
+### 🎉 Features
+
+- Adds the `--config <path>` flag to `release-kit push`, which now reads the config as `publish` and `create-github-release` do and fails when the file exists but is invalid. (#895)
+- Makes `release-kit` add an item derived from a change-record entry to a workspace's changelog and version bump only when the entry's `scopes`, after `scopeAliases` resolution, name the workspace's `dir`, are empty, or contain `*`, and extends that rule to the sections of earlier releases that `release-kit prepare` rebuilds. (#896)
+- Adds a warning to the `release-kit prepare` report that lists each change-record entry scope matching no workspace in its commit's window, such as a misspelled scope or the old name of a renamed directory that has no `scopeAliases` entry. (#896)
+- Makes `release-kit overrides validate` check a workspace's overrides against only the entries routed to that workspace, so that an override keyed to an entry routed elsewhere is reported as stale. (#896)
+- Adds `release-kit update-templates`, which writes each scaffolded workflow that is missing or differs from the installed template, prints a diff of each updated file, refreshes `sync-labels.yaml` only when it exists, keeps `publish.yaml`'s provenance setting, and never reads or writes the config files. (#952)
+- Changes the readyup kits' fix messages for a workflow that differs from its template, or that references a deprecated tag, to recommend `update-templates` rather than `init --force`. (#952)
+
+### 🪦 Removed
+
+- 🚨 **Breaking:** Removes `required` as a `breakingPolicies` value, making `drop` default to `optional` so that an unmarked `drop:` commit no longer reports a policy violation. (#905)
+- Stops `release-kit` from parsing a commit subject that combines a pipe scope with a parenthesized scope, such as `web|feat(other): ...`, or that lacks a space and a title after the colon, because subjects are now read through `@williamthorsen/change-grammar`. (#905)
+- Stops publishing `schemas/label-map.json` from `release-kit`, whose identical schema `@williamthorsen/change-grammar` now publishes; URLs under existing `release-kit-v*` tags keep resolving. (#905)
+
+### 🐛 Bug fixes
+
+- Record a changelog entry for a forced release whose commits yield no item (#887)
+
+  Makes `release-kit prepare` record the "Forced version bump." changelog entry for any release forced by `--force` or `--set-version` whose commits yield no changelog item, instead of only for a release with no commits at all. It also stops a monorepo's project release from dropping the forced-release entries that earlier releases recorded.
+
+- Stops `release-kit prepare` from reporting `commitCount` 0 and dropping the unparseable commits and change-record and policy diagnostics of a workspace released only because a dependency was bumped, and makes `prepare` list that workspace's commits in the release commit summary under its tag. (#888)
+- Stops `release-kit prepare` from labeling a direct release that has no commits as bumped via a dependency, by marking a propagation-only release with the new `propagatedOnly` result field, whose report line now reads `Bumped via dependency: …` in place of `0 commits (bumped via dependency: …)`. (#888)
+- Stops a `release-kit` command run from inside a package from releasing that package as a single-package repo with its own tag and changelog, by running every command from the repo root: the nearest directory that contains `pnpm-workspace.yaml`, or else the working directory when it contains a `package.json`. (#893)
+- Stops `sync-labels generate` from writing the `--config` path into the `.github/labels.yaml` header as typed, which made the header and the result of `generate --check` depend on the directory from which the command ran; the header now names the config by its path relative to the repo root. (#893)
+- Stops `push`, `publish`, and `create-github-release` from pushing, publishing, or creating a GitHub Release for a tag on HEAD whose workspace the config excludes with `shouldExclude: true`, which each command now skips with a warning, including when `--tags` names the tag or when every tag on HEAD is excluded. (#895)
+- Stops `release-kit prepare` from silently deleting a `CHANGELOG.md` section whose version is absent from both the release windows and `changelog.json`, such as history written by hand before release-kit was adopted; `prepare` now keeps that section verbatim in version order, lists the kept versions in its report, and warns about each `##` section that names no version and is dropped. (#897)
+- Stops `release-kit prepare` from folding every earlier commit into the new version, and deriving the bump from all of them, when the current version was released and recorded in the changelog but never tagged; `prepare` now fails before any write, under `--force` and `--set-version` too, and names each target and the tag to create. (#897)
+- Adds the missing `removal` and `formatting` labels to the `common` preset by defining a label for every work type in change-grammar's taxonomy, and keeps the names, colors, and descriptions of the existing type labels. (#906)
+- Fixes the `release.yaml` generated by `release-kit init`, which `actionlint` rejected because its `bump` choice input listed an empty string as the auto-detect option, by offering `auto` as the default option and passing it to the reusable release workflow as an empty `bump`. (#936)
+- Rewords the error messages, `prepare` report lines, command help, and readyup kit fix strings of `release-kit` that addressed the reader as "your", separated a detail from its subject with an em-dash, or stated an absence with "no", such as "No workspaces had release-worthy changes." (#937)
+- Fixes the issue that the `release.yaml` and `sync-labels.yaml` workflows generated by `release-kit init` and `release-kit sync-labels init` contained unclear wording in two comments and in the `force` input description, which the change rewrites without altering any job, trigger, or input; the release-kit kit check reports a copy generated before this change as stale until `release-kit init --force` or `release-kit sync-labels init --force` regenerates it. (#946)
+- Fixes the issue that `release-kit` titled a propagation-only bump's changelog section `Dependency updates` rather than with the resolved `deps` work type's header, `📦 Dependencies` by default or a consumer's `workTypes.deps.header` override, which broke the heading convention and left the section outside the section order. (#950)
+- Fixes the issue that `release-kit init`'s next steps told a public repo to set `provenance: true` in `publish.yaml`, which the template already sets, and now tells a private repo to remove it instead. (#952)
+
+### ♻️ Refactoring
+
+- Narrows the config accepted by `releasePrepare`, `releasePrepareMono`, `releasePrepareProject`, and the helpers that they pass it to, to the new `PrepareConfig` and `MonorepoPrepareConfig` aliases, which omit `releaseNotes` so that typecheck rejects any read of release-notes configuration on the prepare path. (#890)
+- Derives `DEFAULT_WORK_TYPES`, `DEFAULT_BREAKING_POLICIES`, the default `devOnlySections`, and the release-notes breaking marker from change-grammar's `CANONICAL_TAXONOMY`, removing release-kit's taxonomy copy and its `work-types:check` and `work-types:sync` scripts. (#905)
+- Replaces every `.sort()` call that suppressed `unicorn/no-array-sort` with `toSorted()` and drops the spread copy wherever the source was already an array. (#925)
+
+### 🧪 Tests
+
+- Extends the `changelogJson.enabled` tests of `releasePrepareMono` to configure a format command and assert that `formatCommand.files` includes the workspace's `changelog.json` when the feature is enabled and excludes it when the feature is disabled, where the disabled case also requires a format command to exist so that the exclusion cannot pass vacuously. (#889)
+- Replaces the inline copies of the fixture in which `app` depends on `core` in `releasePrepareMono.unit.test.ts` with `stubPropagationWorkspaces`, a helper that stubs both manifests at their exact paths and returns the two-workspace config. (#951)
+
+### 📦 Dependencies
+
+- Upgrades all dependencies to the latest versions allowed by the ceilings in `taze.config.ts` and the release quarantine, including pnpm to 12.6.0. (#944)
+- Adds `esbuild` 0.28.2 to the pnpm catalog and declares it as a devDependency of `nmr`, `release-kit`, and `v11y-check`, because `readyup` declares it only as an optional peer and `rdy compile` failed in those packages once a regenerated lockfile stopped installing it. (#944)
+
+### 📚 Documentation
+
+- Revises the comments in `packages/release-kit/src` and the `default` and `npm-auto-publish` readyup kits against the comment-discipline rules, correcting comments that misstated the code, such as the `releasePrepareProject` description that said it returns `undefined` where it throws and the `renderChangelogMarkdown` note that said no logic reads the footer. (#922)
+- Rewrites the prose of the `release-kit` README, the pages under `docs/`, and the package's source comments and test names in plain, literal wording. (#937)
+
 ## 12.0.0 — 2026-09-23
 
 ### 🎉 Features
