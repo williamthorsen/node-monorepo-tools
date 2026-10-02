@@ -44,12 +44,13 @@ export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
       }
       resolved.delete(key);
     } else {
-      // Spread the description conditionally: Zod infers an optional field as `string |
-      // undefined`, which `exactOptionalPropertyTypes` rejects for a `description?: string`.
+      // Spread the optional fields conditionally: Zod infers an optional field as `T | undefined`,
+      // which `exactOptionalPropertyTypes` rejects for an optional property.
       resolved.set(key, {
         name,
         color: spec.color,
         ...(spec.description !== undefined && { description: spec.description }),
+        ...(spec.archived !== undefined && { archived: spec.archived }),
       });
     }
   }

@@ -6,4 +6,6 @@ export interface LabelDefinition {
   color: string;
   /** Short description shown in the GitHub UI. Absent when the label has none. */
   description?: string;
+  /** Marks the label for the sync to archive rather than keep active. Absent for an active label. */
+  archived?: true;
 }

@@ -144,6 +144,26 @@ describe(resolveLabels, () => {
     expect(result).toStrictEqual([{ name: 'scope:nmr', color: '00ff96' }]);
   });
 
+  it('carries the archived mark of a local entry', () => {
+    const config: RepoLabelsConfig = { labels: { 'scope:basic': { color: '00ff96', archived: true } } };
+
+    const result = resolveLabels(config);
+
+    expect(result).toStrictEqual([{ name: 'scope:basic', color: '00ff96', archived: true }]);
+  });
+
+  it('archives a preset label that a local entry replaces with the mark', () => {
+    mockLoadPreset.mockReturnValue([bugLabel]);
+
+    const config: RepoLabelsConfig = {
+      extends: ['common'],
+      labels: { bug: { color: 'd73a4a', archived: true } },
+    };
+    const result = resolveLabels(config);
+
+    expect(result).toStrictEqual([{ name: 'bug', color: 'd73a4a', archived: true }]);
+  });
+
   // A bare scope entry resolves to bare only because a color-only override drops the preset's description.
   it('drops a preset description when the replacing entry omits one', () => {
     mockLoadPreset.mockReturnValue([bugLabel]);
