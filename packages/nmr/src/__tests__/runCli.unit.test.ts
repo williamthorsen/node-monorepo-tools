@@ -695,8 +695,23 @@ describe(runCli, () => {
       expect(stderr).toContain(`${HINT_TAIL} \`nmr -R -q lint\``);
     });
 
+    it('hints for a failing filtered delegation of a command that a package.json defines', async ({ tree }) => {
+      tree.writeJson('packages/my-pkg/package.json', { name: 'my-pkg', scripts: { custom: 'echo custom' } });
+      mockedRunSteps.mockResolvedValue({ exitCode: 1 });
+
+      const { stderr } = await runNmrReadingStderr(['-F', 'my-pkg', 'custom', '-q'], tree.dir);
+
+      expect(stderr).toContain(`${HINT_TAIL} \`nmr -F my-pkg -q custom\``);
+    });
+
     it.for([
       { case: 'a passing run', args: ['lint', '-q'], exitCode: 0, env: {} },
+      {
+        case: 'a filtered delegation of an unknown command',
+        args: ['-F', 'my-pkg', 'lnt', '-q'],
+        exitCode: 1,
+        env: {},
+      },
       { case: 'a failure without a misplaced flag', args: ['lint', '--max-warnings', '0'], exitCode: 1, env: {} },
       { case: 'an unknown command', args: ['lnt', '-q'], exitCode: 1, env: {} },
       { case: 'a misplaced help flag', args: ['lint', '--help'], exitCode: 1, env: {} },

@@ -58,6 +58,7 @@ import {
   buildWorkspaceRegistry,
   expandScript,
   findChainedSelfReference,
+  readPackageJsonScripts,
   type ResolvedScript,
   resolveScript,
   type ScriptOrigin,
@@ -174,7 +175,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
 /**
  * Runs an invocation whose arguments and presentation sources have been read, and reports whether it failed
- * because the registry does not define its command.
+ * because its command is not defined in any scope that it reaches.
  */
 async function runInvocation(
   options: RunCliOptions & { parsedArgs: ParsedArgs; presentationRead: Extract<PresentationRead, { ok: true }> },
@@ -245,7 +246,9 @@ async function runInvocation(
   // -F and -R: delegate to pnpm, which runs one nmr per scope that it selects
   const delegation = composeDelegation({ childEnv, command, parsedArgs });
   if (delegation !== undefined) {
-    return runDelegation({ context, delegation, parsedArgs, runOptions, stderr });
+    const result = await runDelegation({ context, delegation, parsedArgs, runOptions, stderr });
+
+    return { ...result, isUnknownCommand: result.exitCode !== 0 && !isDefinedInAnyScope(command, context) };
   }
 
   const registry = shouldUseRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config);
@@ -1770,6 +1773,21 @@ function formatMisplacedFlagHint(
   return (
     `${STATUS_GLYPHS[style].warning.text} ${renderQuotedList(flagNames)} ${subject}; ` +
     `nmr reads its flags only before the command: \`${correctedTokens.map(quoteToken).join(' ')}\``
+  );
+}
+
+/**
+ * Reports whether any scope that a delegation can select defines the command. A package config does not define
+ * scripts, so the root config's registries and each `package.json` cover every scope.
+ */
+function isDefinedInAnyScope(command: string, context: ResolvedContext): boolean {
+  const registries = [buildRootRegistry(context.config), buildWorkspaceRegistry(context.config)];
+  if (registries.some((registry) => Object.hasOwn(registry, command))) {
+    return true;
+  }
+
+  return [context.monorepoRoot, ...context.workspacePackageDirs].some((dir) =>
+    Object.hasOwn(readPackageJsonScripts(dir) ?? {}, command),
   );
 }
 
