@@ -63,7 +63,7 @@ import {
   type ScriptOrigin,
 } from './resolver.ts';
 import { resolveChannel, type RetainedOutput, runSteps, type RunStepsOptions } from './runner.ts';
-import { composeNmrStep, dropRecursiveSteps, findNmrCrossing, renderChain, type Step } from './steps.ts';
+import { composeNmrStep, dropRecursiveSteps, findNmrCrossing, quoteToken, renderChain, type Step } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 import { UserError } from './UserError.ts';
 import {
@@ -133,7 +133,7 @@ export interface RunCliResult {
  * @internal
  */
 export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
-  const { args, cwd, env, stdout, stderr } = options;
+  const { args, env, stdout, stderr } = options;
 
   const parseResult = parseArgs(args);
   if (!parseResult.ok) {
@@ -155,6 +155,31 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     reportError(presentationRead.error, stderr);
     return { exitCode: 1 };
   }
+  const { styles } = presentationRead;
+
+  const { exitCode, isUnknownCommand = false } = await runInvocation({ ...options, parsedArgs, presentationRead });
+
+  // A process that nmr started did not receive its arguments from the user, and its parent reports the hint once.
+  if (exitCode !== 0 && !isUnknownCommand && isTopLevelInvocation(env)) {
+    const hint = formatMisplacedFlagHint(args, parsedArgs.passthrough, styles.stderr);
+    if (hint !== undefined) {
+      stderr.write(`${hint}\n`);
+    }
+  }
+
+  return { exitCode };
+}
+
+// region | Helpers
+
+/**
+ * Runs an invocation whose arguments and presentation sources have been read, and reports whether it failed
+ * because the registry does not define its command.
+ */
+async function runInvocation(
+  options: RunCliOptions & { parsedArgs: ParsedArgs; presentationRead: Extract<PresentationRead, { ok: true }> },
+): Promise<RunCliResult & { isUnknownCommand?: boolean }> {
+  const { cwd, env, parsedArgs, presentationRead, stderr, stdout } = options;
   const { styles } = presentationRead;
 
   if (parsedArgs.shouldShowVersion) {
@@ -241,7 +266,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
       return { exitCode: 0 };
     }
     reportError(`Unknown command: ${command}`, stderr);
-    return { exitCode: 1 };
+    return { exitCode: 1, isUnknownCommand: true };
   }
 
   // Filter the steps before rendering the chain, which feeds both the cache key and the `--log` lookup, so that a
@@ -347,8 +372,6 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   return { exitCode };
 }
 
-// region | Helpers
-
 /** @internal */
 interface ParsedArgs {
   filter?: string;
@@ -386,6 +409,9 @@ type PresentationRead =
 
 /** What `--output-style` was given, and how many arguments it spent, or why the flag did not have a value. */
 type OutputStyleArgumentRead = { ok: true; value: string; consumedCount: number } | { ok: false; error: string };
+
+/** Every spelling of the flag that takes a workspace filter pattern. */
+const FILTER_FLAGS = new Set(['-F', '--filter']);
 
 /** Every spelling of a boolean flag, paired with the field that it sets. */
 const BOOLEAN_FLAGS = new Map<string, BooleanFlagName>([
@@ -1200,7 +1226,7 @@ function parseArgs(args: string[]): ParseResult {
     const arg = args[index];
     if (arg === undefined) break;
 
-    if (arg === '-F' || arg === '--filter') {
+    if (FILTER_FLAGS.has(arg)) {
       index++;
       const filterValue = args[index];
       // An empty pattern is rejected with a missing one: composition reads a filter for its truth, so an
@@ -1329,7 +1355,7 @@ function readPresentation(options: {
  * leave the flag naming whatever the variable or detection chose rather than what the invocation asked for.
  * The value itself is left to the resolver, which rejects it in the words that nmr's siblings use.
  */
-function readOutputStyleArgument(args: string[], index: number): OutputStyleArgumentRead | undefined {
+function readOutputStyleArgument(args: readonly string[], index: number): OutputStyleArgumentRead | undefined {
   const arg = args[index] ?? '';
   const assignment = arg.startsWith(`${OUTPUT_STYLE_FLAG}=`) ? arg.slice(OUTPUT_STYLE_FLAG.length + 1) : undefined;
   if (arg !== OUTPUT_STYLE_FLAG && assignment === undefined) {
@@ -1715,6 +1741,102 @@ async function runGated(options: {
     exitCode,
     outcome: exitCode === 0 ? { outcome: 'passed', durationMs } : { outcome: 'failed', durationMs, exitCode },
   };
+}
+
+/**
+ * Renders the hint for nmr flags written after the command name, or `undefined` when the arguments do not
+ * contain any. The corrected invocation keeps every other argument where it was written.
+ */
+function formatMisplacedFlagHint(
+  args: readonly string[],
+  passthrough: readonly string[],
+  style: OutputStyle,
+): string | undefined {
+  const { flagNames, movedTokens, remainingTokens } = splitMisplacedFlags(passthrough);
+  if (flagNames.length === 0) {
+    return undefined;
+  }
+
+  const commandIndex = args.length - passthrough.length - 1;
+  const correctedTokens = [
+    'nmr',
+    ...args.slice(0, commandIndex),
+    ...movedTokens,
+    ...args.slice(commandIndex, commandIndex + 1),
+    ...remainingTokens,
+  ];
+  const subject = flagNames.length === 1 ? 'is an nmr flag' : 'are nmr flags';
+
+  return (
+    `${STATUS_GLYPHS[style].warning.text} ${renderQuotedList(flagNames)} ${subject}; ` +
+    `nmr reads its flags only before the command: \`${correctedTokens.map(quoteToken).join(' ')}\``
+  );
+}
+
+/** Reports whether the user typed this invocation, rather than an nmr process starting it. */
+function isTopLevelInvocation(env: NodeJS.ProcessEnv): boolean {
+  const runId = env[RUN_ID_ENV_VAR];
+
+  return runId === undefined || runId === '';
+}
+
+/**
+ * Returns how many arguments the nmr flag at `index` spans, or `undefined` when the argument is not one that the
+ * hint moves. Help and version are not moved: before the command, either one shows nmr's own output in place of
+ * the run.
+ */
+function readMisplacedFlagLength(args: readonly string[], index: number): number | undefined {
+  const arg = args[index] ?? '';
+
+  if (FILTER_FLAGS.has(arg)) {
+    // An empty pattern is not one that the parser accepts, so the flag does not have a value to move.
+    return (args[index + 1] ?? '') === '' ? undefined : 2;
+  }
+
+  const booleanFlag = BOOLEAN_FLAGS.get(arg);
+  if (booleanFlag !== undefined) {
+    return booleanFlag === 'shouldShowHelp' || booleanFlag === 'shouldShowVersion' ? undefined : 1;
+  }
+
+  const styleArgument = readOutputStyleArgument(args, index);
+
+  return styleArgument?.ok === true ? styleArgument.consumedCount : undefined;
+}
+
+/**
+ * Separates the nmr flags in a command's arguments, each with its value, from the arguments that belong to the
+ * command. Everything from a `--` on belongs to the command.
+ */
+function splitMisplacedFlags(passthrough: readonly string[]): {
+  flagNames: string[];
+  movedTokens: string[];
+  remainingTokens: string[];
+} {
+  const flagNames = new Set<string>();
+  const movedTokens: string[] = [];
+  const remainingTokens: string[] = [];
+
+  let index = 0;
+  while (index < passthrough.length) {
+    const arg = passthrough[index] ?? '';
+    if (arg === '--') {
+      remainingTokens.push(...passthrough.slice(index));
+      break;
+    }
+
+    const flagLength = readMisplacedFlagLength(passthrough, index);
+    if (flagLength === undefined) {
+      remainingTokens.push(arg);
+      index++;
+      continue;
+    }
+
+    flagNames.add(arg.startsWith(`${OUTPUT_STYLE_FLAG}=`) ? OUTPUT_STYLE_FLAG : arg);
+    movedTokens.push(...passthrough.slice(index, index + flagLength));
+    index += flagLength;
+  }
+
+  return { flagNames: [...flagNames], movedTokens, remainingTokens };
 }
 
 /**
