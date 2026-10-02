@@ -639,6 +639,94 @@ describe(runCli, () => {
     });
   });
 
+  describe('misplaced nmr flags', () => {
+    const HINT_TAIL = 'nmr reads its flags only before the command:';
+
+    it('names a flag after the command name when the command fails, with the corrected invocation', async ({
+      tree,
+    }) => {
+      mockedRunSteps.mockResolvedValue({ exitCode: 1 });
+
+      const { exitCode, stderr } = await runNmrReadingStderr(['lint', '-q'], tree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain(`\`-q\` is an nmr flag; ${HINT_TAIL} \`nmr -q lint\``);
+    });
+
+    it.for([
+      { args: ['-w', 'lint', '-F', 'my-pkg', 'src/'], expected: '`nmr -w -F my-pkg lint src/`' },
+      { args: ['lint', '--output-style=plain', 'src/'], expected: '`nmr --output-style=plain lint src/`' },
+      { args: ['lint', '--output-style', 'plain'], expected: '`nmr --output-style plain lint`' },
+      { args: ['lint', 'a b', '--no-cache'], expected: "`nmr --no-cache lint 'a b'`" },
+    ])(
+      'moves $args into a corrected invocation that keeps every other argument',
+      async ({ args, expected }, { tree }) => {
+        mockedRunSteps.mockResolvedValue({ exitCode: 1 });
+
+        const { stderr } = await runNmrReadingStderr(args, tree.dir);
+
+        expect(stderr).toContain(`${HINT_TAIL} ${expected}`);
+      },
+    );
+
+    it('names every misplaced flag in one hint', async ({ tree }) => {
+      mockedRunSteps.mockResolvedValue({ exitCode: 1 });
+
+      const { stderr } = await runNmrReadingStderr(['lint', '-q', '--no-cache'], tree.dir);
+
+      expect(stderr).toContain(`\`-q\`, \`--no-cache\` are nmr flags; ${HINT_TAIL} \`nmr -q --no-cache lint\``);
+    });
+
+    it('hints when nmr refuses the arguments that a command does not take', async ({ tree }) => {
+      writeConfig(tree, { rootScripts: { verify: [{ run: 'build', shouldDeclineArguments: true }] } });
+
+      const { exitCode, stderr } = await runNmrReadingStderr(['verify', '-q'], tree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain(`${HINT_TAIL} \`nmr -q verify\``);
+    });
+
+    it('hints once for a failing delegation', async ({ tree }) => {
+      mockedRunSteps.mockResolvedValue({ exitCode: 1 });
+
+      const { stderr } = await runNmrReadingStderr(['-R', 'lint', '-q'], tree.dir);
+
+      expect(stderr.split(HINT_TAIL)).toHaveLength(2);
+      expect(stderr).toContain(`${HINT_TAIL} \`nmr -R -q lint\``);
+    });
+
+    it('hints for a failing filtered delegation of a command that a package.json defines', async ({ tree }) => {
+      tree.writeJson('packages/my-pkg/package.json', { name: 'my-pkg', scripts: { custom: 'echo custom' } });
+      mockedRunSteps.mockResolvedValue({ exitCode: 1 });
+
+      const { stderr } = await runNmrReadingStderr(['-F', 'my-pkg', 'custom', '-q'], tree.dir);
+
+      expect(stderr).toContain(`${HINT_TAIL} \`nmr -F my-pkg -q custom\``);
+    });
+
+    it.for([
+      { case: 'a passing run', args: ['lint', '-q'], exitCode: 0, env: {} },
+      {
+        case: 'a filtered delegation of an unknown command',
+        args: ['-F', 'my-pkg', 'lnt', '-q'],
+        exitCode: 1,
+        env: {},
+      },
+      { case: 'a failure without a misplaced flag', args: ['lint', '--max-warnings', '0'], exitCode: 1, env: {} },
+      { case: 'an unknown command', args: ['lnt', '-q'], exitCode: 1, env: {} },
+      { case: 'a misplaced help flag', args: ['lint', '--help'], exitCode: 1, env: {} },
+      { case: 'a misplaced version flag', args: ['lint', '-V'], exitCode: 1, env: {} },
+      { case: 'a flag after `--`', args: ['lint', '--', '-q'], exitCode: 1, env: {} },
+      { case: 'a run that nmr started', args: ['lint', '-q'], exitCode: 1, env: { NMR_RUN_ID: 'parent-run' } },
+    ])('does not hint for $case', async ({ args, env, exitCode }, { tree }) => {
+      mockedRunSteps.mockResolvedValue({ exitCode });
+
+      const { stderr } = await runNmrReadingStderr(args, tree.dir, env);
+
+      expect(stderr).not.toContain(HINT_TAIL);
+    });
+  });
+
   describe('devBin substitution', () => {
     it('substitutes a leaf tool, which is the case that docs/scripts.md documents', async ({ tree }) => {
       writeConfig(tree, { devBin: { eslint: 'node ./scripts/eslint.js' } });

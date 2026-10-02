@@ -139,6 +139,14 @@ export function findUnexpressibleToken(element: string): string | undefined {
   return tokenize(element).find((token) => !SHELL_SAFE_TOKEN.test(token));
 }
 
+/** Quotes a token that the shell would not read literally, and leaves every other token bare. */
+export function quoteToken(token: string): string {
+  if (SHELL_SAFE_TOKEN.test(token)) {
+    return token;
+  }
+  return "'" + token.replaceAll("'", String.raw`'\''`) + "'";
+}
+
 /**
  * Returns the command that a structural step's nmr process runs, whether the step hands that command to other
  * scopes rather than running it in its own scope, and whether it anchors the command at the monorepo root.
@@ -223,14 +231,6 @@ function isRedirectionOperator(char: string, precedingText: string, nextChar: st
   }
 
   return (char === '&' && nextChar === '>') || /[<>]\s*$/.test(precedingText);
-}
-
-/** Quotes a token that the shell would not read literally, and leaves every other token bare. */
-function quoteToken(token: string): string {
-  if (SHELL_SAFE_TOKEN.test(token)) {
-    return token;
-  }
-  return "'" + token.replaceAll("'", String.raw`'\''`) + "'";
 }
 
 /**
