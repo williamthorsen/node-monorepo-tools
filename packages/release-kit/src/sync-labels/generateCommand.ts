@@ -35,7 +35,13 @@ export function formatLabelsYaml(
   // Declare a description for every label, empty if the config does not set one.
   // `github-label-sync` reads an omitted description as "leave the label's current one alone" and an empty one as
   // "clear it", so omitting the key would leave a description on GitHub after the config stops declaring it.
-  const declared = labels.map((label) => ({ ...label, description: label.description ?? '' }));
+  // Build each entry explicitly to fix the key order: `archived` follows `description` whether or not one was set.
+  const declared = labels.map(({ archived, color, description, name }) => ({
+    name,
+    color,
+    description: description ?? '',
+    ...(archived !== undefined && { archived }),
+  }));
 
   // `lineWidth: 0` disables line wrapping.
   const yamlBody = stringify(declared, { singleQuote: true, lineWidth: 0 });

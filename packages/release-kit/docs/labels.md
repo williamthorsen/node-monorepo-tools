@@ -42,6 +42,20 @@ Names match case-insensitively, as GitHub matches them: `Bug` in the `labels` re
 
 Overlaps between layers are never errors; order resolves them, and the committed `.github/labels.yaml` diff shows any unexpected change at review. Two misstatements are config errors, because neither is visible in the output diff: a dangling `null`, which removes a name not defined by any preset, and `labels` keys that differ only in case, all but one of which the fold would discard.
 
+### Retiring a label
+
+Mark a label `archived: true` to retire it without losing its history:
+
+```typescript
+labels: {
+  'scope:basic': { color: '00ff96', archived: true }, // retire the scope of a removed package
+},
+```
+
+The sync workflow archives a marked label rather than deleting it. An archived label stays on the issues and pull requests that have it, but it cannot be added to new ones and does not appear in the label picker. Removing the mark unarchives the label on the next sync. Removing the entry instead deletes the label, as the sync deletes every label that `.github/labels.yaml` does not declare, and the label disappears from every issue and pull request that had it.
+
+The mark is set only in the `labels` record, not in a preset. To retire a preset's label, replace it with an entry that restates its color and adds the mark.
+
 ### When labels are applied
 
 The scaffolded workflow declares three triggers:
@@ -55,6 +69,8 @@ The scaffolded workflow declares three triggers:
 Applying on merge closes the window in which a regenerated `.github/labels.yaml` remains unapplied. In that window, a later manual dispatch would apply an unreviewed label set.
 
 The `check` job runs the same sync in dry-run. Its **Label diff** log group lists every create, edit, rename, and deletion that the sync would perform, including deletions of labels that the file does not declare: the destructive edits that a diff of `.github/labels.yaml` alone cannot show, because a label created by hand or by another workflow is absent from the file both before and after. Read that log; the check reports success whether or not the diff is destructive, so a green check is not evidence that nothing will be deleted.
+
+Its **Archive state** log group lists each label that the sync would archive or unarchive. Archiving runs after the rest of the sync, so a label that the file both adds and marks is created and then archived.
 
 The two jobs are split because a job's permissions are fixed when the run is created and cannot vary by trigger. The split keeps a write-scoped token out of pull-request runs.
 

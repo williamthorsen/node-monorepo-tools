@@ -730,6 +730,19 @@ describe(validateConfig, () => {
       expect(config.repoLabels?.labels?.['scope:nmr']).toStrictEqual({ color: '00ff96' });
     });
 
+    it('accepts a label entry marked as archived', () => {
+      const { config, errors } = validateConfig({
+        repoLabels: { labels: { 'scope:basic': { color: '00ff96', archived: true } } },
+      });
+      expect(errors).toStrictEqual([]);
+      expect(config.repoLabels?.labels?.['scope:basic']).toStrictEqual({ color: '00ff96', archived: true });
+    });
+
+    it.each([false, 'true', 1])('returns an error when a label entry sets archived to %j', (archived) => {
+      const { errors } = validateConfig({ repoLabels: { labels: { 'scope:basic': { color: '00ff96', archived } } } });
+      expectErrorAtPath(errors, 'repoLabels.labels.scope:basic.archived');
+    });
+
     it('returns an error when a label entry is missing the color', () => {
       const { errors } = validateConfig({ repoLabels: { labels: { bug: { description: 'Something broken' } } } });
       expectErrorAtPath(errors, 'repoLabels.labels.bug.color');
