@@ -1,4 +1,4 @@
-/** A single GitHub label definition compatible with EndBug/label-sync. */
+/** A single GitHub label definition, as `sync-labels generate` writes it to `.github/labels.yaml`. */
 export interface LabelDefinition {
   /** Display name of the label. */
   name: string;
