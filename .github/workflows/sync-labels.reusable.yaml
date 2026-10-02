@@ -3,9 +3,12 @@ name: 'Reusable: Sync labels'
 
 # Reusable label-sync workflow for repos consuming release-kit's `sync-labels`.
 #
-# Applies `.github/labels.yaml` to the repository's labels, deleting any label not declared by the file.
+# Applies `.github/labels.yaml` to the repository's labels, deleting any label not declared by the file, then archives
+# each label that the file marks `archived: true` and unarchives each archived label that it declares without the mark.
+# An archived label stays on the issues and pull requests that have it.
 # Pass `dry-run: true` to compute and log the diff without applying it; the job log then contains the full set of
-# creates, edits, renames, and deletions, including deletions of labels absent from the file.
+# creates, edits, renames, and deletions, including deletions of labels absent from the file, and every pending
+# archive and unarchive.
 #
 # Usage:
 #   jobs:
@@ -31,6 +34,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      # The engine's label schema rejects keys that it does not know, so it reads a copy without the archived mark.
+      - name: Prepare label files
+        run: |
+          yq 'map(del(.archived))' .github/labels.yaml > "$RUNNER_TEMP/labels.engine.yaml"
+          yq --output-format=json '.' .github/labels.yaml > "$RUNNER_TEMP/labels.json"
       # Pinned by commit SHA: the action's `main` swaps the vendored engine for `@endbug/github-label-sync@3`,
       # whose delete and rename semantics differ from the ones on which `delete-other-labels: true` relies below.
       #
@@ -41,6 +49,62 @@ jobs:
       - name: Sync labels
         uses: EndBug/label-sync@52074158190acb45f3077f9099fea818aa43f97a # v2.3.3
         with:
-          config-file: .github/labels.yaml
+          config-file: ${{ runner.temp }}/labels.engine.yaml
           delete-other-labels: true
           dry-run: ${{ inputs.dry-run }}
+      # Runs after the engine, so that a marked label which the engine has just created exists to be archived.
+      # The engine reads archived labels like any other, so it neither recreates nor deletes a declared one.
+      - name: Reconcile archive state
+        uses: actions/github-script@v9
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+          LABELS_FILE: ${{ runner.temp }}/labels.json
+        with:
+          script: |
+            const declaredLabels = JSON.parse(require('fs').readFileSync(process.env.LABELS_FILE, 'utf8'));
+            const isDryRun = process.env.DRY_RUN === 'true';
+            const repoLabels = await github.paginate('GET /repos/{owner}/{repo}/labels', {
+              ...context.repo,
+              per_page: 100,
+            });
+            const repoLabelsByKey = new Map(repoLabels.map((label) => [label.name.toLowerCase(), label]));
+
+            core.startGroup('Archive state');
+            let changeCount = 0;
+            for (const declared of declaredLabels) {
+              const isMarked = declared.archived === true;
+              const repoLabel = repoLabelsByKey.get(declared.name.toLowerCase());
+              if (repoLabel === undefined) {
+                if (!isMarked) continue;
+                changeCount += 1;
+                if (isDryRun) {
+                  core.info(`Would archive ${declared.name} after creating it`);
+                } else {
+                  core.setFailed(`${declared.name} is marked as archived, but the repository does not have it`);
+                }
+                continue;
+              }
+
+              const isArchived = repoLabel.archived_at !== null && repoLabel.archived_at !== undefined;
+              if (isMarked === isArchived) continue;
+              changeCount += 1;
+              const action = isMarked ? 'archive' : 'unarchive';
+              if (isDryRun) {
+                core.info(`Would ${action} ${declared.name}`);
+                continue;
+              }
+              try {
+                await github.request('PATCH /repos/{owner}/{repo}/labels/{name}', {
+                  ...context.repo,
+                  name: repoLabel.name,
+                  archived: isMarked,
+                });
+                core.info(`${isMarked ? 'Archived' : 'Unarchived'} ${declared.name}`);
+              } catch (error) {
+                core.setFailed(`Failed to ${action} ${declared.name}: ${error.message}`);
+              }
+            }
+            if (changeCount === 0) {
+              core.info('Every declared label is already in its declared archive state.');
+            }
+            core.endGroup();

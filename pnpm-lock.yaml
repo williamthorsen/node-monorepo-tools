@@ -191,6 +191,9 @@ catalogs:
     vitest:
       specifier: 4.1.11
       version: 4.1.11
+    yaml:
+      specifier: 2.9.1
+      version: 2.9.1
 
 importers:
 
@@ -268,6 +271,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@types/node@24.13.6)(@vitest/coverage-v8@4.1.11)(vite@8.3.1(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
+      yaml:
+        specifier: 'catalog:'
+        version: 2.9.1
       zod:
         specifier: 4.6.5
         version: 4.6.5
@@ -345,7 +351,7 @@ importers:
         specifier: 9.0.0
         version: 9.0.0
       yaml:
-        specifier: 2.9.1
+        specifier: 'catalog:'
         version: 2.9.1
     devDependencies:
       '@williamthorsen/toolbelt.filesystem':
@@ -379,7 +385,7 @@ importers:
         specifier: 7.8.5
         version: 7.8.5
       yaml:
-        specifier: 2.9.1
+        specifier: 'catalog:'
         version: 2.9.1
       zod:
         specifier: 4.6.5

@@ -61,7 +61,7 @@
     "@williamthorsen/toolbelt.errors": "catalog:",
     "json-stringify-pretty-compact": "4.0.0",
     "semver": "7.8.5",
-    "yaml": "2.9.1",
+    "yaml": "catalog:",
     "zod": "4.6.5"
   },
   "devDependencies": {
