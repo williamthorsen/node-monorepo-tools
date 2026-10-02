@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.41.0",
+    "date": "2026-10-02",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Adds a hint to `nmr` that, when a command fails, names any of nmr's own flags written after the command name and shows the corrected invocation, such as `nmr -q check`. (#956)",
+            "hash": "21e1759f8eb8257d81bc5bf1e533dbd496d99017",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.40.0",
     "date": "2026-10-01",
     "sections": [

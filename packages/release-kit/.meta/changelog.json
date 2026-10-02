@@ -1,5 +1,22 @@
 [
   {
+    "version": "13.1.0",
+    "date": "2026-10-02",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Adds an `archived: true` mark to `repoLabels.labels` entries, which `sync-labels generate` writes to `.github/labels.yaml` without changing the output for unmarked labels. (#955)",
+            "hash": "23c0e0eeaf3e59cd921632850c7771ccdd6effe1",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "13.0.0",
     "date": "2026-10-01",
     "sections": [

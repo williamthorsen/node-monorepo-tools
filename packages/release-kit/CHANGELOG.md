@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 13.1.0 — 2026-10-02
+
+### 🎉 Features
+
+- Adds an `archived: true` mark to `repoLabels.labels` entries, which `sync-labels generate` writes to `.github/labels.yaml` without changing the output for unmarked labels. (#955)
+
 ## 13.0.0 — 2026-10-01
 
 ### 🎉 Features

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.41.0 — 2026-10-02
+
+### 🎉 Features
+
+- Adds a hint to `nmr` that, when a command fails, names any of nmr's own flags written after the command name and shows the corrected invocation, such as `nmr -q check`. (#956)
+
 ## 0.40.0 — 2026-10-01
 
 ### 🎉 Features
