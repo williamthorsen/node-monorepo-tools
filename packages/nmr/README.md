@@ -53,7 +53,7 @@ nmr --recursive lint   # Lint all workspace packages
 
 `--recursive`, and a `--filter` that selects more than one package, do not give any package terminal input. An interactive command such as `test:watch` needs a filter that selects a single package.
 
-Position determines ownership: Flags before the command name are nmr's own, and everything after the command name is forwarded untouched to the resolved command.
+Position determines ownership: Flags before the command name are nmr's own, and everything after the command name is forwarded untouched to the resolved command. When a command fails and one of nmr's own flags follows its name, nmr names the flag and prints the corrected invocation.
 
 `nmr --help` lists every flag and command, with the shell command to which each command resolves. Per-package `package.json` files do not need any script entries.
 
