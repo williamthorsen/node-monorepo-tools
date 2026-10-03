@@ -99,7 +99,8 @@
     "tinyglobby": "0.2.17",
     "typescript": "6.0.3",
     "vite": "8.3.1",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "yaml": "catalog:"
   },
   "peerDependencies": {
     "prettier": ">=3.9.5 <4",
