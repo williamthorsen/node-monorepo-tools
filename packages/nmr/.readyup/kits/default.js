@@ -7610,6 +7610,13 @@ var default_default = defineRdyKit({
           fix: "Move these settings into pnpm-workspace.yaml, quoting each version under `overrides`, or run `pnpx codemod run pnpm-v10-to-v11`. pnpm 11 does not read any key from the `pnpm` field, so an override left there pins nothing while an upgrade run with `--write` goes on rewriting it"
         },
         {
+          name: "no package.json declares a workspaces field",
+          severity: "warn",
+          quiet: true,
+          check: () => noWorkspacesFieldInPackageJson(),
+          fix: "Delete the `workspaces` field. pnpm reads workspace globs only from pnpm-workspace.yaml, so the field can drift from them without any error"
+        },
+        {
           name: ".config/nmr.config.ts uses defineConfig",
           severity: "recommend",
           skip: () => !fileExists(".config/nmr.config.ts") ? "no nmr config file" : false,
@@ -8115,6 +8122,22 @@ function noWorkspaceRunScriptReferences() {
     detail: `found in: ${matches.join(", ")}`
   };
 }
+function noWorkspacesFieldInPackageJson(cwd = process.cwd()) {
+  const declaringFiles = findFiles(["**/package.json"], cwd).filter(
+    (relativePath) => declaresWorkspacesField(readFileIn(cwd, relativePath))
+  );
+  if (declaringFiles.length === 0) return true;
+  return { ok: false, detail: formatPaths(declaringFiles) };
+}
+function declaresWorkspacesField(content) {
+  if (content === void 0) return false;
+  try {
+    const parsedManifest = JSON.parse(content);
+    return isRecord(parsedManifest) && "workspaces" in parsedManifest;
+  } catch {
+    return false;
+  }
+}
 function readCataloguedNames(cwd) {
   const content = readFileIn(cwd, "pnpm-workspace.yaml");
   if (content === void 0) return { ok: true, names: /* @__PURE__ */ new Set() };
@@ -8239,6 +8262,7 @@ export {
   noReExportOnlyVitestConfigs,
   noRetiredVitestConfigs,
   noUnguardedLefthookInstall,
+  noWorkspacesFieldInPackageJson,
   prettierConfigBuildsOnSharedConfig,
   tazeConfigAvoidsClobberedOptions,
   tazeConfigBuildsOnSharedConfig,

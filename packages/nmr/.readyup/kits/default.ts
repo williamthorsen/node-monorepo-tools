@@ -94,6 +94,13 @@ export default defineRdyKit({
           fix: 'Move these settings into pnpm-workspace.yaml, quoting each version under `overrides`, or run `pnpx codemod run pnpm-v10-to-v11`. pnpm 11 does not read any key from the `pnpm` field, so an override left there pins nothing while an upgrade run with `--write` goes on rewriting it',
         },
         {
+          name: 'no package.json declares a workspaces field',
+          severity: 'warn',
+          quiet: true,
+          check: () => noWorkspacesFieldInPackageJson(),
+          fix: 'Delete the `workspaces` field. pnpm reads workspace globs only from pnpm-workspace.yaml, so the field can drift from them without any error',
+        },
+        {
           name: '.config/nmr.config.ts uses defineConfig',
           severity: 'recommend',
           skip: () => (!fileExists('.config/nmr.config.ts') ? 'no nmr config file' : false),
@@ -986,6 +993,36 @@ function noWorkspaceRunScriptReferences(): boolean | CheckOutcome {
     ok: false,
     detail: `found in: ${matches.join(', ')}`,
   };
+}
+
+/**
+ * Checks that no `package.json` in the tree declares a `workspaces` field, which pnpm ignores in favor of
+ * `pnpm-workspace.yaml`.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function noWorkspacesFieldInPackageJson(cwd: string = process.cwd()): boolean | CheckOutcome {
+  const declaringFiles = findFiles(['**/package.json'], cwd).filter((relativePath) =>
+    declaresWorkspacesField(readFileIn(cwd, relativePath)),
+  );
+
+  if (declaringFiles.length === 0) return true;
+  return { ok: false, detail: formatPaths(declaringFiles) };
+}
+
+/**
+ * Reports whether a manifest declares a `workspaces` field. A manifest that does not parse reads as declaring none:
+ * This check does not own the file.
+ */
+function declaresWorkspacesField(content: string | undefined): boolean {
+  if (content === undefined) return false;
+
+  try {
+    const parsedManifest: unknown = JSON.parse(content);
+    return isRecord(parsedManifest) && 'workspaces' in parsedManifest;
+  } catch {
+    return false;
+  }
 }
 
 /**
