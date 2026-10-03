@@ -28,6 +28,7 @@ import {
   readPackageJson,
   type Workspace,
 } from 'readyup/check-utils';
+import { parse } from 'yaml';
 
 import { getDefaultRootScripts } from '../../src/resolve-scripts.ts';
 import { findMisplacedTestFiles, findTestFiles, findUntieredTestFiles, TIER_NAMES } from '../../src/tiers.ts';
@@ -66,6 +67,13 @@ export default defineRdyKit({
           fix: 'Create pnpm-workspace.yaml with workspace package globs',
         },
         {
+          name: 'catalogued dependencies use catalog:',
+          severity: 'warn',
+          quiet: true,
+          check: cataloguedDependenciesUseCatalog,
+          fix: 'Replace each listed specifier with `catalog:`, so that pnpm-workspace.yaml stays the one place that declares the version. A version that must differ belongs in a named catalog under `catalogs`, referenced as `catalog:<name>`',
+        },
+        {
           name: 'package.json has packageManager field',
           severity: 'warn',
           check: () => hasPackageJsonField('packageManager'),
@@ -84,6 +92,13 @@ export default defineRdyKit({
           quiet: true,
           check: () => noPnpmFieldInPackageJson(),
           fix: 'Move these settings into pnpm-workspace.yaml, quoting each version under `overrides`, or run `pnpx codemod run pnpm-v10-to-v11`. pnpm 11 does not read any key from the `pnpm` field, so an override left there pins nothing while an upgrade run with `--write` goes on rewriting it',
+        },
+        {
+          name: 'no package.json declares a workspaces field',
+          severity: 'warn',
+          quiet: true,
+          check: () => noWorkspacesFieldInPackageJson(),
+          fix: 'Delete the `workspaces` field. pnpm reads workspace globs only from pnpm-workspace.yaml, so the field can drift from them without any error',
         },
         {
           name: '.config/nmr.config.ts uses defineConfig',
@@ -344,6 +359,21 @@ const MIN_STRICT_LINT_VERSION = '9.3.0';
 /** Protocols that defer a dependency's version to pnpm-workspace.yaml or to a sibling package. */
 const WORKSPACE_VERSION_MARKERS = ['catalog:', 'workspace:'];
 
+/** Manifest fields whose catalogued entries must use `catalog:`. A peer range differs from the pin by design. */
+const CATALOGUE_CHECKED_FIELDS = ['dependencies', 'devDependencies', 'optionalDependencies'];
+
+/** Matches a specifier that names a protocol, such as `catalog:`, `workspace:`, `npm:`, or `git+ssh:`. */
+const PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:/i;
+
+/** A literal specifier declared for a catalogued dependency. */
+interface CatalogFinding {
+  manifestPath: string;
+  name: string;
+  specifier: string;
+}
+
+type CatalogRead = { ok: true; names: ReadonlySet<string> } | { ok: false; detail: string };
+
 /**
  * Checks that every workspace package can run `nmr build`: Its package.json overrides "build", or it has the
  * inputs that the default nmr-compile build needs, a tsconfig.json and a src/ directory.
@@ -374,6 +404,31 @@ function allWorkspacePackagesCanBuild(): boolean | CheckOutcome {
     ok: false,
     detail: `missing build override or tsconfig.json + src/: ${failingPackages.join(', ')}`,
   };
+}
+
+/**
+ * Checks that every manifest, the root's included, declares a dependency named by a pnpm catalog as `catalog:`
+ * rather than as a literal version.
+ *
+ * Reads the repo's workspaces from `process.cwd()`, because readyup's discovery offers no other anchor.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function cataloguedDependenciesUseCatalog(): boolean | CheckOutcome {
+  const catalogRead = readCataloguedNames(process.cwd());
+  if (!catalogRead.ok) return catalogRead;
+  if (catalogRead.names.size === 0) return true;
+
+  const workspaceDiscovery = discoverWorkspacesOrFailure();
+  if (!workspaceDiscovery.ok) return workspaceDiscovery;
+
+  const findings = workspaceDiscovery.workspaces
+    .flatMap((workspace) => findLiteralCataloguedSpecifiers(workspace, catalogRead.names))
+    .toSorted((a, b) => a.manifestPath.localeCompare(b.manifestPath) || a.name.localeCompare(b.name));
+  if (findings.length === 0) return true;
+
+  const lines = findings.map(({ manifestPath, name, specifier }) => `${manifestPath}: ${name} ${specifier}`);
+  return { ok: false, detail: formatPaths([...new Set(lines)]) };
 }
 
 /** Reports every file matching the given patterns, passing when there are none. */
@@ -462,11 +517,12 @@ function hasPrettierConfigKey(cwd: string): boolean {
   }
 }
 
-/** Either the repo's member workspaces or the reason discovery could not enumerate them. */
+/** Either the repo's workspaces or the reason discovery could not enumerate them. */
 type WorkspaceDiscovery = { ok: true; workspaces: Workspace[] } | { ok: false; detail: string };
 
 /**
- * Returns every workspace but the root, or the reason discovery could not enumerate them.
+ * Returns the workspaces that pass the filter, every one when it is omitted, or the reason discovery could not
+ * enumerate them.
  *
  * A failure is returned rather than thrown, because readyup catches a throw at kit level and one would abort
  * the rest of the checklist; it is returned rather than swallowed, because an empty list turns every check
@@ -477,9 +533,9 @@ type WorkspaceDiscovery = { ok: true; workspaces: Workspace[] } | { ok: false; d
  * A check built on this reads `process.cwd()` and cannot offer a directory of its own: readyup's public entry
  * exports `discoverWorkspaces` alone, not the `discoverWorkspacesAt(dir)` form declared in its source.
  */
-function discoverMemberWorkspaces(): WorkspaceDiscovery {
+function discoverWorkspacesOrFailure(filter?: (workspace: Workspace) => boolean): WorkspaceDiscovery {
   try {
-    return { ok: true, workspaces: discoverWorkspaces({ filter: (workspace) => !workspace.isRoot }) };
+    return { ok: true, workspaces: discoverWorkspaces(filter === undefined ? undefined : { filter }) };
   } catch (error) {
     return { ok: false, detail: `cannot enumerate workspaces: ${describeError(error)}` };
   }
@@ -498,7 +554,7 @@ function discoverMemberWorkspaces(): WorkspaceDiscovery {
  * @internal - Exported only to enable testing
  */
 export async function everyBinTargetIsACommittedWrapper(): Promise<boolean | CheckOutcome> {
-  const workspaceDiscovery = discoverMemberWorkspaces();
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
   if (!workspaceDiscovery.ok) return workspaceDiscovery;
 
   const trackedFiles = await listTrackedFiles();
@@ -529,7 +585,7 @@ export async function everyBinTargetIsACommittedWrapper(): Promise<boolean | Che
  * @internal - Exported only to enable testing
  */
 export function everyBinWrapperTargetIsCoveredByFiles(): boolean | CheckOutcome {
-  const workspaceDiscovery = discoverMemberWorkspaces();
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
   if (!workspaceDiscovery.ok) return workspaceDiscovery;
 
   const cwd = process.cwd();
@@ -680,7 +736,7 @@ export function everyTestFileSitsUnderTestsDir(cwd: string = process.cwd()): boo
  * @internal - Exported only to enable testing
  */
 export function everyViteConfigHasVitestConfig(): boolean | CheckOutcome {
-  const workspaceDiscovery = discoverMemberWorkspaces();
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
   if (!workspaceDiscovery.ok) return workspaceDiscovery;
 
   const unpairedConfigs = workspaceDiscovery.workspaces.flatMap((workspace) => {
@@ -706,6 +762,26 @@ function findFiles(patterns: string[], cwd: string): string[] {
   return globSync(patterns, { cwd, exclude: (path) => SCAN_EXCLUDE_DIRS.has(basename(path)) })
     .map((path) => path.split(sep).join('/'))
     .toSorted();
+}
+
+/**
+ * Returns the catalogued dependencies that a workspace's manifest declares with a specifier naming no protocol.
+ *
+ * A specifier that is not a string is skipped: A malformed manifest is pnpm's to report.
+ */
+function findLiteralCataloguedSpecifiers(workspace: Workspace, names: ReadonlySet<string>): CatalogFinding[] {
+  const manifestPath = posix.join(workspace.dir, 'package.json');
+
+  return CATALOGUE_CHECKED_FIELDS.flatMap((field) => {
+    const declared = workspace.packageJson[field];
+    if (!isRecord(declared)) return [];
+
+    return Object.entries(declared).flatMap(([name, specifier]) =>
+      names.has(name) && typeof specifier === 'string' && !PROTOCOL_PATTERN.test(specifier)
+        ? [{ manifestPath, name, specifier }]
+        : [],
+    );
+  });
 }
 
 /** Returns a workspace's own configs matching the pattern, as paths relative to the repo root. */
@@ -916,6 +992,61 @@ function noWorkspaceRunScriptReferences(): boolean | CheckOutcome {
   };
 }
 
+/**
+ * Checks that no `package.json` in the tree declares a `workspaces` field, which pnpm ignores in favor of
+ * `pnpm-workspace.yaml`.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function noWorkspacesFieldInPackageJson(cwd: string = process.cwd()): boolean | CheckOutcome {
+  const declaringFiles = findFiles(['**/package.json'], cwd).filter((relativePath) =>
+    declaresWorkspacesField(readFileIn(cwd, relativePath)),
+  );
+
+  if (declaringFiles.length === 0) return true;
+  return { ok: false, detail: formatPaths(declaringFiles) };
+}
+
+/**
+ * Reports whether a manifest declares a `workspaces` field. A manifest that does not parse reads as declaring none:
+ * This check does not own the file.
+ */
+function declaresWorkspacesField(content: string | undefined): boolean {
+  if (content === undefined) return false;
+
+  try {
+    const parsedManifest: unknown = JSON.parse(content);
+    return isRecord(parsedManifest) && 'workspaces' in parsedManifest;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returns every package name listed by the default `catalog` or by a named catalog under `catalogs` in
+ * `pnpm-workspace.yaml`, which is empty when the file is absent or declares neither.
+ *
+ * A file that does not parse is a failure rather than an empty set, which would pass a repo that was never checked.
+ * A catalog that is not a map is skipped.
+ */
+function readCataloguedNames(cwd: string): CatalogRead {
+  const content = readFileIn(cwd, 'pnpm-workspace.yaml');
+  if (content === undefined) return { ok: true, names: new Set() };
+
+  let workspaceManifest: unknown;
+  try {
+    workspaceManifest = parse(content);
+  } catch (error) {
+    return { ok: false, detail: `cannot parse pnpm-workspace.yaml: ${describeError(error)}` };
+  }
+  if (!isRecord(workspaceManifest)) return { ok: true, names: new Set() };
+
+  const namedCatalogs = workspaceManifest['catalogs'];
+  const catalogs = [workspaceManifest['catalog'], ...(isRecord(namedCatalogs) ? Object.values(namedCatalogs) : [])];
+
+  return { ok: true, names: new Set(catalogs.filter(isRecord).flatMap((catalog) => Object.keys(catalog))) };
+}
+
 /** Reads a file resolved against `cwd`, returning undefined when it is absent. */
 function readFileIn(cwd: string, relativePath: string): string | undefined {
   return readFile(join(cwd, relativePath));
@@ -1090,7 +1221,7 @@ export function vitestConfigBuildsOnSharedConfig(): boolean | CheckOutcome {
   const rootConfigs = findFiles([VITEST_CONFIG_PATTERN], cwd);
   if (rootConfigs.length === 0) return { ok: false, detail: 'vitest.config.ts is missing' };
 
-  const workspaceDiscovery = discoverMemberWorkspaces();
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
   if (!workspaceDiscovery.ok) return workspaceDiscovery;
 
   const workspaceConfigs = workspaceDiscovery.workspaces

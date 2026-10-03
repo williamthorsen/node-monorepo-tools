@@ -3,7 +3,8 @@
   "kits": [
     {
       "bundledDependencies": {
-        "@williamthorsen/toolbelt.errors": "0.8.2"
+        "@williamthorsen/toolbelt.errors": "0.8.2",
+        "yaml": "2.9.1"
       },
       "checklists": [
         "nmr"
@@ -11,7 +12,7 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "5f7bd316",
+          "hash": "50b5aac3",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -48,8 +49,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.39.0",
       "source": "kits/default.ts",
-      "sourceHash": "5f7bd316",
-      "targetHash": "5aa85d86"
+      "sourceHash": "50b5aac3",
+      "targetHash": "fc543d65"
     }
   ]
 }
