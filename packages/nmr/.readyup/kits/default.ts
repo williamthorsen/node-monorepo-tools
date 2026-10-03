@@ -419,14 +419,10 @@ export function cataloguedDependenciesUseCatalog(): boolean | CheckOutcome {
   if (!catalogRead.ok) return catalogRead;
   if (catalogRead.names.size === 0) return true;
 
-  let workspaces: Workspace[];
-  try {
-    workspaces = discoverWorkspaces();
-  } catch (error) {
-    return { ok: false, detail: `cannot enumerate workspaces: ${describeError(error)}` };
-  }
+  const workspaceDiscovery = discoverWorkspacesOrFailure();
+  if (!workspaceDiscovery.ok) return workspaceDiscovery;
 
-  const findings = workspaces
+  const findings = workspaceDiscovery.workspaces
     .flatMap((workspace) => findLiteralCataloguedSpecifiers(workspace, catalogRead.names))
     .toSorted((a, b) => a.manifestPath.localeCompare(b.manifestPath) || a.name.localeCompare(b.name));
   if (findings.length === 0) return true;
@@ -521,11 +517,12 @@ function hasPrettierConfigKey(cwd: string): boolean {
   }
 }
 
-/** Either the repo's member workspaces or the reason discovery could not enumerate them. */
+/** Either the repo's workspaces or the reason discovery could not enumerate them. */
 type WorkspaceDiscovery = { ok: true; workspaces: Workspace[] } | { ok: false; detail: string };
 
 /**
- * Returns every workspace but the root, or the reason discovery could not enumerate them.
+ * Returns the workspaces that pass the filter, every one when it is omitted, or the reason discovery could not
+ * enumerate them.
  *
  * A failure is returned rather than thrown, because readyup catches a throw at kit level and one would abort
  * the rest of the checklist; it is returned rather than swallowed, because an empty list turns every check
@@ -536,9 +533,9 @@ type WorkspaceDiscovery = { ok: true; workspaces: Workspace[] } | { ok: false; d
  * A check built on this reads `process.cwd()` and cannot offer a directory of its own: readyup's public entry
  * exports `discoverWorkspaces` alone, not the `discoverWorkspacesAt(dir)` form declared in its source.
  */
-function discoverMemberWorkspaces(): WorkspaceDiscovery {
+function discoverWorkspacesOrFailure(filter?: (workspace: Workspace) => boolean): WorkspaceDiscovery {
   try {
-    return { ok: true, workspaces: discoverWorkspaces({ filter: (workspace) => !workspace.isRoot }) };
+    return { ok: true, workspaces: discoverWorkspaces(filter === undefined ? undefined : { filter }) };
   } catch (error) {
     return { ok: false, detail: `cannot enumerate workspaces: ${describeError(error)}` };
   }
@@ -557,7 +554,7 @@ function discoverMemberWorkspaces(): WorkspaceDiscovery {
  * @internal - Exported only to enable testing
  */
 export async function everyBinTargetIsACommittedWrapper(): Promise<boolean | CheckOutcome> {
-  const workspaceDiscovery = discoverMemberWorkspaces();
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
   if (!workspaceDiscovery.ok) return workspaceDiscovery;
 
   const trackedFiles = await listTrackedFiles();
@@ -588,7 +585,7 @@ export async function everyBinTargetIsACommittedWrapper(): Promise<boolean | Che
  * @internal - Exported only to enable testing
  */
 export function everyBinWrapperTargetIsCoveredByFiles(): boolean | CheckOutcome {
-  const workspaceDiscovery = discoverMemberWorkspaces();
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
   if (!workspaceDiscovery.ok) return workspaceDiscovery;
 
   const cwd = process.cwd();
@@ -739,7 +736,7 @@ export function everyTestFileSitsUnderTestsDir(cwd: string = process.cwd()): boo
  * @internal - Exported only to enable testing
  */
 export function everyViteConfigHasVitestConfig(): boolean | CheckOutcome {
-  const workspaceDiscovery = discoverMemberWorkspaces();
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
   if (!workspaceDiscovery.ok) return workspaceDiscovery;
 
   const unpairedConfigs = workspaceDiscovery.workspaces.flatMap((workspace) => {
@@ -1224,7 +1221,7 @@ export function vitestConfigBuildsOnSharedConfig(): boolean | CheckOutcome {
   const rootConfigs = findFiles([VITEST_CONFIG_PATTERN], cwd);
   if (rootConfigs.length === 0) return { ok: false, detail: 'vitest.config.ts is missing' };
 
-  const workspaceDiscovery = discoverMemberWorkspaces();
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
   if (!workspaceDiscovery.ok) return workspaceDiscovery;
 
   const workspaceConfigs = workspaceDiscovery.workspaces

@@ -7845,13 +7845,9 @@ function cataloguedDependenciesUseCatalog() {
   const catalogRead = readCataloguedNames(process.cwd());
   if (!catalogRead.ok) return catalogRead;
   if (catalogRead.names.size === 0) return true;
-  let workspaces;
-  try {
-    workspaces = discoverWorkspaces();
-  } catch (error) {
-    return { ok: false, detail: `cannot enumerate workspaces: ${describeError(error)}` };
-  }
-  const findings = workspaces.flatMap((workspace) => findLiteralCataloguedSpecifiers(workspace, catalogRead.names)).toSorted((a, b) => a.manifestPath.localeCompare(b.manifestPath) || a.name.localeCompare(b.name));
+  const workspaceDiscovery = discoverWorkspacesOrFailure();
+  if (!workspaceDiscovery.ok) return workspaceDiscovery;
+  const findings = workspaceDiscovery.workspaces.flatMap((workspace) => findLiteralCataloguedSpecifiers(workspace, catalogRead.names)).toSorted((a, b) => a.manifestPath.localeCompare(b.manifestPath) || a.name.localeCompare(b.name));
   if (findings.length === 0) return true;
   const lines = findings.map(({ manifestPath, name, specifier }) => `${manifestPath}: ${name} ${specifier}`);
   return { ok: false, detail: formatPaths([...new Set(lines)]) };
@@ -7911,15 +7907,15 @@ function hasPrettierConfigKey(cwd) {
     return false;
   }
 }
-function discoverMemberWorkspaces() {
+function discoverWorkspacesOrFailure(filter) {
   try {
-    return { ok: true, workspaces: discoverWorkspaces({ filter: (workspace) => !workspace.isRoot }) };
+    return { ok: true, workspaces: discoverWorkspaces(filter === void 0 ? void 0 : { filter }) };
   } catch (error) {
     return { ok: false, detail: `cannot enumerate workspaces: ${describeError(error)}` };
   }
 }
 async function everyBinTargetIsACommittedWrapper() {
-  const workspaceDiscovery = discoverMemberWorkspaces();
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
   if (!workspaceDiscovery.ok) return workspaceDiscovery;
   const trackedFiles = await listTrackedFiles();
   const trackedPaths = trackedFiles === void 0 ? void 0 : new Set(trackedFiles);
@@ -7933,7 +7929,7 @@ async function everyBinTargetIsACommittedWrapper() {
   return { ok: false, detail: formatPaths(offenders) };
 }
 function everyBinWrapperTargetIsCoveredByFiles() {
-  const workspaceDiscovery = discoverMemberWorkspaces();
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
   if (!workspaceDiscovery.ok) return workspaceDiscovery;
   const cwd = process.cwd();
   const offenders = workspaceDiscovery.workspaces.flatMap((workspace) => {
@@ -7995,7 +7991,7 @@ function everyTestFileSitsUnderTestsDir(cwd = process.cwd()) {
   return { ok: false, detail: formatPaths(misplacedFiles) };
 }
 function everyViteConfigHasVitestConfig() {
-  const workspaceDiscovery = discoverMemberWorkspaces();
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
   if (!workspaceDiscovery.ok) return workspaceDiscovery;
   const unpairedConfigs = workspaceDiscovery.workspaces.flatMap((workspace) => {
     const viteConfigs = findWorkspaceConfigs(workspace, VITE_CONFIG_PATTERN);
@@ -8236,7 +8232,7 @@ function vitestConfigBuildsOnSharedConfig() {
   const cwd = process.cwd();
   const rootConfigs = findFiles([VITEST_CONFIG_PATTERN], cwd);
   if (rootConfigs.length === 0) return { ok: false, detail: "vitest.config.ts is missing" };
-  const workspaceDiscovery = discoverMemberWorkspaces();
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
   if (!workspaceDiscovery.ok) return workspaceDiscovery;
   const workspaceConfigs = workspaceDiscovery.workspaces.flatMap((workspace) => findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN)).filter((relativePath) => !isOwnedByReExportCheck(cwd, relativePath));
   const stale = [...rootConfigs, ...workspaceConfigs].filter(
