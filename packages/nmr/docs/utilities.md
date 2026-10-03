@@ -47,7 +47,7 @@ nmr-fmt --write packages/nmr
 
 A file that git ignores is never formatted, even when named directly. Because trailing arguments are git pathspecs rather than Prettier flags, `nmr fmt:check packages/nmr` narrows the run, while an unrecognized option and a pathspec that does not match any formattable file both fail it. Running outside a git repository fails rather than reporting a clean run.
 
-`nmr-fmt` drops paths that the index names but the filesystem does not have (a file deleted but not yet staged), and submodule gitlinks, before calling Prettier.
+`nmr-fmt` drops paths that the index names but the filesystem does not have (a file deleted but not yet staged), and submodule gitlinks, before calling Prettier. It also skips a path that it is denied access to, such as a `.envrc` that a sandbox shields, and names each one on stderr, so that a check that passes does not hide a file that it never read. Any other failure to stat a listed path fails the run, with an error that names the path.
 
 ## `ensure-prepublish-hooks`
 
