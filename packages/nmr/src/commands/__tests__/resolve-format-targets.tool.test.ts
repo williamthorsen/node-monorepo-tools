@@ -5,7 +5,8 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, describe, expect, it as baseIt, vi } from 'vitest';
 
-import { resolveFormatTargets } from '../fmt.ts';
+import { type FormatTargets, resolveFormatTargets } from '../fmt.ts';
+import { denyAccess, isPrivilegedProcess } from '../test-utils/denyAccess.ts';
 
 /**
  * Tracked fixture files. `packages/a` contains both kinds of ignore file, so one repository exercises
@@ -130,6 +131,29 @@ describe(resolveFormatTargets, () => {
     expect(unwrap(result).files).not.toContain('vendor/sub');
   });
 
+  it.skipIf(isPrivilegedProcess)('sets aside a file that it is denied access to, and selects the rest', ({ tree }) => {
+    tree.write('packages/locked/secret.js', 'const secret = 1;\n');
+    runGitOrThrow(['add', '--all'], tree.dir);
+    using _locked = denyAccess(tree.resolve('packages/locked'));
+
+    const result = resolveFormatTargets(tree.dir);
+
+    expect(unwrap(result).unreadableFiles).toStrictEqual([{ file: 'packages/locked/secret.js', code: 'EACCES' }]);
+    expect(unwrap(result).files).toContain('root.js');
+    expect(unwrap(result).files).not.toContain('packages/locked/secret.js');
+  });
+
+  it("fails, naming the path, when a listed file cannot be stat'ed for another reason", ({ tree }) => {
+    tree.symlink('loop-a', 'loop-b');
+    tree.symlink('loop-b', 'loop-a');
+    runGitOrThrow(['add', '--all'], tree.dir);
+
+    const result = resolveFormatTargets(tree.dir);
+
+    assert(!result.ok, 'expected resolution to fail on a symlink loop');
+    expect(result.error).toMatch(/could not stat loop-a: ELOOP/);
+  });
+
   it('discovers .prettierignore files from the repository root when run inside a package', ({ tree }) => {
     const result = resolveFormatTargets(path.join(tree.dir, 'packages', 'b'));
 
@@ -192,7 +216,7 @@ function runGitOrThrow(args: string[], cwd: string): void {
 }
 
 /** Narrows a successful result, failing the test with git's own message when resolution did not succeed. */
-function unwrap(result: ReturnType<typeof resolveFormatTargets>): { files: string[]; ignorePaths: string[] } {
+function unwrap(result: ReturnType<typeof resolveFormatTargets>): FormatTargets {
   if (!result.ok) throw new Error(`expected resolution to succeed: ${result.error}`);
   return result.targets;
 }

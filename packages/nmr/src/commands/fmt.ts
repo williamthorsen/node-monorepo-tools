@@ -5,7 +5,8 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
 
-import { reportError } from '@williamthorsen/nmr-core';
+import { hasErrnoCode, reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { isObject } from '../helpers/type-guards.ts';
 
@@ -25,6 +26,9 @@ const LIST_FILES_ARGS = ['ls-files', '-z', '--cached', '--others', '--exclude-st
  * `foo.prettierignore`, which the caller filters out by basename.
  */
 const IGNORE_FILE_PATHSPEC = `*${IGNORE_FILENAME}`;
+
+/** Stat failures that deny this process access to a path, which Prettier could not read either. */
+const UNREADABLE_CODES = ['EACCES', 'EPERM'];
 
 const PRETTIER_PACKAGE = 'prettier';
 
@@ -53,6 +57,13 @@ export interface FormatTargets {
   files: string[];
   /** Absolute paths to every `.prettierignore` governing the repository, root-most first. */
   ignorePaths: string[];
+  /** Listed paths that this process is denied access to, each with the errno code that its stat raised. */
+  unreadableFiles: UnreadableFile[];
+}
+
+export interface UnreadableFile {
+  file: string;
+  code: string;
 }
 
 export type ResolveTargetsResult = { ok: true; targets: FormatTargets } | { ok: false; error: string };
@@ -78,7 +89,12 @@ export function runFmt(argv: string[], cwd: string = process.cwd()): number {
     return 1;
   }
 
-  const { files, ignorePaths } = resolvedTargets.targets;
+  const { files, ignorePaths, unreadableFiles } = resolvedTargets.targets;
+  // Name each skipped path, so that a passing check does not hide the files that it never read.
+  for (const { file, code } of unreadableFiles) {
+    process.stderr.write(`nmr-fmt: skipped ${file}, which cannot be read (${code})\n`);
+  }
+
   if (files.length === 0) {
     // A caller who named paths and got nothing back selected nothing, which a clean run looks exactly
     // like. Without pathspecs there is simply nothing to format, and Prettier run without file arguments
@@ -110,6 +126,9 @@ export function runFmt(argv: string[], cwd: string = process.cwd()): number {
  *
  * `pathspecs` narrow the selection and are passed to git verbatim: They have git pathspec semantics rather
  * than shell glob semantics.
+ *
+ * A listed path that this process is denied access to is set aside in `unreadableFiles`; any other stat failure
+ * fails the resolution.
  */
 export function resolveFormatTargets(cwd: string, pathspecs: string[] = []): ResolveTargetsResult {
   const toplevel = runGit(['rev-parse', '--show-toplevel'], cwd);
@@ -123,6 +142,25 @@ export function resolveFormatTargets(cwd: string, pathspecs: string[] = []): Res
   const ignoreFiles = runGit([...LIST_FILES_ARGS, '--', IGNORE_FILE_PATHSPEC], repositoryRoot);
   if (!ignoreFiles.ok) return ignoreFiles;
 
+  const files: string[] = [];
+  const unreadableFiles: UnreadableFile[] = [];
+  const listedPaths = dedupe(splitNulSeparated(listedFiles.stdout));
+  for (const file of listedPaths) {
+    const status = classifyListedFile(cwd, file);
+    switch (status.kind) {
+      case 'excluded':
+        break;
+      case 'failed':
+        return { ok: false, error: status.error };
+      case 'formattable':
+        files.push(file);
+        break;
+      case 'unreadable':
+        unreadableFiles.push({ file, code: status.code });
+        break;
+    }
+  }
+
   const discoveredIgnorePaths = splitNulSeparated(ignoreFiles.stdout)
     .filter((file) => path.basename(file) === IGNORE_FILENAME)
     .map((file) => path.resolve(repositoryRoot, file));
@@ -131,28 +169,41 @@ export function resolveFormatTargets(cwd: string, pathspecs: string[] = []): Res
     ok: true,
     targets: {
       // Sort for a stable file order across runs; `--cached --others` emits untracked entries first.
-      files: dedupe(splitNulSeparated(listedFiles.stdout))
-        .filter((file) => isFormattableFile(cwd, file))
-        .toSorted(),
+      files: files.toSorted(),
       // Put the repository-root file first, whether or not it exists. Passing any explicit `--ignore-path`
       // suppresses Prettier's working-directory-relative default discovery, and that suppression makes the
       // ignore set identical from every directory. Prettier tolerates a path that is not there.
       ignorePaths: dedupe([path.join(repositoryRoot, IGNORE_FILENAME), ...discoveredIgnorePaths]),
+      unreadableFiles,
     },
   };
 }
 
+type ListedFileStatus =
+  | { kind: 'formattable' }
+  | { kind: 'excluded' }
+  | { kind: 'unreadable'; code: string }
+  | { kind: 'failed'; error: string };
+
 /**
- * Reports whether Prettier can be handed a path named by git.
+ * Classifies a path named by git by whether Prettier can be handed it.
  *
  * git lists paths from the index, which contains paths that the filesystem does not: a file deleted but
  * not yet staged, and a broken symlink. Prettier exits 2 on a path that is not there. git also reports a
  * submodule as a single gitlink, and Prettier handed a directory recurses into it, formatting a
  * separate repository under ignore rules discovered from this one. Both are directories or absences,
- * so one is-a-file check filters out both.
+ * so one is-a-file check excludes both. A path that this process is denied access to, such as a dotfile
+ * that a sandbox shields, is unreadable to Prettier as well.
  */
-function isFormattableFile(cwd: string, file: string): boolean {
-  return statSync(path.resolve(cwd, file), { throwIfNoEntry: false })?.isFile() === true;
+function classifyListedFile(cwd: string, file: string): ListedFileStatus {
+  try {
+    const stats = statSync(path.resolve(cwd, file), { throwIfNoEntry: false });
+    return stats?.isFile() === true ? { kind: 'formattable' } : { kind: 'excluded' };
+  } catch (error) {
+    const code = UNREADABLE_CODES.find((candidate) => hasErrnoCode(error, candidate));
+    if (code !== undefined) return { kind: 'unreadable', code };
+    return { kind: 'failed', error: `could not stat ${file}: ${describeError(error)}` };
+  }
 }
 
 type ParseArgsResult = { ok: true; mode: FormatMode; pathspecs: string[] } | { ok: false; error: string };

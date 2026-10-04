@@ -6,6 +6,7 @@ import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { runFmt, runPrettier } from '../fmt.ts';
+import { denyAccess, isPrivilegedProcess } from '../test-utils/denyAccess.ts';
 
 /**
  * Tracked fixture files. The root `.prettierignore` mirrors a package pattern the way a repo working
@@ -96,6 +97,39 @@ describe(runFmt, () => {
     repositoryTree.rm('root.js');
 
     expect(runFmt(['--check'], repositoryTree.dir)).toBe(0);
+  });
+
+  it.skipIf(isPrivilegedProcess)(
+    'names a file that it is denied access to, and still checks the rest',
+    ({ captured, repositoryTree }) => {
+      using _locked = lockEnvrc(repositoryTree);
+
+      expect(runFmt(['--check'], repositoryTree.dir)).toBe(1);
+      expect(captured.stderr).toContain('nmr-fmt: skipped locked/.envrc, which cannot be read (EACCES)');
+    },
+  );
+
+  it.skipIf(isPrivilegedProcess)(
+    'names a file that it is denied access to, and still rewrites the rest',
+    ({ captured, repositoryTree }) => {
+      using _locked = lockEnvrc(repositoryTree);
+
+      expect(runFmt(['--write'], repositoryTree.dir)).toBe(0);
+      expect(captured.stderr).toContain('nmr-fmt: skipped locked/.envrc, which cannot be read (EACCES)');
+      expect(repositoryTree.read('packages/a/unprotected.js')).toBe('const badly = 1;\n');
+    },
+  );
+
+  it("fails, naming the path, when a listed file cannot be stat'ed for another reason", ({
+    captured,
+    repositoryTree,
+  }) => {
+    repositoryTree.symlink('loop-a', 'loop-b');
+    repositoryTree.symlink('loop-b', 'loop-a');
+    runGitOrThrow(['add', '--all'], repositoryTree.dir);
+
+    expect(runFmt(['--check'], repositoryTree.dir)).toBe(1);
+    expect(captured.stderr).toContain('could not stat loop-a');
   });
 
   it('constrains the run to the given pathspecs', ({ repositoryTree }) => {
@@ -203,6 +237,17 @@ describe(runPrettier, () => {
     expect(readCalls(stubTree)).toHaveLength(2);
   });
 });
+
+/**
+ * Tracks `locked/.envrc` beside a badly formatted file, then denies access to `locked/`, the state that a
+ * sandbox shielding dotfiles produces.
+ */
+function lockEnvrc(tree: TempTree): Disposable {
+  tree.write('locked/.envrc', 'export SECRET=1\n');
+  tree.write('packages/a/unprotected.js', 'const  badly   =  1\n');
+  runGitOrThrow(['add', '--all'], tree.dir);
+  return denyAccess(tree.resolve('locked'));
+}
 
 /** Creates the stub tree containing a recorder that exits 0, which most cases in the block take as given. */
 function scaffoldStub(): TempTree {
