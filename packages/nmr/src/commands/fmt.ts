@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, statSync } from 'node:fs';
+import { lstatSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
@@ -208,16 +208,17 @@ type ListedFileStatus =
 /**
  * Classifies a path named by git by whether Prettier can be handed it.
  *
- * git lists paths from the index, which contains paths that the filesystem does not: a file deleted but
- * not yet staged, and a broken symlink. Prettier exits 2 on a path that is not there. git also reports a
- * submodule as a single gitlink, and Prettier handed a directory recurses into it, formatting a
- * separate repository under ignore rules discovered from this one. Both are directories or absences,
- * so one is-a-file check excludes both. A path that this process is denied access to, such as a dotfile
- * that a sandbox shields, is unreadable to Prettier as well.
+ * Only a regular file qualifies. git lists paths from the index, which contains paths that the filesystem
+ * does not, such as a file deleted but not yet staged, and Prettier exits 2 on a path that is not there.
+ * git reports a submodule as a single gitlink, and Prettier handed a directory recurses into it,
+ * formatting a separate repository under ignore rules discovered from this one. git also records a
+ * symlink as a path of its own, and Prettier rejects a symlink named explicitly whatever its target, so
+ * the link itself is tested rather than what it points at. A path that this process is denied access to,
+ * such as a dotfile that a sandbox shields, is unreadable to Prettier as well.
  */
 function classifyListedFile(cwd: string, file: string): ListedFileStatus {
   try {
-    const stats = statSync(path.resolve(cwd, file), { throwIfNoEntry: false });
+    const stats = lstatSync(path.resolve(cwd, file), { throwIfNoEntry: false });
     return stats?.isFile() === true ? { kind: 'formattable' } : { kind: 'excluded' };
   } catch (error) {
     const code = UNREADABLE_CODES.find((candidate) => hasErrnoCode(error, candidate));

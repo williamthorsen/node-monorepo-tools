@@ -143,15 +143,29 @@ describe(resolveFormatTargets, () => {
     expect(unwrap(result).files).not.toContain('packages/locked/secret.js');
   });
 
-  it("fails, naming the path, when a listed file cannot be stat'ed for another reason", ({ tree }) => {
-    tree.symlink('loop-a', 'loop-b');
-    tree.symlink('loop-b', 'loop-a');
+  it('omits a symlink to a file or a directory, which Prettier rejects when named', ({ tree }) => {
+    tree.symlink('linked.js', 'root.js');
+    tree.symlink('linked-dir', 'packages');
     runGitOrThrow(['add', '--all'], tree.dir);
 
     const result = resolveFormatTargets(tree.dir);
 
+    expect(unwrap(result).files).toContain('root.js');
+    expect(unwrap(result).files).not.toContain('linked.js');
+    expect(unwrap(result).files).not.toContain('linked-dir');
+  });
+
+  it("fails, naming the path, when a listed file cannot be stat'ed for another reason", ({ tree }) => {
+    // A loop in a parent component still fails `lstat`, which follows every component but the last.
+    tree.write('loop/x.js', 'const x = 1;\n');
+    runGitOrThrow(['add', '--all'], tree.dir);
+    tree.rm('loop');
+    tree.symlink('loop', 'loop');
+
+    const result = resolveFormatTargets(tree.dir);
+
     assert(!result.ok, 'expected resolution to fail on a symlink loop');
-    expect(result.error).toMatch(/could not stat loop-a: ELOOP/);
+    expect(result.error).toMatch(/could not stat loop\/x\.js: ELOOP/);
   });
 
   it('discovers .prettierignore files from the repository root when run inside a package', ({ tree }) => {
