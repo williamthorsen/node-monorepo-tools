@@ -29,7 +29,7 @@ The workflows are managed files: release-kit renders them, and a change made by 
 
 Runs release preparation with automatic workspace discovery.
 
-Workspace names for `--only` match the package directory name (e.g., `arrays`, `release-kit`).
+`--only` names the workspaces from which the release starts, by package directory name (e.g., `arrays`, `release-kit`). The run also releases every workspace that depends on one of them, directly or transitively: A dependent with commits of its own releases at its own bump, and one without releases at a propagated patch bump, so that it publishes against the new version. Workspaces outside that set are left out of the run.
 
 `prepare` reads each target's history once and builds the changelog items of its unreleased commits. The bump is the highest level that those items call for, under [`versionPatterns`](configuration.md#versionpatterns), so the bump and the changelog describe the same release: A `feat` entry in a [change-record block](changelogs.md#change-record-blocks) bumps minor under a `docs:` title, and a breaking item bumps major.
 
@@ -82,18 +82,20 @@ docs/*.v*.md
 
 The `--set-version` flag is a first-class escape hatch for the cases in which the derived bump produces the wrong version, most notably when promoting a pre-1.0 package to 1.0.0. Pre-1.0 packages collapse a `feat!` breaking change to a minor bump (matching semantic-release's `initialMajor: false` and release-please's `bump-minor-pre-major`), so a deliberate promotion to 1.0.0 must be requested explicitly.
 
+In a single-package repo, the value is the version: `--set-version 1.0.0`. In a monorepo, it names the workspace with each version, as comma-separated `<workspace>@N.N.N` entries: `--set-version arrays@1.0.0,strings@2.0.0`. Each named workspace releases at its version whether or not it has commits, and starts the release like a workspace named by `--only`.
+
 The flag validates that:
 
-- The value is canonical `N.N.N` semver (pre-release suffixes are rejected).
-- The target is strictly greater than the current version (numeric comparison on each component).
-- In monorepo mode, `--only` is set and resolves to exactly one workspace.
+- Each version is canonical `N.N.N` semver (pre-release suffixes are rejected).
+- In a monorepo, each entry names a known workspace, and none names it twice.
+- Each version is strictly greater than the workspace's current version (numeric comparison on each component).
 
-`--set-version` is mutually exclusive with `--bump` and `--force`. The rest of the pipeline (changelog generation, tag creation, commit summary, propagation to dependents) runs unchanged, so dependents receive a propagated patch bump triggered by the overridden version.
+The rest of the pipeline (changelog generation, tag creation, commit summary, propagation to dependents) runs unchanged, so each dependent receives a propagated patch bump that records the explicit version. Without `--only`, the run is a full run with the explicit versions applied. `--bump` and `--force` combine with `--set-version` and govern every other workspace.
 
-Promoting a pre-1.0 package to 1.0.0 in a monorepo:
+Promoting a pre-1.0 package to 1.0.0 in a monorepo, which also releases its dependents:
 
 ```sh
-release-kit prepare --only arrays --set-version 1.0.0
+release-kit prepare --set-version arrays@1.0.0 --only arrays
 ```
 
 An empty changelog section is expected for a bare promotion, because the changelog is generated from commits since the last tag. To include a narrative entry, merge a descriptive release commit (e.g., a `feat!` describing the stable API) before running `prepare`.
@@ -118,7 +120,7 @@ The `init` command scaffolds a release workflow at `.github/workflows/release.ya
 
 | Input   | Type    | Description                                                                                                                                     |
 | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `only`  | string  | Workspaces to release (comma-separated, leave empty for all)                                                                                    |
+| `only`  | string  | Workspaces to release, with their dependents (comma-separated, leave empty for all)                                                             |
 | `bump`  | choice  | Bump type: `auto` (default, detects it from commits), `patch`, `minor`, or `major`                                                              |
 | `force` | boolean | Release even when the window doesn't have any commits or any bump-worthy commits (defaults to patch; combine with `bump` for a different level) |
 
@@ -130,7 +132,7 @@ For repos that need a self-contained workflow instead of the reusable one, the s
 # All workspaces
 gh workflow run release.yaml
 
-# Specific workspace(s)
+# Specific workspace(s), with their dependents
 gh workflow run release.yaml -f only=arrays
 gh workflow run release.yaml -f only=arrays,strings -f bump=minor
 ```
