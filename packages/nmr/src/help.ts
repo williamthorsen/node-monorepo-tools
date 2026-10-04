@@ -10,10 +10,34 @@ import {
 } from './resolver.ts';
 import type { NmrConfig } from './types.ts';
 
+// A package manager runs these during install, pack, publish, and version, so they are not commands to invoke.
+const LIFECYCLE_SCRIPT_NAMES: ReadonlySet<string> = new Set([
+  'dependencies',
+  'install',
+  'pnpm:devPreinstall',
+  'postinstall',
+  'postpack',
+  'postprepare',
+  'postpublish',
+  'postuninstall',
+  'postversion',
+  'preinstall',
+  'prepack',
+  'prepare',
+  'preprepare',
+  'prepublish',
+  'prepublishOnly',
+  'preuninstall',
+  'preversion',
+  'publish',
+  'uninstall',
+  'version',
+]);
+
 /**
- * Generates the help text for the `nmr` CLI. Renders only nmr commands:
- * names from the workspace and root registries, excluding hooks (`*:pre`,
- * `*:post`).
+ * Generates the help text for the `nmr` CLI. Renders the names from the
+ * workspace and root registries, excluding hooks (`*:pre`, `*:post`), and
+ * the scripts that the package at `packageDir` adds to them.
  *
  * When `packageDir` is provided, tier-3 entries from that package's
  * `package.json:scripts` that match a registry name in the active section
@@ -22,6 +46,10 @@ import type { NmrConfig } from './types.ts';
  * active section is the root section when `shouldUseRoot` is true (root cwd
  * or `-w`), otherwise the workspace section. A footnote is appended once
  * if any override marker was rendered.
+ *
+ * Every other entry, a hook included, is listed under `Package scripts:`
+ * unless it is an npm or pnpm lifecycle script or the active registry
+ * contains its name.
  */
 export function generateHelp(config: NmrConfig, packageDir: string | undefined, shouldUseRoot: boolean): string {
   const lines: string[] = [
@@ -46,7 +74,8 @@ export function generateHelp(config: NmrConfig, packageDir: string | undefined, 
     'Workspace commands:',
   ];
 
-  const overrides = packageDir === undefined ? {} : collectOverrides(packageDir);
+  const packageScripts = packageDir === undefined ? {} : readRunnableScripts(packageDir);
+  const overrides = collectOverrides(packageScripts);
 
   let hadOverride = false;
 
@@ -61,6 +90,13 @@ export function generateHelp(config: NmrConfig, packageDir: string | undefined, 
   if (rootMarkedNames.size > 0) hadOverride = true;
   formatRegistry(rootRegistry, rootMarkedNames, lines);
 
+  const activeRegistry = shouldUseRoot ? buildRootRegistry(config) : buildWorkspaceRegistry(config);
+  const unregisteredScripts = collectUnregisteredScripts(packageScripts, activeRegistry);
+  if (Object.keys(unregisteredScripts).length > 0) {
+    lines.push('', 'Package scripts:');
+    formatRegistry(unregisteredScripts, new Set<string>(), lines);
+  }
+
   if (hadOverride) {
     lines.push('', '* Overridden by package.json');
   }
@@ -69,22 +105,44 @@ export function generateHelp(config: NmrConfig, packageDir: string | undefined, 
 }
 
 /**
- * Loads `packageDir`'s `package.json:scripts`, dropping self-referential
- * entries and hook names. The result is a candidate map of overrides;
- * `applyOverrides` decides which entries actually match a registry name
- * in the section being rendered.
+ * Selects the hook-free entries of `packageScripts` as candidate overrides; `applyOverrides` decides which entries
+ * actually match a registry name in the section being rendered.
  */
-function collectOverrides(packageDir: string): Record<string, string> {
+function collectOverrides(packageScripts: Record<string, string>): Record<string, string> {
+  const candidateOverrides: Record<string, string> = {};
+  for (const [name, value] of Object.entries(packageScripts)) {
+    if (!isHookName(name)) candidateOverrides[name] = value;
+  }
+  return candidateOverrides;
+}
+
+/**
+ * Selects the entries of `packageScripts` whose names `registry` does not contain, less lifecycle scripts.
+ */
+function collectUnregisteredScripts(
+  packageScripts: Record<string, string>,
+  registry: ScriptRegistry,
+): Record<string, string> {
+  const unregisteredScripts: Record<string, string> = {};
+  for (const [name, value] of Object.entries(packageScripts)) {
+    if (Object.hasOwn(registry, name) || LIFECYCLE_SCRIPT_NAMES.has(name)) continue;
+    unregisteredScripts[name] = value;
+  }
+  return unregisteredScripts;
+}
+
+/**
+ * Loads `packageDir`'s `package.json:scripts`, dropping self-referential entries, which resolution discards.
+ */
+function readRunnableScripts(packageDir: string): Record<string, string> {
   const scripts = readPackageJsonScripts(packageDir);
   if (!scripts) return {};
 
-  const candidateOverrides: Record<string, string> = {};
+  const runnableScripts: Record<string, string> = {};
   for (const [name, value] of Object.entries(scripts)) {
-    if (isHookName(name)) continue;
-    if (isSelfReferential(value, name, packageDir)) continue;
-    candidateOverrides[name] = value;
+    if (!isSelfReferential(value, name, packageDir)) runnableScripts[name] = value;
   }
-  return candidateOverrides;
+  return runnableScripts;
 }
 
 /**

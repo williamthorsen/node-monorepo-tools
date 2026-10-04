@@ -141,7 +141,7 @@ For example, if a workspace script resolves to `my-cli --verbose`, nmr rewrites 
 
 ## Default commands
 
-`nmr --help` lists every default command and the shell command to which it resolves. Repo-wide config (tier 2) and per-package overrides (tier 3) can add to or replace any of them. What the listing does not show is below.
+`nmr --help` lists every default command and the shell command to which it resolves. Repo-wide config (tier 2) and per-package overrides (tier 3) can add to or replace any of them. Under `Package scripts:`, the listing also shows each script in the current scope's `package.json` whose name the registry does not contain, a hook such as `build:pre` included; it omits npm and pnpm lifecycle scripts, such as `prepare` and `postinstall`, which the package manager runs. What the listing does not show is below.
 
 ### Build and CI
 
