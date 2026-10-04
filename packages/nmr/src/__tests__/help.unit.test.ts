@@ -93,69 +93,115 @@ describe(generateHelp, () => {
     expect(help).not.toContain('echo built');
   });
 
-  it('omits the package scripts section regardless of packageDir', () => {
+  it('omits the package scripts section when packageDir is undefined', () => {
     const help = generateHelp({}, undefined, false);
     expect(help).not.toContain('Package scripts:');
   });
 
-  describe('overrides section behavior', () => {
-    it('omits the package scripts section even when packageDir has scripts', ({ tree }) => {
-      tree.writeJson('package.json', {
-        name: 'pkg',
-        scripts: { something: 'echo something' },
-      });
-
-      const help = generateHelp({}, tree.dir, false);
-      expect(help).not.toContain('Package scripts:');
-    });
-
-    it('omits hook entries from a subpackage package.json', ({ tree }) => {
-      // Use a sentinel value that is not present in any default registry entry,
-      // so that we can detect leakage of the package-script value distinctly
-      // from unrelated registry rows.
-      tree.writeJson('package.json', {
-        name: 'pkg-with-hook',
-        scripts: { 'build:post': 'sentinel-hook-value' },
-      });
-
-      const help = generateHelp({}, tree.dir, false);
-      expect(help).not.toContain('build:post');
-      expect(help).not.toContain('sentinel-hook-value');
-    });
-
-    it('omits non-override (tier-3-only) entries from a subpackage package.json', ({ tree }) => {
+  describe('package.json scripts', () => {
+    it('lists an unregistered workspace script under Package scripts with its command', ({ tree }) => {
       tree.writeJson('package.json', {
         name: 'pkg-with-extra',
         scripts: { 'custom-task': 'echo custom' },
       });
 
       const help = generateHelp({}, tree.dir, false);
-      expect(help).not.toContain('custom-task');
-      expect(help).not.toContain('echo custom');
+      const packageSection = readSection(help, 'Package scripts:', '* Overridden by package.json');
+      expect(readCommandNames(packageSection)).toStrictEqual(['custom-task']);
+      expect(packageSection).toContain('echo custom');
+      expect(help).not.toContain('* Overridden by package.json');
+    });
+
+    it('lists an unregistered root script under Package scripts in root context', ({ tree }) => {
+      tree.writeJson('package.json', {
+        name: 'root-with-extra',
+        scripts: { bootstrap: 'pnpm run prepare' },
+      });
+
+      const help = generateHelp({}, tree.dir, true);
+      const packageSection = readSection(help, 'Package scripts:', '* Overridden by package.json');
+      expect(readCommandNames(packageSection)).toStrictEqual(['bootstrap']);
+      expect(packageSection).toContain('pnpm run prepare');
+    });
+
+    it('lists a hook that a package declares', ({ tree }) => {
+      tree.writeJson('package.json', {
+        name: 'pkg-with-hook',
+        scripts: { 'build:pre': 'rdy verify' },
+      });
+
+      const packageSection = readSection(generateHelp({}, tree.dir, false), 'Package scripts:', '* Overridden');
+      expect(readCommandNames(packageSection)).toStrictEqual(['build:pre']);
+      expect(packageSection).toContain('rdy verify');
+    });
+
+    it('omits a package entry overriding a registry hook', ({ tree }) => {
+      tree.writeJson('package.json', {
+        name: 'pkg-overriding-hook',
+        scripts: { 'build:pre': 'sentinel-hook-value' },
+      });
+
+      const help = generateHelp({ workspaceScripts: { 'build:pre': 'npx rdy compile' } }, tree.dir, false);
+      expect(help).not.toContain('Package scripts:');
+      expect(help).not.toContain('sentinel-hook-value');
+    });
+
+    it('lists a script under Package scripts when only the inactive registry contains its name', ({ tree }) => {
+      tree.writeJson('package.json', {
+        name: 'pkg-with-root-name',
+        scripts: { audit: 'sentinel-audit' },
+      });
+
+      const packageSection = readSection(generateHelp({}, tree.dir, false), 'Package scripts:', '* Overridden');
+      expect(readCommandNames(packageSection)).toStrictEqual(['audit']);
     });
 
     it('omits generic pnpm lifecycle entries from a subpackage package.json', ({ tree }) => {
       tree.writeJson('package.json', {
         name: 'pkg-lifecycle',
-        scripts: { prepare: 'echo prepare', postinstall: 'echo postinstall' },
+        scripts: { prepare: 'echo prepare', postinstall: 'echo postinstall', prepublishOnly: 'echo publish' },
       });
 
       const help = generateHelp({}, tree.dir, false);
+      expect(help).not.toContain('Package scripts:');
       expect(help).not.toContain('prepare');
       expect(help).not.toContain('postinstall');
+      expect(help).not.toContain('prepublishOnly');
     });
 
-    it('omits an override named for an `Object.prototype` member', ({ tree }) => {
-      // The registry is a plain object, so `'toString' in registry` is true and the override would be written in
-      // as though it were overriding a real command.
+    it('omits a self-referential entry that the registry does not contain', ({ tree }) => {
+      tree.writeJson('package.json', {
+        name: 'pkg-unregistered-self-ref',
+        scripts: { 'custom-task': 'nmr custom-task' },
+      });
+
+      expect(generateHelp({}, tree.dir, false)).not.toContain('Package scripts:');
+    });
+
+    it('lists an override once, as its marked registry row', ({ tree }) => {
+      tree.writeJson('package.json', {
+        name: 'pkg-override-once',
+        scripts: { lint: 'pkg-linter' },
+      });
+
+      const help = generateHelp({}, tree.dir, false);
+      expect(help).not.toContain('Package scripts:');
+      expect(help.split('pkg-linter')).toHaveLength(2);
+    });
+
+    // The registry is a plain object, so `'toString' in registry` is true and the entry would otherwise be written in
+    // as though it were overriding a real command.
+    it('lists an entry named for an `Object.prototype` member as an unregistered script', ({ tree }) => {
       tree.writeJson('package.json', {
         name: 'pkg-prototype-name',
         scripts: { toString: 'sentinel-prototype-value' },
       });
 
       const help = generateHelp({}, tree.dir, false);
-      expect(help).not.toContain('toString');
-      expect(help).not.toContain('sentinel-prototype-value');
+      const packageSection = readSection(help, 'Package scripts:', '* Overridden by package.json');
+      expect(readCommandNames(packageSection)).toStrictEqual(['toString']);
+      expect(packageSection).toContain('sentinel-prototype-value');
+      expect(help).not.toContain('toString*');
       expect(help).not.toContain('* Overridden by package.json');
     });
 
