@@ -11,6 +11,11 @@ export interface CacheDirRef {
   tool: string;
   /** The directory that the cache serves; its nearest `node_modules` ancestor contains the cache. */
   scopeDir: string;
+  /**
+   * Bounds the search for a `node_modules` ancestor, inclusive. Must be the scope directory or one of its ancestors;
+   * resolution throws otherwise.
+   */
+  stopAtDir?: string;
 }
 
 /** Locates a single entry within a tool's cache directory. */
@@ -79,12 +84,13 @@ export async function removeCacheEntry(entryPath: string): Promise<void> {
  * Resolves the absolute path of a tool's cache directory. The conventional `node_modules/.cache/{tool}/` home is
  * git-ignored and outside any `files` convention, so an entry is never included in a published tarball. The home
  * is the nearest enclosing directory that already has a `node_modules`: the scope's own when it has one, otherwise
- * a hoisted ancestor, such as the workspace root for a zero-dependency package. The function never materializes a
- * `node_modules` solely to store the cache.
+ * a hoisted ancestor, such as the workspace root for a zero-dependency package. The search does not go above
+ * `stopAtDir` when one is given. The function never materializes a `node_modules` solely to store the cache.
  */
 export function resolveCacheDir(ref: CacheDirRef): string {
   const absoluteScopeDir = path.resolve(ref.scopeDir);
-  const home = findDirectoryChainMatch(absoluteScopeDir, ['node_modules'])?.dir ?? absoluteScopeDir;
+  const stopAtDir = ref.stopAtDir === undefined ? undefined : path.resolve(ref.stopAtDir);
+  const home = findDirectoryChainMatch(absoluteScopeDir, ['node_modules'], { stopAtDir })?.dir ?? absoluteScopeDir;
   return path.join(home, 'node_modules', '.cache', ref.tool);
 }
 
