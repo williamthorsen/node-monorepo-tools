@@ -16,7 +16,6 @@
     // The base leaves ambient types to the consumer, defaulting to none.
     "types": ["node"],
   },
-  "exclude": ["node_modules"],
   "include": [
     // This file covers only the monorepo root. Packages have their own tsconfig.json files that extend this one.
     ".config/**/*.ts",
