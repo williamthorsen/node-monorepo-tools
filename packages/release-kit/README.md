@@ -51,7 +51,7 @@ Commit the scaffolded workflows, then start a release from the `release` workflo
 
 ```sh
 gh workflow run release.yaml                  # every workspace with release-worthy changes
-gh workflow run release.yaml -f only=arrays   # the named workspaces alone
+gh workflow run release.yaml -f only=arrays   # the named workspaces and their dependents
 ```
 
 After upgrading release-kit, run `release-kit update-templates` to update the scaffolded workflows to its templates; it leaves the config files alone.

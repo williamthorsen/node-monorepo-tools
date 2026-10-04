@@ -18,6 +18,7 @@ import {
 import { decideRelease } from './decideRelease.ts';
 import { deriveDependenciesHeader, deriveSectionOrder } from './deriveReleaseNotesConfig.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
+import { findTransitiveDependents } from './findTransitiveDependents.ts';
 import { findUnroutedEntryScopes } from './findUnroutedEntryScopes.ts';
 import { getAllTagPrefixes } from './generateChangelogs.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
@@ -41,6 +42,21 @@ import type {
   WorkspaceConfig,
   WorkspacePrepareResult,
 } from './types.ts';
+
+/** Options for monorepo release preparation. */
+export interface MonorepoPrepareOptions extends Omit<ReleasePrepareOptions, 'setVersion'> {
+  /**
+   * Workspace `dir`s from which the release starts; the run plans them and their transitive dependents. Present only
+   * for a narrowed run, which skips the project release: The project tier rolls up every contributing workspace, and
+   * the narrowing has changed which workspaces those are.
+   */
+  only?: readonly string[];
+  /**
+   * Explicit target versions (canonical `N.N.N`), keyed by workspace `dir`. Each named workspace starts the release
+   * and releases at its version, which takes precedence over `bumpOverride` and `force`.
+   */
+  setVersions?: ReadonlyMap<string, string>;
+}
 
 /** Intermediate result from Phase 1 (determine direct bumps). */
 interface DirectBumpResult {
@@ -74,17 +90,27 @@ interface Phase1Result {
 /**
  * Orchestrates release preparation for a monorepo with multiple workspaces.
  *
+ * Phase 0: Selects the planned workspaces: those from which the release starts and their transitive dependents.
  * Phase 1: Determines direct bumps from commits for each workspace.
- * Phase 2: Builds the dependency graph and propagates bumps to dependents.
+ * Phase 2: Propagates bumps to dependents.
  * Phase 2b: Sorts the full release set topologically.
  * Phase 3: Plans bumps and changelogs in dependency order.
  * Phase 3b: Plans the project release.
  * Phase 4: Renders the format command.
  */
-export function releasePrepareMono(config: MonorepoPrepareConfig, options: ReleasePrepareOptions): ReleasePlan {
+export function releasePrepareMono(fullConfig: MonorepoPrepareConfig, options: MonorepoPrepareOptions): ReleasePlan {
   const { only, withReleaseNotes } = options;
   const writes: PlannedWrite[] = [];
   const warnings: string[] = [];
+
+  // === Phase 0: Select the planned workspaces ===
+  const graph = buildDependencyGraph(fullConfig.workspaces);
+  const startDirs = selectStartDirs(fullConfig.workspaces, options);
+  const plannedDirs = findTransitiveDependents(graph, startDirs);
+  const config: MonorepoPrepareConfig = {
+    ...fullConfig,
+    workspaces: fullConfig.workspaces.filter((workspace) => plannedDirs.has(workspace.dir)),
+  };
 
   if (withReleaseNotes === true && !config.changelogJson.enabled) {
     warnings.push('--with-release-notes requires changelogJson.enabled; skipping preview generation');
@@ -99,14 +125,21 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
   const overrideContext = createOverrideContext(config.workspaces);
 
   // === Phase 1: Determine direct bumps ===
-  const { directBumps, directResults, skippedResults, untaggedBaselines } = determineDirectBumps(config, options);
-  reportUnroutedEntryScopes([...directResults.values(), ...skippedResults], config, options);
+  const { directBumps, directResults, skippedResults, untaggedBaselines } = determineDirectBumps(
+    config,
+    options,
+    startDirs,
+  );
+  reportUnroutedEntryScopes(
+    [...directResults.values(), ...skippedResults],
+    config,
+    fullConfig.workspaces.map((workspace) => workspace.dir),
+  );
 
   // Keep each skipped workspace's history for when propagation promotes it to a release.
   const skippedHistories = new Map(skippedResults.map((skipped) => [skipped.workspace.dir, skipped.history]));
 
-  // === Phase 2: Build graph and propagate bumps ===
-  const graph = buildDependencyGraph(config.workspaces);
+  // === Phase 2: Propagate bumps ===
   const fullReleaseSet = propagateBumps(directBumps, graph);
 
   // A workspace that releases through propagation alone doesn't render any entry from its window, so its baseline does
@@ -210,14 +243,28 @@ export function releasePrepareMono(config: MonorepoPrepareConfig, options: Relea
   };
 }
 
-/** Determines each workspace's direct bump from its release history, and finds its untagged baseline. */
-function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePrepareOptions): Phase1Result {
-  const { force, bumpOverride, setVersion } = options;
-
-  // Guard against a programmatic caller that did not narrow `config.workspaces` to one workspace.
-  if (setVersion !== undefined && config.workspaces.length !== 1) {
-    throw new Error(`--set-version requires exactly one workspace; received ${config.workspaces.length}`);
+/**
+ * Returns the `dir`s of the workspaces from which the release starts: every workspace, or, when `only` narrows the run,
+ * those named by `only` or `setVersions`.
+ */
+function selectStartDirs(workspaces: readonly WorkspaceConfig[], options: MonorepoPrepareOptions): Set<string> {
+  const { only, setVersions } = options;
+  if (only === undefined) {
+    return new Set(workspaces.map((workspace) => workspace.dir));
   }
+  return new Set([...only, ...(setVersions?.keys() ?? [])]);
+}
+
+/**
+ * Determines each workspace's direct bump from its release history, and finds its untagged baseline. `force` applies
+ * only to the workspaces from which the release starts.
+ */
+function determineDirectBumps(
+  config: MonorepoPrepareConfig,
+  options: MonorepoPrepareOptions,
+  startDirs: ReadonlySet<string>,
+): Phase1Result {
+  const { force, bumpOverride, setVersions } = options;
 
   const directBumps = new Map<string, ReleaseEntry>();
   const directResults = new Map<string, DirectBumpResult>();
@@ -260,6 +307,7 @@ function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePre
     }
 
     // --set-version bypass: skip commit-derived bump logic for the overridden workspace.
+    const setVersion = setVersions?.get(workspace.dir);
     if (setVersion !== undefined) {
       // The releaseType in the ReleaseEntry is a sentinel value; `newVersionOverride` takes
       // precedence when propagation computes dependent versions.
@@ -279,7 +327,7 @@ function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePre
     const decision = decideRelease({
       naturalBump: history.unreleased.bump,
       commitCount: history.unreleased.commits.length,
-      force,
+      force: force === true && startDirs.has(workspace.dir),
       bumpOverride,
       skipReasons: {
         noCommits: `No commits for ${name} ${since}. Pass --force to release at patch. Skipping.`,
@@ -311,11 +359,11 @@ function determineDirectBumps(config: MonorepoPrepareConfig, options: ReleasePre
 function reportUnroutedEntryScopes(
   results: ReadonlyArray<{ workspace: WorkspaceConfig; history: ReleaseHistory }>,
   config: MonorepoPrepareConfig,
-  options: ReleasePrepareOptions,
+  configuredWorkspaceDirs: readonly string[],
 ): void {
   const findings = findUnroutedEntryScopes(
     results.map(({ workspace, history }) => ({ dir: workspace.dir, commits: history.unreleased.commits })),
-    options.configuredWorkspaceDirs ?? config.workspaces.map((workspace) => workspace.dir),
+    configuredWorkspaceDirs,
     config.scopeAliases ?? {},
   );
   for (const { workspace, history } of results) {

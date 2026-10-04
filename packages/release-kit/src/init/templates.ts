@@ -106,7 +106,7 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: 'Workspaces to release (comma-separated, leave empty for all)'
+        description: 'Workspaces to release, with their dependents (comma-separated, leave empty for all)'
         required: false
         type: string
       bump:

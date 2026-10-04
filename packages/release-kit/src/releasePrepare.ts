@@ -39,24 +39,10 @@ export interface ReleasePrepareOptions {
   /** Level of the release, in place of the level that the changelog items call for; it doesn't trigger a release. */
   bumpOverride?: ReleaseType;
   /**
-   * Explicit target version (canonical `N.N.N`) that bypasses commit-derived bump logic.
-   * Mutually exclusive with `bumpOverride`. In monorepo mode the caller must narrow
-   * `config.workspaces` to a single workspace before invoking.
+   * Explicit target version (canonical `N.N.N`) that bypasses commit-derived bump logic and takes precedence over
+   * `bumpOverride` and `force`.
    */
   setVersion?: string;
-  /**
-   * Workspace directories to which `--only` narrowed the run (monorepo only), with
-   * `config.workspaces` already filtered to match. Present only for a narrowed run, which
-   * skips the project release: The project tier rolls up every contributing workspace, and
-   * the narrowing has changed which workspaces those are.
-   */
-  only?: string[];
-  /**
-   * Every configured workspace `dir`, taken before `--only` narrowed `config.workspaces`; the unrouted-scope report
-   * does not report a scope naming one of them that the run did not read. Defaults to the `dir`s of
-   * `config.workspaces`.
-   */
-  configuredWorkspaceDirs?: readonly string[];
   /**
    * If true, plan per-workspace release-notes previews under `{workspacePath}/docs/`
    * (`README.v{version}.md` and `RELEASE_NOTES.v{version}.md`) from each workspace's

@@ -13,12 +13,14 @@ Options:
   --dry-run             Run without modifying any files
   --bump=major|minor|patch  Set the level of every release that happens; does not trigger one
   --set-version=X.Y.Z   Set an explicit version; bypasses the changelog-derived bump. In monorepo
-                         mode it requires --only, and is rejected when a 'project' block is configured.
+                         mode, name each workspace: --set-version=arrays@1.0.0[,strings@2.0.0].
+                         Rejected when a 'project' block is configured.
   --force               Release even when the last tag is not followed by any commits,
                          or by any bump-worthy ones. Defaults to patch when --bump is not given;
                          use --bump=X for a different level.
   --no-git-checks, -n   Skip the clean-working-tree check
-  --only=name1,name2    Only process the named workspaces (comma-separated, monorepo only).
+  --only=name1,name2    Release only the named workspaces and their dependents (comma-separated,
+                         monorepo only).
                          When a 'project' block is configured, the project release is skipped.
   --with-release-notes  Also write per-workspace release-notes previews under <workspacePath>/docs/
                          (docs/README.v<version>.md and docs/RELEASE_NOTES.v<version>.md).

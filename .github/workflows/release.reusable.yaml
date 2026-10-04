@@ -26,7 +26,7 @@ on:
         type: string
         default: 'release-kit prepare'
       only:
-        description: 'Components to release (comma-separated, monorepo only)'
+        description: 'Workspaces to release, with their dependents (comma-separated, monorepo only)'
         type: string
         default: ''
       bump:

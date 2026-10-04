@@ -26,8 +26,13 @@ describe(prepareHelpText, () => {
   });
 
   it('documents the project-block rejection on --set-version alone', () => {
-    const caveats = prepareHelpText.match(/rejected when a 'project' block is configured/g);
+    const caveats = prepareHelpText.match(/Rejected when a 'project' block is configured/gi);
     expect(caveats).toHaveLength(1);
+  });
+
+  it('documents the monorepo --set-version form and --only releasing dependents', () => {
+    expect(prepareHelpText).toContain('--set-version=arrays@1.0.0');
+    expect(prepareHelpText).toContain('the named workspaces and their dependents');
   });
 
   it('documents that --only skips the project release rather than being rejected', () => {
