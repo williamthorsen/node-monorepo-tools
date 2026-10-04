@@ -4,6 +4,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 import { hasErrnoCode, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
@@ -32,8 +33,13 @@ const UNREADABLE_CODES = ['EACCES', 'EPERM'];
 
 const PRETTIER_PACKAGE = 'prettier';
 
-/** The peer range, quoted back to a consumer whose repository does not contain a resolvable Prettier. */
-const PRETTIER_RANGE = '>=3.9.5 <4';
+/**
+ * The house config, compiled beside this module's parent directory. The extension follows this module's own, so
+ * that a run from source passes the `.ts` file, which Prettier loads under Node's type stripping.
+ */
+const DEFAULT_CONFIG_PATH = fileURLToPath(
+  new URL(`../prettier-default-config${path.extname(fileURLToPath(import.meta.url))}`, import.meta.url),
+);
 
 /**
  * Ceiling on the bytes of file arguments handed to one Prettier process, well under the smallest
@@ -69,13 +75,14 @@ export interface UnreadableFile {
 export type ResolveTargetsResult = { ok: true; targets: FormatTargets } | { ok: false; error: string };
 
 /**
- * Formats or checks the files that git reports for `cwd`, and returns the exit code to report.
+ * Formats or checks the files that git reports for `cwd`, and returns the exit code to report. A repository
+ * without a Prettier config of its own is formatted with the house config.
  *
  * Trailing arguments are git pathspecs, not Prettier flags; an unrecognized option is rejected rather
  * than passed along, since git would read it as a pathspec matching nothing and the run would report
  * success over an empty selection.
  */
-export function runFmt(argv: string[], cwd: string = process.cwd()): number {
+export async function runFmt(argv: string[], cwd: string = process.cwd()): Promise<number> {
   const parsedArgs = parseFmtArgs(argv);
   if (!parsedArgs.ok) {
     reportError(`nmr-fmt: ${parsedArgs.error}`);
@@ -106,13 +113,26 @@ export function runFmt(argv: string[], cwd: string = process.cwd()): number {
     return 0;
   }
 
-  const cli = resolvePrettierCli();
+  const cli = resolvePrettierCli(cwd);
   if (!cli.ok) {
     reportError(`nmr-fmt: ${cli.error}`);
     return 1;
   }
 
-  return runPrettier({ cliPath: cli.cliPath, mode: parsedArgs.mode, files, ignorePaths, cwd });
+  const repositoryConfig = await findRepositoryConfig(cli.manifestPath, cwd);
+  if (!repositoryConfig.ok) {
+    reportError(`nmr-fmt: ${repositoryConfig.error}`);
+    return 1;
+  }
+
+  return runPrettier({
+    cliPath: cli.cliPath,
+    configPath: repositoryConfig.found ? undefined : DEFAULT_CONFIG_PATH,
+    mode: parsedArgs.mode,
+    files,
+    ignorePaths,
+    cwd,
+  });
 }
 
 /**
@@ -236,31 +256,26 @@ function parseFmtArgs(argv: string[]): ParseArgsResult {
 }
 
 /**
- * Locates the Prettier CLI in the consuming repository's own installation.
+ * Locates the Prettier CLI, preferring the copy that `cwd` resolves over the one installed with nmr.
  *
- * Prettier is a peer dependency rather than something that nmr bundles, because a repository's formatter
- * has to be the one that its editor and pre-commit hook also run: A copy of nmr's choosing would reformat
- * files that the editor then reformats back. Resolution goes through the module graph rather than PATH so
- * that the declared copy is the one that runs: Under pnpm's isolated layout, the `prettier` first on PATH
- * need not be the one on which the repository depends.
- *
- * The floor is a currency policy, not a capability boundary. The design requires `--ignore-path` to honour
- * every flag rather than only the last, so that a repository-root ignore file passed alongside a
- * package-level one is not silently dropped; Prettier has done that since 3.0.0. The floor is the current
- * release because every consuming repository tracks it; lowering it to 3.0.0 would not affect correctness.
+ * A repository that installs its own Prettier gets that copy, so that the formatter is the one that its editor
+ * and pre-commit hook also run: Another version would reformat files that the editor then reformats back. A
+ * repository without one, such as one running nmr through `pnpm dlx`, gets nmr's own dependency. Resolution
+ * goes through the module graph rather than PATH, because under pnpm's isolated layout the `prettier` first on
+ * PATH need not be the one on which the repository depends.
  */
-function resolvePrettierCli(): { ok: true; cliPath: string } | { ok: false; error: string } {
+function resolvePrettierCli(
+  cwd: string,
+): { ok: true; cliPath: string; manifestPath: string } | { ok: false; error: string } {
   const missingResult = {
     ok: false as const,
-    error: `\`${PRETTIER_PACKAGE}\` (${PRETTIER_RANGE}) could not be resolved. Install it in this repository.`,
+    error: `\`${PRETTIER_PACKAGE}\` could not be resolved from this repository or from nmr's own installation, which declares it as a dependency. Reinstall \`@williamthorsen/nmr\`.`,
   };
 
-  let manifestPath: string;
-  try {
-    manifestPath = createRequire(import.meta.url).resolve(`${PRETTIER_PACKAGE}/package.json`);
-  } catch {
-    return missingResult;
-  }
+  const manifestPath =
+    resolveFrom(path.join(cwd, 'package.json'), `${PRETTIER_PACKAGE}/package.json`) ??
+    resolveFrom(import.meta.url, `${PRETTIER_PACKAGE}/package.json`);
+  if (manifestPath === undefined) return missingResult;
 
   const manifest: unknown = JSON.parse(readFileSync(manifestPath, 'utf8'));
   if (!isObject(manifest)) return missingResult;
@@ -269,12 +284,40 @@ function resolvePrettierCli(): { ok: true; cliPath: string } | { ok: false; erro
   const bin = isObject(manifest['bin']) ? manifest['bin'][PRETTIER_PACKAGE] : manifest['bin'];
   if (typeof bin !== 'string') return missingResult;
 
-  return { ok: true, cliPath: path.resolve(path.dirname(manifestPath), bin) };
+  return { ok: true, cliPath: path.resolve(path.dirname(manifestPath), bin), manifestPath };
+}
+
+/**
+ * Reports whether Prettier finds a config of its own searching from `cwd`, asking the copy that will format so
+ * that discovery and formatting agree on which config forms count.
+ */
+async function findRepositoryConfig(
+  manifestPath: string,
+  cwd: string,
+): Promise<{ ok: true; found: boolean } | { ok: false; error: string }> {
+  try {
+    const prettier: unknown = createRequire(manifestPath)(PRETTIER_PACKAGE);
+    const resolveConfigFile = isObject(prettier) ? prettier['resolveConfigFile'] : undefined;
+    if (typeof resolveConfigFile !== 'function') {
+      return {
+        ok: false,
+        error: `\`${PRETTIER_PACKAGE}\` at ${path.dirname(manifestPath)} does not export \`resolveConfigFile\`.`,
+      };
+    }
+
+    // Prettier searches from the directory containing the path, which need not exist.
+    const configFile: unknown = await Reflect.apply(resolveConfigFile, undefined, [path.join(cwd, 'placeholder')]);
+    return { ok: true, found: configFile !== null };
+  } catch (error) {
+    return { ok: false, error: `could not search for a Prettier config: ${describeError(error)}` };
+  }
 }
 
 /** @internal */
 export interface RunPrettierOptions {
   cliPath: string;
+  /** Passed as `--config`, which replaces Prettier's own config discovery. */
+  configPath?: string | undefined;
   mode: FormatMode;
   files: string[];
   ignorePaths: string[];
@@ -293,10 +336,11 @@ export interface RunPrettierOptions {
  * @internal
  */
 export function runPrettier(options: RunPrettierOptions): number {
-  const { cliPath, mode, files, ignorePaths, cwd, budgetBytes = ARGUMENT_BUDGET_BYTES } = options;
+  const { cliPath, configPath, mode, files, ignorePaths, cwd, budgetBytes = ARGUMENT_BUDGET_BYTES } = options;
 
   const prettierArgs = [
     cliPath,
+    ...(configPath === undefined ? [] : ['--config', configPath]),
     // The file list contains types for which Prettier does not have a parser, ignore files and images among them.
     '--ignore-unknown',
     ...ignorePaths.flatMap((ignorePath) => ['--ignore-path', ignorePath]),
@@ -343,6 +387,15 @@ function batchWithinBudget(files: string[], budgetBytes: number): string[][] {
   if (batch.length > 0) batches.push(batch);
 
   return batches;
+}
+
+/** Resolves `specifier` as a module importing from `parent` would, or returns `undefined` when it cannot. */
+function resolveFrom(parent: string, specifier: string): string | undefined {
+  try {
+    return createRequire(parent).resolve(specifier);
+  } catch {
+    return undefined;
+  }
 }
 
 /**

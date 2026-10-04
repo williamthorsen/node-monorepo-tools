@@ -1,8 +1,8 @@
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { describe, expect, it as baseIt } from 'vitest';
+import { beforeAll, describe, expect, it as baseIt } from 'vitest';
 
-import { computeBuildHash, resolveTsconfigChain } from '../build.ts';
+import { buildPackage, computeBuildHash, loadCompiler, resolveTsconfigChain } from '../build.ts';
 
 // eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
@@ -10,7 +10,35 @@ const it = baseIt.extend(
   makeFixture(() => createTempTree({}, { prefix: 'nmr-build-' })),
 );
 
+describe(buildPackage, () => {
+  it('names the peer and its supported range when typescript cannot be resolved', async ({ tree }) => {
+    const missing = Object.assign(new Error("Cannot find package 'typescript' imported from /somewhere/build.js"), {
+      code: 'ERR_MODULE_NOT_FOUND',
+    });
+
+    await expect(
+      buildPackage(tree.dir, { style: 'plain', loadTypeScript: () => Promise.reject(missing) }),
+    ).rejects.toThrow(
+      "nmr-compile requires TypeScript >=5.7 <7, but 'typescript' could not be resolved. Install a version in that range as the 'typescript' peer dependency.",
+    );
+  });
+
+  it('rethrows any other failure to load the compiler unchanged', async ({ tree }) => {
+    const failure = Object.assign(new Error("Cannot find package 'semver' imported from /somewhere/typescript.js"), {
+      code: 'ERR_MODULE_NOT_FOUND',
+    });
+
+    await expect(
+      buildPackage(tree.dir, { style: 'plain', loadTypeScript: () => Promise.reject(failure) }),
+    ).rejects.toBe(failure);
+  });
+});
+
 describe(computeBuildHash, () => {
+  beforeAll(async () => {
+    await loadCompiler();
+  });
+
   const TOOLCHAIN = { compilerVersion: '5.9.3', fingerprint: 'a-toolchain-fingerprint' };
 
   it('returns the same digest regardless of entry-point order', async ({ tree }) => {
@@ -98,6 +126,10 @@ describe(computeBuildHash, () => {
 });
 
 describe(resolveTsconfigChain, () => {
+  beforeAll(async () => {
+    await loadCompiler();
+  });
+
   it('returns only the leaf tsconfig when it extends nothing', ({ tree }) => {
     tree.write('pkg/tsconfig.json', JSON.stringify({ compilerOptions: {} }));
 
