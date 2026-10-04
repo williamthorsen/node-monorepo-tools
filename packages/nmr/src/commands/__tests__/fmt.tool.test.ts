@@ -172,7 +172,8 @@ describe(runFmt, () => {
     repositoryTree.write('packages/a/unprotected.js', 'const  badly   =  1\n');
 
     expect(repositoryTree.exists('node_modules')).toBe(false);
-    await expect(runFmt(['--check'], repositoryTree.dir)).resolves.not.toBe(0);
+    await expect(runFmt(['--write'], repositoryTree.dir)).resolves.toBe(0);
+    expect(repositoryTree.read('packages/a/unprotected.js')).toBe('const badly = 1;\n');
   });
 
   it('formats with the house config, shell scripts included, when the repository does not have a config', async ({
