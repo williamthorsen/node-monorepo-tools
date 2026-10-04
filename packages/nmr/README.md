@@ -23,6 +23,16 @@ nmr installs as a workspace bin, so the bare `nmr` command works only when the s
 
 > **Note:** Avoid `npx nmr`. Inside a git worktree, `npx` can resolve a different nmr binary from outside the working tree, so the command succeeds while running the wrong code.
 
+### Formatting without installing
+
+A git repository that does not install nmr, or that has no `package.json` at all, can still format its files:
+
+```bash
+pnpm dlx --package @williamthorsen/nmr nmr-fmt --check # or --write
+```
+
+When the repository doesn't have a Prettier config, the [house config](docs/prettier.md) applies, shell scripts included.
+
 ## Quick start
 
 nmr works without any configuration. It includes built-in scripts for common monorepo tasks.

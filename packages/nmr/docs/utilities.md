@@ -22,7 +22,7 @@ Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler
 
 **What busts the cache.** The key folds each input's content and path, the emit options, the resolved TypeScript version, and a fingerprint of the nmr running the build -- its own build digest in a workspace checkout, its package version otherwise. Upgrading nmr in a consuming repo therefore rebuilds every package that nmr compiles, and an edit to nmr's own build sources rebuilds each sibling once nmr itself has been rebuilt. A build of nmr's own package folds the version rather than the digest, which is the cache entry that this build is about to write.
 
-`typescript` is a peer dependency (`>=5.7.0 <7`); the consuming repo provides it. The floor is what `rewriteRelativeImportExtensions` requires; the ceiling exists because TypeScript 7 does not include a compiler API: Its root export is a version constant, so `nmr-compile` cannot run on it. Relative imports in source must use explicit `.ts` extensions for them to be rewritten.
+`typescript` is an optional peer dependency (`>=5.7.0 <7`), needed only by `nmr-compile`; the consuming repo provides it, and `nmr-compile` run without it fails with an error naming the peer and the version that it requires. The floor is what `rewriteRelativeImportExtensions` requires; the ceiling exists because TypeScript 7 does not include a compiler API: Its root export is a version constant, so `nmr-compile` cannot run on it. Relative imports in source must use explicit `.ts` extensions for them to be rewritten.
 
 ```bash
 nmr-compile
@@ -32,9 +32,9 @@ nmr-compile
 
 Format, or check the formatting of, the files that git reports for the working directory. Exactly one of `--check` and `--write` is required; a bare invocation prints usage and exits non-zero rather than defaulting to a mutation. `--write` also lists the files that it rewrote. This is what `fmt` and `fmt:check` resolve to, in both registries.
 
-`prettier` is an optional peer dependency (`>=3.9.5 <4`); the consuming repo provides it, and it is resolved through the module graph rather than from `PATH`, so the copy that runs is the one that the repo declares and not whichever `prettier` happens to come first. A repository's formatter has to be the one that its editor and pre-commit hook also run, which is why nmr takes it from the consumer instead of bundling a copy. It is optional because a repo can use nmr purely as a script runner; one that formats without a resolvable Prettier gets a message naming the package and the range.
+`prettier` is a dependency of nmr, but a repo's own copy takes precedence: `nmr-fmt` resolves Prettier from the working directory first and from nmr's installation second. A repository's formatter has to be the one that its editor and pre-commit hook also run, and resolution goes through the module graph rather than `PATH`, so the copy that runs is the one that the repo declares and not whichever `prettier` happens to come first. A repo that does not install Prettier, or nmr, formats with nmr's copy; when it does not have a Prettier config either, the [house config](prettier.md) applies.
 
-The floor is a currency policy, not a capability boundary. The design requires `--ignore-path` to honour every flag rather than only the last, so that a repository-root ignore file passed alongside a package-level one is not silently dropped. Prettier has done that since 3.0.0, while 2.x honoured only the final flag. The floor is at the current release because every consuming repo tracks it; lowering it to `>=3.0.0` would not affect correctness.
+A repo's own copy must be Prettier 3.0.0 or later. The design requires `--ignore-path` to honour every flag rather than only the last, so that a repository-root ignore file passed alongside a package-level one is not silently dropped, and 2.x honoured only the final flag.
 
 ```bash
 nmr-fmt --check

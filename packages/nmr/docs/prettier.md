@@ -2,7 +2,7 @@
 
 The Prettier config that `@williamthorsen/nmr/prettier` publishes: what it formats, how it scopes the shell plugin, and how to customize and adopt it.
 
-`prettier` is a peer dependency (`>=3.9.5 <4`), declared optional; the consuming repo provides it. The shell and Dockerfile plugin is a dependency of nmr rather than a peer, so its version is pinned centrally and two repos cannot format the same script differently.
+`prettier` is a dependency of nmr. When the repo installs its own copy, `nmr-fmt` runs that copy instead, so that the editor and the formatter agree. When Prettier does not find a config searching from the working directory, `nmr-fmt` passes this config with `--config`, which also applies it to files below that directory; `.editorconfig` still applies alongside it. The shell and Dockerfile plugin is a dependency of nmr rather than a peer, so its version is pinned centrally and two repos cannot format the same script differently.
 
 ## What it formats
 
