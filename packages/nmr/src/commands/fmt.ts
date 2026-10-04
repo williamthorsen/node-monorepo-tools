@@ -32,9 +32,6 @@ const UNREADABLE_CODES = ['EACCES', 'EPERM'];
 
 const PRETTIER_PACKAGE = 'prettier';
 
-/** The peer range, quoted back to a consumer whose repository does not contain a resolvable Prettier. */
-const PRETTIER_RANGE = '>=3.9.5 <4';
-
 /**
  * Ceiling on the bytes of file arguments handed to one Prettier process, well under the smallest
  * `ARG_MAX` in play. Repositories below it run in a single process, which keeps the output to one
@@ -106,7 +103,7 @@ export function runFmt(argv: string[], cwd: string = process.cwd()): number {
     return 0;
   }
 
-  const cli = resolvePrettierCli();
+  const cli = resolvePrettierCli(cwd);
   if (!cli.ok) {
     reportError(`nmr-fmt: ${cli.error}`);
     return 1;
@@ -236,31 +233,24 @@ function parseFmtArgs(argv: string[]): ParseArgsResult {
 }
 
 /**
- * Locates the Prettier CLI in the consuming repository's own installation.
+ * Locates the Prettier CLI, preferring the copy that `cwd` resolves over the one installed with nmr.
  *
- * Prettier is a peer dependency rather than something that nmr bundles, because a repository's formatter
- * has to be the one that its editor and pre-commit hook also run: A copy of nmr's choosing would reformat
- * files that the editor then reformats back. Resolution goes through the module graph rather than PATH so
- * that the declared copy is the one that runs: Under pnpm's isolated layout, the `prettier` first on PATH
- * need not be the one on which the repository depends.
- *
- * The floor is a currency policy, not a capability boundary. The design requires `--ignore-path` to honour
- * every flag rather than only the last, so that a repository-root ignore file passed alongside a
- * package-level one is not silently dropped; Prettier has done that since 3.0.0. The floor is the current
- * release because every consuming repository tracks it; lowering it to 3.0.0 would not affect correctness.
+ * A repository that installs its own Prettier gets that copy, so that the formatter is the one that its editor
+ * and pre-commit hook also run: Another version would reformat files that the editor then reformats back. A
+ * repository without one, such as one running nmr through `pnpm dlx`, gets nmr's own dependency. Resolution
+ * goes through the module graph rather than PATH, because under pnpm's isolated layout the `prettier` first on
+ * PATH need not be the one on which the repository depends.
  */
-function resolvePrettierCli(): { ok: true; cliPath: string } | { ok: false; error: string } {
+function resolvePrettierCli(cwd: string): { ok: true; cliPath: string } | { ok: false; error: string } {
   const missingResult = {
     ok: false as const,
-    error: `\`${PRETTIER_PACKAGE}\` (${PRETTIER_RANGE}) could not be resolved. Install it in this repository.`,
+    error: `\`${PRETTIER_PACKAGE}\` could not be resolved from this repository or from nmr's own installation, which declares it as a dependency. Reinstall \`@williamthorsen/nmr\`.`,
   };
 
-  let manifestPath: string;
-  try {
-    manifestPath = createRequire(import.meta.url).resolve(`${PRETTIER_PACKAGE}/package.json`);
-  } catch {
-    return missingResult;
-  }
+  const manifestPath =
+    resolveFrom(path.join(cwd, 'package.json'), `${PRETTIER_PACKAGE}/package.json`) ??
+    resolveFrom(import.meta.url, `${PRETTIER_PACKAGE}/package.json`);
+  if (manifestPath === undefined) return missingResult;
 
   const manifest: unknown = JSON.parse(readFileSync(manifestPath, 'utf8'));
   if (!isObject(manifest)) return missingResult;
@@ -343,6 +333,15 @@ function batchWithinBudget(files: string[], budgetBytes: number): string[][] {
   if (batch.length > 0) batches.push(batch);
 
   return batches;
+}
+
+/** Resolves `specifier` as a module importing from `parent` would, or returns `undefined` when it cannot. */
+function resolveFrom(parent: string, specifier: string): string | undefined {
+  try {
+    return createRequire(parent).resolve(specifier);
+  } catch {
+    return undefined;
+  }
 }
 
 /**

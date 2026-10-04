@@ -157,6 +157,20 @@ describe(runFmt, () => {
     expect(runFmt(['--check', '--log-level', 'warn'], repositoryTree.dir)).toBe(1);
   });
 
+  it("runs the repository's own Prettier when the repository can resolve one", ({ repositoryTree }) => {
+    installStubPrettier(repositoryTree);
+
+    expect(runFmt(['--check'], repositoryTree.dir)).toBe(0);
+    expect(readCalls(repositoryTree)).toHaveLength(1);
+  });
+
+  it("falls back to nmr's own Prettier when the repository cannot resolve one", ({ repositoryTree }) => {
+    repositoryTree.write('packages/a/unprotected.js', 'const  badly   =  1\n');
+
+    expect(repositoryTree.exists('node_modules')).toBe(false);
+    expect(runFmt(['--check'], repositoryTree.dir)).not.toBe(0);
+  });
+
   it('fails outside a git repository rather than reporting a clean run', () => {
     using outside = createTempTree({}, { prefix: 'nmr-fmt-bare-' });
     // Stop git's upward search at the fixture, so that git cannot find a repository enclosing the temp root.
@@ -249,6 +263,16 @@ function lockEnvrc(tree: TempTree): Disposable {
   return denyAccess(tree.resolve('locked'));
 }
 
+/**
+ * Installs a recording stand-in as the repository's own `prettier` package, gitignored so that `nmr-fmt` does
+ * not select it for formatting.
+ */
+function installStubPrettier(tree: TempTree): void {
+  tree.write('.gitignore', 'node_modules/\n');
+  tree.write('node_modules/prettier/package.json', `${JSON.stringify({ name: 'prettier', bin: STUB_ENTRY })}\n`);
+  writeRecordingStub(tree, 0, 'node_modules/prettier');
+}
+
 /** Creates the stub tree containing a recorder that exits 0, which most cases in the block take as given. */
 function scaffoldStub(): TempTree {
   const tree = createTempTree({}, { prefix: 'nmr-fmt-stub-' });
@@ -257,14 +281,17 @@ function scaffoldStub(): TempTree {
   return tree;
 }
 
-/** Writes a stand-in for the Prettier CLI that appends its arguments as one JSON line per invocation. */
-function writeRecordingStub(tree: TempTree, exitCode: number): void {
+/**
+ * Writes a stand-in for the Prettier CLI into `directory` that appends its arguments as one JSON line per
+ * invocation to the tree's record.
+ */
+function writeRecordingStub(tree: TempTree, exitCode: number, directory = '.'): void {
   const source = [
     "const fs = require('node:fs');",
     `fs.appendFileSync(${JSON.stringify(tree.resolve(RECORD_ENTRY))}, JSON.stringify(process.argv.slice(2)) + ${JSON.stringify('\n')});`,
     `process.exit(${exitCode});`,
   ].join('\n');
-  tree.write(STUB_ENTRY, `${source}\n`);
+  tree.write(path.join(directory, STUB_ENTRY), `${source}\n`);
 }
 
 /** Returns the argument list of each recorded stub invocation, in order. */
