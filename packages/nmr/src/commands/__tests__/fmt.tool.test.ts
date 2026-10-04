@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { lstatSync } from 'node:fs';
 import path from 'node:path';
 
 import { captureStdio, createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
@@ -128,12 +129,33 @@ describe(runFmt, () => {
     captured,
     repositoryTree,
   }) => {
-    repositoryTree.symlink('loop-a', 'loop-b');
-    repositoryTree.symlink('loop-b', 'loop-a');
+    // A loop in a parent component still fails `lstat`, which follows every component but the last.
+    repositoryTree.write('loop/x.js', 'const x = 1;\n');
     runGitOrThrow(['add', '--all'], repositoryTree.dir);
+    repositoryTree.rm('loop');
+    repositoryTree.symlink('loop', 'loop');
 
     await expect(runFmt(['--check'], repositoryTree.dir)).resolves.toBe(1);
-    expect(captured.stderr).toContain('could not stat loop-a');
+    expect(captured.stderr).toContain('could not stat loop/x.js');
+  });
+
+  it('skips a symlink to a file or a directory in check mode', async ({ repositoryTree }) => {
+    trackSymlinks(repositoryTree);
+
+    await expect(runFmt(['--check'], repositoryTree.dir)).resolves.toBe(0);
+  });
+
+  it('skips a symlink to a file or a directory selected by a pathspec', async ({ repositoryTree }) => {
+    trackSymlinks(repositoryTree);
+
+    await expect(runFmt(['--check', 'packages'], repositoryTree.dir)).resolves.toBe(0);
+  });
+
+  it('leaves a symlink in place in write mode', async ({ repositoryTree }) => {
+    trackSymlinks(repositoryTree);
+
+    await expect(runFmt(['--write'], repositoryTree.dir)).resolves.toBe(0);
+    expect(lstatSync(repositoryTree.resolve('packages/a/linked.js')).isSymbolicLink()).toBe(true);
   });
 
   it('constrains the run to the given pathspecs', async ({ repositoryTree }) => {
@@ -380,6 +402,16 @@ function scaffoldRepository(files: Record<string, string>): TempTree {
   runGitOrThrow(['add', '--all'], tree.dir);
 
   return tree;
+}
+
+/**
+ * Tracks a symlink to a file and a symlink to a directory under `packages/a/`, either of which Prettier rejects
+ * when named explicitly.
+ */
+function trackSymlinks(tree: TempTree): void {
+  tree.symlink('packages/a/linked.js', 'mirrored.js');
+  tree.symlink('packages/a/linked-dir', '..');
+  runGitOrThrow(['add', '--all'], tree.dir);
 }
 
 /** Runs git for fixture setup, throwing with git's stderr when it fails. */
