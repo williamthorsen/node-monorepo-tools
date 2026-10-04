@@ -951,7 +951,7 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
-      const result = releasePrepareMono(config, { setVersion: '1.0.0' });
+      const result = releasePrepareMono(config, { setVersions: new Map([['core', '1.0.0']]) });
 
       const coreResult = result.workspaces.find((c) => c.name === 'core');
       expect(coreResult).toMatchObject({
@@ -985,7 +985,7 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
-      const result = releasePrepareMono(config, { setVersion: '1.0.0' });
+      const result = releasePrepareMono(config, { setVersions: new Map([['core', '1.0.0']]) });
 
       expect(listReadOptions()).toStrictEqual([
         { tagPrefixes: ['core-v'], paths: ['packages/core/**'], workspaceDir: 'core' },
@@ -1007,7 +1007,7 @@ describe(releasePrepareMono, () => {
       stubHistory({ previousTag: 'core-v0.5.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
 
-      expect(() => releasePrepareMono(config, { setVersion: '0.3.0' })).toThrow(
+      expect(() => releasePrepareMono(config, { setVersions: new Map([['core', '0.3.0']]) })).toThrow(
         '--set-version 0.3.0 is not greater than current version 0.5.0',
       );
     });
@@ -1018,7 +1018,7 @@ describe(releasePrepareMono, () => {
       stubHistory({ previousTag: 'core-v0.5.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
 
-      expect(() => releasePrepareMono(config, { setVersion: '0.5.0' })).toThrow(
+      expect(() => releasePrepareMono(config, { setVersions: new Map([['core', '0.5.0']]) })).toThrow(
         '--set-version 0.5.0 is not greater than current version 0.5.0',
       );
     });
@@ -1030,22 +1030,140 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
-      const result = releasePrepareMono(config, { setVersion: '1.0.0' });
+      const result = releasePrepareMono(config, { setVersions: new Map([['core', '1.0.0']]) });
 
       expect(result.tags).toStrictEqual(['core-v1.0.0']);
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 
-    it('throws when --set-version is used with more than one workspace', () => {
-      // Explicit guard in `determineDirectBumps` enforces the single-workspace contract for
-      // --set-version even if a caller bypasses the CLI layer that normally narrows via --only.
-      const config = makeConfig({ workspaces: [makeRoutedWorkspace('core'), makeRoutedWorkspace('app')] });
+    it('records an explicit version as the propagated version of its dependents in a full run', () => {
+      const config = stubPropagationWorkspaces();
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0' },
+        'app-v': { previousTag: 'app-v2.0.0' },
+      });
 
-      expect(() => releasePrepareMono(config, { setVersion: '1.0.0' })).toThrow(
-        '--set-version requires exactly one workspace',
-      );
+      const result = releasePrepareMono(config, { setVersions: new Map([['core', '3.0.0']]) });
+
+      expect(result.tags).toStrictEqual(['core-v3.0.0', 'app-v2.0.1']);
+      expect(result.workspaces.find((c) => c.name === 'app')).toMatchObject({
+        status: 'released',
+        propagatedFrom: [{ packageName: '@test/core', newVersion: '3.0.0' }],
+        propagatedOnly: true,
+      });
     });
 
+    it('applies an explicit version alongside --force and --bump, which govern the other workspaces', () => {
+      const config = stubPropagationWorkspaces(
+        { workspaces: [makeRoutedWorkspace('core'), makeRoutedWorkspace('app'), makeRoutedWorkspace('util')] },
+        { 'packages/util/package.json': JSON.stringify({ name: '@test/util', version: '0.1.0' }) },
+      );
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0' },
+        'app-v': { previousTag: 'app-v2.0.0' },
+        'util-v': { previousTag: 'util-v0.1.0' },
+      });
+
+      const result = releasePrepareMono(config, {
+        force: true,
+        bumpOverride: 'minor',
+        setVersions: new Map([['core', '3.0.0']]),
+      });
+
+      expect(result.tags).toStrictEqual(['core-v3.0.0', 'util-v0.2.0', 'app-v2.1.0']);
+    });
+  });
+
+  describe('--only', () => {
+    /** Stubs `core`, `app` depending on it, `cli` depending on `app`, and the unrelated `util`. */
+    function stubChainWorkspaces(): MonorepoReleaseConfig {
+      return stubPropagationWorkspaces(
+        {
+          workspaces: ['core', 'app', 'cli', 'util'].map((dir) => makeRoutedWorkspace(dir)),
+        },
+        {
+          'packages/cli/package.json': JSON.stringify({
+            name: '@test/cli',
+            version: '3.0.0',
+            dependencies: { '@test/app': 'workspace:*' },
+          }),
+          'packages/util/package.json': JSON.stringify({ name: '@test/util', version: '0.1.0' }),
+        },
+      );
+    }
+
+    it('releases every transitive dependent of the named workspaces and leaves the others out', () => {
+      const config = stubChainWorkspaces();
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' },
+        'app-v': { previousTag: 'app-v2.0.0' },
+        'cli-v': { previousTag: 'cli-v3.0.0', commits: [['feat: add flag', 'def456']], bump: 'minor' },
+        'util-v': { previousTag: 'util-v0.1.0', commits: [['fix: util fix', 'fed789']], bump: 'patch' },
+      });
+
+      const result = releasePrepareMono(config, { only: ['core'] });
+
+      expect(result.tags).toStrictEqual(['core-v1.1.0', 'app-v2.0.1', 'cli-v3.1.0']);
+      expect(result.workspaces.map((workspace) => workspace.name)).toStrictEqual(['core', 'app', 'cli']);
+      expect(result.workspaces.find((c) => c.name === 'app')).toMatchObject({ propagatedOnly: true });
+      expect(result.workspaces.find((c) => c.name === 'cli')).toMatchObject({ releaseType: 'minor' });
+      expect(result.workspaces.find((c) => c.name === 'cli')).not.toHaveProperty('propagatedOnly');
+    });
+
+    it('forces only the named workspaces, leaving their dependents to propagation', () => {
+      const config = stubChainWorkspaces();
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0' },
+        'app-v': { previousTag: 'app-v2.0.0' },
+        'cli-v': { previousTag: 'cli-v3.0.0' },
+        'util-v': { previousTag: 'util-v0.1.0' },
+      });
+
+      const result = releasePrepareMono(config, { only: ['core'], force: true });
+
+      expect(result.tags).toStrictEqual(['core-v1.0.1', 'app-v2.0.1', 'cli-v3.0.1']);
+      expect(result.workspaces.find((c) => c.name === 'app')).toMatchObject({ propagatedOnly: true });
+      expect(result.workspaces.find((c) => c.name === 'cli')).toMatchObject({ propagatedOnly: true });
+    });
+
+    it('reports a dependent as skipped when the named workspace does not release', () => {
+      const config = stubChainWorkspaces();
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0' },
+        'app-v': { previousTag: 'app-v2.0.0' },
+        'cli-v': { previousTag: 'cli-v3.0.0' },
+        'util-v': { previousTag: 'util-v0.1.0', commits: [['fix: util fix', 'fed789']], bump: 'patch' },
+      });
+
+      const result = releasePrepareMono(config, { only: ['core'] });
+
+      expect(result.tags).toStrictEqual([]);
+      expect(result.workspaces.map((workspace) => [workspace.name, workspace.status])).toStrictEqual([
+        ['core', 'skipped'],
+        ['app', 'skipped'],
+        ['cli', 'skipped'],
+      ]);
+    });
+
+    it('starts the release from a --set-version workspace that --only does not name', () => {
+      const config = stubChainWorkspaces();
+      stubHistoryByPrefix({
+        'core-v': { previousTag: 'core-v1.0.0' },
+        'app-v': { previousTag: 'app-v2.0.0' },
+        'cli-v': { previousTag: 'cli-v3.0.0' },
+        'util-v': { previousTag: 'util-v0.1.0', commits: [['fix: util fix', 'fed789']], bump: 'patch' },
+      });
+
+      const result = releasePrepareMono(config, { only: ['util'], setVersions: new Map([['app', '3.0.0']]) });
+
+      expect(result.tags).toStrictEqual(['app-v3.0.0', 'util-v0.1.1', 'cli-v3.0.1']);
+      expect(result.workspaces.find((c) => c.name === 'cli')).toMatchObject({
+        propagatedFrom: [{ packageName: '@test/app', newVersion: '3.0.0' }],
+      });
+    });
+  });
+
+  describe('dependency propagation (continued)', () => {
     it('preserves a direct higher bump when propagation would add a patch', () => {
       const config = stubPropagationWorkspaces();
 
@@ -1109,7 +1227,7 @@ describe(releasePrepareMono, () => {
 
     it.each([
       ['--force', { force: true }, '1.0.1'],
-      ['--set-version', { setVersion: '2.0.0' }, '2.0.0'],
+      ['--set-version', { setVersions: new Map([['arrays', '2.0.0']]) }, '2.0.0'],
     ])(
       "writes the synthetic entry under %s when the window has commits but doesn't yield an item",
       (_label, options, version) => {
@@ -1417,7 +1535,10 @@ describe(releasePrepareMono, () => {
       const config = stubUntaggedWorkspaces();
 
       expect(() =>
-        releasePrepareMono({ ...config, workspaces: [makeRoutedWorkspace('core')] }, { setVersion: '3.0.0' }),
+        releasePrepareMono(
+          { ...config, workspaces: [makeRoutedWorkspace('core')] },
+          { setVersions: new Map([['core', '3.0.0']]) },
+        ),
       ).toThrow('create tag core-v1.1.0');
     });
 
@@ -2018,6 +2139,7 @@ describe(releasePrepareMono, () => {
 
     it("wraps a Phase 1 (history-read) throw with the workspace's release-stage label", async () => {
       const config = makeArraysConfig();
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
       // Make `readReleaseHistory` throw, which exercises the Phase 1 wrap inside `determineDirectBumps`.
       const underlying = new Error('git rev-list failed: not a git repo');
       mockReadReleaseHistory.mockImplementation(() => {
@@ -2322,12 +2444,13 @@ describe(releasePrepareMono, () => {
     });
 
     it('does not report a configured workspace that --only left out of the run', () => {
-      const config = makeConfig({ workspaces: [makeRoutedWorkspace('arrays')] });
-      stubWindows({ 'arrays-v': 'minor' }, ['arrays-v']);
+      const config = makeConfig({ workspaces: [makeRoutedWorkspace('arrays'), makeRoutedWorkspace('strings')] });
+      stubWindows({ 'arrays-v': 'minor', 'strings-v': 'patch' }, ['arrays-v']);
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-      const result = releasePrepareMono(config, { only: ['arrays'], configuredWorkspaceDirs: ['arrays', 'strings'] });
+      const result = releasePrepareMono(config, { only: ['arrays'] });
 
+      expect(result.workspaces.map((workspace) => workspace.name)).toStrictEqual(['arrays']);
       expect(result.workspaces[0]?.unroutedEntryScopes).toStrictEqual([unroutedFinding(3, 'nothing')]);
     });
 

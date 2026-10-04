@@ -13,23 +13,19 @@ import {
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
-import { readReleaseHistory } from './buildChangelogEntries.ts';
-import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { configFlagSchema } from './configFlagSchema.ts';
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
-import { getAllTagPrefixes } from './generateChangelogs.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
 import { mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
 import { loadValidatedConfig, reportConfigProblem, reportConfigWarnings } from './loadValidatedConfig.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 import { applyReleasePlan, type ReleasePlan } from './releasePlan.ts';
 import { releasePrepare } from './releasePrepare.ts';
-import { releasePrepareMono } from './releasePrepareMono.ts';
+import { type MonorepoPrepareOptions, releasePrepareMono } from './releasePrepareMono.ts';
 import { reportPrepare } from './reportPrepare.ts';
 import { resolveConfigFlag } from './resolveConfigFlag.ts';
 import type { MonorepoReleaseConfig, ReleaseKitConfig, ReleaseType } from './types.ts';
-import { validateOnlyExcludesStrandedDependents } from './validateOnlyExcludesStrandedDependents.ts';
 
 const VALID_BUMP_TYPES: readonly string[] = ['major', 'minor', 'patch'];
 
@@ -64,6 +60,7 @@ export function parseArgs(argv: string[]): {
   noGitChecks: boolean;
   bumpOverride: ReleaseType | undefined;
   only: string[] | undefined;
+  /** The raw `--set-version` value, whose accepted form depends on the mode. */
   setVersion: string | undefined;
   withReleaseNotes: boolean;
 } {
@@ -78,30 +75,9 @@ export function parseArgs(argv: string[]): {
     bumpOverride = flags.bump;
   }
 
-  let setVersion: string | undefined;
-  if (flags.setVersion !== undefined) {
-    if (!CANONICAL_SEMVER_PATTERN.test(flags.setVersion)) {
-      reportError(
-        `Invalid --set-version value "${flags.setVersion}". Must be canonical semver (N.N.N, no pre-release suffix).`,
-      );
-      process.exit(1);
-    }
-    setVersion = flags.setVersion;
-  }
-
   let only: string[] | undefined;
   if (flags.only !== undefined) {
     only = flags.only.split(',');
-  }
-
-  if (setVersion !== undefined && bumpOverride !== undefined) {
-    reportError('--set-version cannot be combined with --bump');
-    process.exit(1);
-  }
-
-  if (setVersion !== undefined && flags.force) {
-    reportError('--set-version cannot be combined with --force');
-    process.exit(1);
   }
 
   return {
@@ -111,7 +87,7 @@ export function parseArgs(argv: string[]): {
     noGitChecks: flags.noGitChecks,
     bumpOverride,
     only,
-    setVersion,
+    setVersion: flags.setVersion,
     withReleaseNotes: flags.withReleaseNotes,
   };
 }
@@ -136,7 +112,6 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
   const options = {
     force,
     ...(bumpOverride !== undefined && { bumpOverride }),
-    ...(setVersion !== undefined && { setVersion }),
     ...(withReleaseNotes && { withReleaseNotes: true }),
   };
 
@@ -181,17 +156,18 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
   }
 
   if (workspace.kind === 'single-package') {
-    runSinglePackageMode(userConfig, options, only, dryRun, styles.stdout);
+    runSinglePackageMode(userConfig, options, only, setVersion, dryRun, styles.stdout);
   } else {
     runMonorepoMode(workspace.packageDirs, userConfig, options, only, setVersion, dryRun, styles.stdout);
   }
 }
 
-/** Prepares a single-package release, rejecting `--only`. */
+/** Prepares a single-package release, rejecting `--only` and accepting a bare `--set-version` version. */
 function runSinglePackageMode(
   userConfig: ReleaseKitConfig | undefined,
   options: PrepareOptions,
   only: string[] | undefined,
+  setVersion: string | undefined,
   dryRun: boolean,
   style: OutputStyle,
 ): void {
@@ -200,8 +176,19 @@ function runSinglePackageMode(
     process.exit(1);
   }
 
+  if (setVersion !== undefined && !CANONICAL_SEMVER_PATTERN.test(setVersion)) {
+    reportError(
+      `Invalid --set-version value "${setVersion}". Must be canonical semver (N.N.N, no pre-release suffix).`,
+    );
+    process.exit(1);
+  }
+
   const config = mergeSinglePackageConfig(userConfig);
-  runAndReport(() => releasePrepare(config, options), dryRun, style);
+  runAndReport(
+    () => releasePrepare(config, { ...options, ...(setVersion !== undefined && { setVersion }) }),
+    dryRun,
+    style,
+  );
 }
 
 /** Prepares a monorepo release, validating `--only` and `--set-version` against the merged config. */
@@ -224,85 +211,70 @@ function runMonorepoMode(
   }
 
   // A project release derives its bump from the commits of every contributing workspace, and `prepare` doesn't accept
-  // any flag that overrides the project version, so `--set-version`, which sets one workspace's version, does not
-  // compose with it.
+  // any flag that overrides the project version, so `--set-version`, which sets individual workspaces' versions, does
+  // not compose with it.
   if (setVersion !== undefined && config.project !== undefined) {
     reportError(
       '--set-version cannot be combined with a project release. ' +
-        '--set-version operates on a single workspace; a project release rolls up every ' +
+        "--set-version sets individual workspaces' versions; a project release rolls up every " +
         'contributing workspace. To use --set-version, run on a config without a `project` block.',
     );
     process.exit(1);
   }
 
-  let configuredWorkspaceDirs: string[] | undefined;
-  if (only !== undefined) {
-    const knownNames = config.workspaces.map((w) => w.dir);
-
-    // Validate all names before mutating config
-    for (const name of only) {
-      if (knownNames.includes(name)) {
-        continue;
-      }
-
-      reportError(`Unknown workspace "${name}". Known workspaces: ${knownNames.join(', ')}`);
-      process.exit(1);
+  const knownNames = config.workspaces.map((w) => w.dir);
+  const onlyNames = only ?? [];
+  for (const name of onlyNames) {
+    if (knownNames.includes(name)) {
+      continue;
     }
 
-    // Reject `--only` invocations that would silently strand changes in excluded internal
-    // dependents. Run before the filter mutates `config.workspaces` so that the validator sees
-    // the full pre-filter graph.
-    const graph = buildDependencyGraph(config.workspaces);
-    const violations = validateOnlyExcludesStrandedDependents(config.workspaces, only, graph, (workspace) => {
-      const history = readReleaseHistory(config, { tagPrefixes: getAllTagPrefixes(workspace), paths: workspace.paths });
-      return { has: history.unreleased.commits.length > 0, tag: history.previousTag };
-    });
-
-    if (violations !== undefined) {
-      reportError('--only excludes packages with changes that would be stranded by the release.');
-      process.stderr.write('The following packages must be added to --only or have their dependencies removed:\n');
-      for (const violation of violations) {
-        const since = violation.tag ?? 'the beginning';
-        process.stderr.write(
-          `  - ${violation.dir} (downstream of ${violation.downstreamOf}; has commits since ${since})\n`,
-        );
-      }
-      process.stderr.write('Alternatively, run `release-kit prepare` without --only to release everything.\n');
-      process.exit(1);
-    }
-
-    configuredWorkspaceDirs = knownNames;
-    config.workspaces = config.workspaces.filter((w) => only.includes(w.dir));
+    reportError(`Unknown workspace "${name}". Known workspaces: ${knownNames.join(', ')}`);
+    process.exit(1);
   }
 
-  if (setVersion !== undefined) {
-    if (only === undefined) {
-      reportError('--set-version requires --only in monorepo mode');
-      process.exit(1);
-    }
-    if (config.workspaces.length !== 1) {
-      reportError(`--set-version requires --only to match exactly one workspace; matched ${config.workspaces.length}`);
-      process.exit(1);
-    }
-  }
-
-  runAndReport(
-    () =>
-      releasePrepareMono(config, {
-        ...options,
-        ...(only !== undefined && { only }),
-        ...(configuredWorkspaceDirs !== undefined && { configuredWorkspaceDirs }),
-      }),
-    dryRun,
-    style,
-  );
+  const monorepoOptions: MonorepoPrepareOptions = {
+    ...options,
+    ...(only !== undefined && { only }),
+    ...(setVersion !== undefined && { setVersions: parseSetVersions(setVersion, knownNames) }),
+  };
+  runAndReport(() => releasePrepareMono(config, monorepoOptions), dryRun, style);
 }
 
 interface PrepareOptions {
   force: boolean;
   bumpOverride?: ReleaseType;
-  setVersion?: string;
   withReleaseNotes?: boolean;
+}
+
+/**
+ * Parses a monorepo `--set-version` value, a comma-separated list of `<workspace>@N.N.N` entries, into versions keyed by
+ * workspace `dir`. Prints a usage error and exits on a malformed entry, an unknown workspace, or a repeated one.
+ */
+function parseSetVersions(value: string, knownNames: readonly string[]): Map<string, string> {
+  const setVersions = new Map<string, string>();
+  for (const entry of value.split(',')) {
+    const separatorIndex = entry.lastIndexOf('@');
+    const name = entry.slice(0, Math.max(0, separatorIndex));
+    const version = entry.slice(separatorIndex + 1);
+    if (separatorIndex <= 0 || !CANONICAL_SEMVER_PATTERN.test(version)) {
+      reportError(
+        `Invalid --set-version entry "${entry}". In monorepo mode, each entry must be <workspace>@N.N.N ` +
+          '(canonical semver, no pre-release suffix), e.g. --set-version=arrays@1.0.0.',
+      );
+      process.exit(1);
+    }
+    if (!knownNames.includes(name)) {
+      reportError(`Unknown workspace "${name}" in --set-version. Known workspaces: ${knownNames.join(', ')}`);
+      process.exit(1);
+    }
+    if (setVersions.has(name)) {
+      reportError(`--set-version names workspace "${name}" more than once`);
+      process.exit(1);
+    }
+    setVersions.set(name, version);
+  }
+  return setVersions;
 }
 
 /**
