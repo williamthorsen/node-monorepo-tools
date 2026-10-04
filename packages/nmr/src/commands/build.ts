@@ -66,6 +66,10 @@ const SOURCE_ROOT = 'src';
 
 const MINIMUM_TYPESCRIPT_MAJOR = 5;
 const MINIMUM_TYPESCRIPT_MINOR = 7;
+/** The first major whose root export is a version constant rather than the compiler API. */
+const UNSUPPORTED_TYPESCRIPT_MAJOR = 7;
+const SUPPORTED_TYPESCRIPT_RANGE = `>=${MINIMUM_TYPESCRIPT_MAJOR}.${MINIMUM_TYPESCRIPT_MINOR} <${UNSUPPORTED_TYPESCRIPT_MAJOR}`;
+const INSTALL_TYPESCRIPT_GUIDANCE = "Install a version in that range as the 'typescript' peer dependency.";
 
 /**
  * The supported TypeScript source extension and the JavaScript extension that its emit produces.
@@ -198,8 +202,8 @@ export async function loadCompiler(loadTypeScript: () => Promise<typeof TypeScri
   } catch (error) {
     if (hasErrnoCode(error, 'ERR_MODULE_NOT_FOUND') && error.message.includes("'typescript'")) {
       throw new Error(
-        `nmr-compile requires TypeScript >=${MINIMUM_TYPESCRIPT_MAJOR}.${MINIMUM_TYPESCRIPT_MINOR}, but 'typescript' ` +
-          `could not be resolved. Install the 'typescript' peer dependency.`,
+        `nmr-compile requires TypeScript ${SUPPORTED_TYPESCRIPT_RANGE}, but 'typescript' could not be resolved. ` +
+          INSTALL_TYPESCRIPT_GUIDANCE,
         { cause: error },
       );
     }
@@ -682,17 +686,23 @@ async function importTypeScript(): Promise<typeof TypeScript> {
   return await import('typescript');
 }
 
-/** Asserts the resolved `typescript` peer is new enough for `rewriteRelativeImportExtensions`. */
+/**
+ * Asserts the resolved `typescript` peer is new enough for `rewriteRelativeImportExtensions` and old enough to
+ * include the compiler API.
+ */
 function assertSupportedTypeScript(): void {
-  const [majorPart, minorPart] = ts.versionMajorMinor.split('.', 2);
+  // Read untyped, because TypeScript 7's root export is a version constant rather than the compiler API.
+  const versionMajorMinor: unknown = ts.versionMajorMinor;
+  const version: unknown = ts.version;
+  const [majorPart, minorPart] = typeof versionMajorMinor === 'string' ? versionMajorMinor.split('.', 2) : [];
   const major = majorPart === undefined ? 0 : Number(majorPart);
   const minor = minorPart === undefined ? 0 : Number(minorPart);
   const tooOld =
     major < MINIMUM_TYPESCRIPT_MAJOR || (major === MINIMUM_TYPESCRIPT_MAJOR && minor < MINIMUM_TYPESCRIPT_MINOR);
-  if (tooOld) {
+  if (tooOld || major >= UNSUPPORTED_TYPESCRIPT_MAJOR) {
     throw new Error(
-      `nmr-compile requires TypeScript >=${MINIMUM_TYPESCRIPT_MAJOR}.${MINIMUM_TYPESCRIPT_MINOR} for ` +
-        `rewriteRelativeImportExtensions, but found ${ts.version}. Upgrade the 'typescript' peer dependency.`,
+      `nmr-compile requires TypeScript ${SUPPORTED_TYPESCRIPT_RANGE}, but found ` +
+        `${typeof version === 'string' ? version : 'a version without the compiler API'}. ${INSTALL_TYPESCRIPT_GUIDANCE}`,
     );
   }
 }

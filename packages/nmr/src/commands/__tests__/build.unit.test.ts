@@ -11,7 +11,7 @@ const it = baseIt.extend(
 );
 
 describe(buildPackage, () => {
-  it('names the peer and its supported floor when typescript cannot be resolved', async ({ tree }) => {
+  it('names the peer and its supported range when typescript cannot be resolved', async ({ tree }) => {
     const missing = Object.assign(new Error("Cannot find package 'typescript' imported from /somewhere/build.js"), {
       code: 'ERR_MODULE_NOT_FOUND',
     });
@@ -19,7 +19,7 @@ describe(buildPackage, () => {
     await expect(
       buildPackage(tree.dir, { style: 'plain', loadTypeScript: () => Promise.reject(missing) }),
     ).rejects.toThrow(
-      "nmr-compile requires TypeScript >=5.7, but 'typescript' could not be resolved. Install the 'typescript' peer dependency.",
+      "nmr-compile requires TypeScript >=5.7 <7, but 'typescript' could not be resolved. Install a version in that range as the 'typescript' peer dependency.",
     );
   });
 

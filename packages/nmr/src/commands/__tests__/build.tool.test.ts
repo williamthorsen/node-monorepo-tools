@@ -358,6 +358,19 @@ describe('buildPackage emit correctness', () => {
     }
   });
 
+  it('rejects a TypeScript whose major is at or above the supported ceiling, naming the range', async ({ tree }) => {
+    scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
+
+    // The same widened view as the floor case, so that the spy can return a version above the ceiling.
+    const tsModule: { versionMajorMinor: string } = ts;
+    const versionSpy = vi.spyOn(tsModule, 'versionMajorMinor', 'get').mockReturnValue('7.0');
+    try {
+      await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow(/requires TypeScript >=5\.7 <7/);
+    } finally {
+      versionSpy.mockRestore();
+    }
+  });
+
   it('rewrites an inline import-type alias to a relative .js specifier in the emitted .d.ts', async ({ tree }) => {
     scaffoldPackage(tree, {
       'helper.ts': 'export type Thing = { n: number };\n',
