@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { findDirectoryChainMatch } from '@williamthorsen/toolbelt.filesystem';
 import { parse } from 'yaml';
 
 import { matchPackageDirs, resolvePackageDirs, splitWorkspacePatterns } from './helpers/workspace-patterns.ts';
@@ -40,18 +41,7 @@ export type WorkspaceResolution =
  * containing `pnpm-workspace.yaml`, or returns `undefined` when the walk does not find one.
  */
 export function findMonorepoRoot(startDir?: string): string | undefined {
-  let dir = path.resolve(startDir ?? process.cwd());
-
-  for (;;) {
-    if (isMonorepoRoot(dir)) {
-      return dir;
-    }
-    const parent = path.dirname(dir);
-    if (parent === dir) {
-      return undefined;
-    }
-    dir = parent;
-  }
+  return findDirectoryChainMatch(startDir ?? process.cwd(), [WORKSPACE_MANIFEST])?.dir;
 }
 
 /** Reports whether a directory is the monorepo root, which the workspace manifest's presence marks. */

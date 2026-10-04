@@ -1,7 +1,9 @@
-import { createHash, randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
-import { mkdir, readFile, rename, rm, unlink, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
+
+import { findDirectoryChainMatch } from '@williamthorsen/toolbelt.filesystem';
+import { writeAtomic } from '@williamthorsen/toolbelt.filesystem/candidate';
 
 /** Names the cache directory that contains a tool's entries: `{home}/node_modules/.cache/{tool}/`. */
 export interface CacheDirRef {
@@ -82,7 +84,7 @@ export async function removeCacheEntry(entryPath: string): Promise<void> {
  */
 export function resolveCacheDir(ref: CacheDirRef): string {
   const absoluteScopeDir = path.resolve(ref.scopeDir);
-  const home = findNearestNodeModulesHost(absoluteScopeDir) ?? absoluteScopeDir;
+  const home = findDirectoryChainMatch(absoluteScopeDir, ['node_modules'])?.dir ?? absoluteScopeDir;
   return path.join(home, 'node_modules', '.cache', ref.tool);
 }
 
@@ -102,46 +104,10 @@ export function resolveCacheEntryPath(ref: CacheEntryRef): string {
 }
 
 /**
- * Writes an entry, creating the cache directory as needed. Because the function writes to a uniquely named
- * temporary file and renames it into place, a concurrent reader sees either the previous entry or the new one and
- * never a half-written file. Throws when the write cannot be completed; a caller for whom a failed cache write is
- * not worth failing over catches it.
+ * Writes an entry atomically, creating the cache directory as needed, so that a concurrent reader sees either the
+ * previous entry or the new one and never a half-written file. Throws when the write cannot be completed; a caller
+ * for whom a failed cache write is not worth failing over catches it.
  */
 export async function writeCacheEntry(entryPath: string, content: string): Promise<void> {
-  await mkdir(path.dirname(entryPath), { recursive: true });
-
-  const temporaryPath = `${entryPath}.${randomUUID()}.tmp`;
-  try {
-    await writeFile(temporaryPath, content);
-    await rename(temporaryPath, entryPath);
-  } catch (error: unknown) {
-    try {
-      await unlink(temporaryPath);
-    } catch {
-      // Because the temporary file may never have been created, its removal is best-effort: The write's own
-      // failure is what the caller needs to hear about.
-    }
-    throw error;
-  }
+  await writeAtomic(entryPath, content);
 }
-
-// region | Helpers
-
-/**
- * Walks up from `startDir` (inclusive) to the filesystem root, returning the first directory that contains a
- * `node_modules` entry, or `undefined` when none does.
- */
-function findNearestNodeModulesHost(startDir: string): string | undefined {
-  let current = startDir;
-  let parent = path.dirname(current);
-  while (!existsSync(path.join(current, 'node_modules'))) {
-    if (parent === current) {
-      return undefined;
-    }
-    current = parent;
-    parent = path.dirname(current);
-  }
-  return current;
-}
-
-// endregion | Helpers
