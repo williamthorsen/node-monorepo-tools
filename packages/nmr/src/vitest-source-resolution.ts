@@ -2,6 +2,7 @@ import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { isBuiltin } from 'node:module';
 import path from 'node:path';
 
+import { findDirectoryChainMatch } from '@williamthorsen/toolbelt.filesystem';
 import type { Plugin } from 'vite';
 
 import { parsePackageJson } from './helpers/package-json.ts';
@@ -140,17 +141,9 @@ function findPackageDir(
   if (cache?.has(key)) return cache.get(key);
 
   let foundDir = findSelfReferenceDir(name, fromDir);
-  let dir = fromDir;
-
-  while (foundDir === undefined) {
-    const candidate = path.join(dir, NODE_MODULES, name);
-    if (existsSync(path.join(candidate, 'package.json'))) {
-      foundDir = realpathSync(candidate);
-      break;
-    }
-    const parent = path.dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
+  if (foundDir === undefined) {
+    const match = findDirectoryChainMatch(fromDir, [path.join(NODE_MODULES, name, 'package.json')]);
+    if (match !== undefined) foundDir = realpathSync(path.join(match.dir, NODE_MODULES, name));
   }
 
   cache?.set(key, foundDir);

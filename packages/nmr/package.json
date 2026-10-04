@@ -85,13 +85,13 @@
   "dependencies": {
     "@williamthorsen/nmr-core": "workspace:*",
     "@williamthorsen/toolbelt.errors": "catalog:",
+    "@williamthorsen/toolbelt.filesystem": "catalog:",
     "glob": "13.0.6",
     "prettier": "catalog:",
     "prettier-plugin-sh": "0.20.2",
     "taze": "21.1.0"
   },
   "devDependencies": {
-    "@williamthorsen/toolbelt.filesystem": "catalog:",
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
     "esbuild": "catalog:",
