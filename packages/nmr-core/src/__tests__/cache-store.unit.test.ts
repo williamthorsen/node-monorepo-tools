@@ -45,21 +45,36 @@ describe('cache-store', () => {
     });
 
     it('falls back to the scope directory when its ancestors lack a node_modules', ({ tree }) => {
-      expect(resolveCacheDir({ tool: TOOL, scopeDir: tree.dir })).toBe(
+      expect(resolveCacheDir({ tool: TOOL, scopeDir: tree.dir, stopAtDir: tree.dir })).toBe(
         path.join(tree.dir, 'node_modules', '.cache', TOOL),
+      );
+    });
+
+    it('does not hoist past the stop directory', ({ tree }) => {
+      tree.mkdir('node_modules');
+      const packageDir = tree.mkdir('packages/leaf');
+
+      expect(resolveCacheDir({ tool: TOOL, scopeDir: packageDir, stopAtDir: tree.resolve('packages') })).toBe(
+        path.join(packageDir, 'node_modules', '.cache', TOOL),
       );
     });
   });
 
   describe(resolveCacheEntryPath, () => {
     it('is stable across calls for the same reference', ({ tree }) => {
-      const ref = { tool: TOOL, scopeDir: tree.dir, slug: 'alpha', extension: '.json' };
+      const ref = { tool: TOOL, scopeDir: tree.dir, stopAtDir: tree.dir, slug: 'alpha', extension: '.json' };
 
       expect(resolveCacheEntryPath(ref)).toBe(resolveCacheEntryPath(ref));
     });
 
     it('names the entry with its slug and extension', ({ tree }) => {
-      const entryPath = resolveCacheEntryPath({ tool: TOOL, scopeDir: tree.dir, slug: 'alpha', extension: '.hash' });
+      const entryPath = resolveCacheEntryPath({
+        tool: TOOL,
+        scopeDir: tree.dir,
+        stopAtDir: tree.dir,
+        slug: 'alpha',
+        extension: '.hash',
+      });
 
       expect(path.basename(entryPath)).toMatch(/^alpha-[\da-f]{8}\.hash$/);
     });
@@ -78,7 +93,7 @@ describe('cache-store', () => {
     });
 
     it('separates entries in one scope by their discriminators', ({ tree }) => {
-      const base = { tool: TOOL, scopeDir: tree.dir, slug: 'entry', extension: '.json' };
+      const base = { tool: TOOL, scopeDir: tree.dir, stopAtDir: tree.dir, slug: 'entry', extension: '.json' };
 
       expect(resolveCacheEntryPath({ ...base, discriminators: ['check'] })).not.toBe(
         resolveCacheEntryPath({ ...base, discriminators: ['check:strict'] }),
@@ -86,7 +101,7 @@ describe('cache-store', () => {
     });
 
     it('ignores an empty discriminator list, so adding the field cannot move an existing entry', ({ tree }) => {
-      const base = { tool: TOOL, scopeDir: tree.dir, slug: 'entry', extension: '.hash' };
+      const base = { tool: TOOL, scopeDir: tree.dir, stopAtDir: tree.dir, slug: 'entry', extension: '.hash' };
 
       expect(resolveCacheEntryPath({ ...base, discriminators: [] })).toBe(resolveCacheEntryPath(base));
     });
@@ -138,6 +153,7 @@ describe('cache-store', () => {
 
   describe(writeCacheEntry, () => {
     it('creates the cache directory on the way', async ({ tree }) => {
+      tree.mkdir('node_modules');
       const entryPath = resolveCacheEntryPath({ tool: TOOL, scopeDir: tree.dir, slug: 'alpha', extension: '.hash' });
 
       await writeCacheEntry(entryPath, 'a-digest');
@@ -191,6 +207,7 @@ describe('cache-store', () => {
 
   describe(removeCacheEntry, () => {
     it('removes the entry that it names, leaving its neighbours alone', async ({ tree }) => {
+      tree.mkdir('node_modules');
       const ref = { tool: TOOL, scopeDir: tree.dir };
       const mine = resolveCacheEntryPath({ ...ref, slug: 'a', extension: '.hash' });
       const neighbour = resolveCacheEntryPath({ ...ref, slug: 'b', extension: '.hash' });
@@ -210,6 +227,7 @@ describe('cache-store', () => {
 
   describe(removeCacheDir, () => {
     it('removes every entry in the tool’s cache', async ({ tree }) => {
+      tree.mkdir('node_modules');
       const ref = { tool: TOOL, scopeDir: tree.dir };
       await writeCacheEntry(resolveCacheEntryPath({ ...ref, slug: 'a', extension: '.hash' }), 'one');
       await writeCacheEntry(resolveCacheEntryPath({ ...ref, slug: 'b', extension: '.hash' }), 'two');
@@ -220,6 +238,7 @@ describe('cache-store', () => {
     });
 
     it('leaves another tool’s cache alone', async ({ tree }) => {
+      tree.mkdir('node_modules');
       const mine = { tool: TOOL, scopeDir: tree.dir };
       const theirs = { tool: 'other-tool', scopeDir: tree.dir };
       await writeCacheEntry(resolveCacheEntryPath({ ...mine, slug: 'a', extension: '.hash' }), 'one');
@@ -232,6 +251,8 @@ describe('cache-store', () => {
     });
 
     it('is a no-op when the tool does not have a cache', async ({ tree }) => {
+      tree.mkdir('node_modules');
+
       await expect(removeCacheDir({ tool: TOOL, scopeDir: tree.dir })).resolves.toBeUndefined();
     });
   });
