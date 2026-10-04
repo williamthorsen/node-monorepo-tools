@@ -53,74 +53,78 @@ describe(runFmt, () => {
     vi.unstubAllEnvs();
   });
 
-  it('honours a package-level .prettierignore from the repository root', ({ repositoryTree }) => {
+  it('honours a package-level .prettierignore from the repository root', async ({ repositoryTree }) => {
     repositoryTree.write('packages/a/protected.js', 'const  badly   =  1\n');
 
-    expect(runFmt(['--check'], repositoryTree.dir)).toBe(0);
+    await expect(runFmt(['--check'], repositoryTree.dir)).resolves.toBe(0);
   });
 
-  it('honours a root .prettierignore mirroring a package pattern, so an existing mirror keeps passing', ({
+  it('honours a root .prettierignore mirroring a package pattern, so an existing mirror keeps passing', async ({
     repositoryTree,
   }) => {
     repositoryTree.write('packages/a/mirrored.js', 'const  badly   =  1\n');
 
-    expect(runFmt(['--check'], repositoryTree.dir)).toBe(0);
+    await expect(runFmt(['--check'], repositoryTree.dir)).resolves.toBe(0);
   });
 
-  it('still reports a badly formatted file not covered by any ignore file', ({ repositoryTree }) => {
+  it('still reports a badly formatted file not covered by any ignore file', async ({ repositoryTree }) => {
     repositoryTree.write('packages/a/unprotected.js', 'const  badly   =  1\n');
 
-    expect(runFmt(['--check'], repositoryTree.dir)).not.toBe(0);
+    await expect(runFmt(['--check'], repositoryTree.dir)).resolves.not.toBe(0);
   });
 
-  it('reaches the same verdict from inside the package as from the repository root', ({ repositoryTree }) => {
+  it('reaches the same verdict from inside the package as from the repository root', async ({ repositoryTree }) => {
     repositoryTree.write('packages/a/protected.js', 'const  badly   =  1\n');
 
-    expect(runFmt(['--check'], repositoryTree.resolve('packages/a'))).toBe(0);
+    await expect(runFmt(['--check'], repositoryTree.resolve('packages/a'))).resolves.toBe(0);
   });
 
-  it('rewrites a badly formatted file in write mode', ({ repositoryTree }) => {
+  it('rewrites a badly formatted file in write mode', async ({ repositoryTree }) => {
     repositoryTree.write('packages/a/unprotected.js', 'const  badly   =  1\n');
 
-    expect(runFmt(['--write'], repositoryTree.dir)).toBe(0);
+    await expect(runFmt(['--write'], repositoryTree.dir)).resolves.toBe(0);
     expect(repositoryTree.read('packages/a/unprotected.js')).toBe('const badly = 1;\n');
   });
 
-  it('leaves a file protected by a package-level .prettierignore untouched in write mode', ({ repositoryTree }) => {
+  it('leaves a file protected by a package-level .prettierignore untouched in write mode', async ({
+    repositoryTree,
+  }) => {
     repositoryTree.write('packages/a/protected.js', 'const  badly   =  1\n');
 
-    expect(runFmt(['--write'], repositoryTree.dir)).toBe(0);
+    await expect(runFmt(['--write'], repositoryTree.dir)).resolves.toBe(0);
     expect(repositoryTree.read('packages/a/protected.js')).toBe('const  badly   =  1\n');
   });
 
-  it('does not fail on a path deleted from the working tree but still recorded in the index', ({ repositoryTree }) => {
+  it('does not fail on a path deleted from the working tree but still recorded in the index', async ({
+    repositoryTree,
+  }) => {
     repositoryTree.rm('root.js');
 
-    expect(runFmt(['--check'], repositoryTree.dir)).toBe(0);
+    await expect(runFmt(['--check'], repositoryTree.dir)).resolves.toBe(0);
   });
 
   it.skipIf(isPrivilegedProcess)(
     'names a file that it is denied access to, and still checks the rest',
-    ({ captured, repositoryTree }) => {
+    async ({ captured, repositoryTree }) => {
       using _locked = lockEnvrc(repositoryTree);
 
-      expect(runFmt(['--check'], repositoryTree.dir)).toBe(1);
+      await expect(runFmt(['--check'], repositoryTree.dir)).resolves.toBe(1);
       expect(captured.stderr).toContain('nmr-fmt: skipped locked/.envrc, which cannot be read (EACCES)');
     },
   );
 
   it.skipIf(isPrivilegedProcess)(
     'names a file that it is denied access to, and still rewrites the rest',
-    ({ captured, repositoryTree }) => {
+    async ({ captured, repositoryTree }) => {
       using _locked = lockEnvrc(repositoryTree);
 
-      expect(runFmt(['--write'], repositoryTree.dir)).toBe(0);
+      await expect(runFmt(['--write'], repositoryTree.dir)).resolves.toBe(0);
       expect(captured.stderr).toContain('nmr-fmt: skipped locked/.envrc, which cannot be read (EACCES)');
       expect(repositoryTree.read('packages/a/unprotected.js')).toBe('const badly = 1;\n');
     },
   );
 
-  it("fails, naming the path, when a listed file cannot be stat'ed for another reason", ({
+  it("fails, naming the path, when a listed file cannot be stat'ed for another reason", async ({
     captured,
     repositoryTree,
   }) => {
@@ -128,55 +132,94 @@ describe(runFmt, () => {
     repositoryTree.symlink('loop-b', 'loop-a');
     runGitOrThrow(['add', '--all'], repositoryTree.dir);
 
-    expect(runFmt(['--check'], repositoryTree.dir)).toBe(1);
+    await expect(runFmt(['--check'], repositoryTree.dir)).resolves.toBe(1);
     expect(captured.stderr).toContain('could not stat loop-a');
   });
 
-  it('constrains the run to the given pathspecs', ({ repositoryTree }) => {
+  it('constrains the run to the given pathspecs', async ({ repositoryTree }) => {
     repositoryTree.write('root-bad.js', 'const  badly   =  1\n');
 
-    expect(runFmt(['--check', 'packages'], repositoryTree.dir)).toBe(0);
+    await expect(runFmt(['--check', 'packages'], repositoryTree.dir)).resolves.toBe(0);
   });
 
-  it('fails when the caller named paths that matched nothing', ({ repositoryTree }) => {
-    expect(runFmt(['--check', 'nothing-matches-this'], repositoryTree.dir)).toBe(1);
+  it('fails when the caller named paths that matched nothing', async ({ repositoryTree }) => {
+    await expect(runFmt(['--check', 'nothing-matches-this'], repositoryTree.dir)).resolves.toBe(1);
   });
 
-  it('passes quietly when run without pathspecs in a repository that has nothing to format', () => {
+  it('passes quietly when run without pathspecs in a repository that has nothing to format', async () => {
     using empty = createTempTree({}, { prefix: 'nmr-fmt-empty-' });
     runGitOrThrow(['init', '--quiet'], empty.dir);
 
-    expect(runFmt(['--check'], empty.dir)).toBe(0);
+    await expect(runFmt(['--check'], empty.dir)).resolves.toBe(0);
   });
 
-  it('rejects a bare invocation rather than defaulting to a mutation', ({ repositoryTree }) => {
-    expect(runFmt([], repositoryTree.dir)).toBe(1);
+  it('rejects a bare invocation rather than defaulting to a mutation', async ({ repositoryTree }) => {
+    await expect(runFmt([], repositoryTree.dir)).resolves.toBe(1);
   });
 
-  it('rejects an unrecognized option rather than handing it to git as a pathspec', ({ repositoryTree }) => {
-    expect(runFmt(['--check', '--log-level', 'warn'], repositoryTree.dir)).toBe(1);
+  it('rejects an unrecognized option rather than handing it to git as a pathspec', async ({ repositoryTree }) => {
+    await expect(runFmt(['--check', '--log-level', 'warn'], repositoryTree.dir)).resolves.toBe(1);
   });
 
-  it("runs the repository's own Prettier when the repository can resolve one", ({ repositoryTree }) => {
+  it("runs the repository's own Prettier when the repository can resolve one", async ({ repositoryTree }) => {
     installStubPrettier(repositoryTree);
 
-    expect(runFmt(['--check'], repositoryTree.dir)).toBe(0);
+    await expect(runFmt(['--check'], repositoryTree.dir)).resolves.toBe(0);
     expect(readCalls(repositoryTree)).toHaveLength(1);
   });
 
-  it("falls back to nmr's own Prettier when the repository cannot resolve one", ({ repositoryTree }) => {
+  it("falls back to nmr's own Prettier when the repository cannot resolve one", async ({ repositoryTree }) => {
     repositoryTree.write('packages/a/unprotected.js', 'const  badly   =  1\n');
 
     expect(repositoryTree.exists('node_modules')).toBe(false);
-    expect(runFmt(['--check'], repositoryTree.dir)).not.toBe(0);
+    await expect(runFmt(['--check'], repositoryTree.dir)).resolves.not.toBe(0);
   });
 
-  it('fails outside a git repository rather than reporting a clean run', () => {
+  it('formats with the house config, shell scripts included, when the repository does not have a config', async ({
+    repositoryTree,
+  }) => {
+    repositoryTree.write('script.sh', 'echo   hi\n');
+    runGitOrThrow(['add', '--all'], repositoryTree.dir);
+
+    await expect(runFmt(['--check'], repositoryTree.dir)).resolves.not.toBe(0);
+    await expect(runFmt(['--write'], repositoryTree.dir)).resolves.toBe(0);
+    expect(repositoryTree.read('script.sh')).toBe('echo hi\n');
+  });
+
+  it("formats with the repository's own config when it has one", async ({ repositoryTree }) => {
+    repositoryTree.write('.prettierrc', '{ "semi": false }\n');
+    repositoryTree.write('packages/a/unprotected.js', 'const  badly   =  1;\n');
+
+    await expect(runFmt(['--write'], repositoryTree.dir)).resolves.toBe(0);
+    expect(repositoryTree.read('packages/a/unprotected.js')).toBe('const badly = 1\n');
+  });
+
+  it('still applies .editorconfig alongside the house config', async ({ repositoryTree }) => {
+    repositoryTree.write('.editorconfig', '[*]\nindent_style = tab\n');
+    repositoryTree.write('packages/a/unprotected.js', 'function f() {\n  return 1;\n}\n');
+
+    await expect(runFmt(['--write'], repositoryTree.dir)).resolves.toBe(0);
+    expect(repositoryTree.read('packages/a/unprotected.js')).toBe('function f() {\n\treturn 1;\n}\n');
+  });
+
+  it('passes the house config only when the repository does not have a config', async ({ repositoryTree }) => {
+    installStubPrettier(repositoryTree);
+
+    await runFmt(['--check'], repositoryTree.dir);
+    repositoryTree.write('.prettierrc', '{}\n');
+    await runFmt(['--check'], repositoryTree.dir);
+
+    const [withoutConfig = [], withConfig = []] = readCalls(repositoryTree);
+    expect(withoutConfig).toContain('--config');
+    expect(withConfig).not.toContain('--config');
+  });
+
+  it('fails outside a git repository rather than reporting a clean run', async () => {
     using outside = createTempTree({}, { prefix: 'nmr-fmt-bare-' });
     // Stop git's upward search at the fixture, so that git cannot find a repository enclosing the temp root.
     vi.stubEnv('GIT_CEILING_DIRECTORIES', path.dirname(outside.dir));
 
-    expect(runFmt(['--check'], outside.dir)).toBe(1);
+    await expect(runFmt(['--check'], outside.dir)).resolves.toBe(1);
   });
 });
 
@@ -265,11 +308,26 @@ function lockEnvrc(tree: TempTree): Disposable {
 
 /**
  * Installs a recording stand-in as the repository's own `prettier` package, gitignored so that `nmr-fmt` does
- * not select it for formatting.
+ * not select it for formatting. Its `resolveConfigFile` finds a `.prettierrc` beside the searched path alone.
  */
 function installStubPrettier(tree: TempTree): void {
   tree.write('.gitignore', 'node_modules/\n');
-  tree.write('node_modules/prettier/package.json', `${JSON.stringify({ name: 'prettier', bin: STUB_ENTRY })}\n`);
+  tree.write(
+    'node_modules/prettier/package.json',
+    `${JSON.stringify({ name: 'prettier', main: 'index.cjs', bin: STUB_ENTRY })}\n`,
+  );
+  tree.write(
+    'node_modules/prettier/index.cjs',
+    [
+      "const fs = require('node:fs');",
+      "const path = require('node:path');",
+      'exports.resolveConfigFile = async (file) => {',
+      "  const candidate = path.join(path.dirname(file), '.prettierrc');",
+      '  return fs.existsSync(candidate) ? candidate : null;',
+      '};',
+      '',
+    ].join('\n'),
+  );
   writeRecordingStub(tree, 0, 'node_modules/prettier');
 }
 

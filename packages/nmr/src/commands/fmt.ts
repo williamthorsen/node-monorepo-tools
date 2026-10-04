@@ -4,6 +4,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 import { hasErrnoCode, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
@@ -31,6 +32,14 @@ const IGNORE_FILE_PATHSPEC = `*${IGNORE_FILENAME}`;
 const UNREADABLE_CODES = ['EACCES', 'EPERM'];
 
 const PRETTIER_PACKAGE = 'prettier';
+
+/**
+ * The house config, compiled beside this module's parent directory. The extension follows this module's own, so
+ * that a run from source passes the `.ts` file, which Prettier loads under Node's type stripping.
+ */
+const DEFAULT_CONFIG_PATH = fileURLToPath(
+  new URL(`../prettier-default-config${path.extname(fileURLToPath(import.meta.url))}`, import.meta.url),
+);
 
 /**
  * Ceiling on the bytes of file arguments handed to one Prettier process, well under the smallest
@@ -66,13 +75,14 @@ export interface UnreadableFile {
 export type ResolveTargetsResult = { ok: true; targets: FormatTargets } | { ok: false; error: string };
 
 /**
- * Formats or checks the files that git reports for `cwd`, and returns the exit code to report.
+ * Formats or checks the files that git reports for `cwd`, and returns the exit code to report. A repository
+ * without a Prettier config of its own is formatted with the house config.
  *
  * Trailing arguments are git pathspecs, not Prettier flags; an unrecognized option is rejected rather
  * than passed along, since git would read it as a pathspec matching nothing and the run would report
  * success over an empty selection.
  */
-export function runFmt(argv: string[], cwd: string = process.cwd()): number {
+export async function runFmt(argv: string[], cwd: string = process.cwd()): Promise<number> {
   const parsedArgs = parseFmtArgs(argv);
   if (!parsedArgs.ok) {
     reportError(`nmr-fmt: ${parsedArgs.error}`);
@@ -109,7 +119,20 @@ export function runFmt(argv: string[], cwd: string = process.cwd()): number {
     return 1;
   }
 
-  return runPrettier({ cliPath: cli.cliPath, mode: parsedArgs.mode, files, ignorePaths, cwd });
+  const repositoryConfig = await findRepositoryConfig(cli.manifestPath, cwd);
+  if (!repositoryConfig.ok) {
+    reportError(`nmr-fmt: ${repositoryConfig.error}`);
+    return 1;
+  }
+
+  return runPrettier({
+    cliPath: cli.cliPath,
+    configPath: repositoryConfig.found ? undefined : DEFAULT_CONFIG_PATH,
+    mode: parsedArgs.mode,
+    files,
+    ignorePaths,
+    cwd,
+  });
 }
 
 /**
@@ -241,7 +264,9 @@ function parseFmtArgs(argv: string[]): ParseArgsResult {
  * goes through the module graph rather than PATH, because under pnpm's isolated layout the `prettier` first on
  * PATH need not be the one on which the repository depends.
  */
-function resolvePrettierCli(cwd: string): { ok: true; cliPath: string } | { ok: false; error: string } {
+function resolvePrettierCli(
+  cwd: string,
+): { ok: true; cliPath: string; manifestPath: string } | { ok: false; error: string } {
   const missingResult = {
     ok: false as const,
     error: `\`${PRETTIER_PACKAGE}\` could not be resolved from this repository or from nmr's own installation, which declares it as a dependency. Reinstall \`@williamthorsen/nmr\`.`,
@@ -259,12 +284,40 @@ function resolvePrettierCli(cwd: string): { ok: true; cliPath: string } | { ok: 
   const bin = isObject(manifest['bin']) ? manifest['bin'][PRETTIER_PACKAGE] : manifest['bin'];
   if (typeof bin !== 'string') return missingResult;
 
-  return { ok: true, cliPath: path.resolve(path.dirname(manifestPath), bin) };
+  return { ok: true, cliPath: path.resolve(path.dirname(manifestPath), bin), manifestPath };
+}
+
+/**
+ * Reports whether Prettier finds a config of its own searching from `cwd`, asking the copy that will format so
+ * that discovery and formatting agree on which config forms count.
+ */
+async function findRepositoryConfig(
+  manifestPath: string,
+  cwd: string,
+): Promise<{ ok: true; found: boolean } | { ok: false; error: string }> {
+  try {
+    const prettier: unknown = createRequire(manifestPath)(PRETTIER_PACKAGE);
+    const resolveConfigFile = isObject(prettier) ? prettier['resolveConfigFile'] : undefined;
+    if (typeof resolveConfigFile !== 'function') {
+      return {
+        ok: false,
+        error: `\`${PRETTIER_PACKAGE}\` at ${path.dirname(manifestPath)} does not export \`resolveConfigFile\`.`,
+      };
+    }
+
+    // Prettier searches from the directory containing the path, which need not exist.
+    const configFile: unknown = await Reflect.apply(resolveConfigFile, undefined, [path.join(cwd, 'placeholder')]);
+    return { ok: true, found: configFile !== null };
+  } catch (error) {
+    return { ok: false, error: `could not search for a Prettier config: ${describeError(error)}` };
+  }
 }
 
 /** @internal */
 export interface RunPrettierOptions {
   cliPath: string;
+  /** Passed as `--config`, which replaces Prettier's own config discovery. */
+  configPath?: string | undefined;
   mode: FormatMode;
   files: string[];
   ignorePaths: string[];
@@ -283,10 +336,11 @@ export interface RunPrettierOptions {
  * @internal
  */
 export function runPrettier(options: RunPrettierOptions): number {
-  const { cliPath, mode, files, ignorePaths, cwd, budgetBytes = ARGUMENT_BUDGET_BYTES } = options;
+  const { cliPath, configPath, mode, files, ignorePaths, cwd, budgetBytes = ARGUMENT_BUDGET_BYTES } = options;
 
   const prettierArgs = [
     cliPath,
+    ...(configPath === undefined ? [] : ['--config', configPath]),
     // The file list contains types for which Prettier does not have a parser, ignore files and images among them.
     '--ignore-unknown',
     ...ignorePaths.flatMap((ignorePath) => ['--ignore-path', ignorePath]),
