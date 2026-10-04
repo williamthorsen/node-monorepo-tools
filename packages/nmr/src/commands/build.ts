@@ -5,13 +5,14 @@ import path from 'node:path';
 
 import {
   formatGlyphLine,
+  hasErrnoCode,
   type OutputStyle,
   readCacheEntry,
   STATUS_GLYPHS,
   writeCacheEntry,
 } from '@williamthorsen/nmr-core';
 import { glob } from 'glob';
-import * as ts from 'typescript';
+import type * as TypeScript from 'typescript';
 
 import { NMR_GLYPHS } from '../glyphs.ts';
 import { resolveConfigPath } from '../helpers/config-path.ts';
@@ -40,6 +41,12 @@ export interface BuildToolchain {
 /** What a build needs beyond its sources: the options shaping the emit, and the style in which it reports. */
 export interface BuildPackageOptions extends BuildOptions {
   style: OutputStyle;
+  /**
+   * Overridable so that a missing `typescript` peer is reachable without uninstalling it.
+   *
+   * @internal
+   */
+  loadTypeScript?: () => Promise<typeof TypeScript>;
 }
 
 /** Output-shaping options folded into the build hash so that a change to the emit shape busts the cache. */
@@ -71,6 +78,12 @@ const TS_EXTENSION = '.ts';
 const JS_EXTENSION = '.js';
 
 /**
+ * The compiler API, which `loadCompiler` sets before any helper runs. `typescript` is an optional peer, so a
+ * consumer that never compiles does not need it installed.
+ */
+let ts: typeof TypeScript;
+
+/**
  * Compiles a package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js` and
  * `.d.ts` from two programs and rewriting relative `.ts` specifiers and tsconfig `paths` aliases to
  * runnable relative `.js` specifiers in both outputs. Skips the build only when every input is
@@ -81,6 +94,7 @@ const JS_EXTENSION = '.js';
  * `build:post` hook, which runs after the output is published.
  */
 export async function buildPackage(packageDir: string, options: BuildPackageOptions): Promise<void> {
+  await loadCompiler(options.loadTypeScript);
   assertSupportedTypeScript();
 
   const cachePath = resolveBuildCachePath(packageDir);
@@ -168,6 +182,29 @@ export async function computeBuildHash(
   hash.update('\0');
   hash.update(toolchain.fingerprint);
   return hash.digest('hex');
+}
+
+/**
+ * Loads the compiler API on which every other function in this module relies, reporting a missing `typescript` peer
+ * with the version that `nmr-compile` requires. `buildPackage` calls it first; a caller of another export calls it
+ * beforehand.
+ *
+ * @internal
+ */
+export async function loadCompiler(loadTypeScript: () => Promise<typeof TypeScript> = importTypeScript): Promise<void> {
+  try {
+    // eslint-disable-next-line unicorn/no-top-level-assignment-in-function -- the helpers share the one compiler that this loads.
+    ts = await loadTypeScript();
+  } catch (error) {
+    if (hasErrnoCode(error, 'ERR_MODULE_NOT_FOUND') && error.message.includes("'typescript'")) {
+      throw new Error(
+        `nmr-compile requires TypeScript >=${MINIMUM_TYPESCRIPT_MAJOR}.${MINIMUM_TYPESCRIPT_MINOR}, but 'typescript' ` +
+          `could not be resolved. Install the 'typescript' peer dependency.`,
+        { cause: error },
+      );
+    }
+    throw error;
+  }
 }
 
 /**
@@ -278,7 +315,7 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
 }
 
 /** Throws with formatted diagnostics when the compiler skipped an emit. */
-function assertEmitSucceeded(result: ts.EmitResult): void {
+function assertEmitSucceeded(result: TypeScript.EmitResult): void {
   if (result.emitSkipped) {
     throw new Error(`nmr-compile: emit failed.\n${formatDiagnostics(result.diagnostics)}`);
   }
@@ -289,9 +326,9 @@ function assertEmitSucceeded(result: ts.EmitResult): void {
  * is parsed once. `ts.createCompilerHost` re-reads and re-parses on every call, and a program built over an
  * `oldProgram` still asks the host for each file in order to compare it.
  */
-function createCachingCompilerHost(compilerOptions: ts.CompilerOptions): ts.CompilerHost {
+function createCachingCompilerHost(compilerOptions: TypeScript.CompilerOptions): TypeScript.CompilerHost {
   const host = ts.createCompilerHost(compilerOptions);
-  const parsedFiles = new Map<string, ts.SourceFile | undefined>();
+  const parsedFiles = new Map<string, TypeScript.SourceFile | undefined>();
   const readSourceFile = host.getSourceFile.bind(host);
 
   host.getSourceFile = (fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile) => {
@@ -389,7 +426,7 @@ async function swapIntoPlace(emitDir: string, scratchDirs: ScratchDirs): Promise
  * source-resolution context; a stray `declarationDir` would push `.d.ts` files outside that tree, where
  * their sources cannot be reconstructed.
  */
-function synthesizeCompilerOptions(packageDir: string, outdir: string): ts.CompilerOptions {
+function synthesizeCompilerOptions(packageDir: string, outdir: string): TypeScript.CompilerOptions {
   const configPath = path.join(packageDir, 'tsconfig.json');
   const configFile = ts.readConfigFile(configPath, (fileName) => ts.sys.readFile(fileName));
   if (configFile.error) {
@@ -456,7 +493,7 @@ function writeStagedOutput(stagedFiles: Map<string, StagedFile>, emitDir: string
 function rewriteSpecifiers(
   outputFile: string,
   text: string,
-  compilerOptions: ts.CompilerOptions,
+  compilerOptions: TypeScript.CompilerOptions,
   sourceRoot: string,
 ): string {
   if (!isRewritableOutput(outputFile)) {
@@ -513,7 +550,7 @@ function rewriteSpecifiers(
 function resolveSpecifierReplacement(
   specifier: string,
   sourceContainingFile: string,
-  compilerOptions: ts.CompilerOptions,
+  compilerOptions: TypeScript.CompilerOptions,
   sourceRoot: string,
   aliasPrefixes: string[],
 ): string | undefined {
@@ -564,9 +601,12 @@ function resolveSpecifierReplacement(
 }
 
 /** Invokes the callback with every module-specifier string literal found in the file. */
-function visitModuleSpecifiers(sourceFile: ts.SourceFile, visit: (literal: ts.StringLiteralLike) => void): void {
+function visitModuleSpecifiers(
+  sourceFile: TypeScript.SourceFile,
+  visit: (literal: TypeScript.StringLiteralLike) => void,
+): void {
   /** Visits the node's module specifier, if it has one, then recurses into its children. */
-  function walk(node: ts.Node): void {
+  function walk(node: TypeScript.Node): void {
     const specifier = getModuleSpecifier(node);
     if (specifier !== undefined) {
       visit(specifier);
@@ -577,7 +617,7 @@ function visitModuleSpecifiers(sourceFile: ts.SourceFile, visit: (literal: ts.St
 }
 
 /** Extracts the module-specifier string literal from any import/export/dynamic-import construct. */
-function getModuleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
+function getModuleSpecifier(node: TypeScript.Node): TypeScript.StringLiteralLike | undefined {
   if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier !== undefined) {
     return ts.isStringLiteralLike(node.moduleSpecifier) ? node.moduleSpecifier : undefined;
   }
@@ -637,6 +677,11 @@ async function detectBuildChanges(
 
 // region | Helpers
 
+/** Imports the `typescript` peer. */
+async function importTypeScript(): Promise<typeof TypeScript> {
+  return await import('typescript');
+}
+
 /** Asserts the resolved `typescript` peer is new enough for `rewriteRelativeImportExtensions`. */
 function assertSupportedTypeScript(): void {
   const [majorPart, minorPart] = ts.versionMajorMinor.split('.', 2);
@@ -653,7 +698,7 @@ function assertSupportedTypeScript(): void {
 }
 
 /** Returns the alias prefixes declared in the tsconfig `paths` map, with the trailing wildcard stripped. */
-function collectAliasPrefixes(compilerOptions: ts.CompilerOptions): string[] {
+function collectAliasPrefixes(compilerOptions: TypeScript.CompilerOptions): string[] {
   if (compilerOptions.paths === undefined) {
     return [];
   }
@@ -671,7 +716,7 @@ function describeEmit(fileCount: number, outdir: string): string {
 }
 
 /** Renders compiler diagnostics as colored text with source context. */
-function formatDiagnostics(diagnostics: readonly ts.Diagnostic[]): string {
+function formatDiagnostics(diagnostics: readonly TypeScript.Diagnostic[]): string {
   return ts.formatDiagnosticsWithColorAndContext(diagnostics, {
     getCurrentDirectory: () => process.cwd(),
     getCanonicalFileName: (fileName) => fileName,
@@ -756,7 +801,11 @@ function isWithin(parent: string, child: string): boolean {
  * directory prefix for the source root and restoring a `.ts` extension. Used as the resolution
  * context for alias specifiers so that `paths`/`baseUrl` resolve from the original source location.
  */
-function mapOutputToSource(outputFile: string, compilerOptions: ts.CompilerOptions, sourceRoot: string): string {
+function mapOutputToSource(
+  outputFile: string,
+  compilerOptions: TypeScript.CompilerOptions,
+  sourceRoot: string,
+): string {
   const outDir = compilerOptions.outDir ?? path.dirname(outputFile);
   const relativeFromOut = path.relative(outDir, outputFile);
   const withoutExtension = relativeFromOut.replace(/\.d\.ts$|\.js$/, '');
@@ -770,7 +819,7 @@ function buildRelativeSpecifier(fromDir: string, targetFile: string): string {
 }
 
 /** Returns the script kind to parse an emitted file as: TypeScript for a declaration file, JavaScript otherwise. */
-function resolveScriptKind(file: string): ts.ScriptKind {
+function resolveScriptKind(file: string): TypeScript.ScriptKind {
   return file.endsWith('.d.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS;
 }
 
