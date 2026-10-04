@@ -20,7 +20,7 @@ export function verify(template: string, taxonomy: Taxonomy): string[] {
     nodes = compileTemplate(template);
   } catch (error) {
     // eslint-disable-next-line no-restricted-syntax -- The package does not depend on any other package, so neither suggested helper is available.
-    return [error instanceof Error ? error.message : `Template ${JSON.stringify(template)} could not be compiled.`];
+    return [error instanceof Error ? error.message : `Template ${JSON.stringify(template)} could not be compiled.`]; // rdy-ignore toolbelt.errors/no-inline-description
   }
 
   const flattened = flattenTemplate(nodes);
