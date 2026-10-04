@@ -190,11 +190,11 @@ describe(pushCommand, () => {
       });
       mockResolveReleaseTags.mockReturnValue(TAGS);
       mockLoadConfig.mockResolvedValue({ workspaces: [{ dir: 'cli', shouldExclude: true }] });
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      using silent = silenceConsole(['warn']);
 
       await pushCommand([], RICH_STYLES, process.cwd());
 
-      expect(warn).toHaveBeenCalledWith(
+      expect(silent.warn).toHaveBeenCalledWith(
         'Skipping cli-v0.5.0 (packages/cli): excluded by config (shouldExclude: true).',
       );
       expect(mockPushRelease).toHaveBeenCalledWith([TAGS[0]], { dryRun: false, tagsOnly: false });
