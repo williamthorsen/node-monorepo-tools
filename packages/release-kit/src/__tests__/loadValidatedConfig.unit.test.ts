@@ -1,5 +1,5 @@
 import { captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { ProcessExitError, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockLoadConfig = vi.hoisted(() => vi.fn());
@@ -131,22 +131,20 @@ describe(reportConfigProblem, () => {
 
 describe(reportConfigWarnings, () => {
   it('renders one status line per warning', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    using silent = silenceConsole(['warn']);
 
     reportConfigWarnings(['first warning', 'second warning'], 'plain');
 
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('first warning'));
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('second warning'));
-    warn.mockRestore();
+    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('first warning'));
+    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('second warning'));
   });
 
   it('writes nothing when the warnings list is empty', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    using silent = silenceConsole(['warn']);
 
     reportConfigWarnings([], 'plain');
 
-    expect(warn).not.toHaveBeenCalled();
-    warn.mockRestore();
+    expect(silent.warn).not.toHaveBeenCalled();
   });
 });
 
@@ -223,10 +221,10 @@ describe(loadUsableConfig, () => {
       changelogJson: { enabled: false },
       releaseNotes: { shouldInjectIntoReadme: true },
     });
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    using silent = silenceConsole(['warn']);
 
     await loadUsableConfig('plain');
 
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('shouldInjectIntoReadme'));
+    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('shouldInjectIntoReadme'));
   });
 });

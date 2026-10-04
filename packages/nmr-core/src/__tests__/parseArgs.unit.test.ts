@@ -1,4 +1,4 @@
-import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { ProcessExitError, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -13,20 +13,16 @@ const mixedSchema = {
 };
 
 /** Asserts that parsing throws a `ParseError` with the given kind and flag, and returns it. */
-function expectParseError(argv: string[], schema: FlagSchema, kind: ParseErrorKind, flag: string): ParseError {
-  let thrown: unknown;
-  try {
-    parseArgs(argv, schema);
-  } catch (error: unknown) {
-    thrown = error;
-  }
-  expect(thrown).toBeInstanceOf(ParseError);
-  if (!(thrown instanceof ParseError)) {
-    throw new Error('expected parseArgs to throw a ParseError');
-  }
-  expect(thrown.kind).toBe(kind);
-  expect(thrown.flag).toBe(flag);
-  return thrown;
+async function expectParseError(
+  argv: string[],
+  schema: FlagSchema,
+  kind: ParseErrorKind,
+  flag: string,
+): Promise<ParseError> {
+  const error = await captureError(ParseError, () => parseArgs(argv, schema));
+  expect(error.kind).toBe(kind);
+  expect(error.flag).toBe(flag);
+  return error;
 }
 
 describe(parseArgs, () => {
@@ -55,8 +51,8 @@ describe(parseArgs, () => {
       expect(result.flags.verbose).toBe(false);
     });
 
-    it('throws unexpected-value when a boolean flag is given a value via = form', () => {
-      const error = expectParseError(['--dry-run=true'], mixedSchema, 'unexpected-value', '--dry-run');
+    it('throws unexpected-value when a boolean flag is given a value via = form', async () => {
+      const error = await expectParseError(['--dry-run=true'], mixedSchema, 'unexpected-value', '--dry-run');
       expect(error.message).toBe('Option does not accept a value: --dry-run');
     });
   });
@@ -74,17 +70,17 @@ describe(parseArgs, () => {
       expect(parseArgs(['-o', 'dist/out.js'], mixedSchema).flags.output).toBe('dist/out.js');
     });
 
-    it('throws missing-value when --flag= has an empty value', () => {
-      const error = expectParseError(['--output='], mixedSchema, 'missing-value', '--output');
+    it('throws missing-value when --flag= has an empty value', async () => {
+      const error = await expectParseError(['--output='], mixedSchema, 'missing-value', '--output');
       expect(error.message).toBe('Missing value for option: --output');
     });
 
-    it('throws missing-value when a string flag is at end of argv without a value', () => {
-      expectParseError(['--output'], mixedSchema, 'missing-value', '--output');
+    it('throws missing-value when a string flag is at end of argv without a value', async () => {
+      await expectParseError(['--output'], mixedSchema, 'missing-value', '--output');
     });
 
-    it('throws missing-value when a string flag is followed by another flag', () => {
-      expectParseError(['--output', '--dry-run'], mixedSchema, 'missing-value', '--output');
+    it('throws missing-value when a string flag is followed by another flag', async () => {
+      await expectParseError(['--output', '--dry-run'], mixedSchema, 'missing-value', '--output');
     });
 
     it('defaults string flags to undefined when absent', () => {
@@ -97,36 +93,36 @@ describe(parseArgs, () => {
   });
 
   describe('unknown flags', () => {
-    it('throws unknown-flag for an unknown long flag', () => {
-      const error = expectParseError(['--unknown'], mixedSchema, 'unknown-flag', '--unknown');
+    it('throws unknown-flag for an unknown long flag', async () => {
+      const error = await expectParseError(['--unknown'], mixedSchema, 'unknown-flag', '--unknown');
       expect(error.message).toBe('Unknown option: --unknown');
     });
 
-    it('throws unknown-flag for an unknown short flag, echoing the typed form', () => {
-      expectParseError(['-x'], mixedSchema, 'unknown-flag', '-x');
+    it('throws unknown-flag for an unknown short flag, echoing the typed form', async () => {
+      await expectParseError(['-x'], mixedSchema, 'unknown-flag', '-x');
     });
 
-    it('throws unknown-flag for an unknown long flag in = form', () => {
-      expectParseError(['--unknown=val'], mixedSchema, 'unknown-flag', '--unknown');
+    it('throws unknown-flag for an unknown long flag in = form', async () => {
+      await expectParseError(['--unknown=val'], mixedSchema, 'unknown-flag', '--unknown');
     });
   });
 
   describe('positionals', () => {
-    it('rejects an unexpected positional by default', () => {
-      const error = expectParseError(['foo'], emptySchema, 'unexpected-positional', 'foo');
+    it('rejects an unexpected positional by default', async () => {
+      const error = await expectParseError(['foo'], emptySchema, 'unexpected-positional', 'foo');
       expect(error.message).toBe('Unexpected positional argument: foo');
     });
 
-    it('reports the first positional when several are present', () => {
-      expectParseError(['foo', 'bar', 'baz'], emptySchema, 'unexpected-positional', 'foo');
+    it('reports the first positional when several are present', async () => {
+      await expectParseError(['foo', 'bar', 'baz'], emptySchema, 'unexpected-positional', 'foo');
     });
 
-    it('rejects a positional interleaved with valid flags, reporting the positional', () => {
-      expectParseError(['foo', '--dry-run', 'bar'], mixedSchema, 'unexpected-positional', 'foo');
+    it('rejects a positional interleaved with valid flags, reporting the positional', async () => {
+      await expectParseError(['foo', '--dry-run', 'bar'], mixedSchema, 'unexpected-positional', 'foo');
     });
 
-    it('rejects bare - as an unexpected positional by default', () => {
-      expectParseError(['-'], emptySchema, 'unexpected-positional', '-');
+    it('rejects bare - as an unexpected positional by default', async () => {
+      await expectParseError(['-'], emptySchema, 'unexpected-positional', '-');
     });
 
     it('collects positionals in order when allowPositionals is set', () => {
@@ -150,8 +146,8 @@ describe(parseArgs, () => {
   });
 
   describe('-- delimiter', () => {
-    it('rejects positionals after -- by default', () => {
-      expectParseError(['--dry-run', '--', '--output', 'val'], mixedSchema, 'unexpected-positional', '--output');
+    it('rejects positionals after -- by default', async () => {
+      await expectParseError(['--dry-run', '--', '--output', 'val'], mixedSchema, 'unexpected-positional', '--output');
     });
 
     it('collects everything after -- as positionals when allowPositionals is set', () => {
@@ -170,16 +166,16 @@ describe(parseArgs, () => {
   });
 
   describe('empty schema', () => {
-    it('rejects non-flag args as unexpected positionals by default', () => {
-      expectParseError(['a', 'b'], emptySchema, 'unexpected-positional', 'a');
+    it('rejects non-flag args as unexpected positionals by default', async () => {
+      await expectParseError(['a', 'b'], emptySchema, 'unexpected-positional', 'a');
     });
 
     it('treats all non-flag args as positionals when allowPositionals is set', () => {
       expect(parseArgs(['a', 'b'], emptySchema, { allowPositionals: true }).positionals).toStrictEqual(['a', 'b']);
     });
 
-    it('throws unknown-flag on any flag', () => {
-      expectParseError(['--anything'], emptySchema, 'unknown-flag', '--anything');
+    it('throws unknown-flag on any flag', async () => {
+      await expectParseError(['--anything'], emptySchema, 'unknown-flag', '--anything');
     });
   });
 
@@ -196,8 +192,8 @@ describe(parseArgs, () => {
       expect(result.flags.build).toBe(true);
     });
 
-    it('throws unknown-flag for an unknown flag inside a cluster', () => {
-      expectParseError(['-ax'], clusterSchema, 'unknown-flag', '-x');
+    it('throws unknown-flag for an unknown flag inside a cluster', async () => {
+      await expectParseError(['-ax'], clusterSchema, 'unknown-flag', '-x');
     });
   });
 });
