@@ -27,7 +27,7 @@ describe('code-quality.yaml legs', () => {
 
     const legNames = legs.map((leg) => leg.name);
 
-    expect(legNames).toStrictEqual(expandSteps(toStepNames(registry['ci']), registry, new Set(legNames)));
+    expect(legNames).toStrictEqual(expandSteps(['ci'], registry, new Set(legNames)));
   });
 });
 
@@ -39,14 +39,20 @@ interface Leg {
 }
 
 /**
- * Keeps each step that a leg runs, and replaces any other composite with its steps followed by its `:post` entries,
- * recursively. A step that is neither stays as it is, so that the comparison reports it as missing.
+ * Keeps each step that a leg runs, and replaces any other composite with its `:pre` hook, its steps, and its `:post`
+ * hook, as nmr's hook wrapping orders them, recursively. A step that is neither stays as it is, so that the
+ * comparison reports it as missing; a hook declared as a string script is such a step.
  */
 function expandSteps(steps: string[], registry: ScriptRegistry, legNames: ReadonlySet<string>): string[] {
   return steps.flatMap((step) => {
     const value = registry[step];
     if (legNames.has(step) || !Array.isArray(value)) return [step];
-    return expandSteps([...toStepNames(value), ...toStepNames(registry[`${step}:post`])], registry, legNames);
+    const expanded = [
+      ...toHookNames(step, 'pre', registry),
+      ...toStepNames(value),
+      ...toHookNames(step, 'post', registry),
+    ];
+    return expandSteps(expanded, registry, legNames);
   });
 }
 
@@ -84,6 +90,12 @@ function readPath(value: unknown, keys: string[]): unknown {
     current = Object.getOwnPropertyDescriptor(current, key)?.value;
   }
   return current;
+}
+
+/** Names a command's `:pre` or `:post` hook when the registry declares one. */
+function toHookNames(command: string, phase: 'post' | 'pre', registry: ScriptRegistry): string[] {
+  const hook = `${command}:${phase}`;
+  return Object.hasOwn(registry, hook) ? [hook] : [];
 }
 
 /** Names the commands of a composite's steps; a string script or a missing entry yields none. */
