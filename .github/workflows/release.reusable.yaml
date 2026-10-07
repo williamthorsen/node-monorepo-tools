@@ -120,6 +120,8 @@ jobs:
           if [ "${{ inputs.force }}" = "true" ]; then
             ARGS="$ARGS --force"
           fi
+          # `$ARGS` stays unquoted so that each flag reaches the command as its own argument.
+          # shellcheck disable=SC2086
           ${{ inputs.prepare-command }} $ARGS
 
       - name: Check for changes

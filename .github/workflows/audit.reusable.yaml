@@ -189,6 +189,8 @@ jobs:
       - name: Find or create standing issue
         id: find-issue
         run: |
+          # The single quotes keep `$owner` and `$repo` for GraphQL, which binds them from the `-f` fields.
+          # shellcheck disable=SC2016
           ISSUE_NUMBER=$(gh api graphql \
             -f owner="${GITHUB_REPOSITORY%/*}" -f repo="${GITHUB_REPOSITORY#*/}" \
             -f query='
