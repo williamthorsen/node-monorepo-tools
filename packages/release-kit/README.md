@@ -130,15 +130,15 @@ release-kit publishes two [readyup](https://www.npmjs.com/package/readyup) kits:
 import { defineRdyConfig } from 'readyup';
 
 export default defineRdyConfig({
-  packages: ['@williamthorsen/release-kit'],
+  sources: ['npm:@williamthorsen/release-kit'],
 });
 ```
 
 ```bash
-rdy run --packages
+rdy run --sources
 ```
 
-`rdy run` needs `readyup` 0.23 or later, and `@williamthorsen/release-kit` as a _direct_ devDependency: A strict pnpm layout links nothing else into the project; therefore, a transitive copy is unreachable.
+`rdy run --sources` needs `readyup` 0.40 or later, and `@williamthorsen/release-kit` as a _direct_ devDependency: A strict pnpm layout links nothing else into the project; therefore, a transitive copy is unreachable.
 
 [Readiness checks](docs/readiness-checks.md) covers running each kit alone and what `npm-auto-publish` needs from the npm session.
 

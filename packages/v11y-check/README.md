@@ -158,17 +158,17 @@ Add `readyup` as a devDependency, then name v11y-check in its config:
 import { defineRdyConfig } from 'readyup';
 
 export default defineRdyConfig({
-  packages: ['v11y-check'],
+  sources: ['npm:v11y-check'],
 });
 ```
 
 ```bash
-rdy run --packages              # every kit that each listed package publishes
+rdy run --sources               # every kit that each listed package publishes
 rdy run --from npm:v11y-check   # v11y-check's kit alone, without the config entry
 rdy list --from npm:v11y-check  # what v11y-check publishes
 ```
 
-`--packages` is the form that keeps working if v11y-check publishes further kits. Every form needs `readyup` 0.23 or later, and `v11y-check` as a _direct_ devDependency: A strict pnpm layout links only direct dependencies into the project, which leaves a transitive copy unreachable.
+`--sources` is the form that keeps working if v11y-check publishes further kits. `--sources` needs `readyup` 0.40 or later and `--from` needs 0.23 or later, and every form needs `v11y-check` as a _direct_ devDependency: A strict pnpm layout links only direct dependencies into the project, which leaves a transitive copy unreachable.
 
 The kit is no longer reachable through `rdy run --from github:williamthorsen/node-monorepo-tools`. Repos still using that form should switch to one of the invocations above.
 

@@ -57,7 +57,7 @@ Tests are grouped into isolation tiers, each named for the furthest thing that a
 Before pushing:
 
 ```shell
-nmr ci               # what the code-quality workflow runs: build, then strict checks
+nmr ci               # build, then strict checks: what the code-quality workflow runs as parallel legs
 nmr prepush          # the dependency audit, then ci
 ```
 
