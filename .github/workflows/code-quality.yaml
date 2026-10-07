@@ -20,6 +20,16 @@ concurrency:
 
 jobs:
   code-quality:
-    uses: williamthorsen/.github/.github/workflows/code-quality-pnpm-workflow.yaml@v7
+    uses: williamthorsen/.github/.github/workflows/code-quality-pnpm-workflow.yaml@v8
+    # The legs together run every constituent of `nmr ci`. `check:content` runs `check:strict`'s :post hook,
+    # which a split into legs does not fire; `__tests__/code-quality-legs.app.unit.test.ts` keeps the legs in step.
     with:
-      check-command: pnpm exec nmr build && pnpm exec nmr check:strict
+      check-commands: >-
+        [
+          { "name": "build", "command": "pnpm exec nmr build" },
+          { "name": "typecheck", "command": "pnpm exec nmr typecheck" },
+          { "name": "fmt:check", "command": "pnpm exec nmr fmt:check" },
+          { "name": "lint:strict", "command": "pnpm exec nmr lint:strict" },
+          { "name": "test", "command": "pnpm exec nmr test" },
+          { "name": "check:content", "command": "pnpm exec nmr check:content" }
+        ]
