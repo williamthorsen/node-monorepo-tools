@@ -1,18 +1,19 @@
 import { defineRdyConfig } from 'readyup';
 
 export default defineRdyConfig({
-  // `rdy run --packages` runs the kit that each of these packages publishes.
-  packages: [
-    '@williamthorsen/eslint-config-typescript',
-    '@williamthorsen/nmr',
-    '@williamthorsen/release-kit',
-    '@williamthorsen/toolbelt.errors',
-    '@williamthorsen/toolbelt.filesystem',
-    '@williamthorsen/toolbelt.testing',
-    '@williamthorsen/toolbelt.vitest',
-    '@williamthorsen/tsconfig',
-    'codeassembly',
-    'readyup',
-    'v11y-check',
+  // `rdy run --sources` runs the kits that each of these sources publishes.
+  sources: [
+    'github:williamthorsen/.github',
+    'npm:@williamthorsen/eslint-config-typescript',
+    'npm:@williamthorsen/nmr',
+    'npm:@williamthorsen/release-kit',
+    'npm:@williamthorsen/toolbelt.errors',
+    'npm:@williamthorsen/toolbelt.filesystem',
+    'npm:@williamthorsen/toolbelt.testing',
+    'npm:@williamthorsen/toolbelt.vitest',
+    'npm:@williamthorsen/tsconfig',
+    'npm:codeassembly',
+    'npm:readyup',
+    'npm:v11y-check',
   ],
 });

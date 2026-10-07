@@ -9,7 +9,7 @@ catalog:
   '@williamthorsen/toolbelt.vitest': 0.10.2
   esbuild: 0.28.2
   prettier: 3.9.9
-  readyup: 0.39.0
+  readyup: 0.40.0
   vitest: 4.1.11
   yaml: 2.9.1
 

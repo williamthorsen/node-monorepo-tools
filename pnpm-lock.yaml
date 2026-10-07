@@ -186,8 +186,8 @@ catalogs:
       specifier: 3.9.9
       version: 3.9.9
     readyup:
-      specifier: 0.39.0
-      version: 0.39.0
+      specifier: 0.40.0
+      version: 0.40.0
     vitest:
       specifier: 4.1.11
       version: 4.1.11
@@ -216,7 +216,7 @@ importers:
         version: 1.6.27(@typescript-eslint/eslint-plugin@8.71.0(@typescript-eslint/parser@8.71.0(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)(vitest@4.1.11)
       '@williamthorsen/eslint-config-typescript':
         specifier: 18.0.0
-        version: 18.0.0(@typescript-eslint/utils@8.71.0(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vitest/eslint-plugin@1.6.27(@typescript-eslint/eslint-plugin@8.71.0(@typescript-eslint/parser@8.71.0(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)(vitest@4.1.11))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(readyup@0.39.0(esbuild@0.28.2))(supports-color@7.2.0)(typescript@6.0.3)
+        version: 18.0.0(@typescript-eslint/utils@8.71.0(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vitest/eslint-plugin@1.6.27(@typescript-eslint/eslint-plugin@8.71.0(@typescript-eslint/parser@8.71.0(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)(vitest@4.1.11))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(readyup@0.40.0(esbuild@0.28.2))(supports-color@7.2.0)(typescript@6.0.3)
       '@williamthorsen/nmr':
         specifier: workspace:*
         version: link:packages/nmr
@@ -240,7 +240,7 @@ importers:
         version: 0.10.2(vitest@4.1.11)
       '@williamthorsen/tsconfig':
         specifier: 0.10.0
-        version: 0.10.0(readyup@0.39.0(esbuild@0.28.2))
+        version: 0.10.0(readyup@0.40.0(esbuild@0.28.2))
       codeassembly:
         specifier: 0.16.0
         version: 0.16.0
@@ -255,7 +255,7 @@ importers:
         version: 3.9.9
       readyup:
         specifier: 'catalog:'
-        version: 0.39.0(esbuild@0.28.2)
+        version: 0.40.0(esbuild@0.28.2)
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -325,7 +325,7 @@ importers:
         version: 0.28.2
       readyup:
         specifier: 'catalog:'
-        version: 0.39.0(esbuild@0.28.2)
+        version: 0.40.0(esbuild@0.28.2)
       tinyglobby:
         specifier: 0.2.17
         version: 0.2.17
@@ -414,7 +414,7 @@ importers:
         version: 0.28.2
       readyup:
         specifier: 'catalog:'
-        version: 0.39.0(esbuild@0.28.2)
+        version: 0.40.0(esbuild@0.28.2)
       smol-toml:
         specifier: 1.9.0
         version: 1.9.0
@@ -451,7 +451,7 @@ importers:
         version: 0.28.2
       readyup:
         specifier: 'catalog:'
-        version: 0.39.0(esbuild@0.28.2)
+        version: 0.40.0(esbuild@0.28.2)
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@types/node@24.19.0)(@vitest/coverage-v8@4.1.11)(vite@8.3.1(@types/node@24.19.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
@@ -2294,8 +2294,8 @@ packages:
     resolution: {integrity: sha512-7KA6+N9IGat52d83dvxnApAWN+MtVb1MiVuMR/cf1O4kYsJG+g/Aav0AHcHKsb6StinayfPLne0+fMX2sOzAKg==}
     engines: {node: '>=6'}
 
-  readyup@0.39.0:
-    resolution: {integrity: sha512-+B59xnMJoCc+xJzZ2G2StFsK3jU/t5FKSDRPA7dUki9IRyLhTFIfRj2eSJlWfw1jdZ/WhUaLbgkNeePyuTYCpw==}
+  readyup@0.40.0:
+    resolution: {integrity: sha512-J05Wn+k4COYuCtP+3jD4dzcr3QTQVmq7mERXV6v9auD3KwUP1ehEyQxl1Ja75poXk2iaYdGXThVwSUmz0T3mQg==}
     engines: {node: '>=24'}
     hasBin: true
     peerDependencies:
@@ -3377,7 +3377,7 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.2.0
 
-  '@williamthorsen/eslint-config-typescript@18.0.0(@typescript-eslint/utils@8.71.0(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vitest/eslint-plugin@1.6.27(@typescript-eslint/eslint-plugin@8.71.0(@typescript-eslint/parser@8.71.0(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)(vitest@4.1.11))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(readyup@0.39.0(esbuild@0.28.2))(supports-color@7.2.0)(typescript@6.0.3)':
+  '@williamthorsen/eslint-config-typescript@18.0.0(@typescript-eslint/utils@8.71.0(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vitest/eslint-plugin@1.6.27(@typescript-eslint/eslint-plugin@8.71.0(@typescript-eslint/parser@8.71.0(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)(vitest@4.1.11))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(readyup@0.40.0(esbuild@0.28.2))(supports-color@7.2.0)(typescript@6.0.3)':
     dependencies:
       '@eslint-community/eslint-plugin-eslint-comments': 4.8.1(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))
       '@eslint/js': 10.0.1(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))
@@ -3398,7 +3398,7 @@ snapshots:
       yaml-eslint-parser: 2.1.0
     optionalDependencies:
       '@vitest/eslint-plugin': 1.6.27(@typescript-eslint/eslint-plugin@8.71.0(@typescript-eslint/parser@8.71.0(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)(vitest@4.1.11)
-      readyup: 0.39.0(esbuild@0.28.2)
+      readyup: 0.40.0(esbuild@0.28.2)
     transitivePeerDependencies:
       - '@eslint/json'
       - eslint-import-resolver-node
@@ -3468,9 +3468,9 @@ snapshots:
     dependencies:
       vitest: 4.1.11(@types/node@24.19.0)(@vitest/coverage-v8@4.1.11)(vite@8.3.1(@types/node@24.19.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
 
-  '@williamthorsen/tsconfig@0.10.0(readyup@0.39.0(esbuild@0.28.2))':
+  '@williamthorsen/tsconfig@0.10.0(readyup@0.40.0(esbuild@0.28.2))':
     optionalDependencies:
-      readyup: 0.39.0(esbuild@0.28.2)
+      readyup: 0.40.0(esbuild@0.28.2)
 
   acorn-jsx@5.3.2(acorn@8.19.0):
     dependencies:
@@ -4329,7 +4329,7 @@ snapshots:
 
   readline-transform@1.0.0: {}
 
-  readyup@0.39.0(esbuild@0.28.2):
+  readyup@0.40.0(esbuild@0.28.2):
     dependencies:
       '@williamthorsen/toolbelt.errors': 0.8.2
       '@williamthorsen/toolbelt.packaging': 0.6.2
