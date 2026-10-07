@@ -2,7 +2,7 @@
 
 ## Overview
 
-A pnpm monorepo of CLI tools for Node.js monorepo development. Packages provide a unified script runner (`nmr`) and release automation (`release-kit`), with shared utilities in `nmr-core`. Pre-deployment checks use `readyup` (external dev dependency); `nmr`, `release-kit`, and `v11y-check` each publish the kit that checks their own setup, and `.config/readyup.config.ts` names every package whose kit `rdy run --packages` runs, external dependencies included.
+A pnpm monorepo of CLI tools for Node.js monorepo development. Packages provide a unified script runner (`nmr`) and release automation (`release-kit`), with shared utilities in `nmr-core`. Pre-deployment checks use `readyup` (external dev dependency); `nmr`, `release-kit`, and `v11y-check` each publish the kit that checks their own setup, and `.config/readyup.config.ts` names every source whose kits `rdy run --sources` runs, external dependencies included.
 
 ## Project structure
 
@@ -49,7 +49,7 @@ Packages live under `packages/`:
 - `postinstall` runs `codeassembly sync --warn-only`, which writes the gitignored per-harness local guidance file containing the ambient rulebooks that this repo declares; `--warn-only` keeps a sync failure from breaking the install
 - `.agents/codeassembly.yaml` names `@williamthorsen/nmr`, a `workspace:*` devDependency, so this repo consumes the rulebook that it authors at `packages/nmr/agents/guidance/rulebooks/nmr.md`; `.config/nmr.config.ts`'s `check:content` override validates that tree
 - Hand-authored guidance in this file does not include a codeassembly rulebook region, because `sync` treats this file as a legacy ambient host and strips any such region that it finds here
-- codeassembly's `guidance` checklist covers this file alone; it catches neither a broken `postinstall` nor a `.agents/codeassembly.yaml` that stopped naming the rulebook. `rdy run --packages` is the only command that runs it, and the workflows do not run it
+- codeassembly's `guidance` checklist covers this file alone; it catches neither a broken `postinstall` nor a `.agents/codeassembly.yaml` that stopped naming the rulebook. `rdy run --sources` is the only command that runs it, and the workflows do not run it
 
 ## Gotchas
 

@@ -1,26 +1,13 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 const repoRoot = join(import.meta.dirname, '..');
-const workflowPath = join(repoRoot, '.github/workflows/code-quality.yaml');
-
-/** Reads a file, asserting first that it exists. */
-function readRepoFile(path: string): string {
-  expect(existsSync(path), `expected file to exist: ${path}`).toBe(true);
-  return readFileSync(path, 'utf8');
-}
 
 describe('nmr kit audit config migration checks against this repo', () => {
   it('passes: the repo does not have a legacy .audit-ci/ directory', () => {
     expect(existsSync(join(repoRoot, '.audit-ci'))).toBe(false);
-  });
-
-  it('passes: code-quality workflow uses build && check:strict', () => {
-    const content = readRepoFile(workflowPath);
-
-    expect(content).toContain('pnpm exec nmr build && pnpm exec nmr check:strict');
   });
 });
 

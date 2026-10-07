@@ -256,17 +256,17 @@ Add `readyup` as a devDependency, then name nmr in its config:
 import { defineRdyConfig } from 'readyup';
 
 export default defineRdyConfig({
-  packages: ['@williamthorsen/nmr'],
+  sources: ['npm:@williamthorsen/nmr'],
 });
 ```
 
 ```bash
-rdy run --packages                       # every kit that each listed package publishes
+rdy run --sources                        # every kit that each listed package publishes
 rdy run --from npm:@williamthorsen/nmr   # nmr's kit alone, without the config entry
 rdy list --from npm:@williamthorsen/nmr  # what nmr publishes
 ```
 
-`--packages` is the form that survives nmr publishing further kits. Both need `readyup` 0.23 or later, and `@williamthorsen/nmr` as a _direct_ devDependency: A strict pnpm layout links nothing else into the project, so a transitive copy is unreachable.
+`--sources` is the form that survives nmr publishing further kits. `--sources` needs `readyup` 0.40 or later and `--from` needs 0.23 or later, and both need `@williamthorsen/nmr` as a _direct_ devDependency: A strict pnpm layout links nothing else into the project, so a transitive copy is unreachable.
 
 ## Documentation
 
