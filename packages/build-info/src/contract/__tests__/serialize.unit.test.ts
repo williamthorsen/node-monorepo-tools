@@ -6,7 +6,7 @@ import { parseBuildInfo } from '../parse.ts';
 import { serializeBuildInfo } from '../serialize.ts';
 import type { BuildInfo } from '../types.ts';
 
-describe('serializeBuildInfo', () => {
+describe(serializeBuildInfo, () => {
   it.each<[description: string, info: BuildInfo]>([
     ['every field', buildFullBuildInfo()],
     ['only the required fields', buildMinimalBuildInfo()],

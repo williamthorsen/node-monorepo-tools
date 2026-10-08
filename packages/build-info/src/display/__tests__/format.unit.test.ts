@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildFullBuildInfo, buildMinimalBuildInfo } from '../../test-utils/build-info-fixtures.ts';
 import { formatBuildLabel, getCommitUrl } from '../format.ts';
 
-describe('formatBuildLabel', () => {
+describe(formatBuildLabel, () => {
   it('formats the version, short SHA, and build time truncated to the minute', () => {
     expect(formatBuildLabel(buildFullBuildInfo())).toBe('v0.7.0 · a59f2f8 · 2026-10-08 06:29Z');
   });
@@ -17,7 +17,7 @@ describe('formatBuildLabel', () => {
   });
 });
 
-describe('getCommitUrl', () => {
+describe(getCommitUrl, () => {
   it('returns the commit URL on GitHub', () => {
     expect(getCommitUrl(buildFullBuildInfo())).toBe(
       'https://github.com/acme/web/commit/a59f2f8c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a',

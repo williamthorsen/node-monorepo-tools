@@ -4,7 +4,7 @@ import { buildFullBuildInfo, buildMinimalBuildInfo } from '../../test-utils/buil
 import { InvalidBuildInfoError } from '../InvalidBuildInfoError.ts';
 import { isBuildInfo, parseBuildInfo } from '../parse.ts';
 
-describe('parseBuildInfo', () => {
+describe(parseBuildInfo, () => {
   it('accepts a parsed object', () => {
     const info = buildFullBuildInfo();
 
@@ -135,7 +135,7 @@ describe('parseBuildInfo', () => {
   });
 });
 
-describe('isBuildInfo', () => {
+describe(isBuildInfo, () => {
   it('returns true for a valid object that has unknown keys', () => {
     expect(isBuildInfo({ ...buildFullBuildInfo(), extra: true })).toBe(true);
   });

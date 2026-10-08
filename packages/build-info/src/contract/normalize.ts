@@ -1,16 +1,16 @@
 import { InvalidBuildInfoError } from './InvalidBuildInfoError.ts';
-import type {
-  BuildHost,
-  BuildInfo,
-  BuildInfoCommit,
-  BuildInfoDeployment,
-  BuildInfoReleaseNotes,
-  BuildInfoReleaseNotesItem,
-  BuildInfoReleaseNotesSection,
-  BuildInfoRepository,
-  BuildInfoRuntime,
+import {
+  BUILD_HOSTS,
+  type BuildHost,
+  type BuildInfo,
+  type BuildInfoCommit,
+  type BuildInfoDeployment,
+  type BuildInfoReleaseNotes,
+  type BuildInfoReleaseNotesItem,
+  type BuildInfoReleaseNotesSection,
+  type BuildInfoRepository,
+  type BuildInfoRuntime,
 } from './types.ts';
-import { BUILD_HOSTS } from './types.ts';
 
 /** Matches an ISO 8601 date-time in UTC, with optional fractional seconds. */
 const UTC_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
