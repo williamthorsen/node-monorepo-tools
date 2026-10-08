@@ -37,6 +37,7 @@
     "prepublishOnly": "nmr build"
   },
   "devDependencies": {
+    "@williamthorsen/toolbelt.testing": "catalog:",
     "eslint": "10.11.0",
     "vitest": "catalog:"
   },
