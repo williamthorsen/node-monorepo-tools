@@ -30,26 +30,67 @@ const VIOLATING_SOURCE = [
   '',
 ].join('\n');
 
+/** A source that uses Node, `process`, and a package that build-info declares, as the Node-side entries do. */
+const NODE_SIDE_SOURCE = [
+  "import { readFileSync } from 'node:fs';",
+  '',
+  "import type { Linter } from 'eslint';",
+  '',
+  'export function probe(): unknown[] {',
+  '  const config: Linter.Config | undefined = undefined;',
+  '  return [readFileSync, config, process.env.HOME];',
+  '}',
+  '',
+].join('\n');
+
+/** A host-agnostic source that imports the Node-side `collect` entry. */
+const NODE_SIDE_IMPORT_SOURCE = [
+  "import { readManifest } from './collect/sources/readManifest.ts';",
+  '',
+  'export const probe = readManifest;',
+  '',
+].join('\n');
+
+const SOURCE_DIR = path.join(REPO_ROOT, 'packages', 'build-info', 'src');
+
 describe('the build-info lint boundary', () => {
   it('reports each boundary rule for a source that breaks them all', { timeout: 60_000 }, async () => {
-    const reported = await lintUnder(path.join(REPO_ROOT, 'packages', 'build-info', 'src', 'index.ts'));
+    const reported = await lintUnder(VIOLATING_SOURCE, path.join(SOURCE_DIR, 'index.ts'));
 
     expect(reported).toStrictEqual(BOUNDARY_RULES);
   });
 
   it('applies inside the package alone', { timeout: 60_000 }, async () => {
-    const reported = await lintUnder(path.join(REPO_ROOT, 'packages', 'nmr-core', 'src', 'index.ts'));
+    const reported = await lintUnder(VIOLATING_SOURCE, path.join(REPO_ROOT, 'packages', 'nmr-core', 'src', 'index.ts'));
 
     expect(reported).toStrictEqual([]);
+  });
+
+  it('exempts the Node-side entries from the dependency rules', { timeout: 60_000 }, async () => {
+    const reported = await lintUnder(NODE_SIDE_SOURCE, path.join(SOURCE_DIR, 'collect', 'sources', 'readManifest.ts'));
+
+    expect(reported).toStrictEqual([]);
+  });
+
+  it('keeps the Node-side entries inside the package', { timeout: 60_000 }, async () => {
+    const reported = await lintUnder(VIOLATING_SOURCE, path.join(SOURCE_DIR, 'collect', 'sources', 'readManifest.ts'));
+
+    expect(reported).toStrictEqual(['import-x/no-restricted-paths']);
+  });
+
+  it('keeps the host-agnostic source from importing a Node-side entry', { timeout: 60_000 }, async () => {
+    const reported = await lintUnder(NODE_SIDE_IMPORT_SOURCE, path.join(SOURCE_DIR, 'index.ts'));
+
+    expect(reported).toStrictEqual(['import-x/no-restricted-paths']);
   });
 });
 
 // region | Helpers
 
-/** Lints the violating source as though it were the file at `filePath`, reporting which boundary rules fired. */
-async function lintUnder(filePath: string): Promise<string[]> {
+/** Lints `source` as though it were the file at `filePath`, reporting which boundary rules fired. */
+async function lintUnder(source: string, filePath: string): Promise<string[]> {
   const eslint = new ESLint({ cwd: REPO_ROOT });
-  const [result] = await eslint.lintText(VIOLATING_SOURCE, { filePath });
+  const [result] = await eslint.lintText(source, { filePath });
   const fired = new Set(result?.messages.map((message) => message.ruleId));
   return BOUNDARY_RULES.filter((rule) => fired.has(rule));
 }

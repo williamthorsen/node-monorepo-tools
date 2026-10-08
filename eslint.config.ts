@@ -67,7 +67,7 @@ const config = defineConfig([
       'unicorn/no-nonstandard-builtin-properties': 'off',
     },
   }),
-  ...defineHostAgnosticBoundary('build-info'),
+  ...defineHostAgnosticBoundary('build-info', ['collect', 'vite']),
   ...defineHostAgnosticBoundary('change-grammar'),
   {
     files: ['**/scripts/**/*'],
@@ -84,26 +84,34 @@ export default config;
 /**
  * Returns the blocks that keep a package depending on nothing but itself, so that it runs anywhere: Its source does
  * not import any module outside the package, any package, or any Node builtin, and it does not read `process`.
+ *
+ * Each of `nodeSideDirs`, a directory under `src`, is exempt from the dependency rules and may not be imported by the
+ * rest of `src`, which keeps the host-agnostic entry free of anything that it reaches.
  */
-function defineHostAgnosticBoundary(packageDir: string): Linter.Config[] {
+function defineHostAgnosticBoundary(packageDir: string, nodeSideDirs: string[] = []): Linter.Config[] {
+  const sourceDir = `packages/${packageDir}/src`;
+  const outsideZone = {
+    except: [`./packages/${packageDir}`],
+    from: '.',
+    message: `The ${packageDir} package imports nothing outside its own directory.`,
+    target: `./${sourceDir}`,
+  };
+  const nodeSideZones = nodeSideDirs.map((dir) => ({
+    from: `./${sourceDir}/${dir}`,
+    message: `The host-agnostic source of ${packageDir} does not import its Node-side \`${dir}\` entry.`,
+    target: `./${sourceDir}`,
+  }));
+  const nodeSideGlobs = nodeSideDirs.map((dir) => `${sourceDir}/${dir}/**/*.ts`);
+
   return [
     {
-      files: [`packages/${packageDir}/src/**/*.ts`],
+      files: [`${sourceDir}/**/*.ts`],
+      ignores: nodeSideGlobs,
       rules: {
         'import-x/no-nodejs-modules': 'error',
         'import-x/no-restricted-paths': [
           'error',
-          {
-            basePath: import.meta.dirname,
-            zones: [
-              {
-                except: [`./packages/${packageDir}`],
-                from: '.',
-                message: `The ${packageDir} package imports nothing outside its own directory.`,
-                target: `./packages/${packageDir}/src`,
-              },
-            ],
-          },
+          { basePath: import.meta.dirname, zones: [outsideZone, ...nodeSideZones] },
         ],
         'no-restricted-globals': [
           'error',
@@ -122,10 +130,20 @@ function defineHostAgnosticBoundary(packageDir: string): Linter.Config[] {
         ],
       },
     },
+    ...(nodeSideGlobs.length > 0
+      ? [
+          {
+            files: nodeSideGlobs,
+            rules: {
+              'import-x/no-restricted-paths': ['error', { basePath: import.meta.dirname, zones: [outsideZone] }],
+            },
+          } satisfies Linter.Config,
+        ]
+      : []),
     {
       // The package's suites stay outside the dependency half of the boundary, because they run ESLint through
       // Vitest and read the filesystem. The path zone still applies to them.
-      files: [`packages/${packageDir}/src/**/__tests__/**/*.ts`],
+      files: [`${sourceDir}/**/__tests__/**/*.ts`],
       rules: {
         'import-x/no-nodejs-modules': 'off',
         'no-restricted-globals': 'off',
