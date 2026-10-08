@@ -8,6 +8,7 @@ A pnpm monorepo of CLI tools for Node.js monorepo development. Packages provide 
 
 Packages live under `packages/`:
 
+- **`@williamthorsen/build-info`**: Describes which build an app is: version, commit, build time, environment, and release notes. It does not have any dependencies.
 - **`@williamthorsen/change-grammar`**: Renders change records as subject lines and parses them back. It does not have any dependencies, and a lint block in `eslint.config.ts` keeps its non-test source from importing anything outside the package.
 - **`@williamthorsen/nmr`**: Context-aware script runner for pnpm monorepos. Detects root vs workspace context and resolves the appropriate script registry.
 - **`@williamthorsen/nmr-core`**: Shared utilities consumed by `nmr`, `release-kit`, and `v11y-check`.

@@ -6,6 +6,7 @@
 
 | Package                                                     | Description                                                 |
 | ----------------------------------------------------------- | ----------------------------------------------------------- |
+| [`@williamthorsen/build-info`](packages/build-info)         | Describes which build an app is                             |
 | [`@williamthorsen/change-grammar`](packages/change-grammar) | Renders and parses change subject lines                     |
 | [`@williamthorsen/nmr`](packages/nmr)                       | Context-aware script runner for pnpm monorepos              |
 | [`@williamthorsen/nmr-core`](packages/nmr-core)             | Shared utilities for monorepo tools                         |

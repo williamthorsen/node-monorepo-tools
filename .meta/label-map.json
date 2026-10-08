@@ -17,6 +17,8 @@
     "tooling": "tooling"
   },
   "scopes": {
+    "build-info": "scope:build-info",
+    "change-grammar": "scope:change-grammar",
     "core": "scope:core",
     "nmr": "scope:nmr",
     "release-kit": "scope:release-kit",
