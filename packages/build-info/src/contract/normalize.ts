@@ -22,7 +22,7 @@ const UTC_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
  */
 export function normalizeBuildInfo(value: unknown): BuildInfo {
   const record = readRecord(value, '');
-  if (record.schemaVersion !== 1) {
+  if (record['schemaVersion'] !== 1) {
     throw new InvalidBuildInfoError('schemaVersion', 'expected 1');
   }
 
@@ -112,7 +112,7 @@ function normalizeReleaseNotesSection(value: unknown, path: string): BuildInfoRe
   const record = readRecord(value, path);
   const title = readString(record, 'title', path);
   const itemsPath = joinKey(path, 'items');
-  return { title, items: readArray(record.items, itemsPath, normalizeReleaseNotesItem) };
+  return { title, items: readArray(record['items'], itemsPath, normalizeReleaseNotesItem) };
 }
 
 function normalizeRepository(value: unknown, path: string): BuildInfoRepository {

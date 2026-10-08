@@ -165,7 +165,7 @@ function captureError(action: () => unknown): unknown {
   throw new Error('Expected the action to throw');
 }
 
-function omitKey(record: Record<string, unknown>, key: string): Record<string, unknown> {
+function omitKey(record: object, key: string): Record<string, unknown> {
   return Object.fromEntries(Object.entries(record).filter(([candidate]) => candidate !== key));
 }
 
