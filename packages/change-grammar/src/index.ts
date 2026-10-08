@@ -22,4 +22,4 @@ export type {
 } from './types.ts';
 export type { PolicyViolation } from './validate.ts';
 export { validate } from './validate.ts';
-export { verify } from './verify.ts';
+export { findLossyRenders, verify } from './verify.ts';

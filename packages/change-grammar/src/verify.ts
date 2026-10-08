@@ -5,6 +5,48 @@ import type { TokenName } from './tokens.ts';
 import type { ChangeRecord, Taxonomy } from './types.ts';
 
 /**
+ * Reports each record shape admitted by the template's optional groups whose render does not read back as that record,
+ * empty when every shape does. A non-empty result is not a defect: An all-or-nothing prefix is a legitimate choice,
+ * though it drops a token that a project's changelog may need.
+ *
+ * A shape fills every token outside the groups, fills `{type}` whenever the template names it, and is tried with and
+ * without the breaking marker when the template can carry one. A typeless record is excluded because the type-required
+ * rule already refuses it. Returns an empty list for a template that does not compile, which `verify` reports.
+ */
+export function findLossyRenders(template: string, taxonomy: Taxonomy): string[] {
+  let nodes: TemplateNode[];
+  try {
+    nodes = compileTemplate(template);
+  } catch {
+    return [];
+  }
+
+  const named = new Set(
+    flattenTemplate(nodes)
+      .filter((node) => node.kind === 'token')
+      .map((node) => node.name),
+  );
+  const optional = [...collectGroupedTokens(nodes)].filter((name) => name !== 'breaking' && name !== 'type');
+  const markerStates = named.has('breaking') || named.has('type') ? [false, true] : [false];
+
+  const warnings: string[] = [];
+  for (const absent of listSubsets(optional)) {
+    const present = named.difference(new Set(absent));
+    for (const breaking of markerStates) {
+      const sample = buildSample(present, breaking, taxonomy);
+      const rendered = render(nodes, sample);
+      const parsed = parse(nodes, rendered, taxonomy);
+      if (describeRecord(parsed) !== describeRecord(sample)) {
+        warnings.push(
+          `Template ${JSON.stringify(template)} renders ${describeShape(absent, breaking)} as ${JSON.stringify(rendered)}, which reads back as ${describeRecord(parsed)}.`,
+        );
+      }
+    }
+  }
+  return warnings;
+}
+
+/**
  * Reports every reason a template cannot round-trip, empty when it can. Each message names the template and the defect.
  *
  * The structural rules run first and hold whatever the values are. Render-and-parse passes over well-formed values then
@@ -71,12 +113,36 @@ function buildSample(present: ReadonlySet<TokenName>, breaking: boolean, taxonom
   return sample;
 }
 
+/** Collects every token that sits inside an optional group, at any depth. */
+function collectGroupedTokens(nodes: readonly TemplateNode[]): Set<TokenName> {
+  const grouped = new Set<TokenName>();
+  for (const node of nodes) {
+    if (node.kind === 'group') {
+      for (const child of flattenTemplate(node.children)) {
+        if (child.kind === 'token') {
+          grouped.add(child.name);
+        }
+      }
+    }
+  }
+  return grouped;
+}
+
 /** Serializes a record with its keys ordered, so that two equal records compare equal as text. */
 function describeRecord(record: ChangeRecord | undefined): string {
   if (record === undefined) {
     return 'unmatched';
   }
   return JSON.stringify(Object.entries(record).toSorted(([a], [b]) => a.localeCompare(b)));
+}
+
+/** Names a record shape by the tokens that it leaves absent and by whether it is breaking. */
+function describeShape(absent: readonly TokenName[], breaking: boolean): string {
+  const record = breaking ? 'a breaking record' : 'a record';
+  if (absent.length === 0) {
+    return breaking ? record : `${record} with every token`;
+  }
+  return `${record} without ${absent.map((name) => `{${name}}`).join(' or ')}`;
 }
 
 /** Reports two tokens without a literal between them, which a parse cannot split. `{breaking}` has its own rule. */
@@ -219,6 +285,15 @@ function flattenTemplate(nodes: readonly TemplateNode[]): FlatNode[] {
 
 /** The tokens whose values are free text, so either edge of one may spell the breaking marker. */
 const FREE_TEXT_TOKENS: ReadonlySet<TokenName> = new Set<TokenName>(['scope', 'title']);
+
+/** Lists every subset of `items`, the empty subset first, each in the order of `items`. */
+function listSubsets<T>(items: readonly T[]): T[][] {
+  let subsets: T[][] = [[]];
+  for (const item of items) {
+    subsets = [...subsets, ...subsets.map((subset) => [...subset, item])];
+  }
+  return subsets;
+}
 
 /** Maps each token that an optional group can drop to every token that vanishes when that group drops. */
 function mapDroppableTokens(nodes: readonly TemplateNode[]): Map<TokenName, ReadonlySet<TokenName>> {
