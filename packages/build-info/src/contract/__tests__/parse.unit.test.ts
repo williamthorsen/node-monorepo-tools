@@ -156,6 +156,7 @@ describe(isBuildInfo, () => {
 
 // region | Helpers
 
+/** Returns the error thrown by the action, and fails the test if the action does not throw. */
 function captureError(action: () => unknown): unknown {
   try {
     action();
@@ -165,6 +166,7 @@ function captureError(action: () => unknown): unknown {
   throw new Error('Expected the action to throw');
 }
 
+/** Returns a copy of the record without the key. */
 function omitKey(record: object, key: string): Record<string, unknown> {
   return Object.fromEntries(Object.entries(record).filter(([candidate]) => candidate !== key));
 }

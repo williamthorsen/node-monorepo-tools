@@ -34,6 +34,7 @@ export function parseBuildInfo(value: unknown): BuildInfo {
 
 // region | Helpers
 
+/** Parses JSON text, wrapping a syntax error in an `InvalidBuildInfoError` with an empty path. */
 function parseJson(text: string): unknown {
   try {
     return JSON.parse(text);
