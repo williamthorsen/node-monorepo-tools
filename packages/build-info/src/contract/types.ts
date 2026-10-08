@@ -1,9 +1,6 @@
 /** The hosts whose builds the contract recognizes. */
 export const BUILD_HOSTS = ['vercel', 'eas', 'github-actions', 'local', 'unknown'] as const;
 
-/** The deployment environment: one of the three conventional names, or a custom one. */
-export type BuildEnvironment = 'production' | 'preview' | 'development' | (string & {});
-
 export type BuildHost = (typeof BUILD_HOSTS)[number];
 
 /** The report of which build an app is. */
@@ -14,7 +11,8 @@ export interface BuildInfo {
   /** ISO 8601 in UTC, such as `2026-10-08T06:29:41Z`. */
   buildTime: string;
   host: BuildHost;
-  environment: BuildEnvironment;
+  /** The deployment environment: conventionally `production`, `preview`, or `development`, or a custom name. */
+  environment: string;
   commit?: BuildInfoCommit;
   repository?: BuildInfoRepository;
   deployment?: BuildInfoDeployment;
@@ -57,7 +55,8 @@ export interface BuildInfoReleaseNotesSection {
 }
 
 export interface BuildInfoRepository {
-  provider: 'github' | (string & {});
+  /** The hosting service, such as `github`. */
+  provider: string;
   owner: string;
   name: string;
   url: string;
