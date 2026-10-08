@@ -1,0 +1,9 @@
+{
+  "action": "synchronize",
+  "number": 42,
+  "pull_request": {
+    "number": 42,
+    "head": { "ref": "feature", "sha": "2222222222222222222222222222222222222222" }
+  },
+  "repository": { "full_name": "acme/app", "default_branch": "main" }
+}
