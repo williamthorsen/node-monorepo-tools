@@ -25,6 +25,10 @@
     ".": {
       "types": "./dist/esm/index.d.ts",
       "default": "./dist/esm/index.js"
+    },
+    "./collect": {
+      "types": "./dist/esm/collect/index.d.ts",
+      "default": "./dist/esm/collect/index.js"
     }
   },
   "files": [
