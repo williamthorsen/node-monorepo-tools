@@ -11,8 +11,14 @@ const config = defineConfig([
     // raising it here fails the gate on one.
     linterOptions: { reportUnusedDisableDirectives: 'error' },
   },
-  // The revise-prose helper rewrites its record on every sweep, quoting a string as its YAML emitter chooses.
-  globalIgnores([...commonIgnores, ...toolIgnores, '.agents/revise-prose.yaml']),
+  // The revise-prose helper rewrites its record on every sweep, quoting a string as its YAML emitter chooses. A fixture
+  // manifest describes a test app rather than a published package, so the package-json rules do not apply to it.
+  globalIgnores([
+    ...commonIgnores,
+    ...toolIgnores,
+    '.agents/revise-prose.yaml',
+    '**/__tests__/fixtures/**/package.json',
+  ]),
   {
     files: ['**/*.js', '**/*.cjs', '**/*.mjs', '**/*.ts', '**/*.tsx'],
     rules: {
