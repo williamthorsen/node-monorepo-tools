@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { TEMPLATE_CATALOGUE } from '../templates.ts';
 import type { Taxonomy } from '../types.ts';
-import { verify } from '../verify.ts';
+import { findLossyRenders, verify } from '../verify.ts';
 
 const TAXONOMY: Taxonomy = {
   tiers: ['public', 'internal', 'process'],
@@ -12,6 +12,47 @@ const TAXONOMY: Taxonomy = {
     { aliases: ['doc'], breakingPolicy: 'forbidden', key: 'docs', tier: 'process' },
   ],
 };
+
+describe(findLossyRenders, () => {
+  it.each(Object.entries(TEMPLATE_CATALOGUE))('does not warn on the %s convention', (_convention, template) => {
+    expect(findLossyRenders(template, TAXONOMY)).toStrictEqual([]);
+  });
+
+  it.each([
+    '{title}',
+    'Release',
+    '[{ticket_ref} ]{title}',
+    '[{ticket_ref} ][[{scope}|]{type}: ]{title}[ (#{pr_number})]',
+    '[{ticket_ref} ][{scope}|][{type}: ]{title}[ (#{pr_number})]',
+  ])('does not warn on the configured template %s', (template) => {
+    expect(findLossyRenders(template, TAXONOMY)).toStrictEqual([]);
+  });
+
+  it('warns where a scope group containing the type drops the type with an absent scope', () => {
+    expect(findLossyRenders('[{scope}|{type}: ]{title}', TAXONOMY)).toStrictEqual([
+      'Template "[{scope}|{type}: ]{title}" renders a record without {scope} as "Add foo", which reads back as unmatched.',
+      'Template "[{scope}|{type}: ]{title}" renders a breaking record without {scope} as "Add foo", which reads back as unmatched.',
+    ]);
+  });
+
+  it('names each combination of absent tokens that loses the type', () => {
+    const warnings = findLossyRenders('[{ticket_ref} ][{scope}|{type}: ]{title}[ (#{pr_number})]', TAXONOMY);
+
+    expect(warnings).toHaveLength(8);
+    expect(warnings.every((warning) => /without .*\{scope\}/.test(warning))).toBe(true);
+    expect(warnings.some((warning) => warning.includes('without {ticket_ref} or {scope} or {pr_number}'))).toBe(true);
+  });
+
+  it('warns where a group that can drop contains the breaking marker', () => {
+    expect(findLossyRenders('{type}[({scope}){breaking}]: {title}', TAXONOMY)).toStrictEqual([
+      'Template "{type}[({scope}){breaking}]: {title}" renders a breaking record without {scope} as "feat: Add foo", which reads back as [["title","Add foo"],["type","feat"]].',
+    ]);
+  });
+
+  it('does not warn on a template that does not compile, which verify refuses', () => {
+    expect(findLossyRenders('[{scope}|{type}: {title}', TAXONOMY)).toStrictEqual([]);
+  });
+});
 
 describe(verify, () => {
   describe('templates that it accepts', () => {
