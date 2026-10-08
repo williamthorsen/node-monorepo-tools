@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.13.2 — 2026-10-08
+
+### 🏗️ Internal features
+
+- Adds an optional `stopAtDir` to `CacheDirRef`, which limits the upward search by `resolveCacheDir` for a `node_modules` to that directory, inclusive, and makes resolution throw when it is not the scope directory or one of its ancestors. (#969)
+
+### ♻️ Refactoring
+
+- Replaces the hand-written atomic cache write and directory walks in `nmr-core` and `nmr` with `writeAtomic` and `findDirectoryChainMatch` from `@williamthorsen/toolbelt.filesystem`, which both packages now declare in `dependencies`. (#966)
+
+### 🧪 Tests
+
+- Replaces the hand-rolled `try`/`catch` in nmr-core's `expectParseError` test helper with `captureError`, which fails the test when parsing does not throw. (#964)
+- Stops the tests in `cache-store.unit.test.ts` from writing and removing cache entries in an ancestor's `node_modules` outside their temp trees, which also made the fallback test fail, and adds a test that a scope below `stopAtDir` does not hoist past it. (#969)
+
 ## 0.13.1 — 2026-10-01
 
 ### ♻️ Refactoring

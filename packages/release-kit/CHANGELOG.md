@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## 14.0.0 — 2026-10-08
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Changes monorepo `--set-version` to take comma-separated `<workspace>@N.N.N` entries, which `prepare` accepts without `--only` and together with `--bump` and `--force`, and which release each named workspace's dependents. (#970)
+
+### 🐛 Bug fixes
+
+- 🚨 **Breaking:** Fixes the issue that `release-kit prepare --only` left each dependent of the named workspaces published against the old version range of its dependency, by also releasing every transitive dependent: a dependent with commits of its own at its own bump, and one without at a propagated patch bump. (#970)
+
+### 🧪 Tests
+
+- Replaces the hand-rolled `console.warn` spies in release-kit's config-warning and push tests with `silenceConsole`, which restores the method when its `using` scope exits. (#964)
+
+### 📚 Documentation
+
+- Updates the readyup examples in the `nmr`, `release-kit`, and `v11y-check` READMEs and the `nmr` rulebook to use the `sources` key and `rdy run --sources`, and states that `--sources` needs readyup 0.40 or later. (#977)
+
 ## 13.1.0 — 2026-10-02
 
 ### 🎉 Features
@@ -1111,9 +1129,13 @@ All notable changes to this project will be documented in this file.
 
 ### 🎉 Features
 
-- Migrate release-kit from toolbelt (#18)
+- Allow git-cliff to be used without config (#31)
 
-  Migrates the complete `@williamthorsen/release-kit` package (v1.0.1) from `williamthorsen/toolbelt` into `packages/release-kit/`, adds shebang preservation to the shared esbuild plugin for CLI binaries, and sets up dogfooding infrastructure so this monorepo uses release-kit for its own releases.
+  Adds a `resolveCliffConfigPath()` function that searches for a git-cliff config in a 4-step cascade (explicit path → `.config/git-cliff.toml` → `cliff.toml` → bundled `cliff.toml.template`), eliminating the requirement for consuming repos to maintain a cliff config copy. Restructures the `init` command to scaffold only the workflow file by default, with new `--with-config` and `--force` flags. Moves `.release-tags` from `/tmp/release-kit/` to project-local `tmp/` for predictable behavior in local runs.
+
+## 2.0.0 — 2026-03-16
+
+### 🎉 Features
 
 - 🚨 **Breaking:** Slim down release workflow by removing unnecessary pnpm install (#21)
 
@@ -1126,10 +1148,6 @@ All notable changes to this project will be documented in this file.
 - 🚨 **Breaking:** Move reusable release workflow into repo (#26)
 
   Moves the reusable release workflow from `williamthorsen/.github` into this repo as `release-workflow.yaml`, stripping all pnpm-related steps since release-kit now runs git-cliff and prettier via `npx` internally. Updates this repo's caller workflow to use a relative path and update init templates to reference the new location. Establishes a naming convention (`{name}-workflow.yaml` for reusable, `{name}.yaml` for callers) and independent versioning strategy (`{name}-workflow-v{major}` tags), documented in `.github/workflows/README.md`.
-
-- Allow git-cliff to be used without config (#31)
-
-  Adds a `resolveCliffConfigPath()` function that searches for a git-cliff config in a 4-step cascade (explicit path → `.config/git-cliff.toml` → `cliff.toml` → bundled `cliff.toml.template`), eliminating the requirement for consuming repos to maintain a cliff config copy. Restructures the `init` command to scaffold only the workflow file by default, with new `--with-config` and `--force` flags. Moves `.release-tags` from `/tmp/release-kit/` to project-local `tmp/` for predictable behavior in local runs.
 
 ### ♻️ Refactoring
 

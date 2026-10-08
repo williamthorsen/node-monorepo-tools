@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.2.0 — 2026-10-08
+
+### 🎉 Features
+
+- Exports `findLossyRenders(template, taxonomy)`, which returns one warning for each record shape, with and without the breaking marker when the template can carry one, whose subject line rendered through the template's optional groups does not parse back as that record. (#986)
+
+### ⚙️ Tooling
+
+- Suppresses the `toolbelt.errors/no-inline-description` warning on the inline error description in change-grammar's `verify` with an `rdy-ignore` pragma, because readyup does not read the ESLint directive that already records why the site is deliberate. (#964)
+
 ## 0.1.0 — 2026-10-01
 
 ### 🎉 Features

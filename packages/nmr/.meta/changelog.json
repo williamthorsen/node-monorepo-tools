@@ -1,5 +1,95 @@
 [
   {
+    "version": "0.42.0",
+    "date": "2026-10-08",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Adds the kit check `catalogued dependencies use catalog:`, which warns about every manifest, the root's included, that declares a literal version or range for a package listed by the default `catalog` or a named `catalogs` entry in `pnpm-workspace.yaml`, and exempts `peerDependencies` and specifiers that name a protocol, such as `workspace:` or `npm:`. (#958)",
+            "hash": "5507c695cb64826ec212f76a93a81d3f51fc3c1d",
+            "entry": 1
+          },
+          {
+            "description": "Adds the kit check `no package.json declares a workspaces field`, which warns about every `package.json` in the tree that declares `workspaces`, a field that pnpm ignores because it reads workspace globs only from `pnpm-workspace.yaml`. (#958)",
+            "hash": "5507c695cb64826ec212f76a93a81d3f51fc3c1d",
+            "entry": 2
+          },
+          {
+            "description": "Adds a `Package scripts:` section to the `nmr` listing, which shows each script declared by the current scope's `package.json` under a name that the active registry does not contain, hooks such as `build:pre` included and npm and pnpm lifecycle scripts excluded. (#960)",
+            "hash": "2f1b140cfa05117788eb4c64342d271f41400ef3",
+            "entry": 1
+          },
+          {
+            "description": "Makes Prettier a dependency of `@williamthorsen/nmr`, so that `pnpm dlx --package @williamthorsen/nmr nmr-fmt --check` (or `--write`) formats a git repository that has nothing installed, while a repository that installs its own Prettier keeps formatting with that copy. (#961)",
+            "hash": "b0e90b1dcb09adc2bc7036ea8d7e5958d9ef7de7",
+            "entry": 1
+          },
+          {
+            "description": "Makes `nmr-fmt` apply the house config from `@williamthorsen/nmr/prettier`, shell plugin included, when Prettier does not find a config searching from the working directory, which also gives the house config to a repository whose only Prettier configs are in subdirectories below that directory. (#961)",
+            "hash": "b0e90b1dcb09adc2bc7036ea8d7e5958d9ef7de7",
+            "entry": 2
+          },
+          {
+            "description": "Makes `typescript` an optional peer of `@williamthorsen/nmr`, so that installing nmr no longer requires it, and makes `nmr-compile` report a missing `typescript` together with the version range that it supports. (#961)",
+            "hash": "b0e90b1dcb09adc2bc7036ea8d7e5958d9ef7de7",
+            "entry": 3
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that `nmr fmt` and `nmr fmt:check` aborted with a load failure when a file listed by git could not be stat'ed because of `EACCES` or `EPERM`, such as a tracked `.envrc` under a sandbox that denies reads of `.env*` files; `nmr-fmt` now skips each such file and names it on stderr. (#959)",
+            "hash": "02166feab5af53a6609423404a66e1954f8002df",
+            "entry": 1
+          },
+          {
+            "description": "Fixes the issue that `nmr-fmt` reported any other stat failure on a listed file, such as `ELOOP` from a symlink loop, as a load failure; the run now fails with an error that names the path. (#959)",
+            "hash": "02166feab5af53a6609423404a66e1954f8002df",
+            "entry": 2
+          },
+          {
+            "description": "Fixes the issue that `nmr-compile` failed with a `TypeError` under TypeScript 7, which it now rejects with an error naming the supported range, `>=5.7 <7`. (#961)",
+            "hash": "b0e90b1dcb09adc2bc7036ea8d7e5958d9ef7de7",
+            "entry": 4
+          },
+          {
+            "description": "Fixes the issue that `nmr fmt` and `nmr fmt:check` failed in a repository that commits a symlink, because `nmr-fmt` passed the symlink to Prettier, which rejects an explicitly named symlink even when `.prettierignore` lists it. (#968)",
+            "hash": "dae55a617e8e9fbaa911d6df979ed06ac950fdcf",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Replaces the hand-written atomic cache write and directory walks in `nmr-core` and `nmr` with `writeAtomic` and `findDirectoryChainMatch` from `@williamthorsen/toolbelt.filesystem`, which both packages now declare in `dependencies`. (#966)",
+            "hash": "0177be3ace33150a7ac67725dd539fb0ee63b833",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "📚 Documentation",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Updates the readyup examples in the `nmr`, `release-kit`, and `v11y-check` READMEs and the `nmr` rulebook to use the `sources` key and `rdy run --sources`, and states that `--sources` needs readyup 0.40 or later. (#977)",
+            "hash": "41177f8f562d59a4cf0aff9d24199dbd370bb1a1",
+            "entry": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.41.0",
     "date": "2026-10-02",
     "sections": [

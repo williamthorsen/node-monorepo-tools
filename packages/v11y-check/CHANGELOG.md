@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.19.1 — 2026-10-08
+
+### 📚 Documentation
+
+- Updates the readyup examples in the `nmr`, `release-kit`, and `v11y-check` READMEs and the `nmr` rulebook to use the `sources` key and `rdy run --sources`, and states that `--sources` needs readyup 0.40 or later. (#977)
+
 ## 0.19.0 — 2026-10-01
 
 ### 🎉 Features

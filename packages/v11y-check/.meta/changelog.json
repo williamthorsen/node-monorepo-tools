@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.19.1",
+    "date": "2026-10-08",
+    "sections": [
+      {
+        "title": "📚 Documentation",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Updates the readyup examples in the `nmr`, `release-kit`, and `v11y-check` READMEs and the `nmr` rulebook to use the `sources` key and `rdy run --sources`, and states that `--sources` needs readyup 0.40 or later. (#977)",
+            "hash": "41177f8f562d59a4cf0aff9d24199dbd370bb1a1",
+            "entry": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.19.0",
     "date": "2026-10-01",
     "sections": [

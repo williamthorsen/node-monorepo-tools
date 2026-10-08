@@ -1,5 +1,49 @@
 [
   {
+    "version": "0.13.2",
+    "date": "2026-10-08",
+    "sections": [
+      {
+        "title": "🏗️ Internal features",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Adds an optional `stopAtDir` to `CacheDirRef`, which limits the upward search by `resolveCacheDir` for a `node_modules` to that directory, inclusive, and makes resolution throw when it is not the scope directory or one of its ancestors. (#969)",
+            "hash": "39d2c16c19382e68080c05b2ca4db191aa5dac89",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Replaces the hand-written atomic cache write and directory walks in `nmr-core` and `nmr` with `writeAtomic` and `findDirectoryChainMatch` from `@williamthorsen/toolbelt.filesystem`, which both packages now declare in `dependencies`. (#966)",
+            "hash": "0177be3ace33150a7ac67725dd539fb0ee63b833",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Replaces the hand-rolled `try`/`catch` in nmr-core's `expectParseError` test helper with `captureError`, which fails the test when parsing does not throw. (#964)",
+            "hash": "38cc179b4116bcd5aba8371b17b0816150c9e9a3",
+            "entry": 5
+          },
+          {
+            "description": "Stops the tests in `cache-store.unit.test.ts` from writing and removing cache entries in an ancestor's `node_modules` outside their temp trees, which also made the fallback test fail, and adds a test that a scope below `stopAtDir` does not hoist past it. (#969)",
+            "hash": "39d2c16c19382e68080c05b2ca4db191aa5dac89",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.13.1",
     "date": "2026-10-01",
     "sections": [

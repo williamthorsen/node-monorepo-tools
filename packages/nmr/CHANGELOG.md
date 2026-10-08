@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.42.0 — 2026-10-08
+
+### 🎉 Features
+
+- Adds the kit check `catalogued dependencies use catalog:`, which warns about every manifest, the root's included, that declares a literal version or range for a package listed by the default `catalog` or a named `catalogs` entry in `pnpm-workspace.yaml`, and exempts `peerDependencies` and specifiers that name a protocol, such as `workspace:` or `npm:`. (#958)
+- Adds the kit check `no package.json declares a workspaces field`, which warns about every `package.json` in the tree that declares `workspaces`, a field that pnpm ignores because it reads workspace globs only from `pnpm-workspace.yaml`. (#958)
+- Adds a `Package scripts:` section to the `nmr` listing, which shows each script declared by the current scope's `package.json` under a name that the active registry does not contain, hooks such as `build:pre` included and npm and pnpm lifecycle scripts excluded. (#960)
+- Makes Prettier a dependency of `@williamthorsen/nmr`, so that `pnpm dlx --package @williamthorsen/nmr nmr-fmt --check` (or `--write`) formats a git repository that has nothing installed, while a repository that installs its own Prettier keeps formatting with that copy. (#961)
+- Makes `nmr-fmt` apply the house config from `@williamthorsen/nmr/prettier`, shell plugin included, when Prettier does not find a config searching from the working directory, which also gives the house config to a repository whose only Prettier configs are in subdirectories below that directory. (#961)
+- Makes `typescript` an optional peer of `@williamthorsen/nmr`, so that installing nmr no longer requires it, and makes `nmr-compile` report a missing `typescript` together with the version range that it supports. (#961)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `nmr fmt` and `nmr fmt:check` aborted with a load failure when a file listed by git could not be stat'ed because of `EACCES` or `EPERM`, such as a tracked `.envrc` under a sandbox that denies reads of `.env*` files; `nmr-fmt` now skips each such file and names it on stderr. (#959)
+- Fixes the issue that `nmr-fmt` reported any other stat failure on a listed file, such as `ELOOP` from a symlink loop, as a load failure; the run now fails with an error that names the path. (#959)
+- Fixes the issue that `nmr-compile` failed with a `TypeError` under TypeScript 7, which it now rejects with an error naming the supported range, `>=5.7 <7`. (#961)
+- Fixes the issue that `nmr fmt` and `nmr fmt:check` failed in a repository that commits a symlink, because `nmr-fmt` passed the symlink to Prettier, which rejects an explicitly named symlink even when `.prettierignore` lists it. (#968)
+
+### ♻️ Refactoring
+
+- Replaces the hand-written atomic cache write and directory walks in `nmr-core` and `nmr` with `writeAtomic` and `findDirectoryChainMatch` from `@williamthorsen/toolbelt.filesystem`, which both packages now declare in `dependencies`. (#966)
+
+### 📚 Documentation
+
+- Updates the readyup examples in the `nmr`, `release-kit`, and `v11y-check` READMEs and the `nmr` rulebook to use the `sources` key and `rdy run --sources`, and states that `--sources` needs readyup 0.40 or later. (#977)
+
 ## 0.41.0 — 2026-10-02
 
 ### 🎉 Features

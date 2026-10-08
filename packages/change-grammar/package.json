@@ -1,6 +1,6 @@
 {
   "name": "@williamthorsen/change-grammar",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": false,
   "description": "Render change records as subject lines, such as commit titles, and parse them back",
   "keywords": [

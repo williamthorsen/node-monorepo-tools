@@ -1,5 +1,59 @@
 [
   {
+    "version": "14.0.0",
+    "date": "2026-10-08",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Changes monorepo `--set-version` to take comma-separated `<workspace>@N.N.N` entries, which `prepare` accepts without `--only` and together with `--bump` and `--force`, and which release each named workspace's dependents. (#970)",
+            "breaking": true,
+            "migration": "Replace `--only arrays --set-version 1.0.0` with `--set-version arrays@1.0.0 --only arrays`, and keep `--only` unless the release should cover every workspace, because a `--set-version` run without `--only` is a full run.",
+            "hash": "07e3e99cb03e6031619bd58dac6ee339ceac0e89",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that `release-kit prepare --only` left each dependent of the named workspaces published against the old version range of its dependency, by also releasing every transitive dependent: a dependent with commits of its own at its own bump, and one without at a propagated patch bump. (#970)",
+            "breaking": true,
+            "migration": "Expect each `--only` run to release the dependents of the named workspaces as well, and remove any dependents that were added to `--only` only to get past the stranded-dependents error, which `prepare` no longer reports.",
+            "hash": "07e3e99cb03e6031619bd58dac6ee339ceac0e89",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Replaces the hand-rolled `console.warn` spies in release-kit's config-warning and push tests with `silenceConsole`, which restores the method when its `using` scope exits. (#964)",
+            "hash": "38cc179b4116bcd5aba8371b17b0816150c9e9a3",
+            "entry": 4
+          }
+        ]
+      },
+      {
+        "title": "📚 Documentation",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Updates the readyup examples in the `nmr`, `release-kit`, and `v11y-check` READMEs and the `nmr` rulebook to use the `sources` key and `rdy run --sources`, and states that `--sources` needs readyup 0.40 or later. (#977)",
+            "hash": "41177f8f562d59a4cf0aff9d24199dbd370bb1a1",
+            "entry": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "13.1.0",
     "date": "2026-10-02",
     "sections": [
@@ -1923,10 +1977,22 @@
         "audience": "all",
         "items": [
           {
-            "description": "Migrate release-kit from toolbelt (#18)",
-            "body": "Migrates the complete `@williamthorsen/release-kit` package (v1.0.1) from `williamthorsen/toolbelt` into `packages/release-kit/`, adds shebang preservation to the shared esbuild plugin for CLI binaries, and sets up dogfooding infrastructure so this monorepo uses release-kit for its own releases.",
-            "hash": "da3a61fd335fb3e05ce20a0bffcdc1647d7aeb45"
-          },
+            "description": "Allow git-cliff to be used without config (#31)",
+            "body": "Adds a `resolveCliffConfigPath()` function that searches for a git-cliff config in a 4-step cascade (explicit path → `.config/git-cliff.toml` → `cliff.toml` → bundled `cliff.toml.template`), eliminating the requirement for consuming repos to maintain a cliff config copy. Restructures the `init` command to scaffold only the workflow file by default, with new `--with-config` and `--force` flags. Moves `.release-tags` from `/tmp/release-kit/` to project-local `tmp/` for predictable behavior in local runs.",
+            "hash": "0cbd2605d6f5f53d1efe3dda8dd0f6e4376b499f"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "2.0.0",
+    "date": "2026-03-16",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
           {
             "description": "Slim down release workflow by removing unnecessary pnpm install (#21)",
             "body": "Make release-kit self-contained by invoking git-cliff via `npx --yes` instead of requiring it on PATH, and by appending modified file paths to the format command so lightweight formatters like `npx prettier --write` work without a full `pnpm install`. Update init templates, README, and consuming repo config/workflow to reference workflow v3.",
@@ -1943,11 +2009,6 @@
             "body": "Moves the reusable release workflow from `williamthorsen/.github` into this repo as `release-workflow.yaml`, stripping all pnpm-related steps since release-kit now runs git-cliff and prettier via `npx` internally. Updates this repo's caller workflow to use a relative path and update init templates to reference the new location. Establishes a naming convention (`{name}-workflow.yaml` for reusable, `{name}.yaml` for callers) and independent versioning strategy (`{name}-workflow-v{major}` tags), documented in `.github/workflows/README.md`.",
             "breaking": true,
             "hash": "f3416120cfe5bf0e7dbf51389e0c2647ccf41d30"
-          },
-          {
-            "description": "Allow git-cliff to be used without config (#31)",
-            "body": "Adds a `resolveCliffConfigPath()` function that searches for a git-cliff config in a 4-step cascade (explicit path → `.config/git-cliff.toml` → `cliff.toml` → bundled `cliff.toml.template`), eliminating the requirement for consuming repos to maintain a cliff config copy. Restructures the `init` command to scaffold only the workflow file by default, with new `--with-config` and `--force` flags. Moves `.release-tags` from `/tmp/release-kit/` to project-local `tmp/` for predictable behavior in local runs.",
-            "hash": "0cbd2605d6f5f53d1efe3dda8dd0f6e4376b499f"
           }
         ]
       },

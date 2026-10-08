@@ -1,5 +1,33 @@
 [
   {
+    "version": "0.2.0",
+    "date": "2026-10-08",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Exports `findLossyRenders(template, taxonomy)`, which returns one warning for each record shape, with and without the breaking marker when the template can carry one, whose subject line rendered through the template's optional groups does not parse back as that record. (#986)",
+            "hash": "4154d67cde9d7f164cd9764d8b0d576485440117",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "⚙️ Tooling",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Suppresses the `toolbelt.errors/no-inline-description` warning on the inline error description in change-grammar's `verify` with an `rdy-ignore` pragma, because readyup does not read the ESLint directive that already records why the site is deliberate. (#964)",
+            "hash": "38cc179b4116bcd5aba8371b17b0816150c9e9a3",
+            "entry": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.1.0",
     "date": "2026-10-01",
     "sections": [
