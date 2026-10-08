@@ -1,10 +1,4 @@
-/** The hosting repository of a build. */
-export interface Repository {
-  provider: string;
-  owner: string;
-  name: string;
-  url: string;
-}
+import type { BuildInfo } from '../../contract/types.ts';
 
 const PROVIDER_BY_HOST: Readonly<Record<string, string>> = {
   'bitbucket.org': 'bitbucket',
@@ -23,7 +17,7 @@ const HOST_BY_SHORTHAND: Readonly<Record<string, string>> = {
  * Parses a manifest `repository` (a string or an object with a `url`) or a git remote URL into the repository that it
  * names, or `undefined` when the value is not in a recognized form.
  */
-export function parseRepositoryUrl(value: unknown): Repository | undefined {
+export function parseRepositoryUrl(value: unknown): BuildInfo['repository'] {
   const candidate = typeof value === 'object' && value !== null && 'url' in value ? value.url : value;
   if (typeof candidate !== 'string') {
     return undefined;
@@ -44,7 +38,7 @@ export function resolveProvider(host: string): string {
 // region | Helpers
 
 /** Builds the repository from a host and an `owner/name` path, the owner taking every segment before the last. */
-function buildRepository(host: string, repoPath: string): Repository | undefined {
+function buildRepository(host: string, repoPath: string): BuildInfo['repository'] {
   const segments = repoPath
     .replace(/\.git$/, '')
     .split('/')
