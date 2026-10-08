@@ -1,4 +1,5 @@
 import baseConfig, { commonIgnores, createConfig, toolIgnores } from '@williamthorsen/eslint-config-typescript';
+import type { Linter } from 'eslint';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
 import { syntaxRestrictions, testCodeRestrictions } from './eslint.restrictions.ts';
@@ -66,54 +67,8 @@ const config = defineConfig([
       'unicorn/no-nonstandard-builtin-properties': 'off',
     },
   }),
-  {
-    // The change-grammar package depends on nothing but itself, so that it runs anywhere: It does not import any
-    // module outside the package, any package, or any Node builtin, and it does not read `process`.
-    files: ['packages/change-grammar/src/**/*.ts'],
-    rules: {
-      'import-x/no-nodejs-modules': 'error',
-      'import-x/no-restricted-paths': [
-        'error',
-        {
-          basePath: import.meta.dirname,
-          zones: [
-            {
-              except: ['./packages/change-grammar'],
-              from: '.',
-              message: 'The change-grammar package imports nothing outside its own directory.',
-              target: './packages/change-grammar/src',
-            },
-          ],
-        },
-      ],
-      'no-restricted-globals': [
-        'error',
-        { message: 'The change-grammar package does not read the ambient environment.', name: 'process' },
-      ],
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              message:
-                'The change-grammar package does not depend on any package, so it does not pass any dependency on to its consumers.',
-              regex: '^[^.]',
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    // The package's suites stay outside the dependency half of the boundary, because they run ESLint through
-    // Vitest and read the filesystem. The path zone still applies to them.
-    files: ['packages/change-grammar/src/**/__tests__/**/*.ts'],
-    rules: {
-      'import-x/no-nodejs-modules': 'off',
-      'no-restricted-globals': 'off',
-      'no-restricted-imports': 'off',
-    },
-  },
+  ...defineHostAgnosticBoundary('build-info'),
+  ...defineHostAgnosticBoundary('change-grammar'),
   {
     files: ['**/scripts/**/*'],
     rules: {
@@ -123,3 +78,61 @@ const config = defineConfig([
 ]);
 
 export default config;
+
+// region | Helpers
+
+/**
+ * Returns the blocks that keep a package depending on nothing but itself, so that it runs anywhere: Its source does
+ * not import any module outside the package, any package, or any Node builtin, and it does not read `process`.
+ */
+function defineHostAgnosticBoundary(packageDir: string): Linter.Config[] {
+  return [
+    {
+      files: [`packages/${packageDir}/src/**/*.ts`],
+      rules: {
+        'import-x/no-nodejs-modules': 'error',
+        'import-x/no-restricted-paths': [
+          'error',
+          {
+            basePath: import.meta.dirname,
+            zones: [
+              {
+                except: [`./packages/${packageDir}`],
+                from: '.',
+                message: `The ${packageDir} package imports nothing outside its own directory.`,
+                target: `./packages/${packageDir}/src`,
+              },
+            ],
+          },
+        ],
+        'no-restricted-globals': [
+          'error',
+          { message: `The ${packageDir} package does not read the ambient environment.`, name: 'process' },
+        ],
+        'no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                message: `The ${packageDir} package does not depend on any package, so it does not pass any dependency on to its consumers.`,
+                regex: '^[^.]',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      // The package's suites stay outside the dependency half of the boundary, because they run ESLint through
+      // Vitest and read the filesystem. The path zone still applies to them.
+      files: [`packages/${packageDir}/src/**/__tests__/**/*.ts`],
+      rules: {
+        'import-x/no-nodejs-modules': 'off',
+        'no-restricted-globals': 'off',
+        'no-restricted-imports': 'off',
+      },
+    },
+  ];
+}
+
+// endregion | Helpers

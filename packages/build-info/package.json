@@ -1,0 +1,49 @@
+{
+  "name": "@williamthorsen/build-info",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Describes which build an app is: version, commit, build time, environment, and release notes",
+  "keywords": [
+    "build",
+    "metadata",
+    "version"
+  ],
+  "homepage": "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/build-info#readme",
+  "bugs": {
+    "url": "https://github.com/williamthorsen/node-monorepo-tools/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/williamthorsen/node-monorepo-tools.git",
+    "directory": "packages/build-info"
+  },
+  "license": "ISC",
+  "author": "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "default": "./dist/esm/index.js"
+    }
+  },
+  "files": [
+    ".meta/changelog.json",
+    "CHANGELOG.md",
+    "dist"
+  ],
+  "scripts": {
+    "prepare": "node --conditions nmr-source ../nmr/src/cli-build.ts",
+    "prepublishOnly": "nmr build"
+  },
+  "devDependencies": {
+    "eslint": "10.11.0",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=24.16.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
