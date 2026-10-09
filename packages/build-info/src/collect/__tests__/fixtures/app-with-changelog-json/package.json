@@ -1,0 +1,13 @@
+{
+  "name": "fixture-app",
+  "version": "0.7.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/acme/app"
+  },
+  "author": {
+    "name": "William Thorsen",
+    "email": "william@thorsen.dev"
+  },
+  "type": "commonjs"
+}

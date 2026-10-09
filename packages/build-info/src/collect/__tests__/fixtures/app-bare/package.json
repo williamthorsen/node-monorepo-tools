@@ -1,0 +1,9 @@
+{
+  "name": "fixture-app",
+  "version": "0.7.0",
+  "author": {
+    "name": "William Thorsen",
+    "email": "william@thorsen.dev"
+  },
+  "type": "commonjs"
+}
