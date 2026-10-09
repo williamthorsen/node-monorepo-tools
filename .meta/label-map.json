@@ -18,6 +18,7 @@
   },
   "scopes": {
     "build-info": "scope:build-info",
+    "build-info-react": "scope:build-info-react",
     "change-grammar": "scope:change-grammar",
     "core": "scope:core",
     "nmr": "scope:nmr",

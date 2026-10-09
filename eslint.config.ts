@@ -75,6 +75,45 @@ const config = defineConfig([
   }),
   ...defineHostAgnosticBoundary('build-info', ['collect', 'vite']),
   ...defineHostAgnosticBoundary('change-grammar'),
+  defineConfig({
+    files: ['packages/build-info-react/src/**/*.{ts,tsx}'],
+    extends: [await createConfig.react(), await createConfig.jsxA11y()],
+  }),
+  {
+    // Keep every component renderable as a React Server Component: The source does not use hooks or context, does
+    // not import `react-dom`, and does not mark itself as client-only. The suites render through `react-dom/server`.
+    files: ['packages/build-info-react/src/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            // The base config's own entry, which this block would otherwise drop.
+            { group: ['node_modules/*'], message: 'Should not import from node_modules' },
+            {
+              importNamePattern: '^(use|createContext$)',
+              message:
+                'build-info-react components stay free of hooks and context, so that they render as Server Components.',
+              regex: '^react$',
+            },
+            {
+              message: 'build-info-react components render through whichever renderer the consumer uses.',
+              regex: '^react-dom(/|$)',
+            },
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        ...syntaxRestrictions,
+        {
+          message: 'build-info-react components render as Server Components as well as Client Components.',
+          selector: "ExpressionStatement[directive='use client']",
+        },
+      ],
+    },
+  },
   {
     files: ['**/scripts/**/*'],
     rules: {

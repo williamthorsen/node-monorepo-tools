@@ -1,0 +1,58 @@
+{
+  "name": "@williamthorsen/build-info-react",
+  "version": "0.0.0",
+  "private": false,
+  "description": "React components that render a build's identity: its label, commit link, and release notes",
+  "keywords": [
+    "build",
+    "react",
+    "version"
+  ],
+  "homepage": "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/build-info-react#readme",
+  "bugs": {
+    "url": "https://github.com/williamthorsen/node-monorepo-tools/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/williamthorsen/node-monorepo-tools.git",
+    "directory": "packages/build-info-react"
+  },
+  "license": "ISC",
+  "author": "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "default": "./dist/esm/index.js"
+    }
+  },
+  "files": [
+    ".meta/changelog.json",
+    "CHANGELOG.md",
+    "dist"
+  ],
+  "scripts": {
+    "prepare": "node --conditions nmr-source ../nmr/src/cli-build.ts",
+    "prepublishOnly": "nmr build"
+  },
+  "dependencies": {
+    "@williamthorsen/build-info": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "^19"
+  },
+  "engines": {
+    "node": ">=24.16.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

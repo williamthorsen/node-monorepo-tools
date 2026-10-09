@@ -10,6 +10,7 @@ export default defineConfig({
     labels: {
       'scope:root': { color: '00ff96' },
       'scope:build-info': { color: '00ff96' },
+      'scope:build-info-react': { color: '00ff96' },
       'scope:change-grammar': { color: '00ff96' },
       'scope:core': { color: '00ff96' },
       'scope:nmr': { color: '00ff96' },
