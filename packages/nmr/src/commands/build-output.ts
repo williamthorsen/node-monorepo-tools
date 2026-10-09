@@ -21,7 +21,7 @@ export interface ScratchDirs {
   stagingDir: string;
 }
 
-export const DEFAULT_ENTRY_GLOBS = ['src/**/*.ts'];
+export const DEFAULT_ENTRY_GLOBS = ['src/**/*.{ts,tsx}'];
 
 /**
  * Directories holding test scaffolding rather than published code, excluded from entry-point selection so that a

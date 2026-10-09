@@ -73,6 +73,9 @@
 - name: scope:build-info
   color: 00ff96
   description: ''
+- name: scope:build-info-react
+  color: 00ff96
+  description: ''
 - name: scope:change-grammar
   color: 00ff96
   description: ''

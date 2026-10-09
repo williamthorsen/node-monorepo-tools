@@ -611,6 +611,65 @@ describe('buildPackage entry-point selection', () => {
   });
 });
 
+describe('buildPackage with .tsx sources', () => {
+  beforeEach(() => {
+    disposeOnTestFinished(silenceConsole(['info']));
+  });
+
+  afterEach(() => {
+    vi.mocked(ts.createProgram).mockClear();
+  });
+
+  // The fixture does not install React, so the JSX type-checks with errors; emit does not depend on type checking.
+  const VIEW_SOURCE = 'export function View(): unknown {\n  return <div />;\n}\n';
+
+  it('emits .js and .d.ts for a .tsx entry point that nothing imports', async ({ tree }) => {
+    scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n', 'view.tsx': VIEW_SOURCE }, { jsx: 'react-jsx' });
+
+    await buildPackage(tree.dir, { style: 'rich' });
+
+    expect(listEmitted(tree)).toStrictEqual(['index.d.ts', 'index.js', 'view.d.ts', 'view.js']);
+  });
+
+  it('compiles JSX with the transform that the package tsconfig names', async ({ tree }) => {
+    scaffoldPackage(tree, { 'view.tsx': VIEW_SOURCE }, { jsx: 'react-jsx' });
+
+    await buildPackage(tree.dir, { style: 'rich' });
+
+    expect(readOutput(tree, 'view.js')).toMatch(/from ["']react\/jsx-runtime["']/);
+  });
+
+  it('rewrites a relative .tsx specifier to .js once in both outputs', async ({ tree }) => {
+    scaffoldPackage(
+      tree,
+      { 'index.ts': `export { View } from './view.tsx';\n`, 'view.tsx': VIEW_SOURCE },
+      { jsx: 'react-jsx' },
+    );
+
+    await buildPackage(tree.dir, { style: 'rich' });
+
+    for (const output of ['index.js', 'index.d.ts']) {
+      expect(readOutput(tree, output)).toMatch(/from ["']\.\/view\.js["']/);
+    }
+  });
+
+  it('rewrites an alias that resolves to a .tsx file, imported from a nested .tsx file', async ({ tree }) => {
+    scaffoldPackage(
+      tree,
+      {
+        'nested/panel.tsx': `import { View } from '~/view.tsx';\nexport function Panel(): unknown {\n  return <View />;\n}\n`,
+        'view.tsx': VIEW_SOURCE,
+      },
+      { jsx: 'react-jsx' },
+    );
+
+    await buildPackage(tree.dir, { style: 'rich' });
+
+    expect(readOutput(tree, 'nested/panel.js')).toMatch(/from ["']\.\.\/view\.js["']/);
+    expect(readOutput(tree, 'nested/panel.js')).not.toContain('~/');
+  });
+});
+
 describe('buildPackage output-directory ownership', () => {
   beforeEach(() => {
     disposeOnTestFinished(silenceConsole(['info']));

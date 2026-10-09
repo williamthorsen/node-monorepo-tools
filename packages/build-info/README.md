@@ -71,4 +71,5 @@ declare const __BUILD_INFO__: import('@williamthorsen/build-info').BuildInfo;
 - **`serializeBuildInfo`:** Writes a `BuildInfo` as indented JSON that `parseBuildInfo` reads back: `writeFile(path, serializeBuildInfo(info))`.
 - **`InvalidBuildInfoError`:** Thrown by `parseBuildInfo` and `serializeBuildInfo`; its `path` names the first invalid field: `error.path // 'commit.sha'`.
 - **`formatBuildLabel`:** Formats the one-line label: `formatBuildLabel(info) // 'v0.7.0 · a59f2f8 · 2026-10-08 06:29Z'`.
+- **`getBuildLabelParts`:** Returns the label's segments, for a renderer that marks each up on its own: `getBuildLabelParts(info) // { version: 'v0.7.0', shortSha: 'a59f2f8', time: '2026-10-08 06:29Z' }`.
 - **`getCommitUrl`:** Returns the commit's URL on GitHub, or `undefined`: `getCommitUrl(info) // 'https://github.com/acme/web/commit/a59f2f8…'`.

@@ -9,6 +9,7 @@ A pnpm monorepo of CLI tools for Node.js monorepo development. Packages provide 
 Packages live under `packages/`:
 
 - **`@williamthorsen/build-info`**: Describes which build an app is: version, commit, build time, environment, and release notes. Its `.` entry does not have any dependencies, and a lint boundary in `eslint.config.ts`, shared with `change-grammar`, keeps that entry's source from importing anything outside the package or from `src/collect` and `src/vite`. Those two directories hold the Node-side `./collect` and `./vite` subpaths, which the boundary exempts.
+- **`@williamthorsen/build-info-react`**: React components that render a `BuildInfo`: `BuildLabel`, `ReleaseNotes`, and `BuildInfoDisplay`. It is the repo's only React package; its tsconfig alone sets `jsx` and the DOM lib, and a lint block in `eslint.config.ts` keeps its non-test source free of hooks, context, `react-dom`, and `'use client'`, so that every component works as a server component.
 - **`@williamthorsen/change-grammar`**: Renders change records as subject lines and parses them back. It does not have any dependencies, and the same lint boundary keeps its non-test source from importing anything outside the package.
 - **`@williamthorsen/nmr`**: Context-aware script runner for pnpm monorepos. Detects root vs workspace context and resolves the appropriate script registry.
 - **`@williamthorsen/nmr-core`**: Shared utilities consumed by `nmr`, `release-kit`, and `v11y-check`.
@@ -25,7 +26,7 @@ Packages live under `packages/`:
 ### Build system
 
 - Two TypeScript compiler-API emits via the nmr-managed `nmr-compile` bin (`packages/nmr/src/commands/build.ts`), the default `compile` script
-- Emits `.js` from one program and `.d.ts` from a second that reuses it, which keeps doc comments in the declarations while the package's own `removeComments` still applies to the `.js`; AST-based rewriting turns relative `.ts`→`.js` specifiers and tsconfig `paths` aliases into runnable relative `.js` in both outputs
+- Emits `.js` from one program and `.d.ts` from a second that reuses it, which keeps doc comments in the declarations while the package's own `removeComments` still applies to the `.js`; AST-based rewriting turns relative `.ts` and `.tsx`→`.js` specifiers and tsconfig `paths` aliases into runnable relative `.js` in both outputs
 - ESM-only output (`type: "module"` in all packages)
 - The compiler baseline comes from the published `@williamthorsen/tsconfig`, which the root `tsconfig.json` extends and the package configs inherit through it; changing a compiler option means upgrading that package, not editing a config here
 
