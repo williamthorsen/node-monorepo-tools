@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildFullBuildInfo, buildMinimalBuildInfo } from '../../test-utils/build-info-fixtures.ts';
-import { formatBuildLabel, getCommitUrl } from '../format.ts';
+import { formatBuildLabel, getBuildLabelParts, getCommitUrl } from '../format.ts';
 
 describe(formatBuildLabel, () => {
   it('formats the version, short SHA, and build time truncated to the minute', () => {
@@ -14,6 +14,20 @@ describe(formatBuildLabel, () => {
 
   it('does not double a leading v', () => {
     expect(formatBuildLabel({ ...buildMinimalBuildInfo(), version: 'v0.7.0' })).toBe('v0.7.0 · 2026-10-08 06:29Z');
+  });
+});
+
+describe(getBuildLabelParts, () => {
+  it('returns the version, short SHA, and minute-truncated build time', () => {
+    expect(getBuildLabelParts(buildFullBuildInfo())).toStrictEqual({
+      version: 'v0.7.0',
+      shortSha: 'a59f2f8',
+      time: '2026-10-08 06:29Z',
+    });
+  });
+
+  it('omits the short SHA when the build does not record a commit', () => {
+    expect(getBuildLabelParts(buildMinimalBuildInfo())).toStrictEqual({ version: 'v0.7.0', time: '2026-10-08 06:29Z' });
   });
 });
 
