@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.2.0 — 2026-10-09
+
+### 🎉 Features
+
+- Adds `collectBuildInfo` as the new `@williamthorsen/build-info/collect` subpath, a synchronous call that any config file can make, which returns the app's `BuildInfo` from its `package.json`, its changelog, the environment variables of Vercel, EAS Build, or GitHub Actions, and git. (#987)
+- Adds `readReleaseNotes` to `@williamthorsen/build-info/collect`, which returns the public release notes of every version, newest first, from `.meta/changelog.json` or, when that file is missing or malformed, from `CHANGELOG.md`. (#987)
+- Adds the Vite plugin `buildInfoPlugin` as the `@williamthorsen/build-info/vite` subpath, which defines `__BUILD_INFO__` as the collected `BuildInfo` and writes it to `build-info.json` in the output directory, and declares Vite 8 as an optional peer dependency. (#987)
+- Adds `getBuildLabelParts` to `@williamthorsen/build-info`, which returns the segments of the label that `formatBuildLabel` produces (the version, short SHA, and build time), for a renderer that marks up each segment on its own. (#988)
+
 ## 0.1.0 — 2026-10-08
 
 ### 🎉 Features

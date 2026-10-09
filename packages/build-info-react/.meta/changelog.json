@@ -1,0 +1,19 @@
+[
+  {
+    "version": "0.1.0",
+    "date": "2026-10-09",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Adds the `@williamthorsen/build-info-react` package, whose unstyled `BuildLabel`, `ReleaseNotes`, and `BuildInfoDisplay` components render a `BuildInfo`'s label, commit link, and release notes, and work as both React Server Components and client components because they don't use hooks or context. (#988)",
+            "hash": "5dc56910af4daa0580e3b443b0ddc15557cb5081",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  }
+]

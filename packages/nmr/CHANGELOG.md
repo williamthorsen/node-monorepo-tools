@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.43.0 — 2026-10-09
+
+### 🎉 Features
+
+- Extends `nmr-compile` to compile `.tsx` sources and to rewrite relative `.tsx` specifiers to `.js`, and leaves the JSX transform to the package's own tsconfig `jsx` option. (#988)
+
 ## 0.42.0 — 2026-10-08
 
 ### 🎉 Features

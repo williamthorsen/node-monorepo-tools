@@ -1,6 +1,6 @@
 {
   "name": "@williamthorsen/build-info-react",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": false,
   "description": "React components that render a build's identity: its label, commit link, and release notes",
   "keywords": [
