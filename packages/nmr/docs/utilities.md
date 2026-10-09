@@ -24,7 +24,7 @@ Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler
 
 **What busts the cache.** The key folds each input's content and path, the emit options, the resolved TypeScript version, and a fingerprint of the nmr running the build -- its own build digest in a workspace checkout, its package version otherwise. Upgrading nmr in a consuming repo therefore rebuilds every package that nmr compiles, and an edit to nmr's own build sources rebuilds each sibling once nmr itself has been rebuilt. A build of nmr's own package folds the version rather than the digest, which is the cache entry that this build is about to write.
 
-`typescript` is an optional peer dependency (`>=5.7.0 <7`), needed only by `nmr-compile`; the consuming repo provides it, and `nmr-compile` run without it fails with an error naming the peer and the version that it requires. The floor is what `rewriteRelativeImportExtensions` requires; the ceiling exists because TypeScript 7 does not include a compiler API: Its root export is a version constant, so `nmr-compile` cannot run on it. Relative imports in source must use explicit `.ts` extensions for them to be rewritten.
+`typescript` is an optional peer dependency (`>=5.7.0 <7`), needed only by `nmr-compile`; the consuming repo provides it, and `nmr-compile` run without it fails with an error naming the peer and the version that it requires. The floor is what `rewriteRelativeImportExtensions` requires; the ceiling exists because TypeScript 7 does not include a compiler API: Its root export is a version constant, so `nmr-compile` cannot run on it. Relative imports in source must use explicit `.ts` or `.tsx` extensions for them to be rewritten.
 
 ```bash
 nmr-compile
