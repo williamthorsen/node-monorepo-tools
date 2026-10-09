@@ -91,6 +91,7 @@ describe(readGithubActionsFacts, () => {
 
     expect(facts?.commit).toStrictEqual({ ref: 'feature' });
     expect(facts?.deployment).toStrictEqual({ id: '9876' });
+    expect(facts?.excludesGitCommit).toBe(true);
   });
 
   it('builds the repository URL from a custom server', () => {

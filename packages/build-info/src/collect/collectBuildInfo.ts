@@ -35,7 +35,8 @@ export interface CollectBuildInfoOptions {
  *
  * A host that leaves the environment empty takes `NODE_ENV`, else `development`. Git supplies the commit time and dirty
  * state on every host, and the other commit fields that the host leaves empty, provided that its `HEAD` is the commit
- * that the host reported. The repository comes from the host's variables, else the manifest's `repository`, else git's
+ * that the host reported. On a GitHub pull request whose payload does not name the head, git supplies nothing, because
+ * its `HEAD` is the merge commit. The repository comes from the host's variables, else the manifest's `repository`, else git's
  * `origin` remote. Release notes are the public sections of the manifest version's entry in `.meta/changelog.json`, or,
  * when that file lacks the version, its section of `CHANGELOG.md`.
  */
@@ -57,7 +58,7 @@ export function collectBuildInfo({
     host: host.host,
     environment: host.environment,
     ...compactRecord<Pick<BuildInfo, 'commit' | 'deployment' | 'releaseNotes' | 'repository' | 'runtime'>>({
-      commit: buildCommit(host.commit ?? {}, git),
+      commit: buildCommit(host.commit ?? {}, host.excludesGitCommit === true ? {} : git),
       repository:
         host.repository ??
         parseRepositoryUrl(manifest.repository) ??

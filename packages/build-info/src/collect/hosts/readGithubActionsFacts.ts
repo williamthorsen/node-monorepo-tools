@@ -37,6 +37,8 @@ export function readGithubActionsFacts(env: HostEnv): HostFacts | undefined {
         id: readEnv(env, 'GITHUB_RUN_ID'),
         pullRequest: pullRequest?.number,
       }),
+      // Without the head's sha, git's `HEAD` is the merge commit that `GITHUB_SHA` names.
+      excludesGitCommit: pullRequest !== undefined && pullRequest.headSha === undefined ? true : undefined,
     }),
   };
 }

@@ -129,6 +129,24 @@ describe(collectBuildInfo, () => {
     expect(info.commit).toStrictEqual({ sha: SHA, shortSha: 'abc1234', ref: 'feature' });
   });
 
+  it('omits the commit sha on a pull request whose payload does not name the head', () => {
+    vi.mocked(readGitFacts).mockReturnValue({ ...GIT_FACTS, sha: OTHER_SHA, message: 'Merge abc into def' });
+
+    const info = collectBuildInfo({
+      cwd: BARE_APP,
+      now: NOW,
+      env: {
+        GITHUB_ACTIONS: 'true',
+        GITHUB_EVENT_NAME: 'pull_request',
+        GITHUB_SHA: OTHER_SHA,
+        GITHUB_HEAD_REF: 'feature',
+      },
+    });
+
+    expect(info.commit).toBeUndefined();
+    expect(isBuildInfo(info)).toBe(true);
+  });
+
   it('takes the commit from git and the repository from the git remote on a local build', () => {
     vi.mocked(readGitFacts).mockReturnValue(GIT_FACTS);
 

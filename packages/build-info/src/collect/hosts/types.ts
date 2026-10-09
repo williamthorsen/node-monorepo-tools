@@ -10,4 +10,6 @@ export interface HostFacts {
   commit?: Partial<Pick<NonNullable<BuildInfo['commit']>, 'author' | 'message' | 'ref' | 'sha'>>;
   repository?: BuildInfo['repository'];
   deployment?: BuildInfo['deployment'];
+  /** Whether git's `HEAD` is known not to be the build's commit, so that git must not supply any commit field. */
+  excludesGitCommit?: true;
 }
