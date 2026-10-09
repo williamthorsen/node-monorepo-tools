@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import type { BuildInfo } from '../contract/types.ts';
+import { isRecord } from './portable/isRecord.ts';
 
 /** One version's release notes. */
 export type ReleaseNotesEntry = NonNullable<BuildInfo['releaseNotes']> & { version: string };
@@ -120,11 +121,6 @@ function isChangelogJsonEntry(value: unknown): value is ChangelogJsonEntry {
         ),
     )
   );
-}
-
-/** Reports whether a value is a non-array object. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**

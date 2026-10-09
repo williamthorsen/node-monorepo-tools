@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { isRecord } from '../portable/isRecord.ts';
+
 /** The fields of a `package.json` that identify a build. */
 export interface Manifest {
   name: string;
@@ -27,12 +29,3 @@ export function readManifest(cwd: string): Manifest {
 
   return { name, version, ...(repository !== undefined && { repository }) };
 }
-
-// region | Helpers
-
-/** Reports whether a value is a non-array object. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-// endregion | Helpers

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 
 import { compactRecord } from '../portable/compactRecord.ts';
+import { isRecord } from '../portable/isRecord.ts';
 import { parsePullRequestNumber } from './parsePullRequestNumber.ts';
 import { readEnv } from './readEnv.ts';
 import type { HostEnv, HostFacts } from './types.ts';
@@ -44,11 +45,6 @@ export function readGithubActionsFacts(env: HostEnv): HostFacts | undefined {
 }
 
 // region | Helpers
-
-/** Reports whether a value is a non-array object. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 /** Reads the event payload as an object, or `undefined` when the file is missing or does not hold a JSON object. */
 function readEventPayload(eventPath: string | undefined): Record<string, unknown> | undefined {
