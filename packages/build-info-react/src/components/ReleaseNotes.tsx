@@ -34,8 +34,9 @@ export function ReleaseNotes({ notes, headingLevel = 3, className }: ReleaseNote
           <div className="build-info-release-notes-section" key={section.title}>
             <Heading className="build-info-release-notes-heading">{section.title}</Heading>
             <ul className="build-info-release-notes-items">
-              {section.items.map((item) => (
-                <li className="build-info-release-notes-item" key={item.description}>
+              {section.items.map((item, index) => (
+                // Key by position: The list is static, and two items can share a description.
+                <li className="build-info-release-notes-item" key={index}>
                   {item.description}
                 </li>
               ))}

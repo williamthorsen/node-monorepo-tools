@@ -22,6 +22,15 @@ describe(ReleaseNotes, () => {
     );
   });
 
+  it('renders every item when two items share a description', () => {
+    const description = 'Update dependencies';
+    const notes = { markdown: '', sections: [{ title: 'Chores', items: [{ description }, { description }] }] };
+
+    const markup = renderToStaticMarkup(<ReleaseNotes notes={notes} />);
+
+    expect(markup.match(/<li /g)).toHaveLength(2);
+  });
+
   it('renders section headings at the requested level', () => {
     const markup = renderToStaticMarkup(<ReleaseNotes notes={SECTIONED_NOTES} headingLevel={2} />);
 

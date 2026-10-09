@@ -83,7 +83,7 @@ const config = defineConfig([
     // Keep every component renderable as a React Server Component: The source does not use hooks or context, does
     // not import `react-dom`, and does not mark itself as client-only. The suites render through `react-dom/server`.
     files: ['packages/build-info-react/src/**/*.{ts,tsx}'],
-    ignores: ['**/__tests__/**'],
+    ignores: ['**/__tests__/**', '**/test-utils/**'],
     rules: {
       'no-restricted-imports': [
         'error',
