@@ -72,13 +72,13 @@ const SUPPORTED_TYPESCRIPT_RANGE = `>=${MINIMUM_TYPESCRIPT_MAJOR}.${MINIMUM_TYPE
 const INSTALL_TYPESCRIPT_GUIDANCE = "Install a version in that range as the 'typescript' peer dependency.";
 
 /**
- * The supported TypeScript source extension and the JavaScript extension that its emit produces.
- * `nmr-compile` targets ESM-only packages (`type: "module"`), so `.ts` → `.js` is the only supported
- * mapping: under `type: "module"` a `.mjs` emit is redundant with `.js`, a `.cjs` emit from `.cts`
- * would contradict the ESM-only output contract, and `.tsx` is out of scope for these Node packages.
+ * The supported TypeScript source extensions and the JavaScript extension that their emit produces.
+ * `nmr-compile` targets ESM-only packages (`type: "module"`), so `.ts` and `.tsx` → `.js` are the only supported
+ * mappings: under `type: "module"` a `.mjs` emit is redundant with `.js`, and a `.cjs` emit from `.cts` would
+ * contradict the ESM-only output contract. The package's own tsconfig `jsx` option governs how `.tsx` compiles.
  * Keep these extensions, `DEFAULT_ENTRY_GLOBS`, `isRewritableOutput`, and `mapOutputToSource` in agreement.
  */
-const TS_EXTENSION = '.ts';
+const TS_EXTENSIONS = ['.ts', '.tsx'];
 const JS_EXTENSION = '.js';
 
 /**
@@ -810,6 +810,7 @@ function isWithin(parent: string, child: string): boolean {
  * Reconstructs the source file that produced an emitted output file by swapping the output
  * directory prefix for the source root and restoring a `.ts` extension. Used as the resolution
  * context for alias specifiers so that `paths`/`baseUrl` resolve from the original source location.
+ * Resolution reads only the file's directory, so a `.tsx` source resolves the same as its `.ts` stand-in.
  */
 function mapOutputToSource(
   outputFile: string,
@@ -835,7 +836,8 @@ function resolveScriptKind(file: string): TypeScript.ScriptKind {
 
 /** Replaces a trailing TypeScript extension with its JavaScript equivalent, leaving other specifiers intact. */
 function swapTypeScriptExtension(specifier: string): string {
-  return specifier.endsWith(TS_EXTENSION) ? `${specifier.slice(0, -TS_EXTENSION.length)}${JS_EXTENSION}` : specifier;
+  const extension = TS_EXTENSIONS.find((candidate) => specifier.endsWith(candidate));
+  return extension === undefined ? specifier : `${specifier.slice(0, -extension.length)}${JS_EXTENSION}`;
 }
 
 // endregion | Helpers
