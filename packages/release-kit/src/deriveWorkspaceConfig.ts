@@ -3,6 +3,7 @@ import { basename } from 'node:path';
 
 import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
+import { isPublishableManifest } from './isPublishableManifest.ts';
 import { isRecord } from './typeGuards.ts';
 import type { WorkspaceConfig } from './types.ts';
 
@@ -29,9 +30,7 @@ export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
   }
 
   const unscopedName = stripNpmScope(name);
-  const privateField = isRecord(parsed) ? parsed['private'] : undefined;
-  // Treat any `private` value other than `false` as private; npm and pnpm refuse to publish on a truthy non-boolean.
-  const isPublishable = privateField === undefined || privateField === false;
+  const isPublishable = isPublishableManifest(parsed);
 
   return {
     dir,

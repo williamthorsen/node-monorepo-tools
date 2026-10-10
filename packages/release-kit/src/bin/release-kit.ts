@@ -128,7 +128,8 @@ function showInitHelp(): void {
 Usage: release-kit init [options]
 
 Initialize release-kit in the current repository.
-By default, scaffolds only the GitHub Actions workflow files.
+By default, scaffolds only the GitHub Actions workflow files. When every
+package is private, skips publish.yaml and create-github-release.yaml.
 
 Options:
   --with-config   Also scaffold .config/release-kit.config.ts
@@ -146,7 +147,9 @@ Usage: release-kit update-templates [options]
 Update the GitHub Actions workflows that release-kit scaffolds to the templates
 of the installed version, showing what changed in each file. Creates a missing
 workflow that \`init\` would create, and refreshes sync-labels.yaml only when it
-exists. Keeps publish.yaml's provenance setting. Never touches config files.
+exists. When every package is private, refreshes publish.yaml and
+create-github-release.yaml only when they exist. Keeps publish.yaml's provenance
+setting. Never touches config files.
 
 Options:
   --dry-run       Preview changes without writing files

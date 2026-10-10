@@ -1,5 +1,6 @@
 import {
   printError,
+  printSkip,
   printStep,
   printSuccess,
   reportWriteResult,
@@ -10,7 +11,8 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { type CheckResult, hasPackageJson, isGitRepo, usesPnpm } from './checks.ts';
 import { detectRepoType, type RepoType } from './detectRepoType.ts';
-import { scaffoldFiles } from './scaffold.ts';
+import { formatPrivateWorkflowSkip, hasPublishablePackage } from './hasPublishablePackage.ts';
+import { PUBLISHING_WORKFLOW_PATHS, scaffoldFiles } from './scaffold.ts';
 
 interface InitOptions {
   dryRun: boolean;
@@ -55,10 +57,18 @@ export function initCommand({ dryRun, force, styles, withConfig }: InitOptions):
   }
   printSuccess(`Detected: ${repoType}`, styles.stdout);
 
+  const publishable = hasPublishablePackage();
+
   printStep('Scaffolding files');
+  if (!publishable) {
+    for (const filePath of PUBLISHING_WORKFLOW_PATHS) {
+      printSkip(formatPrivateWorkflowSkip(filePath), styles.stdout);
+    }
+  }
+
   let results: WriteResult[];
   try {
-    results = scaffoldFiles({ repoType, dryRun, overwrite: force, withConfig });
+    results = scaffoldFiles({ repoType, dryRun, overwrite: force, publishable, withConfig });
   } catch (error: unknown) {
     printError(`Failed to scaffold files: ${describeError(error)}`, styles.stderr);
     return 1;
@@ -73,21 +83,26 @@ export function initCommand({ dryRun, force, styles, withConfig }: InitOptions):
   }
 
   printStep('Next steps');
-  const configHint = withConfig
-    ? '1. (Optional) Customize .config/release-kit.config.ts.'
-    : '1. (Optional) Run again with --with-config to scaffold config files.';
-  console.info(`
-  ${configHint}
-  2. If this is a private repo, remove provenance: true from .github/workflows/publish.yaml.
-  3. Test by running: npx @williamthorsen/release-kit prepare --dry-run
-  4. Commit the generated files.
-  5. Register each package as a trusted publisher on npmjs.com.
-`);
+  console.info(`\n${formatNextSteps({ publishable, withConfig })}\n`);
 
   return 0;
 }
 
 // region | Helpers
+/** Formats the numbered next steps, leaving out the publishing steps when the repo does not publish any package. */
+function formatNextSteps({ publishable, withConfig }: { publishable: boolean; withConfig: boolean }): string {
+  const steps = [
+    withConfig
+      ? '(Optional) Customize .config/release-kit.config.ts.'
+      : '(Optional) Run again with --with-config to scaffold config files.',
+    ...(publishable ? ['If this is a private repo, remove provenance: true from .github/workflows/publish.yaml.'] : []),
+    'Test by running: npx @williamthorsen/release-kit prepare --dry-run',
+    'Commit the generated files.',
+    ...(publishable ? ['Register each package as a trusted publisher on npmjs.com.'] : []),
+  ];
+  return steps.map((step, index) => `  ${String(index + 1)}. ${step}`).join('\n');
+}
+
 /** Prints the result of a required check and reports whether it passed. */
 function runRequiredCheck(label: string, result: CheckResult, styles: StreamStyles): boolean {
   if (result.ok) {

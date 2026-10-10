@@ -7,6 +7,7 @@ const mockHasPackageJson = vi.hoisted(() => vi.fn());
 const mockUsesPnpm = vi.hoisted(() => vi.fn());
 const mockDetectRepoType = vi.hoisted(() => vi.fn());
 const mockScaffoldFiles = vi.hoisted(() => vi.fn());
+const mockHasPublishablePackage = vi.hoisted(() => vi.fn());
 const mockPrintError = vi.hoisted(() => vi.fn());
 const mockPrintSkip = vi.hoisted(() => vi.fn());
 const mockPrintStep = vi.hoisted(() => vi.fn());
@@ -23,8 +24,14 @@ vi.mock(import('../detectRepoType.ts'), () => ({
   detectRepoType: mockDetectRepoType,
 }));
 
-vi.mock(import('../scaffold.ts'), () => ({
+vi.mock(import('../scaffold.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
   scaffoldFiles: mockScaffoldFiles,
+}));
+
+vi.mock(import('../hasPublishablePackage.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
+  hasPublishablePackage: mockHasPublishablePackage,
 }));
 
 vi.mock(import('@williamthorsen/nmr-core'), () => ({
@@ -46,6 +53,7 @@ function setupPassingChecks(): void {
   mockHasPackageJson.mockReturnValue({ ok: true });
   mockUsesPnpm.mockReturnValue({ ok: true });
   mockDetectRepoType.mockReturnValue('single-package');
+  mockHasPublishablePackage.mockReturnValue(true);
   mockScaffoldFiles.mockReturnValue([
     { filePath: '.github/workflows/release.yaml', outcome: 'created' },
     { filePath: '.github/workflows/publish.yaml', outcome: 'created' },
@@ -59,6 +67,7 @@ describe(initCommand, () => {
     mockUsesPnpm.mockReset();
     mockDetectRepoType.mockReset();
     mockScaffoldFiles.mockReset();
+    mockHasPublishablePackage.mockReset();
     mockPrintError.mockReset();
     mockPrintSkip.mockReset();
     mockPrintStep.mockReset();
@@ -168,6 +177,53 @@ describe(initCommand, () => {
     const allOutput = listConsoleLines(silent.info).join('\n');
     expect(allOutput).toContain('If this is a private repo, remove provenance: true');
     expect(allOutput).toContain('trusted publisher');
+  });
+
+  it('passes publishable to scaffoldFiles', () => {
+    setupPassingChecks();
+    mockHasPublishablePackage.mockReturnValue(false);
+
+    initCommand({ dryRun: false, force: true, styles: SPLIT_STYLES, withConfig: false });
+
+    expect(mockScaffoldFiles).toHaveBeenCalledWith(expect.objectContaining({ publishable: false }));
+  });
+
+  it('reports each skipped publishing workflow when every package is private', () => {
+    setupPassingChecks();
+    mockHasPublishablePackage.mockReturnValue(false);
+
+    initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
+
+    expect(mockPrintSkip.mock.calls).toStrictEqual([
+      ['Skipping .github/workflows/create-github-release.yaml: every package is private', 'rich'],
+      ['Skipping .github/workflows/publish.yaml: every package is private', 'rich'],
+    ]);
+  });
+
+  it('does not report a skip when a package is publishable', () => {
+    setupPassingChecks();
+
+    initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
+
+    expect(mockPrintSkip).not.toHaveBeenCalled();
+  });
+
+  it('omits the publishing steps from next steps when every package is private', () => {
+    setupPassingChecks();
+    mockHasPublishablePackage.mockReturnValue(false);
+    using silent = silenceConsole(['info']);
+
+    initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
+
+    expect(listConsoleLines(silent.info).join('\n')).toContain(
+      [
+        '  1. (Optional) Run again with --with-config to scaffold config files.',
+        '  2. Test by running: npx @williamthorsen/release-kit prepare --dry-run',
+        '  3. Commit the generated files.',
+      ].join('\n'),
+    );
+    expect(listConsoleLines(silent.info).join('\n')).not.toContain('provenance');
+    expect(listConsoleLines(silent.info).join('\n')).not.toContain('trusted publisher');
   });
 
   it('prints dry-run banner when dryRun is true', () => {

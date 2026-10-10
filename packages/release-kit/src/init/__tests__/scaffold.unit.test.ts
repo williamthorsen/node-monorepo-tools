@@ -24,6 +24,7 @@ describe('scaffold', () => {
         repoType: 'single-package',
         dryRun: false,
         overwrite: false,
+        publishable: true,
         withConfig: false,
       });
 
@@ -60,6 +61,7 @@ describe('scaffold', () => {
         repoType: 'monorepo',
         dryRun: false,
         overwrite: false,
+        publishable: true,
         withConfig: false,
       });
 
@@ -80,6 +82,7 @@ describe('scaffold', () => {
         repoType: 'single-package',
         dryRun: false,
         overwrite: false,
+        publishable: true,
         withConfig: true,
       });
 
@@ -101,6 +104,7 @@ describe('scaffold', () => {
         repoType: 'single-package',
         dryRun: false,
         overwrite: false,
+        publishable: true,
         withConfig: false,
       });
 
@@ -119,7 +123,13 @@ describe('scaffold', () => {
         .mockReturnValueOnce({ filePath: '.github/workflows/publish.yaml', outcome: 'overwritten' })
         .mockReturnValueOnce({ filePath: '.github/workflows/release.yaml', outcome: 'overwritten' });
 
-      scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: true, withConfig: false });
+      scaffoldFiles({
+        repoType: 'single-package',
+        dryRun: false,
+        overwrite: true,
+        publishable: true,
+        withConfig: false,
+      });
 
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith(
         '.github/workflows/create-github-release.yaml',
@@ -146,6 +156,7 @@ describe('scaffold', () => {
         repoType: 'single-package',
         dryRun: true,
         overwrite: false,
+        publishable: true,
         withConfig: false,
       });
 
@@ -163,6 +174,26 @@ describe('scaffold', () => {
         dryRun: true,
         overwrite: false,
       });
+    });
+
+    it('omits the publishing workflows when the repo is not publishable, even when overwriting', () => {
+      mockWriteFileWithCheck
+        .mockReturnValueOnce({ filePath: '.github/workflows/release.yaml', outcome: 'overwritten' })
+        .mockReturnValueOnce({ filePath: '.config/release-kit.config.ts', outcome: 'overwritten' });
+
+      const results = scaffoldFiles({
+        repoType: 'single-package',
+        dryRun: false,
+        overwrite: true,
+        publishable: false,
+        withConfig: true,
+      });
+
+      expect(results.map((result) => result.filePath)).toStrictEqual([
+        '.github/workflows/release.yaml',
+        '.config/release-kit.config.ts',
+      ]);
+      expect(mockWriteFileWithCheck).toHaveBeenCalledTimes(2);
     });
   });
 });
