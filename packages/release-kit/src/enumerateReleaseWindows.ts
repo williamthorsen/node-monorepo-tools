@@ -3,6 +3,8 @@ import { execFileSync } from 'node:child_process';
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
+import { matchesTagPrefix } from './matchesTagPrefix.ts';
+
 /**
  * Unit separator (U+001F) delimiting the fields of one git output record.
  *
@@ -13,12 +15,6 @@ const FIELD_SEPARATOR = '\u{1F}';
 
 /** Record separator (U+001E) delimiting commit records, whose bodies contain newlines. */
 const RECORD_SEPARATOR = '\u{1E}';
-
-/**
- * A complete SemVer version with optional pre-release and build metadata, which excludes floating
- * pointers such as `v1` or `v1.2` that share a release prefix.
- */
-const SEMVER_VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
 /** A commit as git records it, before any parsing or filtering. */
 export interface RawCommit {
@@ -153,13 +149,6 @@ function claimAncestors(
     }
   }
   return windowIndexByHash;
-}
-
-/** Checks whether a tag name is one of the prefixes followed by a complete SemVer version. */
-function matchesTagPrefix(tagName: string, tagPrefixes: readonly string[]): boolean {
-  return tagPrefixes.some(
-    (prefix) => tagName.startsWith(prefix) && SEMVER_VERSION_PATTERN.test(tagName.slice(prefix.length)),
-  );
 }
 
 /** Splits one `git log` record into a commit, or returns undefined when the record is blank. */

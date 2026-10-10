@@ -7,6 +7,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { detectUndeclaredTagPrefixes, type UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';
 import { describeEmptyWorkspace, discoverWorkspaces } from './discoverWorkspaces.ts';
+import { matchesTagPrefix } from './matchesTagPrefix.ts';
 import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './types.ts';
 
 /** One workspace's preview row in the tag-prefix preview. */
@@ -125,7 +126,7 @@ function buildPreviewRow(workspacePath: string, overridesByDir: Map<string, Lega
   };
 }
 
-/** Returns the number of local git tags whose name starts with the given prefix. */
+/** Returns the number of local git tags that count as releases under the given prefix. */
 function countTagsMatching(prefix: string): number {
   try {
     const output = execFileSync('git', ['tag', '--list', `${prefix}*`], {
@@ -133,7 +134,7 @@ function countTagsMatching(prefix: string): number {
       maxBuffer: GIT_OUTPUT_LIMIT,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-    return output.split('\n').filter((line) => line.trim() !== '').length;
+    return output.split('\n').filter((line) => matchesTagPrefix(line.trim(), [prefix])).length;
   } catch {
     return 0;
   }
