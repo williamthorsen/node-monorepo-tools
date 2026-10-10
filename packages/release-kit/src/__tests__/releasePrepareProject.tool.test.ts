@@ -10,11 +10,16 @@ import {
   silenceConsole,
   throwOnProcessExit,
 } from '@williamthorsen/toolbelt.vitest/candidate';
-import { assert, beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mergeMonorepoConfig } from '../loadConfig.ts';
 import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
 import { releasePrepareMono } from '../releasePrepareMono.ts';
+
+// The fixture packages exist only in the temp repo, so the npm check would refuse them; this suite stays off the network.
+vi.mock(import('../npmRegistry.ts'), () => ({
+  lookUpNpmPackage: () => ({ status: 'published' }),
+}));
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 

@@ -1,11 +1,16 @@
 import type { StreamStyles } from '@williamthorsen/nmr-core';
 import { captureStdio, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { enterRepoRoot } from '../enterRepoRoot.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
 import { PNPM_WORKSPACE } from '../test-utils/scaffoldRepo.ts';
+
+// The fixture packages exist only in the temp repo, so the npm check would refuse them; this suite stays off the network.
+vi.mock(import('../npmRegistry.ts'), () => ({
+  lookUpNpmPackage: () => ({ status: 'published' }),
+}));
 
 const PLAIN_STYLES: StreamStyles = { stderr: 'plain', stdout: 'plain' };
 
