@@ -13,6 +13,7 @@ import {
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
+import { assertReleasesOnNpm } from './assertReleasesOnNpm.ts';
 import { configFlagSchema } from './configFlagSchema.ts';
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
@@ -25,7 +26,7 @@ import { releasePrepare } from './releasePrepare.ts';
 import { type MonorepoPrepareOptions, releasePrepareMono } from './releasePrepareMono.ts';
 import { reportPrepare } from './reportPrepare.ts';
 import { resolveConfigFlag } from './resolveConfigFlag.ts';
-import type { MonorepoReleaseConfig, ReleaseKitConfig, ReleaseType } from './types.ts';
+import type { MonorepoReleaseConfig, ReleaseKitConfig, ReleaseType, WorkspaceConfig } from './types.ts';
 
 const VALID_BUMP_TYPES: readonly string[] = ['major', 'minor', 'patch'];
 
@@ -185,7 +186,11 @@ function runSinglePackageMode(
 
   const config = mergeSinglePackageConfig(userConfig);
   runAndReport(
-    () => releasePrepare(config, { ...options, ...(setVersion !== undefined && { setVersion }) }),
+    () => {
+      const plan = releasePrepare(config, { ...options, ...(setVersion !== undefined && { setVersion }) });
+      assertReleasesOnNpm(plan.workspaces.some((result) => result.status === 'released') ? ['.'] : []);
+      return plan;
+    },
     dryRun,
     style,
   );
@@ -238,7 +243,26 @@ function runMonorepoMode(
     ...(only !== undefined && { only }),
     ...(setVersion !== undefined && { setVersions: parseSetVersions(setVersion, knownNames) }),
   };
-  runAndReport(() => releasePrepareMono(config, monorepoOptions), dryRun, style);
+  runAndReport(
+    () => {
+      const plan = releasePrepareMono(config, monorepoOptions);
+      assertReleasesOnNpm(findReleasedWorkspacePaths(plan, config.workspaces));
+      return plan;
+    },
+    dryRun,
+    style,
+  );
+}
+
+/** Returns the repo-relative paths of the workspaces that a monorepo plan releases, excluding the project release. */
+function findReleasedWorkspacePaths(plan: ReleasePlan, workspaces: readonly WorkspaceConfig[]): string[] {
+  // A monorepo result's `name` is the workspace's `dir`.
+  const releasedDirs = new Set(
+    plan.workspaces.flatMap((result) =>
+      result.status === 'released' && result.name !== undefined ? [result.name] : [],
+    ),
+  );
+  return workspaces.filter((workspace) => releasedDirs.has(workspace.dir)).map((workspace) => workspace.workspacePath);
 }
 
 interface PrepareOptions {
