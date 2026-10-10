@@ -117,7 +117,7 @@ const TIER_TIMEOUT_MS = 30_000;
  * faster there, because the main process transforms files while the workers run them.
  *
  * Above the threshold the projects do not set `maxWorkers`, so Vitest's own default and its `--maxWorkers` flag
- * apply. Below it, `--maxWorkers` has no effect, because Vitest does not forward the flag to projects;
+ * apply. At or below it, `--maxWorkers` has no effect, because Vitest does not forward the flag to projects;
  * `VITEST_MAX_WORKERS` overrides the default instead.
  */
 const SMALL_MACHINE_MAX_CORES = 2;
