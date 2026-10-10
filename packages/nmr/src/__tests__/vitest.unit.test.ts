@@ -1,10 +1,11 @@
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { globSync } from 'tinyglobby';
 import { defaultClientConditions, defaultServerConditions } from 'vite';
-import { describe, expect, it as baseIt, vi } from 'vitest';
+import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 import type { TestProjectConfiguration, TestProjectInlineConfiguration, ViteUserConfig } from 'vitest/config';
 
 import { listGitIgnoredPaths } from '../git-ignored-paths.ts';
@@ -716,6 +717,45 @@ describe(defineRootVitestConfig, () => {
       defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }, { monorepoRoot: workspaceTree.dir });
 
     expect(build).toThrow('unrecognized option `monorepoRoot`');
+  });
+});
+
+describe('worker count', () => {
+  // Restore the core-count spies; `restoreAllMocks` leaves the `git-ignored-paths.ts` module mock in place.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('gives every project three workers on a machine with two or fewer cores', ({ workspaceTree }) => {
+    for (const coreCount of [1, 2]) {
+      vi.spyOn(os, 'availableParallelism').mockReturnValue(coreCount);
+
+      const configs = [defineVitestConfig(), defineRootVitestConfig({ monorepoRoot: workspaceTree.dir })];
+
+      for (const config of configs) {
+        expect(getProjects(config).map((project) => project.test?.maxWorkers)).toStrictEqual(
+          PROJECT_NAMES.map(() => 3),
+        );
+      }
+    }
+  });
+
+  it('leaves the worker count to Vitest on a machine with more cores', ({ workspaceTree }) => {
+    vi.spyOn(os, 'availableParallelism').mockReturnValue(4);
+
+    const configs = [defineVitestConfig(), defineRootVitestConfig({ monorepoRoot: workspaceTree.dir })];
+
+    for (const project of configs.flatMap(getProjects)) {
+      expect(project.test).not.toHaveProperty('maxWorkers');
+    }
+  });
+
+  it('lets the project seam override the worker default', () => {
+    vi.spyOn(os, 'availableParallelism').mockReturnValue(2);
+
+    const projects = getProjects(defineVitestConfig({ project: { maxWorkers: 1 } }));
+
+    expect(projects.map((project) => project.test?.maxWorkers)).toStrictEqual(PROJECT_NAMES.map(() => 1));
   });
 });
 
