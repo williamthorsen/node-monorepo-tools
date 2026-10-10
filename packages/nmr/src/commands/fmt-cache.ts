@@ -5,7 +5,6 @@ import path from 'node:path';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { NO_CACHE_ENV_VAR } from '../check-cache.ts';
-import { isObject } from '../helpers/type-guards.ts';
 
 /** The directory, relative to the repository root, holding one Prettier cache file per scope. */
 export const FMT_CACHE_DIRECTORY = path.join('node_modules', '.cache', 'prettier', 'nmr-fmt');
@@ -101,7 +100,8 @@ function isCorruptCacheFile(location: string): boolean {
   }
 
   try {
-    return !isObject(JSON.parse(content));
+    JSON.parse(content);
+    return false;
   } catch {
     return true;
   }

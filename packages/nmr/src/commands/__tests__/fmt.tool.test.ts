@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { lstatSync } from 'node:fs';
+import { lstatSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import { captureStdio, createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
@@ -7,7 +7,7 @@ import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { runFmt, runPrettier } from '../fmt.ts';
-import { FMT_CACHE_DIRECTORY } from '../fmt-cache.ts';
+import { FMT_CACHE_DIRECTORY, prepareFmtCache } from '../fmt-cache.ts';
 import { denyAccess, isPrivilegedProcess } from '../test-utils/denyAccess.ts';
 
 /**
@@ -268,6 +268,25 @@ describe('runFmt with the Prettier cache', () => {
 
     expect(rootFile).toBeDefined();
     expect(listCacheFiles(cachedTree)).toHaveLength(2);
+  });
+
+  it('keeps the cache file that Prettier wrote for the next run', async ({ cachedTree }) => {
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.toBe(0);
+    const [cacheFile = ''] = listCacheFiles(cachedTree);
+    const written = cachedTree.read(path.join(FMT_CACHE_DIRECTORY, cacheFile));
+
+    const prepared = prepareFmtCache({
+      cwd: cachedTree.dir,
+      env: {},
+      repositoryRoot: realpathSync(cachedTree.dir),
+      shouldBypassCache: false,
+    });
+
+    expect(prepared).toStrictEqual({
+      kind: 'cached',
+      location: realpathSync(cachedTree.resolve(FMT_CACHE_DIRECTORY, cacheFile)),
+    });
+    expect(cachedTree.read(path.join(FMT_CACHE_DIRECTORY, cacheFile))).toBe(written);
   });
 
   it('does not select its own cache files for formatting, although node_modules is not ignored', async ({
