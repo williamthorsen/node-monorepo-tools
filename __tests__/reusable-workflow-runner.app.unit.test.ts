@@ -40,7 +40,10 @@ describe('publish.reusable.yaml stays on a GitHub-hosted runner', () => {
 
 /** Collects the value of every `runs-on:` line. */
 function collectRunners(content: string): string[] {
-  return [...content.matchAll(/^\s*runs-on:\s*(.+?)\s*$/gm)].map((match) => match[1] ?? '');
+  return content
+    .matchAll(/^\s*runs-on:\s*(.+?)\s*$/gm)
+    .map((match) => match[1] ?? '')
+    .toArray();
 }
 
 /** Lists the base name of every `*.reusable.yaml` workflow, the form that `readWorkflow` takes. */
