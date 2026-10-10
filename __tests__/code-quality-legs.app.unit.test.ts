@@ -7,7 +7,8 @@ import { parse } from 'yaml';
 
 import nmrConfig from '../.config/nmr.config.ts';
 
-const workflowPath = join(import.meta.dirname, '..', '.github', 'workflows', 'code-quality.yaml');
+const monorepoRoot = join(import.meta.dirname, '..');
+const workflowPath = join(monorepoRoot, '.github', 'workflows', 'code-quality.yaml');
 
 /**
  * Guards the code-quality workflow's legs against the root `ci` composite. A composite split into legs does not fire
@@ -23,7 +24,7 @@ describe('code-quality.yaml legs', () => {
   });
 
   it('covers the expansion of `ci`, in order', () => {
-    const registry: ScriptRegistry = { ...getDefaultRootScripts(), ...nmrConfig.rootScripts };
+    const registry: ScriptRegistry = { ...getDefaultRootScripts(monorepoRoot), ...nmrConfig.rootScripts };
 
     const legNames = legs.map((leg) => leg.name);
 
