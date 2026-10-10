@@ -119,6 +119,12 @@ export default defineVitestConfig({ shouldIsolateGit: false, shouldResolveFromSo
 
 **The boundary is Vite's resolution, not the package's role.** Because Node does not apply the `source` condition, a workspace package that an externalized dependency imports resolves through Node to its build output. Nothing else in a suite resolves that way.
 
+### Worker count on small machines
+
+On a machine with 2 or fewer cores, the factory gives every project `maxWorkers: 3`. Vitest's run-mode default is one fewer worker than the core count, so a 2-core CI runner, GitHub's standard runner for a private repo, would otherwise run every test file serially on one worker. Three workers are faster there, because the main process transforms files while the workers run them. On a machine with more cores, the projects do not set `maxWorkers`, and Vitest's own default applies.
+
+Where the default applies, Vitest's `--maxWorkers` flag has no effect, because Vitest does not forward that flag to projects. Override the default with the `VITEST_MAX_WORKERS` environment variable, with `--no-file-parallelism` for a single worker, or with `maxWorkers` in the `project` seam.
+
 ## Resolving through tsconfig paths
 
 A third resolution setting exists alongside those two, and this one is off. `tsconfigPaths: true` emits Vite's `resolve.tsconfigPaths`, so a test resolves an aliased specifier through the `paths` that its `tsconfig.json` declares, the way `tsc` does:
@@ -153,6 +159,8 @@ export default defineVitestConfig({
 `tiers` is keyed by tier name and applies to all four, `unit` included. A key that does not name a tier throws and names the valid ones: Ignoring it would leave the suite green on the budget that the key failed to change, which nothing in the run reports. A tier target sets only the keys that it names, so raising `testTimeout` alone leaves that tier's `hookTimeout` at 30 seconds.
 
 Arrays concatenate rather than replace. `exclude` and `setupFiles` therefore add to what the config already declares, and a surface can neither narrow `include` nor drop a default exclusion. Adding an `include` pattern through `project` widens all four projects at once: A file matching it is collected by each and runs four times.
+
+`maxWorkers` goes under `project`. Vitest requires every project in a run to share one worker count, so a `tiers` target that sets a different `maxWorkers` for one tier makes Vitest throw at startup.
 
 `resolve.conditions` concatenates too, onto the Vite defaults that the factory already emits, but layer order does not matter there: Vite consumes conditions as a set, and which one wins is decided by the key order of the consumed package's own `exports`. A later layer can add a condition and can never remove or outrank one that an earlier layer contributed. Every entry also reaches Node, which resolves each package reached by a test's imports under `node_modules`, so a condition added here is one that the package's `exports` map may match. `resolve.alias` is the one key that merges override-first: A later alias takes precedence over an earlier one.
 
