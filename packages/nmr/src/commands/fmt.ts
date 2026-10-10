@@ -10,6 +10,7 @@ import { hasErrnoCode, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { isObject } from '../helpers/type-guards.ts';
+import { prepareFmtCache } from './fmt-cache.ts';
 
 /** The ignore file that Prettier reads but does not discover hierarchically. */
 const IGNORE_FILENAME = '.prettierignore';
@@ -48,7 +49,7 @@ const DEFAULT_CONFIG_PATH = fileURLToPath(
  */
 const ARGUMENT_BUDGET_BYTES = 100_000;
 
-const USAGE = 'Usage: nmr-fmt (--check | --write) [pathspec...]';
+const USAGE = 'Usage: nmr-fmt (--check | --write) [--no-cache] [pathspec...]';
 
 export type FormatMode = 'check' | 'write';
 
@@ -63,6 +64,8 @@ export interface FormatTargets {
   files: string[];
   /** Absolute paths to every `.prettierignore` governing the repository, root-most first. */
   ignorePaths: string[];
+  /** The repository's top-level directory, as git reports it. */
+  repositoryRoot: string;
   /** Listed paths that this process is denied access to, each with the errno code that its stat raised. */
   unreadableFiles: UnreadableFile[];
 }
@@ -76,7 +79,8 @@ export type ResolveTargetsResult = { ok: true; targets: FormatTargets } | { ok: 
 
 /**
  * Formats or checks the files that git reports for `cwd`, and returns the exit code to report. A repository
- * without a Prettier config of its own is formatted with the house config.
+ * without a Prettier config of its own is formatted with the house config. The run uses Prettier's content-keyed
+ * cache unless `--no-cache` or `NMR_NO_CACHE=1` bypasses it.
  *
  * Trailing arguments are git pathspecs, not Prettier flags; an unrecognized option is rejected rather
  * than passed along, since git would read it as a pathspec matching nothing and the run would report
@@ -96,7 +100,7 @@ export async function runFmt(argv: string[], cwd: string = process.cwd()): Promi
     return 1;
   }
 
-  const { files, ignorePaths, unreadableFiles } = resolvedTargets.targets;
+  const { files, ignorePaths, repositoryRoot, unreadableFiles } = resolvedTargets.targets;
   // Name each skipped path, so that a passing check does not hide the files that it never read.
   for (const { file, code } of unreadableFiles) {
     process.stderr.write(`nmr-fmt: skipped ${file}, which cannot be read (${code})\n`);
@@ -125,7 +129,19 @@ export async function runFmt(argv: string[], cwd: string = process.cwd()): Promi
     return 1;
   }
 
+  const cache = prepareFmtCache({
+    cwd,
+    env: process.env,
+    repositoryRoot,
+    shouldBypassCache: parsedArgs.shouldBypassCache,
+  });
+  // The cache only saves work, so a failure to prepare it must never fail the run.
+  if (cache.kind === 'failed') {
+    process.stderr.write(`nmr-fmt: running without the Prettier cache: ${cache.reason}\n`);
+  }
+
   return runPrettier({
+    cacheLocation: cache.kind === 'cached' ? cache.location : undefined,
     cliPath: cli.cliPath,
     configPath: repositoryConfig.found ? undefined : DEFAULT_CONFIG_PATH,
     mode: parsedArgs.mode,
@@ -194,6 +210,7 @@ export function resolveFormatTargets(cwd: string, pathspecs: string[] = []): Res
       // suppresses Prettier's working-directory-relative default discovery, and that suppression makes the
       // ignore set identical from every directory. Prettier tolerates a path that is not there.
       ignorePaths: dedupe([path.join(repositoryRoot, IGNORE_FILENAME), ...discoveredIgnorePaths]),
+      repositoryRoot,
       unreadableFiles,
     },
   };
@@ -227,14 +244,20 @@ function classifyListedFile(cwd: string, file: string): ListedFileStatus {
   }
 }
 
-type ParseArgsResult = { ok: true; mode: FormatMode; pathspecs: string[] } | { ok: false; error: string };
+type ParseArgsResult =
+  { ok: true; mode: FormatMode; pathspecs: string[]; shouldBypassCache: boolean } | { ok: false; error: string };
 
-/** Reads the required mode flag and treats every remaining argument as a git pathspec. */
+/** Reads the required mode flag and the optional cache bypass, and treats every remaining argument as a git pathspec. */
 function parseFmtArgs(argv: string[]): ParseArgsResult {
   let mode: FormatMode | undefined;
+  let shouldBypassCache = false;
   const pathspecs: string[] = [];
 
   for (const arg of argv) {
+    if (arg === '--no-cache') {
+      shouldBypassCache = true;
+      continue;
+    }
     if (arg === '--check' || arg === '--write') {
       const requestedMode: FormatMode = arg === '--check' ? 'check' : 'write';
       if (mode !== undefined && mode !== requestedMode) {
@@ -253,7 +276,7 @@ function parseFmtArgs(argv: string[]): ParseArgsResult {
     return { ok: false, error: 'Pass --check or --write.' };
   }
 
-  return { ok: true, mode, pathspecs };
+  return { ok: true, mode, pathspecs, shouldBypassCache };
 }
 
 /**
