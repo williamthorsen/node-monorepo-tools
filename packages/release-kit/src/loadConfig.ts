@@ -361,10 +361,11 @@ function resolveProjectConfig(
  * Throws when any pair of tag prefixes from distinct owners is identical or one is a strict
  * prefix of the other.
  *
- * A tag matches a prefix when its name continues with a digit after it, so a project prefix
- * `'v'` matches `'v11y-check-v1.0.0'`. The owners are each workspace, each retired package, and
- * the project. A workspace owns both its derived prefix and its legacy-identity prefixes, because
- * a prior identity may reuse the current tag shape under a different npm name.
+ * A tag matches a prefix when the rest of its name is a complete SemVer version, so a prefix
+ * `'pkg-'` matches `'pkg-1.0.0-v1.2.3'` through its pre-release suffix. The owners are each
+ * workspace, each retired package, and the project. A workspace owns both its derived prefix and
+ * its legacy-identity prefixes, because a prior identity may reuse the current tag shape under a
+ * different npm name.
  */
 function assertNoTagPrefixCollisions(
   workspaces: readonly WorkspaceConfig[],
