@@ -12,6 +12,9 @@ interface ChainRow {
   workspaceRootChain?: string;
 }
 
+/** A directory without `pnpm-workspace.yaml`, for which the root lint commands do not exclude anything. */
+const NON_WORKSPACE_DIR = import.meta.dirname;
+
 const WORKSPACE_CHAINS: readonly ChainRow[] = [
   {
     command: 'build',
@@ -192,15 +195,15 @@ const ROOT_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'root:lint',
-    chain: "eslint --fix --ignore-pattern 'packages/**' .",
+    chain: 'eslint --fix .',
   },
   {
     command: 'root:lint:check',
-    chain: "eslint --ignore-pattern 'packages/**' .",
+    chain: 'eslint .',
   },
   {
     command: 'root:lint:strict',
-    chain: "strict-lint --ignore-pattern 'packages/**' .",
+    chain: 'strict-lint .',
   },
   {
     command: 'root:test',
@@ -271,7 +274,7 @@ const ROOT_CHAINS: readonly ChainRow[] = [
 describe('default script chain rendering', () => {
   it.each([
     { registry: buildWorkspaceRegistry({}), rows: WORKSPACE_CHAINS, scope: 'workspace' },
-    { registry: buildRootRegistry({}), rows: ROOT_CHAINS, scope: 'root' },
+    { registry: buildRootRegistry({}, NON_WORKSPACE_DIR), rows: ROOT_CHAINS, scope: 'root' },
   ])('reproduces every pinned $scope chain', ({ registry, rows }) => {
     expect(renderRegistry(registry)).toStrictEqual(
       rows.map((row) => ({

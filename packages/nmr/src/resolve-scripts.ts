@@ -1,4 +1,6 @@
-import { rootScripts, type ScriptRegistry, workspaceScripts } from './default-scripts.ts';
+import { buildRootScripts, type ScriptRegistry, workspaceScripts } from './default-scripts.ts';
+import { resolveWorkspace } from './workspace.ts';
+import { toWorkspacePackageGlobs } from './workspace-globs.ts';
 
 export type { ScriptRegistry, ScriptValue, StepSpec } from './default-scripts.ts';
 
@@ -11,9 +13,14 @@ export function getDefaultWorkspaceScripts(): ScriptRegistry {
 }
 
 /**
- * Returns a shallow copy of the default root scripts, whose entries a caller may replace without changing the
- * defaults.
+ * Returns the default root scripts for the monorepo at `monorepoRoot`, whose root-only lint commands exclude every
+ * workspace package that its `pnpm-workspace.yaml` declares. A directory without that manifest yields commands
+ * without exclusions rather than an error, so that a caller reading only the command names need not stand in a
+ * workspace.
  */
-export function getDefaultRootScripts(): ScriptRegistry {
-  return { ...rootScripts };
+export function getDefaultRootScripts(monorepoRoot: string): ScriptRegistry {
+  const resolution = resolveWorkspace(monorepoRoot);
+  const packageDirs = resolution.kind === 'packages' ? resolution.packageDirs : [];
+
+  return buildRootScripts(toWorkspacePackageGlobs(monorepoRoot, packageDirs));
 }

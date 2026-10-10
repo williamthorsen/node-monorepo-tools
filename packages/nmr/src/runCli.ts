@@ -206,7 +206,7 @@ async function runInvocation(
   const anchorDir = shouldUseRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
 
   if (parsedArgs.shouldShowHelp || !parsedArgs.command) {
-    stdout.write(`${generateHelp(context.config, anchorDir, shouldUseRoot)}\n`);
+    stdout.write(`${generateHelp(context.config, context.monorepoRoot, anchorDir, shouldUseRoot)}\n`);
     return { exitCode: 0 };
   }
 
@@ -251,7 +251,9 @@ async function runInvocation(
     return { ...result, isUnknownCommand: result.exitCode !== 0 && !isDefinedInAnyScope(command, context) };
   }
 
-  const registry = shouldUseRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config);
+  const registry = shouldUseRoot
+    ? buildRootRegistry(context.config, context.monorepoRoot)
+    : buildWorkspaceRegistry(context.config);
 
   assertNoSelfReference({
     anchorDir,
@@ -1781,7 +1783,7 @@ function formatMisplacedFlagHint(
  * scripts, so the root config's registries and each `package.json` cover every scope.
  */
 function isDefinedInAnyScope(command: string, context: ResolvedContext): boolean {
-  const registries = [buildRootRegistry(context.config), buildWorkspaceRegistry(context.config)];
+  const registries = [buildRootRegistry(context.config, context.monorepoRoot), buildWorkspaceRegistry(context.config)];
   if (registries.some((registry) => Object.hasOwn(registry, command))) {
     return true;
   }

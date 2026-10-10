@@ -51,7 +51,12 @@ const LIFECYCLE_SCRIPT_NAMES: ReadonlySet<string> = new Set([
  * unless it is an npm or pnpm lifecycle script or the active registry
  * contains its name.
  */
-export function generateHelp(config: NmrConfig, packageDir: string | undefined, shouldUseRoot: boolean): string {
+export function generateHelp(
+  config: NmrConfig,
+  monorepoRoot: string,
+  packageDir: string | undefined,
+  shouldUseRoot: boolean,
+): string {
   const lines: string[] = [
     'Usage: nmr [flags] <command> [args...]',
     '',
@@ -85,12 +90,12 @@ export function generateHelp(config: NmrConfig, packageDir: string | undefined, 
   formatRegistry(workspaceRegistry, workspaceMarkedNames, lines);
 
   lines.push('', 'Root commands:');
-  const rootRegistry = filterHooks(buildRootRegistry(config));
+  const rootRegistry = filterHooks(buildRootRegistry(config, monorepoRoot));
   const rootMarkedNames = shouldUseRoot ? applyOverrides(rootRegistry, overrides) : new Set<string>();
   if (rootMarkedNames.size > 0) hadOverride = true;
   formatRegistry(rootRegistry, rootMarkedNames, lines);
 
-  const activeRegistry = shouldUseRoot ? buildRootRegistry(config) : buildWorkspaceRegistry(config);
+  const activeRegistry = shouldUseRoot ? buildRootRegistry(config, monorepoRoot) : buildWorkspaceRegistry(config);
   const unregisteredScripts = collectUnregisteredScripts(packageScripts, activeRegistry);
   if (Object.keys(unregisteredScripts).length > 0) {
     lines.push('', 'Package scripts:');

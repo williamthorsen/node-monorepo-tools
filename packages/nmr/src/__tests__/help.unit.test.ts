@@ -3,6 +3,10 @@ import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
 import { generateHelp } from '../help.ts';
+import { buildMonorepo } from '../test-utils/fixture-repo.ts';
+
+/** A directory without `pnpm-workspace.yaml`, for which the root lint commands do not exclude anything. */
+const NON_WORKSPACE_DIR = import.meta.dirname;
 
 // eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
@@ -16,16 +20,16 @@ describe(generateHelp, () => {
   it('rejects a malformed package.json script rather than omitting it', ({ tree }) => {
     tree.writeJson('package.json', { scripts: { build: ['compile'] } });
 
-    expect(() => generateHelp({}, tree.dir, false)).toThrow('`scripts.build` must be a string');
+    expect(() => generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false)).toThrow('`scripts.build` must be a string');
   });
 
   it('includes usage line', () => {
-    const help = generateHelp({}, undefined, false);
+    const help = generateHelp({}, NON_WORKSPACE_DIR, undefined, false);
     expect(help).toContain('Usage: nmr [flags] <command> [args...]');
   });
 
   it('includes all flag descriptions', () => {
-    const help = generateHelp({}, undefined, false);
+    const help = generateHelp({}, NON_WORKSPACE_DIR, undefined, false);
     expect(help).toContain('-F, --filter');
     expect(help).toContain('-R, --recursive');
     expect(help).toContain('-w, --workspace-root');
@@ -39,7 +43,7 @@ describe(generateHelp, () => {
   });
 
   it('includes workspace commands section', () => {
-    const help = generateHelp({}, undefined, false);
+    const help = generateHelp({}, NON_WORKSPACE_DIR, undefined, false);
     expect(help).toContain('Workspace commands:');
     expect(help).toContain('build');
     expect(help).toContain('test');
@@ -47,7 +51,7 @@ describe(generateHelp, () => {
   });
 
   it('includes root commands section', () => {
-    const help = generateHelp({}, undefined, false);
+    const help = generateHelp({}, NON_WORKSPACE_DIR, undefined, false);
     expect(help).toContain('Root commands:');
     expect(help).toContain('ci');
     expect(help).toContain('report-overrides');
@@ -59,6 +63,7 @@ describe(generateHelp, () => {
         workspaceScripts: { 'copy-content': 'tsx scripts/copy-content.ts' },
         rootScripts: { 'demo:catwalk': 'pnpx http-server' },
       },
+      NON_WORKSPACE_DIR,
       undefined,
       false,
     );
@@ -72,6 +77,7 @@ describe(generateHelp, () => {
       {
         workspaceScripts: { 'build:pre': 'npx rdy compile' },
       },
+      NON_WORKSPACE_DIR,
       undefined,
       false,
     );
@@ -85,6 +91,7 @@ describe(generateHelp, () => {
       {
         rootScripts: { 'build:post': 'echo built' },
       },
+      NON_WORKSPACE_DIR,
       undefined,
       true,
     );
@@ -94,7 +101,7 @@ describe(generateHelp, () => {
   });
 
   it('omits the package scripts section when packageDir is undefined', () => {
-    const help = generateHelp({}, undefined, false);
+    const help = generateHelp({}, NON_WORKSPACE_DIR, undefined, false);
     expect(help).not.toContain('Package scripts:');
   });
 
@@ -105,7 +112,7 @@ describe(generateHelp, () => {
         scripts: { 'custom-task': 'echo custom' },
       });
 
-      const help = generateHelp({}, tree.dir, false);
+      const help = generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false);
       const packageSection = readSection(help, 'Package scripts:', '* Overridden by package.json');
       expect(readCommandNames(packageSection)).toStrictEqual(['custom-task']);
       expect(packageSection).toContain('echo custom');
@@ -118,7 +125,7 @@ describe(generateHelp, () => {
         scripts: { bootstrap: 'pnpm run prepare' },
       });
 
-      const help = generateHelp({}, tree.dir, true);
+      const help = generateHelp({}, NON_WORKSPACE_DIR, tree.dir, true);
       const packageSection = readSection(help, 'Package scripts:', '* Overridden by package.json');
       expect(readCommandNames(packageSection)).toStrictEqual(['bootstrap']);
       expect(packageSection).toContain('pnpm run prepare');
@@ -130,7 +137,11 @@ describe(generateHelp, () => {
         scripts: { 'build:pre': 'rdy verify' },
       });
 
-      const packageSection = readSection(generateHelp({}, tree.dir, false), 'Package scripts:', '* Overridden');
+      const packageSection = readSection(
+        generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false),
+        'Package scripts:',
+        '* Overridden',
+      );
       expect(readCommandNames(packageSection)).toStrictEqual(['build:pre']);
       expect(packageSection).toContain('rdy verify');
     });
@@ -141,7 +152,12 @@ describe(generateHelp, () => {
         scripts: { 'build:pre': 'sentinel-hook-value' },
       });
 
-      const help = generateHelp({ workspaceScripts: { 'build:pre': 'npx rdy compile' } }, tree.dir, false);
+      const help = generateHelp(
+        { workspaceScripts: { 'build:pre': 'npx rdy compile' } },
+        NON_WORKSPACE_DIR,
+        tree.dir,
+        false,
+      );
       expect(help).not.toContain('Package scripts:');
       expect(help).not.toContain('sentinel-hook-value');
     });
@@ -152,7 +168,11 @@ describe(generateHelp, () => {
         scripts: { audit: 'sentinel-audit' },
       });
 
-      const packageSection = readSection(generateHelp({}, tree.dir, false), 'Package scripts:', '* Overridden');
+      const packageSection = readSection(
+        generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false),
+        'Package scripts:',
+        '* Overridden',
+      );
       expect(readCommandNames(packageSection)).toStrictEqual(['audit']);
     });
 
@@ -162,7 +182,7 @@ describe(generateHelp, () => {
         scripts: { prepare: 'echo prepare', postinstall: 'echo postinstall', prepublishOnly: 'echo publish' },
       });
 
-      const help = generateHelp({}, tree.dir, false);
+      const help = generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false);
       expect(help).not.toContain('Package scripts:');
       expect(help).not.toContain('prepare');
       expect(help).not.toContain('postinstall');
@@ -175,7 +195,7 @@ describe(generateHelp, () => {
         scripts: { 'custom-task': 'nmr custom-task' },
       });
 
-      expect(generateHelp({}, tree.dir, false)).not.toContain('Package scripts:');
+      expect(generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false)).not.toContain('Package scripts:');
     });
 
     it('lists an override once, as its marked registry row', ({ tree }) => {
@@ -184,7 +204,7 @@ describe(generateHelp, () => {
         scripts: { lint: 'pkg-linter' },
       });
 
-      const help = generateHelp({}, tree.dir, false);
+      const help = generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false);
       expect(help).not.toContain('Package scripts:');
       expect(help.split('pkg-linter')).toHaveLength(2);
     });
@@ -197,7 +217,7 @@ describe(generateHelp, () => {
         scripts: { toString: 'sentinel-prototype-value' },
       });
 
-      const help = generateHelp({}, tree.dir, false);
+      const help = generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false);
       const packageSection = readSection(help, 'Package scripts:', '* Overridden by package.json');
       expect(readCommandNames(packageSection)).toStrictEqual(['toString']);
       expect(packageSection).toContain('sentinel-prototype-value');
@@ -211,7 +231,7 @@ describe(generateHelp, () => {
         scripts: { lint: 'pkg-linter' },
       });
 
-      const help = generateHelp({}, tree.dir, false);
+      const help = generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false);
       const workspaceSection = readSection(help, 'Workspace commands:', 'Root commands:');
       expect(workspaceSection).toContain('lint*');
       expect(workspaceSection).toContain('pkg-linter');
@@ -227,7 +247,7 @@ describe(generateHelp, () => {
         scripts: { lint: 'custom-linter' },
       });
 
-      const help = generateHelp({}, tree.dir, true);
+      const help = generateHelp({}, NON_WORKSPACE_DIR, tree.dir, true);
       const rootSection = readSection(help, 'Root commands:', '* Overridden by package.json');
       expect(rootSection).toContain('lint*');
       expect(rootSection).toContain('custom-linter');
@@ -243,7 +263,7 @@ describe(generateHelp, () => {
         scripts: { build: 'nmr build' },
       });
 
-      const help = generateHelp({}, tree.dir, false);
+      const help = generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false);
       expect(help).not.toContain('build*');
       expect(help).not.toContain('* Overridden by package.json');
     });
@@ -255,7 +275,7 @@ describe(generateHelp, () => {
         scripts: { build: 'rdy compile && nmr build' },
       });
 
-      const help = generateHelp({}, tree.dir, false);
+      const help = generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false);
       expect(help).not.toContain('build*');
       expect(help).not.toContain('rdy compile');
       expect(help).not.toContain('* Overridden by package.json');
@@ -264,7 +284,7 @@ describe(generateHelp, () => {
     it('omits the footnote when the package.json does not contain any overrides', ({ tree }) => {
       tree.writeJson('package.json', { name: 'plain-pkg' });
 
-      const help = generateHelp({}, tree.dir, false);
+      const help = generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false);
       expect(help).not.toContain('* Overridden by package.json');
     });
 
@@ -274,7 +294,7 @@ describe(generateHelp, () => {
         scripts: { lint: 'custom-linter' },
       });
 
-      const help = generateHelp({}, tree.dir, true);
+      const help = generateHelp({}, NON_WORKSPACE_DIR, tree.dir, true);
       const rootSection = readSection(help, 'Root commands:', '* Overridden by package.json');
       const rows = rootSection.split('\n').filter((line) => line.startsWith('  ') && line.trim().length > 0);
       const valueColumns = new Set(rows.map((line) => findValueColumn(line)));
@@ -284,7 +304,11 @@ describe(generateHelp, () => {
 
   describe('test commands', () => {
     it('lists all six test commands for every package', ({ tree }) => {
-      const workspaceSection = readSection(generateHelp({}, tree.dir, false), 'Workspace commands:', 'Root commands:');
+      const workspaceSection = readSection(
+        generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false),
+        'Workspace commands:',
+        'Root commands:',
+      );
 
       expect(readCommandNames(workspaceSection)).toStrictEqual(
         expect.arrayContaining(['test', 'test:all', 'test:coverage', 'test:tool', 'test:unit', 'test:watch']),
@@ -294,12 +318,16 @@ describe(generateHelp, () => {
 
     // Help renders the registry, so an on-disk probe anywhere in resolution would change the listing here.
     it('lists the same commands when the retired variant config is present', ({ tree }) => {
-      const bareSection = readSection(generateHelp({}, tree.dir, false), 'Workspace commands:', 'Root commands:');
+      const bareSection = readSection(
+        generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false),
+        'Workspace commands:',
+        'Root commands:',
+      );
       tree.write('vitest.integration.config.ts', '');
       tree.write('vitest.standalone.config.ts', '');
 
       const withConfigsSection = readSection(
-        generateHelp({}, tree.dir, false),
+        generateHelp({}, NON_WORKSPACE_DIR, tree.dir, false),
         'Workspace commands:',
         'Root commands:',
       );
@@ -309,7 +337,11 @@ describe(generateHelp, () => {
     });
 
     it('lists the root test selections in root context', ({ tree }) => {
-      const rootSection = readSection(generateHelp({}, tree.dir, true), 'Root commands:', '* Overridden');
+      const rootSection = readSection(
+        generateHelp({}, NON_WORKSPACE_DIR, tree.dir, true),
+        'Root commands:',
+        '* Overridden',
+      );
 
       expect(readCommandNames(rootSection)).toStrictEqual(
         expect.arrayContaining([
@@ -324,8 +356,37 @@ describe(generateHelp, () => {
       );
     });
 
+    it('lists each root lint command with the workspaces that it excludes', () => {
+      const root = buildMonorepo({
+        'apps/web/package.json': '{ "name": "web" }\n',
+        'packages/lib/package.json': '{ "name": "lib" }\n',
+        'pnpm-workspace.yaml': 'packages:\n  - apps/*\n  - packages/*\n',
+      });
+      const exclusions = "--ignore-pattern 'apps/web/**' --ignore-pattern 'packages/lib/**' .";
+
+      // The listing is the same whether nmr runs from the root or from inside a package.
+      for (const [packageDir, shouldUseRoot] of [
+        [root, true],
+        [`${root}/apps/web`, false],
+      ] as const) {
+        const rootSection = readSection(
+          generateHelp({}, root, packageDir, shouldUseRoot),
+          'Root commands:',
+          '* Overridden',
+        );
+
+        expect(rootSection).toContain(`eslint --fix ${exclusions}`);
+        expect(rootSection).toContain(`eslint ${exclusions}`);
+        expect(rootSection).toContain(`strict-lint ${exclusions}`);
+      }
+    });
+
     it('describes a delegating root selection as the steps that it runs', ({ tree }) => {
-      const rootSection = readSection(generateHelp({}, tree.dir, true), 'Root commands:', '* Overridden');
+      const rootSection = readSection(
+        generateHelp({}, NON_WORKSPACE_DIR, tree.dir, true),
+        'Root commands:',
+        '* Overridden',
+      );
 
       expect(rootSection).toContain('[root:test, -R test]');
     });

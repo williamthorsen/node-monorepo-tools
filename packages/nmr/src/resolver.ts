@@ -169,12 +169,12 @@ export function buildWorkspaceRegistry(config: NmrConfig): ScriptRegistry {
 }
 
 /**
- * Builds the merged root script registry:
+ * Builds the merged root script registry for the monorepo at `monorepoRoot`:
  * tier 1 (defaults) + tier 2 (config overrides)
  */
-export function buildRootRegistry(config: NmrConfig): ScriptRegistry {
+export function buildRootRegistry(config: NmrConfig, monorepoRoot: string): ScriptRegistry {
   return {
-    ...getDefaultRootScripts(),
+    ...getDefaultRootScripts(monorepoRoot),
     ...config.rootScripts,
   };
 }

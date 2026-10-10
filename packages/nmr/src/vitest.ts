@@ -9,6 +9,7 @@ import { isObject } from './helpers/type-guards.ts';
 import { ALL_TEST_PATTERNS, buildTierPatterns, TEST_COLLECTION_EXCLUDE, TIER_NAMES, type TierName } from './tiers.ts';
 import { createSourceResolutionPlugin } from './vitest-source-resolution.ts';
 import { getWorkspacePackageDirs } from './workspace.ts';
+import { toWorkspacePackageGlobs } from './workspace-globs.ts';
 
 export type { TierName } from './tiers.ts';
 
@@ -214,7 +215,7 @@ export function defineRootVitestConfig(...layers: RootConfigLayers): ViteUserCon
   return buildConfig(layers, {
     coverageInclude: [],
     ignoredPathsRoot: monorepoRoot,
-    projectExclude: getWorkspaceExcludePatterns(monorepoRoot),
+    projectExclude: toWorkspacePackageGlobs(monorepoRoot, getWorkspacePackageDirs(monorepoRoot)),
     projectRoot: monorepoRoot,
   });
 }
@@ -433,13 +434,6 @@ function formatOptionKeys(keys: readonly string[]): string {
     .toSorted()
     .map((key) => `\`${key}\``)
     .join(', ');
-}
-
-/** Resolves each workspace package directory to a glob relative to the monorepo root. */
-function getWorkspaceExcludePatterns(monorepoRoot: string): string[] {
-  return getWorkspacePackageDirs(monorepoRoot)
-    .map((dir) => `${path.relative(monorepoRoot, dir).split(path.sep).join('/')}/**`)
-    .toSorted();
 }
 
 /**

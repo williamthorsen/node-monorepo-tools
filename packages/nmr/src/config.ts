@@ -208,7 +208,7 @@ function assertResolvableCheckCacheCommands(config: NmrConfig, configPath: strin
   }
 
   const registeredNames = new Set([
-    ...Object.keys(buildRootRegistry(config)),
+    ...Object.keys(buildRootRegistry(config, baseDir)),
     ...Object.keys(buildWorkspaceRegistry(config)),
   ]);
   const missingEntries = entries.filter(({ command }) => !registeredNames.has(command));

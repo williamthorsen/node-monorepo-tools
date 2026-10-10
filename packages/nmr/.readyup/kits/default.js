@@ -117,17 +117,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path2) {
-      const ctrl = callVisitor(key, node, visitor, path2);
+    function visit_(key, node, visitor, path5) {
+      const ctrl = callVisitor(key, node, visitor, path5);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path2, ctrl);
-        return visit_(key, ctrl, visitor, path2);
+        replaceNode(key, path5, ctrl);
+        return visit_(key, ctrl, visitor, path5);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path2 = Object.freeze(path2.concat(node));
+          path5 = Object.freeze(path5.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = visit_(i, node.items[i], visitor, path2);
+            const ci = visit_(i, node.items[i], visitor, path5);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -138,13 +138,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path2 = Object.freeze(path2.concat(node));
-          const ck = visit_("key", node.key, visitor, path2);
+          path5 = Object.freeze(path5.concat(node));
+          const ck = visit_("key", node.key, visitor, path5);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = visit_("value", node.value, visitor, path2);
+          const cv = visit_("value", node.value, visitor, path5);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -165,17 +165,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path2) {
-      const ctrl = await callVisitor(key, node, visitor, path2);
+    async function visitAsync_(key, node, visitor, path5) {
+      const ctrl = await callVisitor(key, node, visitor, path5);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path2, ctrl);
-        return visitAsync_(key, ctrl, visitor, path2);
+        replaceNode(key, path5, ctrl);
+        return visitAsync_(key, ctrl, visitor, path5);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path2 = Object.freeze(path2.concat(node));
+          path5 = Object.freeze(path5.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = await visitAsync_(i, node.items[i], visitor, path2);
+            const ci = await visitAsync_(i, node.items[i], visitor, path5);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -186,13 +186,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path2 = Object.freeze(path2.concat(node));
-          const ck = await visitAsync_("key", node.key, visitor, path2);
+          path5 = Object.freeze(path5.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path5);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = await visitAsync_("value", node.value, visitor, path2);
+          const cv = await visitAsync_("value", node.value, visitor, path5);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -219,23 +219,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path2) {
+    function callVisitor(key, node, visitor, path5) {
       if (typeof visitor === "function")
-        return visitor(key, node, path2);
+        return visitor(key, node, path5);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path2);
+        return visitor.Map?.(key, node, path5);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path2);
+        return visitor.Seq?.(key, node, path5);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path2);
+        return visitor.Pair?.(key, node, path5);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path2);
+        return visitor.Scalar?.(key, node, path5);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path2);
+        return visitor.Alias?.(key, node, path5);
       return void 0;
     }
-    function replaceNode(key, path2, node) {
-      const parent = path2[path2.length - 1];
+    function replaceNode(key, path5, node) {
+      const parent = path5[path5.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node;
       } else if (identity.isPair(parent)) {
@@ -847,10 +847,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path2, value) {
+    function collectionFromPath(schema, path5, value) {
       let v = value;
-      for (let i = path2.length - 1; i >= 0; --i) {
-        const k = path2[i];
+      for (let i = path5.length - 1; i >= 0; --i) {
+        const k = path5[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -869,7 +869,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path2) => path2 == null || typeof path2 === "object" && !!path2[Symbol.iterator]().next().done;
+    var isEmptyPath = (path5) => path5 == null || typeof path5 === "object" && !!path5[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -899,11 +899,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path2, value) {
-        if (isEmptyPath(path2))
+      addIn(path5, value) {
+        if (isEmptyPath(path5))
           this.add(value);
         else {
-          const [key, ...rest] = path2;
+          const [key, ...rest] = path5;
           const node = this.get(key, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
@@ -917,8 +917,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path2) {
-        const [key, ...rest] = path2;
+      deleteIn(path5) {
+        const [key, ...rest] = path5;
         if (rest.length === 0)
           return this.delete(key);
         const node = this.get(key, true);
@@ -932,8 +932,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path2, keepScalar) {
-        const [key, ...rest] = path2;
+      getIn(path5, keepScalar) {
+        const [key, ...rest] = path5;
         const node = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
@@ -951,8 +951,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path2) {
-        const [key, ...rest] = path2;
+      hasIn(path5) {
+        const [key, ...rest] = path5;
         if (rest.length === 0)
           return this.has(key);
         const node = this.get(key, true);
@@ -962,8 +962,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path2, value) {
-        const [key, ...rest] = path2;
+      setIn(path5, value) {
+        const [key, ...rest] = path5;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -3478,9 +3478,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path2, value) {
+      addIn(path5, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path2, value);
+          this.contents.addIn(path5, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -3555,14 +3555,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path2) {
-        if (Collection.isEmptyPath(path2)) {
+      deleteIn(path5) {
+        if (Collection.isEmptyPath(path5)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path2) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path5) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3577,10 +3577,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path2, keepScalar) {
-        if (Collection.isEmptyPath(path2))
+      getIn(path5, keepScalar) {
+        if (Collection.isEmptyPath(path5))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path2, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path5, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -3591,10 +3591,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path2) {
-        if (Collection.isEmptyPath(path2))
+      hasIn(path5) {
+        if (Collection.isEmptyPath(path5))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path2) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path5) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -3611,13 +3611,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path2, value) {
-        if (Collection.isEmptyPath(path2)) {
+      setIn(path5, value) {
+        if (Collection.isEmptyPath(path5)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path2), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path5), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path2, value);
+          this.contents.setIn(path5, value);
         }
       }
       /**
@@ -5578,9 +5578,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path2) => {
+    visit.itemAtPath = (cst, path5) => {
       let item = cst;
-      for (const [field, index] of path2) {
+      for (const [field, index] of path5) {
         const tok = item?.[field];
         if (tok && "items" in tok) {
           item = tok.items[index];
@@ -5589,23 +5589,23 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path2) => {
-      const parent = visit.itemAtPath(cst, path2.slice(0, -1));
-      const field = path2[path2.length - 1][0];
+    visit.parentCollection = (cst, path5) => {
+      const parent = visit.itemAtPath(cst, path5.slice(0, -1));
+      const field = path5[path5.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path2, item, visitor) {
-      let ctrl = visitor(item, path2);
+    function _visit(path5, item, visitor) {
+      let ctrl = visitor(item, path5);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path2.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path5.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5616,10 +5616,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item, path2);
+            ctrl = ctrl(item, path5);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item, path2) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item, path5) : ctrl;
     }
     exports.visit = visit;
   }
@@ -7270,7 +7270,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse2(src, reviver, options) {
+    function parse3(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -7311,7 +7311,7 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports.parse = parse2;
+    exports.parse = parse3;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument;
     exports.stringify = stringify;
@@ -7371,7 +7371,7 @@ var require_dist = __commonJS({
 });
 
 // .readyup/kits/default.ts
-import { existsSync, globSync, readdirSync as readdirSync2 } from "node:fs";
+import { existsSync as existsSync2, globSync as globSync2, readdirSync as readdirSync2 } from "node:fs";
 import { basename, dirname, join, posix, sep } from "node:path";
 
 // ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.8.2/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
@@ -7392,7 +7392,7 @@ function describeError(error) {
 }
 
 // .readyup/kits/default.ts
-var import_yaml = __toESM(require_dist(), 1);
+var import_yaml2 = __toESM(require_dist(), 1);
 import { defineRdyKit } from "readyup";
 import {
   discoverWorkspaces,
@@ -7406,6 +7406,15 @@ import {
   readFile,
   readPackageJson
 } from "readyup/check-utils";
+
+// src/steps.ts
+var SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
+function quoteToken(token) {
+  if (SHELL_SAFE_TOKEN.test(token)) {
+    return token;
+  }
+  return "'" + token.replaceAll("'", String.raw`'\''`) + "'";
+}
 
 // src/default-scripts.ts
 var GATE_PROJECTS = "--project unit --project tool";
@@ -7436,62 +7445,175 @@ var workspaceScripts = {
   upgrade: "nmr-report-catalog && nmr-taze",
   "view-coverage": "open coverage/index.html"
 };
-var rootScripts = {
-  audit: ["audit:prod", "audit:dev"],
-  "audit:dev": "pnpm exec v11y --dev",
-  "audit:prod": "pnpm exec v11y --prod",
-  build: ["-R build"],
-  check: [TYPECHECK_STEP, "fmt:check", "lint:check", "test"],
-  "check:strict": [TYPECHECK_STEP, "fmt:check", "lint:strict", "test"],
-  // Excludes the audit, which in CI has a workflow of its own. The narrowed check runs against the build, so
-  // the build declines the arguments rather than being narrowed by them.
-  ci: [{ run: "build", shouldDeclineArguments: true }, "check:strict"],
-  clean: "nmr-clean",
-  fix: ["lint", "fmt"],
-  "fix:check": ["fmt:check", "lint:check"],
-  fmt: "nmr-fmt --write",
-  "fmt:check": "nmr-fmt --check",
-  lint: "eslint --fix .",
-  "lint:check": "eslint .",
-  "lint:strict": "strict-lint",
-  // The audit takes seconds and `ci` takes minutes, so the cheap gate fails first. The audit reads the
-  // dependency tree, and an argument narrowing the code under test does not say anything about that tree.
-  prepush: [{ run: "audit", shouldDeclineArguments: true }, "ci"],
-  "report-overrides": "nmr-report-overrides",
-  "root:check": [ROOT_TYPECHECK_STEP, "fmt:check", "root:lint:check", "root:test"],
-  "root:lint": "eslint --fix --ignore-pattern 'packages/**' .",
-  "root:lint:check": "eslint --ignore-pattern 'packages/**' .",
-  "root:lint:strict": "strict-lint --ignore-pattern 'packages/**' .",
-  "root:test": `vitest --config ./vitest.root.config.ts ${GATE_PROJECTS}`,
-  "root:test:all": "vitest --config ./vitest.root.config.ts",
-  "root:test:tool": "vitest --config ./vitest.root.config.ts --project tool",
-  "root:test:unit": "vitest --config ./vitest.root.config.ts --project unit",
-  "root:typecheck": "tsgo --noEmit",
-  // Includes the override report for the same reason `upgrade` does: Both end in the tool that rewrites a
-  // `pnpm.overrides` block, so both need the reporter's rejection ahead of them.
-  "root:upgrade": "nmr-report-overrides && nmr-taze",
-  test: ["root:test", "-R test"],
-  "test:all": ["root:test:all", "-R test:all"],
-  "test:coverage": ["root:test", "-R test:coverage"],
-  "test:tool": ["root:test:tool", "-R test:tool"],
-  "test:unit": ["root:test:unit", "-R test:unit"],
-  "test:watch": `vitest ${GATE_PROJECTS} --watch`,
-  // Neither step is narrowable, so `nmr typecheck <file>` is rejected rather than checking that file under
-  // default options at the root and searching for it in every package.
-  typecheck: [ROOT_TYPECHECK_STEP, { run: "-R typecheck", shouldDeclineArguments: true }],
-  // The command is a string because neither half names an nmr command: Both are binaries, and a composite
-  // element can name only a command.
-  upgrade: "nmr-report-overrides && nmr-taze --recursive"
-};
+function buildRootScripts(workspaceGlobs) {
+  const ignorePatterns = workspaceGlobs.map((glob) => `--ignore-pattern ${quoteToken(glob)} `).join("");
+  return {
+    audit: ["audit:prod", "audit:dev"],
+    "audit:dev": "pnpm exec v11y --dev",
+    "audit:prod": "pnpm exec v11y --prod",
+    build: ["-R build"],
+    check: [TYPECHECK_STEP, "fmt:check", "lint:check", "test"],
+    "check:strict": [TYPECHECK_STEP, "fmt:check", "lint:strict", "test"],
+    // Excludes the audit, which in CI has a workflow of its own. The narrowed check runs against the build, so
+    // the build declines the arguments rather than being narrowed by them.
+    ci: [{ run: "build", shouldDeclineArguments: true }, "check:strict"],
+    clean: "nmr-clean",
+    fix: ["lint", "fmt"],
+    "fix:check": ["fmt:check", "lint:check"],
+    fmt: "nmr-fmt --write",
+    "fmt:check": "nmr-fmt --check",
+    lint: "eslint --fix .",
+    "lint:check": "eslint .",
+    "lint:strict": "strict-lint",
+    // The audit takes seconds and `ci` takes minutes, so the cheap gate fails first. The audit reads the
+    // dependency tree, and an argument narrowing the code under test does not say anything about that tree.
+    prepush: [{ run: "audit", shouldDeclineArguments: true }, "ci"],
+    "report-overrides": "nmr-report-overrides",
+    "root:check": [ROOT_TYPECHECK_STEP, "fmt:check", "root:lint:check", "root:test"],
+    "root:lint": `eslint --fix ${ignorePatterns}.`,
+    "root:lint:check": `eslint ${ignorePatterns}.`,
+    "root:lint:strict": `strict-lint ${ignorePatterns}.`,
+    "root:test": `vitest --config ./vitest.root.config.ts ${GATE_PROJECTS}`,
+    "root:test:all": "vitest --config ./vitest.root.config.ts",
+    "root:test:tool": "vitest --config ./vitest.root.config.ts --project tool",
+    "root:test:unit": "vitest --config ./vitest.root.config.ts --project unit",
+    "root:typecheck": "tsgo --noEmit",
+    // Includes the override report for the same reason `upgrade` does: Both end in the tool that rewrites a
+    // `pnpm.overrides` block, so both need the reporter's rejection ahead of them.
+    "root:upgrade": "nmr-report-overrides && nmr-taze",
+    test: ["root:test", "-R test"],
+    "test:all": ["root:test:all", "-R test:all"],
+    "test:coverage": ["root:test", "-R test:coverage"],
+    "test:tool": ["root:test:tool", "-R test:tool"],
+    "test:unit": ["root:test:unit", "-R test:unit"],
+    "test:watch": `vitest ${GATE_PROJECTS} --watch`,
+    // Neither step is narrowable, so `nmr typecheck <file>` is rejected rather than checking that file under
+    // default options at the root and searching for it in every package.
+    typecheck: [ROOT_TYPECHECK_STEP, { run: "-R typecheck", shouldDeclineArguments: true }],
+    // The command is a string because neither half names an nmr command: Both are binaries, and a composite
+    // element can name only a command.
+    upgrade: "nmr-report-overrides && nmr-taze --recursive"
+  };
+}
+
+// ../nmr-core/dist/esm/workspace.js
+import { existsSync, readFileSync } from "node:fs";
+import path2 from "node:path";
+var import_yaml = __toESM(require_dist(), 1);
+
+// ../nmr-core/dist/esm/helpers/workspace-patterns.js
+import { globSync } from "node:fs";
+import path from "node:path";
+var MANIFEST = "package.json";
+var ALWAYS_EXCLUDED = ["**/node_modules/**"];
+function matchPackageDirs(monorepoRoot, includedPatterns, excludedPatterns) {
+  const options = {
+    cwd: monorepoRoot,
+    exclude: [...excludedPatterns, ...ALWAYS_EXCLUDED],
+    followSymlinks: true
+  };
+  const matches = globSync([...includedPatterns], options);
+  const dirs = matches.map((match) => path.dirname(path.resolve(monorepoRoot, match)));
+  return [...new Set(dirs)].toSorted();
+}
+function resolvePackageDirs(monorepoRoot, patterns) {
+  const { excludedPatterns, includedPatterns } = splitWorkspacePatterns(patterns);
+  if (includedPatterns.length === 0) {
+    return [];
+  }
+  return matchPackageDirs(monorepoRoot, includedPatterns, excludedPatterns);
+}
+function splitWorkspacePatterns(patterns) {
+  const includedPatterns = [];
+  const excludedPatterns = [];
+  for (const pattern of patterns) {
+    if (pattern.trim() === "")
+      continue;
+    const isNegated = pattern.startsWith("!");
+    const target = isNegated ? excludedPatterns : includedPatterns;
+    target.push(buildManifestPattern(isNegated ? pattern.slice(1) : pattern));
+  }
+  return { excludedPatterns, includedPatterns };
+}
+function buildManifestPattern(pattern) {
+  return `${pattern.replace(/\/?$/, "")}/${MANIFEST}`;
+}
+
+// ../nmr-core/dist/esm/workspace.js
+var WORKSPACE_MANIFEST = "pnpm-workspace.yaml";
+function resolveWorkspace(monorepoRoot) {
+  const manifestRead = readWorkspaceManifest(monorepoRoot);
+  if (manifestRead.kind === "absent") {
+    return { kind: "not-a-workspace" };
+  }
+  if (manifestRead.kind === "unreadable") {
+    return { cause: "unreadable-manifest", kind: "empty", patterns: [] };
+  }
+  const packagesRead = readDeclaredPackages(manifestRead.value);
+  if (packagesRead.kind !== "patterns") {
+    const cause = packagesRead.kind === "absent" ? "no-packages-list" : "unreadable-packages";
+    return { cause, kind: "empty", patterns: [] };
+  }
+  const { patterns } = packagesRead;
+  const packageDirs = resolvePackageDirs(monorepoRoot, patterns);
+  if (packageDirs.length > 0) {
+    return { kind: "packages", packageDirs, patterns };
+  }
+  return { cause: diagnoseEmptyCause(monorepoRoot, patterns), kind: "empty", patterns };
+}
+function diagnoseEmptyCause(monorepoRoot, patterns) {
+  const { excludedPatterns, includedPatterns } = splitWorkspacePatterns(patterns);
+  if (includedPatterns.length === 0) {
+    return "no-pattern";
+  }
+  if (excludedPatterns.length > 0 && matchPackageDirs(monorepoRoot, includedPatterns, []).length > 0) {
+    return "all-excluded";
+  }
+  return "no-package";
+}
+function readDeclaredPackages(parsedManifest) {
+  if (!isObject(parsedManifest))
+    return { kind: "absent" };
+  const packages = parsedManifest["packages"];
+  if (packages === void 0 || packages === null)
+    return { kind: "absent" };
+  if (!Array.isArray(packages))
+    return { kind: "unreadable" };
+  if (!packages.every((entry) => typeof entry === "string"))
+    return { kind: "unreadable" };
+  return packages.length === 0 ? { kind: "absent" } : { kind: "patterns", patterns: packages };
+}
+function isObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function readWorkspaceManifest(monorepoRoot) {
+  const workspaceFile = path2.join(monorepoRoot, WORKSPACE_MANIFEST);
+  if (!existsSync(workspaceFile)) {
+    return { kind: "absent" };
+  }
+  try {
+    return { kind: "parsed", value: (0, import_yaml.parse)(readFileSync(workspaceFile, "utf8")) };
+  } catch {
+    return { kind: "unreadable" };
+  }
+}
+
+// src/workspace-globs.ts
+import path3 from "node:path";
+function toWorkspacePackageGlobs(monorepoRoot, packageDirs) {
+  return packageDirs.map((dir) => path3.relative(monorepoRoot, dir).split(path3.sep).join("/")).filter((relativeDir) => relativeDir !== "").map((relativeDir) => `${relativeDir}/**`).toSorted();
+}
 
 // src/resolve-scripts.ts
-function getDefaultRootScripts() {
-  return { ...rootScripts };
+function getDefaultRootScripts(monorepoRoot) {
+  const resolution = resolveWorkspace(monorepoRoot);
+  const packageDirs = resolution.kind === "packages" ? resolution.packageDirs : [];
+  return buildRootScripts(toWorkspacePackageGlobs(monorepoRoot, packageDirs));
 }
 
 // src/tiers.ts
 import { readdirSync } from "node:fs";
-import path from "node:path";
+import path4 from "node:path";
 
 // src/git-ignored-paths.ts
 import { spawnSync } from "node:child_process";
@@ -7522,7 +7644,7 @@ function findUntieredTestFiles(rootDir, options = {}) {
 }
 function hasTierInfix(filePath) {
   const tiers = TIER_NAMES;
-  return tiers.includes(path.basename(filePath).split(".").at(-3) ?? "");
+  return tiers.includes(path4.basename(filePath).split(".").at(-3) ?? "");
 }
 var TEST_COLLECTION_EXCLUDE = [".git", "coverage", "dist", "node_modules"];
 var TIER_NAMES = ["unit", "tool", "localhost", "remote"];
@@ -7532,7 +7654,7 @@ function collectTestFiles(dir, relativeDir, isInTestDir, context) {
     const relativePath = relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
     if (entry.isDirectory()) {
       if (context.pruned.has(entry.name) || context.ignoredPaths.has(`${relativePath}/`)) continue;
-      collectTestFiles(path.join(dir, entry.name), relativePath, isInTestDir || entry.name === TEST_DIR, context);
+      collectTestFiles(path4.join(dir, entry.name), relativePath, isInTestDir || entry.name === TEST_DIR, context);
     } else if (isInTestDir !== context.misplaced && TEST_FILE_PATTERN.test(entry.name) && !context.ignoredPaths.has(relativePath)) {
       context.foundPaths.push(relativePath);
     }
@@ -7821,7 +7943,7 @@ var CATALOGUE_CHECKED_FIELDS = ["dependencies", "devDependencies", "optionalDepe
 var PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:/i;
 function allWorkspacePackagesCanBuild() {
   const packagesDir = join(process.cwd(), "packages");
-  if (!existsSync(packagesDir)) return true;
+  if (!existsSync2(packagesDir)) return true;
   const entries = readdirSync2(packagesDir, { withFileTypes: true });
   const failingPackages = [];
   for (const entry of entries) {
@@ -7830,7 +7952,7 @@ function allWorkspacePackagesCanBuild() {
     const content = readFile(pkgPath);
     if (!content) continue;
     const hasBuildOverride = /"build"\s*:/.test(content);
-    const hasDefaultBuildInputs = fileExists(`packages/${entry.name}/tsconfig.json`) && existsSync(join(packagesDir, entry.name, "src"));
+    const hasDefaultBuildInputs = fileExists(`packages/${entry.name}/tsconfig.json`) && existsSync2(join(packagesDir, entry.name, "src"));
     if (!hasBuildOverride && !hasDefaultBuildInputs) {
       failingPackages.push(entry.name);
     }
@@ -8002,7 +8124,7 @@ function everyViteConfigHasVitestConfig() {
   return { ok: false, detail: formatPaths(unpairedConfigs) };
 }
 function findFiles(patterns, cwd) {
-  return globSync(patterns, { cwd, exclude: (path2) => SCAN_EXCLUDE_DIRS.has(basename(path2)) }).map((path2) => path2.split(sep).join("/")).toSorted();
+  return globSync2(patterns, { cwd, exclude: (path5) => SCAN_EXCLUDE_DIRS.has(basename(path5)) }).map((path5) => path5.split(sep).join("/")).toSorted();
 }
 function findLiteralCataloguedSpecifiers(workspace, names) {
   const manifestPath = posix.join(workspace.dir, "package.json");
@@ -8019,7 +8141,7 @@ function findWorkspaceConfigs(workspace, pattern) {
 }
 function formatPaths(paths) {
   return `${paths.length} found:
-${paths.map((path2) => `      ${path2}`).join("\n")}`;
+${paths.map((path5) => `      ${path5}`).join("\n")}`;
 }
 function getMinVersion() {
   const pickedFields = { "version": "0.43.0" };
@@ -8064,8 +8186,8 @@ function noPnpmFieldInPackageJson(cwd = process.cwd()) {
   return { ok: false, detail: formatPaths(declaringFiles) };
 }
 function noReExportOnlyVitestConfigs(cwd = process.cwd()) {
-  const nonRootConfigs = findFiles([`**/${VITEST_CONFIG_PATTERN}`], cwd).filter((path2) => path2.includes("/"));
-  const reExports = nonRootConfigs.filter((path2) => isOwnedByReExportCheck(cwd, path2));
+  const nonRootConfigs = findFiles([`**/${VITEST_CONFIG_PATTERN}`], cwd).filter((path5) => path5.includes("/"));
+  const reExports = nonRootConfigs.filter((path5) => isOwnedByReExportCheck(cwd, path5));
   if (reExports.length === 0) return true;
   return { ok: false, detail: formatPaths(reExports) };
 }
@@ -8074,7 +8196,7 @@ function noRedundantRootScripts() {
   if (!pkg) return true;
   const scripts = pkg["scripts"];
   if (!isRecord(scripts)) return true;
-  const builtInNames = Object.keys(getDefaultRootScripts());
+  const builtInNames = Object.keys(getDefaultRootScripts(process.cwd()));
   const redundantNames = Object.keys(scripts).filter((name) => builtInNames.includes(name));
   if (redundantNames.length === 0) return true;
   return {
@@ -8101,7 +8223,7 @@ function noUnguardedLefthookInstall(cwd = process.cwd()) {
 }
 function noWorkspaceRunScriptReferences() {
   const packagesDir = join(process.cwd(), "packages");
-  if (!existsSync(packagesDir)) return true;
+  if (!existsSync2(packagesDir)) return true;
   const legacyPattern = /run-workspace-script|"pnpm\s+run\s+ws\b/;
   const entries = readdirSync2(packagesDir, { withFileTypes: true });
   const matches = [];
@@ -8139,7 +8261,7 @@ function readCataloguedNames(cwd) {
   if (content === void 0) return { ok: true, names: /* @__PURE__ */ new Set() };
   let workspaceManifest;
   try {
-    workspaceManifest = (0, import_yaml.parse)(content);
+    workspaceManifest = (0, import_yaml2.parse)(content);
   } catch (error) {
     return { ok: false, detail: `cannot parse pnpm-workspace.yaml: ${describeError(error)}` };
   }
