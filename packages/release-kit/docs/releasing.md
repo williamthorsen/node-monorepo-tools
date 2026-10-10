@@ -15,13 +15,15 @@ Scaffolded files:
 - `.github/workflows/release.yaml`: Workflow that delegates to a reusable release workflow
 - `.config/release-kit.config.ts`: Starter config with commented-out customization examples (with `--with-config`)
 
+When every workspace, or the single package, sets `private: true`, `init` skips `create-github-release.yaml` and `publish.yaml`, `--force` included, and reports each skip: `publish` and `create-github-release` skip private packages, so neither workflow would do anything. Its next steps then leave out the provenance and trusted-publisher steps.
+
 ## `release-kit update-templates`
 
 Updates the scaffolded workflows to the templates of the installed release-kit version, and prints what changed in each file. Run it after upgrading release-kit; `--dry-run` previews the changes without writing them.
 
 The workflows are managed files: release-kit renders them, and a change made by hand is overwritten on the next update. The config files are the repository's own, and the command never reads or writes them.
 
-- It creates a missing workflow that `init` would create.
+- It creates a missing workflow that `init` would create. In a repo whose packages are all private, `init` does not create `create-github-release.yaml` or `publish.yaml`, so the command does not create either one when it is missing and reports the skip; it still refreshes either one that exists.
 - It refreshes `.github/workflows/sync-labels.yaml` only when the file exists, because `sync-labels init` scaffolds it on request.
 - It keeps `publish.yaml`'s provenance setting: When the file does not set `provenance: true`, as in a private repository, the updated file does not either.
 
