@@ -162,9 +162,10 @@ describe(buildWorkspaceRegistry, () => {
 
 describe(buildRootRegistry, () => {
   it('merges config overrides on top of defaults', () => {
-    const registry = buildRootRegistry({
-      rootScripts: { 'demo:catwalk': 'pnpx http-server --port=5189' },
-    });
+    const registry = buildRootRegistry(
+      { rootScripts: { 'demo:catwalk': 'pnpx http-server --port=5189' } },
+      import.meta.dirname,
+    );
 
     expect(registry).toMatchObject({
       ci: [{ run: 'build', shouldDeclineArguments: true }, 'check:strict'],
