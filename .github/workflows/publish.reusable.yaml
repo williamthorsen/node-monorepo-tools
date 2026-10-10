@@ -50,6 +50,7 @@ permissions:
 jobs:
   publish:
     name: Publish
+    # npm generates provenance only on GitHub-hosted runners, so this job ignores `CI_RUNS_ON`.
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

@@ -12,6 +12,9 @@ name: 'Reusable: Release'
 #
 # When running in the `williamthorsen/node-monorepo-tools` repo, the workflow builds release-kit from source.
 #
+# Runner: the caller's `CI_RUNS_ON` variable selects the runner of every job,
+# defaulting to `ubuntu-latest`; see "Runner selection" in the workflows README.
+#
 # Usage:
 #   jobs:
 #     release:
@@ -46,7 +49,7 @@ permissions:
 jobs:
   release:
     name: Release
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
     timeout-minutes: 15
 
     env:

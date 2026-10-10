@@ -19,6 +19,9 @@ name: 'Reusable: Create GitHub Release'
 # Consumer prerequisite: a `devEngines.packageManager` or `packageManager` field
 # pinning pnpm 11 or newer, which is the range that `pnpm/setup` installs.
 #
+# Runner: the caller's `CI_RUNS_ON` variable selects the runner of every job,
+# defaulting to `ubuntu-latest`; see "Runner selection" in the workflows README.
+#
 # Usage:
 #   jobs:
 #     create-github-release:
@@ -45,7 +48,7 @@ permissions:
 jobs:
   create-github-release:
     name: Create GitHub Release
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
     timeout-minutes: 10
 
     steps:
