@@ -14,6 +14,12 @@ const FIELD_SEPARATOR = '\u{1F}';
 /** Record separator (U+001E) delimiting commit records, whose bodies contain newlines. */
 const RECORD_SEPARATOR = '\u{1E}';
 
+/**
+ * A complete SemVer version with optional pre-release and build metadata, which excludes floating
+ * pointers such as `v1` or `v1.2` that share a release prefix.
+ */
+const SEMVER_VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+
 /** A commit as git records it, before any parsing or filtering. */
 export interface RawCommit {
   /** The full 40-character hash. */
@@ -40,7 +46,7 @@ export interface ReleaseWindow {
 export interface EnumerateReleaseWindowsOptions {
   /** Git pathspecs restricting the enumeration to commits that touch them. */
   paths?: readonly string[];
-  /** Tag prefixes to match as a union; a matching tag name continues with a digit. */
+  /** Tag prefixes to match as a union; a matching tag name continues with a complete SemVer version. */
   tagPrefixes: readonly string[];
   /** The version that the unreleased window reports, such as the tag that the release being prepared will write. */
   unreleasedTag: string;
@@ -149,9 +155,11 @@ function claimAncestors(
   return windowIndexByHash;
 }
 
-/** Checks whether a tag name starts with one of the prefixes and continues with a digit. */
+/** Checks whether a tag name is one of the prefixes followed by a complete SemVer version. */
 function matchesTagPrefix(tagName: string, tagPrefixes: readonly string[]): boolean {
-  return tagPrefixes.some((prefix) => tagName.startsWith(prefix) && /^\d/.test(tagName.slice(prefix.length)));
+  return tagPrefixes.some(
+    (prefix) => tagName.startsWith(prefix) && SEMVER_VERSION_PATTERN.test(tagName.slice(prefix.length)),
+  );
 }
 
 /** Splits one `git log` record into a commit, or returns undefined when the record is blank. */
