@@ -9,6 +9,7 @@ import kit, {
   classifyProvenanceSetting,
   classifyTrustCapability,
   classifyTrustQuery,
+  describeNpmPackageLookup,
   packagesChecklist,
   selectProbeName,
   skipIfNothingPublishable,
@@ -479,6 +480,29 @@ describe('packages checklist', () => {
       'published to npm',
       'files field exists',
     ]);
+  });
+});
+
+describe(describeNpmPackageLookup, () => {
+  it('passes for a published package', () => {
+    expect(describeNpmPackageLookup({ status: 'published' })).toStrictEqual({ ok: true });
+  });
+
+  it("fails without its own fix for an unpublished package, so that the row's bootstrap fix applies", () => {
+    expect(describeNpmPackageLookup({ status: 'unpublished' })).toStrictEqual({
+      ok: false,
+      detail: 'The npm registry does not list this package',
+    });
+  });
+
+  it('fails with a registry-access fix when the lookup could not be answered', () => {
+    expect(
+      describeNpmPackageLookup({ status: 'unverifiable', detail: 'Cannot reach the npm registry (ENOTFOUND)' }),
+    ).toStrictEqual({
+      ok: false,
+      detail: 'Cannot reach the npm registry (ENOTFOUND)',
+      fix: 'Restore access to the npm registry, then run this check again',
+    });
   });
 });
 

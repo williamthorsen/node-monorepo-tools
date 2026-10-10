@@ -30,7 +30,9 @@ import {
 import { hasProvenance } from '../../src/init/hasProvenance.ts';
 import {
   AUTH_ERROR_CODES,
+  lookUpNpmPackage,
   type NpmCommandResult,
+  type NpmPackageLookup,
   readNpmError,
   runNpmJson,
   UNREACHABLE_ERROR_CODES,
@@ -183,7 +185,7 @@ export function buildWorkspaceCheck(workspace: Workspace): RdyCheck {
         const auth = getCachedNpmAuthStatus();
         return auth.status === 'unreachable' ? auth.detail : false;
       },
-      check: () => isPublishedToNpm(displayName),
+      check: () => describeNpmPackageLookup(lookUpNpmPackage(displayName, readPublishRegistry(workspace))),
       fix: `Run "npm publish --access public" from ${workspace.dir} to bootstrap the package on npm`,
       checks: [
         {
@@ -410,6 +412,30 @@ export function classifyTrustQuery(
       };
 }
 
+/**
+ * Converts an npm package lookup into the outcome of the `published to npm` check.
+ *
+ * A lookup that failed for any reason other than an unknown package gets its own fix, so that the row never advises
+ * publishing a package that the registry may already list.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function describeNpmPackageLookup(lookup: NpmPackageLookup): CheckOutcome {
+  if (lookup.status === 'published') {
+    return { ok: true };
+  }
+
+  if (lookup.status === 'unpublished') {
+    return { ok: false, detail: 'The npm registry does not list this package' };
+  }
+
+  return {
+    ok: false,
+    detail: lookup.detail,
+    fix: 'Restore access to the npm registry, then run this check again',
+  };
+}
+
 /** Renders trust relationships for a failure detail, in the shape in which the expected publisher is named. */
 function describeTrustRelationships(relationships: TrustRelationship[]): string {
   return relationships
@@ -501,19 +527,6 @@ function hasTokenReferences(): boolean {
   return false;
 }
 
-/** Checks whether a package exists on the npm registry. */
-function isPublishedToNpm(packageName: string): boolean {
-  try {
-    execSync(`npm view ${packageName} version`, {
-      encoding: 'utf8',
-      stdio: 'pipe',
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** Queries the GitHub API to determine whether the current repo is private. */
 function isRepoPrivate(): boolean {
   const ownerRepo = getOwnerRepo();
@@ -534,6 +547,12 @@ interface TrustRelationship {
   file?: unknown;
   repository?: unknown;
   type?: unknown;
+}
+
+/** Returns the registry that a workspace's `publishConfig.registry` names, if it names one. */
+function readPublishRegistry(workspace: Workspace): string | undefined {
+  const registry = getJsonValue(workspace.packageJson, 'publishConfig', 'registry');
+  return typeof registry === 'string' ? registry : undefined;
 }
 
 /**

@@ -42,6 +42,29 @@ var UNREACHABLE_ERROR_CODES = /* @__PURE__ */ new Set([
   "ERR_SOCKET_TIMEOUT",
   "ETIMEDOUT"
 ]);
+function classifyNpmPackageLookup(result) {
+  if (result.exitOk) {
+    return { status: "published" };
+  }
+  const error = readNpmError(result.stdout);
+  if (error === void 0) {
+    return { status: "unverifiable", detail: "The npm registry query failed without a readable error payload" };
+  }
+  if (error.code === "E404") {
+    return { status: "unpublished" };
+  }
+  if (AUTH_ERROR_CODES.has(error.code)) {
+    return { status: "unverifiable", detail: `The npm registry rejected the session (${error.code})` };
+  }
+  if (UNREACHABLE_ERROR_CODES.has(error.code)) {
+    return { status: "unverifiable", detail: `Cannot reach the npm registry (${error.code})` };
+  }
+  return { status: "unverifiable", detail: `The npm registry query failed (${error.code}): ${error.summary}` };
+}
+function lookUpNpmPackage(packageName, registry) {
+  const args = ["view", packageName, "version", "--json", ...registry === void 0 ? [] : ["--registry", registry]];
+  return classifyNpmPackageLookup(runNpmJson(args));
+}
 function readNpmError(stdout) {
   let parsed;
   try {
@@ -180,7 +203,7 @@ function buildWorkspaceCheck(workspace) {
         const auth = getCachedNpmAuthStatus();
         return auth.status === "unreachable" ? auth.detail : false;
       },
-      check: () => isPublishedToNpm(displayName),
+      check: () => describeNpmPackageLookup(lookUpNpmPackage(displayName, readPublishRegistry(workspace))),
       fix: `Run "npm publish --access public" from ${workspace.dir} to bootstrap the package on npm`,
       checks: [
         {
@@ -321,6 +344,19 @@ function classifyTrustQuery(result, expectedRepo, expectedFile) {
     detail: `Expected github ${expectedRepo} (${expectedFile}); found ${describeTrustRelationships(relationships)}`
   };
 }
+function describeNpmPackageLookup(lookup) {
+  if (lookup.status === "published") {
+    return { ok: true };
+  }
+  if (lookup.status === "unpublished") {
+    return { ok: false, detail: "The npm registry does not list this package" };
+  }
+  return {
+    ok: false,
+    detail: lookup.detail,
+    fix: "Restore access to the npm registry, then run this check again"
+  };
+}
 function describeTrustRelationships(relationships) {
   return relationships.map((relationship) => {
     const type = typeof relationship.type === "string" ? relationship.type : "(unknown)";
@@ -383,17 +419,6 @@ function hasTokenReferences() {
   }
   return false;
 }
-function isPublishedToNpm(packageName) {
-  try {
-    execSync(`npm view ${packageName} version`, {
-      encoding: "utf8",
-      stdio: "pipe"
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
 function isRepoPrivate() {
   const ownerRepo = getOwnerRepo();
   const result = execSync(`gh api repos/${ownerRepo} --jq .private`, {
@@ -404,6 +429,10 @@ function isRepoPrivate() {
 function probeTrustQuery() {
   const probeName = selectProbeName();
   return probeName === void 0 ? void 0 : getTrustQueryResult(probeName);
+}
+function readPublishRegistry(workspace) {
+  const registry = getJsonValue(workspace.packageJson, "publishConfig", "registry");
+  return typeof registry === "string" ? registry : void 0;
 }
 function readTrustRelationships(stdout) {
   let parsed;
@@ -443,6 +472,7 @@ export {
   classifyTrustCapability,
   classifyTrustQuery,
   npm_auto_publish_default as default,
+  describeNpmPackageLookup,
   packagesChecklist,
   selectProbeName,
   skipIfNotPublishable,
