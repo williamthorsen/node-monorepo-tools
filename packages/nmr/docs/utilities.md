@@ -51,6 +51,18 @@ A file that git ignores is never formatted, even when named directly. Because tr
 
 `nmr-fmt` drops paths that the index names but the filesystem does not have (a file deleted but not yet staged), submodule gitlinks, and symlinks whatever they point at, before calling Prettier, which rejects a symlink named explicitly. It also skips a path that it is denied access to, such as a `.envrc` that a sandbox shields, and names each one on stderr, so that a check that passes does not hide a file that it never read. Any other failure to stat a listed path fails the run, with an error that names the path.
 
+### Cache
+
+`nmr-fmt` passes Prettier's content-keyed cache (`--cache --cache-strategy content`), so a run reformats only the files whose content changed since a run that passed them. The cache files live in `node_modules/.cache/prettier/nmr-fmt/` at the repository root, one per directory from which `nmr-fmt` runs, because Prettier keys each entry by its path relative to that directory. A repository whose root does not contain a `node_modules` directory runs uncached rather than having one created.
+
+A cached entry is reused only while the Prettier version, the Node version, the resolved Prettier options, and the repository's lockfile are all unchanged. Prettier's own key covers the first three. It does not cover plugin code, so each cache file's name also contains a fingerprint of the root's lockfile, and a dependency change, a plugin upgrade included, starts a fresh cache. `nmr-fmt` deletes cache files with an outdated fingerprint, and it discards a cache file that is not valid JSON rather than letting Prettier fail on it. A failure to prepare the cache prints a warning and leaves the run uncached; it never fails the run.
+
+Pass `--no-cache`, or set `NMR_NO_CACHE=1`, to run uncached. `nmr --no-cache fmt:check` sets that variable, so it bypasses both nmr's [check cache](check-cache.md) and this one. Because the fingerprint makes a cache from an earlier lockfile harmless, CI can restore the whole `node_modules/.cache/prettier/nmr-fmt/` directory under a fallback key.
+
+```bash
+nmr-fmt --check --no-cache
+```
+
 ## `ensure-prepublish-hooks`
 
 Verify that all publishable workspace packages have a `prepublishOnly` script. Exits non-zero if any are missing.
