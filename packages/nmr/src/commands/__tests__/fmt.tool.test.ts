@@ -1,12 +1,13 @@
 import { spawnSync } from 'node:child_process';
-import { lstatSync } from 'node:fs';
+import { lstatSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import { captureStdio, createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { runFmt, runPrettier } from '../fmt.ts';
+import { FMT_CACHE_DIRECTORY, prepareFmtCache } from '../fmt-cache.ts';
 import { denyAccess, isPrivilegedProcess } from '../test-utils/denyAccess.ts';
 
 /**
@@ -36,6 +37,10 @@ const it = baseIt
   .extend(
     'repositoryTree',
     makeFixture(() => scaffoldRepository(TRACKED_FILES)),
+  )
+  .extend(
+    'cachedTree',
+    makeFixture(() => scaffoldCachedRepository()),
   )
   .extend(
     'stubTree',
@@ -246,6 +251,119 @@ describe(runFmt, () => {
   });
 });
 
+describe('runFmt with the Prettier cache', () => {
+  beforeEach(() => {
+    // An outer `nmr --no-cache` exports the bypass to the test run, which would disable the cache under test.
+    vi.stubEnv('NMR_NO_CACHE', '');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('keeps one cache file per scope under the repository root', async ({ cachedTree }) => {
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.toBe(0);
+    const [rootFile] = listCacheFiles(cachedTree);
+    await expect(runFmt(['--check'], cachedTree.resolve('packages/a'))).resolves.toBe(0);
+
+    expect(rootFile).toBeDefined();
+    expect(listCacheFiles(cachedTree)).toHaveLength(2);
+  });
+
+  it('keeps the cache file that Prettier wrote for the next run', async ({ cachedTree }) => {
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.toBe(0);
+    const [cacheFile = ''] = listCacheFiles(cachedTree);
+    const written = cachedTree.read(path.join(FMT_CACHE_DIRECTORY, cacheFile));
+
+    const prepared = prepareFmtCache({
+      cwd: cachedTree.dir,
+      env: {},
+      repositoryRoot: realpathSync(cachedTree.dir),
+      shouldBypassCache: false,
+    });
+
+    expect(prepared).toStrictEqual({
+      kind: 'cached',
+      location: realpathSync(cachedTree.resolve(FMT_CACHE_DIRECTORY, cacheFile)),
+    });
+    expect(cachedTree.read(path.join(FMT_CACHE_DIRECTORY, cacheFile))).toBe(written);
+  });
+
+  it('does not select its own cache files for formatting, although node_modules is not ignored', async ({
+    cachedTree,
+  }) => {
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.toBe(0);
+
+    // git lists the untracked cache file, and the second check passes only because Prettier skips `node_modules`.
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.toBe(0);
+  });
+
+  it('still fails on a file misformatted after a cached pass', async ({ cachedTree }) => {
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.toBe(0);
+    cachedTree.write('root.js', 'const  root =  1\n');
+
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.not.toBe(0);
+  });
+
+  it('fails on files that a changed Prettier config no longer accepts', async ({ cachedTree }) => {
+    cachedTree.write('.prettierrc', '{ "singleQuote": true }\n');
+    cachedTree.write('quoted.js', "const quoted = 'x';\n");
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.toBe(0);
+
+    cachedTree.write('.prettierrc', '{ "singleQuote": false }\n');
+
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.not.toBe(0);
+  });
+
+  it('replaces the cache file when the lockfile changes', async ({ cachedTree }) => {
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.toBe(0);
+    const before = listCacheFiles(cachedTree);
+    cachedTree.write('pnpm-lock.yaml', "lockfileVersion: '9.1'\n");
+
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.toBe(0);
+
+    const after = listCacheFiles(cachedTree);
+    expect(after).toHaveLength(1);
+    expect(after).not.toStrictEqual(before);
+  });
+
+  it('replaces a corrupt cache file rather than failing the run', async ({ cachedTree }) => {
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.toBe(0);
+    const [cacheFile = ''] = listCacheFiles(cachedTree);
+    cachedTree.write(path.join(FMT_CACHE_DIRECTORY, cacheFile), '{"truncated');
+
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.toBe(0);
+    expect(() => cachedTree.readJson(path.join(FMT_CACHE_DIRECTORY, cacheFile))).not.toThrow();
+  });
+
+  it('runs uncached, with a warning, when the cache cannot be prepared', async ({ cachedTree, captured }) => {
+    // A file where the cache directory belongs makes creating the directory fail.
+    cachedTree.write(FMT_CACHE_DIRECTORY, '');
+
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.toBe(0);
+    expect(captured.stderr).toContain('nmr-fmt: running without the Prettier cache:');
+  });
+
+  it('bypasses the cache when given --no-cache', async ({ cachedTree }) => {
+    await expect(runFmt(['--write', '--no-cache'], cachedTree.dir)).resolves.toBe(0);
+
+    expect(listCacheFiles(cachedTree)).toStrictEqual([]);
+  });
+
+  it('bypasses the cache when NMR_NO_CACHE is set', async ({ cachedTree }) => {
+    vi.stubEnv('NMR_NO_CACHE', '1');
+
+    await expect(runFmt(['--check'], cachedTree.dir)).resolves.toBe(0);
+    expect(listCacheFiles(cachedTree)).toStrictEqual([]);
+  });
+
+  it('runs uncached in a repository whose root does not contain node_modules', async ({ repositoryTree }) => {
+    await expect(runFmt(['--check'], repositoryTree.dir)).resolves.toBe(0);
+
+    expect(repositoryTree.exists('node_modules')).toBe(false);
+  });
+});
+
 /**
  * The argument set handed to Prettier, asserted against a stand-in that records how it was called.
  * `cliPath` is the seam: Production resolves the consuming repository's Prettier through the module
@@ -279,6 +397,40 @@ describe(runPrettier, () => {
     runPrettier({ cliPath, mode: 'write', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
 
     expect(readCalls(stubTree)[0]).toStrictEqual(expect.arrayContaining(['--list-different', '--write']));
+  });
+
+  it("passes Prettier's content-keyed cache when given a cache location", ({ cliPath, stubTree }) => {
+    const cacheLocation = '/repo/node_modules/.cache/prettier/nmr-fmt/cache.json';
+
+    runPrettier({ cliPath, cacheLocation, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
+
+    expect(readCalls(stubTree)[0]).toStrictEqual(
+      expect.arrayContaining(['--cache', '--cache-strategy', 'content', '--cache-location', cacheLocation]),
+    );
+  });
+
+  it('passes no cache flags without a cache location', ({ cliPath, stubTree }) => {
+    runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
+
+    const args = readCalls(stubTree)[0] ?? [];
+    expect(args.filter((arg) => arg.startsWith('--cache'))).toStrictEqual([]);
+  });
+
+  it('shares one cache location across every batch', ({ cliPath, stubTree }) => {
+    const cacheLocation = '/repo/cache.json';
+
+    runPrettier({
+      cliPath,
+      cacheLocation,
+      mode: 'check',
+      files: ['one.js', 'two.js'],
+      ignorePaths: [],
+      cwd: stubTree.dir,
+      budgetBytes: 10,
+    });
+
+    const locations = readCalls(stubTree).map((args) => args[args.indexOf('--cache-location') + 1]);
+    expect(locations).toStrictEqual([cacheLocation, cacheLocation]);
   });
 
   it('reports the exit code that Prettier returned', ({ cliPath, stubTree }) => {
@@ -389,6 +541,22 @@ function readCalls(tree: TempTree): string[][] {
   }
 
   return calls;
+}
+
+/** Returns the names of the files in the cache directory, or none when the directory does not exist. */
+function listCacheFiles(tree: TempTree): string[] {
+  return tree.exists(FMT_CACHE_DIRECTORY) ? tree.list(FMT_CACHE_DIRECTORY) : [];
+}
+
+/**
+ * Creates the standard fixture repository plus a tracked lockfile and an untracked, unignored `node_modules/`,
+ * the state in which nmr-fmt uses the cache.
+ */
+function scaffoldCachedRepository(): TempTree {
+  const tree = scaffoldRepository({ ...TRACKED_FILES, 'pnpm-lock.yaml': "lockfileVersion: '9.0'\n" });
+  tree.mkdir('node_modules');
+
+  return tree;
 }
 
 /**

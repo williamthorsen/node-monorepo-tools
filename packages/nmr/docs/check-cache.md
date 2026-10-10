@@ -148,6 +148,8 @@ Try these in order; the first is almost always the right one.
 | `rm -rf node_modules/.cache/nmr-check` | Forgets every recorded pass, leaving build output alone.                     |
 | `nmr clean`                            | Forgets every recorded pass and removes build output, at any scope.          |
 
+`--no-cache` and `NMR_NO_CACHE=1` also bypass the Prettier cache that `nmr-fmt` keeps, because nmr exports `NMR_NO_CACHE=1` to the commands that it runs. nmr exports it too when a command is given trailing arguments, so `nmr fmt:check <pathspec>` runs uncached. See [`nmr-fmt`'s cache](utilities.md#cache).
+
 `--no-cache` belongs before the command name. After it, it is an argument to the command rather than a flag to nmr; nmr reports this rather than silently ignoring the bypass.
 
 ## Reserved environment variables
