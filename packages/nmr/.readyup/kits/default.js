@@ -7496,9 +7496,6 @@ function buildRootScripts(workspaceGlobs) {
   };
 }
 
-// src/workspace.ts
-import path3 from "node:path";
-
 // ../nmr-core/dist/esm/workspace.js
 import { existsSync, readFileSync } from "node:fs";
 import path2 from "node:path";
@@ -7601,7 +7598,8 @@ function readWorkspaceManifest(monorepoRoot) {
   }
 }
 
-// src/workspace.ts
+// src/workspace-globs.ts
+import path3 from "node:path";
 function toWorkspacePackageGlobs(monorepoRoot, packageDirs) {
   return packageDirs.map((dir) => path3.relative(monorepoRoot, dir).split(path3.sep).join("/")).filter((relativeDir) => relativeDir !== "").map((relativeDir) => `${relativeDir}/**`).toSorted();
 }

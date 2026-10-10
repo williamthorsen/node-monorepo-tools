@@ -1,5 +1,6 @@
 import { buildRootScripts, type ScriptRegistry, workspaceScripts } from './default-scripts.ts';
-import { resolveWorkspace, toWorkspacePackageGlobs } from './workspace.ts';
+import { resolveWorkspace } from './workspace.ts';
+import { toWorkspacePackageGlobs } from './workspace-globs.ts';
 
 export type { ScriptRegistry, ScriptValue, StepSpec } from './default-scripts.ts';
 

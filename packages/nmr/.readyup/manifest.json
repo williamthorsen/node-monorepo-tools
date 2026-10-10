@@ -46,7 +46,7 @@
           "path": "../src/git-ignored-paths.ts"
         },
         {
-          "hash": "e8abdfcd",
+          "hash": "78ca6bd4",
           "kind": "module",
           "path": "../src/resolve-scripts.ts"
         },
@@ -66,7 +66,12 @@
           "path": "../src/UserError.ts"
         },
         {
-          "hash": "c2c9b535",
+          "hash": "f08b6ff3",
+          "kind": "module",
+          "path": "../src/workspace-globs.ts"
+        },
+        {
+          "hash": "922e7155",
           "kind": "module",
           "path": "../src/workspace.ts"
         }
@@ -76,7 +81,7 @@
       "readyupVersion": "0.40.0",
       "source": "kits/default.ts",
       "sourceHash": "f1fb9afd",
-      "targetHash": "413a2c84"
+      "targetHash": "23e4d439"
     }
   ]
 }

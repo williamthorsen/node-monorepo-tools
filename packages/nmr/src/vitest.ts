@@ -8,7 +8,8 @@ import { listGitIgnoredPaths } from './git-ignored-paths.ts';
 import { isObject } from './helpers/type-guards.ts';
 import { ALL_TEST_PATTERNS, buildTierPatterns, TEST_COLLECTION_EXCLUDE, TIER_NAMES, type TierName } from './tiers.ts';
 import { createSourceResolutionPlugin } from './vitest-source-resolution.ts';
-import { getWorkspacePackageDirs, toWorkspacePackageGlobs } from './workspace.ts';
+import { getWorkspacePackageDirs } from './workspace.ts';
+import { toWorkspacePackageGlobs } from './workspace-globs.ts';
 
 export type { TierName } from './tiers.ts';
 
