@@ -925,7 +925,7 @@ function noRedundantRootScripts(): boolean | CheckOutcome {
   const scripts = pkg['scripts'];
   if (!isRecord(scripts)) return true;
 
-  const builtInNames = Object.keys(getDefaultRootScripts());
+  const builtInNames = Object.keys(getDefaultRootScripts(process.cwd()));
   const redundantNames = Object.keys(scripts).filter((name) => builtInNames.includes(name));
 
   if (redundantNames.length === 0) return true;
