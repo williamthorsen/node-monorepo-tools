@@ -59,6 +59,10 @@ release-kit prepare --force --bump=minor
 release-kit prepare --bump=minor
 ```
 
+### Packages that npm doesn't have yet
+
+Before it writes any file, and in a dry run as well, `prepare` asks npm about each publishable package that the release includes, querying the registry that the package's `publishConfig.registry` names when it sets one. OIDC trusted publishing can't publish a package's first version, so `prepare` refuses to release a package that npm doesn't list, and names each one with its fix: Run `npm publish --access public` from the package's directory once, then register the package as a trusted publisher. The `npm-auto-publish` [readiness kit](readiness-checks.md) prints the `npm trust` command. `prepare` also refuses when it can't look a package up, such as when the registry is unreachable, and reports npm's error for that package.
+
 ### Previewing release notes with `--with-release-notes`
 
 `--with-release-notes` writes two versioned files per workspace after each workspace's `changelog.json` is produced:

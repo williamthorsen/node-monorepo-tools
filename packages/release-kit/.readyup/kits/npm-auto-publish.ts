@@ -28,25 +28,20 @@ import {
 } from 'readyup/check-utils';
 
 import { hasProvenance } from '../../src/init/hasProvenance.ts';
-
-// npm error codes that mean the caller does not have any usable registry credentials.
-const AUTH_ERROR_CODES = new Set(['E401', 'ENEEDAUTH']);
+import {
+  AUTH_ERROR_CODES,
+  lookUpNpmPackage,
+  type NpmCommandResult,
+  type NpmPackageLookup,
+  readNpmError,
+  runNpmJson,
+  UNREACHABLE_ERROR_CODES,
+} from '../../src/npmRegistry.ts';
 
 // The npm error code that means the session is authenticated but lacks the elevation that a trust query needs.
 const OTP_ERROR_CODE = 'EOTP';
 
 const PUBLISH_WORKFLOW_FILE = 'publish.yaml';
-
-// npm error codes that mean the registry could not be reached at all.
-const UNREACHABLE_ERROR_CODES = new Set([
-  'EAI_AGAIN',
-  'ECONNREFUSED',
-  'ECONNRESET',
-  'ENETUNREACH',
-  'ENOTFOUND',
-  'ERR_SOCKET_TIMEOUT',
-  'ETIMEDOUT',
-]);
 
 const repoChecklist = defineRdyChecklist({
   name: 'repo',
@@ -190,7 +185,7 @@ export function buildWorkspaceCheck(workspace: Workspace): RdyCheck {
         const auth = getCachedNpmAuthStatus();
         return auth.status === 'unreachable' ? auth.detail : false;
       },
-      check: () => isPublishedToNpm(displayName),
+      check: () => describeNpmPackageLookup(lookUpNpmPackage(displayName, readPublishRegistry(workspace))),
       fix: `Run "npm publish --access public" from ${workspace.dir} to bootstrap the package on npm`,
       checks: [
         {
@@ -417,6 +412,30 @@ export function classifyTrustQuery(
       };
 }
 
+/**
+ * Converts an npm package lookup into the outcome of the `published to npm` check.
+ *
+ * A lookup that failed for any reason other than an unknown package gets its own fix, so that the row never advises
+ * publishing a package that the registry may already list.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function describeNpmPackageLookup(lookup: NpmPackageLookup): CheckOutcome {
+  if (lookup.status === 'published') {
+    return { ok: true };
+  }
+
+  if (lookup.status === 'unpublished') {
+    return { ok: false, detail: 'The npm registry does not list this package' };
+  }
+
+  return {
+    ok: false,
+    detail: lookup.detail,
+    fix: 'Restore access to the npm registry, then run this check again',
+  };
+}
+
 /** Renders trust relationships for a failure detail, in the shape in which the expected publisher is named. */
 function describeTrustRelationships(relationships: TrustRelationship[]): string {
   return relationships
@@ -432,7 +451,7 @@ function describeTrustRelationships(relationships: TrustRelationship[]): string 
 // Cached so that the registry is queried at most once per kit invocation.
 const getCachedNpmAuthStatus: () => NpmAuthStatus = (() => {
   let cached: NpmAuthStatus | undefined;
-  return () => (cached ??= classifyNpmAuth(runNpmJson('npm whoami --json')));
+  return () => (cached ??= classifyNpmAuth(runNpmJson(['whoami', '--json'])));
 })();
 
 // Cached so that `getOwnerRepo` (which shells out to git) runs at most once per kit invocation;
@@ -481,7 +500,7 @@ function getTrustQueryResult(packageName: string): TrustQueryResult {
   }
 
   const result = classifyTrustQuery(
-    runNpmJson(`npm trust list ${packageName} --json`),
+    runNpmJson(['trust', 'list', packageName, '--json']),
     getCachedOwnerRepo(),
     PUBLISH_WORKFLOW_FILE,
   );
@@ -508,19 +527,6 @@ function hasTokenReferences(): boolean {
   return false;
 }
 
-/** Checks whether a package exists on the npm registry. */
-function isPublishedToNpm(packageName: string): boolean {
-  try {
-    execSync(`npm view ${packageName} version`, {
-      encoding: 'utf8',
-      stdio: 'pipe',
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** Queries the GitHub API to determine whether the current repo is private. */
 function isRepoPrivate(): boolean {
   const ownerRepo = getOwnerRepo();
@@ -537,32 +543,16 @@ function probeTrustQuery(): TrustQueryResult | undefined {
   return probeName === undefined ? undefined : getTrustQueryResult(probeName);
 }
 
-interface NpmErrorPayload {
-  code: string;
-  summary: string;
-}
-
-/** Reads npm's `--json` error envelope, which npm writes to stdout on both the success and failure paths. */
-function readNpmError(stdout: string): NpmErrorPayload | undefined {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(stdout);
-  } catch {
-    return undefined;
-  }
-
-  if (!isRecord(parsed) || !isRecord(parsed['error']) || typeof parsed['error']['code'] !== 'string') {
-    return undefined;
-  }
-
-  const { code, summary } = parsed['error'];
-  return { code, summary: typeof summary === 'string' ? summary : '' };
-}
-
 interface TrustRelationship {
   file?: unknown;
   repository?: unknown;
   type?: unknown;
+}
+
+/** Returns the registry that a workspace's `publishConfig.registry` names, if it names one. */
+function readPublishRegistry(workspace: Workspace): string | undefined {
+  const registry = getJsonValue(workspace.packageJson, 'publishConfig', 'registry');
+  return typeof registry === 'string' ? registry : undefined;
 }
 
 /**
@@ -594,26 +584,6 @@ function readTrustRelationships(stdout: string): TrustRelationship[] | undefined
 function resolveTrustCapability(): TrustCapability {
   const auth = getCachedNpmAuthStatus();
   return classifyTrustCapability(auth, auth.status === 'authenticated' ? probeTrustQuery() : undefined);
-}
-
-export interface NpmCommandResult {
-  exitOk: boolean;
-  stdout: string;
-}
-
-/**
- * Runs an npm command, capturing stdout whether or not the command exits zero.
- *
- * The command is expected to include `--json`: npm writes its machine-readable error envelope to stdout,
- * which `execSync` attaches to the thrown error instead of returning it.
- */
-function runNpmJson(command: string): NpmCommandResult {
-  try {
-    return { exitOk: true, stdout: execSync(command, { encoding: 'utf8', stdio: 'pipe' }) };
-  } catch (error) {
-    const stdout = isRecord(error) && typeof error['stdout'] === 'string' ? error['stdout'] : '';
-    return { exitOk: false, stdout };
-  }
 }
 
 /**
