@@ -2,6 +2,10 @@ import { assert, describe, expect, it } from 'vitest';
 
 import { getDefaultRootScripts, getDefaultWorkspaceScripts } from '../resolve-scripts.ts';
 import { findNmrCrossing } from '../steps.ts';
+import { buildMonorepo, buildRepo } from '../test-utils/fixture-repo.ts';
+
+/** A directory without `pnpm-workspace.yaml`, for which the root lint commands do not exclude anything. */
+const NON_WORKSPACE_DIR = import.meta.dirname;
 
 /** The root commands that end in the upgrade tool, and so share the same chain invariants. */
 const UPGRADE_COMMANDS = ['upgrade', 'root:upgrade'] as const;
@@ -81,7 +85,7 @@ describe(getDefaultWorkspaceScripts, () => {
 
 describe(getDefaultRootScripts, () => {
   it('includes all expected default root scripts', () => {
-    const scripts = getDefaultRootScripts();
+    const scripts = getDefaultRootScripts(NON_WORKSPACE_DIR);
 
     expect(scripts).toMatchObject({
       audit: ['audit:prod', 'audit:dev'],
@@ -104,19 +108,19 @@ describe(getDefaultRootScripts, () => {
 
   // Overrides are reported while reviewing dependencies, not on every check run.
   it.each(['check', 'check:strict', 'root:check'])('leaves %s without an override report', (name) => {
-    expect(getDefaultRootScripts()[name]).not.toContain('report-overrides');
+    expect(getDefaultRootScripts(NON_WORKSPACE_DIR)[name]).not.toContain('report-overrides');
   });
 
   // Two invariants: The audit gates the run, and `prepush` names `ci` so that the pre-push run includes any stage
   // added to `ci`.
   it('composes prepush from audit and ci, in that order', () => {
-    const scripts = getDefaultRootScripts();
+    const scripts = getDefaultRootScripts(NON_WORKSPACE_DIR);
 
     expect(scripts['prepush']).toStrictEqual([{ run: 'audit', shouldDeclineArguments: true }, 'ci']);
   });
 
   it('composes root scripts that delegate to workspaces', () => {
-    const scripts = getDefaultRootScripts();
+    const scripts = getDefaultRootScripts(NON_WORKSPACE_DIR);
 
     expect(scripts).toMatchObject({
       test: ['root:test', '-R test'],
@@ -128,7 +132,7 @@ describe(getDefaultRootScripts, () => {
   });
 
   it('lints the whole tree in one process, without delegating to any workspace', () => {
-    const scripts = getDefaultRootScripts();
+    const scripts = getDefaultRootScripts(NON_WORKSPACE_DIR);
 
     expect(scripts).toMatchObject({
       lint: 'eslint --fix .',
@@ -140,7 +144,7 @@ describe(getDefaultRootScripts, () => {
   // The root registry's lint commands cover the tree, and the workspace registry's cover one package of it, so the
   // two resolve to the same string: a divergence would mean that one scope had picked up a flag that the other lacks.
   it('gives root and workspace lint commands the same form', () => {
-    const rootScripts = getDefaultRootScripts();
+    const rootScripts = getDefaultRootScripts(NON_WORKSPACE_DIR);
     const workspaceScripts = getDefaultWorkspaceScripts();
 
     for (const name of ['lint', 'lint:check', 'lint:strict']) {
@@ -149,18 +153,64 @@ describe(getDefaultRootScripts, () => {
   });
 
   // A root-only lint command isolates a failure to root code, as `root:test` does.
-  it('scopes each root-only lint command away from packages', () => {
-    const scripts = getDefaultRootScripts();
+  it('scopes each root-only lint command away from every package', () => {
+    const root = buildMonorepo({
+      'packages/a/package.json': '{ "name": "a" }\n',
+      'packages/b/package.json': '{ "name": "b" }\n',
+    });
 
-    expect(scripts).toMatchObject({
-      'root:lint': "eslint --fix --ignore-pattern 'packages/**' .",
-      'root:lint:check': "eslint --ignore-pattern 'packages/**' .",
-      'root:lint:strict': "strict-lint --ignore-pattern 'packages/**' .",
+    expect(getDefaultRootScripts(root)).toMatchObject({
+      'root:lint': "eslint --fix --ignore-pattern 'packages/a/**' --ignore-pattern 'packages/b/**' .",
+      'root:lint:check': "eslint --ignore-pattern 'packages/a/**' --ignore-pattern 'packages/b/**' .",
+      'root:lint:strict': "strict-lint --ignore-pattern 'packages/a/**' --ignore-pattern 'packages/b/**' .",
+    });
+  });
+
+  it('excludes the packages of every workspace glob, not only packages/*', () => {
+    const root = buildMonorepo({
+      'apps/web/package.json': '{ "name": "web" }\n',
+      'packages/lib/package.json': '{ "name": "lib" }\n',
+      'pnpm-workspace.yaml': 'packages:\n  - apps/*\n  - packages/*\n',
+    });
+
+    expect(getDefaultRootScripts(root)['root:lint:check']).toBe(
+      "eslint --ignore-pattern 'apps/web/**' --ignore-pattern 'packages/lib/**' .",
+    );
+  });
+
+  it('lints a directory that a negated workspace pattern excludes', () => {
+    const root = buildMonorepo({
+      'packages/kept/package.json': '{ "name": "kept" }\n',
+      'packages/legacy/package.json': '{ "name": "legacy" }\n',
+      'pnpm-workspace.yaml': 'packages:\n  - packages/*\n  - "!packages/legacy"\n',
+    });
+
+    expect(getDefaultRootScripts(root)['root:lint:check']).toBe("eslint --ignore-pattern 'packages/kept/**' .");
+  });
+
+  // A glob for the root itself would match every root file and leave the command with nothing to lint.
+  it('does not exclude the root when a workspace pattern matches it', () => {
+    const root = buildMonorepo({
+      'packages/a/package.json': '{ "name": "a" }\n',
+      'pnpm-workspace.yaml': "packages:\n  - '.'\n  - packages/*\n",
+    });
+
+    expect(getDefaultRootScripts(root)['root:lint:check']).toBe("eslint --ignore-pattern 'packages/a/**' .");
+  });
+
+  it.each([
+    { buildRoot: () => buildMonorepo({}), scenario: 'a workspace without packages' },
+    { buildRoot: () => buildRepo({ 'package.json': '{}\n' }), scenario: 'a directory without pnpm-workspace.yaml' },
+  ])('lints the whole tree from the root of $scenario', ({ buildRoot }) => {
+    expect(getDefaultRootScripts(buildRoot())).toMatchObject({
+      'root:lint': 'eslint --fix .',
+      'root:lint:check': 'eslint .',
+      'root:lint:strict': 'strict-lint .',
     });
   });
 
   it('fans every test selection out to the root and to each package', () => {
-    const scripts = getDefaultRootScripts();
+    const scripts = getDefaultRootScripts(NON_WORKSPACE_DIR);
 
     expect(scripts).toMatchObject({
       test: ['root:test', '-R test'],
@@ -172,7 +222,7 @@ describe(getDefaultRootScripts, () => {
   });
 
   it('scopes each root-only test selection to the root config', () => {
-    const scripts = getDefaultRootScripts();
+    const scripts = getDefaultRootScripts(NON_WORKSPACE_DIR);
 
     expect(scripts).toMatchObject({
       'root:test': 'vitest --config ./vitest.root.config.ts --project unit --project tool',
@@ -184,7 +234,7 @@ describe(getDefaultRootScripts, () => {
 
   // Because every selection has a `root:` form, a failure can be isolated to root code rather than a package.
   it('gives each chained test selection a root-only counterpart', () => {
-    const scripts = getDefaultRootScripts();
+    const scripts = getDefaultRootScripts(NON_WORKSPACE_DIR);
 
     for (const name of ['test', 'test:all', 'test:tool', 'test:unit']) {
       expect(scripts).toHaveProperty(`root:${name}`);
@@ -192,11 +242,11 @@ describe(getDefaultRootScripts, () => {
   });
 
   it('watches the whole tree from one process, running the default gate alone', () => {
-    expect(getDefaultRootScripts()['test:watch']).toBe('vitest --project unit --project tool --watch');
+    expect(getDefaultRootScripts(NON_WORKSPACE_DIR)['test:watch']).toBe('vitest --project unit --project tool --watch');
   });
 
   it('sweeps every package on upgrade, and the root alone on root:upgrade', () => {
-    const scripts = getDefaultRootScripts();
+    const scripts = getDefaultRootScripts(NON_WORKSPACE_DIR);
 
     expect(scripts).toMatchObject({
       'root:upgrade': 'nmr-report-overrides && nmr-taze',
@@ -234,7 +284,7 @@ describe(getDefaultRootScripts, () => {
 // diagnostic's tier-1 remedy says. This keeps that remedy unreachable.
 describe('the built-in defaults', () => {
   it.each([
-    { registry: getDefaultRootScripts(), scenario: 'root' },
+    { registry: getDefaultRootScripts(NON_WORKSPACE_DIR), scenario: 'root' },
     { registry: getDefaultWorkspaceScripts(), scenario: 'workspace' },
   ])('do not invoke nmr through a shell in the $scenario registry', ({ registry }) => {
     for (const [command, script] of Object.entries(registry)) {
@@ -250,7 +300,7 @@ describe('the built-in defaults', () => {
 // harm follows the command rather than the composite that happens to name it.
 describe('every step reaching a typecheck', () => {
   it.each([
-    { registry: getDefaultRootScripts(), scenario: 'root' },
+    { registry: getDefaultRootScripts(NON_WORKSPACE_DIR), scenario: 'root' },
     { registry: getDefaultWorkspaceScripts(), scenario: 'workspace' },
   ])('declines trailing arguments in the $scenario registry', ({ registry }) => {
     for (const [command, script] of Object.entries(registry)) {
@@ -273,7 +323,7 @@ describe('every step reaching a typecheck', () => {
 
 /** Returns a root command's chain, rejecting a registry entry that is not one. */
 function readChain(command: string): string {
-  const chain = getDefaultRootScripts()[command];
+  const chain = getDefaultRootScripts(NON_WORKSPACE_DIR)[command];
   assert(typeof chain === 'string', `Expected ${command} to be a chained command`);
 
   return chain;

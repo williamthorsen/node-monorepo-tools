@@ -1,3 +1,5 @@
+import { quoteToken } from './steps.ts';
+
 /**
  * One element of a composite, paired with what it does with the invocation's trailing arguments. The bare
  * string form of an element is this spec with `shouldDeclineArguments` left at its default.
@@ -65,50 +67,58 @@ export const workspaceScripts: ScriptRegistry = {
   'view-coverage': 'open coverage/index.html',
 };
 
-export const rootScripts: ScriptRegistry = {
-  audit: ['audit:prod', 'audit:dev'],
-  'audit:dev': 'pnpm exec v11y --dev',
-  'audit:prod': 'pnpm exec v11y --prod',
-  build: ['-R build'],
-  check: [TYPECHECK_STEP, 'fmt:check', 'lint:check', 'test'],
-  'check:strict': [TYPECHECK_STEP, 'fmt:check', 'lint:strict', 'test'],
-  // Excludes the audit, which in CI has a workflow of its own. The narrowed check runs against the build, so
-  // the build declines the arguments rather than being narrowed by them.
-  ci: [{ run: 'build', shouldDeclineArguments: true }, 'check:strict'],
-  clean: 'nmr-clean',
-  fix: ['lint', 'fmt'],
-  'fix:check': ['fmt:check', 'lint:check'],
-  fmt: 'nmr-fmt --write',
-  'fmt:check': 'nmr-fmt --check',
-  lint: 'eslint --fix .',
-  'lint:check': 'eslint .',
-  'lint:strict': 'strict-lint',
-  // The audit takes seconds and `ci` takes minutes, so the cheap gate fails first. The audit reads the
-  // dependency tree, and an argument narrowing the code under test does not say anything about that tree.
-  prepush: [{ run: 'audit', shouldDeclineArguments: true }, 'ci'],
-  'report-overrides': 'nmr-report-overrides',
-  'root:check': [ROOT_TYPECHECK_STEP, 'fmt:check', 'root:lint:check', 'root:test'],
-  'root:lint': "eslint --fix --ignore-pattern 'packages/**' .",
-  'root:lint:check': "eslint --ignore-pattern 'packages/**' .",
-  'root:lint:strict': "strict-lint --ignore-pattern 'packages/**' .",
-  'root:test': `vitest --config ./vitest.root.config.ts ${GATE_PROJECTS}`,
-  'root:test:all': 'vitest --config ./vitest.root.config.ts',
-  'root:test:tool': 'vitest --config ./vitest.root.config.ts --project tool',
-  'root:test:unit': 'vitest --config ./vitest.root.config.ts --project unit',
-  'root:typecheck': 'tsgo --noEmit',
-  // Includes the override report for the same reason `upgrade` does: Both end in the tool that rewrites a
-  // `pnpm.overrides` block, so both need the reporter's rejection ahead of them.
-  'root:upgrade': 'nmr-report-overrides && nmr-taze',
-  test: ['root:test', '-R test'],
-  'test:all': ['root:test:all', '-R test:all'],
-  'test:coverage': ['root:test', '-R test:coverage'],
-  'test:tool': ['root:test:tool', '-R test:tool'],
-  'test:unit': ['root:test:unit', '-R test:unit'],
-  'test:watch': `vitest ${GATE_PROJECTS} --watch`,
-  // Neither step is narrowable, so `nmr typecheck <file>` is rejected rather than checking that file under
-  // default options at the root and searching for it in every package.
-  typecheck: [ROOT_TYPECHECK_STEP, { run: '-R typecheck', shouldDeclineArguments: true }],
-  // The command is a string because neither half names an nmr command: Both are binaries, and a composite
-  // element can name only a command.
-  upgrade: 'nmr-report-overrides && nmr-taze --recursive',
-};
+/**
+ * Builds the root scripts. Each root-only lint command excludes the workspaces, given as globs relative to the root,
+ * so that the root ESLint config never lints a package.
+ */
+export function buildRootScripts(workspaceGlobs: readonly string[]): ScriptRegistry {
+  const ignorePatterns = workspaceGlobs.map((glob) => `--ignore-pattern ${quoteToken(glob)} `).join('');
+
+  return {
+    audit: ['audit:prod', 'audit:dev'],
+    'audit:dev': 'pnpm exec v11y --dev',
+    'audit:prod': 'pnpm exec v11y --prod',
+    build: ['-R build'],
+    check: [TYPECHECK_STEP, 'fmt:check', 'lint:check', 'test'],
+    'check:strict': [TYPECHECK_STEP, 'fmt:check', 'lint:strict', 'test'],
+    // Excludes the audit, which in CI has a workflow of its own. The narrowed check runs against the build, so
+    // the build declines the arguments rather than being narrowed by them.
+    ci: [{ run: 'build', shouldDeclineArguments: true }, 'check:strict'],
+    clean: 'nmr-clean',
+    fix: ['lint', 'fmt'],
+    'fix:check': ['fmt:check', 'lint:check'],
+    fmt: 'nmr-fmt --write',
+    'fmt:check': 'nmr-fmt --check',
+    lint: 'eslint --fix .',
+    'lint:check': 'eslint .',
+    'lint:strict': 'strict-lint',
+    // The audit takes seconds and `ci` takes minutes, so the cheap gate fails first. The audit reads the
+    // dependency tree, and an argument narrowing the code under test does not say anything about that tree.
+    prepush: [{ run: 'audit', shouldDeclineArguments: true }, 'ci'],
+    'report-overrides': 'nmr-report-overrides',
+    'root:check': [ROOT_TYPECHECK_STEP, 'fmt:check', 'root:lint:check', 'root:test'],
+    'root:lint': `eslint --fix ${ignorePatterns}.`,
+    'root:lint:check': `eslint ${ignorePatterns}.`,
+    'root:lint:strict': `strict-lint ${ignorePatterns}.`,
+    'root:test': `vitest --config ./vitest.root.config.ts ${GATE_PROJECTS}`,
+    'root:test:all': 'vitest --config ./vitest.root.config.ts',
+    'root:test:tool': 'vitest --config ./vitest.root.config.ts --project tool',
+    'root:test:unit': 'vitest --config ./vitest.root.config.ts --project unit',
+    'root:typecheck': 'tsgo --noEmit',
+    // Includes the override report for the same reason `upgrade` does: Both end in the tool that rewrites a
+    // `pnpm.overrides` block, so both need the reporter's rejection ahead of them.
+    'root:upgrade': 'nmr-report-overrides && nmr-taze',
+    test: ['root:test', '-R test'],
+    'test:all': ['root:test:all', '-R test:all'],
+    'test:coverage': ['root:test', '-R test:coverage'],
+    'test:tool': ['root:test:tool', '-R test:tool'],
+    'test:unit': ['root:test:unit', '-R test:unit'],
+    'test:watch': `vitest ${GATE_PROJECTS} --watch`,
+    // Neither step is narrowable, so `nmr typecheck <file>` is rejected rather than checking that file under
+    // default options at the root and searching for it in every package.
+    typecheck: [ROOT_TYPECHECK_STEP, { run: '-R typecheck', shouldDeclineArguments: true }],
+    // The command is a string because neither half names an nmr command: Both are binaries, and a composite
+    // element can name only a command.
+    upgrade: 'nmr-report-overrides && nmr-taze --recursive',
+  };
+}
