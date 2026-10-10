@@ -17,6 +17,8 @@ const mockUpdateManagedFile = vi.hoisted(() =>
   vi.fn<(filePath: string, content: string, options: { dryRun: boolean }) => ManagedFileResult>(),
 );
 const mockReportTemplateUpdate = vi.hoisted(() => vi.fn());
+const mockPrintSkip = vi.hoisted(() => vi.fn());
+const mockHasPublishablePackage = vi.hoisted(() => vi.fn<() => boolean>());
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
@@ -33,8 +35,14 @@ vi.mock(import('../detectRepoType.ts'), () => ({
   detectRepoType: mockDetectRepoType,
 }));
 
+vi.mock(import('../hasPublishablePackage.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
+  hasPublishablePackage: mockHasPublishablePackage,
+}));
+
 vi.mock(import('@williamthorsen/nmr-core'), () => ({
   printError: vi.fn(),
+  printSkip: mockPrintSkip,
   printStep: vi.fn(),
   printSuccess: vi.fn(),
   reportTemplateUpdate: mockReportTemplateUpdate,
@@ -52,6 +60,7 @@ describe(updateTemplatesCommand, () => {
     mockUsesPnpm.mockReturnValue({ ok: true });
     mockDetectRepoType.mockReturnValue('monorepo');
     mockExistsSync.mockReturnValue(false);
+    mockHasPublishablePackage.mockReturnValue(true);
     mockUpdateManagedFile.mockImplementation((filePath) => ({ filePath, outcome: 'up-to-date' }));
   });
 
@@ -88,6 +97,45 @@ describe(updateTemplatesCommand, () => {
     updateTemplatesCommand({ dryRun: false, styles: STYLES });
 
     expect(listUpdates().map(([filePath]) => filePath)).not.toContain('.github/workflows/sync-labels.yaml');
+  });
+
+  it('does not create a missing publishing workflow when every package is private', () => {
+    using _silent = silenceConsole(['info']);
+    mockHasPublishablePackage.mockReturnValue(false);
+
+    const exitCode = updateTemplatesCommand({ dryRun: true, styles: STYLES });
+
+    expect(exitCode).toBe(0);
+    expect(listUpdates().map(([filePath]) => filePath)).toStrictEqual(['.github/workflows/release.yaml']);
+    expect(mockPrintSkip.mock.calls).toStrictEqual([
+      ['Skipping .github/workflows/create-github-release.yaml: every package is private', 'plain'],
+      ['Skipping .github/workflows/publish.yaml: every package is private', 'plain'],
+    ]);
+  });
+
+  it('refreshes an existing publishing workflow when every package is private', () => {
+    using _silent = silenceConsole(['info']);
+    mockHasPublishablePackage.mockReturnValue(false);
+    mockExistsSync.mockImplementation((path) => path === '.github/workflows/publish.yaml');
+    mockReadFileSync.mockReturnValue(publishWorkflow('monorepo', { provenance: false }));
+
+    updateTemplatesCommand({ dryRun: false, styles: STYLES });
+
+    expect(listUpdates()).toStrictEqual([
+      ['.github/workflows/publish.yaml', publishWorkflow('monorepo', { provenance: false })],
+      ['.github/workflows/release.yaml', releaseWorkflow('monorepo')],
+    ]);
+    expect(mockPrintSkip.mock.calls).toStrictEqual([
+      ['Skipping .github/workflows/create-github-release.yaml: every package is private', 'plain'],
+    ]);
+  });
+
+  it('does not report a skip when a package is publishable', () => {
+    using _silent = silenceConsole(['info']);
+
+    updateTemplatesCommand({ dryRun: false, styles: STYLES });
+
+    expect(mockPrintSkip).not.toHaveBeenCalled();
   });
 
   it('keeps provenance off when the existing publish workflow does not set it', () => {
