@@ -1,3 +1,5 @@
+<!-- readme-type: config -->
+
 # Workflows
 
 ## Naming convention
@@ -10,6 +12,21 @@
 `audit`, `create-github-release`, and `publish` install pnpm with [`pnpm/setup`](https://github.com/pnpm/setup), which installs pnpm 11 or newer only and reads the version from the consumer's `devEngines.packageManager` or `packageManager` field. A repo pinned below that cannot run them. `release` does not require pnpm 11 or newer: Its consumer path installs release-kit from npm and never invokes pnpm.
 
 `create-github-release` and `publish` additionally require `@williamthorsen/release-kit` as a root dependency. They invoke it through `pnpm exec`, which resolves from the repository root's `node_modules/.bin`, so declaring it in a workspace package alone does not satisfy this.
+
+## Runner selection
+
+`audit`, `create-github-release`, `release`, and `sync-labels` run every job on the runner named by the calling repo's `CI_RUNS_ON` configuration variable, set on the repository or its organization. A called workflow reads the caller's variables, so a repo opts in without editing its caller workflow. The value is JSON: a single label or an array of labels.
+
+```bash
+gh variable set CI_RUNS_ON --body '"self-hosted"' --repo owner/repo
+gh variable set CI_RUNS_ON --body '["self-hosted", "linux"]' --repo owner/repo
+```
+
+When the variable is unset or empty, the jobs run on `ubuntu-latest`. `publish` ignores the variable and always runs on `ubuntu-latest`, because npm generates provenance only on GitHub-hosted runners.
+
+A self-hosted runner must provide the tools that the workflows take from the GitHub-hosted image: `git`, `gh`, `jq` (`audit`), and `yq` (`sync-labels`).
+
+Set the variable only in a private repo. `audit` runs on `pull_request`, so a self-hosted runner serving a public repo runs code from any fork's pull request. This repo is public and never sets it.
 
 ## Versioning
 

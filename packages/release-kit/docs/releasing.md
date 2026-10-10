@@ -132,6 +132,8 @@ The `init` command scaffolds a release workflow at `.github/workflows/release.ya
 
 For repos that need a self-contained workflow instead of the reusable one, the scaffolded file can be expanded. The key steps are: checkout with full history (`fetch-depth: 0`), run `release-kit prepare` with optional `--only`, `--bump`, and `--force` flags, check for changes, read tags from `tmp/.release-tags`, then commit, tag, and push.
 
+The reusable `release`, `create-github-release`, and `sync-labels` workflows run on `ubuntu-latest` unless the repository's `CI_RUNS_ON` variable names another runner; `publish` always runs on `ubuntu-latest`. See [Runner selection](https://github.com/williamthorsen/node-monorepo-tools/blob/main/.github/workflows/README.md#runner-selection).
+
 ### Triggering a release
 
 ```sh

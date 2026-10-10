@@ -147,6 +147,8 @@ The scaffolded workflow triggers on pull requests to `main`/`next`, on a daily s
 
 The reusable workflow installs pnpm with [`pnpm/setup`](https://github.com/pnpm/setup), which installs pnpm 11 or newer only and reads the version from the repository's `devEngines.packageManager` or `packageManager` field. A repository pinned below that cannot run it.
 
+The reusable workflow runs on `ubuntu-latest` unless the repository's `CI_RUNS_ON` variable names another runner; see [Runner selection](https://github.com/williamthorsen/node-monorepo-tools/blob/main/.github/workflows/README.md#runner-selection).
+
 ## Readiness checks
 
 v11y-check publishes a [readyup](https://www.npmjs.com/package/readyup) kit that checks a consuming repo against the release that it has installed: that v11y-check is a devDependency at or above the current version, that audit-ci configs are under `.config/audit-ci/`, and that `.github/workflows/audit.yaml` matches the template scaffolded by this package. The kit is included in the package, so it checks against the installed version rather than whatever a repository ref happens to point at.
