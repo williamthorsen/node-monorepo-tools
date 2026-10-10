@@ -56,7 +56,7 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "d9910d60",
+          "hash": "9ba9e851",
           "kind": "module",
           "path": "kits/npm-auto-publish.ts"
         },
@@ -64,14 +64,24 @@
           "hash": "d360febf",
           "kind": "module",
           "path": "../src/init/hasProvenance.ts"
+        },
+        {
+          "hash": "d20e59a1",
+          "kind": "module",
+          "path": "../src/npmRegistry.ts"
+        },
+        {
+          "hash": "1424b343",
+          "kind": "module",
+          "path": "../src/typeGuards.ts"
         }
       ],
       "name": "npm-auto-publish",
       "path": "kits/npm-auto-publish.js",
       "readyupVersion": "0.40.0",
       "source": "kits/npm-auto-publish.ts",
-      "sourceHash": "d9910d60",
-      "targetHash": "2a6931b6"
+      "sourceHash": "9ba9e851",
+      "targetHash": "8e133b09"
     }
   ]
 }

@@ -13,7 +13,7 @@ import {
   fileContains,
   fileExists,
   getJsonValue,
-  isRecord,
+  isRecord as isRecord2,
   readFile,
   readJsonFile
 } from "readyup/check-utils";
@@ -23,10 +23,16 @@ function hasProvenance(workflowContent) {
   return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
 }
 
-// .readyup/kits/npm-auto-publish.ts
+// src/npmRegistry.ts
+import { execFileSync } from "node:child_process";
+
+// src/typeGuards.ts
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// src/npmRegistry.ts
 var AUTH_ERROR_CODES = /* @__PURE__ */ new Set(["E401", "ENEEDAUTH"]);
-var OTP_ERROR_CODE = "EOTP";
-var PUBLISH_WORKFLOW_FILE = "publish.yaml";
 var UNREACHABLE_ERROR_CODES = /* @__PURE__ */ new Set([
   "EAI_AGAIN",
   "ECONNREFUSED",
@@ -36,6 +42,31 @@ var UNREACHABLE_ERROR_CODES = /* @__PURE__ */ new Set([
   "ERR_SOCKET_TIMEOUT",
   "ETIMEDOUT"
 ]);
+function readNpmError(stdout) {
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return void 0;
+  }
+  if (!isRecord(parsed) || !isRecord(parsed["error"]) || typeof parsed["error"]["code"] !== "string") {
+    return void 0;
+  }
+  const { code, summary } = parsed["error"];
+  return { code, summary: typeof summary === "string" ? summary : "" };
+}
+function runNpmJson(args) {
+  try {
+    return { exitOk: true, stdout: execFileSync("npm", args, { encoding: "utf8", stdio: "pipe" }) };
+  } catch (error) {
+    const stdout = isRecord(error) && typeof error["stdout"] === "string" ? error["stdout"] : "";
+    return { exitOk: false, stdout };
+  }
+}
+
+// .readyup/kits/npm-auto-publish.ts
+var OTP_ERROR_CODE = "EOTP";
+var PUBLISH_WORKFLOW_FILE = "publish.yaml";
 var repoChecklist = defineRdyChecklist({
   name: "repo",
   checks: [
@@ -300,7 +331,7 @@ function describeTrustRelationships(relationships) {
 }
 var getCachedNpmAuthStatus = /* @__PURE__ */ (() => {
   let cached;
-  return () => cached ??= classifyNpmAuth(runNpmJson("npm whoami --json"));
+  return () => cached ??= classifyNpmAuth(runNpmJson(["whoami", "--json"]));
 })();
 var getCachedOwnerRepo = /* @__PURE__ */ (() => {
   let cached;
@@ -331,7 +362,7 @@ function getTrustQueryResult(packageName) {
     return cached;
   }
   const result = classifyTrustQuery(
-    runNpmJson(`npm trust list ${packageName} --json`),
+    runNpmJson(["trust", "list", packageName, "--json"]),
     getCachedOwnerRepo(),
     PUBLISH_WORKFLOW_FILE
   );
@@ -374,19 +405,6 @@ function probeTrustQuery() {
   const probeName = selectProbeName();
   return probeName === void 0 ? void 0 : getTrustQueryResult(probeName);
 }
-function readNpmError(stdout) {
-  let parsed;
-  try {
-    parsed = JSON.parse(stdout);
-  } catch {
-    return void 0;
-  }
-  if (!isRecord(parsed) || !isRecord(parsed["error"]) || typeof parsed["error"]["code"] !== "string") {
-    return void 0;
-  }
-  const { code, summary } = parsed["error"];
-  return { code, summary: typeof summary === "string" ? summary : "" };
-}
 function readTrustRelationships(stdout) {
   let parsed;
   try {
@@ -395,9 +413,9 @@ function readTrustRelationships(stdout) {
     return void 0;
   }
   if (Array.isArray(parsed)) {
-    return parsed.filter((entry) => isRecord(entry) && "type" in entry);
+    return parsed.filter((entry) => isRecord2(entry) && "type" in entry);
   }
-  if (!isRecord(parsed)) {
+  if (!isRecord2(parsed)) {
     return void 0;
   }
   return "type" in parsed ? [parsed] : [];
@@ -405,14 +423,6 @@ function readTrustRelationships(stdout) {
 function resolveTrustCapability() {
   const auth = getCachedNpmAuthStatus();
   return classifyTrustCapability(auth, auth.status === "authenticated" ? probeTrustQuery() : void 0);
-}
-function runNpmJson(command) {
-  try {
-    return { exitOk: true, stdout: execSync(command, { encoding: "utf8", stdio: "pipe" }) };
-  } catch (error) {
-    const stdout = isRecord(error) && typeof error["stdout"] === "string" ? error["stdout"] : "";
-    return { exitOk: false, stdout };
-  }
 }
 function selectProbeName() {
   return discoverWorkspaces({ filter: (workspace) => workspace.isPackage }).find(
