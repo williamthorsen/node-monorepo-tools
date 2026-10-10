@@ -281,6 +281,40 @@ describe(runPrettier, () => {
     expect(readCalls(stubTree)[0]).toStrictEqual(expect.arrayContaining(['--list-different', '--write']));
   });
 
+  it("passes Prettier's content-keyed cache when given a cache location", ({ cliPath, stubTree }) => {
+    const cacheLocation = '/repo/node_modules/.cache/prettier/nmr-fmt/cache.json';
+
+    runPrettier({ cliPath, cacheLocation, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
+
+    expect(readCalls(stubTree)[0]).toStrictEqual(
+      expect.arrayContaining(['--cache', '--cache-strategy', 'content', '--cache-location', cacheLocation]),
+    );
+  });
+
+  it('passes no cache flags without a cache location', ({ cliPath, stubTree }) => {
+    runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
+
+    const args = readCalls(stubTree)[0] ?? [];
+    expect(args.filter((arg) => arg.startsWith('--cache'))).toStrictEqual([]);
+  });
+
+  it('shares one cache location across every batch', ({ cliPath, stubTree }) => {
+    const cacheLocation = '/repo/cache.json';
+
+    runPrettier({
+      cliPath,
+      cacheLocation,
+      mode: 'check',
+      files: ['one.js', 'two.js'],
+      ignorePaths: [],
+      cwd: stubTree.dir,
+      budgetBytes: 10,
+    });
+
+    const locations = readCalls(stubTree).map((args) => args[args.indexOf('--cache-location') + 1]);
+    expect(locations).toStrictEqual([cacheLocation, cacheLocation]);
+  });
+
   it('reports the exit code that Prettier returned', ({ cliPath, stubTree }) => {
     writeRecordingStub(stubTree, 2);
 

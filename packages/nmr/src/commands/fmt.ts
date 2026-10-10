@@ -317,6 +317,8 @@ async function findRepositoryConfig(
 /** @internal */
 export interface RunPrettierOptions {
   cliPath: string;
+  /** Absolute path of the cache file to pass to Prettier; the run is uncached when it is absent. */
+  cacheLocation?: string | undefined;
   /** Passed as `--config`, which replaces Prettier's own config discovery. */
   configPath?: string | undefined;
   mode: FormatMode;
@@ -337,7 +339,16 @@ export interface RunPrettierOptions {
  * @internal
  */
 export function runPrettier(options: RunPrettierOptions): number {
-  const { cliPath, configPath, mode, files, ignorePaths, cwd, budgetBytes = ARGUMENT_BUDGET_BYTES } = options;
+  const {
+    cacheLocation,
+    cliPath,
+    configPath,
+    mode,
+    files,
+    ignorePaths,
+    cwd,
+    budgetBytes = ARGUMENT_BUDGET_BYTES,
+  } = options;
 
   const prettierArgs = [
     cliPath,
@@ -345,6 +356,9 @@ export function runPrettier(options: RunPrettierOptions): number {
     // The file list contains types for which Prettier does not have a parser, ignore files and images among them.
     '--ignore-unknown',
     ...ignorePaths.flatMap((ignorePath) => ['--ignore-path', ignorePath]),
+    ...(cacheLocation === undefined
+      ? []
+      : ['--cache', '--cache-strategy', 'content', '--cache-location', cacheLocation]),
     ...MODE_ARGS[mode],
   ];
 
