@@ -155,11 +155,6 @@ function git(repoDir: string, args: string[]): string {
   return execFileSync('git', args, { cwd: repoDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 }
 
-/** Reports whether `filePath` exists in the tree of `ref`. */
-function isPresentAt(repoDir: string, ref: string, filePath: string): boolean {
-  return succeeds(repoDir, ['cat-file', '-e', `${ref}:${filePath}`]);
-}
-
 /** Narrows a parsed holds-file entry to a hold whose fields are all non-empty strings. */
 function isPointerHold(value: unknown): value is PointerHold {
   if (typeof value !== 'object' || value === null) {
@@ -169,6 +164,11 @@ function isPointerHold(value: unknown): value is PointerHold {
     const field: unknown = Reflect.get(value, key);
     return typeof field === 'string' && field.trim() !== '';
   });
+}
+
+/** Reports whether `filePath` exists in the tree of `ref`. */
+function isPresentAt(repoDir: string, ref: string, filePath: string): boolean {
+  return succeeds(repoDir, ['cat-file', '-e', `${ref}:${filePath}`]);
 }
 
 /** Lists the commits selected by `revisions` that touch `filePath`, newest first, as `<short sha> <subject>`. */

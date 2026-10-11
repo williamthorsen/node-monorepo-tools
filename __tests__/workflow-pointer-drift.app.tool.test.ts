@@ -1,4 +1,6 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
@@ -14,6 +16,7 @@ import {
 
 const AUDIT_PATH = '.github/workflows/audit.reusable.yaml';
 const AUDIT_TAG = 'workflow/audit-v1';
+const SCRIPT_PATH = path.join(import.meta.dirname, '..', 'scripts', 'check-workflow-pointer-drift.ts');
 
 // eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
@@ -126,6 +129,54 @@ describe(checkWorkflowPointerDrift, () => {
     ]);
     expect(report.statuses).toMatchObject([{ kind: 'drifted', tag: AUDIT_TAG }]);
     expect(isFailing(report)).toBe(true);
+  });
+
+  it('fails on a tag that is held more than once', ({ tree }) => {
+    initRepo(tree);
+    tag(tree, AUDIT_TAG);
+
+    const report = check(tree, [
+      { reason: 'first', tag: AUDIT_TAG, through: 'HEAD' },
+      { reason: 'second', tag: AUDIT_TAG, through: 'HEAD' },
+    ]);
+
+    expect(report.holdErrors).toStrictEqual(['`workflow/audit-v1` is held more than once.']);
+    expect(isFailing(report)).toBe(true);
+  });
+});
+
+describe('the command', () => {
+  it('fails on a holds file that is not valid JSON, and writes the report to stdout and the job summary', ({
+    tree,
+  }) => {
+    initRepo(tree);
+    tag(tree, AUDIT_TAG);
+    tree.write('.config/workflow-pointer-holds.json', '[{ "tag": ');
+    const summaryPath = path.join(tree.dir, 'summary.md');
+
+    const result = spawnSync(process.execPath, [SCRIPT_PATH, 'main'], {
+      cwd: tree.dir,
+      encoding: 'utf8',
+      env: { ...process.env, GITHUB_STEP_SUMMARY: summaryPath },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain('- The holds file is not valid JSON: SyntaxError');
+    expect(readFileSync(summaryPath, 'utf8')).toBe(result.stdout);
+  });
+
+  it('exits zero when every tag is current', ({ tree }) => {
+    initRepo(tree);
+    tag(tree, AUDIT_TAG);
+
+    const result = spawnSync(process.execPath, [SCRIPT_PATH, 'main'], {
+      cwd: tree.dir,
+      encoding: 'utf8',
+      env: { ...process.env, GITHUB_STEP_SUMMARY: '' },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('- ✅ `workflow/audit-v1` is current.');
   });
 });
 
