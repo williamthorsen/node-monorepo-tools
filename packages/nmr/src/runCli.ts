@@ -398,6 +398,22 @@ function assembleChain(options: {
   return { settled: false, value: { commandString: fullCommand, key, ownSteps: mainSteps, steps: fullSteps } };
 }
 
+/** Runs a plan behind the check-result cache and reports its verdict, or prints its recording under `--log`. */
+async function executePlan(plan: RunPlan): Promise<SettledResult> {
+  const { command, format, parsedArgs, scope, stdout, styles } = plan.invocation;
+
+  // A `--log` needs the key for the whole chain, and returns before any hook, verdict, or cache write.
+  if (parsedArgs.shouldPrintLog) {
+    return reportRecording(plan);
+  }
+
+  const { exitCode, outcome } = await runGated(plan);
+
+  reportVerdict({ command, scope, ...outcome }, stdout, format, styles.stdout);
+
+  return { exitCode };
+}
+
 // region | Helpers
 
 /**
@@ -406,52 +422,8 @@ function assembleChain(options: {
  */
 async function runInvocation(invocation: Invocation): Promise<SettledResult> {
   const planned = await planRun(invocation);
-  if (planned.settled) {
-    return planned.result;
-  }
-  const plan = planned.value;
-  const { anchorDir, command, context, env, format, parsedArgs, scope, stderr, stdout, styles } = invocation;
 
-  // A `--log` needs the key for the whole chain, and returns before any hook, verdict, or cache write.
-  if (parsedArgs.shouldPrintLog) {
-    return reportRecording({
-      anchorDir,
-      command,
-      commandString: plan.commandString,
-      config: context.config,
-      env,
-      key: plan.key,
-      monorepoRoot: context.monorepoRoot,
-      scope,
-      snapshot: plan.snapshot,
-      stderr,
-      stdout,
-      styles,
-    });
-  }
-
-  const { exitCode, outcome } = await runGated({
-    anchorDir,
-    command,
-    commandString: plan.commandString,
-    config: context.config,
-    steps: plan.steps,
-    env,
-    key: plan.key,
-    monorepoRoot: context.monorepoRoot,
-    overrideNotice: plan.overrideNotice,
-    ownSteps: plan.ownSteps,
-    runId: plan.runId,
-    runOptions: plan.runOptions,
-    shouldBypassCache: plan.shouldBypassCache,
-    snapshot: plan.snapshot,
-    stderr,
-    stdout,
-  });
-
-  reportVerdict({ command, scope, ...outcome }, stdout, format, styles.stdout);
-
-  return { exitCode };
+  return planned.settled ? planned.result : executePlan(planned.value);
 }
 
 /** An invocation that reached a command: what it asks for, how it presents itself, and where it runs. */
@@ -1373,42 +1345,30 @@ function parseArgs(args: string[]): ParseResult {
  * command is a gap in a survey rather than a failure of one, so bailing there would hide every scope that has
  * something to show.
  */
-async function reportRecording(options: {
-  anchorDir: string;
-  command: string;
-  commandString: string;
-  config: NmrConfig;
-  env: NodeJS.ProcessEnv;
-  key: string | undefined;
-  monorepoRoot: string;
-  scope: string;
-  snapshot: TreeSnapshot | undefined;
-  stderr: Writable;
-  stdout: Writable;
-  styles: StreamStyles;
-}): Promise<RunCliResult> {
-  const { command, config, scope, styles } = options;
+async function reportRecording(plan: RunPlan): Promise<RunCliResult> {
+  const { anchorDir, command, context, env, scope, stderr, stdout, styles } = plan.invocation;
+  const { config, monorepoRoot } = context;
 
   const lookup = await resolveRecording({
-    anchorDir: options.anchorDir,
+    anchorDir,
     command,
     currentIdentity: {
-      commandString: options.commandString,
+      commandString: plan.commandString,
       nmrVersion: VERSION,
       nodeVersion: CURRENT_RUNTIME.nodeVersion,
-      treeHash: options.snapshot?.hash,
+      treeHash: plan.snapshot?.hash,
     },
     isCacheable: isCacheableCommand(config.checkCache, command),
-    key: options.key,
-    monorepoRoot: options.monorepoRoot,
+    key: plan.key,
+    monorepoRoot,
   });
 
   if (!lookup.ok) {
-    options.stderr.write(`${renderRefusal({ command, refusal: lookup.refusal, scope, style: styles.stderr })}\n`);
-    return { exitCode: options.env[RUN_IF_PRESENT_ENV_VAR] === '1' ? 0 : 1 };
+    stderr.write(`${renderRefusal({ command, refusal: lookup.refusal, scope, style: styles.stderr })}\n`);
+    return { exitCode: env[RUN_IF_PRESENT_ENV_VAR] === '1' ? 0 : 1 };
   }
 
-  options.stdout.write(renderRecording({ command, recording: lookup.recording, scope, style: styles.stdout }));
+  stdout.write(renderRecording({ command, recording: lookup.recording, scope, style: styles.stdout }));
 
   return { exitCode: 0 };
 }
@@ -1746,35 +1706,20 @@ async function runDelegation(options: {
  * `ownSteps` is the command's alone, which is what a composite's assembly reads. A hook contributes nothing to
  * what a skip replays, as it contributes nothing to a leaf's excerpt.
  */
-async function runGated(options: {
-  anchorDir: string;
-  command: string;
-  commandString: string;
-  config: NmrConfig;
-  env: NodeJS.ProcessEnv;
-  key: string | undefined;
-  monorepoRoot: string;
-  overrideNotice: string | undefined;
-  ownSteps: readonly Step[];
-  runId: string;
-  runOptions: RunStepsOptions;
-  shouldBypassCache: boolean;
-  snapshot: TreeSnapshot | undefined;
-  steps: readonly Step[];
-  stderr: Writable;
-  stdout: Writable;
-}): Promise<{ exitCode: number; outcome: VerdictOutcome }> {
-  const { anchorDir, command, commandString, env, key, monorepoRoot, snapshot, stderr, stdout } = options;
+async function runGated(plan: RunPlan): Promise<{ exitCode: number; outcome: VerdictOutcome }> {
+  const { commandString, key, snapshot } = plan;
+  const { anchorDir, command, context, env, stderr, stdout } = plan.invocation;
+  const { config, monorepoRoot } = context;
 
   // The build output is read before the run, so that a pass can be held to the output that the run actually
   // saw. One reading serves the lookup and the recording alike, and `--no-cache` bypasses only the former.
   // Read the channels that an opaque step of this run would hand its child from the same `resolveChannel` that
   // the runner calls, to keep the retention key and the run from disagreeing about what the child saw.
-  const quiet = options.runOptions.quiet === true;
+  const quiet = plan.runOptions.quiet === true;
   const gate =
     key !== undefined && snapshot !== undefined
       ? {
-          buildOutputBefore: await readBuildOutputState(monorepoRoot, options.config),
+          buildOutputBefore: await readBuildOutputState(monorepoRoot, config),
           key,
           retentionKey: computeRetentionKey({
             channels: { stderr: resolveChannel(stderr, quiet), stdout: resolveChannel(stdout, quiet) },
@@ -1785,7 +1730,7 @@ async function runGated(options: {
         }
       : undefined;
 
-  if (gate !== undefined && !options.shouldBypassCache) {
+  if (gate !== undefined && !plan.shouldBypassCache) {
     const recalledPass = await lookUpRecordedPass({
       anchorDir,
       buildOutput: gate.buildOutputBefore,
@@ -1801,19 +1746,19 @@ async function runGated(options: {
       // An excerpt that this run declined to replay is one that it has not certified, and vouching for it here
       // would put another environment's output into the assembly that a composite above this one records.
       if (recall.replay !== undefined) {
-        await certifyRetention({ anchorDir, command, entry, env, monorepoRoot, runId: options.runId, stderr });
+        await certifyRetention({ anchorDir, command, entry, env, monorepoRoot, runId: plan.runId, stderr });
       }
 
       return { exitCode: 0, outcome: { outcome: 'recalled', ...recall } };
     }
   }
 
-  if (options.overrideNotice !== undefined) {
-    stdout.write(options.overrideNotice);
+  if (plan.overrideNotice !== undefined) {
+    stdout.write(plan.overrideNotice);
   }
 
   const startedAtMs = Date.now();
-  const { exitCode, retainedOutput } = await runSteps(options.steps, anchorDir, options.runOptions);
+  const { exitCode, retainedOutput } = await runSteps(plan.steps, anchorDir, plan.runOptions);
   const durationMs = Date.now() - startedAtMs;
 
   if (exitCode === 0 && gate !== undefined) {
@@ -1822,15 +1767,15 @@ async function runGated(options: {
       buildOutputBefore: gate.buildOutputBefore,
       command,
       commandString,
-      config: options.config,
+      config,
       durationMs,
       env,
       key: gate.key,
       monorepoRoot,
-      ownSteps: options.ownSteps,
+      ownSteps: plan.ownSteps,
       retainedOutput,
       retentionKey: gate.retentionKey,
-      runId: options.runId,
+      runId: plan.runId,
       snapshot: gate.snapshot,
       stderr,
     });
