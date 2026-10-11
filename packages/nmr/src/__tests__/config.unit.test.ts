@@ -393,6 +393,7 @@ describe('self-referencing script entries', () => {
   it.for([
     {
       expectedRemedy: "Delete the entry: nmr's own `build` then runs.",
+      field: 'workspaceScripts',
       key: 'build',
       renderedScript: '[build]',
       scenario: 'a sole self-reference under a key that the defaults define',
@@ -400,6 +401,7 @@ describe('self-referencing script entries', () => {
     },
     {
       expectedRemedy: 'Delete the entry and move the steps that it adds to a `build:pre` or `build:post` script.',
+      field: 'workspaceScripts',
       key: 'build',
       renderedScript: 'nmr build && rdy compile',
       scenario: 'a chained self-reference under a key that the defaults define',
@@ -407,6 +409,7 @@ describe('self-referencing script entries', () => {
     },
     {
       expectedRemedy: 'Delete the entry.',
+      field: 'workspaceScripts',
       key: 'probe',
       renderedScript: 'nmr probe',
       scenario: 'a sole self-reference under a key that only the config defines',
@@ -414,6 +417,7 @@ describe('self-referencing script entries', () => {
     },
     {
       expectedRemedy: 'Delete the re-invocation: `probe` runs the steps beside it.',
+      field: 'workspaceScripts',
       key: 'probe',
       renderedScript: '[probe, lint]',
       scenario: 'a chained self-reference under a key that only the config defines',
@@ -421,18 +425,35 @@ describe('self-referencing script entries', () => {
     },
     {
       expectedRemedy: 'Delete the re-invocation: `build:post` runs the steps beside it.',
+      field: 'workspaceScripts',
       key: 'build:post',
       renderedScript: 'nmr build:post && rdy compile',
       scenario: 'a chained self-reference under a hook key',
       scripts: { 'build:post': 'nmr build:post && rdy compile' },
     },
-  ])('names the edit for $scenario', async ({ expectedRemedy, key, renderedScript, scripts }, { tree }) => {
-    writeScripts(tree, 'workspaceScripts', scripts);
+    {
+      expectedRemedy: 'Delete the entry and move the steps that it adds to a `ci:pre` or `ci:post` script.',
+      field: 'rootScripts',
+      key: 'ci',
+      renderedScript: 'nmr ci && rdy compile',
+      scenario: 'a chained self-reference under a key that the root defaults alone define',
+      scripts: { ci: 'nmr ci && rdy compile' },
+    },
+    {
+      expectedRemedy: 'Delete the re-invocation: `ci` runs the steps beside it.',
+      field: 'workspaceScripts',
+      key: 'ci',
+      renderedScript: 'nmr ci && rdy compile',
+      scenario: 'a chained self-reference under a key that only the root defaults define',
+      scripts: { ci: 'nmr ci && rdy compile' },
+    },
+  ])('names the edit for $scenario', async ({ expectedRemedy, field, key, renderedScript, scripts }, { tree }) => {
+    writeScripts(tree, field, scripts);
 
     await expect(loadRootConfig(tree.dir)).rejects.toThrow(
       new UserError(
         `Invalid nmr config at ${path.join(tree.dir, '.config/nmr.config.ts')}: ` +
-          `\`workspaceScripts.${key}\` re-invokes \`${key}\` (\`${renderedScript}\`), ` +
+          `\`${field}.${key}\` re-invokes \`${key}\` (\`${renderedScript}\`), ` +
           `which would re-enter nmr without bound. ${expectedRemedy}`,
       ),
     );
