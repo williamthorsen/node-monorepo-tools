@@ -1229,6 +1229,21 @@ describe(runCli, () => {
       },
     );
 
+    it('rejects a package entry that chains steps onto sending its own command to every package', async ({ tree }) => {
+      tree.writeJson('packages/my-pkg/package.json', {
+        name: 'my-pkg',
+        scripts: { build: 'nmr -R build && rdy compile' },
+      });
+
+      await expect(runNmr(['build'], path.join(tree.dir, 'packages/my-pkg'))).rejects.toThrow(
+        new UserError(
+          'packages/my-pkg/package.json: `scripts.build` re-invokes `nmr build` (`nmr -R build && rdy compile`), ' +
+            'so nmr cannot run the steps that it chains. ' +
+            'Delete the entry and move the steps that it adds to a `build:pre` or `build:post` script.',
+        ),
+      );
+    });
+
     it('runs nothing', async ({ tree }) => {
       writePackageScripts(tree, { build: 'nmr build && rdy compile' });
 
