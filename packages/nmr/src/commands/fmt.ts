@@ -112,7 +112,7 @@ export async function runFmt(argv: string[], cwd: string = process.cwd()): Promi
   if (files.length === 0) {
     if (parsedArgs.pathspecs.length === 0) return 0;
 
-    // Pathspecs that git listed nothing for selected nothing, which a clean run would otherwise look exactly like.
+    // Pathspecs for which git listed nothing selected nothing, which a clean run would otherwise look exactly like.
     if (excludedFiles.length === 0 && unreadableFiles.length === 0) {
       reportError(`nmr-fmt: the pathspecs did not match any file that git lists: ${parsedArgs.pathspecs.join(', ')}`);
       return 1;
