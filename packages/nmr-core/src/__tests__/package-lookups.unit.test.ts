@@ -4,12 +4,12 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
-import { findPackageRoot, resolveSelfVersion } from '../packaging.ts';
+import { findPackageRoot, resolveSelfVersion } from '../index.ts';
 
 // eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
-  makeFixture(() => createTempTree({}, { prefix: 'nmr-core-packaging-' })),
+  makeFixture(() => createTempTree({}, { prefix: 'nmr-core-package-lookups-' })),
 );
 
 describe('package lookups in a dual-format layout', () => {

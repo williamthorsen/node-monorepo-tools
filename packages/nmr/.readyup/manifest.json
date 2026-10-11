@@ -51,14 +51,9 @@
           "path": "../../nmr-core/dist/esm/helpers/workspace-patterns.js"
         },
         {
-          "hash": "9cb6cf74",
+          "hash": "191f7c24",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/index.js"
-        },
-        {
-          "hash": "9ac49001",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/packaging.js"
         },
         {
           "hash": "2507870d",

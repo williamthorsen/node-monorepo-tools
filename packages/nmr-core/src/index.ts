@@ -13,7 +13,6 @@ export { GIT_OUTPUT_LIMIT } from './gitOutputLimit.ts';
 export { hasErrnoCode } from './hasErrnoCode.ts';
 export type { WorkingTreeHashResult } from './hashWorkingTree.ts';
 export { hashWorkingTree, readHeadSha } from './hashWorkingTree.ts';
-export { findPackageRoot, resolveSelfVersion } from './packaging.ts';
 export type {
   FlagDefinition,
   FlagSchema,
@@ -57,3 +56,4 @@ export type { ManagedFileOutcome, ManagedFileResult } from './updateManagedFile.
 export { updateManagedFile } from './updateManagedFile.ts';
 export type { WriteOutcome, WriteResult } from './writeFileWithCheck.ts';
 export { writeFileWithCheck } from './writeFileWithCheck.ts';
+export { findPackageRoot, resolveSelfVersion } from '@williamthorsen/toolbelt.packaging/candidate';

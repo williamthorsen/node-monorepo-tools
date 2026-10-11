@@ -17,7 +17,7 @@ interface Boundary {
 const BOUNDARIES: Boundary[] = [
   {
     dependency: '@williamthorsen/toolbelt.packaging',
-    importer: 'packages/nmr-core/src/packaging.ts',
+    importer: 'packages/nmr-core/src/index.ts',
     declarer: 'packages/nmr-core/package.json',
   },
   {
