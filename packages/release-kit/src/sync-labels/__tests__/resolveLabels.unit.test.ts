@@ -152,6 +152,14 @@ describe(resolveLabels, () => {
     expect(result).toStrictEqual([{ name: 'scope:basic', color: '00ff96', archived: true }]);
   });
 
+  it('carries the aliases of a local entry', () => {
+    const config: RepoLabelsConfig = { labels: { 'scope:core': { color: '00ff96', aliases: ['scope:basic'] } } };
+
+    const result = resolveLabels(config);
+
+    expect(result).toStrictEqual([{ name: 'scope:core', color: '00ff96', aliases: ['scope:basic'] }]);
+  });
+
   it('archives a preset label that a local entry replaces with the mark', () => {
     mockLoadPreset.mockReturnValue([bugLabel]);
 

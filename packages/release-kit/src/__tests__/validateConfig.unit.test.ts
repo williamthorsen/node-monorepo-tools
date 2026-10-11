@@ -743,6 +743,19 @@ describe(validateConfig, () => {
       expectErrorAtPath(errors, 'repoLabels.labels.scope:basic.archived');
     });
 
+    it('accepts a label entry that declares aliases', () => {
+      const { config, errors } = validateConfig({
+        repoLabels: { labels: { 'scope:core': { color: '00ff96', aliases: ['scope:basic'] } } },
+      });
+      expect(errors).toStrictEqual([]);
+      expect(config.repoLabels?.labels?.['scope:core']).toStrictEqual({ color: '00ff96', aliases: ['scope:basic'] });
+    });
+
+    it.each([[[]], [['']], ['scope:basic']])('returns an error when a label entry sets aliases to %j', (aliases) => {
+      const { errors } = validateConfig({ repoLabels: { labels: { 'scope:core': { color: '00ff96', aliases } } } });
+      expect(errors.some((error) => error.startsWith('repoLabels.labels.scope:core.aliases'))).toBe(true);
+    });
+
     it('returns an error when a label entry is missing the color', () => {
       const { errors } = validateConfig({ repoLabels: { labels: { bug: { description: 'Something broken' } } } });
       expectErrorAtPath(errors, 'repoLabels.labels.bug.color');

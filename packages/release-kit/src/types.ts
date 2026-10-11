@@ -506,15 +506,17 @@ export const labelSpecSchema = z
   .object({
     color: z.string().min(1),
     description: z.string().optional(),
+    aliases: z.array(z.string().min(1)).min(1).optional(),
     archived: z.literal(true).optional(),
   })
   .strict();
 
 /**
- * A label's color, optional description, and optional archived mark; the name is the record key in
+ * A label's color, optional description, optional aliases, and optional archived mark; the name is the record key in
  * `repoLabels.labels`. An omitted description resolves to empty, which the generated labels file declares explicitly
- * so that a sync clears whatever description the label has on the repo. `archived: true` retires the label: The sync
- * archives it, keeping it on the issues and pull requests that have it.
+ * so that a sync clears whatever description the label has on the repo. Each alias names an existing label that the
+ * sync renames to this one in place, keeping it on the issues and pull requests that have it. `archived: true` retires
+ * the label: The sync archives it, keeping it on the issues and pull requests that have it.
  */
 export type LabelSpec = z.infer<typeof labelSpecSchema>;
 

@@ -50,6 +50,7 @@ export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
         name,
         color: spec.color,
         ...(spec.description !== undefined && { description: spec.description }),
+        ...(spec.aliases !== undefined && { aliases: spec.aliases }),
         ...(spec.archived !== undefined && { archived: spec.archived }),
       });
     }
