@@ -218,15 +218,12 @@ async function establishInvocation(options: RunCliOptions): Promise<PhaseResult<
   };
 }
 
-// region | Helpers
-
 /**
- * Runs an invocation that reached a command, and reports whether it failed because its command is not defined in
- * any scope that it reaches.
+ * Determines what an invocation would run, and settles every invocation that does not run its command: a
+ * delegation, an unknown command, a no-op override, and an argument that no step can take.
  */
-async function runInvocation(invocation: Invocation): Promise<SettledResult> {
-  const { anchorDir, command, context, env, format, parsedArgs, scope, shouldUseRoot, stderr, stdout, styles } =
-    invocation;
+async function planRun(invocation: Invocation): Promise<PhaseResult<RunPlan>> {
+  const { anchorDir, command, context, env, parsedArgs, stderr, stdout, styles } = invocation;
   const quiet = invocation.verbosity === 'quiet';
 
   const snapshot = openGate({
@@ -243,7 +240,7 @@ async function runInvocation(invocation: Invocation): Promise<SettledResult> {
   const runId = resolveRunId(env);
   const childEnv = buildChildEnv({
     env,
-    format,
+    format: invocation.format,
     shouldBypassCache,
     passthrough: parsedArgs.passthrough,
     runId,
@@ -263,10 +260,13 @@ async function runInvocation(invocation: Invocation): Promise<SettledResult> {
   if (delegation !== undefined) {
     const result = await runDelegation({ context, delegation, parsedArgs, runOptions, stderr });
 
-    return { ...result, isUnknownCommand: result.exitCode !== 0 && !isDefinedInAnyScope(command, context) };
+    return {
+      settled: true,
+      result: { ...result, isUnknownCommand: result.exitCode !== 0 && !isDefinedInAnyScope(command, context) },
+    };
   }
 
-  const registry = shouldUseRoot
+  const registry = invocation.shouldUseRoot
     ? buildRootRegistry(context.config, context.monorepoRoot)
     : buildWorkspaceRegistry(context.config);
 
@@ -283,10 +283,10 @@ async function runInvocation(invocation: Invocation): Promise<SettledResult> {
 
   if (!resolvedScript) {
     if (env[RUN_IF_PRESENT_ENV_VAR] === '1') {
-      return { exitCode: 0 };
+      return { settled: true, result: { exitCode: 0 } };
     }
     reportError(`Unknown command: ${command}`, stderr);
-    return { exitCode: 1, isUnknownCommand: true };
+    return { settled: true, result: { exitCode: 1, isUnknownCommand: true } };
   }
 
   // A `--log` runs nothing, so it cannot re-enter anything.
@@ -296,6 +296,38 @@ async function runInvocation(invocation: Invocation): Promise<SettledResult> {
         ...runOptions,
         env: enterChain({ anchorDir, command, env: childEnv, monorepoRoot: context.monorepoRoot }),
       };
+
+  const chain = assembleChain({ invocation, registry, resolvedScript, snapshot });
+  if (chain.settled) {
+    return chain;
+  }
+
+  return {
+    settled: false,
+    value: {
+      ...chain.value,
+      invocation,
+      overrideNotice: formatOverrideNotice(resolvedScript, registry, command, anchorDir, quiet, styles.stdout),
+      runId,
+      runOptions: entryRunOptions,
+      shouldBypassCache,
+      snapshot,
+    },
+  };
+}
+
+/**
+ * Assembles the chain that a resolved script runs at this scope, the hooks wrapped around it included, and the key
+ * under which a pass by that chain is recorded. Settles a no-op override and an argument that no step can take.
+ */
+function assembleChain(options: {
+  invocation: Invocation;
+  registry: ScriptRegistry;
+  resolvedScript: ResolvedScript;
+  snapshot: TreeSnapshot | undefined;
+}): PhaseResult<Pick<RunPlan, 'commandString' | 'key' | 'ownSteps' | 'steps'>> {
+  const { invocation, registry, resolvedScript, snapshot } = options;
+  const { anchorDir, command, context, env, parsedArgs, stderr, stdout, styles } = invocation;
 
   // Filter the steps before rendering the chain, which feeds both the cache key and the `--log` lookup, so that a
   // run and a reading of its recording agree about what the chain was.
@@ -308,8 +340,13 @@ async function runInvocation(invocation: Invocation): Promise<SettledResult> {
 
   const noOpReason = findNoOpReason(resolvedCommand, isEmptiedByWorkspace);
   if (noOpReason !== undefined && !parsedArgs.shouldPrintLog) {
-    reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout, format, styles.stdout);
-    return { exitCode: 0 };
+    reportVerdict(
+      { command, scope: invocation.scope, outcome: 'no-op', reason: noOpReason },
+      stdout,
+      invocation.format,
+      styles.stdout,
+    );
+    return { settled: true, result: { exitCode: 0 } };
   }
 
   const substitutedSteps = applyDevBinToSteps(runnableSteps, context.config.devBin, context.monorepoRoot);
@@ -320,7 +357,7 @@ async function runInvocation(invocation: Invocation): Promise<SettledResult> {
   const bindResult = bindPassthrough(substitutedSteps, parsedArgs.passthrough, command);
   if (!bindResult.ok) {
     reportError(bindResult.error, stderr);
-    return { exitCode: 1 };
+    return { settled: true, result: { exitCode: 1 } };
   }
 
   const mainSteps = bindResult.steps;
@@ -340,7 +377,7 @@ async function runInvocation(invocation: Invocation): Promise<SettledResult> {
     monorepoRoot: context.monorepoRoot,
     registry,
     resolvedScript,
-    shouldUseRoot,
+    shouldUseRoot: invocation.shouldUseRoot,
     stderr,
     style: styles.stderr,
   });
@@ -358,18 +395,35 @@ async function runInvocation(invocation: Invocation): Promise<SettledResult> {
     substitution: substitutedCommand === resolvedCommand ? undefined : substitutedCommand,
   });
 
+  return { settled: false, value: { commandString: fullCommand, key, ownSteps: mainSteps, steps: fullSteps } };
+}
+
+// region | Helpers
+
+/**
+ * Runs an invocation that reached a command, and reports whether it failed because its command is not defined in
+ * any scope that it reaches.
+ */
+async function runInvocation(invocation: Invocation): Promise<SettledResult> {
+  const planned = await planRun(invocation);
+  if (planned.settled) {
+    return planned.result;
+  }
+  const plan = planned.value;
+  const { anchorDir, command, context, env, format, parsedArgs, scope, stderr, stdout, styles } = invocation;
+
   // A `--log` needs the key for the whole chain, and returns before any hook, verdict, or cache write.
   if (parsedArgs.shouldPrintLog) {
     return reportRecording({
       anchorDir,
       command,
-      commandString: fullCommand,
+      commandString: plan.commandString,
       config: context.config,
       env,
-      key,
+      key: plan.key,
       monorepoRoot: context.monorepoRoot,
       scope,
-      snapshot,
+      snapshot: plan.snapshot,
       stderr,
       stdout,
       styles,
@@ -379,18 +433,18 @@ async function runInvocation(invocation: Invocation): Promise<SettledResult> {
   const { exitCode, outcome } = await runGated({
     anchorDir,
     command,
-    commandString: fullCommand,
+    commandString: plan.commandString,
     config: context.config,
-    steps: fullSteps,
+    steps: plan.steps,
     env,
-    key,
+    key: plan.key,
     monorepoRoot: context.monorepoRoot,
-    overrideNotice: formatOverrideNotice(resolvedScript, registry, command, anchorDir, quiet, styles.stdout),
-    ownSteps: mainSteps,
-    runId,
-    runOptions: entryRunOptions,
-    shouldBypassCache,
-    snapshot,
+    overrideNotice: plan.overrideNotice,
+    ownSteps: plan.ownSteps,
+    runId: plan.runId,
+    runOptions: plan.runOptions,
+    shouldBypassCache: plan.shouldBypassCache,
+    snapshot: plan.snapshot,
     stderr,
     stdout,
   });
@@ -448,6 +502,20 @@ type BooleanFlagName =
 
 /** Either the outcome with which a phase settled the invocation, or the input of the next phase. */
 type PhaseResult<T> = { settled: true; result: SettledResult } | { settled: false; value: T };
+
+/** What an invocation would run, fully determined: the chain, the key under which it records, and how it runs. */
+interface RunPlan {
+  commandString: string;
+  invocation: Invocation;
+  key: string | undefined;
+  overrideNotice: string | undefined;
+  ownSteps: readonly Step[];
+  runId: string;
+  runOptions: RunStepsOptions;
+  shouldBypassCache: boolean;
+  snapshot: TreeSnapshot | undefined;
+  steps: readonly Step[];
+}
 
 /** What the presentation sources came to, or the message naming why one of them could not be read. */
 type PresentationRead =
