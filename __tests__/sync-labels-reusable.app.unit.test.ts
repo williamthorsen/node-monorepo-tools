@@ -22,7 +22,16 @@ interface DeclaredLabel {
   name: string;
   color: string;
   description: string;
+  aliases?: string[];
   archived?: true;
+}
+
+/** A workflow step, limited to the keys that these tests read. */
+interface WorkflowStep {
+  name?: string;
+  run?: string;
+  uses?: string;
+  with?: Record<string, boolean | string>;
 }
 
 /** Signature of a script that `actions/github-script` runs, limited to the parameters that this one reads. */
@@ -165,7 +174,83 @@ describe('sync-labels.reusable.yaml reconciles archive state', () => {
     vi.stubEnv('LABELS_FILE', tree.writeJson('labels.json', declared));
     vi.stubEnv('DRY_RUN', String(isDryRun));
 
-    await loadReconcileScript()(
+    await loadScript('Reconcile archive state')(
+      github,
+      { repo: { owner: 'acme', repo: 'widgets' } },
+      core,
+      createRequire(import.meta.url),
+    );
+  }
+});
+
+describe('sync-labels.reusable.yaml leaves undeclared labels in place', () => {
+  it('does not ask the engine to delete labels that the file does not declare', () => {
+    const engineStep = steps.find((step) => step.uses?.startsWith('EndBug/label-sync@'));
+    expect(engineStep?.with?.['delete-other-labels']).toBe(false);
+  });
+});
+
+describe('sync-labels.reusable.yaml reports undeclared labels', () => {
+  let tree: TempTree;
+  let github: ReturnType<typeof createGithubMock>;
+  let core: ReturnType<typeof createCoreMock>;
+
+  beforeEach(() => {
+    tree = disposeOnTestFinished(createTempTree({}, { prefix: 'sync-labels-' }));
+    github = createGithubMock();
+    core = createCoreMock();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('warns once for each repository label that the file does not declare', async () => {
+    github.paginate.mockResolvedValue([
+      { name: 'bug', archived_at: null },
+      { name: 'needs-triage', archived_at: null },
+      { name: 'scope:docs', archived_at: '2026-10-02T00:30:01Z' },
+    ]);
+
+    await runReport([declare('bug')]);
+
+    expect(core.warning.mock.calls.map(([message]) => message)).toStrictEqual([
+      'needs-triage is not declared by .github/labels.yaml; declare it, or delete it from the repository',
+      'scope:docs is not declared by .github/labels.yaml; declare it, or delete it from the repository',
+    ]);
+    expect(core.startGroup).toHaveBeenCalledWith('Undeclared labels');
+  });
+
+  it('treats a label that differs from a declared one only in case as declared', async () => {
+    github.paginate.mockResolvedValue([{ name: 'Bug', archived_at: null }]);
+
+    await runReport([declare('bug')]);
+
+    expect(core.warning).not.toHaveBeenCalled();
+  });
+
+  it('treats a label named by a declared alias as declared', async () => {
+    github.paginate.mockResolvedValue([{ name: 'scope:basic', archived_at: null }]);
+
+    await runReport([{ ...declare('scope:core'), aliases: ['Scope:Basic'] }]);
+
+    expect(core.warning).not.toHaveBeenCalled();
+  });
+
+  it('reports a single line when every repository label is declared', async () => {
+    github.paginate.mockResolvedValue([{ name: 'bug', archived_at: null }]);
+
+    await runReport([declare('bug')]);
+
+    expect(core.warning).not.toHaveBeenCalled();
+    expect(core.info.mock.calls).toStrictEqual([['Every repository label is declared.']]);
+  });
+
+  /** Writes the declared labels where the step reads them and runs the step's script against the mocks. */
+  async function runReport(declared: DeclaredLabel[]) {
+    vi.stubEnv('LABELS_FILE', tree.writeJson('labels.json', declared));
+
+    await loadScript('Report undeclared labels')(
       github,
       { repo: { owner: 'acme', repo: 'widgets' } },
       core,
@@ -176,12 +261,18 @@ describe('sync-labels.reusable.yaml reconciles archive state', () => {
 
 // region | Helpers
 
-/** Creates a `core` mock exposing the members that the script calls. */
+/** Creates a `core` mock exposing the members that the scripts call. */
 function createCoreMock() {
-  return { endGroup: vi.fn(), info: vi.fn<(message: string) => void>(), setFailed: vi.fn(), startGroup: vi.fn() };
+  return {
+    endGroup: vi.fn(),
+    info: vi.fn<(message: string) => void>(),
+    setFailed: vi.fn(),
+    startGroup: vi.fn(),
+    warning: vi.fn<(message: string) => void>(),
+  };
 }
 
-/** Creates a `github` client mock exposing the members that the script calls. */
+/** Creates a `github` client mock exposing the members that the scripts call. */
 function createGithubMock() {
   return { paginate: vi.fn<() => Promise<RepoLabel[]>>(), request: vi.fn() };
 }
@@ -191,11 +282,11 @@ function declare(name: string, isArchived = false): DeclaredLabel {
   return { name, color: '00ff96', description: '', ...(isArchived && { archived: true }) };
 }
 
-/** Compiles the reconcile step's script into a function taking the parameters that `actions/github-script` passes. */
-function loadReconcileScript(): GithubScript {
-  const script = steps.find((step) => step.uses?.startsWith('actions/github-script@'))?.with?.['script'];
-  if (script === undefined) {
-    throw new Error('sync-labels.reusable.yaml has no actions/github-script step with a script');
+/** Compiles the named step's script into a function taking the parameters that `actions/github-script` passes. */
+function loadScript(stepName: string): GithubScript {
+  const script = steps.find((step) => step.name === stepName)?.with?.['script'];
+  if (typeof script !== 'string') {
+    throw new Error(`sync-labels.reusable.yaml has no "${stepName}" step with a script`);
   }
   // The compiled source is the step's script wrapped as `actions/github-script` wraps it; its type is not inferable.
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- `runInThisContext` returns `any`.
@@ -203,7 +294,7 @@ function loadReconcileScript(): GithubScript {
 }
 
 /** Reads the steps of the workflow's single job. */
-function readSteps(): Array<{ run?: string; uses?: string; with?: Record<string, string> }> {
+function readSteps(): WorkflowStep[] {
   const workflow: unknown = parse(readFileSync(workflowPath, 'utf8'));
   if (!isWorkflow(workflow)) {
     throw new Error('sync-labels.reusable.yaml does not define a `sync` job with steps');
@@ -212,9 +303,7 @@ function readSteps(): Array<{ run?: string; uses?: string; with?: Record<string,
 }
 
 /** Narrows a parsed workflow to the shape that `readSteps` reads. */
-function isWorkflow(value: unknown): value is {
-  jobs: { sync: { steps: Array<{ run?: string; uses?: string; with?: Record<string, string> }> } };
-} {
+function isWorkflow(value: unknown): value is { jobs: { sync: { steps: WorkflowStep[] } } } {
   if (typeof value !== 'object' || value === null || !('jobs' in value)) return false;
   const { jobs } = value;
   if (typeof jobs !== 'object' || jobs === null || !('sync' in jobs)) return false;

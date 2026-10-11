@@ -14,10 +14,10 @@ const ENGINE_NOTE_PATTERN = /Engine verified for (v\d+\.\d+\.\d+): vendors (gith
 /**
  * Guards the commit-SHA pin on `EndBug/label-sync` and the provenance recorded against it.
  *
- * The action's floating `v2` tag can move to a bundle with different delete and rename
- * semantics (its unreleased `main` already swaps the vendored engine for
- * `@endbug/github-label-sync@3`), and this workflow deletes every label not declared by the
- * config file.
+ * The action's floating `v2` tag can move to a bundle with different rename semantics and
+ * handling of undeclared labels (its unreleased `main` already swaps the vendored engine for
+ * `@endbug/github-label-sync@3`), and this workflow relies on the pinned engine leaving every
+ * label not declared by the config file in place.
  *
  * Dependabot rewrites the trailing version comment in step with the SHA, but only while
  * that comment contains the version alone, and it never touches the engine note. Asserting
