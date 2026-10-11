@@ -10,9 +10,10 @@ import type { LabelDefinition } from './types.ts';
  * one that an earlier layer defined, or removes it (`null`). Names match case-insensitively, as GitHub matches them,
  * and the replacing layer's spelling becomes the label's name. Replacement is wholesale, so an entry omitting
  * `description` drops the one that an earlier layer supplied rather than inheriting it.
- * Throws on two misstatements that the output diff would otherwise not show: keys in the `labels` record that differ
- * only in case, all but one of which the fold would discard, and a dangling `null`, a removal naming a label that the
- * `extends` presets did not define.
+ * Throws on three misstatements that the output diff would otherwise not show: keys in the `labels` record that differ
+ * only in case, all but one of which the fold would discard; a dangling `null`, a removal naming a label that the
+ * `extends` presets did not define; and an alias that names a resolved label or repeats another alias, which makes
+ * `github-label-sync` merge one label into another and delete it.
  */
 export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
   const labelEntries = Object.entries(config.labels ?? {});
@@ -50,15 +51,50 @@ export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
         name,
         color: spec.color,
         ...(spec.description !== undefined && { description: spec.description }),
+        ...(spec.aliases !== undefined && { aliases: spec.aliases }),
         ...(spec.archived !== undefined && { archived: spec.archived }),
       });
     }
   }
 
-  return sortLabels(resolved.values().toArray());
+  const labels = sortLabels(resolved.values().toArray());
+
+  const aliasCollisions = findAliasCollisions(labels);
+  if (aliasCollisions.length > 0) {
+    throw new Error(
+      `Aliases must name labels that are not declared and must not repeat, or the sync merges one label into another and deletes it: ${aliasCollisions.join('; ')}.`,
+    );
+  }
+
+  return labels;
 }
 
 // region | Helpers
+
+/** Describes each alias that matches a resolved label's name or an alias declared earlier. */
+function findAliasCollisions(labels: LabelDefinition[]): string[] {
+  const labelNamesByKey = new Map(labels.map((label) => [toLabelKey(label.name), label.name]));
+  const aliasOwnersByKey = new Map<string, string>();
+  const collisions: string[] = [];
+
+  for (const label of labels) {
+    const aliases = label.aliases ?? [];
+    for (const alias of aliases) {
+      const key = toLabelKey(alias);
+      const namedLabel = labelNamesByKey.get(key);
+      const earlierOwner = aliasOwnersByKey.get(key);
+      if (namedLabel !== undefined) {
+        collisions.push(`'${label.name}' declares alias '${alias}', which names the label '${namedLabel}'`);
+      } else if (earlierOwner !== undefined) {
+        collisions.push(`'${label.name}' declares alias '${alias}', which '${earlierOwner}' also declares`);
+      } else {
+        aliasOwnersByKey.set(key, label.name);
+      }
+    }
+  }
+
+  return collisions;
+}
 
 /** Groups names that share a label key, keeping only the groups of two or more. */
 function findCaseVariantGroups(names: string[]): string[][] {

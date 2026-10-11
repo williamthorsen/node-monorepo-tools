@@ -390,6 +390,18 @@ describe(formatLabelsYaml, () => {
     );
   });
 
+  it('writes aliases after the description and before the archived mark', () => {
+    const labels: LabelDefinition[] = [
+      { name: 'scope:core', color: '00ff96', aliases: ['scope:basic', 'scope:base'], archived: true },
+    ];
+
+    const result = formatLabelsYaml(labels, noPresets);
+
+    expect(result).toContain(
+      "- name: scope:core\n  color: 00ff96\n  description: ''\n  aliases:\n    - scope:basic\n    - scope:base\n  archived: true\n",
+    );
+  });
+
   // Existing generated files must stay byte-identical, so an unmarked label gains no key.
   it('writes an unmarked label without an archived key', () => {
     const labels: LabelDefinition[] = [{ name: 'bug', color: 'd73a4a', description: 'Bug' }];

@@ -40,7 +40,7 @@ Names match case-insensitively, as GitHub matches them: `Bug` in the `labels` re
 
 `description` is optional throughout, in a preset as in the `labels` record, and `sync-labels init` generates none for a scope label. The generated file spells an absent description `''` because `github-label-sync` reads an omitted description as "leave the label's current one alone"; the empty form clears it.
 
-Overlaps between layers are never errors; order resolves them, and the committed `.github/labels.yaml` diff shows any unexpected change at review. Two misstatements are config errors, because neither is visible in the output diff: a dangling `null`, which removes a name not defined by any preset, and `labels` keys that differ only in case, all but one of which the fold would discard.
+Overlaps between layers are never errors; order resolves them, and the committed `.github/labels.yaml` diff shows any unexpected change at review. Three misstatements are config errors, because none is visible in the output diff: a dangling `null`, which removes a name not defined by any preset; `labels` keys that differ only in case, all but one of which the fold would discard; and an alias that names a resolved label or repeats another alias, which would make the sync merge one label into another and delete it (see [Renaming a label](#renaming-a-label)).
 
 ### Retiring a label
 
@@ -55,6 +55,27 @@ labels: {
 The sync workflow archives a marked label rather than deleting it. An archived label stays on the issues and pull requests that have it, but it cannot be added to new ones and does not appear in the label picker. Removing the mark unarchives the label on the next sync. Removing the entry leaves the label in place: The sync does not delete a label that `.github/labels.yaml` does not declare, and it reports each such label as a warning. To delete a label, run `gh label delete <name>`; the label disappears from every issue and pull request that had it.
 
 The mark is set only in the `labels` record, not in a preset. To retire a preset's label, replace it with an entry that restates its color and adds the mark.
+
+### Renaming a label
+
+List a label's old names in `aliases` to rename it:
+
+```typescript
+labels: {
+  'scope:core': { color: '00ff96', aliases: ['scope:basic'] }, // rename `scope:basic` to `scope:core`
+},
+```
+
+The sync renames an existing label that an alias names, in place, rather than deleting it and creating a new one, so the label stays on the issues and pull requests that have it. The dry-run **Label diff** lists the rename. When the repository has both the old name and the new one, the sync adds the new label to every issue and pull request that has the old one, then deletes the old label. A label that an alias names is not reported as undeclared.
+
+`aliases` is set only in the `labels` record, not in a preset, and it takes at least one name. Names match case-insensitively. An alias must not name a label that the config resolves, including the label that declares it, and must not appear twice: Either would make the sync merge one declared label into another and delete it. To rename a preset's label, remove it with `null` and alias it from the new entry:
+
+```typescript
+labels: {
+  bug: null,
+  'type:bug': { color: 'd73a4a', aliases: ['bug'] },
+},
+```
 
 ### When labels are applied
 
