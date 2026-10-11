@@ -12,7 +12,7 @@ import {
   type ScriptValue,
   type StepSpec,
 } from './resolve-scripts.ts';
-import { composeNmrStep, readSelfReference, type Step } from './steps.ts';
+import { composeNmrStep, readSelfReference, type SelfReferenceScope, type Step } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 import { isMonorepoRoot } from './workspace.ts';
 
@@ -210,7 +210,7 @@ export function findChainedSelfReference(packageDir: string | undefined, command
     return undefined;
   }
 
-  return readSelfReference({ anchoredAtRoot: isMonorepoRoot(packageDir), commandName, script }) === 'chained'
+  return readSelfReference({ commandName, scope: readPackageScope(packageDir), script }) === 'chained'
     ? script
     : undefined;
 }
@@ -220,7 +220,7 @@ export function findChainedSelfReference(packageDir: string | undefined, command
  * re-invocation appears in it, e.g. `"build": "nmr build"` or `"build": "rdy compile && nmr build"`.
  */
 export function isSelfReferential(script: string, commandName: string, packageDir: string): boolean {
-  return readSelfReference({ anchoredAtRoot: isMonorepoRoot(packageDir), commandName, script }) !== undefined;
+  return readSelfReference({ commandName, scope: readPackageScope(packageDir), script }) !== undefined;
 }
 
 /**
@@ -264,3 +264,12 @@ export function resolveScript(
 
   return { origin: { tier: 'registry', key: commandName }, steps: expandScript(registryEntry, isWorkspaceRoot) };
 }
+
+// region | Helpers
+
+/** Returns the scope in which a `package.json` entry in `packageDir` resolves. */
+function readPackageScope(packageDir: string): SelfReferenceScope {
+  return isMonorepoRoot(packageDir) ? 'root' : 'package';
+}
+
+// endregion | Helpers

@@ -364,6 +364,21 @@ describe(resolveScript, () => {
     });
   });
 
+  // A `-R` fans out from the root to every package, this one included.
+  it('skips a package override that sends its own command to every package with -R', ({ tree }) => {
+    writeScripts(tree, { build: 'nmr -R build' });
+
+    const registry = { build: ['fmt', 'lint'] };
+
+    expect(resolveScript('build', registry, tree.dir, false)).toStrictEqual({
+      origin: { tier: 'registry', key: 'build' },
+      steps: [
+        { kind: 'structural', argv: ['nmr', 'fmt'] },
+        { kind: 'structural', argv: ['nmr', 'lint'] },
+      ],
+    });
+  });
+
   // The build-output probe and the workspace clean sweep resolve scripts for packages that the user did not name,
   // so a chained entry must not fail the command that happens to be running.
   it('resolves another command from a package whose entry chains a self-reference', ({ tree }) => {

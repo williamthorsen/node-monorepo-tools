@@ -7,6 +7,7 @@ import {
   findUnexpressibleToken,
   readNmrStep,
   readSelfReference,
+  readStepListSelfReference,
   renderChain,
   type Step,
 } from '../steps.ts';
@@ -265,7 +266,7 @@ describe(readSelfReference, () => {
     { scenario: 'a value redirecting both streams to a file', script: 'nmr build &>log' },
     { scenario: 'a value redirecting past noclobber', script: 'nmr build >|out' },
   ])('reads a self-reference standing as $scenario as sole', ({ script }) => {
-    expect(readSelfReference({ anchoredAtRoot: false, commandName: 'build', script })).toBe('sole');
+    expect(readSelfReference({ commandName: 'build', scope: 'package', script })).toBe('sole');
   });
 
   it.each([
@@ -283,36 +284,74 @@ describe(readSelfReference, () => {
     { scenario: 'on the line below the other steps in its chain', script: 'rdy compile\nnmr build' },
     { scenario: 'past a carriage return', script: 'rdy compile\r\nnmr build' },
   ])('reads a self-reference standing $scenario as chained', ({ script }) => {
-    expect(readSelfReference({ anchoredAtRoot: false, commandName: 'build', script })).toBe('chained');
+    expect(readSelfReference({ commandName: 'build', scope: 'package', script })).toBe('chained');
   });
 
   it.each([
     { scenario: 'another command', script: 'nmr compile && rdy compile' },
     { scenario: 'no command at all', script: 'rdy compile && rdy verify' },
-    { scenario: 'the command that it delegates to other scopes with -R', script: 'nmr -R build && rdy compile' },
     { scenario: 'the command that it delegates to one package with -F', script: 'nmr -F core build && rdy compile' },
     { scenario: 'nmr inside an argument rather than in command position', script: "echo 'nmr build' && rdy compile" },
   ])('reports nothing for a value naming $scenario', ({ script }) => {
-    expect(readSelfReference({ anchoredAtRoot: false, commandName: 'build', script })).toBeUndefined();
+    expect(readSelfReference({ commandName: 'build', scope: 'package', script })).toBeUndefined();
   });
 
-  // `-w` targets the root's registry and the root's package.json, which is this entry only at the root.
-  it('reports nothing for a -w self-reference read from a package', () => {
-    const script = 'nmr -w build && rdy compile';
-
-    expect(readSelfReference({ anchoredAtRoot: false, commandName: 'build', script })).toBeUndefined();
-  });
-
-  it('reads a -w self-reference read at the root as chained', () => {
-    const script = 'nmr -w build && rdy compile';
-
-    expect(readSelfReference({ anchoredAtRoot: true, commandName: 'build', script })).toBe('chained');
+  it.each([
+    { scope: 'root', script: 'nmr build && rdy compile', expected: 'chained' },
+    { scope: 'root', script: 'nmr -w build && rdy compile', expected: 'chained' },
+    { scope: 'root', script: 'nmr -R build && rdy compile', expected: undefined },
+    { scope: 'root', script: 'nmr -F core build && rdy compile', expected: undefined },
+    { scope: 'package', script: 'nmr build && rdy compile', expected: 'chained' },
+    { scope: 'package', script: 'nmr -w build && rdy compile', expected: undefined },
+    { scope: 'package', script: 'nmr -R build && rdy compile', expected: 'chained' },
+    { scope: 'package', script: 'nmr -w -R build && rdy compile', expected: 'chained' },
+    { scope: 'package', script: 'nmr -F core build && rdy compile', expected: undefined },
+    { scope: 'workspaceRegistry', script: 'nmr build && rdy compile', expected: 'chained' },
+    { scope: 'workspaceRegistry', script: 'nmr -w build && rdy compile', expected: undefined },
+    { scope: 'workspaceRegistry', script: 'nmr -R build && rdy compile', expected: 'chained' },
+    { scope: 'workspaceRegistry', script: 'nmr -w -R build && rdy compile', expected: 'chained' },
+    { scope: 'workspaceRegistry', script: 'nmr -F core build && rdy compile', expected: 'chained' },
+    { scope: 'root', script: 'pnpm --recursive exec nmr build', expected: undefined },
+    { scope: 'root', script: 'pnpm --filter core exec nmr build', expected: undefined },
+    { scope: 'root', script: 'pnpm -w exec nmr build', expected: 'sole' },
+    { scope: 'package', script: 'pnpm -r exec nmr build', expected: 'sole' },
+    { scope: 'package', script: 'pnpm -w exec nmr build', expected: undefined },
+    { scope: 'workspaceRegistry', script: 'pnpm --filter=core exec nmr build', expected: 'sole' },
+  ] as const)('reads `$script` declared in $scope scope as $expected', ({ expected, scope, script }) => {
+    expect(readSelfReference({ commandName: 'build', scope, script })).toBe(expected);
   });
 
   it('reads a hook entry re-invoking its own hook name', () => {
     const script = 'nmr build:post && rdy compile';
 
-    expect(readSelfReference({ anchoredAtRoot: false, commandName: 'build:post', script })).toBe('chained');
+    expect(readSelfReference({ commandName: 'build:post', scope: 'package', script })).toBe('chained');
+  });
+});
+
+describe(readStepListSelfReference, () => {
+  it.each([
+    { scope: 'root', element: 'build', expected: 'sole' },
+    { scope: 'root', element: '-w build', expected: 'sole' },
+    { scope: 'root', element: '-R build', expected: undefined },
+    { scope: 'root', element: '-F core build', expected: undefined },
+    { scope: 'workspaceRegistry', element: 'build', expected: 'sole' },
+    { scope: 'workspaceRegistry', element: '-w build', expected: undefined },
+    { scope: 'workspaceRegistry', element: '-R build', expected: 'sole' },
+    { scope: 'workspaceRegistry', element: '-F core build', expected: 'sole' },
+  ] as const)('reads the element `$element` declared in $scope scope as $expected', ({ element, expected, scope }) => {
+    expect(readStepListSelfReference({ commandName: 'build', elements: [element], scope })).toBe(expected);
+  });
+
+  it('reads a self-reference among other elements as chained', () => {
+    const elements = ['typecheck', 'build'];
+
+    expect(readStepListSelfReference({ commandName: 'build', elements, scope: 'workspaceRegistry' })).toBe('chained');
+  });
+
+  it('reports nothing for a list naming only other commands', () => {
+    const elements = ['compile', '-R build:post'];
+
+    expect(readStepListSelfReference({ commandName: 'build', elements, scope: 'workspaceRegistry' })).toBeUndefined();
   });
 });
 

@@ -7421,6 +7421,20 @@ function resolveConfigPath(baseDir) {
   return path.join(baseDir, CONFIG_DIR, CONFIG_FILENAME);
 }
 
+// src/helpers/escapeControlCharacters.ts
+var NAMED_ESCAPES = /* @__PURE__ */ new Map([
+  ["\n", String.raw`\n`],
+  ["\r", String.raw`\r`],
+  ["	", String.raw`\t`]
+]);
+function escapeControlCharacters(text) {
+  let escapedText = text;
+  for (const [char, escape] of NAMED_ESCAPES) {
+    escapedText = escapedText.split(char).join(escape);
+  }
+  return escapedText;
+}
+
 // src/helpers/findClosestName.ts
 function findClosestName(name, candidates) {
   const ceiling = Math.max(1, Math.floor(name.length / 4));
@@ -7478,24 +7492,332 @@ function isStringRecord(value) {
   return isObject(value) && Object.values(value).every((entry) => typeof entry === "string");
 }
 
-// src/resolver.ts
-import { readFileSync as readFileSync2 } from "node:fs";
-
-// ../nmr-core/dist/esm/hasErrnoCode.js
-function hasErrnoCode(error, code) {
-  return isError(error) && "code" in error && error.code === code;
+// src/steps.ts
+var ENV_ASSIGNMENT = /^\w+=/;
+var LAUNCHERS = /* @__PURE__ */ new Map([
+  ["bun", /* @__PURE__ */ new Set(["x"])],
+  ["bunx", /* @__PURE__ */ new Set()],
+  ["npm", /* @__PURE__ */ new Set(["exec"])],
+  ["npx", /* @__PURE__ */ new Set()],
+  ["pnpm", /* @__PURE__ */ new Set(["dlx", "exec"])],
+  ["yarn", /* @__PURE__ */ new Set(["dlx", "exec"])]
+]);
+var QUOTES = /* @__PURE__ */ new Set(['"', "'"]);
+var SEGMENT_SEPARATORS = /* @__PURE__ */ new Set([";", "|", "&", "\n", "\r"]);
+var SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
+var TOKEN_SEPARATORS = /* @__PURE__ */ new Set([" ", "	", "\n", "\r"]);
+function findUnexpressibleToken(element) {
+  return tokenize(element).find((token) => !SHELL_SAFE_TOKEN.test(token));
+}
+function quoteToken(token) {
+  if (SHELL_SAFE_TOKEN.test(token)) {
+    return token;
+  }
+  return "'" + token.replaceAll("'", String.raw`'\''`) + "'";
+}
+function readSelfReference(options) {
+  const { commandName, scope, script } = options;
+  const segments = splitSegments(script).filter((segment) => segment.trim() !== "");
+  const doesReenter = segments.some((segment) => {
+    const invocation = readNmrTail(segment);
+    const target = invocation === void 0 ? void 0 : readNmrTarget(invocation.tail);
+    if (invocation === void 0 || target === void 0) {
+      return false;
+    }
+    const launcherScope = readLauncherScope(invocation.launcher, invocation.launcherArgs);
+    const effectiveTarget = {
+      command: target.command,
+      isDelegate: target.isDelegate || launcherScope.isDelegate,
+      isRecursive: target.isRecursive || launcherScope.isRecursive,
+      isWorkspaceRoot: target.isWorkspaceRoot || launcherScope.isWorkspaceRoot
+    };
+    return isReentry(effectiveTarget, commandName, scope);
+  });
+  if (!doesReenter) {
+    return void 0;
+  }
+  return segments.length === 1 ? "sole" : "chained";
+}
+function readStepListSelfReference(options) {
+  const { commandName, elements, scope } = options;
+  const doesReenter = elements.some((element) => {
+    const target = readNmrTarget(tokenize(element));
+    return target !== void 0 && isReentry(target, commandName, scope);
+  });
+  if (!doesReenter) {
+    return void 0;
+  }
+  return elements.length === 1 ? "sole" : "chained";
+}
+function dropLeadingAssignments(tokens) {
+  const start = tokens.findIndex((token) => !ENV_ASSIGNMENT.test(token));
+  return start === -1 ? [] : tokens.slice(start);
+}
+function isRedirectionOperator(char, precedingText, nextChar) {
+  if (char !== "&" && char !== "|") {
+    return false;
+  }
+  return char === "&" && nextChar === ">" || /[<>]\s*$/.test(precedingText);
+}
+function isReentry(target, commandName, scope) {
+  if (target.command !== commandName) {
+    return false;
+  }
+  switch (scope) {
+    case "root":
+      return !target.isDelegate;
+    case "package":
+      return target.isRecursive || !target.isDelegate && !target.isWorkspaceRoot;
+    case "workspaceRegistry":
+      return target.isDelegate || !target.isWorkspaceRoot;
+  }
+}
+function readLauncherScope(launcher, launcherArgs) {
+  const scope = { isDelegate: false, isRecursive: false, isWorkspaceRoot: false };
+  if (launcher !== "pnpm") {
+    return scope;
+  }
+  for (const token of launcherArgs) {
+    if (token === "-r" || token === "--recursive") {
+      scope.isDelegate = true;
+      scope.isRecursive = true;
+    } else if (token === "-F" || token === "--filter" || token.startsWith("--filter=")) {
+      scope.isDelegate = true;
+    } else if (token === "-w" || token === "--workspace-root") {
+      scope.isWorkspaceRoot = true;
+    }
+  }
+  return scope;
+}
+function readNmrTail(segment) {
+  const [head, ...rest] = dropLeadingAssignments(tokenizeSegment(segment));
+  if (head === void 0) {
+    return void 0;
+  }
+  if (head === "nmr") {
+    return { launcher: void 0, launcherArgs: [], tail: rest };
+  }
+  const subcommands = LAUNCHERS.get(head);
+  if (subcommands === void 0) {
+    return void 0;
+  }
+  const nmrIndex = subcommands.size === 0 ? rest.findIndex((token) => !token.startsWith("-")) : rest.findIndex((token) => subcommands.has(token)) + 1;
+  if (nmrIndex <= 0 && subcommands.size > 0) {
+    return void 0;
+  }
+  return rest[nmrIndex] === "nmr" ? { launcher: head, launcherArgs: rest.slice(0, nmrIndex), tail: rest.slice(nmrIndex + 1) } : void 0;
+}
+function readNmrTarget(tokens) {
+  let isDelegate = false;
+  let isRecursive = false;
+  let isWorkspaceRoot = false;
+  let index = 0;
+  while (index < tokens.length) {
+    const token = tokens[index] ?? "";
+    switch (token) {
+      // The pattern is the flag's value, and reading it as a command name would name whichever package it
+      // selects rather than the command that every selected scope runs.
+      case "-F":
+      case "--filter":
+        isDelegate = true;
+        index += 2;
+        break;
+      case "-R":
+      case "--recursive":
+        isDelegate = true;
+        isRecursive = true;
+        index += 1;
+        break;
+      case "-w":
+      case "--workspace-root":
+        isWorkspaceRoot = true;
+        index += 1;
+        break;
+      default:
+        if (!token.startsWith("-")) {
+          return { command: token, isDelegate, isRecursive, isWorkspaceRoot };
+        }
+        index += 1;
+    }
+  }
+  return void 0;
+}
+function splitSegments(command) {
+  const segments = [];
+  let currentSegment = "";
+  let quote;
+  let index = 0;
+  while (index < command.length) {
+    const char = command[index] ?? "";
+    if (quote !== void 0) {
+      if (char === "\\" && quote === '"') {
+        currentSegment += char + (command[index + 1] ?? "");
+        index += 2;
+        continue;
+      }
+      currentSegment += char;
+      if (char === quote) quote = void 0;
+      index += 1;
+      continue;
+    }
+    if (char === "\\") {
+      currentSegment += char + (command[index + 1] ?? "");
+      index += 2;
+      continue;
+    }
+    if (QUOTES.has(char)) {
+      quote = char;
+      currentSegment += char;
+      index += 1;
+      continue;
+    }
+    if (SEGMENT_SEPARATORS.has(char)) {
+      if (isRedirectionOperator(char, currentSegment, command[index + 1])) {
+        currentSegment += char;
+        index += 1;
+        continue;
+      }
+      index += command[index + 1] === char ? 2 : 1;
+      segments.push(currentSegment);
+      currentSegment = "";
+      continue;
+    }
+    currentSegment += char;
+    index += 1;
+  }
+  segments.push(currentSegment);
+  return segments;
+}
+function tokenize(element) {
+  return element.split(/\s+/).filter((token) => token.length > 0);
+}
+function tokenizeSegment(segment) {
+  const tokens = [];
+  let currentToken = "";
+  let quote;
+  let index = 0;
+  while (index < segment.length) {
+    const char = segment[index] ?? "";
+    if (quote !== void 0) {
+      if (char === "\\" && quote === '"') {
+        currentToken += char + (segment[index + 1] ?? "");
+        index += 2;
+        continue;
+      }
+      currentToken += char;
+      if (char === quote) quote = void 0;
+      index += 1;
+      continue;
+    }
+    if (char === "\\") {
+      currentToken += char + (segment[index + 1] ?? "");
+      index += 2;
+      continue;
+    }
+    if (QUOTES.has(char)) {
+      quote = char;
+      currentToken += char;
+      index += 1;
+      continue;
+    }
+    if (TOKEN_SEPARATORS.has(char)) {
+      if (currentToken !== "") {
+        tokens.push(currentToken);
+      }
+      currentToken = "";
+      index += 1;
+      continue;
+    }
+    currentToken += char;
+    index += 1;
+  }
+  if (currentToken !== "") {
+    tokens.push(currentToken);
+  }
+  return tokens;
 }
 
-// src/helpers/package-json.ts
-import path4 from "node:path";
-
-// src/UserError.ts
-var UserError = class extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "UserError";
-  }
+// src/default-scripts.ts
+var GATE_PROJECTS = "--project unit --project tool";
+var TYPECHECK_STEP = { run: "typecheck", shouldDeclineArguments: true };
+var ROOT_TYPECHECK_STEP = { run: "root:typecheck", shouldDeclineArguments: true };
+var LINT_CHECK_STEP = { run: "lint:check", shouldRunInBackground: true };
+var LINT_STRICT_STEP = { run: "lint:strict", shouldRunInBackground: true };
+var workspaceScripts = {
+  build: ["compile"],
+  check: [LINT_CHECK_STEP, TYPECHECK_STEP, "fmt:check", "test"],
+  "check:strict": [LINT_STRICT_STEP, TYPECHECK_STEP, "fmt:check", "test"],
+  clean: "nmr-clean",
+  compile: "nmr-compile",
+  fix: ["lint", "fmt"],
+  "fix:check": ["fmt:check", "lint:check"],
+  fmt: "nmr-fmt --write",
+  "fmt:check": "nmr-fmt --check",
+  lint: "eslint --fix .",
+  "lint:check": "eslint .",
+  "lint:strict": "strict-lint",
+  "report-catalog": "nmr-report-catalog",
+  test: `pnpm exec vitest ${GATE_PROJECTS}`,
+  "test:all": "pnpm exec vitest",
+  "test:coverage": `pnpm exec vitest ${GATE_PROJECTS} --coverage`,
+  "test:tool": "pnpm exec vitest --project tool",
+  "test:unit": "pnpm exec vitest --project unit",
+  "test:watch": `pnpm exec vitest ${GATE_PROJECTS} --watch`,
+  typecheck: "tsgo --noEmit",
+  // The command is a string because neither half names an nmr command: Both are binaries.
+  upgrade: "nmr-report-catalog && nmr-taze",
+  "view-coverage": "open coverage/index.html"
 };
+function buildRootScripts(workspaceGlobs) {
+  const ignorePatterns = workspaceGlobs.map((glob) => `--ignore-pattern ${quoteToken(glob)} `).join("");
+  return {
+    audit: ["audit:prod", "audit:dev"],
+    "audit:dev": "pnpm exec v11y --dev",
+    "audit:prod": "pnpm exec v11y --prod",
+    build: ["-R build"],
+    check: [LINT_CHECK_STEP, TYPECHECK_STEP, "fmt:check", "test"],
+    "check:strict": [LINT_STRICT_STEP, TYPECHECK_STEP, "fmt:check", "test"],
+    // Excludes the audit, which in CI has a workflow of its own. The narrowed check runs against the build, so
+    // the build declines the arguments rather than being narrowed by them.
+    ci: [{ run: "build", shouldDeclineArguments: true }, "check:strict"],
+    clean: "nmr-clean",
+    fix: ["lint", "fmt"],
+    "fix:check": ["fmt:check", "lint:check"],
+    fmt: "nmr-fmt --write",
+    "fmt:check": "nmr-fmt --check",
+    lint: "eslint --fix .",
+    "lint:check": "eslint .",
+    "lint:strict": "strict-lint",
+    // The audit takes seconds and `ci` takes minutes, so the cheap gate fails first. The audit reads the
+    // dependency tree, and an argument narrowing the code under test does not say anything about that tree.
+    prepush: [{ run: "audit", shouldDeclineArguments: true }, "ci"],
+    "report-overrides": "nmr-report-overrides",
+    "root:check": [ROOT_TYPECHECK_STEP, "fmt:check", "root:lint:check", "root:test"],
+    "root:lint": `eslint --fix ${ignorePatterns}.`,
+    "root:lint:check": `eslint ${ignorePatterns}.`,
+    "root:lint:strict": `strict-lint ${ignorePatterns}.`,
+    "root:test": `vitest --config ./vitest.root.config.ts ${GATE_PROJECTS}`,
+    "root:test:all": "vitest --config ./vitest.root.config.ts",
+    "root:test:tool": "vitest --config ./vitest.root.config.ts --project tool",
+    "root:test:unit": "vitest --config ./vitest.root.config.ts --project unit",
+    "root:typecheck": "tsgo --noEmit",
+    // Includes the override report for the same reason `upgrade` does: Both end in the tool that rewrites a
+    // `pnpm.overrides` block, so both need the reporter's rejection ahead of them.
+    "root:upgrade": "nmr-report-overrides && nmr-taze",
+    test: ["root:test", "-R test"],
+    "test:all": ["root:test:all", "-R test:all"],
+    "test:coverage": ["root:test", "-R test:coverage"],
+    "test:tool": ["root:test:tool", "-R test:tool"],
+    "test:unit": ["root:test:unit", "-R test:unit"],
+    "test:watch": `vitest ${GATE_PROJECTS} --watch`,
+    // Neither step is narrowable, so `nmr typecheck <file>` is rejected rather than checking that file under
+    // default options at the root and searching for it in every package.
+    typecheck: [ROOT_TYPECHECK_STEP, { run: "-R typecheck", shouldDeclineArguments: true }],
+    // The command is a string because neither half names an nmr command: Both are binaries, and a composite
+    // element can name only a command.
+    upgrade: "nmr-report-overrides && nmr-taze --recursive"
+  };
+}
 
 // ../nmr-core/dist/esm/workspace.js
 import { existsSync, readFileSync } from "node:fs";
@@ -7602,6 +7924,14 @@ function readWorkspaceManifest(monorepoRoot) {
   }
 }
 
+// src/UserError.ts
+var UserError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "UserError";
+  }
+};
+
 // src/workspace.ts
 var WORKSPACE_MANIFEST2 = "pnpm-workspace.yaml";
 function getWorkspacePackageDirs(monorepoRoot) {
@@ -7612,7 +7942,32 @@ function getWorkspacePackageDirs(monorepoRoot) {
   return resolution.kind === "packages" ? resolution.packageDirs : [];
 }
 
+// src/workspace-globs.ts
+import path4 from "node:path";
+function toWorkspacePackageGlobs(monorepoRoot, packageDirs) {
+  return packageDirs.map((dir) => path4.relative(monorepoRoot, dir).split(path4.sep).join("/")).filter((relativeDir) => relativeDir !== "").map((relativeDir) => `${relativeDir}/**`).toSorted();
+}
+
+// src/resolve-scripts.ts
+function getDefaultWorkspaceScripts() {
+  return { ...workspaceScripts };
+}
+function getDefaultRootScripts(monorepoRoot) {
+  const resolution = resolveWorkspace(monorepoRoot);
+  const packageDirs = resolution.kind === "packages" ? resolution.packageDirs : [];
+  return buildRootScripts(toWorkspacePackageGlobs(monorepoRoot, packageDirs));
+}
+
+// src/resolver.ts
+import { readFileSync as readFileSync2 } from "node:fs";
+
+// ../nmr-core/dist/esm/hasErrnoCode.js
+function hasErrnoCode(error, code) {
+  return isError(error) && "code" in error && error.code === code;
+}
+
 // src/helpers/package-json.ts
+import path5 from "node:path";
 function parsePackageJson(rawText, file) {
   try {
     return JSON.parse(rawText);
@@ -7631,7 +7986,7 @@ function readScriptRecord(dir, scripts) {
   return result;
 }
 function resolvePackageJsonPath(dir) {
-  return path4.join(dir, "package.json");
+  return path5.join(dir, "package.json");
 }
 function formatMalformedScript(dir, key, value) {
   const rejection = `Invalid package.json at ${resolvePackageJsonPath(dir)}: \`scripts.${key}\` must be a string.`;
@@ -7642,120 +7997,20 @@ function formatMalformedScript(dir, key, value) {
   return `${rejection} A step list belongs in \`${CONFIG_RELATIVE_PATH}\` under \`${field}\`.`;
 }
 
-// src/steps.ts
-var SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
-function findUnexpressibleToken(element) {
-  return tokenize(element).find((token) => !SHELL_SAFE_TOKEN.test(token));
-}
-function quoteToken(token) {
-  if (SHELL_SAFE_TOKEN.test(token)) {
-    return token;
-  }
-  return "'" + token.replaceAll("'", String.raw`'\''`) + "'";
-}
-function tokenize(element) {
-  return element.split(/\s+/).filter((token) => token.length > 0);
-}
-
-// src/default-scripts.ts
-var GATE_PROJECTS = "--project unit --project tool";
-var TYPECHECK_STEP = { run: "typecheck", shouldDeclineArguments: true };
-var ROOT_TYPECHECK_STEP = { run: "root:typecheck", shouldDeclineArguments: true };
-var LINT_CHECK_STEP = { run: "lint:check", shouldRunInBackground: true };
-var LINT_STRICT_STEP = { run: "lint:strict", shouldRunInBackground: true };
-var workspaceScripts = {
-  build: ["compile"],
-  check: [LINT_CHECK_STEP, TYPECHECK_STEP, "fmt:check", "test"],
-  "check:strict": [LINT_STRICT_STEP, TYPECHECK_STEP, "fmt:check", "test"],
-  clean: "nmr-clean",
-  compile: "nmr-compile",
-  fix: ["lint", "fmt"],
-  "fix:check": ["fmt:check", "lint:check"],
-  fmt: "nmr-fmt --write",
-  "fmt:check": "nmr-fmt --check",
-  lint: "eslint --fix .",
-  "lint:check": "eslint .",
-  "lint:strict": "strict-lint",
-  "report-catalog": "nmr-report-catalog",
-  test: `pnpm exec vitest ${GATE_PROJECTS}`,
-  "test:all": "pnpm exec vitest",
-  "test:coverage": `pnpm exec vitest ${GATE_PROJECTS} --coverage`,
-  "test:tool": "pnpm exec vitest --project tool",
-  "test:unit": "pnpm exec vitest --project unit",
-  "test:watch": `pnpm exec vitest ${GATE_PROJECTS} --watch`,
-  typecheck: "tsgo --noEmit",
-  // The command is a string because neither half names an nmr command: Both are binaries.
-  upgrade: "nmr-report-catalog && nmr-taze",
-  "view-coverage": "open coverage/index.html"
-};
-function buildRootScripts(workspaceGlobs) {
-  const ignorePatterns = workspaceGlobs.map((glob) => `--ignore-pattern ${quoteToken(glob)} `).join("");
-  return {
-    audit: ["audit:prod", "audit:dev"],
-    "audit:dev": "pnpm exec v11y --dev",
-    "audit:prod": "pnpm exec v11y --prod",
-    build: ["-R build"],
-    check: [LINT_CHECK_STEP, TYPECHECK_STEP, "fmt:check", "test"],
-    "check:strict": [LINT_STRICT_STEP, TYPECHECK_STEP, "fmt:check", "test"],
-    // Excludes the audit, which in CI has a workflow of its own. The narrowed check runs against the build, so
-    // the build declines the arguments rather than being narrowed by them.
-    ci: [{ run: "build", shouldDeclineArguments: true }, "check:strict"],
-    clean: "nmr-clean",
-    fix: ["lint", "fmt"],
-    "fix:check": ["fmt:check", "lint:check"],
-    fmt: "nmr-fmt --write",
-    "fmt:check": "nmr-fmt --check",
-    lint: "eslint --fix .",
-    "lint:check": "eslint .",
-    "lint:strict": "strict-lint",
-    // The audit takes seconds and `ci` takes minutes, so the cheap gate fails first. The audit reads the
-    // dependency tree, and an argument narrowing the code under test does not say anything about that tree.
-    prepush: [{ run: "audit", shouldDeclineArguments: true }, "ci"],
-    "report-overrides": "nmr-report-overrides",
-    "root:check": [ROOT_TYPECHECK_STEP, "fmt:check", "root:lint:check", "root:test"],
-    "root:lint": `eslint --fix ${ignorePatterns}.`,
-    "root:lint:check": `eslint ${ignorePatterns}.`,
-    "root:lint:strict": `strict-lint ${ignorePatterns}.`,
-    "root:test": `vitest --config ./vitest.root.config.ts ${GATE_PROJECTS}`,
-    "root:test:all": "vitest --config ./vitest.root.config.ts",
-    "root:test:tool": "vitest --config ./vitest.root.config.ts --project tool",
-    "root:test:unit": "vitest --config ./vitest.root.config.ts --project unit",
-    "root:typecheck": "tsgo --noEmit",
-    // Includes the override report for the same reason `upgrade` does: Both end in the tool that rewrites a
-    // `pnpm.overrides` block, so both need the reporter's rejection ahead of them.
-    "root:upgrade": "nmr-report-overrides && nmr-taze",
-    test: ["root:test", "-R test"],
-    "test:all": ["root:test:all", "-R test:all"],
-    "test:coverage": ["root:test", "-R test:coverage"],
-    "test:tool": ["root:test:tool", "-R test:tool"],
-    "test:unit": ["root:test:unit", "-R test:unit"],
-    "test:watch": `vitest ${GATE_PROJECTS} --watch`,
-    // Neither step is narrowable, so `nmr typecheck <file>` is rejected rather than checking that file under
-    // default options at the root and searching for it in every package.
-    typecheck: [ROOT_TYPECHECK_STEP, { run: "-R typecheck", shouldDeclineArguments: true }],
-    // The command is a string because neither half names an nmr command: Both are binaries, and a composite
-    // element can name only a command.
-    upgrade: "nmr-report-overrides && nmr-taze --recursive"
-  };
-}
-
-// src/workspace-globs.ts
-import path5 from "node:path";
-function toWorkspacePackageGlobs(monorepoRoot, packageDirs) {
-  return packageDirs.map((dir) => path5.relative(monorepoRoot, dir).split(path5.sep).join("/")).filter((relativeDir) => relativeDir !== "").map((relativeDir) => `${relativeDir}/**`).toSorted();
-}
-
-// src/resolve-scripts.ts
-function getDefaultWorkspaceScripts() {
-  return { ...workspaceScripts };
-}
-function getDefaultRootScripts(monorepoRoot) {
-  const resolution = resolveWorkspace(monorepoRoot);
-  const packageDirs = resolution.kind === "packages" ? resolution.packageDirs : [];
-  return buildRootScripts(toWorkspacePackageGlobs(monorepoRoot, packageDirs));
-}
-
 // src/resolver.ts
+function describeScript(script) {
+  return typeof script === "string" ? script : `[${script.map(describeElement).join(", ")}]`;
+}
+function describeElement(element) {
+  if (typeof element === "string") {
+    return element;
+  }
+  const notes = [
+    ...element.shouldRunInBackground === true ? ["background"] : [],
+    ...element.shouldDeclineArguments === true ? ["no args"] : []
+  ];
+  return notes.length === 0 ? element.run : `${element.run} (${notes.join(", ")})`;
+}
 function readPackageJsonScripts(packageDir) {
   const file = resolvePackageJsonPath(packageDir);
   let rawText;
@@ -7815,6 +8070,10 @@ var RECOGNIZED_CHECK_CACHE_KEYS = ["enabled", "excludeCommands", "extraCommands"
 var RECOGNIZED_OUTPUT_KEYS = ["commandVerbosity", "extraAgentEnvVars"];
 var RECOGNIZED_SELF_HOSTED_RUNNER_KEYS = ["exempt"];
 var RECOGNIZED_STEP_KEYS = ["run", "shouldDeclineArguments", "shouldRunInBackground"];
+var SCRIPT_FIELDS = [
+  { field: "rootScripts", scope: "root" },
+  { field: "workspaceScripts", scope: "workspaceRegistry" }
+];
 var RETIRED_STEP_KEYS = /* @__PURE__ */ new Map([["declinesArgs", "shouldDeclineArguments"]]);
 function isScriptRecord(value) {
   if (!isObject(value)) return false;
@@ -8056,7 +8315,9 @@ async function loadConfig(baseDir) {
 }
 async function loadRootConfig(monorepoRoot) {
   const config = await loadConfig(monorepoRoot);
-  assertTierKeys(config, CONFIG_TIERS.root, resolveConfigPath(monorepoRoot));
+  const configPath = resolveConfigPath(monorepoRoot);
+  assertTierKeys(config, CONFIG_TIERS.root, configPath);
+  assertNoSelfReferences(config, configPath, monorepoRoot);
   return config;
 }
 function assertNoRetiredKeys(value, retiredKeys, configPath, prefix) {
@@ -8066,6 +8327,28 @@ function assertNoRetiredKeys(value, retiredKeys, configPath, prefix) {
     throw new UserError(
       `Invalid nmr config at ${configPath}: \`${prefix}${key}\` was renamed to \`${prefix}${replacement}\`.`
     );
+  }
+}
+function assertNoSelfReferences(config, configPath, monorepoRoot) {
+  for (const { field, scope } of SCRIPT_FIELDS) {
+    const scripts = config[field] ?? {};
+    for (const [key, script] of Object.entries(scripts)) {
+      const selfReference = typeof script === "string" ? readSelfReference({ commandName: key, scope, script }) : readStepListSelfReference({
+        commandName: key,
+        elements: script.map((element) => typeof element === "string" ? element : element.run),
+        scope
+      });
+      if (selfReference === void 0) continue;
+      const defaults = field === "rootScripts" ? getDefaultRootScripts(monorepoRoot) : getDefaultWorkspaceScripts();
+      const remedy = formatSelfReferenceRemedy({
+        isDefault: !isHookName(key) && Object.hasOwn(defaults, key),
+        key,
+        selfReference
+      });
+      throw new UserError(
+        `Invalid nmr config at ${configPath}: \`${field}.${key}\` re-invokes \`${key}\` (\`${escapeControlCharacters(describeScript(script))}\`), which would re-enter nmr without bound. ${remedy}`
+      );
+    }
   }
 }
 function assertRecognizedKeys(value, recognizedKeys, configPath, prefix = "") {
@@ -8088,6 +8371,13 @@ function assertTierKeys(config, tier, configPath) {
 }
 function formatKeyList(keys, prefix) {
   return keys.toSorted().map((key) => `\`${prefix}${key}\``).join(", ");
+}
+function formatSelfReferenceRemedy(options) {
+  const { isDefault, key, selfReference } = options;
+  if (isDefault) {
+    return selfReference === "sole" ? `Delete the entry: nmr's own \`${key}\` then runs.` : `Delete the entry and move the steps that it adds to a \`${key}:pre\` or \`${key}:post\` script.`;
+  }
+  return selfReference === "sole" ? "Delete the entry." : `Delete the re-invocation: \`${key}\` runs the steps beside it.`;
 }
 
 // src/tiers.ts

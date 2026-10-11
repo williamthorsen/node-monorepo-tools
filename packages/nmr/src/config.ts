@@ -2,11 +2,19 @@ import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 import { resolveConfigPath } from './helpers/config-path.ts';
+import { escapeControlCharacters } from './helpers/escapeControlCharacters.ts';
 import { findClosestName } from './helpers/findClosestName.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
-import { buildRootRegistry, buildWorkspaceRegistry, readPackageJsonScripts } from './resolver.ts';
-import { findUnexpressibleToken } from './steps.ts';
+import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scripts.ts';
+import { buildRootRegistry, buildWorkspaceRegistry, describeScript, readPackageJsonScripts } from './resolver.ts';
+import {
+  findUnexpressibleToken,
+  readSelfReference,
+  readStepListSelfReference,
+  type SelfReference,
+  type SelfReferenceScope,
+} from './steps.ts';
 import type {
   BuildConfig,
   CheckCacheConfig,
@@ -51,6 +59,12 @@ const RECOGNIZED_CHECK_CACHE_KEYS = ['enabled', 'excludeCommands', 'extraCommand
 const RECOGNIZED_OUTPUT_KEYS = ['commandVerbosity', 'extraAgentEnvVars'];
 const RECOGNIZED_SELF_HOSTED_RUNNER_KEYS = ['exempt'];
 const RECOGNIZED_STEP_KEYS = ['run', 'shouldDeclineArguments', 'shouldRunInBackground'];
+
+/** The config fields that declare scripts, each with the scope in which its entries resolve. */
+const SCRIPT_FIELDS: ReadonlyArray<{ field: 'rootScripts' | 'workspaceScripts'; scope: SelfReferenceScope }> = [
+  { field: 'rootScripts', scope: 'root' },
+  { field: 'workspaceScripts', scope: 'workspaceRegistry' },
+];
 
 /** Maps each retired step key to the key that replaced it. */
 const RETIRED_STEP_KEYS: ReadonlyMap<string, string> = new Map([['declinesArgs', 'shouldDeclineArguments']]);
@@ -429,7 +443,9 @@ export async function loadConfig(baseDir: string): Promise<NmrConfig> {
  */
 export async function loadRootConfig(monorepoRoot: string): Promise<NmrConfig> {
   const config = await loadConfig(monorepoRoot);
-  assertTierKeys(config, CONFIG_TIERS.root, resolveConfigPath(monorepoRoot));
+  const configPath = resolveConfigPath(monorepoRoot);
+  assertTierKeys(config, CONFIG_TIERS.root, configPath);
+  assertNoSelfReferences(config, configPath, monorepoRoot);
 
   return config;
 }
@@ -462,6 +478,42 @@ function assertNoRetiredKeys(
     throw new UserError(
       `Invalid nmr config at ${configPath}: \`${prefix}${key}\` was renamed to \`${prefix}${replacement}\`.`,
     );
+  }
+}
+
+/**
+ * Throws on a script entry that names the key under which it is declared, as a shell segment of a string value or
+ * as a step-list element, naming the entry and the edit that resolves it.
+ *
+ * Running such an entry re-enters it without bound. Discarding it would run the built-in default, which the repo
+ * did not declare, so an entry declaring nothing besides the self-reference is rejected too.
+ */
+function assertNoSelfReferences(config: NmrConfig, configPath: string, monorepoRoot: string): void {
+  for (const { field, scope } of SCRIPT_FIELDS) {
+    const scripts = config[field] ?? {};
+    for (const [key, script] of Object.entries(scripts)) {
+      const selfReference =
+        typeof script === 'string'
+          ? readSelfReference({ commandName: key, scope, script })
+          : readStepListSelfReference({
+              commandName: key,
+              elements: script.map((element) => (typeof element === 'string' ? element : element.run)),
+              scope,
+            });
+      if (selfReference === undefined) continue;
+
+      const defaults = field === 'rootScripts' ? getDefaultRootScripts(monorepoRoot) : getDefaultWorkspaceScripts();
+      const remedy = formatSelfReferenceRemedy({
+        isDefault: !isHookName(key) && Object.hasOwn(defaults, key),
+        key,
+        selfReference,
+      });
+
+      throw new UserError(
+        `Invalid nmr config at ${configPath}: \`${field}.${key}\` re-invokes \`${key}\` ` +
+          `(\`${escapeControlCharacters(describeScript(script))}\`), which would re-enter nmr without bound. ${remedy}`,
+      );
+    }
   }
 }
 
@@ -503,4 +555,24 @@ function formatKeyList(keys: string[], prefix: string): string {
     .toSorted()
     .map((key) => `\`${prefix}${key}\``)
     .join(', ');
+}
+
+/**
+ * Returns the edit that resolves a self-referencing config entry.
+ *
+ * Only a key that the built-in defaults define has a command below the entry for a `:pre` or `:post` script to
+ * wrap. For any other key, the steps beside the re-invocation are the command.
+ */
+function formatSelfReferenceRemedy(options: { isDefault: boolean; key: string; selfReference: SelfReference }): string {
+  const { isDefault, key, selfReference } = options;
+
+  if (isDefault) {
+    return selfReference === 'sole'
+      ? `Delete the entry: nmr's own \`${key}\` then runs.`
+      : `Delete the entry and move the steps that it adds to a \`${key}:pre\` or \`${key}:post\` script.`;
+  }
+
+  return selfReference === 'sole'
+    ? 'Delete the entry.'
+    : `Delete the re-invocation: \`${key}\` runs the steps beside it.`;
 }

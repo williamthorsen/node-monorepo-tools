@@ -101,7 +101,7 @@ Scripts resolve through three tiers. Higher tiers override lower ones:
 2. **Repo-wide config**: Additions and overrides in `.config/nmr.config.ts`
 3. **Per-package overrides**: Scripts in a package's `package.json`
 
-[Scripts and configuration](docs/scripts.md#three-tier-override-system) shows a worked example, how to skip a script for one package, and what nmr does with a `package.json` entry that re-invokes its own command.
+[Scripts and configuration](docs/scripts.md#three-tier-override-system) shows a worked example, how to skip a script for one package, and what nmr does with a `package.json` or `.config/nmr.config.ts` entry that re-invokes its own command.
 
 ## Pre and post hooks
 

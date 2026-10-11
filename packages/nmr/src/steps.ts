@@ -83,10 +83,19 @@ export interface NmrStepTarget {
 }
 
 /**
- * How a `package.json` entry names the command under which it is declared: as its whole value, or alongside
- * other steps. `sole` covers an entry with trailing arguments, which do not declare a step of their own.
+ * How an entry names the command under which it is declared: as its whole value, or alongside other steps.
+ * `sole` covers an entry with trailing arguments, which do not declare a step of their own.
  */
 export type SelfReference = 'chained' | 'sole';
+
+/**
+ * Where an entry resolves, which decides the scopes that `-w`, `-R`, and `-F` send its command to:
+ * - `root`: the root's `package.json` or the config's `rootScripts`, resolved at the monorepo root.
+ * - `package`: a non-root package's own `package.json`, resolved in that package alone.
+ * - `workspaceRegistry`: the config's `workspaceScripts`, resolved in every package that does not override the
+ *   command.
+ */
+export type SelfReferenceScope = 'package' | 'root' | 'workspaceRegistry';
 
 /**
  * Composes the structural step that re-invokes nmr for one composite element.
@@ -176,32 +185,40 @@ export function readNmrStep(step: Step): NmrStepTarget | undefined {
 }
 
 /**
- * Reports whether a `package.json` entry re-invokes the command under which it is declared, and whether it
- * declares anything besides. Reports nothing for an entry that names another command, or none.
+ * Reports whether a string entry re-invokes the command under which it is declared, and whether it declares
+ * anything besides. Reports nothing for an entry that names another command, or none.
  *
- * Honouring such an entry would spawn a shell running the same command in the same directory, which reads the
- * same entry again without bound, so resolution discards it however it reads. `chained` separates an entry that
- * thereby loses steps from one that declares nothing to lose.
- *
- * A segment that delegates sends the command to other scopes rather than back to this one. `-w` re-enters
- * only from the root, a package's `-w` entry resolving against the root's registry and `package.json` instead of its own.
+ * Honouring such an entry would spawn a shell running the same command in a scope that reads the same entry
+ * again, without bound. `chained` separates an entry that thereby loses steps from one that declares nothing to
+ * lose.
  *
  * Partial in the same ways `findNmrCrossing` is, and for the same reason: What goes unrecognized re-enters
  * without bound, which hangs rather than passing quietly.
  */
 export function readSelfReference(options: {
-  anchoredAtRoot: boolean;
   commandName: string;
+  scope: SelfReferenceScope;
   script: string;
 }): SelfReference | undefined {
-  const { anchoredAtRoot, commandName, script } = options;
+  const { commandName, scope, script } = options;
 
   const segments = splitSegments(script).filter((segment) => segment.trim() !== '');
   const doesReenter = segments.some((segment) => {
-    const tail = readNmrTail(segment);
-    const target = tail === undefined ? undefined : readNmrTarget(tail);
+    const invocation = readNmrTail(segment);
+    const target = invocation === undefined ? undefined : readNmrTarget(invocation.tail);
+    if (invocation === undefined || target === undefined) {
+      return false;
+    }
 
-    return target?.command === commandName && !target.isDelegate && (anchoredAtRoot || !target.isWorkspaceRoot);
+    const launcherScope = readLauncherScope(invocation.launcher, invocation.launcherArgs);
+    const effectiveTarget = {
+      command: target.command,
+      isDelegate: target.isDelegate || launcherScope.isDelegate,
+      isRecursive: target.isRecursive || launcherScope.isRecursive,
+      isWorkspaceRoot: target.isWorkspaceRoot || launcherScope.isWorkspaceRoot,
+    };
+
+    return isReentry(effectiveTarget, commandName, scope);
   });
 
   if (!doesReenter) {
@@ -209,6 +226,33 @@ export function readSelfReference(options: {
   }
 
   return segments.length === 1 ? 'sole' : 'chained';
+}
+
+/**
+ * Reports whether a step list names the command under which it is declared, and whether it declares anything
+ * besides. Takes each element's instruction: the bare string, or a spec's `run`.
+ *
+ * Reads an element as the instruction that nmr composes into `nmr <element>`, and applies the declaring scope
+ * directly rather than through the `-w` that composition adds at the root.
+ */
+export function readStepListSelfReference(options: {
+  commandName: string;
+  elements: readonly string[];
+  scope: SelfReferenceScope;
+}): SelfReference | undefined {
+  const { commandName, elements, scope } = options;
+
+  const doesReenter = elements.some((element) => {
+    const target = readNmrTarget(tokenize(element));
+
+    return target !== undefined && isReentry(target, commandName, scope);
+  });
+
+  if (!doesReenter) {
+    return undefined;
+  }
+
+  return elements.length === 1 ? 'sole' : 'chained';
 }
 
 /**
@@ -244,30 +288,87 @@ function isRedirectionOperator(char: string, precedingText: string, nextChar: st
 }
 
 /**
- * Returns the tokens in an nmr invocation, or `undefined` for a segment that runs something else. nmr is
- * recognized whether named directly or run through a launcher.
+ * Reports whether an nmr invocation declared in `scope` reaches the entry that declares it.
+ *
+ * A `-R` fans out from the root to every package, never to the root itself; a `-F` reaches the packages that it
+ * selects; a `-w` reaches the root. Delegation outranks `-w`, as it does when nmr parses its arguments. A
+ * package's `-F` selecting that package itself is not recognized.
  */
-function readNmrTail(segment: string): readonly string[] | undefined {
+function isReentry(target: NmrStepTarget, commandName: string, scope: SelfReferenceScope): boolean {
+  if (target.command !== commandName) {
+    return false;
+  }
+
+  switch (scope) {
+    case 'root':
+      return !target.isDelegate;
+    case 'package':
+      return target.isRecursive || (!target.isDelegate && !target.isWorkspaceRoot);
+    case 'workspaceRegistry':
+      return target.isDelegate || !target.isWorkspaceRoot;
+  }
+}
+
+/**
+ * Returns the scope flags that pnpm applies to the nmr that it launches: `-r` fans it out to every package, `-F`
+ * to the packages that it selects, and `-w` runs it at the root. Other launchers run nmr where they stand.
+ */
+function readLauncherScope(
+  launcher: string | undefined,
+  launcherArgs: readonly string[],
+): Omit<NmrStepTarget, 'command'> {
+  const scope = { isDelegate: false, isRecursive: false, isWorkspaceRoot: false };
+  if (launcher !== 'pnpm') {
+    return scope;
+  }
+
+  for (const token of launcherArgs) {
+    if (token === '-r' || token === '--recursive') {
+      scope.isDelegate = true;
+      scope.isRecursive = true;
+    } else if (token === '-F' || token === '--filter' || token.startsWith('--filter=')) {
+      scope.isDelegate = true;
+    } else if (token === '-w' || token === '--workspace-root') {
+      scope.isWorkspaceRoot = true;
+    }
+  }
+
+  return scope;
+}
+
+/**
+ * Returns the tokens in an nmr invocation, or `undefined` for a segment that runs something else. nmr is
+ * recognized whether named directly or run through a launcher, whose tokens ahead of `nmr` are returned as
+ * `launcherArgs`.
+ */
+function readNmrTail(
+  segment: string,
+): { launcher: string | undefined; launcherArgs: readonly string[]; tail: readonly string[] } | undefined {
   const [head, ...rest] = dropLeadingAssignments(tokenizeSegment(segment));
 
   if (head === undefined) {
     return undefined;
   }
   if (head === 'nmr') {
-    return rest;
+    return { launcher: undefined, launcherArgs: [], tail: rest };
   }
 
   const subcommands = LAUNCHERS.get(head);
   if (subcommands === undefined) {
     return undefined;
   }
-  if (subcommands.size === 0) {
-    const nameIndex = rest.findIndex((token) => !token.startsWith('-'));
-    return nameIndex !== -1 && rest[nameIndex] === 'nmr' ? rest.slice(nameIndex + 1) : undefined;
+
+  const nmrIndex =
+    subcommands.size === 0
+      ? rest.findIndex((token) => !token.startsWith('-'))
+      : rest.findIndex((token) => subcommands.has(token)) + 1;
+  if (nmrIndex <= 0 && subcommands.size > 0) {
+    return undefined;
   }
 
-  const subcommandIndex = rest.findIndex((token) => subcommands.has(token));
-  return subcommandIndex !== -1 && rest[subcommandIndex + 1] === 'nmr' ? rest.slice(subcommandIndex + 2) : undefined;
+  return rest[nmrIndex] === 'nmr'
+    ? { launcher: head, launcherArgs: rest.slice(0, nmrIndex), tail: rest.slice(nmrIndex + 1) }
+    : undefined;
 }
 
 /**
