@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
@@ -355,6 +357,101 @@ describe(loadRootConfig, () => {
   });
 });
 
+describe('self-referencing script entries', () => {
+  it.for([
+    { field: 'rootScripts', script: 'nmr build && rdy compile' },
+    { field: 'rootScripts', script: 'nmr -w build && rdy compile' },
+    { field: 'rootScripts', script: ['-w build', 'typecheck'] },
+    { field: 'workspaceScripts', script: 'rdy compile && nmr build' },
+    { field: 'workspaceScripts', script: 'nmr -R build && rdy compile' },
+    { field: 'workspaceScripts', script: 'nmr -F core build && rdy compile' },
+    { field: 'workspaceScripts', script: ['typecheck', 'build'] },
+    { field: 'workspaceScripts', script: ['typecheck', '-R build'] },
+  ])('rejects $field.build declared as $script', async ({ field, script }, { tree }) => {
+    writeScripts(tree, field, { build: script });
+
+    await expect(loadRootConfig(tree.dir)).rejects.toThrow(
+      new RegExp(String.raw`\`${field}\.build\` re-invokes \`build\``),
+    );
+  });
+
+  it.for([
+    { field: 'rootScripts', script: ['-R build'] },
+    { field: 'rootScripts', script: 'nmr -F core build && rdy compile' },
+    { field: 'workspaceScripts', script: ['-w build'] },
+    { field: 'workspaceScripts', script: 'nmr -w build && rdy compile' },
+    { field: 'workspaceScripts', script: ['compile', '-R build:post'] },
+  ])(
+    'loads $field.build declared as $script, which leaves the scope that declares it',
+    async ({ field, script }, { tree }) => {
+      writeScripts(tree, field, { build: script });
+
+      await expect(loadRootConfig(tree.dir)).resolves.toStrictEqual({ [field]: { build: script } });
+    },
+  );
+
+  it.for([
+    {
+      expectedRemedy: "Delete the entry: nmr's own `build` then runs.",
+      key: 'build',
+      renderedScript: '[build]',
+      scenario: 'a sole self-reference under a key that the defaults define',
+      scripts: { build: ['build'] },
+    },
+    {
+      expectedRemedy: 'Delete the entry and move the steps that it adds to a `build:pre` or `build:post` script.',
+      key: 'build',
+      renderedScript: 'nmr build && rdy compile',
+      scenario: 'a chained self-reference under a key that the defaults define',
+      scripts: { build: 'nmr build && rdy compile' },
+    },
+    {
+      expectedRemedy: 'Delete the entry.',
+      key: 'probe',
+      renderedScript: 'nmr probe',
+      scenario: 'a sole self-reference under a key that only the config defines',
+      scripts: { probe: 'nmr probe' },
+    },
+    {
+      expectedRemedy: 'Delete the re-invocation: `probe` runs the steps beside it.',
+      key: 'probe',
+      renderedScript: '[probe, lint]',
+      scenario: 'a chained self-reference under a key that only the config defines',
+      scripts: { probe: ['probe', 'lint'] },
+    },
+    {
+      expectedRemedy: 'Delete the re-invocation: `build:post` runs the steps beside it.',
+      key: 'build:post',
+      renderedScript: 'nmr build:post && rdy compile',
+      scenario: 'a chained self-reference under a hook key',
+      scripts: { 'build:post': 'nmr build:post && rdy compile' },
+    },
+  ])('names the edit for $scenario', async ({ expectedRemedy, key, renderedScript, scripts }, { tree }) => {
+    writeScripts(tree, 'workspaceScripts', scripts);
+
+    await expect(loadRootConfig(tree.dir)).rejects.toThrow(
+      new UserError(
+        `Invalid nmr config at ${path.join(tree.dir, '.config/nmr.config.ts')}: ` +
+          `\`workspaceScripts.${key}\` re-invokes \`${key}\` (\`${renderedScript}\`), ` +
+          `which would re-enter nmr without bound. ${expectedRemedy}`,
+      ),
+    );
+  });
+
+  it('quotes a value written across lines on one line', async ({ tree }) => {
+    writeScripts(tree, 'workspaceScripts', { build: 'nmr build\nrdy compile' });
+
+    await expect(loadRootConfig(tree.dir)).rejects.toThrow('(`nmr build\\nrdy compile`)');
+  });
+
+  // A package config cannot declare scripts at all, which is the message that names the real mistake.
+  it('leaves a package config declaring a self-reference to the tier-key rejection', async ({ tree }) => {
+    writeScripts(tree, 'workspaceScripts', { build: ['build'] });
+
+    await expect(loadWorkspaceConfig(tree.dir)).rejects.toThrow('Move those keys to the monorepo-root config.');
+  });
+});
+
 describe('checkCache command resolution', () => {
   it('accepts a name declared by the repo config', async ({ tree }) => {
     makeMonorepoRoot(tree);
@@ -477,6 +574,11 @@ function writeConfig(tree: TempTree, source: string): void {
 /** Writes a workspace package declaring the given `package.json` scripts. */
 function writePackage(tree: TempTree, name: string, scripts: Record<string, string>): void {
   tree.write(`packages/${name}/package.json`, JSON.stringify({ name, scripts }));
+}
+
+/** Writes a config declaring `scripts` under `field`. */
+function writeScripts(tree: TempTree, field: string, scripts: Record<string, unknown>): void {
+  writeConfig(tree, `export default { ${field}: ${JSON.stringify(scripts)} };`);
 }
 
 // endregion | Helpers

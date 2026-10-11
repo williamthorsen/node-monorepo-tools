@@ -42,6 +42,7 @@ import { NMR_GLYPHS } from './glyphs.ts';
 import { generateHelp } from './help.ts';
 import { resolveConfigPath } from './helpers/config-path.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
+import { escapeControlCharacters } from './helpers/escapeControlCharacters.ts';
 import { type FilterSelection, readFilterSelection } from './helpers/filter-selection.ts';
 import { findClosestName } from './helpers/findClosestName.ts';
 import { isHookName } from './helpers/hook-name.ts';
@@ -90,17 +91,6 @@ const RECURSIVE_REJECTION = '-R/--recursive did not match any workspace:';
 
 /** How many items a diagnostic lists before it reports the rest as a count. */
 const LIST_CEILING = 10;
-
-/**
- * The control characters that `escapeControlCharacters` renders as escapes, each paired with the escape that a
- * JSON string uses for it. `\n` and `\r` break a diagnostic across lines; `\t` is the other one that a script value
- * realistically contains.
- */
-const NAMED_ESCAPES = new Map([
-  ['\n', String.raw`\n`],
-  ['\r', String.raw`\r`],
-  ['\t', String.raw`\t`],
-]);
 
 /**
  * Marks a run made on a delegating caller's behalf, in which a command that the registry does not define, and a
@@ -691,25 +681,6 @@ function describeOrigin(origin: ScriptOrigin, config: NmrConfig, shouldUseRoot: 
   return configScripts !== undefined && Object.hasOwn(configScripts, origin.key)
     ? { tier: 'config', field, key: origin.key }
     : { tier: 'default', key: origin.key };
-}
-
-/**
- * Renders a declaration's text as the file stores it, so that a value written across lines is quoted on one line.
- *
- * A diagnostic names a declaration that the reader has to edit, and a JSON string contains an escape sequence where
- * a shell would read a control character. The rendered escape keeps the diagnostic on one line, and it is the text
- * for which the reader will search the file.
- *
- * Only quoting sites call it. `formatPackageRemedy` decides its delete-the-entry branch by comparing a
- * rendered chain against the entry, and an escape applied ahead of that comparison would defeat it.
- */
-function escapeControlCharacters(text: string): string {
-  let escapedText = text;
-  for (const [char, escape] of NAMED_ESCAPES) {
-    escapedText = escapedText.split(char).join(escape);
-  }
-
-  return escapedText;
 }
 
 /**
