@@ -75,7 +75,7 @@ describe(loadConfig, () => {
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
       'unrecognized key `bild`. Recognized: `build`, `checkCache`, `devBin`, `output`, `rootScripts`, ' +
-        '`workspaceScripts`.',
+        '`selfHostedRunner`, `workspaceScripts`.',
     );
   });
 
@@ -287,6 +287,14 @@ describe(loadWorkspaceConfig, () => {
 
     await expect(loadWorkspaceConfig(tree.dir)).rejects.toThrow('not devBin, output, rootScripts');
   });
+
+  it('throws when the package config declares selfHostedRunner, which only the root config accepts', async ({
+    tree,
+  }) => {
+    writeConfig(tree, `export default { selfHostedRunner: { exempt: 'x' } };`);
+
+    await expect(loadWorkspaceConfig(tree.dir)).rejects.toThrow('not selfHostedRunner');
+  });
 });
 
 describe(loadRootConfig, () => {
@@ -318,11 +326,30 @@ describe(loadRootConfig, () => {
     expect(config.checkCache).toStrictEqual({ excludeCommands: ['test:coverage'] });
   });
 
+  it('loads selfHostedRunner, which the root tier honors', async ({ tree }) => {
+    writeConfig(tree, `export default { selfHostedRunner: { exempt: 'hosts the runners' } };`);
+
+    const config = await loadRootConfig(tree.dir);
+
+    expect(config.selfHostedRunner).toStrictEqual({ exempt: 'hosts the runners' });
+  });
+
+  it.for([
+    ['is not an object', `true`, '`selfHostedRunner` must be an object'],
+    ['declares an unrecognized subkey', `{ exempt: 'x', reason: 'y' }`, 'unrecognized key `selfHostedRunner.reason`'],
+    ['omits exempt', `{}`, '`selfHostedRunner.exempt` must be a non-empty string'],
+    ['declares an empty exempt', `{ exempt: '  ' }`, '`selfHostedRunner.exempt` must be a non-empty string'],
+  ])('throws when selfHostedRunner %s', async ([, value, message], { tree }) => {
+    writeConfig(tree, `export default { selfHostedRunner: ${value} };`);
+
+    await expect(loadRootConfig(tree.dir)).rejects.toThrow(message);
+  });
+
   it('throws when the root config declares build, which only a package config accepts', async ({ tree }) => {
     writeConfig(tree, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     await expect(loadRootConfig(tree.dir)).rejects.toThrow(
-      'honors checkCache, devBin, output, rootScripts, workspaceScripts alone, not build. ' +
+      'honors checkCache, devBin, output, rootScripts, selfHostedRunner, workspaceScripts alone, not build. ' +
         "Move those keys to the package's own config.",
     );
   });

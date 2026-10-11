@@ -12,6 +12,7 @@ export type {
   NmrConfig,
   OutputConfig,
   ScriptValue,
+  SelfHostedRunnerConfig,
   StepSpec,
 } from './types.ts';
 

@@ -7,7 +7,15 @@ import { isHookName } from './helpers/hook-name.ts';
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import { buildRootRegistry, buildWorkspaceRegistry, readPackageJsonScripts } from './resolver.ts';
 import { findUnexpressibleToken } from './steps.ts';
-import type { BuildConfig, CheckCacheConfig, NmrConfig, OutputConfig, ScriptValue, StepSpec } from './types.ts';
+import type {
+  BuildConfig,
+  CheckCacheConfig,
+  NmrConfig,
+  OutputConfig,
+  ScriptValue,
+  SelfHostedRunnerConfig,
+  StepSpec,
+} from './types.ts';
 import { UserError } from './UserError.ts';
 import { formatVerbosityRejection, isCommandVerbosity } from './verbosity.ts';
 import { getWorkspacePackageDirs, isMonorepoRoot } from './workspace.ts';
@@ -27,7 +35,7 @@ interface ConfigTier {
 const CONFIG_TIERS: Record<'root' | 'workspace', ConfigTier> = {
   root: {
     label: 'a monorepo-root config',
-    honoredKeys: ['checkCache', 'devBin', 'output', 'rootScripts', 'workspaceScripts'],
+    honoredKeys: ['checkCache', 'devBin', 'output', 'rootScripts', 'selfHostedRunner', 'workspaceScripts'],
     elsewhere: "the package's own config",
   },
   workspace: {
@@ -41,6 +49,7 @@ const RECOGNIZED_KEYS = [...CONFIG_TIERS.root.honoredKeys, ...CONFIG_TIERS.works
 const RECOGNIZED_BUILD_KEYS = ['extraIgnorePatterns'];
 const RECOGNIZED_CHECK_CACHE_KEYS = ['enabled', 'excludeCommands', 'extraCommands'];
 const RECOGNIZED_OUTPUT_KEYS = ['commandVerbosity', 'extraAgentEnvVars'];
+const RECOGNIZED_SELF_HOSTED_RUNNER_KEYS = ['exempt'];
 const RECOGNIZED_STEP_KEYS = ['run', 'shouldDeclineArguments', 'shouldRunInBackground'];
 
 /** Maps each retired step key to the key that replaced it. */
@@ -178,6 +187,31 @@ function validateCheckCacheField(value: Record<string, unknown>, configPath: str
   }
 
   return config;
+}
+
+/** Validates and extracts the `selfHostedRunner` field from the raw config object. */
+function validateSelfHostedRunnerField(
+  value: Record<string, unknown>,
+  configPath: string,
+): SelfHostedRunnerConfig | undefined {
+  const selfHostedRunner: unknown = value['selfHostedRunner'];
+  if (selfHostedRunner === undefined) {
+    return undefined;
+  }
+  if (!isObject(selfHostedRunner)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`selfHostedRunner\` must be an object`);
+  }
+  assertRecognizedKeys(selfHostedRunner, RECOGNIZED_SELF_HOSTED_RUNNER_KEYS, configPath, 'selfHostedRunner.');
+
+  // The reason is the record of why a qualifying repo stays off the runners, so an empty one records nothing.
+  const exempt: unknown = selfHostedRunner['exempt'];
+  if (typeof exempt !== 'string' || exempt.trim() === '') {
+    throw new UserError(
+      `Invalid nmr config at ${configPath}: \`selfHostedRunner.exempt\` must be a non-empty string giving the reason`,
+    );
+  }
+
+  return { exempt };
 }
 
 /**
@@ -356,6 +390,9 @@ function validateConfig(value: unknown, configPath: string, baseDir: string): Nm
 
   const rootScripts = validateScriptField(value, 'rootScripts', configPath);
   if (rootScripts) config.rootScripts = rootScripts;
+
+  const selfHostedRunner = validateSelfHostedRunnerField(value, configPath);
+  if (selfHostedRunner) config.selfHostedRunner = selfHostedRunner;
 
   // Run last, because it resolves the names against the registries to which the script fields above contribute.
   assertResolvableCheckCacheCommands(config, configPath, baseDir);

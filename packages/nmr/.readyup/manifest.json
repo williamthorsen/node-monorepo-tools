@@ -5,17 +5,79 @@
       "bundledDependencies": {
         "@williamthorsen/toolbelt.errors": "0.8.2",
         "@williamthorsen/toolbelt.filesystem": "0.9.2",
+        "@williamthorsen/toolbelt.terminal": "0.2.1",
+        "ansi-regex": "6.4.0",
+        "ansi-styles": "6.2.3",
+        "cli-truncate": "6.1.1",
+        "diff": "9.0.0",
+        "get-east-asian-width": "1.7.0",
+        "is-fullwidth-code-point": "5.1.0",
+        "slice-ansi": "9.0.1",
+        "string-width": "8.3.0",
+        "strip-ansi": "7.2.0",
+        "wrap-ansi": "10.0.2",
         "yaml": "2.9.1"
       },
       "checklists": [
-        "nmr"
+        "nmr",
+        "self-hosted runner"
       ],
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
+          "hash": "aed52073",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/cache-store.js"
+        },
+        {
+          "hash": "a5f44396",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/findPackageRoot.js"
+        },
+        {
+          "hash": "54384dca",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/gitOutputLimit.js"
+        },
+        {
+          "hash": "6b7d0243",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/hasErrnoCode.js"
+        },
+        {
+          "hash": "211453c6",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/hashWorkingTree.js"
+        },
+        {
           "hash": "41232d10",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/helpers/workspace-patterns.js"
+        },
+        {
+          "hash": "1467293d",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/index.js"
+        },
+        {
+          "hash": "2507870d",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/parseArgs.js"
+        },
+        {
+          "hash": "a7efc38f",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/readPackageVersion.js"
+        },
+        {
+          "hash": "14547f78",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/terminal.js"
+        },
+        {
+          "hash": "3c395f31",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/updateManagedFile.js"
         },
         {
           "hash": "2224ec3a",
@@ -23,7 +85,12 @@
           "path": "../../nmr-core/dist/esm/workspace.js"
         },
         {
-          "hash": "f1fb9afd",
+          "hash": "24bde686",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/writeFileWithCheck.js"
+        },
+        {
+          "hash": "aaeb1a84",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -36,6 +103,11 @@
           ]
         },
         {
+          "hash": "b23f5a52",
+          "kind": "module",
+          "path": "../src/config.ts"
+        },
+        {
           "hash": "0fb883a1",
           "kind": "module",
           "path": "../src/default-scripts.ts"
@@ -46,9 +118,44 @@
           "path": "../src/git-ignored-paths.ts"
         },
         {
+          "hash": "ae257d50",
+          "kind": "module",
+          "path": "../src/helpers/config-path.ts"
+        },
+        {
+          "hash": "47249ca4",
+          "kind": "module",
+          "path": "../src/helpers/findClosestName.ts"
+        },
+        {
+          "hash": "3efe4131",
+          "kind": "module",
+          "path": "../src/helpers/hook-name.ts"
+        },
+        {
+          "hash": "8850834f",
+          "kind": "module",
+          "path": "../src/helpers/package-json.ts"
+        },
+        {
+          "hash": "61629be6",
+          "kind": "module",
+          "path": "../src/helpers/readStringValues.ts"
+        },
+        {
+          "hash": "56d2bb48",
+          "kind": "module",
+          "path": "../src/helpers/type-guards.ts"
+        },
+        {
           "hash": "78ca6bd4",
           "kind": "module",
           "path": "../src/resolve-scripts.ts"
+        },
+        {
+          "hash": "6ae507a5",
+          "kind": "module",
+          "path": "../src/resolver.ts"
         },
         {
           "hash": "c4b31275",
@@ -66,6 +173,11 @@
           "path": "../src/UserError.ts"
         },
         {
+          "hash": "857c630c",
+          "kind": "module",
+          "path": "../src/verbosity.ts"
+        },
+        {
           "hash": "f08b6ff3",
           "kind": "module",
           "path": "../src/workspace-globs.ts"
@@ -80,8 +192,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.40.0",
       "source": "kits/default.ts",
-      "sourceHash": "f1fb9afd",
-      "targetHash": "7530ba29"
+      "sourceHash": "aaeb1a84",
+      "targetHash": "bf73a19a"
     }
   ]
 }
