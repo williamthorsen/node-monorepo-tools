@@ -257,7 +257,18 @@ describe('self-hosted runner checklist', () => {
     const dir = buildRepo({});
 
     await expect(describeReadinessSkip(dir, readFacts)).resolves.toBe(false);
-    expect(getDetail(await selfHostedRunnerCanRunCi(dir, readFacts))).toContain('not JSON');
+    const outcome = await selfHostedRunnerCanRunCi(dir, readFacts);
+    expect(getDetail(outcome)).toContain('not JSON');
+    expect(outcome).toMatchObject({ fix: `gh variable set CI_RUNS_ON --body '"self-hosted"' --repo acme/app` });
+  });
+
+  it('names the other failing conditions with a value that is not JSON, and offers deleting the variable', async () => {
+    const readFacts = factsReader({ ...READY_FACTS, isPrivate: false, ciRunsOn: 'self-hosted' });
+
+    const outcome = await selfHostedRunnerCanRunCi(buildRepo({}), readFacts);
+    expect(getDetail(outcome)).toContain('not JSON');
+    expect(getDetail(outcome)).toContain('acme/app is public');
+    expect(outcome).toMatchObject({ fix: expect.stringContaining('gh variable delete CI_RUNS_ON --repo acme/app') });
   });
 
   it('skips both checks when CI_RUNS_ON selects another runner, even in a public repo', async () => {

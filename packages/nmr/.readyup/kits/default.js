@@ -8960,15 +8960,13 @@ async function selfHostedRunnerCanRunCi(cwd = process.cwd(), readFacts) {
   const status = await getSelfHostedRunnerStatus(cwd, readFacts);
   if ("skip" in status) return true;
   const { facts } = status;
-  if (status.selection === "invalid") {
-    return {
-      ok: false,
-      detail: `CI_RUNS_ON is ${facts.ciRunsOn ?? ""}, which is not JSON, so every workflow that reads it with fromJSON fails`,
-      fix: `${SET_CI_RUNS_ON_COMMAND} --repo ${facts.nameWithOwner}`
-    };
+  const conditions = status.exempt === void 0 ? status.failures : [`the repo is exempt: ${status.exempt}`, ...status.failures];
+  if (status.selection !== "invalid" && conditions.length === 0) return true;
+  const invalidValue = `CI_RUNS_ON is ${facts.ciRunsOn ?? ""}, which is not JSON, so every workflow that reads it with fromJSON fails`;
+  if (conditions.length === 0) {
+    return { ok: false, detail: invalidValue, fix: `${SET_CI_RUNS_ON_COMMAND} --repo ${facts.nameWithOwner}` };
   }
-  const problems = status.exempt === void 0 ? status.failures : [`the repo is exempt: ${status.exempt}`, ...status.failures];
-  if (problems.length === 0) return true;
+  const problems = status.selection === "invalid" ? [invalidValue, ...conditions] : conditions;
   return {
     ok: false,
     detail: problems.map((problem) => `      ${problem}`).join("\n"),
