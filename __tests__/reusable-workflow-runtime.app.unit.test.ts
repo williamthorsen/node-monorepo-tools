@@ -13,6 +13,9 @@ const PNPM_RUNTIME_WORKFLOWS = ['audit', 'create-github-release', 'publish'];
 /** Matches a `corepack` invocation at the start of a command or after a shell separator. */
 const COREPACK_INVOCATION_PATTERN = /(?:^|[\s;&|(])corepack\s/m;
 
+/** Matches a `node`, `npm`, `npx`, `corepack`, or `pnpm` invocation at the start of a command or after a shell separator. */
+const NODE_TOOL_INVOCATION_PATTERN = /(?:^|[\s;&|(])(?:node|npm|npx|corepack|pnpm)\s/m;
+
 /** Matches an `npm` or `npx` invocation at the start of a command or after a shell separator. */
 const NPM_INVOCATION_PATTERN = /(?:^|[\s;&|(])(?:npm|npx)\s/m;
 
@@ -79,6 +82,27 @@ describe('release.reusable.yaml takes its runtime from actions/setup-node', () =
       'without `node-version-file: false`, `pnpm/setup` installs the Node.js version in `.tool-versions` ahead of `actions/setup-node`',
     ).toMatch(/^\s*node-version-file:\s*false\s*$/m);
   });
+
+  it('runs no Node.js tool before actions/setup-node installs one', () => {
+    expect(
+      collectRunCommands(sliceWorkflowBefore(readWorkflow('release'), /^\s*uses:\s*actions\/setup-node@/)),
+      'a self-hosted runner image does not include Node.js, so a `node`, `npm`, `npx`, `corepack`, or `pnpm` call ahead of `actions/setup-node` fails the job',
+    ).not.toMatch(NODE_TOOL_INVOCATION_PATTERN);
+  });
+
+  it('keeps actions/setup-node from acting on the packageManager field', () => {
+    expect(
+      readStepInputs(readWorkflow('release'), 'actions/setup-node'),
+      'without `package-manager-cache: false`, `actions/setup-node` turns on caching when `packageManager` names npm',
+    ).toMatch(/^\s*package-manager-cache:\s*false\s*$/m);
+  });
+
+  it('leaves package.json unmodified before release preparation', () => {
+    expect(
+      collectRunCommands(sliceWorkflowBefore(readWorkflow('release'), /^\s*- name:\s*Run release preparation\s*$/)),
+      '`release-kit commit` stages every change, so a rewritten `package.json` lands in the release commit',
+    ).not.toMatch(/package\.json/);
+  });
 });
 
 // region | Helpers
@@ -103,9 +127,9 @@ function collectRunCommands(content: string): string {
     const inlineBody = match[2] ?? '';
     if (inlineBody !== '' && !inlineBody.startsWith('|') && !inlineBody.startsWith('>')) {
       commands.push(inlineBody);
-      continue;
     }
 
+    // Collect a block scalar's body or a plain scalar's continuation lines, both indented past `run:`.
     for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
       const line = lines[cursor] ?? '';
       if (line.trim() !== '' && !line.startsWith(`${indent} `)) {
@@ -161,6 +185,17 @@ function readStepInputs(content: string, action: string): string {
 /** Reads `<name>.reusable.yaml` from the workflows directory. */
 function readWorkflow(name: string): string {
   return readFileSync(join(workflowsDir, `${name}.reusable.yaml`), 'utf8');
+}
+
+/** Returns the workflow text that precedes the first line matching the marker, and throws when no line matches. */
+function sliceWorkflowBefore(content: string, marker: RegExp): string {
+  const lines = content.split('\n');
+  const markerIndex = lines.findIndex((line) => marker.test(line));
+  if (markerIndex === -1) {
+    throw new Error(`No line matches ${String(marker)}`);
+  }
+
+  return lines.slice(0, markerIndex).join('\n');
 }
 
 // endregion | Helpers
