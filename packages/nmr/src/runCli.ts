@@ -131,7 +131,8 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   }
   const invocation = established.value;
 
-  const { exitCode, isUnknownCommand = false } = await runInvocation(invocation);
+  const planned = await planRun(invocation);
+  const { exitCode, isUnknownCommand = false } = planned.settled ? planned.result : await executePlan(planned.value);
 
   // A process that nmr started did not receive its arguments from the user, and its parent reports the hint once.
   if (exitCode !== 0 && !isUnknownCommand && isTopLevelInvocation(options.env)) {
@@ -415,16 +416,6 @@ async function executePlan(plan: RunPlan): Promise<SettledResult> {
 }
 
 // region | Helpers
-
-/**
- * Runs an invocation that reached a command, and reports whether it failed because its command is not defined in
- * any scope that it reaches.
- */
-async function runInvocation(invocation: Invocation): Promise<SettledResult> {
-  const planned = await planRun(invocation);
-
-  return planned.settled ? planned.result : executePlan(planned.value);
-}
 
 /** An invocation that reached a command: what it asks for, how it presents itself, and where it runs. */
 interface Invocation {
