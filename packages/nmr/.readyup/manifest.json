@@ -103,7 +103,7 @@
           ]
         },
         {
-          "hash": "b23f5a52",
+          "hash": "7e066d18",
           "kind": "module",
           "path": "../src/config.ts"
         },
@@ -121,6 +121,11 @@
           "hash": "ae257d50",
           "kind": "module",
           "path": "../src/helpers/config-path.ts"
+        },
+        {
+          "hash": "a663548a",
+          "kind": "module",
+          "path": "../src/helpers/escapeControlCharacters.ts"
         },
         {
           "hash": "47249ca4",
@@ -153,12 +158,12 @@
           "path": "../src/resolve-scripts.ts"
         },
         {
-          "hash": "6ae507a5",
+          "hash": "15247f0e",
           "kind": "module",
           "path": "../src/resolver.ts"
         },
         {
-          "hash": "c4b31275",
+          "hash": "8f0bc9ed",
           "kind": "module",
           "path": "../src/steps.ts"
         },
@@ -193,7 +198,7 @@
       "readyupVersion": "0.40.0",
       "source": "kits/default.ts",
       "sourceHash": "aaeb1a84",
-      "targetHash": "25b7edfb"
+      "targetHash": "b151c796"
     }
   ]
 }
