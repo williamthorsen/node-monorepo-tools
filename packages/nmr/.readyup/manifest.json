@@ -36,7 +36,7 @@
           ]
         },
         {
-          "hash": "024f0e42",
+          "hash": "535f4674",
           "kind": "module",
           "path": "../src/default-scripts.ts"
         },
@@ -51,7 +51,7 @@
           "path": "../src/resolve-scripts.ts"
         },
         {
-          "hash": "47a788f8",
+          "hash": "c4b31275",
           "kind": "module",
           "path": "../src/steps.ts"
         },

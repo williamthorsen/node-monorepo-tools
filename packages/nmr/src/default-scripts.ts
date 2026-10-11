@@ -12,6 +12,11 @@ export interface StepSpec {
    * narrowed steps run, or the tool that it invokes would be misled by them. A declining step runs unnarrowed.
    */
   shouldDeclineArguments?: boolean;
+  /**
+   * Set to start this step and run the steps after it without waiting for it. The composite waits for it before
+   * ending, and prints its output whole at the first step boundary after it ends.
+   */
+  shouldRunInBackground?: boolean;
 }
 
 export type ScriptValue = string | ReadonlyArray<string | StepSpec>;

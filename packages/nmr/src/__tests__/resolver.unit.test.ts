@@ -112,12 +112,19 @@ describe(expandScript, () => {
     ]);
   });
 
+  it('marks the step of a background spec as running in the background', () => {
+    expect(expandScript([{ run: 'lint', shouldRunInBackground: true }, 'test'], false)).toStrictEqual([
+      { kind: 'structural', argv: ['nmr', 'lint'], shouldRunInBackground: true },
+      { kind: 'structural', argv: ['nmr', 'test'] },
+    ]);
+  });
+
   // The check-result cache keys on the rendered chain, so an accepting step that included the property would
   // invalidate every recorded pass the moment the defaults declared anything.
   it('leaves an accepting spec indistinguishable from a bare element', () => {
-    expect(expandScript([{ run: 'test', shouldDeclineArguments: false }], false)).toStrictEqual([
-      { kind: 'structural', argv: ['nmr', 'test'] },
-    ]);
+    expect(
+      expandScript([{ run: 'test', shouldDeclineArguments: false, shouldRunInBackground: false }], false),
+    ).toStrictEqual([{ kind: 'structural', argv: ['nmr', 'test'] }]);
   });
 
   it('propagates -w to a spec element', () => {
@@ -140,6 +147,15 @@ describe(describeScript, () => {
     expect(describeScript([{ run: 'typecheck', shouldDeclineArguments: true }, { run: 'test' }])).toBe(
       '[typecheck (no args), test]',
     );
+  });
+
+  it('names a background element, joining its declarations when it makes more than one', () => {
+    expect(
+      describeScript([
+        { run: 'lint', shouldRunInBackground: true },
+        { run: 'typecheck', shouldDeclineArguments: true, shouldRunInBackground: true },
+      ]),
+    ).toBe('[lint (background), typecheck (background, no args)]');
   });
 });
 

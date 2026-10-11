@@ -48,8 +48,9 @@ const TOKEN_SEPARATORS = new Set([' ', '\t', '\n', '\r']);
  * `shouldDeclineArguments` is passed from the composite element that composed the step to the one reader that acts
  * on it, the binding of the invocation's trailing arguments. Every stage between the two passes it through unread.
  *
- * `shouldWithholdInput` is read by the runner alone, which gives the step's child the null device as stdin rather
- * than nmr's own. Like `shouldDeclineArguments`, it is set only when it holds and leaves the rendered chain unchanged.
+ * `shouldRunInBackground` and `shouldWithholdInput` are read by the runner alone. The first starts the step without
+ * waiting for it; the second gives the step's child the null device as stdin rather than nmr's own. Like
+ * `shouldDeclineArguments`, each is set only when it holds and leaves the rendered chain unchanged.
  */
 export type Step =
   | { kind: 'opaque'; command: string }
@@ -57,8 +58,15 @@ export type Step =
       kind: 'structural';
       argv: readonly [string, ...(readonly string[])];
       shouldDeclineArguments?: boolean;
+      shouldRunInBackground?: boolean;
       shouldWithholdInput?: boolean;
     };
+
+/** The declarations that a composite element adds to the step that it composes. */
+export interface StepFlags {
+  shouldDeclineArguments?: boolean | undefined;
+  shouldRunInBackground?: boolean | undefined;
+}
 
 /** What a structural step asks of the nmr process that it spawns. */
 export interface NmrStepTarget {
@@ -86,15 +94,17 @@ export type SelfReference = 'chained' | 'sole';
  * The element tokenizes on whitespace, so it may contain nmr's own flags but cannot contain a space-bearing
  * token. `-w` is prepended as its own token: The child selects the root registry on its own.
  *
- * Because `shouldDeclineArguments` is set only when it holds, a step that takes the trailing arguments compares
- * equal to one composed without the option.
+ * Because each flag is set only when it holds, a step composed with a flag at `false` compares equal to one
+ * composed without it.
  */
-export function composeNmrStep(element: string, isWorkspaceRoot: boolean, shouldDeclineArguments = false): Step {
-  const flags = isWorkspaceRoot ? ['-w'] : [];
+export function composeNmrStep(element: string, isWorkspaceRoot: boolean, flags: StepFlags = {}): Step {
+  const { shouldDeclineArguments = false, shouldRunInBackground = false } = flags;
+  const nmrFlags = isWorkspaceRoot ? ['-w'] : [];
   return {
     kind: 'structural',
-    argv: ['nmr', ...flags, ...tokenize(element)],
+    argv: ['nmr', ...nmrFlags, ...tokenize(element)],
     ...(shouldDeclineArguments && { shouldDeclineArguments }),
+    ...(shouldRunInBackground && { shouldRunInBackground }),
   };
 }
 
