@@ -82,6 +82,19 @@ describe(previewTagPrefixes, () => {
     expect(result.collisions).toStrictEqual([]);
   });
 
+  it('counts only tags whose suffix after the prefix is a complete SemVer version', () => {
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
+    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'core-v' });
+    mockDetectUndeclared.mockReturnValue([]);
+    setupTagCounts({
+      'core-v': ['core-v1', 'core-v1.2', 'core-v1.2.0', 'core-v1.3.0-beta.1', 'core-vnext'],
+    });
+
+    const result = previewTagPrefixes();
+
+    expect(result.workspaces[0]?.derivedTagCount).toBe(2);
+  });
+
   it('records derivationError and continues when deriveWorkspaceConfig() throws for a workspace', () => {
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/good', 'packages/broken']));
     mockDeriveWorkspaceConfig.mockImplementation((path: string) => {

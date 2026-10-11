@@ -90,7 +90,7 @@ Tag prefixes from distinct owners must not be identical or be a strict prefix of
 - A `retiredPackages[]` entry (one owner per entry).
 - The `project` block, when configured.
 
-Because release-kit matches a tag to a prefix when the tag name starts with the prefix and continues with a digit, a strict-prefix overlap between distinct owners can match the wrong owner's tags. For example, a project prefix of `v` collides with a workspace prefix of `v11y-check-v`, since `v11y-check-v1.0.0` starts with `v` followed by a digit. The rule rejects every strict-prefix overlap, including one such as `v` and `vue-helpers-v`, whose shorter prefix can't match any tag of the longer one.
+Because release-kit matches a tag to a prefix when the tag name is the prefix followed by a complete SemVer version, a strict-prefix overlap between distinct owners can match the wrong owner's tags. For example, a retired prefix of `pkg-` collides with a workspace prefix of `pkg-1.0.0-v`, since `pkg-1.0.0-v1.2.3` is `pkg-` followed by the pre-release version `1.0.0-v1.2.3`. The rule rejects every strict-prefix overlap, including one such as `v` and `vue-helpers-v`, whose shorter prefix can't match any tag of the longer one.
 
 The rule is enforced at config load; the resulting error identifies both colliding declarations.
 

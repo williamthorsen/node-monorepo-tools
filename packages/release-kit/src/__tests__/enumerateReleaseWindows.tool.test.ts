@@ -124,15 +124,46 @@ describe(enumerateReleaseWindows, () => {
     ]);
   });
 
-  it('ignores a tag whose prefix is not followed by a digit', () => {
+  it('ignores a tag whose prefix is not followed by a complete SemVer version', () => {
     const repo = scaffoldGitRepo();
     repo.commit('feat: first', { 'src/first.ts': 'export const first = 1;\n' });
-    repo.tag('pkg-vnext');
+    for (const tag of ['pkg-vnext', 'pkg-v1', 'pkg-v1.2', 'pkg-v1.2.3.4']) {
+      repo.tag(tag);
+    }
     repo.commit('fix: second', { 'src/second.ts': 'export const second = 2;\n' });
 
     const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
 
     expect(summarize(windows)).toStrictEqual([{ version: 'pkg-v1.0.0', subjects: ['feat: first', 'fix: second'] }]);
+  });
+
+  it('ignores a floating major tag beside the full version that it points at', () => {
+    const repo = scaffoldGitRepo();
+    repo.commit('feat: first', { 'src/first.ts': 'export const first = 1;\n' });
+    repo.tag('v1.0.0');
+    repo.tag('v1');
+    repo.commit('fix: second', { 'src/second.ts': 'export const second = 2;\n' });
+
+    const windows = enumerateReleaseWindows({ tagPrefixes: ['v'], unreleasedTag: 'v1.0.1' });
+
+    expect(summarize(windows)).toStrictEqual([
+      { version: 'v1.0.1', subjects: ['fix: second'] },
+      { version: 'v1.0.0', subjects: ['feat: first'] },
+    ]);
+  });
+
+  it('treats a pre-release tag as a release', () => {
+    const repo = scaffoldGitRepo();
+    repo.commit('feat: first', { 'src/first.ts': 'export const first = 1;\n' });
+    repo.tag('pkg-v1.0.0-beta.1');
+    repo.commit('fix: second', { 'src/second.ts': 'export const second = 2;\n' });
+
+    const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
+
+    expect(summarize(windows)).toStrictEqual([
+      { version: 'pkg-v1.0.0', subjects: ['fix: second'] },
+      { version: 'pkg-v1.0.0-beta.1', subjects: ['feat: first'] },
+    ]);
   });
 
   it('matches every listed prefix as a union', () => {

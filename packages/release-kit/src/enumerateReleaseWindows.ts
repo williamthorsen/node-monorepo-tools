@@ -3,6 +3,8 @@ import { execFileSync } from 'node:child_process';
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
+import { matchesTagPrefix } from './matchesTagPrefix.ts';
+
 /**
  * Unit separator (U+001F) delimiting the fields of one git output record.
  *
@@ -40,7 +42,7 @@ export interface ReleaseWindow {
 export interface EnumerateReleaseWindowsOptions {
   /** Git pathspecs restricting the enumeration to commits that touch them. */
   paths?: readonly string[];
-  /** Tag prefixes to match as a union; a matching tag name continues with a digit. */
+  /** Tag prefixes to match as a union; a matching tag name continues with a complete SemVer version. */
   tagPrefixes: readonly string[];
   /** The version that the unreleased window reports, such as the tag that the release being prepared will write. */
   unreleasedTag: string;
@@ -147,11 +149,6 @@ function claimAncestors(
     }
   }
   return windowIndexByHash;
-}
-
-/** Checks whether a tag name starts with one of the prefixes and continues with a digit. */
-function matchesTagPrefix(tagName: string, tagPrefixes: readonly string[]): boolean {
-  return tagPrefixes.some((prefix) => tagName.startsWith(prefix) && /^\d/.test(tagName.slice(prefix.length)));
 }
 
 /** Splits one `git log` record into a commit, or returns undefined when the record is blank. */
