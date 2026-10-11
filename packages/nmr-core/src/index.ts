@@ -9,7 +9,6 @@ export {
   resolveCacheEntryPath,
   writeCacheEntry,
 } from './cache-store.ts';
-export { findPackageRoot } from './findPackageRoot.ts';
 export { GIT_OUTPUT_LIMIT } from './gitOutputLimit.ts';
 export { hasErrnoCode } from './hasErrnoCode.ts';
 export type { WorkingTreeHashResult } from './hashWorkingTree.ts';
@@ -23,7 +22,6 @@ export type {
   ParseErrorKind,
 } from './parseArgs.ts';
 export { parseArgs, parseArgsOrExit, ParseError } from './parseArgs.ts';
-export { readPackageVersion } from './readPackageVersion.ts';
 export type {
   GlyphSet,
   InvalidOutputStyle,
@@ -58,3 +56,4 @@ export type { ManagedFileOutcome, ManagedFileResult } from './updateManagedFile.
 export { updateManagedFile } from './updateManagedFile.ts';
 export type { WriteOutcome, WriteResult } from './writeFileWithCheck.ts';
 export { writeFileWithCheck } from './writeFileWithCheck.ts';
+export { findPackageRoot, resolveSelfVersion } from '@williamthorsen/toolbelt.packaging/candidate';

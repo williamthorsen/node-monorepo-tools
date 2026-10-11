@@ -1,6 +1,6 @@
 import process from 'node:process';
 
-import { parseArgs, readPackageVersion, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
+import { parseArgs, reportError, resolveSelfVersion, type StreamStyles } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { auditCommand, checkCommand, syncCommand } from '../cli.ts';
@@ -9,7 +9,7 @@ import { updateTemplatesCommand } from '../init/updateTemplatesCommand.ts';
 import { OUTPUT_STYLE_ENV_VAR, resolveStyles } from '../resolveStyles.ts';
 import type { AuditScope, CommandOptions } from '../types.ts';
 
-const VERSION = readPackageVersion(import.meta.url);
+const VERSION = resolveSelfVersion(import.meta.url);
 
 const SUBCOMMANDS = ['check', 'init', 'sync', 'update-templates'];
 const MIN_PREFIX_LENGTH = 3;

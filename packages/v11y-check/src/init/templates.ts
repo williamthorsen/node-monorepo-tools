@@ -1,6 +1,6 @@
-import { readPackageVersion } from '@williamthorsen/nmr-core';
+import { resolveSelfVersion } from '@williamthorsen/nmr-core';
 
-const VERSION = readPackageVersion(import.meta.url);
+const VERSION = resolveSelfVersion(import.meta.url);
 
 /** Constructs the JSON Schema URL for the current version. */
 function buildSchemaUrl(): string {
