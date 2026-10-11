@@ -153,6 +153,17 @@ describe(loadConfig, () => {
     expect(config.rootScripts).toStrictEqual({ check: [{ run: 'typecheck', shouldDeclineArguments: true }, 'test'] });
   });
 
+  it('loads a composite script whose element runs in the background', async ({ tree }) => {
+    writeConfig(
+      tree,
+      `export default { rootScripts: { check: [{ run: 'lint', shouldRunInBackground: true }, 'test'] } };`,
+    );
+
+    const config = await loadConfig(tree.dir);
+
+    expect(config.rootScripts).toStrictEqual({ check: [{ run: 'lint', shouldRunInBackground: true }, 'test'] });
+  });
+
   it('throws naming the composite element and the token that puts it outside the grammar', async ({ tree }) => {
     writeConfig(tree, `export default { rootScripts: { check: ['build && echo done'] } };`);
 
@@ -180,7 +191,7 @@ describe(loadConfig, () => {
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
       'unrecognized key `rootScripts.check.shouldDeclineArgs`. Recognized: `rootScripts.check.run`, ' +
-        '`rootScripts.check.shouldDeclineArguments`.',
+        '`rootScripts.check.shouldDeclineArguments`, `rootScripts.check.shouldRunInBackground`.',
     );
   });
 
@@ -196,14 +207,14 @@ describe(loadConfig, () => {
     },
   );
 
-  it('throws when a spec declares a non-boolean policy', async ({ tree }) => {
-    writeConfig(
-      tree,
-      `export default { rootScripts: { check: [{ run: 'typecheck', shouldDeclineArguments: 'yes' }] } };`,
-    );
+  it.for(['shouldDeclineArguments', 'shouldRunInBackground'])(
+    'throws when a spec declares a non-boolean `%s`',
+    async (key, { tree }) => {
+      writeConfig(tree, `export default { rootScripts: { check: [{ run: 'typecheck', ${key}: 'yes' }] } };`);
 
-    await expect(loadConfig(tree.dir)).rejects.toThrow('`rootScripts` must be a Record<string, string | element[]>');
-  });
+      await expect(loadConfig(tree.dir)).rejects.toThrow('`rootScripts` must be a Record<string, string | element[]>');
+    },
+  );
 
   it('throws naming an unrecognized build subkey', async ({ tree }) => {
     writeConfig(tree, `export default { build: { extendIgnore: ['**/fixtures/**'] } };`);

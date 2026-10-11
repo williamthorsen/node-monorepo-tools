@@ -35,6 +35,21 @@ A script value is a string or an array of steps. Only the built-in defaults and 
 
 Each array element is a command name, optionally preceded by nmr's own flags, split on whitespace: `-R test` runs the element in every package, the way `nmr -R test` does. An element containing a quoted argument or shell syntax is rejected when the config loads: Name that command as a script of its own and reference the name.
 
+#### Running a step in the background
+
+A composite runs its steps in series. An element declared with `shouldRunInBackground` starts and is left running while the steps after it run:
+
+```ts
+// "check:strict": [{ run: "lint:strict", shouldRunInBackground: true }, "typecheck", "fmt:check", "test"]
+// nmr lint:strict runs alongside nmr typecheck, then nmr fmt:check, then nmr test
+```
+
+The background step's output is held rather than streamed, and printed whole at the first step boundary after the step ends, so it never interleaves with another step's output. When nmr writes to a terminal, the step receives `FORCE_COLOR=1`, unless `NO_COLOR` or `FORCE_COLOR` is already set, so that its tools keep their colour. Its stdin is the null device.
+
+A failing step in the foreground still ends the sequence, but the composite waits for every background step that has started and prints its output. The composite fails if any step failed, and each step's own verdict line names its failure. While a background step runs, nmr forwards a SIGINT or SIGTERM that it receives to every running step.
+
+Put a step in the background when it uses fewer cores than the machine has and the steps after it do not read what it writes. The default `check` and `check:strict` run their lint step this way, because type-aware lint runs on one core while the test fan-out leaves cores idle.
+
 #### Where trailing arguments go
 
 nmr passes trailing arguments to every step of a composite, so `nmr fix --dry-run` runs `nmr lint --dry-run`, then `nmr fmt --dry-run`. A step whose work the arguments cannot narrow declines them by taking the long form of an element, and runs unnarrowed:
@@ -152,6 +167,8 @@ The audit needs network access. Without network access, `ci` is the gate that st
 Neither is bound to a git hook. `prepush` is named for when a developer runs it, not for a hook that nmr installs.
 
 ### Check and quality
+
+`check` and `check:strict` start their lint step first and [run it in the background](#running-a-step-in-the-background), alongside typecheck, the format check, and the tests.
 
 Neither gate computes coverage: Instrumentation multiplies the wall time of the run that they exist to keep short. Coverage is [`test:coverage`](vitest.md#test-selections), run as a step of its own; a repo that wants it inside the gate [overrides](#configuration) `check:strict`.
 

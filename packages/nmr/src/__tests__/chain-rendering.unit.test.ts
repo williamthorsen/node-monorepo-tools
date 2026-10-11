@@ -23,13 +23,13 @@ const WORKSPACE_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'check',
-    chain: 'nmr typecheck && nmr fmt:check && nmr lint:check && nmr test',
-    workspaceRootChain: 'nmr -w typecheck && nmr -w fmt:check && nmr -w lint:check && nmr -w test',
+    chain: 'nmr lint:check && nmr typecheck && nmr fmt:check && nmr test',
+    workspaceRootChain: 'nmr -w lint:check && nmr -w typecheck && nmr -w fmt:check && nmr -w test',
   },
   {
     command: 'check:strict',
-    chain: 'nmr typecheck && nmr fmt:check && nmr lint:strict && nmr test',
-    workspaceRootChain: 'nmr -w typecheck && nmr -w fmt:check && nmr -w lint:strict && nmr -w test',
+    chain: 'nmr lint:strict && nmr typecheck && nmr fmt:check && nmr test',
+    workspaceRootChain: 'nmr -w lint:strict && nmr -w typecheck && nmr -w fmt:check && nmr -w test',
   },
   {
     command: 'clean',
@@ -132,13 +132,13 @@ const ROOT_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'check',
-    chain: 'nmr typecheck && nmr fmt:check && nmr lint:check && nmr test',
-    workspaceRootChain: 'nmr -w typecheck && nmr -w fmt:check && nmr -w lint:check && nmr -w test',
+    chain: 'nmr lint:check && nmr typecheck && nmr fmt:check && nmr test',
+    workspaceRootChain: 'nmr -w lint:check && nmr -w typecheck && nmr -w fmt:check && nmr -w test',
   },
   {
     command: 'check:strict',
-    chain: 'nmr typecheck && nmr fmt:check && nmr lint:strict && nmr test',
-    workspaceRootChain: 'nmr -w typecheck && nmr -w fmt:check && nmr -w lint:strict && nmr -w test',
+    chain: 'nmr lint:strict && nmr typecheck && nmr fmt:check && nmr test',
+    workspaceRootChain: 'nmr -w lint:strict && nmr -w typecheck && nmr -w fmt:check && nmr -w test',
   },
   {
     command: 'ci',

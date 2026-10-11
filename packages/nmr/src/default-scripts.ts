@@ -12,6 +12,11 @@ export interface StepSpec {
    * narrowed steps run, or the tool that it invokes would be misled by them. A declining step runs unnarrowed.
    */
   shouldDeclineArguments?: boolean;
+  /**
+   * Set to start this step and run the steps after it without waiting for it. The composite waits for it before
+   * ending, and prints its output whole at the first step boundary after it ends.
+   */
+  shouldRunInBackground?: boolean;
 }
 
 export type ScriptValue = string | ReadonlyArray<string | StepSpec>;
@@ -37,14 +42,21 @@ const TYPECHECK_STEP = { run: 'typecheck', shouldDeclineArguments: true } as con
 const ROOT_TYPECHECK_STEP = { run: 'root:typecheck', shouldDeclineArguments: true } as const;
 
 /**
+ * The lint steps of `check` and `check:strict`. Each runs in the background: Type-aware lint uses one core for most
+ * of the composite's run, and the test fan-out leaves cores idle that it can use.
+ */
+const LINT_CHECK_STEP = { run: 'lint:check', shouldRunInBackground: true } as const;
+const LINT_STRICT_STEP = { run: 'lint:strict', shouldRunInBackground: true } as const;
+
+/**
  * Workspace scripts, identical for every package. A `test:<tier>` script runs the Vitest project of that tier, which
  * collects the test files that name it: `nmr test:tool` runs `my-file.tool.test.ts`. The `unit` project also
  * collects every file that does not name any other tier.
  */
 export const workspaceScripts: ScriptRegistry = {
   build: ['compile'],
-  check: [TYPECHECK_STEP, 'fmt:check', 'lint:check', 'test'],
-  'check:strict': [TYPECHECK_STEP, 'fmt:check', 'lint:strict', 'test'],
+  check: [LINT_CHECK_STEP, TYPECHECK_STEP, 'fmt:check', 'test'],
+  'check:strict': [LINT_STRICT_STEP, TYPECHECK_STEP, 'fmt:check', 'test'],
   clean: 'nmr-clean',
   compile: 'nmr-compile',
   fix: ['lint', 'fmt'],
@@ -79,8 +91,8 @@ export function buildRootScripts(workspaceGlobs: readonly string[]): ScriptRegis
     'audit:dev': 'pnpm exec v11y --dev',
     'audit:prod': 'pnpm exec v11y --prod',
     build: ['-R build'],
-    check: [TYPECHECK_STEP, 'fmt:check', 'lint:check', 'test'],
-    'check:strict': [TYPECHECK_STEP, 'fmt:check', 'lint:strict', 'test'],
+    check: [LINT_CHECK_STEP, TYPECHECK_STEP, 'fmt:check', 'test'],
+    'check:strict': [LINT_STRICT_STEP, TYPECHECK_STEP, 'fmt:check', 'test'],
     // Excludes the audit, which in CI has a workflow of its own. The narrowed check runs against the build, so
     // the build declines the arguments rather than being narrowed by them.
     ci: [{ run: 'build', shouldDeclineArguments: true }, 'check:strict'],

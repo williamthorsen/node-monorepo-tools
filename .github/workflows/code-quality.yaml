@@ -27,9 +27,9 @@ jobs:
       check-commands: >-
         [
           { "name": "build", "command": "pnpm exec nmr build" },
+          { "name": "lint:strict", "command": "pnpm exec nmr lint:strict" },
           { "name": "typecheck", "command": "pnpm exec nmr typecheck" },
           { "name": "fmt:check", "command": "pnpm exec nmr fmt:check" },
-          { "name": "lint:strict", "command": "pnpm exec nmr lint:strict" },
           { "name": "test", "command": "pnpm exec nmr test" },
           { "name": "check:content", "command": "pnpm exec nmr check:content" }
         ]

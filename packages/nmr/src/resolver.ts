@@ -97,8 +97,9 @@ export interface ResolvedScript {
  * Expands a script value into the ordered steps that it runs as: a string is one opaque step, and an array is one
  * structural step per element.
  *
- * A bare string element and the `{ run }` spec compose the same step. The spec's only addition is the
- * declaration of what the step does with the invocation's trailing arguments, which position cannot express.
+ * A bare string element and the `{ run }` spec compose the same step. The spec adds only declarations that
+ * position cannot express: what the step does with the invocation's trailing arguments, and whether it runs in
+ * the background.
  */
 export function expandScript(script: ScriptValue, isWorkspaceRoot: boolean): readonly Step[] {
   if (typeof script === 'string') {
@@ -107,7 +108,10 @@ export function expandScript(script: ScriptValue, isWorkspaceRoot: boolean): rea
   return script.map((element) =>
     typeof element === 'string'
       ? composeNmrStep(element, isWorkspaceRoot)
-      : composeNmrStep(element.run, isWorkspaceRoot, element.shouldDeclineArguments),
+      : composeNmrStep(element.run, isWorkspaceRoot, {
+          shouldDeclineArguments: element.shouldDeclineArguments,
+          shouldRunInBackground: element.shouldRunInBackground,
+        }),
   );
 }
 
@@ -119,14 +123,18 @@ export function describeScript(script: ScriptValue): string {
 }
 
 /**
- * Renders one composite element for help output, naming a declining step so that two composites that pass the
- * trailing arguments differently do not read alike.
+ * Renders one composite element for help output, naming each declaration that it makes so that two composites
+ * that run a step differently do not read alike.
  */
 function describeElement(element: string | StepSpec): string {
   if (typeof element === 'string') {
     return element;
   }
-  return element.shouldDeclineArguments === true ? `${element.run} (no args)` : element.run;
+  const notes = [
+    ...(element.shouldRunInBackground === true ? ['background'] : []),
+    ...(element.shouldDeclineArguments === true ? ['no args'] : []),
+  ];
+  return notes.length === 0 ? element.run : `${element.run} (${notes.join(', ')})`;
 }
 
 /**

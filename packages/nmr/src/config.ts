@@ -41,7 +41,7 @@ const RECOGNIZED_KEYS = [...CONFIG_TIERS.root.honoredKeys, ...CONFIG_TIERS.works
 const RECOGNIZED_BUILD_KEYS = ['extraIgnorePatterns'];
 const RECOGNIZED_CHECK_CACHE_KEYS = ['enabled', 'excludeCommands', 'extraCommands'];
 const RECOGNIZED_OUTPUT_KEYS = ['commandVerbosity', 'extraAgentEnvVars'];
-const RECOGNIZED_STEP_KEYS = ['run', 'shouldDeclineArguments'];
+const RECOGNIZED_STEP_KEYS = ['run', 'shouldDeclineArguments', 'shouldRunInBackground'];
 
 /** Maps each retired step key to the key that replaced it. */
 const RETIRED_STEP_KEYS: ReadonlyMap<string, string> = new Map([['declinesArgs', 'shouldDeclineArguments']]);
@@ -61,8 +61,7 @@ function isScriptElement(value: unknown): value is string | StepSpec {
   if (typeof value === 'string') return true;
   if (!isObject(value) || typeof value['run'] !== 'string') return false;
 
-  const shouldDeclineArguments: unknown = value['shouldDeclineArguments'];
-  return shouldDeclineArguments === undefined || typeof shouldDeclineArguments === 'boolean';
+  return isOptionalBoolean(value['shouldDeclineArguments']) && isOptionalBoolean(value['shouldRunInBackground']);
 }
 
 /** Validates and extracts a single script-record field from the raw config object. */
@@ -78,7 +77,8 @@ function validateScriptField(
   if (!isScriptRecord(scripts)) {
     throw new UserError(
       `Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string | element[]>, ` +
-        'where an element is a command string or `{ run: string, shouldDeclineArguments?: boolean }`',
+        'where an element is a command string or ' +
+        '`{ run: string, shouldDeclineArguments?: boolean, shouldRunInBackground?: boolean }`',
     );
   }
   assertValidElements(scripts, fieldName, configPath);
@@ -114,6 +114,11 @@ function assertValidElements(scripts: Record<string, ScriptValue>, fieldName: st
       );
     }
   }
+}
+
+/** Reports whether a value is absent or a boolean. */
+function isOptionalBoolean(value: unknown): value is boolean | undefined {
+  return value === undefined || typeof value === 'boolean';
 }
 
 /** Narrows an unknown value to an array of plain strings. */
