@@ -35,6 +35,16 @@ export interface CheckCacheConfig {
   extraCommands?: string[];
 }
 
+/** Self-hosted runner settings honored at the monorepo root, read by nmr's readyup kit. */
+export interface SelfHostedRunnerConfig {
+  /**
+   * Why the repo keeps its CI off the self-hosted runners although it qualifies, such as a circular dependency on
+   * the runners themselves. Declaring it stops the kit from recommending `CI_RUNS_ON`. A missing tool is not a
+   * reason: A workflow step installs it.
+   */
+  exempt: string;
+}
+
 /** Output settings honored at the monorepo root. */
 export interface OutputConfig {
   /**
@@ -57,4 +67,5 @@ export interface NmrConfig {
   output?: OutputConfig;
   workspaceScripts?: Record<string, ScriptValue>;
   rootScripts?: Record<string, ScriptValue>;
+  selfHostedRunner?: SelfHostedRunnerConfig;
 }
