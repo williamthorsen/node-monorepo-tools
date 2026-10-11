@@ -192,8 +192,8 @@ export function readNmrStep(step: Step): NmrStepTarget | undefined {
  * again, without bound. `chained` separates an entry that thereby loses steps from one that declares nothing to
  * lose.
  *
- * Partial in the same ways `findNmrCrossing` is, and for the same reason: What goes unrecognized re-enters
- * without bound, which hangs rather than passing quietly.
+ * Partial in the same ways `findNmrCrossing` is, and for the same reason: What goes unrecognized re-enters once,
+ * and the run fails when `enterChain` finds the command repeated in the same directory.
  */
 export function readSelfReference(options: {
   commandName: string;

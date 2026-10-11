@@ -1,6 +1,7 @@
 import process from 'node:process';
 
 import { DEBUG_ENV_VAR, NO_CACHE_ENV_VAR, RUN_ID_ENV_VAR, TREE_SNAPSHOT_ENV_VAR } from '../check-cache.ts';
+import { ENTRY_CHAIN_ENV_VAR } from '../entry-chain.ts';
 import { OUTPUT_STYLE_ENV_VAR } from '../output-style.ts';
 import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { RUN_IF_PRESENT_ENV_VAR } from '../runCli.ts';
@@ -10,6 +11,7 @@ import { AGENT_ENV_VARS, COMMAND_VERBOSITY_ENV_VAR } from '../verbosity.ts';
 const NMR_OWN_ENV_VARS: readonly string[] = [
   COMMAND_VERBOSITY_ENV_VAR,
   DEBUG_ENV_VAR,
+  ENTRY_CHAIN_ENV_VAR,
   NO_CACHE_ENV_VAR,
   OUTPUT_STYLE_ENV_VAR,
   REPORT_FORMAT_ENV_VAR,
