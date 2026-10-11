@@ -6,6 +6,7 @@ import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { type FormatTargets, resolveFormatTargets } from '../fmt.ts';
+import { addSubmodule } from '../test-utils/addSubmodule.ts';
 import { denyAccess, isPrivilegedProcess } from '../test-utils/denyAccess.ts';
 
 /**
@@ -111,24 +112,18 @@ describe(resolveFormatTargets, () => {
     const result = resolveFormatTargets(tree.dir);
 
     expect(unwrap(result).files).not.toContain('root.js');
+    expect(unwrap(result).excludedFiles).toStrictEqual(['root.js']);
   });
 
   it('omits a submodule gitlink, into which Prettier would otherwise recurse', ({ tree }) => {
-    const submodule = tree.mkdir('vendor/sub');
-    tree.write('vendor/sub/sub.js', 'const sub = 1;\n');
-    runGitOrThrow(['init', '--quiet'], submodule);
-    runGitOrThrow(['add', '--all'], submodule);
-    runGitOrThrow(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '--quiet', '--message', 'init'], submodule);
-    runGitOrThrow(
-      ['-c', 'protocol.file.allow=always', 'submodule', '--quiet', 'add', submodule, 'vendor/sub'],
-      tree.dir,
-    );
+    addSubmodule(tree, 'vendor/sub');
 
     const result = resolveFormatTargets(tree.dir);
 
     // `.gitmodules` confirms the submodule was really added, so the gitlink's absence means something.
     expect(unwrap(result).files).toContain('.gitmodules');
     expect(unwrap(result).files).not.toContain('vendor/sub');
+    expect(unwrap(result).excludedFiles).toStrictEqual(['vendor/sub']);
   });
 
   it.skipIf(isPrivilegedProcess)('sets aside a file that it is denied access to, and selects the rest', ({ tree }) => {
@@ -153,6 +148,7 @@ describe(resolveFormatTargets, () => {
     expect(unwrap(result).files).toContain('root.js');
     expect(unwrap(result).files).not.toContain('linked.js');
     expect(unwrap(result).files).not.toContain('linked-dir');
+    expect(unwrap(result).excludedFiles).toStrictEqual(['linked-dir', 'linked.js']);
   });
 
   it("fails, naming the path, when a listed file cannot be stat'ed for another reason", ({ tree }) => {

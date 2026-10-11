@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it as baseIt, vi } from 'vites
 
 import { runFmt, runPrettier } from '../fmt.ts';
 import { FMT_CACHE_DIRECTORY, prepareFmtCache } from '../fmt-cache.ts';
+import { addSubmodule } from '../test-utils/addSubmodule.ts';
 import { denyAccess, isPrivilegedProcess } from '../test-utils/denyAccess.ts';
 
 /**
@@ -169,8 +170,29 @@ describe(runFmt, () => {
     await expect(runFmt(['--check', 'packages'], repositoryTree.dir)).resolves.toBe(0);
   });
 
-  it('fails when the caller named paths that matched nothing', async ({ repositoryTree }) => {
+  it.for(['--check', '--write'])(
+    'passes in %s mode when every named path is a symlink, naming each one',
+    async (mode, { captured, repositoryTree }) => {
+      trackSymlinks(repositoryTree);
+
+      await expect(runFmt([mode, 'packages/a/linked.js', 'packages/a/linked-dir'], repositoryTree.dir)).resolves.toBe(
+        0,
+      );
+      expect(captured.stderr).toContain(
+        'nmr-fmt: nothing to format; skipped packages/a/linked-dir, packages/a/linked.js, which are not regular files',
+      );
+    },
+  );
+
+  it('passes when the only named path is a submodule gitlink', async ({ repositoryTree }) => {
+    addSubmodule(repositoryTree, 'vendor/sub');
+
+    await expect(runFmt(['--check', 'vendor/sub'], repositoryTree.dir)).resolves.toBe(0);
+  });
+
+  it('fails when the caller named paths that matched nothing', async ({ captured, repositoryTree }) => {
     await expect(runFmt(['--check', 'nothing-matches-this'], repositoryTree.dir)).resolves.toBe(1);
+    expect(captured.stderr).toContain('the pathspecs did not match any file that git lists: nothing-matches-this');
   });
 
   it('passes quietly when run without pathspecs in a repository that has nothing to format', async () => {
