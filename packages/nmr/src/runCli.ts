@@ -125,12 +125,36 @@ export interface RunCliResult {
  * @internal
  */
 export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
-  const { args, env, stdout, stderr } = options;
+  const established = await establishInvocation(options);
+  if (established.settled) {
+    return { exitCode: established.result.exitCode };
+  }
+  const invocation = established.value;
+
+  const { exitCode, isUnknownCommand = false } = await runInvocation(invocation);
+
+  // A process that nmr started did not receive its arguments from the user, and its parent reports the hint once.
+  if (exitCode !== 0 && !isUnknownCommand && isTopLevelInvocation(options.env)) {
+    const hint = formatMisplacedFlagHint(options.args, invocation.parsedArgs.passthrough, invocation.styles.stderr);
+    if (hint !== undefined) {
+      options.stderr.write(`${hint}\n`);
+    }
+  }
+
+  return { exitCode };
+}
+
+/**
+ * Reads the arguments, the presentation sources, and the context, and settles every invocation that does not reach
+ * a command: an unreadable argument or presentation source, `--version`, and `--help`.
+ */
+async function establishInvocation(options: RunCliOptions): Promise<PhaseResult<Invocation>> {
+  const { args, cwd, env, stdout, stderr } = options;
 
   const parseResult = parseArgs(args);
   if (!parseResult.ok) {
     reportError(parseResult.error, stderr);
-    return { exitCode: 1 };
+    return { settled: true, result: { exitCode: 1 } };
   }
   const { parsedArgs } = parseResult;
 
@@ -145,38 +169,13 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   });
   if (!presentationRead.ok) {
     reportError(presentationRead.error, stderr);
-    return { exitCode: 1 };
+    return { settled: true, result: { exitCode: 1 } };
   }
-  const { styles } = presentationRead;
-
-  const { exitCode, isUnknownCommand = false } = await runInvocation({ ...options, parsedArgs, presentationRead });
-
-  // A process that nmr started did not receive its arguments from the user, and its parent reports the hint once.
-  if (exitCode !== 0 && !isUnknownCommand && isTopLevelInvocation(env)) {
-    const hint = formatMisplacedFlagHint(args, parsedArgs.passthrough, styles.stderr);
-    if (hint !== undefined) {
-      stderr.write(`${hint}\n`);
-    }
-  }
-
-  return { exitCode };
-}
-
-// region | Helpers
-
-/**
- * Runs an invocation whose arguments and presentation sources have been read, and reports whether it failed
- * because its command is not defined in any scope that it reaches.
- */
-async function runInvocation(
-  options: RunCliOptions & { parsedArgs: ParsedArgs; presentationRead: Extract<PresentationRead, { ok: true }> },
-): Promise<RunCliResult & { isUnknownCommand?: boolean }> {
-  const { cwd, env, parsedArgs, presentationRead, stderr, stdout } = options;
   const { styles } = presentationRead;
 
   if (parsedArgs.shouldShowVersion) {
     stdout.write(`${VERSION}\n`);
-    return { exitCode: 0 };
+    return { settled: true, result: { exitCode: 0 } };
   }
 
   const context = await resolveContext(cwd);
@@ -189,7 +188,6 @@ async function runInvocation(
     output: context.config.output,
     hasQuietFlag: parsedArgs.quiet,
   });
-  const quiet = verbosity === 'quiet';
 
   const shouldUseRoot = parsedArgs.isWorkspaceRoot || context.isRoot;
 
@@ -198,12 +196,38 @@ async function runInvocation(
 
   if (parsedArgs.shouldShowHelp || !parsedArgs.command) {
     stdout.write(`${generateHelp(context.config, context.monorepoRoot, anchorDir, shouldUseRoot)}\n`);
-    return { exitCode: 0 };
+    return { settled: true, result: { exitCode: 0 } };
   }
 
-  const { command } = parsedArgs;
+  return {
+    settled: false,
+    value: {
+      anchorDir,
+      command: parsedArgs.command,
+      context,
+      env,
+      format,
+      parsedArgs,
+      scope: path.basename(anchorDir),
+      shouldUseRoot,
+      stderr,
+      stdout,
+      styles,
+      verbosity,
+    },
+  };
+}
 
-  const scope = path.basename(anchorDir);
+// region | Helpers
+
+/**
+ * Runs an invocation that reached a command, and reports whether it failed because its command is not defined in
+ * any scope that it reaches.
+ */
+async function runInvocation(invocation: Invocation): Promise<SettledResult> {
+  const { anchorDir, command, context, env, format, parsedArgs, scope, shouldUseRoot, stderr, stdout, styles } =
+    invocation;
+  const quiet = invocation.verbosity === 'quiet';
 
   const snapshot = openGate({
     command,
@@ -225,7 +249,7 @@ async function runInvocation(
     runId,
     snapshot,
     styles,
-    verbosity,
+    verbosity: invocation.verbosity,
   });
   const runOptions: RunStepsOptions = {
     quiet,
@@ -376,6 +400,22 @@ async function runInvocation(
   return { exitCode };
 }
 
+/** An invocation that reached a command: what it asks for, how it presents itself, and where it runs. */
+interface Invocation {
+  anchorDir: string;
+  command: string;
+  context: ResolvedContext;
+  env: NodeJS.ProcessEnv;
+  format: ReportFormat;
+  parsedArgs: ParsedArgs;
+  scope: string;
+  shouldUseRoot: boolean;
+  stderr: Writable;
+  stdout: Writable;
+  styles: StreamStyles;
+  verbosity: CommandVerbosity;
+}
+
 /** @internal */
 interface ParsedArgs {
   filter?: string;
@@ -406,10 +446,16 @@ type BooleanFlagName =
   | 'shouldShowHelp'
   | 'shouldShowVersion';
 
+/** Either the outcome with which a phase settled the invocation, or the input of the next phase. */
+type PhaseResult<T> = { settled: true; result: SettledResult } | { settled: false; value: T };
+
 /** What the presentation sources came to, or the message naming why one of them could not be read. */
 type PresentationRead =
   | { ok: true; format: ReportFormat | undefined; styles: StreamStyles; verbosity: CommandVerbosity | undefined }
   | { ok: false; error: string };
+
+/** An invocation's exit code, and whether it failed because its command is not defined in any scope that it reaches. */
+type SettledResult = RunCliResult & { isUnknownCommand?: boolean };
 
 /** What `--output-style` was given, and how many arguments it spent, or why the flag did not have a value. */
 type OutputStyleArgumentRead = { ok: true; value: string; consumedCount: number } | { ok: false; error: string };
