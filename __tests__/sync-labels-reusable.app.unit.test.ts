@@ -304,7 +304,7 @@ function formatUndeclaredMessage(name: string): string {
 function loadScript(stepName: string): GithubScript {
   const script = steps.find((step) => step.name === stepName)?.with?.['script'];
   if (typeof script !== 'string') {
-    throw new Error(`sync-labels.reusable.yaml has no "${stepName}" step with a script`);
+    throw new TypeError(`sync-labels.reusable.yaml has no "${stepName}" step with a script`);
   }
   // The compiled source is the step's script wrapped as `actions/github-script` wraps it; its type is not inferable.
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- `runInThisContext` returns `any`.
