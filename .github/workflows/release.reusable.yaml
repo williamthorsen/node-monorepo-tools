@@ -74,15 +74,16 @@ jobs:
           fs=require('fs'),f='package.json',p=JSON.parse(fs.readFileSync(f));delete
           p.packageManager;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
 
-      # `runtime` is omitted, so this step installs pnpm alone and the Node.js step below owns the runtime.
-      # Because this step runs ahead of that one, the Node.js step still owns the runtime if this repo ever declares
-      # `devEngines.runtime`.
+      # Installs pnpm and leaves the runtime to the Node.js step below: `runtime` is omitted, and `node-version-file:
+      # false` keeps `pnpm/setup` from installing the Node.js version declared in `.tool-versions`. Because this step
+      # runs ahead of that one, the Node.js step still owns the runtime if this repo ever declares `devEngines.runtime`.
       - name: Set up pnpm
         if: ${{ env.BUILD_LOCAL == 'true' }}
         uses: pnpm/setup@v3
         with:
           cache: true
           install: false
+          node-version-file: false
 
       # `release-kit prepare` spawns `npx git-cliff` and `npx prettier`, and the consumer path installs release-kit with
       # `npm install --global`. `pnpm/setup` omits `npm` and `npx` from the runtime that it installs, so this step
