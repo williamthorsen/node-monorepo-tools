@@ -38,6 +38,7 @@ import {
   writeDebugNote,
 } from './check-cache.ts';
 import { resolveContext, type ResolvedContext } from './context.ts';
+import { enterChain } from './entry-chain.ts';
 import { NMR_GLYPHS } from './glyphs.ts';
 import { generateHelp } from './help.ts';
 import { resolveConfigPath } from './helpers/config-path.ts';
@@ -264,6 +265,14 @@ async function runInvocation(
     return { exitCode: 1, isUnknownCommand: true };
   }
 
+  // A `--log` runs nothing, so it cannot re-enter anything.
+  const entryRunOptions: RunStepsOptions = parsedArgs.shouldPrintLog
+    ? runOptions
+    : {
+        ...runOptions,
+        env: enterChain({ anchorDir, command, env: childEnv, monorepoRoot: context.monorepoRoot }),
+      };
+
   // Filter the steps before rendering the chain, which feeds both the cache key and the `--log` lookup, so that a
   // run and a reading of its recording agree about what the chain was.
   const { isEmptiedByWorkspace, steps: runnableSteps } = readRunnableSteps(
@@ -355,7 +364,7 @@ async function runInvocation(
     overrideNotice: formatOverrideNotice(resolvedScript, registry, command, anchorDir, quiet, styles.stdout),
     ownSteps: mainSteps,
     runId,
-    runOptions,
+    runOptions: entryRunOptions,
     shouldBypassCache,
     snapshot,
     stderr,

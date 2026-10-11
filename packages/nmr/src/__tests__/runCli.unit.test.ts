@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
@@ -5,6 +6,7 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
+import { type ChainEntry, ENTRY_CHAIN_ENV_VAR } from '../entry-chain.ts';
 import { type FilterSelection, readFilterSelection } from '../helpers/filter-selection.ts';
 import { OUTPUT_STYLE_ENV_VAR, OUTPUT_STYLE_FLAG } from '../output-style.ts';
 import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
@@ -1306,6 +1308,52 @@ describe(runCli, () => {
     });
   });
 
+  describe('the entry chain', () => {
+    it('rejects a command that an ancestor is already running in the same directory, running nothing', async ({
+      tree,
+    }) => {
+      const env = composeChainEnv([{ command: 'build', dir: realpathSync(tree.dir) }]);
+
+      await expect(runNmr(['build'], tree.dir, env)).rejects.toThrow('nmr re-entered `build` in root');
+      expect(mockedRunSteps).not.toHaveBeenCalled();
+    });
+
+    it('passes the inherited chain and its own entry to the steps that it runs', async ({ tree }) => {
+      const inherited = [{ command: 'test', dir: realpathSync(tree.dir) }];
+
+      await runNmr(['build'], tree.dir, composeChainEnv(inherited));
+
+      expect(readChainFromCall()).toStrictEqual([...inherited, { command: 'build', dir: realpathSync(tree.dir) }]);
+    });
+
+    // The root's own `build` entry spawns `nmr -R build` in the root, which only hands the command to pnpm.
+    it.for([
+      { args: ['-R', 'build'], scenario: 'a fan-out' },
+      { args: ['-F', 'my-pkg', 'build'], scenario: 'a filter' },
+    ])('neither checks nor extends the chain for $scenario', async ({ args }, { tree }) => {
+      const inherited = [{ command: 'build', dir: realpathSync(tree.dir) }];
+
+      await runNmr(args, tree.dir, composeChainEnv(inherited));
+
+      expect(readChainFromCall()).toStrictEqual(inherited);
+    });
+
+    it('does not reject an invocation that only reads a recording', async ({ tree }) => {
+      const env = composeChainEnv([{ command: 'build', dir: realpathSync(tree.dir) }]);
+
+      const { stderr } = await runNmrReadingStderr(['--log', 'build'], tree.dir, env);
+
+      expect(stderr).not.toContain('re-entered');
+    });
+
+    it('rejects a malformed chain only where it would be read', async ({ tree }) => {
+      const env = { [ENTRY_CHAIN_ENV_VAR]: 'not a chain' };
+
+      await expect(runNmr(['build'], tree.dir, env)).rejects.toThrow(ENTRY_CHAIN_ENV_VAR);
+      await expect(runNmr(['--help'], tree.dir, env)).resolves.toStrictEqual({ exitCode: 0 });
+    });
+  });
+
   describe('verdicts', () => {
     it('reports a pass, naming the scope at which the command ran', async ({ tree }) => {
       const { stdout } = await runNmrReadingStdout(['typecheck'], tree.dir);
@@ -1429,6 +1477,11 @@ describe(runCli, () => {
 
 // region | Helpers
 
+/** Builds an environment that carries an inherited entry chain. */
+function composeChainEnv(chain: readonly ChainEntry[]): NodeJS.ProcessEnv {
+  return { [ENTRY_CHAIN_ENV_VAR]: JSON.stringify(chain) };
+}
+
 /** Runs the CLI in-process against `cwd`, discarding both output streams. */
 async function runNmr(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): Promise<{ exitCode: number }> {
   return runCli({ args, cwd, env, stderr: new PassThrough(), stdout: new PassThrough() });
@@ -1466,6 +1519,11 @@ async function runNmrReadingStderr(
   const { exitCode } = await runCli({ args, cwd, env, stderr, stdout: new PassThrough() });
 
   return { exitCode, stderr: Buffer.concat(chunks).toString('utf8') };
+}
+
+/** Reads the entry chain from the environment passed to the runner. */
+function readChainFromCall(): unknown {
+  return JSON.parse(mockedRunSteps.mock.calls[0]?.[2].env?.[ENTRY_CHAIN_ENV_VAR] ?? 'null');
 }
 
 /** Reads the step list passed to the runner. */
