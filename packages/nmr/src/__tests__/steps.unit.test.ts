@@ -311,6 +311,12 @@ describe(readSelfReference, () => {
     { scope: 'workspaceRegistry', script: 'nmr -R build && rdy compile', expected: 'chained' },
     { scope: 'workspaceRegistry', script: 'nmr -w -R build && rdy compile', expected: 'chained' },
     { scope: 'workspaceRegistry', script: 'nmr -F core build && rdy compile', expected: 'chained' },
+    { scope: 'root', script: 'pnpm --recursive exec nmr build', expected: undefined },
+    { scope: 'root', script: 'pnpm --filter core exec nmr build', expected: undefined },
+    { scope: 'root', script: 'pnpm -w exec nmr build', expected: 'sole' },
+    { scope: 'package', script: 'pnpm -r exec nmr build', expected: 'sole' },
+    { scope: 'package', script: 'pnpm -w exec nmr build', expected: undefined },
+    { scope: 'workspaceRegistry', script: 'pnpm --filter=core exec nmr build', expected: 'sole' },
   ] as const)('reads `$script` declared in $scope scope as $expected', ({ expected, scope, script }) => {
     expect(readSelfReference({ commandName: 'build', scope, script })).toBe(expected);
   });

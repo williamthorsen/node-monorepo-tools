@@ -204,10 +204,21 @@ export function readSelfReference(options: {
 
   const segments = splitSegments(script).filter((segment) => segment.trim() !== '');
   const doesReenter = segments.some((segment) => {
-    const tail = readNmrTail(segment);
-    const target = tail === undefined ? undefined : readNmrTarget(tail);
+    const invocation = readNmrTail(segment);
+    const target = invocation === undefined ? undefined : readNmrTarget(invocation.tail);
+    if (invocation === undefined || target === undefined) {
+      return false;
+    }
 
-    return target !== undefined && isReentry(target, commandName, scope);
+    const launcherScope = readLauncherScope(invocation.launcher, invocation.launcherArgs);
+    const effectiveTarget = {
+      command: target.command,
+      isDelegate: target.isDelegate || launcherScope.isDelegate,
+      isRecursive: target.isRecursive || launcherScope.isRecursive,
+      isWorkspaceRoot: target.isWorkspaceRoot || launcherScope.isWorkspaceRoot,
+    };
+
+    return isReentry(effectiveTarget, commandName, scope);
   });
 
   if (!doesReenter) {
@@ -299,30 +310,65 @@ function isReentry(target: NmrStepTarget, commandName: string, scope: SelfRefere
 }
 
 /**
- * Returns the tokens in an nmr invocation, or `undefined` for a segment that runs something else. nmr is
- * recognized whether named directly or run through a launcher.
+ * Returns the scope flags that pnpm applies to the nmr that it launches: `-r` fans it out to every package, `-F`
+ * to the packages that it selects, and `-w` runs it at the root. Other launchers run nmr where they stand.
  */
-function readNmrTail(segment: string): readonly string[] | undefined {
+function readLauncherScope(
+  launcher: string | undefined,
+  launcherArgs: readonly string[],
+): Omit<NmrStepTarget, 'command'> {
+  const scope = { isDelegate: false, isRecursive: false, isWorkspaceRoot: false };
+  if (launcher !== 'pnpm') {
+    return scope;
+  }
+
+  for (const token of launcherArgs) {
+    if (token === '-r' || token === '--recursive') {
+      scope.isDelegate = true;
+      scope.isRecursive = true;
+    } else if (token === '-F' || token === '--filter' || token.startsWith('--filter=')) {
+      scope.isDelegate = true;
+    } else if (token === '-w' || token === '--workspace-root') {
+      scope.isWorkspaceRoot = true;
+    }
+  }
+
+  return scope;
+}
+
+/**
+ * Returns the tokens in an nmr invocation, or `undefined` for a segment that runs something else. nmr is
+ * recognized whether named directly or run through a launcher, whose tokens ahead of `nmr` are returned as
+ * `launcherArgs`.
+ */
+function readNmrTail(
+  segment: string,
+): { launcher: string | undefined; launcherArgs: readonly string[]; tail: readonly string[] } | undefined {
   const [head, ...rest] = dropLeadingAssignments(tokenizeSegment(segment));
 
   if (head === undefined) {
     return undefined;
   }
   if (head === 'nmr') {
-    return rest;
+    return { launcher: undefined, launcherArgs: [], tail: rest };
   }
 
   const subcommands = LAUNCHERS.get(head);
   if (subcommands === undefined) {
     return undefined;
   }
-  if (subcommands.size === 0) {
-    const nameIndex = rest.findIndex((token) => !token.startsWith('-'));
-    return nameIndex !== -1 && rest[nameIndex] === 'nmr' ? rest.slice(nameIndex + 1) : undefined;
+
+  const nmrIndex =
+    subcommands.size === 0
+      ? rest.findIndex((token) => !token.startsWith('-'))
+      : rest.findIndex((token) => subcommands.has(token)) + 1;
+  if (nmrIndex <= 0 && subcommands.size > 0) {
+    return undefined;
   }
 
-  const subcommandIndex = rest.findIndex((token) => subcommands.has(token));
-  return subcommandIndex !== -1 && rest[subcommandIndex + 1] === 'nmr' ? rest.slice(subcommandIndex + 2) : undefined;
+  return rest[nmrIndex] === 'nmr'
+    ? { launcher: head, launcherArgs: rest.slice(0, nmrIndex), tail: rest.slice(nmrIndex + 1) }
+    : undefined;
 }
 
 /**
