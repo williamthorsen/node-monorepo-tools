@@ -43,7 +43,8 @@ Packages live under `packages/`:
 
 ### Terminal output
 
-- `packages/nmr-core/src/terminal.ts` is the only importer of `@williamthorsen/toolbelt.terminal`, whose `/candidate` API is experimental, and nmr-core is the only package that declares it; `__tests__/toolbelt-terminal-boundary.app.unit.test.ts` fails on any other. Every other package takes style resolution, glyph sets, and wrapping from nmr-core
+- `packages/nmr-core/src/terminal.ts` is the only importer of `@williamthorsen/toolbelt.terminal`, whose `/candidate` API is experimental, and nmr-core is the only package that declares it; `__tests__/toolbelt-candidate-boundary.app.unit.test.ts` fails on any other. Every other package takes style resolution, glyph sets, and wrapping from nmr-core
+- The same guard holds `@williamthorsen/toolbelt.packaging` to `packages/nmr-core/src/packaging.ts`, through which every package takes `findPackageRoot` and `resolveSelfVersion`
 - A CLI prints an emoji only through a glyph set, `STATUS_GLYPHS` or one built with `defineGlyphSet`, indexed by the style resolved for the stream, so that a pipe or a CI log receives the plain variant
 
 ### Agent guidance
