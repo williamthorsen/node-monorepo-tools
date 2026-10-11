@@ -2,11 +2,11 @@ packages:
   - packages/*
 
 catalog:
-  '@williamthorsen/toolbelt.errors': 0.8.2
-  '@williamthorsen/toolbelt.filesystem': 0.9.2
+  '@williamthorsen/toolbelt.errors': 0.8.3
+  '@williamthorsen/toolbelt.filesystem': 0.9.3
   '@williamthorsen/toolbelt.terminal': 0.2.1
-  '@williamthorsen/toolbelt.testing': 0.6.2
-  '@williamthorsen/toolbelt.vitest': 0.10.2
+  '@williamthorsen/toolbelt.testing': 0.6.3
+  '@williamthorsen/toolbelt.vitest': 0.10.3
   esbuild: 0.28.2
   prettier: 3.9.9
   readyup: 0.40.0

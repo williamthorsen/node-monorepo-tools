@@ -7375,12 +7375,12 @@ import { execFile } from "node:child_process";
 import { existsSync as existsSync3, globSync as globSync2, readdirSync as readdirSync2 } from "node:fs";
 import { basename, dirname, join, posix, sep } from "node:path";
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.8.2/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.8.3/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
 function isError(error) {
   return error instanceof Error || Object.prototype.toString.call(error) === "[object Error]";
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.8.2/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/describeError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.8.3/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/describeError.js
 function describeError(error) {
   try {
     if (isError(error) && typeof error.message === "string" && error.message !== "") {

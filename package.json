@@ -27,7 +27,7 @@
     "prepare": "lefthook check-install || lefthook install"
   },
   "devDependencies": {
-    "@types/node": "24.19.0",
+    "@types/node": "24.19.1",
     "@typescript-eslint/utils": "8.71.0",
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "@vitest/coverage-v8": "4.1.11",
@@ -41,23 +41,23 @@
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
     "@williamthorsen/tsconfig": "0.10.0",
-    "codeassembly": "0.16.0",
-    "eslint": "10.11.0",
+    "codeassembly": "0.17.0",
+    "eslint": "10.12.0",
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "7.1.1",
-    "lefthook": "2.1.14",
+    "lefthook": "2.1.16",
     "prettier": "catalog:",
     "readyup": "catalog:",
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.0",
     "v11y-check": "workspace:*",
-    "vite": "8.3.1",
+    "vite": "8.3.2",
     "vitest": "catalog:",
     "yaml": "catalog:",
     "zod": "4.6.5"
   },
-  "packageManager": "pnpm@12.8.2",
+  "packageManager": "pnpm@12.9.1",
   "engines": {
     "node": ">=24.16.0"
   }
