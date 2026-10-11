@@ -527,8 +527,9 @@ export type LabelSpec = z.infer<typeof labelSpecSchema>;
  * Resolution is an ordered fold with last-writer-wins: presets in `extends` order, then the `labels` record,
  * in which an entry adds a label, replaces one that an earlier layer defined, or removes it (`null`). Names match
  * case-insensitively, as GitHub matches them, and the replacing layer's spelling wins.
- * Two misstatements are resolve-time errors (`resolveLabels`), not schema errors: `labels` keys that differ only in
- * case, and a `null` naming a label not defined by any earlier layer.
+ * Three misstatements are resolve-time errors (`resolveLabels`), not schema errors: `labels` keys that differ only in
+ * case, a `null` naming a label not defined by any earlier layer, and an alias that names a resolved label or repeats
+ * another alias.
  */
 export const repoLabelsSchema = z
   .object({

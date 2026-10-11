@@ -160,6 +160,82 @@ describe(resolveLabels, () => {
     expect(result).toStrictEqual([{ name: 'scope:core', color: '00ff96', aliases: ['scope:basic'] }]);
   });
 
+  it('throws when an alias names its own label in another case', () => {
+    const config: RepoLabelsConfig = { labels: { 'scope:core': { color: '00ff96', aliases: ['Scope:Core'] } } };
+
+    expect(() => resolveLabels(config)).toThrow(
+      "'scope:core' declares alias 'Scope:Core', which names the label 'scope:core'",
+    );
+  });
+
+  it('throws when an alias names another declared label', () => {
+    const config: RepoLabelsConfig = {
+      labels: {
+        'scope:core': { color: '00ff96', aliases: ['scope:basic'] },
+        'scope:basic': { color: '00ff96' },
+      },
+    };
+
+    expect(() => resolveLabels(config)).toThrow(
+      "'scope:core' declares alias 'scope:basic', which names the label 'scope:basic'",
+    );
+  });
+
+  it('throws when an alias names a preset label', () => {
+    mockLoadPreset.mockReturnValue([bugLabel]);
+
+    const config: RepoLabelsConfig = {
+      extends: ['common'],
+      labels: { 'type:bug': { color: 'd73a4a', aliases: ['bug'] } },
+    };
+
+    expect(() => resolveLabels(config)).toThrow("'type:bug' declares alias 'bug', which names the label 'bug'");
+  });
+
+  it('throws when two labels declare the same alias', () => {
+    const config: RepoLabelsConfig = {
+      labels: {
+        'scope:a': { color: '00ff96', aliases: ['scope:old'] },
+        'scope:b': { color: '00ff96', aliases: ['Scope:Old'] },
+      },
+    };
+
+    expect(() => resolveLabels(config)).toThrow("'scope:b' declares alias 'Scope:Old', which 'scope:a' also declares");
+  });
+
+  it('throws when one label declares an alias twice', () => {
+    const config: RepoLabelsConfig = {
+      labels: { 'scope:a': { color: '00ff96', aliases: ['scope:old', 'scope:old'] } },
+    };
+
+    expect(() => resolveLabels(config)).toThrow("'scope:a' declares alias 'scope:old', which 'scope:a' also declares");
+  });
+
+  it('reports every alias collision in one error', () => {
+    const config: RepoLabelsConfig = {
+      labels: {
+        'scope:a': { color: '00ff96', aliases: ['scope:a'] },
+        'scope:b': { color: '00ff96', aliases: ['scope:a'] },
+      },
+    };
+
+    expect(() => resolveLabels(config)).toThrow(
+      "'scope:a' declares alias 'scope:a', which names the label 'scope:a'; 'scope:b' declares alias 'scope:a', which names the label 'scope:a'",
+    );
+  });
+
+  it('accepts an alias naming a preset label that a null entry removes', () => {
+    mockLoadPreset.mockReturnValue([bugLabel]);
+
+    const config: RepoLabelsConfig = {
+      extends: ['common'],
+      labels: { bug: null, 'type:bug': { color: 'd73a4a', aliases: ['bug'] } },
+    };
+    const result = resolveLabels(config);
+
+    expect(result).toStrictEqual([{ name: 'type:bug', color: 'd73a4a', aliases: ['bug'] }]);
+  });
+
   it('archives a preset label that a local entry replaces with the mark', () => {
     mockLoadPreset.mockReturnValue([bugLabel]);
 
