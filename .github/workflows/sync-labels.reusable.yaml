@@ -130,8 +130,22 @@ jobs:
 
             core.startGroup('Undeclared labels');
             const undeclaredLabels = repoLabels.filter((label) => !declaredKeys.has(label.name.toLowerCase()));
-            for (const label of undeclaredLabels) {
-              core.warning(`${label.name} is not declared by .github/labels.yaml; declare it, or delete it from the repository`);
+            // GitHub keeps at most 10 warning annotations per step and drops the rest without notice,
+            // so past that limit the last annotation states the total and the rest are logged alone.
+            const annotationLimit = 10;
+            const isOverLimit = undeclaredLabels.length > annotationLimit;
+            for (const [index, label] of undeclaredLabels.entries()) {
+              const message = `${label.name} is not declared by .github/labels.yaml; declare it, or delete it from the repository`;
+              if (isOverLimit && index >= annotationLimit - 1) {
+                core.info(message);
+              } else {
+                core.warning(message);
+              }
+            }
+            if (isOverLimit) {
+              core.warning(
+                `${undeclaredLabels.length} labels are not declared by .github/labels.yaml; the Undeclared labels log group lists them all`,
+              );
             }
             if (undeclaredLabels.length === 0) {
               core.info('Every repository label is declared.');

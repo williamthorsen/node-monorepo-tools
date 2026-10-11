@@ -221,6 +221,19 @@ describe('sync-labels.reusable.yaml reports undeclared labels', () => {
     expect(core.startGroup).toHaveBeenCalledWith('Undeclared labels');
   });
 
+  it('states the total in the tenth annotation and logs the rest when more than 10 labels are undeclared', async () => {
+    const names = Array.from({ length: 11 }, (_, index) => `extra-${String(index + 1).padStart(2, '0')}`);
+    github.paginate.mockResolvedValue(names.map((name) => ({ name, archived_at: null })));
+
+    await runReport([declare('bug')]);
+
+    expect(core.warning.mock.calls.map(([message]) => message)).toStrictEqual([
+      ...names.slice(0, 9).map(formatUndeclaredMessage),
+      '11 labels are not declared by .github/labels.yaml; the Undeclared labels log group lists them all',
+    ]);
+    expect(core.info.mock.calls.map(([message]) => message)).toStrictEqual(names.slice(9).map(formatUndeclaredMessage));
+  });
+
   it('treats a label that differs from a declared one only in case as declared', async () => {
     github.paginate.mockResolvedValue([{ name: 'Bug', archived_at: null }]);
 
@@ -280,6 +293,11 @@ function createGithubMock() {
 /** Builds a declared label entry as `sync-labels generate` writes it. */
 function declare(name: string, isArchived = false): DeclaredLabel {
   return { name, color: '00ff96', description: '', ...(isArchived && { archived: true }) };
+}
+
+/** Formats the message that the report step emits for one undeclared label. */
+function formatUndeclaredMessage(name: string): string {
+  return `${name} is not declared by .github/labels.yaml; declare it, or delete it from the repository`;
 }
 
 /** Compiles the named step's script into a function taking the parameters that `actions/github-script` passes. */
