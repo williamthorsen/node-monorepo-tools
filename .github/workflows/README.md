@@ -43,6 +43,18 @@ uses: williamthorsen/node-monorepo-tools/.github/workflows/audit.reusable.yaml@w
 
 This repo's own callers use that same external ref rather than a relative path, so every workflow here is dogfooded through the exact path that a consumer takes. Two consequences follow. A pull request never exercises an edit to a `*.reusable.yaml`, because the caller resolves the pointer tag's commit instead of the branch's. And the edit does not take effect anywhere, this repo included, until the pointer tag moves to it.
 
+### Pointer drift check
+
+`workflow-pointer-drift.yaml` runs `scripts/check-workflow-pointer-drift.ts` daily. The run fails when a `workflow/{name}-v{major}` tag lacks a commit on main that touches its `{name}.reusable.yaml`, and its job summary lists the missing commits. After moving a tag, run the workflow by dispatch to confirm that the drift is cleared.
+
+A tag kept behind main on purpose, such as while external consumers migrate, takes a hold in `.config/workflow-pointer-holds.json`:
+
+```json
+[{ "tag": "workflow/publish-v1", "through": "<commit on main>", "reason": "Consumers are migrating to v2" }]
+```
+
+A hold accepts the commits touching the workflow up to and including `through`. A later commit touching the workflow fails the check again, so each new edit is either moved to or held explicitly. A hold that names an unknown tag or a commit that does not resolve also fails the check.
+
 ### Publish trigger contract
 
 The Publish caller (`publish.yaml`) triggers only on full-semver tags:
