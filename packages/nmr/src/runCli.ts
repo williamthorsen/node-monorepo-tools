@@ -125,12 +125,37 @@ export interface RunCliResult {
  * @internal
  */
 export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
-  const { args, env, stdout, stderr } = options;
+  const established = await establishInvocation(options);
+  if (established.settled) {
+    return { exitCode: established.result.exitCode };
+  }
+  const invocation = established.value;
+
+  const planned = await planRun(invocation);
+  const { exitCode, isUnknownCommand = false } = planned.settled ? planned.result : await executePlan(planned.value);
+
+  // A process that nmr started did not receive its arguments from the user, and its parent reports the hint once.
+  if (exitCode !== 0 && !isUnknownCommand && isTopLevelInvocation(options.env)) {
+    const hint = formatMisplacedFlagHint(options.args, invocation.parsedArgs.passthrough, invocation.styles.stderr);
+    if (hint !== undefined) {
+      options.stderr.write(`${hint}\n`);
+    }
+  }
+
+  return { exitCode };
+}
+
+/**
+ * Reads the arguments, the presentation sources, and the context, and settles every invocation that does not reach
+ * a command: an unreadable argument or presentation source, `--version`, and `--help`.
+ */
+async function establishInvocation(options: RunCliOptions): Promise<PhaseResult<Invocation>> {
+  const { args, cwd, env, stdout, stderr } = options;
 
   const parseResult = parseArgs(args);
   if (!parseResult.ok) {
     reportError(parseResult.error, stderr);
-    return { exitCode: 1 };
+    return { settled: true, result: { exitCode: 1 } };
   }
   const { parsedArgs } = parseResult;
 
@@ -145,38 +170,13 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   });
   if (!presentationRead.ok) {
     reportError(presentationRead.error, stderr);
-    return { exitCode: 1 };
+    return { settled: true, result: { exitCode: 1 } };
   }
-  const { styles } = presentationRead;
-
-  const { exitCode, isUnknownCommand = false } = await runInvocation({ ...options, parsedArgs, presentationRead });
-
-  // A process that nmr started did not receive its arguments from the user, and its parent reports the hint once.
-  if (exitCode !== 0 && !isUnknownCommand && isTopLevelInvocation(env)) {
-    const hint = formatMisplacedFlagHint(args, parsedArgs.passthrough, styles.stderr);
-    if (hint !== undefined) {
-      stderr.write(`${hint}\n`);
-    }
-  }
-
-  return { exitCode };
-}
-
-// region | Helpers
-
-/**
- * Runs an invocation whose arguments and presentation sources have been read, and reports whether it failed
- * because its command is not defined in any scope that it reaches.
- */
-async function runInvocation(
-  options: RunCliOptions & { parsedArgs: ParsedArgs; presentationRead: Extract<PresentationRead, { ok: true }> },
-): Promise<RunCliResult & { isUnknownCommand?: boolean }> {
-  const { cwd, env, parsedArgs, presentationRead, stderr, stdout } = options;
   const { styles } = presentationRead;
 
   if (parsedArgs.shouldShowVersion) {
     stdout.write(`${VERSION}\n`);
-    return { exitCode: 0 };
+    return { settled: true, result: { exitCode: 0 } };
   }
 
   const context = await resolveContext(cwd);
@@ -189,7 +189,6 @@ async function runInvocation(
     output: context.config.output,
     hasQuietFlag: parsedArgs.quiet,
   });
-  const quiet = verbosity === 'quiet';
 
   const shouldUseRoot = parsedArgs.isWorkspaceRoot || context.isRoot;
 
@@ -198,12 +197,35 @@ async function runInvocation(
 
   if (parsedArgs.shouldShowHelp || !parsedArgs.command) {
     stdout.write(`${generateHelp(context.config, context.monorepoRoot, anchorDir, shouldUseRoot)}\n`);
-    return { exitCode: 0 };
+    return { settled: true, result: { exitCode: 0 } };
   }
 
-  const { command } = parsedArgs;
+  return {
+    settled: false,
+    value: {
+      anchorDir,
+      command: parsedArgs.command,
+      context,
+      env,
+      format,
+      parsedArgs,
+      scope: path.basename(anchorDir),
+      shouldUseRoot,
+      stderr,
+      stdout,
+      styles,
+      verbosity,
+    },
+  };
+}
 
-  const scope = path.basename(anchorDir);
+/**
+ * Determines what an invocation would run, and settles every invocation that does not run its command: a
+ * delegation, an unknown command, a no-op override, and an argument that no step can take.
+ */
+async function planRun(invocation: Invocation): Promise<PhaseResult<RunPlan>> {
+  const { anchorDir, command, context, env, parsedArgs, stderr, stdout, styles } = invocation;
+  const quiet = invocation.verbosity === 'quiet';
 
   const snapshot = openGate({
     command,
@@ -219,13 +241,13 @@ async function runInvocation(
   const runId = resolveRunId(env);
   const childEnv = buildChildEnv({
     env,
-    format,
+    format: invocation.format,
     shouldBypassCache,
     passthrough: parsedArgs.passthrough,
     runId,
     snapshot,
     styles,
-    verbosity,
+    verbosity: invocation.verbosity,
   });
   const runOptions: RunStepsOptions = {
     quiet,
@@ -239,10 +261,13 @@ async function runInvocation(
   if (delegation !== undefined) {
     const result = await runDelegation({ context, delegation, parsedArgs, runOptions, stderr });
 
-    return { ...result, isUnknownCommand: result.exitCode !== 0 && !isDefinedInAnyScope(command, context) };
+    return {
+      settled: true,
+      result: { ...result, isUnknownCommand: result.exitCode !== 0 && !isDefinedInAnyScope(command, context) },
+    };
   }
 
-  const registry = shouldUseRoot
+  const registry = invocation.shouldUseRoot
     ? buildRootRegistry(context.config, context.monorepoRoot)
     : buildWorkspaceRegistry(context.config);
 
@@ -259,10 +284,10 @@ async function runInvocation(
 
   if (!resolvedScript) {
     if (env[RUN_IF_PRESENT_ENV_VAR] === '1') {
-      return { exitCode: 0 };
+      return { settled: true, result: { exitCode: 0 } };
     }
     reportError(`Unknown command: ${command}`, stderr);
-    return { exitCode: 1, isUnknownCommand: true };
+    return { settled: true, result: { exitCode: 1, isUnknownCommand: true } };
   }
 
   // A `--log` runs nothing, so it cannot re-enter anything.
@@ -272,6 +297,38 @@ async function runInvocation(
         ...runOptions,
         env: enterChain({ anchorDir, command, env: childEnv, monorepoRoot: context.monorepoRoot }),
       };
+
+  const chain = assembleChain({ invocation, registry, resolvedScript, snapshot });
+  if (chain.settled) {
+    return chain;
+  }
+
+  return {
+    settled: false,
+    value: {
+      ...chain.value,
+      invocation,
+      overrideNotice: formatOverrideNotice(resolvedScript, registry, command, anchorDir, quiet, styles.stdout),
+      runId,
+      runOptions: entryRunOptions,
+      shouldBypassCache,
+      snapshot,
+    },
+  };
+}
+
+/**
+ * Assembles the chain that a resolved script runs at this scope, the hooks wrapped around it included, and the key
+ * under which a pass by that chain is recorded. Settles a no-op override and an argument that no step can take.
+ */
+function assembleChain(options: {
+  invocation: Invocation;
+  registry: ScriptRegistry;
+  resolvedScript: ResolvedScript;
+  snapshot: TreeSnapshot | undefined;
+}): PhaseResult<Pick<RunPlan, 'commandString' | 'key' | 'ownSteps' | 'steps'>> {
+  const { invocation, registry, resolvedScript, snapshot } = options;
+  const { anchorDir, command, context, env, parsedArgs, stderr, stdout, styles } = invocation;
 
   // Filter the steps before rendering the chain, which feeds both the cache key and the `--log` lookup, so that a
   // run and a reading of its recording agree about what the chain was.
@@ -284,8 +341,13 @@ async function runInvocation(
 
   const noOpReason = findNoOpReason(resolvedCommand, isEmptiedByWorkspace);
   if (noOpReason !== undefined && !parsedArgs.shouldPrintLog) {
-    reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout, format, styles.stdout);
-    return { exitCode: 0 };
+    reportVerdict(
+      { command, scope: invocation.scope, outcome: 'no-op', reason: noOpReason },
+      stdout,
+      invocation.format,
+      styles.stdout,
+    );
+    return { settled: true, result: { exitCode: 0 } };
   }
 
   const substitutedSteps = applyDevBinToSteps(runnableSteps, context.config.devBin, context.monorepoRoot);
@@ -296,7 +358,7 @@ async function runInvocation(
   const bindResult = bindPassthrough(substitutedSteps, parsedArgs.passthrough, command);
   if (!bindResult.ok) {
     reportError(bindResult.error, stderr);
-    return { exitCode: 1 };
+    return { settled: true, result: { exitCode: 1 } };
   }
 
   const mainSteps = bindResult.steps;
@@ -316,7 +378,7 @@ async function runInvocation(
     monorepoRoot: context.monorepoRoot,
     registry,
     resolvedScript,
-    shouldUseRoot,
+    shouldUseRoot: invocation.shouldUseRoot,
     stderr,
     style: styles.stderr,
   });
@@ -334,46 +396,41 @@ async function runInvocation(
     substitution: substitutedCommand === resolvedCommand ? undefined : substitutedCommand,
   });
 
+  return { settled: false, value: { commandString: fullCommand, key, ownSteps: mainSteps, steps: fullSteps } };
+}
+
+/** Runs a plan behind the check-result cache and reports its verdict, or prints its recording under `--log`. */
+async function executePlan(plan: RunPlan): Promise<SettledResult> {
+  const { command, format, parsedArgs, scope, stdout, styles } = plan.invocation;
+
   // A `--log` needs the key for the whole chain, and returns before any hook, verdict, or cache write.
   if (parsedArgs.shouldPrintLog) {
-    return reportRecording({
-      anchorDir,
-      command,
-      commandString: fullCommand,
-      config: context.config,
-      env,
-      key,
-      monorepoRoot: context.monorepoRoot,
-      scope,
-      snapshot,
-      stderr,
-      stdout,
-      styles,
-    });
+    return reportRecording(plan);
   }
 
-  const { exitCode, outcome } = await runGated({
-    anchorDir,
-    command,
-    commandString: fullCommand,
-    config: context.config,
-    steps: fullSteps,
-    env,
-    key,
-    monorepoRoot: context.monorepoRoot,
-    overrideNotice: formatOverrideNotice(resolvedScript, registry, command, anchorDir, quiet, styles.stdout),
-    ownSteps: mainSteps,
-    runId,
-    runOptions: entryRunOptions,
-    shouldBypassCache,
-    snapshot,
-    stderr,
-    stdout,
-  });
+  const { exitCode, outcome } = await runGated(plan);
 
   reportVerdict({ command, scope, ...outcome }, stdout, format, styles.stdout);
 
   return { exitCode };
+}
+
+// region | Helpers
+
+/** An invocation that reached a command: what it asks for, how it presents itself, and where it runs. */
+interface Invocation {
+  anchorDir: string;
+  command: string;
+  context: ResolvedContext;
+  env: NodeJS.ProcessEnv;
+  format: ReportFormat;
+  parsedArgs: ParsedArgs;
+  scope: string;
+  shouldUseRoot: boolean;
+  stderr: Writable;
+  stdout: Writable;
+  styles: StreamStyles;
+  verbosity: CommandVerbosity;
 }
 
 /** @internal */
@@ -406,10 +463,30 @@ type BooleanFlagName =
   | 'shouldShowHelp'
   | 'shouldShowVersion';
 
+/** Either the outcome with which a phase settled the invocation, or the input of the next phase. */
+type PhaseResult<T> = { settled: true; result: SettledResult } | { settled: false; value: T };
+
+/** What an invocation would run, fully determined: the chain, the key under which it records, and how it runs. */
+interface RunPlan {
+  commandString: string;
+  invocation: Invocation;
+  key: string | undefined;
+  overrideNotice: string | undefined;
+  ownSteps: readonly Step[];
+  runId: string;
+  runOptions: RunStepsOptions;
+  shouldBypassCache: boolean;
+  snapshot: TreeSnapshot | undefined;
+  steps: readonly Step[];
+}
+
 /** What the presentation sources came to, or the message naming why one of them could not be read. */
 type PresentationRead =
   | { ok: true; format: ReportFormat | undefined; styles: StreamStyles; verbosity: CommandVerbosity | undefined }
   | { ok: false; error: string };
+
+/** An invocation's exit code, and whether it failed because its command is not defined in any scope that it reaches. */
+type SettledResult = RunCliResult & { isUnknownCommand?: boolean };
 
 /** What `--output-style` was given, and how many arguments it spent, or why the flag did not have a value. */
 type OutputStyleArgumentRead = { ok: true; value: string; consumedCount: number } | { ok: false; error: string };
@@ -1259,42 +1336,30 @@ function parseArgs(args: string[]): ParseResult {
  * command is a gap in a survey rather than a failure of one, so bailing there would hide every scope that has
  * something to show.
  */
-async function reportRecording(options: {
-  anchorDir: string;
-  command: string;
-  commandString: string;
-  config: NmrConfig;
-  env: NodeJS.ProcessEnv;
-  key: string | undefined;
-  monorepoRoot: string;
-  scope: string;
-  snapshot: TreeSnapshot | undefined;
-  stderr: Writable;
-  stdout: Writable;
-  styles: StreamStyles;
-}): Promise<RunCliResult> {
-  const { command, config, scope, styles } = options;
+async function reportRecording(plan: RunPlan): Promise<RunCliResult> {
+  const { anchorDir, command, context, env, scope, stderr, stdout, styles } = plan.invocation;
+  const { config, monorepoRoot } = context;
 
   const lookup = await resolveRecording({
-    anchorDir: options.anchorDir,
+    anchorDir,
     command,
     currentIdentity: {
-      commandString: options.commandString,
+      commandString: plan.commandString,
       nmrVersion: VERSION,
       nodeVersion: CURRENT_RUNTIME.nodeVersion,
-      treeHash: options.snapshot?.hash,
+      treeHash: plan.snapshot?.hash,
     },
     isCacheable: isCacheableCommand(config.checkCache, command),
-    key: options.key,
-    monorepoRoot: options.monorepoRoot,
+    key: plan.key,
+    monorepoRoot,
   });
 
   if (!lookup.ok) {
-    options.stderr.write(`${renderRefusal({ command, refusal: lookup.refusal, scope, style: styles.stderr })}\n`);
-    return { exitCode: options.env[RUN_IF_PRESENT_ENV_VAR] === '1' ? 0 : 1 };
+    stderr.write(`${renderRefusal({ command, refusal: lookup.refusal, scope, style: styles.stderr })}\n`);
+    return { exitCode: env[RUN_IF_PRESENT_ENV_VAR] === '1' ? 0 : 1 };
   }
 
-  options.stdout.write(renderRecording({ command, recording: lookup.recording, scope, style: styles.stdout }));
+  stdout.write(renderRecording({ command, recording: lookup.recording, scope, style: styles.stdout }));
 
   return { exitCode: 0 };
 }
@@ -1632,35 +1697,20 @@ async function runDelegation(options: {
  * `ownSteps` is the command's alone, which is what a composite's assembly reads. A hook contributes nothing to
  * what a skip replays, as it contributes nothing to a leaf's excerpt.
  */
-async function runGated(options: {
-  anchorDir: string;
-  command: string;
-  commandString: string;
-  config: NmrConfig;
-  env: NodeJS.ProcessEnv;
-  key: string | undefined;
-  monorepoRoot: string;
-  overrideNotice: string | undefined;
-  ownSteps: readonly Step[];
-  runId: string;
-  runOptions: RunStepsOptions;
-  shouldBypassCache: boolean;
-  snapshot: TreeSnapshot | undefined;
-  steps: readonly Step[];
-  stderr: Writable;
-  stdout: Writable;
-}): Promise<{ exitCode: number; outcome: VerdictOutcome }> {
-  const { anchorDir, command, commandString, env, key, monorepoRoot, snapshot, stderr, stdout } = options;
+async function runGated(plan: RunPlan): Promise<{ exitCode: number; outcome: VerdictOutcome }> {
+  const { commandString, key, snapshot } = plan;
+  const { anchorDir, command, context, env, stderr, stdout } = plan.invocation;
+  const { config, monorepoRoot } = context;
 
   // The build output is read before the run, so that a pass can be held to the output that the run actually
   // saw. One reading serves the lookup and the recording alike, and `--no-cache` bypasses only the former.
   // Read the channels that an opaque step of this run would hand its child from the same `resolveChannel` that
   // the runner calls, to keep the retention key and the run from disagreeing about what the child saw.
-  const quiet = options.runOptions.quiet === true;
+  const quiet = plan.runOptions.quiet === true;
   const gate =
     key !== undefined && snapshot !== undefined
       ? {
-          buildOutputBefore: await readBuildOutputState(monorepoRoot, options.config),
+          buildOutputBefore: await readBuildOutputState(monorepoRoot, config),
           key,
           retentionKey: computeRetentionKey({
             channels: { stderr: resolveChannel(stderr, quiet), stdout: resolveChannel(stdout, quiet) },
@@ -1671,7 +1721,7 @@ async function runGated(options: {
         }
       : undefined;
 
-  if (gate !== undefined && !options.shouldBypassCache) {
+  if (gate !== undefined && !plan.shouldBypassCache) {
     const recalledPass = await lookUpRecordedPass({
       anchorDir,
       buildOutput: gate.buildOutputBefore,
@@ -1687,19 +1737,19 @@ async function runGated(options: {
       // An excerpt that this run declined to replay is one that it has not certified, and vouching for it here
       // would put another environment's output into the assembly that a composite above this one records.
       if (recall.replay !== undefined) {
-        await certifyRetention({ anchorDir, command, entry, env, monorepoRoot, runId: options.runId, stderr });
+        await certifyRetention({ anchorDir, command, entry, env, monorepoRoot, runId: plan.runId, stderr });
       }
 
       return { exitCode: 0, outcome: { outcome: 'recalled', ...recall } };
     }
   }
 
-  if (options.overrideNotice !== undefined) {
-    stdout.write(options.overrideNotice);
+  if (plan.overrideNotice !== undefined) {
+    stdout.write(plan.overrideNotice);
   }
 
   const startedAtMs = Date.now();
-  const { exitCode, retainedOutput } = await runSteps(options.steps, anchorDir, options.runOptions);
+  const { exitCode, retainedOutput } = await runSteps(plan.steps, anchorDir, plan.runOptions);
   const durationMs = Date.now() - startedAtMs;
 
   if (exitCode === 0 && gate !== undefined) {
@@ -1708,15 +1758,15 @@ async function runGated(options: {
       buildOutputBefore: gate.buildOutputBefore,
       command,
       commandString,
-      config: options.config,
+      config,
       durationMs,
       env,
       key: gate.key,
       monorepoRoot,
-      ownSteps: options.ownSteps,
+      ownSteps: plan.ownSteps,
       retainedOutput,
       retentionKey: gate.retentionKey,
-      runId: options.runId,
+      runId: plan.runId,
       snapshot: gate.snapshot,
       stderr,
     });
