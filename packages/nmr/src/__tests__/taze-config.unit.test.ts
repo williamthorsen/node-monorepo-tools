@@ -32,10 +32,16 @@ describe(defineConfig, () => {
 
   // taze inherits pnpm's `minimumReleaseAge` only while `maturityPeriod` is nullish, so clearing the
   // default hands the policy back to pnpm-workspace.yaml.
-  it('lets a repo clear the default with an explicit undefined', () => {
+  it('lets a repo clear the soak with an explicit undefined', () => {
     const config = defineConfig({ maturityPeriod: undefined });
 
     expect(config.maturityPeriod).toBeUndefined();
+  });
+
+  // taze defaults `mode` itself, so an `undefined` passed through would overwrite that default rather than defer
+  // to it.
+  it("hands a cleared range mode back to taze's default", () => {
+    expect(defineConfig({ mode: undefined }).mode).toBe('default');
   });
 
   it('does not mutate the shared policy across calls', () => {

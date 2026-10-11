@@ -30,12 +30,17 @@ const SHARED_POLICY: TazeConfig = {
 /**
  * Builds a taze configuration from nmr's shared upgrade policy and a repo's own settings.
  *
- * Any property that the caller supplies wins, including `0` and an explicit `undefined`. The latter restores
- * taze's inheritance of pnpm's `minimumReleaseAge`, which only applies while `maturityPeriod` is unset.
+ * Any property that the caller supplies wins, including `0` and an explicit `undefined`, which clears nmr's
+ * default and hands the setting back to taze. Clearing `maturityPeriod` restores taze's inheritance of pnpm's
+ * `minimumReleaseAge`, which only applies while it is unset. Clearing `mode` yields taze's own `'default'`, which
+ * follows each declared range; passed through as `undefined`, it would overwrite taze's default and leave no
+ * valid range to search.
  *
  * The merge is shallow, which suits a policy of scalar defaults. A nested default would clobber rather
  * than merge, so adding one means revisiting this.
  */
 export function defineConfig(config: TazeConfig): TazeConfig {
-  return { ...SHARED_POLICY, ...config };
+  const merged = { ...SHARED_POLICY, ...config };
+  if ('mode' in config && config.mode === undefined) merged.mode = 'default';
+  return merged;
 }
