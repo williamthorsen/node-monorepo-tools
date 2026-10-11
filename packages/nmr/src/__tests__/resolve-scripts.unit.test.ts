@@ -16,8 +16,18 @@ describe(getDefaultWorkspaceScripts, () => {
 
     expect(scripts).toMatchObject({
       build: ['compile'],
-      check: [{ run: 'typecheck', shouldDeclineArguments: true }, 'fmt:check', 'lint:check', 'test'],
-      'check:strict': [{ run: 'typecheck', shouldDeclineArguments: true }, 'fmt:check', 'lint:strict', 'test'],
+      check: [
+        { run: 'lint:check', shouldRunInBackground: true },
+        { run: 'typecheck', shouldDeclineArguments: true },
+        'fmt:check',
+        'test',
+      ],
+      'check:strict': [
+        { run: 'lint:strict', shouldRunInBackground: true },
+        { run: 'typecheck', shouldDeclineArguments: true },
+        'fmt:check',
+        'test',
+      ],
       clean: 'nmr-clean',
       compile: 'nmr-compile',
       'fix:check': ['fmt:check', 'lint:check'],
@@ -89,8 +99,18 @@ describe(getDefaultRootScripts, () => {
 
     expect(scripts).toMatchObject({
       audit: ['audit:prod', 'audit:dev'],
-      check: [{ run: 'typecheck', shouldDeclineArguments: true }, 'fmt:check', 'lint:check', 'test'],
-      'check:strict': [{ run: 'typecheck', shouldDeclineArguments: true }, 'fmt:check', 'lint:strict', 'test'],
+      check: [
+        { run: 'lint:check', shouldRunInBackground: true },
+        { run: 'typecheck', shouldDeclineArguments: true },
+        'fmt:check',
+        'test',
+      ],
+      'check:strict': [
+        { run: 'lint:strict', shouldRunInBackground: true },
+        { run: 'typecheck', shouldDeclineArguments: true },
+        'fmt:check',
+        'test',
+      ],
       ci: [{ run: 'build', shouldDeclineArguments: true }, 'check:strict'],
       clean: 'nmr-clean',
       'fix:check': ['fmt:check', 'lint:check'],

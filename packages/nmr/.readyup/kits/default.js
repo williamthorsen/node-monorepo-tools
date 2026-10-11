@@ -7420,10 +7420,12 @@ function quoteToken(token) {
 var GATE_PROJECTS = "--project unit --project tool";
 var TYPECHECK_STEP = { run: "typecheck", shouldDeclineArguments: true };
 var ROOT_TYPECHECK_STEP = { run: "root:typecheck", shouldDeclineArguments: true };
+var LINT_CHECK_STEP = { run: "lint:check", shouldRunInBackground: true };
+var LINT_STRICT_STEP = { run: "lint:strict", shouldRunInBackground: true };
 var workspaceScripts = {
   build: ["compile"],
-  check: [TYPECHECK_STEP, "fmt:check", "lint:check", "test"],
-  "check:strict": [TYPECHECK_STEP, "fmt:check", "lint:strict", "test"],
+  check: [LINT_CHECK_STEP, TYPECHECK_STEP, "fmt:check", "test"],
+  "check:strict": [LINT_STRICT_STEP, TYPECHECK_STEP, "fmt:check", "test"],
   clean: "nmr-clean",
   compile: "nmr-compile",
   fix: ["lint", "fmt"],
@@ -7452,8 +7454,8 @@ function buildRootScripts(workspaceGlobs) {
     "audit:dev": "pnpm exec v11y --dev",
     "audit:prod": "pnpm exec v11y --prod",
     build: ["-R build"],
-    check: [TYPECHECK_STEP, "fmt:check", "lint:check", "test"],
-    "check:strict": [TYPECHECK_STEP, "fmt:check", "lint:strict", "test"],
+    check: [LINT_CHECK_STEP, TYPECHECK_STEP, "fmt:check", "test"],
+    "check:strict": [LINT_STRICT_STEP, TYPECHECK_STEP, "fmt:check", "test"],
     // Excludes the audit, which in CI has a workflow of its own. The narrowed check runs against the build, so
     // the build declines the arguments rather than being narrowed by them.
     ci: [{ run: "build", shouldDeclineArguments: true }, "check:strict"],
