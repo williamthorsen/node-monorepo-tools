@@ -620,6 +620,72 @@ describe(runSteps, () => {
     });
   });
 
+  describe('background steps', () => {
+    const BACKGROUND_STEP: Step = { kind: 'structural', argv: ['nmr', 'lint'], shouldRunInBackground: true };
+
+    it('pipes a background step and withholds stdin, even when nmr writes to a terminal', async () => {
+      stubSequence([0, 0]);
+
+      await runSteps([BACKGROUND_STEP, STRUCTURAL_STEP], undefined, {
+        stderr: createTerminalStream(),
+        stdout: createTerminalStream(),
+      });
+
+      expect(mockedSpawn.mock.calls[0]?.[2].stdio).toStrictEqual(['ignore', 'pipe', 'pipe']);
+      expect(mockedSpawn.mock.calls[1]?.[2].stdio).toStrictEqual(['inherit', 1, 1]);
+    });
+
+    it.each([
+      { env: {}, expected: '1', scenario: 'nmr writes to a terminal', stdout: createTerminalStream },
+      { env: {}, expected: undefined, scenario: 'nmr writes to a redirect', stdout: createRedirectedStream },
+      { env: { NO_COLOR: '1' }, expected: undefined, scenario: 'NO_COLOR is set', stdout: createTerminalStream },
+      { env: { FORCE_COLOR: '0' }, expected: '0', scenario: 'FORCE_COLOR is inherited', stdout: createTerminalStream },
+    ])('when $scenario, gives the background step FORCE_COLOR $expected', async ({ env, expected, stdout }) => {
+      stubSequence([0, 0]);
+
+      await runSteps([BACKGROUND_STEP, STRUCTURAL_STEP], undefined, {
+        env: { PATH: '/bin', ...env },
+        stderr: createTerminalStream(),
+        stdout: stdout(),
+      });
+
+      expect(mockedSpawn.mock.calls[0]?.[2].env?.['FORCE_COLOR']).toBe(expected);
+      expect(mockedSpawn.mock.calls[1]?.[2].env).toStrictEqual({ PATH: '/bin', ...env });
+    });
+
+    it('prints a background step after the foreground step during which it ended', async () => {
+      stubSequence([0, 0], [{ stdout: 'background\n' }, { stdout: 'foreground\n' }]);
+      const stdout = new PassThrough();
+      const received = collect(stdout);
+
+      await runSteps([BACKGROUND_STEP, OPAQUE_STEP], undefined, { stderr: new PassThrough(), stdout });
+
+      expect(received().toString('utf8')).toBe('foreground\nbackground\n');
+    });
+
+    it('reports a failing background step when the foreground passes', async () => {
+      stubSequence([3, 0]);
+
+      const result = await runSteps([BACKGROUND_STEP, STRUCTURAL_STEP], undefined, {
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+
+      expect(result.exitCode).toBe(3);
+    });
+
+    it('reports the failing foreground step over a failing background step', async () => {
+      stubSequence([3, 2]);
+
+      const result = await runSteps([BACKGROUND_STEP, STRUCTURAL_STEP], undefined, {
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+
+      expect(result.exitCode).toBe(2);
+    });
+  });
+
   describe('retention', () => {
     it('returns what an opaque step wrote, each stream apart from the other', async () => {
       stubSequence([0], [{ stderr: 'a warning\n', stdout: 'a summary\n' }]);

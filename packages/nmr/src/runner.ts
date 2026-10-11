@@ -6,6 +6,7 @@ import type { Readable, Writable } from 'node:stream';
 import { reportError } from '@williamthorsen/nmr-core';
 
 import { createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
+import { createOutputRecorder, type OutputRecorder } from './helpers/createOutputRecorder.ts';
 import type { Step } from './steps.ts';
 
 /** Exit codes that a shell reserves for a death by signal, offset by the signal number. */
@@ -96,6 +97,13 @@ export function resolveInheritedChannel(stream: Writable): OutputChannel {
  * makes a signal to nmr end the run: The steps after it are never reached, whereas a shell would have gone on
  * running them unsupervised.
  *
+ * A background step is started and left running while the steps after it run. Its output is recorded rather
+ * than streamed, and printed whole at the first step boundary after it ends, so that it never interleaves with
+ * another step's. A failing foreground step still ends the sequence, but the list waits for every background step
+ * that it started and reports the first failure among them when the foreground did not fail. While a background
+ * step runs, a SIGINT or SIGTERM to nmr is forwarded to every running child, so that a signal sent to nmr alone
+ * still ends the children.
+ *
  * Returns a bounded copy of what the list's own commands wrote, so that a caller can retain it. Only opaque
  * steps contribute: A structural step is another nmr process reporting for the subtree beneath it, and its
  * output is that subtree's to account for.
@@ -114,28 +122,85 @@ export async function runSteps(
 
   const parts: RetainedOutput[] = [];
   let isCaptureWhole = true;
+  const backgroundRuns: BackgroundRun[] = [];
+  const runningChildren = new Set<ChildProcess>();
+  let receivedSignal: NodeJS.Signals | undefined;
+  let foregroundExitCode = 0;
 
-  for (const step of steps) {
-    const result = await runStep(step, cwd, resolvedOptions);
+  /** Forwards a signal sent to nmr to every running child, and stops the sequence from starting another step. */
+  function forwardSignal(signal: NodeJS.Signals): void {
+    receivedSignal ??= signal;
+    for (const child of runningChildren) child.kill(signal);
+  }
 
-    // Read from the step's kind rather than from whether the child handed back a pipe. A structural step runs
-    // on inherited descriptors, but a destination without one falls back to a pipe and is captured like any
-    // other, which would let a composite's constituents and a `:pre`/`:post` hook contribute output of their
-    // own.
-    if (step.kind === 'opaque') {
-      if (result.stderr === undefined || result.stdout === undefined) {
-        isCaptureWhole = false;
-      } else {
-        parts.push({ stderr: result.stderr, stdout: result.stdout });
-      }
-    }
+  /** Starts a step and tracks its child until the child exits. */
+  function launch(step: Step, launchOptions: typeof resolvedOptions): StartedCommand {
+    const started = startStep(step, cwd, launchOptions);
+    runningChildren.add(started.child);
+    void started.result.finally(() => runningChildren.delete(started.child));
+    return started;
+  }
 
-    if (result.exitCode !== 0) {
-      return { exitCode: result.exitCode, ...composeRetainedOutput(parts, isCaptureWhole) };
+  /** Prints the output of every background step that has ended and not been printed. */
+  function flushEndedBackgroundRuns(): void {
+    for (const run of backgroundRuns) {
+      if (run.result === undefined || run.isFlushed) continue;
+      run.recorder.replay({ stderr: resolvedOptions.stderr, stdout: resolvedOptions.stdout });
+      run.isFlushed = true;
     }
   }
 
-  return { exitCode: 0, ...composeRetainedOutput(parts, isCaptureWhole) };
+  try {
+    for (const step of steps) {
+      if (receivedSignal !== undefined) {
+        foregroundExitCode = describeSignalExitCode(receivedSignal);
+        break;
+      }
+
+      if (step.kind === 'structural' && step.shouldRunInBackground === true) {
+        if (backgroundRuns.length === 0) {
+          process.on('SIGINT', forwardSignal);
+          process.on('SIGTERM', forwardSignal);
+        }
+        backgroundRuns.push(startBackgroundRun(step, resolvedOptions, launch));
+        continue;
+      }
+
+      const result = await launch(step, resolvedOptions).result;
+      flushEndedBackgroundRuns();
+
+      // Read from the step's kind rather than from whether the child handed back a pipe. A structural step runs
+      // on inherited descriptors, but a destination without one falls back to a pipe and is captured like any
+      // other, which would let a composite's constituents and a `:pre`/`:post` hook contribute output of their
+      // own.
+      if (step.kind === 'opaque') {
+        if (result.stderr === undefined || result.stdout === undefined) {
+          isCaptureWhole = false;
+        } else {
+          parts.push({ stderr: result.stderr, stdout: result.stdout });
+        }
+      }
+
+      if (result.exitCode !== 0) {
+        foregroundExitCode = result.exitCode;
+        if (result.outcome === 'signaled') {
+          for (const run of backgroundRuns) run.child.kill(result.signal);
+        }
+        break;
+      }
+    }
+
+    for (const run of backgroundRuns) {
+      await run.settled;
+      flushEndedBackgroundRuns();
+    }
+  } finally {
+    process.off('SIGINT', forwardSignal);
+    process.off('SIGTERM', forwardSignal);
+  }
+
+  const exitCode = selectExitCode(foregroundExitCode, receivedSignal, backgroundRuns);
+  return { exitCode, ...composeRetainedOutput(parts, isCaptureWhole) };
 }
 
 /**
@@ -160,6 +225,25 @@ export async function runCommand(
 
 // region | Helpers
 
+/** A background step that has been started, with its recorded output and, once it has ended, its result. */
+interface BackgroundRun {
+  child: ChildProcess;
+  isFlushed: boolean;
+  recorder: OutputRecorder;
+  result: RunCommandResult | undefined;
+  /** Resolves once the step has ended and `result` is set. */
+  settled: Promise<void>;
+}
+
+/** The options of a step list once each stream has been given its default. */
+type ResolvedStepsOptions = RunStepsOptions & { quiet: boolean; stderr: Writable; stdout: Writable };
+
+/** A spawned child and a promise of how it ended. */
+interface StartedCommand {
+  child: ChildProcess;
+  result: Promise<RunCommandResult>;
+}
+
 /** What to hand `spawn`: a whole command line for a shell to parse, or a file and the arguments that it receives. */
 interface SpawnSpec {
   args: readonly string[];
@@ -170,11 +254,16 @@ interface SpawnSpec {
 }
 
 /** Spawns one child on the caller's channels and resolves once it has ended. */
-async function runSpawned(
+function runSpawned(spec: SpawnSpec, cwd: string | undefined, options: RunCommandOptions): Promise<RunCommandResult> {
+  return startSpawned(spec, cwd, options).result;
+}
+
+/** Spawns one child on the caller's channels, returning the child and a promise of how it ended. */
+function startSpawned(
   { args, file, input, shouldUseShell }: SpawnSpec,
   cwd: string | undefined,
   options: RunCommandOptions,
-): Promise<RunCommandResult> {
+): StartedCommand {
   const quiet = options.quiet === true;
   const stdout = options.stdout ?? process.stdout;
   const stderr = options.stderr ?? process.stderr;
@@ -187,6 +276,14 @@ async function runSpawned(
     env,
   });
 
+  return { child, result: collectResult(child, { quiet, stderr, stdout }) };
+}
+
+/** Captures a spawned child's piped streams and resolves with how it ended and what it wrote. */
+async function collectResult(
+  child: ChildProcess,
+  { quiet, stderr, stdout }: { quiet: boolean; stderr: Writable; stdout: Writable },
+): Promise<RunCommandResult> {
   // A stream handed to the child as a descriptor is null here, and nmr never sees a byte of it.
   const stdoutCapture = child.stdout === null ? undefined : captureStream(child.stdout, quiet ? undefined : stdout);
   const stderrCapture = child.stderr === null ? undefined : captureStream(child.stderr, quiet ? undefined : stderr);
@@ -221,20 +318,16 @@ async function runSpawned(
 }
 
 /**
- * Runs one step on the channels that its kind calls for.
+ * Starts one step on the channels that its kind calls for.
  *
  * A structural step runs loud whatever mode this process is in: The nmr process underneath suppresses the
  * output of the command that it runs, and an ancestor withholding it as well would be suppressing the subtree.
  */
-function runStep(
-  step: Step,
-  cwd: string | undefined,
-  options: RunStepsOptions & { quiet: boolean; stderr: Writable; stdout: Writable },
-): Promise<RunCommandResult> {
+function startStep(step: Step, cwd: string | undefined, options: ResolvedStepsOptions): StartedCommand {
   const { quiet, stderr, stdout } = options;
 
   if (step.kind === 'opaque') {
-    return runSpawned({ args: [], file: step.command, input: 'inherit', shouldUseShell: true }, cwd, {
+    return startSpawned({ args: [], file: step.command, input: 'inherit', shouldUseShell: true }, cwd, {
       ...options,
       channels: { stderr: resolveChannel(stderr, quiet), stdout: resolveChannel(stdout, quiet) },
     });
@@ -242,7 +335,7 @@ function runStep(
 
   const [file, ...args] = step.argv;
   const input = step.shouldWithholdInput === true ? 'ignore' : 'inherit';
-  return runSpawned({ args, file, input, shouldUseShell: false }, cwd, {
+  return startSpawned({ args, file, input, shouldUseShell: false }, cwd, {
     ...options,
     quiet: false,
     channels: { stderr: resolveInheritedChannel(stderr), stdout: resolveInheritedChannel(stdout) },
@@ -346,12 +439,29 @@ function awaitCompletion(child: ChildProcess, stopReading: () => void): Promise<
   });
 }
 
+/**
+ * Returns the environment for a background step: nmr's own, with `FORCE_COLOR` added when nmr writes to a
+ * terminal, so that a tool writing to the recorder's pipe colours its output as it would at the terminal on
+ * which the output is printed. `NO_COLOR` and an inherited `FORCE_COLOR` are left to decide for themselves.
+ */
+function buildBackgroundEnv(options: ResolvedStepsOptions): NodeJS.ProcessEnv {
+  const env = options.env ?? process.env;
+  const shouldForceColor =
+    isTerminal(options.stdout) && (env['NO_COLOR'] ?? '') === '' && env['FORCE_COLOR'] === undefined;
+  return shouldForceColor ? { ...env, FORCE_COLOR: '1' } : env;
+}
+
 /** Maps a child's exit status onto the code nmr propagates, so that a signal death is distinguishable from an exit. */
 function describeExit(code: number | null, signal: NodeJS.Signals | null): CommandCompletion {
   if (signal !== null) {
-    return { outcome: 'signaled', exitCode: SIGNAL_EXIT_BASE + os.constants.signals[signal], signal };
+    return { outcome: 'signaled', exitCode: describeSignalExitCode(signal), signal };
   }
   return { outcome: 'exited', exitCode: code ?? 1 };
+}
+
+/** Returns the exit code that a shell reports for a death by the signal. */
+function describeSignalExitCode(signal: NodeJS.Signals): number {
+  return SIGNAL_EXIT_BASE + os.constants.signals[signal];
 }
 
 /** Narrows a stream to one with a descriptor that a child can be handed, terminal or not. */
@@ -362,6 +472,50 @@ function hasDescriptor(stream: Writable): stream is Writable & { fd: number } {
 /** Narrows a stream to one backed by a terminal, whose descriptor the child can be handed. */
 function isTerminal(stream: Writable): stream is Writable & { fd: number } {
   return 'isTTY' in stream && stream.isTTY === true && hasDescriptor(stream);
+}
+
+/** Sets a background run's result once its step has ended. */
+async function recordResult(run: BackgroundRun, result: Promise<RunCommandResult>): Promise<void> {
+  run.result = await result;
+}
+
+/**
+ * Returns the code that a step list reports: the failing foreground step's, else the code of a signal that nmr
+ * received, else the first failing background step's in declaration order.
+ */
+function selectExitCode(
+  foregroundExitCode: number,
+  receivedSignal: NodeJS.Signals | undefined,
+  backgroundRuns: readonly BackgroundRun[],
+): number {
+  if (foregroundExitCode !== 0) return foregroundExitCode;
+  if (receivedSignal !== undefined) return describeSignalExitCode(receivedSignal);
+  return backgroundRuns.find((run) => run.result !== undefined && run.result.exitCode !== 0)?.result?.exitCode ?? 0;
+}
+
+/**
+ * Starts a background step with its output recorded and its stdin withheld, since a sibling running in the
+ * foreground may read nmr's own.
+ */
+function startBackgroundRun(
+  step: Step & { kind: 'structural' },
+  options: ResolvedStepsOptions,
+  launch: (step: Step, options: ResolvedStepsOptions) => StartedCommand,
+): BackgroundRun {
+  const recorder = createOutputRecorder();
+  const started = launch(
+    { ...step, shouldWithholdInput: true },
+    { ...options, env: buildBackgroundEnv(options), stderr: recorder.stderr, stdout: recorder.stdout },
+  );
+  const run: BackgroundRun = {
+    child: started.child,
+    isFlushed: false,
+    recorder,
+    result: undefined,
+    settled: Promise.resolve(),
+  };
+  run.settled = recordResult(run, started.result);
+  return run;
 }
 
 /** Writes a retained buffer to the destination stream, skipping absent and empty payloads. */
