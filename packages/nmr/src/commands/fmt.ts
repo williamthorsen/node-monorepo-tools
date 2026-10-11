@@ -60,6 +60,8 @@ const MODE_ARGS: Record<FormatMode, string[]> = {
 };
 
 export interface FormatTargets {
+  /** Listed paths that Prettier cannot be handed, such as symlinks and submodule gitlinks. */
+  excludedFiles: string[];
   /** Paths relative to the working directory, as `git ls-files` emits them. */
   files: string[];
   /** Absolute paths to every `.prettierignore` governing the repository, root-most first. */
@@ -100,19 +102,26 @@ export async function runFmt(argv: string[], cwd: string = process.cwd()): Promi
     return 1;
   }
 
-  const { files, ignorePaths, repositoryRoot, unreadableFiles } = resolvedTargets.targets;
+  const { excludedFiles, files, ignorePaths, repositoryRoot, unreadableFiles } = resolvedTargets.targets;
   // Name each skipped path, so that a passing check does not hide the files that it never read.
   for (const { file, code } of unreadableFiles) {
     process.stderr.write(`nmr-fmt: skipped ${file}, which cannot be read (${code})\n`);
   }
 
+  // Prettier run without file arguments would read stdin and fail, so an empty selection never reaches it.
   if (files.length === 0) {
-    // A caller who named paths and got nothing back selected nothing, which a clean run looks exactly
-    // like. Without pathspecs there is simply nothing to format, and Prettier run without file arguments
-    // would read stdin and fail.
-    if (parsedArgs.pathspecs.length > 0) {
-      reportError(`nmr-fmt: the pathspecs did not match any formattable file: ${parsedArgs.pathspecs.join(', ')}`);
+    if (parsedArgs.pathspecs.length === 0) return 0;
+
+    // Pathspecs for which git listed nothing selected nothing, which a clean run would otherwise look exactly like.
+    if (excludedFiles.length === 0 && unreadableFiles.length === 0) {
+      reportError(`nmr-fmt: the pathspecs did not match any file that git lists: ${parsedArgs.pathspecs.join(', ')}`);
       return 1;
+    }
+
+    if (excludedFiles.length > 0) {
+      process.stderr.write(
+        `nmr-fmt: nothing to format; skipped paths that are not regular files: ${excludedFiles.join(', ')}\n`,
+      );
     }
     return 0;
   }
@@ -163,8 +172,8 @@ export async function runFmt(argv: string[], cwd: string = process.cwd()): Promi
  * `pathspecs` narrow the selection and are passed to git verbatim: They have git pathspec semantics rather
  * than shell glob semantics.
  *
- * A listed path that this process is denied access to is set aside in `unreadableFiles`; any other stat failure
- * fails the resolution.
+ * A listed path that Prettier cannot be handed is set aside in `excludedFiles`, and one that this process is denied
+ * access to in `unreadableFiles`; any other stat failure fails the resolution.
  */
 export function resolveFormatTargets(cwd: string, pathspecs: string[] = []): ResolveTargetsResult {
   const toplevel = runGit(['rev-parse', '--show-toplevel'], cwd);
@@ -178,6 +187,7 @@ export function resolveFormatTargets(cwd: string, pathspecs: string[] = []): Res
   const ignoreFiles = runGit([...LIST_FILES_ARGS, '--', IGNORE_FILE_PATHSPEC], repositoryRoot);
   if (!ignoreFiles.ok) return ignoreFiles;
 
+  const excludedFiles: string[] = [];
   const files: string[] = [];
   const unreadableFiles: UnreadableFile[] = [];
   const listedPaths = dedupe(splitNulSeparated(listedFiles.stdout));
@@ -185,6 +195,7 @@ export function resolveFormatTargets(cwd: string, pathspecs: string[] = []): Res
     const status = classifyListedFile(cwd, file);
     switch (status.kind) {
       case 'excluded':
+        excludedFiles.push(file);
         break;
       case 'failed':
         return { ok: false, error: status.error };
@@ -204,6 +215,7 @@ export function resolveFormatTargets(cwd: string, pathspecs: string[] = []): Res
   return {
     ok: true,
     targets: {
+      excludedFiles: excludedFiles.toSorted(),
       // Sort for a stable file order across runs; `--cached --others` emits untracked entries first.
       files: files.toSorted(),
       // Put the repository-root file first, whether or not it exists. Passing any explicit `--ignore-path`

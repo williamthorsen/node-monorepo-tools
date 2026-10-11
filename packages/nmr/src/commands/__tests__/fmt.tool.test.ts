@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { lstatSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
@@ -8,7 +7,9 @@ import { afterEach, beforeEach, describe, expect, it as baseIt, vi } from 'vites
 
 import { runFmt, runPrettier } from '../fmt.ts';
 import { FMT_CACHE_DIRECTORY, prepareFmtCache } from '../fmt-cache.ts';
+import { addSubmodule } from '../test-utils/addSubmodule.ts';
 import { denyAccess, isPrivilegedProcess } from '../test-utils/denyAccess.ts';
+import { runGitOrThrow } from '../test-utils/runGitOrThrow.ts';
 
 /**
  * Tracked fixture files. The root `.prettierignore` mirrors a package pattern the way a repo working
@@ -169,8 +170,29 @@ describe(runFmt, () => {
     await expect(runFmt(['--check', 'packages'], repositoryTree.dir)).resolves.toBe(0);
   });
 
-  it('fails when the caller named paths that matched nothing', async ({ repositoryTree }) => {
+  it.for(['--check', '--write'])(
+    'passes in %s mode when every named path is a symlink, naming each one',
+    async (mode, { captured, repositoryTree }) => {
+      trackSymlinks(repositoryTree);
+
+      await expect(runFmt([mode, 'packages/a/linked.js', 'packages/a/linked-dir'], repositoryTree.dir)).resolves.toBe(
+        0,
+      );
+      expect(captured.stderr).toContain(
+        'nmr-fmt: nothing to format; skipped paths that are not regular files: packages/a/linked-dir, packages/a/linked.js',
+      );
+    },
+  );
+
+  it('passes when the only named path is a submodule gitlink', async ({ repositoryTree }) => {
+    addSubmodule(repositoryTree, 'vendor/sub');
+
+    await expect(runFmt(['--check', 'vendor/sub'], repositoryTree.dir)).resolves.toBe(0);
+  });
+
+  it('fails when the caller named paths that matched nothing', async ({ captured, repositoryTree }) => {
     await expect(runFmt(['--check', 'nothing-matches-this'], repositoryTree.dir)).resolves.toBe(1);
+    expect(captured.stderr).toContain('the pathspecs did not match any file that git lists: nothing-matches-this');
   });
 
   it('passes quietly when run without pathspecs in a repository that has nothing to format', async () => {
@@ -580,12 +602,4 @@ function trackSymlinks(tree: TempTree): void {
   tree.symlink('packages/a/linked.js', 'mirrored.js');
   tree.symlink('packages/a/linked-dir', '..');
   runGitOrThrow(['add', '--all'], tree.dir);
-}
-
-/** Runs git for fixture setup, throwing with git's stderr when it fails. */
-function runGitOrThrow(args: string[], cwd: string): void {
-  const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
-  if (result.status !== 0) {
-    throw new Error(`fixture setup failed: \`git ${args.join(' ')}\` -- ${result.stderr}`);
-  }
 }
