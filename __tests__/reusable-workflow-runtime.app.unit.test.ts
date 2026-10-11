@@ -65,12 +65,19 @@ describe('reusable workflows do not invoke corepack', () => {
   });
 });
 
-describe('release.reusable.yaml keeps actions/setup-node', () => {
+describe('release.reusable.yaml takes its runtime from actions/setup-node', () => {
   it('retains the step that supplies npm and npx', () => {
     expect(
       readWorkflow('release'),
       '`release-kit prepare` spawns `npx prettier`, and the consumer path runs `npm install --global`',
     ).toMatch(/uses:\s*actions\/setup-node@/);
+  });
+
+  it('keeps pnpm/setup from installing Node.js from a version file', () => {
+    expect(
+      readStepInputs(readWorkflow('release'), 'pnpm/setup'),
+      'without `node-version-file: false`, `pnpm/setup` installs the Node.js version in `.tool-versions` ahead of `actions/setup-node`',
+    ).toMatch(/^\s*node-version-file:\s*false\s*$/m);
   });
 });
 
@@ -117,6 +124,38 @@ function listReusableWorkflows(): string[] {
     .filter((entry) => entry.endsWith('.reusable.yaml'))
     .map((entry) => entry.replace(/\.reusable\.yaml$/, ''))
     .toSorted();
+}
+
+/** Returns the `with:` block of the first step that uses the action, or an empty string when no step uses it. */
+function readStepInputs(content: string, action: string): string {
+  const lines = content.split('\n');
+  const usesIndex = lines.findIndex((line) => line.trim().startsWith(`uses: ${action}@`));
+  if (usesIndex === -1) {
+    return '';
+  }
+
+  const stepIndent = (/^(\s*)/.exec(lines[usesIndex] ?? '')?.[1] ?? '').length;
+  const inputs: string[] = [];
+  let isInWith = false;
+  const stepLines = lines.slice(usesIndex + 1);
+  for (const line of stepLines) {
+    if (line.trim() === '') {
+      continue;
+    }
+    const indent = (/^(\s*)/.exec(line)?.[1] ?? '').length;
+    if (indent < stepIndent || line.trimStart().startsWith('- ')) {
+      break;
+    }
+    if (indent === stepIndent) {
+      isInWith = line.trim() === 'with:';
+      continue;
+    }
+    if (isInWith) {
+      inputs.push(line);
+    }
+  }
+
+  return inputs.join('\n');
 }
 
 /** Reads `<name>.reusable.yaml` from the workflows directory. */
