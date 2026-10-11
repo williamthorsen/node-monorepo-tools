@@ -107,6 +107,8 @@ Scripts resolve through three tiers. Higher tiers override lower ones:
 
 Every `nmr X` invocation auto-wraps as the equivalent of `nmr X:pre && nmr X && nmr X:post`. Hooks are first-class scripts that resolve through the same three tiers as any other script (built-in defaults, then `.config/nmr.config.ts`, then per-package `package.json`). Wrapping is uniform: Nested invocations from composite expansion get their own hook treatment. A failing hook ends the sequence, and its exit code propagates.
 
+A composite runs its steps in series, except a step declared with `shouldRunInBackground`, which runs alongside the steps after it. The default `check` and `check:strict` run lint that way; [Running a step in the background](docs/scripts.md#running-a-step-in-the-background) covers how its output prints and how it fails.
+
 Extend `nmr build` with a pre-build step for every workspace package:
 
 ```ts
