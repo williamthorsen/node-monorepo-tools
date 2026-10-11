@@ -117,17 +117,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path5) {
-      const ctrl = callVisitor(key, node, visitor, path5);
+    function visit_(key, node, visitor, path7) {
+      const ctrl = callVisitor(key, node, visitor, path7);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path5, ctrl);
-        return visit_(key, ctrl, visitor, path5);
+        replaceNode(key, path7, ctrl);
+        return visit_(key, ctrl, visitor, path7);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path5 = Object.freeze(path5.concat(node));
+          path7 = Object.freeze(path7.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = visit_(i, node.items[i], visitor, path5);
+            const ci = visit_(i, node.items[i], visitor, path7);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -138,13 +138,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path5 = Object.freeze(path5.concat(node));
-          const ck = visit_("key", node.key, visitor, path5);
+          path7 = Object.freeze(path7.concat(node));
+          const ck = visit_("key", node.key, visitor, path7);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = visit_("value", node.value, visitor, path5);
+          const cv = visit_("value", node.value, visitor, path7);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -165,17 +165,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path5) {
-      const ctrl = await callVisitor(key, node, visitor, path5);
+    async function visitAsync_(key, node, visitor, path7) {
+      const ctrl = await callVisitor(key, node, visitor, path7);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path5, ctrl);
-        return visitAsync_(key, ctrl, visitor, path5);
+        replaceNode(key, path7, ctrl);
+        return visitAsync_(key, ctrl, visitor, path7);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path5 = Object.freeze(path5.concat(node));
+          path7 = Object.freeze(path7.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = await visitAsync_(i, node.items[i], visitor, path5);
+            const ci = await visitAsync_(i, node.items[i], visitor, path7);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -186,13 +186,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path5 = Object.freeze(path5.concat(node));
-          const ck = await visitAsync_("key", node.key, visitor, path5);
+          path7 = Object.freeze(path7.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path7);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = await visitAsync_("value", node.value, visitor, path5);
+          const cv = await visitAsync_("value", node.value, visitor, path7);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -219,23 +219,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path5) {
+    function callVisitor(key, node, visitor, path7) {
       if (typeof visitor === "function")
-        return visitor(key, node, path5);
+        return visitor(key, node, path7);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path5);
+        return visitor.Map?.(key, node, path7);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path5);
+        return visitor.Seq?.(key, node, path7);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path5);
+        return visitor.Pair?.(key, node, path7);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path5);
+        return visitor.Scalar?.(key, node, path7);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path5);
+        return visitor.Alias?.(key, node, path7);
       return void 0;
     }
-    function replaceNode(key, path5, node) {
-      const parent = path5[path5.length - 1];
+    function replaceNode(key, path7, node) {
+      const parent = path7[path7.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node;
       } else if (identity.isPair(parent)) {
@@ -847,10 +847,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path5, value) {
+    function collectionFromPath(schema, path7, value) {
       let v = value;
-      for (let i = path5.length - 1; i >= 0; --i) {
-        const k = path5[i];
+      for (let i = path7.length - 1; i >= 0; --i) {
+        const k = path7[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -869,7 +869,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path5) => path5 == null || typeof path5 === "object" && !!path5[Symbol.iterator]().next().done;
+    var isEmptyPath = (path7) => path7 == null || typeof path7 === "object" && !!path7[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -899,11 +899,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path5, value) {
-        if (isEmptyPath(path5))
+      addIn(path7, value) {
+        if (isEmptyPath(path7))
           this.add(value);
         else {
-          const [key, ...rest] = path5;
+          const [key, ...rest] = path7;
           const node = this.get(key, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
@@ -917,8 +917,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path5) {
-        const [key, ...rest] = path5;
+      deleteIn(path7) {
+        const [key, ...rest] = path7;
         if (rest.length === 0)
           return this.delete(key);
         const node = this.get(key, true);
@@ -932,8 +932,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path5, keepScalar) {
-        const [key, ...rest] = path5;
+      getIn(path7, keepScalar) {
+        const [key, ...rest] = path7;
         const node = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
@@ -951,8 +951,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path5) {
-        const [key, ...rest] = path5;
+      hasIn(path7) {
+        const [key, ...rest] = path7;
         if (rest.length === 0)
           return this.has(key);
         const node = this.get(key, true);
@@ -962,8 +962,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path5, value) {
-        const [key, ...rest] = path5;
+      setIn(path7, value) {
+        const [key, ...rest] = path7;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -3478,9 +3478,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path5, value) {
+      addIn(path7, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path5, value);
+          this.contents.addIn(path7, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -3555,14 +3555,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path5) {
-        if (Collection.isEmptyPath(path5)) {
+      deleteIn(path7) {
+        if (Collection.isEmptyPath(path7)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path5) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path7) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3577,10 +3577,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path5, keepScalar) {
-        if (Collection.isEmptyPath(path5))
+      getIn(path7, keepScalar) {
+        if (Collection.isEmptyPath(path7))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path5, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path7, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -3591,10 +3591,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path5) {
-        if (Collection.isEmptyPath(path5))
+      hasIn(path7) {
+        if (Collection.isEmptyPath(path7))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path5) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path7) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -3611,13 +3611,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path5, value) {
-        if (Collection.isEmptyPath(path5)) {
+      setIn(path7, value) {
+        if (Collection.isEmptyPath(path7)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path5), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path7), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path5, value);
+          this.contents.setIn(path7, value);
         }
       }
       /**
@@ -5578,9 +5578,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path5) => {
+    visit.itemAtPath = (cst, path7) => {
       let item = cst;
-      for (const [field, index] of path5) {
+      for (const [field, index] of path7) {
         const tok = item?.[field];
         if (tok && "items" in tok) {
           item = tok.items[index];
@@ -5589,23 +5589,23 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path5) => {
-      const parent = visit.itemAtPath(cst, path5.slice(0, -1));
-      const field = path5[path5.length - 1][0];
+    visit.parentCollection = (cst, path7) => {
+      const parent = visit.itemAtPath(cst, path7.slice(0, -1));
+      const field = path7[path7.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path5, item, visitor) {
-      let ctrl = visitor(item, path5);
+    function _visit(path7, item, visitor) {
+      let ctrl = visitor(item, path7);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path5.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path7.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5616,10 +5616,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item, path5);
+            ctrl = ctrl(item, path7);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item, path5) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item, path7) : ctrl;
     }
     exports.visit = visit;
   }
@@ -7371,7 +7371,8 @@ var require_dist = __commonJS({
 });
 
 // .readyup/kits/default.ts
-import { existsSync as existsSync2, globSync as globSync2, readdirSync as readdirSync2 } from "node:fs";
+import { execFile } from "node:child_process";
+import { existsSync as existsSync3, globSync as globSync2, readdirSync as readdirSync2 } from "node:fs";
 import { basename, dirname, join, posix, sep } from "node:path";
 
 // ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.8.2/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
@@ -7407,13 +7408,253 @@ import {
   readPackageJson
 } from "readyup/check-utils";
 
+// src/config.ts
+import { existsSync as existsSync2 } from "node:fs";
+import { pathToFileURL } from "node:url";
+
+// src/helpers/config-path.ts
+import path from "node:path";
+var CONFIG_DIR = ".config";
+var CONFIG_FILENAME = "nmr.config.ts";
+var CONFIG_RELATIVE_PATH = path.join(CONFIG_DIR, CONFIG_FILENAME);
+function resolveConfigPath(baseDir) {
+  return path.join(baseDir, CONFIG_DIR, CONFIG_FILENAME);
+}
+
+// src/helpers/findClosestName.ts
+function findClosestName(name, candidates) {
+  const ceiling = Math.max(1, Math.floor(name.length / 4));
+  let closestName;
+  let shortestDistance = Infinity;
+  for (const candidate of candidates) {
+    const distance = measureDistance(name, candidate);
+    if (distance < shortestDistance) {
+      shortestDistance = distance;
+      closestName = candidate;
+    }
+  }
+  return shortestDistance <= ceiling ? closestName : void 0;
+}
+function measureDistance(first, second) {
+  if (first.length === 0 || second.length === 0) {
+    return Math.max(first.length, second.length);
+  }
+  let previousRow = Array.from({ length: second.length + 1 }, (_unused, column) => column);
+  let currentRow = Array.from({ length: second.length + 1 }, () => 0);
+  for (let row = 1; row <= first.length; row += 1) {
+    currentRow[0] = row;
+    for (let column = 1; column <= second.length; column += 1) {
+      const substitution = readCell(previousRow, column - 1) + (first[row - 1] === second[column - 1] ? 0 : 1);
+      currentRow[column] = Math.min(
+        readCell(currentRow, column - 1) + 1,
+        readCell(previousRow, column) + 1,
+        substitution
+      );
+    }
+    const completedRow = currentRow;
+    currentRow = previousRow;
+    previousRow = completedRow;
+  }
+  return readCell(previousRow, second.length);
+}
+function readCell(row, index) {
+  const value = row[index];
+  if (value === void 0) {
+    throw new RangeError(`No cell at index ${index} in a row of ${row.length}`);
+  }
+  return value;
+}
+
+// src/helpers/hook-name.ts
+function isHookName(key) {
+  return key.length > 4 && key.endsWith(":pre") || key.length > 5 && key.endsWith(":post");
+}
+
+// src/helpers/type-guards.ts
+function isObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isStringRecord(value) {
+  return isObject(value) && Object.values(value).every((entry) => typeof entry === "string");
+}
+
+// src/resolver.ts
+import { readFileSync as readFileSync2 } from "node:fs";
+
+// ../nmr-core/dist/esm/hasErrnoCode.js
+function hasErrnoCode(error, code) {
+  return isError(error) && "code" in error && error.code === code;
+}
+
+// src/helpers/package-json.ts
+import path4 from "node:path";
+
+// src/UserError.ts
+var UserError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "UserError";
+  }
+};
+
+// ../nmr-core/dist/esm/workspace.js
+import { existsSync, readFileSync } from "node:fs";
+import path3 from "node:path";
+var import_yaml = __toESM(require_dist(), 1);
+
+// ../nmr-core/dist/esm/helpers/workspace-patterns.js
+import { globSync } from "node:fs";
+import path2 from "node:path";
+var MANIFEST = "package.json";
+var ALWAYS_EXCLUDED = ["**/node_modules/**"];
+function matchPackageDirs(monorepoRoot, includedPatterns, excludedPatterns) {
+  const options = {
+    cwd: monorepoRoot,
+    exclude: [...excludedPatterns, ...ALWAYS_EXCLUDED],
+    followSymlinks: true
+  };
+  const matches = globSync([...includedPatterns], options);
+  const dirs = matches.map((match) => path2.dirname(path2.resolve(monorepoRoot, match)));
+  return [...new Set(dirs)].toSorted();
+}
+function resolvePackageDirs(monorepoRoot, patterns) {
+  const { excludedPatterns, includedPatterns } = splitWorkspacePatterns(patterns);
+  if (includedPatterns.length === 0) {
+    return [];
+  }
+  return matchPackageDirs(monorepoRoot, includedPatterns, excludedPatterns);
+}
+function splitWorkspacePatterns(patterns) {
+  const includedPatterns = [];
+  const excludedPatterns = [];
+  for (const pattern of patterns) {
+    if (pattern.trim() === "")
+      continue;
+    const isNegated = pattern.startsWith("!");
+    const target = isNegated ? excludedPatterns : includedPatterns;
+    target.push(buildManifestPattern(isNegated ? pattern.slice(1) : pattern));
+  }
+  return { excludedPatterns, includedPatterns };
+}
+function buildManifestPattern(pattern) {
+  return `${pattern.replace(/\/?$/, "")}/${MANIFEST}`;
+}
+
+// ../nmr-core/dist/esm/workspace.js
+var WORKSPACE_MANIFEST = "pnpm-workspace.yaml";
+function isMonorepoRoot(dir) {
+  return existsSync(path3.join(dir, WORKSPACE_MANIFEST));
+}
+function resolveWorkspace(monorepoRoot) {
+  const manifestRead = readWorkspaceManifest(monorepoRoot);
+  if (manifestRead.kind === "absent") {
+    return { kind: "not-a-workspace" };
+  }
+  if (manifestRead.kind === "unreadable") {
+    return { cause: "unreadable-manifest", kind: "empty", patterns: [] };
+  }
+  const packagesRead = readDeclaredPackages(manifestRead.value);
+  if (packagesRead.kind !== "patterns") {
+    const cause = packagesRead.kind === "absent" ? "no-packages-list" : "unreadable-packages";
+    return { cause, kind: "empty", patterns: [] };
+  }
+  const { patterns } = packagesRead;
+  const packageDirs = resolvePackageDirs(monorepoRoot, patterns);
+  if (packageDirs.length > 0) {
+    return { kind: "packages", packageDirs, patterns };
+  }
+  return { cause: diagnoseEmptyCause(monorepoRoot, patterns), kind: "empty", patterns };
+}
+function diagnoseEmptyCause(monorepoRoot, patterns) {
+  const { excludedPatterns, includedPatterns } = splitWorkspacePatterns(patterns);
+  if (includedPatterns.length === 0) {
+    return "no-pattern";
+  }
+  if (excludedPatterns.length > 0 && matchPackageDirs(monorepoRoot, includedPatterns, []).length > 0) {
+    return "all-excluded";
+  }
+  return "no-package";
+}
+function readDeclaredPackages(parsedManifest) {
+  if (!isObject2(parsedManifest))
+    return { kind: "absent" };
+  const packages = parsedManifest["packages"];
+  if (packages === void 0 || packages === null)
+    return { kind: "absent" };
+  if (!Array.isArray(packages))
+    return { kind: "unreadable" };
+  if (!packages.every((entry) => typeof entry === "string"))
+    return { kind: "unreadable" };
+  return packages.length === 0 ? { kind: "absent" } : { kind: "patterns", patterns: packages };
+}
+function isObject2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function readWorkspaceManifest(monorepoRoot) {
+  const workspaceFile = path3.join(monorepoRoot, WORKSPACE_MANIFEST);
+  if (!existsSync(workspaceFile)) {
+    return { kind: "absent" };
+  }
+  try {
+    return { kind: "parsed", value: (0, import_yaml.parse)(readFileSync(workspaceFile, "utf8")) };
+  } catch {
+    return { kind: "unreadable" };
+  }
+}
+
+// src/workspace.ts
+var WORKSPACE_MANIFEST2 = "pnpm-workspace.yaml";
+function getWorkspacePackageDirs(monorepoRoot) {
+  const resolution = resolveWorkspace(monorepoRoot);
+  if (resolution.kind === "not-a-workspace") {
+    throw new UserError(`Not a monorepo root: no ${WORKSPACE_MANIFEST2} in ${monorepoRoot}`);
+  }
+  return resolution.kind === "packages" ? resolution.packageDirs : [];
+}
+
+// src/helpers/package-json.ts
+function parsePackageJson(rawText, file) {
+  try {
+    return JSON.parse(rawText);
+  } catch (error) {
+    throw new UserError(`Invalid package.json at ${file}: ${describeError(error)}`);
+  }
+}
+function readScriptRecord(dir, scripts) {
+  const result = {};
+  for (const [key, value] of Object.entries(scripts)) {
+    if (typeof value !== "string") {
+      throw new UserError(formatMalformedScript(dir, key, value));
+    }
+    result[key] = value;
+  }
+  return result;
+}
+function resolvePackageJsonPath(dir) {
+  return path4.join(dir, "package.json");
+}
+function formatMalformedScript(dir, key, value) {
+  const rejection = `Invalid package.json at ${resolvePackageJsonPath(dir)}: \`scripts.${key}\` must be a string.`;
+  if (!Array.isArray(value)) {
+    return rejection;
+  }
+  const field = isMonorepoRoot(dir) ? "rootScripts" : "workspaceScripts";
+  return `${rejection} A step list belongs in \`${CONFIG_RELATIVE_PATH}\` under \`${field}\`.`;
+}
+
 // src/steps.ts
 var SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
+function findUnexpressibleToken(element) {
+  return tokenize(element).find((token) => !SHELL_SAFE_TOKEN.test(token));
+}
 function quoteToken(token) {
   if (SHELL_SAFE_TOKEN.test(token)) {
     return token;
   }
   return "'" + token.replaceAll("'", String.raw`'\''`) + "'";
+}
+function tokenize(element) {
+  return element.split(/\s+/).filter((token) => token.length > 0);
 }
 
 // src/default-scripts.ts
@@ -7498,124 +7739,360 @@ function buildRootScripts(workspaceGlobs) {
   };
 }
 
-// ../nmr-core/dist/esm/workspace.js
-import { existsSync, readFileSync } from "node:fs";
-import path2 from "node:path";
-var import_yaml = __toESM(require_dist(), 1);
-
-// ../nmr-core/dist/esm/helpers/workspace-patterns.js
-import { globSync } from "node:fs";
-import path from "node:path";
-var MANIFEST = "package.json";
-var ALWAYS_EXCLUDED = ["**/node_modules/**"];
-function matchPackageDirs(monorepoRoot, includedPatterns, excludedPatterns) {
-  const options = {
-    cwd: monorepoRoot,
-    exclude: [...excludedPatterns, ...ALWAYS_EXCLUDED],
-    followSymlinks: true
-  };
-  const matches = globSync([...includedPatterns], options);
-  const dirs = matches.map((match) => path.dirname(path.resolve(monorepoRoot, match)));
-  return [...new Set(dirs)].toSorted();
-}
-function resolvePackageDirs(monorepoRoot, patterns) {
-  const { excludedPatterns, includedPatterns } = splitWorkspacePatterns(patterns);
-  if (includedPatterns.length === 0) {
-    return [];
-  }
-  return matchPackageDirs(monorepoRoot, includedPatterns, excludedPatterns);
-}
-function splitWorkspacePatterns(patterns) {
-  const includedPatterns = [];
-  const excludedPatterns = [];
-  for (const pattern of patterns) {
-    if (pattern.trim() === "")
-      continue;
-    const isNegated = pattern.startsWith("!");
-    const target = isNegated ? excludedPatterns : includedPatterns;
-    target.push(buildManifestPattern(isNegated ? pattern.slice(1) : pattern));
-  }
-  return { excludedPatterns, includedPatterns };
-}
-function buildManifestPattern(pattern) {
-  return `${pattern.replace(/\/?$/, "")}/${MANIFEST}`;
-}
-
-// ../nmr-core/dist/esm/workspace.js
-var WORKSPACE_MANIFEST = "pnpm-workspace.yaml";
-function resolveWorkspace(monorepoRoot) {
-  const manifestRead = readWorkspaceManifest(monorepoRoot);
-  if (manifestRead.kind === "absent") {
-    return { kind: "not-a-workspace" };
-  }
-  if (manifestRead.kind === "unreadable") {
-    return { cause: "unreadable-manifest", kind: "empty", patterns: [] };
-  }
-  const packagesRead = readDeclaredPackages(manifestRead.value);
-  if (packagesRead.kind !== "patterns") {
-    const cause = packagesRead.kind === "absent" ? "no-packages-list" : "unreadable-packages";
-    return { cause, kind: "empty", patterns: [] };
-  }
-  const { patterns } = packagesRead;
-  const packageDirs = resolvePackageDirs(monorepoRoot, patterns);
-  if (packageDirs.length > 0) {
-    return { kind: "packages", packageDirs, patterns };
-  }
-  return { cause: diagnoseEmptyCause(monorepoRoot, patterns), kind: "empty", patterns };
-}
-function diagnoseEmptyCause(monorepoRoot, patterns) {
-  const { excludedPatterns, includedPatterns } = splitWorkspacePatterns(patterns);
-  if (includedPatterns.length === 0) {
-    return "no-pattern";
-  }
-  if (excludedPatterns.length > 0 && matchPackageDirs(monorepoRoot, includedPatterns, []).length > 0) {
-    return "all-excluded";
-  }
-  return "no-package";
-}
-function readDeclaredPackages(parsedManifest) {
-  if (!isObject(parsedManifest))
-    return { kind: "absent" };
-  const packages = parsedManifest["packages"];
-  if (packages === void 0 || packages === null)
-    return { kind: "absent" };
-  if (!Array.isArray(packages))
-    return { kind: "unreadable" };
-  if (!packages.every((entry) => typeof entry === "string"))
-    return { kind: "unreadable" };
-  return packages.length === 0 ? { kind: "absent" } : { kind: "patterns", patterns: packages };
-}
-function isObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function readWorkspaceManifest(monorepoRoot) {
-  const workspaceFile = path2.join(monorepoRoot, WORKSPACE_MANIFEST);
-  if (!existsSync(workspaceFile)) {
-    return { kind: "absent" };
-  }
-  try {
-    return { kind: "parsed", value: (0, import_yaml.parse)(readFileSync(workspaceFile, "utf8")) };
-  } catch {
-    return { kind: "unreadable" };
-  }
-}
-
 // src/workspace-globs.ts
-import path3 from "node:path";
+import path5 from "node:path";
 function toWorkspacePackageGlobs(monorepoRoot, packageDirs) {
-  return packageDirs.map((dir) => path3.relative(monorepoRoot, dir).split(path3.sep).join("/")).filter((relativeDir) => relativeDir !== "").map((relativeDir) => `${relativeDir}/**`).toSorted();
+  return packageDirs.map((dir) => path5.relative(monorepoRoot, dir).split(path5.sep).join("/")).filter((relativeDir) => relativeDir !== "").map((relativeDir) => `${relativeDir}/**`).toSorted();
 }
 
 // src/resolve-scripts.ts
+function getDefaultWorkspaceScripts() {
+  return { ...workspaceScripts };
+}
 function getDefaultRootScripts(monorepoRoot) {
   const resolution = resolveWorkspace(monorepoRoot);
   const packageDirs = resolution.kind === "packages" ? resolution.packageDirs : [];
   return buildRootScripts(toWorkspacePackageGlobs(monorepoRoot, packageDirs));
 }
 
+// src/resolver.ts
+function readPackageJsonScripts(packageDir) {
+  const file = resolvePackageJsonPath(packageDir);
+  let rawText;
+  try {
+    rawText = readFileSync2(file, "utf8");
+  } catch (error) {
+    if (hasErrnoCode(error, "ENOENT")) {
+      return void 0;
+    }
+    throw error;
+  }
+  const parsedManifest = parsePackageJson(rawText, file);
+  if (!isObject(parsedManifest)) return void 0;
+  const scripts = parsedManifest["scripts"];
+  if (!isObject(scripts)) return void 0;
+  return readScriptRecord(packageDir, scripts);
+}
+function buildWorkspaceRegistry(config) {
+  return {
+    ...getDefaultWorkspaceScripts(),
+    ...config.workspaceScripts
+  };
+}
+function buildRootRegistry(config, monorepoRoot) {
+  return {
+    ...getDefaultRootScripts(monorepoRoot),
+    ...config.rootScripts
+  };
+}
+
+// src/verbosity.ts
+var COMMAND_VERBOSITIES = ["full", "quiet"];
+function formatVerbosityRejection(source, value) {
+  return `${source} is \`${value}\`, which is not one of: ${COMMAND_VERBOSITIES.join(", ")}`;
+}
+function isCommandVerbosity(value) {
+  const names = COMMAND_VERBOSITIES;
+  return names.includes(value);
+}
+
+// src/config.ts
+var CONFIG_TIERS = {
+  root: {
+    label: "a monorepo-root config",
+    honoredKeys: ["checkCache", "devBin", "output", "rootScripts", "selfHostedRunner", "workspaceScripts"],
+    elsewhere: "the package's own config"
+  },
+  workspace: {
+    label: "a package config",
+    honoredKeys: ["build"],
+    elsewhere: "the monorepo-root config"
+  }
+};
+var RECOGNIZED_KEYS = [...CONFIG_TIERS.root.honoredKeys, ...CONFIG_TIERS.workspace.honoredKeys];
+var RECOGNIZED_BUILD_KEYS = ["extraIgnorePatterns"];
+var RECOGNIZED_CHECK_CACHE_KEYS = ["enabled", "excludeCommands", "extraCommands"];
+var RECOGNIZED_OUTPUT_KEYS = ["commandVerbosity", "extraAgentEnvVars"];
+var RECOGNIZED_SELF_HOSTED_RUNNER_KEYS = ["exempt"];
+var RECOGNIZED_STEP_KEYS = ["run", "shouldDeclineArguments", "shouldRunInBackground"];
+var RETIRED_STEP_KEYS = /* @__PURE__ */ new Map([["declinesArgs", "shouldDeclineArguments"]]);
+function isScriptRecord(value) {
+  if (!isObject(value)) return false;
+  for (const v of Object.values(value)) {
+    if (typeof v === "string") continue;
+    if (!Array.isArray(v) || !v.every(isScriptElement)) return false;
+  }
+  return true;
+}
+function isScriptElement(value) {
+  if (typeof value === "string") return true;
+  if (!isObject(value) || typeof value["run"] !== "string") return false;
+  return isOptionalBoolean(value["shouldDeclineArguments"]) && isOptionalBoolean(value["shouldRunInBackground"]);
+}
+function validateScriptField(value, fieldName, configPath) {
+  if (!Object.hasOwn(value, fieldName) || value[fieldName] === void 0) {
+    return void 0;
+  }
+  const scripts = value[fieldName];
+  if (!isScriptRecord(scripts)) {
+    throw new UserError(
+      `Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string | element[]>, where an element is a command string or \`{ run: string, shouldDeclineArguments?: boolean, shouldRunInBackground?: boolean }\``
+    );
+  }
+  assertValidElements(scripts, fieldName, configPath);
+  return scripts;
+}
+function assertValidElements(scripts, fieldName, configPath) {
+  for (const [command, script] of Object.entries(scripts)) {
+    if (typeof script === "string") continue;
+    for (const spec of script) {
+      if (typeof spec !== "string") {
+        assertNoRetiredKeys(spec, RETIRED_STEP_KEYS, configPath, `${fieldName}.${command}.`);
+        assertRecognizedKeys(spec, RECOGNIZED_STEP_KEYS, configPath, `${fieldName}.${command}.`);
+      }
+      const element = typeof spec === "string" ? spec : spec.run;
+      const token = findUnexpressibleToken(element);
+      if (token === void 0) continue;
+      throw new UserError(
+        `Invalid nmr config at ${configPath}: \`${fieldName}.${command}\` element \`${element}\` contains \`${token}\`, which is neither a command name nor an nmr flag. Name it as a script of its own and reference that name here.`
+      );
+    }
+  }
+}
+function isOptionalBoolean(value) {
+  return value === void 0 || typeof value === "boolean";
+}
+function isStringArray(value) {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+function validateBuildField(value, configPath) {
+  const build = value["build"];
+  if (build === void 0) {
+    return void 0;
+  }
+  if (!isObject(build)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`build\` must be an object`);
+  }
+  assertRecognizedKeys(build, RECOGNIZED_BUILD_KEYS, configPath, "build.");
+  const extraIgnorePatterns = build["extraIgnorePatterns"];
+  if (extraIgnorePatterns !== void 0 && !isStringArray(extraIgnorePatterns)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`build.extraIgnorePatterns\` must be a string[]`);
+  }
+  return extraIgnorePatterns === void 0 ? {} : { extraIgnorePatterns };
+}
+function validateCheckCacheField(value, configPath) {
+  const checkCache = value["checkCache"];
+  if (checkCache === void 0) {
+    return void 0;
+  }
+  if (!isObject(checkCache)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache\` must be an object`);
+  }
+  assertRecognizedKeys(checkCache, RECOGNIZED_CHECK_CACHE_KEYS, configPath, "checkCache.");
+  const config = {};
+  const enabledValue = checkCache["enabled"];
+  if (enabledValue !== void 0) {
+    if (typeof enabledValue !== "boolean") {
+      throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache.enabled\` must be a boolean`);
+    }
+    config.enabled = enabledValue;
+  }
+  for (const field of ["excludeCommands", "extraCommands"]) {
+    const commands = checkCache[field];
+    if (commands === void 0) {
+      continue;
+    }
+    if (!isStringArray(commands)) {
+      throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache.${field}\` must be a string[]`);
+    }
+    config[field] = commands;
+  }
+  return config;
+}
+function validateSelfHostedRunnerField(value, configPath) {
+  const selfHostedRunner = value["selfHostedRunner"];
+  if (selfHostedRunner === void 0) {
+    return void 0;
+  }
+  if (!isObject(selfHostedRunner)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`selfHostedRunner\` must be an object`);
+  }
+  assertRecognizedKeys(selfHostedRunner, RECOGNIZED_SELF_HOSTED_RUNNER_KEYS, configPath, "selfHostedRunner.");
+  const exempt = selfHostedRunner["exempt"];
+  if (typeof exempt !== "string" || exempt.trim() === "") {
+    throw new UserError(
+      `Invalid nmr config at ${configPath}: \`selfHostedRunner.exempt\` must be a non-empty string giving the reason`
+    );
+  }
+  return { exempt };
+}
+function assertResolvableCheckCacheCommands(config, configPath, baseDir) {
+  const { checkCache } = config;
+  if (checkCache === void 0 || !isMonorepoRoot(baseDir)) {
+    return;
+  }
+  const fields = ["excludeCommands", "extraCommands"];
+  const entries = fields.flatMap((field) => (checkCache[field] ?? []).map((command) => ({ command, field })));
+  const hook = entries.find(({ command }) => isHookName(command));
+  if (hook !== void 0) {
+    throw new UserError(
+      `Invalid nmr config at ${configPath}: \`checkCache.${hook.field}\` names the hook \`${hook.command}\`, which is never gated on its own: It runs as part of the chain of the command that it wraps.`
+    );
+  }
+  const registeredNames = /* @__PURE__ */ new Set([
+    ...Object.keys(buildRootRegistry(config, baseDir)),
+    ...Object.keys(buildWorkspaceRegistry(config))
+  ]);
+  const missingEntries = entries.filter(({ command }) => !registeredNames.has(command));
+  if (missingEntries.length === 0) {
+    return;
+  }
+  const declaredNames = readDeclaredScriptNames(baseDir);
+  const unresolvableEntry = missingEntries.find(({ command }) => !declaredNames.has(command));
+  if (unresolvableEntry === void 0) {
+    return;
+  }
+  const closestName = findClosestName(unresolvableEntry.command, [...registeredNames, ...declaredNames]);
+  throw new UserError(
+    `Invalid nmr config at ${configPath}: \`checkCache.${unresolvableEntry.field}\` does not name any command: \`${unresolvableEntry.command}\`.${closestName === void 0 ? "" : ` Did you mean \`${closestName}\`?`}`
+  );
+}
+function readDeclaredScriptNames(monorepoRoot) {
+  let packageDirs;
+  try {
+    packageDirs = getWorkspacePackageDirs(monorepoRoot);
+  } catch {
+    packageDirs = [];
+  }
+  const names = /* @__PURE__ */ new Set();
+  const dirs = [monorepoRoot, ...packageDirs];
+  for (const dir of dirs) {
+    const scripts = readPackageScripts(dir);
+    for (const name of Object.keys(scripts)) {
+      names.add(name);
+    }
+  }
+  return names;
+}
+function readPackageScripts(packageDir) {
+  try {
+    return readPackageJsonScripts(packageDir) ?? {};
+  } catch (error) {
+    if (error instanceof UserError) {
+      return {};
+    }
+    throw error;
+  }
+}
+function validateOutputField(value, configPath) {
+  const output = value["output"];
+  if (output === void 0) {
+    return void 0;
+  }
+  if (!isObject(output)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`output\` must be an object`);
+  }
+  assertRecognizedKeys(output, RECOGNIZED_OUTPUT_KEYS, configPath, "output.");
+  const config = {};
+  const commandVerbosity = output["commandVerbosity"];
+  if (commandVerbosity !== void 0) {
+    if (typeof commandVerbosity !== "string" || !isCommandVerbosity(commandVerbosity)) {
+      const renderedValue = typeof commandVerbosity === "string" ? commandVerbosity : JSON.stringify(commandVerbosity);
+      throw new UserError(
+        `Invalid nmr config at ${configPath}: ${formatVerbosityRejection("`output.commandVerbosity`", renderedValue)}`
+      );
+    }
+    config.commandVerbosity = commandVerbosity;
+  }
+  const extraAgentEnvVars = output["extraAgentEnvVars"];
+  if (extraAgentEnvVars !== void 0) {
+    if (!isStringArray(extraAgentEnvVars)) {
+      throw new UserError(`Invalid nmr config at ${configPath}: \`output.extraAgentEnvVars\` must be a string[]`);
+    }
+    config.extraAgentEnvVars = extraAgentEnvVars;
+  }
+  return config;
+}
+function validateStringRecordField(value, fieldName, configPath) {
+  if (!Object.hasOwn(value, fieldName) || value[fieldName] === void 0) {
+    return void 0;
+  }
+  if (!isStringRecord(value[fieldName])) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string>`);
+  }
+  return value[fieldName];
+}
+function validateConfig(value, configPath, baseDir) {
+  if (!isObject(value)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: expected an object, got ${typeof value}`);
+  }
+  assertRecognizedKeys(value, RECOGNIZED_KEYS, configPath);
+  const config = {};
+  const build = validateBuildField(value, configPath);
+  if (build) config.build = build;
+  const checkCache = validateCheckCacheField(value, configPath);
+  if (checkCache) config.checkCache = checkCache;
+  const devBin = validateStringRecordField(value, "devBin", configPath);
+  if (devBin) config.devBin = devBin;
+  const output = validateOutputField(value, configPath);
+  if (output) config.output = output;
+  const workspaceScripts2 = validateScriptField(value, "workspaceScripts", configPath);
+  if (workspaceScripts2) config.workspaceScripts = workspaceScripts2;
+  const rootScripts = validateScriptField(value, "rootScripts", configPath);
+  if (rootScripts) config.rootScripts = rootScripts;
+  const selfHostedRunner = validateSelfHostedRunnerField(value, configPath);
+  if (selfHostedRunner) config.selfHostedRunner = selfHostedRunner;
+  assertResolvableCheckCacheCommands(config, configPath, baseDir);
+  return config;
+}
+async function loadConfig(baseDir) {
+  const configPath = resolveConfigPath(baseDir);
+  if (!existsSync2(configPath)) {
+    return {};
+  }
+  const importedModule = await import(pathToFileURL(configPath).href);
+  const loadedConfig = isObject(importedModule) ? importedModule["default"] : void 0;
+  return validateConfig(loadedConfig, configPath, baseDir);
+}
+async function loadRootConfig(monorepoRoot) {
+  const config = await loadConfig(monorepoRoot);
+  assertTierKeys(config, CONFIG_TIERS.root, resolveConfigPath(monorepoRoot));
+  return config;
+}
+function assertNoRetiredKeys(value, retiredKeys, configPath, prefix) {
+  for (const key of Object.keys(value)) {
+    const replacement = retiredKeys.get(key);
+    if (replacement === void 0) continue;
+    throw new UserError(
+      `Invalid nmr config at ${configPath}: \`${prefix}${key}\` was renamed to \`${prefix}${replacement}\`.`
+    );
+  }
+}
+function assertRecognizedKeys(value, recognizedKeys, configPath, prefix = "") {
+  const unrecognizedKeys = Object.keys(value).filter((key) => !recognizedKeys.includes(key));
+  if (unrecognizedKeys.length === 0) {
+    return;
+  }
+  throw new UserError(
+    `Invalid nmr config at ${configPath}: unrecognized ${unrecognizedKeys.length === 1 ? "key" : "keys"} ${formatKeyList(unrecognizedKeys, prefix)}. Recognized: ${formatKeyList(recognizedKeys, prefix)}.`
+  );
+}
+function assertTierKeys(config, tier, configPath) {
+  const unsupportedKeys = Object.keys(config).filter((key) => !tier.honoredKeys.includes(key));
+  if (unsupportedKeys.length === 0) {
+    return;
+  }
+  throw new UserError(
+    `Invalid nmr config at ${configPath}: ${tier.label} honors ${tier.honoredKeys.toSorted().join(", ")} alone, not ${unsupportedKeys.toSorted().join(", ")}. Move those keys to ${tier.elsewhere}.`
+  );
+}
+function formatKeyList(keys, prefix) {
+  return keys.toSorted().map((key) => `\`${prefix}${key}\``).join(", ");
+}
+
 // src/tiers.ts
 import { readdirSync } from "node:fs";
-import path4 from "node:path";
+import path6 from "node:path";
 
 // src/git-ignored-paths.ts
 import { spawnSync } from "node:child_process";
@@ -7646,7 +8123,7 @@ function findUntieredTestFiles(rootDir, options = {}) {
 }
 function hasTierInfix(filePath) {
   const tiers = TIER_NAMES;
-  return tiers.includes(path4.basename(filePath).split(".").at(-3) ?? "");
+  return tiers.includes(path6.basename(filePath).split(".").at(-3) ?? "");
 }
 var TEST_COLLECTION_EXCLUDE = [".git", "coverage", "dist", "node_modules"];
 var TIER_NAMES = ["unit", "tool", "localhost", "remote"];
@@ -7656,7 +8133,7 @@ function collectTestFiles(dir, relativeDir, isInTestDir, context) {
     const relativePath = relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
     if (entry.isDirectory()) {
       if (context.pruned.has(entry.name) || context.ignoredPaths.has(`${relativePath}/`)) continue;
-      collectTestFiles(path4.join(dir, entry.name), relativePath, isInTestDir || entry.name === TEST_DIR, context);
+      collectTestFiles(path6.join(dir, entry.name), relativePath, isInTestDir || entry.name === TEST_DIR, context);
     } else if (isInTestDir !== context.misplaced && TEST_FILE_PATTERN.test(entry.name) && !context.ignoredPaths.has(relativePath)) {
       context.foundPaths.push(relativePath);
     }
@@ -7904,6 +8381,32 @@ var default_default = defineRdyKit({
           fix: 'Remove "ws" script entries and replace any "pnpm run ws" invocations with nmr in each packages/*/package.json'
         }
       ]
+    },
+    {
+      name: "self-hosted runner",
+      checks: [
+        {
+          name: "GitHub reports the repo's runner settings",
+          severity: "recommend",
+          quiet: true,
+          skip: () => describeSelfHostedRunnerSkip(),
+          check: () => true,
+          checks: [
+            {
+              name: "CI_RUNS_ON selects the self-hosted runner",
+              severity: "recommend",
+              skip: () => describeRecommendationSkip(),
+              check: () => recommendSelfHostedRunner()
+            },
+            {
+              name: "the self-hosted runner can run CI",
+              severity: "warn",
+              skip: () => describeReadinessSkip(),
+              check: () => selfHostedRunnerCanRunCi()
+            }
+          ]
+        }
+      ]
     }
   ]
 });
@@ -7945,7 +8448,7 @@ var CATALOGUE_CHECKED_FIELDS = ["dependencies", "devDependencies", "optionalDepe
 var PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:/i;
 function allWorkspacePackagesCanBuild() {
   const packagesDir = join(process.cwd(), "packages");
-  if (!existsSync2(packagesDir)) return true;
+  if (!existsSync3(packagesDir)) return true;
   const entries = readdirSync2(packagesDir, { withFileTypes: true });
   const failingPackages = [];
   for (const entry of entries) {
@@ -7954,7 +8457,7 @@ function allWorkspacePackagesCanBuild() {
     const content = readFile(pkgPath);
     if (!content) continue;
     const hasBuildOverride = /"build"\s*:/.test(content);
-    const hasDefaultBuildInputs = fileExists(`packages/${entry.name}/tsconfig.json`) && existsSync2(join(packagesDir, entry.name, "src"));
+    const hasDefaultBuildInputs = fileExists(`packages/${entry.name}/tsconfig.json`) && existsSync3(join(packagesDir, entry.name, "src"));
     if (!hasBuildOverride && !hasDefaultBuildInputs) {
       failingPackages.push(entry.name);
     }
@@ -8126,7 +8629,7 @@ function everyViteConfigHasVitestConfig() {
   return { ok: false, detail: formatPaths(unpairedConfigs) };
 }
 function findFiles(patterns, cwd) {
-  return globSync2(patterns, { cwd, exclude: (path5) => SCAN_EXCLUDE_DIRS.has(basename(path5)) }).map((path5) => path5.split(sep).join("/")).toSorted();
+  return globSync2(patterns, { cwd, exclude: (path7) => SCAN_EXCLUDE_DIRS.has(basename(path7)) }).map((path7) => path7.split(sep).join("/")).toSorted();
 }
 function findLiteralCataloguedSpecifiers(workspace, names) {
   const manifestPath = posix.join(workspace.dir, "package.json");
@@ -8143,7 +8646,7 @@ function findWorkspaceConfigs(workspace, pattern) {
 }
 function formatPaths(paths) {
   return `${paths.length} found:
-${paths.map((path5) => `      ${path5}`).join("\n")}`;
+${paths.map((path7) => `      ${path7}`).join("\n")}`;
 }
 function getMinVersion() {
   const pickedFields = { "version": "0.43.0" };
@@ -8188,8 +8691,8 @@ function noPnpmFieldInPackageJson(cwd = process.cwd()) {
   return { ok: false, detail: formatPaths(declaringFiles) };
 }
 function noReExportOnlyVitestConfigs(cwd = process.cwd()) {
-  const nonRootConfigs = findFiles([`**/${VITEST_CONFIG_PATTERN}`], cwd).filter((path5) => path5.includes("/"));
-  const reExports = nonRootConfigs.filter((path5) => isOwnedByReExportCheck(cwd, path5));
+  const nonRootConfigs = findFiles([`**/${VITEST_CONFIG_PATTERN}`], cwd).filter((path7) => path7.includes("/"));
+  const reExports = nonRootConfigs.filter((path7) => isOwnedByReExportCheck(cwd, path7));
   if (reExports.length === 0) return true;
   return { ok: false, detail: formatPaths(reExports) };
 }
@@ -8225,7 +8728,7 @@ function noUnguardedLefthookInstall(cwd = process.cwd()) {
 }
 function noWorkspaceRunScriptReferences() {
   const packagesDir = join(process.cwd(), "packages");
-  if (!existsSync2(packagesDir)) return true;
+  if (!existsSync3(packagesDir)) return true;
   const legacyPattern = /run-workspace-script|"pnpm\s+run\s+ws\b/;
   const entries = readdirSync2(packagesDir, { withFileTypes: true });
   const matches = [];
@@ -8368,14 +8871,290 @@ function vitestConfigBuildsOnSharedConfig() {
 function vitestRootConfigBuildsOnSharedConfig(cwd = process.cwd()) {
   return checkRootVitestConfig("vitest.root.config", "defineRootVitestConfig", cwd);
 }
+var SET_CI_RUNS_ON_COMMAND = `gh variable set CI_RUNS_ON --body '"self-hosted"'`;
+var CODE_QUALITY_WORKFLOW = "williamthorsen/.github/.github/workflows/code-quality-pnpm-workflow.yaml";
+var MIN_CODE_QUALITY_MAJOR = 8;
+var GH_TIMEOUT_MS = 15e3;
+var IMAGE_ABSENT_PROGRAM_PATTERN = /(?:^|[\s;&|(])(corepack|gh|node|npm|npx|pnpm)(?=\s|$)/gm;
+var NEVER_INSTALLED_PROGRAMS = /* @__PURE__ */ new Set(["corepack", "gh"]);
+var statusByCwd = /* @__PURE__ */ new Map();
+async function describeSelfHostedRunnerSkip(cwd = process.cwd(), readFacts) {
+  const status = await getSelfHostedRunnerStatus(cwd, readFacts);
+  return "skip" in status ? status.skip : false;
+}
+function findSelfHostedRunnerFailures(facts, cwd) {
+  const failures = [];
+  if (!facts.isPrivate) {
+    failures.push(
+      `${facts.nameWithOwner} is public: A self-hosted runner must never run code from a fork's pull request`
+    );
+  }
+  if (facts.onlineSelfHostedRunners === 0) {
+    failures.push(
+      `${facts.nameWithOwner} does not have an online runner labelled self-hosted. When williamthorsen/hq allocates the repo slots in apps/runners/config/repos.yaml, the runners have not registered yet`
+    );
+  }
+  const workflows = readWorkflows(cwd);
+  failures.push(...findCodeQualityCallerDefects(workflows), ...findImageIncompatibleSteps(workflows));
+  return failures;
+}
+async function readGitHubFacts(cwd, runGh = runGhCommand) {
+  const repo = await runGh(["repo", "view", "--json", "nameWithOwner,visibility"], cwd);
+  if (!repo.ok) return { skip: describeGhFailure(repo, "cannot resolve this repo on GitHub") };
+  const repoView = parseJson(repo.stdout);
+  if (!isRecord(repoView) || typeof repoView["nameWithOwner"] !== "string") {
+    return { skip: "gh repo view returned an unexpected shape" };
+  }
+  const nameWithOwner = repoView["nameWithOwner"];
+  const runners = await runGh(["api", `repos/${nameWithOwner}/actions/runners?per_page=100`], cwd);
+  if (!runners.ok) {
+    return {
+      skip: describeGhFailure(runners, `cannot list the runners of ${nameWithOwner}, which needs admin access`)
+    };
+  }
+  const repoVariable = await runGh(["api", `repos/${nameWithOwner}/actions/variables/CI_RUNS_ON`], cwd);
+  if (!repoVariable.ok && !isNotFound(repoVariable)) {
+    return { skip: describeGhFailure(repoVariable, `cannot read the CI_RUNS_ON variable of ${nameWithOwner}`) };
+  }
+  const repoValue = repoVariable.ok ? readVariableValue(parseJson(repoVariable.stdout)) : void 0;
+  return {
+    nameWithOwner,
+    isPrivate: repoView["visibility"] !== "PUBLIC",
+    onlineSelfHostedRunners: countOnlineSelfHostedRunners(parseJson(runners.stdout)),
+    ciRunsOn: repoValue ?? await readOrganizationValue(nameWithOwner, cwd, runGh)
+  };
+}
+function readRunnerSelection(value) {
+  if (value === void 0 || value.trim() === "") return "unset";
+  const parsed = parseJson(value);
+  if (parsed === void 0) return "invalid";
+  const labels = Array.isArray(parsed) ? parsed : [parsed];
+  return labels.includes("self-hosted") ? "self-hosted" : "other";
+}
+async function recommendSelfHostedRunner(cwd = process.cwd(), readFacts) {
+  const status = await getSelfHostedRunnerStatus(cwd, readFacts);
+  if ("skip" in status) return true;
+  const toolTests = status.toolTestFiles.length === 0 ? "The repo does not have any tool-tier tests." : `Before switching, confirm that the image provides every program that these tool-tier tests spawn: ${formatPaths(status.toolTestFiles)}`;
+  return {
+    ok: false,
+    detail: `${status.facts.nameWithOwner} can run its CI on the self-hosted runner. ${toolTests}`,
+    fix: `${SET_CI_RUNS_ON_COMMAND} --repo ${status.facts.nameWithOwner}`
+  };
+}
+async function describeRecommendationSkip(cwd = process.cwd(), readFacts) {
+  const status = await getSelfHostedRunnerStatus(cwd, readFacts);
+  if ("skip" in status) return status.skip;
+  if (status.selection !== "unset") return `CI_RUNS_ON is already set to ${status.facts.ciRunsOn ?? ""}`;
+  if (status.exempt !== void 0) return `the repo is exempt: ${status.exempt}`;
+  if (status.failures.length > 0) return `not ready: ${status.failures.join("; ")}`;
+  return false;
+}
+async function describeReadinessSkip(cwd = process.cwd(), readFacts) {
+  const status = await getSelfHostedRunnerStatus(cwd, readFacts);
+  if ("skip" in status) return status.skip;
+  if (status.selection === "unset") return "CI_RUNS_ON is unset";
+  if (status.selection === "other") return `CI_RUNS_ON selects ${status.facts.ciRunsOn ?? ""}`;
+  return false;
+}
+async function selfHostedRunnerCanRunCi(cwd = process.cwd(), readFacts) {
+  const status = await getSelfHostedRunnerStatus(cwd, readFacts);
+  if ("skip" in status) return true;
+  const { facts } = status;
+  if (status.selection === "invalid") {
+    return {
+      ok: false,
+      detail: `CI_RUNS_ON is ${facts.ciRunsOn ?? ""}, which is not JSON, so every workflow that reads it with fromJSON fails`,
+      fix: `${SET_CI_RUNS_ON_COMMAND} --repo ${facts.nameWithOwner}`
+    };
+  }
+  const problems = status.exempt === void 0 ? status.failures : [`the repo is exempt: ${status.exempt}`, ...status.failures];
+  if (problems.length === 0) return true;
+  return {
+    ok: false,
+    detail: problems.map((problem) => `      ${problem}`).join("\n"),
+    fix: `Fix each condition, or return the repo's CI to ubuntu-latest: gh variable delete CI_RUNS_ON --repo ${facts.nameWithOwner}`
+  };
+}
+function countOnlineSelfHostedRunners(response) {
+  if (!isRecord(response) || !Array.isArray(response["runners"])) return 0;
+  return response["runners"].filter(
+    (runner) => isRecord(runner) && runner["status"] === "online" && Array.isArray(runner["labels"]) && runner["labels"].some((label) => isRecord(label) && label["name"] === "self-hosted")
+  ).length;
+}
+function describeGhFailure(result, context) {
+  if (result.isMissing) return "gh is not installed";
+  if (/gh auth login|not logged in/i.test(result.stderr)) return "gh is not authenticated";
+  const firstLine = result.stderr.trim().split("\n", 1)[0] ?? "";
+  return firstLine === "" ? `gh ${context}` : `gh ${context}: ${firstLine}`;
+}
+function findCodeQualityCallerDefects(workflows) {
+  const defects = [];
+  for (const { file, jobs } of workflows) {
+    for (const [jobName, job] of jobs) {
+      const uses = job["uses"];
+      if (typeof uses !== "string" || !uses.startsWith(`${CODE_QUALITY_WORKFLOW}@`)) continue;
+      const ref = uses.slice(CODE_QUALITY_WORKFLOW.length + 1);
+      const major = /^v(\d+)(?:\.\d+){0,2}$/.exec(ref)?.[1];
+      if (major === void 0) {
+        defects.push(
+          `${file} job ${jobName} pins the code-quality workflow at ${ref}, whose release cannot be determined`
+        );
+      } else if (Number(major) < MIN_CODE_QUALITY_MAJOR) {
+        defects.push(
+          `${file} job ${jobName} pins the code-quality workflow at ${ref}, which predates CI_RUNS_ON; pin v${MIN_CODE_QUALITY_MAJOR} or later`
+        );
+      }
+      const inputs = job["with"];
+      if (isRecord(inputs) && inputs["runs-on"] !== void 0) {
+        defects.push(`${file} job ${jobName} passes runs-on, which overrides CI_RUNS_ON`);
+      }
+    }
+  }
+  return defects;
+}
+function findImageIncompatibleSteps(workflows) {
+  const defects = [];
+  for (const { file, jobs } of workflows) {
+    for (const [jobName, job] of jobs) {
+      if (!/\bvars\.CI_RUNS_ON\b/.test(JSON.stringify(job["runs-on"] ?? ""))) continue;
+      const steps = job["steps"];
+      if (!Array.isArray(steps)) continue;
+      const installed = /* @__PURE__ */ new Set();
+      for (const [index, step] of steps.entries()) {
+        if (!isRecord(step)) continue;
+        const stepLabel = typeof step["name"] === "string" ? step["name"] : `step ${index + 1}`;
+        const run = step["run"];
+        if (typeof run === "string") {
+          const missing = findUninstalledPrograms(run, installed);
+          if (missing.length > 0) {
+            defects.push(
+              `${file} job ${jobName}, ${stepLabel}: runs ${missing.join(", ")}, which the runner image lacks at that step`
+            );
+          }
+        }
+        for (const program of readInstalledPrograms(step)) installed.add(program);
+      }
+    }
+  }
+  return defects;
+}
+function findUninstalledPrograms(run, installed) {
+  const programs = /* @__PURE__ */ new Set();
+  for (const match of run.matchAll(IMAGE_ABSENT_PROGRAM_PATTERN)) {
+    const program = match[1];
+    if (program === void 0) continue;
+    const provider = program === "npm" || program === "npx" ? "node" : program;
+    if (NEVER_INSTALLED_PROGRAMS.has(program) || !installed.has(provider)) programs.add(program);
+  }
+  return [...programs].toSorted();
+}
+function getSelfHostedRunnerStatus(cwd, readFacts) {
+  if (readFacts !== void 0) return gatherSelfHostedRunnerStatus(cwd, readFacts);
+  let status = statusByCwd.get(cwd);
+  if (status === void 0) {
+    status = gatherSelfHostedRunnerStatus(cwd, (dir) => readGitHubFacts(dir));
+    statusByCwd.set(cwd, status);
+  }
+  return status;
+}
+async function gatherSelfHostedRunnerStatus(cwd, readFacts) {
+  const facts = await readFacts(cwd);
+  if ("skip" in facts) return facts;
+  const failures = findSelfHostedRunnerFailures(facts, cwd);
+  let exempt;
+  try {
+    exempt = (await loadRootConfig(cwd)).selfHostedRunner?.exempt;
+  } catch (error) {
+    failures.push(`the nmr config cannot be loaded: ${describeError(error)}`);
+  }
+  return {
+    facts,
+    selection: readRunnerSelection(facts.ciRunsOn),
+    failures,
+    exempt,
+    toolTestFiles: findTestFiles(cwd).filter(
+      (file) => file.endsWith(".tool.test.ts") || file.endsWith(".tool.test.tsx")
+    )
+  };
+}
+function isNotFound(result) {
+  return /HTTP 404/.test(result.stderr);
+}
+function parseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return void 0;
+  }
+}
+function readInstalledPrograms(step) {
+  const uses = step["uses"];
+  if (typeof uses !== "string") return [];
+  const action = uses.split("@", 1)[0];
+  if (action === "actions/setup-node") return ["node"];
+  if (action === "pnpm/action-setup") return ["pnpm"];
+  if (action !== "pnpm/setup") return [];
+  const inputs = isRecord(step["with"]) ? step["with"] : {};
+  const runtime = inputs["runtime"];
+  const installsNode = typeof runtime === "string" ? /^node\b/.test(runtime) : String(inputs["node-version-file"]) !== "false";
+  return installsNode ? ["pnpm", "node"] : ["pnpm"];
+}
+async function readOrganizationValue(nameWithOwner, cwd, runGh) {
+  const result = await runGh(["api", `repos/${nameWithOwner}/actions/organization-variables`], cwd);
+  if (!result.ok) return void 0;
+  const response = parseJson(result.stdout);
+  if (!isRecord(response) || !Array.isArray(response["variables"])) return void 0;
+  const variable = response["variables"].find(
+    (entry) => isRecord(entry) && entry["name"] === "CI_RUNS_ON"
+  );
+  return readVariableValue(variable);
+}
+function readVariableValue(variable) {
+  return isRecord(variable) && typeof variable["value"] === "string" ? variable["value"] : void 0;
+}
+function readWorkflows(cwd) {
+  const dir = join(cwd, ".github", "workflows");
+  if (!existsSync3(dir)) return [];
+  const workflows = [];
+  const files = readdirSync2(dir).filter((name) => /\.ya?ml$/.test(name)).toSorted();
+  for (const file of files) {
+    let document;
+    try {
+      document = (0, import_yaml2.parse)(readFile(join(dir, file)) ?? "");
+    } catch {
+      continue;
+    }
+    if (!isRecord(document) || !isRecord(document["jobs"])) continue;
+    const jobs = Object.entries(document["jobs"]).filter(
+      (entry) => isRecord(entry[1])
+    );
+    workflows.push({ file: posix.join(".github/workflows", file), jobs });
+  }
+  return workflows;
+}
+function runGhCommand(args, cwd) {
+  return new Promise((resolve) => {
+    void execFile("gh", args, { cwd, timeout: GH_TIMEOUT_MS }, (error, stdout, stderr) => {
+      if (error === null) {
+        resolve({ ok: true, stdout });
+        return;
+      }
+      resolve({ ok: false, isMissing: "code" in error && error.code === "ENOENT", stderr: stderr || error.message });
+    });
+  });
+}
 export {
   cataloguedDependenciesUseCatalog,
   default_default as default,
+  describeReadinessSkip,
+  describeRecommendationSkip,
+  describeSelfHostedRunnerSkip,
   everyBinTargetIsACommittedWrapper,
   everyBinWrapperTargetIsCoveredByFiles,
   everyTestFileNamesItsTier,
   everyTestFileSitsUnderTestsDir,
   everyViteConfigHasVitestConfig,
+  findSelfHostedRunnerFailures,
   hasSupportedEslintVersion,
   hasSupportedStrictLintVersion,
   noPnpmFieldInPackageJson,
@@ -8384,6 +9163,10 @@ export {
   noUnguardedLefthookInstall,
   noWorkspacesFieldInPackageJson,
   prettierConfigBuildsOnSharedConfig,
+  readGitHubFacts,
+  readRunnerSelection,
+  recommendSelfHostedRunner,
+  selfHostedRunnerCanRunCi,
   tazeConfigAvoidsClobberedOptions,
   tazeConfigBuildsOnSharedConfig,
   testSuiteGatesTestFileConventions,

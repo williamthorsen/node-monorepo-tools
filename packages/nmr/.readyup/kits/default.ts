@@ -10,6 +10,7 @@
  * A check asserting the absence of something declares `quiet`: A conformant repo is already in the passing
  * state, so only a failure is worth a line.
  */
+import { execFile } from 'node:child_process';
 import { existsSync, globSync, readdirSync } from 'node:fs';
 import { basename, dirname, join, posix, sep } from 'node:path';
 
@@ -30,6 +31,7 @@ import {
 } from 'readyup/check-utils';
 import { parse } from 'yaml';
 
+import { loadRootConfig } from '../../src/config.ts';
 import { getDefaultRootScripts } from '../../src/resolve-scripts.ts';
 import { findMisplacedTestFiles, findTestFiles, findUntieredTestFiles, TIER_NAMES } from '../../src/tiers.ts';
 
@@ -272,6 +274,32 @@ export default defineRdyKit({
           quiet: true,
           check: noWorkspaceRunScriptReferences,
           fix: 'Remove "ws" script entries and replace any "pnpm run ws" invocations with nmr in each packages/*/package.json',
+        },
+      ],
+    },
+    {
+      name: 'self-hosted runner',
+      checks: [
+        {
+          name: "GitHub reports the repo's runner settings",
+          severity: 'recommend',
+          quiet: true,
+          skip: () => describeSelfHostedRunnerSkip(),
+          check: () => true,
+          checks: [
+            {
+              name: 'CI_RUNS_ON selects the self-hosted runner',
+              severity: 'recommend',
+              skip: () => describeRecommendationSkip(),
+              check: () => recommendSelfHostedRunner(),
+            },
+            {
+              name: 'the self-hosted runner can run CI',
+              severity: 'warn',
+              skip: () => describeReadinessSkip(),
+              check: () => selfHostedRunnerCanRunCi(),
+            },
+          ],
         },
       ],
     },
@@ -1245,6 +1273,469 @@ export function vitestConfigBuildsOnSharedConfig(): boolean | CheckOutcome {
  */
 export function vitestRootConfigBuildsOnSharedConfig(cwd: string = process.cwd()): boolean | CheckOutcome {
   return checkRootVitestConfig('vitest.root.config', 'defineRootVitestConfig', cwd);
+}
+
+// -- Self-hosted runner --
+
+/** A repo's runner-related state on GitHub, as `gh` reports it. */
+export interface GitHubFacts {
+  nameWithOwner: string;
+  isPrivate: boolean;
+  onlineSelfHostedRunners: number;
+  /** The raw `CI_RUNS_ON` value: the repository's own, else the organization's, else undefined. */
+  ciRunsOn: string | undefined;
+}
+
+/** The outcome of one `gh` invocation. */
+export type GhResult = { ok: true; stdout: string } | { ok: false; isMissing: boolean; stderr: string };
+
+export type RunGh = (args: string[], cwd: string) => Promise<GhResult>;
+
+export type ReadGitHubFacts = (cwd: string) => Promise<GitHubFacts | { skip: string }>;
+
+/** How a repo's `CI_RUNS_ON` value selects a runner. */
+export type RunnerSelection = 'unset' | 'self-hosted' | 'other' | 'invalid';
+
+/** Everything that the self-hosted runner checks report on, gathered once per repo. */
+export interface SelfHostedRunnerStatus {
+  facts: GitHubFacts;
+  selection: RunnerSelection;
+  /** One line per condition that fails, empty when the repo can run its CI on the runner. */
+  failures: string[];
+  exempt: string | undefined;
+  toolTestFiles: string[];
+}
+
+/** The command that switches a repo to the self-hosted runner. The value is JSON, so its quotes are part of it. */
+const SET_CI_RUNS_ON_COMMAND = `gh variable set CI_RUNS_ON --body '"self-hosted"'`;
+
+const CODE_QUALITY_WORKFLOW = 'williamthorsen/.github/.github/workflows/code-quality-pnpm-workflow.yaml';
+
+/** The first major release of the code-quality workflow that reads `CI_RUNS_ON`. */
+const MIN_CODE_QUALITY_MAJOR = 8;
+
+const GH_TIMEOUT_MS = 15_000;
+
+/**
+ * Matches an invocation of a program that the runner image lacks, at the start of a command or after a shell
+ * separator. `npm` and `npx` arrive with Node.js.
+ */
+const IMAGE_ABSENT_PROGRAM_PATTERN = /(?:^|[\s;&|(])(corepack|gh|node|npm|npx|pnpm)(?=\s|$)/gm;
+
+/**
+ * Programs that no setup step makes usable on the runner image. `gh` is absent from the image until
+ * williamthorsen/hq#31 adds it, and corepack downloads a package manager that `pnpm/setup` already provides.
+ */
+const NEVER_INSTALLED_PROGRAMS = new Set(['corepack', 'gh']);
+
+/** The status gathered through the real `gh`, per working directory, so that the checklist's checks share one set of calls. */
+const statusByCwd = new Map<string, Promise<SelfHostedRunnerStatus | { skip: string }>>();
+
+/**
+ * Reports why the self-hosted runner checklist cannot run, or `false` when GitHub reports the repo's state.
+ *
+ * @internal - Exported only to enable testing
+ */
+export async function describeSelfHostedRunnerSkip(
+  cwd: string = process.cwd(),
+  readFacts?: ReadGitHubFacts,
+): Promise<SkipResult> {
+  const status = await getSelfHostedRunnerStatus(cwd, readFacts);
+  return 'skip' in status ? status.skip : false;
+}
+
+/**
+ * Lists the conditions under which a repo's CI fails on the self-hosted runner: GitHub's settings, the code-quality
+ * caller, and each job that `CI_RUNS_ON` sends to the runner.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function findSelfHostedRunnerFailures(facts: GitHubFacts, cwd: string): string[] {
+  const failures: string[] = [];
+  if (!facts.isPrivate) {
+    failures.push(
+      `${facts.nameWithOwner} is public: A self-hosted runner must never run code from a fork's pull request`,
+    );
+  }
+  if (facts.onlineSelfHostedRunners === 0) {
+    failures.push(
+      `${facts.nameWithOwner} does not have an online runner labelled self-hosted. When williamthorsen/hq allocates the repo ` +
+        'slots in apps/runners/config/repos.yaml, the runners have not registered yet',
+    );
+  }
+
+  const workflows = readWorkflows(cwd);
+  failures.push(...findCodeQualityCallerDefects(workflows), ...findImageIncompatibleSteps(workflows));
+  return failures;
+}
+
+/**
+ * Reads the repo's runner state through `gh`, returning a skip reason when `gh` cannot report it.
+ *
+ * @internal - Exported only to enable testing
+ */
+export async function readGitHubFacts(
+  cwd: string,
+  runGh: RunGh = runGhCommand,
+): Promise<GitHubFacts | { skip: string }> {
+  const repo = await runGh(['repo', 'view', '--json', 'nameWithOwner,visibility'], cwd);
+  if (!repo.ok) return { skip: describeGhFailure(repo, 'cannot resolve this repo on GitHub') };
+
+  const repoView: unknown = parseJson(repo.stdout);
+  if (!isRecord(repoView) || typeof repoView['nameWithOwner'] !== 'string') {
+    return { skip: 'gh repo view returned an unexpected shape' };
+  }
+  const nameWithOwner = repoView['nameWithOwner'];
+
+  const runners = await runGh(['api', `repos/${nameWithOwner}/actions/runners?per_page=100`], cwd);
+  if (!runners.ok) {
+    return {
+      skip: describeGhFailure(runners, `cannot list the runners of ${nameWithOwner}, which needs admin access`),
+    };
+  }
+
+  const repoVariable = await runGh(['api', `repos/${nameWithOwner}/actions/variables/CI_RUNS_ON`], cwd);
+  if (!repoVariable.ok && !isNotFound(repoVariable)) {
+    return { skip: describeGhFailure(repoVariable, `cannot read the CI_RUNS_ON variable of ${nameWithOwner}`) };
+  }
+  const repoValue = repoVariable.ok ? readVariableValue(parseJson(repoVariable.stdout)) : undefined;
+
+  return {
+    nameWithOwner,
+    isPrivate: repoView['visibility'] !== 'PUBLIC',
+    onlineSelfHostedRunners: countOnlineSelfHostedRunners(parseJson(runners.stdout)),
+    ciRunsOn: repoValue ?? (await readOrganizationValue(nameWithOwner, cwd, runGh)),
+  };
+}
+
+/**
+ * Classifies a `CI_RUNS_ON` value by the runner that it selects. The shared workflows read it with `fromJSON`, so
+ * a value that is not JSON fails them.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function readRunnerSelection(value: string | undefined): RunnerSelection {
+  if (value === undefined || value.trim() === '') return 'unset';
+
+  const parsed = parseJson(value);
+  if (parsed === undefined) return 'invalid';
+  const labels = Array.isArray(parsed) ? parsed : [parsed];
+  return labels.includes('self-hosted') ? 'self-hosted' : 'other';
+}
+
+/**
+ * Recommends switching a repo whose CI can run on the self-hosted runner and that has not switched.
+ *
+ * @internal - Exported only to enable testing
+ */
+export async function recommendSelfHostedRunner(
+  cwd: string = process.cwd(),
+  readFacts?: ReadGitHubFacts,
+): Promise<boolean | CheckOutcome> {
+  const status = await getSelfHostedRunnerStatus(cwd, readFacts);
+  if ('skip' in status) return true;
+
+  const toolTests =
+    status.toolTestFiles.length === 0
+      ? 'The repo does not have any tool-tier tests.'
+      : `Before switching, confirm that the image provides every program that these tool-tier tests spawn: ${formatPaths(status.toolTestFiles)}`;
+  return {
+    ok: false,
+    detail: `${status.facts.nameWithOwner} can run its CI on the self-hosted runner. ${toolTests}`,
+    fix: `${SET_CI_RUNS_ON_COMMAND} --repo ${status.facts.nameWithOwner}`,
+  };
+}
+
+/**
+ * Reports why the switch to the self-hosted runner is not recommended, or `false` when it is.
+ *
+ * @internal - Exported only to enable testing
+ */
+export async function describeRecommendationSkip(
+  cwd: string = process.cwd(),
+  readFacts?: ReadGitHubFacts,
+): Promise<SkipResult> {
+  const status = await getSelfHostedRunnerStatus(cwd, readFacts);
+  if ('skip' in status) return status.skip;
+  if (status.selection !== 'unset') return `CI_RUNS_ON is already set to ${status.facts.ciRunsOn ?? ''}`;
+  if (status.exempt !== undefined) return `the repo is exempt: ${status.exempt}`;
+  if (status.failures.length > 0) return `not ready: ${status.failures.join('; ')}`;
+  return false;
+}
+
+/**
+ * Reports why a set `CI_RUNS_ON` cannot break the repo's CI, or `false` when it can.
+ *
+ * @internal - Exported only to enable testing
+ */
+export async function describeReadinessSkip(
+  cwd: string = process.cwd(),
+  readFacts?: ReadGitHubFacts,
+): Promise<SkipResult> {
+  const status = await getSelfHostedRunnerStatus(cwd, readFacts);
+  if ('skip' in status) return status.skip;
+  if (status.selection === 'unset') return 'CI_RUNS_ON is unset';
+  if (status.selection === 'other') return `CI_RUNS_ON selects ${status.facts.ciRunsOn ?? ''}`;
+  return false;
+}
+
+/**
+ * Checks that a repo whose `CI_RUNS_ON` selects the self-hosted runner can run its CI there.
+ *
+ * @internal - Exported only to enable testing
+ */
+export async function selfHostedRunnerCanRunCi(
+  cwd: string = process.cwd(),
+  readFacts?: ReadGitHubFacts,
+): Promise<boolean | CheckOutcome> {
+  const status = await getSelfHostedRunnerStatus(cwd, readFacts);
+  if ('skip' in status) return true;
+
+  const { facts } = status;
+  if (status.selection === 'invalid') {
+    return {
+      ok: false,
+      detail: `CI_RUNS_ON is ${facts.ciRunsOn ?? ''}, which is not JSON, so every workflow that reads it with fromJSON fails`,
+      fix: `${SET_CI_RUNS_ON_COMMAND} --repo ${facts.nameWithOwner}`,
+    };
+  }
+
+  const problems =
+    status.exempt === undefined ? status.failures : [`the repo is exempt: ${status.exempt}`, ...status.failures];
+  if (problems.length === 0) return true;
+  return {
+    ok: false,
+    detail: problems.map((problem) => `      ${problem}`).join('\n'),
+    fix: `Fix each condition, or return the repo's CI to ubuntu-latest: gh variable delete CI_RUNS_ON --repo ${facts.nameWithOwner}`,
+  };
+}
+
+/** Counts the runners that are online and labelled `self-hosted` in an `actions/runners` response. */
+function countOnlineSelfHostedRunners(response: unknown): number {
+  if (!isRecord(response) || !Array.isArray(response['runners'])) return 0;
+  return response['runners'].filter(
+    (runner: unknown) =>
+      isRecord(runner) &&
+      runner['status'] === 'online' &&
+      Array.isArray(runner['labels']) &&
+      runner['labels'].some((label: unknown) => isRecord(label) && label['name'] === 'self-hosted'),
+  ).length;
+}
+
+/** Composes a skip reason from a failed `gh` invocation. */
+function describeGhFailure(result: Extract<GhResult, { ok: false }>, context: string): string {
+  if (result.isMissing) return 'gh is not installed';
+  if (/gh auth login|not logged in/i.test(result.stderr)) return 'gh is not authenticated';
+  const firstLine = result.stderr.trim().split('\n', 1)[0] ?? '';
+  return firstLine === '' ? `gh ${context}` : `gh ${context}: ${firstLine}`;
+}
+
+/** Lists the code-quality callers that do not let `CI_RUNS_ON` choose their runner. */
+function findCodeQualityCallerDefects(workflows: Workflow[]): string[] {
+  const defects: string[] = [];
+  for (const { file, jobs } of workflows) {
+    for (const [jobName, job] of jobs) {
+      const uses = job['uses'];
+      if (typeof uses !== 'string' || !uses.startsWith(`${CODE_QUALITY_WORKFLOW}@`)) continue;
+
+      const ref = uses.slice(CODE_QUALITY_WORKFLOW.length + 1);
+      const major = /^v(\d+)(?:\.\d+){0,2}$/.exec(ref)?.[1];
+      if (major === undefined) {
+        defects.push(
+          `${file} job ${jobName} pins the code-quality workflow at ${ref}, whose release cannot be determined`,
+        );
+      } else if (Number(major) < MIN_CODE_QUALITY_MAJOR) {
+        defects.push(
+          `${file} job ${jobName} pins the code-quality workflow at ${ref}, which predates CI_RUNS_ON; pin v${MIN_CODE_QUALITY_MAJOR} or later`,
+        );
+      }
+      const inputs = job['with'];
+      if (isRecord(inputs) && inputs['runs-on'] !== undefined) {
+        defects.push(`${file} job ${jobName} passes runs-on, which overrides CI_RUNS_ON`);
+      }
+    }
+  }
+  return defects;
+}
+
+/**
+ * Lists the steps that invoke a program before a step installs it, in each job whose runner `CI_RUNS_ON` selects.
+ * The runner image provides git and jq, but not Node.js, pnpm, corepack, or gh.
+ */
+function findImageIncompatibleSteps(workflows: Workflow[]): string[] {
+  const defects: string[] = [];
+  for (const { file, jobs } of workflows) {
+    for (const [jobName, job] of jobs) {
+      if (!/\bvars\.CI_RUNS_ON\b/.test(JSON.stringify(job['runs-on'] ?? ''))) continue;
+      const steps = job['steps'];
+      if (!Array.isArray(steps)) continue;
+
+      const installed = new Set<string>();
+      for (const [index, step] of steps.entries()) {
+        if (!isRecord(step)) continue;
+        const stepLabel = typeof step['name'] === 'string' ? step['name'] : `step ${index + 1}`;
+        const run = step['run'];
+        if (typeof run === 'string') {
+          const missing = findUninstalledPrograms(run, installed);
+          if (missing.length > 0) {
+            defects.push(
+              `${file} job ${jobName}, ${stepLabel}: runs ${missing.join(', ')}, which the runner image lacks at that step`,
+            );
+          }
+        }
+        for (const program of readInstalledPrograms(step)) installed.add(program);
+      }
+    }
+  }
+  return defects;
+}
+
+/** Returns the programs that a `run` script invokes and that are not installed yet, sorted and without repeats. */
+function findUninstalledPrograms(run: string, installed: ReadonlySet<string>): string[] {
+  const programs = new Set<string>();
+  for (const match of run.matchAll(IMAGE_ABSENT_PROGRAM_PATTERN)) {
+    const program = match[1];
+    if (program === undefined) continue;
+    const provider = program === 'npm' || program === 'npx' ? 'node' : program;
+    if (NEVER_INSTALLED_PROGRAMS.has(program) || !installed.has(provider)) programs.add(program);
+  }
+  return [...programs].toSorted();
+}
+
+/** Gathers the repo's runner status once per working directory, or for each call when `readFacts` is supplied. */
+function getSelfHostedRunnerStatus(
+  cwd: string,
+  readFacts: ReadGitHubFacts | undefined,
+): Promise<SelfHostedRunnerStatus | { skip: string }> {
+  if (readFacts !== undefined) return gatherSelfHostedRunnerStatus(cwd, readFacts);
+
+  let status = statusByCwd.get(cwd);
+  if (status === undefined) {
+    status = gatherSelfHostedRunnerStatus(cwd, (dir) => readGitHubFacts(dir));
+    statusByCwd.set(cwd, status);
+  }
+  return status;
+}
+
+/** Gathers the facts, the failing conditions, the exemption, and the tool-tier tests. */
+async function gatherSelfHostedRunnerStatus(
+  cwd: string,
+  readFacts: ReadGitHubFacts,
+): Promise<SelfHostedRunnerStatus | { skip: string }> {
+  const facts = await readFacts(cwd);
+  if ('skip' in facts) return facts;
+
+  const failures = findSelfHostedRunnerFailures(facts, cwd);
+  let exempt: string | undefined;
+  try {
+    exempt = (await loadRootConfig(cwd)).selfHostedRunner?.exempt;
+  } catch (error) {
+    failures.push(`the nmr config cannot be loaded: ${describeError(error)}`);
+  }
+
+  return {
+    facts,
+    selection: readRunnerSelection(facts.ciRunsOn),
+    failures,
+    exempt,
+    toolTestFiles: findTestFiles(cwd).filter(
+      (file) => file.endsWith('.tool.test.ts') || file.endsWith('.tool.test.tsx'),
+    ),
+  };
+}
+
+/** Reports whether a failed `gh api` call received a 404. */
+function isNotFound(result: Extract<GhResult, { ok: false }>): boolean {
+  return /HTTP 404/.test(result.stderr);
+}
+
+/** Parses JSON, returning undefined when the text is not JSON. */
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Returns the programs that a step installs on the runner image. */
+function readInstalledPrograms(step: Record<string, unknown>): string[] {
+  const uses = step['uses'];
+  if (typeof uses !== 'string') return [];
+
+  const action = uses.split('@', 1)[0];
+  if (action === 'actions/setup-node') return ['node'];
+  if (action === 'pnpm/action-setup') return ['pnpm'];
+  if (action !== 'pnpm/setup') return [];
+
+  // `pnpm/setup` installs Node.js unless `runtime` names another runtime or version-file detection is turned off.
+  const inputs = isRecord(step['with']) ? step['with'] : {};
+  const runtime = inputs['runtime'];
+  const installsNode =
+    typeof runtime === 'string' ? /^node\b/.test(runtime) : String(inputs['node-version-file']) !== 'false';
+  return installsNode ? ['pnpm', 'node'] : ['pnpm'];
+}
+
+/** Returns the organization's `CI_RUNS_ON` value visible to the repo, or undefined when it has none. */
+async function readOrganizationValue(nameWithOwner: string, cwd: string, runGh: RunGh): Promise<string | undefined> {
+  const result = await runGh(['api', `repos/${nameWithOwner}/actions/organization-variables`], cwd);
+  if (!result.ok) return undefined;
+
+  const response = parseJson(result.stdout);
+  if (!isRecord(response) || !Array.isArray(response['variables'])) return undefined;
+  const variable: unknown = response['variables'].find(
+    (entry: unknown) => isRecord(entry) && entry['name'] === 'CI_RUNS_ON',
+  );
+  return readVariableValue(variable);
+}
+
+/** Returns the `value` of a variable from the GitHub API. */
+function readVariableValue(variable: unknown): string | undefined {
+  return isRecord(variable) && typeof variable['value'] === 'string' ? variable['value'] : undefined;
+}
+
+/** A workflow file's name and its jobs. */
+interface Workflow {
+  file: string;
+  jobs: Array<[string, Record<string, unknown>]>;
+}
+
+/** Reads every workflow under `.github/workflows`, skipping a file that does not parse. */
+function readWorkflows(cwd: string): Workflow[] {
+  const dir = join(cwd, '.github', 'workflows');
+  if (!existsSync(dir)) return [];
+
+  const workflows: Workflow[] = [];
+  const files = readdirSync(dir)
+    .filter((name) => /\.ya?ml$/.test(name))
+    .toSorted();
+  for (const file of files) {
+    let document: unknown;
+    try {
+      document = parse(readFile(join(dir, file)) ?? '');
+    } catch {
+      continue;
+    }
+    if (!isRecord(document) || !isRecord(document['jobs'])) continue;
+    const jobs = Object.entries(document['jobs']).filter((entry): entry is [string, Record<string, unknown>] =>
+      isRecord(entry[1]),
+    );
+    workflows.push({ file: posix.join('.github/workflows', file), jobs });
+  }
+  return workflows;
+}
+
+/** Runs `gh` without a shell, capturing its output. */
+function runGhCommand(args: string[], cwd: string): Promise<GhResult> {
+  return new Promise((resolve) => {
+    void execFile('gh', args, { cwd, timeout: GH_TIMEOUT_MS }, (error, stdout, stderr) => {
+      if (error === null) {
+        resolve({ ok: true, stdout });
+        return;
+      }
+      resolve({ ok: false, isMissing: 'code' in error && error.code === 'ENOENT', stderr: stderr || error.message });
+    });
+  });
 }
 
 // endregion | Helpers
