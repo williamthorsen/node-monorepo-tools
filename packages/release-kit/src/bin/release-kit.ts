@@ -5,7 +5,7 @@
 // fall-through.
 /* eslint unicorn/prefer-else-if: "off" */
 
-import { parseArgsOrExit, readPackageVersion, reportError } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit, reportError, resolveSelfVersion } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { commitCommand } from '../commitCommand.ts';
@@ -27,7 +27,7 @@ import { syncLabelsCommand } from '../sync-labels/syncCommand.ts';
 import { tagCommand } from '../tagCommand.ts';
 import { validateOverridesCommand } from '../validateOverridesCommand.ts';
 
-const VERSION = readPackageVersion(import.meta.url);
+const VERSION = resolveSelfVersion(import.meta.url);
 
 /** Prints the top-level usage text. */
 function showUsage(): void {

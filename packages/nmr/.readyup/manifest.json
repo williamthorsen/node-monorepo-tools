@@ -5,6 +5,7 @@
       "bundledDependencies": {
         "@williamthorsen/toolbelt.errors": "0.8.3",
         "@williamthorsen/toolbelt.filesystem": "0.9.3",
+        "@williamthorsen/toolbelt.packaging": "0.6.3",
         "@williamthorsen/toolbelt.terminal": "0.2.1",
         "ansi-regex": "6.4.0",
         "ansi-styles": "6.2.3",
@@ -30,11 +31,6 @@
           "path": "../../nmr-core/dist/esm/cache-store.js"
         },
         {
-          "hash": "a5f44396",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/findPackageRoot.js"
-        },
-        {
           "hash": "54384dca",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/gitOutputLimit.js"
@@ -55,19 +51,19 @@
           "path": "../../nmr-core/dist/esm/helpers/workspace-patterns.js"
         },
         {
-          "hash": "1467293d",
+          "hash": "9cb6cf74",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/index.js"
+        },
+        {
+          "hash": "9ac49001",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/packaging.js"
         },
         {
           "hash": "2507870d",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/parseArgs.js"
-        },
-        {
-          "hash": "a7efc38f",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/readPackageVersion.js"
         },
         {
           "hash": "14547f78",

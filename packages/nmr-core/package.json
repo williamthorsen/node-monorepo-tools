@@ -44,6 +44,7 @@
   "dependencies": {
     "@williamthorsen/toolbelt.errors": "catalog:",
     "@williamthorsen/toolbelt.filesystem": "catalog:",
+    "@williamthorsen/toolbelt.packaging": "catalog:",
     "@williamthorsen/toolbelt.terminal": "catalog:",
     "diff": "9.0.0",
     "yaml": "catalog:"

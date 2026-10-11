@@ -5,8 +5,8 @@ import {
   describeInvalidOutputStyle,
   formatGlyphLine,
   type OutputStyle,
-  readPackageVersion,
   reportError,
+  resolveSelfVersion,
   STATUS_GLYPHS,
   type StreamStyles,
 } from '@williamthorsen/nmr-core';
@@ -79,7 +79,7 @@ import {
 import { type NoOpReason, type Verdict, type VerdictOutcome, writeVerdict } from './verdict.ts';
 import { readWorkspacePackageNames, resolveWorkspace } from './workspace.ts';
 
-const VERSION = readPackageVersion(import.meta.url);
+const VERSION = resolveSelfVersion(import.meta.url);
 
 /** The consequence of a crossing, which every origin's line reports before naming its remedy. */
 const CROSSING_CONSEQUENCE = "so nmr handles the nested run's output as a tool's.";
