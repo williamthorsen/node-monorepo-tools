@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
@@ -8,6 +7,7 @@ import { afterEach, assert, describe, expect, it as baseIt, vi } from 'vitest';
 import { type FormatTargets, resolveFormatTargets } from '../fmt.ts';
 import { addSubmodule } from '../test-utils/addSubmodule.ts';
 import { denyAccess, isPrivilegedProcess } from '../test-utils/denyAccess.ts';
+import { runGitOrThrow } from '../test-utils/runGitOrThrow.ts';
 
 /**
  * Tracked fixture files. `packages/a` contains both kinds of ignore file, so one repository exercises
@@ -215,14 +215,6 @@ function scaffoldRepository(files: Record<string, string>): TempTree {
   runGitOrThrow(['add', '--all'], tree.dir);
 
   return tree;
-}
-
-/** Runs git for fixture setup, throwing with git's stderr when it fails. */
-function runGitOrThrow(args: string[], cwd: string): void {
-  const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
-  if (result.status !== 0) {
-    throw new Error(`fixture setup failed: \`git ${args.join(' ')}\` -- ${result.stderr}`);
-  }
 }
 
 /** Narrows a successful result, failing the test with git's own message when resolution did not succeed. */

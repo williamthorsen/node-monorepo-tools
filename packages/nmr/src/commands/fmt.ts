@@ -120,7 +120,7 @@ export async function runFmt(argv: string[], cwd: string = process.cwd()): Promi
 
     if (excludedFiles.length > 0) {
       process.stderr.write(
-        `nmr-fmt: nothing to format; skipped ${excludedFiles.join(', ')}, which are not regular files\n`,
+        `nmr-fmt: nothing to format; skipped paths that are not regular files: ${excludedFiles.join(', ')}\n`,
       );
     }
     return 0;
