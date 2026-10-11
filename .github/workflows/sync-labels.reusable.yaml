@@ -3,12 +3,12 @@ name: 'Reusable: Sync labels'
 
 # Reusable label-sync workflow for repos consuming release-kit's `sync-labels`.
 #
-# Applies `.github/labels.yaml` to the repository's labels, deleting any label not declared by the file, then archives
-# each label that the file marks `archived: true` and unarchives each archived label that it declares without the mark.
+# Applies `.github/labels.yaml` to the repository's labels, then archives each label that the file marks
+# `archived: true` and unarchives each archived label that it declares without the mark.
 # An archived label stays on the issues and pull requests that have it.
+# A label that the file does not declare stays in place, and the run reports it as a warning.
 # Pass `dry-run: true` to compute and log the diff without applying it; the job log then contains the full set of
-# creates, edits, renames, and deletions, including deletions of labels absent from the file, and every pending
-# archive and unarchive.
+# creates, edits, and renames, every pending archive and unarchive, and every undeclared label.
 #
 # Runner: the caller's `CI_RUNS_ON` variable selects the runner of every job,
 # defaulting to `ubuntu-latest`; see "Runner selection" in the workflows README.
@@ -43,7 +43,7 @@ jobs:
           yq 'map(del(.archived))' .github/labels.yaml > "$RUNNER_TEMP/labels.engine.yaml"
           yq --output-format=json '.' .github/labels.yaml > "$RUNNER_TEMP/labels.json"
       # Pinned by commit SHA: the action's `main` swaps the vendored engine for `@endbug/github-label-sync@3`,
-      # whose delete and rename semantics differ from the ones on which `delete-other-labels: true` relies below.
+      # whose rename semantics and handling of undeclared labels differ from the ones on which this step relies.
       #
       # Engine verified for v2.3.3: vendors github-label-sync@2.3.1.
       # Dependabot maintains the trailing comment only while it contains the version alone, and rewrites it in step
@@ -53,10 +53,10 @@ jobs:
         uses: EndBug/label-sync@52074158190acb45f3077f9099fea818aa43f97a # v2.3.3
         with:
           config-file: ${{ runner.temp }}/labels.engine.yaml
-          delete-other-labels: true
+          delete-other-labels: false
           dry-run: ${{ inputs.dry-run }}
       # Runs after the engine, so that a marked label which the engine has just created exists to be archived.
-      # The engine reads archived labels like any other, so it neither recreates nor deletes a declared one.
+      # The engine reads archived labels like any other, so it does not recreate a declared one.
       - name: Reconcile archive state
         uses: actions/github-script@v9
         env:
@@ -109,5 +109,45 @@ jobs:
             }
             if (changeCount === 0) {
               core.info('Every declared label is already in its declared archive state.');
+            }
+            core.endGroup();
+      # The engine leaves a label that the file does not declare in place and omits it from its diff.
+      - name: Report undeclared labels
+        uses: actions/github-script@v9
+        env:
+          LABELS_FILE: ${{ runner.temp }}/labels.json
+        with:
+          script: |
+            const declaredLabels = JSON.parse(require('fs').readFileSync(process.env.LABELS_FILE, 'utf8'));
+            // The engine renames a label that a declared label names in `aliases`.
+            const declaredKeys = new Set(
+              declaredLabels.flatMap((label) => [label.name, ...(label.aliases ?? [])]).map((name) => name.toLowerCase()),
+            );
+            const repoLabels = await github.paginate('GET /repos/{owner}/{repo}/labels', {
+              ...context.repo,
+              per_page: 100,
+            });
+
+            core.startGroup('Undeclared labels');
+            const undeclaredLabels = repoLabels.filter((label) => !declaredKeys.has(label.name.toLowerCase()));
+            // GitHub keeps at most 10 warning annotations per step and drops the rest without notice,
+            // so past that limit the last annotation states the total and the rest are logged alone.
+            const annotationLimit = 10;
+            const isOverLimit = undeclaredLabels.length > annotationLimit;
+            for (const [index, label] of undeclaredLabels.entries()) {
+              const message = `${label.name} is not declared by .github/labels.yaml; declare it, or delete it from the repository`;
+              if (isOverLimit && index >= annotationLimit - 1) {
+                core.info(message);
+              } else {
+                core.warning(message);
+              }
+            }
+            if (isOverLimit) {
+              core.warning(
+                `${undeclaredLabels.length} labels are not declared by .github/labels.yaml; the Undeclared labels log group lists them all`,
+              );
+            }
+            if (undeclaredLabels.length === 0) {
+              core.info('Every repository label is declared.');
             }
             core.endGroup();

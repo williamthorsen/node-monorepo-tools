@@ -52,7 +52,7 @@ labels: {
 },
 ```
 
-The sync workflow archives a marked label rather than deleting it. An archived label stays on the issues and pull requests that have it, but it cannot be added to new ones and does not appear in the label picker. Removing the mark unarchives the label on the next sync. Removing the entry instead deletes the label, as the sync deletes every label that `.github/labels.yaml` does not declare, and the label disappears from every issue and pull request that had it.
+The sync workflow archives a marked label rather than deleting it. An archived label stays on the issues and pull requests that have it, but it cannot be added to new ones and does not appear in the label picker. Removing the mark unarchives the label on the next sync. Removing the entry leaves the label in place: The sync does not delete a label that `.github/labels.yaml` does not declare, and it reports each such label as a warning. To delete a label, run `gh label delete <name>`; the label disappears from every issue and pull request that had it.
 
 The mark is set only in the `labels` record, not in a preset. To retire a preset's label, replace it with an entry that restates its color and adds the mark.
 
@@ -68,15 +68,17 @@ The scaffolded workflow declares three triggers:
 
 Applying on merge closes the window in which a regenerated `.github/labels.yaml` remains unapplied. In that window, a later manual dispatch would apply an unreviewed label set.
 
-The `check` job runs the same sync in dry-run. Its **Label diff** log group lists every create, edit, rename, and deletion that the sync would perform, including deletions of labels that the file does not declare: the destructive edits that a diff of `.github/labels.yaml` alone cannot show, because a label created by hand or by another workflow is absent from the file both before and after. Read that log; the check reports success whether or not the diff is destructive, so a green check is not evidence that nothing will be deleted.
+The `check` job runs the same sync in dry-run. Its **Label diff** log group lists every create, edit, and rename that the sync would perform.
 
 Its **Archive state** log group lists each label that the sync would archive or unarchive. Archiving runs after the rest of the sync, so a label that the file both adds and marks is created and then archived.
+
+Both jobs end with an **Undeclared labels** log group, and they report each repository label that the file does not declare as a warning annotation, which appears on the run and on the pull request's check. A label created by hand, for example to put it on the ticket that will declare it, therefore survives every sync until the file declares it or someone deletes it.
 
 The two jobs are split because a job's permissions are fixed when the run is created and cannot vary by trigger. The split keeps a write-scoped token out of pull-request runs.
 
 The push trigger filters on the path alone; the `sync` job compares `github.ref_name` against the repository's default branch. The workflow therefore doesn't need a per-repo edit, whatever that branch is named, and a push touching `.github/labels.yaml` on any other branch produces a run whose jobs all skip.
 
-Manual dispatch is not a preview. It matches the `sync` job, so it applies the labels, deletions included; only the pull-request path runs in dry-run.
+Manual dispatch is not a preview. It matches the `sync` job, so it applies the labels; only the pull-request path runs in dry-run.
 
 ### Dry-run checks on fork pull requests
 
