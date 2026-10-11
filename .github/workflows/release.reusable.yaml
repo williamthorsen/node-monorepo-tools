@@ -55,8 +55,7 @@ jobs:
     env:
       BUILD_LOCAL: ${{ github.repository == 'williamthorsen/node-monorepo-tools' }}
       GITHUB_TOKEN: ${{ github.token }}
-      # Keeps Corepack shims from refusing `npm` and `npx` on the source-build path, which leaves the pnpm
-      # `packageManager` pin in place.
+      # Keeps Corepack shims from refusing `npm` and `npx` in a repo whose `packageManager` field pins pnpm.
       COREPACK_ENABLE_STRICT: '0'
 
     steps:
@@ -65,14 +64,6 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ github.token }}
-
-      # Strip the packageManager field so that actions/setup-node does not try to install it.
-      # The field is irrelevant for release preparation.
-      - name: Neutralize packageManager field
-        if: ${{ env.BUILD_LOCAL != 'true' }}
-        run: node -e "const
-          fs=require('fs'),f='package.json',p=JSON.parse(fs.readFileSync(f));delete
-          p.packageManager;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
 
       # Installs pnpm and leaves the runtime to the Node.js step below: `runtime` is omitted, and `node-version-file:
       # false` keeps `pnpm/setup` from installing the Node.js version declared in `.tool-versions`. Because this step
@@ -87,11 +78,14 @@ jobs:
 
       # `release-kit prepare` spawns `npx git-cliff` and `npx prettier`, and the consumer path installs release-kit with
       # `npm install --global`. `pnpm/setup` omits `npm` and `npx` from the runtime that it installs, so this step
-      # supplies them at a version paired with the Node.js that they run under.
+      # supplies them at a version paired with the Node.js that they run under. `package-manager-cache: false` keeps the
+      # step from acting on the caller's `packageManager` field, which stays untouched because `release-kit commit`
+      # stages every change in the working tree.
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: '24'
+          package-manager-cache: false
 
       # npm 11 resolves the binaries of scoped packages unreliably through `npm exec` and `npx`. Install globally to put
       # the binary on PATH.
