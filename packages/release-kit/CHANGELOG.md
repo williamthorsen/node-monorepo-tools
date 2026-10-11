@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## 14.1.0 — 2026-10-11
+
+### 🎉 Features
+
+- Stops `release-kit init` from scaffolding `publish.yaml` and `create-github-release.yaml` when every package is private, even with `--force`, and removes the provenance and trusted-publisher steps from the next steps that it prints. (#995)
+- Stops `release-kit update-templates` from re-creating a deleted `publish.yaml` or `create-github-release.yaml` when every package is private, while it still refreshes either workflow that exists. (#995)
+- Makes `release-kit prepare` refuse, before it writes any file and in a dry run too, to release a publishable package that npm does not list or that it cannot look up, and prints `npm publish --access public` as the fix for each unlisted package. (#996)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that the `npm-auto-publish` kit's "published to npm" check reported a failed lookup, such as an unreachable registry or an authentication error, as an unpublished package and ignored `publishConfig.registry`. (#996)
+- Fixes the issue that release-kit's changelog generation treated a floating major tag such as `v1` as a release and added a spurious release to the history, by counting a tag only when the rest of its name after the prefix is a complete SemVer version such as `1.0.0` or `1.0.0-beta.1`. (#1000)
+- Fixes the issue that `release-kit show-tag-prefixes` counted every tag that starts with a workspace's prefix, including floating pointers such as `core-v1` and non-release tags such as `core-vnext`, rather than only the tags that release-kit counts as releases. (#1000)
+
 ## 14.0.0 — 2026-10-08
 
 ### 🎉 Features

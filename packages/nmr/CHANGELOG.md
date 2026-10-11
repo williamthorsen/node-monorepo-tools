@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.44.0 — 2026-10-11
+
+### 🎉 Features
+
+- Enables Prettier's content-keyed cache in `nmr-fmt` (run by `nmr fmt` and `nmr fmt:check`), which skips each file whose content, Prettier version, resolved options, and lockfile are unchanged since a run that passed it, and adds `--no-cache` and `NMR_NO_CACHE=1` to bypass it. (#993)
+- Adds the `shouldRunInBackground` field to a composite element in `.config/nmr.config.ts`, which starts the step, runs the steps after it without waiting, prints the step's output whole after the step ends, and fails the composite if the step fails. (#1003)
+- Adds a `self-hosted runner` checklist to nmr's readyup kit, which reads the repo's GitHub settings through `gh`, recommends setting `CI_RUNS_ON` when a private repo with an online self-hosted runner and compatible workflows has not set it, and warns about each failing condition once the variable is set. (#1006)
+- Adds the root-only config key `selfHostedRunner.exempt`, a non-empty reason that stops the kit from recommending `CI_RUNS_ON` for a repo that qualifies for the self-hosted runners but stays off them. (#1006)
+
+### 🪦 Removed
+
+- 🚨 **Breaking:** Removes the zero-argument form of `getDefaultRootScripts` from the `@williamthorsen/nmr/scripts` export, which now requires the monorepo root so that it can read the declared workspaces. (#992)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `root:lint`, `root:lint:check`, and `root:lint:strict` linted every workspace outside `packages/` under the root ESLint config, by excluding each workspace package that `pnpm-workspace.yaml` declares, with its `!` exclusions honored, in place of the fixed `packages/**`. (#992)
+- Fixes the issue that `defineConfig({ mode: undefined })` emptied the `nmr upgrade` report, by translating a cleared `mode` into the `'default'` mode of taze (the upgrade tool that `nmr upgrade` runs), which follows the range that each dependency declares. (#1008)
+
+### ⚡ Performance
+
+- Sets `maxWorkers: 3` on every project built by `defineVitestConfig` and `defineRootVitestConfig` when the machine has 2 or fewer cores, such as GitHub's standard runner for a private repo, on which Vitest's default ran every test file serially on one worker. (#994)
+- Changes the default `check` and `check:strict` to start lint first and run it in the background, so that a local check, `nmr ci`, and `nmr prepush` no longer wait for type-aware lint to finish before typecheck, the format check, and the tests run. (#1003)
+
+### 📚 Documentation
+
+- Documents in `docs/vitest.md` that Vitest's `--maxWorkers` flag has no effect on a machine with 2 or fewer cores, and that `VITEST_MAX_WORKERS`, `--no-file-parallelism`, or `maxWorkers` in the `project` seam overrides the default there. (#994)
+
 ## 0.43.0 — 2026-10-09
 
 ### 🎉 Features

@@ -13,7 +13,7 @@
           "path": "kits/default.ts"
         },
         {
-          "hash": "6eab98d1",
+          "hash": "4aa0967e",
           "kind": "inline",
           "path": "../package.json",
           "paths": [
@@ -46,7 +46,7 @@
       "readyupVersion": "0.40.0",
       "source": "kits/default.ts",
       "sourceHash": "dee24ab4",
-      "targetHash": "dc49412d"
+      "targetHash": "25d17b58"
     },
     {
       "checklists": [
