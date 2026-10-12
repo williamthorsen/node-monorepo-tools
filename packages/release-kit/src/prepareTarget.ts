@@ -455,7 +455,7 @@ function planChangelogFiles(
   }
 
   const changelogFile = joinPath(changelogDir, 'CHANGELOG.md');
-  const preserved = planPreservedSections(changelogFile, entries);
+  const preserved = planPreservedSections(changelogDir, entries);
   writes.push({
     path: changelogFile,
     content: renderChangelogMarkdown(entries, { sectionOrder, preservedSections: preserved.sections }),

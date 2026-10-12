@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import semver from 'semver';
 
+import { listArchiveFiles } from './changelogArchive.ts';
 import type { ChangelogEntry, ChangelogPreservation } from './types.ts';
 
 /** A `##` section of a `CHANGELOG.md` whose heading names a version. */
@@ -19,17 +21,30 @@ export interface ChangelogMarkdownSections {
 }
 
 /**
- * Plans which sections of the existing `CHANGELOG.md` at `changelogFile` to keep when the file is regenerated from
- * `entries`: every versioned section whose version matches none of the entries. Also returns what to report about the
- * file, or undefined when nothing was kept and nothing was dropped.
+ * Plans which sections of the existing `CHANGELOG.md` in `changelogDir` and its archive files to keep when they are
+ * regenerated from `entries`: every versioned section whose version matches none of the entries. A version found in
+ * more than one file is taken from the first file read, `CHANGELOG.md` first, then archives newest major first. Also
+ * returns what to report about the changelog, under the `CHANGELOG.md` path, or undefined when nothing was kept and
+ * nothing was dropped.
  */
 export function planPreservedSections(
-  changelogFile: string,
+  changelogDir: string,
   entries: readonly ChangelogEntry[],
 ): { sections: VersionedMarkdownSection[]; preservation: ChangelogPreservation | undefined } {
-  const { versioned, unversionedHeadings } = readChangelogSections(changelogFile);
-  const renderedVersions = new Set(entries.map((entry) => entry.version));
-  const sections = versioned.filter((section) => !renderedVersions.has(section.version));
+  const changelogFile = join(changelogDir, 'CHANGELOG.md');
+  const files = [changelogFile, ...listArchiveFiles(changelogDir).map((archive) => archive.path)];
+  const seenVersions = new Set(entries.map((entry) => entry.version));
+  const sections: VersionedMarkdownSection[] = [];
+  const unversionedHeadings: string[] = [];
+  for (const file of files) {
+    const read = readChangelogSections(file);
+    for (const section of read.versioned) {
+      if (seenVersions.has(section.version)) continue;
+      seenVersions.add(section.version);
+      sections.push(section);
+    }
+    unversionedHeadings.push(...read.unversionedHeadings);
+  }
   if (sections.length === 0 && unversionedHeadings.length === 0) {
     return { sections, preservation: undefined };
   }
