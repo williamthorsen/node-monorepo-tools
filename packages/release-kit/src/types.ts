@@ -621,54 +621,8 @@ export interface WorkspaceConfig {
   legacyIdentities?: LegacyIdentity[];
 }
 
-/** Configuration for a monorepo release workflow with multiple workspaces. */
-export interface MonorepoReleaseConfig {
-  /** Ordered list of workspace configurations. */
-  workspaces: WorkspaceConfig[];
-  /** Work type configurations shared across all workspaces. Defaults to `DEFAULT_WORK_TYPES`. */
-  workTypes?: Record<string, WorkTypeConfig>;
-  /** Version bump patterns. Defaults to `DEFAULT_VERSION_PATTERNS`. */
-  versionPatterns?: VersionPatterns;
-  /**
-   * Per-canonical-type breaking-policy lookup. Defaults to `DEFAULT_BREAKING_POLICIES`.
-   * When provided, replaces the default entirely.
-   * Pass `{}` to disable enforcement (parser falls back to `'optional'` for missing types).
-   */
-  breakingPolicies?: Record<string, BreakingPolicy>;
-  /**
-   * Shell command to run after all changelogs are generated (e.g., 'pnpm run fmt').
-   * Modified file paths (package.json files and CHANGELOGs) are appended as space-separated
-   * arguments. Paths are repo-relative; file paths containing spaces are not supported.
-   */
-  formatCommand?: string;
-  /**
-   * Maps scope shorthand names to their canonical names.
-   * When a commit uses `shorthand|type: description` or `type(shorthand): description`,
-   * the shorthand is resolved to the canonical scope name before the parsed commit is returned.
-   */
-  scopeAliases?: Record<string, string>;
-  /** Controls structured changelog JSON generation. */
-  changelogJson: ChangelogJsonConfig;
-  /** Controls release notes consumption (README injection). */
-  releaseNotes: ReleaseNotesConfig;
-  /**
-   * Project-level release config. Present when the config declares a `project` block, in which case
-   * `prepare` runs a project-release stage after the per-workspace loop.
-   */
-  project?: ResolvedProjectConfig;
-}
-
-/** Monorepo config as seen by the prepare workflow, which does not read release-notes configuration. */
-export type MonorepoPrepareConfig = Omit<MonorepoReleaseConfig, 'releaseNotes'>;
-
-/** Configuration for the release workflow. */
-export interface ReleaseConfig {
-  /** The git tag prefix used to identify version tags (e.g., 'v'). */
-  tagPrefix: string;
-  /** Paths to package.json files to bump. */
-  packageFiles: string[];
-  /** Paths to directories in which to generate changelogs. */
-  changelogPaths: string[];
+/** Release settings that every target of a run shares, as config merging resolves them. */
+export interface ReleaseSettings {
   /** Work type configurations. Defaults to `DEFAULT_WORK_TYPES`. */
   workTypes?: Record<string, WorkTypeConfig>;
   /** Version bump patterns. Defaults to `DEFAULT_VERSION_PATTERNS`. */
@@ -695,6 +649,69 @@ export interface ReleaseConfig {
   changelogJson: ChangelogJsonConfig;
   /** Controls release notes consumption (README injection). */
   releaseNotes: ReleaseNotesConfig;
+}
+
+/** Fields that every kind of release target declares. */
+interface ReleaseTargetBase {
+  /** Selects the target, as `--only` does; never a source of tag names. */
+  id: string;
+  /** Prefix of the target's version tags (e.g., `'nmr-core-v'`). */
+  tagPrefix: string;
+  /** Prior identities, whose tag prefixes are searched alongside `tagPrefix`; `undefined` equals the empty array. */
+  legacyIdentities?: LegacyIdentity[];
+  /** Repo-relative files whose `version` field the release bumps. */
+  versionFiles: string[];
+  /** Repo-relative directory that contains the target's `CHANGELOG.md` and changelog JSON. */
+  changelogDir: string;
+  /** Git pathspecs that bound the target's commit window; `undefined` reads the whole repo. */
+  paths?: string[];
+  /** Whether a release of the target publishes to a registry. */
+  isPublishable: boolean;
+}
+
+/** A releasable package: a workspace of a monorepo, or the root of a single-package repo. */
+export interface PackageTarget extends ReleaseTargetBase {
+  kind: 'package';
+  /** The npm name from `package.json`; undefined for the single-package root. */
+  packageName?: string;
+  /** Repo-relative path to the package root (e.g., `packages/core`, or `.` for the single-package root). */
+  packagePath: string;
+  /** Workspace `dir` to which change-record entries are routed; undefined for the single-package root. */
+  workspaceDir?: string;
+}
+
+/** A release that rolls up other targets, such as the project release of a monorepo. */
+export interface CompositeTarget extends ReleaseTargetBase {
+  kind: 'composite';
+  /** Ids of the package targets that the composite rolls up. */
+  members: string[];
+}
+
+/** One releasable thing, whatever shape of config declared it. */
+export type ReleaseTarget = PackageTarget | CompositeTarget;
+
+/** Configuration for a monorepo release workflow with multiple workspaces. */
+export interface MonorepoReleaseConfig extends ReleaseSettings {
+  /** Ordered list of workspace configurations. */
+  workspaces: WorkspaceConfig[];
+  /**
+   * Project-level release config. Present when the config declares a `project` block, in which case
+   * `prepare` runs a project-release stage after the per-workspace loop.
+   */
+  project?: ResolvedProjectConfig;
+}
+
+/** Monorepo config as seen by the prepare workflow, which does not read release-notes configuration. */
+export type MonorepoPrepareConfig = Omit<MonorepoReleaseConfig, 'releaseNotes'>;
+
+/** Configuration for the release workflow. */
+export interface ReleaseConfig extends ReleaseSettings {
+  /** The git tag prefix used to identify version tags (e.g., 'v'). */
+  tagPrefix: string;
+  /** Paths to package.json files to bump. */
+  packageFiles: string[];
+  /** Paths to directories in which to generate changelogs. */
+  changelogPaths: string[];
 }
 
 /** Single-package config as seen by the prepare workflow, which does not read release-notes configuration. */
