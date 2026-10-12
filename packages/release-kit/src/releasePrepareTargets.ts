@@ -82,7 +82,7 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
   const warnings: string[] = [];
 
   // -- Selection --
-  const graph = buildDependencyGraph(packageTargets.filter((target) => target.workspaceDir !== undefined));
+  const graph = buildDependencyGraph(packageTargets.filter((target) => target.isWorkspace));
   const startIds = selectStartIds(packageTargets, options);
   const plannedIds = findTransitiveDependents(graph, startIds);
   const planned = packageTargets.filter((target) => plannedIds.has(target.id));
@@ -96,7 +96,7 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
   const context: RunContext = {
     settings,
     overrideContext: createOverrideContext(
-      planned.filter((target) => target.workspaceDir !== undefined).map((target) => target.packagePath),
+      planned.filter((target) => target.isWorkspace).map((target) => target.packagePath),
     ),
     sectionOrder: deriveSectionOrder(workTypes),
     dependenciesHeader: deriveDependenciesHeader(workTypes),
@@ -293,7 +293,7 @@ function decideDirectReleases(
     if (untagged !== undefined) {
       direct.untaggedBaselines.set(target.id, untagged);
     }
-    if (history.previousTag === undefined && target.workspaceDir !== undefined) {
+    if (history.previousTag === undefined && target.isWorkspace) {
       maybeEmitBaselineHint(target, knownPrefixes, hintState);
     }
 
@@ -325,7 +325,7 @@ function describeStage(target: ReleaseTarget): string | undefined {
   if (target.kind === 'composite') {
     return 'project release stage';
   }
-  return target.workspaceDir === undefined ? undefined : `workspace '${target.id}' release stage`;
+  return target.isWorkspace ? `workspace '${target.id}' release stage` : undefined;
 }
 
 /**

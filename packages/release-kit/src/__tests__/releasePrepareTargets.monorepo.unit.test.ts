@@ -178,7 +178,7 @@ describe('releasePrepareTargets for a monorepo', () => {
 
     // Verify the history was read once, under the workspace's own tag prefixes and paths
     expect(listReadOptions()).toStrictEqual([
-      { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'], workspaceDir: 'arrays' },
+      { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'], scope: 'arrays' },
     ]);
     expect(result.writes.map((write) => write.path)).toContain('packages/arrays/CHANGELOG.md');
   });
@@ -218,7 +218,7 @@ describe('releasePrepareTargets for a monorepo', () => {
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     expect(result.writes).toStrictEqual([]);
     expect(listReadOptions()).toStrictEqual([
-      { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'], workspaceDir: 'arrays' },
+      { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'], scope: 'arrays' },
     ]);
   });
 
@@ -294,8 +294,8 @@ describe('releasePrepareTargets for a monorepo', () => {
 
     // Each workspace's history is read once, the skipped one included
     expect(listReadOptions()).toStrictEqual([
-      { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'], workspaceDir: 'arrays' },
-      { tagPrefixes: ['strings-v'], paths: ['packages/strings/**'], workspaceDir: 'strings' },
+      { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'], scope: 'arrays' },
+      { tagPrefixes: ['strings-v'], paths: ['packages/strings/**'], scope: 'strings' },
     ]);
   });
 
@@ -658,7 +658,7 @@ describe('releasePrepareTargets for a monorepo', () => {
     // the release windows.
     expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledExactlyOnceWith('1.0.1', expect.any(String));
     expect(listReadOptions()).toStrictEqual([
-      { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'], workspaceDir: 'arrays' },
+      { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'], scope: 'arrays' },
     ]);
   });
 
@@ -852,8 +852,8 @@ describe('releasePrepareTargets for a monorepo', () => {
       // Each workspace's history is read once, in Phase 1; building the propagated app's changelog
       // reads nothing more.
       expect(listReadOptions()).toStrictEqual([
-        { tagPrefixes: ['core-v'], paths: ['packages/core/**'], workspaceDir: 'core' },
-        { tagPrefixes: ['app-v'], paths: ['packages/app/**'], workspaceDir: 'app' },
+        { tagPrefixes: ['core-v'], paths: ['packages/core/**'], scope: 'core' },
+        { tagPrefixes: ['app-v'], paths: ['packages/app/**'], scope: 'app' },
       ]);
       expect(result.writes.map((write) => write.path)).toContain('packages/core/CHANGELOG.md');
 
@@ -938,7 +938,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       const result = prepareMonorepo(config, { setVersions: new Map([['core', '1.0.0']]) });
 
       expect(listReadOptions()).toStrictEqual([
-        { tagPrefixes: ['core-v'], paths: ['packages/core/**'], workspaceDir: 'core' },
+        { tagPrefixes: ['core-v'], paths: ['packages/core/**'], scope: 'core' },
       ]);
       expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith(expect.any(String), [
         { version: '1.0.0', date: '2024-01-01', sections },
@@ -1364,9 +1364,9 @@ describe('releasePrepareTargets for a monorepo', () => {
       // Three workspaces, all empty-range, all forced: each reads its history once, and each changelog
       // comes from the synthetic entry.
       expect(listReadOptions()).toStrictEqual([
-        { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'], workspaceDir: 'arrays' },
-        { tagPrefixes: ['strings-v'], paths: ['packages/strings/**'], workspaceDir: 'strings' },
-        { tagPrefixes: ['numbers-v'], paths: ['packages/numbers/**'], workspaceDir: 'numbers' },
+        { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'], scope: 'arrays' },
+        { tagPrefixes: ['strings-v'], paths: ['packages/strings/**'], scope: 'strings' },
+        { tagPrefixes: ['numbers-v'], paths: ['packages/numbers/**'], scope: 'numbers' },
       ]);
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledTimes(3);
     });
@@ -1835,7 +1835,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       expect(result.tags).toContain('v0.10.0');
       // The workspace and the project each read their history once.
       expect(listReadOptions()).toStrictEqual([
-        { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'], workspaceDir: 'arrays' },
+        { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'], scope: 'arrays' },
         { tagPrefixes: ['v'], paths: ['packages/arrays/**'] },
       ]);
     });
@@ -1872,7 +1872,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       expect(result.warnings?.join('\n')).toContain('Project release skipped');
       expect(result.warnings?.join('\n')).toContain('arrays');
       expect(listReadOptions()).toStrictEqual([
-        { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'], workspaceDir: 'arrays' },
+        { tagPrefixes: ['arrays-v'], paths: ['packages/arrays/**'], scope: 'arrays' },
       ]);
     });
 

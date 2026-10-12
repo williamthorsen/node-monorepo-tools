@@ -51,6 +51,7 @@ describe(resolveReleaseTargets, () => {
           changelogDir: '.',
           packagePath: '.',
           isPublishable: true,
+          isWorkspace: false,
         },
       ]);
     });
@@ -104,7 +105,7 @@ describe(resolveReleaseTargets, () => {
           paths: ['packages/core/**'],
           isPublishable: true,
           packagePath: 'packages/core',
-          workspaceDir: 'core',
+          isWorkspace: true,
         },
         {
           id: 'cli',
@@ -116,7 +117,7 @@ describe(resolveReleaseTargets, () => {
           paths: ['packages/cli/**'],
           isPublishable: false,
           packagePath: 'packages/cli',
-          workspaceDir: 'cli',
+          isWorkspace: true,
         },
       ]);
     });
@@ -133,7 +134,7 @@ describe(resolveReleaseTargets, () => {
         versionFiles: ['./package.json'],
         changelogDir: '.',
         packagePath: '.',
-        workspaceDir: '.',
+        isWorkspace: true,
       });
     });
 
@@ -423,7 +424,7 @@ describe(isSinglePackageTargets, () => {
   });
 
   it('rejects a lone workspace target, even at the repo root', () => {
-    expect(isSinglePackageTargets([packageTarget({ id: '.', workspaceDir: '.' })])).toBe(false);
+    expect(isSinglePackageTargets([packageTarget({ id: '.', isWorkspace: true })])).toBe(false);
   });
 
   it('rejects an empty list', () => {
@@ -452,6 +453,7 @@ function packageTarget(overrides: Partial<Extract<ReleaseTarget, { kind: 'packag
     changelogDir: '.',
     packagePath: '.',
     isPublishable: true,
+    isWorkspace: false,
     ...overrides,
   };
 }

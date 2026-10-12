@@ -92,7 +92,16 @@ function makeConfig(overrides?: Partial<SinglePackageFixture>): TargetPrepareCon
   const { tagPrefix = 'v', versionFiles = ['package.json'], ...settings } = overrides ?? {};
   return {
     targets: [
-      { id: '.', kind: 'package', tagPrefix, versionFiles, changelogDir: '.', packagePath: '.', isPublishable: true },
+      {
+        id: '.',
+        kind: 'package',
+        tagPrefix,
+        versionFiles,
+        changelogDir: '.',
+        packagePath: '.',
+        isPublishable: true,
+        isWorkspace: false,
+      },
     ],
     settings: { workTypes, changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false }, ...settings },
   };

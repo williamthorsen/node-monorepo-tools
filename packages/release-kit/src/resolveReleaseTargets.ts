@@ -49,7 +49,7 @@ export function resolveReleaseTargets(
 /** Reports whether the targets are those of a single-package repo: its root package target and nothing else. */
 export function isSinglePackageTargets(targets: readonly ReleaseTarget[]): boolean {
   const [only] = targets;
-  return targets.length === 1 && only?.kind === 'package' && only.workspaceDir === undefined;
+  return targets.length === 1 && only?.kind === 'package' && !only.isWorkspace;
 }
 
 /**
@@ -109,6 +109,7 @@ function buildSinglePackageTarget(): PackageTarget {
     changelogDir: '.',
     packagePath: '.',
     isPublishable: readRootPublishability(),
+    isWorkspace: false,
   };
 }
 
@@ -124,7 +125,7 @@ function buildWorkspaceTarget(workspace: WorkspaceConfig): PackageTarget {
     paths: [...workspace.paths],
     isPublishable: workspace.isPublishable,
     packagePath: workspace.workspacePath,
-    workspaceDir: workspace.dir,
+    isWorkspace: true,
   };
   if (workspace.legacyIdentities !== undefined) {
     target.legacyIdentities = workspace.legacyIdentities;

@@ -662,8 +662,8 @@ export interface PackageTarget extends ReleaseTargetBase {
   packageName?: string;
   /** Repo-relative path to the package root (e.g., `packages/core`, or `.` for the single-package root). */
   packagePath: string;
-  /** Workspace `dir` to which change-record entries are routed; undefined for the single-package root. */
-  workspaceDir?: string;
+  /** Whether the target is a monorepo workspace, whose change-record entries route by scope to its `id`. */
+  isWorkspace: boolean;
 }
 
 /** A release that rolls up other targets, such as the project release of a monorepo. */

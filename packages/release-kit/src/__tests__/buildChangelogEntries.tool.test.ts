@@ -237,7 +237,7 @@ function readHistory(tagPrefixes: readonly string[], paths?: readonly string[]):
 
 /** Reads the history of the scaffolded repo's `packages/{dir}` workspace, routed to `dir`. */
 function readRouted(dir: string): ReturnType<typeof readReleaseHistory> {
-  return readReleaseHistory(CONFIG, { tagPrefixes: [`${dir}-v`], paths: [`packages/${dir}`], workspaceDir: dir });
+  return readReleaseHistory(CONFIG, { tagPrefixes: [`${dir}-v`], paths: [`packages/${dir}`], scope: dir });
 }
 
 /** Builds a tagged baseline with two commits above it. */

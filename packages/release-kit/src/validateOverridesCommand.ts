@@ -191,7 +191,7 @@ function buildValidationInputs(
 
   for (const target of targets) {
     const items = flattenEntriesToItems(buildEntries(settings, describeHistoryWindow(target)));
-    if (target.kind === 'package' && target.workspaceDir !== undefined) {
+    if (target.kind === 'package' && target.isWorkspace) {
       workspaces.push({ filePath: resolveOverridePath(target.packagePath), items });
     } else {
       projectScope.items = items;

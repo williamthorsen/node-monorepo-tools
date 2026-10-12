@@ -55,6 +55,7 @@ const SETTINGS: TargetPrepareSettings = { changelogJson: { ...DEFAULT_CHANGELOG_
 const ROOT: PackageTarget = {
   id: '.',
   kind: 'package',
+  isWorkspace: false,
   tagPrefix: 'v',
   versionFiles: ['package.json'],
   changelogDir: '.',
@@ -73,7 +74,7 @@ const CORE: PackageTarget = {
   paths: ['packages/core/**'],
   isPublishable: true,
   packagePath: 'packages/core',
-  workspaceDir: 'core',
+  isWorkspace: true,
 };
 
 const PROJECT: CompositeTarget = {
@@ -106,14 +107,20 @@ describe(readTargetHistory, () => {
     mockFindUntaggedBaseline.mockReset();
   });
 
-  it('reads a workspace under its current and legacy prefixes, its paths, and its routing dir', () => {
+  it('reads a workspace under its current and legacy prefixes, its paths, and its routing scope', () => {
     readTargetHistory(CORE, SETTINGS);
 
     expect(mockReadReleaseHistory).toHaveBeenCalledWith(SETTINGS, {
       tagPrefixes: ['core-v', 'old-core-v'],
       paths: ['packages/core/**'],
-      workspaceDir: 'core',
+      scope: 'core',
     });
+  });
+
+  it('routes a renamed workspace by its target name, not its directory', () => {
+    readTargetHistory({ ...CORE, id: 'kernel' }, SETTINGS);
+
+    expect(mockReadReleaseHistory).toHaveBeenCalledWith(SETTINGS, expect.objectContaining({ scope: 'kernel' }));
   });
 
   it('reads the single-package root without paths or routing', () => {
@@ -260,6 +267,12 @@ describe(planTargetRelease, () => {
       changelogFiles: ['packages/core/CHANGELOG.md'],
       commits: [expect.objectContaining({ subject: 'feat: Ship it' })],
     });
+  });
+
+  it('names a renamed workspace by its target name', () => {
+    const { result } = planTargetRelease(makeArgs({ target: { ...CORE, id: 'kernel' } }));
+
+    expect(result).toMatchObject({ targetId: 'kernel', name: 'kernel' });
   });
 
   it('omits the name of the single-package root', () => {

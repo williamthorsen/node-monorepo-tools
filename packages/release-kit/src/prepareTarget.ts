@@ -104,13 +104,13 @@ export function readTargetHistory(target: ReleaseTarget, settings: TargetPrepare
 
 /**
  * Returns the bounds of a target's history read: its current and legacy tag prefixes, its commit window, and, for a
- * workspace, the `dir` to which change-record entries route.
+ * workspace, the scope to which change-record entries route, which is its name.
  */
 export function describeHistoryWindow(target: ReleaseTarget): GenerateChangelogOptions {
   return {
     tagPrefixes: getAllTagPrefixes(target),
     ...(target.paths !== undefined && { paths: target.paths }),
-    ...(target.kind === 'package' && target.workspaceDir !== undefined && { workspaceDir: target.workspaceDir }),
+    ...(target.kind === 'package' && target.isWorkspace && { scope: target.id }),
   };
 }
 
@@ -130,7 +130,7 @@ export function decideTargetRelease(
 
   const tag = history.previousTag;
   const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
-  const subject = target.kind === 'package' && target.workspaceDir !== undefined ? ` for ${target.id}` : '';
+  const subject = target.kind === 'package' && target.isWorkspace ? ` for ${target.id}` : '';
   const decision = decideRelease({
     naturalBump: history.unreleased.bump,
     commitCount: history.unreleased.commits.length,
@@ -237,7 +237,7 @@ export function buildSkippedTargetResult(
   const skipped: SkippedCompositeResult | SkippedPackageResult =
     target.kind === 'composite'
       ? { ...fields, kind: 'composite' }
-      : { ...fields, kind: 'package', ...(target.workspaceDir !== undefined && { name: target.workspaceDir }) };
+      : { ...fields, kind: 'package', ...(target.isWorkspace && { name: target.id }) };
   attachChangelogDiagnostics(skipped, unreleased.diagnostics);
   return skipped;
 }
@@ -292,7 +292,7 @@ function buildReleasedPackage(
     status: 'released',
     kind: 'package',
     commits: unreleased.commits,
-    ...(target.workspaceDir !== undefined && { name: target.workspaceDir }),
+    ...(target.isWorkspace && { name: target.id }),
     ...(setVersion === undefined && { releaseType: release.releaseType }),
     ...(hasParseCounts && { parsedCommitCount: unreleased.parsedCommitCount }),
     ...(decision === undefined && { propagatedOnly: true as const }),
@@ -326,7 +326,7 @@ function describeBaselineLabel(target: ReleaseTarget): string {
   if (target.kind === 'composite') {
     return 'project';
   }
-  return target.workspaceDir === undefined ? 'package' : `workspace '${target.id}'`;
+  return target.isWorkspace ? `workspace '${target.id}'` : 'package';
 }
 
 /**
