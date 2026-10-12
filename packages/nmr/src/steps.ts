@@ -229,6 +229,27 @@ export function readSelfReference(options: {
 }
 
 /**
+ * Returns the command that a string script names when its whole value is `nmr <command>`, or `undefined` for any
+ * other value.
+ *
+ * Exact by design: A flag, an argument, an environment assignment, or a launcher each change what the invocation
+ * runs, or where, so a value that contains one is not interchangeable with the script that it names.
+ */
+export function readSoleNmrCommand(script: string): string | undefined {
+  const segments = splitSegments(script).filter((segment) => segment.trim() !== '');
+  if (segments.length !== 1) {
+    return undefined;
+  }
+
+  const [program, command, ...rest] = tokenizeSegment(segments[0] ?? '');
+  if (program !== 'nmr' || command === undefined || rest.length > 0) {
+    return undefined;
+  }
+
+  return SHELL_SAFE_TOKEN.test(command) && !command.startsWith('-') ? command : undefined;
+}
+
+/**
  * Reports whether a step list names the command under which it is declared, and whether it declares anything
  * besides. Takes each element's instruction: the bare string, or a spec's `run`.
  *

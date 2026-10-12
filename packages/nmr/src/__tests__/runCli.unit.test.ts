@@ -1096,6 +1096,53 @@ describe(runCli, () => {
       },
     );
 
+    it.for([
+      {
+        expectedRemedy:
+          'Replace the value with `node scripts/compile-ports.ts` and delete `compile:ports`, the script that it names.',
+        scenario: 'a leaf script that only the package defines',
+        scripts: { 'build:pre': 'nmr compile:ports', 'compile:ports': 'node scripts/compile-ports.ts' },
+      },
+      {
+        expectedRemedy: "Replace the value with `eslint src`, and keep `lint`, which overrides nmr's own.",
+        scenario: 'a leaf script that overrides a registry command',
+        scripts: { 'build:pre': 'nmr lint', lint: 'eslint src' },
+      },
+    ])('given a hook naming $scenario, prescribes inlining it', async ({ expectedRemedy, scripts }, { tree }) => {
+      writePackageScripts(tree, scripts);
+
+      const { stderr } = await runNmrReadingStderr(['build:pre'], tree.dir);
+
+      expect(stderr.trim()).toBe(
+        `WARN package.json: \`scripts.build:pre\` reaches nmr through a shell (\`${scripts['build:pre']}\`), ` +
+          `so nmr handles the nested run's output as a tool's. ${expectedRemedy}`,
+      );
+    });
+
+    // Each shape falls outside the inline case, so the entry keeps the remedy that its registry status decides.
+    it.for([
+      { scenario: 'chains further steps', scripts: { 'build:pre': 'nmr ports && echo done', ports: 'tsx p.ts' } },
+      { scenario: 'passes an argument', scripts: { 'build:pre': 'nmr ports --watch', ports: 'tsx p.ts' } },
+      { scenario: 'names a script that resolves from the registry', scripts: { 'build:pre': 'nmr lint' } },
+      { scenario: 'names a skip value', scripts: { 'build:pre': 'nmr ports', ports: ':' } },
+      { scenario: 'names a script that itself crosses', scripts: { 'build:pre': 'nmr ports', ports: 'nmr fmt' } },
+      {
+        scenario: 'names a script that has a pre-hook',
+        scripts: { 'build:pre': 'nmr ports', ports: 'tsx p.ts', 'ports:pre': 'echo pre' },
+      },
+      {
+        scenario: 'names a script that has a post-hook',
+        scripts: { 'build:pre': 'nmr ports', ports: 'tsx p.ts', 'ports:post': 'echo post' },
+      },
+    ])('given a hook that $scenario, keeps the step-list remedy', async ({ scripts }, { tree }) => {
+      writePackageScripts(tree, scripts);
+
+      const { stderr } = await runNmrReadingStderr(['build:pre'], tree.dir);
+
+      expect(stderr).toContain('A `package.json` script cannot contain a step list: define `build:pre`');
+      expect(stderr).not.toContain('Replace the value');
+    });
+
     // nmr does not wrap a hook in hooks of its own, so a `probe:post:pre` would name a script that never runs.
     it.for([
       {
