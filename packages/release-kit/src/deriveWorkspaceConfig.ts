@@ -39,7 +39,6 @@ export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
     workspacePath,
     isPublishable,
     packageFiles: [packageJsonPath],
-    changelogPaths: [workspacePath],
     paths: [`${workspacePath}/**`],
   };
 }

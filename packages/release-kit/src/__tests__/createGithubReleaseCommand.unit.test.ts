@@ -62,7 +62,6 @@ describe(createGithubReleaseCommand, () => {
       workspacePath,
       isPublishable: true,
       packageFiles: [`${workspacePath}/package.json`],
-      changelogPaths: [workspacePath],
       paths: [`${workspacePath}/**`],
     }));
     mockDeriveReleaseNotesConfig.mockReturnValue({

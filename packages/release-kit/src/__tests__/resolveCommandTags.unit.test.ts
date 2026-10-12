@@ -50,7 +50,6 @@ function makeWorkspace(dir: string, tagPrefix: string, workspacePath: string, is
     workspacePath,
     isPublishable,
     packageFiles: [`${workspacePath}/package.json`],
-    changelogPaths: [workspacePath],
     paths: [`${workspacePath}/**`],
   };
 }

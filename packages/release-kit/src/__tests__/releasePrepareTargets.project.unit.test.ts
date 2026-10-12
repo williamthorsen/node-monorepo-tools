@@ -827,7 +827,6 @@ function makeWorkspace(overrides: Partial<WorkspaceConfig> & Pick<WorkspaceConfi
     workspacePath: `packages/${dir}`,
     isPublishable: true,
     packageFiles: [`packages/${dir}/package.json`],
-    changelogPaths: [`packages/${dir}`],
     paths: [`packages/${dir}/**`],
     ...overrides,
   };

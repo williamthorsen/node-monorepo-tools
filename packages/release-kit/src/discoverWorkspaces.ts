@@ -87,9 +87,9 @@ export function describeEmptyWorkspace(workspace: EmptyWorkspace): string {
  * as patterns at all.
  *
  * `packageDirs` come back relative to `monorepoRoot` as POSIX paths, because that is what every consumer
- * needs: `WorkspaceConfig.paths` feeds `git log -- <paths>`, and `packageFiles` and `changelogPaths` are read
- * from disk relative to the working directory. The workspace root itself relativizes to `.`, the path through
- * which `deriveWorkspaceConfig` reads a root package's manifest.
+ * needs: `WorkspaceConfig.paths` feeds `git log -- <paths>`, and `packageFiles` and the changelogs under
+ * `workspacePath` are read from disk relative to the working directory. The workspace root itself relativizes to
+ * `.`, the path through which `deriveWorkspaceConfig` reads a root package's manifest.
  */
 export function discoverWorkspaces(monorepoRoot: string = process.cwd()): WorkspaceDiscovery {
   const resolution = resolveWorkspace(monorepoRoot);

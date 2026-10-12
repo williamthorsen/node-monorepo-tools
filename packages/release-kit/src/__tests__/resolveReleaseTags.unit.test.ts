@@ -23,7 +23,6 @@ function makeWorkspace(
     workspacePath,
     isPublishable: overrides.isPublishable ?? true,
     packageFiles: overrides.packageFiles ?? [`${workspacePath}/package.json`],
-    changelogPaths: overrides.changelogPaths ?? [workspacePath],
     paths: overrides.paths ?? [`${workspacePath}/**`],
   };
 }

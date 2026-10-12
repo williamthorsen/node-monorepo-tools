@@ -556,8 +556,6 @@ export interface WorkspaceConfig {
   isPublishable: boolean;
   /** Paths to package.json files to bump. */
   packageFiles: string[];
-  /** Directories in which to generate changelogs. */
-  changelogPaths: string[];
   /** Glob patterns passed to `git log -- <paths>` for commit filtering. */
   paths: string[];
   /**

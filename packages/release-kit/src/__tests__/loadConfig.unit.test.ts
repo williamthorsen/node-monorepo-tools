@@ -156,7 +156,6 @@ describe(mergeMonorepoConfig, () => {
       workspacePath: 'packages/arrays',
       isPublishable: true,
       packageFiles: ['packages/arrays/package.json'],
-      changelogPaths: ['packages/arrays'],
       paths: ['packages/arrays/**'],
     });
   });
@@ -177,7 +176,6 @@ describe(mergeMonorepoConfig, () => {
       workspacePath: 'libs/core',
       isPublishable: true,
       packageFiles: ['libs/core/package.json'],
-      changelogPaths: ['libs/core'],
       paths: ['libs/core/**'],
     });
     expect(result.workspaces[1]?.tagPrefix).toBe('web-app-v');
