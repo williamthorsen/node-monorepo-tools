@@ -16,6 +16,9 @@ import {
   readFile
 } from "readyup/check-utils";
 
+// src/changelogArchive.ts
+var CHANGELOG_ARCHIVE_DIRECTORY = "changelogs";
+
 // src/init/detectRepoType.ts
 import { existsSync, readFileSync } from "node:fs";
 
@@ -280,6 +283,16 @@ var default_default = defineRdyKit({
           fix: 'Add "CHANGELOG.md" to the files field of each affected package.json'
         },
         {
+          name: "published packages ship the changelog archives",
+          severity: "warn",
+          skip: () => {
+            if (!hasPublishablePackages()) return "no publishable packages";
+            return changelogArchivesAreEnabled() ? false : "changelogMarkdown.keepVersions is not set";
+          },
+          check: () => packagesShipChangelogArchives(),
+          fix: 'Add "changelogs/" to the files field of each affected package.json, so that the links from CHANGELOG.md to its archive files resolve in the published package'
+        },
+        {
           name: "changelog.json generation is enabled",
           severity: "recommend",
           skip: () => !hasPublishablePackages() ? "no publishable packages" : false,
@@ -342,6 +355,11 @@ var default_default = defineRdyKit({
     }
   ]
 });
+function changelogArchivesAreEnabled() {
+  const content = readFile(".config/release-kit.config.ts");
+  if (content === void 0) return false;
+  return /changelogMarkdown\s*:\s*\{[^}]*keepVersions\s*:/.test(content);
+}
 function changelogJsonIsEnabled() {
   const content = readFile(".config/release-kit.config.ts");
   if (content === void 0) return true;
@@ -361,6 +379,9 @@ function labelsHaveCurrentPresetHash(presetName, expectedHash) {
 }
 function packagesShipChangelog() {
   return reportWorkspacesOmitting("CHANGELOG.md");
+}
+function packagesShipChangelogArchives() {
+  return reportWorkspacesOmitting(`${CHANGELOG_ARCHIVE_DIRECTORY}/CHANGELOG-v1.md`, `${CHANGELOG_ARCHIVE_DIRECTORY}/`);
 }
 function packagesShipChangelogJson() {
   return reportWorkspacesOmitting(resolveChangelogJsonOutputPath());
@@ -397,7 +418,7 @@ function releaseNotesInjectsIntoReadme() {
   if (content === void 0) return false;
   return /shouldInjectIntoReadme\s*:\s*true/.test(content);
 }
-function reportWorkspacesOmitting(path) {
+function reportWorkspacesOmitting(path, label = path) {
   const failing = [];
   const packageWorkspaces = discoverWorkspaces({ filter: (w) => w.isPackage });
   for (const { dir, packageJson } of packageWorkspaces) {
@@ -408,7 +429,7 @@ function reportWorkspacesOmitting(path) {
   if (failing.length === 0) return true;
   return {
     ok: false,
-    detail: `files field omits ${path}: ${failing.join(", ")}`
+    detail: `files field omits ${label}: ${failing.join(", ")}`
   };
 }
 function resolveChangelogJsonOutputPath() {
@@ -453,10 +474,12 @@ export {
   RELEASE_WORKFLOW_HASH_MONOREPO,
   RELEASE_WORKFLOW_HASH_SINGLE,
   SYNC_LABELS_WORKFLOW_HASH,
+  changelogArchivesAreEnabled,
   changelogJsonIsEnabled,
   configFileExportsConfig,
   default_default as default,
   packagesShipChangelog,
+  packagesShipChangelogArchives,
   packagesShipChangelogJson,
   readmeHasReleaseNotesMarkers,
   readmesHaveReleaseNotesMarkers,

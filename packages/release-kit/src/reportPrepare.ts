@@ -329,12 +329,12 @@ function formatBumpFiles(lines: string[], workspace: ReleasedMemberResult, dryRu
 }
 
 /**
- * Appends a line per generated changelog file, each followed by the versions kept from its existing sections and a
- * warning naming the sections dropped for lacking a version.
+ * Appends a line per generated changelog file, each followed by the versions kept from the existing changelog and a
+ * warning naming the sections dropped for lacking a version, then a line per removed changelog archive file.
  */
 function formatChangelogFiles(
   lines: string[],
-  release: Pick<ReleasedPackageResult, 'changelogFiles' | 'changelogPreservation'>,
+  release: Pick<ReleasedPackageResult, 'changelogFiles' | 'changelogPreservation' | 'removedChangelogFiles'>,
   dryRun: boolean,
   style: OutputStyle,
   indent = '',
@@ -350,12 +350,20 @@ function formatChangelogFiles(
       continue;
     }
     if (preservation.preservedVersions.length > 0) {
-      lines.push(dim(`${indent}    Kept from the existing file: ${preservation.preservedVersions.join(', ')}`));
+      lines.push(dim(`${indent}    Kept from the existing changelog: ${preservation.preservedVersions.join(', ')}`));
     }
     const dropped = preservation.droppedUnversionedHeadings;
     if (dropped.length > 0) {
       const message = `Dropped ${dropped.length} section${dropped.length === 1 ? '' : 's'} without a version: ${dropped.join(', ')}`;
       lines.push(`${indent}    ${formatStatusLine(style, 'warning', message)}`);
+    }
+  }
+  const removedFiles = release.removedChangelogFiles ?? [];
+  for (const file of removedFiles) {
+    if (dryRun) {
+      lines.push(dim(`${indent}  [dry-run] Would remove changelog: ${file}`));
+    } else {
+      lines.push(dim(`${indent}  Removing changelog: ${file}`));
     }
   }
 }

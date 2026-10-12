@@ -64,6 +64,45 @@ describe('directory releases (tool)', () => {
     }
   }, 60_000);
 
+  it('archives older sections by major under keepVersions, and folds them back once the option is removed', () => {
+    commit(
+      tree,
+      'apps/app/CHANGELOG.md',
+      ['# Changelog', '', '## 0.2.0', '', '- Hand-written two', '', '## 0.1.0', '', '- Hand-written one', ''].join(
+        '\n',
+      ),
+      ['## app|docs: Add the early history'],
+    );
+    const releases: ReleaseKitConfig['releases'] = { app: { path: 'apps/app' } };
+
+    const firstPlan = prepareAndApply(tree, { releases, changelogMarkdown: { keepVersions: 1 } }, {});
+
+    const bounded = tree.read('apps/app/CHANGELOG.md');
+    expect(bounded).toContain('Earlier versions: [v0](changelogs/CHANGELOG-v0.md).');
+    expect(bounded).toMatch(/## 1\.1\.0 — /);
+    expect(bounded).not.toContain('Hand-written');
+    const archive = tree.read('apps/app/changelogs/CHANGELOG-v0.md');
+    expect(archive).toContain('## 0.2.0\n\n- Hand-written two\n\n## 0.1.0\n\n- Hand-written one');
+
+    run(tree, 'git', ['add', '-A']);
+    run(tree, 'git', ['commit', '--quiet', '-m', 'release: first']);
+    for (const tag of firstPlan.tags) {
+      run(tree, 'git', ['tag', tag]);
+    }
+    commit(tree, 'apps/app/Profile.swift', '// profile\n', ['## app|feat: Add the profile screen']);
+
+    const plan = withinFixture(tree, () => prepare({ releases }, {}, ['packages/core']));
+    const report = reportPrepare(plan, { applied: false, style: 'plain' });
+    expect(report).toContain('Would remove changelog: apps/app/changelogs/CHANGELOG-v0.md');
+    withinFixture(tree, () => applyReleasePlan(plan));
+
+    const restored = tree.read('apps/app/CHANGELOG.md');
+    expect(restored).not.toContain('Earlier versions');
+    expect(restored).toContain('## 0.2.0\n\n- Hand-written two');
+    expect(restored).toContain('## 0.1.0\n\n- Hand-written one');
+    expect(tree.exists('apps/app/changelogs/CHANGELOG-v0.md')).toBe(false);
+  }, 60_000);
+
   it('does not report an entry that the root target renders as unrouted', () => {
     commit(tree, 'apps/app/Theme.swift', '// theme\n', [
       '## ui|feat: Add the dark theme',

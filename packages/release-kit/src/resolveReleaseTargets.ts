@@ -173,12 +173,21 @@ function describeTargetPath(target: ReleaseTarget): string {
 
 /** Copies the shared settings off a merged config, omitting each optional field that it lacks. */
 function pickSettings(config: ReleaseSettings): ReleaseSettings {
-  const { breakingPolicies, changelogJson, formatCommand, releaseNotes, scopeAliases, versionPatterns, workTypes } =
-    config;
+  const {
+    breakingPolicies,
+    changelogJson,
+    changelogMarkdown,
+    formatCommand,
+    releaseNotes,
+    scopeAliases,
+    versionPatterns,
+    workTypes,
+  } = config;
   return {
     changelogJson,
     releaseNotes,
     ...(breakingPolicies !== undefined && { breakingPolicies }),
+    ...(changelogMarkdown !== undefined && { changelogMarkdown }),
     ...(formatCommand !== undefined && { formatCommand }),
     ...(scopeAliases !== undefined && { scopeAliases }),
     ...(versionPatterns !== undefined && { versionPatterns }),

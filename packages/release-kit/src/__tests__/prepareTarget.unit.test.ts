@@ -6,6 +6,9 @@ const mockReadReleaseHistory = vi.hoisted(() => vi.fn());
 const mockFindUntaggedBaseline = vi.hoisted(() => vi.fn());
 const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
 const mockPlanReleaseNotesPreviews = vi.hoisted(() => vi.fn());
+const mockListArchiveFiles = vi.hoisted(() =>
+  vi.fn<(changelogDir: string) => Array<{ major: number; path: string }>>(),
+);
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
@@ -28,8 +31,17 @@ vi.mock(import('../changelogJsonFile.ts'), async (importOriginal) => ({
   mergeChangelogEntriesWithDisk: mockMergeChangelogEntriesWithDisk,
 }));
 
+vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
+  listArchiveFiles: mockListArchiveFiles,
+}));
+
 vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
-  renderChangelogMarkdown: (entries: unknown[]): string => `md:${entries.length}`,
+  // Archives the oldest entry under major 0 whenever `keepVersions` is set.
+  renderChangelogFiles: (entries: unknown[], options?: { keepVersions?: number }) => ({
+    main: `md:${entries.length}`,
+    archives: options?.keepVersions === undefined ? [] : [{ major: 0, content: 'md:archive' }],
+  }),
 }));
 
 vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
@@ -220,6 +232,7 @@ describe(decideTargetRelease, () => {
 describe(planTargetRelease, () => {
   beforeEach(() => {
     mockExistsSync.mockReturnValue(false);
+    mockListArchiveFiles.mockReturnValue([]);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'x', version: '1.0.0' }));
     mockMergeChangelogEntriesWithDisk.mockImplementation((_path: string, entries: ChangelogEntry[]) => entries);
     mockPlanReleaseNotesPreviews.mockReturnValue({
@@ -233,6 +246,7 @@ describe(planTargetRelease, () => {
     mockReadFileSync.mockReset();
     mockMergeChangelogEntriesWithDisk.mockReset();
     mockPlanReleaseNotesPreviews.mockReset();
+    mockListArchiveFiles.mockReset();
   });
 
   it('plans a direct package release: bump, changelogs, tag, and result', () => {
@@ -267,6 +281,36 @@ describe(planTargetRelease, () => {
       changelogFiles: ['packages/core/CHANGELOG.md'],
       commits: [expect.objectContaining({ subject: 'feat: Ship it' })],
     });
+  });
+
+  it('writes the archive files beside CHANGELOG.md under keepVersions, leaving the changelog JSON unchanged', () => {
+    const settings = { ...SETTINGS, changelogMarkdown: { keepVersions: 1 } };
+
+    const planned = planTargetRelease(makeArgs({ settings }));
+    const unbounded = planTargetRelease(makeArgs());
+
+    expect(planned.writes).toContainEqual({ path: 'packages/core/changelogs/CHANGELOG-v0.md', content: 'md:archive' });
+    expect(planned.result).toMatchObject({
+      changelogFiles: ['packages/core/CHANGELOG.md', 'packages/core/changelogs/CHANGELOG-v0.md'],
+    });
+    expect(planned.modifiedFiles).toContain('packages/core/changelogs/CHANGELOG-v0.md');
+    const jsonWrite = (writes: Array<{ path: string }>) =>
+      writes.find((write) => write.path.endsWith('changelog.json'));
+    expect(jsonWrite(planned.writes)).toStrictEqual(jsonWrite(unbounded.writes));
+  });
+
+  it('removes the existing archive files that the render does not produce', () => {
+    mockListArchiveFiles.mockReturnValue([
+      { major: 1, path: 'packages/core/changelogs/CHANGELOG-v1.md' },
+      { major: 0, path: 'packages/core/changelogs/CHANGELOG-v0.md' },
+    ]);
+    const settings = { ...SETTINGS, changelogMarkdown: { keepVersions: 1 } };
+
+    const planned = planTargetRelease(makeArgs({ settings }));
+
+    expect(planned.removals).toStrictEqual(['packages/core/changelogs/CHANGELOG-v1.md']);
+    expect(planned.result).toMatchObject({ removedChangelogFiles: ['packages/core/changelogs/CHANGELOG-v1.md'] });
+    expect(planned.modifiedFiles).not.toContain('packages/core/changelogs/CHANGELOG-v1.md');
   });
 
   it('names a renamed workspace by its target name', () => {

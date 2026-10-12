@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  changelogArchivesAreEnabled,
   changelogJsonIsEnabled,
   DEFAULT_CHANGELOG_JSON_PATH,
   packagesShipChangelog,
+  packagesShipChangelogArchives,
   packagesShipChangelogJson,
   resolveChangelogJsonOutputPath,
 } from '../../.readyup/kits/default.ts';
@@ -85,6 +87,55 @@ describe(packagesShipChangelog, () => {
     scaffoldRepo({ 'package.json': '{"name":"solo","files":["*"]}' });
 
     expect(packagesShipChangelog()).toBe(true);
+  });
+});
+
+describe(packagesShipChangelogArchives, () => {
+  it.each([['changelogs'], ['changelogs/'], ['changelogs/*.md']])('accepts a files entry of %j', (entry) => {
+    scaffoldRepo({ 'package.json': JSON.stringify({ name: 'solo', files: ['CHANGELOG.md', entry] }) });
+
+    expect(packagesShipChangelogArchives()).toBe(true);
+  });
+
+  it('returns true when the package does not declare a files field, which packs everything', () => {
+    scaffoldRepo({ 'package.json': '{"name":"solo"}' });
+
+    expect(packagesShipChangelogArchives()).toBe(true);
+  });
+
+  it('reports each package whose files field omits the archive directory', () => {
+    scaffoldRepo({ 'package.json': '{"name":"solo","files":["dist","CHANGELOG.md"]}' });
+
+    expect(packagesShipChangelogArchives()).toStrictEqual({
+      ok: false,
+      detail: 'files field omits changelogs/: package.json',
+    });
+  });
+});
+
+describe(changelogArchivesAreEnabled, () => {
+  it('returns false for a repo without a config file', () => {
+    scaffoldRepo({ 'package.json': '{"name":"solo"}' });
+
+    expect(changelogArchivesAreEnabled()).toBe(false);
+  });
+
+  it('returns false when the config does not set keepVersions', () => {
+    scaffoldRepo({
+      'package.json': '{"name":"solo"}',
+      [CONFIG_PATH]: 'export default defineConfig({ changelogJson: { enabled: true } });\n',
+    });
+
+    expect(changelogArchivesAreEnabled()).toBe(false);
+  });
+
+  it.each([['20'], ['KEEP_VERSIONS']])('returns true when the config sets keepVersions to %s', (value) => {
+    scaffoldRepo({
+      'package.json': '{"name":"solo"}',
+      [CONFIG_PATH]: `export default defineConfig({ changelogMarkdown: { keepVersions: ${value} } });\n`,
+    });
+
+    expect(changelogArchivesAreEnabled()).toBe(true);
   });
 });
 

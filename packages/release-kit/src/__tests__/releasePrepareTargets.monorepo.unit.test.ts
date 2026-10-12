@@ -60,7 +60,15 @@ vi.mock(import('../changelogJsonFile.ts'), () => ({
 }));
 
 vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
-  renderChangelogMarkdown: mockRenderChangelogMarkdown,
+  renderChangelogFiles: (entries: unknown, options: unknown) => ({
+    main: String(mockRenderChangelogMarkdown(entries, options)),
+    archives: [],
+  }),
+}));
+
+vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
+  listArchiveFiles: () => [],
 }));
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';

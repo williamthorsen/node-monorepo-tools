@@ -1476,11 +1476,38 @@ describe(reportPrepare, () => {
       expect(output).toContain(
         [
           dim('  [dry-run] Would generate changelog: CHANGELOG.md'),
-          dim('    Kept from the existing file: 0.9.0, 0.8.0'),
+          dim('    Kept from the existing changelog: 0.9.0, 0.8.0'),
           dim('  [dry-run] Would generate changelog: docs/CHANGELOG.md'),
           '    WARN  Dropped 2 sections without a version: ## Unreleased, ## Notes',
         ].join('\n'),
       );
+    });
+
+    it('lists archive files under the generated changelogs and removed archive files after them', () => {
+      const archivingRelease = {
+        ...preservingRelease,
+        changelogFiles: ['CHANGELOG.md', 'changelogs/CHANGELOG-v0.md'],
+        removedChangelogFiles: ['changelogs/CHANGELOG-v1.md'],
+      };
+      const { changelogPreservation: _, ...withoutPreservation } = archivingRelease;
+
+      const dryRunOutput = reportPrepare(
+        { targets: [withoutPreservation], tags: ['v1.1.0'] },
+        { applied: false, style: 'plain' },
+      );
+      const appliedOutput = reportPrepare(
+        { targets: [withoutPreservation], tags: ['v1.1.0'] },
+        { applied: true, style: 'plain' },
+      );
+
+      expect(dryRunOutput).toContain(
+        [
+          dim('  [dry-run] Would generate changelog: CHANGELOG.md'),
+          dim('  [dry-run] Would generate changelog: changelogs/CHANGELOG-v0.md'),
+          dim('  [dry-run] Would remove changelog: changelogs/CHANGELOG-v1.md'),
+        ].join('\n'),
+      );
+      expect(appliedOutput).toContain(dim('  Removing changelog: changelogs/CHANGELOG-v1.md'));
     });
 
     it('reports kept versions for a monorepo workspace and the project', () => {
@@ -1510,11 +1537,11 @@ describe(reportPrepare, () => {
         { applied: true, style: 'plain' },
       );
 
-      expect(output).toContain(dim('      Kept from the existing file: 0.9.0, 0.8.0'));
+      expect(output).toContain(dim('      Kept from the existing changelog: 0.9.0, 0.8.0'));
       expect(output).toContain(
         [
           dim('    Generating changelog: CHANGELOG.md'),
-          dim('      Kept from the existing file: 0.5.0'),
+          dim('      Kept from the existing changelog: 0.5.0'),
           '      WARN  Dropped 1 section without a version: ## Credits',
         ].join('\n'),
       );

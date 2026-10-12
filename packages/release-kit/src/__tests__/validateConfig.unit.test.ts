@@ -602,6 +602,29 @@ describe(validateConfig, () => {
     });
   });
 
+  describe('changelogMarkdown', () => {
+    it('validates a changelogMarkdown object', () => {
+      const { config, errors } = validateConfig({ changelogMarkdown: { keepVersions: 10 } });
+      expect(errors).toStrictEqual([]);
+      expect(config.changelogMarkdown).toStrictEqual({ keepVersions: 10 });
+    });
+
+    it('returns an error when keepVersions is less than 1', () => {
+      const { errors } = validateConfig({ changelogMarkdown: { keepVersions: 0 } });
+      expectErrorAtPath(errors, 'changelogMarkdown.keepVersions');
+    });
+
+    it('returns an error when keepVersions is not an integer', () => {
+      const { errors } = validateConfig({ changelogMarkdown: { keepVersions: 2.5 } });
+      expectErrorAtPath(errors, 'changelogMarkdown.keepVersions');
+    });
+
+    it('returns an error for unknown changelogMarkdown fields', () => {
+      const { errors } = validateConfig({ changelogMarkdown: { bogus: true } });
+      expectErrorMentioning(errors, 'bogus');
+    });
+  });
+
   describe('releaseNotes', () => {
     it('validates a complete releaseNotes object', () => {
       const { config, errors } = validateConfig({

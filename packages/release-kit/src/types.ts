@@ -71,6 +71,15 @@ export interface ChangelogJsonConfig {
   devOnlySections: string[];
 }
 
+/** Configuration for the rendered `CHANGELOG.md`. */
+export interface ChangelogMarkdownConfig {
+  /**
+   * How many of the newest versioned sections `CHANGELOG.md` keeps; older sections go to per-major archive files
+   * under `changelogs/`. When omitted, `CHANGELOG.md` keeps every section.
+   */
+  keepVersions?: number;
+}
+
 /**
  * Editorial override for changelog items, keyed in the override file by `<hash>` (every item of the commit) or
  * `<hash>:<n>` (the item derived from the commit's `n`th change-record entry), where the hash is lowercase hex
@@ -213,7 +222,10 @@ interface ReleaseFields {
   newVersion: string;
   tag: string;
   bumpedFiles: string[];
+  /** The `CHANGELOG.md`, then any archive files that the release writes. */
   changelogFiles: string[];
+  /** Archive files of the `CHANGELOG.md` that the release removes; omitted when it removes none. */
+  removedChangelogFiles?: string[];
   /** Release-notes preview files; present only under `--with-release-notes`. */
   previewFiles?: string[];
   /**
@@ -504,6 +516,13 @@ export const changelogJsonInputSchema = z
   })
   .strict();
 
+/** Schema for the optional `changelogMarkdown` block (input shape, all fields optional). */
+export const changelogMarkdownInputSchema = z
+  .object({
+    keepVersions: z.number().int().min(1).optional(),
+  })
+  .strict();
+
 /** Schema for the optional `releaseNotes` block (input shape, all fields optional). */
 export const releaseNotesInputSchema = z
   .object({
@@ -576,6 +595,7 @@ export const releaseKitConfigSchema = z
   .object({
     breakingPolicies: z.record(z.string(), breakingPolicyValueSchema).optional(),
     changelogJson: changelogJsonInputSchema.optional(),
+    changelogMarkdown: changelogMarkdownInputSchema.optional(),
     formatCommand: z.string().min(1).optional(),
     project: projectConfigSchema.optional(),
     releaseNotes: releaseNotesInputSchema.optional(),
@@ -693,6 +713,8 @@ export interface ReleaseSettings {
   scopeAliases?: Record<string, string>;
   /** Controls structured changelog JSON generation. */
   changelogJson: ChangelogJsonConfig;
+  /** Bounds the rendered `CHANGELOG.md`; `undefined` renders every version. */
+  changelogMarkdown?: ChangelogMarkdownConfig;
   /** Controls release notes consumption (README injection). */
   releaseNotes: ReleaseNotesConfig;
 }

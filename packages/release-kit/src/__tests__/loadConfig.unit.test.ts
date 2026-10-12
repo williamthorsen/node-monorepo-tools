@@ -248,6 +248,18 @@ describe(mergeMonorepoConfig, () => {
     expect(result.breakingPolicies).toBeUndefined();
   });
 
+  it('passes through changelogMarkdown from config', () => {
+    const result = mergeMonorepoConfig(discoveredPaths, { changelogMarkdown: { keepVersions: 5 } });
+
+    expect(result.changelogMarkdown).toStrictEqual({ keepVersions: 5 });
+  });
+
+  it('omits changelogMarkdown when not configured', () => {
+    const result = mergeMonorepoConfig(discoveredPaths, {});
+
+    expect(result.changelogMarkdown).toBeUndefined();
+  });
+
   it('throws when two workspaces produce the same tagPrefix', () => {
     mockPackageNames({
       'packages/a-foo': '@a/foo',
@@ -644,5 +656,17 @@ describe(mergeSinglePackageConfig, () => {
     const result = mergeSinglePackageConfig({});
 
     expect(result.breakingPolicies).toBeUndefined();
+  });
+
+  it('passes through changelogMarkdown from config', () => {
+    const result = mergeSinglePackageConfig({ changelogMarkdown: { keepVersions: 5 } });
+
+    expect(result.changelogMarkdown).toStrictEqual({ keepVersions: 5 });
+  });
+
+  it('omits changelogMarkdown when not configured', () => {
+    const result = mergeSinglePackageConfig({});
+
+    expect(result.changelogMarkdown).toBeUndefined();
   });
 });

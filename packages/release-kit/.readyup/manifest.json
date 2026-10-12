@@ -8,7 +8,7 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "e0e10333",
+          "hash": "a9f00459",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -19,6 +19,11 @@
           "paths": [
             "version"
           ]
+        },
+        {
+          "hash": "40404aa0",
+          "kind": "module",
+          "path": "../src/changelogArchive.ts"
         },
         {
           "hash": "43bb0452",
@@ -45,8 +50,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.40.0",
       "source": "kits/default.ts",
-      "sourceHash": "e0e10333",
-      "targetHash": "3f5719ea"
+      "sourceHash": "a9f00459",
+      "targetHash": "b863844f"
     },
     {
       "checklists": [

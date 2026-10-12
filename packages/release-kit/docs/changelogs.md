@@ -1,8 +1,8 @@
 # Changelogs
 
-What a published tarball includes, what each `.meta/changelog.json` item contains, which commits appear in a changelog, how a merge commit's change-record block becomes items, and how release notes are written into a README.
+What a published tarball includes, what each `.meta/changelog.json` item contains, how `CHANGELOG.md` archives older versions, which commits appear in a changelog, how a merge commit's change-record block becomes items, and how release notes are written into a README.
 
-npm doesn't include either `CHANGELOG.md` or `.meta/changelog.json` in a published tarball on its own. npm stopped including `CHANGELOG` automatically in npm 7, so a package that declares a `files` field publishes a changelog only when that field names `CHANGELOG.md` and `.meta/changelog.json`. release-kit's readyup kit reports a publishable workspace whose `files` field omits either.
+npm doesn't include either `CHANGELOG.md` or `.meta/changelog.json` in a published tarball on its own. npm stopped including `CHANGELOG` automatically in npm 7, so a package that declares a `files` field publishes a changelog only when that field names `CHANGELOG.md` and `.meta/changelog.json`. release-kit's readyup kit reports a publishable workspace whose `files` field omits either, and, when [`changelogMarkdown.keepVersions`](#archived-versions) is set, one whose `files` field omits `changelogs/`.
 
 ## `changelog.json` item schema
 
@@ -41,6 +41,26 @@ Three properties are worth knowing:
 
 The label match is exact: `migration:` and `**Migration:**` are not recognized.
 
+## Archived versions
+
+`changelogMarkdown.keepVersions` bounds `CHANGELOG.md`, which otherwise grows by one section per release. `.meta/changelog.json` is not affected: It contains every version whatever the option says.
+
+```typescript
+export default defineConfig({
+  changelogMarkdown: { keepVersions: 20 },
+});
+```
+
+With the option set, `prepare` writes each changelog as follows:
+
+- **`CHANGELOG.md`** contains the newest `keepVersions` sections, counting [hand-written sections](#existing-changelogmd-sections), and a paragraph below its header that links to each archive file.
+- **`changelogs/CHANGELOG-v{major}.md`**, beside `CHANGELOG.md`, contains every older section of that major version, newest first, under the same header and footer. `0.x` versions share `CHANGELOG-v0.md`, and a prerelease belongs to its major.
+- **An archive file that the render no longer produces**, after `keepVersions` is raised or the option is removed: `prepare` deletes it and renders its sections in `CHANGELOG.md` again. Every section is therefore in exactly one file.
+
+`prepare` regenerates the archive files on every release of the target, so an override applies to an archived version as it does to any other. A target that does not release keeps its unbounded `CHANGELOG.md` until its next release. The prepare report lists each archive file that it writes and each that it removes.
+
+A package that declares a `files` field publishes the archive files only when the field covers `changelogs/`; without them, the links from `CHANGELOG.md` do not resolve in the published package.
+
 ## Which commits appear in a changelog
 
 release-kit splits the history reachable from `HEAD` into one window per release tag that matches the scope's tag prefixes, restricted to commits that touch the scope's `paths`. The bump reads the same items: Its level is the highest that the unreleased window's items call for, so a commit that bumps is one that the changelog lists.
@@ -55,7 +75,7 @@ A commit whose last `change-record` block records entries yields its items from 
 
 ### Existing `CHANGELOG.md` sections
 
-`prepare` also reads the `CHANGELOG.md` that it regenerates, so a version recorded only there, such as history written by hand before release-kit was adopted, survives. The first SemVer token in a `##` heading names the section's version: `## 1.2.0`, `## v1.2.0`, and `## [1.2.0] - 2024-01-01` all name 1.2.0, and so does `## Upgrading from 1.2.0`.
+`prepare` also reads the `CHANGELOG.md` that it regenerates, and its [archive files](#archived-versions), so a version recorded only there, such as history written by hand before release-kit was adopted, survives. The first SemVer token in a `##` heading names the section's version: `## 1.2.0`, `## v1.2.0`, and `## [1.2.0] - 2024-01-01` all name 1.2.0, and so does `## Upgrading from 1.2.0`.
 
 - **A version that neither the release windows nor `changelog.json` contain** keeps its section verbatim, placed among the rendered sections in version order.
 - **A version that either contains** is rendered from its entries, and its old text is discarded.

@@ -14,6 +14,10 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
   };
 });
 
+const mockDeleteFileIfExists = vi.hoisted(() => vi.fn<(path: string) => void>());
+
+vi.mock(import('../deleteFileIfExists.ts'), () => ({ deleteFileIfExists: mockDeleteFileIfExists }));
+
 import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
 
 describe(applyReleasePlan, () => {
@@ -23,6 +27,7 @@ describe(applyReleasePlan, () => {
 
   afterEach(() => {
     mockWriteFileWithCheck.mockReset();
+    mockDeleteFileIfExists.mockReset();
   });
 
   it('writes content files first, then the summary, then the tags file', () => {
@@ -131,6 +136,51 @@ describe(applyReleasePlan, () => {
     expect(() => applyReleasePlan(makePlan())).toThrow('Failed to write packages/core/package.json');
     expect(writtenPaths()).toStrictEqual(['packages/core/package.json']);
   });
+
+  describe('with removals', () => {
+    const removal = 'packages/core/changelogs/CHANGELOG-v1.md';
+
+    it('removes files after the content writes and before the summary and tags files', () => {
+      const steps: string[] = [];
+      mockWriteFileWithCheck.mockImplementation((filePath: string) => {
+        steps.push(`write ${filePath}`);
+        return { filePath, outcome: 'overwritten' };
+      });
+      mockDeleteFileIfExists.mockImplementation((filePath: string) => {
+        steps.push(`remove ${filePath}`);
+      });
+
+      const applied = applyReleasePlan(makePlan({ removals: [removal] }));
+
+      expect(steps).toStrictEqual([
+        'write packages/core/package.json',
+        'write packages/core/CHANGELOG.md',
+        `remove ${removal}`,
+        'write tmp/.release-summary',
+        'write tmp/.release-tags',
+      ]);
+      expect(applied).toContain(removal);
+    });
+
+    it('if a removal fails, reports the removal and the underlying error', () => {
+      mockDeleteFileIfExists.mockImplementation(() => {
+        throw new Error('EACCES: permission denied');
+      });
+
+      const message = captureApplyFailure(makePlan({ removals: [removal] }));
+
+      expect(message).toContain(`Failed to remove ${removal}: EACCES: permission denied`);
+      expect(message).toContain(`Not written:\n  ${removal}\n  tmp/.release-summary\n  tmp/.release-tags`);
+    });
+
+    it('restores an applied removal from git when a later step fails', () => {
+      failOn('tmp/.release-tags');
+
+      const message = captureApplyFailure(makePlan({ removals: [removal] }));
+
+      expect(message).toMatch(new RegExp(`git restore .*${removal.replaceAll('.', String.raw`\.`)}$`));
+    });
+  });
 });
 
 // region | Helpers
@@ -141,6 +191,7 @@ function makePlan(overrides: Partial<ReleasePlan> = {}): ReleasePlan {
       { path: 'packages/core/package.json', content: '{ "version": "1.0.0" }\n' },
       { path: 'packages/core/CHANGELOG.md', content: '# Changelog\n' },
     ],
+    removals: [],
     tags: ['core-v1.0.0'],
     summary: 'core-v1.0.0\n- feat: Add a thing',
     formatCommand: undefined,

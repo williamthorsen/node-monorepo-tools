@@ -4,6 +4,7 @@ import { findUntaggedBaseline, type UntaggedBaseline } from './assertTaggedBasel
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
 import { readReleaseHistory, type ReleaseHistory, toReleaseEntries } from './buildChangelogEntries.ts';
 import { buildSyntheticChangelogEntry } from './buildSyntheticChangelogEntry.ts';
+import { describeArchivePath, listArchiveFiles } from './changelogArchive.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import { applyWorkspaceOverrides, type OverrideContext } from './changelogOverrides.ts';
 import { decideRelease } from './decideRelease.ts';
@@ -12,7 +13,7 @@ import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 import { planVersionBump, planVersionSet } from './planVersionBump.ts';
 import { planPreservedSections } from './readChangelogSections.ts';
 import type { PlannedWrite } from './releasePlan.ts';
-import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
+import { renderChangelogFiles } from './renderChangelogMarkdown.ts';
 import { PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
 import type {
   ChangelogEntry,
@@ -83,7 +84,12 @@ export interface PlannedTargetRelease {
   result: ReleasedTargetResult;
   tag: string;
   writes: PlannedWrite[];
-  /** Files that the format command covers: the version files, the `CHANGELOG.md`, and any changelog JSON. */
+  /** Archive files of the target's `CHANGELOG.md` that the release removes. */
+  removals: string[];
+  /**
+   * Files that the format command covers: the version files, the `CHANGELOG.md` and its archive files, and any
+   * changelog JSON.
+   */
   modifiedFiles: string[];
   /** Warnings raised while planning the release-notes previews. */
   warnings: string[];
@@ -203,7 +209,8 @@ export function planTargetRelease(args: PlanTargetReleaseArgs): PlannedTargetRel
     newVersion: bump.newVersion,
     tag,
     bumpedFiles: bump.writes.map((write) => write.path),
-    changelogFiles: [changelogs.changelogFile],
+    changelogFiles: changelogs.changelogFiles,
+    ...(changelogs.removals.length > 0 && { removedChangelogFiles: changelogs.removals }),
     ...(previewFiles.length > 0 && { previewFiles }),
     ...(changelogs.preservation !== undefined && { changelogPreservation: [changelogs.preservation] }),
     ...(history.previousTag !== undefined && { previousTag: history.previousTag }),
@@ -214,7 +221,8 @@ export function planTargetRelease(args: PlanTargetReleaseArgs): PlannedTargetRel
     result,
     tag,
     writes,
-    modifiedFiles: [...target.versionFiles, changelogs.changelogFile, ...changelogs.changelogJsonFiles],
+    removals: changelogs.removals,
+    modifiedFiles: [...target.versionFiles, ...changelogs.changelogFiles, ...changelogs.changelogJsonFiles],
     warnings,
   };
 }
@@ -429,8 +437,9 @@ function isScopeRouted(target: ReleaseTarget): boolean {
 }
 
 /**
- * Plans the `changelog.json` (when enabled) and `CHANGELOG.md` of one changelog directory from the new entries merged
- * with the entries on disk, so that the markdown includes prior releases whether or not the JSON is written.
+ * Plans the `changelog.json` (when enabled), `CHANGELOG.md`, and archive files of one changelog directory from the new
+ * entries merged with the entries on disk, so that the markdown includes prior releases whether or not the JSON is
+ * written. Also plans the removal of every existing archive file that the render does not produce.
  */
 function planChangelogFiles(
   changelogDir: string,
@@ -438,10 +447,12 @@ function planChangelogFiles(
   settings: TargetPrepareSettings,
   sectionOrder: string[],
 ): {
-  changelogFile: string;
+  /** The `CHANGELOG.md`, then its archive files. */
+  changelogFiles: string[];
   changelogJsonFiles: string[];
   entries: ChangelogEntry[];
   preservation: ChangelogPreservation | undefined;
+  removals: string[];
   writes: PlannedWrite[];
 } {
   const jsonPath = resolveChangelogJsonPath(settings, changelogDir);
@@ -455,13 +466,33 @@ function planChangelogFiles(
   }
 
   const changelogFile = joinPath(changelogDir, 'CHANGELOG.md');
-  const preserved = planPreservedSections(changelogFile, entries);
-  writes.push({
-    path: changelogFile,
-    content: renderChangelogMarkdown(entries, { sectionOrder, preservedSections: preserved.sections }),
+  const preserved = planPreservedSections(changelogDir, entries);
+  const keepVersions = settings.changelogMarkdown?.keepVersions;
+  const rendered = renderChangelogFiles(entries, {
+    sectionOrder,
+    preservedSections: preserved.sections,
+    ...(keepVersions !== undefined && { keepVersions }),
   });
+  writes.push({ path: changelogFile, content: rendered.main });
 
-  return { changelogFile, changelogJsonFiles, entries, preservation: preserved.preservation, writes };
+  const archiveFiles: string[] = [];
+  for (const { major, content } of rendered.archives) {
+    const path = joinPath(changelogDir, describeArchivePath(major));
+    writes.push({ path, content });
+    archiveFiles.push(path);
+  }
+  const removals = listArchiveFiles(changelogDir)
+    .map((archive) => archive.path)
+    .filter((path) => !archiveFiles.includes(path));
+
+  return {
+    changelogFiles: [changelogFile, ...archiveFiles],
+    changelogJsonFiles,
+    entries,
+    preservation: preserved.preservation,
+    removals,
+    writes,
+  };
 }
 
 // endregion | Helpers
