@@ -3,12 +3,16 @@ import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
-const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
-const mockCreateGithubReleases = vi.hoisted(() => vi.fn());
-const mockDeriveReleaseNotesConfig = vi.hoisted(() => vi.fn());
-const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
-const mockLoadConfig = vi.hoisted(() => vi.fn());
+const {
+  applyCreateGithubReleaseCommandDefaults,
+  mockCreateGithubReleases,
+  mockDeriveReleaseNotesConfig,
+  mockDeriveWorkspaceConfig,
+  mockDiscoverWorkspaces,
+  mockLoadConfig,
+  mockResolveReleaseTags,
+  resetCreateGithubReleaseCommandMocks,
+} = await vi.hoisted(() => import('../test-utils/createGithubReleaseCommandMocks.ts'));
 
 // Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
@@ -43,7 +47,7 @@ vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
 });
 
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
-import { resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
+import { resolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -52,37 +56,14 @@ describe(createGithubReleaseCommand, () => {
 
   beforeEach(() => {
     capture = captureStdio();
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
-    mockResolveReleaseTags.mockReturnValue([
-      { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true },
-    ]);
-    mockCreateGithubReleases.mockReturnValue({ created: ['v1.0.0'], skipped: [] });
-    mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => ({
-      dir: workspacePath.split('/').pop(),
-      name: `@test/${workspacePath.split('/').pop()}`,
-      tagPrefix: `${workspacePath.split('/').pop()}-v`,
-      workspacePath,
-      isPublishable: true,
-      packageFiles: [`${workspacePath}/package.json`],
-      paths: [`${workspacePath}/**`],
-    }));
-    mockDeriveReleaseNotesConfig.mockReturnValue({
-      releaseNotes: { shouldInjectIntoReadme: false },
-      changelogJsonOutputPath: '.meta/changelog.json',
-      sectionOrder: ['Bug fixes', 'Features'],
-    });
-    mockLoadConfig.mockResolvedValue(undefined);
+    applyCreateGithubReleaseCommandDefaults();
     void throwOnProcessExit();
     void silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {
     capture[Symbol.dispose]();
-    mockDiscoverWorkspaces.mockReset();
-    mockResolveReleaseTags.mockReset();
-    mockCreateGithubReleases.mockReset();
-    mockDeriveReleaseNotesConfig.mockReset();
-    mockLoadConfig.mockReset();
+    resetCreateGithubReleaseCommandMocks();
     vi.restoreAllMocks();
   });
 
@@ -520,28 +501,6 @@ describe(createGithubReleaseCommand, () => {
         'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
       );
       expect(mockCreateGithubReleases).toHaveBeenCalledWith([PROJECT_TAG], '.meta/changelog.json', false, [
-        'Bug fixes',
-        'Features',
-      ]);
-    });
-  });
-
-  describe('directory tag', () => {
-    it('creates a Release for a directory tag, which is never publishable', async () => {
-      const DIRECTORY_TAG = {
-        tag: 'app-v2.0.0',
-        kind: 'directory',
-        dir: 'app',
-        workspacePath: 'apps/app',
-        isPublishable: false,
-      };
-      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic']));
-      mockResolveReleaseTags.mockReturnValue([DIRECTORY_TAG]);
-
-      await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
-
-      expect(console.warn).not.toHaveBeenCalled();
-      expect(mockCreateGithubReleases).toHaveBeenCalledWith([DIRECTORY_TAG], '.meta/changelog.json', false, [
         'Bug fixes',
         'Features',
       ]);
