@@ -4,6 +4,7 @@ import { basename } from 'node:path';
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { DEFAULT_PROJECT_TAG_PREFIX } from './defaults.ts';
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { detectUndeclaredTagPrefixes, type UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';
 import { describeEmptyWorkspace, discoverWorkspaces } from './discoverWorkspaces.ts';
@@ -62,7 +63,8 @@ export interface TagPrefixPreview {
  * preview doesn't contain any rows; for one declaring patterns that don't resolve to any package, the function
  * throws, because the manifest then needs repairing and a clean table would hide that. Also reports the legacy
  * prefixes that the validated `config` declares per workspace, undeclared candidate prefixes among the local git
- * tags, and collisions across the successfully derived prefixes.
+ * tags, and collisions across the successfully derived prefixes. A declared composite's tag prefix counts as known, so
+ * that its tags are not reported as undeclared.
  */
 export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview {
   const workspace = discoverWorkspaces();
@@ -80,7 +82,7 @@ export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview 
   const retiredPackages = buildRetiredPreviewEntries(config?.retiredPackages ?? []);
 
   const collisions = detectCollisions(workspaces);
-  const knownPrefixes = collectKnownPrefixes(workspaces, retiredPackages);
+  const knownPrefixes = collectKnownPrefixes(workspaces, retiredPackages, findCompositeTagPrefix(config));
   const undeclaredCandidates = detectUndeclaredTagPrefixes(knownPrefixes);
 
   return { workspaces, collisions, undeclaredCandidates, retiredPackages };
@@ -178,10 +180,14 @@ function detectCollisions(rows: readonly TagPrefixPreviewRow[]): TagPrefixCollis
   return collisions;
 }
 
-/** Collects the union of successfully-derived prefixes, declared legacy prefixes, and retired prefixes. */
+/**
+ * Collects the union of successfully-derived prefixes, declared legacy prefixes, retired prefixes, and the composite's
+ * prefix when the config declares one.
+ */
 function collectKnownPrefixes(
   rows: readonly TagPrefixPreviewRow[],
   retiredPackages: readonly RetiredPackagePreviewEntry[],
+  compositeTagPrefix: string | undefined,
 ): string[] {
   const known = new Set<string>();
   for (const row of rows) {
@@ -193,6 +199,7 @@ function collectKnownPrefixes(
   for (const retired of retiredPackages) {
     known.add(retired.tagPrefix);
   }
+  if (compositeTagPrefix !== undefined) known.add(compositeTagPrefix);
   return [...known];
 }
 
@@ -204,4 +211,21 @@ function buildRetiredPreviewEntries(retiredPackages: readonly RetiredPackage[]):
     tagCount: countTagsMatching(retired.tagPrefix),
     ...(retired.successor !== undefined && { successor: retired.successor }),
   }));
+}
+
+/**
+ * Returns the tag prefix of the composite that a validated config declares, through a `project` block or a `releases`
+ * composite entry, with the default applied; `undefined` when the config declares neither.
+ */
+function findCompositeTagPrefix(config: ReleaseKitConfig | undefined): string | undefined {
+  if (config?.project !== undefined) {
+    return config.project.tagPrefix ?? DEFAULT_PROJECT_TAG_PREFIX;
+  }
+  const releaseEntries = Object.values(config?.releases ?? {});
+  for (const entry of releaseEntries) {
+    if (entry !== false && 'includes' in entry) {
+      return entry.tagPrefix ?? DEFAULT_PROJECT_TAG_PREFIX;
+    }
+  }
+  return undefined;
 }

@@ -185,6 +185,20 @@ describe(previewTagPrefixes, () => {
     expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['nmr-core-v', 'core-v']));
   });
 
+  it.each([
+    ['a releases composite', { releases: { suite: { includes: ['core'], tagPrefix: 'suite-v' } } }],
+    ['a project block', { project: { tagPrefix: 'suite-v' } }],
+  ])('passes the tag prefix of %s to detectUndeclaredTagPrefixes as known', (_label, config) => {
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
+    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'core-v' });
+    mockDetectUndeclared.mockReturnValue([]);
+    setupTagCounts({});
+
+    previewTagPrefixes(config);
+
+    expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['core-v', 'suite-v']));
+  });
+
   // An empty preview would show a clean table for a workspace whose manifest needs repairing.
   it("throws when the workspace doesn't resolve to any package", () => {
     mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
