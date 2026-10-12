@@ -8,6 +8,7 @@ import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { detectUndeclaredTagPrefixes, type UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';
 import { describeEmptyWorkspace, discoverWorkspaces } from './discoverWorkspaces.ts';
 import { matchesTagPrefix } from './matchesTagPrefix.ts';
+import { normalizeWorkspacePath } from './resolveReleaseDeclaration.ts';
 import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './types.ts';
 
 /** One workspace's preview row in the tag-prefix preview. */
@@ -70,10 +71,10 @@ export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview 
   }
 
   const workspacePaths = workspace.kind === 'packages' ? workspace.packageDirs : [];
-  const overridesByDir = buildOverrideMap(config);
+  const overridesByPath = buildOverrideMap(config, workspacePaths);
 
   const workspaces: TagPrefixPreviewRow[] = Array.from(workspacePaths, (workspacePath) =>
-    buildPreviewRow(workspacePath, overridesByDir),
+    buildPreviewRow(workspacePath, overridesByPath),
   );
 
   const retiredPackages = buildRetiredPreviewEntries(config?.retiredPackages ?? []);
@@ -85,20 +86,32 @@ export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview 
   return { workspaces, collisions, undeclaredCandidates, retiredPackages };
 }
 
-/** Builds a `dir -> legacyIdentities` lookup map from a validated config. */
-function buildOverrideMap(config: ReleaseKitConfig | undefined): Map<string, LegacyIdentity[]> {
+/**
+ * Builds a `workspacePath -> legacyIdentities` lookup from a validated config: `workspaces` overrides match the
+ * discovered workspaces by `dir`, and `releases` package entries match by path.
+ */
+function buildOverrideMap(
+  config: ReleaseKitConfig | undefined,
+  workspacePaths: readonly string[],
+): Map<string, LegacyIdentity[]> {
   const map = new Map<string, LegacyIdentity[]>();
-  if (config?.workspaces === undefined) return map;
-  for (const entry of config.workspaces) {
-    if (entry.legacyIdentities !== undefined) {
-      map.set(entry.dir, entry.legacyIdentities);
+  for (const entry of config?.workspaces ?? []) {
+    const { legacyIdentities } = entry;
+    if (legacyIdentities === undefined) continue;
+    for (const workspacePath of workspacePaths.filter((candidate) => basename(candidate) === entry.dir)) {
+      map.set(workspacePath, legacyIdentities);
+    }
+  }
+  for (const entry of Object.values(config?.releases ?? {})) {
+    if (entry !== false && 'path' in entry && entry.legacyIdentities !== undefined) {
+      map.set(normalizeWorkspacePath(entry.path), entry.legacyIdentities);
     }
   }
   return map;
 }
 
 /** Constructs a single workspace's preview row, catching derivation failures per-workspace. */
-function buildPreviewRow(workspacePath: string, overridesByDir: Map<string, LegacyIdentity[]>): TagPrefixPreviewRow {
+function buildPreviewRow(workspacePath: string, overridesByPath: Map<string, LegacyIdentity[]>): TagPrefixPreviewRow {
   const dir = basename(workspacePath);
   let derivedPrefix: string | null = null;
   let derivationError: string | null = null;
@@ -110,7 +123,7 @@ function buildPreviewRow(workspacePath: string, overridesByDir: Map<string, Lega
 
   const derivedTagCount = derivedPrefix === null ? 0 : countTagsMatching(derivedPrefix);
 
-  const declaredIdentities = overridesByDir.get(dir) ?? [];
+  const declaredIdentities = overridesByPath.get(workspacePath) ?? [];
   const legacyEntries: LegacyTagPrefixEntry[] = declaredIdentities.map((identity) => ({
     prefix: identity.tagPrefix,
     tagCount: countTagsMatching(identity.tagPrefix),

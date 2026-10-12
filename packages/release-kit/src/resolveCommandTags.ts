@@ -1,8 +1,6 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { basename } from 'node:path';
-
 import { reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
@@ -21,7 +19,8 @@ import type { ReleaseKitConfig, ResolvedProjectConfig, WorkspaceConfig } from '.
  * mode.
  *
  * In monorepo mode the workspace list is `userConfig` merged over the discovered workspaces, as `prepare` builds it,
- * and a configured `project` block contributes its `tagPrefix`, so that the project tag resolves alongside them.
+ * and a declared composite (a `project` block or a `releases` composite) contributes its `tagPrefix`, so that its tag
+ * resolves alongside them.
  * A tag on HEAD whose workspace the config excludes still counts as a tag on HEAD, so `--tags` may name it and a
  * HEAD whose tags are all excluded returns an empty list rather than failing. Each excluded tag that the run
  * selects, every one without `--tags` or the named ones with it, is dropped with a warning.
@@ -51,12 +50,17 @@ export function resolveCommandTags(
   let workspaces: WorkspaceConfig[] | undefined;
   let project: ResolvedProjectConfig | undefined;
   let singleWorkspace: WorkspaceConfig | undefined;
-  const excludedDirs = workspace.kind === 'packages' ? collectExcludedDirs(userConfig) : new Set<string>();
+  let excludedPaths = new Set<string>();
   try {
     if (workspace.kind === 'single-package') {
       singleWorkspace = deriveWorkspaceConfig('.');
     } else {
-      ({ workspaces, project } = buildMonorepoWorkspaces(workspace.packageDirs, userConfig, excludedDirs));
+      const merged = mergeMonorepoConfig(workspace.packageDirs, userConfig, readRootPackageVersion());
+      const excluded = merged.excludedWorkspaces ?? [];
+      // Excluded workspaces stay in the match set so that their tags bind to them rather than to a shorter prefix.
+      workspaces = [...merged.workspaces, ...excluded];
+      project = merged.project;
+      excludedPaths = new Set(excluded.map((excludedWorkspace) => excludedWorkspace.workspacePath));
     }
   } catch (error: unknown) {
     reportError(`Failed to resolve workspaces: ${describeError(error)}`);
@@ -92,43 +96,25 @@ export function resolveCommandTags(
     resolvedTags = resolvedTags.filter((t) => tags.includes(t.tag));
   }
 
-  return dropExcludedTags(resolvedTags, excludedDirs);
+  return dropExcludedTags(resolvedTags, excludedPaths, userConfig?.releases === undefined ? 'legacy' : 'releases');
 }
 
 // region | Helpers
 
 /**
- * Returns the config-merged workspaces followed by the ones that the config excludes, so that tag matching sees
- * every discovered prefix and an excluded workspace's tag binds to that workspace rather than to a shorter prefix.
- * Also returns the resolved `project` block when the config declares one.
+ * Warns about and removes each tag of an excluded workspace, naming the setting that excluded it: `shouldExclude` in
+ * a `workspaces` override, or a `false` entry in `releases`, which is keyed by the workspace's target name.
  */
-function buildMonorepoWorkspaces(
-  packageDirs: string[],
-  userConfig: ReleaseKitConfig | undefined,
-  excludedDirs: ReadonlySet<string>,
-): { workspaces: WorkspaceConfig[]; project?: ResolvedProjectConfig } {
-  const { workspaces, project } = mergeMonorepoConfig(packageDirs, userConfig, readRootPackageVersion());
-  const excluded = packageDirs
-    .filter((packageDir) => excludedDirs.has(basename(packageDir)))
-    .map((packageDir) => deriveWorkspaceConfig(packageDir));
-  return {
-    workspaces: [...workspaces, ...excluded],
-    ...(project !== undefined && { project }),
-  };
-}
-
-/** Returns the `dir` of every workspace override that sets `shouldExclude: true`. */
-function collectExcludedDirs(userConfig: ReleaseKitConfig | undefined): Set<string> {
-  const overrides = userConfig?.workspaces ?? [];
-  return new Set(overrides.filter((override) => override.shouldExclude === true).map((override) => override.dir));
-}
-
-/** Warns about and removes each tag whose workspace the config excludes. */
-function dropExcludedTags(resolvedTags: ResolvedTag[], excludedDirs: ReadonlySet<string>): ResolvedTag[] {
+function dropExcludedTags(
+  resolvedTags: ResolvedTag[],
+  excludedPaths: ReadonlySet<string>,
+  surface: 'legacy' | 'releases',
+): ResolvedTag[] {
   const retained: ResolvedTag[] = [];
   for (const resolvedTag of resolvedTags) {
-    if (excludedDirs.has(resolvedTag.dir)) {
-      console.warn(formatExcludedSkip(resolvedTag));
+    if (resolvedTag.kind === 'package' && excludedPaths.has(resolvedTag.workspacePath)) {
+      const setting = surface === 'releases' ? `releases.${resolvedTag.dir}: false` : undefined;
+      console.warn(formatExcludedSkip(resolvedTag, setting));
     } else {
       retained.push(resolvedTag);
     }

@@ -27,6 +27,12 @@ export function getTargetName(workspace: WorkspaceConfig): string {
   return workspace.targetName ?? workspace.dir;
 }
 
+/** Normalizes a configured path to the repo-relative POSIX form of a discovered `workspacePath`. */
+export function normalizeWorkspacePath(configuredPath: string): string {
+  const normalized = path.posix.normalize(configuredPath.replaceAll('\\', '/'));
+  return normalized.replace(/^\.\//, '').replace(/\/+$/, '');
+}
+
 /**
  * Projects the config's `releases` block, or its `workspaces` and `project` blocks, onto the discovered workspaces.
  *
@@ -55,12 +61,6 @@ function applyLegacyIdentities(
     return workspace;
   }
   return { ...workspace, legacyIdentities: legacyIdentities.map((identity) => ({ ...identity })) };
-}
-
-/** Normalizes a configured path to the repo-relative POSIX form of a discovered `workspacePath`. */
-function normalizeWorkspacePath(configuredPath: string): string {
-  const normalized = path.posix.normalize(configuredPath.replaceAll('\\', '/'));
-  return normalized.replace(/^\.\//, '').replace(/\/+$/, '');
 }
 
 /**

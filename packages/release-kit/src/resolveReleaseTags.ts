@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 
+import { getTargetName } from './resolveReleaseDeclaration.ts';
 import { PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
 import type { ResolvedProjectConfig, WorkspaceConfig } from './types.ts';
 
@@ -12,6 +13,7 @@ export interface ResolvedTag {
    * registry but always qualifies for a GitHub Release.
    */
   kind: 'package' | 'project';
+  /** Name of the release target that owns the tag; `PROJECT_TARGET_ID` for the composite of a `project` block. */
   dir: string;
   workspacePath: string;
   /**
@@ -29,7 +31,7 @@ const SEMVER_SUFFIX_PATTERN = /^\d+\.\d+\.\d+/;
 
 /** Discriminated argument to `resolveReleaseTags`: exactly one of the two keys is meaningful. */
 type ResolveReleaseTagsArgs =
-  | { workspaces: readonly WorkspaceConfig[]; project?: Pick<ResolvedProjectConfig, 'tagPrefix'> }
+  | { workspaces: readonly WorkspaceConfig[]; project?: Pick<ResolvedProjectConfig, 'tagPrefix' | 'name'> }
   | { singleWorkspace: WorkspaceConfig };
 
 /**
@@ -99,7 +101,7 @@ function resolveSinglePackageTags(tags: string[], singleWorkspace?: WorkspaceCon
 function resolveMonorepoTags(
   tags: string[],
   workspaces: readonly WorkspaceConfig[],
-  project: Pick<ResolvedProjectConfig, 'tagPrefix'> | undefined,
+  project: Pick<ResolvedProjectConfig, 'tagPrefix' | 'name'> | undefined,
 ): ResolvedTag[] {
   const sortedWorkspaces = workspaces.toSorted((a, b) => b.tagPrefix.length - a.tagPrefix.length);
 
@@ -111,12 +113,18 @@ function resolveMonorepoTags(
       resolved.push({
         tag,
         kind: 'package',
-        dir: match.dir,
+        dir: getTargetName(match),
         workspacePath: match.workspacePath,
         isPublishable: match.isPublishable,
       });
     } else if (project !== undefined && hasVersionAfterPrefix(tag, project.tagPrefix)) {
-      resolved.push({ tag, kind: 'project', dir: PROJECT_TARGET_ID, workspacePath: '.', isPublishable: false });
+      resolved.push({
+        tag,
+        kind: 'project',
+        dir: project.name ?? PROJECT_TARGET_ID,
+        workspacePath: '.',
+        isPublishable: false,
+      });
     }
   }
 

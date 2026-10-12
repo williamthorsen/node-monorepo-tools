@@ -207,6 +207,21 @@ describe(resolveReleaseTags, () => {
       ]);
     });
 
+    it('identifies a tag by its target name: a renamed workspace and a named composite', () => {
+      mockExecFileSync.mockReturnValue('nmr-core-v1.3.0\nsuite-v2.0.0\n');
+      const workspaces = [{ ...makeWorkspace({ dir: 'nmr-core', tagPrefix: 'nmr-core-v' }), targetName: 'core' }];
+
+      expect(
+        resolveReleaseTags({ workspaces, project: { tagPrefix: 'suite-v', name: 'suite' } }).map(({ tag, dir }) => [
+          tag,
+          dir,
+        ]),
+      ).toStrictEqual([
+        ['nmr-core-v1.3.0', 'core'],
+        ['suite-v2.0.0', 'suite'],
+      ]);
+    });
+
     it('ignores a project-shaped tag when the project is not passed', () => {
       mockExecFileSync.mockReturnValue('v0.13.0\n');
 
