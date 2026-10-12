@@ -43,6 +43,8 @@ const OTP_ERROR_CODE = 'EOTP';
 
 const PUBLISH_WORKFLOW_FILE = 'publish.yaml';
 
+const NO_GITHUB_REMOTE_FIX = 'Add an origin remote that points to the GitHub repo, then run this check again';
+
 const repoChecklist = defineRdyChecklist({
   name: 'repo',
   checks: [
@@ -194,10 +196,8 @@ export function buildWorkspaceCheck(workspace: Workspace): RdyCheck {
             const capability = getCachedTrustCapability();
             return capability.ok ? false : capability.detail;
           },
-          check: () => checkTrustedPublisher(displayName),
-          get fix() {
-            return `Run: npm trust github ${displayName} --repo ${getCachedOwnerRepo()} --file ${PUBLISH_WORKFLOW_FILE}`;
-          },
+          check: () => describeTrustedPublisher(getTrustQueryResult(displayName), displayName, getCachedOwnerRepo()),
+          fix: formatTrustCommand(displayName, '<owner>/<repo>'),
         },
       ],
     },
@@ -223,28 +223,19 @@ function checkProvenanceMatchesVisibility(): CheckOutcome {
 
   const content = readFile(workflowPath);
 
+  const ownerRepo = getCachedOwnerRepo();
+  if (!ownerRepo.ok) {
+    return classifyProvenanceSetting(content, ownerRepo);
+  }
+
   let visibility: RepoVisibility;
   try {
-    visibility = isRepoPrivate() ? 'private' : 'public';
+    visibility = isRepoPrivate(ownerRepo.value) ? 'private' : 'public';
   } catch {
     visibility = 'unknown';
   }
 
   return classifyProvenanceSetting(content, visibility);
-}
-
-/** Reports whether a package's trusted publisher matches this repo's publish workflow. */
-function checkTrustedPublisher(packageName: string): CheckOutcome {
-  const result = getTrustQueryResult(packageName);
-
-  switch (result.status) {
-    case 'configured':
-      return { ok: true };
-    case 'not-configured':
-      return { ok: false, detail: 'The npm registry does not list any trusted publisher for this package' };
-    default:
-      return { ok: false, detail: result.detail };
-  }
 }
 
 export type NpmAuthStatus =
@@ -284,16 +275,17 @@ export function classifyNpmAuth(result: NpmCommandResult): NpmAuthStatus {
 export type RepoVisibility = 'private' | 'public' | 'unknown';
 
 /**
- * Classifies the provenance setting in the publish workflow against the repo's visibility.
+ * Classifies the provenance setting in the publish workflow against the repo's visibility, or against the failure
+ * that left the repo unidentified and its visibility unqueried.
  *
- * An unreadable workflow is reported ahead of an unreportable visibility, so the check names the file that it
- * could not read rather than the CLI that also failed.
+ * An unreadable workflow is reported first, then an unidentified repo, then an unreportable visibility, so the check
+ * names the earliest cause rather than the CLI that also failed.
  *
  * @internal - Exported only to enable testing
  */
 export function classifyProvenanceSetting(
   workflowContent: string | undefined,
-  visibility: RepoVisibility,
+  visibility: RepoVisibility | UnresolvedOwnerRepo,
 ): CheckOutcome {
   if (workflowContent === undefined) {
     return {
@@ -301,6 +293,10 @@ export function classifyProvenanceSetting(
       detail: 'Cannot read .github/workflows/publish.yaml',
       fix: "Check the file's permissions",
     };
+  }
+
+  if (typeof visibility !== 'string') {
+    return { ok: false, detail: visibility.detail, fix: NO_GITHUB_REMOTE_FIX };
   }
 
   if (visibility === 'unknown') {
@@ -367,7 +363,7 @@ export type TrustQueryResult =
  */
 export function classifyTrustQuery(
   result: NpmCommandResult,
-  expectedRepo: string,
+  expectedRepo: OwnerRepo,
   expectedFile: string,
 ): TrustQueryResult {
   if (!result.exitOk) {
@@ -399,16 +395,25 @@ export function classifyTrustQuery(
     return { status: 'not-configured' };
   }
 
+  if (!expectedRepo.ok) {
+    return {
+      status: 'error',
+      detail: `Cannot compare the trusted publisher with this repo; found ${describeTrustRelationships(relationships)}`,
+    };
+  }
+
   const isMatch = relationships.some(
     (relationship) =>
-      relationship.type === 'github' && relationship.repository === expectedRepo && relationship.file === expectedFile,
+      relationship.type === 'github' &&
+      relationship.repository === expectedRepo.value &&
+      relationship.file === expectedFile,
   );
 
   return isMatch
     ? { status: 'configured' }
     : {
         status: 'mismatched',
-        detail: `Expected github ${expectedRepo} (${expectedFile}); found ${describeTrustRelationships(relationships)}`,
+        detail: `Expected github ${expectedRepo.value} (${expectedFile}); found ${describeTrustRelationships(relationships)}`,
       };
 }
 
@@ -436,6 +441,33 @@ export function describeNpmPackageLookup(lookup: NpmPackageLookup): CheckOutcome
   };
 }
 
+/**
+ * Converts a package's trust-query result into the outcome of the `trusted publisher configured` check.
+ *
+ * A failure names the `npm trust` command for this repo, or, when the repo is unidentified, appends that cause to the
+ * detail and advises adding the remote that the command needs.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function describeTrustedPublisher(
+  result: TrustQueryResult,
+  packageName: string,
+  ownerRepo: OwnerRepo,
+): CheckOutcome {
+  if (result.status === 'configured') {
+    return { ok: true };
+  }
+
+  const detail =
+    result.status === 'not-configured'
+      ? 'The npm registry does not list any trusted publisher for this package'
+      : result.detail;
+
+  return ownerRepo.ok
+    ? { ok: false, detail, fix: formatTrustCommand(packageName, ownerRepo.value) }
+    : { ok: false, detail: `${detail}; ${ownerRepo.detail}`, fix: NO_GITHUB_REMOTE_FIX };
+}
+
 /** Renders trust relationships for a failure detail, in the shape in which the expected publisher is named. */
 function describeTrustRelationships(relationships: TrustRelationship[]): string {
   return relationships
@@ -448,17 +480,21 @@ function describeTrustRelationships(relationships: TrustRelationship[]): string 
     .join(', ');
 }
 
+/** Formats the `npm trust` command that registers this repo's publish workflow as a package's trusted publisher. */
+function formatTrustCommand(packageName: string, ownerRepo: string): string {
+  return `Run: npm trust github ${packageName} --repo ${ownerRepo} --file ${PUBLISH_WORKFLOW_FILE}`;
+}
+
 // Cached so that the registry is queried at most once per kit invocation.
 const getCachedNpmAuthStatus: () => NpmAuthStatus = (() => {
   let cached: NpmAuthStatus | undefined;
   return () => (cached ??= classifyNpmAuth(runNpmJson(['whoami', '--json'])));
 })();
 
-// Cached so that `getOwnerRepo` (which shells out to git) runs at most once per kit invocation;
-// this also keeps module load tolerant of environments without a git remote configured.
-const getCachedOwnerRepo: () => string = (() => {
-  let cached: string | undefined;
-  return () => (cached ??= getOwnerRepo());
+// Cached so that git runs at most once per kit invocation.
+const getCachedOwnerRepo: () => OwnerRepo = (() => {
+  let cached: OwnerRepo | undefined;
+  return () => (cached ??= resolveOwnerRepo());
 })();
 
 // Cached so that the gate and every per-package skip predicate read one answer. Readyup evaluates every sibling
@@ -467,27 +503,6 @@ const getCachedTrustCapability: () => TrustCapability = (() => {
   let cached: TrustCapability | undefined;
   return () => (cached ??= resolveTrustCapability());
 })();
-
-/** Derives {owner}/{repo} from the git remote origin URL. */
-function getOwnerRepo(): string {
-  const url = execSync('git remote get-url origin', {
-    encoding: 'utf8',
-  }).trim();
-
-  // Handle SSH: git@github.com:owner/repo.git
-  const sshMatch = url.match(/git@github\.com:(.+?)(?:\.git)?$/);
-  if (sshMatch?.[1]) {
-    return sshMatch[1];
-  }
-
-  // Handle HTTPS: https://github.com/owner/repo.git
-  const httpsMatch = url.match(/github\.com\/(.+?)(?:\.git)?$/);
-  if (httpsMatch?.[1]) {
-    return httpsMatch[1];
-  }
-
-  throw new Error(`Cannot parse GitHub owner/repo from remote URL: ${url}`);
-}
 
 // Keyed by package name so that the capability probe is reused by the workspace whose name it queried.
 const trustQueryResults = new Map<string, TrustQueryResult>();
@@ -527,13 +542,34 @@ function hasTokenReferences(): boolean {
   return false;
 }
 
-/** Queries the GitHub API to determine whether the current repo is private. */
-function isRepoPrivate(): boolean {
-  const ownerRepo = getOwnerRepo();
+/** Queries the GitHub API to determine whether the repo is private. */
+function isRepoPrivate(ownerRepo: string): boolean {
   const result = execSync(`gh api repos/${ownerRepo} --jq .private`, {
     encoding: 'utf8',
   }).trim();
   return result === 'true';
+}
+
+/** The repo's GitHub `{owner}/{repo}`, or the reason that it could not be identified. */
+export type OwnerRepo = UnresolvedOwnerRepo | { ok: true; value: string };
+
+export interface UnresolvedOwnerRepo {
+  ok: false;
+  detail: string;
+}
+
+/**
+ * Derives `{owner}/{repo}` from a GitHub remote URL in SSH or HTTPS form.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function parseGitHubOwnerRepo(url: string): OwnerRepo {
+  const match = /git@github\.com:(.+?)(?:\.git)?$/.exec(url) ?? /github\.com\/(.+?)(?:\.git)?$/.exec(url);
+  const ownerRepo = match?.[1];
+
+  return ownerRepo === undefined
+    ? { ok: false, detail: `The origin remote does not point to GitHub: ${url}` }
+    : { ok: true, value: ownerRepo };
 }
 
 /** Queries the trust endpoint for the workspace that `selectProbeName` picks, if the repo has one. */
@@ -578,6 +614,19 @@ function readTrustRelationships(stdout: string): TrustRelationship[] | undefined
   }
 
   return 'type' in parsed ? [parsed] : [];
+}
+
+/** Resolves `{owner}/{repo}` from the `origin` remote. */
+function resolveOwnerRepo(): OwnerRepo {
+  let url: string;
+  try {
+    // Pipe stderr so that git's own error does not print above the report.
+    url = execSync('git remote get-url origin', { encoding: 'utf8', stdio: 'pipe' }).trim();
+  } catch {
+    return { ok: false, detail: 'The repo does not have a readable origin remote' };
+  }
+
+  return parseGitHubOwnerRepo(url);
 }
 
 /** Resolves the trust capability, querying the trust endpoint only when the session is authenticated. */
