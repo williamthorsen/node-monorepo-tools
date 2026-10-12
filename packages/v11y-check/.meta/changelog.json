@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.19.2",
+    "date": "2026-10-12",
+    "sections": [
+      {
+        "title": "📦 Dependencies",
+        "audience": "dev",
+        "items": [{ "description": "Bumped `@williamthorsen/nmr-core` to 0.13.3" }]
+      }
+    ]
+  },
+  {
     "version": "0.19.1",
     "date": "2026-10-08",
     "sections": [

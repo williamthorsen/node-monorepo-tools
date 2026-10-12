@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.13.3 — 2026-10-12
+
+### 🏗️ Internal features
+
+- Fixes the issue that nmr-core's `findPackageRoot` and `readPackageVersion` stopped at the first `package.json` above the caller, which in a dual-format layout is a marker manifest without a `version`, by re-exporting `findPackageRoot` and `resolveSelfVersion` from `@williamthorsen/toolbelt.packaging/candidate` in place of both walks. (#1016)
+
 ## 0.13.2 — 2026-10-08
 
 ### 🏗️ Internal features

@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.45.0 — 2026-10-12
+
+### 🎉 Features
+
+- Adds `maintenance.auto=false` to the git config that the Vitest git-isolation setup file injects, so that a git command run by a test does not start a detached `git maintenance` process that can still be writing under `.git` when the test removes the repository. (#1033)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `nmr-fmt` failed a run in which every path matched by the pathspecs was one that it skips, such as a symlink, a submodule gitlink, or an unreadable file, and makes such a run exit 0 and name the skipped paths on stderr. (#1010)
+- Fixes the issue that a `rootScripts` or `workspaceScripts` entry in `.config/nmr.config.ts` that names its own key, as a shell segment or as a step-list element, re-entered nmr without bound, by rejecting the entry when the config loads with an error that names the file, the field, the key, and the edit that resolves it. (#1011)
+- Fixes the issue that a package's own `package.json` entry running `nmr -R <same command>` re-entered that package without bound instead of being discarded or rejected as a self-reference. (#1011)
+- Fixes the issue that nmr treated a root entry such as `pnpm --recursive exec nmr build` as a re-invocation of its own command, because it ignored the `-r`, `--filter`, and `-w` flags that pnpm applies to the nmr that it launches. (#1011)
+- Fixes the issue that `nmr` hung when a script entry re-entered its own command in the same directory without nmr recognizing the self-reference, as `nmr -F own-pkg build` in `own-pkg`'s own `build` or a cycle through two entries does, by failing the run with an error that names the command and the directory and lists the commands that the run had entered, outermost first. (#1012)
+- Fixes the issue that the test-tier definitions in `vitest.md` gave a test that starts its own loopback server three defensible tiers: `tool` is now a process that the test starts or a program that the environment supplies, `localhost` a service already running on this machine, and an in-process server from the package's own dependency closure `unit`. (#1023)
+- Fixes the issue that `nmr`'s warning about a `package.json` script that runs `nmr` through a shell sent an entry whose whole value is `nmr <name>` to `.config/nmr.config.ts`, when the accurate edit is to replace that value with the command of the `<name>` script in the same file. (#1030)
+
+### ♻️ Refactoring
+
+- Moves the work of `runInvocation` in `nmr` into the phase functions `establishInvocation`, `planRun`, and `executePlan`, which `runCli` calls in order, and changes `runGated` and `reportRecording` to take a named `RunPlan` in place of an options object that repeated its fields. (#1014)
+
+### 🧪 Tests
+
+- Replaces the `GIT_CEILING_DIRECTORIES` stub with a `GIT_DIR` stub that points to a missing path in the no-repository test of `check-cache-gate.tool.test.ts`, and sets `maintenance.auto` to `false` in the file's fixture repository, so that git neither finds a leftover of the removed `repo/.git` nor starts a detached maintenance process that writes under `.git`. (#1032)
+
 ## 0.44.0 — 2026-10-11
 
 ### 🎉 Features

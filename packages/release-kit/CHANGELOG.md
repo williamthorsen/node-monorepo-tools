@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## 14.2.0 — 2026-10-12
+
+### 🎉 Features
+
+- Adds an optional `aliases` array to a `repoLabels.labels` entry, which `sync-labels` writes to `.github/labels.yaml` so that the sync renames each existing label named by an alias to the entry's name and keeps it on the issues and pull requests that have it. (#1015)
+- Makes `release-kit sync-labels` reject a config whose alias names a label that the config resolves or appears twice, because the sync would otherwise merge one declared label into another and delete it. (#1015)
+- Adds the `confidence:high` ("Clearly worth doing"), `confidence:medium` ("Worth doing, but arguable"), and `confidence:low` ("Not worth a ticket now") labels to the `common` preset of `release-kit sync-labels`, and documents in `docs/labels.md` that the family grades how advisable a recommendation is. (#1019)
+- Adds a warning to the `release-kit` readyup kit that names each `scope:` label in `.github/labels.yaml` with a non-empty description, archived labels included, because GitHub's label list groups scope labels compactly only when they have no description. (#1022)
+- Adds the `releases` block to `.config/release-kit.config.ts`, in which an entry renames a discovered workspace's release target, excludes the workspace with `false`, or declares a composite of named members that the root `package.json` versions, as an alternative to the `workspaces` and `project` blocks, which keep working unchanged. (#1028)
+- Lets `release-kit prepare --only` select a `releases` composite by its target name, and makes a narrowed run that leaves the composite out skip it with a warning that names it. (#1028)
+- Adds directory release targets to `release-kit`: A `releases` entry whose `path` is not a workspace now declares a target that `prepare` versions from the directory's `package.json` or `version.json`, whose `CHANGELOG.md` `prepare` writes, and whose tags `push` and `create-github-release` handle, while `publish` skips them because a directory does not have any package to publish to npm. (#1029)
+- Adds the repo-root target `{ path: '.' }`, which versions the root `package.json`, tags `v{version}`, and writes every commit in the repo to `./CHANGELOG.md`, replacing a `project` block whose window covered the whole repo only while every workspace was excluded. (#1029)
+- Adds the `changelogMarkdown.keepVersions` config option, which makes `prepare` write only the newest `keepVersions` sections to `CHANGELOG.md`, with links to `changelogs/CHANGELOG-v{major}.md` archive files that contain the older sections, and delete any archive file that is no longer needed after the option is raised or removed. (#1031)
+- Extends `prepare` to read hand-written sections from the `changelogs/` archive files as well as from `CHANGELOG.md`, so that an archived section written by hand is kept when the changelog is regenerated. (#1031)
+- Adds the warning "published packages ship the changelog archives" to the release-kit readyup kit, which reports each publishable package whose `files` field omits `changelogs/` while `keepVersions` is set, because the links in `CHANGELOG.md` to the archive files would otherwise be broken in the published package. (#1031)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that the `npm-auto-publish` kit crashed without reporting any results in a repo whose `origin` remote is missing or does not point to GitHub, and makes its trusted-publisher and provenance checks name that cause and advise adding the remote. (#1018)
+- Fixes the issue that `release-kit prepare` accepted two workspaces whose directories share a name, which `--only` and the dependency graph use to identify a workspace, and makes `prepare` and `release-kit overrides validate` stop with an error that lists the path of each. (#1026)
+- Fixes the issue that `release-kit push` never pushed the project tag on HEAD, and failed with `HEAD does not have any release tags.` when the project tag was the only release tag. (#1027)
+- Fixes the issue that `release-kit create-github-release` did not create a GitHub Release for the project tag; a private workspace's tag is still skipped. (#1027)
+- Makes `release-kit publish` skip a project tag named by `--tags` with the warning `Skipping v0.13.0: a project tag is not an npm package.`, since the project does not have an npm package to publish. (#1027)
+
+### ♻️ Refactoring
+
+- Replaces `releasePrepare`, `releasePrepareMono`, and `releasePrepareProject` with `releasePrepareTargets`, which prepares a release from one list of package and project targets resolved from any config shape. (#1026)
+
+### 📚 Documentation
+
+- Rewrites `docs/api.md` to describe what the `.` and `./config` entries export, and drops its sections on `deriveWorkspaceConfig`, the script-based approach, and `resolveReleaseTags`, none of which the package exports. (#1026)
+- Documents in `docs/project-releases.md` the tag pattern that a scaffolded `create-github-release.yaml` needs in order to trigger on a project tag, because its default `'*-v[0-9]*.[0-9]*.[0-9]*'` filter does not match a `v<version>` tag. (#1027)
+
 ## 14.1.0 — 2026-10-11
 
 ### 🎉 Features

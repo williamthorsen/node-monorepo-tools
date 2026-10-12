@@ -101,7 +101,7 @@ function translateGlob(pattern) {
 
 // .readyup/kits/default.ts
 function getMinVersion() {
-  const picked = { "version": "14.1.0" };
+  const picked = { "version": "14.2.0" };
   if (typeof picked["version"] !== "string") {
     throw new TypeError("release-kit/package.json: 'version' must be a string");
   }
