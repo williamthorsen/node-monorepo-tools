@@ -25,6 +25,7 @@ import { releasePrepareTargets, type TargetPrepareOptions } from './releasePrepa
 import { reportPrepare } from './reportPrepare.ts';
 import { resolveConfigFlag } from './resolveConfigFlag.ts';
 import {
+  isSinglePackageTargets,
   type ResolvedReleaseTargets,
   resolveReleaseTargets,
   SINGLE_PACKAGE_TARGET_ID,
@@ -98,7 +99,7 @@ export function parseArgs(argv: string[]): {
 
 /**
  * Orchestrates the CLI `prepare` command: checks the working tree, loads and validates the config, discovers the
- * workspaces, and prepares the release in single-package or monorepo mode.
+ * workspaces, and prepares the release over the targets of the repo shape.
  *
  * A relative `--config` resolves against `invocationDir`.
  */
@@ -159,57 +160,60 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
     process.exit(1);
   }
 
-  if (workspace.kind === 'single-package') {
-    runSinglePackageMode(userConfig, options, only, setVersion, dryRun, styles.stdout);
-  } else {
-    runMonorepoMode(workspace, userConfig, options, only, setVersion, dryRun, styles.stdout);
-  }
-}
-
-/** Prepares a single-package release, rejecting `--only` and accepting a bare `--set-version` version. */
-function runSinglePackageMode(
-  userConfig: ReleaseKitConfig | undefined,
-  options: PrepareOptions,
-  only: string[] | undefined,
-  setVersion: string | undefined,
-  dryRun: boolean,
-  style: OutputStyle,
-): void {
-  if (only !== undefined) {
-    reportError('--only is only supported for monorepo configurations');
-    process.exit(1);
-  }
-
-  if (setVersion !== undefined && !CANONICAL_SEMVER_PATTERN.test(setVersion)) {
-    reportError(
-      `Invalid --set-version value "${setVersion}". Must be canonical semver (N.N.N, no pre-release suffix).`,
-    );
-    process.exit(1);
-  }
-
-  const config = resolveReleaseTargets(userConfig, { kind: 'single-package' });
-  const setVersions = new Map(setVersion === undefined ? [] : [[SINGLE_PACKAGE_TARGET_ID, setVersion]]);
+  const config = resolveTargetsOrExit(userConfig, workspace, only, setVersion);
+  const targetOptions: TargetPrepareOptions = {
+    ...options,
+    ...(only !== undefined && { only }),
+    ...(setVersion !== undefined && { setVersions: resolveSetVersions(setVersion, config.targets) }),
+  };
   runAndReport(
     () => {
-      const plan = releasePrepareTargets(config, { ...options, ...(setVersion !== undefined && { setVersions }) });
+      const plan = releasePrepareTargets(config, targetOptions);
       assertReleasesOnNpm(findReleasedPackagePaths(plan, config.targets));
       return plan;
     },
     dryRun,
-    style,
+    styles.stdout,
   );
 }
 
-/** Prepares a monorepo release, validating `--only` and `--set-version` against the merged config. */
-function runMonorepoMode(
-  discovery: Extract<WorkspaceDiscovery, { kind: 'packages' }>,
+/** Returns the repo-relative paths of the package targets that a plan releases, in target order. */
+function findReleasedPackagePaths(plan: ReleasePlan, targets: readonly ReleaseTarget[]): string[] {
+  const releasedIds = new Set(
+    plan.targets.flatMap((result) =>
+      result.status === 'released' && result.kind === 'package' ? [result.targetId] : [],
+    ),
+  );
+  return targets.flatMap((target) =>
+    target.kind === 'package' && releasedIds.has(target.id) ? [target.packagePath] : [],
+  );
+}
+
+/**
+ * Resolves the release targets of the discovered repo shape, checking `--only` and `--set-version` against them.
+ * Prints a usage error and exits on a flag that the shape rejects or a name that it lacks. A monorepo's config-merge
+ * error is reported and exits; a single-package config-merge error propagates.
+ */
+function resolveTargetsOrExit(
   userConfig: ReleaseKitConfig | undefined,
-  options: PrepareOptions,
+  discovery: Exclude<WorkspaceDiscovery, { kind: 'empty' }>,
   only: string[] | undefined,
   setVersion: string | undefined,
-  dryRun: boolean,
-  style: OutputStyle,
-): void {
+): ResolvedReleaseTargets {
+  if (discovery.kind === 'single-package') {
+    if (only !== undefined) {
+      reportError('--only is only supported for monorepo configurations');
+      process.exit(1);
+    }
+    if (setVersion !== undefined && !CANONICAL_SEMVER_PATTERN.test(setVersion)) {
+      reportError(
+        `Invalid --set-version value "${setVersion}". Must be canonical semver (N.N.N, no pre-release suffix).`,
+      );
+      process.exit(1);
+    }
+    return resolveReleaseTargets(userConfig, discovery);
+  }
+
   let config: ResolvedReleaseTargets;
   try {
     config = resolveReleaseTargets(userConfig, discovery);
@@ -230,7 +234,7 @@ function runMonorepoMode(
     process.exit(1);
   }
 
-  const knownNames = config.targets.flatMap((target) => (target.kind === 'package' ? [target.id] : []));
+  const knownNames = listPackageIds(config.targets);
   const onlyNames = only ?? [];
   for (const name of onlyNames) {
     if (knownNames.includes(name)) {
@@ -241,38 +245,23 @@ function runMonorepoMode(
     process.exit(1);
   }
 
-  const monorepoOptions: TargetPrepareOptions = {
-    ...options,
-    ...(only !== undefined && { only }),
-    ...(setVersion !== undefined && { setVersions: parseSetVersions(setVersion, knownNames) }),
-  };
-  runAndReport(
-    () => {
-      const plan = releasePrepareTargets(config, monorepoOptions);
-      assertReleasesOnNpm(findReleasedPackagePaths(plan, config.targets));
-      return plan;
-    },
-    dryRun,
-    style,
-  );
+  return config;
 }
 
-/** Returns the repo-relative paths of the package targets that a plan releases, in target order. */
-function findReleasedPackagePaths(plan: ReleasePlan, targets: readonly ReleaseTarget[]): string[] {
-  const releasedIds = new Set(
-    plan.targets.flatMap((result) =>
-      result.status === 'released' && result.kind === 'package' ? [result.targetId] : [],
-    ),
-  );
-  return targets.flatMap((target) =>
-    target.kind === 'package' && releasedIds.has(target.id) ? [target.packagePath] : [],
-  );
+/**
+ * Keys the `--set-version` value by target id: a single-package repo's bare version under its root target, or a
+ * monorepo's `<workspace>@N.N.N` entries under their workspaces.
+ */
+function resolveSetVersions(setVersion: string, targets: readonly ReleaseTarget[]): Map<string, string> {
+  if (isSinglePackageTargets(targets)) {
+    return new Map([[SINGLE_PACKAGE_TARGET_ID, setVersion]]);
+  }
+  return parseSetVersions(setVersion, listPackageIds(targets));
 }
 
-interface PrepareOptions {
-  force: boolean;
-  bumpOverride?: ReleaseType;
-  withReleaseNotes?: boolean;
+/** Returns the ids of the package targets, in target order. */
+function listPackageIds(targets: readonly ReleaseTarget[]): string[] {
+  return targets.flatMap((target) => (target.kind === 'package' ? [target.id] : []));
 }
 
 /**
