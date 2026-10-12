@@ -66,7 +66,15 @@ import {
   type ScriptOrigin,
 } from './resolver.ts';
 import { resolveChannel, type RetainedOutput, runSteps, type RunStepsOptions } from './runner.ts';
-import { composeNmrStep, dropRecursiveSteps, findNmrCrossing, quoteToken, renderChain, type Step } from './steps.ts';
+import {
+  composeNmrStep,
+  dropRecursiveSteps,
+  findNmrCrossing,
+  quoteToken,
+  readSoleNmrCommand,
+  renderChain,
+  type Step,
+} from './steps.ts';
 import type { NmrConfig } from './types.ts';
 import { UserError } from './UserError.ts';
 import {
@@ -719,7 +727,9 @@ function describeCrossingRemedy(options: {
       };
     case 'package':
       return {
-        remedy: formatPackageRemedy({ configSite, crossingStep, isWorkspaceRoot, key: origin.key, registry }),
+        remedy:
+          formatInlineRemedy({ crossingStep, file: origin.file, key: origin.key, registry }) ??
+          formatPackageRemedy({ configSite, crossingStep, isWorkspaceRoot, key: origin.key, registry }),
         subject: `${path.relative(monorepoRoot, origin.file)}: \`scripts.${origin.key}\``,
       };
     default: {
@@ -767,6 +777,43 @@ function describeOrigin(origin: ScriptOrigin, config: NmrConfig, shouldUseRoot: 
   return configScripts !== undefined && Object.hasOwn(configScripts, origin.key)
     ? { tier: 'config', field, key: origin.key }
     : { tier: 'default', key: origin.key };
+}
+
+/**
+ * Returns the edit that resolves a `package.json` entry whose whole value is `nmr <name>` naming a leaf script in the
+ * same file, or `undefined` for any other entry.
+ *
+ * Inlining is exact only from the same file: A target that resolves from the registry would copy nmr's own command
+ * text into the package. The named script survives the edit when the registry also defines it, because there it
+ * overrides nmr's own command.
+ */
+function formatInlineRemedy(options: {
+  crossingStep: string;
+  file: string;
+  key: string;
+  registry: ScriptRegistry;
+}): string | undefined {
+  const { crossingStep, file, key, registry } = options;
+
+  const name = readSoleNmrCommand(crossingStep);
+  if (name === undefined || name === key) {
+    return undefined;
+  }
+
+  const scripts = readPackageJsonScripts(path.dirname(file));
+  const value = scripts !== undefined && Object.hasOwn(scripts, name) ? scripts[name]?.trim() : undefined;
+  if (value === undefined || value === '' || value === ':') {
+    return undefined;
+  }
+  if (findNmrCrossing([{ kind: 'opaque', command: value }]) !== undefined) {
+    return undefined;
+  }
+
+  const inlinedValue = escapeControlCharacters(value);
+
+  return Object.hasOwn(registry, name)
+    ? `Replace the value with \`${inlinedValue}\`, and keep \`${name}\`, which overrides nmr's own.`
+    : `Replace the value with \`${inlinedValue}\` and delete \`${name}\`, the script that it names.`;
 }
 
 /**
