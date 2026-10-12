@@ -17,7 +17,7 @@ import type {
   ChangelogSection,
   MalformedChangeRecordBlock,
   PolicyViolation,
-  ReleaseConfig,
+  ReleaseSettings,
   ReleaseType,
   UndeclaredEntryType,
   UnroutedEntryScope,
@@ -116,7 +116,7 @@ export function readReleaseHistory(config: ReleaseHistoryConfig, options: Genera
 
 /** The configuration that `readReleaseHistory` reads. */
 export type ReleaseHistoryConfig = Pick<
-  ReleaseConfig,
+  ReleaseSettings,
   'breakingPolicies' | 'changelogJson' | 'scopeAliases' | 'versionPatterns' | 'workTypes'
 >;
 
@@ -174,13 +174,13 @@ export function toReleaseEntries(history: ReleaseHistory, tag: string, today: st
 
 /** What every window's read shares. */
 interface ReadContext {
-  breakingPolicies: NonNullable<ReleaseConfig['breakingPolicies']>;
+  breakingPolicies: NonNullable<ReleaseSettings['breakingPolicies']>;
   /** Dev-only section titles, stripped of decorations. */
   devOnlySections: ReadonlySet<string>;
   /** The workspace to which entries are routed; undefined for a read that takes every entry. */
   routing?: EntryRouting;
   versionPatterns: VersionPatterns;
-  workTypes: NonNullable<ReleaseConfig['workTypes']>;
+  workTypes: NonNullable<ReleaseSettings['workTypes']>;
 }
 
 /** The workspace that a read routes change-record entries to, and the aliases that resolve their scopes. */

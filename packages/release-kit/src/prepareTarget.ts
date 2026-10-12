@@ -7,7 +7,7 @@ import { buildSyntheticChangelogEntry } from './buildSyntheticChangelogEntry.ts'
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import { applyWorkspaceOverrides, type OverrideContext } from './changelogOverrides.ts';
 import { decideRelease } from './decideRelease.ts';
-import { getAllTagPrefixes } from './generateChangelogs.ts';
+import { type GenerateChangelogOptions, getAllTagPrefixes } from './generateChangelogs.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 import { planVersionBump, planVersionSet } from './planVersionBump.ts';
 import { planPreservedSections } from './readChangelogSections.ts';
@@ -87,23 +87,31 @@ export interface PlannedTargetRelease {
 
 /** Reads a target's release windows under its tag prefixes and commit window, and finds its untagged baseline. */
 export function readTargetHistory(target: ReleaseTarget, settings: TargetPrepareSettings): TargetReading {
-  const tagPrefixes = getAllTagPrefixes(target);
-  const history = readReleaseHistory(settings, {
-    tagPrefixes,
-    ...(target.paths !== undefined && { paths: target.paths }),
-    ...(target.kind === 'package' && target.workspaceDir !== undefined && { workspaceDir: target.workspaceDir }),
-  });
+  const options = describeHistoryWindow(target);
+  const history = readReleaseHistory(settings, options);
   const untagged = findUntaggedBaseline(
     {
       label: describeBaselineLabel(target),
       packageFiles: target.versionFiles,
       changelogPaths: [target.changelogDir],
-      tagPrefixes,
+      tagPrefixes: options.tagPrefixes,
       previousTag: history.previousTag,
     },
     settings,
   );
   return { history, untagged };
+}
+
+/**
+ * Returns the bounds of a target's history read: its current and legacy tag prefixes, its commit window, and, for a
+ * workspace, the `dir` to which change-record entries route.
+ */
+export function describeHistoryWindow(target: ReleaseTarget): GenerateChangelogOptions {
+  return {
+    tagPrefixes: getAllTagPrefixes(target),
+    ...(target.paths !== undefined && { paths: target.paths }),
+    ...(target.kind === 'package' && target.workspaceDir !== undefined && { workspaceDir: target.workspaceDir }),
+  };
 }
 
 /**

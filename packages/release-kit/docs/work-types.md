@@ -51,7 +51,7 @@ Each work-type has a `breakingPolicy` value:
 
 A `BREAKING CHANGE:` body footer on a `forbidden`-policy type triggers the same warning path as the prefix `!` does: A type that cannot be breaking is parsed as non-breaking whichever surface has the signal. The warning is all that a footer triggers; it doesn't raise a bump (see [`🚨 **Breaking:**` bullet marker](#-breaking-bullet-marker)).
 
-The release-prepare orchestrators (`releasePrepare`, `releasePrepareMono`, `releasePrepareProject`) apply `DEFAULT_BREAKING_POLICIES` automatically. Violations in the titles and change-record entries of each workspace's or project's unreleased window are collected onto the corresponding result's `policyViolations` field, on a skipped result as on a released one, and rendered under the section in the prepare report:
+The release-prepare orchestrator (`releasePrepareTargets`) applies `DEFAULT_BREAKING_POLICIES` automatically. Violations in the titles and change-record entries of each workspace's or project's unreleased window are collected onto the corresponding result's `policyViolations` field, on a skipped result as on a released one, and rendered under the section in the prepare report:
 
 ```
 arrays

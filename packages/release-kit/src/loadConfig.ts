@@ -17,9 +17,9 @@ import type {
   ChangelogJsonConfig,
   LegacyIdentity,
   MonorepoReleaseConfig,
-  ReleaseConfig,
   ReleaseKitConfig,
   ReleaseNotesConfig,
+  ReleaseSettings,
   ResolvedProjectConfig,
   RetiredPackage,
   WorkspaceConfig,
@@ -212,13 +212,13 @@ function applyOptionalPassthroughFields(
 }
 
 /**
- * Resolves a final single-package config from an optional user config overlay.
+ * Resolves the release settings of a single-package repo from an optional user config overlay.
  *
  * Rejects a configured `project` block: Project-level releases are a monorepo-only feature,
  * since the implicit "all non-excluded workspaces contribute" rule is meaningless in a
  * single-package repo.
  */
-export function mergeSinglePackageConfig(userConfig: ReleaseKitConfig | undefined): ReleaseConfig {
+export function mergeSinglePackageConfig(userConfig: ReleaseKitConfig | undefined): ReleaseSettings {
   if (userConfig?.project !== undefined) {
     throw new Error('project block is not supported in single-package mode');
   }
@@ -231,10 +231,7 @@ export function mergeSinglePackageConfig(userConfig: ReleaseKitConfig | undefine
   const changelogJson = mergeChangelogJsonConfig(userConfig?.changelogJson);
   const releaseNotes = mergeReleaseNotesConfig(userConfig?.releaseNotes);
 
-  const result: ReleaseConfig = {
-    tagPrefix: 'v',
-    packageFiles: ['package.json'],
-    changelogPaths: ['.'],
+  const result: ReleaseSettings = {
     workTypes,
     versionPatterns,
     changelogJson,

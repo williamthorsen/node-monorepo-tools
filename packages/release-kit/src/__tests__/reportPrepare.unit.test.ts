@@ -914,7 +914,7 @@ describe(reportPrepare, () => {
       expect(output).toContain(dim('    [dry-run] Would generate changelog: ./CHANGELOG.md'));
     });
 
-    it('omits the project section entirely when result.project is undefined', () => {
+    it('omits the project section entirely when the plan lacks a composite result', () => {
       const result: PrepareResult = {
         targets: [
           {

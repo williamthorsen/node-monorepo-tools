@@ -777,7 +777,7 @@ describe(applyWorkspaceOverrides, () => {
 
   // The project-release flow sees only `context.project`, so a per-workspace key that targets one of the
   // project's commits doesn't have any effect at the project tier.
-  it("does not apply per-workspace files at the project tier (mimics releasePrepareProject's apply call)", () => {
+  it('does not apply per-workspace files at the project tier (as the project tier applies them)', () => {
     const context = makeContext(
       new Map([['aaa1111', { audience: 'skip' }]]),
       new Map([['packages/foo', new Map([['bbb2222', { audience: 'skip' }]])]]),

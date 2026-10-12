@@ -10,10 +10,11 @@ import {
   type ValidateAllChangelogOverridesResult,
 } from './changelogOverrides.ts';
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
-import { type GenerateChangelogOptions, getAllTagPrefixes } from './generateChangelogs.ts';
-import { mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
+import type { GenerateChangelogOptions } from './generateChangelogs.ts';
 import { type ConfigProblem, loadValidatedConfig, type LoadValidatedConfigResult } from './loadValidatedConfig.ts';
-import type { ChangelogEntry, MonorepoReleaseConfig, ReleaseConfig, ReleaseKitConfig } from './types.ts';
+import { describeHistoryWindow } from './prepareTarget.ts';
+import { isSinglePackageTargets, type ResolvedReleaseTargets, resolveReleaseTargets } from './resolveReleaseTargets.ts';
+import type { ChangelogEntry, ReleaseKitConfig } from './types.ts';
 
 /**
  * Synthetic unreleased-tag label passed to `buildChangelogEntries` during validation. The label names the unreleased
@@ -94,10 +95,7 @@ export async function validateOverridesCommand(
 
   let inputs: ValidateAllChangelogOverridesInputs;
   try {
-    inputs =
-      workspace.kind === 'single-package'
-        ? buildSinglePackageInputs(userConfig, buildEntries)
-        : buildMonorepoInputs(workspace.packageDirs, userConfig, buildEntries);
+    inputs = buildValidationInputs(resolveReleaseTargets(userConfig, workspace), buildEntries);
   } catch (error: unknown) {
     return { exitCode: 2, message: formatErrorLine(`Failed to resolve overrides scope: ${describeError(error)}`) };
   }
@@ -177,54 +175,28 @@ function formatConfigProblem(problem: ConfigProblem): string {
 }
 
 /**
- * Builds validation inputs for a single-package repo (no `pnpm-workspace.yaml`).
- *
- * Mirrors `releasePrepare.ts`'s release-history read: the configured tag prefix, without any paths, so that every
- * release across all paths contributes.
+ * Builds the validation inputs from the release targets, so that each scope's items are those that `prepare` reads for
+ * its target. A workspace target is a workspace scope, under its own override file. The project scope reads the root
+ * override file, with the items of the composite target or of the single-package root; a monorepo without a `project`
+ * block validates the root file without any items of its own.
  */
-function buildSinglePackageInputs(
-  userConfig: ReleaseKitConfig | undefined,
+function buildValidationInputs(
+  { targets, settings }: ResolvedReleaseTargets,
   buildEntries: NonNullable<ValidateOverridesCommandDependencies['buildEntries']>,
 ): ValidateAllChangelogOverridesInputs {
-  const config: ReleaseConfig = mergeSinglePackageConfig(userConfig);
-  const items = flattenEntriesToItems(buildEntries(config, { tagPrefixes: [config.tagPrefix] }));
-  return {
-    project: { filePath: resolveOverridePath('.'), items },
-  };
-}
-
-/**
- * Builds validation inputs for a monorepo, mirroring the per-scope item universes that `prepare` would compute.
- *
- * Workspace scopes mirror `buildWorkspaceEntries` in `releasePrepareMono.ts`: the workspace's derived prefix plus any
- * legacy-identity prefixes, with the workspace's `paths`, routing change-record entries to the workspace's `dir`. The
- * project scope mirrors `planProjectChangelogs` in `releasePrepareProject.ts`: the project's tag prefix with the
- * resolved `project.paths`.
- */
-function buildMonorepoInputs(
-  discoveredPaths: string[],
-  userConfig: ReleaseKitConfig | undefined,
-  buildEntries: NonNullable<ValidateOverridesCommandDependencies['buildEntries']>,
-): ValidateAllChangelogOverridesInputs {
-  const rootPackage = readRootPackageVersion();
-  const config: MonorepoReleaseConfig = mergeMonorepoConfig(discoveredPaths, userConfig, rootPackage);
-
-  const workspaces = config.workspaces.map((workspace) => {
-    const options = { tagPrefixes: getAllTagPrefixes(workspace), paths: workspace.paths, workspaceDir: workspace.dir };
-    return {
-      filePath: resolveOverridePath(workspace.workspacePath),
-      items: flattenEntriesToItems(buildEntries(config, options)),
-    };
-  });
-
-  const project = config.project;
   const projectScope: { filePath: string; items?: readonly OverrideTargetItem[] } = {
     filePath: resolveOverridePath('.'),
   };
-  if (project !== undefined) {
-    const options = { tagPrefixes: [project.tagPrefix], paths: project.paths };
-    projectScope.items = flattenEntriesToItems(buildEntries(config, options));
+  const workspaces: Array<{ filePath: string; items: readonly OverrideTargetItem[] }> = [];
+
+  for (const target of targets) {
+    const items = flattenEntriesToItems(buildEntries(settings, describeHistoryWindow(target)));
+    if (target.kind === 'package' && target.workspaceDir !== undefined) {
+      workspaces.push({ filePath: resolveOverridePath(target.packagePath), items });
+    } else {
+      projectScope.items = items;
+    }
   }
 
-  return { project: projectScope, workspaces };
+  return isSinglePackageTargets(targets) ? { project: projectScope } : { project: projectScope, workspaces };
 }

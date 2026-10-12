@@ -4,7 +4,7 @@ import { resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import { readChangelogEntries } from './changelogJsonUtils.ts';
 import { readCurrentVersion } from './planVersionBump.ts';
 import { readChangelogSections } from './readChangelogSections.ts';
-import type { ReleaseConfig } from './types.ts';
+import type { ReleaseSettings } from './types.ts';
 
 /** A release target whose history `prepare` has read, as the baseline check sees it. */
 export interface BaselineTarget {
@@ -49,7 +49,7 @@ export function assertTaggedBaseline(findings: ReadonlyArray<UntaggedBaseline | 
  */
 export function findUntaggedBaseline(
   target: BaselineTarget,
-  config: Pick<ReleaseConfig, 'changelogJson'>,
+  config: Pick<ReleaseSettings, 'changelogJson'>,
 ): UntaggedBaseline | undefined {
   const recordedVersions = readRecordedVersions(target.changelogPaths, config);
   if (recordedVersions.size === 0) {
@@ -70,7 +70,7 @@ export function findUntaggedBaseline(
 /** Returns the versions that the `CHANGELOG.md` and `changelog.json` files of the changelog paths record. */
 function readRecordedVersions(
   changelogPaths: readonly string[],
-  config: Pick<ReleaseConfig, 'changelogJson'>,
+  config: Pick<ReleaseSettings, 'changelogJson'>,
 ): Set<string> {
   const versions = new Set<string>();
   for (const changelogPath of changelogPaths) {

@@ -7,7 +7,6 @@ import type {
   CompositeTarget,
   MonorepoReleaseConfig,
   PackageTarget,
-  ReleaseConfig,
   ReleaseKitConfig,
   ReleaseSettings,
   ReleaseTarget,
@@ -39,8 +38,8 @@ export function resolveReleaseTargets(
   discovery: Exclude<WorkspaceDiscovery, { kind: 'empty' }>,
 ): ResolvedReleaseTargets {
   if (discovery.kind === 'single-package') {
-    const config = mergeSinglePackageConfig(userConfig);
-    return { targets: [buildSinglePackageTarget(config)], settings: pickSettings(config) };
+    const settings = mergeSinglePackageConfig(userConfig);
+    return { targets: [buildSinglePackageTarget()], settings: pickSettings(settings) };
   }
 
   return projectMonorepoConfig(mergeMonorepoConfig(discovery.packageDirs, userConfig, readRootPackageVersion()));
@@ -94,12 +93,12 @@ function buildProjectTarget(project: ResolvedProjectConfig, workspaces: readonly
 }
 
 /** Builds the package target at the root of a single-package repo, which reads the whole history. */
-function buildSinglePackageTarget(config: ReleaseConfig): PackageTarget {
+function buildSinglePackageTarget(): PackageTarget {
   return {
     id: SINGLE_PACKAGE_TARGET_ID,
     kind: 'package',
-    tagPrefix: config.tagPrefix,
-    versionFiles: [...config.packageFiles],
+    tagPrefix: 'v',
+    versionFiles: ['package.json'],
     changelogDir: '.',
     packagePath: '.',
     isPublishable: readRootPublishability(),

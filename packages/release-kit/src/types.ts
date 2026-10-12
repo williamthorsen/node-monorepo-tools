@@ -647,19 +647,3 @@ export interface MonorepoReleaseConfig extends ReleaseSettings {
    */
   project?: ResolvedProjectConfig;
 }
-
-/** Monorepo config as seen by the prepare workflow, which does not read release-notes configuration. */
-export type MonorepoPrepareConfig = Omit<MonorepoReleaseConfig, 'releaseNotes'>;
-
-/** Configuration for the release workflow. */
-export interface ReleaseConfig extends ReleaseSettings {
-  /** The git tag prefix used to identify version tags (e.g., 'v'). */
-  tagPrefix: string;
-  /** Paths to package.json files to bump. */
-  packageFiles: string[];
-  /** Paths to directories in which to generate changelogs. */
-  changelogPaths: string[];
-}
-
-/** Single-package config as seen by the prepare workflow, which does not read release-notes configuration. */
-export type PrepareConfig = Omit<ReleaseConfig, 'releaseNotes'>;
