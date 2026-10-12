@@ -230,7 +230,7 @@ function resolveTargetsOrExit(
     reportError(
       '--set-version cannot be combined with a project release. ' +
         "--set-version sets individual workspaces' versions; a project release rolls up every " +
-        'contributing workspace. To use --set-version, run on a config without a `project` block.',
+        'contributing workspace. To use --set-version, run on a config without a `project` block or a `releases` composite.',
     );
     process.exit(1);
   }
