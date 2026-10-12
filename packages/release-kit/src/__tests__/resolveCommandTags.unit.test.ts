@@ -36,10 +36,18 @@ const EXCLUDE_CLI: ReleaseKitConfig = { workspaces: [{ dir: 'cli', shouldExclude
 const CLI_SKIP = 'Skipping cli-v0.5.0 (packages/cli): excluded by config (shouldExclude: true).';
 
 const TAGS: ResolvedTag[] = [
-  { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
-  { tag: 'cli-v0.5.0', dir: 'cli', workspacePath: 'packages/cli', isPublishable: true },
-  { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
+  { tag: 'nmr-core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+  { tag: 'cli-v0.5.0', kind: 'package', dir: 'cli', workspacePath: 'packages/cli', isPublishable: true },
+  {
+    tag: 'release-kit-v2.1.0',
+    kind: 'package',
+    dir: 'release-kit',
+    workspacePath: 'packages/release-kit',
+    isPublishable: true,
+  },
 ];
+
+const PROJECT_TAG: ResolvedTag = { tag: 'v0.13.0', kind: 'project', dir: '', workspacePath: '.', isPublishable: false };
 
 /** Builds a workspace config whose files and paths follow from `workspacePath`. */
 function makeWorkspace(dir: string, tagPrefix: string, workspacePath: string, isPublishable = true): WorkspaceConfig {
@@ -124,7 +132,7 @@ describe(resolveCommandTags, () => {
     const result = resolveCommandTags(['nmr-core-v1.3.0'], undefined);
 
     expect(result).toStrictEqual([
-      { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+      { tag: 'nmr-core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
   });
 
@@ -132,8 +140,14 @@ describe(resolveCommandTags, () => {
     const result = resolveCommandTags(['nmr-core-v1.3.0', 'release-kit-v2.1.0'], undefined);
 
     expect(result).toStrictEqual([
-      { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
-      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
+      { tag: 'nmr-core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+      {
+        tag: 'release-kit-v2.1.0',
+        kind: 'package',
+        dir: 'release-kit',
+        workspacePath: 'packages/release-kit',
+        isPublishable: true,
+      },
     ]);
   });
 
@@ -210,8 +224,8 @@ describe(resolveCommandTags, () => {
 
   it('returns unpublishable tags alongside publishable ones (this layer does not filter them)', () => {
     const mixedTags: ResolvedTag[] = [
-      { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
-      { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
+      { tag: 'nmr-core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+      { tag: 'basic-v1.0.0', kind: 'package', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
     ];
     mockResolveReleaseTags.mockReturnValue(mixedTags);
 
@@ -264,6 +278,35 @@ describe(resolveCommandTags, () => {
       expect(capture.stderrChunks.join('')).not.toContain('HEAD does not have any release tags');
     });
 
+    it('passes the project tagPrefix to resolveReleaseTags when the config declares a project block', () => {
+      resolveCommandTags(undefined, { project: { tagPrefix: 'app-v' } });
+
+      expect(mockResolveReleaseTags).toHaveBeenCalledWith(
+        expect.objectContaining({ project: expect.objectContaining({ tagPrefix: 'app-v' }) }),
+      );
+    });
+
+    it('returns the project tag when it is the only release tag and every workspace is excluded', () => {
+      mockResolveReleaseTags.mockReturnValue([PROJECT_TAG]);
+      const config: ReleaseKitConfig = {
+        project: {},
+        workspaces: ['core', 'cli', 'release-kit'].map((dir) => ({ dir, shouldExclude: true })),
+      };
+
+      const result = resolveCommandTags(undefined, config);
+
+      expect(result).toStrictEqual([PROJECT_TAG]);
+      expect(capture.stderrChunks.join('')).not.toContain('HEAD does not have any release tags');
+    });
+
+    it('accepts the project tag in --tags', () => {
+      mockResolveReleaseTags.mockReturnValue([...TAGS, PROJECT_TAG]);
+
+      const result = resolveCommandTags(['v0.13.0'], { project: {} });
+
+      expect(result).toStrictEqual([PROJECT_TAG]);
+    });
+
     it('exits with code 1 when the config fails the merge validation', async () => {
       mockReadRootPackageVersion.mockReturnValue({ exists: false, version: undefined });
 
@@ -277,7 +320,9 @@ describe(resolveCommandTags, () => {
     it('ignores the config in single-package mode', () => {
       mockDiscoverWorkspaces.mockReturnValue(singlePackage());
       mockDeriveWorkspaceConfig.mockReturnValue(makeWorkspace('.', 'v', '.'));
-      const singleTags: ResolvedTag[] = [{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true }];
+      const singleTags: ResolvedTag[] = [
+        { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true },
+      ];
       mockResolveReleaseTags.mockReturnValue(singleTags);
 
       const result = resolveCommandTags(undefined, { project: {}, workspaces: [{ dir: '.', shouldExclude: true }] });

@@ -20,7 +20,7 @@ describe(publishPackage, () => {
     vi.restoreAllMocks();
   });
 
-  const singleTag: ResolvedTag = { tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true };
+  const singleTag: ResolvedTag = { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true };
 
   it('runs npm publish from the correct directory', () => {
     publishPackage(singleTag, 'npm', { dryRun: false, provenance: false });
@@ -32,7 +32,13 @@ describe(publishPackage, () => {
   });
 
   it('runs pnpm publish from the correct directory with --no-git-checks always emitted', () => {
-    const tag: ResolvedTag = { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true };
+    const tag: ResolvedTag = {
+      tag: 'core-v1.3.0',
+      kind: 'package',
+      dir: 'core',
+      workspacePath: 'packages/core',
+      isPublishable: true,
+    };
 
     publishPackage(tag, 'pnpm', { dryRun: false, provenance: false });
 
