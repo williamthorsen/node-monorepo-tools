@@ -289,11 +289,6 @@ describe(resolveReleaseTargets, () => {
 
     it.each([
       [
-        'a path that is not a discovered workspace',
-        { docs: { path: 'docs' } },
-        "releases.docs: path 'docs' is not a discovered workspace; releasing a directory without a package.json is not supported yet",
-      ],
-      [
         'an exclusion of a name that no workspace has',
         { docs: false },
         "releases.docs: false excludes a discovered workspace by its directory name, and no workspace is named 'docs'. Known workspaces: nmr-core, cli, scratch",
@@ -311,7 +306,7 @@ describe(resolveReleaseTargets, () => {
       [
         'a member that is the composite itself',
         { suite: { includes: ['suite'] } },
-        "releases.suite.includes: 'suite' is the composite itself; a composite includes package targets only",
+        "releases.suite.includes: 'suite' is the composite itself; a composite includes package and directory targets only",
       ],
       [
         'an excluded member',

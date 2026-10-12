@@ -419,18 +419,22 @@ export const projectConfigSchema = z
 /** Consumer-facing project-release config (`project` block). Empty object opts in to project releases. */
 export type ProjectConfig = z.infer<typeof projectConfigSchema>;
 
-/** Schema for a `releases` entry that names the discovered workspace at `path`. */
-export const packageReleaseSchema = z
+/**
+ * Schema for a `releases` entry that names the target at `path`: the discovered workspace there, or otherwise the
+ * directory, whose `tagPrefix` defaults to its basename followed by `-v`.
+ */
+export const pathReleaseSchema = z
   .object({
     path: z.string().min(1),
+    tagPrefix: z.string().min(1).optional(),
     legacyIdentities: z.array(legacyIdentitySchema).optional(),
   })
   .strict();
 
-/** A `releases` entry that names the discovered workspace at `path`. */
-export type PackageRelease = z.infer<typeof packageReleaseSchema>;
+/** A `releases` entry that names the discovered workspace or the directory at `path`. */
+export type PathRelease = z.infer<typeof pathReleaseSchema>;
 
-/** Schema for a `releases` entry that declares a composite of the named package targets. */
+/** Schema for a `releases` entry that declares a composite of the named targets. */
 export const compositeReleaseSchema = z
   .object({
     includes: z.array(z.string().min(1)).min(1),
@@ -438,14 +442,14 @@ export const compositeReleaseSchema = z
   })
   .strict();
 
-/** A `releases` entry that declares a composite of the named package targets, versioned by the root `package.json`. */
+/** A `releases` entry that declares a composite of the named targets, versioned by the root `package.json`. */
 export type CompositeRelease = z.infer<typeof compositeReleaseSchema>;
 
 /**
  * Schema for one `releases` entry: `false` excludes the discovered workspace of that name, and the object shapes name
- * a workspace or declare the composite. `validateConfig` relies on this branch order to report a failed entry.
+ * a workspace or a directory, or declare the composite. `validateConfig` relies on this branch order to report a failed entry.
  */
-export const releaseEntrySchema = z.union([z.literal(false), packageReleaseSchema, compositeReleaseSchema]);
+export const releaseEntrySchema = z.union([z.literal(false), pathReleaseSchema, compositeReleaseSchema]);
 
 /** One `releases` entry, keyed in the config by the target's name. */
 export type ReleaseEntry = z.infer<typeof releaseEntrySchema>;

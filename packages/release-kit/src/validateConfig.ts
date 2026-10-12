@@ -93,7 +93,7 @@ function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecation
     for (const [name, entry] of Object.entries(releasesCopy)) {
       if (!isRecord(entry) || !Object.hasOwn(entry, 'paths')) continue;
       errors.push(
-        `releases.${name}: 'paths' is not supported; a package's commit window is its directory, and a composite's is the union of its members' windows`,
+        `releases.${name}: 'paths' is not supported; a package's or a directory's commit window is its path, and a composite's is the union of its members' windows`,
       );
       const entryCopy = { ...entry };
       delete entryCopy['paths'];
@@ -138,7 +138,7 @@ function customizeMessage(issue: z.core.$ZodIssue): string {
 }
 
 /** Message for a `releases` entry whose keys don't select any of the entry shapes. */
-const RELEASE_ENTRY_SHAPES = 'must be false, { path, legacyIdentities? }, or { includes, tagPrefix? }';
+const RELEASE_ENTRY_SHAPES = 'must be false, { path, tagPrefix?, legacyIdentities? }, or { includes, tagPrefix? }';
 
 /** Renders a Zod path as `top.nested[2].leaf`. */
 function renderPath(path: ReadonlyArray<PropertyKey>): string {
