@@ -836,9 +836,6 @@ function scaffoldRepo(workspace: TempTree, log: string): void {
   runGit(repo, ['config', 'user.email', 'fixture@example.com']);
   runGit(repo, ['config', 'user.name', 'Fixture']);
   runGit(repo, ['config', 'commit.gpgsign', 'false']);
-  // Keep the commit from starting a detached maintenance process, which could write under `.git` after a test
-  // has begun to change it.
-  runGit(repo, ['config', 'maintenance.auto', 'false']);
   runGit(repo, ['add', '--all']);
   runGit(repo, ['commit', '--message', 'initial']);
 }
