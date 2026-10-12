@@ -1126,6 +1126,14 @@ describe(runCli, () => {
       { scenario: 'names a script that resolves from the registry', scripts: { 'build:pre': 'nmr lint' } },
       { scenario: 'names a skip value', scripts: { 'build:pre': 'nmr ports', ports: ':' } },
       { scenario: 'names a script that itself crosses', scripts: { 'build:pre': 'nmr ports', ports: 'nmr fmt' } },
+      {
+        scenario: 'names a script that has a pre-hook',
+        scripts: { 'build:pre': 'nmr ports', ports: 'tsx p.ts', 'ports:pre': 'echo pre' },
+      },
+      {
+        scenario: 'names a script that has a post-hook',
+        scripts: { 'build:pre': 'nmr ports', ports: 'tsx p.ts', 'ports:post': 'echo post' },
+      },
     ])('given a hook that $scenario, keeps the step-list remedy', async ({ scripts }, { tree }) => {
       writePackageScripts(tree, scripts);
 

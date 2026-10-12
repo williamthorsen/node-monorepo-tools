@@ -728,7 +728,7 @@ function describeCrossingRemedy(options: {
     case 'package':
       return {
         remedy:
-          formatInlineRemedy({ crossingStep, file: origin.file, key: origin.key, registry }) ??
+          formatInlineRemedy({ crossingStep, file: origin.file, isWorkspaceRoot, key: origin.key, registry }) ??
           formatPackageRemedy({ configSite, crossingStep, isWorkspaceRoot, key: origin.key, registry }),
         subject: `${path.relative(monorepoRoot, origin.file)}: \`scripts.${origin.key}\``,
       };
@@ -784,16 +784,18 @@ function describeOrigin(origin: ScriptOrigin, config: NmrConfig, shouldUseRoot: 
  * same file, or `undefined` for any other entry.
  *
  * Inlining is exact only from the same file: A target that resolves from the registry would copy nmr's own command
- * text into the package. The named script survives the edit when the registry also defines it, because there it
- * overrides nmr's own command.
+ * text into the package. It is exact only without hooks, too: `nmr <name>` also runs `<name>:pre` and `<name>:post`,
+ * which the inlined value would drop. The named script survives the edit when the registry also defines it, because
+ * there it overrides nmr's own command.
  */
 function formatInlineRemedy(options: {
   crossingStep: string;
   file: string;
+  isWorkspaceRoot: boolean;
   key: string;
   registry: ScriptRegistry;
 }): string | undefined {
-  const { crossingStep, file, key, registry } = options;
+  const { crossingStep, file, isWorkspaceRoot, key, registry } = options;
 
   const name = readSoleNmrCommand(crossingStep);
   if (name === undefined || name === key) {
@@ -806,6 +808,14 @@ function formatInlineRemedy(options: {
     return undefined;
   }
   if (findNmrCrossing([{ kind: 'opaque', command: value }]) !== undefined) {
+    return undefined;
+  }
+  // nmr does not wrap a hook in hooks of its own, so only a non-hook target can carry them.
+  const anchorDir = path.dirname(file);
+  if (
+    !isHookName(name) &&
+    [`${name}:pre`, `${name}:post`].some((hook) => hasRunnableHook(hook, registry, anchorDir, isWorkspaceRoot))
+  ) {
     return undefined;
   }
 
