@@ -7,6 +7,7 @@ import {
   findUnexpressibleToken,
   readNmrStep,
   readSelfReference,
+  readSoleNmrCommand,
   readStepListSelfReference,
   renderChain,
   type Step,
@@ -325,6 +326,31 @@ describe(readSelfReference, () => {
     const script = 'nmr build:post && rdy compile';
 
     expect(readSelfReference({ commandName: 'build:post', scope: 'package', script })).toBe('chained');
+  });
+});
+
+describe(readSoleNmrCommand, () => {
+  it.each([
+    { scenario: 'the whole value', script: 'nmr compile:ports' },
+    { scenario: 'the value past the whitespace padding it', script: '  nmr compile:ports  ' },
+  ])('returns the command named by $scenario', ({ script }) => {
+    expect(readSoleNmrCommand(script)).toBe('compile:ports');
+  });
+
+  it.each([
+    { scenario: 'a chain', script: 'nmr compile:ports && rdy compile' },
+    { scenario: 'a value written across lines', script: 'nmr compile:ports\nrdy compile' },
+    { scenario: 'a delegating flag', script: 'nmr -F core compile:ports' },
+    { scenario: 'a root flag', script: 'nmr -w compile:ports' },
+    { scenario: 'a trailing argument', script: 'nmr compile:ports --watch' },
+    { scenario: 'a redirection', script: 'nmr compile:ports 2>&1' },
+    { scenario: 'an environment assignment', script: 'FORCE_COLOR=1 nmr compile:ports' },
+    { scenario: 'a launcher', script: 'pnpm exec nmr compile:ports' },
+    { scenario: 'a quoted command name', script: "nmr 'compile:ports'" },
+    { scenario: 'bare nmr', script: 'nmr' },
+    { scenario: 'another program', script: 'node scripts/compile-ports.ts' },
+  ])('reports nothing for $scenario', ({ script }) => {
+    expect(readSoleNmrCommand(script)).toBeUndefined();
   });
 });
 
