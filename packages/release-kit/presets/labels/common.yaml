@@ -53,6 +53,17 @@
 - name: 'value:questionable'
   color: c5def5
 
+# Confidence
+- name: 'confidence:high'
+  color: 0b7285
+  description: Clearly worth doing
+- name: 'confidence:medium'
+  color: 3bc9db
+  description: Worth doing, but arguable
+- name: 'confidence:low'
+  color: 99e9f2
+  description: Not worth a ticket now
+
 # Triage
 - name: duplicate
   color: cfd3d7
