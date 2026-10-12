@@ -1,8 +1,8 @@
-import type { WorkspaceConfig } from './types.ts';
+import type { ReleaseTarget } from './types.ts';
 
-/** Returns the workspace's derived tag prefix followed by each declared legacy-identity tag prefix. */
-export function getAllTagPrefixes(workspace: WorkspaceConfig): string[] {
-  return [workspace.tagPrefix, ...(workspace.legacyIdentities?.map((identity) => identity.tagPrefix) ?? [])];
+/** Returns the derived tag prefix followed by each declared legacy-identity tag prefix. */
+export function getAllTagPrefixes(owner: Pick<ReleaseTarget, 'legacyIdentities' | 'tagPrefix'>): string[] {
+  return [owner.tagPrefix, ...(owner.legacyIdentities?.map((identity) => identity.tagPrefix) ?? [])];
 }
 
 /**

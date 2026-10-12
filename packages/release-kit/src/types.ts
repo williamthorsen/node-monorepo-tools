@@ -354,6 +354,124 @@ export interface SkippedProjectResult {
  */
 export type ProjectPrepareResult = ReleasedProjectResult | SkippedProjectResult;
 
+/** Fields of every target result: what `prepare` read from the target's unreleased window. */
+interface TargetResultFields {
+  /** Id of the target that the result describes. */
+  targetId: string;
+  previousTag?: string;
+  commitCount: number;
+  /** Commits that do not yield any changelog item and are not accounted for by any exclusion or diagnostic. */
+  unparseableCommits?: Commit[];
+  /** Policy violations of the unreleased window's titles and change-record entries; omitted when none. */
+  policyViolations?: PolicyViolation[];
+  /** Commits of the unreleased window whose `change-record` block could not be read; omitted when none. */
+  malformedBlocks?: MalformedChangeRecordBlock[];
+  /** Change-record entries of the unreleased window whose type is undeclared; omitted when none. */
+  undeclaredEntryTypes?: UndeclaredEntryType[];
+}
+
+/** Fields of every released target result: the version, tag, and files of the release. */
+interface ReleaseFields {
+  currentVersion: string;
+  newVersion: string;
+  tag: string;
+  bumpedFiles: string[];
+  changelogFiles: string[];
+  /** Release-notes preview files; present only under `--with-release-notes`. */
+  previewFiles?: string[];
+  /**
+   * Per `CHANGELOG.md`, the existing sections that were kept or dropped; omitted when `prepare` did not keep or drop
+   * any.
+   */
+  changelogPreservation?: ChangelogPreservation[];
+  /**
+   * Present when `--bump=X` was supplied and selected the release level, which distinguishes a bump-override release
+   * from a `--force` fallback or a natural-bump release.
+   */
+  bumpOverride?: ReleaseType;
+}
+
+/** Fields of every package target result. */
+interface PackageResultFields extends TargetResultFields {
+  kind: 'package';
+  /** Workspace `dir`; absent for the single-package root. */
+  name?: string;
+  /** Change-record entry scopes of the unreleased window that route their entry nowhere; omitted when none. */
+  unroutedEntryScopes?: UnroutedEntryScope[];
+}
+
+/** Result of a package target that releases. `releaseType` is absent for `--set-version`. */
+export interface ReleasedPackageResult extends PackageResultFields, ReleaseFields {
+  status: 'released';
+  /**
+   * Count of commits that yield at least one changelog item; `0` when the unreleased window does
+   * not contain any commits or when none does. Absent for `--set-version` and propagation-only
+   * releases. `bumpOverride`, not this count, signals that the user supplied `--bump=X`.
+   */
+  parsedCommitCount?: number;
+  releaseType?: ReleaseType;
+  /** Raw commits of the package's unreleased window. */
+  commits?: Commit[];
+  /** Dependencies that triggered a propagated bump (present for propagated or mixed releases). */
+  propagatedFrom?: PropagationSource[];
+  /** Present when propagation alone set the bump, the package's own commits having called for none. */
+  propagatedOnly?: true;
+  /** Present when the package was written via `--set-version`; the explicit version that was applied. */
+  setVersion?: string;
+}
+
+/** Result of a package target that skips: the diagnostic fields and a human-readable `skipReason`. */
+export interface SkippedPackageResult extends PackageResultFields {
+  status: 'skipped';
+  /**
+   * Count of commits that yield at least one changelog item; `0` when the unreleased window does not contain any
+   * commits or when none does.
+   */
+  parsedCommitCount: number;
+  skipReason: string;
+}
+
+/**
+ * Result of a composite target that releases. A composite never propagates and never takes `--set-version`, so
+ * `releaseType`, `parsedCommitCount`, and `commits` are required.
+ */
+export interface ReleasedCompositeResult extends TargetResultFields, ReleaseFields {
+  status: 'released';
+  kind: 'composite';
+  /**
+   * Count of commits that yield at least one changelog item; `0` when the unreleased window does
+   * not contain any commits or when none does.
+   */
+  parsedCommitCount: number;
+  releaseType: ReleaseType;
+  /** Raw commits of the composite's commit window since its last tag. */
+  commits: Commit[];
+}
+
+/** Result of a composite target that skips: the diagnostic fields and a human-readable `skipReason`. */
+export interface SkippedCompositeResult extends TargetResultFields {
+  status: 'skipped';
+  kind: 'composite';
+  /**
+   * Count of commits that yield at least one changelog item; `0` when the unreleased window does not contain any
+   * commits or when none does.
+   */
+  parsedCommitCount: number;
+  skipReason: string;
+}
+
+/** Result of preparing a package target, discriminated by `status`. */
+export type PackagePrepareResult = ReleasedPackageResult | SkippedPackageResult;
+
+/** Result of preparing a composite target, discriminated by `status`. */
+export type CompositePrepareResult = ReleasedCompositeResult | SkippedCompositeResult;
+
+/** Result of preparing one release target, discriminated by `kind` and by `status`. */
+export type TargetPrepareResult = PackagePrepareResult | CompositePrepareResult;
+
+/** Result of a target that releases, of either kind. */
+export type ReleasedTargetResult = ReleasedPackageResult | ReleasedCompositeResult;
+
 /** Aggregate result of the prepare workflow for both single-package and monorepo modes. */
 export interface PrepareResult {
   workspaces: WorkspacePrepareResult[];

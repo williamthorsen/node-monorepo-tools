@@ -814,8 +814,9 @@ function formatRootStaleWarning(filePath: string, key: string): string {
 }
 
 /**
- * Applies the composed root and workspace override map to a workspace's changelog entries, and records stale keys by
- * tier.
+ * Applies the composed root and workspace override map to a target's changelog entries, and records stale keys by
+ * tier. A target without a workspace override file, such as the project, passes `undefined` for `workspacePath` and
+ * applies the root tier alone.
  *
  * A workspace key that matched nothing, whether or not the root map has the same key, is stale, and it is warned about
  * at once. The function adds each root key that matched without being shadowed to `globalMatchedRootKeys`, from which
@@ -824,11 +825,11 @@ function formatRootStaleWarning(filePath: string, key: string): string {
  */
 export function applyWorkspaceOverrides(
   newEntries: ChangelogEntry[],
-  workspacePath: string,
+  workspacePath: string | undefined,
   overrideContext: OverrideContext,
 ): ReturnType<typeof applyChangelogOverrides> {
   const { project, perWorkspace, overrideWarnings, globalMatchedRootKeys } = overrideContext;
-  const workspaceOverrides = perWorkspace.get(workspacePath);
+  const workspaceOverrides = workspacePath === undefined ? undefined : perWorkspace.get(workspacePath);
   const composed = composeOverrides(project, workspaceOverrides);
   const applied = applyChangelogOverrides(newEntries, composed);
   if (applied.errors.length > 0) {
