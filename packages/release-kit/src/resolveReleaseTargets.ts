@@ -67,14 +67,20 @@ export function projectMonorepoConfig(config: MonorepoReleaseConfig): ResolvedRe
 
 // region | Helpers
 
-/** Throws when two targets share an id, which would make `--only` and result attribution ambiguous. */
+/**
+ * Throws when two targets share an id, which would make `--only` and result attribution ambiguous. The error lists the
+ * path of every colliding target, so that the author can tell which workspace to rename.
+ */
 function assertUniqueTargetIds(targets: readonly ReleaseTarget[]): void {
-  const seen = new Set<string>();
+  const pathsById = new Map<string, string[]>();
   for (const target of targets) {
-    if (seen.has(target.id)) {
-      throw new Error(`Duplicate release target id '${target.id}'`);
+    const path = target.kind === 'package' ? target.packagePath : target.changelogDir;
+    pathsById.set(target.id, [...(pathsById.get(target.id) ?? []), path]);
+  }
+  for (const [id, paths] of pathsById) {
+    if (paths.length > 1) {
+      throw new Error(`Duplicate release target id '${id}' for workspaces: ${paths.join(', ')}`);
     }
-    seen.add(target.id);
   }
 }
 

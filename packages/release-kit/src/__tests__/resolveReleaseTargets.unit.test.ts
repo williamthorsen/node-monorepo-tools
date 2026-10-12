@@ -203,6 +203,14 @@ describe(resolveReleaseTargets, () => {
         "Duplicate tag prefix 'core-v'",
       );
     });
+
+    it('rejects two workspaces that share a directory name, naming both paths', () => {
+      files.set('apps/core/package.json', { name: '@scope/core-app' });
+
+      expect(() => resolveReleaseTargets(undefined, packages('packages/core', 'apps/core'))).toThrow(
+        "Duplicate release target id 'core' for workspaces: packages/core, apps/core",
+      );
+    });
   });
 
   describe('derived tag prefixes', () => {
