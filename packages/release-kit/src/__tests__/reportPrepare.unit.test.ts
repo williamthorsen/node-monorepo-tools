@@ -996,6 +996,27 @@ describe(reportPrepare, () => {
       expect(output).toContain('· abc1234 wip: undocumented');
     });
 
+    it('heads a named composite section with its name', () => {
+      const result: PrepareResult = {
+        targets: [
+          {
+            targetId: 'suite',
+            kind: 'composite',
+            status: 'skipped',
+            commitCount: 0,
+            parsedCommitCount: 0,
+            skipReason: 'No commits. Skipping.',
+          },
+        ],
+        tags: [],
+      };
+
+      const output = reportPrepare(result, { applied: true, style: 'rich' });
+
+      expect(output).toContain(sectionHeader('suite'));
+      expect(output).not.toContain(sectionHeader('project'));
+    });
+
     it('renders a skipped project section as a header + commit count + skipReason', () => {
       const result: PrepareResult = {
         targets: [

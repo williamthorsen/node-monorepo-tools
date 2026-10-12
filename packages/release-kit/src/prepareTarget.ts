@@ -13,6 +13,7 @@ import { planVersionBump, planVersionSet } from './planVersionBump.ts';
 import { planPreservedSections } from './readChangelogSections.ts';
 import type { PlannedWrite } from './releasePlan.ts';
 import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
+import { PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
 import type {
   ChangelogEntry,
   ChangelogPreservation,
@@ -324,7 +325,7 @@ function buildPropagationEntries(
 /** Names a target in the untagged-baseline error. */
 function describeBaselineLabel(target: ReleaseTarget): string {
   if (target.kind === 'composite') {
-    return 'project';
+    return target.id === PROJECT_TARGET_ID ? 'project' : `composite '${target.id}'`;
   }
   return target.isWorkspace ? `workspace '${target.id}'` : 'package';
 }
