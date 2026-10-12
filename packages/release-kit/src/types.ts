@@ -222,7 +222,10 @@ interface ReleaseFields {
   newVersion: string;
   tag: string;
   bumpedFiles: string[];
+  /** The `CHANGELOG.md`, then any archive files that the release writes. */
   changelogFiles: string[];
+  /** Archive files of the `CHANGELOG.md` that the release removes; omitted when it removes none. */
+  removedChangelogFiles?: string[];
   /** Release-notes preview files; present only under `--with-release-notes`. */
   previewFiles?: string[];
   /**

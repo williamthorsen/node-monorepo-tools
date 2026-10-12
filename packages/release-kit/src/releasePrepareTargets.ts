@@ -147,7 +147,7 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
       );
     }
   }
-  const collected: CollectedReleases = { tags: [], writes: [], modifiedFiles: [] };
+  const collected: CollectedReleases = { tags: [], writes: [], removals: [], modifiedFiles: [] };
   for (const id of sortedIds) {
     const target = planned.find((candidate) => candidate.id === id);
     const release = releaseSet.get(id);
@@ -203,6 +203,7 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
     targets: results,
     tags: collected.tags,
     writes: collected.writes,
+    removals: collected.removals,
     summary: buildReleaseSummary({ targets: results }),
     formatCommand,
     ...(allWarnings.length > 0 && { warnings: allWarnings }),
@@ -224,10 +225,11 @@ interface RunContext {
 /** A target that releases on its own window and takes part in selection: a package or a directory. */
 type MemberTarget = PackageTarget | DirectoryTarget;
 
-/** The tags, writes, and modified files of the run's releases, in the order in which they were planned. */
+/** The tags, writes, removals, and modified files of the run's releases, in the order in which they were planned. */
 interface CollectedReleases {
   tags: string[];
   writes: PlannedWrite[];
+  removals: string[];
   modifiedFiles: string[];
 }
 
@@ -245,13 +247,14 @@ interface BaselineHintState {
   emitted: boolean;
 }
 
-/** Appends one planned release's tag, writes, and modified files to the run's collection. */
+/** Appends one planned release's tag, writes, removals, and modified files to the run's collection. */
 function collect(
   collected: CollectedReleases,
-  planned: { tag: string; writes: PlannedWrite[]; modifiedFiles: string[] },
+  planned: { tag: string; writes: PlannedWrite[]; removals: string[]; modifiedFiles: string[] },
 ): void {
   collected.tags.push(planned.tag);
   collected.writes.push(...planned.writes);
+  collected.removals.push(...planned.removals);
   collected.modifiedFiles.push(...planned.modifiedFiles);
 }
 

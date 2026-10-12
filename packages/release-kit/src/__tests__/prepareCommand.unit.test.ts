@@ -865,6 +865,7 @@ function makePrepareResult(overrides?: Partial<ReleasePlan>): ReleasePlan {
     targets: [],
     tags: [],
     writes: [],
+    removals: [],
     summary: '',
     ...overrides,
   };

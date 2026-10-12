@@ -47,7 +47,15 @@ vi.mock(import('../changelogJsonFile.ts'), () => ({
 }));
 
 vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
-  renderChangelogMarkdown: mockRenderChangelogMarkdown,
+  renderChangelogFiles: (entries: unknown, options: unknown) => ({
+    main: String(mockRenderChangelogMarkdown(entries, options)),
+    archives: [],
+  }),
+}));
+
+vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
+  listArchiveFiles: () => [],
 }));
 
 import type { ChangelogDiagnostics } from '../buildChangelogEntries.ts';

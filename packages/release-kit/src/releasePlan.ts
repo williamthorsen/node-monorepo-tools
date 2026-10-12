@@ -1,5 +1,7 @@
 import { writeFileWithCheck } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { deleteFileIfExists } from './deleteFileIfExists.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 import type { PrepareResult } from './types.ts';
 
@@ -9,11 +11,17 @@ export interface PlannedWrite {
   content: string;
 }
 
-/** A write that succeeded, and whether it created the file or replaced existing content. */
+/**
+ * A write or removal that succeeded, and whether it created the file. A removal did not create its file, so recovery
+ * restores it from git as it does a replaced file.
+ */
 interface AppliedWrite {
   path: string;
   created: boolean;
 }
+
+/** One step of applying a plan: writing a file, or removing one. */
+type PlannedStep = ({ kind: 'write' } & PlannedWrite) | { kind: 'remove'; path: string };
 
 /** Files that a release writes for the next command to read, as opposed to release content. */
 const HANDOFF_FILES = new Set([RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE]);
@@ -29,47 +37,69 @@ const HANDOFF_FILES = new Set([RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE]);
  */
 export interface ReleasePlan extends PrepareResult {
   writes: readonly PlannedWrite[];
+  /** Files that the release removes, such as changelog archive files that the render no longer produces. */
+  removals: readonly string[];
   /** Body of the release commit message, written alongside the tags file. */
   summary: string;
 }
 
 /**
- * Writes every file that a plan describes: content files first, then the summary, then the tags file.
+ * Applies every step that a plan describes: content files first, then removals, then the summary, then the tags file.
  *
  * The tags file goes last so that its presence means that the whole plan was written to disk.
  * Both `release-kit commit` and the reusable release workflow read it as the signal that a
  * release is ready to commit, so writing it earlier would let a failure produce a tree that
  * looks releasable.
  *
- * Returns the paths written, in order. Throws if any write fails, naming what was written and what was not.
+ * Returns the paths written or removed, in order. Throws if any step fails, naming what was applied and what was not.
  */
 export function applyReleasePlan(plan: ReleasePlan): string[] {
-  const ordered = orderPlannedWrites(plan);
+  const ordered = orderPlannedSteps(plan);
   const applied: AppliedWrite[] = [];
 
-  for (const [index, write] of ordered.entries()) {
-    const result = writeFileWithCheck(write.path, write.content, { dryRun: false, overwrite: true });
+  for (const [index, step] of ordered.entries()) {
+    const outcome = applyStep(step);
 
-    if (result.outcome === 'failed') {
+    if (outcome.outcome === 'failed') {
       const unwritten = ordered.slice(index).map((pending) => pending.path);
-      throw new Error(describeApplyFailure({ failedPath: write.path, error: result.error, applied, unwritten }));
+      throw new Error(describeApplyFailure({ failedStep: step, error: outcome.error, applied, unwritten }));
     }
 
-    applied.push({ path: write.path, created: result.outcome === 'created' });
+    applied.push({ path: step.path, created: outcome.outcome === 'created' });
   }
 
   return applied.map((write) => write.path);
 }
 
-/** Orders a plan's writes for application, appending the summary and tags files in that order. */
-function orderPlannedWrites(plan: ReleasePlan): PlannedWrite[] {
-  const ordered = [...plan.writes];
+/** Writes or removes one file, reporting whether it failed and, for a write, whether it created the file. */
+function applyStep(step: PlannedStep): { outcome: 'applied' | 'created' | 'failed'; error?: string } {
+  if (step.kind === 'remove') {
+    try {
+      deleteFileIfExists(step.path);
+      return { outcome: 'applied' };
+    } catch (error: unknown) {
+      return { outcome: 'failed', error: describeError(error) };
+    }
+  }
+  const result = writeFileWithCheck(step.path, step.content, { dryRun: false, overwrite: true });
+  if (result.outcome === 'failed') {
+    return { outcome: 'failed', ...(result.error !== undefined && { error: result.error }) };
+  }
+  return { outcome: result.outcome === 'created' ? 'created' : 'applied' };
+}
+
+/** Orders a plan's steps for application: content writes, removals, then the summary and tags files in that order. */
+function orderPlannedSteps(plan: ReleasePlan): PlannedStep[] {
+  const ordered: PlannedStep[] = [
+    ...plan.writes.map((write): PlannedStep => ({ kind: 'write', ...write })),
+    ...plan.removals.map((path): PlannedStep => ({ kind: 'remove', path })),
+  ];
 
   if (plan.summary.length > 0) {
-    ordered.push({ path: RELEASE_SUMMARY_FILE, content: plan.summary });
+    ordered.push({ kind: 'write', path: RELEASE_SUMMARY_FILE, content: plan.summary });
   }
   if (plan.tags.length > 0) {
-    ordered.push({ path: RELEASE_TAGS_FILE, content: plan.tags.join('\n') });
+    ordered.push({ kind: 'write', path: RELEASE_TAGS_FILE, content: plan.tags.join('\n') });
   }
 
   return ordered;
@@ -77,7 +107,7 @@ function orderPlannedWrites(plan: ReleasePlan): PlannedWrite[] {
 
 /** Inputs to {@link describeApplyFailure}. */
 interface DescribeApplyFailureArgs {
-  failedPath: string;
+  failedStep: PlannedStep;
   error: string | undefined;
   applied: readonly AppliedWrite[];
   unwritten: readonly string[];
@@ -91,9 +121,10 @@ interface DescribeApplyFailureArgs {
  * without being told which files the run touched.
  */
 function describeApplyFailure(args: DescribeApplyFailureArgs): string {
-  const { failedPath, error, applied, unwritten } = args;
+  const { failedStep, error, applied, unwritten } = args;
   const total = applied.length + unwritten.length;
-  const lines = [`Failed to write ${failedPath}: ${error ?? 'unknown error'}`, ''];
+  const verb = failedStep.kind === 'remove' ? 'remove' : 'write';
+  const lines = [`Failed to ${verb} ${failedStep.path}: ${error ?? 'unknown error'}`, ''];
 
   if (applied.length === 0) {
     lines.push(`The release was not applied. None of its ${total} files were written.`);
