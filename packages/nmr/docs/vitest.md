@@ -10,16 +10,16 @@ The [README](../README.md#shared-vitest-config) shows the one-line config file.
 
 The config declares four projects, an ordered ladder named for the furthest thing that a test reaches:
 
-| Project     | Matches                                     | Reaches                                                     |
-| ----------- | ------------------------------------------- | ----------------------------------------------------------- |
-| `unit`      | every test file that the others don't claim | nothing outside the package's own dependency closure        |
-| `tool`      | `*.tool.test.{ts,tsx}`                      | another process, or a program that the environment supplies |
-| `localhost` | `*.localhost.test.{ts,tsx}`                 | a service already running on this machine                   |
-| `remote`    | `*.remote.test.{ts,tsx}`                    | a machine that isn't this one                               |
+| Project     | Matches                                     | Reaches                                                                    |
+| ----------- | ------------------------------------------- | -------------------------------------------------------------------------- |
+| `unit`      | every test file that the others don't claim | nothing outside the package's own dependency closure                       |
+| `tool`      | `*.tool.test.{ts,tsx}`                      | a process that the test starts, or a program that the environment supplies |
+| `localhost` | `*.localhost.test.{ts,tsx}`                 | a service already running on this machine                                  |
+| `remote`    | `*.remote.test.{ts,tsx}`                    | a machine that isn't this one                                              |
 
 All four match only under a `__tests__` directory.
 
-**A tier names what the environment must supply for a test to run.** A test is `tool` when it reaches beyond its own process, or reaches a program that the environment supplies. A spawned process is itself something the test reaches, even when it runs the package's own code, because the machine sets how long the process takes to start and to run.
+**A tier names what the environment must supply for a test to run.** A test is `tool` when it reaches a process that it starts, or a program that the environment supplies. A spawned process is itself something that the test reaches, even when it runs the package's own code, because the machine sets how long the process takes to start and to run.
 
 **A tier names what a test reaches, never how it invokes it.** A test driving a compiler through its JavaScript API is `tool`, exactly as one spawning the compiler binary is; whether a program ships as a library or an executable is an accident of packaging, not a property of the test. What decides is who supplies the program, and a package declares that in its `peerDependencies`. Those, plus whatever binaries it spawns, mark where its `tool` boundary lies: A bundled dependency is inside the package's own closure and is always present, so reaching one in-process is `unit`.
 
