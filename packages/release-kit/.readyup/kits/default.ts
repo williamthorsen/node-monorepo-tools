@@ -23,6 +23,7 @@ import {
   readFile,
 } from 'readyup/check-utils';
 
+import { CHANGELOG_ARCHIVE_DIRECTORY } from '../../src/changelogArchive.ts';
 import { detectRepoType } from '../../src/init/detectRepoType.ts';
 import { packsPath } from '../../src/packsPath.ts';
 
@@ -241,6 +242,16 @@ export default defineRdyKit({
           fix: 'Add "CHANGELOG.md" to the files field of each affected package.json',
         },
         {
+          name: 'published packages ship the changelog archives',
+          severity: 'warn',
+          skip: () => {
+            if (!hasPublishablePackages()) return 'no publishable packages';
+            return changelogArchivesAreEnabled() ? false : 'changelogMarkdown.keepVersions is not set';
+          },
+          check: () => packagesShipChangelogArchives(),
+          fix: 'Add "changelogs/" to the files field of each affected package.json, so that the links from CHANGELOG.md to its archive files resolve in the published package',
+        },
+        {
           name: 'changelog.json generation is enabled',
           severity: 'recommend',
           skip: () => (!hasPublishablePackages() ? 'no publishable packages' : false),
@@ -307,6 +318,18 @@ export default defineRdyKit({
 // region | Helpers
 
 /**
+ * Checks whether the config sets `changelogMarkdown.keepVersions`, which moves older `CHANGELOG.md` sections into
+ * archive files. Reads the raw config text, so a value set by an expression counts as set.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function changelogArchivesAreEnabled(): boolean {
+  const content = readFile('.config/release-kit.config.ts');
+  if (content === undefined) return false;
+  return /changelogMarkdown\s*:\s*\{[^}]*keepVersions\s*:/.test(content);
+}
+
+/**
  * Checks whether the repo leaves structured changelog generation on.
  *
  * A repo without a config file inherits the enabled default, so a missing config file passes.
@@ -352,6 +375,15 @@ function labelsHaveCurrentPresetHash(presetName: string, expectedHash: string): 
  */
 export function packagesShipChangelog(): boolean | CheckOutcome {
   return reportWorkspacesOmitting('CHANGELOG.md');
+}
+
+/**
+ * Checks that every publishable workspace would publish the archive files of its `CHANGELOG.md`.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function packagesShipChangelogArchives(): boolean | CheckOutcome {
+  return reportWorkspacesOmitting(`${CHANGELOG_ARCHIVE_DIRECTORY}/CHANGELOG-v1.md`, `${CHANGELOG_ARCHIVE_DIRECTORY}/`);
 }
 
 /**
@@ -421,14 +453,15 @@ function releaseNotesInjectsIntoReadme(): boolean {
 }
 
 /**
- * Names the publishable workspaces whose `files` field would leave `path` out of the tarball.
+ * Names the publishable workspaces whose `files` field would leave `path` out of the tarball, naming the omission as
+ * `label`.
  *
  * Workspace discovery reports the repo root in both repo types, so a publishable root is checked like any other
  * package and a `private: true` workspace is filtered out before its `files` field is read. The check does not
  * require `path` to exist on disk: A repo adopting release-kit before its first release should widen `files`
  * then, not after the first changelog is generated.
  */
-function reportWorkspacesOmitting(path: string): boolean | CheckOutcome {
+function reportWorkspacesOmitting(path: string, label = path): boolean | CheckOutcome {
   const failing: string[] = [];
   const packageWorkspaces = discoverWorkspaces({ filter: (w) => w.isPackage });
   for (const { dir, packageJson } of packageWorkspaces) {
@@ -440,7 +473,7 @@ function reportWorkspacesOmitting(path: string): boolean | CheckOutcome {
   if (failing.length === 0) return true;
   return {
     ok: false,
-    detail: `files field omits ${path}: ${failing.join(', ')}`,
+    detail: `files field omits ${label}: ${failing.join(', ')}`,
   };
 }
 
