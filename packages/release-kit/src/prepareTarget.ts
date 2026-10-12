@@ -240,6 +240,11 @@ export function buildSkippedTargetResult(
   return skipped;
 }
 
+/** Reports whether a directory target is the repo root, which reads the whole repo and renders every entry. */
+export function isRepoRoot(target: DirectoryTarget): boolean {
+  return target.directoryPath === '.';
+}
+
 // region | Helpers
 
 /** The fields that a released result of either kind takes from the plan. */
@@ -410,11 +415,6 @@ function describeOverrideScope(target: ReleaseTarget): string | undefined {
     case 'composite':
       return undefined;
   }
-}
-
-/** Reports whether a directory target is the repo root, which reads the whole repo and renders every entry. */
-function isRepoRoot(target: DirectoryTarget): boolean {
-  return target.directoryPath === '.';
 }
 
 /**

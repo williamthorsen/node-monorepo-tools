@@ -15,6 +15,7 @@ import { resolveWorkTypes } from './loadConfig.ts';
 import {
   buildSkippedTargetResult,
   decideTargetRelease,
+  isRepoRoot,
   planTargetRelease,
   readTargetHistory,
   type TargetDecision,
@@ -450,7 +451,7 @@ function prepareComposite(
 
 /** Reports whether a target is the directory target of the repo root, whose window is the whole repo. */
 function isRepoRootTarget(target: MemberTarget): boolean {
-  return target.kind === 'directory' && target.directoryPath === '.';
+  return target.kind === 'directory' && isRepoRoot(target);
 }
 
 /**
