@@ -85,7 +85,7 @@ function resolveCompositeMembers(
     if (excluded.some((workspace) => workspace.dir === memberName)) {
       throw new Error(`${label} is excluded, so the composite cannot include it`);
     }
-    throw new Error(`${label} is not a release target. Known targets: ${[...retainedByName.keys()].join(', ')}`);
+    throw new Error(`${label} is not a release target. Known targets: ${retainedByName.keys().toArray().join(', ')}`);
   });
 }
 
@@ -151,7 +151,7 @@ function resolveReleasesBlock(
       throw new Error(
         entry === false
           ? `releases.${name}: false excludes a discovered workspace by its directory name, and no workspace is named '${name}'. ` +
-              `Known workspaces: ${[...workspaceByDir.keys()].join(', ')}`
+              `Known workspaces: ${workspaceByDir.keys().toArray().join(', ')}`
           : `releases.${name}: path '${entry.path}' is not a discovered workspace; ` +
               'releasing a directory without a package.json is not supported yet',
       );

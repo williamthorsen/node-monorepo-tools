@@ -163,8 +163,9 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
 
   // -- Composites, after every package target --
   for (const composite of compositeTargets) {
-    if (only !== undefined && !only.includes(composite.id)) {
-      warnings.push(describeSkippedComposite(composite, only));
+    const skipWarning = describeCompositeSkip(composite, only);
+    if (skipWarning !== undefined) {
+      warnings.push(skipWarning);
       continue;
     }
     const result = runStage(describeStage(composite), () =>
@@ -317,6 +318,24 @@ function decideDirectReleases(
   return direct;
 }
 
+/**
+ * Describes why a run narrowed by `only` skips a composite and how to include it, or returns `undefined` when the run
+ * prepares it: every run that `only` doesn't narrow, and every one that names it. A `project` block's composite
+ * cannot be named.
+ */
+function describeCompositeSkip(composite: CompositeTarget, only: readonly string[] | undefined): string | undefined {
+  if (only === undefined || only.includes(composite.id)) {
+    return undefined;
+  }
+  if (composite.id === PROJECT_TARGET_ID) {
+    return (
+      `Project release skipped: --only narrows this run to ${only.join(', ')}. ` +
+      'Run `release-kit prepare` without --only to include the project release.'
+    );
+  }
+  return `Release '${composite.id}' skipped: --only does not name it. Add ${composite.id} to --only to include it.`;
+}
+
 /** Names the stage whose errors a target's work raises; the single-package root's errors are not labeled. */
 function describeStage(target: ReleaseTarget): string | undefined {
   if (target.kind === 'composite') {
@@ -447,17 +466,6 @@ function reportUnroutedEntryScopes(
   for (const { target, history } of windows) {
     history.unreleased.diagnostics.unroutedEntryScopes = findings.get(target.id) ?? [];
   }
-}
-
-/** Describes why a narrowed run skips a composite and how to include it; a `project` block's cannot be named. */
-function describeSkippedComposite(composite: CompositeTarget, only: readonly string[]): string {
-  if (composite.id === PROJECT_TARGET_ID) {
-    return (
-      `Project release skipped: --only narrows this run to ${only.join(', ')}. ` +
-      'Run `release-kit prepare` without --only to include the project release.'
-    );
-  }
-  return `Release '${composite.id}' skipped: --only does not name it. Add ${composite.id} to --only to include it.`;
 }
 
 /** Runs `fn`, rethrowing any thrown value behind the stage label as `<stage>: …`; runs it unlabeled without one. */

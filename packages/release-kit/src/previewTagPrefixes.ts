@@ -95,14 +95,17 @@ function buildOverrideMap(
   workspacePaths: readonly string[],
 ): Map<string, LegacyIdentity[]> {
   const map = new Map<string, LegacyIdentity[]>();
-  for (const entry of config?.workspaces ?? []) {
-    const { legacyIdentities } = entry;
+  const workspaceEntries = config?.workspaces ?? [];
+  for (const { dir, legacyIdentities } of workspaceEntries) {
     if (legacyIdentities === undefined) continue;
-    for (const workspacePath of workspacePaths.filter((candidate) => basename(candidate) === entry.dir)) {
-      map.set(workspacePath, legacyIdentities);
+    for (const workspacePath of workspacePaths) {
+      if (basename(workspacePath) === dir) {
+        map.set(workspacePath, legacyIdentities);
+      }
     }
   }
-  for (const entry of Object.values(config?.releases ?? {})) {
+  const releaseEntries = Object.values(config?.releases ?? {});
+  for (const entry of releaseEntries) {
     if (entry !== false && 'path' in entry && entry.legacyIdentities !== undefined) {
       map.set(normalizeWorkspacePath(entry.path), entry.legacyIdentities);
     }
