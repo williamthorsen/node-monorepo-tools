@@ -582,6 +582,21 @@ export interface ParsedCommit {
   breaking: boolean;
 }
 
+/** A directory that a `releases` entry declares as a release target, as config merging resolves it. */
+export interface DirectoryConfig {
+  /** Name of the release target, its `releases` entry key. */
+  name: string;
+  /** Repo-relative POSIX path of the directory; `.` for the repo root. */
+  path: string;
+  /** Repo-relative JSON file whose `version` field the release bumps: the directory's `package.json` or `version.json`. */
+  versionFile: string;
+  /** Git pathspecs of the commit window; `undefined` for the repo root, whose window is the whole repo. */
+  paths?: string[];
+  tagPrefix: string;
+  /** Prior identities, whose tag prefixes are searched alongside `tagPrefix`; `undefined` equals the empty array. */
+  legacyIdentities?: LegacyIdentity[];
+}
+
 /** Per-workspace configuration for monorepo releases. */
 export interface WorkspaceConfig {
   /** The package directory name (e.g., 'arrays'), which names the workspace's release target by default. */
@@ -686,6 +701,8 @@ export interface MonorepoReleaseConfig extends ReleaseSettings {
   workspaces: WorkspaceConfig[];
   /** Discovered workspaces that the config excludes, which tag resolution still matches; `undefined` means none. */
   excludedWorkspaces?: WorkspaceConfig[];
+  /** Directories that the `releases` block declares as targets, in config order; `undefined` means none. */
+  directories?: DirectoryConfig[];
   /**
    * Project-level release config. Present when the config declares a `project` block, in which case
    * `prepare` runs a project-release stage after the per-workspace loop.
