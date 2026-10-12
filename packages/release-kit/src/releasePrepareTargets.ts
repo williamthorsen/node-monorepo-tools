@@ -448,13 +448,18 @@ function prepareComposite(
   return planned.result;
 }
 
+/** Reports whether a target is the directory target of the repo root, whose window is the whole repo. */
+function isRepoRootTarget(target: MemberTarget): boolean {
+  return target.kind === 'directory' && target.directoryPath === '.';
+}
+
 /**
  * Returns the directory whose override file a planned target composes with the root's: a workspace's package path, and
  * a directory's path unless it is the repo root, which reads the root's alone.
  */
 function listOverrideDirectory(target: MemberTarget): string[] {
   if (target.kind === 'directory') {
-    return target.directoryPath === '.' ? [] : [target.directoryPath];
+    return isRepoRootTarget(target) ? [] : [target.directoryPath];
   }
   return target.isWorkspace ? [target.packagePath] : [];
 }
@@ -471,7 +476,8 @@ function readHistory(readings: ReadonlyMap<string, ReleaseHistory>, target: Memb
 /**
  * Records on each planned workspace's and directory's history the entry scopes that route nowhere in its unreleased
  * window, which only a pass across every target's window can find. The windows go to the finder with the releasing
- * targets first, in planned order, which sets the order of each target's findings.
+ * targets first, in planned order, which sets the order of each target's findings. The repo-root directory target
+ * renders every entry in its window, so it records none, but its window still routes the scope that names it.
  */
 function reportUnroutedEntryScopes(
   planned: readonly MemberTarget[],
@@ -490,7 +496,9 @@ function reportUnroutedEntryScopes(
     settings.scopeAliases ?? {},
   );
   for (const { target, history } of windows) {
-    history.unreleased.diagnostics.unroutedEntryScopes = findings.get(target.id) ?? [];
+    history.unreleased.diagnostics.unroutedEntryScopes = isRepoRootTarget(target)
+      ? []
+      : (findings.get(target.id) ?? []);
   }
 }
 

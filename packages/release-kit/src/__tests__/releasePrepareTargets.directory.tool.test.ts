@@ -64,6 +64,27 @@ describe('directory releases (tool)', () => {
     }
   }, 60_000);
 
+  it('does not report an entry that the root target renders as unrouted', () => {
+    commit(tree, 'apps/app/Theme.swift', '// theme\n', [
+      '## ui|feat: Add the dark theme',
+      [
+        '```change-record',
+        'entries:',
+        '  - type: feat',
+        '    scopes: [ui]',
+        '    text: Adds the dark theme.',
+        '```',
+      ].join('\n'),
+    ]);
+
+    const plan = prepareAndApply(tree, { releases: { repo: { path: '.' } } }, {});
+
+    const repo = selectResult(plan, 'repo');
+    assert(repo?.kind === 'directory' && repo.status === 'released', 'expected a released root target');
+    expect(repo).not.toHaveProperty('unroutedEntryScopes');
+    expect(tree.read('CHANGELOG.md')).toContain('Adds the dark theme.');
+  }, 60_000);
+
   it("routes a change-record entry to the directory that its scope names, and not to a workspace in the commit's window", () => {
     tree.write('packages/core/shared.ts', 'export const shared = true;\n');
     commit(tree, 'apps/app/Shared.swift', '// shared\n', [
