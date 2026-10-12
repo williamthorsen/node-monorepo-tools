@@ -67,11 +67,11 @@ The header above the first section and the footer comment are regenerated. The p
 
 A workspace's window contains every commit that touches the workspace's paths. An item derived from a title is routed to every workspace whose window contains its commit. An item derived from a change-record entry is routed to a workspace in that window only when the entry's `scopes` route it there:
 
-- **A scope that names the workspace's `dir`** routes the item to that workspace. release-kit resolves each scope through [`scopeAliases`](configuration.md) before it compares the scope with the `dir`.
+- **A scope that names the workspace's target name**, which is its `dir` unless a [`releases`](configuration.md#releases) entry renames it, routes the item to that workspace. release-kit resolves each scope through [`scopeAliases`](configuration.md) before it compares the scope with the name.
 - **`*`, or an empty or absent `scopes`,** routes the item to every workspace in the window.
 - **`root`** doesn't name a workspace, so it routes the item nowhere and is not reported. A workspace whose `dir` is `root` is the exception: `root` then names that workspace.
 
-A scope narrows the window and never widens it: A scope that names a workspace whose window does not contain the commit doesn't route the item to any workspace, and `prepare` reports it (see [Reported diagnostics](#reported-diagnostics)). The project changelog and a single-package repo take every entry, whatever its scopes.
+A scope narrows the window and never widens it: A scope that names a workspace whose window does not contain the commit doesn't route the item to any workspace, and `prepare` reports it (see [Reported diagnostics](#reported-diagnostics)). A composite's changelog, such as the project changelog, and a single-package repo take every entry, whatever its scopes.
 
 A workspace's bump reads the items routed to it, so a breaking entry scoped to one workspace does not raise a major bump in another that the same commit touched. A workspace whose window has commits but lacks a routed item doesn't call for a release.
 
@@ -117,7 +117,7 @@ A commit is read from its title, as [Which commits appear in a changelog](#which
 - **A malformed block**, with the defect that stopped the read.
 - **An entry whose type is not declared**, with its position. It doesn't yield an item.
 - **An entry that violates its type's breaking policy**, as a policy violation at the entry's position. Its item is not marked breaking.
-- **An entry scope that doesn't name a workspace in its commit's window**, with the commit's hash, the entry's position, and the scope as the entry declares it. release-kit reports it under every workspace whose window contains the commit. A scope that names nothing, or a workspace whose window does not contain the commit, is reported; `*`, `root`, and a scope that names a workspace in the window are not. Under `--only`, a scope that names a configured workspace left out of the run is not reported either. A workspace excluded with `shouldExclude: true` is not a configured workspace, so a scope that names one is reported.
+- **An entry scope that doesn't name a workspace in its commit's window**, with the commit's hash, the entry's position, and the scope as the entry declares it. release-kit reports it under every workspace whose window contains the commit. A scope that names nothing, or a workspace whose window does not contain the commit, is reported; `*`, `root`, and a scope that names a workspace in the window are not. Under `--only`, a scope that names a configured workspace left out of the run is not reported either. A workspace excluded with `shouldExclude: true` or a `releases` entry of `false` is not a configured workspace, so a scope that names one is reported.
 
 The result that `prepare` returns includes these as `malformedBlocks`, `undeclaredEntryTypes`, `policyViolations` entries whose `surface` is `'entry'`, and `unroutedEntryScopes`, whether the target releases or is skipped. Because a block whose entries are all undeclared or excluded doesn't yield an item, the commit doesn't raise a bump.
 
