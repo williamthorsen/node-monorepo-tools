@@ -268,6 +268,44 @@ export interface SkippedPackageResult extends PackageResultFields {
   skipReason: string;
 }
 
+/** Fields of every directory target result. */
+interface DirectoryResultFields extends TargetResultFields {
+  kind: 'directory';
+  /** Name of the directory target. */
+  name: string;
+  /** Change-record entry scopes of the unreleased window that route their entry nowhere; omitted when none. */
+  unroutedEntryScopes?: UnroutedEntryScope[];
+}
+
+/**
+ * Result of a directory target that releases. A directory never propagates; `releaseType` and `parsedCommitCount` are
+ * absent for `--set-version`.
+ */
+export interface ReleasedDirectoryResult extends DirectoryResultFields, ReleaseFields {
+  status: 'released';
+  /**
+   * Count of commits that yield at least one changelog item; `0` when the unreleased window does not contain any
+   * commits or when none does.
+   */
+  parsedCommitCount?: number;
+  releaseType?: ReleaseType;
+  /** Raw commits of the directory's unreleased window. */
+  commits: Commit[];
+  /** Present when the directory was written via `--set-version`; the explicit version that was applied. */
+  setVersion?: string;
+}
+
+/** Result of a directory target that skips: the diagnostic fields and a human-readable `skipReason`. */
+export interface SkippedDirectoryResult extends DirectoryResultFields {
+  status: 'skipped';
+  /**
+   * Count of commits that yield at least one changelog item; `0` when the unreleased window does not contain any
+   * commits or when none does.
+   */
+  parsedCommitCount: number;
+  skipReason: string;
+}
+
 /**
  * Result of a composite target that releases. A composite never propagates and never takes `--set-version`, so
  * `releaseType`, `parsedCommitCount`, and `commits` are required.
@@ -300,14 +338,17 @@ export interface SkippedCompositeResult extends TargetResultFields {
 /** Result of preparing a package target, discriminated by `status`. */
 export type PackagePrepareResult = ReleasedPackageResult | SkippedPackageResult;
 
+/** Result of preparing a directory target, discriminated by `status`. */
+export type DirectoryPrepareResult = ReleasedDirectoryResult | SkippedDirectoryResult;
+
 /** Result of preparing a composite target, discriminated by `status`. */
 export type CompositePrepareResult = ReleasedCompositeResult | SkippedCompositeResult;
 
 /** Result of preparing one release target, discriminated by `kind` and by `status`. */
-export type TargetPrepareResult = PackagePrepareResult | CompositePrepareResult;
+export type TargetPrepareResult = PackagePrepareResult | DirectoryPrepareResult | CompositePrepareResult;
 
-/** Result of a target that releases, of either kind. */
-export type ReleasedTargetResult = ReleasedPackageResult | ReleasedCompositeResult;
+/** Result of a target that releases, of any kind. */
+export type ReleasedTargetResult = ReleasedPackageResult | ReleasedDirectoryResult | ReleasedCompositeResult;
 
 /** Aggregate result of the prepare workflow over a run's targets. */
 export interface PrepareResult {
@@ -685,15 +726,22 @@ export interface PackageTarget extends ReleaseTargetBase {
   isWorkspace: boolean;
 }
 
+/** A releasable directory that isn't a workspace, versioned by its `package.json` or `version.json`. */
+export interface DirectoryTarget extends ReleaseTargetBase {
+  kind: 'directory';
+  /** Repo-relative path to the directory; `.` for the repo root, whose window is the whole repo. */
+  directoryPath: string;
+}
+
 /** A release that rolls up other targets, such as the project release of a monorepo. */
 export interface CompositeTarget extends ReleaseTargetBase {
   kind: 'composite';
-  /** Ids of the package targets that the composite rolls up. */
+  /** Ids of the package and directory targets that the composite rolls up. */
   members: string[];
 }
 
 /** One releasable thing, whatever shape of config declared it. */
-export type ReleaseTarget = PackageTarget | CompositeTarget;
+export type ReleaseTarget = PackageTarget | DirectoryTarget | CompositeTarget;
 
 /** Configuration for a monorepo release workflow with multiple workspaces. */
 export interface MonorepoReleaseConfig extends ReleaseSettings {

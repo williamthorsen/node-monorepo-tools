@@ -251,13 +251,13 @@ function resolveTargetsOrExit(
 
 /**
  * Keys the `--set-version` value by target id: a single-package repo's bare version under its root target, or a
- * monorepo's `<workspace>@N.N.N` entries under their workspaces.
+ * monorepo's `<workspace>@N.N.N` entries under their workspace or directory targets.
  */
 function resolveSetVersions(setVersion: string, targets: readonly ReleaseTarget[]): Map<string, string> {
   if (isSinglePackageTargets(targets)) {
     return new Map([[SINGLE_PACKAGE_TARGET_ID, setVersion]]);
   }
-  return parseSetVersions(setVersion, listPackageIds(targets));
+  return parseSetVersions(setVersion, listMemberIds(targets));
 }
 
 /** Returns the ids of the targets that `--only` can name, in target order: all but a `project` block's composite. */
@@ -265,9 +265,9 @@ function listSelectableIds(targets: readonly ReleaseTarget[]): string[] {
   return targets.flatMap((target) => (target.id === PROJECT_TARGET_ID ? [] : [target.id]));
 }
 
-/** Returns the ids of the package targets, in target order. */
-function listPackageIds(targets: readonly ReleaseTarget[]): string[] {
-  return targets.flatMap((target) => (target.kind === 'package' ? [target.id] : []));
+/** Returns the ids of the package and directory targets, which `--set-version` can name, in target order. */
+function listMemberIds(targets: readonly ReleaseTarget[]): string[] {
+  return targets.flatMap((target) => (target.kind === 'composite' ? [] : [target.id]));
 }
 
 /**

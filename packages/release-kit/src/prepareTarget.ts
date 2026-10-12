@@ -17,14 +17,17 @@ import { PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
 import type {
   ChangelogEntry,
   ChangelogPreservation,
+  DirectoryTarget,
   PropagationSource,
   ReleasedCompositeResult,
+  ReleasedDirectoryResult,
   ReleasedPackageResult,
   ReleasedTargetResult,
   ReleaseSettings,
   ReleaseTarget,
   ReleaseType,
   SkippedCompositeResult,
+  SkippedDirectoryResult,
   SkippedPackageResult,
   TargetPrepareResult,
 } from './types.ts';
@@ -105,13 +108,13 @@ export function readTargetHistory(target: ReleaseTarget, settings: TargetPrepare
 
 /**
  * Returns the bounds of a target's history read: its current and legacy tag prefixes, its commit window, and, for a
- * workspace, the scope to which change-record entries route, which is its name.
+ * workspace or a directory other than the repo root, the scope to which change-record entries route, which is its name.
  */
 export function describeHistoryWindow(target: ReleaseTarget): GenerateChangelogOptions {
   return {
     tagPrefixes: getAllTagPrefixes(target),
     ...(target.paths !== undefined && { paths: target.paths }),
-    ...(target.kind === 'package' && target.isWorkspace && { scope: target.id }),
+    ...(isScopeRouted(target) && { scope: target.id }),
   };
 }
 
@@ -131,7 +134,7 @@ export function decideTargetRelease(
 
   const tag = history.previousTag;
   const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
-  const subject = target.kind === 'package' && target.isWorkspace ? ` for ${target.id}` : '';
+  const subject = isScopeRouted(target) || target.kind === 'directory' ? ` for ${target.id}` : '';
   const decision = decideRelease({
     naturalBump: history.unreleased.bump,
     commitCount: history.unreleased.commits.length,
@@ -173,7 +176,7 @@ export function planTargetRelease(args: PlanTargetReleaseArgs): PlannedTargetRel
     decision === undefined
       ? buildPropagationEntries(target, release, bump.newVersion, today, args.dependenciesHeader)
       : toReleaseEntries(history, tag, today);
-  const overrideScope = target.kind === 'package' ? target.packagePath : undefined;
+  const overrideScope = describeOverrideScope(target);
   const applied = applyWorkspaceOverrides(entries, overrideScope, overrideContext);
 
   const changelogs = planChangelogFiles(target.changelogDir, applied.entries, settings, sectionOrder);
@@ -205,10 +208,7 @@ export function planTargetRelease(args: PlanTargetReleaseArgs): PlannedTargetRel
     ...(changelogs.preservation !== undefined && { changelogPreservation: [changelogs.preservation] }),
     ...(history.previousTag !== undefined && { previousTag: history.previousTag }),
   };
-  const result =
-    target.kind === 'composite'
-      ? buildReleasedComposite(releaseFields, release, decision, history)
-      : buildReleasedPackage(target, releaseFields, release, decision, history);
+  const result = buildReleasedResult(target, releaseFields, release, decision, history);
 
   return {
     result,
@@ -235,10 +235,7 @@ export function buildSkippedTargetResult(
     ...(history.previousTag !== undefined && { previousTag: history.previousTag }),
     ...(unreleased.unparseableCommits !== undefined && { unparseableCommits: unreleased.unparseableCommits }),
   };
-  const skipped: SkippedCompositeResult | SkippedPackageResult =
-    target.kind === 'composite'
-      ? { ...fields, kind: 'composite' }
-      : { ...fields, kind: 'package', ...(target.isWorkspace && { name: target.id }) };
+  const skipped = labelSkippedResult(target, fields);
   attachChangelogDiagnostics(skipped, unreleased.diagnostics);
   return skipped;
 }
@@ -250,6 +247,39 @@ type ReleaseResultFields = Omit<
   ReleasedCompositeResult,
   'commits' | 'kind' | 'parsedCommitCount' | 'releaseType' | 'status'
 >;
+
+/**
+ * Builds the released result of a directory target, whose release a direct decision always sets. `--set-version`
+ * leaves `releaseType` and the parse counts off, as it does for a package.
+ */
+function buildReleasedDirectory(
+  target: DirectoryTarget,
+  fields: ReleaseResultFields,
+  release: TargetRelease,
+  decision: Extract<TargetDecision, { outcome: 'release' }> | undefined,
+  history: ReleaseHistory,
+): ReleasedDirectoryResult {
+  const { unreleased } = history;
+  const setVersion = decision?.setVersion;
+  const result: ReleasedDirectoryResult = {
+    ...fields,
+    status: 'released',
+    kind: 'directory',
+    name: target.id,
+    commits: unreleased.commits,
+    ...(setVersion === undefined && {
+      releaseType: release.releaseType,
+      parsedCommitCount: unreleased.parsedCommitCount,
+    }),
+    ...(decision?.bumpOverride !== undefined && { bumpOverride: decision.bumpOverride }),
+    ...(setVersion !== undefined && { setVersion }),
+  };
+  if (setVersion === undefined && unreleased.unparseableCommits !== undefined) {
+    result.unparseableCommits = unreleased.unparseableCommits;
+  }
+  attachChangelogDiagnostics(result, unreleased.diagnostics);
+  return result;
+}
 
 /** Builds the released result of a composite target, which a direct decision always releases at a level. */
 function buildReleasedComposite(
@@ -308,6 +338,24 @@ function buildReleasedPackage(
   return result;
 }
 
+/** Builds the released result of a target from the plan's fields, by the target's kind. */
+function buildReleasedResult(
+  target: ReleaseTarget,
+  fields: ReleaseResultFields,
+  release: TargetRelease,
+  decision: Extract<TargetDecision, { outcome: 'release' }> | undefined,
+  history: ReleaseHistory,
+): ReleasedTargetResult {
+  switch (target.kind) {
+    case 'package':
+      return buildReleasedPackage(target, fields, release, decision, history);
+    case 'directory':
+      return buildReleasedDirectory(target, fields, release, decision, history);
+    case 'composite':
+      return buildReleasedComposite(fields, release, decision, history);
+  }
+}
+
 /** Builds the one synthetic entry of a release that propagation alone set, under the dependencies header. */
 function buildPropagationEntries(
   target: ReleaseTarget,
@@ -324,10 +372,60 @@ function buildPropagationEntries(
 
 /** Names a target in the untagged-baseline error. */
 function describeBaselineLabel(target: ReleaseTarget): string {
-  if (target.kind === 'composite') {
-    return target.id === PROJECT_TARGET_ID ? 'project' : `composite '${target.id}'`;
+  switch (target.kind) {
+    case 'composite':
+      return target.id === PROJECT_TARGET_ID ? 'project' : `composite '${target.id}'`;
+    case 'directory':
+      return `directory '${target.id}'`;
+    case 'package':
+      return target.isWorkspace ? `workspace '${target.id}'` : 'package';
   }
-  return target.isWorkspace ? `workspace '${target.id}'` : 'package';
+}
+
+/** Adds the kind of the target, and a workspace's or a directory's name, to the fields of its skipped result. */
+function labelSkippedResult(
+  target: ReleaseTarget,
+  fields: Omit<SkippedPackageResult, 'kind' | 'name'>,
+): SkippedCompositeResult | SkippedDirectoryResult | SkippedPackageResult {
+  switch (target.kind) {
+    case 'package':
+      return { ...fields, kind: 'package', ...(target.isWorkspace && { name: target.id }) };
+    case 'directory':
+      return { ...fields, kind: 'directory', name: target.id };
+    case 'composite':
+      return { ...fields, kind: 'composite' };
+  }
+}
+
+/**
+ * Returns the directory whose override file composes with the root's for a target, or `undefined` for a target that
+ * reads the root's alone: a composite, and the directory target at the repo root.
+ */
+function describeOverrideScope(target: ReleaseTarget): string | undefined {
+  switch (target.kind) {
+    case 'package':
+      return target.packagePath;
+    case 'directory':
+      return isRepoRoot(target) ? undefined : target.directoryPath;
+    case 'composite':
+      return undefined;
+  }
+}
+
+/** Reports whether a directory target is the repo root, which reads the whole repo and renders every entry. */
+function isRepoRoot(target: DirectoryTarget): boolean {
+  return target.directoryPath === '.';
+}
+
+/**
+ * Reports whether change-record entries route to the target by its name: a workspace, and a directory other than the
+ * repo root.
+ */
+function isScopeRouted(target: ReleaseTarget): boolean {
+  if (target.kind === 'directory') {
+    return !isRepoRoot(target);
+  }
+  return target.kind === 'package' && target.isWorkspace;
 }
 
 /**

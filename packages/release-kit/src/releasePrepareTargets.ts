@@ -23,7 +23,14 @@ import {
 import { propagateBumps, type ReleaseEntry } from './propagateBumps.ts';
 import type { PlannedWrite, ReleasePlan } from './releasePlan.ts';
 import { isSinglePackageTargets, PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
-import type { CompositeTarget, PackageTarget, ReleaseTarget, ReleaseType, TargetPrepareResult } from './types.ts';
+import type {
+  CompositeTarget,
+  DirectoryTarget,
+  PackageTarget,
+  ReleaseTarget,
+  ReleaseType,
+  TargetPrepareResult,
+} from './types.ts';
 
 /** The targets of a prepare run and the settings that they share. */
 export interface TargetPrepareConfig {
@@ -66,8 +73,9 @@ const PREVIEWS_REQUIRE_JSON_WARNING =
 /**
  * Plans a release over a list of targets, without writing any file.
  *
- * 1. Selects the planned package targets: every one, or, under `only`, those named and their transitive dependents.
- * 2. Reads each planned package's history and decides its direct release.
+ * 1. Selects the planned package and directory targets: every one, or, under `only`, those named and their transitive
+ *    dependents.
+ * 2. Reads each planned target's history and decides its direct release.
  * 3. Propagates bumps to dependents, asserts the baselines that matter, and sorts the release set topologically.
  * 4. Plans each release in dependency order.
  * 5. Prepares each composite after every package target, unless `only` narrowed the run without naming it.
@@ -77,15 +85,17 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
   const { settings } = config;
   const { only, withReleaseNotes } = options;
   const isSinglePackage = isSinglePackageTargets(config.targets);
-  const packageTargets = config.targets.filter((target) => target.kind === 'package');
+  const memberTargets = config.targets.filter((target) => target.kind !== 'composite');
   const compositeTargets = config.targets.filter((target) => target.kind === 'composite');
   const warnings: string[] = [];
 
   // -- Selection --
-  const graph = buildDependencyGraph(packageTargets.filter((target) => target.isWorkspace));
-  const startIds = selectStartIds(packageTargets, options);
+  const graph = buildDependencyGraph(
+    memberTargets.filter((target) => target.kind === 'package').filter((target) => target.isWorkspace),
+  );
+  const startIds = selectStartIds(memberTargets, options);
   const plannedIds = findTransitiveDependents(graph, startIds);
-  const planned = packageTargets.filter((target) => plannedIds.has(target.id));
+  const planned = memberTargets.filter((target) => plannedIds.has(target.id));
 
   const arePreviewsBlocked = withReleaseNotes === true && !settings.changelogJson.enabled;
   if (arePreviewsBlocked && !isSinglePackage) {
@@ -95,9 +105,7 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
   const workTypes = resolveWorkTypes(settings.workTypes);
   const context: RunContext = {
     settings,
-    overrideContext: createOverrideContext(
-      planned.filter((target) => target.isWorkspace).map((target) => target.packagePath),
-    ),
+    overrideContext: createOverrideContext(planned.flatMap(listOverrideDirectory)),
     sectionOrder: deriveSectionOrder(workTypes),
     dependenciesHeader: deriveDependenciesHeader(workTypes),
     shouldPlanPreviews: withReleaseNotes === true && settings.changelogJson.enabled,
@@ -107,7 +115,7 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
   // -- Direct releases --
   const direct = decideDirectReleases(planned, settings, options, startIds);
   if (!isSinglePackage) {
-    reportUnroutedEntryScopes(planned, direct, settings, packageTargets);
+    reportUnroutedEntryScopes(planned, direct, settings, memberTargets);
   }
 
   // -- Propagation --
@@ -212,6 +220,9 @@ interface RunContext {
   today: string;
 }
 
+/** A target that releases on its own window and takes part in selection: a package or a directory. */
+type MemberTarget = PackageTarget | DirectoryTarget;
+
 /** The tags, writes, and modified files of the run's releases, in the order in which they were planned. */
 interface CollectedReleases {
   tags: string[];
@@ -264,11 +275,11 @@ function composeSinglePackageWarnings(
 }
 
 /**
- * Reads each planned package target's history and decides its direct release. `force` applies only to the targets
- * from which the release starts.
+ * Reads each planned package and directory target's history and decides its direct release. `force` applies only to
+ * the targets from which the release starts.
  */
 function decideDirectReleases(
-  planned: readonly PackageTarget[],
+  planned: readonly MemberTarget[],
   settings: TargetPrepareSettings,
   options: TargetPrepareOptions,
   startIds: ReadonlySet<string>,
@@ -291,7 +302,7 @@ function decideDirectReleases(
     if (untagged !== undefined) {
       direct.untaggedBaselines.set(target.id, untagged);
     }
-    if (history.previousTag === undefined && target.isWorkspace) {
+    if (history.previousTag === undefined && target.kind === 'package' && target.isWorkspace) {
       maybeEmitBaselineHint(target, knownPrefixes, hintState);
     }
 
@@ -338,10 +349,14 @@ function describeCompositeSkip(composite: CompositeTarget, only: readonly string
 
 /** Names the stage whose errors a target's work raises; the single-package root's errors are not labeled. */
 function describeStage(target: ReleaseTarget): string | undefined {
-  if (target.kind === 'composite') {
-    return 'project release stage';
+  switch (target.kind) {
+    case 'composite':
+      return 'project release stage';
+    case 'directory':
+      return `directory '${target.id}' release stage`;
+    case 'package':
+      return target.isWorkspace ? `workspace '${target.id}' release stage` : undefined;
   }
-  return target.isWorkspace ? `workspace '${target.id}' release stage` : undefined;
 }
 
 /**
@@ -433,8 +448,19 @@ function prepareComposite(
   return planned.result;
 }
 
+/**
+ * Returns the directory whose override file a planned target composes with the root's: a workspace's package path, and
+ * a directory's path unless it is the repo root, which reads the root's alone.
+ */
+function listOverrideDirectory(target: MemberTarget): string[] {
+  if (target.kind === 'directory') {
+    return target.directoryPath === '.' ? [] : [target.directoryPath];
+  }
+  return target.isWorkspace ? [target.packagePath] : [];
+}
+
 /** Returns the history that the direct-release pass read for a planned target. */
-function readHistory(readings: ReadonlyMap<string, ReleaseHistory>, target: PackageTarget): ReleaseHistory {
+function readHistory(readings: ReadonlyMap<string, ReleaseHistory>, target: MemberTarget): ReleaseHistory {
   const history = readings.get(target.id);
   if (history === undefined) {
     throw new Error(`Target '${target.id}' was planned without a history`);
@@ -443,15 +469,15 @@ function readHistory(readings: ReadonlyMap<string, ReleaseHistory>, target: Pack
 }
 
 /**
- * Records on each planned workspace's history the entry scopes that route nowhere in its unreleased window, which only
- * a pass across every workspace's window can find. The windows go to the finder with the releasing targets first, in
+ * Records on each planned workspace's and directory's history the entry scopes that route nowhere in its unreleased
+ * window, which only a pass across every target's window can find. The windows go to the finder with the releasing targets first, in
  * planned order, which sets the order of each target's findings.
  */
 function reportUnroutedEntryScopes(
-  planned: readonly PackageTarget[],
+  planned: readonly MemberTarget[],
   direct: DirectReleases,
   settings: TargetPrepareSettings,
-  packageTargets: readonly PackageTarget[],
+  memberTargets: readonly MemberTarget[],
 ): void {
   const releasing = planned.filter((target) => direct.decisions.get(target.id)?.outcome === 'release');
   const windows = [...releasing, ...planned.filter((target) => !releasing.includes(target))].map((target) => ({
@@ -460,7 +486,7 @@ function reportUnroutedEntryScopes(
   }));
   const findings = findUnroutedEntryScopes(
     windows.map(({ target, history }) => ({ dir: target.id, commits: history.unreleased.commits })),
-    packageTargets.map((target) => target.id),
+    memberTargets.map((target) => target.id),
     settings.scopeAliases ?? {},
   );
   for (const { target, history } of windows) {
@@ -481,13 +507,13 @@ function runStage<T>(stage: string | undefined, fn: () => T): T {
 }
 
 /**
- * Returns the ids of the package targets from which the release starts: every one, or, when `only` narrows the run,
- * those named by `only` or `setVersions`.
+ * Returns the ids of the package and directory targets from which the release starts: every one, or, when `only`
+ * narrows the run, those named by `only` or `setVersions`.
  */
-function selectStartIds(packageTargets: readonly PackageTarget[], options: TargetPrepareOptions): Set<string> {
+function selectStartIds(memberTargets: readonly MemberTarget[], options: TargetPrepareOptions): Set<string> {
   const { only, setVersions } = options;
   if (only === undefined) {
-    return new Set(packageTargets.map((target) => target.id));
+    return new Set(memberTargets.map((target) => target.id));
   }
   return new Set([...only, ...(setVersions?.keys() ?? [])]);
 }
