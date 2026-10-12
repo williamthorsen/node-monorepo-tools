@@ -72,3 +72,25 @@ CLI flag interactions:
 - `--set-version` is rejected with an error when `project` is configured. `--set-version` sets individual workspaces' versions, but a project release rolls up every contributing workspace; the two semantics don't compose. To use `--set-version`, run on a config without a `project` block.
 
 How `--bump` and `--force` combine for every target is in [Releasing](releasing.md#release-kit-prepare).
+
+## Publishing and GitHub Releases
+
+`push`, `publish`, and `create-github-release` resolve the project tag on HEAD through the `project` block's `tagPrefix`, alongside the workspace tags:
+
+- `release-kit push` pushes the project tag with the release commit, including when the project tag is the only release tag on HEAD.
+- `release-kit publish` never publishes the project tag, because the project does not have an npm package. When `--tags` names it, `publish` warns `Skipping v0.13.0: a project tag is not an npm package.` and publishes nothing for it.
+- `release-kit create-github-release` creates a GitHub Release for the project tag from `./.meta/changelog.json`, whatever the root `package.json#private` says. A private workspace's tag is still skipped, as [Publishing](publishing.md#publishability-filter) describes.
+
+The `create-github-release.yaml` workflow that `release-kit init` scaffolds for a monorepo triggers only on `'*-v[0-9]*.[0-9]*.[0-9]*'`, which requires a literal `-v` and does not match a `v<version>` project tag. Add the project pattern to its tag filter:
+
+```yaml
+on:
+  push:
+    tags:
+      - '*-v[0-9]*.[0-9]*.[0-9]*'
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+```
+
+A GitHub tag filter matches from the start of the tag, so `'v[0-9]*.[0-9]*.[0-9]*'` does not match a workspace tag such as `core-v1.0.0`. A custom `tagPrefix` needs its own pattern, such as `'app-v[0-9]*.[0-9]*.[0-9]*'` for `tagPrefix: 'app-v'`. `publish.yaml` does not need the project pattern, because `publish` skips the project tag.
+
+When every workspace sets `private: true`, `init` does not create `create-github-release.yaml` (see [Releasing](releasing.md)). A project-release repo of that shape adds the workflow itself.
