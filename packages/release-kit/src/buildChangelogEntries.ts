@@ -88,7 +88,7 @@ export interface ChangelogDiagnostics {
  * window decides: its commits, its bump, and its diagnostics.
  *
  * A commit whose last `change-record` block records entries yields one item per entry routed to
- * `options.workspaceDir`; any other commit is classified by its title through `classifyChangelogCommit`. A `release:`
+ * `options.scope`; any other commit is classified by its title through `classifyChangelogCommit`. A `release:`
  * or merge subject yields nothing either way. The read records diagnostics only for the unreleased window, since the
  * released windows were reported when they were prepared.
  */
@@ -102,8 +102,8 @@ export function readReleaseHistory(config: ReleaseHistoryConfig, options: Genera
     const context: ReadContext = {
       breakingPolicies: config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES,
       devOnlySections: new Set(config.changelogJson.devOnlySections.map(stripGroupDecorations)),
-      ...(options.workspaceDir !== undefined && {
-        routing: { workspaceDir: options.workspaceDir, scopeAliases: config.scopeAliases ?? {} },
+      ...(options.scope !== undefined && {
+        routing: { scope: options.scope, scopeAliases: config.scopeAliases ?? {} },
       }),
       versionPatterns: config.versionPatterns ?? DEFAULT_VERSION_PATTERNS,
       workTypes: config.workTypes ?? DEFAULT_WORK_TYPES,
@@ -183,10 +183,10 @@ interface ReadContext {
   workTypes: NonNullable<ReleaseSettings['workTypes']>;
 }
 
-/** The workspace that a read routes change-record entries to, and the aliases that resolve their scopes. */
+/** The scope of the workspace to which a read routes change-record entries, and the aliases that resolve scopes. */
 interface EntryRouting {
+  scope: string;
   scopeAliases: Readonly<Record<string, string>>;
-  workspaceDir: string;
 }
 
 /** An item with the section header under which it is filed and the signal that it contributes to the bump. */
@@ -329,7 +329,7 @@ function buildSections(
 
 /**
  * Reports whether an entry with `scopes` is routed to the workspace of `routing`: Its scopes are empty, contain `*`,
- * or name the workspace's `dir` once `scopeAliases` resolves them.
+ * or name the workspace's scope once `scopeAliases` resolves them.
  */
 function isRoutedTo(scopes: readonly string[], routing: EntryRouting): boolean {
   if (scopes.length === 0) {
@@ -337,7 +337,7 @@ function isRoutedTo(scopes: readonly string[], routing: EntryRouting): boolean {
   }
   return scopes.some((scope) => {
     const resolved = routing.scopeAliases[scope] ?? scope;
-    return resolved === '*' || resolved === routing.workspaceDir;
+    return resolved === '*' || resolved === routing.scope;
   });
 }
 

@@ -12,7 +12,7 @@ export function makeWorkspaceTarget(dir: string, overrides: Partial<PackageTarge
     paths: [`packages/${dir}/**`],
     isPublishable: true,
     packagePath: `packages/${dir}`,
-    workspaceDir: dir,
+    isWorkspace: true,
     ...overrides,
   };
 }

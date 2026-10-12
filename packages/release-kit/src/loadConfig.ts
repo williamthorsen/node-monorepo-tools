@@ -12,6 +12,7 @@ import {
   DEFAULT_WORK_TYPES,
 } from './defaults.ts';
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
+import { type DeclaredComposite, resolveReleaseDeclaration } from './resolveReleaseDeclaration.ts';
 import { isRecord } from './typeGuards.ts';
 import type {
   ChangelogJsonConfig,
@@ -115,15 +116,14 @@ export interface RootPackageInfo {
  * Resolves a final monorepo config from discovered workspaces and an optional user config overlay.
  *
  * Merging rules:
- * - `workspaces`: Match overlay entries by `dir` against discovered list; `shouldExclude: true`
- *   removes the workspace; unlisted packages keep defaults.
+ * - Release targets: `resolveReleaseDeclaration` projects the `releases` block, or the `workspaces` overrides and the
+ *   `project` block, onto the discovered workspaces. Excluded workspaces move to `excludedWorkspaces`.
  * - `workTypes`: Shallow merge; consumer entries override or add to defaults by key.
  * - `versionPatterns`: Consumer value replaces defaults entirely.
  * - Pass-through fields (see `applyOptionalPassthroughFields`): Consumer value wins.
- * - `project`: Present iff `userConfig.project` is declared. Resolves `tagPrefix` to
- *   `DEFAULT_PROJECT_TAG_PREFIX` and `paths` to the union of the retained workspaces' `paths`
- *   when omitted. Requires `rootPackage` to be passed and to contain a valid `version` field;
- *   throws otherwise. The resolved prefix is included in the strict-prefix collision check
+ * - `project`: Present iff the config declares a composite. Resolves `tagPrefix` to `DEFAULT_PROJECT_TAG_PREFIX` and
+ *   `paths` to the union of its members' `paths` when omitted. Requires `rootPackage` to be passed and to contain a
+ *   valid `version` field; throws otherwise. The resolved prefix is included in the strict-prefix collision check
  *   across all workspace and retired-package prefixes.
  */
 export function mergeMonorepoConfig(
@@ -131,34 +131,28 @@ export function mergeMonorepoConfig(
   userConfig: ReleaseKitConfig | undefined,
   rootPackage?: RootPackageInfo,
 ): MonorepoReleaseConfig {
-  let workspaces: WorkspaceConfig[] = discoveredPaths.map((workspacePath) => deriveWorkspaceConfig(workspacePath));
+  const discovered = discoveredPaths.map((workspacePath) => deriveWorkspaceConfig(workspacePath));
 
   // Detect duplicate tagPrefix values before filtering so that exclusions cannot hide collisions.
-  assertUniqueTagPrefixes(workspaces);
+  assertUniqueTagPrefixes(discovered);
 
-  if (userConfig?.workspaces !== undefined) {
-    const overrides = new Map(userConfig.workspaces.map((w) => [w.dir, w]));
-
-    workspaces = workspaces
-      .filter((w) => {
-        const override = overrides.get(w.dir);
-        return override?.shouldExclude !== true;
-      })
-      .map((w) => {
-        const override = overrides.get(w.dir);
-        if (override?.legacyIdentities === undefined) {
-          return w;
-        }
-        assertLegacyIdentityDoesNotMatchCurrent(w.dir, w.name, w.tagPrefix, override.legacyIdentities);
-        return { ...w, legacyIdentities: override.legacyIdentities.map((identity) => ({ ...identity })) };
-      });
+  const { retained: workspaces, excluded, composite } = resolveReleaseDeclaration(discovered, userConfig);
+  for (const workspace of workspaces) {
+    if (workspace.legacyIdentities !== undefined) {
+      assertLegacyIdentityDoesNotMatchCurrent(
+        workspace.dir,
+        workspace.name,
+        workspace.tagPrefix,
+        workspace.legacyIdentities,
+      );
+    }
   }
 
   if (userConfig?.retiredPackages !== undefined) {
     assertRetiredPackagesDoNotCollideWithActive(workspaces, userConfig.retiredPackages);
   }
 
-  const project = resolveProjectConfig(userConfig?.project, rootPackage, workspaces);
+  const project = resolveProjectConfig(composite, rootPackage, workspaces);
 
   const workTypes = resolveWorkTypes(userConfig?.workTypes);
 
@@ -178,6 +172,9 @@ export function mergeMonorepoConfig(
     releaseNotes,
   };
 
+  if (excluded.length > 0) {
+    result.excludedWorkspaces = excluded;
+  }
   if (project !== undefined) {
     result.project = project;
   }
@@ -214,13 +211,15 @@ function applyOptionalPassthroughFields(
 /**
  * Resolves the release settings of a single-package repo from an optional user config overlay.
  *
- * Rejects a configured `project` block: Project-level releases are a monorepo-only feature,
- * since the implicit "all non-excluded workspaces contribute" rule is meaningless in a
- * single-package repo.
+ * Rejects a configured `project` or `releases` block: Both declare the targets of a monorepo, and a single-package
+ * repo has one target, its root package.
  */
 export function mergeSinglePackageConfig(userConfig: ReleaseKitConfig | undefined): ReleaseSettings {
   if (userConfig?.project !== undefined) {
     throw new Error('project block is not supported in single-package mode');
+  }
+  if (userConfig?.releases !== undefined) {
+    throw new Error('releases block is not supported in single-package mode');
   }
 
   const workTypes = resolveWorkTypes(userConfig?.workTypes);
@@ -317,40 +316,42 @@ function assertRetiredPackagesDoNotCollideWithActive(
 }
 
 /**
- * Resolves the consumer-facing `project` block to a `ResolvedProjectConfig`.
+ * Resolves the declared composite to a `ResolvedProjectConfig`.
  *
- * Returns `undefined` when the consumer did not declare a `project` block. Otherwise applies
- * defaults (`tagPrefix` → `DEFAULT_PROJECT_TAG_PREFIX`, `paths` → the union of every contributing
- * workspace's `paths`) and validates that the root `package.json` exists with a `version` field,
- * both prerequisites for emitting a project tag and bumping a project version. Throws an
- * action-naming error otherwise.
+ * Returns `undefined` when the config does not declare a composite. Otherwise applies defaults (`tagPrefix` →
+ * `DEFAULT_PROJECT_TAG_PREFIX`, `paths` → the union of every retained workspace's `paths`, which a `releases`
+ * composite has already narrowed to its members) and validates that the root `package.json` exists with a `version`
+ * field, both prerequisites for emitting a composite tag and bumping its version. Throws an action-naming error
+ * otherwise.
  *
- * `workspaces` must be the post-exclusion set, so that the default `paths` cover only the
- * workspaces that contribute.
+ * `workspaces` must be the post-exclusion set, so that the default `paths` cover only the workspaces that contribute.
  */
 function resolveProjectConfig(
-  userProject: ReleaseKitConfig['project'],
+  composite: DeclaredComposite | undefined,
   rootPackage: RootPackageInfo | undefined,
   workspaces: readonly WorkspaceConfig[],
 ): ResolvedProjectConfig | undefined {
-  if (userProject === undefined) {
+  if (composite === undefined) {
     return undefined;
   }
 
+  const subject = composite.name === undefined ? 'project block' : `composite release '${composite.name}'`;
   if (rootPackage === undefined || !rootPackage.exists) {
     throw new Error(
-      `project block requires a root ${ROOT_PACKAGE_JSON_PATH}; create one with a 'version' field at the repo root`,
+      `${subject} requires a root ${ROOT_PACKAGE_JSON_PATH}; create one with a 'version' field at the repo root`,
     );
   }
   if (rootPackage.version === undefined) {
     throw new Error(
-      `project block requires root ${ROOT_PACKAGE_JSON_PATH} to have a 'version' field; add a 'version' field to the root package.json`,
+      `${subject} requires root ${ROOT_PACKAGE_JSON_PATH} to have a 'version' field; add a 'version' field to the root package.json`,
     );
   }
 
   return {
-    paths: userProject.paths ?? workspaces.flatMap((workspace) => workspace.paths),
-    tagPrefix: userProject.tagPrefix ?? DEFAULT_PROJECT_TAG_PREFIX,
+    paths: composite.paths ?? workspaces.flatMap((workspace) => workspace.paths),
+    tagPrefix: composite.tagPrefix ?? DEFAULT_PROJECT_TAG_PREFIX,
+    ...(composite.name !== undefined && { name: composite.name }),
+    ...(composite.members !== undefined && { members: composite.members }),
   };
 }
 
@@ -400,7 +401,11 @@ function assertNoTagPrefixCollisions(
     });
   }
   if (project !== undefined) {
-    sources.push({ prefix: project.tagPrefix, label: 'project', owner: 'project' });
+    sources.push({
+      prefix: project.tagPrefix,
+      label: project.name === undefined ? 'project' : `composite release '${project.name}'`,
+      owner: 'project',
+    });
   }
 
   for (let i = 0; i < sources.length; i++) {

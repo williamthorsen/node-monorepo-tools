@@ -31,7 +31,7 @@ The workflows are managed files: release-kit renders them, and a change made by 
 
 Runs release preparation with automatic workspace discovery.
 
-`--only` names the workspaces from which the release starts, by package directory name (e.g., `arrays`, `release-kit`). The run also releases every workspace that depends on one of them, directly or transitively: A dependent with commits of its own releases at its own bump, and one without releases at a propagated patch bump, so that it publishes against the new version. Workspaces outside that set are left out of the run.
+`--only` names the release targets from which the release starts, by target name: a workspace's directory name (e.g., `arrays`, `release-kit`) unless a [`releases`](configuration.md#releases) entry renames it, or a `releases` composite's name. A named composite releases from its own window, whether or not the run includes its members; a run narrowed by `--only` skips every composite that it doesn't name. The run also releases every workspace that depends on one of them, directly or transitively: A dependent with commits of its own releases at its own bump, and one without releases at a propagated patch bump, so that it publishes against the new version. Workspaces outside that set are left out of the run.
 
 `prepare` reads each target's history once and builds the changelog items of its unreleased commits. The bump is the highest level that those items call for, under [`versionPatterns`](configuration.md#versionpatterns), so the bump and the changelog describe the same release: A `feat` entry in a [change-record block](changelogs.md#change-record-blocks) bumps minor under a `docs:` title, and a breaking item bumps major.
 
@@ -126,7 +126,7 @@ The `init` command scaffolds a release workflow at `.github/workflows/release.ya
 
 | Input   | Type    | Description                                                                                                                                     |
 | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `only`  | string  | Workspaces to release, with their dependents (comma-separated, leave empty for all)                                                             |
+| `only`  | string  | Release targets to release, with their dependents (comma-separated, leave empty for all)                                                        |
 | `bump`  | choice  | Bump type: `auto` (default, detects it from commits), `patch`, `minor`, or `major`                                                              |
 | `force` | boolean | Release even when the window doesn't have any commits or any bump-worthy commits (defaults to patch; combine with `bump` for a different level) |
 

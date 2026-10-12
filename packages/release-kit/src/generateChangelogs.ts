@@ -15,9 +15,9 @@ export interface GenerateChangelogOptions {
   /** Git pathspecs restricting the history to commits that touch them; all paths when omitted. */
   paths?: readonly string[];
   /**
-   * The `dir` of the workspace being read. When set, the read includes a change-record entry only when its scopes,
-   * after `scopeAliases` resolution, name this `dir`, are empty, or contain `*`; when omitted, the read includes every
-   * entry.
+   * The scope of the workspace being read, its target name. When set, the read includes a change-record entry only
+   * when its scopes, after `scopeAliases` resolution, name this scope, are empty, or contain `*`; when omitted, the
+   * read includes every entry.
    */
-  workspaceDir?: string;
+  scope?: string;
 }

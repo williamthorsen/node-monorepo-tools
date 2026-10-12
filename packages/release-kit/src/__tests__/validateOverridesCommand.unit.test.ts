@@ -518,14 +518,14 @@ describe(validateOverridesCommand, () => {
       expect(calls[0]).toStrictEqual({
         tagPrefixes: ['foo-v', 'old-foo-v'],
         paths: ['packages/foo/**'],
-        workspaceDir: 'foo',
+        scope: 'foo',
       });
 
       // bar: Single derived prefix (no legacy identities), over its workspace glob.
       expect(calls[1]).toStrictEqual({
         tagPrefixes: ['bar-v'],
         paths: ['packages/bar/**'],
-        workspaceDir: 'bar',
+        scope: 'bar',
       });
 
       // Project tier: The project prefix; paths default to the union of workspace globs, and every entry is kept.

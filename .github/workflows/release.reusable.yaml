@@ -29,7 +29,7 @@ on:
         type: string
         default: 'release-kit prepare'
       only:
-        description: 'Workspaces to release, with their dependents (comma-separated, monorepo only)'
+        description: 'Release targets to release, with their dependents (comma-separated, monorepo only)'
         type: string
         default: ''
       bump:

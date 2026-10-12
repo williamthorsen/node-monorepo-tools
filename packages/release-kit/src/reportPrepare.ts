@@ -9,6 +9,7 @@ import {
 
 import { bold, dim, sectionHeader } from './format.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
+import { PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
 import type {
   CompositePrepareResult,
   PackagePrepareResult,
@@ -162,7 +163,8 @@ function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptio
 }
 
 /**
- * Renders the project release section in the shape of a workspace section. A project release is neither propagated nor
+ * Renders a composite's release section in the shape of a workspace section, headed by its name, or by `project` for a
+ * `project` block's composite. A project release is neither propagated nor
  * set by `--set-version`, so only its bump override and release type label the bump.
  */
 function formatProjectSection(
@@ -171,7 +173,7 @@ function formatProjectSection(
   dryRun: boolean,
   style: OutputStyle,
 ): void {
-  lines.push(`\n${sectionHeader('project')}`);
+  lines.push(`\n${sectionHeader(project.targetId === PROJECT_TARGET_ID ? 'project' : project.targetId)}`);
 
   const since = project.previousTag === undefined ? '(no previous release found)' : `since ${project.previousTag}`;
   lines.push(dim(`  Found ${project.commitCount} commits ${since}`));

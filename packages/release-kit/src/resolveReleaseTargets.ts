@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import type { WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { isPublishableManifest } from './isPublishableManifest.ts';
 import { mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
+import { getTargetName } from './resolveReleaseDeclaration.ts';
 import type {
   CompositeTarget,
   MonorepoReleaseConfig,
@@ -14,7 +15,7 @@ import type {
   WorkspaceConfig,
 } from './types.ts';
 
-/** Id of the composite target that a `project` block declares. A workspace `dir` is never empty, so ids cannot clash. */
+/** Id of the composite target that a `project` block declares. A target name is never empty, so ids cannot clash. */
 export const PROJECT_TARGET_ID = '';
 
 /** Id of the package target at the root of a single-package repo. */
@@ -48,7 +49,7 @@ export function resolveReleaseTargets(
 /** Reports whether the targets are those of a single-package repo: its root package target and nothing else. */
 export function isSinglePackageTargets(targets: readonly ReleaseTarget[]): boolean {
   const [only] = targets;
-  return targets.length === 1 && only?.kind === 'package' && only.workspaceDir === undefined;
+  return targets.length === 1 && only?.kind === 'package' && !only.isWorkspace;
 }
 
 /**
@@ -69,7 +70,7 @@ export function projectMonorepoConfig(config: MonorepoReleaseConfig): ResolvedRe
 
 /**
  * Throws when two targets share an id, which would make `--only` and result attribution ambiguous. The error lists the
- * path of every colliding target, so that the author can tell which workspace to rename.
+ * path of every colliding target, so that the author can tell which target to rename.
  */
 function assertUniqueTargetIds(targets: readonly ReleaseTarget[]): void {
   const pathsById = new Map<string, string[]>();
@@ -84,12 +85,12 @@ function assertUniqueTargetIds(targets: readonly ReleaseTarget[]): void {
   }
 }
 
-/** Builds the composite target of a resolved `project` block, whose members are the retained workspaces. */
+/** Builds the composite target of the resolved composite, whose members default to every retained workspace. */
 function buildProjectTarget(project: ResolvedProjectConfig, workspaces: readonly WorkspaceConfig[]): CompositeTarget {
   return {
-    id: PROJECT_TARGET_ID,
+    id: project.name ?? PROJECT_TARGET_ID,
     kind: 'composite',
-    members: workspaces.map((workspace) => workspace.dir),
+    members: project.members ?? workspaces.map(getTargetName),
     tagPrefix: project.tagPrefix,
     versionFiles: ['./package.json'],
     changelogDir: '.',
@@ -108,13 +109,14 @@ function buildSinglePackageTarget(): PackageTarget {
     changelogDir: '.',
     packagePath: '.',
     isPublishable: readRootPublishability(),
+    isWorkspace: false,
   };
 }
 
 /** Builds the package target of a retained workspace. */
 function buildWorkspaceTarget(workspace: WorkspaceConfig): PackageTarget {
   const target: PackageTarget = {
-    id: workspace.dir,
+    id: getTargetName(workspace),
     kind: 'package',
     packageName: workspace.name,
     tagPrefix: workspace.tagPrefix,
@@ -123,7 +125,7 @@ function buildWorkspaceTarget(workspace: WorkspaceConfig): PackageTarget {
     paths: [...workspace.paths],
     isPublishable: workspace.isPublishable,
     packagePath: workspace.workspacePath,
-    workspaceDir: workspace.dir,
+    isWorkspace: true,
   };
   if (workspace.legacyIdentities !== undefined) {
     target.legacyIdentities = workspace.legacyIdentities;

@@ -234,6 +234,36 @@ describe(resolveCommandTags, () => {
     expect(result).toStrictEqual(mixedTags);
   });
 
+  describe('with a releases block', () => {
+    it('passes renamed workspaces and the composite to resolveReleaseTags, excluded workspaces last', () => {
+      resolveCommandTags(undefined, {
+        releases: {
+          kernel: { path: 'packages/core' },
+          cli: false,
+          suite: { includes: ['kernel'], tagPrefix: 'suite-v' },
+        },
+      });
+
+      expect(mockResolveReleaseTags).toHaveBeenCalledWith({
+        workspaces: [
+          { ...makeWorkspace('core', 'nmr-core-v', 'packages/core'), targetName: 'kernel' },
+          makeWorkspace('release-kit', 'release-kit-v', 'packages/release-kit'),
+          makeWorkspace('cli', 'cli-v', 'packages/cli'),
+        ],
+        project: expect.objectContaining({ name: 'suite', tagPrefix: 'suite-v' }),
+      });
+    });
+
+    it('drops the tag of an excluded workspace, naming the releases entry that excluded it', () => {
+      const result = resolveCommandTags(undefined, { releases: { cli: false } });
+
+      expect(result).toStrictEqual(TAGS.filter((t) => t.dir !== 'cli'));
+      expect(console.warn).toHaveBeenCalledExactlyOnceWith(
+        'Skipping cli-v0.5.0 (packages/cli): excluded by config (releases.cli: false).',
+      );
+    });
+  });
+
   describe('with workspace overrides', () => {
     it('drops the tag of an excluded workspace and warns about it', () => {
       const result = resolveCommandTags(undefined, EXCLUDE_CLI);

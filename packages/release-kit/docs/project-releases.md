@@ -1,6 +1,6 @@
 # Project releases
 
-How to add a project-level release to a monorepo, what the `project` block accepts, and how that release interacts with `prepare`'s flags.
+How to add a project-level release to a monorepo, what the `project` block accepts, how that release interacts with `prepare`'s flags, and how to declare it as a `releases` composite instead.
 
 Some monorepos release a single combined deliverable, such as a Chrome extension, a CLI binary, or a packaged desktop app, for which the per-workspace tags and changelogs alone do not describe what the user actually receives. Declare the optional `project` block to add a project-level release stage that runs alongside the per-workspace pipeline.
 
@@ -69,13 +69,29 @@ CLI flag interactions:
 - `--bump=major|minor|patch` propagates to the project release as a level chooser. It does not trigger a release on its own when the window doesn't have any commits or any bump-worthy commits.
 - `--force` runs the project release even when the history since the last project tag doesn't have any commits or any bump-worthy commits. Defaults to patch when `--bump` is not given; combine with `--bump=X` to release at a different level.
 - `--only` narrows the run to the named workspaces and their dependents and skips the project release, which is reported as a warning. The project release rolls up every contributing workspace, and `--only` changes which workspaces those are, so rolling up a narrowed set would release a project version covering work that the run excluded. Run a full `prepare` (without `--only`) to include the project release.
-- `--set-version` is rejected with an error when `project` is configured. `--set-version` sets individual workspaces' versions, but a project release rolls up every contributing workspace; the two semantics don't compose. To use `--set-version`, run on a config without a `project` block.
+- `--set-version` is rejected with an error when `project` or a `releases` composite is configured. `--set-version` sets individual workspaces' versions, but a project release rolls up every contributing workspace; the two semantics don't compose. To use `--set-version`, run on a config without a `project` block.
+
+A `releases` composite has a name, so `--only` can select it: `--only suite` prepares the composite alone, from its own window, and `--only nmr,suite` prepares `nmr`, its dependents, and the composite. A run narrowed by `--only` that doesn't name the composite skips it with a warning.
 
 How `--bump` and `--force` combine for every target is in [Releasing](releasing.md#release-kit-prepare).
 
+## Moving to `releases`
+
+The [`releases`](configuration.md#releases) block declares the same targets by name, and every setting of the `workspaces` and `project` blocks has a counterpart in it, except `project.paths`. A config uses one surface or the other; tag prefixes are unchanged either way.
+
+| Legacy setting                                    | `releases` entry                                      |
+| ------------------------------------------------- | ----------------------------------------------------- |
+| `workspaces: [{ dir: 'x', shouldExclude: true }]` | `x: false`                                            |
+| `workspaces: [{ dir: 'x', legacyIdentities }]`    | `x: { path: 'packages/x', legacyIdentities }`         |
+| `project: {}`                                     | `<name>: { includes: [...every retained workspace] }` |
+| `project: { tagPrefix: 'app-v' }`                 | `<name>: { includes: [...], tagPrefix: 'app-v' }`     |
+| `project: { paths }`                              | No counterpart; keep the `project` block              |
+
+Unlike a `project` block, a composite releases only its listed members' commits, and it has a name that `--only` can select. A workspace left out of `includes` still releases on its own.
+
 ## Publishing and GitHub Releases
 
-`push`, `publish`, and `create-github-release` resolve the project tag on HEAD through the `project` block's `tagPrefix`, alongside the workspace tags:
+`push`, `publish`, and `create-github-release` resolve the project tag on HEAD through the `tagPrefix` of the `project` block or the `releases` composite, alongside the workspace tags:
 
 - `release-kit push` pushes the project tag with the release commit, including when the project tag is the only release tag on HEAD.
 - `release-kit publish` never publishes the project tag, because the project does not have an npm package. When `--tags` names it, `publish` warns `Skipping v0.13.0: a project tag is not an npm package.` and publishes nothing for it.

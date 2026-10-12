@@ -1,6 +1,6 @@
 # Configuration
 
-The fields of `.config/release-kit.config.ts`, how a workspace declares its prior identities or a retired package, the rule against colliding tag prefixes, the patterns that decide a bump, and the environment variable that sets the output style.
+The fields of `.config/release-kit.config.ts`, how the `releases` block names release targets, how a workspace declares its prior identities or a retired package, the rule against colliding tag prefixes, the patterns that decide a bump, and the environment variable that sets the output style.
 
 A minimal config file is in the [README](../README.md#configuration).
 
@@ -16,21 +16,46 @@ The two paths differ in what an absent file means. An absent default path means 
 
 ## `ReleaseKitConfig` reference
 
-| Field              | Type                                        | Description                                                                                                                                                                                                                                               |
-| ------------------ | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `workspaces`       | `WorkspaceOverride[]`                       | Override or exclude discovered workspaces (matched by `dir`)                                                                                                                                                                                              |
-| `formatCommand`    | `string`                                    | Shell command to run after changelog generation; modified file paths are appended as arguments                                                                                                                                                            |
-| `versionPatterns`  | `VersionPatterns`                           | Rules for which commit types trigger major/minor bumps                                                                                                                                                                                                    |
-| `scopeAliases`     | `Record<string, string>`                    | Maps shorthand scope names to canonical names in commit titles and in change-record entry `scopes`, which [route items to workspaces](changelogs.md#routing-to-workspaces). A renamed workspace directory needs an entry from its old name to its new one |
-| `workTypes`        | `Record<string, WorkTypeConfig>`            | Work type definitions, merged with defaults by key                                                                                                                                                                                                        |
-| `breakingPolicies` | `Record<string, 'forbidden' \| 'optional'>` | Per-type `!`-policy lookup. Defaults to `DEFAULT_BREAKING_POLICIES`. Replaces the default entirely when provided. Set to `{}` to disable enforcement                                                                                                      |
-| `retiredPackages`  | `RetiredPackage[]`                          | Packages that once lived in this repo but have been extracted or removed; suppresses undeclared-tag-prefix warnings                                                                                                                                       |
-| `project`          | `ProjectConfig`                             | Opt-in project-level release block. Declaring `project: {}` (even empty) enables a project-release stage in `prepare`                                                                                                                                     |
-| `repoLabels`       | `RepoLabelsConfig`                          | Declares the repository's label registry for `sync-labels`; see [Label configuration](labels.md#label-configuration)                                                                                                                                      |
-| `changelogJson`    | `ChangelogJsonConfig`                       | Controls `.meta/changelog.json`: `enabled` (default `true`), `outputPath` (default `'.meta/changelog.json'`), and `devOnlySections`; see [Custom work types](work-types.md#custom-work-types)                                                             |
-| `releaseNotes`     | `ReleaseNotesConfig`                        | `shouldInjectIntoReadme` (default `false`) injects release notes into each package's README while it publishes; see [Release-notes injection](changelogs.md#release-notes-injection)                                                                      |
+| Field              | Type                                        | Description                                                                                                                                                                                                                                                                              |
+| ------------------ | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `releases`         | `Record<string, ReleaseEntry>`              | Names, excludes, or composes release targets; see [`releases`](#releases). Can't be combined with `workspaces` or `project`                                                                                                                                                              |
+| `workspaces`       | `WorkspaceOverride[]`                       | Override or exclude discovered workspaces (matched by `dir`)                                                                                                                                                                                                                             |
+| `formatCommand`    | `string`                                    | Shell command to run after changelog generation; modified file paths are appended as arguments                                                                                                                                                                                           |
+| `versionPatterns`  | `VersionPatterns`                           | Rules for which commit types trigger major/minor bumps                                                                                                                                                                                                                                   |
+| `scopeAliases`     | `Record<string, string>`                    | Maps shorthand scope names to canonical names in commit titles and in change-record entry `scopes`, which [route items to workspaces](changelogs.md#routing-to-workspaces). A renamed workspace directory or [release target](#releases) needs an entry from its old name to its new one |
+| `workTypes`        | `Record<string, WorkTypeConfig>`            | Work type definitions, merged with defaults by key                                                                                                                                                                                                                                       |
+| `breakingPolicies` | `Record<string, 'forbidden' \| 'optional'>` | Per-type `!`-policy lookup. Defaults to `DEFAULT_BREAKING_POLICIES`. Replaces the default entirely when provided. Set to `{}` to disable enforcement                                                                                                                                     |
+| `retiredPackages`  | `RetiredPackage[]`                          | Packages that once lived in this repo but have been extracted or removed; suppresses undeclared-tag-prefix warnings                                                                                                                                                                      |
+| `project`          | `ProjectConfig`                             | Opt-in project-level release block. Declaring `project: {}` (even empty) enables a project-release stage in `prepare`                                                                                                                                                                    |
+| `repoLabels`       | `RepoLabelsConfig`                          | Declares the repository's label registry for `sync-labels`; see [Label configuration](labels.md#label-configuration)                                                                                                                                                                     |
+| `changelogJson`    | `ChangelogJsonConfig`                       | Controls `.meta/changelog.json`: `enabled` (default `true`), `outputPath` (default `'.meta/changelog.json'`), and `devOnlySections`; see [Custom work types](work-types.md#custom-work-types)                                                                                            |
+| `releaseNotes`     | `ReleaseNotesConfig`                        | `shouldInjectIntoReadme` (default `false`) injects release notes into each package's README while it publishes; see [Release-notes injection](changelogs.md#release-notes-injection)                                                                                                     |
 
 All fields are optional.
+
+## `releases`
+
+`releases` maps each release target's name to its declaration. Every discovered workspace is a target, named by its directory, unless an entry excludes or renames it, so the block lists only what differs from the discovered set.
+
+```typescript
+const config: ReleaseKitConfig = {
+  releases: {
+    core: { path: 'packages/nmr-core', legacyIdentities: [{ name: '@scope/core', tagPrefix: 'core-v' }] },
+    scratch: false,
+    suite: { includes: ['nmr', 'core'], tagPrefix: 'v' },
+  },
+};
+```
+
+An entry takes one of three shapes:
+
+- **`false`** excludes the discovered workspace that the entry's name names by its directory. An excluded workspace is treated as a `shouldExclude` one is: `prepare` never releases it, and `push`, `publish`, and `create-github-release` skip its tags with a warning.
+- **`{ path, legacyIdentities? }`** names the discovered workspace at `path`, a repo-relative directory. `legacyIdentities` has the meaning that it has in [`WorkspaceOverride`](#workspaceoverride). A path that isn't a discovered workspace is an error: A directory without a `package.json` can't be released yet.
+- **`{ includes, tagPrefix? }`** declares the composite, a release that rolls up the named package targets. It is versioned by the root `package.json`, writes `./CHANGELOG.md`, and reads the commits of its members' windows. Its tag prefix defaults to `'v'`. A config declares at most one composite, because the root `package.json` holds one version. `includes` names package targets by their names in this block, and it names at least one. Like a `project` release, the composite's changelog takes every entry in its window, whatever the entry's scopes.
+
+A target's name is its only identity. `--only` selects it by name, and a change-record entry routes to it when a scope names it. A target's name never reaches its tag prefix: A workspace's prefix stays `{unscoped package name}-v` whatever the entry calls it. Renaming a workspace in `releases` therefore changes the scope that routes to it; add a [`scopeAliases`](#releasekitconfig-reference) entry from the old name to the new one, so that entries written before the rename still route to the target.
+
+`releases` can't be combined with `workspaces` or `project`, which declare the same targets, and a single-package repo rejects it. None of its entries accepts `paths`: A package's commit window is its directory, and a composite's is its members' windows. [Moving to `releases`](project-releases.md#moving-to-releases) maps each `workspaces` and `project` setting onto the block; both blocks keep working unchanged.
 
 ## `WorkspaceOverride`
 

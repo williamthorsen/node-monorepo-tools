@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 
 import { isRecord } from './typeGuards.ts';
-import { type ReleaseKitConfig, releaseKitConfigSchema } from './types.ts';
+import { type LegacyIdentity, type ReleaseKitConfig, releaseKitConfigSchema } from './types.ts';
 
 /**
  * Validates a raw config object loaded from `.config/release-kit.config.ts`. Returns `{}` with the errors for a config
@@ -18,13 +18,14 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
   if (!parseResult.success) {
     return {
       config: {},
-      errors: [...deprecationErrors, ...parseResult.error.issues.map(formatZodIssue)],
+      errors: [...deprecationErrors, ...parseResult.error.issues.flatMap((issue) => formatZodIssue(issue, cleaned))],
       warnings: [],
     };
   }
 
   const config = parseResult.data;
   const errors = [...deprecationErrors];
+  detectReleasesConflicts(config, errors);
   detectLegacyIdentityDuplicates(config, errors);
   detectRetiredPackageDuplicates(config, errors);
   detectRetiredVsLegacyCollisions(config, errors);
@@ -87,17 +88,42 @@ function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecation
     });
   }
 
+  if (isRecord(cleaned['releases'])) {
+    const releasesCopy: Record<string, unknown> = { ...cleaned['releases'] };
+    for (const [name, entry] of Object.entries(releasesCopy)) {
+      if (!isRecord(entry) || !Object.hasOwn(entry, 'paths')) continue;
+      errors.push(
+        `releases.${name}: 'paths' is not supported; a package's commit window is its directory, and a composite's is the union of its members' windows`,
+      );
+      const entryCopy = { ...entry };
+      delete entryCopy['paths'];
+      releasesCopy[name] = entryCopy;
+    }
+    cleaned['releases'] = releasesCopy;
+  }
+
   return { cleaned, deprecationErrors: errors };
 }
 
 /**
- * Formats a Zod issue as a single-line error prefixed by its path, or as the bare message when the issue doesn't have
- * a path.
+ * Formats a Zod issue as single-line errors prefixed by their path, or as the bare message when the issue doesn't have
+ * a path. A failed `releases` entry is reported through the branch of `releaseEntrySchema` that its keys select, since
+ * the union's own message doesn't say which shape was meant or what it lacks.
  */
-function formatZodIssue(issue: z.core.$ZodIssue): string {
+function formatZodIssue(issue: z.core.$ZodIssue, input: unknown): string[] {
+  if (issue.code === 'invalid_union' && issue.path.length === 2 && issue.path[0] === 'releases') {
+    const branchIssues = issue.errors[selectReleaseEntryBranch(readAtPath(input, issue.path))];
+    if (branchIssues === undefined) {
+      return [`${renderPath(issue.path)}: ${RELEASE_ENTRY_SHAPES}`];
+    }
+    return branchIssues.flatMap((branchIssue) =>
+      formatZodIssue({ ...branchIssue, path: [...issue.path, ...branchIssue.path] }, input),
+    );
+  }
+
   const path = renderPath(issue.path);
   const message = customizeMessage(issue);
-  return path === '' ? message : `${path}: ${message}`;
+  return [path === '' ? message : `${path}: ${message}`];
 }
 
 /**
@@ -110,6 +136,9 @@ function customizeMessage(issue: z.core.$ZodIssue): string {
   }
   return issue.message;
 }
+
+/** Message for a `releases` entry whose keys don't select any of the entry shapes. */
+const RELEASE_ENTRY_SHAPES = 'must be false, { path, legacyIdentities? }, or { includes, tagPrefix? }';
 
 /** Renders a Zod path as `top.nested[2].leaf`. */
 function renderPath(path: ReadonlyArray<PropertyKey>): string {
@@ -127,22 +156,20 @@ function renderPath(path: ReadonlyArray<PropertyKey>): string {
 }
 
 /**
- * Appends per-entry errors when two entries in the same workspace's `legacyIdentities` share a full
+ * Appends per-entry errors when two entries in the same target's `legacyIdentities` share a full
  * `(name, tagPrefix)` tuple. Two entries with the same `tagPrefix` but different `name` are valid: They document a
  * prior rename that reused the tag shape.
  */
 function detectLegacyIdentityDuplicates(config: ReleaseKitConfig, errors: string[]): void {
-  if (config.workspaces === undefined) return;
-  for (const [wsIndex, workspace] of config.workspaces.entries()) {
-    if (workspace.legacyIdentities === undefined) continue;
+  for (const { label, legacyIdentities } of listLegacyIdentityDeclarations(config)) {
     const seen = new Set<string>();
-    for (const [entryIndex, identity] of workspace.legacyIdentities.entries()) {
+    for (const [entryIndex, identity] of legacyIdentities.entries()) {
       // Null-byte separator: neither npm names nor tag prefixes can contain `\0`,
       // so distinct `(name, tagPrefix)` tuples always produce distinct keys.
       const key = `${identity.name}\0${identity.tagPrefix}`;
       if (seen.has(key)) {
         errors.push(
-          `workspaces[${wsIndex}].legacyIdentities[${entryIndex}]: duplicate identity (name='${identity.name}', tagPrefix='${identity.tagPrefix}')`,
+          `${label}.legacyIdentities[${entryIndex}]: duplicate identity (name='${identity.name}', tagPrefix='${identity.tagPrefix}')`,
         );
       }
       seen.add(key);
@@ -169,31 +196,90 @@ function detectRetiredPackageDuplicates(config: ReleaseKitConfig, errors: string
 }
 
 /**
- * Appends errors when a `retiredPackages[]` entry's `tagPrefix` matches any workspace's declared
- * `legacyIdentities[].tagPrefix`, naming the first workspace that declares it.
+ * Appends errors when a `retiredPackages[]` entry's `tagPrefix` matches any declared `legacyIdentities[].tagPrefix`,
+ * naming the first workspace or release target that declares it.
  *
  * A collision with an active workspace's *derived* `tagPrefix` requires reading each workspace's `package.json`, so
  * `loadConfig` checks it.
  */
 function detectRetiredVsLegacyCollisions(config: ReleaseKitConfig, errors: string[]): void {
-  if (config.retiredPackages === undefined || config.workspaces === undefined) return;
+  if (config.retiredPackages === undefined) return;
 
-  const legacyPrefixToWorkspace = new Map<string, string>();
-  for (const workspace of config.workspaces) {
-    if (workspace.legacyIdentities === undefined) continue;
-    for (const identity of workspace.legacyIdentities) {
-      if (!legacyPrefixToWorkspace.has(identity.tagPrefix)) {
-        legacyPrefixToWorkspace.set(identity.tagPrefix, workspace.dir);
+  const legacyPrefixToOwner = new Map<string, string>();
+  for (const { owner, legacyIdentities } of listLegacyIdentityDeclarations(config)) {
+    for (const identity of legacyIdentities) {
+      if (!legacyPrefixToOwner.has(identity.tagPrefix)) {
+        legacyPrefixToOwner.set(identity.tagPrefix, owner);
       }
     }
   }
 
   for (const [index, retired] of config.retiredPackages.entries()) {
-    const collidingDir = legacyPrefixToWorkspace.get(retired.tagPrefix);
-    if (collidingDir !== undefined) {
+    const collidingOwner = legacyPrefixToOwner.get(retired.tagPrefix);
+    if (collidingOwner !== undefined) {
       errors.push(
-        `retiredPackages[${index}]: tagPrefix '${retired.tagPrefix}' collides with a declared legacyIdentities[].tagPrefix on workspace '${collidingDir}'`,
+        `retiredPackages[${index}]: tagPrefix '${retired.tagPrefix}' collides with a declared legacyIdentities[].tagPrefix on ${collidingOwner}`,
       );
     }
   }
+}
+
+/** Appends an error when `releases` is combined with `workspaces` or `project`, which declare the same targets. */
+function detectReleasesConflicts(config: ReleaseKitConfig, errors: string[]): void {
+  if (config.releases === undefined) return;
+  const legacyBlocks = [
+    ...(config.workspaces === undefined ? [] : ['workspaces']),
+    ...(config.project === undefined ? [] : ['project']),
+  ];
+  if (legacyBlocks.length === 0) return;
+  errors.push(
+    `releases cannot be combined with ${legacyBlocks.join(' or ')}; declare every target under releases, or remove releases`,
+  );
+}
+
+/**
+ * Lists every declaration of `legacyIdentities`, from `workspaces` overrides and `releases` package entries, with the
+ * path that labels its errors and a description of its owner.
+ */
+function listLegacyIdentityDeclarations(
+  config: ReleaseKitConfig,
+): Array<{ label: string; owner: string; legacyIdentities: LegacyIdentity[] }> {
+  const fromWorkspaces = (config.workspaces ?? []).flatMap((workspace, index) =>
+    workspace.legacyIdentities === undefined
+      ? []
+      : [
+          {
+            label: `workspaces[${index}]`,
+            owner: `workspace '${workspace.dir}'`,
+            legacyIdentities: workspace.legacyIdentities,
+          },
+        ],
+  );
+  const fromReleases = Object.entries(config.releases ?? {}).flatMap(([name, entry]) =>
+    entry === false || !('path' in entry) || entry.legacyIdentities === undefined
+      ? []
+      : [{ label: `releases.${name}`, owner: `release '${name}'`, legacyIdentities: entry.legacyIdentities }],
+  );
+  return [...fromWorkspaces, ...fromReleases];
+}
+
+/** Returns the value at a Zod issue path within the input, or `undefined` when the path leaves the input. */
+function readAtPath(input: unknown, path: ReadonlyArray<PropertyKey>): unknown {
+  let value = input;
+  for (const segment of path) {
+    if (!isRecord(value) || typeof segment === 'symbol') return undefined;
+    value = value[String(segment)];
+  }
+  return value;
+}
+
+/**
+ * Returns the index of the `releaseEntrySchema` branch that a failed entry's keys select: the package shape for a
+ * `path` key, the composite shape for an `includes` key, and an index past the branches otherwise.
+ */
+function selectReleaseEntryBranch(entry: unknown): number {
+  if (!isRecord(entry)) return -1;
+  if (Object.hasOwn(entry, 'includes')) return 2;
+  if (Object.hasOwn(entry, 'path')) return 1;
+  return -1;
 }

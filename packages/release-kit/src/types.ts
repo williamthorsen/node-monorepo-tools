@@ -97,7 +97,10 @@ export interface ReleaseNotesConfig {
   shouldInjectIntoReadme: boolean;
 }
 
-/** Project-release config after merging defaults: `ProjectConfig` with every field required. */
+/**
+ * The composite release after merging defaults, declared by a `project` block or by a `releases` composite entry.
+ * Both are versioned by the root `package.json`.
+ */
 export interface ResolvedProjectConfig {
   /**
    * Resolved commit window for the project release: the git pathspecs that select which commits
@@ -106,6 +109,10 @@ export interface ResolvedProjectConfig {
   paths: string[];
   /** Resolved tag prefix for project-level tags. */
   tagPrefix: string;
+  /** Name that selects the composite; `undefined` for a `project` block, whose composite cannot be selected. */
+  name?: string;
+  /** Target names of the member workspaces; `undefined` means every retained workspace, as a `project` block has. */
+  members?: string[];
 }
 
 /** Identifies a dependency whose version bump triggered a propagated release. */
@@ -412,6 +419,37 @@ export const projectConfigSchema = z
 /** Consumer-facing project-release config (`project` block). Empty object opts in to project releases. */
 export type ProjectConfig = z.infer<typeof projectConfigSchema>;
 
+/** Schema for a `releases` entry that names the discovered workspace at `path`. */
+export const packageReleaseSchema = z
+  .object({
+    path: z.string().min(1),
+    legacyIdentities: z.array(legacyIdentitySchema).optional(),
+  })
+  .strict();
+
+/** A `releases` entry that names the discovered workspace at `path`. */
+export type PackageRelease = z.infer<typeof packageReleaseSchema>;
+
+/** Schema for a `releases` entry that declares a composite of the named package targets. */
+export const compositeReleaseSchema = z
+  .object({
+    includes: z.array(z.string().min(1)).min(1),
+    tagPrefix: z.string().min(1).optional(),
+  })
+  .strict();
+
+/** A `releases` entry that declares a composite of the named package targets, versioned by the root `package.json`. */
+export type CompositeRelease = z.infer<typeof compositeReleaseSchema>;
+
+/**
+ * Schema for one `releases` entry: `false` excludes the discovered workspace of that name, and the object shapes name
+ * a workspace or declare the composite. `validateConfig` relies on this branch order to report a failed entry.
+ */
+export const releaseEntrySchema = z.union([z.literal(false), packageReleaseSchema, compositeReleaseSchema]);
+
+/** One `releases` entry, keyed in the config by the target's name. */
+export type ReleaseEntry = z.infer<typeof releaseEntrySchema>;
+
 /** Schema for the optional `changelogJson` block (input shape, all fields optional). */
 export const changelogJsonInputSchema = z
   .object({
@@ -496,6 +534,7 @@ export const releaseKitConfigSchema = z
     formatCommand: z.string().min(1).optional(),
     project: projectConfigSchema.optional(),
     releaseNotes: releaseNotesInputSchema.optional(),
+    releases: z.record(z.string().min(1), releaseEntrySchema).optional(),
     repoLabels: repoLabelsSchema.optional(),
     retiredPackages: z.array(retiredPackageSchema).optional(),
     scopeAliases: z.record(z.string(), z.string()).optional(),
@@ -541,8 +580,10 @@ export interface ParsedCommit {
 
 /** Per-workspace configuration for monorepo releases. */
 export interface WorkspaceConfig {
-  /** The package directory name (e.g., 'arrays'). Used for display and `--only` matching. */
+  /** The package directory name (e.g., 'arrays'), which names the workspace's release target by default. */
   dir: string;
+  /** Name of the workspace's release target when a `releases` entry renames it; `undefined` means `dir`. */
+  targetName?: string;
   /** The full scoped npm name from `package.json` (e.g., `'@williamthorsen/nmr-core'`). */
   name: string;
   /** The git tag prefix for this workspace (e.g., 'nmr-core-v'), derived from the unscoped `package.json` name. */
@@ -621,8 +662,8 @@ export interface PackageTarget extends ReleaseTargetBase {
   packageName?: string;
   /** Repo-relative path to the package root (e.g., `packages/core`, or `.` for the single-package root). */
   packagePath: string;
-  /** Workspace `dir` to which change-record entries are routed; undefined for the single-package root. */
-  workspaceDir?: string;
+  /** Whether the target is a monorepo workspace, whose change-record entries route by scope to its `id`. */
+  isWorkspace: boolean;
 }
 
 /** A release that rolls up other targets, such as the project release of a monorepo. */
@@ -639,6 +680,8 @@ export type ReleaseTarget = PackageTarget | CompositeTarget;
 export interface MonorepoReleaseConfig extends ReleaseSettings {
   /** Ordered list of workspace configurations. */
   workspaces: WorkspaceConfig[];
+  /** Discovered workspaces that the config excludes, which tag resolution still matches; `undefined` means none. */
+  excludedWorkspaces?: WorkspaceConfig[];
   /**
    * Project-level release config. Present when the config declares a `project` block, in which case
    * `prepare` runs a project-release stage after the per-workspace loop.

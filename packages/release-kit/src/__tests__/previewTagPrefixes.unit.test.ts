@@ -142,6 +142,22 @@ describe(previewTagPrefixes, () => {
     ]);
   });
 
+  it('reports legacy prefixes declared on a releases entry, matched by path', () => {
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/nmr-core']));
+    const config = {
+      releases: {
+        core: { path: './packages/nmr-core', legacyIdentities: [{ name: '@old/core', tagPrefix: 'core-v' }] },
+      },
+    };
+    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
+    mockDetectUndeclared.mockReturnValue([]);
+    setupTagCounts({ 'nmr-core-v': [], 'core-v': ['core-v0.2.7'] });
+
+    const result = previewTagPrefixes(config);
+
+    expect(result.workspaces[0]?.legacyEntries).toStrictEqual([{ prefix: 'core-v', tagCount: 1 }]);
+  });
+
   it('detects cross-workspace tag-prefix collisions', () => {
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/a-foo', 'packages/b-foo']));
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'foo-v' });
@@ -167,6 +183,20 @@ describe(previewTagPrefixes, () => {
     previewTagPrefixes(config);
 
     expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['nmr-core-v', 'core-v']));
+  });
+
+  it.each([
+    ['a releases composite', { releases: { suite: { includes: ['core'], tagPrefix: 'suite-v' } } }],
+    ['a project block', { project: { tagPrefix: 'suite-v' } }],
+  ])('passes the tag prefix of %s to detectUndeclaredTagPrefixes as known', (_label, config) => {
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
+    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'core-v' });
+    mockDetectUndeclared.mockReturnValue([]);
+    setupTagCounts({});
+
+    previewTagPrefixes(config);
+
+    expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['core-v', 'suite-v']));
   });
 
   // An empty preview would show a clean table for a workspace whose manifest needs repairing.

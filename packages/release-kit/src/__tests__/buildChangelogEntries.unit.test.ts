@@ -870,8 +870,8 @@ entries:
       ['arrays', ['Covers everything.', 'Covers every workspace.']],
     ])(
       "keeps, for workspace '%s', the entries whose resolved scopes name it, are empty, or contain `*`",
-      (workspaceDir, descriptions) => {
-        expect(describeItems(readRouted([ROUTED_MESSAGE], workspaceDir).sections)).toStrictEqual(descriptions);
+      (scope, descriptions) => {
+        expect(describeItems(readRouted([ROUTED_MESSAGE], scope).sections)).toStrictEqual(descriptions);
       },
     );
 
@@ -916,7 +916,7 @@ entries:
         makeWindow('v1.0.0', [ROUTED_MESSAGE]),
       ]);
 
-      const history = readReleaseHistory(routedConfig(), { ...OPTIONS, workspaceDir: 'arrays' });
+      const history = readReleaseHistory(routedConfig(), { ...OPTIONS, scope: 'arrays' });
 
       expect(describeItems(history.releasedEntries[0]?.sections ?? [])).toStrictEqual([
         'Covers everything.',
@@ -1117,13 +1117,10 @@ function describeItems(sections: readonly ChangelogSection[]): string[] {
   return sections.flatMap((section) => section.items.map((item) => item.description));
 }
 
-/** Reads, for `workspaceDir`, a history whose only window is an unreleased one containing `messages`, oldest first. */
-function readRouted(
-  messages: readonly string[],
-  workspaceDir: string,
-): ReturnType<typeof readReleaseHistory>['unreleased'] {
+/** Reads, for `scope`, a history whose only window is an unreleased one containing `messages`, oldest first. */
+function readRouted(messages: readonly string[], scope: string): ReturnType<typeof readReleaseHistory>['unreleased'] {
   mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('unreleased', messages)]);
-  return readReleaseHistory(routedConfig(), { ...OPTIONS, workspaceDir }).unreleased;
+  return readReleaseHistory(routedConfig(), { ...OPTIONS, scope }).unreleased;
 }
 
 /** Returns the default configuration with a `core-alias` → `nmr-core` scope alias. */

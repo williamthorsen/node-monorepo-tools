@@ -25,18 +25,19 @@ describe(prepareHelpText, () => {
     expect(prepareHelpText).toContain('Release even when the last tag is not followed by any commits');
   });
 
-  it('documents the project-block rejection on --set-version alone', () => {
-    const caveats = prepareHelpText.match(/Rejected when a 'project' block is configured/gi);
+  it('documents the composite rejection on --set-version alone', () => {
+    const caveats = prepareHelpText.match(/Rejected when a composite/gi);
     expect(caveats).toHaveLength(1);
   });
 
   it('documents the monorepo --set-version form and --only releasing dependents', () => {
     expect(prepareHelpText).toContain('--set-version=arrays@1.0.0');
-    expect(prepareHelpText).toContain('the named workspaces and their dependents');
+    expect(prepareHelpText).toContain('the named release targets and their dependents');
   });
 
-  it('documents that --only skips the project release rather than being rejected', () => {
-    expect(prepareHelpText).toMatch(/'project' block is configured, the project release is skipped/);
+  it('documents that --only selects a releases composite by name and skips a project block', () => {
+    expect(prepareHelpText).toMatch(/A composite declared under 'releases'\s+releases only when named/);
+    expect(prepareHelpText).toContain("a 'project' block's release is skipped");
   });
 
   it('documents --force and --bump as orthogonal in every mode', () => {

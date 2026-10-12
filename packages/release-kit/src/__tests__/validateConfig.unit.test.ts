@@ -798,6 +798,83 @@ describe(validateConfig, () => {
       expect(warnings).toStrictEqual([]);
     });
   });
+
+  describe('releases', () => {
+    it('accepts every entry shape', () => {
+      const { config, errors } = validateConfig({
+        releases: {
+          core: { path: 'packages/core', legacyIdentities: [{ name: '@scope/old-core', tagPrefix: 'old-core-v' }] },
+          scratch: false,
+          suite: { includes: ['core'], tagPrefix: 'suite-v' },
+        },
+      });
+      expect(errors).toStrictEqual([]);
+      expect(config.releases).toStrictEqual({
+        core: { path: 'packages/core', legacyIdentities: [{ name: '@scope/old-core', tagPrefix: 'old-core-v' }] },
+        scratch: false,
+        suite: { includes: ['core'], tagPrefix: 'suite-v' },
+      });
+    });
+
+    it('rejects paths on any entry with a message naming what replaces it', () => {
+      const { errors } = validateConfig({
+        releases: { core: { path: 'packages/core', paths: ['src'] }, suite: { includes: ['core'], paths: ['.'] } },
+      });
+      expect(errors).toStrictEqual([
+        "releases.core: 'paths' is not supported; a package's commit window is its directory, and a composite's is the union of its members' windows",
+        "releases.suite: 'paths' is not supported; a package's commit window is its directory, and a composite's is the union of its members' windows",
+      ]);
+    });
+
+    it('reports an empty includes at the includes path', () => {
+      const { errors } = validateConfig({ releases: { suite: { includes: [] } } });
+      expectErrorAtPath(errors, 'releases.suite.includes');
+    });
+
+    it('reports an unknown key on a package entry at the entry path', () => {
+      const { errors } = validateConfig({ releases: { core: { path: 'packages/core', tagPrefix: 'core-v' } } });
+      expect(errors).toHaveLength(1);
+      expectErrorMentioning(errors, 'tagPrefix');
+    });
+
+    it('names the entry shapes when an entry matches none of them', () => {
+      const { errors } = validateConfig({ releases: { core: true } });
+      expect(errors).toStrictEqual([
+        'releases.core: must be false, { path, legacyIdentities? }, or { includes, tagPrefix? }',
+      ]);
+    });
+
+    it('rejects releases combined with workspaces and project', () => {
+      const { errors } = validateConfig({
+        releases: { scratch: false },
+        workspaces: [{ dir: 'scratch' }],
+        project: {},
+      });
+      expect(errors).toStrictEqual([
+        'releases cannot be combined with workspaces or project; declare every target under releases, or remove releases',
+      ]);
+    });
+
+    it('rejects duplicate legacy identities on a releases entry', () => {
+      const identity = { name: '@scope/old-core', tagPrefix: 'old-core-v' };
+      const { errors } = validateConfig({
+        releases: { core: { path: 'packages/core', legacyIdentities: [identity, identity] } },
+      });
+      expect(errors).toStrictEqual([
+        "releases.core.legacyIdentities[1]: duplicate identity (name='@scope/old-core', tagPrefix='old-core-v')",
+      ]);
+    });
+
+    it('rejects a retired package whose prefix a releases entry declares as a legacy identity', () => {
+      const { errors } = validateConfig({
+        releases: { core: { path: 'packages/core', legacyIdentities: [{ name: '@scope/x', tagPrefix: 'x-v' }] } },
+        retiredPackages: [{ name: '@scope/x', tagPrefix: 'x-v' }],
+      });
+      expect(errors).toStrictEqual([
+        "retiredPackages[0]: tagPrefix 'x-v' collides with a declared legacyIdentities[].tagPrefix on release 'core'",
+      ]);
+    });
+  });
 });
 
 // region | Helpers

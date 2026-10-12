@@ -22,7 +22,7 @@ import {
 } from './prepareTarget.ts';
 import { propagateBumps, type ReleaseEntry } from './propagateBumps.ts';
 import type { PlannedWrite, ReleasePlan } from './releasePlan.ts';
-import { isSinglePackageTargets } from './resolveReleaseTargets.ts';
+import { isSinglePackageTargets, PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
 import type { CompositeTarget, PackageTarget, ReleaseTarget, ReleaseType, TargetPrepareResult } from './types.ts';
 
 /** The targets of a prepare run and the settings that they share. */
@@ -47,9 +47,9 @@ export interface TargetPrepareOptions {
    */
   withReleaseNotes?: boolean;
   /**
-   * Ids of the package targets from which the release starts; the run plans them and their transitive dependents.
-   * Present only for a narrowed run, which skips every composite: A composite rolls up every member, and the
-   * narrowing has changed which members release.
+   * Ids of the targets from which the release starts; the run plans the named package targets and their transitive
+   * dependents, and each named composite, which reads its own window. Present only for a narrowed run, which skips
+   * every composite that it doesn't name.
    */
   only?: readonly string[];
   /**
@@ -70,7 +70,7 @@ const PREVIEWS_REQUIRE_JSON_WARNING =
  * 2. Reads each planned package's history and decides its direct release.
  * 3. Propagates bumps to dependents, asserts the baselines that matter, and sorts the release set topologically.
  * 4. Plans each release in dependency order.
- * 5. Prepares each composite after every package target, unless `only` narrowed the run.
+ * 5. Prepares each composite after every package target, unless `only` narrowed the run without naming it.
  * 6. Renders the format command over the modified files.
  */
 export function releasePrepareTargets(config: TargetPrepareConfig, options: TargetPrepareOptions): ReleasePlan {
@@ -82,7 +82,7 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
   const warnings: string[] = [];
 
   // -- Selection --
-  const graph = buildDependencyGraph(packageTargets.filter((target) => target.workspaceDir !== undefined));
+  const graph = buildDependencyGraph(packageTargets.filter((target) => target.isWorkspace));
   const startIds = selectStartIds(packageTargets, options);
   const plannedIds = findTransitiveDependents(graph, startIds);
   const planned = packageTargets.filter((target) => plannedIds.has(target.id));
@@ -96,7 +96,7 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
   const context: RunContext = {
     settings,
     overrideContext: createOverrideContext(
-      planned.filter((target) => target.workspaceDir !== undefined).map((target) => target.packagePath),
+      planned.filter((target) => target.isWorkspace).map((target) => target.packagePath),
     ),
     sectionOrder: deriveSectionOrder(workTypes),
     dependenciesHeader: deriveDependenciesHeader(workTypes),
@@ -163,11 +163,9 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
 
   // -- Composites, after every package target --
   for (const composite of compositeTargets) {
-    if (only !== undefined) {
-      warnings.push(
-        `Project release skipped: --only narrows this run to ${only.join(', ')}. ` +
-          'Run `release-kit prepare` without --only to include the project release.',
-      );
+    const skipWarning = describeCompositeSkip(composite, only);
+    if (skipWarning !== undefined) {
+      warnings.push(skipWarning);
       continue;
     }
     const result = runStage(describeStage(composite), () =>
@@ -293,7 +291,7 @@ function decideDirectReleases(
     if (untagged !== undefined) {
       direct.untaggedBaselines.set(target.id, untagged);
     }
-    if (history.previousTag === undefined && target.workspaceDir !== undefined) {
+    if (history.previousTag === undefined && target.isWorkspace) {
       maybeEmitBaselineHint(target, knownPrefixes, hintState);
     }
 
@@ -320,12 +318,30 @@ function decideDirectReleases(
   return direct;
 }
 
+/**
+ * Describes why a run narrowed by `only` skips a composite and how to include it, or returns `undefined` when the run
+ * prepares it: every run that `only` doesn't narrow, and every one that names it. A `project` block's composite
+ * cannot be named.
+ */
+function describeCompositeSkip(composite: CompositeTarget, only: readonly string[] | undefined): string | undefined {
+  if (only === undefined || only.includes(composite.id)) {
+    return undefined;
+  }
+  if (composite.id === PROJECT_TARGET_ID) {
+    return (
+      `Project release skipped: --only narrows this run to ${only.join(', ')}. ` +
+      'Run `release-kit prepare` without --only to include the project release.'
+    );
+  }
+  return `Release '${composite.id}' skipped: --only does not name it. Add ${composite.id} to --only to include it.`;
+}
+
 /** Names the stage whose errors a target's work raises; the single-package root's errors are not labeled. */
 function describeStage(target: ReleaseTarget): string | undefined {
   if (target.kind === 'composite') {
     return 'project release stage';
   }
-  return target.workspaceDir === undefined ? undefined : `workspace '${target.id}' release stage`;
+  return target.isWorkspace ? `workspace '${target.id}' release stage` : undefined;
 }
 
 /**

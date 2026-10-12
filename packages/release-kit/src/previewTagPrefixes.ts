@@ -4,10 +4,12 @@ import { basename } from 'node:path';
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { DEFAULT_PROJECT_TAG_PREFIX } from './defaults.ts';
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { detectUndeclaredTagPrefixes, type UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';
 import { describeEmptyWorkspace, discoverWorkspaces } from './discoverWorkspaces.ts';
 import { matchesTagPrefix } from './matchesTagPrefix.ts';
+import { normalizeWorkspacePath } from './resolveReleaseDeclaration.ts';
 import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './types.ts';
 
 /** One workspace's preview row in the tag-prefix preview. */
@@ -61,7 +63,8 @@ export interface TagPrefixPreview {
  * preview doesn't contain any rows; for one declaring patterns that don't resolve to any package, the function
  * throws, because the manifest then needs repairing and a clean table would hide that. Also reports the legacy
  * prefixes that the validated `config` declares per workspace, undeclared candidate prefixes among the local git
- * tags, and collisions across the successfully derived prefixes.
+ * tags, and collisions across the successfully derived prefixes. A declared composite's tag prefix counts as known, so
+ * that its tags are not reported as undeclared.
  */
 export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview {
   const workspace = discoverWorkspaces();
@@ -70,35 +73,50 @@ export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview 
   }
 
   const workspacePaths = workspace.kind === 'packages' ? workspace.packageDirs : [];
-  const overridesByDir = buildOverrideMap(config);
+  const overridesByPath = buildOverrideMap(config, workspacePaths);
 
   const workspaces: TagPrefixPreviewRow[] = Array.from(workspacePaths, (workspacePath) =>
-    buildPreviewRow(workspacePath, overridesByDir),
+    buildPreviewRow(workspacePath, overridesByPath),
   );
 
   const retiredPackages = buildRetiredPreviewEntries(config?.retiredPackages ?? []);
 
   const collisions = detectCollisions(workspaces);
-  const knownPrefixes = collectKnownPrefixes(workspaces, retiredPackages);
+  const knownPrefixes = collectKnownPrefixes(workspaces, retiredPackages, findCompositeTagPrefix(config));
   const undeclaredCandidates = detectUndeclaredTagPrefixes(knownPrefixes);
 
   return { workspaces, collisions, undeclaredCandidates, retiredPackages };
 }
 
-/** Builds a `dir -> legacyIdentities` lookup map from a validated config. */
-function buildOverrideMap(config: ReleaseKitConfig | undefined): Map<string, LegacyIdentity[]> {
+/**
+ * Builds a `workspacePath -> legacyIdentities` lookup from a validated config: `workspaces` overrides match the
+ * discovered workspaces by `dir`, and `releases` package entries match by path.
+ */
+function buildOverrideMap(
+  config: ReleaseKitConfig | undefined,
+  workspacePaths: readonly string[],
+): Map<string, LegacyIdentity[]> {
   const map = new Map<string, LegacyIdentity[]>();
-  if (config?.workspaces === undefined) return map;
-  for (const entry of config.workspaces) {
-    if (entry.legacyIdentities !== undefined) {
-      map.set(entry.dir, entry.legacyIdentities);
+  const workspaceEntries = config?.workspaces ?? [];
+  for (const { dir, legacyIdentities } of workspaceEntries) {
+    if (legacyIdentities === undefined) continue;
+    for (const workspacePath of workspacePaths) {
+      if (basename(workspacePath) === dir) {
+        map.set(workspacePath, legacyIdentities);
+      }
+    }
+  }
+  const releaseEntries = Object.values(config?.releases ?? {});
+  for (const entry of releaseEntries) {
+    if (entry !== false && 'path' in entry && entry.legacyIdentities !== undefined) {
+      map.set(normalizeWorkspacePath(entry.path), entry.legacyIdentities);
     }
   }
   return map;
 }
 
 /** Constructs a single workspace's preview row, catching derivation failures per-workspace. */
-function buildPreviewRow(workspacePath: string, overridesByDir: Map<string, LegacyIdentity[]>): TagPrefixPreviewRow {
+function buildPreviewRow(workspacePath: string, overridesByPath: Map<string, LegacyIdentity[]>): TagPrefixPreviewRow {
   const dir = basename(workspacePath);
   let derivedPrefix: string | null = null;
   let derivationError: string | null = null;
@@ -110,7 +128,7 @@ function buildPreviewRow(workspacePath: string, overridesByDir: Map<string, Lega
 
   const derivedTagCount = derivedPrefix === null ? 0 : countTagsMatching(derivedPrefix);
 
-  const declaredIdentities = overridesByDir.get(dir) ?? [];
+  const declaredIdentities = overridesByPath.get(workspacePath) ?? [];
   const legacyEntries: LegacyTagPrefixEntry[] = declaredIdentities.map((identity) => ({
     prefix: identity.tagPrefix,
     tagCount: countTagsMatching(identity.tagPrefix),
@@ -162,10 +180,14 @@ function detectCollisions(rows: readonly TagPrefixPreviewRow[]): TagPrefixCollis
   return collisions;
 }
 
-/** Collects the union of successfully-derived prefixes, declared legacy prefixes, and retired prefixes. */
+/**
+ * Collects the union of successfully-derived prefixes, declared legacy prefixes, retired prefixes, and the composite's
+ * prefix when the config declares one.
+ */
 function collectKnownPrefixes(
   rows: readonly TagPrefixPreviewRow[],
   retiredPackages: readonly RetiredPackagePreviewEntry[],
+  compositeTagPrefix: string | undefined,
 ): string[] {
   const known = new Set<string>();
   for (const row of rows) {
@@ -177,6 +199,7 @@ function collectKnownPrefixes(
   for (const retired of retiredPackages) {
     known.add(retired.tagPrefix);
   }
+  if (compositeTagPrefix !== undefined) known.add(compositeTagPrefix);
   return [...known];
 }
 
@@ -188,4 +211,21 @@ function buildRetiredPreviewEntries(retiredPackages: readonly RetiredPackage[]):
     tagCount: countTagsMatching(retired.tagPrefix),
     ...(retired.successor !== undefined && { successor: retired.successor }),
   }));
+}
+
+/**
+ * Returns the tag prefix of the composite that a validated config declares, through a `project` block or a `releases`
+ * composite entry, with the default applied; `undefined` when the config declares neither.
+ */
+function findCompositeTagPrefix(config: ReleaseKitConfig | undefined): string | undefined {
+  if (config?.project !== undefined) {
+    return config.project.tagPrefix ?? DEFAULT_PROJECT_TAG_PREFIX;
+  }
+  const releaseEntries = Object.values(config?.releases ?? {});
+  for (const entry of releaseEntries) {
+    if (entry !== false && 'includes' in entry) {
+      return entry.tagPrefix ?? DEFAULT_PROJECT_TAG_PREFIX;
+    }
+  }
+  return undefined;
 }
