@@ -465,7 +465,7 @@ export function describeTrustedPublisher(
 
   return ownerRepo.ok
     ? { ok: false, detail, fix: formatTrustCommand(packageName, ownerRepo.value) }
-    : { ok: false, detail: `${detail}; ${ownerRepo.detail}`, fix: NO_GITHUB_REMOTE_FIX };
+    : { ok: false, detail: `${detail}. ${ownerRepo.detail}`, fix: NO_GITHUB_REMOTE_FIX };
 }
 
 /** Renders trust relationships for a failure detail, in the shape in which the expected publisher is named. */

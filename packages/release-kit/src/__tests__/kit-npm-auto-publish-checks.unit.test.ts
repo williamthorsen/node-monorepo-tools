@@ -601,7 +601,7 @@ describe(describeTrustedPublisher, () => {
     expect(describeTrustedPublisher({ status: 'not-configured' }, '@scope/example', UNRESOLVED_REPO)).toStrictEqual({
       ok: false,
       detail:
-        'The npm registry does not list any trusted publisher for this package; The repo does not have a readable origin remote',
+        'The npm registry does not list any trusted publisher for this package. The repo does not have a readable origin remote',
       fix: NO_GITHUB_REMOTE_FIX,
     });
   });

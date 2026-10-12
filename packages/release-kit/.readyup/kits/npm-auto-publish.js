@@ -363,7 +363,7 @@ function describeTrustedPublisher(result, packageName, ownerRepo) {
     return { ok: true };
   }
   const detail = result.status === "not-configured" ? "The npm registry does not list any trusted publisher for this package" : result.detail;
-  return ownerRepo.ok ? { ok: false, detail, fix: formatTrustCommand(packageName, ownerRepo.value) } : { ok: false, detail: `${detail}; ${ownerRepo.detail}`, fix: NO_GITHUB_REMOTE_FIX };
+  return ownerRepo.ok ? { ok: false, detail, fix: formatTrustCommand(packageName, ownerRepo.value) } : { ok: false, detail: `${detail}. ${ownerRepo.detail}`, fix: NO_GITHUB_REMOTE_FIX };
 }
 function describeTrustRelationships(relationships) {
   return relationships.map((relationship) => {
