@@ -10,7 +10,10 @@ import kit, {
   classifyTrustCapability,
   classifyTrustQuery,
   describeNpmPackageLookup,
+  describeTrustedPublisher,
+  type OwnerRepo,
   packagesChecklist,
+  parseGitHubOwnerRepo,
   selectProbeName,
   skipIfNothingPublishable,
   skipIfNotPublishable,
@@ -25,6 +28,9 @@ const TRUST_EOTP =
   '{"error":{"code":"EOTP","summary":"This operation requires a one-time password.","detail":"Enter one with your authenticator app."}}';
 
 const OWNER_REPO = 'williamthorsen/node-monorepo-tools';
+const RESOLVED_REPO: OwnerRepo = { ok: true, value: OWNER_REPO };
+const UNRESOLVED_REPO: OwnerRepo = { ok: false, detail: 'The repo does not have a readable origin remote' };
+const NO_GITHUB_REMOTE_FIX = 'Add an origin remote that points to the GitHub repo, then run this check again';
 const SESSION_GATE = 'npm session can answer trust queries';
 const WORKFLOW_FILE = 'publish.yaml';
 
@@ -142,6 +148,21 @@ describe(buildWorkspaceCheck, () => {
     expect(findCheck('trusted publisher configured', publishedCheck.checks ?? []).skip).toBeDefined();
   });
 
+  // Asserted against the property descriptor because readyup reads `fix` while it loads the kit, so an accessor runs
+  // before any `skip` can guard it.
+  it('declares the trusted-publisher fix as a value, not an accessor', () => {
+    const publishedCheck = findCheck(
+      'published to npm',
+      buildWorkspaceCheck(makeWorkspace({ isPackage: true, name: '@scope/example' })).checks ?? [],
+    );
+    const descriptor = Object.getOwnPropertyDescriptor(
+      findCheck('trusted publisher configured', publishedCheck.checks ?? []),
+      'fix',
+    );
+
+    expect(descriptor?.value).toBe('Run: npm trust github @scope/example --repo <owner>/<repo> --file publish.yaml');
+  });
+
   it('includes the scoped-name child only when the package name starts with @', () => {
     const scoped = buildWorkspaceCheck(makeWorkspace({ isPackage: true, name: '@scope/example' }));
     const unscoped = buildWorkspaceCheck(
@@ -211,6 +232,20 @@ describe(classifyProvenanceSetting, () => {
     expect(outcome.fix).toBe("Check the file's permissions");
   });
 
+  it('reports an unreadable workflow ahead of an unidentified repo', () => {
+    expect(classifyProvenanceSetting(undefined, UNRESOLVED_REPO).detail).toBe(
+      'Cannot read .github/workflows/publish.yaml',
+    );
+  });
+
+  it('reports an unidentified repo with the remote fix rather than the GitHub CLI fix', () => {
+    expect(classifyProvenanceSetting(WORKFLOW_WITH_PROVENANCE, UNRESOLVED_REPO)).toStrictEqual({
+      ok: false,
+      detail: 'The repo does not have a readable origin remote',
+      fix: NO_GITHUB_REMOTE_FIX,
+    });
+  });
+
   it('reports an unreportable visibility', () => {
     const outcome = classifyProvenanceSetting(WORKFLOW_WITH_PROVENANCE, 'unknown');
 
@@ -254,7 +289,7 @@ describe(classifyTrustCapability, () => {
   });
 
   it('reports an unanswerable probe as incapable, including the probe detail', () => {
-    const probe = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP }, OWNER_REPO, WORKFLOW_FILE);
+    const probe = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP }, RESOLVED_REPO, WORKFLOW_FILE);
 
     expect(classifyTrustCapability({ status: 'authenticated' }, probe)).toStrictEqual({
       ok: false,
@@ -281,7 +316,11 @@ describe(classifyTrustQuery, () => {
   const configured = { type: 'github', repository: OWNER_REPO, file: WORKFLOW_FILE };
 
   it('reports a matching relationship as configured', () => {
-    const result = classifyTrustQuery({ exitOk: true, stdout: JSON.stringify(configured) }, OWNER_REPO, WORKFLOW_FILE);
+    const result = classifyTrustQuery(
+      { exitOk: true, stdout: JSON.stringify(configured) },
+      RESOLVED_REPO,
+      WORKFLOW_FILE,
+    );
 
     expect(result).toStrictEqual({ status: 'configured' });
   });
@@ -290,7 +329,7 @@ describe(classifyTrustQuery, () => {
     const others = { type: 'gitlab', repository: 'elsewhere/other', file: 'release.yaml' };
     const result = classifyTrustQuery(
       { exitOk: true, stdout: JSON.stringify([others, configured]) },
-      OWNER_REPO,
+      RESOLVED_REPO,
       WORKFLOW_FILE,
     );
 
@@ -299,7 +338,11 @@ describe(classifyTrustQuery, () => {
 
   it('reports a relationship pointing elsewhere as mismatched', () => {
     const elsewhere = { type: 'github', repository: 'someone/else', file: WORKFLOW_FILE };
-    const result = classifyTrustQuery({ exitOk: true, stdout: JSON.stringify(elsewhere) }, OWNER_REPO, WORKFLOW_FILE);
+    const result = classifyTrustQuery(
+      { exitOk: true, stdout: JSON.stringify(elsewhere) },
+      RESOLVED_REPO,
+      WORKFLOW_FILE,
+    );
 
     expect(result.status).toBe('mismatched');
     expect(result).toHaveProperty('detail', expect.stringContaining('someone/else'));
@@ -307,10 +350,31 @@ describe(classifyTrustQuery, () => {
 
   it('names the workflow file when it is the only field that differs', () => {
     const otherFile = { type: 'github', repository: OWNER_REPO, file: 'release.yaml' };
-    const result = classifyTrustQuery({ exitOk: true, stdout: JSON.stringify(otherFile) }, OWNER_REPO, WORKFLOW_FILE);
+    const result = classifyTrustQuery(
+      { exitOk: true, stdout: JSON.stringify(otherFile) },
+      RESOLVED_REPO,
+      WORKFLOW_FILE,
+    );
 
     expect(result.status).toBe('mismatched');
     expect(result).toHaveProperty('detail', expect.stringContaining('release.yaml'));
+  });
+
+  it('reports a relationship as a failed query when the repo is unidentified', () => {
+    const result = classifyTrustQuery(
+      { exitOk: true, stdout: JSON.stringify(configured) },
+      UNRESOLVED_REPO,
+      WORKFLOW_FILE,
+    );
+
+    expect(result.status).toBe('error');
+    expect(result).toHaveProperty('detail', expect.stringContaining(OWNER_REPO));
+  });
+
+  it('reports a missing relationship as not configured when the repo is unidentified', () => {
+    expect(classifyTrustQuery({ exitOk: true, stdout: '[]' }, UNRESOLVED_REPO, WORKFLOW_FILE)).toStrictEqual({
+      status: 'not-configured',
+    });
   });
 
   it.each([
@@ -318,7 +382,7 @@ describe(classifyTrustQuery, () => {
     ['an empty array', '[]'],
     ['an array of entries naming no relationship', '[{}]'],
   ])('reports %s as not configured', (_label, stdout) => {
-    expect(classifyTrustQuery({ exitOk: true, stdout }, OWNER_REPO, WORKFLOW_FILE)).toStrictEqual({
+    expect(classifyTrustQuery({ exitOk: true, stdout }, RESOLVED_REPO, WORKFLOW_FILE)).toStrictEqual({
       status: 'not-configured',
     });
   });
@@ -326,20 +390,20 @@ describe(classifyTrustQuery, () => {
   it('reports E404 as not configured rather than as a failed query', () => {
     const stdout = '{"error":{"code":"E404","summary":"Not found"}}';
 
-    expect(classifyTrustQuery({ exitOk: false, stdout }, OWNER_REPO, WORKFLOW_FILE)).toStrictEqual({
+    expect(classifyTrustQuery({ exitOk: false, stdout }, RESOLVED_REPO, WORKFLOW_FILE)).toStrictEqual({
       status: 'not-configured',
     });
   });
 
   it('reports an authentication failure as unanswerable, not as an unconfigured publisher', () => {
-    const result = classifyTrustQuery({ exitOk: false, stdout: TRUST_E401 }, OWNER_REPO, WORKFLOW_FILE);
+    const result = classifyTrustQuery({ exitOk: false, stdout: TRUST_E401 }, RESOLVED_REPO, WORKFLOW_FILE);
 
     expect(result.status).toBe('unanswerable');
     expect(result).toHaveProperty('detail', expect.stringContaining('E401'));
   });
 
   it('reports a missing one-time password as unanswerable', () => {
-    const result = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP }, OWNER_REPO, WORKFLOW_FILE);
+    const result = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP }, RESOLVED_REPO, WORKFLOW_FILE);
 
     expect(result.status).toBe('unanswerable');
     expect(result).toHaveProperty('detail', expect.stringContaining('one-time password'));
@@ -348,12 +412,12 @@ describe(classifyTrustQuery, () => {
   it('reports a missing login as unanswerable', () => {
     const stdout = '{"error":{"code":"ENEEDAUTH","summary":"This command requires you to be logged in."}}';
 
-    expect(classifyTrustQuery({ exitOk: false, stdout }, OWNER_REPO, WORKFLOW_FILE).status).toBe('unanswerable');
+    expect(classifyTrustQuery({ exitOk: false, stdout }, RESOLVED_REPO, WORKFLOW_FILE).status).toBe('unanswerable');
   });
 
   it('reports a network failure as unanswerable', () => {
     const stdout = '{"error":{"code":"ENOTFOUND","summary":"request to https://registry.npmjs.org failed"}}';
-    const result = classifyTrustQuery({ exitOk: false, stdout }, OWNER_REPO, WORKFLOW_FILE);
+    const result = classifyTrustQuery({ exitOk: false, stdout }, RESOLVED_REPO, WORKFLOW_FILE);
 
     expect(result.status).toBe('unanswerable');
     expect(result).toHaveProperty('detail', expect.stringContaining('ENOTFOUND'));
@@ -362,14 +426,16 @@ describe(classifyTrustQuery, () => {
   it('reports an unrecognized error code as a failed query rather than as unanswerable', () => {
     const stdout = '{"error":{"code":"E500","summary":"500 Internal Server Error"}}';
 
-    expect(classifyTrustQuery({ exitOk: false, stdout }, OWNER_REPO, WORKFLOW_FILE).status).toBe('error');
+    expect(classifyTrustQuery({ exitOk: false, stdout }, RESOLVED_REPO, WORKFLOW_FILE).status).toBe('error');
   });
 
   it.each([
     ['a failed query', false],
     ['a successful query', true],
   ])('reports an unreadable payload from %s as a failed query', (_label, exitOk) => {
-    expect(classifyTrustQuery({ exitOk, stdout: '<html>502</html>' }, OWNER_REPO, WORKFLOW_FILE).status).toBe('error');
+    expect(classifyTrustQuery({ exitOk, stdout: '<html>502</html>' }, RESOLVED_REPO, WORKFLOW_FILE).status).toBe(
+      'error',
+    );
   });
 });
 
@@ -450,8 +516,7 @@ describe('packages checklist', () => {
     expect(descriptor?.value).toBeTypeOf('string');
   });
 
-  // Read names only: The per-workspace `trusted publisher configured` check declares `fix` as a getter that shells
-  // out to git. A private member keeps its row. A private root does not: The row reports the workspace as skipped,
+  // A private member keeps its row. A private root does not: The row reports the workspace as skipped,
   // and the root is not a workspace that a consumer wrote.
   it('lists a check for every discovered member beside the npm session gate', () => {
     scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
@@ -502,6 +567,60 @@ describe(describeNpmPackageLookup, () => {
       ok: false,
       detail: 'Cannot reach the npm registry (ENOTFOUND)',
       fix: 'Restore access to the npm registry, then run this check again',
+    });
+  });
+});
+
+describe(describeTrustedPublisher, () => {
+  it('passes for a configured publisher', () => {
+    expect(describeTrustedPublisher({ status: 'configured' }, '@scope/example', UNRESOLVED_REPO)).toStrictEqual({
+      ok: true,
+    });
+  });
+
+  it('names the npm trust command for this repo when no publisher is configured', () => {
+    expect(describeTrustedPublisher({ status: 'not-configured' }, '@scope/example', RESOLVED_REPO)).toStrictEqual({
+      ok: false,
+      detail: 'The npm registry does not list any trusted publisher for this package',
+      fix: `Run: npm trust github @scope/example --repo ${OWNER_REPO} --file publish.yaml`,
+    });
+  });
+
+  it('keeps the query detail of a mismatched publisher beside the npm trust command', () => {
+    const outcome = describeTrustedPublisher(
+      { status: 'mismatched', detail: 'Expected github a/b (publish.yaml); found github c/d (publish.yaml)' },
+      '@scope/example',
+      RESOLVED_REPO,
+    );
+
+    expect(outcome.detail).toBe('Expected github a/b (publish.yaml); found github c/d (publish.yaml)');
+    expect(outcome.fix).toBe(`Run: npm trust github @scope/example --repo ${OWNER_REPO} --file publish.yaml`);
+  });
+
+  it('names the unidentified repo and advises adding the remote that the command needs', () => {
+    expect(describeTrustedPublisher({ status: 'not-configured' }, '@scope/example', UNRESOLVED_REPO)).toStrictEqual({
+      ok: false,
+      detail:
+        'The npm registry does not list any trusted publisher for this package. The repo does not have a readable origin remote',
+      fix: NO_GITHUB_REMOTE_FIX,
+    });
+  });
+});
+
+describe(parseGitHubOwnerRepo, () => {
+  it.each([
+    ['an SSH URL', 'git@github.com:owner/repo.git'],
+    ['an SSH URL without .git', 'git@github.com:owner/repo'],
+    ['an HTTPS URL', 'https://github.com/owner/repo.git'],
+    ['an HTTPS URL without .git', 'https://github.com/owner/repo'],
+  ])('reads owner/repo from %s', (_label, url) => {
+    expect(parseGitHubOwnerRepo(url)).toStrictEqual({ ok: true, value: 'owner/repo' });
+  });
+
+  it('reports a remote that is not on GitHub', () => {
+    expect(parseGitHubOwnerRepo('git@gitlab.com:owner/repo.git')).toStrictEqual({
+      ok: false,
+      detail: 'The origin remote does not point to GitHub: git@gitlab.com:owner/repo.git',
     });
   });
 });

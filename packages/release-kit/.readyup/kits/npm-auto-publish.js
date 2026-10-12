@@ -90,6 +90,7 @@ function runNpmJson(args) {
 // .readyup/kits/npm-auto-publish.ts
 var OTP_ERROR_CODE = "EOTP";
 var PUBLISH_WORKFLOW_FILE = "publish.yaml";
+var NO_GITHUB_REMOTE_FIX = "Add an origin remote that points to the GitHub repo, then run this check again";
 var repoChecklist = defineRdyChecklist({
   name: "repo",
   checks: [
@@ -212,10 +213,8 @@ function buildWorkspaceCheck(workspace) {
             const capability = getCachedTrustCapability();
             return capability.ok ? false : capability.detail;
           },
-          check: () => checkTrustedPublisher(displayName),
-          get fix() {
-            return `Run: npm trust github ${displayName} --repo ${getCachedOwnerRepo()} --file ${PUBLISH_WORKFLOW_FILE}`;
-          }
+          check: () => describeTrustedPublisher(getTrustQueryResult(displayName), displayName, getCachedOwnerRepo()),
+          fix: formatTrustCommand(displayName, "<owner>/<repo>")
         }
       ]
     },
@@ -236,24 +235,17 @@ function buildWorkspaceCheck(workspace) {
 function checkProvenanceMatchesVisibility() {
   const workflowPath = ".github/workflows/publish.yaml";
   const content = readFile(workflowPath);
+  const ownerRepo = getCachedOwnerRepo();
+  if (!ownerRepo.ok) {
+    return classifyProvenanceSetting(content, ownerRepo);
+  }
   let visibility;
   try {
-    visibility = isRepoPrivate() ? "private" : "public";
+    visibility = isRepoPrivate(ownerRepo.value) ? "private" : "public";
   } catch {
     visibility = "unknown";
   }
   return classifyProvenanceSetting(content, visibility);
-}
-function checkTrustedPublisher(packageName) {
-  const result = getTrustQueryResult(packageName);
-  switch (result.status) {
-    case "configured":
-      return { ok: true };
-    case "not-configured":
-      return { ok: false, detail: "The npm registry does not list any trusted publisher for this package" };
-    default:
-      return { ok: false, detail: result.detail };
-  }
 }
 function classifyNpmAuth(result) {
   if (result.exitOk) {
@@ -278,6 +270,9 @@ function classifyProvenanceSetting(workflowContent, visibility) {
       detail: "Cannot read .github/workflows/publish.yaml",
       fix: "Check the file's permissions"
     };
+  }
+  if (typeof visibility !== "string") {
+    return { ok: false, detail: visibility.detail, fix: NO_GITHUB_REMOTE_FIX };
   }
   if (visibility === "unknown") {
     return {
@@ -336,12 +331,18 @@ function classifyTrustQuery(result, expectedRepo, expectedFile) {
   if (relationships.length === 0) {
     return { status: "not-configured" };
   }
+  if (!expectedRepo.ok) {
+    return {
+      status: "error",
+      detail: `Cannot compare the trusted publisher with this repo; found ${describeTrustRelationships(relationships)}`
+    };
+  }
   const isMatch = relationships.some(
-    (relationship) => relationship.type === "github" && relationship.repository === expectedRepo && relationship.file === expectedFile
+    (relationship) => relationship.type === "github" && relationship.repository === expectedRepo.value && relationship.file === expectedFile
   );
   return isMatch ? { status: "configured" } : {
     status: "mismatched",
-    detail: `Expected github ${expectedRepo} (${expectedFile}); found ${describeTrustRelationships(relationships)}`
+    detail: `Expected github ${expectedRepo.value} (${expectedFile}); found ${describeTrustRelationships(relationships)}`
   };
 }
 function describeNpmPackageLookup(lookup) {
@@ -357,6 +358,13 @@ function describeNpmPackageLookup(lookup) {
     fix: "Restore access to the npm registry, then run this check again"
   };
 }
+function describeTrustedPublisher(result, packageName, ownerRepo) {
+  if (result.status === "configured") {
+    return { ok: true };
+  }
+  const detail = result.status === "not-configured" ? "The npm registry does not list any trusted publisher for this package" : result.detail;
+  return ownerRepo.ok ? { ok: false, detail, fix: formatTrustCommand(packageName, ownerRepo.value) } : { ok: false, detail: `${detail}. ${ownerRepo.detail}`, fix: NO_GITHUB_REMOTE_FIX };
+}
 function describeTrustRelationships(relationships) {
   return relationships.map((relationship) => {
     const type = typeof relationship.type === "string" ? relationship.type : "(unknown)";
@@ -365,32 +373,21 @@ function describeTrustRelationships(relationships) {
     return `${type} ${repository} (${file})`;
   }).join(", ");
 }
+function formatTrustCommand(packageName, ownerRepo) {
+  return `Run: npm trust github ${packageName} --repo ${ownerRepo} --file ${PUBLISH_WORKFLOW_FILE}`;
+}
 var getCachedNpmAuthStatus = /* @__PURE__ */ (() => {
   let cached;
   return () => cached ??= classifyNpmAuth(runNpmJson(["whoami", "--json"]));
 })();
 var getCachedOwnerRepo = /* @__PURE__ */ (() => {
   let cached;
-  return () => cached ??= getOwnerRepo();
+  return () => cached ??= resolveOwnerRepo();
 })();
 var getCachedTrustCapability = /* @__PURE__ */ (() => {
   let cached;
   return () => cached ??= resolveTrustCapability();
 })();
-function getOwnerRepo() {
-  const url = execSync("git remote get-url origin", {
-    encoding: "utf8"
-  }).trim();
-  const sshMatch = url.match(/git@github\.com:(.+?)(?:\.git)?$/);
-  if (sshMatch?.[1]) {
-    return sshMatch[1];
-  }
-  const httpsMatch = url.match(/github\.com\/(.+?)(?:\.git)?$/);
-  if (httpsMatch?.[1]) {
-    return httpsMatch[1];
-  }
-  throw new Error(`Cannot parse GitHub owner/repo from remote URL: ${url}`);
-}
 var trustQueryResults = /* @__PURE__ */ new Map();
 function getTrustQueryResult(packageName) {
   const cached = trustQueryResults.get(packageName);
@@ -419,12 +416,16 @@ function hasTokenReferences() {
   }
   return false;
 }
-function isRepoPrivate() {
-  const ownerRepo = getOwnerRepo();
+function isRepoPrivate(ownerRepo) {
   const result = execSync(`gh api repos/${ownerRepo} --jq .private`, {
     encoding: "utf8"
   }).trim();
   return result === "true";
+}
+function parseGitHubOwnerRepo(url) {
+  const match = /git@github\.com:(.+?)(?:\.git)?$/.exec(url) ?? /github\.com\/(.+?)(?:\.git)?$/.exec(url);
+  const ownerRepo = match?.[1];
+  return ownerRepo === void 0 ? { ok: false, detail: `The origin remote does not point to GitHub: ${url}` } : { ok: true, value: ownerRepo };
 }
 function probeTrustQuery() {
   const probeName = selectProbeName();
@@ -448,6 +449,15 @@ function readTrustRelationships(stdout) {
     return void 0;
   }
   return "type" in parsed ? [parsed] : [];
+}
+function resolveOwnerRepo() {
+  let url;
+  try {
+    url = execSync("git remote get-url origin", { encoding: "utf8", stdio: "pipe" }).trim();
+  } catch {
+    return { ok: false, detail: "The repo does not have a readable origin remote" };
+  }
+  return parseGitHubOwnerRepo(url);
 }
 function resolveTrustCapability() {
   const auth = getCachedNpmAuthStatus();
@@ -473,7 +483,9 @@ export {
   classifyTrustQuery,
   npm_auto_publish_default as default,
   describeNpmPackageLookup,
+  describeTrustedPublisher,
   packagesChecklist,
+  parseGitHubOwnerRepo,
   selectProbeName,
   skipIfNotPublishable,
   skipIfNothingPublishable
