@@ -177,7 +177,8 @@ export function mergeMonorepoConfig(
   const changelogJson = mergeChangelogJsonConfig(userConfig?.changelogJson);
   const releaseNotes = mergeReleaseNotesConfig(userConfig?.releaseNotes);
 
-  // A root directory beside a composite also shares the `v` prefix; naming the shared version file says why.
+  // Check shared version files first: A root directory beside a composite also collides on `v`, and the shared file
+  // names the cause.
   assertNoSharedVersionFiles(workspaces, directories, project);
   assertNoTagPrefixCollisions(workspaces, directories, userConfig?.retiredPackages, project);
 

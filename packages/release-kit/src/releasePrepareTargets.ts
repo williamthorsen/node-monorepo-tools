@@ -470,8 +470,8 @@ function readHistory(readings: ReadonlyMap<string, ReleaseHistory>, target: Memb
 
 /**
  * Records on each planned workspace's and directory's history the entry scopes that route nowhere in its unreleased
- * window, which only a pass across every target's window can find. The windows go to the finder with the releasing targets first, in
- * planned order, which sets the order of each target's findings.
+ * window, which only a pass across every target's window can find. The windows go to the finder with the releasing
+ * targets first, in planned order, which sets the order of each target's findings.
  */
 function reportUnroutedEntryScopes(
   planned: readonly MemberTarget[],

@@ -95,8 +95,8 @@ function claimPath(
 }
 
 /**
- * Builds the declaration of a directory target from its entry. Throws when the path leaves the repo, which a
- * changelog, a version file, and a commit window cannot.
+ * Builds the declaration of a directory target from its entry, whose window is the directory, or the whole repo for
+ * the repo root. Throws when the path leaves the repo.
  */
 function declareDirectory(name: string, entry: PathRelease, normalizedPath: string): DeclaredDirectory {
   if (path.posix.isAbsolute(normalizedPath) || normalizedPath === '..' || normalizedPath.startsWith('../')) {

@@ -251,7 +251,7 @@ function resolveTargetsOrExit(
 
 /**
  * Keys the `--set-version` value by target id: a single-package repo's bare version under its root target, or a
- * monorepo's `<workspace>@N.N.N` entries under their workspace or directory targets.
+ * monorepo's `<target>@N.N.N` entries under their workspace or directory targets.
  */
 function resolveSetVersions(setVersion: string, targets: readonly ReleaseTarget[]): Map<string, string> {
   if (isSinglePackageTargets(targets)) {
@@ -271,8 +271,8 @@ function listMemberIds(targets: readonly ReleaseTarget[]): string[] {
 }
 
 /**
- * Parses a monorepo `--set-version` value, a comma-separated list of `<workspace>@N.N.N` entries, into versions keyed by
- * workspace `dir`. Prints a usage error and exits on a malformed entry, an unknown workspace, or a repeated one.
+ * Parses a monorepo `--set-version` value, a comma-separated list of `<target>@N.N.N` entries, into versions keyed by
+ * target name. Prints a usage error and exits on a malformed entry, an unknown target, or a repeated one.
  */
 function parseSetVersions(value: string, knownNames: readonly string[]): Map<string, string> {
   const setVersions = new Map<string, string>();
@@ -282,17 +282,17 @@ function parseSetVersions(value: string, knownNames: readonly string[]): Map<str
     const version = entry.slice(separatorIndex + 1);
     if (separatorIndex <= 0 || !CANONICAL_SEMVER_PATTERN.test(version)) {
       reportError(
-        `Invalid --set-version entry "${entry}". In monorepo mode, each entry must be <workspace>@N.N.N ` +
+        `Invalid --set-version entry "${entry}". In monorepo mode, each entry must be <target>@N.N.N ` +
           '(canonical semver, no pre-release suffix), e.g. --set-version=arrays@1.0.0.',
       );
       process.exit(1);
     }
     if (!knownNames.includes(name)) {
-      reportError(`Unknown workspace "${name}" in --set-version. Known workspaces: ${knownNames.join(', ')}`);
+      reportError(`Unknown release target "${name}" in --set-version. Known targets: ${knownNames.join(', ')}`);
       process.exit(1);
     }
     if (setVersions.has(name)) {
-      reportError(`--set-version names workspace "${name}" more than once`);
+      reportError(`--set-version names target "${name}" more than once`);
       process.exit(1);
     }
     setVersions.set(name, version);
