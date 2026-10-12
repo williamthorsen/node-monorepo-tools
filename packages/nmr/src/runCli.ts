@@ -802,7 +802,7 @@ function formatInlineRemedy(options: {
 
   const scripts = readPackageJsonScripts(path.dirname(file));
   const value = scripts !== undefined && Object.hasOwn(scripts, name) ? scripts[name]?.trim() : undefined;
-  if (value === undefined || value === '' || value === ':') {
+  if (value === undefined || ['', ':'].includes(value)) {
     return undefined;
   }
   if (findNmrCrossing([{ kind: 'opaque', command: value }]) !== undefined) {
