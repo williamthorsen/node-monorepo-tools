@@ -52,11 +52,17 @@ vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
 
 import type { ChangelogDiagnostics } from '../buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
-import { releasePrepare, type ReleasePrepareOptions } from '../releasePrepare.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
+import type { ReleasePlan } from '../releasePlan.ts';
+import {
+  releasePrepareTargets,
+  type TargetPrepareConfig,
+  type TargetPrepareOptions,
+} from '../releasePrepareTargets.ts';
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
+import { selectPackageResults } from '../test-utils/prepareResults.ts';
 import { makeReleaseHistory, type ReleaseHistoryStub } from '../test-utils/releaseHistories.ts';
-import type { ChangelogEntry, ChangelogSection, ReleaseConfig, WorkTypeConfig } from '../types.ts';
+import type { ChangelogEntry, ChangelogSection, PackageTarget, ReleaseSettings, WorkTypeConfig } from '../types.ts';
 
 const workTypes: Record<string, WorkTypeConfig> = {
   feat: { header: 'Features' },
@@ -78,20 +84,21 @@ const diagnostics: ChangelogDiagnostics = {
   unroutedEntryScopes: [{ commitHash: 'bbb2222', commitSubject: 'Merge PR', entryPosition: 3, scope: 'other' }],
 };
 
+/** Fields of a single-package fixture: the shared settings and the root target's tag prefix and version files. */
+type SinglePackageFixture = Omit<ReleaseSettings, 'releaseNotes'> & Pick<PackageTarget, 'tagPrefix' | 'versionFiles'>;
+
 /** Builds a single-package config tagged under `v`, with the changelog JSON disabled, overriding any field. */
-function makeConfig(overrides?: Partial<ReleaseConfig>): ReleaseConfig {
+function makeConfig(overrides?: Partial<SinglePackageFixture>): TargetPrepareConfig {
+  const { tagPrefix = 'v', versionFiles = ['package.json'], ...settings } = overrides ?? {};
   return {
-    tagPrefix: 'v',
-    packageFiles: ['package.json'],
-    changelogPaths: ['.'],
-    workTypes,
-    changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false },
-    releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
-    ...overrides,
+    targets: [
+      { id: '.', kind: 'package', tagPrefix, versionFiles, changelogDir: '.', packagePath: '.', isPublishable: true },
+    ],
+    settings: { workTypes, changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false }, ...settings },
   };
 }
 
-describe(releasePrepare, () => {
+describe('releasePrepareTargets for a single-package repo', () => {
   beforeEach(() => {
     mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
@@ -120,12 +127,12 @@ describe(releasePrepare, () => {
   it('returns a PrepareResult with a released workspace on success', () => {
     stubMinorRelease();
 
-    const result = releasePrepare(makeConfig(), {});
+    const result = prepareSinglePackage(makeConfig(), {});
 
     expect(result.tags).toStrictEqual(['v1.1.0']);
-    expect(result.workspaces).toHaveLength(1);
+    expect(selectPackageResults(result)).toHaveLength(1);
 
-    const workspace = result.workspaces[0];
+    const workspace = selectPackageResults(result)[0];
     expect(workspace).toMatchObject({
       status: 'released',
       releaseType: 'minor',
@@ -146,9 +153,9 @@ describe(releasePrepare, () => {
     stubMinorRelease();
     const config = makeConfig({ tagPrefix: 'my-lib-v' });
 
-    releasePrepare(config, {});
+    prepareSinglePackage(config, {});
 
-    expect(mockReadReleaseHistory).toHaveBeenCalledExactlyOnceWith(config, { tagPrefixes: ['my-lib-v'] });
+    expect(mockReadReleaseHistory).toHaveBeenCalledExactlyOnceWith(config.settings, { tagPrefixes: ['my-lib-v'] });
   });
 
   it("reports the history's bump, parse count, and unparseable commits on the released result", () => {
@@ -165,15 +172,15 @@ describe(releasePrepare, () => {
     });
     stubPackageVersion('1.0.0');
 
-    const result = releasePrepare(makeConfig(), {});
+    const result = prepareSinglePackage(makeConfig(), {});
 
-    expect(result.workspaces[0]).toMatchObject({
+    expect(selectPackageResults(result)[0]).toMatchObject({
       status: 'released',
       releaseType: 'minor',
       commitCount: 2,
       parsedCommitCount: 1,
     });
-    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual(
+    expect(selectPackageResults(result)[0]?.unparseableCommits).toStrictEqual(
       makeStubbedCommits([['chore: update deps', 'def456']]),
     );
   });
@@ -193,7 +200,7 @@ describe(releasePrepare, () => {
     });
     stubPackageVersion('1.0.0');
 
-    releasePrepare(makeConfig(), {});
+    prepareSinglePackage(makeConfig(), {});
 
     expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
       [{ version: '1.1.0', date: '2024-01-01', sections: [featureSection] }, releasedEntry],
@@ -202,7 +209,7 @@ describe(releasePrepare, () => {
   });
 
   describe('release decision', () => {
-    it.each<{ label: string; stub: ReleaseHistoryStub; options: ReleasePrepareOptions; skipReason: string }>([
+    it.each<{ label: string; stub: ReleaseHistoryStub; options: SinglePackageOptions; skipReason: string }>([
       {
         label: "the window doesn't have any commits and the options don't set a flag",
         stub: { previousTag: 'v1.0.0' },
@@ -239,11 +246,11 @@ describe(releasePrepare, () => {
       stubHistory(stub);
       stubPackageVersion('1.0.0');
 
-      const result = releasePrepare(makeConfig(), options);
+      const result = prepareSinglePackage(makeConfig(), options);
 
-      expect(result.workspaces).toHaveLength(1);
-      expect(result.workspaces[0]).toMatchObject({ status: 'skipped', skipReason });
-      expect(result.workspaces[0]?.previousTag).toBe(stub.previousTag);
+      expect(selectPackageResults(result)).toHaveLength(1);
+      expect(selectPackageResults(result)[0]).toMatchObject({ status: 'skipped', skipReason });
+      expect(selectPackageResults(result)[0]?.previousTag).toBe(stub.previousTag);
       expect(result.tags).toStrictEqual([]);
       expect(result.writes).toStrictEqual([]);
       expect(mockReadReleaseHistory).toHaveBeenCalledExactlyOnceWith(expect.anything(), { tagPrefixes: ['v'] });
@@ -261,9 +268,11 @@ describe(releasePrepare, () => {
       });
       stubPackageVersion('1.0.0');
 
-      const result = releasePrepare(makeConfig(), {});
+      const result = prepareSinglePackage(makeConfig(), {});
 
-      expect(result.workspaces[0]).toStrictEqual({
+      expect(selectPackageResults(result)[0]).toStrictEqual({
+        targetId: '.',
+        kind: 'package',
         status: 'skipped',
         previousTag: 'v1.0.0',
         commitCount: 2,
@@ -283,10 +292,10 @@ describe(releasePrepare, () => {
       });
       stubPackageVersion('1.0.0');
 
-      const result = releasePrepare(makeConfig(), { force: true });
+      const result = prepareSinglePackage(makeConfig(), { force: true });
 
       expect(result.tags).toStrictEqual(['v1.0.1']);
-      expect(result.workspaces[0]).toMatchObject({
+      expect(selectPackageResults(result)[0]).toMatchObject({
         status: 'released',
         releaseType: 'patch',
         commitCount: 1,
@@ -298,10 +307,10 @@ describe(releasePrepare, () => {
     it('releases at the --bump level over the natural bump, recording the override', () => {
       stubMinorRelease();
 
-      const result = releasePrepare(makeConfig(), { bumpOverride: 'patch' });
+      const result = prepareSinglePackage(makeConfig(), { bumpOverride: 'patch' });
 
       expect(result.tags).toStrictEqual(['v1.0.1']);
-      expect(result.workspaces[0]).toMatchObject({
+      expect(selectPackageResults(result)[0]).toMatchObject({
         status: 'released',
         releaseType: 'patch',
         bumpOverride: 'patch',
@@ -312,31 +321,28 @@ describe(releasePrepare, () => {
     });
   });
 
-  it('renders the format command over package files and changelog paths', () => {
+  it('renders the format command over the version files and the changelog', () => {
     const config = makeConfig({
       formatCommand: 'npx prettier --write',
-      packageFiles: ['package.json', 'packages/core/package.json'],
-      changelogPaths: ['.', 'packages/core'],
+      versionFiles: ['package.json', 'packages/core/package.json'],
     });
     stubMinorRelease();
 
-    const result = releasePrepare(config, {});
+    const result = prepareSinglePackage(config, {});
 
     expect(result.formatCommand).toStrictEqual({
-      command: 'npx prettier --write package.json packages/core/package.json CHANGELOG.md packages/core/CHANGELOG.md',
-      files: ['package.json', 'packages/core/package.json', 'CHANGELOG.md', 'packages/core/CHANGELOG.md'],
+      command: 'npx prettier --write package.json packages/core/package.json CHANGELOG.md',
+      files: ['package.json', 'packages/core/package.json', 'CHANGELOG.md'],
     });
   });
 
   it('does not run the format command, leaving that to the caller that applies the plan', () => {
     const config = makeConfig({
       formatCommand: 'npx prettier --write',
-      packageFiles: ['package.json'],
-      changelogPaths: ['.'],
     });
     stubMinorRelease();
 
-    releasePrepare(config, {});
+    prepareSinglePackage(config, {});
 
     expect(mockExecSync).not.toHaveBeenCalled();
   });
@@ -345,7 +351,7 @@ describe(releasePrepare, () => {
     stubMinorRelease();
     mockHasPrettierConfig.mockReturnValue(true);
 
-    const result = releasePrepare(makeConfig(), {});
+    const result = prepareSinglePackage(makeConfig(), {});
 
     expect(result.formatCommand).toMatchObject({ command: 'npx prettier --write package.json CHANGELOG.md' });
   });
@@ -354,7 +360,7 @@ describe(releasePrepare, () => {
     stubMinorRelease();
     mockHasPrettierConfig.mockReturnValue(false);
 
-    const result = releasePrepare(makeConfig(), {});
+    const result = prepareSinglePackage(makeConfig(), {});
 
     expect(mockExecSync).not.toHaveBeenCalled();
     expect(result.formatCommand).toBeUndefined();
@@ -364,10 +370,10 @@ describe(releasePrepare, () => {
     stubHistory({ previousTag: 'my-lib-v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
     stubPackageVersion('1.0.0');
 
-    const result = releasePrepare(makeConfig({ tagPrefix: 'my-lib-v' }), {});
+    const result = prepareSinglePackage(makeConfig({ tagPrefix: 'my-lib-v' }), {});
 
     expect(result.tags).toStrictEqual(['my-lib-v1.1.0']);
-    expect(result.workspaces[0]).toMatchObject({
+    expect(selectPackageResults(result)[0]).toMatchObject({
       tag: 'my-lib-v1.1.0',
     });
   });
@@ -375,7 +381,7 @@ describe(releasePrepare, () => {
   it('populates tags on the plan', () => {
     stubMinorRelease();
 
-    const result = releasePrepare(makeConfig(), {});
+    const result = prepareSinglePackage(makeConfig(), {});
 
     expect(result.tags).toStrictEqual(['v1.1.0']);
   });
@@ -384,11 +390,11 @@ describe(releasePrepare, () => {
     stubHistory({ previousTag: 'v0.5.0', commits: [['chore: unrelated change', 'abc123']] });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
-    const result = releasePrepare(makeConfig(), { setVersion: '1.0.0' });
+    const result = prepareSinglePackage(makeConfig(), { setVersion: '1.0.0' });
 
     expect(result.tags).toStrictEqual(['v1.0.0']);
-    expect(result.workspaces).toHaveLength(1);
-    const workspace = result.workspaces[0];
+    expect(selectPackageResults(result)).toHaveLength(1);
+    const workspace = selectPackageResults(result)[0];
     expect(workspace).toMatchObject({
       status: 'released',
       newVersion: '1.0.0',
@@ -410,9 +416,9 @@ describe(releasePrepare, () => {
     });
     stubPackageVersion('0.5.0');
 
-    const result = releasePrepare(makeConfig(), { setVersion: '1.0.0' });
+    const result = prepareSinglePackage(makeConfig(), { setVersion: '1.0.0' });
 
-    const workspace = result.workspaces[0];
+    const workspace = selectPackageResults(result)[0];
     assert(workspace?.status === 'released', 'expected released');
     expect(workspace).toMatchObject(diagnostics);
     expect(workspace.releaseType).toBeUndefined();
@@ -425,9 +431,9 @@ describe(releasePrepare, () => {
     stubHistory({ previousTag: 'v0.5.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
-    const result = releasePrepare(makeConfig(), { setVersion: '1.0.0' });
+    const result = prepareSinglePackage(makeConfig(), { setVersion: '1.0.0' });
 
-    const workspace = result.workspaces[0];
+    const workspace = selectPackageResults(result)[0];
     assert(workspace?.status === 'released', 'expected released');
     expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
 
@@ -454,7 +460,7 @@ describe(releasePrepare, () => {
     stubHistory({ previousTag: 'v0.5.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
-    expect(() => releasePrepare(makeConfig(), { setVersion: '0.3.0' })).toThrow(
+    expect(() => prepareSinglePackage(makeConfig(), { setVersion: '0.3.0' })).toThrow(
       '--set-version 0.3.0 is not greater than current version 0.5.0',
     );
   });
@@ -463,7 +469,7 @@ describe(releasePrepare, () => {
     stubHistory({ previousTag: 'v0.5.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
-    expect(() => releasePrepare(makeConfig(), { setVersion: '0.5.0' })).toThrow(
+    expect(() => prepareSinglePackage(makeConfig(), { setVersion: '0.5.0' })).toThrow(
       '--set-version 0.5.0 is not greater than current version 0.5.0',
     );
   });
@@ -474,7 +480,7 @@ describe(releasePrepare, () => {
       throw new Error('EACCES: permission denied');
     });
 
-    expect(() => releasePrepare(makeConfig(), { setVersion: '1.0.0' })).toThrow(
+    expect(() => prepareSinglePackage(makeConfig(), { setVersion: '1.0.0' })).toThrow(
       'Failed to read package.json: EACCES: permission denied',
     );
   });
@@ -482,7 +488,7 @@ describe(releasePrepare, () => {
   it('calls planReleaseNotesPreviews with the relative root path when --with-release-notes is set and changelogJson is enabled', () => {
     stubMinorRelease();
 
-    releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
+    prepareSinglePackage(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
       withReleaseNotes: true,
     });
 
@@ -501,7 +507,7 @@ describe(releasePrepare, () => {
     stubMinorRelease();
     using silent = silenceConsole(['warn']);
 
-    const plan = releasePrepare(makeConfig(), { withReleaseNotes: true });
+    const plan = prepareSinglePackage(makeConfig(), { withReleaseNotes: true });
 
     expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
     expect(plan.warnings).toStrictEqual([
@@ -513,7 +519,7 @@ describe(releasePrepare, () => {
   it('does not call planReleaseNotesPreviews when --with-release-notes is not set', () => {
     stubMinorRelease();
 
-    releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {});
+    prepareSinglePackage(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {});
 
     expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
   });
@@ -525,12 +531,15 @@ describe(releasePrepare, () => {
       warnings: [],
     });
 
-    const plan = releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
-      withReleaseNotes: true,
-    });
+    const plan = prepareSinglePackage(
+      makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
+      {
+        withReleaseNotes: true,
+      },
+    );
 
     expect(plannedContent(plan, 'docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
-    expect(plan.workspaces[0]).toMatchObject({ previewFiles: ['docs/RELEASE_NOTES.v1.1.0.md'] });
+    expect(selectPackageResults(plan)[0]).toMatchObject({ previewFiles: ['docs/RELEASE_NOTES.v1.1.0.md'] });
   });
 
   describe("window that doesn't yield an item (--force / --set-version)", () => {
@@ -543,10 +552,10 @@ describe(releasePrepare, () => {
     it('writes a synthetic Notes / Forced version bump entry when --force is used without any commits', () => {
       stubEmptyRange();
 
-      const result = releasePrepare(makeConfig(), { force: true });
+      const result = prepareSinglePackage(makeConfig(), { force: true });
 
       expect(result.tags).toStrictEqual(['v1.0.1']);
-      const workspace = result.workspaces[0];
+      const workspace = selectPackageResults(result)[0];
       assert(workspace?.status === 'released', 'expected released');
       expect(workspace.releaseType).toBe('patch');
       expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
@@ -573,10 +582,10 @@ describe(releasePrepare, () => {
     it('releases at the --bump level under --force --bump without any commits', () => {
       stubEmptyRange();
 
-      const result = releasePrepare(makeConfig(), { force: true, bumpOverride: 'minor' });
+      const result = prepareSinglePackage(makeConfig(), { force: true, bumpOverride: 'minor' });
 
       expect(result.tags).toStrictEqual(['v1.1.0']);
-      expect(result.workspaces[0]).toMatchObject({
+      expect(selectPackageResults(result)[0]).toMatchObject({
         status: 'released',
         releaseType: 'minor',
         bumpOverride: 'minor',
@@ -603,7 +612,7 @@ describe(releasePrepare, () => {
         });
         stubPackageVersion('1.0.0');
 
-        releasePrepare(makeConfig(), options);
+        prepareSinglePackage(makeConfig(), options);
 
         expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
           [{ ...buildEmptyReleaseEntry(version, ''), date: expect.any(String) }],
@@ -619,7 +628,7 @@ describe(releasePrepare, () => {
       });
       stubPackageVersion('1.0.0');
 
-      releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
+      prepareSinglePackage(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
         force: true,
       });
 
@@ -643,7 +652,7 @@ describe(releasePrepare, () => {
     it('returns the synthetic changelog path without writing it', () => {
       stubEmptyRange();
 
-      const result = releasePrepare(
+      const result = prepareSinglePackage(
         makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
         {
           force: true,
@@ -653,7 +662,7 @@ describe(releasePrepare, () => {
       expect(result.tags).toStrictEqual(['v1.0.1']);
       expect(mockWriteFileSync).not.toHaveBeenCalled();
       expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
-      const workspace = result.workspaces[0];
+      const workspace = selectPackageResults(result)[0];
       assert(workspace?.status === 'released', 'expected released');
       expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
     });
@@ -665,7 +674,7 @@ describe(releasePrepare, () => {
         changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
       });
 
-      const result = releasePrepare(config, { force: true });
+      const result = prepareSinglePackage(config, { force: true });
 
       expect(result.formatCommand?.files).toContain('CHANGELOG.md');
       expect(result.formatCommand?.files).toContain('./.meta/changelog.json');
@@ -676,7 +685,7 @@ describe(releasePrepare, () => {
     stubHistory({ previousTag: 'v0.5.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
-    const result = releasePrepare(makeConfig(), { setVersion: '1.0.0' });
+    const result = prepareSinglePackage(makeConfig(), { setVersion: '1.0.0' });
 
     expect(result.tags).toStrictEqual(['v1.0.0']);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -686,9 +695,9 @@ describe(releasePrepare, () => {
     it('omits every diagnostic when the history reports none', () => {
       stubMinorRelease();
 
-      const result = releasePrepare(makeConfig(), {});
+      const result = prepareSinglePackage(makeConfig(), {});
 
-      const workspace = result.workspaces[0];
+      const workspace = selectPackageResults(result)[0];
       expect(workspace?.malformedBlocks).toBeUndefined();
       expect(workspace?.policyViolations).toBeUndefined();
       expect(workspace?.undeclaredEntryTypes).toBeUndefined();
@@ -698,9 +707,9 @@ describe(releasePrepare, () => {
       stubHistory({ previousTag: 'v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor', diagnostics });
       stubPackageVersion('1.0.0');
 
-      const result = releasePrepare(makeConfig(), {});
+      const result = prepareSinglePackage(makeConfig(), {});
 
-      expect(result.workspaces[0]).toMatchObject({ status: 'released', ...diagnostics });
+      expect(selectPackageResults(result)[0]).toMatchObject({ status: 'released', ...diagnostics });
     });
   });
 
@@ -737,13 +746,13 @@ describe(releasePrepare, () => {
       });
       stubFiles({ 'package.json': JSON.stringify({ version: '1.0.0' }), 'CHANGELOG.md': existingChangelog });
 
-      const result = releasePrepare(makeConfig(), {});
+      const result = prepareSinglePackage(makeConfig(), {});
 
       expect(mockRenderChangelogMarkdown).toHaveBeenCalledExactlyOnceWith(
         [expect.objectContaining({ version: '1.1.0' }), releasedEntry],
         expect.objectContaining({ preservedSections: [{ version: '0.9.0', text: '## 0.9.0\n\n- Hand-written' }] }),
       );
-      expect(result.workspaces[0]).toMatchObject({
+      expect(selectPackageResults(result)[0]).toMatchObject({
         changelogPreservation: [
           { file: 'CHANGELOG.md', preservedVersions: ['0.9.0'], droppedUnversionedHeadings: ['## Unreleased'] },
         ],
@@ -764,13 +773,13 @@ describe(releasePrepare, () => {
         { version: '0.9.0', date: '2023-06-01', sections: [] },
       ]);
 
-      const result = releasePrepare(makeConfig(), {});
+      const result = prepareSinglePackage(makeConfig(), {});
 
       expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ preservedSections: [] }),
       );
-      expect(result.workspaces[0]).toMatchObject({
+      expect(selectPackageResults(result)[0]).toMatchObject({
         changelogPreservation: [
           { file: 'CHANGELOG.md', preservedVersions: [], droppedUnversionedHeadings: ['## Unreleased'] },
         ],
@@ -780,14 +789,14 @@ describe(releasePrepare, () => {
     it('omits changelogPreservation when the existing file has nothing to keep or drop', () => {
       stubMinorRelease();
 
-      const result = releasePrepare(makeConfig(), {});
+      const result = prepareSinglePackage(makeConfig(), {});
 
-      expect(result.workspaces[0]).not.toHaveProperty('changelogPreservation');
+      expect(selectPackageResults(result)[0]).not.toHaveProperty('changelogPreservation');
     });
   });
 
   describe('untagged baseline', () => {
-    it.each<[string, ReleasePrepareOptions]>([
+    it.each<[string, SinglePackageOptions]>([
       ['a natural release', {}],
       ['--force', { force: true }],
       ['--set-version', { setVersion: '2.0.0' }],
@@ -795,21 +804,21 @@ describe(releasePrepare, () => {
       stubHistory({ previousTag: 'v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
       stubFiles({ 'package.json': JSON.stringify({ version: '1.1.0' }), 'CHANGELOG.md': '## 1.1.0\n\n## 1.0.0\n' });
 
-      expect(() => releasePrepare(makeConfig(), options)).toThrow('  - package: 1.1.0 (create tag v1.1.0)');
+      expect(() => prepareSinglePackage(makeConfig(), options)).toThrow('  - package: 1.1.0 (create tag v1.1.0)');
     });
 
     it('throws even when the release would be skipped', () => {
       stubHistory({ previousTag: 'v1.0.0' });
       stubFiles({ 'package.json': JSON.stringify({ version: '1.1.0' }), 'CHANGELOG.md': '## 1.1.0\n' });
 
-      expect(() => releasePrepare(makeConfig(), {})).toThrow('create tag v1.1.0');
+      expect(() => prepareSinglePackage(makeConfig(), {})).toThrow('create tag v1.1.0');
     });
 
     it('does not throw when the previous tag is the current version', () => {
       stubHistory({ previousTag: 'v1.1.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
       stubFiles({ 'package.json': JSON.stringify({ version: '1.1.0' }), 'CHANGELOG.md': '## 1.1.0\n' });
 
-      expect(releasePrepare(makeConfig(), {}).tags).toStrictEqual(['v1.2.0']);
+      expect(prepareSinglePackage(makeConfig(), {}).tags).toStrictEqual(['v1.2.0']);
     });
   });
 
@@ -817,7 +826,7 @@ describe(releasePrepare, () => {
     it('does not plan a changelog.json write when changelogJson.enabled is false', () => {
       stubMinorRelease();
 
-      releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false } }), {});
+      prepareSinglePackage(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false } }), {});
 
       expect(mockRenderChangelogJson).not.toHaveBeenCalled();
       expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
@@ -826,7 +835,7 @@ describe(releasePrepare, () => {
     it('plans a changelog.json write when changelogJson.enabled is true', () => {
       stubMinorRelease();
 
-      const plan = releasePrepare(
+      const plan = prepareSinglePackage(
         makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
         {},
       );
@@ -876,6 +885,18 @@ function stubMinorRelease(): void {
 /** Stubs every package file's content as a manifest at `version`. */
 function stubPackageVersion(version: string): void {
   mockReadFileSync.mockReturnValue(JSON.stringify({ version }));
+}
+
+/** Options of a single-package run, which names its one explicit version without a target id. */
+type SinglePackageOptions = Omit<TargetPrepareOptions, 'only' | 'setVersions'> & { setVersion?: string };
+
+/** Prepares a single-package release, passing an explicit version under the root target's id. */
+function prepareSinglePackage(config: TargetPrepareConfig, options: SinglePackageOptions): ReleasePlan {
+  const { setVersion, ...rest } = options;
+  return releasePrepareTargets(config, {
+    ...rest,
+    ...(setVersion !== undefined && { setVersions: new Map([['.', setVersion]]) }),
+  });
 }
 
 // endregion | Helpers

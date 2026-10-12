@@ -18,15 +18,18 @@ import { configFlagSchema } from './configFlagSchema.ts';
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
-import { mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
 import { loadValidatedConfig, reportConfigProblem, reportConfigWarnings } from './loadValidatedConfig.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 import { applyReleasePlan, type ReleasePlan } from './releasePlan.ts';
-import { releasePrepare } from './releasePrepare.ts';
-import { type MonorepoPrepareOptions, releasePrepareMono } from './releasePrepareMono.ts';
+import { releasePrepareTargets, type TargetPrepareOptions } from './releasePrepareTargets.ts';
 import { reportPrepare } from './reportPrepare.ts';
 import { resolveConfigFlag } from './resolveConfigFlag.ts';
-import type { MonorepoReleaseConfig, ReleaseKitConfig, ReleaseType, WorkspaceConfig } from './types.ts';
+import {
+  type ResolvedReleaseTargets,
+  resolveReleaseTargets,
+  SINGLE_PACKAGE_TARGET_ID,
+} from './resolveReleaseTargets.ts';
+import type { ReleaseKitConfig, ReleaseTarget, ReleaseType } from './types.ts';
 
 const VALID_BUMP_TYPES: readonly string[] = ['major', 'minor', 'patch'];
 
@@ -159,7 +162,7 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
   if (workspace.kind === 'single-package') {
     runSinglePackageMode(userConfig, options, only, setVersion, dryRun, styles.stdout);
   } else {
-    runMonorepoMode(workspace.packageDirs, userConfig, options, only, setVersion, dryRun, styles.stdout);
+    runMonorepoMode(workspace, userConfig, options, only, setVersion, dryRun, styles.stdout);
   }
 }
 
@@ -184,11 +187,12 @@ function runSinglePackageMode(
     process.exit(1);
   }
 
-  const config = mergeSinglePackageConfig(userConfig);
+  const config = resolveReleaseTargets(userConfig, { kind: 'single-package' });
+  const setVersions = new Map(setVersion === undefined ? [] : [[SINGLE_PACKAGE_TARGET_ID, setVersion]]);
   runAndReport(
     () => {
-      const plan = releasePrepare(config, { ...options, ...(setVersion !== undefined && { setVersion }) });
-      assertReleasesOnNpm(plan.workspaces.some((result) => result.status === 'released') ? ['.'] : []);
+      const plan = releasePrepareTargets(config, { ...options, ...(setVersion !== undefined && { setVersions }) });
+      assertReleasesOnNpm(findReleasedPackagePaths(plan, config.targets));
       return plan;
     },
     dryRun,
@@ -198,7 +202,7 @@ function runSinglePackageMode(
 
 /** Prepares a monorepo release, validating `--only` and `--set-version` against the merged config. */
 function runMonorepoMode(
-  discoveredPaths: string[],
+  discovery: Extract<WorkspaceDiscovery, { kind: 'packages' }>,
   userConfig: ReleaseKitConfig | undefined,
   options: PrepareOptions,
   only: string[] | undefined,
@@ -206,10 +210,9 @@ function runMonorepoMode(
   dryRun: boolean,
   style: OutputStyle,
 ): void {
-  let config: MonorepoReleaseConfig;
+  let config: ResolvedReleaseTargets;
   try {
-    const rootPackage = readRootPackageVersion();
-    config = mergeMonorepoConfig(discoveredPaths, userConfig, rootPackage);
+    config = resolveReleaseTargets(userConfig, discovery);
   } catch (error: unknown) {
     reportError(`Failed to resolve workspaces: ${describeError(error)}`);
     process.exit(1);
@@ -218,7 +221,7 @@ function runMonorepoMode(
   // A project release derives its bump from the commits of every contributing workspace, and `prepare` doesn't accept
   // any flag that overrides the project version, so `--set-version`, which sets individual workspaces' versions, does
   // not compose with it.
-  if (setVersion !== undefined && config.project !== undefined) {
+  if (setVersion !== undefined && config.targets.some((target) => target.kind === 'composite')) {
     reportError(
       '--set-version cannot be combined with a project release. ' +
         "--set-version sets individual workspaces' versions; a project release rolls up every " +
@@ -227,7 +230,7 @@ function runMonorepoMode(
     process.exit(1);
   }
 
-  const knownNames = config.workspaces.map((w) => w.dir);
+  const knownNames = config.targets.flatMap((target) => (target.kind === 'package' ? [target.id] : []));
   const onlyNames = only ?? [];
   for (const name of onlyNames) {
     if (knownNames.includes(name)) {
@@ -238,15 +241,15 @@ function runMonorepoMode(
     process.exit(1);
   }
 
-  const monorepoOptions: MonorepoPrepareOptions = {
+  const monorepoOptions: TargetPrepareOptions = {
     ...options,
     ...(only !== undefined && { only }),
     ...(setVersion !== undefined && { setVersions: parseSetVersions(setVersion, knownNames) }),
   };
   runAndReport(
     () => {
-      const plan = releasePrepareMono(config, monorepoOptions);
-      assertReleasesOnNpm(findReleasedWorkspacePaths(plan, config.workspaces));
+      const plan = releasePrepareTargets(config, monorepoOptions);
+      assertReleasesOnNpm(findReleasedPackagePaths(plan, config.targets));
       return plan;
     },
     dryRun,
@@ -254,15 +257,16 @@ function runMonorepoMode(
   );
 }
 
-/** Returns the repo-relative paths of the workspaces that a monorepo plan releases, excluding the project release. */
-function findReleasedWorkspacePaths(plan: ReleasePlan, workspaces: readonly WorkspaceConfig[]): string[] {
-  // A monorepo result's `name` is the workspace's `dir`.
-  const releasedDirs = new Set(
-    plan.workspaces.flatMap((result) =>
-      result.status === 'released' && result.name !== undefined ? [result.name] : [],
+/** Returns the repo-relative paths of the package targets that a plan releases, in target order. */
+function findReleasedPackagePaths(plan: ReleasePlan, targets: readonly ReleaseTarget[]): string[] {
+  const releasedIds = new Set(
+    plan.targets.flatMap((result) =>
+      result.status === 'released' && result.kind === 'package' ? [result.targetId] : [],
     ),
   );
-  return workspaces.filter((workspace) => releasedDirs.has(workspace.dir)).map((workspace) => workspace.workspacePath);
+  return targets.flatMap((target) =>
+    target.kind === 'package' && releasedIds.has(target.id) ? [target.packagePath] : [],
+  );
 }
 
 interface PrepareOptions {

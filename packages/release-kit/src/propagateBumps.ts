@@ -65,7 +65,7 @@ export function propagateBumps(
     }
 
     for (const dependent of dependents) {
-      const dependentDir = dependent.dir;
+      const dependentDir = dependent.id;
       const existing = result.get(dependentDir);
 
       const propagationInfo = { packageName, newVersion };

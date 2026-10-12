@@ -19,7 +19,7 @@ import {
   validateAllChangelogOverrides,
   validateChangelogOverrides,
 } from '../changelogOverrides.ts';
-import type { ChangelogEntry, ChangelogOverride, WorkspaceConfig } from '../types.ts';
+import type { ChangelogEntry, ChangelogOverride } from '../types.ts';
 
 describe(loadChangelogOverrides, () => {
   let tree: TempTree;
@@ -1133,24 +1133,11 @@ describe(createOverrideContext, () => {
     disposeOnTestFinished(pointCwdAt(tree.dir, { chdir: true }));
   });
 
-  function makeWorkspace(workspacePath: string): WorkspaceConfig {
-    return {
-      dir: workspacePath.split('/').pop() ?? workspacePath,
-      name: workspacePath,
-      tagPrefix: 'v',
-      workspacePath,
-      isPublishable: false,
-      packageFiles: [],
-      changelogPaths: [workspacePath],
-      paths: [`${workspacePath}/**`],
-    };
-  }
-
   it('aborts with a combined error when a per-workspace file is malformed', () => {
     const workspacePath = 'packages/bad';
     tree.write(`${workspacePath}/.meta/changelog-overrides.json`, '{not-valid');
 
-    expect(() => createOverrideContext([makeWorkspace(workspacePath)])).toThrow(/Failed to load changelog overrides/);
+    expect(() => createOverrideContext([workspacePath])).toThrow(/Failed to load changelog overrides/);
   });
 
   it('aborts with a combined error when the project file is malformed', () => {
@@ -1160,7 +1147,7 @@ describe(createOverrideContext, () => {
   });
 
   it("returns an empty context when the tree doesn't contain any override file", () => {
-    const context = createOverrideContext([makeWorkspace('packages/foo')]);
+    const context = createOverrideContext(['packages/foo']);
     expect(context.project.size).toBe(0);
     expect(context.perWorkspace.size).toBe(0);
     expect(context.overrideWarnings).toStrictEqual([]);
@@ -1173,7 +1160,7 @@ describe(createOverrideContext, () => {
       bbb2222: { description: 'Workspace replacement' },
     });
 
-    const context = createOverrideContext([makeWorkspace('packages/foo')]);
+    const context = createOverrideContext(['packages/foo']);
     expect(context.project.get('aaa1111')).toStrictEqual({ audience: 'skip' });
     expect(context.perWorkspace.get('packages/foo')?.get('bbb2222')).toStrictEqual({
       description: 'Workspace replacement',

@@ -144,7 +144,7 @@ function makePlan(overrides: Partial<ReleasePlan> = {}): ReleasePlan {
     tags: ['core-v1.0.0'],
     summary: 'core-v1.0.0\n- feat: Add a thing',
     formatCommand: undefined,
-    workspaces: [],
+    targets: [],
     ...overrides,
   };
 }

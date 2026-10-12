@@ -184,176 +184,6 @@ export interface ChangelogPreservation {
   droppedUnversionedHeadings: string[];
 }
 
-/**
- * Result of preparing a single workspace (package) for release when a release was produced. `releaseType` is absent
- * for `--set-version`.
- */
-export interface ReleasedWorkspaceResult {
-  status: 'released';
-  /** Workspace name; absent in single-package mode, present in monorepo mode. */
-  name?: string;
-  previousTag?: string;
-  commitCount: number;
-  /**
-   * Count of commits that yield at least one changelog item; `0` when the unreleased window does
-   * not contain any commits or when none does. Absent for `--set-version` and propagation-only
-   * workspaces. `bumpOverride`, not this count, signals that the user supplied `--bump=X`.
-   */
-  parsedCommitCount?: number;
-  /** Commits that do not yield any changelog item and are not accounted for by any exclusion or diagnostic. */
-  unparseableCommits?: Commit[];
-  /** Policy violations of the unreleased window's titles and change-record entries; omitted when none. */
-  policyViolations?: PolicyViolation[];
-  /** Commits of the unreleased window whose `change-record` block could not be read; omitted when none. */
-  malformedBlocks?: MalformedChangeRecordBlock[];
-  /** Change-record entries of the unreleased window whose type is undeclared; omitted when none. */
-  undeclaredEntryTypes?: UndeclaredEntryType[];
-  /** Change-record entry scopes of the unreleased window that route their entry nowhere; omitted when none. */
-  unroutedEntryScopes?: UnroutedEntryScope[];
-  releaseType?: ReleaseType;
-  currentVersion: string;
-  newVersion: string;
-  tag: string;
-  bumpedFiles: string[];
-  changelogFiles: string[];
-  /** Release-notes preview files; present only under `--with-release-notes`. */
-  previewFiles?: string[];
-  /**
-   * Per `CHANGELOG.md`, the existing sections that were kept or dropped; omitted when `prepare` did not keep or drop
-   * any.
-   */
-  changelogPreservation?: ChangelogPreservation[];
-  /** Raw commits of the workspace's unreleased window. */
-  commits?: Commit[];
-  /**
-   * Present when `--bump=X` was supplied and selected the release level for this workspace, which
-   * distinguishes a bump-override release from a `--force` fallback or a natural-bump release.
-   */
-  bumpOverride?: ReleaseType;
-  /** Dependencies that triggered a propagated bump (present for propagated or mixed workspaces). */
-  propagatedFrom?: PropagationSource[];
-  /** Present when propagation alone set the bump, the workspace's own commits having called for none. */
-  propagatedOnly?: true;
-  /** Present when this workspace was written via `--set-version`; the explicit version that was applied. */
-  setVersion?: string;
-}
-
-/**
- * Result of preparing a single workspace (package) for release when the release was skipped: the diagnostic fields
- * and a human-readable `skipReason`, without the release-only fields.
- */
-export interface SkippedWorkspaceResult {
-  status: 'skipped';
-  /** Workspace name; absent in single-package mode, present in monorepo mode. */
-  name?: string;
-  previousTag?: string;
-  commitCount: number;
-  /**
-   * Count of commits that yield at least one changelog item; `0` when the unreleased window does not contain any
-   * commits or when none does.
-   */
-  parsedCommitCount: number;
-  /** Commits that do not yield any changelog item and are not accounted for by any exclusion or diagnostic. */
-  unparseableCommits?: Commit[];
-  /** Policy violations of the unreleased window's titles and change-record entries; omitted when none. */
-  policyViolations?: PolicyViolation[];
-  /** Commits of the unreleased window whose `change-record` block could not be read; omitted when none. */
-  malformedBlocks?: MalformedChangeRecordBlock[];
-  /** Change-record entries of the unreleased window whose type is undeclared; omitted when none. */
-  undeclaredEntryTypes?: UndeclaredEntryType[];
-  /** Change-record entry scopes of the unreleased window that route their entry nowhere; omitted when none. */
-  unroutedEntryScopes?: UnroutedEntryScope[];
-  skipReason: string;
-}
-
-/**
- * Result of preparing a single workspace (package) for release.
- *
- * Discriminated by `status`: `ReleasedWorkspaceResult` for produced releases,
- * `SkippedWorkspaceResult` for skips.
- */
-export type WorkspacePrepareResult = ReleasedWorkspaceResult | SkippedWorkspaceResult;
-
-/**
- * Result of preparing a project-level release when a release was produced.
- *
- * Mirrors `ReleasedWorkspaceResult` without the workspace-only fields. Project releases never propagate and never
- * use `--set-version`, so `releaseType`, `parsedCommitCount`, and `commits` are required.
- */
-export interface ReleasedProjectResult {
-  status: 'released';
-  previousTag?: string;
-  commitCount: number;
-  /**
-   * Count of commits that yield at least one changelog item; `0` when the unreleased window does
-   * not contain any commits or when none does. `bumpOverride`, not a zero count, signals that the
-   * user supplied `--bump=X`.
-   */
-  parsedCommitCount: number;
-  /** Commits that do not yield any changelog item and are not accounted for by any exclusion or diagnostic. */
-  unparseableCommits?: Commit[];
-  /** Policy violations of the unreleased window's titles and change-record entries; omitted when none. */
-  policyViolations?: PolicyViolation[];
-  /** Commits of the unreleased window whose `change-record` block could not be read; omitted when none. */
-  malformedBlocks?: MalformedChangeRecordBlock[];
-  /** Change-record entries of the unreleased window whose type is undeclared; omitted when none. */
-  undeclaredEntryTypes?: UndeclaredEntryType[];
-  releaseType: ReleaseType;
-  currentVersion: string;
-  newVersion: string;
-  tag: string;
-  bumpedFiles: string[];
-  changelogFiles: string[];
-  /** Release-notes preview files; present only under `--with-release-notes`. */
-  previewFiles?: string[];
-  /**
-   * Per `CHANGELOG.md`, the existing sections that were kept or dropped; omitted when `prepare` did not keep or drop
-   * any.
-   */
-  changelogPreservation?: ChangelogPreservation[];
-  /** Raw commits in the project's contributing-paths window since the last project tag. */
-  commits: Commit[];
-  /**
-   * Present when `--bump=X` was supplied and selected the release level for the project, which
-   * distinguishes a bump-override release from a `--force` fallback or a natural-bump release.
-   */
-  bumpOverride?: ReleaseType;
-}
-
-/**
- * Result of preparing a project-level release when the release was skipped: the diagnostic fields and a
- * human-readable `skipReason`, without the release-only fields.
- */
-export interface SkippedProjectResult {
-  status: 'skipped';
-  previousTag?: string;
-  commitCount: number;
-  /**
-   * Count of commits that yield at least one changelog item; `0` when the unreleased window does not contain any
-   * commits or when none does.
-   */
-  parsedCommitCount: number;
-  /** Commits that do not yield any changelog item and are not accounted for by any exclusion or diagnostic. */
-  unparseableCommits?: Commit[];
-  /** Policy violations of the unreleased window's titles and change-record entries; omitted when none. */
-  policyViolations?: PolicyViolation[];
-  /** Commits of the unreleased window whose `change-record` block could not be read; omitted when none. */
-  malformedBlocks?: MalformedChangeRecordBlock[];
-  /** Change-record entries of the unreleased window whose type is undeclared; omitted when none. */
-  undeclaredEntryTypes?: UndeclaredEntryType[];
-  skipReason: string;
-}
-
-/**
- * Result of preparing a project-level release.
- *
- * Discriminated by `status`: `ReleasedProjectResult` for produced releases,
- * `SkippedProjectResult` for skips. `PrepareResult.project === undefined` means either that
- * the config does not declare a `project` block or that `--only` narrowed the run, which skips
- * the stage before it can produce a result; `prepare` reports the skip as a run warning instead.
- */
-export type ProjectPrepareResult = ReleasedProjectResult | SkippedProjectResult;
-
 /** Fields of every target result: what `prepare` read from the target's unreleased window. */
 interface TargetResultFields {
   /** Id of the target that the result describes. */
@@ -472,9 +302,10 @@ export type TargetPrepareResult = PackagePrepareResult | CompositePrepareResult;
 /** Result of a target that releases, of either kind. */
 export type ReleasedTargetResult = ReleasedPackageResult | ReleasedCompositeResult;
 
-/** Aggregate result of the prepare workflow for both single-package and monorepo modes. */
+/** Aggregate result of the prepare workflow over a run's targets. */
 export interface PrepareResult {
-  workspaces: WorkspacePrepareResult[];
+  /** One result per target that the run prepared: the package targets in config order, then the composites. */
+  targets: TargetPrepareResult[];
   tags: string[];
   formatCommand?:
     | {
@@ -484,8 +315,6 @@ export interface PrepareResult {
     | undefined;
   /** Warnings reported during preparation (e.g., circular dependency detection). */
   warnings?: string[] | undefined;
-  /** Result of the project-level release stage (present only when `config.project` is configured and the stage ran). */
-  project?: ProjectPrepareResult | undefined;
 }
 
 /** Configuration for a single work type used in commit categorization. */

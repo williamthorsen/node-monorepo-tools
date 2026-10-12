@@ -6,10 +6,10 @@ import { reportPrepare } from '../reportPrepare.ts';
 import type {
   PolicyViolation,
   PrepareResult,
-  ReleasedProjectResult,
-  ReleasedWorkspaceResult,
-  SkippedProjectResult,
-  SkippedWorkspaceResult,
+  ReleasedCompositeResult,
+  ReleasedPackageResult,
+  SkippedCompositeResult,
+  SkippedPackageResult,
 } from '../types.ts';
 
 /** The column budget to which `reportPrepare` cuts a commit subject. */
@@ -19,8 +19,10 @@ describe(reportPrepare, () => {
   describe('single-package mode', () => {
     it('formats a successful single-package release', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: '.',
+            kind: 'package',
             status: 'released',
             previousTag: 'v1.0.0',
             commitCount: 3,
@@ -51,8 +53,10 @@ describe(reportPrepare, () => {
 
     it('renders "the beginning" when previousTag is undefined', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: '.',
+            kind: 'package',
             status: 'released',
             commitCount: 5,
             parsedCommitCount: 3,
@@ -74,8 +78,10 @@ describe(reportPrepare, () => {
 
     it('formats a skipped single-package release', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: '.',
+            kind: 'package',
             status: 'skipped',
             previousTag: 'v1.0.0',
             commitCount: 1,
@@ -95,8 +101,10 @@ describe(reportPrepare, () => {
 
     it('formats a dry-run single-package release', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: '.',
+            kind: 'package',
             status: 'released',
             previousTag: 'v1.0.0',
             commitCount: 1,
@@ -127,7 +135,7 @@ describe(reportPrepare, () => {
 
     it('names the failing format command and its error when formatting failed', () => {
       const result: PrepareResult = {
-        workspaces: [makeReleasedWorkspace()],
+        targets: [makeReleasedWorkspace()],
         tags: ['v1.0.1'],
         formatCommand: { command: 'npx prettier --write package.json', files: ['package.json'] },
       };
@@ -144,7 +152,7 @@ describe(reportPrepare, () => {
 
     it('renders the release-notes preview files that a release plans', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           makeReleasedWorkspace({
             previewFiles: ['docs/README.v1.0.1.md', 'docs/RELEASE_NOTES.v1.0.1.md'],
           }),
@@ -162,8 +170,10 @@ describe(reportPrepare, () => {
 
     it('shows warnings on a skipped single-package release', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: '.',
+            kind: 'package',
             status: 'skipped',
             previousTag: 'v1.0.0',
             commitCount: 1,
@@ -182,7 +192,7 @@ describe(reportPrepare, () => {
 
     it('shows warnings on a single-package release', () => {
       const result: PrepareResult = {
-        workspaces: [makeReleasedWorkspace()],
+        targets: [makeReleasedWorkspace()],
         tags: ['v1.0.1'],
         warnings: ['README.md not found; skipping injected-README preview'],
       };
@@ -194,8 +204,10 @@ describe(reportPrepare, () => {
 
     it('formats a release with bump override', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: '.',
+            kind: 'package',
             status: 'released',
             previousTag: 'v1.0.0',
             commitCount: 1,
@@ -219,8 +231,10 @@ describe(reportPrepare, () => {
 
     it('renders "version override" labels when setVersion is present on a workspace', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: '.',
+            kind: 'package',
             status: 'released',
             previousTag: 'v0.5.0',
             commitCount: 0,
@@ -244,8 +258,10 @@ describe(reportPrepare, () => {
 
     it('shows unparseable commit warning when a forced release does not have any parsed commit', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: '.',
+            kind: 'package',
             status: 'released',
             previousTag: 'v1.0.0',
             commitCount: 2,
@@ -274,8 +290,10 @@ describe(reportPrepare, () => {
 
     it('shows unparseable commit warning without patch-floor note when some commits parsed', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: '.',
+            kind: 'package',
             status: 'released',
             previousTag: 'v1.0.0',
             commitCount: 3,
@@ -301,8 +319,10 @@ describe(reportPrepare, () => {
 
     it('renders the subject alone for an unparseable commit that has a body', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: '.',
+            kind: 'package',
             status: 'released',
             previousTag: 'v1.0.0',
             commitCount: 1,
@@ -333,8 +353,10 @@ describe(reportPrepare, () => {
 
     it('does not show unparseable warning when the result does not contain any unparseable commits', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: '.',
+            kind: 'package',
             status: 'released',
             previousTag: 'v1.0.0',
             commitCount: 1,
@@ -360,7 +382,7 @@ describe(reportPrepare, () => {
   describe('empty workspaces', () => {
     it('returns an empty string when workspaces array is empty', () => {
       const result: PrepareResult = {
-        workspaces: [],
+        targets: [],
         tags: [],
       };
 
@@ -373,8 +395,10 @@ describe(reportPrepare, () => {
   describe('monorepo mode', () => {
     it('formats a multi-workspace release', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'arrays',
+            kind: 'package',
             name: 'arrays',
             status: 'released',
             previousTag: 'arrays-v1.0.0',
@@ -388,6 +412,8 @@ describe(reportPrepare, () => {
             changelogFiles: ['packages/arrays/CHANGELOG.md'],
           },
           {
+            targetId: 'strings',
+            kind: 'package',
             name: 'strings',
             status: 'released',
             previousTag: 'strings-v2.0.0',
@@ -417,8 +443,10 @@ describe(reportPrepare, () => {
 
     it('renders "(no previous release found)" when previousTag is undefined', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'arrays',
+            kind: 'package',
             name: 'arrays',
             status: 'released',
             commitCount: 4,
@@ -441,8 +469,10 @@ describe(reportPrepare, () => {
 
     it('renders the changelog header without any file entries when changelogFiles is empty', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'arrays',
+            kind: 'package',
             name: 'arrays',
             status: 'released',
             previousTag: 'arrays-v1.0.0',
@@ -467,8 +497,10 @@ describe(reportPrepare, () => {
 
     it('formats a partial skip in monorepo mode', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'arrays',
+            kind: 'package',
             name: 'arrays',
             status: 'released',
             previousTag: 'arrays-v1.0.0',
@@ -482,6 +514,8 @@ describe(reportPrepare, () => {
             changelogFiles: ['packages/arrays/CHANGELOG.md'],
           },
           {
+            targetId: 'strings',
+            kind: 'package',
             name: 'strings',
             status: 'skipped',
             previousTag: 'strings-v2.0.0',
@@ -503,8 +537,10 @@ describe(reportPrepare, () => {
 
     it('renders "version override" labels for a setVersion workspace in monorepo mode', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'arrays',
+            kind: 'package',
             name: 'arrays',
             status: 'released',
             previousTag: 'arrays-v0.5.0',
@@ -528,8 +564,10 @@ describe(reportPrepare, () => {
 
     it('leaves propagated dependents of a setVersion workspace with a normal release-type label', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'core',
+            kind: 'package',
             name: 'core',
             status: 'released',
             previousTag: 'core-v0.5.0',
@@ -542,6 +580,8 @@ describe(reportPrepare, () => {
             setVersion: '1.0.0',
           },
           {
+            targetId: 'app',
+            kind: 'package',
             name: 'app',
             status: 'released',
             previousTag: 'app-v2.0.0',
@@ -570,8 +610,10 @@ describe(reportPrepare, () => {
 
     it('formats a full skip in monorepo mode', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'arrays',
+            kind: 'package',
             name: 'arrays',
             status: 'skipped',
             previousTag: 'arrays-v1.0.0',
@@ -590,8 +632,10 @@ describe(reportPrepare, () => {
 
     it('shows unparseable commit warning in monorepo mode', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'arrays',
+            kind: 'package',
             name: 'arrays',
             status: 'released',
             previousTag: 'arrays-v1.0.0',
@@ -617,8 +661,10 @@ describe(reportPrepare, () => {
 
     it('formats format command in monorepo mode', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'arrays',
+            kind: 'package',
             name: 'arrays',
             status: 'released',
             previousTag: 'arrays-v1.0.0',
@@ -650,8 +696,10 @@ describe(reportPrepare, () => {
 
     it('shows warnings when present in the result', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'core',
+            kind: 'package',
             name: 'core',
             status: 'released',
             previousTag: 'core-v1.0.0',
@@ -678,8 +726,10 @@ describe(reportPrepare, () => {
 
     it('shows propagation info for a propagated-only workspace', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'core',
+            kind: 'package',
             name: 'core',
             status: 'released',
             previousTag: 'core-v1.0.0',
@@ -693,6 +743,8 @@ describe(reportPrepare, () => {
             changelogFiles: ['packages/core/CHANGELOG.md'],
           },
           {
+            targetId: 'app',
+            kind: 'package',
             name: 'app',
             status: 'released',
             previousTag: 'app-v2.0.0',
@@ -718,8 +770,10 @@ describe(reportPrepare, () => {
 
     it("renders a propagated-only workspace's own commits and diagnostics", () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'app',
+            kind: 'package',
             name: 'app',
             status: 'released',
             previousTag: 'app-v2.0.0',
@@ -756,8 +810,10 @@ describe(reportPrepare, () => {
 
     it('omits the propagation label from a direct release that a dependency also bumps', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'app',
+            kind: 'package',
             name: 'app',
             status: 'released',
             previousTag: 'app-v2.0.0',
@@ -785,8 +841,10 @@ describe(reportPrepare, () => {
   describe('project release section', () => {
     it('renders the project section after workspace sections and before the tag summary', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'arrays',
+            kind: 'package',
             name: 'arrays',
             status: 'released',
             previousTag: 'arrays-v1.0.0',
@@ -799,21 +857,23 @@ describe(reportPrepare, () => {
             bumpedFiles: ['packages/arrays/package.json'],
             changelogFiles: ['packages/arrays/CHANGELOG.md'],
           },
+          {
+            targetId: '',
+            kind: 'composite',
+            status: 'released',
+            previousTag: 'v0.9.0',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'minor',
+            currentVersion: '0.9.0',
+            newVersion: '0.10.0',
+            tag: 'v0.10.0',
+            bumpedFiles: ['./package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            commits: [{ message: 'feat: add capability', subject: 'feat: add capability', hash: 'abc1234' }],
+          },
         ],
         tags: ['arrays-v1.1.0', 'v0.10.0'],
-        project: {
-          status: 'released',
-          previousTag: 'v0.9.0',
-          commitCount: 1,
-          parsedCommitCount: 1,
-          releaseType: 'minor',
-          currentVersion: '0.9.0',
-          newVersion: '0.10.0',
-          tag: 'v0.10.0',
-          bumpedFiles: ['./package.json'],
-          changelogFiles: ['./CHANGELOG.md'],
-          commits: [{ message: 'feat: add capability', subject: 'feat: add capability', hash: 'abc1234' }],
-        },
       };
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
@@ -828,21 +888,24 @@ describe(reportPrepare, () => {
 
     it('renders dry-run prefixes for project bumped and changelog files', () => {
       const result: PrepareResult = {
-        workspaces: [],
+        targets: [
+          {
+            targetId: '',
+            kind: 'composite',
+            status: 'released',
+            previousTag: 'v0.9.0',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'minor',
+            currentVersion: '0.9.0',
+            newVersion: '0.10.0',
+            tag: 'v0.10.0',
+            bumpedFiles: ['./package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            commits: [{ message: 'feat: add capability', subject: 'feat: add capability', hash: 'abc1234' }],
+          },
+        ],
         tags: ['v0.10.0'],
-        project: {
-          status: 'released',
-          previousTag: 'v0.9.0',
-          commitCount: 1,
-          parsedCommitCount: 1,
-          releaseType: 'minor',
-          currentVersion: '0.9.0',
-          newVersion: '0.10.0',
-          tag: 'v0.10.0',
-          bumpedFiles: ['./package.json'],
-          changelogFiles: ['./CHANGELOG.md'],
-          commits: [{ message: 'feat: add capability', subject: 'feat: add capability', hash: 'abc1234' }],
-        },
       };
 
       const output = reportPrepare(result, { applied: false, style: 'rich' });
@@ -853,8 +916,10 @@ describe(reportPrepare, () => {
 
     it('omits the project section entirely when result.project is undefined', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'arrays',
+            kind: 'package',
             name: 'arrays',
             status: 'released',
             previousTag: 'arrays-v1.0.0',
@@ -878,20 +943,23 @@ describe(reportPrepare, () => {
 
     it('renders "(no previous release found)" when project.previousTag is undefined on a released project', () => {
       const result: PrepareResult = {
-        workspaces: [],
+        targets: [
+          {
+            targetId: '',
+            kind: 'composite',
+            status: 'released',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'minor',
+            currentVersion: '0.0.0',
+            newVersion: '0.1.0',
+            tag: 'v0.1.0',
+            bumpedFiles: ['./package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            commits: [{ message: 'feat: add capability', subject: 'feat: add capability', hash: 'abc1234' }],
+          },
+        ],
         tags: ['v0.1.0'],
-        project: {
-          status: 'released',
-          commitCount: 1,
-          parsedCommitCount: 1,
-          releaseType: 'minor',
-          currentVersion: '0.0.0',
-          newVersion: '0.1.0',
-          tag: 'v0.1.0',
-          bumpedFiles: ['./package.json'],
-          changelogFiles: ['./CHANGELOG.md'],
-          commits: [{ message: 'feat: add capability', subject: 'feat: add capability', hash: 'abc1234' }],
-        },
       };
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
@@ -901,22 +969,25 @@ describe(reportPrepare, () => {
 
     it('renders the unparseable-commit warning block in a released project section', () => {
       const result: PrepareResult = {
-        workspaces: [],
+        targets: [
+          {
+            targetId: '',
+            kind: 'composite',
+            status: 'released',
+            previousTag: 'v0.9.0',
+            commitCount: 1,
+            parsedCommitCount: 0,
+            releaseType: 'patch',
+            currentVersion: '0.9.0',
+            newVersion: '0.9.1',
+            tag: 'v0.9.1',
+            bumpedFiles: ['./package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            commits: [],
+            unparseableCommits: [{ message: 'wip: undocumented', subject: 'wip: undocumented', hash: 'abc1234def' }],
+          },
+        ],
         tags: ['v0.9.1'],
-        project: {
-          status: 'released',
-          previousTag: 'v0.9.0',
-          commitCount: 1,
-          parsedCommitCount: 0,
-          releaseType: 'patch',
-          currentVersion: '0.9.0',
-          newVersion: '0.9.1',
-          tag: 'v0.9.1',
-          bumpedFiles: ['./package.json'],
-          changelogFiles: ['./CHANGELOG.md'],
-          commits: [],
-          unparseableCommits: [{ message: 'wip: undocumented', subject: 'wip: undocumented', hash: 'abc1234def' }],
-        },
       };
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
@@ -927,15 +998,18 @@ describe(reportPrepare, () => {
 
     it('renders a skipped project section as a header + commit count + skipReason', () => {
       const result: PrepareResult = {
-        workspaces: [],
+        targets: [
+          {
+            targetId: '',
+            kind: 'composite',
+            status: 'skipped',
+            previousTag: 'v0.9.0',
+            commitCount: 0,
+            parsedCommitCount: 0,
+            skipReason: 'No commits since v0.9.0. Pass --force to release at patch. Skipping.',
+          },
+        ],
         tags: [],
-        project: {
-          status: 'skipped',
-          previousTag: 'v0.9.0',
-          commitCount: 0,
-          parsedCommitCount: 0,
-          skipReason: 'No commits since v0.9.0. Pass --force to release at patch. Skipping.',
-        },
       };
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
@@ -951,17 +1025,20 @@ describe(reportPrepare, () => {
 
     it('renders a skipped project section with its unparseable commits and without a parsed count', () => {
       const result: PrepareResult = {
-        workspaces: [],
+        targets: [
+          {
+            targetId: '',
+            kind: 'composite',
+            status: 'skipped',
+            previousTag: 'v0.9.0',
+            commitCount: 1,
+            parsedCommitCount: 0,
+            unparseableCommits: [{ message: 'chore: deps', subject: 'chore: deps', hash: 'abc1234' }],
+            skipReason:
+              'No bump-worthy commits since v0.9.0. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.',
+          },
+        ],
         tags: [],
-        project: {
-          status: 'skipped',
-          previousTag: 'v0.9.0',
-          commitCount: 1,
-          parsedCommitCount: 0,
-          unparseableCommits: [{ message: 'chore: deps', subject: 'chore: deps', hash: 'abc1234' }],
-          skipReason:
-            'No bump-worthy commits since v0.9.0. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.',
-        },
       };
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
@@ -978,8 +1055,10 @@ describe(reportPrepare, () => {
   describe('policy violations rendering', () => {
     it('renders a single-package result with one policy violation', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: '.',
+            kind: 'package',
             status: 'released',
             previousTag: 'v1.0.0',
             commitCount: 1,
@@ -1011,8 +1090,10 @@ describe(reportPrepare, () => {
 
     it('renders multiple policy violations with plural header', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: '.',
+            kind: 'package',
             status: 'released',
             commitCount: 2,
             parsedCommitCount: 2,
@@ -1050,8 +1131,10 @@ describe(reportPrepare, () => {
 
     it('renders a workspace section in multi-workspace mode with policy violations', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: 'arrays',
+            kind: 'package',
             name: 'arrays',
             status: 'released',
             commitCount: 1,
@@ -1083,29 +1166,32 @@ describe(reportPrepare, () => {
 
     it('renders a project section with policy violations', () => {
       const result: PrepareResult = {
-        workspaces: [],
+        targets: [
+          {
+            targetId: '',
+            kind: 'composite',
+            status: 'released',
+            previousTag: 'v1.0.0',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'patch',
+            currentVersion: '1.0.0',
+            newVersion: '1.0.1',
+            tag: 'v1.0.1',
+            bumpedFiles: ['./package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            commits: [{ message: 'internal!: refactor cache', subject: 'internal!: refactor cache', hash: 'def5678' }],
+            policyViolations: [
+              {
+                commitHash: 'def5678',
+                commitSubject: 'internal!: refactor cache',
+                type: 'internal',
+                surface: 'prefix',
+              },
+            ],
+          },
+        ],
         tags: ['v1.0.1'],
-        project: {
-          status: 'released',
-          previousTag: 'v1.0.0',
-          commitCount: 1,
-          parsedCommitCount: 1,
-          releaseType: 'patch',
-          currentVersion: '1.0.0',
-          newVersion: '1.0.1',
-          tag: 'v1.0.1',
-          bumpedFiles: ['./package.json'],
-          changelogFiles: ['./CHANGELOG.md'],
-          commits: [{ message: 'internal!: refactor cache', subject: 'internal!: refactor cache', hash: 'def5678' }],
-          policyViolations: [
-            {
-              commitHash: 'def5678',
-              commitSubject: 'internal!: refactor cache',
-              type: 'internal',
-              surface: 'prefix',
-            },
-          ],
-        },
       };
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
@@ -1116,8 +1202,10 @@ describe(reportPrepare, () => {
 
     it('omits the policy-violation block when policyViolations is undefined', () => {
       const result: PrepareResult = {
-        workspaces: [
+        targets: [
           {
+            targetId: '.',
+            kind: 'package',
             status: 'released',
             commitCount: 1,
             parsedCommitCount: 1,
@@ -1173,14 +1261,13 @@ describe(reportPrepare, () => {
 
   describe('change-record diagnostics rendering', () => {
     const SUBJECT = '#867 release-kit|feat: Read the change record (#42)';
-    const diagnostics: Pick<ReleasedWorkspaceResult, 'malformedBlocks' | 'policyViolations' | 'undeclaredEntryTypes'> =
-      {
-        malformedBlocks: [{ commitHash: 'abc1234def', commitSubject: SUBJECT, reason: '`entries[0].text` is missing' }],
-        undeclaredEntryTypes: [{ commitHash: 'abc1234def', commitSubject: SUBJECT, entryPosition: 2, type: 'chore' }],
-        policyViolations: [
-          { commitHash: 'abc1234def', commitSubject: SUBJECT, type: 'drop', surface: 'entry', entryPosition: 3 },
-        ],
-      };
+    const diagnostics: Pick<ReleasedPackageResult, 'malformedBlocks' | 'policyViolations' | 'undeclaredEntryTypes'> = {
+      malformedBlocks: [{ commitHash: 'abc1234def', commitSubject: SUBJECT, reason: '`entries[0].text` is missing' }],
+      undeclaredEntryTypes: [{ commitHash: 'abc1234def', commitSubject: SUBJECT, entryPosition: 2, type: 'chore' }],
+      policyViolations: [
+        { commitHash: 'abc1234def', commitSubject: SUBJECT, type: 'drop', surface: 'entry', entryPosition: 3 },
+      ],
+    };
     const unparseableCommits = [{ message: 'Update readme', subject: 'Update readme', hash: 'fed4321cba' }];
     const expectedUnparseableLines = ['1 commit could not be parsed', '· fed4321 Update readme'];
     const expectedLines = [
@@ -1194,7 +1281,7 @@ describe(reportPrepare, () => {
 
     it('renders each diagnostic kind in a single-package report', () => {
       const output = reportPrepare(
-        { workspaces: [makeReleasedWorkspace(diagnostics)], tags: ['v1.0.1'] },
+        { targets: [makeReleasedWorkspace(diagnostics)], tags: ['v1.0.1'] },
         { applied: false, style: 'rich' },
       );
 
@@ -1205,7 +1292,7 @@ describe(reportPrepare, () => {
 
     it('renders each diagnostic kind in a monorepo workspace section', () => {
       const output = reportPrepare(
-        { workspaces: [makeReleasedWorkspace({ name: 'arrays', ...diagnostics })], tags: ['arrays-v1.0.1'] },
+        { targets: [makeReleasedWorkspace({ name: 'arrays', ...diagnostics })], tags: ['arrays-v1.0.1'] },
         { applied: false, style: 'rich' },
       );
 
@@ -1215,7 +1302,9 @@ describe(reportPrepare, () => {
     });
 
     it('renders each diagnostic kind in a project section', () => {
-      const project: ReleasedProjectResult = {
+      const project: ReleasedCompositeResult = {
+        targetId: '',
+        kind: 'composite',
         status: 'released',
         commitCount: 1,
         parsedCommitCount: 1,
@@ -1229,7 +1318,7 @@ describe(reportPrepare, () => {
         ...diagnostics,
       };
 
-      const output = reportPrepare({ workspaces: [], tags: ['v1.0.1'], project }, { applied: false, style: 'rich' });
+      const output = reportPrepare({ targets: [project], tags: ['v1.0.1'] }, { applied: false, style: 'rich' });
 
       for (const line of expectedLines) {
         expect(output).toContain(line);
@@ -1238,7 +1327,7 @@ describe(reportPrepare, () => {
 
     it('renders each diagnostic kind and the unparseable commits in a skipped single-package report', () => {
       const output = reportPrepare(
-        { workspaces: [makeSkippedWorkspace({ ...diagnostics, unparseableCommits })], tags: [] },
+        { targets: [makeSkippedWorkspace({ ...diagnostics, unparseableCommits })], tags: [] },
         { applied: false, style: 'rich' },
       );
 
@@ -1249,7 +1338,7 @@ describe(reportPrepare, () => {
 
     it('renders each diagnostic kind and the unparseable commits in a skipped monorepo workspace section', () => {
       const output = reportPrepare(
-        { workspaces: [makeSkippedWorkspace({ name: 'arrays', ...diagnostics, unparseableCommits })], tags: [] },
+        { targets: [makeSkippedWorkspace({ name: 'arrays', ...diagnostics, unparseableCommits })], tags: [] },
         { applied: false, style: 'rich' },
       );
 
@@ -1259,7 +1348,9 @@ describe(reportPrepare, () => {
     });
 
     it('renders each diagnostic kind and the unparseable commits in a skipped project section', () => {
-      const project: SkippedProjectResult = {
+      const project: SkippedCompositeResult = {
+        targetId: '',
+        kind: 'composite',
         status: 'skipped',
         commitCount: 2,
         parsedCommitCount: 0,
@@ -1268,7 +1359,7 @@ describe(reportPrepare, () => {
         ...diagnostics,
       };
 
-      const output = reportPrepare({ workspaces: [], tags: [], project }, { applied: false, style: 'rich' });
+      const output = reportPrepare({ targets: [project], tags: [] }, { applied: false, style: 'rich' });
 
       for (const line of [...expectedLines, ...expectedUnparseableLines]) {
         expect(output).toContain(line);
@@ -1280,9 +1371,7 @@ describe(reportPrepare, () => {
       const entry = { commitHash: 'abc1234', commitSubject: SUBJECT, entryPosition: 1, type: 'chore' };
       const output = reportPrepare(
         {
-          workspaces: [
-            makeReleasedWorkspace({ malformedBlocks: [block, block], undeclaredEntryTypes: [entry, entry] }),
-          ],
+          targets: [makeReleasedWorkspace({ malformedBlocks: [block, block], undeclaredEntryTypes: [entry, entry] })],
           tags: ['v1.0.1'],
         },
         { applied: false, style: 'rich' },
@@ -1301,7 +1390,7 @@ describe(reportPrepare, () => {
       ];
 
       const output = reportPrepare(
-        { workspaces: [makeWorkspace({ name: 'arrays', unroutedEntryScopes })], tags: [] },
+        { targets: [makeWorkspace({ name: 'arrays', unroutedEntryScopes })], tags: [] },
         { applied: false, style: 'rich' },
       );
 
@@ -1315,7 +1404,7 @@ describe(reportPrepare, () => {
       const finding = { commitHash: 'abc1234', commitSubject: SUBJECT, entryPosition: 1, scope: 'nmr' };
 
       const output = reportPrepare(
-        { workspaces: [makeReleasedWorkspace({ name: 'arrays', unroutedEntryScopes: [finding, finding] })], tags: [] },
+        { targets: [makeReleasedWorkspace({ name: 'arrays', unroutedEntryScopes: [finding, finding] })], tags: [] },
         { applied: false, style: 'rich' },
       );
 
@@ -1326,7 +1415,7 @@ describe(reportPrepare, () => {
 
     it('does not render any change-record lines when the result does not contain any', () => {
       const output = reportPrepare(
-        { workspaces: [makeReleasedWorkspace()], tags: ['v1.0.1'] },
+        { targets: [makeReleasedWorkspace()], tags: ['v1.0.1'] },
         { applied: false, style: 'rich' },
       );
 
@@ -1335,7 +1424,9 @@ describe(reportPrepare, () => {
   });
 
   describe('existing changelog sections', () => {
-    const preservingRelease: ReleasedWorkspaceResult = {
+    const preservingRelease: ReleasedPackageResult = {
+      targetId: '.',
+      kind: 'package',
       status: 'released',
       previousTag: 'v1.0.0',
       commitCount: 1,
@@ -1357,7 +1448,7 @@ describe(reportPrepare, () => {
 
     it('lists the kept versions and warns about the dropped sections under each changelog file', () => {
       const output = reportPrepare(
-        { workspaces: [preservingRelease], tags: ['v1.1.0'] },
+        { targets: [preservingRelease], tags: ['v1.1.0'] },
         { applied: false, style: 'plain' },
       );
 
@@ -1372,7 +1463,9 @@ describe(reportPrepare, () => {
     });
 
     it('reports kept versions for a monorepo workspace and the project', () => {
-      const project: ReleasedProjectResult = {
+      const project: ReleasedCompositeResult = {
+        targetId: '',
+        kind: 'composite',
         status: 'released',
         commitCount: 1,
         parsedCommitCount: 1,
@@ -1389,7 +1482,10 @@ describe(reportPrepare, () => {
       };
 
       const output = reportPrepare(
-        { workspaces: [{ ...preservingRelease, name: 'core' }], tags: ['core-v1.1.0', 'v1.1.0'], project },
+        {
+          targets: [{ ...preservingRelease, targetId: 'core', name: 'core' }, project],
+          tags: ['core-v1.1.0', 'v1.1.0'],
+        },
         { applied: true, style: 'plain' },
       );
 
@@ -1413,23 +1509,25 @@ describe(reportPrepare, () => {
     const released = makeReleasedWorkspace({ unparseableCommits, policyViolations });
     // A version override does not have a release type.
     const { releaseType: _releaseType, ...untyped } = released;
-    const overridden: ReleasedWorkspaceResult = { ...untyped, setVersion: '3.0.0' };
+    const overridden: ReleasedPackageResult = { ...untyped, setVersion: '3.0.0' };
 
     // Together the fixtures populate every glyph-bearing branch of the formatter.
     const fixtures: Array<{ name: string; result: PrepareResult }> = [
       {
         name: 'a released single package',
-        result: { workspaces: [released], tags: ['v1.0.1'], formatCommand, warnings: ['README.md not found'] },
+        result: { targets: [released], tags: ['v1.0.1'], formatCommand, warnings: ['README.md not found'] },
       },
       {
         name: 'a single package released by version override',
-        result: { workspaces: [overridden], tags: ['v3.0.0'] },
+        result: { targets: [overridden], tags: ['v3.0.0'] },
       },
       {
         name: 'a skipped single package',
         result: {
-          workspaces: [
+          targets: [
             {
+              targetId: '.',
+              kind: 'package',
               status: 'skipped',
               commitCount: 1,
               parsedCommitCount: 0,
@@ -1445,51 +1543,65 @@ describe(reportPrepare, () => {
       {
         name: 'a monorepo with released and skipped workspaces and a released project',
         result: {
-          workspaces: [
-            { ...released, name: 'arrays', tag: 'arrays-v1.0.1' },
-            { ...overridden, name: 'strings', tag: 'strings-v3.0.0' },
+          targets: [
+            { ...released, targetId: 'arrays', name: 'arrays', tag: 'arrays-v1.0.1' },
+            { ...overridden, targetId: 'strings', name: 'strings', tag: 'strings-v3.0.0' },
             {
+              targetId: 'numbers',
+              kind: 'package',
               status: 'skipped',
               name: 'numbers',
               commitCount: 0,
               parsedCommitCount: 0,
               skipReason: 'No changes for numbers.',
             },
+            {
+              targetId: '',
+              kind: 'composite',
+              status: 'released',
+              previousTag: 'v0.9.0',
+              commitCount: 2,
+              parsedCommitCount: 0,
+              unparseableCommits,
+              policyViolations,
+              releaseType: 'patch',
+              currentVersion: '0.9.0',
+              newVersion: '0.9.1',
+              tag: 'v0.9.1',
+              bumpedFiles: ['./package.json'],
+              changelogFiles: ['./CHANGELOG.md'],
+              commits: [],
+            },
           ],
           tags: ['arrays-v1.0.1', 'strings-v3.0.0', 'v0.9.1'],
           formatCommand,
           warnings: ['Circular workspace dependencies detected among: a, b'],
-          project: {
-            status: 'released',
-            previousTag: 'v0.9.0',
-            commitCount: 2,
-            parsedCommitCount: 0,
-            unparseableCommits,
-            policyViolations,
-            releaseType: 'patch',
-            currentVersion: '0.9.0',
-            newVersion: '0.9.1',
-            tag: 'v0.9.1',
-            bumpedFiles: ['./package.json'],
-            changelogFiles: ['./CHANGELOG.md'],
-            commits: [],
-          },
         },
       },
       {
         name: 'a monorepo in which nothing is released',
         result: {
-          workspaces: [
-            { status: 'skipped', name: 'numbers', commitCount: 0, parsedCommitCount: 0, skipReason: 'No changes.' },
+          targets: [
+            {
+              targetId: 'numbers',
+              kind: 'package',
+              status: 'skipped',
+              name: 'numbers',
+              commitCount: 0,
+              parsedCommitCount: 0,
+              skipReason: 'No changes.',
+            },
+            {
+              targetId: '',
+              kind: 'composite',
+              status: 'skipped',
+              commitCount: 0,
+              parsedCommitCount: 0,
+              policyViolations,
+              skipReason: 'No commits.',
+            },
           ],
           tags: [],
-          project: {
-            status: 'skipped',
-            commitCount: 0,
-            parsedCommitCount: 0,
-            policyViolations,
-            skipReason: 'No commits.',
-          },
         },
       },
     ];
@@ -1504,7 +1616,7 @@ describe(reportPrepare, () => {
 
     it('replaces each glyph with its plain marker', () => {
       const result: PrepareResult = {
-        workspaces: [released],
+        targets: [released],
         tags: ['v1.0.1'],
         formatCommand,
         warnings: ['README.md not found'],
@@ -1524,7 +1636,16 @@ describe(reportPrepare, () => {
 
     it('marks a skip with the plain skip marker', () => {
       const result: PrepareResult = {
-        workspaces: [{ status: 'skipped', commitCount: 0, parsedCommitCount: 0, skipReason: 'No changes. Skipping.' }],
+        targets: [
+          {
+            targetId: '.',
+            kind: 'package',
+            status: 'skipped',
+            commitCount: 0,
+            parsedCommitCount: 0,
+            skipReason: 'No changes. Skipping.',
+          },
+        ],
         tags: [],
       };
 
@@ -1541,9 +1662,11 @@ function isSurrogate(character: string): boolean {
   return codePoint >= 0xd800 && codePoint <= 0xdfff;
 }
 
-/** Builds a released single-package workspace result, overriding any field. */
-function makeReleasedWorkspace(overrides: Partial<ReleasedWorkspaceResult> = {}): ReleasedWorkspaceResult {
+/** Builds a released single-package result, overriding any field. */
+function makeReleasedWorkspace(overrides: Partial<ReleasedPackageResult> = {}): ReleasedPackageResult {
   return {
+    targetId: overrides.name ?? '.',
+    kind: 'package',
     status: 'released',
     previousTag: 'v1.0.0',
     commitCount: 1,
@@ -1558,9 +1681,11 @@ function makeReleasedWorkspace(overrides: Partial<ReleasedWorkspaceResult> = {})
   };
 }
 
-/** Builds a skipped workspace result, with the given fields overriding a bump-less default. */
-function makeSkippedWorkspace(overrides: Partial<SkippedWorkspaceResult> = {}): SkippedWorkspaceResult {
+/** Builds a skipped package result, with the given fields overriding a bump-less default. */
+function makeSkippedWorkspace(overrides: Partial<SkippedPackageResult> = {}): SkippedPackageResult {
   return {
+    targetId: overrides.name ?? '.',
+    kind: 'package',
     status: 'skipped',
     previousTag: 'v1.0.0',
     commitCount: 2,
@@ -1582,7 +1707,7 @@ function readViolationSubject(output: string): string {
 /** Renders a report whose one policy violation has `commitSubject`. */
 function reportViolation(commitSubject: string): string {
   const result: PrepareResult = {
-    workspaces: [
+    targets: [
       makeReleasedWorkspace({
         policyViolations: [{ commitHash: 'def5678', commitSubject, type: 'internal', surface: 'prefix' }],
       }),

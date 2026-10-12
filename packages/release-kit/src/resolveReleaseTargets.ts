@@ -5,6 +5,7 @@ import { isPublishableManifest } from './isPublishableManifest.ts';
 import { mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
 import type {
   CompositeTarget,
+  MonorepoReleaseConfig,
   PackageTarget,
   ReleaseConfig,
   ReleaseKitConfig,
@@ -42,7 +43,20 @@ export function resolveReleaseTargets(
     return { targets: [buildSinglePackageTarget(config)], settings: pickSettings(config) };
   }
 
-  const config = mergeMonorepoConfig(discovery.packageDirs, userConfig, readRootPackageVersion());
+  return projectMonorepoConfig(mergeMonorepoConfig(discovery.packageDirs, userConfig, readRootPackageVersion()));
+}
+
+/** Reports whether the targets are those of a single-package repo: its root package target and nothing else. */
+export function isSinglePackageTargets(targets: readonly ReleaseTarget[]): boolean {
+  const [only] = targets;
+  return targets.length === 1 && only?.kind === 'package' && only.workspaceDir === undefined;
+}
+
+/**
+ * Projects a merged monorepo config onto its targets: one package target per workspace, in config order, then a
+ * composite for the project block when the config has one. Throws when two targets share an id.
+ */
+export function projectMonorepoConfig(config: MonorepoReleaseConfig): ResolvedReleaseTargets {
   const targets: ReleaseTarget[] = config.workspaces.map(buildWorkspaceTarget);
   if (config.project !== undefined) {
     targets.push(buildProjectTarget(config.project, config.workspaces));
@@ -50,12 +64,6 @@ export function resolveReleaseTargets(
   assertUniqueTargetIds(targets);
 
   return { targets, settings: pickSettings(config) };
-}
-
-/** Reports whether the targets are those of a single-package repo: its root package target and nothing else. */
-export function isSinglePackageTargets(targets: readonly ReleaseTarget[]): boolean {
-  const [only] = targets;
-  return targets.length === 1 && only?.kind === 'package' && only.workspaceDir === undefined;
 }
 
 // region | Helpers

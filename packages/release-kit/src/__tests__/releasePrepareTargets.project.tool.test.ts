@@ -14,7 +14,10 @@ import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mergeMonorepoConfig } from '../loadConfig.ts';
 import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
-import { releasePrepareMono } from '../releasePrepareMono.ts';
+import { releasePrepareTargets, type TargetPrepareOptions } from '../releasePrepareTargets.ts';
+import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
+import { selectCompositeResult } from '../test-utils/prepareResults.ts';
+import type { MonorepoReleaseConfig } from '../types.ts';
 
 // The fixture packages exist only in the temp repo, so the npm check would refuse them; this suite stays off the network.
 vi.mock(import('../npmRegistry.ts'), () => ({
@@ -92,13 +95,13 @@ function withinFixture<T>(repoDir: string, fn: () => T): T {
 }
 
 /** Computes the release plan and applies it, mirroring what the CLI boundary does. */
-function prepareAndApply(...args: Parameters<typeof releasePrepareMono>): ReleasePlan {
-  const plan = releasePrepareMono(...args);
+function prepareAndApply(config: MonorepoReleaseConfig, options: TargetPrepareOptions): ReleasePlan {
+  const plan = prepareMonorepo(config, options);
   applyReleasePlan(plan);
   return plan;
 }
 
-describe('releasePrepareProject (tool)', () => {
+describe('project releases (tool)', () => {
   let tree: TempTree;
 
   beforeEach(() => {
@@ -115,7 +118,7 @@ describe('releasePrepareProject (tool)', () => {
 
       const result = prepareAndApply(config, {});
 
-      const project = result.project;
+      const project = selectCompositeResult(result);
       assert(project?.status === 'released', 'expected released project');
       expect(project.previousTag).toBe('v0.9.0');
       // 2 feat + 1 fix → minor bump → 0.10.0 (pre-1.0 collapse not relevant since feat is minor).
@@ -173,7 +176,7 @@ describe('releasePrepareProject (tool)', () => {
         { project: {}, changelogJson: { enabled: false } },
         rootPackage,
       );
-      expect(releasePrepareMono(defaultConfig, {}).project?.status).toBe('skipped');
+      expect(selectCompositeResult(prepareMonorepo(defaultConfig, {}))?.status).toBe('skipped');
 
       // A whole-tree window sees the root commit and releases.
       const wholeTreeConfig = mergeMonorepoConfig(
@@ -183,7 +186,7 @@ describe('releasePrepareProject (tool)', () => {
       );
       const result = prepareAndApply(wholeTreeConfig, {});
 
-      const project = result.project;
+      const project = selectCompositeResult(result);
       assert(project?.status === 'released', 'expected released project');
       expect(project.previousTag).toBe('v0.9.1');
       expect(project.releaseType).toBe('minor');
@@ -211,14 +214,14 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.1' },
       );
 
-      const skipped = releasePrepareMono(config, {}).project;
+      const skipped = selectCompositeResult(prepareMonorepo(config, {}));
       assert(skipped?.status === 'skipped', 'expected skipped project');
       expect(skipped.skipReason).toContain('No bump-worthy commits since v0.9.1');
       expect(skipped.commitCount).toBe(2);
       expect(skipped.parsedCommitCount).toBe(0);
       expect(skipped.unparseableCommits?.map((commit) => commit.subject)).toStrictEqual(['Update notes']);
 
-      const forced = releasePrepareMono(config, { force: true }).project;
+      const forced = selectCompositeResult(prepareMonorepo(config, { force: true }));
       assert(forced?.status === 'released', 'expected released project');
       expect(forced.releaseType).toBe('patch');
       expect(forced.tag).toBe('v0.9.2');
@@ -239,7 +242,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.1' },
       );
       const forcedPlan = prepareAndApply(forcedConfig, { force: true });
-      const forced = forcedPlan.project;
+      const forced = selectCompositeResult(forcedPlan);
       assert(forced?.status === 'released', 'expected released project');
       expect(forced.tag).toBe('v0.9.2');
       expect(readFileSync(join(tree.dir, 'CHANGELOG.md'), 'utf8')).toMatch(
@@ -258,7 +261,7 @@ describe('releasePrepareProject (tool)', () => {
         { project: {} },
         { exists: true, version: '0.9.2' },
       );
-      const next = prepareAndApply(nextConfig, {}).project;
+      const next = selectCompositeResult(prepareAndApply(nextConfig, {}));
       assert(next?.status === 'released', 'expected released project');
       expect(next.tag).toBe('v0.10.0');
 
@@ -295,7 +298,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.1' },
       );
 
-      const project = releasePrepareMono(config, {}).project;
+      const project = selectCompositeResult(prepareMonorepo(config, {}));
       assert(project?.status === 'released', 'expected released project');
       expect(project.releaseType).toBe('minor');
       expect(project.parsedCommitCount).toBe(1);
@@ -325,7 +328,7 @@ describe('releasePrepareProject (tool)', () => {
 
       const result = prepareAndApply(config, { bumpOverride: 'major' });
 
-      const project = result.project;
+      const project = selectCompositeResult(result);
       assert(project?.status === 'released', 'expected released project');
       expect(project.releaseType).toBe('major');
       expect(project.newVersion).toBe('2.0.0');
@@ -341,9 +344,9 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
-      const project = result.project;
+      const project = selectCompositeResult(result);
       assert(project?.status === 'released', 'expected released project');
       expect(project.tag).toBe('v0.10.0');
       expect(result.tags).toContain('v0.10.0');
@@ -412,7 +415,7 @@ describe('releasePrepareProject (tool)', () => {
       const result = prepareAndApply(config, { force: true });
 
       // Under --force, the project releases at patch level.
-      const project = result.project;
+      const project = selectCompositeResult(result);
       assert(project?.status === 'released', 'expected released project');
       expect(project.previousTag).toBe('v0.9.0');
       expect(project.commits).toHaveLength(0);
@@ -579,4 +582,9 @@ function anchorProjectBaseline(tree: TempTree): void {
 function commitAll(tree: TempTree, message: string): void {
   execFileSync('git', ['add', '-A'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
   execFileSync('git', ['commit', '--quiet', '-m', message], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+/** Prepares a monorepo release over the targets that the merged config projects onto. */
+function prepareMonorepo(config: MonorepoReleaseConfig, options: TargetPrepareOptions): ReleasePlan {
+  return releasePrepareTargets(projectMonorepoConfig(config), options);
 }

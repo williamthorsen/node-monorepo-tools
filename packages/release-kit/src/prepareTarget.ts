@@ -37,15 +37,10 @@ export interface TargetReading {
   untagged: UntaggedBaseline | undefined;
 }
 
-/** Outcome of {@link decideTargetRelease}: a direct release, or a skip with its reason. */
+/** Outcome of {@link decideTargetRelease}: a release at a decided level or at an explicit version, or a skip. */
 export type TargetDecision =
-  | {
-      outcome: 'release';
-      /** Undefined when `setVersion` chose the version. */
-      releaseType: ReleaseType | undefined;
-      bumpOverride: ReleaseType | undefined;
-      setVersion: string | undefined;
-    }
+  | { outcome: 'release'; releaseType: ReleaseType; bumpOverride: ReleaseType | undefined; setVersion: undefined }
+  | { outcome: 'release'; releaseType: undefined; bumpOverride: undefined; setVersion: string }
   | { outcome: 'skip'; skipReason: string };
 
 /** The release level that a target takes, whether its own commits or a dependency's bump decided it. */

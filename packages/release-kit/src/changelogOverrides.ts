@@ -5,7 +5,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { extractMigration } from './extractMigration.ts';
 import { isRecord } from './typeGuards.ts';
-import type { ChangelogEntry, ChangelogItem, ChangelogOverride, ChangelogSection, WorkspaceConfig } from './types.ts';
+import type { ChangelogEntry, ChangelogItem, ChangelogOverride, ChangelogSection } from './types.ts';
 
 /** Conventional override-file location relative to a scope root (project, workspace, or single-package). */
 const OVERRIDES_FILENAME = '.meta/changelog-overrides.json';
@@ -526,15 +526,12 @@ export interface OverrideContext {
 }
 
 /**
- * Loads and validates the override files of the root and every workspace, and bundles them with empty warning
- * aggregators. Throws if any file fails to load, so that a malformed checked-in override file stops `prepare` before
- * any workspace writes.
+ * Loads and validates the override files of the root and of every workspace at the given repo-relative paths, and
+ * bundles them with empty warning aggregators. Throws if any file fails to load, so that a malformed checked-in
+ * override file stops `prepare` before any workspace writes.
  */
-export function createOverrideContext(workspaces: WorkspaceConfig[]): OverrideContext {
-  const result = loadOverridesForScopes({
-    project: '.',
-    workspaces: workspaces.map((workspace) => workspace.workspacePath),
-  });
+export function createOverrideContext(workspacePaths: readonly string[]): OverrideContext {
+  const result = loadOverridesForScopes({ project: '.', workspaces: [...workspacePaths] });
   if (result.errors.length > 0) {
     throw new Error(`Failed to load changelog overrides:\n  - ${result.errors.join('\n  - ')}`);
   }

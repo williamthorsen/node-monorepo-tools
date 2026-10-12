@@ -55,7 +55,7 @@ describe(planReleaseNotesPreviews, () => {
       entries: changelogJsonFixture,
       sectionOrder: ['Features', 'Bug fixes'],
     });
-    applyReleasePlan({ writes: previews.writes, tags: [], summary: '', formatCommand: undefined, workspaces: [] });
+    applyReleasePlan({ writes: previews.writes, tags: [], summary: '', formatCommand: undefined, targets: [] });
   }
 
   it('writes both preview files under docs/ with correct content for a pending release', () => {

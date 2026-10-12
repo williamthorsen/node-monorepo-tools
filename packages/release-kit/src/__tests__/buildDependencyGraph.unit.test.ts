@@ -7,21 +7,7 @@ vi.mock(import('node:fs'), () => ({
 }));
 
 import { buildDependencyGraph } from '../buildDependencyGraph.ts';
-import type { WorkspaceConfig } from '../types.ts';
-
-/** Builds a publishable workspace config under `packages/{dir}`. */
-function makeWorkspace(dir: string, packageFile?: string): WorkspaceConfig {
-  return {
-    dir,
-    name: `@test/${dir}`,
-    tagPrefix: `${dir}-v`,
-    workspacePath: `packages/${dir}`,
-    isPublishable: true,
-    packageFiles: [packageFile ?? `packages/${dir}/package.json`],
-    changelogPaths: [`packages/${dir}`],
-    paths: [`packages/${dir}/**`],
-  };
-}
+import { makeWorkspaceTarget } from '../test-utils/packageTargets.ts';
 
 describe(buildDependencyGraph, () => {
   afterEach(() => {
@@ -29,9 +15,9 @@ describe(buildDependencyGraph, () => {
   });
 
   it('builds a reverse dependency map for workspace dependencies', () => {
-    const compA = makeWorkspace('core');
-    const compB = makeWorkspace('release-kit');
-    const compC = makeWorkspace('preflight');
+    const compA = makeWorkspaceTarget('core');
+    const compB = makeWorkspaceTarget('release-kit');
+    const compC = makeWorkspaceTarget('preflight');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -64,8 +50,8 @@ describe(buildDependencyGraph, () => {
   });
 
   it('includes peerDependencies with workspace: protocol', () => {
-    const compA = makeWorkspace('core');
-    const compB = makeWorkspace('plugin');
+    const compA = makeWorkspaceTarget('core');
+    const compB = makeWorkspaceTarget('plugin');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -87,8 +73,8 @@ describe(buildDependencyGraph, () => {
   });
 
   it('ignores non-workspace dependencies', () => {
-    const compA = makeWorkspace('core');
-    const compB = makeWorkspace('app');
+    const compA = makeWorkspaceTarget('core');
+    const compB = makeWorkspaceTarget('app');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -110,8 +96,8 @@ describe(buildDependencyGraph, () => {
   });
 
   it('ignores devDependencies', () => {
-    const compA = makeWorkspace('core');
-    const compB = makeWorkspace('app');
+    const compA = makeWorkspaceTarget('core');
+    const compB = makeWorkspaceTarget('app');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -133,9 +119,9 @@ describe(buildDependencyGraph, () => {
   });
 
   it('handles transitive dependencies (A -> B -> C)', () => {
-    const compA = makeWorkspace('core');
-    const compB = makeWorkspace('middle');
-    const compC = makeWorkspace('app');
+    const compA = makeWorkspaceTarget('core');
+    const compB = makeWorkspaceTarget('middle');
+    const compC = makeWorkspaceTarget('app');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -172,7 +158,7 @@ describe(buildDependencyGraph, () => {
       return JSON.stringify({ name: '@scope/app', version: '2.3.4' });
     });
 
-    const graph = buildDependencyGraph([makeWorkspace('core'), makeWorkspace('app')]);
+    const graph = buildDependencyGraph([makeWorkspaceTarget('core'), makeWorkspaceTarget('app')]);
 
     expect(graph.dirToVersion).toStrictEqual(
       new Map([
@@ -190,14 +176,14 @@ describe(buildDependencyGraph, () => {
       return JSON.stringify({ name: '@scope/odd', version: 2 });
     });
 
-    const graph = buildDependencyGraph([makeWorkspace('private'), makeWorkspace('odd')]);
+    const graph = buildDependencyGraph([makeWorkspaceTarget('private'), makeWorkspaceTarget('odd')]);
 
     expect(graph.dirToVersion.size).toBe(0);
     expect(graph.packageNameToDir.size).toBe(2);
   });
 
   it('returns empty maps when the workspaces do not have workspace dependencies', () => {
-    const comp = makeWorkspace('standalone');
+    const comp = makeWorkspaceTarget('standalone');
 
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@scope/standalone', version: '1.0.0' }));
 
@@ -208,16 +194,7 @@ describe(buildDependencyGraph, () => {
   });
 
   it('handles workspaces without packageFiles gracefully', () => {
-    const comp: WorkspaceConfig = {
-      dir: 'empty',
-      name: '@test/empty',
-      tagPrefix: 'empty-v',
-      workspacePath: 'packages/empty',
-      isPublishable: true,
-      packageFiles: [],
-      changelogPaths: [],
-      paths: [],
-    };
+    const comp = makeWorkspaceTarget('empty', { versionFiles: [] });
 
     const graph = buildDependencyGraph([comp]);
 
@@ -230,7 +207,7 @@ describe(buildDependencyGraph, () => {
       throw new Error('EACCES: permission denied');
     });
 
-    expect(() => buildDependencyGraph([makeWorkspace('core')])).toThrow(
+    expect(() => buildDependencyGraph([makeWorkspaceTarget('core')])).toThrow(
       'Failed to read packages/core/package.json: EACCES: permission denied',
     );
   });
@@ -241,13 +218,15 @@ describe(buildDependencyGraph, () => {
       throw underlying;
     });
 
-    expect(() => buildDependencyGraph([makeWorkspace('core')])).toThrow(expect.objectContaining({ cause: underlying }));
+    expect(() => buildDependencyGraph([makeWorkspaceTarget('core')])).toThrow(
+      expect.objectContaining({ cause: underlying }),
+    );
   });
 
   it('names the package file containing invalid JSON', () => {
     mockReadFileSync.mockReturnValue('{ not valid json');
 
-    expect(() => buildDependencyGraph([makeWorkspace('core')])).toThrow(
+    expect(() => buildDependencyGraph([makeWorkspaceTarget('core')])).toThrow(
       /^Failed to parse JSON in packages\/core\/package\.json: /,
     );
   });
@@ -255,7 +234,7 @@ describe(buildDependencyGraph, () => {
   it('preserves the underlying error as the cause when a package file contains invalid JSON', () => {
     mockReadFileSync.mockReturnValue('{ not valid json');
 
-    expect(() => buildDependencyGraph([makeWorkspace('core')])).toThrow(
+    expect(() => buildDependencyGraph([makeWorkspaceTarget('core')])).toThrow(
       expect.objectContaining({ cause: expect.any(SyntaxError) }),
     );
   });

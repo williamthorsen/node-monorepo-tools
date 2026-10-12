@@ -1,10 +1,10 @@
 import type { ChangelogDiagnostics } from './buildChangelogEntries.ts';
-import type { ReleasedWorkspaceResult } from './types.ts';
+import type { ReleasedPackageResult } from './types.ts';
 
 /** Attaches a history's diagnostics to a released or skipped result, omitting each empty list. */
 export function attachChangelogDiagnostics(
   result: Pick<
-    ReleasedWorkspaceResult,
+    ReleasedPackageResult,
     'malformedBlocks' | 'policyViolations' | 'undeclaredEntryTypes' | 'unroutedEntryScopes'
   >,
   diagnostics: ChangelogDiagnostics,
