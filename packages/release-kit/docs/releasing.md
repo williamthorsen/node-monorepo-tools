@@ -15,7 +15,7 @@ Scaffolded files:
 - `.github/workflows/release.yaml`: Workflow that delegates to a reusable release workflow
 - `.config/release-kit.config.ts`: Starter config with commented-out customization examples (with `--with-config`)
 
-When every workspace, or the single package, sets `private: true`, `init` skips `create-github-release.yaml` and `publish.yaml`, `--force` included, and reports each skip: `publish` and `create-github-release` skip private packages, so neither workflow would do anything. Its next steps then leave out the provenance and trusted-publisher steps.
+When every workspace, or the single package, sets `private: true`, `init` skips `create-github-release.yaml` and `publish.yaml`, `--force` included, and reports each skip: `publish` and `create-github-release` skip private packages, so neither workflow would do anything. A repo with a `project` block is the exception: `create-github-release` still creates a Release for its project tag, so that repo adds `create-github-release.yaml` itself (see [Project releases](project-releases.md#publishing-and-github-releases)). Its next steps then leave out the provenance and trusted-publisher steps.
 
 ## `release-kit update-templates`
 
