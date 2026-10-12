@@ -40,7 +40,7 @@ The bundled file's `confidence:` family grades how advisable a recommendation is
 
 Names match case-insensitively, as GitHub matches them: `Bug` in the `labels` record replaces a preset's `bug`, and `Bug: null` removes it. A label takes the spelling of the last layer to write it.
 
-`description` is optional throughout, in a preset as in the `labels` record, and `sync-labels init` generates none for a scope label. The generated file spells an absent description `''` because `github-label-sync` reads an omitted description as "leave the label's current one alone"; the empty form clears it.
+`description` is optional throughout, in a preset as in the `labels` record, and `sync-labels init` generates none for a scope label. The generated file spells an absent description `''` because `github-label-sync` reads an omitted description as "leave the label's current one alone"; the empty form clears it. Because a scope label without a description groups compactly in GitHub's label list, release-kit's readyup kit warns about each `scope:` label in the generated file that has one.
 
 Overlaps between layers are never errors; order resolves them, and the committed `.github/labels.yaml` diff shows any unexpected change at review. Three misstatements are config errors, because none is visible in the output diff: a dangling `null`, which removes a name not defined by any preset; `labels` keys that differ only in case, all but one of which the fold would discard; and an alias that names a resolved label or repeats another alias, which would make the sync merge one label into another and delete it (see [Renaming a label](#renaming-a-label)).
 

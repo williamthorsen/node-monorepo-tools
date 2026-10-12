@@ -219,6 +219,13 @@ export default defineRdyKit({
                   check: () => labelsHaveCurrentPresetHash('common', COMMON_PRESET_HASH),
                   fix: 'Run `release-kit sync-labels generate` to incorporate updated common labels',
                 },
+                {
+                  name: 'scope labels in .github/labels.yaml have no description',
+                  severity: 'warn',
+                  quiet: true,
+                  check: () => scopeLabelsHaveNoDescriptions(),
+                  fix: 'Remove `description` from these scope labels in the repoLabels block of .config/release-kit.config.ts, so that GitHub groups them compactly, then run `release-kit sync-labels generate`',
+                },
               ],
             },
           ],
@@ -450,6 +457,45 @@ export function resolveChangelogJsonOutputPath(): string {
 
   const match = /changelogJson\s*:\s*\{[^}]*outputPath\s*:\s*['"]([^'"]+)['"]/.exec(content);
   return match?.[1] ?? DEFAULT_CHANGELOG_JSON_PATH;
+}
+
+/**
+ * Checks that every `scope:` label in `.github/labels.yaml` has an empty description.
+ *
+ * Parses the file line by line: `sync-labels generate` writes each label as a `- name:` line followed by indented
+ * fields, and spells an absent description `''`. A missing file passes, because the parent check reports it.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function scopeLabelsHaveNoDescriptions(): boolean | CheckOutcome {
+  const content = readFile('.github/labels.yaml');
+  if (content === undefined) return true;
+
+  const described: string[] = [];
+  let currentName: string | undefined;
+  for (const line of content.split('\n')) {
+    const nameMatch = /^- name:\s*(.*?)\s*$/.exec(line);
+    if (nameMatch) {
+      currentName = stripYamlQuotes(nameMatch[1] ?? '');
+      continue;
+    }
+    const descriptionMatch = /^\s+description:\s*(.*?)\s*$/.exec(line);
+    if (descriptionMatch && currentName?.startsWith('scope:')) {
+      if (stripYamlQuotes(descriptionMatch[1] ?? '') !== '') described.push(currentName);
+    }
+  }
+
+  if (described.length === 0) return true;
+  return {
+    ok: false,
+    detail: `scope labels with a description: ${described.join(', ')}`,
+  };
+}
+
+/** Removes one level of matching single or double quotes from a YAML scalar. */
+function stripYamlQuotes(value: string): string {
+  const match = /^(['"])(.*)\1$/.exec(value);
+  return match?.[2] ?? value;
 }
 
 // endregion | Helpers

@@ -257,6 +257,13 @@ var default_default = defineRdyKit({
                   severity: "warn",
                   check: () => labelsHaveCurrentPresetHash("common", COMMON_PRESET_HASH),
                   fix: "Run `release-kit sync-labels generate` to incorporate updated common labels"
+                },
+                {
+                  name: "scope labels in .github/labels.yaml have no description",
+                  severity: "warn",
+                  quiet: true,
+                  check: () => scopeLabelsHaveNoDescriptions(),
+                  fix: "Remove `description` from these scope labels in the repoLabels block of .config/release-kit.config.ts, so that GitHub groups them compactly, then run `release-kit sync-labels generate`"
                 }
               ]
             }
@@ -410,6 +417,32 @@ function resolveChangelogJsonOutputPath() {
   const match = /changelogJson\s*:\s*\{[^}]*outputPath\s*:\s*['"]([^'"]+)['"]/.exec(content);
   return match?.[1] ?? DEFAULT_CHANGELOG_JSON_PATH;
 }
+function scopeLabelsHaveNoDescriptions() {
+  const content = readFile(".github/labels.yaml");
+  if (content === void 0) return true;
+  const described = [];
+  let currentName;
+  for (const line of content.split("\n")) {
+    const nameMatch = /^- name:\s*(.*?)\s*$/.exec(line);
+    if (nameMatch) {
+      currentName = stripYamlQuotes(nameMatch[1] ?? "");
+      continue;
+    }
+    const descriptionMatch = /^\s+description:\s*(.*?)\s*$/.exec(line);
+    if (descriptionMatch && currentName?.startsWith("scope:")) {
+      if (stripYamlQuotes(descriptionMatch[1] ?? "") !== "") described.push(currentName);
+    }
+  }
+  if (described.length === 0) return true;
+  return {
+    ok: false,
+    detail: `scope labels with a description: ${described.join(", ")}`
+  };
+}
+function stripYamlQuotes(value) {
+  const match = /^(['"])(.*)\1$/.exec(value);
+  return match?.[2] ?? value;
+}
 export {
   COMMON_PRESET_HASH,
   CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO,
@@ -427,5 +460,6 @@ export {
   packagesShipChangelogJson,
   readmeHasReleaseNotesMarkers,
   readmesHaveReleaseNotesMarkers,
-  resolveChangelogJsonOutputPath
+  resolveChangelogJsonOutputPath,
+  scopeLabelsHaveNoDescriptions
 };
