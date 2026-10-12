@@ -26,8 +26,12 @@ process.env['GIT_ATTR_NOSYSTEM'] = '1';
 // those two as the rest of what that directory supplies. Injecting the keys through the environment redirects them
 // without redirecting `XDG_CONFIG_HOME`, which other tools spawned by a test read for configuration of their own:
 // pnpm fails to start when that variable points at the null device.
-process.env['GIT_CONFIG_COUNT'] = '2';
+process.env['GIT_CONFIG_COUNT'] = '3';
 process.env['GIT_CONFIG_KEY_0'] = 'core.excludesFile';
 process.env['GIT_CONFIG_VALUE_0'] = os.devNull;
 process.env['GIT_CONFIG_KEY_1'] = 'core.attributesFile';
 process.env['GIT_CONFIG_VALUE_1'] = os.devNull;
+// A command such as `git commit` otherwise starts a detached `git maintenance run --auto`, which can still be
+// writing under `.git` while a test's cleanup removes the repository.
+process.env['GIT_CONFIG_KEY_2'] = 'maintenance.auto';
+process.env['GIT_CONFIG_VALUE_2'] = 'false';

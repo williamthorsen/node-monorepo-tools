@@ -149,10 +149,12 @@ const DEFAULTS_FILES: Record<string, string> = {
     '      gitConfigGlobal: process.env.GIT_CONFIG_GLOBAL,',
     '      gitConfigKey0: process.env.GIT_CONFIG_KEY_0,',
     '      gitConfigKey1: process.env.GIT_CONFIG_KEY_1,',
+    '      gitConfigKey2: process.env.GIT_CONFIG_KEY_2,',
     '      gitConfigNoSystem: process.env.GIT_CONFIG_NOSYSTEM,',
     '      gitConfigSystem: process.env.GIT_CONFIG_SYSTEM,',
     '      gitConfigValue0: process.env.GIT_CONFIG_VALUE_0,',
     '      gitConfigValue1: process.env.GIT_CONFIG_VALUE_1,',
+    '      gitConfigValue2: process.env.GIT_CONFIG_VALUE_2,',
     '    }),',
     '  );',
     '  expect(entry).toBeTypeOf("string");',
@@ -421,14 +423,16 @@ describe('the defaults supplied by the factory, run for real', { timeout: 120_00
   it('isolates git in the test process', ({ defaults }) => {
     expect(defaults.supplied).toMatchObject({
       gitAttrNoSystem: '1',
-      gitConfigCount: '2',
+      gitConfigCount: '3',
       gitConfigGlobal: os.devNull,
       gitConfigKey0: 'core.excludesFile',
       gitConfigKey1: 'core.attributesFile',
+      gitConfigKey2: 'maintenance.auto',
       gitConfigNoSystem: '1',
       gitConfigSystem: os.devNull,
       gitConfigValue0: os.devNull,
       gitConfigValue1: os.devNull,
+      gitConfigValue2: 'false',
     });
   });
 
@@ -437,7 +441,7 @@ describe('the defaults supplied by the factory, run for real', { timeout: 120_00
   // `node_modules` resolves the same either way, because the flag never applied to it.
   //
   // The report contains the two entries alone because an unset variable does not serialize to any key, so the
-  // absent nine are the assertion that nothing set them.
+  // absent eleven are the assertion that nothing set them.
   it('falls back to the node entry and the ambient git configuration when both defaults are off', ({ defaults }) => {
     expect(defaults.optedOut).toStrictEqual({ entry: 'node', transitiveEntry: 'default' });
   });
