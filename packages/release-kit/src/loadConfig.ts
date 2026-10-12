@@ -206,18 +206,21 @@ export function mergeMonorepoConfig(
 }
 
 /**
- * Copies optional pass-through fields (`formatCommand`, `scopeAliases`, `breakingPolicies`) from
- * `userConfig` onto `result`, omitting any that are absent. Object-typed fields are stored by
- * reference.
+ * Copies optional pass-through fields (`changelogMarkdown`, `formatCommand`, `scopeAliases`, `breakingPolicies`)
+ * from `userConfig` onto `result`, omitting any that are absent. Object-typed fields are stored by reference.
  */
 function applyOptionalPassthroughFields(
   result: {
+    changelogMarkdown?: ReleaseKitConfig['changelogMarkdown'];
     formatCommand?: string;
     scopeAliases?: Record<string, string>;
     breakingPolicies?: ReleaseKitConfig['breakingPolicies'];
   },
   userConfig: ReleaseKitConfig | undefined,
 ): void {
+  if (userConfig?.changelogMarkdown !== undefined) {
+    result.changelogMarkdown = userConfig.changelogMarkdown;
+  }
   if (userConfig?.formatCommand !== undefined) {
     result.formatCommand = userConfig.formatCommand;
   }
