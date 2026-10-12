@@ -43,6 +43,7 @@ import kit, {
   configFileExportsConfig,
   CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO,
   CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE,
+  scopeLabelsHaveNoDescriptions,
 } from '../../.readyup/kits/default.ts';
 
 const CHANGELOG_CHECK = 'published packages ship CHANGELOG.md';
@@ -51,6 +52,8 @@ const CHANGESETS_CHECK = '@changesets/cli not in devDependencies';
 const CONFIG_GATE = '.config/release-kit.config.ts exports a config';
 const CREATE_GITHUB_RELEASE_CHECK = 'create-github-release.yaml matches template';
 const CREATE_GITHUB_RELEASE_PATH = '.github/workflows/create-github-release.yaml';
+const LABELS_FILE_CHECK = '.github/labels.yaml exists';
+const SCOPE_DESCRIPTION_CHECK = 'scope labels in .github/labels.yaml have no description';
 
 describe(configFileExportsConfig, () => {
   it('returns false when the config file is absent', () => {
@@ -249,6 +252,69 @@ describe(CREATE_GITHUB_RELEASE_CHECK, () => {
 
     expect(getCreateGithubReleaseCheck().check()).toBe(false);
     expect(mockedFileMatchesHash).toHaveBeenLastCalledWith(CREATE_GITHUB_RELEASE_PATH, hash);
+  });
+});
+
+describe(scopeLabelsHaveNoDescriptions, () => {
+  it('returns true when the labels file is absent', () => {
+    mockedReadFile.mockReturnValue(undefined);
+
+    expect(scopeLabelsHaveNoDescriptions()).toBe(true);
+  });
+
+  it('returns true when every scope label has an empty description', () => {
+    mockedReadFile.mockReturnValue(
+      [
+        '- name: bug',
+        '  color: d73a4a',
+        "  description: Something isn't working",
+        '- name: scope:core',
+        '  color: 00ff96',
+        "  description: ''",
+        "- name: 'scope:nmr'",
+        '  color: 00ff96',
+        '  description: ""',
+        '- name: scope:root',
+        '  color: 00ff96',
+        '',
+      ].join('\n'),
+    );
+
+    expect(scopeLabelsHaveNoDescriptions()).toBe(true);
+  });
+
+  it('names each scope label that has a description, archived ones included', () => {
+    mockedReadFile.mockReturnValue(
+      [
+        '- name: scope:core',
+        '  color: 00ff96',
+        '  description: Core utilities',
+        '- name: scope:nmr',
+        '  color: 00ff96',
+        "  description: ''",
+        "- name: 'scope:basic'",
+        '  color: 00ff96',
+        "  description: 'Retired package'",
+        '  archived: true',
+        '',
+      ].join('\n'),
+    );
+
+    expect(scopeLabelsHaveNoDescriptions()).toStrictEqual({
+      ok: false,
+      detail: 'scope labels with a description: scope:core, scope:basic',
+    });
+  });
+});
+
+describe(SCOPE_DESCRIPTION_CHECK, () => {
+  // Nesting without a skip of its own leaves the parent's `repoLabels` skip in charge.
+  it('is nested beneath .github/labels.yaml exists without a skip of its own', () => {
+    const labelsFileCheck = findCheck(LABELS_FILE_CHECK, getConfigGate().checks ?? []);
+    const check = findCheck(SCOPE_DESCRIPTION_CHECK, labelsFileCheck.checks ?? []);
+
+    expect(check.severity).toBe('warn');
+    expect(check.skip).toBeUndefined();
   });
 });
 
