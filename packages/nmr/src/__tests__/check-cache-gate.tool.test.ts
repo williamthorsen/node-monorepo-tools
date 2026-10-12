@@ -287,8 +287,9 @@ describe('the check-result cache gate', () => {
 
     it('runs the command every time outside a git repository, and gives the reason under NMR_DEBUG', async () => {
       workspace.rm('repo/.git');
-      // Stop git's upward search at the fixture, so that git does not find a repository that contains the temp root.
-      vi.stubEnv('GIT_CEILING_DIRECTORIES', workspace.dir);
+      // Point git at a directory that does not exist, so that it skips discovery and cannot find any repository,
+      // whether one contains the temp root or a remnant of `repo/.git` survives the removal.
+      vi.stubEnv('GIT_DIR', workspace.resolve('no-repository'));
 
       await runNmr(COMMAND, repo);
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
@@ -835,6 +836,9 @@ function scaffoldRepo(workspace: TempTree, log: string): void {
   runGit(repo, ['config', 'user.email', 'fixture@example.com']);
   runGit(repo, ['config', 'user.name', 'Fixture']);
   runGit(repo, ['config', 'commit.gpgsign', 'false']);
+  // Keep the commit from starting a detached maintenance process, which could write under `.git` after a test
+  // has begun to change it.
+  runGit(repo, ['config', 'maintenance.auto', 'false']);
   runGit(repo, ['add', '--all']);
   runGit(repo, ['commit', '--message', 'initial']);
 }
