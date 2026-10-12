@@ -76,9 +76,12 @@ export async function createGithubReleaseCommand(
 
 // region | Helpers
 
-/** Reports whether the tag gets a GitHub Release: a project tag always does, and a package tag when it is public. */
+/**
+ * Reports whether the tag gets a GitHub Release: a directory or project tag always does, and a package tag when it is
+ * public.
+ */
 function isReleasable(resolvedTag: ResolvedTag): boolean {
-  return resolvedTag.kind === 'project' || resolvedTag.isPublishable;
+  return resolvedTag.kind !== 'package' || resolvedTag.isPublishable;
 }
 
 // endregion | Helpers

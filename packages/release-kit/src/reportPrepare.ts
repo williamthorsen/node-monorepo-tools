@@ -12,10 +12,12 @@ import { RELEASE_GLYPHS } from './glyphs.ts';
 import { PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
 import type {
   CompositePrepareResult,
+  DirectoryPrepareResult,
   PackagePrepareResult,
   PolicyViolation,
   PrepareResult,
   PropagationSource,
+  ReleasedDirectoryResult,
   ReleasedPackageResult,
 } from './types.ts';
 
@@ -221,10 +223,13 @@ function formatProjectSection(
   lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(tag))}`);
 }
 
-/** Renders a single workspace's section within multi-workspace output. */
+/** A released package or directory result, which the workspace section renders. */
+type ReleasedMemberResult = ReleasedPackageResult | ReleasedDirectoryResult;
+
+/** Renders a workspace's or a directory's section within multi-workspace output. */
 function formatWorkspaceSection(
   lines: string[],
-  workspace: PackagePrepareResult,
+  workspace: PackagePrepareResult | DirectoryPrepareResult,
   dryRun: boolean,
   style: OutputStyle,
 ): void {
@@ -243,8 +248,8 @@ function formatWorkspaceSection(
     return;
   }
 
-  const { propagatedFrom } = workspace;
-  const isPropagatedOnly = workspace.propagatedOnly === true;
+  const propagatedFrom = workspace.kind === 'package' ? workspace.propagatedFrom : undefined;
+  const isPropagatedOnly = workspace.kind === 'package' && workspace.propagatedOnly === true;
 
   formatCommitSummary(lines, workspace, propagatedFrom, isPropagatedOnly);
   formatUnparseableWarning(lines, workspace, style, '  ');
@@ -264,7 +269,7 @@ function formatWorkspaceSection(
 /** Appends the line under the commit count: the dependencies behind a propagation-only bump, or the parsed count. */
 function formatCommitSummary(
   lines: string[],
-  workspace: ReleasedPackageResult,
+  workspace: ReleasedMemberResult,
   propagatedFrom: PropagationSource[] | undefined,
   isPropagatedOnly: boolean,
 ): void {
@@ -279,7 +284,7 @@ function formatCommitSummary(
 }
 
 /** Appends the bump-override / set-version label and the "Bumping versions..." line. */
-function formatBumpLabels(lines: string[], workspace: ReleasedPackageResult, isPropagatedOnly: boolean): void {
+function formatBumpLabels(lines: string[], workspace: ReleasedMemberResult, isPropagatedOnly: boolean): void {
   if (workspace.setVersion !== undefined) {
     lines.push(`  Using version override: ${workspace.setVersion}`);
   } else if (workspace.bumpOverride !== undefined && !isPropagatedOnly) {
@@ -296,7 +301,7 @@ function formatBumpLabels(lines: string[], workspace: ReleasedPackageResult, isP
 /** Appends the `currentVersion → newVersion` line with the appropriate suffix. */
 function formatVersionLine(
   lines: string[],
-  workspace: ReleasedPackageResult,
+  workspace: ReleasedMemberResult,
   propagatedFrom: PropagationSource[] | undefined,
   isPropagatedOnly: boolean,
   style: OutputStyle,
@@ -313,7 +318,7 @@ function formatVersionLine(
 }
 
 /** Appends bump file detail lines. */
-function formatBumpFiles(lines: string[], workspace: ReleasedPackageResult, dryRun: boolean, indent = ''): void {
+function formatBumpFiles(lines: string[], workspace: ReleasedMemberResult, dryRun: boolean, indent = ''): void {
   for (const file of workspace.bumpedFiles) {
     if (dryRun) {
       lines.push(dim(`${indent}  [dry-run] Would bump ${file}`));

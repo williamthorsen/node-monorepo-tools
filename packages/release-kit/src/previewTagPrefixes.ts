@@ -5,6 +5,7 @@ import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { DEFAULT_PROJECT_TAG_PREFIX } from './defaults.ts';
+import { deriveDirectoryConfig } from './deriveDirectoryConfig.ts';
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { detectUndeclaredTagPrefixes, type UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';
 import { describeEmptyWorkspace, discoverWorkspaces } from './discoverWorkspaces.ts';
@@ -12,7 +13,7 @@ import { matchesTagPrefix } from './matchesTagPrefix.ts';
 import { normalizeWorkspacePath } from './resolveReleaseDeclaration.ts';
 import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './types.ts';
 
-/** One workspace's preview row in the tag-prefix preview. */
+/** One workspace's or directory target's preview row in the tag-prefix preview. */
 export interface TagPrefixPreviewRow {
   /** Directory path relative to the repo root (e.g., `packages/core`). */
   workspacePath: string;
@@ -57,7 +58,8 @@ export interface TagPrefixPreview {
 }
 
 /**
- * Builds a structured preview of tag-prefix state for every discovered workspace.
+ * Builds a structured preview of tag-prefix state for every discovered workspace and every directory that the
+ * `releases` block declares.
  *
  * Records a workspace's derivation error rather than aborting. For a repo releasing as a single package, the
  * preview doesn't contain any rows; for one declaring patterns that don't resolve to any package, the function
@@ -75,9 +77,12 @@ export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview 
   const workspacePaths = workspace.kind === 'packages' ? workspace.packageDirs : [];
   const overridesByPath = buildOverrideMap(config, workspacePaths);
 
-  const workspaces: TagPrefixPreviewRow[] = Array.from(workspacePaths, (workspacePath) =>
-    buildPreviewRow(workspacePath, overridesByPath),
-  );
+  const workspaces: TagPrefixPreviewRow[] = [
+    ...Array.from(workspacePaths, (workspacePath) =>
+      buildPreviewRow(workspacePath, () => deriveWorkspaceConfig(workspacePath).tagPrefix, overridesByPath),
+    ),
+    ...buildDirectoryRows(config, workspacePaths, overridesByPath),
+  ];
 
   const retiredPackages = buildRetiredPreviewEntries(config?.retiredPackages ?? []);
 
@@ -115,13 +120,40 @@ function buildOverrideMap(
   return map;
 }
 
-/** Constructs a single workspace's preview row, catching derivation failures per-workspace. */
-function buildPreviewRow(workspacePath: string, overridesByPath: Map<string, LegacyIdentity[]>): TagPrefixPreviewRow {
+/**
+ * Builds a preview row for each `releases` path entry that doesn't name a discovered workspace, which declares a
+ * directory target.
+ */
+function buildDirectoryRows(
+  config: ReleaseKitConfig | undefined,
+  workspacePaths: readonly string[],
+  overridesByPath: Map<string, LegacyIdentity[]>,
+): TagPrefixPreviewRow[] {
+  const discovered = new Set(workspacePaths);
+  return Object.entries(config?.releases ?? {}).flatMap(([name, entry]) => {
+    if (entry === false || !('path' in entry)) return [];
+    const directoryPath = normalizeWorkspacePath(entry.path);
+    if (discovered.has(directoryPath)) return [];
+    const declared = {
+      name,
+      path: directoryPath,
+      ...(entry.tagPrefix !== undefined && { tagPrefix: entry.tagPrefix }),
+    };
+    return [buildPreviewRow(directoryPath, () => deriveDirectoryConfig(declared).tagPrefix, overridesByPath)];
+  });
+}
+
+/** Constructs a single target's preview row, catching a failure of `derivePrefix` per row. */
+function buildPreviewRow(
+  workspacePath: string,
+  derivePrefix: () => string,
+  overridesByPath: Map<string, LegacyIdentity[]>,
+): TagPrefixPreviewRow {
   const dir = basename(workspacePath);
   let derivedPrefix: string | null = null;
   let derivationError: string | null = null;
   try {
-    derivedPrefix = deriveWorkspaceConfig(workspacePath).tagPrefix;
+    derivedPrefix = derivePrefix();
   } catch (error: unknown) {
     derivationError = describeError(error);
   }

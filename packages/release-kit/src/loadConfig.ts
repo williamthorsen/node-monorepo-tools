@@ -11,11 +11,18 @@ import {
   DEFAULT_VERSION_PATTERNS,
   DEFAULT_WORK_TYPES,
 } from './defaults.ts';
+import { deriveDirectoryConfig } from './deriveDirectoryConfig.ts';
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
-import { type DeclaredComposite, resolveReleaseDeclaration } from './resolveReleaseDeclaration.ts';
+import {
+  type DeclaredComposite,
+  getTargetName,
+  normalizeWorkspacePath,
+  resolveReleaseDeclaration,
+} from './resolveReleaseDeclaration.ts';
 import { isRecord } from './typeGuards.ts';
 import type {
   ChangelogJsonConfig,
+  DirectoryConfig,
   LegacyIdentity,
   MonorepoReleaseConfig,
   ReleaseKitConfig,
@@ -117,7 +124,9 @@ export interface RootPackageInfo {
  *
  * Merging rules:
  * - Release targets: `resolveReleaseDeclaration` projects the `releases` block, or the `workspaces` overrides and the
- *   `project` block, onto the discovered workspaces. Excluded workspaces move to `excludedWorkspaces`.
+ *   `project` block, onto the discovered workspaces. Excluded workspaces move to `excludedWorkspaces`, and the
+ *   directories that `releases` declares resolve through `deriveDirectoryConfig` into `directories`, which must not
+ *   share a version file with any other target.
  * - `workTypes`: Shallow merge; consumer entries override or add to defaults by key.
  * - `versionPatterns`: Consumer value replaces defaults entirely.
  * - Pass-through fields (see `applyOptionalPassthroughFields`): Consumer value wins.
@@ -136,7 +145,13 @@ export function mergeMonorepoConfig(
   // Detect duplicate tagPrefix values before filtering so that exclusions cannot hide collisions.
   assertUniqueTagPrefixes(discovered);
 
-  const { retained: workspaces, excluded, composite } = resolveReleaseDeclaration(discovered, userConfig);
+  const {
+    retained: workspaces,
+    excluded,
+    directories: declaredDirectories,
+    composite,
+  } = resolveReleaseDeclaration(discovered, userConfig);
+  const directories = declaredDirectories.map((declared) => deriveDirectoryConfig(declared));
   for (const workspace of workspaces) {
     if (workspace.legacyIdentities !== undefined) {
       assertLegacyIdentityDoesNotMatchCurrent(
@@ -162,7 +177,10 @@ export function mergeMonorepoConfig(
   const changelogJson = mergeChangelogJsonConfig(userConfig?.changelogJson);
   const releaseNotes = mergeReleaseNotesConfig(userConfig?.releaseNotes);
 
-  assertNoTagPrefixCollisions(workspaces, userConfig?.retiredPackages, project);
+  // Check shared version files first: A root directory beside a composite also collides on `v`, and the shared file
+  // names the cause.
+  assertNoSharedVersionFiles(workspaces, directories, project);
+  assertNoTagPrefixCollisions(workspaces, directories, userConfig?.retiredPackages, project);
 
   const result: MonorepoReleaseConfig = {
     workspaces,
@@ -174,6 +192,9 @@ export function mergeMonorepoConfig(
 
   if (excluded.length > 0) {
     result.excludedWorkspaces = excluded;
+  }
+  if (directories.length > 0) {
+    result.directories = directories;
   }
   if (project !== undefined) {
     result.project = project;
@@ -356,17 +377,59 @@ function resolveProjectConfig(
 }
 
 /**
+ * Throws when a directory target shares its version file with another target, whose release would bump the same
+ * `version` and write the same `CHANGELOG.md`: the repo root beside a composite, which the root `package.json` also
+ * versions. Pairs of other targets keep the behavior that they had before directories existed, so the check covers
+ * only pairs that include a directory.
+ */
+function assertNoSharedVersionFiles(
+  workspaces: readonly WorkspaceConfig[],
+  directories: readonly DirectoryConfig[],
+  project: ResolvedProjectConfig | undefined,
+): void {
+  const owners = [
+    ...directories.map((directory) => ({
+      label: `directory release '${directory.name}'`,
+      versionFiles: [directory.versionFile],
+    })),
+    ...workspaces.map((workspace) => ({
+      label: `workspace '${getTargetName(workspace)}'`,
+      versionFiles: workspace.packageFiles.map(normalizeWorkspacePath),
+    })),
+    ...(project === undefined
+      ? []
+      : [
+          {
+            label: project.name === undefined ? 'the project release' : `composite release '${project.name}'`,
+            versionFiles: [ROOT_PACKAGE_JSON_PATH],
+          },
+        ]),
+  ];
+
+  for (const [index, directory] of directories.entries()) {
+    const peer = owners.slice(index + 1).find((owner) => owner.versionFiles.includes(directory.versionFile));
+    if (peer !== undefined) {
+      throw new Error(
+        `directory release '${directory.name}' and ${peer.label} share the version file '${directory.versionFile}', ` +
+          "so each release would overwrite the other's version and changelog; declare only one of them",
+      );
+    }
+  }
+}
+
+/**
  * Throws when any pair of tag prefixes from distinct owners is identical or one is a strict
  * prefix of the other.
  *
  * A tag matches a prefix when the rest of its name is a complete SemVer version, so a prefix
  * `'pkg-'` matches `'pkg-1.0.0-v1.2.3'` through its pre-release suffix. The owners are each
- * workspace, each retired package, and the project. A workspace owns both its derived prefix and
- * its legacy-identity prefixes, because a prior identity may reuse the current tag shape under a
- * different npm name.
+ * workspace, each directory, each retired package, and the project. A workspace or a directory owns
+ * both its current prefix and its legacy-identity prefixes, because a prior identity may reuse the
+ * current tag shape under a different name.
  */
 function assertNoTagPrefixCollisions(
   workspaces: readonly WorkspaceConfig[],
+  directories: readonly DirectoryConfig[],
   retiredPackages: readonly RetiredPackage[] | undefined,
   project: ResolvedProjectConfig | undefined,
 ): void {
@@ -388,6 +451,18 @@ function assertNoTagPrefixCollisions(
       sources.push({
         prefix: identity.tagPrefix,
         label: `workspace '${workspace.dir}' legacyIdentities entry (name='${identity.name}')`,
+        owner,
+      });
+    }
+  }
+  for (const directory of directories) {
+    const owner = `dir:${directory.path}`;
+    sources.push({ prefix: directory.tagPrefix, label: `directory release '${directory.name}'`, owner });
+    const legacyIdentities = directory.legacyIdentities ?? [];
+    for (const identity of legacyIdentities) {
+      sources.push({
+        prefix: identity.tagPrefix,
+        label: `directory release '${directory.name}' legacyIdentities entry (name='${identity.name}')`,
         owner,
       });
     }

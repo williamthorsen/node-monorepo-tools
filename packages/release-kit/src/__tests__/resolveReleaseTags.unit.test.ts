@@ -231,6 +231,38 @@ describe(resolveReleaseTags, () => {
     });
   });
 
+  describe('directory tags', () => {
+    const directories = [
+      { name: 'app', path: 'apps/devopticon', versionFile: 'apps/devopticon/version.json', tagPrefix: 'devopticon-v' },
+    ];
+
+    it('resolves a directory tag at its directory as never publishable, beside workspace and project tags', () => {
+      mockExecFileSync.mockReturnValue('core-v1.3.0\ndevopticon-v2.0.0\nv0.13.0\n');
+      const workspaces = [makeWorkspace({ dir: 'core', tagPrefix: 'core-v' })];
+
+      expect(resolveReleaseTags({ workspaces, directories, project: { tagPrefix: 'v' } })).toStrictEqual([
+        { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+        {
+          tag: 'devopticon-v2.0.0',
+          kind: 'directory',
+          dir: 'app',
+          workspacePath: 'apps/devopticon',
+          isPublishable: false,
+        },
+        { tag: 'v0.13.0', kind: 'project', dir: '', workspacePath: '.', isPublishable: false },
+      ]);
+    });
+
+    it('resolves the repo-root directory tag under its v prefix', () => {
+      mockExecFileSync.mockReturnValue('v1.0.0\n');
+      const root = [{ name: 'repo', path: '.', versionFile: 'package.json', tagPrefix: 'v' }];
+
+      expect(resolveReleaseTags({ workspaces: [], directories: root })).toStrictEqual([
+        { tag: 'v1.0.0', kind: 'directory', dir: 'repo', workspacePath: '.', isPublishable: false },
+      ]);
+    });
+  });
+
   describe('isPublishable propagation', () => {
     it('copies isPublishable=false from the matched workspace onto the resolved tag', () => {
       mockExecFileSync.mockReturnValue('basic-v1.0.0\n');

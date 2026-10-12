@@ -11,6 +11,7 @@ import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { configFlagSchema } from './configFlagSchema.ts';
 import { deriveReleaseNotesConfig } from './deriveReleaseNotesConfig.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
+import { formatDirectoryPublishSkip } from './formatDirectoryPublishSkip.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
 import { formatProjectPublishSkip } from './formatProjectPublishSkip.ts';
 import { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
@@ -118,7 +119,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
 }
 
 /**
- * Restricts the resolved tag set to publishable workspaces, which excludes every project tag.
+ * Restricts the resolved tag set to publishable workspaces, which excludes every directory and project tag.
  *
  * When the user named tags explicitly via `--tags` (`isExplicit === true`), each unpublishable
  * tag is skipped with a warning and the publishable tags still publish. When resolution was
@@ -135,11 +136,21 @@ function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean)
   // naming a tag signals that the user expected it to publish.
   if (isExplicit) {
     for (const resolvedTag of unpublishable) {
-      console.warn(
-        resolvedTag.kind === 'project' ? formatProjectPublishSkip(resolvedTag) : formatPrivateSkip(resolvedTag),
-      );
+      console.warn(formatPublishSkip(resolvedTag));
     }
   }
 
   return publishable;
+}
+
+/** Formats the warning for a tag that `publish` skips, by what owns the tag. */
+function formatPublishSkip(resolvedTag: ResolvedTag): string {
+  switch (resolvedTag.kind) {
+    case 'directory':
+      return formatDirectoryPublishSkip(resolvedTag);
+    case 'project':
+      return formatProjectPublishSkip(resolvedTag);
+    case 'package':
+      return formatPrivateSkip(resolvedTag);
+  }
 }

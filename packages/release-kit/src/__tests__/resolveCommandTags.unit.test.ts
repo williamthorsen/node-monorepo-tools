@@ -22,6 +22,17 @@ vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
   deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
 
+// The declared directory exists only in the test, so its derivation is stubbed rather than read from disk.
+vi.mock(import('../deriveDirectoryConfig.ts'), () => ({
+  deriveDirectoryConfig: (declared: { name: string; path: string }) => ({
+    name: declared.name,
+    path: declared.path,
+    versionFile: `${declared.path}/version.json`,
+    paths: [`${declared.path}/**`],
+    tagPrefix: 'app-v',
+  }),
+}));
+
 vi.mock(import('../loadConfig.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   readRootPackageVersion: mockReadRootPackageVersion,
@@ -110,6 +121,7 @@ describe(resolveCommandTags, () => {
         makeWorkspace('cli', 'cli-v', 'packages/cli'),
         makeWorkspace('release-kit', 'release-kit-v', 'packages/release-kit'),
       ],
+      directories: [],
     });
   });
 
@@ -250,8 +262,27 @@ describe(resolveCommandTags, () => {
           makeWorkspace('release-kit', 'release-kit-v', 'packages/release-kit'),
           makeWorkspace('cli', 'cli-v', 'packages/cli'),
         ],
+        directories: [],
         project: expect.objectContaining({ name: 'suite', tagPrefix: 'suite-v' }),
       });
+    });
+
+    it('passes each declared directory to resolveReleaseTags', () => {
+      resolveCommandTags(undefined, { releases: { app: { path: 'apps/app' } } });
+
+      expect(mockResolveReleaseTags).toHaveBeenCalledWith(
+        expect.objectContaining({
+          directories: [
+            {
+              name: 'app',
+              path: 'apps/app',
+              versionFile: 'apps/app/version.json',
+              paths: ['apps/app/**'],
+              tagPrefix: 'app-v',
+            },
+          ],
+        }),
+      );
     });
 
     it('drops the tag of an excluded workspace, naming the releases entry that excluded it', () => {
@@ -281,6 +312,7 @@ describe(resolveCommandTags, () => {
           makeWorkspace('release-kit', 'release-kit-v', 'packages/release-kit'),
           makeWorkspace('cli', 'cli-v', 'packages/cli'),
         ],
+        directories: [],
       });
     });
 

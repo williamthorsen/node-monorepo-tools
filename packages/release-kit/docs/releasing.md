@@ -88,7 +88,7 @@ docs/*.v*.md
 
 The `--set-version` flag is a first-class escape hatch for the cases in which the derived bump produces the wrong version, most notably when promoting a pre-1.0 package to 1.0.0. Pre-1.0 packages collapse a `feat!` breaking change to a minor bump (matching semantic-release's `initialMajor: false` and release-please's `bump-minor-pre-major`), so a deliberate promotion to 1.0.0 must be requested explicitly.
 
-In a single-package repo, the value is the version: `--set-version 1.0.0`. In a monorepo, it names the workspace with each version, as comma-separated `<workspace>@N.N.N` entries: `--set-version arrays@1.0.0,strings@2.0.0`. Each named workspace releases at its version whether or not it has commits, and starts the release like a workspace named by `--only`.
+In a single-package repo, the value is the version: `--set-version 1.0.0`. In a monorepo, it names the workspace or [directory target](configuration.md#directory-targets) with each version, as comma-separated `<name>@N.N.N` entries: `--set-version arrays@1.0.0,strings@2.0.0`. Each named target releases at its version whether or not it has commits, and starts the release like a target named by `--only`.
 
 The flag validates that:
 

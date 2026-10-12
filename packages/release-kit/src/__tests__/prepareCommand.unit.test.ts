@@ -533,7 +533,7 @@ describe(prepareCommand, () => {
       ProcessExitError,
     );
     expect(capture.stderr).toContain('Invalid --set-version entry');
-    expect(capture.stderr).toContain('<workspace>@N.N.N');
+    expect(capture.stderr).toContain('<target>@N.N.N');
     expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
   });
 
@@ -541,7 +541,7 @@ describe(prepareCommand, () => {
     await expect(prepareCommand(['--set-version=nonexistent@1.0.0'], RICH_STYLES, process.cwd())).rejects.toThrow(
       ProcessExitError,
     );
-    expect(capture.stderr).toContain('Unknown workspace "nonexistent" in --set-version');
+    expect(capture.stderr).toContain('Unknown release target "nonexistent" in --set-version');
     expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
   });
 
@@ -549,7 +549,7 @@ describe(prepareCommand, () => {
     await expect(
       prepareCommand(['--set-version=arrays@1.0.0,arrays@2.0.0'], RICH_STYLES, process.cwd()),
     ).rejects.toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('names workspace "arrays" more than once');
+    expect(capture.stderr).toContain('names target "arrays" more than once');
     expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
   });
 

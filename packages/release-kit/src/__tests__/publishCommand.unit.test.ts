@@ -3,18 +3,22 @@ import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
-const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
-const mockDetectPackageManager = vi.hoisted(() => vi.fn());
-const mockPublishPackage = vi.hoisted(() => vi.fn());
-const mockLoadConfig = vi.hoisted(() => vi.fn());
-const mockValidateConfig = vi.hoisted(() => vi.fn());
-const mockCreateGithubReleases = vi.hoisted(() => vi.fn());
-const mockInjectReleaseNotesIntoReadme = vi.hoisted(() => vi.fn());
-const mockResolveReadmePath = vi.hoisted(() => vi.fn());
-const mockWriteFileSync = vi.hoisted(() => vi.fn());
-const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
-const mockAssertCleanWorkingTree = vi.hoisted(() => vi.fn());
+const {
+  applyPublishCommandDefaults,
+  mockAssertCleanWorkingTree,
+  mockCreateGithubReleases,
+  mockDeriveWorkspaceConfig,
+  mockDetectPackageManager,
+  mockDiscoverWorkspaces,
+  mockInjectReleaseNotesIntoReadme,
+  mockLoadConfig,
+  mockPublishPackage,
+  mockResolveReadmePath,
+  mockResolveReleaseTags,
+  mockValidateConfig,
+  mockWriteFileSync,
+  resetPublishCommandMocks,
+} = await vi.hoisted(() => import('../test-utils/publishCommandMocks.ts'));
 
 vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
@@ -80,44 +84,14 @@ describe(publishCommand, () => {
 
   beforeEach(() => {
     capture = captureStdio();
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
-    mockResolveReleaseTags.mockReturnValue([
-      { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true },
-    ]);
-    mockDetectPackageManager.mockReturnValue('npm');
-    mockLoadConfig.mockResolvedValue(undefined);
-    mockValidateConfig.mockReturnValue({ config: {}, errors: [], warnings: [] });
-    mockResolveReadmePath.mockReturnValue(undefined);
-    mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
-      const dir = workspacePath.split('/').pop() ?? workspacePath;
-      return {
-        dir,
-        name: `@test/${dir}`,
-        tagPrefix: `${dir}-v`,
-        workspacePath,
-        isPublishable: true,
-        packageFiles: [`${workspacePath}/package.json`],
-        paths: [`${workspacePath}/**`],
-      };
-    });
+    applyPublishCommandDefaults();
     void throwOnProcessExit();
     void silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {
     capture[Symbol.dispose]();
-    mockDiscoverWorkspaces.mockReset();
-    mockResolveReleaseTags.mockReset();
-    mockDetectPackageManager.mockReset();
-    mockPublishPackage.mockReset();
-    mockLoadConfig.mockReset();
-    mockValidateConfig.mockReset();
-    mockCreateGithubReleases.mockReset();
-    mockInjectReleaseNotesIntoReadme.mockReset();
-    mockResolveReadmePath.mockReset();
-    mockWriteFileSync.mockReset();
-    mockDeriveWorkspaceConfig.mockReset();
-    mockAssertCleanWorkingTree.mockReset();
+    resetPublishCommandMocks();
     vi.restoreAllMocks();
   });
 

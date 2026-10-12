@@ -9,7 +9,7 @@ import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } f
 import { formatExcludedSkip } from './formatExcludedSkip.ts';
 import { mergeMonorepoConfig, readRootPackageVersion } from './loadConfig.ts';
 import { type ResolvedTag, resolveReleaseTags } from './resolveReleaseTags.ts';
-import type { ReleaseKitConfig, ResolvedProjectConfig, WorkspaceConfig } from './types.ts';
+import type { DirectoryConfig, ReleaseKitConfig, ResolvedProjectConfig, WorkspaceConfig } from './types.ts';
 
 /**
  * Discovers workspaces, resolves release tags from HEAD, validates `--tags` names against the full resolved tag
@@ -19,8 +19,8 @@ import type { ReleaseKitConfig, ResolvedProjectConfig, WorkspaceConfig } from '.
  * mode.
  *
  * In monorepo mode the workspace list is `userConfig` merged over the discovered workspaces, as `prepare` builds it,
- * and a declared composite (a `project` block or a `releases` composite) contributes its `tagPrefix`, so that its tag
- * resolves alongside them.
+ * and each directory target and a declared composite (a `project` block or a `releases` composite) contribute their
+ * `tagPrefix`, so that their tags resolve alongside them.
  * A tag on HEAD whose workspace the config excludes still counts as a tag on HEAD, so `--tags` may name it and a
  * HEAD whose tags are all excluded returns an empty list rather than failing. Each excluded tag that the run
  * selects, every one without `--tags` or the named ones with it, is dropped with a warning.
@@ -48,6 +48,7 @@ export function resolveCommandTags(
   }
 
   let workspaces: WorkspaceConfig[] | undefined;
+  let directories: DirectoryConfig[] = [];
   let project: ResolvedProjectConfig | undefined;
   let singleWorkspace: WorkspaceConfig | undefined;
   let excludedPaths = new Set<string>();
@@ -59,6 +60,7 @@ export function resolveCommandTags(
       const excluded = merged.excludedWorkspaces ?? [];
       // Excluded workspaces stay in the match set so that their tags bind to them rather than to a shorter prefix.
       workspaces = [...merged.workspaces, ...excluded];
+      directories = merged.directories ?? [];
       project = merged.project;
       excludedPaths = new Set(excluded.map((excludedWorkspace) => excludedWorkspace.workspacePath));
     }
@@ -70,7 +72,7 @@ export function resolveCommandTags(
   // Resolve tags from HEAD. The try block above sets exactly one of workspaces/singleWorkspace.
   let resolvedTags: ResolvedTag[];
   if (workspaces !== undefined) {
-    resolvedTags = resolveReleaseTags({ workspaces, ...(project !== undefined && { project }) });
+    resolvedTags = resolveReleaseTags({ workspaces, directories, ...(project !== undefined && { project }) });
   } else if (singleWorkspace !== undefined) {
     resolvedTags = resolveReleaseTags({ singleWorkspace });
   } else {

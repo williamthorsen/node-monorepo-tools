@@ -4,17 +4,18 @@ import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 
 import { getTargetName } from './resolveReleaseDeclaration.ts';
 import { PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
-import type { ResolvedProjectConfig, WorkspaceConfig } from './types.ts';
+import type { DirectoryConfig, ResolvedProjectConfig, WorkspaceConfig } from './types.ts';
 
 export interface ResolvedTag {
   tag: string;
   /**
-   * Whether the tag belongs to a workspace package or to the `project` block. A project tag is never published to a
-   * registry but always qualifies for a GitHub Release.
+   * Whether the tag belongs to a workspace package, to a directory target, or to the composite. A directory or project
+   * tag is never published to a registry but always qualifies for a GitHub Release.
    */
-  kind: 'package' | 'project';
+  kind: 'package' | 'directory' | 'project';
   /** Name of the release target that owns the tag; `PROJECT_TARGET_ID` for the composite of a `project` block. */
   dir: string;
+  /** Repo-relative path of the target's package or directory; `.` for the composite. */
   workspacePath: string;
   /**
    * Whether the workspace to which this tag belongs can be published to a registry, copied from the matched
@@ -31,7 +32,11 @@ const SEMVER_SUFFIX_PATTERN = /^\d+\.\d+\.\d+/;
 
 /** Discriminated argument to `resolveReleaseTags`: exactly one of the two keys is meaningful. */
 type ResolveReleaseTagsArgs =
-  | { workspaces: readonly WorkspaceConfig[]; project?: Pick<ResolvedProjectConfig, 'tagPrefix' | 'name'> }
+  | {
+      workspaces: readonly WorkspaceConfig[];
+      directories?: readonly DirectoryConfig[];
+      project?: Pick<ResolvedProjectConfig, 'tagPrefix' | 'name'>;
+    }
   | { singleWorkspace: WorkspaceConfig };
 
 /**
@@ -39,7 +44,8 @@ type ResolveReleaseTagsArgs =
  *
  * Pass `{ workspaces }` for monorepo mode: Each tag is matched against the workspace
  * whose `tagPrefix` it starts with, and that workspace's `isPublishable` propagates onto
- * the `ResolvedTag`. Add `project` to also match the project tag, which resolves at the
+ * the `ResolvedTag`. Add `directories` to also match each directory target's tag, which resolves at
+ * the directory with `kind: 'directory'`, and `project` to match the project tag, which resolves at the
  * repo root with `kind: 'project'`. Because `tagPrefix` is derived from `deriveWorkspaceConfig()` (the
  * same source that produced the tag), encoding and decoding stay colocated.
  *
@@ -65,7 +71,7 @@ export function resolveReleaseTags(args?: ResolveReleaseTagsArgs): ResolvedTag[]
     return resolveSinglePackageTags(tags);
   }
   if ('workspaces' in args) {
-    return resolveMonorepoTags(tags, args.workspaces, args.project);
+    return resolveMonorepoTags(tags, args.workspaces, args.directories ?? [], args.project);
   }
   return resolveSinglePackageTags(tags, args.singleWorkspace);
 }
@@ -92,15 +98,16 @@ function resolveSinglePackageTags(tags: string[], singleWorkspace?: WorkspaceCon
 }
 
 /**
- * Matches monorepo tags by scanning workspaces, then the project, for a matching `tagPrefix`.
+ * Matches monorepo tags by scanning workspaces, then directories, then the project, for a matching `tagPrefix`.
  *
  * When two workspace prefixes nest (e.g., `foo-v` and `foo-bar-v`), the longest match wins, so that `foo-bar-v1.0.0`
- * does not bind to `foo-v`. The project prefix cannot nest with a workspace prefix, because `mergeMonorepoConfig`
- * rejects that collision.
+ * does not bind to `foo-v`. A directory or project prefix cannot nest with any other prefix, because
+ * `mergeMonorepoConfig` rejects that collision.
  */
 function resolveMonorepoTags(
   tags: string[],
   workspaces: readonly WorkspaceConfig[],
+  directories: readonly DirectoryConfig[],
   project: Pick<ResolvedProjectConfig, 'tagPrefix' | 'name'> | undefined,
 ): ResolvedTag[] {
   const sortedWorkspaces = workspaces.toSorted((a, b) => b.tagPrefix.length - a.tagPrefix.length);
@@ -109,6 +116,7 @@ function resolveMonorepoTags(
 
   for (const tag of tags) {
     const match = findMatchingWorkspace(tag, sortedWorkspaces);
+    const directory = directories.find((candidate) => hasVersionAfterPrefix(tag, candidate.tagPrefix));
     if (match !== undefined) {
       resolved.push({
         tag,
@@ -116,6 +124,14 @@ function resolveMonorepoTags(
         dir: getTargetName(match),
         workspacePath: match.workspacePath,
         isPublishable: match.isPublishable,
+      });
+    } else if (directory !== undefined) {
+      resolved.push({
+        tag,
+        kind: 'directory',
+        dir: directory.name,
+        workspacePath: directory.path,
+        isPublishable: false,
       });
     } else if (project !== undefined && hasVersionAfterPrefix(tag, project.tagPrefix)) {
       resolved.push({

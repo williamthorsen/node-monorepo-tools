@@ -821,8 +821,8 @@ describe(validateConfig, () => {
         releases: { core: { path: 'packages/core', paths: ['src'] }, suite: { includes: ['core'], paths: ['.'] } },
       });
       expect(errors).toStrictEqual([
-        "releases.core: 'paths' is not supported; a package's commit window is its directory, and a composite's is the union of its members' windows",
-        "releases.suite: 'paths' is not supported; a package's commit window is its directory, and a composite's is the union of its members' windows",
+        "releases.core: 'paths' is not supported; a package's or a directory's commit window is its path, and a composite's is the union of its members' windows",
+        "releases.suite: 'paths' is not supported; a package's or a directory's commit window is its path, and a composite's is the union of its members' windows",
       ]);
     });
 
@@ -831,16 +831,21 @@ describe(validateConfig, () => {
       expectErrorAtPath(errors, 'releases.suite.includes');
     });
 
-    it('reports an unknown key on a package entry at the entry path', () => {
-      const { errors } = validateConfig({ releases: { core: { path: 'packages/core', tagPrefix: 'core-v' } } });
+    it('reports an unknown key on a path entry at the entry path', () => {
+      const { errors } = validateConfig({ releases: { core: { path: 'packages/core', members: ['cli'] } } });
       expect(errors).toHaveLength(1);
-      expectErrorMentioning(errors, 'tagPrefix');
+      expectErrorMentioning(errors, 'members');
+    });
+
+    it('accepts a tagPrefix on a path entry', () => {
+      const { errors } = validateConfig({ releases: { app: { path: 'apps/app', tagPrefix: 'app-v' } } });
+      expect(errors).toStrictEqual([]);
     });
 
     it('names the entry shapes when an entry matches none of them', () => {
       const { errors } = validateConfig({ releases: { core: true } });
       expect(errors).toStrictEqual([
-        'releases.core: must be false, { path, legacyIdentities? }, or { includes, tagPrefix? }',
+        'releases.core: must be false, { path, tagPrefix?, legacyIdentities? }, or { includes, tagPrefix? }',
       ]);
     });
 

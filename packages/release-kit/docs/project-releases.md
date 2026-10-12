@@ -89,6 +89,8 @@ The [`releases`](configuration.md#releases) block declares the same targets by n
 
 Unlike a `project` block, a composite releases only its listed members' commits, and it has a name that `--only` can select. A workspace left out of `includes` still releases on its own.
 
+A `project` block whose window covers the whole repo only because every workspace is excluded maps to the [repo-root target](configuration.md#the-repo-root), `<name>: { path: '.' }`, together with a `false` entry for each excluded workspace. The root target reads the whole repo by declaration, so a workspace added later doesn't narrow it.
+
 ## Publishing and GitHub Releases
 
 `push`, `publish`, and `create-github-release` resolve the project tag on HEAD through the `tagPrefix` of the `project` block or the `releases` composite, alongside the workspace tags:

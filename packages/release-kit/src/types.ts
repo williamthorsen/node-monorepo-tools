@@ -268,6 +268,44 @@ export interface SkippedPackageResult extends PackageResultFields {
   skipReason: string;
 }
 
+/** Fields of every directory target result. */
+interface DirectoryResultFields extends TargetResultFields {
+  kind: 'directory';
+  /** Name of the directory target. */
+  name: string;
+  /** Change-record entry scopes of the unreleased window that route their entry nowhere; omitted when none. */
+  unroutedEntryScopes?: UnroutedEntryScope[];
+}
+
+/**
+ * Result of a directory target that releases. A directory never propagates; `releaseType` and `parsedCommitCount` are
+ * absent for `--set-version`.
+ */
+export interface ReleasedDirectoryResult extends DirectoryResultFields, ReleaseFields {
+  status: 'released';
+  /**
+   * Count of commits that yield at least one changelog item; `0` when the unreleased window does not contain any
+   * commits or when none does.
+   */
+  parsedCommitCount?: number;
+  releaseType?: ReleaseType;
+  /** Raw commits of the directory's unreleased window. */
+  commits: Commit[];
+  /** Present when the directory was written via `--set-version`; the explicit version that was applied. */
+  setVersion?: string;
+}
+
+/** Result of a directory target that skips: the diagnostic fields and a human-readable `skipReason`. */
+export interface SkippedDirectoryResult extends DirectoryResultFields {
+  status: 'skipped';
+  /**
+   * Count of commits that yield at least one changelog item; `0` when the unreleased window does not contain any
+   * commits or when none does.
+   */
+  parsedCommitCount: number;
+  skipReason: string;
+}
+
 /**
  * Result of a composite target that releases. A composite never propagates and never takes `--set-version`, so
  * `releaseType`, `parsedCommitCount`, and `commits` are required.
@@ -300,14 +338,17 @@ export interface SkippedCompositeResult extends TargetResultFields {
 /** Result of preparing a package target, discriminated by `status`. */
 export type PackagePrepareResult = ReleasedPackageResult | SkippedPackageResult;
 
+/** Result of preparing a directory target, discriminated by `status`. */
+export type DirectoryPrepareResult = ReleasedDirectoryResult | SkippedDirectoryResult;
+
 /** Result of preparing a composite target, discriminated by `status`. */
 export type CompositePrepareResult = ReleasedCompositeResult | SkippedCompositeResult;
 
 /** Result of preparing one release target, discriminated by `kind` and by `status`. */
-export type TargetPrepareResult = PackagePrepareResult | CompositePrepareResult;
+export type TargetPrepareResult = PackagePrepareResult | DirectoryPrepareResult | CompositePrepareResult;
 
-/** Result of a target that releases, of either kind. */
-export type ReleasedTargetResult = ReleasedPackageResult | ReleasedCompositeResult;
+/** Result of a target that releases, of any kind. */
+export type ReleasedTargetResult = ReleasedPackageResult | ReleasedDirectoryResult | ReleasedCompositeResult;
 
 /** Aggregate result of the prepare workflow over a run's targets. */
 export interface PrepareResult {
@@ -419,18 +460,22 @@ export const projectConfigSchema = z
 /** Consumer-facing project-release config (`project` block). Empty object opts in to project releases. */
 export type ProjectConfig = z.infer<typeof projectConfigSchema>;
 
-/** Schema for a `releases` entry that names the discovered workspace at `path`. */
-export const packageReleaseSchema = z
+/**
+ * Schema for a `releases` entry that names the target at `path`: the discovered workspace there, or otherwise the
+ * directory, whose `tagPrefix` defaults to its basename followed by `-v`.
+ */
+export const pathReleaseSchema = z
   .object({
     path: z.string().min(1),
+    tagPrefix: z.string().min(1).optional(),
     legacyIdentities: z.array(legacyIdentitySchema).optional(),
   })
   .strict();
 
-/** A `releases` entry that names the discovered workspace at `path`. */
-export type PackageRelease = z.infer<typeof packageReleaseSchema>;
+/** A `releases` entry that names the discovered workspace or the directory at `path`. */
+export type PathRelease = z.infer<typeof pathReleaseSchema>;
 
-/** Schema for a `releases` entry that declares a composite of the named package targets. */
+/** Schema for a `releases` entry that declares a composite of the named targets. */
 export const compositeReleaseSchema = z
   .object({
     includes: z.array(z.string().min(1)).min(1),
@@ -438,14 +483,14 @@ export const compositeReleaseSchema = z
   })
   .strict();
 
-/** A `releases` entry that declares a composite of the named package targets, versioned by the root `package.json`. */
+/** A `releases` entry that declares a composite of the named targets, versioned by the root `package.json`. */
 export type CompositeRelease = z.infer<typeof compositeReleaseSchema>;
 
 /**
  * Schema for one `releases` entry: `false` excludes the discovered workspace of that name, and the object shapes name
- * a workspace or declare the composite. `validateConfig` relies on this branch order to report a failed entry.
+ * a workspace or a directory, or declare the composite. `validateConfig` relies on this branch order to report a failed entry.
  */
-export const releaseEntrySchema = z.union([z.literal(false), packageReleaseSchema, compositeReleaseSchema]);
+export const releaseEntrySchema = z.union([z.literal(false), pathReleaseSchema, compositeReleaseSchema]);
 
 /** One `releases` entry, keyed in the config by the target's name. */
 export type ReleaseEntry = z.infer<typeof releaseEntrySchema>;
@@ -578,6 +623,21 @@ export interface ParsedCommit {
   breaking: boolean;
 }
 
+/** A directory that a `releases` entry declares as a release target, as config merging resolves it. */
+export interface DirectoryConfig {
+  /** Name of the release target, its `releases` entry key. */
+  name: string;
+  /** Repo-relative POSIX path of the directory; `.` for the repo root. */
+  path: string;
+  /** Repo-relative JSON file whose `version` field the release bumps: the directory's `package.json` or `version.json`. */
+  versionFile: string;
+  /** Git pathspecs of the commit window; `undefined` for the repo root, whose window is the whole repo. */
+  paths?: string[];
+  tagPrefix: string;
+  /** Prior identities, whose tag prefixes are searched alongside `tagPrefix`; `undefined` equals the empty array. */
+  legacyIdentities?: LegacyIdentity[];
+}
+
 /** Per-workspace configuration for monorepo releases. */
 export interface WorkspaceConfig {
   /** The package directory name (e.g., 'arrays'), which names the workspace's release target by default. */
@@ -666,15 +726,22 @@ export interface PackageTarget extends ReleaseTargetBase {
   isWorkspace: boolean;
 }
 
+/** A releasable directory that isn't a workspace, versioned by its `package.json` or `version.json`. */
+export interface DirectoryTarget extends ReleaseTargetBase {
+  kind: 'directory';
+  /** Repo-relative path to the directory; `.` for the repo root, whose window is the whole repo. */
+  directoryPath: string;
+}
+
 /** A release that rolls up other targets, such as the project release of a monorepo. */
 export interface CompositeTarget extends ReleaseTargetBase {
   kind: 'composite';
-  /** Ids of the package targets that the composite rolls up. */
+  /** Ids of the package and directory targets that the composite rolls up. */
   members: string[];
 }
 
 /** One releasable thing, whatever shape of config declared it. */
-export type ReleaseTarget = PackageTarget | CompositeTarget;
+export type ReleaseTarget = PackageTarget | DirectoryTarget | CompositeTarget;
 
 /** Configuration for a monorepo release workflow with multiple workspaces. */
 export interface MonorepoReleaseConfig extends ReleaseSettings {
@@ -682,6 +749,8 @@ export interface MonorepoReleaseConfig extends ReleaseSettings {
   workspaces: WorkspaceConfig[];
   /** Discovered workspaces that the config excludes, which tag resolution still matches; `undefined` means none. */
   excludedWorkspaces?: WorkspaceConfig[];
+  /** Directories that the `releases` block declares as targets, in config order; `undefined` means none. */
+  directories?: DirectoryConfig[];
   /**
    * Project-level release config. Present when the config declares a `project` block, in which case
    * `prepare` runs a project-release stage after the per-workspace loop.

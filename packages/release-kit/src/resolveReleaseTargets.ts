@@ -6,6 +6,8 @@ import { mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion }
 import { getTargetName } from './resolveReleaseDeclaration.ts';
 import type {
   CompositeTarget,
+  DirectoryConfig,
+  DirectoryTarget,
   MonorepoReleaseConfig,
   PackageTarget,
   ReleaseKitConfig,
@@ -31,7 +33,8 @@ export interface ResolvedReleaseTargets {
  * Projects the user config onto the release targets of the discovered repo shape.
  *
  * A single-package repo yields one package target at the root. A monorepo yields one package target per retained
- * workspace, in discovery order, followed by a composite target for the `project` block when the config declares one.
+ * workspace, in discovery order, then one directory target per declared directory, in config order, then a composite
+ * target when the config declares one.
  * Throws the config-merge errors of the shape, and when two targets share an id.
  */
 export function resolveReleaseTargets(
@@ -53,11 +56,14 @@ export function isSinglePackageTargets(targets: readonly ReleaseTarget[]): boole
 }
 
 /**
- * Projects a merged monorepo config onto its targets: one package target per workspace, in config order, then a
- * composite for the project block when the config has one. Throws when two targets share an id.
+ * Projects a merged monorepo config onto its targets: one package target per workspace, in config order, then one
+ * directory target per directory, then a composite when the config has one. Throws when two targets share an id.
  */
 export function projectMonorepoConfig(config: MonorepoReleaseConfig): ResolvedReleaseTargets {
-  const targets: ReleaseTarget[] = config.workspaces.map(buildWorkspaceTarget);
+  const targets: ReleaseTarget[] = [
+    ...config.workspaces.map(buildWorkspaceTarget),
+    ...(config.directories ?? []).map(buildDirectoryTarget),
+  ];
   if (config.project !== undefined) {
     targets.push(buildProjectTarget(config.project, config.workspaces));
   }
@@ -75,7 +81,7 @@ export function projectMonorepoConfig(config: MonorepoReleaseConfig): ResolvedRe
 function assertUniqueTargetIds(targets: readonly ReleaseTarget[]): void {
   const pathsById = new Map<string, string[]>();
   for (const target of targets) {
-    const path = target.kind === 'package' ? target.packagePath : target.changelogDir;
+    const path = describeTargetPath(target);
     pathsById.set(target.id, [...(pathsById.get(target.id) ?? []), path]);
   }
   for (const [id, paths] of pathsById) {
@@ -83,6 +89,26 @@ function assertUniqueTargetIds(targets: readonly ReleaseTarget[]): void {
       throw new Error(`Duplicate release target id '${id}' for workspaces: ${paths.join(', ')}`);
     }
   }
+}
+
+/** Builds the target of a directory that the `releases` block declares; a directory never publishes. */
+function buildDirectoryTarget(directory: DirectoryConfig): DirectoryTarget {
+  const target: DirectoryTarget = {
+    id: directory.name,
+    kind: 'directory',
+    tagPrefix: directory.tagPrefix,
+    versionFiles: [directory.versionFile],
+    changelogDir: directory.path,
+    isPublishable: false,
+    directoryPath: directory.path,
+  };
+  if (directory.paths !== undefined) {
+    target.paths = [...directory.paths];
+  }
+  if (directory.legacyIdentities !== undefined) {
+    target.legacyIdentities = directory.legacyIdentities;
+  }
+  return target;
 }
 
 /** Builds the composite target of the resolved composite, whose members default to every retained workspace. */
@@ -131,6 +157,18 @@ function buildWorkspaceTarget(workspace: WorkspaceConfig): PackageTarget {
     target.legacyIdentities = workspace.legacyIdentities;
   }
   return target;
+}
+
+/** Returns the path by which an error names a target: its package or directory path, or a composite's changelog dir. */
+function describeTargetPath(target: ReleaseTarget): string {
+  switch (target.kind) {
+    case 'package':
+      return target.packagePath;
+    case 'directory':
+      return target.directoryPath;
+    case 'composite':
+      return target.changelogDir;
+  }
 }
 
 /** Copies the shared settings off a merged config, omitting each optional field that it lacks. */

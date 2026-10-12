@@ -13,7 +13,8 @@ Options:
   --dry-run             Run without modifying any files
   --bump=major|minor|patch  Set the level of every release that happens; does not trigger one
   --set-version=X.Y.Z   Set an explicit version; bypasses the changelog-derived bump. In monorepo
-                         mode, name each workspace: --set-version=arrays@1.0.0[,strings@2.0.0].
+                         mode, name each workspace or directory target:
+                         --set-version=arrays@1.0.0[,strings@2.0.0].
                          Rejected when a composite (a 'project' block or a releases composite)
                          is configured.
   --force               Release even when the last tag is not followed by any commits,
