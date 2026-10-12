@@ -35,14 +35,15 @@ All fields are optional.
 
 ## `releases`
 
-`releases` maps each release target's name to its declaration. Every discovered workspace is a target, named by its directory, unless an entry excludes or renames it, so the block lists only what differs from the discovered set.
+`releases` maps each release target's name to its declaration. Every discovered workspace is a target, named by its directory, unless an entry excludes or renames it, so the block lists only what differs from the discovered set, along with any directory that releases without being a workspace.
 
 ```typescript
 const config: ReleaseKitConfig = {
   releases: {
     core: { path: 'packages/nmr-core', legacyIdentities: [{ name: '@scope/core', tagPrefix: 'core-v' }] },
+    docs: { path: 'docs' },
     scratch: false,
-    suite: { includes: ['nmr', 'core'], tagPrefix: 'v' },
+    suite: { includes: ['nmr', 'core', 'docs'], tagPrefix: 'v' },
   },
 };
 ```
@@ -50,12 +51,47 @@ const config: ReleaseKitConfig = {
 An entry takes one of three shapes:
 
 - **`false`** excludes the discovered workspace that the entry's name names by its directory. An excluded workspace is treated as a `shouldExclude` one is: `prepare` never releases it, and `push`, `publish`, and `create-github-release` skip its tags with a warning.
-- **`{ path, legacyIdentities? }`** names the discovered workspace at `path`, a repo-relative directory. `legacyIdentities` has the meaning that it has in [`WorkspaceOverride`](#workspaceoverride). A path that isn't a discovered workspace is an error: A directory without a `package.json` can't be released yet.
-- **`{ includes, tagPrefix? }`** declares the composite, a release that rolls up the named package targets. It is versioned by the root `package.json`, writes `./CHANGELOG.md`, and reads the commits of its members' windows. Its tag prefix defaults to `'v'`. A config declares at most one composite, because the root `package.json` holds one version. `includes` names package targets by their names in this block, and it names at least one. Like a `project` release, the composite's changelog takes every entry in its window, whatever the entry's scopes.
+- **`{ path, tagPrefix?, legacyIdentities? }`** names the discovered workspace at `path`, a repo-relative directory. A `path` that isn't a discovered workspace declares a [directory target](#directory-targets) instead. `legacyIdentities` has the meaning that it has in [`WorkspaceOverride`](#workspaceoverride). `tagPrefix` applies only to a directory target: A workspace's prefix derives from its package name, and an entry that sets one for a workspace is an error.
+- **`{ includes, tagPrefix? }`** declares the composite, a release that rolls up the named package and directory targets. It is versioned by the root `package.json`, writes `./CHANGELOG.md`, and reads the commits of its members' windows. Its tag prefix defaults to `'v'`. A config declares at most one composite, because the root `package.json` holds one version. `includes` names targets by their names in this block, and it names at least one. Like a `project` release, the composite's changelog takes every entry in its window, whatever the entry's scopes.
 
-A target's name is its only identity. `--only` selects it by name, and a change-record entry routes to it when a scope names it. A target's name never reaches its tag prefix: A workspace's prefix stays `{unscoped package name}-v` whatever the entry calls it. Renaming a workspace in `releases` therefore changes the scope that routes to it; add a [`scopeAliases`](#releasekitconfig-reference) entry from the old name to the new one, so that entries written before the rename still route to the target.
+A target's name is its only identity. `--only` and `--set-version` select it by name, and a change-record entry routes to it when a scope names it. A target's name never reaches its tag prefix: A workspace's prefix stays `{unscoped package name}-v` whatever the entry calls it, and a directory's derives from its path. Renaming a workspace in `releases` therefore changes the scope that routes to it; add a [`scopeAliases`](#releasekitconfig-reference) entry from the old name to the new one, so that entries written before the rename still route to the target.
 
-`releases` can't be combined with `workspaces` or `project`, which declare the same targets, and a single-package repo rejects it. None of its entries accepts `paths`: A package's commit window is its directory, and a composite's is its members' windows. [Moving to `releases`](project-releases.md#moving-to-releases) maps each `workspaces` and `project` setting onto the block; both blocks keep working unchanged.
+`releases` can't be combined with `workspaces` or `project`, which declare the same targets, and a single-package repo rejects it. None of its entries accepts `paths`: A package's or a directory's commit window is its path, and a composite's is its members' windows. [Moving to `releases`](project-releases.md#moving-to-releases) maps each `workspaces` and `project` setting onto the block; both blocks keep working unchanged.
+
+### Directory targets
+
+A `{ path }` entry whose path isn't a discovered workspace declares a directory target: a Swift app, a Go binary, a container image, or a docs site that has a version, a changelog, and tags but isn't a JS package.
+
+- **Version file.** The directory's `package.json` when it has one, otherwise `version.json` in the directory. Either is a JSON file with a string `version` field, which `prepare` bumps. A directory without either is a config error that names the file to create, such as `{ "version": "0.0.0" }`.
+- **Commit window.** The directory. A commit can appear in several targets' changelogs when their windows overlap.
+- **Tag prefix.** The directory's basename followed by `-v`, such as `devopticon-v` for `apps/devopticon`, unless the entry sets `tagPrefix`. A basename that can't form a tag name, such as one containing a space, is an error that asks for `tagPrefix`.
+- **Changelog.** `CHANGELOG.md` in the directory. A change-record entry routes to the target when a scope names it, as it does to a workspace.
+- **Releases.** `--only` and `--set-version` take the target's name. A directory target never takes part in dependency propagation, and `publish` never publishes its tag. `push` pushes the tag, and `create-github-release` creates a GitHub Release for it from the directory's `.meta/changelog.json`.
+
+A path outside the repo, or one that isn't a directory, is an error.
+
+#### The repo root
+
+`{ path: '.' }` declares the repo root as a directory target, which is how a release states whole-repo coverage. Its window is the whole repo, its version file is the root `package.json`, its tag prefix is `v`, and its `CHANGELOG.md` takes every entry in its window, whatever the entry's scopes. A workspace added later is a target of its own and doesn't narrow the root target's window.
+
+The root target and a composite would both version the root `package.json`, so declaring both is an error.
+
+#### Worked example: an app that is the repo's deliverable
+
+`williamthorsen/devopticon` releases a SwiftPM app in `apps/devopticon`, keeps its version in the root `package.json`, and stamps it into the app bundle at build time. Its only workspace is a scaffold under `packages/`. A `project` block covered the whole repo only while the workspace union was empty, so adding a releasable package would have dropped the app and every root-level commit from the changelog. The root target states the coverage:
+
+```typescript
+export default defineConfig({
+  releases: {
+    devopticon: { path: '.' },
+    scaffold: false,
+  },
+});
+```
+
+`prepare` bumps the root `package.json`, writes `./CHANGELOG.md` from every commit since the last `v` tag, and tags `v{version}`. A package added under `packages/` later releases under its own `{name}-v` tags, and the root target still reads the whole repo.
+
+To version the app on its own instead, declare `app: { path: 'apps/devopticon' }` with an `apps/devopticon/version.json`; its window is then the app's directory, and its tags are `devopticon-v{version}`.
 
 ## `WorkspaceOverride`
 
@@ -112,8 +148,9 @@ Validation rules:
 Tag prefixes from distinct owners must not be identical or be a strict prefix of one another. An owner is one of:
 
 - An active workspace, comprising its derived `tagPrefix` plus any declared `legacyIdentities[].tagPrefix`. Identities of the same workspace are one owner, so their prefixes are allowed to overlap (this represents the same package across renames).
+- A directory target, comprising its `tagPrefix` plus any declared `legacyIdentities[].tagPrefix`, as one owner.
 - A `retiredPackages[]` entry (one owner per entry).
-- The `project` block, when configured.
+- The `project` block or the `releases` composite, when configured.
 
 Because release-kit matches a tag to a prefix when the tag name is the prefix followed by a complete SemVer version, a strict-prefix overlap between distinct owners can match the wrong owner's tags. For example, a retired prefix of `pkg-` collides with a workspace prefix of `pkg-1.0.0-v`, since `pkg-1.0.0-v1.2.3` is `pkg-` followed by the pre-release version `1.0.0-v1.2.3`. The rule rejects every strict-prefix overlap, including one such as `v` and `vue-helpers-v`, whose shorter prefix can't match any tag of the longer one.
 
@@ -121,7 +158,7 @@ The rule is enforced at config load; the resulting error identifies both collidi
 
 ## `release-kit show-tag-prefixes`
 
-Prints a per-workspace table of derived tag prefixes, tag counts, and declared legacy prefixes. Also reports any release-shaped tag prefix in the repo that is neither a derived prefix nor declared via `legacyIdentities`, along with a copy-pasteable `workspaces: [...]` config snippet. The snippet uses a `TODO-fill-in-legacy-npm-name` placeholder for each identity's `name`; replace it with the package's prior npm name before pasting.
+Prints a per-workspace table of derived tag prefixes, tag counts, and declared legacy prefixes, with a row for each directory target. Also reports any release-shaped tag prefix in the repo that is neither a derived prefix nor declared via `legacyIdentities`, along with a copy-pasteable `workspaces: [...]` config snippet. The snippet uses a `TODO-fill-in-legacy-npm-name` placeholder for each identity's `name`; replace it with the package's prior npm name before pasting.
 
 Exits `0` when every workspace derives a prefix and the workspaces' prefixes don't collide; exits `1` on any derivation failure or collision. Undeclared candidates do not affect the exit code; the `legacy tag prefixes are declared` readyup check reports them as a warning.
 
