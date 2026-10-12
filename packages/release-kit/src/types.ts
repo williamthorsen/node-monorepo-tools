@@ -412,6 +412,37 @@ export const projectConfigSchema = z
 /** Consumer-facing project-release config (`project` block). Empty object opts in to project releases. */
 export type ProjectConfig = z.infer<typeof projectConfigSchema>;
 
+/** Schema for a `releases` entry that names the discovered workspace at `path`. */
+export const packageReleaseSchema = z
+  .object({
+    path: z.string().min(1),
+    legacyIdentities: z.array(legacyIdentitySchema).optional(),
+  })
+  .strict();
+
+/** A `releases` entry that names the discovered workspace at `path`. */
+export type PackageRelease = z.infer<typeof packageReleaseSchema>;
+
+/** Schema for a `releases` entry that declares a composite of the named package targets. */
+export const compositeReleaseSchema = z
+  .object({
+    includes: z.array(z.string().min(1)).min(1),
+    tagPrefix: z.string().min(1).optional(),
+  })
+  .strict();
+
+/** A `releases` entry that declares a composite of the named package targets, versioned by the root `package.json`. */
+export type CompositeRelease = z.infer<typeof compositeReleaseSchema>;
+
+/**
+ * Schema for one `releases` entry: `false` excludes the discovered workspace of that name, and the object shapes name
+ * a workspace or declare the composite. `validateConfig` relies on this branch order to report a failed entry.
+ */
+export const releaseEntrySchema = z.union([z.literal(false), packageReleaseSchema, compositeReleaseSchema]);
+
+/** One `releases` entry, keyed in the config by the target's name. */
+export type ReleaseEntry = z.infer<typeof releaseEntrySchema>;
+
 /** Schema for the optional `changelogJson` block (input shape, all fields optional). */
 export const changelogJsonInputSchema = z
   .object({
@@ -496,6 +527,7 @@ export const releaseKitConfigSchema = z
     formatCommand: z.string().min(1).optional(),
     project: projectConfigSchema.optional(),
     releaseNotes: releaseNotesInputSchema.optional(),
+    releases: z.record(z.string().min(1), releaseEntrySchema).optional(),
     repoLabels: repoLabelsSchema.optional(),
     retiredPackages: z.array(retiredPackageSchema).optional(),
     scopeAliases: z.record(z.string(), z.string()).optional(),
