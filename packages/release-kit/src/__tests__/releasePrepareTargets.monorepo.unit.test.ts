@@ -1876,6 +1876,57 @@ describe('releasePrepareTargets for a monorepo', () => {
       ]);
     });
 
+    describe('a named composite under --only', () => {
+      /** Prepares one workspace and a composite named `suite` over it, both with a minor bump pending. */
+      function prepareNamed(only: string[]): ReturnType<typeof prepareMonorepo> {
+        const config = makeConfig({
+          workspaces: [
+            {
+              dir: 'arrays',
+              name: '@test/arrays',
+              tagPrefix: 'arrays-v',
+              workspacePath: 'packages/arrays',
+              isPublishable: true,
+              packageFiles: ['packages/arrays/package.json'],
+              paths: ['packages/arrays/**'],
+            },
+          ],
+          project: { paths: ['packages/arrays/**'], tagPrefix: 'v', name: 'suite', members: ['arrays'] },
+        });
+        stubHistoryByPrefix({
+          'arrays-v': { previousTag: 'arrays-v1.0.0', commits: [['feat: ship', 'abc123']], bump: 'minor' },
+          v: { previousTag: 'v0.9.0', commits: [['feat: ship', 'abc123']], bump: 'minor' },
+        });
+        mockReadFileSync.mockImplementation((filePath: string) => {
+          if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
+          return JSON.stringify({ version: '1.0.0' });
+        });
+        return prepareMonorepo(config, { only });
+      }
+
+      it('prepares the composite alone from its own window when --only names only it', () => {
+        const result = prepareNamed(['suite']);
+
+        expect(result.tags).toStrictEqual(['v0.10.0']);
+        expect(listReadOptions()).toStrictEqual([{ tagPrefixes: ['v'], paths: ['packages/arrays/**'] }]);
+      });
+
+      it('prepares named packages and the named composite together', () => {
+        const result = prepareNamed(['arrays', 'suite']);
+
+        expect(result.tags).toStrictEqual(['arrays-v1.1.0', 'v0.10.0']);
+      });
+
+      it('skips the composite with a warning that names it when --only leaves it out', () => {
+        const result = prepareNamed(['arrays']);
+
+        expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
+        expect(result.warnings).toContain(
+          "Release 'suite' skipped: --only does not name it. Add suite to --only to include it.",
+        );
+      });
+    });
+
     it('passes project files to the format command alongside per-workspace files', () => {
       const config = makeConfig({
         formatCommand: 'npx prettier --write',

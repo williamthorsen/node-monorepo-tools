@@ -26,6 +26,7 @@ import { reportPrepare } from './reportPrepare.ts';
 import { resolveConfigFlag } from './resolveConfigFlag.ts';
 import {
   isSinglePackageTargets,
+  PROJECT_TARGET_ID,
   type ResolvedReleaseTargets,
   resolveReleaseTargets,
   SINGLE_PACKAGE_TARGET_ID,
@@ -234,14 +235,14 @@ function resolveTargetsOrExit(
     process.exit(1);
   }
 
-  const knownNames = listPackageIds(config.targets);
+  const knownNames = listSelectableIds(config.targets);
   const onlyNames = only ?? [];
   for (const name of onlyNames) {
     if (knownNames.includes(name)) {
       continue;
     }
 
-    reportError(`Unknown workspace "${name}". Known workspaces: ${knownNames.join(', ')}`);
+    reportError(`Unknown release target "${name}". Known targets: ${knownNames.join(', ')}`);
     process.exit(1);
   }
 
@@ -257,6 +258,11 @@ function resolveSetVersions(setVersion: string, targets: readonly ReleaseTarget[
     return new Map([[SINGLE_PACKAGE_TARGET_ID, setVersion]]);
   }
   return parseSetVersions(setVersion, listPackageIds(targets));
+}
+
+/** Returns the ids of the targets that `--only` can name, in target order: all but a `project` block's composite. */
+function listSelectableIds(targets: readonly ReleaseTarget[]): string[] {
+  return targets.flatMap((target) => (target.id === PROJECT_TARGET_ID ? [] : [target.id]));
 }
 
 /** Returns the ids of the package targets, in target order. */

@@ -22,7 +22,7 @@ import {
 } from './prepareTarget.ts';
 import { propagateBumps, type ReleaseEntry } from './propagateBumps.ts';
 import type { PlannedWrite, ReleasePlan } from './releasePlan.ts';
-import { isSinglePackageTargets } from './resolveReleaseTargets.ts';
+import { isSinglePackageTargets, PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
 import type { CompositeTarget, PackageTarget, ReleaseTarget, ReleaseType, TargetPrepareResult } from './types.ts';
 
 /** The targets of a prepare run and the settings that they share. */
@@ -47,9 +47,9 @@ export interface TargetPrepareOptions {
    */
   withReleaseNotes?: boolean;
   /**
-   * Ids of the package targets from which the release starts; the run plans them and their transitive dependents.
-   * Present only for a narrowed run, which skips every composite: A composite rolls up every member, and the
-   * narrowing has changed which members release.
+   * Ids of the targets from which the release starts; the run plans the named package targets and their transitive
+   * dependents, and each named composite, which reads its own window. Present only for a narrowed run, which skips
+   * every composite that it doesn't name.
    */
   only?: readonly string[];
   /**
@@ -70,7 +70,7 @@ const PREVIEWS_REQUIRE_JSON_WARNING =
  * 2. Reads each planned package's history and decides its direct release.
  * 3. Propagates bumps to dependents, asserts the baselines that matter, and sorts the release set topologically.
  * 4. Plans each release in dependency order.
- * 5. Prepares each composite after every package target, unless `only` narrowed the run.
+ * 5. Prepares each composite after every package target, unless `only` narrowed the run without naming it.
  * 6. Renders the format command over the modified files.
  */
 export function releasePrepareTargets(config: TargetPrepareConfig, options: TargetPrepareOptions): ReleasePlan {
@@ -163,11 +163,8 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
 
   // -- Composites, after every package target --
   for (const composite of compositeTargets) {
-    if (only !== undefined) {
-      warnings.push(
-        `Project release skipped: --only narrows this run to ${only.join(', ')}. ` +
-          'Run `release-kit prepare` without --only to include the project release.',
-      );
+    if (only !== undefined && !only.includes(composite.id)) {
+      warnings.push(describeSkippedComposite(composite, only));
       continue;
     }
     const result = runStage(describeStage(composite), () =>
@@ -450,6 +447,17 @@ function reportUnroutedEntryScopes(
   for (const { target, history } of windows) {
     history.unreleased.diagnostics.unroutedEntryScopes = findings.get(target.id) ?? [];
   }
+}
+
+/** Describes why a narrowed run skips a composite and how to include it; a `project` block's cannot be named. */
+function describeSkippedComposite(composite: CompositeTarget, only: readonly string[]): string {
+  if (composite.id === PROJECT_TARGET_ID) {
+    return (
+      `Project release skipped: --only narrows this run to ${only.join(', ')}. ` +
+      'Run `release-kit prepare` without --only to include the project release.'
+    );
+  }
+  return `Release '${composite.id}' skipped: --only does not name it. Add ${composite.id} to --only to include it.`;
 }
 
 /** Runs `fn`, rethrowing any thrown value behind the stage label as `<stage>: …`; runs it unlabeled without one. */

@@ -671,6 +671,38 @@ describe(prepareCommand, () => {
     });
   });
 
+  describe('--only with a releases composite', () => {
+    beforeEach(() => {
+      mockLoadConfig.mockResolvedValue({ releases: { suite: { includes: ['arrays'] } } });
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockImplementation((filePath: string) => {
+        if (filePath === 'packages/arrays/package.json') {
+          return JSON.stringify({ name: '@scope/arrays' });
+        }
+        if (filePath === 'packages/strings/package.json') {
+          return JSON.stringify({ name: '@scope/strings' });
+        }
+        return JSON.stringify({ name: 'root', version: '0.9.0' });
+      });
+    });
+
+    it('accepts the composite name and passes it through to the orchestrator', async () => {
+      await prepareCommand(['--only=suite'], RICH_STYLES, process.cwd());
+
+      expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ only: ['suite'] }),
+      );
+    });
+
+    it('rejects an unknown name, listing every selectable target', async () => {
+      await expect(prepareCommand(['--only=nonexistent'], RICH_STYLES, process.cwd())).rejects.toThrow(
+        ProcessExitError,
+      );
+      expect(capture.stderr).toContain('Unknown release target "nonexistent". Known targets: arrays, strings, suite');
+    });
+  });
+
   describe('--only and --set-version interactions with project block', () => {
     beforeEach(() => {
       // Configure the mocks so that the project block is loaded and the root package.json is valid.
