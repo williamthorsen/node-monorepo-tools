@@ -12,6 +12,7 @@ import { loadUsableConfig } from './loadValidatedConfig.ts';
 import { parseRequestedTags } from './parseRequestedTags.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
 import { resolveConfigFlag } from './resolveConfigFlag.ts';
+import type { ResolvedTag } from './resolveReleaseTags.ts';
 
 const createGithubReleaseFlagSchema = {
   ...configFlagSchema,
@@ -24,7 +25,8 @@ const createGithubReleaseFlagSchema = {
  * a comma-separated `--tags` subset, without publishing to npm.
  *
  * A private workspace's tag is skipped with a warning and doesn't get a Release; an all-private tag set is a clean
- * no-op. A relative `--config` resolves against `invocationDir`.
+ * no-op. A project tag gets a Release whatever the root `package.json#private` says. A relative `--config` resolves
+ * against `invocationDir`.
  */
 export async function createGithubReleaseCommand(
   argv: string[],
@@ -43,14 +45,14 @@ export async function createGithubReleaseCommand(
   const resolvedTags = resolveCommandTags(requestedTags, userConfig);
 
   // A private package is versioned and tagged but doesn't get a GitHub Release.
-  const publishableTags = resolvedTags.filter((resolvedTag) => resolvedTag.isPublishable);
+  const releasableTags = resolvedTags.filter(isReleasable);
   for (const resolvedTag of resolvedTags) {
-    if (!resolvedTag.isPublishable) {
+    if (!isReleasable(resolvedTag)) {
       console.warn(formatPrivateSkip(resolvedTag));
     }
   }
 
-  if (publishableTags.length === 0) {
+  if (releasableTags.length === 0) {
     return;
   }
 
@@ -58,7 +60,7 @@ export async function createGithubReleaseCommand(
 
   let outcome;
   try {
-    outcome = createGithubReleases(publishableTags, changelogJsonOutputPath, dryRun, sectionOrder);
+    outcome = createGithubReleases(releasableTags, changelogJsonOutputPath, dryRun, sectionOrder);
   } catch (error: unknown) {
     reportError(`Failed to create GitHub Releases: ${describeError(error)}`);
     process.exit(1);
@@ -71,3 +73,12 @@ export async function createGithubReleaseCommand(
     console.info(`Skipped ${outcome.skipped.length} tag(s) without releasable content: ${formatted}.`);
   }
 }
+
+// region | Helpers
+
+/** Reports whether the tag gets a GitHub Release: a project tag always does, and a package tag when it is public. */
+function isReleasable(resolvedTag: ResolvedTag): boolean {
+  return resolvedTag.kind === 'project' || resolvedTag.isPublishable;
+}
+
+// endregion | Helpers

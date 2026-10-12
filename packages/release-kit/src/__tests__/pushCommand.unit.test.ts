@@ -45,8 +45,8 @@ import { resolvedPackages } from '../test-utils/workspaceResolutions.ts';
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 const TAGS: ResolvedTag[] = [
-  { tag: 'core-v1.2.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
-  { tag: 'cli-v0.5.0', dir: 'cli', workspacePath: 'packages/cli', isPublishable: true },
+  { tag: 'core-v1.2.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+  { tag: 'cli-v0.5.0', kind: 'package', dir: 'cli', workspacePath: 'packages/cli', isPublishable: true },
 ];
 
 describe(pushCommand, () => {
@@ -197,6 +197,59 @@ describe(pushCommand, () => {
         'Skipping cli-v0.5.0 (packages/cli): excluded by config (shouldExclude: true).',
       );
       expect(mockPushRelease).toHaveBeenCalledWith([TAGS[0]], { dryRun: false, tagsOnly: false });
+    });
+  });
+
+  describe('project tag', () => {
+    const PROJECT_TAG: ResolvedTag = {
+      tag: 'v0.13.0',
+      kind: 'project',
+      dir: '',
+      workspacePath: '.',
+      isPublishable: false,
+    };
+
+    beforeEach(async () => {
+      const actual = await vi.importActual<typeof import('../resolveCommandTags.ts')>('../resolveCommandTags.ts');
+      mockResolveCommandTags.mockImplementation(actual.resolveCommandTags);
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/cli']));
+      mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
+        const dir = workspacePath.split('/').pop() ?? workspacePath;
+        return {
+          dir,
+          name: `@test/${dir}`,
+          tagPrefix: `${dir}-v`,
+          workspacePath,
+          isPublishable: true,
+          packageFiles: [`${workspacePath}/package.json`],
+          paths: [`${workspacePath}/**`],
+        };
+      });
+    });
+
+    it('pushes the project tag alongside the workspace tags', async () => {
+      mockResolveReleaseTags.mockReturnValue([...TAGS, PROJECT_TAG]);
+      mockLoadConfig.mockResolvedValue({ project: {} });
+
+      await pushCommand([], RICH_STYLES, process.cwd());
+
+      expect(mockPushRelease).toHaveBeenCalledWith([...TAGS, PROJECT_TAG], { dryRun: false, tagsOnly: false });
+    });
+
+    it('pushes the project tag when it is the only release tag', async () => {
+      mockResolveReleaseTags.mockReturnValue([PROJECT_TAG]);
+      mockLoadConfig.mockResolvedValue({
+        project: {},
+        workspaces: [
+          { dir: 'core', shouldExclude: true },
+          { dir: 'cli', shouldExclude: true },
+        ],
+      });
+
+      await pushCommand([], RICH_STYLES, process.cwd());
+
+      expect(mockPushRelease).toHaveBeenCalledWith([PROJECT_TAG], { dryRun: false, tagsOnly: false });
+      expect(capture.stderrChunks.join('')).not.toContain('HEAD does not have any release tags');
     });
   });
 

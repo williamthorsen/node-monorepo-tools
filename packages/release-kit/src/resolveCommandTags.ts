@@ -11,7 +11,7 @@ import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } f
 import { formatExcludedSkip } from './formatExcludedSkip.ts';
 import { mergeMonorepoConfig, readRootPackageVersion } from './loadConfig.ts';
 import { type ResolvedTag, resolveReleaseTags } from './resolveReleaseTags.ts';
-import type { ReleaseKitConfig, WorkspaceConfig } from './types.ts';
+import type { ReleaseKitConfig, ResolvedProjectConfig, WorkspaceConfig } from './types.ts';
 
 /**
  * Discovers workspaces, resolves release tags from HEAD, validates `--tags` names against the full resolved tag
@@ -20,7 +20,8 @@ import type { ReleaseKitConfig, WorkspaceConfig } from './types.ts';
  * `mergeMonorepoConfig` rejects, and a workspace that does not resolve to any package, which is not single-package
  * mode.
  *
- * In monorepo mode the workspace list is `userConfig` merged over the discovered workspaces, as `prepare` builds it.
+ * In monorepo mode the workspace list is `userConfig` merged over the discovered workspaces, as `prepare` builds it,
+ * and a configured `project` block contributes its `tagPrefix`, so that the project tag resolves alongside them.
  * A tag on HEAD whose workspace the config excludes still counts as a tag on HEAD, so `--tags` may name it and a
  * HEAD whose tags are all excluded returns an empty list rather than failing. Each excluded tag that the run
  * selects, every one without `--tags` or the named ones with it, is dropped with a warning.
@@ -48,13 +49,14 @@ export function resolveCommandTags(
   }
 
   let workspaces: WorkspaceConfig[] | undefined;
+  let project: ResolvedProjectConfig | undefined;
   let singleWorkspace: WorkspaceConfig | undefined;
   const excludedDirs = workspace.kind === 'packages' ? collectExcludedDirs(userConfig) : new Set<string>();
   try {
     if (workspace.kind === 'single-package') {
       singleWorkspace = deriveWorkspaceConfig('.');
     } else {
-      workspaces = buildMonorepoWorkspaces(workspace.packageDirs, userConfig, excludedDirs);
+      ({ workspaces, project } = buildMonorepoWorkspaces(workspace.packageDirs, userConfig, excludedDirs));
     }
   } catch (error: unknown) {
     reportError(`Failed to resolve workspaces: ${describeError(error)}`);
@@ -64,7 +66,7 @@ export function resolveCommandTags(
   // Resolve tags from HEAD. The try block above sets exactly one of workspaces/singleWorkspace.
   let resolvedTags: ResolvedTag[];
   if (workspaces !== undefined) {
-    resolvedTags = resolveReleaseTags({ workspaces });
+    resolvedTags = resolveReleaseTags({ workspaces, ...(project !== undefined && { project }) });
   } else if (singleWorkspace !== undefined) {
     resolvedTags = resolveReleaseTags({ singleWorkspace });
   } else {
@@ -98,21 +100,21 @@ export function resolveCommandTags(
 /**
  * Returns the config-merged workspaces followed by the ones that the config excludes, so that tag matching sees
  * every discovered prefix and an excluded workspace's tag binds to that workspace rather than to a shorter prefix.
+ * Also returns the resolved `project` block when the config declares one.
  */
 function buildMonorepoWorkspaces(
   packageDirs: string[],
   userConfig: ReleaseKitConfig | undefined,
   excludedDirs: ReadonlySet<string>,
-): WorkspaceConfig[] {
-  const { workspaces } = mergeMonorepoConfig(packageDirs, userConfig, readRootPackageVersion());
-  if (excludedDirs.size === 0) {
-    return workspaces;
-  }
-
+): { workspaces: WorkspaceConfig[]; project?: ResolvedProjectConfig } {
+  const { workspaces, project } = mergeMonorepoConfig(packageDirs, userConfig, readRootPackageVersion());
   const excluded = packageDirs
     .filter((packageDir) => excludedDirs.has(basename(packageDir)))
     .map((packageDir) => deriveWorkspaceConfig(packageDir));
-  return [...workspaces, ...excluded];
+  return {
+    workspaces: [...workspaces, ...excluded],
+    ...(project !== undefined && { project }),
+  };
 }
 
 /** Returns the `dir` of every workspace override that sets `shouldExclude: true`. */

@@ -12,6 +12,7 @@ import { configFlagSchema } from './configFlagSchema.ts';
 import { deriveReleaseNotesConfig } from './deriveReleaseNotesConfig.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
+import { formatProjectPublishSkip } from './formatProjectPublishSkip.ts';
 import { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
 import { loadUsableConfig } from './loadValidatedConfig.ts';
 import { parseRequestedTags } from './parseRequestedTags.ts';
@@ -117,7 +118,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
 }
 
 /**
- * Restricts the resolved tag set to publishable workspaces.
+ * Restricts the resolved tag set to publishable workspaces, which excludes every project tag.
  *
  * When the user named tags explicitly via `--tags` (`isExplicit === true`), each unpublishable
  * tag is skipped with a warning and the publishable tags still publish. When resolution was
@@ -134,7 +135,9 @@ function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean)
   // naming a tag signals that the user expected it to publish.
   if (isExplicit) {
     for (const resolvedTag of unpublishable) {
-      console.warn(formatPrivateSkip(resolvedTag));
+      console.warn(
+        resolvedTag.kind === 'project' ? formatProjectPublishSkip(resolvedTag) : formatPrivateSkip(resolvedTag),
+      );
     }
   }
 

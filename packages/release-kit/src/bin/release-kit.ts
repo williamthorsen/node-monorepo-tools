@@ -210,7 +210,8 @@ Usage: release-kit create-github-release [options]
 
 Create GitHub Releases from changelog.json for tags on HEAD. Private
 (package.json#private) workspaces are skipped with a warning, and the command
-doesn't create a Release for them.
+doesn't create a Release for them. A project tag gets a Release even when the
+root package is private.
 
 Options:
   --config <path>        Config file, relative to the current directory
@@ -282,7 +283,7 @@ Usage: release-kit publish [options]
 Publish packages that have release tags on HEAD. Operates only on workspaces whose
 package.json#private is absent or false. Without --tags, unpublishable workspaces are
 silently filtered out. With --tags, an unpublishable tag is skipped with a warning while
-any publishable tags are still published.
+any publishable tags are still published. A project tag is never published.
 
 Options:
   --config <path>        Config file, relative to the current directory

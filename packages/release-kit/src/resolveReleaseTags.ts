@@ -2,15 +2,21 @@ import { execFileSync } from 'node:child_process';
 
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 
-import type { WorkspaceConfig } from './types.ts';
+import { PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
+import type { ResolvedProjectConfig, WorkspaceConfig } from './types.ts';
 
 export interface ResolvedTag {
   tag: string;
+  /**
+   * Whether the tag belongs to a workspace package or to the `project` block. A project tag is never published to a
+   * registry but always qualifies for a GitHub Release.
+   */
+  kind: 'package' | 'project';
   dir: string;
   workspacePath: string;
   /**
    * Whether the workspace to which this tag belongs can be published to a registry, copied from the matched
-   * workspace's `WorkspaceConfig.isPublishable`.
+   * workspace's `WorkspaceConfig.isPublishable`. Always false for a project tag.
    */
   isPublishable: boolean;
 }
@@ -22,14 +28,17 @@ const VERSION_PATTERN = /^v\d+\.\d+\.\d+/;
 const SEMVER_SUFFIX_PATTERN = /^\d+\.\d+\.\d+/;
 
 /** Discriminated argument to `resolveReleaseTags`: exactly one of the two keys is meaningful. */
-type ResolveReleaseTagsArgs = { workspaces: readonly WorkspaceConfig[] } | { singleWorkspace: WorkspaceConfig };
+type ResolveReleaseTagsArgs =
+  | { workspaces: readonly WorkspaceConfig[]; project?: Pick<ResolvedProjectConfig, 'tagPrefix'> }
+  | { singleWorkspace: WorkspaceConfig };
 
 /**
  * Resolves release tags pointing at HEAD into publishable package descriptors.
  *
  * Pass `{ workspaces }` for monorepo mode: Each tag is matched against the workspace
  * whose `tagPrefix` it starts with, and that workspace's `isPublishable` propagates onto
- * the `ResolvedTag`. Because `tagPrefix` is derived from `deriveWorkspaceConfig()` (the
+ * the `ResolvedTag`. Add `project` to also match the project tag, which resolves at the
+ * repo root with `kind: 'project'`. Because `tagPrefix` is derived from `deriveWorkspaceConfig()` (the
  * same source that produced the tag), encoding and decoding stay colocated.
  *
  * Pass `{ singleWorkspace }` for single-package mode: Tags like `v1.2.3` are matched and
@@ -54,7 +63,7 @@ export function resolveReleaseTags(args?: ResolveReleaseTagsArgs): ResolvedTag[]
     return resolveSinglePackageTags(tags);
   }
   if ('workspaces' in args) {
-    return resolveMonorepoTags(tags, args.workspaces);
+    return resolveMonorepoTags(tags, args.workspaces, args.project);
   }
   return resolveSinglePackageTags(tags, args.singleWorkspace);
 }
@@ -74,19 +83,24 @@ function resolveSinglePackageTags(tags: string[], singleWorkspace?: WorkspaceCon
       `Warning: Multiple version tags found on HEAD: ${matched.join(', ')}. ` +
         `Publishing the same package multiple times is almost certainly unintended. Using only the first tag.`,
     );
-    return matched.slice(0, 1).map((tag) => ({ tag, dir: '.', workspacePath: '.', isPublishable }));
+    return matched.slice(0, 1).map((tag) => ({ tag, kind: 'package', dir: '.', workspacePath: '.', isPublishable }));
   }
 
-  return matched.map((tag) => ({ tag, dir: '.', workspacePath: '.', isPublishable }));
+  return matched.map((tag) => ({ tag, kind: 'package', dir: '.', workspacePath: '.', isPublishable }));
 }
 
 /**
- * Matches monorepo tags by scanning workspaces for a matching `tagPrefix`.
+ * Matches monorepo tags by scanning workspaces, then the project, for a matching `tagPrefix`.
  *
- * When two prefixes nest (e.g., `foo-v` and `foo-bar-v`), the longest match wins, so that `foo-bar-v1.0.0` does not
- * bind to `foo-v`.
+ * When two workspace prefixes nest (e.g., `foo-v` and `foo-bar-v`), the longest match wins, so that `foo-bar-v1.0.0`
+ * does not bind to `foo-v`. The project prefix cannot nest with a workspace prefix, because `mergeMonorepoConfig`
+ * rejects that collision.
  */
-function resolveMonorepoTags(tags: string[], workspaces: readonly WorkspaceConfig[]): ResolvedTag[] {
+function resolveMonorepoTags(
+  tags: string[],
+  workspaces: readonly WorkspaceConfig[],
+  project: Pick<ResolvedProjectConfig, 'tagPrefix'> | undefined,
+): ResolvedTag[] {
   const sortedWorkspaces = workspaces.toSorted((a, b) => b.tagPrefix.length - a.tagPrefix.length);
 
   const resolved: ResolvedTag[] = [];
@@ -94,7 +108,15 @@ function resolveMonorepoTags(tags: string[], workspaces: readonly WorkspaceConfi
   for (const tag of tags) {
     const match = findMatchingWorkspace(tag, sortedWorkspaces);
     if (match !== undefined) {
-      resolved.push({ tag, dir: match.dir, workspacePath: match.workspacePath, isPublishable: match.isPublishable });
+      resolved.push({
+        tag,
+        kind: 'package',
+        dir: match.dir,
+        workspacePath: match.workspacePath,
+        isPublishable: match.isPublishable,
+      });
+    } else if (project !== undefined && hasVersionAfterPrefix(tag, project.tagPrefix)) {
+      resolved.push({ tag, kind: 'project', dir: PROJECT_TARGET_ID, workspacePath: '.', isPublishable: false });
     }
   }
 
@@ -108,14 +130,10 @@ function resolveMonorepoTags(tags: string[], workspaces: readonly WorkspaceConfi
  * `tagPrefix` ends with `v` (e.g., `core-v`), so the suffix after it is a bare semver without a leading `v`.
  */
 function findMatchingWorkspace(tag: string, sortedWorkspaces: readonly WorkspaceConfig[]): WorkspaceConfig | undefined {
-  for (const workspace of sortedWorkspaces) {
-    if (!tag.startsWith(workspace.tagPrefix)) {
-      continue;
-    }
-    const versionSuffix = tag.slice(workspace.tagPrefix.length);
-    if (SEMVER_SUFFIX_PATTERN.test(versionSuffix)) {
-      return workspace;
-    }
-  }
-  return undefined;
+  return sortedWorkspaces.find((workspace) => hasVersionAfterPrefix(tag, workspace.tagPrefix));
+}
+
+/** Reports whether the tag starts with `tagPrefix` and continues with a bare semver. */
+function hasVersionAfterPrefix(tag: string, tagPrefix: string): boolean {
+  return tag.startsWith(tagPrefix) && SEMVER_SUFFIX_PATTERN.test(tag.slice(tagPrefix.length));
 }
