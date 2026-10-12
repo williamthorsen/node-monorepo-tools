@@ -4,6 +4,7 @@ const mockExecFileSync = vi.hoisted(() => vi.fn());
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 const mockDetectUndeclared = vi.hoisted(() => vi.fn());
+const mockDeriveDirectoryConfig = vi.hoisted(() => vi.fn());
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -18,6 +19,10 @@ vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
 
 vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
   deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
+}));
+
+vi.mock(import('../deriveDirectoryConfig.ts'), () => ({
+  deriveDirectoryConfig: mockDeriveDirectoryConfig,
 }));
 
 vi.mock(import('../detectUndeclaredTagPrefixes.ts'), () => ({
@@ -44,6 +49,7 @@ describe(previewTagPrefixes, () => {
     mockDiscoverWorkspaces.mockReset();
     mockDeriveWorkspaceConfig.mockReset();
     mockDetectUndeclared.mockReset();
+    mockDeriveDirectoryConfig.mockReset();
   });
 
   it('returns one row per discovered workspace with derived prefix and tag counts', () => {
@@ -156,6 +162,38 @@ describe(previewTagPrefixes, () => {
     const result = previewTagPrefixes(config);
 
     expect(result.workspaces[0]?.legacyEntries).toStrictEqual([{ prefix: 'core-v', tagCount: 1 }]);
+  });
+
+  it('adds a row for each directory that a releases entry declares, recording a derivation failure on the row', () => {
+    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
+    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'core-v' });
+    mockDeriveDirectoryConfig.mockImplementation((declared: { path: string; tagPrefix?: string }) => {
+      if (declared.path === 'apps/app') return { tagPrefix: declared.tagPrefix };
+      throw new Error(`releases.docs: path '${declared.path}' is not a directory`);
+    });
+    mockDetectUndeclared.mockReturnValue([]);
+    setupTagCounts({ 'app-v': ['app-v1.0.0'] });
+
+    const result = previewTagPrefixes({
+      releases: {
+        core: { path: 'packages/core' },
+        app: { path: './apps/app', tagPrefix: 'app-v' },
+        docs: { path: 'docs' },
+      },
+    });
+
+    expect(
+      result.workspaces.map(({ workspacePath, derivedPrefix, derivedTagCount }) => [
+        workspacePath,
+        derivedPrefix,
+        derivedTagCount,
+      ]),
+    ).toStrictEqual([
+      ['packages/core', 'core-v', 0],
+      ['apps/app', 'app-v', 1],
+      ['docs', null, 0],
+    ]);
+    expect(result.workspaces[2]?.derivationError).toContain('is not a directory');
   });
 
   it('detects cross-workspace tag-prefix collisions', () => {

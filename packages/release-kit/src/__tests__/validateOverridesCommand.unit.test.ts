@@ -535,6 +535,37 @@ describe(validateOverridesCommand, () => {
       });
     });
 
+    it('validates a directory target under its own override file, reading its window and routing by its name', async () => {
+      tree.write('apps/app/version.json', JSON.stringify({ version: '1.0.0' }));
+      const calls: GenerateChangelogOptions[] = [];
+      let workspaceFiles: string[] = [];
+
+      await validateOverridesCommand(RICH_STYLES, undefined, {
+        discoverWorkspaces: () => resolvedPackages(['packages/foo']),
+        loadValidatedConfig: () =>
+          Promise.resolve({
+            status: 'ok',
+            configFilePath: '.config/release-kit.config.ts',
+            warnings: [],
+            config: { releases: { app: { path: 'apps/app' } } },
+          }),
+        buildEntries: (_config, options) => {
+          calls.push(options);
+          return [];
+        },
+        validate: (inputs) => {
+          workspaceFiles = (inputs.workspaces ?? []).map((scope) => scope.filePath);
+          return { errors: [], warnings: [] };
+        },
+      });
+
+      expect(calls.at(-1)).toStrictEqual({ tagPrefixes: ['app-v'], paths: ['apps/app/**'], scope: 'app' });
+      expect(workspaceFiles).toStrictEqual([
+        'packages/foo/.meta/changelog-overrides.json',
+        'apps/app/.meta/changelog-overrides.json',
+      ]);
+    });
+
     it("excludes from a workspace's items an entry whose scopes route it to another workspace", async () => {
       const hash = 'abcdef1234567890abcdef1234567890abcdef12';
       const message = [

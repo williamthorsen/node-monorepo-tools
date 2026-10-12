@@ -526,6 +526,28 @@ describe(createGithubReleaseCommand, () => {
     });
   });
 
+  describe('directory tag', () => {
+    it('creates a Release for a directory tag, which is never publishable', async () => {
+      const DIRECTORY_TAG = {
+        tag: 'app-v2.0.0',
+        kind: 'directory',
+        dir: 'app',
+        workspacePath: 'apps/app',
+        isPublishable: false,
+      };
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic']));
+      mockResolveReleaseTags.mockReturnValue([DIRECTORY_TAG]);
+
+      await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+
+      expect(console.warn).not.toHaveBeenCalled();
+      expect(mockCreateGithubReleases).toHaveBeenCalledWith([DIRECTORY_TAG], '.meta/changelog.json', false, [
+        'Bug fixes',
+        'Features',
+      ]);
+    });
+  });
+
   describe('--tags parsing', () => {
     it('rejects --tags= (empty value) with a missing-value error', async () => {
       // The shared parseArgs helper rejects an empty `--flag=` value before the command sees it.

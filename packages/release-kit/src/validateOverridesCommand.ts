@@ -176,9 +176,10 @@ function formatConfigProblem(problem: ConfigProblem): string {
 
 /**
  * Builds the validation inputs from the release targets, so that each scope's items are those that `prepare` reads for
- * its target. A workspace target is a workspace scope, under its own override file. The project scope reads the root
- * override file, with the items of the composite target or of the single-package root; a monorepo without a `project`
- * block validates the root file without any items of its own.
+ * its target. A workspace target, and a directory target other than the repo root, is a workspace scope, under its
+ * own override file. The project scope reads the root override file, with the items of the composite target, of the
+ * repo-root directory target, or of the single-package root; a monorepo that has none of them validates the root
+ * file without any items of its own.
  */
 function buildValidationInputs(
   { targets, settings }: ResolvedReleaseTargets,
@@ -193,6 +194,8 @@ function buildValidationInputs(
     const items = flattenEntriesToItems(buildEntries(settings, describeHistoryWindow(target)));
     if (target.kind === 'package' && target.isWorkspace) {
       workspaces.push({ filePath: resolveOverridePath(target.packagePath), items });
+    } else if (target.kind === 'directory' && target.directoryPath !== '.') {
+      workspaces.push({ filePath: resolveOverridePath(target.directoryPath), items });
     } else {
       projectScope.items = items;
     }

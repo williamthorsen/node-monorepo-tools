@@ -685,6 +685,22 @@ describe(publishCommand, () => {
     });
   });
 
+  describe('directory tag', () => {
+    it('warns that a directory release is not published when --tags names its tag', async () => {
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
+      mockResolveReleaseTags.mockReturnValue([
+        { tag: 'app-v2.0.0', kind: 'directory', dir: 'app', workspacePath: 'apps/app', isPublishable: false },
+      ]);
+
+      await publishCommand(['--tags=app-v2.0.0'], RICH_STYLES, process.cwd());
+
+      expect(console.warn).toHaveBeenCalledExactlyOnceWith(
+        "Skipping app-v2.0.0: directory release 'app' is not published to a registry.",
+      );
+      expect(mockPublishPackage).not.toHaveBeenCalled();
+    });
+  });
+
   describe('clean-tree gate', () => {
     it('exits with error when the working tree is dirty', async () => {
       mockAssertCleanWorkingTree.mockImplementation(() => {
