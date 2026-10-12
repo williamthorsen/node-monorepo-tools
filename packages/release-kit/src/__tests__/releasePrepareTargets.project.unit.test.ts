@@ -51,12 +51,15 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
 import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
 import type { PlannedWrite } from '../releasePlan.ts';
-import { releasePrepareProject } from '../releasePrepareProject.ts';
+import { releasePrepareTargets, type TargetPrepareOptions } from '../releasePrepareTargets.ts';
+import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
+import { selectCompositeResult } from '../test-utils/prepareResults.ts';
 import { makeReleaseHistory, type ReleaseHistoryStub } from '../test-utils/releaseHistories.ts';
 import type {
   ChangelogEntry,
   ChangelogSection,
+  CompositePrepareResult,
   MalformedChangeRecordBlock,
   MonorepoReleaseConfig,
   PolicyViolation,
@@ -100,7 +103,7 @@ const ENTRY_VIOLATION: PolicyViolation = {
   entryPosition: 1,
 };
 
-describe(releasePrepareProject, () => {
+describe('releasePrepareTargets for a project composite', () => {
   beforeEach(() => {
     mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
@@ -132,7 +135,7 @@ describe(releasePrepareProject, () => {
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
-    const result = releasePrepareProject({
+    const result = prepareProjectStage({
       config,
       options: {},
       modifiedFiles,
@@ -165,7 +168,7 @@ describe(releasePrepareProject, () => {
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
-    const result = releasePrepareProject({
+    const result = prepareProjectStage({
       config,
       options: {},
       modifiedFiles,
@@ -193,7 +196,7 @@ describe(releasePrepareProject, () => {
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
-    const result = releasePrepareProject({
+    const result = prepareProjectStage({
       config: makeConfig(),
       options: { force: true },
       modifiedFiles,
@@ -219,7 +222,7 @@ describe(releasePrepareProject, () => {
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
-    const result = releasePrepareProject({
+    const result = prepareProjectStage({
       config: makeConfig(),
       options: { force: true },
       modifiedFiles,
@@ -241,7 +244,7 @@ describe(releasePrepareProject, () => {
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
-    const result = releasePrepareProject({
+    const result = prepareProjectStage({
       config: makeConfig(),
       options: { bumpOverride: 'minor' },
       modifiedFiles,
@@ -262,7 +265,7 @@ describe(releasePrepareProject, () => {
     const modifiedFiles: string[] = [];
     const writes: PlannedWrite[] = [];
 
-    const result = releasePrepareProject({
+    const result = prepareProjectStage({
       config,
       options: {},
       modifiedFiles,
@@ -291,7 +294,7 @@ describe(releasePrepareProject, () => {
   it("labels the unreleased window's sections with the new tag, ahead of the released entries", () => {
     stubDefaultHistory({ releasedEntries: [RELEASED_ENTRY] });
 
-    releasePrepareProject({
+    prepareProjectStage({
       config: makeConfig(),
       options: {},
       modifiedFiles: [],
@@ -306,7 +309,7 @@ describe(releasePrepareProject, () => {
     stubDefaultHistory();
     const config = makeConfig({ project: { paths: ['packages/arrays/**'], tagPrefix: 'v' } });
 
-    releasePrepareProject({
+    prepareProjectStage({
       config,
       options: {},
       modifiedFiles: [],
@@ -323,7 +326,7 @@ describe(releasePrepareProject, () => {
     stubDefaultHistory();
     const config = makeConfig({ project: { paths: ['**'], tagPrefix: 'v' } });
 
-    releasePrepareProject({
+    prepareProjectStage({
       config,
       options: {},
       modifiedFiles: [],
@@ -341,7 +344,7 @@ describe(releasePrepareProject, () => {
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
-    const result = releasePrepareProject({
+    const result = prepareProjectStage({
       config: makeConfig(),
       options: { bumpOverride: 'major' },
       modifiedFiles,
@@ -361,7 +364,7 @@ describe(releasePrepareProject, () => {
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
-    const result = releasePrepareProject({
+    const result = prepareProjectStage({
       config: makeConfig(),
       options: { force: true, bumpOverride: 'patch' },
       modifiedFiles,
@@ -380,7 +383,7 @@ describe(releasePrepareProject, () => {
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
-    const result = releasePrepareProject({
+    const result = prepareProjectStage({
       config: makeConfig(),
       options: {},
       modifiedFiles,
@@ -409,7 +412,7 @@ describe(releasePrepareProject, () => {
     });
     const modifiedFiles: string[] = [];
 
-    releasePrepareProject({
+    prepareProjectStage({
       config,
       options: {},
       modifiedFiles,
@@ -433,7 +436,7 @@ describe(releasePrepareProject, () => {
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
 
-    releasePrepareProject({
+    prepareProjectStage({
       config,
       options: { withReleaseNotes: true },
       modifiedFiles,
@@ -458,7 +461,7 @@ describe(releasePrepareProject, () => {
       changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
     });
 
-    releasePrepareProject({
+    prepareProjectStage({
       config,
       options: {},
       modifiedFiles: [],
@@ -483,7 +486,7 @@ describe(releasePrepareProject, () => {
     });
     const tags: string[] = [];
 
-    const result = releasePrepareProject({
+    const result = prepareProjectStage({
       config: makeConfig(),
       options: {},
       modifiedFiles: [],
@@ -507,21 +510,6 @@ describe(releasePrepareProject, () => {
     expect(tags).toStrictEqual(['v0.10.0']);
   });
 
-  it('throws when called without a project block', () => {
-    const config = makeConfig();
-    delete config.project;
-    expect(() =>
-      releasePrepareProject({
-        config,
-        options: {},
-        modifiedFiles: [],
-        writes: [],
-        tags: [],
-      }),
-    ).toThrow(/without a configured project block/);
-    expect(mockReadReleaseHistory).not.toHaveBeenCalled();
-  });
-
   describe('existing CHANGELOG.md sections', () => {
     it('keeps the root sections whose versions the entries lack and reports them', () => {
       stubDefaultHistory({ releasedEntries: [RELEASED_ENTRY] });
@@ -530,7 +518,7 @@ describe(releasePrepareProject, () => {
         'CHANGELOG.md': '# Changelog\n\n## 0.9.0\n\n- Stale\n\n## 0.8.0\n\n- Hand-written\n\n## Credits\n\n- People\n',
       });
 
-      const result = releasePrepareProject({
+      const result = prepareProjectStage({
         config: makeConfig(),
         options: {},
         modifiedFiles: [],
@@ -553,7 +541,7 @@ describe(releasePrepareProject, () => {
     it("omits changelogPreservation when the root changelog doesn't exist", () => {
       stubDefaultHistory();
 
-      const result = releasePrepareProject({
+      const result = prepareProjectStage({
         config: makeConfig(),
         options: {},
         modifiedFiles: [],
@@ -575,7 +563,7 @@ describe(releasePrepareProject, () => {
       const writes: PlannedWrite[] = [];
 
       expect(() =>
-        releasePrepareProject({ config: makeConfig(), options: { force }, modifiedFiles: [], writes, tags: [] }),
+        prepareProjectStage({ config: makeConfig(), options: { force }, modifiedFiles: [], writes, tags: [] }),
       ).toThrow('  - project: 1.0.0 (create tag v1.0.0)');
       expect(writes).toStrictEqual([]);
     });
@@ -584,7 +572,7 @@ describe(releasePrepareProject, () => {
       stubDefaultHistory();
       stubFiles({ './package.json': JSON.stringify({ version: '0.9.0' }), 'CHANGELOG.md': '## 0.9.0\n' });
 
-      const result = releasePrepareProject({
+      const result = prepareProjectStage({
         config: makeConfig(),
         options: {},
         modifiedFiles: [],
@@ -605,7 +593,7 @@ describe(releasePrepareProject, () => {
       const tags: string[] = [];
       const modifiedFiles: string[] = [];
 
-      const result = releasePrepareProject({
+      const result = prepareProjectStage({
         config: makeConfig(),
         options: { force: true },
         modifiedFiles,
@@ -643,7 +631,7 @@ describe(releasePrepareProject, () => {
         ],
       });
 
-      releasePrepareProject({
+      prepareProjectStage({
         config: makeConfig(),
         options: { force: true },
         modifiedFiles: [],
@@ -661,7 +649,7 @@ describe(releasePrepareProject, () => {
       stubHistory({ previousTag: 'v0.9.0', releasedEntries: [RELEASED_ENTRY] });
       const config = makeConfig();
 
-      releasePrepareProject({
+      prepareProjectStage({
         config,
         options: { force: true },
         modifiedFiles: [],
@@ -680,7 +668,7 @@ describe(releasePrepareProject, () => {
       stubHistory({ previousTag: 'v0.9.0' });
       const config = makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } });
 
-      releasePrepareProject({
+      prepareProjectStage({
         config,
         options: { force: true },
         modifiedFiles: [],
@@ -710,7 +698,7 @@ describe(releasePrepareProject, () => {
       const modifiedFiles: string[] = [];
       const writes: PlannedWrite[] = [];
 
-      const result = releasePrepareProject({
+      const result = prepareProjectStage({
         config: makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
         options: { force: true },
         modifiedFiles,
@@ -733,7 +721,7 @@ describe(releasePrepareProject, () => {
     it("renders a window that yields items from the history's entries, without a synthetic entry", () => {
       stubDefaultHistory();
 
-      releasePrepareProject({
+      prepareProjectStage({
         config: makeConfig(),
         options: { force: true },
         modifiedFiles: [],
@@ -749,7 +737,7 @@ describe(releasePrepareProject, () => {
       const tags: string[] = [];
       const modifiedFiles: string[] = [];
 
-      const result = releasePrepareProject({
+      const result = prepareProjectStage({
         config: makeConfig(),
         options: {}, // No --force, no --bump → skip path.
         modifiedFiles,
@@ -768,7 +756,7 @@ describe(releasePrepareProject, () => {
     it('omits every diagnostic list from a released result when the history reports none', () => {
       stubDefaultHistory();
 
-      const result = releasePrepareProject({
+      const result = prepareProjectStage({
         config: makeConfig(),
         options: {},
         modifiedFiles: [],
@@ -791,7 +779,7 @@ describe(releasePrepareProject, () => {
         },
       });
 
-      const result = releasePrepareProject({
+      const result = prepareProjectStage({
         config: makeConfig(),
         options: {},
         modifiedFiles: [],
@@ -812,7 +800,10 @@ describe(releasePrepareProject, () => {
 /** Asserts that the run read the project's history exactly once, under the project tag prefix and `paths`. */
 function expectOneHistoryRead(config: MonorepoReleaseConfig, paths: string[]): void {
   expect(mockReadReleaseHistory).toHaveBeenCalledTimes(1);
-  expect(mockReadReleaseHistory).toHaveBeenCalledWith(config, { tagPrefixes: ['v'], paths });
+  expect(mockReadReleaseHistory).toHaveBeenCalledWith(expect.objectContaining({ workTypes: config.workTypes }), {
+    tagPrefixes: ['v'],
+    paths,
+  });
 }
 
 /** Builds a monorepo config with two workspaces and a project block spanning both. */
@@ -836,10 +827,42 @@ function makeWorkspace(overrides: Partial<WorkspaceConfig> & Pick<WorkspaceConfi
     workspacePath: `packages/${dir}`,
     isPublishable: true,
     packageFiles: [`packages/${dir}/package.json`],
-    changelogPaths: [`packages/${dir}`],
     paths: [`packages/${dir}/**`],
     ...overrides,
   };
+}
+
+/** Arguments of {@link prepareProjectStage}: the config, the options, and the lists to which the run's output is appended. */
+interface ProjectStageArgs {
+  config: MonorepoReleaseConfig;
+  options: TargetPrepareOptions;
+  modifiedFiles?: string[];
+  writes?: PlannedWrite[];
+  tags?: string[];
+  warnings?: string[];
+}
+
+/**
+ * Prepares the config's project composite alone, appending the plan's tags, writes, warnings, and format-command files
+ * to the given lists, and returns the composite's result.
+ */
+function prepareProjectStage(args: ProjectStageArgs): CompositePrepareResult {
+  const { targets, settings } = projectMonorepoConfig(args.config);
+  const plan = releasePrepareTargets(
+    {
+      targets: targets.filter((target) => target.kind === 'composite'),
+      // A configured command makes the plan report its modified files.
+      settings: { ...settings, formatCommand: 'format' },
+    },
+    args.options,
+  );
+  args.tags?.push(...plan.tags);
+  args.writes?.push(...plan.writes);
+  args.modifiedFiles?.push(...(plan.formatCommand?.files ?? []));
+  args.warnings?.push(...(plan.warnings ?? []));
+  const result = selectCompositeResult(plan);
+  assert(result !== undefined, 'expected a composite result');
+  return result;
 }
 
 /** Returns the content that the staged writes intend for `path`, or undefined when the staged writes don't target it. */

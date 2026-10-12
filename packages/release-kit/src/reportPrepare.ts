@@ -10,12 +10,12 @@ import {
 import { bold, dim, sectionHeader } from './format.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
 import type {
+  CompositePrepareResult,
+  PackagePrepareResult,
   PolicyViolation,
   PrepareResult,
-  ProjectPrepareResult,
   PropagationSource,
-  ReleasedWorkspaceResult,
-  WorkspacePrepareResult,
+  ReleasedPackageResult,
 } from './types.ts';
 
 /** The rendered width to which the report cuts a commit subject, wherever it prints one. */
@@ -33,15 +33,14 @@ export interface ReportPrepareOptions {
 /**
  * Formats a release plan into styled terminal output, without writing it.
  *
- * Single-workspace mode (without a `name` field) renders flat output; multi-workspace mode
- * renders section headers per workspace, an optional project section, and a tag summary
- * at the end.
+ * A plan whose package results lack a `name` and that lacks a composite result renders flat output, as a
+ * single-package release does; any other plan renders a section per target and a tag summary at the end.
  *
  * Whether the plan was applied is a property of the render, not of the plan: The same plan
  * produces the dry-run report and the applied report.
  */
 export function reportPrepare(plan: PrepareResult, options: ReportPrepareOptions): string {
-  const isMultiWorkspace = plan.workspaces.some((w) => w.name !== undefined) || plan.project !== undefined;
+  const isMultiWorkspace = plan.targets.some((target) => target.kind === 'composite' || target.name !== undefined);
 
   if (isMultiWorkspace) {
     return formatMultiWorkspace(plan, options);
@@ -55,9 +54,9 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
   const dryRun = !options.applied;
   const { style } = options;
   const lines: string[] = [];
-  const workspace = result.workspaces[0];
+  const workspace = result.targets[0];
 
-  if (workspace === undefined) {
+  if (workspace === undefined || workspace.kind === 'composite') {
     return '';
   }
 
@@ -136,12 +135,12 @@ function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptio
   const { style } = options;
   const lines: string[] = [];
 
-  for (const workspace of result.workspaces) {
-    formatWorkspaceSection(lines, workspace, dryRun, style);
-  }
-
-  if (result.project !== undefined) {
-    formatProjectSection(lines, result.project, dryRun, style);
+  for (const target of result.targets) {
+    if (target.kind === 'composite') {
+      formatProjectSection(lines, target, dryRun, style);
+    } else {
+      formatWorkspaceSection(lines, target, dryRun, style);
+    }
   }
 
   formatFormatCommand(lines, result, options);
@@ -168,7 +167,7 @@ function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptio
  */
 function formatProjectSection(
   lines: string[],
-  project: ProjectPrepareResult,
+  project: CompositePrepareResult,
   dryRun: boolean,
   style: OutputStyle,
 ): void {
@@ -223,7 +222,7 @@ function formatProjectSection(
 /** Renders a single workspace's section within multi-workspace output. */
 function formatWorkspaceSection(
   lines: string[],
-  workspace: WorkspacePrepareResult,
+  workspace: PackagePrepareResult,
   dryRun: boolean,
   style: OutputStyle,
 ): void {
@@ -263,7 +262,7 @@ function formatWorkspaceSection(
 /** Appends the line under the commit count: the dependencies behind a propagation-only bump, or the parsed count. */
 function formatCommitSummary(
   lines: string[],
-  workspace: ReleasedWorkspaceResult,
+  workspace: ReleasedPackageResult,
   propagatedFrom: PropagationSource[] | undefined,
   isPropagatedOnly: boolean,
 ): void {
@@ -278,7 +277,7 @@ function formatCommitSummary(
 }
 
 /** Appends the bump-override / set-version label and the "Bumping versions..." line. */
-function formatBumpLabels(lines: string[], workspace: ReleasedWorkspaceResult, isPropagatedOnly: boolean): void {
+function formatBumpLabels(lines: string[], workspace: ReleasedPackageResult, isPropagatedOnly: boolean): void {
   if (workspace.setVersion !== undefined) {
     lines.push(`  Using version override: ${workspace.setVersion}`);
   } else if (workspace.bumpOverride !== undefined && !isPropagatedOnly) {
@@ -295,7 +294,7 @@ function formatBumpLabels(lines: string[], workspace: ReleasedWorkspaceResult, i
 /** Appends the `currentVersion → newVersion` line with the appropriate suffix. */
 function formatVersionLine(
   lines: string[],
-  workspace: ReleasedWorkspaceResult,
+  workspace: ReleasedPackageResult,
   propagatedFrom: PropagationSource[] | undefined,
   isPropagatedOnly: boolean,
   style: OutputStyle,
@@ -312,7 +311,7 @@ function formatVersionLine(
 }
 
 /** Appends bump file detail lines. */
-function formatBumpFiles(lines: string[], workspace: ReleasedWorkspaceResult, dryRun: boolean, indent = ''): void {
+function formatBumpFiles(lines: string[], workspace: ReleasedPackageResult, dryRun: boolean, indent = ''): void {
   for (const file of workspace.bumpedFiles) {
     if (dryRun) {
       lines.push(dim(`${indent}  [dry-run] Would bump ${file}`));
@@ -328,7 +327,7 @@ function formatBumpFiles(lines: string[], workspace: ReleasedWorkspaceResult, dr
  */
 function formatChangelogFiles(
   lines: string[],
-  release: Pick<ReleasedWorkspaceResult, 'changelogFiles' | 'changelogPreservation'>,
+  release: Pick<ReleasedPackageResult, 'changelogFiles' | 'changelogPreservation'>,
   dryRun: boolean,
   style: OutputStyle,
   indent = '',
@@ -357,7 +356,7 @@ function formatChangelogFiles(
 /** Appends release-notes preview file lines, which are present only under `--with-release-notes`. */
 function formatPreviewFiles(
   lines: string[],
-  release: Pick<ReleasedWorkspaceResult, 'previewFiles'>,
+  release: Pick<ReleasedPackageResult, 'previewFiles'>,
   dryRun: boolean,
   indent = '',
 ): void {
@@ -381,7 +380,7 @@ function formatPreviewFiles(
  */
 function formatUnparseableWarning(
   lines: string[],
-  release: Pick<ReleasedWorkspaceResult, 'unparseableCommits'>,
+  release: Pick<ReleasedPackageResult, 'unparseableCommits'>,
   style: OutputStyle,
   indent = '',
 ): void {
@@ -437,7 +436,7 @@ function formatPolicyViolations(
  */
 function formatChangeRecordWarnings(
   lines: string[],
-  release: Pick<ReleasedWorkspaceResult, 'malformedBlocks' | 'undeclaredEntryTypes' | 'unroutedEntryScopes'>,
+  release: Pick<ReleasedPackageResult, 'malformedBlocks' | 'undeclaredEntryTypes' | 'unroutedEntryScopes'>,
   style: OutputStyle,
   indent = '',
 ): void {

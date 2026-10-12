@@ -5,7 +5,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { extractMigration } from './extractMigration.ts';
 import { isRecord } from './typeGuards.ts';
-import type { ChangelogEntry, ChangelogItem, ChangelogOverride, ChangelogSection, WorkspaceConfig } from './types.ts';
+import type { ChangelogEntry, ChangelogItem, ChangelogOverride, ChangelogSection } from './types.ts';
 
 /** Conventional override-file location relative to a scope root (project, workspace, or single-package). */
 const OVERRIDES_FILENAME = '.meta/changelog-overrides.json';
@@ -526,15 +526,12 @@ export interface OverrideContext {
 }
 
 /**
- * Loads and validates the override files of the root and every workspace, and bundles them with empty warning
- * aggregators. Throws if any file fails to load, so that a malformed checked-in override file stops `prepare` before
- * any workspace writes.
+ * Loads and validates the override files of the root and of every workspace at the given repo-relative paths, and
+ * bundles them with empty warning aggregators. Throws if any file fails to load, so that a malformed checked-in
+ * override file stops `prepare` before any workspace writes.
  */
-export function createOverrideContext(workspaces: WorkspaceConfig[]): OverrideContext {
-  const result = loadOverridesForScopes({
-    project: '.',
-    workspaces: workspaces.map((workspace) => workspace.workspacePath),
-  });
+export function createOverrideContext(workspacePaths: readonly string[]): OverrideContext {
+  const result = loadOverridesForScopes({ project: '.', workspaces: [...workspacePaths] });
   if (result.errors.length > 0) {
     throw new Error(`Failed to load changelog overrides:\n  - ${result.errors.join('\n  - ')}`);
   }
@@ -814,8 +811,9 @@ function formatRootStaleWarning(filePath: string, key: string): string {
 }
 
 /**
- * Applies the composed root and workspace override map to a workspace's changelog entries, and records stale keys by
- * tier.
+ * Applies the composed root and workspace override map to a target's changelog entries, and records stale keys by
+ * tier. A target without a workspace override file, such as the project, passes `undefined` for `workspacePath` and
+ * applies the root tier alone.
  *
  * A workspace key that matched nothing, whether or not the root map has the same key, is stale, and it is warned about
  * at once. The function adds each root key that matched without being shadowed to `globalMatchedRootKeys`, from which
@@ -824,11 +822,11 @@ function formatRootStaleWarning(filePath: string, key: string): string {
  */
 export function applyWorkspaceOverrides(
   newEntries: ChangelogEntry[],
-  workspacePath: string,
+  workspacePath: string | undefined,
   overrideContext: OverrideContext,
 ): ReturnType<typeof applyChangelogOverrides> {
   const { project, perWorkspace, overrideWarnings, globalMatchedRootKeys } = overrideContext;
-  const workspaceOverrides = perWorkspace.get(workspacePath);
+  const workspaceOverrides = workspacePath === undefined ? undefined : perWorkspace.get(workspacePath);
   const composed = composeOverrides(project, workspaceOverrides);
   const applied = applyChangelogOverrides(newEntries, composed);
   if (applied.errors.length > 0) {

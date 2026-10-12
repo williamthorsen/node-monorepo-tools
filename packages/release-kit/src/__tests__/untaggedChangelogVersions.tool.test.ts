@@ -8,7 +8,9 @@ import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import { mergeMonorepoConfig } from '../loadConfig.ts';
 import { applyReleasePlan } from '../releasePlan.ts';
-import { releasePrepareMono } from '../releasePrepareMono.ts';
+import { releasePrepareTargets } from '../releasePrepareTargets.ts';
+import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
+import { selectCompositeResult } from '../test-utils/prepareResults.ts';
 
 /** The root changelog, hand-written before release-kit was adopted. */
 const ROOT_CHANGELOG = `# Changelog
@@ -65,16 +67,20 @@ describe('untagged changelog versions (tool)', () => {
       { exists: true, version: '1.3.0' },
     );
 
-    expect(() => releasePrepareMono(config, {})).toThrow("workspace 'api': 1.2.0 (create tag api-v1.2.0)");
+    expect(() => releasePrepareTargets(projectMonorepoConfig(config), {})).toThrow(
+      "workspace 'api': 1.2.0 (create tag api-v1.2.0)",
+    );
     git(tree, 'tag', 'api-v1.2.0');
 
-    expect(() => releasePrepareMono(config, { force: true })).toThrow('project: 1.3.0 (create tag v1.3.0)');
+    expect(() => releasePrepareTargets(projectMonorepoConfig(config), { force: true })).toThrow(
+      'project: 1.3.0 (create tag v1.3.0)',
+    );
     git(tree, 'tag', 'v1.3.0');
 
     tree.write('packages/api/widget.ts', 'export const widget = true;\n');
     commitAll(tree, '## api|feat: Add widget');
 
-    const plan = releasePrepareMono(config, {});
+    const plan = releasePrepareTargets(projectMonorepoConfig(config), {});
     applyReleasePlan(plan);
 
     expect(plan.tags).toStrictEqual(['api-v1.3.0', 'v1.4.0']);
@@ -98,7 +104,7 @@ describe('untagged changelog versions (tool)', () => {
     expect(rootChangelog).not.toContain('Root feature three.');
     expect(rootChangelog).toContain('## [1.2.0] - 2026-07-01\n\n- Root feature two.\n');
 
-    const project = plan.project;
+    const project = selectCompositeResult(plan);
     assert(project?.status === 'released', 'expected released project');
     expect(project.commitCount).toBe(1);
     expect(project.changelogPreservation).toStrictEqual([

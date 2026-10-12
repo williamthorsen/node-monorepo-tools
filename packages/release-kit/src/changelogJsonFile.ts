@@ -7,10 +7,13 @@ import stringify from 'json-stringify-pretty-compact';
 import { isChangelogEntry } from './changelogJsonUtils.ts';
 import { compareVersionsDescending } from './compareVersions.ts';
 import { isUnknownArray } from './typeGuards.ts';
-import type { ChangelogEntry, ReleaseConfig } from './types.ts';
+import type { ChangelogEntry, ReleaseSettings } from './types.ts';
 
 /** Resolves the path of the `changelog.json` file under a workspace's changelog directory. */
-export function resolveChangelogJsonPath(config: Pick<ReleaseConfig, 'changelogJson'>, changelogPath: string): string {
+export function resolveChangelogJsonPath(
+  config: Pick<ReleaseSettings, 'changelogJson'>,
+  changelogPath: string,
+): string {
   return join(changelogPath, config.changelogJson.outputPath);
 }
 

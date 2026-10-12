@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { DependencyGraph } from '../buildDependencyGraph.ts';
 import { findTransitiveDependents } from '../findTransitiveDependents.ts';
-import type { WorkspaceConfig } from '../types.ts';
+import { makeWorkspaceTarget } from '../test-utils/packageTargets.ts';
 
 describe(findTransitiveDependents, () => {
   // core <- app <- cli, core <- cli, and the unrelated util.
@@ -32,23 +32,13 @@ function makeGraph(dirs: string[], dependentDirsOf: Record<string, string[]>): D
     dirToPackageName: new Map(dirs.map((dir) => [dir, `@test/${dir}`])),
     dirToVersion: new Map(),
     dependentsOf: new Map(
-      Object.entries(dependentDirsOf).map(([dir, dependents]) => [`@test/${dir}`, dependents.map(makeWorkspace)]),
+      Object.entries(dependentDirsOf).map(([dir, dependents]) => [
+        `@test/${dir}`,
+        dependents.map((dir) => makeWorkspaceTarget(dir)),
+      ]),
     ),
     dependenciesOf: new Map(),
   };
 }
 
-/** Builds a publishable workspace config under `packages/{dir}`. */
-function makeWorkspace(dir: string): WorkspaceConfig {
-  return {
-    dir,
-    name: `@test/${dir}`,
-    tagPrefix: `${dir}-v`,
-    workspacePath: `packages/${dir}`,
-    isPublishable: true,
-    packageFiles: [`packages/${dir}/package.json`],
-    changelogPaths: [`packages/${dir}`],
-    paths: [`packages/${dir}/**`],
-  };
-}
 // endregion | Helpers

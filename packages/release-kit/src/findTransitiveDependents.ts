@@ -14,9 +14,9 @@ export function findTransitiveDependents(graph: DependencyGraph, startDirs: Iter
 
     const dependents = graph.dependentsOf.get(packageName) ?? [];
     for (const dependent of dependents) {
-      if (found.has(dependent.dir)) continue;
-      found.add(dependent.dir);
-      queue.push(dependent.dir);
+      if (found.has(dependent.id)) continue;
+      found.add(dependent.id);
+      queue.push(dependent.id);
     }
   }
 

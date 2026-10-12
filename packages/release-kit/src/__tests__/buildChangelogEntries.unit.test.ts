@@ -3,7 +3,7 @@ import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import type { RawCommit, ReleaseWindow } from '../enumerateReleaseWindows.ts';
 import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
-import type { ChangelogEntry, ChangelogJsonConfig, ChangelogSection, ReleaseConfig } from '../types.ts';
+import type { ChangelogEntry, ChangelogJsonConfig, ChangelogSection, ReleaseSettings } from '../types.ts';
 
 // Mock the enumerator so that the test exercises buildChangelogEntries' transformation logic
 // without reading git history. `buildChangelogEntries.tool.test.ts` covers the real reader.
@@ -35,7 +35,7 @@ const defaultChangelogJsonConfig: ChangelogJsonConfig = {
 const OPTIONS = { tagPrefixes: ['v'] };
 
 /** Builds a config whose changelog JSON settings override the defaults. */
-function makeConfig(overrides?: Partial<ChangelogJsonConfig>): Pick<ReleaseConfig, 'changelogJson'> {
+function makeConfig(overrides?: Partial<ChangelogJsonConfig>): Pick<ReleaseSettings, 'changelogJson'> {
   return {
     changelogJson: { ...defaultChangelogJsonConfig, ...overrides },
   };

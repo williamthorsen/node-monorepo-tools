@@ -64,8 +64,11 @@ vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
 }));
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
-import { releasePrepareMono } from '../releasePrepareMono.ts';
+import type { ReleasePlan } from '../releasePlan.ts';
+import { releasePrepareTargets, type TargetPrepareOptions } from '../releasePrepareTargets.ts';
+import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
+import { selectCompositeResult, selectPackageResults } from '../test-utils/prepareResults.ts';
 import { makeReleaseHistory, type ReleaseHistoryStub } from '../test-utils/releaseHistories.ts';
 import type {
   ChangelogEntry,
@@ -110,7 +113,7 @@ function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoRelease
   };
 }
 
-describe(releasePrepareMono, () => {
+describe('releasePrepareTargets for a monorepo', () => {
   beforeEach(() => {
     // Default: every scope reads an empty history, and the synthetic constructor returns an empty
     // stub entry. Individual tests can override if needed.
@@ -149,7 +152,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -158,11 +160,11 @@ describe(releasePrepareMono, () => {
     stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, {});
+    const result = prepareMonorepo(config, {});
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
-    expect(result.workspaces).toHaveLength(1);
-    expect(result.workspaces[0]).toMatchObject({
+    expect(selectPackageResults(result)).toHaveLength(1);
+    expect(selectPackageResults(result)[0]).toMatchObject({
       name: 'arrays',
       status: 'released',
       tag: 'arrays-v1.1.0',
@@ -191,7 +193,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -200,19 +201,20 @@ describe(releasePrepareMono, () => {
     stubHistory({ previousTag: 'arrays-v1.0.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, {});
+    const result = prepareMonorepo(config, {});
 
     expect(result.tags).toStrictEqual([]);
-    expect(result.workspaces).toHaveLength(1);
-    expect(result.workspaces[0]).toMatchObject({
+    expect(selectPackageResults(result)).toHaveLength(1);
+    expect(selectPackageResults(result)[0]).toMatchObject({
       name: 'arrays',
       status: 'skipped',
       commitCount: 0,
       parsedCommitCount: 0,
       previousTag: 'arrays-v1.0.0',
     });
-    assert(result.workspaces[0]?.status === 'skipped', 'expected skipped');
-    expect(result.workspaces[0].skipReason).toContain('No commits for arrays since arrays-v1.0.0');
+    const [workspace] = selectPackageResults(result);
+    assert(workspace?.status === 'skipped', 'expected skipped');
+    expect(workspace.skipReason).toContain('No commits for arrays since arrays-v1.0.0');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     expect(result.writes).toStrictEqual([]);
     expect(listReadOptions()).toStrictEqual([
@@ -230,7 +232,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: false,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -239,10 +240,12 @@ describe(releasePrepareMono, () => {
     stubHistory({ previousTag: 'arrays-v1.0.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', private: true }));
 
-    const result = releasePrepareMono(config, {});
+    const result = prepareMonorepo(config, {});
 
     expect(result.tags).toStrictEqual([]);
-    expect(result.workspaces).toStrictEqual([expect.objectContaining({ name: 'arrays', status: 'skipped' })]);
+    expect(selectPackageResults(result)).toStrictEqual([
+      expect.objectContaining({ name: 'arrays', status: 'skipped' }),
+    ]);
   });
 
   it('processes only workspaces with commits when multiple are configured', () => {
@@ -255,7 +258,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
         {
@@ -265,7 +267,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/strings',
           isPublishable: true,
           packageFiles: ['packages/strings/package.json'],
-          changelogPaths: ['packages/strings'],
           paths: ['packages/strings/**'],
         },
       ],
@@ -278,12 +279,12 @@ describe(releasePrepareMono, () => {
 
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, {});
+    const result = prepareMonorepo(config, {});
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
-    expect(result.workspaces).toHaveLength(2);
-    expect(result.workspaces[0]).toMatchObject({ name: 'arrays', status: 'released' });
-    expect(result.workspaces[1]).toMatchObject({ name: 'strings', status: 'skipped' });
+    expect(selectPackageResults(result)).toHaveLength(2);
+    expect(selectPackageResults(result)[0]).toMatchObject({ name: 'arrays', status: 'released' });
+    expect(selectPackageResults(result)[1]).toMatchObject({ name: 'strings', status: 'skipped' });
 
     expect(result.writes.map((write) => write.path)).toContain('packages/arrays/package.json');
     expect(result.writes.map((write) => write.path)).not.toContain('packages/strings/package.json');
@@ -309,7 +310,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -318,7 +318,7 @@ describe(releasePrepareMono, () => {
     stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, {});
+    const result = prepareMonorepo(config, {});
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -344,7 +344,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
         {
@@ -354,7 +353,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/strings',
           isPublishable: true,
           packageFiles: ['packages/strings/package.json'],
-          changelogPaths: ['packages/strings'],
           paths: ['packages/strings/**'],
         },
       ],
@@ -366,7 +364,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, {});
+    const result = prepareMonorepo(config, {});
 
     expect(mockExecSync).not.toHaveBeenCalled();
     expect(result.formatCommand?.command).toBe(
@@ -384,7 +382,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -396,13 +393,13 @@ describe(releasePrepareMono, () => {
     stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['fix: small patch', 'abc123']], bump: 'patch', sections });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { bumpOverride: 'minor' });
+    const result = prepareMonorepo(config, { bumpOverride: 'minor' });
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
 
     // Should use the override (minor) rather than the history's bump (patch)
     expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
-    expect(result.workspaces[0]).toMatchObject({ releaseType: 'minor', bumpOverride: 'minor' });
+    expect(selectPackageResults(result)[0]).toMatchObject({ releaseType: 'minor', bumpOverride: 'minor' });
 
     expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith(expect.any(String), [
       { version: '1.1.0', date: '2024-01-01', sections },
@@ -419,7 +416,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -432,10 +428,10 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, {});
+    const result = prepareMonorepo(config, {});
 
     expect(result.tags).toStrictEqual([]);
-    const workspace = result.workspaces[0];
+    const workspace = selectPackageResults(result)[0];
     expect(workspace).toMatchObject({
       status: 'skipped',
       commitCount: 1,
@@ -457,7 +453,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -470,16 +465,16 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { force: true });
+    const result = prepareMonorepo(config, { force: true });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
-    expect(result.workspaces[0]).toMatchObject({
+    expect(selectPackageResults(result)[0]).toMatchObject({
       status: 'released',
       commitCount: 1,
       parsedCommitCount: 0,
       releaseType: 'patch',
     });
-    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual(
+    expect(selectPackageResults(result)[0]?.unparseableCommits).toStrictEqual(
       makeStubbedCommits([['chore: update deps', 'abc123']]),
     );
   });
@@ -494,7 +489,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -503,10 +497,10 @@ describe(releasePrepareMono, () => {
     stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['chore: update deps', 'abc123']] });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { bumpOverride: 'minor' });
+    const result = prepareMonorepo(config, { bumpOverride: 'minor' });
 
     expect(result.tags).toStrictEqual([]);
-    const workspace = result.workspaces[0];
+    const workspace = selectPackageResults(result)[0];
     expect(workspace).toMatchObject({
       status: 'skipped',
       commitCount: 1,
@@ -525,7 +519,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -534,10 +527,10 @@ describe(releasePrepareMono, () => {
     stubHistory({ previousTag: 'arrays-v1.0.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { force: true });
+    const result = prepareMonorepo(config, { force: true });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
-    const workspace = result.workspaces[0];
+    const workspace = selectPackageResults(result)[0];
     expect(workspace).toMatchObject({
       status: 'released',
       commitCount: 0,
@@ -560,7 +553,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
         {
@@ -570,7 +562,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/strings',
           isPublishable: true,
           packageFiles: ['packages/strings/package.json'],
-          changelogPaths: ['packages/strings'],
           paths: ['packages/strings/**'],
         },
       ],
@@ -585,12 +576,16 @@ describe(releasePrepareMono, () => {
       return JSON.stringify({ version: '2.0.0' });
     });
 
-    const result = releasePrepareMono(config, { force: true });
+    const result = prepareMonorepo(config, { force: true });
 
     // arrays falls back to patch; strings keeps its natural minor.
     expect(result.tags).toStrictEqual(['arrays-v1.0.1', 'strings-v2.1.0']);
-    expect(result.workspaces[0]).toMatchObject({ name: 'arrays', status: 'released', releaseType: 'patch' });
-    expect(result.workspaces[1]).toMatchObject({ name: 'strings', status: 'released', releaseType: 'minor' });
+    expect(selectPackageResults(result)[0]).toMatchObject({ name: 'arrays', status: 'released', releaseType: 'patch' });
+    expect(selectPackageResults(result)[1]).toMatchObject({
+      name: 'strings',
+      status: 'released',
+      releaseType: 'minor',
+    });
   });
 
   it("reports the history's bump, parsed count, and unparseable commits on a released result", () => {
@@ -603,7 +598,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -621,9 +615,9 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, {});
+    const result = prepareMonorepo(config, {});
 
-    expect(result.workspaces[0]).toMatchObject({
+    expect(selectPackageResults(result)[0]).toMatchObject({
       status: 'released',
       releaseType: 'minor',
       commitCount: 2,
@@ -633,7 +627,7 @@ describe(releasePrepareMono, () => {
         ['chore: update deps', 'def456'],
       ]),
     });
-    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual(
+    expect(selectPackageResults(result)[0]?.unparseableCommits).toStrictEqual(
       makeStubbedCommits([['chore: update deps', 'def456']]),
     );
   });
@@ -648,7 +642,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -657,7 +650,7 @@ describe(releasePrepareMono, () => {
     stubHistory({ previousTag: 'arrays-v1.0.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { force: true, bumpOverride: 'patch' });
+    const result = prepareMonorepo(config, { force: true, bumpOverride: 'patch' });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.0.1"');
@@ -679,7 +672,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
         {
@@ -689,7 +681,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/strings',
           isPublishable: true,
           packageFiles: ['packages/strings/package.json'],
-          changelogPaths: ['packages/strings'],
           paths: ['packages/strings/**'],
         },
       ],
@@ -704,7 +695,7 @@ describe(releasePrepareMono, () => {
       return JSON.stringify({ version: '2.0.0' });
     });
 
-    const result = releasePrepareMono(config, { force: true, bumpOverride: 'patch' });
+    const result = prepareMonorepo(config, { force: true, bumpOverride: 'patch' });
 
     // arrays is bumped via --force (0 commits); strings via its history's bump; both use bumpOverride: 'patch'
     expect(result.tags).toStrictEqual(['arrays-v1.0.1', 'strings-v2.0.1']);
@@ -720,7 +711,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -729,7 +719,7 @@ describe(releasePrepareMono, () => {
     stubHistory({ previousTag: 'arrays-v1.0.0', releasedEntries: [RELEASED_ENTRY] });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { force: true, bumpOverride: 'patch' });
+    const result = prepareMonorepo(config, { force: true, bumpOverride: 'patch' });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -750,7 +740,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -759,7 +748,7 @@ describe(releasePrepareMono, () => {
     stubHistory({ previousTag: 'arrays-v1.0.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, {});
+    const result = prepareMonorepo(config, {});
 
     expect(result.tags).toStrictEqual([]);
     expect(mockExecSync).not.toHaveBeenCalled();
@@ -775,7 +764,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -785,7 +773,7 @@ describe(releasePrepareMono, () => {
     stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, {});
+    const result = prepareMonorepo(config, {});
 
     expect(result.formatCommand?.command).toBe(
       'npx prettier --write packages/arrays/package.json packages/arrays/CHANGELOG.md',
@@ -802,7 +790,6 @@ describe(releasePrepareMono, () => {
           workspacePath: 'packages/arrays',
           isPublishable: true,
           packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
         },
       ],
@@ -812,46 +799,9 @@ describe(releasePrepareMono, () => {
     stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    releasePrepareMono(config, {});
+    prepareMonorepo(config, {});
 
     expect(mockExecSync).not.toHaveBeenCalled();
-  });
-
-  it('generates a changelog for each entry in changelogPaths', () => {
-    const config = makeConfig({
-      workspaces: [
-        {
-          dir: 'arrays',
-          name: '@test/arrays',
-          tagPrefix: 'arrays-v',
-          workspacePath: 'packages/arrays',
-          isPublishable: true,
-          packageFiles: ['packages/arrays/package.json'],
-          changelogPaths: ['packages/arrays', 'packages/arrays/docs'],
-          paths: ['packages/arrays/**'],
-        },
-      ],
-    });
-
-    stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' });
-    mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
-
-    const result = releasePrepareMono(config, {});
-
-    expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
-    const workspace = result.workspaces[0];
-    assert(workspace?.status === 'released', 'expected released');
-    expect(workspace.changelogFiles).toStrictEqual([
-      'packages/arrays/CHANGELOG.md',
-      'packages/arrays/docs/CHANGELOG.md',
-    ]);
-    // The history is read once per workspace (it spans the full release history), and the markdown
-    // renderer is called once per `changelogPaths` entry.
-    expect(mockReadReleaseHistory).toHaveBeenCalledTimes(1);
-    expect(mockRenderChangelogMarkdown).toHaveBeenCalledTimes(2);
-    expect(
-      result.writes.filter((write) => write.path.endsWith('CHANGELOG.md')).map((write) => write.path),
-    ).toStrictEqual(['packages/arrays/CHANGELOG.md', 'packages/arrays/docs/CHANGELOG.md']);
   });
 
   describe('dependency propagation', () => {
@@ -863,21 +813,21 @@ describe(releasePrepareMono, () => {
         'app-v': { previousTag: 'app-v2.0.0' },
       });
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
       // core is bumped directly (minor), app is propagated (patch).
       expect(result.tags).toContain('core-v1.1.0');
       expect(result.tags).toContain('app-v2.0.1');
-      expect(result.workspaces).toHaveLength(2);
+      expect(selectPackageResults(result)).toHaveLength(2);
 
-      const coreResult = result.workspaces.find((c) => c.name === 'core');
+      const coreResult = selectPackageResults(result).find((c) => c.name === 'core');
       expect(coreResult).toMatchObject({
         status: 'released',
         releaseType: 'minor',
         newVersion: '1.1.0',
       });
 
-      const appResult = result.workspaces.find((c) => c.name === 'app');
+      const appResult = selectPackageResults(result).find((c) => c.name === 'app');
       expect(appResult).toMatchObject({
         status: 'released',
         releaseType: 'patch',
@@ -897,7 +847,7 @@ describe(releasePrepareMono, () => {
         'app-v': { previousTag: 'app-v2.0.0' },
       });
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
       // Each workspace's history is read once, in Phase 1; building the propagated app's changelog
       // reads nothing more.
@@ -924,7 +874,7 @@ describe(releasePrepareMono, () => {
         'app-v': { previousTag: 'app-v2.0.0' },
       });
 
-      releasePrepareMono(config, {});
+      prepareMonorepo(config, {});
 
       expect(mockBuildSyntheticChangelogEntry).toHaveBeenCalledTimes(1);
       expect(mockBuildSyntheticChangelogEntry.mock.calls[0]?.[3]).toBe('📦 Deps');
@@ -937,11 +887,11 @@ describe(releasePrepareMono, () => {
       stubHistory({ previousTag: 'core-v1.0.0', commits: [['feat: new feature', 'abc123']], bump: 'minor' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '1.0.0' }));
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
       // Only core should be released since app is not in config.workspaces.
       expect(result.tags).toStrictEqual(['core-v1.1.0']);
-      expect(result.workspaces).toHaveLength(1);
+      expect(selectPackageResults(result)).toHaveLength(1);
     });
 
     it('writes the explicit --set-version value in monorepo mode', () => {
@@ -951,9 +901,9 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
-      const result = releasePrepareMono(config, { setVersions: new Map([['core', '1.0.0']]) });
+      const result = prepareMonorepo(config, { setVersions: new Map([['core', '1.0.0']]) });
 
-      const coreResult = result.workspaces.find((c) => c.name === 'core');
+      const coreResult = selectPackageResults(result).find((c) => c.name === 'core');
       expect(coreResult).toMatchObject({
         status: 'released',
         newVersion: '1.0.0',
@@ -985,7 +935,7 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
-      const result = releasePrepareMono(config, { setVersions: new Map([['core', '1.0.0']]) });
+      const result = prepareMonorepo(config, { setVersions: new Map([['core', '1.0.0']]) });
 
       expect(listReadOptions()).toStrictEqual([
         { tagPrefixes: ['core-v'], paths: ['packages/core/**'], workspaceDir: 'core' },
@@ -993,7 +943,7 @@ describe(releasePrepareMono, () => {
       expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith(expect.any(String), [
         { version: '1.0.0', date: '2024-01-01', sections },
       ]);
-      const coreResult = result.workspaces[0];
+      const coreResult = selectPackageResults(result)[0];
       assert(coreResult?.status === 'released', 'expected released');
       expect(coreResult).toMatchObject({ commitCount: 2, setVersion: '1.0.0', previousTag: 'core-v0.5.0' });
       expect(coreResult.releaseType).toBeUndefined();
@@ -1007,7 +957,7 @@ describe(releasePrepareMono, () => {
       stubHistory({ previousTag: 'core-v0.5.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
 
-      expect(() => releasePrepareMono(config, { setVersions: new Map([['core', '0.3.0']]) })).toThrow(
+      expect(() => prepareMonorepo(config, { setVersions: new Map([['core', '0.3.0']]) })).toThrow(
         '--set-version 0.3.0 is not greater than current version 0.5.0',
       );
     });
@@ -1018,7 +968,7 @@ describe(releasePrepareMono, () => {
       stubHistory({ previousTag: 'core-v0.5.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
 
-      expect(() => releasePrepareMono(config, { setVersions: new Map([['core', '0.5.0']]) })).toThrow(
+      expect(() => prepareMonorepo(config, { setVersions: new Map([['core', '0.5.0']]) })).toThrow(
         '--set-version 0.5.0 is not greater than current version 0.5.0',
       );
     });
@@ -1030,7 +980,7 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
-      const result = releasePrepareMono(config, { setVersions: new Map([['core', '1.0.0']]) });
+      const result = prepareMonorepo(config, { setVersions: new Map([['core', '1.0.0']]) });
 
       expect(result.tags).toStrictEqual(['core-v1.0.0']);
       expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -1043,10 +993,10 @@ describe(releasePrepareMono, () => {
         'app-v': { previousTag: 'app-v2.0.0' },
       });
 
-      const result = releasePrepareMono(config, { setVersions: new Map([['core', '3.0.0']]) });
+      const result = prepareMonorepo(config, { setVersions: new Map([['core', '3.0.0']]) });
 
       expect(result.tags).toStrictEqual(['core-v3.0.0', 'app-v2.0.1']);
-      expect(result.workspaces.find((c) => c.name === 'app')).toMatchObject({
+      expect(selectPackageResults(result).find((c) => c.name === 'app')).toMatchObject({
         status: 'released',
         propagatedFrom: [{ packageName: '@test/core', newVersion: '3.0.0' }],
         propagatedOnly: true,
@@ -1064,7 +1014,7 @@ describe(releasePrepareMono, () => {
         'util-v': { previousTag: 'util-v0.1.0' },
       });
 
-      const result = releasePrepareMono(config, {
+      const result = prepareMonorepo(config, {
         force: true,
         bumpOverride: 'minor',
         setVersions: new Map([['core', '3.0.0']]),
@@ -1101,13 +1051,13 @@ describe(releasePrepareMono, () => {
         'util-v': { previousTag: 'util-v0.1.0', commits: [['fix: util fix', 'fed789']], bump: 'patch' },
       });
 
-      const result = releasePrepareMono(config, { only: ['core'] });
+      const result = prepareMonorepo(config, { only: ['core'] });
 
       expect(result.tags).toStrictEqual(['core-v1.1.0', 'app-v2.0.1', 'cli-v3.1.0']);
-      expect(result.workspaces.map((workspace) => workspace.name)).toStrictEqual(['core', 'app', 'cli']);
-      expect(result.workspaces.find((c) => c.name === 'app')).toMatchObject({ propagatedOnly: true });
-      expect(result.workspaces.find((c) => c.name === 'cli')).toMatchObject({ releaseType: 'minor' });
-      expect(result.workspaces.find((c) => c.name === 'cli')).not.toHaveProperty('propagatedOnly');
+      expect(selectPackageResults(result).map((workspace) => workspace.name)).toStrictEqual(['core', 'app', 'cli']);
+      expect(selectPackageResults(result).find((c) => c.name === 'app')).toMatchObject({ propagatedOnly: true });
+      expect(selectPackageResults(result).find((c) => c.name === 'cli')).toMatchObject({ releaseType: 'minor' });
+      expect(selectPackageResults(result).find((c) => c.name === 'cli')).not.toHaveProperty('propagatedOnly');
     });
 
     it('forces only the named workspaces, leaving their dependents to propagation', () => {
@@ -1119,11 +1069,11 @@ describe(releasePrepareMono, () => {
         'util-v': { previousTag: 'util-v0.1.0' },
       });
 
-      const result = releasePrepareMono(config, { only: ['core'], force: true });
+      const result = prepareMonorepo(config, { only: ['core'], force: true });
 
       expect(result.tags).toStrictEqual(['core-v1.0.1', 'app-v2.0.1', 'cli-v3.0.1']);
-      expect(result.workspaces.find((c) => c.name === 'app')).toMatchObject({ propagatedOnly: true });
-      expect(result.workspaces.find((c) => c.name === 'cli')).toMatchObject({ propagatedOnly: true });
+      expect(selectPackageResults(result).find((c) => c.name === 'app')).toMatchObject({ propagatedOnly: true });
+      expect(selectPackageResults(result).find((c) => c.name === 'cli')).toMatchObject({ propagatedOnly: true });
     });
 
     it('reports a dependent as skipped when the named workspace does not release', () => {
@@ -1135,10 +1085,10 @@ describe(releasePrepareMono, () => {
         'util-v': { previousTag: 'util-v0.1.0', commits: [['fix: util fix', 'fed789']], bump: 'patch' },
       });
 
-      const result = releasePrepareMono(config, { only: ['core'] });
+      const result = prepareMonorepo(config, { only: ['core'] });
 
       expect(result.tags).toStrictEqual([]);
-      expect(result.workspaces.map((workspace) => [workspace.name, workspace.status])).toStrictEqual([
+      expect(selectPackageResults(result).map((workspace) => [workspace.name, workspace.status])).toStrictEqual([
         ['core', 'skipped'],
         ['app', 'skipped'],
         ['cli', 'skipped'],
@@ -1154,10 +1104,10 @@ describe(releasePrepareMono, () => {
         'util-v': { previousTag: 'util-v0.1.0', commits: [['fix: util fix', 'fed789']], bump: 'patch' },
       });
 
-      const result = releasePrepareMono(config, { only: ['util'], setVersions: new Map([['app', '3.0.0']]) });
+      const result = prepareMonorepo(config, { only: ['util'], setVersions: new Map([['app', '3.0.0']]) });
 
       expect(result.tags).toStrictEqual(['app-v3.0.0', 'util-v0.1.1', 'cli-v3.0.1']);
-      expect(result.workspaces.find((c) => c.name === 'cli')).toMatchObject({
+      expect(selectPackageResults(result).find((c) => c.name === 'cli')).toMatchObject({
         propagatedFrom: [{ packageName: '@test/app', newVersion: '3.0.0' }],
       });
     });
@@ -1172,10 +1122,10 @@ describe(releasePrepareMono, () => {
         'app-v': { previousTag: 'app-v2.0.0', commits: [['feat: app feature', 'def456']], bump: 'minor' },
       });
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
       // app has its own minor bump from commits; propagation adds metadata but keeps minor.
-      const appResult = result.workspaces.find((c) => c.name === 'app');
+      const appResult = selectPackageResults(result).find((c) => c.name === 'app');
       expect(appResult).toMatchObject({
         status: 'released',
         releaseType: 'minor',
@@ -1199,7 +1149,6 @@ describe(releasePrepareMono, () => {
         workspacePath: 'packages/arrays',
         isPublishable: true,
         packageFiles: ['packages/arrays/package.json'],
-        changelogPaths: ['packages/arrays'],
         paths: ['packages/arrays/**'],
       };
       return makeConfig({ workspaces: [workspace], ...overrides });
@@ -1215,7 +1164,7 @@ describe(releasePrepareMono, () => {
     it('writes a synthetic Notes / Forced version bump entry when --force is used without any commits', () => {
       stubEmptyRange();
 
-      const result = releasePrepareMono(singleWorkspaceConfig(), { force: true });
+      const result = prepareMonorepo(singleWorkspaceConfig(), { force: true });
 
       expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
 
@@ -1240,7 +1189,7 @@ describe(releasePrepareMono, () => {
           ],
         });
 
-        const result = releasePrepareMono(singleWorkspaceConfig(), options);
+        const result = prepareMonorepo(singleWorkspaceConfig(), options);
 
         expect(result.tags).toStrictEqual([`arrays-v${version}`]);
         expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledExactlyOnceWith(version, expect.any(String));
@@ -1254,7 +1203,7 @@ describe(releasePrepareMono, () => {
       stubEmptyRange();
       stubHistory({ previousTag: 'arrays-v1.0.0', releasedEntries: [RELEASED_ENTRY] });
 
-      const result = releasePrepareMono(singleWorkspaceConfig(), { force: true, bumpOverride: 'minor' });
+      const result = prepareMonorepo(singleWorkspaceConfig(), { force: true, bumpOverride: 'minor' });
 
       expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledExactlyOnceWith('1.1.0', expect.any(String));
@@ -1268,20 +1217,19 @@ describe(releasePrepareMono, () => {
     it('skips an empty-range workspace when --bump=X is set without --force', () => {
       stubEmptyRange();
 
-      const result = releasePrepareMono(singleWorkspaceConfig(), { bumpOverride: 'minor' });
+      const result = prepareMonorepo(singleWorkspaceConfig(), { bumpOverride: 'minor' });
 
       expect(result.tags).toStrictEqual([]);
-      expect(result.workspaces[0]).toMatchObject({ status: 'skipped', commitCount: 0 });
+      expect(selectPackageResults(result)[0]).toMatchObject({ status: 'skipped', commitCount: 0 });
       expect(mockBuildEmptyReleaseEntry).not.toHaveBeenCalled();
     });
 
     it('upserts a synthetic empty-range entry into changelog.json when enabled', () => {
       stubEmptyRange();
 
-      releasePrepareMono(
-        singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
-        { force: true },
-      );
+      prepareMonorepo(singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
+        force: true,
+      });
 
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledTimes(1);
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledWith('1.0.1', expect.any(String));
@@ -1301,7 +1249,7 @@ describe(releasePrepareMono, () => {
         },
         'app-v': { previousTag: 'app-v2.0.0' },
       });
-      releasePrepareMono(config, {});
+      prepareMonorepo(config, {});
 
       // The propagation-only path constructs a synthetic propagation entry, not an empty-range
       // entry. Both constructors are mocked, so observe the call counts.
@@ -1325,7 +1273,7 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
-      releasePrepareMono(config, {});
+      prepareMonorepo(config, {});
 
       // Real commits → the unreleased window, labeled with the new tag, leads the released windows.
       expect(mockBuildEmptyReleaseEntry).not.toHaveBeenCalled();
@@ -1338,10 +1286,10 @@ describe(releasePrepareMono, () => {
     it('does not write synthetic entries for workspaces correctly skipped (no commits, no --force)', () => {
       stubEmptyRange();
 
-      const result = releasePrepareMono(singleWorkspaceConfig(), {});
+      const result = prepareMonorepo(singleWorkspaceConfig(), {});
 
       expect(result.tags).toStrictEqual([]);
-      expect(result.workspaces[0]).toMatchObject({ status: 'skipped' });
+      expect(selectPackageResults(result)[0]).toMatchObject({ status: 'skipped' });
       expect(mockBuildEmptyReleaseEntry).not.toHaveBeenCalled();
       // No CHANGELOG.md write for the skipped workspace.
       const changelogWrites = mockWriteFileSync.mock.calls.filter(
@@ -1353,13 +1301,13 @@ describe(releasePrepareMono, () => {
     it('returns the tag and changelog path without writing either', () => {
       stubEmptyRange();
 
-      const result = releasePrepareMono(
+      const result = prepareMonorepo(
         singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
         { force: true },
       );
 
       expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
-      const workspace = result.workspaces[0];
+      const workspace = selectPackageResults(result)[0];
       assert(workspace?.status === 'released', 'expected released');
       expect(workspace.changelogFiles).toStrictEqual(['packages/arrays/CHANGELOG.md']);
 
@@ -1380,7 +1328,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/arrays',
             isPublishable: true,
             packageFiles: ['packages/arrays/package.json'],
-            changelogPaths: ['packages/arrays'],
             paths: ['packages/arrays/**'],
           },
           {
@@ -1390,7 +1337,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/strings',
             isPublishable: true,
             packageFiles: ['packages/strings/package.json'],
-            changelogPaths: ['packages/strings'],
             paths: ['packages/strings/**'],
           },
           {
@@ -1400,7 +1346,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/numbers',
             isPublishable: true,
             packageFiles: ['packages/numbers/package.json'],
-            changelogPaths: ['packages/numbers'],
             paths: ['packages/numbers/**'],
           },
         ],
@@ -1414,7 +1359,7 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       mockExistsSync.mockReturnValue(false);
 
-      releasePrepareMono(config, { force: true });
+      prepareMonorepo(config, { force: true });
 
       // Three workspaces, all empty-range, all forced: each reads its history once, and each changelog
       // comes from the synthetic entry.
@@ -1441,7 +1386,7 @@ describe(releasePrepareMono, () => {
         'app-v': { previousTag: 'app-v2.0.0' },
       });
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
       expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
         expect.anything(),
@@ -1451,7 +1396,7 @@ describe(releasePrepareMono, () => {
         expect.anything(),
         expect.objectContaining({ preservedSections: [{ version: '2.0.0', text: '## 2.0.0\n\n- App two' }] }),
       );
-      expect(result.workspaces.find((workspace) => workspace.name === 'app')).toMatchObject({
+      expect(selectPackageResults(result).find((workspace) => workspace.name === 'app')).toMatchObject({
         propagatedOnly: true,
         changelogPreservation: [
           { file: 'packages/app/CHANGELOG.md', preservedVersions: ['2.0.0'], droppedUnversionedHeadings: [] },
@@ -1472,30 +1417,31 @@ describe(releasePrepareMono, () => {
         'packages/core/CHANGELOG.md': '## 1.0.0\n\n- Stale\n',
       });
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
       expect(mockRenderChangelogMarkdown).toHaveBeenCalledExactlyOnceWith(
         [FORCED_BUMP_ENTRY, RELEASED_ENTRY],
         expect.objectContaining({ preservedSections: [] }),
       );
-      expect(result.workspaces[0]).not.toHaveProperty('changelogPreservation');
+      expect(selectPackageResults(result)[0]).not.toHaveProperty('changelogPreservation');
     });
 
-    it('records what it kept and dropped for each changelog path', () => {
-      const workspace = { ...makeRoutedWorkspace('core'), changelogPaths: ['packages/core', 'docs/core'] };
+    it('records what it kept and dropped from the changelog', () => {
       stubHistory({ previousTag: 'core-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' });
       stubFiles({
         'packages/core/package.json': JSON.stringify({ version: '1.0.0' }),
-        'packages/core/CHANGELOG.md': '## 0.9.0\n\n- Old\n',
-        'docs/core/CHANGELOG.md': '## Notes\n\n- Prose\n',
+        'packages/core/CHANGELOG.md': '## 0.9.0\n\n- Old\n\n## Notes\n\n- Prose\n',
       });
 
-      const result = releasePrepareMono(makeConfig({ workspaces: [workspace] }), {});
+      const result = prepareMonorepo(makeConfig({ workspaces: [makeRoutedWorkspace('core')] }), {});
 
-      expect(result.workspaces[0]).toMatchObject({
+      expect(selectPackageResults(result)[0]).toMatchObject({
         changelogPreservation: [
-          { file: 'packages/core/CHANGELOG.md', preservedVersions: ['0.9.0'], droppedUnversionedHeadings: [] },
-          { file: 'docs/core/CHANGELOG.md', preservedVersions: [], droppedUnversionedHeadings: ['## Notes'] },
+          {
+            file: 'packages/core/CHANGELOG.md',
+            preservedVersions: ['0.9.0'],
+            droppedUnversionedHeadings: ['## Notes'],
+          },
         ],
       });
     });
@@ -1520,7 +1466,7 @@ describe(releasePrepareMono, () => {
     it('names every untagged workspace in one error not wrapped by a stage label', () => {
       const config = stubUntaggedWorkspaces();
 
-      expect(() => releasePrepareMono(config, {})).toThrow(
+      expect(() => prepareMonorepo(config, {})).toThrow(
         /^The current version is recorded in the changelog[^\n]*\n {2}- workspace 'core': 1\.1\.0 \(create tag core-v1\.1\.0\)\n {2}- workspace 'app': 2\.1\.0 \(create tag app-v2\.1\.0\)\n/,
       );
     });
@@ -1528,14 +1474,14 @@ describe(releasePrepareMono, () => {
     it('throws under --force', () => {
       const config = stubUntaggedWorkspaces();
 
-      expect(() => releasePrepareMono(config, { force: true })).toThrow('create tag core-v1.1.0');
+      expect(() => prepareMonorepo(config, { force: true })).toThrow('create tag core-v1.1.0');
     });
 
     it('throws under --set-version', () => {
       const config = stubUntaggedWorkspaces();
 
       expect(() =>
-        releasePrepareMono(
+        prepareMonorepo(
           { ...config, workspaces: [makeRoutedWorkspace('core')] },
           { setVersions: new Map([['core', '3.0.0']]) },
         ),
@@ -1553,13 +1499,13 @@ describe(releasePrepareMono, () => {
         legacyIdentities: [{ name: '@old/core', tagPrefix: 'old-core-v' }],
       };
 
-      expect(releasePrepareMono(makeConfig({ workspaces: [workspace] }), {}).tags).toStrictEqual(['core-v1.2.0']);
+      expect(prepareMonorepo(makeConfig({ workspaces: [workspace] }), {}).tags).toStrictEqual(['core-v1.2.0']);
     });
 
     it('does not fire for a workspace that releases only through propagation', () => {
       stubPropagationFixture({ '@test/core': 'workspace:*' });
 
-      const result = releasePrepareMono(
+      const result = prepareMonorepo(
         makeConfig({ workspaces: [makeRoutedWorkspace('core'), makeRoutedWorkspace('app')] }),
         {},
       );
@@ -1571,7 +1517,7 @@ describe(releasePrepareMono, () => {
       stubPropagationFixture({});
 
       expect(() =>
-        releasePrepareMono(makeConfig({ workspaces: [makeRoutedWorkspace('core'), makeRoutedWorkspace('app')] }), {}),
+        prepareMonorepo(makeConfig({ workspaces: [makeRoutedWorkspace('core'), makeRoutedWorkspace('app')] }), {}),
       ).toThrow("workspace 'app': 2.1.0 (create tag app-v2.1.0)");
     });
 
@@ -1599,7 +1545,6 @@ describe(releasePrepareMono, () => {
         workspacePath: 'packages/arrays',
         isPublishable: true,
         packageFiles: ['packages/arrays/package.json'],
-        changelogPaths: ['packages/arrays'],
         paths: ['packages/arrays/**'],
       };
       return makeConfig({ workspaces: [workspace], ...overrides });
@@ -1615,7 +1560,7 @@ describe(releasePrepareMono, () => {
     it('does not plan a changelog.json write or format when changelogJson.enabled is false', () => {
       stubFeatCommit();
 
-      const plan = releasePrepareMono(
+      const plan = prepareMonorepo(
         singleWorkspaceConfig({
           formatCommand: 'npx prettier --write',
           changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false },
@@ -1631,7 +1576,7 @@ describe(releasePrepareMono, () => {
     it('plans a changelog.json write and formats it when changelogJson.enabled is true', () => {
       stubFeatCommit();
 
-      const plan = releasePrepareMono(
+      const plan = prepareMonorepo(
         singleWorkspaceConfig({
           formatCommand: 'npx prettier --write',
           changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
@@ -1668,7 +1613,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/core',
             isPublishable: true,
             packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
           },
         ],
@@ -1676,7 +1620,7 @@ describe(releasePrepareMono, () => {
       setupNoBaseline(['core-v0.2.7', 'core-v0.2.8']);
       using capture = captureStdio();
 
-      releasePrepareMono(config, {});
+      prepareMonorepo(config, {});
 
       expect(capture.stderrChunks).toHaveLength(1);
       const message = capture.stderrChunks[0] ?? '';
@@ -1696,7 +1640,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/core',
             isPublishable: true,
             packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
             legacyIdentities: [{ name: '@old-scope/core', tagPrefix: 'core-v' }],
           },
@@ -1705,7 +1648,7 @@ describe(releasePrepareMono, () => {
       setupNoBaseline(['core-v0.2.7']);
       using capture = captureStdio();
 
-      releasePrepareMono(config, {});
+      prepareMonorepo(config, {});
 
       expect(capture.stderrChunks).toHaveLength(0);
     });
@@ -1720,7 +1663,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/core',
             isPublishable: true,
             packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
           },
         ],
@@ -1728,7 +1670,7 @@ describe(releasePrepareMono, () => {
       setupNoBaseline([]);
       using capture = captureStdio();
 
-      releasePrepareMono(config, {});
+      prepareMonorepo(config, {});
 
       expect(capture.stderrChunks).toHaveLength(0);
     });
@@ -1745,7 +1687,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/core',
             isPublishable: true,
             packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
           },
           {
@@ -1755,7 +1696,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/arrays',
             isPublishable: true,
             packageFiles: ['packages/arrays/package.json'],
-            changelogPaths: ['packages/arrays'],
             paths: ['packages/arrays/**'],
           },
         ],
@@ -1764,7 +1704,7 @@ describe(releasePrepareMono, () => {
       setupNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0']);
       using capture = captureStdio();
 
-      releasePrepareMono(config, {});
+      prepareMonorepo(config, {});
 
       expect(capture.stderrChunks).toHaveLength(0);
     });
@@ -1781,7 +1721,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/core',
             isPublishable: true,
             packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
           },
           {
@@ -1791,7 +1730,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/arrays',
             isPublishable: true,
             packageFiles: ['packages/arrays/package.json'],
-            changelogPaths: ['packages/arrays'],
             paths: ['packages/arrays/**'],
             legacyIdentities: [{ name: '@old-scope/arrays', tagPrefix: 'arrays-v' }],
           },
@@ -1800,7 +1738,7 @@ describe(releasePrepareMono, () => {
       setupNoBaseline(['arrays-v0.5.0', 'arrays-v0.6.0']);
       using capture = captureStdio();
 
-      releasePrepareMono(config, {});
+      prepareMonorepo(config, {});
 
       expect(capture.stderrChunks).toHaveLength(0);
     });
@@ -1815,7 +1753,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/core',
             isPublishable: true,
             packageFiles: ['packages/core/package.json'],
-            changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
           },
           {
@@ -1825,7 +1762,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/arrays',
             isPublishable: true,
             packageFiles: ['packages/arrays/package.json'],
-            changelogPaths: ['packages/arrays'],
             paths: ['packages/arrays/**'],
           },
         ],
@@ -1833,7 +1769,7 @@ describe(releasePrepareMono, () => {
       setupNoBaseline(['core-v0.2.7', 'arrays-v0.1.0']);
       using capture = captureStdio();
 
-      releasePrepareMono(config, {});
+      prepareMonorepo(config, {});
 
       expect(capture.stderrChunks).toHaveLength(1);
     });
@@ -1850,7 +1786,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/arrays',
             isPublishable: true,
             packageFiles: ['packages/arrays/package.json'],
-            changelogPaths: ['packages/arrays'],
             paths: ['packages/arrays/**'],
           },
         ],
@@ -1858,14 +1793,14 @@ describe(releasePrepareMono, () => {
       stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add', 'abc']], bump: 'minor' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
-      expect(result.project).toBeUndefined();
+      expect(selectCompositeResult(result)).toBeUndefined();
       // The arrays workspace was bumped; the result doesn't contain a project tag.
       expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
     });
 
-    it('runs the project release when config.project is defined and returns it on result.project', () => {
+    it('runs the project release when config.project is defined and returns it on selectCompositeResult(result)', () => {
       const config = makeConfig({
         workspaces: [
           {
@@ -1875,7 +1810,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/arrays',
             isPublishable: true,
             packageFiles: ['packages/arrays/package.json'],
-            changelogPaths: ['packages/arrays'],
             paths: ['packages/arrays/**'],
           },
         ],
@@ -1890,10 +1824,10 @@ describe(releasePrepareMono, () => {
         return JSON.stringify({ version: '1.0.0' });
       });
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
-      expect(result.project).toBeDefined();
-      const project = result.project;
+      expect(selectCompositeResult(result)).toBeDefined();
+      const project = selectCompositeResult(result);
       assert(project?.status === 'released', 'expected released project');
       expect(project.tag).toBe('v0.10.0');
       expect(project.releaseType).toBe('minor');
@@ -1916,7 +1850,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/arrays',
             isPublishable: true,
             packageFiles: ['packages/arrays/package.json'],
-            changelogPaths: ['packages/arrays'],
             paths: ['packages/arrays/**'],
           },
         ],
@@ -1931,9 +1864,9 @@ describe(releasePrepareMono, () => {
         return JSON.stringify({ version: '1.0.0' });
       });
 
-      const result = releasePrepareMono(config, { only: ['arrays'] });
+      const result = prepareMonorepo(config, { only: ['arrays'] });
 
-      expect(result.project).toBeUndefined();
+      expect(selectCompositeResult(result)).toBeUndefined();
       expect(result.tags).toContain('arrays-v1.1.0');
       expect(result.tags).not.toContain('v0.10.0');
       expect(result.warnings?.join('\n')).toContain('Project release skipped');
@@ -1954,7 +1887,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/arrays',
             isPublishable: true,
             packageFiles: ['packages/arrays/package.json'],
-            changelogPaths: ['packages/arrays'],
             paths: ['packages/arrays/**'],
           },
         ],
@@ -1969,7 +1901,7 @@ describe(releasePrepareMono, () => {
         return JSON.stringify({ version: '1.0.0' });
       });
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
       const formatCall = result.formatCommand?.command;
       expect(formatCall).toContain('packages/arrays/package.json');
@@ -1989,7 +1921,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/arrays',
             isPublishable: true,
             packageFiles: ['packages/arrays/package.json'],
-            changelogPaths: ['packages/arrays'],
             paths: ['packages/arrays/**'],
           },
         ],
@@ -2004,7 +1935,7 @@ describe(releasePrepareMono, () => {
     it('invokes planReleaseNotesPreviews for each released workspace when enabled', () => {
       const config = setupArraysWithFeat();
 
-      releasePrepareMono(config, { withReleaseNotes: true });
+      prepareMonorepo(config, { withReleaseNotes: true });
 
       expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledTimes(1);
       expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledWith(
@@ -2020,7 +1951,7 @@ describe(releasePrepareMono, () => {
     it('does not invoke planReleaseNotesPreviews when the flag is not set', () => {
       const config = setupArraysWithFeat();
 
-      releasePrepareMono(config, {});
+      prepareMonorepo(config, {});
 
       expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
     });
@@ -2035,7 +1966,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/arrays',
             isPublishable: true,
             packageFiles: ['packages/arrays/package.json'],
-            changelogPaths: ['packages/arrays'],
             paths: ['packages/arrays/**'],
           },
         ],
@@ -2044,7 +1974,7 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       using silent = silenceConsole(['warn']);
 
-      const plan = releasePrepareMono(config, { withReleaseNotes: true });
+      const plan = prepareMonorepo(config, { withReleaseNotes: true });
 
       expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
       expect(plan.warnings).toStrictEqual([
@@ -2063,7 +1993,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/arrays',
             isPublishable: true,
             packageFiles: ['packages/arrays/package.json'],
-            changelogPaths: ['packages/arrays'],
             paths: ['packages/arrays/**'],
           },
         ],
@@ -2072,7 +2001,7 @@ describe(releasePrepareMono, () => {
       stubHistory({ previousTag: 'arrays-v1.0.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
-      releasePrepareMono(config, { withReleaseNotes: true });
+      prepareMonorepo(config, { withReleaseNotes: true });
 
       expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
     });
@@ -2085,10 +2014,10 @@ describe(releasePrepareMono, () => {
         warnings: [],
       });
 
-      const plan = releasePrepareMono(config, { withReleaseNotes: true });
+      const plan = prepareMonorepo(config, { withReleaseNotes: true });
 
       expect(plannedContent(plan, 'packages/arrays/docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
-      expect(plan.workspaces[0]).toMatchObject({
+      expect(selectPackageResults(plan)[0]).toMatchObject({
         previewFiles: ['packages/arrays/docs/RELEASE_NOTES.v1.1.0.md'],
       });
     });
@@ -2105,7 +2034,7 @@ describe(releasePrepareMono, () => {
       });
       mockExecFileSync.mockReturnValue('[]');
 
-      releasePrepareMono(config, { withReleaseNotes: true });
+      prepareMonorepo(config, { withReleaseNotes: true });
 
       expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledTimes(2);
       // Confirm each workspace received a preview call with the correct workspacePath and tag.
@@ -2129,7 +2058,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/arrays',
             isPublishable: true,
             packageFiles: ['packages/arrays/package.json'],
-            changelogPaths: ['packages/arrays'],
             paths: ['packages/arrays/**'],
           },
         ],
@@ -2146,7 +2074,7 @@ describe(releasePrepareMono, () => {
         throw underlying;
       });
 
-      const wrapped = await captureError(() => releasePrepareMono(config, {}));
+      const wrapped = await captureError(() => prepareMonorepo(config, {}));
 
       expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*git rev-list failed: not a git repo$/);
       // `cause` is preserved through the chain: at minimum, an Error instance.
@@ -2164,7 +2092,7 @@ describe(releasePrepareMono, () => {
         throw underlying;
       });
 
-      const wrapped = await captureError(() => releasePrepareMono(config, {}));
+      const wrapped = await captureError(() => prepareMonorepo(config, {}));
 
       expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*markdown render failed$/);
       // `cause` is preserved through the chain: at minimum, an Error instance.
@@ -2187,7 +2115,7 @@ describe(releasePrepareMono, () => {
           throw underlying;
         });
 
-      const wrapped = await captureError(() => releasePrepareMono(config, {}));
+      const wrapped = await captureError(() => prepareMonorepo(config, {}));
 
       expect(wrapped.message).toMatch(/^project release stage: .*git log failed on root$/);
       expect(wrapped.cause).toBeInstanceOf(Error);
@@ -2203,7 +2131,6 @@ describe(releasePrepareMono, () => {
         workspacePath: 'packages/arrays',
         isPublishable: true,
         packageFiles: ['packages/arrays/package.json'],
-        changelogPaths: ['packages/arrays'],
         paths: ['packages/arrays/**'],
         ...overrides,
       };
@@ -2239,9 +2166,12 @@ describe(releasePrepareMono, () => {
       stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add', 'abc1234']], bump: 'minor' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-      releasePrepareMono(config, {});
+      prepareMonorepo(config, {});
 
-      expect(mockReadReleaseHistory).toHaveBeenCalledExactlyOnceWith(config, expect.any(Object));
+      expect(mockReadReleaseHistory).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ breakingPolicies: {} }),
+        expect.any(Object),
+      );
     });
 
     it('omits every diagnostic list that the history leaves empty', () => {
@@ -2249,12 +2179,12 @@ describe(releasePrepareMono, () => {
       stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat!: drop legacy export', 'abc1234']], bump: 'major' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
-      expect(result.workspaces[0]?.status).toBe('released');
-      expect(result.workspaces[0]?.malformedBlocks).toBeUndefined();
-      expect(result.workspaces[0]?.policyViolations).toBeUndefined();
-      expect(result.workspaces[0]?.undeclaredEntryTypes).toBeUndefined();
+      expect(selectPackageResults(result)[0]?.status).toBe('released');
+      expect(selectPackageResults(result)[0]?.malformedBlocks).toBeUndefined();
+      expect(selectPackageResults(result)[0]?.policyViolations).toBeUndefined();
+      expect(selectPackageResults(result)[0]?.undeclaredEntryTypes).toBeUndefined();
     });
 
     it("attaches the history's diagnostics to a released result", () => {
@@ -2271,9 +2201,9 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
-      expect(result.workspaces[0]).toMatchObject({
+      expect(selectPackageResults(result)[0]).toMatchObject({
         status: 'released',
         malformedBlocks: [malformedBlock],
         undeclaredEntryTypes: [undeclared],
@@ -2294,9 +2224,9 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
-      expect(result.workspaces[0]).toMatchObject({
+      expect(selectPackageResults(result)[0]).toMatchObject({
         status: 'skipped',
         malformedBlocks: [malformedBlock],
         undeclaredEntryTypes: [undeclared],
@@ -2311,7 +2241,6 @@ describe(releasePrepareMono, () => {
         tagPrefix: 'core-v',
         workspacePath: 'packages/core',
         packageFiles: ['packages/core/package.json'],
-        changelogPaths: ['packages/core'],
         paths: ['packages/core/**'],
       });
       const config = makeConfig({ workspaces: [makeWorkspace(), cleanWorkspace] });
@@ -2326,10 +2255,10 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
-      const arraysResult = result.workspaces.find((w) => w.name === 'arrays');
-      const coreResult = result.workspaces.find((w) => w.name === 'core');
+      const arraysResult = selectPackageResults(result).find((w) => w.name === 'arrays');
+      const coreResult = selectPackageResults(result).find((w) => w.name === 'core');
       expect(arraysResult?.policyViolations).toStrictEqual([prefixViolation]);
       expect(coreResult?.policyViolations).toBeUndefined();
     });
@@ -2341,7 +2270,6 @@ describe(releasePrepareMono, () => {
         tagPrefix: 'core-v',
         workspacePath: 'packages/core',
         packageFiles: ['packages/core/package.json'],
-        changelogPaths: ['packages/core'],
         paths: ['packages/core/**'],
       });
       const config = makeConfig({ workspaces: [coreWorkspace, makeWorkspace()] });
@@ -2368,9 +2296,9 @@ describe(releasePrepareMono, () => {
       );
       mockExistsSync.mockReturnValue(false);
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
-      const arraysResult = result.workspaces.find((w) => w.name === 'arrays');
+      const arraysResult = selectPackageResults(result).find((w) => w.name === 'arrays');
       expect(arraysResult).toMatchObject({
         status: 'released',
         previousTag: 'arrays-v1.0.0',
@@ -2386,7 +2314,7 @@ describe(releasePrepareMono, () => {
         propagatedOnly: true,
       });
       expect(arraysResult?.parsedCommitCount).toBeUndefined();
-      expect(result.workspaces.find((w) => w.name === 'core')).not.toHaveProperty('propagatedOnly');
+      expect(selectPackageResults(result).find((w) => w.name === 'core')).not.toHaveProperty('propagatedOnly');
       expect(mockBuildSyntheticChangelogEntry).toHaveBeenCalledTimes(1);
       expect(result.summary).toContain('arrays-v1.0.1\n- Merge PR\n- tidy up');
     });
@@ -2429,18 +2357,18 @@ describe(releasePrepareMono, () => {
       stubWindows({ 'arrays-v': 'minor', 'core-v': undefined, 'strings-v': 'patch' }, ['arrays-v', 'core-v']);
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
       const expected = [unroutedFinding(2, 'strings'), unroutedFinding(3, 'nothing')];
-      expect(result.workspaces.find((w) => w.name === 'arrays')).toMatchObject({
+      expect(selectPackageResults(result).find((w) => w.name === 'arrays')).toMatchObject({
         status: 'released',
         unroutedEntryScopes: expected,
       });
-      expect(result.workspaces.find((w) => w.name === 'core')).toMatchObject({
+      expect(selectPackageResults(result).find((w) => w.name === 'core')).toMatchObject({
         status: 'skipped',
         unroutedEntryScopes: expected,
       });
-      expect(result.workspaces.find((w) => w.name === 'strings')).not.toHaveProperty('unroutedEntryScopes');
+      expect(selectPackageResults(result).find((w) => w.name === 'strings')).not.toHaveProperty('unroutedEntryScopes');
     });
 
     it('does not report a configured workspace that --only left out of the run', () => {
@@ -2448,10 +2376,10 @@ describe(releasePrepareMono, () => {
       stubWindows({ 'arrays-v': 'minor', 'strings-v': 'patch' }, ['arrays-v']);
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-      const result = releasePrepareMono(config, { only: ['arrays'] });
+      const result = prepareMonorepo(config, { only: ['arrays'] });
 
-      expect(result.workspaces.map((workspace) => workspace.name)).toStrictEqual(['arrays']);
-      expect(result.workspaces[0]?.unroutedEntryScopes).toStrictEqual([unroutedFinding(3, 'nothing')]);
+      expect(selectPackageResults(result).map((workspace) => workspace.name)).toStrictEqual(['arrays']);
+      expect(selectPackageResults(result)[0]?.unroutedEntryScopes).toStrictEqual([unroutedFinding(3, 'nothing')]);
     });
 
     /** Stubs each prefix's history with its bump, putting the block commit in the windows of `withBlock`. */
@@ -2478,7 +2406,6 @@ describe(releasePrepareMono, () => {
             workspacePath: 'packages/arrays',
             isPublishable: true,
             packageFiles: ['packages/arrays/package.json'],
-            changelogPaths: ['packages/arrays'],
             paths: ['packages/arrays/**'],
           },
         ],
@@ -2507,7 +2434,7 @@ describe(releasePrepareMono, () => {
         return JSON.stringify({ name: '@test/arrays', version: '1.0.0' });
       });
 
-      const result = releasePrepareMono(config, {});
+      const result = prepareMonorepo(config, {});
 
       expect(result.warnings).toBeDefined();
       const warnings = result.warnings ?? [];
@@ -2575,7 +2502,6 @@ function makeRoutedWorkspace(dir: string): WorkspaceConfig {
     workspacePath: `packages/${dir}`,
     isPublishable: true,
     packageFiles: [`packages/${dir}/package.json`],
-    changelogPaths: [`packages/${dir}`],
     paths: [`packages/${dir}/**`],
   };
 }
@@ -2584,4 +2510,10 @@ function makeRoutedWorkspace(dir: string): WorkspaceConfig {
 function listReadOptions(): unknown[] {
   return mockReadReleaseHistory.mock.calls.map((call: unknown[]) => call[1]);
 }
+
+/** Prepares a monorepo release over the targets that the merged config projects onto. */
+function prepareMonorepo(config: MonorepoReleaseConfig, options: TargetPrepareOptions): ReleasePlan {
+  return releasePrepareTargets(projectMonorepoConfig(config), options);
+}
+
 // endregion | Helpers

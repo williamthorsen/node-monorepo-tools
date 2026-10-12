@@ -23,7 +23,6 @@ describe(deriveWorkspaceConfig, () => {
       workspacePath: 'packages/core',
       isPublishable: true,
       packageFiles: ['packages/core/package.json'],
-      changelogPaths: ['packages/core'],
       paths: ['packages/core/**'],
     });
   });
@@ -38,7 +37,6 @@ describe(deriveWorkspaceConfig, () => {
       workspacePath: 'packages/readyup',
       isPublishable: true,
       packageFiles: ['packages/readyup/package.json'],
-      changelogPaths: ['packages/readyup'],
       paths: ['packages/readyup/**'],
     });
   });

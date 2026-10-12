@@ -95,7 +95,6 @@ describe(publishCommand, () => {
         workspacePath,
         isPublishable: true,
         packageFiles: [`${workspacePath}/package.json`],
-        changelogPaths: [workspacePath],
         paths: [`${workspacePath}/**`],
       };
     });

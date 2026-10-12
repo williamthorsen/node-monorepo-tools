@@ -156,7 +156,6 @@ describe(mergeMonorepoConfig, () => {
       workspacePath: 'packages/arrays',
       isPublishable: true,
       packageFiles: ['packages/arrays/package.json'],
-      changelogPaths: ['packages/arrays'],
       paths: ['packages/arrays/**'],
     });
   });
@@ -177,7 +176,6 @@ describe(mergeMonorepoConfig, () => {
       workspacePath: 'libs/core',
       isPublishable: true,
       packageFiles: ['libs/core/package.json'],
-      changelogPaths: ['libs/core'],
       paths: ['libs/core/**'],
     });
     expect(result.workspaces[1]?.tagPrefix).toBe('web-app-v');
@@ -598,9 +596,6 @@ describe(mergeSinglePackageConfig, () => {
   it('returns defaults when the caller does not provide a config', () => {
     const result = mergeSinglePackageConfig(undefined);
 
-    expect(result.tagPrefix).toBe('v');
-    expect(result.packageFiles).toStrictEqual(['package.json']);
-    expect(result.changelogPaths).toStrictEqual(['.']);
     expect(result.workTypes).toStrictEqual(DEFAULT_WORK_TYPES);
     expect(result.versionPatterns).toStrictEqual(DEFAULT_VERSION_PATTERNS);
   });

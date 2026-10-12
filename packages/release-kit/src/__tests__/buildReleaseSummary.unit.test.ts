@@ -6,7 +6,7 @@ import type { PrepareResult } from '../types.ts';
 /** Builds a minimal PrepareResult for testing. */
 function makeResult(overrides?: Partial<PrepareResult>): PrepareResult {
   return {
-    workspaces: [],
+    targets: [],
     tags: [],
     ...overrides,
   };
@@ -15,8 +15,10 @@ function makeResult(overrides?: Partial<PrepareResult>): PrepareResult {
 describe(buildReleaseSummary, () => {
   it('produces a summary with tag heading and scope-stripped commits', () => {
     const result = makeResult({
-      workspaces: [
+      targets: [
         {
+          targetId: 'release-kit',
+          kind: 'package',
           name: 'release-kit',
           status: 'released',
           currentVersion: '2.3.0',
@@ -48,8 +50,10 @@ describe(buildReleaseSummary, () => {
 
   it('lists the subject alone for a commit that has a body', () => {
     const result = makeResult({
-      workspaces: [
+      targets: [
         {
+          targetId: 'release-kit',
+          kind: 'package',
           name: 'release-kit',
           status: 'released',
           currentVersion: '2.3.0',
@@ -74,8 +78,10 @@ describe(buildReleaseSummary, () => {
 
   it('separates multiple workspaces with blank lines', () => {
     const result = makeResult({
-      workspaces: [
+      targets: [
         {
+          targetId: 'core',
+          kind: 'package',
           name: 'core',
           status: 'released',
           currentVersion: '0.9.0',
@@ -87,6 +93,8 @@ describe(buildReleaseSummary, () => {
           commits: [{ message: 'core|feat: Init', subject: 'core|feat: Init', hash: 'a1' }],
         },
         {
+          targetId: 'utils',
+          kind: 'package',
           name: 'utils',
           status: 'released',
           currentVersion: '1.9.0',
@@ -105,8 +113,10 @@ describe(buildReleaseSummary, () => {
 
   it('omits propagation-only workspaces (no commits)', () => {
     const result = makeResult({
-      workspaces: [
+      targets: [
         {
+          targetId: 'core',
+          kind: 'package',
           name: 'core',
           status: 'released',
           currentVersion: '1.0.0',
@@ -125,8 +135,10 @@ describe(buildReleaseSummary, () => {
 
   it('omits skipped workspaces', () => {
     const result = makeResult({
-      workspaces: [
+      targets: [
         {
+          targetId: 'skipped-pkg',
+          kind: 'package',
           name: 'skipped-pkg',
           status: 'skipped',
           commitCount: 0,
@@ -146,8 +158,10 @@ describe(buildReleaseSummary, () => {
   describe('project release section', () => {
     it('appends the project section after workspace sections when project commits exist', () => {
       const result = makeResult({
-        workspaces: [
+        targets: [
           {
+            targetId: 'arrays',
+            kind: 'package',
             name: 'arrays',
             status: 'released',
             currentVersion: '1.0.0',
@@ -158,19 +172,21 @@ describe(buildReleaseSummary, () => {
             changelogFiles: [],
             commits: [{ message: 'arrays|feat: Add compact', subject: 'arrays|feat: Add compact', hash: 'a1' }],
           },
+          {
+            targetId: '',
+            kind: 'composite',
+            status: 'released',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'minor',
+            currentVersion: '0.9.0',
+            newVersion: '0.10.0',
+            tag: 'v0.10.0',
+            bumpedFiles: ['./package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            commits: [{ message: 'arrays|feat: Add compact', subject: 'arrays|feat: Add compact', hash: 'a1' }],
+          },
         ],
-        project: {
-          status: 'released',
-          commitCount: 1,
-          parsedCommitCount: 1,
-          releaseType: 'minor',
-          currentVersion: '0.9.0',
-          newVersion: '0.10.0',
-          tag: 'v0.10.0',
-          bumpedFiles: ['./package.json'],
-          changelogFiles: ['./CHANGELOG.md'],
-          commits: [{ message: 'arrays|feat: Add compact', subject: 'arrays|feat: Add compact', hash: 'a1' }],
-        },
       });
 
       expect(buildReleaseSummary(result)).toBe('arrays-v1.1.0\n- feat: Add compact\n\nv0.10.0\n- feat: Add compact');
@@ -178,18 +194,22 @@ describe(buildReleaseSummary, () => {
 
     it('emits only the project section when the workspaces did not contribute any commits', () => {
       const result = makeResult({
-        project: {
-          status: 'released',
-          commitCount: 1,
-          parsedCommitCount: 1,
-          releaseType: 'patch',
-          currentVersion: '0.9.0',
-          newVersion: '0.9.1',
-          tag: 'v0.9.1',
-          bumpedFiles: ['./package.json'],
-          changelogFiles: ['./CHANGELOG.md'],
-          commits: [{ message: 'arrays|fix: Patch bug', subject: 'arrays|fix: Patch bug', hash: 'b1' }],
-        },
+        targets: [
+          {
+            targetId: '',
+            kind: 'composite',
+            status: 'released',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'patch',
+            currentVersion: '0.9.0',
+            newVersion: '0.9.1',
+            tag: 'v0.9.1',
+            bumpedFiles: ['./package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            commits: [{ message: 'arrays|fix: Patch bug', subject: 'arrays|fix: Patch bug', hash: 'b1' }],
+          },
+        ],
       });
 
       expect(buildReleaseSummary(result)).toBe('v0.9.1\n- fix: Patch bug');
@@ -197,18 +217,22 @@ describe(buildReleaseSummary, () => {
 
     it('omits the project section when the project does not have any commits', () => {
       const result = makeResult({
-        project: {
-          status: 'released',
-          commitCount: 0,
-          parsedCommitCount: 0,
-          releaseType: 'patch',
-          currentVersion: '0.9.0',
-          newVersion: '0.9.1',
-          tag: 'v0.9.1',
-          bumpedFiles: ['./package.json'],
-          changelogFiles: ['./CHANGELOG.md'],
-          commits: [],
-        },
+        targets: [
+          {
+            targetId: '',
+            kind: 'composite',
+            status: 'released',
+            commitCount: 0,
+            parsedCommitCount: 0,
+            releaseType: 'patch',
+            currentVersion: '0.9.0',
+            newVersion: '0.9.1',
+            tag: 'v0.9.1',
+            bumpedFiles: ['./package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            commits: [],
+          },
+        ],
       });
 
       expect(buildReleaseSummary(result)).toBe('');
@@ -217,8 +241,10 @@ describe(buildReleaseSummary, () => {
     it('omits a skipped project from the summary', () => {
       // A skipped project doesn't produce a tag or any commits to attribute.
       const result = makeResult({
-        workspaces: [
+        targets: [
           {
+            targetId: 'arrays',
+            kind: 'package',
             name: 'arrays',
             status: 'released',
             currentVersion: '1.0.0',
@@ -229,14 +255,16 @@ describe(buildReleaseSummary, () => {
             changelogFiles: [],
             commits: [{ message: 'arrays|feat: Add compact', subject: 'arrays|feat: Add compact', hash: 'a1' }],
           },
+          {
+            targetId: '',
+            kind: 'composite',
+            status: 'skipped',
+            previousTag: 'v0.9.0',
+            commitCount: 0,
+            parsedCommitCount: 0,
+            skipReason: 'No commits since v0.9.0. Pass --force to release at patch. Skipping.',
+          },
         ],
-        project: {
-          status: 'skipped',
-          previousTag: 'v0.9.0',
-          commitCount: 0,
-          parsedCommitCount: 0,
-          skipReason: 'No commits since v0.9.0. Pass --force to release at patch. Skipping.',
-        },
       });
 
       expect(buildReleaseSummary(result)).toBe('arrays-v1.1.0\n- feat: Add compact');

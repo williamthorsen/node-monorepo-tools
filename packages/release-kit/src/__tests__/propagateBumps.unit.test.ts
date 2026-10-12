@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { DependencyGraph } from '../buildDependencyGraph.ts';
 import { propagateBumps, type ReleaseEntry } from '../propagateBumps.ts';
-import type { WorkspaceConfig } from '../types.ts';
+import { makeWorkspaceTarget } from '../test-utils/packageTargets.ts';
+import type { PackageTarget } from '../types.ts';
 
 describe(propagateBumps, () => {
   it('propagates a patch bump to a single dependent', () => {
-    const dependent = makeWorkspace('release-kit');
+    const dependent = makeWorkspaceTarget('release-kit');
 
     const graph = makeGraph(
       { '@scope/core': 'core', '@scope/release-kit': 'release-kit' },
@@ -26,8 +27,8 @@ describe(propagateBumps, () => {
   });
 
   it('propagates transitively (A -> B -> C)', () => {
-    const compB = makeWorkspace('middle');
-    const compC = makeWorkspace('app');
+    const compB = makeWorkspaceTarget('middle');
+    const compC = makeWorkspaceTarget('app');
 
     const graph = makeGraph(
       { '@scope/core': 'core', '@scope/middle': 'middle', '@scope/app': 'app' },
@@ -51,7 +52,7 @@ describe(propagateBumps, () => {
   });
 
   it('does not downgrade a higher direct bump', () => {
-    const dependent = makeWorkspace('release-kit');
+    const dependent = makeWorkspaceTarget('release-kit');
 
     const graph = makeGraph(
       { '@scope/core': 'core', '@scope/release-kit': 'release-kit' },
@@ -74,8 +75,8 @@ describe(propagateBumps, () => {
   });
 
   it('handles circular dependencies without infinite loops', () => {
-    const compA = makeWorkspace('alpha');
-    const compB = makeWorkspace('beta');
+    const compA = makeWorkspaceTarget('alpha');
+    const compB = makeWorkspaceTarget('beta');
 
     const graph = makeGraph(
       { '@scope/alpha': 'alpha', '@scope/beta': 'beta' },
@@ -95,7 +96,7 @@ describe(propagateBumps, () => {
   });
 
   it('adds propagatedFrom metadata to a directly bumped workspace with a propagated dependency', () => {
-    const dependent = makeWorkspace('kit');
+    const dependent = makeWorkspaceTarget('kit');
 
     const graph = makeGraph(
       { '@scope/core': 'core', '@scope/kit': 'kit' },
@@ -118,7 +119,7 @@ describe(propagateBumps, () => {
   });
 
   it('handles multiple dependencies triggering propagation to the same workspace', () => {
-    const compC = makeWorkspace('app');
+    const compC = makeWorkspaceTarget('app');
 
     const graph = makeGraph(
       { '@scope/core': 'core', '@scope/utils': 'utils', '@scope/app': 'app' },
@@ -153,7 +154,7 @@ describe(propagateBumps, () => {
   });
 
   it('uses newVersionOverride for propagation metadata instead of a bump-computed version', () => {
-    const dependent = makeWorkspace('app');
+    const dependent = makeWorkspaceTarget('app');
 
     const graph = makeGraph(
       { '@scope/core': 'core', '@scope/app': 'app' },
@@ -180,7 +181,7 @@ describe(propagateBumps, () => {
 /** Builds a dependency graph from name, dependents, and version records, leaving its dependencies map empty. */
 function makeGraph(
   nameToDir: Record<string, string>,
-  dependentsOf: Record<string, WorkspaceConfig[]>,
+  dependentsOf: Record<string, PackageTarget[]>,
   dirToVersion: Record<string, string>,
 ): DependencyGraph {
   const packageNameToDir = new Map(Object.entries(nameToDir));
@@ -194,17 +195,4 @@ function makeGraph(
   };
 }
 
-/** Builds a publishable workspace config under `packages/{dir}`. */
-function makeWorkspace(dir: string): WorkspaceConfig {
-  return {
-    dir,
-    name: `@test/${dir}`,
-    tagPrefix: `${dir}-v`,
-    workspacePath: `packages/${dir}`,
-    isPublishable: true,
-    packageFiles: [`packages/${dir}/package.json`],
-    changelogPaths: [`packages/${dir}`],
-    paths: [`packages/${dir}/**`],
-  };
-}
 // endregion | Helpers
