@@ -93,10 +93,11 @@ export interface TestFileScanOptions {
 }
 
 /**
- * The isolation ladder, ordered by the furthest thing that a test reaches. A tier names what a test reaches, never
- * how it invokes it: A test driving a compiler through its JavaScript API is `tool`, exactly as one spawning `tsc`
- * would be. Each named tier's name is also its filename infix, so `parse.tool.test.ts` is collected by the `tool`
- * project.
+ * The isolation ladder, ordered by the furthest thing that a test reaches, which decides what the environment must
+ * supply for the test to run. A tier names what a test reaches, never how it invokes it: A test driving a compiler
+ * through its JavaScript API is `tool`, exactly as one spawning `tsc` would be, and a spawned process is itself
+ * something reached. Each named tier's name is also its filename infix, so `parse.tool.test.ts` is collected by the
+ * `tool` project.
  */
 export const TIER_NAMES = ['unit', 'tool', 'localhost', 'remote'] as const;
 

@@ -10,16 +10,20 @@ The [README](../README.md#shared-vitest-config) shows the one-line config file.
 
 The config declares four projects, an ordered ladder named for the furthest thing that a test reaches:
 
-| Project     | Matches                                     | Reaches                                              |
-| ----------- | ------------------------------------------- | ---------------------------------------------------- |
-| `unit`      | every test file that the others don't claim | nothing outside the package's own dependency closure |
-| `tool`      | `*.tool.test.{ts,tsx}`                      | a program that the environment must supply           |
-| `localhost` | `*.localhost.test.{ts,tsx}`                 | a service running on this machine                    |
-| `remote`    | `*.remote.test.{ts,tsx}`                    | a machine that isn't this one                        |
+| Project     | Matches                                     | Reaches                                                                    |
+| ----------- | ------------------------------------------- | -------------------------------------------------------------------------- |
+| `unit`      | every test file that the others don't claim | nothing outside the package's own dependency closure                       |
+| `tool`      | `*.tool.test.{ts,tsx}`                      | a process that the test starts, or a program that the environment supplies |
+| `localhost` | `*.localhost.test.{ts,tsx}`                 | a service already running on this machine                                  |
+| `remote`    | `*.remote.test.{ts,tsx}`                    | a machine that isn't this one                                              |
 
 All four match only under a `__tests__` directory.
 
-**A tier names what a test reaches, never how it invokes it.** A test driving a compiler through its JavaScript API is `tool`, exactly as one spawning the compiler binary is; whether a program ships as a library or an executable is an accident of packaging, not a property of the test. A package's `peerDependencies`, plus whatever binaries it spawns, are a good statement of where its `tool` boundary is: A bundled dependency is inside the package's own closure and is always present, so reaching one is `unit`.
+**A tier names what the environment must supply for a test to run.** A test is `tool` when it reaches a process that it starts, or a program that the environment supplies. A spawned process is itself something that the test reaches, even when it runs the package's own code, because the machine sets how long the process takes to start and to run.
+
+**A tier names what a test reaches, never how it invokes it.** A test driving a compiler through its JavaScript API is `tool`, exactly as one spawning the compiler binary is; whether a program ships as a library or an executable is an accident of packaging, not a property of the test. What decides is who supplies the program, and a package declares that in its `peerDependencies`. Those, plus whatever binaries it spawns, mark where its `tool` boundary lies: A bundled dependency is inside the package's own closure and is always present, so reaching one in-process is `unit`.
+
+**A service that the test starts itself takes the tier of the code that runs it.** A test that calls `net.Server.listen(0)` on a server from its own dependency closure and reaches it with `fetch` is `unit`: Both ends of the loopback connection are inside the test process, and the connection is how the test invokes that code. The same server started as a child process is `tool`, as is a service whose program the environment supplies, such as a `postgres` binary. `localhost` is for a service that is already running when the test starts, such as a separately started backend or a seeded database.
 
 **A tier is not a statement about preconditions.** A `unit` test may still need something set up before it runs: a build, a generated fixture, a seeded file. It is `unit` because it reaches nothing beyond the test process _while running_. The filesystem belongs to `unit` for the same reason the tiers exist: They gate on what must be available, and the filesystem always is.
 
