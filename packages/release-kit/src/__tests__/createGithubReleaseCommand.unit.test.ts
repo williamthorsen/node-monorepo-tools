@@ -489,6 +489,43 @@ describe(createGithubReleaseCommand, () => {
     });
   });
 
+  describe('project tag', () => {
+    const PROJECT_TAG = { tag: 'v0.13.0', kind: 'project', dir: '', workspacePath: '.', isPublishable: false };
+
+    it('creates a Release for the project tag although the root package is private', async () => {
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic']));
+      mockResolveReleaseTags.mockReturnValue([PROJECT_TAG]);
+      mockLoadConfig.mockResolvedValue({ project: {} });
+
+      await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+
+      expect(console.warn).not.toHaveBeenCalled();
+      expect(mockCreateGithubReleases).toHaveBeenCalledWith([PROJECT_TAG], '.meta/changelog.json', false, [
+        'Bug fixes',
+        'Features',
+      ]);
+    });
+
+    it('creates a Release for the project tag and still skips a private workspace tag', async () => {
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic']));
+      mockResolveReleaseTags.mockReturnValue([
+        { tag: 'basic-v1.0.0', kind: 'package', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
+        PROJECT_TAG,
+      ]);
+      mockLoadConfig.mockResolvedValue({ project: {} });
+
+      await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+
+      expect(console.warn).toHaveBeenCalledExactlyOnceWith(
+        'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
+      );
+      expect(mockCreateGithubReleases).toHaveBeenCalledWith([PROJECT_TAG], '.meta/changelog.json', false, [
+        'Bug fixes',
+        'Features',
+      ]);
+    });
+  });
+
   describe('--tags parsing', () => {
     it('rejects --tags= (empty value) with a missing-value error', async () => {
       // The shared parseArgs helper rejects an empty `--flag=` value before the command sees it.

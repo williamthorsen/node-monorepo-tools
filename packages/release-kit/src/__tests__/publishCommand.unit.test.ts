@@ -652,6 +652,39 @@ describe(publishCommand, () => {
     });
   });
 
+  describe('project tag', () => {
+    const PROJECT_TAG = { tag: 'v0.13.0', kind: 'project', dir: '', workspacePath: '.', isPublishable: false };
+
+    beforeEach(() => {
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
+      mockResolveReleaseTags.mockReturnValue([
+        { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+        PROJECT_TAG,
+      ]);
+      mockLoadConfig.mockResolvedValue({ project: {} });
+    });
+
+    it('publishes the workspace tags and silently drops the project tag on an implicit run', async () => {
+      await publishCommand([], RICH_STYLES, process.cwd());
+
+      expect(mockPublishPackage).toHaveBeenCalledTimes(1);
+      expect(mockPublishPackage).toHaveBeenCalledWith(
+        expect.objectContaining({ tag: 'core-v1.3.0' }),
+        expect.anything(),
+        expect.anything(),
+      );
+      expect(console.warn).not.toHaveBeenCalled();
+    });
+
+    it('warns that a project tag is not an npm package when --tags names it', async () => {
+      await publishCommand(['--tags=v0.13.0'], RICH_STYLES, process.cwd());
+
+      expect(console.warn).toHaveBeenCalledExactlyOnceWith('Skipping v0.13.0: a project tag is not an npm package.');
+      expect(console.info).toHaveBeenCalledWith('Nothing to publish.');
+      expect(mockPublishPackage).not.toHaveBeenCalled();
+    });
+  });
+
   describe('clean-tree gate', () => {
     it('exits with error when the working tree is dirty', async () => {
       mockAssertCleanWorkingTree.mockImplementation(() => {

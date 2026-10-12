@@ -200,6 +200,59 @@ describe(pushCommand, () => {
     });
   });
 
+  describe('project tag', () => {
+    const PROJECT_TAG: ResolvedTag = {
+      tag: 'v0.13.0',
+      kind: 'project',
+      dir: '',
+      workspacePath: '.',
+      isPublishable: false,
+    };
+
+    beforeEach(async () => {
+      const actual = await vi.importActual<typeof import('../resolveCommandTags.ts')>('../resolveCommandTags.ts');
+      mockResolveCommandTags.mockImplementation(actual.resolveCommandTags);
+      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/cli']));
+      mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
+        const dir = workspacePath.split('/').pop() ?? workspacePath;
+        return {
+          dir,
+          name: `@test/${dir}`,
+          tagPrefix: `${dir}-v`,
+          workspacePath,
+          isPublishable: true,
+          packageFiles: [`${workspacePath}/package.json`],
+          paths: [`${workspacePath}/**`],
+        };
+      });
+    });
+
+    it('pushes the project tag alongside the workspace tags', async () => {
+      mockResolveReleaseTags.mockReturnValue([...TAGS, PROJECT_TAG]);
+      mockLoadConfig.mockResolvedValue({ project: {} });
+
+      await pushCommand([], RICH_STYLES, process.cwd());
+
+      expect(mockPushRelease).toHaveBeenCalledWith([...TAGS, PROJECT_TAG], { dryRun: false, tagsOnly: false });
+    });
+
+    it('pushes the project tag when it is the only release tag', async () => {
+      mockResolveReleaseTags.mockReturnValue([PROJECT_TAG]);
+      mockLoadConfig.mockResolvedValue({
+        project: {},
+        workspaces: [
+          { dir: 'core', shouldExclude: true },
+          { dir: 'cli', shouldExclude: true },
+        ],
+      });
+
+      await pushCommand([], RICH_STYLES, process.cwd());
+
+      expect(mockPushRelease).toHaveBeenCalledWith([PROJECT_TAG], { dryRun: false, tagsOnly: false });
+      expect(capture.stderrChunks.join('')).not.toContain('HEAD does not have any release tags');
+    });
+  });
+
   it('exits with code 1 when pushRelease throws', async () => {
     mockPushRelease.mockImplementation(() => {
       throw new Error('push failed');
