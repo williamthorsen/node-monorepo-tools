@@ -1,3 +1,6 @@
+import semver from 'semver';
+
+import { describeArchivePath } from './changelogArchive.ts';
 import { compareVersionsDescending } from './compareVersions.ts';
 import type { VersionedMarkdownSection } from './readChangelogSections.ts';
 import { renderReleaseNotesSingle } from './renderReleaseNotes.ts';
@@ -25,6 +28,52 @@ export interface RenderChangelogMarkdownOptions {
   preservedSections?: readonly VersionedMarkdownSection[];
 }
 
+/** Options for `renderChangelogFiles`. */
+export interface RenderChangelogFilesOptions extends RenderChangelogMarkdownOptions {
+  /** How many of the newest sections the main file keeps; every section when omitted. Must be at least 1. */
+  keepVersions?: number;
+}
+
+/** A rendered archive file: the sections of one major version that the main file does not keep. */
+export interface RenderedChangelogArchive {
+  major: number;
+  content: string;
+}
+
+/** The rendered `CHANGELOG.md` and its archive files, newest major first. */
+export interface RenderedChangelogFiles {
+  main: string;
+  archives: RenderedChangelogArchive[];
+}
+
+/**
+ * Renders entries and preserved sections into `CHANGELOG.md` and its per-major archive files.
+ *
+ * The main file keeps the newest `keepVersions` sections, counting preserved sections, and links to each archive file
+ * from a paragraph below its header. Each older section goes to the archive file of its major version. Every file
+ * has the same header and footer.
+ */
+export function renderChangelogFiles(
+  entries: ChangelogEntry[],
+  options?: RenderChangelogFilesOptions,
+): RenderedChangelogFiles {
+  const sections = interleavePreservedSections(
+    entries.map((entry) => ({ version: entry.version, text: renderReleaseNotesSingle(entry, options) })),
+    options?.preservedSections ?? [],
+  ).filter((section) => section.text.length > 0);
+
+  const keepVersions = options?.keepVersions;
+  if (keepVersions === undefined || sections.length <= keepVersions) {
+    return { main: renderFile(sections), archives: [] };
+  }
+
+  const archived = groupByMajor(sections.slice(keepVersions));
+  return {
+    main: renderFile(sections.slice(0, keepVersions), describeArchivePointer(archived.map(({ major }) => major))),
+    archives: archived.map(({ major, sections: majorSections }) => ({ major, content: renderFile(majorSections) })),
+  };
+}
+
 /**
  * Renders `ChangelogEntry[]` into a complete `CHANGELOG.md`-shaped string.
  *
@@ -41,25 +90,35 @@ export interface RenderChangelogMarkdownOptions {
  * `compareVersionsDescending`).
  */
 export function renderChangelogMarkdown(entries: ChangelogEntry[], options?: RenderChangelogMarkdownOptions): string {
-  const sections = interleavePreservedSections(
-    entries.map((entry) => ({ version: entry.version, text: renderReleaseNotesSingle(entry, options) })),
-    options?.preservedSections ?? [],
-  );
-  const body = sections
-    .map((part) => part.text)
-    .filter((text) => text.length > 0)
-    .join('\n');
-  const trimmedBody = body.trimEnd();
-
-  const parts = [CHANGELOG_HEADER];
-  if (trimmedBody.length > 0) {
-    parts.push(trimmedBody);
-  }
-  parts.push(CHANGELOG_FOOTER);
-  return parts.join('\n\n') + '\n';
+  return renderChangelogFiles(entries, options).main;
 }
 
 // region | Helpers
+
+/** Returns the paragraph that links to each archive file, newest major first. */
+function describeArchivePointer(majors: readonly number[]): string {
+  const links = majors.map((major) => `[v${major}](${describeArchivePath(major)})`);
+  return `Earlier versions: ${links.join(', ')}.`;
+}
+
+/** Groups sections by major version, newest major first, keeping each group's order. */
+function groupByMajor(
+  sections: readonly VersionedMarkdownSection[],
+): Array<{ major: number; sections: VersionedMarkdownSection[] }> {
+  const groups = new Map<number, VersionedMarkdownSection[]>();
+  for (const section of sections) {
+    const major = semver.major(section.version);
+    const group = groups.get(major);
+    if (group === undefined) {
+      groups.set(major, [section]);
+    } else {
+      group.push(section);
+    }
+  }
+  return Array.from(groups, ([major, majorSections]) => ({ major, sections: majorSections })).toSorted(
+    (a, b) => b.major - a.major,
+  );
+}
 
 /**
  * Returns the rendered parts, in their given order, with each preserved section placed before the first part whose
@@ -84,6 +143,24 @@ function interleavePreservedSections(
   }
   result.push(...pending.slice(index));
   return result;
+}
+
+/** Renders a file from sections: the header, an optional paragraph below it, the sections, and the footer. */
+function renderFile(sections: readonly VersionedMarkdownSection[], paragraph?: string): string {
+  const body = sections
+    .map((section) => section.text)
+    .join('\n')
+    .trimEnd();
+
+  const parts = [CHANGELOG_HEADER];
+  if (paragraph !== undefined) {
+    parts.push(paragraph);
+  }
+  if (body.length > 0) {
+    parts.push(body);
+  }
+  parts.push(CHANGELOG_FOOTER);
+  return parts.join('\n\n') + '\n';
 }
 
 /** Terminates a preserved section's text with a newline, as a rendered entry's text is. */
