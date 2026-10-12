@@ -213,6 +213,151 @@ describe(resolveReleaseTargets, () => {
     });
   });
 
+  describe('releases block', () => {
+    beforeEach(() => {
+      files.set('package.json', { name: 'root', version: '0.5.0', private: true });
+      files.set('packages/nmr-core/package.json', { name: '@scope/nmr-core' });
+      files.set('packages/cli/package.json', { name: 'cli' });
+      files.set('packages/scratch/package.json', { name: 'scratch', private: true });
+    });
+
+    const discovery = packages('packages/nmr-core', 'packages/cli', 'packages/scratch');
+
+    it('names, excludes, and composes targets while deriving tag prefixes from the npm name', () => {
+      const legacyIdentities = [{ name: '@scope/core', tagPrefix: 'core-v' }];
+
+      const { targets } = resolveReleaseTargets(
+        {
+          releases: {
+            core: { path: './packages/nmr-core/', legacyIdentities },
+            scratch: false,
+            suite: { includes: ['core', 'cli'], tagPrefix: 'suite-v' },
+          },
+        },
+        discovery,
+      );
+
+      expect(targets.map((target) => [target.id, target.tagPrefix])).toStrictEqual([
+        ['core', 'nmr-core-v'],
+        ['cli', 'cli-v'],
+        ['suite', 'suite-v'],
+      ]);
+      expect(targets[0]?.legacyIdentities).toStrictEqual(legacyIdentities);
+      expect(targets.at(-1)).toStrictEqual({
+        id: 'suite',
+        kind: 'composite',
+        members: ['core', 'cli'],
+        tagPrefix: 'suite-v',
+        versionFiles: ['./package.json'],
+        changelogDir: '.',
+        paths: ['packages/nmr-core/**', 'packages/cli/**'],
+        isPublishable: false,
+      });
+    });
+
+    it('reads a composite window from its members alone and defaults its tag prefix to v', () => {
+      const { targets } = resolveReleaseTargets({ releases: { suite: { includes: ['cli'] } } }, discovery);
+
+      expect(targets.at(-1)).toMatchObject({
+        id: 'suite',
+        members: ['cli'],
+        paths: ['packages/cli/**'],
+        tagPrefix: 'v',
+      });
+    });
+
+    it('yields the same targets as the workspaces block for the equivalent declaration', () => {
+      const legacyIdentities = [{ name: '@scope/core', tagPrefix: 'core-v' }];
+
+      const fromReleases = resolveReleaseTargets(
+        { releases: { 'nmr-core': { path: 'packages/nmr-core', legacyIdentities }, scratch: false } },
+        discovery,
+      );
+      const fromWorkspaces = resolveReleaseTargets(
+        {
+          workspaces: [
+            { dir: 'nmr-core', legacyIdentities },
+            { dir: 'scratch', shouldExclude: true },
+          ],
+        },
+        discovery,
+      );
+
+      expect(fromReleases).toStrictEqual(fromWorkspaces);
+    });
+
+    it.each([
+      [
+        'a path that is not a discovered workspace',
+        { docs: { path: 'docs' } },
+        "releases.docs: path 'docs' is not a discovered workspace; releasing a directory without a package.json is not supported yet",
+      ],
+      [
+        'an exclusion of a name that no workspace has',
+        { docs: false },
+        "releases.docs: false excludes a discovered workspace by its directory name, and no workspace is named 'docs'. Known workspaces: nmr-core, cli, scratch",
+      ],
+      [
+        'two entries for one workspace',
+        { 'nmr-core': false, core: { path: 'packages/nmr-core' } },
+        "releases.core: workspace 'packages/nmr-core' is already declared by releases.nmr-core; declare each workspace once",
+      ],
+      [
+        'a second composite',
+        { a: { includes: ['cli'] }, b: { includes: ['cli'] } },
+        "releases declares more than one composite ('a', 'b'); a composite is versioned by the root package.json, which only one composite can own",
+      ],
+      [
+        'a member that is the composite itself',
+        { suite: { includes: ['suite'] } },
+        "releases.suite.includes: 'suite' is the composite itself; a composite includes package targets only",
+      ],
+      [
+        'an excluded member',
+        { scratch: false, suite: { includes: ['scratch'] } },
+        "releases.suite.includes: 'scratch' is excluded, so the composite cannot include it",
+      ],
+      [
+        'an unknown member',
+        { core: { path: 'packages/nmr-core' }, suite: { includes: ['nmr-core'] } },
+        "releases.suite.includes: 'nmr-core' is not a release target. Known targets: core, cli, scratch",
+      ],
+    ] satisfies Array<[string, NonNullable<ReleaseKitConfig['releases']>, string]>)(
+      'rejects %s',
+      (_description, releases, message) => {
+        expect(() => resolveReleaseTargets({ releases }, discovery)).toThrow(message);
+      },
+    );
+
+    it('rejects a name that collides with another target', () => {
+      expect(() => resolveReleaseTargets({ releases: { cli: { path: 'packages/nmr-core' } } }, discovery)).toThrow(
+        "Duplicate release target id 'cli' for workspaces: packages/nmr-core, packages/cli",
+      );
+    });
+
+    it('applies the root package.json validation to a composite, naming it', () => {
+      files.set('package.json', { name: 'root' });
+
+      expect(() => resolveReleaseTargets({ releases: { suite: { includes: ['cli'] } } }, discovery)).toThrow(
+        "composite release 'suite' requires root package.json to have a 'version' field",
+      );
+    });
+
+    it('rejects a composite tag prefix that collides with a workspace prefix', () => {
+      expect(() =>
+        resolveReleaseTargets({ releases: { suite: { includes: ['cli'], tagPrefix: 'cli-' } } }, discovery),
+      ).toThrow("Tag prefix collision: 'cli-v' (workspace 'cli') and 'cli-' (composite release 'suite')");
+    });
+
+    it('rejects releases in a single-package repo', () => {
+      files.set('package.json', { name: 'solo', version: '1.0.0' });
+
+      expect(() => resolveReleaseTargets({ releases: { solo: false } }, SINGLE)).toThrow(
+        'releases block is not supported in single-package mode',
+      );
+    });
+  });
+
   describe('derived tag prefixes', () => {
     beforeEach(() => {
       files.set('package.json', { name: 'root-pkg', version: '1.0.0' });

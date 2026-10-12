@@ -97,7 +97,10 @@ export interface ReleaseNotesConfig {
   shouldInjectIntoReadme: boolean;
 }
 
-/** Project-release config after merging defaults: `ProjectConfig` with every field required. */
+/**
+ * The composite release after merging defaults, declared by a `project` block or by a `releases` composite entry.
+ * Both are versioned by the root `package.json`.
+ */
 export interface ResolvedProjectConfig {
   /**
    * Resolved commit window for the project release: the git pathspecs that select which commits
@@ -106,6 +109,10 @@ export interface ResolvedProjectConfig {
   paths: string[];
   /** Resolved tag prefix for project-level tags. */
   tagPrefix: string;
+  /** Name that selects the composite; `undefined` for a `project` block, whose composite cannot be selected. */
+  name?: string;
+  /** Target names of the member workspaces; `undefined` means every retained workspace, as a `project` block has. */
+  members?: string[];
 }
 
 /** Identifies a dependency whose version bump triggered a propagated release. */
@@ -573,8 +580,10 @@ export interface ParsedCommit {
 
 /** Per-workspace configuration for monorepo releases. */
 export interface WorkspaceConfig {
-  /** The package directory name (e.g., 'arrays'). Used for display and `--only` matching. */
+  /** The package directory name (e.g., 'arrays'), which names the workspace's release target by default. */
   dir: string;
+  /** Name of the workspace's release target when a `releases` entry renames it; `undefined` means `dir`. */
+  targetName?: string;
   /** The full scoped npm name from `package.json` (e.g., `'@williamthorsen/nmr-core'`). */
   name: string;
   /** The git tag prefix for this workspace (e.g., 'nmr-core-v'), derived from the unscoped `package.json` name. */
@@ -671,6 +680,8 @@ export type ReleaseTarget = PackageTarget | CompositeTarget;
 export interface MonorepoReleaseConfig extends ReleaseSettings {
   /** Ordered list of workspace configurations. */
   workspaces: WorkspaceConfig[];
+  /** Discovered workspaces that the config excludes, which tag resolution still matches; `undefined` means none. */
+  excludedWorkspaces?: WorkspaceConfig[];
   /**
    * Project-level release config. Present when the config declares a `project` block, in which case
    * `prepare` runs a project-release stage after the per-workspace loop.
