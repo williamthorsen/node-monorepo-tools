@@ -1,73 +1,40 @@
 # Programmatic API
 
-How to build a release config by hand with `deriveWorkspaceConfig()`, the script-based approach that predates the CLI, and the workspace records that `resolveReleaseTags` takes.
+The package exports two entries: `.`, which validates changelog override files, and `./config`, which types a config file. Every other module is internal, and the CLI is the supported way to release.
 
-## Using `deriveWorkspaceConfig()` for manual configuration
+## `./config`: typing a config file
 
-For a `MonorepoReleaseConfig` built manually (e.g., for the legacy script-based approach), the exported `deriveWorkspaceConfig()` helper creates a `WorkspaceConfig` from a workspace-relative path. It reads the workspace's `package.json` to derive the tag prefix from the package name:
-
-```typescript
-import { deriveWorkspaceConfig } from '@williamthorsen/release-kit';
-
-// packages/arrays/package.json contains `"name": "@scope/arrays"`
-deriveWorkspaceConfig('packages/arrays');
-// => {
-//   dir: 'arrays',
-//   name: '@scope/arrays',
-//   tagPrefix: 'arrays-v',
-//   workspacePath: 'packages/arrays',
-//   packageFiles: ['packages/arrays/package.json'],
-//   changelogPaths: ['packages/arrays'],
-//   paths: ['packages/arrays/**'],
-// }
-```
-
-`dir` is the basename of the workspace path and is the stable internal identifier used by `--only`, `WorkspaceOverride.dir`, and the dependency graph. `tagPrefix` is derived from the unscoped `package.json` `name` (with any leading `@scope/` stripped), so tags reflect the package identity rather than the directory layout. For example, a workspace at `packages/core` with `"name": "@williamthorsen/nmr-core"` produces `tagPrefix: 'nmr-core-v'`, yielding tags like `nmr-core-v1.3.0`.
-
-The workspace's `package.json` must declare a non-empty `name` field; `deriveWorkspaceConfig()` throws otherwise. If two workspaces produce the same `tagPrefix` (because their unscoped names collide), `mergeMonorepoConfig()` throws and names the colliding workspaces so that the developer can rename one.
-
-## Legacy script-based approach
-
-The CLI-driven approach is recommended for new setups. The script-based approach (using `runReleasePrepare` with a manually maintained config) is still supported for backward compatibility.
+`defineConfig()` returns its argument unchanged, typed as a `ReleaseKitConfig`. The entry also exports the `ReleaseKitConfig`, `RepoLabelsConfig`, and `LabelSpec` types.
 
 ```typescript
-// .github/scripts/release.config.ts
-import type { MonorepoReleaseConfig } from '@williamthorsen/release-kit';
-import { deriveWorkspaceConfig } from '@williamthorsen/release-kit';
+// .config/release-kit.config.ts
+import { defineConfig } from '@williamthorsen/release-kit/config';
 
-export const config: MonorepoReleaseConfig = {
-  workspaces: [deriveWorkspaceConfig('packages/arrays'), deriveWorkspaceConfig('packages/strings')],
+export default defineConfig({
   formatCommand: 'npx prettier --write',
-};
+});
 ```
+
+The entry does not import any value, so a config load does not pull in the rest of the package. [Configuration](configuration.md) describes the fields.
+
+## `.`: validating override files
+
+`validateAllChangelogOverrides()` checks override files against the changelog items of their scopes, which the caller supplies, and returns every error and stale-key warning, each prefixed with the path of its file. `formatValidateOverridesResult()` turns that result into the exit code and message that `release-kit overrides validate` prints.
 
 ```typescript
-// .github/scripts/release-prepare.ts
-import { runReleasePrepare } from '@williamthorsen/release-kit';
-import { config } from './release.config.ts';
+import { formatValidateOverridesResult, validateAllChangelogOverrides } from '@williamthorsen/release-kit';
 
-runReleasePrepare(config);
+const result = validateAllChangelogOverrides({
+  project: { filePath: '.meta/changelog-overrides.json' },
+  workspaces: [
+    {
+      filePath: 'packages/core/.meta/changelog-overrides.json',
+      items: [{ hash: '3f2a9c1e0b7d4a6f8e5c2b1a0d9e8f7a6b5c4d3e' }, { hash: '9b8a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b', entry: 2 }],
+    },
+  ],
+});
+
+const { exitCode, message } = formatValidateOverridesResult(result, 'plain');
 ```
 
-The key difference: The script-based approach requires manually listing every workspace, while the CLI auto-discovers them from `pnpm-workspace.yaml`.
-
-## `resolveReleaseTags` takes workspaces; `WorkspaceConfig` requires `workspacePath`
-
-Tag resolution is now driven by workspace records rather than a caller-supplied directory map, so `resolveReleaseTags` can report both the workspace `dir` and its `workspacePath` for every resolved tag.
-
-- `resolveReleaseTags` signature changed from `(workspaceMap?: Map<string, string>)` to `(workspaces?: readonly WorkspaceConfig[])`.
-- `WorkspaceConfig` gained a required `workspacePath: string` field.
-
-Replace direct `Map`-based calls with `deriveWorkspaceConfig()`, which now populates `workspacePath`:
-
-```diff
--import { resolveReleaseTags } from '@williamthorsen/release-kit';
--
--const workspaceMap = new Map([['core', 'packages/core']]);
--resolveReleaseTags(workspaceMap);
-+import { deriveWorkspaceConfig, resolveReleaseTags } from '@williamthorsen/release-kit';
-+
-+resolveReleaseTags([deriveWorkspaceConfig('packages/core')]);
-```
-
-When constructing `WorkspaceConfig` objects directly, add `workspacePath` alongside the other required fields.
+An item is a commit hash, with `entry` set to the 1-based position of the change-record entry from which the item derives. A relative `filePath` resolves against the working directory. The exported types are `ValidateAllChangelogOverridesInputs`, `ChangelogOverrideScope`, `OverrideTargetItem`, `ValidateAllChangelogOverridesResult`, and `ValidateOverridesCommandResult`. [Editorial overrides](editorial-overrides.md) describes the file format and the tiers.

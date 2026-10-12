@@ -162,4 +162,4 @@ rdy run --sources
 - [Work types and tiers](docs/work-types.md): Tiers, the `!` policy, markers, and custom work types
 - [Labels](docs/labels.md): `sync-labels`, label configuration, the workflow's triggers, and where the `label-map.json` schema is published
 - [Readiness checks](docs/readiness-checks.md): Both readyup kits, and how to run each
-- [Programmatic API](docs/api.md): `deriveWorkspaceConfig()`, the script-based approach, and `resolveReleaseTags`
+- [Programmatic API](docs/api.md): `defineConfig()` for typing a config file, and validating override files from code
