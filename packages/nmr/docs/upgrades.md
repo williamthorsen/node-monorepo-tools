@@ -67,7 +67,7 @@ export default defineConfig({
 });
 ```
 
-A key is a package name in which `*` matches any run of characters; a regex key or a key containing a comma fails the command before taze runs. When several keys match a package, the first one decides its period. A period of `0` removes the quarantine for those packages.
+A key is a package name in which `*` matches any run of characters; a regex key, a key containing a comma, or a version selector such as `typescript@7` fails the command before taze runs. When several keys match a package, the first one decides its period. A period of `0` removes the quarantine for those packages.
 
 A package listed in `maturityPeriodExclude`, or in the `minimumReleaseAgeExclude` of `pnpm-workspace.yaml`, which taze inherits into it, skips the quarantine in every run. Remove it from that list before giving it a period here.
 

@@ -18,7 +18,8 @@ const MATURITY_PERIOD_FLAGS = ['--maturity-period', '--maturityPeriod'];
  * matching key decides a package's period. A maturity period given on the command line applies to every
  * dependency, so it returns the invocation as a single pass.
  *
- * Throws when `packageMaturityPeriod` is not a record of glob keys to non-negative periods.
+ * Throws when `packageMaturityPeriod` is not a record of glob keys to non-negative periods. A key cannot be a regex,
+ * contain a comma, or name a version (`name@range`), each of which taze reads as something other than a name glob.
  */
 export function planTazePasses(args: readonly string[], packageMaturityPeriod: unknown): TazePass[] {
   const entries = validatePackageMaturityPeriod(packageMaturityPeriod);
@@ -72,6 +73,9 @@ function validatePackageMaturityPeriod(value: unknown): Array<[string, number]> 
     }
     if (key.includes(',')) {
       throw new Error(`packageMaturityPeriod entry '${key}': a key cannot contain a comma`);
+    }
+    if (key.lastIndexOf('@') > 0) {
+      throw new Error(`packageMaturityPeriod entry '${key}': a key names packages, not a version selector`);
     }
     if (typeof days !== 'number' || !Number.isFinite(days) || days < 0) {
       throw new Error(`packageMaturityPeriod entry '${key}': the period must be a non-negative number of days`);

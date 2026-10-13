@@ -107,6 +107,16 @@ describe(planTazePasses, () => {
       expect(() => planTazePasses([], { 'a,b': 1 })).toThrow("entry 'a,b': a key cannot contain a comma");
     });
 
+    it.each([['typescript@7'], ['@williamthorsen/nmr@1']])('rejects the version selector %s, naming it', (key) => {
+      expect(() => planTazePasses([], { [key]: 1 })).toThrow(
+        `entry '${key}': a key names packages, not a version selector`,
+      );
+    });
+
+    it('accepts a scoped key, whose only @ leads it', () => {
+      expect(planTazePasses([], { '@williamthorsen/*': 1 })).toHaveLength(2);
+    });
+
     it.each([[-1], [NaN], [Infinity], ['1']])('rejects the period %j', (days) => {
       expect(() => planTazePasses([], { a: days })).toThrow("entry 'a': the period must be a non-negative number");
     });
