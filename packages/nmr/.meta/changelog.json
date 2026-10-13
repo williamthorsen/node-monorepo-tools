@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.46.1",
+    "date": "2026-10-13",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that a script run by bare `nmr` inside a package failed with `command not found` on a binary installed only in that package, and found the root's binaries, such as `eslint` and `tsgo`, only when the shell's `PATH` already contained the root's `node_modules/.bin`. (#1039)",
+            "hash": "64cde10b969329630577e2f9011d0a6cd480e009",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.46.0",
     "date": "2026-10-13",
     "sections": [

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.46.1 — 2026-10-13
+
+### 🐛 Bug fixes
+
+- Fixes the issue that a script run by bare `nmr` inside a package failed with `command not found` on a binary installed only in that package, and found the root's binaries, such as `eslint` and `tsgo`, only when the shell's `PATH` already contained the root's `node_modules/.bin`. (#1039)
+
 ## 0.46.0 — 2026-10-13
 
 ### 🎉 Features
