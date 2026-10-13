@@ -89,7 +89,8 @@
     "glob": "13.0.6",
     "prettier": "catalog:",
     "prettier-plugin-sh": "0.20.2",
-    "taze": "21.3.0"
+    "taze": "21.3.0",
+    "unconfig": "7.5.0"
   },
   "devDependencies": {
     "@williamthorsen/toolbelt.testing": "catalog:",
