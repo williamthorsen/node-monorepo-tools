@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { getCurrentSuite } from 'vitest/suite';
 
 import { findMisplacedTestFiles, findUntieredTestFiles, type TestFileScanOptions, TIER_NAMES } from './tiers.ts';
 import { findMonorepoRoot } from './workspace.ts';
@@ -30,6 +31,7 @@ const RETIRED_OPTION_KEYS: ReadonlyMap<string, string> = new Map([['exclude', 'e
  */
 export function checkTestFileConventions(options: TestFileConventionsOptions = {}): void {
   assertNoRetiredOptions(options);
+  assertImportedRunnerIsActive();
 
   describe('test file conventions', () => {
     const { misplacedFiles, rootDir, untieredFiles } = reportTestFileConventions(options);
@@ -42,6 +44,28 @@ export function checkTestFileConventions(options: TestFileConventionsOptions = {
       expect(misplacedFiles, `${MISPLACED_REMEDY} Swept from ${rootDir}.`).toStrictEqual([]);
     });
   });
+}
+
+/**
+ * Rejects a `vitest` import that resolved to a runner other than the one executing the file, naming the copy and the
+ * remedy. Outside Vitest it does nothing.
+ *
+ * A second `@vitest/runner` copy is never handed the running state, and its `describe` fails with a bare `TypeError`.
+ * The default `probe` comes from `vitest/suite`, which re-exports the same copy as the `describe` imported here.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function assertImportedRunnerIsActive(probe: () => unknown = getCurrentSuite): void {
+  if (process.env['VITEST'] === undefined) return;
+
+  try {
+    probe();
+  } catch (error: unknown) {
+    throw new Error(
+      `The \`vitest\` that @williamthorsen/nmr/tests imports (${import.meta.resolve('vitest')}) is not the runner executing this file: node_modules contains a second vitest runner copy. Run \`pnpm install --force\` to repair it.`,
+      { cause: error },
+    );
+  }
 }
 
 /**
