@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { readFlag } from './taze-args.ts';
+
 /**
  * taze's declared CLI export, which is the module imported by taze's own `bin/taze.mjs`. Resolving it
  * lazily (rather than importing `taze` at module scope) keeps a missing taze from appearing as an
@@ -27,9 +29,6 @@ const REQUEST_TIMEOUT_FLAGS = [REQUEST_TIMEOUT_FLAG, '--requestTimeout'];
  * whole retry chain, not one attempt, because taze races the chain as a unit against this deadline.
  */
 const REQUEST_TIMEOUT_MS = 30_000;
-
-/** Ends the arguments that taze reads: Everything past it is collected for a downstream tool. */
-const ARGUMENT_TERMINATOR = '--';
 
 export interface SpawnOutcome {
   status: number | null;
@@ -96,18 +95,9 @@ export function resolveTazeCliPath(): string {
 
 // region | Helpers
 
-/** Reports whether the invocation sets a request timeout, in any spelling that taze's CLI accepts. */
-function carriesRequestTimeout(args: readonly string[]): boolean {
-  for (const arg of args) {
-    if (arg === ARGUMENT_TERMINATOR) return false;
-    if (REQUEST_TIMEOUT_FLAGS.some((flag) => arg === flag || arg.startsWith(`${flag}=`))) return true;
-  }
-  return false;
-}
-
 /** Returns the request-timeout argument to prepend, or nothing when the invocation sets one of its own. */
 function composeRequestTimeoutArgs(args: readonly string[]): string[] {
-  return carriesRequestTimeout(args) ? [] : [REQUEST_TIMEOUT_FLAG, String(REQUEST_TIMEOUT_MS)];
+  return readFlag(args, REQUEST_TIMEOUT_FLAGS) === undefined ? [REQUEST_TIMEOUT_FLAG, String(REQUEST_TIMEOUT_MS)] : [];
 }
 
 /**
