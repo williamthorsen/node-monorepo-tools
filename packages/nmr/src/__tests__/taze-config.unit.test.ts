@@ -13,6 +13,17 @@ describe(defineConfig, () => {
     expect(config.packageMode).toStrictEqual({ typescript: 'minor' });
   });
 
+  it('passes per-package maturity periods through alongside the shared policy', () => {
+    const config = defineConfig({ packageMaturityPeriod: { '@williamthorsen/*': 1 } });
+
+    expect(config).toStrictEqual({
+      includeLocked: true,
+      maturityPeriod: 7,
+      mode: 'minor',
+      packageMaturityPeriod: { '@williamthorsen/*': 1 },
+    });
+  });
+
   it("lets a repo set the range mode below nmr's default", () => {
     expect(defineConfig({ mode: 'patch' }).mode).toBe('patch');
   });

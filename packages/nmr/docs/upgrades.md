@@ -51,6 +51,34 @@ Two consequences of the `minor` range mode declared by the policy:
 - A `packageMode` entry is honored only by the pass whose mode matches it, or by a `default` pass; every other pass drops that dependency rather than narrowing it. Under the policy's `minor` mode, a `patch` ceiling hides its dependency until a developer runs `nmr upgrade patch`, and a `minor` ceiling hides it from `nmr upgrade major`.
 - A `~` range is searched as `^`, so minor upgrades are proposed for it and `--write` applies them under the original `~`. To hold one dependency to patches, give it a `packageMode` entry of `patch` and read it from `nmr upgrade patch`; to hold the whole repo there, declare `mode: 'patch'`.
 
+### Per-package maturity periods
+
+`packageMaturityPeriod` gives the packages that match a pattern a quarantine of their own, in days. Every other dependency keeps `maturityPeriod`. taze applies one maturity period to a whole run, so `nmr upgrade` runs it once for each entry and once more for every other dependency, each run headed on stderr by the patterns and the period that it covers. The command exits with the first non-zero exit code among the runs.
+
+```ts
+import { defineConfig } from '@williamthorsen/nmr/taze';
+
+export default defineConfig({
+  // Propose first-party releases after one day, and third-party ones after the policy's seven.
+  packageMaturityPeriod: {
+    '@williamthorsen/*': 1,
+    readyup: 1,
+  },
+});
+```
+
+A key is a package name in which `*` matches any run of characters; a regex key, a key containing a comma, or a version selector such as `typescript@7` fails the command before taze runs. When several keys match a package, the first one decides its period. A period of `0` removes the quarantine for those packages.
+
+A package listed in `maturityPeriodExclude`, or in the `minimumReleaseAgeExclude` of `pnpm-workspace.yaml`, which taze inherits into it, skips the quarantine in every run. Remove it from that list before giving it a period here.
+
+`--maturity-period <days>` on the command line applies one period to every dependency for that call, in a single run:
+
+```bash
+nmr upgrade --maturity-period 0
+```
+
+Every other argument reaches every run, and `--include` and `--exclude` narrow each run as they narrow a single one. Because each run reports separately, `--json` prints one document per run, `--interactive` opens one selection per run, and `--install` installs after each run.
+
 ## Request timeout
 
 Every `upgrade` script calls the upgrade tool with a 30-second request timeout, in place of the tool's own 5 seconds.
@@ -101,7 +129,7 @@ nmr report-overrides
 
 ## `nmr-taze`
 
-Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool, forwarding every argument to it untouched and adding one of its own: a 30-second request timeout, unless the invocation already includes one. Every `upgrade` chain ends with it, `root:upgrade` included; see [dependency upgrades](#dependency-upgrades) for the workflow, and [request timeout](#request-timeout) for why the timeout is set here.
+Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool, forwarding every argument to it and adding a 30-second request timeout, unless the invocation already includes one. When the taze config declares [per-package maturity periods](#per-package-maturity-periods), it runs taze once per period, adding to each run the filters and the period that confine it. Every `upgrade` chain ends with it, `root:upgrade` included; see [dependency upgrades](#dependency-upgrades) for the workflow, and [request timeout](#request-timeout) for why the timeout is set here.
 
 Under pnpm's isolated `node_modules`, a transitive package's binary is absent from the consuming repo's `node_modules/.bin`, so a repo that depends on nmr cannot run `taze` directly. `nmr-taze` can, because nmr is a direct dependency, and it resolves the tool from the tree that nmr controls.
 

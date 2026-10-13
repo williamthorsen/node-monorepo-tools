@@ -204,7 +204,7 @@ export default definePrettierConfig();
 
 ### Dependency upgrades
 
-`nmr upgrade` reports available dependency upgrades. A `taze.config.ts` at the monorepo root, built with the `defineConfig` exported by `@williamthorsen/nmr/taze`, declares the upgrade policy. [Dependency upgrades](docs/upgrades.md) covers what each invocation reaches, the policy and its ceilings, and the request timeout.
+`nmr upgrade` reports available dependency upgrades. A `taze.config.ts` at the monorepo root, built with the `defineConfig` exported by `@williamthorsen/nmr/taze`, declares the upgrade policy. [Dependency upgrades](docs/upgrades.md) covers what each invocation reaches, the policy and its ceilings, per-package maturity periods, and the request timeout.
 
 ### Workspace introspection
 
