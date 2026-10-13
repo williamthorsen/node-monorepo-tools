@@ -12,6 +12,7 @@ import {
 } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { prependBinDirs } from './bin-path.ts';
 import {
   type BuildOutputState,
   certifyRetention,
@@ -303,7 +304,12 @@ async function planRun(invocation: Invocation): Promise<PhaseResult<RunPlan>> {
     ? runOptions
     : {
         ...runOptions,
-        env: enterChain({ anchorDir, command, env: childEnv, monorepoRoot: context.monorepoRoot }),
+        env: enterChain({
+          anchorDir,
+          command,
+          env: prependBinDirs({ anchorDir, env: childEnv, monorepoRoot: context.monorepoRoot }),
+          monorepoRoot: context.monorepoRoot,
+        }),
       };
 
   const chain = assembleChain({ invocation, registry, resolvedScript, snapshot });

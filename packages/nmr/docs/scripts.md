@@ -1,6 +1,6 @@
 # Scripts and configuration
 
-How nmr resolves a command through its three tiers, how script values compose, how hooks wrap a command, how to configure scripts and builds, and what the default commands do beyond what `nmr --help` prints.
+How nmr resolves a command through its three tiers, how script values compose, which binaries a command finds on `PATH`, how hooks wrap a command, how to configure scripts and builds, and what the default commands do beyond what `nmr --help` prints.
 
 ## Three-tier override system
 
@@ -82,6 +82,10 @@ One kind of `package.json` entry is resolved in its own file: an entry whose who
 nmr recognizes `nmr` in command position: at the start of a step, after an unquoted `&&`, `||`, `;`, `|`, or a newline, past any leading `NAME=value` assignments, and behind `npx`, `bunx`, or an `exec`, `dlx`, or `x` subcommand of `npm`, `pnpm`, `yarn`, or `bun`. This line reports a boundary rather than enforcing a rule: It covers a step that nmr runs as written, and only the reporting of the nested run is degraded. The line is also partial in three ways: a value-taking flag standing immediately before the program name hides it (`npx -p foo nmr`), a launcher outside that set goes unreported, and a `devBin` substitution that introduces `nmr` itself is not reported, the line being an edit to a declaration rather than to a substitution.
 
 A [self-referential entry](#three-tier-override-system), in `package.json` or in `.config/nmr.config.ts`, is the shape that nmr cannot run as written, and it is rejected rather than reported. The same recognition finds it, so the same residuals apply: What goes unrecognized there re-enters nmr once, and the run then fails with an error naming the command and the directory that it re-entered.
+
+### Binaries on `PATH`
+
+Every command that nmr runs, whatever its tier, finds the binaries that `pnpm run` would find. Inside a package, its `PATH` leads with the package's `node_modules/.bin` and then the root's, followed by the `PATH` from which nmr was started; at the root, it leads with the root's `node_modules/.bin`. A script can therefore invoke a binary installed only in its own package by bare name, however nmr was started: bare `nmr` through direnv, `pnpm exec nmr`, or `nmr -F <pkg>` from the root. A directory that `PATH` already contains is not added again, so a nested nmr run does not lengthen it.
 
 ## Pre and post hooks
 
