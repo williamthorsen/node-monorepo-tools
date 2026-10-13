@@ -7,7 +7,14 @@ import type { CheckOptions } from 'taze';
  * `exactOptionalPropertyTypes`. Passing `undefined` is how a consumer clears `maturityPeriod`, so the type
  * has to allow it.
  */
-export type TazeConfig = { [K in keyof CheckOptions]?: CheckOptions[K] | undefined };
+export type TazeConfig = { [K in keyof CheckOptions]?: CheckOptions[K] | undefined } & {
+  /**
+   * Maturity period in days for each package pattern, read by `nmr-taze` rather than by taze. A key is a package
+   * name in which `*` matches any run of characters, and the first key that matches a package decides its period.
+   * Every other dependency keeps `maturityPeriod`.
+   */
+  packageMaturityPeriod?: Record<string, number> | undefined;
+};
 
 /**
  * Upgrade policy that nmr applies to every consumer, leaving a repo's own config to contain only what is local to
