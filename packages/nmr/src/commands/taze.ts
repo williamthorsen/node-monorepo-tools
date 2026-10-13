@@ -60,13 +60,13 @@ export interface RunTazeOptions {
  * root `node_modules/.bin`. This launcher runs taze without that bin: pnpm links nmr's own bins into the
  * consumer root, and nmr resolves taze from the tree that it does control.
  *
- * A request timeout is the one argument added to every pass, and only when `args` does not set one. Neither other site can
- * declare it: Because an invocation's trailing arguments are appended to the resolved command string, the same
- * flag in the `upgrade` script would be doubled by `nmr upgrade --request-timeout ...`, and taze's parser
- * collects the pair into an array that it reads as a near-zero deadline; a `taze.config.ts` setting goes into
- * the object that taze's own CLI defaults overwrite. Because every other argument is forwarded,
- * invocation policy (`--recursive`) stays in the script registry, visible in `nmr` help output and overridable
- * per repo, and upgrade policy stays in `taze.ts`.
+ * Every pass also receives a request timeout, unless `args` sets one. Neither other site can declare it: Because
+ * an invocation's trailing arguments are appended to the resolved command string, the same flag in the `upgrade`
+ * script would be doubled by `nmr upgrade --request-timeout ...`, and taze's parser collects the pair into an
+ * array that it reads as a near-zero deadline; a `taze.config.ts` setting goes into the object that taze's own CLI
+ * defaults overwrite. Because every argument of the invocation reaches taze, invocation policy (`--recursive`)
+ * stays in the script registry, visible in `nmr` help output and overridable per repo, and upgrade policy stays in
+ * `taze.ts`.
  */
 export async function runTaze(args: string[], options: RunTazeOptions = {}): Promise<number> {
   const stderr = options.stderr ?? process.stderr;
