@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.2.1 — 2026-10-13
+
+### 🧪 Tests
+
+- Moves the `lint-boundary` tests of `build-info` and `change-grammar` from the `unit` tier to `tool`, because they run ESLint. (#1037)
+
 ## 0.2.0 — 2026-10-09
 
 ### 🎉 Features

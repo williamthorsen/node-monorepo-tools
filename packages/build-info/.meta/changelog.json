@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.2.1",
+    "date": "2026-10-13",
+    "sections": [
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Moves the `lint-boundary` tests of `build-info` and `change-grammar` from the `unit` tier to `tool`, because they run ESLint. (#1037)",
+            "hash": "15c5d922fb5a05aa2d57d18a46a957909ad0f006",
+            "entry": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.2.0",
     "date": "2026-10-09",
     "sections": [

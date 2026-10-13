@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.46.0 — 2026-10-13
+
+### 🎉 Features
+
+- Adds a `packageMaturityPeriod` option to the config built with `defineConfig` from `@williamthorsen/nmr/taze`, which sets, for packages whose names match a `*` pattern, how many days after a release `nmr upgrade` waits before proposing it, in place of the shared `maturityPeriod`. (#1036)
+- Defines an embedded test, which runs an engine installed by the package, such as PGlite (Postgres compiled to WebAssembly), inside the test process, and places it in the `tool` tier rather than `unit` in `docs/vitest.md` and the `nmr` rulebook. (#1037)
+- Redefines a package's `peerDependencies` in `docs/vitest.md` as candidate tools rather than as the `tool` boundary, so a test is `tool` only when it makes a peer do work, and a test that imports a peer only for its constants, such as `AST_NODE_TYPES`, stays `unit`. (#1037)
+
 ## 0.45.0 — 2026-10-12
 
 ### 🎉 Features

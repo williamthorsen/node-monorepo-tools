@@ -1,5 +1,16 @@
 [
   {
+    "version": "14.2.1",
+    "date": "2026-10-13",
+    "sections": [
+      {
+        "title": "📦 Dependencies",
+        "audience": "dev",
+        "items": [{ "description": "Bumped `@williamthorsen/change-grammar` to 0.2.1" }]
+      }
+    ]
+  },
+  {
     "version": "14.2.0",
     "date": "2026-10-12",
     "sections": [
