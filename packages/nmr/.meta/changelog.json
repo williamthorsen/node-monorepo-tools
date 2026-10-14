@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.46.2",
+    "date": "2026-10-14",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that `checkTestFileConventions` failed with a bare `TypeError` when `node_modules` contained a second `@vitest/runner` copy, and replaces that error with one that names the resolved `vitest` and gives `pnpm install --force` as the remedy. (#1041)",
+            "hash": "ef1755d48b81e14cd4e547d7a0c8f8f0376c3a46",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.46.1",
     "date": "2026-10-13",
     "sections": [

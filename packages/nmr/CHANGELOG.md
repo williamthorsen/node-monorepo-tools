@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.46.2 — 2026-10-14
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `checkTestFileConventions` failed with a bare `TypeError` when `node_modules` contained a second `@vitest/runner` copy, and replaces that error with one that names the resolved `vitest` and gives `pnpm install --force` as the remedy. (#1041)
+
 ## 0.46.1 — 2026-10-13
 
 ### 🐛 Bug fixes
