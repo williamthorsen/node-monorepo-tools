@@ -68,6 +68,7 @@ export function generateHelp(
     '      --json                  Report one JSON object per command, withholding command output',
     '      --log                   Print the recorded run instead of running (up to 256 KiB)',
     '      --no-cache              Run even if this tree already passed; record the result',
+    '      --no-lock               Run without waiting for another heavy command on this machine',
     `      ${OUTPUT_STYLE_FLAG} <style>  Output style: auto (default), plain, or rich`,
     '  -?, --help                  Show this help',
     '  -V, --version               Show version number',

@@ -1,4 +1,4 @@
-import { realpathSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { type ChainEntry, ENTRY_CHAIN_ENV_VAR } from '../entry-chain.ts';
 import { type FilterSelection, readFilterSelection } from '../helpers/filter-selection.ts';
+import { LOCK_DIR_ENV_VAR, LOCK_TOKEN_ENV_VAR, NO_LOCK_ENV_VAR } from '../machine-lock.ts';
 import { OUTPUT_STYLE_ENV_VAR, OUTPUT_STYLE_FLAG } from '../output-style.ts';
 import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { runCli } from '../runCli.ts';
@@ -181,6 +182,34 @@ describe(runCli, () => {
       await runNmr(['-F', 'my-pkg', '--log', 'test'], tree.dir);
 
       expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ NMR_RUN_IF_PRESENT: '1' });
+    });
+  });
+
+  describe('machine lock', () => {
+    it('hands the lock token to the delegate of a heavy fan-out', async ({ tree }) => {
+      await runNmr(['-R', 'test'], tree.dir, {
+        [LOCK_DIR_ENV_VAR]: path.join(tree.dir, 'locks'),
+        [NO_LOCK_ENV_VAR]: '',
+      });
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].env?.[LOCK_TOKEN_ENV_VAR]).toMatch(/^[\da-f-]{36}$/);
+    });
+
+    it.for([
+      { args: ['-R', 'build'], case: 'a light fan-out' },
+      { args: ['-R', '--log', 'test'], case: 'a fan-out that reads recordings' },
+    ])('does not take the lock for $case', async ({ args }, { tree }) => {
+      await runNmr(args, tree.dir, { [LOCK_DIR_ENV_VAR]: path.join(tree.dir, 'locks'), [NO_LOCK_ENV_VAR]: '' });
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].env).not.toHaveProperty(LOCK_TOKEN_ENV_VAR);
+    });
+
+    it('releases the lock once the delegate ends', async ({ tree }) => {
+      const lockDir = path.join(tree.dir, 'locks');
+
+      await runNmr(['-R', 'test'], tree.dir, { [LOCK_DIR_ENV_VAR]: lockDir, [NO_LOCK_ENV_VAR]: '' });
+
+      expect(existsSync(path.join(lockDir, 'heavy.lock'))).toBe(false);
     });
   });
 
@@ -1531,7 +1560,7 @@ function composeChainEnv(chain: readonly ChainEntry[]): NodeJS.ProcessEnv {
 
 /** Runs the CLI in-process against `cwd`, discarding both output streams. */
 async function runNmr(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): Promise<{ exitCode: number }> {
-  return runCli({ args, cwd, env, stderr: new PassThrough(), stdout: new PassThrough() });
+  return runCli({ args, cwd, env: withLockBypass(env), stderr: new PassThrough(), stdout: new PassThrough() });
 }
 
 /** Runs the CLI in-process against `cwd`, returning what it wrote to stdout. */
@@ -1546,7 +1575,7 @@ async function runNmrReadingStdout(
     chunks.push(chunk);
   });
 
-  const { exitCode } = await runCli({ args, cwd, env, stderr: new PassThrough(), stdout });
+  const { exitCode } = await runCli({ args, cwd, env: withLockBypass(env), stderr: new PassThrough(), stdout });
 
   return { exitCode, stdout: Buffer.concat(chunks).toString('utf8') };
 }
@@ -1563,7 +1592,7 @@ async function runNmrReadingStderr(
     chunks.push(chunk);
   });
 
-  const { exitCode } = await runCli({ args, cwd, env, stderr, stdout: new PassThrough() });
+  const { exitCode } = await runCli({ args, cwd, env: withLockBypass(env), stderr, stdout: new PassThrough() });
 
   return { exitCode, stderr: Buffer.concat(chunks).toString('utf8') };
 }
@@ -1586,6 +1615,11 @@ function writePackageScripts(tree: TempTree, scripts: Record<string, string>): v
 /** Writes a monorepo-root config, which is the only tier that accepts `devBin` and the script registries. */
 function writeConfig(tree: TempTree, config: Record<string, unknown>): void {
   tree.write('.config/nmr.config.ts', `export default ${JSON.stringify(config)};\n`);
+}
+
+/** Adds the machine-lock bypass, so that a heavy command neither waits on the suite's own run nor writes the real lock. */
+function withLockBypass(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return { [NO_LOCK_ENV_VAR]: '1', ...env };
 }
 
 // endregion | Helpers
