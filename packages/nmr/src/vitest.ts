@@ -8,6 +8,7 @@ import type { InlineConfig, ProjectConfig } from 'vitest/node';
 import { listGitIgnoredPaths } from './git-ignored-paths.ts';
 import { isObject } from './helpers/type-guards.ts';
 import { ALL_TEST_PATTERNS, buildTierPatterns, TEST_COLLECTION_EXCLUDE, TIER_NAMES, type TierName } from './tiers.ts';
+import { deriveDefaultMaxWorkers, readMaxWorkersFlag } from './vitest-max-workers.ts';
 import { createSourceResolutionPlugin } from './vitest-source-resolution.ts';
 import { getWorkspacePackageDirs } from './workspace.ts';
 import { toWorkspacePackageGlobs } from './workspace-globs.ts';
@@ -110,19 +111,6 @@ const TIERED_PATTERNS = NAMED_TIERS.flatMap(buildTierPatterns);
  * fail quickly. The `project` seam merges over this and applies to every project at once; the `tiers` seam targets one.
  */
 const TIER_TIMEOUT_MS = 30_000;
-
-/**
- * Core count at or below which every project gets `SMALL_MACHINE_MAX_WORKERS`. Vitest's run-mode default is one
- * fewer worker than the core count, so a 2-core CI runner runs every file serially on one worker. Three workers are
- * faster there, because the main process transforms files while the workers run them.
- *
- * Above the threshold the projects do not set `maxWorkers`, so Vitest's own default and its `--maxWorkers` flag
- * apply. At or below it, `--maxWorkers` has no effect, because Vitest does not forward the flag to projects;
- * `VITEST_MAX_WORKERS` overrides the default instead.
- */
-const SMALL_MACHINE_MAX_CORES = 2;
-
-const SMALL_MACHINE_MAX_WORKERS = 3;
 
 /**
  * nmr's git-isolation setup file, resolved beside this module and with this module's own extension, so that a
@@ -313,7 +301,12 @@ function buildProjects(
   ];
 
   const collectionExclude = buildCollectionExclude(layers, ignoredPathsRoot);
-  const maxWorkers = resolveDefaultMaxWorkers();
+  const defaultMaxWorkers = deriveDefaultMaxWorkers({
+    coreCount: os.availableParallelism(),
+    totalMemoryBytes: os.totalmem(),
+  });
+  // Vitest does not forward `--maxWorkers` to projects, and a project's own value hides the flag's.
+  const flagMaxWorkers = readMaxWorkersFlag(process.argv.slice(2));
   const shouldIsolateGit = resolveFlag(layers, 'shouldIsolateGit', true);
 
   return projectTiers.map(({ exclude, include, name, timeoutMs }) => {
@@ -326,7 +319,7 @@ function buildProjects(
       test: {
         exclude: [...collectionExclude, ...exclude, ...extraExclude],
         include,
-        ...(maxWorkers !== undefined && { maxWorkers }),
+        maxWorkers: defaultMaxWorkers,
         name,
         ...(shouldIsolateGit && { setupFiles: [GIT_ISOLATION_SETUP_FILE] }),
         ...(timeoutMs !== undefined && { hookTimeout: timeoutMs, testTimeout: timeoutMs }),
@@ -338,7 +331,9 @@ function buildProjects(
       mergedProject = applyLayer(mergedProject, layer, name);
     }
 
-    return mergedProject;
+    return flagMaxWorkers === undefined
+      ? mergedProject
+      : mergeConfig(mergedProject, { test: { maxWorkers: flagMaxWorkers } });
   });
 }
 
@@ -450,11 +445,6 @@ function formatOptionKeys(keys: readonly string[]): string {
     .toSorted()
     .map((key) => `\`${key}\``)
     .join(', ');
-}
-
-/** Returns the worker count that every project defaults to on a small machine, and `undefined` on any other. */
-function resolveDefaultMaxWorkers(): number | undefined {
-  return os.availableParallelism() <= SMALL_MACHINE_MAX_CORES ? SMALL_MACHINE_MAX_WORKERS : undefined;
 }
 
 /**

@@ -125,11 +125,25 @@ export default defineVitestConfig({ shouldIsolateGit: false, shouldResolveFromSo
 
 **The boundary is Vite's resolution, not the package's role.** Because Node does not apply the `source` condition, a workspace package that an externalized dependency imports resolves through Node to its build output. Nothing else in a suite resolves that way.
 
-### Worker count on small machines
+### Worker count
 
-On a machine with 2 or fewer cores, the factory gives every project `maxWorkers: 3`. Vitest's run-mode default is one fewer worker than the core count, so a 2-core CI runner, GitHub's standard runner for a private repo, would otherwise run every test file serially on one worker. Three workers are faster there, because the main process transforms files while the workers run them. On a machine with more cores, the projects do not set `maxWorkers`, and Vitest's own default applies.
+The factory gives every project a worker count derived from the machine, one worker per 4 GiB of total memory, bounded by one fewer than the core count:
 
-Where the default applies, Vitest's `--maxWorkers` flag has no effect, because Vitest does not forward that flag to projects. Override the default with the `VITEST_MAX_WORKERS` environment variable, with `--no-file-parallelism` for a single worker, or with `maxWorkers` in the `project` seam.
+```
+min(availableParallelism - 1, max(1, floor(totalmem / 4 GiB)))
+```
+
+Vitest's own default, one fewer worker than the core count, does not take memory into account. On a 10-core, 16 GB machine it starts 9 workers per run, and several concurrent runs push the machine into swap; the derived count there is 4. The 4 GiB budget leaves room for concurrent runs and other workloads, rather than measuring one worker's footprint. The divisor is total memory, because `os.freemem()` on macOS excludes cached pages and reports near zero.
+
+On a machine with 2 or fewer cores, every project gets 3 workers, whatever the memory. A 2-core CI runner, GitHub's standard runner for a private repo, would otherwise run every test file serially on one worker. Three workers are faster there, because the main process transforms files while the workers run them.
+
+Each of these overrides the derived count, the highest first:
+
+1. The `VITEST_MAX_WORKERS` environment variable, which Vitest applies after the config.
+2. `--maxWorkers` (or `--max-workers`) on the command line, as a count or a percentage of the cores. Vitest does not forward the flag to projects, so the factory reads it from the command line and applies it to every project.
+3. `maxWorkers` in the `project` seam.
+
+`--no-file-parallelism` runs a single worker whatever the count.
 
 ## Resolving through tsconfig paths
 
