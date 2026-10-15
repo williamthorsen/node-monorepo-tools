@@ -50,6 +50,14 @@ import { findClosestName } from './helpers/findClosestName.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import { resolvePackageJsonPath } from './helpers/package-json.ts';
 import { composeTranscript } from './helpers/transcript.ts';
+import {
+  acquireMachineLock,
+  formatMisplacedNoLockWarning,
+  HEAVY_COMMANDS,
+  LOCK_TOKEN_ENV_VAR,
+  type MachineLock,
+  NO_LOCK_ENV_VAR,
+} from './machine-lock.ts';
 import { isTerminalStream, OUTPUT_STYLE_ENV_VAR, OUTPUT_STYLE_FLAG, resolveOutputStyles } from './output-style.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import { assembleReplay } from './replay-assembly.ts';
@@ -252,6 +260,7 @@ async function planRun(invocation: Invocation): Promise<PhaseResult<RunPlan>> {
     env,
     format: invocation.format,
     shouldBypassCache,
+    shouldBypassLock: parsedArgs.shouldBypassLock,
     passthrough: parsedArgs.passthrough,
     runId,
     snapshot,
@@ -268,7 +277,16 @@ async function planRun(invocation: Invocation): Promise<PhaseResult<RunPlan>> {
   // -F and -R: delegate to pnpm, which runs one nmr per scope that it selects
   const delegation = composeDelegation({ childEnv, command, parsedArgs });
   if (delegation !== undefined) {
-    const result = await runDelegation({ context, delegation, parsedArgs, runOptions, stderr });
+    // The delegating process holds the lock for the whole fan-out, so that the scopes that pnpm runs in parallel
+    // do not wait on one another.
+    const lock = await takeMachineLock(invocation);
+    let result: RunCliResult;
+    try {
+      const heldDelegation = { ...delegation, env: addLockToken(delegation.env, lock) };
+      result = await runDelegation({ context, delegation: heldDelegation, parsedArgs, runOptions, stderr });
+    } finally {
+      await lock?.release();
+    }
 
     return {
       settled: true,
@@ -456,6 +474,7 @@ interface ParsedArgs {
   quiet: boolean;
   recursive: boolean;
   shouldBypassCache: boolean;
+  shouldBypassLock: boolean;
   shouldEmitJson: boolean;
   shouldPrintLog: boolean;
   shouldShowHelp: boolean;
@@ -472,6 +491,7 @@ type BooleanFlagName =
   | 'quiet'
   | 'recursive'
   | 'shouldBypassCache'
+  | 'shouldBypassLock'
   | 'shouldEmitJson'
   | 'shouldPrintLog'
   | 'shouldShowHelp'
@@ -492,6 +512,14 @@ interface RunPlan {
   shouldBypassCache: boolean;
   snapshot: TreeSnapshot | undefined;
   steps: readonly Step[];
+}
+
+/** What the check-result cache gates a run on: the key, the tree, and the build output that the run saw. */
+interface Gate {
+  buildOutputBefore: BuildOutputState;
+  key: string;
+  retentionKey: string;
+  snapshot: TreeSnapshot;
 }
 
 /** What the presentation sources came to, or the message naming why one of them could not be read. */
@@ -515,6 +543,7 @@ const BOOLEAN_FLAGS = new Map<string, BooleanFlagName>([
   ['--json', 'shouldEmitJson'],
   ['--log', 'shouldPrintLog'],
   ['--no-cache', 'shouldBypassCache'],
+  ['--no-lock', 'shouldBypassLock'],
   ['-q', 'quiet'],
   ['--quiet', 'quiet'],
   ['-R', 'recursive'],
@@ -550,11 +579,12 @@ function buildChildEnv(options: {
   passthrough: readonly string[];
   runId: string;
   shouldBypassCache: boolean;
+  shouldBypassLock: boolean;
   snapshot: TreeSnapshot | undefined;
   styles: StreamStyles;
   verbosity: CommandVerbosity;
 }): NodeJS.ProcessEnv {
-  const { env, format, passthrough, runId, shouldBypassCache, snapshot, styles, verbosity } = options;
+  const { env, format, passthrough, runId, shouldBypassCache, shouldBypassLock, snapshot, styles, verbosity } = options;
 
   const bypassesCache = shouldBypassCache || passthrough.length > 0;
 
@@ -562,11 +592,21 @@ function buildChildEnv(options: {
     ...env,
     ...(snapshot !== undefined && { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) }),
     ...(bypassesCache && { [NO_CACHE_ENV_VAR]: '1' }),
+    ...(shouldBypassLock && { [NO_LOCK_ENV_VAR]: '1' }),
     [COMMAND_VERBOSITY_ENV_VAR]: verbosity,
     [OUTPUT_STYLE_ENV_VAR]: styles.stdout,
     [REPORT_FORMAT_ENV_VAR]: format,
     [RUN_ID_ENV_VAR]: runId,
   };
+}
+
+/** Returns the environment with the lock's token added, so that the processes below this one run under its hold. */
+function addLockToken(env: NodeJS.ProcessEnv, lock: MachineLock | undefined): NodeJS.ProcessEnv {
+  if (lock?.token === undefined) {
+    return env;
+  }
+
+  return { ...env, [LOCK_TOKEN_ENV_VAR]: lock.token };
 }
 
 /**
@@ -1339,6 +1379,7 @@ function parseArgs(args: string[]): ParseResult {
     quiet: false,
     recursive: false,
     shouldBypassCache: false,
+    shouldBypassLock: false,
     shouldEmitJson: false,
     shouldPrintLog: false,
     shouldShowHelp: false,
@@ -1579,6 +1620,67 @@ function resolveReportingVerbosity(options: ResolveVerbosityOptions & { format: 
  * not recorded must not leave behind an excerpt that claims it was. A composite's assembly is built here rather
  * than when it skips, to ensure that every excerpt in it was certified during the run whose pass contains it.
  */
+/**
+ * Reads what the check-result cache gates on, or returns `undefined` when the cache does not cover the plan.
+ *
+ * The build output is read before the run, so that a pass can be held to the output that the run actually saw. One
+ * reading serves the lookup and the recording alike, and `--no-cache` bypasses only the former. The channels are
+ * read from the same `resolveChannel` that the runner calls, to keep the retention key and the run from disagreeing
+ * about what the child saw.
+ */
+async function readGate(plan: RunPlan): Promise<Gate | undefined> {
+  const { key, snapshot } = plan;
+  const { context, env, stderr, stdout } = plan.invocation;
+  if (key === undefined || snapshot === undefined) {
+    return undefined;
+  }
+
+  const quiet = plan.runOptions.quiet === true;
+
+  return {
+    buildOutputBefore: await readBuildOutputState(context.monorepoRoot, context.config),
+    key,
+    retentionKey: computeRetentionKey({
+      channels: { stderr: resolveChannel(stderr, quiet), stdout: resolveChannel(stdout, quiet) },
+      env,
+      passKey: key,
+    }),
+    snapshot,
+  };
+}
+
+/** Returns the outcome of a recorded pass that covers the plan, or `undefined` when none does. */
+async function recallPass(
+  plan: RunPlan,
+  gate: Gate,
+): Promise<{ exitCode: number; outcome: VerdictOutcome } | undefined> {
+  const { anchorDir, command, context, env, stderr } = plan.invocation;
+  const { monorepoRoot } = context;
+
+  const recalledPass = await lookUpRecordedPass({
+    anchorDir,
+    buildOutput: gate.buildOutputBefore,
+    command,
+    env,
+    key: gate.key,
+    monorepoRoot,
+    retentionKey: gate.retentionKey,
+    stderr,
+  });
+  if (recalledPass === undefined) {
+    return undefined;
+  }
+
+  const { entry, ...recall } = recalledPass;
+  // An excerpt that this run declined to replay is one that it has not certified, and vouching for it here would
+  // put another environment's output into the assembly that a composite above this one records.
+  if (recall.replay !== undefined) {
+    await certifyRetention({ anchorDir, command, entry, env, monorepoRoot, runId: plan.runId, stderr });
+  }
+
+  return { exitCode: 0, outcome: { outcome: 'recalled', ...recall } };
+}
+
 async function recordPass(options: {
   anchorDir: string;
   buildOutputBefore: BuildOutputState;
@@ -1761,84 +1863,69 @@ async function runDelegation(options: {
  * what a skip replays, as it contributes nothing to a leaf's excerpt.
  */
 async function runGated(plan: RunPlan): Promise<{ exitCode: number; outcome: VerdictOutcome }> {
-  const { commandString, key, snapshot } = plan;
+  const { commandString, key } = plan;
   const { anchorDir, command, context, env, stderr, stdout } = plan.invocation;
   const { config, monorepoRoot } = context;
 
-  // The build output is read before the run, so that a pass can be held to the output that the run actually
-  // saw. One reading serves the lookup and the recording alike, and `--no-cache` bypasses only the former.
-  // Read the channels that an opaque step of this run would hand its child from the same `resolveChannel` that
-  // the runner calls, to keep the retention key and the run from disagreeing about what the child saw.
-  const quiet = plan.runOptions.quiet === true;
-  const gate =
-    key !== undefined && snapshot !== undefined
-      ? {
-          buildOutputBefore: await readBuildOutputState(monorepoRoot, config),
-          key,
-          retentionKey: computeRetentionKey({
-            channels: { stderr: resolveChannel(stderr, quiet), stdout: resolveChannel(stdout, quiet) },
-            env,
-            passKey: key,
-          }),
-          snapshot,
-        }
-      : undefined;
+  let gate = await readGate(plan);
 
   if (gate !== undefined && !plan.shouldBypassCache) {
-    const recalledPass = await lookUpRecordedPass({
-      anchorDir,
-      buildOutput: gate.buildOutputBefore,
-      command,
-      env,
-      key: gate.key,
-      monorepoRoot,
-      retentionKey: gate.retentionKey,
-      stderr,
-    });
-    if (recalledPass !== undefined) {
-      const { entry, ...recall } = recalledPass;
-      // An excerpt that this run declined to replay is one that it has not certified, and vouching for it here
-      // would put another environment's output into the assembly that a composite above this one records.
-      if (recall.replay !== undefined) {
-        await certifyRetention({ anchorDir, command, entry, env, monorepoRoot, runId: plan.runId, stderr });
-      }
-
-      return { exitCode: 0, outcome: { outcome: 'recalled', ...recall } };
+    const recalled = await recallPass(plan, gate);
+    if (recalled !== undefined) {
+      return recalled;
     }
   }
 
-  if (plan.overrideNotice !== undefined) {
-    stdout.write(plan.overrideNotice);
+  const lock = await takeMachineLock(plan.invocation);
+  try {
+    // The holder that this run waited on may have recorded a pass for this tree, or rebuilt the output that a pass
+    // is held to, so the gate is read again.
+    if (lock?.waited === true && key !== undefined) {
+      gate = await readGate(plan);
+      if (gate !== undefined && !plan.shouldBypassCache) {
+        const recalled = await recallPass(plan, gate);
+        if (recalled !== undefined) {
+          return recalled;
+        }
+      }
+    }
+
+    if (plan.overrideNotice !== undefined) {
+      stdout.write(plan.overrideNotice);
+    }
+
+    const runOptions = { ...plan.runOptions, env: addLockToken(plan.runOptions.env ?? env, lock) };
+    const startedAtMs = Date.now();
+    const { exitCode, retainedOutput } = await runSteps(plan.steps, anchorDir, runOptions);
+    const durationMs = Date.now() - startedAtMs;
+
+    if (exitCode === 0 && gate !== undefined) {
+      await recordPass({
+        anchorDir,
+        buildOutputBefore: gate.buildOutputBefore,
+        command,
+        commandString,
+        config,
+        durationMs,
+        env,
+        key: gate.key,
+        monorepoRoot,
+        ownSteps: plan.ownSteps,
+        retainedOutput,
+        retentionKey: gate.retentionKey,
+        runId: plan.runId,
+        snapshot: gate.snapshot,
+        stderr,
+      });
+    }
+
+    return {
+      exitCode,
+      outcome: exitCode === 0 ? { outcome: 'passed', durationMs } : { outcome: 'failed', durationMs, exitCode },
+    };
+  } finally {
+    await lock?.release();
   }
-
-  const startedAtMs = Date.now();
-  const { exitCode, retainedOutput } = await runSteps(plan.steps, anchorDir, plan.runOptions);
-  const durationMs = Date.now() - startedAtMs;
-
-  if (exitCode === 0 && gate !== undefined) {
-    await recordPass({
-      anchorDir,
-      buildOutputBefore: gate.buildOutputBefore,
-      command,
-      commandString,
-      config,
-      durationMs,
-      env,
-      key: gate.key,
-      monorepoRoot,
-      ownSteps: plan.ownSteps,
-      retainedOutput,
-      retentionKey: gate.retentionKey,
-      runId: plan.runId,
-      snapshot: gate.snapshot,
-      stderr,
-    });
-  }
-
-  return {
-    exitCode,
-    outcome: exitCode === 0 ? { outcome: 'passed', durationMs } : { outcome: 'failed', durationMs, exitCode },
-  };
 }
 
 /**
@@ -1891,6 +1978,29 @@ function isTopLevelInvocation(env: NodeJS.ProcessEnv): boolean {
   const runId = env[RUN_ID_ENV_VAR];
 
   return runId === undefined || runId === '';
+}
+
+/**
+ * Takes the machine lock for a heavy command that runs, or returns `undefined` for any other invocation. A delegated
+ * `--log` reads recordings and runs nothing. A `--no-lock` written after the command name is an argument to the
+ * command, so it is reported rather than read.
+ */
+async function takeMachineLock(invocation: Invocation): Promise<MachineLock | undefined> {
+  const { anchorDir, command, env, parsedArgs, stderr, styles } = invocation;
+  if (!HEAVY_COMMANDS.has(command) || parsedArgs.shouldPrintLog) {
+    return undefined;
+  }
+
+  if (parsedArgs.passthrough.includes('--no-lock')) {
+    stderr.write(`${formatMisplacedNoLockWarning(command, styles.stderr)}\n`);
+  }
+
+  return acquireMachineLock({
+    command,
+    dir: anchorDir,
+    env: parsedArgs.shouldBypassLock ? { ...env, [NO_LOCK_ENV_VAR]: '1' } : env,
+    stderr,
+  });
 }
 
 /**

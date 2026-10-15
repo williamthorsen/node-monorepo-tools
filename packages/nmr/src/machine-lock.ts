@@ -6,6 +6,8 @@ import process from 'node:process';
 import type { Writable } from 'node:stream';
 import { setTimeout as delay } from 'node:timers/promises';
 
+import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
+
 import { isObject } from './helpers/type-guards.ts';
 
 const LOCK_FILE = 'heavy.lock';
@@ -156,6 +158,17 @@ export async function acquireMachineLock(options: {
     waited = true;
     await delay(pollIntervalMs);
   }
+}
+
+/**
+ * Renders the warning for a `--no-lock` that appears after the command name, which makes it an argument to the
+ * command rather than a flag to nmr.
+ */
+export function formatMisplacedNoLockWarning(command: string, style: OutputStyle): string {
+  return (
+    `${STATUS_GLYPHS[style].warning.text} --no-lock after the command name is passed to \`${command}\`, ` +
+    `not read by nmr. Did you mean \`nmr --no-lock ${command}\`?`
+  );
 }
 
 /**
