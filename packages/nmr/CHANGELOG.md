@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.47.0 — 2026-10-15
+
+### 🎉 Features
+
+- Sets `maxWorkers` on every project built by `defineVitestConfig` and `defineRootVitestConfig` to one worker per 4 GiB of total memory, bounded by one fewer than the core count, in place of Vitest's default of one fewer than the core count, which does not take memory into account; machines with 2 or fewer cores keep 3 workers. (#1044)
+- Applies the `--maxWorkers` (or `--max-workers`) flag to every project, which Vitest does not do itself, making the flag override both the derived count and a `maxWorkers` set through the `project` or `tiers` seam, while the `VITEST_MAX_WORKERS` environment variable still overrides the flag. (#1044)
+- Adds a machine lock that makes a heavy command (`check`, `ci`, and every `test` command except `test:watch`) wait, printing `nmr: waiting for …`, until the heavy command already running on the machine finishes; a nested command and a `-R` or `-F` fan-out take the lock once, and a cached pass does not wait. (#1045)
+- Adds the `--no-lock` flag and the `NMR_NO_LOCK=1` environment variable, which run a command and the commands nested in it without waiting for the machine lock, for example on a self-hosted CI machine that runs several runners in parallel. (#1045)
+- Extends the `nmr` rulebook to state that a run printing `nmr: waiting for …` is waiting for the machine lock rather than stuck, and that an agent must neither kill it nor rerun it with `--no-lock`. (#1045)
+
 ## 0.46.2 — 2026-10-14
 
 ### 🐛 Bug fixes

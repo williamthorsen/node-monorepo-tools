@@ -1,5 +1,42 @@
 [
   {
+    "version": "0.47.0",
+    "date": "2026-10-15",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Sets `maxWorkers` on every project built by `defineVitestConfig` and `defineRootVitestConfig` to one worker per 4 GiB of total memory, bounded by one fewer than the core count, in place of Vitest's default of one fewer than the core count, which does not take memory into account; machines with 2 or fewer cores keep 3 workers. (#1044)",
+            "hash": "8c761e2b054daf91ba362d3f3e878329d35d2eb4",
+            "entry": 1
+          },
+          {
+            "description": "Applies the `--maxWorkers` (or `--max-workers`) flag to every project, which Vitest does not do itself, making the flag override both the derived count and a `maxWorkers` set through the `project` or `tiers` seam, while the `VITEST_MAX_WORKERS` environment variable still overrides the flag. (#1044)",
+            "hash": "8c761e2b054daf91ba362d3f3e878329d35d2eb4",
+            "entry": 2
+          },
+          {
+            "description": "Adds a machine lock that makes a heavy command (`check`, `ci`, and every `test` command except `test:watch`) wait, printing `nmr: waiting for …`, until the heavy command already running on the machine finishes; a nested command and a `-R` or `-F` fan-out take the lock once, and a cached pass does not wait. (#1045)",
+            "hash": "2797c36e73b431c848a5819909aae7f3de6e0af6",
+            "entry": 1
+          },
+          {
+            "description": "Adds the `--no-lock` flag and the `NMR_NO_LOCK=1` environment variable, which run a command and the commands nested in it without waiting for the machine lock, for example on a self-hosted CI machine that runs several runners in parallel. (#1045)",
+            "hash": "2797c36e73b431c848a5819909aae7f3de6e0af6",
+            "entry": 2
+          },
+          {
+            "description": "Extends the `nmr` rulebook to state that a run printing `nmr: waiting for …` is waiting for the machine lock rather than stuck, and that an agent must neither kill it nor rerun it with `--no-lock`. (#1045)",
+            "hash": "2797c36e73b431c848a5819909aae7f3de6e0af6",
+            "entry": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.46.2",
     "date": "2026-10-14",
     "sections": [
