@@ -1614,19 +1614,6 @@ function resolveReportingVerbosity(options: ResolveVerbosityOptions & { format: 
 }
 
 /**
- * Records a pass, unless what the check was asked about moved while it ran: a rewritten file describes a tree
- * that no longer exists, and build output that changed leaves it unclear over which output the pass was earned.
- * Recording either would certify content against which nothing ran. The recorded key is the one that the
- * snapshot produced, so every entry from one invocation refers to one tree.
- *
- * A cache that cannot be written is not worth failing a green run over: `recordPass` reports that failure in the
- * debug note.
- *
- * The retention that a skip replays is composed here for the same reason and after the same tests: a pass that is
- * not recorded must not leave behind an excerpt that claims it was. A composite's assembly is built here rather
- * than when it skips, to ensure that every excerpt in it was certified during the run whose pass contains it.
- */
-/**
  * Reads what the check-result cache gates on, or returns `undefined` when the cache does not cover the plan.
  *
  * The build output is read before the run, so that a pass can be held to the output that the run actually saw. One
@@ -1687,6 +1674,19 @@ async function recallPass(
   return { exitCode: 0, outcome: { outcome: 'recalled', ...recall } };
 }
 
+/**
+ * Records a pass, unless what the check was asked about moved while it ran: a rewritten file describes a tree
+ * that no longer exists, and build output that changed leaves it unclear over which output the pass was earned.
+ * Recording either would certify content against which nothing ran. The recorded key is the one that the
+ * snapshot produced, so every entry from one invocation refers to one tree.
+ *
+ * A cache that cannot be written is not worth failing a green run over: `recordPass` reports that failure in the
+ * debug note.
+ *
+ * The retention that a skip replays is composed here for the same reason and after the same tests: a pass that is
+ * not recorded must not leave behind an excerpt that claims it was. A composite's assembly is built here rather
+ * than when it skips, to ensure that every excerpt in it was certified during the run whose pass contains it.
+ */
 async function recordPass(options: {
   anchorDir: string;
   buildOutputBefore: BuildOutputState;
