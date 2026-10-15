@@ -174,6 +174,17 @@ $ nmr ci
 
 [Check-result cache](docs/check-cache.md) covers what is cached, what a hit requires, replaying and reading a recorded run, and bypassing or configuring the cache.
 
+## Machine lock
+
+Tests and checks peak at several gigabytes, so nmr runs one heavy command at a time on a machine. A second `check`, `ci`, or `test` from any repository waits for the first rather than competing with it for memory:
+
+```console
+$ nmr check
+nmr: waiting for test in /Users/me/repos/other-repo (pid 41872) to finish
+```
+
+The lock lives in `/tmp/nmr-<uid>/`, or in `NMR_LOCK_DIR`; a sandboxed session needs write access to it. `nmr --no-lock <command>` or `NMR_NO_LOCK=1` runs without waiting. [Machine lock](docs/machine-lock.md) covers which commands take it, nesting and fan-outs, reclaiming a lock that its holder left behind, and CI.
+
 ## Shared configs and helpers
 
 ### Shared Vitest config
@@ -277,6 +288,7 @@ rdy list --from npm:@williamthorsen/nmr  # what nmr publishes
 - [Scripts and configuration](docs/scripts.md): Override tiers, script values, hooks, `defineConfig` fields, `devBin`, and the default commands
 - [What nmr reports](docs/reporting.md): Verdicts, `--json`, output style, and verbosity
 - [Check-result cache](docs/check-cache.md): What is skipped, what a hit requires, and replaying, reading, and bypassing recorded runs
+- [Machine lock](docs/machine-lock.md): Which commands wait for one another, where the lock lives, and bypassing it
 - [Dependency upgrades](docs/upgrades.md): `nmr upgrade`, the upgrade policy, `report-catalog`, `report-overrides`, and `nmr-taze`
 - [Standalone utilities](docs/utilities.md): `nmr-clean`, `nmr-compile`, `nmr-fmt`, and `ensure-prepublish-hooks`
 - [Shared Vitest config](docs/vitest.md): Test tiers, test selections, the conventions check, and customization
