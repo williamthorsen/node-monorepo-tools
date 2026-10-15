@@ -73,7 +73,7 @@ describe(acquireMachineLock, () => {
 
     const child = await acquire({ env: { [LOCK_TOKEN_ENV_VAR]: parent.token } });
 
-    expect(child).toMatchObject({ token: undefined, waited: false });
+    expect(child).toMatchObject({ isChainUnlocked: false, token: undefined, waited: false });
     await child.release();
     expect(fs.existsSync(lockPath)).toBe(true);
     await parent.release();
@@ -92,7 +92,7 @@ describe(acquireMachineLock, () => {
 
     const bypass = await acquire({ env: { [NO_LOCK_ENV_VAR]: '1' } });
 
-    expect(bypass).toMatchObject({ token: undefined, waited: false });
+    expect(bypass).toMatchObject({ isChainUnlocked: true, token: undefined, waited: false });
     await holder.release();
   });
 
@@ -169,7 +169,7 @@ describe(acquireMachineLock, () => {
 
     const lock = await acquire({ lockDir: unwritableDir, stderr: stderr.stream });
 
-    expect(lock).toMatchObject({ token: undefined, waited: false });
+    expect(lock).toMatchObject({ isChainUnlocked: true, token: undefined, waited: false });
     expect(stderr.read()).toContain(`nmr: running without the machine lock: cannot write ${unwritableDir}`);
     expect(stderr.read()).toContain(LOCK_DIR_ENV_VAR);
   });

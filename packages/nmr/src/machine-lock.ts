@@ -62,6 +62,11 @@ export const STALE_AFTER_MS = 60_000;
 
 /** A taken lock, or the hold-free stand-in for a run that does not take one. */
 export interface MachineLock {
+  /**
+   * Whether the chain runs without the lock: the bypass is set, or the lock directory cannot be written. The processes
+   * below then skip the lock rather than each trying it again and repeating the warning.
+   */
+  isChainUnlocked: boolean;
   release: () => Promise<void>;
   /** The token in the lock file, when this call took the lock. */
   token: string | undefined;
@@ -101,12 +106,12 @@ export async function acquireMachineLock(options: {
   const { command, dir, env, stderr } = options;
 
   if (env[NO_LOCK_ENV_VAR] === '1') {
-    return createHoldFreeLock(false);
+    return createHoldFreeLock({ isChainUnlocked: true, waited: false });
   }
 
   const lockDir = options.lockDir ?? resolveLockDir({ env, platform: process.platform, uid: process.getuid?.() });
   if (await isUnderAncestorHold(lockDir, env)) {
-    return createHoldFreeLock(false);
+    return createHoldFreeLock({ isChainUnlocked: false, waited: false });
   }
   const lockPath = path.join(lockDir, LOCK_FILE);
 
@@ -114,7 +119,7 @@ export async function acquireMachineLock(options: {
     await fs.mkdir(lockDir, { recursive: true, mode: 0o700 });
   } catch (error) {
     reportUnwritableDir(lockDir, error, stderr);
-    return createHoldFreeLock(false);
+    return createHoldFreeLock({ isChainUnlocked: true, waited: false });
   }
 
   const heartbeatIntervalMs = options.heartbeatIntervalMs ?? HEARTBEAT_INTERVAL_MS;
@@ -137,7 +142,7 @@ export async function acquireMachineLock(options: {
     } catch (error) {
       if (readErrorCode(error) !== 'EEXIST') {
         reportUnwritableDir(lockDir, error, stderr);
-        return createHoldFreeLock(waited);
+        return createHoldFreeLock({ isChainUnlocked: true, waited });
       }
     }
 
@@ -210,6 +215,7 @@ function createHeldLock(options: {
   let isReleased = false;
 
   return {
+    isChainUnlocked: false,
     async release() {
       if (isReleased) return;
       isReleased = true;
@@ -226,8 +232,8 @@ function createHeldLock(options: {
 }
 
 /** Returns a lock whose release does nothing. */
-function createHoldFreeLock(waited: boolean): MachineLock {
-  return { release: () => Promise.resolve(), token: undefined, waited };
+function createHoldFreeLock(options: { isChainUnlocked: boolean; waited: boolean }): MachineLock {
+  return { ...options, release: () => Promise.resolve(), token: undefined };
 }
 
 /** Renders the line that a waiter prints when it starts waiting on a holder. */

@@ -49,6 +49,17 @@ describe('the machine lock in a run', () => {
     expect(readLog()).toStrictEqual([expect.stringMatching(/^token=[\da-f-]{36}$/)]);
   });
 
+  it('warns once and runs its steps unlocked when the lock directory cannot be written', async () => {
+    const repo = scaffoldRepo('repo', { test: `echo "bypass=$${NO_LOCK_ENV_VAR}" >> ${log}` });
+    const blockingFile = workspace.write('blocking-file', '');
+
+    const result = await runNmr('test', repo, { [LOCK_DIR_ENV_VAR]: path.join(blockingFile, 'locks') });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr.match(/running without the machine lock/g)).toHaveLength(1);
+    expect(readLog()).toStrictEqual(['bypass=1']);
+  });
+
   it('does not take the lock for a light command', async () => {
     const repo = scaffoldRepo('repo', { lint: recordRun('lint') });
     const holder = await holdLock();

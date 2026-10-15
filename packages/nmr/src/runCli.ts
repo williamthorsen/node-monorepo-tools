@@ -282,7 +282,7 @@ async function planRun(invocation: Invocation): Promise<PhaseResult<RunPlan>> {
     const lock = await takeMachineLock(invocation);
     let result: RunCliResult;
     try {
-      const heldDelegation = { ...delegation, env: addLockToken(delegation.env, lock) };
+      const heldDelegation = { ...delegation, env: addLockEnv(delegation.env, lock) };
       result = await runDelegation({ context, delegation: heldDelegation, parsedArgs, runOptions, stderr });
     } finally {
       await lock?.release();
@@ -600,13 +600,19 @@ function buildChildEnv(options: {
   };
 }
 
-/** Returns the environment with the lock's token added, so that the processes below this one run under its hold. */
-function addLockToken(env: NodeJS.ProcessEnv, lock: MachineLock | undefined): NodeJS.ProcessEnv {
-  if (lock?.token === undefined) {
-    return env;
+/**
+ * Returns the environment that tells the processes below this one what the lock came to: They run under its hold,
+ * or, when the chain runs unlocked, they skip the lock.
+ */
+function addLockEnv(env: NodeJS.ProcessEnv, lock: MachineLock | undefined): NodeJS.ProcessEnv {
+  if (lock?.token !== undefined) {
+    return { ...env, [LOCK_TOKEN_ENV_VAR]: lock.token };
+  }
+  if (lock?.isChainUnlocked === true) {
+    return { ...env, [NO_LOCK_ENV_VAR]: '1' };
   }
 
-  return { ...env, [LOCK_TOKEN_ENV_VAR]: lock.token };
+  return env;
 }
 
 /**
@@ -1894,7 +1900,7 @@ async function runGated(plan: RunPlan): Promise<{ exitCode: number; outcome: Ver
       stdout.write(plan.overrideNotice);
     }
 
-    const runOptions = { ...plan.runOptions, env: addLockToken(plan.runOptions.env ?? env, lock) };
+    const runOptions = { ...plan.runOptions, env: addLockEnv(plan.runOptions.env ?? env, lock) };
     const startedAtMs = Date.now();
     const { exitCode, retainedOutput } = await runSteps(plan.steps, anchorDir, runOptions);
     const durationMs = Date.now() - startedAtMs;
