@@ -5,7 +5,7 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { globSync } from 'tinyglobby';
 import { defaultClientConditions, defaultServerConditions } from 'vite';
-import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 import type { TestProjectConfiguration, TestProjectInlineConfiguration, ViteUserConfig } from 'vitest/config';
 
 import { listGitIgnoredPaths } from '../git-ignored-paths.ts';
@@ -721,12 +721,34 @@ describe(defineRootVitestConfig, () => {
 });
 
 describe('worker count', () => {
-  // Restore the core-count spies; `restoreAllMocks` leaves the `git-ignored-paths.ts` module mock in place.
+  const GIB = 2 ** 30;
+  const originalArgv = process.argv;
+
+  // Hide any `--maxWorkers` that the run itself was given, which the factory would read.
+  beforeEach(() => {
+    process.argv = [...originalArgv.slice(0, 2), 'run'];
+  });
+
+  // Restore the machine spies; `restoreAllMocks` leaves the `git-ignored-paths.ts` module mock in place.
   afterEach(() => {
     vi.restoreAllMocks();
+    process.argv = originalArgv;
+  });
+
+  it('gives every project the worker count derived from memory and cores', ({ workspaceTree }) => {
+    vi.spyOn(os, 'availableParallelism').mockReturnValue(10);
+    vi.spyOn(os, 'totalmem').mockReturnValue(16 * GIB);
+
+    const configs = [defineVitestConfig(), defineRootVitestConfig({ monorepoRoot: workspaceTree.dir })];
+
+    for (const config of configs) {
+      expect(getProjects(config).map((project) => project.test?.maxWorkers)).toStrictEqual(PROJECT_NAMES.map(() => 4));
+    }
   });
 
   it('gives every project three workers on a machine with two or fewer cores', ({ workspaceTree }) => {
+    vi.spyOn(os, 'totalmem').mockReturnValue(2 * GIB);
+
     for (const coreCount of [1, 2]) {
       vi.spyOn(os, 'availableParallelism').mockReturnValue(coreCount);
 
@@ -740,22 +762,34 @@ describe('worker count', () => {
     }
   });
 
-  it('leaves the worker count to Vitest on a machine with more cores', ({ workspaceTree }) => {
-    vi.spyOn(os, 'availableParallelism').mockReturnValue(4);
+  it('lets the project and tiers seams override the derived worker count', () => {
+    vi.spyOn(os, 'availableParallelism').mockReturnValue(10);
+    vi.spyOn(os, 'totalmem').mockReturnValue(16 * GIB);
 
-    const configs = [defineVitestConfig(), defineRootVitestConfig({ monorepoRoot: workspaceTree.dir })];
+    const fromProject = getProjects(defineVitestConfig({ project: { maxWorkers: 1 } }));
+    const fromTiers = getProjects(
+      defineVitestConfig({ tiers: Object.fromEntries(PROJECT_NAMES.map((name) => [name, { maxWorkers: 2 }])) }),
+    );
 
-    for (const project of configs.flatMap(getProjects)) {
-      expect(project.test).not.toHaveProperty('maxWorkers');
-    }
+    expect(fromProject.map((project) => project.test?.maxWorkers)).toStrictEqual(PROJECT_NAMES.map(() => 1));
+    expect(fromTiers.map((project) => project.test?.maxWorkers)).toStrictEqual(PROJECT_NAMES.map(() => 2));
   });
 
-  it('lets the project seam override the worker default', () => {
-    vi.spyOn(os, 'availableParallelism').mockReturnValue(2);
+  it.each([
+    ['--maxWorkers=2', 2],
+    ['--maxWorkers=50%', '50%'],
+  ])('lets %s override both the derived count and the seams', (flag, expected) => {
+    vi.spyOn(os, 'availableParallelism').mockReturnValue(10);
+    vi.spyOn(os, 'totalmem').mockReturnValue(16 * GIB);
+    process.argv = [...originalArgv.slice(0, 2), 'run', flag];
 
-    const projects = getProjects(defineVitestConfig({ project: { maxWorkers: 1 } }));
+    const configs = [defineVitestConfig(), defineVitestConfig({ project: { maxWorkers: 1 } })];
 
-    expect(projects.map((project) => project.test?.maxWorkers)).toStrictEqual(PROJECT_NAMES.map(() => 1));
+    for (const config of configs) {
+      expect(getProjects(config).map((project) => project.test?.maxWorkers)).toStrictEqual(
+        PROJECT_NAMES.map(() => expected),
+      );
+    }
   });
 });
 
