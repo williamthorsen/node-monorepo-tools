@@ -12,12 +12,15 @@ const VITEST_CLI = path.join(REPO_ROOT, 'node_modules/vitest/vitest.mjs');
 /** The exact environment names that `buildChildEnv` strips, alongside its `VITEST` and `GIT_CONFIG_` prefixes. */
 const STRIPPED_ENV_NAMES = new Set(['GIT_ATTR_NOSYSTEM', 'NODE_V8_COVERAGE', 'TEST']);
 
-/** Runs Vitest once in `cwd`, in a child process of its own. */
-export function runVitest(cwd: string, extraArgs: string[] = []): VitestRun {
+/**
+ * Runs Vitest once in `cwd`, in a child process of its own. `extraEnv` is merged over the stripped environment, which
+ * is how a test sets a variable that the strip would otherwise remove.
+ */
+export function runVitest(cwd: string, extraArgs: string[] = [], extraEnv: NodeJS.ProcessEnv = {}): VitestRun {
   return spawnSync(process.execPath, [VITEST_CLI, 'run', ...extraArgs], {
     cwd,
     encoding: 'utf8',
-    env: buildChildEnv(),
+    env: { ...buildChildEnv(), ...extraEnv },
   });
 }
 

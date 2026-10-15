@@ -7,6 +7,7 @@ import { describe, expect, it as baseIt } from 'vitest';
 
 import { stageFixtureFiles } from '../test-utils/stageFixtureFiles.ts';
 import { runVitest, scaffoldProject, unlinkNodeModules, type VitestRun } from '../test-utils/vitest-run.ts';
+import { deriveDefaultMaxWorkers } from '../vitest-max-workers.ts';
 
 const CONFIG_SOURCE = path.join(import.meta.dirname, '../vitest.ts');
 const SETUP_LOG = 'setup-order.log';
@@ -231,6 +232,33 @@ const TSCONFIG_PATHS_FILES: Record<string, string> = {
   ].join('\n'),
 };
 
+/**
+ * A package whose config reports, from an inline reporter, the worker count that each project resolved to. The
+ * projects' resolved values are the observable, because Vitest does not forward the root's to them.
+ */
+const WORKER_COUNT_FILES: Record<string, string> = {
+  'package.json': JSON.stringify({ name: 'vitest-worker-count-fixture', private: true, type: 'module' }),
+
+  'vitest.config.ts': [
+    "import { writeFileSync } from 'node:fs';",
+    "import path from 'node:path';",
+    '',
+    `import { defineVitestConfig } from ${JSON.stringify(CONFIG_SOURCE)};`,
+    '',
+    'const reportWorkerCounts = {',
+    '  onInit(vitest) {',
+    '    const workerCounts = Object.fromEntries(vitest.projects.map((project) => [project.name, project.config.maxWorkers]));',
+    `    writeFileSync(path.join(process.cwd(), ${JSON.stringify(OBSERVED_LOG)}), JSON.stringify(workerCounts));`,
+    '  },',
+    '};',
+    '',
+    "export default defineVitestConfig({ root: { test: { reporters: ['default', reportWorkerCounts] } } });",
+    '',
+  ].join('\n'),
+
+  'src/__tests__/suite.unit.test.ts': buildPassingTest(),
+};
+
 // Each builder owns its tree through a `DisposableStack` and transfers it only past the last statement that can
 // throw: A fixture that fails never reaches its `onCleanup` registration, and both of these throw by design when
 // the child run does. `createTempTree` resolves through `realpath`, which the relative paths below depend on,
@@ -347,6 +375,24 @@ const it = baseIt
     });
 
     return derivedObservations;
+  })
+  // eslint-disable-next-line no-empty-pattern -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern.
+  .extend('workerCounts', { scope: 'file' }, ({}, { onCleanup }) => {
+    using stack = new DisposableStack();
+    const tree = stack.use(createTempTree({}, { prefix: 'nmr-vitest-workers-' }));
+    scaffoldProject(tree, WORKER_COUNT_FILES);
+    stack.defer(() => unlinkNodeModules(tree.dir));
+
+    // Each run overwrites the report, so each is read before the next starts.
+    const byDefault = readObserved(tree, runVitest(tree.dir));
+    const fromFlag = readObserved(tree, runVitest(tree.dir, ['--maxWorkers=2']));
+    const fromEnv = readObserved(tree, runVitest(tree.dir, ['--maxWorkers=2'], { VITEST_MAX_WORKERS: '1' }));
+    const ownedStack = stack.move();
+    onCleanup(() => {
+      ownedStack.dispose();
+    });
+
+    return { byDefault, fromEnv, fromFlag };
   });
 
 /**
@@ -463,6 +509,26 @@ describe('tsconfig paths resolution, run for real', { timeout: 120_000 }, () => 
   });
 });
 
+// Only a run shows that the config is loaded in the process whose arguments contain the flag, and that the
+// environment variable still outranks a project's own value.
+describe('worker counts, run for real', { timeout: 120_000 }, () => {
+  const TIER_NAMES = ['localhost', 'remote', 'tool', 'unit'];
+
+  it('gives every project the worker count derived from the machine', ({ workerCounts }) => {
+    const derived = deriveDefaultMaxWorkers({ coreCount: os.availableParallelism(), totalMemoryBytes: os.totalmem() });
+
+    expect(workerCounts.byDefault).toStrictEqual(buildWorkerCounts(TIER_NAMES, derived));
+  });
+
+  it('applies --maxWorkers to every project', ({ workerCounts }) => {
+    expect(workerCounts.fromFlag).toStrictEqual(buildWorkerCounts(TIER_NAMES, 2));
+  });
+
+  it('lets VITEST_MAX_WORKERS outrank --maxWorkers', ({ workerCounts }) => {
+    expect(workerCounts.fromEnv).toStrictEqual(buildWorkerCounts(TIER_NAMES, 1));
+  });
+});
+
 /** Builds a test file that passes, so that the run's only outcome is which files it collected. */
 function buildPassingTest(): string {
   return [
@@ -499,6 +565,11 @@ function buildSetupFile(name: string): string {
     `appendFileSync(new URL(${JSON.stringify(SETUP_LOG)}, import.meta.url), \`${name}:\${state}\\n\`);`,
     '',
   ].join('\n');
+}
+
+/** Builds the report that a run gives when every named project resolves to `workerCount`. */
+function buildWorkerCounts(projectNames: readonly string[], workerCount: number): Record<string, number> {
+  return Object.fromEntries(projectNames.map((name) => [name, workerCount]));
 }
 
 /** Reads one fixture run's report, failing loudly with the child's own output when the run did not succeed. */
