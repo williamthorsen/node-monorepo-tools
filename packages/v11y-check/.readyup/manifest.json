@@ -2,6 +2,18 @@
   "version": 1,
   "kits": [
     {
+      "checklistChecks": [
+        {
+          "checklist": "v11y-check",
+          "checks": [
+            "v11y-check in devDependencies",
+            "v11y-check >= 0.19.2",
+            "audit-ci configs are under .config/audit-ci/",
+            "audit.yaml workflow exists",
+            "audit.yaml matches template"
+          ]
+        }
+      ],
       "checklists": [
         "v11y-check"
       ],
@@ -23,10 +35,10 @@
       ],
       "name": "default",
       "path": "kits/default.js",
-      "readyupVersion": "0.40.0",
+      "readyupVersion": "0.41.0",
       "source": "kits/default.ts",
       "sourceHash": "3ca06efb",
-      "targetHash": "8455f437"
+      "targetHash": "c1f212af"
     }
   ]
 }
