@@ -177,7 +177,7 @@ var default_default = defineRdyKit({
         {
           name: "publish.yaml workflow exists",
           severity: "warn",
-          skip: () => !hasPublishablePackages() ? "no publishable packages" : false,
+          skip: () => !hasPublishablePackages() && "no publishable packages",
           check: () => fileExists(".github/workflows/publish.yaml"),
           fix: "Add .github/workflows/publish.yaml using the publish workflow template",
           checks: [
@@ -202,7 +202,7 @@ var default_default = defineRdyKit({
         {
           name: "create-github-release.yaml matches template",
           severity: "warn",
-          skip: () => !fileExists(".github/workflows/create-github-release.yaml") ? "no create-github-release workflow (GitHub Releases not adopted)" : false,
+          skip: () => !fileExists(".github/workflows/create-github-release.yaml") && "no create-github-release workflow (GitHub Releases not adopted)",
           check: () => {
             const hash = detectRepoType() === "monorepo" ? CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO : CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE;
             return fileMatchesHash(".github/workflows/create-github-release.yaml", hash);
@@ -212,7 +212,7 @@ var default_default = defineRdyKit({
         {
           name: ".config/release-kit.config.ts exports a config",
           severity: "error",
-          skip: () => !fileExists(".config/release-kit.config.ts") ? "no release-kit config file" : false,
+          skip: () => !fileExists(".config/release-kit.config.ts") && "no release-kit config file",
           check: () => configFileExportsConfig(),
           fix: "Export the config from .config/release-kit.config.ts as a default export or as a named `config` export; release-kit does not resolve any other export",
           checks: [
@@ -251,7 +251,7 @@ var default_default = defineRdyKit({
             {
               name: ".github/labels.yaml exists",
               severity: "warn",
-              skip: () => !fileContains(".config/release-kit.config.ts", /repoLabels/) ? "no repoLabels config" : false,
+              skip: () => !fileContains(".config/release-kit.config.ts", /repoLabels/) && "no repoLabels config",
               check: () => fileExists(".github/labels.yaml"),
               fix: "Run `release-kit sync-labels generate` to produce the labels file",
               checks: [
@@ -278,7 +278,7 @@ var default_default = defineRdyKit({
         {
           name: "published packages ship CHANGELOG.md",
           severity: "warn",
-          skip: () => !hasPublishablePackages() ? "no publishable packages" : false,
+          skip: () => !hasPublishablePackages() && "no publishable packages",
           check: () => packagesShipChangelog(),
           fix: 'Add "CHANGELOG.md" to the files field of each affected package.json'
         },
@@ -287,7 +287,7 @@ var default_default = defineRdyKit({
           severity: "warn",
           skip: () => {
             if (!hasPublishablePackages()) return "no publishable packages";
-            return changelogArchivesAreEnabled() ? false : "changelogMarkdown.keepVersions is not set";
+            return !changelogArchivesAreEnabled() && "changelogMarkdown.keepVersions is not set";
           },
           check: () => packagesShipChangelogArchives(),
           fix: 'Add "changelogs/" to the files field of each affected package.json, so that the links from CHANGELOG.md to its archive files resolve in the published package'
@@ -295,7 +295,7 @@ var default_default = defineRdyKit({
         {
           name: "changelog.json generation is enabled",
           severity: "recommend",
-          skip: () => !hasPublishablePackages() ? "no publishable packages" : false,
+          skip: () => !hasPublishablePackages() && "no publishable packages",
           check: () => changelogJsonIsEnabled(),
           fix: "Remove changelogJson.enabled: false from .config/release-kit.config.ts so that release-kit writes the machine-readable changelog that upgrade tooling reads before CHANGELOG.md",
           checks: [
@@ -450,9 +450,8 @@ function scopeLabelsHaveNoDescriptions() {
       continue;
     }
     const descriptionMatch = /^\s+description:\s*(.*?)\s*$/.exec(line);
-    if (descriptionMatch && currentName?.startsWith("scope:")) {
-      if (stripYamlQuotes(descriptionMatch[1] ?? "") !== "") described.push(currentName);
-    }
+    if (descriptionMatch && currentName?.startsWith("scope:") && stripYamlQuotes(descriptionMatch[1] ?? "") !== "")
+      described.push(currentName);
   }
   if (described.length === 0) return true;
   return {

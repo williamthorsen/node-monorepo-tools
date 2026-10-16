@@ -227,10 +227,12 @@ function readTagBoundaries(tagPrefixes: readonly string[], positionByHash: Reado
   const boundaries: TagBoundary[] = [];
   for (const line of output.split('\n')) {
     const [tag, creatorDate, objectName, dereferencedName] = line.split(FIELD_SEPARATOR);
-    if (tag === undefined || creatorDate === undefined || objectName === undefined) {
-      continue;
-    }
-    if (!matchesTagPrefix(tag, tagPrefixes)) {
+    if (
+      tag === undefined ||
+      creatorDate === undefined ||
+      objectName === undefined ||
+      !matchesTagPrefix(tag, tagPrefixes)
+    ) {
       continue;
     }
     // An annotated tag names its commit in the dereferenced field; a lightweight tag is the commit.

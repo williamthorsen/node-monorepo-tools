@@ -338,13 +338,15 @@ function runAndReport(computePlan: () => ReleasePlan, dryRun: boolean, style: Ou
   );
   reportPlanFiles(plan, false);
 
-  if (formatError !== undefined) {
-    reportError(
-      `The format command failed, but the release is prepared and ${RELEASE_TAGS_FILE} is written. ` +
-        `Format the release files and run 'release-kit commit'.`,
-    );
-    process.exit(1);
+  if (formatError === undefined) {
+    return;
   }
+
+  reportError(
+    `The format command failed, but the release is prepared and ${RELEASE_TAGS_FILE} is written. ` +
+      `Format the release files and run 'release-kit commit'.`,
+  );
+  process.exit(1);
 }
 
 /**

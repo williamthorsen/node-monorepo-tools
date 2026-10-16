@@ -105,7 +105,7 @@ export default defineRdyKit({
         {
           name: '.config/nmr.config.ts uses defineConfig',
           severity: 'recommend',
-          skip: () => (!fileExists('.config/nmr.config.ts') ? 'no nmr config file' : false),
+          skip: () => !fileExists('.config/nmr.config.ts') && 'no nmr config file',
           check: () => fileContains('.config/nmr.config.ts', /defineConfig/),
           fix: 'Wrap the config export with defineConfig() from @williamthorsen/nmr/config for type safety',
         },
@@ -117,7 +117,7 @@ export default defineRdyKit({
             return `eslint >= ${MIN_ESLINT_VERSION}`;
           },
           severity: 'error',
-          skip: () => (!hasDevDependency('eslint') ? 'eslint not installed' : false),
+          skip: () => !hasDevDependency('eslint') && 'eslint not installed',
           check: hasSupportedEslintVersion,
           get fix() {
             return `pnpm add --save-dev eslint@^${MIN_ESLINT_VERSION}. Earlier releases resolve config from the working directory, so nmr's root lint and lint:check would apply the root config to every package`;
@@ -128,7 +128,7 @@ export default defineRdyKit({
             return `@williamthorsen/strict-lint >= ${MIN_STRICT_LINT_VERSION}`;
           },
           severity: 'error',
-          skip: () => (!hasDevDependency('@williamthorsen/strict-lint') ? 'strict-lint not installed' : false),
+          skip: () => !hasDevDependency('@williamthorsen/strict-lint') && 'strict-lint not installed',
           check: hasSupportedStrictLintVersion,
           get fix() {
             return `pnpm add --save-dev @williamthorsen/strict-lint@^${MIN_STRICT_LINT_VERSION}. Earlier releases pin ESLint to one config and resolve ceilings from the working directory, so nmr's root lint:strict would report the wrong rules for every package`;
@@ -1208,7 +1208,7 @@ export function testSuiteGatesTestFileConventions(cwd: string = process.cwd()): 
  */
 function describeConventionsGuardSkip(): SkipResult {
   const guard = findConventionsGuard(process.cwd());
-  return guard === undefined ? false : `reported by checkTestFileConventions in ${guard}`;
+  return guard !== undefined && `reported by checkTestFileConventions in ${guard}`;
 }
 
 /**
@@ -1341,7 +1341,7 @@ export async function describeSelfHostedRunnerSkip(
   readFacts?: ReadGitHubFacts,
 ): Promise<SkipResult> {
   const status = await getSelfHostedRunnerStatus(cwd, readFacts);
-  return 'skip' in status ? status.skip : false;
+  return 'skip' in status && status.skip;
 }
 
 /**

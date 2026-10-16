@@ -86,7 +86,7 @@
           "path": "../../nmr-core/dist/esm/hasErrnoCode.js"
         },
         {
-          "hash": "211453c6",
+          "hash": "98509862",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/hashWorkingTree.js"
         },
@@ -101,7 +101,7 @@
           "path": "../../nmr-core/dist/esm/index.js"
         },
         {
-          "hash": "2507870d",
+          "hash": "89d3e3b4",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/parseArgs.js"
         },
@@ -126,7 +126,7 @@
           "path": "../../nmr-core/dist/esm/writeFileWithCheck.js"
         },
         {
-          "hash": "aaeb1a84",
+          "hash": "ffa13ccc",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -164,7 +164,7 @@
           "path": "../src/helpers/escapeControlCharacters.ts"
         },
         {
-          "hash": "47249ca4",
+          "hash": "2d1cf397",
           "kind": "module",
           "path": "../src/helpers/findClosestName.ts"
         },
@@ -233,8 +233,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.41.0",
       "source": "kits/default.ts",
-      "sourceHash": "aaeb1a84",
-      "targetHash": "772f4a8a"
+      "sourceHash": "ffa13ccc",
+      "targetHash": "b4253faa"
     }
   ]
 }

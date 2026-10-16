@@ -48,7 +48,7 @@ describe('DEFAULT_WORK_TYPES derivation from CANONICAL_TAXONOMY', () => {
   it('copies `excludedFromChangelog` from the JSON for every entry that declares it', () => {
     for (const entry of CANONICAL_TAXONOMY.types) {
       const config = DEFAULT_WORK_TYPES[entry.key];
-      const expected = entry.excludedFromChangelog === true ? true : undefined;
+      const expected = entry.excludedFromChangelog === true || undefined;
       expect(config?.excludedFromChangelog, `excludedFromChangelog for "${entry.key}"`).toBe(expected);
     }
   });

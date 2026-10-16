@@ -353,10 +353,11 @@ function formatChangelogFiles(
       lines.push(dim(`${indent}    Kept from the existing changelog: ${preservation.preservedVersions.join(', ')}`));
     }
     const dropped = preservation.droppedUnversionedHeadings;
-    if (dropped.length > 0) {
-      const message = `Dropped ${dropped.length} section${dropped.length === 1 ? '' : 's'} without a version: ${dropped.join(', ')}`;
-      lines.push(`${indent}    ${formatStatusLine(style, 'warning', message)}`);
+    if (dropped.length === 0) {
+      continue;
     }
+    const message = `Dropped ${dropped.length} section${dropped.length === 1 ? '' : 's'} without a version: ${dropped.join(', ')}`;
+    lines.push(`${indent}    ${formatStatusLine(style, 'warning', message)}`);
   }
   const removedFiles = release.removedChangelogFiles ?? [];
   for (const file of removedFiles) {
@@ -477,16 +478,17 @@ function formatChangeRecordWarnings(
       );
     }
   }
-  if (unroutedEntryScopes.length > 0) {
-    const count = unroutedEntryScopes.length;
-    const header = `${count} change-record entry scope${count === 1 ? ' does not match' : 's do not match'} any workspace in the commit's window (no item there)`;
-    lines.push(`${indent}  ${formatStatusLine(style, 'warning', `${header}:`)}`);
-    for (const finding of unroutedEntryScopes) {
-      const shortHash = finding.commitHash.slice(0, 7);
-      lines.push(
-        `${indent}    · ${shortHash} '${truncateSubject(finding.commitSubject)}': scope '${finding.scope}' at entry ${finding.entryPosition}`,
-      );
-    }
+  if (unroutedEntryScopes.length === 0) {
+    return;
+  }
+  const count = unroutedEntryScopes.length;
+  const header = `${count} change-record entry scope${count === 1 ? ' does not match' : 's do not match'} any workspace in the commit's window (no item there)`;
+  lines.push(`${indent}  ${formatStatusLine(style, 'warning', `${header}:`)}`);
+  for (const finding of unroutedEntryScopes) {
+    const shortHash = finding.commitHash.slice(0, 7);
+    lines.push(
+      `${indent}    · ${shortHash} '${truncateSubject(finding.commitSubject)}': scope '${finding.scope}' at entry ${finding.entryPosition}`,
+    );
   }
 }
 

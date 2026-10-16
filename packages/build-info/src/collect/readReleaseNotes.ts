@@ -83,11 +83,13 @@ function buildJsonReleaseNotes(entry: ChangelogJsonEntry): BuildInfo['releaseNot
     lines.push(`### ${section.title}`, '');
     for (const [index, item] of section.items.entries()) {
       lines.push(`- ${item.description}`);
-      if (item.body !== undefined) {
-        lines.push('', ...indentBodyLines(item.body));
-        if (index < section.items.length - 1) {
-          lines.push('');
-        }
+      if (item.body === undefined) {
+        continue;
+      }
+
+      lines.push('', ...indentBodyLines(item.body));
+      if (index < section.items.length - 1) {
+        lines.push('');
       }
     }
   }

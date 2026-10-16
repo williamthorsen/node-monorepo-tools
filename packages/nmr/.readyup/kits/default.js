@@ -7442,10 +7442,11 @@ function findClosestName(name, candidates) {
   let shortestDistance = Infinity;
   for (const candidate of candidates) {
     const distance = measureDistance(name, candidate);
-    if (distance < shortestDistance) {
-      shortestDistance = distance;
-      closestName = candidate;
+    if (distance >= shortestDistance) {
+      continue;
     }
+    shortestDistance = distance;
+    closestName = candidate;
   }
   return shortestDistance <= ceiling ? closestName : void 0;
 }
@@ -8510,7 +8511,7 @@ var default_default = defineRdyKit({
         {
           name: ".config/nmr.config.ts uses defineConfig",
           severity: "recommend",
-          skip: () => !fileExists(".config/nmr.config.ts") ? "no nmr config file" : false,
+          skip: () => !fileExists(".config/nmr.config.ts") && "no nmr config file",
           check: () => fileContains(".config/nmr.config.ts", /defineConfig/),
           fix: "Wrap the config export with defineConfig() from @williamthorsen/nmr/config for type safety"
         },
@@ -8521,7 +8522,7 @@ var default_default = defineRdyKit({
             return `eslint >= ${MIN_ESLINT_VERSION}`;
           },
           severity: "error",
-          skip: () => !hasDevDependency("eslint") ? "eslint not installed" : false,
+          skip: () => !hasDevDependency("eslint") && "eslint not installed",
           check: hasSupportedEslintVersion,
           get fix() {
             return `pnpm add --save-dev eslint@^${MIN_ESLINT_VERSION}. Earlier releases resolve config from the working directory, so nmr's root lint and lint:check would apply the root config to every package`;
@@ -8532,7 +8533,7 @@ var default_default = defineRdyKit({
             return `@williamthorsen/strict-lint >= ${MIN_STRICT_LINT_VERSION}`;
           },
           severity: "error",
-          skip: () => !hasDevDependency("@williamthorsen/strict-lint") ? "strict-lint not installed" : false,
+          skip: () => !hasDevDependency("@williamthorsen/strict-lint") && "strict-lint not installed",
           check: hasSupportedStrictLintVersion,
           get fix() {
             return `pnpm add --save-dev @williamthorsen/strict-lint@^${MIN_STRICT_LINT_VERSION}. Earlier releases pin ESLint to one config and resolve ceilings from the working directory, so nmr's root lint:strict would report the wrong rules for every package`;
@@ -9133,7 +9134,7 @@ function testSuiteGatesTestFileConventions(cwd = process.cwd()) {
 }
 function describeConventionsGuardSkip() {
   const guard = findConventionsGuard(process.cwd());
-  return guard === void 0 ? false : `reported by checkTestFileConventions in ${guard}`;
+  return guard !== void 0 && `reported by checkTestFileConventions in ${guard}`;
 }
 function findConventionsGuard(cwd) {
   return findTestFiles(cwd).find(
@@ -9170,7 +9171,7 @@ var NEVER_INSTALLED_PROGRAMS = /* @__PURE__ */ new Set(["corepack", "gh"]);
 var statusByCwd = /* @__PURE__ */ new Map();
 async function describeSelfHostedRunnerSkip(cwd = process.cwd(), readFacts) {
   const status = await getSelfHostedRunnerStatus(cwd, readFacts);
-  return "skip" in status ? status.skip : false;
+  return "skip" in status && status.skip;
 }
 function findSelfHostedRunnerFailures(facts, cwd) {
   const failures = [];

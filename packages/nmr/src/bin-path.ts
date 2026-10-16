@@ -25,10 +25,12 @@ export function prependBinDirs(options: {
   const additions: string[] = [];
   for (const dir of [anchorDir, monorepoRoot]) {
     const binDir = path.resolve(dir, 'node_modules', '.bin');
-    if (!seen.has(binDir)) {
-      seen.add(binDir);
-      additions.push(binDir);
+    if (seen.has(binDir)) {
+      continue;
     }
+
+    seen.add(binDir);
+    additions.push(binDir);
   }
 
   if (additions.length === 0) {

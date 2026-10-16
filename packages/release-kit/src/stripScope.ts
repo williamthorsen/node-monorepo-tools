@@ -17,10 +17,12 @@ export function stripScope(message: string): string {
 
   for (const pattern of TICKET_PREFIX_PATTERNS) {
     const match = remainder.match(pattern);
-    if (match) {
-      ticketPrefix += match[0];
-      remainder = remainder.slice(match[0].length);
+    if (!match) {
+      continue;
     }
+
+    ticketPrefix += match[0];
+    remainder = remainder.slice(match[0].length);
   }
 
   const pipeMatch = remainder.match(PIPE_SCOPE_PATTERN);

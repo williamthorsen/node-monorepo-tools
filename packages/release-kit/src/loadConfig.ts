@@ -490,8 +490,7 @@ function assertNoTagPrefixCollisions(
     for (let j = i + 1; j < sources.length; j++) {
       const a = sources[i];
       const b = sources[j];
-      if (a === undefined || b === undefined) continue;
-      if (a.owner === b.owner) continue;
+      if (a === undefined || b === undefined || a.owner === b.owner) continue;
       if (isPrefixCollision(a.prefix, b.prefix)) {
         throw new Error(
           `Tag prefix collision: '${a.prefix}' (${a.label}) and '${b.prefix}' (${b.label}). ` +

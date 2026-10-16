@@ -11,10 +11,12 @@ export function findClosestName(name: string, candidates: Iterable<string>): str
   let shortestDistance = Infinity;
   for (const candidate of candidates) {
     const distance = measureDistance(name, candidate);
-    if (distance < shortestDistance) {
-      shortestDistance = distance;
-      closestName = candidate;
+    if (distance >= shortestDistance) {
+      continue;
     }
+
+    shortestDistance = distance;
+    closestName = candidate;
   }
 
   return shortestDistance <= ceiling ? closestName : undefined;
