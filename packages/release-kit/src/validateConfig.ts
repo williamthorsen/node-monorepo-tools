@@ -247,18 +247,16 @@ function listLegacyIdentityDeclarations(
   const fromWorkspaces = (config.workspaces ?? []).flatMap((workspace, index) =>
     workspace.legacyIdentities === undefined
       ? []
-      : [
-          {
-            label: `workspaces[${index}]`,
-            owner: `workspace '${workspace.dir}'`,
-            legacyIdentities: workspace.legacyIdentities,
-          },
-        ],
+      : {
+          label: `workspaces[${index}]`,
+          owner: `workspace '${workspace.dir}'`,
+          legacyIdentities: workspace.legacyIdentities,
+        },
   );
   const fromReleases = Object.entries(config.releases ?? {}).flatMap(([name, entry]) =>
     entry === false || !('path' in entry) || entry.legacyIdentities === undefined
       ? []
-      : [{ label: `releases.${name}`, owner: `release '${name}'`, legacyIdentities: entry.legacyIdentities }],
+      : { label: `releases.${name}`, owner: `release '${name}'`, legacyIdentities: entry.legacyIdentities },
   );
   return [...fromWorkspaces, ...fromReleases];
 }

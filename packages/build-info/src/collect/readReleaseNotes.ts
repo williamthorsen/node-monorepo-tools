@@ -51,7 +51,7 @@ export function readReleaseNotes({ cwd = process.cwd() }: ReadReleaseNotesOption
   }
   return jsonEntries.flatMap((entry) => {
     const notes = buildJsonReleaseNotes(entry);
-    return notes === undefined ? [] : [{ version: entry.version, ...notes }];
+    return notes === undefined ? [] : { version: entry.version, ...notes };
   });
 }
 
@@ -157,7 +157,7 @@ function readChangelogMarkdown(cwd: string): ReleaseNotesEntry[] {
 
   return sections.flatMap(({ date, lines, version }) => {
     const markdown = lines.join('\n').trim();
-    return markdown.length === 0 ? [] : [{ version, ...(date !== undefined && { date }), markdown }];
+    return markdown.length === 0 ? [] : { version, ...(date !== undefined && { date }), markdown };
   });
 }
 

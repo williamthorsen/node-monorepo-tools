@@ -141,7 +141,7 @@ function listFiles(rootDir: string, relativeDir = ''): string[] {
     if (entry.isDirectory()) {
       return PRUNED.has(entry.name) ? [] : listFiles(rootDir, relativePath);
     }
-    return entry.isFile() ? [relativePath] : [];
+    return entry.isFile() ? relativePath : [];
   });
 }
 

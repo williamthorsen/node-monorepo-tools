@@ -74,7 +74,7 @@ export function noUnguardedLefthookInstall(cwd: string = process.cwd()): boolean
     const command = scripts[name];
     if (typeof command !== 'string') return [];
     const isUnguarded = LEFTHOOK_INSTALL_PATTERN.test(command) && !LEFTHOOK_CHECK_INSTALL_PATTERN.test(command);
-    return isUnguarded ? [`${name}: ${command}`] : [];
+    return isUnguarded ? `${name}: ${command}` : [];
   });
 
   if (unguardedScripts.length === 0) return true;

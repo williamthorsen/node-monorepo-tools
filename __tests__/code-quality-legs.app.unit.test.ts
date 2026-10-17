@@ -47,7 +47,7 @@ interface Leg {
 function expandSteps(steps: string[], registry: ScriptRegistry, legNames: ReadonlySet<string>): string[] {
   return steps.flatMap((step) => {
     const value = registry[step];
-    if (legNames.has(step) || !Array.isArray(value)) return [step];
+    if (legNames.has(step) || !Array.isArray(value)) return step;
     const expanded = [
       ...toHookNames(step, 'pre', registry),
       ...toStepNames(value),

@@ -505,7 +505,7 @@ const OVERSIZED_STRUCTURE: Verdict = {
 
 /** Reads the excerpts in a parsed record's replay, skipping an entry from which the ladder shed the excerpt. */
 function readExcerpts(parsedVerdict: unknown): string[] {
-  return readReplay(parsedVerdict).flatMap((line) => (typeof line['excerpt'] === 'string' ? [line['excerpt']] : []));
+  return readReplay(parsedVerdict).flatMap((line) => (typeof line['excerpt'] === 'string' ? line['excerpt'] : []));
 }
 
 /** Reports whether a replay entry parsed back as an object, as every one that nmr emits does. */
@@ -551,7 +551,7 @@ function readReplay(parsedVerdict: unknown): Record<string, unknown>[] {
 
 /** Reads the scope named by each constituent of a parsed record's replay. */
 function readScopes(parsedVerdict: unknown): string[] {
-  return readReplay(parsedVerdict).flatMap((line) => (typeof line['scope'] === 'string' ? [line['scope']] : []));
+  return readReplay(parsedVerdict).flatMap((line) => (typeof line['scope'] === 'string' ? line['scope'] : []));
 }
 
 // endregion | Helpers

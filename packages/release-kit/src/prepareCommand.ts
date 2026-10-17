@@ -112,11 +112,11 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
 function findReleasedPackagePaths(plan: ReleasePlan, targets: readonly ReleaseTarget[]): string[] {
   const releasedIds = new Set(
     plan.targets.flatMap((result) =>
-      result.status === 'released' && result.kind === 'package' ? [result.targetId] : [],
+      result.status === 'released' && result.kind === 'package' ? result.targetId : [],
     ),
   );
   return targets.flatMap((target) =>
-    target.kind === 'package' && releasedIds.has(target.id) ? [target.packagePath] : [],
+    target.kind === 'package' && releasedIds.has(target.id) ? target.packagePath : [],
   );
 }
 
@@ -192,12 +192,12 @@ function resolveSetVersions(setVersion: string, targets: readonly ReleaseTarget[
 
 /** Returns the ids of the targets that `--only` can name, in target order: all but a `project` block's composite. */
 function listSelectableIds(targets: readonly ReleaseTarget[]): string[] {
-  return targets.flatMap((target) => (target.id === PROJECT_TARGET_ID ? [] : [target.id]));
+  return targets.flatMap((target) => (target.id === PROJECT_TARGET_ID ? [] : target.id));
 }
 
 /** Returns the ids of the package and directory targets, which `--set-version` can name, in target order. */
 function listMemberIds(targets: readonly ReleaseTarget[]): string[] {
-  return targets.flatMap((target) => (target.kind === 'composite' ? [] : [target.id]));
+  return targets.flatMap((target) => (target.kind === 'composite' ? [] : target.id));
 }
 
 /**
