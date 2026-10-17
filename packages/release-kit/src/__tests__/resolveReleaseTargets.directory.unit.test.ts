@@ -12,9 +12,9 @@ vi.mock(import('node:fs'), () => ({
   statSync: mockStatSync,
 }));
 
+import type { ReleaseKitConfig } from '../configSchema.ts';
 import type { WorkspaceDiscovery } from '../discoverWorkspaces.ts';
 import { resolveReleaseTargets } from '../resolveReleaseTargets.ts';
-import type { ReleaseKitConfig } from '../types.ts';
 
 /** Manifests keyed by repo-relative path; every test declares the files that the projection may read. */
 const files = new Map<string, unknown>();

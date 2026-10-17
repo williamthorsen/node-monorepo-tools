@@ -4,6 +4,7 @@ import { basename } from 'node:path';
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './configSchema.ts';
 import { DEFAULT_PROJECT_TAG_PREFIX } from './defaults.ts';
 import { deriveDirectoryConfig } from './deriveDirectoryConfig.ts';
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
@@ -11,7 +12,6 @@ import { detectUndeclaredTagPrefixes, type UndeclaredTagPrefix } from './detectU
 import { describeEmptyWorkspace, discoverWorkspaces } from './discoverWorkspaces.ts';
 import { matchesTagPrefix } from './matchesTagPrefix.ts';
 import { normalizeWorkspacePath } from './resolveReleaseDeclaration.ts';
-import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './types.ts';
 
 /** One workspace's or directory target's preview row in the tag-prefix preview. */
 export interface TagPrefixPreviewRow {

@@ -8,7 +8,7 @@ import type { ChangelogEntry } from './types.ts';
  *
  * Checks the entry's top level only: `sections` must be an array, and its contents pass through unvalidated.
  * `.meta/changelog.json` is written by release-kit and read tolerantly; strict validation applies to the
- * human-authored `.meta/changelog-overrides.json`, in `changelogOverrides.ts`.
+ * human-authored `.meta/changelog-overrides.json`, in `loadChangelogOverrides.ts`.
  */
 export function isChangelogEntry(value: unknown): value is ChangelogEntry {
   return (

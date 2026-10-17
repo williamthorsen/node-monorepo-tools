@@ -1,4 +1,5 @@
-import type { ChangelogDiagnostics, ReleaseHistory } from '../buildChangelogEntries.ts';
+import type { ReleaseHistory } from '../buildChangelogEntries.ts';
+import type { ChangelogDiagnostics } from '../buildChangelogItem.ts';
 import type { RawCommit } from '../enumerateReleaseWindows.ts';
 import type { ChangelogEntry, ChangelogSection, ReleaseType } from '../types.ts';
 import { type CommitStub, makeStubbedCommits } from './commitStubs.ts';

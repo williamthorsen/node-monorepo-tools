@@ -4,12 +4,14 @@
 import { reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import type { ReleaseKitConfig } from './configSchema.ts';
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { formatExcludedSkip } from './formatExcludedSkip.ts';
-import { mergeMonorepoConfig, readRootPackageVersion } from './loadConfig.ts';
+import { readRootPackageVersion } from './loadConfig.ts';
+import { mergeMonorepoConfig } from './mergeConfig.ts';
 import { type ResolvedTag, resolveReleaseTags } from './resolveReleaseTags.ts';
-import type { DirectoryConfig, ReleaseKitConfig, ResolvedProjectConfig, WorkspaceConfig } from './types.ts';
+import type { DirectoryConfig, ResolvedProjectConfig, WorkspaceConfig } from './types.ts';
 
 /**
  * Discovers workspaces, resolves release tags from HEAD, validates `--tags` names against the full resolved tag

@@ -1,17 +1,18 @@
 import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
+import { formatStaleOverrideKeyWarning } from './applyChangelogOverrides.ts';
 import { assertTaggedBaseline, type UntaggedBaseline } from './assertTaggedBaseline.ts';
 import type { ReleaseHistory } from './buildChangelogEntries.ts';
 import { buildDependencyGraph, type DependencyGraph } from './buildDependencyGraph.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
-import { createOverrideContext, formatStaleOverrideKeyWarning, type OverrideContext } from './changelogOverrides.ts';
+import { createOverrideContext, type OverrideContext } from './changelogOverrides.ts';
 import { deriveDependenciesHeader, deriveSectionOrder } from './deriveReleaseNotesConfig.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
 import { findTransitiveDependents } from './findTransitiveDependents.ts';
 import { findUnroutedEntryScopes } from './findUnroutedEntryScopes.ts';
 import { getAllTagPrefixes } from './generateChangelogs.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
-import { resolveWorkTypes } from './loadConfig.ts';
+import { resolveWorkTypes } from './mergeConfig.ts';
 import {
   buildSkippedTargetResult,
   decideTargetRelease,

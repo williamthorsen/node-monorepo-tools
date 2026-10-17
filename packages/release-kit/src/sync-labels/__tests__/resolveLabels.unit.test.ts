@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { RepoLabelsConfig } from '../../types.ts';
+import type { RepoLabelsConfig } from '../../configSchema.ts';
 import type { LabelDefinition } from '../types.ts';
 
 const mockLoadPreset = vi.hoisted(() => vi.fn());

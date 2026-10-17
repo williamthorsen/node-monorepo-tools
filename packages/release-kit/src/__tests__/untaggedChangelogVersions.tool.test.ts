@@ -6,7 +6,7 @@ import { createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolb
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
 
-import { mergeMonorepoConfig } from '../loadConfig.ts';
+import { mergeMonorepoConfig } from '../mergeConfig.ts';
 import { applyReleasePlan } from '../releasePlan.ts';
 import { releasePrepareTargets } from '../releasePrepareTargets.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
