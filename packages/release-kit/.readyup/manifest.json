@@ -171,9 +171,14 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "66081555",
+          "hash": "96097af7",
           "kind": "module",
           "path": "kits/npm-auto-publish.ts"
+        },
+        {
+          "hash": "05215737",
+          "kind": "module",
+          "path": "lib/npm-trust.ts"
         },
         {
           "hash": "d360febf",
@@ -195,8 +200,8 @@
       "path": "kits/npm-auto-publish.js",
       "readyupVersion": "0.41.1",
       "source": "kits/npm-auto-publish.ts",
-      "sourceHash": "66081555",
-      "targetHash": "c16b4187"
+      "sourceHash": "96097af7",
+      "targetHash": "57caedc0"
     }
   ]
 }

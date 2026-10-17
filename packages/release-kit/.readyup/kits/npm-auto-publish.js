@@ -13,15 +13,9 @@ import {
   fileContains,
   fileExists,
   getJsonValue,
-  isRecord as isRecord2,
   readFile,
   readJsonFile
 } from "readyup/check-utils";
-
-// src/init/hasProvenance.ts
-function hasProvenance(workflowContent) {
-  return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
-}
 
 // src/npmRegistry.ts
 import { execFileSync } from "node:child_process";
@@ -87,10 +81,169 @@ function runNpmJson(args) {
   }
 }
 
-// .readyup/kits/npm-auto-publish.ts
+// .readyup/lib/npm-trust.ts
+import { isRecord as isRecord2 } from "readyup/check-utils";
+
+// src/init/hasProvenance.ts
+function hasProvenance(workflowContent) {
+  return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
+}
+
+// .readyup/lib/npm-trust.ts
 var OTP_ERROR_CODE = "EOTP";
 var PUBLISH_WORKFLOW_FILE = "publish.yaml";
 var NO_GITHUB_REMOTE_FIX = "Add an origin remote that points to the GitHub repo, then run this check again";
+function classifyNpmAuth(result) {
+  if (result.exitOk) {
+    return { status: "authenticated" };
+  }
+  const error = readNpmError(result.stdout);
+  if (error === void 0) {
+    return { status: "unreachable", detail: "The npm registry query failed without a readable error payload" };
+  }
+  if (AUTH_ERROR_CODES.has(error.code)) {
+    return { status: "unauthenticated", detail: `The npm registry rejected the session (${error.code})` };
+  }
+  if (UNREACHABLE_ERROR_CODES.has(error.code)) {
+    return { status: "unreachable", detail: `Cannot reach the npm registry (${error.code})` };
+  }
+  return { status: "unreachable", detail: `The npm registry query failed (${error.code}): ${error.summary}` };
+}
+function classifyProvenanceSetting(workflowContent, visibility) {
+  if (workflowContent === void 0) {
+    return {
+      ok: false,
+      detail: "Cannot read .github/workflows/publish.yaml",
+      fix: "Check the file's permissions"
+    };
+  }
+  if (typeof visibility !== "string") {
+    return { ok: false, detail: visibility.detail, fix: NO_GITHUB_REMOTE_FIX };
+  }
+  if (visibility === "unknown") {
+    return {
+      ok: false,
+      detail: "The GitHub CLI could not report the repo's visibility",
+      fix: "Install and authenticate the GitHub CLI: gh auth login"
+    };
+  }
+  const provenance = hasProvenance(workflowContent);
+  if (visibility === "public" && !provenance) {
+    return {
+      ok: false,
+      detail: "The repo is public and publish.yaml does not set provenance: true",
+      fix: "Set provenance: true in .github/workflows/publish.yaml; public repos should generate provenance attestations"
+    };
+  }
+  if (visibility === "private" && provenance) {
+    return {
+      ok: false,
+      detail: "The repo is private and publish.yaml sets provenance: true",
+      fix: "Make the GitHub repo public; OIDC publishing with provenance requires a public repo"
+    };
+  }
+  return { ok: true };
+}
+function classifyTrustCapability(auth, probe) {
+  if (auth.status !== "authenticated") {
+    return { ok: false, detail: auth.detail };
+  }
+  return probe?.status === "unanswerable" ? { ok: false, detail: probe.detail } : { ok: true };
+}
+function classifyTrustQuery(result, expectedRepo, expectedFile) {
+  if (!result.exitOk) {
+    const error = readNpmError(result.stdout);
+    if (error === void 0) {
+      return { status: "error", detail: "The npm trust query failed without a readable error payload" };
+    }
+    if (error.code === "E404") {
+      return { status: "not-configured" };
+    }
+    if (AUTH_ERROR_CODES.has(error.code) || error.code === OTP_ERROR_CODE) {
+      return {
+        status: "unanswerable",
+        detail: `The npm session cannot answer trust queries (${error.code}): ${error.summary}`
+      };
+    }
+    if (UNREACHABLE_ERROR_CODES.has(error.code)) {
+      return { status: "unanswerable", detail: `Cannot reach the npm registry (${error.code})` };
+    }
+    return { status: "error", detail: `The npm trust query failed (${error.code}): ${error.summary}` };
+  }
+  const relationships = readTrustRelationships(result.stdout);
+  if (relationships === void 0) {
+    return { status: "error", detail: "The npm trust query returned a payload that this check cannot read" };
+  }
+  if (relationships.length === 0) {
+    return { status: "not-configured" };
+  }
+  if (!expectedRepo.ok) {
+    return {
+      status: "error",
+      detail: `Cannot compare the trusted publisher with this repo; found ${describeTrustRelationships(relationships)}`
+    };
+  }
+  const isMatch = relationships.some(
+    (relationship) => relationship.type === "github" && relationship.repository === expectedRepo.value && relationship.file === expectedFile
+  );
+  return isMatch ? { status: "configured" } : {
+    status: "mismatched",
+    detail: `Expected github ${expectedRepo.value} (${expectedFile}); found ${describeTrustRelationships(relationships)}`
+  };
+}
+function describeNpmPackageLookup(lookup) {
+  if (lookup.status === "published") {
+    return { ok: true };
+  }
+  if (lookup.status === "unpublished") {
+    return { ok: false, detail: "The npm registry does not list this package" };
+  }
+  return {
+    ok: false,
+    detail: lookup.detail,
+    fix: "Restore access to the npm registry, then run this check again"
+  };
+}
+function describeTrustedPublisher(result, packageName, ownerRepo) {
+  if (result.status === "configured") {
+    return { ok: true };
+  }
+  const detail = result.status === "not-configured" ? "The npm registry does not list any trusted publisher for this package" : result.detail;
+  return ownerRepo.ok ? { ok: false, detail, fix: formatTrustCommand(packageName, ownerRepo.value) } : { ok: false, detail: `${detail}. ${ownerRepo.detail}`, fix: NO_GITHUB_REMOTE_FIX };
+}
+function formatTrustCommand(packageName, ownerRepo) {
+  return `Run: npm trust github ${packageName} --repo ${ownerRepo} --file ${PUBLISH_WORKFLOW_FILE}`;
+}
+function parseGitHubOwnerRepo(url) {
+  const match = /git@github\.com:(.+?)(?:\.git)?$/.exec(url) ?? /github\.com\/(.+?)(?:\.git)?$/.exec(url);
+  const ownerRepo = match?.[1];
+  return ownerRepo === void 0 ? { ok: false, detail: `The origin remote does not point to GitHub: ${url}` } : { ok: true, value: ownerRepo };
+}
+function describeTrustRelationships(relationships) {
+  return relationships.map((relationship) => {
+    const type = typeof relationship.type === "string" ? relationship.type : "(unknown)";
+    const repository = typeof relationship.repository === "string" ? relationship.repository : "(unknown)";
+    const file = typeof relationship.file === "string" ? relationship.file : "(unknown)";
+    return `${type} ${repository} (${file})`;
+  }).join(", ");
+}
+function readTrustRelationships(stdout) {
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return void 0;
+  }
+  if (Array.isArray(parsed)) {
+    return parsed.filter((entry) => isRecord2(entry) && "type" in entry);
+  }
+  if (!isRecord2(parsed)) {
+    return void 0;
+  }
+  return "type" in parsed ? [parsed] : [];
+}
+
+// .readyup/kits/npm-auto-publish.ts
 var repoChecklist = defineRdyChecklist({
   name: "repo",
   checks: [
@@ -247,135 +400,6 @@ function checkProvenanceMatchesVisibility() {
   }
   return classifyProvenanceSetting(content, visibility);
 }
-function classifyNpmAuth(result) {
-  if (result.exitOk) {
-    return { status: "authenticated" };
-  }
-  const error = readNpmError(result.stdout);
-  if (error === void 0) {
-    return { status: "unreachable", detail: "The npm registry query failed without a readable error payload" };
-  }
-  if (AUTH_ERROR_CODES.has(error.code)) {
-    return { status: "unauthenticated", detail: `The npm registry rejected the session (${error.code})` };
-  }
-  if (UNREACHABLE_ERROR_CODES.has(error.code)) {
-    return { status: "unreachable", detail: `Cannot reach the npm registry (${error.code})` };
-  }
-  return { status: "unreachable", detail: `The npm registry query failed (${error.code}): ${error.summary}` };
-}
-function classifyProvenanceSetting(workflowContent, visibility) {
-  if (workflowContent === void 0) {
-    return {
-      ok: false,
-      detail: "Cannot read .github/workflows/publish.yaml",
-      fix: "Check the file's permissions"
-    };
-  }
-  if (typeof visibility !== "string") {
-    return { ok: false, detail: visibility.detail, fix: NO_GITHUB_REMOTE_FIX };
-  }
-  if (visibility === "unknown") {
-    return {
-      ok: false,
-      detail: "The GitHub CLI could not report the repo's visibility",
-      fix: "Install and authenticate the GitHub CLI: gh auth login"
-    };
-  }
-  const provenance = hasProvenance(workflowContent);
-  if (visibility === "public" && !provenance) {
-    return {
-      ok: false,
-      detail: "The repo is public and publish.yaml does not set provenance: true",
-      fix: "Set provenance: true in .github/workflows/publish.yaml; public repos should generate provenance attestations"
-    };
-  }
-  if (visibility === "private" && provenance) {
-    return {
-      ok: false,
-      detail: "The repo is private and publish.yaml sets provenance: true",
-      fix: "Make the GitHub repo public; OIDC publishing with provenance requires a public repo"
-    };
-  }
-  return { ok: true };
-}
-function classifyTrustCapability(auth, probe) {
-  if (auth.status !== "authenticated") {
-    return { ok: false, detail: auth.detail };
-  }
-  return probe?.status === "unanswerable" ? { ok: false, detail: probe.detail } : { ok: true };
-}
-function classifyTrustQuery(result, expectedRepo, expectedFile) {
-  if (!result.exitOk) {
-    const error = readNpmError(result.stdout);
-    if (error === void 0) {
-      return { status: "error", detail: "The npm trust query failed without a readable error payload" };
-    }
-    if (error.code === "E404") {
-      return { status: "not-configured" };
-    }
-    if (AUTH_ERROR_CODES.has(error.code) || error.code === OTP_ERROR_CODE) {
-      return {
-        status: "unanswerable",
-        detail: `The npm session cannot answer trust queries (${error.code}): ${error.summary}`
-      };
-    }
-    if (UNREACHABLE_ERROR_CODES.has(error.code)) {
-      return { status: "unanswerable", detail: `Cannot reach the npm registry (${error.code})` };
-    }
-    return { status: "error", detail: `The npm trust query failed (${error.code}): ${error.summary}` };
-  }
-  const relationships = readTrustRelationships(result.stdout);
-  if (relationships === void 0) {
-    return { status: "error", detail: "The npm trust query returned a payload that this check cannot read" };
-  }
-  if (relationships.length === 0) {
-    return { status: "not-configured" };
-  }
-  if (!expectedRepo.ok) {
-    return {
-      status: "error",
-      detail: `Cannot compare the trusted publisher with this repo; found ${describeTrustRelationships(relationships)}`
-    };
-  }
-  const isMatch = relationships.some(
-    (relationship) => relationship.type === "github" && relationship.repository === expectedRepo.value && relationship.file === expectedFile
-  );
-  return isMatch ? { status: "configured" } : {
-    status: "mismatched",
-    detail: `Expected github ${expectedRepo.value} (${expectedFile}); found ${describeTrustRelationships(relationships)}`
-  };
-}
-function describeNpmPackageLookup(lookup) {
-  if (lookup.status === "published") {
-    return { ok: true };
-  }
-  if (lookup.status === "unpublished") {
-    return { ok: false, detail: "The npm registry does not list this package" };
-  }
-  return {
-    ok: false,
-    detail: lookup.detail,
-    fix: "Restore access to the npm registry, then run this check again"
-  };
-}
-function describeTrustedPublisher(result, packageName, ownerRepo) {
-  if (result.status === "configured") {
-    return { ok: true };
-  }
-  const detail = result.status === "not-configured" ? "The npm registry does not list any trusted publisher for this package" : result.detail;
-  return ownerRepo.ok ? { ok: false, detail, fix: formatTrustCommand(packageName, ownerRepo.value) } : { ok: false, detail: `${detail}. ${ownerRepo.detail}`, fix: NO_GITHUB_REMOTE_FIX };
-}
-function describeTrustRelationships(relationships) {
-  return relationships.map((relationship) => {
-    const type = typeof relationship.type === "string" ? relationship.type : "(unknown)";
-    const repository = typeof relationship.repository === "string" ? relationship.repository : "(unknown)";
-    const file = typeof relationship.file === "string" ? relationship.file : "(unknown)";
-    return `${type} ${repository} (${file})`;
-  }).join(", ");
-}
-function formatTrustCommand(packageName, ownerRepo) {
-  return `Run: npm trust github ${packageName} --repo ${ownerRepo} --file ${PUBLISH_WORKFLOW_FILE}`;
-}
 var getCachedNpmAuthStatus = /* @__PURE__ */ (() => {
   let cached;
   return () => cached ??= classifyNpmAuth(runNpmJson(["whoami", "--json"]));
@@ -422,11 +446,6 @@ function isRepoPrivate(ownerRepo) {
   }).trim();
   return result === "true";
 }
-function parseGitHubOwnerRepo(url) {
-  const match = /git@github\.com:(.+?)(?:\.git)?$/.exec(url) ?? /github\.com\/(.+?)(?:\.git)?$/.exec(url);
-  const ownerRepo = match?.[1];
-  return ownerRepo === void 0 ? { ok: false, detail: `The origin remote does not point to GitHub: ${url}` } : { ok: true, value: ownerRepo };
-}
 function probeTrustQuery() {
   const probeName = selectProbeName();
   return probeName === void 0 ? void 0 : getTrustQueryResult(probeName);
@@ -434,21 +453,6 @@ function probeTrustQuery() {
 function readPublishRegistry(workspace) {
   const registry = getJsonValue(workspace.packageJson, "publishConfig", "registry");
   return typeof registry === "string" ? registry : void 0;
-}
-function readTrustRelationships(stdout) {
-  let parsed;
-  try {
-    parsed = JSON.parse(stdout);
-  } catch {
-    return void 0;
-  }
-  if (Array.isArray(parsed)) {
-    return parsed.filter((entry) => isRecord2(entry) && "type" in entry);
-  }
-  if (!isRecord2(parsed)) {
-    return void 0;
-  }
-  return "type" in parsed ? [parsed] : [];
 }
 function resolveOwnerRepo() {
   let url;
@@ -477,15 +481,8 @@ function skipIfNotPublishable(workspace) {
 }
 export {
   buildWorkspaceCheck,
-  classifyNpmAuth,
-  classifyProvenanceSetting,
-  classifyTrustCapability,
-  classifyTrustQuery,
   npm_auto_publish_default as default,
-  describeNpmPackageLookup,
-  describeTrustedPublisher,
   packagesChecklist,
-  parseGitHubOwnerRepo,
   selectProbeName,
   skipIfNotPublishable,
   skipIfNothingPublishable
