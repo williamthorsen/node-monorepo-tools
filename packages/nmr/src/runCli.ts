@@ -49,6 +49,7 @@ import { type FilterSelection, readFilterSelection } from './helpers/filter-sele
 import { findClosestName } from './helpers/findClosestName.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import { resolvePackageJsonPath } from './helpers/package-json.ts';
+import { quoteForShell } from './helpers/quoteForShell.ts';
 import { composeTranscript } from './helpers/transcript.ts';
 import {
   acquireMachineLock,
@@ -2066,14 +2067,6 @@ function splitMisplacedFlags(passthrough: readonly string[]): {
   }
 
   return { flagNames: [...flagNames], movedTokens, remainingTokens };
-}
-
-/**
- * Shell-escapes a single argument by wrapping in single quotes
- * and escaping any embedded single quotes.
- */
-function quoteForShell(arg: string): string {
-  return "'" + arg.replace(/'/g, String.raw`'\''`) + "'";
 }
 
 /**

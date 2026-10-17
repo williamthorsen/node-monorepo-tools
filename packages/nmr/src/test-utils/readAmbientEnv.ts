@@ -4,6 +4,7 @@ import { DEBUG_ENV_VAR, NO_CACHE_ENV_VAR, RUN_ID_ENV_VAR, TREE_SNAPSHOT_ENV_VAR 
 import { ENTRY_CHAIN_ENV_VAR } from '../entry-chain.ts';
 import { LOCK_DIR_ENV_VAR, LOCK_TOKEN_ENV_VAR, NO_LOCK_ENV_VAR } from '../machine-lock.ts';
 import { OUTPUT_STYLE_ENV_VAR } from '../output-style.ts';
+import { DELEGATE_ENV_VAR } from '../remote-run.ts';
 import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { RUN_IF_PRESENT_ENV_VAR } from '../runCli.ts';
 import { AGENT_ENV_VARS, COMMAND_VERBOSITY_ENV_VAR } from '../verbosity.ts';
@@ -12,6 +13,7 @@ import { AGENT_ENV_VARS, COMMAND_VERBOSITY_ENV_VAR } from '../verbosity.ts';
 const NMR_OWN_ENV_VARS: readonly string[] = [
   COMMAND_VERBOSITY_ENV_VAR,
   DEBUG_ENV_VAR,
+  DELEGATE_ENV_VAR,
   ENTRY_CHAIN_ENV_VAR,
   LOCK_DIR_ENV_VAR,
   LOCK_TOKEN_ENV_VAR,
