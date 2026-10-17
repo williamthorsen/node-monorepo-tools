@@ -84,12 +84,11 @@ describe(composeRunScript, () => {
       statusPath: '/tmp/status',
     });
 
-    expect(script).toContain(
-      String.raw`NMR_OUTPUT_STYLE='plain' pnpm exec nmr --no-delegate '-F' 'core' 'test' 'it'\''s here' 'a b' </dev/null &`,
-    );
+    expect(script).toMatch(/^NMR_OUTPUT_STYLE='plain' node -e '/m);
+    expect(script).toContain(String.raw` pnpm exec nmr --no-delegate '-F' 'core' 'test' 'it'\''s here' 'a b'`);
     expect(script).toContain(`mkdir -p "$HOME"/'repo' && cd "$HOME"/'repo' || exit 1`);
     expect(script).toContain(String.raw`printf '%s\n' "$nmr_status" > /tmp/status`);
-    expect(script).toContain('{ kill -TERM -"$watcher_pid"; wait "$watcher_pid"; } 2>/dev/null');
+    expect(script).not.toContain('set -m');
   });
 });
 

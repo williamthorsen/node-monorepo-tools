@@ -43,10 +43,11 @@ export type SnapshotResult =
 /**
  * Composes the script that runs nmr on the host, from the directory that corresponds to the local one.
  *
- * nmr runs as a job in its own process group, with stdin closed. A watcher reads the connection's stdin, which the
- * local `ssh` holds open and closes when it exits, as on Ctrl-C; on that end of input, the watcher stops nmr's whole
- * group, so that an interrupted run does not continue on the host. `--no-delegate` keeps a host whose environment
- * sets `NMR_DELEGATE` from passing the command on again.
+ * A Node launcher starts nmr in its own process group, with stdin closed, and reads the connection's stdin, which the
+ * local `ssh` holds open and closes when it exits, as on Ctrl-C; on that end of input, the launcher stops nmr's whole
+ * group, so that an interrupted run does not continue on the host. The launcher rather than the shell's job control
+ * makes the group, because a shell such as dash refuses job control without a terminal. `--no-delegate` keeps a host
+ * whose environment sets `NMR_DELEGATE` from passing the command on again.
  *
  * The script writes nmr's status to `statusPath` before it exits, so that a 255 from `ssh` can be told apart: It is
  * nmr's own when the file records it, and a dropped connection otherwise.
@@ -61,21 +62,23 @@ export function composeRunScript(options: {
 }): string {
   const { nmrArgs, remoteEnv, runDir, statusPath } = options;
   const assignments = Object.entries(remoteEnv).map(([name, value]) => `${name}=${quoteForShell(value)}`);
-  const invocation = [...assignments, 'pnpm', 'exec', 'nmr', '--no-delegate', ...nmrArgs.map(quoteForShell)].join(' ');
+  const invocation = [
+    ...assignments,
+    'node',
+    '-e',
+    quoteForShell(RUN_LAUNCHER_SOURCE),
+    'pnpm',
+    'exec',
+    'nmr',
+    '--no-delegate',
+    ...nmrArgs.map(quoteForShell),
+  ].join(' ');
 
   return [
     `rm -f ${statusPath}`,
     `mkdir -p ${runDir} && cd ${runDir} || exit 1`,
-    'set -m',
-    `${invocation} </dev/null &`,
-    'nmr_pid=$!',
-    '{ cat >/dev/null; kill -TERM -"$nmr_pid"; } >/dev/null 2>&1 &',
-    'watcher_pid=$!',
-    'set +m',
-    'wait "$nmr_pid"',
+    invocation,
     'nmr_status=$?',
-    // Reap the watcher inside the redirection, so that the shell's report of its termination goes nowhere.
-    '{ kill -TERM -"$watcher_pid"; wait "$watcher_pid"; } 2>/dev/null',
     String.raw`printf '%s\n' "$nmr_status" > ${statusPath}`,
     'exit "$nmr_status"',
   ].join('\n');
@@ -310,8 +313,8 @@ export async function runRemotely(options: {
 /**
  * Wraps a script to run under `/bin/sh` with the `PATH` that the user's interactive login shell sets. pnpm's own
  * installer and the common version managers set it up in the interactive startup file, such as `~/.zshrc`, which a
- * non-interactive shell does not read. The script runs under `sh` rather than that shell itself, because the job
- * control on which the run script relies is not available in every login shell.
+ * non-interactive shell does not read. The script runs under `sh` rather than that shell itself, because the login
+ * shell, such as fish, may not accept the POSIX syntax in which the scripts are written.
  *
  * A startup file may print to stdout, so the shell prints `PATH` after a marker, and only what follows the last
  * marker is read. When no marker arrives, the script keeps the `PATH` with which `ssh` started it.
@@ -339,6 +342,21 @@ const LOGIN_PATH_PREAMBLE = [
  * path to this command, which the script receives as `$1`.
  */
 const RECEIVE_PACK_COMMAND = `/bin/sh -c ${quoteForShell(`${LOGIN_PATH_PREAMBLE}; exec git receive-pack "$1"`)} nmr-receive-pack`;
+
+/**
+ * Runs its arguments as a command in a process group of its own, with stdin closed, and exits with the command's
+ * status. When its own stdin ends, it stops the command's whole group.
+ */
+const RUN_LAUNCHER_SOURCE = [
+  "const { spawn } = require('node:child_process');",
+  "const { constants } = require('node:os');",
+  'const [file, ...args] = process.argv.slice(1);',
+  "const child = spawn(file, args, { detached: true, stdio: ['ignore', 'inherit', 'inherit'] });",
+  "const stop = () => { try { process.kill(-child.pid, 'SIGTERM'); } catch {} };",
+  "process.stdin.on('end', stop).on('error', stop).resume();",
+  "child.on('error', (error) => { console.error(file + ': ' + error.message); process.exit(127); });",
+  "child.on('close', (code, signal) => process.exit(code ?? 128 + (constants.signals[signal] ?? 0)));",
+].join('\n');
 
 /** Where the run script records nmr's exit status, inside the checkout's `.git`, out of the command's sight. */
 const RUN_STATUS_FILE = 'nmr-run-status';
