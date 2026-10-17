@@ -4,5 +4,5 @@ export {
   validateAllChangelogOverrides,
   type ValidateAllChangelogOverridesInputs,
   type ValidateAllChangelogOverridesResult,
-} from './changelogOverrides.ts';
+} from './validateAllChangelogOverrides.ts';
 export { formatValidateOverridesResult, type ValidateOverridesCommandResult } from './validateOverridesCommand.ts';
