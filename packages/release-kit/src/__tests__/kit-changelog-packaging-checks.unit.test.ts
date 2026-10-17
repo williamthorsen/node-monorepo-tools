@@ -8,7 +8,7 @@ import {
   packagesShipChangelogArchives,
   packagesShipChangelogJson,
   resolveChangelogJsonOutputPath,
-} from '../../.readyup/kits/default.ts';
+} from '../../.readyup/lib/changelog-checks.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
 import { PNPM_WORKSPACE, scaffoldRepo } from '../test-utils/scaffoldRepo.ts';
 

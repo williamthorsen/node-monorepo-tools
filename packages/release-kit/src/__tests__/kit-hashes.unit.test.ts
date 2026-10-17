@@ -10,7 +10,7 @@ import {
   RELEASE_WORKFLOW_HASH_MONOREPO,
   RELEASE_WORKFLOW_HASH_SINGLE,
   SYNC_LABELS_WORKFLOW_HASH,
-} from '../../.readyup/kits/default.ts';
+} from '../../.readyup/lib/workflow-hashes.ts';
 import { createGithubReleaseWorkflow, publishWorkflow, releaseWorkflow } from '../init/templates.ts';
 import { hashPreset } from '../sync-labels/presets.ts';
 import { syncLabelsWorkflow } from '../sync-labels/templates.ts';
@@ -19,8 +19,8 @@ import { syncLabelsWorkflow } from '../sync-labels/templates.ts';
  * Verifies that the hashes embedded in the kit stay in sync with the artifacts that they describe. The workflow anchors
  * are inside this package, so a template edited here fails the check without reaching outside the package boundary. A
  * work-type edit in change-grammar's taxonomy fails this check too, because the common-preset anchor also depends on
- * that taxonomy. On failure, update the constant in `.readyup/kits/default.ts` to the hash that the error message
- * names, then run `rdy compile` in this package.
+ * that taxonomy. On failure, update the constant in `.readyup/lib/workflow-hashes.ts` to the hash that the error
+ * message names, then run `rdy compile` in this package.
  */
 describe('rdy kit hashes match their source artifacts', () => {
   it('COMMON_PRESET_HASH matches the resolved common preset', () => {

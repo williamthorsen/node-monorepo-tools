@@ -39,12 +39,12 @@ vi.mock(import('../init/detectRepoType.ts'), () => ({
   detectRepoType: mockedDetectRepoType,
 }));
 
-import kit, {
-  configFileExportsConfig,
+import kit from '../../.readyup/kits/default.ts';
+import { configFileExportsConfig, scopeLabelsHaveNoDescriptions } from '../../.readyup/lib/config-checks.ts';
+import {
   CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO,
   CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE,
-  scopeLabelsHaveNoDescriptions,
-} from '../../.readyup/kits/default.ts';
+} from '../../.readyup/lib/workflow-hashes.ts';
 
 const CHANGELOG_CHECK = 'published packages ship CHANGELOG.md';
 const CHANGELOG_JSON_GATE = 'changelog.json generation is enabled';
