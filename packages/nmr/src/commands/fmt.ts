@@ -20,7 +20,7 @@ const PRETTIER_PACKAGE = 'prettier';
  * that a run from source passes the `.ts` file, which Prettier loads under Node's type stripping.
  */
 const DEFAULT_CONFIG_PATH = fileURLToPath(
-  new URL(`../prettier-default-config${path.extname(fileURLToPath(import.meta.url))}`, import.meta.url),
+  new URL(`../prettier-default.config${path.extname(fileURLToPath(import.meta.url))}`, import.meta.url),
 );
 
 /**
