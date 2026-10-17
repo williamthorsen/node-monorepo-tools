@@ -4,7 +4,7 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, describe, expect, it as baseIt, vi } from 'vitest';
 
-import { type FormatTargets, resolveFormatTargets } from '../fmt.ts';
+import { type FormatTargets, resolveFormatTargets } from '../format-targets.ts';
 import { addSubmodule } from '../test-utils/addSubmodule.ts';
 import { denyAccess, isPrivilegedProcess } from '../test-utils/denyAccess.ts';
 import { runGitOrThrow } from '../test-utils/runGitOrThrow.ts';
