@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { auditCommand, checkCommand, syncCommand } from '../cli.ts';
 import type { LoadConfigResult } from '../config.ts';
-import type { CommandOptions, V11yCheckConfig } from '../types.ts';
+import { makeConfig, makeOptions } from '../test-utils/cliFixtures.ts';
+import type { V11yCheckConfig } from '../types.ts';
 
 const mocks = vi.hoisted(() => ({
   generateAuditCiConfig: vi.fn<() => Promise<string>>(),
@@ -871,18 +872,6 @@ describe(syncCommand, () => {
 });
 
 // region | Helpers
-
-function makeConfig(overrides?: Partial<V11yCheckConfig>): V11yCheckConfig {
-  return {
-    dev: { allowlist: [] },
-    prod: { allowlist: [] },
-    ...overrides,
-  };
-}
-
-function makeOptions(overrides?: Partial<CommandOptions>): CommandOptions {
-  return { json: false, scopes: [], styles: { stderr: 'rich', stdout: 'rich' }, verbose: false, ...overrides };
-}
 
 function setupLoadConfig(config?: V11yCheckConfig, source: 'defaults' | 'file' = 'file'): void {
   mocks.loadConfig.mockResolvedValue({

@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  type CheckResult,
-  formatCheckJson,
-  formatCheckText,
-  type ScopeCheckResult,
-  severityIndicator,
-} from '../format-check.ts';
+import { formatCheckJson, formatCheckText, severityIndicator } from '../format-check.ts';
 import { buildPopulatedCheckResult } from '../test-utils/buildPopulatedCheckResult.ts';
+import { makeCheckResult } from '../test-utils/makeCheckResult.ts';
 
 const FIXED_NOW = new Date('2026-04-15T00:00:00Z');
 
@@ -755,17 +750,3 @@ describe(formatCheckJson, () => {
     expect(devOnly).toMatchObject({ summary: { status: 'vulnerabilities-found', count: 1 } });
   });
 });
-
-// region | Helpers
-function emptyScopeResult(): ScopeCheckResult {
-  return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
-}
-
-function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
-  return {
-    dev: emptyScopeResult(),
-    prod: emptyScopeResult(),
-    ...overrides,
-  };
-}
-// endregion | Helpers
