@@ -18,14 +18,14 @@ export interface FakeRemote {
 
 /**
  * Creates a fake host under `tree`. The fake `ssh` runs its command with `/bin/sh` in the fake home. A host named
- * `unreachable` fails as `ssh` does, and one named `dropping` runs nmr and then exits 255, as `ssh` does when the
- * connection drops. The fake login shell prints a greeting, as a startup file may, and drops
- * `-il`, so that a profile on this machine cannot reorder `PATH` ahead of the fakes.
+ * `unreachable` fails as `ssh` does, and one named `dropping` runs the host session with its stdout discarded and then
+ * exits 255, as `ssh` does when the connection drops during the run. The fake login shell prints a greeting, as a
+ * startup file may, and drops `-il`, so that a profile on this machine cannot reorder `PATH` ahead of the fakes.
  *
  * The fake `pnpm` logs each call. Its `exec` logs the directory, the arguments, the output style, and the files in
  * the directory and the content of `probe.txt` when there is one, then prints to both streams. These variables
- * steer it: `FAKE_INSTALL_STATUS` and `FAKE_RUN_STATUS` set exit statuses, and `FAKE_RUN_SLEEP` makes the run write
- * its pid to `FAKE_RUN_PIDFILE` and sleep.
+ * steer it: `FAKE_INSTALL_STATUS` and `FAKE_RUN_STATUS` set exit statuses, and `FAKE_INSTALL_SLEEP` and
+ * `FAKE_RUN_SLEEP` make the install or the run write its pid to `FAKE_INSTALL_PIDFILE` or `FAKE_RUN_PIDFILE` and sleep.
  */
 export function createFakeRemote(tree: TempTree): FakeRemote {
   const binDir = tree.mkdir('fake-bin');
@@ -50,13 +50,16 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
     'if [ "$host" = unreachable ]; then echo "ssh: connect to host unreachable: Connection refused" >&2; exit 255; fi',
     'cmd="$*"',
     'cd "$FAKE_REMOTE_HOME" || exit 255',
-    'case "$host:$cmd" in dropping:*"pnpm exec nmr"*) HOME=$FAKE_REMOTE_HOME SHELL=$FAKE_LOGIN_SHELL /bin/sh -c "$cmd" </dev/null >/dev/null 2>&1; exit 255 ;; esac',
+    'case "$host:$cmd" in dropping:*runHostSession*) HOME=$FAKE_REMOTE_HOME SHELL=$FAKE_LOGIN_SHELL /bin/sh -c "$cmd" >/dev/null; exit 255 ;; esac',
     'HOME=$FAKE_REMOTE_HOME SHELL=$FAKE_LOGIN_SHELL exec /bin/sh -c "$cmd"',
   ]);
   writeExecutable(tree, 'fake-bin/pnpm', [
     '#!/bin/sh',
     'case "$1" in',
-    '  install) echo "install $*" >> "$FAKE_PNPM_LOG"; exit "${FAKE_INSTALL_STATUS:-0}" ;;',
+    '  install)',
+    '    echo "install $*" >> "$FAKE_PNPM_LOG"',
+    '    if [ -n "$FAKE_INSTALL_SLEEP" ]; then echo $$ > "$FAKE_INSTALL_PIDFILE"; sleep "$FAKE_INSTALL_SLEEP"; fi',
+    '    exit "${FAKE_INSTALL_STATUS:-0}" ;;',
     '  exec)',
     '    shift 2',
     '    {',

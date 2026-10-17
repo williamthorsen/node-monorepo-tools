@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  composeRunScript,
-  DELEGATE_ENV_VAR,
-  deriveCheckoutPath,
-  resolveDelegationTarget,
-  wrapRemoteScript,
-} from '../remote-run.ts';
+import { DELEGATE_ENV_VAR, deriveCheckoutPath, resolveDelegationTarget, wrapRemoteScript } from '../remote-run.ts';
 
 describe(resolveDelegationTarget, () => {
   it.for([
@@ -72,23 +66,6 @@ describe(resolveDelegationTarget, () => {
     });
 
     expect(target).toStrictEqual({ kind: 'refused', error: expect.stringContaining('--log cannot be delegated') });
-  });
-});
-
-describe(composeRunScript, () => {
-  it('runs nmr with --no-delegate, the environment, and each argument quoted', () => {
-    const script = composeRunScript({
-      nmrArgs: ['-F', 'core', 'test', "it's here", 'a b'],
-      remoteEnv: { NMR_OUTPUT_STYLE: 'plain' },
-      runDir: '"$HOME"/\'repo\'',
-      statusPath: '/tmp/status',
-    });
-
-    expect(script).toMatch(/^NMR_OUTPUT_STYLE='plain' node -e '/m);
-    expect(script).toContain(String.raw` pnpm exec nmr --no-delegate '-F' 'core' 'test' 'it'\''s here' 'a b'`);
-    expect(script).toContain(`mkdir -p "$HOME"/'repo' && cd "$HOME"/'repo' || exit 1`);
-    expect(script).toContain(String.raw`printf '%s\n' "$nmr_status" > /tmp/status`);
-    expect(script).not.toContain('set -m');
   });
 });
 

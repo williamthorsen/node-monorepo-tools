@@ -61,6 +61,7 @@ export async function runOnDelegateHost(invocation: Invocation): Promise<RunCliR
 
   const result = snapshot.ok
     ? await runRemotely({
+        command,
         cwd,
         env,
         host,
@@ -75,8 +76,8 @@ export async function runOnDelegateHost(invocation: Invocation): Promise<RunCliR
         stderr,
         stdout,
       })
-    : { ok: false as const, message: 'could not snapshot the working tree', output: snapshot.reason };
-  const durationMs = Date.now() - startedAtMs;
+    : { ok: false as const, message: 'could not snapshot the working tree', output: snapshot.reason, waitedMs: 0 };
+  const durationMs = Date.now() - startedAtMs - result.waitedMs;
 
   if (!result.ok) {
     if (result.output.trim() !== '') {
