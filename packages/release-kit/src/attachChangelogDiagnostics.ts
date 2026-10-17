@@ -1,4 +1,4 @@
-import type { ChangelogDiagnostics } from './buildChangelogEntries.ts';
+import type { ChangelogDiagnostics } from './buildChangelogItem.ts';
 import type { ReleasedPackageResult } from './types.ts';
 
 /** Attaches a history's diagnostics to a released or skipped result, omitting each empty list. */

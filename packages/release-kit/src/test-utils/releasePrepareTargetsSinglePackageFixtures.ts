@@ -1,4 +1,4 @@
-import type { ChangelogDiagnostics } from '../buildChangelogEntries.ts';
+import type { ChangelogDiagnostics } from '../buildChangelogItem.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
 import type { ReleasePlan } from '../releasePlan.ts';
 import {
