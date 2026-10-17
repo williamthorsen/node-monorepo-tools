@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -29,6 +30,26 @@ describe(createSnapshot, () => {
     expect(first.ok && second.ok && first.sha === second.sha).toBe(true);
   });
 
+  it('records an edit that leaves the stat data of the file as the index recorded it', () => {
+    // With only whole-second mtime and size compared, git reads the file again only because its entry is not older
+    // than the index file, so the copy of the index must keep the index's time.
+    workspace.writeAll({ 'repo/a.txt': 'one\n' });
+    const repo = fs.realpathSync(workspace.resolve('repo'));
+    const file = path.join(repo, 'a.txt');
+    const past = new Date('2020-01-01T00:00:00Z');
+    fs.utimesSync(file, past, past);
+    initRepo(repo);
+    git(repo, ['config', 'core.checkStat', 'minimal']);
+    git(repo, ['config', 'core.trustctime', 'false']);
+    workspace.write('repo/a.txt', 'two\n');
+    fs.utimesSync(file, past, past);
+    fs.utimesSync(path.join(repo, '.git', 'index'), past, past);
+
+    const result = createSnapshot(repo, process.env);
+
+    expect(result.ok && git(repo, ['show', `${result.sha}:a.txt`])).toBe('two\n');
+  });
+
   it('refuses a repository with a submodule', () => {
     const tree = disposeOnTestFinished(createTempTree({ 'a.txt': 'a\n' }, { prefix: 'nmr-snapshot-super-' }));
     const repo = fs.realpathSync(tree.dir);
@@ -48,3 +69,12 @@ describe(createSnapshot, () => {
     expect(createSnapshot(repo, process.env)).toMatchObject({ ok: false, isUnsupported: true });
   });
 });
+
+// region | Helpers
+
+/** Runs git in `cwd` and returns its stdout. */
+function git(cwd: string, args: string[]): string {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+// endregion | Helpers

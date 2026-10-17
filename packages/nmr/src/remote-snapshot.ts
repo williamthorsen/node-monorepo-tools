@@ -41,7 +41,7 @@ export function createSnapshot(cwd: string, env: NodeJS.ProcessEnv): SnapshotRes
     const indexPath = path.resolve(toplevel, indexPathResult.stdout.trim());
     // Seeding from the real index lets git reuse its cached stat data rather than rehash every tracked file.
     if (fs.existsSync(indexPath)) {
-      fs.copyFileSync(indexPath, tempIndex);
+      copyIndex(indexPath, tempIndex);
     }
     const indexEnv = { ...env, GIT_INDEX_FILE: tempIndex };
 
@@ -91,6 +91,17 @@ const SNAPSHOT_IDENTITY_ENV = {
   GIT_COMMITTER_EMAIL: 'nmr@localhost',
   GIT_COMMITTER_NAME: 'nmr delegate',
 };
+
+/**
+ * Copies an index and its modification time. Git trusts an entry's cached stat data only when the entry is older
+ * than the index file, so a copy with a fresh time would hide an edit made in the same second as the last index
+ * write. `utimesSync` rounds the time down, which can only make more entries look racy and rehashed.
+ */
+function copyIndex(source: string, destination: string): void {
+  fs.copyFileSync(source, destination);
+  const { atime, mtime } = fs.statSync(source);
+  fs.utimesSync(destination, atime, mtime);
+}
 
 /** Runs git and returns its stdout, or the reason that it failed. */
 function runGit(
