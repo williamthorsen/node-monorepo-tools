@@ -1,6 +1,6 @@
 import { formatGlyphLine, type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
-import { type CheckCacheEntry, readCheckCacheEntry, readTranscript } from './check-cache.ts';
+import { type CheckCacheEntry, readCheckCacheEntry, readTranscript } from './check-cache-entries.ts';
 import { NMR_GLYPHS } from './glyphs.ts';
 import { formatDuration } from './helpers/duration.ts';
 

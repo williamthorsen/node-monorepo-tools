@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { formatGlyphLine, type OutputStyle } from '@williamthorsen/nmr-core';
 
-import { removeCheckCache } from '../check-cache.ts';
+import { removeCheckCache } from '../check-cache-entries.ts';
 import { loadRootConfig } from '../config.ts';
 import { findContainingPackageDir } from '../context.ts';
 import { NMR_GLYPHS } from '../glyphs.ts';

@@ -14,30 +14,28 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { prependBinDirs } from './bin-path.ts';
 import {
-  type BuildOutputState,
-  certifyRetention,
-  type CheckCacheEntry,
-  computeCacheKey,
-  computeRetentionKey,
-  CURRENT_RUNTIME,
   encodeTreeSnapshot,
-  findStaleBuildOutput,
   formatMisplacedNoCacheWarning,
   isCacheableCommand,
   NO_CACHE_ENV_VAR,
-  readBuildOutputState,
-  readCheckCacheEntry,
-  recordTranscript,
-  type ReplayLine,
   resolveRunId,
   resolveTreeSnapshot,
-  type Retention,
   RUN_ID_ENV_VAR,
   TREE_SNAPSHOT_ENV_VAR,
   type TreeSnapshot,
-  writeCheckCacheEntry,
   writeDebugNote,
 } from './check-cache.ts';
+import { type BuildOutputState, findStaleBuildOutput, readBuildOutputState } from './check-cache-build-output.ts';
+import {
+  certifyRetention,
+  type CheckCacheEntry,
+  readCheckCacheEntry,
+  recordTranscript,
+  type ReplayLine,
+  type Retention,
+  writeCheckCacheEntry,
+} from './check-cache-entries.ts';
+import { computeCacheKey, computeRetentionKey, CURRENT_RUNTIME } from './check-cache-key.ts';
 import { resolveContext, type ResolvedContext } from './context.ts';
 import { enterChain } from './entry-chain.ts';
 import { NMR_GLYPHS } from './glyphs.ts';

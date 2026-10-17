@@ -2,7 +2,7 @@ import type { Writable } from 'node:stream';
 
 import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
-import type { ReplayLine } from './check-cache.ts';
+import type { ReplayLine } from './check-cache-entries.ts';
 import { NMR_GLYPHS } from './glyphs.ts';
 import { clampToBytes, TRUNCATION_MARK } from './helpers/clampToBytes.ts';
 import { formatDuration, formatSaving } from './helpers/duration.ts';

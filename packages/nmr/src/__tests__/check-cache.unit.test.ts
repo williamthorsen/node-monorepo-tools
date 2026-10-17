@@ -6,24 +6,24 @@ import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  type CheckCacheEntry,
-  computeCacheKey,
-  computeRetentionKey,
   DEFAULT_CACHEABLE_COMMANDS,
-  findStaleBuildOutput,
   formatMisplacedNoCacheWarning,
-  readBuildOutputState,
-  readCheckCacheEntry,
-  readTranscript,
-  recordTranscript,
-  removeCheckCache,
   resolveCacheableCommands,
   resolveRunId,
   RUN_ID_ENV_VAR,
   type TreeSnapshot,
-  writeCheckCacheEntry,
   writeDebugNote,
 } from '../check-cache.ts';
+import { findStaleBuildOutput, readBuildOutputState } from '../check-cache-build-output.ts';
+import {
+  type CheckCacheEntry,
+  readCheckCacheEntry,
+  readTranscript,
+  recordTranscript,
+  removeCheckCache,
+  writeCheckCacheEntry,
+} from '../check-cache-entries.ts';
+import { computeCacheKey, computeRetentionKey } from '../check-cache-key.ts';
 import { resolveBuildCachePath } from '../commands/build-output.ts';
 import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { COMMAND_VERBOSITY_ENV_VAR } from '../verbosity.ts';

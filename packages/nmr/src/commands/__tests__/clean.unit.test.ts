@@ -4,7 +4,7 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
-import { readCheckCacheEntry, writeCheckCacheEntry } from '../../check-cache.ts';
+import { readCheckCacheEntry, writeCheckCacheEntry } from '../../check-cache-entries.ts';
 import { resolveBuildCachePath } from '../build-output.ts';
 import { cleanPackage, runClean } from '../clean.ts';
 

@@ -1,4 +1,4 @@
-import { readCheckCacheEntry, type ReplayLine } from './check-cache.ts';
+import { readCheckCacheEntry, type ReplayLine } from './check-cache-entries.ts';
 import { readNmrStep, type Step } from './steps.ts';
 import { getWorkspacePackageDirs } from './workspace.ts';
 
