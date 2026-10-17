@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 14.2.2 — 2026-10-17
+
+### 📦 Dependencies
+
+- Upgrades `@williamthorsen/eslint-config-typescript` from 18.0.0 to 19.0.0 and rewrites the code in `build-info`, `nmr-core`, `nmr`, and `release-kit` that its new and widened rules report, without changing behavior. (#1047)
+- Upgrades `readyup` from 0.40.0 to 0.41.0 and recompiles the kits in `nmr`, `release-kit`, and `v11y-check`, whose manifests now record each checklist's check names under `checklistChecks`. (#1047)
+- Upgrades `pnpm` to 12.11.2, `@types/node` to 24.19.2, `lefthook` to 2.2.1, `@williamthorsen/strict-lint` to 14.2.0, `@williamthorsen/tsconfig` to 0.11.0, `smol-toml` to 1.9.1, and `vite` to 8.3.4. (#1047)
+
 ## 14.2.1 — 2026-10-13
 
 ### 📦 Dependencies

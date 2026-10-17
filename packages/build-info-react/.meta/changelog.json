@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.1.2",
+    "date": "2026-10-17",
+    "sections": [
+      {
+        "title": "📦 Dependencies",
+        "audience": "dev",
+        "items": [{ "description": "Bumped `@williamthorsen/build-info` to 0.2.2" }]
+      }
+    ]
+  },
+  {
     "version": "0.1.1",
     "date": "2026-10-13",
     "sections": [

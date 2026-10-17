@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.48.0 — 2026-10-17
+
+### 🎉 Features
+
+- Adds the `--delegate <host>` flag to `nmr`, which runs a command whose result is its exit status, such as `ci`, `check`, or a `test` command, on that host over SSH against the local working tree with its uncommitted and untracked files, and exits 255 when the delegation fails outside the command. (#1058)
+- Adds the `NMR_DELEGATE` environment variable, which names the host on which `nmr` runs every command that can be delegated, and the `--no-delegate` flag, which runs a command on the local machine whatever `NMR_DELEGATE` names. (#1058)
+- Adds the host to the verdict for a delegated command, as `passed on <host>` in the line and as a `host` field in the `--json` object. (#1058)
+
+### 📦 Dependencies
+
+- Upgrades `@williamthorsen/eslint-config-typescript` from 18.0.0 to 19.0.0 and rewrites the code in `build-info`, `nmr-core`, `nmr`, and `release-kit` that its new and widened rules report, without changing behavior. (#1047)
+- Upgrades `readyup` from 0.40.0 to 0.41.0 and recompiles the kits in `nmr`, `release-kit`, and `v11y-check`, whose manifests now record each checklist's check names under `checklistChecks`. (#1047)
+- Upgrades `pnpm` to 12.11.2, `@types/node` to 24.19.2, `lefthook` to 2.2.1, `@williamthorsen/strict-lint` to 14.2.0, `@williamthorsen/tsconfig` to 0.11.0, `smol-toml` to 1.9.1, and `vite` to 8.3.4. (#1047)
+
 ## 0.47.0 — 2026-10-15
 
 ### 🎉 Features

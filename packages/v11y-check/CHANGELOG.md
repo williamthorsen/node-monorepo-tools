@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.19.3 — 2026-10-17
+
+### 📦 Dependencies
+
+- Upgrades `readyup` from 0.40.0 to 0.41.0 and recompiles the kits in `nmr`, `release-kit`, and `v11y-check`, whose manifests now record each checklist's check names under `checklistChecks`. (#1047)
+
 ## 0.19.2 — 2026-10-12
 
 ### 📦 Dependencies

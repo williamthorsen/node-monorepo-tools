@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.13.4 — 2026-10-17
+
+### 📦 Dependencies
+
+- Upgrades `@williamthorsen/eslint-config-typescript` from 18.0.0 to 19.0.0 and rewrites the code in `build-info`, `nmr-core`, `nmr`, and `release-kit` that its new and widened rules report, without changing behavior. (#1047)
+
 ## 0.13.3 — 2026-10-12
 
 ### 🏗️ Internal features

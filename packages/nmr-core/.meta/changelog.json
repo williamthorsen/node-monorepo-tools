@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.13.4",
+    "date": "2026-10-17",
+    "sections": [
+      {
+        "title": "📦 Dependencies",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Upgrades `@williamthorsen/eslint-config-typescript` from 18.0.0 to 19.0.0 and rewrites the code in `build-info`, `nmr-core`, `nmr`, and `release-kit` that its new and widened rules report, without changing behavior. (#1047)",
+            "hash": "610ee159fdc429681b1078b500a064c5df296724",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.13.3",
     "date": "2026-10-12",
     "sections": [
