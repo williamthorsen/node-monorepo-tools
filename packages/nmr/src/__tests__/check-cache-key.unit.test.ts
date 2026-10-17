@@ -7,7 +7,7 @@ import { computeCacheKey, computeRetentionKey } from '../check-cache-key.ts';
 import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { COMMAND_VERBOSITY_ENV_VAR } from '../verbosity.ts';
 
-const SNAPSHOT: TreeSnapshot = { hash: 'tree-hash', headSha: 'head-sha' };
+const SNAPSHOT: TreeSnapshot = { treeId: 'tree-id', headSha: 'head-sha' };
 
 describe('check-cache', () => {
   let tree: TempTree;
@@ -26,7 +26,7 @@ describe('check-cache', () => {
     });
 
     it.each([
-      ['the tree', { snapshot: { hash: 'other-tree', headSha: 'head-sha' } }],
+      ['the tree', { snapshot: { treeId: 'other-tree', headSha: 'head-sha' } }],
       ['the command string', { commandString: 'nmr typecheck && nmr test' }],
       ['the command name', { command: 'check' }],
       ['nmr’s own version', { nmrVersion: '99.0.0' }],

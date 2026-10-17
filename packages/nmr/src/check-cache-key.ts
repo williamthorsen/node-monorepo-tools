@@ -30,7 +30,7 @@ const INSTALL_FINGERPRINT_FILES = [
 ];
 
 /** Names the fold. Bump it whenever an ingredient is added or removed, so that older entries read as misses. */
-const KEY_FORMAT = 'nmr-check-cache-v1';
+const KEY_FORMAT = 'nmr-check-cache-v2';
 
 /**
  * Environment variables through which a check can reach a different conclusion. The list is fixed, so that two
@@ -79,7 +79,7 @@ export function computeCacheKey(options: {
   const scope = path.relative(options.monorepoRoot, options.anchorDir);
   const parts = [
     KEY_FORMAT,
-    options.snapshot.hash,
+    options.snapshot.treeId,
     scope === '' ? '.' : scope,
     options.command,
     options.commandString,

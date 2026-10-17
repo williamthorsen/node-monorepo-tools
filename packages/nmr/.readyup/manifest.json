@@ -76,6 +76,16 @@
           "path": "../../nmr-core/dist/esm/cache-store.js"
         },
         {
+          "hash": "81f1406b",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/collectChangedPaths.js"
+        },
+        {
+          "hash": "200f69f1",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/gitObjects.js"
+        },
+        {
           "hash": "54384dca",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/gitOutputLimit.js"
@@ -86,7 +96,7 @@
           "path": "../../nmr-core/dist/esm/hasErrnoCode.js"
         },
         {
-          "hash": "98509862",
+          "hash": "90b2cbb8",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/hashWorkingTree.js"
         },

@@ -54,7 +54,7 @@ export async function recordPass(options: {
     writeDebugNote(`not recording ${command}: ${currentRead.reason}`, env, stderr);
     return;
   }
-  if (currentRead.snapshot.hash !== snapshot.hash) {
+  if (currentRead.snapshot.treeId !== snapshot.treeId) {
     writeDebugNote(`not recording ${command}: the tree changed while it ran`, env, stderr);
     return;
   }
@@ -85,7 +85,7 @@ export async function recordPass(options: {
     retainedOutput: options.retainedOutput,
     runId: options.runId,
     steps: options.ownSteps,
-    treeHash: snapshot.hash,
+    treeHash: snapshot.treeId,
   });
 
   const ref = { anchorDir, command, monorepoRoot };
@@ -99,7 +99,7 @@ export async function recordPass(options: {
       ...ref,
       entry: {
         key: options.key,
-        treeHash: snapshot.hash,
+        treeHash: snapshot.treeId,
         headSha: snapshot.headSha,
         commandString: options.commandString,
         nmrVersion: VERSION,
@@ -139,7 +139,7 @@ export async function reportRecording(plan: RunPlan): Promise<RunCliResult> {
       commandString: plan.commandString,
       nmrVersion: VERSION,
       nodeVersion: CURRENT_RUNTIME.nodeVersion,
-      treeHash: plan.snapshot?.hash,
+      treeHash: plan.snapshot?.treeId,
     },
     isCacheable: isCacheableCommand(config.checkCache, command),
     key: plan.key,

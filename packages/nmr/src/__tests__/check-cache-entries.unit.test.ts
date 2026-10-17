@@ -12,7 +12,7 @@ import {
   writeCheckCacheEntry,
 } from '../check-cache-entries.ts';
 
-const SNAPSHOT: TreeSnapshot = { hash: 'tree-hash', headSha: 'head-sha' };
+const SNAPSHOT: TreeSnapshot = { treeId: 'tree-id', headSha: 'head-sha' };
 
 describe('check-cache', () => {
   let tree: TempTree;
@@ -218,7 +218,7 @@ describe('check-cache', () => {
 function makeEntry(overrides: Partial<CheckCacheEntry> = {}): CheckCacheEntry {
   return {
     key: 'a-key',
-    treeHash: SNAPSHOT.hash,
+    treeHash: SNAPSHOT.treeId,
     headSha: SNAPSHOT.headSha,
     commandString: 'nmr build && nmr check:strict',
     nmrVersion: '1.0.0',

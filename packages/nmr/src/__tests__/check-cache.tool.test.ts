@@ -21,7 +21,7 @@ describe(resolveTreeSnapshot, () => {
   it('takes the snapshot that a parent process already observed', ({ tree }) => {
     // One invocation hashes the tree once; every process below it gates on that same observation.
     initRepo(tree);
-    const snapshot: TreeSnapshot = { hash: 'tree-hash', headSha: readHeadSha(tree.dir) };
+    const snapshot: TreeSnapshot = { treeId: 'tree-id', headSha: readHeadSha(tree.dir) };
 
     const resolution = resolveTreeSnapshot({
       monorepoRoot: tree.dir,
@@ -35,7 +35,7 @@ describe(resolveTreeSnapshot, () => {
     // A process outliving the run that spawned it keeps the variable. Gating a later invocation on
     // an observation of a tree that has since been committed over is the one way this cache wrongly skips.
     initRepo(tree);
-    const staleSnapshot: TreeSnapshot = { hash: 'tree-hash', headSha: readHeadSha(tree.dir) };
+    const staleSnapshot: TreeSnapshot = { treeId: 'tree-id', headSha: readHeadSha(tree.dir) };
     tree.write('src/index.ts', 'export const value = 2;\n');
     commitAll(tree.dir, 'second');
 
