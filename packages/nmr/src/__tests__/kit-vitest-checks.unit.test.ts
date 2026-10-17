@@ -11,7 +11,7 @@ import {
   testSuiteGatesTestFileConventions,
   vitestConfigBuildsOnSharedConfig,
   vitestRootConfigBuildsOnSharedConfig,
-} from '../../.readyup/kits/default.ts';
+} from '../../.readyup/lib/vitest.ts';
 import { findKitCheck } from '../test-utils/findKitCheck.ts';
 import { buildMonorepo, buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';

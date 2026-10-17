@@ -4,7 +4,7 @@ import { pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { everyBinTargetIsACommittedWrapper } from '../../.readyup/kits/default.ts';
+import { everyBinTargetIsACommittedWrapper } from '../../.readyup/lib/bin-targets.ts';
 import { buildManifest } from '../test-utils/buildManifest.ts';
 import { buildMonorepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';

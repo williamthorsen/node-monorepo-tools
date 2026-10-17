@@ -126,9 +126,64 @@
           "path": "../../nmr-core/dist/esm/writeFileWithCheck.js"
         },
         {
-          "hash": "ffa13ccc",
+          "hash": "9fd61bf4",
           "kind": "module",
           "path": "kits/default.ts"
+        },
+        {
+          "hash": "d7288675",
+          "kind": "module",
+          "path": "lib/bin-targets.ts"
+        },
+        {
+          "hash": "6b220e04",
+          "kind": "module",
+          "path": "lib/catalog.ts"
+        },
+        {
+          "hash": "369c92bb",
+          "kind": "module",
+          "path": "lib/github.ts"
+        },
+        {
+          "hash": "3a0e59ac",
+          "kind": "module",
+          "path": "lib/manifest-fields.ts"
+        },
+        {
+          "hash": "e3de73f8",
+          "kind": "module",
+          "path": "lib/repo-files.ts"
+        },
+        {
+          "hash": "1701ef64",
+          "kind": "module",
+          "path": "lib/root-scripts.ts"
+        },
+        {
+          "hash": "c63cbdac",
+          "kind": "module",
+          "path": "lib/self-hosted-runner.ts"
+        },
+        {
+          "hash": "f8f79929",
+          "kind": "module",
+          "path": "lib/setup.ts"
+        },
+        {
+          "hash": "400757e6",
+          "kind": "module",
+          "path": "lib/shared-configs.ts"
+        },
+        {
+          "hash": "b3bdf8ee",
+          "kind": "module",
+          "path": "lib/vitest.ts"
+        },
+        {
+          "hash": "00130733",
+          "kind": "module",
+          "path": "lib/workspace-build.ts"
         },
         {
           "hash": "47f25de7",
@@ -139,12 +194,22 @@
           ]
         },
         {
-          "hash": "7e066d18",
+          "hash": "19b57f2e",
+          "kind": "module",
+          "path": "../src/config-check-cache.ts"
+        },
+        {
+          "hash": "ce0d869c",
+          "kind": "module",
+          "path": "../src/config-validation.ts"
+        },
+        {
+          "hash": "5b589c7e",
           "kind": "module",
           "path": "../src/config.ts"
         },
         {
-          "hash": "0fb883a1",
+          "hash": "d2448f72",
           "kind": "module",
           "path": "../src/default-scripts.ts"
         },
@@ -199,7 +264,12 @@
           "path": "../src/resolver.ts"
         },
         {
-          "hash": "ed585ab6",
+          "hash": "bb18a285",
+          "kind": "module",
+          "path": "../src/shell-syntax.ts"
+        },
+        {
+          "hash": "a1b70d65",
           "kind": "module",
           "path": "../src/steps.ts"
         },
@@ -233,8 +303,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.41.1",
       "source": "kits/default.ts",
-      "sourceHash": "ffa13ccc",
-      "targetHash": "1151ff19"
+      "sourceHash": "9fd61bf4",
+      "targetHash": "924b5925"
     }
   ]
 }

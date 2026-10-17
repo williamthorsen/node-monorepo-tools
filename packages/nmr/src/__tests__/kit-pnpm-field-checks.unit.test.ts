@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { noPnpmFieldInPackageJson } from '../../.readyup/kits/default.ts';
+import { noPnpmFieldInPackageJson } from '../../.readyup/lib/manifest-fields.ts';
 import { buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 

@@ -7270,7 +7270,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse3(src, reviver, options) {
+    function parse4(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -7311,7 +7311,7 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports.parse = parse3;
+    exports.parse = parse4;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument;
     exports.stringify = stringify;
@@ -7371,9 +7371,16 @@ var require_dist = __commonJS({
 });
 
 // .readyup/kits/default.ts
-import { execFile } from "node:child_process";
-import { existsSync as existsSync3, globSync as globSync2, readdirSync as readdirSync2 } from "node:fs";
-import { basename, dirname, join, posix, sep } from "node:path";
+import { defineRdyKit } from "readyup";
+import { hasDevDependency as hasDevDependency2 } from "readyup/check-utils";
+
+// .readyup/lib/bin-targets.ts
+import { basename as basename2, posix } from "node:path";
+import { isRecord, listTrackedFiles } from "readyup/check-utils";
+
+// .readyup/lib/repo-files.ts
+import { globSync } from "node:fs";
+import { basename, join, sep } from "node:path";
 
 // ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.8.3/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
 function isError(error) {
@@ -7392,256 +7399,145 @@ function describeError(error) {
   }
 }
 
-// .readyup/kits/default.ts
-var import_yaml2 = __toESM(require_dist(), 1);
-import { defineRdyKit } from "readyup";
-import {
-  discoverWorkspaces,
-  fileContains,
-  fileExists,
-  hasDevDependency,
-  hasMinDevDependencyVersion,
-  hasPackageJsonField,
-  isRecord,
-  listTrackedFiles,
-  readFile,
-  readPackageJson
-} from "readyup/check-utils";
-
-// src/config.ts
-import { existsSync as existsSync2 } from "node:fs";
-import { pathToFileURL } from "node:url";
-
-// src/helpers/config-path.ts
-import path from "node:path";
-var CONFIG_DIR = ".config";
-var CONFIG_FILENAME = "nmr.config.ts";
-var CONFIG_RELATIVE_PATH = path.join(CONFIG_DIR, CONFIG_FILENAME);
-function resolveConfigPath(baseDir) {
-  return path.join(baseDir, CONFIG_DIR, CONFIG_FILENAME);
+// .readyup/lib/repo-files.ts
+import { discoverWorkspaces, readFile } from "readyup/check-utils";
+var SCAN_EXCLUDE_DIRS = /* @__PURE__ */ new Set([".git", "coverage", "dist", "node_modules"]);
+var CONFIG_EXTENSIONS = "{ts,mts,cts,js,mjs,cjs}";
+function checkNoMatchingFiles(patterns, cwd) {
+  const foundFiles = findFiles(patterns, cwd);
+  if (foundFiles.length === 0) return true;
+  return { ok: false, detail: formatPaths(foundFiles) };
 }
-
-// src/helpers/escapeControlCharacters.ts
-var NAMED_ESCAPES = /* @__PURE__ */ new Map([
-  ["\n", String.raw`\n`],
-  ["\r", String.raw`\r`],
-  ["	", String.raw`\t`]
-]);
-function escapeControlCharacters(text) {
-  let escapedText = text;
-  for (const [char, escape] of NAMED_ESCAPES) {
-    escapedText = escapedText.split(char).join(escape);
+function discoverWorkspacesOrFailure(filter) {
+  try {
+    return { ok: true, workspaces: discoverWorkspaces(filter === void 0 ? void 0 : { filter }) };
+  } catch (error) {
+    return { ok: false, detail: `cannot enumerate workspaces: ${describeError(error)}` };
   }
-  return escapedText;
+}
+function findFiles(patterns, cwd) {
+  return globSync(patterns, { cwd, exclude: (path7) => SCAN_EXCLUDE_DIRS.has(basename(path7)) }).map((path7) => path7.split(sep).join("/")).toSorted();
+}
+function formatPaths(paths) {
+  return `${paths.length} found:
+${paths.map((path7) => `      ${path7}`).join("\n")}`;
+}
+function importsSharedExport(content, exportName, moduleSpecifier) {
+  if (content === void 0) return false;
+  const pattern = new RegExp(String.raw`import\s*\{[^}]*\b${exportName}\b[^}]*\}\s*from\s*['"]${moduleSpecifier}['"]`);
+  return pattern.test(content);
+}
+function readFileIn(cwd, relativePath) {
+  return readFile(join(cwd, relativePath));
 }
 
-// src/helpers/findClosestName.ts
-function findClosestName(name, candidates) {
-  const ceiling = Math.max(1, Math.floor(name.length / 4));
-  let closestName;
-  let shortestDistance = Infinity;
-  for (const candidate of candidates) {
-    const distance = measureDistance(name, candidate);
-    if (distance >= shortestDistance) {
-      continue;
-    }
-    shortestDistance = distance;
-    closestName = candidate;
+// .readyup/lib/bin-targets.ts
+var BUILD_OUTPUT_DIR = "dist";
+var WRAPPER_TARGET_PATTERN = /['"](\.\.?\/[^'"]+)['"]/;
+var binTargetChecks = [
+  {
+    name: "every bin target is a committed wrapper",
+    severity: "error",
+    check: () => everyBinTargetIsACommittedWrapper(),
+    fix: `Point each listed entry at a committed wrapper under bin/ that loads the build output at runtime. pnpm links a workspace package's bins during the install's link phase, which runs before anything is built, so a target that is not committed does not exist when pnpm tries to link it. pnpm never retries, which leaves the link missing for the life of the node_modules tree`
+  },
+  {
+    name: "every bin wrapper's build-output target is covered by files",
+    severity: "warn",
+    check: () => everyBinWrapperTargetIsCoveredByFiles(),
+    fix: "Add the build output directory to `files` in each listed package. npm and pnpm publish the bin target itself whatever `files` says, so the wrapper is published pointing at build output missing from the tarball"
   }
-  return shortestDistance <= ceiling ? closestName : void 0;
+];
+async function everyBinTargetIsACommittedWrapper() {
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
+  if (!workspaceDiscovery.ok) return workspaceDiscovery;
+  const trackedFiles = await listTrackedFiles();
+  const trackedPaths = trackedFiles === void 0 ? void 0 : new Set(trackedFiles);
+  const offenders = workspaceDiscovery.workspaces.flatMap(
+    (workspace) => readBinEntries(workspace).flatMap((entry) => {
+      const defect = describeBinTargetDefect(workspace, entry, trackedPaths);
+      return defect === void 0 ? [] : [`${describeBinEntry(workspace, entry)} (${defect})`];
+    })
+  );
+  if (offenders.length === 0) return true;
+  return { ok: false, detail: formatPaths(offenders) };
 }
-function measureDistance(first, second) {
-  if (first.length === 0 || second.length === 0) {
-    return Math.max(first.length, second.length);
-  }
-  let previousRow = Array.from({ length: second.length + 1 }, (_unused, column) => column);
-  let currentRow = Array.from({ length: second.length + 1 }, () => 0);
-  for (let row = 1; row <= first.length; row += 1) {
-    currentRow[0] = row;
-    for (let column = 1; column <= second.length; column += 1) {
-      const substitution = readCell(previousRow, column - 1) + (first[row - 1] === second[column - 1] ? 0 : 1);
-      currentRow[column] = Math.min(
-        readCell(currentRow, column - 1) + 1,
-        readCell(previousRow, column) + 1,
-        substitution
-      );
-    }
-    const completedRow = currentRow;
-    currentRow = previousRow;
-    previousRow = completedRow;
-  }
-  return readCell(previousRow, second.length);
+function everyBinWrapperTargetIsCoveredByFiles() {
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
+  if (!workspaceDiscovery.ok) return workspaceDiscovery;
+  const cwd = process.cwd();
+  const offenders = workspaceDiscovery.workspaces.flatMap((workspace) => {
+    const files = workspace.packageJson["files"];
+    if (!Array.isArray(files)) return [];
+    const publishedSegments = new Set(
+      files.flatMap((entry) => typeof entry === "string" ? [readFirstSegment(entry)] : [])
+    );
+    return readBinEntries(workspace).flatMap((entry) => {
+      const target = readWrapperTarget(cwd, workspace, entry);
+      if (target === void 0 || publishedSegments.has(readFirstSegment(target))) return [];
+      return [`${describeBinEntry(workspace, entry)} -> ${target}`];
+    });
+  });
+  if (offenders.length === 0) return true;
+  return { ok: false, detail: formatPaths(offenders) };
 }
-function readCell(row, index) {
-  const value = row[index];
-  if (value === void 0) {
-    throw new RangeError(`No cell at index ${index} in a row of ${row.length}`);
+function describeBinEntry(workspace, entry) {
+  return `${workspace.name ?? workspace.dir}:${entry.command} -> ${entry.target}`;
+}
+function describeBinTargetDefect(workspace, entry, trackedPaths) {
+  if (readFirstSegment(entry.target) === BUILD_OUTPUT_DIR) return `names a path under ${BUILD_OUTPUT_DIR}/`;
+  if (trackedPaths === void 0) return void 0;
+  return trackedPaths.has(`${workspace.dir}/${entry.target}`) ? void 0 : "untracked";
+}
+function normalizeBinTarget(target) {
+  return target.replace(/^\.\//, "");
+}
+function readBinEntries(workspace) {
+  const bin = workspace.packageJson["bin"];
+  if (typeof bin === "string") {
+    const command = workspace.name?.split("/").at(-1) ?? basename2(workspace.dir);
+    return [{ command, target: normalizeBinTarget(bin) }];
   }
-  return value;
+  if (!isRecord(bin)) return [];
+  return Object.entries(bin).flatMap(
+    ([command, target]) => typeof target === "string" ? [{ command, target: normalizeBinTarget(target) }] : []
+  );
+}
+function readFirstSegment(entry) {
+  return normalizeBinTarget(entry).split("/", 1).at(0) ?? "";
+}
+function readWrapperTarget(cwd, workspace, entry) {
+  if (readFirstSegment(entry.target) === BUILD_OUTPUT_DIR) return void 0;
+  const content = readFileIn(cwd, `${workspace.dir}/${entry.target}`);
+  if (content === void 0) return void 0;
+  const specifier = WRAPPER_TARGET_PATTERN.exec(content)?.[1];
+  if (specifier === void 0) return void 0;
+  return posix.normalize(posix.join(posix.dirname(entry.target), specifier));
 }
 
-// src/helpers/hook-name.ts
-function isHookName(key) {
-  return key.length > 4 && key.endsWith(":pre") || key.length > 5 && key.endsWith(":post");
-}
+// .readyup/lib/root-scripts.ts
+import { existsSync as existsSync2, readdirSync } from "node:fs";
+import { join as join2 } from "node:path";
+import { fileExists, isRecord as isRecord2, readFile as readFile2, readPackageJson } from "readyup/check-utils";
 
-// src/helpers/type-guards.ts
-function isObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function isStringRecord(value) {
-  return isObject(value) && Object.values(value).every((entry) => typeof entry === "string");
-}
-
-// src/steps.ts
+// src/shell-syntax.ts
 var ENV_ASSIGNMENT = /^\w+=/;
-var LAUNCHERS = /* @__PURE__ */ new Map([
-  ["bun", /* @__PURE__ */ new Set(["x"])],
-  ["bunx", /* @__PURE__ */ new Set()],
-  ["npm", /* @__PURE__ */ new Set(["exec"])],
-  ["npx", /* @__PURE__ */ new Set()],
-  ["pnpm", /* @__PURE__ */ new Set(["dlx", "exec"])],
-  ["yarn", /* @__PURE__ */ new Set(["dlx", "exec"])]
-]);
 var QUOTES = /* @__PURE__ */ new Set(['"', "'"]);
 var SEGMENT_SEPARATORS = /* @__PURE__ */ new Set([";", "|", "&", "\n", "\r"]);
 var SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
 var TOKEN_SEPARATORS = /* @__PURE__ */ new Set([" ", "	", "\n", "\r"]);
-function findUnexpressibleToken(element) {
-  return tokenize(element).find((token) => !SHELL_SAFE_TOKEN.test(token));
-}
-function quoteToken(token) {
-  if (SHELL_SAFE_TOKEN.test(token)) {
-    return token;
-  }
-  return "'" + token.replaceAll("'", String.raw`'\''`) + "'";
-}
-function readSelfReference(options) {
-  const { commandName, scope, script } = options;
-  const segments = splitSegments(script).filter((segment) => segment.trim() !== "");
-  const doesReenter = segments.some((segment) => {
-    const invocation = readNmrTail(segment);
-    const target = invocation === void 0 ? void 0 : readNmrTarget(invocation.tail);
-    if (invocation === void 0 || target === void 0) {
-      return false;
-    }
-    const launcherScope = readLauncherScope(invocation.launcher, invocation.launcherArgs);
-    const effectiveTarget = {
-      command: target.command,
-      isDelegate: target.isDelegate || launcherScope.isDelegate,
-      isRecursive: target.isRecursive || launcherScope.isRecursive,
-      isWorkspaceRoot: target.isWorkspaceRoot || launcherScope.isWorkspaceRoot
-    };
-    return isReentry(effectiveTarget, commandName, scope);
-  });
-  if (!doesReenter) {
-    return void 0;
-  }
-  return segments.length === 1 ? "sole" : "chained";
-}
-function readStepListSelfReference(options) {
-  const { commandName, elements, scope } = options;
-  const doesReenter = elements.some((element) => {
-    const target = readNmrTarget(tokenize(element));
-    return target !== void 0 && isReentry(target, commandName, scope);
-  });
-  if (!doesReenter) {
-    return void 0;
-  }
-  return elements.length === 1 ? "sole" : "chained";
-}
 function dropLeadingAssignments(tokens) {
   const start = tokens.findIndex((token) => !ENV_ASSIGNMENT.test(token));
   return start === -1 ? [] : tokens.slice(start);
 }
-function isRedirectionOperator(char, precedingText, nextChar) {
-  if (char !== "&" && char !== "|") {
-    return false;
-  }
-  return char === "&" && nextChar === ">" || /[<>]\s*$/.test(precedingText);
+function isShellSafeToken(token) {
+  return SHELL_SAFE_TOKEN.test(token);
 }
-function isReentry(target, commandName, scope) {
-  if (target.command !== commandName) {
-    return false;
+function quoteToken(token) {
+  if (isShellSafeToken(token)) {
+    return token;
   }
-  switch (scope) {
-    case "root":
-      return !target.isDelegate;
-    case "package":
-      return target.isRecursive || !target.isDelegate && !target.isWorkspaceRoot;
-    case "workspaceRegistry":
-      return target.isDelegate || !target.isWorkspaceRoot;
-  }
-}
-function readLauncherScope(launcher, launcherArgs) {
-  const scope = { isDelegate: false, isRecursive: false, isWorkspaceRoot: false };
-  if (launcher !== "pnpm") {
-    return scope;
-  }
-  for (const token of launcherArgs) {
-    if (token === "-r" || token === "--recursive") {
-      scope.isDelegate = true;
-      scope.isRecursive = true;
-    } else if (token === "-F" || token === "--filter" || token.startsWith("--filter=")) {
-      scope.isDelegate = true;
-    } else if (token === "-w" || token === "--workspace-root") {
-      scope.isWorkspaceRoot = true;
-    }
-  }
-  return scope;
-}
-function readNmrTail(segment) {
-  const [head, ...rest] = dropLeadingAssignments(tokenizeSegment(segment));
-  if (head === void 0) {
-    return void 0;
-  }
-  if (head === "nmr") {
-    return { launcher: void 0, launcherArgs: [], tail: rest };
-  }
-  const subcommands = LAUNCHERS.get(head);
-  if (subcommands === void 0) {
-    return void 0;
-  }
-  const nmrIndex = subcommands.size === 0 ? rest.findIndex((token) => !token.startsWith("-")) : rest.findIndex((token) => subcommands.has(token)) + 1;
-  if (nmrIndex <= 0 && subcommands.size > 0) {
-    return void 0;
-  }
-  return rest[nmrIndex] === "nmr" ? { launcher: head, launcherArgs: rest.slice(0, nmrIndex), tail: rest.slice(nmrIndex + 1) } : void 0;
-}
-function readNmrTarget(tokens) {
-  let isDelegate = false;
-  let isRecursive = false;
-  let isWorkspaceRoot = false;
-  let index = 0;
-  while (index < tokens.length) {
-    const token = tokens[index] ?? "";
-    switch (token) {
-      // The pattern is the flag's value, and reading it as a command name would name whichever package it
-      // selects rather than the command that every selected scope runs.
-      case "-F":
-      case "--filter":
-        isDelegate = true;
-        index += 2;
-        break;
-      case "-R":
-      case "--recursive":
-        isDelegate = true;
-        isRecursive = true;
-        index += 1;
-        break;
-      case "-w":
-      case "--workspace-root":
-        isWorkspaceRoot = true;
-        index += 1;
-        break;
-      default:
-        if (!token.startsWith("-")) {
-          return { command: token, isDelegate, isRecursive, isWorkspaceRoot };
-        }
-        index += 1;
-    }
-  }
-  return void 0;
+  return "'" + token.replaceAll("'", String.raw`'\''`) + "'";
 }
 function splitSegments(command) {
   const segments = [];
@@ -7737,6 +7633,12 @@ function tokenizeSegment(segment) {
   }
   return tokens;
 }
+function isRedirectionOperator(char, precedingText, nextChar) {
+  if (char !== "&" && char !== "|") {
+    return false;
+  }
+  return char === "&" && nextChar === ">" || /[<>]\s*$/.test(precedingText);
+}
 
 // src/default-scripts.ts
 var GATE_PROJECTS = "--project unit --project tool";
@@ -7822,12 +7724,12 @@ function buildRootScripts(workspaceGlobs) {
 
 // ../nmr-core/dist/esm/workspace.js
 import { existsSync, readFileSync } from "node:fs";
-import path3 from "node:path";
+import path2 from "node:path";
 var import_yaml = __toESM(require_dist(), 1);
 
 // ../nmr-core/dist/esm/helpers/workspace-patterns.js
-import { globSync } from "node:fs";
-import path2 from "node:path";
+import { globSync as globSync2 } from "node:fs";
+import path from "node:path";
 var MANIFEST = "package.json";
 var ALWAYS_EXCLUDED = ["**/node_modules/**"];
 function matchPackageDirs(monorepoRoot, includedPatterns, excludedPatterns) {
@@ -7836,8 +7738,8 @@ function matchPackageDirs(monorepoRoot, includedPatterns, excludedPatterns) {
     exclude: [...excludedPatterns, ...ALWAYS_EXCLUDED],
     followSymlinks: true
   };
-  const matches = globSync([...includedPatterns], options);
-  const dirs = matches.map((match) => path2.dirname(path2.resolve(monorepoRoot, match)));
+  const matches = globSync2([...includedPatterns], options);
+  const dirs = matches.map((match) => path.dirname(path.resolve(monorepoRoot, match)));
   return [...new Set(dirs)].toSorted();
 }
 function resolvePackageDirs(monorepoRoot, patterns) {
@@ -7866,7 +7768,7 @@ function buildManifestPattern(pattern) {
 // ../nmr-core/dist/esm/workspace.js
 var WORKSPACE_MANIFEST = "pnpm-workspace.yaml";
 function isMonorepoRoot(dir) {
-  return existsSync(path3.join(dir, WORKSPACE_MANIFEST));
+  return existsSync(path2.join(dir, WORKSPACE_MANIFEST));
 }
 function resolveWorkspace(monorepoRoot) {
   const manifestRead = readWorkspaceManifest(monorepoRoot);
@@ -7899,7 +7801,7 @@ function diagnoseEmptyCause(monorepoRoot, patterns) {
   return "no-package";
 }
 function readDeclaredPackages(parsedManifest) {
-  if (!isObject2(parsedManifest))
+  if (!isObject(parsedManifest))
     return { kind: "absent" };
   const packages = parsedManifest["packages"];
   if (packages === void 0 || packages === null)
@@ -7910,11 +7812,11 @@ function readDeclaredPackages(parsedManifest) {
     return { kind: "unreadable" };
   return packages.length === 0 ? { kind: "absent" } : { kind: "patterns", patterns: packages };
 }
-function isObject2(value) {
+function isObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function readWorkspaceManifest(monorepoRoot) {
-  const workspaceFile = path3.join(monorepoRoot, WORKSPACE_MANIFEST);
+  const workspaceFile = path2.join(monorepoRoot, WORKSPACE_MANIFEST);
   if (!existsSync(workspaceFile)) {
     return { kind: "absent" };
   }
@@ -7944,9 +7846,9 @@ function getWorkspacePackageDirs(monorepoRoot) {
 }
 
 // src/workspace-globs.ts
-import path4 from "node:path";
+import path3 from "node:path";
 function toWorkspacePackageGlobs(monorepoRoot, packageDirs) {
-  return packageDirs.map((dir) => path4.relative(monorepoRoot, dir).split(path4.sep).join("/")).filter((relativeDir) => relativeDir !== "").map((relativeDir) => `${relativeDir}/**`).toSorted();
+  return packageDirs.map((dir) => path3.relative(monorepoRoot, dir).split(path3.sep).join("/")).filter((relativeDir) => relativeDir !== "").map((relativeDir) => `${relativeDir}/**`).toSorted();
 }
 
 // src/resolve-scripts.ts
@@ -7959,6 +7861,166 @@ function getDefaultRootScripts(monorepoRoot) {
   return buildRootScripts(toWorkspacePackageGlobs(monorepoRoot, packageDirs));
 }
 
+// .readyup/lib/root-scripts.ts
+var INSTALL_LIFECYCLE_SCRIPTS = [
+  "pnpm:devPreinstall",
+  "preinstall",
+  "install",
+  "postinstall",
+  "preprepare",
+  "prepare",
+  "postprepare"
+];
+var LEFTHOOK_CHECK_INSTALL_PATTERN = /\blefthook\s+check-install\b/;
+var LEFTHOOK_INSTALL_PATTERN = /\blefthook\s+install\b/;
+var rootScriptChecks = [
+  {
+    name: "root package.json has no nmr-provided scripts",
+    severity: "warn",
+    quiet: true,
+    check: noRedundantRootScripts,
+    fix: "Remove scripts from root package.json that nmr provides as built-in root scripts, and invoke them through nmr directly"
+  }
+];
+var gitHookChecks = [
+  {
+    name: "no root install script runs lefthook install unguarded",
+    severity: "warn",
+    quiet: true,
+    check: () => noUnguardedLefthookInstall(),
+    fix: "Guard each listed script as `lefthook check-install || lefthook install`, which writes hooks only when they are missing or stale. A bare `lefthook install` rewrites `.git/hooks` on every install, so when that directory is not writable, as in an agent's sandbox, `pnpm install` fails and pnpm's `verifyDepsBeforeRun` then reinstalls before every `pnpm exec`"
+  }
+];
+var legacyRunnerChecks = [
+  {
+    name: "scripts/run-workspace-script.ts does not exist",
+    severity: "error",
+    quiet: true,
+    check: () => !fileExists("scripts/run-workspace-script.ts"),
+    fix: "Delete scripts/run-workspace-script.ts, because nmr replaces this custom script runner"
+  },
+  {
+    name: 'no workspace packages reference run-workspace-script or "pnpm run ws"',
+    severity: "error",
+    quiet: true,
+    check: noWorkspaceRunScriptReferences,
+    fix: 'Remove "ws" script entries and replace any "pnpm run ws" invocations with nmr in each packages/*/package.json'
+  }
+];
+function noUnguardedLefthookInstall(cwd = process.cwd()) {
+  const scripts = readRootScripts(cwd);
+  const unguardedScripts = INSTALL_LIFECYCLE_SCRIPTS.flatMap((name) => {
+    const command = scripts[name];
+    if (typeof command !== "string") return [];
+    const isUnguarded = LEFTHOOK_INSTALL_PATTERN.test(command) && !LEFTHOOK_CHECK_INSTALL_PATTERN.test(command);
+    return isUnguarded ? [`${name}: ${command}`] : [];
+  });
+  if (unguardedScripts.length === 0) return true;
+  return { ok: false, detail: formatPaths(unguardedScripts) };
+}
+function noRedundantRootScripts() {
+  const pkg = readPackageJson();
+  if (!pkg) return true;
+  const scripts = pkg["scripts"];
+  if (!isRecord2(scripts)) return true;
+  const builtInNames = Object.keys(getDefaultRootScripts(process.cwd()));
+  const redundantNames = Object.keys(scripts).filter((name) => builtInNames.includes(name));
+  if (redundantNames.length === 0) return true;
+  return {
+    ok: false,
+    detail: `redundant: ${redundantNames.join(", ")}`
+  };
+}
+function noWorkspaceRunScriptReferences() {
+  const packagesDir = join2(process.cwd(), "packages");
+  if (!existsSync2(packagesDir)) return true;
+  const legacyPattern = /run-workspace-script|"pnpm\s+run\s+ws\b/;
+  const entries = readdirSync(packagesDir, { withFileTypes: true });
+  const matches = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const content = readFile2(`packages/${entry.name}/package.json`);
+    if (content && legacyPattern.test(content)) {
+      matches.push(entry.name);
+    }
+  }
+  if (matches.length === 0) return true;
+  return {
+    ok: false,
+    detail: `found in: ${matches.join(", ")}`
+  };
+}
+function readRootScripts(cwd) {
+  const content = readFileIn(cwd, "package.json");
+  if (content === void 0) return {};
+  let parsedManifest;
+  try {
+    parsedManifest = JSON.parse(content);
+  } catch {
+    return {};
+  }
+  if (!isRecord2(parsedManifest)) return {};
+  const scripts = parsedManifest["scripts"];
+  return isRecord2(scripts) ? scripts : {};
+}
+
+// .readyup/lib/self-hosted-runner.ts
+import { isRecord as isRecord4 } from "readyup/check-utils";
+
+// src/config.ts
+import { existsSync as existsSync3 } from "node:fs";
+import { pathToFileURL } from "node:url";
+
+// src/helpers/findClosestName.ts
+function findClosestName(name, candidates) {
+  const ceiling = Math.max(1, Math.floor(name.length / 4));
+  let closestName;
+  let shortestDistance = Infinity;
+  for (const candidate of candidates) {
+    const distance = measureDistance(name, candidate);
+    if (distance >= shortestDistance) {
+      continue;
+    }
+    shortestDistance = distance;
+    closestName = candidate;
+  }
+  return shortestDistance <= ceiling ? closestName : void 0;
+}
+function measureDistance(first, second) {
+  if (first.length === 0 || second.length === 0) {
+    return Math.max(first.length, second.length);
+  }
+  let previousRow = Array.from({ length: second.length + 1 }, (_unused, column) => column);
+  let currentRow = Array.from({ length: second.length + 1 }, () => 0);
+  for (let row = 1; row <= first.length; row += 1) {
+    currentRow[0] = row;
+    for (let column = 1; column <= second.length; column += 1) {
+      const substitution = readCell(previousRow, column - 1) + (first[row - 1] === second[column - 1] ? 0 : 1);
+      currentRow[column] = Math.min(
+        readCell(currentRow, column - 1) + 1,
+        readCell(previousRow, column) + 1,
+        substitution
+      );
+    }
+    const completedRow = currentRow;
+    currentRow = previousRow;
+    previousRow = completedRow;
+  }
+  return readCell(previousRow, second.length);
+}
+function readCell(row, index) {
+  const value = row[index];
+  if (value === void 0) {
+    throw new RangeError(`No cell at index ${index} in a row of ${row.length}`);
+  }
+  return value;
+}
+
+// src/helpers/hook-name.ts
+function isHookName(key) {
+  return key.length > 4 && key.endsWith(":pre") || key.length > 5 && key.endsWith(":post");
+}
+
 // src/resolver.ts
 import { readFileSync as readFileSync2 } from "node:fs";
 
@@ -7969,6 +8031,25 @@ function hasErrnoCode(error, code) {
 
 // src/helpers/package-json.ts
 import path5 from "node:path";
+
+// src/helpers/config-path.ts
+import path4 from "node:path";
+var CONFIG_DIR = ".config";
+var CONFIG_FILENAME = "nmr.config.ts";
+var CONFIG_RELATIVE_PATH = path4.join(CONFIG_DIR, CONFIG_FILENAME);
+function resolveConfigPath(baseDir) {
+  return path4.join(baseDir, CONFIG_DIR, CONFIG_FILENAME);
+}
+
+// src/helpers/type-guards.ts
+function isObject2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isStringRecord(value) {
+  return isObject2(value) && Object.values(value).every((entry) => typeof entry === "string");
+}
+
+// src/helpers/package-json.ts
 function parsePackageJson(rawText, file) {
   try {
     return JSON.parse(rawText);
@@ -7998,6 +8079,136 @@ function formatMalformedScript(dir, key, value) {
   return `${rejection} A step list belongs in \`${CONFIG_RELATIVE_PATH}\` under \`${field}\`.`;
 }
 
+// src/steps.ts
+var LAUNCHERS = /* @__PURE__ */ new Map([
+  ["bun", /* @__PURE__ */ new Set(["x"])],
+  ["bunx", /* @__PURE__ */ new Set()],
+  ["npm", /* @__PURE__ */ new Set(["exec"])],
+  ["npx", /* @__PURE__ */ new Set()],
+  ["pnpm", /* @__PURE__ */ new Set(["dlx", "exec"])],
+  ["yarn", /* @__PURE__ */ new Set(["dlx", "exec"])]
+]);
+function findUnexpressibleToken(element) {
+  return tokenize(element).find((token) => !isShellSafeToken(token));
+}
+function readSelfReference(options) {
+  const { commandName, scope, script } = options;
+  const segments = splitSegments(script).filter((segment) => segment.trim() !== "");
+  const doesReenter = segments.some((segment) => {
+    const invocation = readNmrTail(segment);
+    const target = invocation === void 0 ? void 0 : readNmrTarget(invocation.tail);
+    if (invocation === void 0 || target === void 0) {
+      return false;
+    }
+    const launcherScope = readLauncherScope(invocation.launcher, invocation.launcherArgs);
+    const effectiveTarget = {
+      command: target.command,
+      isDelegate: target.isDelegate || launcherScope.isDelegate,
+      isRecursive: target.isRecursive || launcherScope.isRecursive,
+      isWorkspaceRoot: target.isWorkspaceRoot || launcherScope.isWorkspaceRoot
+    };
+    return isReentry(effectiveTarget, commandName, scope);
+  });
+  if (!doesReenter) {
+    return void 0;
+  }
+  return segments.length === 1 ? "sole" : "chained";
+}
+function readStepListSelfReference(options) {
+  const { commandName, elements, scope } = options;
+  const doesReenter = elements.some((element) => {
+    const target = readNmrTarget(tokenize(element));
+    return target !== void 0 && isReentry(target, commandName, scope);
+  });
+  if (!doesReenter) {
+    return void 0;
+  }
+  return elements.length === 1 ? "sole" : "chained";
+}
+function isReentry(target, commandName, scope) {
+  if (target.command !== commandName) {
+    return false;
+  }
+  switch (scope) {
+    case "root":
+      return !target.isDelegate;
+    case "package":
+      return target.isRecursive || !target.isDelegate && !target.isWorkspaceRoot;
+    case "workspaceRegistry":
+      return target.isDelegate || !target.isWorkspaceRoot;
+  }
+}
+function readLauncherScope(launcher, launcherArgs) {
+  const scope = { isDelegate: false, isRecursive: false, isWorkspaceRoot: false };
+  if (launcher !== "pnpm") {
+    return scope;
+  }
+  for (const token of launcherArgs) {
+    if (token === "-r" || token === "--recursive") {
+      scope.isDelegate = true;
+      scope.isRecursive = true;
+    } else if (token === "-F" || token === "--filter" || token.startsWith("--filter=")) {
+      scope.isDelegate = true;
+    } else if (token === "-w" || token === "--workspace-root") {
+      scope.isWorkspaceRoot = true;
+    }
+  }
+  return scope;
+}
+function readNmrTail(segment) {
+  const [head, ...rest] = dropLeadingAssignments(tokenizeSegment(segment));
+  if (head === void 0) {
+    return void 0;
+  }
+  if (head === "nmr") {
+    return { launcher: void 0, launcherArgs: [], tail: rest };
+  }
+  const subcommands = LAUNCHERS.get(head);
+  if (subcommands === void 0) {
+    return void 0;
+  }
+  const nmrIndex = subcommands.size === 0 ? rest.findIndex((token) => !token.startsWith("-")) : rest.findIndex((token) => subcommands.has(token)) + 1;
+  if (nmrIndex <= 0 && subcommands.size > 0) {
+    return void 0;
+  }
+  return rest[nmrIndex] === "nmr" ? { launcher: head, launcherArgs: rest.slice(0, nmrIndex), tail: rest.slice(nmrIndex + 1) } : void 0;
+}
+function readNmrTarget(tokens) {
+  let isDelegate = false;
+  let isRecursive = false;
+  let isWorkspaceRoot = false;
+  let index = 0;
+  while (index < tokens.length) {
+    const token = tokens[index] ?? "";
+    switch (token) {
+      // The pattern is the flag's value, and reading it as a command name would name whichever package it
+      // selects rather than the command that every selected scope runs.
+      case "-F":
+      case "--filter":
+        isDelegate = true;
+        index += 2;
+        break;
+      case "-R":
+      case "--recursive":
+        isDelegate = true;
+        isRecursive = true;
+        index += 1;
+        break;
+      case "-w":
+      case "--workspace-root":
+        isWorkspaceRoot = true;
+        index += 1;
+        break;
+      default:
+        if (!token.startsWith("-")) {
+          return { command: token, isDelegate, isRecursive, isWorkspaceRoot };
+        }
+        index += 1;
+    }
+  }
+  return void 0;
+}
+
 // src/resolver.ts
 function describeScript(script) {
   return typeof script === "string" ? script : `[${script.map(describeElement).join(", ")}]`;
@@ -8024,9 +8235,9 @@ function readPackageJsonScripts(packageDir) {
     throw error;
   }
   const parsedManifest = parsePackageJson(rawText, file);
-  if (!isObject(parsedManifest)) return void 0;
+  if (!isObject2(parsedManifest)) return void 0;
   const scripts = parsedManifest["scripts"];
-  if (!isObject(scripts)) return void 0;
+  if (!isObject2(scripts)) return void 0;
   return readScriptRecord(packageDir, scripts);
 }
 function buildWorkspaceRegistry(config) {
@@ -8042,150 +8253,7 @@ function buildRootRegistry(config, monorepoRoot) {
   };
 }
 
-// src/verbosity.ts
-var COMMAND_VERBOSITIES = ["full", "quiet"];
-function formatVerbosityRejection(source, value) {
-  return `${source} is \`${value}\`, which is not one of: ${COMMAND_VERBOSITIES.join(", ")}`;
-}
-function isCommandVerbosity(value) {
-  const names = COMMAND_VERBOSITIES;
-  return names.includes(value);
-}
-
-// src/config.ts
-var CONFIG_TIERS = {
-  root: {
-    label: "a monorepo-root config",
-    honoredKeys: ["checkCache", "devBin", "output", "rootScripts", "selfHostedRunner", "workspaceScripts"],
-    elsewhere: "the package's own config"
-  },
-  workspace: {
-    label: "a package config",
-    honoredKeys: ["build"],
-    elsewhere: "the monorepo-root config"
-  }
-};
-var RECOGNIZED_KEYS = [...CONFIG_TIERS.root.honoredKeys, ...CONFIG_TIERS.workspace.honoredKeys];
-var RECOGNIZED_BUILD_KEYS = ["extraIgnorePatterns"];
-var RECOGNIZED_CHECK_CACHE_KEYS = ["enabled", "excludeCommands", "extraCommands"];
-var RECOGNIZED_OUTPUT_KEYS = ["commandVerbosity", "extraAgentEnvVars"];
-var RECOGNIZED_SELF_HOSTED_RUNNER_KEYS = ["exempt"];
-var RECOGNIZED_STEP_KEYS = ["run", "shouldDeclineArguments", "shouldRunInBackground"];
-var SCRIPT_FIELDS = [
-  { field: "rootScripts", scope: "root" },
-  { field: "workspaceScripts", scope: "workspaceRegistry" }
-];
-var RETIRED_STEP_KEYS = /* @__PURE__ */ new Map([["declinesArgs", "shouldDeclineArguments"]]);
-function isScriptRecord(value) {
-  if (!isObject(value)) return false;
-  for (const v of Object.values(value)) {
-    if (typeof v === "string") continue;
-    if (!Array.isArray(v) || !v.every(isScriptElement)) return false;
-  }
-  return true;
-}
-function isScriptElement(value) {
-  if (typeof value === "string") return true;
-  if (!isObject(value) || typeof value["run"] !== "string") return false;
-  return isOptionalBoolean(value["shouldDeclineArguments"]) && isOptionalBoolean(value["shouldRunInBackground"]);
-}
-function validateScriptField(value, fieldName, configPath) {
-  if (!Object.hasOwn(value, fieldName) || value[fieldName] === void 0) {
-    return void 0;
-  }
-  const scripts = value[fieldName];
-  if (!isScriptRecord(scripts)) {
-    throw new UserError(
-      `Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string | element[]>, where an element is a command string or \`{ run: string, shouldDeclineArguments?: boolean, shouldRunInBackground?: boolean }\``
-    );
-  }
-  assertValidElements(scripts, fieldName, configPath);
-  return scripts;
-}
-function assertValidElements(scripts, fieldName, configPath) {
-  for (const [command, script] of Object.entries(scripts)) {
-    if (typeof script === "string") continue;
-    for (const spec of script) {
-      if (typeof spec !== "string") {
-        assertNoRetiredKeys(spec, RETIRED_STEP_KEYS, configPath, `${fieldName}.${command}.`);
-        assertRecognizedKeys(spec, RECOGNIZED_STEP_KEYS, configPath, `${fieldName}.${command}.`);
-      }
-      const element = typeof spec === "string" ? spec : spec.run;
-      const token = findUnexpressibleToken(element);
-      if (token === void 0) continue;
-      throw new UserError(
-        `Invalid nmr config at ${configPath}: \`${fieldName}.${command}\` element \`${element}\` contains \`${token}\`, which is neither a command name nor an nmr flag. Name it as a script of its own and reference that name here.`
-      );
-    }
-  }
-}
-function isOptionalBoolean(value) {
-  return value === void 0 || typeof value === "boolean";
-}
-function isStringArray(value) {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
-}
-function validateBuildField(value, configPath) {
-  const build = value["build"];
-  if (build === void 0) {
-    return void 0;
-  }
-  if (!isObject(build)) {
-    throw new UserError(`Invalid nmr config at ${configPath}: \`build\` must be an object`);
-  }
-  assertRecognizedKeys(build, RECOGNIZED_BUILD_KEYS, configPath, "build.");
-  const extraIgnorePatterns = build["extraIgnorePatterns"];
-  if (extraIgnorePatterns !== void 0 && !isStringArray(extraIgnorePatterns)) {
-    throw new UserError(`Invalid nmr config at ${configPath}: \`build.extraIgnorePatterns\` must be a string[]`);
-  }
-  return extraIgnorePatterns === void 0 ? {} : { extraIgnorePatterns };
-}
-function validateCheckCacheField(value, configPath) {
-  const checkCache = value["checkCache"];
-  if (checkCache === void 0) {
-    return void 0;
-  }
-  if (!isObject(checkCache)) {
-    throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache\` must be an object`);
-  }
-  assertRecognizedKeys(checkCache, RECOGNIZED_CHECK_CACHE_KEYS, configPath, "checkCache.");
-  const config = {};
-  const enabledValue = checkCache["enabled"];
-  if (enabledValue !== void 0) {
-    if (typeof enabledValue !== "boolean") {
-      throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache.enabled\` must be a boolean`);
-    }
-    config.enabled = enabledValue;
-  }
-  for (const field of ["excludeCommands", "extraCommands"]) {
-    const commands = checkCache[field];
-    if (commands === void 0) {
-      continue;
-    }
-    if (!isStringArray(commands)) {
-      throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache.${field}\` must be a string[]`);
-    }
-    config[field] = commands;
-  }
-  return config;
-}
-function validateSelfHostedRunnerField(value, configPath) {
-  const selfHostedRunner = value["selfHostedRunner"];
-  if (selfHostedRunner === void 0) {
-    return void 0;
-  }
-  if (!isObject(selfHostedRunner)) {
-    throw new UserError(`Invalid nmr config at ${configPath}: \`selfHostedRunner\` must be an object`);
-  }
-  assertRecognizedKeys(selfHostedRunner, RECOGNIZED_SELF_HOSTED_RUNNER_KEYS, configPath, "selfHostedRunner.");
-  const exempt = selfHostedRunner["exempt"];
-  if (typeof exempt !== "string" || exempt.trim() === "") {
-    throw new UserError(
-      `Invalid nmr config at ${configPath}: \`selfHostedRunner.exempt\` must be a non-empty string giving the reason`
-    );
-  }
-  return { exempt };
-}
+// src/config-check-cache.ts
 function assertResolvableCheckCacheCommands(config, configPath, baseDir) {
   const { checkCache } = config;
   if (checkCache === void 0 || !isMonorepoRoot(baseDir)) {
@@ -8244,12 +8312,167 @@ function readPackageScripts(packageDir) {
     throw error;
   }
 }
+
+// src/verbosity.ts
+var COMMAND_VERBOSITIES = ["full", "quiet"];
+function formatVerbosityRejection(source, value) {
+  return `${source} is \`${value}\`, which is not one of: ${COMMAND_VERBOSITIES.join(", ")}`;
+}
+function isCommandVerbosity(value) {
+  const names = COMMAND_VERBOSITIES;
+  return names.includes(value);
+}
+
+// src/config-validation.ts
+var CONFIG_TIERS = {
+  root: {
+    label: "a monorepo-root config",
+    honoredKeys: ["checkCache", "devBin", "output", "rootScripts", "selfHostedRunner", "workspaceScripts"],
+    elsewhere: "the package's own config"
+  },
+  workspace: {
+    label: "a package config",
+    honoredKeys: ["build"],
+    elsewhere: "the monorepo-root config"
+  }
+};
+var RECOGNIZED_KEYS = [...CONFIG_TIERS.root.honoredKeys, ...CONFIG_TIERS.workspace.honoredKeys];
+var RECOGNIZED_BUILD_KEYS = ["extraIgnorePatterns"];
+var RECOGNIZED_CHECK_CACHE_KEYS = ["enabled", "excludeCommands", "extraCommands"];
+var RECOGNIZED_OUTPUT_KEYS = ["commandVerbosity", "extraAgentEnvVars"];
+var RECOGNIZED_SELF_HOSTED_RUNNER_KEYS = ["exempt"];
+var RECOGNIZED_STEP_KEYS = ["run", "shouldDeclineArguments", "shouldRunInBackground"];
+var RETIRED_STEP_KEYS = /* @__PURE__ */ new Map([["declinesArgs", "shouldDeclineArguments"]]);
+function validateConfig(value, configPath, baseDir) {
+  if (!isObject2(value)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: expected an object, got ${typeof value}`);
+  }
+  assertRecognizedKeys(value, RECOGNIZED_KEYS, configPath);
+  const config = {};
+  const build = validateBuildField(value, configPath);
+  if (build) config.build = build;
+  const checkCache = validateCheckCacheField(value, configPath);
+  if (checkCache) config.checkCache = checkCache;
+  const devBin = validateStringRecordField(value, "devBin", configPath);
+  if (devBin) config.devBin = devBin;
+  const output = validateOutputField(value, configPath);
+  if (output) config.output = output;
+  const workspaceScripts2 = validateScriptField(value, "workspaceScripts", configPath);
+  if (workspaceScripts2) config.workspaceScripts = workspaceScripts2;
+  const rootScripts = validateScriptField(value, "rootScripts", configPath);
+  if (rootScripts) config.rootScripts = rootScripts;
+  const selfHostedRunner = validateSelfHostedRunnerField(value, configPath);
+  if (selfHostedRunner) config.selfHostedRunner = selfHostedRunner;
+  assertResolvableCheckCacheCommands(config, configPath, baseDir);
+  return config;
+}
+function assertNoRetiredKeys(value, retiredKeys, configPath, prefix) {
+  for (const key of Object.keys(value)) {
+    const replacement = retiredKeys.get(key);
+    if (replacement === void 0) continue;
+    throw new UserError(
+      `Invalid nmr config at ${configPath}: \`${prefix}${key}\` was renamed to \`${prefix}${replacement}\`.`
+    );
+  }
+}
+function assertRecognizedKeys(value, recognizedKeys, configPath, prefix = "") {
+  const unrecognizedKeys = Object.keys(value).filter((key) => !recognizedKeys.includes(key));
+  if (unrecognizedKeys.length === 0) {
+    return;
+  }
+  throw new UserError(
+    `Invalid nmr config at ${configPath}: unrecognized ${unrecognizedKeys.length === 1 ? "key" : "keys"} ${formatKeyList(unrecognizedKeys, prefix)}. Recognized: ${formatKeyList(recognizedKeys, prefix)}.`
+  );
+}
+function assertValidElements(scripts, fieldName, configPath) {
+  for (const [command, script] of Object.entries(scripts)) {
+    if (typeof script === "string") continue;
+    for (const spec of script) {
+      if (typeof spec !== "string") {
+        assertNoRetiredKeys(spec, RETIRED_STEP_KEYS, configPath, `${fieldName}.${command}.`);
+        assertRecognizedKeys(spec, RECOGNIZED_STEP_KEYS, configPath, `${fieldName}.${command}.`);
+      }
+      const element = typeof spec === "string" ? spec : spec.run;
+      const token = findUnexpressibleToken(element);
+      if (token === void 0) continue;
+      throw new UserError(
+        `Invalid nmr config at ${configPath}: \`${fieldName}.${command}\` element \`${element}\` contains \`${token}\`, which is neither a command name nor an nmr flag. Name it as a script of its own and reference that name here.`
+      );
+    }
+  }
+}
+function formatKeyList(keys, prefix) {
+  return keys.toSorted().map((key) => `\`${prefix}${key}\``).join(", ");
+}
+function isOptionalBoolean(value) {
+  return value === void 0 || typeof value === "boolean";
+}
+function isScriptRecord(value) {
+  if (!isObject2(value)) return false;
+  for (const v of Object.values(value)) {
+    if (typeof v === "string") continue;
+    if (!Array.isArray(v) || !v.every(isScriptElement)) return false;
+  }
+  return true;
+}
+function isScriptElement(value) {
+  if (typeof value === "string") return true;
+  if (!isObject2(value) || typeof value["run"] !== "string") return false;
+  return isOptionalBoolean(value["shouldDeclineArguments"]) && isOptionalBoolean(value["shouldRunInBackground"]);
+}
+function isStringArray(value) {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+function validateBuildField(value, configPath) {
+  const build = value["build"];
+  if (build === void 0) {
+    return void 0;
+  }
+  if (!isObject2(build)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`build\` must be an object`);
+  }
+  assertRecognizedKeys(build, RECOGNIZED_BUILD_KEYS, configPath, "build.");
+  const extraIgnorePatterns = build["extraIgnorePatterns"];
+  if (extraIgnorePatterns !== void 0 && !isStringArray(extraIgnorePatterns)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`build.extraIgnorePatterns\` must be a string[]`);
+  }
+  return extraIgnorePatterns === void 0 ? {} : { extraIgnorePatterns };
+}
+function validateCheckCacheField(value, configPath) {
+  const checkCache = value["checkCache"];
+  if (checkCache === void 0) {
+    return void 0;
+  }
+  if (!isObject2(checkCache)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache\` must be an object`);
+  }
+  assertRecognizedKeys(checkCache, RECOGNIZED_CHECK_CACHE_KEYS, configPath, "checkCache.");
+  const config = {};
+  const enabledValue = checkCache["enabled"];
+  if (enabledValue !== void 0) {
+    if (typeof enabledValue !== "boolean") {
+      throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache.enabled\` must be a boolean`);
+    }
+    config.enabled = enabledValue;
+  }
+  for (const field of ["excludeCommands", "extraCommands"]) {
+    const commands = checkCache[field];
+    if (commands === void 0) {
+      continue;
+    }
+    if (!isStringArray(commands)) {
+      throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache.${field}\` must be a string[]`);
+    }
+    config[field] = commands;
+  }
+  return config;
+}
 function validateOutputField(value, configPath) {
   const output = value["output"];
   if (output === void 0) {
     return void 0;
   }
-  if (!isObject(output)) {
+  if (!isObject2(output)) {
     throw new UserError(`Invalid nmr config at ${configPath}: \`output\` must be an object`);
   }
   assertRecognizedKeys(output, RECOGNIZED_OUTPUT_KEYS, configPath, "output.");
@@ -8273,6 +8496,36 @@ function validateOutputField(value, configPath) {
   }
   return config;
 }
+function validateSelfHostedRunnerField(value, configPath) {
+  const selfHostedRunner = value["selfHostedRunner"];
+  if (selfHostedRunner === void 0) {
+    return void 0;
+  }
+  if (!isObject2(selfHostedRunner)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`selfHostedRunner\` must be an object`);
+  }
+  assertRecognizedKeys(selfHostedRunner, RECOGNIZED_SELF_HOSTED_RUNNER_KEYS, configPath, "selfHostedRunner.");
+  const exempt = selfHostedRunner["exempt"];
+  if (typeof exempt !== "string" || exempt.trim() === "") {
+    throw new UserError(
+      `Invalid nmr config at ${configPath}: \`selfHostedRunner.exempt\` must be a non-empty string giving the reason`
+    );
+  }
+  return { exempt };
+}
+function validateScriptField(value, fieldName, configPath) {
+  if (!Object.hasOwn(value, fieldName) || value[fieldName] === void 0) {
+    return void 0;
+  }
+  const scripts = value[fieldName];
+  if (!isScriptRecord(scripts)) {
+    throw new UserError(
+      `Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string | element[]>, where an element is a command string or \`{ run: string, shouldDeclineArguments?: boolean, shouldRunInBackground?: boolean }\``
+    );
+  }
+  assertValidElements(scripts, fieldName, configPath);
+  return scripts;
+}
 function validateStringRecordField(value, fieldName, configPath) {
   if (!Object.hasOwn(value, fieldName) || value[fieldName] === void 0) {
     return void 0;
@@ -8282,36 +8535,33 @@ function validateStringRecordField(value, fieldName, configPath) {
   }
   return value[fieldName];
 }
-function validateConfig(value, configPath, baseDir) {
-  if (!isObject(value)) {
-    throw new UserError(`Invalid nmr config at ${configPath}: expected an object, got ${typeof value}`);
+
+// src/helpers/escapeControlCharacters.ts
+var NAMED_ESCAPES = /* @__PURE__ */ new Map([
+  ["\n", String.raw`\n`],
+  ["\r", String.raw`\r`],
+  ["	", String.raw`\t`]
+]);
+function escapeControlCharacters(text) {
+  let escapedText = text;
+  for (const [char, escape] of NAMED_ESCAPES) {
+    escapedText = escapedText.split(char).join(escape);
   }
-  assertRecognizedKeys(value, RECOGNIZED_KEYS, configPath);
-  const config = {};
-  const build = validateBuildField(value, configPath);
-  if (build) config.build = build;
-  const checkCache = validateCheckCacheField(value, configPath);
-  if (checkCache) config.checkCache = checkCache;
-  const devBin = validateStringRecordField(value, "devBin", configPath);
-  if (devBin) config.devBin = devBin;
-  const output = validateOutputField(value, configPath);
-  if (output) config.output = output;
-  const workspaceScripts2 = validateScriptField(value, "workspaceScripts", configPath);
-  if (workspaceScripts2) config.workspaceScripts = workspaceScripts2;
-  const rootScripts = validateScriptField(value, "rootScripts", configPath);
-  if (rootScripts) config.rootScripts = rootScripts;
-  const selfHostedRunner = validateSelfHostedRunnerField(value, configPath);
-  if (selfHostedRunner) config.selfHostedRunner = selfHostedRunner;
-  assertResolvableCheckCacheCommands(config, configPath, baseDir);
-  return config;
+  return escapedText;
 }
+
+// src/config.ts
+var SCRIPT_FIELDS = [
+  { field: "rootScripts", scope: "root" },
+  { field: "workspaceScripts", scope: "workspaceRegistry" }
+];
 async function loadConfig(baseDir) {
   const configPath = resolveConfigPath(baseDir);
-  if (!existsSync2(configPath)) {
+  if (!existsSync3(configPath)) {
     return {};
   }
   const importedModule = await import(pathToFileURL(configPath).href);
-  const loadedConfig = isObject(importedModule) ? importedModule["default"] : void 0;
+  const loadedConfig = isObject2(importedModule) ? importedModule["default"] : void 0;
   return validateConfig(loadedConfig, configPath, baseDir);
 }
 async function loadRootConfig(monorepoRoot) {
@@ -8320,15 +8570,6 @@ async function loadRootConfig(monorepoRoot) {
   assertTierKeys(config, CONFIG_TIERS.root, configPath);
   assertNoSelfReferences(config, configPath, monorepoRoot);
   return config;
-}
-function assertNoRetiredKeys(value, retiredKeys, configPath, prefix) {
-  for (const key of Object.keys(value)) {
-    const replacement = retiredKeys.get(key);
-    if (replacement === void 0) continue;
-    throw new UserError(
-      `Invalid nmr config at ${configPath}: \`${prefix}${key}\` was renamed to \`${prefix}${replacement}\`.`
-    );
-  }
 }
 function assertNoSelfReferences(config, configPath, monorepoRoot) {
   for (const { field, scope } of SCRIPT_FIELDS) {
@@ -8352,15 +8593,6 @@ function assertNoSelfReferences(config, configPath, monorepoRoot) {
     }
   }
 }
-function assertRecognizedKeys(value, recognizedKeys, configPath, prefix = "") {
-  const unrecognizedKeys = Object.keys(value).filter((key) => !recognizedKeys.includes(key));
-  if (unrecognizedKeys.length === 0) {
-    return;
-  }
-  throw new UserError(
-    `Invalid nmr config at ${configPath}: unrecognized ${unrecognizedKeys.length === 1 ? "key" : "keys"} ${formatKeyList(unrecognizedKeys, prefix)}. Recognized: ${formatKeyList(recognizedKeys, prefix)}.`
-  );
-}
 function assertTierKeys(config, tier, configPath) {
   const unsupportedKeys = Object.keys(config).filter((key) => !tier.honoredKeys.includes(key));
   if (unsupportedKeys.length === 0) {
@@ -8369,9 +8601,6 @@ function assertTierKeys(config, tier, configPath) {
   throw new UserError(
     `Invalid nmr config at ${configPath}: ${tier.label} honors ${tier.honoredKeys.toSorted().join(", ")} alone, not ${unsupportedKeys.toSorted().join(", ")}. Move those keys to ${tier.elsewhere}.`
   );
-}
-function formatKeyList(keys, prefix) {
-  return keys.toSorted().map((key) => `\`${prefix}${key}\``).join(", ");
 }
 function formatSelfReferenceRemedy(options) {
   const { isDefault, key, selfReference } = options;
@@ -8382,7 +8611,7 @@ function formatSelfReferenceRemedy(options) {
 }
 
 // src/tiers.ts
-import { readdirSync } from "node:fs";
+import { readdirSync as readdirSync2 } from "node:fs";
 import path6 from "node:path";
 
 // src/git-ignored-paths.ts
@@ -8419,7 +8648,7 @@ function hasTierInfix(filePath) {
 var TEST_COLLECTION_EXCLUDE = [".git", "coverage", "dist", "node_modules"];
 var TIER_NAMES = ["unit", "tool", "localhost", "remote"];
 function collectTestFiles(dir, relativeDir, isInTestDir, context) {
-  const entries = readdirSync(dir, { withFileTypes: true });
+  const entries = readdirSync2(dir, { withFileTypes: true });
   for (const entry of entries) {
     const relativePath = relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
     if (entry.isDirectory()) {
@@ -8441,734 +8670,201 @@ function walkTestFiles(rootDir, { excludedBasenames = [] }, misplaced) {
   return context.foundPaths.toSorted();
 }
 
-// .readyup/kits/default.ts
-var default_default = defineRdyKit({
-  checklists: [
-    {
-      name: "nmr",
-      checks: [
-        // -- Setup ---------------------------------------------------------------
-        {
-          name: "@williamthorsen/nmr in devDependencies",
-          severity: "error",
-          check: () => hasDevDependency("@williamthorsen/nmr"),
-          fix: "pnpm add --save-dev @williamthorsen/nmr",
-          checks: [
-            {
-              get name() {
-                return `@williamthorsen/nmr >= ${getMinVersion()}`;
-              },
-              severity: "error",
-              check: () => hasMinDevDependencyVersion("@williamthorsen/nmr", getMinVersion(), {
-                exempt: resolvesVersionViaWorkspace
-              }),
-              get fix() {
-                return `pnpm add --save-dev @williamthorsen/nmr@^${getMinVersion()}`;
-              }
-            }
-          ]
-        },
-        {
-          name: "pnpm-workspace.yaml exists",
-          severity: "error",
-          check: () => fileExists("pnpm-workspace.yaml"),
-          fix: "Create pnpm-workspace.yaml with workspace package globs"
-        },
-        {
-          name: "catalogued dependencies use catalog:",
-          severity: "warn",
-          quiet: true,
-          check: cataloguedDependenciesUseCatalog,
-          fix: "Replace each listed specifier with `catalog:`, so that pnpm-workspace.yaml stays the one place that declares the version. A version that must differ belongs in a named catalog under `catalogs`, referenced as `catalog:<name>`"
-        },
-        {
-          name: "package.json has packageManager field",
-          severity: "warn",
-          check: () => hasPackageJsonField("packageManager"),
-          fix: 'Add "packageManager" field to package.json (e.g., "pnpm@10.33.0")'
-        },
-        {
-          name: ".tool-versions does not list pnpm",
-          severity: "warn",
-          quiet: true,
-          check: toolVersionsHasNoPnpm,
-          fix: "Remove pnpm from .tool-versions, and manage it through the packageManager field"
-        },
-        {
-          name: "no package.json declares a pnpm field",
-          severity: "error",
-          quiet: true,
-          check: () => noPnpmFieldInPackageJson(),
-          fix: "Move these settings into pnpm-workspace.yaml, quoting each version under `overrides`, or run `pnpx codemod run pnpm-v10-to-v11`. pnpm 11 does not read any key from the `pnpm` field, so an override left there pins nothing while an upgrade run with `--write` goes on rewriting it"
-        },
-        {
-          name: "no package.json declares a workspaces field",
-          severity: "warn",
-          quiet: true,
-          check: () => noWorkspacesFieldInPackageJson(),
-          fix: "Delete the `workspaces` field. pnpm reads workspace globs only from pnpm-workspace.yaml, so the field can drift from them without any error"
-        },
-        {
-          name: ".config/nmr.config.ts uses defineConfig",
-          severity: "recommend",
-          skip: () => !fileExists(".config/nmr.config.ts") && "no nmr config file",
-          check: () => fileContains(".config/nmr.config.ts", /defineConfig/),
-          fix: "Wrap the config export with defineConfig() from @williamthorsen/nmr/config for type safety"
-        },
-        // `error` because falling short produces wrong results rather than a failure. Names and fixes are
-        // getters because their version constants are declared below the kit.
-        {
-          get name() {
-            return `eslint >= ${MIN_ESLINT_VERSION}`;
-          },
-          severity: "error",
-          skip: () => !hasDevDependency("eslint") && "eslint not installed",
-          check: hasSupportedEslintVersion,
-          get fix() {
-            return `pnpm add --save-dev eslint@^${MIN_ESLINT_VERSION}. Earlier releases resolve config from the working directory, so nmr's root lint and lint:check would apply the root config to every package`;
-          }
-        },
-        {
-          get name() {
-            return `@williamthorsen/strict-lint >= ${MIN_STRICT_LINT_VERSION}`;
-          },
-          severity: "error",
-          skip: () => !hasDevDependency("@williamthorsen/strict-lint") && "strict-lint not installed",
-          check: hasSupportedStrictLintVersion,
-          get fix() {
-            return `pnpm add --save-dev @williamthorsen/strict-lint@^${MIN_STRICT_LINT_VERSION}. Earlier releases pin ESLint to one config and resolve ceilings from the working directory, so nmr's root lint:strict would report the wrong rules for every package`;
-          }
-        },
-        // -- Root script cleanup -------------------------------------------------
-        {
-          name: "root package.json has no nmr-provided scripts",
-          severity: "warn",
-          quiet: true,
-          check: noRedundantRootScripts,
-          fix: "Remove scripts from root package.json that nmr provides as built-in root scripts, and invoke them through nmr directly"
-        },
-        // -- Git hooks -----------------------------------------------------------
-        {
-          name: "no root install script runs lefthook install unguarded",
-          severity: "warn",
-          quiet: true,
-          check: () => noUnguardedLefthookInstall(),
-          fix: "Guard each listed script as `lefthook check-install || lefthook install`, which writes hooks only when they are missing or stale. A bare `lefthook install` rewrites `.git/hooks` on every install, so when that directory is not writable, as in an agent's sandbox, `pnpm install` fails and pnpm's `verifyDepsBeforeRun` then reinstalls before every `pnpm exec`"
-        },
-        // -- Workspace build readiness -------------------------------------------
-        {
-          name: "all workspace packages can build",
-          severity: "warn",
-          check: allWorkspacePackagesCanBuild,
-          fix: `Add "build": ":" to packages that don't need a build, or ensure packages that use the default nmr build have a tsconfig.json and a src/ directory`
-        },
-        // -- Bin targets ---------------------------------------------------------
-        {
-          name: "every bin target is a committed wrapper",
-          severity: "error",
-          check: () => everyBinTargetIsACommittedWrapper(),
-          fix: `Point each listed entry at a committed wrapper under bin/ that loads the build output at runtime. pnpm links a workspace package's bins during the install's link phase, which runs before anything is built, so a target that is not committed does not exist when pnpm tries to link it. pnpm never retries, which leaves the link missing for the life of the node_modules tree`
-        },
-        {
-          name: "every bin wrapper's build-output target is covered by files",
-          severity: "warn",
-          check: () => everyBinWrapperTargetIsCoveredByFiles(),
-          fix: "Add the build output directory to `files` in each listed package. npm and pnpm publish the bin target itself whatever `files` says, so the wrapper is published pointing at build output missing from the tarball"
-        },
-        // -- Vitest projects -----------------------------------------------------
-        {
-          name: "no retired Vitest config variants",
-          severity: "error",
-          quiet: true,
-          check: () => noRetiredVitestConfigs(),
-          fix: "Delete every vitest.standalone.config.* and vitest.integration.config.*. nmr's test scripts select Vitest projects instead of naming config files"
-        },
-        {
-          name: "every vitest.config builds on @williamthorsen/nmr/vitest",
-          severity: "error",
-          check: () => vitestConfigBuildsOnSharedConfig(),
-          fix: "Replace each listed config with: import { defineVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineVitestConfig(); -- a config that does not call the factory does not declare any projects, so every tier-selecting test command fails against it. Pass the repo's own settings to the factory as layers to keep them"
-        },
-        {
-          name: "vitest.root.config.ts builds on @williamthorsen/nmr/vitest",
-          severity: "error",
-          check: () => vitestRootConfigBuildsOnSharedConfig(),
-          fix: "Replace vitest.root.config.ts with: import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });"
-        },
-        {
-          name: "every workspace with a Vite config has a Vitest config",
-          severity: "error",
-          check: () => everyViteConfigHasVitestConfig(),
-          fix: "Add a vitest.config.ts calling defineVitestConfig() from @williamthorsen/nmr/vitest beside each listed vite.config -- Vitest stops its config search at the first directory containing either name, so the Vite config otherwise wins and the projects model is never reached"
-        },
-        {
-          name: "the test suite gates the test-file conventions",
-          severity: "warn",
-          check: () => testSuiteGatesTestFileConventions(),
-          fix: "Add a test of the repo's own under a __tests__ directory that declares the check: import { checkTestFileConventions } from '@williamthorsen/nmr/tests'; checkTestFileConventions(); -- passing `excludedBasenames` the directory names that the repo passes to `testCollectionExclude`. Without it, the repo's test run does not report an untiered or misplaced test file, and this kit reports them in its place against only nmr's built-in exclusions and the paths that git ignores"
-        },
-        {
-          name: "every test file names its isolation tier",
-          severity: "error",
-          skip: () => describeConventionsGuardSkip(),
-          check: () => everyTestFileNamesItsTier(),
-          fix: `Rename each to <subject>[.<aspect>].<tier>.test.ts, naming one of ${TIER_NAMES.join(", ")}. Use tool for a test that reaches a program supplied by the environment, which is the tier for a retired .int. or .integration. file. Only the segment before .test. selects a project, so an untiered file runs under the residual unit project and reports success`
-        },
-        {
-          name: "every test file is under a __tests__ directory",
-          severity: "error",
-          skip: () => describeConventionsGuardSkip(),
-          check: () => everyTestFileSitsUnderTestsDir(),
-          fix: "Move each into a __tests__ directory, the only place from which the shared Vitest config collects. Vitest does not collect a file outside one, so it runs nowhere and reports nothing. For a file that is not a test, declare checkTestFileConventions with its directory in `excludedBasenames` instead, which this check then defers to"
-        },
-        {
-          name: "no package re-exports the ancestor Vitest config",
-          severity: "recommend",
-          quiet: true,
-          check: () => noReExportOnlyVitestConfigs(),
-          fix: "Delete these files. Vitest resolves config by walking up from the run root, so a per-package re-export is redundant"
-        },
-        // -- Shared Prettier config ----------------------------------------------
-        {
-          name: "Prettier config builds on @williamthorsen/nmr/prettier",
-          severity: "error",
-          check: () => prettierConfigBuildsOnSharedConfig(),
-          fix: "Replace the Prettier config with: import { definePrettierConfig } from '@williamthorsen/nmr/prettier'; export default definePrettierConfig();"
-        },
-        // -- Shared upgrade policy -----------------------------------------------
-        {
-          name: "taze.config.ts builds on @williamthorsen/nmr/taze",
-          severity: "warn",
-          check: () => tazeConfigBuildsOnSharedConfig(),
-          fix: "Replace the taze config with: import { defineConfig } from '@williamthorsen/nmr/taze'; export default defineConfig(); -- nmr's upgrade policy applies to a repo only through this file, so without it `nmr upgrade` does not report a dependency pinned to an exact version"
-        },
-        {
-          name: "taze config declares no option taze discards",
-          severity: "warn",
-          quiet: true,
-          check: () => tazeConfigAvoidsClobberedOptions(),
-          fix: "Set these through the upgrade script instead, as rootScripts: { upgrade: 'nmr-report-overrides && nmr-taze --recursive --request-timeout 90000' } in .config/nmr.config.ts, keeping the rest of the default script. taze's CLI writes a default for each of them over whatever the config file declares, so taze never uses the file's value (antfu-collective/taze#317). nmr already forwards a 30-second request timeout"
-        },
-        // -- Audit dependency --------------------------------------------------------
-        {
-          name: "v11y-check in devDependencies",
-          severity: "warn",
-          check: () => hasDevDependency("v11y-check"),
-          fix: "pnpm add --save-dev v11y-check"
-        },
-        // -- Legacy script runner ------------------------------------------------
-        {
-          name: "scripts/run-workspace-script.ts does not exist",
-          severity: "error",
-          quiet: true,
-          check: () => !fileExists("scripts/run-workspace-script.ts"),
-          fix: "Delete scripts/run-workspace-script.ts, because nmr replaces this custom script runner"
-        },
-        {
-          name: 'no workspace packages reference run-workspace-script or "pnpm run ws"',
-          severity: "error",
-          quiet: true,
-          check: noWorkspaceRunScriptReferences,
-          fix: 'Remove "ws" script entries and replace any "pnpm run ws" invocations with nmr in each packages/*/package.json'
-        }
-      ]
-    },
-    {
-      name: "self-hosted runner",
-      checks: [
-        {
-          name: "GitHub reports the repo's runner settings",
-          severity: "recommend",
-          quiet: true,
-          skip: () => describeSelfHostedRunnerSkip(),
-          check: () => true,
-          checks: [
-            {
-              name: "CI_RUNS_ON selects the self-hosted runner",
-              severity: "recommend",
-              skip: () => describeRecommendationSkip(),
-              check: () => recommendSelfHostedRunner()
-            },
-            {
-              name: "the self-hosted runner can run CI",
-              severity: "warn",
-              skip: () => describeReadinessSkip(),
-              check: () => selfHostedRunnerCanRunCi()
-            }
-          ]
-        }
-      ]
-    }
-  ]
-});
-var SCAN_EXCLUDE_DIRS = /* @__PURE__ */ new Set([".git", "coverage", "dist", "node_modules"]);
-var BUILD_OUTPUT_DIR = "dist";
-var WRAPPER_TARGET_PATTERN = /['"](\.\.?\/[^'"]+)['"]/;
-var CONFIG_EXTENSIONS = "{ts,mts,cts,js,mjs,cjs}";
-var VITE_CONFIG_PATTERN = `vite.config.${CONFIG_EXTENSIONS}`;
-var VITEST_CONFIG_PATTERN = `vitest.config.${CONFIG_EXTENSIONS}`;
-var SHARED_VITEST_MODULE = "@williamthorsen/nmr/vitest";
-var SHARED_PRETTIER_MODULE = "@williamthorsen/nmr/prettier";
-var INERT_PRETTIER_CONFIGS = [".prettierrc", ".prettierrc.{json,json5,yaml,yml,toml}"];
-var SHARED_TAZE_MODULE = "@williamthorsen/nmr/taze";
-var SHARED_TESTS_MODULE = "@williamthorsen/nmr/tests";
-var INERT_TAZE_CONFIGS = [".tazerc", ".tazerc.json", "taze.config.json"];
-var CLOBBERED_TAZE_OPTIONS = [
-  { key: "concurrency", pattern: /\bconcurrency\s*:/ },
-  { key: "githubActions", pattern: /\bgithubActions\s*:\s*(?:false|\{)/ },
-  { key: "ignoreOtherWorkspaces", pattern: /\bignoreOtherWorkspaces\s*:\s*false/ },
-  { key: "nodeVersion", pattern: /\bnodeVersion\s*:\s*false/ },
-  { key: "requestTimeout", pattern: /\brequestTimeout\s*:/ }
-];
-var RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
-var INSTALL_LIFECYCLE_SCRIPTS = [
-  "pnpm:devPreinstall",
-  "preinstall",
-  "install",
-  "postinstall",
-  "preprepare",
-  "prepare",
-  "postprepare"
-];
-var LEFTHOOK_CHECK_INSTALL_PATTERN = /\blefthook\s+check-install\b/;
-var LEFTHOOK_INSTALL_PATTERN = /\blefthook\s+install\b/;
-var MIN_ESLINT_VERSION = "10.0.0";
-var MIN_STRICT_LINT_VERSION = "9.3.0";
-var WORKSPACE_VERSION_MARKERS = ["catalog:", "workspace:"];
-var CATALOGUE_CHECKED_FIELDS = ["dependencies", "devDependencies", "optionalDependencies"];
-var PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:/i;
-function allWorkspacePackagesCanBuild() {
-  const packagesDir = join(process.cwd(), "packages");
-  if (!existsSync3(packagesDir)) return true;
-  const entries = readdirSync2(packagesDir, { withFileTypes: true });
-  const failingPackages = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const pkgPath = `packages/${entry.name}/package.json`;
-    const content = readFile(pkgPath);
-    if (!content) continue;
-    const hasBuildOverride = /"build"\s*:/.test(content);
-    const hasDefaultBuildInputs = fileExists(`packages/${entry.name}/tsconfig.json`) && existsSync3(join(packagesDir, entry.name, "src"));
-    if (!hasBuildOverride && !hasDefaultBuildInputs) {
-      failingPackages.push(entry.name);
-    }
-  }
-  if (failingPackages.length === 0) return true;
-  return {
-    ok: false,
-    detail: `missing build override or tsconfig.json + src/: ${failingPackages.join(", ")}`
-  };
-}
-function cataloguedDependenciesUseCatalog() {
-  const catalogRead = readCataloguedNames(process.cwd());
-  if (!catalogRead.ok) return catalogRead;
-  if (catalogRead.names.size === 0) return true;
-  const workspaceDiscovery = discoverWorkspacesOrFailure();
-  if (!workspaceDiscovery.ok) return workspaceDiscovery;
-  const findings = workspaceDiscovery.workspaces.flatMap((workspace) => findLiteralCataloguedSpecifiers(workspace, catalogRead.names)).toSorted((a, b) => a.manifestPath.localeCompare(b.manifestPath) || a.name.localeCompare(b.name));
-  if (findings.length === 0) return true;
-  const lines = findings.map(({ manifestPath, name, specifier }) => `${manifestPath}: ${name} ${specifier}`);
-  return { ok: false, detail: formatPaths([...new Set(lines)]) };
-}
-function checkNoMatchingFiles(patterns, cwd) {
-  const foundFiles = findFiles(patterns, cwd);
-  if (foundFiles.length === 0) return true;
-  return { ok: false, detail: formatPaths(foundFiles) };
-}
-function checkRootVitestConfig(baseName, exportName, cwd) {
-  const matches = findFiles([`${baseName}.${CONFIG_EXTENSIONS}`], cwd);
-  if (matches.length === 0) {
-    return { ok: false, detail: `${baseName}.ts is missing` };
-  }
-  const staleConfigs = matches.filter(
-    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), exportName, SHARED_VITEST_MODULE)
-  );
-  if (staleConfigs.length === 0) return true;
-  return {
-    ok: false,
-    detail: `does not import ${exportName} from ${SHARED_VITEST_MODULE}: ${staleConfigs.join(", ")}`
-  };
-}
-function prettierConfigBuildsOnSharedConfig(cwd = process.cwd()) {
-  const configs = findFiles(
-    [`.prettierrc.${CONFIG_EXTENSIONS}`, `prettier.config.${CONFIG_EXTENSIONS}`],
-    //
-    cwd
-  );
-  if (configs.length === 0) {
-    return { ok: false, detail: describeMissingPrettierConfig(cwd) };
-  }
-  const staleConfigs = configs.filter(
-    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), "definePrettierConfig", SHARED_PRETTIER_MODULE)
-  );
-  if (staleConfigs.length === 0) return true;
-  return {
-    ok: false,
-    detail: `does not import definePrettierConfig from ${SHARED_PRETTIER_MODULE}: ${staleConfigs.join(", ")}`
-  };
-}
-function describeMissingPrettierConfig(cwd) {
-  const inertConfigs = findFiles(INERT_PRETTIER_CONFIGS, cwd);
-  if (inertConfigs.length > 0) return `does not contain code that calls the factory: ${inertConfigs.join(", ")}`;
-  if (hasPrettierConfigKey(cwd)) {
-    return 'does not contain code that calls the factory: the "prettier" key in package.json';
-  }
-  return ".prettierrc.js is missing";
-}
-function hasPrettierConfigKey(cwd) {
-  const manifest = readFileIn(cwd, "package.json");
-  if (manifest === void 0) return false;
-  try {
-    const parsedManifest = JSON.parse(manifest);
-    return isRecord(parsedManifest) && parsedManifest["prettier"] !== void 0;
-  } catch {
-    return false;
-  }
-}
-function discoverWorkspacesOrFailure(filter) {
-  try {
-    return { ok: true, workspaces: discoverWorkspaces(filter === void 0 ? void 0 : { filter }) };
-  } catch (error) {
-    return { ok: false, detail: `cannot enumerate workspaces: ${describeError(error)}` };
-  }
-}
-async function everyBinTargetIsACommittedWrapper() {
-  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
-  if (!workspaceDiscovery.ok) return workspaceDiscovery;
-  const trackedFiles = await listTrackedFiles();
-  const trackedPaths = trackedFiles === void 0 ? void 0 : new Set(trackedFiles);
-  const offenders = workspaceDiscovery.workspaces.flatMap(
-    (workspace) => readBinEntries(workspace).flatMap((entry) => {
-      const defect = describeBinTargetDefect(workspace, entry, trackedPaths);
-      return defect === void 0 ? [] : [`${describeBinEntry(workspace, entry)} (${defect})`];
-    })
-  );
-  if (offenders.length === 0) return true;
-  return { ok: false, detail: formatPaths(offenders) };
-}
-function everyBinWrapperTargetIsCoveredByFiles() {
-  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
-  if (!workspaceDiscovery.ok) return workspaceDiscovery;
-  const cwd = process.cwd();
-  const offenders = workspaceDiscovery.workspaces.flatMap((workspace) => {
-    const files = workspace.packageJson["files"];
-    if (!Array.isArray(files)) return [];
-    const publishedSegments = new Set(
-      files.flatMap((entry) => typeof entry === "string" ? [readFirstSegment(entry)] : [])
-    );
-    return readBinEntries(workspace).flatMap((entry) => {
-      const target = readWrapperTarget(cwd, workspace, entry);
-      if (target === void 0 || publishedSegments.has(readFirstSegment(target))) return [];
-      return [`${describeBinEntry(workspace, entry)} -> ${target}`];
-    });
-  });
-  if (offenders.length === 0) return true;
-  return { ok: false, detail: formatPaths(offenders) };
-}
-function describeBinEntry(workspace, entry) {
-  return `${workspace.name ?? workspace.dir}:${entry.command} -> ${entry.target}`;
-}
-function describeBinTargetDefect(workspace, entry, trackedPaths) {
-  if (readFirstSegment(entry.target) === BUILD_OUTPUT_DIR) return `names a path under ${BUILD_OUTPUT_DIR}/`;
-  if (trackedPaths === void 0) return void 0;
-  return trackedPaths.has(`${workspace.dir}/${entry.target}`) ? void 0 : "untracked";
-}
-function normalizeBinTarget(target) {
-  return target.replace(/^\.\//, "");
-}
-function readBinEntries(workspace) {
-  const bin = workspace.packageJson["bin"];
-  if (typeof bin === "string") {
-    const command = workspace.name?.split("/").at(-1) ?? basename(workspace.dir);
-    return [{ command, target: normalizeBinTarget(bin) }];
-  }
-  if (!isRecord(bin)) return [];
-  return Object.entries(bin).flatMap(
-    ([command, target]) => typeof target === "string" ? [{ command, target: normalizeBinTarget(target) }] : []
-  );
-}
-function readFirstSegment(entry) {
-  return normalizeBinTarget(entry).split("/", 1).at(0) ?? "";
-}
-function readWrapperTarget(cwd, workspace, entry) {
-  if (readFirstSegment(entry.target) === BUILD_OUTPUT_DIR) return void 0;
-  const content = readFileIn(cwd, `${workspace.dir}/${entry.target}`);
-  if (content === void 0) return void 0;
-  const specifier = WRAPPER_TARGET_PATTERN.exec(content)?.[1];
-  if (specifier === void 0) return void 0;
-  return posix.normalize(posix.join(posix.dirname(entry.target), specifier));
-}
-function everyTestFileNamesItsTier(cwd = process.cwd()) {
-  const untieredFiles = findUntieredTestFiles(cwd);
-  if (untieredFiles.length === 0) return true;
-  return { ok: false, detail: formatPaths(untieredFiles) };
-}
-function everyTestFileSitsUnderTestsDir(cwd = process.cwd()) {
-  const misplacedFiles = findMisplacedTestFiles(cwd);
-  if (misplacedFiles.length === 0) return true;
-  return { ok: false, detail: formatPaths(misplacedFiles) };
-}
-function everyViteConfigHasVitestConfig() {
-  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
-  if (!workspaceDiscovery.ok) return workspaceDiscovery;
-  const unpairedConfigs = workspaceDiscovery.workspaces.flatMap((workspace) => {
-    const viteConfigs = findWorkspaceConfigs(workspace, VITE_CONFIG_PATTERN);
-    if (viteConfigs.length === 0) return [];
-    return findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN).length > 0 ? [] : viteConfigs;
-  });
-  if (unpairedConfigs.length === 0) return true;
-  return { ok: false, detail: formatPaths(unpairedConfigs) };
-}
-function findFiles(patterns, cwd) {
-  return globSync2(patterns, { cwd, exclude: (path7) => SCAN_EXCLUDE_DIRS.has(basename(path7)) }).map((path7) => path7.split(sep).join("/")).toSorted();
-}
-function findLiteralCataloguedSpecifiers(workspace, names) {
-  const manifestPath = posix.join(workspace.dir, "package.json");
-  return CATALOGUE_CHECKED_FIELDS.flatMap((field) => {
-    const declared = workspace.packageJson[field];
-    if (!isRecord(declared)) return [];
-    return Object.entries(declared).flatMap(
-      ([name, specifier]) => names.has(name) && typeof specifier === "string" && !PROTOCOL_PATTERN.test(specifier) ? [{ manifestPath, name, specifier }] : []
-    );
-  });
-}
-function findWorkspaceConfigs(workspace, pattern) {
-  return findFiles([pattern], workspace.absolutePath).map((name) => `${workspace.dir}/${name}`);
-}
-function formatPaths(paths) {
-  return `${paths.length} found:
-${paths.map((path7) => `      ${path7}`).join("\n")}`;
-}
-function getMinVersion() {
-  const pickedFields = { "version": "0.48.0" };
-  if (typeof pickedFields["version"] !== "string") {
-    throw new TypeError("nmr/package.json: 'version' must be a string");
-  }
-  return pickedFields["version"];
-}
-function hasSupportedEslintVersion() {
-  return hasMinDevDependencyVersion("eslint", MIN_ESLINT_VERSION, {
-    exempt: resolvesVersionViaWorkspace
-  });
-}
-function hasSupportedStrictLintVersion() {
-  return hasMinDevDependencyVersion("@williamthorsen/strict-lint", MIN_STRICT_LINT_VERSION, {
-    exempt: resolvesVersionViaWorkspace
-  });
-}
-function hasViteConfigBeside(cwd, relativePath) {
-  return findFiles([VITE_CONFIG_PATTERN], join(cwd, dirname(relativePath))).length > 0;
-}
-function importsSharedExport(content, exportName, moduleSpecifier) {
-  if (content === void 0) return false;
-  const pattern = new RegExp(String.raw`import\s*\{[^}]*\b${exportName}\b[^}]*\}\s*from\s*['"]${moduleSpecifier}['"]`);
-  return pattern.test(content);
-}
-function isOwnedByReExportCheck(cwd, relativePath) {
-  return isReExportOnly(readFileIn(cwd, relativePath)) && !hasViteConfigBeside(cwd, relativePath);
-}
-function isReExportOnly(content) {
-  if (content === void 0) return false;
-  const statements = content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
-  return statements.length > 0 && statements.every((line) => RE_EXPORT_LINE_PATTERN.test(line));
-}
-function noPnpmFieldInPackageJson(cwd = process.cwd()) {
-  const declaringFiles = findFiles(["**/package.json"], cwd).flatMap((relativePath) => {
-    const keys = readPnpmFieldKeys(readFileIn(cwd, relativePath));
-    if (keys === void 0) return [];
-    return [keys.length > 0 ? `${relativePath} (${keys.join(", ")})` : relativePath];
-  });
-  if (declaringFiles.length === 0) return true;
-  return { ok: false, detail: formatPaths(declaringFiles) };
-}
-function noReExportOnlyVitestConfigs(cwd = process.cwd()) {
-  const nonRootConfigs = findFiles([`**/${VITEST_CONFIG_PATTERN}`], cwd).filter((path7) => path7.includes("/"));
-  const reExports = nonRootConfigs.filter((path7) => isOwnedByReExportCheck(cwd, path7));
-  if (reExports.length === 0) return true;
-  return { ok: false, detail: formatPaths(reExports) };
-}
-function noRedundantRootScripts() {
-  const pkg = readPackageJson();
-  if (!pkg) return true;
-  const scripts = pkg["scripts"];
-  if (!isRecord(scripts)) return true;
-  const builtInNames = Object.keys(getDefaultRootScripts(process.cwd()));
-  const redundantNames = Object.keys(scripts).filter((name) => builtInNames.includes(name));
-  if (redundantNames.length === 0) return true;
-  return {
-    ok: false,
-    detail: `redundant: ${redundantNames.join(", ")}`
-  };
-}
-function noRetiredVitestConfigs(cwd = process.cwd()) {
-  return checkNoMatchingFiles(
-    [`**/vitest.standalone.config.${CONFIG_EXTENSIONS}`, `**/vitest.integration.config.${CONFIG_EXTENSIONS}`],
-    cwd
-  );
-}
-function noUnguardedLefthookInstall(cwd = process.cwd()) {
-  const scripts = readRootScripts(cwd);
-  const unguardedScripts = INSTALL_LIFECYCLE_SCRIPTS.flatMap((name) => {
-    const command = scripts[name];
-    if (typeof command !== "string") return [];
-    const isUnguarded = LEFTHOOK_INSTALL_PATTERN.test(command) && !LEFTHOOK_CHECK_INSTALL_PATTERN.test(command);
-    return isUnguarded ? [`${name}: ${command}`] : [];
-  });
-  if (unguardedScripts.length === 0) return true;
-  return { ok: false, detail: formatPaths(unguardedScripts) };
-}
-function noWorkspaceRunScriptReferences() {
-  const packagesDir = join(process.cwd(), "packages");
-  if (!existsSync3(packagesDir)) return true;
-  const legacyPattern = /run-workspace-script|"pnpm\s+run\s+ws\b/;
-  const entries = readdirSync2(packagesDir, { withFileTypes: true });
-  const matches = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const content = readFile(`packages/${entry.name}/package.json`);
-    if (content && legacyPattern.test(content)) {
-      matches.push(entry.name);
-    }
-  }
-  if (matches.length === 0) return true;
-  return {
-    ok: false,
-    detail: `found in: ${matches.join(", ")}`
-  };
-}
-function noWorkspacesFieldInPackageJson(cwd = process.cwd()) {
-  const declaringFiles = findFiles(["**/package.json"], cwd).filter(
-    (relativePath) => declaresWorkspacesField(readFileIn(cwd, relativePath))
-  );
-  if (declaringFiles.length === 0) return true;
-  return { ok: false, detail: formatPaths(declaringFiles) };
-}
-function declaresWorkspacesField(content) {
-  if (content === void 0) return false;
-  try {
-    const parsedManifest = JSON.parse(content);
-    return isRecord(parsedManifest) && "workspaces" in parsedManifest;
-  } catch {
-    return false;
-  }
-}
-function readCataloguedNames(cwd) {
-  const content = readFileIn(cwd, "pnpm-workspace.yaml");
-  if (content === void 0) return { ok: true, names: /* @__PURE__ */ new Set() };
-  let workspaceManifest;
-  try {
-    workspaceManifest = (0, import_yaml2.parse)(content);
-  } catch (error) {
-    return { ok: false, detail: `cannot parse pnpm-workspace.yaml: ${describeError(error)}` };
-  }
-  if (!isRecord(workspaceManifest)) return { ok: true, names: /* @__PURE__ */ new Set() };
-  const namedCatalogs = workspaceManifest["catalogs"];
-  const catalogs = [workspaceManifest["catalog"], ...isRecord(namedCatalogs) ? Object.values(namedCatalogs) : []];
-  return { ok: true, names: new Set(catalogs.filter(isRecord).flatMap((catalog) => Object.keys(catalog))) };
-}
-function readFileIn(cwd, relativePath) {
-  return readFile(join(cwd, relativePath));
-}
-function readPnpmFieldKeys(content) {
-  if (content === void 0) return void 0;
-  let parsedManifest;
-  try {
-    parsedManifest = JSON.parse(content);
-  } catch {
-    return void 0;
-  }
-  if (!isRecord(parsedManifest)) return void 0;
-  const pnpm = parsedManifest["pnpm"];
-  return isRecord(pnpm) ? Object.keys(pnpm).toSorted() : void 0;
-}
-function readRootScripts(cwd) {
-  const content = readFileIn(cwd, "package.json");
-  if (content === void 0) return {};
-  let parsedManifest;
-  try {
-    parsedManifest = JSON.parse(content);
-  } catch {
-    return {};
-  }
-  if (!isRecord(parsedManifest)) return {};
-  const scripts = parsedManifest["scripts"];
-  return isRecord(scripts) ? scripts : {};
-}
-function resolvesVersionViaWorkspace(range) {
-  return WORKSPACE_VERSION_MARKERS.some((marker) => range.startsWith(marker));
-}
-function tazeConfigBuildsOnSharedConfig(cwd = process.cwd()) {
-  const configs = findFiles([`taze.config.${CONFIG_EXTENSIONS}`], cwd);
-  if (configs.length === 0) {
-    return { ok: false, detail: describeMissingTazeConfig(cwd) };
-  }
-  const staleConfigs = configs.filter(
-    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), "defineConfig", SHARED_TAZE_MODULE)
-  );
-  if (staleConfigs.length === 0) return true;
-  return { ok: false, detail: `does not import defineConfig from ${SHARED_TAZE_MODULE}: ${staleConfigs.join(", ")}` };
-}
-function tazeConfigAvoidsClobberedOptions(cwd = process.cwd()) {
-  const configs = findFiles([`taze.config.${CONFIG_EXTENSIONS}`], cwd);
-  const findings = [];
-  for (const relativePath of configs) {
-    const content = readFileIn(cwd, relativePath);
-    if (content === void 0) continue;
-    const discardedKeys = CLOBBERED_TAZE_OPTIONS.filter(({ pattern }) => pattern.test(content)).map(({ key }) => key);
-    if (discardedKeys.length > 0) findings.push(`${relativePath}: ${discardedKeys.join(", ")}`);
-  }
-  if (findings.length === 0) return true;
-  return { ok: false, detail: formatPaths(findings) };
-}
-function describeMissingTazeConfig(cwd) {
-  const inertConfigs = findFiles(INERT_TAZE_CONFIGS, cwd);
-  if (inertConfigs.length > 0) return `does not contain code that calls the factory: ${inertConfigs.join(", ")}`;
-  return "taze.config.ts is missing";
-}
-function testSuiteGatesTestFileConventions(cwd = process.cwd()) {
-  if (findConventionsGuard(cwd) !== void 0) return true;
-  return {
-    ok: false,
-    detail: `the test files under __tests__ do not import checkTestFileConventions from ${SHARED_TESTS_MODULE}`
-  };
-}
-function describeConventionsGuardSkip() {
-  const guard = findConventionsGuard(process.cwd());
-  return guard !== void 0 && `reported by checkTestFileConventions in ${guard}`;
-}
-function findConventionsGuard(cwd) {
-  return findTestFiles(cwd).find(
-    (relativePath) => importsSharedExport(readFileIn(cwd, relativePath), "checkTestFileConventions", SHARED_TESTS_MODULE)
-  );
-}
-function toolVersionsHasNoPnpm() {
-  const content = readFile(".tool-versions");
-  if (content === void 0) return true;
-  return !/^pnpm\s/m.test(content);
-}
-function vitestConfigBuildsOnSharedConfig() {
-  const cwd = process.cwd();
-  const rootConfigs = findFiles([VITEST_CONFIG_PATTERN], cwd);
-  if (rootConfigs.length === 0) return { ok: false, detail: "vitest.config.ts is missing" };
-  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
-  if (!workspaceDiscovery.ok) return workspaceDiscovery;
-  const workspaceConfigs = workspaceDiscovery.workspaces.flatMap((workspace) => findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN)).filter((relativePath) => !isOwnedByReExportCheck(cwd, relativePath));
-  const stale = [...rootConfigs, ...workspaceConfigs].filter(
-    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), "defineVitestConfig", SHARED_VITEST_MODULE)
-  );
-  if (stale.length === 0) return true;
-  return { ok: false, detail: formatPaths(stale) };
-}
-function vitestRootConfigBuildsOnSharedConfig(cwd = process.cwd()) {
-  return checkRootVitestConfig("vitest.root.config", "defineRootVitestConfig", cwd);
-}
-var SET_CI_RUNS_ON_COMMAND = `gh variable set CI_RUNS_ON --body '"self-hosted"'`;
+// .readyup/lib/github.ts
+var import_yaml2 = __toESM(require_dist(), 1);
+import { execFile } from "node:child_process";
+import { existsSync as existsSync4, readdirSync as readdirSync3 } from "node:fs";
+import { join as join3, posix as posix2 } from "node:path";
+import { isRecord as isRecord3, readFile as readFile3 } from "readyup/check-utils";
 var CODE_QUALITY_WORKFLOW = "williamthorsen/.github/.github/workflows/code-quality-pnpm-workflow.yaml";
 var MIN_CODE_QUALITY_MAJOR = 8;
 var GH_TIMEOUT_MS = 15e3;
 var IMAGE_ABSENT_PROGRAM_PATTERN = /(?:^|[\s;&|(])(corepack|gh|node|npm|npx|pnpm)(?=\s|$)/gm;
 var NEVER_INSTALLED_PROGRAMS = /* @__PURE__ */ new Set(["corepack", "gh"]);
+function countOnlineSelfHostedRunners(response) {
+  if (!isRecord3(response) || !Array.isArray(response["runners"])) return 0;
+  return response["runners"].filter(
+    (runner) => isRecord3(runner) && runner["status"] === "online" && Array.isArray(runner["labels"]) && runner["labels"].some((label) => isRecord3(label) && label["name"] === "self-hosted")
+  ).length;
+}
+function describeGhFailure(result, context) {
+  if (result.isMissing) return "gh is not installed";
+  if (/gh auth login|not logged in/i.test(result.stderr)) return "gh is not authenticated";
+  const firstLine = result.stderr.trim().split("\n", 1)[0] ?? "";
+  return firstLine === "" ? `gh ${context}` : `gh ${context}: ${firstLine}`;
+}
+function findCodeQualityCallerDefects(workflows) {
+  const defects = [];
+  for (const { file, jobs } of workflows) {
+    for (const [jobName, job] of jobs) {
+      const uses = job["uses"];
+      if (typeof uses !== "string" || !uses.startsWith(`${CODE_QUALITY_WORKFLOW}@`)) continue;
+      const ref = uses.slice(CODE_QUALITY_WORKFLOW.length + 1);
+      const major = /^v(\d+)(?:\.\d+){0,2}$/.exec(ref)?.[1];
+      if (major === void 0) {
+        defects.push(
+          `${file} job ${jobName} pins the code-quality workflow at ${ref}, whose release cannot be determined`
+        );
+      } else if (Number(major) < MIN_CODE_QUALITY_MAJOR) {
+        defects.push(
+          `${file} job ${jobName} pins the code-quality workflow at ${ref}, which predates CI_RUNS_ON; pin v${MIN_CODE_QUALITY_MAJOR} or later`
+        );
+      }
+      const inputs = job["with"];
+      if (isRecord3(inputs) && inputs["runs-on"] !== void 0) {
+        defects.push(`${file} job ${jobName} passes runs-on, which overrides CI_RUNS_ON`);
+      }
+    }
+  }
+  return defects;
+}
+function findImageIncompatibleSteps(workflows) {
+  const defects = [];
+  for (const { file, jobs } of workflows) {
+    for (const [jobName, job] of jobs) {
+      if (!/\bvars\.CI_RUNS_ON\b/.test(JSON.stringify(job["runs-on"] ?? ""))) continue;
+      const steps = job["steps"];
+      if (!Array.isArray(steps)) continue;
+      const installed = /* @__PURE__ */ new Set();
+      for (const [index, step] of steps.entries()) {
+        if (!isRecord3(step)) continue;
+        const stepLabel = typeof step["name"] === "string" ? step["name"] : `step ${index + 1}`;
+        const run = step["run"];
+        if (typeof run === "string") {
+          const missing = findUninstalledPrograms(run, installed);
+          if (missing.length > 0) {
+            defects.push(
+              `${file} job ${jobName}, ${stepLabel}: runs ${missing.join(", ")}, which the runner image lacks at that step`
+            );
+          }
+        }
+        for (const program of readInstalledPrograms(step)) installed.add(program);
+      }
+    }
+  }
+  return defects;
+}
+function isNotFound(result) {
+  return /HTTP 404/.test(result.stderr);
+}
+function parseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return void 0;
+  }
+}
+async function readOrganizationValue(nameWithOwner, cwd, runGh) {
+  const result = await runGh(["api", `repos/${nameWithOwner}/actions/organization-variables`], cwd);
+  if (!result.ok) return void 0;
+  const response = parseJson(result.stdout);
+  if (!isRecord3(response) || !Array.isArray(response["variables"])) return void 0;
+  const variable = response["variables"].find(
+    (entry) => isRecord3(entry) && entry["name"] === "CI_RUNS_ON"
+  );
+  return readVariableValue(variable);
+}
+function readVariableValue(variable) {
+  return isRecord3(variable) && typeof variable["value"] === "string" ? variable["value"] : void 0;
+}
+function readWorkflows(cwd) {
+  const dir = join3(cwd, ".github", "workflows");
+  if (!existsSync4(dir)) return [];
+  const workflows = [];
+  const files = readdirSync3(dir).filter((name) => /\.ya?ml$/.test(name)).toSorted();
+  for (const file of files) {
+    let document;
+    try {
+      document = (0, import_yaml2.parse)(readFile3(join3(dir, file)) ?? "");
+    } catch {
+      continue;
+    }
+    if (!isRecord3(document) || !isRecord3(document["jobs"])) continue;
+    const jobs = Object.entries(document["jobs"]).filter(
+      (entry) => isRecord3(entry[1])
+    );
+    workflows.push({ file: posix2.join(".github/workflows", file), jobs });
+  }
+  return workflows;
+}
+function runGhCommand(args, cwd) {
+  return new Promise((resolve) => {
+    void execFile("gh", args, { cwd, timeout: GH_TIMEOUT_MS }, (error, stdout, stderr) => {
+      if (error === null) {
+        resolve({ ok: true, stdout });
+        return;
+      }
+      resolve({ ok: false, isMissing: "code" in error && error.code === "ENOENT", stderr: stderr || error.message });
+    });
+  });
+}
+function findUninstalledPrograms(run, installed) {
+  const programs = /* @__PURE__ */ new Set();
+  for (const match of run.matchAll(IMAGE_ABSENT_PROGRAM_PATTERN)) {
+    const program = match[1];
+    if (program === void 0) continue;
+    const provider = program === "npm" || program === "npx" ? "node" : program;
+    if (NEVER_INSTALLED_PROGRAMS.has(program) || !installed.has(provider)) programs.add(program);
+  }
+  return [...programs].toSorted();
+}
+function readInstalledPrograms(step) {
+  const uses = step["uses"];
+  if (typeof uses !== "string") return [];
+  const action = uses.split("@", 1)[0];
+  if (action === "actions/setup-node") return ["node"];
+  if (action === "pnpm/action-setup") return ["pnpm"];
+  if (action !== "pnpm/setup") return [];
+  const inputs = isRecord3(step["with"]) ? step["with"] : {};
+  const runtime = inputs["runtime"];
+  const installsNode = typeof runtime === "string" ? /^node\b/.test(runtime) : String(inputs["node-version-file"]) !== "false";
+  return installsNode ? ["pnpm", "node"] : ["pnpm"];
+}
+
+// .readyup/lib/self-hosted-runner.ts
+var SET_CI_RUNS_ON_COMMAND = `gh variable set CI_RUNS_ON --body '"self-hosted"'`;
 var statusByCwd = /* @__PURE__ */ new Map();
+var selfHostedRunnerChecklist = {
+  name: "self-hosted runner",
+  checks: [
+    {
+      name: "GitHub reports the repo's runner settings",
+      severity: "recommend",
+      quiet: true,
+      skip: () => describeSelfHostedRunnerSkip(),
+      check: () => true,
+      checks: [
+        {
+          name: "CI_RUNS_ON selects the self-hosted runner",
+          severity: "recommend",
+          skip: () => describeRecommendationSkip(),
+          check: () => recommendSelfHostedRunner()
+        },
+        {
+          name: "the self-hosted runner can run CI",
+          severity: "warn",
+          skip: () => describeReadinessSkip(),
+          check: () => selfHostedRunnerCanRunCi()
+        }
+      ]
+    }
+  ]
+};
+async function describeReadinessSkip(cwd = process.cwd(), readFacts) {
+  const status = await getSelfHostedRunnerStatus(cwd, readFacts);
+  if ("skip" in status) return status.skip;
+  if (status.selection === "unset") return "CI_RUNS_ON is unset";
+  if (status.selection === "other") return `CI_RUNS_ON selects ${status.facts.ciRunsOn ?? ""}`;
+  return false;
+}
+async function describeRecommendationSkip(cwd = process.cwd(), readFacts) {
+  const status = await getSelfHostedRunnerStatus(cwd, readFacts);
+  if ("skip" in status) return status.skip;
+  if (status.selection !== "unset") return `CI_RUNS_ON is already set to ${status.facts.ciRunsOn ?? ""}`;
+  if (status.exempt !== void 0) return `the repo is exempt: ${status.exempt}`;
+  if (status.failures.length > 0) return `not ready: ${status.failures.join("; ")}`;
+  return false;
+}
 async function describeSelfHostedRunnerSkip(cwd = process.cwd(), readFacts) {
   const status = await getSelfHostedRunnerStatus(cwd, readFacts);
   return "skip" in status && status.skip;
@@ -9193,7 +8889,7 @@ async function readGitHubFacts(cwd, runGh = runGhCommand) {
   const repo = await runGh(["repo", "view", "--json", "nameWithOwner,visibility"], cwd);
   if (!repo.ok) return { skip: describeGhFailure(repo, "cannot resolve this repo on GitHub") };
   const repoView = parseJson(repo.stdout);
-  if (!isRecord(repoView) || typeof repoView["nameWithOwner"] !== "string") {
+  if (!isRecord4(repoView) || typeof repoView["nameWithOwner"] !== "string") {
     return { skip: "gh repo view returned an unexpected shape" };
   }
   const nameWithOwner = repoView["nameWithOwner"];
@@ -9232,21 +8928,6 @@ async function recommendSelfHostedRunner(cwd = process.cwd(), readFacts) {
     fix: `${SET_CI_RUNS_ON_COMMAND} --repo ${status.facts.nameWithOwner}`
   };
 }
-async function describeRecommendationSkip(cwd = process.cwd(), readFacts) {
-  const status = await getSelfHostedRunnerStatus(cwd, readFacts);
-  if ("skip" in status) return status.skip;
-  if (status.selection !== "unset") return `CI_RUNS_ON is already set to ${status.facts.ciRunsOn ?? ""}`;
-  if (status.exempt !== void 0) return `the repo is exempt: ${status.exempt}`;
-  if (status.failures.length > 0) return `not ready: ${status.failures.join("; ")}`;
-  return false;
-}
-async function describeReadinessSkip(cwd = process.cwd(), readFacts) {
-  const status = await getSelfHostedRunnerStatus(cwd, readFacts);
-  if ("skip" in status) return status.skip;
-  if (status.selection === "unset") return "CI_RUNS_ON is unset";
-  if (status.selection === "other") return `CI_RUNS_ON selects ${status.facts.ciRunsOn ?? ""}`;
-  return false;
-}
 async function selfHostedRunnerCanRunCi(cwd = process.cwd(), readFacts) {
   const status = await getSelfHostedRunnerStatus(cwd, readFacts);
   if ("skip" in status) return true;
@@ -9263,88 +8944,6 @@ async function selfHostedRunnerCanRunCi(cwd = process.cwd(), readFacts) {
     detail: problems.map((problem) => `      ${problem}`).join("\n"),
     fix: `Fix each condition, or return the repo's CI to ubuntu-latest: gh variable delete CI_RUNS_ON --repo ${facts.nameWithOwner}`
   };
-}
-function countOnlineSelfHostedRunners(response) {
-  if (!isRecord(response) || !Array.isArray(response["runners"])) return 0;
-  return response["runners"].filter(
-    (runner) => isRecord(runner) && runner["status"] === "online" && Array.isArray(runner["labels"]) && runner["labels"].some((label) => isRecord(label) && label["name"] === "self-hosted")
-  ).length;
-}
-function describeGhFailure(result, context) {
-  if (result.isMissing) return "gh is not installed";
-  if (/gh auth login|not logged in/i.test(result.stderr)) return "gh is not authenticated";
-  const firstLine = result.stderr.trim().split("\n", 1)[0] ?? "";
-  return firstLine === "" ? `gh ${context}` : `gh ${context}: ${firstLine}`;
-}
-function findCodeQualityCallerDefects(workflows) {
-  const defects = [];
-  for (const { file, jobs } of workflows) {
-    for (const [jobName, job] of jobs) {
-      const uses = job["uses"];
-      if (typeof uses !== "string" || !uses.startsWith(`${CODE_QUALITY_WORKFLOW}@`)) continue;
-      const ref = uses.slice(CODE_QUALITY_WORKFLOW.length + 1);
-      const major = /^v(\d+)(?:\.\d+){0,2}$/.exec(ref)?.[1];
-      if (major === void 0) {
-        defects.push(
-          `${file} job ${jobName} pins the code-quality workflow at ${ref}, whose release cannot be determined`
-        );
-      } else if (Number(major) < MIN_CODE_QUALITY_MAJOR) {
-        defects.push(
-          `${file} job ${jobName} pins the code-quality workflow at ${ref}, which predates CI_RUNS_ON; pin v${MIN_CODE_QUALITY_MAJOR} or later`
-        );
-      }
-      const inputs = job["with"];
-      if (isRecord(inputs) && inputs["runs-on"] !== void 0) {
-        defects.push(`${file} job ${jobName} passes runs-on, which overrides CI_RUNS_ON`);
-      }
-    }
-  }
-  return defects;
-}
-function findImageIncompatibleSteps(workflows) {
-  const defects = [];
-  for (const { file, jobs } of workflows) {
-    for (const [jobName, job] of jobs) {
-      if (!/\bvars\.CI_RUNS_ON\b/.test(JSON.stringify(job["runs-on"] ?? ""))) continue;
-      const steps = job["steps"];
-      if (!Array.isArray(steps)) continue;
-      const installed = /* @__PURE__ */ new Set();
-      for (const [index, step] of steps.entries()) {
-        if (!isRecord(step)) continue;
-        const stepLabel = typeof step["name"] === "string" ? step["name"] : `step ${index + 1}`;
-        const run = step["run"];
-        if (typeof run === "string") {
-          const missing = findUninstalledPrograms(run, installed);
-          if (missing.length > 0) {
-            defects.push(
-              `${file} job ${jobName}, ${stepLabel}: runs ${missing.join(", ")}, which the runner image lacks at that step`
-            );
-          }
-        }
-        for (const program of readInstalledPrograms(step)) installed.add(program);
-      }
-    }
-  }
-  return defects;
-}
-function findUninstalledPrograms(run, installed) {
-  const programs = /* @__PURE__ */ new Set();
-  for (const match of run.matchAll(IMAGE_ABSENT_PROGRAM_PATTERN)) {
-    const program = match[1];
-    if (program === void 0) continue;
-    const provider = program === "npm" || program === "npx" ? "node" : program;
-    if (NEVER_INSTALLED_PROGRAMS.has(program) || !installed.has(provider)) programs.add(program);
-  }
-  return [...programs].toSorted();
-}
-function getSelfHostedRunnerStatus(cwd, readFacts) {
-  if (readFacts !== void 0) return gatherSelfHostedRunnerStatus(cwd, readFacts);
-  let status = statusByCwd.get(cwd);
-  if (status === void 0) {
-    status = gatherSelfHostedRunnerStatus(cwd, (dir) => readGitHubFacts(dir));
-    statusByCwd.set(cwd, status);
-  }
-  return status;
 }
 async function gatherSelfHostedRunnerStatus(cwd, readFacts) {
   const facts = await readFacts(cwd);
@@ -9366,99 +8965,558 @@ async function gatherSelfHostedRunnerStatus(cwd, readFacts) {
     )
   };
 }
-function isNotFound(result) {
-  return /HTTP 404/.test(result.stderr);
+function getSelfHostedRunnerStatus(cwd, readFacts) {
+  if (readFacts !== void 0) return gatherSelfHostedRunnerStatus(cwd, readFacts);
+  let status = statusByCwd.get(cwd);
+  if (status === void 0) {
+    status = gatherSelfHostedRunnerStatus(cwd, (dir) => readGitHubFacts(dir));
+    statusByCwd.set(cwd, status);
+  }
+  return status;
 }
-function parseJson(text) {
+
+// .readyup/lib/setup.ts
+import {
+  fileContains,
+  fileExists as fileExists2,
+  hasDevDependency,
+  hasMinDevDependencyVersion,
+  hasPackageJsonField,
+  readFile as readFile4
+} from "readyup/check-utils";
+
+// .readyup/lib/catalog.ts
+import { posix as posix3 } from "node:path";
+var import_yaml3 = __toESM(require_dist(), 1);
+import { isRecord as isRecord5 } from "readyup/check-utils";
+var CATALOGUE_CHECKED_FIELDS = ["dependencies", "devDependencies", "optionalDependencies"];
+var PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:/i;
+function cataloguedDependenciesUseCatalog() {
+  const catalogRead = readCataloguedNames(process.cwd());
+  if (!catalogRead.ok) return catalogRead;
+  if (catalogRead.names.size === 0) return true;
+  const workspaceDiscovery = discoverWorkspacesOrFailure();
+  if (!workspaceDiscovery.ok) return workspaceDiscovery;
+  const findings = workspaceDiscovery.workspaces.flatMap((workspace) => findLiteralCataloguedSpecifiers(workspace, catalogRead.names)).toSorted((a, b) => a.manifestPath.localeCompare(b.manifestPath) || a.name.localeCompare(b.name));
+  if (findings.length === 0) return true;
+  const lines = findings.map(({ manifestPath, name, specifier }) => `${manifestPath}: ${name} ${specifier}`);
+  return { ok: false, detail: formatPaths([...new Set(lines)]) };
+}
+function findLiteralCataloguedSpecifiers(workspace, names) {
+  const manifestPath = posix3.join(workspace.dir, "package.json");
+  return CATALOGUE_CHECKED_FIELDS.flatMap((field) => {
+    const declared = workspace.packageJson[field];
+    if (!isRecord5(declared)) return [];
+    return Object.entries(declared).flatMap(
+      ([name, specifier]) => names.has(name) && typeof specifier === "string" && !PROTOCOL_PATTERN.test(specifier) ? [{ manifestPath, name, specifier }] : []
+    );
+  });
+}
+function readCataloguedNames(cwd) {
+  const content = readFileIn(cwd, "pnpm-workspace.yaml");
+  if (content === void 0) return { ok: true, names: /* @__PURE__ */ new Set() };
+  let workspaceManifest;
   try {
-    return JSON.parse(text);
+    workspaceManifest = (0, import_yaml3.parse)(content);
+  } catch (error) {
+    return { ok: false, detail: `cannot parse pnpm-workspace.yaml: ${describeError(error)}` };
+  }
+  if (!isRecord5(workspaceManifest)) return { ok: true, names: /* @__PURE__ */ new Set() };
+  const namedCatalogs = workspaceManifest["catalogs"];
+  const catalogs = [workspaceManifest["catalog"], ...isRecord5(namedCatalogs) ? Object.values(namedCatalogs) : []];
+  return { ok: true, names: new Set(catalogs.filter(isRecord5).flatMap((catalog) => Object.keys(catalog))) };
+}
+
+// .readyup/lib/manifest-fields.ts
+import { isRecord as isRecord6 } from "readyup/check-utils";
+function noPnpmFieldInPackageJson(cwd = process.cwd()) {
+  const declaringFiles = findFiles(["**/package.json"], cwd).flatMap((relativePath) => {
+    const keys = readPnpmFieldKeys(readFileIn(cwd, relativePath));
+    if (keys === void 0) return [];
+    return [keys.length > 0 ? `${relativePath} (${keys.join(", ")})` : relativePath];
+  });
+  if (declaringFiles.length === 0) return true;
+  return { ok: false, detail: formatPaths(declaringFiles) };
+}
+function noWorkspacesFieldInPackageJson(cwd = process.cwd()) {
+  const declaringFiles = findFiles(["**/package.json"], cwd).filter(
+    (relativePath) => declaresWorkspacesField(readFileIn(cwd, relativePath))
+  );
+  if (declaringFiles.length === 0) return true;
+  return { ok: false, detail: formatPaths(declaringFiles) };
+}
+function declaresWorkspacesField(content) {
+  if (content === void 0) return false;
+  try {
+    const parsedManifest = JSON.parse(content);
+    return isRecord6(parsedManifest) && "workspaces" in parsedManifest;
+  } catch {
+    return false;
+  }
+}
+function readPnpmFieldKeys(content) {
+  if (content === void 0) return void 0;
+  let parsedManifest;
+  try {
+    parsedManifest = JSON.parse(content);
   } catch {
     return void 0;
   }
+  if (!isRecord6(parsedManifest)) return void 0;
+  const pnpm = parsedManifest["pnpm"];
+  return isRecord6(pnpm) ? Object.keys(pnpm).toSorted() : void 0;
 }
-function readInstalledPrograms(step) {
-  const uses = step["uses"];
-  if (typeof uses !== "string") return [];
-  const action = uses.split("@", 1)[0];
-  if (action === "actions/setup-node") return ["node"];
-  if (action === "pnpm/action-setup") return ["pnpm"];
-  if (action !== "pnpm/setup") return [];
-  const inputs = isRecord(step["with"]) ? step["with"] : {};
-  const runtime = inputs["runtime"];
-  const installsNode = typeof runtime === "string" ? /^node\b/.test(runtime) : String(inputs["node-version-file"]) !== "false";
-  return installsNode ? ["pnpm", "node"] : ["pnpm"];
-}
-async function readOrganizationValue(nameWithOwner, cwd, runGh) {
-  const result = await runGh(["api", `repos/${nameWithOwner}/actions/organization-variables`], cwd);
-  if (!result.ok) return void 0;
-  const response = parseJson(result.stdout);
-  if (!isRecord(response) || !Array.isArray(response["variables"])) return void 0;
-  const variable = response["variables"].find(
-    (entry) => isRecord(entry) && entry["name"] === "CI_RUNS_ON"
-  );
-  return readVariableValue(variable);
-}
-function readVariableValue(variable) {
-  return isRecord(variable) && typeof variable["value"] === "string" ? variable["value"] : void 0;
-}
-function readWorkflows(cwd) {
-  const dir = join(cwd, ".github", "workflows");
-  if (!existsSync3(dir)) return [];
-  const workflows = [];
-  const files = readdirSync2(dir).filter((name) => /\.ya?ml$/.test(name)).toSorted();
-  for (const file of files) {
-    let document;
-    try {
-      document = (0, import_yaml2.parse)(readFile(join(dir, file)) ?? "");
-    } catch {
-      continue;
-    }
-    if (!isRecord(document) || !isRecord(document["jobs"])) continue;
-    const jobs = Object.entries(document["jobs"]).filter(
-      (entry) => isRecord(entry[1])
-    );
-    workflows.push({ file: posix.join(".github/workflows", file), jobs });
-  }
-  return workflows;
-}
-function runGhCommand(args, cwd) {
-  return new Promise((resolve) => {
-    void execFile("gh", args, { cwd, timeout: GH_TIMEOUT_MS }, (error, stdout, stderr) => {
-      if (error === null) {
-        resolve({ ok: true, stdout });
-        return;
+
+// .readyup/lib/setup.ts
+var MIN_ESLINT_VERSION = "10.0.0";
+var MIN_STRICT_LINT_VERSION = "9.3.0";
+var WORKSPACE_VERSION_MARKERS = ["catalog:", "workspace:"];
+var setupChecks = [
+  {
+    name: "@williamthorsen/nmr in devDependencies",
+    severity: "error",
+    check: () => hasDevDependency("@williamthorsen/nmr"),
+    fix: "pnpm add --save-dev @williamthorsen/nmr",
+    checks: [
+      {
+        get name() {
+          return `@williamthorsen/nmr >= ${getMinVersion()}`;
+        },
+        severity: "error",
+        check: () => hasMinDevDependencyVersion("@williamthorsen/nmr", getMinVersion(), {
+          exempt: resolvesVersionViaWorkspace
+        }),
+        get fix() {
+          return `pnpm add --save-dev @williamthorsen/nmr@^${getMinVersion()}`;
+        }
       }
-      resolve({ ok: false, isMissing: "code" in error && error.code === "ENOENT", stderr: stderr || error.message });
-    });
+    ]
+  },
+  {
+    name: "pnpm-workspace.yaml exists",
+    severity: "error",
+    check: () => fileExists2("pnpm-workspace.yaml"),
+    fix: "Create pnpm-workspace.yaml with workspace package globs"
+  },
+  {
+    name: "catalogued dependencies use catalog:",
+    severity: "warn",
+    quiet: true,
+    check: cataloguedDependenciesUseCatalog,
+    fix: "Replace each listed specifier with `catalog:`, so that pnpm-workspace.yaml stays the one place that declares the version. A version that must differ belongs in a named catalog under `catalogs`, referenced as `catalog:<name>`"
+  },
+  {
+    name: "package.json has packageManager field",
+    severity: "warn",
+    check: () => hasPackageJsonField("packageManager"),
+    fix: 'Add "packageManager" field to package.json (e.g., "pnpm@10.33.0")'
+  },
+  {
+    name: ".tool-versions does not list pnpm",
+    severity: "warn",
+    quiet: true,
+    check: toolVersionsHasNoPnpm,
+    fix: "Remove pnpm from .tool-versions, and manage it through the packageManager field"
+  },
+  {
+    name: "no package.json declares a pnpm field",
+    severity: "error",
+    quiet: true,
+    check: () => noPnpmFieldInPackageJson(),
+    fix: "Move these settings into pnpm-workspace.yaml, quoting each version under `overrides`, or run `pnpx codemod run pnpm-v10-to-v11`. pnpm 11 does not read any key from the `pnpm` field, so an override left there pins nothing while an upgrade run with `--write` goes on rewriting it"
+  },
+  {
+    name: "no package.json declares a workspaces field",
+    severity: "warn",
+    quiet: true,
+    check: () => noWorkspacesFieldInPackageJson(),
+    fix: "Delete the `workspaces` field. pnpm reads workspace globs only from pnpm-workspace.yaml, so the field can drift from them without any error"
+  },
+  {
+    name: ".config/nmr.config.ts uses defineConfig",
+    severity: "recommend",
+    skip: () => !fileExists2(".config/nmr.config.ts") && "no nmr config file",
+    check: () => fileContains(".config/nmr.config.ts", /defineConfig/),
+    fix: "Wrap the config export with defineConfig() from @williamthorsen/nmr/config for type safety"
+  },
+  // `error` because falling short produces wrong results rather than a failure. Names and fixes are
+  // getters because their version constants are declared below the kit.
+  {
+    get name() {
+      return `eslint >= ${MIN_ESLINT_VERSION}`;
+    },
+    severity: "error",
+    skip: () => !hasDevDependency("eslint") && "eslint not installed",
+    check: hasSupportedEslintVersion,
+    get fix() {
+      return `pnpm add --save-dev eslint@^${MIN_ESLINT_VERSION}. Earlier releases resolve config from the working directory, so nmr's root lint and lint:check would apply the root config to every package`;
+    }
+  },
+  {
+    get name() {
+      return `@williamthorsen/strict-lint >= ${MIN_STRICT_LINT_VERSION}`;
+    },
+    severity: "error",
+    skip: () => !hasDevDependency("@williamthorsen/strict-lint") && "strict-lint not installed",
+    check: hasSupportedStrictLintVersion,
+    get fix() {
+      return `pnpm add --save-dev @williamthorsen/strict-lint@^${MIN_STRICT_LINT_VERSION}. Earlier releases pin ESLint to one config and resolve ceilings from the working directory, so nmr's root lint:strict would report the wrong rules for every package`;
+    }
+  }
+];
+function hasSupportedEslintVersion() {
+  return hasMinDevDependencyVersion("eslint", MIN_ESLINT_VERSION, {
+    exempt: resolvesVersionViaWorkspace
   });
 }
+function hasSupportedStrictLintVersion() {
+  return hasMinDevDependencyVersion("@williamthorsen/strict-lint", MIN_STRICT_LINT_VERSION, {
+    exempt: resolvesVersionViaWorkspace
+  });
+}
+function getMinVersion() {
+  const pickedFields = { "version": "0.48.0" };
+  if (typeof pickedFields["version"] !== "string") {
+    throw new TypeError("nmr/package.json: 'version' must be a string");
+  }
+  return pickedFields["version"];
+}
+function resolvesVersionViaWorkspace(range) {
+  return WORKSPACE_VERSION_MARKERS.some((marker) => range.startsWith(marker));
+}
+function toolVersionsHasNoPnpm() {
+  const content = readFile4(".tool-versions");
+  if (content === void 0) return true;
+  return !/^pnpm\s/m.test(content);
+}
+
+// .readyup/lib/shared-configs.ts
+import { isRecord as isRecord7 } from "readyup/check-utils";
+var SHARED_PRETTIER_MODULE = "@williamthorsen/nmr/prettier";
+var INERT_PRETTIER_CONFIGS = [".prettierrc", ".prettierrc.{json,json5,yaml,yml,toml}"];
+var SHARED_TAZE_MODULE = "@williamthorsen/nmr/taze";
+var INERT_TAZE_CONFIGS = [".tazerc", ".tazerc.json", "taze.config.json"];
+var CLOBBERED_TAZE_OPTIONS = [
+  { key: "concurrency", pattern: /\bconcurrency\s*:/ },
+  { key: "githubActions", pattern: /\bgithubActions\s*:\s*(?:false|\{)/ },
+  { key: "ignoreOtherWorkspaces", pattern: /\bignoreOtherWorkspaces\s*:\s*false/ },
+  { key: "nodeVersion", pattern: /\bnodeVersion\s*:\s*false/ },
+  { key: "requestTimeout", pattern: /\brequestTimeout\s*:/ }
+];
+var prettierChecks = [
+  {
+    name: "Prettier config builds on @williamthorsen/nmr/prettier",
+    severity: "error",
+    check: () => prettierConfigBuildsOnSharedConfig(),
+    fix: "Replace the Prettier config with: import { definePrettierConfig } from '@williamthorsen/nmr/prettier'; export default definePrettierConfig();"
+  }
+];
+var tazeChecks = [
+  {
+    name: "taze.config.ts builds on @williamthorsen/nmr/taze",
+    severity: "warn",
+    check: () => tazeConfigBuildsOnSharedConfig(),
+    fix: "Replace the taze config with: import { defineConfig } from '@williamthorsen/nmr/taze'; export default defineConfig(); -- nmr's upgrade policy applies to a repo only through this file, so without it `nmr upgrade` does not report a dependency pinned to an exact version"
+  },
+  {
+    name: "taze config declares no option taze discards",
+    severity: "warn",
+    quiet: true,
+    check: () => tazeConfigAvoidsClobberedOptions(),
+    fix: "Set these through the upgrade script instead, as rootScripts: { upgrade: 'nmr-report-overrides && nmr-taze --recursive --request-timeout 90000' } in .config/nmr.config.ts, keeping the rest of the default script. taze's CLI writes a default for each of them over whatever the config file declares, so taze never uses the file's value (antfu-collective/taze#317). nmr already forwards a 30-second request timeout"
+  }
+];
+function prettierConfigBuildsOnSharedConfig(cwd = process.cwd()) {
+  const configs = findFiles(
+    [`.prettierrc.${CONFIG_EXTENSIONS}`, `prettier.config.${CONFIG_EXTENSIONS}`],
+    //
+    cwd
+  );
+  if (configs.length === 0) {
+    return { ok: false, detail: describeMissingPrettierConfig(cwd) };
+  }
+  const staleConfigs = configs.filter(
+    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), "definePrettierConfig", SHARED_PRETTIER_MODULE)
+  );
+  if (staleConfigs.length === 0) return true;
+  return {
+    ok: false,
+    detail: `does not import definePrettierConfig from ${SHARED_PRETTIER_MODULE}: ${staleConfigs.join(", ")}`
+  };
+}
+function tazeConfigAvoidsClobberedOptions(cwd = process.cwd()) {
+  const configs = findFiles([`taze.config.${CONFIG_EXTENSIONS}`], cwd);
+  const findings = [];
+  for (const relativePath of configs) {
+    const content = readFileIn(cwd, relativePath);
+    if (content === void 0) continue;
+    const discardedKeys = CLOBBERED_TAZE_OPTIONS.filter(({ pattern }) => pattern.test(content)).map(({ key }) => key);
+    if (discardedKeys.length > 0) findings.push(`${relativePath}: ${discardedKeys.join(", ")}`);
+  }
+  if (findings.length === 0) return true;
+  return { ok: false, detail: formatPaths(findings) };
+}
+function tazeConfigBuildsOnSharedConfig(cwd = process.cwd()) {
+  const configs = findFiles([`taze.config.${CONFIG_EXTENSIONS}`], cwd);
+  if (configs.length === 0) {
+    return { ok: false, detail: describeMissingTazeConfig(cwd) };
+  }
+  const staleConfigs = configs.filter(
+    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), "defineConfig", SHARED_TAZE_MODULE)
+  );
+  if (staleConfigs.length === 0) return true;
+  return { ok: false, detail: `does not import defineConfig from ${SHARED_TAZE_MODULE}: ${staleConfigs.join(", ")}` };
+}
+function describeMissingPrettierConfig(cwd) {
+  const inertConfigs = findFiles(INERT_PRETTIER_CONFIGS, cwd);
+  if (inertConfigs.length > 0) return `does not contain code that calls the factory: ${inertConfigs.join(", ")}`;
+  if (hasPrettierConfigKey(cwd)) {
+    return 'does not contain code that calls the factory: the "prettier" key in package.json';
+  }
+  return ".prettierrc.js is missing";
+}
+function describeMissingTazeConfig(cwd) {
+  const inertConfigs = findFiles(INERT_TAZE_CONFIGS, cwd);
+  if (inertConfigs.length > 0) return `does not contain code that calls the factory: ${inertConfigs.join(", ")}`;
+  return "taze.config.ts is missing";
+}
+function hasPrettierConfigKey(cwd) {
+  const manifest = readFileIn(cwd, "package.json");
+  if (manifest === void 0) return false;
+  try {
+    const parsedManifest = JSON.parse(manifest);
+    return isRecord7(parsedManifest) && parsedManifest["prettier"] !== void 0;
+  } catch {
+    return false;
+  }
+}
+
+// .readyup/lib/vitest.ts
+import { dirname, join as join4 } from "node:path";
+var VITE_CONFIG_PATTERN = `vite.config.${CONFIG_EXTENSIONS}`;
+var VITEST_CONFIG_PATTERN = `vitest.config.${CONFIG_EXTENSIONS}`;
+var SHARED_VITEST_MODULE = "@williamthorsen/nmr/vitest";
+var SHARED_TESTS_MODULE = "@williamthorsen/nmr/tests";
+var RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
+var vitestChecks = [
+  {
+    name: "no retired Vitest config variants",
+    severity: "error",
+    quiet: true,
+    check: () => noRetiredVitestConfigs(),
+    fix: "Delete every vitest.standalone.config.* and vitest.integration.config.*. nmr's test scripts select Vitest projects instead of naming config files"
+  },
+  {
+    name: "every vitest.config builds on @williamthorsen/nmr/vitest",
+    severity: "error",
+    check: () => vitestConfigBuildsOnSharedConfig(),
+    fix: "Replace each listed config with: import { defineVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineVitestConfig(); -- a config that does not call the factory does not declare any projects, so every tier-selecting test command fails against it. Pass the repo's own settings to the factory as layers to keep them"
+  },
+  {
+    name: "vitest.root.config.ts builds on @williamthorsen/nmr/vitest",
+    severity: "error",
+    check: () => vitestRootConfigBuildsOnSharedConfig(),
+    fix: "Replace vitest.root.config.ts with: import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });"
+  },
+  {
+    name: "every workspace with a Vite config has a Vitest config",
+    severity: "error",
+    check: () => everyViteConfigHasVitestConfig(),
+    fix: "Add a vitest.config.ts calling defineVitestConfig() from @williamthorsen/nmr/vitest beside each listed vite.config -- Vitest stops its config search at the first directory containing either name, so the Vite config otherwise wins and the projects model is never reached"
+  },
+  {
+    name: "the test suite gates the test-file conventions",
+    severity: "warn",
+    check: () => testSuiteGatesTestFileConventions(),
+    fix: "Add a test of the repo's own under a __tests__ directory that declares the check: import { checkTestFileConventions } from '@williamthorsen/nmr/tests'; checkTestFileConventions(); -- passing `excludedBasenames` the directory names that the repo passes to `testCollectionExclude`. Without it, the repo's test run does not report an untiered or misplaced test file, and this kit reports them in its place against only nmr's built-in exclusions and the paths that git ignores"
+  },
+  {
+    name: "every test file names its isolation tier",
+    severity: "error",
+    skip: () => describeConventionsGuardSkip(),
+    check: () => everyTestFileNamesItsTier(),
+    fix: `Rename each to <subject>[.<aspect>].<tier>.test.ts, naming one of ${TIER_NAMES.join(", ")}. Use tool for a test that reaches a program supplied by the environment, which is the tier for a retired .int. or .integration. file. Only the segment before .test. selects a project, so an untiered file runs under the residual unit project and reports success`
+  },
+  {
+    name: "every test file is under a __tests__ directory",
+    severity: "error",
+    skip: () => describeConventionsGuardSkip(),
+    check: () => everyTestFileSitsUnderTestsDir(),
+    fix: "Move each into a __tests__ directory, the only place from which the shared Vitest config collects. Vitest does not collect a file outside one, so it runs nowhere and reports nothing. For a file that is not a test, declare checkTestFileConventions with its directory in `excludedBasenames` instead, which this check then defers to"
+  },
+  {
+    name: "no package re-exports the ancestor Vitest config",
+    severity: "recommend",
+    quiet: true,
+    check: () => noReExportOnlyVitestConfigs(),
+    fix: "Delete these files. Vitest resolves config by walking up from the run root, so a per-package re-export is redundant"
+  }
+];
+function everyTestFileNamesItsTier(cwd = process.cwd()) {
+  const untieredFiles = findUntieredTestFiles(cwd);
+  if (untieredFiles.length === 0) return true;
+  return { ok: false, detail: formatPaths(untieredFiles) };
+}
+function everyTestFileSitsUnderTestsDir(cwd = process.cwd()) {
+  const misplacedFiles = findMisplacedTestFiles(cwd);
+  if (misplacedFiles.length === 0) return true;
+  return { ok: false, detail: formatPaths(misplacedFiles) };
+}
+function everyViteConfigHasVitestConfig() {
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
+  if (!workspaceDiscovery.ok) return workspaceDiscovery;
+  const unpairedConfigs = workspaceDiscovery.workspaces.flatMap((workspace) => {
+    const viteConfigs = findWorkspaceConfigs(workspace, VITE_CONFIG_PATTERN);
+    if (viteConfigs.length === 0) return [];
+    return findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN).length > 0 ? [] : viteConfigs;
+  });
+  if (unpairedConfigs.length === 0) return true;
+  return { ok: false, detail: formatPaths(unpairedConfigs) };
+}
+function noReExportOnlyVitestConfigs(cwd = process.cwd()) {
+  const nonRootConfigs = findFiles([`**/${VITEST_CONFIG_PATTERN}`], cwd).filter((path7) => path7.includes("/"));
+  const reExports = nonRootConfigs.filter((path7) => isOwnedByReExportCheck(cwd, path7));
+  if (reExports.length === 0) return true;
+  return { ok: false, detail: formatPaths(reExports) };
+}
+function noRetiredVitestConfigs(cwd = process.cwd()) {
+  return checkNoMatchingFiles(
+    [`**/vitest.standalone.config.${CONFIG_EXTENSIONS}`, `**/vitest.integration.config.${CONFIG_EXTENSIONS}`],
+    cwd
+  );
+}
+function testSuiteGatesTestFileConventions(cwd = process.cwd()) {
+  if (findConventionsGuard(cwd) !== void 0) return true;
+  return {
+    ok: false,
+    detail: `the test files under __tests__ do not import checkTestFileConventions from ${SHARED_TESTS_MODULE}`
+  };
+}
+function vitestConfigBuildsOnSharedConfig() {
+  const cwd = process.cwd();
+  const rootConfigs = findFiles([VITEST_CONFIG_PATTERN], cwd);
+  if (rootConfigs.length === 0) return { ok: false, detail: "vitest.config.ts is missing" };
+  const workspaceDiscovery = discoverWorkspacesOrFailure((workspace) => !workspace.isRoot);
+  if (!workspaceDiscovery.ok) return workspaceDiscovery;
+  const workspaceConfigs = workspaceDiscovery.workspaces.flatMap((workspace) => findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN)).filter((relativePath) => !isOwnedByReExportCheck(cwd, relativePath));
+  const stale = [...rootConfigs, ...workspaceConfigs].filter(
+    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), "defineVitestConfig", SHARED_VITEST_MODULE)
+  );
+  if (stale.length === 0) return true;
+  return { ok: false, detail: formatPaths(stale) };
+}
+function vitestRootConfigBuildsOnSharedConfig(cwd = process.cwd()) {
+  return checkRootVitestConfig("vitest.root.config", "defineRootVitestConfig", cwd);
+}
+function checkRootVitestConfig(baseName, exportName, cwd) {
+  const matches = findFiles([`${baseName}.${CONFIG_EXTENSIONS}`], cwd);
+  if (matches.length === 0) {
+    return { ok: false, detail: `${baseName}.ts is missing` };
+  }
+  const staleConfigs = matches.filter(
+    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), exportName, SHARED_VITEST_MODULE)
+  );
+  if (staleConfigs.length === 0) return true;
+  return {
+    ok: false,
+    detail: `does not import ${exportName} from ${SHARED_VITEST_MODULE}: ${staleConfigs.join(", ")}`
+  };
+}
+function describeConventionsGuardSkip() {
+  const guard = findConventionsGuard(process.cwd());
+  return guard !== void 0 && `reported by checkTestFileConventions in ${guard}`;
+}
+function findConventionsGuard(cwd) {
+  return findTestFiles(cwd).find(
+    (relativePath) => importsSharedExport(readFileIn(cwd, relativePath), "checkTestFileConventions", SHARED_TESTS_MODULE)
+  );
+}
+function findWorkspaceConfigs(workspace, pattern) {
+  return findFiles([pattern], workspace.absolutePath).map((name) => `${workspace.dir}/${name}`);
+}
+function hasViteConfigBeside(cwd, relativePath) {
+  return findFiles([VITE_CONFIG_PATTERN], join4(cwd, dirname(relativePath))).length > 0;
+}
+function isOwnedByReExportCheck(cwd, relativePath) {
+  return isReExportOnly(readFileIn(cwd, relativePath)) && !hasViteConfigBeside(cwd, relativePath);
+}
+function isReExportOnly(content) {
+  if (content === void 0) return false;
+  const statements = content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+  return statements.length > 0 && statements.every((line) => RE_EXPORT_LINE_PATTERN.test(line));
+}
+
+// .readyup/lib/workspace-build.ts
+import { existsSync as existsSync5, readdirSync as readdirSync4 } from "node:fs";
+import { join as join5 } from "node:path";
+import { fileExists as fileExists3, readFile as readFile5 } from "readyup/check-utils";
+var buildReadinessChecks = [
+  {
+    name: "all workspace packages can build",
+    severity: "warn",
+    check: allWorkspacePackagesCanBuild,
+    fix: `Add "build": ":" to packages that don't need a build, or ensure packages that use the default nmr build have a tsconfig.json and a src/ directory`
+  }
+];
+function allWorkspacePackagesCanBuild() {
+  const packagesDir = join5(process.cwd(), "packages");
+  if (!existsSync5(packagesDir)) return true;
+  const entries = readdirSync4(packagesDir, { withFileTypes: true });
+  const failingPackages = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const pkgPath = `packages/${entry.name}/package.json`;
+    const content = readFile5(pkgPath);
+    if (!content) continue;
+    const hasBuildOverride = /"build"\s*:/.test(content);
+    const hasDefaultBuildInputs = fileExists3(`packages/${entry.name}/tsconfig.json`) && existsSync5(join5(packagesDir, entry.name, "src"));
+    if (!hasBuildOverride && !hasDefaultBuildInputs) {
+      failingPackages.push(entry.name);
+    }
+  }
+  if (failingPackages.length === 0) return true;
+  return {
+    ok: false,
+    detail: `missing build override or tsconfig.json + src/: ${failingPackages.join(", ")}`
+  };
+}
+
+// .readyup/kits/default.ts
+var default_default = defineRdyKit({
+  checklists: [
+    {
+      name: "nmr",
+      checks: [
+        // -- Setup --
+        ...setupChecks,
+        // -- Root script cleanup --
+        ...rootScriptChecks,
+        // -- Git hooks --
+        ...gitHookChecks,
+        // -- Workspace build readiness --
+        ...buildReadinessChecks,
+        // -- Bin targets --
+        ...binTargetChecks,
+        // -- Vitest projects --
+        ...vitestChecks,
+        // -- Shared Prettier config --
+        ...prettierChecks,
+        // -- Shared upgrade policy --
+        ...tazeChecks,
+        // -- Audit dependency --
+        {
+          name: "v11y-check in devDependencies",
+          severity: "warn",
+          check: () => hasDevDependency2("v11y-check"),
+          fix: "pnpm add --save-dev v11y-check"
+        },
+        // -- Legacy script runner --
+        ...legacyRunnerChecks
+      ]
+    },
+    selfHostedRunnerChecklist
+  ]
+});
 export {
-  cataloguedDependenciesUseCatalog,
-  default_default as default,
-  describeReadinessSkip,
-  describeRecommendationSkip,
-  describeSelfHostedRunnerSkip,
-  everyBinTargetIsACommittedWrapper,
-  everyBinWrapperTargetIsCoveredByFiles,
-  everyTestFileNamesItsTier,
-  everyTestFileSitsUnderTestsDir,
-  everyViteConfigHasVitestConfig,
-  findSelfHostedRunnerFailures,
-  hasSupportedEslintVersion,
-  hasSupportedStrictLintVersion,
-  noPnpmFieldInPackageJson,
-  noReExportOnlyVitestConfigs,
-  noRetiredVitestConfigs,
-  noUnguardedLefthookInstall,
-  noWorkspacesFieldInPackageJson,
-  prettierConfigBuildsOnSharedConfig,
-  readGitHubFacts,
-  readRunnerSelection,
-  recommendSelfHostedRunner,
-  selfHostedRunnerCanRunCi,
-  tazeConfigAvoidsClobberedOptions,
-  tazeConfigBuildsOnSharedConfig,
-  testSuiteGatesTestFileConventions,
-  vitestConfigBuildsOnSharedConfig,
-  vitestRootConfigBuildsOnSharedConfig
+  default_default as default
 };

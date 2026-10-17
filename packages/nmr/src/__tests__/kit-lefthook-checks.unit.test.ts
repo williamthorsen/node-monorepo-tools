@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { noUnguardedLefthookInstall } from '../../.readyup/kits/default.ts';
+import { noUnguardedLefthookInstall } from '../../.readyup/lib/root-scripts.ts';
 import { buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 

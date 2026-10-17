@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { cataloguedDependenciesUseCatalog } from '../../.readyup/kits/default.ts';
+import { cataloguedDependenciesUseCatalog } from '../../.readyup/lib/catalog.ts';
 import { buildManifest } from '../test-utils/buildManifest.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 import { useMonorepo } from '../test-utils/useMonorepo.ts';

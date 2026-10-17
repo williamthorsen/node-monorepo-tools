@@ -14,7 +14,7 @@ vi.mock(import('readyup/check-utils'), async (importOriginal) => {
   };
 });
 
-import { hasSupportedEslintVersion, hasSupportedStrictLintVersion } from '../../.readyup/kits/default.ts';
+import { hasSupportedEslintVersion, hasSupportedStrictLintVersion } from '../../.readyup/lib/setup.ts';
 import { findKitCheck } from '../test-utils/findKitCheck.ts';
 
 describe(hasSupportedEslintVersion, () => {
