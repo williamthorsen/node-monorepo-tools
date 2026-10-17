@@ -1,19 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { formatActionHints } from '../format-actions.ts';
-import type { CheckResult, ScopeCheckResult } from '../format-check.ts';
-
-function emptyScopeResult(): ScopeCheckResult {
-  return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
-}
-
-function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
-  return {
-    dev: emptyScopeResult(),
-    prod: emptyScopeResult(),
-    ...overrides,
-  };
-}
+import { makeCheckResult } from '../test-utils/check-result-fixtures.ts';
 
 describe(formatActionHints, () => {
   it('returns empty string when the result does not contain any unallowed, allowed, or stale entries', () => {

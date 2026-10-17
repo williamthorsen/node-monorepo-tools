@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { CheckResult, ScopeCheckResult } from '../format-check.ts';
 import { deriveSummary } from '../format-summary.ts';
+import { emptyScopeResult, makeCheckResult } from '../test-utils/check-result-fixtures.ts';
 import type { AuditResult } from '../types.ts';
 
 // -- deriveSummary --
@@ -87,19 +87,7 @@ describe(deriveSummary, () => {
 });
 
 // region | Helpers
-function emptyScopeResult(): ScopeCheckResult {
-  return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
-}
-
 function fakeAdvisory(id: string): AuditResult {
   return { id, path: 'pkg', paths: ['pkg'], severity: 'high', url: `https://example.com/${id}` };
-}
-
-function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
-  return {
-    dev: emptyScopeResult(),
-    prod: emptyScopeResult(),
-    ...overrides,
-  };
 }
 // endregion | Helpers
