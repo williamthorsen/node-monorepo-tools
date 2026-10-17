@@ -65,6 +65,23 @@ const REFERENCE_CASES: Array<[string, (tree: TempTree) => void]> = [
   ],
   ['a mode change', (tree) => fs.chmodSync(tree.resolve('src/index.ts'), 0o755)],
   ['a path containing spaces', (tree) => tree.write('a dir/a file with spaces.txt', 'spaced\n')],
+  [
+    'paths that `--stdin-paths` would read as a sibling unless quoted',
+    (tree) => {
+      tree.write('src/"other.ts"', 'quoted\n');
+      tree.write('src/other.ts\r', 'carriage return\n');
+      tree.write(String.raw`src/back\slash.ts`, 'backslash\n');
+      tree.write('src\r/index.ts', 'directory name ending in a carriage return\n');
+    },
+  ],
+  [
+    'a directory replaced by a symlink to a directory with the same names',
+    (tree) => {
+      tree.writeAll({ 'elsewhere/index.ts': 'elsewhere\n', 'elsewhere/other.ts': 'elsewhere\n' });
+      tree.rm('src');
+      tree.symlink('src', 'elsewhere');
+    },
+  ],
   ['a conflicted path', (tree) => tree.write(startConflictingMerge(tree), 'resolved\n')],
   [
     'CRLF content under a `text eol=lf` attribute',

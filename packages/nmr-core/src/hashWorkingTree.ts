@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, readlinkSync } from 'node:fs';
 import path from 'node:path';
 
@@ -14,8 +13,8 @@ import {
   serializeTreeObject,
   TREE_MODE,
 } from './gitObjects.ts';
-import { GIT_OUTPUT_LIMIT } from './gitOutputLimit.ts';
 import { hasErrnoCode } from './hasErrnoCode.ts';
+import { runGit, runGitForBytes } from './runGit.ts';
 
 /**
  * The git tree id of a working tree, or the reason one could not be produced. For every degraded condition (no
@@ -121,8 +120,6 @@ type ChangedEntries = Map<string, Omit<GitTreeEntry, 'name'> | undefined>;
 
 type ChangedEntriesResult = { ok: true; changes: ChangedEntries } | { ok: false; reason: string };
 
-type GitResult<T> = { ok: true; stdout: T } | { ok: false; error: string };
-
 type HeadTreesResult = { ok: true; trees: Map<string, Map<string, GitTreeEntry>> } | { ok: false; reason: string };
 
 /** What a changed path turned out to be on disk; a regular file's blob id is computed later, with git's filters. */
@@ -213,6 +210,38 @@ function entriesAt(trees: Map<string, Map<string, GitTreeEntry>>, directory: str
   return entries;
 }
 
+/** Reports whether a directory that contains `relativePath`, below the toplevel, is a symlink. */
+function hasSymlinkLeadingPath(toplevel: string, relativePath: string): boolean {
+  const segments = relativePath.split('/').slice(0, -1);
+  return segments.some((_segment, index) => {
+    try {
+      return lstatSync(path.join(toplevel, ...segments.slice(0, index + 1))).isSymbolicLink();
+    } catch {
+      // A missing leading directory is reported by the `lstat` of the path itself.
+      return false;
+    }
+  });
+}
+
+/**
+ * Renders a path in the C-quoted form that `git hash-object --stdin-paths` unquotes: double-quoted, with `"`, `\`,
+ * and control characters escaped.
+ */
+function quotePath(relativePath: string): string {
+  let quoted = '"';
+  for (const character of relativePath) {
+    const codePoint = character.codePointAt(0) ?? 0;
+    if (character === '"' || character === '\\') {
+      quoted += `\\${character}`;
+    } else if (codePoint < 0x20 || codePoint === 0x7f) {
+      quoted += `\\${codePoint.toString(8).padStart(3, '0')}`;
+    } else {
+      quoted += character;
+    }
+  }
+  return `${quoted}"`;
+}
+
 /**
  * Determines the entry that each changed path now has. A regular file's blob id comes from one
  * `git hash-object --stdin-paths` call, which applies clean filters and line-ending conversion as `git add` does
@@ -223,7 +252,8 @@ function readChangedEntries(toplevel: string, paths: Set<string>, format: GitObj
   const regularFiles: Array<{ key: string; mode: string; relativePath: string }> = [];
 
   for (const relativePath of paths) {
-    // `--stdin-paths` reads one path per line, and a path that git could not render as UTF-8 cannot be found again.
+    // `git cat-file --batch` echoes a missing name on a newline-terminated line, and a path that git could not
+    // render as UTF-8 cannot be found again.
     if (relativePath.includes('\n') || relativePath.includes('\u{FFFD}')) {
       return {
         ok: false,
@@ -253,7 +283,8 @@ function readChangedEntries(toplevel: string, paths: Set<string>, format: GitObj
     return { ok: true, changes };
   }
 
-  const input = regularFiles.map((file) => `${file.relativePath}\n`).join('');
+  // `--stdin-paths` reads a line that starts with `"` as C-quoted and drops a trailing `\r`, so every path is quoted.
+  const input = regularFiles.map((file) => `${quotePath(file.relativePath)}\n`).join('');
   const hashResult = runGit(['hash-object', '--stdin-paths'], toplevel, input);
   if (!hashResult.ok) {
     return { ok: false, reason: `git hash-object failed: ${hashResult.error}` };
@@ -283,10 +314,10 @@ function readHeadTrees(options: {
   const { directories, format, headSha, headTreeId, toplevel } = options;
   const ordered = [...directories];
   const input = ordered
-    .map((directory) => (directory === '' ? `${headTreeId}\n` : `${headSha}:${directory}\n`))
+    .map((directory) => (directory === '' ? `${headTreeId}\0` : `${headSha}:${directory}\0`))
     .join('');
 
-  const batchResult = runGitForBytes(['cat-file', '--batch'], toplevel, Buffer.from(input, 'latin1'));
+  const batchResult = runGitForBytes(['cat-file', '--batch', '-z'], toplevel, Buffer.from(input, 'latin1'));
   if (!batchResult.ok) {
     return { ok: false, reason: `git cat-file failed: ${batchResult.error}` };
   }
@@ -335,6 +366,10 @@ function readHeadTrees(options: {
  */
 function readPathState(toplevel: string, relativePath: string, format: GitObjectFormat): PathState {
   const absolutePath = path.join(toplevel, relativePath);
+  // Git does not follow a symlinked directory, so a path beneath one is not in the working tree.
+  if (hasSymlinkLeadingPath(toplevel, relativePath)) {
+    return { ok: true, kind: 'absent' };
+  }
 
   let stats;
   try {
@@ -362,38 +397,6 @@ function readPathState(toplevel: string, relativePath: string, format: GitObject
 
   // A directory here is an untracked repository, which git reports as a single entry and does not look inside.
   return { ok: false, reason: `${relativePath} is neither a file nor a symlink, so its content is not hashable` };
-}
-
-/**
- * Runs git and returns its stdout as text, or the reason it failed. A failure must never read as an empty status:
- * An unreported change would leave the id certifying content that is no longer there.
- */
-function runGit(args: string[], cwd: string, input?: string): GitResult<string> {
-  const result = runGitForBytes(args, cwd, input === undefined ? undefined : Buffer.from(input, 'utf8'));
-  return result.ok ? { ok: true, stdout: result.stdout.toString('utf8') } : result;
-}
-
-/**
- * Runs git without a shell, so that a shell never interprets any part of a path or revision, and returns its raw
- * stdout. `GIT_OPTIONAL_LOCKS=0` stops `git status` from writing its refreshed stat data back to the index.
- */
-function runGitForBytes(args: string[], cwd: string, input?: Buffer): GitResult<Buffer> {
-  const result = spawnSync('git', args, {
-    cwd,
-    env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
-    input,
-    maxBuffer: GIT_OUTPUT_LIMIT,
-  });
-
-  if (result.error) {
-    return { ok: false, error: result.error.message };
-  }
-  if (result.status !== 0) {
-    const stderr = result.stderr.toString('utf8').trim();
-    return { ok: false, error: stderr || `\`git ${args.join(' ')}\` failed with exit code ${result.status}.` };
-  }
-
-  return { ok: true, stdout: result.stdout };
 }
 
 /** Splits a path from the toplevel into its containing directory (`''` for the root) and its last segment. */

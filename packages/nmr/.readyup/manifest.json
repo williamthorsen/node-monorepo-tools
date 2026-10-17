@@ -96,7 +96,7 @@
           "path": "../../nmr-core/dist/esm/hasErrnoCode.js"
         },
         {
-          "hash": "90b2cbb8",
+          "hash": "1eb2b90c",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/hashWorkingTree.js"
         },
@@ -114,6 +114,11 @@
           "hash": "89d3e3b4",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/parseArgs.js"
+        },
+        {
+          "hash": "7915ba49",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/runGit.js"
         },
         {
           "hash": "14547f78",
