@@ -2,7 +2,7 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { type CheckCacheEntry, recordTranscript, writeCheckCacheEntry } from '../check-cache.ts';
+import { type CheckCacheEntry, recordTranscript, writeCheckCacheEntry } from '../check-cache-entries.ts';
 import { type Recording, renderRecording, renderRefusal, resolveRecording } from '../recording.ts';
 
 const COMMAND = 'test';

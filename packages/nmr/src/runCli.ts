@@ -14,30 +14,28 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { prependBinDirs } from './bin-path.ts';
 import {
-  type BuildOutputState,
-  certifyRetention,
-  type CheckCacheEntry,
-  computeCacheKey,
-  computeRetentionKey,
-  CURRENT_RUNTIME,
   encodeTreeSnapshot,
-  findStaleBuildOutput,
   formatMisplacedNoCacheWarning,
   isCacheableCommand,
   NO_CACHE_ENV_VAR,
-  readBuildOutputState,
-  readCheckCacheEntry,
-  recordTranscript,
-  type ReplayLine,
   resolveRunId,
   resolveTreeSnapshot,
-  type Retention,
   RUN_ID_ENV_VAR,
   TREE_SNAPSHOT_ENV_VAR,
   type TreeSnapshot,
-  writeCheckCacheEntry,
   writeDebugNote,
 } from './check-cache.ts';
+import { type BuildOutputState, findStaleBuildOutput, readBuildOutputState } from './check-cache-build-output.ts';
+import {
+  certifyRetention,
+  type CheckCacheEntry,
+  readCheckCacheEntry,
+  recordTranscript,
+  type ReplayLine,
+  type Retention,
+  writeCheckCacheEntry,
+} from './check-cache-entries.ts';
+import { computeCacheKey, computeRetentionKey, CURRENT_RUNTIME } from './check-cache-key.ts';
 import { resolveContext, type ResolvedContext } from './context.ts';
 import { enterChain } from './entry-chain.ts';
 import { NMR_GLYPHS } from './glyphs.ts';
@@ -59,10 +57,10 @@ import {
   type MachineLock,
   NO_LOCK_ENV_VAR,
 } from './machine-lock.ts';
+import { resolveChannel } from './output-channel.ts';
 import { isTerminalStream, OUTPUT_STYLE_ENV_VAR, OUTPUT_STYLE_FLAG, resolveOutputStyles } from './output-style.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import {
-  createSnapshot,
   DELEGATE_ENV_VAR,
   DELEGATE_FLAG,
   DELEGATION_FAILURE_EXIT_CODE,
@@ -71,6 +69,7 @@ import {
   resolveDelegationTarget,
   runRemotely,
 } from './remote-run.ts';
+import { createSnapshot } from './remote-snapshot.ts';
 import { assembleReplay } from './replay-assembly.ts';
 import { readReportFormatEnv, REPORT_FORMAT_ENV_VAR, type ReportFormat, resolveReportFormat } from './report-format.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
@@ -85,7 +84,7 @@ import {
   resolveScript,
   type ScriptOrigin,
 } from './resolver.ts';
-import { resolveChannel, type RetainedOutput, runSteps, type RunStepsOptions } from './runner.ts';
+import { type RetainedOutput, runSteps, type RunStepsOptions } from './runner.ts';
 import {
   composeNmrStep,
   dropRecursiveSteps,
