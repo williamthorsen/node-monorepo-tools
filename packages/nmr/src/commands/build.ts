@@ -5,7 +5,6 @@ import path from 'node:path';
 
 import {
   formatGlyphLine,
-  hasErrnoCode,
   type OutputStyle,
   readCacheEntry,
   STATUS_GLYPHS,
@@ -27,6 +26,9 @@ import {
   resolveToolchainFingerprint,
   type ScratchDirs,
 } from './build-output.ts';
+import { assertSupportedTypeScript, formatDiagnostics, getCompiler, loadCompiler } from './compiler.ts';
+import { isWithin, rewriteSpecifiers } from './rewrite-specifiers.ts';
+import { resolveTsconfigChain } from './tsconfig-chain.ts';
 
 /**
  * The toolchain from which a build's emit comes: the resolved compiler and the nmr running it. `computeBuildHash`
@@ -64,29 +66,6 @@ interface StagedFile {
 
 const SOURCE_ROOT = 'src';
 
-const MINIMUM_TYPESCRIPT_MAJOR = 5;
-const MINIMUM_TYPESCRIPT_MINOR = 7;
-/** The first major whose root export is a version constant rather than the compiler API. */
-const UNSUPPORTED_TYPESCRIPT_MAJOR = 7;
-const SUPPORTED_TYPESCRIPT_RANGE = `>=${MINIMUM_TYPESCRIPT_MAJOR}.${MINIMUM_TYPESCRIPT_MINOR} <${UNSUPPORTED_TYPESCRIPT_MAJOR}`;
-const INSTALL_TYPESCRIPT_GUIDANCE = "Install a version in that range as the 'typescript' peer dependency.";
-
-/**
- * The supported TypeScript source extensions and the JavaScript extension that their emit produces.
- * `nmr-compile` targets ESM-only packages (`type: "module"`), so `.ts` and `.tsx` → `.js` are the only supported
- * mappings: under `type: "module"` a `.mjs` emit is redundant with `.js`, and a `.cjs` emit from `.cts` would
- * contradict the ESM-only output contract. The package's own tsconfig `jsx` option governs how `.tsx` compiles.
- * Keep these extensions, `DEFAULT_ENTRY_GLOBS`, `isRewritableOutput`, and `mapOutputToSource` in agreement.
- */
-const TS_EXTENSIONS = ['.ts', '.tsx'];
-const JS_EXTENSION = '.js';
-
-/**
- * The compiler API, which `loadCompiler` sets before any helper runs. `typescript` is an optional peer, so a
- * consumer that never compiles does not need it installed.
- */
-let ts: typeof TypeScript;
-
 /**
  * Compiles a package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js` and
  * `.d.ts` from two programs and rewriting relative `.ts` specifiers and tsconfig `paths` aliases to
@@ -123,7 +102,7 @@ export async function buildPackage(packageDir: string, options: BuildPackageOpti
   ];
 
   const toolchain: BuildToolchain = {
-    compilerVersion: ts.version,
+    compilerVersion: getCompiler().version,
     fingerprint: await resolveToolchainFingerprint(packageDir),
   };
 
@@ -188,63 +167,6 @@ export async function computeBuildHash(
   return hash.digest('hex');
 }
 
-/**
- * Loads the compiler API on which every other function in this module relies, reporting a missing `typescript` peer
- * with the version that `nmr-compile` requires. `buildPackage` calls it first; a caller of another export calls it
- * beforehand.
- *
- * @internal
- */
-export async function loadCompiler(loadTypeScript: () => Promise<typeof TypeScript> = importTypeScript): Promise<void> {
-  try {
-    // eslint-disable-next-line unicorn/no-top-level-assignment-in-function -- the helpers share the one compiler that this loads.
-    ts = await loadTypeScript();
-  } catch (error) {
-    if (hasErrnoCode(error, 'ERR_MODULE_NOT_FOUND') && error.message.includes("'typescript'")) {
-      throw new Error(
-        `nmr-compile requires TypeScript ${SUPPORTED_TYPESCRIPT_RANGE}, but 'typescript' could not be resolved. ` +
-          INSTALL_TYPESCRIPT_GUIDANCE,
-        { cause: error },
-      );
-    }
-    throw error;
-  }
-}
-
-/**
- * Resolves a package's full tsconfig `extends` chain, returning every config file in it (the leaf `tsconfig.json` and
- * each base that it transitively extends, up to the repo root) as paths relative to `packageDir`.
- * Emit is driven by the fully-resolved compiler options, so the base configs must be in the cache's hashed input
- * set; otherwise a change to a base config would not bust the cache and stale output could be released. The
- * relative paths give `computeBuildHash` a location-independent path string to fold into the digest.
- */
-export function resolveTsconfigChain(packageDir: string, configFileName = 'tsconfig.json'): string[] {
-  const resolvedChain: string[] = [];
-  const seen = new Set<string>();
-
-  /** Records a config file and recurses into each config that it extends, visiting each file once. */
-  function walk(configPath: string): void {
-    const normalizedPath = path.resolve(configPath);
-    if (seen.has(normalizedPath)) {
-      return;
-    }
-    seen.add(normalizedPath);
-    resolvedChain.push(normalizedPath);
-
-    const configFile = ts.readConfigFile(normalizedPath, (fileName) => ts.sys.readFile(fileName));
-    if (configFile.error) {
-      throw new Error(`nmr-compile: failed to read ${normalizedPath}.\n${formatDiagnostics([configFile.error])}`);
-    }
-
-    for (const entry of normalizeExtendsField(configFile.config)) {
-      walk(resolveExtendsTarget(entry, normalizedPath));
-    }
-  }
-
-  walk(path.resolve(packageDir, configFileName));
-  return resolvedChain.map((absolute) => path.relative(packageDir, absolute));
-}
-
 // region | Emit
 
 /**
@@ -263,6 +185,7 @@ export function resolveTsconfigChain(packageDir: string, configFileName = 'tscon
  * Returns how many files it published, which is zero for a package whose entry points emit nothing.
  */
 async function emitPackage(packageDir: string, entryPoints: string[], outdir: string): Promise<number> {
+  const ts = getCompiler();
   const compilerOptions = synthesizeCompilerOptions(packageDir, outdir);
   const rootNames = entryPoints.map((entry) => path.resolve(packageDir, entry));
   const sourceRoot = path.resolve(packageDir, SOURCE_ROOT);
@@ -331,6 +254,7 @@ function assertEmitSucceeded(result: TypeScript.EmitResult): void {
  * `oldProgram` still asks the host for each file in order to compare it.
  */
 function createCachingCompilerHost(compilerOptions: TypeScript.CompilerOptions): TypeScript.CompilerHost {
+  const ts = getCompiler();
   const host = ts.createCompilerHost(compilerOptions);
   const parsedFiles = new Map<string, TypeScript.SourceFile | undefined>();
   const readSourceFile = host.getSourceFile.bind(host);
@@ -431,6 +355,7 @@ async function swapIntoPlace(emitDir: string, scratchDirs: ScratchDirs): Promise
  * their sources cannot be reconstructed.
  */
 function synthesizeCompilerOptions(packageDir: string, outdir: string): TypeScript.CompilerOptions {
+  const ts = getCompiler();
   const configPath = path.join(packageDir, 'tsconfig.json');
   const configFile = ts.readConfigFile(configPath, (fileName) => ts.sys.readFile(fileName));
   if (configFile.error) {
@@ -468,6 +393,7 @@ function synthesizeCompilerOptions(packageDir: string, outdir: string): TypeScri
  * would otherwise discard, in silence, a file that a direct emit would have written.
  */
 function writeStagedOutput(stagedFiles: Map<string, StagedFile>, emitDir: string, stagingDir: string): void {
+  const ts = getCompiler();
   for (const [fileName, file] of stagedFiles) {
     if (!isWithin(emitDir, fileName)) {
       throw new Error(
@@ -480,165 +406,6 @@ function writeStagedOutput(stagedFiles: Map<string, StagedFile>, emitDir: string
 }
 
 // endregion | Emit
-
-// region | Specifier rewriting
-
-/**
- * Rewrites module specifiers in a single emitted `.js` or `.d.ts` file's text: relative imports ending
- * in a TypeScript extension become their `.js` equivalent, and tsconfig `paths` aliases resolve to
- * runnable relative `.js` specifiers. Parsing the text means only real import/export specifiers are
- * touched -- text inside strings and comments is never altered. Returns the text unchanged when nothing
- * needs rewriting.
- *
- * `outputFile` names where the emit will be published, not where the text is now: `mapOutputToSource`
- * reconstructs the originating source file by swapping the `outDir` prefix, and aliases resolve from
- * that source location. A staging path here would resolve them from the wrong directory.
- */
-function rewriteSpecifiers(
-  outputFile: string,
-  text: string,
-  compilerOptions: TypeScript.CompilerOptions,
-  sourceRoot: string,
-): string {
-  if (!isRewritableOutput(outputFile)) {
-    return text;
-  }
-
-  const sourceFile = ts.createSourceFile(
-    outputFile,
-    text,
-    ts.ScriptTarget.Latest,
-    /* setParentNodes */ false,
-    resolveScriptKind(outputFile),
-  );
-  const aliasPrefixes = collectAliasPrefixes(compilerOptions);
-  const sourceContainingFile = mapOutputToSource(outputFile, compilerOptions, sourceRoot);
-
-  const edits: Array<{ startOffset: number; endOffset: number; text: string }> = [];
-  visitModuleSpecifiers(sourceFile, (literal) => {
-    const replacement = resolveSpecifierReplacement(
-      literal.text,
-      sourceContainingFile,
-      compilerOptions,
-      sourceRoot,
-      aliasPrefixes,
-    );
-    if (replacement === undefined) {
-      return;
-    }
-    const startOffset = literal.getStart(sourceFile);
-    const quote = text[startOffset] ?? '"';
-    edits.push({ startOffset, endOffset: literal.getEnd(), text: `${quote}${replacement}${quote}` });
-  });
-
-  if (edits.length === 0) {
-    return text;
-  }
-
-  // Apply edits from the end of the text backwards so that earlier offsets stay valid as it is spliced.
-  const orderedEdits = edits.toSorted((a, b) => b.startOffset - a.startOffset);
-  let updatedText = text;
-  for (const edit of orderedEdits) {
-    updatedText = updatedText.slice(0, edit.startOffset) + edit.text + updatedText.slice(edit.endOffset);
-  }
-  return updatedText;
-}
-
-/**
- * Computes the runnable specifier for an emitted import, or `undefined` when the specifier does not need
- * a change. Relative specifiers ending in a TypeScript extension are re-extensioned to `.js`; `paths`
- * aliases are resolved to the target source file and expressed as a relative `.js` specifier. Bare package
- * specifiers are left untouched. Throws on an alias that resolves to nothing, or that resolves outside the
- * package source tree and not the way Node will at runtime.
- */
-function resolveSpecifierReplacement(
-  specifier: string,
-  sourceContainingFile: string,
-  compilerOptions: TypeScript.CompilerOptions,
-  sourceRoot: string,
-  aliasPrefixes: string[],
-): string | undefined {
-  if (isRelativeSpecifier(specifier)) {
-    const rewrittenSpecifier = swapTypeScriptExtension(specifier);
-    return rewrittenSpecifier === specifier ? undefined : rewrittenSpecifier;
-  }
-
-  if (aliasPrefixes.every((prefix) => !(specifier === prefix || specifier.startsWith(prefix)))) {
-    return undefined;
-  }
-
-  const resolvedModule = ts.resolveModuleName(specifier, sourceContainingFile, compilerOptions, ts.sys).resolvedModule;
-  if (!resolvedModule) {
-    throw new Error(
-      `nmr-compile: could not resolve aliased import '${specifier}' from ${sourceContainingFile}. ` +
-        `Verify the tsconfig 'paths' mapping and that the target file exists.`,
-    );
-  }
-  if (!isWithin(sourceRoot, resolvedModule.resolvedFileName)) {
-    // The alias target escapes the package source tree. Re-resolve the way Node will at runtime, which
-    // honors none of TypeScript's resolution overlays: `paths`, `baseUrl`, and `rootDirs` each let a
-    // non-relative specifier resolve to a location that Node cannot reach, so strip all three. A
-    // specifier that still resolves is genuinely external and runtime-runnable (a type-shim `paths` key
-    // shadowing a real package, or a coarse prefix collision); emit it verbatim. Emitting one that does
-    // not would publish an unresolvable specifier that fails at runtime; fail the build instead.
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- named only to strip it; TypeScript still honors it
-    const { paths: _paths, baseUrl: _baseUrl, rootDirs: _rootDirs, ...nodeResolutionOptions } = compilerOptions;
-    const bareResolvedModule = ts.resolveModuleName(
-      specifier,
-      sourceContainingFile,
-      nodeResolutionOptions,
-      ts.sys,
-    ).resolvedModule;
-    if (bareResolvedModule) {
-      return undefined;
-    }
-    throw new Error(
-      `nmr-compile: aliased import '${specifier}' from ${sourceContainingFile} resolves to ` +
-        `${resolvedModule.resolvedFileName}, outside the package source root ${sourceRoot}, and does not resolve ` +
-        `the way Node will at runtime, which ignores tsconfig 'paths', 'baseUrl', and 'rootDirs'. The ` +
-        `emitted specifier would fail at runtime; re-anchor the alias inside the package.`,
-    );
-  }
-
-  const relativeSpecifier = buildRelativeSpecifier(path.dirname(sourceContainingFile), resolvedModule.resolvedFileName);
-  return swapTypeScriptExtension(relativeSpecifier);
-}
-
-/** Invokes the callback with every module-specifier string literal found in the file. */
-function visitModuleSpecifiers(
-  sourceFile: TypeScript.SourceFile,
-  visit: (literal: TypeScript.StringLiteralLike) => void,
-): void {
-  /** Visits the node's module specifier, if it has one, then recurses into its children. */
-  function walk(node: TypeScript.Node): void {
-    const specifier = getModuleSpecifier(node);
-    if (specifier !== undefined) {
-      visit(specifier);
-    }
-    ts.forEachChild(node, walk);
-  }
-  walk(sourceFile);
-}
-
-/** Extracts the module-specifier string literal from any import/export/dynamic-import construct. */
-function getModuleSpecifier(node: TypeScript.Node): TypeScript.StringLiteralLike | undefined {
-  if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier !== undefined) {
-    return ts.isStringLiteralLike(node.moduleSpecifier) ? node.moduleSpecifier : undefined;
-  }
-  if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
-    return ts.isStringLiteralLike(node.moduleReference.expression) ? node.moduleReference.expression : undefined;
-  }
-  if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
-    return ts.isStringLiteralLike(node.argument.literal) ? node.argument.literal : undefined;
-  }
-  if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-    const [first] = node.arguments;
-    return first !== undefined && ts.isStringLiteralLike(first) ? first : undefined;
-  }
-  return undefined;
-}
-
-// endregion | Specifier rewriting
 
 // region | Cache
 
@@ -681,40 +448,6 @@ async function detectBuildChanges(
 
 // region | Helpers
 
-/** Imports the `typescript` peer. */
-async function importTypeScript(): Promise<typeof TypeScript> {
-  return await import('typescript');
-}
-
-/**
- * Asserts the resolved `typescript` peer is new enough for `rewriteRelativeImportExtensions` and old enough to
- * include the compiler API.
- */
-function assertSupportedTypeScript(): void {
-  // Read untyped, because TypeScript 7's root export is a version constant rather than the compiler API.
-  const versionMajorMinor: unknown = ts.versionMajorMinor;
-  const version: unknown = ts.version;
-  const [majorPart, minorPart] = typeof versionMajorMinor === 'string' ? versionMajorMinor.split('.', 2) : [];
-  const major = majorPart === undefined ? 0 : Number(majorPart);
-  const minor = minorPart === undefined ? 0 : Number(minorPart);
-  const tooOld =
-    major < MINIMUM_TYPESCRIPT_MAJOR || (major === MINIMUM_TYPESCRIPT_MAJOR && minor < MINIMUM_TYPESCRIPT_MINOR);
-  if (tooOld || major >= UNSUPPORTED_TYPESCRIPT_MAJOR) {
-    throw new Error(
-      `nmr-compile requires TypeScript ${SUPPORTED_TYPESCRIPT_RANGE}, but found ` +
-        `${typeof version === 'string' ? version : 'a version without the compiler API'}. ${INSTALL_TYPESCRIPT_GUIDANCE}`,
-    );
-  }
-}
-
-/** Returns the alias prefixes declared in the tsconfig `paths` map, with the trailing wildcard stripped. */
-function collectAliasPrefixes(compilerOptions: TypeScript.CompilerOptions): string[] {
-  if (compilerOptions.paths === undefined) {
-    return [];
-  }
-  return Object.keys(compilerOptions.paths).map((pattern) => pattern.replace(/\*$/, ''));
-}
-
 /** Describes the outcome of an emit: the files that it published, or their absence. */
 function describeEmit(fileCount: number, outdir: string): string {
   if (fileCount === 0) {
@@ -723,121 +456,6 @@ function describeEmit(fileCount: number, outdir: string): string {
 
   // Always plural: Every emitting source yields a `.js` and a `.d.ts`, so the count is never one.
   return `Compiled ${fileCount} files to ${outdir.replace(/\/+$/u, '')}.`;
-}
-
-/** Renders compiler diagnostics as colored text with source context. */
-function formatDiagnostics(diagnostics: readonly TypeScript.Diagnostic[]): string {
-  return ts.formatDiagnosticsWithColorAndContext(diagnostics, {
-    getCurrentDirectory: () => process.cwd(),
-    getCanonicalFileName: (fileName) => fileName,
-    getNewLine: () => ts.sys.newLine,
-  });
-}
-
-/** Reports whether an emitted file is one whose module specifiers the build rewrites. */
-function isRewritableOutput(file: string): boolean {
-  return file.endsWith('.d.ts') || file.endsWith('.js');
-}
-
-/** Normalizes a parsed tsconfig's `extends` field (absent, a single path, or an array) to a string array. */
-function normalizeExtendsField(config: unknown): string[] {
-  if (config === null || typeof config !== 'object' || !('extends' in config)) {
-    return [];
-  }
-  const extendsField: unknown = config.extends;
-  if (typeof extendsField === 'string') {
-    return [extendsField];
-  }
-  if (Array.isArray(extendsField)) {
-    return extendsField.filter((entry): entry is string => typeof entry === 'string');
-  }
-  return [];
-}
-
-/**
- * Resolves a single tsconfig `extends` entry to an absolute config-file path. Relative and absolute
- * entries resolve against the extending config's directory, appending `.json` when the bare path does
- * not exist; package-specifier entries resolve through Node module resolution. Throws when an entry
- * cannot be located.
- */
-function resolveExtendsTarget(extendsEntry: string, fromConfigPath: string): string {
-  if (isRelativeSpecifier(extendsEntry) || path.isAbsolute(extendsEntry)) {
-    const base = path.resolve(path.dirname(fromConfigPath), extendsEntry);
-    if (ts.sys.fileExists(base)) {
-      return base;
-    }
-    const withJsonExtension = `${base}.json`;
-    if (ts.sys.fileExists(withJsonExtension)) {
-      return withJsonExtension;
-    }
-    throw new Error(`nmr-compile: ${fromConfigPath} extends '${extendsEntry}', which does not exist.`);
-  }
-
-  // A package that does not declare an `exports` map is reachable only at its `tsconfig.json` path,
-  // which is what TypeScript's own config resolver falls back to.
-  const resolvedPath =
-    resolvePackageSpecifier(extendsEntry, fromConfigPath) ??
-    resolvePackageSpecifier(`${extendsEntry}/tsconfig.json`, fromConfigPath);
-  if (resolvedPath === undefined) {
-    throw new Error(`nmr-compile: ${fromConfigPath} extends '${extendsEntry}', which does not resolve to a file.`);
-  }
-  return resolvedPath;
-}
-
-/** Resolves a package specifier to a file through Node module resolution, or `undefined` when it does not resolve. */
-function resolvePackageSpecifier(specifier: string, fromConfigPath: string): string | undefined {
-  const { resolvedModule } = ts.resolveModuleName(
-    specifier,
-    fromConfigPath,
-    { moduleResolution: ts.ModuleResolutionKind.NodeNext, resolveJsonModule: true },
-    ts.sys,
-  );
-  return resolvedModule?.resolvedFileName;
-}
-
-/** Reports whether a specifier starts with `./` or `../`. */
-function isRelativeSpecifier(specifier: string): boolean {
-  return specifier.startsWith('./') || specifier.startsWith('../');
-}
-
-/** Reports whether `child` lies strictly inside `parent`. */
-function isWithin(parent: string, child: string): boolean {
-  const relativePath = path.relative(parent, child);
-  return relativePath !== '' && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
-}
-
-/**
- * Reconstructs the source file that produced an emitted output file by swapping the output
- * directory prefix for the source root and restoring a `.ts` extension. Used as the resolution
- * context for alias specifiers so that `paths`/`baseUrl` resolve from the original source location.
- * Resolution reads only the file's directory, so a `.tsx` source resolves the same as its `.ts` stand-in.
- */
-function mapOutputToSource(
-  outputFile: string,
-  compilerOptions: TypeScript.CompilerOptions,
-  sourceRoot: string,
-): string {
-  const outDir = compilerOptions.outDir ?? path.dirname(outputFile);
-  const relativeFromOut = path.relative(outDir, outputFile);
-  const withoutExtension = relativeFromOut.replace(/\.d\.ts$|\.js$/, '');
-  return path.join(sourceRoot, `${withoutExtension}.ts`);
-}
-
-/** Expresses `targetFile` as a `./`- or `../`-prefixed POSIX specifier relative to `fromDir`. */
-function buildRelativeSpecifier(fromDir: string, targetFile: string): string {
-  const relativePath = path.relative(fromDir, targetFile).split(path.sep).join('/');
-  return relativePath.startsWith('.') ? relativePath : `./${relativePath}`;
-}
-
-/** Returns the script kind to parse an emitted file as: TypeScript for a declaration file, JavaScript otherwise. */
-function resolveScriptKind(file: string): TypeScript.ScriptKind {
-  return file.endsWith('.d.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS;
-}
-
-/** Replaces a trailing TypeScript extension with its JavaScript equivalent, leaving other specifiers intact. */
-function swapTypeScriptExtension(specifier: string): string {
-  const extension = TS_EXTENSIONS.find((candidate) => specifier.endsWith(candidate));
-  return extension === undefined ? specifier : `${specifier.slice(0, -extension.length)}${JS_EXTENSION}`;
 }
 
 // endregion | Helpers
