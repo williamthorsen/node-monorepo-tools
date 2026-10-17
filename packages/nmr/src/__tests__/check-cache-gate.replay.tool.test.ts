@@ -241,9 +241,8 @@ describe('the check-result cache gate', () => {
     }
 
     /**
-     * Maps the fixture's cacheable command to a composite of the given elements, and returns the hash of the
-     * tree that leaves behind: A planted constituent has to describe the tree against which the run will be
-     * recorded.
+     * Maps the fixture's cacheable command to a composite of the given elements, and returns the id of the tree
+     * that leaves behind: A planted constituent has to describe the tree against which the run will be recorded.
      */
     function scaffoldComposite(elements: string[]): string {
       writeConfig(workspace, log, { command: elements });
@@ -252,7 +251,7 @@ describe('the check-result cache gate', () => {
         throw new Error(hashResult.reason);
       }
 
-      return hashResult.hash;
+      return hashResult.treeId;
     }
 
     // endregion | Helpers

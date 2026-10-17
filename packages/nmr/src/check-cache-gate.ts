@@ -66,7 +66,7 @@ export function openGate(options: {
 
 /**
  * Computes the key under which this invocation would be recorded, or `undefined` when the cache does not apply.
- * The cache does not apply to a `devBin` substitution: the substitute is built from a location that the tree hash
+ * The cache does not apply to a `devBin` substitution: the substitute is built from a location that the tree id
  * does not describe, so a pass by it is not a pass by the command that the key names.
  */
 export function resolveCacheKey(options: {

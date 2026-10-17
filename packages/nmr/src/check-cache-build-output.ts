@@ -34,7 +34,7 @@ export function findStaleBuildOutput(
 }
 
 /**
- * Reads the state of the build output that nmr's own build covers. Build output is git-ignored, so the tree hash
+ * Reads the state of the build output that nmr's own build covers. Build output is git-ignored, so the tree id
  * says nothing about it: a `ci` whose `build` constituent is cached would otherwise skip on a tree whose `dist`
  * had been deleted, or whose `dist` was compiled from a different tree, and hand back a green exit over a
  * repository that cannot run.

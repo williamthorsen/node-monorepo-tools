@@ -9,7 +9,7 @@ import type { CheckCacheConfig } from './types.ts';
 
 /** One working tree, observed once per top-level invocation and shared with every process below it. */
 export interface TreeSnapshot {
-  hash: string;
+  treeId: string;
   headSha: string;
 }
 
@@ -59,7 +59,7 @@ export const TREE_SNAPSHOT_ENV_VAR = 'NMR_TREE_SNAPSHOT';
 
 /** Renders a snapshot for the environment of every process below this one. */
 export function encodeTreeSnapshot(snapshot: TreeSnapshot): string {
-  return `${snapshot.hash} ${snapshot.headSha}`;
+  return `${snapshot.treeId} ${snapshot.headSha}`;
 }
 
 /**
@@ -104,7 +104,7 @@ export function resolveCacheableCommands(checkCache: CheckCacheConfig | undefine
  * down, and otherwise a fresh one, because the run starts at this invocation.
  *
  * Unbounded, whereas the tree snapshot is bounded by a HEAD comparison: a process that outlives its run hands a
- * stale identity to the invocations that it later makes, and the tree hash keeps that harmless, because every
+ * stale identity to the invocations that it later makes, and the tree id keeps that harmless, because every
  * constituent entry is held to it before its excerpt joins an assembly.
  */
 export function resolveRunId(env: NodeJS.ProcessEnv): string {
@@ -149,7 +149,7 @@ export function resolveTreeSnapshot(options: {
     return { ok: false, reason: `the monorepo root is not the git toplevel (${hashedTree.toplevel})` };
   }
 
-  return { ok: true, snapshot: { hash: hashedTree.hash, headSha: hashedTree.headSha } };
+  return { ok: true, snapshot: { treeId: hashedTree.treeId, headSha: hashedTree.headSha } };
 }
 
 /**
@@ -171,12 +171,12 @@ function decodeTreeSnapshot(encodedSnapshot: string | undefined): TreeSnapshot |
     return undefined;
   }
 
-  const [hash, headSha] = encodedSnapshot.split(' ', 2);
-  if (hash === undefined || headSha === undefined || hash === '' || headSha === '') {
+  const [treeId, headSha] = encodedSnapshot.split(' ', 2);
+  if (treeId === undefined || headSha === undefined || treeId === '' || headSha === '') {
     return undefined;
   }
 
-  return { hash, headSha };
+  return { treeId, headSha };
 }
 
 // endregion | Helpers

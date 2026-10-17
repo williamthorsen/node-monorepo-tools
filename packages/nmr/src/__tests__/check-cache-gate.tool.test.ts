@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -78,6 +79,17 @@ describe('the check-result cache gate', () => {
 
       expect(stdout).toContain('passed');
       expect(stderr).toContain('`rootScripts.typecheck` reaches nmr through a shell (`nmr ok`)');
+    });
+
+    it('skips once the checked tree is committed, because the pass describes content rather than a commit', async () => {
+      workspace.write('repo/src/index.ts', 'export const value = 2;\n');
+      await runNmr(COMMAND, repo);
+
+      execFileSync('git', ['commit', '--all', '--quiet', '--message', 'commit the checked tree'], { cwd: repo });
+      const afterCommit = await runNmr(COMMAND, repo);
+
+      expect(afterCommit.exitCode).toBe(0);
+      expect(countRuns(workspace)).toBe(1);
     });
 
     it('records one pass per scope; a command run at the root skips at the root', async () => {
@@ -234,7 +246,7 @@ describe('the check-result cache gate', () => {
 
       await runNmr('check', repo);
 
-      expect(readLog(workspace)[0]).toMatch(/^[\da-f]{64} [\da-f]{40}$/);
+      expect(readLog(workspace)[0]).toMatch(/^[\da-f]{40} [\da-f]{40}$/);
     });
 
     it('records every cacheable constituent of one green run', async () => {
