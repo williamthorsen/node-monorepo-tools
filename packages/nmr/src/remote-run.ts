@@ -48,18 +48,23 @@ export type SnapshotResult =
  * group, so that an interrupted run does not continue on the host. `--no-delegate` keeps a host whose environment
  * sets `NMR_DELEGATE` from passing the command on again.
  *
+ * The script writes nmr's status to `statusPath` before it exits, so that a 255 from `ssh` can be told apart: It is
+ * nmr's own when the file records it, and a dropped connection otherwise.
+ *
  * @internal
  */
 export function composeRunScript(options: {
   nmrArgs: readonly string[];
   remoteEnv: Readonly<Record<string, string>>;
   runDir: string;
+  statusPath: string;
 }): string {
-  const { nmrArgs, remoteEnv, runDir } = options;
+  const { nmrArgs, remoteEnv, runDir, statusPath } = options;
   const assignments = Object.entries(remoteEnv).map(([name, value]) => `${name}=${quoteForShell(value)}`);
   const invocation = [...assignments, 'pnpm', 'exec', 'nmr', '--no-delegate', ...nmrArgs.map(quoteForShell)].join(' ');
 
   return [
+    `rm -f ${statusPath}`,
     `mkdir -p ${runDir} && cd ${runDir} || exit 1`,
     'set -m',
     `${invocation} </dev/null &`,
@@ -70,6 +75,7 @@ export function composeRunScript(options: {
     'wait "$nmr_pid"',
     'nmr_status=$?',
     'kill -TERM -"$watcher_pid" 2>/dev/null',
+    String.raw`printf '%s\n' "$nmr_status" > ${statusPath}`,
     'exit "$nmr_status"',
   ].join('\n');
 }
@@ -241,8 +247,19 @@ export async function runRemotely(options: {
     return { ok: false, message: `could not prepare ${host}`, output: prepare.output, phase: 'prepare' };
   }
 
+  // `--no-verify` keeps the repository's `pre-push` hook, which may run a gate of its own, out of a push that only
+  // transfers the snapshot.
   const push = await runProcess(
-    ['git', 'push', '--force', '--quiet', `${host}:${checkoutPath}`, `${snapshot.sha}:${SNAPSHOT_REF}`],
+    [
+      'git',
+      'push',
+      '--force',
+      '--no-verify',
+      '--quiet',
+      `--receive-pack=${RECEIVE_PACK_COMMAND}`,
+      `${host}:${checkoutPath}`,
+      `${snapshot.sha}:${SNAPSHOT_REF}`,
+    ],
     { cwd: snapshot.toplevel, env: { ...env, GIT_SSH_COMMAND: ['ssh', ...SSH_OPTIONS].join(' ') } },
   );
   if (push.exitCode !== 0) {
@@ -269,8 +286,9 @@ export async function runRemotely(options: {
   }
 
   const runDir = joinRemotePath(checkoutDir, path.relative(snapshot.toplevel, cwd));
+  const statusPath = `${checkoutDir}/.git/${quoteForShell(RUN_STATUS_FILE)}`;
   const run = await runProcess(
-    ['ssh', ...SSH_OPTIONS, host, wrapRemoteScript(composeRunScript({ nmrArgs, remoteEnv, runDir }))],
+    ['ssh', ...SSH_OPTIONS, host, wrapRemoteScript(composeRunScript({ nmrArgs, remoteEnv, runDir, statusPath }))],
     {
       env,
       isStreaming: true,
@@ -279,7 +297,10 @@ export async function runRemotely(options: {
     },
   );
   if (run.exitCode === DELEGATION_FAILURE_EXIT_CODE) {
-    return { ok: false, message: `lost connection to ${host}`, output: '', phase: 'run' };
+    const recorded = await runSsh(host, `cat ${statusPath}`, env);
+    if (recorded.exitCode !== 0 || recorded.output.trim() !== String(DELEGATION_FAILURE_EXIT_CODE)) {
+      return { ok: false, message: `lost connection to ${host}`, output: '', phase: 'run' };
+    }
   }
 
   return { ok: true, exitCode: run.exitCode };
@@ -297,19 +318,29 @@ export async function runRemotely(options: {
  * @internal
  */
 export function wrapRemoteScript(script: string): string {
-  const preamble = [
-    `nmr_login_path=$("\${SHELL:-/bin/sh}" -ilc 'printf "\\n${PATH_MARKER}%s\\n" "$PATH"' </dev/null 2>/dev/null | sed -n 's/^${PATH_MARKER}//p' | tail -n 1)`,
-    '[ -n "$nmr_login_path" ] && PATH=$nmr_login_path',
-    'export PATH',
-  ].join('\n');
-
-  return `exec /bin/sh -c ${quoteForShell(`${preamble}\n${script}`)}`;
+  return `exec /bin/sh -c ${quoteForShell(`${LOGIN_PATH_PREAMBLE}\n${script}`)}`;
 }
 
 // region | Helpers
 
 /** Precedes the `PATH` that the interactive login shell prints, apart from anything that its startup files print. */
 const PATH_MARKER = '__NMR_LOGIN_PATH__=';
+
+/** Sets `PATH` to the one that the interactive login shell sets, per `wrapRemoteScript`. */
+const LOGIN_PATH_PREAMBLE = [
+  `nmr_login_path=$("\${SHELL:-/bin/sh}" -ilc 'printf "\\n${PATH_MARKER}%s\\n" "$PATH"' </dev/null 2>/dev/null | sed -n 's/^${PATH_MARKER}//p' | tail -n 1)`,
+  '[ -n "$nmr_login_path" ] && PATH=$nmr_login_path',
+  'export PATH',
+].join('; ');
+
+/**
+ * Runs git's receiving end on the host under the `PATH` that the other phases use. git appends the repository's
+ * path to this command, which the script receives as `$1`.
+ */
+const RECEIVE_PACK_COMMAND = `/bin/sh -c ${quoteForShell(`${LOGIN_PATH_PREAMBLE}; exec git receive-pack "$1"`)} nmr-receive-pack`;
+
+/** Where the run script records nmr's exit status, inside the checkout's `.git`, out of the command's sight. */
+const RUN_STATUS_FILE = 'nmr-run-status';
 
 /** The status with which a shell reports a command that it could not find. */
 const COMMAND_NOT_FOUND_EXIT_CODE = 127;

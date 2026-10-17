@@ -81,12 +81,14 @@ describe(composeRunScript, () => {
       nmrArgs: ['-F', 'core', 'test', "it's here", 'a b'],
       remoteEnv: { NMR_OUTPUT_STYLE: 'plain' },
       runDir: '"$HOME"/\'repo\'',
+      statusPath: '/tmp/status',
     });
 
     expect(script).toContain(
       String.raw`NMR_OUTPUT_STYLE='plain' pnpm exec nmr --no-delegate '-F' 'core' 'test' 'it'\''s here' 'a b' </dev/null &`,
     );
     expect(script).toContain(`mkdir -p "$HOME"/'repo' && cd "$HOME"/'repo' || exit 1`);
+    expect(script).toContain(String.raw`printf '%s\n' "$nmr_status" > /tmp/status`);
   });
 });
 

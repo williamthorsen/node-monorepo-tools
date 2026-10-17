@@ -98,9 +98,33 @@ describe('a delegated run on a fake host', () => {
     });
   });
 
+  it("pushes without running the repository's pre-push hook", async () => {
+    const hookLog = workspace.resolve('hook.log');
+    fs.chmodSync(workspace.write('repo/.git/hooks/pre-push', `#!/bin/sh\necho ran >> ${hookLog}\nexit 1\n`), 0o755);
+
+    const result = await delegate(['test']);
+
+    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 0 });
+    expect(fs.existsSync(hookLog)).toBe(false);
+  });
+
+  it("reports the command's own exit 255 as its status", async () => {
+    const result = await delegate(['test'], { FAKE_RUN_STATUS: '255' });
+
+    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 255 });
+  });
+
+  it('reports a connection that drops during the run', async () => {
+    const result = await delegate(['test'], {}, repo, 'dropping');
+
+    expect(result.outcome).toMatchObject({ ok: false, phase: 'run', message: 'lost connection to dropping' });
+  });
+
   it('stops the command on the host when the connection closes', async () => {
     const pidFile = workspace.resolve('run.pid');
-    const script = wrapRemoteScript(composeRunScript({ nmrArgs: ['test'], remoteEnv: {}, runDir: repo }));
+    const script = wrapRemoteScript(
+      composeRunScript({ nmrArgs: ['test'], remoteEnv: {}, runDir: repo, statusPath: workspace.resolve('status') }),
+    );
     const env = remote.buildEnv({ FAKE_RUN_PIDFILE: pidFile, FAKE_RUN_SLEEP: '30' });
     const child = spawn('/bin/sh', ['-c', script], {
       env: { ...env, SHELL: env['FAKE_LOGIN_SHELL'] },
