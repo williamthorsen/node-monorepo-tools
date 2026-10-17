@@ -2,7 +2,7 @@ import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it } from 'vitest';
 
 import { prepareHelpText, showPrepareHelp } from '../help/prepareHelp.ts';
-import { prepareFlagSchema } from '../prepareCommand.ts';
+import { prepareFlagSchema } from '../prepareArgs.ts';
 
 describe(prepareHelpText, () => {
   it('documents every long flag in prepareFlagSchema', () => {
