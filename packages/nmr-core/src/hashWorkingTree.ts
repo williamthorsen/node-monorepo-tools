@@ -173,16 +173,17 @@ function collectChangedPaths(statusOutput: string): ChangedPathsResult {
     }
     paths.add(changedPath);
 
-    if (type === '2') {
-      // The original path of a rename is the next field, and no longer exists on disk; folding it in is what
-      // separates a rename from a bare addition.
-      index++;
-      const originalPath = records[index];
-      if (originalPath === undefined || originalPath === '') {
-        return { ok: false, reason: 'git status reported a rename without an original path' };
-      }
-      paths.add(originalPath);
+    if (type !== '2') {
+      continue;
     }
+    // The original path of a rename is the next field, and no longer exists on disk; folding it in is what separates
+    // a rename from a bare addition.
+    index++;
+    const originalPath = records[index];
+    if (originalPath === undefined || originalPath === '') {
+      return { ok: false, reason: 'git status reported a rename without an original path' };
+    }
+    paths.add(originalPath);
   }
 
   return { ok: true, paths };

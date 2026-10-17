@@ -33,6 +33,9 @@ export interface ParseArgsOptions {
 /** Discriminates the failure modes that `parseArgs` reports. */
 export type ParseErrorKind = 'unknown-flag' | 'missing-value' | 'unexpected-value' | 'unexpected-positional';
 
+/** The value of an absent flag, by flag type. */
+const initialFlagValues: Record<FlagDefinition['type'], false | undefined> = { boolean: false, string: undefined };
+
 /**
  * Error thrown by `parseArgs` on invalid input.
  *
@@ -74,7 +77,7 @@ export function parseArgs<S extends FlagSchema>(
     nodeOptions[name] =
       def.short === undefined ? { type: def.type } : { type: def.type, short: def.short.replace(/^-/, '') };
     byName.set(name, { key, def });
-    flags[key] = def.type === 'boolean' ? false : undefined;
+    flags[key] = initialFlagValues[def.type];
   }
 
   const { tokens } = nodeParseArgs({

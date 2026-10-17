@@ -19,6 +19,51 @@
         "wrap-ansi": "10.0.2",
         "yaml": "2.9.1"
       },
+      "checklistChecks": [
+        {
+          "checklist": "nmr",
+          "checks": [
+            "@williamthorsen/nmr in devDependencies",
+            "@williamthorsen/nmr >= 0.47.0",
+            "pnpm-workspace.yaml exists",
+            "catalogued dependencies use catalog:",
+            "package.json has packageManager field",
+            ".tool-versions does not list pnpm",
+            "no package.json declares a pnpm field",
+            "no package.json declares a workspaces field",
+            ".config/nmr.config.ts uses defineConfig",
+            "eslint >= 10.0.0",
+            "@williamthorsen/strict-lint >= 9.3.0",
+            "root package.json has no nmr-provided scripts",
+            "no root install script runs lefthook install unguarded",
+            "all workspace packages can build",
+            "every bin target is a committed wrapper",
+            "every bin wrapper's build-output target is covered by files",
+            "no retired Vitest config variants",
+            "every vitest.config builds on @williamthorsen/nmr/vitest",
+            "vitest.root.config.ts builds on @williamthorsen/nmr/vitest",
+            "every workspace with a Vite config has a Vitest config",
+            "the test suite gates the test-file conventions",
+            "every test file names its isolation tier",
+            "every test file is under a __tests__ directory",
+            "no package re-exports the ancestor Vitest config",
+            "Prettier config builds on @williamthorsen/nmr/prettier",
+            "taze.config.ts builds on @williamthorsen/nmr/taze",
+            "taze config declares no option taze discards",
+            "v11y-check in devDependencies",
+            "scripts/run-workspace-script.ts does not exist",
+            "no workspace packages reference run-workspace-script or \"pnpm run ws\""
+          ]
+        },
+        {
+          "checklist": "self-hosted runner",
+          "checks": [
+            "GitHub reports the repo's runner settings",
+            "CI_RUNS_ON selects the self-hosted runner",
+            "the self-hosted runner can run CI"
+          ]
+        }
+      ],
       "checklists": [
         "nmr",
         "self-hosted runner"
@@ -41,7 +86,7 @@
           "path": "../../nmr-core/dist/esm/hasErrnoCode.js"
         },
         {
-          "hash": "211453c6",
+          "hash": "98509862",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/hashWorkingTree.js"
         },
@@ -56,7 +101,7 @@
           "path": "../../nmr-core/dist/esm/index.js"
         },
         {
-          "hash": "2507870d",
+          "hash": "89d3e3b4",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/parseArgs.js"
         },
@@ -81,7 +126,7 @@
           "path": "../../nmr-core/dist/esm/writeFileWithCheck.js"
         },
         {
-          "hash": "aaeb1a84",
+          "hash": "ffa13ccc",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -119,7 +164,7 @@
           "path": "../src/helpers/escapeControlCharacters.ts"
         },
         {
-          "hash": "47249ca4",
+          "hash": "2d1cf397",
           "kind": "module",
           "path": "../src/helpers/findClosestName.ts"
         },
@@ -186,10 +231,10 @@
       ],
       "name": "default",
       "path": "kits/default.js",
-      "readyupVersion": "0.40.0",
+      "readyupVersion": "0.41.0",
       "source": "kits/default.ts",
-      "sourceHash": "aaeb1a84",
-      "targetHash": "125a39cc"
+      "sourceHash": "ffa13ccc",
+      "targetHash": "b4253faa"
     }
   ]
 }

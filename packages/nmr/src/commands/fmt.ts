@@ -248,7 +248,7 @@ type ListedFileStatus =
 function classifyListedFile(cwd: string, file: string): ListedFileStatus {
   try {
     const stats = lstatSync(path.resolve(cwd, file), { throwIfNoEntry: false });
-    return stats?.isFile() === true ? { kind: 'formattable' } : { kind: 'excluded' };
+    return { kind: stats?.isFile() === true ? 'formattable' : 'excluded' };
   } catch (error) {
     const code = UNREADABLE_CODES.find((candidate) => hasErrnoCode(error, candidate));
     if (code !== undefined) return { kind: 'unreadable', code };

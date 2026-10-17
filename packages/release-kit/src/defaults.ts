@@ -32,10 +32,7 @@ function deriveDefaultWorkTypes(): Record<string, WorkTypeConfig> {
 function deriveDevOnlySections(): string[] {
   const sections: string[] = [];
   for (const entry of CANONICAL_TAXONOMY.types) {
-    if (!DEV_ONLY_TIERS.has(entry.tier)) {
-      continue;
-    }
-    if (entry.excludedFromChangelog === true) {
+    if (!DEV_ONLY_TIERS.has(entry.tier) || entry.excludedFromChangelog === true) {
       continue;
     }
     sections.push(composeHeader(entry));

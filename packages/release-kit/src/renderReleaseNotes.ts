@@ -72,11 +72,13 @@ export function renderReleaseNotesSingle(entry: ChangelogEntry, options?: Render
     for (const [index, item] of section.items.entries()) {
       const prefix = item.breaking === true ? getBreakingPrefix() : '';
       lines.push(`- ${prefix}${item.description}`);
-      if (item.body !== undefined && item.body.length > 0) {
-        lines.push('', ...indentBodyLines(item.body));
-        if (index < section.items.length - 1) {
-          lines.push('');
-        }
+      if (item.body === undefined || item.body.length === 0) {
+        continue;
+      }
+
+      lines.push('', ...indentBodyLines(item.body));
+      if (index < section.items.length - 1) {
+        lines.push('');
       }
     }
   }

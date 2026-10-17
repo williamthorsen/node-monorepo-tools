@@ -1,6 +1,6 @@
 /** @noformat -- @generated. Do not edit. Compiled by rdy. */
 /* eslint-disable */
-export const __readyupVersion = "0.40.0";
+export const __readyupVersion = "0.41.0";
 
 
 // .readyup/kits/npm-auto-publish.ts
@@ -202,7 +202,7 @@ function buildWorkspaceCheck(workspace) {
       // as unpublished would advise publishing a package that is already there.
       skip: () => {
         const auth = getCachedNpmAuthStatus();
-        return auth.status === "unreachable" ? auth.detail : false;
+        return auth.status === "unreachable" && auth.detail;
       },
       check: () => describeNpmPackageLookup(lookUpNpmPackage(displayName, readPublishRegistry(workspace))),
       fix: `Run "npm publish --access public" from ${workspace.dir} to bootstrap the package on npm`,
@@ -211,7 +211,7 @@ function buildWorkspaceCheck(workspace) {
           name: "trusted publisher configured",
           skip: () => {
             const capability = getCachedTrustCapability();
-            return capability.ok ? false : capability.detail;
+            return !capability.ok && capability.detail;
           },
           check: () => describeTrustedPublisher(getTrustQueryResult(displayName), displayName, getCachedOwnerRepo()),
           fix: formatTrustCommand(displayName, "<owner>/<repo>")
@@ -470,10 +470,10 @@ function selectProbeName() {
 }
 function skipIfNothingPublishable() {
   const publishable = discoverWorkspaces({ filter: (workspace) => workspace.isPackage });
-  return publishable.length > 0 ? false : "no publishable packages";
+  return publishable.length === 0 && "no publishable packages";
 }
 function skipIfNotPublishable(workspace) {
-  return workspace.isPackage ? false : "package.json#private is true";
+  return !workspace.isPackage && "package.json#private is true";
 }
 export {
   buildWorkspaceCheck,

@@ -25,11 +25,11 @@ interface InitOptions {
 export function checkEligibility(styles: StreamStyles): boolean {
   printStep('Checking eligibility');
 
-  if (!runRequiredCheck('Git repository detected', isGitRepo(), styles)) return false;
-  if (!runRequiredCheck('package.json found', hasPackageJson(), styles)) return false;
-  if (!runRequiredCheck('pnpm detected', usesPnpm(), styles)) return false;
-
-  return true;
+  return (
+    runRequiredCheck('Git repository detected', isGitRepo(), styles) &&
+    runRequiredCheck('package.json found', hasPackageJson(), styles) &&
+    runRequiredCheck('pnpm detected', usesPnpm(), styles)
+  );
 }
 
 /** Runs the `release-kit init` command and returns the process exit code. */

@@ -50,10 +50,12 @@ export function determineBumpType(
 
     const priority = RELEASE_PRIORITY[bump];
 
-    if (priority > highestPriority) {
-      highestPriority = priority;
-      result = bump;
+    if (priority <= highestPriority) {
+      continue;
     }
+
+    highestPriority = priority;
+    result = bump;
   }
 
   return result;

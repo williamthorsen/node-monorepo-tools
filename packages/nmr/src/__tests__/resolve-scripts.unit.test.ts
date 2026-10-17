@@ -330,10 +330,9 @@ describe('every step reaching a typecheck', () => {
         const instruction = typeof element === 'string' ? element : element.run;
         if (!instruction.endsWith('typecheck')) continue;
 
-        expect(
-          typeof element === 'string' ? false : element.shouldDeclineArguments,
-          `${command} -> ${instruction}`,
-        ).toBe(true);
+        expect(typeof element !== 'string' && element.shouldDeclineArguments, `${command} -> ${instruction}`).toBe(
+          true,
+        );
       }
     }
   });

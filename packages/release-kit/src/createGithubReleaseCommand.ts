@@ -68,10 +68,11 @@ export async function createGithubReleaseCommand(
 
   // Treat every skip as informational: `resolveCommandTags` has already rejected an unknown tag, so a `no-entry` tag
   // exists in git and doesn't have any releasable content.
-  if (outcome.skipped.length > 0) {
-    const formatted = outcome.skipped.map((s) => `${s.tag} (${s.reason})`).join(', ');
-    console.info(`Skipped ${outcome.skipped.length} tag(s) without releasable content: ${formatted}.`);
+  if (outcome.skipped.length === 0) {
+    return;
   }
+  const formatted = outcome.skipped.map((s) => `${s.tag} (${s.reason})`).join(', ');
+  console.info(`Skipped ${outcome.skipped.length} tag(s) without releasable content: ${formatted}.`);
 }
 
 // region | Helpers

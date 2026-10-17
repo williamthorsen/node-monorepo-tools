@@ -63,8 +63,7 @@ function buildChildEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
 
   for (const [name, value] of Object.entries(process.env)) {
-    if (STRIPPED_ENV_NAMES.has(name)) continue;
-    if (name.startsWith('VITEST') || name.startsWith('GIT_CONFIG_')) continue;
+    if (STRIPPED_ENV_NAMES.has(name) || name.startsWith('VITEST') || name.startsWith('GIT_CONFIG_')) continue;
     env[name] = value;
   }
 

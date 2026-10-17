@@ -7,10 +7,12 @@ export function compactRecord<T extends object>(record: { [K in keyof T]: T[K] |
       continue;
     }
     const value = record[key];
-    if (value !== undefined) {
-      result[key] = value;
-      isEmpty = false;
+    if (value === undefined) {
+      continue;
     }
+
+    result[key] = value;
+    isEmpty = false;
   }
   return isEmpty ? undefined : result;
 }

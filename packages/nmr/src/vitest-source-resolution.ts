@@ -248,8 +248,9 @@ function matchSubpath(exportsValue: unknown, subpath: string): { value: unknown;
 
     const base = key.slice(0, star);
     const suffix = key.slice(star + 1);
-    if (!subpath.startsWith(base) || !subpath.endsWith(suffix)) continue;
-    if (subpath.length < base.length + suffix.length) continue;
+    if (!subpath.startsWith(base) || !subpath.endsWith(suffix) || subpath.length < base.length + suffix.length) {
+      continue;
+    }
     if (bestMatch !== undefined && bestMatch.base.length >= base.length) continue;
 
     bestMatch = { base, value, wildcard: subpath.slice(base.length, subpath.length - suffix.length) };

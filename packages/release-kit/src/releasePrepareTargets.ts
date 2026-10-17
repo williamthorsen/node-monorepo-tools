@@ -378,8 +378,7 @@ function maybeEmitBaselineHint(
   knownPrefixes: readonly string[],
   state: BaselineHintState,
 ): void {
-  if (state.emitted) return;
-  if ((target.legacyIdentities?.length ?? 0) > 0) return;
+  if (state.emitted || (target.legacyIdentities?.length ?? 0) > 0) return;
 
   const candidates = detectUndeclaredTagPrefixes(knownPrefixes);
   if (candidates.length === 0) return;
