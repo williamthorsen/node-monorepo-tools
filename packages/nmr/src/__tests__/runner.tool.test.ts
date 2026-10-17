@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { OutputChannels } from '../output-channel.ts';
 import { runCommand, runSteps } from '../runner.ts';
 import type { Step } from '../steps.ts';
+import { collect } from '../test-utils/fake-spawn.ts';
 
 const PRODUCED_BYTES = 2_000_000;
 
@@ -14,15 +15,6 @@ const listenerCountBefore = process.listenerCount('SIGTERM');
 
 /** What a caller writing to a non-terminal destination resolves, which is the arrangement that these tests model. */
 const PIPED_CHANNELS: OutputChannels = { stderr: 'pipe', stdout: 'pipe' };
-
-/** Collects everything written to a stream, for comparison against what the command produced. */
-function collect(stream: PassThrough): () => Buffer {
-  const chunks: Buffer[] = [];
-  stream.on('data', (chunk: Buffer) => {
-    chunks.push(chunk);
-  });
-  return () => Buffer.concat(chunks);
-}
 
 describe(runCommand, () => {
   it('when a command writes past 1 MiB, passes and forwards every byte', async () => {
