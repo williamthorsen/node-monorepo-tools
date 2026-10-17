@@ -3,15 +3,20 @@ import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testi
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockAssertCleanWorkingTree = vi.hoisted(() => vi.fn());
-const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
-const mockLoadConfig = vi.hoisted(() => vi.fn());
-const mockExistsSync = vi.hoisted(() => vi.fn());
-const mockReadFileSync = vi.hoisted(() => vi.fn());
-const mockReleasePrepareTargets = vi.hoisted(() => vi.fn());
-const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
-const mockExecSync = vi.hoisted(() => vi.fn());
-const mockLookUpNpmPackage = vi.hoisted(() => vi.fn());
+const {
+  applyPrepareCommandDefaults,
+  makePrepareResult,
+  mockAssertCleanWorkingTree,
+  mockDiscoverWorkspaces,
+  mockExecSync,
+  mockExistsSync,
+  mockLoadConfig,
+  mockLookUpNpmPackage,
+  mockReadFileSync,
+  mockReleasePrepareTargets,
+  mockWriteFileWithCheck,
+  resetPrepareCommandMocks,
+} = await vi.hoisted(() => import('../test-utils/prepareCommandMocks.ts'));
 
 vi.mock(import('node:child_process'), () => ({
   execSync: mockExecSync,
@@ -57,10 +62,9 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
   };
 });
 
-import { parseArgs, prepareCommand } from '../prepareCommand.ts';
+import { prepareCommand } from '../prepareCommand.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../releaseFiles.ts';
-import type { ReleasePlan } from '../releasePlan.ts';
-import { emptyWorkspace, resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
+import { emptyWorkspace, singlePackage } from '../test-utils/workspaceResolutions.ts';
 import type { ReleasedPackageResult, SkippedPackageResult } from '../types.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
@@ -70,38 +74,14 @@ describe(prepareCommand, () => {
 
   beforeEach(() => {
     capture = captureStdio();
-    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/arrays', 'packages/strings']));
-    mockLoadConfig.mockResolvedValue(undefined);
-    // Default: Pretend the root package.json does not exist. Tests that exercise the project
-    // block override this in-test to return a valid version.
-    mockExistsSync.mockReturnValue(false);
-    mockReadFileSync.mockImplementation((filePath: string) => {
-      if (filePath === 'packages/arrays/package.json') {
-        return JSON.stringify({ name: '@scope/arrays' });
-      }
-      if (filePath === 'packages/strings/package.json') {
-        return JSON.stringify({ name: '@scope/strings' });
-      }
-      throw new Error(`Unexpected readFileSync call for path: ${filePath}`);
-    });
-    mockReleasePrepareTargets.mockReturnValue(makePrepareResult());
-    mockWriteFileWithCheck.mockImplementation((path: string) => ({ filePath: path, outcome: 'created' }));
-    mockLookUpNpmPackage.mockReturnValue({ status: 'published' });
+    applyPrepareCommandDefaults();
     void throwOnProcessExit();
     void silenceConsole(['info']);
   });
 
   afterEach(() => {
     capture[Symbol.dispose]();
-    mockAssertCleanWorkingTree.mockReset();
-    mockDiscoverWorkspaces.mockReset();
-    mockLoadConfig.mockReset();
-    mockExistsSync.mockReset();
-    mockReadFileSync.mockReset();
-    mockReleasePrepareTargets.mockReset();
-    mockWriteFileWithCheck.mockReset();
-    mockExecSync.mockReset();
-    mockLookUpNpmPackage.mockReset();
+    resetPrepareCommandMocks();
     vi.restoreAllMocks();
   });
 
@@ -504,101 +484,6 @@ describe(prepareCommand, () => {
     expect(mockAssertCleanWorkingTree).not.toHaveBeenCalled();
   });
 
-  it('passes each --set-version entry to the orchestrator, keyed by workspace, without --only', async () => {
-    await prepareCommand(
-      ['--set-version=arrays@1.0.0,strings@2.0.0', '--force', '--bump=minor'],
-      RICH_STYLES,
-      process.cwd(),
-    );
-
-    expect(mockReleasePrepareTargets).toHaveBeenCalledWith(expect.any(Object), {
-      force: true,
-      bumpOverride: 'minor',
-      setVersions: new Map([
-        ['arrays', '1.0.0'],
-        ['strings', '2.0.0'],
-      ]),
-    });
-  });
-
-  it.each([
-    ['a bare version', '1.0.0'],
-    ['a pre-release suffix', 'arrays@1.0.0-alpha'],
-    ['a non-canonical version', 'arrays@1.0'],
-    ['an empty version', 'arrays@'],
-    ['an empty workspace name', '@1.0.0'],
-    ['an empty entry', 'arrays@1.0.0,'],
-  ])('rejects %s in monorepo --set-version, naming the expected form', async (_label, value) => {
-    await expect(prepareCommand([`--set-version=${value}`], RICH_STYLES, process.cwd())).rejects.toThrow(
-      ProcessExitError,
-    );
-    expect(capture.stderr).toContain('Invalid --set-version entry');
-    expect(capture.stderr).toContain('<target>@N.N.N');
-    expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
-  });
-
-  it('rejects an unknown workspace in --set-version', async () => {
-    await expect(prepareCommand(['--set-version=nonexistent@1.0.0'], RICH_STYLES, process.cwd())).rejects.toThrow(
-      ProcessExitError,
-    );
-    expect(capture.stderr).toContain('Unknown release target "nonexistent" in --set-version');
-    expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
-  });
-
-  it('rejects a workspace that --set-version names twice', async () => {
-    await expect(
-      prepareCommand(['--set-version=arrays@1.0.0,arrays@2.0.0'], RICH_STYLES, process.cwd()),
-    ).rejects.toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('names target "arrays" more than once');
-    expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
-  });
-
-  it('rejects a version that is not canonical in single-package --set-version', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
-
-    await expect(prepareCommand(['--set-version=1.0'], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Invalid --set-version value "1.0"');
-    expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
-  });
-
-  it('passes the --set-version version under the root target in single-package mode', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
-
-    await prepareCommand(['--set-version=1.2.3'], RICH_STYLES, process.cwd());
-
-    expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.objectContaining({ setVersions: new Map([['.', '1.2.3']]) }),
-    );
-  });
-
-  it('forwards withReleaseNotes in monorepo mode when --with-release-notes is set', async () => {
-    await prepareCommand(['--with-release-notes'], RICH_STYLES, process.cwd());
-
-    expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.objectContaining({ withReleaseNotes: true }),
-    );
-  });
-
-  it('forwards withReleaseNotes in single-package mode', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
-
-    await prepareCommand(['--with-release-notes'], RICH_STYLES, process.cwd());
-
-    expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.objectContaining({ withReleaseNotes: true }),
-    );
-  });
-
-  it('omits withReleaseNotes from options when the flag is not set', async () => {
-    await prepareCommand([], RICH_STYLES, process.cwd());
-
-    const callArgs = mockReleasePrepareTargets.mock.calls[0]?.[1];
-    expect(callArgs).not.toHaveProperty('withReleaseNotes');
-  });
-
   describe('npm check', () => {
     it('looks up only the workspaces that the plan releases', async () => {
       mockReleasePrepareTargets.mockReturnValue(
@@ -670,207 +555,9 @@ describe(prepareCommand, () => {
       expect(mockLookUpNpmPackage).not.toHaveBeenCalled();
     });
   });
-
-  describe('--only with a releases composite', () => {
-    beforeEach(() => {
-      mockLoadConfig.mockResolvedValue({ releases: { suite: { includes: ['arrays'] } } });
-      mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockImplementation((filePath: string) => {
-        if (filePath === 'packages/arrays/package.json') {
-          return JSON.stringify({ name: '@scope/arrays' });
-        }
-        if (filePath === 'packages/strings/package.json') {
-          return JSON.stringify({ name: '@scope/strings' });
-        }
-        return JSON.stringify({ name: 'root', version: '0.9.0' });
-      });
-    });
-
-    it('accepts the composite name and passes it through to the orchestrator', async () => {
-      await prepareCommand(['--only=suite'], RICH_STYLES, process.cwd());
-
-      expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.objectContaining({ only: ['suite'] }),
-      );
-    });
-
-    it('rejects an unknown name, listing every selectable target', async () => {
-      await expect(prepareCommand(['--only=nonexistent'], RICH_STYLES, process.cwd())).rejects.toThrow(
-        ProcessExitError,
-      );
-      expect(capture.stderr).toContain('Unknown release target "nonexistent". Known targets: arrays, strings, suite');
-    });
-  });
-
-  describe('--only and --set-version interactions with project block', () => {
-    beforeEach(() => {
-      // Configure the mocks so that the project block is loaded and the root package.json is valid.
-      mockLoadConfig.mockResolvedValue({ project: {} });
-      mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockImplementation((filePath: string) => {
-        if (filePath === 'packages/arrays/package.json') {
-          return JSON.stringify({ name: '@scope/arrays' });
-        }
-        if (filePath === 'packages/strings/package.json') {
-          return JSON.stringify({ name: '@scope/strings' });
-        }
-        // Root package.json for the project block prerequisite check.
-        return JSON.stringify({ name: 'root', version: '0.9.0' });
-      });
-    });
-
-    it('accepts --only and passes the narrowing through to the orchestrator', async () => {
-      await prepareCommand(['--only=arrays'], RICH_STYLES, process.cwd());
-
-      expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.objectContaining({ only: ['arrays'] }),
-      );
-    });
-
-    it('omits the narrowing from the orchestrator options when --only is absent', async () => {
-      await prepareCommand([], RICH_STYLES, process.cwd());
-
-      expect(mockReleasePrepareTargets.mock.calls[0]?.[1]).not.toHaveProperty('only');
-    });
-
-    it('still rejects --only with an unknown workspace name', async () => {
-      await expect(prepareCommand(['--only=nonexistent'], RICH_STYLES, process.cwd())).rejects.toThrow(
-        ProcessExitError,
-      );
-      expect(capture.stderr).toContain('nonexistent');
-      expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
-    });
-
-    it('runs normally without --only when project is configured', async () => {
-      await prepareCommand([], RICH_STYLES, process.cwd());
-      expect(mockReleasePrepareTargets).toHaveBeenCalled();
-    });
-
-    it('rejects --set-version with the project-aware error', async () => {
-      await expect(prepareCommand(['--set-version=arrays@1.2.3'], RICH_STYLES, process.cwd())).rejects.toThrow(
-        ProcessExitError,
-      );
-      expect(capture.stderr).toContain('--set-version cannot be combined with a project release');
-      expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
-    });
-
-    it('rejects --set-version + --only with the project-aware error', async () => {
-      await expect(
-        prepareCommand(['--set-version=arrays@1.2.3', '--only=arrays'], RICH_STYLES, process.cwd()),
-      ).rejects.toThrow(ProcessExitError);
-      expect(capture.stderr).toContain('--set-version cannot be combined with a project release');
-      expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
-    });
-  });
-});
-
-describe(parseArgs, () => {
-  let capture: CapturedStdio;
-
-  beforeEach(() => {
-    capture = captureStdio();
-    void throwOnProcessExit();
-    void silenceConsole(['info']);
-  });
-
-  afterEach(() => {
-    capture[Symbol.dispose]();
-    vi.restoreAllMocks();
-  });
-
-  it('exits with an error for an invalid bump type', () => {
-    expect(() => parseArgs(['--bump=invalid'])).toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Invalid bump type');
-    expect(process.exit).toHaveBeenCalledWith(1);
-  });
-
-  it('exits with an error for an unknown flag with the flag name in the message', () => {
-    expect(() => parseArgs(['--foo'])).toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Unknown option: --foo');
-    expect(process.exit).toHaveBeenCalledWith(1);
-  });
-
-  it('parses --config into configPath and leaves it undefined when absent', () => {
-    expect(parseArgs(['--config', 'elsewhere/alternative.config.ts']).configPath).toBe(
-      'elsewhere/alternative.config.ts',
-    );
-    expect(parseArgs([]).configPath).toBeUndefined();
-  });
-
-  it('rejects --help=value as an unknown option', () => {
-    // The bin dispatcher only intercepts bare `--help`/`-h`; it passes the `=value` form on to
-    // parseArgs, which does not recognize `--help` as a flag.
-    expect(() => parseArgs(['--help=value'])).toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Unknown option: --help');
-    expect(process.exit).toHaveBeenCalledWith(1);
-  });
-
-  it('accepts --force without --bump and defaults force to true', () => {
-    // `--force` is a pure release trigger; runtime defaults the level to patch when
-    // `--bump` is not supplied. Parsing must accept the flag without requiring `--bump`.
-    const result = parseArgs(['--force']);
-    expect(result.force).toBe(true);
-    expect(result.bumpOverride).toBeUndefined();
-  });
-
-  it('exits with an error when --only value is empty', () => {
-    expect(() => parseArgs(['--only='])).toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Missing value for option: --only');
-    expect(process.exit).toHaveBeenCalledWith(1);
-  });
-
-  it('returns the raw --set-version value, whose form the mode decides', () => {
-    const result = parseArgs(['--set-version=arrays@1.0.0']);
-    expect(result.setVersion).toBe('arrays@1.0.0');
-  });
-
-  it('exits with an error when --set-version is empty', () => {
-    expect(() => parseArgs(['--set-version='])).toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Missing value for option: --set-version');
-    expect(process.exit).toHaveBeenCalledWith(1);
-  });
-
-  it('parses --no-git-checks flag', () => {
-    const result = parseArgs(['--no-git-checks']);
-    expect(result.noGitChecks).toBe(true);
-  });
-
-  it('parses -n as shorthand for --no-git-checks', () => {
-    const result = parseArgs(['-n']);
-    expect(result.noGitChecks).toBe(true);
-  });
-
-  it('defaults noGitChecks to false', () => {
-    const result = parseArgs([]);
-    expect(result.noGitChecks).toBe(false);
-  });
-
-  it('parses --with-release-notes flag', () => {
-    const result = parseArgs(['--with-release-notes']);
-    expect(result.withReleaseNotes).toBe(true);
-  });
-
-  it('defaults withReleaseNotes to false', () => {
-    const result = parseArgs([]);
-    expect(result.withReleaseNotes).toBe(false);
-  });
 });
 
 // region | Helpers
-/** Builds a minimal PrepareResult for mocking. */
-function makePrepareResult(overrides?: Partial<ReleasePlan>): ReleasePlan {
-  return {
-    targets: [],
-    tags: [],
-    writes: [],
-    removals: [],
-    summary: '',
-    ...overrides,
-  };
-}
-
 /** Builds a released package result, named by workspace `dir` as in monorepo mode. */
 function makeReleasedResult(name?: string): ReleasedPackageResult {
   return {

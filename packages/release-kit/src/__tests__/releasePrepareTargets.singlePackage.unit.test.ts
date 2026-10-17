@@ -1,13 +1,25 @@
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockExecFileSync = vi.hoisted(() => vi.fn());
-const mockExecSync = vi.hoisted(() => vi.fn());
-const mockExistsSync = vi.hoisted(() => vi.fn());
-const mockReadFileSync = vi.hoisted(() => vi.fn());
-const mockWriteFileSync = vi.hoisted(() => vi.fn());
-const mockHasPrettierConfig = vi.hoisted(() => vi.fn());
-const mockPlanReleaseNotesPreviews = vi.hoisted(() => vi.fn());
+const {
+  applyReleasePrepareTargetsSinglePackageDefaults,
+  featureSection,
+  mockExecFileSync,
+  mockExecSync,
+  mockExistsSync,
+  mockHasPrettierConfig,
+  mockMergeChangelogEntriesWithDisk,
+  mockPlanReleaseNotesPreviews,
+  mockReadFileSync,
+  mockReadReleaseHistory,
+  mockRenderChangelogJson,
+  mockRenderChangelogMarkdown,
+  mockWriteFileSync,
+  resetReleasePrepareTargetsSinglePackageMocks,
+  stubHistory,
+  stubMinorRelease,
+  stubPackageVersion,
+} = await vi.hoisted(() => import('../test-utils/releasePrepareTargetsSinglePackageMocks.ts'));
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -29,11 +41,6 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
 }));
 
 // Stub the history reader and the changelog writers so that the tests don't read git history or touch the filesystem.
-const mockReadReleaseHistory = vi.hoisted(() => vi.fn());
-const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
-const mockRenderChangelogMarkdown = vi.hoisted(() => vi.fn());
-const mockRenderChangelogJson = vi.hoisted(() => vi.fn());
-
 vi.mock(import('../buildChangelogEntries.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   readReleaseHistory: mockReadReleaseHistory,
@@ -57,87 +64,25 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   listArchiveFiles: () => [],
 }));
-
-import type { ChangelogDiagnostics } from '../buildChangelogEntries.ts';
-import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
-import type { ReleasePlan } from '../releasePlan.ts';
-import {
-  releasePrepareTargets,
-  type TargetPrepareConfig,
-  type TargetPrepareOptions,
-} from '../releasePrepareTargets.ts';
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import { selectPackageResults } from '../test-utils/prepareResults.ts';
-import { makeReleaseHistory, type ReleaseHistoryStub } from '../test-utils/releaseHistories.ts';
-import type { ChangelogEntry, ChangelogSection, PackageTarget, ReleaseSettings, WorkTypeConfig } from '../types.ts';
-
-const workTypes: Record<string, WorkTypeConfig> = {
-  feat: { header: 'Features' },
-  fix: { header: 'Bug fixes' },
-};
-
-const featureSection: ChangelogSection = {
-  title: 'Features',
-  audience: 'all',
-  items: [{ description: 'Add feature' }],
-};
-
-const diagnostics: ChangelogDiagnostics = {
-  malformedBlocks: [{ commitHash: 'aaa1111', commitSubject: 'Squash', reason: '`entries` is not a list' }],
-  policyViolations: [
-    { commitHash: 'bbb2222', commitSubject: 'Merge PR', type: 'drop', surface: 'entry', entryPosition: 1 },
-  ],
-  undeclaredEntryTypes: [{ commitHash: 'bbb2222', commitSubject: 'Merge PR', entryPosition: 2, type: 'chore' }],
-  unroutedEntryScopes: [{ commitHash: 'bbb2222', commitSubject: 'Merge PR', entryPosition: 3, scope: 'other' }],
-};
-
-/** Fields of a single-package fixture: the shared settings and the root target's tag prefix and version files. */
-type SinglePackageFixture = Omit<ReleaseSettings, 'releaseNotes'> & Pick<PackageTarget, 'tagPrefix' | 'versionFiles'>;
-
-/** Builds a single-package config tagged under `v`, with the changelog JSON disabled, overriding any field. */
-function makeConfig(overrides?: Partial<SinglePackageFixture>): TargetPrepareConfig {
-  const { tagPrefix = 'v', versionFiles = ['package.json'], ...settings } = overrides ?? {};
-  return {
-    targets: [
-      {
-        id: '.',
-        kind: 'package',
-        tagPrefix,
-        versionFiles,
-        changelogDir: '.',
-        packagePath: '.',
-        isPublishable: true,
-        isWorkspace: false,
-      },
-    ],
-    settings: { workTypes, changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false }, ...settings },
-  };
-}
+import type { ReleaseHistoryStub } from '../test-utils/releaseHistories.ts';
+import {
+  diagnostics,
+  makeConfig,
+  prepareSinglePackage,
+  type SinglePackageOptions,
+} from '../test-utils/releasePrepareTargetsSinglePackageFixtures.ts';
+import type { ChangelogEntry } from '../types.ts';
 
 describe('releasePrepareTargets for a single-package repo', () => {
   beforeEach(() => {
-    mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
-    mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
-    mockRenderChangelogJson.mockReturnValue('[]\n');
-    mockPlanReleaseNotesPreviews.mockReturnValue({ writes: [], warnings: [] });
-    // Default `existsSync` to false so that synthetic-write paths skip the read-existing-file
-    // branch by default. Individual tests override per-call when they exercise prepend behavior.
-    mockExistsSync.mockReturnValue(false);
+    applyReleasePrepareTargetsSinglePackageDefaults();
   });
 
   afterEach(() => {
-    mockExecFileSync.mockReset();
-    mockExecSync.mockReset();
-    mockExistsSync.mockReset();
-    mockReadFileSync.mockReset();
-    mockWriteFileSync.mockReset();
-    mockHasPrettierConfig.mockReset();
-    mockPlanReleaseNotesPreviews.mockReset();
-    mockReadReleaseHistory.mockReset();
-    mockMergeChangelogEntriesWithDisk.mockReset();
-    mockRenderChangelogMarkdown.mockReset();
-    mockRenderChangelogJson.mockReset();
+    resetReleasePrepareTargetsSinglePackageMocks();
     vi.restoreAllMocks();
   });
 
@@ -558,362 +503,15 @@ describe('releasePrepareTargets for a single-package repo', () => {
     expect(plannedContent(plan, 'docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
     expect(selectPackageResults(plan)[0]).toMatchObject({ previewFiles: ['docs/RELEASE_NOTES.v1.1.0.md'] });
   });
-
-  describe("window that doesn't yield an item (--force / --set-version)", () => {
-    /** Stubs a history whose tag doesn't have any commits above it, over a package at 1.0.0. */
-    function stubEmptyRange(): void {
-      stubHistory({ previousTag: 'v1.0.0' });
-      stubPackageVersion('1.0.0');
-    }
-
-    it('writes a synthetic Notes / Forced version bump entry when --force is used without any commits', () => {
-      stubEmptyRange();
-
-      const result = prepareSinglePackage(makeConfig(), { force: true });
-
-      expect(result.tags).toStrictEqual(['v1.0.1']);
-      const workspace = selectPackageResults(result)[0];
-      assert(workspace?.status === 'released', 'expected released');
-      expect(workspace.releaseType).toBe('patch');
-      expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
-
-      // The empty-range branch builds a synthetic entry and passes it to the markdown renderer;
-      // assert on the entries that the renderer received rather than the literal file bytes
-      // (the writer is mocked).
-      expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
-        [
-          expect.objectContaining({
-            version: '1.0.1',
-            sections: [
-              expect.objectContaining({
-                title: 'Notes',
-                items: [expect.objectContaining({ description: 'Forced version bump.' })],
-              }),
-            ],
-          }),
-        ],
-        expect.anything(),
-      );
-    });
-
-    it('releases at the --bump level under --force --bump without any commits', () => {
-      stubEmptyRange();
-
-      const result = prepareSinglePackage(makeConfig(), { force: true, bumpOverride: 'minor' });
-
-      expect(result.tags).toStrictEqual(['v1.1.0']);
-      expect(selectPackageResults(result)[0]).toMatchObject({
-        status: 'released',
-        releaseType: 'minor',
-        bumpOverride: 'minor',
-        commitCount: 0,
-      });
-      expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
-        [expect.objectContaining({ version: '1.1.0' })],
-        expect.anything(),
-      );
-    });
-
-    it.each([
-      ['--force', { force: true }, '1.0.1'],
-      ['--set-version', { setVersion: '2.0.0' }, '2.0.0'],
-    ])(
-      "writes the synthetic entry under %s when the window has commits but doesn't yield an item",
-      (_label, options, version) => {
-        stubHistory({
-          previousTag: 'v1.0.0',
-          commits: [
-            ['fmt: reformat', 'abc123'],
-            ['update readme', 'def456'],
-          ],
-        });
-        stubPackageVersion('1.0.0');
-
-        prepareSinglePackage(makeConfig(), options);
-
-        expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
-          [{ ...buildEmptyReleaseEntry(version, ''), date: expect.any(String) }],
-          expect.anything(),
-        );
-      },
-    );
-
-    it("upserts the synthetic entry into changelog.json ahead of the history's released entries", () => {
-      stubHistory({
-        previousTag: 'v1.0.0',
-        releasedEntries: [{ version: '1.0.0', date: '2023-12-01', sections: [featureSection] }],
-      });
-      stubPackageVersion('1.0.0');
-
-      prepareSinglePackage(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
-        force: true,
-      });
-
-      expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
-      const upsertEntries = mockRenderChangelogJson.mock.calls[0]?.[0];
-      expect(upsertEntries).toMatchObject([
-        {
-          version: '1.0.1',
-          sections: [
-            {
-              title: 'Notes',
-              audience: 'dev',
-              items: [{ description: 'Forced version bump.' }],
-            },
-          ],
-        },
-        { version: '1.0.0', sections: [featureSection] },
-      ]);
-    });
-
-    it('returns the synthetic changelog path without writing it', () => {
-      stubEmptyRange();
-
-      const result = prepareSinglePackage(
-        makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
-        {
-          force: true,
-        },
-      );
-
-      expect(result.tags).toStrictEqual(['v1.0.1']);
-      expect(mockWriteFileSync).not.toHaveBeenCalled();
-      expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
-      const workspace = selectPackageResults(result)[0];
-      assert(workspace?.status === 'released', 'expected released');
-      expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
-    });
-
-    it('appends synthetic CHANGELOG.md and changelog.json paths to formatCommand.files', () => {
-      stubEmptyRange();
-      const config = makeConfig({
-        formatCommand: 'npx prettier --write',
-        changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
-      });
-
-      const result = prepareSinglePackage(config, { force: true });
-
-      expect(result.formatCommand?.files).toContain('CHANGELOG.md');
-      expect(result.formatCommand?.files).toContain('./.meta/changelog.json');
-    });
-  });
-
-  it('plans the --set-version tag without writing any file', () => {
-    stubHistory({ previousTag: 'v0.5.0' });
-    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
-
-    const result = prepareSinglePackage(makeConfig(), { setVersion: '1.0.0' });
-
-    expect(result.tags).toStrictEqual(['v1.0.0']);
-    expect(mockWriteFileSync).not.toHaveBeenCalled();
-  });
-
-  describe('diagnostics', () => {
-    it('omits every diagnostic when the history reports none', () => {
-      stubMinorRelease();
-
-      const result = prepareSinglePackage(makeConfig(), {});
-
-      const workspace = selectPackageResults(result)[0];
-      expect(workspace?.malformedBlocks).toBeUndefined();
-      expect(workspace?.policyViolations).toBeUndefined();
-      expect(workspace?.undeclaredEntryTypes).toBeUndefined();
-    });
-
-    it("attaches the history's diagnostics to the released result", () => {
-      stubHistory({ previousTag: 'v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor', diagnostics });
-      stubPackageVersion('1.0.0');
-
-      const result = prepareSinglePackage(makeConfig(), {});
-
-      expect(selectPackageResults(result)[0]).toMatchObject({ status: 'released', ...diagnostics });
-    });
-  });
-
-  describe('existing CHANGELOG.md sections', () => {
-    const existingChangelog = [
-      '# Changelog',
-      '',
-      '## Unreleased',
-      '',
-      '- pending',
-      '',
-      '## 1.0.0 — 2023-12-01',
-      '',
-      '- Stale text for a version the entries render',
-      '',
-      '## 0.9.0',
-      '',
-      '- Hand-written',
-      '',
-    ].join('\n');
-    const releasedEntry: ChangelogEntry = {
-      version: '1.0.0',
-      date: '2023-12-01',
-      sections: [{ title: 'Bug fixes', audience: 'all', items: [{ description: 'Fix bug' }] }],
-    };
-
-    it('keeps the sections whose versions the entries lack and reports them', () => {
-      stubHistory({
-        previousTag: 'v1.0.0',
-        commits: [['feat: add feature', 'abc123']],
-        bump: 'minor',
-        sections: [featureSection],
-        releasedEntries: [releasedEntry],
-      });
-      stubFiles({ 'package.json': JSON.stringify({ version: '1.0.0' }), 'CHANGELOG.md': existingChangelog });
-
-      const result = prepareSinglePackage(makeConfig(), {});
-
-      expect(mockRenderChangelogMarkdown).toHaveBeenCalledExactlyOnceWith(
-        [expect.objectContaining({ version: '1.1.0' }), releasedEntry],
-        expect.objectContaining({ preservedSections: [{ version: '0.9.0', text: '## 0.9.0\n\n- Hand-written' }] }),
-      );
-      expect(selectPackageResults(result)[0]).toMatchObject({
-        changelogPreservation: [
-          { file: 'CHANGELOG.md', preservedVersions: ['0.9.0'], droppedUnversionedHeadings: ['## Unreleased'] },
-        ],
-      });
-    });
-
-    it('treats a version in changelog.json as rendered from the entries', () => {
-      stubHistory({
-        previousTag: 'v1.0.0',
-        commits: [['feat: add feature', 'abc123']],
-        bump: 'minor',
-        sections: [featureSection],
-        releasedEntries: [releasedEntry],
-      });
-      stubFiles({ 'package.json': JSON.stringify({ version: '1.0.0' }), 'CHANGELOG.md': existingChangelog });
-      mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: ChangelogEntry[]) => [
-        ...entries,
-        { version: '0.9.0', date: '2023-06-01', sections: [] },
-      ]);
-
-      const result = prepareSinglePackage(makeConfig(), {});
-
-      expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ preservedSections: [] }),
-      );
-      expect(selectPackageResults(result)[0]).toMatchObject({
-        changelogPreservation: [
-          { file: 'CHANGELOG.md', preservedVersions: [], droppedUnversionedHeadings: ['## Unreleased'] },
-        ],
-      });
-    });
-
-    it('omits changelogPreservation when the existing file has nothing to keep or drop', () => {
-      stubMinorRelease();
-
-      const result = prepareSinglePackage(makeConfig(), {});
-
-      expect(selectPackageResults(result)[0]).not.toHaveProperty('changelogPreservation');
-    });
-  });
-
-  describe('untagged baseline', () => {
-    it.each<[string, SinglePackageOptions]>([
-      ['a natural release', {}],
-      ['--force', { force: true }],
-      ['--set-version', { setVersion: '2.0.0' }],
-    ])('throws on %s when the current version is recorded but untagged', (_label, options) => {
-      stubHistory({ previousTag: 'v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
-      stubFiles({ 'package.json': JSON.stringify({ version: '1.1.0' }), 'CHANGELOG.md': '## 1.1.0\n\n## 1.0.0\n' });
-
-      expect(() => prepareSinglePackage(makeConfig(), options)).toThrow('  - package: 1.1.0 (create tag v1.1.0)');
-    });
-
-    it('throws even when the release would be skipped', () => {
-      stubHistory({ previousTag: 'v1.0.0' });
-      stubFiles({ 'package.json': JSON.stringify({ version: '1.1.0' }), 'CHANGELOG.md': '## 1.1.0\n' });
-
-      expect(() => prepareSinglePackage(makeConfig(), {})).toThrow('create tag v1.1.0');
-    });
-
-    it('does not throw when the previous tag is the current version', () => {
-      stubHistory({ previousTag: 'v1.1.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
-      stubFiles({ 'package.json': JSON.stringify({ version: '1.1.0' }), 'CHANGELOG.md': '## 1.1.0\n' });
-
-      expect(prepareSinglePackage(makeConfig(), {}).tags).toStrictEqual(['v1.2.0']);
-    });
-  });
-
-  describe('changelogJson.enabled gating', () => {
-    it('does not plan a changelog.json write when changelogJson.enabled is false', () => {
-      stubMinorRelease();
-
-      prepareSinglePackage(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false } }), {});
-
-      expect(mockRenderChangelogJson).not.toHaveBeenCalled();
-      expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
-    });
-
-    it('plans a changelog.json write when changelogJson.enabled is true', () => {
-      stubMinorRelease();
-
-      const plan = prepareSinglePackage(
-        makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
-        {},
-      );
-
-      expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
-      expect(plan.writes.map((write) => write.path)).toContain('./.meta/changelog.json');
-    });
-  });
 });
 
 // region | Helpers
-
 /** Returns the content that the plan intends to write to `path`, or undefined when the plan does not write it. */
 function plannedContent(
   plan: { writes: readonly { path: string; content: string }[] },
   path: string,
 ): string | undefined {
   return plan.writes.find((write) => write.path === path)?.content;
-}
-
-/** Stubs the filesystem as containing exactly `files`, keyed by path. */
-function stubFiles(files: Record<string, string>): void {
-  mockExistsSync.mockImplementation((path: string) => Object.hasOwn(files, path));
-  mockReadFileSync.mockImplementation((path: string) => {
-    const content = files[path];
-    if (content === undefined) throw new Error(`ENOENT: ${path}`);
-    return content;
-  });
-}
-
-/** Stubs the history that `readReleaseHistory` returns. */
-function stubHistory(stub: ReleaseHistoryStub): void {
-  mockReadReleaseHistory.mockReturnValue(makeReleaseHistory(stub));
-}
-
-/** Stubs a history with one commit above v1.0.0 that calls for a minor bump, over a package at 1.0.0. */
-function stubMinorRelease(): void {
-  stubHistory({
-    previousTag: 'v1.0.0',
-    commits: [['feat: add feature', 'abc123']],
-    bump: 'minor',
-    sections: [featureSection],
-  });
-  stubPackageVersion('1.0.0');
-}
-
-/** Stubs every package file's content as a manifest at `version`. */
-function stubPackageVersion(version: string): void {
-  mockReadFileSync.mockReturnValue(JSON.stringify({ version }));
-}
-
-/** Options of a single-package run, which names its one explicit version without a target id. */
-type SinglePackageOptions = Omit<TargetPrepareOptions, 'only' | 'setVersions'> & { setVersion?: string };
-
-/** Prepares a single-package release, passing an explicit version under the root target's id. */
-function prepareSinglePackage(config: TargetPrepareConfig, options: SinglePackageOptions): ReleasePlan {
-  const { setVersion, ...rest } = options;
-  return releasePrepareTargets(config, {
-    ...rest,
-    ...(setVersion !== undefined && { setVersions: new Map([['.', setVersion]]) }),
-  });
 }
 
 // endregion | Helpers

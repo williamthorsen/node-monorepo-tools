@@ -1,18 +1,24 @@
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockExecFileSync = vi.hoisted(() => vi.fn());
-const mockExistsSync = vi.hoisted(() => vi.fn());
-const mockReadFileSync = vi.hoisted(() => vi.fn());
-const mockWriteFileSync = vi.hoisted(() => vi.fn());
-const mockMkdirSync = vi.hoisted(() => vi.fn());
-const mockMkdtempSync = vi.hoisted(() => vi.fn());
-const mockRmSync = vi.hoisted(() => vi.fn());
-const mockCopyFileSync = vi.hoisted(() => vi.fn());
-const mockReadReleaseHistory = vi.hoisted(() => vi.fn());
-const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
-const mockRenderChangelogMarkdown = vi.hoisted(() => vi.fn());
-const mockRenderChangelogJson = vi.hoisted(() => vi.fn());
-const mockPlanReleaseNotesPreviews = vi.hoisted(() => vi.fn());
+const {
+  applyReleasePrepareTargetsProjectDefaults,
+  expectOneHistoryRead,
+  mockCopyFileSync,
+  mockExecFileSync,
+  mockExistsSync,
+  mockMergeChangelogEntriesWithDisk,
+  mockMkdirSync,
+  mockMkdtempSync,
+  mockPlanReleaseNotesPreviews,
+  mockReadFileSync,
+  mockReadReleaseHistory,
+  mockRenderChangelogJson,
+  mockRenderChangelogMarkdown,
+  mockRmSync,
+  mockWriteFileSync,
+  resetReleasePrepareTargetsProjectMocks,
+  stubHistory,
+} = await vi.hoisted(() => import('../test-utils/releasePrepareTargetsProjectMocks.ts'));
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -56,85 +62,29 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
   planReleaseNotesPreviews: mockPlanReleaseNotesPreviews,
 }));
 
-import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
 import type { PlannedWrite } from '../releasePlan.ts';
-import { releasePrepareTargets, type TargetPrepareOptions } from '../releasePrepareTargets.ts';
-import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
-import { selectCompositeResult } from '../test-utils/prepareResults.ts';
-import { makeReleaseHistory, type ReleaseHistoryStub } from '../test-utils/releaseHistories.ts';
-import type {
-  ChangelogEntry,
-  ChangelogSection,
-  CompositePrepareResult,
-  MalformedChangeRecordBlock,
-  MonorepoReleaseConfig,
-  PolicyViolation,
-  UndeclaredEntryType,
-  WorkspaceConfig,
-} from '../types.ts';
-
-/** The unreleased window's sections in the default history. */
-const UNRELEASED_SECTIONS: ChangelogSection[] = [
-  { title: 'Features', audience: 'all', items: [{ description: 'ship project', hash: 'abc123' }] },
-];
-
-/** A released window's entry, which the project changelog keeps below the new one. */
-const RELEASED_ENTRY: ChangelogEntry = {
-  version: '0.9.0',
-  date: '2023-12-01',
-  sections: [{ title: 'Bug fixes', audience: 'all', items: [{ description: 'patch arrays', hash: 'fed987' }] }],
-};
-
-/** The entry that the default history's unreleased window yields under the default release's tag. */
-const NEW_ENTRY: ChangelogEntry = { version: '0.10.0', date: '2024-01-01', sections: UNRELEASED_SECTIONS };
-
-const MALFORMED_BLOCK: MalformedChangeRecordBlock = {
-  commitHash: 'aaa1111',
-  commitSubject: 'Squash',
-  reason: '`entries` is not a list',
-};
-
-const UNDECLARED_ENTRY_TYPE: UndeclaredEntryType = {
-  commitHash: 'bbb2222',
-  commitSubject: 'Merge PR',
-  entryPosition: 2,
-  type: 'chore',
-};
-
-const ENTRY_VIOLATION: PolicyViolation = {
-  commitHash: 'bbb2222',
-  commitSubject: 'Merge PR',
-  type: 'drop',
-  surface: 'entry',
-  entryPosition: 1,
-};
+import {
+  ENTRY_VIOLATION,
+  makeConfig,
+  MALFORMED_BLOCK,
+  NEW_ENTRY,
+  prepareProjectStage,
+  RELEASED_ENTRY,
+  stubDefaultHistory,
+  UNDECLARED_ENTRY_TYPE,
+  UNRELEASED_SECTIONS,
+} from '../test-utils/releasePrepareTargetsProjectFixtures.ts';
+import type { ChangelogEntry } from '../types.ts';
 
 describe('releasePrepareTargets for a project composite', () => {
   beforeEach(() => {
-    mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
-    mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
-    mockRenderChangelogJson.mockReturnValue('[]\n');
-    mockPlanReleaseNotesPreviews.mockReturnValue({ writes: [], warnings: [] });
-    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root', version: '0.9.0' }));
-    mockExistsSync.mockReturnValue(false);
+    applyReleasePrepareTargetsProjectDefaults();
   });
 
   afterEach(() => {
-    mockExecFileSync.mockReset();
-    mockExistsSync.mockReset();
-    mockReadFileSync.mockReset();
-    mockWriteFileSync.mockReset();
-    mockMkdirSync.mockReset();
-    mockMkdtempSync.mockReset();
-    mockRmSync.mockReset();
-    mockCopyFileSync.mockReset();
-    mockReadReleaseHistory.mockReset();
-    mockMergeChangelogEntriesWithDisk.mockReset();
-    mockRenderChangelogMarkdown.mockReset();
-    mockRenderChangelogJson.mockReset();
-    mockPlanReleaseNotesPreviews.mockReset();
+    resetReleasePrepareTargetsProjectMocks();
   });
 
   it("returns a structured skipped result when the window doesn't have any commits since the last project tag and --force is not set", () => {
@@ -517,391 +467,11 @@ describe('releasePrepareTargets for a project composite', () => {
     expect(result.newVersion).toBe('0.10.0');
     expect(tags).toStrictEqual(['v0.10.0']);
   });
-
-  describe('existing CHANGELOG.md sections', () => {
-    it('keeps the root sections whose versions the entries lack and reports them', () => {
-      stubDefaultHistory({ releasedEntries: [RELEASED_ENTRY] });
-      stubFiles({
-        './package.json': JSON.stringify({ name: 'root', version: '0.9.0' }),
-        'CHANGELOG.md': '# Changelog\n\n## 0.9.0\n\n- Stale\n\n## 0.8.0\n\n- Hand-written\n\n## Credits\n\n- People\n',
-      });
-
-      const result = prepareProjectStage({
-        config: makeConfig(),
-        options: {},
-        modifiedFiles: [],
-        writes: [],
-        tags: [],
-      });
-
-      expect(mockRenderChangelogMarkdown).toHaveBeenCalledExactlyOnceWith(
-        [NEW_ENTRY, RELEASED_ENTRY],
-        expect.objectContaining({ preservedSections: [{ version: '0.8.0', text: '## 0.8.0\n\n- Hand-written' }] }),
-      );
-      expect(result).toMatchObject({
-        status: 'released',
-        changelogPreservation: [
-          { file: 'CHANGELOG.md', preservedVersions: ['0.8.0'], droppedUnversionedHeadings: ['## Credits'] },
-        ],
-      });
-    });
-
-    it("omits changelogPreservation when the root changelog doesn't exist", () => {
-      stubDefaultHistory();
-
-      const result = prepareProjectStage({
-        config: makeConfig(),
-        options: {},
-        modifiedFiles: [],
-        writes: [],
-        tags: [],
-      });
-
-      expect(result).not.toHaveProperty('changelogPreservation');
-    });
-  });
-
-  describe('untagged baseline', () => {
-    it.each<[string, boolean]>([
-      ['a natural release', false],
-      ['--force', true],
-    ])('throws on %s when the root version is recorded but untagged', (_label, force) => {
-      stubDefaultHistory();
-      stubFiles({ './package.json': JSON.stringify({ version: '1.0.0' }), 'CHANGELOG.md': '## 1.0.0\n' });
-      const writes: PlannedWrite[] = [];
-
-      expect(() =>
-        prepareProjectStage({ config: makeConfig(), options: { force }, modifiedFiles: [], writes, tags: [] }),
-      ).toThrow('  - project: 1.0.0 (create tag v1.0.0)');
-      expect(writes).toStrictEqual([]);
-    });
-
-    it('does not throw when the previous tag is the root version', () => {
-      stubDefaultHistory();
-      stubFiles({ './package.json': JSON.stringify({ version: '0.9.0' }), 'CHANGELOG.md': '## 0.9.0\n' });
-
-      const result = prepareProjectStage({
-        config: makeConfig(),
-        options: {},
-        modifiedFiles: [],
-        writes: [],
-        tags: [],
-      });
-
-      expect(result.status).toBe('released');
-    });
-  });
-
-  describe("project release whose window doesn't yield an item", () => {
-    // When `--force` triggers a project release although the unreleased window doesn't yield a
-    // changelog item, a synthetic "Notes / Forced version bump." entry stands in for that window.
-
-    it('writes a synthetic Notes / Forced version bump entry for the root CHANGELOG when --force is used without any commits', () => {
-      stubHistory({ previousTag: 'v0.9.0' });
-      const tags: string[] = [];
-      const modifiedFiles: string[] = [];
-
-      const result = prepareProjectStage({
-        config: makeConfig(),
-        options: { force: true },
-        modifiedFiles,
-        writes: [],
-        tags,
-      });
-
-      assert(result.status === 'released', 'expected released');
-      expect(result.tag).toBe('v0.9.1');
-      expect(result.changelogFiles).toContain('CHANGELOG.md');
-      expect(tags).toStrictEqual(['v0.9.1']);
-
-      expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.objectContaining({
-            version: '0.9.1',
-            sections: expect.arrayContaining([
-              expect.objectContaining({
-                title: 'Notes',
-                items: expect.arrayContaining([expect.objectContaining({ description: 'Forced version bump.' })]),
-              }),
-            ]),
-          }),
-        ]),
-        expect.anything(),
-      );
-    });
-
-    it("writes the synthetic entry under --force when the window has commits but doesn't yield an item", () => {
-      stubHistory({
-        previousTag: 'v0.9.0',
-        commits: [
-          ['fmt: reformat', 'abc123'],
-          ['update readme', 'def456'],
-        ],
-      });
-
-      prepareProjectStage({
-        config: makeConfig(),
-        options: { force: true },
-        modifiedFiles: [],
-        writes: [],
-        tags: [],
-      });
-
-      expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
-        [{ ...buildEmptyReleaseEntry('0.9.1', ''), date: expect.any(String) }],
-        expect.anything(),
-      );
-    });
-
-    it("reads the history once and renders the synthetic entry ahead of the history's released entries", () => {
-      stubHistory({ previousTag: 'v0.9.0', releasedEntries: [RELEASED_ENTRY] });
-      const config = makeConfig();
-
-      prepareProjectStage({
-        config,
-        options: { force: true },
-        modifiedFiles: [],
-        writes: [],
-        tags: [],
-      });
-
-      expectOneHistoryRead(config, ['packages/arrays/**', 'packages/strings/**']);
-      expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
-        [expect.objectContaining({ version: '0.9.1' }), RELEASED_ENTRY],
-        expect.anything(),
-      );
-    });
-
-    it('writes a synthetic empty-range entry into the root changelog.json when enabled', () => {
-      stubHistory({ previousTag: 'v0.9.0' });
-      const config = makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } });
-
-      prepareProjectStage({
-        config,
-        options: { force: true },
-        modifiedFiles: [],
-        writes: [],
-        tags: [],
-      });
-
-      expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
-      expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
-      const writeEntries = mockRenderChangelogJson.mock.calls[0]?.[0];
-      expect(writeEntries).toStrictEqual([
-        expect.objectContaining({
-          version: '0.9.1',
-          sections: expect.arrayContaining([
-            expect.objectContaining({
-              title: 'Notes',
-              items: expect.arrayContaining([expect.objectContaining({ description: 'Forced version bump.' })]),
-            }),
-          ]),
-        }),
-      ]);
-    });
-
-    it('plans the synthetic files without writing them, and still appends tag and modified files', () => {
-      stubHistory({ previousTag: 'v0.9.0' });
-      const tags: string[] = [];
-      const modifiedFiles: string[] = [];
-      const writes: PlannedWrite[] = [];
-
-      const result = prepareProjectStage({
-        config: makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
-        options: { force: true },
-        modifiedFiles,
-        writes,
-        tags,
-      });
-
-      assert(result.status === 'released', 'expected released');
-      expect(tags).toStrictEqual(['v0.9.1']);
-      expect(modifiedFiles).toContain('CHANGELOG.md');
-      expect(modifiedFiles).toContain('./.meta/changelog.json');
-      expect(writes.map((write) => write.path)).toStrictEqual([
-        './package.json',
-        './.meta/changelog.json',
-        'CHANGELOG.md',
-      ]);
-      expect(mockWriteFileSync).not.toHaveBeenCalled();
-    });
-
-    it("renders a window that yields items from the history's entries, without a synthetic entry", () => {
-      stubDefaultHistory();
-
-      prepareProjectStage({
-        config: makeConfig(),
-        options: { force: true },
-        modifiedFiles: [],
-        writes: [],
-        tags: [],
-      });
-
-      expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith([NEW_ENTRY], expect.anything());
-    });
-
-    it('leaves a skipped-project result unchanged (no synthetic entries for skipped projects)', () => {
-      stubHistory({ previousTag: 'v0.9.0' });
-      const tags: string[] = [];
-      const modifiedFiles: string[] = [];
-
-      const result = prepareProjectStage({
-        config: makeConfig(),
-        options: {}, // No --force, no --bump → skip path.
-        modifiedFiles,
-        writes: [],
-        tags,
-      });
-
-      expect(result.status).toBe('skipped');
-      expect(tags).toStrictEqual([]);
-      expect(modifiedFiles).toStrictEqual([]);
-      expect(mockRenderChangelogMarkdown).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('changelog diagnostics', () => {
-    it('omits every diagnostic list from a released result when the history reports none', () => {
-      stubDefaultHistory();
-
-      const result = prepareProjectStage({
-        config: makeConfig(),
-        options: {},
-        modifiedFiles: [],
-        writes: [],
-        tags: [],
-      });
-
-      assert(result.status === 'released', 'expected released');
-      expect(result.malformedBlocks).toBeUndefined();
-      expect(result.policyViolations).toBeUndefined();
-      expect(result.undeclaredEntryTypes).toBeUndefined();
-    });
-
-    it("attaches the history's diagnostics to a released result as they are", () => {
-      stubDefaultHistory({
-        diagnostics: {
-          malformedBlocks: [MALFORMED_BLOCK],
-          policyViolations: [ENTRY_VIOLATION],
-          undeclaredEntryTypes: [UNDECLARED_ENTRY_TYPE],
-        },
-      });
-
-      const result = prepareProjectStage({
-        config: makeConfig(),
-        options: {},
-        modifiedFiles: [],
-        writes: [],
-        tags: [],
-      });
-
-      assert(result.status === 'released', 'expected released');
-      expect(result.malformedBlocks).toStrictEqual([MALFORMED_BLOCK]);
-      expect(result.policyViolations).toStrictEqual([ENTRY_VIOLATION]);
-      expect(result.undeclaredEntryTypes).toStrictEqual([UNDECLARED_ENTRY_TYPE]);
-    });
-  });
 });
 
 // region | Helpers
-
-/** Asserts that the run read the project's history exactly once, under the project tag prefix and `paths`. */
-function expectOneHistoryRead(config: MonorepoReleaseConfig, paths: string[]): void {
-  expect(mockReadReleaseHistory).toHaveBeenCalledTimes(1);
-  expect(mockReadReleaseHistory).toHaveBeenCalledWith(expect.objectContaining({ workTypes: config.workTypes }), {
-    tagPrefixes: ['v'],
-    paths,
-  });
-}
-
-/** Builds a monorepo config with two workspaces and a project block spanning both. */
-function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
-  return {
-    workspaces: [makeWorkspace({ dir: 'arrays' }), makeWorkspace({ dir: 'strings' })],
-    workTypes: { feat: { header: 'Features' }, fix: { header: 'Bug fixes' } },
-    changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false },
-    releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
-    project: { paths: ['packages/arrays/**', 'packages/strings/**'], tagPrefix: 'v' },
-    ...overrides,
-  };
-}
-
-/** Builds a workspace config under `packages/<dir>`. */
-function makeWorkspace(overrides: Partial<WorkspaceConfig> & Pick<WorkspaceConfig, 'dir'>): WorkspaceConfig {
-  const { dir } = overrides;
-  return {
-    name: `@test/${dir}`,
-    tagPrefix: `${dir}-v`,
-    workspacePath: `packages/${dir}`,
-    isPublishable: true,
-    packageFiles: [`packages/${dir}/package.json`],
-    paths: [`packages/${dir}/**`],
-    ...overrides,
-  };
-}
-
-/** Arguments of {@link prepareProjectStage}: the config, the options, and the lists to which the run's output is appended. */
-interface ProjectStageArgs {
-  config: MonorepoReleaseConfig;
-  options: TargetPrepareOptions;
-  modifiedFiles?: string[];
-  writes?: PlannedWrite[];
-  tags?: string[];
-  warnings?: string[];
-}
-
-/**
- * Prepares the config's project composite alone, appending the plan's tags, writes, warnings, and format-command files
- * to the given lists, and returns the composite's result.
- */
-function prepareProjectStage(args: ProjectStageArgs): CompositePrepareResult {
-  const { targets, settings } = projectMonorepoConfig(args.config);
-  const plan = releasePrepareTargets(
-    {
-      targets: targets.filter((target) => target.kind === 'composite'),
-      // A configured command makes the plan report its modified files.
-      settings: { ...settings, formatCommand: 'format' },
-    },
-    args.options,
-  );
-  args.tags?.push(...plan.tags);
-  args.writes?.push(...plan.writes);
-  args.modifiedFiles?.push(...(plan.formatCommand?.files ?? []));
-  args.warnings?.push(...(plan.warnings ?? []));
-  const result = selectCompositeResult(plan);
-  assert(result !== undefined, 'expected a composite result');
-  return result;
-}
-
 /** Returns the content that the staged writes intend for `path`, or undefined when the staged writes don't target it. */
 function plannedContent(writes: readonly PlannedWrite[], path: string): string | undefined {
   return writes.find((write) => write.path === path)?.content;
 }
-
-/** Stubs a history above the `v0.9.0` baseline whose one feature commit calls for a minor bump. */
-function stubDefaultHistory(overrides: ReleaseHistoryStub = {}): void {
-  stubHistory({
-    previousTag: 'v0.9.0',
-    commits: [['#1 feat: ship project', 'abc123']],
-    bump: 'minor',
-    sections: UNRELEASED_SECTIONS,
-    ...overrides,
-  });
-}
-
-/** Stubs the filesystem as containing exactly `files`, keyed by path. */
-function stubFiles(files: Record<string, string>): void {
-  mockExistsSync.mockImplementation((path: string) => Object.hasOwn(files, path));
-  mockReadFileSync.mockImplementation((path: string) => {
-    const content = files[path];
-    if (content === undefined) throw new Error(`ENOENT: ${path}`);
-    return content;
-  });
-}
-
-/** Stubs the history that `readReleaseHistory` returns. */
-function stubHistory(stub: ReleaseHistoryStub): void {
-  mockReadReleaseHistory.mockReturnValue(makeReleaseHistory(stub));
-}
-
 // endregion | Helpers
