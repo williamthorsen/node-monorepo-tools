@@ -74,7 +74,8 @@ export function composeRunScript(options: {
     'set +m',
     'wait "$nmr_pid"',
     'nmr_status=$?',
-    'kill -TERM -"$watcher_pid" 2>/dev/null',
+    // Reap the watcher inside the redirection, so that the shell's report of its termination goes nowhere.
+    '{ kill -TERM -"$watcher_pid"; wait "$watcher_pid"; } 2>/dev/null',
     String.raw`printf '%s\n' "$nmr_status" > ${statusPath}`,
     'exit "$nmr_status"',
   ].join('\n');

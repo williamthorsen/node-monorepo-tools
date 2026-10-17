@@ -89,6 +89,7 @@ describe(composeRunScript, () => {
     );
     expect(script).toContain(`mkdir -p "$HOME"/'repo' && cd "$HOME"/'repo' || exit 1`);
     expect(script).toContain(String.raw`printf '%s\n' "$nmr_status" > /tmp/status`);
+    expect(script).toContain('{ kill -TERM -"$watcher_pid"; wait "$watcher_pid"; } 2>/dev/null');
   });
 });
 
