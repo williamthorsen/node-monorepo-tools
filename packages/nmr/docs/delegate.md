@@ -36,11 +36,19 @@ nmr pushes the commit to a checkout on the host under `~/.cache/nmr/delegate/`, 
 
 - **Ignored files stay here.** A command that needs a gitignored file, such as a local `.env`, does not find it on the host.
 - **A repository with submodules cannot be delegated**, nor can a tree containing a nested repository, because the snapshot does not include their content. `--delegate` refuses such a tree; under `NMR_DELEGATE`, the command runs here, and nmr prints one line saying why.
-- **One worktree delegates one command at a time.** Two delegations from the same worktree at once share a checkout on the host.
+
+Delegations from the same worktree share its checkout on the host, so they run one at a time. A delegation that starts while another holds the checkout waits for it, saying so on stderr, then runs:
+
+```console
+$ nmr --delegate imac2 test
+nmr: waiting for ci in /Users/me/repos/my-repo (pid 41872) to finish on imac2
+```
+
+The pid is that of the other delegation's nmr on this machine. The lock is the file `.git/nmr-delegate.lock` in the checkout, and it covers the checkout, the install, and the run, but not the push, which only transfers the snapshot. As with the machine lock, the time spent waiting does not count in the verdict's duration, and a lock left behind by an interrupted delegation is reclaimed by the next: at once when its holder's process on the host no longer exists, and otherwise once the holder has stopped refreshing the file for a minute. Delegations from different worktrees use different checkouts and do not wait for one another.
 
 On the host, the command runs under the host's own [machine lock](machine-lock.md) and [check-result cache](check-cache.md), so a host that serves several worktrees runs their heavy commands one at a time, and a tree that already passed there skips. A delegated run does not take the lock here, and it neither consults nor records this machine's cache, whose key is specific to the machine.
 
-Ctrl-C ends the run on the host as well as here.
+Ctrl-C ends the delegation on the host as well as here, in every step, including the wait for the checkout.
 
 ## Reporting
 
@@ -57,5 +65,5 @@ The steps are `prepare`, which reaches the host and creates the checkout, `push`
 ## Setting up the host
 
 - **SSH that does not prompt.** nmr runs `ssh` with `BatchMode=yes`, so a key that needs a passphrase must be in the agent, and the host key must already be known. An unreachable host fails within 10 seconds.
-- **git, Node, and pnpm on the interactive login shell's `PATH`.** nmr reads `PATH` from the host's login shell started as an interactive one, which loads `~/.zshrc` or `~/.bashrc` as well as the login profile: That is where pnpm's installer and the common version managers put Node and pnpm. What the startup files print does not reach the output, but whatever else they do runs before each step. When pnpm is not on that `PATH`, the install step fails, naming `PATH`. The login shell must accept `-ilc`: bash and zsh do.
+- **git, Node, and pnpm on the interactive login shell's `PATH`.** nmr reads `PATH` from the host's login shell started as an interactive one, which loads `~/.zshrc` or `~/.bashrc` as well as the login profile: That is where pnpm's installer and the common version managers put Node and pnpm. What the startup files print does not reach the output, but whatever else they do runs before each step. Node on the host must satisfy nmr's own `engines` range (`>=24.16.0`). When Node is not on that `PATH`, the check-out step fails, and when pnpm is not, the install step fails; each failure names `PATH`. The login shell must accept `-ilc`: bash and zsh do.
 - **A sandboxed agent session needs network access to the host.** A sandbox that allows only HTTP egress refuses `ssh`, and the delegation fails at `prepare`.
