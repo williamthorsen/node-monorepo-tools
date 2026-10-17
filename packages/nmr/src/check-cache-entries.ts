@@ -29,7 +29,7 @@ export interface CheckCacheEntry {
   recordedAt: string;
   /**
    * The build digest that each covered package's output had when the pass was recorded. Build output is
-   * git-ignored, so the tree hash cannot describe it; comparing these separates output built from this tree from
+   * git-ignored, so the tree id cannot describe it; comparing these separates output built from this tree from
    * output that another tree left behind.
    */
   buildDigests: Record<string, string>;

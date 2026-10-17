@@ -16,7 +16,7 @@ import { getWorkspacePackageDirs } from './workspace.ts';
  *
  * An entry is admissible when the run that certified it is this one and the tree that it describes is this one.
  * The witness is what a run stamps on an excerpt that it records and on one that it recalls and replays; the
- * tree hash bounds an identity carried by a process out of the run that issued it.
+ * tree id bounds an identity carried by a process out of the run that issued it.
  */
 export async function assembleReplay(options: {
   anchorDir: string;

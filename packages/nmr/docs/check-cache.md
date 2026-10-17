@@ -33,37 +33,37 @@ Overriding a cacheable name, in `package.json` or in `workspaceScripts`, inherit
 
 A hit requires all of these to match the run that recorded the pass:
 
-- **The working tree's content**, hashed from the commit's tree object folded with the current content of every path that git reports as changed or untracked. Timestamps are not content, so a `touch` that does not rewrite any bytes leaves the hash alone.
+- **The working tree's content**, identified by the git tree id that `git add --all` would record for it, computed without writing to the repository. Timestamps are not content, so a `touch` that does not rewrite any bytes leaves the id alone; a mode change, such as `chmod +x`, moves it.
 - **The command string that would run**, hooks and all, and the scope in which it would run.
 - **nmr's version**, the **Node version**, and the **platform and architecture**.
 - **What pnpm has installed.** An install, a prune, or a lockfile change forces a re-run.
 - **`TZ`, `LANG`, `LC_ALL`, and `NODE_OPTIONS`.** This set is fixed, so two machines that differ only in other environment variables still agree.
 
-A hit additionally requires the build output of every package that nmr's own build covers to be present, and to have been built from this tree. Because output is git-ignored, neither its removal nor its replacement changes the hash: Restoring a tree with `git stash` or `git checkout` does not restore any of the output with which that tree was built. nmr compares each covered package's recorded build digest against the one on disk, and treats a `dist` compiled from another tree as a miss that the following run repairs. A package that overrides `build` or `compile` emits on terms that nmr does not know and is exempt.
+A hit additionally requires the build output of every package that nmr's own build covers to be present, and to have been built from this tree. Because output is git-ignored, neither its removal nor its replacement changes the tree id: Restoring a tree with `git stash` or `git checkout` does not restore any of the output with which that tree was built. nmr compares each covered package's recorded build digest against the one on disk, and treats a `dist` compiled from another tree as a miss that the following run repairs. A package that overrides `build` or `compile` emits on terms that nmr does not know and is exempt.
 
 A pass is recorded only when the command exits 0, only when the tree still matches the one against which the run started, only when every covered package's output is present and unchanged since the run started, and never for a run that executed nothing (a `""`/`":"` skip override, or an `NMR_RUN_IF_PRESENT` miss). When output changes mid-run, whether another process rebuilt it or the chain built it itself, nmr cannot tell over which output the pass was earned: `nmr ci` is the one default command whose chain builds its own output, and it does not record a pass on a run whose build did work. The `nmr check:strict` inside that chain still records a pass, because it starts after the build.
 
 ## Out of contract
 
-These change what a check concludes without changing the hash. When one applies, exclude the affected command:
+These change what a check concludes without changing the tree id. When one applies, exclude the affected command:
 
-- **Content filters.** `core.autocrlf` and `.gitattributes` filters mean the bytes on disk differ from the bytes that git records; the hash follows what is on disk, but a checkout on another platform may not reproduce it.
-- **Symlinked inputs.** A symlink is hashed by the path that it names, not by the content of its target.
-- **Gitignored inputs.** Anything git does not report is invisible to the hash. The build-output probe is the one exception, and covers only nmr's own build.
+- **Content filters and git configuration.** The tree id follows `core.autocrlf` and `.gitattributes` filters as `git add` applies them, so it describes the bytes that git would record; a checkout on another platform may not reproduce the same normalized content. Configuration that changes what `git add` records, such as `core.fileMode=false` or `core.symlinks=false`, is not modeled: The id follows the mode and the link on disk.
+- **Symlinked inputs.** A symlink is identified by the path that it names, not by the content of its target.
+- **Gitignored inputs.** Anything git does not report is invisible to the tree id. The build-output probe is the one exception, and covers only nmr's own build.
 - **`passWithNoTests`.** A suite that does not collect any files exits 0, and that pass is recorded like any other.
 
-Committing an already-checked tree also changes the hash, because the commit's tree object is the base of the fold; the next run does the work again. The reverse holds and is useful: A rebase or an amended message that preserves content leaves the hash alone, as does checking out a branch whose tree is identical.
+Committing an already-checked tree keeps its tree id, so the next run skips. A rebase or an amended message that preserves content keeps it too, as does checking out a branch whose tree is identical.
 
 ## When the cache does not apply
 
 The gate never wrongly skips. When it cannot be sure, it does nothing and the command runs:
 
 - Outside a git repository, when git fails, or when `HEAD` does not resolve to a commit.
-- When the repository declares or contains submodules, whose content the hash does not cover.
+- When the repository declares or contains submodules, whose content the tree id does not cover.
 - When the monorepo root is not the git toplevel.
-- When a changed path cannot be read, or is neither a file nor a symlink (an untracked nested repository, for instance).
+- When a changed path cannot be read, contains a newline or bytes that are not UTF-8, or is neither a file nor a symlink (an untracked nested repository, for instance).
 - When the repository does not have a pnpm install to fingerprint.
-- Under a `devBin` substitution, which runs a binary built from a location that the hash does not describe.
+- Under a `devBin` substitution, which runs a binary built from a location that the tree id does not describe.
 - For any invocation carrying arguments after the command name, and for every step below it: the arguments narrow what runs, and a step served from a recorded pass is a step that did not.
 
 `NMR_DEBUG=1` reports why a run did not skip and why the cache did not apply.
@@ -154,9 +154,9 @@ Try these in order; the first is almost always the right one.
 
 ## Reserved environment variables
 
-`NMR_TREE_SNAPSHOT` is nmr's own: It passes one observation of the tree from a top-level invocation down to the processes that it spawns, so a chain hashes the tree once rather than at every link. nmr trusts an inherited value only while `HEAD` still points to the same commit as when the observation was taken, which bounds a process that outlives the run that spawned it. Because that bound does not extend to a tree edited without committing, **a process that survives its run and later invokes nmr should clear `NMR_TREE_SNAPSHOT`**. A test suite that shells out to `nmr` is the case worth checking.
+`NMR_TREE_SNAPSHOT` is nmr's own: It passes one observation of the tree from a top-level invocation down to the processes that it spawns, so a chain computes the tree id once rather than at every link. nmr trusts an inherited value only while `HEAD` still points to the same commit as when the observation was taken, which bounds a process that outlives the run that spawned it. Because that bound does not extend to a tree edited without committing, **a process that survives its run and later invokes nmr should clear `NMR_TREE_SNAPSHOT`**. A test suite that shells out to `nmr` is the case worth checking.
 
-`NMR_RUN_ID` is nmr's own too: It passes one run's identity from a top-level invocation down to the processes that it spawns, so that the excerpts recorded at every scope during one run are recognizable as that run's, and a composite can assemble from them. Whereas `NMR_TREE_SNAPSHOT` is bounded by `HEAD`, this one is bounded by the tree hash that each entry records. A process that outlives its run and carries the identity into a later one contributes nothing to that run's assemblies.
+`NMR_RUN_ID` is nmr's own too: It passes one run's identity from a top-level invocation down to the processes that it spawns, so that the excerpts recorded at every scope during one run are recognizable as that run's, and a composite can assemble from them. Whereas `NMR_TREE_SNAPSHOT` is bounded by `HEAD`, this one is bounded by the tree id that each entry records. A process that outlives its run and carries the identity into a later one contributes nothing to that run's assemblies.
 
 ## Configuring
 

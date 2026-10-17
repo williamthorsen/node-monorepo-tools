@@ -104,7 +104,7 @@ export function resolveCacheableCommands(checkCache: CheckCacheConfig | undefine
  * down, and otherwise a fresh one, because the run starts at this invocation.
  *
  * Unbounded, whereas the tree snapshot is bounded by a HEAD comparison: a process that outlives its run hands a
- * stale identity to the invocations that it later makes, and the tree hash keeps that harmless, because every
+ * stale identity to the invocations that it later makes, and the tree id keeps that harmless, because every
  * constituent entry is held to it before its excerpt joins an assembly.
  */
 export function resolveRunId(env: NodeJS.ProcessEnv): string {
