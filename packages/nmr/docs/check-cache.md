@@ -93,7 +93,7 @@ $ nmr check
 ⏩ nmr-core: check: passed 3m ago on this tree, saved ~48s — replayed: nmr-core: fmt:check: All matched files use Prettier code style!; nmr-core: test: Test Files 6 passed (6) Tests 41 passed (41)
 ```
 
-The assembly is flat: A constituent that is itself a composite contributes its own leaves' lines, so a skipped `ci` replays a package's `test` rather than one opaque `check:strict` line. A delegate expands into the scopes to which it fans out, and a constituent that did not record an excerpt is absent rather than inferred: `typecheck` and `lint:check` print nothing on success and contribute nothing above, and a command outside the [cacheable set](#what-is-cached) records nothing at all. `ci` replays what `check:strict` earned and nothing for `build`.
+The assembly is flat: A constituent that is itself a composite contributes its own leaves' lines, so a skipped `ci` replays a package's `test` rather than one opaque `check:strict` line. A fan-out expands into the scopes that it selects, and a constituent that did not record an excerpt is absent rather than inferred: `typecheck` and `lint:check` print nothing on success and contribute nothing above, and a command outside the [cacheable set](#what-is-cached) records nothing at all. `ci` replays what `check:strict` earned and nothing for `build`.
 
 Every excerpt in the assembly was certified during a single run, on a single tree, because nmr assembles it when the composite records its pass rather than when it skips. `NMR_RUN_ID` makes that provable; see [reserved environment variables](#reserved-environment-variables).
 
@@ -133,7 +133,7 @@ $ nmr --log test
 🟠 nmr: test: no recording; the last pass was 3m ago, on a tree that this is not
 ```
 
-**`--log` applies to the scopes that `-F` and `-R` select.** nmr passes the flag to the delegate. Each scope prints its own recording. There a scope with nothing to show reports its gap and exits 0: Partial coverage is normal for a survey, and failing on the first gap would hide every scope that had something to show. A selection that does not include any scope is the other case and fails, as it does for a run: An empty selection is not a partial survey.
+**`--log` applies to the scopes that `-F` and `-R` select.** nmr passes the flag to each scope that it selects. Each scope prints its own recording. There a scope with nothing to show reports its gap and exits 0: Partial coverage is normal for a survey, and failing on the first gap would hide every scope that had something to show. A selection that does not include any scope is the other case and fails, as it does for a run: An empty selection is not a partial survey.
 
 **Retention has a ceiling of 256 KiB per recorded pass**, distinct from the 512 bytes to which a verdict line is held. nmr keeps 128 KiB from each end of a transcript that overruns it, because a run's opening and its closing statement each contain what the other does not, and it marks the drop with a line that names the dropped bytes, rather than cutting silently.
 
