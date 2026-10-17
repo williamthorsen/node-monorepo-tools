@@ -23,16 +23,14 @@ import { isRecord } from './typeGuards.ts';
 import type {
   ChangelogJsonConfig,
   DirectoryConfig,
-  LegacyIdentity,
   MonorepoReleaseConfig,
-  ReleaseKitConfig,
   ReleaseNotesConfig,
   ReleaseSettings,
   ResolvedProjectConfig,
-  RetiredPackage,
   WorkspaceConfig,
   WorkTypeConfig,
 } from './types.ts';
+import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './configSchema.ts';
 
 /** Path of the root `package.json` consulted when validating a `project` block. */
 export const ROOT_PACKAGE_JSON_PATH = 'package.json';

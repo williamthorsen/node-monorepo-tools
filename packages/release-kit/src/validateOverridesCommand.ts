@@ -14,7 +14,8 @@ import type { GenerateChangelogOptions } from './generateChangelogs.ts';
 import { type ConfigProblem, loadValidatedConfig, type LoadValidatedConfigResult } from './loadValidatedConfig.ts';
 import { describeHistoryWindow } from './prepareTarget.ts';
 import { isSinglePackageTargets, type ResolvedReleaseTargets, resolveReleaseTargets } from './resolveReleaseTargets.ts';
-import type { ChangelogEntry, ReleaseKitConfig } from './types.ts';
+import type { ChangelogEntry } from './types.ts';
+import type { ReleaseKitConfig } from './configSchema.ts';
 
 /**
  * Synthetic unreleased-tag label passed to `buildChangelogEntries` during validation. The label names the unreleased

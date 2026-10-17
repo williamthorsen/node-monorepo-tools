@@ -10,12 +10,12 @@ import type {
   DirectoryTarget,
   MonorepoReleaseConfig,
   PackageTarget,
-  ReleaseKitConfig,
   ReleaseSettings,
   ReleaseTarget,
   ResolvedProjectConfig,
   WorkspaceConfig,
 } from './types.ts';
+import type { ReleaseKitConfig } from './configSchema.ts';
 
 /** Id of the composite target that a `project` block declares. A target name is never empty, so ids cannot clash. */
 export const PROJECT_TARGET_ID = '';

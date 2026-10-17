@@ -1,4 +1,4 @@
-import type { RepoLabelsConfig } from '../types.ts';
+import type { RepoLabelsConfig } from '../configSchema.ts';
 import { loadPreset } from './presets.ts';
 import type { LabelDefinition } from './types.ts';
 

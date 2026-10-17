@@ -9,7 +9,8 @@ import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
 import { releasePrepareTargets, type TargetPrepareOptions } from '../releasePrepareTargets.ts';
 import { reportPrepare } from '../reportPrepare.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
-import type { ReleaseKitConfig, TargetPrepareResult } from '../types.ts';
+import type { TargetPrepareResult } from '../types.ts';
+import type { ReleaseKitConfig } from '../configSchema.ts';
 
 // The fixture packages exist only in the temp repo, so the npm check would refuse them; this suite stays off the network.
 vi.mock(import('../npmRegistry.ts'), () => ({

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { resolveReleaseDeclaration } from '../resolveReleaseDeclaration.ts';
-import type { ReleaseKitConfig, WorkspaceConfig } from '../types.ts';
+import type { WorkspaceConfig } from '../types.ts';
+import type { ReleaseKitConfig } from '../configSchema.ts';
 
 const WORKSPACES = [makeWorkspace('core'), makeWorkspace('cli')];
 

@@ -11,7 +11,7 @@ import { detectUndeclaredTagPrefixes, type UndeclaredTagPrefix } from './detectU
 import { describeEmptyWorkspace, discoverWorkspaces } from './discoverWorkspaces.ts';
 import { matchesTagPrefix } from './matchesTagPrefix.ts';
 import { normalizeWorkspacePath } from './resolveReleaseDeclaration.ts';
-import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './types.ts';
+import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './configSchema.ts';
 
 /** One workspace's or directory target's preview row in the tag-prefix preview. */
 export interface TagPrefixPreviewRow {

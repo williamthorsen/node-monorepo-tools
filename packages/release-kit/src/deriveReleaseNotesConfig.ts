@@ -1,6 +1,7 @@
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from './defaults.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
-import type { ReleaseKitConfig, ReleaseNotesConfig } from './types.ts';
+import type { ReleaseNotesConfig } from './types.ts';
+import type { ReleaseKitConfig } from './configSchema.ts';
 
 export interface ResolvedReleaseNotesConfig {
   releaseNotes: ReleaseNotesConfig;

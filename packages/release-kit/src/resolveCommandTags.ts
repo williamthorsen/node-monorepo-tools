@@ -9,7 +9,8 @@ import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } f
 import { formatExcludedSkip } from './formatExcludedSkip.ts';
 import { mergeMonorepoConfig, readRootPackageVersion } from './loadConfig.ts';
 import { type ResolvedTag, resolveReleaseTags } from './resolveReleaseTags.ts';
-import type { DirectoryConfig, ReleaseKitConfig, ResolvedProjectConfig, WorkspaceConfig } from './types.ts';
+import type { DirectoryConfig, ResolvedProjectConfig, WorkspaceConfig } from './types.ts';
+import type { ReleaseKitConfig } from './configSchema.ts';
 
 /**
  * Discovers workspaces, resolves release tags from HEAD, validates `--tags` names against the full resolved tag

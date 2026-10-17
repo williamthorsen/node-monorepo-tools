@@ -18,8 +18,8 @@ import { describe, expect, it } from 'vitest';
 const ENTRY_SOURCE_PATH = path.join(import.meta.dirname, '../defineConfig.ts');
 
 /** The erasable type import that the entry uses, and the inline form that silently retains its specifier. */
-const ERASABLE_IMPORT = "import type { ReleaseKitConfig } from './types.ts';";
-const RETAINING_IMPORT = "import { type ReleaseKitConfig } from './types.ts';";
+const ERASABLE_IMPORT = "import type { ReleaseKitConfig } from './configSchema.ts';";
+const RETAINING_IMPORT = "import { type ReleaseKitConfig } from './configSchema.ts';";
 
 /** A static import, the form that a config loader issues, so that a retained specifier fails here as it would there. */
 const PROBE = ["import { defineConfig } from './defineConfig.ts';", 'process.stdout.write(typeof defineConfig);'].join(

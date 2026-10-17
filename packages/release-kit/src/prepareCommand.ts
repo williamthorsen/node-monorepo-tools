@@ -31,7 +31,8 @@ import {
   resolveReleaseTargets,
   SINGLE_PACKAGE_TARGET_ID,
 } from './resolveReleaseTargets.ts';
-import type { ReleaseKitConfig, ReleaseTarget, ReleaseType } from './types.ts';
+import type { ReleaseTarget, ReleaseType } from './types.ts';
+import type { ReleaseKitConfig } from './configSchema.ts';
 
 const VALID_BUMP_TYPES: readonly string[] = ['major', 'minor', 'patch'];
 

@@ -1,6 +1,7 @@
 import path from 'node:path';
 
-import type { PathRelease, ProjectConfig, ReleaseKitConfig, WorkspaceConfig } from './types.ts';
+import type { WorkspaceConfig } from './types.ts';
+import type { PathRelease, ProjectConfig, ReleaseKitConfig } from './configSchema.ts';
 
 /** The composite that a config declares, before the defaults and the root `package.json` check of `loadConfig`. */
 export interface DeclaredComposite {
