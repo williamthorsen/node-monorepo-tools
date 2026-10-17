@@ -161,7 +161,7 @@
           "path": "lib/root-scripts.ts"
         },
         {
-          "hash": "c63cbdac",
+          "hash": "3d661ab8",
           "kind": "module",
           "path": "lib/self-hosted-runner.ts"
         },

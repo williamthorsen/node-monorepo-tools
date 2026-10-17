@@ -19,6 +19,15 @@ import {
 } from './github.ts';
 import { formatPaths } from './repo-files.ts';
 
+/** A repo's runner-related state on GitHub, as `gh` reports it. */
+export interface GitHubFacts {
+  nameWithOwner: string;
+  isPrivate: boolean;
+  onlineSelfHostedRunners: number;
+  /** The raw `CI_RUNS_ON` value: the repository's own, else the organization's, else undefined. */
+  ciRunsOn: string | undefined;
+}
+
 export type ReadGitHubFacts = (cwd: string) => Promise<GitHubFacts | { skip: string }>;
 
 /** How a repo's `CI_RUNS_ON` value selects a runner. */
@@ -39,15 +48,6 @@ const SET_CI_RUNS_ON_COMMAND = `gh variable set CI_RUNS_ON --body '"self-hosted"
 
 /** The status gathered through the real `gh`, per working directory, so that the checklist's checks share one set of calls. */
 const statusByCwd = new Map<string, Promise<SelfHostedRunnerStatus | { skip: string }>>();
-
-/** A repo's runner-related state on GitHub, as `gh` reports it. */
-export interface GitHubFacts {
-  nameWithOwner: string;
-  isPrivate: boolean;
-  onlineSelfHostedRunners: number;
-  /** The raw `CI_RUNS_ON` value: the repository's own, else the organization's, else undefined. */
-  ciRunsOn: string | undefined;
-}
 
 export const selfHostedRunnerChecklist: RdyChecklist = {
   name: 'self-hosted runner',
