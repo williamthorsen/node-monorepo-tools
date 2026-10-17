@@ -4,7 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 import type { TreeSnapshot } from './check-cache.ts';
-import type { OutputChannel, OutputChannels } from './runner.ts';
+import type { OutputChannel, OutputChannels } from './output-channel.ts';
 
 /** The parts of the running interpreter that can change what a check concludes. */
 export interface RuntimeIdentity {

@@ -57,6 +57,7 @@ import {
   type MachineLock,
   NO_LOCK_ENV_VAR,
 } from './machine-lock.ts';
+import { resolveChannel } from './output-channel.ts';
 import { isTerminalStream, OUTPUT_STYLE_ENV_VAR, OUTPUT_STYLE_FLAG, resolveOutputStyles } from './output-style.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import {
@@ -83,7 +84,7 @@ import {
   resolveScript,
   type ScriptOrigin,
 } from './resolver.ts';
-import { resolveChannel, type RetainedOutput, runSteps, type RunStepsOptions } from './runner.ts';
+import { type RetainedOutput, runSteps, type RunStepsOptions } from './runner.ts';
 import {
   composeNmrStep,
   dropRecursiveSteps,
