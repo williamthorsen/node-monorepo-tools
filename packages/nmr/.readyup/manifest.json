@@ -131,12 +131,12 @@
           "path": "kits/default.ts"
         },
         {
-          "hash": "d7288675",
+          "hash": "fbdddbc3",
           "kind": "module",
           "path": "lib/bin-targets.ts"
         },
         {
-          "hash": "6b220e04",
+          "hash": "56e92527",
           "kind": "module",
           "path": "lib/catalog.ts"
         },
@@ -146,7 +146,7 @@
           "path": "lib/github.ts"
         },
         {
-          "hash": "3a0e59ac",
+          "hash": "4f0d7859",
           "kind": "module",
           "path": "lib/manifest-fields.ts"
         },
@@ -156,7 +156,7 @@
           "path": "lib/repo-files.ts"
         },
         {
-          "hash": "1701ef64",
+          "hash": "2a90a1d3",
           "kind": "module",
           "path": "lib/root-scripts.ts"
         },
@@ -304,7 +304,7 @@
       "readyupVersion": "0.41.1",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "924b5925"
+      "targetHash": "4c0d32d6"
     }
   ]
 }

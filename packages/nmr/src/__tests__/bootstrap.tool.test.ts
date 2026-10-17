@@ -298,7 +298,7 @@ function readWorkspacePrepares(): WorkspacePrepare[] {
     const dependsOnNmrCore = [dependencies, devDependencies].some(
       (group) => isObject(group) && Object.hasOwn(group, NMR_CORE_SPECIFIER),
     );
-    return [{ dependsOnNmrCore, name, prepareScript }];
+    return { dependsOnNmrCore, name, prepareScript };
   });
 }
 

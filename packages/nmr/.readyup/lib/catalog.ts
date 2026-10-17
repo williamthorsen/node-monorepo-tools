@@ -63,7 +63,7 @@ function findLiteralCataloguedSpecifiers(workspace: Workspace, names: ReadonlySe
 
     return Object.entries(declared).flatMap(([name, specifier]) =>
       names.has(name) && typeof specifier === 'string' && !PROTOCOL_PATTERN.test(specifier)
-        ? [{ manifestPath, name, specifier }]
+        ? { manifestPath, name, specifier }
         : [],
     );
   });

@@ -19,7 +19,7 @@ export function noPnpmFieldInPackageJson(cwd: string = process.cwd()): boolean |
   const declaringFiles = findFiles(['**/package.json'], cwd).flatMap((relativePath) => {
     const keys = readPnpmFieldKeys(readFileIn(cwd, relativePath));
     if (keys === undefined) return [];
-    return [keys.length > 0 ? `${relativePath} (${keys.join(', ')})` : relativePath];
+    return keys.length > 0 ? `${relativePath} (${keys.join(', ')})` : relativePath;
   });
 
   if (declaringFiles.length === 0) return true;

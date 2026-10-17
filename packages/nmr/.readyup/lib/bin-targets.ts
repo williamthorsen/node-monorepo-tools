@@ -59,7 +59,7 @@ export async function everyBinTargetIsACommittedWrapper(): Promise<boolean | Che
   const offenders = workspaceDiscovery.workspaces.flatMap((workspace) =>
     readBinEntries(workspace).flatMap((entry) => {
       const defect = describeBinTargetDefect(workspace, entry, trackedPaths);
-      return defect === undefined ? [] : [`${describeBinEntry(workspace, entry)} (${defect})`];
+      return defect === undefined ? [] : `${describeBinEntry(workspace, entry)} (${defect})`;
     }),
   );
 
@@ -90,13 +90,13 @@ export function everyBinWrapperTargetIsCoveredByFiles(): boolean | CheckOutcome 
     if (!Array.isArray(files)) return [];
 
     const publishedSegments = new Set(
-      files.flatMap((entry) => (typeof entry === 'string' ? [readFirstSegment(entry)] : [])),
+      files.flatMap((entry) => (typeof entry === 'string' ? readFirstSegment(entry) : [])),
     );
 
     return readBinEntries(workspace).flatMap((entry) => {
       const target = readWrapperTarget(cwd, workspace, entry);
       if (target === undefined || publishedSegments.has(readFirstSegment(target))) return [];
-      return [`${describeBinEntry(workspace, entry)} -> ${target}`];
+      return `${describeBinEntry(workspace, entry)} -> ${target}`;
     });
   });
 
@@ -147,7 +147,7 @@ function readBinEntries(workspace: Workspace): BinEntry[] {
 
   if (!isRecord(bin)) return [];
   return Object.entries(bin).flatMap(([command, target]) =>
-    typeof target === 'string' ? [{ command, target: normalizeBinTarget(target) }] : [],
+    typeof target === 'string' ? { command, target: normalizeBinTarget(target) } : [],
   );
 }
 

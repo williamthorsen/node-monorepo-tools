@@ -7456,7 +7456,7 @@ async function everyBinTargetIsACommittedWrapper() {
   const offenders = workspaceDiscovery.workspaces.flatMap(
     (workspace) => readBinEntries(workspace).flatMap((entry) => {
       const defect = describeBinTargetDefect(workspace, entry, trackedPaths);
-      return defect === void 0 ? [] : [`${describeBinEntry(workspace, entry)} (${defect})`];
+      return defect === void 0 ? [] : `${describeBinEntry(workspace, entry)} (${defect})`;
     })
   );
   if (offenders.length === 0) return true;
@@ -7470,12 +7470,12 @@ function everyBinWrapperTargetIsCoveredByFiles() {
     const files = workspace.packageJson["files"];
     if (!Array.isArray(files)) return [];
     const publishedSegments = new Set(
-      files.flatMap((entry) => typeof entry === "string" ? [readFirstSegment(entry)] : [])
+      files.flatMap((entry) => typeof entry === "string" ? readFirstSegment(entry) : [])
     );
     return readBinEntries(workspace).flatMap((entry) => {
       const target = readWrapperTarget(cwd, workspace, entry);
       if (target === void 0 || publishedSegments.has(readFirstSegment(target))) return [];
-      return [`${describeBinEntry(workspace, entry)} -> ${target}`];
+      return `${describeBinEntry(workspace, entry)} -> ${target}`;
     });
   });
   if (offenders.length === 0) return true;
@@ -7500,7 +7500,7 @@ function readBinEntries(workspace) {
   }
   if (!isRecord(bin)) return [];
   return Object.entries(bin).flatMap(
-    ([command, target]) => typeof target === "string" ? [{ command, target: normalizeBinTarget(target) }] : []
+    ([command, target]) => typeof target === "string" ? { command, target: normalizeBinTarget(target) } : []
   );
 }
 function readFirstSegment(entry) {
@@ -7913,7 +7913,7 @@ function noUnguardedLefthookInstall(cwd = process.cwd()) {
     const command = scripts[name];
     if (typeof command !== "string") return [];
     const isUnguarded = LEFTHOOK_INSTALL_PATTERN.test(command) && !LEFTHOOK_CHECK_INSTALL_PATTERN.test(command);
-    return isUnguarded ? [`${name}: ${command}`] : [];
+    return isUnguarded ? `${name}: ${command}` : [];
   });
   if (unguardedScripts.length === 0) return true;
   return { ok: false, detail: formatPaths(unguardedScripts) };
@@ -9008,7 +9008,7 @@ function findLiteralCataloguedSpecifiers(workspace, names) {
     const declared = workspace.packageJson[field];
     if (!isRecord5(declared)) return [];
     return Object.entries(declared).flatMap(
-      ([name, specifier]) => names.has(name) && typeof specifier === "string" && !PROTOCOL_PATTERN.test(specifier) ? [{ manifestPath, name, specifier }] : []
+      ([name, specifier]) => names.has(name) && typeof specifier === "string" && !PROTOCOL_PATTERN.test(specifier) ? { manifestPath, name, specifier } : []
     );
   });
 }
@@ -9033,7 +9033,7 @@ function noPnpmFieldInPackageJson(cwd = process.cwd()) {
   const declaringFiles = findFiles(["**/package.json"], cwd).flatMap((relativePath) => {
     const keys = readPnpmFieldKeys(readFileIn(cwd, relativePath));
     if (keys === void 0) return [];
-    return [keys.length > 0 ? `${relativePath} (${keys.join(", ")})` : relativePath];
+    return keys.length > 0 ? `${relativePath} (${keys.join(", ")})` : relativePath;
   });
   if (declaringFiles.length === 0) return true;
   return { ok: false, detail: formatPaths(declaringFiles) };

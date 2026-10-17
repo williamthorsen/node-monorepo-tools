@@ -267,7 +267,7 @@ describe(defineVitestConfig, () => {
 /** Names every plugin declared by a config, so that an assertion can check one without running Vite. */
 function getPluginNames(config: ViteUserConfig): string[] {
   return (config.plugins ?? []).flatMap((plugin) =>
-    isObject(plugin) && typeof plugin.name === 'string' ? [plugin.name] : [],
+    isObject(plugin) && typeof plugin.name === 'string' ? plugin.name : [],
   );
 }
 
