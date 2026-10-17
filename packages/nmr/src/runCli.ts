@@ -85,11 +85,11 @@ import {
   type ScriptOrigin,
 } from './resolver.ts';
 import { type RetainedOutput, runSteps, type RunStepsOptions } from './runner.ts';
+import { quoteToken } from './shell-syntax.ts';
 import {
   composeNmrStep,
   dropRecursiveSteps,
   findNmrCrossing,
-  quoteToken,
   readSoleNmrCommand,
   renderChain,
   type Step,

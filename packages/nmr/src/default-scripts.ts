@@ -1,4 +1,4 @@
-import { quoteToken } from './steps.ts';
+import { quoteToken } from './shell-syntax.ts';
 
 /**
  * One element of a composite, paired with what it does with the invocation's trailing arguments. The bare
