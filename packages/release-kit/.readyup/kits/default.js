@@ -6,18 +6,14 @@ export const __readyupVersion = "0.41.1";
 // .readyup/kits/default.ts
 import { defineRdyKit } from "readyup";
 import {
-  discoverWorkspaces,
+  discoverWorkspaces as discoverWorkspaces3,
   fileContains,
   fileDoesNotContain,
   fileExists,
   fileMatchesHash,
   hasDevDependency,
-  hasMinDevDependencyVersion,
-  readFile
+  hasMinDevDependencyVersion
 } from "readyup/check-utils";
-
-// src/changelogArchive.ts
-var CHANGELOG_ARCHIVE_DIRECTORY = "changelogs";
 
 // src/init/detectRepoType.ts
 import { existsSync, readFileSync } from "node:fs";
@@ -52,6 +48,12 @@ function detectRepoType() {
   }
   return "single-package";
 }
+
+// .readyup/lib/changelog-checks.ts
+import { discoverWorkspaces, readFile } from "readyup/check-utils";
+
+// src/changelogArchive.ts
+var CHANGELOG_ARCHIVE_DIRECTORY = "changelogs";
 
 // src/packsPath.ts
 function packsPath(filesField, path) {
@@ -99,6 +101,137 @@ function translateGlob(pattern) {
   return source;
 }
 
+// .readyup/lib/changelog-checks.ts
+function changelogArchivesAreEnabled() {
+  const content = readFile(".config/release-kit.config.ts");
+  if (content === void 0) return false;
+  return /changelogMarkdown\s*:\s*\{[^}]*keepVersions\s*:/.test(content);
+}
+function changelogJsonIsEnabled() {
+  const content = readFile(".config/release-kit.config.ts");
+  if (content === void 0) return true;
+  return !/changelogJson\s*:\s*\{[^}]*enabled\s*:\s*false/.test(content);
+}
+var DEFAULT_CHANGELOG_JSON_PATH = ".meta/changelog.json";
+function packagesShipChangelog() {
+  return reportWorkspacesOmitting("CHANGELOG.md");
+}
+function packagesShipChangelogArchives() {
+  return reportWorkspacesOmitting(`${CHANGELOG_ARCHIVE_DIRECTORY}/CHANGELOG-v1.md`, `${CHANGELOG_ARCHIVE_DIRECTORY}/`);
+}
+function packagesShipChangelogJson() {
+  return reportWorkspacesOmitting(resolveChangelogJsonOutputPath());
+}
+function resolveChangelogJsonOutputPath() {
+  const content = readFile(".config/release-kit.config.ts");
+  if (content === void 0) return DEFAULT_CHANGELOG_JSON_PATH;
+  const match = /changelogJson\s*:\s*\{[^}]*outputPath\s*:\s*['"]([^'"]+)['"]/.exec(content);
+  return match?.[1] ?? DEFAULT_CHANGELOG_JSON_PATH;
+}
+function reportWorkspacesOmitting(path, label = path) {
+  const failing = [];
+  const packageWorkspaces = discoverWorkspaces({ filter: (w) => w.isPackage });
+  for (const { dir, packageJson } of packageWorkspaces) {
+    if (!packsPath(packageJson["files"], path)) {
+      failing.push(dir === "." ? "package.json" : `${dir}/package.json`);
+    }
+  }
+  if (failing.length === 0) return true;
+  return {
+    ok: false,
+    detail: `files field omits ${label}: ${failing.join(", ")}`
+  };
+}
+
+// .readyup/lib/config-checks.ts
+import { discoverWorkspaces as discoverWorkspaces2, readFile as readFile2 } from "readyup/check-utils";
+var CONFIG_EXPORT_PATTERNS = [
+  /export\s+default\b/,
+  /export\s+(?:const|let|var)\s+config\b/,
+  /export\s*\{[^}]*\b(?:config|default)\b[^}]*\}/,
+  /export\s*\*/
+];
+function configFileExportsConfig() {
+  const content = readFile2(".config/release-kit.config.ts");
+  if (content === void 0) return false;
+  return CONFIG_EXPORT_PATTERNS.some((pattern) => pattern.test(content));
+}
+function labelsHaveCurrentPresetHash(presetName, expectedHash) {
+  const content = readFile2(".github/labels.yaml");
+  if (content === void 0) return false;
+  const pattern = new RegExp(`^# ${presetName} preset hash: (.+)$`, "m");
+  const match = pattern.exec(content);
+  return match !== null && match[1] === expectedHash;
+}
+function readmeHasReleaseNotesMarkers(content) {
+  return content.includes("<!-- section:release-notes -->") && content.includes("<!-- /section:release-notes -->");
+}
+function readmesHaveReleaseNotesMarkers() {
+  const failing = [];
+  const packageWorkspaces = discoverWorkspaces2({ filter: (w) => w.isPackage });
+  for (const { dir } of packageWorkspaces) {
+    const readmePath = dir === "." ? "README.md" : `${dir}/README.md`;
+    const content = readFile2(readmePath);
+    if (content === void 0 || !readmeHasReleaseNotesMarkers(content)) {
+      failing.push(readmePath);
+    }
+  }
+  if (failing.length === 0) return true;
+  return {
+    ok: false,
+    detail: `missing markers or README: ${failing.join(", ")}`
+  };
+}
+function releaseNotesConfigIsConsistent() {
+  const content = readFile2(".config/release-kit.config.ts");
+  if (content === void 0) return true;
+  const changelogJsonDisabled = /changelogJson\s*:\s*\{[^}]*enabled\s*:\s*false/.test(content);
+  if (!changelogJsonDisabled) return true;
+  const hasReadmeInjection = /shouldInjectIntoReadme\s*:\s*true/.test(content);
+  return !hasReadmeInjection;
+}
+function releaseNotesInjectsIntoReadme() {
+  const content = readFile2(".config/release-kit.config.ts");
+  if (content === void 0) return false;
+  return /shouldInjectIntoReadme\s*:\s*true/.test(content);
+}
+function scopeLabelsHaveNoDescriptions() {
+  const content = readFile2(".github/labels.yaml");
+  if (content === void 0) return true;
+  const described = [];
+  let currentName;
+  for (const line of content.split("\n")) {
+    const nameMatch = /^- name:\s*(.*?)\s*$/.exec(line);
+    if (nameMatch) {
+      currentName = stripYamlQuotes(nameMatch[1] ?? "");
+      continue;
+    }
+    const descriptionMatch = /^\s+description:\s*(.*?)\s*$/.exec(line);
+    if (descriptionMatch && currentName?.startsWith("scope:") && stripYamlQuotes(descriptionMatch[1] ?? "") !== "") {
+      described.push(currentName);
+    }
+  }
+  if (described.length === 0) return true;
+  return {
+    ok: false,
+    detail: `scope labels with a description: ${described.join(", ")}`
+  };
+}
+function stripYamlQuotes(value) {
+  const match = /^(['"])(.*)\1$/.exec(value);
+  return match?.[2] ?? value;
+}
+
+// .readyup/lib/workflow-hashes.ts
+var COMMON_PRESET_HASH = "1d3e2df1ccd7deea4707fa07a4ae171d761344b65c1a311467fc0f66b70ee646";
+var SYNC_LABELS_WORKFLOW_HASH = "0a88829d154c0de7cdd4246fede99e9311a89ab4199034dbe601663d641ab1e4";
+var RELEASE_WORKFLOW_HASH_MONOREPO = "f63f4cabb57f94ee6550f17a9874c7a346d46554595ddbcd46fdd3208d613437";
+var RELEASE_WORKFLOW_HASH_SINGLE = "d26dd4ca186632b388ea46bd885721124c03d19918e511baa40821d2d760da69";
+var PUBLISH_WORKFLOW_HASH_MONOREPO = "0afa9ffe914f3dc8f043e68252ebc604c8cc1a953422fcea37a909a4def370ee";
+var PUBLISH_WORKFLOW_HASH_SINGLE = "6f31183e0a1e66be791a19266c3b028dadbd9fe010f7fc4452f3f8970c937b43";
+var CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO = "c455d88c93d855737c96079945ff729a9d094f846519c24afbefe83a425c1d7f";
+var CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE = "f595831ff28f8b3a01d97e6cb0cfe100262f7a8821091c6c458b0c0224cebba8";
+
 // .readyup/kits/default.ts
 function getMinVersion() {
   const picked = { "version": "14.2.2" };
@@ -108,23 +241,8 @@ function getMinVersion() {
   return picked["version"];
 }
 function hasPublishablePackages() {
-  return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
+  return discoverWorkspaces3({ filter: (w) => w.isPackage }).length > 0;
 }
-var DEFAULT_CHANGELOG_JSON_PATH = ".meta/changelog.json";
-var CONFIG_EXPORT_PATTERNS = [
-  /export\s+default\b/,
-  /export\s+(?:const|let|var)\s+config\b/,
-  /export\s*\{[^}]*\b(?:config|default)\b[^}]*\}/,
-  /export\s*\*/
-];
-var COMMON_PRESET_HASH = "1d3e2df1ccd7deea4707fa07a4ae171d761344b65c1a311467fc0f66b70ee646";
-var SYNC_LABELS_WORKFLOW_HASH = "0a88829d154c0de7cdd4246fede99e9311a89ab4199034dbe601663d641ab1e4";
-var RELEASE_WORKFLOW_HASH_MONOREPO = "f63f4cabb57f94ee6550f17a9874c7a346d46554595ddbcd46fdd3208d613437";
-var RELEASE_WORKFLOW_HASH_SINGLE = "d26dd4ca186632b388ea46bd885721124c03d19918e511baa40821d2d760da69";
-var PUBLISH_WORKFLOW_HASH_MONOREPO = "0afa9ffe914f3dc8f043e68252ebc604c8cc1a953422fcea37a909a4def370ee";
-var PUBLISH_WORKFLOW_HASH_SINGLE = "6f31183e0a1e66be791a19266c3b028dadbd9fe010f7fc4452f3f8970c937b43";
-var CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO = "c455d88c93d855737c96079945ff729a9d094f846519c24afbefe83a425c1d7f";
-var CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE = "f595831ff28f8b3a01d97e6cb0cfe100262f7a8821091c6c458b0c0224cebba8";
 var default_default = defineRdyKit({
   checklists: [
     {
@@ -355,134 +473,6 @@ var default_default = defineRdyKit({
     }
   ]
 });
-function changelogArchivesAreEnabled() {
-  const content = readFile(".config/release-kit.config.ts");
-  if (content === void 0) return false;
-  return /changelogMarkdown\s*:\s*\{[^}]*keepVersions\s*:/.test(content);
-}
-function changelogJsonIsEnabled() {
-  const content = readFile(".config/release-kit.config.ts");
-  if (content === void 0) return true;
-  return !/changelogJson\s*:\s*\{[^}]*enabled\s*:\s*false/.test(content);
-}
-function configFileExportsConfig() {
-  const content = readFile(".config/release-kit.config.ts");
-  if (content === void 0) return false;
-  return CONFIG_EXPORT_PATTERNS.some((pattern) => pattern.test(content));
-}
-function labelsHaveCurrentPresetHash(presetName, expectedHash) {
-  const content = readFile(".github/labels.yaml");
-  if (content === void 0) return false;
-  const pattern = new RegExp(`^# ${presetName} preset hash: (.+)$`, "m");
-  const match = pattern.exec(content);
-  return match !== null && match[1] === expectedHash;
-}
-function packagesShipChangelog() {
-  return reportWorkspacesOmitting("CHANGELOG.md");
-}
-function packagesShipChangelogArchives() {
-  return reportWorkspacesOmitting(`${CHANGELOG_ARCHIVE_DIRECTORY}/CHANGELOG-v1.md`, `${CHANGELOG_ARCHIVE_DIRECTORY}/`);
-}
-function packagesShipChangelogJson() {
-  return reportWorkspacesOmitting(resolveChangelogJsonOutputPath());
-}
-function readmeHasReleaseNotesMarkers(content) {
-  return content.includes("<!-- section:release-notes -->") && content.includes("<!-- /section:release-notes -->");
-}
-function readmesHaveReleaseNotesMarkers() {
-  const failing = [];
-  const packageWorkspaces = discoverWorkspaces({ filter: (w) => w.isPackage });
-  for (const { dir } of packageWorkspaces) {
-    const readmePath = dir === "." ? "README.md" : `${dir}/README.md`;
-    const content = readFile(readmePath);
-    if (content === void 0 || !readmeHasReleaseNotesMarkers(content)) {
-      failing.push(readmePath);
-    }
-  }
-  if (failing.length === 0) return true;
-  return {
-    ok: false,
-    detail: `missing markers or README: ${failing.join(", ")}`
-  };
-}
-function releaseNotesConfigIsConsistent() {
-  const content = readFile(".config/release-kit.config.ts");
-  if (content === void 0) return true;
-  const changelogJsonDisabled = /changelogJson\s*:\s*\{[^}]*enabled\s*:\s*false/.test(content);
-  if (!changelogJsonDisabled) return true;
-  const hasReadmeInjection = /shouldInjectIntoReadme\s*:\s*true/.test(content);
-  return !hasReadmeInjection;
-}
-function releaseNotesInjectsIntoReadme() {
-  const content = readFile(".config/release-kit.config.ts");
-  if (content === void 0) return false;
-  return /shouldInjectIntoReadme\s*:\s*true/.test(content);
-}
-function reportWorkspacesOmitting(path, label = path) {
-  const failing = [];
-  const packageWorkspaces = discoverWorkspaces({ filter: (w) => w.isPackage });
-  for (const { dir, packageJson } of packageWorkspaces) {
-    if (!packsPath(packageJson["files"], path)) {
-      failing.push(dir === "." ? "package.json" : `${dir}/package.json`);
-    }
-  }
-  if (failing.length === 0) return true;
-  return {
-    ok: false,
-    detail: `files field omits ${label}: ${failing.join(", ")}`
-  };
-}
-function resolveChangelogJsonOutputPath() {
-  const content = readFile(".config/release-kit.config.ts");
-  if (content === void 0) return DEFAULT_CHANGELOG_JSON_PATH;
-  const match = /changelogJson\s*:\s*\{[^}]*outputPath\s*:\s*['"]([^'"]+)['"]/.exec(content);
-  return match?.[1] ?? DEFAULT_CHANGELOG_JSON_PATH;
-}
-function scopeLabelsHaveNoDescriptions() {
-  const content = readFile(".github/labels.yaml");
-  if (content === void 0) return true;
-  const described = [];
-  let currentName;
-  for (const line of content.split("\n")) {
-    const nameMatch = /^- name:\s*(.*?)\s*$/.exec(line);
-    if (nameMatch) {
-      currentName = stripYamlQuotes(nameMatch[1] ?? "");
-      continue;
-    }
-    const descriptionMatch = /^\s+description:\s*(.*?)\s*$/.exec(line);
-    if (descriptionMatch && currentName?.startsWith("scope:") && stripYamlQuotes(descriptionMatch[1] ?? "") !== "") {
-      described.push(currentName);
-    }
-  }
-  if (described.length === 0) return true;
-  return {
-    ok: false,
-    detail: `scope labels with a description: ${described.join(", ")}`
-  };
-}
-function stripYamlQuotes(value) {
-  const match = /^(['"])(.*)\1$/.exec(value);
-  return match?.[2] ?? value;
-}
 export {
-  COMMON_PRESET_HASH,
-  CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO,
-  CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE,
-  DEFAULT_CHANGELOG_JSON_PATH,
-  PUBLISH_WORKFLOW_HASH_MONOREPO,
-  PUBLISH_WORKFLOW_HASH_SINGLE,
-  RELEASE_WORKFLOW_HASH_MONOREPO,
-  RELEASE_WORKFLOW_HASH_SINGLE,
-  SYNC_LABELS_WORKFLOW_HASH,
-  changelogArchivesAreEnabled,
-  changelogJsonIsEnabled,
-  configFileExportsConfig,
-  default_default as default,
-  packagesShipChangelog,
-  packagesShipChangelogArchives,
-  packagesShipChangelogJson,
-  readmeHasReleaseNotesMarkers,
-  readmesHaveReleaseNotesMarkers,
-  resolveChangelogJsonOutputPath,
-  scopeLabelsHaveNoDescriptions
+  default_default as default
 };

@@ -5,6 +5,12 @@ import { assert, describe, expect, it } from 'vitest';
 
 import kit, {
   buildWorkspaceCheck,
+  packagesChecklist,
+  selectProbeName,
+  skipIfNothingPublishable,
+  skipIfNotPublishable,
+} from '../../.readyup/kits/npm-auto-publish.ts';
+import {
   classifyNpmAuth,
   classifyProvenanceSetting,
   classifyTrustCapability,
@@ -12,12 +18,8 @@ import kit, {
   describeNpmPackageLookup,
   describeTrustedPublisher,
   type OwnerRepo,
-  packagesChecklist,
   parseGitHubOwnerRepo,
-  selectProbeName,
-  skipIfNothingPublishable,
-  skipIfNotPublishable,
-} from '../../.readyup/kits/npm-auto-publish.ts';
+} from '../../.readyup/lib/npm-trust.ts';
 import { PNPM_WORKSPACE, scaffoldRepo } from '../test-utils/scaffoldRepo.ts';
 
 // Verbatim payloads from npm 11.16.0. Both commands write the envelope to stdout and exit nonzero.

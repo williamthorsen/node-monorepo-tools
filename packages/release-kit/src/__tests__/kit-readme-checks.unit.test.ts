@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { readmeHasReleaseNotesMarkers, readmesHaveReleaseNotesMarkers } from '../../.readyup/kits/default.ts';
+import { readmeHasReleaseNotesMarkers, readmesHaveReleaseNotesMarkers } from '../../.readyup/lib/config-checks.ts';
 import { PNPM_WORKSPACE, scaffoldRepo } from '../test-utils/scaffoldRepo.ts';
 
 const MARKERS = '<!-- section:release-notes -->\nNotes here\n<!-- /section:release-notes -->\n';

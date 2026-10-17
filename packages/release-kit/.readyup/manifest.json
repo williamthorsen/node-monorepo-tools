@@ -43,9 +43,24 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "176a18ce",
+          "hash": "ad3666b8",
           "kind": "module",
           "path": "kits/default.ts"
+        },
+        {
+          "hash": "45fc235f",
+          "kind": "module",
+          "path": "lib/changelog-checks.ts"
+        },
+        {
+          "hash": "be2c2cb3",
+          "kind": "module",
+          "path": "lib/config-checks.ts"
+        },
+        {
+          "hash": "290731d6",
+          "kind": "module",
+          "path": "lib/workflow-hashes.ts"
         },
         {
           "hash": "92bf79b3",
@@ -85,8 +100,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.41.1",
       "source": "kits/default.ts",
-      "sourceHash": "176a18ce",
-      "targetHash": "b6766d41"
+      "sourceHash": "ad3666b8",
+      "targetHash": "2067d136"
     },
     {
       "checklistChecks": [
@@ -156,9 +171,14 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "66081555",
+          "hash": "96097af7",
           "kind": "module",
           "path": "kits/npm-auto-publish.ts"
+        },
+        {
+          "hash": "05215737",
+          "kind": "module",
+          "path": "lib/npm-trust.ts"
         },
         {
           "hash": "d360febf",
@@ -180,8 +200,8 @@
       "path": "kits/npm-auto-publish.js",
       "readyupVersion": "0.41.1",
       "source": "kits/npm-auto-publish.ts",
-      "sourceHash": "66081555",
-      "targetHash": "c16b4187"
+      "sourceHash": "96097af7",
+      "targetHash": "57caedc0"
     }
   ]
 }

@@ -2,7 +2,7 @@ import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testi
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { parseArgs } from '../prepareCommand.ts';
+import { parseArgs } from '../prepareArgs.ts';
 
 describe(parseArgs, () => {
   let capture: CapturedStdio;

@@ -11,7 +11,7 @@
  * A check asserting the absence of something declares `quiet`: A conformant repo is already in the passing
  * state, so only a failure is worth a line.
  */
-import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
+import { defineRdyKit, pickJson } from 'readyup';
 import {
   discoverWorkspaces,
   fileContains,
@@ -20,12 +20,35 @@ import {
   fileMatchesHash,
   hasDevDependency,
   hasMinDevDependencyVersion,
-  readFile,
 } from 'readyup/check-utils';
 
-import { CHANGELOG_ARCHIVE_DIRECTORY } from '../../src/changelogArchive.ts';
 import { detectRepoType } from '../../src/init/detectRepoType.ts';
-import { packsPath } from '../../src/packsPath.ts';
+import {
+  changelogArchivesAreEnabled,
+  changelogJsonIsEnabled,
+  packagesShipChangelog,
+  packagesShipChangelogArchives,
+  packagesShipChangelogJson,
+  resolveChangelogJsonOutputPath,
+} from '../lib/changelog-checks.ts';
+import {
+  configFileExportsConfig,
+  labelsHaveCurrentPresetHash,
+  readmesHaveReleaseNotesMarkers,
+  releaseNotesConfigIsConsistent,
+  releaseNotesInjectsIntoReadme,
+  scopeLabelsHaveNoDescriptions,
+} from '../lib/config-checks.ts';
+import {
+  COMMON_PRESET_HASH,
+  CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO,
+  CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE,
+  PUBLISH_WORKFLOW_HASH_MONOREPO,
+  PUBLISH_WORKFLOW_HASH_SINGLE,
+  RELEASE_WORKFLOW_HASH_MONOREPO,
+  RELEASE_WORKFLOW_HASH_SINGLE,
+  SYNC_LABELS_WORKFLOW_HASH,
+} from '../lib/workflow-hashes.ts';
 
 /** Returns the minimum release-kit version that a consuming repo must declare. */
 function getMinVersion(): string {
@@ -43,36 +66,6 @@ function getMinVersion(): string {
 function hasPublishablePackages(): boolean {
   return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
 }
-
-/**
- * Where release-kit writes the structured changelog when the config does not name any other path.
- *
- * Mirrors `DEFAULT_CHANGELOG_JSON_CONFIG.outputPath`, which the kit does not import: Importing `src/defaults.ts`
- * would pull change-grammar's taxonomy and its dependencies into the bundle that this package publishes.
- * `src/__tests__/kit-changelog-packaging-checks.unit.test.ts` asserts the two stay equal.
- */
-export const DEFAULT_CHANGELOG_JSON_PATH = '.meta/changelog.json';
-
-/** Source shapes that can put `default` or `config` on the module namespace, which is what `loadConfig` reads. */
-const CONFIG_EXPORT_PATTERNS = [
-  /export\s+default\b/,
-  /export\s+(?:const|let|var)\s+config\b/,
-  /export\s*\{[^}]*\b(?:config|default)\b[^}]*\}/,
-  /export\s*\*/,
-];
-
-// SHA-256 hashes of the artifacts that release-kit emits;
-// `src/__tests__/kit-hashes.unit.test.ts` fails when one is stale.
-export const COMMON_PRESET_HASH = '1d3e2df1ccd7deea4707fa07a4ae171d761344b65c1a311467fc0f66b70ee646';
-export const SYNC_LABELS_WORKFLOW_HASH = '0a88829d154c0de7cdd4246fede99e9311a89ab4199034dbe601663d641ab1e4';
-export const RELEASE_WORKFLOW_HASH_MONOREPO = 'f63f4cabb57f94ee6550f17a9874c7a346d46554595ddbcd46fdd3208d613437';
-export const RELEASE_WORKFLOW_HASH_SINGLE = 'd26dd4ca186632b388ea46bd885721124c03d19918e511baa40821d2d760da69';
-export const PUBLISH_WORKFLOW_HASH_MONOREPO = '0afa9ffe914f3dc8f043e68252ebc604c8cc1a953422fcea37a909a4def370ee';
-export const PUBLISH_WORKFLOW_HASH_SINGLE = '6f31183e0a1e66be791a19266c3b028dadbd9fe010f7fc4452f3f8970c937b43';
-export const CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO =
-  'c455d88c93d855737c96079945ff729a9d094f846519c24afbefe83a425c1d7f';
-export const CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE =
-  'f595831ff28f8b3a01d97e6cb0cfe100262f7a8821091c6c458b0c0224cebba8';
 
 export default defineRdyKit({
   checklists: [
@@ -312,221 +305,3 @@ export default defineRdyKit({
     },
   ],
 });
-
-// region | Helpers
-
-/**
- * Checks whether the config sets `changelogMarkdown.keepVersions`, which moves older `CHANGELOG.md` sections into
- * archive files. Reads the raw config text, so a value set by an expression counts as set.
- *
- * @internal - Exported only to enable testing
- */
-export function changelogArchivesAreEnabled(): boolean {
-  const content = readFile('.config/release-kit.config.ts');
-  if (content === undefined) return false;
-  return /changelogMarkdown\s*:\s*\{[^}]*keepVersions\s*:/.test(content);
-}
-
-/**
- * Checks whether the repo leaves structured changelog generation on.
- *
- * A repo without a config file inherits the enabled default, so a missing config file passes.
- *
- * @internal - Exported only to enable testing
- */
-export function changelogJsonIsEnabled(): boolean {
-  const content = readFile('.config/release-kit.config.ts');
-  if (content === undefined) return true;
-  return !/changelogJson\s*:\s*\{[^}]*enabled\s*:\s*false/.test(content);
-}
-
-/**
- * Checks that the config file exports a config that release-kit can load.
- *
- * `loadConfig` resolves `imported.default ?? imported.config` and throws when the file exports neither, so the
- * checks nested beneath this one have nothing to read until it passes. Because source text cannot decide a module's
- * export names exactly, and this check gates five others at `error` severity, the patterns match broadly: A config
- * that the patterns admit and `loadConfig` rejects produces one failure downstream, whereas the reverse suppresses
- * the seven checks beneath this one.
- *
- * @internal - Exported only to enable testing
- */
-export function configFileExportsConfig(): boolean {
-  const content = readFile('.config/release-kit.config.ts');
-  if (content === undefined) return false;
-  return CONFIG_EXPORT_PATTERNS.some((pattern) => pattern.test(content));
-}
-
-/** Checks whether `.github/labels.yaml` contains the expected hash for a named preset. */
-function labelsHaveCurrentPresetHash(presetName: string, expectedHash: string): boolean {
-  const content = readFile('.github/labels.yaml');
-  if (content === undefined) return false;
-  const pattern = new RegExp(`^# ${presetName} preset hash: (.+)$`, 'm');
-  const match = pattern.exec(content);
-  return match !== null && match[1] === expectedHash;
-}
-
-/**
- * Checks that every publishable workspace would publish `CHANGELOG.md`.
- *
- * @internal - Exported only to enable testing
- */
-export function packagesShipChangelog(): boolean | CheckOutcome {
-  return reportWorkspacesOmitting('CHANGELOG.md');
-}
-
-/**
- * Checks that every publishable workspace would publish the archive files of its `CHANGELOG.md`.
- *
- * @internal - Exported only to enable testing
- */
-export function packagesShipChangelogArchives(): boolean | CheckOutcome {
-  return reportWorkspacesOmitting(`${CHANGELOG_ARCHIVE_DIRECTORY}/CHANGELOG-v1.md`, `${CHANGELOG_ARCHIVE_DIRECTORY}/`);
-}
-
-/**
- * Checks that every publishable workspace would publish the structured changelog.
- *
- * @internal - Exported only to enable testing
- */
-export function packagesShipChangelogJson(): boolean | CheckOutcome {
-  return reportWorkspacesOmitting(resolveChangelogJsonOutputPath());
-}
-
-/**
- * Tests whether a README's content contains the release-notes section marker pair.
- *
- * Both `<!-- section:release-notes -->` and `<!-- /section:release-notes -->` must be present.
- * Order and proximity are not enforced; release-kit's injector locates each marker independently.
- */
-export function readmeHasReleaseNotesMarkers(content: string): boolean {
-  return content.includes('<!-- section:release-notes -->') && content.includes('<!-- /section:release-notes -->');
-}
-
-/**
- * Checks that the README of every publishable workspace contains the release-notes markers.
- *
- * A missing README counts as a failure for its package. Workspace discovery reports the repo root in both repo types,
- * so a publishable root is checked like any other package.
- */
-export function readmesHaveReleaseNotesMarkers(): boolean | CheckOutcome {
-  const failing: string[] = [];
-  const packageWorkspaces = discoverWorkspaces({ filter: (w) => w.isPackage });
-  for (const { dir } of packageWorkspaces) {
-    const readmePath = dir === '.' ? 'README.md' : `${dir}/README.md`;
-    const content = readFile(readmePath);
-    if (content === undefined || !readmeHasReleaseNotesMarkers(content)) {
-      failing.push(readmePath);
-    }
-  }
-
-  if (failing.length === 0) return true;
-  return {
-    ok: false,
-    detail: `missing markers or README: ${failing.join(', ')}`,
-  };
-}
-
-/**
- * Checks that releaseNotes features are not enabled while changelogJson is disabled.
- *
- * Uses regex matching against the raw config file to avoid importing it.
- */
-function releaseNotesConfigIsConsistent(): boolean {
-  const content = readFile('.config/release-kit.config.ts');
-  if (content === undefined) return true;
-
-  const changelogJsonDisabled = /changelogJson\s*:\s*\{[^}]*enabled\s*:\s*false/.test(content);
-  if (!changelogJsonDisabled) return true;
-
-  const hasReadmeInjection = /shouldInjectIntoReadme\s*:\s*true/.test(content);
-  return !hasReadmeInjection;
-}
-
-/** Checks that `releaseNotes.shouldInjectIntoReadme` is explicitly set to true. */
-function releaseNotesInjectsIntoReadme(): boolean {
-  const content = readFile('.config/release-kit.config.ts');
-  if (content === undefined) return false;
-  return /shouldInjectIntoReadme\s*:\s*true/.test(content);
-}
-
-/**
- * Names the publishable workspaces whose `files` field would leave `path` out of the tarball, naming the omission as
- * `label`.
- *
- * Workspace discovery reports the repo root in both repo types, so a publishable root is checked like any other
- * package and a `private: true` workspace is filtered out before its `files` field is read. The check does not
- * require `path` to exist on disk: A repo adopting release-kit before its first release should widen `files`
- * then, not after the first changelog is generated.
- */
-function reportWorkspacesOmitting(path: string, label = path): boolean | CheckOutcome {
-  const failing: string[] = [];
-  const packageWorkspaces = discoverWorkspaces({ filter: (w) => w.isPackage });
-  for (const { dir, packageJson } of packageWorkspaces) {
-    if (!packsPath(packageJson['files'], path)) {
-      failing.push(dir === '.' ? 'package.json' : `${dir}/package.json`);
-    }
-  }
-
-  if (failing.length === 0) return true;
-  return {
-    ok: false,
-    detail: `files field omits ${label}: ${failing.join(', ')}`,
-  };
-}
-
-/**
- * Resolves the path to which release-kit writes the structured changelog.
- *
- * Reads the raw config text rather than importing the config, as the neighboring config checks do.
- *
- * @internal - Exported only to enable testing
- */
-export function resolveChangelogJsonOutputPath(): string {
-  const content = readFile('.config/release-kit.config.ts');
-  if (content === undefined) return DEFAULT_CHANGELOG_JSON_PATH;
-
-  const match = /changelogJson\s*:\s*\{[^}]*outputPath\s*:\s*['"]([^'"]+)['"]/.exec(content);
-  return match?.[1] ?? DEFAULT_CHANGELOG_JSON_PATH;
-}
-
-/**
- * Checks that every `scope:` label in `.github/labels.yaml` has an empty description.
- *
- * Parses the file line by line: `sync-labels generate` writes each label as a `- name:` line followed by indented
- * fields, and spells an absent description `''`. A missing file passes, because the parent check reports it.
- *
- * @internal - Exported only to enable testing
- */
-export function scopeLabelsHaveNoDescriptions(): boolean | CheckOutcome {
-  const content = readFile('.github/labels.yaml');
-  if (content === undefined) return true;
-
-  const described: string[] = [];
-  let currentName: string | undefined;
-  for (const line of content.split('\n')) {
-    const nameMatch = /^- name:\s*(.*?)\s*$/.exec(line);
-    if (nameMatch) {
-      currentName = stripYamlQuotes(nameMatch[1] ?? '');
-      continue;
-    }
-    const descriptionMatch = /^\s+description:\s*(.*?)\s*$/.exec(line);
-    if (descriptionMatch && currentName?.startsWith('scope:') && stripYamlQuotes(descriptionMatch[1] ?? '') !== '') {
-      described.push(currentName);
-    }
-  }
-
-  if (described.length === 0) return true;
-  return {
-    ok: false,
-    detail: `scope labels with a description: ${described.join(', ')}`,
-  };
-}
-
-/** Removes one level of matching single or double quotes from a YAML scalar. */
-function stripYamlQuotes(value: string): string {
-  const match = /^(['"])(.*)\1$/.exec(value);
-  return match?.[2] ?? value;
-}
-
-// endregion | Helpers
