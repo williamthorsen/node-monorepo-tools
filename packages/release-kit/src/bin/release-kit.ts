@@ -12,14 +12,31 @@ import { commitCommand } from '../commitCommand.ts';
 import { configFlagSchema } from '../configFlagSchema.ts';
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
 import { enterRepoRoot, type RepoLocation } from '../enterRepoRoot.ts';
+import { showInitHelp, showUpdateTemplatesHelp } from '../help/initHelp.ts';
+import { showOverridesHelp, showOverridesValidateHelp } from '../help/overridesHelp.ts';
 import { showPrepareHelp } from '../help/prepareHelp.ts';
+import {
+  showCommitHelp,
+  showCreateGithubReleaseHelp,
+  showPublishHelp,
+  showPushHelp,
+  showShowTagPrefixesHelp,
+  showTagHelp,
+} from '../help/releaseStepsHelp.ts';
+import {
+  showSyncLabelsGenerateHelp,
+  showSyncLabelsHelp,
+  showSyncLabelsInitHelp,
+  showSyncLabelsSyncHelp,
+} from '../help/syncLabelsHelp.ts';
+import { showUsage } from '../help/usage.ts';
 import { initCommand } from '../init/initCommand.ts';
 import { updateTemplatesCommand } from '../init/updateTemplatesCommand.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { publishCommand } from '../publishCommand.ts';
 import { pushCommand } from '../pushCommand.ts';
 import { resolveConfigFlag } from '../resolveConfigFlag.ts';
-import { OUTPUT_STYLE_ENV_VAR, resolveStylesOrExit } from '../resolveStylesOrExit.ts';
+import { resolveStylesOrExit } from '../resolveStylesOrExit.ts';
 import { showTagPrefixesCommand } from '../showTagPrefixesCommand.ts';
 import { generateCommand } from '../sync-labels/generateCommand.ts';
 import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
@@ -28,273 +45,6 @@ import { tagCommand } from '../tagCommand.ts';
 import { validateOverridesCommand } from '../validateOverridesCommand.ts';
 
 const VERSION = resolveSelfVersion(import.meta.url);
-
-/** Prints the top-level usage text. */
-function showUsage(): void {
-  console.info(`
-Usage: release-kit <command> [options]
-
-Commands:
-  prepare          Run release preparation (auto-discovers workspaces)
-  commit           Stage changes and create the release commit
-  tag              Create annotated git tags from the tags file
-  push             Push release commit and tags (one push per tag)
-  publish          Publish packages with release tags on HEAD
-  create-github-release  Create GitHub Releases from changelog.json for tags on HEAD
-  show-tag-prefixes  Show derived and declared legacy tag prefixes per workspace
-  init             Initialize release-kit in the current repository
-  update-templates Update the scaffolded workflows to the current templates
-  overrides        Manage editorial changelog overrides
-  sync-labels      Manage GitHub label synchronization
-
-Options:
-  --dry-run        Preview changes without writing files
-  --help, -h       Show this help message
-  --version, -V    Show the version number
-
-Environment:
-  ${OUTPUT_STYLE_ENV_VAR}
-                   Output style: auto (default), plain, or rich. auto prints plain,
-                   without emoji, when CI is set or the stream is not a terminal.
-`);
-}
-
-/** Prints the `sync-labels` command's help text. */
-function showSyncLabelsHelp(): void {
-  console.info(`
-Usage: release-kit sync-labels <subcommand> [options]
-
-Manage GitHub label synchronization via preset and custom label definitions.
-
-Subcommands:
-  init          Scaffold caller workflow and config, then generate labels
-  generate      Regenerate .github/labels.yaml from config
-  sync          Trigger the sync-labels workflow via gh CLI
-
-Options:
-  --help, -h    Show this help message
-`);
-}
-
-/** Prints the `sync-labels init` subcommand's help text. */
-function showSyncLabelsInitHelp(): void {
-  console.info(`
-Usage: release-kit sync-labels init [options]
-
-Scaffold the sync-labels caller workflow and seed the repoLabels block of
-.config/release-kit.config.ts with scope labels discovered from workspaces and
-retired packages, then generate .github/labels.yaml. When the config file already
-exists, print the block for manual paste instead of rewriting the file.
-
-Options:
-  --config <path>  Config file, relative to the current directory
-                   (default: .config/release-kit.config.ts at the repo root)
-  --dry-run        Preview changes without writing files
-  --force          Overwrite existing files instead of skipping them
-  --help, -h       Show this help message
-`);
-}
-
-/** Prints the `sync-labels generate` subcommand's help text. */
-function showSyncLabelsGenerateHelp(): void {
-  console.info(`
-Usage: release-kit sync-labels generate [options]
-
-Regenerate .github/labels.yaml from the repoLabels block of .config/release-kit.config.ts.
-
-Options:
-  --check          Report whether .github/labels.yaml is stale instead of writing it
-  --config <path>  Config file, relative to the current directory
-                   (default: .config/release-kit.config.ts at the repo root)
-  --help, -h       Show this help message
-`);
-}
-
-/** Prints the `sync-labels sync` subcommand's help text. */
-function showSyncLabelsSyncHelp(): void {
-  console.info(`
-Usage: release-kit sync-labels sync
-
-Trigger the sync-labels GitHub Actions workflow via the gh CLI.
-
-Options:
-  --help, -h    Show this help message
-`);
-}
-
-/** Prints the `init` command's help text. */
-function showInitHelp(): void {
-  console.info(`
-Usage: release-kit init [options]
-
-Initialize release-kit in the current repository.
-By default, scaffolds only the GitHub Actions workflow files. When every
-package is private, skips publish.yaml and create-github-release.yaml.
-
-Options:
-  --with-config   Also scaffold .config/release-kit.config.ts
-  --force         Overwrite existing files instead of skipping them
-  --dry-run       Preview changes without writing files
-  --help, -h      Show this help message
-`);
-}
-
-/** Prints the `update-templates` command's help text. */
-function showUpdateTemplatesHelp(): void {
-  console.info(`
-Usage: release-kit update-templates [options]
-
-Update the GitHub Actions workflows that release-kit scaffolds to the templates
-of the installed version, showing what changed in each file. Creates a missing
-workflow that \`init\` would create, and refreshes sync-labels.yaml only when it
-exists. When every package is private, refreshes publish.yaml and
-create-github-release.yaml only when they exist. Keeps publish.yaml's provenance
-setting. Never touches config files.
-
-Options:
-  --dry-run       Preview changes without writing files
-  --help, -h      Show this help message
-`);
-}
-
-/** Prints the `commit` command's help text. */
-function showCommitHelp(): void {
-  console.info(`
-Usage: release-kit commit [options]
-
-Stage all changes and create the release commit using tags and summary
-produced by \`prepare\`.
-
-Options:
-  --dry-run     Preview the commit message without creating it
-  --help, -h    Show this help message
-`);
-}
-
-/** Prints the `tag` command's help text. */
-function showTagHelp(): void {
-  console.info(`
-Usage: release-kit tag [options]
-
-Create annotated git tags from the tags file produced by \`prepare\`.
-
-Options:
-  --dry-run          Preview without creating tags
-  --no-git-checks    Skip dirty working tree check
-  --help, -h         Show this help message
-`);
-}
-
-/** Prints the `push` command's help text. */
-function showPushHelp(): void {
-  console.info(`
-Usage: release-kit push [options]
-
-Push the release commit and each tag individually, so that GitHub Actions
-starts a separate workflow run for each tag.
-
-Options:
-  --config <path>        Config file, relative to the current directory
-                         (default: .config/release-kit.config.ts at the repo root)
-  --dry-run              Preview without pushing
-  --tags=tag1,tag2       Only push the named tags (comma-separated, full tag names)
-  --tags-only            Skip the branch push (push tags only)
-  --help, -h             Show this help message
-`);
-}
-
-/** Prints the `create-github-release` command's help text. */
-function showCreateGithubReleaseHelp(): void {
-  console.info(`
-Usage: release-kit create-github-release [options]
-
-Create GitHub Releases from changelog.json for tags on HEAD. Private
-(package.json#private) workspaces are skipped with a warning, and the command
-doesn't create a Release for them. A project tag gets a Release even when the
-root package is private.
-
-Options:
-  --config <path>        Config file, relative to the current directory
-                         (default: .config/release-kit.config.ts at the repo root)
-  --dry-run              Preview without creating releases
-  --tags=tag1,tag2       Only create releases for the named tags (comma-separated, full tag names)
-  --help, -h             Show this help message
-`);
-}
-
-/** Prints the `show-tag-prefixes` command's help text. */
-function showShowTagPrefixesHelp(): void {
-  console.info(`
-Usage: release-kit show-tag-prefixes [options]
-
-Print a per-workspace table of derived tag prefixes, tag counts, and declared
-legacy tag prefixes. Reports any release-shaped tags whose prefix is neither a
-derived prefix nor declared in \`legacyIdentities\`, with a copy-pasteable
-config snippet.
-
-Options:
-  --config <path>  Config file, relative to the current directory
-                   (default: .config/release-kit.config.ts at the repo root)
-  --help, -h       Show this help message
-`);
-}
-
-/** Prints the `overrides` command's help text. */
-function showOverridesHelp(): void {
-  console.info(`
-Usage: release-kit overrides <subcommand> [options]
-
-Manage editorial changelog overrides.
-
-Subcommands:
-  validate      Validate every \`.meta/changelog-overrides.json\` file across all scopes
-
-Options:
-  --help, -h    Show this help message
-`);
-}
-
-/** Prints the `overrides validate` subcommand's help text. */
-function showOverridesValidateHelp(): void {
-  console.info(`
-Usage: release-kit overrides validate
-
-Validate every \`.meta/changelog-overrides.json\` file across the project and per-workspace
-scopes. Reports schema/parse errors, ambiguous-prefix errors, conflicting-key errors, and
-stale-key warnings.
-
-Exit codes:
-  0    Clean: no errors, no stale keys
-  1    Stale-key warnings only (no errors)
-  2    Schema/parse, ambiguous-prefix, or conflicting-key errors (errors take precedence)
-
-Options:
-  --config <path>  Config file, relative to the current directory
-                   (default: .config/release-kit.config.ts at the repo root)
-  --help, -h       Show this help message
-`);
-}
-
-/** Prints the `publish` command's help text. */
-function showPublishHelp(): void {
-  console.info(`
-Usage: release-kit publish [options]
-
-Publish packages that have release tags on HEAD. Operates only on workspaces whose
-package.json#private is absent or false. Without --tags, unpublishable workspaces are
-silently filtered out. With --tags, an unpublishable tag is skipped with a warning while
-any publishable tags are still published. A project tag is never published.
-
-Options:
-  --config <path>        Config file, relative to the current directory
-                         (default: .config/release-kit.config.ts at the repo root)
-  --dry-run              Preview without publishing
-  --no-git-checks        Skip the clean-working-tree check
-  --tags=tag1,tag2       Only publish the named tags (comma-separated, full tag names)
-  --provenance           Generate provenance statement (requires OIDC, not supported by classic yarn)
-  --help, -h             Show this help message
-`);
-}
 
 /** Moves the process to the repo root, or reports why none was found and exits. */
 function enterRepoRootOrExit(): RepoLocation {
