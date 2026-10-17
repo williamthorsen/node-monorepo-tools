@@ -450,8 +450,9 @@ function scopeLabelsHaveNoDescriptions() {
       continue;
     }
     const descriptionMatch = /^\s+description:\s*(.*?)\s*$/.exec(line);
-    if (descriptionMatch && currentName?.startsWith("scope:") && stripYamlQuotes(descriptionMatch[1] ?? "") !== "")
+    if (descriptionMatch && currentName?.startsWith("scope:") && stripYamlQuotes(descriptionMatch[1] ?? "") !== "") {
       described.push(currentName);
+    }
   }
   if (described.length === 0) return true;
   return {
