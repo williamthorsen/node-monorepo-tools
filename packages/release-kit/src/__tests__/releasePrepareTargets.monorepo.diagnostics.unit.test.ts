@@ -442,9 +442,11 @@ describe('releasePrepareTargets for a monorepo', () => {
         },
       });
       mockReadFileSync.mockImplementation((filePath: string) =>
-        filePath.includes('arrays')
-          ? JSON.stringify({ name: '@test/arrays', version: '1.0.0', dependencies: { '@test/core': 'workspace:*' } })
-          : JSON.stringify({ name: '@test/core', version: '1.0.0' }),
+        JSON.stringify(
+          filePath.includes('arrays')
+            ? { name: '@test/arrays', version: '1.0.0', dependencies: { '@test/core': 'workspace:*' } }
+            : { name: '@test/core', version: '1.0.0' },
+        ),
       );
       mockExistsSync.mockReturnValue(false);
 

@@ -28,11 +28,11 @@ export function normalizeBuildInfo(value: unknown): BuildInfo {
 
   const info: BuildInfo = {
     schemaVersion: 1,
-    name: readNonEmptyString(record, 'name', ''),
-    version: readNonEmptyString(record, 'version', ''),
+    name: readNonEmptyString(record, 'name'),
+    version: readNonEmptyString(record, 'version'),
     buildTime: readUtcTimestamp(record, 'buildTime', ''),
     host: readHost(record, 'host', ''),
-    environment: readNonEmptyString(record, 'environment', ''),
+    environment: readNonEmptyString(record, 'environment'),
   };
   assignIfPresent(info, 'commit', readOptional(record, 'commit', '', normalizeCommit));
   assignIfPresent(info, 'repository', readOptional(record, 'repository', '', normalizeRepository));
@@ -166,11 +166,11 @@ function readHost(record: Record<string, unknown>, key: string, path: string): B
   return host;
 }
 
-/** Reads a string field, rejecting an empty string. */
-function readNonEmptyString(record: Record<string, unknown>, key: string, path: string): string {
-  const value = readString(record, key, path);
+/** Reads a top-level string field, rejecting an empty string. */
+function readNonEmptyString(record: Record<string, unknown>, key: string): string {
+  const value = readStringValue(record[key], key);
   if (value === '') {
-    throw new InvalidBuildInfoError(joinKey(path, key), 'expected a non-empty string');
+    throw new InvalidBuildInfoError(key, 'expected a non-empty string');
   }
   return value;
 }

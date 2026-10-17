@@ -76,7 +76,7 @@ function readLegs(content: string): Leg[] {
     typeof workflow === 'object' && workflow !== null && 'jobs' in workflow
       ? readPath(workflow.jobs, ['code-quality', 'with', 'check-commands'])
       : undefined;
-  if (typeof checkCommands !== 'string') throw new Error('code-quality.yaml does not declare check-commands');
+  if (typeof checkCommands !== 'string') throw new TypeError('code-quality.yaml does not declare check-commands');
 
   const legs: unknown = JSON.parse(checkCommands);
   if (!Array.isArray(legs) || !legs.every(isLeg)) throw new Error('check-commands is not a list of { name, command }');
