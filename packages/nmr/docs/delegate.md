@@ -57,5 +57,5 @@ The steps are `prepare`, which reaches the host and creates the checkout, `push`
 ## Setting up the host
 
 - **SSH that does not prompt.** nmr runs `ssh` with `BatchMode=yes`, so a key that needs a passphrase must be in the agent, and the host key must already be known. An unreachable host fails within 10 seconds.
-- **git, Node, and pnpm on the login shell's `PATH`.** nmr reads `PATH` from the host's login shell, which is where a version manager configured in `~/.zprofile` or `~/.bash_profile` puts Node and pnpm. A version manager configured only in `~/.zshrc` is not loaded, and the install step fails, naming `PATH`. The login shell must accept `-lc`: bash and zsh do.
+- **git, Node, and pnpm on the interactive login shell's `PATH`.** nmr reads `PATH` from the host's login shell started as an interactive one, which loads `~/.zshrc` or `~/.bashrc` as well as the login profile: That is where pnpm's installer and the common version managers put Node and pnpm. What the startup files print does not reach the output, but whatever else they do runs before each step. When pnpm is not on that `PATH`, the install step fails, naming `PATH`. The login shell must accept `-ilc`: bash and zsh do.
 - **A sandboxed agent session needs network access to the host.** A sandbox that allows only HTTP egress refuses `ssh`, and the delegation fails at `prepare`.

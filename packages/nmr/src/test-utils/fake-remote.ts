@@ -19,8 +19,8 @@ export interface FakeRemote {
 /**
  * Creates a fake host under `tree`. The fake `ssh` runs its command with `/bin/sh` in the fake home, rewriting git's
  * `git-receive-pack` to the `git receive-pack` form that does not need git's exec path on `PATH`; a host named
- * `unreachable` fails as `ssh` does. The fake login shell drops `-l`, so that a profile on this machine cannot
- * reorder `PATH` ahead of the fakes.
+ * `unreachable` fails as `ssh` does. The fake login shell prints a greeting, as a startup file may, and drops
+ * `-il`, so that a profile on this machine cannot reorder `PATH` ahead of the fakes.
  *
  * The fake `pnpm` logs each call. Its `exec` logs the directory, the arguments, the output style, and the files in
  * the directory and the content of `probe.txt` when there is one, then prints to both streams. These variables
@@ -34,7 +34,7 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
 
   writeExecutable(tree, 'fake-bin/login-shell', [
     '#!/bin/sh',
-    '[ "$1" = -lc ] && shift && exec /bin/sh -c "$@"',
+    'if [ "$1" = -ilc ]; then shift; echo "Loading startup files..."; exec /bin/sh -c "$@"; fi',
     'exec /bin/sh "$@"',
   ]);
   writeExecutable(tree, 'fake-bin/ssh', [

@@ -102,11 +102,11 @@ describe(deriveCheckoutPath, () => {
 });
 
 describe(wrapRemoteScript, () => {
-  it('runs the script under /bin/sh with the PATH of the login shell', () => {
+  it('runs the script under /bin/sh with the PATH of the interactive login shell', () => {
     const wrapped = wrapRemoteScript('echo hi');
 
     expect(wrapped).toMatch(/^exec \/bin\/sh -c '/);
-    expect(wrapped).toContain('-lc');
+    expect(wrapped).toContain('-ilc');
     expect(wrapped).toContain('echo hi');
   });
 });

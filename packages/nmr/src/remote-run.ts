@@ -263,7 +263,7 @@ export async function runRemotely(options: {
   if (install.exitCode !== 0) {
     const message =
       install.exitCode === COMMAND_NOT_FOUND_EXIT_CODE
-        ? `could not install on ${host}: pnpm is not on the PATH that the login shell sets there`
+        ? `could not install on ${host}: pnpm is not on the PATH that the interactive login shell sets there`
         : `could not install on ${host}`;
     return { ok: false, message, output: install.output, phase: 'install' };
   }
@@ -286,16 +286,20 @@ export async function runRemotely(options: {
 }
 
 /**
- * Wraps a script to run under `/bin/sh` with the `PATH` that the user's login shell sets, which is where a version
- * manager puts Node and pnpm. The script runs under `sh` rather than the login shell itself, because the job
+ * Wraps a script to run under `/bin/sh` with the `PATH` that the user's interactive login shell sets. pnpm's own
+ * installer and the common version managers set it up in the interactive startup file, such as `~/.zshrc`, which a
+ * non-interactive shell does not read. The script runs under `sh` rather than that shell itself, because the job
  * control on which the run script relies is not available in every login shell.
+ *
+ * A startup file may print to stdout, so the shell prints `PATH` after a marker, and only what follows the last
+ * marker is read. When no marker arrives, the script keeps the `PATH` with which `ssh` started it.
  *
  * @internal
  */
 export function wrapRemoteScript(script: string): string {
   const preamble = [
-    `login_path=$("\${SHELL:-/bin/sh}" -lc 'printf "%s" "$PATH"' </dev/null) || exit 1`,
-    'PATH=$login_path',
+    `nmr_login_path=$("\${SHELL:-/bin/sh}" -ilc 'printf "\\n${PATH_MARKER}%s\\n" "$PATH"' </dev/null 2>/dev/null | sed -n 's/^${PATH_MARKER}//p' | tail -n 1)`,
+    '[ -n "$nmr_login_path" ] && PATH=$nmr_login_path',
     'export PATH',
   ].join('\n');
 
@@ -303,6 +307,9 @@ export function wrapRemoteScript(script: string): string {
 }
 
 // region | Helpers
+
+/** Precedes the `PATH` that the interactive login shell prints, apart from anything that its startup files print. */
+const PATH_MARKER = '__NMR_LOGIN_PATH__=';
 
 /** The status with which a shell reports a command that it could not find. */
 const COMMAND_NOT_FOUND_EXIT_CODE = 127;
