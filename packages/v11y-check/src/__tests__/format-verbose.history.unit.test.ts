@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { formatCheckVerboseText } from '../format-verbose.ts';
-import { makeCheckResult } from '../test-utils/makeCheckResult.ts';
+import { makeCheckResult } from '../test-utils/check-result-fixtures.ts';
 
 const FIXED_NOW = new Date('2026-04-15T00:00:00Z');
 

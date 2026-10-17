@@ -3,8 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { auditCommand } from '../cli.ts';
 import type { LoadConfigResult } from '../config.ts';
-import { makeConfig, makeOptions } from '../test-utils/cliFixtures.ts';
+import { makeConfig, makeOptions } from '../test-utils/cli-fixtures.ts';
 import type { V11yCheckConfig } from '../types.ts';
+
 const mocks = vi.hoisted(() => ({
   generateAuditCiConfig: vi.fn<() => Promise<string>>(),
   loadConfig: vi.fn<() => Promise<LoadConfigResult>>(),

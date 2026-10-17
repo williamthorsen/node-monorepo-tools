@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { formatCheckJson } from '../format-check.ts';
-import { makeCheckResult } from '../test-utils/makeCheckResult.ts';
+import { makeCheckResult } from '../test-utils/check-result-fixtures.ts';
 
 describe(formatCheckJson, () => {
   it('produces parseable JSON with requested scopes', () => {
