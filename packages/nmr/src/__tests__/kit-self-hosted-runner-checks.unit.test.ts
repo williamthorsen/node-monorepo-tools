@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
+import type { GhResult } from '../../.readyup/lib/github.ts';
 import {
   describeReadinessSkip,
   describeRecommendationSkip,
   describeSelfHostedRunnerSkip,
   findSelfHostedRunnerFailures,
-  type GhResult,
   type GitHubFacts,
   readGitHubFacts,
   readRunnerSelection,
   recommendSelfHostedRunner,
   selfHostedRunnerCanRunCi,
-} from '../../.readyup/kits/default.ts';
+} from '../../.readyup/lib/self-hosted-runner.ts';
 import { buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 

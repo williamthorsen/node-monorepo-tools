@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { noWorkspacesFieldInPackageJson } from '../../.readyup/kits/default.ts';
+import { noWorkspacesFieldInPackageJson } from '../../.readyup/lib/manifest-fields.ts';
 import { buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 

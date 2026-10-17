@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { everyBinWrapperTargetIsCoveredByFiles } from '../../.readyup/kits/default.ts';
+import { everyBinWrapperTargetIsCoveredByFiles } from '../../.readyup/lib/bin-targets.ts';
 import { buildManifest } from '../test-utils/buildManifest.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 import { useMonorepo } from '../test-utils/useMonorepo.ts';

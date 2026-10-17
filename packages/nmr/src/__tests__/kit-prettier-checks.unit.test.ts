@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { prettierConfigBuildsOnSharedConfig } from '../../.readyup/kits/default.ts';
+import { prettierConfigBuildsOnSharedConfig } from '../../.readyup/lib/shared-configs.ts';
 import { buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 
