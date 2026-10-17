@@ -1,28 +1,17 @@
-import { join as joinPath } from 'node:path';
-
 import { findUntaggedBaseline, type UntaggedBaseline } from './assertTaggedBaseline.ts';
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
 import { readReleaseHistory, type ReleaseHistory, toReleaseEntries } from './buildChangelogEntries.ts';
-import { buildSyntheticChangelogEntry } from './buildSyntheticChangelogEntry.ts';
-import { describeArchivePath, listArchiveFiles } from './changelogArchive.ts';
-import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
+import { buildPropagationEntries, buildReleasedResult, type TargetRelease } from './buildReleasedResult.ts';
 import { applyWorkspaceOverrides, type OverrideContext } from './changelogOverrides.ts';
 import { decideRelease } from './decideRelease.ts';
 import { type GenerateChangelogOptions, getAllTagPrefixes } from './generateChangelogs.ts';
+import { planChangelogFiles } from './planChangelogFiles.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 import { planVersionBump, planVersionSet } from './planVersionBump.ts';
-import { planPreservedSections } from './readChangelogSections.ts';
 import type { PlannedWrite } from './releasePlan.ts';
-import { renderChangelogFiles } from './renderChangelogMarkdown.ts';
 import { PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
 import type {
-  ChangelogEntry,
-  ChangelogPreservation,
   DirectoryTarget,
-  PropagationSource,
-  ReleasedCompositeResult,
-  ReleasedDirectoryResult,
-  ReleasedPackageResult,
   ReleasedTargetResult,
   ReleaseSettings,
   ReleaseTarget,
@@ -47,13 +36,6 @@ export type TargetDecision =
   | { outcome: 'release'; releaseType: ReleaseType; bumpOverride: ReleaseType | undefined; setVersion: undefined }
   | { outcome: 'release'; releaseType: undefined; bumpOverride: undefined; setVersion: string }
   | { outcome: 'skip'; skipReason: string };
-
-/** The release level that a target takes, whether its own commits or a dependency's bump decided it. */
-export interface TargetRelease {
-  releaseType: ReleaseType;
-  /** Dependencies whose bumps this release records; present for a propagated or mixed release. */
-  propagatedFrom?: PropagationSource[];
-}
 
 /** Inputs to {@link planTargetRelease}. */
 export interface PlanTargetReleaseArgs {
@@ -254,135 +236,6 @@ export function isRepoRoot(target: DirectoryTarget): boolean {
 }
 
 // region | Helpers
-
-/** The fields that a released result of either kind takes from the plan. */
-type ReleaseResultFields = Omit<
-  ReleasedCompositeResult,
-  'commits' | 'kind' | 'parsedCommitCount' | 'releaseType' | 'status'
->;
-
-/**
- * Builds the released result of a directory target, whose release a direct decision always sets. `--set-version`
- * leaves `releaseType` and the parse counts off, as it does for a package.
- */
-function buildReleasedDirectory(
-  target: DirectoryTarget,
-  fields: ReleaseResultFields,
-  release: TargetRelease,
-  decision: Extract<TargetDecision, { outcome: 'release' }> | undefined,
-  history: ReleaseHistory,
-): ReleasedDirectoryResult {
-  const { unreleased } = history;
-  const setVersion = decision?.setVersion;
-  const result: ReleasedDirectoryResult = {
-    ...fields,
-    status: 'released',
-    kind: 'directory',
-    name: target.id,
-    commits: unreleased.commits,
-    ...(setVersion === undefined && {
-      releaseType: release.releaseType,
-      parsedCommitCount: unreleased.parsedCommitCount,
-    }),
-    ...(decision?.bumpOverride !== undefined && { bumpOverride: decision.bumpOverride }),
-    ...(setVersion !== undefined && { setVersion }),
-  };
-  if (setVersion === undefined && unreleased.unparseableCommits !== undefined) {
-    result.unparseableCommits = unreleased.unparseableCommits;
-  }
-  attachChangelogDiagnostics(result, unreleased.diagnostics);
-  return result;
-}
-
-/** Builds the released result of a composite target, which a direct decision always releases at a level. */
-function buildReleasedComposite(
-  fields: ReleaseResultFields,
-  release: TargetRelease,
-  decision: Extract<TargetDecision, { outcome: 'release' }> | undefined,
-  history: ReleaseHistory,
-): ReleasedCompositeResult {
-  const { unreleased } = history;
-  const result: ReleasedCompositeResult = {
-    ...fields,
-    status: 'released',
-    kind: 'composite',
-    parsedCommitCount: unreleased.parsedCommitCount,
-    releaseType: release.releaseType,
-    commits: unreleased.commits,
-    ...(unreleased.unparseableCommits !== undefined && { unparseableCommits: unreleased.unparseableCommits }),
-    ...(decision?.bumpOverride !== undefined && { bumpOverride: decision.bumpOverride }),
-  };
-  attachChangelogDiagnostics(result, unreleased.diagnostics);
-  return result;
-}
-
-/**
- * Builds the released result of a package target. `--set-version` leaves `releaseType` and the parse counts off, so
- * that reporting can tell the override from a bump, and a release that propagation alone set is marked
- * `propagatedOnly` without a parse count, since no bump was decided from its window.
- */
-function buildReleasedPackage(
-  target: Extract<ReleaseTarget, { kind: 'package' }>,
-  fields: ReleaseResultFields,
-  release: TargetRelease,
-  decision: Extract<TargetDecision, { outcome: 'release' }> | undefined,
-  history: ReleaseHistory,
-): ReleasedPackageResult {
-  const { unreleased } = history;
-  const setVersion = decision?.setVersion;
-  const hasParseCounts = decision !== undefined && setVersion === undefined;
-  const result: ReleasedPackageResult = {
-    ...fields,
-    status: 'released',
-    kind: 'package',
-    commits: unreleased.commits,
-    ...(target.isWorkspace && { name: target.id }),
-    ...(setVersion === undefined && { releaseType: release.releaseType }),
-    ...(hasParseCounts && { parsedCommitCount: unreleased.parsedCommitCount }),
-    ...(decision === undefined && { propagatedOnly: true as const }),
-    ...(release.propagatedFrom !== undefined && { propagatedFrom: release.propagatedFrom }),
-    ...(decision?.bumpOverride !== undefined && { bumpOverride: decision.bumpOverride }),
-    ...(setVersion !== undefined && { setVersion }),
-  };
-  if (setVersion === undefined && unreleased.unparseableCommits !== undefined) {
-    result.unparseableCommits = unreleased.unparseableCommits;
-  }
-  attachChangelogDiagnostics(result, unreleased.diagnostics);
-  return result;
-}
-
-/** Builds the released result of a target from the plan's fields, by the target's kind. */
-function buildReleasedResult(
-  target: ReleaseTarget,
-  fields: ReleaseResultFields,
-  release: TargetRelease,
-  decision: Extract<TargetDecision, { outcome: 'release' }> | undefined,
-  history: ReleaseHistory,
-): ReleasedTargetResult {
-  switch (target.kind) {
-    case 'package':
-      return buildReleasedPackage(target, fields, release, decision, history);
-    case 'directory':
-      return buildReleasedDirectory(target, fields, release, decision, history);
-    case 'composite':
-      return buildReleasedComposite(fields, release, decision, history);
-  }
-}
-
-/** Builds the one synthetic entry of a release that propagation alone set, under the dependencies header. */
-function buildPropagationEntries(
-  target: ReleaseTarget,
-  release: TargetRelease,
-  newVersion: string,
-  today: string,
-  dependenciesHeader: string,
-): ChangelogEntry[] {
-  if (release.propagatedFrom === undefined) {
-    throw new Error(`Workspace '${target.id}' has neither a direct release nor a propagation source`);
-  }
-  return [buildSyntheticChangelogEntry(release.propagatedFrom, newVersion, today, dependenciesHeader)];
-}
-
 /** Names a target in the untagged-baseline error. */
 function describeBaselineLabel(target: ReleaseTarget): string {
   switch (target.kind) {
@@ -434,65 +287,6 @@ function isScopeRouted(target: ReleaseTarget): boolean {
     return !isRepoRoot(target);
   }
   return target.kind === 'package' && target.isWorkspace;
-}
-
-/**
- * Plans the `changelog.json` (when enabled), `CHANGELOG.md`, and archive files of one changelog directory from the new
- * entries merged with the entries on disk, so that the markdown includes prior releases whether or not the JSON is
- * written. Also plans the removal of every existing archive file that the render does not produce.
- */
-function planChangelogFiles(
-  changelogDir: string,
-  newEntries: ChangelogEntry[],
-  settings: TargetPrepareSettings,
-  sectionOrder: string[],
-): {
-  /** The `CHANGELOG.md`, then its archive files. */
-  changelogFiles: string[];
-  changelogJsonFiles: string[];
-  entries: ChangelogEntry[];
-  preservation: ChangelogPreservation | undefined;
-  removals: string[];
-  writes: PlannedWrite[];
-} {
-  const jsonPath = resolveChangelogJsonPath(settings, changelogDir);
-  const entries = mergeChangelogEntriesWithDisk(jsonPath, newEntries);
-  const writes: PlannedWrite[] = [];
-  const changelogJsonFiles: string[] = [];
-
-  if (settings.changelogJson.enabled) {
-    writes.push({ path: jsonPath, content: renderChangelogJson(entries) });
-    changelogJsonFiles.push(jsonPath);
-  }
-
-  const changelogFile = joinPath(changelogDir, 'CHANGELOG.md');
-  const preserved = planPreservedSections(changelogDir, entries);
-  const keepVersions = settings.changelogMarkdown?.keepVersions;
-  const rendered = renderChangelogFiles(entries, {
-    sectionOrder,
-    preservedSections: preserved.sections,
-    ...(keepVersions !== undefined && { keepVersions }),
-  });
-  writes.push({ path: changelogFile, content: rendered.main });
-
-  const archiveFiles: string[] = [];
-  for (const { major, content } of rendered.archives) {
-    const path = joinPath(changelogDir, describeArchivePath(major));
-    writes.push({ path, content });
-    archiveFiles.push(path);
-  }
-  const removals = listArchiveFiles(changelogDir)
-    .map((archive) => archive.path)
-    .filter((path) => !archiveFiles.includes(path));
-
-  return {
-    changelogFiles: [changelogFile, ...archiveFiles],
-    changelogJsonFiles,
-    entries,
-    preservation: preserved.preservation,
-    removals,
-    writes,
-  };
 }
 
 // endregion | Helpers
