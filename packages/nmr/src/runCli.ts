@@ -61,7 +61,6 @@ import { resolveChannel } from './output-channel.ts';
 import { isTerminalStream, OUTPUT_STYLE_ENV_VAR, OUTPUT_STYLE_FLAG, resolveOutputStyles } from './output-style.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import {
-  createSnapshot,
   DELEGATE_ENV_VAR,
   DELEGATE_FLAG,
   DELEGATION_FAILURE_EXIT_CODE,
@@ -70,6 +69,7 @@ import {
   resolveDelegationTarget,
   runRemotely,
 } from './remote-run.ts';
+import { createSnapshot } from './remote-snapshot.ts';
 import { assembleReplay } from './replay-assembly.ts';
 import { readReportFormatEnv, REPORT_FORMAT_ENV_VAR, type ReportFormat, resolveReportFormat } from './report-format.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';

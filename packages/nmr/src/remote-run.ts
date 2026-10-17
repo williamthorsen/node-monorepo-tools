@@ -1,11 +1,10 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { Writable } from 'node:stream';
 
-import { GIT_OUTPUT_LIMIT, type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
+import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
 import { quoteForShell } from './helpers/quoteForShell.ts';
@@ -35,10 +34,6 @@ export type RemotePhase = 'check out' | 'install' | 'prepare' | 'push' | 'run';
 /** The status of a delegated command, or the phase that kept it from finishing and what that phase printed. */
 export type RemoteRunResult =
   { ok: true; exitCode: number } | { ok: false; message: string; output: string; phase: RemotePhase };
-
-/** A commit that records the working tree, or why one could not be made. */
-export type SnapshotResult =
-  { ok: true; sha: string; toplevel: string } | { ok: false; isUnsupported: boolean; reason: string };
 
 /**
  * Composes the script that runs nmr on the host, from the directory that corresponds to the local one.
@@ -82,77 +77,6 @@ export function composeRunScript(options: {
     String.raw`printf '%s\n' "$nmr_status" > ${statusPath}`,
     'exit "$nmr_status"',
   ].join('\n');
-}
-
-/**
- * Builds a commit whose tree is the working tree as it is on disk: tracked changes, staged or not, and untracked
- * files that git does not ignore. The commit is built in a temporary index, so the repository's index, refs, and
- * stash are untouched; the only write is to the object database.
- *
- * The identity and date are fixed, so that the same tree on the same `HEAD` always yields the same commit and a
- * repeated push transfers nothing. A submodule, or a nested repository that `git add` would record as one, is
- * refused: Its content is in a repository that the snapshot does not include.
- */
-export function createSnapshot(cwd: string, env: NodeJS.ProcessEnv): SnapshotResult {
-  const toplevelResult = runGit(['rev-parse', '--show-toplevel'], cwd, env);
-  if (!toplevelResult.ok) {
-    return { ok: false, isUnsupported: true, reason: `not a git repository: ${toplevelResult.error}` };
-  }
-  const toplevel = toplevelResult.stdout.trim();
-
-  if (fs.existsSync(path.join(toplevel, '.gitmodules'))) {
-    return { ok: false, isUnsupported: true, reason: 'the repository declares submodules' };
-  }
-
-  const indexPathResult = runGit(['rev-parse', '--git-path', 'index'], toplevel, env);
-  if (!indexPathResult.ok) {
-    return { ok: false, isUnsupported: false, reason: indexPathResult.error };
-  }
-
-  // Outside the working tree, so that `git add --all` does not record the index in itself.
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-snapshot-'));
-  try {
-    const tempIndex = path.join(tempDir, 'index');
-    const indexPath = path.resolve(toplevel, indexPathResult.stdout.trim());
-    // Seeding from the real index lets git reuse its cached stat data rather than rehash every tracked file.
-    if (fs.existsSync(indexPath)) {
-      fs.copyFileSync(indexPath, tempIndex);
-    }
-    const indexEnv = { ...env, GIT_INDEX_FILE: tempIndex };
-
-    const addResult = runGit(['add', '--all'], toplevel, indexEnv);
-    if (!addResult.ok) {
-      return { ok: false, isUnsupported: false, reason: addResult.error };
-    }
-
-    const stageResult = runGit(['ls-files', '--stage', '-z'], toplevel, indexEnv);
-    if (!stageResult.ok) {
-      return { ok: false, isUnsupported: false, reason: stageResult.error };
-    }
-    if (stageResult.stdout.split('\0').some((entry) => entry.startsWith('160000 '))) {
-      return { ok: false, isUnsupported: true, reason: 'the working tree contains a submodule or a nested repository' };
-    }
-
-    const treeResult = runGit(['write-tree'], toplevel, indexEnv);
-    if (!treeResult.ok) {
-      return { ok: false, isUnsupported: false, reason: treeResult.error };
-    }
-
-    const headResult = runGit(['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'], toplevel, env);
-    const parentArgs = headResult.ok ? ['-p', headResult.stdout.trim()] : [];
-    const commitResult = runGit(
-      ['commit-tree', treeResult.stdout.trim(), ...parentArgs, '-m', 'nmr delegate snapshot'],
-      toplevel,
-      { ...env, ...SNAPSHOT_IDENTITY_ENV },
-    );
-    if (!commitResult.ok) {
-      return { ok: false, isUnsupported: false, reason: commitResult.error };
-    }
-
-    return { ok: true, sha: commitResult.stdout.trim(), toplevel };
-  } finally {
-    fs.rmSync(tempDir, { force: true, recursive: true });
-  }
 }
 
 /**
@@ -375,16 +299,6 @@ const NON_DELEGABLE_COMMANDS: ReadonlySet<string> = new Set([
   ...NON_DELEGABLE_BASE_COMMANDS.map((command) => `root:${command}`),
 ]);
 
-/** Fixes the snapshot commit's identity and date, so that its hash depends on the tree and the parent alone. */
-const SNAPSHOT_IDENTITY_ENV = {
-  GIT_AUTHOR_DATE: '@0 +0000',
-  GIT_AUTHOR_EMAIL: 'nmr@localhost',
-  GIT_AUTHOR_NAME: 'nmr delegate',
-  GIT_COMMITTER_DATE: '@0 +0000',
-  GIT_COMMITTER_EMAIL: 'nmr@localhost',
-  GIT_COMMITTER_NAME: 'nmr delegate',
-};
-
 /** The ref on the host to which each snapshot is pushed; it is not a branch, so a push never touches `HEAD`. */
 const SNAPSHOT_REF = 'refs/nmr/delegate';
 
@@ -402,23 +316,6 @@ function joinRemotePath(checkoutDir: string, relativeDir: string): string {
   const posixDir = relativeDir.split(path.sep).join('/');
 
   return posixDir === '' ? checkoutDir : `${checkoutDir}/${quoteForShell(posixDir)}`;
-}
-
-/** Runs git and returns its stdout, or the reason that it failed. */
-function runGit(
-  args: readonly string[],
-  cwd: string,
-  env: NodeJS.ProcessEnv,
-): { ok: true; stdout: string } | { ok: false; error: string } {
-  const result = spawnSync('git', args, { cwd, encoding: 'utf8', env, maxBuffer: GIT_OUTPUT_LIMIT });
-  if (result.error !== undefined) {
-    return { ok: false, error: result.error.message };
-  }
-  if (result.status !== 0) {
-    return { ok: false, error: result.stderr.trim() || `git ${args[0] ?? ''} exited ${result.status ?? 'abnormally'}` };
-  }
-
-  return { ok: true, stdout: result.stdout };
 }
 
 /**

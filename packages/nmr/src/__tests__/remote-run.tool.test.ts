@@ -7,11 +7,12 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { addSubmodule } from '../commands/test-utils/addSubmodule.ts';
 import { OUTPUT_STYLE_ENV_VAR } from '../output-style.ts';
-import { composeRunScript, createSnapshot, DELEGATE_ENV_VAR, runRemotely, wrapRemoteScript } from '../remote-run.ts';
+import { composeRunScript, DELEGATE_ENV_VAR, runRemotely, wrapRemoteScript } from '../remote-run.ts';
+import { createSnapshot } from '../remote-snapshot.ts';
 import { runCli } from '../runCli.ts';
 import { createFakeRemote, type FakeRemote } from '../test-utils/fake-remote.ts';
+import { initRepo } from '../test-utils/initRepo.ts';
 
 describe('a delegated run on a fake host', () => {
   let workspace: TempTree;
@@ -262,45 +263,6 @@ describe('nmr with a delegation host', () => {
   }
 });
 
-describe(createSnapshot, () => {
-  let workspace: TempTree;
-
-  beforeEach(() => {
-    workspace = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-snapshot-' }));
-  });
-
-  it('yields the same commit for the same tree', () => {
-    workspace.writeAll({ 'repo/a.txt': 'a\n' });
-    const repo = fs.realpathSync(workspace.resolve('repo'));
-    initRepo(repo);
-    workspace.write('repo/b.txt', 'b\n');
-
-    const first = createSnapshot(repo, process.env);
-    const second = createSnapshot(repo, process.env);
-
-    expect(first.ok && second.ok && first.sha === second.sha).toBe(true);
-  });
-
-  it('refuses a repository with a submodule', () => {
-    const tree = disposeOnTestFinished(createTempTree({ 'a.txt': 'a\n' }, { prefix: 'nmr-snapshot-super-' }));
-    const repo = fs.realpathSync(tree.dir);
-    initRepo(repo);
-    addSubmodule(tree, 'vendored');
-
-    expect(createSnapshot(repo, process.env)).toMatchObject({ ok: false, isUnsupported: true });
-  });
-
-  it('refuses a working tree containing a nested repository', () => {
-    workspace.writeAll({ 'repo/a.txt': 'a\n' });
-    const repo = fs.realpathSync(workspace.resolve('repo'));
-    initRepo(repo);
-    workspace.write('repo/nested/b.txt', 'b\n');
-    initRepo(path.join(repo, 'nested'));
-
-    expect(createSnapshot(repo, process.env)).toMatchObject({ ok: false, isUnsupported: true });
-  });
-});
-
 // region | Helpers
 
 /** Returns a writable stream and a reader of everything written to it. */
@@ -312,16 +274,6 @@ function captureStream(): { read: () => string; stream: PassThrough } {
   });
 
   return { read: () => Buffer.concat(chunks).toString('utf8'), stream };
-}
-
-/** Initializes a repository at `dir` and commits everything in it. */
-function initRepo(dir: string): void {
-  runGit(dir, ['init', '--quiet', '--initial-branch=main']);
-  runGit(dir, ['config', 'user.email', 'fixture@example.com']);
-  runGit(dir, ['config', 'user.name', 'Fixture']);
-  runGit(dir, ['config', 'commit.gpgsign', 'false']);
-  runGit(dir, ['add', '--all']);
-  runGit(dir, ['commit', '--quiet', '--message', 'initial']);
 }
 
 /** Reports whether a process with this pid exists. */
