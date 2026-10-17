@@ -6,7 +6,8 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { RUN_IF_PRESENT_ENV_VAR, runCli } from '../runCli.ts';
+import { RUN_IF_PRESENT_ENV_VAR } from '../invocation.ts';
+import { runCli } from '../runCli.ts';
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
 /** The cacheable command driven by every test; the fixture maps it to a script whose output is recognizable. */

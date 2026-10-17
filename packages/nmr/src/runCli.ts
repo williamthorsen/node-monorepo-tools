@@ -6,7 +6,6 @@ import {
   formatGlyphLine,
   type OutputStyle,
   reportError,
-  resolveSelfVersion,
   STATUS_GLYPHS,
   type StreamStyles,
 } from '@williamthorsen/nmr-core';
@@ -48,7 +47,18 @@ import { findClosestName } from './helpers/findClosestName.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import { resolvePackageJsonPath } from './helpers/package-json.ts';
 import { quoteForShell } from './helpers/quoteForShell.ts';
+import { renderQuotedList } from './helpers/renderQuotedList.ts';
 import { composeTranscript } from './helpers/transcript.ts';
+import {
+  type Invocation,
+  type PhaseResult,
+  RUN_IF_PRESENT_ENV_VAR,
+  type RunCliResult,
+  type RunPlan,
+  type SettledResult,
+  VERSION,
+} from './invocation.ts';
+import { formatMisplacedFlagHint, isDelegationFlag, parseArgs, type ParsedArgs } from './invocation-args.ts';
 import {
   acquireMachineLock,
   formatMisplacedNoLockWarning,
@@ -58,14 +68,12 @@ import {
   NO_LOCK_ENV_VAR,
 } from './machine-lock.ts';
 import { resolveChannel } from './output-channel.ts';
-import { isTerminalStream, OUTPUT_STYLE_ENV_VAR, OUTPUT_STYLE_FLAG, resolveOutputStyles } from './output-style.ts';
+import { isTerminalStream, OUTPUT_STYLE_ENV_VAR, resolveOutputStyles } from './output-style.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import {
   DELEGATE_ENV_VAR,
-  DELEGATE_FLAG,
   DELEGATION_FAILURE_EXIT_CODE,
   formatMisplacedDelegationWarning,
-  NO_DELEGATE_FLAG,
   resolveDelegationTarget,
   runRemotely,
 } from './remote-run.ts';
@@ -85,7 +93,6 @@ import {
   type ScriptOrigin,
 } from './resolver.ts';
 import { type RetainedOutput, runSteps, type RunStepsOptions } from './runner.ts';
-import { quoteToken } from './shell-syntax.ts';
 import {
   composeNmrStep,
   dropRecursiveSteps,
@@ -106,8 +113,6 @@ import {
 import { type NoOpReason, type Verdict, type VerdictOutcome, writeVerdict } from './verdict.ts';
 import { readWorkspacePackageNames, resolveWorkspace } from './workspace.ts';
 
-const VERSION = resolveSelfVersion(import.meta.url);
-
 /** The consequence of a crossing, which every origin's line reports before naming its remedy. */
 const CROSSING_CONSEQUENCE = "so nmr handles the nested run's output as a tool's.";
 
@@ -116,15 +121,6 @@ const CROSSING_CONSEQUENCE = "so nmr handles the nested run's output as a tool's
  * contain any package.
  */
 const RECURSIVE_REJECTION = '-R/--recursive did not match any workspace:';
-
-/** How many items a diagnostic lists before it reports the rest as a count. */
-const LIST_CEILING = 10;
-
-/**
- * Marks a run made on a delegating caller's behalf, in which a command that the registry does not define, and a
- * `--log` with nothing to show, exit 0 rather than failing.
- */
-export const RUN_IF_PRESENT_ENV_VAR = 'NMR_RUN_IF_PRESENT';
 
 /** @internal */
 export interface RunCliOptions {
@@ -138,11 +134,6 @@ export interface RunCliOptions {
   stdout: Writable;
   /** Stream for errors, warnings, and debug notes. */
   stderr: Writable;
-}
-
-/** @internal */
-export interface RunCliResult {
-  exitCode: number;
 }
 
 /**
@@ -365,6 +356,24 @@ async function planRun(invocation: Invocation): Promise<PhaseResult<RunPlan>> {
   };
 }
 
+/** Runs a plan behind the check-result cache and reports its verdict, or prints its recording under `--log`. */
+async function executePlan(plan: RunPlan): Promise<SettledResult> {
+  const { command, format, parsedArgs, scope, stdout, styles } = plan.invocation;
+
+  // A `--log` needs the key for the whole chain, and returns before any hook, verdict, or cache write.
+  if (parsedArgs.shouldPrintLog) {
+    return reportRecording(plan);
+  }
+
+  const { exitCode, outcome } = await runGated(plan);
+
+  reportVerdict({ command, scope, ...outcome }, stdout, format, styles.stdout);
+
+  return { exitCode };
+}
+
+// region | Helpers
+
 /**
  * Assembles the chain that a resolved script runs at this scope, the hooks wrapped around it included, and the key
  * under which a pass by that chain is recorded. Settles a no-op override and an argument that no step can take.
@@ -445,22 +454,6 @@ function assembleChain(options: {
   });
 
   return { settled: false, value: { commandString: fullCommand, key, ownSteps: mainSteps, steps: fullSteps } };
-}
-
-/** Runs a plan behind the check-result cache and reports its verdict, or prints its recording under `--log`. */
-async function executePlan(plan: RunPlan): Promise<SettledResult> {
-  const { command, format, parsedArgs, scope, stdout, styles } = plan.invocation;
-
-  // A `--log` needs the key for the whole chain, and returns before any hook, verdict, or cache write.
-  if (parsedArgs.shouldPrintLog) {
-    return reportRecording(plan);
-  }
-
-  const { exitCode, outcome } = await runGated(plan);
-
-  reportVerdict({ command, scope, ...outcome }, stdout, format, styles.stdout);
-
-  return { exitCode };
 }
 
 /**
@@ -552,78 +545,6 @@ async function runOnDelegateHost(invocation: Invocation): Promise<RunCliResult |
   return { exitCode: result.exitCode };
 }
 
-// region | Helpers
-
-/** An invocation that reached a command: what it asks for, how it presents itself, and where it runs. */
-interface Invocation {
-  anchorDir: string;
-  command: string;
-  context: ResolvedContext;
-  cwd: string;
-  env: NodeJS.ProcessEnv;
-  format: ReportFormat;
-  parsedArgs: ParsedArgs;
-  scope: string;
-  shouldUseRoot: boolean;
-  stderr: Writable;
-  stdout: Writable;
-  styles: StreamStyles;
-  verbosity: CommandVerbosity;
-}
-
-/** @internal */
-interface ParsedArgs {
-  /** The host that `--delegate` names. */
-  delegateHost?: string;
-  filter?: string;
-  isWorkspaceRoot: boolean;
-  /** The flag's value as it was written, which the style resolver rather than the parser narrows. */
-  outputStyle?: string;
-  quiet: boolean;
-  recursive: boolean;
-  shouldBypassCache: boolean;
-  shouldBypassLock: boolean;
-  shouldEmitJson: boolean;
-  shouldPrintLog: boolean;
-  shouldRunLocally: boolean;
-  shouldShowHelp: boolean;
-  shouldShowVersion: boolean;
-  command?: string;
-  passthrough: string[];
-}
-
-type ParseResult = { ok: true; parsedArgs: ParsedArgs } | { ok: false; error: string };
-
-/** A field that a flag sets by being written, none of which takes a value of its own. */
-type BooleanFlagName =
-  | 'isWorkspaceRoot'
-  | 'quiet'
-  | 'recursive'
-  | 'shouldBypassCache'
-  | 'shouldBypassLock'
-  | 'shouldEmitJson'
-  | 'shouldPrintLog'
-  | 'shouldRunLocally'
-  | 'shouldShowHelp'
-  | 'shouldShowVersion';
-
-/** Either the outcome with which a phase settled the invocation, or the input of the next phase. */
-type PhaseResult<T> = { settled: true; result: SettledResult } | { settled: false; value: T };
-
-/** What an invocation would run, fully determined: the chain, the key under which it records, and how it runs. */
-interface RunPlan {
-  commandString: string;
-  invocation: Invocation;
-  key: string | undefined;
-  overrideNotice: string | undefined;
-  ownSteps: readonly Step[];
-  runId: string;
-  runOptions: RunStepsOptions;
-  shouldBypassCache: boolean;
-  snapshot: TreeSnapshot | undefined;
-  steps: readonly Step[];
-}
-
 /** What the check-result cache gates a run on: the key, the tree, and the build output that the run saw. */
 interface Gate {
   buildOutputBefore: BuildOutputState;
@@ -636,34 +557,6 @@ interface Gate {
 type PresentationRead =
   | { ok: true; format: ReportFormat | undefined; styles: StreamStyles; verbosity: CommandVerbosity | undefined }
   | { ok: false; error: string };
-
-/** An invocation's exit code, and whether it failed because its command is not defined in any scope that it reaches. */
-type SettledResult = RunCliResult & { isUnknownCommand?: boolean };
-
-/** What a flag that takes a value was given, and how many arguments it spent, or why it did not have a value. */
-type FlagValueRead = { ok: true; value: string; consumedCount: number } | { ok: false; error: string };
-
-/** Every spelling of the flag that takes a workspace filter pattern. */
-const FILTER_FLAGS = new Set(['-F', '--filter']);
-
-/** Every spelling of a boolean flag, paired with the field that it sets. */
-const BOOLEAN_FLAGS = new Map<string, BooleanFlagName>([
-  ['-?', 'shouldShowHelp'],
-  ['--help', 'shouldShowHelp'],
-  ['--json', 'shouldEmitJson'],
-  ['--log', 'shouldPrintLog'],
-  ['--no-cache', 'shouldBypassCache'],
-  [NO_DELEGATE_FLAG, 'shouldRunLocally'],
-  ['--no-lock', 'shouldBypassLock'],
-  ['-q', 'quiet'],
-  ['--quiet', 'quiet'],
-  ['-R', 'recursive'],
-  ['--recursive', 'recursive'],
-  ['-V', 'shouldShowVersion'],
-  ['--version', 'shouldShowVersion'],
-  ['-w', 'isWorkspaceRoot'],
-  ['--workspace-root', 'isWorkspaceRoot'],
-]);
 
 /**
  * Builds the environment that every process below this one inherits. The snapshot travels down to make a chain
@@ -1118,25 +1011,6 @@ function formatPackageRemedy(options: {
 }
 
 /**
- * Returns what is wrong with a parsed invocation, or `undefined` when nothing is.
- *
- * `--log` names what to print rather than what to run, so an invocation that passes it without a command has
- * asked for nothing; the help text answers a different question and is not a stand-in for the flag's own grammar.
- */
-function findArgError(parsedArgs: ParsedArgs): string | undefined {
-  if (
-    parsedArgs.shouldPrintLog &&
-    parsedArgs.command === undefined &&
-    !parsedArgs.shouldShowHelp &&
-    !parsedArgs.shouldShowVersion
-  ) {
-    return '--log requires a command name: `nmr --log <command>`';
-  }
-
-  return undefined;
-}
-
-/**
  * Returns the line refusing a delegation that would not select any scope, or `undefined` when it selects at
  * least one.
  *
@@ -1323,17 +1197,6 @@ function suggestWorkspaceNames(pattern: string, names: readonly string[]): strin
   return ` The workspace declares ${renderQuotedList(names)}.`;
 }
 
-/** Renders a list of items for a diagnostic, backticked and capped so that a long list does not fill the terminal. */
-function renderQuotedList(items: readonly string[]): string {
-  const shownItems = items
-    .slice(0, LIST_CEILING)
-    .map((item) => `\`${item}\``)
-    .join(', ');
-  const remainder = items.length - LIST_CEILING;
-
-  return remainder > 0 ? `${shownItems}, and ${remainder} more` : shownItems;
-}
-
 /**
  * Returns why a resolved command runs nothing, or `undefined` when there is something to run. A command that
  * ran nothing exits as one that passed does, and the verdict reports the reason to tell them apart.
@@ -1512,77 +1375,6 @@ function openGate(options: {
   return snapshot.snapshot;
 }
 
-/** Parses the CLI arguments into nmr's flags, the command name, and the arguments passed through to it. */
-function parseArgs(args: string[]): ParseResult {
-  const parsedArgs: ParsedArgs = {
-    isWorkspaceRoot: false,
-    quiet: false,
-    recursive: false,
-    shouldBypassCache: false,
-    shouldBypassLock: false,
-    shouldEmitJson: false,
-    shouldPrintLog: false,
-    shouldRunLocally: false,
-    shouldShowHelp: false,
-    shouldShowVersion: false,
-    passthrough: [],
-  };
-
-  let index = 0;
-  while (index < args.length) {
-    const arg = args[index];
-    if (arg === undefined) break;
-
-    if (FILTER_FLAGS.has(arg)) {
-      index++;
-      const filterValue = args[index];
-      // An empty pattern is rejected with a missing one: composition reads a filter for its truth, so an
-      // empty one would run the command unfiltered rather than in the scopes that the invocation asked for.
-      if (!filterValue) {
-        return { ok: false, error: '-F/--filter requires a pattern argument' };
-      }
-      parsedArgs.filter = filterValue;
-      index++;
-      continue;
-    }
-
-    const booleanFlag = BOOLEAN_FLAGS.get(arg);
-    if (booleanFlag !== undefined) {
-      parsedArgs[booleanFlag] = true;
-      index++;
-      continue;
-    }
-
-    const styleArgument = readOutputStyleArgument(args, index);
-    if (styleArgument !== undefined) {
-      if (!styleArgument.ok) {
-        return styleArgument;
-      }
-      parsedArgs.outputStyle = styleArgument.value;
-      index += styleArgument.consumedCount;
-      continue;
-    }
-
-    const delegateArgument = readDelegateArgument(args, index);
-    if (delegateArgument !== undefined) {
-      if (!delegateArgument.ok) {
-        return delegateArgument;
-      }
-      parsedArgs.delegateHost = delegateArgument.value;
-      index += delegateArgument.consumedCount;
-      continue;
-    }
-
-    parsedArgs.command = arg;
-    parsedArgs.passthrough = args.slice(index + 1);
-    break;
-  }
-
-  const error = findArgError(parsedArgs);
-
-  return error === undefined ? { ok: true, parsedArgs } : { ok: false, error };
-}
-
 /**
  * Prints what the current scope has recorded for one command, and reports what it exits with.
  *
@@ -1650,50 +1442,6 @@ function readPresentation(options: {
   }
 
   return { ok: true, format: format.format, styles, verbosity: verbosity.verbosity };
-}
-
-/**
- * Returns the host that `--delegate` at `index` names, or `undefined` when the argument is not the flag. Both
- * spellings are read, as for `--output-style`, and an empty value is rejected with a missing one.
- */
-function readDelegateArgument(args: readonly string[], index: number): FlagValueRead | undefined {
-  return readFlagValue(args, index, DELEGATE_FLAG, 'a host argument');
-}
-
-/**
- * Returns what the flag at `index` names when it is `flag`, in either the `--flag value` or the `--flag=value`
- * spelling, or `undefined` when the argument is a different one. An empty value is rejected with a missing one.
- */
-function readFlagValue(
-  args: readonly string[],
-  index: number,
-  flag: string,
-  requirement: string,
-): FlagValueRead | undefined {
-  const arg = args[index] ?? '';
-  const assignment = arg.startsWith(`${flag}=`) ? arg.slice(flag.length + 1) : undefined;
-  if (arg !== flag && assignment === undefined) {
-    return undefined;
-  }
-
-  const value = assignment ?? args[index + 1];
-  if (!value) {
-    return { ok: false, error: `${flag} requires ${requirement}` };
-  }
-
-  return { ok: true, value, consumedCount: assignment === undefined ? 2 : 1 };
-}
-
-/**
- * Returns what `--output-style` at `index` names, or `undefined` when the argument is not the flag.
- *
- * Both spellings are read, so neither `--output-style plain` nor `--output-style=plain` is taken for the
- * command name. An empty value is rejected with a missing one: nmr-core reads `''` as absent, which would
- * leave the flag naming whatever the variable or detection chose rather than what the invocation asked for.
- * The value itself is left to the resolver, which rejects it in the words that nmr's siblings use.
- */
-function readOutputStyleArgument(args: readonly string[], index: number): FlagValueRead | undefined {
-  return readFlagValue(args, index, OUTPUT_STYLE_FLAG, 'a value argument: auto, plain, or rich');
 }
 
 /**
@@ -2101,36 +1849,6 @@ async function runGated(plan: RunPlan): Promise<{ exitCode: number; outcome: Ver
 }
 
 /**
- * Renders the hint for nmr flags written after the command name, or `undefined` when the arguments do not
- * contain any. The corrected invocation keeps every other argument where it was written.
- */
-function formatMisplacedFlagHint(
-  args: readonly string[],
-  passthrough: readonly string[],
-  style: OutputStyle,
-): string | undefined {
-  const { flagNames, movedTokens, remainingTokens } = splitMisplacedFlags(passthrough);
-  if (flagNames.length === 0) {
-    return undefined;
-  }
-
-  const commandIndex = args.length - passthrough.length - 1;
-  const correctedTokens = [
-    'nmr',
-    ...args.slice(0, commandIndex),
-    ...movedTokens,
-    ...args.slice(commandIndex, commandIndex + 1),
-    ...remainingTokens,
-  ];
-  const subject = flagNames.length === 1 ? 'is an nmr flag' : 'are nmr flags';
-
-  return (
-    `${STATUS_GLYPHS[style].warning.text} ${renderQuotedList(flagNames)} ${subject}; ` +
-    `nmr reads its flags only before the command: \`${correctedTokens.map(quoteToken).join(' ')}\``
-  );
-}
-
-/**
  * Reports whether any scope that a delegation can select defines the command. A package config does not define
  * scripts, so the root config's registries and each `package.json` cover every scope.
  */
@@ -2143,11 +1861,6 @@ function isDefinedInAnyScope(command: string, context: ResolvedContext): boolean
   return [context.monorepoRoot, ...context.workspacePackageDirs].some((dir) =>
     Object.hasOwn(readPackageJsonScripts(dir) ?? {}, command),
   );
-}
-
-/** Reports whether an argument is one of nmr's delegation flags, in any spelling. */
-function isDelegationFlag(arg: string): boolean {
-  return arg === DELEGATE_FLAG || arg === NO_DELEGATE_FLAG || arg.startsWith(`${DELEGATE_FLAG}=`);
 }
 
 /** Reports whether the user typed this invocation, rather than an nmr process starting it. */
@@ -2178,65 +1891,6 @@ async function takeMachineLock(invocation: Invocation): Promise<MachineLock | un
     env: parsedArgs.shouldBypassLock ? { ...env, [NO_LOCK_ENV_VAR]: '1' } : env,
     stderr,
   });
-}
-
-/**
- * Returns how many arguments the nmr flag at `index` spans, or `undefined` when the argument is not one that the
- * hint moves. Help and version are not moved: before the command, either one shows nmr's own output in place of
- * the run.
- */
-function readMisplacedFlagLength(args: readonly string[], index: number): number | undefined {
-  const arg = args[index] ?? '';
-
-  if (FILTER_FLAGS.has(arg)) {
-    // An empty pattern is not one that the parser accepts, so the flag does not have a value to move.
-    return (args[index + 1] ?? '') === '' ? undefined : 2;
-  }
-
-  const booleanFlag = BOOLEAN_FLAGS.get(arg);
-  if (booleanFlag !== undefined) {
-    return booleanFlag === 'shouldShowHelp' || booleanFlag === 'shouldShowVersion' ? undefined : 1;
-  }
-
-  const valueArgument = readOutputStyleArgument(args, index) ?? readDelegateArgument(args, index);
-
-  return valueArgument?.ok === true ? valueArgument.consumedCount : undefined;
-}
-
-/**
- * Separates the nmr flags in a command's arguments, each with its value, from the arguments that belong to the
- * command. Everything from a `--` on belongs to the command.
- */
-function splitMisplacedFlags(passthrough: readonly string[]): {
-  flagNames: string[];
-  movedTokens: string[];
-  remainingTokens: string[];
-} {
-  const flagNames = new Set<string>();
-  const movedTokens: string[] = [];
-  const remainingTokens: string[] = [];
-
-  let index = 0;
-  while (index < passthrough.length) {
-    const arg = passthrough[index] ?? '';
-    if (arg === '--') {
-      remainingTokens.push(...passthrough.slice(index));
-      break;
-    }
-
-    const flagLength = readMisplacedFlagLength(passthrough, index);
-    if (flagLength === undefined) {
-      remainingTokens.push(arg);
-      index++;
-      continue;
-    }
-
-    flagNames.add(arg.split('=', 1)[0] ?? arg);
-    movedTokens.push(...passthrough.slice(index, index + flagLength));
-    index += flagLength;
-  }
-
-  return { flagNames: [...flagNames], movedTokens, remainingTokens };
 }
 
 /**
