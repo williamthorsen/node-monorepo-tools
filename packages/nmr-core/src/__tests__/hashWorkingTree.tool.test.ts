@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
@@ -15,145 +16,297 @@ const it = baseIt.extend(
   makeFixture(() => createTempTree({}, { prefix: 'nmr-tree-hash-' })),
 );
 
+/** Working-tree states whose id must equal the one that `git add --all` and `git write-tree` record. */
+const REFERENCE_CASES: Array<[string, (tree: TempTree) => void]> = [
+  ['an untouched tree', () => {}],
+  ['a modified file', (tree) => tree.write('src/index.ts', 'export const value = 2;\n')],
+  [
+    'a staged change',
+    (tree) => {
+      tree.write('src/index.ts', 'export const value = 3;\n');
+      git(tree.dir, ['add', 'src/index.ts']);
+    },
+  ],
+  [
+    'a staged change reverted in the working tree',
+    (tree) => {
+      tree.write('src/index.ts', 'export const value = 3;\n');
+      git(tree.dir, ['add', 'src/index.ts']);
+      tree.write('src/index.ts', 'export const value = 1;\n');
+    },
+  ],
+  ['an untracked file', (tree) => tree.write('src/added.ts', 'export const added = true;\n')],
+  ['an untracked file in a new directory', (tree) => tree.write('new/deep/file.ts', 'deep\n')],
+  ['a deleted file', (tree) => tree.rm('src/index.ts')],
+  [
+    'a deletion that empties a directory',
+    (tree) => {
+      tree.rm('src/index.ts');
+      tree.rm('src/other.ts');
+    },
+  ],
+  [
+    'a directory replaced by a file',
+    (tree) => {
+      tree.rm('src');
+      tree.write('src', 'now a file\n');
+    },
+  ],
+  ['a rename', (tree) => git(tree.dir, ['mv', 'src/index.ts', 'src/renamed.ts'])],
+  ['an added symlink', (tree) => tree.symlink('link', 'src/index.ts')],
+  [
+    'a repointed symlink',
+    (tree) => {
+      tree.symlink('link', 'src/index.ts');
+      commitAll(tree.dir, 'add link');
+      tree.rm('link');
+      tree.symlink('link', 'src/other.ts');
+    },
+  ],
+  ['a mode change', (tree) => fs.chmodSync(tree.resolve('src/index.ts'), 0o755)],
+  ['a path containing spaces', (tree) => tree.write('a dir/a file with spaces.txt', 'spaced\n')],
+  ['a conflicted path', (tree) => tree.write(startConflictingMerge(tree), 'resolved\n')],
+  [
+    'CRLF content under a `text eol=lf` attribute',
+    (tree) => {
+      tree.write('.gitattributes', '*.txt text eol=lf\n');
+      tree.write('tracked.txt', 'one\n');
+      commitAll(tree.dir, 'add attributes');
+      tree.write('tracked.txt', 'one\r\ntwo\r\n');
+      tree.write('untracked.txt', 'three\r\n');
+    },
+  ],
+  [
+    'an intent-to-add path',
+    (tree) => {
+      tree.write('src/intended.ts', 'intended\n');
+      git(tree.dir, ['add', '--intent-to-add', 'src/intended.ts']);
+    },
+  ],
+  [
+    'a modified assume-unchanged entry',
+    (tree) => {
+      git(tree.dir, ['update-index', '--assume-unchanged', 'src/index.ts']);
+      tree.write('src/index.ts', 'hidden\n');
+    },
+  ],
+  [
+    'modified and removed skip-worktree entries',
+    (tree) => {
+      git(tree.dir, ['update-index', '--skip-worktree', 'src/index.ts', 'src/other.ts']);
+      tree.write('src/index.ts', 'hidden\n');
+      tree.rm('src/other.ts');
+    },
+  ],
+  [
+    'an ignored file',
+    (tree) => {
+      tree.write('.gitignore', 'ignored.log\n');
+      tree.write('ignored.log', 'ignored\n');
+    },
+  ],
+];
+
 describe(hashWorkingTree, () => {
   describe('what it reports', () => {
-    it('reports the repository toplevel and HEAD commit alongside the hash', ({ tree }) => {
+    it('reports the repository toplevel and HEAD commit alongside the tree id', ({ tree }) => {
       initRepo(tree);
 
       const result = hashWorkingTree(tree.dir);
 
       expect(result).toStrictEqual({
         ok: true,
-        hash: expect.stringMatching(/^[\da-f]{64}$/),
+        treeId: expect.stringMatching(/^[\da-f]{40}$/),
         headSha: git(tree.dir, ['rev-parse', 'HEAD']).trim(),
         toplevel: tree.dir,
       });
     });
 
-    it('reports the same toplevel from a subdirectory', ({ tree }) => {
+    it('reports the same toplevel and tree id from a subdirectory', ({ tree }) => {
       initRepo(tree);
       const nested = tree.mkdir('packages/leaf');
+      tree.write('packages/leaf/file.ts', 'leaf\n');
 
       const result = hashWorkingTree(nested);
 
-      expect(result).toMatchObject({ ok: true, toplevel: tree.dir });
+      expect(result).toMatchObject({ ok: true, toplevel: tree.dir, treeId: referenceTreeId(tree.dir) });
     });
 
     it('is stable across repeated calls on an untouched tree', ({ tree }) => {
       initRepo(tree);
 
-      expect(hashOf(tree.dir)).toBe(hashOf(tree.dir));
+      expect(treeIdOf(tree.dir)).toBe(treeIdOf(tree.dir));
     });
   });
 
-  describe('what moves the hash', () => {
-    it('leaves the hash alone when a touch does not change any bytes', ({ tree }) => {
-      // Timestamps are not content. A hash that moved on `touch` would miss on every checkout and clone.
+  describe('what it identifies', () => {
+    it.for(REFERENCE_CASES)('records the id that `git add --all` would record for %s', ([, arrange], { tree }) => {
       initRepo(tree);
-      const before = hashOf(tree.dir);
+      arrange(tree);
+
+      expect(treeIdOf(tree.dir)).toBe(referenceTreeId(tree.dir));
+    });
+
+    it('records the id that `git add --all` would record in a SHA-256 repository', ({ tree }) => {
+      initRepo(tree, 'sha256');
+      tree.write('src/index.ts', 'export const value = 2;\n');
+      tree.write('new/file.ts', 'new\n');
+      tree.symlink('link', 'src/other.ts');
+
+      const treeId = treeIdOf(tree.dir);
+
+      expect(treeId).toMatch(/^[\da-f]{64}$/);
+      expect(treeId).toBe(referenceTreeId(tree.dir));
+    });
+
+    it('reports `HEAD^{tree}` for a clean tree', ({ tree }) => {
+      initRepo(tree);
+
+      expect(treeIdOf(tree.dir)).toBe(git(tree.dir, ['rev-parse', 'HEAD^{tree}']).trim());
+    });
+
+    it('keeps the id when the checked tree is committed', ({ tree }) => {
+      initRepo(tree);
+      tree.write('src/index.ts', 'export const value = 2;\n');
+      tree.write('src/added.ts', 'added\n');
+      const before = treeIdOf(tree.dir);
+
+      commitAll(tree.dir, 'commit the checked tree');
+
+      expect(treeIdOf(tree.dir)).toBe(before);
+    });
+
+    it('writes nothing to the object database or the index', ({ tree }) => {
+      initRepo(tree);
+      tree.write('src/index.ts', 'export const value = 2;\n');
+      tree.write('new/file.ts', 'new\n');
+      tree.rm('src/other.ts');
+      tree.symlink('link', 'src/index.ts');
+      const before = observeRepository(tree.dir);
+
+      treeIdOf(tree.dir);
+
+      expect(observeRepository(tree.dir)).toStrictEqual(before);
+    });
+  });
+
+  describe('what moves the id', () => {
+    it('leaves the id alone when a touch does not change any bytes', ({ tree }) => {
+      // Timestamps are not content. An id that moved on `touch` would miss on every checkout and clone.
+      initRepo(tree);
+      const before = treeIdOf(tree.dir);
 
       const future = new Date(Date.now() + 60_000);
       fs.utimesSync(path.join(tree.dir, 'src', 'index.ts'), future, future);
 
-      expect(hashOf(tree.dir)).toBe(before);
+      expect(treeIdOf(tree.dir)).toBe(before);
     });
 
-    it('moves the hash when a tracked file’s content changes', ({ tree }) => {
+    it('moves the id when a tracked file’s content changes', ({ tree }) => {
       initRepo(tree);
-      const before = hashOf(tree.dir);
+      const before = treeIdOf(tree.dir);
 
       tree.write('src/index.ts', 'export const value = 2;\n');
 
-      expect(hashOf(tree.dir)).not.toBe(before);
+      expect(treeIdOf(tree.dir)).not.toBe(before);
     });
 
-    it('moves the hash when an untracked file appears', ({ tree }) => {
+    it('moves the id when an untracked file appears', ({ tree }) => {
       initRepo(tree);
-      const before = hashOf(tree.dir);
+      const before = treeIdOf(tree.dir);
 
       tree.write('src/added.ts', 'export const added = true;\n');
 
-      expect(hashOf(tree.dir)).not.toBe(before);
+      expect(treeIdOf(tree.dir)).not.toBe(before);
     });
 
-    it('moves the hash when a tracked file is deleted', ({ tree }) => {
+    it('moves the id when a tracked file is deleted', ({ tree }) => {
       initRepo(tree);
-      const before = hashOf(tree.dir);
+      const before = treeIdOf(tree.dir);
 
       fs.rmSync(path.join(tree.dir, 'src', 'index.ts'));
 
-      expect(hashOf(tree.dir)).not.toBe(before);
+      expect(treeIdOf(tree.dir)).not.toBe(before);
     });
 
-    it('moves the hash when a change is staged', ({ tree }) => {
+    it('moves the id when a change is staged', ({ tree }) => {
       initRepo(tree);
-      const before = hashOf(tree.dir);
+      const before = treeIdOf(tree.dir);
 
       tree.write('src/index.ts', 'export const value = 3;\n');
       git(tree.dir, ['add', 'src/index.ts']);
 
-      expect(hashOf(tree.dir)).not.toBe(before);
+      expect(treeIdOf(tree.dir)).not.toBe(before);
     });
 
-    it('moves the hash when a file is renamed', ({ tree }) => {
+    it('moves the id when a file is renamed', ({ tree }) => {
       // A staged rename is the one status record containing two paths; a parser that dropped the original path
-      // would hash a rename exactly as it hashes an addition.
+      // would leave the file at its old path as well.
       initRepo(tree);
-      const before = hashOf(tree.dir);
+      const before = treeIdOf(tree.dir);
 
       git(tree.dir, ['mv', 'src/index.ts', 'src/renamed.ts']);
 
       expect(statusRecordTypes(tree.dir)).toContain('2');
-      expect(hashOf(tree.dir)).not.toBe(before);
+      expect(treeIdOf(tree.dir)).not.toBe(before);
     });
 
-    it('moves the hash when a symlink is repointed', ({ tree }) => {
+    it('moves the id when a symlink is repointed', ({ tree }) => {
       initRepo(tree);
       tree.symlink('link', 'src/index.ts');
-      const before = hashOf(tree.dir);
+      const before = treeIdOf(tree.dir);
 
       tree.rm('link');
       tree.symlink('link', 'src/other.ts');
 
-      expect(hashOf(tree.dir)).not.toBe(before);
+      expect(treeIdOf(tree.dir)).not.toBe(before);
     });
 
-    it('moves the hash when a path containing spaces changes', ({ tree }) => {
+    it('moves the id when a file becomes executable', ({ tree }) => {
+      initRepo(tree);
+      const before = treeIdOf(tree.dir);
+
+      fs.chmodSync(tree.resolve('src/index.ts'), 0o755);
+
+      expect(treeIdOf(tree.dir)).not.toBe(before);
+    });
+
+    it('moves the id when a path containing spaces changes', ({ tree }) => {
       initRepo(tree);
       const spaced = 'a file with spaces.txt';
       tree.write(spaced, 'one\n');
-      const before = hashOf(tree.dir);
+      const before = treeIdOf(tree.dir);
 
       tree.write(spaced, 'two\n');
 
-      expect(hashOf(tree.dir)).not.toBe(before);
+      expect(treeIdOf(tree.dir)).not.toBe(before);
     });
 
-    it('hashes a conflicted tree by its working-tree content', ({ tree }) => {
+    it('identifies a conflicted tree by its working-tree content', ({ tree }) => {
       // An unmerged path has its own status record shape. Its working-tree content is what a check would
-      // read, so it is what the hash describes.
+      // read, so it is what the id describes.
       initRepo(tree);
       const conflicted = startConflictingMerge(tree);
       expect(statusRecordTypes(tree.dir)).toContain('u');
-      const before = hashOf(tree.dir);
+      const before = treeIdOf(tree.dir);
 
       tree.write(conflicted, 'resolved\n');
 
-      expect(hashOf(tree.dir)).not.toBe(before);
+      expect(treeIdOf(tree.dir)).not.toBe(before);
     });
 
     it('agrees across two branches with identical content', ({ tree }) => {
-      // Because the commit's tree object is the base of the fold, two histories that arrive at the same content
-      // hash alike, which lets a rebase or an amended message leave the hash unchanged.
+      // The id describes content alone, so two histories that arrive at the same content share it, which lets a
+      // rebase or an amended message leave the id unchanged.
       initRepo(tree);
-      const onMain = hashOf(tree.dir);
+      const onMain = treeIdOf(tree.dir);
       git(tree.dir, ['checkout', '-b', 'other']);
       tree.write('src/index.ts', 'export const value = 9;\n');
       commitAll(tree.dir, 'diverge');
       tree.write('src/index.ts', 'export const value = 1;\n');
       commitAll(tree.dir, 'return to the original content');
 
-      expect(hashOf(tree.dir)).toBe(onMain);
+      expect(treeIdOf(tree.dir)).toBe(onMain);
     });
   });
 
@@ -182,8 +335,8 @@ describe(hashWorkingTree, () => {
     });
 
     it('refuses a repository declaring submodules', ({ tree }) => {
-      // A submodule's content is in a repository that this hash never opens, so certifying the superproject alone
-      // would certify content that the hash did not examine.
+      // A submodule's content is in a repository that this id never opens, so certifying the superproject alone
+      // would certify content that the id did not examine.
       initRepo(tree);
       tree.write('.gitmodules', '[submodule "vendor"]\n\tpath = vendor\n');
 
@@ -194,7 +347,7 @@ describe(hashWorkingTree, () => {
     });
 
     it('refuses a tree containing an untracked nested repository', ({ tree }) => {
-      // Because git reports a nested repository as one entry and does not look inside it, the hash cannot look
+      // Because git reports a nested repository as one entry and does not look inside it, the id cannot look
       // inside it either.
       initRepo(tree);
       const nested = tree.mkdir('vendor');
@@ -204,6 +357,17 @@ describe(hashWorkingTree, () => {
       expect(hashWorkingTree(tree.dir)).toStrictEqual({
         ok: false,
         reason: expect.stringContaining('neither a file nor a symlink'),
+      });
+    });
+
+    it('refuses a changed path containing a newline', ({ tree }) => {
+      // `git hash-object --stdin-paths` reads one path per line, so it cannot hash this file.
+      initRepo(tree);
+      tree.write('two\nlines.txt', 'content\n');
+
+      expect(hashWorkingTree(tree.dir)).toStrictEqual({
+        ok: false,
+        reason: expect.stringContaining('contains a newline'),
       });
     });
   });
@@ -218,22 +382,13 @@ function commitAll(repo: string, message: string): void {
 }
 
 /** Runs git in `cwd` and returns its stdout. */
-function git(cwd: string, args: string[]): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-}
-
-/** Returns the hash, failing the test if the tree could not be hashed. */
-function hashOf(cwd: string): string {
-  const result = hashWorkingTree(cwd);
-  if (!result.ok) {
-    throw new Error(`expected a hash, got: ${result.reason}`);
-  }
-  return result.hash;
+function git(cwd: string, args: string[], env?: NodeJS.ProcessEnv): string {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 /** Writes a committed fixture repository: two source files on `main`, nothing dirty. */
-function initRepo(tree: TempTree): void {
-  git(tree.dir, ['init', '--initial-branch=main']);
+function initRepo(tree: TempTree, objectFormat: 'sha1' | 'sha256' = 'sha1'): void {
+  git(tree.dir, ['init', '--initial-branch=main', `--object-format=${objectFormat}`]);
   git(tree.dir, ['config', 'user.email', 'fixture@example.com']);
   git(tree.dir, ['config', 'user.name', 'Fixture']);
   git(tree.dir, ['config', 'commit.gpgsign', 'false']);
@@ -243,6 +398,37 @@ function initRepo(tree: TempTree): void {
     'src/other.ts': 'export const other = 1;\n',
   });
   commitAll(tree.dir, 'initial');
+}
+
+/** Captures what a write to the repository would change: the object database's contents and the index's bytes. */
+function observeRepository(repo: string): { countObjects: string; index: Buffer; objects: string[] } {
+  const objectsDir = path.join(repo, '.git', 'objects');
+  return {
+    countObjects: git(repo, ['count-objects', '-v']),
+    index: fs.readFileSync(path.join(repo, '.git', 'index')),
+    objects: fs.readdirSync(objectsDir, { recursive: true, encoding: 'utf8' }).toSorted(),
+  };
+}
+
+/**
+ * Returns the tree id that `git add --all` into a copy of the real index followed by `git write-tree` records, the
+ * way the delegation snapshot builds its tree. It writes objects, so a test calls it only after `hashWorkingTree`.
+ */
+function referenceTreeId(repo: string): string {
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-reference-index-'));
+  try {
+    const index = path.join(scratch, 'index');
+    const realIndex = path.resolve(repo, git(repo, ['rev-parse', '--git-path', 'index']).trim());
+    fs.copyFileSync(realIndex, index);
+    // Keep the index's time: A fresh one makes git trust stale stat data for an edit made in the same second.
+    const { atime, mtime } = fs.statSync(realIndex);
+    fs.utimesSync(index, atime, mtime);
+    const env = { ...process.env, GIT_INDEX_FILE: index };
+    git(repo, ['add', '--all'], env);
+    return git(repo, ['write-tree'], env).trim();
+  } finally {
+    fs.rmSync(scratch, { force: true, recursive: true });
+  }
 }
 
 /** Leaves the repository mid-merge with one conflicted path, and returns its entry path. */
@@ -275,6 +461,15 @@ function statusRecordTypes(repo: string): string[] {
     .split('\0')
     .filter((record) => record !== '')
     .map((record) => record.slice(0, 1));
+}
+
+/** Returns the tree id, failing the test if the tree could not be identified. */
+function treeIdOf(cwd: string): string {
+  const result = hashWorkingTree(cwd);
+  if (!result.ok) {
+    throw new Error(`expected a tree id, got: ${result.reason}`);
+  }
+  return result.treeId;
 }
 
 // endregion | Helpers
