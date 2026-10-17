@@ -38,11 +38,11 @@ vi.mock(import('../loadConfig.ts'), async (importOriginal) => ({
   readRootPackageVersion: mockReadRootPackageVersion,
 }));
 
+import type { ReleaseKitConfig } from '../configSchema.ts';
 import { resolveCommandTags } from '../resolveCommandTags.ts';
 import type { ResolvedTag } from '../resolveReleaseTags.ts';
 import { emptyWorkspace, resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
 import type { WorkspaceConfig } from '../types.ts';
-import type { ReleaseKitConfig } from '../configSchema.ts';
 
 const EXCLUDE_CLI: ReleaseKitConfig = { workspaces: [{ dir: 'cli', shouldExclude: true }] };
 const CLI_SKIP = 'Skipping cli-v0.5.0 (packages/cli): excluded by config (shouldExclude: true).';

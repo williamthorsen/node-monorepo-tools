@@ -11,7 +11,7 @@ import { findTransitiveDependents } from './findTransitiveDependents.ts';
 import { findUnroutedEntryScopes } from './findUnroutedEntryScopes.ts';
 import { getAllTagPrefixes } from './generateChangelogs.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
-import { resolveWorkTypes } from './loadConfig.ts';
+import { resolveWorkTypes } from './mergeConfig.ts';
 import {
   buildSkippedTargetResult,
   decideTargetRelease,

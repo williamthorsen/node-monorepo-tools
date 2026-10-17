@@ -15,6 +15,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { assertReleasesOnNpm } from './assertReleasesOnNpm.ts';
 import { configFlagSchema } from './configFlagSchema.ts';
+import type { ReleaseKitConfig } from './configSchema.ts';
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
@@ -32,7 +33,6 @@ import {
   SINGLE_PACKAGE_TARGET_ID,
 } from './resolveReleaseTargets.ts';
 import type { ReleaseTarget, ReleaseType } from './types.ts';
-import type { ReleaseKitConfig } from './configSchema.ts';
 
 const VALID_BUMP_TYPES: readonly string[] = ['major', 'minor', 'patch'];
 

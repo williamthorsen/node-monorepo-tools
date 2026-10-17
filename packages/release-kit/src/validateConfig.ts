@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 
-import { isRecord } from './typeGuards.ts';
 import { type LegacyIdentity, type ReleaseKitConfig, releaseKitConfigSchema } from './configSchema.ts';
+import { isRecord } from './typeGuards.ts';
 
 /**
  * Validates a raw config object loaded from `.config/release-kit.config.ts`. Returns `{}` with the errors for a config

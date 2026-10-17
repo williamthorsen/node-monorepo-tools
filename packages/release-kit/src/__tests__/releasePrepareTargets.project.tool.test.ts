@@ -12,7 +12,7 @@ import {
 } from '@williamthorsen/toolbelt.vitest/candidate';
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { mergeMonorepoConfig } from '../loadConfig.ts';
+import { mergeMonorepoConfig } from '../mergeConfig.ts';
 import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
 import { releasePrepareTargets, type TargetPrepareOptions } from '../releasePrepareTargets.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';

@@ -5,9 +5,9 @@ import { type OutputStyle, reportError, type StreamStyles } from '@williamthorse
 import { describeError } from '@williamthorsen/toolbelt.errors';
 import { stringify } from 'yaml';
 
+import type { RepoLabelsConfig } from '../configSchema.ts';
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
 import { loadValidatedConfig, reportConfigProblem } from '../loadValidatedConfig.ts';
-import type { RepoLabelsConfig } from '../configSchema.ts';
 import { hashPreset } from './presets.ts';
 import { resolveLabels } from './resolveLabels.ts';
 import { checkRetiredSyncLabelsConfig } from './retiredConfig.ts';

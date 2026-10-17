@@ -4,8 +4,8 @@
 import { formatStatusLine, type OutputStyle, printError, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import { CONFIG_FILE_PATH, loadConfig } from './loadConfig.ts';
 import type { ReleaseKitConfig } from './configSchema.ts';
+import { CONFIG_FILE_PATH, loadConfig } from './loadConfig.ts';
 import { validateConfig } from './validateConfig.ts';
 
 /**

@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 
+import type { ReleaseKitConfig } from './configSchema.ts';
 import type { WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { isPublishableManifest } from './isPublishableManifest.ts';
-import { mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
+import { readRootPackageVersion } from './loadConfig.ts';
+import { mergeMonorepoConfig, mergeSinglePackageConfig } from './mergeConfig.ts';
 import { getTargetName } from './resolveReleaseDeclaration.ts';
 import type {
   CompositeTarget,
@@ -15,7 +17,6 @@ import type {
   ResolvedProjectConfig,
   WorkspaceConfig,
 } from './types.ts';
-import type { ReleaseKitConfig } from './configSchema.ts';
 
 /** Id of the composite target that a `project` block declares. A target name is never empty, so ids cannot clash. */
 export const PROJECT_TARGET_ID = '';
