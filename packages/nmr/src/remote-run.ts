@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Writable } from 'node:stream';
 
-import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT, type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
 import { quoteForShell } from './helpers/quoteForShell.ts';
@@ -13,8 +13,14 @@ import { quoteForShell } from './helpers/quoteForShell.ts';
 /** Names the host to which nmr delegates a command when the invocation does not say otherwise. */
 export const DELEGATE_ENV_VAR = 'NMR_DELEGATE';
 
+/** The flag that names the host on which to run the command. */
+export const DELEGATE_FLAG = '--delegate';
+
 /** The exit status of a delegation that failed outside its command, which matches `ssh`'s own. */
 export const DELEGATION_FAILURE_EXIT_CODE = 255;
+
+/** The flag that runs the command here, whatever `NMR_DELEGATE` names. */
+export const NO_DELEGATE_FLAG = '--no-delegate';
 
 /** Keeps `ssh` from prompting or waiting on a terminal, and bounds the wait for a host that does not answer. */
 export const SSH_OPTIONS: readonly string[] = ['-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10'];
@@ -152,6 +158,17 @@ export function deriveCheckoutPath(hostname: string, toplevel: string): string {
 }
 
 /**
+ * Renders the warning for a `--delegate` or `--no-delegate` that appears after the command name, which makes it an
+ * argument to the command rather than a flag to nmr.
+ */
+export function formatMisplacedDelegationWarning(command: string, style: OutputStyle): string {
+  return (
+    `${STATUS_GLYPHS[style].warning.text} ${DELEGATE_FLAG} and ${NO_DELEGATE_FLAG} after the command name are passed ` +
+    `to \`${command}\`, not read by nmr. Did you mean \`nmr ${DELEGATE_FLAG} <host> ${command}\`?`
+  );
+}
+
+/**
  * Decides where an invocation runs. `--no-delegate` outranks `--delegate`, which outranks `NMR_DELEGATE`.
  *
  * A command that rewrites the tree, or that runs until it is stopped, cannot be delegated, and neither can `--log`,
@@ -179,7 +196,7 @@ export function resolveDelegationTarget(options: {
     const subject = isReading ? '--log' : `\`${command}\``;
     return {
       kind: 'refused',
-      error: `${subject} cannot be delegated: it ${isReading ? "reads this machine's recordings" : 'rewrites the working tree or runs until stopped'}. Run it without --delegate.`,
+      error: `${subject} cannot be delegated: it ${isReading ? "reads this machine's recordings" : 'rewrites the working tree or runs until stopped'}. Run it without ${DELEGATE_FLAG}.`,
     };
   }
 
