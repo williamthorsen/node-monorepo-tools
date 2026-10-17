@@ -29,7 +29,7 @@ $ nmr --json check
 {"command":"check","scope":"nmr-core","outcome":"passed","durationMs":31204}
 ```
 
-Every object contains `command`, `scope`, and `outcome`, and then the fields that only that outcome includes:
+Every object contains `command`, `scope`, and `outcome`, and then the fields that only that outcome includes. A [delegated](delegate.md) command's own verdict also contains `host`, the host on which it ran:
 
 | `outcome`  | Also contains                                                                                                           |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------- |

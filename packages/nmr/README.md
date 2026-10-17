@@ -185,6 +185,17 @@ nmr: waiting for test in /Users/me/repos/other-repo (pid 41872) to finish
 
 The lock lives in `/tmp/nmr-<uid>/`, or in `NMR_LOCK_DIR`; a sandboxed session needs write access to it. `nmr --no-lock <command>` or `NMR_NO_LOCK=1` runs without waiting. [Machine lock](docs/machine-lock.md) covers which commands take it, nesting and fan-outs, reclaiming a lock that its holder left behind, and CI.
 
+## Delegating to another machine
+
+`nmr --delegate <host> <command>` runs the command on another machine over SSH, against this working tree, and exits with its status. `NMR_DELEGATE=<host>` makes that the default:
+
+```console
+$ nmr --delegate imac2 ci
+✅ my-repo: ci: passed on imac2 in 1m 48s
+```
+
+[Delegating to another machine](docs/delegate.md) covers which commands can be delegated, what the host runs, how failures are reported, and setting up the host.
+
 ## Shared configs and helpers
 
 ### Shared Vitest config
@@ -289,6 +300,7 @@ rdy list --from npm:@williamthorsen/nmr  # what nmr publishes
 - [What nmr reports](docs/reporting.md): Verdicts, `--json`, output style, and verbosity
 - [Check-result cache](docs/check-cache.md): What is skipped, what a hit requires, and replaying, reading, and bypassing recorded runs
 - [Machine lock](docs/machine-lock.md): Which commands wait for one another, where the lock lives, and bypassing it
+- [Delegating to another machine](docs/delegate.md): `--delegate`, `NMR_DELEGATE`, what the host runs, and setting it up
 - [Dependency upgrades](docs/upgrades.md): `nmr upgrade`, the upgrade policy, `report-catalog`, `report-overrides`, and `nmr-taze`
 - [Standalone utilities](docs/utilities.md): `nmr-clean`, `nmr-compile`, `nmr-fmt`, and `ensure-prepublish-hooks`
 - [Shared Vitest config](docs/vitest.md): Test tiers, test selections, the conventions check, and customization

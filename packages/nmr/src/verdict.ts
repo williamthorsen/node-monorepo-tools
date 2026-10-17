@@ -35,7 +35,12 @@ export type NoOpReason = 'empty-override' | 'empty-workspace' | 'noop-override';
  * one is worth naming belongs to rendering, and a consumer bypassing the renderer inherits neither the threshold
  * nor an obligation to restate it.
  */
-export type Verdict = { command: string; scope: string } & VerdictOutcome;
+export type Verdict = {
+  command: string;
+  /** The host on which a delegated command ran, which a command that ran here does not have. */
+  host?: string;
+  scope: string;
+} & VerdictOutcome;
 
 /**
  * How a command ended, together with the facts specific to that ending, and the trailing detail for which a line
@@ -112,14 +117,15 @@ const REPLAY_MARKER = 'replayed:';
 /** Returns the marker that a verdict leads with and the phrase that it reports, which only this module composes. */
 function describeOutcome(verdict: Verdict, style: OutputStyle): { marker: string; phrase: string } {
   const statuses = STATUS_GLYPHS[style];
+  const onHost = verdict.host === undefined ? '' : ` on ${verdict.host}`;
 
   switch (verdict.outcome) {
     case 'passed':
-      return { marker: statuses.passed.text, phrase: `passed in ${formatDuration(verdict.durationMs)}` };
+      return { marker: statuses.passed.text, phrase: `passed${onHost} in ${formatDuration(verdict.durationMs)}` };
     case 'failed':
       return {
         marker: statuses.failed.text,
-        phrase: `failed in ${formatDuration(verdict.durationMs)} (exit ${verdict.exitCode})`,
+        phrase: `failed${onHost} in ${formatDuration(verdict.durationMs)} (exit ${verdict.exitCode})`,
       };
     case 'recalled': {
       const saving = formatSaving(verdict.savedMs);

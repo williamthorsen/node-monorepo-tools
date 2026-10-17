@@ -24,6 +24,22 @@ describe(renderVerdict, () => {
     expect(renderVerdict(verdict, 'rich')).toBe('❌ nmr-core: test: failed in 1.2s (exit 130)');
   });
 
+  it('names the host on which a delegated command passed or failed', () => {
+    const passed = makeVerdict({ outcome: 'passed', durationMs: 64_000 });
+    const failed = makeVerdict({
+      outcome: 'failed',
+      durationMs: 1_200,
+      exitCode: 255,
+      detail: 'could not push to box',
+    });
+
+    expect(renderVerdict({ ...passed, host: 'box' }, 'plain')).toBe('PASS nmr-core: test: passed on box in 1m 4s');
+    expect(renderVerdict({ ...failed, host: 'box' }, 'plain')).toBe(
+      'FAIL nmr-core: test: failed on box in 1.2s (exit 255) — could not push to box',
+    );
+    expect(JSON.parse(serializeVerdict({ ...passed, host: 'box' }))).toMatchObject({ host: 'box' });
+  });
+
   it('reports a recalled pass with its age and saving', () => {
     const verdict = makeVerdict({ outcome: 'recalled', ageMs: 240_000, savedMs: 12_000 });
 

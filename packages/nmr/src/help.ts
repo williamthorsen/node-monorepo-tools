@@ -1,5 +1,6 @@
 import { isHookName } from './helpers/hook-name.ts';
 import { OUTPUT_STYLE_ENV_VAR, OUTPUT_STYLE_FLAG } from './output-style.ts';
+import { DELEGATE_ENV_VAR } from './remote-run.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import {
   buildRootRegistry,
@@ -65,15 +66,18 @@ export function generateHelp(
     '  -R, --recursive             Run command in all packages',
     '  -w, --workspace-root        Use root scripts, running at the monorepo root',
     "  -q, --quiet                 Suppress command output, keeping nmr's verdicts",
+    '      --delegate <host>       Run on <host> over SSH, against this working tree',
     '      --json                  Report one JSON object per command, withholding command output',
     '      --log                   Print the recorded run instead of running (up to 256 KiB)',
     '      --no-cache              Run even if this tree already passed; record the result',
+    '      --no-delegate           Run here, even when NMR_DELEGATE names a host',
     '      --no-lock               Run without waiting for another heavy command on this machine',
     `      ${OUTPUT_STYLE_FLAG} <style>  Output style: auto (default), plain, or rich`,
     '  -?, --help                  Show this help',
     '  -V, --version               Show version number',
     '',
     'Environment:',
+    `  ${DELEGATE_ENV_VAR}                Host on which to run each command that can be delegated`,
     `  ${OUTPUT_STYLE_ENV_VAR}            Output style: auto (default), plain, or rich. auto prints`,
     '                              plain, without emoji, when CI is set or the stream is not a terminal.',
     '',

@@ -17,9 +17,10 @@ The waiting line goes to stderr in every verbosity and report format. The time s
 - **`test:watch` does not take the lock.** It runs until it is stopped, and would block every other run for as long.
 - **A composite takes the lock when it reaches a heavy step.** `prepush` runs its audit unlocked, then waits, if it has to, before `ci`.
 - **A command nested in a heavy one runs under its hold.** The holder passes its token to the processes that it starts, so `ci` running `check:strict` running `test` takes the lock once.
-- **A fan-out takes the lock once.** `nmr -R test` and `nmr -F <pattern> test` hold it in the delegating process, so the packages that pnpm runs in parallel do not wait on one another.
+- **A fan-out takes the lock once.** `nmr -R test` and `nmr -F <pattern> test` hold it in the process that fans out, so the packages that pnpm runs in parallel do not wait on one another.
 - **A cached pass does not wait.** nmr consults the [check-result cache](check-cache.md) before it takes the lock, and a command that the cache serves never waits. A run that did wait consults the cache again, because the run that it waited on may have recorded a pass for the same tree.
 - **`--log` does not take the lock**, because it runs nothing.
+- **A [delegated](delegate.md) command takes the host's lock**, not this machine's.
 
 ## Where the lock lives
 
