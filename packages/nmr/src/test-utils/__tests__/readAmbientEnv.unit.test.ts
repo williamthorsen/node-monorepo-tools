@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DEBUG_ENV_VAR, NO_CACHE_ENV_VAR, RUN_ID_ENV_VAR, TREE_SNAPSHOT_ENV_VAR } from '../../check-cache.ts';
+import { RUN_IF_PRESENT_ENV_VAR } from '../../invocation.ts';
 import { OUTPUT_STYLE_ENV_VAR } from '../../output-style.ts';
 import { REPORT_FORMAT_ENV_VAR } from '../../report-format.ts';
-import { RUN_IF_PRESENT_ENV_VAR } from '../../runCli.ts';
 import { AGENT_ENV_VARS, COMMAND_VERBOSITY_ENV_VAR } from '../../verbosity.ts';
 import { readAmbientEnv } from '../readAmbientEnv.ts';
 
