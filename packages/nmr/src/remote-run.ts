@@ -17,8 +17,11 @@ import { composeSessionScript, createSessionDemultiplexer, formatDelegationWaiti
 /** Names the hosts to which nmr delegates a command when the invocation does not say otherwise. */
 export const DELEGATE_ENV_VAR = 'NMR_DELEGATE';
 
-/** The flag that names the hosts on which to run the command. */
+/** The flag that runs the command on a host that `NMR_DELEGATE` or the user config names. */
 export const DELEGATE_FLAG = '--delegate';
+
+/** The flag that names the hosts on which to run the command. */
+export const DELEGATE_TO_FLAG = '--delegate-to';
 
 /** The exit status of a delegation that failed outside its command, which matches `ssh`'s own. */
 export const DELEGATION_FAILURE_EXIT_CODE = 255;
@@ -61,22 +64,24 @@ export function deriveCheckoutPath(hostname: string, toplevel: string): string {
 }
 
 /**
- * Renders the warning for a `--delegate` or `--no-delegate` that appears after the command name, which makes it an
- * argument to the command rather than a flag to nmr.
+ * Renders the warning for a delegation flag that appears after the command name, which makes it an argument to the
+ * command rather than a flag to nmr.
  */
 export function formatMisplacedDelegationWarning(command: string, style: OutputStyle): string {
   return (
-    `${STATUS_GLYPHS[style].warning.text} ${DELEGATE_FLAG} and ${NO_DELEGATE_FLAG} after the command name are passed ` +
-    `to \`${command}\`, not read by nmr. Did you mean \`nmr ${DELEGATE_FLAG} <host> ${command}\`?`
+    `${STATUS_GLYPHS[style].warning.text} ${DELEGATE_FLAG}, ${DELEGATE_TO_FLAG}, and ${NO_DELEGATE_FLAG} after the ` +
+    `command name are passed to \`${command}\`, not read by nmr. Write them before it: ` +
+    `\`nmr ${DELEGATE_TO_FLAG} <host> ${command}\`.`
   );
 }
 
 /**
- * Decides where an invocation runs. `--no-delegate` outranks `--delegate`, which outranks `NMR_DELEGATE`. Each names
- * its candidate hosts as a comma-separated list, in order of preference.
+ * Decides where an invocation runs. `--no-delegate` outranks `--delegate-to` and `--delegate`, which outrank
+ * `NMR_DELEGATE`. `--delegate-to` and the variable each name candidate hosts as a comma-separated list, in order of
+ * preference; `--delegate` takes the variable's.
  *
  * A command that rewrites the tree, or that runs until it is stopped, cannot be delegated, and neither can `--log`,
- * which reads this machine's recordings. Asked for by the flag, such an invocation is refused; asked for by the
+ * which reads this machine's recordings. Asked for by a flag, such an invocation is refused; asked for by the
  * variable, which sets a default for every invocation, it runs here.
  */
 export function resolveDelegationTarget(options: {
@@ -85,18 +90,26 @@ export function resolveDelegationTarget(options: {
   flagValue: string | undefined;
   isOptedOut: boolean;
   isReading: boolean;
+  shouldDelegate: boolean;
 }): DelegationTarget {
-  const { command, env, flagValue, isOptedOut, isReading } = options;
+  const { command, env, flagValue, isOptedOut, isReading, shouldDelegate } = options;
   if (isOptedOut) {
     return { kind: 'local' };
   }
 
   const isDelegable = !isReading && !NON_DELEGABLE_COMMANDS.has(command);
+  const envHosts = parseHostList(env[DELEGATE_ENV_VAR] ?? '');
 
-  if (flagValue !== undefined) {
-    const hosts = parseHostList(flagValue);
+  if (flagValue !== undefined || shouldDelegate) {
+    const hosts = flagValue === undefined ? envHosts : parseHostList(flagValue);
     if (hosts === undefined) {
-      return { kind: 'refused', error: `${DELEGATE_FLAG} requires a host: "${flagValue}" does not name a host.` };
+      return {
+        kind: 'refused',
+        error:
+          flagValue === undefined
+            ? `${DELEGATE_FLAG} needs hosts: set ${DELEGATE_ENV_VAR}, or name them with ${DELEGATE_TO_FLAG} <host,...>.`
+            : `${DELEGATE_TO_FLAG} requires a host: "${flagValue}" does not name a host.`,
+      };
     }
     if (isDelegable) {
       return { kind: 'remote', hosts, source: 'flag' };
@@ -104,11 +117,10 @@ export function resolveDelegationTarget(options: {
     const subject = isReading ? '--log' : `\`${command}\``;
     return {
       kind: 'refused',
-      error: `${subject} cannot be delegated: it ${isReading ? "reads this machine's recordings" : 'rewrites the working tree or runs until stopped'}. Run it without ${DELEGATE_FLAG}.`,
+      error: `${subject} cannot be delegated: it ${isReading ? "reads this machine's recordings" : 'rewrites the working tree or runs until stopped'}. Run it without ${flagValue === undefined ? DELEGATE_FLAG : DELEGATE_TO_FLAG}.`,
     };
   }
 
-  const envHosts = parseHostList(env[DELEGATE_ENV_VAR] ?? '');
   if (envHosts !== undefined && isDelegable) {
     return { kind: 'remote', hosts: envHosts, source: 'env' };
   }

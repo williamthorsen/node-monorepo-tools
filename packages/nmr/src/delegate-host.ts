@@ -58,6 +58,7 @@ export function resolveExecutionTarget(invocation: Invocation): PhaseResult<Exec
     flagValue: parsedArgs.delegateHosts,
     isOptedOut: parsedArgs.shouldRunLocally,
     isReading: parsedArgs.shouldPrintLog,
+    shouldDelegate: parsedArgs.shouldDelegate,
   });
   if (target.kind === 'refused') {
     reportError(target.error, stderr);

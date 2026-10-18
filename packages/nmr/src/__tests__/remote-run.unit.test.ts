@@ -34,7 +34,9 @@ describe(resolveDelegationTarget, () => {
     ({ command = 'ci', envHost, expected, flagValue, isOptedOut = false, isReading = false }) => {
       const env = envHost === undefined ? {} : { [DELEGATE_ENV_VAR]: envHost };
 
-      expect(resolveDelegationTarget({ command, env, flagValue, isOptedOut, isReading })).toStrictEqual(expected);
+      expect(
+        resolveDelegationTarget({ command, env, flagValue, isOptedOut, isReading, shouldDelegate: false }),
+      ).toStrictEqual(expected);
     },
   );
 
@@ -55,7 +57,14 @@ describe(resolveDelegationTarget, () => {
     const env = envValue === undefined ? {} : { [DELEGATE_ENV_VAR]: envValue };
 
     expect(
-      resolveDelegationTarget({ command: 'ci', env, flagValue, isOptedOut: false, isReading: false }),
+      resolveDelegationTarget({
+        command: 'ci',
+        env,
+        flagValue,
+        isOptedOut: false,
+        isReading: false,
+        shouldDelegate: false,
+      }),
     ).toStrictEqual(expected);
   });
 
@@ -66,6 +75,7 @@ describe(resolveDelegationTarget, () => {
       flagValue: ' , ',
       isOptedOut: false,
       isReading: false,
+      shouldDelegate: false,
     });
 
     expect(target).toStrictEqual({ kind: 'refused', error: expect.stringContaining('does not name a host') });
@@ -80,6 +90,7 @@ describe(resolveDelegationTarget, () => {
         flagValue: 'box',
         isOptedOut: false,
         isReading: false,
+        shouldDelegate: false,
       });
 
       expect(target).toStrictEqual({
@@ -89,6 +100,37 @@ describe(resolveDelegationTarget, () => {
     },
   );
 
+  it.for([
+    {
+      case: 'the variable names a host',
+      envValue: 'box,spare',
+      expected: { kind: 'remote', hosts: ['box', 'spare'], source: 'flag' },
+    },
+    {
+      case: 'the variable is empty',
+      envValue: '',
+      expected: { kind: 'refused', error: expect.stringContaining('--delegate needs hosts') },
+    },
+    {
+      case: 'the variable is unset',
+      envValue: undefined,
+      expected: { kind: 'refused', error: expect.stringContaining('name them with --delegate-to <host,...>') },
+    },
+  ])('resolves bare --delegate when $case', ({ envValue, expected }) => {
+    const env = envValue === undefined ? {} : { [DELEGATE_ENV_VAR]: envValue };
+
+    expect(
+      resolveDelegationTarget({
+        command: 'ci',
+        env,
+        flagValue: undefined,
+        isOptedOut: false,
+        isReading: false,
+        shouldDelegate: true,
+      }),
+    ).toStrictEqual(expected);
+  });
+
   it('refuses --log under the flag', () => {
     const target = resolveDelegationTarget({
       command: 'test',
@@ -96,6 +138,7 @@ describe(resolveDelegationTarget, () => {
       flagValue: 'box',
       isOptedOut: false,
       isReading: true,
+      shouldDelegate: false,
     });
 
     expect(target).toStrictEqual({ kind: 'refused', error: expect.stringContaining('--log cannot be delegated') });

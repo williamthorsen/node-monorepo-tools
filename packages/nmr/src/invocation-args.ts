@@ -2,7 +2,7 @@ import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
 import { renderQuotedList } from './helpers/renderQuotedList.ts';
 import { OUTPUT_STYLE_FLAG } from './output-style.ts';
-import { DELEGATE_FLAG, NO_DELEGATE_FLAG } from './remote-run.ts';
+import { DELEGATE_FLAG, DELEGATE_TO_FLAG, NO_DELEGATE_FLAG } from './remote-run.ts';
 import { quoteToken } from './shell-syntax.ts';
 
 /** Every spelling of the flag that takes a workspace filter pattern. */
@@ -11,6 +11,7 @@ const FILTER_FLAGS = new Set(['-F', '--filter']);
 /** Every spelling of a boolean flag, paired with the field that it sets. */
 const BOOLEAN_FLAGS = new Map<string, BooleanFlagName>([
   ['-?', 'shouldShowHelp'],
+  [DELEGATE_FLAG, 'shouldDelegate'],
   ['--help', 'shouldShowHelp'],
   ['--json', 'shouldEmitJson'],
   ['--log', 'shouldPrintLog'],
@@ -59,7 +60,13 @@ export function formatMisplacedFlagHint(
 
 /** Reports whether an argument is one of nmr's delegation flags, in any spelling. */
 export function isDelegationFlag(arg: string): boolean {
-  return arg === DELEGATE_FLAG || arg === NO_DELEGATE_FLAG || arg.startsWith(`${DELEGATE_FLAG}=`);
+  return (
+    arg === DELEGATE_FLAG ||
+    arg === DELEGATE_TO_FLAG ||
+    arg === NO_DELEGATE_FLAG ||
+    arg.startsWith(`${DELEGATE_FLAG}=`) ||
+    arg.startsWith(`${DELEGATE_TO_FLAG}=`)
+  );
 }
 
 /** Parses the CLI arguments into nmr's flags, the command name, and the arguments passed through to it. */
@@ -70,6 +77,7 @@ export function parseArgs(args: string[]): ParseResult {
     recursive: false,
     shouldBypassCache: false,
     shouldBypassLock: false,
+    shouldDelegate: false,
     shouldEmitJson: false,
     shouldPrintLog: false,
     shouldRunLocally: false,
@@ -101,6 +109,15 @@ export function parseArgs(args: string[]): ParseResult {
       parsedArgs[booleanFlag] = true;
       index++;
       continue;
+    }
+
+    // `--delegate` took the host list before `--delegate-to` did, so an assigned value is a host list in the old form.
+    if (arg.startsWith(`${DELEGATE_FLAG}=`)) {
+      const value = arg.slice(DELEGATE_FLAG.length + 1);
+      return {
+        ok: false,
+        error: `${DELEGATE_FLAG} does not take a value; name hosts with ${DELEGATE_TO_FLAG} ${value}`,
+      };
     }
 
     const styleArgument = readOutputStyleArgument(args, index);
@@ -135,7 +152,7 @@ export function parseArgs(args: string[]): ParseResult {
 
 /** @internal */
 export interface ParsedArgs {
-  /** The comma-separated hosts that `--delegate` names, as written. */
+  /** The comma-separated hosts that `--delegate-to` names, as written. */
   delegateHosts?: string;
   filter?: string;
   isWorkspaceRoot: boolean;
@@ -145,6 +162,8 @@ export interface ParsedArgs {
   recursive: boolean;
   shouldBypassCache: boolean;
   shouldBypassLock: boolean;
+  /** Set by `--delegate`, which leaves the hosts to `NMR_DELEGATE` or the user config. */
+  shouldDelegate: boolean;
   shouldEmitJson: boolean;
   shouldPrintLog: boolean;
   shouldRunLocally: boolean;
@@ -163,6 +182,7 @@ type BooleanFlagName =
   | 'recursive'
   | 'shouldBypassCache'
   | 'shouldBypassLock'
+  | 'shouldDelegate'
   | 'shouldEmitJson'
   | 'shouldPrintLog'
   | 'shouldRunLocally'
@@ -194,11 +214,11 @@ function findArgError(parsedArgs: ParsedArgs): string | undefined {
 }
 
 /**
- * Returns the hosts that `--delegate` at `index` names, or `undefined` when the argument is not the flag. Both
+ * Returns the hosts that `--delegate-to` at `index` names, or `undefined` when the argument is not the flag. Both
  * spellings are read, as for `--output-style`, and an empty value is rejected with a missing one.
  */
 function readDelegateArgument(args: readonly string[], index: number): FlagValueRead | undefined {
-  return readFlagValue(args, index, DELEGATE_FLAG, 'a host argument');
+  return readFlagValue(args, index, DELEGATE_TO_FLAG, 'a host argument');
 }
 
 /**
