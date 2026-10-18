@@ -195,7 +195,7 @@ describe(resolveDelegationTarget, () => {
       await expect(resolve(overrides)).resolves.toStrictEqual({ kind: 'local' });
     });
 
-    it('runs here in CI with an empty CI value read as unset', async () => {
+    it('delegates when CI is set empty, reading it as unset', async () => {
       const target = await resolve({ env: { CI: '' }, userConfig: ALWAYS_CONFIG });
 
       expect(target).toMatchObject({ kind: 'remote', source: 'config' });
