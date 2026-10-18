@@ -7,7 +7,6 @@ import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { writeCheckCacheEntry } from '../check-cache-entries.ts';
-
 import {
   COMMAND,
   countCacheEntries,
