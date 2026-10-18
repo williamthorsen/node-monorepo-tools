@@ -78,7 +78,7 @@ export function renderRecording(options: {
       options.style,
       'recording',
       `${options.scope}: ${options.command} — recorded ${entry.recordedAt} (${age} ago), ` +
-        `ran in ${formatDuration(entry.durationMs)}`,
+        `ran in ${formatDuration(entry.durationMs)}${entry.host === undefined ? '' : ` on ${entry.host}`}`,
     ) + `\n$ ${entry.commandString}\n\n`;
 
   return `${header}${appendNewline(renderBody(options.recording))}`;

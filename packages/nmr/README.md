@@ -194,7 +194,7 @@ $ nmr --delegate imac2 ci
 ✅ my-repo: ci: passed on imac2 in 1m 48s
 ```
 
-[Delegating to another machine](docs/delegate.md) covers which commands can be delegated, what the host runs, how failures are reported, and setting up the host.
+A delegation consults the [check-result cache](#check-result-cache) first, so a tree that already passed is not sent to the host. [Delegating to another machine](docs/delegate.md) covers which commands can be delegated, how the cache is consulted, what the host runs, how failures are reported, and setting up the host.
 
 ## Shared configs and helpers
 

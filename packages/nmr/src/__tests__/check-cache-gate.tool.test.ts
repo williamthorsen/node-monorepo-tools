@@ -4,13 +4,15 @@ import process from 'node:process';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { writeCheckCacheEntry } from '../check-cache-entries.ts';
 import {
   COMMAND,
   countCacheEntries,
   countRuns,
   LOG_ENTRY,
+  readEntry,
   readLog,
   runNmr,
   scaffoldRepo,
@@ -100,6 +102,23 @@ describe('the check-result cache gate', () => {
 
       expect(exitCode).toBe(0);
       expect(countRuns(workspace)).toBe(1);
+    });
+
+    it('runs here although a host recorded a pass for this tree', async () => {
+      await runNmr(COMMAND, repo);
+      const entry = await readEntry(repo);
+      assert.ok(entry !== undefined);
+      await writeCheckCacheEntry({
+        anchorDir: repo,
+        command: COMMAND,
+        entry: { ...entry, host: 'imac' },
+        monorepoRoot: repo,
+      });
+
+      const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
+
+      expect(countRuns(workspace)).toBe(2);
+      expect(stderr).toContain('the last pass was earned on imac');
     });
   });
 

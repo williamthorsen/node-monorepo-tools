@@ -20,14 +20,15 @@ export interface FakeRemote {
  * Creates a fake host under `tree`. The fake `ssh` runs its command with `/bin/sh` in the fake home. A host named
  * `unreachable` fails as `ssh` does, and one named `dropping` runs the host session with its stdout discarded and then
  * exits 255, as `ssh` does when the connection drops during the run. The fake login shell prints a greeting, as a
- * startup file may, and drops `-il`, so that a profile on this machine cannot reorder `PATH` ahead of the fakes.
+ * startup file may, and drops `-il`, so that a profile on this machine cannot reorder `PATH` ahead of the fakes. The
+ * fake `ssh` unsets every `NMR_*` variable, as `ssh` forwards none of the local environment.
  *
- * The fake `pnpm` logs each call. Its `exec` logs the directory, the arguments, the output style, and the files in
- * the directory and the content of `probe.txt` when there is one, then prints to both streams. These variables
- * steer it: `FAKE_INSTALL_STATUS` and `FAKE_RUN_STATUS` set exit statuses; `FAKE_INSTALL_SLEEP` and
- * `FAKE_RUN_SLEEP` make the install or the run write its pid to `FAKE_INSTALL_PIDFILE` or `FAKE_RUN_PIDFILE` and sleep;
- * `FAKE_INSTALL_NOISE` makes the install print that many lines and then `last install line`; and `FAKE_RUN_TERM_DELAY`
- * makes the run take that many seconds to exit on `SIGTERM`.
+ * The fake `pnpm` logs each call. Its `exec` logs the directory, the arguments, the output style, nmr's own variables,
+ * the files in the directory, and the content of `probe.txt` when there is one, then prints to both streams. These
+ * variables steer it: `FAKE_INSTALL_STATUS` and `FAKE_RUN_STATUS` set exit statuses; `FAKE_INSTALL_SLEEP` and
+ * `FAKE_RUN_SLEEP` make the install or the run write its pid to `FAKE_INSTALL_PIDFILE` or `FAKE_RUN_PIDFILE` and
+ * sleep; `FAKE_INSTALL_NOISE` makes the install print that many lines and then `last install line`; and
+ * `FAKE_RUN_TERM_DELAY` makes the run take that many seconds to exit on `SIGTERM`.
  */
 export function createFakeRemote(tree: TempTree): FakeRemote {
   const binDir = tree.mkdir('fake-bin');
@@ -51,6 +52,8 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
     'host=$1; shift',
     'if [ "$host" = unreachable ]; then echo "ssh: connect to host unreachable: Connection refused" >&2; exit 255; fi',
     'cmd="$*"',
+    // `ssh` forwards none of the local environment, so nmr's own variables reach the host only through the session.
+    String.raw`for name in $(env | sed -n 's/^\(NMR_[A-Z_]*\)=.*/\1/p'); do unset "$name"; done`,
     'cd "$FAKE_REMOTE_HOME" || exit 255',
     'case "$host:$cmd" in dropping:*runHostSession*) HOME=$FAKE_REMOTE_HOME SHELL=$FAKE_LOGIN_SHELL /bin/sh -c "$cmd" >/dev/null; exit 255 ;; esac',
     'HOME=$FAKE_REMOTE_HOME SHELL=$FAKE_LOGIN_SHELL exec /bin/sh -c "$cmd"',
@@ -69,6 +72,7 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
     '      echo "cwd=$(pwd)"',
     '      echo "args=$*"',
     '      echo "style=$NMR_OUTPUT_STYLE"',
+    '      echo "env=no-cache:${NMR_NO_CACHE-unset} debug:${NMR_DEBUG-unset} run-id:${NMR_RUN_ID:+set} snapshot:${NMR_TREE_SNAPSHOT:+set} lock-token:${NMR_LOCK_TOKEN:+set} no-lock:${NMR_NO_LOCK-unset}"',
     String.raw`      echo "files=$(ls -A | sort | tr '\n' ' ')"`,
     '      [ -f probe.txt ] && echo "probe=$(cat probe.txt)"',
     '    } >> "$FAKE_PNPM_LOG"',

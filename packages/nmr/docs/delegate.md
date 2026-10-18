@@ -28,6 +28,22 @@ Every command whose contribution is its exit status: `ci`, `prepush`, `check`, t
 
 These run here, and `--delegate` refuses them: `build`, `clean`, `compile`, `fix`, `fmt`, `lint`, `test:watch`, and `upgrade`, with their `root:` forms, which rewrite the working tree or run until stopped; and `--log`, which reads this machine's recordings. Under `NMR_DELEGATE`, they run here without comment.
 
+## Consulting the cache first
+
+nmr plans the command here and consults this machine's [check-result cache](check-cache.md#delegated-passes) before it contacts the host. When a recorded pass covers the tree, nmr reports the recall and does not reach the host:
+
+```console
+$ nmr --delegate imac2 ci
+⏩ my-repo: ci: passed 4m ago on this tree, saved ~1m 48s
+```
+
+- **A pass earned here satisfies a delegation** to any host.
+- **A pass earned on a host is recorded here** with that host, and a later delegation to the same host recalls it as `passed 4m ago on imac2`. A run here, or a delegation to another host, does not recall it. `nmr --log <command>` prints the output that the host sent back, under a header that names the host.
+- **Only a miss reaches the host**, and it does not take the [machine lock](machine-lock.md) here.
+- **`--no-cache` and `NMR_NO_CACHE=1` skip the lookup** and reach the host, where they bypass its cache too.
+- **An invocation that nmr settles while planning**, such as an unknown command or an empty override, settles here without contacting the host.
+- **A `-F` or `-R` invocation is sent whole**, without consulting this machine's cache, and the host fans it out.
+
 ## What the host runs
 
 nmr records the working tree as it is on disk as a commit: tracked changes, staged or not, and untracked files that git does not ignore. This is the tree that a local run checks. The commit is built in a temporary index, so the repository's index, refs, and stash do not change.
@@ -46,7 +62,7 @@ nmr: waiting for ci in /Users/me/repos/my-repo (pid 41872) to finish on imac2
 
 The pid is that of the other delegation's nmr on this machine. The lock is the file `.git/nmr-delegate.lock` in the checkout, and it covers the checkout, the install, and the run, but not the push, which only transfers the snapshot. As with the machine lock, the time spent waiting does not count in the verdict's duration, and a lock left behind by an interrupted delegation is reclaimed by the next: at once when its holder's process on the host no longer exists, and otherwise once the holder has stopped refreshing the file for a minute. Delegations from different worktrees use different checkouts and do not wait for one another.
 
-On the host, the command runs under the host's own [machine lock](machine-lock.md) and [check-result cache](check-cache.md), so a host that serves several worktrees runs their heavy commands one at a time, and a tree that already passed there skips. A delegated run does not take the lock here, and it neither consults nor records this machine's cache, whose key is specific to the machine.
+On the host, the command runs under the host's own [machine lock](machine-lock.md) and [check-result cache](check-cache.md), so a host that serves several worktrees runs their heavy commands one at a time, and a tree that already passed there skips. The host's nmr receives nmr's own flags as they were given, and the variables that decide how it reports (`NMR_COMMAND_VERBOSITY`, `NMR_OUTPUT_STYLE`, and `NMR_REPORT_FORMAT`), whether it bypasses its cache (`NMR_NO_CACHE`), whether it writes debug notes (`NMR_DEBUG`), and which run it belongs to (`NMR_RUN_ID`). An `NMR_NO_LOCK` set here does not reach the host, while `--no-lock` does.
 
 Ctrl-C ends the delegation on the host as well as here, in every step, including the wait for the checkout.
 

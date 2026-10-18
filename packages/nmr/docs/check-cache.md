@@ -68,6 +68,16 @@ The gate never wrongly skips. When it cannot be sure, it does nothing and the co
 
 `NMR_DEBUG=1` reports why a run did not skip and why the cache did not apply.
 
+## Delegated passes
+
+A [delegated](delegate.md#consulting-the-cache-first) invocation consults this cache before it contacts the host, under the same key as a run here: The key describes the work as this machine sees it, and each entry also records which machine earned the pass.
+
+- **A pass earned here** satisfies a run here and a delegation to any host.
+- **A pass earned on a host** satisfies only a delegation to that host, and is not held to this machine's build output, which says nothing about the host's.
+- **The key contains this machine's Node version and install, not the host's.** A change on the host alone, such as a Node upgrade there, does not invalidate a pass recorded here. The host's own cache keys on its own.
+- **A host pass is recorded only when the tree pushed to the host is the tree on which the key was computed**, and it does not replace a pass earned here under the same key while that pass would still be recalled, its build output present and built from this tree.
+- **A host pass retains the transcript that the host sent back**, which `--log` prints under a header that names the host, and no excerpt, so a recall of it does not replay anything.
+
 ## Replaying a skipped run's output
 
 A skip reports an excerpt of the run that it recalls, marked as a recording rather than as this run's output:

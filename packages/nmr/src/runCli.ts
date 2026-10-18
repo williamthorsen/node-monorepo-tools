@@ -10,11 +10,12 @@ import { reportRecording } from './check-cache-record.ts';
 import { addLockEnv, buildChildEnv, takeMachineLock } from './child-env.ts';
 import { resolveContext } from './context.ts';
 import { assertNoSelfReference } from './crossing-diagnostics.ts';
-import { runOnDelegateHost } from './delegate-host.ts';
+import { resolveExecutionTarget, runInvocationOnHost } from './delegate-host.ts';
 import { enterChain } from './entry-chain.ts';
 import { composeDelegation, isDefinedInAnyScope, runDelegation } from './fan-out.ts';
 import { generateHelp } from './help.ts';
 import {
+  type ExecutionTarget,
   type Invocation,
   type PhaseResult,
   RUN_IF_PRESENT_ENV_VAR,
@@ -58,12 +59,23 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   }
   const invocation = established.value;
 
-  const delegated = await runOnDelegateHost(invocation);
-  if (delegated !== undefined) {
-    return delegated;
+  const resolvedTarget = resolveExecutionTarget(invocation);
+  if (resolvedTarget.settled) {
+    return { exitCode: resolvedTarget.result.exitCode };
+  }
+  let target = resolvedTarget.value;
+
+  // A fan-out does not have a gate of its own to consult, so the host receives it whole and fans it out there.
+  const { filter, recursive } = invocation.parsedArgs;
+  if (target.kind === 'remote' && (filter !== undefined || recursive)) {
+    const delegated = await runInvocationOnHost(invocation, target);
+    if (delegated !== undefined) {
+      return delegated;
+    }
+    target = { kind: 'local' };
   }
 
-  const planned = await planRun(invocation);
+  const planned = await planRun(invocation, target);
   const { exitCode, isUnknownCommand = false } = planned.settled ? planned.result : await executePlan(planned.value);
 
   // A process that nmr started did not receive its arguments from the user, and its parent reports the hint once.
@@ -154,9 +166,10 @@ async function establishInvocation(options: RunCliOptions): Promise<PhaseResult<
 
 /**
  * Determines what an invocation would run, and settles every invocation that does not run its command: a
- * delegation, an unknown command, a no-op override, and an argument that no step can take.
+ * fan-out, an unknown command, a no-op override, and an argument that no step can take. A delegated invocation is
+ * planned here as well, so that it settles without contacting the host and its gate is consulted before the host is.
  */
-async function planRun(invocation: Invocation): Promise<PhaseResult<RunPlan>> {
+async function planRun(invocation: Invocation, target: ExecutionTarget): Promise<PhaseResult<RunPlan>> {
   const { anchorDir, command, context, env, parsedArgs, stderr, stdout, styles } = invocation;
   const quiet = invocation.verbosity === 'quiet';
 
@@ -261,6 +274,7 @@ async function planRun(invocation: Invocation): Promise<PhaseResult<RunPlan>> {
       runOptions: entryRunOptions,
       shouldBypassCache,
       snapshot,
+      target,
     },
   };
 }
@@ -274,9 +288,11 @@ async function executePlan(plan: RunPlan): Promise<SettledResult> {
     return reportRecording(plan);
   }
 
-  const { exitCode, outcome } = await runGated(plan);
+  const { exitCode, host, outcome } = await runGated(plan);
 
-  reportVerdict({ command, scope, ...outcome }, stdout, format, styles.stdout);
+  if (outcome !== undefined) {
+    reportVerdict({ command, ...(host !== undefined && { host }), scope, ...outcome }, stdout, format, styles.stdout);
+  }
 
   return { exitCode };
 }

@@ -46,6 +46,22 @@ describe(renderVerdict, () => {
     expect(renderVerdict(verdict, 'rich')).toBe('⏩ nmr-core: test: passed 4m ago on this tree, saved ~12s');
   });
 
+  it('names the host that earned a recalled delegated pass in place of the tree', () => {
+    const verdict = makeVerdict({ outcome: 'recalled', ageMs: 240_000, savedMs: 12_000 });
+
+    expect(renderVerdict({ ...verdict, host: 'box' }, 'plain')).toBe(
+      'SKIP nmr-core: test: passed 4m ago on box, saved ~12s',
+    );
+    expect(JSON.parse(serializeVerdict({ ...verdict, host: 'box' }))).toStrictEqual({
+      command: 'test',
+      host: 'box',
+      scope: 'nmr-core',
+      outcome: 'recalled',
+      ageMs: 240_000,
+      savedMs: 12_000,
+    });
+  });
+
   it('drops the saving clause when the recalled pass was too quick to have saved anything', () => {
     const verdict = makeVerdict({ outcome: 'recalled', ageMs: 240_000, savedMs: 40 });
 
