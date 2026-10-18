@@ -1,13 +1,16 @@
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 import type { Writable } from 'node:stream';
 
 import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
 import { quoteForShell } from './helpers/quoteForShell.ts';
+import type { SessionPhase, SessionRecord } from './remote-host-session.ts';
+import { composeSessionScript, createSessionDemultiplexer, formatDelegationWaitingLine } from './remote-session.ts';
 
 /** Names the host to which nmr delegates a command when the invocation does not say otherwise. */
 export const DELEGATE_ENV_VAR = 'NMR_DELEGATE';
@@ -31,53 +34,13 @@ export type DelegationTarget =
 /** The phases of a delegation that run on the host, each reported by name when it fails. */
 export type RemotePhase = 'check out' | 'install' | 'prepare' | 'push' | 'run';
 
-/** The status of a delegated command, or the phase that kept it from finishing and what that phase printed. */
-export type RemoteRunResult =
-  { ok: true; exitCode: number } | { ok: false; message: string; output: string; phase: RemotePhase };
-
 /**
- * Composes the script that runs nmr on the host, from the directory that corresponds to the local one.
- *
- * A Node launcher starts nmr in its own process group, with stdin closed, and reads the connection's stdin, which the
- * local `ssh` holds open and closes when it exits, as on Ctrl-C; on that end of input, the launcher stops nmr's whole
- * group, so that an interrupted run does not continue on the host. The launcher rather than the shell's job control
- * makes the group, because a shell such as dash refuses job control without a terminal. `--no-delegate` keeps a host
- * whose environment sets `NMR_DELEGATE` from passing the command on again.
- *
- * The script writes nmr's status to `statusPath` before it exits, so that a 255 from `ssh` can be told apart: It is
- * nmr's own when the file records it, and a dropped connection otherwise.
- *
- * @internal
+ * The status of a delegated command, or the phase that kept it from finishing and what that phase printed, with how
+ * long the delegation waited for another delegation's checkout.
  */
-export function composeRunScript(options: {
-  nmrArgs: readonly string[];
-  remoteEnv: Readonly<Record<string, string>>;
-  runDir: string;
-  statusPath: string;
-}): string {
-  const { nmrArgs, remoteEnv, runDir, statusPath } = options;
-  const assignments = Object.entries(remoteEnv).map(([name, value]) => `${name}=${quoteForShell(value)}`);
-  const invocation = [
-    ...assignments,
-    'node',
-    '-e',
-    quoteForShell(RUN_LAUNCHER_SOURCE),
-    'pnpm',
-    'exec',
-    'nmr',
-    '--no-delegate',
-    ...nmrArgs.map(quoteForShell),
-  ].join(' ');
-
-  return [
-    `rm -f ${statusPath}`,
-    `mkdir -p ${runDir} && cd ${runDir} || exit 1`,
-    invocation,
-    'nmr_status=$?',
-    String.raw`printf '%s\n' "$nmr_status" > ${statusPath}`,
-    'exit "$nmr_status"',
-  ].join('\n');
-}
+export type RemoteRunResult =
+  | { ok: true; exitCode: number; waitedMs: number }
+  | { ok: false; message: string; output: string; phase: RemotePhase; waitedMs: number };
 
 /**
  * Returns the checkout's path on the host, relative to its home directory: a key derived from this machine and the
@@ -148,10 +111,12 @@ export function resolveDelegationTarget(options: {
  *
  * The host keeps one checkout per local repository and host name, under `~/.cache/nmr/delegate/`, so concurrent
  * delegations from different worktrees do not share a checkout, and `node_modules` and build output persist
- * between runs. Each phase is its own connection, so that a failure names its phase; what a phase other than `run`
- * prints is returned rather than streamed, because it matters only when the phase fails.
+ * between runs. Check out, install, and run take one connection, whose session holds the checkout's lock, so that two
+ * delegations from one worktree run one after the other; what a phase other than `run` prints is returned rather than
+ * streamed, because it matters only when the phase fails.
  */
 export async function runRemotely(options: {
+  command: string;
   cwd: string;
   env: NodeJS.ProcessEnv;
   host: string;
@@ -162,7 +127,7 @@ export async function runRemotely(options: {
   stderr: Writable;
   stdout: Writable;
 }): Promise<RemoteRunResult> {
-  const { cwd, env, host, monorepoRoot, nmrArgs, remoteEnv, snapshot, stderr, stdout } = options;
+  const { command, cwd, env, host, monorepoRoot, nmrArgs, remoteEnv, snapshot, stderr, stdout } = options;
   const checkoutPath = deriveCheckoutPath(os.hostname(), snapshot.toplevel);
   const checkoutDir = `"$HOME"/${quoteForShell(checkoutPath)}`;
 
@@ -172,7 +137,7 @@ export async function runRemotely(options: {
     env,
   );
   if (prepare.exitCode !== 0) {
-    return { ok: false, message: `could not prepare ${host}`, output: prepare.output, phase: 'prepare' };
+    return { ok: false, message: `could not prepare ${host}`, output: prepare.output, phase: 'prepare', waitedMs: 0 };
   }
 
   // `--no-verify` keeps the repository's `pre-push` hook, which may run a gate of its own, out of a push that only
@@ -191,47 +156,74 @@ export async function runRemotely(options: {
     { cwd: snapshot.toplevel, env: { ...env, GIT_SSH_COMMAND: ['ssh', ...SSH_OPTIONS].join(' ') } },
   );
   if (push.exitCode !== 0) {
-    return { ok: false, message: `could not push to ${host}`, output: push.output, phase: 'push' };
+    return { ok: false, message: `could not push to ${host}`, output: push.output, phase: 'push', waitedMs: 0 };
   }
 
-  const checkout = await runSsh(
-    host,
-    `cd ${checkoutDir} && git checkout --quiet --force --detach ${snapshot.sha} && git clean --force -d --quiet`,
-    env,
-  );
-  if (checkout.exitCode !== 0) {
-    return { ok: false, message: `could not check out on ${host}`, output: checkout.output, phase: 'check out' };
-  }
-
-  const rootDir = joinRemotePath(checkoutDir, path.relative(snapshot.toplevel, monorepoRoot));
-  const install = await runSsh(host, `cd ${rootDir} && CI=true pnpm install --frozen-lockfile`, env);
-  if (install.exitCode !== 0) {
-    const message =
-      install.exitCode === COMMAND_NOT_FOUND_EXIT_CODE
-        ? `could not install on ${host}: pnpm is not on the PATH that the interactive login shell sets there`
-        : `could not install on ${host}`;
-    return { ok: false, message, output: install.output, phase: 'install' };
-  }
-
-  const runDir = joinRemotePath(checkoutDir, path.relative(snapshot.toplevel, cwd));
-  const statusPath = `${checkoutDir}/.git/${quoteForShell(RUN_STATUS_FILE)}`;
-  const run = await runProcess(
-    ['ssh', ...SSH_OPTIONS, host, wrapRemoteScript(composeRunScript({ nmrArgs, remoteEnv, runDir, statusPath }))],
-    {
-      env,
-      isStreaming: true,
-      stderr,
-      stdout,
+  const nonce = randomUUID();
+  const marker = `__NMR_DELEGATE_${nonce}__`;
+  const statusFile = `.git/nmr-run-status-${nonce}`;
+  let waitStartedAtMs: number | undefined;
+  let waitedMs = 0;
+  let failure: Extract<SessionRecord, { kind: 'failed' }> | undefined;
+  const demultiplexer = createSessionDemultiplexer({
+    marker,
+    onRecord(record) {
+      if (record.kind === 'waiting') {
+        waitStartedAtMs ??= Date.now();
+        stderr.write(`${formatDelegationWaitingLine(record.holder, host)}\n`);
+      } else if (record.kind === 'locked' && waitStartedAtMs !== undefined) {
+        waitedMs = Date.now() - waitStartedAtMs;
+      } else if (record.kind === 'failed') {
+        failure = record;
+      }
     },
-  );
-  if (run.exitCode === DELEGATION_FAILURE_EXIT_CODE) {
-    const recorded = await runSsh(host, `cat ${statusPath}`, env);
+    stderr,
+  });
+  const script = composeSessionScript({
+    checkoutDir,
+    params: {
+      holder: { command, dir: cwd, pid: process.pid },
+      marker,
+      nmrArgs,
+      remoteEnv,
+      rootDir: toRemoteRelativeDir(path.relative(snapshot.toplevel, monorepoRoot)),
+      runDir: toRemoteRelativeDir(path.relative(snapshot.toplevel, cwd)),
+      sha: snapshot.sha,
+      statusFile,
+    },
+  });
+  const session = await runProcess(['ssh', ...SSH_OPTIONS, host, wrapRemoteScript(script)], {
+    env,
+    isStreaming: true,
+    stderr: demultiplexer.stream,
+    stdout,
+  });
+
+  if (failure !== undefined) {
+    const output = [demultiplexer.readOutput(), failure.output].filter((text) => text !== '').join('\n');
+    return { ok: false, message: describeFailedPhase(failure, host), output, phase: failure.phase, waitedMs };
+  }
+  if (!demultiplexer.hasStarted()) {
+    return {
+      ok: false,
+      message: describeUnfinishedSession(session.exitCode, host),
+      output: demultiplexer.readOutput(),
+      phase: 'check out',
+      waitedMs,
+    };
+  }
+  if (session.exitCode === DELEGATION_FAILURE_EXIT_CODE) {
+    const recorded = await runSsh(
+      host,
+      `cd ${checkoutDir} && cat ${quoteForShell(statusFile)} && rm -f ${quoteForShell(statusFile)}`,
+      env,
+    );
     if (recorded.exitCode !== 0 || recorded.output.trim() !== String(DELEGATION_FAILURE_EXIT_CODE)) {
-      return { ok: false, message: `lost connection to ${host}`, output: '', phase: 'run' };
+      return { ok: false, message: `lost connection to ${host}`, output: '', phase: 'run', waitedMs };
     }
   }
 
-  return { ok: true, exitCode: run.exitCode };
+  return { ok: true, exitCode: session.exitCode, waitedMs };
 }
 
 /**
@@ -267,24 +259,6 @@ const LOGIN_PATH_PREAMBLE = [
  */
 const RECEIVE_PACK_COMMAND = `/bin/sh -c ${quoteForShell(`${LOGIN_PATH_PREAMBLE}; exec git receive-pack "$1"`)} nmr-receive-pack`;
 
-/**
- * Runs its arguments as a command in a process group of its own, with stdin closed, and exits with the command's
- * status. When its own stdin ends, it stops the command's whole group.
- */
-const RUN_LAUNCHER_SOURCE = [
-  "const { spawn } = require('node:child_process');",
-  "const { constants } = require('node:os');",
-  'const [file, ...args] = process.argv.slice(1);',
-  "const child = spawn(file, args, { detached: true, stdio: ['ignore', 'inherit', 'inherit'] });",
-  "const stop = () => { try { process.kill(-child.pid, 'SIGTERM'); } catch {} };",
-  "process.stdin.on('end', stop).on('error', stop).resume();",
-  "child.on('error', (error) => { console.error(file + ': ' + error.message); process.exit(127); });",
-  "child.on('close', (code, signal) => process.exit(code ?? 128 + (constants.signals[signal] ?? 0)));",
-].join('\n');
-
-/** Where the run script records nmr's exit status, inside the checkout's `.git`, out of the command's sight. */
-const RUN_STATUS_FILE = 'nmr-run-status';
-
 /** The status with which a shell reports a command that it could not find. */
 const COMMAND_NOT_FOUND_EXIT_CODE = 127;
 
@@ -302,6 +276,26 @@ const NON_DELEGABLE_COMMANDS: ReadonlySet<string> = new Set([
 /** The ref on the host to which each snapshot is pushed; it is not a branch, so a push never touches `HEAD`. */
 const SNAPSHOT_REF = 'refs/nmr/delegate';
 
+/** Names the phase that the host session reported as failed. */
+function describeFailedPhase(failure: { exitCode: number; phase: SessionPhase }, host: string): string {
+  if (failure.phase === 'check out') {
+    return `could not check out on ${host}`;
+  }
+
+  return failure.exitCode === COMMAND_NOT_FOUND_EXIT_CODE
+    ? `could not install on ${host}: pnpm is not on the PATH that the interactive login shell sets there`
+    : `could not install on ${host}`;
+}
+
+/** Describes a host session that ended before it reported the run's start or a failed phase. */
+function describeUnfinishedSession(exitCode: number, host: string): string {
+  if (exitCode === COMMAND_NOT_FOUND_EXIT_CODE) {
+    return `could not check out on ${host}: node is not on the PATH that the interactive login shell sets there`;
+  }
+
+  return exitCode === DELEGATION_FAILURE_EXIT_CODE ? `lost connection to ${host}` : `could not check out on ${host}`;
+}
+
 /** Writes a chunk to `stream` when there is one, and otherwise retains it in `buffer`. */
 function forwardChunk(chunk: Buffer, stream: Writable | undefined, buffer: BoundedBuffer): void {
   if (stream === undefined) {
@@ -309,13 +303,6 @@ function forwardChunk(chunk: Buffer, stream: Writable | undefined, buffer: Bound
     return;
   }
   stream.write(chunk);
-}
-
-/** Joins a directory relative to the checkout onto the shell expression that names the checkout. */
-function joinRemotePath(checkoutDir: string, relativeDir: string): string {
-  const posixDir = relativeDir.split(path.sep).join('/');
-
-  return posixDir === '' ? checkoutDir : `${checkoutDir}/${quoteForShell(posixDir)}`;
 }
 
 /**
@@ -355,6 +342,11 @@ function runProcess(
       });
     });
   });
+}
+
+/** Renders a directory relative to the checkout in the form that the host session resolves. */
+function toRemoteRelativeDir(relativeDir: string): string {
+  return relativeDir === '' ? '.' : relativeDir.split(path.sep).join('/');
 }
 
 /** Runs a script on the host through `wrapRemoteScript`, capturing what it prints. */

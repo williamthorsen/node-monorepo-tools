@@ -1,5 +1,6 @@
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
@@ -7,8 +8,10 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { quoteForShell } from '../helpers/quoteForShell.ts';
 import { OUTPUT_STYLE_ENV_VAR } from '../output-style.ts';
-import { composeRunScript, DELEGATE_ENV_VAR, runRemotely, wrapRemoteScript } from '../remote-run.ts';
+import { DELEGATE_ENV_VAR, deriveCheckoutPath, runRemotely, wrapRemoteScript } from '../remote-run.ts';
+import { composeSessionScript } from '../remote-session.ts';
 import { createSnapshot } from '../remote-snapshot.ts';
 import { runCli } from '../runCli.ts';
 import { createFakeRemote, type FakeRemote } from '../test-utils/fake-remote.ts';
@@ -32,7 +35,7 @@ describe('a delegated run on a fake host', () => {
 
     const result = await delegate(['test', "it's"]);
 
-    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 0 });
+    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 0, waitedMs: 0 });
     expect(result.stdout).toBe('remote stdout\n');
     expect(result.stderr).toBe('remote stderr\n');
     const log = remote.readPnpmLog();
@@ -47,7 +50,7 @@ describe('a delegated run on a fake host', () => {
   it("returns the command's own exit status", async () => {
     const result = await delegate(['test'], { FAKE_RUN_STATUS: '3' });
 
-    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 3 });
+    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 3, waitedMs: 0 });
   });
 
   it('runs from the directory that corresponds to the local one', async () => {
@@ -99,20 +102,27 @@ describe('a delegated run on a fake host', () => {
     });
   });
 
+  it('reports in full a failed phase whose output exceeds a pipe buffer', async () => {
+    const result = await delegate(['test'], { FAKE_INSTALL_NOISE: '20000', FAKE_INSTALL_STATUS: '1' });
+
+    expect(result.outcome).toMatchObject({ ok: false, phase: 'install', message: 'could not install on box' });
+    expect(result.outcome.ok ? '' : result.outcome.output.trimEnd()).toMatch(/last install line$/);
+  });
+
   it("pushes without running the repository's pre-push hook", async () => {
     const hookLog = workspace.resolve('hook.log');
     fs.chmodSync(workspace.write('repo/.git/hooks/pre-push', `#!/bin/sh\necho ran >> ${hookLog}\nexit 1\n`), 0o755);
 
     const result = await delegate(['test']);
 
-    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 0 });
+    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 0, waitedMs: 0 });
     expect(fs.existsSync(hookLog)).toBe(false);
   });
 
   it("reports the command's own exit 255 as its status", async () => {
     const result = await delegate(['test'], { FAKE_RUN_STATUS: '255' });
 
-    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 255 });
+    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 255, waitedMs: 0 });
   });
 
   it('reports a connection that drops during the run', async () => {
@@ -121,25 +131,163 @@ describe('a delegated run on a fake host', () => {
     expect(result.outcome).toMatchObject({ ok: false, phase: 'run', message: 'lost connection to dropping' });
   });
 
-  it('stops the command on the host when the connection closes', async () => {
+  it("reads and removes the status file of the command's own 255", async () => {
+    await delegate(['test'], { FAKE_RUN_STATUS: '255' });
+
+    expect(
+      fs.readdirSync(path.join(checkoutDir(), '.git')).filter((name) => name.startsWith('nmr-run-status')),
+    ).toStrictEqual([]);
+  });
+
+  it('stops the command on the host and releases the lock when the connection closes', async () => {
+    await delegate(['test']);
     const pidFile = workspace.resolve('run.pid');
-    const script = wrapRemoteScript(
-      composeRunScript({ nmrArgs: ['test'], remoteEnv: {}, runDir: repo, statusPath: workspace.resolve('status') }),
-    );
-    const env = remote.buildEnv({ FAKE_RUN_PIDFILE: pidFile, FAKE_RUN_SLEEP: '30' });
-    const child = spawn('/bin/sh', ['-c', script], {
-      env: { ...env, SHELL: env['FAKE_LOGIN_SHELL'] },
-      stdio: ['pipe', 'ignore', 'ignore'],
-    });
+    const session = startSession({ FAKE_RUN_PIDFILE: pidFile, FAKE_RUN_SLEEP: '30' });
     await waitFor(() => fs.existsSync(pidFile) && fs.readFileSync(pidFile, 'utf8').trim() !== '');
     const runPid = Number(fs.readFileSync(pidFile, 'utf8').trim());
 
-    child.stdin.end();
-    await new Promise((resolve) => child.on('close', resolve));
+    await session.stop();
     await waitFor(() => !isAlive(runPid));
 
     expect(isAlive(runPid)).toBe(false);
+    expect(fs.existsSync(lockPath())).toBe(false);
   });
+
+  it('releases the lock only once the stopped command has exited', async () => {
+    await delegate(['test']);
+    const pidFile = workspace.resolve('run.pid');
+    const session = startSession({ FAKE_RUN_PIDFILE: pidFile, FAKE_RUN_SLEEP: '30', FAKE_RUN_TERM_DELAY: '1' });
+    await waitFor(() => fs.existsSync(pidFile) && fs.readFileSync(pidFile, 'utf8').trim() !== '');
+    const runPid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+
+    await session.stop();
+
+    expect(isAlive(runPid)).toBe(false);
+    expect(fs.existsSync(lockPath())).toBe(false);
+  });
+
+  it('stops the install on the host and releases the lock when the connection closes', async () => {
+    await delegate(['test']);
+    const pidFile = workspace.resolve('install.pid');
+    const session = startSession({ FAKE_INSTALL_PIDFILE: pidFile, FAKE_INSTALL_SLEEP: '30' });
+    await waitFor(() => fs.existsSync(pidFile) && fs.readFileSync(pidFile, 'utf8').trim() !== '');
+    const installPid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+
+    await session.stop();
+    await waitFor(() => !isAlive(installPid));
+
+    expect(isAlive(installPid)).toBe(false);
+    expect(fs.existsSync(lockPath())).toBe(false);
+  });
+
+  it('runs a second delegation from the same tree after the first, reporting the wait', async () => {
+    const pidFile = workspace.resolve('run.pid');
+    const first = delegate(['test'], { FAKE_RUN_PIDFILE: pidFile, FAKE_RUN_SLEEP: '2' });
+    await waitFor(() => fs.existsSync(pidFile) && fs.readFileSync(pidFile, 'utf8').trim() !== '');
+
+    const second = await delegate(['test']);
+
+    expect((await first).outcome).toMatchObject({ ok: true, exitCode: 0 });
+    expect(second.outcome).toMatchObject({ ok: true, exitCode: 0 });
+    expect(second.outcome.waitedMs).toBeGreaterThan(0);
+    expect(second.stderr).toContain(`nmr: waiting for test in ${repo} (pid ${process.pid}) to finish on box\n`);
+    const phases = remote.readPnpmLog().filter((line) => line.startsWith('install') || line.startsWith('args='));
+    expect(phases.map((line) => line.split(' ', 1)[0])).toStrictEqual([
+      'install',
+      'args=--no-delegate',
+      'install',
+      'args=--no-delegate',
+    ]);
+  });
+
+  it('reclaims at once a lock whose holder has exited', async () => {
+    await delegate(['test']);
+    workspace.writeJson(path.relative(workspace.resolve('.'), lockPath()), createLockFile(readExitedPid()));
+
+    const result = await delegate(['test']);
+
+    expect(result.outcome).toMatchObject({ ok: true, exitCode: 0 });
+    expect(result.stderr).not.toContain('waiting');
+    expect(fs.existsSync(lockPath())).toBe(false);
+  });
+
+  it('reclaims a lock that its live holder has stopped refreshing for a minute', async () => {
+    await delegate(['test']);
+    workspace.writeJson(path.relative(workspace.resolve('.'), lockPath()), createLockFile(process.pid));
+    const twoMinutesAgo = new Date(Date.now() - 120_000);
+    fs.utimesSync(lockPath(), twoMinutesAgo, twoMinutesAgo);
+
+    const result = await delegate(['test']);
+
+    expect(result.outcome).toMatchObject({ ok: true, exitCode: 0 });
+    expect(fs.existsSync(lockPath())).toBe(false);
+  });
+
+  it('stops waiting, leaving the holder its lock, when the connection closes', async () => {
+    await delegate(['test']);
+    workspace.writeJson(path.relative(workspace.resolve('.'), lockPath()), createLockFile(process.pid));
+    const session = startSession();
+    await waitFor(() => session.readStderr().includes('"kind":"waiting"'));
+
+    await session.stop();
+
+    expect(remote.readPnpmLog().filter((line) => line.startsWith('install'))).toHaveLength(1);
+    expect(fs.existsSync(lockPath())).toBe(true);
+  });
+
+  /** Returns the host's checkout of the repo, which the fake home contains. */
+  function checkoutDir(): string {
+    return path.join(remote.home, deriveCheckoutPath(os.hostname(), repo));
+  }
+
+  /** Returns a lock file's content for a holder whose host pid is `pid`, refreshed now. */
+  function createLockFile(pid: number) {
+    return { command: 'ci', dir: repo, localPid: pid, pid, startedAt: new Date().toISOString(), token: 'planted' };
+  }
+
+  /** Returns the path of the checkout's lock file. */
+  function lockPath(): string {
+    return path.join(checkoutDir(), '.git', 'nmr-delegate.lock');
+  }
+
+  /**
+   * Starts a host session for the repo's working tree as `ssh` would, with its stdin open, and returns a way to read
+   * its stderr and to close its stdin as a closing connection does, resolving once the session process exits.
+   */
+  function startSession(extraEnv: Record<string, string> = {}) {
+    const env = remote.buildEnv(extraEnv);
+    const snapshot = createSnapshot(repo, env);
+    if (!snapshot.ok) throw new Error(snapshot.reason);
+    const script = composeSessionScript({
+      checkoutDir: quoteForShell(checkoutDir()),
+      params: {
+        holder: { command: 'test', dir: repo, pid: process.pid },
+        marker: '__NMR_DELEGATE_test__',
+        nmrArgs: ['test'],
+        remoteEnv: {},
+        rootDir: '.',
+        runDir: '.',
+        sha: snapshot.sha,
+        statusFile: '.git/nmr-run-status-test',
+      },
+    });
+    const child = spawn('/bin/sh', ['-c', wrapRemoteScript(script)], {
+      env: { ...env, HOME: remote.home, SHELL: env['FAKE_LOGIN_SHELL'] },
+      stdio: ['pipe', 'ignore', 'pipe'],
+    });
+    const stderr = captureStream();
+    child.stderr.pipe(stderr.stream);
+    // `close` would also wait for every process that inherited the session's stderr, such as a command that outlives it.
+    const exited = new Promise((resolve) => child.on('exit', resolve));
+
+    return {
+      readStderr: stderr.read,
+      async stop() {
+        child.stdin.end();
+        await exited;
+      },
+    };
+  }
 
   /** Snapshots the repo and delegates `nmrArgs` to `host`, capturing both streams. */
   async function delegate(nmrArgs: string[], extraEnv: Record<string, string> = {}, cwd = repo, host = 'box') {
@@ -150,6 +298,7 @@ describe('a delegated run on a fake host', () => {
     const stderr = captureStream();
 
     const outcome = await runRemotely({
+      command: 'test',
       cwd,
       env,
       host,
@@ -289,6 +438,12 @@ function isAlive(pid: number): boolean {
 /** Returns the value that the fake `pnpm` logged under `name`. */
 function readLogged(log: readonly string[], name: string): string {
   return log.find((line) => line.startsWith(`${name}=`))?.slice(name.length + 1) ?? '';
+}
+
+/** Returns the pid of a process that has exited. */
+function readExitedPid(): number {
+  const child = spawnSync('true');
+  return child.pid;
 }
 
 /** Reads everything that delegation must not change: the index file, every ref, and the stash list. */
