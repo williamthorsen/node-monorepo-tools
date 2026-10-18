@@ -45,6 +45,19 @@ describe(createSnapshot, () => {
     expect(treeId).toBe(git(repo, ['show', '--no-patch', '--format=%T', sha]).trim());
   });
 
+  it('reports the id of the tree that it recorded', () => {
+    workspace.writeAll({ 'repo/a.txt': 'a\n' });
+    const repo = fs.realpathSync(workspace.resolve('repo'));
+    initRepo(repo);
+    workspace.write('repo/a.txt', 'modified\n');
+    git(repo, ['add', 'a.txt']);
+    workspace.write('repo/b.txt', 'untracked\n');
+
+    const snapshot = createSnapshot(repo, process.env);
+
+    expect(snapshot.ok && snapshot.treeId).toBe(requireTreeId(repo));
+  });
+
   it('records an edit that leaves the stat data of the file as the index recorded it', () => {
     // With only whole-second mtime and size compared, git reads the file again only because its entry is not older
     // than the index file, so the copy of the index must keep the index's time.

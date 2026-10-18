@@ -7,7 +7,7 @@ import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 
 /** A commit that records the working tree, or why one could not be made. */
 export type SnapshotResult =
-  { ok: true; sha: string; toplevel: string } | { ok: false; isUnsupported: boolean; reason: string };
+  { ok: true; sha: string; toplevel: string; treeId: string } | { ok: false; isUnsupported: boolean; reason: string };
 
 /**
  * Builds a commit whose tree is the working tree as it is on disk: tracked changes, staged or not, and untracked
@@ -65,16 +65,16 @@ export function createSnapshot(cwd: string, env: NodeJS.ProcessEnv): SnapshotRes
 
     const headResult = runGit(['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'], toplevel, env);
     const parentArgs = headResult.ok ? ['-p', headResult.stdout.trim()] : [];
-    const commitResult = runGit(
-      ['commit-tree', treeResult.stdout.trim(), ...parentArgs, '-m', 'nmr delegate snapshot'],
-      toplevel,
-      { ...env, ...SNAPSHOT_IDENTITY_ENV },
-    );
+    const treeId = treeResult.stdout.trim();
+    const commitResult = runGit(['commit-tree', treeId, ...parentArgs, '-m', 'nmr delegate snapshot'], toplevel, {
+      ...env,
+      ...SNAPSHOT_IDENTITY_ENV,
+    });
     if (!commitResult.ok) {
       return { ok: false, isUnsupported: false, reason: commitResult.error };
     }
 
-    return { ok: true, sha: commitResult.stdout.trim(), toplevel };
+    return { ok: true, sha: commitResult.stdout.trim(), toplevel, treeId };
   } finally {
     fs.rmSync(tempDir, { force: true, recursive: true });
   }
