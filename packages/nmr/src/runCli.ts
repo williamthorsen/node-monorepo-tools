@@ -243,7 +243,7 @@ async function planRun(invocation: Invocation, target: ExecutionTarget): Promise
     if (env[RUN_IF_PRESENT_ENV_VAR] === '1') {
       return { settled: true, result: { exitCode: 0 } };
     }
-    // Bare `--delegate` followed by a host name is the old spelling of `--delegate-to`.
+    // A host name after bare `--delegate` reads as the command, and it belongs to `--delegate-to`.
     const delegateToHint =
       parsedArgs.shouldDelegate && parsedArgs.delegateHosts === undefined
         ? `. \`${command}\` is not a command; name a host with ${DELEGATE_TO_FLAG} ${command}`

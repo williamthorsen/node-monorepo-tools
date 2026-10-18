@@ -26,7 +26,7 @@ export const DELEGATE_TO_FLAG = '--delegate-to';
 /** The exit status of a delegation that failed outside its command, which matches `ssh`'s own. */
 export const DELEGATION_FAILURE_EXIT_CODE = 255;
 
-/** The flag that runs the command here, whatever `NMR_DELEGATE` names. */
+/** The flag that runs the command here, whatever `NMR_DELEGATE` or the user config says. */
 export const NO_DELEGATE_FLAG = '--no-delegate';
 
 /** Keeps `ssh` from prompting or waiting on a terminal, and bounds the wait for a host that does not answer. */

@@ -189,9 +189,10 @@ function describeDelegationSource(target: RemoteTarget, parsedArgs: ParsedArgs, 
  * Runs the invocation on the host that `resolveHost` chooses, against a snapshot of the working tree, streaming its
  * output and retaining a copy.
  *
- * A tree that cannot be snapshotted is refused when the flag asked for the host, and runs here, with a line saying
- * why, when the variable did. A delegation that fails outside its command, in its connection, transfer, or install,
- * ends with exit 255, and what the failed phase printed goes to stderr.
+ * A tree that cannot be snapshotted is refused when a flag asked for the host, and runs here, with a line saying
+ * why, when the variable or the user config did. A delegation that fails outside its command, in its connection,
+ * transfer, or install, ends with exit 255, and what the failed phase printed goes to stderr; one that the user
+ * config decided also names the file and the remedies.
  */
 async function delegate(options: {
   invocation: Invocation;

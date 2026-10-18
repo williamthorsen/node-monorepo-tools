@@ -111,7 +111,7 @@ export function parseArgs(args: string[]): ParseResult {
       continue;
     }
 
-    // `--delegate` took the host list before `--delegate-to` did, so an assigned value is a host list in the old form.
+    // An assigned value names hosts, which belong to `--delegate-to`.
     if (arg.startsWith(`${DELEGATE_FLAG}=`)) {
       const value = arg.slice(DELEGATE_FLAG.length + 1);
       return {
