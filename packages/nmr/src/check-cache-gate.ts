@@ -10,13 +10,15 @@ import {
   writeDebugNote,
 } from './check-cache.ts';
 import { type BuildOutputState, findStaleBuildOutput, readBuildOutputState } from './check-cache-build-output.ts';
+import { type Gate, recordDelegatedPass } from './check-cache-delegation.ts';
 import { certifyRetention, type CheckCacheEntry, readCheckCacheEntry, type ReplayLine } from './check-cache-entries.ts';
 import { computeCacheKey, computeRetentionKey } from './check-cache-key.ts';
 import { recordPass } from './check-cache-record.ts';
 import { addLockEnv, takeMachineLock } from './child-env.ts';
-import { type HostRunResult, runPlanOnHost } from './delegate-host.ts';
+import { runPlanOnHost } from './delegate-host.ts';
 import { type RunPlan, VERSION } from './invocation.ts';
 import { resolveChannel } from './output-channel.ts';
+import { writePassManifestEntry } from './pass-manifest.ts';
 import { runSteps } from './runner.ts';
 import type { NmrConfig } from './types.ts';
 import type { VerdictOutcome } from './verdict.ts';
@@ -195,14 +197,6 @@ export async function runGated(plan: RunPlan): Promise<GatedResult> {
 
 // region | Helpers
 
-/** What the check-result cache gates a run on: the key, the tree, and the build output that the run saw. */
-interface Gate {
-  buildOutputBefore: BuildOutputState;
-  key: string;
-  retentionKey: string;
-  snapshot: TreeSnapshot;
-}
-
 /** How a gated invocation ended, and the host that ran it when it was not this machine. */
 interface GatedResult {
   exitCode: number;
@@ -339,48 +333,26 @@ async function recallPass(plan: RunPlan, gate: Gate): Promise<GatedResult | unde
   if (recall.replay !== undefined) {
     await certifyRetention({ anchorDir, command, entry, env, monorepoRoot, runId: plan.runId, stderr });
   }
+  // A pass that a host earned is not this run's work, so the run does not report it to the machine that delegated it.
+  if (entry.host === undefined) {
+    await writePassManifestEntry({
+      anchorDir,
+      command,
+      commandString: plan.commandString,
+      durationMs: entry.durationMs,
+      env,
+      monorepoRoot,
+      replay: recall.replay,
+      stderr,
+      treeHash: gate.snapshot.treeId,
+    });
+  }
 
   return {
     exitCode: 0,
     ...(entry.host !== undefined && { host: entry.host }),
     outcome: { outcome: 'recalled', ...recall },
   };
-}
-
-/**
- * Records a pass that the host earned, provided that the tree pushed to it is the tree on which the gate keyed: a
- * pass over any other tree says nothing about this one.
- */
-async function recordHostPass(
-  plan: RunPlan,
-  gate: Gate,
-  hostRun: Extract<HostRunResult, { kind: 'ran' }>,
-): Promise<void> {
-  const { anchorDir, command, context, env, stderr } = plan.invocation;
-
-  if (hostRun.treeId !== gate.snapshot.treeId) {
-    writeDebugNote(`not recording ${command}: the pushed tree is not the tree that the gate keyed on`, env, stderr);
-    return;
-  }
-
-  await recordPass({
-    anchorDir,
-    buildOutputBefore: gate.buildOutputBefore,
-    command,
-    commandString: plan.commandString,
-    config: context.config,
-    durationMs: hostRun.durationMs,
-    env,
-    host: hostRun.host,
-    key: gate.key,
-    monorepoRoot: context.monorepoRoot,
-    ownSteps: plan.ownSteps,
-    retainedOutput: hostRun.retainedOutput,
-    retentionKey: gate.retentionKey,
-    runId: plan.runId,
-    snapshot: gate.snapshot,
-    stderr,
-  });
 }
 
 /**
@@ -400,7 +372,7 @@ async function runOnHost(plan: RunPlan, gate: Gate | undefined): Promise<GatedRe
     return { exitCode: hostRun.exitCode };
   }
   if (hostRun.exitCode === 0 && gate !== undefined) {
-    await recordHostPass(plan, gate, hostRun);
+    await recordDelegatedPass(plan, gate, hostRun);
   }
 
   return { exitCode: hostRun.exitCode, host: hostRun.host, outcome: hostRun.outcome };

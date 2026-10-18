@@ -17,6 +17,7 @@ import { CURRENT_RUNTIME } from './check-cache-key.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
 import { composeTranscript } from './helpers/transcript.ts';
 import { RUN_IF_PRESENT_ENV_VAR, type RunCliResult, type RunPlan, VERSION } from './invocation.ts';
+import { writePassManifestEntry } from './pass-manifest.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import { assembleReplay } from './replay-assembly.ts';
 import type { RetainedOutput } from './runner.ts';
@@ -107,7 +108,7 @@ export async function recordPass(options: {
     treeHash: snapshot.treeId,
   });
 
-  await writePass({
+  const isWritten = await writePass({
     entry: {
       key: options.key,
       treeHash: snapshot.treeId,
@@ -125,6 +126,19 @@ export async function recordPass(options: {
     retainedOutput: options.retainedOutput,
     stderr,
   });
+  if (isWritten) {
+    await writePassManifestEntry({
+      anchorDir,
+      command,
+      commandString: options.commandString,
+      durationMs: options.durationMs,
+      env,
+      monorepoRoot,
+      replay: retention?.replay,
+      stderr,
+      treeHash: snapshot.treeId,
+    });
+  }
 }
 
 /**
@@ -259,14 +273,17 @@ async function recordHostPass(options: {
   });
 }
 
-/** Writes an entry and the transcript beside it, withdrawing the transcript when the entry cannot be written. */
+/**
+ * Writes an entry and the transcript beside it, withdrawing the transcript when the entry cannot be written, and
+ * reports whether the entry was written.
+ */
 async function writePass(options: {
   entry: CheckCacheEntry;
   env: NodeJS.ProcessEnv;
   ref: EntryRef;
   retainedOutput: RetainedOutput | undefined;
   stderr: Writable;
-}): Promise<void> {
+}): Promise<boolean> {
   const { entry, env, ref, stderr } = options;
   const transcript = options.retainedOutput === undefined ? undefined : composeTranscript(options.retainedOutput);
 
@@ -275,6 +292,7 @@ async function writePass(options: {
     // instant.
     await recordTranscript(ref, transcript);
     await writeCheckCacheEntry({ ...ref, entry });
+    return true;
   } catch (error: unknown) {
     try {
       await recordTranscript(ref, undefined);
@@ -282,6 +300,7 @@ async function writePass(options: {
       // Ignore this failure: the caller needs to hear about the entry's own.
     }
     writeDebugNote(`could not record ${ref.command}: ${describeError(error)}`, env, stderr);
+    return false;
   }
 }
 
