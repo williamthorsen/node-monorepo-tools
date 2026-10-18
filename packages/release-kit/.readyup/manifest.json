@@ -119,13 +119,7 @@
           "checks": [
             "packageManager field starts with \"pnpm\"",
             "At least one workspace discovered",
-            "npm session can answer trust queries",
-            "@williamthorsen/release-kit",
-            "repository field exists",
-            "publishConfig.access is \"public\"",
-            "published to npm",
-            "trusted publisher configured",
-            "files field exists"
+            "Repo publishes at least one package"
           ]
         }
       ],
@@ -136,7 +130,7 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "96097af7",
+          "hash": "682fdd4a",
           "kind": "module",
           "path": "kits/npm-auto-publish.ts"
         },
@@ -165,8 +159,8 @@
       "path": "kits/npm-auto-publish.js",
       "readyupVersion": "0.42.0",
       "source": "kits/npm-auto-publish.ts",
-      "sourceHash": "96097af7",
-      "targetHash": "5b305be8"
+      "sourceHash": "682fdd4a",
+      "targetHash": "04adb134"
     }
   ]
 }
