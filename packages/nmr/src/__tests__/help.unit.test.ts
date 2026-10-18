@@ -37,7 +37,7 @@ describe(generateHelp, () => {
     expect(help).toContain('--log');
     expect(help).toContain('--no-cache');
     expect(help).toContain('--no-lock');
-    expect(help).toContain('--delegate <host>');
+    expect(help).toContain('--delegate <host,...>');
     expect(help).toContain('--no-delegate');
     expect(help).toContain('NMR_DELEGATE');
     expect(help).toContain('--output-style <style>');
