@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.2.3 — 2026-10-18
+
+### ♻️ Refactoring
+
+- Rewrites the code that the new and widened rules in `eslint-plugin-unicorn` 78 report, mostly by changing `flatMap` callbacks to return a single value rather than a one-element array. (#1072)
+
 ## 0.2.2 — 2026-10-17
 
 ### 📦 Dependencies

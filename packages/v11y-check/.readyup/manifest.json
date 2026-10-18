@@ -7,7 +7,7 @@
           "checklist": "v11y-check",
           "checks": [
             "v11y-check in devDependencies",
-            "v11y-check >= 0.19.3",
+            "v11y-check >= 0.19.4",
             "audit-ci configs are under .config/audit-ci/",
             "audit.yaml workflow exists",
             "audit.yaml matches template"
@@ -25,7 +25,7 @@
           "path": "kits/default.ts"
         },
         {
-          "hash": "43bd1197",
+          "hash": "8b8b13b3",
           "kind": "inline",
           "path": "../package.json",
           "paths": [
@@ -38,7 +38,7 @@
       "readyupVersion": "0.42.0",
       "source": "kits/default.ts",
       "sourceHash": "3ca06efb",
-      "targetHash": "28015ac1"
+      "targetHash": "dbdbea02"
     }
   ]
 }

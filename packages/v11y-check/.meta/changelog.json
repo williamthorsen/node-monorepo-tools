@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.19.4",
+    "date": "2026-10-18",
+    "sections": [
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Splits the `cli`, `format-check`, and `format-verbose` unit suites in `v11y-check`, which exceeded the `max-lines` limit, into files of one subject each: one per CLI command, the `format-check` layout, entries, and JSON output, the `format-verbose` unallowed and history output, and a `format-time` file for `formatRelativeTime`. (#1060)",
+            "hash": "c8673037790f1c94c6c24a3b381d6d0412b24f5f",
+            "entry": 1
+          },
+          {
+            "description": "Moves `makeCheckResult`, `emptyScopeResult`, `makeConfig`, and `makeOptions` into `src/test-utils/`, replacing the copies that the cli and format suites each defined. (#1060)",
+            "hash": "c8673037790f1c94c6c24a3b381d6d0412b24f5f",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.19.3",
     "date": "2026-10-17",
     "sections": [

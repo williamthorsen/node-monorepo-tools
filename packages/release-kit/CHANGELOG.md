@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## 14.2.3 — 2026-10-18
+
+### 🐛 Bug fixes
+
+- Fixes the issue that the manifest of the `npm-auto-publish` kit recorded a different list of checks depending on the directory from which `rdy compile` ran, by declaring one fixed check, "Repo publishes at least one package", under which `rdy run` builds the npm session check and the per-package rows. (#1081)
+
+### ♻️ Refactoring
+
+- Splits `types.ts`, `loadConfig.ts`, `changelogOverrides.ts`, and `buildChangelogEntries.ts` to bring each under the 300-line `max-lines` limit, moving the config zod schemas into `configSchema.ts`, config merging into `mergeConfig.ts`, the cross-target checks into `monorepoConfigAssertions.ts`, override parsing, application, and repo-wide validation into `loadChangelogOverrides.ts`, `applyChangelogOverrides.ts`, and `validateAllChangelogOverrides.ts`, and changelog-item construction into `buildChangelogItem.ts`. (#1067)
+- Splits the `release-kit` bin, the `prepare` pipeline (`prepareCommand`, `prepareTarget`, `releasePrepareTargets`, and `reportPrepare`), and the `default` and `npm-auto-publish` readyup kits into smaller modules under `src`, `src/help`, and `.readyup/lib`, and recompiles the kit bundles without changing their check lists. (#1069)
+- Rewrites the code that the new and widened rules in `eslint-plugin-unicorn` 78 report, mostly by changing `flatMap` callbacks to return a single value rather than a one-element array. (#1072)
+
+### 🧪 Tests
+
+- Splits the `release-kit` unit tests for `releasePrepareTargets`, `reportPrepare`, `prepareCommand`, `publishCommand`, `parseCommitMessage`, and `validateConfig` into `<subject>.<aspect>.unit.test.ts` files that each stay under the `max-lines` limit, and moves the mocks and fixtures that the split files share into modules under `src/test-utils/`. (#1066)
+
 ## 14.2.2 — 2026-10-17
 
 ### 📦 Dependencies

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.19.4 — 2026-10-18
+
+### 🧪 Tests
+
+- Splits the `cli`, `format-check`, and `format-verbose` unit suites in `v11y-check`, which exceeded the `max-lines` limit, into files of one subject each: one per CLI command, the `format-check` layout, entries, and JSON output, the `format-verbose` unallowed and history output, and a `format-time` file for `formatRelativeTime`. (#1060)
+- Moves `makeCheckResult`, `emptyScopeResult`, `makeConfig`, and `makeOptions` into `src/test-utils/`, replacing the copies that the cli and format suites each defined. (#1060)
+
 ## 0.19.3 — 2026-10-17
 
 ### 📦 Dependencies

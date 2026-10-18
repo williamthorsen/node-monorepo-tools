@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.2.3",
+    "date": "2026-10-18",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Rewrites the code that the new and widened rules in `eslint-plugin-unicorn` 78 report, mostly by changing `flatMap` callbacks to return a single value rather than a one-element array. (#1072)",
+            "hash": "0eef39d82b4eb46f8d55f1cefe673bc8f54ee2dd",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.2.2",
     "date": "2026-10-17",
     "sections": [

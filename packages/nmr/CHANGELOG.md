@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.49.0 — 2026-10-18
+
+### 🎉 Features
+
+- Makes a delegation wait while another delegation from the same worktree holds the host checkout, printing `nmr: waiting for <command> in <dir> (pid <pid>) to finish on <host>` and leaving the wait out of the verdict's duration. (#1079)
+- Extends Ctrl-C, which previously ended only the run step on the host, to end the delegation during the wait for the checkout, the check-out step, and the install step as well. (#1079)
+- Makes `nmr --delegate` fail at the check-out step with `could not check out on <host>: node is not on the PATH that the interactive login shell sets there` when the host's interactive login shell does not put Node on `PATH`, and documents that Node on the host must satisfy nmr's `engines` range (`>=24.16.0`). (#1079)
+- Makes `nmr --delegate` and `NMR_DELEGATE` look up this machine's check-result cache before contacting the host, so that a tree with a pass recorded here is reported as `passed … ago on this tree` and an unknown command is reported here, without either one reaching the host. (#1080)
+- Adds a record in this machine's check-result cache for each pass that a delegation host reports, so that a later delegation to the same host recalls it as `passed … ago on <host>` and `nmr --log` prints the host's transcript under a header that names the host. (#1080)
+- Makes `nmr --delegate` record the passes that the host reports for a delegated composite's constituents, so that `nmr --delegate <host> check` after `nmr --delegate <host> ci` on the same tree recalls the pass without contacting the host. (#1082)
+- Makes `nmr --delegate` record the excerpts that the host reports with each delegated pass, so that a recall of a delegated command, such as `ci`, replays them instead of nothing. (#1082)
+- Lets `--delegate` and `NMR_DELEGATE` take a comma-separated list of hosts in order of preference, from which nmr chooses the first host on which the delegation would not wait for a lock, otherwise the first host that answered nmr's lock check, and never the delegating machine. (#1083)
+- Extends the check-result cache to recall a pass earned on any host in the list, without checking any host's locks. (#1083)
+- 🚨 **Breaking:** Makes `--delegate` a boolean flag, under which `nmr` runs the command on a host that `NMR_DELEGATE` or the user config names, and adds `--delegate-to <hosts>` to name the hosts for one run. (#1084)
+- Adds a machine-level user config, `~/.config/nmr/config.ts`, in which `delegate.hosts` names this machine's hosts in order of preference and `delegate.when` selects the runs that `nmr` delegates to them without a flag: runs from a coding agent (`'agent'`) or every run (`'always'`), except when `CI` is set and for a `-F` or `-R` invocation. (#1084)
+- Adds the repo config key `delegate`, whose only accepted value, `false`, makes `nmr` run every check on the machine that has the working tree, overriding `NMR_DELEGATE` and the user config but not a delegation flag. (#1084)
+- Adds a stderr line, printed by `nmr` when a delegation decided by the user config cannot reach a host, that names the config file and the remedies in order: network access to the hosts, then `nmr --no-delegate <command>`. (#1084)
+- Updates the `nmr` rulebook to direct agents not to pass `--delegate` or `--delegate-to`, since the user config decides delegation, and to ask for network access to a host before running `nmr --no-delegate`. (#1084)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that the snapshot sent to the host by `nmr --delegate` omitted a file edited in the same second as git's last write of the index. (#1078)
+- Fixes the issue that `NMR_NO_CACHE`, `NMR_DEBUG`, and `NMR_RUN_ID` set on this machine did not reach the delegation host, which left the host's cache in use under `NMR_NO_CACHE=1`. (#1080)
+
+### ⚡ Performance
+
+- Keys the check cache on the git tree id that `git add --all` would record for the working tree, which lets `nmr` skip a check after the checked tree is committed, and invalidates every pass recorded by earlier versions once. (#1078)
+
+### ♻️ Refactoring
+
+- Splits the `nmr` source modules that exceeded the 300-line `max-lines` limit, such as `check-cache.ts` and `commands/build.ts`, into one module per concern, and moves each module's tests with its code. (#1061)
+- Splits `config.ts`, `steps.ts`, and the default readyup kit `.readyup/kits/default.ts` to bring each under the 300-line `max-lines` limit, moving field-shape validation into `config-validation.ts`, the `checkCache` name check into `config-check-cache.ts`, shell tokenizing and quoting into `shell-syntax.ts`, and each kit section into a module under `.readyup/lib/`. (#1063)
+- Moves the argument parser, the invocation types, pnpm fan-out, the delegate host, chain assembly, hook wrapping, crossing diagnostics, the check-cache gate and its recording, the child environment, and presentation out of `runCli.ts` into modules of their own, leaving `runCli.ts` with the run orchestration and bringing it under the 300-line `max-lines` limit. (#1064)
+- Rewrites the code that the new and widened rules in `eslint-plugin-unicorn` 78 report, mostly by changing `flatMap` callbacks to return a single value rather than a one-element array. (#1072)
+- Renames nmr's default Prettier config from `prettier-default-config.ts` to `prettier-default.config.ts`, so that the upstream exemption of tool-loaded `*.config.*` files from `unicorn/no-top-level-side-effects` covers it, and updates `nmr-fmt` to resolve the new name. (#1072)
+
+### 🧪 Tests
+
+- Splits the `nmr` test files that exceeded the 500-line `max-lines` limit for tests into files by aspect, and moves the fixtures and fake-spawn helpers that the new files share into `test-utils/`. (#1061)
+- Splits `runCli.unit.test.ts` into four files named for the aspect that each covers and moves the pre/post hooks suite out of `cli.tool.test.ts` into `cli.hooks.tool.test.ts`, with the workspace-tree factory, the in-process runners, and the bin harness moved into shared files under `test-utils/`. (#1064)
+
 ## 0.48.0 — 2026-10-17
 
 ### 🎉 Features

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.1.3 — 2026-10-18
+
+### 📦 Dependencies
+
+- Bumped `@williamthorsen/build-info` to 0.2.3
+
 ## 0.1.2 — 2026-10-17
 
 ### 📦 Dependencies

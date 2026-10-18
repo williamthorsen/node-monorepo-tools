@@ -1,5 +1,55 @@
 [
   {
+    "version": "14.2.3",
+    "date": "2026-10-18",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that the manifest of the `npm-auto-publish` kit recorded a different list of checks depending on the directory from which `rdy compile` ran, by declaring one fixed check, \"Repo publishes at least one package\", under which `rdy run` builds the npm session check and the per-package rows. (#1081)",
+            "migration": "Upgrade `readyup` to 0.42.0 or later before running the `npm-auto-publish` kit, because the kit now declares `minReadyupVersion` 0.42.0 and an older runner refuses to load it.",
+            "hash": "bea0d66f5b804bf51259fa094a890af80917abca",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Splits `types.ts`, `loadConfig.ts`, `changelogOverrides.ts`, and `buildChangelogEntries.ts` to bring each under the 300-line `max-lines` limit, moving the config zod schemas into `configSchema.ts`, config merging into `mergeConfig.ts`, the cross-target checks into `monorepoConfigAssertions.ts`, override parsing, application, and repo-wide validation into `loadChangelogOverrides.ts`, `applyChangelogOverrides.ts`, and `validateAllChangelogOverrides.ts`, and changelog-item construction into `buildChangelogItem.ts`. (#1067)",
+            "hash": "a4322d91bd32df24cdeaff4c9c36f48a76f1f5b1",
+            "entry": 1
+          },
+          {
+            "description": "Splits the `release-kit` bin, the `prepare` pipeline (`prepareCommand`, `prepareTarget`, `releasePrepareTargets`, and `reportPrepare`), and the `default` and `npm-auto-publish` readyup kits into smaller modules under `src`, `src/help`, and `.readyup/lib`, and recompiles the kit bundles without changing their check lists. (#1069)",
+            "hash": "723105c97c13ee85e7477f6b3073230e07ec5396",
+            "entry": 1
+          },
+          {
+            "description": "Rewrites the code that the new and widened rules in `eslint-plugin-unicorn` 78 report, mostly by changing `flatMap` callbacks to return a single value rather than a one-element array. (#1072)",
+            "hash": "0eef39d82b4eb46f8d55f1cefe673bc8f54ee2dd",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Splits the `release-kit` unit tests for `releasePrepareTargets`, `reportPrepare`, `prepareCommand`, `publishCommand`, `parseCommitMessage`, and `validateConfig` into `<subject>.<aspect>.unit.test.ts` files that each stay under the `max-lines` limit, and moves the mocks and fixtures that the split files share into modules under `src/test-utils/`. (#1066)",
+            "hash": "0e7aa3b387d2c06c27cf09b41a164cee93b3f418",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "14.2.2",
     "date": "2026-10-17",
     "sections": [
