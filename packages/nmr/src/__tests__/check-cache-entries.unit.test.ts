@@ -127,6 +127,24 @@ describe('check-cache', () => {
       ).resolves.toBeUndefined();
     });
 
+    it('reads back the host that earned a delegated pass', async () => {
+      const entry = makeEntry({ host: 'imac' });
+      await writeCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci', entry });
+
+      await expect(
+        readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci' }),
+      ).resolves.toStrictEqual(entry);
+    });
+
+    it('reads an entry whose host is not a string as absent', async () => {
+      await writeCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci', entry: makeEntry() });
+      overwriteEntries(tree, JSON.stringify({ ...makeEntry(), host: 42 }));
+
+      await expect(
+        readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci' }),
+      ).resolves.toBeUndefined();
+    });
+
     it('clears every scope’s entries at once', async () => {
       // One removal clears the whole table, so distrusting the cache never means searching through packages.
       const packageDir = tree.resolve('packages/a');

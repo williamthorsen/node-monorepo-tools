@@ -5,7 +5,14 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { isCacheableCommand, resolveTreeSnapshot, type TreeSnapshot, writeDebugNote } from './check-cache.ts';
 import { type BuildOutputState, findStaleBuildOutput, readBuildOutputState } from './check-cache-build-output.ts';
-import { recordTranscript, type Retention, writeCheckCacheEntry } from './check-cache-entries.ts';
+import {
+  type CheckCacheEntry,
+  type EntryRef,
+  readCheckCacheEntry,
+  recordTranscript,
+  type Retention,
+  writeCheckCacheEntry,
+} from './check-cache-entries.ts';
 import { CURRENT_RUNTIME } from './check-cache-key.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
 import { composeTranscript } from './helpers/transcript.ts';
@@ -28,6 +35,10 @@ import type { NmrConfig } from './types.ts';
  * The retention that a skip replays is composed here for the same reason and after the same tests: a pass that is
  * not recorded must not leave behind an excerpt that claims it was. A composite's assembly is built here rather
  * than when it skips, to ensure that every excerpt in it was certified during the run whose pass contains it.
+ *
+ * A pass earned on a host is recorded with that host and without build digests or retention: this machine's build
+ * output says nothing about the host's, and replaying a delegated run is not supported. It does not replace a pass
+ * earned here under the same key, which already satisfies every invocation that the host pass would.
  */
 export async function recordPass(options: {
   anchorDir: string;
@@ -37,6 +48,7 @@ export async function recordPass(options: {
   config: NmrConfig;
   durationMs: number;
   env: NodeJS.ProcessEnv;
+  host?: string;
   key: string;
   monorepoRoot: string;
   retainedOutput: RetainedOutput | undefined;
@@ -46,7 +58,7 @@ export async function recordPass(options: {
   snapshot: TreeSnapshot;
   stderr: Writable;
 }): Promise<void> {
-  const { anchorDir, command, env, monorepoRoot, snapshot, stderr } = options;
+  const { anchorDir, command, env, host, monorepoRoot, snapshot, stderr } = options;
 
   // Hashed afresh rather than inherited: an inherited snapshot is the observation that this is meant to re-test.
   const currentRead = resolveTreeSnapshot({ monorepoRoot, env: {} });
@@ -56,6 +68,12 @@ export async function recordPass(options: {
   }
   if (currentRead.snapshot.treeId !== snapshot.treeId) {
     writeDebugNote(`not recording ${command}: the tree changed while it ran`, env, stderr);
+    return;
+  }
+
+  const ref = { anchorDir, command, monorepoRoot };
+  if (host !== undefined) {
+    await recordHostPass({ ...options, host, ref });
     return;
   }
 
@@ -88,36 +106,24 @@ export async function recordPass(options: {
     treeHash: snapshot.treeId,
   });
 
-  const ref = { anchorDir, command, monorepoRoot };
-  const transcript = options.retainedOutput === undefined ? undefined : composeTranscript(options.retainedOutput);
-
-  try {
-    // Record the transcript ahead of the entry, and withdraw it when writing the entry fails, so that a reader
-    // never dates one run's bytes by another run's instant.
-    await recordTranscript(ref, transcript);
-    await writeCheckCacheEntry({
-      ...ref,
-      entry: {
-        key: options.key,
-        treeHash: snapshot.treeId,
-        headSha: snapshot.headSha,
-        commandString: options.commandString,
-        nmrVersion: VERSION,
-        nodeVersion: CURRENT_RUNTIME.nodeVersion,
-        durationMs: options.durationMs,
-        recordedAt: new Date().toISOString(),
-        buildDigests: output.digests,
-        ...(retention !== undefined && { retention }),
-      },
-    });
-  } catch (error: unknown) {
-    try {
-      await recordTranscript(ref, undefined);
-    } catch {
-      // Ignore this failure: the caller needs to hear about the entry's own.
-    }
-    writeDebugNote(`could not record ${command}: ${describeError(error)}`, env, stderr);
-  }
+  await writePass({
+    entry: {
+      key: options.key,
+      treeHash: snapshot.treeId,
+      headSha: snapshot.headSha,
+      commandString: options.commandString,
+      nmrVersion: VERSION,
+      nodeVersion: CURRENT_RUNTIME.nodeVersion,
+      durationMs: options.durationMs,
+      recordedAt: new Date().toISOString(),
+      buildDigests: output.digests,
+      ...(retention !== undefined && { retention }),
+    },
+    env,
+    ref,
+    retainedOutput: options.retainedOutput,
+    stderr,
+  });
 }
 
 /**
@@ -199,6 +205,72 @@ async function composeRetention(options: {
   });
 
   return replay.length === 0 ? undefined : { key, replay, runId };
+}
+
+/** Records a pass that `host` earned, unless a pass earned here is already recorded under the same key. */
+async function recordHostPass(options: {
+  commandString: string;
+  durationMs: number;
+  env: NodeJS.ProcessEnv;
+  host: string;
+  key: string;
+  ref: EntryRef;
+  retainedOutput: RetainedOutput | undefined;
+  snapshot: TreeSnapshot;
+  stderr: Writable;
+}): Promise<void> {
+  const { env, host, key, ref, snapshot, stderr } = options;
+
+  const recorded = await readCheckCacheEntry(ref);
+  if (recorded !== undefined && recorded.host === undefined && recorded.key === key) {
+    writeDebugNote(`not recording ${ref.command} on ${host}: a pass earned here covers this tree`, env, stderr);
+    return;
+  }
+
+  await writePass({
+    entry: {
+      key,
+      treeHash: snapshot.treeId,
+      headSha: snapshot.headSha,
+      commandString: options.commandString,
+      nmrVersion: VERSION,
+      nodeVersion: CURRENT_RUNTIME.nodeVersion,
+      durationMs: options.durationMs,
+      recordedAt: new Date().toISOString(),
+      buildDigests: {},
+      host,
+    },
+    env,
+    ref,
+    retainedOutput: options.retainedOutput,
+    stderr,
+  });
+}
+
+/** Writes an entry and the transcript beside it, withdrawing the transcript when the entry cannot be written. */
+async function writePass(options: {
+  entry: CheckCacheEntry;
+  env: NodeJS.ProcessEnv;
+  ref: EntryRef;
+  retainedOutput: RetainedOutput | undefined;
+  stderr: Writable;
+}): Promise<void> {
+  const { entry, env, ref, stderr } = options;
+  const transcript = options.retainedOutput === undefined ? undefined : composeTranscript(options.retainedOutput);
+
+  try {
+    // Record the transcript ahead of the entry, so that a reader never dates one run's bytes by another run's
+    // instant.
+    await recordTranscript(ref, transcript);
+    await writeCheckCacheEntry({ ...ref, entry });
+  } catch (error: unknown) {
+    try {
+      await recordTranscript(ref, undefined);
+    } catch {
+      // Ignore this failure: the caller needs to hear about the entry's own.
+    }
+    writeDebugNote(`could not record ${ref.command}: ${describeError(error)}`, env, stderr);
+  }
 }
 
 // endregion | Helpers

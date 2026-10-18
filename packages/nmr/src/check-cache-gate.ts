@@ -193,6 +193,19 @@ interface Gate {
   snapshot: TreeSnapshot;
 }
 
+/** Returns what a recalled entry reports, with the excerpts only when they describe this environment's output. */
+function composeRecall(
+  entry: CheckCacheEntry,
+  retentionKey: string,
+): { ageMs: number; entry: CheckCacheEntry; replay?: ReplayLine[]; savedMs: number } {
+  return {
+    ageMs: Math.max(0, Date.now() - Date.parse(entry.recordedAt)),
+    entry,
+    savedMs: entry.durationMs,
+    ...(entry.retention?.key === retentionKey && { replay: entry.retention.replay }),
+  };
+}
+
 /**
  * Returns the age and saving that a recalled pass reports when a recorded pass covers this invocation, or
  * `undefined` when the command has to run. A key match alone is not a pass: the build output about which the key
@@ -202,6 +215,9 @@ interface Gate {
  * another presentation environment is still a pass, and is not this environment's output.
  *
  * The entry comes back with them, so that the caller can certify what it is about to replay.
+ *
+ * A pass earned here satisfies every invocation; one earned on a host satisfies only a delegation to that host, and
+ * is not held to this machine's build output, which says nothing about the host's.
  */
 async function lookUpRecordedPass(options: {
   anchorDir: string;
@@ -212,8 +228,9 @@ async function lookUpRecordedPass(options: {
   monorepoRoot: string;
   retentionKey: string;
   stderr: Writable;
+  targetHost: string | undefined;
 }): Promise<{ ageMs: number; entry: CheckCacheEntry; replay?: ReplayLine[]; savedMs: number } | undefined> {
-  const { anchorDir, buildOutput, command, env, key, monorepoRoot, stderr } = options;
+  const { anchorDir, buildOutput, command, env, key, monorepoRoot, stderr, targetHost } = options;
 
   const entry = await readCheckCacheEntry({ anchorDir, command, monorepoRoot });
   if (entry === undefined) {
@@ -223,6 +240,14 @@ async function lookUpRecordedPass(options: {
   if (entry.key !== key) {
     writeDebugNote(`running ${command}: the tree or its inputs changed since the last pass`, env, stderr);
     return undefined;
+  }
+  if (entry.host !== undefined) {
+    if (entry.host !== targetHost) {
+      writeDebugNote(`running ${command}: the last pass was earned on ${entry.host}`, env, stderr);
+      return undefined;
+    }
+
+    return composeRecall(entry, options.retentionKey);
   }
 
   const [missingPackage] = buildOutput.missingPackages;
@@ -239,13 +264,7 @@ async function lookUpRecordedPass(options: {
     return undefined;
   }
 
-  return {
-    ageMs: Math.max(0, Date.now() - Date.parse(entry.recordedAt)),
-    entry,
-    savedMs: entry.durationMs,
-    // Replayed only when the recording describes this environment's output; otherwise the verdict prints alone.
-    ...(entry.retention?.key === options.retentionKey && { replay: entry.retention.replay }),
-  };
+  return composeRecall(entry, options.retentionKey);
 }
 
 /**
@@ -294,6 +313,7 @@ async function recallPass(
     monorepoRoot,
     retentionKey: gate.retentionKey,
     stderr,
+    targetHost: undefined,
   });
   if (recalledPass === undefined) {
     return undefined;

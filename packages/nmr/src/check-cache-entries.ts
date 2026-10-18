@@ -33,6 +33,8 @@ export interface CheckCacheEntry {
    * output that another tree left behind.
    */
   buildDigests: Record<string, string>;
+  /** The host that earned a delegated pass, absent on a pass earned on this machine. */
+  host?: string;
   /** What a skip replays in place of the run that it recalls, absent on a pass that retained nothing. */
   retention?: Retention;
 }
@@ -199,6 +201,7 @@ function isParsedCheckCacheEntry(value: unknown): value is ParsedCheckCacheEntry
   }
 
   return (
+    (value['host'] === undefined || typeof value['host'] === 'string') &&
     typeof value['durationMs'] === 'number' &&
     Number.isFinite(value['durationMs']) &&
     !Number.isNaN(Date.parse(String(value['recordedAt']))) &&
