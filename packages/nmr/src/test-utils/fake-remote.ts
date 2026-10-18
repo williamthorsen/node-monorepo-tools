@@ -74,8 +74,11 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
     '    } >> "$FAKE_PNPM_LOG"',
     '    echo "remote stdout"',
     '    echo "remote stderr" >&2',
-    '    if [ -n "$FAKE_RUN_TERM_DELAY" ]; then trap \'sleep "$FAKE_RUN_TERM_DELAY"; exit 143\' TERM; fi',
-    '    if [ -n "$FAKE_RUN_SLEEP" ]; then echo $$ > "$FAKE_RUN_PIDFILE"; sleep "$FAKE_RUN_SLEEP"; fi',
+    // Start the sleep before writing the pid file, and wait for it rather than run it in the foreground. A `SIGTERM`
+    // that reaches the forked shell before it execs `sleep` runs the inherited trap there and is lost, and a trapped
+    // signal does not interrupt a foreground command, so the run would sleep on past the host session's stop grace.
+    '    if [ -n "$FAKE_RUN_TERM_DELAY" ]; then trap \'kill "$fake_sleep_pid" 2>/dev/null; sleep "$FAKE_RUN_TERM_DELAY"; exit 143\' TERM; fi',
+    '    if [ -n "$FAKE_RUN_SLEEP" ]; then sleep "$FAKE_RUN_SLEEP" & fake_sleep_pid=$!; echo $$ > "$FAKE_RUN_PIDFILE"; wait "$fake_sleep_pid"; fi',
     '    exit "${FAKE_RUN_STATUS:-0}" ;;',
     'esac',
     'exit 64',
