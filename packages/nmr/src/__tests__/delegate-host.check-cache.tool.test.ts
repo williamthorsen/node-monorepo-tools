@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { NO_CACHE_ENV_VAR } from '../check-cache.ts';
 import { OUTPUT_STYLE_ENV_VAR } from '../output-style.ts';
 import { runCli } from '../runCli.ts';
+import { writeBuildDigest } from '../test-utils/check-cache-gate-fixtures.ts';
 import { createFakeRemote, type FakeRemote } from '../test-utils/fake-remote.ts';
 import { initRepo } from '../test-utils/initRepo.ts';
 
@@ -97,6 +98,25 @@ describe('a delegation behind the check-result cache', () => {
     const result = await runNmr(['--no-delegate', 'test']);
 
     expect(result.stdout).toMatch(/^SKIP repo: test: passed .* ago on this tree/m);
+  });
+
+  it('replaces a pass earned here that its build output no longer supports', async () => {
+    // Build output is ignored, as in a real repository, so that removing it leaves the tree and the key alone.
+    workspace.writeAll({
+      'repo/.gitignore': 'node_modules/\ndist/\n',
+      'repo/packages/a/dist/esm/index.js': 'export const value = 1;\n',
+      'repo/packages/a/package.json': JSON.stringify({ name: 'a', type: 'module' }),
+      'repo/packages/a/src/index.ts': 'export const value = 1;\n',
+    });
+    writeBuildDigest(workspace, 'repo/packages/a', 'digest-from-this-tree');
+    await runNmr(['--no-delegate', 'test']);
+    workspace.rm('repo/packages/a/dist');
+
+    await runNmr(['--delegate', 'box', 'test']);
+    const result = await runNmr(['--delegate', 'box', 'test']);
+
+    expect(result.stdout).toMatch(/^SKIP repo: test: passed .* ago on box/m);
+    expect(countRemoteRuns()).toBe(1);
   });
 
   it('reports an unknown command here without contacting the host', async () => {

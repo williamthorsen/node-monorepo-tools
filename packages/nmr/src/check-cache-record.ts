@@ -38,7 +38,8 @@ import type { NmrConfig } from './types.ts';
  *
  * A pass earned on a host is recorded with that host and without build digests or retention: this machine's build
  * output says nothing about the host's, and replaying a delegated run is not supported. It does not replace a pass
- * earned here under the same key, which already satisfies every invocation that the host pass would.
+ * earned here under the same key while that pass would still be recalled, because it satisfies every invocation that
+ * the host pass would.
  */
 export async function recordPass(options: {
   anchorDir: string;
@@ -207,13 +208,18 @@ async function composeRetention(options: {
   return replay.length === 0 ? undefined : { key, replay, runId };
 }
 
-/** Records a pass that `host` earned, unless a pass earned here is already recorded under the same key. */
+/**
+ * Records a pass that `host` earned, unless a pass earned here under the same key would still be recalled: one whose
+ * build output is missing or came from another tree no longer satisfies any invocation, and the host pass replaces it.
+ */
 async function recordHostPass(options: {
   commandString: string;
+  config: NmrConfig;
   durationMs: number;
   env: NodeJS.ProcessEnv;
   host: string;
   key: string;
+  monorepoRoot: string;
   ref: EntryRef;
   retainedOutput: RetainedOutput | undefined;
   snapshot: TreeSnapshot;
@@ -223,8 +229,14 @@ async function recordHostPass(options: {
 
   const recorded = await readCheckCacheEntry(ref);
   if (recorded !== undefined && recorded.host === undefined && recorded.key === key) {
-    writeDebugNote(`not recording ${ref.command} on ${host}: a pass earned here covers this tree`, env, stderr);
-    return;
+    const output = await readBuildOutputState(options.monorepoRoot, options.config);
+    if (
+      output.missingPackages.length === 0 &&
+      findStaleBuildOutput(recorded.buildDigests, output.digests) === undefined
+    ) {
+      writeDebugNote(`not recording ${ref.command} on ${host}: a pass earned here covers this tree`, env, stderr);
+      return;
+    }
   }
 
   await writePass({
