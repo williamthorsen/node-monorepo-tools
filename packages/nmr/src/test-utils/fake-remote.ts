@@ -27,7 +27,8 @@ export interface FakeRemote {
  * the files in the directory, and the content of `probe.txt` when there is one, then prints to both streams. These
  * variables steer it: `FAKE_INSTALL_STATUS` and `FAKE_RUN_STATUS` set exit statuses; `FAKE_INSTALL_SLEEP` and
  * `FAKE_RUN_SLEEP` make the install or the run write its pid to `FAKE_INSTALL_PIDFILE` or `FAKE_RUN_PIDFILE` and
- * sleep; `FAKE_INSTALL_NOISE` makes the install print that many lines and then `last install line`; and
+ * sleep; `FAKE_INSTALL_NOISE` makes the install print that many lines and then `last install line`;
+ * `FAKE_RUN_MANIFEST`, a JSON array, makes the run write each element as an entry file into the pass manifest; and
  * `FAKE_RUN_TERM_DELAY` makes the run take that many seconds to exit on `SIGTERM`.
  */
 export function createFakeRemote(tree: TempTree): FakeRemote {
@@ -76,6 +77,8 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
     String.raw`      echo "files=$(ls -A | sort | tr '\n' ' ')"`,
     '      [ -f probe.txt ] && echo "probe=$(cat probe.txt)"',
     '    } >> "$FAKE_PNPM_LOG"',
+    // Write each element of the JSON array as one entry file, a string element as the file's raw content.
+    `    if [ -n "$FAKE_RUN_MANIFEST" ]; then node -e 'const fs = require("node:fs"); JSON.parse(process.env.FAKE_RUN_MANIFEST).forEach((entry, index) => fs.writeFileSync(require("node:path").join(process.env.NMR_PASS_MANIFEST_DIR, index + ".json"), typeof entry === "string" ? entry : JSON.stringify(entry)));'; fi`,
     '    echo "remote stdout"',
     '    echo "remote stderr" >&2',
     // Start the sleep before writing the pid file, and wait for it rather than run it in the foreground. A `SIGTERM`

@@ -7,6 +7,7 @@ import type { Writable } from 'node:stream';
 
 import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
+import { PASS_MANIFEST_DIR_ENV_VAR, writeDebugNote } from './check-cache.ts';
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
 import { quoteForShell } from './helpers/quoteForShell.ts';
 import type { SessionPhase, SessionRecord } from './remote-host-session.ts';
@@ -35,11 +36,12 @@ export type DelegationTarget =
 export type RemotePhase = 'check out' | 'install' | 'prepare' | 'push' | 'run';
 
 /**
- * The status of a delegated command, or the phase that kept it from finishing and what that phase printed, with how
- * long the delegation waited for another delegation's checkout.
+ * The status of a delegated command and the pass-manifest entries that its run reported, unvalidated, or the phase
+ * that kept it from finishing and what that phase printed, with how long the delegation waited for another
+ * delegation's checkout.
  */
 export type RemoteRunResult =
-  | { ok: true; exitCode: number; waitedMs: number }
+  | { ok: true; exitCode: number; passes: unknown[]; waitedMs: number }
   | { ok: false; message: string; output: string; phase: RemotePhase; waitedMs: number };
 
 /**
@@ -162,6 +164,7 @@ export async function runRemotely(options: {
   const nonce = randomUUID();
   const marker = `__NMR_DELEGATE_${nonce}__`;
   const statusFile = `.git/nmr-run-status-${nonce}`;
+  const passes: unknown[] = [];
   let waitStartedAtMs: number | undefined;
   let waitedMs = 0;
   let failure: Extract<SessionRecord, { kind: 'failed' }> | undefined;
@@ -175,7 +178,12 @@ export async function runRemotely(options: {
         waitedMs = Date.now() - waitStartedAtMs;
       } else if (record.kind === 'failed') {
         failure = record;
+      } else if (record.kind === 'passes') {
+        passes.push(...record.entries);
       }
+    },
+    onMalformedRecord() {
+      writeDebugNote(`discarded a malformed pass manifest from ${host}`, env, stderr);
     },
     stderr,
   });
@@ -185,6 +193,8 @@ export async function runRemotely(options: {
       holder: { command, dir: cwd, pid: process.pid },
       marker,
       nmrArgs,
+      passManifestDir: `.git/nmr-passes-${nonce}`,
+      passManifestEnvVar: PASS_MANIFEST_DIR_ENV_VAR,
       remoteEnv,
       rootDir: toRemoteRelativeDir(path.relative(snapshot.toplevel, monorepoRoot)),
       runDir: toRemoteRelativeDir(path.relative(snapshot.toplevel, cwd)),
@@ -198,6 +208,7 @@ export async function runRemotely(options: {
     stderr: demultiplexer.stream,
     stdout,
   });
+  demultiplexer.flush();
 
   if (failure !== undefined) {
     const output = [demultiplexer.readOutput(), failure.output].filter((text) => text !== '').join('\n');
@@ -223,7 +234,7 @@ export async function runRemotely(options: {
     }
   }
 
-  return { ok: true, exitCode: session.exitCode, waitedMs };
+  return { ok: true, exitCode: session.exitCode, passes, waitedMs };
 }
 
 /**

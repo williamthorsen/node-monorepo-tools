@@ -15,6 +15,8 @@ describe(composeSessionScript, () => {
         holder: { command: 'test', dir: '/repo', pid: 1 },
         marker: MARKER,
         nmrArgs: ["it's"],
+        passManifestDir: '.git/nmr-passes-test',
+        passManifestEnvVar: 'NMR_PASS_MANIFEST_DIR',
         remoteEnv: {},
         rootDir: '.',
         runDir: '.',
@@ -61,6 +63,55 @@ describe(createSessionDemultiplexer, () => {
     );
   });
 
+  it('passes on a passes record after the run, split across chunks, without forwarding it', () => {
+    const { demux, malformed, records, stderr } = setUp();
+
+    demux.stream.write(`${MARKER} {"kind":"run"}\nlast line\n${MARKER} {"kind":"pas`);
+    expect(stderr.read()).toBe('last line\n');
+    demux.stream.write(`ses","entries":[{"command":"test"}]}\n`);
+    demux.flush();
+
+    expect(records).toStrictEqual([{ kind: 'run' }, { kind: 'passes', entries: [{ command: 'test' }] }]);
+    expect(stderr.read()).toBe('last line\n');
+    expect(malformed).toStrictEqual([]);
+  });
+
+  it('discards a malformed passes record after the run', () => {
+    const { demux, malformed, records, stderr } = setUp();
+
+    demux.stream.write(`${MARKER} {"kind":"run"}\n${MARKER} {"kind":"passes","entries":"none"}\nafter\n`);
+
+    expect(records).toStrictEqual([{ kind: 'run' }]);
+    expect(malformed).toHaveLength(1);
+    expect(stderr.read()).toBe('after\n');
+  });
+
+  it('forwards the run output byte for byte, a character and a line split across chunks included', () => {
+    const { demux, stderr } = setUp();
+    const output = Buffer.from('é ok\n__NMR_DELEGATE_ab not a record\n__NMR_DELEGATE_abc__x\nend', 'utf8');
+
+    demux.stream.write(Buffer.from(`${MARKER} {"kind":"run"}\n`));
+    // The cuts split `é`, then the second and third lines, each of which begins like a record.
+    const cuts = [1, 2, 9, 22, 30, 41, 50];
+    for (const [index, start] of [0, ...cuts].entries()) {
+      demux.stream.write(output.subarray(start, cuts[index] ?? output.length));
+    }
+    demux.flush();
+
+    expect(stderr.readBytes().equals(output)).toBe(true);
+  });
+
+  it('holds back a trailing partial line only while it may still be a record', () => {
+    const { demux, stderr } = setUp();
+
+    demux.stream.write(`${MARKER} {"kind":"run"}\nprogress 50%`);
+    expect(stderr.read()).toBe('progress 50%');
+    demux.stream.write('\n__NMR_DEL');
+    expect(stderr.read()).toBe('progress 50%\n');
+    demux.flush();
+    expect(stderr.read()).toBe('progress 50%\n__NMR_DEL');
+  });
+
   it('parses a failed record', () => {
     const { records, demux } = setUp();
 
@@ -94,15 +145,24 @@ function setUp() {
   stream.on('data', (chunk: Buffer) => {
     chunks.push(chunk);
   });
+  const malformed: true[] = [];
   const demux = createSessionDemultiplexer({
     marker: MARKER,
+    onMalformedRecord: () => {
+      malformed.push(true);
+    },
     onRecord: (record) => {
       records.push(record);
     },
     stderr: stream,
   });
 
-  return { demux, records, stderr: { read: () => Buffer.concat(chunks).toString('utf8') } };
+  return {
+    demux,
+    malformed,
+    records,
+    stderr: { read: () => Buffer.concat(chunks).toString('utf8'), readBytes: () => Buffer.concat(chunks) },
+  };
 }
 
 // endregion | Helpers

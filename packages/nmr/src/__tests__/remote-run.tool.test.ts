@@ -37,7 +37,7 @@ describe('a delegated run on a fake host', () => {
 
     const result = await delegate(['test', "it's"]);
 
-    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 0, waitedMs: 0 });
+    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 0, passes: [], waitedMs: 0 });
     expect(result.stdout).toBe('remote stdout\n');
     expect(result.stderr).toBe('remote stderr\n');
     const log = remote.readPnpmLog();
@@ -52,7 +52,7 @@ describe('a delegated run on a fake host', () => {
   it("returns the command's own exit status", async () => {
     const result = await delegate(['test'], { FAKE_RUN_STATUS: '3' });
 
-    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 3, waitedMs: 0 });
+    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 3, passes: [], waitedMs: 0 });
   });
 
   it('runs from the directory that corresponds to the local one', async () => {
@@ -117,20 +117,40 @@ describe('a delegated run on a fake host', () => {
 
     const result = await delegate(['test']);
 
-    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 0, waitedMs: 0 });
+    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 0, passes: [], waitedMs: 0 });
     expect(fs.existsSync(hookLog)).toBe(false);
   });
 
   it("reports the command's own exit 255 as its status", async () => {
     const result = await delegate(['test'], { FAKE_RUN_STATUS: '255' });
 
-    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 255, waitedMs: 0 });
+    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 255, passes: [], waitedMs: 0 });
   });
 
   it('reports a connection that drops during the run', async () => {
     const result = await delegate(['test'], {}, repo, 'dropping');
 
     expect(result.outcome).toMatchObject({ ok: false, phase: 'run', message: 'lost connection to dropping' });
+  });
+
+  it('returns the pass-manifest entries that the run wrote, and removes the manifest', async () => {
+    const entry = { command: 'test', scope: '.' };
+
+    const result = await delegate(['test'], { FAKE_RUN_MANIFEST: JSON.stringify([entry, 'not json']) });
+
+    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 0, passes: [entry], waitedMs: 0 });
+    expect(result.stderr).toBe('remote stderr\n');
+    expect(
+      fs.readdirSync(path.join(checkoutDir(), '.git')).filter((name) => name.startsWith('nmr-passes')),
+    ).toStrictEqual([]);
+  });
+
+  it('returns the pass-manifest entries of a run that failed', async () => {
+    const entry = { command: 'check', scope: '.' };
+
+    const result = await delegate(['ci'], { FAKE_RUN_MANIFEST: JSON.stringify([entry]), FAKE_RUN_STATUS: '1' });
+
+    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 1, passes: [entry], waitedMs: 0 });
   });
 
   it("reads and removes the status file of the command's own 255", async () => {
@@ -266,6 +286,8 @@ describe('a delegated run on a fake host', () => {
         holder: { command: 'test', dir: repo, pid: process.pid },
         marker: '__NMR_DELEGATE_test__',
         nmrArgs: ['test'],
+        passManifestDir: '.git/nmr-passes-test',
+        passManifestEnvVar: 'NMR_PASS_MANIFEST_DIR',
         remoteEnv: {},
         rootDir: '.',
         runDir: '.',
