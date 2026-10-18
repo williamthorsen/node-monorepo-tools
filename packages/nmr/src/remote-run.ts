@@ -10,7 +10,8 @@ import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 import { PASS_MANIFEST_DIR_ENV_VAR, writeDebugNote } from './check-cache.ts';
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
 import { quoteForShell } from './helpers/quoteForShell.ts';
-import type { SessionPhase, SessionRecord } from './remote-host-session.ts';
+import { STALE_AFTER_MS } from './machine-lock.ts';
+import { CHECKOUT_LOCK_PATH, type SessionPhase, type SessionRecord } from './remote-host-session.ts';
 import { composeSessionScript, createSessionDemultiplexer, formatDelegationWaitingLine } from './remote-session.ts';
 
 /** Names the hosts to which nmr delegates a command when the invocation does not say otherwise. */
@@ -199,6 +200,7 @@ export async function runRemotely(options: {
     checkoutDir,
     params: {
       holder: { command, dir: cwd, pid: process.pid },
+      lockPath: CHECKOUT_LOCK_PATH,
       marker,
       nmrArgs,
       passManifestDir: `.git/nmr-passes-${nonce}`,
@@ -207,6 +209,7 @@ export async function runRemotely(options: {
       rootDir: toRemoteRelativeDir(path.relative(snapshot.toplevel, monorepoRoot)),
       runDir: toRemoteRelativeDir(path.relative(snapshot.toplevel, cwd)),
       sha: snapshot.sha,
+      staleAfterMs: STALE_AFTER_MS,
       statusFile,
     },
   });

@@ -7,13 +7,14 @@ import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { STALE_AFTER_MS } from '../machine-lock.ts';
+import { CHECKOUT_LOCK_PATH } from '../remote-host-session.ts';
 import { probeHost } from '../remote-probe.ts';
 import { createFakeRemote, type FakeRemote } from '../test-utils/fake-remote.ts';
 
 const CHECKOUT_PATH = '.cache/nmr/delegate/0123456789abcdef/repo';
 
 /** The checkout's lock on the fake host `box`, relative to the temporary tree. */
-const CHECKOUT_LOCK_PATH = `fake-home/hosts/box/${CHECKOUT_PATH}/.git/nmr-delegate.lock`;
+const HOST_CHECKOUT_LOCK_PATH = `fake-home/hosts/box/${CHECKOUT_PATH}/${CHECKOUT_LOCK_PATH}`;
 
 /** The machine lock on the fake host `box`, under the lock directory that its `ssh` sets. */
 const MACHINE_LOCK_PATH = 'fake-home/hosts/box/nmr-lock/heavy.lock';
@@ -39,7 +40,7 @@ describe('a lock probe of a fake host', () => {
   });
 
   it("reports a live holder of the checkout's lock as busy", async () => {
-    writeLock(CHECKOUT_LOCK_PATH, { pid: process.pid });
+    writeLock(HOST_CHECKOUT_LOCK_PATH, { pid: process.pid });
 
     await expect(probe('box')).resolves.toBe('busy');
   });

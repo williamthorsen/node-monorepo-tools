@@ -3,6 +3,7 @@ import path from 'node:path';
 import { quoteForShell } from './helpers/quoteForShell.ts';
 import { isObject } from './helpers/type-guards.ts';
 import { LOCK_DIR_ENV_VAR, LOCK_FILE, STALE_AFTER_MS } from './machine-lock.ts';
+import { CHECKOUT_LOCK_PATH } from './remote-host-session.ts';
 import { type HostProbeParams, probeHostLocks } from './remote-probe-host.ts';
 import { type HostList, runSsh } from './remote-run.ts';
 
@@ -62,7 +63,7 @@ export async function probeHost(options: {
 }): Promise<ProbeResult> {
   const { checkoutPath, env, host, signal } = options;
   const params: HostProbeParams = {
-    checkoutLockPath: path.posix.join(checkoutPath, '.git/nmr-delegate.lock'),
+    checkoutLockPath: path.posix.join(checkoutPath, CHECKOUT_LOCK_PATH),
     lockDirEnvVar: LOCK_DIR_ENV_VAR,
     machineLockFile: LOCK_FILE,
     staleAfterMs: STALE_AFTER_MS,
