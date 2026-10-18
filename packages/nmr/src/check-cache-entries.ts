@@ -167,6 +167,16 @@ export async function removeCheckCache(scopeDir: string): Promise<void> {
   await removeCacheDir({ tool: CACHE_TOOL, scopeDir });
 }
 
+/** Narrows a recorded replay line, whose three fields a rendered line uses in full. */
+export function isReplayLine(value: unknown): value is ReplayLine {
+  return (
+    isObject(value) &&
+    typeof value['command'] === 'string' &&
+    typeof value['excerpt'] === 'string' &&
+    typeof value['scope'] === 'string'
+  );
+}
+
 /** Records a pass, replacing whatever this command last recorded at this scope. */
 export async function writeCheckCacheEntry(options: {
   anchorDir: string;
@@ -206,16 +216,6 @@ function isParsedCheckCacheEntry(value: unknown): value is ParsedCheckCacheEntry
     Number.isFinite(value['durationMs']) &&
     !Number.isNaN(Date.parse(String(value['recordedAt']))) &&
     isStringRecord(value['buildDigests'])
-  );
-}
-
-/** Narrows a recorded replay line, whose three fields a rendered line uses in full. */
-function isReplayLine(value: unknown): value is ReplayLine {
-  return (
-    isObject(value) &&
-    typeof value['command'] === 'string' &&
-    typeof value['excerpt'] === 'string' &&
-    typeof value['scope'] === 'string'
   );
 }
 

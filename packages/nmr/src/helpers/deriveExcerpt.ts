@@ -18,7 +18,7 @@ const MAX_BLOCK_LINES = 8;
  * otherwise pass the whole retained tail to whatever stores it, to show at most a verdict line's worth.
  * Generous enough to leave every summary measured here untouched.
  */
-const MAX_EXCERPT_BYTES = 2_048;
+export const MAX_EXCERPT_BYTES = 2_048;
 
 /** A character outside the set from which horizontal rules are drawn, so a line holding one contains content. */
 const NON_RULE_CHARACTER = /[^-=_~*+.|:#]/u;

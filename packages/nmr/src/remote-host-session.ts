@@ -13,6 +13,10 @@ export interface HostSessionParams {
   /** Begins each record line on stderr; it contains a per-delegation nonce, so that a command cannot forge one. */
   marker: string;
   nmrArgs: readonly string[];
+  /** The directory, created for this delegation, into which every nmr process of the run reports its passes. */
+  passManifestDir: string;
+  /** The variable that names the pass-manifest directory to nmr. */
+  passManifestEnvVar: string;
   remoteEnv: Readonly<Record<string, string>>;
   rootDir: string;
   runDir: string;
@@ -24,16 +28,21 @@ export interface HostSessionParams {
 /** A phase of the host session that can fail before the run starts. */
 export type SessionPhase = 'check out' | 'install';
 
-/** A line in which the host session reports its progress to the local side, before the run starts. */
+/**
+ * A line in which the host session reports to the local side: its progress before the run starts, and the passes that
+ * the run reported once it has ended.
+ */
 export type SessionRecord =
   | { kind: 'failed'; exitCode: number; output: string; phase: SessionPhase }
   | { kind: 'locked' }
+  | { kind: 'passes'; entries: unknown[] }
   | { kind: 'run' }
   | { kind: 'waiting'; holder: DelegationHolder | undefined };
 
 /**
  * Runs on the host, from the checkout, as the whole of a delegation after the push: takes the checkout's lock, checks
- * out the snapshot, installs, and runs nmr. It is sent as source, so it refers to nothing outside its own body.
+ * out the snapshot, installs, runs nmr, and reports the passes that nmr wrote to the pass manifest. It is sent as
+ * source, so it refers to nothing outside its own body.
  *
  * The lock follows the machine lock's rules: A waiter reclaims it at once when the holder's pid is gone, and once the
  * holder has stopped refreshing it for a minute otherwise. When the session's stdin ends, which the local `ssh` causes
@@ -46,6 +55,7 @@ export function runHostSession(params: HostSessionParams): void {
   const childProcess = process.getBuiltinModule('node:child_process');
   const crypto = process.getBuiltinModule('node:crypto');
   const os = process.getBuiltinModule('node:os');
+  const path = process.getBuiltinModule('node:path');
 
   const LOCK_PATH = '.git/nmr-delegate.lock';
   const RECLAIM_GUARD_PATH = '.git/nmr-delegate.lock.reclaim';
@@ -105,10 +115,15 @@ export function runHostSession(params: HostSessionParams): void {
 
     emit({ kind: 'run' });
     fs.mkdirSync(params.runDir, { recursive: true });
+    // Under `.git/`, so that the entries do not become untracked files in the tree that the run hashes.
+    fs.mkdirSync(params.passManifestDir, { recursive: true });
+    // The next delegation's checkout does not clean `.git/`, so the session removes the manifest however it exits.
+    process.on('exit', () => fs.rmSync(params.passManifestDir, { force: true, recursive: true }));
+    const manifestEnv = { [params.passManifestEnvVar]: path.resolve(process.cwd(), params.passManifestDir) };
     const child = childProcess.spawn('pnpm', ['exec', 'nmr', '--no-delegate', ...params.nmrArgs], {
       cwd: params.runDir,
       detached: true,
-      env: { ...process.env, ...params.remoteEnv },
+      env: { ...process.env, ...params.remoteEnv, ...manifestEnv },
       stdio: ['ignore', 'inherit', 'inherit'],
     });
     activeChild = child;
@@ -122,7 +137,10 @@ export function runHostSession(params: HostSessionParams): void {
       if (status === DELEGATION_FAILURE_EXIT_CODE) {
         fs.writeFileSync(params.statusFile, `${status}\n`);
       }
-      process.exit(status);
+      // The record is the session's last output, and a large one needs the write to finish before the exit.
+      emit({ kind: 'passes', entries: readPassManifest() }, () => {
+        process.exit(status);
+      });
     });
   }
 
@@ -267,6 +285,18 @@ export function runHostSession(params: HostSessionParams): void {
     } catch {
       // The file was removed by a reclaim; the next refresh tries again.
     }
+  }
+
+  /** Parses every entry in the pass manifest, skipping a file that does not parse; the local side validates the rest. */
+  function readPassManifest(): unknown[] {
+    const names = fs.existsSync(params.passManifestDir) ? fs.readdirSync(params.passManifestDir) : [];
+    return names.flatMap((name): unknown[] => {
+      try {
+        return [JSON.parse(fs.readFileSync(path.join(params.passManifestDir, name), 'utf8'))];
+      } catch {
+        return [];
+      }
+    });
   }
 
   /** Removes the lock file while it still contains this session's token. */

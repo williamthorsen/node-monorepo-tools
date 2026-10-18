@@ -51,6 +51,12 @@ export const DEFAULT_CACHEABLE_COMMANDS = [
 /** Set to `1` for the standing equivalent of `--no-cache`: skip the lookup, still record on success. */
 export const NO_CACHE_ENV_VAR = 'NMR_NO_CACHE';
 
+/**
+ * Names the directory into which every nmr process of a delegated run reports the passes that it records or recalls.
+ * Only the host session sets it, so that the delegating machine can learn a composite's constituent passes.
+ */
+export const PASS_MANIFEST_DIR_ENV_VAR = 'NMR_PASS_MANIFEST_DIR';
+
 /** Passes one run's identity down the spawned chain, so that an entry can name the run that vouched for it. */
 export const RUN_ID_ENV_VAR = 'NMR_RUN_ID';
 

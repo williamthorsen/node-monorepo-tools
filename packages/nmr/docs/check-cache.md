@@ -76,7 +76,11 @@ A [delegated](delegate.md#consulting-the-cache-first) invocation consults this c
 - **A pass earned on a host** satisfies only a delegation to that host, and is not held to this machine's build output, which says nothing about the host's.
 - **The key contains this machine's Node version and install, not the host's.** A change on the host alone, such as a Node upgrade there, does not invalidate a pass recorded here. The host's own cache keys on its own.
 - **A host pass is recorded only when the tree pushed to the host is the tree on which the key was computed**, and it does not replace a pass earned here under the same key while that pass would still be recalled, its build output present and built from this tree.
-- **A host pass retains the transcript that the host sent back**, which `--log` prints under a header that names the host, and no excerpt, so a recall of it does not replay anything.
+- **A host pass retains the transcript that the host sent back**, which `--log` prints under a header that names the host.
+- **A delegated composite records its constituents' passes too.** The host reports every pass that its nmr processes recorded or recalled during the run, and nmr records each one here as a pass earned on that host, at the scope where it ran. After `nmr --delegate imac2 ci`, `nmr --delegate imac2 check` on the same tree recalls without contacting the host, and a recall of `ci` replays its constituents' excerpts.
+- **A learned constituent is keyed on this machine's inputs and on the command string that the host ran**, so one whose string differs from what would run here is never recalled. Its excerpts are keyed on the [presentation environment](#replaying-a-skipped-runs-output) of the delegating invocation, for whose streams the host styled them. It does not retain a transcript, so `--log` prints its excerpts under the header that names the host.
+- **nmr treats the host's report as untrusted.** It drops an entry that is malformed, whose scope is not the root or one of its workspace packages, whose command is not cacheable here, or that describes another tree, and records the valid entries beside it. A delegation to a host whose nmr predates the report records the composite's pass alone, as before.
+- **A composite that the host recalled, and a `-F` or `-R` delegation, do not record any constituent's pass.** The first reports only its own entry; the second does not consult this machine's cache.
 
 ## Replaying a skipped run's output
 
@@ -167,6 +171,8 @@ Try these in order; the first is almost always the right one.
 `NMR_TREE_SNAPSHOT` is nmr's own: It passes one observation of the tree from a top-level invocation down to the processes that it spawns, so a chain computes the tree id once rather than at every link. nmr trusts an inherited value only while `HEAD` still points to the same commit as when the observation was taken, which bounds a process that outlives the run that spawned it. Because that bound does not extend to a tree edited without committing, **a process that survives its run and later invokes nmr should clear `NMR_TREE_SNAPSHOT`**. A test suite that shells out to `nmr` is the case worth checking.
 
 `NMR_RUN_ID` is nmr's own too: It passes one run's identity from a top-level invocation down to the processes that it spawns, so that the excerpts recorded at every scope during one run are recognizable as that run's, and a composite can assemble from them. Whereas `NMR_TREE_SNAPSHOT` is bounded by `HEAD`, this one is bounded by the tree id that each entry records. A process that outlives its run and carries the identity into a later one contributes nothing to that run's assemblies.
+
+`NMR_PASS_MANIFEST_DIR` is nmr's own as well, and only the [host session](delegate.md#what-the-host-runs) sets it: It names the directory into which every nmr process of a delegated run reports the passes that it records or recalls, so that the delegating machine can [record the constituents](#delegated-passes) of a delegated composite. nmr does not forward it from this machine to the host.
 
 ## Configuring
 
