@@ -34,7 +34,7 @@ describe('nmr with a delegation host', () => {
   });
 
   it('runs the command on the host and reports a verdict that names it', async () => {
-    const result = await runNmr(['--delegate', 'box', 'test'], { [OUTPUT_STYLE_ENV_VAR]: 'plain' });
+    const result = await runNmr(['--delegate-to', 'box', 'test'], { [OUTPUT_STYLE_ENV_VAR]: 'plain' });
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('remote stdout');
@@ -43,13 +43,13 @@ describe('nmr with a delegation host', () => {
   });
 
   it("forwards nmr's own flags and the command's arguments", async () => {
-    await runNmr(['--delegate=box', '-F', 'core', '--no-cache', 'test', 'a b']);
+    await runNmr(['--delegate-to=box', '-F', 'core', '--no-cache', 'test', 'a b']);
 
     expect(remote.readPnpmLog()).toContain('args=--no-delegate --filter core --no-cache test a b');
   });
 
   it("passes nmr's own variables that the host needs, and withholds those that describe this machine", async () => {
-    await runNmr(['--delegate', 'box', 'test'], {
+    await runNmr(['--delegate-to', 'box', 'test'], {
       [DEBUG_ENV_VAR]: '1',
       [NO_CACHE_ENV_VAR]: '1',
       [NO_LOCK_ENV_VAR]: '1',
@@ -66,7 +66,7 @@ describe('nmr with a delegation host', () => {
   });
 
   it("exits with the command's status on the host", async () => {
-    const result = await runNmr(['--delegate', 'box', 'test'], {
+    const result = await runNmr(['--delegate-to', 'box', 'test'], {
       FAKE_RUN_STATUS: '3',
       [OUTPUT_STYLE_ENV_VAR]: 'plain',
     });
@@ -76,11 +76,45 @@ describe('nmr with a delegation host', () => {
   });
 
   it('exits 255 and names the phase when the host cannot be reached', async () => {
-    const result = await runNmr(['--delegate', 'unreachable', 'test'], { [OUTPUT_STYLE_ENV_VAR]: 'plain' });
+    const result = await runNmr(['--delegate-to', 'unreachable', 'test'], { [OUTPUT_STYLE_ENV_VAR]: 'plain' });
 
     expect(result.exitCode).toBe(255);
     expect(result.stdout).toContain('(exit 255) — could not prepare unreachable');
     expect(result.stderr).toContain('Connection refused');
+  });
+
+  describe('when the user config decides', () => {
+    const REMEDY = 'ask for network access to unreachable, or run it here with nmr --no-delegate test';
+
+    beforeEach(() => {
+      workspace.write('xdg/nmr/config.ts', `export default { delegate: { hosts: ['unreachable'], when: 'always' } };`);
+    });
+
+    it('names the user config and the remedies in order when the host cannot be reached', async () => {
+      const result = await runNmr(['test'], {
+        // Blank CI, which nmr reads as unset, so that the user config decides on a CI runner too.
+        CI: '',
+        [OUTPUT_STYLE_ENV_VAR]: 'plain',
+        XDG_CONFIG_HOME: workspace.resolve('xdg'),
+      });
+
+      expect(result.exitCode).toBe(255);
+      expect(result.stdout).toContain('(exit 255) — could not prepare unreachable');
+      expect(result.stderr).toContain(
+        `nmr: ${workspace.resolve('xdg', 'nmr', 'config.ts')} sent test to unreachable; ${REMEDY}\n`,
+      );
+      expect(result.stderr.split(REMEDY)).toHaveLength(2);
+    });
+
+    it.for([
+      { case: '--delegate-to', args: ['--delegate-to', 'unreachable', 'test'], env: {} },
+      { case: 'NMR_DELEGATE', args: ['test'], env: { [DELEGATE_ENV_VAR]: 'unreachable' } },
+    ])('does not name the remedies when $case decided', async ({ args, env }) => {
+      const result = await runNmr(args, { ...env, XDG_CONFIG_HOME: workspace.resolve('xdg') });
+
+      expect(result.exitCode).toBe(255);
+      expect(result.stderr).not.toContain(REMEDY);
+    });
   });
 
   describe('with several hosts', () => {
@@ -89,7 +123,7 @@ describe('nmr with a delegation host', () => {
       remote.addHost('spare');
       workspace.write('fake-home/hosts/busy/nmr-lock/heavy.lock', JSON.stringify({ pid: process.pid }));
 
-      const result = await runNmr(['--delegate', 'busy,spare', 'test'], {
+      const result = await runNmr(['--delegate-to', 'busy,spare', 'test'], {
         [DEBUG_ENV_VAR]: '1',
         [OUTPUT_STYLE_ENV_VAR]: 'plain',
       });
@@ -102,13 +136,13 @@ describe('nmr with a delegation host', () => {
     });
 
     it('does not probe a single host', async () => {
-      await runNmr(['--delegate', 'box', 'test']);
+      await runNmr(['--delegate-to', 'box', 'test']);
 
       expect(remote.readSshLog()).not.toContainEqual(expect.stringMatching(/ probe$/));
     });
 
     it('fails the delegation, rather than running here, when no host can be reached', async () => {
-      const result = await runNmr(['--delegate', 'unreachable-1,unreachable-2', 'test'], {
+      const result = await runNmr(['--delegate-to', 'unreachable-1,unreachable-2', 'test'], {
         [OUTPUT_STYLE_ENV_VAR]: 'plain',
       });
 

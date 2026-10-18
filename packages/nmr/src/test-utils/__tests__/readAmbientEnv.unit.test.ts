@@ -1,3 +1,5 @@
+import { readdirSync } from 'node:fs';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DEBUG_ENV_VAR, NO_CACHE_ENV_VAR, RUN_ID_ENV_VAR, TREE_SNAPSHOT_ENV_VAR } from '../../check-cache.ts';
@@ -39,6 +41,15 @@ describe(readAmbientEnv, () => {
     }
 
     expect(Object.keys(readAmbientEnv()).filter((name) => STRIPPED_ENV_VARS.includes(name))).toStrictEqual([]);
+  });
+
+  it('points XDG_CONFIG_HOME at an empty directory, whatever the machine sets', () => {
+    vi.stubEnv('XDG_CONFIG_HOME', '/Users/someone/.config');
+
+    const configHome = readAmbientEnv()['XDG_CONFIG_HOME'] ?? '';
+
+    expect(configHome).not.toBe('/Users/someone/.config');
+    expect(readdirSync(configHome)).toStrictEqual([]);
   });
 
   it('keeps a variable that nmr does not own', () => {

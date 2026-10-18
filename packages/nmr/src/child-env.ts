@@ -52,8 +52,8 @@ export function addLockEnv(env: NodeJS.ProcessEnv, lock: MachineLock | undefined
  * arguments of their own, and without the bypass a narrowed command would serve part of its work from a recorded
  * pass.
  *
- * `NMR_DELEGATE` is withheld: a command that runs here runs its whole chain here, so that a step of a local run
- * does not pass itself on to the host that the variable names.
+ * `NMR_DELEGATE` is set empty: a command that runs here runs its whole chain here, so that a step or a `-F`/`-R`
+ * child of a local run passes itself on neither to the host that the variable names nor to the user config's.
  *
  * The style written down is the resolved one and never `auto`: a child on a pipe renders as this process does
  * rather than detecting plain on its own descriptor. It is the style to which stdout resolved: the verdicts and
@@ -73,10 +73,9 @@ export function buildChildEnv(options: {
   const { env, format, passthrough, runId, shouldBypassCache, shouldBypassLock, snapshot, styles, verbosity } = options;
 
   const bypassesCache = shouldBypassCache || passthrough.length > 0;
-  const { [DELEGATE_ENV_VAR]: _delegateHost, ...inheritedEnv } = env;
-
   return {
-    ...inheritedEnv,
+    ...env,
+    [DELEGATE_ENV_VAR]: '',
     ...(snapshot !== undefined && { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) }),
     ...(bypassesCache && { [NO_CACHE_ENV_VAR]: '1' }),
     ...(shouldBypassLock && { [NO_LOCK_ENV_VAR]: '1' }),

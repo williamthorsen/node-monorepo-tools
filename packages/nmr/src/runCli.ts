@@ -27,6 +27,7 @@ import {
 import { formatMisplacedFlagHint, parseArgs } from './invocation-args.ts';
 import { isTerminalStream } from './output-style.ts';
 import { readPresentation, reportVerdict, resolveReportingVerbosity } from './presentation.ts';
+import { DELEGATE_TO_FLAG } from './remote-run.ts';
 import { resolveReportFormat } from './report-format.ts';
 import { buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
 import { assembleChain, formatOverrideNotice } from './run-chain.ts';
@@ -59,7 +60,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   }
   const invocation = established.value;
 
-  const resolvedTarget = resolveExecutionTarget(invocation);
+  const resolvedTarget = await resolveExecutionTarget(invocation);
   if (resolvedTarget.settled) {
     return { exitCode: resolvedTarget.result.exitCode };
   }
@@ -242,7 +243,12 @@ async function planRun(invocation: Invocation, target: ExecutionTarget): Promise
     if (env[RUN_IF_PRESENT_ENV_VAR] === '1') {
       return { settled: true, result: { exitCode: 0 } };
     }
-    reportError(`Unknown command: ${command}`, stderr);
+    // A host name after bare `--delegate` reads as the command, and it belongs to `--delegate-to`.
+    const delegateToHint =
+      parsedArgs.shouldDelegate && parsedArgs.delegateHosts === undefined
+        ? `. \`${command}\` is not a command; name a host with ${DELEGATE_TO_FLAG} ${command}`
+        : '';
+    reportError(`Unknown command: ${command}${delegateToHint}`, stderr);
     return { settled: true, result: { exitCode: 1, isUnknownCommand: true } };
   }
 

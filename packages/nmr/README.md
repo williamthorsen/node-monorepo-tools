@@ -187,14 +187,22 @@ The lock lives in `/tmp/nmr-<uid>/`, or in `NMR_LOCK_DIR`; a sandboxed session n
 
 ## Delegating to another machine
 
-`nmr --delegate <host> <command>` runs the command on another machine over SSH, against this working tree, and exits with its status. `NMR_DELEGATE=<host>` makes that the default. A comma-separated list, such as `--delegate imac2,imac3`, names several hosts, and nmr runs on the first one that is not busy:
+nmr runs a check on another machine over SSH, against this working tree, and exits with its status. A user config on each machine, `~/.config/nmr/config.ts`, names the hosts in order of preference, and with `when` delegates agents' runs, or every run, without being asked:
+
+```ts
+export default {
+  delegate: { hosts: ['imac2', 'imac3'], when: 'agent' },
+};
+```
+
+`--delegate-to` names the hosts for one run, and nmr runs on the first one that is not busy:
 
 ```console
-$ nmr --delegate imac2 ci
+$ nmr --delegate-to imac2 ci
 ✅ my-repo: ci: passed on imac2 in 1m 48s
 ```
 
-A delegation consults the [check-result cache](#check-result-cache) first, so a tree that already passed is not sent to the host. [Delegating to another machine](docs/delegate.md) covers which commands can be delegated, how nmr chooses among several hosts, how the cache is consulted, what the host runs, how failures are reported, and setting up the host.
+A delegation consults the [check-result cache](#check-result-cache) first, so a tree that already passed is not sent to the host; a pass that a host earned does not satisfy a run here. A repo whose checks must run on the machine that has the tree declares `delegate: false` in its config. [Delegating to another machine](docs/delegate.md) covers the user config, `--delegate`, `NMR_DELEGATE`, the rules that decide where a command runs, which commands can be delegated, how nmr chooses among several hosts, how the cache is consulted, what the host runs, how failures are reported, and setting up the host.
 
 ## Shared configs and helpers
 
@@ -300,7 +308,7 @@ rdy list --from npm:@williamthorsen/nmr  # what nmr publishes
 - [What nmr reports](docs/reporting.md): Verdicts, `--json`, output style, and verbosity
 - [Check-result cache](docs/check-cache.md): What is skipped, what a hit requires, and replaying, reading, and bypassing recorded runs
 - [Machine lock](docs/machine-lock.md): Which commands wait for one another, where the lock lives, and bypassing it
-- [Delegating to another machine](docs/delegate.md): `--delegate`, `NMR_DELEGATE`, choosing among several hosts, what the host runs, and setting it up
+- [Delegating to another machine](docs/delegate.md): The user config, `--delegate`, `--delegate-to`, `NMR_DELEGATE`, where a command runs, choosing among several hosts, what the host runs, and setting it up
 - [Dependency upgrades](docs/upgrades.md): `nmr upgrade`, the upgrade policy, `report-catalog`, `report-overrides`, and `nmr-taze`
 - [Standalone utilities](docs/utilities.md): `nmr-clean`, `nmr-compile`, `nmr-fmt`, and `ensure-prepublish-hooks`
 - [Shared Vitest config](docs/vitest.md): Test tiers, test selections, the conventions check, and customization

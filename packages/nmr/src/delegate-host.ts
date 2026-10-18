@@ -5,21 +5,26 @@ import { reportError } from '@williamthorsen/nmr-core';
 
 import { NO_CACHE_ENV_VAR, resolveRunId, writeDebugNote } from './check-cache.ts';
 import { buildChildEnv, buildRemoteEnv } from './child-env.ts';
+import { resolveDelegationTarget } from './delegation-target.ts';
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
 import type { ExecutionTarget, Invocation, PhaseResult, RunCliResult, RunPlan } from './invocation.ts';
 import { isDelegationFlag, type ParsedArgs } from './invocation-args.ts';
 import { reportVerdict } from './presentation.ts';
 import { chooseHost, probeHost, type ProbeResult } from './remote-probe.ts';
 import {
+  DELEGATE_ENV_VAR,
+  DELEGATE_FLAG,
+  DELEGATE_TO_FLAG,
   DELEGATION_FAILURE_EXIT_CODE,
   deriveCheckoutPath,
   formatMisplacedDelegationWarning,
   type HostList,
-  resolveDelegationTarget,
+  NO_DELEGATE_FLAG,
   runRemotely,
 } from './remote-run.ts';
 import { createSnapshot } from './remote-snapshot.ts';
 import type { RetainedOutput } from './runner.ts';
+import { formatDisplayPath, loadUserConfig } from './user-config.ts';
 import type { VerdictOutcome } from './verdict.ts';
 
 /** How a run on the host ended, or that the invocation runs here after all. */
@@ -43,8 +48,8 @@ export type HostRunResult =
  * Decides where the invocation runs, warning about a delegation flag that the command will receive as an argument.
  * Settles an invocation whose delegation is refused.
  */
-export function resolveExecutionTarget(invocation: Invocation): PhaseResult<ExecutionTarget> {
-  const { command, env, parsedArgs, stderr, styles } = invocation;
+export async function resolveExecutionTarget(invocation: Invocation): Promise<PhaseResult<ExecutionTarget>> {
+  const { command, context, env, parsedArgs, stderr, styles } = invocation;
 
   // A delegation flag past the command name is an argument to the command, so the command runs wherever the flags
   // before it say. Without this warning, the developer would believe that it ran elsewhere.
@@ -52,16 +57,24 @@ export function resolveExecutionTarget(invocation: Invocation): PhaseResult<Exec
     stderr.write(`${formatMisplacedDelegationWarning(command, styles.stderr)}\n`);
   }
 
-  const target = resolveDelegationTarget({
+  const target = await resolveDelegationTarget({
     command,
     env,
+    extraAgentEnvVars: context.config.output?.extraAgentEnvVars,
     flagValue: parsedArgs.delegateHosts,
+    isFanOut: parsedArgs.filter !== undefined || parsedArgs.recursive,
     isOptedOut: parsedArgs.shouldRunLocally,
     isReading: parsedArgs.shouldPrintLog,
+    isRepoOptedOut: context.config.delegate === false,
+    readUserConfig: () => loadUserConfig(env),
+    shouldDelegate: parsedArgs.shouldDelegate,
   });
   if (target.kind === 'refused') {
     reportError(target.error, stderr);
     return { settled: true, result: { exitCode: 1 } };
+  }
+  if (target.kind === 'remote') {
+    writeDebugNote(`delegating ${command} per ${describeDelegationSource(target, parsedArgs, env)}`, env, stderr);
   }
 
   return { settled: false, value: target };
@@ -160,13 +173,26 @@ function createTee(stream: Writable, buffer: BoundedBuffer): Writable {
   });
 }
 
+/** Names what sent the invocation to a host, for a debug note. */
+function describeDelegationSource(target: RemoteTarget, parsedArgs: ParsedArgs, env: NodeJS.ProcessEnv): string {
+  switch (target.source) {
+    case 'config':
+      return `${formatDisplayPath(target.configPath, env)} (when: ${target.when})`;
+    case 'env':
+      return DELEGATE_ENV_VAR;
+    case 'flag':
+      return parsedArgs.delegateHosts === undefined ? DELEGATE_FLAG : DELEGATE_TO_FLAG;
+  }
+}
+
 /**
  * Runs the invocation on the host that `resolveHost` chooses, against a snapshot of the working tree, streaming its
  * output and retaining a copy.
  *
- * A tree that cannot be snapshotted is refused when the flag asked for the host, and runs here, with a line saying
- * why, when the variable did. A delegation that fails outside its command, in its connection, transfer, or install,
- * ends with exit 255, and what the failed phase printed goes to stderr.
+ * A tree that cannot be snapshotted is refused when a flag asked for the host, and runs here, with a line saying
+ * why, when the variable or the user config did. A delegation that fails outside its command, in its connection,
+ * transfer, or install, ends with exit 255, and what the failed phase printed goes to stderr; one that the user
+ * config decided also names the file and the remedies.
  */
 async function delegate(options: {
   invocation: Invocation;
@@ -217,6 +243,14 @@ async function delegate(options: {
   if (!result.ok) {
     if (result.output.trim() !== '') {
       stderr.write(result.output.endsWith('\n') ? result.output : `${result.output}\n`);
+    }
+    // A host that does not answer fails at `prepare`, which is where a sandbox that refuses `ssh` stops the run.
+    if (target.source === 'config' && 'phase' in result && result.phase === 'prepare') {
+      const configPath = formatDisplayPath(target.configPath, env);
+      stderr.write(
+        `nmr: ${configPath} sent ${command} to ${listedHosts}; ask for network access to ${listedHosts}, ` +
+          `or run it here with nmr ${NO_DELEGATE_FLAG} ${command}\n`,
+      );
     }
     return {
       ...ran,

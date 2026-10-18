@@ -39,7 +39,7 @@ describe('a delegation behind the check-result cache', () => {
   it('recalls a pass earned here without contacting the host', async () => {
     await runNmr(['--no-delegate', 'test']);
 
-    const result = await runNmr(['--delegate', 'box', 'test']);
+    const result = await runNmr(['--delegate-to', 'box', 'test']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toMatch(/^SKIP repo: test: passed .* ago on this tree/m);
@@ -47,18 +47,18 @@ describe('a delegation behind the check-result cache', () => {
   });
 
   it('recalls a pass earned on the host for a delegation to that host', async () => {
-    await runNmr(['--delegate', 'box', 'test']);
+    await runNmr(['--delegate-to', 'box', 'test']);
 
-    const result = await runNmr(['--delegate', 'box', 'test']);
+    const result = await runNmr(['--delegate-to', 'box', 'test']);
 
     expect(result.stdout).toMatch(/^SKIP repo: test: passed .* ago on box/m);
     expect(countRemoteRuns()).toBe(1);
   });
 
   it('recalls a pass earned on any host that the delegation lists', async () => {
-    await runNmr(['--delegate', 'spare', 'test']);
+    await runNmr(['--delegate-to', 'spare', 'test']);
 
-    const result = await runNmr(['--delegate', 'box,spare', 'test']);
+    const result = await runNmr(['--delegate-to', 'box,spare', 'test']);
 
     expect(result.stdout).toMatch(/^SKIP repo: test: passed .* ago on spare/m);
     expect(countRemoteRuns()).toBe(1);
@@ -66,16 +66,16 @@ describe('a delegation behind the check-result cache', () => {
   });
 
   it('does not recall a pass earned on another host', async () => {
-    await runNmr(['--delegate', 'box', 'test']);
+    await runNmr(['--delegate-to', 'box', 'test']);
 
-    const result = await runNmr(['--delegate', 'other', 'test']);
+    const result = await runNmr(['--delegate-to', 'other', 'test']);
 
     expect(result.stdout).toMatch(/^PASS repo: test: passed on other in /m);
     expect(countRemoteRuns()).toBe(2);
   });
 
   it('does not recall a pass earned on a host for a run here', async () => {
-    await runNmr(['--delegate', 'box', 'test']);
+    await runNmr(['--delegate-to', 'box', 'test']);
 
     const result = await runNmr(['--no-delegate', 'test']);
 
@@ -83,7 +83,7 @@ describe('a delegation behind the check-result cache', () => {
   });
 
   it("prints the host's transcript under --log, naming the host", async () => {
-    await runNmr(['--delegate', 'box', 'test']);
+    await runNmr(['--delegate-to', 'box', 'test']);
 
     const result = await runNmr(['--log', 'test']);
 
@@ -93,8 +93,8 @@ describe('a delegation behind the check-result cache', () => {
   });
 
   it.each([
-    ['--no-cache', ['--delegate', 'box', '--no-cache', 'test'], {}],
-    ['NMR_NO_CACHE=1', ['--delegate', 'box', 'test'], { [NO_CACHE_ENV_VAR]: '1' }],
+    ['--no-cache', ['--delegate-to', 'box', '--no-cache', 'test'], {}],
+    ['NMR_NO_CACHE=1', ['--delegate-to', 'box', 'test'], { [NO_CACHE_ENV_VAR]: '1' }],
   ])('reaches the host under %s although a pass is recorded', async (_label, args, extraEnv) => {
     await runNmr(['--no-delegate', 'test']);
 
@@ -106,7 +106,7 @@ describe('a delegation behind the check-result cache', () => {
 
   it('keeps a pass earned here when the host passes the same tree', async () => {
     await runNmr(['--no-delegate', 'test']);
-    await runNmr(['--delegate', 'box', '--no-cache', 'test']);
+    await runNmr(['--delegate-to', 'box', '--no-cache', 'test']);
 
     const result = await runNmr(['--no-delegate', 'test']);
 
@@ -125,15 +125,15 @@ describe('a delegation behind the check-result cache', () => {
     await runNmr(['--no-delegate', 'test']);
     workspace.rm('repo/packages/a/dist');
 
-    await runNmr(['--delegate', 'box', 'test']);
-    const result = await runNmr(['--delegate', 'box', 'test']);
+    await runNmr(['--delegate-to', 'box', 'test']);
+    const result = await runNmr(['--delegate-to', 'box', 'test']);
 
     expect(result.stdout).toMatch(/^SKIP repo: test: passed .* ago on box/m);
     expect(countRemoteRuns()).toBe(1);
   });
 
   it('reports an unknown command here without contacting the host', async () => {
-    const result = await runNmr(['--delegate', 'box', 'ghost']);
+    const result = await runNmr(['--delegate-to', 'box', 'ghost']);
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Unknown command: ghost');
@@ -169,11 +169,11 @@ describe('a delegation behind the check-result cache', () => {
           ],
         },
       ];
-      await runNmr(['--delegate', 'box', 'ci'], { FAKE_RUN_MANIFEST: JSON.stringify(manifest) });
+      await runNmr(['--delegate-to', 'box', 'ci'], { FAKE_RUN_MANIFEST: JSON.stringify(manifest) });
 
-      const checkResult = await runNmr(['--delegate', 'box', 'check']);
-      const testResult = await runNmr(['--delegate', 'box', 'test'], {}, packageDir);
-      const ciResult = await runNmr(['--delegate', 'box', 'ci']);
+      const checkResult = await runNmr(['--delegate-to', 'box', 'check']);
+      const testResult = await runNmr(['--delegate-to', 'box', 'test'], {}, packageDir);
+      const ciResult = await runNmr(['--delegate-to', 'box', 'ci']);
 
       expect(checkResult.stdout).toMatch(/^SKIP repo: check: passed .* ago on box — replayed: check summary$/m);
       expect(testResult.stdout).toMatch(/^SKIP a: test: passed .* ago on box — replayed: 3 passed$/m);
@@ -186,7 +186,7 @@ describe('a delegation behind the check-result cache', () => {
     it("prints a learned constituent's excerpt under --log, naming the host", async () => {
       const [check] = await captureEntries(['--no-delegate', 'check']);
       const manifest = [{ ...check, replay: [{ command: 'check', excerpt: 'check summary', scope: 'repo' }] }];
-      await runNmr(['--delegate', 'box', 'ci'], { FAKE_RUN_MANIFEST: JSON.stringify(manifest) });
+      await runNmr(['--delegate-to', 'box', 'ci'], { FAKE_RUN_MANIFEST: JSON.stringify(manifest) });
 
       const result = await runNmr(['--log', 'check']);
 
@@ -198,7 +198,7 @@ describe('a delegation behind the check-result cache', () => {
 
     it('does not recall a learned constituent for a run here', async () => {
       const [check] = await captureEntries(['--no-delegate', 'check']);
-      await runNmr(['--delegate', 'box', 'ci'], { FAKE_RUN_MANIFEST: JSON.stringify([check]) });
+      await runNmr(['--delegate-to', 'box', 'ci'], { FAKE_RUN_MANIFEST: JSON.stringify([check]) });
 
       const result = await runNmr(['--no-delegate', 'check']);
 
@@ -209,10 +209,10 @@ describe('a delegation behind the check-result cache', () => {
       const [check] = await captureEntries(['--no-delegate', 'check']);
       const [packageTest] = await captureEntries(['--no-delegate', 'test'], packageDir);
       const manifest = [check, { command: 'test', scope: 'packages/a' }, { ...packageTest, scope: '../x' }];
-      await runNmr(['--delegate', 'box', 'ci'], { FAKE_RUN_MANIFEST: JSON.stringify(manifest) });
+      await runNmr(['--delegate-to', 'box', 'ci'], { FAKE_RUN_MANIFEST: JSON.stringify(manifest) });
 
-      const checkResult = await runNmr(['--delegate', 'box', 'check']);
-      const testResult = await runNmr(['--delegate', 'box', 'test'], {}, packageDir);
+      const checkResult = await runNmr(['--delegate-to', 'box', 'check']);
+      const testResult = await runNmr(['--delegate-to', 'box', 'test'], {}, packageDir);
 
       expect(checkResult.stdout).toMatch(/^SKIP repo: check: passed .* ago on box/m);
       expect(testResult.stdout).toMatch(/^PASS a: test: passed on box in /m);
@@ -223,10 +223,10 @@ describe('a delegation behind the check-result cache', () => {
     });
 
     it('records the composite alone, without retention, when the host returns no manifest', async () => {
-      await runNmr(['--delegate', 'box', 'ci']);
+      await runNmr(['--delegate-to', 'box', 'ci']);
 
       const entry = await readCheckCacheEntry({ anchorDir: repo, command: 'ci', monorepoRoot: repo });
-      const checkResult = await runNmr(['--delegate', 'box', 'check']);
+      const checkResult = await runNmr(['--delegate-to', 'box', 'check']);
 
       expect(entry).toMatchObject({ host: 'box' });
       expect(entry?.retention).toBeUndefined();

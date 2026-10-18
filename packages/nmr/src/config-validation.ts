@@ -20,7 +20,7 @@ import { formatVerbosityRejection, isCommandVerbosity } from './verbosity.ts';
 export const CONFIG_TIERS: Record<'root' | 'workspace', ConfigTier> = {
   root: {
     label: 'a monorepo-root config',
-    honoredKeys: ['checkCache', 'devBin', 'output', 'rootScripts', 'selfHostedRunner', 'workspaceScripts'],
+    honoredKeys: ['checkCache', 'delegate', 'devBin', 'output', 'rootScripts', 'selfHostedRunner', 'workspaceScripts'],
     elsewhere: "the package's own config",
   },
   workspace: {
@@ -48,6 +48,22 @@ const RECOGNIZED_STEP_KEYS = ['run', 'shouldDeclineArguments', 'shouldRunInBackg
 /** Maps each retired step key to the key that replaced it. */
 const RETIRED_STEP_KEYS: ReadonlyMap<string, string> = new Map([['declinesArgs', 'shouldDeclineArguments']]);
 
+/**
+ * Throws on any key outside the recognized set, naming the offenders and the file. An unrecognized key is a
+ * typo or a stale spelling, and the setting that it appears to make is one that nothing reads.
+ */
+export function assertRecognizedKeys(value: object, recognizedKeys: string[], configPath: string, prefix = ''): void {
+  const unrecognizedKeys = Object.keys(value).filter((key) => !recognizedKeys.includes(key));
+  if (unrecognizedKeys.length === 0) {
+    return;
+  }
+
+  throw new UserError(
+    `Invalid nmr config at ${configPath}: unrecognized ${unrecognizedKeys.length === 1 ? 'key' : 'keys'} ` +
+      `${formatKeyList(unrecognizedKeys, prefix)}. Recognized: ${formatKeyList(recognizedKeys, prefix)}.`,
+  );
+}
+
 /** Validates that a loaded value conforms to the expected `NmrConfig` shape. */
 export function validateConfig(value: unknown, configPath: string, baseDir: string): NmrConfig {
   if (!isObject(value)) {
@@ -62,6 +78,8 @@ export function validateConfig(value: unknown, configPath: string, baseDir: stri
 
   const checkCache = validateCheckCacheField(value, configPath);
   if (checkCache) config.checkCache = checkCache;
+
+  if (value['delegate'] !== undefined) config.delegate = validateDelegateField(value['delegate'], configPath);
 
   const devBin = validateStringRecordField(value, 'devBin', configPath);
   if (devBin) config.devBin = devBin;
@@ -101,22 +119,6 @@ function assertNoRetiredKeys(
       `Invalid nmr config at ${configPath}: \`${prefix}${key}\` was renamed to \`${prefix}${replacement}\`.`,
     );
   }
-}
-
-/**
- * Throws on any key outside the recognized set, naming the offenders and the file. An unrecognized key is a
- * typo or a stale spelling, and the setting that it appears to make is one that nothing reads.
- */
-function assertRecognizedKeys(value: object, recognizedKeys: string[], configPath: string, prefix = ''): void {
-  const unrecognizedKeys = Object.keys(value).filter((key) => !recognizedKeys.includes(key));
-  if (unrecognizedKeys.length === 0) {
-    return;
-  }
-
-  throw new UserError(
-    `Invalid nmr config at ${configPath}: unrecognized ${unrecognizedKeys.length === 1 ? 'key' : 'keys'} ` +
-      `${formatKeyList(unrecognizedKeys, prefix)}. Recognized: ${formatKeyList(recognizedKeys, prefix)}.`,
-  );
 }
 
 /**
@@ -238,6 +240,21 @@ function validateCheckCacheField(value: Record<string, unknown>, configPath: str
   }
 
   return config;
+}
+
+/**
+ * Validates the repo's `delegate`, which accepts `false` alone: Which hosts a machine reaches, and when it
+ * delegates, are facts about the machine, which a shared repo config cannot state.
+ */
+function validateDelegateField(delegate: unknown, configPath: string): false {
+  if (delegate === false) {
+    return false;
+  }
+
+  throw new UserError(
+    `Invalid nmr config at ${configPath}: \`delegate\` accepts only \`false\`, which keeps the repo's checks on the ` +
+      'machine that has the tree. Hosts and `when` belong in the user config, `~/.config/nmr/config.ts`.',
+  );
 }
 
 /** Validates and extracts the `output` field from the raw config object. */

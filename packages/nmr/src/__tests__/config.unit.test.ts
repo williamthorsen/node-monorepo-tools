@@ -76,7 +76,7 @@ describe(loadConfig, () => {
     writeConfig(tree, `export default { bild: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
-      'unrecognized key `bild`. Recognized: `build`, `checkCache`, `devBin`, `output`, `rootScripts`, ' +
+      'unrecognized key `bild`. Recognized: `build`, `checkCache`, `delegate`, `devBin`, `output`, `rootScripts`, ' +
         '`selfHostedRunner`, `workspaceScripts`.',
     );
   });
@@ -290,6 +290,14 @@ describe(loadWorkspaceConfig, () => {
     await expect(loadWorkspaceConfig(tree.dir)).rejects.toThrow('not devBin, output, rootScripts');
   });
 
+  it('throws when the package config declares delegate, which only the root config accepts', async ({ tree }) => {
+    writeConfig(tree, `export default { delegate: false };`);
+
+    await expect(loadWorkspaceConfig(tree.dir)).rejects.toThrow(
+      'not delegate. Move those keys to the monorepo-root config.',
+    );
+  });
+
   it('throws when the package config declares selfHostedRunner, which only the root config accepts', async ({
     tree,
   }) => {
@@ -347,11 +355,33 @@ describe(loadRootConfig, () => {
     await expect(loadRootConfig(tree.dir)).rejects.toThrow(message);
   });
 
+  it('loads delegate: false, which the root tier honors', async ({ tree }) => {
+    writeConfig(tree, `export default { delegate: false };`);
+
+    const config = await loadRootConfig(tree.dir);
+
+    expect(config.delegate).toBe(false);
+  });
+
+  it.for([
+    ['true', `true`],
+    ['the user config shape', `{ hosts: ['imac2'], when: 'agent' }`],
+    ['a host list', `'imac2'`],
+  ])('throws naming the user config when delegate is %s', async ([, value], { tree }) => {
+    writeConfig(tree, `export default { delegate: ${value} };`);
+
+    await expect(loadRootConfig(tree.dir)).rejects.toThrow(
+      `Invalid nmr config at ${path.join(tree.dir, '.config', 'nmr.config.ts')}: \`delegate\` accepts only \`false\`, ` +
+        "which keeps the repo's checks on the machine that has the tree. Hosts and `when` belong in the user config, " +
+        '`~/.config/nmr/config.ts`.',
+    );
+  });
+
   it('throws when the root config declares build, which only a package config accepts', async ({ tree }) => {
     writeConfig(tree, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     await expect(loadRootConfig(tree.dir)).rejects.toThrow(
-      'honors checkCache, devBin, output, rootScripts, selfHostedRunner, workspaceScripts alone, not build. ' +
+      'honors checkCache, delegate, devBin, output, rootScripts, selfHostedRunner, workspaceScripts alone, not build. ' +
         "Move those keys to the package's own config.",
     );
   });

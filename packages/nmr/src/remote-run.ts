@@ -17,21 +17,20 @@ import { composeSessionScript, createSessionDemultiplexer, formatDelegationWaiti
 /** Names the hosts to which nmr delegates a command when the invocation does not say otherwise. */
 export const DELEGATE_ENV_VAR = 'NMR_DELEGATE';
 
-/** The flag that names the hosts on which to run the command. */
+/** The flag that runs the command on a host that `NMR_DELEGATE` or the user config names. */
 export const DELEGATE_FLAG = '--delegate';
+
+/** The flag that names the hosts on which to run the command. */
+export const DELEGATE_TO_FLAG = '--delegate-to';
 
 /** The exit status of a delegation that failed outside its command, which matches `ssh`'s own. */
 export const DELEGATION_FAILURE_EXIT_CODE = 255;
 
-/** The flag that runs the command here, whatever `NMR_DELEGATE` names. */
+/** The flag that runs the command here, whatever `NMR_DELEGATE` or the user config says. */
 export const NO_DELEGATE_FLAG = '--no-delegate';
 
 /** Keeps `ssh` from prompting or waiting on a terminal, and bounds the wait for a host that does not answer. */
 export const SSH_OPTIONS: readonly string[] = ['-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10'];
-
-/** Where a delegation runs, or why the invocation cannot run where it asked to. */
-export type DelegationTarget =
-  { kind: 'local' } | { kind: 'remote'; hosts: HostList; source: 'env' | 'flag' } | { kind: 'refused'; error: string };
 
 /** Candidate hosts in order of preference. */
 export type HostList = readonly [string, ...string[]];
@@ -61,59 +60,15 @@ export function deriveCheckoutPath(hostname: string, toplevel: string): string {
 }
 
 /**
- * Renders the warning for a `--delegate` or `--no-delegate` that appears after the command name, which makes it an
- * argument to the command rather than a flag to nmr.
+ * Renders the warning for a delegation flag that appears after the command name, which makes it an argument to the
+ * command rather than a flag to nmr.
  */
 export function formatMisplacedDelegationWarning(command: string, style: OutputStyle): string {
   return (
-    `${STATUS_GLYPHS[style].warning.text} ${DELEGATE_FLAG} and ${NO_DELEGATE_FLAG} after the command name are passed ` +
-    `to \`${command}\`, not read by nmr. Did you mean \`nmr ${DELEGATE_FLAG} <host> ${command}\`?`
+    `${STATUS_GLYPHS[style].warning.text} ${DELEGATE_FLAG}, ${DELEGATE_TO_FLAG}, and ${NO_DELEGATE_FLAG} after the ` +
+    `command name are passed to \`${command}\`, not read by nmr. Write them before it: ` +
+    `\`nmr ${DELEGATE_TO_FLAG} <host> ${command}\`.`
   );
-}
-
-/**
- * Decides where an invocation runs. `--no-delegate` outranks `--delegate`, which outranks `NMR_DELEGATE`. Each names
- * its candidate hosts as a comma-separated list, in order of preference.
- *
- * A command that rewrites the tree, or that runs until it is stopped, cannot be delegated, and neither can `--log`,
- * which reads this machine's recordings. Asked for by the flag, such an invocation is refused; asked for by the
- * variable, which sets a default for every invocation, it runs here.
- */
-export function resolveDelegationTarget(options: {
-  command: string;
-  env: NodeJS.ProcessEnv;
-  flagValue: string | undefined;
-  isOptedOut: boolean;
-  isReading: boolean;
-}): DelegationTarget {
-  const { command, env, flagValue, isOptedOut, isReading } = options;
-  if (isOptedOut) {
-    return { kind: 'local' };
-  }
-
-  const isDelegable = !isReading && !NON_DELEGABLE_COMMANDS.has(command);
-
-  if (flagValue !== undefined) {
-    const hosts = parseHostList(flagValue);
-    if (hosts === undefined) {
-      return { kind: 'refused', error: `${DELEGATE_FLAG} requires a host: "${flagValue}" does not name a host.` };
-    }
-    if (isDelegable) {
-      return { kind: 'remote', hosts, source: 'flag' };
-    }
-    const subject = isReading ? '--log' : `\`${command}\``;
-    return {
-      kind: 'refused',
-      error: `${subject} cannot be delegated: it ${isReading ? "reads this machine's recordings" : 'rewrites the working tree or runs until stopped'}. Run it without ${DELEGATE_FLAG}.`,
-    };
-  }
-
-  const envHosts = parseHostList(env[DELEGATE_ENV_VAR] ?? '');
-  if (envHosts !== undefined && isDelegable) {
-    return { kind: 'remote', hosts: envHosts, source: 'env' };
-  }
-
-  return { kind: 'local' };
 }
 
 /**
@@ -299,14 +254,6 @@ const COMMAND_NOT_FOUND_EXIT_CODE = 127;
 /** Bounds each end of a phase's captured output. */
 const PHASE_OUTPUT_LIMIT_BYTES = 65_536;
 
-/** Commands that rewrite the working tree or run until stopped, which a delegation could not report back. */
-const NON_DELEGABLE_BASE_COMMANDS = ['build', 'clean', 'compile', 'fix', 'fmt', 'lint', 'test:watch', 'upgrade'];
-
-const NON_DELEGABLE_COMMANDS: ReadonlySet<string> = new Set([
-  ...NON_DELEGABLE_BASE_COMMANDS,
-  ...NON_DELEGABLE_BASE_COMMANDS.map((command) => `root:${command}`),
-]);
-
 /** The ref on the host to which each snapshot is pushed; it is not a branch, so a push never touches `HEAD`. */
 const SNAPSHOT_REF = 'refs/nmr/delegate';
 
@@ -337,17 +284,6 @@ function forwardChunk(chunk: Buffer, stream: Writable | undefined, buffer: Bound
     return;
   }
   stream.write(chunk);
-}
-
-/**
- * Splits a comma-separated host list, dropping whitespace, empty entries, and repeats. Returns `undefined` when the
- * value does not name a host.
- */
-function parseHostList(value: string): HostList | undefined {
-  const names = value.split(',').map((host) => host.trim());
-  const [first, ...rest] = new Set(names.filter((host) => host !== ''));
-
-  return first === undefined ? undefined : [first, ...rest];
 }
 
 /**

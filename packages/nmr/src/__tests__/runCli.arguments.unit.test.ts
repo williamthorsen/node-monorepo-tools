@@ -218,27 +218,69 @@ describe(runCli, () => {
   });
 
   describe('delegation to another host', () => {
-    it('refuses a tree-rewriting command under --delegate and runs nothing', async ({ tree }) => {
-      const { exitCode, stderr } = await runNmrReadingStderr(['--delegate', 'box', 'fmt'], tree.dir);
+    it('refuses a tree-rewriting command under --delegate-to and runs nothing', async ({ tree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['--delegate-to', 'box', 'fmt'], tree.dir);
 
       expect(exitCode).toBe(1);
       expect(stderr).toContain('`fmt` cannot be delegated');
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
 
-    it('rejects --delegate without a host', async ({ tree }) => {
-      const { exitCode, stderr } = await runNmrReadingStderr(['--delegate'], tree.dir);
+    it('rejects --delegate-to without a host', async ({ tree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['--delegate-to'], tree.dir);
 
       expect(exitCode).toBe(1);
-      expect(stderr).toContain('--delegate requires a host argument');
+      expect(stderr).toContain('--delegate-to requires a host argument');
     });
 
-    it('refuses --delegate outside a git repository', async ({ tree }) => {
-      const { exitCode, stderr } = await runNmrReadingStderr(['--delegate=box', 'typecheck'], tree.dir);
+    it('refuses --delegate-to outside a git repository', async ({ tree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['--delegate-to=box', 'typecheck'], tree.dir);
 
       expect(exitCode).toBe(1);
       expect(stderr).toContain('Cannot delegate to box: not a git repository');
       expect(mockedRunSteps).not.toHaveBeenCalled();
+    });
+
+    it("takes bare --delegate's hosts from NMR_DELEGATE", async ({ tree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['--delegate', 'typecheck'], tree.dir, {
+        [DELEGATE_ENV_VAR]: 'box',
+      });
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('Cannot delegate to box: not a git repository');
+    });
+
+    it('refuses --delegate=<hosts>, naming --delegate-to', async ({ tree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['--delegate=box', 'typecheck'], tree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('--delegate does not take a value; name hosts with --delegate-to box');
+      expect(mockedRunSteps).not.toHaveBeenCalled();
+    });
+
+    it('refuses bare --delegate when nothing names a host, naming --delegate-to', async ({ tree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['--delegate', 'typecheck'], tree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('--delegate needs hosts');
+      expect(stderr).toContain('--delegate-to <host,...>');
+      expect(mockedRunSteps).not.toHaveBeenCalled();
+    });
+
+    it('names --delegate-to when bare --delegate precedes a host name rather than a command', async ({ tree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['--delegate', 'box', 'typecheck'], tree.dir, {
+        [DELEGATE_ENV_VAR]: 'box',
+      });
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('Unknown command: box. `box` is not a command; name a host with --delegate-to box');
+    });
+
+    it('does not add the host hint to an unknown command without --delegate', async ({ tree }) => {
+      const { stderr } = await runNmrReadingStderr(['box'], tree.dir);
+
+      expect(stderr).toContain('Unknown command: box');
+      expect(stderr).not.toContain('--delegate-to');
     });
 
     it('runs a tree-rewriting command here when NMR_DELEGATE names a host', async ({ tree }) => {
@@ -248,18 +290,124 @@ describe(runCli, () => {
       expect(mockedRunSteps).toHaveBeenCalledTimes(1);
     });
 
-    it('runs here under --no-delegate and withholds NMR_DELEGATE from the steps', async ({ tree }) => {
+    it('runs here under --no-delegate and passes an empty NMR_DELEGATE to the steps', async ({ tree }) => {
       const { exitCode } = await runNmr(['--no-delegate', 'lint'], tree.dir, { [DELEGATE_ENV_VAR]: 'box' });
 
       expect(exitCode).toBe(0);
-      expect(mockedRunSteps.mock.calls[0]?.[2].env).not.toHaveProperty(DELEGATE_ENV_VAR);
+      expect(mockedRunSteps.mock.calls[0]?.[2].env).toHaveProperty(DELEGATE_ENV_VAR, '');
     });
 
-    it('warns about a --delegate written after the command name, which then runs here', async ({ tree }) => {
-      const { stderr } = await runNmrReadingStderr(['lint', '--delegate', 'box'], tree.dir);
+    it.for([['--delegate'], ['--delegate-to', 'box'], ['--delegate-to=box'], ['--no-delegate']])(
+      'warns about %s written after the command name, which then runs here',
+      async (flagArgs, { tree }) => {
+        const { stderr } = await runNmrReadingStderr(['lint', ...flagArgs], tree.dir);
 
-      expect(stderr).toContain('--delegate and --no-delegate after the command name are passed to `lint`');
+        expect(stderr).toContain(
+          '--delegate, --delegate-to, and --no-delegate after the command name are passed to `lint`, not read by nmr',
+        );
+        expect(mockedRunSteps).toHaveBeenCalledTimes(1);
+      },
+    );
+  });
+
+  describe('delegation by the user config', () => {
+    const ALWAYS = `export default { delegate: { hosts: ['imac2'], when: 'always' } };`;
+
+    it('reads the user config under XDG_CONFIG_HOME and delegates to its hosts', async ({ tree }) => {
+      tree.write('xdg/nmr/config.ts', ALWAYS);
+
+      const { stderr } = await runNmrReadingStderr(['typecheck'], tree.dir, {
+        XDG_CONFIG_HOME: path.join(tree.dir, 'xdg'),
+      });
+
+      expect(stderr).toContain('running typecheck here rather than on imac2: not a git repository');
       expect(mockedRunSteps).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads the user config under HOME when XDG_CONFIG_HOME is unset', async ({ tree }) => {
+      tree.write('.config/nmr/config.ts', ALWAYS);
+
+      const { stderr } = await runNmrReadingStderr(['typecheck'], tree.dir, { HOME: tree.dir });
+
+      expect(stderr).toContain('rather than on imac2');
+    });
+
+    it('runs here without reading the user config when the repo declares delegate: false', async ({ tree }) => {
+      writeConfig(tree, { delegate: false });
+      tree.write('xdg/nmr/config.ts', `export default { delegate: 'invalid' };`);
+
+      const { exitCode, stderr } = await runNmrReadingStderr(['typecheck'], tree.dir, {
+        XDG_CONFIG_HOME: path.join(tree.dir, 'xdg'),
+      });
+
+      expect(exitCode).toBe(0);
+      expect(stderr).toBe('');
+    });
+
+    it('fails a run that reaches the user config when the config is invalid, naming the file and the key', async ({
+      tree,
+    }) => {
+      tree.write('xdg/nmr/config.ts', `export default { delegate: { when: 'agent' } };`);
+
+      await expect(
+        runNmrReadingStderr(['typecheck'], tree.dir, { XDG_CONFIG_HOME: path.join(tree.dir, 'xdg') }),
+      ).rejects.toThrow(
+        `Invalid nmr config at ${path.join(tree.dir, 'xdg', 'nmr', 'config.ts')}: \`delegate.hosts\` must be`,
+      );
+      expect(mockedRunSteps).not.toHaveBeenCalled();
+    });
+
+    it('runs a -F invocation here, and its children with an empty NMR_DELEGATE', async ({ tree }) => {
+      tree.write('xdg/nmr/config.ts', ALWAYS);
+
+      const { stderr } = await runNmrReadingStderr(['-F', 'my-pkg', 'typecheck'], tree.dir, {
+        XDG_CONFIG_HOME: path.join(tree.dir, 'xdg'),
+      });
+
+      expect(stderr).not.toContain('imac2');
+      expect(mockedRunSteps).toHaveBeenCalledTimes(1);
+      expect(mockedRunSteps.mock.calls[0]?.[2].env).toHaveProperty(DELEGATE_ENV_VAR, '');
+    });
+
+    it('passes an empty NMR_DELEGATE to the steps of a run that the user config left here', async ({ tree }) => {
+      tree.write('xdg/nmr/config.ts', `export default { delegate: { hosts: ['imac2'], when: 'agent' } };`);
+
+      await runNmr(['lint'], tree.dir, { XDG_CONFIG_HOME: path.join(tree.dir, 'xdg') });
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].env).toHaveProperty(DELEGATE_ENV_VAR, '');
+    });
+  });
+
+  describe('the debug note naming what sent a command to a host', () => {
+    it.for([
+      { case: '--delegate-to', args: ['--delegate-to', 'box', 'typecheck'], env: {}, expected: 'per --delegate-to' },
+      {
+        case: '--delegate',
+        args: ['--delegate', 'typecheck'],
+        env: { [DELEGATE_ENV_VAR]: 'box' },
+        expected: 'per --delegate',
+      },
+      { case: 'NMR_DELEGATE', args: ['typecheck'], env: { [DELEGATE_ENV_VAR]: 'box' }, expected: 'per NMR_DELEGATE' },
+      {
+        case: 'the user config',
+        args: ['typecheck'],
+        env: { CLAUDECODE: '1' },
+        hasUserConfig: true,
+        expected: 'per ~/.config/nmr/config.ts (when: agent)',
+      },
+    ])('names $case', async ({ args, env, expected, hasUserConfig = false }, { tree }) => {
+      tree.write('.config/nmr/config.ts', `export default { delegate: { hosts: ['box'], when: 'agent' } };`);
+      const homeEnv = hasUserConfig ? { HOME: tree.dir } : {};
+
+      const { stderr } = await runNmrReadingStderr(args, tree.dir, { ...env, ...homeEnv, NMR_DEBUG: '1' });
+
+      expect(stderr).toContain(`delegating typecheck ${expected}\n`);
+    });
+
+    it('is silent without NMR_DEBUG', async ({ tree }) => {
+      const { stderr } = await runNmrReadingStderr(['typecheck'], tree.dir, { [DELEGATE_ENV_VAR]: 'box' });
+
+      expect(stderr).not.toContain('delegating');
     });
   });
 
@@ -282,8 +430,9 @@ describe(runCli, () => {
       { args: ['lint', '--output-style=plain', 'src/'], expected: '`nmr --output-style=plain lint src/`' },
       { args: ['lint', '--output-style', 'plain'], expected: '`nmr --output-style plain lint`' },
       { args: ['lint', 'a b', '--no-cache'], expected: "`nmr --no-cache lint 'a b'`" },
-      { args: ['lint', '--delegate=box'], expected: '`nmr --delegate=box lint`' },
-      { args: ['lint', '--delegate', 'box'], expected: '`nmr --delegate box lint`' },
+      { args: ['lint', '--delegate-to=box'], expected: '`nmr --delegate-to=box lint`' },
+      { args: ['lint', '--delegate-to', 'box'], expected: '`nmr --delegate-to box lint`' },
+      { args: ['lint', '--delegate', 'src/'], expected: '`nmr --delegate lint src/`' },
     ])(
       'moves $args into a corrected invocation that keeps every other argument',
       async ({ args, expected }, { tree }) => {

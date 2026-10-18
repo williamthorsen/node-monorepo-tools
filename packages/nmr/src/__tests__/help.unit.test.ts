@@ -37,13 +37,25 @@ describe(generateHelp, () => {
     expect(help).toContain('--log');
     expect(help).toContain('--no-cache');
     expect(help).toContain('--no-lock');
-    expect(help).toContain('--delegate <host,...>');
+    expect(help).toContain('--delegate              Run over SSH on the first free host');
+    expect(help).toContain('--delegate-to <hosts>');
     expect(help).toContain('--no-delegate');
     expect(help).toContain('NMR_DELEGATE');
     expect(help).toContain('--output-style <style>');
     expect(help).toContain('-?, --help');
     expect(help).toContain('-V, --version');
     expect(help).toContain('NMR_OUTPUT_STYLE');
+  });
+
+  it('names the user config file', () => {
+    const help = generateHelp({}, NON_WORKSPACE_DIR, undefined, false);
+
+    expect(help).toContain('~/.config/nmr/config.ts     User config');
+    expect(help).toContain('$XDG_CONFIG_HOME/nmr/config.ts');
+  });
+
+  it('does not show a host after --delegate', () => {
+    expect(generateHelp({}, NON_WORKSPACE_DIR, undefined, false)).not.toMatch(/--delegate <host/);
   });
 
   it('includes workspace commands section', () => {

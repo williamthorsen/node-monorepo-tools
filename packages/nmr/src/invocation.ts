@@ -4,8 +4,8 @@ import { resolveSelfVersion, type StreamStyles } from '@williamthorsen/nmr-core'
 
 import type { TreeSnapshot } from './check-cache.ts';
 import type { ResolvedContext } from './context.ts';
+import type { DelegationTarget } from './delegation-target.ts';
 import type { ParsedArgs } from './invocation-args.ts';
-import type { DelegationTarget } from './remote-run.ts';
 import type { ReportFormat } from './report-format.ts';
 import type { RunStepsOptions } from './runner.ts';
 import type { Step } from './steps.ts';
