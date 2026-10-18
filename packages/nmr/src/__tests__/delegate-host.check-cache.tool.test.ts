@@ -62,6 +62,7 @@ describe('a delegation behind the check-result cache', () => {
 
     expect(result.stdout).toMatch(/^SKIP repo: test: passed .* ago on spare/m);
     expect(countRemoteRuns()).toBe(1);
+    expect(remote.readSshLog()).not.toContainEqual(expect.stringMatching(/ probe$/));
   });
 
   it('does not recall a pass earned on another host', async () => {

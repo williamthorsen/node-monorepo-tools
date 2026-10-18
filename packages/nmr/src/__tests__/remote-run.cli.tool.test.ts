@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
 import { PassThrough } from 'node:stream';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
@@ -80,6 +81,41 @@ describe('nmr with a delegation host', () => {
     expect(result.exitCode).toBe(255);
     expect(result.stdout).toContain('(exit 255) — could not prepare unreachable');
     expect(result.stderr).toContain('Connection refused');
+  });
+
+  describe('with several hosts', () => {
+    it('runs on a free host rather than a busy one, and notes what each probe found', async () => {
+      remote.addHost('busy');
+      remote.addHost('spare');
+      workspace.write('fake-home/hosts/busy/nmr-lock/heavy.lock', JSON.stringify({ pid: process.pid }));
+
+      const result = await runNmr(['--delegate', 'busy,spare', 'test'], {
+        [DEBUG_ENV_VAR]: '1',
+        [OUTPUT_STYLE_ENV_VAR]: 'plain',
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toMatch(/^PASS repo: test: passed on spare in /m);
+      expect(result.stderr).toContain('busy is busy');
+      expect(result.stderr).toContain('spare is free');
+      expect(remote.readSshLog()).toStrictEqual(expect.arrayContaining(['busy probe', 'spare probe']));
+    });
+
+    it('does not probe a single host', async () => {
+      await runNmr(['--delegate', 'box', 'test']);
+
+      expect(remote.readSshLog()).not.toContainEqual(expect.stringMatching(/ probe$/));
+    });
+
+    it('fails the delegation, rather than running here, when no host can be reached', async () => {
+      const result = await runNmr(['--delegate', 'unreachable-1,unreachable-2', 'test'], {
+        [OUTPUT_STYLE_ENV_VAR]: 'plain',
+      });
+
+      expect(result.exitCode).toBe(255);
+      expect(result.stdout).toContain('(exit 255) — could not prepare unreachable-1');
+      expect(result.stdout).not.toContain('ran-here');
+    });
   });
 
   it('runs here, saying why, when NMR_DELEGATE meets a tree that cannot be snapshotted', async () => {
