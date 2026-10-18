@@ -102,6 +102,13 @@ describe('a delegated run on a fake host', () => {
     });
   });
 
+  it('reports in full a failed phase whose output exceeds a pipe buffer', async () => {
+    const result = await delegate(['test'], { FAKE_INSTALL_NOISE: '20000', FAKE_INSTALL_STATUS: '1' });
+
+    expect(result.outcome).toMatchObject({ ok: false, phase: 'install', message: 'could not install on box' });
+    expect(result.outcome.ok ? '' : result.outcome.output.trimEnd()).toMatch(/last install line$/);
+  });
+
   it("pushes without running the repository's pre-push hook", async () => {
     const hookLog = workspace.resolve('hook.log');
     fs.chmodSync(workspace.write('repo/.git/hooks/pre-push', `#!/bin/sh\necho ran >> ${hookLog}\nexit 1\n`), 0o755);
@@ -141,6 +148,19 @@ describe('a delegated run on a fake host', () => {
 
     await session.stop();
     await waitFor(() => !isAlive(runPid));
+
+    expect(isAlive(runPid)).toBe(false);
+    expect(fs.existsSync(lockPath())).toBe(false);
+  });
+
+  it('releases the lock only once the stopped command has exited', async () => {
+    await delegate(['test']);
+    const pidFile = workspace.resolve('run.pid');
+    const session = startSession({ FAKE_RUN_PIDFILE: pidFile, FAKE_RUN_SLEEP: '30', FAKE_RUN_TERM_DELAY: '1' });
+    await waitFor(() => fs.existsSync(pidFile) && fs.readFileSync(pidFile, 'utf8').trim() !== '');
+    const runPid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+
+    await session.stop();
 
     expect(isAlive(runPid)).toBe(false);
     expect(fs.existsSync(lockPath())).toBe(false);
@@ -191,6 +211,18 @@ describe('a delegated run on a fake host', () => {
     expect(fs.existsSync(lockPath())).toBe(false);
   });
 
+  it('reclaims a lock that its live holder has stopped refreshing for a minute', async () => {
+    await delegate(['test']);
+    workspace.writeJson(path.relative(workspace.resolve('.'), lockPath()), createLockFile(process.pid));
+    const twoMinutesAgo = new Date(Date.now() - 120_000);
+    fs.utimesSync(lockPath(), twoMinutesAgo, twoMinutesAgo);
+
+    const result = await delegate(['test']);
+
+    expect(result.outcome).toMatchObject({ ok: true, exitCode: 0 });
+    expect(fs.existsSync(lockPath())).toBe(false);
+  });
+
   it('stops waiting, leaving the holder its lock, when the connection closes', async () => {
     await delegate(['test']);
     workspace.writeJson(path.relative(workspace.resolve('.'), lockPath()), createLockFile(process.pid));
@@ -220,7 +252,7 @@ describe('a delegated run on a fake host', () => {
 
   /**
    * Starts a host session for the repo's working tree as `ssh` would, with its stdin open, and returns a way to read
-   * its stderr and to close its stdin as a closing connection does.
+   * its stderr and to close its stdin as a closing connection does, resolving once the session process exits.
    */
   function startSession(extraEnv: Record<string, string> = {}) {
     const env = remote.buildEnv(extraEnv);
@@ -245,13 +277,14 @@ describe('a delegated run on a fake host', () => {
     });
     const stderr = captureStream();
     child.stderr.pipe(stderr.stream);
-    const closed = new Promise((resolve) => child.on('close', resolve));
+    // `close` would also wait for every process that inherited the session's stderr, such as a command that outlives it.
+    const exited = new Promise((resolve) => child.on('exit', resolve));
 
     return {
       readStderr: stderr.read,
       async stop() {
         child.stdin.end();
-        await closed;
+        await exited;
       },
     };
   }

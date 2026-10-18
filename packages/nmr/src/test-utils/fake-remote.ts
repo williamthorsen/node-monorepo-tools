@@ -24,8 +24,10 @@ export interface FakeRemote {
  *
  * The fake `pnpm` logs each call. Its `exec` logs the directory, the arguments, the output style, and the files in
  * the directory and the content of `probe.txt` when there is one, then prints to both streams. These variables
- * steer it: `FAKE_INSTALL_STATUS` and `FAKE_RUN_STATUS` set exit statuses, and `FAKE_INSTALL_SLEEP` and
- * `FAKE_RUN_SLEEP` make the install or the run write its pid to `FAKE_INSTALL_PIDFILE` or `FAKE_RUN_PIDFILE` and sleep.
+ * steer it: `FAKE_INSTALL_STATUS` and `FAKE_RUN_STATUS` set exit statuses; `FAKE_INSTALL_SLEEP` and
+ * `FAKE_RUN_SLEEP` make the install or the run write its pid to `FAKE_INSTALL_PIDFILE` or `FAKE_RUN_PIDFILE` and sleep;
+ * `FAKE_INSTALL_NOISE` makes the install print that many lines and then `last install line`; and `FAKE_RUN_TERM_DELAY`
+ * makes the run take that many seconds to exit on `SIGTERM`.
  */
 export function createFakeRemote(tree: TempTree): FakeRemote {
   const binDir = tree.mkdir('fake-bin');
@@ -58,6 +60,7 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
     'case "$1" in',
     '  install)',
     '    echo "install $*" >> "$FAKE_PNPM_LOG"',
+    '    if [ -n "$FAKE_INSTALL_NOISE" ]; then yes "install progress" | head -n "$FAKE_INSTALL_NOISE"; echo "last install line"; fi',
     '    if [ -n "$FAKE_INSTALL_SLEEP" ]; then echo $$ > "$FAKE_INSTALL_PIDFILE"; sleep "$FAKE_INSTALL_SLEEP"; fi',
     '    exit "${FAKE_INSTALL_STATUS:-0}" ;;',
     '  exec)',
@@ -71,6 +74,7 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
     '    } >> "$FAKE_PNPM_LOG"',
     '    echo "remote stdout"',
     '    echo "remote stderr" >&2',
+    '    if [ -n "$FAKE_RUN_TERM_DELAY" ]; then trap \'sleep "$FAKE_RUN_TERM_DELAY"; exit 143\' TERM; fi',
     '    if [ -n "$FAKE_RUN_SLEEP" ]; then echo $$ > "$FAKE_RUN_PIDFILE"; sleep "$FAKE_RUN_SLEEP"; fi',
     '    exit "${FAKE_RUN_STATUS:-0}" ;;',
     'esac',

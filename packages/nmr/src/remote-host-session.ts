@@ -56,6 +56,7 @@ export function runHostSession(params: HostSessionParams): void {
   const OUTPUT_LIMIT_BYTES = 65_536;
   const COMMAND_NOT_FOUND_EXIT_CODE = 127;
   const DELEGATION_FAILURE_EXIT_CODE = 255;
+  const STOP_GRACE_MS = 5_000;
 
   interface LockFile {
     command: string;
@@ -69,6 +70,7 @@ export function runHostSession(params: HostSessionParams): void {
   const token = crypto.randomUUID();
   let isHolding = false;
   let activeChild: ReturnType<typeof childProcess.spawn> | undefined;
+  let isStopping = false;
 
   process.on('exit', releaseLock);
   process.stdin.on('end', stop).on('error', stop).resume();
@@ -84,6 +86,7 @@ export function runHostSession(params: HostSessionParams): void {
       ['clean', '--force', '-d', '--quiet'],
     ]) {
       const result = await runPhase('git', args, '.', process.env);
+      if (isStopping) return;
       if (result.exitCode !== 0) {
         fail('check out', result);
         return;
@@ -94,6 +97,7 @@ export function runHostSession(params: HostSessionParams): void {
       ...process.env,
       CI: 'true',
     });
+    if (isStopping) return;
     if (install.exitCode !== 0) {
       fail('install', install);
       return;
@@ -109,8 +113,9 @@ export function runHostSession(params: HostSessionParams): void {
     });
     activeChild = child;
     child.on('error', (error) => {
-      process.stderr.write(`pnpm: ${error.message}\n`);
-      process.exit(COMMAND_NOT_FOUND_EXIT_CODE);
+      process.stderr.write(`pnpm: ${error.message}\n`, () => {
+        process.exit(COMMAND_NOT_FOUND_EXIT_CODE);
+      });
     });
     child.on('close', (code, signal) => {
       const status = code ?? 128 + (signal === null ? 0 : os.constants.signals[signal]);
@@ -164,14 +169,16 @@ export function runHostSession(params: HostSessionParams): void {
   }
 
   /** Writes a record line to stderr. */
-  function emit(record: SessionRecord): void {
-    process.stderr.write(`${params.marker} ${JSON.stringify(record)}\n`);
+  function emit(record: SessionRecord, onWritten?: () => void): void {
+    process.stderr.write(`${params.marker} ${JSON.stringify(record)}\n`, onWritten);
   }
 
-  /** Reports a failed phase with what it printed, and exits. */
+  /** Reports a failed phase with what it printed, and exits once the record is written. */
   function fail(phase: SessionPhase, result: { exitCode: number; output: string }): void {
-    emit({ kind: 'failed', exitCode: result.exitCode, output: result.output, phase });
-    process.exit(1);
+    // A pipe on macOS takes the write asynchronously, and exiting at once would cut a large record short.
+    emit({ kind: 'failed', exitCode: result.exitCode, output: result.output, phase }, () => {
+      process.exit(1);
+    });
   }
 
   /** Narrows the parsed lock file. */
@@ -323,16 +330,24 @@ export function runHostSession(params: HostSessionParams): void {
     }
   }
 
-  /** Stops the current phase's process group and exits; the exit handler releases the lock. */
+  /**
+   * Stops the current phase's process group and exits once it has, so that a waiter cannot take the lock while the
+   * group still writes to the checkout. A group that ignores the signal holds the lock for `STOP_GRACE_MS` at most.
+   */
   function stop(): void {
-    const pid = activeChild?.pid;
-    if (pid !== undefined) {
-      try {
-        process.kill(-pid, 'SIGTERM');
-      } catch {
-        // The group has already exited.
-      }
+    isStopping = true;
+    const child = activeChild;
+    const pid = child?.pid;
+    if (child === undefined || pid === undefined) {
+      process.exit(DELEGATION_FAILURE_EXIT_CODE);
     }
-    process.exit(DELEGATION_FAILURE_EXIT_CODE);
+
+    child.on('close', () => process.exit(DELEGATION_FAILURE_EXIT_CODE));
+    setTimeout(() => process.exit(DELEGATION_FAILURE_EXIT_CODE), STOP_GRACE_MS);
+    try {
+      process.kill(-pid, 'SIGTERM');
+    } catch {
+      // The group has already exited.
+    }
   }
 }
