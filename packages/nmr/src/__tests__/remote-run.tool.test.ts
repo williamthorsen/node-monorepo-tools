@@ -8,7 +8,9 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { DEBUG_ENV_VAR, NO_CACHE_ENV_VAR, TREE_SNAPSHOT_ENV_VAR } from '../check-cache.ts';
 import { quoteForShell } from '../helpers/quoteForShell.ts';
+import { NO_LOCK_ENV_VAR } from '../machine-lock.ts';
 import { OUTPUT_STYLE_ENV_VAR } from '../output-style.ts';
 import { DELEGATE_ENV_VAR, deriveCheckoutPath, runRemotely, wrapRemoteScript } from '../remote-run.ts';
 import { composeSessionScript } from '../remote-session.ts';
@@ -358,6 +360,17 @@ describe('nmr with a delegation host', () => {
     await runNmr(['--delegate=box', '-F', 'core', '--no-cache', 'test', 'a b']);
 
     expect(remote.readPnpmLog()).toContain('args=--no-delegate --filter core --no-cache test a b');
+  });
+
+  it("passes nmr's own variables that the host needs, and withholds those that describe this machine", async () => {
+    await runNmr(['--delegate', 'box', 'test'], {
+      [DEBUG_ENV_VAR]: '1',
+      [NO_CACHE_ENV_VAR]: '1',
+      [NO_LOCK_ENV_VAR]: '1',
+      [TREE_SNAPSHOT_ENV_VAR]: 'tree head',
+    });
+
+    expect(remote.readPnpmLog()).toContain('env=no-cache:1 debug:1 run-id:set snapshot: lock-token: no-lock:unset');
   });
 
   it('delegates by default when NMR_DELEGATE names a host', async () => {

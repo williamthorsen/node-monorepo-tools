@@ -1,8 +1,9 @@
 import { reportError } from '@williamthorsen/nmr-core';
 
+import { NO_CACHE_ENV_VAR, resolveRunId } from './check-cache.ts';
+import { buildChildEnv, buildRemoteEnv } from './child-env.ts';
 import type { Invocation, RunCliResult } from './invocation.ts';
 import { isDelegationFlag, type ParsedArgs } from './invocation-args.ts';
-import { OUTPUT_STYLE_ENV_VAR } from './output-style.ts';
 import { reportVerdict } from './presentation.ts';
 import {
   DELEGATION_FAILURE_EXIT_CODE,
@@ -11,8 +12,6 @@ import {
   runRemotely,
 } from './remote-run.ts';
 import { createSnapshot } from './remote-snapshot.ts';
-import { REPORT_FORMAT_ENV_VAR } from './report-format.ts';
-import { COMMAND_VERBOSITY_ENV_VAR } from './verbosity.ts';
 import type { Verdict, VerdictOutcome } from './verdict.ts';
 
 /**
@@ -67,11 +66,19 @@ export async function runOnDelegateHost(invocation: Invocation): Promise<RunCliR
         host,
         monorepoRoot: context.monorepoRoot,
         nmrArgs: composeForwardedArgs(command, parsedArgs),
-        remoteEnv: {
-          [COMMAND_VERBOSITY_ENV_VAR]: invocation.verbosity,
-          [OUTPUT_STYLE_ENV_VAR]: styles.stdout,
-          [REPORT_FORMAT_ENV_VAR]: format,
-        },
+        remoteEnv: buildRemoteEnv(
+          buildChildEnv({
+            env,
+            format,
+            passthrough: parsedArgs.passthrough,
+            runId: resolveRunId(env),
+            shouldBypassCache: parsedArgs.shouldBypassCache || env[NO_CACHE_ENV_VAR] === '1',
+            shouldBypassLock: parsedArgs.shouldBypassLock,
+            snapshot: undefined,
+            styles,
+            verbosity: invocation.verbosity,
+          }),
+        ),
         snapshot,
         stderr,
         stdout,

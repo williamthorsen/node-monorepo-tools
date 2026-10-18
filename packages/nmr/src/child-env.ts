@@ -1,6 +1,7 @@
 import type { StreamStyles } from '@williamthorsen/nmr-core';
 
 import {
+  DEBUG_ENV_VAR,
   encodeTreeSnapshot,
   NO_CACHE_ENV_VAR,
   RUN_ID_ENV_VAR,
@@ -87,6 +88,21 @@ export function buildChildEnv(options: {
 }
 
 /**
+ * Returns the variables of a child environment that the host's nmr receives: those that decide how it reports, whether
+ * it bypasses its cache, whether it writes debug notes, and which run it belongs to. The rest describe this machine,
+ * such as the tree snapshot and the lock token, or would disable the host's lock on the strength of a local
+ * workaround, as an inherited `NMR_NO_LOCK` would; the `--no-lock` flag still reaches the host as an argument.
+ */
+export function buildRemoteEnv(childEnv: NodeJS.ProcessEnv): Record<string, string> {
+  return Object.fromEntries(
+    REMOTE_ENV_VARS.flatMap((name) => {
+      const value = childEnv[name];
+      return value === undefined ? [] : [[name, value]];
+    }),
+  );
+}
+
+/**
  * Takes the machine lock for a heavy command that runs, or returns `undefined` for any other invocation. A delegated
  * `--log` reads recordings and runs nothing. A `--no-lock` written after the command name is an argument to the
  * command, so it is reported rather than read.
@@ -108,3 +124,17 @@ export async function takeMachineLock(invocation: Invocation): Promise<MachineLo
     stderr,
   });
 }
+
+// region | Helpers
+
+/** The variables that `buildRemoteEnv` passes to the host, named one by one so that a new variable stays here. */
+const REMOTE_ENV_VARS: readonly string[] = [
+  COMMAND_VERBOSITY_ENV_VAR,
+  DEBUG_ENV_VAR,
+  NO_CACHE_ENV_VAR,
+  OUTPUT_STYLE_ENV_VAR,
+  REPORT_FORMAT_ENV_VAR,
+  RUN_ID_ENV_VAR,
+];
+
+// endregion | Helpers
