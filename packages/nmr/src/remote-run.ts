@@ -246,6 +246,18 @@ export async function runRemotely(options: {
 }
 
 /**
+ * Runs a script on the host through `wrapRemoteScript`, capturing what it prints. An abort stops the `ssh` process.
+ */
+export function runSsh(
+  host: string,
+  script: string,
+  env: NodeJS.ProcessEnv,
+  signal?: AbortSignal,
+): Promise<{ exitCode: number; output: string }> {
+  return runProcess(['ssh', ...SSH_OPTIONS, host, wrapRemoteScript(script)], { env, signal });
+}
+
+/**
  * Wraps a script to run under `/bin/sh` with the `PATH` that the user's interactive login shell sets. pnpm's own
  * installer and the common version managers set it up in the interactive startup file, such as `~/.zshrc`, which a
  * non-interactive shell does not read. The script runs under `sh` rather than that shell itself, because the login
@@ -338,13 +350,20 @@ function parseHostList(value: string): HostList | undefined {
 /**
  * Runs a process and returns its exit status and what it printed. A streaming run writes each chunk to the
  * streams as it arrives and holds its stdin open, which is how the host learns that the local side has gone;
- * any other run captures both streams, bounded at each end.
+ * any other run captures both streams, bounded at each end. An abort of `signal` kills the process.
  */
 function runProcess(
   argv: readonly string[],
-  options: { cwd?: string; env: NodeJS.ProcessEnv; isStreaming?: boolean; stderr?: Writable; stdout?: Writable },
+  options: {
+    cwd?: string;
+    env: NodeJS.ProcessEnv;
+    isStreaming?: boolean;
+    signal?: AbortSignal | undefined;
+    stderr?: Writable;
+    stdout?: Writable;
+  },
 ): Promise<{ exitCode: number; output: string }> {
-  const { cwd, env, isStreaming = false, stderr, stdout } = options;
+  const { cwd, env, isStreaming = false, signal, stderr, stdout } = options;
   const [file = '', ...args] = argv;
   const buffer = createBoundedBuffer({
     headLimitBytes: PHASE_OUTPUT_LIMIT_BYTES,
@@ -352,7 +371,7 @@ function runProcess(
   });
 
   return new Promise((resolve) => {
-    const child = spawn(file, args, { cwd, env, stdio: [isStreaming ? 'pipe' : 'ignore', 'pipe', 'pipe'] });
+    const child = spawn(file, args, { cwd, env, signal, stdio: [isStreaming ? 'pipe' : 'ignore', 'pipe', 'pipe'] });
 
     child.stdout?.on('data', (chunk: Buffer) => {
       forwardChunk(chunk, isStreaming ? stdout : undefined, buffer);
@@ -377,11 +396,6 @@ function runProcess(
 /** Renders a directory relative to the checkout in the form that the host session resolves. */
 function toRemoteRelativeDir(relativeDir: string): string {
   return relativeDir === '' ? '.' : relativeDir.split(path.sep).join('/');
-}
-
-/** Runs a script on the host through `wrapRemoteScript`, capturing what it prints. */
-function runSsh(host: string, script: string, env: NodeJS.ProcessEnv): Promise<{ exitCode: number; output: string }> {
-  return runProcess(['ssh', ...SSH_OPTIONS, host, wrapRemoteScript(script)], { env });
 }
 
 // endregion | Helpers

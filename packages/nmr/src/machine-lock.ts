@@ -10,8 +10,6 @@ import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
 import { isObject } from './helpers/type-guards.ts';
 
-const LOCK_FILE = 'heavy.lock';
-
 /** Serializes reclaims of a stale lock, so that one waiter's reclaim cannot remove the lock that another just took. */
 const RECLAIM_GUARD = 'heavy.lock.reclaim';
 
@@ -44,6 +42,9 @@ export const HEAVY_COMMANDS: ReadonlySet<string> = new Set([
 
 /** Overrides the directory that contains the lock file. */
 export const LOCK_DIR_ENV_VAR = 'NMR_LOCK_DIR';
+
+/** The lock file's name in the lock directory. */
+export const LOCK_FILE = 'heavy.lock';
 
 /** Passes the holder's token to the processes below it, which run under its hold rather than waiting on it. */
 export const LOCK_TOKEN_ENV_VAR = 'NMR_MACHINE_LOCK_TOKEN';
