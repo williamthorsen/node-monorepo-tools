@@ -8327,7 +8327,7 @@ function isCommandVerbosity(value) {
 var CONFIG_TIERS = {
   root: {
     label: "a monorepo-root config",
-    honoredKeys: ["checkCache", "devBin", "output", "rootScripts", "selfHostedRunner", "workspaceScripts"],
+    honoredKeys: ["checkCache", "delegate", "devBin", "output", "rootScripts", "selfHostedRunner", "workspaceScripts"],
     elsewhere: "the package's own config"
   },
   workspace: {
@@ -8343,6 +8343,15 @@ var RECOGNIZED_OUTPUT_KEYS = ["commandVerbosity", "extraAgentEnvVars"];
 var RECOGNIZED_SELF_HOSTED_RUNNER_KEYS = ["exempt"];
 var RECOGNIZED_STEP_KEYS = ["run", "shouldDeclineArguments", "shouldRunInBackground"];
 var RETIRED_STEP_KEYS = /* @__PURE__ */ new Map([["declinesArgs", "shouldDeclineArguments"]]);
+function assertRecognizedKeys(value, recognizedKeys, configPath, prefix = "") {
+  const unrecognizedKeys = Object.keys(value).filter((key) => !recognizedKeys.includes(key));
+  if (unrecognizedKeys.length === 0) {
+    return;
+  }
+  throw new UserError(
+    `Invalid nmr config at ${configPath}: unrecognized ${unrecognizedKeys.length === 1 ? "key" : "keys"} ${formatKeyList(unrecognizedKeys, prefix)}. Recognized: ${formatKeyList(recognizedKeys, prefix)}.`
+  );
+}
 function validateConfig(value, configPath, baseDir) {
   if (!isObject2(value)) {
     throw new UserError(`Invalid nmr config at ${configPath}: expected an object, got ${typeof value}`);
@@ -8353,6 +8362,7 @@ function validateConfig(value, configPath, baseDir) {
   if (build) config.build = build;
   const checkCache = validateCheckCacheField(value, configPath);
   if (checkCache) config.checkCache = checkCache;
+  if (value["delegate"] !== void 0) config.delegate = validateDelegateField(value["delegate"], configPath);
   const devBin = validateStringRecordField(value, "devBin", configPath);
   if (devBin) config.devBin = devBin;
   const output = validateOutputField(value, configPath);
@@ -8374,15 +8384,6 @@ function assertNoRetiredKeys(value, retiredKeys, configPath, prefix) {
       `Invalid nmr config at ${configPath}: \`${prefix}${key}\` was renamed to \`${prefix}${replacement}\`.`
     );
   }
-}
-function assertRecognizedKeys(value, recognizedKeys, configPath, prefix = "") {
-  const unrecognizedKeys = Object.keys(value).filter((key) => !recognizedKeys.includes(key));
-  if (unrecognizedKeys.length === 0) {
-    return;
-  }
-  throw new UserError(
-    `Invalid nmr config at ${configPath}: unrecognized ${unrecognizedKeys.length === 1 ? "key" : "keys"} ${formatKeyList(unrecognizedKeys, prefix)}. Recognized: ${formatKeyList(recognizedKeys, prefix)}.`
-  );
 }
 function assertValidElements(scripts, fieldName, configPath) {
   for (const [command, script] of Object.entries(scripts)) {
@@ -8466,6 +8467,14 @@ function validateCheckCacheField(value, configPath) {
     config[field] = commands;
   }
   return config;
+}
+function validateDelegateField(delegate, configPath) {
+  if (delegate === false) {
+    return false;
+  }
+  throw new UserError(
+    `Invalid nmr config at ${configPath}: \`delegate\` accepts only \`false\`, which keeps the repo's checks on the machine that has the tree. Hosts and \`when\` belong in the user config, \`~/.config/nmr/config.ts\`.`
+  );
 }
 function validateOutputField(value, configPath) {
   const output = value["output"];

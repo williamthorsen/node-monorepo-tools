@@ -63,6 +63,11 @@ export interface OutputConfig {
 export interface NmrConfig {
   build?: BuildConfig;
   checkCache?: CheckCacheConfig;
+  /**
+   * Set to `false` to keep every check on the machine that has the tree, whatever `NMR_DELEGATE` or the user
+   * config says. A delegation flag still sends a run elsewhere.
+   */
+  delegate?: false;
   devBin?: Record<string, string>;
   output?: OutputConfig;
   workspaceScripts?: Record<string, ScriptValue>;
