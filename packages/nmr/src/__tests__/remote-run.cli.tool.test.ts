@@ -92,6 +92,8 @@ describe('nmr with a delegation host', () => {
 
     it('names the user config and the remedies in order when the host cannot be reached', async () => {
       const result = await runNmr(['test'], {
+        // Blank CI, which nmr reads as unset, so that the user config decides on a CI runner too.
+        CI: '',
         [OUTPUT_STYLE_ENV_VAR]: 'plain',
         XDG_CONFIG_HOME: workspace.resolve('xdg'),
       });
