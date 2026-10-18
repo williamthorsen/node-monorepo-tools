@@ -23,7 +23,7 @@ export default {
 - **`hosts`** lists the hosts in order of preference. It is required whenever `delegate` is present.
 - **`when`** turns on delegation by default: `'agent'` for every run whose environment contains an agent-harness marker, the variables that also select [quiet output](reporting.md#configuring), extended by the repo's `output.extraAgentEnvVars`; `'always'` for every run. Without `when`, nmr delegates only on request, and `hosts` serves `--delegate`.
 
-nmr reads the file only when a decision reaches it, and an unrecognized key, a malformed `hosts`, or an unknown `when` fails that run with an error naming the file and the key. The file cannot import anything from a repo, so it is a plain object rather than a `defineConfig` call.
+nmr reads the file only when a decision reaches it, and an unrecognized key, a malformed `hosts`, or an unknown `when` fails that run with an error naming the file and the key. The file cannot import anything from a repo, so it is a plain object rather than a `defineConfig` call. When a directory above it contains a `package.json` without `"type"`, such as a stray `~/package.json`, Node warns on every load that the file's module type is not specified; a `~/.config/nmr/package.json` containing `{ "type": "module" }` silences it.
 
 A pass that a host earns satisfies a later delegation to that host, but not a run here: Under `when`, a run that `--no-delegate` keeps here re-runs a check that the host already passed. See [consulting the cache first](#consulting-the-cache-first).
 
