@@ -30,7 +30,7 @@ $ nmr --json check
 ```
 
 ```console
-$ nmr --json --delegate imac2 typecheck
+$ nmr --json --delegate-to imac2 typecheck
 {"command":"typecheck","host":"imac2","scope":"nmr-core","outcome":"recalled","ageMs":240000,"savedMs":18450}
 ```
 
