@@ -294,15 +294,13 @@ async function readGate(plan: RunPlan): Promise<Gate | undefined> {
   }
 
   const quiet = plan.runOptions.quiet === true;
+  const channels = { stderr: resolveChannel(stderr, quiet), stdout: resolveChannel(stdout, quiet) };
 
   return {
     buildOutputBefore: await readBuildOutputState(context.monorepoRoot, context.config),
+    channels,
     key,
-    retentionKey: computeRetentionKey({
-      channels: { stderr: resolveChannel(stderr, quiet), stdout: resolveChannel(stdout, quiet) },
-      env,
-      passKey: key,
-    }),
+    retentionKey: computeRetentionKey({ channels, env, passKey: key }),
     snapshot,
   };
 }

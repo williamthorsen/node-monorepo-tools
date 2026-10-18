@@ -28,6 +28,8 @@ export type HostRunResult =
       exitCode: number;
       host: string;
       outcome: VerdictOutcome;
+      /** The host's pass-manifest entries, unvalidated, empty when the run did not complete or its host sent none. */
+      passes: unknown[];
       retainedOutput: RetainedOutput;
       /** The tree that was pushed, absent when the working tree could not be snapshotted. */
       treeId: string | undefined;
@@ -205,6 +207,7 @@ async function delegate(options: {
     return {
       ...ran,
       exitCode: DELEGATION_FAILURE_EXIT_CODE,
+      passes: [],
       outcome: { outcome: 'failed', detail: result.message, durationMs, exitCode: DELEGATION_FAILURE_EXIT_CODE },
     };
   }
@@ -214,7 +217,7 @@ async function delegate(options: {
       ? { outcome: 'passed', durationMs }
       : { outcome: 'failed', durationMs, exitCode: result.exitCode };
 
-  return { ...ran, exitCode: result.exitCode, outcome };
+  return { ...ran, exitCode: result.exitCode, outcome, passes: result.passes };
 }
 
 // endregion | Helpers

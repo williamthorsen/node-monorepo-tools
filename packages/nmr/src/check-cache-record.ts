@@ -25,6 +25,63 @@ import type { Step } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 
 /**
+ * Records a pass that `host` earned, unless a pass earned here under the same key would still be recalled, because
+ * that pass satisfies every invocation that the host pass would. One whose build output is missing or came from
+ * another tree no longer satisfies any invocation, and the host pass replaces it.
+ *
+ * A host pass is recorded without build digests, because this machine's build output says nothing about the host's.
+ * The caller has already held the host's tree to the tree on which the key was computed.
+ */
+export async function recordHostPass(options: {
+  commandString: string;
+  config: NmrConfig;
+  durationMs: number;
+  env: NodeJS.ProcessEnv;
+  host: string;
+  key: string;
+  monorepoRoot: string;
+  ref: EntryRef;
+  retainedOutput: RetainedOutput | undefined;
+  retention: Retention | undefined;
+  snapshot: TreeSnapshot;
+  stderr: Writable;
+}): Promise<void> {
+  const { env, host, key, ref, retention, snapshot, stderr } = options;
+
+  const recorded = await readCheckCacheEntry(ref);
+  if (recorded !== undefined && recorded.host === undefined && recorded.key === key) {
+    const output = await readBuildOutputState(options.monorepoRoot, options.config);
+    if (
+      output.missingPackages.length === 0 &&
+      findStaleBuildOutput(recorded.buildDigests, output.digests) === undefined
+    ) {
+      writeDebugNote(`not recording ${ref.command} on ${host}: a pass earned here covers this tree`, env, stderr);
+      return;
+    }
+  }
+
+  await writePass({
+    entry: {
+      key,
+      treeHash: snapshot.treeId,
+      headSha: snapshot.headSha,
+      commandString: options.commandString,
+      nmrVersion: VERSION,
+      nodeVersion: CURRENT_RUNTIME.nodeVersion,
+      durationMs: options.durationMs,
+      recordedAt: new Date().toISOString(),
+      buildDigests: {},
+      host,
+      ...(retention !== undefined && { retention }),
+    },
+    env,
+    ref,
+    retainedOutput: options.retainedOutput,
+    stderr,
+  });
+}
+
+/**
  * Records a pass, unless what the check was asked about moved while it ran: a rewritten file describes a tree
  * that no longer exists, and build output that changed leaves it unclear over which output the pass was earned.
  * Recording either would certify content against which nothing ran. The recorded key is the one that the
@@ -36,11 +93,6 @@ import type { NmrConfig } from './types.ts';
  * The retention that a skip replays is composed here for the same reason and after the same tests: a pass that is
  * not recorded must not leave behind an excerpt that claims it was. A composite's assembly is built here rather
  * than when it skips, to ensure that every excerpt in it was certified during the run whose pass contains it.
- *
- * A pass earned on a host is recorded with that host and without build digests or retention: this machine's build
- * output says nothing about the host's, and replaying a delegated run is not supported. It does not replace a pass
- * earned here under the same key while that pass would still be recalled, because it satisfies every invocation that
- * the host pass would.
  */
 export async function recordPass(options: {
   anchorDir: string;
@@ -50,7 +102,6 @@ export async function recordPass(options: {
   config: NmrConfig;
   durationMs: number;
   env: NodeJS.ProcessEnv;
-  host?: string;
   key: string;
   monorepoRoot: string;
   retainedOutput: RetainedOutput | undefined;
@@ -60,7 +111,7 @@ export async function recordPass(options: {
   snapshot: TreeSnapshot;
   stderr: Writable;
 }): Promise<void> {
-  const { anchorDir, command, env, host, monorepoRoot, snapshot, stderr } = options;
+  const { anchorDir, command, env, monorepoRoot, snapshot, stderr } = options;
 
   // Hashed afresh rather than inherited: an inherited snapshot is the observation that this is meant to re-test.
   const currentRead = resolveTreeSnapshot({ monorepoRoot, env: {} });
@@ -74,10 +125,6 @@ export async function recordPass(options: {
   }
 
   const ref = { anchorDir, command, monorepoRoot };
-  if (host !== undefined) {
-    await recordHostPass({ ...options, host, ref });
-    return;
-  }
 
   // Read after the chain, so that the digests describe the output over which the pass was actually earned.
   // Because a pass over a repository that is still missing output describes a state to which later runs should
@@ -220,57 +267,6 @@ async function composeRetention(options: {
   });
 
   return replay.length === 0 ? undefined : { key, replay, runId };
-}
-
-/**
- * Records a pass that `host` earned, unless a pass earned here under the same key would still be recalled: one whose
- * build output is missing or came from another tree no longer satisfies any invocation, and the host pass replaces it.
- */
-async function recordHostPass(options: {
-  commandString: string;
-  config: NmrConfig;
-  durationMs: number;
-  env: NodeJS.ProcessEnv;
-  host: string;
-  key: string;
-  monorepoRoot: string;
-  ref: EntryRef;
-  retainedOutput: RetainedOutput | undefined;
-  snapshot: TreeSnapshot;
-  stderr: Writable;
-}): Promise<void> {
-  const { env, host, key, ref, snapshot, stderr } = options;
-
-  const recorded = await readCheckCacheEntry(ref);
-  if (recorded !== undefined && recorded.host === undefined && recorded.key === key) {
-    const output = await readBuildOutputState(options.monorepoRoot, options.config);
-    if (
-      output.missingPackages.length === 0 &&
-      findStaleBuildOutput(recorded.buildDigests, output.digests) === undefined
-    ) {
-      writeDebugNote(`not recording ${ref.command} on ${host}: a pass earned here covers this tree`, env, stderr);
-      return;
-    }
-  }
-
-  await writePass({
-    entry: {
-      key,
-      treeHash: snapshot.treeId,
-      headSha: snapshot.headSha,
-      commandString: options.commandString,
-      nmrVersion: VERSION,
-      nodeVersion: CURRENT_RUNTIME.nodeVersion,
-      durationMs: options.durationMs,
-      recordedAt: new Date().toISOString(),
-      buildDigests: {},
-      host,
-    },
-    env,
-    ref,
-    retainedOutput: options.retainedOutput,
-    stderr,
-  });
 }
 
 /**

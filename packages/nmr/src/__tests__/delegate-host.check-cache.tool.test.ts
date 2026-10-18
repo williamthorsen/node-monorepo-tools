@@ -1,11 +1,14 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { NO_CACHE_ENV_VAR } from '../check-cache.ts';
+import { NO_CACHE_ENV_VAR, PASS_MANIFEST_DIR_ENV_VAR } from '../check-cache.ts';
+import { readCheckCacheEntry, removeCheckCache } from '../check-cache-entries.ts';
+import { isObject } from '../helpers/type-guards.ts';
 import { OUTPUT_STYLE_ENV_VAR } from '../output-style.ts';
 import { runCli } from '../runCli.ts';
 import { writeBuildDigest } from '../test-utils/check-cache-gate-fixtures.ts';
@@ -127,19 +130,128 @@ describe('a delegation behind the check-result cache', () => {
     expect(remote.readPnpmLog()).toStrictEqual([]);
   });
 
+  describe('the constituents that the host reports', () => {
+    let packageDir: string;
+
+    beforeEach(() => {
+      workspace.writeAll({
+        'repo/.config/nmr.config.ts': `export default ${JSON.stringify({
+          rootScripts: { check: 'echo check-here', ci: 'echo ci-here', test: 'echo ran-here' },
+          workspaceScripts: { test: 'echo package-test-here' },
+        })};\n`,
+        'repo/packages/a/package.json': '{ "name": "a" }\n',
+      });
+      packageDir = path.join(repo, 'packages', 'a');
+    });
+
+    it('recalls a constituent without contacting the host, and replays them when the composite is recalled', async () => {
+      const [check] = await captureEntries(['--no-delegate', 'check']);
+      const [packageTest] = await captureEntries(['--no-delegate', 'test'], packageDir);
+      const [ci] = await captureEntries(['--no-delegate', 'ci']);
+      const manifest = [
+        { ...check, replay: [{ command: 'check', excerpt: 'check summary', scope: 'repo' }] },
+        { ...packageTest, replay: [{ command: 'test', excerpt: '3 passed', scope: 'a' }] },
+        {
+          ...ci,
+          replay: [
+            { command: 'check', excerpt: 'check summary', scope: 'repo' },
+            { command: 'test', excerpt: '3 passed', scope: 'a' },
+          ],
+        },
+      ];
+      await runNmr(['--delegate', 'box', 'ci'], { FAKE_RUN_MANIFEST: JSON.stringify(manifest) });
+
+      const checkResult = await runNmr(['--delegate', 'box', 'check']);
+      const testResult = await runNmr(['--delegate', 'box', 'test'], {}, packageDir);
+      const ciResult = await runNmr(['--delegate', 'box', 'ci']);
+
+      expect(checkResult.stdout).toMatch(/^SKIP repo: check: passed .* ago on box — replayed: check summary$/m);
+      expect(testResult.stdout).toMatch(/^SKIP a: test: passed .* ago on box — replayed: 3 passed$/m);
+      expect(ciResult.stdout).toMatch(/^SKIP repo: ci: passed .* ago on box/m);
+      expect(ciResult.stdout).toContain('check summary');
+      expect(ciResult.stdout).toContain('3 passed');
+      expect(countRemoteRuns()).toBe(1);
+    });
+
+    it("prints a learned constituent's excerpt under --log, naming the host", async () => {
+      const [check] = await captureEntries(['--no-delegate', 'check']);
+      const manifest = [{ ...check, replay: [{ command: 'check', excerpt: 'check summary', scope: 'repo' }] }];
+      await runNmr(['--delegate', 'box', 'ci'], { FAKE_RUN_MANIFEST: JSON.stringify(manifest) });
+
+      const result = await runNmr(['--log', 'check']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toMatch(/^repo: check — recorded .* on box$/m);
+      expect(result.stdout).toContain('check summary');
+      expect(result.stdout).not.toContain('remote stdout');
+    });
+
+    it('does not recall a learned constituent for a run here', async () => {
+      const [check] = await captureEntries(['--no-delegate', 'check']);
+      await runNmr(['--delegate', 'box', 'ci'], { FAKE_RUN_MANIFEST: JSON.stringify([check]) });
+
+      const result = await runNmr(['--no-delegate', 'check']);
+
+      expect(result.stdout).toContain('check-here');
+    });
+
+    it('records the valid entries beside a malformed one and one outside the root', async () => {
+      const [check] = await captureEntries(['--no-delegate', 'check']);
+      const [packageTest] = await captureEntries(['--no-delegate', 'test'], packageDir);
+      const manifest = [check, { command: 'test', scope: 'packages/a' }, { ...packageTest, scope: '../x' }];
+      await runNmr(['--delegate', 'box', 'ci'], { FAKE_RUN_MANIFEST: JSON.stringify(manifest) });
+
+      const checkResult = await runNmr(['--delegate', 'box', 'check']);
+      const testResult = await runNmr(['--delegate', 'box', 'test'], {}, packageDir);
+
+      expect(checkResult.stdout).toMatch(/^SKIP repo: check: passed .* ago on box/m);
+      expect(testResult.stdout).toMatch(/^PASS a: test: passed on box in /m);
+      await expect(
+        readCheckCacheEntry({ anchorDir: path.resolve(repo, '../x'), command: 'test', monorepoRoot: repo }),
+      ).resolves.toBeUndefined();
+      expect(countRemoteRuns()).toBe(2);
+    });
+
+    it('records the composite alone, without retention, when the host returns no manifest', async () => {
+      await runNmr(['--delegate', 'box', 'ci']);
+
+      const entry = await readCheckCacheEntry({ anchorDir: repo, command: 'ci', monorepoRoot: repo });
+      const checkResult = await runNmr(['--delegate', 'box', 'check']);
+
+      expect(entry).toMatchObject({ host: 'box' });
+      expect(entry?.retention).toBeUndefined();
+      expect(checkResult.stdout).toMatch(/^PASS repo: check: passed on box in /m);
+    });
+
+    /**
+     * Runs a command here with the pass manifest enabled and returns the entries that it reported, which a fake host
+     * then reports as its own. The cache is cleared afterward, so that the passes earned here do not answer later runs.
+     */
+    async function captureEntries(args: string[], cwd = repo): Promise<Array<Record<string, unknown>>> {
+      const manifestDir = fs.mkdtempSync(path.join(workspace.dir, 'manifest-'));
+      await runNmr(args, { [PASS_MANIFEST_DIR_ENV_VAR]: manifestDir }, cwd);
+      await removeCheckCache(repo);
+
+      return fs
+        .readdirSync(manifestDir)
+        .map((name): unknown => JSON.parse(fs.readFileSync(path.join(manifestDir, name), 'utf8')))
+        .filter((entry) => isObject(entry));
+    }
+  });
+
   /** Counts the commands that the fake host ran, as distinct from its installs. */
   function countRemoteRuns(): number {
     return remote.readPnpmLog().filter((line) => line.startsWith('args=')).length;
   }
 
   /** Runs the CLI in-process in the repo, with `ssh` and `pnpm` resolving to the fakes and plain output. */
-  async function runNmr(args: string[], extraEnv: Record<string, string> = {}) {
+  async function runNmr(args: string[], extraEnv: Record<string, string> = {}, cwd = repo) {
     const stdout = captureStream();
     const stderr = captureStream();
 
     const { exitCode } = await runCli({
       args,
-      cwd: repo,
+      cwd,
       env: remote.buildEnv({ [OUTPUT_STYLE_ENV_VAR]: 'plain', ...extraEnv }),
       stderr: stderr.stream,
       stdout: stdout.stream,
