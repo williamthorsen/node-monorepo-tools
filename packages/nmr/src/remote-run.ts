@@ -13,10 +13,10 @@ import { quoteForShell } from './helpers/quoteForShell.ts';
 import type { SessionPhase, SessionRecord } from './remote-host-session.ts';
 import { composeSessionScript, createSessionDemultiplexer, formatDelegationWaitingLine } from './remote-session.ts';
 
-/** Names the host to which nmr delegates a command when the invocation does not say otherwise. */
+/** Names the hosts to which nmr delegates a command when the invocation does not say otherwise. */
 export const DELEGATE_ENV_VAR = 'NMR_DELEGATE';
 
-/** The flag that names the host on which to run the command. */
+/** The flag that names the hosts on which to run the command. */
 export const DELEGATE_FLAG = '--delegate';
 
 /** The exit status of a delegation that failed outside its command, which matches `ssh`'s own. */
@@ -30,7 +30,10 @@ export const SSH_OPTIONS: readonly string[] = ['-T', '-o', 'BatchMode=yes', '-o'
 
 /** Where a delegation runs, or why the invocation cannot run where it asked to. */
 export type DelegationTarget =
-  { kind: 'local' } | { kind: 'remote'; host: string; source: 'env' | 'flag' } | { kind: 'refused'; error: string };
+  { kind: 'local' } | { kind: 'remote'; hosts: HostList; source: 'env' | 'flag' } | { kind: 'refused'; error: string };
+
+/** Candidate hosts in order of preference. */
+export type HostList = readonly [string, ...string[]];
 
 /** The phases of a delegation that run on the host, each reported by name when it fails. */
 export type RemotePhase = 'check out' | 'install' | 'prepare' | 'push' | 'run';
@@ -68,7 +71,8 @@ export function formatMisplacedDelegationWarning(command: string, style: OutputS
 }
 
 /**
- * Decides where an invocation runs. `--no-delegate` outranks `--delegate`, which outranks `NMR_DELEGATE`.
+ * Decides where an invocation runs. `--no-delegate` outranks `--delegate`, which outranks `NMR_DELEGATE`. Each names
+ * its candidate hosts as a comma-separated list, in order of preference.
  *
  * A command that rewrites the tree, or that runs until it is stopped, cannot be delegated, and neither can `--log`,
  * which reads this machine's recordings. Asked for by the flag, such an invocation is refused; asked for by the
@@ -77,20 +81,24 @@ export function formatMisplacedDelegationWarning(command: string, style: OutputS
 export function resolveDelegationTarget(options: {
   command: string;
   env: NodeJS.ProcessEnv;
-  flagHost: string | undefined;
+  flagValue: string | undefined;
   isOptedOut: boolean;
   isReading: boolean;
 }): DelegationTarget {
-  const { command, env, flagHost, isOptedOut, isReading } = options;
+  const { command, env, flagValue, isOptedOut, isReading } = options;
   if (isOptedOut) {
     return { kind: 'local' };
   }
 
   const isDelegable = !isReading && !NON_DELEGABLE_COMMANDS.has(command);
 
-  if (flagHost !== undefined) {
+  if (flagValue !== undefined) {
+    const hosts = parseHostList(flagValue);
+    if (hosts === undefined) {
+      return { kind: 'refused', error: `${DELEGATE_FLAG} requires a host: "${flagValue}" does not name a host.` };
+    }
     if (isDelegable) {
-      return { kind: 'remote', host: flagHost, source: 'flag' };
+      return { kind: 'remote', hosts, source: 'flag' };
     }
     const subject = isReading ? '--log' : `\`${command}\``;
     return {
@@ -99,9 +107,9 @@ export function resolveDelegationTarget(options: {
     };
   }
 
-  const envHost = env[DELEGATE_ENV_VAR];
-  if (envHost !== undefined && envHost !== '' && isDelegable) {
-    return { kind: 'remote', host: envHost, source: 'env' };
+  const envHosts = parseHostList(env[DELEGATE_ENV_VAR] ?? '');
+  if (envHosts !== undefined && isDelegable) {
+    return { kind: 'remote', hosts: envHosts, source: 'env' };
   }
 
   return { kind: 'local' };
@@ -314,6 +322,17 @@ function forwardChunk(chunk: Buffer, stream: Writable | undefined, buffer: Bound
     return;
   }
   stream.write(chunk);
+}
+
+/**
+ * Splits a comma-separated host list, dropping whitespace, empty entries, and repeats. Returns `undefined` when the
+ * value does not name a host.
+ */
+function parseHostList(value: string): HostList | undefined {
+  const names = value.split(',').map((host) => host.trim());
+  const [first, ...rest] = new Set(names.filter((host) => host !== ''));
+
+  return first === undefined ? undefined : [first, ...rest];
 }
 
 /**

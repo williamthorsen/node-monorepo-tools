@@ -55,6 +55,15 @@ describe('a delegation behind the check-result cache', () => {
     expect(countRemoteRuns()).toBe(1);
   });
 
+  it('recalls a pass earned on any host that the delegation lists', async () => {
+    await runNmr(['--delegate', 'spare', 'test']);
+
+    const result = await runNmr(['--delegate', 'box,spare', 'test']);
+
+    expect(result.stdout).toMatch(/^SKIP repo: test: passed .* ago on spare/m);
+    expect(countRemoteRuns()).toBe(1);
+  });
+
   it('does not recall a pass earned on another host', async () => {
     await runNmr(['--delegate', 'box', 'test']);
 

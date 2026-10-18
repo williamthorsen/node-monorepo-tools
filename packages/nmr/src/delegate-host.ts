@@ -51,7 +51,7 @@ export function resolveExecutionTarget(invocation: Invocation): PhaseResult<Exec
   const target = resolveDelegationTarget({
     command,
     env,
-    flagHost: parsedArgs.delegateHost,
+    flagValue: parsedArgs.delegateHosts,
     isOptedOut: parsedArgs.shouldRunLocally,
     isReading: parsedArgs.shouldPrintLog,
   });
@@ -163,18 +163,20 @@ async function delegate(options: {
 }): Promise<HostRunResult> {
   const { invocation, remoteEnv, target } = options;
   const { command, context, cwd, env, parsedArgs, stderr, stdout } = invocation;
-  const { host } = target;
+  const listedHosts = target.hosts.join(', ');
 
   const startedAtMs = Date.now();
   const snapshot = createSnapshot(cwd, env);
   if (!snapshot.ok && snapshot.isUnsupported) {
     if (target.source === 'flag') {
-      reportError(`Cannot delegate to ${host}: ${snapshot.reason}`, stderr);
+      reportError(`Cannot delegate to ${listedHosts}: ${snapshot.reason}`, stderr);
       return { kind: 'refused', exitCode: 1 };
     }
-    stderr.write(`nmr: running ${command} here rather than on ${host}: ${snapshot.reason}\n`);
+    stderr.write(`nmr: running ${command} here rather than on ${listedHosts}: ${snapshot.reason}\n`);
     return { kind: 'here' };
   }
+
+  const [host] = target.hosts;
 
   const retained = { stderr: createBoundedBuffer(), stdout: createBoundedBuffer() };
   const result = snapshot.ok

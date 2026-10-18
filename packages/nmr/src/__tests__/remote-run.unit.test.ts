@@ -5,16 +5,16 @@ import { DELEGATE_ENV_VAR, deriveCheckoutPath, resolveDelegationTarget, wrapRemo
 describe(resolveDelegationTarget, () => {
   it.for([
     { case: 'nothing asks for it', expected: { kind: 'local' } },
-    { case: 'the flag names a host', flagHost: 'box', expected: { kind: 'remote', host: 'box', source: 'flag' } },
-    { case: 'the variable names a host', envHost: 'box', expected: { kind: 'remote', host: 'box', source: 'env' } },
+    { case: 'the flag names a host', flagValue: 'box', expected: { kind: 'remote', hosts: ['box'], source: 'flag' } },
+    { case: 'the variable names a host', envHost: 'box', expected: { kind: 'remote', hosts: ['box'], source: 'env' } },
     { case: 'the variable is empty', envHost: '', expected: { kind: 'local' } },
     {
       case: 'the flag and the variable disagree',
       envHost: 'other',
-      flagHost: 'box',
-      expected: { kind: 'remote', host: 'box', source: 'flag' },
+      flagValue: 'box',
+      expected: { kind: 'remote', hosts: ['box'], source: 'flag' },
     },
-    { case: '--no-delegate overrides the flag', flagHost: 'box', isOptedOut: true, expected: { kind: 'local' } },
+    { case: '--no-delegate overrides the flag', flagValue: 'box', isOptedOut: true, expected: { kind: 'local' } },
     { case: '--no-delegate overrides the variable', envHost: 'box', isOptedOut: true, expected: { kind: 'local' } },
     {
       case: 'the variable meets a tree-rewriting command',
@@ -27,16 +27,49 @@ describe(resolveDelegationTarget, () => {
       case: 'the variable meets a custom script',
       command: 'test:e2e',
       envHost: 'box',
-      expected: { kind: 'remote', host: 'box', source: 'env' },
+      expected: { kind: 'remote', hosts: ['box'], source: 'env' },
     },
   ])(
     'resolves $expected.kind when $case',
-    ({ command = 'ci', envHost, expected, flagHost, isOptedOut = false, isReading = false }) => {
+    ({ command = 'ci', envHost, expected, flagValue, isOptedOut = false, isReading = false }) => {
       const env = envHost === undefined ? {} : { [DELEGATE_ENV_VAR]: envHost };
 
-      expect(resolveDelegationTarget({ command, env, flagHost, isOptedOut, isReading })).toStrictEqual(expected);
+      expect(resolveDelegationTarget({ command, env, flagValue, isOptedOut, isReading })).toStrictEqual(expected);
     },
   );
+
+  it.for([
+    { case: 'the flag', flagValue: 'box,spare', expected: { kind: 'remote', hosts: ['box', 'spare'], source: 'flag' } },
+    {
+      case: 'the variable',
+      envValue: 'box,spare',
+      expected: { kind: 'remote', hosts: ['box', 'spare'], source: 'env' },
+    },
+    {
+      case: 'a list with whitespace, empty entries, and repeats',
+      flagValue: ' box , ,spare,box,',
+      expected: { kind: 'remote', hosts: ['box', 'spare'], source: 'flag' },
+    },
+    { case: 'a variable that does not name a host', envValue: ' , ', expected: { kind: 'local' } },
+  ])('reads a host list from $case', ({ envValue, expected, flagValue }) => {
+    const env = envValue === undefined ? {} : { [DELEGATE_ENV_VAR]: envValue };
+
+    expect(
+      resolveDelegationTarget({ command: 'ci', env, flagValue, isOptedOut: false, isReading: false }),
+    ).toStrictEqual(expected);
+  });
+
+  it('refuses a flag value that does not name a host', () => {
+    const target = resolveDelegationTarget({
+      command: 'ci',
+      env: {},
+      flagValue: ' , ',
+      isOptedOut: false,
+      isReading: false,
+    });
+
+    expect(target).toStrictEqual({ kind: 'refused', error: expect.stringContaining('does not name a host') });
+  });
 
   it.for(['build', 'clean', 'compile', 'fix', 'fmt', 'lint', 'test:watch', 'upgrade', 'root:fmt', 'root:test:watch'])(
     'refuses `%s` under the flag',
@@ -44,7 +77,7 @@ describe(resolveDelegationTarget, () => {
       const target = resolveDelegationTarget({
         command,
         env: {},
-        flagHost: 'box',
+        flagValue: 'box',
         isOptedOut: false,
         isReading: false,
       });
@@ -60,7 +93,7 @@ describe(resolveDelegationTarget, () => {
     const target = resolveDelegationTarget({
       command: 'test',
       env: {},
-      flagHost: 'box',
+      flagValue: 'box',
       isOptedOut: false,
       isReading: true,
     });
