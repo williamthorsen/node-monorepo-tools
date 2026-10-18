@@ -29,7 +29,12 @@ $ nmr --json check
 {"command":"check","scope":"nmr-core","outcome":"passed","durationMs":31204}
 ```
 
-Every object contains `command`, `scope`, and `outcome`, and then the fields that only that outcome includes. A [delegated](delegate.md) command's own verdict also contains `host`, the host on which it ran:
+```console
+$ nmr --json --delegate imac2 typecheck
+{"command":"typecheck","host":"imac2","scope":"nmr-core","outcome":"recalled","ageMs":240000,"savedMs":18450}
+```
+
+Every object contains `command`, `scope`, and `outcome`, and then the fields that only that outcome includes. A [delegated](delegate.md) command's own verdict also contains `host`, the host on which it ran, and so does the recall of a pass that a host earned, whose prose line reads `passed 4m ago on <host>` in place of `on this tree`:
 
 | `outcome`  | Also contains                                                                                                           |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------- |
