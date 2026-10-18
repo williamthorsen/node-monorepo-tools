@@ -9,6 +9,8 @@ import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { quoteForShell } from '../helpers/quoteForShell.ts';
+import { STALE_AFTER_MS } from '../machine-lock.ts';
+import { CHECKOUT_LOCK_PATH } from '../remote-host-session.ts';
 import { deriveCheckoutPath, runRemotely, wrapRemoteScript } from '../remote-run.ts';
 import { composeSessionScript } from '../remote-session.ts';
 import { createSnapshot } from '../remote-snapshot.ts';
@@ -265,7 +267,7 @@ describe('a delegated run on a fake host', () => {
 
   /** Returns the path of the checkout's lock file. */
   function lockPath(): string {
-    return path.join(checkoutDir(), '.git', 'nmr-delegate.lock');
+    return path.join(checkoutDir(), CHECKOUT_LOCK_PATH);
   }
 
   /**
@@ -280,6 +282,7 @@ describe('a delegated run on a fake host', () => {
       checkoutDir: quoteForShell(checkoutDir()),
       params: {
         holder: { command: 'test', dir: repo, pid: process.pid },
+        lockPath: CHECKOUT_LOCK_PATH,
         marker: '__NMR_DELEGATE_test__',
         nmrArgs: ['test'],
         passManifestDir: '.git/nmr-passes-test',
@@ -288,6 +291,7 @@ describe('a delegated run on a fake host', () => {
         rootDir: '.',
         runDir: '.',
         sha: snapshot.sha,
+        staleAfterMs: STALE_AFTER_MS,
         statusFile: '.git/nmr-run-status-test',
       },
     });

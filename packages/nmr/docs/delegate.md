@@ -18,7 +18,21 @@ A machine that runs several worktrees' checks at once runs out of memory, and th
 | `NMR_DELEGATE=<host>`         | Runs every command that can be delegated on `<host>`.                   |
 | `nmr --no-delegate <cmd>`     | Runs the command here, whatever `NMR_DELEGATE` names. It outranks both. |
 
-`<host>` is anything that `ssh` accepts: a name from `~/.ssh/config`, `user@host`, or an address. Like every nmr flag, these belong before the command name; nmr warns about one written after it, because the command then runs here.
+`<host>` is anything that `ssh` accepts: a name from `~/.ssh/config`, `user@host`, or an address. In place of one host, `--delegate` and `NMR_DELEGATE` accept a comma-separated list of hosts in order of preference, such as `imac2,imac3`; see [choosing among several hosts](#choosing-among-several-hosts). Like every nmr flag, these belong before the command name; nmr warns about one written after it, because the command then runs here.
+
+### Choosing among several hosts
+
+With several hosts, nmr asks every host at once, with one `ssh` call each, whether a delegation started now would wait there: whether the host's [machine lock](machine-lock.md), or the lock on this worktree's checkout there, has a live holder. A lock that its holder left behind does not count. nmr then runs on the first host in the list that is free; when none is, on the first host that answered; and when none answered, on the first host, where the delegation fails at `prepare`. It never runs the command here, because the machine that delegates is the one that delegation protects.
+
+```console
+$ NMR_DELEGATE=imac2,imac3 nmr ci
+✅ my-repo: ci: passed on imac3 in 1m 52s
+```
+
+- **A single host is not asked.** The delegation goes to it directly.
+- **The choice is advisory.** Two delegations that ask at the same moment can choose the same host, and then run one after the other under its locks.
+- **`NMR_DEBUG=1` shows the answers**, one line per host, such as `imac2 is busy`.
+- Whitespace, empty entries, and repeated hosts in the list are ignored; a `--delegate` value that does not name any host is refused.
 
 `NMR_DELEGATE` is how an agent session's checks reach the host without any change to the commands that the agent runs: Set it in the session's environment.
 
@@ -38,7 +52,7 @@ $ nmr --delegate imac2 ci
 ```
 
 - **A pass earned here satisfies a delegation** to any host.
-- **A pass earned on a host is recorded here** with that host, and a later delegation to the same host recalls it as `passed 4m ago on imac2`. A run here, or a delegation to another host, does not recall it. `nmr --log <command>` prints the output that the host sent back, under a header that names the host.
+- **A pass earned on a host is recorded here** with that host, and a later delegation whose list includes that host recalls it as `passed 4m ago on imac2`, without asking any host whether it is free. A run here, or a delegation to other hosts, does not recall it. `nmr --log <command>` prints the output that the host sent back, under a header that names the host.
 - **A delegated composite records its constituents' passes too**, as the host reports them, so `nmr --delegate imac2 check` after `nmr --delegate imac2 ci` recalls without contacting the host, and a recall of `ci` replays its constituents' excerpts. A composite that the host itself recalled records only its own pass, and a `-F` or `-R` delegation does not record any pass; [delegated passes](check-cache.md#delegated-passes) has the rules.
 - **Only a miss reaches the host**, and it does not take the [machine lock](machine-lock.md) here.
 - **`--no-cache` and `NMR_NO_CACHE=1` skip the lookup** and reach the host, where they bypass its cache too.

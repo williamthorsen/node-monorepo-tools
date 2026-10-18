@@ -2,7 +2,8 @@ import { PassThrough } from 'node:stream';
 
 import { describe, expect, it } from 'vitest';
 
-import type { SessionRecord } from '../remote-host-session.ts';
+import { STALE_AFTER_MS } from '../machine-lock.ts';
+import { CHECKOUT_LOCK_PATH, type SessionRecord } from '../remote-host-session.ts';
 import { composeSessionScript, createSessionDemultiplexer, formatDelegationWaitingLine } from '../remote-session.ts';
 
 const MARKER = '__NMR_DELEGATE_abc__';
@@ -13,6 +14,7 @@ describe(composeSessionScript, () => {
       checkoutDir: `"$HOME"/'repo'`,
       params: {
         holder: { command: 'test', dir: '/repo', pid: 1 },
+        lockPath: CHECKOUT_LOCK_PATH,
         marker: MARKER,
         nmrArgs: ["it's"],
         passManifestDir: '.git/nmr-passes-test',
@@ -21,6 +23,7 @@ describe(composeSessionScript, () => {
         rootDir: '.',
         runDir: '.',
         sha: 'abc123',
+        staleAfterMs: STALE_AFTER_MS,
         statusFile: '.git/nmr-run-status-abc',
       },
     });

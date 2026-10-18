@@ -118,7 +118,7 @@ export function parseArgs(args: string[]): ParseResult {
       if (!delegateArgument.ok) {
         return delegateArgument;
       }
-      parsedArgs.delegateHost = delegateArgument.value;
+      parsedArgs.delegateHosts = delegateArgument.value;
       index += delegateArgument.consumedCount;
       continue;
     }
@@ -135,8 +135,8 @@ export function parseArgs(args: string[]): ParseResult {
 
 /** @internal */
 export interface ParsedArgs {
-  /** The host that `--delegate` names. */
-  delegateHost?: string;
+  /** The comma-separated hosts that `--delegate` names, as written. */
+  delegateHosts?: string;
   filter?: string;
   isWorkspaceRoot: boolean;
   /** The flag's value as it was written, which the style resolver rather than the parser narrows. */
@@ -194,7 +194,7 @@ function findArgError(parsedArgs: ParsedArgs): string | undefined {
 }
 
 /**
- * Returns the host that `--delegate` at `index` names, or `undefined` when the argument is not the flag. Both
+ * Returns the hosts that `--delegate` at `index` names, or `undefined` when the argument is not the flag. Both
  * spellings are read, as for `--output-style`, and an empty value is rejected with a missing one.
  */
 function readDelegateArgument(args: readonly string[], index: number): FlagValueRead | undefined {

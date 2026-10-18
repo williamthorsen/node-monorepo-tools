@@ -1,5 +1,8 @@
 /* eslint-disable unicorn/consistent-function-scoping -- `runHostSession` is sent to the host as source, so every helper that it calls must be inside it. */
 
+/** The checkout's lock, which a host session holds and the lock probe reads, relative to the checkout. */
+export const CHECKOUT_LOCK_PATH = '.git/nmr-delegate.lock';
+
 /** The local delegation on whose behalf a host session runs, as a waiting session names it. */
 export interface DelegationHolder {
   command: string;
@@ -10,6 +13,7 @@ export interface DelegationHolder {
 /** What the host session needs, sent to it as JSON. Every directory is relative to the checkout. */
 export interface HostSessionParams {
   holder: DelegationHolder;
+  lockPath: string;
   /** Begins each record line on stderr; it contains a per-delegation nonce, so that a command cannot forge one. */
   marker: string;
   nmrArgs: readonly string[];
@@ -21,6 +25,8 @@ export interface HostSessionParams {
   rootDir: string;
   runDir: string;
   sha: string;
+  /** Age at which an unrefreshed lock file is abandoned. */
+  staleAfterMs: number;
   /** Where the session records nmr's status when it is 255, so that it can be told apart from a dropped connection. */
   statusFile: string;
 }
@@ -57,11 +63,10 @@ export function runHostSession(params: HostSessionParams): void {
   const os = process.getBuiltinModule('node:os');
   const path = process.getBuiltinModule('node:path');
 
-  const LOCK_PATH = '.git/nmr-delegate.lock';
-  const RECLAIM_GUARD_PATH = '.git/nmr-delegate.lock.reclaim';
+  const LOCK_PATH = params.lockPath;
+  const RECLAIM_GUARD_PATH = `${params.lockPath}.reclaim`;
   const HEARTBEAT_INTERVAL_MS = 10_000;
   const POLL_INTERVAL_MS = 1_000;
-  const STALE_AFTER_MS = 60_000;
   const RECLAIM_GUARD_STALE_AFTER_MS = 10_000;
   const OUTPUT_LIMIT_BYTES = 65_536;
   const COMMAND_NOT_FOUND_EXIT_CODE = 127;
@@ -225,7 +230,7 @@ export function runHostSession(params: HostSessionParams): void {
 
   /** Reports whether the observed lock no longer has a live holder. A file that does not parse may be mid-write. */
   function isStale(state: { holder: LockFile | undefined; mtimeMs: number }): boolean {
-    if (Date.now() - state.mtimeMs > STALE_AFTER_MS) return true;
+    if (Date.now() - state.mtimeMs > params.staleAfterMs) return true;
     return state.holder !== undefined && isProcessGone(state.holder.pid);
   }
 

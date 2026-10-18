@@ -10,13 +10,14 @@ import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 import { PASS_MANIFEST_DIR_ENV_VAR, writeDebugNote } from './check-cache.ts';
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
 import { quoteForShell } from './helpers/quoteForShell.ts';
-import type { SessionPhase, SessionRecord } from './remote-host-session.ts';
+import { STALE_AFTER_MS } from './machine-lock.ts';
+import { CHECKOUT_LOCK_PATH, type SessionPhase, type SessionRecord } from './remote-host-session.ts';
 import { composeSessionScript, createSessionDemultiplexer, formatDelegationWaitingLine } from './remote-session.ts';
 
-/** Names the host to which nmr delegates a command when the invocation does not say otherwise. */
+/** Names the hosts to which nmr delegates a command when the invocation does not say otherwise. */
 export const DELEGATE_ENV_VAR = 'NMR_DELEGATE';
 
-/** The flag that names the host on which to run the command. */
+/** The flag that names the hosts on which to run the command. */
 export const DELEGATE_FLAG = '--delegate';
 
 /** The exit status of a delegation that failed outside its command, which matches `ssh`'s own. */
@@ -30,7 +31,10 @@ export const SSH_OPTIONS: readonly string[] = ['-T', '-o', 'BatchMode=yes', '-o'
 
 /** Where a delegation runs, or why the invocation cannot run where it asked to. */
 export type DelegationTarget =
-  { kind: 'local' } | { kind: 'remote'; host: string; source: 'env' | 'flag' } | { kind: 'refused'; error: string };
+  { kind: 'local' } | { kind: 'remote'; hosts: HostList; source: 'env' | 'flag' } | { kind: 'refused'; error: string };
+
+/** Candidate hosts in order of preference. */
+export type HostList = readonly [string, ...string[]];
 
 /** The phases of a delegation that run on the host, each reported by name when it fails. */
 export type RemotePhase = 'check out' | 'install' | 'prepare' | 'push' | 'run';
@@ -68,7 +72,8 @@ export function formatMisplacedDelegationWarning(command: string, style: OutputS
 }
 
 /**
- * Decides where an invocation runs. `--no-delegate` outranks `--delegate`, which outranks `NMR_DELEGATE`.
+ * Decides where an invocation runs. `--no-delegate` outranks `--delegate`, which outranks `NMR_DELEGATE`. Each names
+ * its candidate hosts as a comma-separated list, in order of preference.
  *
  * A command that rewrites the tree, or that runs until it is stopped, cannot be delegated, and neither can `--log`,
  * which reads this machine's recordings. Asked for by the flag, such an invocation is refused; asked for by the
@@ -77,20 +82,24 @@ export function formatMisplacedDelegationWarning(command: string, style: OutputS
 export function resolveDelegationTarget(options: {
   command: string;
   env: NodeJS.ProcessEnv;
-  flagHost: string | undefined;
+  flagValue: string | undefined;
   isOptedOut: boolean;
   isReading: boolean;
 }): DelegationTarget {
-  const { command, env, flagHost, isOptedOut, isReading } = options;
+  const { command, env, flagValue, isOptedOut, isReading } = options;
   if (isOptedOut) {
     return { kind: 'local' };
   }
 
   const isDelegable = !isReading && !NON_DELEGABLE_COMMANDS.has(command);
 
-  if (flagHost !== undefined) {
+  if (flagValue !== undefined) {
+    const hosts = parseHostList(flagValue);
+    if (hosts === undefined) {
+      return { kind: 'refused', error: `${DELEGATE_FLAG} requires a host: "${flagValue}" does not name a host.` };
+    }
     if (isDelegable) {
-      return { kind: 'remote', host: flagHost, source: 'flag' };
+      return { kind: 'remote', hosts, source: 'flag' };
     }
     const subject = isReading ? '--log' : `\`${command}\``;
     return {
@@ -99,9 +108,9 @@ export function resolveDelegationTarget(options: {
     };
   }
 
-  const envHost = env[DELEGATE_ENV_VAR];
-  if (envHost !== undefined && envHost !== '' && isDelegable) {
-    return { kind: 'remote', host: envHost, source: 'env' };
+  const envHosts = parseHostList(env[DELEGATE_ENV_VAR] ?? '');
+  if (envHosts !== undefined && isDelegable) {
+    return { kind: 'remote', hosts: envHosts, source: 'env' };
   }
 
   return { kind: 'local' };
@@ -191,6 +200,7 @@ export async function runRemotely(options: {
     checkoutDir,
     params: {
       holder: { command, dir: cwd, pid: process.pid },
+      lockPath: CHECKOUT_LOCK_PATH,
       marker,
       nmrArgs,
       passManifestDir: `.git/nmr-passes-${nonce}`,
@@ -199,6 +209,7 @@ export async function runRemotely(options: {
       rootDir: toRemoteRelativeDir(path.relative(snapshot.toplevel, monorepoRoot)),
       runDir: toRemoteRelativeDir(path.relative(snapshot.toplevel, cwd)),
       sha: snapshot.sha,
+      staleAfterMs: STALE_AFTER_MS,
       statusFile,
     },
   });
@@ -235,6 +246,18 @@ export async function runRemotely(options: {
   }
 
   return { ok: true, exitCode: session.exitCode, passes, waitedMs };
+}
+
+/**
+ * Runs a script on the host through `wrapRemoteScript`, capturing what it prints. An abort stops the `ssh` process.
+ */
+export function runSsh(
+  host: string,
+  script: string,
+  env: NodeJS.ProcessEnv,
+  signal?: AbortSignal,
+): Promise<{ exitCode: number; output: string }> {
+  return runProcess(['ssh', ...SSH_OPTIONS, host, wrapRemoteScript(script)], { env, signal });
 }
 
 /**
@@ -317,15 +340,33 @@ function forwardChunk(chunk: Buffer, stream: Writable | undefined, buffer: Bound
 }
 
 /**
+ * Splits a comma-separated host list, dropping whitespace, empty entries, and repeats. Returns `undefined` when the
+ * value does not name a host.
+ */
+function parseHostList(value: string): HostList | undefined {
+  const names = value.split(',').map((host) => host.trim());
+  const [first, ...rest] = new Set(names.filter((host) => host !== ''));
+
+  return first === undefined ? undefined : [first, ...rest];
+}
+
+/**
  * Runs a process and returns its exit status and what it printed. A streaming run writes each chunk to the
  * streams as it arrives and holds its stdin open, which is how the host learns that the local side has gone;
- * any other run captures both streams, bounded at each end.
+ * any other run captures both streams, bounded at each end. An abort of `signal` kills the process.
  */
 function runProcess(
   argv: readonly string[],
-  options: { cwd?: string; env: NodeJS.ProcessEnv; isStreaming?: boolean; stderr?: Writable; stdout?: Writable },
+  options: {
+    cwd?: string;
+    env: NodeJS.ProcessEnv;
+    isStreaming?: boolean;
+    signal?: AbortSignal | undefined;
+    stderr?: Writable;
+    stdout?: Writable;
+  },
 ): Promise<{ exitCode: number; output: string }> {
-  const { cwd, env, isStreaming = false, stderr, stdout } = options;
+  const { cwd, env, isStreaming = false, signal, stderr, stdout } = options;
   const [file = '', ...args] = argv;
   const buffer = createBoundedBuffer({
     headLimitBytes: PHASE_OUTPUT_LIMIT_BYTES,
@@ -333,7 +374,7 @@ function runProcess(
   });
 
   return new Promise((resolve) => {
-    const child = spawn(file, args, { cwd, env, stdio: [isStreaming ? 'pipe' : 'ignore', 'pipe', 'pipe'] });
+    const child = spawn(file, args, { cwd, env, signal, stdio: [isStreaming ? 'pipe' : 'ignore', 'pipe', 'pipe'] });
 
     child.stdout?.on('data', (chunk: Buffer) => {
       forwardChunk(chunk, isStreaming ? stdout : undefined, buffer);
@@ -358,11 +399,6 @@ function runProcess(
 /** Renders a directory relative to the checkout in the form that the host session resolves. */
 function toRemoteRelativeDir(relativeDir: string): string {
   return relativeDir === '' ? '.' : relativeDir.split(path.sep).join('/');
-}
-
-/** Runs a script on the host through `wrapRemoteScript`, capturing what it prints. */
-function runSsh(host: string, script: string, env: NodeJS.ProcessEnv): Promise<{ exitCode: number; output: string }> {
-  return runProcess(['ssh', ...SSH_OPTIONS, host, wrapRemoteScript(script)], { env });
 }
 
 // endregion | Helpers

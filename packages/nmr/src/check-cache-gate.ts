@@ -227,8 +227,8 @@ function composeRecall(
  *
  * The entry comes back with them, so that the caller can certify what it is about to replay.
  *
- * A pass earned here satisfies every invocation; one earned on a host satisfies only a delegation to that host, and
- * is not held to this machine's build output, which says nothing about the host's.
+ * A pass earned here satisfies every invocation; one earned on a host satisfies only a delegation that lists that
+ * host, and is not held to this machine's build output, which says nothing about the host's.
  */
 async function lookUpRecordedPass(options: {
   anchorDir: string;
@@ -239,9 +239,9 @@ async function lookUpRecordedPass(options: {
   monorepoRoot: string;
   retentionKey: string;
   stderr: Writable;
-  targetHost: string | undefined;
+  targetHosts: readonly string[] | undefined;
 }): Promise<{ ageMs: number; entry: CheckCacheEntry; replay?: ReplayLine[]; savedMs: number } | undefined> {
-  const { anchorDir, buildOutput, command, env, key, monorepoRoot, stderr, targetHost } = options;
+  const { anchorDir, buildOutput, command, env, key, monorepoRoot, stderr, targetHosts } = options;
 
   const entry = await readCheckCacheEntry({ anchorDir, command, monorepoRoot });
   if (entry === undefined) {
@@ -253,7 +253,7 @@ async function lookUpRecordedPass(options: {
     return undefined;
   }
   if (entry.host !== undefined) {
-    if (entry.host !== targetHost) {
+    if (targetHosts?.includes(entry.host) !== true) {
       writeDebugNote(`running ${command}: the last pass was earned on ${entry.host}`, env, stderr);
       return undefined;
     }
@@ -319,7 +319,7 @@ async function recallPass(plan: RunPlan, gate: Gate): Promise<GatedResult | unde
     monorepoRoot,
     retentionKey: gate.retentionKey,
     stderr,
-    targetHost: plan.target.kind === 'remote' ? plan.target.host : undefined,
+    targetHosts: plan.target.kind === 'remote' ? plan.target.hosts : undefined,
   });
   if (recalledPass === undefined) {
     return undefined;

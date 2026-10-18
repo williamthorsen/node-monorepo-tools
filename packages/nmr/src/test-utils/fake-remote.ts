@@ -8,20 +8,26 @@ import { readAmbientEnv } from './readAmbientEnv.ts';
 
 /** A host simulated on this machine: an `ssh` and a `pnpm` that run the host's side locally, and their logs. */
 export interface FakeRemote {
+  /** Gives `host` a home of its own, in place of the shared one, and returns it. */
+  addHost: (host: string) => string;
   /** Returns an environment in which `ssh` and `pnpm` resolve to the fakes. */
   buildEnv: (extraEnv?: Record<string, string>) => NodeJS.ProcessEnv;
   /** The directory that stands for the host's home. */
   home: string;
   /** Reads what the fake `pnpm` logged, one entry per line. */
   readPnpmLog: () => string[];
+  /** Reads the calls that the fake `ssh` received, one `<host> probe` or `<host> other` per line. */
+  readSshLog: () => string[];
 }
 
 /**
- * Creates a fake host under `tree`. The fake `ssh` runs its command with `/bin/sh` in the fake home. A host named
- * `unreachable` fails as `ssh` does, and one named `dropping` runs the host session with its stdout discarded and then
- * exits 255, as `ssh` does when the connection drops during the run. The fake login shell prints a greeting, as a
- * startup file may, and drops `-il`, so that a profile on this machine cannot reorder `PATH` ahead of the fakes. The
- * fake `ssh` unsets every `NMR_*` variable, as `ssh` forwards none of the local environment.
+ * Creates a fake host under `tree`. The fake `ssh` logs each call, then runs its command with `/bin/sh` in the host's
+ * home: the shared fake home, or the one that `addHost` gave the host. A host whose name starts with `unreachable`
+ * fails as `ssh` does, and one named `dropping` runs the host session with its stdout discarded and then exits 255, as
+ * `ssh` does when the connection drops during the run. The fake login shell prints a greeting, as a startup file may,
+ * and drops `-il`, so that a profile on this machine cannot reorder `PATH` ahead of the fakes. The fake `ssh` unsets
+ * every `NMR_*` variable, as `ssh` forwards none of the local environment, and then sets `NMR_LOCK_DIR` to the
+ * directory `nmr-lock` in the host's home, so that each host has a machine lock of its own.
  *
  * The fake `pnpm` logs each call. Its `exec` logs the directory, the arguments, the output style, nmr's own variables,
  * the files in the directory, and the content of `probe.txt` when there is one, then prints to both streams. These
@@ -35,6 +41,7 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
   const binDir = tree.mkdir('fake-bin');
   const home = tree.mkdir('fake-home');
   const pnpmLog = tree.resolve('pnpm.log');
+  const sshLog = tree.resolve('ssh.log');
 
   writeExecutable(tree, 'fake-bin/login-shell', [
     '#!/bin/sh',
@@ -51,10 +58,13 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
     '  esac',
     'done',
     'host=$1; shift',
-    'if [ "$host" = unreachable ]; then echo "ssh: connect to host unreachable: Connection refused" >&2; exit 255; fi',
     'cmd="$*"',
+    'case "$cmd" in *probeHostLocks*) echo "$host probe" ;; *) echo "$host other" ;; esac >> "$FAKE_SSH_LOG"',
+    'case "$host" in unreachable*) echo "ssh: connect to host $host: Connection refused" >&2; exit 255 ;; esac',
     // `ssh` forwards none of the local environment, so nmr's own variables reach the host only through the session.
     String.raw`for name in $(env | sed -n 's/^\(NMR_[A-Z_]*\)=.*/\1/p'); do unset "$name"; done`,
+    '[ -d "$FAKE_REMOTE_HOME/hosts/$host" ] && FAKE_REMOTE_HOME=$FAKE_REMOTE_HOME/hosts/$host',
+    'export NMR_LOCK_DIR="$FAKE_REMOTE_HOME/nmr-lock"',
     'cd "$FAKE_REMOTE_HOME" || exit 255',
     'case "$host:$cmd" in dropping:*runHostSession*) HOME=$FAKE_REMOTE_HOME SHELL=$FAKE_LOGIN_SHELL /bin/sh -c "$cmd" >/dev/null; exit 255 ;; esac',
     'HOME=$FAKE_REMOTE_HOME SHELL=$FAKE_LOGIN_SHELL exec /bin/sh -c "$cmd"',
@@ -92,20 +102,28 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
   ]);
 
   return {
+    addHost: (host) => tree.mkdir(`fake-home/hosts/${host}`),
     buildEnv: (extraEnv = {}) => ({
       ...readAmbientEnv(),
       FAKE_LOGIN_SHELL: path.join(binDir, 'login-shell'),
       FAKE_PNPM_LOG: pnpmLog,
       FAKE_REMOTE_HOME: home,
+      FAKE_SSH_LOG: sshLog,
       PATH: `${binDir}${path.delimiter}${process.env['PATH'] ?? ''}`,
       ...extraEnv,
     }),
     home,
-    readPnpmLog: () => (fs.existsSync(pnpmLog) ? fs.readFileSync(pnpmLog, 'utf8').trim().split('\n') : []),
+    readPnpmLog: () => readLog(pnpmLog),
+    readSshLog: () => readLog(sshLog),
   };
 }
 
 // region | Helpers
+
+/** Reads a log, one entry per line, or none when nothing has written it. */
+function readLog(logPath: string): string[] {
+  return fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8').trim().split('\n') : [];
+}
 
 /** Writes a script from its lines into `tree` and makes it executable. */
 function writeExecutable(tree: TempTree, entryPath: string, lines: readonly string[]): void {

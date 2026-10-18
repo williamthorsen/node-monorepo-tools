@@ -1,16 +1,20 @@
+import os from 'node:os';
 import { Writable } from 'node:stream';
 
 import { reportError } from '@williamthorsen/nmr-core';
 
-import { NO_CACHE_ENV_VAR, resolveRunId } from './check-cache.ts';
+import { NO_CACHE_ENV_VAR, resolveRunId, writeDebugNote } from './check-cache.ts';
 import { buildChildEnv, buildRemoteEnv } from './child-env.ts';
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
 import type { ExecutionTarget, Invocation, PhaseResult, RunCliResult, RunPlan } from './invocation.ts';
 import { isDelegationFlag, type ParsedArgs } from './invocation-args.ts';
 import { reportVerdict } from './presentation.ts';
+import { chooseHost, probeHost, type ProbeResult } from './remote-probe.ts';
 import {
   DELEGATION_FAILURE_EXIT_CODE,
+  deriveCheckoutPath,
   formatMisplacedDelegationWarning,
+  type HostList,
   resolveDelegationTarget,
   runRemotely,
 } from './remote-run.ts';
@@ -51,7 +55,7 @@ export function resolveExecutionTarget(invocation: Invocation): PhaseResult<Exec
   const target = resolveDelegationTarget({
     command,
     env,
-    flagHost: parsedArgs.delegateHost,
+    flagValue: parsedArgs.delegateHosts,
     isOptedOut: parsedArgs.shouldRunLocally,
     isReading: parsedArgs.shouldPrintLog,
   });
@@ -116,8 +120,15 @@ export async function runPlanOnHost(plan: RunPlan, target: RemoteTarget): Promis
 
 // region | Helpers
 
-/** A target that names a host. */
+/** A target that names its candidate hosts. */
 type RemoteTarget = Extract<ExecutionTarget, { kind: 'remote' }>;
+
+/** Describes a probe's result for a debug note. */
+const PROBE_RESULT_PHRASES: Readonly<Record<ProbeResult, string>> = {
+  busy: 'is busy',
+  free: 'is free',
+  'no-answer': 'did not answer the lock probe',
+};
 
 /**
  * Returns the arguments with which the host runs the invocation: nmr's own flags that decide what runs and how it
@@ -150,7 +161,8 @@ function createTee(stream: Writable, buffer: BoundedBuffer): Writable {
 }
 
 /**
- * Runs the invocation on the host against a snapshot of the working tree, streaming its output and retaining a copy.
+ * Runs the invocation on the host that `resolveHost` chooses, against a snapshot of the working tree, streaming its
+ * output and retaining a copy.
  *
  * A tree that cannot be snapshotted is refused when the flag asked for the host, and runs here, with a line saying
  * why, when the variable did. A delegation that fails outside its command, in its connection, transfer, or install,
@@ -163,18 +175,20 @@ async function delegate(options: {
 }): Promise<HostRunResult> {
   const { invocation, remoteEnv, target } = options;
   const { command, context, cwd, env, parsedArgs, stderr, stdout } = invocation;
-  const { host } = target;
+  const listedHosts = target.hosts.join(', ');
 
   const startedAtMs = Date.now();
   const snapshot = createSnapshot(cwd, env);
   if (!snapshot.ok && snapshot.isUnsupported) {
     if (target.source === 'flag') {
-      reportError(`Cannot delegate to ${host}: ${snapshot.reason}`, stderr);
+      reportError(`Cannot delegate to ${listedHosts}: ${snapshot.reason}`, stderr);
       return { kind: 'refused', exitCode: 1 };
     }
-    stderr.write(`nmr: running ${command} here rather than on ${host}: ${snapshot.reason}\n`);
+    stderr.write(`nmr: running ${command} here rather than on ${listedHosts}: ${snapshot.reason}\n`);
     return { kind: 'here' };
   }
+
+  const host = snapshot.ok ? await resolveHost(target.hosts, snapshot.toplevel, env, stderr) : target.hosts[0];
 
   const retained = { stderr: createBoundedBuffer(), stdout: createBoundedBuffer() };
   const result = snapshot.ok
@@ -218,6 +232,31 @@ async function delegate(options: {
       : { outcome: 'failed', durationMs, exitCode: result.exitCode };
 
   return { ...ran, exitCode: result.exitCode, outcome, passes: result.passes };
+}
+
+/**
+ * Returns the host on which to run: the only candidate, or the one that `chooseHost` picks by probing the locks that
+ * a delegation from this checkout would wait on.
+ */
+async function resolveHost(
+  hosts: HostList,
+  toplevel: string,
+  env: NodeJS.ProcessEnv,
+  stderr: Writable,
+): Promise<string> {
+  const [first, ...rest] = hosts;
+  if (rest.length === 0) {
+    return first;
+  }
+
+  const checkoutPath = deriveCheckoutPath(os.hostname(), toplevel);
+  return chooseHost({
+    hosts,
+    onSettled(host, result) {
+      writeDebugNote(`${host} ${PROBE_RESULT_PHRASES[result]}`, env, stderr);
+    },
+    probe: (host, signal) => probeHost({ checkoutPath, env, host, signal }),
+  });
 }
 
 // endregion | Helpers
