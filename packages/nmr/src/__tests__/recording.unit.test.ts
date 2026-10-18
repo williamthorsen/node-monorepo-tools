@@ -148,6 +148,17 @@ describe('a recording', () => {
       expect(renderedText.split('\n', 2)[1]).toBe('$ vitest --project unit');
     });
 
+    it('names the host that ran a delegated pass', () => {
+      const recordedAt = new Date(Date.now() - 60_000).toISOString();
+      const entry = { ...makeEntry(), recordedAt, durationMs: 12_400, host: 'box' };
+
+      const renderedText = renderRecording({ command: COMMAND, recording: { entry }, scope: SCOPE, style: 'plain' });
+
+      expect(renderedText.split('\n', 1)[0]).toBe(
+        `${SCOPE}: ${COMMAND} — recorded ${recordedAt} (1m ago), ran in 12.4s on box`,
+      );
+    });
+
     it('opens a plain header on the scope, because the glyph does not have a plain variant', () => {
       const recordedAt = new Date(Date.now() - 60_000).toISOString();
       const entry = { ...makeEntry(), recordedAt, durationMs: 12_400, commandString: 'vitest --project unit' };

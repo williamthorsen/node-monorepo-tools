@@ -132,7 +132,7 @@ function describeOutcome(verdict: Verdict, style: OutputStyle): { marker: string
       const savingClause = saving === undefined ? '' : `, ${saving}`;
       return {
         marker: statuses.skipped.text,
-        phrase: `passed ${formatDuration(verdict.ageMs)} ago on this tree${savingClause}`,
+        phrase: `passed ${formatDuration(verdict.ageMs)} ago on ${verdict.host ?? 'this tree'}${savingClause}`,
       };
     }
     case 'no-op':
