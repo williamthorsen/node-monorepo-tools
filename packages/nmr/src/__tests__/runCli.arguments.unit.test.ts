@@ -378,6 +378,39 @@ describe(runCli, () => {
     });
   });
 
+  describe('the debug note naming what sent a command to a host', () => {
+    it.for([
+      { case: '--delegate-to', args: ['--delegate-to', 'box', 'typecheck'], env: {}, expected: 'per --delegate-to' },
+      {
+        case: '--delegate',
+        args: ['--delegate', 'typecheck'],
+        env: { [DELEGATE_ENV_VAR]: 'box' },
+        expected: 'per --delegate',
+      },
+      { case: 'NMR_DELEGATE', args: ['typecheck'], env: { [DELEGATE_ENV_VAR]: 'box' }, expected: 'per NMR_DELEGATE' },
+      {
+        case: 'the user config',
+        args: ['typecheck'],
+        env: { CLAUDECODE: '1' },
+        hasUserConfig: true,
+        expected: 'per ~/.config/nmr/config.ts (when: agent)',
+      },
+    ])('names $case', async ({ args, env, expected, hasUserConfig = false }, { tree }) => {
+      tree.write('.config/nmr/config.ts', `export default { delegate: { hosts: ['box'], when: 'agent' } };`);
+      const homeEnv = hasUserConfig ? { HOME: tree.dir } : {};
+
+      const { stderr } = await runNmrReadingStderr(args, tree.dir, { ...env, ...homeEnv, NMR_DEBUG: '1' });
+
+      expect(stderr).toContain(`delegating typecheck ${expected}\n`);
+    });
+
+    it('is silent without NMR_DEBUG', async ({ tree }) => {
+      const { stderr } = await runNmrReadingStderr(['typecheck'], tree.dir, { [DELEGATE_ENV_VAR]: 'box' });
+
+      expect(stderr).not.toContain('delegating');
+    });
+  });
+
   describe('misplaced nmr flags', () => {
     const HINT_TAIL = 'nmr reads its flags only before the command:';
 

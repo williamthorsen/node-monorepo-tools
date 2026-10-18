@@ -83,6 +83,38 @@ describe('nmr with a delegation host', () => {
     expect(result.stderr).toContain('Connection refused');
   });
 
+  describe('when the user config decides', () => {
+    const REMEDY = 'ask for network access to unreachable, or run it here with nmr --no-delegate test';
+
+    beforeEach(() => {
+      workspace.write('xdg/nmr/config.ts', `export default { delegate: { hosts: ['unreachable'], when: 'always' } };`);
+    });
+
+    it('names the user config and the remedies in order when the host cannot be reached', async () => {
+      const result = await runNmr(['test'], {
+        [OUTPUT_STYLE_ENV_VAR]: 'plain',
+        XDG_CONFIG_HOME: workspace.resolve('xdg'),
+      });
+
+      expect(result.exitCode).toBe(255);
+      expect(result.stdout).toContain('(exit 255) — could not prepare unreachable');
+      expect(result.stderr).toContain(
+        `nmr: ${workspace.resolve('xdg', 'nmr', 'config.ts')} sent test to unreachable; ${REMEDY}\n`,
+      );
+      expect(result.stderr.split(REMEDY)).toHaveLength(2);
+    });
+
+    it.for([
+      { case: '--delegate-to', args: ['--delegate-to', 'unreachable', 'test'], env: {} },
+      { case: 'NMR_DELEGATE', args: ['test'], env: { [DELEGATE_ENV_VAR]: 'unreachable' } },
+    ])('does not name the remedies when $case decided', async ({ args, env }) => {
+      const result = await runNmr(args, { ...env, XDG_CONFIG_HOME: workspace.resolve('xdg') });
+
+      expect(result.exitCode).toBe(255);
+      expect(result.stderr).not.toContain(REMEDY);
+    });
+  });
+
   describe('with several hosts', () => {
     it('runs on a free host rather than a busy one, and notes what each probe found', async () => {
       remote.addHost('busy');

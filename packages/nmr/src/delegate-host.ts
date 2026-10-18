@@ -12,15 +12,19 @@ import { isDelegationFlag, type ParsedArgs } from './invocation-args.ts';
 import { reportVerdict } from './presentation.ts';
 import { chooseHost, probeHost, type ProbeResult } from './remote-probe.ts';
 import {
+  DELEGATE_ENV_VAR,
+  DELEGATE_FLAG,
+  DELEGATE_TO_FLAG,
   DELEGATION_FAILURE_EXIT_CODE,
   deriveCheckoutPath,
   formatMisplacedDelegationWarning,
   type HostList,
+  NO_DELEGATE_FLAG,
   runRemotely,
 } from './remote-run.ts';
 import { createSnapshot } from './remote-snapshot.ts';
 import type { RetainedOutput } from './runner.ts';
-import { loadUserConfig } from './user-config.ts';
+import { formatDisplayPath, loadUserConfig } from './user-config.ts';
 import type { VerdictOutcome } from './verdict.ts';
 
 /** How a run on the host ended, or that the invocation runs here after all. */
@@ -68,6 +72,9 @@ export async function resolveExecutionTarget(invocation: Invocation): Promise<Ph
   if (target.kind === 'refused') {
     reportError(target.error, stderr);
     return { settled: true, result: { exitCode: 1 } };
+  }
+  if (target.kind === 'remote') {
+    writeDebugNote(`delegating ${command} per ${describeDelegationSource(target, parsedArgs, env)}`, env, stderr);
   }
 
   return { settled: false, value: target };
@@ -166,6 +173,18 @@ function createTee(stream: Writable, buffer: BoundedBuffer): Writable {
   });
 }
 
+/** Names what sent the invocation to a host, for a debug note. */
+function describeDelegationSource(target: RemoteTarget, parsedArgs: ParsedArgs, env: NodeJS.ProcessEnv): string {
+  switch (target.source) {
+    case 'config':
+      return `${formatDisplayPath(target.configPath, env)} (when: ${target.when})`;
+    case 'env':
+      return DELEGATE_ENV_VAR;
+    case 'flag':
+      return parsedArgs.delegateHosts === undefined ? DELEGATE_FLAG : DELEGATE_TO_FLAG;
+  }
+}
+
 /**
  * Runs the invocation on the host that `resolveHost` chooses, against a snapshot of the working tree, streaming its
  * output and retaining a copy.
@@ -223,6 +242,14 @@ async function delegate(options: {
   if (!result.ok) {
     if (result.output.trim() !== '') {
       stderr.write(result.output.endsWith('\n') ? result.output : `${result.output}\n`);
+    }
+    // A host that does not answer fails at `prepare`, which is where a sandbox that refuses `ssh` stops the run.
+    if (target.source === 'config' && 'phase' in result && result.phase === 'prepare') {
+      const configPath = formatDisplayPath(target.configPath, env);
+      stderr.write(
+        `nmr: ${configPath} sent ${command} to ${listedHosts}; ask for network access to ${listedHosts}, ` +
+          `or run it here with nmr ${NO_DELEGATE_FLAG} ${command}\n`,
+      );
     }
     return {
       ...ran,
