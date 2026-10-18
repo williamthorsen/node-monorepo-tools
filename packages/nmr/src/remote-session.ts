@@ -40,8 +40,8 @@ export function composeSessionScript(options: { checkoutDir: string; params: Hos
  * arrives, except a `passes` record, which it passes to `onRecord` too. A `passes` record whose entries are not a list
  * goes to `onMalformedRecord` instead.
  *
- * The run's output is forwarded as bytes, line by line, so that a character split across chunks arrives unchanged. Only
- * a trailing partial line that may still turn out to be a record is held back until its newline arrives.
+ * The run's output is forwarded as bytes, so that a character split across chunks arrives unchanged. Only trailing bytes
+ * that may still begin a record are held back, until they turn out not to or the record's newline arrives.
  */
 export function createSessionDemultiplexer(options: {
   marker: string;
@@ -97,37 +97,44 @@ export function createSessionDemultiplexer(options: {
     }
   }
 
-  /** Forwards the run's complete lines, taking out each `passes` record, and what of a partial line cannot be one. */
+  /**
+   * Forwards the run's output, taking out each `passes` record wherever its marker begins, and holds back only the
+   * trailing bytes that may still begin a record. The nonce makes a marker within a line as unforgeable as one at its
+   * start, and the session's record can follow output that did not end its line.
+   */
   function forwardRunOutput(): void {
     let segmentStart = 0;
-    let lineStart = 0;
-    let newlineIndex = pending.indexOf(NEWLINE);
-    while (newlineIndex !== -1) {
-      if (isPrefixAt(lineStart)) {
-        const kind = readPassesRecord(pending.subarray(lineStart + prefixBytes.length, newlineIndex).toString('utf8'));
-        if (kind !== 'other') {
-          writeRange(segmentStart, lineStart);
-          segmentStart = newlineIndex + 1;
-        }
+    let searchFrom = 0;
+    let markerIndex = pending.indexOf(prefixBytes, searchFrom);
+    while (markerIndex !== -1) {
+      const newlineIndex = pending.indexOf(NEWLINE, markerIndex);
+      if (newlineIndex === -1) {
+        writeRange(segmentStart, markerIndex);
+        pending = pending.subarray(markerIndex);
+        return;
       }
-      lineStart = newlineIndex + 1;
-      newlineIndex = pending.indexOf(NEWLINE, lineStart);
+      const kind = readPassesRecord(pending.subarray(markerIndex + prefixBytes.length, newlineIndex).toString('utf8'));
+      if (kind !== 'other') {
+        writeRange(segmentStart, markerIndex);
+        segmentStart = newlineIndex + 1;
+      }
+      searchFrom = newlineIndex + 1;
+      markerIndex = pending.indexOf(prefixBytes, searchFrom);
     }
 
-    const rest = pending.subarray(lineStart);
-    const mayBeRecord =
-      rest.length >= prefixBytes.length ? isPrefixAt(lineStart) : prefixBytes.subarray(0, rest.length).equals(rest);
-    const end = rest.length > 0 && mayBeRecord ? lineStart : pending.length;
-    writeRange(segmentStart, end);
-    pending = pending.subarray(end);
+    const holdFrom = findPartialPrefix(searchFrom);
+    writeRange(segmentStart, holdFrom);
+    pending = pending.subarray(holdFrom);
   }
 
-  /** Reports whether the pending bytes at `index` begin with the record prefix. */
-  function isPrefixAt(index: number): boolean {
-    return (
-      pending.length - index >= prefixBytes.length &&
-      pending.compare(prefixBytes, 0, prefixBytes.length, index, index + prefixBytes.length) === 0
-    );
+  /** Returns the earliest index from `from` at which the pending bytes that remain begin the prefix, or their end. */
+  function findPartialPrefix(from: number): number {
+    for (let index = Math.max(from, pending.length - prefixBytes.length + 1); index < pending.length; index++) {
+      if (prefixBytes.subarray(0, pending.length - index).equals(pending.subarray(index))) {
+        return index;
+      }
+    }
+    return pending.length;
   }
 
   /**

@@ -76,6 +76,17 @@ describe(createSessionDemultiplexer, () => {
     expect(malformed).toStrictEqual([]);
   });
 
+  it('passes on a passes record that follows output without a newline in the same chunk', () => {
+    const { demux, records, stderr } = setUp();
+
+    demux.stream.write(`${MARKER} {"kind":"run"}\n`);
+    demux.stream.write(`no newline${MARKER} {"kind":"passes","entries":[]}\n`);
+    demux.flush();
+
+    expect(records).toStrictEqual([{ kind: 'run' }, { kind: 'passes', entries: [] }]);
+    expect(stderr.read()).toBe('no newline');
+  });
+
   it('discards a malformed passes record after the run', () => {
     const { demux, malformed, records, stderr } = setUp();
 
@@ -101,15 +112,18 @@ describe(createSessionDemultiplexer, () => {
     expect(stderr.readBytes().equals(output)).toBe(true);
   });
 
-  it('holds back a trailing partial line only while it may still be a record', () => {
+  it('holds back only the trailing bytes that may still begin a record', () => {
     const { demux, stderr } = setUp();
 
     demux.stream.write(`${MARKER} {"kind":"run"}\nprogress 50%`);
     expect(stderr.read()).toBe('progress 50%');
-    demux.stream.write('\n__NMR_DEL');
-    expect(stderr.read()).toBe('progress 50%\n');
+    demux.stream.write('\nstep __NMR_DEL');
+    expect(stderr.read()).toBe('progress 50%\nstep ');
+    demux.stream.write('AY');
+    expect(stderr.read()).toBe('progress 50%\nstep __NMR_DELAY');
+    demux.stream.write(' __NMR_DEL');
     demux.flush();
-    expect(stderr.read()).toBe('progress 50%\n__NMR_DEL');
+    expect(stderr.read()).toBe('progress 50%\nstep __NMR_DELAY __NMR_DEL');
   });
 
   it('parses a failed record', () => {
