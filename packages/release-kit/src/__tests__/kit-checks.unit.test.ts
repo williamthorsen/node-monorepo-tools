@@ -45,6 +45,7 @@ import {
   CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO,
   CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE,
 } from '../../.readyup/lib/workflow-hashes.ts';
+import { listDeclaredChildren } from '../test-utils/listDeclaredChildren.ts';
 
 const CHANGELOG_CHECK = 'published packages ship CHANGELOG.md';
 const CHANGELOG_JSON_GATE = 'changelog.json generation is enabled';
@@ -112,7 +113,7 @@ describe('release-kit config gate', () => {
   });
 
   it('nests every config-dependent check beneath the gate', () => {
-    const childNames = getConfigGate().checks?.map((check) => check.name);
+    const childNames = listDeclaredChildren(getConfigGate()).map((check) => check.name);
 
     expect(childNames).toStrictEqual([
       'releaseNotes config is consistent with changelogJson',
@@ -125,7 +126,7 @@ describe('release-kit config gate', () => {
 
   // A nested check that repeats the gate's own skip reports the extra lines that the gate collapses.
   it('does not declare a skip on any nested check other than .github/labels.yaml exists', () => {
-    const skipping = (getConfigGate().checks ?? [])
+    const skipping = listDeclaredChildren(getConfigGate())
       .filter((check) => check.skip !== undefined)
       .map((check) => check.name);
 
@@ -135,13 +136,15 @@ describe('release-kit config gate', () => {
   it('skips .github/labels.yaml exists when the config does not declare a repoLabels block', () => {
     mockedFileContains.mockReturnValue(false);
 
-    expect(findCheck('.github/labels.yaml exists', getConfigGate().checks ?? []).skip?.()).toBe('no repoLabels config');
+    expect(findCheck('.github/labels.yaml exists', listDeclaredChildren(getConfigGate())).skip?.()).toBe(
+      'no repoLabels config',
+    );
   });
 
   it('runs .github/labels.yaml exists when a repoLabels block is declared', () => {
     mockedFileContains.mockReturnValue(true);
 
-    expect(findCheck('.github/labels.yaml exists', getConfigGate().checks ?? []).skip?.()).toBe(false);
+    expect(findCheck('.github/labels.yaml exists', listDeclaredChildren(getConfigGate())).skip?.()).toBe(false);
   });
 });
 
@@ -150,7 +153,7 @@ describe('release-kit config gate', () => {
 // would mask exactly the repos for which the checks exist.
 describe('changelog packaging checks', () => {
   it('nests neither check beneath the config gate', () => {
-    const gateChildNames = getConfigGate().checks?.map((check) => check.name);
+    const gateChildNames = listDeclaredChildren(getConfigGate()).map((check) => check.name);
 
     expect(gateChildNames).not.toContain(CHANGELOG_CHECK);
     expect(gateChildNames).not.toContain(CHANGELOG_JSON_GATE);
@@ -166,9 +169,9 @@ describe('changelog packaging checks', () => {
   });
 
   it('reports a tarball missing the changelog JSON at warn', () => {
-    expect(findCheck('published packages ship the changelog JSON', getChangelogJsonGate().checks ?? []).severity).toBe(
-      'warn',
-    );
+    expect(
+      findCheck('published packages ship the changelog JSON', listDeclaredChildren(getChangelogJsonGate())).severity,
+    ).toBe('warn');
   });
 
   it.each([
@@ -192,14 +195,20 @@ describe('changelog packaging checks', () => {
   // The gate's own skip already covers the nested check; repeating it would report the duplicate lines against
   // which the config gate's tests guard.
   it('does not declare a skip on the nested check', () => {
-    const nested = findCheck('published packages ship the changelog JSON', getChangelogJsonGate().checks ?? []);
+    const nested = findCheck(
+      'published packages ship the changelog JSON',
+      listDeclaredChildren(getChangelogJsonGate()),
+    );
 
     expect(nested.skip).toBeUndefined();
   });
 
   it('names the configured output path in the nested fix', () => {
     mockedReadFile.mockReturnValue('export default defineConfig({ changelogJson: { outputPath: "docs/cl.json" } });\n');
-    const nested = findCheck('published packages ship the changelog JSON', getChangelogJsonGate().checks ?? []);
+    const nested = findCheck(
+      'published packages ship the changelog JSON',
+      listDeclaredChildren(getChangelogJsonGate()),
+    );
 
     expect(nested.fix).toBe('Add "docs/cl.json" to the files field of each affected package.json');
   });
@@ -310,8 +319,8 @@ describe(scopeLabelsHaveNoDescriptions, () => {
 describe(SCOPE_DESCRIPTION_CHECK, () => {
   // Nesting without a skip of its own leaves the parent's `repoLabels` skip in charge.
   it('is nested beneath .github/labels.yaml exists without a skip of its own', () => {
-    const labelsFileCheck = findCheck(LABELS_FILE_CHECK, getConfigGate().checks ?? []);
-    const check = findCheck(SCOPE_DESCRIPTION_CHECK, labelsFileCheck.checks ?? []);
+    const labelsFileCheck = findCheck(LABELS_FILE_CHECK, listDeclaredChildren(getConfigGate()));
+    const check = findCheck(SCOPE_DESCRIPTION_CHECK, listDeclaredChildren(labelsFileCheck));
 
     expect(check.severity).toBe('warn');
     expect(check.skip).toBeUndefined();

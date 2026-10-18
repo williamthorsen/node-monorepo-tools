@@ -98,27 +98,29 @@ export const packagesChecklist = defineRdyChecklist({
       fix: 'Ensure pnpm-workspace.yaml lists package globs, or that a root package.json exists',
     },
   ],
-  // The session gate is a sibling of the workspace rows, not their parent, so a session that cannot answer trust
-  // queries suppresses only the trusted-publisher rows and leaves the package.json checks reporting. The gate's skip
-  // therefore does not cover the rows, and this getter omits them for a repo that publishes nothing.
-  get checks(): readonly RdyCheck[] {
-    const sessionCheck = buildSessionCheck();
-    if (skipIfNothingPublishable() !== false) {
-      return [sessionCheck];
-    }
-
-    return [
-      sessionCheck,
-      ...discoverWorkspaces({ filter: belongsInPackagesChecklist }).map((workspace) => buildWorkspaceCheck(workspace)),
-    ];
-  },
+  checks: [
+    {
+      name: 'Repo publishes at least one package',
+      skip: () => skipIfNothingPublishable(),
+      check: () => true,
+      // Built when the checklist runs, so that the kit declares the same checks wherever it is imported. The session
+      // gate is a sibling of the workspace rows, not their parent, so a session that cannot answer trust queries
+      // suppresses only the trusted-publisher rows and leaves the package.json checks reporting.
+      checks: () => [
+        buildSessionCheck(),
+        ...discoverWorkspaces({ filter: belongsInPackagesChecklist }).map((workspace) =>
+          buildWorkspaceCheck(workspace),
+        ),
+      ],
+    },
+  ],
 });
 
 export default defineRdyKit({
   fixLocation: 'inline',
-  // The release that introduced `CheckOutcome.fix`, on which the provenance check's remediation depends. Because an
-  // older runner drops that `fix` silently, failing to load the kit is the lesser harm.
-  minReadyupVersion: '0.37.0',
+  // The release that introduced a function-valued `checks`, which builds the per-package rows. An older runner rejects
+  // it when validating the kit.
+  minReadyupVersion: '0.42.0',
   checklists: [repoChecklist, packagesChecklist],
 });
 
@@ -143,7 +145,6 @@ function belongsInPackagesChecklist(workspace: Workspace): boolean {
 function buildSessionCheck(): RdyCheck {
   return {
     name: 'npm session can answer trust queries',
-    skip: () => skipIfNothingPublishable(),
     check: () => {
       const capability = getCachedTrustCapability();
       return capability.ok ? { ok: true } : { ok: false, detail: capability.detail };
