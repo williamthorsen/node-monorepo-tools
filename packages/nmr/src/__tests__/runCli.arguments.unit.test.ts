@@ -290,11 +290,11 @@ describe(runCli, () => {
       expect(mockedRunSteps).toHaveBeenCalledTimes(1);
     });
 
-    it('runs here under --no-delegate and withholds NMR_DELEGATE from the steps', async ({ tree }) => {
+    it('runs here under --no-delegate and passes an empty NMR_DELEGATE to the steps', async ({ tree }) => {
       const { exitCode } = await runNmr(['--no-delegate', 'lint'], tree.dir, { [DELEGATE_ENV_VAR]: 'box' });
 
       expect(exitCode).toBe(0);
-      expect(mockedRunSteps.mock.calls[0]?.[2].env).not.toHaveProperty(DELEGATE_ENV_VAR);
+      expect(mockedRunSteps.mock.calls[0]?.[2].env).toHaveProperty(DELEGATE_ENV_VAR, '');
     });
 
     it.for([['--delegate'], ['--delegate-to', 'box'], ['--delegate-to=box'], ['--no-delegate']])(
@@ -357,7 +357,7 @@ describe(runCli, () => {
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
 
-    it('runs a -F invocation here', async ({ tree }) => {
+    it('runs a -F invocation here, and its children with an empty NMR_DELEGATE', async ({ tree }) => {
       tree.write('xdg/nmr/config.ts', ALWAYS);
 
       const { stderr } = await runNmrReadingStderr(['-F', 'my-pkg', 'typecheck'], tree.dir, {
@@ -366,6 +366,15 @@ describe(runCli, () => {
 
       expect(stderr).not.toContain('imac2');
       expect(mockedRunSteps).toHaveBeenCalledTimes(1);
+      expect(mockedRunSteps.mock.calls[0]?.[2].env).toHaveProperty(DELEGATE_ENV_VAR, '');
+    });
+
+    it('passes an empty NMR_DELEGATE to the steps of a run that the user config left here', async ({ tree }) => {
+      tree.write('xdg/nmr/config.ts', `export default { delegate: { hosts: ['imac2'], when: 'agent' } };`);
+
+      await runNmr(['lint'], tree.dir, { XDG_CONFIG_HOME: path.join(tree.dir, 'xdg') });
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].env).toHaveProperty(DELEGATE_ENV_VAR, '');
     });
   });
 
