@@ -32,10 +32,6 @@ export const NO_DELEGATE_FLAG = '--no-delegate';
 /** Keeps `ssh` from prompting or waiting on a terminal, and bounds the wait for a host that does not answer. */
 export const SSH_OPTIONS: readonly string[] = ['-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10'];
 
-/** Where a delegation runs, or why the invocation cannot run where it asked to. */
-export type DelegationTarget =
-  { kind: 'local' } | { kind: 'remote'; hosts: HostList; source: 'env' | 'flag' } | { kind: 'refused'; error: string };
-
 /** Candidate hosts in order of preference. */
 export type HostList = readonly [string, ...string[]];
 
@@ -73,59 +69,6 @@ export function formatMisplacedDelegationWarning(command: string, style: OutputS
     `command name are passed to \`${command}\`, not read by nmr. Write them before it: ` +
     `\`nmr ${DELEGATE_TO_FLAG} <host> ${command}\`.`
   );
-}
-
-/**
- * Decides where an invocation runs. `--no-delegate` outranks `--delegate-to` and `--delegate`, which outrank
- * `NMR_DELEGATE`. `--delegate-to` and the variable each name candidate hosts as a comma-separated list, in order of
- * preference; `--delegate` takes the variable's.
- *
- * A command that rewrites the tree, or that runs until it is stopped, cannot be delegated, and neither can `--log`,
- * which reads this machine's recordings. Asked for by a flag, such an invocation is refused; asked for by the
- * variable, which sets a default for every invocation, it runs here.
- */
-export function resolveDelegationTarget(options: {
-  command: string;
-  env: NodeJS.ProcessEnv;
-  flagValue: string | undefined;
-  isOptedOut: boolean;
-  isReading: boolean;
-  shouldDelegate: boolean;
-}): DelegationTarget {
-  const { command, env, flagValue, isOptedOut, isReading, shouldDelegate } = options;
-  if (isOptedOut) {
-    return { kind: 'local' };
-  }
-
-  const isDelegable = !isReading && !NON_DELEGABLE_COMMANDS.has(command);
-  const envHosts = parseHostList(env[DELEGATE_ENV_VAR] ?? '');
-
-  if (flagValue !== undefined || shouldDelegate) {
-    const hosts = flagValue === undefined ? envHosts : parseHostList(flagValue);
-    if (hosts === undefined) {
-      return {
-        kind: 'refused',
-        error:
-          flagValue === undefined
-            ? `${DELEGATE_FLAG} needs hosts: set ${DELEGATE_ENV_VAR}, or name them with ${DELEGATE_TO_FLAG} <host,...>.`
-            : `${DELEGATE_TO_FLAG} requires a host: "${flagValue}" does not name a host.`,
-      };
-    }
-    if (isDelegable) {
-      return { kind: 'remote', hosts, source: 'flag' };
-    }
-    const subject = isReading ? '--log' : `\`${command}\``;
-    return {
-      kind: 'refused',
-      error: `${subject} cannot be delegated: it ${isReading ? "reads this machine's recordings" : 'rewrites the working tree or runs until stopped'}. Run it without ${flagValue === undefined ? DELEGATE_FLAG : DELEGATE_TO_FLAG}.`,
-    };
-  }
-
-  if (envHosts !== undefined && isDelegable) {
-    return { kind: 'remote', hosts: envHosts, source: 'env' };
-  }
-
-  return { kind: 'local' };
 }
 
 /**
@@ -311,14 +254,6 @@ const COMMAND_NOT_FOUND_EXIT_CODE = 127;
 /** Bounds each end of a phase's captured output. */
 const PHASE_OUTPUT_LIMIT_BYTES = 65_536;
 
-/** Commands that rewrite the working tree or run until stopped, which a delegation could not report back. */
-const NON_DELEGABLE_BASE_COMMANDS = ['build', 'clean', 'compile', 'fix', 'fmt', 'lint', 'test:watch', 'upgrade'];
-
-const NON_DELEGABLE_COMMANDS: ReadonlySet<string> = new Set([
-  ...NON_DELEGABLE_BASE_COMMANDS,
-  ...NON_DELEGABLE_BASE_COMMANDS.map((command) => `root:${command}`),
-]);
-
 /** The ref on the host to which each snapshot is pushed; it is not a branch, so a push never touches `HEAD`. */
 const SNAPSHOT_REF = 'refs/nmr/delegate';
 
@@ -349,17 +284,6 @@ function forwardChunk(chunk: Buffer, stream: Writable | undefined, buffer: Bound
     return;
   }
   stream.write(chunk);
-}
-
-/**
- * Splits a comma-separated host list, dropping whitespace, empty entries, and repeats. Returns `undefined` when the
- * value does not name a host.
- */
-function parseHostList(value: string): HostList | undefined {
-  const names = value.split(',').map((host) => host.trim());
-  const [first, ...rest] = new Set(names.filter((host) => host !== ''));
-
-  return first === undefined ? undefined : [first, ...rest];
 }
 
 /**

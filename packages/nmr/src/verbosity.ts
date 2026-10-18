@@ -31,6 +31,20 @@ export function formatVerbosityRejection(source: string, value: string): string 
   return `${source} is \`${value}\`, which is not one of: ${COMMAND_VERBOSITIES.join(', ')}`;
 }
 
+/**
+ * Reports whether the environment contains a marker of a known agent harness. Keys on a variable's name and a
+ * non-empty value: The value convention belongs to the harness, so only a name-only rule keeps working when a
+ * harness changes it.
+ */
+export function hasAgentMarker(env: NodeJS.ProcessEnv, extraNames: readonly string[] | undefined): boolean {
+  const names = extraNames === undefined ? AGENT_ENV_VARS : [...AGENT_ENV_VARS, ...extraNames];
+
+  return names.some((name) => {
+    const value = env[name];
+    return value !== undefined && value !== '';
+  });
+}
+
 /** Narrows a raw value to a point on the loudness ladder. */
 export function isCommandVerbosity(value: string): value is CommandVerbosity {
   const names: readonly string[] = COMMAND_VERBOSITIES;
@@ -87,21 +101,3 @@ export function resolveVerbosity(options: ResolveVerbosityOptions): CommandVerbo
 
 /** The verbosity that the environment names, if any, or the message naming why its value could not be read. */
 export type VerbosityRead = { ok: true; verbosity?: CommandVerbosity } | { ok: false; error: string };
-
-// region | Helpers
-
-/**
- * Reports whether the environment contains a marker of a known agent harness. Keys on a variable's name and a
- * non-empty value: The value convention belongs to the harness, so only a name-only rule keeps working when a
- * harness changes it.
- */
-function hasAgentMarker(env: NodeJS.ProcessEnv, extraNames: readonly string[] | undefined): boolean {
-  const names = extraNames === undefined ? AGENT_ENV_VARS : [...AGENT_ENV_VARS, ...extraNames];
-
-  return names.some((name) => {
-    const value = env[name];
-    return value !== undefined && value !== '';
-  });
-}
-
-// endregion | Helpers

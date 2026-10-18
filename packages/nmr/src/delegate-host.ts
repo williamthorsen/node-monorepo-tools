@@ -5,6 +5,7 @@ import { reportError } from '@williamthorsen/nmr-core';
 
 import { NO_CACHE_ENV_VAR, resolveRunId, writeDebugNote } from './check-cache.ts';
 import { buildChildEnv, buildRemoteEnv } from './child-env.ts';
+import { resolveDelegationTarget } from './delegation-target.ts';
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
 import type { ExecutionTarget, Invocation, PhaseResult, RunCliResult, RunPlan } from './invocation.ts';
 import { isDelegationFlag, type ParsedArgs } from './invocation-args.ts';
@@ -15,11 +16,11 @@ import {
   deriveCheckoutPath,
   formatMisplacedDelegationWarning,
   type HostList,
-  resolveDelegationTarget,
   runRemotely,
 } from './remote-run.ts';
 import { createSnapshot } from './remote-snapshot.ts';
 import type { RetainedOutput } from './runner.ts';
+import { loadUserConfig } from './user-config.ts';
 import type { VerdictOutcome } from './verdict.ts';
 
 /** How a run on the host ended, or that the invocation runs here after all. */
@@ -43,8 +44,8 @@ export type HostRunResult =
  * Decides where the invocation runs, warning about a delegation flag that the command will receive as an argument.
  * Settles an invocation whose delegation is refused.
  */
-export function resolveExecutionTarget(invocation: Invocation): PhaseResult<ExecutionTarget> {
-  const { command, env, parsedArgs, stderr, styles } = invocation;
+export async function resolveExecutionTarget(invocation: Invocation): Promise<PhaseResult<ExecutionTarget>> {
+  const { command, context, env, parsedArgs, stderr, styles } = invocation;
 
   // A delegation flag past the command name is an argument to the command, so the command runs wherever the flags
   // before it say. Without this warning, the developer would believe that it ran elsewhere.
@@ -52,12 +53,16 @@ export function resolveExecutionTarget(invocation: Invocation): PhaseResult<Exec
     stderr.write(`${formatMisplacedDelegationWarning(command, styles.stderr)}\n`);
   }
 
-  const target = resolveDelegationTarget({
+  const target = await resolveDelegationTarget({
     command,
     env,
+    extraAgentEnvVars: context.config.output?.extraAgentEnvVars,
     flagValue: parsedArgs.delegateHosts,
+    isFanOut: parsedArgs.filter !== undefined || parsedArgs.recursive,
     isOptedOut: parsedArgs.shouldRunLocally,
     isReading: parsedArgs.shouldPrintLog,
+    isRepoOptedOut: context.config.delegate === false,
+    readUserConfig: () => loadUserConfig(env),
     shouldDelegate: parsedArgs.shouldDelegate,
   });
   if (target.kind === 'refused') {

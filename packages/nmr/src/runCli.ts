@@ -60,7 +60,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   }
   const invocation = established.value;
 
-  const resolvedTarget = resolveExecutionTarget(invocation);
+  const resolvedTarget = await resolveExecutionTarget(invocation);
   if (resolvedTarget.settled) {
     return { exitCode: resolvedTarget.result.exitCode };
   }

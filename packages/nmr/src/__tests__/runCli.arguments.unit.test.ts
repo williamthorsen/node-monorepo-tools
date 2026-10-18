@@ -310,6 +310,65 @@ describe(runCli, () => {
     );
   });
 
+  describe('delegation by the user config', () => {
+    const ALWAYS = `export default { delegate: { hosts: ['imac2'], when: 'always' } };`;
+
+    it('reads the user config under XDG_CONFIG_HOME and delegates to its hosts', async ({ tree }) => {
+      tree.write('xdg/nmr/config.ts', ALWAYS);
+
+      const { stderr } = await runNmrReadingStderr(['typecheck'], tree.dir, {
+        XDG_CONFIG_HOME: path.join(tree.dir, 'xdg'),
+      });
+
+      expect(stderr).toContain('running typecheck here rather than on imac2: not a git repository');
+      expect(mockedRunSteps).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads the user config under HOME when XDG_CONFIG_HOME is unset', async ({ tree }) => {
+      tree.write('.config/nmr/config.ts', ALWAYS);
+
+      const { stderr } = await runNmrReadingStderr(['typecheck'], tree.dir, { HOME: tree.dir });
+
+      expect(stderr).toContain('rather than on imac2');
+    });
+
+    it('runs here without reading the user config when the repo declares delegate: false', async ({ tree }) => {
+      writeConfig(tree, { delegate: false });
+      tree.write('xdg/nmr/config.ts', `export default { delegate: 'invalid' };`);
+
+      const { exitCode, stderr } = await runNmrReadingStderr(['typecheck'], tree.dir, {
+        XDG_CONFIG_HOME: path.join(tree.dir, 'xdg'),
+      });
+
+      expect(exitCode).toBe(0);
+      expect(stderr).toBe('');
+    });
+
+    it('fails a run that reaches the user config when the config is invalid, naming the file and the key', async ({
+      tree,
+    }) => {
+      tree.write('xdg/nmr/config.ts', `export default { delegate: { when: 'agent' } };`);
+
+      await expect(
+        runNmrReadingStderr(['typecheck'], tree.dir, { XDG_CONFIG_HOME: path.join(tree.dir, 'xdg') }),
+      ).rejects.toThrow(
+        `Invalid nmr config at ${path.join(tree.dir, 'xdg', 'nmr', 'config.ts')}: \`delegate.hosts\` must be`,
+      );
+      expect(mockedRunSteps).not.toHaveBeenCalled();
+    });
+
+    it('runs a -F invocation here', async ({ tree }) => {
+      tree.write('xdg/nmr/config.ts', ALWAYS);
+
+      const { stderr } = await runNmrReadingStderr(['-F', 'my-pkg', 'typecheck'], tree.dir, {
+        XDG_CONFIG_HOME: path.join(tree.dir, 'xdg'),
+      });
+
+      expect(stderr).not.toContain('imac2');
+      expect(mockedRunSteps).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('misplaced nmr flags', () => {
     const HINT_TAIL = 'nmr reads its flags only before the command:';
 
