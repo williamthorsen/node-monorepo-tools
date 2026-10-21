@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../defaults.ts';
+import type { ReleaseWindow } from '../enumerateReleaseWindows.ts';
 import { block, fakeHash, makeConfig, makeWindow, mergeMessage, OPTIONS } from '../test-utils/changelogCommits.ts';
+import { makeWorkspaceTarget } from '../test-utils/packageTargets.ts';
 import type { ChangelogSection } from '../types.ts';
 
 const { mockEnumerateReleaseWindows, mockWriteFileSync } = await vi.hoisted(
@@ -18,7 +20,8 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-import { readReleaseHistory } from '../buildChangelogEntries.ts';
+import { readReleaseHistory, type ReleaseHistory } from '../buildChangelogEntries.ts';
+import { decideTargetRelease } from '../prepareTarget.ts';
 
 describe(readReleaseHistory, () => {
   beforeEach(() => {
@@ -192,15 +195,68 @@ entries:
       expect(readRouted([message], 'release-kit').bump).toBe('major');
     });
 
-    it('counts a block commit whose entries are all routed to other workspaces as neither parsed nor unparseable', () => {
+    it('classifies a block commit whose entries are all routed to other workspaces by its title', () => {
       const unreleased = readRouted(
-        [mergeMessage('entries:\n  - type: feat\n    scopes: [nmr]\n    text: A.')],
+        [mergeMessage('entries:\n  - type: fix\n    scopes: [nmr]\n    text: A.')],
+        'arrays',
+      );
+
+      expect(unreleased.bump).toBe('minor');
+      expect(unreleased.parsedCommitCount).toBe(1);
+      expect(describeItems(unreleased.sections)).toStrictEqual(['Read the change record (#42)']);
+      expect(unreleased.unparseableCommits).toBeUndefined();
+    });
+
+    it('releases a dependency whose source change has every entry scoped to its dependent', () => {
+      const message = mergeMessage(
+        `
+entries:
+  - type: perf
+    scopes: [nmr]
+    text: Keys the check cache on the tree id.
+  - type: fix
+    scopes: [nmr]
+    text: Fixes the delegated snapshot.
+`,
+        "#1073 nmr|fix: Key the check cache on the working tree's git tree id (#1078)",
+      );
+
+      const history = readReleaseHistoryOf([makeWindow('unreleased', [message])], 'nmr-core');
+      const decision = decideTargetRelease(makeWorkspaceTarget('nmr-core'), history, {
+        force: false,
+        bumpOverride: undefined,
+        setVersion: undefined,
+      });
+
+      expect(history.unreleased.bump).toBe('patch');
+      expect(describeItems(history.unreleased.sections)).toStrictEqual([
+        "Key the check cache on the working tree's git tree id (#1078)",
+      ]);
+      expect(decision).toMatchObject({ outcome: 'release', releaseType: 'patch' });
+    });
+
+    it('keeps a routed entry that yields no item from falling back to the title', () => {
+      const unreleased = readRouted(
+        [
+          mergeMessage(
+            'entries:\n  - type: fmt\n    scopes: [arrays]\n    text: Formats.\n  - type: feat\n    scopes: [nmr]\n    text: A.',
+          ),
+        ],
         'arrays',
       );
 
       expect(unreleased.bump).toBeUndefined();
-      expect(unreleased.parsedCommitCount).toBe(0);
-      expect(unreleased.unparseableCommits).toBeUndefined();
+      expect(unreleased.sections).toStrictEqual([]);
+    });
+
+    it('reports an unticketed commit whose entries are all routed to other workspaces as unparseable', () => {
+      const unreleased = readRouted(
+        [mergeMessage('entries:\n  - type: feat\n    scopes: [nmr]\n    text: A.', 'Add the reader')],
+        'arrays',
+      );
+
+      expect(unreleased.bump).toBeUndefined();
+      expect(unreleased.unparseableCommits).toHaveLength(1);
     });
 
     it('keeps the item of a commit without a block', () => {
@@ -219,6 +275,18 @@ entries:
         'Covers everything.',
         'Covers every workspace.',
       ]);
+    });
+
+    it('classifies a released commit whose entries are all routed to other workspaces by its title', () => {
+      const history = readReleaseHistoryOf(
+        [
+          makeWindow('unreleased', []),
+          makeWindow('v1.0.0', [mergeMessage('entries:\n  - type: fix\n    scopes: [nmr]\n    text: A.')]),
+        ],
+        'arrays',
+      );
+
+      expect(describeItems(history.releasedEntries[0]?.sections ?? [])).toStrictEqual(['Read the change record (#42)']);
     });
   });
 
@@ -268,10 +336,15 @@ function describeItems(sections: readonly ChangelogSection[]): string[] {
   return sections.flatMap((section) => section.items.map((item) => item.description));
 }
 
+/** Reads, for `scope`, a history made of `windows`, the unreleased one first. */
+function readReleaseHistoryOf(windows: readonly ReleaseWindow[], scope: string): ReleaseHistory {
+  mockEnumerateReleaseWindows.mockReturnValueOnce([...windows]);
+  return readReleaseHistory(routedConfig(), { ...OPTIONS, scope });
+}
+
 /** Reads, for `scope`, a history whose only window is an unreleased one containing `messages`, oldest first. */
-function readRouted(messages: readonly string[], scope: string): ReturnType<typeof readReleaseHistory>['unreleased'] {
-  mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('unreleased', messages)]);
-  return readReleaseHistory(routedConfig(), { ...OPTIONS, scope }).unreleased;
+function readRouted(messages: readonly string[], scope: string): ReleaseHistory['unreleased'] {
+  return readReleaseHistoryOf([makeWindow('unreleased', messages)], scope).unreleased;
 }
 
 /** Reads a history whose only window is an unreleased one containing `messages`, oldest first. */
