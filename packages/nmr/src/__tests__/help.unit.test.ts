@@ -47,11 +47,12 @@ describe(generateHelp, () => {
     expect(help).toContain('NMR_OUTPUT_STYLE');
   });
 
-  it('names the user config file', () => {
+  it('names the user config file and its fallback when no host answers', () => {
     const help = generateHelp({}, NON_WORKSPACE_DIR, undefined, false);
 
     expect(help).toContain('~/.config/nmr/config.ts     User config');
     expect(help).toContain('$XDG_CONFIG_HOME/nmr/config.ts');
+    expect(help).toContain('A command that it sends runs here when no host answers');
   });
 
   it('does not show a host after --delegate', () => {

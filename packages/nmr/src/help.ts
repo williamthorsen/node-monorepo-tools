@@ -86,6 +86,7 @@ export function generateHelp(
     'Files:',
     "  ~/.config/nmr/config.ts     User config: this machine's delegation hosts, and when to use them",
     '                              ($XDG_CONFIG_HOME/nmr/config.ts when that is set)',
+    '                              A command that it sends runs here when no host answers',
     '',
     'Workspace commands:',
   ];
