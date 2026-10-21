@@ -5,6 +5,7 @@ import {
   buildTitleItem,
   type ChangelogDiagnostics,
   type DerivedItem,
+  hasRoutedEntry,
   type ReadContext,
 } from './buildChangelogItem.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
@@ -50,9 +51,9 @@ export function buildChangelogEntries(
  * Reads a scope's release windows once and returns the changelog items of every window, with what the unreleased
  * window decides: its commits, its bump, and its diagnostics.
  *
- * A commit whose last `change-record` block records entries yields one item per entry routed to
- * `options.scope`; any other commit is classified by its title through `classifyChangelogCommit`. A `release:`
- * or merge subject yields nothing either way. The read records diagnostics only for the unreleased window, since the
+ * A commit whose last `change-record` block records at least one entry routed to `options.scope` yields one item per
+ * routed entry; any other commit, including one whose entries all route elsewhere, is classified by its title through
+ * `classifyChangelogCommit`. A `release:` or merge subject yields nothing either way. The read records diagnostics only for the unreleased window, since the
  * released windows were reported when they were prepared.
  */
 export function readReleaseHistory(config: ReleaseHistoryConfig, options: GenerateChangelogOptions): ReleaseHistory {
@@ -187,7 +188,8 @@ function formatDate(timestamp: number): string {
 }
 
 /**
- * Reads the items that one commit yields.
+ * Reads the items that one commit yields: those of its routed change-record entries when it has any, and otherwise
+ * the item that its title yields.
  *
  * `isUnparseable` is true for a commit that doesn't yield any item, because its title lacks a ticket prefix or a
  * resolvable type, and that isn't already reported by any malformed-block diagnostic. `diagnostics` is undefined for a
@@ -210,7 +212,9 @@ function readCommit(
       reason: reading.reason,
     });
   }
-  if (reading.kind === 'read' && reading.entries.length > 0) {
+  // A block whose entries all route elsewhere leaves the commit to its title, because the commit still changed files
+  // in this workspace's window.
+  if (reading.kind === 'read' && reading.entries.length > 0 && hasRoutedEntry(reading.entries, context.routing)) {
     const items = reading.entries.flatMap(
       (entry, entryIndex) =>
         buildEntryItem(commit, entry, entryIndex + 1, reading.prNumber, context, diagnostics) ?? [],

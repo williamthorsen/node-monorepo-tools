@@ -149,6 +149,11 @@ export interface DerivedItem {
   signal: BumpSignal;
 }
 
+/** Reports whether any of `entries` is routed to the workspace of `routing`; always true for a read without routing. */
+export function hasRoutedEntry(entries: readonly ChangeRecordEntry[], routing: EntryRouting | undefined): boolean {
+  return routing === undefined || entries.some((entry) => isRoutedTo(entry.scopes, routing));
+}
+
 /** What every window's read shares. */
 export interface ReadContext {
   breakingPolicies: NonNullable<ReleaseSettings['breakingPolicies']>;

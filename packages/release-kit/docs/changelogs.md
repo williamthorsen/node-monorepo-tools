@@ -93,9 +93,11 @@ A workspace's window contains every commit that touches the workspace's paths. A
 
 A scope narrows the window and never widens it: A scope that names a workspace whose window does not contain the commit doesn't route the item to any workspace, and `prepare` reports it (see [Reported diagnostics](#reported-diagnostics)). A composite's changelog, such as the project changelog, and a single-package repo take every entry, whatever its scopes.
 
-A workspace's bump reads the items routed to it, so a breaking entry scoped to one workspace does not raise a major bump in another that the same commit touched. A workspace whose window has commits but lacks a routed item doesn't call for a release.
+The window decides whether a workspace releases, and the scopes decide only what its changelog says. When none of a commit's entries routes to a workspace whose window contains the commit, release-kit reads the commit for that workspace from its title, as it reads a commit without a block: The title's type counts toward the workspace's bump, and the title's item enters its changelog. A commit with at least one entry routed to the workspace is read from its routed entries alone, even when none of them yields an item.
 
-Each `prepare` rebuilds a workspace's released windows with the same routing. When an earlier release recorded an item under a workspace that the item's scopes do not name, the rebuild removes the item from that workspace's past section. A path window does not follow a renamed directory, and legacy identities do not rename scopes: An entry scoped to a workspace's old directory name is routed to the workspace only through a `scopeAliases` entry from the old name to the new one, and until one exists, `prepare` reports the scope for each such commit in the unreleased window.
+A workspace's bump reads the items routed to it, so a breaking entry scoped to one workspace does not raise a major bump in another workspace that has a routed entry of its own. A workspace read from the title takes the title's breaking marker; an entry scoped to that workspace keeps its bump at the entry's level.
+
+Each `prepare` rebuilds a workspace's released windows with the same routing, the fallback to the title included. When an earlier release recorded an item under a workspace that the item's scopes do not name, the rebuild removes the item from that workspace's past section. A path window does not follow a renamed directory, and legacy identities do not rename scopes: An entry scoped to a workspace's old directory name is routed to the workspace only through a `scopeAliases` entry from the old name to the new one, and until one exists, `prepare` reports the scope for each such commit in the unreleased window.
 
 ## Change-record blocks
 
@@ -128,7 +130,7 @@ An entry whose type is excluded from the changelog doesn't yield an item. An ove
 
 ### Fallback to the title
 
-A commit is read from its title, as [Which commits appear in a changelog](#which-commits-appear-in-a-changelog) describes, when it doesn't have a block, when the block's `entries` is absent or empty, or when the block is malformed. A block is malformed when it never closes, when its payload is not valid YAML or not a mapping, when `entries` is not a list, when an entry is not a mapping, when an entry's `type` or `text` is missing, blank, or not a string, when `breaking` is not a boolean, when `scopes` is not a list of strings, when `migration` or `ticket_ref` is not a string, or when `pr_number` is not a positive integer. One defect makes the whole block malformed.
+A commit is read from its title, as [Which commits appear in a changelog](#which-commits-appear-in-a-changelog) describes, when it doesn't have a block, when the block's `entries` is absent or empty, when none of its entries routes to the workspace being read (see [Routing to workspaces](#routing-to-workspaces)), or when the block is malformed. A block is malformed when it never closes, when its payload is not valid YAML or not a mapping, when `entries` is not a list, when an entry is not a mapping, when an entry's `type` or `text` is missing, blank, or not a string, when `breaking` is not a boolean, when `scopes` is not a list of strings, when `migration` or `ticket_ref` is not a string, or when `pr_number` is not a positive integer. One defect makes the whole block malformed.
 
 ### Reported diagnostics
 
@@ -139,7 +141,7 @@ A commit is read from its title, as [Which commits appear in a changelog](#which
 - **An entry that violates its type's breaking policy**, as a policy violation at the entry's position. Its item is not marked breaking.
 - **An entry scope that doesn't name a workspace in its commit's window**, with the commit's hash, the entry's position, and the scope as the entry declares it. release-kit reports it under every workspace whose window contains the commit. A scope that names nothing, or a workspace whose window does not contain the commit, is reported; `*`, `root`, and a scope that names a workspace in the window are not. Under `--only`, a scope that names a configured workspace left out of the run is not reported either. A workspace excluded with `shouldExclude: true` or a `releases` entry of `false` is not a configured workspace, so a scope that names one is reported.
 
-The result that `prepare` returns includes these as `malformedBlocks`, `undeclaredEntryTypes`, `policyViolations` entries whose `surface` is `'entry'`, and `unroutedEntryScopes`, whether the target releases or is skipped. Because a block whose entries are all undeclared or excluded doesn't yield an item, the commit doesn't raise a bump.
+The result that `prepare` returns includes these as `malformedBlocks`, `undeclaredEntryTypes`, `policyViolations` entries whose `surface` is `'entry'`, and `unroutedEntryScopes`, whether the target releases or is skipped. Because a block whose routed entries are all undeclared or excluded doesn't yield an item, the commit doesn't raise a bump.
 
 ## Release-notes injection
 
