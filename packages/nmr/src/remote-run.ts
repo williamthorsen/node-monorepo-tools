@@ -29,6 +29,9 @@ export const DELEGATION_FAILURE_EXIT_CODE = 255;
 /** The flag that runs the command here, whatever `NMR_DELEGATE` or the user config says. */
 export const NO_DELEGATE_FLAG = '--no-delegate';
 
+/** Names the ssh command that the environment supplies, which git and nmr run in place of plain `ssh`. */
+export const SSH_COMMAND_ENV_VAR = 'GIT_SSH_COMMAND';
+
 /** Keeps `ssh` from prompting or waiting on a terminal, and bounds the wait for a host that does not answer. */
 export const SSH_OPTIONS: readonly string[] = ['-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10'];
 
@@ -46,6 +49,31 @@ export type RemotePhase = 'check out' | 'install' | 'prepare' | 'push' | 'run';
 export type RemoteRunResult =
   | { ok: true; exitCode: number; passes: unknown[]; waitedMs: number }
   | { ok: false; message: string; output: string; phase: RemotePhase; waitedMs: number };
+
+/**
+ * Returns the `GIT_SSH_COMMAND` with which `git push` reaches the host: the environment's ssh command, or plain
+ * `ssh`, followed by nmr's own options.
+ *
+ * @internal
+ */
+export function composeGitSshCommand(env: NodeJS.ProcessEnv): string {
+  return [resolveSshCommand(env) ?? 'ssh', ...SSH_OPTIONS].join(' ');
+}
+
+/**
+ * Returns the argv that runs `remoteCommand` on `host` with nmr's own options. An ssh command in the environment
+ * runs under `/bin/sh` with the arguments appended, as git runs it, because it may contain shell quoting.
+ *
+ * @internal
+ */
+export function composeSshArgv(env: NodeJS.ProcessEnv, host: string, remoteCommand: string): string[] {
+  const sshCommand = resolveSshCommand(env);
+  const sshArgs = [...SSH_OPTIONS, host, remoteCommand];
+
+  return sshCommand === undefined
+    ? ['ssh', ...sshArgs]
+    : ['/bin/sh', '-c', `${sshCommand} "$@"`, sshCommand, ...sshArgs];
+}
 
 /**
  * Returns the checkout's path on the host, relative to its home directory: a key derived from this machine and the
@@ -119,7 +147,7 @@ export async function runRemotely(options: {
       `${host}:${checkoutPath}`,
       `${snapshot.sha}:${SNAPSHOT_REF}`,
     ],
-    { cwd: snapshot.toplevel, env: { ...env, GIT_SSH_COMMAND: ['ssh', ...SSH_OPTIONS].join(' ') } },
+    { cwd: snapshot.toplevel, env: { ...env, [SSH_COMMAND_ENV_VAR]: composeGitSshCommand(env) } },
   );
   if (push.exitCode !== 0) {
     return { ok: false, message: `could not push to ${host}`, output: push.output, phase: 'push', waitedMs: 0 };
@@ -168,7 +196,7 @@ export async function runRemotely(options: {
       statusFile,
     },
   });
-  const session = await runProcess(['ssh', ...SSH_OPTIONS, host, wrapRemoteScript(script)], {
+  const session = await runProcess(composeSshArgv(env, host, wrapRemoteScript(script)), {
     env,
     isStreaming: true,
     stderr: demultiplexer.stream,
@@ -212,7 +240,7 @@ export function runSsh(
   env: NodeJS.ProcessEnv,
   signal?: AbortSignal,
 ): Promise<{ exitCode: number; output: string }> {
-  return runProcess(['ssh', ...SSH_OPTIONS, host, wrapRemoteScript(script)], { env, signal });
+  return runProcess(composeSshArgv(env, host, wrapRemoteScript(script)), { env, signal });
 }
 
 /**
@@ -284,6 +312,13 @@ function forwardChunk(chunk: Buffer, stream: Writable | undefined, buffer: Bound
     return;
   }
   stream.write(chunk);
+}
+
+/** Returns the environment's ssh command, or `undefined` when the variable is unset or empty. */
+function resolveSshCommand(env: NodeJS.ProcessEnv): string | undefined {
+  const sshCommand = env[SSH_COMMAND_ENV_VAR];
+
+  return sshCommand === undefined || sshCommand === '' ? undefined : sshCommand;
 }
 
 /**

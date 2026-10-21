@@ -1,6 +1,45 @@
 import { describe, expect, it } from 'vitest';
 
-import { deriveCheckoutPath, wrapRemoteScript } from '../remote-run.ts';
+import {
+  composeGitSshCommand,
+  composeSshArgv,
+  deriveCheckoutPath,
+  SSH_COMMAND_ENV_VAR,
+  SSH_OPTIONS,
+  wrapRemoteScript,
+} from '../remote-run.ts';
+
+const WRAPPER_COMMAND = `'/opt/my ssh' -o ProxyCommand="nc %h %p"`;
+
+describe(composeGitSshCommand, () => {
+  it("appends nmr's options to the environment's ssh command", () => {
+    expect(composeGitSshCommand({ [SSH_COMMAND_ENV_VAR]: WRAPPER_COMMAND })).toBe(
+      [WRAPPER_COMMAND, ...SSH_OPTIONS].join(' '),
+    );
+  });
+
+  it.each([{ [SSH_COMMAND_ENV_VAR]: '' }, {}])('falls back to plain ssh for %o', (env) => {
+    expect(composeGitSshCommand(env)).toBe(['ssh', ...SSH_OPTIONS].join(' '));
+  });
+});
+
+describe(composeSshArgv, () => {
+  it("runs the environment's ssh command under /bin/sh with nmr's options, the host, and the command as arguments", () => {
+    expect(composeSshArgv({ [SSH_COMMAND_ENV_VAR]: WRAPPER_COMMAND }, 'imac2', 'true')).toStrictEqual([
+      '/bin/sh',
+      '-c',
+      `${WRAPPER_COMMAND} "$@"`,
+      WRAPPER_COMMAND,
+      ...SSH_OPTIONS,
+      'imac2',
+      'true',
+    ]);
+  });
+
+  it.each([{ [SSH_COMMAND_ENV_VAR]: '' }, {}])('runs plain ssh for %o', (env) => {
+    expect(composeSshArgv(env, 'imac2', 'true')).toStrictEqual(['ssh', ...SSH_OPTIONS, 'imac2', 'true']);
+  });
+});
 
 describe(deriveCheckoutPath, () => {
   it('keys the checkout by machine and repository and ends with the repository name', () => {
