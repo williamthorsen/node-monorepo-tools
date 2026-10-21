@@ -355,7 +355,8 @@ async function recallPass(plan: RunPlan, gate: Gate): Promise<GatedResult | unde
 
 /**
  * Runs a delegated plan on its host and records the pass that the host earns. Returns `undefined` when the plan is
- * not delegated, or when its tree cannot be delegated and it runs here instead.
+ * not delegated, or when it runs here instead: its tree cannot be snapshotted, or none of the hosts that the user
+ * config named answered.
  */
 async function runOnHost(plan: RunPlan, gate: Gate | undefined): Promise<GatedResult | undefined> {
   if (plan.target.kind !== 'remote') {

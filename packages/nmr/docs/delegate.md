@@ -48,7 +48,7 @@ The first rule that applies decides where a command runs:
 | 3   | The repo config declares `delegate: false`                                              | Here                                                                                                               |
 | 4   | `NMR_DELEGATE` names hosts                                                              | On a host; a command that cannot be delegated runs here, and a tree that cannot be snapshotted, here with one line |
 | 5   | `NMR_DELEGATE` is set but does not name a host                                          | Here                                                                                                               |
-| 6   | The user config's `when` matches, `CI` is unset, and the invocation is not `-F` or `-R` | On a host, as for rule 4                                                                                           |
+| 6   | The user config's `when` matches, `CI` is unset, and the invocation is not `-F` or `-R` | On a host, as for rule 4; here with one line when no host answers                                                  |
 | 7   | Otherwise                                                                               | Here                                                                                                               |
 
 - **A step and a `-F` or `-R` child run where their parent runs.** nmr gives every process that it starts an empty `NMR_DELEGATE`, which rule 5 reads as "here"; the run on a host already passes `--no-delegate`, so a host does not apply its own user config. A git hook that an agent's command starts is an agent run.
@@ -57,7 +57,7 @@ The first rule that applies decides where a command runs:
 
 ### Choosing among several hosts
 
-With several hosts, nmr asks every host at once, with one `ssh` call each, whether a delegation started now would wait there: whether the host's [machine lock](machine-lock.md), or the lock on this worktree's checkout there, has a live holder. A lock that its holder left behind does not count. nmr then runs on the first host in the list that is free; when none is, on the first host that answered; and when none answered, on the first host, where the delegation fails at `prepare`. It never runs the command here, because the machine that delegates is the one that delegation protects.
+With several hosts, nmr asks every host at once, with one `ssh` call each, whether a delegation started now would wait there: whether the host's [machine lock](machine-lock.md), or the lock on this worktree's checkout there, has a live holder. A lock that its holder left behind does not count. nmr then runs on the first host in the list that is free; when none is, on the first busy host; and when no host reported either, on the first host that `ssh` connected to. When `ssh` connects to none of them, a delegation that the user config decided [runs here](#when-no-host-answers) without a further attempt, and a requested one fails at `prepare` on the first host. A requested delegation never runs the command here, because the machine that delegates is the one that delegation protects.
 
 ```console
 $ NMR_DELEGATE=imac2,imac3 nmr ci
@@ -128,14 +128,20 @@ A failure of the delegation itself, rather than of the command, exits 255, the s
 
 The steps are `prepare`, which reaches the host and creates the checkout, `push`, `check out`, and `install`. A connection lost while the command runs is reported as `lost connection to <host>`.
 
-A delegation does not fall back to running here when it cannot reach a host. When the user config decided it and it fails at `prepare`, which is also where it fails when no host answered the probe, nmr adds a line naming the file and the remedies in order:
+### When no host answers
+
+A host answers when `ssh` connects to it. When the user config's `when` sent the command and `ssh` cannot connect to any of its hosts, nmr runs the command here, as `--no-delegate` would, after one line that names the hosts and what `ssh` reported for the first one that it tried:
 
 ```console
-nmr: ~/.config/nmr/config.ts sent ci to imac2, imac3; ask for network access to imac2, imac3, or run it here with nmr --no-delegate ci
+nmr: running ci here rather than on imac2, imac3: imac2 did not answer: ssh: connect to host imac2 port 22: Operation timed out
 ```
+
+The run here is an ordinary local run: It takes the [machine lock](machine-lock.md), reports a verdict that does not name a host, and records a pass earned here. The fallback waits out the connect timeout on every invocation, so a machine that is away from its hosts for long is quicker with `--no-delegate` or a `when` that does not match.
+
+Every other failure still exits 255: a delegation that `--delegate`, `--delegate-to`, or `NMR_DELEGATE` requested, which the developer asked to run elsewhere, and a failure on a host that answered, at `prepare` or later, which is a fault there to fix.
 
 ## Setting up the host
 
 - **SSH that does not prompt.** nmr runs the ssh command that `GIT_SSH_COMMAND` names, evaluated by `/bin/sh` as git evaluates it, or plain `ssh` when the variable is unset or empty, and adds `BatchMode=yes` and a connect timeout after the command's own options, so an option that the command sets itself takes precedence. Under `BatchMode=yes`, a key that needs a passphrase must be in the agent, and the host key must already be known. An unreachable host fails within 10 seconds.
 - **git, Node, and pnpm on the interactive login shell's `PATH`.** nmr reads `PATH` from the host's login shell started as an interactive one, which loads `~/.zshrc` or `~/.bashrc` as well as the login profile: That is where pnpm's installer and the common version managers put Node and pnpm. What the startup files print does not reach the output, but whatever else they do runs before each step. Node on the host must satisfy nmr's own `engines` range (`>=24.16.0`). When Node is not on that `PATH`, the check-out step fails, and when pnpm is not, the install step fails; each failure names `PATH`. The login shell must accept `-ilc`: bash and zsh do.
-- **A sandboxed agent session needs network access to the host.** A sandbox that allows only HTTP egress refuses `ssh`, and the delegation fails at `prepare`. Under `when: 'agent'`, every check that the session runs fails this way until the session has that access. The Claude Code sandbox reaches a host only through the proxy that its `GIT_SSH_COMMAND` names, and it admits the host by the name that ssh connects to, which is the `HostName` that `~/.ssh/config` gives the alias (`ssh -G <host>` prints it), on port 22: For `imac2` with `HostName skypilot-imac2.local`, the sandbox must admit `skypilot-imac2.local:22`, not `imac2`. Nobody has confirmed whether the proxy resolves an mDNS name such as `skypilot-imac2.local`: When a delegation to such a host fails at `prepare` with `sandbox proxy: <name>:22: 502 Bad Gateway`, give the alias a `HostName` that is an IP address or a unicast DNS name, and have the sandbox admit that name's port 22.
+- **A sandboxed agent session needs network access to the host.** A sandbox that allows only HTTP egress refuses `ssh`. Under `when: 'agent'`, every check that the session runs then [runs here](#when-no-host-answers) after the connect timeout, and a requested delegation fails at `prepare`, until the session has that access. The Claude Code sandbox reaches a host only through the proxy that its `GIT_SSH_COMMAND` names, and it admits the host by the name that ssh connects to, which is the `HostName` that `~/.ssh/config` gives the alias (`ssh -G <host>` prints it), on port 22: For `imac2` with `HostName skypilot-imac2.local`, the sandbox must admit `skypilot-imac2.local:22`, not `imac2`. Nobody has confirmed whether the proxy resolves an mDNS name such as `skypilot-imac2.local`: When a delegation to such a host does not answer, and `ssh` reports `sandbox proxy: <name>:22: 502 Bad Gateway`, give the alias a `HostName` that is an IP address or a unicast DNS name, and have the sandbox admit that name's port 22.

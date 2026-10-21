@@ -84,13 +84,13 @@ describe('nmr with a delegation host', () => {
   });
 
   describe('when the user config decides', () => {
-    const REMEDY = 'ask for network access to unreachable, or run it here with nmr --no-delegate test';
+    const FALLBACK = 'nmr: running test here rather than on unreachable: unreachable did not answer';
 
     beforeEach(() => {
-      workspace.write('xdg/nmr/config.ts', `export default { delegate: { hosts: ['unreachable'], when: 'always' } };`);
+      writeUserConfig(['unreachable']);
     });
 
-    it('names the user config and the remedies in order when the host cannot be reached', async () => {
+    it('runs here, saying why, when the host cannot be reached', async () => {
       const result = await runNmr(['test'], {
         // Blank CI, which nmr reads as unset, so that the user config decides on a CI runner too.
         CI: '',
@@ -98,22 +98,48 @@ describe('nmr with a delegation host', () => {
         XDG_CONFIG_HOME: workspace.resolve('xdg'),
       });
 
-      expect(result.exitCode).toBe(255);
-      expect(result.stdout).toContain('(exit 255) — could not prepare unreachable');
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('ran-here');
+      expect(result.stdout).toMatch(/^PASS repo: test: passed in /m);
+      expect(result.stderr).toContain(`${FALLBACK}: ssh: connect to host unreachable: Connection refused\n`);
+    });
+
+    it('runs here after the probe alone when none of several hosts can be reached', async () => {
+      writeUserConfig(['unreachable-1', 'unreachable-2']);
+
+      const result = await runNmr(['test'], { CI: '', XDG_CONFIG_HOME: workspace.resolve('xdg') });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('ran-here');
       expect(result.stderr).toContain(
-        `nmr: ${workspace.resolve('xdg', 'nmr', 'config.ts')} sent test to unreachable; ${REMEDY}\n`,
+        'nmr: running test here rather than on unreachable-1, unreachable-2: unreachable-1 did not answer: ',
       );
-      expect(result.stderr.split(REMEDY)).toHaveLength(2);
+      expect(remote.readSshLog().toSorted()).toStrictEqual(['unreachable-1 probe', 'unreachable-2 probe']);
+    });
+
+    it('fails, rather than running here, when the connection to a host that answered is lost', async () => {
+      writeUserConfig(['dropping']);
+
+      const result = await runNmr(['test'], {
+        CI: '',
+        [OUTPUT_STYLE_ENV_VAR]: 'plain',
+        XDG_CONFIG_HOME: workspace.resolve('xdg'),
+      });
+
+      expect(result.exitCode).toBe(255);
+      expect(result.stdout).toContain('(exit 255) — lost connection to dropping');
+      expect(result.stdout).not.toContain('ran-here');
     });
 
     it.for([
       { case: '--delegate-to', args: ['--delegate-to', 'unreachable', 'test'], env: {} },
       { case: 'NMR_DELEGATE', args: ['test'], env: { [DELEGATE_ENV_VAR]: 'unreachable' } },
-    ])('does not name the remedies when $case decided', async ({ args, env }) => {
-      const result = await runNmr(args, { ...env, XDG_CONFIG_HOME: workspace.resolve('xdg') });
+    ])('fails, rather than running here, when $case decided', async ({ args, env }) => {
+      const result = await runNmr(args, { ...env, CI: '', XDG_CONFIG_HOME: workspace.resolve('xdg') });
 
       expect(result.exitCode).toBe(255);
-      expect(result.stderr).not.toContain(REMEDY);
+      expect(result.stdout).not.toContain('ran-here');
+      expect(result.stderr).not.toContain('running test here');
     });
   });
 
@@ -162,6 +188,14 @@ describe('nmr with a delegation host', () => {
     expect(result.stdout).toContain('ran-here');
     expect(result.stderr).toContain('running test here rather than on box');
   });
+
+  /** Writes a user config that delegates every command to `hosts`. */
+  function writeUserConfig(hosts: string[]): void {
+    workspace.write(
+      'xdg/nmr/config.ts',
+      `export default { delegate: { hosts: ${JSON.stringify(hosts)}, when: 'always' } };`,
+    );
+  }
 
   /** Runs the CLI in-process in the repo, with `ssh` and `pnpm` resolving to the fakes. */
   async function runNmr(args: string[], extraEnv: Record<string, string> = {}) {

@@ -84,6 +84,15 @@ describe('a delegated run on a fake host', () => {
     expect(readRepoState(repo)).toStrictEqual(before);
   });
 
+  it('reports a host that connected and then failed to prepare as reachable', async () => {
+    // A file where the checkout's parent directory belongs makes `mkdir -p` fail on the host.
+    workspace.write('fake-home/.cache', '');
+
+    const result = await delegate(['test']);
+
+    expect(result.outcome).toMatchObject({ ok: false, isUnreachable: false, phase: 'prepare' });
+  });
+
   it('names the phase that failed', async () => {
     const unreachable = await delegate(['test'], {}, repo, 'unreachable');
     const install = await delegate(['test'], { FAKE_INSTALL_STATUS: '1' });
@@ -91,6 +100,7 @@ describe('a delegated run on a fake host', () => {
 
     expect(unreachable.outcome).toMatchObject({
       ok: false,
+      isUnreachable: true,
       phase: 'prepare',
       message: 'could not prepare unreachable',
     });

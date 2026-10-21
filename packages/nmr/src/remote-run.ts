@@ -44,11 +44,12 @@ export type RemotePhase = 'check out' | 'install' | 'prepare' | 'push' | 'run';
 /**
  * The status of a delegated command and the pass-manifest entries that its run reported, unvalidated, or the phase
  * that kept it from finishing and what that phase printed, with how long the delegation waited for another
- * delegation's checkout.
+ * delegation's checkout. A failed `prepare` also reports whether `ssh` could not connect to the host.
  */
 export type RemoteRunResult =
   | { ok: true; exitCode: number; passes: unknown[]; waitedMs: number }
-  | { ok: false; message: string; output: string; phase: RemotePhase; waitedMs: number };
+  | { ok: false; isUnreachable: boolean; message: string; output: string; phase: 'prepare'; waitedMs: number }
+  | { ok: false; message: string; output: string; phase: Exclude<RemotePhase, 'prepare'>; waitedMs: number };
 
 /**
  * Returns the `GIT_SSH_COMMAND` with which `git push` reaches the host: the environment's ssh command, or plain
@@ -99,6 +100,16 @@ export function formatMisplacedDelegationWarning(command: string, style: OutputS
   );
 }
 
+/** Returns the last line of `output` that is not blank, trimmed, or an empty string when there is none. */
+export function readLastLine(output: string): string {
+  return (
+    output
+      .split('\n')
+      .map((line) => line.trim())
+      .findLast((line) => line !== '') ?? ''
+  );
+}
+
 /**
  * Runs an nmr invocation on `host` against a snapshot of the local working tree, streaming the command's output to
  * `stdout` and `stderr` and returning its exit status.
@@ -131,7 +142,14 @@ export async function runRemotely(options: {
     env,
   );
   if (prepare.exitCode !== 0) {
-    return { ok: false, message: `could not prepare ${host}`, output: prepare.output, phase: 'prepare', waitedMs: 0 };
+    return {
+      ok: false,
+      isUnreachable: prepare.exitCode === DELEGATION_FAILURE_EXIT_CODE,
+      message: `could not prepare ${host}`,
+      output: prepare.output,
+      phase: 'prepare',
+      waitedMs: 0,
+    };
   }
 
   // `--no-verify` keeps the repository's `pre-push` hook, which may run a gate of its own, out of a push that only
