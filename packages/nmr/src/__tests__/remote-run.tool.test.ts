@@ -119,6 +119,20 @@ describe('a delegated run on a fake host', () => {
     expect(fs.existsSync(hookLog)).toBe(false);
   });
 
+  it("runs every ssh call through the environment's GIT_SSH_COMMAND, with nmr's options", async () => {
+    const wrapper = remote.addSshWrapper();
+
+    const result = await delegate(['test'], { GIT_SSH_COMMAND: wrapper.command });
+
+    expect(result.outcome).toStrictEqual({ ok: true, exitCode: 0, passes: [], waitedMs: 0 });
+    // git runs the command once with `-G` to learn which ssh it is, before the push itself.
+    const calls = wrapper.readLog().filter((call) => !call.includes(' -G '));
+    expect(calls).toHaveLength(3);
+    expect(calls.every((call) => call.includes('BatchMode=yes') && call.includes('ConnectTimeout=10'))).toBe(true);
+    expect(calls[1]).toContain('nmr-receive-pack');
+    expect(calls[2]).toContain('runHostSession');
+  });
+
   it("reports the command's own exit 255 as its status", async () => {
     const result = await delegate(['test'], { FAKE_RUN_STATUS: '255' });
 
