@@ -99,6 +99,16 @@ export function formatMisplacedDelegationWarning(command: string, style: OutputS
   );
 }
 
+/** Returns the last line of `output` that is not blank, trimmed, or an empty string when there is none. */
+export function readLastLine(output: string): string {
+  return (
+    output
+      .split('\n')
+      .map((line) => line.trim())
+      .findLast((line) => line !== '') ?? ''
+  );
+}
+
 /**
  * Runs an nmr invocation on `host` against a snapshot of the local working tree, streaming the command's output to
  * `stdout` and `stderr` and returning its exit status.

@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { STALE_AFTER_MS } from '../machine-lock.ts';
 import { CHECKOUT_LOCK_PATH } from '../remote-host-session.ts';
-import { probeHost } from '../remote-probe.ts';
+import { probeHost, type ProbeReport, type ProbeResult } from '../remote-probe.ts';
 import { createFakeRemote, type FakeRemote } from '../test-utils/fake-remote.ts';
 
 const CHECKOUT_PATH = '.cache/nmr/delegate/0123456789abcdef/repo';
@@ -30,31 +30,31 @@ describe('a lock probe of a fake host', () => {
   });
 
   it('reports a host without any lock as free', async () => {
-    await expect(probe('box')).resolves.toBe('free');
+    await expect(probe('box')).resolves.toStrictEqual(report('free'));
   });
 
   it('reports a live holder of the machine lock as busy', async () => {
     writeLock(MACHINE_LOCK_PATH, { pid: process.pid });
 
-    await expect(probe('box')).resolves.toBe('busy');
+    await expect(probe('box')).resolves.toStrictEqual(report('busy'));
   });
 
   it("reports a live holder of the checkout's lock as busy", async () => {
     writeLock(HOST_CHECKOUT_LOCK_PATH, { pid: process.pid });
 
-    await expect(probe('box')).resolves.toBe('busy');
+    await expect(probe('box')).resolves.toStrictEqual(report('busy'));
   });
 
   it('reports a recent lock file that does not parse as busy', async () => {
     writeLock(MACHINE_LOCK_PATH, '{"pid":');
 
-    await expect(probe('box')).resolves.toBe('busy');
+    await expect(probe('box')).resolves.toStrictEqual(report('busy'));
   });
 
   it('reports a lock whose holder has exited as free', async () => {
     writeLock(MACHINE_LOCK_PATH, { pid: readExitedPid() });
 
-    await expect(probe('box')).resolves.toBe('free');
+    await expect(probe('box')).resolves.toStrictEqual(report('free'));
   });
 
   it('reports a lock that its holder stopped refreshing as free', async () => {
@@ -62,17 +62,20 @@ describe('a lock probe of a fake host', () => {
     const abandonedAt = new Date(Date.now() - STALE_AFTER_MS - 1_000);
     fs.utimesSync(lockPath, abandonedAt, abandonedAt);
 
-    await expect(probe('box')).resolves.toBe('free');
+    await expect(probe('box')).resolves.toStrictEqual(report('free'));
   });
 
-  it('reports a host that cannot be reached as not answering', async () => {
-    await expect(probe('unreachable')).resolves.toBe('no-answer');
+  it('reports a host that ssh cannot connect to as unreachable, with what ssh printed', async () => {
+    await expect(probe('unreachable')).resolves.toStrictEqual({
+      result: 'unreachable',
+      sshMessage: 'ssh: connect to host unreachable: Connection refused',
+    });
   });
 
   it("probes through the environment's GIT_SSH_COMMAND", async () => {
     const wrapper = remote.addSshWrapper();
 
-    await expect(probe('box', { GIT_SSH_COMMAND: wrapper.command })).resolves.toBe('free');
+    await expect(probe('box', { GIT_SSH_COMMAND: wrapper.command })).resolves.toStrictEqual(report('free'));
     expect(wrapper.readLog()).toStrictEqual([expect.stringContaining('BatchMode=yes')]);
   });
 
@@ -97,6 +100,11 @@ describe('a lock probe of a fake host', () => {
 /** Returns the pid of a process that has already exited. */
 function readExitedPid(): number {
   return spawnSync('true').pid;
+}
+
+/** Returns a probe report without an ssh message. */
+function report(result: ProbeResult): ProbeReport {
+  return { result, sshMessage: '' };
 }
 
 // endregion | Helpers

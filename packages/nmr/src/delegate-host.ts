@@ -141,6 +141,7 @@ const PROBE_RESULT_PHRASES: Readonly<Record<ProbeResult, string>> = {
   busy: 'is busy',
   free: 'is free',
   'no-answer': 'did not answer the lock probe',
+  unreachable: 'could not be reached',
 };
 
 /**
@@ -284,13 +285,15 @@ async function resolveHost(
   }
 
   const checkoutPath = deriveCheckoutPath(os.hostname(), toplevel);
-  return chooseHost({
+  const choice = await chooseHost({
     hosts,
     onSettled(host, result) {
       writeDebugNote(`${host} ${PROBE_RESULT_PHRASES[result]}`, env, stderr);
     },
     probe: (host, signal) => probeHost({ checkoutPath, env, host, signal }),
   });
+
+  return choice.host;
 }
 
 // endregion | Helpers
