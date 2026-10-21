@@ -69,11 +69,18 @@ describe('a lock probe of a fake host', () => {
     await expect(probe('unreachable')).resolves.toBe('no-answer');
   });
 
+  it("probes through the environment's GIT_SSH_COMMAND", async () => {
+    const wrapper = remote.addSshWrapper();
+
+    await expect(probe('box', { GIT_SSH_COMMAND: wrapper.command })).resolves.toBe('free');
+    expect(wrapper.readLog()).toStrictEqual([expect.stringContaining('BatchMode=yes')]);
+  });
+
   /** Probes `host` through the fake `ssh`. */
-  function probe(host: string) {
+  function probe(host: string, extraEnv: Record<string, string> = {}) {
     return probeHost({
       checkoutPath: CHECKOUT_PATH,
-      env: remote.buildEnv(),
+      env: remote.buildEnv(extraEnv),
       host,
       signal: new AbortController().signal,
     });

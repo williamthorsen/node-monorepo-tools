@@ -4,13 +4,23 @@ import process from 'node:process';
 
 import type { TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 
+import { quoteForShell } from '../helpers/quoteForShell.ts';
+import { SSH_COMMAND_ENV_VAR } from '../remote-run.ts';
 import { readAmbientEnv } from './readAmbientEnv.ts';
 
 /** A host simulated on this machine: an `ssh` and a `pnpm` that run the host's side locally, and their logs. */
 export interface FakeRemote {
   /** Gives `host` a home of its own, in place of the shared one, and returns it. */
   addHost: (host: string) => string;
-  /** Returns an environment in which `ssh` and `pnpm` resolve to the fakes. */
+  /**
+   * Creates an ssh wrapper that logs each call's arguments and runs the fake `ssh`, and returns a `GIT_SSH_COMMAND`
+   * that names it through shell quoting, with an option whose value contains a space.
+   */
+  addSshWrapper: () => { command: string; readLog: () => string[] };
+  /**
+   * Returns an environment in which `ssh` and `pnpm` resolve to the fakes, without the ambient `GIT_SSH_COMMAND`,
+   * which would send the fake host's calls through the real ssh.
+   */
   buildEnv: (extraEnv?: Record<string, string>) => NodeJS.ProcessEnv;
   /** The directory that stands for the host's home. */
   home: string;
@@ -103,8 +113,22 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
 
   return {
     addHost: (host) => tree.mkdir(`fake-home/hosts/${host}`),
+    addSshWrapper: () => {
+      const wrapperLog = tree.resolve('ssh-wrapper.log');
+      const wrapperPath = writeExecutable(tree, 'fake bin/ssh wrapper', [
+        '#!/bin/sh',
+        // Log each call on one line, although the script that it carries spans several.
+        `{ printf '%s' "$*" | tr '\\n' ' '; echo; } >> ${quoteForShell(wrapperLog)}`,
+        `exec ${quoteForShell(path.join(binDir, 'ssh'))} "$@"`,
+      ]);
+
+      return {
+        command: `${quoteForShell(wrapperPath)} -o "SetEnv=FAKE_WRAPPED=a b"`,
+        readLog: () => readLog(wrapperLog),
+      };
+    },
     buildEnv: (extraEnv = {}) => ({
-      ...readAmbientEnv(),
+      ...omitSshCommand(readAmbientEnv()),
       FAKE_LOGIN_SHELL: path.join(binDir, 'login-shell'),
       FAKE_PNPM_LOG: pnpmLog,
       FAKE_REMOTE_HOME: home,
@@ -120,14 +144,22 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
 
 // region | Helpers
 
+/** Returns `env` without `GIT_SSH_COMMAND`. */
+function omitSshCommand(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(env).filter(([name]) => name !== SSH_COMMAND_ENV_VAR));
+}
+
 /** Reads a log, one entry per line, or none when nothing has written it. */
 function readLog(logPath: string): string[] {
   return fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8').trim().split('\n') : [];
 }
 
-/** Writes a script from its lines into `tree` and makes it executable. */
-function writeExecutable(tree: TempTree, entryPath: string, lines: readonly string[]): void {
-  fs.chmodSync(tree.write(entryPath, `${lines.join('\n')}\n`), 0o755);
+/** Writes a script from its lines into `tree`, makes it executable, and returns its path. */
+function writeExecutable(tree: TempTree, entryPath: string, lines: readonly string[]): string {
+  const scriptPath = tree.write(entryPath, `${lines.join('\n')}\n`);
+  fs.chmodSync(scriptPath, 0o755);
+
+  return scriptPath;
 }
 
 // endregion | Helpers
