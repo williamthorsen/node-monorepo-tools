@@ -46,6 +46,17 @@ describe('a delegation behind the check-result cache', () => {
     expect(remote.readPnpmLog()).toStrictEqual([]);
   });
 
+  it('records a pass earned here when the user config sends the command to a host that cannot be reached', async () => {
+    workspace.write('xdg/nmr/config.ts', "export default { delegate: { hosts: ['unreachable'], when: 'always' } };");
+    const userConfigEnv = { CI: '', XDG_CONFIG_HOME: workspace.resolve('xdg') };
+    await runNmr(['test'], userConfigEnv);
+
+    const result = await runNmr(['test'], userConfigEnv);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/^SKIP repo: test: passed .* ago on this tree/m);
+  });
+
   it('recalls a pass earned on the host for a delegation to that host', async () => {
     await runNmr(['--delegate-to', 'box', 'test']);
 

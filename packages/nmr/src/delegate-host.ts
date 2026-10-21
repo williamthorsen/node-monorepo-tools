@@ -10,7 +10,7 @@ import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBounded
 import type { ExecutionTarget, Invocation, PhaseResult, RunCliResult, RunPlan } from './invocation.ts';
 import { isDelegationFlag, type ParsedArgs } from './invocation-args.ts';
 import { reportVerdict } from './presentation.ts';
-import { chooseHost, probeHost, type ProbeResult } from './remote-probe.ts';
+import { chooseHost, type HostChoice, probeHost, type ProbeResult } from './remote-probe.ts';
 import {
   DELEGATE_ENV_VAR,
   DELEGATE_FLAG,
@@ -19,7 +19,7 @@ import {
   deriveCheckoutPath,
   formatMisplacedDelegationWarning,
   type HostList,
-  NO_DELEGATE_FLAG,
+  readLastLine,
   runRemotely,
 } from './remote-run.ts';
 import { createSnapshot } from './remote-snapshot.ts';
@@ -186,14 +186,20 @@ function describeDelegationSource(target: RemoteTarget, parsedArgs: ParsedArgs, 
   }
 }
 
+/** Renders the reason that names a host to which `ssh` could not connect, with what `ssh` printed. */
+function describeUnreachableHost(host: string, sshMessage: string): string {
+  return sshMessage === '' ? `${host} did not answer` : `${host} did not answer: ${sshMessage}`;
+}
+
 /**
  * Runs the invocation on the host that `resolveHost` chooses, against a snapshot of the working tree, streaming its
  * output and retaining a copy.
  *
  * A tree that cannot be snapshotted is refused when a flag asked for the host, and runs here, with a line saying
- * why, when the variable or the user config did. A delegation that fails outside its command, in its connection,
- * transfer, or install, ends with exit 255, and what the failed phase printed goes to stderr; one that the user
- * config decided also names the file and the remedies.
+ * why, when the variable or the user config did. A delegation that the user config decided also runs here, with a
+ * line saying why, when `ssh` cannot connect to any of its hosts. Any other delegation that fails outside its
+ * command, in its connection, transfer, or install, ends with exit 255, and what the failed phase printed goes to
+ * stderr.
  */
 async function delegate(options: {
   invocation: Invocation;
@@ -211,11 +217,18 @@ async function delegate(options: {
       reportError(`Cannot delegate to ${listedHosts}: ${snapshot.reason}`, stderr);
       return { kind: 'refused', exitCode: 1 };
     }
-    stderr.write(`nmr: running ${command} here rather than on ${listedHosts}: ${snapshot.reason}\n`);
+    stderr.write(formatRunHereLine(command, listedHosts, snapshot.reason));
     return { kind: 'here' };
   }
 
-  const host = snapshot.ok ? await resolveHost(target.hosts, snapshot.toplevel, env, stderr) : target.hosts[0];
+  const choice: HostChoice = snapshot.ok
+    ? await resolveHost(target.hosts, snapshot.toplevel, env, stderr)
+    : { kind: 'chosen', host: target.hosts[0] };
+  if (choice.kind === 'unreachable' && target.source === 'config') {
+    stderr.write(formatRunHereLine(command, listedHosts, describeUnreachableHost(choice.host, choice.sshMessage)));
+    return { kind: 'here' };
+  }
+  const { host } = choice;
 
   const retained = { stderr: createBoundedBuffer(), stdout: createBoundedBuffer() };
   const result = snapshot.ok
@@ -242,16 +255,12 @@ async function delegate(options: {
   };
 
   if (!result.ok) {
+    if (target.source === 'config' && 'phase' in result && result.phase === 'prepare' && result.isUnreachable) {
+      stderr.write(formatRunHereLine(command, listedHosts, describeUnreachableHost(host, readLastLine(result.output))));
+      return { kind: 'here' };
+    }
     if (result.output.trim() !== '') {
       stderr.write(result.output.endsWith('\n') ? result.output : `${result.output}\n`);
-    }
-    // A host that does not answer fails at `prepare`, which is where a sandbox that refuses `ssh` stops the run.
-    if (target.source === 'config' && 'phase' in result && result.phase === 'prepare') {
-      const configPath = formatDisplayPath(target.configPath, env);
-      stderr.write(
-        `nmr: ${configPath} sent ${command} to ${listedHosts}; ask for network access to ${listedHosts}, ` +
-          `or run it here with nmr ${NO_DELEGATE_FLAG} ${command}\n`,
-      );
     }
     return {
       ...ran,
@@ -269,31 +278,35 @@ async function delegate(options: {
   return { ...ran, exitCode: result.exitCode, outcome, passes: result.passes };
 }
 
+/** Renders the line that says that a command runs here rather than on the hosts that a default named, and why. */
+function formatRunHereLine(command: string, listedHosts: string, reason: string): string {
+  return `nmr: running ${command} here rather than on ${listedHosts}: ${reason}\n`;
+}
+
 /**
  * Returns the host on which to run: the only candidate, or the one that `chooseHost` picks by probing the locks that
- * a delegation from this checkout would wait on.
+ * a delegation from this checkout would wait on, or that `ssh` could not connect to any of them. For a requested
+ * delegation, an unreachable choice names the first host, on which the delegation then fails.
  */
 async function resolveHost(
   hosts: HostList,
   toplevel: string,
   env: NodeJS.ProcessEnv,
   stderr: Writable,
-): Promise<string> {
+): Promise<HostChoice> {
   const [first, ...rest] = hosts;
   if (rest.length === 0) {
-    return first;
+    return { kind: 'chosen', host: first };
   }
 
   const checkoutPath = deriveCheckoutPath(os.hostname(), toplevel);
-  const choice = await chooseHost({
+  return chooseHost({
     hosts,
     onSettled(host, result) {
       writeDebugNote(`${host} ${PROBE_RESULT_PHRASES[result]}`, env, stderr);
     },
     probe: (host, signal) => probeHost({ checkoutPath, env, host, signal }),
   });
-
-  return choice.host;
 }
 
 // endregion | Helpers
