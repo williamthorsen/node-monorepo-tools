@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.19.5 — 2026-10-21
+
+### 📦 Dependencies
+
+- Bumped `@williamthorsen/nmr-core` to 0.13.5
+
 ## 0.19.4 — 2026-10-18
 
 ### 🧪 Tests

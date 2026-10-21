@@ -1,5 +1,22 @@
 [
   {
+    "version": "14.2.4",
+    "date": "2026-10-21",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that `release-kit` did not release a workspace whose files a commit changed when that commit scoped every change-record entry to other workspaces; for that workspace, the commit's title now sets the bump and the changelog item. (#1086)",
+            "hash": "b518414c98f4703f2adca3840577e9f2b66e0924",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "14.2.3",
     "date": "2026-10-18",
     "sections": [
@@ -184,6 +201,17 @@
         ]
       },
       {
+        "title": "🏗️ Internal features",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Resolve package roots past dual-format marker manifests (#1016)",
+            "body": "Replaces nmr-core's hand-written package-root and version lookups with `findPackageRoot` and `resolveSelfVersion` re-exported from `@williamthorsen/toolbelt.packaging`, which pass over the `{\"type\": \"commonjs\"}` marker manifest of a dual-format layout to reach the package that declares a `name`. `nmr`, `release-kit`, and `v11y-check` switch from `readPackageVersion` to `resolveSelfVersion`, and the boundary guard now holds `toolbelt.packaging`, like `toolbelt.terminal`, to a single importer and a single declarer in nmr-core.",
+            "hash": "ff6627180d9e86d083656afb2c09a3fb190fc79d"
+          }
+        ]
+      },
+      {
         "title": "♻️ Refactoring",
         "audience": "dev",
         "items": [
@@ -234,6 +262,16 @@
             "description": "Makes `release-kit prepare` refuse, before it writes any file and in a dry run too, to release a publishable package that npm does not list or that it cannot look up, and prints `npm publish --access public` as the fix for each unlisted package. (#996)",
             "hash": "7b8b6d67b264af56dff761d0bf987eca8bc2f934",
             "entry": 1
+          },
+          {
+            "description": "Let a calling repo choose the runner of the reusable workflows (#997)",
+            "body": "Makes the reusable `audit`, `create-github-release`, `release`, and `sync-labels` workflows run their jobs on the runner named by the calling repository's `CI_RUNS_ON` configuration variable, such as a self-hosted runner, and keeps `ubuntu-latest` as the default when the variable is unset. Leaves the reusable `publish` workflow on `ubuntu-latest`, because npm generates provenance only on GitHub-hosted runners.",
+            "hash": "91573eec402f4028b766684be84c33e8739513ce"
+          },
+          {
+            "description": "Keep undeclared repo labels and warn about each (#1002)",
+            "body": "Changes the reusable sync-labels workflow to keep each repository label that `.github/labels.yaml` does not declare, rather than delete it, and to report each such label as a warning annotation on the run and on the pull request's check. A label created by hand now stays in place across syncs until the file declares it or it is deleted with `gh label delete <name>`.",
+            "hash": "f696a4f92064a5f2993e8bcbb6764762f161ec9d"
           }
         ]
       },

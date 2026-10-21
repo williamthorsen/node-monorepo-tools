@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 14.2.4 — 2026-10-21
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `release-kit` did not release a workspace whose files a commit changed when that commit scoped every change-record entry to other workspaces; for that workspace, the commit's title now sets the bump and the changelog item. (#1086)
+
 ## 14.2.3 — 2026-10-18
 
 ### 🐛 Bug fixes
@@ -56,6 +62,12 @@ All notable changes to this project will be documented in this file.
 - Fixes the issue that `release-kit create-github-release` did not create a GitHub Release for the project tag; a private workspace's tag is still skipped. (#1027)
 - Makes `release-kit publish` skip a project tag named by `--tags` with the warning `Skipping v0.13.0: a project tag is not an npm package.`, since the project does not have an npm package to publish. (#1027)
 
+### 🏗️ Internal features
+
+- Resolve package roots past dual-format marker manifests (#1016)
+
+  Replaces nmr-core's hand-written package-root and version lookups with `findPackageRoot` and `resolveSelfVersion` re-exported from `@williamthorsen/toolbelt.packaging`, which pass over the `{"type": "commonjs"}` marker manifest of a dual-format layout to reach the package that declares a `name`. `nmr`, `release-kit`, and `v11y-check` switch from `readPackageVersion` to `resolveSelfVersion`, and the boundary guard now holds `toolbelt.packaging`, like `toolbelt.terminal`, to a single importer and a single declarer in nmr-core.
+
 ### ♻️ Refactoring
 
 - Replaces `releasePrepare`, `releasePrepareMono`, and `releasePrepareProject` with `releasePrepareTargets`, which prepares a release from one list of package and project targets resolved from any config shape. (#1026)
@@ -72,6 +84,13 @@ All notable changes to this project will be documented in this file.
 - Stops `release-kit init` from scaffolding `publish.yaml` and `create-github-release.yaml` when every package is private, even with `--force`, and removes the provenance and trusted-publisher steps from the next steps that it prints. (#995)
 - Stops `release-kit update-templates` from re-creating a deleted `publish.yaml` or `create-github-release.yaml` when every package is private, while it still refreshes either workflow that exists. (#995)
 - Makes `release-kit prepare` refuse, before it writes any file and in a dry run too, to release a publishable package that npm does not list or that it cannot look up, and prints `npm publish --access public` as the fix for each unlisted package. (#996)
+- Let a calling repo choose the runner of the reusable workflows (#997)
+
+  Makes the reusable `audit`, `create-github-release`, `release`, and `sync-labels` workflows run their jobs on the runner named by the calling repository's `CI_RUNS_ON` configuration variable, such as a self-hosted runner, and keeps `ubuntu-latest` as the default when the variable is unset. Leaves the reusable `publish` workflow on `ubuntu-latest`, because npm generates provenance only on GitHub-hosted runners.
+
+- Keep undeclared repo labels and warn about each (#1002)
+
+  Changes the reusable sync-labels workflow to keep each repository label that `.github/labels.yaml` does not declare, rather than delete it, and to report each such label as a warning annotation on the run and on the pull request's check. A label created by hand now stays in place across syncs until the file declares it or it is deleted with `gh label delete <name>`.
 
 ### 🐛 Bug fixes
 

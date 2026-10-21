@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.13.5",
+    "date": "2026-10-21",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Key the check cache on the working tree's git tree id (#1078)",
+            "body": "Keys `nmr`'s check-result cache on the git tree id that `git add --all` would record for the working tree, so that committing a tree that has already passed a check no longer makes the next run repeat it. Invalidates every pass recorded by earlier versions of `nmr`, and the first run after the upgrade repeats each of those checks. Also fixes the issue that the snapshot sent to the host by `nmr --delegate` could omit a file edited in the same second as git's last write of the index.",
+            "hash": "42cd3fb52a022010eccbf904a7d88358dd4e5759"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.13.4",
     "date": "2026-10-17",
     "sections": [
@@ -37,6 +54,17 @@
     "version": "0.13.2",
     "date": "2026-10-08",
     "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Archive retired labels rather than deleting them in sync-labels (#955)",
+            "body": "Lets a repository retire a GitHub label without deleting it: `sync-labels generate` writes an `archived: true` mark from a `repoLabels.labels` entry to `.github/labels.yaml`, and the reusable sync workflow archives the marked label. An archived label stays on the issues and pull requests that have it, but it cannot be added to new ones.",
+            "hash": "23c0e0eeaf3e59cd921632850c7771ccdd6effe1"
+          }
+        ]
+      },
       {
         "title": "🏗️ Internal features",
         "audience": "dev",
@@ -81,6 +109,17 @@
     "version": "0.13.1",
     "date": "2026-10-01",
     "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Add update-templates to bring scaffolded workflows up to date (#952)",
+            "body": "Adds an `update-templates` command to `release-kit` and `v11y-check` that brings the GitHub Actions workflows scaffolded by `init` up to date with the installed version's templates and prints what changed in each file. Unlike `init --force`, the command never reads or writes a config file and keeps a private repo's omission of `provenance: true` from `publish.yaml`. The readyup kits now recommend it for a workflow that differs from its template.",
+            "hash": "9fac96675e9fb4dd70407cbfb0e3e0ffa7e83ba4"
+          }
+        ]
+      },
       {
         "title": "♻️ Refactoring",
         "audience": "dev",

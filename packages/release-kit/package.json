@@ -1,6 +1,6 @@
 {
   "name": "@williamthorsen/release-kit",
-  "version": "14.2.3",
+  "version": "14.2.4",
   "description": "Version-bumping and changelog-generation toolkit for release workflows",
   "keywords": [
     "changelog",

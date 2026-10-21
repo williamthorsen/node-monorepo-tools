@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.50.0 — 2026-10-21
+
+### 🎉 Features
+
+- Makes `nmr` run a command on this machine, after printing `nmr: running <command> here rather than on <hosts>` and what `ssh` reported, when the user config's `when` sends the command to other hosts and `ssh` cannot connect to any of them; until now, the delegation failed with exit 255 and a line that named `~/.config/nmr/config.ts`. (#1090)
+- Makes `nmr` delegate to a host that `ssh` connected to, rather than to the first listed host, when several delegation hosts are configured and the lock probe finds every one of them neither free nor busy. (#1090)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that delegation ignored the environment's `GIT_SSH_COMMAND`: `nmr` replaced it with plain `ssh` for the push and ran plain `ssh` for every other call to the host, which kept a machine that reaches its hosts through an ssh wrapper or proxy, such as the Claude Code sandbox, from delegating. (#1088)
+
+### 📚 Documentation
+
+- Documents in `docs/delegate.md` and the nmr rulebook that a sandboxed session must admit the host's `HostName` on port 22, as `ssh -G <host>` prints it, rather than its `~/.ssh/config` alias. (#1088)
+
 ## 0.49.0 — 2026-10-18
 
 ### 🎉 Features
@@ -25,6 +40,9 @@ All notable changes to this project will be documented in this file.
 
 - Fixes the issue that the snapshot sent to the host by `nmr --delegate` omitted a file edited in the same second as git's last write of the index. (#1078)
 - Fixes the issue that `NMR_NO_CACHE`, `NMR_DEBUG`, and `NMR_RUN_ID` set on this machine did not reach the delegation host, which left the host's cache in use under `NMR_NO_CACHE=1`. (#1080)
+- Make release-kit's readyup manifest independent of the compile directory (#1081)
+
+  Fixes the issue that the manifest of release-kit's `npm-auto-publish` kit listed whichever workspaces `rdy compile` found in its working directory, so a rebuild from another directory changed it and the published copy named this repository's packages. Moves the construction of the kit's per-package rows to `rdy run` and raises the kit's `minReadyupVersion` to 0.42.0, the first readyup release that can build checks at run time.
 
 ### ⚡ Performance
 
@@ -102,6 +120,12 @@ All notable changes to this project will be documented in this file.
 - Fixes the issue that `nmr` hung when a script entry re-entered its own command in the same directory without nmr recognizing the self-reference, as `nmr -F own-pkg build` in `own-pkg`'s own `build` or a cycle through two entries does, by failing the run with an error that names the command and the directory and lists the commands that the run had entered, outermost first. (#1012)
 - Fixes the issue that the test-tier definitions in `vitest.md` gave a test that starts its own loopback server three defensible tiers: `tool` is now a process that the test starts or a program that the environment supplies, `localhost` a service already running on this machine, and an in-process server from the package's own dependency closure `unit`. (#1023)
 - Fixes the issue that `nmr`'s warning about a `package.json` script that runs `nmr` through a shell sent an entry whose whole value is `nmr <name>` to `.config/nmr.config.ts`, when the accurate edit is to replace that value with the command of the `<name>` script in the same file. (#1030)
+
+### 🏗️ Internal features
+
+- Resolve package roots past dual-format marker manifests (#1016)
+
+  Replaces nmr-core's hand-written package-root and version lookups with `findPackageRoot` and `resolveSelfVersion` re-exported from `@williamthorsen/toolbelt.packaging`, which pass over the `{"type": "commonjs"}` marker manifest of a dual-format layout to reach the package that declares a `name`. `nmr`, `release-kit`, and `v11y-check` switch from `readPackageVersion` to `resolveSelfVersion`, and the boundary guard now holds `toolbelt.packaging`, like `toolbelt.terminal`, to a single importer and a single declarer in nmr-core.
 
 ### ♻️ Refactoring
 

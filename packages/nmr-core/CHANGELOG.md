@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.13.5 — 2026-10-21
+
+### 🐛 Bug fixes
+
+- Key the check cache on the working tree's git tree id (#1078)
+
+  Keys `nmr`'s check-result cache on the git tree id that `git add --all` would record for the working tree, so that committing a tree that has already passed a check no longer makes the next run repeat it. Invalidates every pass recorded by earlier versions of `nmr`, and the first run after the upgrade repeats each of those checks. Also fixes the issue that the snapshot sent to the host by `nmr --delegate` could omit a file edited in the same second as git's last write of the index.
+
 ## 0.13.4 — 2026-10-17
 
 ### 📦 Dependencies
@@ -15,6 +23,12 @@ All notable changes to this project will be documented in this file.
 - Fixes the issue that nmr-core's `findPackageRoot` and `readPackageVersion` stopped at the first `package.json` above the caller, which in a dual-format layout is a marker manifest without a `version`, by re-exporting `findPackageRoot` and `resolveSelfVersion` from `@williamthorsen/toolbelt.packaging/candidate` in place of both walks. (#1016)
 
 ## 0.13.2 — 2026-10-08
+
+### 🎉 Features
+
+- Archive retired labels rather than deleting them in sync-labels (#955)
+
+  Lets a repository retire a GitHub label without deleting it: `sync-labels generate` writes an `archived: true` mark from a `repoLabels.labels` entry to `.github/labels.yaml`, and the reusable sync workflow archives the marked label. An archived label stays on the issues and pull requests that have it, but it cannot be added to new ones.
 
 ### 🏗️ Internal features
 
@@ -30,6 +44,12 @@ All notable changes to this project will be documented in this file.
 - Stops the tests in `cache-store.unit.test.ts` from writing and removing cache entries in an ancestor's `node_modules` outside their temp trees, which also made the fallback test fail, and adds a test that a scope below `stopAtDir` does not hoist past it. (#969)
 
 ## 0.13.1 — 2026-10-01
+
+### 🎉 Features
+
+- Add update-templates to bring scaffolded workflows up to date (#952)
+
+  Adds an `update-templates` command to `release-kit` and `v11y-check` that brings the GitHub Actions workflows scaffolded by `init` up to date with the installed version's templates and prints what changed in each file. Unlike `init --force`, the command never reads or writes a config file and keeps a private repo's omission of `provenance: true` from `publish.yaml`. The readyup kits now recommend it for a workflow that differs from its template.
 
 ### ♻️ Refactoring
 
