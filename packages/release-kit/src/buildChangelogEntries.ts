@@ -53,8 +53,8 @@ export function buildChangelogEntries(
  *
  * A commit whose last `change-record` block records at least one entry routed to `options.scope` yields one item per
  * routed entry; any other commit, including one whose entries all route elsewhere, is classified by its title through
- * `classifyChangelogCommit`. A `release:` or merge subject yields nothing either way. The read records diagnostics only for the unreleased window, since the
- * released windows were reported when they were prepared.
+ * `classifyChangelogCommit`. A `release:` or merge subject yields nothing either way. The read records diagnostics
+ * only for the unreleased window, since the released windows were reported when they were prepared.
  */
 export function readReleaseHistory(config: ReleaseHistoryConfig, options: GenerateChangelogOptions): ReleaseHistory {
   try {
