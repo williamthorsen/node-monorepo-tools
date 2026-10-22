@@ -2,7 +2,22 @@
   "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/main/packages/v11y-check/schemas/config.json",
   "dev": {
     "severityThreshold": "moderate",
-    "allowlist": []
+    "allowlist": [
+      {
+        "addedAt": "2026-10-22T01:09:05.779Z",
+        "id": "1242767",
+        "path": "packages__nmr>@williamthorsen/toolbelt.vitest>vitest>@vitest/mocker",
+        "reason": "Added by v11y sync at 2026-10-22 01:09:05 UTC",
+        "url": "https://github.com/advisories/GHSA-qxg6-89mg-rqv8"
+      },
+      {
+        "addedAt": "2026-10-22T01:09:05.779Z",
+        "id": "1242769",
+        "path": "packages__nmr>@williamthorsen/toolbelt.vitest>vitest>@vitest/mocker",
+        "reason": "Added by v11y sync at 2026-10-22 01:09:05 UTC",
+        "url": "https://github.com/advisories/GHSA-xp26-3454-mjgp"
+      }
+    ]
   },
   "prod": {
     "severityThreshold": "low",
