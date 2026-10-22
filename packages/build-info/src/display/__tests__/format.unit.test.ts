@@ -15,19 +15,42 @@ describe(formatBuildLabel, () => {
   it('does not double a leading v', () => {
     expect(formatBuildLabel({ ...buildMinimalBuildInfo(), version: 'v0.7.0' })).toBe('v0.7.0 · 2026-10-08 06:29Z');
   });
+
+  it('appends the environment when shouldShowEnvironment is set', () => {
+    expect(formatBuildLabel(buildFullBuildInfo(), { shouldShowEnvironment: true })).toBe(
+      'v0.7.0 · a59f2f8 · 2026-10-08 06:29Z · preview',
+    );
+  });
+
+  it('appends the environment to a label without a commit', () => {
+    expect(formatBuildLabel(buildMinimalBuildInfo(), { shouldShowEnvironment: true })).toBe(
+      'v0.7.0 · 2026-10-08 06:29Z · development',
+    );
+  });
+
+  it('omits the environment when shouldShowEnvironment is false', () => {
+    expect(formatBuildLabel(buildFullBuildInfo(), { shouldShowEnvironment: false })).toBe(
+      'v0.7.0 · a59f2f8 · 2026-10-08 06:29Z',
+    );
+  });
 });
 
 describe(getBuildLabelParts, () => {
-  it('returns the version, short SHA, and minute-truncated build time', () => {
+  it('returns the version, short SHA, minute-truncated build time, and environment', () => {
     expect(getBuildLabelParts(buildFullBuildInfo())).toStrictEqual({
       version: 'v0.7.0',
       shortSha: 'a59f2f8',
       time: '2026-10-08 06:29Z',
+      environment: 'preview',
     });
   });
 
   it('omits the short SHA when the build does not record a commit', () => {
-    expect(getBuildLabelParts(buildMinimalBuildInfo())).toStrictEqual({ version: 'v0.7.0', time: '2026-10-08 06:29Z' });
+    expect(getBuildLabelParts(buildMinimalBuildInfo())).toStrictEqual({
+      version: 'v0.7.0',
+      time: '2026-10-08 06:29Z',
+      environment: 'development',
+    });
   });
 });
 

@@ -5,6 +5,8 @@ import { joinClassNames } from './joinClassNames.ts';
 
 export interface BuildLabelProps {
   info: BuildInfo;
+  /** Appends the build's environment as the label's last segment. Defaults to `false`. */
+  shouldShowEnvironment?: boolean | undefined;
   /** Appended to the root element's `build-info-label` class. */
   className?: string | undefined;
 }
@@ -14,10 +16,10 @@ const SEPARATOR = ' · ';
 
 /**
  * The build's one-line label: its version, its short commit SHA, which links to the commit when the build records a
- * GitHub repository, and its build time.
+ * GitHub repository, its build time, and, on request, its environment.
  */
-export function BuildLabel({ info, className }: BuildLabelProps): ReactElement {
-  const { version, shortSha, time } = getBuildLabelParts(info);
+export function BuildLabel({ info, shouldShowEnvironment = false, className }: BuildLabelProps): ReactElement {
+  const { version, shortSha, time, environment } = getBuildLabelParts(info);
   const commitUrl = getCommitUrl(info);
 
   return (
@@ -39,6 +41,12 @@ export function BuildLabel({ info, className }: BuildLabelProps): ReactElement {
       <time className="build-info-time" dateTime={info.buildTime}>
         {time}
       </time>
+      {shouldShowEnvironment && (
+        <>
+          {SEPARATOR}
+          <span className="build-info-environment">{environment}</span>
+        </>
+      )}
     </span>
   );
 }

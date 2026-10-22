@@ -8,17 +8,29 @@ export interface BuildLabelParts {
   shortSha?: string;
   /** The build time in UTC, truncated to the minute, such as `2026-10-08 06:29Z`. */
   time: string;
+  /** The deployment environment, such as `production`. */
+  environment: string;
+}
+
+/** Options for `formatBuildLabel`. */
+export interface BuildLabelOptions {
+  /** Appends the build's environment as the label's last segment. Defaults to `false`. */
+  shouldShowEnvironment?: boolean | undefined;
 }
 
 const LABEL_SEPARATOR = ' · ';
 
 /**
  * Formats the one-line label for a build, such as `v0.7.0 · a59f2f8 · 2026-10-08 06:29Z`. The commit segment is left
- * out when the build does not record a commit, and the build time is truncated to the minute.
+ * out when the build does not record a commit, the build time is truncated to the minute, and the environment is
+ * appended only when `shouldShowEnvironment` is set.
  */
-export function formatBuildLabel(info: BuildInfo): string {
-  const { version, shortSha, time } = getBuildLabelParts(info);
+export function formatBuildLabel(info: BuildInfo, options: BuildLabelOptions = {}): string {
+  const { version, shortSha, time, environment } = getBuildLabelParts(info);
   const segments = shortSha === undefined ? [version, time] : [version, shortSha, time];
+  if (options.shouldShowEnvironment === true) {
+    segments.push(environment);
+  }
   return segments.join(LABEL_SEPARATOR);
 }
 
@@ -27,7 +39,10 @@ export function getBuildLabelParts(info: BuildInfo): BuildLabelParts {
   const version = info.version.startsWith('v') ? info.version : `v${info.version}`;
   const timestamp = new Date(info.buildTime).toISOString();
   const time = `${timestamp.slice(0, 10)} ${timestamp.slice(11, 16)}Z`;
-  return info.commit === undefined ? { version, time } : { version, shortSha: info.commit.shortSha, time };
+  const { environment } = info;
+  return info.commit === undefined
+    ? { version, time, environment }
+    : { version, shortSha: info.commit.shortSha, time, environment };
 }
 
 /**

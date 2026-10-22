@@ -17,6 +17,18 @@ describe(BuildInfoDisplay, () => {
     expect(markup).toContain('<h4 class="build-info-release-notes-heading">');
   });
 
+  it('passes shouldShowEnvironment to the label', () => {
+    const markup = renderToStaticMarkup(<BuildInfoDisplay info={buildMinimalBuildInfo()} shouldShowEnvironment />);
+
+    expect(markup).toContain('<span class="build-info-environment">development</span>');
+  });
+
+  it('omits the environment by default', () => {
+    const markup = renderToStaticMarkup(<BuildInfoDisplay info={buildMinimalBuildInfo()} />);
+
+    expect(markup).not.toContain('build-info-environment');
+  });
+
   it('renders the label alone when the build does not have any release notes', () => {
     const markup = renderToStaticMarkup(<BuildInfoDisplay info={buildMinimalBuildInfo()} />);
 

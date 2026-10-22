@@ -12,4 +12,10 @@ export type {
   BuildInfoRepository,
   BuildInfoRuntime,
 } from './contract/types.ts';
-export { type BuildLabelParts, formatBuildLabel, getBuildLabelParts, getCommitUrl } from './display/format.ts';
+export {
+  type BuildLabelOptions,
+  type BuildLabelParts,
+  formatBuildLabel,
+  getBuildLabelParts,
+  getCommitUrl,
+} from './display/format.ts';
