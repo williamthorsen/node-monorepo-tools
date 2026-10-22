@@ -176,7 +176,7 @@
           "path": "lib/root-scripts.ts"
         },
         {
-          "hash": "3d661ab8",
+          "hash": "97f29052",
           "kind": "module",
           "path": "lib/self-hosted-runner.ts"
         },
@@ -319,7 +319,7 @@
       "readyupVersion": "0.42.0",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "81b3206d"
+      "targetHash": "bfda9d8b"
     }
   ]
 }
