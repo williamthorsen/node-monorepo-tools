@@ -8871,7 +8871,11 @@ async function describeRecommendationSkip(cwd = process.cwd(), readFacts) {
   if ("skip" in status) return status.skip;
   if (status.selection !== "unset") return `CI_RUNS_ON is already set to ${status.facts.ciRunsOn ?? ""}`;
   if (status.exempt !== void 0) return `the repo is exempt: ${status.exempt}`;
-  if (status.failures.length > 0) return `not ready: ${status.failures.join("; ")}`;
+  if (!status.facts.isPrivate) return status.failures.join("\n");
+  if (status.failures.length > 0) {
+    return `not ready:
+${status.failures.map((failure) => `      ${failure}`).join("\n")}`;
+  }
   return false;
 }
 async function describeSelfHostedRunnerSkip(cwd = process.cwd(), readFacts) {
@@ -8879,15 +8883,15 @@ async function describeSelfHostedRunnerSkip(cwd = process.cwd(), readFacts) {
   return "skip" in status && status.skip;
 }
 function findSelfHostedRunnerFailures(facts, cwd) {
-  const failures = [];
   if (!facts.isPrivate) {
-    failures.push(
-      `${facts.nameWithOwner} is public: A self-hosted runner must never run code from a fork's pull request`
-    );
+    return [
+      `${facts.nameWithOwner} is public, so a self-hosted runner must not run its CI: A fork's pull request would run code on the runner`
+    ];
   }
+  const failures = [];
   if (facts.onlineSelfHostedRunners === 0) {
     failures.push(
-      `${facts.nameWithOwner} does not have an online runner labelled self-hosted. When williamthorsen/hq allocates the repo slots in apps/runners/config/repos.yaml, the runners have not registered yet`
+      `${facts.nameWithOwner} does not have an online runner labelled self-hosted. If williamthorsen/hq has just allocated the repo's slots in apps/runners/config/repos.yaml, the runners may not have registered yet`
     );
   }
   const workflows = readWorkflows(cwd);
@@ -8962,7 +8966,7 @@ async function gatherSelfHostedRunnerStatus(cwd, readFacts) {
   try {
     exempt = (await loadRootConfig(cwd)).selfHostedRunner?.exempt;
   } catch (error) {
-    failures.push(`the nmr config cannot be loaded: ${describeError(error)}`);
+    if (facts.isPrivate) failures.push(`the nmr config cannot be loaded: ${describeError(error)}`);
   }
   return {
     facts,

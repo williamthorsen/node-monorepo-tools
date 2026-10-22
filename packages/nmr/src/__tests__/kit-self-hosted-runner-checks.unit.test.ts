@@ -47,15 +47,21 @@ describe(findSelfHostedRunnerFailures, () => {
     expect(findSelfHostedRunnerFailures(READY_FACTS, dir)).toStrictEqual([]);
   });
 
-  it('reports a public repo and a missing runner', () => {
+  it('reports a public repo alone, even when it also lacks a runner and has a defective caller', () => {
     const failures = findSelfHostedRunnerFailures(
       { ...READY_FACTS, isPrivate: false, onlineSelfHostedRunners: 0 },
-      buildRepo({}),
+      buildRepo({ '.github/workflows/code-quality.yaml': CODE_QUALITY_V8.replace('@v8', '@v7') }),
     );
 
-    expect(failures).toHaveLength(2);
-    expect(failures[0]).toContain('acme/app is public');
-    expect(failures[1]).toContain('apps/runners/config/repos.yaml');
+    expect(failures).toStrictEqual([
+      "acme/app is public, so a self-hosted runner must not run its CI: A fork's pull request would run code on the runner",
+    ]);
+  });
+
+  it('reports a missing runner with the hq allocation as a possible cause', () => {
+    const failures = findSelfHostedRunnerFailures({ ...READY_FACTS, onlineSelfHostedRunners: 0 }, buildRepo({}));
+
+    expect(failures).toStrictEqual([expect.stringContaining('the runners may not have registered yet')]);
   });
 
   it.each([
@@ -212,7 +218,28 @@ describe('self-hosted runner checklist', () => {
     const readFacts = factsReader({ ...READY_FACTS, onlineSelfHostedRunners: 0 });
 
     await expect(describeRecommendationSkip(buildRepo({}), readFacts)).resolves.toContain(
-      'not ready: acme/app does not have an online runner',
+      'not ready:\n      acme/app does not have an online runner',
+    );
+  });
+
+  it('lists each failing condition on its own line when the switch is not recommended', async () => {
+    const readFacts = factsReader({ ...READY_FACTS, onlineSelfHostedRunners: 0 });
+    const dir = buildRepo({ '.github/workflows/code-quality.yaml': CODE_QUALITY_V8.replace('@v8', '@v7') });
+
+    const reason = await describeRecommendationSkip(dir, readFacts);
+    expect(typeof reason === 'string' && reason.split('\n')).toStrictEqual([
+      'not ready:',
+      expect.stringMatching(/^ {6}acme\/app does not have an online runner/),
+      expect.stringMatching(/^ {6}.*predates CI_RUNS_ON/),
+    ]);
+  });
+
+  it('reports only the visibility of a public repo, without the not-ready prefix', async () => {
+    const readFacts = factsReader({ ...READY_FACTS, isPrivate: false, onlineSelfHostedRunners: 0 });
+    const dir = buildRepo({ '.config/nmr.config.ts': 'export default {' });
+
+    await expect(describeRecommendationSkip(dir, readFacts)).resolves.toBe(
+      "acme/app is public, so a self-hosted runner must not run its CI: A fork's pull request would run code on the runner",
     );
   });
 
@@ -232,18 +259,28 @@ describe('self-hosted runner checklist', () => {
   });
 
   it('warns about a set CI_RUNS_ON, naming each failing condition', async () => {
+    const readFacts = factsReader({ ...READY_FACTS, onlineSelfHostedRunners: 0, ciRunsOn: '"self-hosted"' });
+    const dir = buildRepo({ '.github/workflows/code-quality.yaml': CODE_QUALITY_V8.replace('@v8', '@v7') });
+
+    await expect(describeRecommendationSkip(dir, readFacts)).resolves.toContain('already set');
+    const detail = getDetail(await selfHostedRunnerCanRunCi(dir, readFacts));
+    expect(detail).toContain('does not have an online runner');
+    expect(detail).toContain('predates CI_RUNS_ON');
+  });
+
+  it('warns about a set CI_RUNS_ON in a public repo, naming only its visibility', async () => {
     const readFacts = factsReader({
       ...READY_FACTS,
       isPrivate: false,
       onlineSelfHostedRunners: 0,
       ciRunsOn: '"self-hosted"',
     });
-    const dir = buildRepo({});
 
-    await expect(describeRecommendationSkip(dir, readFacts)).resolves.toContain('already set');
-    const detail = getDetail(await selfHostedRunnerCanRunCi(dir, readFacts));
-    expect(detail).toContain('acme/app is public');
-    expect(detail).toContain('does not have an online runner');
+    const outcome = await selfHostedRunnerCanRunCi(buildRepo({}), readFacts);
+    expect(getDetail(outcome).trim()).toBe(
+      "acme/app is public, so a self-hosted runner must not run its CI: A fork's pull request would run code on the runner",
+    );
+    expect(outcome).toMatchObject({ fix: expect.stringContaining('gh variable delete CI_RUNS_ON --repo acme/app') });
   });
 
   it('passes a set CI_RUNS_ON when every condition holds', async () => {

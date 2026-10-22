@@ -105,7 +105,10 @@ export async function describeRecommendationSkip(
   if ('skip' in status) return status.skip;
   if (status.selection !== 'unset') return `CI_RUNS_ON is already set to ${status.facts.ciRunsOn ?? ''}`;
   if (status.exempt !== undefined) return `the repo is exempt: ${status.exempt}`;
-  if (status.failures.length > 0) return `not ready: ${status.failures.join('; ')}`;
+  if (!status.facts.isPrivate) return status.failures.join('\n');
+  if (status.failures.length > 0) {
+    return `not ready:\n${status.failures.map((failure) => `      ${failure}`).join('\n')}`;
+  }
   return false;
 }
 
@@ -124,21 +127,23 @@ export async function describeSelfHostedRunnerSkip(
 
 /**
  * Lists the conditions under which a repo's CI fails on the self-hosted runner: GitHub's settings, the code-quality
- * caller, and each job that `CI_RUNS_ON` sends to the runner.
+ * caller, and each job that `CI_RUNS_ON` sends to the runner. A public repo fails on its visibility alone, which rules
+ * out the runner whatever else holds.
  *
  * @internal - Exported only to enable testing
  */
 export function findSelfHostedRunnerFailures(facts: GitHubFacts, cwd: string): string[] {
-  const failures: string[] = [];
   if (!facts.isPrivate) {
-    failures.push(
-      `${facts.nameWithOwner} is public: A self-hosted runner must never run code from a fork's pull request`,
-    );
+    return [
+      `${facts.nameWithOwner} is public, so a self-hosted runner must not run its CI: A fork's pull request would run code on the runner`,
+    ];
   }
+
+  const failures: string[] = [];
   if (facts.onlineSelfHostedRunners === 0) {
     failures.push(
-      `${facts.nameWithOwner} does not have an online runner labelled self-hosted. When williamthorsen/hq allocates the repo ` +
-        'slots in apps/runners/config/repos.yaml, the runners have not registered yet',
+      `${facts.nameWithOwner} does not have an online runner labelled self-hosted. If williamthorsen/hq has just allocated ` +
+        "the repo's slots in apps/runners/config/repos.yaml, the runners may not have registered yet",
     );
   }
 
@@ -270,7 +275,7 @@ async function gatherSelfHostedRunnerStatus(
   try {
     exempt = (await loadRootConfig(cwd)).selfHostedRunner?.exempt;
   } catch (error) {
-    failures.push(`the nmr config cannot be loaded: ${describeError(error)}`);
+    if (facts.isPrivate) failures.push(`the nmr config cannot be loaded: ${describeError(error)}`);
   }
 
   return {
