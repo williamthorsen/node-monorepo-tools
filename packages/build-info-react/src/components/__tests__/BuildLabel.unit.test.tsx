@@ -34,11 +34,27 @@ describe(BuildLabel, () => {
     expect(markup).not.toContain('build-info-commit');
   });
 
+  it('appends the environment when shouldShowEnvironment is set', () => {
+    const markup = renderToStaticMarkup(<BuildLabel info={buildMinimalBuildInfo()} shouldShowEnvironment />);
+
+    expect(markup).toMatch(/<\/time> · <span class="build-info-environment">development<\/span><\/span>$/);
+  });
+
+  it('omits the environment by default', () => {
+    const markup = renderToStaticMarkup(<BuildLabel info={buildFullBuildInfo()} />);
+
+    expect(markup).not.toContain('build-info-environment');
+  });
+
   it.for([
-    ['with a commit', buildFullBuildInfo()],
-    ['without a commit', buildMinimalBuildInfo()],
-  ] as const)('shows the same text as formatBuildLabel %s', ([, info]) => {
-    expect(readText(renderToStaticMarkup(<BuildLabel info={info} />))).toBe(formatBuildLabel(info));
+    ['with a commit', buildFullBuildInfo(), false],
+    ['without a commit', buildMinimalBuildInfo(), false],
+    ['with a commit and the environment', buildFullBuildInfo(), true],
+    ['without a commit and with the environment', buildMinimalBuildInfo(), true],
+  ] as const)('shows the same text as formatBuildLabel %s', ([, info, shouldShowEnvironment]) => {
+    const markup = renderToStaticMarkup(<BuildLabel info={info} shouldShowEnvironment={shouldShowEnvironment} />);
+
+    expect(readText(markup)).toBe(formatBuildLabel(info, { shouldShowEnvironment }));
   });
 
   it("appends the consumer's class name to the root element", () => {

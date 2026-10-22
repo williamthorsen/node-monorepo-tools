@@ -9,15 +9,22 @@ export interface BuildInfoDisplayProps {
   info: BuildInfo;
   /** The level of each release-notes section's heading. Defaults to 3. */
   headingLevel?: HeadingLevel | undefined;
+  /** Appends the build's environment to the label. Defaults to `false`. */
+  shouldShowEnvironment?: boolean | undefined;
   /** Appended to the root element's `build-info` class. */
   className?: string | undefined;
 }
 
 /** A build's identity: its one-line label followed by its release notes, when it has any. */
-export function BuildInfoDisplay({ info, headingLevel, className }: BuildInfoDisplayProps): ReactElement {
+export function BuildInfoDisplay({
+  info,
+  headingLevel,
+  shouldShowEnvironment,
+  className,
+}: BuildInfoDisplayProps): ReactElement {
   return (
     <div className={joinClassNames('build-info', className)}>
-      <BuildLabel info={info} />
+      <BuildLabel info={info} shouldShowEnvironment={shouldShowEnvironment} />
       <ReleaseNotes notes={info.releaseNotes} headingLevel={headingLevel} />
     </div>
   );
