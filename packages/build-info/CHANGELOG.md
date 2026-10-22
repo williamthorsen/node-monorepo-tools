@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.3.0 — 2026-10-22
+
+### 🎉 Features
+
+- Adds an optional `BuildLabelOptions` argument to `formatBuildLabel`, whose `shouldShowEnvironment` flag appends the build's environment as the label's last segment, and adds `environment` to the segments returned by `getBuildLabelParts`. (#1093)
+
 ## 0.2.3 — 2026-10-18
 
 ### ♻️ Refactoring

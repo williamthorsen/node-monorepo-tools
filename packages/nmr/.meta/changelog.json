@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.50.1",
+    "date": "2026-10-22",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that the `self-hosted runner` checklist in the `nmr` readyup kit joined every readiness failure into one semicolon-separated line, which hid that a public repo rules out the runner whatever else holds; a public repo now reports its visibility alone, and a private repo lists each failure on its own line. (#1091)",
+            "hash": "615f6f30ff56d0ea777d47752013de0bc479368f",
+            "entry": 1
+          },
+          {
+            "description": "Fixes the issue that the checklist's missing-runner message stated a recent `williamthorsen/hq` allocation as the cause, when it is only a possible one. (#1091)",
+            "hash": "615f6f30ff56d0ea777d47752013de0bc479368f",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.50.0",
     "date": "2026-10-21",
     "sections": [

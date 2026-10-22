@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.3.0",
+    "date": "2026-10-22",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Adds an optional `BuildLabelOptions` argument to `formatBuildLabel`, whose `shouldShowEnvironment` flag appends the build's environment as the label's last segment, and adds `environment` to the segments returned by `getBuildLabelParts`. (#1093)",
+            "hash": "ff7ba2fcc1459072f167f0eda9fb1321dfcb0b3d",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.2.3",
     "date": "2026-10-18",
     "sections": [

@@ -9188,7 +9188,7 @@ function hasSupportedStrictLintVersion() {
   });
 }
 function getMinVersion() {
-  const pickedFields = { "version": "0.50.0" };
+  const pickedFields = { "version": "0.50.1" };
   if (typeof pickedFields["version"] !== "string") {
     throw new TypeError("nmr/package.json: 'version' must be a string");
   }

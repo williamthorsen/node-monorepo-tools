@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.2.0 — 2026-10-22
+
+### 🎉 Features
+
+- Adds a `shouldShowEnvironment` prop to `BuildLabel` and `BuildInfoDisplay` that ends the label with the build's environment in a `build-info-environment` span, so that the environment can be styled through that class. (#1093)
+
 ## 0.1.3 — 2026-10-18
 
 ### 📦 Dependencies

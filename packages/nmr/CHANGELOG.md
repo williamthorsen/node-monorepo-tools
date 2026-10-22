@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.50.1 — 2026-10-22
+
+### 🐛 Bug fixes
+
+- Fixes the issue that the `self-hosted runner` checklist in the `nmr` readyup kit joined every readiness failure into one semicolon-separated line, which hid that a public repo rules out the runner whatever else holds; a public repo now reports its visibility alone, and a private repo lists each failure on its own line. (#1091)
+- Fixes the issue that the checklist's missing-runner message stated a recent `williamthorsen/hq` allocation as the cause, when it is only a possible one. (#1091)
+
 ## 0.50.0 — 2026-10-21
 
 ### 🎉 Features
