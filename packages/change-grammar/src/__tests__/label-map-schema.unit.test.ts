@@ -40,7 +40,9 @@ describe('label-map.json schema', () => {
   it("accepts deriveLabelMap's output", () => {
     const validateLabelMap = new Ajv({ strict: true }).compile(JSON.parse(raw));
 
-    const isValid = validateLabelMap(deriveLabelMap(CANONICAL_TAXONOMY, ['change-grammar', 'nmr']));
+    const isValid = validateLabelMap(
+      deriveLabelMap(CANONICAL_TAXONOMY, ['change-grammar', 'nmr'], { isMonorepo: true }),
+    );
 
     expect(validateLabelMap.errors ?? []).toStrictEqual([]);
     expect(isValid).toBe(true);

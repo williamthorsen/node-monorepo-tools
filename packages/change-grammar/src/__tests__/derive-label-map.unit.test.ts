@@ -24,11 +24,11 @@ const CODEASSEMBLY_TYPE_MAP = {
 
 describe(deriveLabelMap, () => {
   it("maps the canonical taxonomy's types to codeassembly's tracker labels", () => {
-    expect(deriveLabelMap(CANONICAL_TAXONOMY, []).types).toStrictEqual(CODEASSEMBLY_TYPE_MAP);
+    expect(deriveLabelMap(CANONICAL_TAXONOMY, [], { isMonorepo: false }).types).toStrictEqual(CODEASSEMBLY_TYPE_MAP);
   });
 
-  it('maps each workspace to its scope label and adds root after them', () => {
-    const { scopes } = deriveLabelMap(CANONICAL_TAXONOMY, ['nmr', 'change-grammar']);
+  it('maps each workspace to its scope label and adds root after them for a monorepo', () => {
+    const { scopes } = deriveLabelMap(CANONICAL_TAXONOMY, ['nmr', 'change-grammar'], { isMonorepo: true });
 
     expect(Object.entries(scopes)).toStrictEqual([
       ['nmr', 'scope:nmr'],
@@ -37,8 +37,14 @@ describe(deriveLabelMap, () => {
     ]);
   });
 
-  it('does not derive any scopes, not even root, for an empty workspace list', () => {
-    expect(deriveLabelMap(CANONICAL_TAXONOMY, []).scopes).toStrictEqual({});
+  it('derives root alone for a monorepo without workspaces', () => {
+    expect(deriveLabelMap(CANONICAL_TAXONOMY, [], { isMonorepo: true }).scopes).toStrictEqual({ root: 'scope:root' });
+  });
+
+  it('omits root when the repo is not a monorepo', () => {
+    const { scopes } = deriveLabelMap(CANONICAL_TAXONOMY, ['nmr'], { isMonorepo: false });
+
+    expect(scopes).toStrictEqual({ nmr: 'scope:nmr' });
   });
 
   it('keeps the order of the given types', () => {
@@ -49,6 +55,6 @@ describe(deriveLabelMap, () => {
       ],
     };
 
-    expect(Object.keys(deriveLabelMap(taxonomy, []).types)).toStrictEqual(['zeta', 'alpha']);
+    expect(Object.keys(deriveLabelMap(taxonomy, [], { isMonorepo: false }).types)).toStrictEqual(['zeta', 'alpha']);
   });
 });
