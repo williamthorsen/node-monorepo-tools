@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.3.0 — 2026-10-23
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Adds a required `isMonorepo` option to `deriveLabelMap`, which adds the `root` scope to the label map when the option is true, including for a monorepo that does not have any workspaces. (#1096)
+
 ## 0.2.1 — 2026-10-13
 
 ### 🧪 Tests

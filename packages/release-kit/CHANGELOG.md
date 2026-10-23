@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 15.0.0 — 2026-10-23
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Require an isMonorepo option in deriveLabelMap to decide the root scope (#1096)
+
+  Makes `deriveLabelMap` in `@williamthorsen/change-grammar` take a required `isMonorepo` option that decides whether the label map contains the `root` scope, replacing the inference from a non-empty workspace list. A monorepo without workspaces now receives the `root` scope, and every existing two-argument call must pass the option.
+
 ## 14.2.4 — 2026-10-21
 
 ### 🐛 Bug fixes

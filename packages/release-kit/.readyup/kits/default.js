@@ -234,7 +234,7 @@ var CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE = "f595831ff28f8b3a01d97e6cb0cfe1
 
 // .readyup/kits/default.ts
 function getMinVersion() {
-  const picked = { "version": "14.2.4" };
+  const picked = { "version": "15.0.0" };
   if (typeof picked["version"] !== "string") {
     throw new TypeError("release-kit/package.json: 'version' must be a string");
   }

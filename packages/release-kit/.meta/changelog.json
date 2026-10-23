@@ -1,5 +1,23 @@
 [
   {
+    "version": "15.0.0",
+    "date": "2026-10-23",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Require an isMonorepo option in deriveLabelMap to decide the root scope (#1096)",
+            "body": "Makes `deriveLabelMap` in `@williamthorsen/change-grammar` take a required `isMonorepo` option that decides whether the label map contains the `root` scope, replacing the inference from a non-empty workspace list. A monorepo without workspaces now receives the `root` scope, and every existing two-argument call must pass the option.",
+            "breaking": true,
+            "hash": "b12099da82b2c66fd7de23f5d8f6ecb4d29295e0"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "14.2.4",
     "date": "2026-10-21",
     "sections": [
