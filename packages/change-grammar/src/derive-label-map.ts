@@ -2,12 +2,13 @@ import { ROOT_SCOPE } from './tokens.ts';
 import type { CanonicalWorkTypeEntry } from './types.ts';
 
 /**
- * Maps each work type to its tracker label and each workspace to its scope label, in the order given. Adds `root` to the
- * scopes only when there is a workspace for it to stand apart from.
+ * Maps each work type to its tracker label and each workspace to its scope label, in the order given. Adds `root` after
+ * the workspace scopes when the repo is a monorepo, whether or not it has any workspaces.
  */
 export function deriveLabelMap(
   taxonomy: { types: readonly Pick<CanonicalWorkTypeEntry, 'key' | 'trackerLabel'>[] },
   workspaces: readonly string[],
+  options: { isMonorepo: boolean },
 ): LabelMap {
   const types: Record<string, string> = {};
   for (const { key, trackerLabel } of taxonomy.types) {
@@ -18,7 +19,7 @@ export function deriveLabelMap(
   for (const workspace of workspaces) {
     scopes[workspace] = toScopeLabel(workspace);
   }
-  if (workspaces.length > 0) {
+  if (options.isMonorepo) {
     scopes[ROOT_SCOPE] = toScopeLabel(ROOT_SCOPE);
   }
 

@@ -125,4 +125,4 @@ Consumers reference it from the top of their `.meta/label-map.json`:
 }
 ```
 
-Earlier releases published the same schema from release-kit, and URLs under existing `release-kit-v*` tags keep resolving. release-kit does not generate `.meta/label-map.json`; change-grammar's `deriveLabelMap` derives one from the taxonomy and the workspace scopes.
+Earlier releases published the same schema from release-kit, and URLs under existing `release-kit-v*` tags keep resolving. release-kit does not generate `.meta/label-map.json`; change-grammar's `deriveLabelMap` derives one from the taxonomy, the workspace scopes, and the caller's statement of whether the repo is a monorepo, which decides the `root` scope.
