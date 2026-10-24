@@ -39,9 +39,11 @@ export interface FakeRemote {
  * every `NMR_*` variable, as `ssh` forwards none of the local environment, and then sets `NMR_LOCK_DIR` to the
  * directory `nmr-lock` in the host's home, so that each host has a machine lock of its own.
  *
- * The fake `pnpm` logs each call. Its `exec` logs the directory, the arguments, the output style, nmr's own variables,
- * the files in the directory, and the content of `probe.txt` when there is one, then prints to both streams. These
- * variables steer it: `FAKE_INSTALL_STATUS` and `FAKE_RUN_STATUS` set exit statuses; `FAKE_INSTALL_SLEEP` and
+ * The fake `pnpm` logs each call. Its `install` logs, as `state=present` or `state=absent`, whether pnpm's workspace
+ * state file exists, then writes that file as pnpm does; with `FAKE_INSTALL_REAL` naming a pnpm, it runs that pnpm
+ * instead. Its `exec` logs the directory, the arguments, the output style, nmr's own variables, the files in the
+ * directory, the bins in its `node_modules/.bin`, and the content of `probe.txt` when there is one, then prints to both
+ * streams. These variables steer it: `FAKE_INSTALL_STATUS` and `FAKE_RUN_STATUS` set exit statuses; `FAKE_INSTALL_SLEEP` and
  * `FAKE_RUN_SLEEP` make the install or the run write its pid to `FAKE_INSTALL_PIDFILE` or `FAKE_RUN_PIDFILE` and
  * sleep; `FAKE_INSTALL_NOISE` makes the install print that many lines and then `last install line`;
  * `FAKE_RUN_MANIFEST`, a JSON array, makes the run write each element as an entry file into the pass manifest; and
@@ -84,6 +86,10 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
     'case "$1" in',
     '  install)',
     '    echo "install $*" >> "$FAKE_PNPM_LOG"',
+    '    if ls node_modules/.pnpm-workspace-state*.json >/dev/null 2>&1; then state=present; else state=absent; fi',
+    '    echo "state=$state" >> "$FAKE_PNPM_LOG"',
+    '    if [ -n "$FAKE_INSTALL_REAL" ]; then exec "$FAKE_INSTALL_REAL" "$@"; fi',
+    '    mkdir -p node_modules && : > node_modules/.pnpm-workspace-state-v1.json',
     '    if [ -n "$FAKE_INSTALL_NOISE" ]; then yes "install progress" | head -n "$FAKE_INSTALL_NOISE"; echo "last install line"; fi',
     '    if [ -n "$FAKE_INSTALL_SLEEP" ]; then echo $$ > "$FAKE_INSTALL_PIDFILE"; sleep "$FAKE_INSTALL_SLEEP"; fi',
     '    exit "${FAKE_INSTALL_STATUS:-0}" ;;',
@@ -95,6 +101,7 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
     '      echo "style=$NMR_OUTPUT_STYLE"',
     '      echo "env=no-cache:${NMR_NO_CACHE-unset} debug:${NMR_DEBUG-unset} run-id:${NMR_RUN_ID:+set} snapshot:${NMR_TREE_SNAPSHOT:+set} lock-token:${NMR_LOCK_TOKEN:+set} no-lock:${NMR_NO_LOCK-unset}"',
     String.raw`      echo "files=$(ls -A | sort | tr '\n' ' ')"`,
+    String.raw`      echo "bins=$(ls -A node_modules/.bin 2>/dev/null | sort | tr '\n' ' ')"`,
     '      [ -f probe.txt ] && echo "probe=$(cat probe.txt)"',
     '    } >> "$FAKE_PNPM_LOG"',
     // Write each element of the JSON array as one entry file, a string element as the file's raw content.
