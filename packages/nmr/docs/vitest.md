@@ -4,7 +4,7 @@ The Vitest config that `@williamthorsen/nmr/vitest` publishes: its test tiers an
 
 The [README](../README.md#shared-vitest-config) shows the one-line config file.
 
-`vitest` is a peer dependency (`>=4.0.0 <5`), declared optional; the consuming repo provides it, and repos that never import this subpath are unaffected. `vite` is an optional peer as well (`>=8.0.0 <9`), required only by the [`tsconfigPaths` setting](#resolving-through-tsconfig-paths); a repo that declares a `vite` of its own below that range sees an unmet-peer warning whether or not it sets the flag.
+`vitest` is a peer dependency (`>=4.0.0 <6`), declared optional; the consuming repo provides it, and repos that never import this subpath are unaffected. `vite` is an optional peer as well (`>=8.0.0 <9`), required only by the [`tsconfigPaths` setting](#resolving-through-tsconfig-paths); a repo that declares a `vite` of its own below that range sees an unmet-peer warning whether or not it sets the flag.
 
 ## Test tiers
 
@@ -58,6 +58,8 @@ Every package resolves the same six test commands. Nothing is detected on disk: 
 
 To narrow to a single project, go through `test:all`: `nmr test:all --project remote`. Narrowing through `test` does not work, because a second `--project` widens the selection rather than restricting it.
 
+The package scripts run [`nmr-vitest`](utilities.md#nmr-vitest), which names the root config when a package does not have one of its own. Vitest 5 does not search parent directories for a config, so under it a bare `vitest`, or an editor's test runner, started from such a package needs `--config` naming the root's `vitest.config.*`; Vitest 4 finds it unaided. A repo that overrides a package `test*` script with its own `vitest` invocation passes the flag there too.
+
 A run that does not collect any test files passes. That is what lets `nmr test:tool` fan out across a monorepo in which most packages do not have any tool-tier tests, and it means a package without any tests at all does not need a `"test": ""` override.
 
 The root registry defines the same six names, so a command means the same thing from the monorepo root as from inside a package. Each fans out to root-level files and every workspace package.
@@ -100,7 +102,7 @@ checkTestFileConventions({ excludedBasenames: ['cypress', 'generated'] });
 
 **Paths that git ignores are out of scope for both.** The sweep skips every untracked path that git ignores under the swept root, and the shared configs exclude the same paths from collection, so local build output such as a stale `.netlify/` directory is neither reported nor run. Git decides what is ignored: A tracked file stays in scope even when it matches an ignore pattern. Outside a git repository, or when git cannot run, nothing counts as ignored and only the named directories are pruned. A generated directory that the repo's `.gitignore` already covers therefore does not need an entry in either list.
 
-Expect the first run to fail in a repo that has never gated this. Vitest 4 excludes only `node_modules` and `.git` by default, so a `__tests__` tree under a generated or vendored directory that git tracks is collected and runs today; naming that directory in both lists is the fix, rather than widening what nmr prunes for everyone.
+Expect the first run to fail in a repo that has never gated this. Vitest excludes only `node_modules` and `.git` by default, so a `__tests__` tree under a generated or vendored directory that git tracks is collected and runs today; naming that directory in both lists is the fix, rather than widening what nmr prunes for everyone.
 
 In a repo that has not declared the check, [nmr's readyup kit](../README.md#conformance-checks) reports both halves and warns that the check is missing. Once a test file under `__tests__` imports it, the kit skips both reports and names that file as the reason. Only the check reads the repo's `excludedBasenames`, and a kit report beside it could only repeat its findings or name a directory that the repo has pruned.
 
@@ -157,7 +159,7 @@ It folds across layers like the other two, the last layer to declare it winning.
 
 **It is an opt-in because its silent direction is the reverse of the two defaults'.** Leaving it off fails loudly, with an unresolved import naming the specifier. Turning it on is the silent direction, for a repo that declares `paths` for `tsc` alone: A specifier that resolved through a package's `exports` starts resolving through the alias instead, and nothing in the run reports the switch. A repo that does not declare `paths` is unaffected either way.
 
-**It requires Vite 8**, the version that introduced `resolve.tsconfigPaths`. nmr declares `vite` as an optional peer at `>=8.0.0 <9`, so a repo that declares a stale `vite` of its own sees a warning at install time. That check does not apply to a repo whose only Vite comes in through Vitest's own dependency, and Vitest 4 accepts Vite 6 and 7: On those, the emitted key does nothing and the aliased import fails exactly as it would with the flag off.
+**It requires Vite 8**, the version that introduced `resolve.tsconfigPaths`. nmr declares `vite` as an optional peer at `>=8.0.0 <9`, so a repo that declares a stale `vite` of its own sees a warning at install time. That check does not apply to a repo that does not declare `vite` itself, whose Vite is the one that Vitest brings in: a dependency under Vitest 4 and an auto-installed peer under Vitest 5. Both majors accept Vite 6 and 7: On those, the emitted key does nothing and the aliased import fails exactly as it would with the flag off.
 
 ## Customizing by scope
 
@@ -215,7 +217,7 @@ Both factories fold any number of layers left to right: A later layer wins on a 
 
 Order matters for `setupFiles`, because a shared setup file establishes the environment in which the package's own then runs. A later layer's `project` block likewise wins over an earlier layer's `tiers` target: The nearer config is the more deliberate.
 
-**A package's own `vite.config.ts` also counts as that one config.** Vitest searches for a config by ascending from the run root and stopping at the first directory containing any of `vitest.config.*` or `vite.config.*`, so a package with only a Vite config ends the search there and never reaches the root config. Within a directory `vitest.config.*` is tried first, which makes the fix a Vitest config beside the Vite one, calling `defineVitestConfig()` as any other package config does. Without it the package does not declare any projects, and every tier-selecting command fails with `No projects matched the filter`, `nmr ci` among them. [nmr's readyup kit](../README.md#conformance-checks) reports a package in that state.
+**A package's own `vite.config.ts` also counts as that one config.** Vitest loads a `vitest.config.*` or `vite.config.*` that it finds in the run root, and [`nmr-vitest`](utilities.md#nmr-vitest) names the root config only for a package that does not contain either, so a package with only a Vite config never reaches the root config. Within a directory `vitest.config.*` is tried first, which makes the fix a Vitest config beside the Vite one, calling `defineVitestConfig()` as any other package config does. Without it the package does not declare any projects, and every tier-selecting command fails with `No projects matched the filter`, `nmr ci` among them. [nmr's readyup kit](../README.md#conformance-checks) reports a package in that state.
 
 **A path in a shared layer must be absolute.** Vitest resolves `setupFiles` against each project's own root, not against the module that declared the path, so a bare `'./vitest.setup.ts'` in a shared module names a different file in every package that consumes it -- and a package that happens to own a file by that name loads the wrong one instead of failing. The co-located form stays correct in a config file that declares the path directly.
 
@@ -249,7 +251,7 @@ The collection exclusions do not name fixtures, and that asymmetry is intentiona
 
 ## Root-scoped tests
 
-A monorepo's own root-level tests need a second config, because the package config is found by walking up from a package directory:
+A monorepo's own root-level tests need a second config, because [`nmr-vitest`](utilities.md#nmr-vitest) passes the root's `vitest.config.*` to every package that does not have a config of its own, and that config covers packages:
 
 ```ts
 // vitest.root.config.ts

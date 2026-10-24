@@ -32,7 +32,7 @@ Packages live under `packages/`:
 
 ### Testing
 
-- `vitest.config.ts` is the ancestor config that each package resolves by walking up; `root:test*` uses `vitest.root.config.ts` alone
+- `vitest.config.ts` is the config that `nmr-vitest` passes to each package as `--config`, because none of the packages has one of its own; `root:test*` uses `vitest.root.config.ts` alone
 - The shared config sets `passWithNoTests`, so a run that doesn't collect any files passes, which `test:tool` needs in order to fan out across packages that have none. `__tests__/workspace-test-presence.app.unit.test.ts` keeps that from hiding a package whose suite disappeared
 - Both configs load `vitest.setup.ts`, whose `failOnUncapturedOutput` fails a test that writes to `process.stdout` or `process.stderr`, or emits a process warning, without capturing it: Take the output with `captureStdio` or `captureWarnings` and assert on it. A child that inherits the worker's descriptors is outside the guard's reach, so a test that spawns one pipes its stdio
 - Typecheck uses `tsgo` (TypeScript native preview)

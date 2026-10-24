@@ -63,7 +63,8 @@
     "nmr-fmt": "bin/nmr-fmt.js",
     "nmr-report-catalog": "bin/nmr-report-catalog.js",
     "nmr-report-overrides": "bin/nmr-report-overrides.js",
-    "nmr-taze": "bin/nmr-taze.js"
+    "nmr-taze": "bin/nmr-taze.js",
+    "nmr-vitest": "bin/nmr-vitest.js"
   },
   "files": [
     ".meta/changelog.json",
@@ -106,7 +107,7 @@
   "peerDependencies": {
     "typescript": ">=5.7.0 <7",
     "vite": ">=8.0.0 <9",
-    "vitest": ">=4.0.0 <5"
+    "vitest": ">=4.0.0 <6"
   },
   "peerDependenciesMeta": {
     "typescript": {

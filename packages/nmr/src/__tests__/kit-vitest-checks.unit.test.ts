@@ -205,8 +205,7 @@ describe(everyViteConfigHasVitestConfig, () => {
     expect(detail).not.toContain('packages/api');
   });
 
-  // Vitest's config search only ascends from the run root, so neither of these is ever resolved from the
-  // workspace whose tests would run.
+  // Tests run from each workspace root, so a Vite config nested below one is never loaded.
   it('ignores a Vite config nested below a workspace root', () => {
     useMonorepo({
       'packages/api/package.json': '{ "name": "api" }\n',

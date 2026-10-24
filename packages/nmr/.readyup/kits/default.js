@@ -7660,12 +7660,12 @@ var workspaceScripts = {
   "lint:check": "eslint .",
   "lint:strict": "strict-lint",
   "report-catalog": "nmr-report-catalog",
-  test: `pnpm exec vitest ${GATE_PROJECTS}`,
-  "test:all": "pnpm exec vitest",
-  "test:coverage": `pnpm exec vitest ${GATE_PROJECTS} --coverage`,
-  "test:tool": "pnpm exec vitest --project tool",
-  "test:unit": "pnpm exec vitest --project unit",
-  "test:watch": `pnpm exec vitest ${GATE_PROJECTS} --watch`,
+  test: `nmr-vitest ${GATE_PROJECTS}`,
+  "test:all": "nmr-vitest",
+  "test:coverage": `nmr-vitest ${GATE_PROJECTS} --coverage`,
+  "test:tool": "nmr-vitest --project tool",
+  "test:unit": "nmr-vitest --project unit",
+  "test:watch": `nmr-vitest ${GATE_PROJECTS} --watch`,
   typecheck: "tsgo --noEmit",
   // The command is a string because neither half names an nmr command: Both are binaries.
   upgrade: "nmr-report-catalog && nmr-taze",
@@ -9362,7 +9362,7 @@ var vitestChecks = [
     severity: "recommend",
     quiet: true,
     check: () => noReExportOnlyVitestConfigs(),
-    fix: "Delete these files. Vitest resolves config by walking up from the run root, so a per-package re-export is redundant"
+    fix: "Delete these files. `nmr-vitest` passes the root config to every package that does not have a config of its own, so a per-package re-export is redundant"
   }
 ];
 function everyTestFileNamesItsTier(cwd = process.cwd()) {

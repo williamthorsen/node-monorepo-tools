@@ -9,8 +9,22 @@ const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
 
 const VITEST_CLI = path.join(REPO_ROOT, 'node_modules/vitest/vitest.mjs');
 
+/** The `nmr-vitest` entry, run from source so that a test of it does not need a build. */
+const NMR_VITEST_CLI = path.resolve(import.meta.dirname, '../cli-vitest.ts');
+
 /** The exact environment names that `buildChildEnv` strips, alongside its `VITEST` and `GIT_CONFIG_` prefixes. */
 const STRIPPED_ENV_NAMES = new Set(['GIT_ATTR_NOSYSTEM', 'NODE_V8_COVERAGE', 'TEST']);
+
+/**
+ * Runs `nmr-vitest` once in `cwd`, in a child process of its own, under the same stripped environment as `runVitest`.
+ */
+export function runNmrVitestCli(cwd: string, args: string[], extraEnv: NodeJS.ProcessEnv = {}): VitestRun {
+  return spawnSync(process.execPath, [NMR_VITEST_CLI, ...args], {
+    cwd,
+    encoding: 'utf8',
+    env: { ...buildChildEnv(), ...extraEnv },
+  });
+}
 
 /**
  * Runs Vitest once in `cwd`, in a child process of its own. `extraEnv` is merged over the stripped environment, which
