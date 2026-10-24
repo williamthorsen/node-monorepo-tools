@@ -224,7 +224,7 @@
           "path": "../src/config.ts"
         },
         {
-          "hash": "d2448f72",
+          "hash": "72ad1e0e",
           "kind": "module",
           "path": "../src/default-scripts.ts"
         },
@@ -319,7 +319,7 @@
       "readyupVersion": "0.43.0",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "8db2f17f"
+      "targetHash": "5974bce0"
     }
   ]
 }

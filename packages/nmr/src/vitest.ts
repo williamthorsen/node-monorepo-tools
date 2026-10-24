@@ -311,8 +311,8 @@ function buildProjects(
 
   return projectTiers.map(({ exclude, include, name, timeoutMs }) => {
     const project: TestProjectInlineConfiguration = {
-      // Without this, Vitest does not give the project any Vite config file at all, so root-level options such as
-      // `resolve.conditions` never apply to it.
+      // Vitest 5 defaults this to `true`; without it, Vitest 4 does not give the project any Vite config file at all,
+      // so root-level options such as `resolve.conditions` never apply to it.
       extends: true,
       // Patterns resolve against the project root, which otherwise defaults to the working directory.
       ...(projectRoot !== undefined && { root: projectRoot }),

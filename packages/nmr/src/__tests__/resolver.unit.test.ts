@@ -460,12 +460,12 @@ describe(resolveScript, () => {
 // probe would look for, and asserts that they change nothing.
 describe('test command resolution ignores the package contents', () => {
   const expectedCommands: Record<string, string> = {
-    test: 'pnpm exec vitest --project unit --project tool',
-    'test:all': 'pnpm exec vitest',
-    'test:coverage': 'pnpm exec vitest --project unit --project tool --coverage',
-    'test:tool': 'pnpm exec vitest --project tool',
-    'test:unit': 'pnpm exec vitest --project unit',
-    'test:watch': 'pnpm exec vitest --project unit --project tool --watch',
+    test: 'nmr-vitest --project unit --project tool',
+    'test:all': 'nmr-vitest',
+    'test:coverage': 'nmr-vitest --project unit --project tool --coverage',
+    'test:tool': 'nmr-vitest --project tool',
+    'test:unit': 'nmr-vitest --project unit',
+    'test:watch': 'nmr-vitest --project unit --project tool --watch',
   };
 
   it('resolves the same six test commands for a bare package', ({ tree }) => {

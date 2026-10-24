@@ -48,12 +48,12 @@ describe(getDefaultWorkspaceScripts, () => {
     const scripts = getDefaultWorkspaceScripts();
 
     expect(scripts).toMatchObject({
-      test: 'pnpm exec vitest --project unit --project tool',
-      'test:all': 'pnpm exec vitest',
-      'test:coverage': 'pnpm exec vitest --project unit --project tool --coverage',
-      'test:tool': 'pnpm exec vitest --project tool',
-      'test:unit': 'pnpm exec vitest --project unit',
-      'test:watch': 'pnpm exec vitest --project unit --project tool --watch',
+      test: 'nmr-vitest --project unit --project tool',
+      'test:all': 'nmr-vitest',
+      'test:coverage': 'nmr-vitest --project unit --project tool --coverage',
+      'test:tool': 'nmr-vitest --project tool',
+      'test:unit': 'nmr-vitest --project unit',
+      'test:watch': 'nmr-vitest --project unit --project tool --watch',
     });
   });
 

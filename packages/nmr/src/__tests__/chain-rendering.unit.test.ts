@@ -75,27 +75,27 @@ const WORKSPACE_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'test',
-    chain: 'pnpm exec vitest --project unit --project tool',
+    chain: 'nmr-vitest --project unit --project tool',
   },
   {
     command: 'test:all',
-    chain: 'pnpm exec vitest',
+    chain: 'nmr-vitest',
   },
   {
     command: 'test:coverage',
-    chain: 'pnpm exec vitest --project unit --project tool --coverage',
+    chain: 'nmr-vitest --project unit --project tool --coverage',
   },
   {
     command: 'test:tool',
-    chain: 'pnpm exec vitest --project tool',
+    chain: 'nmr-vitest --project tool',
   },
   {
     command: 'test:unit',
-    chain: 'pnpm exec vitest --project unit',
+    chain: 'nmr-vitest --project unit',
   },
   {
     command: 'test:watch',
-    chain: 'pnpm exec vitest --project unit --project tool --watch',
+    chain: 'nmr-vitest --project unit --project tool --watch',
   },
   {
     command: 'typecheck',

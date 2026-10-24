@@ -330,7 +330,7 @@ describe(generateHelp, () => {
       expect(readCommandNames(workspaceSection)).toStrictEqual(
         expect.arrayContaining(['test', 'test:all', 'test:coverage', 'test:tool', 'test:unit', 'test:watch']),
       );
-      expect(workspaceSection).toContain('pnpm exec vitest --project unit --project tool');
+      expect(workspaceSection).toContain('nmr-vitest --project unit --project tool');
     });
 
     // Help renders the registry, so an on-disk probe anywhere in resolution would change the listing here.
