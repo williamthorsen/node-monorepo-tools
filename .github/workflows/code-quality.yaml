@@ -28,6 +28,7 @@ jobs:
         [
           { "name": "build", "command": "pnpm exec nmr build" },
           { "name": "lint:strict", "command": "pnpm exec nmr lint:strict" },
+          { "name": "lint:workflows", "command": "pnpm exec nmr lint:workflows" },
           { "name": "typecheck", "command": "pnpm exec nmr typecheck" },
           { "name": "fmt:check", "command": "pnpm exec nmr fmt:check" },
           { "name": "test", "command": "pnpm exec nmr test" },
