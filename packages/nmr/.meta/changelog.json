@@ -1,5 +1,43 @@
 [
   {
+    "version": "0.52.0",
+    "date": "2026-10-24",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Adds a 📡 glyph before the host name in the rich-output `nmr` verdicts that name a host, for a passed, failed, or recalled run, which leaves plain output and verdicts reading `on this tree` unchanged. (#1105)",
+            "hash": "15c0d637325fff429ceae5aa5ec6e0ee19741daa",
+            "entry": 1
+          },
+          {
+            "description": "Adds the root command `lint:workflows` and its `nmr-actionlint` bin, which lint `.github/workflows/` with actionlint 1.7.12, including its shellcheck pass over each `run:` block with shellcheck 0.11.0, using binaries that nmr downloads on first use, checks against pinned SHA-256 checksums, and caches under `node_modules/.cache/nmr-tools/`. (#1107)",
+            "hash": "b4ddac2c4954a882d6be05962f9709e323ac3ece",
+            "entry": 1
+          },
+          {
+            "description": "Adds `lint:workflows` to the root `check`, `check:strict`, and `root:check` composites, which makes those composites and `nmr ci` fail on any actionlint finding in a repo that has workflows, need access to `github.com` on their first run, and fail on any platform other than macOS or Linux on x64 or arm64. (#1107)",
+            "hash": "b4ddac2c4954a882d6be05962f9709e323ac3ece",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that a delegated `nmr` command could not find a bin that the branch added to a workspace package, because the host's `pnpm install --frozen-lockfile` did not link new bins when the lockfile was unchanged. (#1108)",
+            "hash": "5b694689a51679ddfbb04f65a88d0757ca310f3f",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.51.0",
     "date": "2026-10-24",
     "sections": [

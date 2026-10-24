@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 15.0.2 — 2026-10-24
+
+### 🐛 Bug fixes
+
+- Fixes the issue that the `create-github-release.yaml` template written by `release-kit init` and `release-kit update-templates` named the workflow `Create GitHub Release` in title case, which made the default readyup kit's template check warn on a consumer workflow renamed to `Create GitHub release`. (#1102)
+
 ## 15.0.1 — 2026-10-24
 
 ### 🧪 Tests

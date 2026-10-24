@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.52.0 — 2026-10-24
+
+### 🎉 Features
+
+- Adds a 📡 glyph before the host name in the rich-output `nmr` verdicts that name a host, for a passed, failed, or recalled run, which leaves plain output and verdicts reading `on this tree` unchanged. (#1105)
+- Adds the root command `lint:workflows` and its `nmr-actionlint` bin, which lint `.github/workflows/` with actionlint 1.7.12, including its shellcheck pass over each `run:` block with shellcheck 0.11.0, using binaries that nmr downloads on first use, checks against pinned SHA-256 checksums, and caches under `node_modules/.cache/nmr-tools/`. (#1107)
+- Adds `lint:workflows` to the root `check`, `check:strict`, and `root:check` composites, which makes those composites and `nmr ci` fail on any actionlint finding in a repo that has workflows, need access to `github.com` on their first run, and fail on any platform other than macOS or Linux on x64 or arm64. (#1107)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that a delegated `nmr` command could not find a bin that the branch added to a workspace package, because the host's `pnpm install --frozen-lockfile` did not link new bins when the lockfile was unchanged. (#1108)
+
 ## 0.51.0 — 2026-10-24
 
 ### 🎉 Features
