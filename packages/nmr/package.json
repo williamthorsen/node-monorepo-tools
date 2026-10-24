@@ -58,6 +58,7 @@
   "bin": {
     "ensure-prepublish-hooks": "bin/ensure-prepublish-hooks.js",
     "nmr": "bin/nmr.js",
+    "nmr-actionlint": "bin/nmr-actionlint.js",
     "nmr-clean": "bin/nmr-clean.js",
     "nmr-compile": "bin/nmr-compile.js",
     "nmr-fmt": "bin/nmr-fmt.js",
