@@ -3,9 +3,9 @@
   "kits": [
     {
       "bundledDependencies": {
-        "@williamthorsen/toolbelt.errors": "0.8.3",
-        "@williamthorsen/toolbelt.filesystem": "0.9.3",
-        "@williamthorsen/toolbelt.packaging": "0.6.3",
+        "@williamthorsen/toolbelt.errors": "0.8.4",
+        "@williamthorsen/toolbelt.filesystem": "0.9.4",
+        "@williamthorsen/toolbelt.packaging": "0.6.4",
         "@williamthorsen/toolbelt.terminal": "0.2.1",
         "ansi-regex": "6.4.0",
         "ansi-styles": "6.2.3",
@@ -319,7 +319,7 @@
       "readyupVersion": "0.43.0",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "749ac1c7"
+      "targetHash": "8db2f17f"
     }
   ]
 }

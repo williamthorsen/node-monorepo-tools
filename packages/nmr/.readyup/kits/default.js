@@ -7382,12 +7382,12 @@ import { isRecord, listTrackedFiles } from "readyup/check-utils";
 import { globSync } from "node:fs";
 import { basename, join, sep } from "node:path";
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.8.3/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.8.4/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
 function isError(error) {
   return error instanceof Error || Object.prototype.toString.call(error) === "[object Error]";
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.8.3/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/describeError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.8.4/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/describeError.js
 function describeError(error) {
   try {
     if (isError(error) && typeof error.message === "string" && error.message !== "") {
