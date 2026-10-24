@@ -78,7 +78,7 @@ export function createGithubReleaseWorkflow(repoType: RepoType): string {
   const tagPattern = repoType === 'monorepo' ? "'*-v[0-9]*.[0-9]*.[0-9]*'" : "'v[0-9]*.[0-9]*.[0-9]*'";
 
   return `# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: Create GitHub Release
+name: Create GitHub release
 
 on:
   push:
