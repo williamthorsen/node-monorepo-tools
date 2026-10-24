@@ -9362,7 +9362,7 @@ var vitestChecks = [
     severity: "recommend",
     quiet: true,
     check: () => noReExportOnlyVitestConfigs(),
-    fix: "Delete these files. Vitest resolves config by walking up from the run root, so a per-package re-export is redundant"
+    fix: "Delete these files. `nmr-vitest` passes the root config to every package that does not have a config of its own, so a per-package re-export is redundant"
   }
 ];
 function everyTestFileNamesItsTier(cwd = process.cwd()) {

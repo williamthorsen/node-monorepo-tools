@@ -73,11 +73,11 @@ nmr detects the directory from which it is invoked and selects the right scripts
 
 nmr's key feature is that the same command runs different scripts depending on where it is invoked. It walks up from the current directory to find `pnpm-workspace.yaml`, then checks whether the current directory is inside a workspace package directory.
 
-| Where `nmr` is invoked            | Registry used     | Working directory | `nmr test` runs                                                      |
-| --------------------------------- | ----------------- | ----------------- | -------------------------------------------------------------------- |
-| Monorepo root                     | Root scripts      | Monorepo root     | `root:test`, then `-R test`                                          |
-| Inside a workspace package        | Workspace scripts | The package root  | `pnpm exec vitest --project unit --project tool` (that package only) |
-| Anywhere, with `--workspace-root` | Root scripts      | Monorepo root     | `root:test`, then `-R test`                                          |
+| Where `nmr` is invoked            | Registry used     | Working directory | `nmr test` runs                                                |
+| --------------------------------- | ----------------- | ----------------- | -------------------------------------------------------------- |
+| Monorepo root                     | Root scripts      | Monorepo root     | `root:test`, then `-R test`                                    |
+| Inside a workspace package        | Workspace scripts | The package root  | `nmr-vitest --project unit --project tool` (that package only) |
+| Anywhere, with `--workspace-root` | Root scripts      | Monorepo root     | `root:test`, then `-R test`                                    |
 
 Relative paths in a script resolve against that working directory, not the invocation directory.
 
@@ -310,7 +310,7 @@ rdy list --from npm:@williamthorsen/nmr  # what nmr publishes
 - [Machine lock](docs/machine-lock.md): Which commands wait for one another, where the lock lives, and bypassing it
 - [Delegating to another machine](docs/delegate.md): The user config, `--delegate`, `--delegate-to`, `NMR_DELEGATE`, where a command runs, choosing among several hosts, what the host runs, and setting it up
 - [Dependency upgrades](docs/upgrades.md): `nmr upgrade`, the upgrade policy, `report-catalog`, `report-overrides`, and `nmr-taze`
-- [Standalone utilities](docs/utilities.md): `nmr-clean`, `nmr-compile`, `nmr-fmt`, and `ensure-prepublish-hooks`
+- [Standalone utilities](docs/utilities.md): `nmr-clean`, `nmr-compile`, `nmr-fmt`, `nmr-vitest`, and `ensure-prepublish-hooks`
 - [Shared Vitest config](docs/vitest.md): Test tiers, test selections, the conventions check, and customization
 - [Shared Prettier config](docs/prettier.md): What it formats and how to customize it
 - [Workspace introspection](docs/workspace.md): The two workspace lookups

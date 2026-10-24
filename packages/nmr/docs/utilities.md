@@ -1,6 +1,6 @@
 # Standalone utilities
 
-The binaries behind nmr's default `clean`, `compile`, and `fmt` commands, and a check for the `prepublishOnly` hooks of publishable packages.
+The binaries behind nmr's default `clean`, `compile`, `fmt`, and package `test` commands, and a check for the `prepublishOnly` hooks of publishable packages.
 
 ## `nmr-clean`
 
@@ -61,6 +61,16 @@ Pass `--no-cache`, or set `NMR_NO_CACHE=1`, to run uncached. `nmr --no-cache fmt
 
 ```bash
 nmr-fmt --check --no-cache
+```
+
+## `nmr-vitest`
+
+Run Vitest from a package directory with the monorepo's shared config. Vitest 5 does not search parent directories for a config, so `nmr-vitest` names it: When the working directory does not contain a `vitest.config.*` or `vite.config.*` of its own, it passes `--config` naming the `vitest.config.*` at the monorepo root, the directory that contains `pnpm-workspace.yaml`. It does not search the directories in between. A package with a config of its own, a monorepo root without a `vitest.config.*`, and a directory outside any monorepo all run Vitest without the flag. An explicit `--config` or `-c` ahead of any `--` passes through unchanged, and so does every other argument. This is the command behind every package-scope `test*` script.
+
+`vitest` is an optional peer dependency (`>=4.0.0 <6`), resolved from the working directory alone and never from nmr's installation, because a second copy of the runner is not handed the state of the one that loads the tests. Run without it, `nmr-vitest` fails with an error naming the peer and the range. Its exit status is Vitest's.
+
+```bash
+nmr-vitest --project unit --project tool
 ```
 
 ## `ensure-prepublish-hooks`

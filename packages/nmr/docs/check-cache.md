@@ -124,7 +124,7 @@ The excerpt is a line; nmr also keeps the run's whole transcript. `nmr --log <co
 ```console
 $ nmr --log test
 💾 nmr: test — recorded 2026-08-12T15:04:05.412Z (12m ago), ran in 12.4s
-$ pnpm exec vitest --project unit --project tool
+$ nmr-vitest --project unit --project tool
 
  ✓ src/__tests__/resolver.unit.test.ts (18 tests) 12ms
 

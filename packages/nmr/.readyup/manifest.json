@@ -191,7 +191,7 @@
           "path": "lib/shared-configs.ts"
         },
         {
-          "hash": "b3bdf8ee",
+          "hash": "66043902",
           "kind": "module",
           "path": "lib/vitest.ts"
         },
@@ -319,7 +319,7 @@
       "readyupVersion": "0.43.0",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "5974bce0"
+      "targetHash": "f2a283b5"
     }
   ]
 }

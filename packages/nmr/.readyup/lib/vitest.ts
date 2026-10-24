@@ -77,7 +77,7 @@ export const vitestChecks: RdyCheck[] = [
     severity: 'recommend',
     quiet: true,
     check: () => noReExportOnlyVitestConfigs(),
-    fix: 'Delete these files. Vitest resolves config by walking up from the run root, so a per-package re-export is redundant',
+    fix: 'Delete these files. `nmr-vitest` passes the root config to every package that does not have a config of its own, so a per-package re-export is redundant',
   },
 ];
 
@@ -116,14 +116,14 @@ export function everyTestFileSitsUnderTestsDir(cwd: string = process.cwd()): boo
 /**
  * Checks that every workspace containing a Vite config also contains a Vitest config beside it.
  *
- * Vitest resolves one config per run by ascending from the run root and stopping at the first directory
- * containing any of its candidate filenames, `vite.config.*` among them. A workspace containing only a Vite
- * config ends that search on a config that does not declare any projects, and every tier-selecting test command
- * then fails with `No projects matched the filter`. Within one directory `vitest.config.*` is tried first, which
- * is why a Vitest config beside the Vite config restores the projects model.
+ * Vitest loads a config that it finds in the run root, `vite.config.*` among its candidate filenames, and
+ * `nmr-vitest` names the root config only for a workspace that does not contain one. A workspace containing only
+ * a Vite config therefore runs on a config that does not declare any projects, and every tier-selecting test
+ * command then fails with `No projects matched the filter`. Within one directory `vitest.config.*` is tried
+ * first, which is why a Vitest config beside the Vite config restores the projects model.
  *
- * Declared workspaces rather than a tree-wide glob: The search only ascends, so a Vite config nested below
- * a workspace root is never reached and reporting it would be a false positive.
+ * Declared workspaces rather than a tree-wide glob: Tests run from each workspace root, so a Vite config nested
+ * below one is never loaded and reporting it would be a false positive.
  *
  * @internal - Exported only to enable testing
  */
@@ -191,8 +191,8 @@ export function testSuiteGatesTestFileConventions(cwd: string = process.cwd()): 
  * Checks that the root `vitest.config.*` is present, and that it and every workspace's own build on
  * `defineVitestConfig`.
  *
- * The root config is the ancestor that a workspace resolves by walking up from its own directory, and a repo
- * without it leaves packages walking up past the repo root.
+ * The root config is the one that `nmr-vitest` passes to every workspace that does not contain a config of its
+ * own, and without it such a workspace runs Vitest without any config.
  *
  * A workspace config that does not call the factory does not declare any projects, so it fails a tier-selecting
  * run exactly as a missing root config does; presence alone does not show that the projects model is reached.
