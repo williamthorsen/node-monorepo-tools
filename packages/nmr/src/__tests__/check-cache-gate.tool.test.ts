@@ -87,7 +87,10 @@ describe('the check-result cache gate', () => {
       workspace.write('repo/src/index.ts', 'export const value = 2;\n');
       await runNmr(COMMAND, repo);
 
-      execFileSync('git', ['commit', '--all', '--quiet', '--message', 'commit the checked tree'], { cwd: repo });
+      execFileSync('git', ['commit', '--all', '--quiet', '--message', 'commit the checked tree'], {
+        cwd: repo,
+        stdio: 'ignore',
+      });
       const afterCommit = await runNmr(COMMAND, repo);
 
       expect(afterCommit.exitCode).toBe(0);
