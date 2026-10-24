@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/consistent-function-scoping -- `runHostSession` is sent to the host as source, so every helper that it calls must be inside it. */
+/* eslint-disable max-lines, unicorn/consistent-function-scoping -- `runHostSession` is sent to the host as source, so every helper that it calls must be inside it. */
 
 /** The checkout's lock, which a host session holds and the lock probe reads, relative to the checkout. */
 export const CHECKOUT_LOCK_PATH = '.git/nmr-delegate.lock';
@@ -72,6 +72,11 @@ export function runHostSession(params: HostSessionParams): void {
   const COMMAND_NOT_FOUND_EXIT_CODE = 127;
   const DELEGATION_FAILURE_EXIT_CODE = 255;
   const STOP_GRACE_MS = 5_000;
+  const NODE_MODULES_DIR = path.join(params.rootDir, 'node_modules');
+  /**
+   * The bins fingerprint of the last successful install, kept with the install so that it goes when the install does.
+   */
+  const BINS_RECORD_PATH = path.join(NODE_MODULES_DIR, '.nmr-delegate-bins');
 
   interface LockFile {
     command: string;
@@ -108,6 +113,10 @@ export function runHostSession(params: HostSessionParams): void {
       }
     }
 
+    const binsFingerprint = readBinsFingerprint();
+    if (binsFingerprint === undefined || readBinsRecord() !== binsFingerprint) {
+      removeWorkspaceState();
+    }
     const install = await runPhase('pnpm', ['install', '--frozen-lockfile'], params.rootDir, {
       ...process.env,
       CI: 'true',
@@ -117,6 +126,7 @@ export function runHostSession(params: HostSessionParams): void {
       fail('install', install);
       return;
     }
+    if (binsFingerprint !== undefined) writeBinsRecord(binsFingerprint);
 
     emit({ kind: 'run' });
     fs.mkdirSync(params.runDir, { recursive: true });
@@ -234,6 +244,47 @@ export function runHostSession(params: HostSessionParams): void {
     return state.holder !== undefined && isProcessGone(state.holder.pid);
   }
 
+  /**
+   * Hashes the path, `name`, and `bin` of every tracked `package.json` under the workspace root, or returns `undefined`
+   * when git cannot list them. A string `bin` takes its link name from `name`.
+   */
+  function readBinsFingerprint(): string | undefined {
+    let listing: string;
+    try {
+      listing = childProcess.execFileSync('git', ['ls-files', '-z', '--', '*package.json'], {
+        cwd: params.rootDir,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+    } catch {
+      return undefined;
+    }
+    const lines = listing
+      .split('\0')
+      .filter((file) => path.basename(file) === 'package.json')
+      .toSorted()
+      .map((file) => {
+        try {
+          const manifest: unknown = JSON.parse(fs.readFileSync(path.join(params.rootDir, file), 'utf8'));
+          const fields: Partial<Record<string, unknown>> =
+            typeof manifest === 'object' && manifest !== null ? { ...manifest } : {};
+          return JSON.stringify([file, fields['name'], fields['bin']]);
+        } catch {
+          return JSON.stringify([file]);
+        }
+      });
+    return crypto.createHash('sha256').update(lines.join('\n')).digest('hex');
+  }
+
+  /** Reads the bins fingerprint of the last successful install, or returns `undefined` when none is recorded. */
+  function readBinsRecord(): string | undefined {
+    try {
+      return fs.readFileSync(BINS_RECORD_PATH, 'utf8');
+    } catch {
+      return undefined;
+    }
+  }
+
   /** Returns the `code` of a Node system error, or `undefined` for anything else. */
   function readErrorCode(error: unknown): unknown {
     return typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
@@ -313,6 +364,19 @@ export function runHostSession(params: HostSessionParams): void {
     }
   }
 
+  /**
+   * Removes pnpm's workspace state, so that the install links every workspace bin: pnpm's repeat-install check reads
+   * the state, which does not record bins, and skips linking when the lockfile is unchanged.
+   */
+  function removeWorkspaceState(): void {
+    const names = fs.existsSync(NODE_MODULES_DIR) ? fs.readdirSync(NODE_MODULES_DIR) : [];
+    for (const name of names) {
+      if (name.startsWith('.pnpm-workspace-state') && name.endsWith('.json')) {
+        fs.rmSync(path.join(NODE_MODULES_DIR, name), { force: true });
+      }
+    }
+  }
+
   /** Runs a phase's command in a process group of its own, capturing its output bounded at each end. */
   function runPhase(
     file: string,
@@ -383,6 +447,16 @@ export function runHostSession(params: HostSessionParams): void {
       process.kill(-pid, 'SIGTERM');
     } catch {
       // The group has already exited.
+    }
+  }
+
+  /** Records the bins fingerprint of a successful install. A failed write leaves the next install to relink. */
+  function writeBinsRecord(fingerprint: string): void {
+    try {
+      fs.mkdirSync(NODE_MODULES_DIR, { recursive: true });
+      fs.writeFileSync(BINS_RECORD_PATH, fingerprint);
+    } catch {
+      // The next delegation finds a stale or missing record and removes the state again.
     }
   }
 }

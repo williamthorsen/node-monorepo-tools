@@ -279,6 +279,66 @@ describe('a delegated run on a fake host', () => {
     expect(fs.existsSync(lockPath())).toBe(true);
   });
 
+  describe("pnpm's workspace state on the host", () => {
+    it('is removed before an install that has no bins record', async () => {
+      await delegate(['test']);
+
+      expect(readStates(remote.readPnpmLog())).toStrictEqual(['absent']);
+    });
+
+    it('is kept while the bins match those of the last successful install', async () => {
+      await delegate(['test']);
+      await delegate(['test']);
+
+      expect(readStates(remote.readPnpmLog())).toStrictEqual(['absent', 'present']);
+    });
+
+    it('is removed once a workspace package gains a bin', async () => {
+      workspace.write('repo/packages/a/package.json', '{ "name": "a" }\n');
+      await delegate(['test']);
+      workspace.write('repo/packages/a/package.json', '{ "name": "a", "bin": { "a-tool": "tool.js" } }\n');
+
+      await delegate(['test']);
+      await delegate(['test']);
+
+      expect(readStates(remote.readPnpmLog())).toStrictEqual(['absent', 'absent', 'present']);
+    });
+
+    it('is removed again after a failed install, which records nothing', async () => {
+      await delegate(['test']);
+      workspace.write('repo/package.json', '{ "name": "repo", "private": true, "bin": { "tool": "tool.js" } }\n');
+
+      await delegate(['test'], { FAKE_INSTALL_STATUS: '1' });
+      await delegate(['test']);
+
+      expect(readStates(remote.readPnpmLog())).toStrictEqual(['absent', 'absent', 'absent']);
+    });
+
+    it('lets the real pnpm link a bin that a workspace package gained', async () => {
+      const pnpm = execFileSync('/bin/sh', ['-c', 'command -v pnpm'], { encoding: 'utf8' }).trim();
+      const script = '#!/usr/bin/env node\n';
+      workspace.writeAll({
+        'repo/package.json': JSON.stringify({ name: 'repo', private: true, devDependencies: { a: 'workspace:*' } }),
+        'repo/packages/a/one.js': script,
+        'repo/packages/a/package.json': JSON.stringify({ name: 'a', version: '1.0.0', bin: { 'a-one': 'one.js' } }),
+        'repo/packages/a/two.js': script,
+        'repo/pnpm-workspace.yaml': 'packages:\n  - packages/*\n',
+      });
+      execFileSync(pnpm, ['install', '--offline'], { cwd: repo, stdio: 'pipe' });
+      await delegate(['test'], { FAKE_INSTALL_REAL: pnpm });
+      workspace.write(
+        'repo/packages/a/package.json',
+        JSON.stringify({ name: 'a', version: '1.0.0', bin: { 'a-one': 'one.js', 'a-two': 'two.js' } }),
+      );
+
+      const result = await delegate(['test'], { FAKE_INSTALL_REAL: pnpm });
+
+      expect(result.outcome).toMatchObject({ ok: true, exitCode: 0 });
+      const bins = remote.readPnpmLog().filter((line) => line.startsWith('bins='));
+      expect(bins.at(-1)).toContain('a-two');
+    });
+  });
+
   /** Returns the host's checkout of the repo, which the fake home contains. */
   function checkoutDir(): string {
     return path.join(remote.home, deriveCheckoutPath(os.hostname(), repo));
@@ -407,6 +467,11 @@ function readLogged(log: readonly string[], name: string): string {
 function readExitedPid(): number {
   const child = spawnSync('true');
   return child.pid;
+}
+
+/** Returns, for each install, whether the fake `pnpm` found pnpm's workspace state file. */
+function readStates(log: readonly string[]): string[] {
+  return log.filter((line) => line.startsWith('state=')).map((line) => line.slice('state='.length));
 }
 
 /** Reads everything that delegation must not change: the index file, every ref, and the stash list. */
