@@ -73,7 +73,9 @@ export function runHostSession(params: HostSessionParams): void {
   const DELEGATION_FAILURE_EXIT_CODE = 255;
   const STOP_GRACE_MS = 5_000;
   const NODE_MODULES_DIR = path.join(params.rootDir, 'node_modules');
-  /** The bins fingerprint of the last successful install, kept with the install so that it goes when the install does. */
+  /**
+   * The bins fingerprint of the last successful install, kept with the install so that it goes when the install does.
+   */
   const BINS_RECORD_PATH = path.join(NODE_MODULES_DIR, '.nmr-delegate-bins');
 
   interface LockFile {
