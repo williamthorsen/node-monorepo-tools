@@ -124,9 +124,14 @@ function scaffoldPackage(tree: TempTree, sources: Record<string, string>, config
   }
 }
 
-/** Runs the bin against `dir`, returning what it wrote to stdout. */
+/** Runs the bin against `dir`, returning what it wrote to stdout. A failure's error message includes its stderr. */
 function runCompile(dir: string, env: NodeJS.ProcessEnv = {}): string {
-  return execFileSync(process.execPath, [CLI_PATH], { cwd: dir, encoding: 'utf8', env: { ...process.env, ...env } });
+  return execFileSync(process.execPath, [CLI_PATH], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
 }
 
 // endregion | Helpers

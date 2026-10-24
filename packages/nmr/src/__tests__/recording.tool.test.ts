@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process';
+import { closeSync, openSync } from 'node:fs';
+import { devNull } from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
@@ -117,7 +119,13 @@ describe('a run printed by --log', () => {
   });
 
   it('refuses when the run wrote to a terminal, retaining nothing', async () => {
-    await runNmr(COMMAND, {}, { terminalFd: 1 });
+    // A terminal on the null device, so that what the child writes there does not reach the worker's stdout.
+    const terminalFd = openSync(devNull, 'w');
+    try {
+      await runNmr(COMMAND, {}, { terminalFd });
+    } finally {
+      closeSync(terminalFd);
+    }
 
     const { exitCode, stderr } = await runNmr(`--log ${COMMAND}`);
 

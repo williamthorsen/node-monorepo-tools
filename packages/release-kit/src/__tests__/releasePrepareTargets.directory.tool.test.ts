@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-import { createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureStdio, createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -46,8 +46,12 @@ describe('directory releases (tool)', () => {
     commit(tree, 'packages/extra/package.json', JSON.stringify({ name: '@fixture/extra', version: '1.0.0' }), [
       '## extra|feat: Add the extra package',
     ]);
+    using stdio = captureStdio();
 
     const plan = prepareAndApply(tree, { releases: { repo: { path: '.' } } }, {}, ['packages/core', 'packages/extra']);
+
+    // The new workspace has no baseline tag of its own, so the run points at the legacy-prefix check.
+    expect(stdio.stderr).toContain("Hint: no baseline tag found for extra under 'extra-v'");
 
     const repo = selectResult(plan, 'repo');
     assert(repo?.kind === 'directory' && repo.status === 'released', 'expected a released root target');

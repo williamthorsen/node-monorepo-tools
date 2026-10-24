@@ -6,8 +6,8 @@ catalog:
   '@williamthorsen/toolbelt.filesystem': 0.9.3
   '@williamthorsen/toolbelt.packaging': 0.6.3
   '@williamthorsen/toolbelt.terminal': 0.2.1
-  '@williamthorsen/toolbelt.testing': 0.6.3
-  '@williamthorsen/toolbelt.vitest': 0.10.3
+  '@williamthorsen/toolbelt.testing': 0.7.0
+  '@williamthorsen/toolbelt.vitest': 0.11.0
   esbuild: 0.28.2
   prettier: 3.9.10
   readyup: 0.43.0

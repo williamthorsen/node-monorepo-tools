@@ -68,13 +68,21 @@ describe(routeCommand, () => {
   });
 
   it('returns 1 for "report" (removed subcommand)', async () => {
+    using stdio = captureStdio();
+
     const exitCode = await routeCommand(['report']);
+
     expect(exitCode).toBe(1);
+    expect(stdio.stderr).toContain("Unknown command 'report'.");
   });
 
   it('returns 1 for "generate" (removed subcommand)', async () => {
+    using stdio = captureStdio();
+
     const exitCode = await routeCommand(['generate']);
+
     expect(exitCode).toBe(1);
+    expect(stdio.stderr).toContain("Unknown command 'generate'.");
   });
 
   it('dispatches "check" to checkCommand', async () => {
@@ -113,18 +121,30 @@ describe(routeCommand, () => {
   });
 
   it('returns 1 for unknown command with typo match', async () => {
+    using stdio = captureStdio();
+
     const exitCode = await routeCommand(['syn']);
+
     expect(exitCode).toBe(1);
+    expect(stdio.stderr).toContain("Unknown command 'syn'. Did you mean 'v11y sync'?");
   });
 
   it('returns 1 for unknown positional argument', async () => {
+    using stdio = captureStdio();
+
     const exitCode = await routeCommand(['foo']);
+
     expect(exitCode).toBe(1);
+    expect(stdio.stderr).toContain("Unknown command 'foo'.");
   });
 
   it('returns 1 when --dev and --prod are both specified', async () => {
+    using stdio = captureStdio();
+
     const exitCode = await routeCommand(['--dev', '--prod']);
+
     expect(exitCode).toBe(1);
+    expect(stdio.stderr).toContain('Cannot specify both --dev and --prod');
   });
 
   it('returns 0 for sync --help', async () => {

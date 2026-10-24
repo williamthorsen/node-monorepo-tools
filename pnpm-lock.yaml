@@ -177,11 +177,11 @@ catalogs:
       specifier: 0.2.1
       version: 0.2.1
     '@williamthorsen/toolbelt.testing':
-      specifier: 0.6.3
-      version: 0.6.3
+      specifier: 0.7.0
+      version: 0.7.0
     '@williamthorsen/toolbelt.vitest':
-      specifier: 0.10.3
-      version: 0.10.3
+      specifier: 0.11.0
+      version: 0.11.0
     esbuild:
       specifier: 0.28.2
       version: 0.28.2
@@ -237,10 +237,10 @@ importers:
         version: 0.9.3
       '@williamthorsen/toolbelt.testing':
         specifier: 'catalog:'
-        version: 0.6.3
+        version: 0.7.0
       '@williamthorsen/toolbelt.vitest':
         specifier: 'catalog:'
-        version: 0.10.3(vitest@4.1.12)
+        version: 0.11.0(vitest@4.1.12)
       '@williamthorsen/tsconfig':
         specifier: 0.12.1
         version: 0.12.1(readyup@0.43.0(esbuild@0.28.2))
@@ -294,7 +294,7 @@ importers:
     devDependencies:
       '@williamthorsen/toolbelt.testing':
         specifier: 'catalog:'
-        version: 0.6.3
+        version: 0.7.0
       eslint:
         specifier: 10.13.0
         version: 10.13.0(jiti@2.7.0)(supports-color@7.2.0)
@@ -368,10 +368,10 @@ importers:
     devDependencies:
       '@williamthorsen/toolbelt.testing':
         specifier: 'catalog:'
-        version: 0.6.3
+        version: 0.7.0
       '@williamthorsen/toolbelt.vitest':
         specifier: 'catalog:'
-        version: 0.10.3(vitest@4.1.12)
+        version: 0.11.0(vitest@4.1.12)
       esbuild:
         specifier: 'catalog:'
         version: 0.28.2
@@ -417,10 +417,10 @@ importers:
     devDependencies:
       '@williamthorsen/toolbelt.testing':
         specifier: 'catalog:'
-        version: 0.6.3
+        version: 0.7.0
       '@williamthorsen/toolbelt.vitest':
         specifier: 'catalog:'
-        version: 0.10.3(vitest@4.1.12)
+        version: 0.11.0(vitest@4.1.12)
       vitest:
         specifier: 'catalog:'
         version: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
@@ -457,10 +457,10 @@ importers:
         version: 0.9.3
       '@williamthorsen/toolbelt.testing':
         specifier: 'catalog:'
-        version: 0.6.3
+        version: 0.7.0
       '@williamthorsen/toolbelt.vitest':
         specifier: 'catalog:'
-        version: 0.10.3(vitest@4.1.12)
+        version: 0.11.0(vitest@4.1.12)
       actionlint:
         specifier: 2.0.6
         version: 2.0.6
@@ -497,10 +497,10 @@ importers:
         version: 0.9.3
       '@williamthorsen/toolbelt.testing':
         specifier: 'catalog:'
-        version: 0.6.3
+        version: 0.7.0
       '@williamthorsen/toolbelt.vitest':
         specifier: 'catalog:'
-        version: 0.10.3(vitest@4.1.12)
+        version: 0.11.0(vitest@4.1.12)
       esbuild:
         specifier: 'catalog:'
         version: 0.28.2
@@ -1422,12 +1422,12 @@ packages:
     resolution: {integrity: sha512-5DepkhxcrIehX3m9HhFNRgvubLKH4jfZ987iGlfGVe1Td21uEhTGF3VYJpT9Ey9PpuaYzP8iiDECV1GuCUzV4w==}
     engines: {node: '>=24.0.0'}
 
-  '@williamthorsen/toolbelt.testing@0.6.3':
-    resolution: {integrity: sha512-2vjqdBSIVaoU1daA9MWO7rKUAWhaisOox8+R20ttWbyypI2dx2SFJwzcM95ez9sEzvpzSQm+kxvOyuxmS+48qg==}
+  '@williamthorsen/toolbelt.testing@0.7.0':
+    resolution: {integrity: sha512-m3NwxqU7wpTRBLN4vdRHrS/73RM9xC/1Q+E4YUEKar9YDM5TWdR2Yx8C94D03dHrCrDQxb7j6wanxk8lXopIFQ==}
     engines: {node: '>=24.0.0'}
 
-  '@williamthorsen/toolbelt.vitest@0.10.3':
-    resolution: {integrity: sha512-BISVzHLya9wLKslLoP7hV3HGRHBgebQRyALFXnwWLVddD2vuZ5KEZOSq7sNXnmUb2gF7VnD8CR4j3HWd5EBb/Q==}
+  '@williamthorsen/toolbelt.vitest@0.11.0':
+    resolution: {integrity: sha512-RYBjxnvqBUhAD5Wa8GTlbDruX2rE/kZdkKmii+G+nARV8ZOTpKTNb1xcvdWgM3WM6Z3+7K1RBjncDtX40zUJHQ==}
     engines: {node: '>=24.0.0'}
     peerDependencies:
       vitest: ^4.0.0
@@ -4150,9 +4150,9 @@ snapshots:
       string-width: 8.3.0
       wrap-ansi: 10.0.2
 
-  '@williamthorsen/toolbelt.testing@0.6.3': {}
+  '@williamthorsen/toolbelt.testing@0.7.0': {}
 
-  '@williamthorsen/toolbelt.vitest@0.10.3(vitest@4.1.12)':
+  '@williamthorsen/toolbelt.vitest@0.11.0(vitest@4.1.12)':
     dependencies:
       vitest: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
 

@@ -1,5 +1,5 @@
 import type { StreamStyles } from '@williamthorsen/nmr-core';
-import { createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureStdio, createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished, listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -225,9 +225,11 @@ describe(initCommand, () => {
     // Pre-create the workflow path as a directory so that writeFileSync fails with EISDIR when
     // --force attempts to overwrite it, producing a `WriteResult` with `outcome: 'failed'`.
     tree.mkdir('.github/workflows/audit.yaml');
+    using stdio = captureStdio();
 
     const exitCode = initCommand({ dryRun: false, force: true, styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
+    expect(stdio.stderr).toContain('Failed to write .github/workflows/audit.yaml: EISDIR');
   });
 });
