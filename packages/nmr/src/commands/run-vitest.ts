@@ -7,6 +7,7 @@ import process from 'node:process';
 import { reportError } from '@williamthorsen/nmr-core';
 import { findMonorepoRoot as findMonorepoRootOrNothing } from '@williamthorsen/nmr-core/workspace';
 
+import { describeSignalExitCode } from '../child-process.ts';
 import { isObject } from '../helpers/type-guards.ts';
 
 const VITEST_PACKAGE = 'vitest';
@@ -37,6 +38,7 @@ export function runNmrVitest(argv: string[], cwd: string = process.cwd()): numbe
     return 1;
   }
 
+  if (result.signal !== null) return describeSignalExitCode(result.signal);
   return result.status ?? 1;
 }
 

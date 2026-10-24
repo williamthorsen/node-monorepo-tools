@@ -1,7 +1,16 @@
-import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { describe, expect, it } from 'vitest';
+import os from 'node:os';
 
-import { chooseVitestConfigArgs } from '../run-vitest.ts';
+import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { describe, expect, it, vi } from 'vitest';
+
+import { chooseVitestConfigArgs, runNmrVitest } from '../run-vitest.ts';
+
+// Stands in for a Vitest child that the OOM killer ended.
+vi.mock(import('node:child_process'), async (importOriginal) => ({
+  ...(await importOriginal()),
+  // An untyped mock, because one implementation cannot satisfy every `spawnSync` overload.
+  spawnSync: vi.fn().mockReturnValue({ error: undefined, signal: 'SIGKILL', status: null }),
+}));
 
 const WORKSPACE_FILES = {
   'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n",
@@ -78,5 +87,11 @@ describe(chooseVitestConfigArgs, () => {
     using tree = createTempTree({ 'package.json': '{}\n' }, { prefix: 'nmr-vitest-' });
 
     expect(chooseVitestConfigArgs(['run'], tree.dir)).toStrictEqual(['run']);
+  });
+});
+
+describe(runNmrVitest, () => {
+  it('reports a Vitest killed by a signal as 128 plus the signal number', () => {
+    expect(runNmrVitest(['run'], import.meta.dirname)).toBe(128 + os.constants.signals.SIGKILL);
   });
 });
