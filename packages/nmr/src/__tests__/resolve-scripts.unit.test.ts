@@ -101,12 +101,14 @@ describe(getDefaultRootScripts, () => {
       audit: ['audit:prod', 'audit:dev'],
       check: [
         { run: 'lint:check', shouldRunInBackground: true },
+        { run: 'lint:workflows', shouldDeclineArguments: true },
         { run: 'typecheck', shouldDeclineArguments: true },
         'fmt:check',
         'test',
       ],
       'check:strict': [
         { run: 'lint:strict', shouldRunInBackground: true },
+        { run: 'lint:workflows', shouldDeclineArguments: true },
         { run: 'typecheck', shouldDeclineArguments: true },
         'fmt:check',
         'test',
@@ -116,11 +118,13 @@ describe(getDefaultRootScripts, () => {
       'fix:check': ['fmt:check', 'lint:check'],
       fmt: 'nmr-fmt --write',
       'fmt:check': 'nmr-fmt --check',
+      'lint:workflows': 'nmr-actionlint',
       'report-overrides': 'nmr-report-overrides',
       'root:check': [
         { run: 'root:typecheck', shouldDeclineArguments: true },
         'fmt:check',
         'root:lint:check',
+        { run: 'lint:workflows', shouldDeclineArguments: true },
         'root:test',
       ],
     });

@@ -49,6 +49,12 @@ const LINT_CHECK_STEP = { run: 'lint:check', shouldRunInBackground: true } as co
 const LINT_STRICT_STEP = { run: 'lint:strict', shouldRunInBackground: true } as const;
 
 /**
+ * The workflow-lint step of the root composites. It declines the trailing arguments because a path that narrows the
+ * code under test does not select any workflow.
+ */
+const LINT_WORKFLOWS_STEP = { run: 'lint:workflows', shouldDeclineArguments: true } as const;
+
+/**
  * Workspace scripts, identical for every package. A `test:<tier>` script runs the Vitest project of that tier, which
  * collects the test files that name it: `nmr test:tool` runs `my-file.tool.test.ts`. The `unit` project also
  * collects every file that does not name any other tier.
@@ -91,8 +97,8 @@ export function buildRootScripts(workspaceGlobs: readonly string[]): ScriptRegis
     'audit:dev': 'pnpm exec v11y --dev',
     'audit:prod': 'pnpm exec v11y --prod',
     build: ['-R build'],
-    check: [LINT_CHECK_STEP, TYPECHECK_STEP, 'fmt:check', 'test'],
-    'check:strict': [LINT_STRICT_STEP, TYPECHECK_STEP, 'fmt:check', 'test'],
+    check: [LINT_CHECK_STEP, LINT_WORKFLOWS_STEP, TYPECHECK_STEP, 'fmt:check', 'test'],
+    'check:strict': [LINT_STRICT_STEP, LINT_WORKFLOWS_STEP, TYPECHECK_STEP, 'fmt:check', 'test'],
     // Excludes the audit, which in CI has a workflow of its own. The narrowed check runs against the build, so
     // the build declines the arguments rather than being narrowed by them.
     ci: [{ run: 'build', shouldDeclineArguments: true }, 'check:strict'],
@@ -104,11 +110,12 @@ export function buildRootScripts(workspaceGlobs: readonly string[]): ScriptRegis
     lint: 'eslint --fix .',
     'lint:check': 'eslint .',
     'lint:strict': 'strict-lint',
+    'lint:workflows': 'nmr-actionlint',
     // The audit takes seconds and `ci` takes minutes, so the cheap gate fails first. The audit reads the
     // dependency tree, and an argument narrowing the code under test does not say anything about that tree.
     prepush: [{ run: 'audit', shouldDeclineArguments: true }, 'ci'],
     'report-overrides': 'nmr-report-overrides',
-    'root:check': [ROOT_TYPECHECK_STEP, 'fmt:check', 'root:lint:check', 'root:test'],
+    'root:check': [ROOT_TYPECHECK_STEP, 'fmt:check', 'root:lint:check', LINT_WORKFLOWS_STEP, 'root:test'],
     'root:lint': `eslint --fix ${ignorePatterns}.`,
     'root:lint:check': `eslint ${ignorePatterns}.`,
     'root:lint:strict': `strict-lint ${ignorePatterns}.`,

@@ -50,7 +50,7 @@ From the monorepo root:
 ```bash
 nmr test    # Run root tests + recursive workspace tests
 nmr build   # Build all packages
-nmr ci      # Build, then run the strict checks
+nmr ci      # Build, then run the strict checks, workflow lint included
 nmr prepush # Run everything the remote runs, before a push
 ```
 
@@ -310,7 +310,7 @@ rdy list --from npm:@williamthorsen/nmr  # what nmr publishes
 - [Machine lock](docs/machine-lock.md): Which commands wait for one another, where the lock lives, and bypassing it
 - [Delegating to another machine](docs/delegate.md): The user config, `--delegate`, `--delegate-to`, `NMR_DELEGATE`, where a command runs, choosing among several hosts, what the host runs, and setting it up
 - [Dependency upgrades](docs/upgrades.md): `nmr upgrade`, the upgrade policy, `report-catalog`, `report-overrides`, and `nmr-taze`
-- [Standalone utilities](docs/utilities.md): `nmr-clean`, `nmr-compile`, `nmr-fmt`, `nmr-vitest`, and `ensure-prepublish-hooks`
+- [Standalone utilities](docs/utilities.md): `nmr-actionlint`, `nmr-clean`, `nmr-compile`, `nmr-fmt`, `nmr-vitest`, and `ensure-prepublish-hooks`
 - [Shared Vitest config](docs/vitest.md): Test tiers, test selections, the conventions check, and customization
 - [Shared Prettier config](docs/prettier.md): What it formats and how to customize it
 - [Workspace introspection](docs/workspace.md): The two workspace lookups
