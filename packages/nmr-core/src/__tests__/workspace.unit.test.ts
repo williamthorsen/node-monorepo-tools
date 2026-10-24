@@ -108,7 +108,7 @@ describe(resolveWorkspace, () => {
       using captured = captureWarnings();
 
       expect(resolveWorkspace(packagesTree.dir)).toMatchObject({ cause: 'no-pattern', kind: 'empty' });
-      expect(captured.warnings.map((warning) => warning.code)).toStrictEqual(warningCodes);
+      expect(captured.warnings).toMatchObject(warningCodes.map((code) => ({ code })));
     });
 
     // pnpm resolves each of these to the root package alone, so a caller treating an empty resolution as a

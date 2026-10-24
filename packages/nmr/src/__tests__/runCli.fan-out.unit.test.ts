@@ -392,7 +392,10 @@ describe(runCli, () => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], taggedTree.dir);
 
       // A run reads the manifest more than once, and each read warns.
-      expect(new Set(captured.warnings.map((warning) => warning.code))).toStrictEqual(new Set(['TAG_RESOLVE_FAILED']));
+      expect(captured.warnings).not.toHaveLength(0);
+      for (const warning of captured.warnings) {
+        expect(warning).toMatchObject({ code: 'TAG_RESOLVE_FAILED' });
+      }
       expect(exitCode).toBe(1);
       expect(stderr).toContain('pnpm-workspace.yaml declares 1 entry that YAML left empty');
       expect(stderr).toContain('quote any `!` entry');
