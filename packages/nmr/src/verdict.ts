@@ -117,7 +117,7 @@ const REPLAY_MARKER = 'replayed:';
 /** Returns the marker that a verdict leads with and the phrase that it reports, which only this module composes. */
 function describeOutcome(verdict: Verdict, style: OutputStyle): { marker: string; phrase: string } {
   const statuses = STATUS_GLYPHS[style];
-  const onHost = verdict.host === undefined ? '' : ` on ${verdict.host}`;
+  const onHost = verdict.host === undefined ? '' : ` on ${formatHost(verdict.host, style)}`;
 
   switch (verdict.outcome) {
     case 'passed':
@@ -130,9 +130,10 @@ function describeOutcome(verdict: Verdict, style: OutputStyle): { marker: string
     case 'recalled': {
       const saving = formatSaving(verdict.savedMs);
       const savingClause = saving === undefined ? '' : `, ${saving}`;
+      const source = verdict.host === undefined ? 'this tree' : formatHost(verdict.host, style);
       return {
         marker: statuses.skipped.text,
-        phrase: `passed ${formatDuration(verdict.ageMs)} ago on ${verdict.host ?? 'this tree'}${savingClause}`,
+        phrase: `passed ${formatDuration(verdict.ageMs)} ago on ${source}${savingClause}`,
       };
     }
     case 'no-op':
@@ -214,6 +215,13 @@ function findCutTarget(sizesBytes: readonly number[], longestSizeBytes: number, 
 /** Reports whether a rendered line, once the newline is counted, is within the ceiling. */
 function isWithinBudget(renderedLine: string): boolean {
   return Buffer.byteLength(renderedLine) <= LINE_BUDGET_BYTES;
+}
+
+/** Returns the host name led by its glyph, which a style with an empty glyph leaves bare. */
+function formatHost(host: string, style: OutputStyle): string {
+  const glyph = NMR_GLYPHS[style].host.text;
+
+  return glyph === '' ? host : `${glyph} ${host}`;
 }
 
 /** Returns what each constituent of a replay is, without the excerpt that it contained. */

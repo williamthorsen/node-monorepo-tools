@@ -5,7 +5,7 @@ nmr runs a command on another machine over SSH, against the working tree on this
 ```console
 $ nmr --delegate-to imac2 ci
 # ... the host's own output and verdicts ...
-✅ my-repo: ci: passed on imac2 in 1m 48s
+✅ my-repo: ci: passed on 📡 imac2 in 1m 48s
 ```
 
 A machine that runs several worktrees' checks at once runs out of memory, and the [machine lock](machine-lock.md) protects it by making the checks wait for one another. Delegation moves a check to a machine that has the room for it instead. Which hosts a machine can reach is a fact about the machine, so a user config on the machine, not the repo, names them and turns delegation on.
@@ -61,7 +61,7 @@ With several hosts, nmr asks every host at once, with one `ssh` call each, wheth
 
 ```console
 $ NMR_DELEGATE=imac2,imac3 nmr ci
-✅ my-repo: ci: passed on imac3 in 1m 52s
+✅ my-repo: ci: passed on 📡 imac3 in 1m 52s
 ```
 
 - **A single host is not asked.** The delegation goes to it directly.
@@ -123,7 +123,7 @@ The host's nmr prints its output and verdicts, and nmr here adds one verdict for
 A failure of the delegation itself, rather than of the command, exits 255, the status with which `ssh` reports its own failures, and names the step that failed, after what that step printed:
 
 ```console
-❌ my-repo: ci: failed on imac2 in 10.0s (exit 255) — could not prepare imac2
+❌ my-repo: ci: failed on 📡 imac2 in 10.0s (exit 255) — could not prepare imac2
 ```
 
 The steps are `prepare`, which reaches the host and creates the checkout, `push`, `check out`, and `install`. A connection lost while the command runs is reported as `lost connection to <host>`.

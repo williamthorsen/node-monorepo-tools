@@ -4,10 +4,25 @@ import { describe, expect, it } from 'vitest';
 import { NMR_GLYPHS, type NmrGlyphName } from '../glyphs.ts';
 
 /** Every name that the set defines, so that a case reaches each one. */
-const GLYPH_NAMES = ['catalog', 'clean', 'noop', 'overrides', 'package', 'recording'] as const satisfies NmrGlyphName[];
+const GLYPH_NAMES = [
+  'catalog',
+  'clean',
+  'host',
+  'noop',
+  'overrides',
+  'package',
+  'recording',
+] as const satisfies NmrGlyphName[];
 
 /** The names whose glyph is followed by a word, which leaves their plain variant empty. */
-const DECORATIVE_NAMES = ['catalog', 'clean', 'overrides', 'package', 'recording'] as const satisfies NmrGlyphName[];
+const DECORATIVE_NAMES = [
+  'catalog',
+  'clean',
+  'host',
+  'overrides',
+  'package',
+  'recording',
+] as const satisfies NmrGlyphName[];
 
 describe('NMR_GLYPHS', () => {
   // `defineGlyphSet` throws on a rich variant not drawn two cells wide by any terminal, so this rebuild checks

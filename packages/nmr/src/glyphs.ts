@@ -10,6 +10,7 @@ import { defineGlyphSet } from '@williamthorsen/nmr-core';
 export const NMR_GLYPHS = defineGlyphSet({
   catalog: { plain: '', rich: '\u{1F4DA}' },
   clean: { plain: '', rich: '\u{1F9F9}' },
+  host: { plain: '', rich: '\u{1F4E1}' },
   noop: { plain: 'NOOP', rich: '\u{26AA}' },
   overrides: { plain: '', rich: '\u{1F512}' },
   package: { plain: '', rich: '\u{1F4E6}' },

@@ -40,6 +40,16 @@ describe(renderVerdict, () => {
     expect(JSON.parse(serializeVerdict({ ...passed, host: 'box' }))).toMatchObject({ host: 'box' });
   });
 
+  it('marks the host of a delegated pass or failure with a glyph in rich output', () => {
+    const passed = makeVerdict({ outcome: 'passed', durationMs: 64_000 });
+    const failed = makeVerdict({ outcome: 'failed', durationMs: 1_200, exitCode: 255 });
+
+    expect(renderVerdict({ ...passed, host: 'box' }, 'rich')).toBe('✅ nmr-core: test: passed on 📡 box in 1m 4s');
+    expect(renderVerdict({ ...failed, host: 'box' }, 'rich')).toBe(
+      '❌ nmr-core: test: failed on 📡 box in 1.2s (exit 255)',
+    );
+  });
+
   it('reports a recalled pass with its age and saving', () => {
     const verdict = makeVerdict({ outcome: 'recalled', ageMs: 240_000, savedMs: 12_000 });
 
@@ -60,6 +70,14 @@ describe(renderVerdict, () => {
       ageMs: 240_000,
       savedMs: 12_000,
     });
+  });
+
+  it('marks the host that earned a recalled pass with a glyph in rich output', () => {
+    const verdict = makeVerdict({ outcome: 'recalled', ageMs: 240_000, savedMs: 12_000 });
+
+    expect(renderVerdict({ ...verdict, host: 'box' }, 'rich')).toBe(
+      '⏩ nmr-core: test: passed 4m ago on 📡 box, saved ~12s',
+    );
   });
 
   it('drops the saving clause when the recalled pass was too quick to have saved anything', () => {
