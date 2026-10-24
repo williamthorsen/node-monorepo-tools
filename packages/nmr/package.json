@@ -63,7 +63,8 @@
     "nmr-fmt": "bin/nmr-fmt.js",
     "nmr-report-catalog": "bin/nmr-report-catalog.js",
     "nmr-report-overrides": "bin/nmr-report-overrides.js",
-    "nmr-taze": "bin/nmr-taze.js"
+    "nmr-taze": "bin/nmr-taze.js",
+    "nmr-vitest": "bin/nmr-vitest.js"
   },
   "files": [
     ".meta/changelog.json",
