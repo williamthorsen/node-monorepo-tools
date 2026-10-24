@@ -182,7 +182,7 @@ Neither is bound to a git hook. `prepush` is named for when a developer runs it,
 
 ### Check and quality
 
-`check` and `check:strict` start their lint step first and [run it in the background](#running-a-step-in-the-background), alongside typecheck, the format check, and the tests.
+`check` and `check:strict` start their lint step first and [run it in the background](#running-a-step-in-the-background), alongside typecheck, the format check, and the tests. At the root, both then run [`lint:workflows`](#workflow-lint) before typecheck, and `root:check` runs it after `root:lint:check`.
 
 Neither gate computes coverage: Instrumentation multiplies the wall time of the run that they exist to keep short. Coverage is [`test:coverage`](vitest.md#test-selections), run as a step of its own; a repo that wants it inside the gate [overrides](#configuration) `check:strict`.
 
@@ -193,6 +193,14 @@ The lint commands respect each package's own `eslint.config.*`. Use the `root:` 
 Requires `eslint` >= 10 and, for `lint:strict`, `@williamthorsen/strict-lint` >= 9.3.0.
 
 The run never enters a package, so per-package `lint:pre` and `lint:post` hooks do not fire from the root. They still run from inside the package and under `nmr -F <package> lint`.
+
+### Workflow lint
+
+`lint:workflows`, a root command, lints the GitHub Actions workflows under `.github/workflows/` with [actionlint](https://github.com/rhysd/actionlint), including its shellcheck pass over every `run:` block, and fails on any finding. A repo without `.github/workflows/` passes. The command runs `nmr-actionlint`, which forwards trailing arguments to actionlint, so `nmr lint:workflows .github/workflows/ci.yaml` lints that file alone; inside `check`, `check:strict`, and `root:check`, the step declines them.
+
+The result does not depend on what the machine has installed. nmr pins actionlint 1.7.12 and shellcheck 0.11.0, downloads each from its upstream GitHub release on first use, verifies it against the SHA-256 recorded in nmr, and caches it under `node_modules/.cache/nmr-tools/` at the monorepo root. The first run therefore needs access to `github.com`, and a failed download or a checksum mismatch fails the command. The pyflakes integration is off. The pins move only with a release of nmr.
+
+The supported platforms are macOS and Linux on x64 and arm64; on any other, the command fails and names the platform. actionlint reads its own configuration from `.github/actionlint.yaml`, through which a repo can ignore a finding.
 
 ### Root-only
 

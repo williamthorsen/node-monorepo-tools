@@ -1,6 +1,14 @@
 # Standalone utilities
 
-The binaries behind nmr's default `clean`, `compile`, `fmt`, and package `test` commands, and a check for the `prepublishOnly` hooks of publishable packages.
+The binaries behind nmr's default `clean`, `compile`, `fmt`, `lint:workflows`, and package `test` commands, and a check for the `prepublishOnly` hooks of publishable packages.
+
+## `nmr-actionlint`
+
+Lint the monorepo's GitHub Actions workflows with pinned actionlint and shellcheck binaries, forwarding any arguments to actionlint. This is the default root `lint:workflows` script; [Workflow lint](scripts.md#workflow-lint) covers the pins, the download, and the supported platforms.
+
+```bash
+nmr-actionlint
+```
 
 ## `nmr-clean`
 
