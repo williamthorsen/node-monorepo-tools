@@ -1,3 +1,4 @@
+import type { SpawnSyncOptions } from 'node:child_process';
 import { lstatSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
@@ -10,6 +11,24 @@ import { FMT_CACHE_DIRECTORY, prepareFmtCache } from '../fmt-cache.ts';
 import { addSubmodule } from '../test-utils/addSubmodule.ts';
 import { denyAccess, isPrivilegedProcess } from '../test-utils/denyAccess.ts';
 import { runGitOrThrow } from '../test-utils/runGitOrThrow.ts';
+
+// Prettier's child inherits the worker's descriptors, which no in-process capture reaches. Piping its output and
+// writing it to the process streams hands it to the `captured` fixture; stdout and stderr lose their interleaving.
+vi.mock(import('node:child_process'), async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    // An untyped mock, because one implementation cannot satisfy every `spawnSync` overload.
+    spawnSync: vi.fn().mockImplementation((command: string, args: readonly string[], options: SpawnSyncOptions) => {
+      if (options.stdio !== 'inherit') return actual.spawnSync(command, args, options);
+
+      const result = actual.spawnSync(command, args, { ...options, stdio: ['inherit', 'pipe', 'pipe'] });
+      process.stdout.write(result.stdout);
+      process.stderr.write(result.stderr);
+      return result;
+    }),
+  };
+});
 
 /**
  * Tracked fixture files. The root `.prettierignore` mirrors a package pattern the way a repo working
