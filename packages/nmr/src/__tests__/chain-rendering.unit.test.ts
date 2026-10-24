@@ -132,13 +132,15 @@ const ROOT_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'check',
-    chain: 'nmr lint:check && nmr typecheck && nmr fmt:check && nmr test',
-    workspaceRootChain: 'nmr -w lint:check && nmr -w typecheck && nmr -w fmt:check && nmr -w test',
+    chain: 'nmr lint:check && nmr lint:workflows && nmr typecheck && nmr fmt:check && nmr test',
+    workspaceRootChain:
+      'nmr -w lint:check && nmr -w lint:workflows && nmr -w typecheck && nmr -w fmt:check && nmr -w test',
   },
   {
     command: 'check:strict',
-    chain: 'nmr lint:strict && nmr typecheck && nmr fmt:check && nmr test',
-    workspaceRootChain: 'nmr -w lint:strict && nmr -w typecheck && nmr -w fmt:check && nmr -w test',
+    chain: 'nmr lint:strict && nmr lint:workflows && nmr typecheck && nmr fmt:check && nmr test',
+    workspaceRootChain:
+      'nmr -w lint:strict && nmr -w lint:workflows && nmr -w typecheck && nmr -w fmt:check && nmr -w test',
   },
   {
     command: 'ci',
@@ -180,6 +182,10 @@ const ROOT_CHAINS: readonly ChainRow[] = [
     chain: 'strict-lint',
   },
   {
+    command: 'lint:workflows',
+    chain: 'nmr-actionlint',
+  },
+  {
     command: 'prepush',
     chain: 'nmr audit && nmr ci',
     workspaceRootChain: 'nmr -w audit && nmr -w ci',
@@ -190,8 +196,9 @@ const ROOT_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'root:check',
-    chain: 'nmr root:typecheck && nmr fmt:check && nmr root:lint:check && nmr root:test',
-    workspaceRootChain: 'nmr -w root:typecheck && nmr -w fmt:check && nmr -w root:lint:check && nmr -w root:test',
+    chain: 'nmr root:typecheck && nmr fmt:check && nmr root:lint:check && nmr lint:workflows && nmr root:test',
+    workspaceRootChain:
+      'nmr -w root:typecheck && nmr -w fmt:check && nmr -w root:lint:check && nmr -w lint:workflows && nmr -w root:test',
   },
   {
     command: 'root:lint',
