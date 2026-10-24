@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.19.6 — 2026-10-24
+
+### 🧪 Tests
+
+- Captures the output that passing tests leaked into the run, asserting on each error, hint, and `TAG_RESOLVE_FAILED` YAML warning emitted by the code under test, and pipes the stdio of the child processes run by tool tests so that their output does not reach the worker's streams. (#1097)
+
 ## 0.19.5 — 2026-10-21
 
 ### 📦 Dependencies
@@ -9,6 +15,12 @@ All notable changes to this project will be documented in this file.
 - Bumped `@williamthorsen/nmr-core` to 0.13.5
 
 ## 0.19.4 — 2026-10-18
+
+### 🐛 Bug fixes
+
+- Make release-kit's readyup manifest independent of the compile directory (#1081)
+
+  Fixes the issue that the manifest of release-kit's `npm-auto-publish` kit listed whichever workspaces `rdy compile` found in its working directory, so a rebuild from another directory changed it and the published copy named this repository's packages. Moves the construction of the kit's per-package rows to `rdy run` and raises the kit's `minReadyupVersion` to 0.42.0, the first readyup release that can build checks at run time.
 
 ### 🧪 Tests
 
@@ -23,9 +35,17 @@ All notable changes to this project will be documented in this file.
 
 ## 0.19.2 — 2026-10-12
 
-### 📦 Dependencies
+### 🎉 Features
 
-- Bumped `@williamthorsen/nmr-core` to 0.13.3
+- Let a calling repo choose the runner of the reusable workflows (#997)
+
+  Makes the reusable `audit`, `create-github-release`, `release`, and `sync-labels` workflows run their jobs on the runner named by the calling repository's `CI_RUNS_ON` configuration variable, such as a self-hosted runner, and keeps `ubuntu-latest` as the default when the variable is unset. Leaves the reusable `publish` workflow on `ubuntu-latest`, because npm generates provenance only on GitHub-hosted runners.
+
+### 🏗️ Internal features
+
+- Resolve package roots past dual-format marker manifests (#1016)
+
+  Replaces nmr-core's hand-written package-root and version lookups with `findPackageRoot` and `resolveSelfVersion` re-exported from `@williamthorsen/toolbelt.packaging`, which pass over the `{"type": "commonjs"}` marker manifest of a dual-format layout to reach the package that declares a `name`. `nmr`, `release-kit`, and `v11y-check` switch from `readPackageVersion` to `resolveSelfVersion`, and the boundary guard now holds `toolbelt.packaging`, like `toolbelt.terminal`, to a single importer and a single declarer in nmr-core.
 
 ## 0.19.1 — 2026-10-08
 

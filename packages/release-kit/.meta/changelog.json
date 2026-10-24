@@ -1,5 +1,22 @@
 [
   {
+    "version": "15.0.1",
+    "date": "2026-10-24",
+    "sections": [
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Captures the output that passing tests leaked into the run, asserting on each error, hint, and `TAG_RESOLVE_FAILED` YAML warning emitted by the code under test, and pipes the stdio of the child processes run by tool tests so that their output does not reach the worker's streams. (#1097)",
+            "hash": "ed6e4187d7f30fa27eb59b495c5f51cf07eacdbc",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "15.0.0",
     "date": "2026-10-23",
     "sections": [

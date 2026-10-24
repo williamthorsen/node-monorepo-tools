@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.51.0 — 2026-10-24
+
+### 🎉 Features
+
+- Widens the optional `vitest` peer range of `@williamthorsen/nmr` from `>=4.0.0 <5` to `>=4.0.0 <6`, adding support for Vitest 5, under which a bare `vitest` started from a package without its own config needs `--config` naming the root's `vitest.config.*`. (#1100)
+- Adds the `nmr-vitest` command and runs every package-scope `test*` script through it; when the package directory does not contain a `vitest.config.*` or `vite.config.*`, `nmr-vitest` passes `--config` naming the `vitest.config.*` at the monorepo root, and otherwise passes its arguments to Vitest unchanged. (#1100)
+
+### 🧪 Tests
+
+- Captures the output that passing tests leaked into the run, asserting on each error, hint, and `TAG_RESOLVE_FAILED` YAML warning emitted by the code under test, and pipes the stdio of the child processes run by tool tests so that their output does not reach the worker's streams. (#1097)
+
 ## 0.50.1 — 2026-10-22
 
 ### 🐛 Bug fixes

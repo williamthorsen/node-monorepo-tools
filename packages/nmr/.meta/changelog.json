@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.51.0",
+    "date": "2026-10-24",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Widens the optional `vitest` peer range of `@williamthorsen/nmr` from `>=4.0.0 <5` to `>=4.0.0 <6`, adding support for Vitest 5, under which a bare `vitest` started from a package without its own config needs `--config` naming the root's `vitest.config.*`. (#1100)",
+            "hash": "7a8049951fd41ef398dd2b0fdb88de6086223906",
+            "entry": 1
+          },
+          {
+            "description": "Adds the `nmr-vitest` command and runs every package-scope `test*` script through it; when the package directory does not contain a `vitest.config.*` or `vite.config.*`, `nmr-vitest` passes `--config` naming the `vitest.config.*` at the monorepo root, and otherwise passes its arguments to Vitest unchanged. (#1100)",
+            "hash": "7a8049951fd41ef398dd2b0fdb88de6086223906",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Captures the output that passing tests leaked into the run, asserting on each error, hint, and `TAG_RESOLVE_FAILED` YAML warning emitted by the code under test, and pipes the stdio of the child processes run by tool tests so that their output does not reach the worker's streams. (#1097)",
+            "hash": "ed6e4187d7f30fa27eb59b495c5f51cf07eacdbc",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.50.1",
     "date": "2026-10-22",
     "sections": [

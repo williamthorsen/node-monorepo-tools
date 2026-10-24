@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.13.6 — 2026-10-24
+
+### 🧪 Tests
+
+- Captures the output that passing tests leaked into the run, asserting on each error, hint, and `TAG_RESOLVE_FAILED` YAML warning emitted by the code under test, and pipes the stdio of the child processes run by tool tests so that their output does not reach the worker's streams. (#1097)
+
 ## 0.13.5 — 2026-10-21
 
 ### 🐛 Bug fixes
