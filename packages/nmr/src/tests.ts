@@ -1,5 +1,4 @@
-import { describe, expect, it } from 'vitest';
-import { getCurrentSuite } from 'vitest/suite';
+import { describe, expect, it, TestRunner } from 'vitest';
 
 import { findMisplacedTestFiles, findUntieredTestFiles, type TestFileScanOptions, TIER_NAMES } from './tiers.ts';
 import { findMonorepoRoot } from './workspace.ts';
@@ -51,11 +50,12 @@ export function checkTestFileConventions(options: TestFileConventionsOptions = {
  * remedy. Outside Vitest it does nothing.
  *
  * A second `@vitest/runner` copy is never handed the running state, and its `describe` fails with a bare `TypeError`.
- * The default `probe` comes from `vitest/suite`, which re-exports the same copy as the `describe` imported here.
+ * The default `probe` is `TestRunner.getCurrentSuite`, imported from the same `vitest` as `describe`, so both come from
+ * one runner copy.
  *
  * @internal - Exported only to enable testing
  */
-export function assertImportedRunnerIsActive(probe: () => unknown = getCurrentSuite): void {
+export function assertImportedRunnerIsActive(probe: () => unknown = TestRunner.getCurrentSuite): void {
   if (process.env['VITEST'] === undefined) return;
 
   try {
