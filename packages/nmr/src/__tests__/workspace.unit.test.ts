@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureWarnings, createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
@@ -122,7 +122,11 @@ describe(getWorkspacePackageDirs, () => {
     // all-strings check and empty the result for a workspace that has packages; this pins that seam.
     it('resolves every package when an exclusion is left unquoted', ({ packagesTree }) => {
       packagesTree.write('pnpm-workspace.yaml', 'packages:\n  - packages/*\n  - !packages/legacy\n');
+      using captured = captureWarnings();
+
       const dirs = getWorkspacePackageDirs(packagesTree.dir);
+
+      expect(captured.warnings).toMatchObject([{ code: 'TAG_RESOLVE_FAILED' }]);
       expect(dirs).toStrictEqual([
         path.join(packagesTree.dir, 'packages', 'alpha'),
         path.join(packagesTree.dir, 'packages', 'legacy'),

@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureWarnings, createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
@@ -387,8 +387,12 @@ describe(runCli, () => {
     // The matcher receives an unquoted `!pkg` as an empty entry, which is the very case that this message's
     // remedy names, so the message must not quote it back to the reader as an empty pair of backticks.
     it('names an entry that YAML left empty rather than quoting nothing', async ({ taggedTree }) => {
+      using captured = captureWarnings();
+
       const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], taggedTree.dir);
 
+      // A run reads the manifest more than once, and each read warns.
+      expect(new Set(captured.warnings.map((warning) => warning.code))).toStrictEqual(new Set(['TAG_RESOLVE_FAILED']));
       expect(exitCode).toBe(1);
       expect(stderr).toContain('pnpm-workspace.yaml declares 1 entry that YAML left empty');
       expect(stderr).toContain('quote any `!` entry');

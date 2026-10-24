@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureWarnings, createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
@@ -97,12 +97,18 @@ describe(resolveWorkspace, () => {
 
   describe("kind 'empty'", () => {
     it.for([
-      { patterns: "\n  - '!packages/legacy'", scenario: 'exclusions alone' },
-      { patterns: '\n  - !packages/legacy', scenario: 'an unquoted `!` entry, which YAML leaves empty' },
-    ])('reports no-pattern given $scenario', ({ patterns }, { packagesTree }) => {
+      { patterns: "\n  - '!packages/legacy'", scenario: 'exclusions alone', warningCodes: [] },
+      {
+        patterns: '\n  - !packages/legacy',
+        scenario: 'an unquoted `!` entry, which YAML leaves empty',
+        warningCodes: ['TAG_RESOLVE_FAILED'],
+      },
+    ])('reports no-pattern given $scenario', ({ patterns, warningCodes }, { packagesTree }) => {
       packagesTree.write('pnpm-workspace.yaml', `packages: ${patterns}\n`);
+      using captured = captureWarnings();
 
       expect(resolveWorkspace(packagesTree.dir)).toMatchObject({ cause: 'no-pattern', kind: 'empty' });
+      expect(captured.warnings.map((warning) => warning.code)).toStrictEqual(warningCodes);
     });
 
     // pnpm resolves each of these to the root package alone, so a caller treating an empty resolution as a
