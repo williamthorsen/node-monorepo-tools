@@ -199,7 +199,7 @@ export default {
 
 ```console
 $ nmr --delegate-to imac2 ci
-✅ my-repo: ci: passed on imac2 in 1m 48s
+✅ my-repo: ci: passed on 📡 imac2 in 1m 48s
 ```
 
 A delegation consults the [check-result cache](#check-result-cache) first, so a tree that already passed is not sent to the host; a pass that a host earned does not satisfy a run here. A repo whose checks must run on the machine that has the tree declares `delegate: false` in its config. [Delegating to another machine](docs/delegate.md) covers the user config, `--delegate`, `NMR_DELEGATE`, the rules that decide where a command runs, which commands can be delegated, how nmr chooses among several hosts, how the cache is consulted, what the host runs, how failures are reported, and setting up the host.
