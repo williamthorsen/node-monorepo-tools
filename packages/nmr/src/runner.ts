@@ -1,7 +1,11 @@
 import type { ChildProcess } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import process from 'node:process';
 import type { Writable } from 'node:stream';
 
+import { writeDebugNote } from './check-cache.ts';
 import {
   describeSignalExitCode,
   type RunCommandOptions,
@@ -12,6 +16,7 @@ import {
 } from './child-process.ts';
 import { createOutputRecorder, type OutputRecorder } from './helpers/createOutputRecorder.ts';
 import { isTerminal, resolveChannel, resolveInheritedChannel } from './output-channel.ts';
+import { OUTCOME_FILE_ENV_VAR, readStatedOutcome, type StatedOutcome } from './stated-outcome.ts';
 import type { Step } from './steps.ts';
 
 /** What a step list needs to run. Each step's channels follow its kind, so the caller chooses none of them. */
@@ -30,6 +35,8 @@ export interface RunStepsResult {
    * at least one to capture.
    */
   retainedOutput?: RetainedOutput;
+  /** The outcome that each foreground opaque step stated, absent unless a step that exited 0 stated one. */
+  statedOutcomes?: Map<Step, StatedOutcome>;
 }
 
 /**
@@ -50,6 +57,10 @@ export interface RunStepsResult {
  * Returns a bounded copy of what the list's own commands wrote, so that a caller can retain it. Only opaque
  * steps contribute: A structural step is another nmr process reporting for the subtree beneath it, and its
  * output is that subtree's to account for.
+ *
+ * Each foreground opaque step is handed a file of its own in `NMR_OUTCOME_FILE`, through which an nmr bin states its
+ * outcome. Every other step runs without the variable, as does a step whose value would have been inherited from an
+ * ancestor, so that a statement reaches only the list that handed out its file.
  */
 export async function runSteps(
   steps: readonly Step[],
@@ -58,6 +69,7 @@ export async function runSteps(
 ): Promise<RunStepsResult> {
   const resolvedOptions = {
     ...options,
+    env: omitOutcomeFile(options.env ?? process.env),
     quiet: options.quiet === true,
     stdout: options.stdout ?? process.stdout,
     stderr: options.stderr ?? process.stderr,
@@ -69,6 +81,8 @@ export async function runSteps(
   const runningChildren = new Set<ChildProcess>();
   let receivedSignal: NodeJS.Signals | undefined;
   let foregroundExitCode = 0;
+  const statedOutcomes = new Map<Step, StatedOutcome>();
+  let outcomeDir: string | undefined;
 
   /** Forwards a signal sent to nmr to every running child, and stops the sequence from starting another step. */
   function forwardSignal(signal: NodeJS.Signals): void {
@@ -82,6 +96,29 @@ export async function runSteps(
     runningChildren.add(started.child);
     void started.result.finally(() => runningChildren.delete(started.child));
     return started;
+  }
+
+  /**
+   * Runs a foreground step to its end. An opaque step is handed a file of its own, and its statement is read back
+   * once it has exited 0.
+   */
+  async function runForeground(step: Step): Promise<{ result: RunCommandResult; statedOutcome?: StatedOutcome }> {
+    if (step.kind !== 'opaque') {
+      return { result: await launch(step, resolvedOptions).result };
+    }
+
+    outcomeDir ??= await mkdtemp(path.join(os.tmpdir(), 'nmr-outcome-'));
+    const outcomeFile = path.join(outcomeDir, `${steps.indexOf(step)}.json`);
+    const env = { ...resolvedOptions.env, [OUTCOME_FILE_ENV_VAR]: outcomeFile };
+    const result = await launch(step, { ...resolvedOptions, env }).result;
+    if (result.exitCode !== 0) {
+      return { result };
+    }
+
+    const statedOutcome = await readStatedOutcome(outcomeFile, (reason) => {
+      writeDebugNote(`ignoring the outcome that a step stated: ${reason}`, resolvedOptions.env, resolvedOptions.stderr);
+    });
+    return { result, ...(statedOutcome !== undefined && { statedOutcome }) };
   }
 
   /** Prints the output of every background step that has ended and not been printed. */
@@ -109,8 +146,9 @@ export async function runSteps(
         continue;
       }
 
-      const result = await launch(step, resolvedOptions).result;
+      const { result, statedOutcome } = await runForeground(step);
       flushEndedBackgroundRuns();
+      if (statedOutcome !== undefined) statedOutcomes.set(step, statedOutcome);
 
       // Read from the step's kind rather than from whether the child handed back a pipe. A structural step runs
       // on inherited descriptors, but a destination without one falls back to a pipe and is captured like any
@@ -140,10 +178,15 @@ export async function runSteps(
   } finally {
     process.off('SIGINT', forwardSignal);
     process.off('SIGTERM', forwardSignal);
+    if (outcomeDir !== undefined) await rm(outcomeDir, { force: true, recursive: true });
   }
 
   const exitCode = selectExitCode(foregroundExitCode, receivedSignal, backgroundRuns);
-  return { exitCode, ...composeRetainedOutput(parts, isCaptureWhole) };
+  return {
+    exitCode,
+    ...composeRetainedOutput(parts, isCaptureWhole),
+    ...(statedOutcomes.size > 0 && { statedOutcomes }),
+  };
 }
 
 /**
@@ -179,7 +222,12 @@ interface BackgroundRun {
 }
 
 /** The options of a step list once each stream has been given its default. */
-type ResolvedStepsOptions = RunStepsOptions & { quiet: boolean; stderr: Writable; stdout: Writable };
+type ResolvedStepsOptions = RunStepsOptions & {
+  env: NodeJS.ProcessEnv;
+  quiet: boolean;
+  stderr: Writable;
+  stdout: Writable;
+};
 
 /** Spawns one child on the caller's channels and resolves once it has ended. */
 function runSpawned(spec: SpawnSpec, cwd: string | undefined, options: RunCommandOptions): Promise<RunCommandResult> {
@@ -239,10 +287,15 @@ function composeRetainedOutput(
  * which the output is printed. `NO_COLOR` and an inherited `FORCE_COLOR` are left to decide for themselves.
  */
 function buildBackgroundEnv(options: ResolvedStepsOptions): NodeJS.ProcessEnv {
-  const env = options.env ?? process.env;
+  const { env } = options;
   const shouldForceColor =
     isTerminal(options.stdout) && (env['NO_COLOR'] ?? '') === '' && env['FORCE_COLOR'] === undefined;
   return shouldForceColor ? { ...env, FORCE_COLOR: '1' } : env;
+}
+
+/** Returns the environment without `NMR_OUTCOME_FILE`, which only a file that this list handed out may set. */
+function omitOutcomeFile(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(env).filter(([name]) => name !== OUTCOME_FILE_ENV_VAR));
 }
 
 /** Sets a background run's result once its step has ended. */
