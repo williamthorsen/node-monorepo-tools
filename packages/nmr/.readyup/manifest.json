@@ -3,8 +3,10 @@
   "kits": [
     {
       "bundledDependencies": {
+        "@williamthorsen/toolbelt.datetime": "4.0.12",
         "@williamthorsen/toolbelt.errors": "0.8.4",
         "@williamthorsen/toolbelt.filesystem": "0.9.4",
+        "@williamthorsen/toolbelt.numbers": "7.2.4",
         "@williamthorsen/toolbelt.packaging": "0.6.4",
         "@williamthorsen/toolbelt.terminal": "0.2.1",
         "ansi-regex": "6.4.0",
@@ -71,7 +73,7 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "aed52073",
+          "hash": "8403ac1f",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/cache-store.js"
         },
@@ -106,7 +108,7 @@
           "path": "../../nmr-core/dist/esm/helpers/workspace-patterns.js"
         },
         {
-          "hash": "191f7c24",
+          "hash": "de4cb41d",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/index.js"
         },
@@ -124,6 +126,11 @@
           "hash": "14547f78",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/terminal.js"
+        },
+        {
+          "hash": "d61dd294",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/timer.js"
         },
         {
           "hash": "3c395f31",
