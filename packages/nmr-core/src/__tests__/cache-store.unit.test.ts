@@ -7,12 +7,14 @@ import { describe, expect, it as baseIt } from 'vitest';
 
 import {
   readCacheEntry,
+  readGuardedCacheEntry,
   readJsonCacheEntry,
   removeCacheDir,
   removeCacheEntry,
   resolveCacheDir,
   resolveCacheEntryPath,
   writeCacheEntry,
+  writeGuardedCacheEntry,
 } from '../cache-store.ts';
 
 const TOOL = 'test-tool';
@@ -122,6 +124,41 @@ describe('cache-store', () => {
       const entryPath = tree.mkdir('entry.hash');
 
       await expect(readCacheEntry(entryPath)).resolves.toBeUndefined();
+    });
+  });
+
+  describe(readGuardedCacheEntry, () => {
+    it('returns a value written under the same token', async ({ tree }) => {
+      const entryPath = path.join(tree.dir, 'entry.json');
+      await writeGuardedCacheEntry(entryPath, 'token-a', { hash: 'abc' });
+
+      await expect(readGuardedCacheEntry(entryPath, 'token-a', isHashEntry)).resolves.toStrictEqual({ hash: 'abc' });
+    });
+
+    it('reads a value written under another token as a miss', async ({ tree }) => {
+      const entryPath = path.join(tree.dir, 'entry.json');
+      await writeGuardedCacheEntry(entryPath, 'token-a', { hash: 'abc' });
+
+      await expect(readGuardedCacheEntry(entryPath, 'token-b', isHashEntry)).resolves.toBeUndefined();
+    });
+
+    it('reads a value that the guard rejects as a miss', async ({ tree }) => {
+      const entryPath = path.join(tree.dir, 'entry.json');
+      await writeGuardedCacheEntry(entryPath, 'token-a', { digest: 'abc' });
+
+      await expect(readGuardedCacheEntry(entryPath, 'token-a', isHashEntry)).resolves.toBeUndefined();
+    });
+
+    it('reads an entry without a token as a miss', async ({ tree }) => {
+      const entryPath = tree.writeJson('entry.json', { value: { hash: 'abc' } });
+
+      await expect(readGuardedCacheEntry(entryPath, 'token-a', isHashEntry)).resolves.toBeUndefined();
+    });
+
+    it('reads unparseable content as a miss', async ({ tree }) => {
+      const entryPath = tree.write('entry.json', '{"token": "token-a"');
+
+      await expect(readGuardedCacheEntry(entryPath, 'token-a', isHashEntry)).resolves.toBeUndefined();
     });
   });
 

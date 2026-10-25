@@ -2,12 +2,14 @@ export const PACKAGE_NAME = '@williamthorsen/nmr-core';
 export type { CacheDirRef, CacheEntryRef } from './cache-store.ts';
 export {
   readCacheEntry,
+  readGuardedCacheEntry,
   readJsonCacheEntry,
   removeCacheDir,
   removeCacheEntry,
   resolveCacheDir,
   resolveCacheEntryPath,
   writeCacheEntry,
+  writeGuardedCacheEntry,
 } from './cache-store.ts';
 export { GIT_OUTPUT_LIMIT } from './gitOutputLimit.ts';
 export { hasErrnoCode } from './hasErrnoCode.ts';
