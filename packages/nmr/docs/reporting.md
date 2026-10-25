@@ -6,6 +6,8 @@ The verdict line and its four outcomes are shown in the [README](../README.md#wh
 
 A recalled pass also includes an excerpt of the run that it recalls, if that run left one; see [Replaying a skipped run's output](check-cache.md#replaying-a-skipped-runs-output).
 
+A pass also includes what the command stated about its own run, if the command is an nmr bin that states one, such as `nmr-compile` on a build-cache hit: `PASS nmr-core: compile: passed in 0.3s — build skipped as unchanged, saved ~2.1s`. The line names the saving under the same rule as a recalled pass. Because the bin states it through [`NMR_OUTCOME_FILE`](#reserved-environment-variables) rather than through its output, a quiet run reports it too.
+
 The scope is the directory to which the command's registry belongs: a package's own directory, or the monorepo root. Durations and ages truncate and show at most two units, so a check that passed 119.9 seconds ago reports `1m 59s ago` and never `2m ago`.
 
 Verdicts nest. A composite reports, and so does every command into which it expands; a `:pre` or `:post` hook reports nothing of its own, since the command that it wraps already reports for the chain, though a hook that delegates to a named command reports under that name. A `-R` or `-F` invocation reports nothing either; every scope to which it fans out reports instead. A cold repo-wide `nmr ci` in this package's own monorepo uses 26 verdict lines to report a run that prints roughly 250.
@@ -38,7 +40,7 @@ Every object contains `command`, `scope`, and `outcome`, and then the fields tha
 
 | `outcome`  | Also contains                                                                                                           |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `passed`   | `durationMs`                                                                                                            |
+| `passed`   | `durationMs`, and `stated` when the command stated its own outcome, such as `{"kind":"build-unchanged","savedMs":2100}` |
 | `failed`   | `durationMs`, `exitCode`                                                                                                |
 | `recalled` | `ageMs`, `savedMs`, and `replay` when the skip has excerpts to [replay](check-cache.md#replaying-a-skipped-runs-output) |
 | `no-op`    | `reason`, one of `empty-override`, `empty-workspace`, or `noop-override`                                                |
@@ -71,6 +73,8 @@ Because the format is nmr's own reporting, and nmr does not tell the commands th
 `NMR_REPORT_FORMAT` is nmr's own as well, and sets how nmr renders its own verdicts. Its values are `text` and `json`; nmr reports any other non-empty value and exits 1, and an empty value reads as unset. `--json` sets it for the run and outranks an inherited value, and both values are spelled out so that either direction is expressible: Export `NMR_REPORT_FORMAT=json` for a shell whose consumer parses, and set `text` on one invocation to opt back out. The format has two sources, then, whereas a verbosity has four: It does not have a repo-level default or harness detection, because detection would hand every agent JSON in place of the prose that the [bundled guidance](../README.md#agent-guidance) teaches. See [reporting for a machine](#reporting-for-a-machine) for what the objects contain.
 
 `NMR_ENTRY_CHAIN` is nmr's own as well. It lists the commands that the current run has entered and the directories in which it entered them, and nmr passes it to every process that it starts, so that a process re-entering a command already running in its directory fails instead of repeating without end; see [self-referential entries](scripts.md#three-tier-override-system). Do not set it: nmr reports a value that it cannot read and exits 1.
+
+`NMR_OUTCOME_FILE` is nmr's own as well. nmr sets it for each command that it runs through the shell, naming a file of that step's own, in which an nmr bin states its outcome; nmr reads the file once the step exits 0 and removes it afterwards. nmr accepts the statement only from a command whose own script is a single shell command, so that a bin cannot speak for a chain or for a hook around it, and it removes the variable from every other process that it starts. Do not set it: nmr replaces an inherited value, and ignores a record that it cannot read.
 
 ### Output style
 
