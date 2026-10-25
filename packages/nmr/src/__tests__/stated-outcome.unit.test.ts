@@ -25,14 +25,14 @@ describe(readStatedOutcome, () => {
     const filePath = path.join(tree.dir, 'outcome.json');
     await writeStatedOutcome({ [OUTCOME_FILE_ENV_VAR]: filePath }, outcome);
 
-    await expect(readStatedOutcome(filePath, process.ppid, vi.fn())).resolves.toStrictEqual(outcome);
+    await expect(readStatedOutcome(filePath, [process.ppid], vi.fn())).resolves.toStrictEqual(outcome);
   });
 
   it('returns undefined without a rejection when the step wrote nothing', async ({ tree }) => {
     const onRejection = vi.fn();
 
     await expect(
-      readStatedOutcome(path.join(tree.dir, 'absent.json'), PARENT_PID, onRejection),
+      readStatedOutcome(path.join(tree.dir, 'absent.json'), [PARENT_PID], onRejection),
     ).resolves.toBeUndefined();
     expect(onRejection).not.toHaveBeenCalled();
   });
@@ -49,14 +49,22 @@ describe(readStatedOutcome, () => {
     const filePath = tree.write('outcome.json', text);
     const onRejection = vi.fn();
 
-    await expect(readStatedOutcome(filePath, PARENT_PID, onRejection)).resolves.toBeUndefined();
+    await expect(readStatedOutcome(filePath, [PARENT_PID], onRejection)).resolves.toBeUndefined();
     expect(onRejection).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts a record stated to any of the parents that the step may have', async ({ tree }) => {
+    const filePath = tree.write('outcome.json', '{"kind":"build-unchanged","parentPid":4242}');
+
+    await expect(readStatedOutcome(filePath, [1, PARENT_PID], vi.fn())).resolves.toStrictEqual({
+      kind: 'build-unchanged',
+    });
   });
 
   it('drops a field that the record does not define', async ({ tree }) => {
     const filePath = tree.write('outcome.json', '{"kind":"build-unchanged","savedMs":5,"parentPid":4242,"extra":true}');
 
-    await expect(readStatedOutcome(filePath, PARENT_PID, vi.fn())).resolves.toStrictEqual({
+    await expect(readStatedOutcome(filePath, [PARENT_PID], vi.fn())).resolves.toStrictEqual({
       kind: 'build-unchanged',
       savedMs: 5,
     });

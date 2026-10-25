@@ -16,7 +16,7 @@ import {
 } from './child-process.ts';
 import { createOutputRecorder, type OutputRecorder } from './helpers/createOutputRecorder.ts';
 import { isTerminal, resolveChannel, resolveInheritedChannel } from './output-channel.ts';
-import { OUTCOME_FILE_ENV_VAR, readStatedOutcome, type StatedOutcome } from './stated-outcome.ts';
+import { omitOutcomeFile, OUTCOME_FILE_ENV_VAR, readStatedOutcome, type StatedOutcome } from './stated-outcome.ts';
 import type { Step } from './steps.ts';
 
 /** What a step list needs to run. Each step's channels follow its kind, so the caller chooses none of them. */
@@ -110,12 +110,14 @@ export async function runSteps(
     outcomeDir ??= await mkdtemp(path.join(os.tmpdir(), 'nmr-outcome-'));
     const outcomeFile = path.join(outcomeDir, `${steps.indexOf(step)}.json`);
     const env = { ...resolvedOptions.env, [OUTCOME_FILE_ENV_VAR]: outcomeFile };
-    const result = await launch(step, { ...resolvedOptions, env }).result;
+    const started = launch(step, { ...resolvedOptions, env });
+    const result = await started.result;
     if (result.exitCode !== 0) {
       return { result };
     }
 
-    const statedOutcome = await readStatedOutcome(outcomeFile, process.pid, (reason) => {
+    const parentPids = [process.pid, ...(started.child.pid === undefined ? [] : [started.child.pid])];
+    const statedOutcome = await readStatedOutcome(outcomeFile, parentPids, (reason) => {
       writeDebugNote(`ignoring the outcome that a step stated: ${reason}`, resolvedOptions.env, resolvedOptions.stderr);
     });
     return { result, ...(statedOutcome !== undefined && { statedOutcome }) };
@@ -291,11 +293,6 @@ function buildBackgroundEnv(options: ResolvedStepsOptions): NodeJS.ProcessEnv {
   const shouldForceColor =
     isTerminal(options.stdout) && (env['NO_COLOR'] ?? '') === '' && env['FORCE_COLOR'] === undefined;
   return shouldForceColor ? { ...env, FORCE_COLOR: '1' } : env;
-}
-
-/** Returns the environment without `NMR_OUTCOME_FILE`, which only a file that this list handed out may set. */
-function omitOutcomeFile(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  return Object.fromEntries(Object.entries(env).filter(([name]) => name !== OUTCOME_FILE_ENV_VAR));
 }
 
 /** Sets a background run's result once its step has ended. */

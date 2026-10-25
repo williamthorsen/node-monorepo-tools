@@ -23,17 +23,26 @@ export interface StatedOutcome {
 }
 
 /**
+ * Returns the environment without `NMR_OUTCOME_FILE`, for a process that is not the one to which the file was handed,
+ * so that it cannot state an outcome for the step that runs it.
+ */
+export function omitOutcomeFile(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(env).filter(([name]) => name !== OUTCOME_FILE_ENV_VAR));
+}
+
+/**
  * Reads the outcome that a step stated in `filePath`, or `undefined` when it stated none. A record that cannot be
  * read as a stated outcome is reported to `onRejection` and treated as none, so that a bin from another nmr version
  * cannot break the verdict.
  *
- * A record is accepted only from a direct child of `parentPid`, the process that handed out the file. A shell running
- * a single command replaces itself with it, so the step's own bin is that child, and a process further down the
- * step's tree that inherited the variable, such as a test worker exercising the bin, cannot speak for the step.
+ * A record is accepted only from a process whose parent is one of `parentPids`: the process that handed out the file,
+ * or the shell that it spawned for the step. A shell running a single command either replaces itself with it or runs
+ * it as its child, so the step's own bin is one of those, and a process further down the step's tree that inherited
+ * the variable, such as a test worker exercising the bin, cannot speak for the step.
  */
 export async function readStatedOutcome(
   filePath: string,
-  parentPid: number,
+  parentPids: readonly number[],
   onRejection: (reason: string) => void,
 ): Promise<StatedOutcome | undefined> {
   let text: string;
@@ -59,8 +68,8 @@ export async function readStatedOutcome(
     onRejection(`${filePath} does not contain a stated outcome that this nmr knows`);
     return undefined;
   }
-  if (value.parentPid !== parentPid) {
-    onRejection(`${filePath} was written by a process that is not a direct child of ${parentPid}`);
+  if (!parentPids.includes(value.parentPid)) {
+    onRejection(`${filePath} was written by a process whose parent is not one of ${parentPids.join(', ')}`);
     return undefined;
   }
 

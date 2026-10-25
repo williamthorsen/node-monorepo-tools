@@ -9,6 +9,7 @@ import { findMonorepoRoot as findMonorepoRootOrNothing } from '@williamthorsen/n
 
 import { describeSignalExitCode } from '../child-process.ts';
 import { isObject } from '../helpers/type-guards.ts';
+import { omitOutcomeFile } from '../stated-outcome.ts';
 
 const VITEST_PACKAGE = 'vitest';
 
@@ -28,8 +29,10 @@ export function runNmrVitest(argv: string[], cwd: string = process.cwd()): numbe
     return 1;
   }
 
+  // A test that runs an nmr bin in-process is not the step's bin, so the suite must not inherit the step's file.
   const result = spawnSync(process.execPath, [cli.cliPath, ...chooseVitestConfigArgs(argv, cwd)], {
     cwd,
+    env: omitOutcomeFile(process.env),
     stdio: 'inherit',
   });
 

@@ -150,11 +150,17 @@ describe(runSteps, () => {
       expect(result.statedOutcomes).toStrictEqual(new Map([[step, { kind: 'build-unchanged', savedMs: 2_100 }]]));
     });
 
-    it('returns none for an outcome stated by a process below the step rather than by the step itself', async () => {
-      const grandchild = `require('node:child_process').execFileSync(process.execPath, ['-e', process.env.GRANDCHILD_SCRIPT])`;
+    // Where the shell replaces itself with the step's command, a child of that command has the shell's pid as its
+    // parent, so the case reaches one level further down.
+    it('returns none for an outcome stated by a process two levels below the step', async () => {
+      const spawnScript = `require('node:child_process').execFileSync(process.execPath, ['-e', process.env.NEXT_SCRIPT])`;
 
-      const result = await runSteps([opaqueNodeStep(grandchild)], undefined, {
-        env: { ...process.env, GRANDCHILD_SCRIPT: STATE_OUTCOME_SCRIPT },
+      const result = await runSteps([opaqueNodeStep(spawnScript)], undefined, {
+        env: {
+          ...process.env,
+          NEXT_SCRIPT: `process.env.NEXT_SCRIPT = process.env.LAST_SCRIPT; ${spawnScript}`,
+          LAST_SCRIPT: STATE_OUTCOME_SCRIPT,
+        },
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
