@@ -42,6 +42,7 @@
     "prepare": "node --conditions nmr-source ../nmr/src/cli-build.ts"
   },
   "dependencies": {
+    "@williamthorsen/toolbelt.datetime": "catalog:",
     "@williamthorsen/toolbelt.errors": "catalog:",
     "@williamthorsen/toolbelt.filesystem": "catalog:",
     "@williamthorsen/toolbelt.packaging": "catalog:",

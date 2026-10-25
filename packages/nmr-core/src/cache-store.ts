@@ -47,6 +47,24 @@ export async function readCacheEntry(entryPath: string): Promise<string | undefi
 }
 
 /**
+ * Reads the value that `writeGuardedCacheEntry` recorded under `token`, or `undefined` when the entry is missing,
+ * unreadable, recorded under another token, or holds a value that `isValidValue` rejects. A token that no longer
+ * matches means that the value describes inputs other than the current ones.
+ */
+export async function readGuardedCacheEntry<T>(
+  entryPath: string,
+  token: string,
+  isValidValue: (value: unknown) => value is T,
+): Promise<T | undefined> {
+  const entry = await readJsonCacheEntry(entryPath, isGuardedEntry);
+  if (entry?.token !== token) {
+    return undefined;
+  }
+
+  return isValidValue(entry.value) ? entry.value : undefined;
+}
+
+/**
  * Reads a JSON entry and narrows it with `isValidEntry`, returning `undefined` when the entry is missing,
  * unparseable, or of the wrong shape. Content written in an older format therefore reads as a miss rather than
  * being returned to the caller as a value that it cannot trust.
@@ -117,3 +135,33 @@ export function resolveCacheEntryPath(ref: CacheEntryRef): string {
 export async function writeCacheEntry(entryPath: string, content: string): Promise<void> {
   await writeAtomic(entryPath, content);
 }
+
+/**
+ * Writes `value` with the token under which `readGuardedCacheEntry` returns it, atomically as `writeCacheEntry`
+ * does. Throws when the write cannot be completed.
+ */
+export async function writeGuardedCacheEntry(entryPath: string, token: string, value: unknown): Promise<void> {
+  const entry: GuardedEntry = { token, value };
+  await writeCacheEntry(entryPath, JSON.stringify(entry));
+}
+
+// region | Helpers
+
+/** The stored form of a guarded entry: the value and the token that it is valid for. */
+interface GuardedEntry {
+  token: string;
+  value: unknown;
+}
+
+/** Narrows a parsed entry to the guarded form, leaving its value for the caller's guard to check. */
+function isGuardedEntry(value: unknown): value is GuardedEntry {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'token' in value &&
+    typeof value.token === 'string' &&
+    'value' in value
+  );
+}
+
+// endregion | Helpers

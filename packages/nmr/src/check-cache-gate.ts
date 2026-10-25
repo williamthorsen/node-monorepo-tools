@@ -1,6 +1,6 @@
 import type { Writable } from 'node:stream';
 
-import type { OutputStyle } from '@williamthorsen/nmr-core';
+import { type OutputStyle, startTimer } from '@williamthorsen/nmr-core';
 
 import {
   formatMisplacedNoCacheWarning,
@@ -162,9 +162,9 @@ export async function runGated(plan: RunPlan): Promise<GatedResult> {
     }
 
     const runOptions = { ...plan.runOptions, env: addLockEnv(plan.runOptions.env ?? env, lock) };
-    const startedAtMs = Date.now();
+    const readElapsedMs = startTimer();
     const { exitCode, retainedOutput } = await runSteps(plan.steps, anchorDir, runOptions);
-    const durationMs = Date.now() - startedAtMs;
+    const durationMs = readElapsedMs();
 
     if (exitCode === 0 && gate !== undefined) {
       await recordPass({

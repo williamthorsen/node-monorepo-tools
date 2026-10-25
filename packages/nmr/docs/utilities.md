@@ -12,7 +12,7 @@ nmr-actionlint
 
 ## `nmr-clean`
 
-Remove a package's build output (`dist`) and its `nmr-compile` cache entry, so that the next build cannot skip on leftover state. Run from a package directory, it cleans that package; run from the monorepo root, it sweeps every workspace package in a single pass, running each package's resolved `clean`, so a package that overrides `clean`, in `.config/nmr.config.ts` or in its own `package.json`, gets its own command rather than the sweep. Removal is idempotent: Cleaning an unbuilt package is a silent no-op. This is the default `clean` script at both levels.
+Remove a package's build output (`dist`) and its `nmr-compile` cache entries, the key and the recorded emit duration, so that the next build cannot skip on leftover state. Run from a package directory, it cleans that package; run from the monorepo root, it sweeps every workspace package in a single pass, running each package's resolved `clean`, so a package that overrides `clean`, in `.config/nmr.config.ts` or in its own `package.json`, gets its own command rather than the sweep. Removal is idempotent: Cleaning an unbuilt package is a silent no-op. This is the default `clean` script at both levels.
 
 ```bash
 nmr-clean
@@ -31,6 +31,8 @@ Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler
 **The replacement is atomic.** The emit is buffered in memory, written to a staging directory beside the output directory, and swapped into place by rename. A build that fails for any reason -- a malformed tsconfig, an unresolvable alias, a full disk -- therefore leaves the previous output exactly as it was. `dist/esm` is never observed mid-write: It contains the previous build or the new one, and is absent only between the two renames. This matters most when the package being rebuilt supplies a binary that other packages in the same recursive build invoke.
 
 **What busts the cache.** The key folds each input's content and path, the emit options, the resolved TypeScript version, and a fingerprint of the nmr running the build -- its own build digest in a workspace checkout, its package version otherwise. Upgrading nmr in a consuming repo therefore rebuilds every package that nmr compiles, and an edit to nmr's own build sources rebuilds each sibling once nmr itself has been rebuilt. A build of nmr's own package folds the version rather than the digest, which is the cache entry that this build is about to write.
+
+**What a skip reports.** Each build records how long its emit took, in a second entry beside the key (`.duration.json`), held to the key under which it was recorded. A skip names that time as the saving, `No changes detected. Skipping build, saved ~2.1s.`, when the recorded emit took at least a second and was recorded for the current inputs; otherwise the line ends at `Skipping build.` The time covers compiling and publishing the output, the work that a skip avoids, and not the hashing that a skip also does. The duration is a separate entry, so it never changes the key.
 
 `typescript` is an optional peer dependency (`>=5.7.0 <7`), needed only by `nmr-compile`; the consuming repo provides it, and `nmr-compile` run without it fails with an error naming the peer and the version that it requires. The floor is what `rewriteRelativeImportExtensions` requires; the ceiling exists because TypeScript 7 does not include a compiler API: Its root export is a version constant, so `nmr-compile` cannot run on it. Relative imports in source must use explicit `.ts` or `.tsx` extensions for them to be rewritten.
 
