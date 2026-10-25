@@ -31,4 +31,12 @@ minimumReleaseAgeExclude:
   - readyup
   - v11y-check
 
+# Refuse a release whose provenance is weaker than that of an earlier release of the same package,
+# which can signal a compromised publisher.
+trustPolicy: no-downgrade
+# semver@6.3.1 is a 2023 backport on the 6.x line, published without provenance after 7.x releases had
+# it; eslint-plugin-react depends on it.
+trustPolicyExclude:
+  - 'semver@6.3.1'
+
 savePrefix: ''
