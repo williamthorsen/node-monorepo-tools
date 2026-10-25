@@ -1,7 +1,13 @@
 import { existsSync, readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
-import { findPackageRoot, readCacheEntry, resolveCacheEntryPath } from '@williamthorsen/nmr-core';
+import {
+  findPackageRoot,
+  readCacheEntry,
+  readGuardedCacheEntry,
+  resolveCacheEntryPath,
+  writeGuardedCacheEntry,
+} from '@williamthorsen/nmr-core';
 import { glob } from 'glob';
 
 import { readPackageJson } from '../helpers/package-json.ts';
@@ -88,6 +94,16 @@ export async function readBuildDigest(packageDir: string): Promise<string | unde
 }
 
 /**
+ * Returns how long the emit took, in milliseconds, for the build that recorded `digest`, or `undefined` when no
+ * duration was recorded for that digest.
+ */
+export async function readEmitDuration(packageDir: string, digest: string): Promise<number | undefined> {
+  const entry = await readGuardedCacheEntry(resolveEmitDurationPath(packageDir), digest, isEmitDurationEntry);
+
+  return entry?.emitMs;
+}
+
+/**
  * Resolves the absolute path of a package's build-cache file, one entry in the shared store. The package
  * directory is the entry's scope, so the store keys the file to it and packages sharing a hoisted
  * `node_modules` never collide.
@@ -104,6 +120,22 @@ export function resolveBuildCachePath(packageDir: string): string {
     scopeDir: absolutePackageDir,
     slug: path.basename(absolutePackageDir),
     extension: '.hash',
+  });
+}
+
+/**
+ * Resolves the absolute path of the entry that records how long a package's last emit took. It is a separate file in
+ * the build-cache entry's scope, so that a value varying from run to run never enters the digest that
+ * `readBuildDigest` returns.
+ */
+export function resolveEmitDurationPath(packageDir: string): string {
+  const absolutePackageDir = path.resolve(packageDir);
+
+  return resolveCacheEntryPath({
+    tool: BUILD_CACHE_TOOL,
+    scopeDir: absolutePackageDir,
+    slug: path.basename(absolutePackageDir),
+    extension: '.duration.json',
   });
 }
 
@@ -152,7 +184,34 @@ export async function resolveToolchainFingerprint(packageDir: string, selfDir: s
   return readPackageJson(selfDir).version ?? '';
 }
 
+/** Records how long the emit took for the build whose digest is `digest`. */
+export async function writeEmitDuration(packageDir: string, digest: string, emitMs: number): Promise<void> {
+  const entry: EmitDurationEntry = { emitMs };
+  try {
+    await writeGuardedCacheEntry(resolveEmitDurationPath(packageDir), digest, entry);
+  } catch {
+    // The recording is advisory: Losing it drops only the saving that a later skip reports.
+  }
+}
+
 // region | Helpers
+
+/** The payload of the emit-duration entry. */
+interface EmitDurationEntry {
+  emitMs: number;
+}
+
+/** Narrows a recorded payload to an emit duration that can be reported as a saving. */
+function isEmitDurationEntry(value: unknown): value is EmitDurationEntry {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'emitMs' in value &&
+    typeof value.emitMs === 'number' &&
+    Number.isFinite(value.emitMs) &&
+    value.emitMs >= 0
+  );
+}
 
 /**
  * Reports whether two paths name the same directory, comparing real paths so that a checkout accessed through a

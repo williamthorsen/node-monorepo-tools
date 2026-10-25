@@ -7,7 +7,14 @@ import * as ts from 'typescript';
 import { afterEach, assert, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { buildPackage } from '../build.ts';
-import { resolveBuildCachePath, resolveScratchDirs } from '../build-output.ts';
+import {
+  readBuildDigest,
+  readEmitDuration,
+  resolveBuildCachePath,
+  resolveEmitDurationPath,
+  resolveScratchDirs,
+  writeEmitDuration,
+} from '../build-output.ts';
 import { countBuilds, listEmitted, readOutput, scaffoldPackage } from '../test-utils/build-fixtures.ts';
 
 // Default the compiler API to the real implementation so that the regression suite compiles for real;
@@ -228,6 +235,60 @@ describe('buildPackage caching', () => {
     await buildPackage(tree.dir, { style: 'rich' });
 
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('No changes detected'));
+  });
+
+  it('produces the same digest on an unchanged rebuild, which skips', async ({ tree }) => {
+    scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
+    await buildPackage(tree.dir, { style: 'rich' });
+    const firstDigest = await readBuildDigest(tree.dir);
+
+    await buildPackage(tree.dir, { style: 'rich' });
+
+    expect(firstDigest).toBeDefined();
+    await expect(readBuildDigest(tree.dir)).resolves.toBe(firstDigest);
+    expect(countBuilds()).toBe(1);
+  });
+
+  it('records the emit duration under the digest of the build that it timed', async ({ tree }) => {
+    scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
+
+    await buildPackage(tree.dir, { style: 'rich' });
+
+    const digest = await readBuildDigest(tree.dir);
+    assert(digest !== undefined);
+    await expect(readEmitDuration(tree.dir, digest)).resolves.toBeGreaterThanOrEqual(0);
+  });
+
+  it('names the saving on a skip whose recorded emit took at least a second', async ({ tree }) => {
+    scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
+    await buildPackage(tree.dir, { style: 'rich' });
+    const digest = await readBuildDigest(tree.dir);
+    assert(digest !== undefined);
+    // A real emit of one file takes well under the threshold, so plant a slower one.
+    await writeEmitDuration(tree.dir, digest, 2_100);
+
+    await buildPackage(tree.dir, { style: 'rich' });
+
+    expect(console.info).toHaveBeenCalledWith(
+      expect.stringMatching(/No changes detected\. Skipping build, saved ~2\.1s\.$/),
+    );
+  });
+
+  it.for([
+    ['recorded under another digest', async (tree: TempTree) => writeEmitDuration(tree.dir, 'an-old-digest', 2_100)],
+    [
+      'under a second',
+      async (tree: TempTree) => writeEmitDuration(tree.dir, (await readBuildDigest(tree.dir)) ?? '', 900),
+    ],
+    ['missing', (tree: TempTree) => tree.rm(path.relative(tree.dir, resolveEmitDurationPath(tree.dir)))],
+  ] as const)('omits the saving when the recorded duration is %s', async ([, plantDuration], { tree }) => {
+    scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
+    await buildPackage(tree.dir, { style: 'rich' });
+    await plantDuration(tree);
+
+    await buildPackage(tree.dir, { style: 'rich' });
+
+    expect(console.info).toHaveBeenCalledWith(expect.stringMatching(/No changes detected\. Skipping build\.$/));
   });
 
   // Each row expresses the config edits as steps, so the parameterized body applies them without branching on

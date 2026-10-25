@@ -7,6 +7,7 @@ import {
   formatGlyphLine,
   type OutputStyle,
   readCacheEntry,
+  startTimer,
   STATUS_GLYPHS,
   writeCacheEntry,
 } from '@williamthorsen/nmr-core';
@@ -15,16 +16,19 @@ import type * as TypeScript from 'typescript';
 
 import { NMR_GLYPHS } from '../glyphs.ts';
 import { resolveConfigPath } from '../helpers/config-path.ts';
+import { formatSaving } from '../helpers/duration.ts';
 import {
   type BuildOptions,
   DEFAULT_ENTRY_GLOBS,
   DEFAULT_IGNORE_PATTERNS,
   DEFAULT_OUTDIR,
   hasExpectedBuildOutput,
+  readEmitDuration,
   resolveBuildCachePath,
   resolveScratchDirs,
   resolveToolchainFingerprint,
   type ScratchDirs,
+  writeEmitDuration,
 } from './build-output.ts';
 import { assertSupportedTypeScript, formatDiagnostics, getCompiler, loadCompiler } from './compiler.ts';
 import { isWithin, rewriteSpecifiers } from './rewrite-specifiers.ts';
@@ -123,12 +127,15 @@ export async function buildPackage(packageDir: string, options: BuildPackageOpti
     return;
   }
 
+  const readEmitMs = startTimer();
   const emittedFileCount = await emitPackage(packageDir, entryPoints, outdir);
+  const emitMs = readEmitMs();
 
   // Persist the digest only after a successful build, so that a failed compile cannot poison the cache
   // and cause the next run to skip a never-completed build. Writing it after the output is in place also keeps
   // the digest from ever describing output that is not yet published.
   await writeCacheEntry(cachePath, currentHash);
+  await writeEmitDuration(packageDir, currentHash, emitMs);
 
   // Report after the digest is written, so that the line describes a build that completed and was recorded.
   console.info(
@@ -433,7 +440,11 @@ async function detectBuildChanges(
 
   if (previousHash === currentHash) {
     if (isOutputPresent) {
-      console.info(`${STATUS_GLYPHS[style].skipped.text} ${packageName}: No changes detected. Skipping build.`);
+      const saving = formatSaving((await readEmitDuration(packageDir, currentHash)) ?? 0);
+      const savingClause = saving === undefined ? '' : `, ${saving}`;
+      console.info(
+        `${STATUS_GLYPHS[style].skipped.text} ${packageName}: No changes detected. Skipping build${savingClause}.`,
+      );
       return { changed: false, currentHash };
     }
     console.info(formatGlyphLine(NMR_GLYPHS, style, 'package', `${packageName}: Build output is missing. Rebuilding.`));
