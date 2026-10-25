@@ -5,7 +5,7 @@ import { makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/can
 import { describe, expect, it as baseIt } from 'vitest';
 
 import { readCheckCacheEntry, writeCheckCacheEntry } from '../../check-cache-entries.ts';
-import { resolveBuildCachePath } from '../build-output.ts';
+import { resolveBuildCachePath, resolveEmitDurationPath } from '../build-output.ts';
 import { cleanPackage, runClean } from '../clean.ts';
 
 const it = baseIt
@@ -35,6 +35,14 @@ describe(cleanPackage, () => {
     await cleanPackage(tree.dir, 'rich');
 
     expect(tree.exists(resolveCacheEntry(tree, '.'))).toBe(false);
+  });
+
+  it('removes the recorded emit duration along with the build cache', async ({ tree }) => {
+    scaffoldBuiltPackage(tree, '.');
+
+    await cleanPackage(tree.dir, 'rich');
+
+    expect(tree.exists(resolveDurationEntry(tree, '.'))).toBe(false);
   });
 
   it('leaves the sources intact', async ({ tree }) => {
@@ -234,7 +242,12 @@ function resolveCacheEntry(tree: TempTree, packageEntry: string): string {
   return path.relative(tree.dir, resolveBuildCachePath(tree.resolve(packageEntry)));
 }
 
-/** Writes a package that looks freshly built: sources, emitted output, and a build-cache entry. */
+/** Resolves a package's emit-duration entry relative to the tree, for the tree's path-based helpers. */
+function resolveDurationEntry(tree: TempTree, packageEntry: string): string {
+  return path.relative(tree.dir, resolveEmitDurationPath(tree.resolve(packageEntry)));
+}
+
+/** Writes a package that looks freshly built: sources, emitted output, and both build-cache entries. */
 function scaffoldBuiltPackage(tree: TempTree, packageEntry: string): void {
   tree.writeAll({
     [`${packageEntry}/dist/esm/index.js`]: 'export const value = 1;\n',
@@ -243,6 +256,7 @@ function scaffoldBuiltPackage(tree: TempTree, packageEntry: string): void {
     [`${packageEntry}/src/index.ts`]: 'export const value = 1;\n',
   });
   tree.write(resolveCacheEntry(tree, packageEntry), 'a-stale-digest');
+  tree.writeJson(resolveDurationEntry(tree, packageEntry), { token: 'a-stale-digest', value: { emitMs: 2_100 } });
 }
 
 /** Writes an nmr config at the workspace root. */

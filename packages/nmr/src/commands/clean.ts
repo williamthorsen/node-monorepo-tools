@@ -14,7 +14,7 @@ import { runCommand } from '../runner.ts';
 import { renderChain } from '../steps.ts';
 import type { NmrConfig } from '../types.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
-import { resolveBuildCachePath } from './build-output.ts';
+import { resolveBuildCachePath, resolveEmitDurationPath } from './build-output.ts';
 
 /** The command name whose per-package resolution the root sweep honors. */
 const CLEAN_COMMAND = 'clean';
@@ -29,13 +29,14 @@ const BUILT_IN_CLEAN = 'nmr-clean';
 const OUTPUT_ROOT = 'dist';
 
 /**
- * Removes a package's build output and the build-cache entry that describes it, so the package does not keep
+ * Removes a package's build output and the build-cache entries that describe it, so the package does not keep
  * any state that would make the next build skip. Removal is idempotent: An already-clean package is a silent
  * no-op.
  */
 export async function cleanPackage(packageDir: string, style: OutputStyle): Promise<void> {
   await rm(path.resolve(packageDir, OUTPUT_ROOT), { recursive: true, force: true });
   await rm(resolveBuildCachePath(packageDir), { force: true });
+  await rm(resolveEmitDurationPath(packageDir), { force: true });
 
   console.info(
     formatGlyphLine(NMR_GLYPHS, style, 'clean', `${path.basename(packageDir)}: Removed build output and cache.`),
