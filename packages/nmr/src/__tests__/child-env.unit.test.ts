@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { buildChildEnv, buildRemoteEnv } from '../child-env.ts';
 import { DELEGATE_ENV_VAR } from '../remote-run.ts';
+import { OUTCOME_FILE_ENV_VAR } from '../stated-outcome.ts';
 
 describe(buildChildEnv, () => {
   it.for([
@@ -19,6 +20,12 @@ describe(buildChildEnv, () => {
 describe(buildRemoteEnv, () => {
   it('does not pass NMR_DELEGATE to the host, which runs under --no-delegate', () => {
     expect(buildRemoteEnv(build({ [DELEGATE_ENV_VAR]: 'box' }))).not.toHaveProperty(DELEGATE_ENV_VAR);
+  });
+
+  it('does not pass NMR_OUTCOME_FILE to the host, whose steps are handed files of their own', () => {
+    expect(buildRemoteEnv(build({ [OUTCOME_FILE_ENV_VAR]: '/tmp/outcome.json' }))).not.toHaveProperty(
+      OUTCOME_FILE_ENV_VAR,
+    );
   });
 });
 

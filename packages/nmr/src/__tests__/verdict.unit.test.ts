@@ -210,6 +210,24 @@ describe(renderVerdict, () => {
     });
   });
 
+  describe('a stated outcome', () => {
+    it.each([
+      {
+        savedMs: 2_100,
+        expectedTail: 'passed in 0.3s — build skipped as unchanged, saved ~2.1s',
+        scenario: 'a saving',
+      },
+      { savedMs: 400, expectedTail: 'passed in 0.3s — build skipped as unchanged', scenario: 'a saving under 1s' },
+      { savedMs: undefined, expectedTail: 'passed in 0.3s — build skipped as unchanged', scenario: 'no saving' },
+    ])('renders a build-cache hit with $scenario in the detail slot', ({ savedMs, expectedTail }) => {
+      const stated =
+        savedMs === undefined ? { kind: 'build-unchanged' as const } : { kind: 'build-unchanged' as const, savedMs };
+      const verdict = makeVerdict({ outcome: 'passed', durationMs: 300, stated });
+
+      expect(renderVerdict(verdict, 'plain')).toBe(`PASS nmr-core: test: ${expectedTail}`);
+    });
+  });
+
   describe('a detail lifted from command output', () => {
     it('collapses its line breaks, so that one verdict stays one line', () => {
       const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: 'line one\nline two' });
@@ -312,6 +330,17 @@ describe(serializeVerdict, () => {
         outcome: { outcome: 'passed', durationMs: 12_449 },
         expectedRecord: { command: 'test', scope: 'nmr-core', outcome: 'passed', durationMs: 12_449 },
         scenario: 'a pass',
+      },
+      {
+        outcome: { outcome: 'passed', durationMs: 300, stated: { kind: 'build-unchanged', savedMs: 400 } },
+        expectedRecord: {
+          command: 'test',
+          scope: 'nmr-core',
+          outcome: 'passed',
+          durationMs: 300,
+          stated: { kind: 'build-unchanged', savedMs: 400 },
+        },
+        scenario: 'a pass with a stated outcome, its saving recorded whatever its size',
       },
       {
         outcome: { outcome: 'failed', durationMs: 1_200, exitCode: 130 },

@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto';
+import fs from 'node:fs';
 import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished, makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import * as ts from 'typescript';
-import { afterEach, assert, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
+import { afterEach, assert, beforeEach, describe, expect, it as baseIt, onTestFinished, vi } from 'vitest';
 
+import { OUTCOME_FILE_ENV_VAR } from '../../stated-outcome.ts';
 import { buildPackage } from '../build.ts';
 import {
   readBuildDigest,
@@ -295,6 +297,48 @@ describe('buildPackage caching', () => {
     expect(console.info).toHaveBeenCalledWith(expect.stringMatching(/No changes detected\. Skipping build\.$/));
   });
 
+  describe('the stated outcome', () => {
+    it('states a hit with the saving recorded for the current inputs', async ({ tree }) => {
+      const outcomeFile = stubOutcomeFile(tree);
+      scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
+      await buildPackage(tree.dir, { style: 'rich' });
+      const digest = await readBuildDigest(tree.dir);
+      assert(digest !== undefined);
+      await writeEmitDuration(tree.dir, digest, 2_100);
+
+      await buildPackage(tree.dir, { style: 'rich' });
+
+      expect(JSON.parse(fs.readFileSync(outcomeFile, 'utf8'))).toStrictEqual({
+        kind: 'build-unchanged',
+        savedMs: 2_100,
+        parentPid: process.ppid,
+      });
+    });
+
+    it('states a hit without a saving when none was recorded for the current inputs', async ({ tree }) => {
+      const outcomeFile = stubOutcomeFile(tree);
+      scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
+      await buildPackage(tree.dir, { style: 'rich' });
+      await writeEmitDuration(tree.dir, 'an-old-digest', 2_100);
+
+      await buildPackage(tree.dir, { style: 'rich' });
+
+      expect(JSON.parse(fs.readFileSync(outcomeFile, 'utf8'))).toStrictEqual({
+        kind: 'build-unchanged',
+        parentPid: process.ppid,
+      });
+    });
+
+    it('states nothing when the build runs', async ({ tree }) => {
+      const outcomeFile = stubOutcomeFile(tree);
+      scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
+
+      await buildPackage(tree.dir, { style: 'rich' });
+
+      expect(fs.existsSync(outcomeFile)).toBe(false);
+    });
+  });
+
   // Each row expresses the config edits as steps, so the parameterized body applies them without branching on
   // whether a config is present before or after.
   const leaveAbsent: ConfigStep = () => {};
@@ -567,6 +611,16 @@ function resolveCacheEntry(tree: TempTree): string {
 /** Resolves the scratch directory into which a build stages:`resolveScratchDirs` reports it as an absolute path. */
 function resolveStagingEntry(tree: TempTree): string {
   return path.relative(tree.dir, resolveScratchDirs(tree.resolve('dist/esm')).stagingDir);
+}
+
+/** Points `NMR_OUTCOME_FILE` at a file in the tree for the rest of the test, as nmr would for its step. */
+function stubOutcomeFile(tree: TempTree): string {
+  const outcomeFile = tree.resolve('outcome.json');
+  vi.stubEnv(OUTCOME_FILE_ENV_VAR, outcomeFile);
+  onTestFinished(() => {
+    vi.unstubAllEnvs();
+  });
+  return outcomeFile;
 }
 
 // endregion | Helpers

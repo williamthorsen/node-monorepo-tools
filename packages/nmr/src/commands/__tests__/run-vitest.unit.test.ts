@@ -1,8 +1,10 @@
+import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
+import { OUTCOME_FILE_ENV_VAR } from '../../stated-outcome.ts';
 import { chooseVitestConfigArgs, runNmrVitest } from '../run-vitest.ts';
 
 // Stands in for a Vitest child that the OOM killer ended.
@@ -93,5 +95,16 @@ describe(chooseVitestConfigArgs, () => {
 describe(runNmrVitest, () => {
   it('reports a Vitest killed by a signal as 128 plus the signal number', () => {
     expect(runNmrVitest(['run'], import.meta.dirname)).toBe(128 + os.constants.signals.SIGKILL);
+  });
+
+  it('does not pass NMR_OUTCOME_FILE to the suite, whose tests are not the step that nmr handed it to', () => {
+    vi.stubEnv(OUTCOME_FILE_ENV_VAR, '/tmp/outcome.json');
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+
+    runNmrVitest(['run'], import.meta.dirname);
+
+    expect(vi.mocked(spawnSync).mock.lastCall?.[2]?.env).not.toHaveProperty(OUTCOME_FILE_ENV_VAR);
   });
 });

@@ -20,6 +20,9 @@ import { type RunPlan, VERSION } from './invocation.ts';
 import { resolveChannel } from './output-channel.ts';
 import { writePassManifestEntry } from './pass-manifest.ts';
 import { runSteps } from './runner.ts';
+import { splitSegments } from './shell-syntax.ts';
+import type { StatedOutcome } from './stated-outcome.ts';
+import type { Step } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 import type { VerdictOutcome } from './verdict.ts';
 
@@ -163,7 +166,7 @@ export async function runGated(plan: RunPlan): Promise<GatedResult> {
 
     const runOptions = { ...plan.runOptions, env: addLockEnv(plan.runOptions.env ?? env, lock) };
     const readElapsedMs = startTimer();
-    const { exitCode, retainedOutput } = await runSteps(plan.steps, anchorDir, runOptions);
+    const { exitCode, retainedOutput, statedOutcomes } = await runSteps(plan.steps, anchorDir, runOptions);
     const durationMs = readElapsedMs();
 
     if (exitCode === 0 && gate !== undefined) {
@@ -186,9 +189,13 @@ export async function runGated(plan: RunPlan): Promise<GatedResult> {
       });
     }
 
+    const stated = readOwnStatement(plan.ownSteps, statedOutcomes);
     return {
       exitCode,
-      outcome: exitCode === 0 ? { outcome: 'passed', durationMs } : { outcome: 'failed', durationMs, exitCode },
+      outcome:
+        exitCode === 0
+          ? { outcome: 'passed', durationMs, ...(stated !== undefined && { stated }) }
+          : { outcome: 'failed', durationMs, exitCode },
     };
   } finally {
     await lock?.release();
@@ -303,6 +310,23 @@ async function readGate(plan: RunPlan): Promise<Gate | undefined> {
     retentionKey: computeRetentionKey({ channels, env, passKey: key }),
     snapshot,
   };
+}
+
+/**
+ * Returns the outcome that the command stated about itself, or `undefined` when it stated none. Only a command
+ * whose own steps are a single opaque step running a single shell command can state one, so that a bin cannot
+ * speak for a chain or for a hook around it.
+ */
+function readOwnStatement(
+  ownSteps: readonly Step[],
+  statedOutcomes: ReadonlyMap<Step, StatedOutcome> | undefined,
+): StatedOutcome | undefined {
+  const [ownStep] = ownSteps;
+  if (ownSteps.length !== 1 || ownStep?.kind !== 'opaque' || splitSegments(ownStep.command).length !== 1) {
+    return undefined;
+  }
+
+  return statedOutcomes?.get(ownStep);
 }
 
 /** Returns the outcome of a recorded pass that covers the plan, or `undefined` when none does. */

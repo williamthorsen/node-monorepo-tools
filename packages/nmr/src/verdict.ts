@@ -7,6 +7,7 @@ import { NMR_GLYPHS } from './glyphs.ts';
 import { clampToBytes, TRUNCATION_MARK } from './helpers/clampToBytes.ts';
 import { formatDuration, formatSaving } from './helpers/duration.ts';
 import type { ReportFormat } from './report-format.ts';
+import type { StatedOutcome } from './stated-outcome.ts';
 
 /**
  * The ceiling to which a rendered verdict, its newline included, is held.
@@ -51,7 +52,7 @@ export type Verdict = {
  * grammar.
  */
 export type VerdictOutcome = { detail?: string } & (
-  | { outcome: 'passed'; durationMs: number }
+  | { outcome: 'passed'; durationMs: number; stated?: StatedOutcome }
   | { outcome: 'failed'; durationMs: number; exitCode: number }
   | { outcome: 'recalled'; ageMs: number; savedMs: number; replay?: ReplayLine[] }
   | { outcome: 'no-op'; reason: NoOpReason }
@@ -70,7 +71,7 @@ export type VerdictOutcome = { detail?: string } & (
  */
 export function renderVerdict(verdict: Verdict, style: OutputStyle): string {
   const { marker, phrase } = describeOutcome(verdict, style);
-  const detail = flattenDetail(verdict.detail ?? renderReplay(verdict) ?? '');
+  const detail = flattenDetail(verdict.detail ?? renderReplay(verdict) ?? renderStated(verdict) ?? '');
   const detailClause = detail === '' ? '' : ` — ${detail}`;
 
   return clampToBytes(`${marker} ${verdict.scope}: ${verdict.command}: ${phrase}${detailClause}`, LINE_BUDGET_BYTES);
@@ -181,6 +182,17 @@ function renderReplay(verdict: Verdict): string | undefined {
   const lines = verdict.replay.map((line) => `${line.scope}: ${line.command}: ${line.excerpt}`);
 
   return `${REPLAY_MARKER} ${lines.join('; ')}`;
+}
+
+/** Renders the outcome that a passing command stated for the detail slot, or `undefined` when it stated none. */
+function renderStated(verdict: Verdict): string | undefined {
+  if (verdict.outcome !== 'passed' || verdict.stated === undefined) {
+    return undefined;
+  }
+
+  const saving = formatSaving(verdict.stated.savedMs ?? 0);
+
+  return saving === undefined ? 'build skipped as unchanged' : `build skipped as unchanged, ${saving}`;
 }
 
 /**
