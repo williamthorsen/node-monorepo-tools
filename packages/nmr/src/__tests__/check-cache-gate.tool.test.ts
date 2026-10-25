@@ -365,4 +365,57 @@ describe('the check-result cache gate', () => {
       expect(stderr).toBe('');
     });
   });
+
+  describe('an outcome that the command states about itself', () => {
+    it('reaches the verdict when the command is a single step', async () => {
+      writeConfig(workspace, log, { command: buildStatingCommand() });
+
+      expect(readOwnVerdict(await runNmr(`--json ${COMMAND}`, repo))).toMatchObject({
+        outcome: 'passed',
+        stated: { kind: 'build-unchanged', savedMs: 2_100 },
+      });
+    });
+
+    it.for([
+      { case: 'one step of a two-step command', shape: 'chain' },
+      { case: 'a hook around the command', shape: 'hook' },
+      { case: 'a step that failed after stating it', shape: 'failure' },
+    ] as const)('does not reach the verdict when stated by $case', async ({ shape }) => {
+      const command = {
+        chain: `${buildStatingCommand()} && echo ran`,
+        failure: buildStatingCommand('; process.exit(3)'),
+        hook: 'echo ran',
+      }[shape];
+      const hook = shape === 'hook' ? buildStatingCommand() : undefined;
+      writeConfig(workspace, log, {
+        command,
+        ...(hook !== undefined && { extraRootScripts: { [`${COMMAND}:pre`]: hook } }),
+      });
+
+      const verdict = readOwnVerdict(await runNmr(`--json ${COMMAND}`, repo));
+
+      expect(verdict).toBeDefined();
+      expect(verdict).not.toHaveProperty('stated');
+    });
+  });
 });
+
+// region | Helpers
+
+/** A command that states a build-cache hit through the file that nmr hands it, then runs `then`. */
+function buildStatingCommand(then = ''): string {
+  return `"${process.execPath}" -e "require('node:fs').writeFileSync(process.env.NMR_OUTCOME_FILE, JSON.stringify({ kind: 'build-unchanged', savedMs: 2100 }))${then}"`;
+}
+
+/** Returns the JSON verdict that a run reported for the fixture's command itself. */
+function readOwnVerdict(run: { stdout: string }): unknown {
+  return run.stdout
+    .split('\n')
+    .filter((line) => line.startsWith('{'))
+    .map((line): unknown => JSON.parse(line))
+    .find(
+      (record) => typeof record === 'object' && record !== null && 'command' in record && record.command === COMMAND,
+    );
+}
+
+// endregion | Helpers
