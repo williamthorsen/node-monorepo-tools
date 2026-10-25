@@ -17,6 +17,7 @@ import type * as TypeScript from 'typescript';
 import { NMR_GLYPHS } from '../glyphs.ts';
 import { resolveConfigPath } from '../helpers/config-path.ts';
 import { formatSaving } from '../helpers/duration.ts';
+import { writeStatedOutcome } from '../stated-outcome.ts';
 import {
   type BuildOptions,
   DEFAULT_ENTRY_GLOBS,
@@ -440,7 +441,9 @@ async function detectBuildChanges(
 
   if (previousHash === currentHash) {
     if (isOutputPresent) {
-      const saving = formatSaving((await readEmitDuration(packageDir, currentHash)) ?? 0);
+      const savedMs = await readEmitDuration(packageDir, currentHash);
+      await writeStatedOutcome(process.env, { kind: 'build-unchanged', ...(savedMs !== undefined && { savedMs }) });
+      const saving = formatSaving(savedMs ?? 0);
       const savingClause = saving === undefined ? '' : `, ${saving}`;
       console.info(
         `${STATUS_GLYPHS[style].skipped.text} ${packageName}: No changes detected. Skipping build${savingClause}.`,
