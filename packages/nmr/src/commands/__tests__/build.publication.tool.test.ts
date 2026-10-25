@@ -278,7 +278,11 @@ describe('buildPackage caching', () => {
     ['recorded under another digest', async (tree: TempTree) => writeEmitDuration(tree.dir, 'an-old-digest', 2_100)],
     [
       'under a second',
-      async (tree: TempTree) => writeEmitDuration(tree.dir, (await readBuildDigest(tree.dir)) ?? '', 900),
+      async (tree: TempTree) => {
+        const digest = await readBuildDigest(tree.dir);
+        assert(digest !== undefined);
+        await writeEmitDuration(tree.dir, digest, 900);
+      },
     ],
     ['missing', (tree: TempTree) => tree.rm(path.relative(tree.dir, resolveEmitDurationPath(tree.dir)))],
   ] as const)('omits the saving when the recorded duration is %s', async ([, plantDuration], { tree }) => {
