@@ -1,7 +1,7 @@
 import os from 'node:os';
 import { Writable } from 'node:stream';
 
-import { reportError } from '@williamthorsen/nmr-core';
+import { reportError, startTimer } from '@williamthorsen/nmr-core';
 
 import { NO_CACHE_ENV_VAR, resolveRunId, writeDebugNote } from './check-cache.ts';
 import { buildChildEnv, buildRemoteEnv } from './child-env.ts';
@@ -210,7 +210,7 @@ async function delegate(options: {
   const { command, context, cwd, env, parsedArgs, stderr, stdout } = invocation;
   const listedHosts = target.hosts.join(', ');
 
-  const startedAtMs = Date.now();
+  const readElapsedMs = startTimer();
   const snapshot = createSnapshot(cwd, env);
   if (!snapshot.ok && snapshot.isUnsupported) {
     if (target.source === 'flag') {
@@ -245,7 +245,7 @@ async function delegate(options: {
         stdout: createTee(stdout, retained.stdout),
       })
     : { ok: false as const, message: 'could not snapshot the working tree', output: snapshot.reason, waitedMs: 0 };
-  const durationMs = Date.now() - startedAtMs - result.waitedMs;
+  const durationMs = readElapsedMs() - result.waitedMs;
   const ran = {
     kind: 'ran' as const,
     durationMs,

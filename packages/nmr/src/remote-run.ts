@@ -5,7 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import type { Writable } from 'node:stream';
 
-import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
+import { type OutputStyle, startTimer, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
 import { PASS_MANIFEST_DIR_ENV_VAR, writeDebugNote } from './check-cache.ts';
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
@@ -175,17 +175,17 @@ export async function runRemotely(options: {
   const marker = `__NMR_DELEGATE_${nonce}__`;
   const statusFile = `.git/nmr-run-status-${nonce}`;
   const passes: unknown[] = [];
-  let waitStartedAtMs: number | undefined;
+  let readWaitedMs: (() => number) | undefined;
   let waitedMs = 0;
   let failure: Extract<SessionRecord, { kind: 'failed' }> | undefined;
   const demultiplexer = createSessionDemultiplexer({
     marker,
     onRecord(record) {
       if (record.kind === 'waiting') {
-        waitStartedAtMs ??= Date.now();
+        readWaitedMs ??= startTimer();
         stderr.write(`${formatDelegationWaitingLine(record.holder, host)}\n`);
-      } else if (record.kind === 'locked' && waitStartedAtMs !== undefined) {
-        waitedMs = Date.now() - waitStartedAtMs;
+      } else if (record.kind === 'locked' && readWaitedMs !== undefined) {
+        waitedMs = readWaitedMs();
       } else if (record.kind === 'failed') {
         failure = record;
       } else if (record.kind === 'passes') {
