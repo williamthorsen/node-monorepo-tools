@@ -37,8 +37,8 @@ export function omitOutcomeFile(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
  *
  * A record is accepted only from a process whose parent is one of `parentPids`: the process that handed out the file,
  * or the shell that it spawned for the step. A shell running a single command either replaces itself with it or runs
- * it as its child, so the step's own bin is one of those, and a process further down the step's tree that inherited
- * the variable, such as a test worker exercising the bin, cannot speak for the step.
+ * it as its child, so the step's own bin passes either way. Where the shell replaces itself, a process that the
+ * command starts passes too; a process two levels below the command does not.
  */
 export async function readStatedOutcome(
   filePath: string,
