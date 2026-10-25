@@ -54,6 +54,7 @@ export {
   truncateToWidth,
   wrapToWidth,
 } from './terminal.ts';
+export { startTimer } from './timer.ts';
 export type { ManagedFileOutcome, ManagedFileResult } from './updateManagedFile.ts';
 export { updateManagedFile } from './updateManagedFile.ts';
 export type { WriteOutcome, WriteResult } from './writeFileWithCheck.ts';
