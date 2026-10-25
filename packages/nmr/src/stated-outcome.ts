@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import process from 'node:process';
 
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
@@ -25,9 +26,14 @@ export interface StatedOutcome {
  * Reads the outcome that a step stated in `filePath`, or `undefined` when it stated none. A record that cannot be
  * read as a stated outcome is reported to `onRejection` and treated as none, so that a bin from another nmr version
  * cannot break the verdict.
+ *
+ * A record is accepted only from a direct child of `parentPid`, the process that handed out the file. A shell running
+ * a single command replaces itself with it, so the step's own bin is that child, and a process further down the
+ * step's tree that inherited the variable, such as a test worker exercising the bin, cannot speak for the step.
  */
 export async function readStatedOutcome(
   filePath: string,
+  parentPid: number,
   onRejection: (reason: string) => void,
 ): Promise<StatedOutcome | undefined> {
   let text: string;
@@ -53,13 +59,18 @@ export async function readStatedOutcome(
     onRejection(`${filePath} does not contain a stated outcome that this nmr knows`);
     return undefined;
   }
+  if (value.parentPid !== parentPid) {
+    onRejection(`${filePath} was written by a process that is not a direct child of ${parentPid}`);
+    return undefined;
+  }
 
   return value.savedMs === undefined ? { kind: value.kind } : { kind: value.kind, savedMs: value.savedMs };
 }
 
 /**
- * Writes the outcome into the file that `NMR_OUTCOME_FILE` names, and does nothing when it is unset. The statement is
- * advisory: A write that fails leaves the verdict reading as it would without one.
+ * Writes the outcome into the file that `NMR_OUTCOME_FILE` names, with this process's parent as the one that it is
+ * stated to, and does nothing when the variable is unset. The statement is advisory: A write that fails leaves the
+ * verdict reading as it would without one.
  */
 export async function writeStatedOutcome(env: NodeJS.ProcessEnv, outcome: StatedOutcome): Promise<void> {
   const filePath = env[OUTCOME_FILE_ENV_VAR];
@@ -68,7 +79,8 @@ export async function writeStatedOutcome(env: NodeJS.ProcessEnv, outcome: Stated
   }
 
   try {
-    await writeFile(filePath, JSON.stringify(outcome));
+    const record: StatedOutcomeRecord = { ...outcome, parentPid: process.ppid };
+    await writeFile(filePath, JSON.stringify(record));
   } catch {
     // Losing the statement drops only the detail that the verdict would have reported.
   }
@@ -76,14 +88,19 @@ export async function writeStatedOutcome(env: NodeJS.ProcessEnv, outcome: Stated
 
 // region | Helpers
 
+/** What a bin writes: the outcome and the process to which it is stated. */
+interface StatedOutcomeRecord extends StatedOutcome {
+  parentPid: number;
+}
+
 /** Reports whether an error is the one that reading a file that does not exist throws. */
 function isMissingFileError(error: unknown): boolean {
   return isObject(error) && error['code'] === 'ENOENT';
 }
 
 /** Narrows a parsed record to a stated outcome of a kind that this nmr renders. */
-function isStatedOutcome(value: unknown): value is StatedOutcome {
-  if (!isObject(value) || value['kind'] !== 'build-unchanged') {
+function isStatedOutcome(value: unknown): value is StatedOutcomeRecord {
+  if (!isObject(value) || value['kind'] !== 'build-unchanged' || !Number.isSafeInteger(value['parentPid'])) {
     return false;
   }
 

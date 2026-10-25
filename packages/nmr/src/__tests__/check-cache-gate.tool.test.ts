@@ -404,7 +404,7 @@ describe('the check-result cache gate', () => {
 
 /** A command that states a build-cache hit through the file that nmr hands it, then runs `then`. */
 function buildStatingCommand(then = ''): string {
-  return `"${process.execPath}" -e "require('node:fs').writeFileSync(process.env.NMR_OUTCOME_FILE, JSON.stringify({ kind: 'build-unchanged', savedMs: 2100 }))${then}"`;
+  return `"${process.execPath}" -e "require('node:fs').writeFileSync(process.env.NMR_OUTCOME_FILE, JSON.stringify({ kind: 'build-unchanged', savedMs: 2100, parentPid: process.ppid }))${then}"`;
 }
 
 /** Returns the JSON verdict that a run reported for the fixture's command itself. */

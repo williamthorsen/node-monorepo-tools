@@ -21,7 +21,7 @@ const listenerCountBefore = process.listenerCount('SIGTERM');
 const PIPED_CHANNELS: OutputChannels = { stderr: 'pipe', stdout: 'pipe' };
 
 /** Writes a build-cache hit into the file that the step was handed. */
-const STATE_OUTCOME_SCRIPT = `require('node:fs').writeFileSync(process.env.${OUTCOME_FILE_ENV_VAR}, JSON.stringify({ kind: 'build-unchanged', savedMs: 2_100 }))`;
+const STATE_OUTCOME_SCRIPT = `require('node:fs').writeFileSync(process.env.${OUTCOME_FILE_ENV_VAR}, JSON.stringify({ kind: 'build-unchanged', savedMs: 2_100, parentPid: process.ppid }))`;
 
 /** Prints the file that the step was handed, or `unset`. */
 const PRINT_OUTCOME_FILE_SCRIPT = `console.log(process.env.${OUTCOME_FILE_ENV_VAR} ?? 'unset')`;
@@ -148,6 +148,18 @@ describe(runSteps, () => {
       const result = await runSteps([step], undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
 
       expect(result.statedOutcomes).toStrictEqual(new Map([[step, { kind: 'build-unchanged', savedMs: 2_100 }]]));
+    });
+
+    it('returns none for an outcome stated by a process below the step rather than by the step itself', async () => {
+      const grandchild = `require('node:child_process').execFileSync(process.execPath, ['-e', process.env.GRANDCHILD_SCRIPT])`;
+
+      const result = await runSteps([opaqueNodeStep(grandchild)], undefined, {
+        env: { ...process.env, GRANDCHILD_SCRIPT: STATE_OUTCOME_SCRIPT },
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+
+      expect(result.statedOutcomes).toBeUndefined();
     });
 
     it('returns none for a step that states nothing', async () => {

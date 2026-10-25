@@ -115,7 +115,7 @@ export async function runSteps(
       return { result };
     }
 
-    const statedOutcome = await readStatedOutcome(outcomeFile, (reason) => {
+    const statedOutcome = await readStatedOutcome(outcomeFile, process.pid, (reason) => {
       writeDebugNote(`ignoring the outcome that a step stated: ${reason}`, resolvedOptions.env, resolvedOptions.stderr);
     });
     return { result, ...(statedOutcome !== undefined && { statedOutcome }) };

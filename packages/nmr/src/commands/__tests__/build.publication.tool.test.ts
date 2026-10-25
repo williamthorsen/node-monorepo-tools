@@ -311,6 +311,7 @@ describe('buildPackage caching', () => {
       expect(JSON.parse(fs.readFileSync(outcomeFile, 'utf8'))).toStrictEqual({
         kind: 'build-unchanged',
         savedMs: 2_100,
+        parentPid: process.ppid,
       });
     });
 
@@ -322,7 +323,10 @@ describe('buildPackage caching', () => {
 
       await buildPackage(tree.dir, { style: 'rich' });
 
-      expect(JSON.parse(fs.readFileSync(outcomeFile, 'utf8'))).toStrictEqual({ kind: 'build-unchanged' });
+      expect(JSON.parse(fs.readFileSync(outcomeFile, 'utf8'))).toStrictEqual({
+        kind: 'build-unchanged',
+        parentPid: process.ppid,
+      });
     });
 
     it('states nothing when the build runs', async ({ tree }) => {
