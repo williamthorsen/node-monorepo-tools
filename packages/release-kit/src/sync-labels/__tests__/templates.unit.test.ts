@@ -1,16 +1,39 @@
-import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { findPackageRoot } from '@williamthorsen/nmr-core';
+import { describe, expect, it, vi } from 'vitest';
 import { parse } from 'yaml';
 
 import { isRecord } from '../../typeGuards.ts';
-import { renderRepoLabelsBlock, repoLabelsConfigScript, syncLabelsWorkflow } from '../templates.ts';
+import { readSyncLabelsWorkflowTemplate, renderRepoLabelsBlock, repoLabelsConfigScript } from '../templates.ts';
 import type { LabelDefinition } from '../types.ts';
+
+vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, findPackageRoot: vi.fn(actual.findPackageRoot) };
+});
+
+const TEMPLATE_PATH = join(import.meta.dirname, '..', '..', '..', 'templates', 'sync-labels.yaml.template');
 
 const REUSABLE_USES =
   'williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.reusable.yaml@workflow/sync-labels-v1';
 
-const parsedWorkflow: unknown = parse(syncLabelsWorkflow());
+const parsedWorkflow: unknown = parse(readSyncLabelsWorkflowTemplate());
 
-describe(syncLabelsWorkflow, () => {
+describe(readSyncLabelsWorkflowTemplate, () => {
+  it('returns the bundled template file verbatim', () => {
+    expect(readSyncLabelsWorkflowTemplate()).toBe(readFileSync(TEMPLATE_PATH, 'utf8'));
+  });
+
+  it('throws an error naming the template path when the template cannot be read', () => {
+    vi.mocked(findPackageRoot).mockReturnValueOnce('/missing-package-root');
+
+    expect(() => readSyncLabelsWorkflowTemplate()).toThrow(
+      'Failed to read bundled template at /missing-package-root/templates/sync-labels.yaml.template',
+    );
+  });
+
   it('triggers on manual dispatch, on push, and on pull requests touching the labels file', () => {
     expect(readPath('on')).toHaveProperty('workflow_dispatch');
     expect(readPath('on.push.paths')).toStrictEqual(['.github/labels.yaml']);
@@ -43,7 +66,7 @@ describe(syncLabelsWorkflow, () => {
   });
 
   it('includes the yaml-language-server schema comment', () => {
-    expect(syncLabelsWorkflow()).toContain(
+    expect(readSyncLabelsWorkflowTemplate()).toContain(
       '# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json',
     );
   });

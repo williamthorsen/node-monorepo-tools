@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { computeHash } from 'readyup/check-utils';
 import { describe, expect, it } from 'vitest';
 
@@ -13,7 +16,6 @@ import {
 } from '../../.readyup/lib/workflow-hashes.ts';
 import { createGithubReleaseWorkflow, publishWorkflow, releaseWorkflow } from '../init/templates.ts';
 import { hashPreset } from '../sync-labels/presets.ts';
-import { syncLabelsWorkflow } from '../sync-labels/templates.ts';
 
 /**
  * Verifies that the hashes embedded in the kit stay in sync with the artifacts that they describe. The workflow anchors
@@ -77,8 +79,12 @@ describe('rdy kit hashes match their source artifacts', () => {
     );
   });
 
-  it('SYNC_LABELS_WORKFLOW_HASH matches syncLabelsWorkflow()', () => {
-    const actualHash = computeHash(syncLabelsWorkflow());
+  it('SYNC_LABELS_WORKFLOW_HASH matches templates/sync-labels.yaml.template', () => {
+    const template = readFileSync(
+      join(import.meta.dirname, '..', '..', 'templates', 'sync-labels.yaml.template'),
+      'utf8',
+    );
+    const actualHash = computeHash(template);
 
     expect(actualHash, `SYNC_LABELS_WORKFLOW_HASH is stale -- update it to: ${actualHash}`).toBe(
       SYNC_LABELS_WORKFLOW_HASH,

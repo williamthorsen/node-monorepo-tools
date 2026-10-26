@@ -8,7 +8,6 @@ import {
   publishWorkflow,
   releaseWorkflow,
 } from '../packages/release-kit/src/init/templates.ts';
-import { syncLabelsWorkflow } from '../packages/release-kit/src/sync-labels/templates.ts';
 
 const repoRoot = join(import.meta.dirname, '..');
 const workflowsDir = join(repoRoot, '.github', 'workflows');
@@ -43,11 +42,15 @@ describe('repo workflows match the templates that its packages publish', () => {
     );
   });
 
-  it('sync-labels.yaml matches release-kit syncLabelsWorkflow()', () => {
+  it('sync-labels.yaml matches the release-kit sync-labels template', () => {
     const content = readFileSync(join(workflowsDir, 'sync-labels.yaml'), 'utf8');
+    const template = readFileSync(
+      join(repoRoot, 'packages', 'release-kit', 'templates', 'sync-labels.yaml.template'),
+      'utf8',
+    );
 
     expect(content, 'Run `release-kit update-templates` to regenerate .github/workflows/sync-labels.yaml').toBe(
-      syncLabelsWorkflow(),
+      template,
     );
   });
 

@@ -12,7 +12,7 @@ import {
 } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import { syncLabelsWorkflow } from '../sync-labels/templates.ts';
+import { readSyncLabelsWorkflowTemplate } from '../sync-labels/templates.ts';
 import { detectRepoType, type RepoType } from './detectRepoType.ts';
 import { hasProvenance } from './hasProvenance.ts';
 import { formatPrivateWorkflowSkip, hasPublishablePackage } from './hasPublishablePackage.ts';
@@ -94,7 +94,7 @@ function buildManagedFiles(
     ['.github/workflows/release.yaml', releaseWorkflow(repoType)],
   ];
   if (existsSync(SYNC_LABELS_WORKFLOW_PATH)) {
-    files.push([SYNC_LABELS_WORKFLOW_PATH, syncLabelsWorkflow()]);
+    files.push([SYNC_LABELS_WORKFLOW_PATH, readSyncLabelsWorkflowTemplate()]);
   }
   return { files: files.filter(([filePath]) => !skipped.includes(filePath)), skipped };
 }

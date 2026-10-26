@@ -8,6 +8,7 @@ const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockGenerateCommand = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockPrintError = vi.hoisted(() => vi.fn());
+const mockReadSyncLabelsWorkflowTemplate = vi.hoisted(() => vi.fn<() => string>(() => 'sync-labels workflow\n'));
 const mockReportError = vi.hoisted(() => vi.fn());
 const mockReportWriteResult = vi.hoisted(() => vi.fn());
 const mockValidateConfig = vi.hoisted(() => vi.fn());
@@ -38,6 +39,11 @@ vi.mock(import('../generateCommand.ts'), async (importOriginal) => {
   return { ...original, generateCommand: mockGenerateCommand };
 });
 
+vi.mock(import('../templates.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
+  readSyncLabelsWorkflowTemplate: mockReadSyncLabelsWorkflowTemplate,
+}));
+
 vi.mock(import('@williamthorsen/nmr-core'), () => ({
   printError: mockPrintError,
   reportError: mockReportError,
@@ -61,6 +67,7 @@ describe(syncLabelsInitCommand, () => {
     mockGenerateCommand.mockReset();
     mockLoadConfig.mockReset();
     mockPrintError.mockReset();
+    mockReadSyncLabelsWorkflowTemplate.mockReset();
     mockReportError.mockReset();
     mockReportWriteResult.mockReset();
     mockValidateConfig.mockReset();
@@ -258,6 +265,22 @@ describe(syncLabelsInitCommand, () => {
 
     expect(exitCode).toBe(1);
     expect(mockGenerateCommand).not.toHaveBeenCalled();
+  });
+
+  it('returns 1 without writing when the workflow template cannot be read', async () => {
+    givenExistingFiles();
+    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockReadSyncLabelsWorkflowTemplate.mockImplementation(() => {
+      throw new Error('Failed to read bundled template at /pkg/templates/sync-labels.yaml.template: ENOENT');
+    });
+    using _silent = silenceConsole(['info']);
+    using capture = captureStdio();
+
+    const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false, styles: SPLIT_STYLES });
+
+    expect(exitCode).toBe(1);
+    expect(capture.stderr).toContain('/pkg/templates/sync-labels.yaml.template');
+    expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
   });
 
   it('skips generate in dry-run mode', async () => {

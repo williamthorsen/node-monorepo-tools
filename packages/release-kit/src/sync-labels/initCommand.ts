@@ -8,7 +8,12 @@ import { CONFIG_FILE_PATH } from '../loadConfig.ts';
 import { loadValidatedConfig, reportConfigProblem } from '../loadValidatedConfig.ts';
 import { generateCommand, LABELS_OUTPUT_PATH } from './generateCommand.ts';
 import { checkRetiredSyncLabelsConfig } from './retiredConfig.ts';
-import { buildScopeLabels, renderRepoLabelsBlock, repoLabelsConfigScript, syncLabelsWorkflow } from './templates.ts';
+import {
+  buildScopeLabels,
+  readSyncLabelsWorkflowTemplate,
+  renderRepoLabelsBlock,
+  repoLabelsConfigScript,
+} from './templates.ts';
 import type { LabelDefinition } from './types.ts';
 
 /** Options for the `sync-labels init` subcommand. */
@@ -78,7 +83,14 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
     workspace.kind === 'single-package' ? [] : buildScopeLabels(workspace.packageDirs, retiredNames);
 
   console.info('\n> Scaffolding files');
-  const workflowResult = writeFileWithCheck(WORKFLOW_PATH, syncLabelsWorkflow(), { dryRun, overwrite: force });
+  let workflow: string;
+  try {
+    workflow = readSyncLabelsWorkflowTemplate();
+  } catch (error: unknown) {
+    process.stderr.write(`  ${describeError(error)}\n`);
+    return 1;
+  }
+  const workflowResult = writeFileWithCheck(WORKFLOW_PATH, workflow, { dryRun, overwrite: force });
   reportWriteResult(workflowResult, dryRun, styles);
 
   if (configExists) {
