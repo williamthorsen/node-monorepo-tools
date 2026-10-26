@@ -90,7 +90,7 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
     process.stderr.write(`  ${describeError(error)}\n`);
     return 1;
   }
-  const workflowResult = writeFileWithCheck(WORKFLOW_PATH, workflow, { dryRun, overwrite: force });
+  const workflowResult = writeFileWithCheck(WORKFLOW_PATH, workflow, { isDryRun: dryRun, shouldOverwrite: force });
   reportWriteResult(workflowResult, dryRun, styles);
 
   if (configExists) {
@@ -113,8 +113,8 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
   }
 
   const configResult = writeFileWithCheck(CONFIG_FILE_PATH, repoLabelsConfigScript(scopeLabels), {
-    dryRun,
-    overwrite: force,
+    isDryRun: dryRun,
+    shouldOverwrite: force,
   });
   reportWriteResult(configResult, dryRun, styles);
 

@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-import { formatGlyphLine, GIT_OUTPUT_LIMIT, hasErrnoCode, type OutputStyle } from '@williamthorsen/nmr-core';
+import { formatGlyphLine, GIT_OUTPUT_LIMIT_BYTES, hasErrnoCode, type OutputStyle } from '@williamthorsen/nmr-core';
 
 import { deleteFileIfExists } from './deleteFileIfExists.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
@@ -40,7 +40,7 @@ export function createTags(options: CreateTagsOptions): string[] {
   const created: string[] = [];
   for (const tag of tags) {
     try {
-      execFileSync('git', ['tag', '-a', tag, '-m', tag], { maxBuffer: GIT_OUTPUT_LIMIT });
+      execFileSync('git', ['tag', '-a', tag, '-m', tag], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
       created.push(tag);
     } catch (error: unknown) {
       if (created.length > 0) {
@@ -67,8 +67,8 @@ export function createTags(options: CreateTagsOptions): string[] {
 /** Throws if a tracked file has staged or unstaged changes. */
 function assertCleanWorkingTree(): void {
   try {
-    execFileSync('git', ['diff', '--quiet'], { maxBuffer: GIT_OUTPUT_LIMIT });
-    execFileSync('git', ['diff', '--quiet', '--cached'], { maxBuffer: GIT_OUTPUT_LIMIT });
+    execFileSync('git', ['diff', '--quiet'], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
+    execFileSync('git', ['diff', '--quiet', '--cached'], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
   } catch (error: unknown) {
     if (hasErrnoCode(error, 'ENOENT')) {
       throw error;

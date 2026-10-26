@@ -264,8 +264,8 @@ describe(prepareCommand, () => {
     await prepareCommand([], RICH_STYLES, process.cwd());
 
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0', {
-      dryRun: false,
-      overwrite: true,
+      isDryRun: false,
+      shouldOverwrite: true,
     });
   });
 
@@ -402,7 +402,7 @@ describe(prepareCommand, () => {
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith(
       RELEASE_SUMMARY_FILE,
       'release-kit-v2.4.0\n- feat: Add commit command',
-      { dryRun: false, overwrite: true },
+      { isDryRun: false, shouldOverwrite: true },
     );
   });
 

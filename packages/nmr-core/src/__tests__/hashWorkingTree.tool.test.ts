@@ -24,14 +24,14 @@ const REFERENCE_CASES: Array<[string, (tree: TempTree) => void]> = [
     'a staged change',
     (tree) => {
       tree.write('src/index.ts', 'export const value = 3;\n');
-      git(tree.dir, ['add', 'src/index.ts']);
+      runTestGit(tree.dir, ['add', 'src/index.ts']);
     },
   ],
   [
     'a staged change reverted in the working tree',
     (tree) => {
       tree.write('src/index.ts', 'export const value = 3;\n');
-      git(tree.dir, ['add', 'src/index.ts']);
+      runTestGit(tree.dir, ['add', 'src/index.ts']);
       tree.write('src/index.ts', 'export const value = 1;\n');
     },
   ],
@@ -52,7 +52,7 @@ const REFERENCE_CASES: Array<[string, (tree: TempTree) => void]> = [
       tree.write('src', 'now a file\n');
     },
   ],
-  ['a rename', (tree) => git(tree.dir, ['mv', 'src/index.ts', 'src/renamed.ts'])],
+  ['a rename', (tree) => runTestGit(tree.dir, ['mv', 'src/index.ts', 'src/renamed.ts'])],
   ['an added symlink', (tree) => tree.symlink('link', 'src/index.ts')],
   [
     'a repointed symlink',
@@ -97,20 +97,20 @@ const REFERENCE_CASES: Array<[string, (tree: TempTree) => void]> = [
     'an intent-to-add path',
     (tree) => {
       tree.write('src/intended.ts', 'intended\n');
-      git(tree.dir, ['add', '--intent-to-add', 'src/intended.ts']);
+      runTestGit(tree.dir, ['add', '--intent-to-add', 'src/intended.ts']);
     },
   ],
   [
     'a modified assume-unchanged entry',
     (tree) => {
-      git(tree.dir, ['update-index', '--assume-unchanged', 'src/index.ts']);
+      runTestGit(tree.dir, ['update-index', '--assume-unchanged', 'src/index.ts']);
       tree.write('src/index.ts', 'hidden\n');
     },
   ],
   [
     'modified and removed skip-worktree entries',
     (tree) => {
-      git(tree.dir, ['update-index', '--skip-worktree', 'src/index.ts', 'src/other.ts']);
+      runTestGit(tree.dir, ['update-index', '--skip-worktree', 'src/index.ts', 'src/other.ts']);
       tree.write('src/index.ts', 'hidden\n');
       tree.rm('src/other.ts');
     },
@@ -134,25 +134,25 @@ describe(hashWorkingTree, () => {
       expect(result).toStrictEqual({
         ok: true,
         treeId: expect.stringMatching(/^[\da-f]{40}$/),
-        headSha: git(tree.dir, ['rev-parse', 'HEAD']).trim(),
+        headSha: runTestGit(tree.dir, ['rev-parse', 'HEAD']).trim(),
         toplevel: tree.dir,
       });
     });
 
     it('reports the same toplevel and tree id from a subdirectory', ({ tree }) => {
       initRepo(tree);
-      const nested = tree.mkdir('packages/leaf');
+      const nestedDir = tree.mkdir('packages/leaf');
       tree.write('packages/leaf/file.ts', 'leaf\n');
 
-      const result = hashWorkingTree(nested);
+      const result = hashWorkingTree(nestedDir);
 
-      expect(result).toMatchObject({ ok: true, toplevel: tree.dir, treeId: referenceTreeId(tree.dir) });
+      expect(result).toMatchObject({ ok: true, toplevel: tree.dir, treeId: computeReferenceTreeId(tree.dir) });
     });
 
     it('is stable across repeated calls on an untouched tree', ({ tree }) => {
       initRepo(tree);
 
-      expect(treeIdOf(tree.dir)).toBe(treeIdOf(tree.dir));
+      expect(getTreeId(tree.dir)).toBe(getTreeId(tree.dir));
     });
   });
 
@@ -161,7 +161,7 @@ describe(hashWorkingTree, () => {
       initRepo(tree);
       arrange(tree);
 
-      expect(treeIdOf(tree.dir)).toBe(referenceTreeId(tree.dir));
+      expect(getTreeId(tree.dir)).toBe(computeReferenceTreeId(tree.dir));
     });
 
     it('records the id that `git add --all` would record in a SHA-256 repository', ({ tree }) => {
@@ -170,27 +170,27 @@ describe(hashWorkingTree, () => {
       tree.write('new/file.ts', 'new\n');
       tree.symlink('link', 'src/other.ts');
 
-      const treeId = treeIdOf(tree.dir);
+      const treeId = getTreeId(tree.dir);
 
       expect(treeId).toMatch(/^[\da-f]{64}$/);
-      expect(treeId).toBe(referenceTreeId(tree.dir));
+      expect(treeId).toBe(computeReferenceTreeId(tree.dir));
     });
 
     it('reports `HEAD^{tree}` for a clean tree', ({ tree }) => {
       initRepo(tree);
 
-      expect(treeIdOf(tree.dir)).toBe(git(tree.dir, ['rev-parse', 'HEAD^{tree}']).trim());
+      expect(getTreeId(tree.dir)).toBe(runTestGit(tree.dir, ['rev-parse', 'HEAD^{tree}']).trim());
     });
 
     it('keeps the id when the checked tree is committed', ({ tree }) => {
       initRepo(tree);
       tree.write('src/index.ts', 'export const value = 2;\n');
       tree.write('src/added.ts', 'added\n');
-      const before = treeIdOf(tree.dir);
+      const initialTreeId = getTreeId(tree.dir);
 
       commitAll(tree.dir, 'commit the checked tree');
 
-      expect(treeIdOf(tree.dir)).toBe(before);
+      expect(getTreeId(tree.dir)).toBe(initialTreeId);
     });
 
     it('writes nothing to the object database or the index', ({ tree }) => {
@@ -199,11 +199,11 @@ describe(hashWorkingTree, () => {
       tree.write('new/file.ts', 'new\n');
       tree.rm('src/other.ts');
       tree.symlink('link', 'src/index.ts');
-      const before = observeRepository(tree.dir);
+      const initialObservation = observeRepository(tree.dir);
 
-      treeIdOf(tree.dir);
+      getTreeId(tree.dir);
 
-      expect(observeRepository(tree.dir)).toStrictEqual(before);
+      expect(observeRepository(tree.dir)).toStrictEqual(initialObservation);
     });
   });
 
@@ -211,119 +211,119 @@ describe(hashWorkingTree, () => {
     it('leaves the id alone when a touch does not change any bytes', ({ tree }) => {
       // Timestamps are not content. An id that moved on `touch` would miss on every checkout and clone.
       initRepo(tree);
-      const before = treeIdOf(tree.dir);
+      const initialTreeId = getTreeId(tree.dir);
 
-      const future = new Date(Date.now() + 60_000);
-      fs.utimesSync(path.join(tree.dir, 'src', 'index.ts'), future, future);
+      const futureDate = new Date(Date.now() + 60_000);
+      fs.utimesSync(path.join(tree.dir, 'src', 'index.ts'), futureDate, futureDate);
 
-      expect(treeIdOf(tree.dir)).toBe(before);
+      expect(getTreeId(tree.dir)).toBe(initialTreeId);
     });
 
     it('moves the id when a tracked file’s content changes', ({ tree }) => {
       initRepo(tree);
-      const before = treeIdOf(tree.dir);
+      const initialTreeId = getTreeId(tree.dir);
 
       tree.write('src/index.ts', 'export const value = 2;\n');
 
-      expect(treeIdOf(tree.dir)).not.toBe(before);
+      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
     });
 
     it('moves the id when an untracked file appears', ({ tree }) => {
       initRepo(tree);
-      const before = treeIdOf(tree.dir);
+      const initialTreeId = getTreeId(tree.dir);
 
       tree.write('src/added.ts', 'export const added = true;\n');
 
-      expect(treeIdOf(tree.dir)).not.toBe(before);
+      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
     });
 
     it('moves the id when a tracked file is deleted', ({ tree }) => {
       initRepo(tree);
-      const before = treeIdOf(tree.dir);
+      const initialTreeId = getTreeId(tree.dir);
 
       fs.rmSync(path.join(tree.dir, 'src', 'index.ts'));
 
-      expect(treeIdOf(tree.dir)).not.toBe(before);
+      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
     });
 
     it('moves the id when a change is staged', ({ tree }) => {
       initRepo(tree);
-      const before = treeIdOf(tree.dir);
+      const initialTreeId = getTreeId(tree.dir);
 
       tree.write('src/index.ts', 'export const value = 3;\n');
-      git(tree.dir, ['add', 'src/index.ts']);
+      runTestGit(tree.dir, ['add', 'src/index.ts']);
 
-      expect(treeIdOf(tree.dir)).not.toBe(before);
+      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
     });
 
     it('moves the id when a file is renamed', ({ tree }) => {
       // A staged rename is the one status record containing two paths; a parser that dropped the original path
       // would leave the file at its old path as well.
       initRepo(tree);
-      const before = treeIdOf(tree.dir);
+      const initialTreeId = getTreeId(tree.dir);
 
-      git(tree.dir, ['mv', 'src/index.ts', 'src/renamed.ts']);
+      runTestGit(tree.dir, ['mv', 'src/index.ts', 'src/renamed.ts']);
 
-      expect(statusRecordTypes(tree.dir)).toContain('2');
-      expect(treeIdOf(tree.dir)).not.toBe(before);
+      expect(listStatusRecordTypes(tree.dir)).toContain('2');
+      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
     });
 
     it('moves the id when a symlink is repointed', ({ tree }) => {
       initRepo(tree);
       tree.symlink('link', 'src/index.ts');
-      const before = treeIdOf(tree.dir);
+      const initialTreeId = getTreeId(tree.dir);
 
       tree.rm('link');
       tree.symlink('link', 'src/other.ts');
 
-      expect(treeIdOf(tree.dir)).not.toBe(before);
+      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
     });
 
     it('moves the id when a file becomes executable', ({ tree }) => {
       initRepo(tree);
-      const before = treeIdOf(tree.dir);
+      const initialTreeId = getTreeId(tree.dir);
 
       fs.chmodSync(tree.resolve('src/index.ts'), 0o755);
 
-      expect(treeIdOf(tree.dir)).not.toBe(before);
+      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
     });
 
     it('moves the id when a path containing spaces changes', ({ tree }) => {
       initRepo(tree);
-      const spaced = 'a file with spaces.txt';
-      tree.write(spaced, 'one\n');
-      const before = treeIdOf(tree.dir);
+      const spacedFileName = 'a file with spaces.txt';
+      tree.write(spacedFileName, 'one\n');
+      const initialTreeId = getTreeId(tree.dir);
 
-      tree.write(spaced, 'two\n');
+      tree.write(spacedFileName, 'two\n');
 
-      expect(treeIdOf(tree.dir)).not.toBe(before);
+      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
     });
 
     it('identifies a conflicted tree by its working-tree content', ({ tree }) => {
       // An unmerged path has its own status record shape. Its working-tree content is what a check would
       // read, so it is what the id describes.
       initRepo(tree);
-      const conflicted = startConflictingMerge(tree);
-      expect(statusRecordTypes(tree.dir)).toContain('u');
-      const before = treeIdOf(tree.dir);
+      const conflictedPath = startConflictingMerge(tree);
+      expect(listStatusRecordTypes(tree.dir)).toContain('u');
+      const initialTreeId = getTreeId(tree.dir);
 
-      tree.write(conflicted, 'resolved\n');
+      tree.write(conflictedPath, 'resolved\n');
 
-      expect(treeIdOf(tree.dir)).not.toBe(before);
+      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
     });
 
     it('agrees across two branches with identical content', ({ tree }) => {
       // The id describes content alone, so two histories that arrive at the same content share it, which lets a
       // rebase or an amended message leave the id unchanged.
       initRepo(tree);
-      const onMain = treeIdOf(tree.dir);
-      git(tree.dir, ['checkout', '-b', 'other']);
+      const mainTreeId = getTreeId(tree.dir);
+      runTestGit(tree.dir, ['checkout', '-b', 'other']);
       tree.write('src/index.ts', 'export const value = 9;\n');
       commitAll(tree.dir, 'diverge');
       tree.write('src/index.ts', 'export const value = 1;\n');
       commitAll(tree.dir, 'return to the original content');
 
-      expect(treeIdOf(tree.dir)).toBe(onMain);
+      expect(getTreeId(tree.dir)).toBe(mainTreeId);
     });
   });
 
@@ -343,7 +343,7 @@ describe(hashWorkingTree, () => {
     });
 
     it('refuses a repository without a commit', ({ tree }) => {
-      git(tree.dir, ['init', '--initial-branch=main']);
+      runTestGit(tree.dir, ['init', '--initial-branch=main']);
 
       expect(hashWorkingTree(tree.dir)).toStrictEqual({
         ok: false,
@@ -367,8 +367,8 @@ describe(hashWorkingTree, () => {
       // Because git reports a nested repository as one entry and does not look inside it, the id cannot look
       // inside it either.
       initRepo(tree);
-      const nested = tree.mkdir('vendor');
-      git(nested, ['init', '--initial-branch=main']);
+      const nestedDir = tree.mkdir('vendor');
+      runTestGit(nestedDir, ['init', '--initial-branch=main']);
       tree.write('vendor/file.txt', 'vendored\n');
 
       expect(hashWorkingTree(tree.dir)).toStrictEqual({
@@ -394,21 +394,21 @@ describe(hashWorkingTree, () => {
 
 /** Stages everything and commits it. */
 function commitAll(repo: string, message: string): void {
-  git(repo, ['add', '--all']);
-  git(repo, ['commit', '--message', message]);
+  runTestGit(repo, ['add', '--all']);
+  runTestGit(repo, ['commit', '--message', message]);
 }
 
 /** Runs git in `cwd` and returns its stdout. */
-function git(cwd: string, args: string[], env?: NodeJS.ProcessEnv): string {
+function runTestGit(cwd: string, args: string[], env?: NodeJS.ProcessEnv): string {
   return execFileSync('git', args, { cwd, encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 /** Writes a committed fixture repository: two source files on `main`, nothing dirty. */
 function initRepo(tree: TempTree, objectFormat: 'sha1' | 'sha256' = 'sha1'): void {
-  git(tree.dir, ['init', '--initial-branch=main', `--object-format=${objectFormat}`]);
-  git(tree.dir, ['config', 'user.email', 'fixture@example.com']);
-  git(tree.dir, ['config', 'user.name', 'Fixture']);
-  git(tree.dir, ['config', 'commit.gpgsign', 'false']);
+  runTestGit(tree.dir, ['init', '--initial-branch=main', `--object-format=${objectFormat}`]);
+  runTestGit(tree.dir, ['config', 'user.email', 'fixture@example.com']);
+  runTestGit(tree.dir, ['config', 'user.name', 'Fixture']);
+  runTestGit(tree.dir, ['config', 'commit.gpgsign', 'false']);
 
   tree.writeAll({
     'src/index.ts': 'export const value = 1;\n',
@@ -418,12 +418,12 @@ function initRepo(tree: TempTree, objectFormat: 'sha1' | 'sha256' = 'sha1'): voi
 }
 
 /** Captures what a write to the repository would change: the object database's contents and the index's bytes. */
-function observeRepository(repo: string): { countObjects: string; index: Buffer; objects: string[] } {
+function observeRepository(repo: string): { indexContent: Buffer; objectCountReport: string; objectPaths: string[] } {
   const objectsDir = path.join(repo, '.git', 'objects');
   return {
-    countObjects: git(repo, ['count-objects', '-v']),
-    index: fs.readFileSync(path.join(repo, '.git', 'index')),
-    objects: fs.readdirSync(objectsDir, { recursive: true, encoding: 'utf8' }).toSorted(),
+    indexContent: fs.readFileSync(path.join(repo, '.git', 'index')),
+    objectCountReport: runTestGit(repo, ['count-objects', '-v']),
+    objectPaths: fs.readdirSync(objectsDir, { recursive: true, encoding: 'utf8' }).toSorted(),
   };
 }
 
@@ -431,57 +431,57 @@ function observeRepository(repo: string): { countObjects: string; index: Buffer;
  * Returns the tree id that `git add --all` into a copy of the real index followed by `git write-tree` records, the
  * way the delegation snapshot builds its tree. It writes objects, so a test calls it only after `hashWorkingTree`.
  */
-function referenceTreeId(repo: string): string {
-  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-reference-index-'));
+function computeReferenceTreeId(repo: string): string {
+  const scratchDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-reference-index-'));
   try {
-    const index = path.join(scratch, 'index');
-    const realIndex = path.resolve(repo, git(repo, ['rev-parse', '--git-path', 'index']).trim());
-    fs.copyFileSync(realIndex, index);
+    const indexPath = path.join(scratchDir, 'index');
+    const realIndexPath = path.resolve(repo, runTestGit(repo, ['rev-parse', '--git-path', 'index']).trim());
+    fs.copyFileSync(realIndexPath, indexPath);
     // Keep the index's time: A fresh one makes git trust stale stat data for an edit made in the same second.
-    const { atime, mtime } = fs.statSync(realIndex);
-    fs.utimesSync(index, atime, mtime);
-    const env = { ...process.env, GIT_INDEX_FILE: index };
-    git(repo, ['add', '--all'], env);
-    return git(repo, ['write-tree'], env).trim();
+    const { atime, mtime } = fs.statSync(realIndexPath);
+    fs.utimesSync(indexPath, atime, mtime);
+    const env = { ...process.env, GIT_INDEX_FILE: indexPath };
+    runTestGit(repo, ['add', '--all'], env);
+    return runTestGit(repo, ['write-tree'], env).trim();
   } finally {
-    fs.rmSync(scratch, { force: true, recursive: true });
+    fs.rmSync(scratchDir, { force: true, recursive: true });
   }
 }
 
 /** Leaves the repository mid-merge with one conflicted path, and returns its entry path. */
 function startConflictingMerge(tree: TempTree): string {
-  const conflicted = 'src/index.ts';
+  const conflictedPath = 'src/index.ts';
 
-  git(tree.dir, ['checkout', '-b', 'theirs']);
-  tree.write(conflicted, 'export const value = 2;\n');
+  runTestGit(tree.dir, ['checkout', '-b', 'theirs']);
+  tree.write(conflictedPath, 'export const value = 2;\n');
   commitAll(tree.dir, 'theirs');
 
-  git(tree.dir, ['checkout', 'main']);
-  tree.write(conflicted, 'export const value = 3;\n');
+  runTestGit(tree.dir, ['checkout', 'main']);
+  tree.write(conflictedPath, 'export const value = 3;\n');
   commitAll(tree.dir, 'ours');
 
   try {
-    git(tree.dir, ['merge', 'theirs']);
+    runTestGit(tree.dir, ['merge', 'theirs']);
   } catch {
     // The merge is expected to stop on a conflict; that state is the fixture.
   }
 
-  return conflicted;
+  return conflictedPath;
 }
 
 /**
  * Returns the leading character of every `--porcelain=v2` record that git currently reports, so that a test can
  * pin which record shape its fixture produces rather than assume it.
  */
-function statusRecordTypes(repo: string): string[] {
-  return git(repo, ['status', '--porcelain=v2', '-z', '--untracked-files=all'])
+function listStatusRecordTypes(repo: string): string[] {
+  return runTestGit(repo, ['status', '--porcelain=v2', '-z', '--untracked-files=all'])
     .split('\0')
     .filter((record) => record !== '')
     .map((record) => record.slice(0, 1));
 }
 
 /** Returns the tree id, failing the test if the tree could not be identified. */
-function treeIdOf(cwd: string): string {
+function getTreeId(cwd: string): string {
   const result = hashWorkingTree(cwd);
   if (!result.ok) {
     throw new Error(`expected a tree id, got: ${result.reason}`);

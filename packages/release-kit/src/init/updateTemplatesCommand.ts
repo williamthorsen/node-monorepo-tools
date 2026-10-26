@@ -65,7 +65,7 @@ export function updateTemplatesCommand({ dryRun, styles }: UpdateTemplatesOption
     for (const filePath of skipped) {
       printSkip(formatPrivateWorkflowSkip(filePath), styles.stdout);
     }
-    results = files.map(([filePath, content]) => updateManagedFile(filePath, content, { dryRun }));
+    results = files.map(([filePath, content]) => updateManagedFile(filePath, content, { isDryRun: dryRun }));
   } catch (error: unknown) {
     printError(`Failed to render workflows: ${describeError(error)}`, styles.stderr);
     return 1;

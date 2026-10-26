@@ -160,7 +160,7 @@ function buildTreeId(options: {
 
   for (const [changedPath, entry] of changes) {
     const { name, parent } = splitPath(changedPath);
-    const tree = entriesAt(trees, parent);
+    const tree = ensureEntries(trees, parent);
     if (entry === undefined) {
       tree.delete(name);
     } else {
@@ -169,14 +169,14 @@ function buildTreeId(options: {
   }
 
   // Deepest first, so that each directory's subtrees are final before its own entry is hashed.
-  const deepestFirst = [...directories].toSorted((left, right) => depthOf(right) - depthOf(left));
-  for (const directory of deepestFirst) {
+  const deepestFirstDirectories = [...directories].toSorted((left, right) => measureDepth(right) - measureDepth(left));
+  for (const directory of deepestFirstDirectories) {
     if (directory === '') {
       continue;
     }
     const { name, parent } = splitPath(directory);
-    const parentTree = entriesAt(trees, parent);
-    const tree = entriesAt(trees, directory);
+    const parentTree = ensureEntries(trees, parent);
+    const tree = ensureEntries(trees, directory);
     // Git does not record an empty directory. A file that replaced the directory is already in `parentTree`.
     if (tree.size === 0) {
       if (parentTree.get(name)?.mode === TREE_MODE) {
@@ -191,17 +191,17 @@ function buildTreeId(options: {
     });
   }
 
-  const rootId = hashGitObject(format, 'tree', serializeTreeObject(entriesAt(trees, '').values()));
+  const rootId = hashGitObject(format, 'tree', serializeTreeObject(ensureEntries(trees, '').values()));
   return { ok: true, treeId: rootId.toString('hex') };
 }
 
 /** Returns the number of directories that contain a path from the toplevel; the root itself has depth 0. */
-function depthOf(directory: string): number {
+function measureDepth(directory: string): number {
   return directory === '' ? 0 : directory.split('/').length;
 }
 
 /** Returns the entries of `directory`, adding an empty set for a directory not yet seen. */
-function entriesAt(trees: Map<string, Map<string, GitTreeEntry>>, directory: string): Map<string, GitTreeEntry> {
+function ensureEntries(trees: Map<string, Map<string, GitTreeEntry>>, directory: string): Map<string, GitTreeEntry> {
   let entries = trees.get(directory);
   if (entries === undefined) {
     entries = new Map();
@@ -228,18 +228,18 @@ function hasSymlinkLeadingPath(toplevel: string, relativePath: string): boolean 
  * and control characters escaped.
  */
 function quotePath(relativePath: string): string {
-  let quoted = '"';
+  let quotedPath = '"';
   for (const character of relativePath) {
     const codePoint = character.codePointAt(0) ?? 0;
     if (character === '"' || character === '\\') {
-      quoted += `\\${character}`;
+      quotedPath += `\\${character}`;
     } else if (codePoint < 0x20 || codePoint === 0x7f) {
-      quoted += `\\${codePoint.toString(8).padStart(3, '0')}`;
+      quotedPath += `\\${codePoint.toString(8).padStart(3, '0')}`;
     } else {
-      quoted += character;
+      quotedPath += character;
     }
   }
-  return `${quoted}"`;
+  return `${quotedPath}"`;
 }
 
 /**
@@ -312,8 +312,8 @@ function readHeadTrees(options: {
   toplevel: string;
 }): HeadTreesResult {
   const { directories, format, headSha, headTreeId, toplevel } = options;
-  const ordered = [...directories];
-  const input = ordered
+  const orderedDirectories = [...directories];
+  const input = orderedDirectories
     .map((directory) => (directory === '' ? `${headTreeId}\0` : `${headSha}:${directory}\0`))
     .join('');
 
@@ -322,17 +322,17 @@ function readHeadTrees(options: {
     return { ok: false, reason: `git cat-file failed: ${batchResult.error}` };
   }
   const output = batchResult.stdout;
-  const malformed: HeadTreesResult = { ok: false, reason: 'git cat-file reported a malformed object' };
+  const malformedResult: HeadTreesResult = { ok: false, reason: 'git cat-file reported a malformed object' };
 
   const trees = new Map<string, Map<string, GitTreeEntry>>();
   let offset = 0;
-  for (const directory of ordered) {
-    const lineEnd = output.indexOf(0x0a, offset);
-    if (lineEnd === -1) {
-      return malformed;
+  for (const directory of orderedDirectories) {
+    const lineEndOffset = output.indexOf(0x0a, offset);
+    if (lineEndOffset === -1) {
+      return malformedResult;
     }
-    const header = output.toString('latin1', offset, lineEnd);
-    offset = lineEnd + 1;
+    const header = output.toString('latin1', offset, lineEndOffset);
+    offset = lineEndOffset + 1;
     if (header.endsWith(' missing')) {
       trees.set(directory, new Map());
       continue;
@@ -340,18 +340,18 @@ function readHeadTrees(options: {
 
     const [, type, sizeText] = header.split(' ', 3);
     if (sizeText === undefined) {
-      return malformed;
+      return malformedResult;
     }
-    const size = Number(sizeText);
-    if (!Number.isSafeInteger(size) || offset + size > output.length) {
-      return malformed;
+    const sizeBytes = Number(sizeText);
+    if (!Number.isSafeInteger(sizeBytes) || offset + sizeBytes > output.length) {
+      return malformedResult;
     }
-    const content = output.subarray(offset, offset + size);
-    offset += size + 1;
+    const content = output.subarray(offset, offset + sizeBytes);
+    offset += sizeBytes + 1;
 
     const entries = type === 'tree' ? parseTreeObject(format, content) : [];
     if (entries === undefined) {
-      return malformed;
+      return malformedResult;
     }
     trees.set(directory, new Map(entries.map((entry) => [entry.name, entry])));
   }
@@ -388,8 +388,8 @@ function readPathState(toplevel: string, relativePath: string, format: GitObject
   if (stats.isSymbolicLink()) {
     try {
       // A symlink's content is the path that it names, which is also what git records for it.
-      const target = readlinkSync(absolutePath, { encoding: 'buffer' });
-      return { ok: true, kind: 'link', id: hashGitObject(format, 'blob', target) };
+      const targetPath = readlinkSync(absolutePath, { encoding: 'buffer' });
+      return { ok: true, kind: 'link', id: hashGitObject(format, 'blob', targetPath) };
     } catch (error: unknown) {
       return { ok: false, reason: `could not read ${relativePath}: ${describeError(error)}` };
     }
@@ -401,10 +401,10 @@ function readPathState(toplevel: string, relativePath: string, format: GitObject
 
 /** Splits a path from the toplevel into its containing directory (`''` for the root) and its last segment. */
 function splitPath(fullPath: string): { name: string; parent: string } {
-  const separator = fullPath.lastIndexOf('/');
-  return separator === -1
+  const separatorIndex = fullPath.lastIndexOf('/');
+  return separatorIndex === -1
     ? { name: fullPath, parent: '' }
-    : { name: fullPath.slice(separator + 1), parent: fullPath.slice(0, separator) };
+    : { name: fullPath.slice(separatorIndex + 1), parent: fullPath.slice(0, separatorIndex) };
 }
 
 // endregion | Helpers

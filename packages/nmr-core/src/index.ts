@@ -11,7 +11,7 @@ export {
   writeCacheEntry,
   writeGuardedCacheEntry,
 } from './cache-store.ts';
-export { GIT_OUTPUT_LIMIT } from './gitOutputLimit.ts';
+export { GIT_OUTPUT_LIMIT_BYTES } from './gitOutputLimit.ts';
 export { hasErrnoCode } from './hasErrnoCode.ts';
 export type { WorkingTreeHashResult } from './hashWorkingTree.ts';
 export { hashWorkingTree, readHeadSha } from './hashWorkingTree.ts';

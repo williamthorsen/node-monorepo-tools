@@ -39,15 +39,15 @@ describe('scaffold', () => {
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith(
         '.github/workflows/create-github-release.yaml',
         expect.any(String),
-        { dryRun: false, overwrite: false },
+        { isDryRun: false, shouldOverwrite: false },
       );
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/release.yaml', expect.any(String), {
-        dryRun: false,
-        overwrite: false,
+        isDryRun: false,
+        shouldOverwrite: false,
       });
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/publish.yaml', expect.any(String), {
-        dryRun: false,
-        overwrite: false,
+        isDryRun: false,
+        shouldOverwrite: false,
       });
     });
 
@@ -134,15 +134,15 @@ describe('scaffold', () => {
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith(
         '.github/workflows/create-github-release.yaml',
         expect.any(String),
-        { dryRun: false, overwrite: true },
+        { isDryRun: false, shouldOverwrite: true },
       );
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/release.yaml', expect.any(String), {
-        dryRun: false,
-        overwrite: true,
+        isDryRun: false,
+        shouldOverwrite: true,
       });
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/publish.yaml', expect.any(String), {
-        dryRun: false,
-        overwrite: true,
+        isDryRun: false,
+        shouldOverwrite: true,
       });
     });
 
@@ -164,15 +164,15 @@ describe('scaffold', () => {
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith(
         '.github/workflows/create-github-release.yaml',
         expect.any(String),
-        { dryRun: true, overwrite: false },
+        { isDryRun: true, shouldOverwrite: false },
       );
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/release.yaml', expect.any(String), {
-        dryRun: true,
-        overwrite: false,
+        isDryRun: true,
+        shouldOverwrite: false,
       });
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/publish.yaml', expect.any(String), {
-        dryRun: true,
-        overwrite: false,
+        isDryRun: true,
+        shouldOverwrite: false,
       });
     });
 

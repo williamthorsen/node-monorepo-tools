@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 
 /** A commit that records the working tree, or why one could not be made. */
 export type SnapshotResult =
@@ -109,7 +109,7 @@ function runGit(
   cwd: string,
   env: NodeJS.ProcessEnv,
 ): { ok: true; stdout: string } | { ok: false; error: string } {
-  const result = spawnSync('git', args, { cwd, encoding: 'utf8', env, maxBuffer: GIT_OUTPUT_LIMIT });
+  const result = spawnSync('git', args, { cwd, encoding: 'utf8', env, maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
   if (result.error !== undefined) {
     return { ok: false, error: result.error.message };
   }

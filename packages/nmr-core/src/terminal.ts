@@ -113,14 +113,14 @@ export function reportError(message: string, stream: Writable = process.stderr):
  * Prints a status line for a managed-file result, followed by its diff indented beneath it: a failure to stderr,
  * every other outcome to stdout.
  */
-export function reportTemplateUpdate(result: ManagedFileResult, dryRun: boolean, styles?: StreamStyles): void {
+export function reportTemplateUpdate(result: ManagedFileResult, isDryRun: boolean, styles?: StreamStyles): void {
   const style = styles?.stdout;
   switch (result.outcome) {
     case 'created':
-      printSuccess(dryRun ? `[dry-run] Would create ${result.filePath}` : `Created ${result.filePath}`, style);
+      printSuccess(isDryRun ? `[dry-run] Would create ${result.filePath}` : `Created ${result.filePath}`, style);
       break;
     case 'updated':
-      printSuccess(dryRun ? `[dry-run] Would update ${result.filePath}` : `Updated ${result.filePath}`, style);
+      printSuccess(isDryRun ? `[dry-run] Would update ${result.filePath}` : `Updated ${result.filePath}`, style);
       if (result.diff !== undefined && result.diff !== '') {
         console.info(indentLines(result.diff, ' '.repeat(4)));
       }
@@ -141,18 +141,18 @@ export function reportTemplateUpdate(result: ManagedFileResult, dryRun: boolean,
  * other outcome to stdout. Each message takes its own stream's style from `styles`; without
  * `styles`, it takes the style detected for that stream.
  */
-export function reportWriteResult(result: WriteResult, dryRun: boolean, styles?: StreamStyles): void {
+export function reportWriteResult(result: WriteResult, isDryRun: boolean, styles?: StreamStyles): void {
   const style = styles?.stdout;
   switch (result.outcome) {
     case 'created':
-      if (dryRun) {
+      if (isDryRun) {
         printSuccess(`[dry-run] Would create ${result.filePath}`, style);
       } else {
         printSuccess(`Created ${result.filePath}`, style);
       }
       break;
     case 'overwritten':
-      if (dryRun) {
+      if (isDryRun) {
         printSuccess(`[dry-run] Would overwrite ${result.filePath}`, style);
       } else {
         printSuccess(`Overwrote ${result.filePath}`, style);
@@ -186,11 +186,11 @@ export function reportWriteResult(result: WriteResult, dryRun: boolean, styles?:
  */
 export function resolveStreamStyles(options: ResolveStreamStylesOptions): StreamStyleResolution {
   const { argv = [], env, envVar, flag, stderrIsTty, stdoutIsTty } = options;
-  const stderr = resolveOutputStyle({ argv, env, envVar, flag, isTty: stderrIsTty });
-  const stdout = resolveOutputStyle({ argv, env, envVar, flag, isTty: stdoutIsTty });
-  const styles = { stderr: stderr.style, stdout: stdout.style };
+  const stderrResolution = resolveOutputStyle({ argv, env, envVar, flag, isTty: stderrIsTty });
+  const stdoutResolution = resolveOutputStyle({ argv, env, envVar, flag, isTty: stdoutIsTty });
+  const styles = { stderr: stderrResolution.style, stdout: stdoutResolution.style };
   // Both resolutions read the same flag and variable, so either one reports an invalid value.
-  return stdout.invalid === undefined ? { styles } : { invalid: stdout.invalid, styles };
+  return stdoutResolution.invalid === undefined ? { styles } : { invalid: stdoutResolution.invalid, styles };
 }
 
 // region | Helpers

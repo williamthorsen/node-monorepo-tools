@@ -5,4 +5,4 @@
  * Past the limit, Node kills the child and reports `ENOBUFS`, an error that names the spawned program rather than
  * the output that overflowed. A call site that omits the option fails this way only once its repo has grown enough.
  */
-export const GIT_OUTPUT_LIMIT = 64 * 1_024 * 1_024;
+export const GIT_OUTPUT_LIMIT_BYTES = 64 * 1_024 * 1_024;

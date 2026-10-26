@@ -26,7 +26,7 @@ describe(writeFileWithCheck, () => {
     it('creates a new file and returns "created"', () => {
       mockExistsSync.mockReturnValue(false);
 
-      const result = writeFileWithCheck('some/dir/file.ts', 'content', { dryRun: false, overwrite: false });
+      const result = writeFileWithCheck('some/dir/file.ts', 'content', { isDryRun: false, shouldOverwrite: false });
 
       expect(result).toStrictEqual({ filePath: 'some/dir/file.ts', outcome: 'created' });
       expect(mockMkdirSync).toHaveBeenCalledWith('some/dir', { recursive: true });
@@ -35,10 +35,10 @@ describe(writeFileWithCheck, () => {
   });
 
   describe('overwritten outcome', () => {
-    it('overwrites an existing file when overwrite is true', () => {
+    it('overwrites an existing file when shouldOverwrite is true', () => {
       mockExistsSync.mockReturnValue(true);
 
-      const result = writeFileWithCheck('some/file.ts', 'new content', { dryRun: false, overwrite: true });
+      const result = writeFileWithCheck('some/file.ts', 'new content', { isDryRun: false, shouldOverwrite: true });
 
       expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'overwritten' });
       expect(mockWriteFileSync).toHaveBeenCalledWith('some/file.ts', 'new content', 'utf8');
@@ -50,7 +50,7 @@ describe(writeFileWithCheck, () => {
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('same content');
 
-      const result = writeFileWithCheck('some/file.ts', 'same content', { dryRun: false, overwrite: false });
+      const result = writeFileWithCheck('some/file.ts', 'same content', { isDryRun: false, shouldOverwrite: false });
 
       expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'up-to-date' });
       expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -60,7 +60,10 @@ describe(writeFileWithCheck, () => {
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('line one  \nline two  \n\n');
 
-      const result = writeFileWithCheck('some/file.ts', 'line one\nline two\n', { dryRun: false, overwrite: false });
+      const result = writeFileWithCheck('some/file.ts', 'line one\nline two\n', {
+        isDryRun: false,
+        shouldOverwrite: false,
+      });
 
       expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'up-to-date' });
       expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -68,23 +71,23 @@ describe(writeFileWithCheck, () => {
   });
 
   describe('skipped outcome', () => {
-    it('returns "skipped" when file exists with different content and overwrite is false', () => {
+    it('returns "skipped" when file exists with different content and shouldOverwrite is false', () => {
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('different content');
 
-      const result = writeFileWithCheck('some/file.ts', 'new content', { dryRun: false, overwrite: false });
+      const result = writeFileWithCheck('some/file.ts', 'new content', { isDryRun: false, shouldOverwrite: false });
 
       expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'skipped' });
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 
-    it('returns "skipped" with error detail when reading existing file throws and overwrite is false', () => {
+    it('returns "skipped" with error detail when reading existing file throws and shouldOverwrite is false', () => {
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockImplementation(() => {
         throw new Error('EACCES: permission denied');
       });
 
-      const result = writeFileWithCheck('some/file.ts', 'content', { dryRun: false, overwrite: false });
+      const result = writeFileWithCheck('some/file.ts', 'content', { isDryRun: false, shouldOverwrite: false });
 
       expect(result).toStrictEqual({
         filePath: 'some/file.ts',
@@ -101,7 +104,7 @@ describe(writeFileWithCheck, () => {
         throw new Error('EACCES: permission denied');
       });
 
-      const result = writeFileWithCheck('some/file.ts', 'content', { dryRun: false, overwrite: false });
+      const result = writeFileWithCheck('some/file.ts', 'content', { isDryRun: false, shouldOverwrite: false });
 
       expect(result).toStrictEqual({
         filePath: 'some/file.ts',
@@ -116,7 +119,7 @@ describe(writeFileWithCheck, () => {
         throw new Error('ENOSPC: no space left on device');
       });
 
-      const result = writeFileWithCheck('some/file.ts', 'content', { dryRun: false, overwrite: false });
+      const result = writeFileWithCheck('some/file.ts', 'content', { isDryRun: false, shouldOverwrite: false });
 
       expect(result).toStrictEqual({
         filePath: 'some/file.ts',
@@ -130,17 +133,17 @@ describe(writeFileWithCheck, () => {
     it('returns "created" without writing when file does not exist', () => {
       mockExistsSync.mockReturnValue(false);
 
-      const result = writeFileWithCheck('some/file.ts', 'content', { dryRun: true, overwrite: false });
+      const result = writeFileWithCheck('some/file.ts', 'content', { isDryRun: true, shouldOverwrite: false });
 
       expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'created' });
       expect(mockMkdirSync).not.toHaveBeenCalled();
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 
-    it('returns "overwritten" without writing when file exists and overwrite is true', () => {
+    it('returns "overwritten" without writing when file exists and shouldOverwrite is true', () => {
       mockExistsSync.mockReturnValue(true);
 
-      const result = writeFileWithCheck('some/file.ts', 'content', { dryRun: true, overwrite: true });
+      const result = writeFileWithCheck('some/file.ts', 'content', { isDryRun: true, shouldOverwrite: true });
 
       expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'overwritten' });
       expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -150,16 +153,16 @@ describe(writeFileWithCheck, () => {
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('same content');
 
-      const result = writeFileWithCheck('some/file.ts', 'same content', { dryRun: true, overwrite: false });
+      const result = writeFileWithCheck('some/file.ts', 'same content', { isDryRun: true, shouldOverwrite: false });
 
       expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'up-to-date' });
     });
 
-    it('returns "skipped" when file exists with different content and overwrite is false', () => {
+    it('returns "skipped" when file exists with different content and shouldOverwrite is false', () => {
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('different content');
 
-      const result = writeFileWithCheck('some/file.ts', 'new content', { dryRun: true, overwrite: false });
+      const result = writeFileWithCheck('some/file.ts', 'new content', { isDryRun: true, shouldOverwrite: false });
 
       expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'skipped' });
     });

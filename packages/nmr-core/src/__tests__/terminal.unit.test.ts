@@ -210,11 +210,11 @@ describe(reportTemplateUpdate, () => {
     ['updated', false, 'Updated some/file.yaml'],
     ['updated', true, '[dry-run] Would update some/file.yaml'],
     ['up-to-date', false, 'some/file.yaml (up to date)'],
-  ] as const)('prints the status of a %s file (dryRun: %s)', (outcome, dryRun, expected) => {
+  ] as const)('prints the status of a %s file (isDryRun: %s)', (outcome, isDryRun, expected) => {
     using silent = silenceConsole(['info']);
     const result: ManagedFileResult = { filePath: 'some/file.yaml', outcome };
 
-    reportTemplateUpdate(result, dryRun);
+    reportTemplateUpdate(result, isDryRun);
 
     expect(silent.info).toHaveBeenCalledWith(expect.stringContaining(expected));
   });
@@ -331,7 +331,7 @@ describe(reportWriteResult, () => {
     { style: 'rich', success: '  ✅ Created some/file.ts', skip: '  🟠 some/file.ts (already exists)' },
   ] as const)('passes the $style style of stdout to the stdout helpers', ({ style, success, skip }) => {
     using silent = silenceConsole(['info']);
-    const styles = { stderr: otherStyle(style), stdout: style };
+    const styles = { stderr: getOtherStyle(style), stdout: style };
 
     reportWriteResult({ filePath: 'some/file.ts', outcome: 'created' }, false, styles);
     reportWriteResult({ filePath: 'some/file.ts', outcome: 'skipped' }, false, styles);
@@ -345,7 +345,7 @@ describe(reportWriteResult, () => {
     { style: 'rich', expected: '  ❌ Failed to write some/file.ts\n' },
   ] as const)('passes the $style style of stderr to the stderr helper', ({ style, expected }) => {
     using capture = captureStdio();
-    const styles = { stderr: style, stdout: otherStyle(style) };
+    const styles = { stderr: style, stdout: getOtherStyle(style) };
 
     reportWriteResult({ filePath: 'some/file.ts', outcome: 'failed' }, false, styles);
 
@@ -355,8 +355,8 @@ describe(reportWriteResult, () => {
 
 describe(resolveStreamStyles, () => {
   const envVar = 'SOME_CLI_OUTPUT_STYLE';
-  const terminals = { stderrIsTty: true, stdoutIsTty: true };
-  const pipes = { stderrIsTty: false, stdoutIsTty: false };
+  const ttyStreamFlags = { stderrIsTty: true, stdoutIsTty: true };
+  const pipedStreamFlags = { stderrIsTty: false, stdoutIsTty: false };
 
   it('takes the style from the flag over the variable', () => {
     const resolution = resolveStreamStyles({
@@ -364,35 +364,37 @@ describe(resolveStreamStyles, () => {
       env: { [envVar]: 'plain' },
       envVar,
       flag: '--output-style',
-      ...pipes,
+      ...pipedStreamFlags,
     });
 
     expect(resolution).toStrictEqual({ styles: { stderr: 'rich', stdout: 'rich' } });
   });
 
   it.each(['plain', 'rich'] as const)('takes %s from the variable over CI and the terminal state', (style) => {
-    const contrary =
+    const contraryOptions =
       style === 'plain'
-        ? { env: { [envVar]: style }, ...terminals }
-        : { env: { [envVar]: style, CI: 'true' }, ...pipes };
+        ? { env: { [envVar]: style }, ...ttyStreamFlags }
+        : { env: { [envVar]: style, CI: 'true' }, ...pipedStreamFlags };
 
-    expect(resolveStreamStyles({ envVar, ...contrary })).toStrictEqual({ styles: { stderr: style, stdout: style } });
+    expect(resolveStreamStyles({ envVar, ...contraryOptions })).toStrictEqual({
+      styles: { stderr: style, stdout: style },
+    });
   });
 
   it('takes plain from CI over the terminal state', () => {
-    const resolution = resolveStreamStyles({ env: { CI: 'true' }, envVar, ...terminals });
+    const resolution = resolveStreamStyles({ env: { CI: 'true' }, envVar, ...ttyStreamFlags });
 
     expect(resolution).toStrictEqual({ styles: { stderr: 'plain', stdout: 'plain' } });
   });
 
   it('takes plain from TERM=linux at a terminal', () => {
-    const resolution = resolveStreamStyles({ env: { TERM: 'linux' }, envVar, ...terminals });
+    const resolution = resolveStreamStyles({ env: { TERM: 'linux' }, envVar, ...ttyStreamFlags });
 
     expect(resolution).toStrictEqual({ styles: { stderr: 'plain', stdout: 'plain' } });
   });
 
   it('detects rich at a terminal outside CI', () => {
-    const resolution = resolveStreamStyles({ env: { TERM: 'xterm-256color' }, envVar, ...terminals });
+    const resolution = resolveStreamStyles({ env: { TERM: 'xterm-256color' }, envVar, ...ttyStreamFlags });
 
     expect(resolution).toStrictEqual({ styles: { stderr: 'rich', stdout: 'rich' } });
   });
@@ -431,21 +433,21 @@ describe(resolveStreamStyles, () => {
 
 // region | Helpers
 /** Returns the style that a helper given the wrong stream's style would print in. */
-function otherStyle(style: OutputStyle): OutputStyle {
+function getOtherStyle(style: OutputStyle): OutputStyle {
   return style === 'plain' ? 'rich' : 'plain';
 }
 
 /** Sets a stream's `isTTY` until disposed, then restores the property as it was. */
 function stubIsTty(stream: NodeJS.WriteStream, isTty: boolean): Disposable {
-  const original = Object.getOwnPropertyDescriptor(stream, 'isTTY');
+  const originalDescriptor = Object.getOwnPropertyDescriptor(stream, 'isTTY');
   Object.defineProperty(stream, 'isTTY', { configurable: true, value: isTty });
 
   return {
     [Symbol.dispose]: () => {
-      if (original === undefined) {
+      if (originalDescriptor === undefined) {
         Reflect.deleteProperty(stream, 'isTTY');
       } else {
-        Object.defineProperty(stream, 'isTTY', original);
+        Object.defineProperty(stream, 'isTTY', originalDescriptor);
       }
     },
   };

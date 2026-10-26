@@ -23,7 +23,10 @@ interface ScaffoldResult {
  * `v11y sync` maintains.
  */
 export function scaffoldConfig({ dryRun }: { dryRun: boolean }): ScaffoldResult {
-  const configResult = writeFileWithCheck(CONFIG_PATH, v11yCheckConfigTemplate, { dryRun, overwrite: false });
+  const configResult = writeFileWithCheck(CONFIG_PATH, v11yCheckConfigTemplate, {
+    isDryRun: dryRun,
+    shouldOverwrite: false,
+  });
   return { configResult };
 }
 
@@ -34,7 +37,7 @@ export function copyWorkflowTemplate(dryRun: boolean, overwrite: boolean): Write
     return { filePath: WORKFLOW_PATH, outcome: 'failed', error: template.error };
   }
 
-  return writeFileWithCheck(WORKFLOW_PATH, template.content, { dryRun, overwrite });
+  return writeFileWithCheck(WORKFLOW_PATH, template.content, { isDryRun: dryRun, shouldOverwrite: overwrite });
 }
 
 /** Reads the bundled audit.yaml.template, returning a description of the failure when it cannot. */

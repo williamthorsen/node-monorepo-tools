@@ -1,4 +1,4 @@
-import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
@@ -45,7 +45,7 @@ describe(assertCleanWorkingTree, () => {
 
     expect(mockExecFileSync).toHaveBeenCalledWith('git', ['status', '--porcelain'], {
       encoding: 'utf8',
-      maxBuffer: GIT_OUTPUT_LIMIT,
+      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
   });

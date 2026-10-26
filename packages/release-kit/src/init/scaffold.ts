@@ -30,18 +30,29 @@ export function scaffoldFiles({
   if (publishable) {
     results.push(
       writeFileWithCheck(CREATE_GITHUB_RELEASE_WORKFLOW_PATH, createGithubReleaseWorkflow(repoType), {
-        dryRun,
-        overwrite,
+        isDryRun: dryRun,
+        shouldOverwrite: overwrite,
       }),
-      writeFileWithCheck(PUBLISH_WORKFLOW_PATH, publishWorkflow(repoType), { dryRun, overwrite }),
+      writeFileWithCheck(PUBLISH_WORKFLOW_PATH, publishWorkflow(repoType), {
+        isDryRun: dryRun,
+        shouldOverwrite: overwrite,
+      }),
     );
   }
 
-  results.push(writeFileWithCheck('.github/workflows/release.yaml', releaseWorkflow(repoType), { dryRun, overwrite }));
+  results.push(
+    writeFileWithCheck('.github/workflows/release.yaml', releaseWorkflow(repoType), {
+      isDryRun: dryRun,
+      shouldOverwrite: overwrite,
+    }),
+  );
 
   if (withConfig) {
     results.push(
-      writeFileWithCheck('.config/release-kit.config.ts', releaseConfigScript(repoType), { dryRun, overwrite }),
+      writeFileWithCheck('.config/release-kit.config.ts', releaseConfigScript(repoType), {
+        isDryRun: dryRun,
+        shouldOverwrite: overwrite,
+      }),
     );
   }
 

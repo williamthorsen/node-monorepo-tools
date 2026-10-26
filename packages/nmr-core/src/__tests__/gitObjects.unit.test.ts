@@ -34,7 +34,7 @@ describe(parseObjectFormat, () => {
 describe(serializeTreeObject, () => {
   it('orders a subtree as though its name ended in a slash', () => {
     // Bytes order `a-` before `a/` before `a0`, so the subtree `a` lands between the two files.
-    const entries = [entry('a0', '100644'), entry('a', TREE_MODE), entry('a-', '100644')];
+    const entries = [buildEntry('a0', '100644'), buildEntry('a', TREE_MODE), buildEntry('a-', '100644')];
 
     const names = parseTreeObject('sha1', serializeTreeObject(entries))?.map((parsed) => parsed.name);
 
@@ -42,7 +42,7 @@ describe(serializeTreeObject, () => {
   });
 
   it('round-trips through parseTreeObject, keeping names that are not valid UTF-8', () => {
-    const entries = [entry('link', '120000'), entry('é', '100755')];
+    const entries = [buildEntry('link', '120000'), buildEntry('é', '100755')];
 
     expect(parseTreeObject('sha1', serializeTreeObject(entries))).toStrictEqual(entries);
   });
@@ -50,7 +50,7 @@ describe(serializeTreeObject, () => {
 
 describe(parseTreeObject, () => {
   it('rejects content that ends inside an entry', () => {
-    const content = serializeTreeObject([entry('file', '100644')]);
+    const content = serializeTreeObject([buildEntry('file', '100644')]);
 
     expect(parseTreeObject('sha1', content.subarray(0, -1))).toBeUndefined();
   });
@@ -59,7 +59,7 @@ describe(parseTreeObject, () => {
 // region | Helpers
 
 /** Builds an entry whose id is a fixed SHA-1-length placeholder. */
-function entry(name: string, mode: string): GitTreeEntry {
+function buildEntry(name: string, mode: string): GitTreeEntry {
   return { id: Buffer.alloc(20, 0xab), mode, name };
 }
 

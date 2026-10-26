@@ -28,7 +28,7 @@ export function updateTemplatesCommand({ dryRun, styles }: UpdateTemplatesOption
   const result: ManagedFileResult =
     'error' in template
       ? { filePath: WORKFLOW_PATH, outcome: 'failed', error: template.error }
-      : updateManagedFile(WORKFLOW_PATH, template.content, { dryRun });
+      : updateManagedFile(WORKFLOW_PATH, template.content, { isDryRun: dryRun });
   reportTemplateUpdate(result, dryRun, styles);
 
   return result.outcome === 'failed' ? 1 : 0;

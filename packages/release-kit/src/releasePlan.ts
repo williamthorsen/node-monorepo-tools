@@ -81,7 +81,7 @@ function applyStep(step: PlannedStep): { outcome: 'applied' | 'created' | 'faile
       return { outcome: 'failed', error: describeError(error) };
     }
   }
-  const result = writeFileWithCheck(step.path, step.content, { dryRun: false, overwrite: true });
+  const result = writeFileWithCheck(step.path, step.content, { isDryRun: false, shouldOverwrite: true });
   if (result.outcome === 'failed') {
     return { outcome: 'failed', ...(result.error !== undefined && { error: result.error }) };
   }

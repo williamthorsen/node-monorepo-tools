@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 
-import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 
 import { parseJsonRecord } from './parseJsonRecord.ts';
 
@@ -14,7 +14,7 @@ export interface CheckResult {
 /** Verifies that the current directory is inside a git repository. */
 export function isGitRepo(): CheckResult {
   try {
-    execSync('git rev-parse --is-inside-work-tree', { maxBuffer: GIT_OUTPUT_LIMIT, stdio: 'pipe' });
+    execSync('git rev-parse --is-inside-work-tree', { maxBuffer: GIT_OUTPUT_LIMIT_BYTES, stdio: 'pipe' });
     return { ok: true };
   } catch {
     return { ok: false, message: 'Not inside a git repository. Run `git init` first.' };

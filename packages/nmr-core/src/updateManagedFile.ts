@@ -19,28 +19,32 @@ export interface ManagedFileResult {
 /**
  * Writes `content` to a file that a package renders from a template, when the file is missing or its bytes differ.
  *
- * With `dryRun`, returns the outcome and diff without writing. Returns a filesystem error in the result rather than
+ * With `isDryRun`, returns the outcome and diff without writing. Returns a filesystem error in the result rather than
  * throwing it.
  */
-export function updateManagedFile(filePath: string, content: string, options: { dryRun: boolean }): ManagedFileResult {
-  let existing: string | undefined;
+export function updateManagedFile(
+  filePath: string,
+  content: string,
+  options: { isDryRun: boolean },
+): ManagedFileResult {
+  let existingContent: string | undefined;
   if (existsSync(filePath)) {
     try {
-      existing = readFileSync(filePath, 'utf8');
+      existingContent = readFileSync(filePath, 'utf8');
     } catch (error: unknown) {
       return { filePath, outcome: 'failed', error: describeError(error) };
     }
-    if (existing === content) {
+    if (existingContent === content) {
       return { filePath, outcome: 'up-to-date' };
     }
   }
 
   const result: ManagedFileResult =
-    existing === undefined
+    existingContent === undefined
       ? { filePath, outcome: 'created' }
-      : { filePath, outcome: 'updated', diff: formatHunks(existing, content) };
+      : { filePath, outcome: 'updated', diff: formatHunks(existingContent, content) };
 
-  if (options.dryRun) {
+  if (options.isDryRun) {
     return result;
   }
 
@@ -56,8 +60,8 @@ export function updateManagedFile(filePath: string, content: string, options: { 
 
 // region | Helpers
 /** Renders the hunks of a unified diff, without file headers or end-of-file newline markers. */
-function formatHunks(before: string, after: string): string {
-  const { hunks } = structuredPatch('', '', before, after, undefined, undefined, { context: 3 });
+function formatHunks(oldContent: string, newContent: string): string {
+  const { hunks } = structuredPatch('', '', oldContent, newContent, undefined, undefined, { context: 3 });
   return hunks
     .flatMap((hunk) => [
       `@@ -${String(hunk.oldStart)},${String(hunk.oldLines)} +${String(hunk.newStart)},${String(hunk.newLines)} @@`,

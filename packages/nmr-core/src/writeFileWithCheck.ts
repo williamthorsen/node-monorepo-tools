@@ -25,22 +25,22 @@ function normalizeTrailingWhitespace(content: string): string {
 /**
  * Writes a file with existence and content checks, creating parent directories as needed.
  *
- * Without `overwrite`, leaves an existing file alone and reports it `up-to-date` when its content matches up to
- * trailing whitespace. With `dryRun`, returns the outcome without writing. Returns a filesystem error in the
+ * Without `shouldOverwrite`, leaves an existing file alone and reports it `up-to-date` when its content matches up to
+ * trailing whitespace. With `isDryRun`, returns the outcome without writing. Returns a filesystem error in the
  * result rather than throwing it: `skipped` when the existing file cannot be read, `failed` when the write fails.
  */
 export function writeFileWithCheck(
   filePath: string,
   content: string,
-  options: { dryRun: boolean; overwrite: boolean },
+  options: { isDryRun: boolean; shouldOverwrite: boolean },
 ): WriteResult {
-  const { dryRun, overwrite } = options;
-  const fileExists = existsSync(filePath);
+  const { isDryRun, shouldOverwrite } = options;
+  const doesFileExist = existsSync(filePath);
 
-  if (fileExists && !overwrite) {
+  if (doesFileExist && !shouldOverwrite) {
     try {
-      const existing = readFileSync(filePath, 'utf8');
-      if (normalizeTrailingWhitespace(existing) === normalizeTrailingWhitespace(content)) {
+      const existingContent = readFileSync(filePath, 'utf8');
+      if (normalizeTrailingWhitespace(existingContent) === normalizeTrailingWhitespace(content)) {
         return { filePath, outcome: 'up-to-date' };
       }
     } catch (error: unknown) {
@@ -50,9 +50,9 @@ export function writeFileWithCheck(
     return { filePath, outcome: 'skipped' };
   }
 
-  const outcome: WriteOutcome = fileExists ? 'overwritten' : 'created';
+  const outcome: WriteOutcome = doesFileExist ? 'overwritten' : 'created';
 
-  if (dryRun) {
+  if (isDryRun) {
     return { filePath, outcome };
   }
 

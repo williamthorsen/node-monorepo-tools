@@ -84,21 +84,21 @@ describe('cache-store', () => {
     it('separates scopes sharing one cache directory', ({ tree }) => {
       // Two packages hoisting to the same `node_modules` would otherwise write over each other's entries.
       tree.mkdir('node_modules');
-      const a = path.join(tree.dir, 'packages', 'a');
-      const b = path.join(tree.dir, 'packages', 'b');
+      const aDir = path.join(tree.dir, 'packages', 'a');
+      const bDir = path.join(tree.dir, 'packages', 'b');
 
-      const pathA = resolveCacheEntryPath({ tool: TOOL, scopeDir: a, slug: 'pkg', extension: '.json' });
-      const pathB = resolveCacheEntryPath({ tool: TOOL, scopeDir: b, slug: 'pkg', extension: '.json' });
+      const aPath = resolveCacheEntryPath({ tool: TOOL, scopeDir: aDir, slug: 'pkg', extension: '.json' });
+      const bPath = resolveCacheEntryPath({ tool: TOOL, scopeDir: bDir, slug: 'pkg', extension: '.json' });
 
-      expect(pathA).not.toBe(pathB);
-      expect(path.dirname(pathA)).toBe(path.dirname(pathB));
+      expect(aPath).not.toBe(bPath);
+      expect(path.dirname(aPath)).toBe(path.dirname(bPath));
     });
 
     it('separates entries in one scope by their discriminators', ({ tree }) => {
-      const base = { tool: TOOL, scopeDir: tree.dir, stopAtDir: tree.dir, slug: 'entry', extension: '.json' };
+      const baseRef = { tool: TOOL, scopeDir: tree.dir, stopAtDir: tree.dir, slug: 'entry', extension: '.json' };
 
-      expect(resolveCacheEntryPath({ ...base, discriminators: ['check'] })).not.toBe(
-        resolveCacheEntryPath({ ...base, discriminators: ['check:strict'] }),
+      expect(resolveCacheEntryPath({ ...baseRef, discriminators: ['check'] })).not.toBe(
+        resolveCacheEntryPath({ ...baseRef, discriminators: ['check:strict'] }),
       );
     });
 
@@ -216,20 +216,20 @@ describe('cache-store', () => {
     });
 
     it('never exposes a half-written entry to a concurrent reader', async ({ tree }) => {
-      // Each read races the write, so a truncated prefix in `observed` would mean that the write is not atomic.
+      // Each read races the write, so a truncated prefix in `observedContents` would mean that the write is not atomic.
       const entryPath = path.join(tree.dir, 'entry.hash');
-      const previous = 'p'.repeat(1_000_000);
-      const next = 'n'.repeat(1_000_000);
-      await writeCacheEntry(entryPath, previous);
+      const previousContent = 'p'.repeat(1_000_000);
+      const nextContent = 'n'.repeat(1_000_000);
+      await writeCacheEntry(entryPath, previousContent);
 
-      const observed: Array<string | undefined> = [];
-      const writing = writeCacheEntry(entryPath, next);
+      const observedContents: Array<string | undefined> = [];
+      const writePromise = writeCacheEntry(entryPath, nextContent);
       for (let attempt = 0; attempt < 200; attempt++) {
-        observed.push(await readCacheEntry(entryPath));
+        observedContents.push(await readCacheEntry(entryPath));
       }
-      await writing;
+      await writePromise;
 
-      expect(observed.every((value) => value === previous || value === next)).toBe(true);
+      expect(observedContents.every((value) => value === previousContent || value === nextContent)).toBe(true);
     });
 
     it('reports a write that it could not complete, without leaving a temporary file behind', async ({ tree }) => {
@@ -246,15 +246,15 @@ describe('cache-store', () => {
     it('removes the entry that it names, leaving its neighbours alone', async ({ tree }) => {
       tree.mkdir('node_modules');
       const ref = { tool: TOOL, scopeDir: tree.dir };
-      const mine = resolveCacheEntryPath({ ...ref, slug: 'a', extension: '.hash' });
-      const neighbour = resolveCacheEntryPath({ ...ref, slug: 'b', extension: '.hash' });
-      await writeCacheEntry(mine, 'one');
-      await writeCacheEntry(neighbour, 'two');
+      const minePath = resolveCacheEntryPath({ ...ref, slug: 'a', extension: '.hash' });
+      const neighbourPath = resolveCacheEntryPath({ ...ref, slug: 'b', extension: '.hash' });
+      await writeCacheEntry(minePath, 'one');
+      await writeCacheEntry(neighbourPath, 'two');
 
-      await removeCacheEntry(mine);
+      await removeCacheEntry(minePath);
 
-      expect(fs.existsSync(mine)).toBe(false);
-      expect(fs.existsSync(neighbour)).toBe(true);
+      expect(fs.existsSync(minePath)).toBe(false);
+      expect(fs.existsSync(neighbourPath)).toBe(true);
     });
 
     it('given an entry that is not there, does nothing', async ({ tree }) => {
@@ -276,15 +276,15 @@ describe('cache-store', () => {
 
     it('leaves another tool’s cache alone', async ({ tree }) => {
       tree.mkdir('node_modules');
-      const mine = { tool: TOOL, scopeDir: tree.dir };
-      const theirs = { tool: 'other-tool', scopeDir: tree.dir };
-      await writeCacheEntry(resolveCacheEntryPath({ ...mine, slug: 'a', extension: '.hash' }), 'one');
-      const theirEntry = resolveCacheEntryPath({ ...theirs, slug: 'a', extension: '.hash' });
-      await writeCacheEntry(theirEntry, 'two');
+      const mineRef = { tool: TOOL, scopeDir: tree.dir };
+      const theirsRef = { tool: 'other-tool', scopeDir: tree.dir };
+      await writeCacheEntry(resolveCacheEntryPath({ ...mineRef, slug: 'a', extension: '.hash' }), 'one');
+      const theirEntryPath = resolveCacheEntryPath({ ...theirsRef, slug: 'a', extension: '.hash' });
+      await writeCacheEntry(theirEntryPath, 'two');
 
-      await removeCacheDir(mine);
+      await removeCacheDir(mineRef);
 
-      expect(fs.existsSync(theirEntry)).toBe(true);
+      expect(fs.existsSync(theirEntryPath)).toBe(true);
     });
 
     it('is a no-op when the tool does not have a cache', async ({ tree }) => {

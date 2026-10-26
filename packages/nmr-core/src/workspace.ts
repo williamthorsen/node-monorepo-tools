@@ -6,9 +6,9 @@ import { parse } from 'yaml';
 
 import { matchPackageDirs, resolvePackageDirs, splitWorkspacePatterns } from './helpers/workspace-patterns.ts';
 
-const PACKAGE_MANIFEST = 'package.json';
+const PACKAGE_MANIFEST_FILENAME = 'package.json';
 
-const WORKSPACE_MANIFEST = 'pnpm-workspace.yaml';
+const WORKSPACE_MANIFEST_FILENAME = 'pnpm-workspace.yaml';
 
 /**
  * The condition under which a workspace resolves to an empty set of package directories. Each calls for a
@@ -41,12 +41,12 @@ export type WorkspaceResolution =
  * containing `pnpm-workspace.yaml`, or returns `undefined` when the walk does not find one.
  */
 export function findMonorepoRoot(startDir?: string): string | undefined {
-  return findDirectoryChainMatch(startDir ?? process.cwd(), [WORKSPACE_MANIFEST])?.dir;
+  return findDirectoryChainMatch(startDir ?? process.cwd(), [WORKSPACE_MANIFEST_FILENAME])?.dir;
 }
 
 /** Reports whether a directory is the monorepo root, which the workspace manifest's presence marks. */
 export function isMonorepoRoot(dir: string): boolean {
-  return existsSync(path.join(dir, WORKSPACE_MANIFEST));
+  return existsSync(path.join(dir, WORKSPACE_MANIFEST_FILENAME));
 }
 
 /**
@@ -57,12 +57,12 @@ export function isMonorepoRoot(dir: string): boolean {
  * an entry whose value is not a string.
  */
 export function readWorkspaceOverrides(monorepoRoot: string): Record<string, string> | undefined {
-  const manifestRead = readWorkspaceManifest(monorepoRoot);
-  if (manifestRead.kind !== 'parsed' || !isObject(manifestRead.value)) {
+  const manifestReadResult = readWorkspaceManifest(monorepoRoot);
+  if (manifestReadResult.kind !== 'parsed' || !isObject(manifestReadResult.value)) {
     return undefined;
   }
 
-  const overrides = manifestRead.value['overrides'];
+  const overrides = manifestReadResult.value['overrides'];
 
   return isObject(overrides) ? readStringValues(overrides) : undefined;
 }
@@ -77,7 +77,7 @@ export function readWorkspacePackageNames(packageDirs: readonly string[]): strin
   for (const dir of packageDirs) {
     let parsedManifest: unknown;
     try {
-      parsedManifest = JSON.parse(readFileSync(path.join(dir, PACKAGE_MANIFEST), 'utf8'));
+      parsedManifest = JSON.parse(readFileSync(path.join(dir, PACKAGE_MANIFEST_FILENAME), 'utf8'));
     } catch {
       continue;
     }
@@ -97,22 +97,22 @@ export function readWorkspacePackageNames(packageDirs: readonly string[]): strin
  * without the exclusions to tell `all-excluded` from `no-package`.
  */
 export function resolveWorkspace(monorepoRoot: string): WorkspaceResolution {
-  const manifestRead = readWorkspaceManifest(monorepoRoot);
-  if (manifestRead.kind === 'absent') {
+  const manifestReadResult = readWorkspaceManifest(monorepoRoot);
+  if (manifestReadResult.kind === 'absent') {
     return { kind: 'not-a-workspace' };
   }
-  if (manifestRead.kind === 'unreadable') {
+  if (manifestReadResult.kind === 'unreadable') {
     return { cause: 'unreadable-manifest', kind: 'empty', patterns: [] };
   }
 
-  const packagesRead = readDeclaredPackages(manifestRead.value);
-  if (packagesRead.kind !== 'patterns') {
-    const cause = packagesRead.kind === 'absent' ? 'no-packages-list' : 'unreadable-packages';
+  const packagesReadResult = readDeclaredPackages(manifestReadResult.value);
+  if (packagesReadResult.kind !== 'patterns') {
+    const cause = packagesReadResult.kind === 'absent' ? 'no-packages-list' : 'unreadable-packages';
 
     return { cause, kind: 'empty', patterns: [] };
   }
 
-  const { patterns } = packagesRead;
+  const { patterns } = packagesReadResult;
 
   const packageDirs = resolvePackageDirs(monorepoRoot, patterns);
   if (packageDirs.length > 0) {
@@ -188,14 +188,14 @@ type ManifestRead = { kind: 'absent' } | { kind: 'parsed'; value: unknown } | { 
 
 /** Parses the monorepo root's `pnpm-workspace.yaml`, reporting an absent manifest apart from an unreadable one. */
 function readWorkspaceManifest(monorepoRoot: string): ManifestRead {
-  const workspaceFile = path.join(monorepoRoot, WORKSPACE_MANIFEST);
+  const workspaceManifestPath = path.join(monorepoRoot, WORKSPACE_MANIFEST_FILENAME);
 
-  if (!existsSync(workspaceFile)) {
+  if (!existsSync(workspaceManifestPath)) {
     return { kind: 'absent' };
   }
 
   try {
-    return { kind: 'parsed', value: parse(readFileSync(workspaceFile, 'utf8')) };
+    return { kind: 'parsed', value: parse(readFileSync(workspaceManifestPath, 'utf8')) };
   } catch {
     return { kind: 'unreadable' };
   }
