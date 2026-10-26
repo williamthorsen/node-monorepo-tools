@@ -7,10 +7,10 @@ import { resolvePackageDirs } from '../workspace-patterns.ts';
 describe(resolvePackageDirs, () => {
   let tree: TempTree;
 
-  /** Creates a directory under the fixture root, with a `package.json` unless `withManifest` is false. */
-  function makePackage(relativeDir: string, withManifest = true): string {
+  /** Creates a directory under the fixture root, with a `package.json` unless `hasManifest` is false. */
+  function makePackage(relativeDir: string, hasManifest = true): string {
     const dir = tree.mkdir(relativeDir);
-    if (withManifest) {
+    if (hasManifest) {
       tree.write(`${relativeDir}/package.json`, '{}');
     }
     return dir;
@@ -29,9 +29,9 @@ describe(resolvePackageDirs, () => {
   });
 
   it('resolves an exact path', () => {
-    const cli = makePackage('tools/cli');
+    const cliDir = makePackage('tools/cli');
 
-    expect(resolvePackageDirs(tree.dir, ['tools/cli'])).toStrictEqual([cli]);
+    expect(resolvePackageDirs(tree.dir, ['tools/cli'])).toStrictEqual([cliDir]);
   });
 
   it('resolves the workspace root itself', () => {
@@ -79,9 +79,9 @@ describe(resolvePackageDirs, () => {
   it('resolves a symlinked package directory', () => {
     const alphaDir = makePackage('packages/alpha');
     makePackage('external/linked');
-    const link = tree.symlink('packages/linked', tree.resolve('external/linked'));
+    const linkPath = tree.symlink('packages/linked', tree.resolve('external/linked'));
 
-    expect(resolvePackageDirs(tree.dir, ['packages/*'])).toStrictEqual([alphaDir, link]);
+    expect(resolvePackageDirs(tree.dir, ['packages/*'])).toStrictEqual([alphaDir, linkPath]);
   });
 
   it('returns each directory once when patterns overlap', () => {
@@ -99,9 +99,9 @@ describe(resolvePackageDirs, () => {
   });
 
   it('tolerates a trailing slash on a pattern', () => {
-    const cli = makePackage('tools/cli');
+    const cliDir = makePackage('tools/cli');
 
-    expect(resolvePackageDirs(tree.dir, ['tools/cli/'])).toStrictEqual([cli]);
+    expect(resolvePackageDirs(tree.dir, ['tools/cli/'])).toStrictEqual([cliDir]);
   });
 
   it('returns nothing when every pattern is negative', () => {

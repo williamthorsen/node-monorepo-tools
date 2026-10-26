@@ -7,7 +7,7 @@ import { type FlagSchema, parseArgs, parseArgsOrExit, ParseError, type ParseErro
 const emptySchema = {} satisfies FlagSchema;
 
 const mixedSchema = {
-  dryRun: { long: '--dry-run', type: 'boolean' as const },
+  isDryRun: { long: '--dry-run', type: 'boolean' as const },
   output: { long: '--output', type: 'string' as const, short: '-o' },
   verbose: { long: '--verbose', type: 'boolean' as const, short: '-v' },
 };
@@ -30,14 +30,14 @@ describe(parseArgs, () => {
     it('returns default flags and empty positionals', () => {
       const result = parseArgs([], mixedSchema);
 
-      expect(result.flags).toStrictEqual({ dryRun: false, output: undefined, verbose: false });
+      expect(result.flags).toStrictEqual({ isDryRun: false, output: undefined, verbose: false });
       expect(result.positionals).toStrictEqual([]);
     });
   });
 
   describe('boolean flags', () => {
     it('sets boolean flag to true when present via long form', () => {
-      expect(parseArgs(['--dry-run'], mixedSchema).flags.dryRun).toBe(true);
+      expect(parseArgs(['--dry-run'], mixedSchema).flags.isDryRun).toBe(true);
     });
 
     it('sets boolean flag to true when present via short alias', () => {
@@ -47,7 +47,7 @@ describe(parseArgs, () => {
     it('defaults boolean flags to false when absent', () => {
       const result = parseArgs(['--output', 'dist/out.js'], mixedSchema);
 
-      expect(result.flags.dryRun).toBe(false);
+      expect(result.flags.isDryRun).toBe(false);
       expect(result.flags.verbose).toBe(false);
     });
 
@@ -137,7 +137,7 @@ describe(parseArgs, () => {
       const result = parseArgs(['foo', '--dry-run', 'bar'], mixedSchema, { allowPositionals: true });
 
       expect(result.positionals).toStrictEqual(['foo', 'bar']);
-      expect(result.flags.dryRun).toBe(true);
+      expect(result.flags.isDryRun).toBe(true);
     });
 
     it('treats bare - as a positional, not a flag, when allowPositionals is set', () => {
@@ -153,7 +153,7 @@ describe(parseArgs, () => {
     it('collects everything after -- as positionals when allowPositionals is set', () => {
       const result = parseArgs(['--dry-run', '--', '--output', 'val'], mixedSchema, { allowPositionals: true });
 
-      expect(result.flags.dryRun).toBe(true);
+      expect(result.flags.isDryRun).toBe(true);
       expect(result.flags.output).toBeUndefined();
       expect(result.positionals).toStrictEqual(['--output', 'val']);
     });
@@ -181,15 +181,15 @@ describe(parseArgs, () => {
 
   describe('short-flag clustering', () => {
     const clusterSchema = {
-      all: { long: '--all', type: 'boolean' as const, short: '-a' },
-      build: { long: '--build', type: 'boolean' as const, short: '-b' },
+      shouldIncludeAll: { long: '--all', type: 'boolean' as const, short: '-a' },
+      shouldBuild: { long: '--build', type: 'boolean' as const, short: '-b' },
     };
 
     it('expands clustered short boolean flags', () => {
       const result = parseArgs(['-ab'], clusterSchema);
 
-      expect(result.flags.all).toBe(true);
-      expect(result.flags.build).toBe(true);
+      expect(result.flags.shouldIncludeAll).toBe(true);
+      expect(result.flags.shouldBuild).toBe(true);
     });
 
     it('throws unknown-flag for an unknown flag inside a cluster', async () => {
@@ -199,36 +199,36 @@ describe(parseArgs, () => {
 });
 
 describe(parseArgsOrExit, () => {
-  let capture: CapturedStdio;
+  let capturedStdio: CapturedStdio;
 
   beforeEach(() => {
-    capture = captureStdio();
+    capturedStdio = captureStdio();
     void throwOnProcessExit();
   });
 
   afterEach(() => {
-    capture[Symbol.dispose]();
+    capturedStdio[Symbol.dispose]();
     vi.restoreAllMocks();
   });
 
   it('returns the parsed result when parsing succeeds', () => {
     const result = parseArgsOrExit(['--dry-run'], mixedSchema);
 
-    expect(result.flags.dryRun).toBe(true);
+    expect(result.flags.isDryRun).toBe(true);
     expect(process.exit).not.toHaveBeenCalled();
   });
 
   it('prints a usage error and exits with code 1 on a parse failure', () => {
     expect(() => parseArgsOrExit(['--unknown'], mixedSchema)).toThrow(ProcessExitError);
 
-    expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
+    expect(capturedStdio.stderrChunks).toContain('Error: Unknown option: --unknown\n');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('prints a usage error and exits with code 1 on an unexpected positional', () => {
     expect(() => parseArgsOrExit(['extra'], mixedSchema)).toThrow(ProcessExitError);
 
-    expect(capture.stderrChunks).toContain('Error: Unexpected positional argument: extra\n');
+    expect(capturedStdio.stderrChunks).toContain('Error: Unexpected positional argument: extra\n');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 

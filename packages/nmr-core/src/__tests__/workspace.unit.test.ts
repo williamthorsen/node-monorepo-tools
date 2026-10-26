@@ -16,17 +16,20 @@ import {
 const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
 const NMR_CORE_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'nmr-core');
 
-const PREFIX = 'nmr-core-workspace-test-';
+const TEMP_DIR_PREFIX = 'nmr-core-workspace-test-';
 
 const it = baseIt
   .extend(
     'toolsTree',
-    makeFixture(() => createTempTree({ 'tools/cli/package.json': '{}' }, { prefix: PREFIX })),
+    makeFixture(() => createTempTree({ 'tools/cli/package.json': '{}' }, { prefix: TEMP_DIR_PREFIX })),
   )
   .extend(
     'packagesTree',
     makeFixture(() =>
-      createTempTree({ 'packages/alpha/package.json': '{}', 'packages/legacy/package.json': '{}' }, { prefix: PREFIX }),
+      createTempTree(
+        { 'packages/alpha/package.json': '{}', 'packages/legacy/package.json': '{}' },
+        { prefix: TEMP_DIR_PREFIX },
+      ),
     ),
   );
 
@@ -59,7 +62,7 @@ describe(isMonorepoRoot, () => {
 describe(resolveWorkspace, () => {
   describe("kind 'not-a-workspace'", () => {
     it('reports a directory without a workspace manifest rather than throwing', () => {
-      using notARoot = createTempTree({}, { prefix: PREFIX });
+      using notARoot = createTempTree({}, { prefix: TEMP_DIR_PREFIX });
 
       expect(resolveWorkspace(notARoot.dir)).toStrictEqual({ kind: 'not-a-workspace' });
     });
