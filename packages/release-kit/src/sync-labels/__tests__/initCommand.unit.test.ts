@@ -95,12 +95,12 @@ describe(syncLabelsInitCommand, () => {
 
     expect(exitCode).toBe(0);
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/sync-labels.yaml', expect.any(String), {
-      dryRun: false,
-      overwrite: false,
+      isDryRun: false,
+      shouldOverwrite: false,
     });
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith(CONFIG_FILE_PATH, expect.stringContaining('defineConfig'), {
-      dryRun: false,
-      overwrite: false,
+      isDryRun: false,
+      shouldOverwrite: false,
     });
     expect(mockGenerateCommand).toHaveBeenCalledExactlyOnceWith({ styles: SPLIT_STYLES });
     expect(mockLoadConfig).not.toHaveBeenCalled();
@@ -305,8 +305,8 @@ describe(syncLabelsInitCommand, () => {
     await syncLabelsInitCommand({ dryRun: false, force: true, styles: SPLIT_STYLES });
 
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
-      dryRun: false,
-      overwrite: true,
+      isDryRun: false,
+      shouldOverwrite: true,
     });
   });
 

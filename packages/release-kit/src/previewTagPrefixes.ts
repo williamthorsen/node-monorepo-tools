@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { basename } from 'node:path';
 
-import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './configSchema.ts';
@@ -181,7 +181,7 @@ function countTagsMatching(prefix: string): number {
   try {
     const output = execFileSync('git', ['tag', '--list', `${prefix}*`], {
       encoding: 'utf8',
-      maxBuffer: GIT_OUTPUT_LIMIT,
+      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     return output.split('\n').filter((line) => matchesTagPrefix(line.trim(), [prefix])).length;

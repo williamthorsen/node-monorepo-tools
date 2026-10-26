@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockReadWorkflowTemplate = vi.hoisted(() => vi.fn<() => { content: string } | { error: string }>());
 const mockUpdateManagedFile = vi.hoisted(() =>
-  vi.fn<(filePath: string, content: string, options: { dryRun: boolean }) => ManagedFileResult>(),
+  vi.fn<(filePath: string, content: string, options: { isDryRun: boolean }) => ManagedFileResult>(),
 );
 const mockReportTemplateUpdate = vi.hoisted(() => vi.fn());
 
@@ -40,7 +40,7 @@ describe(updateTemplatesCommand, () => {
 
       expect(exitCode).toBe(0);
       expect(mockUpdateManagedFile.mock.calls).toStrictEqual([
-        ['.github/workflows/audit.yaml', 'name: Dependency audit\n', { dryRun: true }],
+        ['.github/workflows/audit.yaml', 'name: Dependency audit\n', { isDryRun: true }],
       ]);
       expect(mockReportTemplateUpdate).toHaveBeenCalledWith(result, true, STYLES);
     },

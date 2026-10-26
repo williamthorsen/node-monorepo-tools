@@ -52,8 +52,8 @@ describe('scaffold', () => {
 
       expect(mockReadFileSync).toHaveBeenCalledWith(expect.stringContaining('audit.yaml.template'), 'utf8');
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/audit.yaml', 'name: Dependency audit\n', {
-        dryRun: false,
-        overwrite: false,
+        isDryRun: false,
+        shouldOverwrite: false,
       });
       expect(result).toStrictEqual({ filePath: '.github/workflows/audit.yaml', outcome: 'created' });
     });
@@ -80,8 +80,8 @@ describe('scaffold', () => {
       copyWorkflowTemplate(true, true);
 
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/audit.yaml', 'template content', {
-        dryRun: true,
-        overwrite: true,
+        isDryRun: true,
+        shouldOverwrite: true,
       });
     });
   });
@@ -95,8 +95,8 @@ describe('scaffold', () => {
 
       expect(result).toStrictEqual({ filePath: '.github/workflows/audit.yaml', outcome: 'created' });
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/audit.yaml', 'name: Dependency audit\n', {
-        dryRun: false,
-        overwrite: false,
+        isDryRun: false,
+        shouldOverwrite: false,
       });
     });
   });
@@ -125,12 +125,12 @@ describe('scaffold', () => {
       scaffoldFiles({ dryRun: false, force: true });
 
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.config/v11y-check.config.json', expect.any(String), {
-        dryRun: false,
-        overwrite: false,
+        isDryRun: false,
+        shouldOverwrite: false,
       });
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/audit.yaml', 'name: Dependency audit\n', {
-        dryRun: false,
-        overwrite: true,
+        isDryRun: false,
+        shouldOverwrite: true,
       });
     });
 
@@ -143,12 +143,12 @@ describe('scaffold', () => {
       scaffoldFiles({ dryRun: true, force: false });
 
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.config/v11y-check.config.json', expect.any(String), {
-        dryRun: true,
-        overwrite: false,
+        isDryRun: true,
+        shouldOverwrite: false,
       });
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/audit.yaml', expect.any(String), {
-        dryRun: true,
-        overwrite: false,
+        isDryRun: true,
+        shouldOverwrite: false,
       });
     });
 

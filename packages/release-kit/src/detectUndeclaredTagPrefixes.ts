@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 
 /** A candidate tag prefix found in the repo that is not in the known-prefix set. */
 export interface UndeclaredTagPrefix {
@@ -44,7 +44,7 @@ export function detectUndeclaredTagPrefixes(knownPrefixes: readonly string[]): U
   try {
     rawOutput = execFileSync('git', ['tag', '--list'], {
       encoding: 'utf8',
-      maxBuffer: GIT_OUTPUT_LIMIT,
+      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
   } catch {

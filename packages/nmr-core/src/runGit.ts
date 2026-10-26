@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 
-import { GIT_OUTPUT_LIMIT } from './gitOutputLimit.ts';
+import { GIT_OUTPUT_LIMIT_BYTES } from './gitOutputLimit.ts';
 
 /** Git's stdout, or the reason that git failed. */
 export type GitResult<T> = { ok: true; stdout: T } | { ok: false; error: string };
@@ -23,7 +23,7 @@ export function runGitForBytes(args: string[], cwd: string, input?: Buffer): Git
     cwd,
     env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
     input,
-    maxBuffer: GIT_OUTPUT_LIMIT,
+    maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
   });
 
   if (result.error) {

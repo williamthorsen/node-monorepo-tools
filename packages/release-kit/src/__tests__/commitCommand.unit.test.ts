@@ -1,4 +1,4 @@
-import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -47,7 +47,7 @@ describe(commitCommand, () => {
 
     commitCommand([]);
 
-    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['add', '-A'], { maxBuffer: GIT_OUTPUT_LIMIT });
+    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['add', '-A'], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'git',
       [
@@ -55,7 +55,7 @@ describe(commitCommand, () => {
         '-m',
         'release: release-kit-v2.4.0 core-v1.0.0\n\nrelease-kit-v2.4.0\n- feat: Add commit command\n\ncore-v1.0.0\n- fix: Bug',
       ],
-      { maxBuffer: GIT_OUTPUT_LIMIT },
+      { maxBuffer: GIT_OUTPUT_LIMIT_BYTES },
     );
     expect(console.info).toHaveBeenCalledWith('Created release commit: release: release-kit-v2.4.0 core-v1.0.0');
   });
@@ -94,7 +94,7 @@ describe(commitCommand, () => {
     commitCommand([]);
 
     expect(mockExecFileSync).toHaveBeenCalledWith('git', ['commit', '-m', 'release: v1.0.0'], {
-      maxBuffer: GIT_OUTPUT_LIMIT,
+      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
     });
   });
 
@@ -112,7 +112,7 @@ describe(commitCommand, () => {
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('release: v1.0.0'));
     expect(mockExecFileSync).toHaveBeenCalledWith('git', ['status', '--porcelain'], {
       encoding: 'utf8',
-      maxBuffer: GIT_OUTPUT_LIMIT,
+      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
     });
     expect(console.info).toHaveBeenCalledWith('\nUncommitted changes:');
     expect(mockExecFileSync).not.toHaveBeenCalledWith('git', expect.arrayContaining(['add']));
@@ -129,7 +129,7 @@ describe(commitCommand, () => {
     commitCommand([]);
 
     expect(mockExecFileSync).toHaveBeenCalledWith('git', ['commit', '-m', 'release: v1.0.0'], {
-      maxBuffer: GIT_OUTPUT_LIMIT,
+      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
     });
   });
 

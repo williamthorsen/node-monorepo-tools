@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 
 import { getTargetName } from './resolveReleaseDeclaration.ts';
 import { PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
@@ -59,7 +59,7 @@ type ResolveReleaseTagsArgs =
 export function resolveReleaseTags(args?: ResolveReleaseTagsArgs): ResolvedTag[] {
   const output = execFileSync('git', ['tag', '--points-at', 'HEAD'], {
     encoding: 'utf8',
-    maxBuffer: GIT_OUTPUT_LIMIT,
+    maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
   });
 
   const tags = output

@@ -3,7 +3,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockWriteFileWithCheck = vi.hoisted(() =>
-  vi.fn<(path: string, content: string, options: { dryRun: boolean; overwrite: boolean }) => WriteResult>(),
+  vi.fn<(path: string, content: string, options: { isDryRun: boolean; shouldOverwrite: boolean }) => WriteResult>(),
 );
 
 vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
@@ -57,8 +57,8 @@ describe(applyReleasePlan, () => {
     applyReleasePlan(makePlan({ tags: ['core-v1.0.0', 'cli-v2.1.0'] }));
 
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith('tmp/.release-tags', 'core-v1.0.0\ncli-v2.1.0', {
-      dryRun: false,
-      overwrite: true,
+      isDryRun: false,
+      shouldOverwrite: true,
     });
   });
 

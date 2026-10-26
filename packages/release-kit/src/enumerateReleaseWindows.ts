@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { matchesTagPrefix } from './matchesTagPrefix.ts';
@@ -251,7 +251,7 @@ function runGit(args: readonly string[], description: string): string {
   try {
     return execFileSync('git', args, {
       encoding: 'utf8',
-      maxBuffer: GIT_OUTPUT_LIMIT,
+      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
   } catch (error: unknown) {

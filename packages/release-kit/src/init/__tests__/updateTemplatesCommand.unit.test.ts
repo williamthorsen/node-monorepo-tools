@@ -13,7 +13,7 @@ const mockHasPackageJson = vi.hoisted(() => vi.fn());
 const mockUsesPnpm = vi.hoisted(() => vi.fn());
 const mockDetectRepoType = vi.hoisted(() => vi.fn());
 const mockUpdateManagedFile = vi.hoisted(() =>
-  vi.fn<(filePath: string, content: string, options: { dryRun: boolean }) => ManagedFileResult>(),
+  vi.fn<(filePath: string, content: string, options: { isDryRun: boolean }) => ManagedFileResult>(),
 );
 const mockReportTemplateUpdate = vi.hoisted(() => vi.fn());
 const mockPrintSkip = vi.hoisted(() => vi.fn());
@@ -176,7 +176,7 @@ describe(updateTemplatesCommand, () => {
     updateTemplatesCommand({ dryRun: true, styles: STYLES });
 
     for (const call of mockUpdateManagedFile.mock.calls) {
-      expect(call[2]).toStrictEqual({ dryRun: true });
+      expect(call[2]).toStrictEqual({ isDryRun: true });
     }
     expect(mockReportTemplateUpdate).toHaveBeenCalledWith(expect.anything(), true, STYLES);
   });

@@ -25,19 +25,19 @@ function normalizeTrailingWhitespace(content: string): string {
 /**
  * Writes a file with existence and content checks, creating parent directories as needed.
  *
- * Without `overwrite`, leaves an existing file alone and reports it `up-to-date` when its content matches up to
- * trailing whitespace. With `dryRun`, returns the outcome without writing. Returns a filesystem error in the
+ * Without `shouldOverwrite`, leaves an existing file alone and reports it `up-to-date` when its content matches up to
+ * trailing whitespace. With `isDryRun`, returns the outcome without writing. Returns a filesystem error in the
  * result rather than throwing it: `skipped` when the existing file cannot be read, `failed` when the write fails.
  */
 export function writeFileWithCheck(
   filePath: string,
   content: string,
-  options: { dryRun: boolean; overwrite: boolean },
+  options: { isDryRun: boolean; shouldOverwrite: boolean },
 ): WriteResult {
-  const { dryRun, overwrite } = options;
+  const { isDryRun, shouldOverwrite } = options;
   const fileExists = existsSync(filePath);
 
-  if (fileExists && !overwrite) {
+  if (fileExists && !shouldOverwrite) {
     try {
       const existing = readFileSync(filePath, 'utf8');
       if (normalizeTrailingWhitespace(existing) === normalizeTrailingWhitespace(content)) {
@@ -52,7 +52,7 @@ export function writeFileWithCheck(
 
   const outcome: WriteOutcome = fileExists ? 'overwritten' : 'created';
 
-  if (dryRun) {
+  if (isDryRun) {
     return { filePath, outcome };
   }
 

@@ -88,7 +88,7 @@
           "path": "../../nmr-core/dist/esm/gitObjects.js"
         },
         {
-          "hash": "54384dca",
+          "hash": "14216f5f",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/gitOutputLimit.js"
         },
@@ -108,7 +108,7 @@
           "path": "../../nmr-core/dist/esm/helpers/workspace-patterns.js"
         },
         {
-          "hash": "de4cb41d",
+          "hash": "dcd24627",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/index.js"
         },
@@ -118,12 +118,12 @@
           "path": "../../nmr-core/dist/esm/parseArgs.js"
         },
         {
-          "hash": "7915ba49",
+          "hash": "9104fb90",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/runGit.js"
         },
         {
-          "hash": "14547f78",
+          "hash": "3a355f62",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/terminal.js"
         },
@@ -133,7 +133,7 @@
           "path": "../../nmr-core/dist/esm/timer.js"
         },
         {
-          "hash": "3c395f31",
+          "hash": "29b6c346",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/updateManagedFile.js"
         },
@@ -143,7 +143,7 @@
           "path": "../../nmr-core/dist/esm/workspace.js"
         },
         {
-          "hash": "24bde686",
+          "hash": "5b3b66d1",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/writeFileWithCheck.js"
         },

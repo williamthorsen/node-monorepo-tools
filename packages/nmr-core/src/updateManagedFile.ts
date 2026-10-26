@@ -19,10 +19,14 @@ export interface ManagedFileResult {
 /**
  * Writes `content` to a file that a package renders from a template, when the file is missing or its bytes differ.
  *
- * With `dryRun`, returns the outcome and diff without writing. Returns a filesystem error in the result rather than
+ * With `isDryRun`, returns the outcome and diff without writing. Returns a filesystem error in the result rather than
  * throwing it.
  */
-export function updateManagedFile(filePath: string, content: string, options: { dryRun: boolean }): ManagedFileResult {
+export function updateManagedFile(
+  filePath: string,
+  content: string,
+  options: { isDryRun: boolean },
+): ManagedFileResult {
   let existing: string | undefined;
   if (existsSync(filePath)) {
     try {
@@ -40,7 +44,7 @@ export function updateManagedFile(filePath: string, content: string, options: { 
       ? { filePath, outcome: 'created' }
       : { filePath, outcome: 'updated', diff: formatHunks(existing, content) };
 
-  if (options.dryRun) {
+  if (options.isDryRun) {
     return result;
   }
 

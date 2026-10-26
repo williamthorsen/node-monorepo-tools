@@ -1,4 +1,4 @@
-import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -73,11 +73,11 @@ describe(createTags, () => {
       'git',
       ['tag', '-a', 'release-kit-v2.1.0', '-m', 'release-kit-v2.1.0'],
       {
-        maxBuffer: GIT_OUTPUT_LIMIT,
+        maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
       },
     );
     expect(mockExecFileSync).toHaveBeenCalledWith('git', ['tag', '-a', 'core-v1.3.0', '-m', 'core-v1.3.0'], {
-      maxBuffer: GIT_OUTPUT_LIMIT,
+      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
     });
     expect(result).toStrictEqual(['release-kit-v2.1.0', 'core-v1.3.0']);
   });
@@ -122,9 +122,9 @@ describe(createTags, () => {
 
     createTags({ dryRun: false, noGitChecks: false, style: 'rich' });
 
-    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['diff', '--quiet'], { maxBuffer: GIT_OUTPUT_LIMIT });
+    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['diff', '--quiet'], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
     expect(mockExecFileSync).toHaveBeenCalledWith('git', ['diff', '--quiet', '--cached'], {
-      maxBuffer: GIT_OUTPUT_LIMIT,
+      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
     });
   });
 

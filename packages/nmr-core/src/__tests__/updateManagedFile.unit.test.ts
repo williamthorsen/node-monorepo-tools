@@ -25,7 +25,7 @@ describe(updateManagedFile, () => {
   it('creates a missing file, with its parent directory', () => {
     mockExistsSync.mockReturnValue(false);
 
-    const result = updateManagedFile('dir/file.yaml', 'content\n', { dryRun: false });
+    const result = updateManagedFile('dir/file.yaml', 'content\n', { isDryRun: false });
 
     expect(result).toStrictEqual({ filePath: 'dir/file.yaml', outcome: 'created' });
     expect(mockMkdirSync).toHaveBeenCalledWith('dir', { recursive: true });
@@ -36,7 +36,7 @@ describe(updateManagedFile, () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('content\n');
 
-    const result = updateManagedFile('file.yaml', 'content\n', { dryRun: false });
+    const result = updateManagedFile('file.yaml', 'content\n', { isDryRun: false });
 
     expect(result).toStrictEqual({ filePath: 'file.yaml', outcome: 'up-to-date' });
     expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -46,7 +46,7 @@ describe(updateManagedFile, () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('content  \n');
 
-    const result = updateManagedFile('file.yaml', 'content\n', { dryRun: false });
+    const result = updateManagedFile('file.yaml', 'content\n', { isDryRun: false });
 
     expect(result.outcome).toBe('updated');
     expect(mockWriteFileSync).toHaveBeenCalledWith('file.yaml', 'content\n', 'utf8');
@@ -56,7 +56,7 @@ describe(updateManagedFile, () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('a\nb\nc\n');
 
-    const result = updateManagedFile('file.yaml', 'a\nB\nc\n', { dryRun: false });
+    const result = updateManagedFile('file.yaml', 'a\nB\nc\n', { isDryRun: false });
 
     expect(result).toStrictEqual({
       filePath: 'file.yaml',
@@ -69,16 +69,16 @@ describe(updateManagedFile, () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('a');
 
-    const result = updateManagedFile('file.yaml', 'a\n', { dryRun: false });
+    const result = updateManagedFile('file.yaml', 'a\n', { isDryRun: false });
 
     expect(result.diff).not.toContain(String.raw`\ No newline`);
   });
 
-  it('writes nothing under dryRun', () => {
+  it('writes nothing under isDryRun', () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('old\n');
 
-    const result = updateManagedFile('file.yaml', 'new\n', { dryRun: true });
+    const result = updateManagedFile('file.yaml', 'new\n', { isDryRun: true });
 
     expect(result.outcome).toBe('updated');
     expect(result.diff).toContain('+new');
@@ -92,7 +92,7 @@ describe(updateManagedFile, () => {
       throw new Error('EISDIR: illegal operation on a directory');
     });
 
-    const result = updateManagedFile('file.yaml', 'content\n', { dryRun: false });
+    const result = updateManagedFile('file.yaml', 'content\n', { isDryRun: false });
 
     expect(result).toStrictEqual({
       filePath: 'file.yaml',
@@ -108,7 +108,7 @@ describe(updateManagedFile, () => {
       throw new Error('EACCES: permission denied');
     });
 
-    const result = updateManagedFile('file.yaml', 'content\n', { dryRun: false });
+    const result = updateManagedFile('file.yaml', 'content\n', { isDryRun: false });
 
     expect(result).toStrictEqual({ filePath: 'file.yaml', outcome: 'failed', error: 'EACCES: permission denied' });
   });

@@ -210,11 +210,11 @@ describe(reportTemplateUpdate, () => {
     ['updated', false, 'Updated some/file.yaml'],
     ['updated', true, '[dry-run] Would update some/file.yaml'],
     ['up-to-date', false, 'some/file.yaml (up to date)'],
-  ] as const)('prints the status of a %s file (dryRun: %s)', (outcome, dryRun, expected) => {
+  ] as const)('prints the status of a %s file (isDryRun: %s)', (outcome, isDryRun, expected) => {
     using silent = silenceConsole(['info']);
     const result: ManagedFileResult = { filePath: 'some/file.yaml', outcome };
 
-    reportTemplateUpdate(result, dryRun);
+    reportTemplateUpdate(result, isDryRun);
 
     expect(silent.info).toHaveBeenCalledWith(expect.stringContaining(expected));
   });

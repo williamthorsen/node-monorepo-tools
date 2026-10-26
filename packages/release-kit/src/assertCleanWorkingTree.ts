@@ -1,12 +1,12 @@
 import { execFileSync } from 'node:child_process';
 
-import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 
 /** Throws if `git status --porcelain` reports any uncommitted change in the working tree. */
 export function assertCleanWorkingTree(): void {
   const status = execFileSync('git', ['status', '--porcelain'], {
     encoding: 'utf8',
-    maxBuffer: GIT_OUTPUT_LIMIT,
+    maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
     stdio: ['pipe', 'pipe', 'pipe'],
   }).trim();
 

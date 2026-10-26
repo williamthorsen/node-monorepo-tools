@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-import { GIT_OUTPUT_LIMIT, hasErrnoCode, parseArgsOrExit } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES, hasErrnoCode, parseArgsOrExit } from '@williamthorsen/nmr-core';
 
 import { readReleaseTags, RELEASE_SUMMARY_FILE, resolveReleaseTagsPath } from './releaseFiles.ts';
 
@@ -44,7 +44,7 @@ export function commitCommand(argv: string[]): void {
     try {
       const status = execFileSync('git', ['status', '--porcelain'], {
         encoding: 'utf8',
-        maxBuffer: GIT_OUTPUT_LIMIT,
+        maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
       });
       if (status.trim().length > 0) {
         console.info('\nUncommitted changes:');
@@ -57,8 +57,8 @@ export function commitCommand(argv: string[]): void {
     return;
   }
 
-  execFileSync('git', ['add', '-A'], { maxBuffer: GIT_OUTPUT_LIMIT });
-  execFileSync('git', ['commit', '-m', message], { maxBuffer: GIT_OUTPUT_LIMIT });
+  execFileSync('git', ['add', '-A'], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
+  execFileSync('git', ['commit', '-m', message], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
 
   console.info(`Created release commit: ${title}`);
 }
