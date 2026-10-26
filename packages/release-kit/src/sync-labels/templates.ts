@@ -1,46 +1,19 @@
-import { basename } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { basename, resolve } from 'node:path';
+
+import { findPackageRoot } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import type { LabelDefinition } from './types.ts';
 
-/** Generates the caller workflow YAML for `sync-labels`. */
-export function syncLabelsWorkflow(): string {
-  return `# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: Sync labels
-
-on:
-  workflow_dispatch:
-
-  # Apply on merge, so that the repository's labels match each merged version of the labels file.
-  push:
-    paths:
-      - .github/labels.yaml
-
-  # Preview on review: The check's log has the computed diff, and the check warns about each label not declared by the file.
-  pull_request:
-    paths:
-      - .github/labels.yaml
-
-# Permissions are fixed when a run is created and cannot vary by trigger within a job,
-# so applying and previewing are separate jobs.
-jobs:
-  # The push arm applies on the default branch alone. The job's \`if:\` names that branch through the event payload,
-  # which keeps this file identical across repos; a \`branches:\` filter would have to name it literally.
-  sync:
-    if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref_name == github.event.repository.default_branch)
-    permissions:
-      contents: read
-      issues: write
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.reusable.yaml@workflow/sync-labels-v1
-
-  check:
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
-      issues: read
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.reusable.yaml@workflow/sync-labels-v1
-    with:
-      dry-run: true
-`;
+/** Reads the bundled caller workflow for `sync-labels`. Throws if the template cannot be read. */
+export function readSyncLabelsWorkflowTemplate(): string {
+  const templatePath = resolve(findPackageRoot(import.meta.url), 'templates', 'sync-labels.yaml.template');
+  try {
+    return readFileSync(templatePath, 'utf8');
+  } catch (error: unknown) {
+    throw new Error(`Failed to read bundled template at ${templatePath}: ${describeError(error)}`, { cause: error });
+  }
 }
 
 /**

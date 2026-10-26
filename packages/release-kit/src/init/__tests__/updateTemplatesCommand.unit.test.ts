@@ -4,7 +4,6 @@ import type { ManagedFileResult, StreamStyles } from '@williamthorsen/nmr-core';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { syncLabelsWorkflow } from '../../sync-labels/templates.ts';
 import { createGithubReleaseWorkflow, publishWorkflow, releaseWorkflow } from '../templates.ts';
 
 const mockExistsSync = vi.hoisted(() => vi.fn<(path: PathLike) => boolean>());
@@ -19,6 +18,7 @@ const mockUpdateManagedFile = vi.hoisted(() =>
 const mockReportTemplateUpdate = vi.hoisted(() => vi.fn());
 const mockPrintSkip = vi.hoisted(() => vi.fn());
 const mockHasPublishablePackage = vi.hoisted(() => vi.fn<() => boolean>());
+const mockReadSyncLabelsWorkflowTemplate = vi.hoisted(() => vi.fn(() => 'sync-labels workflow\n'));
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
@@ -38,6 +38,11 @@ vi.mock(import('../detectRepoType.ts'), () => ({
 vi.mock(import('../hasPublishablePackage.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   hasPublishablePackage: mockHasPublishablePackage,
+}));
+
+vi.mock(import('../../sync-labels/templates.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
+  readSyncLabelsWorkflowTemplate: mockReadSyncLabelsWorkflowTemplate,
 }));
 
 vi.mock(import('@williamthorsen/nmr-core'), () => ({
@@ -88,7 +93,7 @@ describe(updateTemplatesCommand, () => {
 
     updateTemplatesCommand({ dryRun: false, styles: STYLES });
 
-    expect(listUpdates()).toContainEqual(['.github/workflows/sync-labels.yaml', syncLabelsWorkflow()]);
+    expect(listUpdates()).toContainEqual(['.github/workflows/sync-labels.yaml', 'sync-labels workflow\n']);
   });
 
   it('does not create sync-labels.yaml when it is missing', () => {

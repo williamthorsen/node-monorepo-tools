@@ -47,7 +47,8 @@
     "docs",
     "!docs/*.v*.md",
     "presets/**",
-    "schemas/**"
+    "schemas/**",
+    "templates"
   ],
   "scripts": {
     "build:post": "rdy compile",

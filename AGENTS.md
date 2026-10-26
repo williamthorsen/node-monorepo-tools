@@ -48,6 +48,10 @@ Packages live under `packages/`:
 - The same guard holds `@williamthorsen/toolbelt.packaging` to `packages/nmr-core/src/index.ts`, through which every package takes `findPackageRoot` and `resolveSelfVersion`
 - A CLI prints an emoji only through a glyph set, `STATUS_GLYPHS` or one built with `defineGlyphSet`, indexed by the style resolved for the stream, so that a pipe or a CI log receives the plain variant
 
+### Scaffolded artifacts
+
+- A file that a package scaffolds into a consumer repo and that takes no parameter ships verbatim under the package's `templates/`, which its `package.json` `"files"` lists; one that varies by a parameter, such as the repo type, is rendered by a function. The kit hashes and `__tests__/dogfooded-workflows.app.unit.test.ts` compare the shipped bytes in either form
+
 ### Agent guidance
 
 - `postinstall` runs `codeassembly sync --warn-only`, which writes the gitignored per-harness local guidance file containing the ambient rulebooks that this repo declares; `--warn-only` keeps a sync failure from breaking the install
