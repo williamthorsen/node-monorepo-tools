@@ -11,10 +11,10 @@ type GlobOptions = GlobOptionsWithoutFileTypes & { followSymlinks?: boolean };
  * The manifest that marks a directory as a package. pnpm also recognizes `package.yaml` and
  * `package.json5`; nmr-core recognizes only this one.
  */
-const MANIFEST = 'package.json';
+const MANIFEST_FILENAME = 'package.json';
 
 /** Excluded unconditionally, as pnpm's own package finder excludes it. */
-const ALWAYS_EXCLUDED = ['**/node_modules/**'];
+const ALWAYS_EXCLUDED_PATTERNS = ['**/node_modules/**'];
 
 /**
  * The manifest patterns that a declared `packages` list resolves to, split by what each entry asks of the matcher.
@@ -38,7 +38,7 @@ export function matchPackageDirs(
 ): string[] {
   const options: GlobOptions = {
     cwd: monorepoRoot,
-    exclude: [...excludedPatterns, ...ALWAYS_EXCLUDED],
+    exclude: [...excludedPatterns, ...ALWAYS_EXCLUDED_PATTERNS],
     // pnpm's matcher follows symlinks, so a package directory symlinked into the workspace is a package.
     followSymlinks: true,
   };
@@ -82,8 +82,8 @@ export function splitWorkspacePatterns(patterns: readonly string[]): WorkspacePa
     if (pattern.trim() === '') continue;
 
     const isNegated = pattern.startsWith('!');
-    const target = isNegated ? excludedPatterns : includedPatterns;
-    target.push(buildManifestPattern(isNegated ? pattern.slice(1) : pattern));
+    const targetPatterns = isNegated ? excludedPatterns : includedPatterns;
+    targetPatterns.push(buildManifestPattern(isNegated ? pattern.slice(1) : pattern));
   }
 
   return { excludedPatterns, includedPatterns };
@@ -93,7 +93,7 @@ export function splitWorkspacePatterns(patterns: readonly string[]): WorkspacePa
 
 /** Rewrites a workspace pattern to match the manifest within it, tolerating a trailing slash. */
 function buildManifestPattern(pattern: string): string {
-  return `${pattern.replace(/\/?$/, '')}/${MANIFEST}`;
+  return `${pattern.replace(/\/?$/, '')}/${MANIFEST_FILENAME}`;
 }
 
 // endregion | Helpers

@@ -28,22 +28,22 @@ export function parseObjectFormat(value: string): GitObjectFormat | undefined {
 
 /** Splits a tree object's content into its entries, or returns `undefined` when the content is malformed. */
 export function parseTreeObject(format: GitObjectFormat, content: Buffer): GitTreeEntry[] | undefined {
-  const idLength = format === 'sha1' ? 20 : 32;
+  const idLengthBytes = format === 'sha1' ? 20 : 32;
   const entries: GitTreeEntry[] = [];
 
   let offset = 0;
   while (offset < content.length) {
-    const space = content.indexOf(0x20, offset);
-    const nul = content.indexOf(0, space + 1);
-    if (space === -1 || nul === -1 || nul + 1 + idLength > content.length) {
+    const spaceIndex = content.indexOf(0x20, offset);
+    const nulIndex = content.indexOf(0, spaceIndex + 1);
+    if (spaceIndex === -1 || nulIndex === -1 || nulIndex + 1 + idLengthBytes > content.length) {
       return undefined;
     }
     entries.push({
-      id: content.subarray(nul + 1, nul + 1 + idLength),
-      mode: content.toString('latin1', offset, space),
-      name: content.toString('latin1', space + 1, nul),
+      id: content.subarray(nulIndex + 1, nulIndex + 1 + idLengthBytes),
+      mode: content.toString('latin1', offset, spaceIndex),
+      name: content.toString('latin1', spaceIndex + 1, nulIndex),
     });
-    offset = nul + 1 + idLength;
+    offset = nulIndex + 1 + idLengthBytes;
   }
 
   return entries;
@@ -54,8 +54,10 @@ export function parseTreeObject(format: GitObjectFormat, content: Buffer): GitTr
  * compared as though it ended in `/`.
  */
 export function serializeTreeObject(entries: Iterable<GitTreeEntry>): Buffer {
-  const sorted = [...entries].toSorted((left, right) => compareStrings(sortKeyOf(left), sortKeyOf(right)));
-  return Buffer.concat(sorted.flatMap((entry) => [Buffer.from(`${entry.mode} ${entry.name}\0`, 'latin1'), entry.id]));
+  const sortedEntries = [...entries].toSorted((left, right) => compareStrings(getSortKey(left), getSortKey(right)));
+  return Buffer.concat(
+    sortedEntries.flatMap((entry) => [Buffer.from(`${entry.mode} ${entry.name}\0`, 'latin1'), entry.id]),
+  );
 }
 
 // region | Helpers
@@ -69,7 +71,7 @@ function compareStrings(left: string, right: string): number {
 }
 
 /** Returns the name by which git orders an entry within its tree. */
-function sortKeyOf(entry: GitTreeEntry): string {
+function getSortKey(entry: GitTreeEntry): string {
   return entry.mode === TREE_MODE ? `${entry.name}/` : entry.name;
 }
 

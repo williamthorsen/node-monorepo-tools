@@ -35,12 +35,12 @@ export function writeFileWithCheck(
   options: { isDryRun: boolean; shouldOverwrite: boolean },
 ): WriteResult {
   const { isDryRun, shouldOverwrite } = options;
-  const fileExists = existsSync(filePath);
+  const doesFileExist = existsSync(filePath);
 
-  if (fileExists && !shouldOverwrite) {
+  if (doesFileExist && !shouldOverwrite) {
     try {
-      const existing = readFileSync(filePath, 'utf8');
-      if (normalizeTrailingWhitespace(existing) === normalizeTrailingWhitespace(content)) {
+      const existingContent = readFileSync(filePath, 'utf8');
+      if (normalizeTrailingWhitespace(existingContent) === normalizeTrailingWhitespace(content)) {
         return { filePath, outcome: 'up-to-date' };
       }
     } catch (error: unknown) {
@@ -50,7 +50,7 @@ export function writeFileWithCheck(
     return { filePath, outcome: 'skipped' };
   }
 
-  const outcome: WriteOutcome = fileExists ? 'overwritten' : 'created';
+  const outcome: WriteOutcome = doesFileExist ? 'overwritten' : 'created';
 
   if (isDryRun) {
     return { filePath, outcome };

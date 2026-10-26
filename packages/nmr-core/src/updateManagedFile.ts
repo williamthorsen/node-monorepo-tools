@@ -27,22 +27,22 @@ export function updateManagedFile(
   content: string,
   options: { isDryRun: boolean },
 ): ManagedFileResult {
-  let existing: string | undefined;
+  let existingContent: string | undefined;
   if (existsSync(filePath)) {
     try {
-      existing = readFileSync(filePath, 'utf8');
+      existingContent = readFileSync(filePath, 'utf8');
     } catch (error: unknown) {
       return { filePath, outcome: 'failed', error: describeError(error) };
     }
-    if (existing === content) {
+    if (existingContent === content) {
       return { filePath, outcome: 'up-to-date' };
     }
   }
 
   const result: ManagedFileResult =
-    existing === undefined
+    existingContent === undefined
       ? { filePath, outcome: 'created' }
-      : { filePath, outcome: 'updated', diff: formatHunks(existing, content) };
+      : { filePath, outcome: 'updated', diff: formatHunks(existingContent, content) };
 
   if (options.isDryRun) {
     return result;
@@ -60,8 +60,8 @@ export function updateManagedFile(
 
 // region | Helpers
 /** Renders the hunks of a unified diff, without file headers or end-of-file newline markers. */
-function formatHunks(before: string, after: string): string {
-  const { hunks } = structuredPatch('', '', before, after, undefined, undefined, { context: 3 });
+function formatHunks(oldContent: string, newContent: string): string {
+  const { hunks } = structuredPatch('', '', oldContent, newContent, undefined, undefined, { context: 3 });
   return hunks
     .flatMap((hunk) => [
       `@@ -${String(hunk.oldStart)},${String(hunk.oldLines)} +${String(hunk.newStart)},${String(hunk.newLines)} @@`,

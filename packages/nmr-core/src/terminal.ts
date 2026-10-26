@@ -186,11 +186,11 @@ export function reportWriteResult(result: WriteResult, isDryRun: boolean, styles
  */
 export function resolveStreamStyles(options: ResolveStreamStylesOptions): StreamStyleResolution {
   const { argv = [], env, envVar, flag, stderrIsTty, stdoutIsTty } = options;
-  const stderr = resolveOutputStyle({ argv, env, envVar, flag, isTty: stderrIsTty });
-  const stdout = resolveOutputStyle({ argv, env, envVar, flag, isTty: stdoutIsTty });
-  const styles = { stderr: stderr.style, stdout: stdout.style };
+  const stderrResolution = resolveOutputStyle({ argv, env, envVar, flag, isTty: stderrIsTty });
+  const stdoutResolution = resolveOutputStyle({ argv, env, envVar, flag, isTty: stdoutIsTty });
+  const styles = { stderr: stderrResolution.style, stdout: stdoutResolution.style };
   // Both resolutions read the same flag and variable, so either one reports an invalid value.
-  return stdout.invalid === undefined ? { styles } : { invalid: stdout.invalid, styles };
+  return stdoutResolution.invalid === undefined ? { styles } : { invalid: stdoutResolution.invalid, styles };
 }
 
 // region | Helpers

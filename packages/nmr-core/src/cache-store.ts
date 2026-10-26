@@ -32,7 +32,7 @@ export interface CacheEntryRef extends CacheDirRef {
 }
 
 /** The digest length that separates entries sharing a hoisted `node_modules` while keeping the name readable. */
-const DIGEST_LENGTH = 8;
+const DIGEST_LENGTH_CHARS = 8;
 
 /**
  * Reads an entry's raw text, or `undefined` when it is absent or unreadable. A cache that cannot be read is a
@@ -73,19 +73,19 @@ export async function readJsonCacheEntry<T>(
   entryPath: string,
   isValidEntry: (value: unknown) => value is T,
 ): Promise<T | undefined> {
-  const raw = await readCacheEntry(entryPath);
-  if (raw === undefined) {
+  const rawContent = await readCacheEntry(entryPath);
+  if (rawContent === undefined) {
     return undefined;
   }
 
-  let parsed: unknown;
+  let parsedValue: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsedValue = JSON.parse(rawContent);
   } catch {
     return undefined;
   }
 
-  return isValidEntry(parsed) ? parsed : undefined;
+  return isValidEntry(parsedValue) ? parsedValue : undefined;
 }
 
 /** Removes a tool's entire cache directory. Idempotent: An absent directory is a silent no-op. */
@@ -108,8 +108,8 @@ export async function removeCacheEntry(entryPath: string): Promise<void> {
 export function resolveCacheDir(ref: CacheDirRef): string {
   const absoluteScopeDir = path.resolve(ref.scopeDir);
   const stopAtDir = ref.stopAtDir === undefined ? undefined : path.resolve(ref.stopAtDir);
-  const home = findDirectoryChainMatch(absoluteScopeDir, ['node_modules'], { stopAtDir })?.dir ?? absoluteScopeDir;
-  return path.join(home, 'node_modules', '.cache', ref.tool);
+  const homeDir = findDirectoryChainMatch(absoluteScopeDir, ['node_modules'], { stopAtDir })?.dir ?? absoluteScopeDir;
+  return path.join(homeDir, 'node_modules', '.cache', ref.tool);
 }
 
 /**
@@ -122,7 +122,7 @@ export function resolveCacheEntryPath(ref: CacheEntryRef): string {
   const digest = createHash('sha256')
     .update([absoluteScopeDir, ...(ref.discriminators ?? [])].join('\0'))
     .digest('hex')
-    .slice(0, DIGEST_LENGTH);
+    .slice(0, DIGEST_LENGTH_CHARS);
 
   return path.join(resolveCacheDir(ref), `${ref.slug}-${digest}${ref.extension}`);
 }

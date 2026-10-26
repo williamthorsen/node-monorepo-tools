@@ -7732,12 +7732,12 @@ var import_yaml = __toESM(require_dist(), 1);
 // ../nmr-core/dist/esm/helpers/workspace-patterns.js
 import { globSync as globSync2 } from "node:fs";
 import path from "node:path";
-var MANIFEST = "package.json";
-var ALWAYS_EXCLUDED = ["**/node_modules/**"];
+var MANIFEST_FILENAME = "package.json";
+var ALWAYS_EXCLUDED_PATTERNS = ["**/node_modules/**"];
 function matchPackageDirs(monorepoRoot, includedPatterns, excludedPatterns) {
   const options = {
     cwd: monorepoRoot,
-    exclude: [...excludedPatterns, ...ALWAYS_EXCLUDED],
+    exclude: [...excludedPatterns, ...ALWAYS_EXCLUDED_PATTERNS],
     followSymlinks: true
   };
   const matches = globSync2([...includedPatterns], options);
@@ -7758,34 +7758,34 @@ function splitWorkspacePatterns(patterns) {
     if (pattern.trim() === "")
       continue;
     const isNegated = pattern.startsWith("!");
-    const target = isNegated ? excludedPatterns : includedPatterns;
-    target.push(buildManifestPattern(isNegated ? pattern.slice(1) : pattern));
+    const targetPatterns = isNegated ? excludedPatterns : includedPatterns;
+    targetPatterns.push(buildManifestPattern(isNegated ? pattern.slice(1) : pattern));
   }
   return { excludedPatterns, includedPatterns };
 }
 function buildManifestPattern(pattern) {
-  return `${pattern.replace(/\/?$/, "")}/${MANIFEST}`;
+  return `${pattern.replace(/\/?$/, "")}/${MANIFEST_FILENAME}`;
 }
 
 // ../nmr-core/dist/esm/workspace.js
-var WORKSPACE_MANIFEST = "pnpm-workspace.yaml";
+var WORKSPACE_MANIFEST_FILENAME = "pnpm-workspace.yaml";
 function isMonorepoRoot(dir) {
-  return existsSync(path2.join(dir, WORKSPACE_MANIFEST));
+  return existsSync(path2.join(dir, WORKSPACE_MANIFEST_FILENAME));
 }
 function resolveWorkspace(monorepoRoot) {
-  const manifestRead = readWorkspaceManifest(monorepoRoot);
-  if (manifestRead.kind === "absent") {
+  const manifestReadResult = readWorkspaceManifest(monorepoRoot);
+  if (manifestReadResult.kind === "absent") {
     return { kind: "not-a-workspace" };
   }
-  if (manifestRead.kind === "unreadable") {
+  if (manifestReadResult.kind === "unreadable") {
     return { cause: "unreadable-manifest", kind: "empty", patterns: [] };
   }
-  const packagesRead = readDeclaredPackages(manifestRead.value);
-  if (packagesRead.kind !== "patterns") {
-    const cause = packagesRead.kind === "absent" ? "no-packages-list" : "unreadable-packages";
+  const packagesReadResult = readDeclaredPackages(manifestReadResult.value);
+  if (packagesReadResult.kind !== "patterns") {
+    const cause = packagesReadResult.kind === "absent" ? "no-packages-list" : "unreadable-packages";
     return { cause, kind: "empty", patterns: [] };
   }
-  const { patterns } = packagesRead;
+  const { patterns } = packagesReadResult;
   const packageDirs = resolvePackageDirs(monorepoRoot, patterns);
   if (packageDirs.length > 0) {
     return { kind: "packages", packageDirs, patterns };
@@ -7818,12 +7818,12 @@ function isObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function readWorkspaceManifest(monorepoRoot) {
-  const workspaceFile = path2.join(monorepoRoot, WORKSPACE_MANIFEST);
-  if (!existsSync(workspaceFile)) {
+  const workspaceManifestPath = path2.join(monorepoRoot, WORKSPACE_MANIFEST_FILENAME);
+  if (!existsSync(workspaceManifestPath)) {
     return { kind: "absent" };
   }
   try {
-    return { kind: "parsed", value: (0, import_yaml.parse)(readFileSync(workspaceFile, "utf8")) };
+    return { kind: "parsed", value: (0, import_yaml.parse)(readFileSync(workspaceManifestPath, "utf8")) };
   } catch {
     return { kind: "unreadable" };
   }
@@ -7838,11 +7838,11 @@ var UserError = class extends Error {
 };
 
 // src/workspace.ts
-var WORKSPACE_MANIFEST2 = "pnpm-workspace.yaml";
+var WORKSPACE_MANIFEST = "pnpm-workspace.yaml";
 function getWorkspacePackageDirs(monorepoRoot) {
   const resolution = resolveWorkspace(monorepoRoot);
   if (resolution.kind === "not-a-workspace") {
-    throw new UserError(`Not a monorepo root: no ${WORKSPACE_MANIFEST2} in ${monorepoRoot}`);
+    throw new UserError(`Not a monorepo root: no ${WORKSPACE_MANIFEST} in ${monorepoRoot}`);
   }
   return resolution.kind === "packages" ? resolution.packageDirs : [];
 }

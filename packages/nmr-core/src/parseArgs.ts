@@ -69,15 +69,17 @@ export function parseArgs<S extends FlagSchema>(
   options: ParseArgsOptions = {},
 ): ParsedArgs<S> {
   const nodeOptions: Record<string, { type: 'boolean' | 'string'; short?: string }> = {};
-  const byName = new Map<string, { key: string; def: FlagDefinition }>();
+  const entriesByName = new Map<string, { key: string; definition: FlagDefinition }>();
   const flags: Record<string, boolean | string | undefined> = {};
 
-  for (const [key, def] of Object.entries(schema)) {
-    const name = def.long.replace(/^--/, '');
+  for (const [key, definition] of Object.entries(schema)) {
+    const name = definition.long.replace(/^--/, '');
     nodeOptions[name] =
-      def.short === undefined ? { type: def.type } : { type: def.type, short: def.short.replace(/^-/, '') };
-    byName.set(name, { key, def });
-    flags[key] = initialFlagValues[def.type];
+      definition.short === undefined
+        ? { type: definition.type }
+        : { type: definition.type, short: definition.short.replace(/^-/, '') };
+    entriesByName.set(name, { key, definition });
+    flags[key] = initialFlagValues[definition.type];
   }
 
   const { tokens } = nodeParseArgs({
@@ -102,12 +104,12 @@ export function parseArgs<S extends FlagSchema>(
       continue;
     }
 
-    const entry = byName.get(token.name);
+    const entry = entriesByName.get(token.name);
     if (entry === undefined) {
       throw new ParseError('unknown-flag', token.rawName);
     }
 
-    if (entry.def.type === 'boolean') {
+    if (entry.definition.type === 'boolean') {
       if (token.value !== undefined) {
         throw new ParseError('unexpected-value', token.rawName);
       }

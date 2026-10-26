@@ -84,16 +84,16 @@ function extractField(record: string, fieldIndex: number): string | undefined {
  */
 function extractPath(record: string, precedingFieldCount: number): string | undefined {
   let index = 0;
-  for (let field = 0; field < precedingFieldCount; field++) {
-    const separator = record.indexOf(' ', index);
-    if (separator === -1) {
+  for (let fieldIndex = 0; fieldIndex < precedingFieldCount; fieldIndex++) {
+    const separatorIndex = record.indexOf(' ', index);
+    if (separatorIndex === -1) {
       return undefined;
     }
-    index = separator + 1;
+    index = separatorIndex + 1;
   }
 
-  const extracted = record.slice(index);
-  return extracted === '' ? undefined : extracted;
+  const extractedPath = record.slice(index);
+  return extractedPath === '' ? undefined : extractedPath;
 }
 
 // endregion | Helpers
