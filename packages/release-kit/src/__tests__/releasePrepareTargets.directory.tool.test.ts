@@ -166,7 +166,7 @@ describe('directory releases (tool)', () => {
     const plan = prepareAndApply(
       tree,
       { releases: { app: { path: 'apps/app' } } },
-      { only: ['app'], setVersions: new Map([['app', '2.0.0']]) },
+      { onlyTargetIds: ['app'], versionOverridesById: new Map([['app', '2.0.0']]) },
     );
 
     expect(plan.targets.map((result) => result.targetId)).toStrictEqual(['app']);

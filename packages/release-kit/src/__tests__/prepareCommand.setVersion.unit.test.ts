@@ -92,7 +92,7 @@ describe(prepareCommand, () => {
     expect(mockReleasePrepareTargets).toHaveBeenCalledWith(expect.any(Object), {
       shouldForce: true,
       bumpOverride: 'minor',
-      setVersions: new Map([
+      versionOverridesById: new Map([
         ['arrays', '1.0.0'],
         ['strings', '2.0.0'],
       ]),
@@ -146,7 +146,7 @@ describe(prepareCommand, () => {
 
     expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ setVersions: new Map([['.', '1.2.3']]) }),
+      expect.objectContaining({ versionOverridesById: new Map([['.', '1.2.3']]) }),
     );
   });
 
@@ -197,7 +197,7 @@ describe(prepareCommand, () => {
 
       expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
         expect.any(Object),
-        expect.objectContaining({ only: ['suite'] }),
+        expect.objectContaining({ onlyTargetIds: ['suite'] }),
       );
     });
 
@@ -231,7 +231,7 @@ describe(prepareCommand, () => {
 
       expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
         expect.any(Object),
-        expect.objectContaining({ only: ['arrays'] }),
+        expect.objectContaining({ onlyTargetIds: ['arrays'] }),
       );
     });
 

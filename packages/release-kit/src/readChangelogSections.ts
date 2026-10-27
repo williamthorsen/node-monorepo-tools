@@ -15,7 +15,7 @@ export interface VersionedMarkdownSection {
 
 /** The `##` sections of a `CHANGELOG.md`, split by whether their heading names a version. */
 export interface ChangelogMarkdownSections {
-  versioned: VersionedMarkdownSection[];
+  versionedSections: VersionedMarkdownSection[];
   /** Headings of the `##` sections that do not name a version, as written. */
   unversionedHeadings: string[];
 }
@@ -37,13 +37,13 @@ export function planPreservedSections(
   const sections: VersionedMarkdownSection[] = [];
   const unversionedHeadings: string[] = [];
   for (const file of files) {
-    const read = readChangelogSections(file);
-    for (const section of read.versioned) {
+    const fileSections = readChangelogSections(file);
+    for (const section of fileSections.versionedSections) {
       if (seenVersions.has(section.version)) continue;
       seenVersions.add(section.version);
       sections.push(section);
     }
-    unversionedHeadings.push(...read.unversionedHeadings);
+    unversionedHeadings.push(...fileSections.unversionedHeadings);
   }
   if (sections.length === 0 && unversionedHeadings.length === 0) {
     return { sections, preservation: undefined };
@@ -64,7 +64,7 @@ export function planPreservedSections(
  */
 export function readChangelogSections(filePath: string): ChangelogMarkdownSections {
   if (!existsSync(filePath)) {
-    return { versioned: [], unversionedHeadings: [] };
+    return { versionedSections: [], unversionedHeadings: [] };
   }
   return parseChangelogSections(readFileSync(filePath, 'utf8'));
 }
@@ -76,36 +76,36 @@ export function readChangelogSections(filePath: string): ChangelogMarkdownSectio
  */
 export function parseChangelogSections(content: string): ChangelogMarkdownSections {
   const sections: Array<{ heading: string; lines: string[] }> = [];
-  let current: { heading: string; lines: string[] } | undefined;
+  let currentSection: { heading: string; lines: string[] } | undefined;
   let fence: string | undefined;
 
   for (const line of content.split(/\r?\n/)) {
     if (fence === undefined) {
       if (FOOTER_PATTERN.test(line)) {
-        current = undefined;
+        currentSection = undefined;
         continue;
       }
       if (SECTION_HEADING_PATTERN.test(line)) {
-        current = { heading: line.trimEnd(), lines: [] };
-        sections.push(current);
+        currentSection = { heading: line.trimEnd(), lines: [] };
+        sections.push(currentSection);
       }
     }
     fence = updateFence(fence, line);
-    current?.lines.push(line);
+    currentSection?.lines.push(line);
   }
 
-  const versioned: VersionedMarkdownSection[] = [];
+  const versionedSections: VersionedMarkdownSection[] = [];
   const unversionedHeadings: string[] = [];
   for (const { heading, lines } of sections) {
     const version = extractHeadingVersion(heading);
     if (version === undefined) {
       unversionedHeadings.push(heading);
     } else {
-      versioned.push({ version, text: trimTrailingBlankLines(lines).join('\n') });
+      versionedSections.push({ version, text: trimTrailingBlankLines(lines).join('\n') });
     }
   }
 
-  return { versioned, unversionedHeadings };
+  return { versionedSections, unversionedHeadings };
 }
 
 // region | Helpers

@@ -52,8 +52,8 @@ export function resolveReleaseTargets(
 
 /** Reports whether the targets are those of a single-package repo: its root package target and nothing else. */
 export function isSinglePackageTargets(targets: readonly ReleaseTarget[]): boolean {
-  const [only] = targets;
-  return targets.length === 1 && only?.kind === 'package' && !only.isWorkspace;
+  const [onlyTarget] = targets;
+  return targets.length === 1 && onlyTarget?.kind === 'package' && !onlyTarget.isWorkspace;
 }
 
 /**

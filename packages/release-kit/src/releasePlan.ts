@@ -54,21 +54,21 @@ export interface ReleasePlan extends PrepareResult {
  * Returns the paths written or removed, in order. Throws if any step fails, naming what was applied and what was not.
  */
 export function applyReleasePlan(plan: ReleasePlan): string[] {
-  const ordered = orderPlannedSteps(plan);
-  const applied: AppliedWrite[] = [];
+  const orderedSteps = orderPlannedSteps(plan);
+  const appliedWrites: AppliedWrite[] = [];
 
-  for (const [index, step] of ordered.entries()) {
+  for (const [index, step] of orderedSteps.entries()) {
     const outcome = applyStep(step);
 
     if (outcome.outcome === 'failed') {
-      const unwritten = ordered.slice(index).map((pending) => pending.path);
-      throw new Error(describeApplyFailure({ failedStep: step, error: outcome.error, applied, unwritten }));
+      const unwrittenPaths = orderedSteps.slice(index).map((pending) => pending.path);
+      throw new Error(describeApplyFailure({ failedStep: step, error: outcome.error, appliedWrites, unwrittenPaths }));
     }
 
-    applied.push({ path: step.path, created: outcome.outcome === 'created' });
+    appliedWrites.push({ path: step.path, created: outcome.outcome === 'created' });
   }
 
-  return applied.map((write) => write.path);
+  return appliedWrites.map((write) => write.path);
 }
 
 /** Writes or removes one file, reporting whether it failed and, for a write, whether it created the file. */
@@ -90,27 +90,27 @@ function applyStep(step: PlannedStep): { outcome: 'applied' | 'created' | 'faile
 
 /** Orders a plan's steps for application: content writes, removals, then the summary and tags files in that order. */
 function orderPlannedSteps(plan: ReleasePlan): PlannedStep[] {
-  const ordered: PlannedStep[] = [
+  const orderedSteps: PlannedStep[] = [
     ...plan.writes.map((write): PlannedStep => ({ kind: 'write', ...write })),
     ...plan.removals.map((path): PlannedStep => ({ kind: 'remove', path })),
   ];
 
   if (plan.summary.length > 0) {
-    ordered.push({ kind: 'write', path: RELEASE_SUMMARY_FILE, content: plan.summary });
+    orderedSteps.push({ kind: 'write', path: RELEASE_SUMMARY_FILE, content: plan.summary });
   }
   if (plan.tags.length > 0) {
-    ordered.push({ kind: 'write', path: RELEASE_TAGS_FILE, content: plan.tags.join('\n') });
+    orderedSteps.push({ kind: 'write', path: RELEASE_TAGS_FILE, content: plan.tags.join('\n') });
   }
 
-  return ordered;
+  return orderedSteps;
 }
 
 /** Inputs to {@link describeApplyFailure}. */
 interface DescribeApplyFailureArgs {
   failedStep: PlannedStep;
   error: string | undefined;
-  applied: readonly AppliedWrite[];
-  unwritten: readonly string[];
+  appliedWrites: readonly AppliedWrite[];
+  unwrittenPaths: readonly string[];
 }
 
 /**
@@ -121,23 +121,23 @@ interface DescribeApplyFailureArgs {
  * without being told which files the run touched.
  */
 function describeApplyFailure(args: DescribeApplyFailureArgs): string {
-  const { failedStep, error, applied, unwritten } = args;
-  const total = applied.length + unwritten.length;
+  const { failedStep, error, appliedWrites, unwrittenPaths } = args;
+  const total = appliedWrites.length + unwrittenPaths.length;
   const verb = failedStep.kind === 'remove' ? 'remove' : 'write';
   const lines = [`Failed to ${verb} ${failedStep.path}: ${error ?? 'unknown error'}`, ''];
 
-  if (applied.length === 0) {
+  if (appliedWrites.length === 0) {
     lines.push(`The release was not applied. None of its ${total} files were written.`);
     return lines.join('\n');
   }
 
   lines.push(
-    `The release was partially applied. ${applied.length} of ${total} files were written:`,
-    ...applied.map((write) => `  ${write.path}`),
+    `The release was partially applied. ${appliedWrites.length} of ${total} files were written:`,
+    ...appliedWrites.map((write) => `  ${write.path}`),
     '',
     'Not written:',
-    ...unwritten.map((path) => `  ${path}`),
-    ...describeRecovery(applied),
+    ...unwrittenPaths.map((path) => `  ${path}`),
+    ...describeRecovery(appliedWrites),
   );
 
   return lines.join('\n');
@@ -151,21 +151,21 @@ function describeApplyFailure(args: DescribeApplyFailureArgs): string {
  * pathspec. The handoff files are left out: `prepare` overwrites them on its next run, and they
  * are in a conventionally ignored directory, on which `git restore` would fail too.
  */
-function describeRecovery(applied: readonly AppliedWrite[]): string[] {
-  const releaseWrites = applied.filter((write) => !HANDOFF_FILES.has(write.path));
-  const replaced = releaseWrites.filter((write) => !write.created).map((write) => write.path);
-  const created = releaseWrites.filter((write) => write.created).map((write) => write.path);
+function describeRecovery(appliedWrites: readonly AppliedWrite[]): string[] {
+  const releaseWrites = appliedWrites.filter((write) => !HANDOFF_FILES.has(write.path));
+  const replacedPaths = releaseWrites.filter((write) => !write.created).map((write) => write.path);
+  const createdPaths = releaseWrites.filter((write) => write.created).map((write) => write.path);
 
-  if (replaced.length === 0 && created.length === 0) {
+  if (replacedPaths.length === 0 && createdPaths.length === 0) {
     return [];
   }
 
   const lines = ['', 'Undo the written release files before re-running `release-kit prepare`:'];
-  if (replaced.length > 0) {
-    lines.push(`  git restore ${replaced.join(' ')}`);
+  if (replacedPaths.length > 0) {
+    lines.push(`  git restore ${replacedPaths.join(' ')}`);
   }
-  if (created.length > 0) {
-    lines.push(`  rm ${created.join(' ')}`);
+  if (createdPaths.length > 0) {
+    lines.push(`  rm ${createdPaths.join(' ')}`);
   }
 
   return lines;

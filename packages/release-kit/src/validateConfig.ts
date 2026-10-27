@@ -12,13 +12,16 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
     return { config: {}, errors: ['Config must be an object'], warnings: [] };
   }
 
-  const { cleaned, deprecationErrors } = preprocessDeprecatedKeys(raw);
+  const { cleanedInput, deprecationErrors } = preprocessDeprecatedKeys(raw);
 
-  const parseResult = releaseKitConfigSchema.safeParse(cleaned);
+  const parseResult = releaseKitConfigSchema.safeParse(cleanedInput);
   if (!parseResult.success) {
     return {
       config: {},
-      errors: [...deprecationErrors, ...parseResult.error.issues.flatMap((issue) => formatZodIssue(issue, cleaned))],
+      errors: [
+        ...deprecationErrors,
+        ...parseResult.error.issues.flatMap((issue) => formatZodIssue(issue, cleanedInput)),
+      ],
       warnings: [],
     };
   }
@@ -47,39 +50,42 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
  * `.strict()`, so a removed key left in place would fail with Zod's generic "Unrecognized key" message, which omits
  * the migration instructions; every removed or renamed key is therefore handled here.
  */
-function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecationErrors: string[] } {
-  if (!isRecord(raw)) return { cleaned: raw, deprecationErrors: [] };
+function preprocessDeprecatedKeys(raw: unknown): { cleanedInput: unknown; deprecationErrors: string[] } {
+  if (!isRecord(raw)) return { cleanedInput: raw, deprecationErrors: [] };
 
   const errors: string[] = [];
-  const cleaned: Record<string, unknown> = { ...raw };
+  const cleanedInput: Record<string, unknown> = { ...raw };
 
-  if (Object.hasOwn(cleaned, 'cliffConfigPath')) {
+  if (Object.hasOwn(cleanedInput, 'cliffConfigPath')) {
     errors.push(
       'cliffConfigPath is no longer supported. release-kit reads changelog history from git directly and does not use any external config file. Remove this field from the config, and delete the file that it names.',
     );
-    delete cleaned['cliffConfigPath'];
+    delete cleanedInput['cliffConfigPath'];
   }
 
-  if (isRecord(cleaned['releaseNotes']) && Object.hasOwn(cleaned['releaseNotes'], 'shouldCreateGithubRelease')) {
+  if (
+    isRecord(cleanedInput['releaseNotes']) &&
+    Object.hasOwn(cleanedInput['releaseNotes'], 'shouldCreateGithubRelease')
+  ) {
     errors.push(
       'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow, which `release-kit init` scaffolds. Remove this field from the config.',
     );
-    const releaseNotesCopy = { ...cleaned['releaseNotes'] };
+    const releaseNotesCopy = { ...cleanedInput['releaseNotes'] };
     delete releaseNotesCopy['shouldCreateGithubRelease'];
-    cleaned['releaseNotes'] = releaseNotesCopy;
+    cleanedInput['releaseNotes'] = releaseNotesCopy;
   }
 
-  if (isRecord(cleaned['changelogMarkdown']) && Object.hasOwn(cleaned['changelogMarkdown'], 'keepVersions')) {
+  if (isRecord(cleanedInput['changelogMarkdown']) && Object.hasOwn(cleanedInput['changelogMarkdown'], 'keepVersions')) {
     errors.push(
       'changelogMarkdown.keepVersions has been renamed. Rename it to changelogMarkdown.keptVersionCount in the config.',
     );
-    const changelogMarkdownCopy = { ...cleaned['changelogMarkdown'] };
+    const changelogMarkdownCopy = { ...cleanedInput['changelogMarkdown'] };
     delete changelogMarkdownCopy['keepVersions'];
-    cleaned['changelogMarkdown'] = changelogMarkdownCopy;
+    cleanedInput['changelogMarkdown'] = changelogMarkdownCopy;
   }
 
-  if (Array.isArray(cleaned['workspaces'])) {
-    cleaned['workspaces'] = cleaned['workspaces'].map((ws: unknown, i: number): unknown => {
+  if (Array.isArray(cleanedInput['workspaces'])) {
+    cleanedInput['workspaces'] = cleanedInput['workspaces'].map((ws: unknown, i: number): unknown => {
       if (!isRecord(ws)) return ws;
       const wsCopy = { ...ws };
       if (Object.hasOwn(wsCopy, 'tagPrefix')) {
@@ -97,8 +103,8 @@ function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecation
     });
   }
 
-  if (isRecord(cleaned['releases'])) {
-    const releasesCopy: Record<string, unknown> = { ...cleaned['releases'] };
+  if (isRecord(cleanedInput['releases'])) {
+    const releasesCopy: Record<string, unknown> = { ...cleanedInput['releases'] };
     for (const [name, entry] of Object.entries(releasesCopy)) {
       if (!isRecord(entry) || !Object.hasOwn(entry, 'paths')) continue;
       errors.push(
@@ -108,10 +114,10 @@ function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecation
       delete entryCopy['paths'];
       releasesCopy[name] = entryCopy;
     }
-    cleaned['releases'] = releasesCopy;
+    cleanedInput['releases'] = releasesCopy;
   }
 
-  return { cleaned, deprecationErrors: errors };
+  return { cleanedInput, deprecationErrors: errors };
 }
 
 /**
@@ -151,17 +157,17 @@ const RELEASE_ENTRY_SHAPES = 'must be false, { path, tagPrefix?, legacyIdentitie
 
 /** Renders a Zod path as `top.nested[2].leaf`. */
 function renderPath(path: ReadonlyArray<PropertyKey>): string {
-  let rendered = '';
+  let renderedPath = '';
   for (const segment of path) {
     if (typeof segment === 'number') {
-      rendered += `[${segment}]`;
-    } else if (rendered === '') {
-      rendered += String(segment);
+      renderedPath += `[${segment}]`;
+    } else if (renderedPath === '') {
+      renderedPath += String(segment);
     } else {
-      rendered += `.${String(segment)}`;
+      renderedPath += `.${String(segment)}`;
     }
   }
-  return rendered;
+  return renderedPath;
 }
 
 /**
@@ -171,17 +177,17 @@ function renderPath(path: ReadonlyArray<PropertyKey>): string {
  */
 function detectLegacyIdentityDuplicates(config: ReleaseKitConfig, errors: string[]): void {
   for (const { label, legacyIdentities } of listLegacyIdentityDeclarations(config)) {
-    const seen = new Set<string>();
+    const seenKeys = new Set<string>();
     for (const [entryIndex, identity] of legacyIdentities.entries()) {
       // Null-byte separator: neither npm names nor tag prefixes can contain `\0`,
       // so distinct `(name, tagPrefix)` tuples always produce distinct keys.
       const key = `${identity.name}\0${identity.tagPrefix}`;
-      if (seen.has(key)) {
+      if (seenKeys.has(key)) {
         errors.push(
           `${label}.legacyIdentities[${entryIndex}]: duplicate identity (name='${identity.name}', tagPrefix='${identity.tagPrefix}')`,
         );
       }
-      seen.add(key);
+      seenKeys.add(key);
     }
   }
 }
@@ -192,15 +198,15 @@ function detectLegacyIdentityDuplicates(config: ReleaseKitConfig, errors: string
  */
 function detectRetiredPackageDuplicates(config: ReleaseKitConfig, errors: string[]): void {
   if (config.retiredPackages === undefined) return;
-  const seen = new Set<string>();
+  const seenKeys = new Set<string>();
   for (const [index, retired] of config.retiredPackages.entries()) {
     const key = `${retired.name}\0${retired.tagPrefix}`;
-    if (seen.has(key)) {
+    if (seenKeys.has(key)) {
       errors.push(
         `retiredPackages[${index}]: duplicate package (name='${retired.name}', tagPrefix='${retired.tagPrefix}')`,
       );
     }
-    seen.add(key);
+    seenKeys.add(key);
   }
 }
 

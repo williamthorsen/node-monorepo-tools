@@ -74,7 +74,7 @@ function readRecordedVersions(
 ): Set<string> {
   const versions = new Set<string>();
   for (const changelogPath of changelogPaths) {
-    const { versioned: versionedSections } = readChangelogSections(join(changelogPath, 'CHANGELOG.md'));
+    const { versionedSections } = readChangelogSections(join(changelogPath, 'CHANGELOG.md'));
     const entries = readChangelogEntries(resolveChangelogJsonPath(config, changelogPath)) ?? [];
     for (const { version } of [...versionedSections, ...entries]) {
       versions.add(version);

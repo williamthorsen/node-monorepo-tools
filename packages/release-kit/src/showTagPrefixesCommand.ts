@@ -109,11 +109,11 @@ function renderWorkspaceRow(row: TagPrefixPreviewRow, style: OutputStyle): strin
 
   for (const entry of row.legacyEntries) {
     if (entry.tagCount > 0) {
-      const recognized = `${entry.tagCount} legacy tags with '${entry.prefix}' prefix (recognized)`;
-      lines.push(`      ${formatStatusLine(style, 'passed', recognized)}`);
+      const recognizedMessage = `${entry.tagCount} legacy tags with '${entry.prefix}' prefix (recognized)`;
+      lines.push(`      ${formatStatusLine(style, 'passed', recognizedMessage)}`);
     } else {
-      const tagless = `recorded legacy prefix '${entry.prefix}' does not have any tags`;
-      lines.push(`      ${formatStatusLine(style, 'warning', tagless)}`);
+      const taglessMessage = `recorded legacy prefix '${entry.prefix}' does not have any tags`;
+      lines.push(`      ${formatStatusLine(style, 'warning', taglessMessage)}`);
     }
   }
   return lines;

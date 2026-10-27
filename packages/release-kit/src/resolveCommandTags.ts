@@ -58,13 +58,13 @@ export function resolveCommandTags(
     if (workspace.kind === 'single-package') {
       singleWorkspace = deriveWorkspaceConfig('.');
     } else {
-      const merged = mergeMonorepoConfig(workspace.packageDirs, userConfig, readRootPackageVersion());
-      const excluded = merged.excludedWorkspaces ?? [];
+      const mergedConfig = mergeMonorepoConfig(workspace.packageDirs, userConfig, readRootPackageVersion());
+      const excludedWorkspaces = mergedConfig.excludedWorkspaces ?? [];
       // Excluded workspaces stay in the match set so that their tags bind to them rather than to a shorter prefix.
-      workspaces = [...merged.workspaces, ...excluded];
-      directories = merged.directories ?? [];
-      project = merged.project;
-      excludedPaths = new Set(excluded.map((excludedWorkspace) => excludedWorkspace.workspacePath));
+      workspaces = [...mergedConfig.workspaces, ...excludedWorkspaces];
+      directories = mergedConfig.directories ?? [];
+      project = mergedConfig.project;
+      excludedPaths = new Set(excludedWorkspaces.map((excludedWorkspace) => excludedWorkspace.workspacePath));
     }
   } catch (error: unknown) {
     reportError(`Failed to resolve workspaces: ${describeError(error)}`);
@@ -114,16 +114,16 @@ function dropExcludedTags(
   excludedPaths: ReadonlySet<string>,
   surface: 'legacy' | 'releases',
 ): ResolvedTag[] {
-  const retained: ResolvedTag[] = [];
+  const retainedTags: ResolvedTag[] = [];
   for (const resolvedTag of resolvedTags) {
     if (resolvedTag.kind === 'package' && excludedPaths.has(resolvedTag.workspacePath)) {
       const setting = surface === 'releases' ? `releases.${resolvedTag.dir}: false` : undefined;
       console.warn(formatExcludedSkip(resolvedTag, setting));
     } else {
-      retained.push(resolvedTag);
+      retainedTags.push(resolvedTag);
     }
   }
-  return retained;
+  return retainedTags;
 }
 
 // endregion | Helpers

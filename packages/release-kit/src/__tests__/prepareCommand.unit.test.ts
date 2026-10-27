@@ -142,7 +142,7 @@ describe(prepareCommand, () => {
       expect.objectContaining({
         targets: [expect.objectContaining({ id: 'arrays' }), expect.objectContaining({ id: 'strings' })],
       }),
-      { shouldForce: false, only: ['arrays'] },
+      { shouldForce: false, onlyTargetIds: ['arrays'] },
     );
   });
 

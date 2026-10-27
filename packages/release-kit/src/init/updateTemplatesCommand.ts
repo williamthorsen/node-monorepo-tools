@@ -61,8 +61,8 @@ export function updateTemplatesCommand({ isDryRun, styles }: UpdateTemplatesOpti
   printStep('Updating workflows');
   let results: ManagedFileResult[];
   try {
-    const { files, skipped } = buildManagedFiles(repoType, hasPublishablePackage());
-    for (const filePath of skipped) {
+    const { files, skippedPaths } = buildManagedFiles(repoType, hasPublishablePackage());
+    for (const filePath of skippedPaths) {
       printSkip(formatPrivateWorkflowSkip(filePath), styles.stdout);
     }
     results = files.map(([filePath, content]) => updateManagedFile(filePath, content, { isDryRun }));
@@ -86,8 +86,10 @@ export function updateTemplatesCommand({ isDryRun, styles }: UpdateTemplatesOpti
 function buildManagedFiles(
   repoType: RepoType,
   publishable: boolean,
-): { files: Array<[string, string]>; skipped: string[] } {
-  const skipped: string[] = publishable ? [] : PUBLISHING_WORKFLOW_PATHS.filter((filePath) => !existsSync(filePath));
+): { files: Array<[string, string]>; skippedPaths: string[] } {
+  const skippedPaths: string[] = publishable
+    ? []
+    : PUBLISHING_WORKFLOW_PATHS.filter((filePath) => !existsSync(filePath));
   const files: Array<[string, string]> = [
     [CREATE_GITHUB_RELEASE_WORKFLOW_PATH, createGithubReleaseWorkflow(repoType)],
     [PUBLISH_WORKFLOW_PATH, publishWorkflow(repoType, { shouldGenerateProvenance: readProvenanceSetting() })],
@@ -96,7 +98,7 @@ function buildManagedFiles(
   if (existsSync(SYNC_LABELS_WORKFLOW_PATH)) {
     files.push([SYNC_LABELS_WORKFLOW_PATH, readSyncLabelsWorkflowTemplate()]);
   }
-  return { files: files.filter(([filePath]) => !skipped.includes(filePath)), skipped };
+  return { files: files.filter(([filePath]) => !skippedPaths.includes(filePath)), skippedPaths };
 }
 
 /** Reads whether the existing publish workflow enables provenance, defaulting to `true` when the file is missing. */

@@ -191,8 +191,8 @@ function prefixWithFilePath(filePath: string, message: string): string {
  */
 function processProjectScope(args: ProjectScopeArgs): void {
   const { projectFilePath, projectMap, projectItems, errors, globalMatchedRootKeys } = args;
-  const applied = applyChangelogOverrides(makeValidationEntries(projectItems), projectMap);
-  for (const message of applied.errors) {
+  const appliedResult = applyChangelogOverrides(makeValidationEntries(projectItems), projectMap);
+  for (const message of appliedResult.errors) {
     errors.push(prefixWithFilePath(projectFilePath, message));
   }
   const positionsByHash = indexItemPositions(projectItems);
@@ -219,21 +219,21 @@ function processWorkspaceScope(args: WorkspaceScopeArgs): void {
   const validationEntries = makeValidationEntries(items);
   const positionsByHash = indexItemPositions(items);
 
-  const workspaceApplied = applyChangelogOverrides(validationEntries, map);
-  for (const message of workspaceApplied.errors) {
+  const workspaceAppliedResult = applyChangelogOverrides(validationEntries, map);
+  for (const message of workspaceAppliedResult.errors) {
     errors.push(prefixWithFilePath(filePath, message));
   }
 
   if (projectFilePath !== undefined && projectMap.size > 0) {
     const projectMinusShadowed = filterShadowedKeys(projectMap, map);
-    const projectApplied = applyChangelogOverrides(validationEntries, projectMinusShadowed);
-    for (const message of projectApplied.errors) {
+    const projectAppliedResult = applyChangelogOverrides(validationEntries, projectMinusShadowed);
+    for (const message of projectAppliedResult.errors) {
       errors.push(prefixWithFilePath(projectFilePath, message));
     }
 
-    const perFileErrors = new Set([...workspaceApplied.errors, ...projectApplied.errors]);
-    const composedApplied = applyChangelogOverrides(validationEntries, composeOverrides(projectMap, map));
-    for (const message of composedApplied.errors) {
+    const perFileErrors = new Set([...workspaceAppliedResult.errors, ...projectAppliedResult.errors]);
+    const composedAppliedResult = applyChangelogOverrides(validationEntries, composeOverrides(projectMap, map));
+    for (const message of composedAppliedResult.errors) {
       if (!perFileErrors.has(message)) {
         errors.push(prefixWithFilePath(filePath, message));
       }

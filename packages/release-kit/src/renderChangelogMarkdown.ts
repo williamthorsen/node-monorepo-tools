@@ -67,10 +67,16 @@ export function renderChangelogFiles(
     return { main: renderFile(sections), archives: [] };
   }
 
-  const archived = groupByMajor(sections.slice(keptVersionCount));
+  const archivedGroups = groupByMajor(sections.slice(keptVersionCount));
   return {
-    main: renderFile(sections.slice(0, keptVersionCount), describeArchivePointer(archived.map(({ major }) => major))),
-    archives: archived.map(({ major, sections: majorSections }) => ({ major, content: renderFile(majorSections) })),
+    main: renderFile(
+      sections.slice(0, keptVersionCount),
+      describeArchivePointer(archivedGroups.map(({ major }) => major)),
+    ),
+    archives: archivedGroups.map(({ major, sections: majorSections }) => ({
+      major,
+      content: renderFile(majorSections),
+    })),
   };
 }
 
@@ -128,20 +134,20 @@ function interleavePreservedSections(
   rendered: readonly VersionedMarkdownSection[],
   preserved: readonly VersionedMarkdownSection[],
 ): VersionedMarkdownSection[] {
-  const sorted = preserved.toSorted((a, b) => compareVersionsDescending(a.version, b.version));
-  const pending = sorted.map(withTrailingNewline);
+  const sortedSections = preserved.toSorted((a, b) => compareVersionsDescending(a.version, b.version));
+  const pendingSections = sortedSections.map(withTrailingNewline);
   const result: VersionedMarkdownSection[] = [];
   let index = 0;
   for (const part of rendered) {
-    let section = pending[index];
+    let section = pendingSections[index];
     while (section !== undefined && compareVersionsDescending(section.version, part.version) < 0) {
       result.push(section);
       index++;
-      section = pending[index];
+      section = pendingSections[index];
     }
     result.push(part);
   }
-  result.push(...pending.slice(index));
+  result.push(...pendingSections.slice(index));
   return result;
 }
 

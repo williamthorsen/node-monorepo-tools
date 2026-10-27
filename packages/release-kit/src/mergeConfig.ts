@@ -54,8 +54,8 @@ export function mergeMonorepoConfig(
   assertUniqueTagPrefixes(discoveredWorkspaces);
 
   const {
-    retained: workspaces,
-    excluded: excludedWorkspaces,
+    retainedWorkspaces: workspaces,
+    excludedWorkspaces,
     directories: declaredDirectories,
     composite: declaredComposite,
   } = resolveReleaseDeclaration(discoveredWorkspaces, userConfig);

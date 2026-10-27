@@ -51,8 +51,8 @@ export function renderReleaseNotesSingle(entry: ChangelogEntry, options?: Render
   const shouldIncludeHeading = options?.shouldIncludeHeading ?? true;
   const sectionOrder = options?.sectionOrder;
 
-  const filtered = filter !== undefined ? entry.sections.filter(filter) : entry.sections;
-  const sections = sectionOrder !== undefined ? sortSectionsByOrder(filtered, sectionOrder) : filtered;
+  const filteredSections = filter !== undefined ? entry.sections.filter(filter) : entry.sections;
+  const sections = sectionOrder !== undefined ? sortSectionsByOrder(filteredSections, sectionOrder) : filteredSections;
 
   if (sections.length === 0) {
     return '';
@@ -91,20 +91,20 @@ export function renderReleaseNotesSingle(entry: ChangelogEntry, options?: Render
  * Unknown titles preserve their relative position after known ones.
  */
 function sortSectionsByOrder(sections: ChangelogSection[], order: string[]): ChangelogSection[] {
-  const priority = new Map<string, number>();
+  const priorityByTitle = new Map<string, number>();
   for (const [index, title] of order.entries()) {
-    priority.set(title, index);
+    priorityByTitle.set(title, index);
   }
-  const indexed = sections.map((section, index) => ({ section, index }));
-  indexed.sort((a, b) => {
-    const priorityA = priority.get(a.section.title) ?? Infinity;
-    const priorityB = priority.get(b.section.title) ?? Infinity;
-    if (priorityA !== priorityB) {
-      return priorityA - priorityB;
+  const indexedSections = sections.map((section, index) => ({ section, index }));
+  indexedSections.sort((a, b) => {
+    const aPriority = priorityByTitle.get(a.section.title) ?? Infinity;
+    const bPriority = priorityByTitle.get(b.section.title) ?? Infinity;
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
     }
     return a.index - b.index;
   });
-  return indexed.map(({ section }) => section);
+  return indexedSections.map(({ section }) => section);
 }
 
 /** Indents each line of a body with two spaces so that it renders as nested content under a bullet. */

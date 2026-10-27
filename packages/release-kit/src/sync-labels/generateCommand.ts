@@ -37,7 +37,7 @@ export function formatLabelsYaml(
   // "clear it", so omitting the key would leave a description on GitHub after the config stops declaring it.
   // Build each entry explicitly to fix the key order: `aliases` and `archived` follow `description` whether or not
   // one was set.
-  const declared = labels.map(({ aliases, archived, color, description, name }) => ({
+  const declaredLabels = labels.map(({ aliases, archived, color, description, name }) => ({
     name,
     color,
     description: description ?? '',
@@ -46,7 +46,7 @@ export function formatLabelsYaml(
   }));
 
   // `lineWidth: 0` disables line wrapping.
-  const yamlBody = stringify(declared, { singleQuote: true, lineWidth: 0 });
+  const yamlBody = stringify(declaredLabels, { singleQuote: true, lineWidth: 0 });
   return headerLines.join('\n') + '\n' + yamlBody;
 }
 
@@ -147,16 +147,16 @@ export async function generateCommand({ shouldCheck = false, configPath, styles 
 // region | Helpers
 
 /** Compares regenerated content against the committed labels file; reports and returns an exit code. */
-function compareAgainstCommittedFile(expected: string): number {
-  let existing: string;
+function compareAgainstCommittedFile(expectedContent: string): number {
+  let existingContent: string;
   try {
-    existing = readFileSync(LABELS_OUTPUT_PATH, 'utf8');
+    existingContent = readFileSync(LABELS_OUTPUT_PATH, 'utf8');
   } catch {
     reportError(`${LABELS_OUTPUT_PATH} is missing. Run \`release-kit sync-labels generate\` and commit the result.`);
     return 1;
   }
 
-  if (existing !== expected) {
+  if (existingContent !== expectedContent) {
     reportError(`${LABELS_OUTPUT_PATH} is stale. Run \`release-kit sync-labels generate\` and commit the result.`);
     return 1;
   }

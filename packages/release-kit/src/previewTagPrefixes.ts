@@ -129,17 +129,17 @@ function buildDirectoryRows(
   workspacePaths: readonly string[],
   overridesByPath: Map<string, LegacyIdentity[]>,
 ): TagPrefixPreviewRow[] {
-  const discovered = new Set(workspacePaths);
+  const discoveredPaths = new Set(workspacePaths);
   return Object.entries(config?.releases ?? {}).flatMap(([name, entry]) => {
     if (entry === false || !('path' in entry)) return [];
     const directoryPath = normalizeWorkspacePath(entry.path);
-    if (discovered.has(directoryPath)) return [];
-    const declared = {
+    if (discoveredPaths.has(directoryPath)) return [];
+    const declaredDirectory = {
       name,
       path: directoryPath,
       ...(entry.tagPrefix !== undefined && { tagPrefix: entry.tagPrefix }),
     };
-    return [buildPreviewRow(directoryPath, () => deriveDirectoryConfig(declared).tagPrefix, overridesByPath)];
+    return [buildPreviewRow(directoryPath, () => deriveDirectoryConfig(declaredDirectory).tagPrefix, overridesByPath)];
   });
 }
 
@@ -195,11 +195,11 @@ function detectCollisions(rows: readonly TagPrefixPreviewRow[]): TagPrefixCollis
   const pathsByPrefix = new Map<string, string[]>();
   for (const row of rows) {
     if (row.derivedPrefix === null) continue;
-    const existing = pathsByPrefix.get(row.derivedPrefix);
-    if (existing === undefined) {
+    const existingPaths = pathsByPrefix.get(row.derivedPrefix);
+    if (existingPaths === undefined) {
       pathsByPrefix.set(row.derivedPrefix, [row.workspacePath]);
     } else {
-      existing.push(row.workspacePath);
+      existingPaths.push(row.workspacePath);
     }
   }
 
@@ -221,18 +221,18 @@ function collectKnownPrefixes(
   retiredPackages: readonly RetiredPackagePreviewEntry[],
   compositeTagPrefix: string | undefined,
 ): string[] {
-  const known = new Set<string>();
+  const knownPrefixes = new Set<string>();
   for (const row of rows) {
-    if (row.derivedPrefix !== null) known.add(row.derivedPrefix);
+    if (row.derivedPrefix !== null) knownPrefixes.add(row.derivedPrefix);
     for (const entry of row.legacyEntries) {
-      known.add(entry.prefix);
+      knownPrefixes.add(entry.prefix);
     }
   }
   for (const retired of retiredPackages) {
-    known.add(retired.tagPrefix);
+    knownPrefixes.add(retired.tagPrefix);
   }
-  if (compositeTagPrefix !== undefined) known.add(compositeTagPrefix);
-  return [...known];
+  if (compositeTagPrefix !== undefined) knownPrefixes.add(compositeTagPrefix);
+  return [...knownPrefixes];
 }
 
 /** Builds preview entries for each declared retired package, attaching current tag counts. */

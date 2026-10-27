@@ -344,7 +344,7 @@ describe(planTargetRelease, () => {
     );
 
     expect(tag).toBe('core-v4.0.0');
-    expect(result).toMatchObject({ setVersion: '4.0.0', newVersion: '4.0.0' });
+    expect(result).toMatchObject({ versionOverride: '4.0.0', newVersion: '4.0.0' });
     expect(result).not.toHaveProperty('releaseType');
     expect(result).not.toHaveProperty('parsedCommitCount');
     expect(result).not.toHaveProperty('unparseableCommits');

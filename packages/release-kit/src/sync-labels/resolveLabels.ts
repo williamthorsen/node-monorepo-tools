@@ -26,28 +26,28 @@ export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
     );
   }
 
-  const resolved = new Map<string, LabelDefinition>();
+  const resolvedLabels = new Map<string, LabelDefinition>();
 
   const presetNames = config.extends ?? [];
   for (const presetName of presetNames) {
     for (const label of loadPreset(presetName)) {
-      resolved.set(toLabelKey(label.name), label);
+      resolvedLabels.set(toLabelKey(label.name), label);
     }
   }
 
   for (const [name, spec] of labelEntries) {
     const key = toLabelKey(name);
     if (spec === null) {
-      if (!resolved.has(key)) {
+      if (!resolvedLabels.has(key)) {
         throw new Error(
           `Label '${name}' is set to null (remove), but the presets in 'extends' don't define it. Fix the name or delete the entry.`,
         );
       }
-      resolved.delete(key);
+      resolvedLabels.delete(key);
     } else {
       // Spread the optional fields conditionally: Zod infers an optional field as `T | undefined`,
       // which `exactOptionalPropertyTypes` rejects for an optional property.
-      resolved.set(key, {
+      resolvedLabels.set(key, {
         name,
         color: spec.color,
         ...(spec.description !== undefined && { description: spec.description }),
@@ -57,7 +57,7 @@ export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
     }
   }
 
-  const labels = sortLabels(resolved.values().toArray());
+  const labels = sortLabels(resolvedLabels.values().toArray());
 
   const aliasCollisions = findAliasCollisions(labels);
   if (aliasCollisions.length > 0) {

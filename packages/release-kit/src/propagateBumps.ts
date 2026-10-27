@@ -34,7 +34,7 @@ export function propagateBumps(
 
   // BFS queue: Workspace dirs whose dependents need to be checked.
   const queue: string[] = directBumps.keys().toArray();
-  const visited = new Set<string>();
+  const visitedDirs = new Set<string>();
 
   while (queue.length > 0) {
     const dir = queue.shift();
@@ -42,10 +42,10 @@ export function propagateBumps(
       break;
     }
 
-    if (visited.has(dir)) {
+    if (visitedDirs.has(dir)) {
       continue;
     }
-    visited.add(dir);
+    visitedDirs.add(dir);
 
     const packageName = graph.dirToPackageName.get(dir);
     if (packageName === undefined) {
@@ -66,23 +66,23 @@ export function propagateBumps(
 
     for (const dependent of dependents) {
       const dependentDir = dependent.id;
-      const existing = result.get(dependentDir);
+      const existingEntry = result.get(dependentDir);
 
       const propagationInfo = { packageName, newVersion };
 
-      if (existing === undefined) {
+      if (existingEntry === undefined) {
         result.set(dependentDir, {
           releaseType: 'patch',
           propagatedFrom: [propagationInfo],
         });
       } else {
         // Already in the release set. Add propagatedFrom metadata but don't downgrade the bump.
-        const existingPropagated = existing.propagatedFrom ?? [];
-        existing.propagatedFrom = [...existingPropagated, propagationInfo];
+        const existingSources = existingEntry.propagatedFrom ?? [];
+        existingEntry.propagatedFrom = [...existingSources, propagationInfo];
       }
 
       // Enqueue the dependent so that its own dependents are checked (transitive propagation).
-      if (!visited.has(dependentDir)) {
+      if (!visitedDirs.has(dependentDir)) {
         queue.push(dependentDir);
       }
     }

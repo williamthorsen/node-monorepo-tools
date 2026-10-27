@@ -193,14 +193,14 @@ describe('releasePrepareTargets for a monorepo', () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
-      const result = prepareMonorepo(config, { setVersions: new Map([['core', '1.0.0']]) });
+      const result = prepareMonorepo(config, { versionOverridesById: new Map([['core', '1.0.0']]) });
 
       const coreResult = selectPackageResults(result).find((c) => c.name === 'core');
       expect(coreResult).toMatchObject({
         status: 'released',
         newVersion: '1.0.0',
         currentVersion: '0.5.0',
-        setVersion: '1.0.0',
+        versionOverride: '1.0.0',
       });
       assert(coreResult?.status === 'released', 'expected released');
       expect(coreResult.releaseType).toBeUndefined();
@@ -227,7 +227,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
-      const result = prepareMonorepo(config, { setVersions: new Map([['core', '1.0.0']]) });
+      const result = prepareMonorepo(config, { versionOverridesById: new Map([['core', '1.0.0']]) });
 
       expect(listReadOptions()).toStrictEqual([
         { tagPrefixes: ['core-v'], paths: ['packages/core/**'], scope: 'core' },
@@ -237,7 +237,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       ]);
       const coreResult = selectPackageResults(result)[0];
       assert(coreResult?.status === 'released', 'expected released');
-      expect(coreResult).toMatchObject({ commitCount: 2, setVersion: '1.0.0', previousTag: 'core-v0.5.0' });
+      expect(coreResult).toMatchObject({ commitCount: 2, versionOverride: '1.0.0', previousTag: 'core-v0.5.0' });
       expect(coreResult.releaseType).toBeUndefined();
       expect(coreResult.parsedCommitCount).toBeUndefined();
       expect(coreResult.unparseableCommits).toBeUndefined();
@@ -249,7 +249,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       stubHistory({ previousTag: 'core-v0.5.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
 
-      expect(() => prepareMonorepo(config, { setVersions: new Map([['core', '0.3.0']]) })).toThrow(
+      expect(() => prepareMonorepo(config, { versionOverridesById: new Map([['core', '0.3.0']]) })).toThrow(
         '--set-version 0.3.0 is not greater than current version 0.5.0',
       );
     });
@@ -260,7 +260,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       stubHistory({ previousTag: 'core-v0.5.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
 
-      expect(() => prepareMonorepo(config, { setVersions: new Map([['core', '0.5.0']]) })).toThrow(
+      expect(() => prepareMonorepo(config, { versionOverridesById: new Map([['core', '0.5.0']]) })).toThrow(
         '--set-version 0.5.0 is not greater than current version 0.5.0',
       );
     });
@@ -272,7 +272,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
-      const result = prepareMonorepo(config, { setVersions: new Map([['core', '1.0.0']]) });
+      const result = prepareMonorepo(config, { versionOverridesById: new Map([['core', '1.0.0']]) });
 
       expect(result.tags).toStrictEqual(['core-v1.0.0']);
       expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -285,7 +285,7 @@ describe('releasePrepareTargets for a monorepo', () => {
         'app-v': { previousTag: 'app-v2.0.0' },
       });
 
-      const result = prepareMonorepo(config, { setVersions: new Map([['core', '3.0.0']]) });
+      const result = prepareMonorepo(config, { versionOverridesById: new Map([['core', '3.0.0']]) });
 
       expect(result.tags).toStrictEqual(['core-v3.0.0', 'app-v2.0.1']);
       expect(selectPackageResults(result).find((c) => c.name === 'app')).toMatchObject({
@@ -309,7 +309,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       const result = prepareMonorepo(config, {
         shouldForce: true,
         bumpOverride: 'minor',
-        setVersions: new Map([['core', '3.0.0']]),
+        versionOverridesById: new Map([['core', '3.0.0']]),
       });
 
       expect(result.tags).toStrictEqual(['core-v3.0.0', 'util-v0.2.0', 'app-v2.1.0']);
@@ -343,7 +343,7 @@ describe('releasePrepareTargets for a monorepo', () => {
         'util-v': { previousTag: 'util-v0.1.0', commits: [['fix: util fix', 'fed789']], bump: 'patch' },
       });
 
-      const result = prepareMonorepo(config, { only: ['core'] });
+      const result = prepareMonorepo(config, { onlyTargetIds: ['core'] });
 
       expect(result.tags).toStrictEqual(['core-v1.1.0', 'app-v2.0.1', 'cli-v3.1.0']);
       expect(selectPackageResults(result).map((workspace) => workspace.name)).toStrictEqual(['core', 'app', 'cli']);
@@ -361,7 +361,7 @@ describe('releasePrepareTargets for a monorepo', () => {
         'util-v': { previousTag: 'util-v0.1.0' },
       });
 
-      const result = prepareMonorepo(config, { only: ['core'], shouldForce: true });
+      const result = prepareMonorepo(config, { onlyTargetIds: ['core'], shouldForce: true });
 
       expect(result.tags).toStrictEqual(['core-v1.0.1', 'app-v2.0.1', 'cli-v3.0.1']);
       expect(selectPackageResults(result).find((c) => c.name === 'app')).toMatchObject({ propagatedOnly: true });
@@ -377,7 +377,7 @@ describe('releasePrepareTargets for a monorepo', () => {
         'util-v': { previousTag: 'util-v0.1.0', commits: [['fix: util fix', 'fed789']], bump: 'patch' },
       });
 
-      const result = prepareMonorepo(config, { only: ['core'] });
+      const result = prepareMonorepo(config, { onlyTargetIds: ['core'] });
 
       expect(result.tags).toStrictEqual([]);
       expect(selectPackageResults(result).map((workspace) => [workspace.name, workspace.status])).toStrictEqual([
@@ -396,7 +396,10 @@ describe('releasePrepareTargets for a monorepo', () => {
         'util-v': { previousTag: 'util-v0.1.0', commits: [['fix: util fix', 'fed789']], bump: 'patch' },
       });
 
-      const result = prepareMonorepo(config, { only: ['util'], setVersions: new Map([['app', '3.0.0']]) });
+      const result = prepareMonorepo(config, {
+        onlyTargetIds: ['util'],
+        versionOverridesById: new Map([['app', '3.0.0']]),
+      });
 
       expect(result.tags).toStrictEqual(['app-v3.0.0', 'util-v0.1.1', 'cli-v3.0.1']);
       expect(selectPackageResults(result).find((c) => c.name === 'cli')).toMatchObject({
@@ -483,7 +486,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       stubWindows({ 'arrays-v': 'minor', 'strings-v': 'patch' }, ['arrays-v']);
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-      const result = prepareMonorepo(config, { only: ['arrays'] });
+      const result = prepareMonorepo(config, { onlyTargetIds: ['arrays'] });
 
       expect(selectPackageResults(result).map((workspace) => workspace.name)).toStrictEqual(['arrays']);
       expect(selectPackageResults(result)[0]?.unroutedEntryScopes).toStrictEqual([unroutedFinding(3, 'nothing')]);

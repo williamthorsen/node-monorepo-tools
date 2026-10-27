@@ -10,10 +10,10 @@ import type { ReleaseEntry } from './propagateBumps.ts';
 export function topologicalSort(
   releaseSet: Map<string, ReleaseEntry>,
   graph: DependencyGraph,
-): { sorted: string[]; cyclicIds: string[] } {
+): { sortedIds: string[]; cyclicIds: string[] } {
   const releaseIds = new Set(releaseSet.keys());
   if (releaseIds.size === 0) {
-    return { sorted: [], cyclicIds: [] };
+    return { sortedIds: [], cyclicIds: [] };
   }
 
   // Build a forward adjacency list (dependency -> dependent) restricted to the release set.
@@ -54,13 +54,13 @@ export function topologicalSort(
     }
   }
 
-  const sorted: string[] = [];
+  const sortedIds: string[] = [];
   while (queue.length > 0) {
     const id = queue.shift();
     if (id === undefined) {
       break;
     }
-    sorted.push(id);
+    sortedIds.push(id);
 
     const dependents = forwardEdges.get(id) ?? [];
     for (const dependent of dependents) {
@@ -73,16 +73,16 @@ export function topologicalSort(
   }
 
   // Append any remaining (cyclic) nodes.
-  const sortedSet = new Set(sorted);
+  const sortedSet = new Set(sortedIds);
   const cyclicIds: string[] = [];
   for (const id of releaseIds) {
     if (sortedSet.has(id)) {
       continue;
     }
 
-    sorted.push(id);
+    sortedIds.push(id);
     cyclicIds.push(id);
   }
 
-  return { sorted, cyclicIds };
+  return { sortedIds, cyclicIds };
 }
