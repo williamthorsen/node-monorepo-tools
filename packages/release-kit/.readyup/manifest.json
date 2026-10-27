@@ -7,7 +7,7 @@
           "checklist": "release-kit",
           "checks": [
             "@williamthorsen/release-kit in devDependencies",
-            "@williamthorsen/release-kit >= 15.0.2",
+            "@williamthorsen/release-kit >= 15.0.3",
             "release.yaml workflow exists",
             "release.yaml matches template",
             "release.yaml does not reference deprecated tag ref",
@@ -63,7 +63,7 @@
           "path": "lib/workflow-hashes.ts"
         },
         {
-          "hash": "0350d3d3",
+          "hash": "5c98064e",
           "kind": "inline",
           "path": "../package.json",
           "paths": [
@@ -98,10 +98,10 @@
       ],
       "name": "default",
       "path": "kits/default.js",
-      "readyupVersion": "0.43.0",
+      "readyupVersion": "0.44.0",
       "source": "kits/default.ts",
       "sourceHash": "ad3666b8",
-      "targetHash": "fc806b93"
+      "targetHash": "35d9bb56"
     },
     {
       "checklistChecks": [
@@ -157,10 +157,10 @@
       ],
       "name": "npm-auto-publish",
       "path": "kits/npm-auto-publish.js",
-      "readyupVersion": "0.43.0",
+      "readyupVersion": "0.44.0",
       "source": "kits/npm-auto-publish.ts",
       "sourceHash": "682fdd4a",
-      "targetHash": "4aa2a346"
+      "targetHash": "fac6bc8b"
     }
   ]
 }

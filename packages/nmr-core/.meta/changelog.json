@@ -1,5 +1,33 @@
 [
   {
+    "version": "0.14.0",
+    "date": "2026-10-27",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Report the time that a build-cache hit saved (#1112)",
+            "body": "Adds the time that a build-cache hit saved to the skip line printed by `nmr-compile`, as in `Skipping build, saved ~2.1s.`, when the skipped emit took at least a second. The change also measures the durations that nmr reports on the monotonic clock, so that an adjustment of the system clock during a run no longer shortens or negates them.",
+            "hash": "ead0549c50d886ef371cb03d979883e027b051c2"
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Renames nmr-core's identifiers to follow the naming conventions, changing the exported option keys `dryRun` and `overwrite` to `isDryRun` and `shouldOverwrite` and the constant `GIT_OUTPUT_LIMIT` to `GIT_OUTPUT_LIMIT_BYTES`, and updates their call sites in nmr, release-kit, and v11y-check. (#1125)",
+            "hash": "2cb60f628512ed6ec2273a219a7b6c71aa35b1bf",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.13.6",
     "date": "2026-10-24",
     "sections": [

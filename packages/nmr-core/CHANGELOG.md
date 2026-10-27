@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.14.0 — 2026-10-27
+
+### 🎉 Features
+
+- Report the time that a build-cache hit saved (#1112)
+
+  Adds the time that a build-cache hit saved to the skip line printed by `nmr-compile`, as in `Skipping build, saved ~2.1s.`, when the skipped emit took at least a second. The change also measures the durations that nmr reports on the monotonic clock, so that an adjustment of the system clock during a run no longer shortens or negates them.
+
+### ♻️ Refactoring
+
+- Renames nmr-core's identifiers to follow the naming conventions, changing the exported option keys `dryRun` and `overwrite` to `isDryRun` and `shouldOverwrite` and the constant `GIT_OUTPUT_LIMIT` to `GIT_OUTPUT_LIMIT_BYTES`, and updates their call sites in nmr, release-kit, and v11y-check. (#1125)
+
 ## 0.13.6 — 2026-10-24
 
 ### 🧪 Tests

@@ -1,6 +1,6 @@
 /** @noformat -- @generated. Do not edit. Compiled by rdy. */
 /* eslint-disable */
-export const __readyupVersion = "0.43.0";
+export const __readyupVersion = "0.44.0";
 
 
 // .readyup/kits/default.ts
@@ -63,7 +63,7 @@ var default_default = defineRdyKit({
   ]
 });
 function getMinVersion() {
-  const pickedFields = { "version": "0.19.6" };
+  const pickedFields = { "version": "0.19.7" };
   if (typeof pickedFields["version"] !== "string") {
     throw new TypeError("v11y-check/package.json: 'version' must be a string");
   }

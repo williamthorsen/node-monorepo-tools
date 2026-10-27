@@ -1,6 +1,6 @@
 /** @noformat -- @generated. Do not edit. Compiled by rdy. */
 /* eslint-disable */
-export const __readyupVersion = "0.43.0";
+export const __readyupVersion = "0.44.0";
 
 
 // .readyup/kits/default.ts
@@ -234,7 +234,7 @@ var CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE = "d6de961de913c67b08dfa7e07f7349
 
 // .readyup/kits/default.ts
 function getMinVersion() {
-  const picked = { "version": "15.0.2" };
+  const picked = { "version": "15.0.3" };
   if (typeof picked["version"] !== "string") {
     throw new TypeError("release-kit/package.json: 'version' must be a string");
   }

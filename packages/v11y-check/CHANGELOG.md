@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.19.7 — 2026-10-27
+
+### ♻️ Refactoring
+
+- Apply the naming conventions to nmr-core's identifiers (#1125)
+
+  Renames the identifiers in nmr-core to follow the naming conventions, including the exported option keys of `updateManagedFile` and `writeFileWithCheck`, which change from `dryRun` and `overwrite` to `isDryRun` and `shouldOverwrite`, and the constant `GIT_OUTPUT_LIMIT`, which becomes `GIT_OUTPUT_LIMIT_BYTES`. Updates the call sites in nmr, release-kit, and v11y-check to the new names.
+
+- Renames the identifiers in `v11y-check`'s source and its readyup kit to the naming conventions, including the exported `CommandOptions.json` (now `isJson`) and the kit check `noLegacyAuditCiDirectory` (now `hasNoLegacyAuditCiDirectory`), and leaves the CLI flags and the JSON output keys as they were. (#1127)
+
 ## 0.19.6 — 2026-10-24
 
 ### 🧪 Tests

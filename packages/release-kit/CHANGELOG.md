@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## 15.0.3 — 2026-10-27
+
+### ♻️ Refactoring
+
+- Replaces the `syncLabelsWorkflow` function in `release-kit` with the verbatim file `templates/sync-labels.yaml.template`, which `sync-labels init` and `update-templates` now read from the package root and which the package's `files` list now includes. (#1114)
+- Apply the naming conventions to nmr-core's identifiers (#1125)
+
+  Renames the identifiers in nmr-core to follow the naming conventions, including the exported option keys of `updateManagedFile` and `writeFileWithCheck`, which change from `dryRun` and `overwrite` to `isDryRun` and `shouldOverwrite`, and the constant `GIT_OUTPUT_LIMIT`, which becomes `GIT_OUTPUT_LIMIT_BYTES`. Updates the call sites in nmr, release-kit, and v11y-check to the new names.
+
 ## 15.0.2 — 2026-10-24
 
 ### 🐛 Bug fixes

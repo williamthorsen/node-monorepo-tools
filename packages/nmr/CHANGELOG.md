@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.53.0 — 2026-10-27
+
+### 🎉 Features
+
+- Adds the time saved to the line that `nmr-compile` prints when it skips an unchanged package, as in `Skipping build, saved ~2.1s.`, when the skipped emit took at least a second. (#1112)
+- Adds `build skipped as unchanged` to the verdict line of a compile that hits the build cache, followed by the saved time when the recorded emit took at least a second, which nmr prints in a quiet run as well. (#1113)
+- Adds a `stated` field to the `--json` record of a passing command that stated its own outcome, such as `{"kind":"build-unchanged","savedMs":2100}`, which records the saving whatever its size. (#1113)
+- Removes the 7-day `maturityPeriod` from the shared policy that `defineConfig` in `@williamthorsen/nmr/taze` supplies, so that `nmr upgrade` waits for the `minimumReleaseAge` set in `pnpm-workspace.yaml` (or pnpm's default) and no longer withholds releases that pnpm already resolves for other packages. (#1129)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that nmr reported a short or negative duration for a command's run, a delegated run, or a remote lock wait when the system clock was adjusted during that span. (#1112)
+- Fixes the issue that `nmr-fmt` never formatted a file whose name starts with `-` and rejected `--` as an unknown option, by making `nmr-fmt` accept `--` before its pathspecs and pass `--` to Prettier before the file list. (#1130)
+
+### ♻️ Refactoring
+
+- Apply the naming conventions to nmr-core's identifiers (#1125)
+
+  Renames the identifiers in nmr-core to follow the naming conventions, including the exported option keys of `updateManagedFile` and `writeFileWithCheck`, which change from `dryRun` and `overwrite` to `isDryRun` and `shouldOverwrite`, and the constant `GIT_OUTPUT_LIMIT`, which becomes `GIT_OUTPUT_LIMIT_BYTES`. Updates the call sites in nmr, release-kit, and v11y-check to the new names.
+
 ## 0.52.0 — 2026-10-24
 
 ### 🎉 Features
