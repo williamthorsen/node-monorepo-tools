@@ -184,9 +184,9 @@ export function formatCheckText(
   const effectiveNow = now ?? new Date();
   const lines: string[] = [formatIntroBanner(scopes, style, thresholds)];
 
-  const anyFindings = scopes.some((scope) => hasFindings(result[scope]));
+  const hasAnyFindings = scopes.some((scope) => hasFindings(result[scope]));
 
-  if (!anyFindings) {
+  if (!hasAnyFindings) {
     lines.push('No known vulnerabilities found.');
     return lines.join('\n') + '\n';
   }

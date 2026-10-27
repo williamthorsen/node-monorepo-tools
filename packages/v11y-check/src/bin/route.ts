@@ -96,25 +96,25 @@ Options:
 function parseSharedFlags(flags: string[], styles: StreamStyles): CommandOptions {
   const flagSchema = {
     config: { long: '--config', type: 'string' as const },
-    dev: { long: '--dev', type: 'boolean' as const },
-    json: { long: '--json', type: 'boolean' as const, short: '-j' },
-    prod: { long: '--prod', type: 'boolean' as const },
+    isDev: { long: '--dev', type: 'boolean' as const },
+    isJson: { long: '--json', type: 'boolean' as const, short: '-j' },
+    isProd: { long: '--prod', type: 'boolean' as const },
     verbose: { long: '--verbose', type: 'boolean' as const, short: '-v' },
   };
 
   const { flags: parsed } = parseArgs(flags, flagSchema);
 
-  if (parsed.dev && parsed.prod) {
+  if (parsed.isDev && parsed.isProd) {
     throw new Error('Cannot specify both --dev and --prod');
   }
 
   const scopes: AuditScope[] = [];
-  if (parsed.dev) scopes.push('dev');
-  if (parsed.prod) scopes.push('prod');
+  if (parsed.isDev) scopes.push('dev');
+  if (parsed.isProd) scopes.push('prod');
 
   return {
     configPath: parsed.config,
-    json: parsed.json,
+    isJson: parsed.isJson,
     scopes,
     styles,
     verbose: parsed.verbose,
@@ -233,8 +233,8 @@ function handleInit(flags: string[], styles: StreamStyles): number {
   }
 
   const initFlagSchema = {
-    dryRun: { long: '--dry-run', type: 'boolean' as const, short: '-n' },
-    force: { long: '--force', type: 'boolean' as const, short: '-f' },
+    isDryRun: { long: '--dry-run', type: 'boolean' as const, short: '-n' },
+    shouldForce: { long: '--force', type: 'boolean' as const, short: '-f' },
   };
 
   let parsed;
@@ -245,7 +245,7 @@ function handleInit(flags: string[], styles: StreamStyles): number {
     return 1;
   }
 
-  return initCommand({ dryRun: parsed.flags.dryRun, force: parsed.flags.force, styles });
+  return initCommand({ isDryRun: parsed.flags.isDryRun, shouldForce: parsed.flags.shouldForce, styles });
 }
 
 /** Handles the `update-templates` subcommand with its own flag set. */
@@ -256,7 +256,7 @@ function handleUpdateTemplates(flags: string[], styles: StreamStyles): number {
   }
 
   const updateTemplatesFlagSchema = {
-    dryRun: { long: '--dry-run', type: 'boolean' as const, short: '-n' },
+    isDryRun: { long: '--dry-run', type: 'boolean' as const, short: '-n' },
   };
 
   let parsed;
@@ -267,5 +267,5 @@ function handleUpdateTemplates(flags: string[], styles: StreamStyles): number {
     return 1;
   }
 
-  return updateTemplatesCommand({ dryRun: parsed.flags.dryRun, styles });
+  return updateTemplatesCommand({ isDryRun: parsed.flags.isDryRun, styles });
 }

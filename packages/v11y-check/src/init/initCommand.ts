@@ -4,8 +4,8 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { scaffoldFiles } from './scaffold.ts';
 
 interface InitOptions {
-  dryRun: boolean;
-  force: boolean;
+  isDryRun: boolean;
+  shouldForce: boolean;
   styles: StreamStyles;
 }
 
@@ -15,29 +15,29 @@ interface InitOptions {
  * Scaffolds the starter config file and the GitHub Actions workflow, then prints next steps.
  * Returns the process exit code (0 for success, 1 if any write failed).
  */
-export function initCommand({ dryRun, force, styles }: InitOptions): number {
-  if (dryRun) {
+export function initCommand({ isDryRun, shouldForce, styles }: InitOptions): number {
+  if (isDryRun) {
     console.info('[dry-run mode]');
   }
 
   printStep('Scaffolding files');
   let results: ReturnType<typeof scaffoldFiles>;
   try {
-    results = scaffoldFiles({ dryRun, force });
+    results = scaffoldFiles({ isDryRun, shouldForce });
   } catch (error: unknown) {
     printError(`Failed to scaffold files: ${describeError(error)}`, styles.stderr);
     return 1;
   }
 
   for (const result of results) {
-    reportWriteResult(result, dryRun, styles);
+    reportWriteResult(result, isDryRun, styles);
   }
 
   if (results.some((r) => r.outcome === 'failed')) {
     return 1;
   }
 
-  if (!dryRun) {
+  if (!isDryRun) {
     printStep('Next steps');
     console.info(`
   1. Customize .config/v11y-check.config.json with your severity thresholds.

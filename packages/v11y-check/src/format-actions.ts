@@ -31,18 +31,18 @@ export function formatActionHints(result: CheckResult, scopes: AuditScope[]): st
   const hasAllowed = scopes.some((scope) => result[scope].allowed.length > 0);
   const hasStale = scopes.some((scope) => result[scope].stale.length > 0);
 
-  const hasVulns = hasUnallowed || hasAllowed;
-  const needsSync = hasUnallowed || hasStale;
+  const hasVulnerabilities = hasUnallowed || hasAllowed;
+  const isSyncNeeded = hasUnallowed || hasStale;
 
-  if (!hasVulns && !needsSync) return '';
+  if (!hasVulnerabilities && !isSyncNeeded) return '';
 
   const bullets: string[] = [];
 
-  if (hasVulns) {
+  if (hasVulnerabilities) {
     bullets.push(`  \u{2022} Run \`v11y check ${buildVerboseFlag(scopes)}\` for full report`);
   }
 
-  if (needsSync) {
+  if (isSyncNeeded) {
     bullets.push(`  \u{2022} ${selectSyncHint(hasUnallowed, hasStale)}`);
   }
 

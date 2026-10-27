@@ -187,13 +187,13 @@ function formatAllowedSuffix(addedAt: string, now: Date): string {
 function formatDescriptionLines(description: string, detailIndent: string): string[] {
   const paragraphs = description.split(/\n\s*\n/);
   const lines: string[] = [];
-  let needsSeparator = false;
+  let isSeparatorNeeded = false;
   for (const paragraph of paragraphs) {
-    if (needsSeparator) lines.push('');
+    if (isSeparatorNeeded) lines.push('');
     // `wrapToWidth` counts the indent inside `width`, and `WRAP_COLUMNS` is the width of the content alone.
     const wrapped = wrapToWidth(paragraph, { indent: detailIndent.length, width: WRAP_COLUMNS + detailIndent.length });
     if (wrapped !== '') lines.push(...wrapped.split('\n'));
-    needsSeparator = true;
+    isSeparatorNeeded = true;
   }
   return lines;
 }

@@ -9,7 +9,7 @@ const thisDir = dirname(fileURLToPath(import.meta.url));
 const distScaffoldPath = join(thisDir, '..', '..', '..', 'dist', 'esm', 'init', 'scaffold.js');
 
 interface ScaffoldModule {
-  copyWorkflowTemplate: (dryRun: boolean, overwrite: boolean) => { filePath: string; outcome: string };
+  copyWorkflowTemplate: (isDryRun: boolean, overwrite: boolean) => { filePath: string; outcome: string };
 }
 
 /** Checks whether a dynamic import result exports `copyWorkflowTemplate` as a function. */

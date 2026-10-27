@@ -184,7 +184,7 @@ export function extractStaleEntries(jsonString: string): StaleEntriesResult {
 interface RunAuditOptions {
   configPath: string;
   cwd?: string;
-  json?: boolean;
+  isJson?: boolean;
   reportType?: 'full';
 }
 
@@ -200,13 +200,13 @@ export interface AuditRunResult {
 /**
  * Invokes audit-ci with the given config file in normal (CI) mode.
  *
- * Returns the exit code faithfully. When `json` is true, output is JSON;
+ * Returns the exit code faithfully. When `isJson` is true, output is JSON;
  * otherwise audit-ci uses its default text format. Stale overrides are
  * detected from JSON output and returned.
  */
-export function runAudit({ configPath, cwd, json }: RunAuditOptions): AuditRunResult {
+export function runAudit({ configPath, cwd, isJson }: RunAuditOptions): AuditRunResult {
   const bin = resolveAuditCiBin();
-  const outputFormat = json ? 'json' : 'text';
+  const outputFormat = isJson ? 'json' : 'text';
   const args = ['--config', configPath, '--output-format', outputFormat];
 
   const result = spawnSync(process.execPath, [bin, ...args], {
@@ -221,7 +221,7 @@ export function runAudit({ configPath, cwd, json }: RunAuditOptions): AuditRunRe
 
   const stdout = result.stdout;
   const stderr = result.stderr;
-  const staleResult = json ? extractStaleEntries(stdout) : { entries: [], warnings: [] };
+  const staleResult = isJson ? extractStaleEntries(stdout) : { entries: [], warnings: [] };
 
   return {
     exitCode: result.status ?? 1,
@@ -241,7 +241,7 @@ export interface ReportResult {
 }
 
 /** Invokes audit-ci with JSON output, ignoring its exit code, and parses the advisories into `AuditResult` objects. */
-export function runReport({ configPath, cwd, reportType }: Omit<RunAuditOptions, 'json'>): ReportResult {
+export function runReport({ configPath, cwd, reportType }: Omit<RunAuditOptions, 'isJson'>): ReportResult {
   const bin = resolveAuditCiBin();
   const args = ['--config', configPath, '--output-format', 'json'];
   if (reportType === 'full') {

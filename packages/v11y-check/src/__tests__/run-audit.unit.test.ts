@@ -284,10 +284,10 @@ describe(runAudit, () => {
     vi.clearAllMocks();
   });
 
-  it('passes --config and --output-format json when json is true', () => {
+  it('passes --config and --output-format json when isJson is true', () => {
     mockSpawnSync.mockReturnValue(spawnResult({ stdout: '{}' }));
 
-    runAudit({ configPath: '/path/to/config.json', json: true });
+    runAudit({ configPath: '/path/to/config.json', isJson: true });
 
     const args = mockSpawnSync.mock.calls[0]?.[1];
     expect(args).toContain('--config');
@@ -296,10 +296,10 @@ describe(runAudit, () => {
     expect(args).toContain('json');
   });
 
-  it('passes --output-format text when json is false', () => {
+  it('passes --output-format text when isJson is false', () => {
     mockSpawnSync.mockReturnValue(spawnResult());
 
-    runAudit({ configPath: '/path/to/config.json', json: false });
+    runAudit({ configPath: '/path/to/config.json', isJson: false });
 
     const args = mockSpawnSync.mock.calls[0]?.[1];
     expect(args).toContain('--output-format');

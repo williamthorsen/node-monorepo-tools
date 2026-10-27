@@ -52,7 +52,7 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
       for (const scope of scopes) {
         const configPath = await generateAuditCiConfig(config[scope], scope, tempDir);
 
-        const result = runAudit({ configPath, json: options.json });
+        const result = runAudit({ configPath, isJson: options.isJson });
 
         for (const warning of result.warnings) {
           process.stderr.write(`warning: ${warning}\n`);
@@ -62,7 +62,7 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
           process.stderr.write(`warning: stale allowlist entries in ${scope}: ${result.staleEntries.join(', ')}\n`);
         }
 
-        if (options.json) {
+        if (options.isJson) {
           const parsed = parseAuditCiOutput(result.stdout);
           for (const warning of parsed.warnings) {
             process.stderr.write(`warning: ${warning}\n`);
@@ -86,7 +86,7 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
         }
       }
 
-      if (options.json) {
+      if (options.isJson) {
         process.stdout.write(JSON.stringify(allResults, null, 2) + '\n');
       }
 
@@ -177,9 +177,9 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
         checkResult[scope] = scopeResult;
       }
 
-      if (options.verbose && !options.json) {
+      if (options.verbose && !options.isJson) {
         process.stdout.write(formatCheckVerboseText(checkResult, scopes, options.styles.stdout, undefined, thresholds));
-      } else if (options.json) {
+      } else if (options.isJson) {
         process.stdout.write(formatCheckJson(checkResult, scopes));
       } else {
         process.stdout.write(formatCheckText(checkResult, scopes, options.styles.stdout, undefined, thresholds));
@@ -214,7 +214,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
 
   // When the config file doesn't exist, scaffold one first so that sync operates on a real file.
   if (configSource === 'defaults') {
-    const { configResult } = scaffoldConfig({ dryRun: false });
+    const { configResult } = scaffoldConfig({ isDryRun: false });
     if (configResult.outcome === 'failed') {
       reportError('Failed to create config file');
       return 1;
@@ -240,7 +240,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
         const { syncResult, updatedConfig } = await syncAllowlist(config, scope, report.results, configFilePath);
         config = updatedConfig;
 
-        if (options.json) {
+        if (options.isJson) {
           process.stdout.write(JSON.stringify(syncResult, null, 2) + '\n');
         } else {
           process.stdout.write(`\n--- ${scope} ---\n`);

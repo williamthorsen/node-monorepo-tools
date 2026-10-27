@@ -150,7 +150,7 @@ describe(auditCommand, () => {
       warnings: [],
     });
 
-    await auditCommand(makeOptions({ json: true, scopes: ['dev'] }));
+    await auditCommand(makeOptions({ isJson: true, scopes: ['dev'] }));
 
     const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toStrictEqual([{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }]);
@@ -213,7 +213,7 @@ describe(auditCommand, () => {
         warnings: [],
       });
 
-    await auditCommand(makeOptions({ json: true }));
+    await auditCommand(makeOptions({ isJson: true }));
 
     const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toStrictEqual(
