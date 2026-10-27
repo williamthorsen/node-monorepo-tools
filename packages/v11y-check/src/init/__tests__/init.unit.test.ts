@@ -203,21 +203,21 @@ describe(initCommand, () => {
   });
 
   it('mentions the scaffolded workflow in next-steps output', () => {
-    using silent = silenceConsole(['info']);
+    using silencedConsole = silenceConsole(['info']);
 
     initCommand({ isDryRun: false, shouldForce: false, styles: RICH_STYLES });
 
-    const fullOutput = listConsoleLines(silent.info).join('\n');
+    const fullOutput = listConsoleLines(silencedConsole.info).join('\n');
     expect(fullOutput).toContain('.github/workflows/audit.yaml');
     expect(fullOutput).toContain('.config/v11y-check.config.json');
   });
 
   it('does not mention generate in next-steps output', () => {
-    using silent = silenceConsole(['info']);
+    using silencedConsole = silenceConsole(['info']);
 
     initCommand({ isDryRun: false, shouldForce: false, styles: RICH_STYLES });
 
-    const fullOutput = listConsoleLines(silent.info).join('\n');
+    const fullOutput = listConsoleLines(silencedConsole.info).join('\n');
     expect(fullOutput).not.toContain('generate');
   });
 

@@ -14,8 +14,8 @@ describe(deriveSummary, () => {
 
   it('returns "vulnerabilities-found" with the total unallowed count across scopes', () => {
     const result = makeCheckResult({
-      dev: { ...buildEmptyScopeResult(), unallowed: [fakeAdvisory('GHSA-1')] },
-      prod: { ...buildEmptyScopeResult(), unallowed: [fakeAdvisory('GHSA-2'), fakeAdvisory('GHSA-3')] },
+      dev: { ...buildEmptyScopeResult(), unallowed: [buildFakeAdvisory('GHSA-1')] },
+      prod: { ...buildEmptyScopeResult(), unallowed: [buildFakeAdvisory('GHSA-2'), buildFakeAdvisory('GHSA-3')] },
     });
     expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'vulnerabilities-found', count: 3 });
   });
@@ -46,7 +46,7 @@ describe(deriveSummary, () => {
         allowed: [{ id: 'GHSA-allowed', path: 'pkg', paths: ['pkg'], url: 'https://example.com/allowed' }],
         belowThreshold: [],
         stale: [{ id: 'GHSA-old' }, { id: 'GHSA-old2' }],
-        unallowed: [fakeAdvisory('GHSA-new')],
+        unallowed: [buildFakeAdvisory('GHSA-new')],
       },
     });
     expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'vulnerabilities-found', count: 1 });
@@ -78,7 +78,7 @@ describe(deriveSummary, () => {
 
   it('only considers requested scopes', () => {
     const result = makeCheckResult({
-      dev: { ...buildEmptyScopeResult(), unallowed: [fakeAdvisory('GHSA-dev-only')] },
+      dev: { ...buildEmptyScopeResult(), unallowed: [buildFakeAdvisory('GHSA-dev-only')] },
       prod: buildEmptyScopeResult(),
     });
     expect(deriveSummary(result, ['prod'])).toStrictEqual({ status: 'none', count: 0 });
@@ -87,7 +87,7 @@ describe(deriveSummary, () => {
 });
 
 // region | Helpers
-function fakeAdvisory(id: string): AuditResult {
+function buildFakeAdvisory(id: string): AuditResult {
   return { id, path: 'pkg', paths: ['pkg'], severity: 'high', url: `https://example.com/${id}` };
 }
 // endregion | Helpers

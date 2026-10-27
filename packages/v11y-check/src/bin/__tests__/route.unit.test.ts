@@ -221,7 +221,7 @@ describe(routeCommand, () => {
   });
 
   it('returns 0 for update-templates --help without updating anything', async () => {
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
 
     const exitCode = await routeCommand(['update-templates', '--help']);
 
@@ -237,13 +237,13 @@ describe(routeCommand, () => {
   });
 
   it('states the output-style variable and its three values in --help', async () => {
-    const silent = disposeOnTestFinished(silenceConsole(['info']));
+    const silencedConsole = disposeOnTestFinished(silenceConsole(['info']));
 
     await routeCommand(['--help']);
 
-    const help = listConsoleLines(silent.info).join('\n');
-    expect(help).toContain('V11Y_CHECK_OUTPUT_STYLE');
-    expect(help).toMatch(/auto.*plain.*rich/);
+    const helpText = listConsoleLines(silencedConsole.info).join('\n');
+    expect(helpText).toContain('V11Y_CHECK_OUTPUT_STYLE');
+    expect(helpText).toMatch(/auto.*plain.*rich/);
   });
 
   it.each(['plain', 'rich'] as const)(

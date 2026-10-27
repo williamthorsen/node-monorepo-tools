@@ -31,7 +31,7 @@ describe(updateTemplatesCommand, () => {
   it.each(['created', 'updated', 'up-to-date'] as const)(
     'updates only audit.yaml from the bundled template and reports a %s file',
     (outcome) => {
-      using _silent = silenceConsole(['info']);
+      using _silencedConsole = silenceConsole(['info']);
       mockReadWorkflowTemplate.mockReturnValue({ content: 'name: Dependency audit\n' });
       const result: ManagedFileResult = { filePath: '.github/workflows/audit.yaml', outcome };
       mockUpdateManagedFile.mockReturnValue(result);
@@ -47,7 +47,7 @@ describe(updateTemplatesCommand, () => {
   );
 
   it('reports a failure without updating when the template cannot be read', () => {
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
     mockReadWorkflowTemplate.mockReturnValue({ error: 'Failed to read bundled template' });
 
     const exitCode = updateTemplatesCommand({ isDryRun: false, styles: STYLES });
@@ -62,7 +62,7 @@ describe(updateTemplatesCommand, () => {
   });
 
   it('returns 1 when the update fails', () => {
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
     mockReadWorkflowTemplate.mockReturnValue({ content: 'name: Dependency audit\n' });
     mockUpdateManagedFile.mockReturnValue({ filePath: '.github/workflows/audit.yaml', outcome: 'failed' });
 

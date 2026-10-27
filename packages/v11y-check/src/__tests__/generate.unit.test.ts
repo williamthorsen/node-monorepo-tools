@@ -24,8 +24,8 @@ describe(buildFlatConfig, () => {
       severityThreshold: 'moderate',
     };
 
-    const flat = buildFlatConfig(scopeConfig, 'prod');
-    expect(flat).toMatchObject({
+    const flatConfig = buildFlatConfig(scopeConfig, 'prod');
+    expect(flatConfig).toMatchObject({
       allowlist: ['GHSA-1234', 'GHSA-5678'],
       moderate: true,
       'show-not-found': true,
@@ -34,8 +34,8 @@ describe(buildFlatConfig, () => {
 
   it('produces an empty allowlist when the source does not have any entries', () => {
     const scopeConfig: ScopeConfig = { allowlist: [], severityThreshold: 'high' };
-    const flat = buildFlatConfig(scopeConfig, 'dev');
-    expect(flat).toMatchObject({
+    const flatConfig = buildFlatConfig(scopeConfig, 'dev');
+    expect(flatConfig).toMatchObject({
       allowlist: [],
       high: true,
     });
@@ -43,11 +43,11 @@ describe(buildFlatConfig, () => {
 
   it('omits severity keys when severityThreshold is undefined', () => {
     const scopeConfig: ScopeConfig = { allowlist: [] };
-    const flat = buildFlatConfig(scopeConfig, 'dev');
-    expect(flat).not.toHaveProperty('moderate');
-    expect(flat).not.toHaveProperty('high');
-    expect(flat).not.toHaveProperty('critical');
-    expect(flat).not.toHaveProperty('low');
+    const flatConfig = buildFlatConfig(scopeConfig, 'dev');
+    expect(flatConfig).not.toHaveProperty('moderate');
+    expect(flatConfig).not.toHaveProperty('high');
+    expect(flatConfig).not.toHaveProperty('critical');
+    expect(flatConfig).not.toHaveProperty('low');
   });
 
   it.each([
@@ -57,20 +57,20 @@ describe(buildFlatConfig, () => {
     { threshold: 'critical' as const, expectedKey: 'critical' },
   ])('translates severityThreshold "$threshold" to { $expectedKey: true }', ({ threshold, expectedKey }) => {
     const scopeConfig: ScopeConfig = { allowlist: [], severityThreshold: threshold };
-    const flat = buildFlatConfig(scopeConfig, 'dev');
-    expect(flat[expectedKey]).toBe(true);
+    const flatConfig = buildFlatConfig(scopeConfig, 'dev');
+    expect(flatConfig[expectedKey]).toBe(true);
   });
 
   it('adds skip-dev for prod scope', () => {
-    const flat = buildFlatConfig({ allowlist: [] }, 'prod');
-    expect(flat['skip-dev']).toBe(true);
-    expect(flat).not.toHaveProperty('extra-args');
+    const flatConfig = buildFlatConfig({ allowlist: [] }, 'prod');
+    expect(flatConfig['skip-dev']).toBe(true);
+    expect(flatConfig).not.toHaveProperty('extra-args');
   });
 
   it('adds extra-args ["--dev"] for dev scope', () => {
-    const flat = buildFlatConfig({ allowlist: [] }, 'dev');
-    expect(flat['extra-args']).toStrictEqual(['--dev']);
-    expect(flat).not.toHaveProperty('skip-dev');
+    const flatConfig = buildFlatConfig({ allowlist: [] }, 'dev');
+    expect(flatConfig['extra-args']).toStrictEqual(['--dev']);
+    expect(flatConfig).not.toHaveProperty('skip-dev');
   });
 });
 

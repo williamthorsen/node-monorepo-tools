@@ -5,10 +5,10 @@ const { mockedExistsSync } = vi.hoisted(() => ({
 }));
 
 vi.mock(import('node:fs'), async (importOriginal) => {
-  const actual = await importOriginal();
+  const actualModule = await importOriginal();
   return {
-    ...actual,
-    default: { ...actual, existsSync: mockedExistsSync },
+    ...actualModule,
+    default: { ...actualModule, existsSync: mockedExistsSync },
     existsSync: mockedExistsSync,
   };
 });

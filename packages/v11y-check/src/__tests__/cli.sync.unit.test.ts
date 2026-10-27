@@ -28,18 +28,18 @@ vi.mock(import('../generate.ts'), () => ({
 }));
 
 vi.mock(import('../run-audit.ts'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../run-audit.ts')>();
+  const actualModule = await importOriginal<typeof import('../run-audit.ts')>();
   return {
-    ...actual,
+    ...actualModule,
     runAudit: mocks.runAudit,
     runReport: mocks.runReport,
   };
 });
 
 vi.mock(import('../sync.ts'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../sync.ts')>();
+  const actualModule = await importOriginal<typeof import('../sync.ts')>();
   return {
-    ...actual,
+    ...actualModule,
     syncAllowlist: mocks.syncAllowlist,
   };
 });
@@ -130,8 +130,8 @@ describe(syncCommand, () => {
 
     await syncCommand(makeOptions({ isJson: true, scopes: ['dev'] }));
 
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual(expect.objectContaining({ added: [], kept: [], removed: [] }));
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual(expect.objectContaining({ added: [], kept: [], removed: [] }));
   });
 
   it('reports config creation when source is defaults', async () => {

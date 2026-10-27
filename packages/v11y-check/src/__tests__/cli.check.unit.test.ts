@@ -28,18 +28,18 @@ vi.mock(import('../generate.ts'), () => ({
 }));
 
 vi.mock(import('../run-audit.ts'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../run-audit.ts')>();
+  const actualModule = await importOriginal<typeof import('../run-audit.ts')>();
   return {
-    ...actual,
+    ...actualModule,
     runAudit: mocks.runAudit,
     runReport: mocks.runReport,
   };
 });
 
 vi.mock(import('../sync.ts'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../sync.ts')>();
+  const actualModule = await importOriginal<typeof import('../sync.ts')>();
   return {
-    ...actual,
+    ...actualModule,
     syncAllowlist: mocks.syncAllowlist,
   };
 });
@@ -169,8 +169,8 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual(
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
           allowed: [
@@ -221,8 +221,8 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual(
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
           allowed: [
@@ -263,8 +263,8 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toHaveProperty('prod');
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toHaveProperty('prod');
   });
 
   it('checks both scopes when none are specified', async () => {
@@ -433,8 +433,8 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
     expect(exitCode).toBe(0);
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual(
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
           belowThreshold: expect.arrayContaining([
@@ -465,8 +465,8 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
     expect(exitCode).toBe(0);
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual(
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
           allowed: [],
@@ -525,8 +525,8 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ isJson: true, scopes: ['prod'], verbose: true }));
 
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual(
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
           allowed: [

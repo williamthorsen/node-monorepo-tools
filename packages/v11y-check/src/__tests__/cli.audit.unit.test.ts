@@ -28,18 +28,18 @@ vi.mock(import('../generate.ts'), () => ({
 }));
 
 vi.mock(import('../run-audit.ts'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../run-audit.ts')>();
+  const actualModule = await importOriginal<typeof import('../run-audit.ts')>();
   return {
-    ...actual,
+    ...actualModule,
     runAudit: mocks.runAudit,
     runReport: mocks.runReport,
   };
 });
 
 vi.mock(import('../sync.ts'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../sync.ts')>();
+  const actualModule = await importOriginal<typeof import('../sync.ts')>();
   return {
-    ...actual,
+    ...actualModule,
     syncAllowlist: mocks.syncAllowlist,
   };
 });
@@ -151,8 +151,8 @@ describe(auditCommand, () => {
 
     await auditCommand(makeOptions({ isJson: true, scopes: ['dev'] }));
 
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual([{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }]);
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual([{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }]);
   });
 
   it('writes stderr when stdout is empty and stderr has content', async () => {
@@ -214,15 +214,15 @@ describe(auditCommand, () => {
 
     await auditCommand(makeOptions({ isJson: true }));
 
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual(
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'GHSA-shared' }),
         expect.objectContaining({ id: 'GHSA-dev-only' }),
         expect.objectContaining({ id: 'GHSA-prod-only' }),
       ]),
     );
-    expect(parsed).toHaveLength(3);
+    expect(parsedOutput).toHaveLength(3);
   });
 
   it('audits both scopes when the options do not specify any scope', async () => {

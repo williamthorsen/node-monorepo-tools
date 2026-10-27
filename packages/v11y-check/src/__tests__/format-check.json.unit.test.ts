@@ -14,8 +14,8 @@ describe(formatCheckJson, () => {
       },
     });
 
-    const parsed: unknown = JSON.parse(formatCheckJson(result, ['prod']));
-    expect(parsed).toStrictEqual({
+    const parsedOutput: unknown = JSON.parse(formatCheckJson(result, ['prod']));
+    expect(parsedOutput).toStrictEqual({
       prod: {
         allowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/1' }],
         belowThreshold: [],
@@ -49,8 +49,8 @@ describe(formatCheckJson, () => {
       },
     });
 
-    const parsed: unknown = JSON.parse(formatCheckJson(result, ['prod']));
-    expect(parsed).toMatchObject({
+    const parsedOutput: unknown = JSON.parse(formatCheckJson(result, ['prod']));
+    expect(parsedOutput).toMatchObject({
       prod: {
         allowed: [
           {
@@ -78,17 +78,17 @@ describe(formatCheckJson, () => {
       },
     });
 
-    const parsed: unknown = JSON.parse(formatCheckJson(result, ['prod']));
-    expect(parsed).toMatchObject({
+    const parsedOutput: unknown = JSON.parse(formatCheckJson(result, ['prod']));
+    expect(parsedOutput).toMatchObject({
       prod: { belowThreshold: [expect.objectContaining({ id: 'GHSA-bt', severity: 'low' })] },
     });
   });
 
   it('includes only requested scopes', () => {
     const result = makeCheckResult();
-    const parsed: unknown = JSON.parse(formatCheckJson(result, ['dev']));
-    expect(parsed).toHaveProperty('dev');
-    expect(parsed).not.toHaveProperty('prod');
+    const parsedOutput: unknown = JSON.parse(formatCheckJson(result, ['dev']));
+    expect(parsedOutput).toHaveProperty('dev');
+    expect(parsedOutput).not.toHaveProperty('prod');
   });
 
   it('includes a top-level summary block derived from the result', () => {
@@ -104,13 +104,13 @@ describe(formatCheckJson, () => {
       },
     });
 
-    const parsed: unknown = JSON.parse(formatCheckJson(result, ['prod', 'dev']));
-    expect(parsed).toMatchObject({ summary: { status: 'vulnerabilities-found', count: 2 } });
+    const parsedOutput: unknown = JSON.parse(formatCheckJson(result, ['prod', 'dev']));
+    expect(parsedOutput).toMatchObject({ summary: { status: 'vulnerabilities-found', count: 2 } });
   });
 
   it('emits summary { status: "none", count: 0 } for a clean result', () => {
-    const parsed: unknown = JSON.parse(formatCheckJson(makeCheckResult(), ['prod', 'dev']));
-    expect(parsed).toMatchObject({ summary: { status: 'none', count: 0 } });
+    const parsedOutput: unknown = JSON.parse(formatCheckJson(makeCheckResult(), ['prod', 'dev']));
+    expect(parsedOutput).toMatchObject({ summary: { status: 'none', count: 0 } });
   });
 
   it('derives the summary across only the requested scopes', () => {
@@ -123,10 +123,10 @@ describe(formatCheckJson, () => {
       },
     });
 
-    const prodOnly: unknown = JSON.parse(formatCheckJson(result, ['prod']));
-    expect(prodOnly).toMatchObject({ summary: { status: 'none', count: 0 } });
+    const prodOnlyOutput: unknown = JSON.parse(formatCheckJson(result, ['prod']));
+    expect(prodOnlyOutput).toMatchObject({ summary: { status: 'none', count: 0 } });
 
-    const devOnly: unknown = JSON.parse(formatCheckJson(result, ['dev']));
-    expect(devOnly).toMatchObject({ summary: { status: 'vulnerabilities-found', count: 1 } });
+    const devOnlyOutput: unknown = JSON.parse(formatCheckJson(result, ['dev']));
+    expect(devOnlyOutput).toMatchObject({ summary: { status: 'vulnerabilities-found', count: 1 } });
   });
 });
