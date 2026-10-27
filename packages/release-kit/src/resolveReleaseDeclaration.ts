@@ -44,8 +44,8 @@ export function getTargetName(workspace: WorkspaceConfig): string {
 
 /** Normalizes a configured path to the repo-relative POSIX form of a discovered `workspacePath`. */
 export function normalizeWorkspacePath(configuredPath: string): string {
-  const normalized = path.posix.normalize(configuredPath.replaceAll('\\', '/'));
-  return normalized.replace(/^\.\//, '').replace(/\/+$/, '');
+  const normalizedPath = path.posix.normalize(configuredPath.replaceAll('\\', '/'));
+  return normalizedPath.replace(/^\.\//, '').replace(/\/+$/, '');
 }
 
 /**

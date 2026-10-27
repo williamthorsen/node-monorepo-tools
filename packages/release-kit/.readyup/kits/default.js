@@ -24,14 +24,14 @@ function isRecord(value) {
 }
 
 // src/init/parseJsonRecord.ts
-function parseJsonRecord(raw) {
-  let parsed;
+function parseJsonRecord(jsonText) {
+  let parsedJson;
   try {
-    parsed = JSON.parse(raw);
+    parsedJson = JSON.parse(jsonText);
   } catch {
     return void 0;
   }
-  return isRecord(parsed) ? parsed : void 0;
+  return isRecord(parsedJson) ? parsedJson : void 0;
 }
 
 // src/init/detectRepoType.ts
@@ -40,8 +40,8 @@ function detectRepoType() {
     return "monorepo";
   }
   if (existsSync("package.json")) {
-    const raw = readFileSync("package.json", "utf8");
-    const pkg = parseJsonRecord(raw);
+    const manifestJson = readFileSync("package.json", "utf8");
+    const pkg = parseJsonRecord(manifestJson);
     if (pkg !== void 0 && Array.isArray(pkg["workspaces"])) {
       return "monorepo";
     }

@@ -228,8 +228,8 @@ function collectKnownPrefixes(
       knownPrefixes.add(entry.prefix);
     }
   }
-  for (const retired of retiredPackages) {
-    knownPrefixes.add(retired.tagPrefix);
+  for (const retiredPackage of retiredPackages) {
+    knownPrefixes.add(retiredPackage.tagPrefix);
   }
   if (compositeTagPrefix !== undefined) knownPrefixes.add(compositeTagPrefix);
   return [...knownPrefixes];
@@ -237,11 +237,11 @@ function collectKnownPrefixes(
 
 /** Builds preview entries for each declared retired package, attaching current tag counts. */
 function buildRetiredPreviewEntries(retiredPackages: readonly RetiredPackage[]): RetiredPackagePreviewEntry[] {
-  return retiredPackages.map((retired) => ({
-    name: retired.name,
-    tagPrefix: retired.tagPrefix,
-    tagCount: countTagsMatching(retired.tagPrefix),
-    ...(retired.successor !== undefined && { successor: retired.successor }),
+  return retiredPackages.map((retiredPackage) => ({
+    name: retiredPackage.name,
+    tagPrefix: retiredPackage.tagPrefix,
+    tagCount: countTagsMatching(retiredPackage.tagPrefix),
+    ...(retiredPackage.successor !== undefined && { successor: retiredPackage.successor }),
   }));
 }
 

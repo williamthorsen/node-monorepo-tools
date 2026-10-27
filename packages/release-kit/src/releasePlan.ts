@@ -122,17 +122,17 @@ interface DescribeApplyFailureArgs {
  */
 function describeApplyFailure(args: DescribeApplyFailureArgs): string {
   const { failedStep, error, appliedWrites, unwrittenPaths } = args;
-  const total = appliedWrites.length + unwrittenPaths.length;
+  const totalCount = appliedWrites.length + unwrittenPaths.length;
   const verb = failedStep.kind === 'remove' ? 'remove' : 'write';
   const lines = [`Failed to ${verb} ${failedStep.path}: ${error ?? 'unknown error'}`, ''];
 
   if (appliedWrites.length === 0) {
-    lines.push(`The release was not applied. None of its ${total} files were written.`);
+    lines.push(`The release was not applied. None of its ${totalCount} files were written.`);
     return lines.join('\n');
   }
 
   lines.push(
-    `The release was partially applied. ${appliedWrites.length} of ${total} files were written:`,
+    `The release was partially applied. ${appliedWrites.length} of ${totalCount} files were written:`,
     ...appliedWrites.map((write) => `  ${write.path}`),
     '',
     'Not written:',

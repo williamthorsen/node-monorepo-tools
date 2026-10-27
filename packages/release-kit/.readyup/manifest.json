@@ -76,12 +76,12 @@
           "path": "../src/changelogArchive.ts"
         },
         {
-          "hash": "43bb0452",
+          "hash": "7fdf7f1f",
           "kind": "module",
           "path": "../src/init/detectRepoType.ts"
         },
         {
-          "hash": "68354f97",
+          "hash": "9ca0f6bf",
           "kind": "module",
           "path": "../src/init/parseJsonRecord.ts"
         },
@@ -101,7 +101,7 @@
       "readyupVersion": "0.44.0",
       "source": "kits/default.ts",
       "sourceHash": "56566d0b",
-      "targetHash": "81c1567b"
+      "targetHash": "b7869b5e"
     },
     {
       "checklistChecks": [

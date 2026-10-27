@@ -131,14 +131,14 @@ function groupByMajor(
  * version is older than its own.
  */
 function interleavePreservedSections(
-  rendered: readonly VersionedMarkdownSection[],
-  preserved: readonly VersionedMarkdownSection[],
+  renderedSections: readonly VersionedMarkdownSection[],
+  preservedSections: readonly VersionedMarkdownSection[],
 ): VersionedMarkdownSection[] {
-  const sortedSections = preserved.toSorted((a, b) => compareVersionsDescending(a.version, b.version));
+  const sortedSections = preservedSections.toSorted((a, b) => compareVersionsDescending(a.version, b.version));
   const pendingSections = sortedSections.map(withTrailingNewline);
   const result: VersionedMarkdownSection[] = [];
   let index = 0;
-  for (const part of rendered) {
+  for (const part of renderedSections) {
     let section = pendingSections[index];
     while (section !== undefined && compareVersionsDescending(section.version, part.version) < 0) {
       result.push(section);

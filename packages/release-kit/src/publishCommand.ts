@@ -36,10 +36,10 @@ const publishFlagSchema = {
  * A relative `--config` resolves against `invocationDir`.
  */
 export async function publishCommand(argv: string[], styles: StreamStyles, invocationDir: string): Promise<void> {
-  const parsed = parseArgsOrExit(argv, publishFlagSchema);
-  const configPath = resolveConfigFlag(parsed.flags.config, invocationDir);
+  const parsedArgs = parseArgsOrExit(argv, publishFlagSchema);
+  const configPath = resolveConfigFlag(parsedArgs.flags.config, invocationDir);
 
-  const { isDryRun, shouldSkipGitChecks, shouldGenerateProvenance } = parsed.flags;
+  const { isDryRun, shouldSkipGitChecks, shouldGenerateProvenance } = parsedArgs.flags;
 
   const userConfig = await loadUsableConfig(styles.stderr, configPath);
 
@@ -53,7 +53,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
     }
   }
 
-  const requestedTags = parseRequestedTags(parsed.flags.tags);
+  const requestedTags = parseRequestedTags(parsedArgs.flags.tags);
 
   const resolvedTags = resolveCommandTags(requestedTags, userConfig);
 

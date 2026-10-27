@@ -7,12 +7,12 @@ import { isRecord } from './typeGuards.ts';
  * Validates a raw config object loaded from `.config/release-kit.config.ts`. Returns `{}` with the errors for a config
  * that fails the schema parse, and runs the cross-field checks on one that passes.
  */
-export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors: string[]; warnings: string[] } {
-  if (!isRecord(raw)) {
+export function validateConfig(rawConfig: unknown): { config: ReleaseKitConfig; errors: string[]; warnings: string[] } {
+  if (!isRecord(rawConfig)) {
     return { config: {}, errors: ['Config must be an object'], warnings: [] };
   }
 
-  const { cleanedInput, deprecationErrors } = preprocessDeprecatedKeys(raw);
+  const { cleanedInput, deprecationErrors } = preprocessDeprecatedKeys(rawConfig);
 
   const parseResult = releaseKitConfigSchema.safeParse(cleanedInput);
   if (!parseResult.success) {
@@ -50,11 +50,11 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
  * `.strict()`, so a removed key left in place would fail with Zod's generic "Unrecognized key" message, which omits
  * the migration instructions; every removed or renamed key is therefore handled here.
  */
-function preprocessDeprecatedKeys(raw: unknown): { cleanedInput: unknown; deprecationErrors: string[] } {
-  if (!isRecord(raw)) return { cleanedInput: raw, deprecationErrors: [] };
+function preprocessDeprecatedKeys(rawConfig: unknown): { cleanedInput: unknown; deprecationErrors: string[] } {
+  if (!isRecord(rawConfig)) return { cleanedInput: rawConfig, deprecationErrors: [] };
 
   const errors: string[] = [];
-  const cleanedInput: Record<string, unknown> = { ...raw };
+  const cleanedInput: Record<string, unknown> = { ...rawConfig };
 
   if (Object.hasOwn(cleanedInput, 'cliffConfigPath')) {
     errors.push(
@@ -199,11 +199,11 @@ function detectLegacyIdentityDuplicates(config: ReleaseKitConfig, errors: string
 function detectRetiredPackageDuplicates(config: ReleaseKitConfig, errors: string[]): void {
   if (config.retiredPackages === undefined) return;
   const seenKeys = new Set<string>();
-  for (const [index, retired] of config.retiredPackages.entries()) {
-    const key = `${retired.name}\0${retired.tagPrefix}`;
+  for (const [index, retiredPackage] of config.retiredPackages.entries()) {
+    const key = `${retiredPackage.name}\0${retiredPackage.tagPrefix}`;
     if (seenKeys.has(key)) {
       errors.push(
-        `retiredPackages[${index}]: duplicate package (name='${retired.name}', tagPrefix='${retired.tagPrefix}')`,
+        `retiredPackages[${index}]: duplicate package (name='${retiredPackage.name}', tagPrefix='${retiredPackage.tagPrefix}')`,
       );
     }
     seenKeys.add(key);
@@ -229,11 +229,11 @@ function detectRetiredVsLegacyCollisions(config: ReleaseKitConfig, errors: strin
     }
   }
 
-  for (const [index, retired] of config.retiredPackages.entries()) {
-    const collidingOwner = legacyPrefixToOwner.get(retired.tagPrefix);
+  for (const [index, retiredPackage] of config.retiredPackages.entries()) {
+    const collidingOwner = legacyPrefixToOwner.get(retiredPackage.tagPrefix);
     if (collidingOwner !== undefined) {
       errors.push(
-        `retiredPackages[${index}]: tagPrefix '${retired.tagPrefix}' collides with a declared legacyIdentities[].tagPrefix on ${collidingOwner}`,
+        `retiredPackages[${index}]: tagPrefix '${retiredPackage.tagPrefix}' collides with a declared legacyIdentities[].tagPrefix on ${collidingOwner}`,
       );
     }
   }
