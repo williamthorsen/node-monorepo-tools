@@ -236,10 +236,10 @@ function resolveReleasesBlock(
       );
     }
     claimPath(entryByPath, name, workspace.workspacePath, 'workspace');
-    const renamedWorkspace = applyLegacyIdentities(workspace, entry.legacyIdentities);
+    const identifiedWorkspace = applyLegacyIdentities(workspace, entry.legacyIdentities);
     renamedWorkspaces.set(
       workspace.workspacePath,
-      name === workspace.dir ? renamedWorkspace : { ...renamedWorkspace, targetName: name },
+      name === workspace.dir ? identifiedWorkspace : { ...identifiedWorkspace, targetName: name },
     );
   }
 

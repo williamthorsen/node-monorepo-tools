@@ -41,13 +41,13 @@ export function loadPreset(presetName: string): LabelDefinition[] {
     throw chainError(`Failed to read preset "${presetName}"`, error);
   }
 
-  const parsedJson: unknown = parse(content);
-  if (!Array.isArray(parsedJson)) {
+  const parsedYaml: unknown = parse(content);
+  if (!Array.isArray(parsedYaml)) {
     throw new TypeError(`Preset "${presetName}" must be a YAML array of label definitions`);
   }
 
   const labels: LabelDefinition[] = [];
-  for (const entry of parsedJson) {
+  for (const entry of parsedYaml) {
     if (!isRecord(entry)) {
       throw new Error(`Preset "${presetName}" contains an invalid label entry: ${JSON.stringify(entry)}`);
     }

@@ -53,7 +53,7 @@ export function makeConfig(overrides?: Partial<SinglePackageFixture>): TargetPre
 
 /** Prepares a single-package release, passing an explicit version under the root target's id. */
 export function prepareSinglePackage(config: TargetPrepareConfig, options: SinglePackageOptions): ReleasePlan {
-  const { versionOverride: versionOverride, ...rest } = options;
+  const { versionOverride, ...rest } = options;
   return releasePrepareTargets(config, {
     ...rest,
     ...(versionOverride !== undefined && { versionOverridesById: new Map([['.', versionOverride]]) }),
