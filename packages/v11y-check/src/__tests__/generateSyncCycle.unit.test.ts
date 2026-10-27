@@ -29,12 +29,12 @@ describe('generate -> sync cycle', () => {
     };
     const configFilePath = tree.writeJson(CONFIG_ENTRY, initialConfig);
 
-    const loaded = await loadConfig(configFilePath, tree.dir);
-    expect(loaded.config.prod.allowlist).toHaveLength(1);
+    const loadedConfigResult = await loadConfig(configFilePath, tree.dir);
+    expect(loadedConfigResult.config.prod.allowlist).toHaveLength(1);
 
     const outputDir = tree.mkdir('tmp');
-    const devPath = await generateAuditCiConfig(loaded.config.dev, 'dev', outputDir);
-    const prodPath = await generateAuditCiConfig(loaded.config.prod, 'prod', outputDir);
+    const devPath = await generateAuditCiConfig(loadedConfigResult.config.dev, 'dev', outputDir);
+    const prodPath = await generateAuditCiConfig(loadedConfigResult.config.prod, 'prod', outputDir);
 
     expect(devPath).toBe(path.join(outputDir, 'audit-ci.dev.json'));
     expect(prodPath).toBe(path.join(outputDir, 'audit-ci.prod.json'));
@@ -52,7 +52,11 @@ describe('generate -> sync cycle', () => {
     ];
 
     const fixedDate = new Date('2025-06-15T00:00:00Z');
-    const { added, kept, removed } = computeSyncDiff(loaded.config.prod.allowlist, prodAuditResults, fixedDate);
+    const { added, kept, removed } = computeSyncDiff(
+      loadedConfigResult.config.prod.allowlist,
+      prodAuditResults,
+      fixedDate,
+    );
 
     expect(added).toHaveLength(1);
     expect(added[0]?.id).toBe('GHSA-new1');
@@ -60,15 +64,15 @@ describe('generate -> sync cycle', () => {
     expect(removed[0]?.id).toBe('GHSA-stale');
     expect(kept).toHaveLength(0);
 
-    const updatedConfig = buildUpdatedConfig(loaded.config, 'prod', [...kept, ...added]);
+    const updatedConfig = buildUpdatedConfig(loadedConfigResult.config, 'prod', [...kept, ...added]);
     tree.write(CONFIG_ENTRY, serializeConfig(updatedConfig));
 
-    const reloaded = await loadConfig(configFilePath, tree.dir);
-    expect(reloaded.config.prod.allowlist).toHaveLength(1);
-    expect(reloaded.config.prod.allowlist[0]?.id).toBe('GHSA-new1');
-    expect(reloaded.config.prod.allowlist[0]?.reason).toBe('Added by v11y sync at 2025-06-15 00:00:00 UTC');
+    const reloadedConfigResult = await loadConfig(configFilePath, tree.dir);
+    expect(reloadedConfigResult.config.prod.allowlist).toHaveLength(1);
+    expect(reloadedConfigResult.config.prod.allowlist[0]?.id).toBe('GHSA-new1');
+    expect(reloadedConfigResult.config.prod.allowlist[0]?.reason).toBe('Added by v11y sync at 2025-06-15 00:00:00 UTC');
 
-    const updatedProdPath = await generateAuditCiConfig(reloaded.config.prod, 'prod', outputDir);
+    const updatedProdPath = await generateAuditCiConfig(reloadedConfigResult.config.prod, 'prod', outputDir);
     const updatedProdContent: unknown = JSON.parse(await readFile(updatedProdPath, 'utf8'));
     expect(updatedProdContent).toHaveProperty('allowlist', ['GHSA-new1']);
   });
@@ -81,11 +85,11 @@ describe('generate -> sync cycle', () => {
     const customConfigPath = tree.writeJson('custom/my-config.json', config);
     const customConfigDir = tree.resolve('custom');
 
-    const loaded = await loadConfig(customConfigPath, tree.dir);
-    expect(loaded.configFilePath).toBe(customConfigPath);
-    expect(loaded.configDir).toBe(customConfigDir);
+    const loadedConfigResult = await loadConfig(customConfigPath, tree.dir);
+    expect(loadedConfigResult.configFilePath).toBe(customConfigPath);
+    expect(loadedConfigResult.configDir).toBe(customConfigDir);
 
-    const devPath = await generateAuditCiConfig(loaded.config.dev, 'dev', customConfigDir);
+    const devPath = await generateAuditCiConfig(loadedConfigResult.config.dev, 'dev', customConfigDir);
     expect(devPath).toBe(path.join(customConfigDir, 'audit-ci.dev.json'));
 
     const content: unknown = JSON.parse(await readFile(devPath, 'utf8'));

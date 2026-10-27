@@ -3,8 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { auditCommand } from '../cli.ts';
 import type { LoadConfigResult } from '../config.ts';
-import { makeConfig, makeOptions } from '../test-utils/cli-fixtures.ts';
-import type { V11yCheckConfig } from '../types.ts';
+import { buildLoadConfigResult, callWithFakeTempDir, makeOptions } from '../test-utils/cli-fixtures.ts';
 
 const mocks = vi.hoisted(() => ({
   generateAuditCiConfig: vi.fn<() => Promise<string>>(),
@@ -29,18 +28,18 @@ vi.mock(import('../generate.ts'), () => ({
 }));
 
 vi.mock(import('../run-audit.ts'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../run-audit.ts')>();
+  const actualModule = await importOriginal<typeof import('../run-audit.ts')>();
   return {
-    ...actual,
+    ...actualModule,
     runAudit: mocks.runAudit,
     runReport: mocks.runReport,
   };
 });
 
 vi.mock(import('../sync.ts'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../sync.ts')>();
+  const actualModule = await importOriginal<typeof import('../sync.ts')>();
   return {
-    ...actual,
+    ...actualModule,
     syncAllowlist: mocks.syncAllowlist,
   };
 });
@@ -57,7 +56,7 @@ vi.mock(import('../tmp.ts'), () => ({
  */
 function primeSuite(): CapturedStdio {
   const capture = captureStdio();
-  setupTempDir();
+  mocks.withTempDir.mockImplementation(callWithFakeTempDir);
   mocks.generateAuditCiConfig.mockResolvedValue('/fake/tmp/audit-ci.json');
   mocks.scaffoldConfig.mockReturnValue({ configResult: { outcome: 'created' } });
   return capture;
@@ -87,7 +86,7 @@ describe(auditCommand, () => {
   });
 
   it('forwards stale entry warnings to stderr', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runAudit.mockReturnValue({
       exitCode: 0,
       staleEntries: ['GHSA-1234', 'GHSA-5678'],
@@ -102,7 +101,7 @@ describe(auditCommand, () => {
   });
 
   it('forwards audit-ci warnings to stderr', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runAudit.mockReturnValue({
       exitCode: 0,
       staleEntries: [],
@@ -117,7 +116,7 @@ describe(auditCommand, () => {
   });
 
   it('returns non-zero exit code when any scope fails', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runAudit
       .mockReturnValueOnce({ exitCode: 0, staleEntries: [], stderr: '', stdout: '', warnings: [] })
       .mockReturnValueOnce({ exitCode: 1, staleEntries: [], stderr: '', stdout: '', warnings: [] });
@@ -128,7 +127,7 @@ describe(auditCommand, () => {
   });
 
   it('returns 0 when all scopes pass', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runAudit.mockReturnValue({ exitCode: 0, staleEntries: [], stderr: '', stdout: '', warnings: [] });
 
     const exitCode = await auditCommand(makeOptions());
@@ -137,7 +136,7 @@ describe(auditCommand, () => {
   });
 
   it('writes deduplicated JSON in JSON mode', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runAudit.mockReturnValue({
       exitCode: 0,
       staleEntries: [],
@@ -152,12 +151,12 @@ describe(auditCommand, () => {
 
     await auditCommand(makeOptions({ isJson: true, scopes: ['dev'] }));
 
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual([{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }]);
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual([{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }]);
   });
 
   it('writes stderr when stdout is empty and stderr has content', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runAudit.mockReturnValue({
       exitCode: 1,
       staleEntries: [],
@@ -172,7 +171,7 @@ describe(auditCommand, () => {
   });
 
   it('deduplicates advisory IDs across scopes in JSON mode', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
 
     const sharedAdvisory = {
       id: 'GHSA-shared',
@@ -215,19 +214,19 @@ describe(auditCommand, () => {
 
     await auditCommand(makeOptions({ isJson: true }));
 
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual(
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'GHSA-shared' }),
         expect.objectContaining({ id: 'GHSA-dev-only' }),
         expect.objectContaining({ id: 'GHSA-prod-only' }),
       ]),
     );
-    expect(parsed).toHaveLength(3);
+    expect(parsedOutput).toHaveLength(3);
   });
 
   it('audits both scopes when the options do not specify any scope', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runAudit.mockReturnValue({ exitCode: 0, staleEntries: [], stderr: '', stdout: '', warnings: [] });
 
     await auditCommand(makeOptions());
@@ -235,25 +234,3 @@ describe(auditCommand, () => {
     expect(mocks.runAudit).toHaveBeenCalledTimes(2);
   });
 });
-
-// region | Helpers
-
-function setupLoadConfig(config?: V11yCheckConfig, source: 'defaults' | 'file' = 'file'): void {
-  mocks.loadConfig.mockResolvedValue({
-    config: config ?? makeConfig(),
-    configDir: '/fake/dir',
-    configFilePath: '/fake/dir/v11y-check.config.json',
-    configSource: source,
-  });
-}
-
-/**
- * Configures withTempDir mock to execute the callback with a fake temp path.
- *
- * Must be called before each test that exercises commands using temp dirs.
- */
-function setupTempDir(): void {
-  mocks.withTempDir.mockImplementation(async (fn: (dir: string) => Promise<unknown>) => fn('/fake/tmp'));
-}
-
-// endregion | Helpers

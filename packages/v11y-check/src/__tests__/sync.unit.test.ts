@@ -29,10 +29,12 @@ const it = baseIt.extend(
 
 describe(computeSyncDiff, () => {
   it('adds new advisories not in the current allowlist', () => {
-    const current: AllowlistEntry[] = [];
-    const audit: AuditResult[] = [makeAuditResult({ id: '1001', path: 'lodash', url: 'https://example.com/1001' })];
+    const currentAllowlist: AllowlistEntry[] = [];
+    const auditResults: AuditResult[] = [
+      makeAuditResult({ id: '1001', path: 'lodash', url: 'https://example.com/1001' }),
+    ];
 
-    const { added, kept, removed } = computeSyncDiff(current, audit, fixedDate);
+    const { added, kept, removed } = computeSyncDiff(currentAllowlist, auditResults, fixedDate);
 
     expect(added).toHaveLength(1);
     expect(added[0]?.reason).toBe('Added by v11y sync at 2025-06-15 00:00:00 UTC');
@@ -42,32 +44,36 @@ describe(computeSyncDiff, () => {
   });
 
   it('preserves addedAt on kept entries when present', () => {
-    const current: AllowlistEntry[] = [
+    const currentAllowlist: AllowlistEntry[] = [
       { addedAt: '2025-01-01', id: '1001', path: 'lodash', url: 'https://example.com/1001' },
     ];
-    const audit: AuditResult[] = [makeAuditResult({ id: '1001', path: 'lodash', url: 'https://example.com/1001' })];
+    const auditResults: AuditResult[] = [
+      makeAuditResult({ id: '1001', path: 'lodash', url: 'https://example.com/1001' }),
+    ];
 
-    const { kept } = computeSyncDiff(current, audit, fixedDate);
+    const { kept } = computeSyncDiff(currentAllowlist, auditResults, fixedDate);
 
     expect(kept).toHaveLength(1);
     expect(kept[0]?.addedAt).toBe('2025-01-01');
   });
 
   it('leaves addedAt absent on kept entries that did not have it', () => {
-    const current: AllowlistEntry[] = [{ id: '1001', path: 'lodash', url: 'https://example.com/1001' }];
-    const audit: AuditResult[] = [makeAuditResult({ id: '1001', path: 'lodash', url: 'https://example.com/1001' })];
+    const currentAllowlist: AllowlistEntry[] = [{ id: '1001', path: 'lodash', url: 'https://example.com/1001' }];
+    const auditResults: AuditResult[] = [
+      makeAuditResult({ id: '1001', path: 'lodash', url: 'https://example.com/1001' }),
+    ];
 
-    const { kept } = computeSyncDiff(current, audit, fixedDate);
+    const { kept } = computeSyncDiff(currentAllowlist, auditResults, fixedDate);
 
     expect(kept).toHaveLength(1);
     expect(kept[0]?.addedAt).toBeUndefined();
   });
 
   it('removes advisories no longer in audit output', () => {
-    const current: AllowlistEntry[] = [{ id: '1001', path: 'lodash', url: 'https://example.com/1001' }];
-    const audit: AuditResult[] = [];
+    const currentAllowlist: AllowlistEntry[] = [{ id: '1001', path: 'lodash', url: 'https://example.com/1001' }];
+    const auditResults: AuditResult[] = [];
 
-    const { added, kept, removed } = computeSyncDiff(current, audit, fixedDate);
+    const { added, kept, removed } = computeSyncDiff(currentAllowlist, auditResults, fixedDate);
 
     expect(added).toHaveLength(0);
     expect(kept).toHaveLength(0);
@@ -76,12 +82,14 @@ describe(computeSyncDiff, () => {
   });
 
   it('preserves existing entries with manual reasons', () => {
-    const current: AllowlistEntry[] = [
+    const currentAllowlist: AllowlistEntry[] = [
       { id: '1001', path: 'lodash', reason: 'accepted risk', url: 'https://example.com/1001' },
     ];
-    const audit: AuditResult[] = [makeAuditResult({ id: '1001', path: 'lodash', url: 'https://example.com/1001' })];
+    const auditResults: AuditResult[] = [
+      makeAuditResult({ id: '1001', path: 'lodash', url: 'https://example.com/1001' }),
+    ];
 
-    const { added, kept, removed } = computeSyncDiff(current, audit, fixedDate);
+    const { added, kept, removed } = computeSyncDiff(currentAllowlist, auditResults, fixedDate);
 
     expect(kept).toHaveLength(1);
     expect(kept[0]?.reason).toBe('accepted risk');
@@ -90,26 +98,28 @@ describe(computeSyncDiff, () => {
   });
 
   it('keeps entry without reason when ID is still in audit output', () => {
-    const current: AllowlistEntry[] = [{ id: '1001', path: 'lodash', url: 'https://example.com/1001' }];
-    const audit: AuditResult[] = [makeAuditResult({ id: '1001', path: 'lodash', url: 'https://example.com/1001' })];
+    const currentAllowlist: AllowlistEntry[] = [{ id: '1001', path: 'lodash', url: 'https://example.com/1001' }];
+    const auditResults: AuditResult[] = [
+      makeAuditResult({ id: '1001', path: 'lodash', url: 'https://example.com/1001' }),
+    ];
 
-    const { kept } = computeSyncDiff(current, audit, fixedDate);
+    const { kept } = computeSyncDiff(currentAllowlist, auditResults, fixedDate);
 
     expect(kept).toHaveLength(1);
     expect(kept[0]?.reason).toBeUndefined();
   });
 
   it('computes a mixed diff with additions and removals', () => {
-    const current: AllowlistEntry[] = [
+    const currentAllowlist: AllowlistEntry[] = [
       { id: '1001', path: 'lodash', url: 'https://example.com/1001' },
       { id: '1002', path: 'express', reason: 'manual reason', url: 'https://example.com/1002' },
     ];
-    const audit: AuditResult[] = [
+    const auditResults: AuditResult[] = [
       makeAuditResult({ id: '1002', path: 'express', url: 'https://example.com/1002' }),
       makeAuditResult({ id: '1003', path: 'axios', url: 'https://example.com/1003' }),
     ];
 
-    const { added, kept, removed } = computeSyncDiff(current, audit, fixedDate);
+    const { added, kept, removed } = computeSyncDiff(currentAllowlist, auditResults, fixedDate);
 
     expect(added).toHaveLength(1);
     expect(added[0]?.id).toBe('1003');
@@ -140,10 +150,10 @@ describe(buildUpdatedConfig, () => {
       { id: 'a-entry', path: 'a', url: 'https://a' },
     ];
 
-    const updated = buildUpdatedConfig(config, 'dev', entries);
-    expect(updated.dev.allowlist[0]?.id).toBe('a-entry');
-    expect(updated.dev.allowlist[1]?.id).toBe('z-entry');
-    expect(updated.prod.allowlist).toStrictEqual([]);
+    const updatedConfig = buildUpdatedConfig(config, 'dev', entries);
+    expect(updatedConfig.dev.allowlist[0]?.id).toBe('a-entry');
+    expect(updatedConfig.dev.allowlist[1]?.id).toBe('z-entry');
+    expect(updatedConfig.prod.allowlist).toStrictEqual([]);
   });
 });
 
@@ -221,9 +231,9 @@ describe(serializeConfig, () => {
     };
 
     const json = serializeConfig(config);
-    const parsed: unknown = JSON.parse(json);
-    expect(parsed).toHaveProperty('dev.severityThreshold', 'high');
-    expect(parsed).toHaveProperty('prod.severityThreshold', 'moderate');
+    const parsedConfig: unknown = JSON.parse(json);
+    expect(parsedConfig).toHaveProperty('dev.severityThreshold', 'high');
+    expect(parsedConfig).toHaveProperty('prod.severityThreshold', 'moderate');
   });
 });
 
@@ -261,10 +271,10 @@ describe(syncAllowlist, () => {
     expect(syncResult.scope).toBe('dev');
     expect(updatedConfig.dev.allowlist).toHaveLength(1);
 
-    const written: unknown = JSON.parse(await readFile(configPath, 'utf8'));
-    expect(written).toHaveProperty('dev.allowlist.length', 1);
-    expect(written).toHaveProperty('dev.allowlist[0].id', '1001');
-    expect(written).toHaveProperty('dev.severityThreshold', 'high');
+    const writtenConfig: unknown = JSON.parse(await readFile(configPath, 'utf8'));
+    expect(writtenConfig).toHaveProperty('dev.allowlist.length', 1);
+    expect(writtenConfig).toHaveProperty('dev.allowlist[0].id', '1001');
+    expect(writtenConfig).toHaveProperty('dev.severityThreshold', 'high');
   });
 
   it('reports a failed config write with the underlying error as the cause', async ({ tree }) => {

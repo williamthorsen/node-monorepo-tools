@@ -285,7 +285,7 @@ describe(runAudit, () => {
   });
 
   it('passes --config and --output-format json when isJson is true', () => {
-    mockSpawnSync.mockReturnValue(spawnResult({ stdout: '{}' }));
+    mockSpawnSync.mockReturnValue(buildSpawnResult({ stdout: '{}' }));
 
     runAudit({ configPath: '/path/to/config.json', isJson: true });
 
@@ -297,7 +297,7 @@ describe(runAudit, () => {
   });
 
   it('passes --output-format text when isJson is false', () => {
-    mockSpawnSync.mockReturnValue(spawnResult());
+    mockSpawnSync.mockReturnValue(buildSpawnResult());
 
     runAudit({ configPath: '/path/to/config.json', isJson: false });
 
@@ -307,7 +307,7 @@ describe(runAudit, () => {
   });
 
   it('returns the exit code from spawnSync', () => {
-    mockSpawnSync.mockReturnValue(spawnResult({ status: 7 }));
+    mockSpawnSync.mockReturnValue(buildSpawnResult({ status: 7 }));
 
     const result = runAudit({ configPath: '/cfg.json' });
 
@@ -315,7 +315,7 @@ describe(runAudit, () => {
   });
 
   it('throws on spawn failure', () => {
-    mockSpawnSync.mockReturnValue(spawnResult({ status: null, error: new Error('ENOENT') }));
+    mockSpawnSync.mockReturnValue(buildSpawnResult({ status: null, error: new Error('ENOENT') }));
 
     expect(() => runAudit({ configPath: '/cfg.json' })).toThrow('Failed to launch audit-ci');
   });
@@ -338,7 +338,7 @@ describe(runReport, () => {
       },
     });
 
-    mockSpawnSync.mockReturnValue(spawnResult({ status: 1, stdout: advisoryOutput }));
+    mockSpawnSync.mockReturnValue(buildSpawnResult({ status: 1, stdout: advisoryOutput }));
 
     const report = runReport({ configPath: '/cfg.json' });
 
@@ -347,13 +347,13 @@ describe(runReport, () => {
   });
 
   it('throws on spawn failure', () => {
-    mockSpawnSync.mockReturnValue(spawnResult({ status: null, error: new Error('ENOENT') }));
+    mockSpawnSync.mockReturnValue(buildSpawnResult({ status: null, error: new Error('ENOENT') }));
 
     expect(() => runReport({ configPath: '/cfg.json' })).toThrow('Failed to launch audit-ci');
   });
 
   it('appends --report-type full when reportType is "full"', () => {
-    mockSpawnSync.mockReturnValue(spawnResult({ stdout: '{}' }));
+    mockSpawnSync.mockReturnValue(buildSpawnResult({ stdout: '{}' }));
 
     runReport({ configPath: '/cfg.json', reportType: 'full' });
 
@@ -364,7 +364,7 @@ describe(runReport, () => {
   });
 
   it('omits --report-type when reportType is not specified', () => {
-    mockSpawnSync.mockReturnValue(spawnResult({ stdout: '{}' }));
+    mockSpawnSync.mockReturnValue(buildSpawnResult({ stdout: '{}' }));
 
     runReport({ configPath: '/cfg.json' });
 
@@ -388,7 +388,7 @@ describe(resolveAuditCiBin, () => {
 
 // region | Helpers
 
-function spawnResult(overrides: Partial<SpawnSyncReturns<string>> = {}): SpawnSyncReturns<string> {
+function buildSpawnResult(overrides: Partial<SpawnSyncReturns<string>> = {}): SpawnSyncReturns<string> {
   return {
     pid: 1_234,
     output: [null, '', ''],

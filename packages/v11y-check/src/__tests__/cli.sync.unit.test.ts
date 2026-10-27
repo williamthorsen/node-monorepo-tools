@@ -3,8 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { syncCommand } from '../cli.ts';
 import type { LoadConfigResult } from '../config.ts';
-import { makeConfig, makeOptions } from '../test-utils/cli-fixtures.ts';
-import type { V11yCheckConfig } from '../types.ts';
+import { buildLoadConfigResult, callWithFakeTempDir, makeConfig, makeOptions } from '../test-utils/cli-fixtures.ts';
 
 const mocks = vi.hoisted(() => ({
   generateAuditCiConfig: vi.fn<() => Promise<string>>(),
@@ -29,18 +28,18 @@ vi.mock(import('../generate.ts'), () => ({
 }));
 
 vi.mock(import('../run-audit.ts'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../run-audit.ts')>();
+  const actualModule = await importOriginal<typeof import('../run-audit.ts')>();
   return {
-    ...actual,
+    ...actualModule,
     runAudit: mocks.runAudit,
     runReport: mocks.runReport,
   };
 });
 
 vi.mock(import('../sync.ts'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../sync.ts')>();
+  const actualModule = await importOriginal<typeof import('../sync.ts')>();
   return {
-    ...actual,
+    ...actualModule,
     syncAllowlist: mocks.syncAllowlist,
   };
 });
@@ -57,7 +56,7 @@ vi.mock(import('../tmp.ts'), () => ({
  */
 function primeSuite(): CapturedStdio {
   const capture = captureStdio();
-  setupTempDir();
+  mocks.withTempDir.mockImplementation(callWithFakeTempDir);
   mocks.generateAuditCiConfig.mockResolvedValue('/fake/tmp/audit-ci.json');
   mocks.scaffoldConfig.mockReturnValue({ configResult: { outcome: 'created' } });
   return capture;
@@ -89,7 +88,7 @@ describe(syncCommand, () => {
     const config = makeConfig({
       dev: { allowlist: [{ id: 'GHSA-existing', path: 'pkg', url: 'https://example.com' }] },
     });
-    setupLoadConfig(config);
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
     mocks.syncAllowlist.mockResolvedValue({
       syncResult: { added: [], kept: [], removed: [], scope: 'dev' },
@@ -107,7 +106,7 @@ describe(syncCommand, () => {
   });
 
   it('prints text summary in non-JSON mode', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
     mocks.syncAllowlist.mockResolvedValue({
       syncResult: { added: ['a'], kept: [], removed: ['b', 'c'], scope: 'dev' },
@@ -122,7 +121,7 @@ describe(syncCommand, () => {
   });
 
   it('prints JSON in json mode', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
     mocks.syncAllowlist.mockResolvedValue({
       syncResult: { added: [], kept: [], removed: [], scope: 'dev' },
@@ -131,8 +130,8 @@ describe(syncCommand, () => {
 
     await syncCommand(makeOptions({ isJson: true, scopes: ['dev'] }));
 
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual(expect.objectContaining({ added: [], kept: [], removed: [] }));
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual(expect.objectContaining({ added: [], kept: [], removed: [] }));
   });
 
   it('reports config creation when source is defaults', async () => {
@@ -188,7 +187,7 @@ describe(syncCommand, () => {
   });
 
   it('does not scaffold when source is file', async () => {
-    setupLoadConfig(undefined, 'file');
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(undefined, 'file'));
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
     mocks.syncAllowlist.mockResolvedValue({
       syncResult: { added: [], kept: [], removed: [], scope: 'dev' },
@@ -215,25 +214,3 @@ describe(syncCommand, () => {
     expect(capture.stderr).toContain('Failed to create config file');
   });
 });
-
-// region | Helpers
-
-function setupLoadConfig(config?: V11yCheckConfig, source: 'defaults' | 'file' = 'file'): void {
-  mocks.loadConfig.mockResolvedValue({
-    config: config ?? makeConfig(),
-    configDir: '/fake/dir',
-    configFilePath: '/fake/dir/v11y-check.config.json',
-    configSource: source,
-  });
-}
-
-/**
- * Configures withTempDir mock to execute the callback with a fake temp path.
- *
- * Must be called before each test that exercises commands using temp dirs.
- */
-function setupTempDir(): void {
-  mocks.withTempDir.mockImplementation(async (fn: (dir: string) => Promise<unknown>) => fn('/fake/tmp'));
-}
-
-// endregion | Helpers

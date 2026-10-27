@@ -3,8 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { checkCommand } from '../cli.ts';
 import type { LoadConfigResult } from '../config.ts';
-import { makeConfig, makeOptions } from '../test-utils/cli-fixtures.ts';
-import type { V11yCheckConfig } from '../types.ts';
+import { buildLoadConfigResult, callWithFakeTempDir, makeConfig, makeOptions } from '../test-utils/cli-fixtures.ts';
 
 const mocks = vi.hoisted(() => ({
   generateAuditCiConfig: vi.fn<() => Promise<string>>(),
@@ -29,18 +28,18 @@ vi.mock(import('../generate.ts'), () => ({
 }));
 
 vi.mock(import('../run-audit.ts'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../run-audit.ts')>();
+  const actualModule = await importOriginal<typeof import('../run-audit.ts')>();
   return {
-    ...actual,
+    ...actualModule,
     runAudit: mocks.runAudit,
     runReport: mocks.runReport,
   };
 });
 
 vi.mock(import('../sync.ts'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../sync.ts')>();
+  const actualModule = await importOriginal<typeof import('../sync.ts')>();
   return {
-    ...actual,
+    ...actualModule,
     syncAllowlist: mocks.syncAllowlist,
   };
 });
@@ -57,7 +56,7 @@ vi.mock(import('../tmp.ts'), () => ({
  */
 function primeSuite(): CapturedStdio {
   const capture = captureStdio();
-  setupTempDir();
+  mocks.withTempDir.mockImplementation(callWithFakeTempDir);
   mocks.generateAuditCiConfig.mockResolvedValue('/fake/tmp/audit-ci.json');
   mocks.scaffoldConfig.mockReturnValue({ configResult: { outcome: 'created' } });
   return capture;
@@ -87,7 +86,7 @@ describe(checkCommand, () => {
   });
 
   it('returns 0 when the report does not contain any vulnerabilities', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
     const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
@@ -97,7 +96,7 @@ describe(checkCommand, () => {
   });
 
   it('returns 1 when unallowed vulnerabilities exist', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runReport.mockReturnValue({
       results: [
         { id: 'GHSA-bad', path: 'bad-pkg', paths: ['bad-pkg'], severity: 'high', url: 'https://example.com/bad' },
@@ -119,7 +118,7 @@ describe(checkCommand, () => {
         allowlist: [{ id: 'GHSA-ok', path: 'safe-pkg', url: 'https://example.com/ok' }],
       },
     });
-    setupLoadConfig(config);
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
     mocks.runReport.mockReturnValue({
       results: [
         { id: 'GHSA-ok', path: 'safe-pkg', paths: ['safe-pkg'], severity: 'moderate', url: 'https://example.com/ok' },
@@ -149,7 +148,7 @@ describe(checkCommand, () => {
         ],
       },
     });
-    setupLoadConfig(config);
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
     mocks.runReport.mockReturnValue({
       results: [
         {
@@ -170,8 +169,8 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual(
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
           allowed: [
@@ -203,7 +202,7 @@ describe(checkCommand, () => {
         ],
       },
     });
-    setupLoadConfig(config);
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
     mocks.runReport.mockReturnValue({
       results: [
         {
@@ -222,8 +221,8 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual(
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
           allowed: [
@@ -243,7 +242,7 @@ describe(checkCommand, () => {
         allowlist: [{ id: 'GHSA-stale', path: 'gone-pkg', url: 'https://example.com/stale' }],
       },
     });
-    setupLoadConfig(config);
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
     const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
@@ -254,7 +253,7 @@ describe(checkCommand, () => {
   });
 
   it('outputs JSON when the isJson option is true', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runReport.mockReturnValue({
       results: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/1' }],
       stdout: '',
@@ -264,12 +263,12 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toHaveProperty('prod');
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toHaveProperty('prod');
   });
 
   it('checks both scopes when none are specified', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
     await checkCommand(makeOptions());
@@ -285,7 +284,7 @@ describe(checkCommand, () => {
         allowlist: [{ id: 'GHSA-prod-entry', path: 'pkg', url: 'https://example.com/prod' }],
       },
     });
-    setupLoadConfig(config);
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
     mocks.runReport.mockReturnValue({
       results: [{ id: 'GHSA-prod-entry', path: 'pkg', paths: ['pkg'], url: 'https://example.com/prod' }],
       stdout: '',
@@ -303,7 +302,7 @@ describe(checkCommand, () => {
   });
 
   it('forwards report stderr to process stderr', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runReport.mockReturnValue({
       results: [],
       stdout: '',
@@ -317,7 +316,7 @@ describe(checkCommand, () => {
   });
 
   it('forwards report warnings to stderr', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runReport.mockReturnValue({
       results: [],
       stdout: '',
@@ -331,7 +330,7 @@ describe(checkCommand, () => {
   });
 
   it('invokes runReport with reportType "full" when verbose is true', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
     await checkCommand(makeOptions({ scopes: ['prod'], verbose: true }));
@@ -340,7 +339,7 @@ describe(checkCommand, () => {
   });
 
   it('omits reportType when verbose is false', async () => {
-    setupLoadConfig();
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
     await checkCommand(makeOptions({ scopes: ['prod'] }));
@@ -363,7 +362,7 @@ describe(checkCommand, () => {
         ],
       },
     });
-    setupLoadConfig(config);
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
     mocks.runReport.mockReturnValue({
       results: [
         {
@@ -397,7 +396,7 @@ describe(checkCommand, () => {
         allowlist: [{ id: 'GHSA-allowed', path: 'pkg', url: 'https://example.com/allowed' }],
       },
     });
-    setupLoadConfig(config);
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
     mocks.runReport.mockReturnValue({
       results: [
         { id: 'GHSA-allowed', path: 'pkg', paths: ['pkg'], severity: 'moderate', url: 'https://example.com/allowed' },
@@ -420,7 +419,7 @@ describe(checkCommand, () => {
         severityThreshold: 'high',
       },
     });
-    setupLoadConfig(config);
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
     mocks.runReport.mockReturnValue({
       results: [
         { id: 'GHSA-low', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/low' },
@@ -434,8 +433,8 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
     expect(exitCode).toBe(0);
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual(
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
           belowThreshold: expect.arrayContaining([
@@ -455,7 +454,7 @@ describe(checkCommand, () => {
         severityThreshold: 'high',
       },
     });
-    setupLoadConfig(config);
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
     mocks.runReport.mockReturnValue({
       results: [{ id: 'GHSA-low', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/low' }],
       stdout: '',
@@ -466,8 +465,8 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
     expect(exitCode).toBe(0);
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual(
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
           allowed: [],
@@ -485,7 +484,7 @@ describe(checkCommand, () => {
         severityThreshold: 'high',
       },
     });
-    setupLoadConfig(config);
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
     await checkCommand(makeOptions({ scopes: ['prod'] }));
@@ -505,7 +504,7 @@ describe(checkCommand, () => {
         ],
       },
     });
-    setupLoadConfig(config);
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
     mocks.runReport.mockReturnValue({
       results: [
         {
@@ -526,8 +525,8 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ isJson: true, scopes: ['prod'], verbose: true }));
 
-    const parsed: unknown = JSON.parse(capture.stdout);
-    expect(parsed).toStrictEqual(
+    const parsedOutput: unknown = JSON.parse(capture.stdout);
+    expect(parsedOutput).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
           allowed: [
@@ -544,25 +543,3 @@ describe(checkCommand, () => {
     );
   });
 });
-
-// region | Helpers
-
-function setupLoadConfig(config?: V11yCheckConfig, source: 'defaults' | 'file' = 'file'): void {
-  mocks.loadConfig.mockResolvedValue({
-    config: config ?? makeConfig(),
-    configDir: '/fake/dir',
-    configFilePath: '/fake/dir/v11y-check.config.json',
-    configSource: source,
-  });
-}
-
-/**
- * Configures withTempDir mock to execute the callback with a fake temp path.
- *
- * Must be called before each test that exercises commands using temp dirs.
- */
-function setupTempDir(): void {
-  mocks.withTempDir.mockImplementation(async (fn: (dir: string) => Promise<unknown>) => fn('/fake/tmp'));
-}
-
-// endregion | Helpers

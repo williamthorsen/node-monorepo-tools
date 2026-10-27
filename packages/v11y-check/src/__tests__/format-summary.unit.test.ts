@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { deriveSummary } from '../format-summary.ts';
-import { emptyScopeResult, makeCheckResult } from '../test-utils/check-result-fixtures.ts';
+import { buildEmptyScopeResult, makeCheckResult } from '../test-utils/check-result-fixtures.ts';
 import type { AuditResult } from '../types.ts';
 
 // -- deriveSummary --
@@ -14,8 +14,8 @@ describe(deriveSummary, () => {
 
   it('returns "vulnerabilities-found" with the total unallowed count across scopes', () => {
     const result = makeCheckResult({
-      dev: { ...emptyScopeResult(), unallowed: [fakeAdvisory('GHSA-1')] },
-      prod: { ...emptyScopeResult(), unallowed: [fakeAdvisory('GHSA-2'), fakeAdvisory('GHSA-3')] },
+      dev: { ...buildEmptyScopeResult(), unallowed: [buildFakeAdvisory('GHSA-1')] },
+      prod: { ...buildEmptyScopeResult(), unallowed: [buildFakeAdvisory('GHSA-2'), buildFakeAdvisory('GHSA-3')] },
     });
     expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'vulnerabilities-found', count: 3 });
   });
@@ -23,7 +23,7 @@ describe(deriveSummary, () => {
   it('returns "suppressed-vulnerabilities" with the total allowed count when the result does not contain any unallowed advisories', () => {
     const result = makeCheckResult({
       prod: {
-        ...emptyScopeResult(),
+        ...buildEmptyScopeResult(),
         allowed: [
           { id: 'GHSA-a', path: 'pkg', paths: ['pkg'], url: 'https://example.com/a' },
           { id: 'GHSA-b', path: 'pkg', paths: ['pkg'], url: 'https://example.com/b' },
@@ -35,7 +35,7 @@ describe(deriveSummary, () => {
 
   it('returns "stale-overrides" with the total stale count when the result does not contain any vulnerabilities', () => {
     const result = makeCheckResult({
-      prod: { ...emptyScopeResult(), stale: [{ id: 'GHSA-old' }] },
+      prod: { ...buildEmptyScopeResult(), stale: [{ id: 'GHSA-old' }] },
     });
     expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'stale-overrides', count: 1 });
   });
@@ -46,7 +46,7 @@ describe(deriveSummary, () => {
         allowed: [{ id: 'GHSA-allowed', path: 'pkg', paths: ['pkg'], url: 'https://example.com/allowed' }],
         belowThreshold: [],
         stale: [{ id: 'GHSA-old' }, { id: 'GHSA-old2' }],
-        unallowed: [fakeAdvisory('GHSA-new')],
+        unallowed: [buildFakeAdvisory('GHSA-new')],
       },
     });
     expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'vulnerabilities-found', count: 1 });
@@ -67,7 +67,7 @@ describe(deriveSummary, () => {
   it('ignores below-threshold findings when classifying status', () => {
     const result = makeCheckResult({
       prod: {
-        ...emptyScopeResult(),
+        ...buildEmptyScopeResult(),
         belowThreshold: [
           { id: 'GHSA-bt', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/bt' },
         ],
@@ -78,8 +78,8 @@ describe(deriveSummary, () => {
 
   it('only considers requested scopes', () => {
     const result = makeCheckResult({
-      dev: { ...emptyScopeResult(), unallowed: [fakeAdvisory('GHSA-dev-only')] },
-      prod: emptyScopeResult(),
+      dev: { ...buildEmptyScopeResult(), unallowed: [buildFakeAdvisory('GHSA-dev-only')] },
+      prod: buildEmptyScopeResult(),
     });
     expect(deriveSummary(result, ['prod'])).toStrictEqual({ status: 'none', count: 0 });
     expect(deriveSummary(result, ['dev'])).toStrictEqual({ status: 'vulnerabilities-found', count: 1 });
@@ -87,7 +87,7 @@ describe(deriveSummary, () => {
 });
 
 // region | Helpers
-function fakeAdvisory(id: string): AuditResult {
+function buildFakeAdvisory(id: string): AuditResult {
   return { id, path: 'pkg', paths: ['pkg'], severity: 'high', url: `https://example.com/${id}` };
 }
 // endregion | Helpers

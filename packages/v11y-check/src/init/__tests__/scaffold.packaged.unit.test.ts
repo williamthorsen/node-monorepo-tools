@@ -33,10 +33,10 @@ describe('copyWorkflowTemplate (packaged)', () => {
     using _cwd = pointCwdAt(tree.dir, { chdir: true });
 
     // Import from the compiled JS so that `import.meta.url` points to dist/esm/init/scaffold.js.
-    const mod: unknown = await import(distScaffoldPath);
-    assert(isScaffoldModule(mod), 'Module does not export `copyWorkflowTemplate` as a function');
+    const scaffoldModule: unknown = await import(distScaffoldPath);
+    assert(isScaffoldModule(scaffoldModule), 'Module does not export `copyWorkflowTemplate` as a function');
 
-    const result = mod.copyWorkflowTemplate(false, false);
+    const result = scaffoldModule.copyWorkflowTemplate(false, false);
 
     expect(result.outcome).toBe('created');
 

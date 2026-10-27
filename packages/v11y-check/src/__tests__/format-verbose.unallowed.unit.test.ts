@@ -217,10 +217,10 @@ describe(formatCheckVerboseText, () => {
     const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('First paragraph.');
     expect(output).toContain('Second paragraph.');
-    const firstIdx = output.indexOf('First paragraph.');
-    const secondIdx = output.indexOf('Second paragraph.');
-    const between = output.slice(firstIdx, secondIdx);
-    expect(between).toContain('\n\n');
+    const firstIndex = output.indexOf('First paragraph.');
+    const secondIndex = output.indexOf('Second paragraph.');
+    const textBetween = output.slice(firstIndex, secondIndex);
+    expect(textBetween).toContain('\n\n');
   });
 
   it('omits description block when description is absent', () => {
