@@ -11,5 +11,5 @@ export function makeConfig(overrides?: Partial<V11yCheckConfig>): V11yCheckConfi
 
 /** Builds the options of a rich-text, non-verbose command run over the default scopes, merged with the overrides. */
 export function makeOptions(overrides?: Partial<CommandOptions>): CommandOptions {
-  return { json: false, scopes: [], styles: { stderr: 'rich', stdout: 'rich' }, verbose: false, ...overrides };
+  return { isJson: false, scopes: [], styles: { stderr: 'rich', stdout: 'rich' }, verbose: false, ...overrides };
 }

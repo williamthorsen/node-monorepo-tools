@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatCheckText, severityIndicator } from '../format-check.ts';
+import { formatCheckText, getSeverityIndicator } from '../format-check.ts';
 import { buildPopulatedCheckResult } from '../test-utils/buildPopulatedCheckResult.ts';
 import { makeCheckResult } from '../test-utils/check-result-fixtures.ts';
 
 const FIXED_NOW = new Date('2026-04-15T00:00:00Z');
 
-// -- severityIndicator --
+// -- getSeverityIndicator --
 
-describe(severityIndicator, () => {
+describe(getSeverityIndicator, () => {
   it.each(['critical', 'high', 'moderate', 'low', 'info'])(
     'returns an empty string for %s in plain style',
     (severity) => {
-      expect(severityIndicator(severity, 'plain')).toBe('');
+      expect(getSeverityIndicator(severity, 'plain')).toBe('');
     },
   );
 
@@ -23,15 +23,15 @@ describe(severityIndicator, () => {
     ['low', '\u{1F7E1}'],
     ['info', '\u{1F7E1}'],
   ])('returns correct indicator for %s', (severity, expected) => {
-    expect(severityIndicator(severity, 'rich')).toBe(expected);
+    expect(getSeverityIndicator(severity, 'rich')).toBe(expected);
   });
 
   it('returns empty string for undefined severity', () => {
-    expect(severityIndicator(undefined, 'rich')).toBe('');
+    expect(getSeverityIndicator(undefined, 'rich')).toBe('');
   });
 
   it('returns empty string for unknown severity', () => {
-    expect(severityIndicator('unknown', 'rich')).toBe('');
+    expect(getSeverityIndicator('unknown', 'rich')).toBe('');
   });
 });
 

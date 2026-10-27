@@ -34,7 +34,7 @@ describe(initCommand, () => {
     ];
     vi.mocked(scaffoldFiles).mockReturnValue(results);
 
-    initCommand({ dryRun: false, force: false, styles: STYLES });
+    initCommand({ isDryRun: false, shouldForce: false, styles: STYLES });
 
     expect(reportWriteResult).toHaveBeenCalledTimes(2);
     expect(reportWriteResult).toHaveBeenNthCalledWith(1, results[0], false, STYLES);
@@ -46,7 +46,7 @@ describe(initCommand, () => {
       throw new Error('disk full');
     });
 
-    const exitCode = initCommand({ dryRun: false, force: false, styles: STYLES });
+    const exitCode = initCommand({ isDryRun: false, shouldForce: false, styles: STYLES });
 
     expect(exitCode).toBe(1);
     expect(printError).toHaveBeenCalledWith('Failed to scaffold files: disk full', 'plain');

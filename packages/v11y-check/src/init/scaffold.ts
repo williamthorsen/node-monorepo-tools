@@ -10,8 +10,8 @@ const CONFIG_PATH = '.config/v11y-check.config.json';
 export const WORKFLOW_PATH = '.github/workflows/audit.yaml';
 
 interface ScaffoldOptions {
-  dryRun: boolean;
-  force: boolean;
+  isDryRun: boolean;
+  shouldForce: boolean;
 }
 
 interface ScaffoldResult {
@@ -22,22 +22,22 @@ interface ScaffoldResult {
  * Scaffolds the v11y-check config file with sensible defaults, never overwriting an existing one, whose allowlist
  * `v11y sync` maintains.
  */
-export function scaffoldConfig({ dryRun }: { dryRun: boolean }): ScaffoldResult {
+export function scaffoldConfig({ isDryRun }: { isDryRun: boolean }): ScaffoldResult {
   const configResult = writeFileWithCheck(CONFIG_PATH, v11yCheckConfigTemplate, {
-    isDryRun: dryRun,
+    isDryRun,
     shouldOverwrite: false,
   });
   return { configResult };
 }
 
 /** Copies the bundled audit.yaml.template to `.github/workflows/audit.yaml` in the target repo. */
-export function copyWorkflowTemplate(dryRun: boolean, overwrite: boolean): WriteResult {
+export function copyWorkflowTemplate(isDryRun: boolean, shouldOverwrite: boolean): WriteResult {
   const template = readWorkflowTemplate();
   if ('error' in template) {
     return { filePath: WORKFLOW_PATH, outcome: 'failed', error: template.error };
   }
 
-  return writeFileWithCheck(WORKFLOW_PATH, template.content, { isDryRun: dryRun, shouldOverwrite: overwrite });
+  return writeFileWithCheck(WORKFLOW_PATH, template.content, { isDryRun, shouldOverwrite });
 }
 
 /** Reads the bundled audit.yaml.template, returning a description of the failure when it cannot. */
@@ -58,16 +58,16 @@ export function readWorkflowTemplate(): { content: string } | { error: string } 
 }
 
 /** Scaffolds the GitHub Actions audit workflow to `.github/workflows/audit.yaml`. */
-export function scaffoldWorkflow(dryRun: boolean, overwrite: boolean): WriteResult {
-  return copyWorkflowTemplate(dryRun, overwrite);
+export function scaffoldWorkflow(isDryRun: boolean, shouldOverwrite: boolean): WriteResult {
+  return copyWorkflowTemplate(isDryRun, shouldOverwrite);
 }
 
 /**
- * Scaffolds the config file and the GitHub Actions workflow, returning their write results in that order. `force`
+ * Scaffolds the config file and the GitHub Actions workflow, returning their write results in that order. `shouldForce`
  * overwrites the workflow alone; an existing config is never overwritten.
  */
-export function scaffoldFiles({ dryRun, force }: ScaffoldOptions): WriteResult[] {
-  const { configResult } = scaffoldConfig({ dryRun });
-  const workflowResult = scaffoldWorkflow(dryRun, force);
+export function scaffoldFiles({ isDryRun, shouldForce }: ScaffoldOptions): WriteResult[] {
+  const { configResult } = scaffoldConfig({ isDryRun });
+  const workflowResult = scaffoldWorkflow(isDryRun, shouldForce);
   return [configResult, workflowResult];
 }

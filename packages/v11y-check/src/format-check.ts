@@ -8,7 +8,7 @@ import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 
 // region | Types
 /** An audit finding that the allowlist admits, with the entry's reason and date. */
-export interface AllowedVuln {
+export interface AllowedVulnerability {
   addedAt?: string | undefined;
   cvss?: { score?: number; vectorString?: string } | undefined;
   description?: string | undefined;
@@ -29,7 +29,7 @@ export interface StaleEntry {
 
 /** Check results for a single scope. */
 export interface ScopeCheckResult {
-  allowed: AllowedVuln[];
+  allowed: AllowedVulnerability[];
   belowThreshold: AuditResult[];
   stale: StaleEntry[];
   unallowed: AuditResult[];
@@ -53,7 +53,7 @@ const SEVERITY_GLYPH_NAMES: Record<string, V11yGlyphName> = {
 };
 
 /** Maps a severity string to its indicator in a style: a colored circle when rich, nothing when plain. */
-export function severityIndicator(severity: string | undefined, style: OutputStyle): string {
+export function getSeverityIndicator(severity: string | undefined, style: OutputStyle): string {
   if (severity === undefined) return '';
   const name = SEVERITY_GLYPH_NAMES[severity];
   return name === undefined ? '' : V11Y_GLYPHS[style][name].text;
@@ -61,8 +61,8 @@ export function severityIndicator(severity: string | undefined, style: OutputSty
 
 // region | Display ID helper
 /** Resolves the best display ID for a vulnerability: GHSA ID if available, otherwise the numeric ID. */
-export function displayId(vuln: { ghsaId?: string | undefined; id: string }): string {
-  return vuln.ghsaId ?? vuln.id;
+export function resolveDisplayId(vulnerability: { ghsaId?: string | undefined; id: string }): string {
+  return vulnerability.ghsaId ?? vulnerability.id;
 }
 // endregion | Display ID helper
 
@@ -83,7 +83,7 @@ const SCOPE_NAMES: Record<AuditScope, string> = {
 /** Formats a threshold annotation, e.g. `(threshold: 🟠 moderate)`. Returns empty string for `low` threshold. */
 function formatThresholdAnnotation(threshold: SeverityThreshold | undefined, style: OutputStyle): string {
   if (threshold === undefined || threshold === 'low') return '';
-  const indicator = severityIndicator(threshold, style);
+  const indicator = getSeverityIndicator(threshold, style);
   const indicatorPart = indicator.length > 0 ? `${indicator} ` : '';
   return `(threshold: ${indicatorPart}${threshold})`;
 }
@@ -94,11 +94,11 @@ function formatIntroBanner(
   style: OutputStyle,
   thresholds?: Partial<Record<AuditScope, SeverityThreshold>>,
 ): string {
-  const first = scopes[0];
-  // `first` is always defined here; the guard narrows for TypeScript.
-  if (scopes.length === 1 && first !== undefined) {
-    const annotation = formatThresholdAnnotation(thresholds?.[first], style);
-    const message = `Auditing ${SCOPE_NAMES[first]} dependencies${annotation && ` ${annotation}`} ...`;
+  const firstScope = scopes[0];
+  // `firstScope` is always defined here; the guard narrows for TypeScript.
+  if (scopes.length === 1 && firstScope !== undefined) {
+    const annotation = formatThresholdAnnotation(thresholds?.[firstScope], style);
+    const message = `Auditing ${SCOPE_NAMES[firstScope]} dependencies${annotation && ` ${annotation}`} ...`;
     return formatGlyphLine(V11Y_GLYPHS, style, 'audit', message);
   }
   return formatGlyphLine(V11Y_GLYPHS, style, 'audit', 'Auditing dependencies ...');
@@ -107,28 +107,28 @@ function formatIntroBanner(
 /** Builds the severity suffix for a finding line, e.g. `  🔴 critical`. */
 export function formatSeveritySuffix(severity: string | undefined, style: OutputStyle): string {
   if (severity === undefined || severity === '') return '';
-  const emoji = severityIndicator(severity, style);
+  const emoji = getSeverityIndicator(severity, style);
   const emojiPart = emoji.length > 0 ? `${emoji} ` : '';
   return `  ${emojiPart}${severity}`;
 }
 
 /** Builds the "allowed since X ago (datetime)" suffix for entries with `addedAt`. */
 function formatAllowedSuffix(addedAt: string, now: Date): string {
-  const relative = formatRelativeTime(addedAt, now);
-  if (relative.length === 0) return ` \u{2022} allowed (${addedAt})`;
-  return ` \u{2022} allowed since ${relative} (${addedAt})`;
+  const relativeTime = formatRelativeTime(addedAt, now);
+  if (relativeTime.length === 0) return ` \u{2022} allowed (${addedAt})`;
+  return ` \u{2022} allowed since ${relativeTime} (${addedAt})`;
 }
 
 /** Formats a single unallowed vulnerability as a bullet line. */
-function formatUnallowedLine(vuln: AuditResult, style: OutputStyle): string {
-  const message = `${displayId(vuln)}: ${vuln.path}${formatSeveritySuffix(vuln.severity, style)}`;
+function formatUnallowedLine(vulnerability: AuditResult, style: OutputStyle): string {
+  const message = `${resolveDisplayId(vulnerability)}: ${vulnerability.path}${formatSeveritySuffix(vulnerability.severity, style)}`;
   return `  \u{2022} ${formatMarkedLine(style, 'failed', message)}`;
 }
 
 /** Formats a single allowed vulnerability as a bullet line. */
-function formatAllowedLine(vuln: AllowedVuln, now: Date, style: OutputStyle): string {
-  const suffix = vuln.addedAt !== undefined ? formatAllowedSuffix(vuln.addedAt, now) : '';
-  const message = `${displayId(vuln)}: ${vuln.path}${formatSeveritySuffix(vuln.severity, style)}${suffix}`;
+function formatAllowedLine(vulnerability: AllowedVulnerability, now: Date, style: OutputStyle): string {
+  const suffix = vulnerability.addedAt !== undefined ? formatAllowedSuffix(vulnerability.addedAt, now) : '';
+  const message = `${resolveDisplayId(vulnerability)}: ${vulnerability.path}${formatSeveritySuffix(vulnerability.severity, style)}${suffix}`;
   return `  \u{2022} ${formatMarkedLine(style, 'passed', message)}`;
 }
 
@@ -138,8 +138,8 @@ function formatStaleLine(entry: StaleEntry, style: OutputStyle): string {
 }
 
 /** Formats a single below-threshold vulnerability as a bullet line. */
-function formatBelowThresholdLine(vuln: AuditResult, style: OutputStyle): string {
-  const message = `${displayId(vuln)}: ${vuln.path}${formatSeveritySuffix(vuln.severity, style)} \u{2022} ignored`;
+function formatBelowThresholdLine(vulnerability: AuditResult, style: OutputStyle): string {
+  const message = `${resolveDisplayId(vulnerability)}: ${vulnerability.path}${formatSeveritySuffix(vulnerability.severity, style)} \u{2022} ignored`;
   return `  \u{2022} ${formatMarkedLine(style, 'skipped', message)}`;
 }
 
@@ -155,15 +155,15 @@ function hasFindings(result: ScopeCheckResult): boolean {
 
 /** Formats a scope's finding lines (without scope header). */
 function formatScopeFindings(result: ScopeCheckResult, now: Date, style: OutputStyle): string[] {
-  const lines: string[] = Array.from(result.unallowed, (vuln) => formatUnallowedLine(vuln, style));
-  for (const vuln of result.allowed) {
-    lines.push(formatAllowedLine(vuln, now, style));
+  const lines: string[] = Array.from(result.unallowed, (vulnerability) => formatUnallowedLine(vulnerability, style));
+  for (const vulnerability of result.allowed) {
+    lines.push(formatAllowedLine(vulnerability, now, style));
   }
   for (const entry of result.stale) {
     lines.push(formatStaleLine(entry, style));
   }
-  for (const vuln of result.belowThreshold) {
-    lines.push(formatBelowThresholdLine(vuln, style));
+  for (const vulnerability of result.belowThreshold) {
+    lines.push(formatBelowThresholdLine(vulnerability, style));
   }
   return lines;
 }
@@ -184,9 +184,9 @@ export function formatCheckText(
   const effectiveNow = now ?? new Date();
   const lines: string[] = [formatIntroBanner(scopes, style, thresholds)];
 
-  const anyFindings = scopes.some((scope) => hasFindings(result[scope]));
+  const hasAnyFindings = scopes.some((scope) => hasFindings(result[scope]));
 
-  if (!anyFindings) {
+  if (!hasAnyFindings) {
     lines.push('No known vulnerabilities found.');
     return lines.join('\n') + '\n';
   }
@@ -197,9 +197,9 @@ export function formatCheckText(
     const scope = singleScope;
     const scopeResult = result[scope];
     lines.push(...formatScopeFindings(scopeResult, effectiveNow, style));
-    const actions = formatActionHints(result, scopes);
-    if (actions.length > 0) {
-      lines.push('', ...actions.split('\n').filter((l) => l.length > 0));
+    const actionHints = formatActionHints(result, scopes);
+    if (actionHints.length > 0) {
+      lines.push('', ...actionHints.split('\n').filter((l) => l.length > 0));
     }
     return lines.join('\n') + '\n';
   }
@@ -217,9 +217,9 @@ export function formatCheckText(
     lines.push('');
   }
 
-  const actions = formatActionHints(result, scopes);
-  if (actions.length > 0) {
-    lines.push(...actions.split('\n').filter((l) => l.length > 0));
+  const actionHints = formatActionHints(result, scopes);
+  if (actionHints.length > 0) {
+    lines.push(...actionHints.split('\n').filter((l) => l.length > 0));
   }
 
   return lines.join('\n') + '\n';

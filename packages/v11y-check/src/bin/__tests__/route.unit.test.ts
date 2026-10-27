@@ -90,9 +90,9 @@ describe(routeCommand, () => {
     expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));
   });
 
-  it('dispatches "check --json" to checkCommand with json: true', async () => {
+  it('dispatches "check --json" to checkCommand with isJson: true', async () => {
     await routeCommand(['check', '--json']);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ json: true, scopes: [] }));
+    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ isJson: true, scopes: [] }));
   });
 
   it('dispatches "check --dev" to checkCommand with scopes ["dev"]', async () => {
@@ -117,7 +117,7 @@ describe(routeCommand, () => {
 
   it('dispatches flag-only args to checkCommand', async () => {
     await routeCommand(['--json']);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ json: true }));
+    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ isJson: true }));
   });
 
   it('returns 1 for unknown command with typo match', async () => {
@@ -181,7 +181,7 @@ describe(routeCommand, () => {
 
   it('composes --verbose with --json', async () => {
     await routeCommand(['--verbose', '--json']);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ json: true, verbose: true }));
+    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ isJson: true, verbose: true }));
   });
 
   it('composes --verbose with --dev', async () => {
@@ -203,21 +203,21 @@ describe(routeCommand, () => {
 
   it('forwards --dry-run flag to initCommand', async () => {
     await routeCommand(['init', '--dry-run']);
-    expect(initCommand).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true, force: false }));
+    expect(initCommand).toHaveBeenCalledWith(expect.objectContaining({ isDryRun: true, shouldForce: false }));
   });
 
   it('forwards --force flag to initCommand', async () => {
     await routeCommand(['init', '--force']);
-    expect(initCommand).toHaveBeenCalledWith(expect.objectContaining({ dryRun: false, force: true }));
+    expect(initCommand).toHaveBeenCalledWith(expect.objectContaining({ isDryRun: false, shouldForce: true }));
   });
 
   it.each([
     [[], false],
     [['--dry-run'], true],
     [['-n'], true],
-  ])('dispatches "update-templates" with args %j to updateTemplatesCommand (dryRun: %s)', async (flags, dryRun) => {
+  ])('dispatches "update-templates" with args %j to updateTemplatesCommand (isDryRun: %s)', async (flags, dryRun) => {
     await routeCommand(['update-templates', ...flags]);
-    expect(updateTemplatesCommand).toHaveBeenCalledWith(expect.objectContaining({ dryRun }));
+    expect(updateTemplatesCommand).toHaveBeenCalledWith(expect.objectContaining({ isDryRun: dryRun }));
   });
 
   it('returns 0 for update-templates --help without updating anything', async () => {

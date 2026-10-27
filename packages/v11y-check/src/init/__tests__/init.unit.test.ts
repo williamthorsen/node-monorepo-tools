@@ -17,7 +17,7 @@ describe(scaffoldConfig, () => {
   });
 
   it('creates config file with severityThreshold and $schema', () => {
-    const result = scaffoldConfig({ dryRun: false });
+    const result = scaffoldConfig({ isDryRun: false });
 
     expect(result.configResult.outcome).toBe('created');
     const configPath = '.config/v11y-check.config.json';
@@ -35,13 +35,13 @@ describe(scaffoldConfig, () => {
     const configPath = '.config/v11y-check.config.json';
     tree.write(configPath, '{"existing": true}');
 
-    const result = scaffoldConfig({ dryRun: false });
+    const result = scaffoldConfig({ isDryRun: false });
     expect(result.configResult.outcome).toBe('skipped');
     expect(tree.readJson(configPath)).toStrictEqual({ existing: true });
   });
 
   it('returns created outcome without writing in dry-run mode', () => {
-    const result = scaffoldConfig({ dryRun: true });
+    const result = scaffoldConfig({ isDryRun: true });
 
     expect(result.configResult.outcome).toBe('created');
     expect(tree.exists('.config/v11y-check.config.json')).toBe(false);
@@ -68,7 +68,7 @@ describe(scaffoldWorkflow, () => {
     expect(content).toContain('williamthorsen/node-monorepo-tools/.github/workflows/audit.reusable.yaml');
   });
 
-  it('skips without error when workflow already exists and overwrite is false', () => {
+  it('skips without error when workflow already exists and shouldOverwrite is false', () => {
     const workflowPath = '.github/workflows/audit.yaml';
     tree.write(workflowPath, 'name: Existing\n');
 
@@ -77,7 +77,7 @@ describe(scaffoldWorkflow, () => {
     expect(tree.read(workflowPath)).toBe('name: Existing\n');
   });
 
-  it('overwrites existing workflow when overwrite is true', () => {
+  it('overwrites existing workflow when shouldOverwrite is true', () => {
     const workflowPath = '.github/workflows/audit.yaml';
     tree.write(workflowPath, 'name: Existing\n');
 
@@ -116,7 +116,7 @@ describe(scaffoldFiles, () => {
   });
 
   it('writes both the config and the workflow', () => {
-    const results = scaffoldFiles({ dryRun: false, force: false });
+    const results = scaffoldFiles({ isDryRun: false, shouldForce: false });
 
     expect(results).toHaveLength(2);
     expect(results[0]?.filePath).toBe('.config/v11y-check.config.json');
@@ -139,7 +139,7 @@ describe(initCommand, () => {
   });
 
   it('returns 0 and writes both files on successful scaffold', () => {
-    const exitCode = initCommand({ dryRun: false, force: false, styles: RICH_STYLES });
+    const exitCode = initCommand({ isDryRun: false, shouldForce: false, styles: RICH_STYLES });
 
     expect(exitCode).toBe(0);
     expect(tree.exists('.config/v11y-check.config.json')).toBe(true);
@@ -147,7 +147,7 @@ describe(initCommand, () => {
   });
 
   it('returns 0 in dry-run mode and does not write either file', () => {
-    const exitCode = initCommand({ dryRun: true, force: false, styles: RICH_STYLES });
+    const exitCode = initCommand({ isDryRun: true, shouldForce: false, styles: RICH_STYLES });
     expect(exitCode).toBe(0);
 
     expect(tree.exists('.config/v11y-check.config.json')).toBe(false);
@@ -157,7 +157,7 @@ describe(initCommand, () => {
   it('returns 0 when config already exists (skip, not error)', () => {
     tree.write('.config/v11y-check.config.json', '{"existing": true}');
 
-    const exitCode = initCommand({ dryRun: false, force: false, styles: RICH_STYLES });
+    const exitCode = initCommand({ isDryRun: false, shouldForce: false, styles: RICH_STYLES });
     expect(exitCode).toBe(0);
   });
 
@@ -165,7 +165,7 @@ describe(initCommand, () => {
     const workflowPath = '.github/workflows/audit.yaml';
     tree.write(workflowPath, 'name: Existing\n');
 
-    const exitCode = initCommand({ dryRun: false, force: false, styles: RICH_STYLES });
+    const exitCode = initCommand({ isDryRun: false, shouldForce: false, styles: RICH_STYLES });
 
     expect(exitCode).toBe(0);
     // Pre-existing workflow content should remain untouched.
@@ -176,7 +176,7 @@ describe(initCommand, () => {
     const workflowPath = '.github/workflows/audit.yaml';
     tree.write(workflowPath, 'name: Existing\n');
 
-    const exitCode = initCommand({ dryRun: false, force: true, styles: RICH_STYLES });
+    const exitCode = initCommand({ isDryRun: false, shouldForce: true, styles: RICH_STYLES });
 
     expect(exitCode).toBe(0);
     expect(tree.read(workflowPath)).toContain('name: Dependency audit');
@@ -187,7 +187,7 @@ describe(initCommand, () => {
     const existingConfig = '{"prod": {"allowlist": [{"id": "GHSA-xxxx-xxxx-xxxx"}]}}\n';
     tree.write(configPath, existingConfig);
 
-    const exitCode = initCommand({ dryRun: false, force: true, styles: RICH_STYLES });
+    const exitCode = initCommand({ isDryRun: false, shouldForce: true, styles: RICH_STYLES });
 
     expect(exitCode).toBe(0);
     expect(tree.read(configPath)).toBe(existingConfig);
@@ -195,9 +195,9 @@ describe(initCommand, () => {
 
   it('returns 0 when the workflow is already up-to-date', () => {
     // Pre-populate the workflow with the template content so that the second call reports up-to-date.
-    initCommand({ dryRun: false, force: false, styles: RICH_STYLES });
+    initCommand({ isDryRun: false, shouldForce: false, styles: RICH_STYLES });
 
-    const exitCode = initCommand({ dryRun: false, force: false, styles: RICH_STYLES });
+    const exitCode = initCommand({ isDryRun: false, shouldForce: false, styles: RICH_STYLES });
 
     expect(exitCode).toBe(0);
   });
@@ -205,7 +205,7 @@ describe(initCommand, () => {
   it('mentions the scaffolded workflow in next-steps output', () => {
     using silent = silenceConsole(['info']);
 
-    initCommand({ dryRun: false, force: false, styles: RICH_STYLES });
+    initCommand({ isDryRun: false, shouldForce: false, styles: RICH_STYLES });
 
     const fullOutput = listConsoleLines(silent.info).join('\n');
     expect(fullOutput).toContain('.github/workflows/audit.yaml');
@@ -215,7 +215,7 @@ describe(initCommand, () => {
   it('does not mention generate in next-steps output', () => {
     using silent = silenceConsole(['info']);
 
-    initCommand({ dryRun: false, force: false, styles: RICH_STYLES });
+    initCommand({ isDryRun: false, shouldForce: false, styles: RICH_STYLES });
 
     const fullOutput = listConsoleLines(silent.info).join('\n');
     expect(fullOutput).not.toContain('generate');
@@ -227,7 +227,7 @@ describe(initCommand, () => {
     tree.mkdir('.github/workflows/audit.yaml');
     using stdio = captureStdio();
 
-    const exitCode = initCommand({ dryRun: false, force: true, styles: RICH_STYLES });
+    const exitCode = initCommand({ isDryRun: false, shouldForce: true, styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
     expect(stdio.stderr).toContain('Failed to write .github/workflows/audit.yaml: EISDIR');

@@ -100,7 +100,7 @@ export interface AuditResult {
 /** Parsed CLI options shared across subcommands. */
 export interface CommandOptions {
   configPath?: string | undefined;
-  json: boolean;
+  isJson: boolean;
   scopes: AuditScope[];
   styles: StreamStyles;
   verbose: boolean;

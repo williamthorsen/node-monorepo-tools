@@ -18,23 +18,23 @@ interface AuditCiFlatConfig {
  * and flattens the typed allowlist to an array of ID strings.
  */
 export function buildFlatConfig(scopeConfig: ScopeConfig, scope: AuditScope): AuditCiFlatConfig {
-  const flat: AuditCiFlatConfig = {
+  const flatConfig: AuditCiFlatConfig = {
     allowlist: scopeConfig.allowlist.map((entry) => entry.id),
     'show-not-found': true,
   };
 
   if (scopeConfig.severityThreshold !== undefined) {
-    flat[scopeConfig.severityThreshold] = true;
+    flatConfig[scopeConfig.severityThreshold] = true;
   }
 
   // Restrict audit-ci to the target dependency scope.
   if (scope === 'prod') {
-    flat['skip-dev'] = true;
+    flatConfig['skip-dev'] = true;
   } else {
-    flat['extra-args'] = ['--dev'];
+    flatConfig['extra-args'] = ['--dev'];
   }
 
-  return flat;
+  return flatConfig;
 }
 
 /**
@@ -49,8 +49,8 @@ export async function generateAuditCiConfig(
   outputDir: string,
 ): Promise<string> {
   const outputPath = path.join(outputDir, `audit-ci.${scope}.json`);
-  const flat = buildFlatConfig(scopeConfig, scope);
-  const content = JSON.stringify(flat, null, 2) + '\n';
+  const flatConfig = buildFlatConfig(scopeConfig, scope);
+  const content = JSON.stringify(flatConfig, null, 2) + '\n';
 
   await writeFile(outputPath, content, 'utf8');
 

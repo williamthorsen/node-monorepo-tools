@@ -9,7 +9,7 @@ import {
 import { readWorkflowTemplate, WORKFLOW_PATH } from './scaffold.ts';
 
 interface UpdateTemplatesOptions {
-  dryRun: boolean;
+  isDryRun: boolean;
   styles: StreamStyles;
 }
 
@@ -18,8 +18,8 @@ interface UpdateTemplatesOptions {
  *
  * Brings the scaffolded audit workflow up to date with the bundled template; the config file is never read or written.
  */
-export function updateTemplatesCommand({ dryRun, styles }: UpdateTemplatesOptions): number {
-  if (dryRun) {
+export function updateTemplatesCommand({ isDryRun, styles }: UpdateTemplatesOptions): number {
+  if (isDryRun) {
     console.info('[dry-run mode]');
   }
 
@@ -28,8 +28,8 @@ export function updateTemplatesCommand({ dryRun, styles }: UpdateTemplatesOption
   const result: ManagedFileResult =
     'error' in template
       ? { filePath: WORKFLOW_PATH, outcome: 'failed', error: template.error }
-      : updateManagedFile(WORKFLOW_PATH, template.content, { isDryRun: dryRun });
-  reportTemplateUpdate(result, dryRun, styles);
+      : updateManagedFile(WORKFLOW_PATH, template.content, { isDryRun });
+  reportTemplateUpdate(result, isDryRun, styles);
 
   return result.outcome === 'failed' ? 1 : 0;
 }

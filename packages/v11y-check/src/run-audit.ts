@@ -6,11 +6,11 @@ import type { AuditResult } from './types.ts';
 /** Resolves the audit-ci binary path from node_modules. */
 export function resolveAuditCiBin(): string {
   try {
-    const resolved = import.meta.resolve('audit-ci');
-    const modulePath = new URL(resolved).pathname;
+    const resolvedUrl = import.meta.resolve('audit-ci');
+    const modulePath = new URL(resolvedUrl).pathname;
     // audit-ci v7 publishes its CLI at dist/bin.js
-    const pkgDir = modulePath.replace(/\/dist\/.*$/, '');
-    return `${pkgDir}/dist/bin.js`;
+    const packageDir = modulePath.replace(/\/dist\/.*$/, '');
+    return `${packageDir}/dist/bin.js`;
   } catch {
     return 'audit-ci';
   }
@@ -44,9 +44,9 @@ export interface ParseResult {
 export function parseAuditCiOutput(jsonString: string): ParseResult {
   const warnings: string[] = [];
 
-  let parsed: unknown;
+  let parsedOutput: unknown;
   try {
-    parsed = JSON.parse(jsonString);
+    parsedOutput = JSON.parse(jsonString);
   } catch {
     if (jsonString.trim().length > 0) {
       warnings.push(`Failed to parse audit-ci output as JSON (${jsonString.length} bytes)`);
@@ -54,11 +54,11 @@ export function parseAuditCiOutput(jsonString: string): ParseResult {
     return { results: [], warnings };
   }
 
-  if (typeof parsed !== 'object' || parsed === null) {
+  if (typeof parsedOutput !== 'object' || parsedOutput === null) {
     return { results: [], warnings };
   }
 
-  const advisories = extractAdvisories(parsed);
+  const advisories = extractAdvisories(parsedOutput);
   const results: AuditResult[] = [];
   for (const advisory of advisories) {
     const paths = extractPaths(advisory);
@@ -102,26 +102,26 @@ function isAuditCiAdvisory(value: unknown): value is AuditCiAdvisory {
 }
 
 /** Extracts advisories from an object that has an `advisories` record. */
-function collectAdvisories(obj: object): AuditCiAdvisory[] {
-  if (!('advisories' in obj) || typeof obj.advisories !== 'object' || obj.advisories === null) {
+function collectAdvisories(candidate: object): AuditCiAdvisory[] {
+  if (!('advisories' in candidate) || typeof candidate.advisories !== 'object' || candidate.advisories === null) {
     return [];
   }
-  return Object.values(obj.advisories).filter(isAuditCiAdvisory);
+  return Object.values(candidate.advisories).filter(isAuditCiAdvisory);
 }
 
 /** Extracts advisory objects from various audit-ci output shapes. */
-function extractAdvisories(parsed: unknown): AuditCiAdvisory[] {
-  if (typeof parsed !== 'object' || parsed === null) return [];
+function extractAdvisories(parsedOutput: unknown): AuditCiAdvisory[] {
+  if (typeof parsedOutput !== 'object' || parsedOutput === null) return [];
 
   // Shape: { advisories: { [id]: advisory } }
-  if ('advisories' in parsed) {
-    return collectAdvisories(parsed);
+  if ('advisories' in parsedOutput) {
+    return collectAdvisories(parsedOutput);
   }
 
   // Shape: array of objects with an advisories field
-  if (Array.isArray(parsed)) {
+  if (Array.isArray(parsedOutput)) {
     const advisories: AuditCiAdvisory[] = [];
-    for (const item of parsed) {
+    for (const item of parsedOutput) {
       if (isObject(item)) {
         advisories.push(...collectAdvisories(item));
       }
@@ -134,19 +134,19 @@ function extractAdvisories(parsed: unknown): AuditCiAdvisory[] {
 
 /** Extracts all dependency paths across an advisory's findings, deduplicated in insertion order. */
 function extractPaths(advisory: AuditCiAdvisory): string[] {
-  const seen = new Set<string>();
-  const ordered: string[] = [];
+  const seenPaths = new Set<string>();
+  const orderedPaths: string[] = [];
   for (const finding of advisory.findings) {
     for (const pathValue of finding.paths) {
-      if (seen.has(pathValue)) {
+      if (seenPaths.has(pathValue)) {
         continue;
       }
 
-      seen.add(pathValue);
-      ordered.push(pathValue);
+      seenPaths.add(pathValue);
+      orderedPaths.push(pathValue);
     }
   }
-  return ordered;
+  return orderedPaths;
 }
 
 /** Result of extracting stale entries, including any warnings. */
@@ -159,9 +159,9 @@ export interface StaleEntriesResult {
 export function extractStaleEntries(jsonString: string): StaleEntriesResult {
   const warnings: string[] = [];
 
-  let parsed: unknown;
+  let parsedOutput: unknown;
   try {
-    parsed = JSON.parse(jsonString);
+    parsedOutput = JSON.parse(jsonString);
   } catch {
     if (jsonString.trim().length > 0) {
       warnings.push(`Failed to parse audit-ci output as JSON for stale entry detection (${jsonString.length} bytes)`);
@@ -169,12 +169,12 @@ export function extractStaleEntries(jsonString: string): StaleEntriesResult {
     return { entries: [], warnings };
   }
 
-  if (typeof parsed !== 'object' || parsed === null) return { entries: [], warnings };
-  if (!('allowlistedAdvisoriesNotFound' in parsed)) return { entries: [], warnings };
+  if (typeof parsedOutput !== 'object' || parsedOutput === null) return { entries: [], warnings };
+  if (!('allowlistedAdvisoriesNotFound' in parsedOutput)) return { entries: [], warnings };
 
-  const notFound = parsed.allowlistedAdvisoriesNotFound;
-  if (Array.isArray(notFound)) {
-    return { entries: notFound.filter((item): item is string => typeof item === 'string'), warnings };
+  const notFoundEntries = parsedOutput.allowlistedAdvisoriesNotFound;
+  if (Array.isArray(notFoundEntries)) {
+    return { entries: notFoundEntries.filter((item): item is string => typeof item === 'string'), warnings };
   }
 
   return { entries: [], warnings };
@@ -184,7 +184,7 @@ export function extractStaleEntries(jsonString: string): StaleEntriesResult {
 interface RunAuditOptions {
   configPath: string;
   cwd?: string;
-  json?: boolean;
+  isJson?: boolean;
   reportType?: 'full';
 }
 
@@ -200,13 +200,13 @@ export interface AuditRunResult {
 /**
  * Invokes audit-ci with the given config file in normal (CI) mode.
  *
- * Returns the exit code faithfully. When `json` is true, output is JSON;
+ * Returns the exit code faithfully. When `isJson` is true, output is JSON;
  * otherwise audit-ci uses its default text format. Stale overrides are
  * detected from JSON output and returned.
  */
-export function runAudit({ configPath, cwd, json }: RunAuditOptions): AuditRunResult {
+export function runAudit({ configPath, cwd, isJson }: RunAuditOptions): AuditRunResult {
   const bin = resolveAuditCiBin();
-  const outputFormat = json ? 'json' : 'text';
+  const outputFormat = isJson ? 'json' : 'text';
   const args = ['--config', configPath, '--output-format', outputFormat];
 
   const result = spawnSync(process.execPath, [bin, ...args], {
@@ -221,7 +221,7 @@ export function runAudit({ configPath, cwd, json }: RunAuditOptions): AuditRunRe
 
   const stdout = result.stdout;
   const stderr = result.stderr;
-  const staleResult = json ? extractStaleEntries(stdout) : { entries: [], warnings: [] };
+  const staleResult = isJson ? extractStaleEntries(stdout) : { entries: [], warnings: [] };
 
   return {
     exitCode: result.status ?? 1,
@@ -241,7 +241,7 @@ export interface ReportResult {
 }
 
 /** Invokes audit-ci with JSON output, ignoring its exit code, and parses the advisories into `AuditResult` objects. */
-export function runReport({ configPath, cwd, reportType }: Omit<RunAuditOptions, 'json'>): ReportResult {
+export function runReport({ configPath, cwd, reportType }: Omit<RunAuditOptions, 'isJson'>): ReportResult {
   const bin = resolveAuditCiBin();
   const args = ['--config', configPath, '--output-format', 'json'];
   if (reportType === 'full') {

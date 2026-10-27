@@ -73,7 +73,7 @@ describe('scaffold', () => {
       expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
     });
 
-    it('passes dryRun and overwrite options through', () => {
+    it('passes isDryRun and shouldOverwrite options through', () => {
       mockReadFileSync.mockReturnValue('template content');
       mockWriteFileWithCheck.mockReturnValue({ filePath: '.github/workflows/audit.yaml', outcome: 'overwritten' });
 
@@ -108,7 +108,7 @@ describe('scaffold', () => {
         .mockReturnValueOnce({ filePath: '.config/v11y-check.config.json', outcome: 'created' })
         .mockReturnValueOnce({ filePath: '.github/workflows/audit.yaml', outcome: 'created' });
 
-      const results = scaffoldFiles({ dryRun: false, force: false });
+      const results = scaffoldFiles({ isDryRun: false, shouldForce: false });
 
       expect(results).toHaveLength(2);
       expect(results[0]).toStrictEqual({ filePath: '.config/v11y-check.config.json', outcome: 'created' });
@@ -116,13 +116,13 @@ describe('scaffold', () => {
       expect(mockWriteFileWithCheck).toHaveBeenCalledTimes(2);
     });
 
-    it('translates force to overwrite for the workflow and never for the config', () => {
+    it('translates shouldForce to shouldOverwrite for the workflow and never for the config', () => {
       mockReadFileSync.mockReturnValue('name: Dependency audit\n');
       mockWriteFileWithCheck
         .mockReturnValueOnce({ filePath: '.config/v11y-check.config.json', outcome: 'skipped' })
         .mockReturnValueOnce({ filePath: '.github/workflows/audit.yaml', outcome: 'overwritten' });
 
-      scaffoldFiles({ dryRun: false, force: true });
+      scaffoldFiles({ isDryRun: false, shouldForce: true });
 
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.config/v11y-check.config.json', expect.any(String), {
         isDryRun: false,
@@ -134,13 +134,13 @@ describe('scaffold', () => {
       });
     });
 
-    it('passes dryRun through to both helpers', () => {
+    it('passes isDryRun through to both helpers', () => {
       mockReadFileSync.mockReturnValue('name: Dependency audit\n');
       mockWriteFileWithCheck
         .mockReturnValueOnce({ filePath: '.config/v11y-check.config.json', outcome: 'created' })
         .mockReturnValueOnce({ filePath: '.github/workflows/audit.yaml', outcome: 'created' });
 
-      scaffoldFiles({ dryRun: true, force: false });
+      scaffoldFiles({ isDryRun: true, shouldForce: false });
 
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.config/v11y-check.config.json', expect.any(String), {
         isDryRun: true,
@@ -158,7 +158,7 @@ describe('scaffold', () => {
       });
       mockWriteFileWithCheck.mockReturnValueOnce({ filePath: '.config/v11y-check.config.json', outcome: 'created' });
 
-      const results = scaffoldFiles({ dryRun: false, force: false });
+      const results = scaffoldFiles({ isDryRun: false, shouldForce: false });
 
       expect(results).toHaveLength(2);
       expect(results[0]).toStrictEqual({ filePath: '.config/v11y-check.config.json', outcome: 'created' });

@@ -36,7 +36,7 @@ describe(updateTemplatesCommand, () => {
       const result: ManagedFileResult = { filePath: '.github/workflows/audit.yaml', outcome };
       mockUpdateManagedFile.mockReturnValue(result);
 
-      const exitCode = updateTemplatesCommand({ dryRun: true, styles: STYLES });
+      const exitCode = updateTemplatesCommand({ isDryRun: true, styles: STYLES });
 
       expect(exitCode).toBe(0);
       expect(mockUpdateManagedFile.mock.calls).toStrictEqual([
@@ -50,7 +50,7 @@ describe(updateTemplatesCommand, () => {
     using _silent = silenceConsole(['info']);
     mockReadWorkflowTemplate.mockReturnValue({ error: 'Failed to read bundled template' });
 
-    const exitCode = updateTemplatesCommand({ dryRun: false, styles: STYLES });
+    const exitCode = updateTemplatesCommand({ isDryRun: false, styles: STYLES });
 
     expect(exitCode).toBe(1);
     expect(mockUpdateManagedFile).not.toHaveBeenCalled();
@@ -66,6 +66,6 @@ describe(updateTemplatesCommand, () => {
     mockReadWorkflowTemplate.mockReturnValue({ content: 'name: Dependency audit\n' });
     mockUpdateManagedFile.mockReturnValue({ filePath: '.github/workflows/audit.yaml', outcome: 'failed' });
 
-    expect(updateTemplatesCommand({ dryRun: false, styles: STYLES })).toBe(1);
+    expect(updateTemplatesCommand({ isDryRun: false, styles: STYLES })).toBe(1);
   });
 });

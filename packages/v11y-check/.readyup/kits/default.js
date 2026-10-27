@@ -40,7 +40,7 @@ var default_default = defineRdyKit({
           name: "audit-ci configs are under .config/audit-ci/",
           severity: "warn",
           quiet: true,
-          check: noLegacyAuditCiDirectory,
+          check: hasNoLegacyAuditCiDirectory,
           fix: "Move audit-ci configs from .audit-ci/ to .config/audit-ci/ and update references"
         },
         // -- Audit workflow --
@@ -63,17 +63,17 @@ var default_default = defineRdyKit({
   ]
 });
 function getMinVersion() {
-  const picked = { "version": "0.19.6" };
-  if (typeof picked["version"] !== "string") {
+  const pickedFields = { "version": "0.19.6" };
+  if (typeof pickedFields["version"] !== "string") {
     throw new TypeError("v11y-check/package.json: 'version' must be a string");
   }
-  return picked["version"];
+  return pickedFields["version"];
 }
-function noLegacyAuditCiDirectory() {
+function hasNoLegacyAuditCiDirectory() {
   return !existsSync(join(process.cwd(), ".audit-ci"));
 }
 export {
   AUDIT_WORKFLOW_HASH,
   default_default as default,
-  noLegacyAuditCiDirectory
+  hasNoLegacyAuditCiDirectory
 };

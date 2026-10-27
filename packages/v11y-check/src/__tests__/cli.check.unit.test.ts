@@ -168,7 +168,7 @@ describe(checkCommand, () => {
       warnings: [],
     });
 
-    await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
+    await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
     const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toStrictEqual(
@@ -220,7 +220,7 @@ describe(checkCommand, () => {
       warnings: [],
     });
 
-    await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
+    await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
     const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toStrictEqual(
@@ -253,7 +253,7 @@ describe(checkCommand, () => {
     expect(capture.stdout).toContain('not needed');
   });
 
-  it('outputs JSON when json option is true', async () => {
+  it('outputs JSON when the isJson option is true', async () => {
     setupLoadConfig();
     mocks.runReport.mockReturnValue({
       results: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/1' }],
@@ -262,7 +262,7 @@ describe(checkCommand, () => {
       warnings: [],
     });
 
-    await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
+    await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
     const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toHaveProperty('prod');
@@ -349,7 +349,7 @@ describe(checkCommand, () => {
     expect(call).not.toHaveProperty('reportType');
   });
 
-  it('renders verbose text output when verbose is true and json is false', async () => {
+  it('renders verbose text output when verbose is true and isJson is false', async () => {
     const config = makeConfig({
       prod: {
         allowlist: [
@@ -431,7 +431,7 @@ describe(checkCommand, () => {
       warnings: [],
     });
 
-    const exitCode = await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
+    const exitCode = await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
     expect(exitCode).toBe(0);
     const parsed: unknown = JSON.parse(capture.stdout);
@@ -463,7 +463,7 @@ describe(checkCommand, () => {
       warnings: [],
     });
 
-    const exitCode = await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
+    const exitCode = await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
 
     expect(exitCode).toBe(0);
     const parsed: unknown = JSON.parse(capture.stdout);
@@ -497,7 +497,7 @@ describe(checkCommand, () => {
     );
   });
 
-  it('renders verbose JSON output when both verbose and json are true', async () => {
+  it('renders verbose JSON output when both verbose and isJson are true', async () => {
     const config = makeConfig({
       prod: {
         allowlist: [
@@ -524,7 +524,7 @@ describe(checkCommand, () => {
       warnings: [],
     });
 
-    await checkCommand(makeOptions({ json: true, scopes: ['prod'], verbose: true }));
+    await checkCommand(makeOptions({ isJson: true, scopes: ['prod'], verbose: true }));
 
     const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toStrictEqual(

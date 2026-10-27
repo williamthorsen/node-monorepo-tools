@@ -129,7 +129,7 @@ describe(syncCommand, () => {
       updatedConfig: makeConfig(),
     });
 
-    await syncCommand(makeOptions({ json: true, scopes: ['dev'] }));
+    await syncCommand(makeOptions({ isJson: true, scopes: ['dev'] }));
 
     const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toStrictEqual(expect.objectContaining({ added: [], kept: [], removed: [] }));
@@ -184,7 +184,7 @@ describe(syncCommand, () => {
 
     await syncCommand(makeOptions({ scopes: ['dev'] }));
 
-    expect(mocks.scaffoldConfig).toHaveBeenCalledWith({ dryRun: false });
+    expect(mocks.scaffoldConfig).toHaveBeenCalledWith({ isDryRun: false });
   });
 
   it('does not scaffold when source is file', async () => {
