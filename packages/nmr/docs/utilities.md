@@ -51,13 +51,14 @@ A repo's own copy must be Prettier 3.0.0 or later. The design requires `--ignore
 ```bash
 nmr-fmt --check
 nmr-fmt --write packages/nmr
+nmr-fmt --check -- -lead.js
 ```
 
 ### File selection
 
 `fmt` and `fmt:check` format the files that git reports: tracked files, plus untracked files that git does not ignore. Prettier reads `.gitignore` and `.prettierignore` from the working directory alone, so a pattern in `packages/<pkg>/.gitignore` never applies to a run started at the monorepo root. Because git knows the whole hierarchy, including `.git/info/exclude` and `core.excludesFile`, and every `.prettierignore` in the tree is discovered from the repository root, package-level exclusions apply from any directory as well.
 
-A file that git ignores is never formatted, even when named directly. Because trailing arguments are git pathspecs rather than Prettier flags, `nmr fmt:check packages/nmr` narrows the run, while an unrecognized option and a pathspec for which git lists no file both fail it. Running outside a git repository fails rather than reporting a clean run.
+A file that git ignores is never formatted, even when named directly. Because trailing arguments are git pathspecs rather than Prettier flags, `nmr fmt:check packages/nmr` narrows the run, while an unrecognized option and a pathspec for which git lists no file both fail it. Every argument after `--` is a pathspec, even one that starts with `-`, so an unrecognized option fails the run only before `--`. Running outside a git repository fails rather than reporting a clean run.
 
 `nmr-fmt` drops paths that the index names but the filesystem does not have (a file deleted but not yet staged), submodule gitlinks, and symlinks whatever they point at, before calling Prettier, which rejects a symlink named explicitly. It also skips a path that it is denied access to, such as a `.envrc` that a sandbox shields, and names each one on stderr, so that a check that passes does not hide a file that it never read. A pathspec whose every match is skipped still counts as matched: The run passes and names the skipped paths on stderr, so that a pre-commit hook passing only staged symlinks or a submodule bump does not fail. Any other failure to stat a listed path fails the run, with an error that names the path.
 

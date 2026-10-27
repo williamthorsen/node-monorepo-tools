@@ -1,6 +1,7 @@
 import type { SpawnSyncOptions } from 'node:child_process';
 import { lstatSync, realpathSync } from 'node:fs';
 import path from 'node:path';
+import { stripVTControlCharacters } from 'node:util';
 
 import { captureStdio, createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
@@ -47,6 +48,9 @@ const TRACKED_FILES = {
 /** The stand-in for the Prettier CLI, and the file to which it appends one line per invocation. */
 const STUB_ENTRY = 'stub.cjs';
 const RECORD_ENTRY = 'calls.jsonl';
+
+/** A file name that Prettier reads as a cluster of short flags unless `--` precedes it. */
+const DASH_LEADING_FILE = '-lead.js';
 
 /**
  * These run the real Prettier, on which the design depends: An ignore file's patterns resolve relative
@@ -227,6 +231,42 @@ describe(runFmt, () => {
 
   it('rejects an unrecognized option rather than handing it to git as a pathspec', async ({ repositoryTree }) => {
     await expect(runFmt(['--check', '--log-level', 'warn'], repositoryTree.dir)).resolves.toBe(1);
+  });
+
+  it('rejects an unrecognized option that comes before --', async ({ repositoryTree }) => {
+    await expect(runFmt(['--check', '--bogus', '--', 'packages'], repositoryTree.dir)).resolves.toBe(1);
+  });
+
+  it('constrains the run to the pathspecs after --', async ({ repositoryTree }) => {
+    repositoryTree.write('root-bad.js', 'const  badly   =  1\n');
+
+    await expect(runFmt(['--check', '--', 'packages'], repositoryTree.dir)).resolves.toBe(0);
+  });
+
+  it('reads every argument after -- as a pathspec, a mode flag included', async ({ captured, repositoryTree }) => {
+    await expect(runFmt(['--', '--check'], repositoryTree.dir)).resolves.toBe(1);
+    expect(captured.stderr).toContain('Pass --check or --write.');
+  });
+
+  it('checks a file whose name starts with - when a pathspec after -- selects it', async ({
+    captured,
+    repositoryTree,
+  }) => {
+    trackDashLeadingFile(repositoryTree);
+
+    await expect(runFmt(['--check', '--', DASH_LEADING_FILE], repositoryTree.dir)).resolves.toBe(1);
+    // Strip the color that Prettier adds to its log tags when the environment forces it, as CI does.
+    expect(stripVTControlCharacters(captured.stderr)).toContain(`[warn] ${DASH_LEADING_FILE}`);
+  });
+
+  it.for([
+    { label: 'a pathspec after --', argv: ['--write', '--', DASH_LEADING_FILE] },
+    { label: 'a run without pathspecs', argv: ['--write'] },
+  ])('writes a file whose name starts with - when selected by $label', async ({ argv }, { repositoryTree }) => {
+    trackDashLeadingFile(repositoryTree);
+
+    await expect(runFmt(argv, repositoryTree.dir)).resolves.toBe(0);
+    expect(repositoryTree.read(DASH_LEADING_FILE)).toBe('const badly = 1;\n');
   });
 
   it("runs the repository's own Prettier when the repository can resolve one", async ({ repositoryTree }) => {
@@ -480,6 +520,22 @@ describe(runPrettier, () => {
     expect(runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir })).toBe(2);
   });
 
+  it('ends the options with -- ahead of the files in every batch', ({ cliPath, stubTree }) => {
+    runPrettier({
+      cliPath,
+      mode: 'check',
+      files: ['one.js', 'two.js'],
+      ignorePaths: ['/repo/.prettierignore'],
+      cwd: stubTree.dir,
+      budgetBytes: 10,
+    });
+
+    expect(readCalls(stubTree).map((args) => args.slice(args.indexOf('--')))).toStrictEqual([
+      ['--', 'one.js'],
+      ['--', 'two.js'],
+    ]);
+  });
+
   it('runs every batch when the selection exceeds the argument budget', ({ cliPath, stubTree }) => {
     // A ten-byte budget puts each of these paths in a batch of its own.
     runPrettier({
@@ -611,6 +667,12 @@ function scaffoldRepository(files: Record<string, string>): TempTree {
   runGitOrThrow(['add', '--all'], tree.dir);
 
   return tree;
+}
+
+/** Tracks a badly formatted file whose name starts with `-`. */
+function trackDashLeadingFile(tree: TempTree): void {
+  tree.write(DASH_LEADING_FILE, 'const  badly   =  1\n');
+  runGitOrThrow(['add', '--all'], tree.dir);
 }
 
 /**
