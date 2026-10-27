@@ -60,16 +60,16 @@ function lookUpNpmPackage(packageName, registry) {
   return classifyNpmPackageLookup(runNpmJson(args));
 }
 function readNpmError(stdout) {
-  let parsed;
+  let parsedJson;
   try {
-    parsed = JSON.parse(stdout);
+    parsedJson = JSON.parse(stdout);
   } catch {
     return void 0;
   }
-  if (!isRecord(parsed) || !isRecord(parsed["error"]) || typeof parsed["error"]["code"] !== "string") {
+  if (!isRecord(parsedJson) || !isRecord(parsedJson["error"]) || typeof parsedJson["error"]["code"] !== "string") {
     return void 0;
   }
-  const { code, summary } = parsed["error"];
+  const { code, summary } = parsedJson["error"];
   return { code, summary: typeof summary === "string" ? summary : "" };
 }
 function runNpmJson(args) {

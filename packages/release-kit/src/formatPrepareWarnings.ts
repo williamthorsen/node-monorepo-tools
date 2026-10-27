@@ -94,17 +94,17 @@ export function formatUnparseableWarning(
   style: OutputStyle,
   indent = '',
 ): void {
-  const unparseable = release.unparseableCommits;
-  if (unparseable === undefined || unparseable.length === 0) {
+  const unparseableCommits = release.unparseableCommits;
+  if (unparseableCommits === undefined || unparseableCommits.length === 0) {
     return;
   }
 
-  const count = unparseable.length;
+  const count = unparseableCommits.length;
   lines.push(
     `${indent}  ${formatStatusLine(style, 'warning', `${count} commit${count === 1 ? '' : 's'} could not be parsed`)}`,
   );
 
-  for (const commit of unparseable) {
+  for (const commit of unparseableCommits) {
     const shortHash = commit.hash.slice(0, 7);
     const truncatedSubject = truncateSubject(commit.subject);
     lines.push(`${indent}    · ${shortHash} ${truncatedSubject}`);

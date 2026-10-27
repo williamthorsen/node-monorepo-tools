@@ -41,7 +41,7 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
     shouldForce,
     shouldSkipGitChecks,
     bumpOverride,
-    only,
+    onlyNames,
     setVersion,
     shouldIncludeReleaseNotes,
   } = parseArgs(argv);
@@ -78,23 +78,23 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
     userConfig = configResult.config;
   }
 
-  let workspace: WorkspaceDiscovery;
+  let workspaceDiscovery: WorkspaceDiscovery;
   try {
-    workspace = discoverWorkspaces();
+    workspaceDiscovery = discoverWorkspaces();
   } catch (error: unknown) {
     reportError(`Failed to discover workspaces: ${describeError(error)}`);
     process.exit(1);
   }
 
-  if (workspace.kind === 'empty') {
-    reportError(`No workspace package to release. ${describeEmptyWorkspace(workspace)}`);
+  if (workspaceDiscovery.kind === 'empty') {
+    reportError(`No workspace package to release. ${describeEmptyWorkspace(workspaceDiscovery)}`);
     process.exit(1);
   }
 
-  const config = resolveTargetsOrExit(userConfig, workspace, only, setVersion);
+  const config = resolveTargetsOrExit(userConfig, workspaceDiscovery, onlyNames, setVersion);
   const targetOptions: TargetPrepareOptions = {
     ...options,
-    ...(only !== undefined && { only }),
+    ...(onlyNames !== undefined && { only: onlyNames }),
     ...(setVersion !== undefined && { setVersions: resolveSetVersions(setVersion, config.targets) }),
   };
   runAndReport(
@@ -128,11 +128,11 @@ function findReleasedPackagePaths(plan: ReleasePlan, targets: readonly ReleaseTa
 function resolveTargetsOrExit(
   userConfig: ReleaseKitConfig | undefined,
   discovery: Exclude<WorkspaceDiscovery, { kind: 'empty' }>,
-  only: string[] | undefined,
+  onlyNames: string[] | undefined,
   setVersion: string | undefined,
 ): ResolvedReleaseTargets {
   if (discovery.kind === 'single-package') {
-    if (only !== undefined) {
+    if (onlyNames !== undefined) {
       reportError('--only is only supported for monorepo configurations');
       process.exit(1);
     }
@@ -166,8 +166,8 @@ function resolveTargetsOrExit(
   }
 
   const knownNames = listSelectableIds(config.targets);
-  const onlyNames = only ?? [];
-  for (const name of onlyNames) {
+  const requestedNames = onlyNames ?? [];
+  for (const name of requestedNames) {
     if (knownNames.includes(name)) {
       continue;
     }

@@ -34,18 +34,18 @@ describe(loadOverridesForScopes, () => {
 
   it("returns empty maps when the caller doesn't request any scope", () => {
     const result = loadOverridesForScopes({});
-    expect(result.project.size).toBe(0);
-    expect(result.perWorkspace.size).toBe(0);
+    expect(result.projectOverrides.size).toBe(0);
+    expect(result.overridesByWorkspace.size).toBe(0);
     expect(result.errors).toStrictEqual([]);
   });
 
   it('treats missing files as empty maps', () => {
     const result = loadOverridesForScopes({
-      project: join(tree.dir, 'project'),
+      projectPath: join(tree.dir, 'project'),
       workspaces: [join(tree.dir, 'workspace-a')],
     });
-    expect(result.project.size).toBe(0);
-    expect(result.perWorkspace.size).toBe(0);
+    expect(result.projectOverrides.size).toBe(0);
+    expect(result.overridesByWorkspace.size).toBe(0);
     expect(result.errors).toStrictEqual([]);
   });
 
@@ -55,10 +55,10 @@ describe(loadOverridesForScopes, () => {
     tree.writeJson('project/.meta/changelog-overrides.json', { aaa1111: { audience: 'skip' } });
     tree.writeJson('packages/foo/.meta/changelog-overrides.json', { bbb2222: { description: 'Renamed' } });
 
-    const result = loadOverridesForScopes({ project: projectRoot, workspaces: [workspaceRoot] });
+    const result = loadOverridesForScopes({ projectPath: projectRoot, workspaces: [workspaceRoot] });
     expect(result.errors).toStrictEqual([]);
-    expect(result.project.get('aaa1111')).toStrictEqual({ audience: 'skip' });
-    expect(result.perWorkspace.get(workspaceRoot)?.get('bbb2222')).toStrictEqual({ description: 'Renamed' });
+    expect(result.projectOverrides.get('aaa1111')).toStrictEqual({ audience: 'skip' });
+    expect(result.overridesByWorkspace.get(workspaceRoot)?.get('bbb2222')).toStrictEqual({ description: 'Renamed' });
   });
 
   it('omits per-workspace entries when the workspace file is empty', () => {
@@ -67,7 +67,7 @@ describe(loadOverridesForScopes, () => {
 
     const result = loadOverridesForScopes({ workspaces: [workspaceRoot] });
     expect(result.errors).toStrictEqual([]);
-    expect(result.perWorkspace.has(workspaceRoot)).toBe(false);
+    expect(result.overridesByWorkspace.has(workspaceRoot)).toBe(false);
   });
 
   it('aggregates errors across multiple malformed files into one report', () => {
@@ -79,13 +79,13 @@ describe(loadOverridesForScopes, () => {
     tree.writeJson('packages/b/.meta/changelog-overrides.json', { beef01: { audience: 'skip' } });
 
     const result = loadOverridesForScopes({
-      project: projectRoot,
+      projectPath: projectRoot,
       workspaces: [workspaceA, workspaceB],
     });
     expect(result.errors.some((message) => message.includes('Failed to parse override file'))).toBe(true);
     expect(result.errors.some((message) => message.includes('top-level value must be an object'))).toBe(true);
     // The valid file is still loaded so that the report is comprehensive even when peers fail.
-    expect(result.perWorkspace.get(workspaceB)?.get('beef01')).toStrictEqual({ audience: 'skip' });
+    expect(result.overridesByWorkspace.get(workspaceB)?.get('beef01')).toStrictEqual({ audience: 'skip' });
   });
 });
 
@@ -147,8 +147,8 @@ describe(applyWorkspaceOverrides, () => {
     perWorkspace: Map<string, Map<string, ChangelogOverride>>,
   ): OverrideContext {
     return {
-      project,
-      perWorkspace,
+      projectOverrides: project,
+      overridesByWorkspace: perWorkspace,
       overrideWarnings: [],
       globalMatchedRootKeys: new Set<string>(),
     };
@@ -250,7 +250,7 @@ describe(applyWorkspaceOverrides, () => {
       new Map([['packages/foo', new Map([['bbb2222', { audience: 'skip' }]])]]),
     );
     const projectEntries = [makeEntry(['aaa1111', 'bbb2222'])];
-    const applied = applyChangelogOverrides(projectEntries, context.project);
+    const applied = applyChangelogOverrides(projectEntries, context.projectOverrides);
     const remainingHashes = applied.entries[0]?.sections[0]?.items.map((item) => item.hash) ?? [];
     // aaa1111 is dropped via the root override; bbb2222 remains because the workspace file
     // does not apply at the project tier.
@@ -281,8 +281,8 @@ describe(createOverrideContext, () => {
 
   it("returns an empty context when the tree doesn't contain any override file", () => {
     const context = createOverrideContext(['packages/foo']);
-    expect(context.project.size).toBe(0);
-    expect(context.perWorkspace.size).toBe(0);
+    expect(context.projectOverrides.size).toBe(0);
+    expect(context.overridesByWorkspace.size).toBe(0);
     expect(context.overrideWarnings).toStrictEqual([]);
     expect(context.globalMatchedRootKeys.size).toBe(0);
   });
@@ -294,8 +294,8 @@ describe(createOverrideContext, () => {
     });
 
     const context = createOverrideContext(['packages/foo']);
-    expect(context.project.get('aaa1111')).toStrictEqual({ audience: 'skip' });
-    expect(context.perWorkspace.get('packages/foo')?.get('bbb2222')).toStrictEqual({
+    expect(context.projectOverrides.get('aaa1111')).toStrictEqual({ audience: 'skip' });
+    expect(context.overridesByWorkspace.get('packages/foo')?.get('bbb2222')).toStrictEqual({
       description: 'Workspace replacement',
     });
   });

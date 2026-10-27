@@ -18,7 +18,7 @@ export function applyCreateGithubReleaseCommandDefaults(): void {
   mockResolveReleaseTags.mockReturnValue([
     { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true },
   ]);
-  mockCreateGithubReleases.mockReturnValue({ created: ['v1.0.0'], skipped: [] });
+  mockCreateGithubReleases.mockReturnValue({ createdTags: ['v1.0.0'], skippedTags: [] });
   mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
     const dir = workspacePath.split('/').pop() ?? workspacePath;
     return {

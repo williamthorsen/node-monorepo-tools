@@ -74,10 +74,10 @@ export function buildEntryItem(
     onPolicyViolation:
       diagnostics === undefined
         ? undefined
-        : (violating, violatedType, surface) => {
+        : (violatingCommit, violatedType, surface) => {
             diagnostics.policyViolations.push({
-              commitHash: violating.hash,
-              commitSubject: violating.subject,
+              commitHash: violatingCommit.hash,
+              commitSubject: violatingCommit.subject,
               type: violatedType,
               surface,
               entryPosition: position,
@@ -190,12 +190,12 @@ function extractBody(message: string): string | undefined {
   let end = lines.length;
   while (end > start) {
     const line = lines[end - 1] ?? '';
-    const trimmed = line.trim();
-    if (trimmed === '') {
+    const trimmedLine = line.trim();
+    if (trimmedLine === '') {
       end -= 1;
       continue;
     }
-    if (TRAILER_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+    if (TRAILER_PATTERNS.some((pattern) => pattern.test(trimmedLine))) {
       end -= 1;
       continue;
     }
@@ -212,8 +212,8 @@ function extractBody(message: string): string | undefined {
 /** Extracts the description from a commit subject: the text after its first `: `, capitalized. */
 function extractDescription(message: string): string {
   const firstLine = message.split('\n', 1)[0] ?? message;
-  const afterColon = firstLine.split(': ').slice(1).join(': ');
-  return afterColon.charAt(0).toUpperCase() + afterColon.slice(1);
+  const descriptionText = firstLine.split(': ').slice(1).join(': ');
+  return descriptionText.charAt(0).toUpperCase() + descriptionText.slice(1);
 }
 
 /**
@@ -225,8 +225,8 @@ function isRoutedTo(scopes: readonly string[], routing: EntryRouting): boolean {
     return true;
   }
   return scopes.some((scope) => {
-    const resolved = routing.scopeAliases[scope] ?? scope;
-    return resolved === '*' || resolved === routing.scope;
+    const resolvedScope = routing.scopeAliases[scope] ?? scope;
+    return resolvedScope === '*' || resolvedScope === routing.scope;
   });
 }
 

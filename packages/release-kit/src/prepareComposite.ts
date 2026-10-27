@@ -15,19 +15,19 @@ import type { CompositeTarget, ReleaseType, TargetPrepareResult } from './types.
  * cannot be named.
  */
 export function describeCompositeSkip(
-  composite: CompositeTarget,
-  only: readonly string[] | undefined,
+  compositeTarget: CompositeTarget,
+  onlyNames: readonly string[] | undefined,
 ): string | undefined {
-  if (only === undefined || only.includes(composite.id)) {
+  if (onlyNames === undefined || onlyNames.includes(compositeTarget.id)) {
     return undefined;
   }
-  if (composite.id === PROJECT_TARGET_ID) {
+  if (compositeTarget.id === PROJECT_TARGET_ID) {
     return (
-      `Project release skipped: --only narrows this run to ${only.join(', ')}. ` +
+      `Project release skipped: --only narrows this run to ${onlyNames.join(', ')}. ` +
       'Run `release-kit prepare` without --only to include the project release.'
     );
   }
-  return `Release '${composite.id}' skipped: --only does not name it. Add ${composite.id} to --only to include it.`;
+  return `Release '${compositeTarget.id}' skipped: --only does not name it. Add ${compositeTarget.id} to --only to include it.`;
 }
 
 /**
@@ -35,35 +35,35 @@ export function describeCompositeSkip(
  * its tag, writes, and modified files to the run's collection and its preview warnings to `warnings`.
  */
 export function prepareComposite(
-  composite: CompositeTarget,
+  compositeTarget: CompositeTarget,
   context: RunContext,
   options: { shouldForce?: boolean; bumpOverride?: ReleaseType },
-  collected: CollectedReleases,
+  collectedReleases: CollectedReleases,
   warnings: string[],
 ): TargetPrepareResult {
-  const { history, untagged } = readTargetHistory(composite, context.settings);
-  assertTaggedBaseline([untagged]);
+  const { history, untaggedBaseline } = readTargetHistory(compositeTarget, context.settings);
+  assertTaggedBaseline([untaggedBaseline]);
 
-  const decision = decideTargetRelease(composite, history, {
+  const decision = decideTargetRelease(compositeTarget, history, {
     shouldForce: options.shouldForce === true,
     bumpOverride: options.bumpOverride,
     setVersion: undefined,
   });
   if (decision.outcome === 'skip') {
-    return buildSkippedTargetResult(composite, history, decision.skipReason);
+    return buildSkippedTargetResult(compositeTarget, history, decision.skipReason);
   }
   if (decision.setVersion !== undefined) {
     throw new Error('A composite target cannot take --set-version');
   }
 
-  const planned = planTargetRelease({
+  const plannedRelease = planTargetRelease({
     ...context,
-    target: composite,
+    target: compositeTarget,
     release: { releaseType: decision.releaseType },
     decision,
     history,
   });
-  collect(collected, planned);
-  warnings.push(...planned.warnings);
-  return planned.result;
+  collect(collectedReleases, plannedRelease);
+  warnings.push(...plannedRelease.warnings);
+  return plannedRelease.result;
 }

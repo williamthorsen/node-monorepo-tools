@@ -28,7 +28,7 @@ export type TargetPrepareSettings = Omit<ReleaseSettings, 'releaseNotes'>;
 /** One read of a target's release windows, and the untagged baseline that it found, if any. */
 export interface TargetReading {
   history: ReleaseHistory;
-  untagged: UntaggedBaseline | undefined;
+  untaggedBaseline: UntaggedBaseline | undefined;
 }
 
 /** Outcome of {@link decideTargetRelease}: a release at a decided level or at an explicit version, or a skip. */
@@ -81,7 +81,7 @@ export interface PlannedTargetRelease {
 export function readTargetHistory(target: ReleaseTarget, settings: TargetPrepareSettings): TargetReading {
   const options = describeHistoryWindow(target);
   const history = readReleaseHistory(settings, options);
-  const untagged = findUntaggedBaseline(
+  const untaggedBaseline = findUntaggedBaseline(
     {
       label: describeBaselineLabel(target),
       packageFiles: target.versionFiles,
@@ -91,7 +91,7 @@ export function readTargetHistory(target: ReleaseTarget, settings: TargetPrepare
     },
     settings,
   );
-  return { history, untagged };
+  return { history, untaggedBaseline };
 }
 
 /**
@@ -121,16 +121,16 @@ export function decideTargetRelease(
   }
 
   const tag = history.previousTag;
-  const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
+  const sinceClause = tag === undefined ? '(no previous release found)' : `since ${tag}`;
   const subject = isScopeRouted(target) || target.kind === 'directory' ? ` for ${target.id}` : '';
   const decision = decideRelease({
-    naturalBump: history.unreleased.bump,
-    commitCount: history.unreleased.commits.length,
+    naturalBump: history.unreleasedReading.bump,
+    commitCount: history.unreleasedReading.commits.length,
     shouldForce,
     bumpOverride,
     skipReasons: {
-      noCommits: `No commits${subject} ${since}. Pass --force to release at patch. Skipping.`,
-      noBumpWorthy: `No bump-worthy commits${subject} ${since}. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.`,
+      noCommits: `No commits${subject} ${sinceClause}. Pass --force to release at patch. Skipping.`,
+      noBumpWorthy: `No bump-worthy commits${subject} ${sinceClause}. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.`,
     },
   });
 
@@ -153,48 +153,48 @@ export function planTargetRelease(args: PlanTargetReleaseArgs): PlannedTargetRel
     args;
   const setVersion = decision?.setVersion;
 
-  const bump =
+  const bumpPlan =
     setVersion === undefined
       ? planVersionBump(target.versionFiles, release.releaseType)
       : planVersionSet(target.versionFiles, setVersion);
-  const tag = `${target.tagPrefix}${bump.newVersion}`;
-  const writes: PlannedWrite[] = [...bump.writes];
+  const tag = `${target.tagPrefix}${bumpPlan.newVersion}`;
+  const writes: PlannedWrite[] = [...bumpPlan.writes];
 
   const entries =
     decision === undefined
-      ? buildPropagationEntries(target, release, bump.newVersion, today, args.dependenciesHeader)
+      ? buildPropagationEntries(target, release, bumpPlan.newVersion, today, args.dependenciesHeader)
       : toReleaseEntries(history, tag, today);
   const overrideScope = describeOverrideScope(target);
-  const applied = applyWorkspaceOverrides(entries, overrideScope, overrideContext);
+  const appliedOverrides = applyWorkspaceOverrides(entries, overrideScope, overrideContext);
 
-  const changelogs = planChangelogFiles(target.changelogDir, applied.entries, settings, sectionOrder);
-  writes.push(...changelogs.writes);
+  const changelogPlan = planChangelogFiles(target.changelogDir, appliedOverrides.entries, settings, sectionOrder);
+  writes.push(...changelogPlan.writes);
 
   const warnings: string[] = [];
   const previewFiles: string[] = [];
   if (shouldPlanPreviews) {
-    const previews = planReleaseNotesPreviews({
+    const previewsPlan = planReleaseNotesPreviews({
       workspacePath: target.changelogDir,
       tag,
-      entries: changelogs.entries,
+      entries: changelogPlan.entries,
       sectionOrder,
     });
-    writes.push(...previews.writes);
-    warnings.push(...previews.warnings);
-    previewFiles.push(...previews.writes.map((write) => write.path));
+    writes.push(...previewsPlan.writes);
+    warnings.push(...previewsPlan.warnings);
+    previewFiles.push(...previewsPlan.writes.map((write) => write.path));
   }
 
   const releaseFields = {
     targetId: target.id,
-    commitCount: history.unreleased.commits.length,
-    currentVersion: bump.currentVersion,
-    newVersion: bump.newVersion,
+    commitCount: history.unreleasedReading.commits.length,
+    currentVersion: bumpPlan.currentVersion,
+    newVersion: bumpPlan.newVersion,
     tag,
-    bumpedFiles: bump.writes.map((write) => write.path),
-    changelogFiles: changelogs.changelogFiles,
-    ...(changelogs.removals.length > 0 && { removedChangelogFiles: changelogs.removals }),
+    bumpedFiles: bumpPlan.writes.map((write) => write.path),
+    changelogFiles: changelogPlan.changelogFiles,
+    ...(changelogPlan.removals.length > 0 && { removedChangelogFiles: changelogPlan.removals }),
     ...(previewFiles.length > 0 && { previewFiles }),
-    ...(changelogs.preservation !== undefined && { changelogPreservation: [changelogs.preservation] }),
+    ...(changelogPlan.preservation !== undefined && { changelogPreservation: [changelogPlan.preservation] }),
     ...(history.previousTag !== undefined && { previousTag: history.previousTag }),
   };
   const result = buildReleasedResult(target, releaseFields, release, decision, history);
@@ -203,8 +203,8 @@ export function planTargetRelease(args: PlanTargetReleaseArgs): PlannedTargetRel
     result,
     tag,
     writes,
-    removals: changelogs.removals,
-    modifiedFiles: [...target.versionFiles, ...changelogs.changelogFiles, ...changelogs.changelogJsonFiles],
+    removals: changelogPlan.removals,
+    modifiedFiles: [...target.versionFiles, ...changelogPlan.changelogFiles, ...changelogPlan.changelogJsonFiles],
     warnings,
   };
 }
@@ -215,19 +215,21 @@ export function buildSkippedTargetResult(
   history: ReleaseHistory,
   skipReason: string,
 ): TargetPrepareResult {
-  const { unreleased } = history;
+  const { unreleasedReading } = history;
   const fields = {
     targetId: target.id,
     status: 'skipped' as const,
-    commitCount: unreleased.commits.length,
-    parsedCommitCount: unreleased.parsedCommitCount,
+    commitCount: unreleasedReading.commits.length,
+    parsedCommitCount: unreleasedReading.parsedCommitCount,
     skipReason,
     ...(history.previousTag !== undefined && { previousTag: history.previousTag }),
-    ...(unreleased.unparseableCommits !== undefined && { unparseableCommits: unreleased.unparseableCommits }),
+    ...(unreleasedReading.unparseableCommits !== undefined && {
+      unparseableCommits: unreleasedReading.unparseableCommits,
+    }),
   };
-  const skipped = labelSkippedResult(target, fields);
-  attachChangelogDiagnostics(skipped, unreleased.diagnostics);
-  return skipped;
+  const skippedResult = labelSkippedResult(target, fields);
+  attachChangelogDiagnostics(skippedResult, unreleasedReading.diagnostics);
+  return skippedResult;
 }
 
 /** Reports whether a directory target is the repo root, which reads the whole repo and renders every entry. */

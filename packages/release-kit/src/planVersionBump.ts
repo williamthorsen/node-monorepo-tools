@@ -99,16 +99,16 @@ function readPackageJson(filePath: string): PackageJson {
     throw chainError(`Failed to read ${filePath}`, error);
   }
 
-  let parsed: unknown;
+  let parsedJson: unknown;
   try {
-    parsed = JSON.parse(content);
+    parsedJson = JSON.parse(content);
   } catch (error: unknown) {
     throw chainError(`Failed to parse JSON in ${filePath}`, error);
   }
 
-  if (!isPackageJson(parsed)) {
+  if (!isPackageJson(parsedJson)) {
     throw new Error(`No valid 'version' field found in ${filePath}`);
   }
 
-  return parsed;
+  return parsedJson;
 }

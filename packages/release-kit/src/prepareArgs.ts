@@ -33,7 +33,7 @@ export function parseArgs(argv: string[]): {
   shouldForce: boolean;
   shouldSkipGitChecks: boolean;
   bumpOverride: ReleaseType | undefined;
-  only: string[] | undefined;
+  onlyNames: string[] | undefined;
   /** The raw `--set-version` value, whose accepted form depends on the mode. */
   setVersion: string | undefined;
   shouldIncludeReleaseNotes: boolean;
@@ -49,9 +49,9 @@ export function parseArgs(argv: string[]): {
     bumpOverride = flags.bump;
   }
 
-  let only: string[] | undefined;
+  let onlyNames: string[] | undefined;
   if (flags.only !== undefined) {
-    only = flags.only.split(',');
+    onlyNames = flags.only.split(',');
   }
 
   return {
@@ -60,7 +60,7 @@ export function parseArgs(argv: string[]): {
     shouldForce: flags.shouldForce,
     shouldSkipGitChecks: flags.shouldSkipGitChecks,
     bumpOverride,
-    only,
+    onlyNames,
     setVersion: flags.setVersion,
     shouldIncludeReleaseNotes: flags.shouldIncludeReleaseNotes,
   };

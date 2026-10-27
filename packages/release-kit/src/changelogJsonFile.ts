@@ -30,8 +30,8 @@ export function renderChangelogJson(entries: ChangelogEntry[]): string {
  * malformed file counts as empty, so that a malformed file does not abort the release.
  */
 export function mergeChangelogEntriesWithDisk(filePath: string, entries: ChangelogEntry[]): ChangelogEntry[] {
-  const existing = readExistingEntries(filePath);
-  return mergeEntries(entries, existing);
+  const existingEntries = readExistingEntries(filePath);
+  return mergeEntries(entries, existingEntries);
 }
 
 /** Sorts changelog entries newest-first by SemVer-aware version comparison. */
@@ -49,11 +49,11 @@ function readExistingEntries(filePath: string): ChangelogEntry[] {
   }
   try {
     const content = readFileSync(filePath, 'utf8');
-    const parsed: unknown = JSON.parse(content);
-    if (!isUnknownArray(parsed)) {
+    const parsedJson: unknown = JSON.parse(content);
+    if (!isUnknownArray(parsedJson)) {
       return [];
     }
-    return parsed.filter(isChangelogEntry);
+    return parsedJson.filter(isChangelogEntry);
   } catch (error: unknown) {
     console.warn(`Warning: could not parse existing ${filePath}: ${describeError(error)}; treating as empty`);
     return [];

@@ -37,15 +37,15 @@ export function createTags(options: CreateTagsOptions): string[] {
     return tags;
   }
 
-  const created: string[] = [];
+  const createdTags: string[] = [];
   for (const tag of tags) {
     try {
       execFileSync('git', ['tag', '-a', tag, '-m', tag], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
-      created.push(tag);
+      createdTags.push(tag);
     } catch (error: unknown) {
-      if (created.length > 0) {
+      if (createdTags.length > 0) {
         console.warn('Tags created before failure:');
-        for (const t of created) {
+        for (const t of createdTags) {
           console.warn(`  ${t}`);
         }
       }

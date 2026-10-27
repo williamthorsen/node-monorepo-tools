@@ -33,14 +33,14 @@ export async function createGithubReleaseCommand(
   styles: StreamStyles,
   invocationDir: string,
 ): Promise<void> {
-  const parsed = parseArgsOrExit(argv, createGithubReleaseFlagSchema);
-  const configPath = resolveConfigFlag(parsed.flags.config, invocationDir);
+  const parsedArgs = parseArgsOrExit(argv, createGithubReleaseFlagSchema);
+  const configPath = resolveConfigFlag(parsedArgs.flags.config, invocationDir);
 
-  const { isDryRun } = parsed.flags;
+  const { isDryRun } = parsedArgs.flags;
 
   const userConfig = await loadUsableConfig(styles.stderr, configPath);
 
-  const requestedTags = parseRequestedTags(parsed.flags.tags);
+  const requestedTags = parseRequestedTags(parsedArgs.flags.tags);
 
   const resolvedTags = resolveCommandTags(requestedTags, userConfig);
 
@@ -68,11 +68,11 @@ export async function createGithubReleaseCommand(
 
   // Treat every skip as informational: `resolveCommandTags` has already rejected an unknown tag, so a `no-entry` tag
   // exists in git and doesn't have any releasable content.
-  if (outcome.skipped.length === 0) {
+  if (outcome.skippedTags.length === 0) {
     return;
   }
-  const formatted = outcome.skipped.map((s) => `${s.tag} (${s.reason})`).join(', ');
-  console.info(`Skipped ${outcome.skipped.length} tag(s) without releasable content: ${formatted}.`);
+  const formattedSkips = outcome.skippedTags.map((s) => `${s.tag} (${s.reason})`).join(', ');
+  console.info(`Skipped ${outcome.skippedTags.length} tag(s) without releasable content: ${formattedSkips}.`);
 }
 
 // region | Helpers

@@ -16,11 +16,11 @@ export function parseChangeRecordBlock(message: string): ChangeRecordBlockReadin
   if (fence === undefined) {
     return { kind: 'absent' };
   }
-  if (fence.close === undefined) {
+  if (fence.closeIndex === undefined) {
     return { kind: 'malformed', reason: 'the block opens but never closes' };
   }
 
-  const document = parseDocument(lines.slice(fence.open + 1, fence.close).join('\n'));
+  const document = parseDocument(lines.slice(fence.openIndex + 1, fence.closeIndex).join('\n'));
   const [error] = document.errors;
   if (error !== undefined) {
     const detail = (error.message.split('\n', 1)[0] ?? '').replace(/:$/, '');
@@ -37,7 +37,9 @@ export function stripChangeRecordBlocks(message: string): string {
   const lines = message.split(/\r?\n/);
   const fences = findFences(lines);
   return lines
-    .filter((_line, index) => fences.every((fence) => index < fence.open || index > (fence.close ?? lines.length)))
+    .filter((_line, index) =>
+      fences.every((fence) => index < fence.openIndex || index > (fence.closeIndex ?? lines.length)),
+    )
     .join('\n');
 }
 
@@ -66,26 +68,26 @@ const FENCE = '```';
 
 /** One block's place in a message: the indices of its fence lines, `close` absent for a block that never closes. */
 interface FenceSpan {
-  close?: number;
-  open: number;
+  closeIndex?: number;
+  openIndex: number;
 }
 
 /** Locates each `change-record` block in a message's lines, in document order. */
 function findFences(lines: readonly string[]): FenceSpan[] {
   const fences: FenceSpan[] = [];
-  let open: number | undefined;
+  let openIndex: number | undefined;
   for (const [index, line] of lines.entries()) {
-    if (open === undefined) {
+    if (openIndex === undefined) {
       if (line.trim() === `${FENCE}${INFO_STRING}`) {
-        open = index;
+        openIndex = index;
       }
     } else if (line.trim() === FENCE) {
-      fences.push({ close: index, open });
-      open = undefined;
+      fences.push({ closeIndex: index, openIndex });
+      openIndex = undefined;
     }
   }
-  if (open !== undefined) {
-    fences.push({ open });
+  if (openIndex !== undefined) {
+    fences.push({ openIndex });
   }
   return fences;
 }
@@ -95,37 +97,37 @@ const INFO_STRING = 'change-record';
 
 /** Reads one item of the entry list, naming the item by its index in every defect. */
 function readEntry(item: unknown, index: number): { reason: string } | { entry: ChangeRecordEntry } {
-  const at = `entries[${index}]`;
+  const entryPath = `entries[${index}]`;
   if (!isRecord(item)) {
-    return { reason: `\`${at}\` is not a mapping` };
+    return { reason: `\`${entryPath}\` is not a mapping` };
   }
 
   const { breaking, migration, scopes } = item;
   if (breaking !== undefined && breaking !== null && typeof breaking !== 'boolean') {
-    return { reason: `\`${at}.breaking\` is not a boolean` };
+    return { reason: `\`${entryPath}.breaking\` is not a boolean` };
   }
   if (migration !== undefined && migration !== null && typeof migration !== 'string') {
-    return { reason: `\`${at}.migration\` is not a string` };
+    return { reason: `\`${entryPath}.migration\` is not a string` };
   }
   if (scopes !== undefined && scopes !== null && !Array.isArray(scopes)) {
-    return { reason: `\`${at}.scopes\` is not a list` };
+    return { reason: `\`${entryPath}.scopes\` is not a list` };
   }
   const declaredScopes: unknown[] = scopes ?? [];
   const readScopes: string[] = [];
   for (const [position, scope] of declaredScopes.entries()) {
     if (typeof scope !== 'string') {
-      return { reason: `\`${at}.scopes[${position}]\` is not a string` };
+      return { reason: `\`${entryPath}.scopes[${position}]\` is not a string` };
     }
     readScopes.push(scope.trim());
   }
 
-  const type = readRequiredString(item, at, 'type');
-  if ('reason' in type) {
-    return type;
+  const typeResult = readRequiredString(item, entryPath, 'type');
+  if ('reason' in typeResult) {
+    return typeResult;
   }
-  const text = readRequiredString(item, at, 'text');
-  if ('reason' in text) {
-    return text;
+  const textResult = readRequiredString(item, entryPath, 'text');
+  if ('reason' in textResult) {
+    return textResult;
   }
 
   const trimmedMigration = migration?.trim();
@@ -134,8 +136,8 @@ function readEntry(item: unknown, index: number): { reason: string } | { entry: 
       breaking: breaking === true,
       ...(trimmedMigration !== undefined && trimmedMigration !== '' && { migration: trimmedMigration }),
       scopes: readScopes,
-      text: text.value,
-      type: type.value,
+      text: textResult.value,
+      type: typeResult.value,
     },
   };
 }
@@ -164,11 +166,11 @@ function readPayload(payload: unknown): ChangeRecordBlockReading {
       return { kind: 'malformed', reason: '`entries` is not a list' };
     }
     for (const [index, item] of entries.entries()) {
-      const read = readEntry(item, index);
-      if ('reason' in read) {
-        return { kind: 'malformed', reason: read.reason };
+      const readResult = readEntry(item, index);
+      if ('reason' in readResult) {
+        return { kind: 'malformed', reason: readResult.reason };
       }
-      readEntries.push(read.entry);
+      readEntries.push(readResult.entry);
     }
   }
 
@@ -184,18 +186,18 @@ function readPayload(payload: unknown): ChangeRecordBlockReading {
 /** Reads a string field that every entry declares, refusing one that is absent, of the wrong type, or blank. */
 function readRequiredString(
   item: Record<string, unknown>,
-  at: string,
+  entryPath: string,
   name: 'text' | 'type',
 ): { reason: string } | { value: string } {
   const value = item[name];
   if (value === undefined || value === null) {
-    return { reason: `\`${at}.${name}\` is missing` };
+    return { reason: `\`${entryPath}.${name}\` is missing` };
   }
   if (typeof value !== 'string') {
-    return { reason: `\`${at}.${name}\` is not a string` };
+    return { reason: `\`${entryPath}.${name}\` is not a string` };
   }
-  const trimmed = value.trim();
-  return trimmed === '' ? { reason: `\`${at}.${name}\` is blank` } : { value: trimmed };
+  const trimmedValue = value.trim();
+  return trimmedValue === '' ? { reason: `\`${entryPath}.${name}\` is blank` } : { value: trimmedValue };
 }
 
 // endregion | Helpers

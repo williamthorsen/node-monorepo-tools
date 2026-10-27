@@ -30,9 +30,9 @@ export interface UntaggedBaseline {
  * window extends back to the start of history, so the new version would include every earlier commit.
  */
 export function assertTaggedBaseline(findings: ReadonlyArray<UntaggedBaseline | undefined>): void {
-  const untagged = findings.filter((finding) => finding !== undefined);
-  if (untagged.length === 0) return;
-  const lines = untagged.map(({ label, version, tag }) => `  - ${label}: ${version} (create tag ${tag})`);
+  const untaggedFindings = findings.filter((finding) => finding !== undefined);
+  if (untaggedFindings.length === 0) return;
+  const lines = untaggedFindings.map(({ label, version, tag }) => `  - ${label}: ${version} (create tag ${tag})`);
   throw new Error(
     [
       'The current version is recorded in the changelog, but its tag is not the previous tag reachable from HEAD:',
@@ -74,9 +74,9 @@ function readRecordedVersions(
 ): Set<string> {
   const versions = new Set<string>();
   for (const changelogPath of changelogPaths) {
-    const { versioned } = readChangelogSections(join(changelogPath, 'CHANGELOG.md'));
+    const { versioned: versionedSections } = readChangelogSections(join(changelogPath, 'CHANGELOG.md'));
     const entries = readChangelogEntries(resolveChangelogJsonPath(config, changelogPath)) ?? [];
-    for (const { version } of [...versioned, ...entries]) {
+    for (const { version } of [...versionedSections, ...entries]) {
       versions.add(version);
     }
   }

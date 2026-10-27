@@ -38,7 +38,7 @@ const CANDIDATE_TAG_PATTERN = /^(?<prefix>[a-z][a-z0-9-]*-v)\d+\.\d+\.\d+(?:-[A-
  * when the repo doesn't have any tags, or any candidate-shaped tags outside the known set.
  */
 export function detectUndeclaredTagPrefixes(knownPrefixes: readonly string[]): UndeclaredTagPrefix[] {
-  const known = new Set(knownPrefixes);
+  const knownPrefixSet = new Set(knownPrefixes);
 
   let rawOutput: string;
   try {
@@ -52,25 +52,25 @@ export function detectUndeclaredTagPrefixes(knownPrefixes: readonly string[]): U
     return [];
   }
 
-  const grouped = new Map<string, string[]>();
+  const tagsByPrefix = new Map<string, string[]>();
   for (const line of rawOutput.split('\n')) {
     const tag = line.trim();
     if (tag === '') continue;
     const match = CANDIDATE_TAG_PATTERN.exec(tag);
     if (match === null) continue;
     const prefix = match.groups?.['prefix'] ?? '';
-    if (prefix === '' || known.has(prefix)) continue;
+    if (prefix === '' || knownPrefixSet.has(prefix)) continue;
 
-    let tags = grouped.get(prefix);
+    let tags = tagsByPrefix.get(prefix);
     if (tags === undefined) {
       tags = [];
-      grouped.set(prefix, tags);
+      tagsByPrefix.set(prefix, tags);
     }
     tags.push(tag);
   }
 
   const results: UndeclaredTagPrefix[] = [];
-  for (const [prefix, tags] of grouped) {
+  for (const [prefix, tags] of tagsByPrefix) {
     results.push({
       prefix,
       tagCount: tags.length,

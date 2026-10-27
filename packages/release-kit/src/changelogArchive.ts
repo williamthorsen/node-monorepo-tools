@@ -6,7 +6,7 @@ export const CHANGELOG_ARCHIVE_DIRECTORY = 'changelogs';
 
 /** An archive file that exists on disk. */
 export interface ChangelogArchivePath {
-  major: number;
+  majorVersion: number;
   path: string;
 }
 
@@ -28,10 +28,10 @@ export function listArchiveFiles(changelogDir: string): ChangelogArchivePath[] {
   for (const name of readdirSync(archiveDir)) {
     const match = ARCHIVE_FILE_PATTERN.exec(name);
     if (match?.[1] !== undefined) {
-      archives.push({ major: Number(match[1]), path: join(archiveDir, name) });
+      archives.push({ majorVersion: Number(match[1]), path: join(archiveDir, name) });
     }
   }
-  return archives.toSorted((a, b) => b.major - a.major);
+  return archives.toSorted((a, b) => b.majorVersion - a.majorVersion);
 }
 
 // region | Helpers

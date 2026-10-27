@@ -138,14 +138,14 @@ function claimAncestors(
 ): Map<string, number> {
   const windowIndexByHash = new Map<string, number>();
   for (const [windowIndex, boundary] of boundaries.entries()) {
-    const pending = [boundary.hash];
-    while (pending.length > 0) {
-      const hash = pending.pop();
+    const pendingHashes = [boundary.hash];
+    while (pendingHashes.length > 0) {
+      const hash = pendingHashes.pop();
       if (hash === undefined || windowIndexByHash.has(hash)) {
         continue;
       }
       windowIndexByHash.set(hash, windowIndex);
-      pending.push(...(parentsByHash.get(hash) ?? []));
+      pendingHashes.push(...(parentsByHash.get(hash) ?? []));
     }
   }
   return windowIndexByHash;

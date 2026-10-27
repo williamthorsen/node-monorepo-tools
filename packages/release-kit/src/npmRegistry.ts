@@ -67,18 +67,18 @@ export type NpmPackageLookup =
 
 /** Reads npm's `--json` error envelope, which npm writes to stdout on both the success and failure paths. */
 export function readNpmError(stdout: string): NpmErrorPayload | undefined {
-  let parsed: unknown;
+  let parsedJson: unknown;
   try {
-    parsed = JSON.parse(stdout);
+    parsedJson = JSON.parse(stdout);
   } catch {
     return undefined;
   }
 
-  if (!isRecord(parsed) || !isRecord(parsed['error']) || typeof parsed['error']['code'] !== 'string') {
+  if (!isRecord(parsedJson) || !isRecord(parsedJson['error']) || typeof parsedJson['error']['code'] !== 'string') {
     return undefined;
   }
 
-  const { code, summary } = parsed['error'];
+  const { code, summary } = parsedJson['error'];
   return { code, summary: typeof summary === 'string' ? summary : '' };
 }
 

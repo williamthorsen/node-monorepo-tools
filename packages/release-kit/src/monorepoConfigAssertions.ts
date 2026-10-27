@@ -120,10 +120,10 @@ export function assertNoTagPrefixCollisions(
     }
   }
   const retiredEntries = (retiredPackages ?? []).entries();
-  for (const [index, retired] of retiredEntries) {
+  for (const [index, retiredPackage] of retiredEntries) {
     sources.push({
-      prefix: retired.tagPrefix,
-      label: `retiredPackages entry (name='${retired.name}')`,
+      prefix: retiredPackage.tagPrefix,
+      label: `retiredPackages entry (name='${retiredPackage.name}')`,
       owner: `retired:${index}`,
     });
   }
@@ -167,12 +167,12 @@ export function assertRetiredPackagesDoNotCollideWithActive(
     workspaceByDerivedPrefix.set(workspace.tagPrefix, workspace);
   }
 
-  for (const retired of retiredPackages) {
-    const active = workspaceByDerivedPrefix.get(retired.tagPrefix);
-    if (active !== undefined) {
+  for (const retiredPackage of retiredPackages) {
+    const activeWorkspace = workspaceByDerivedPrefix.get(retiredPackage.tagPrefix);
+    if (activeWorkspace !== undefined) {
       throw new Error(
-        `retiredPackages: tagPrefix '${retired.tagPrefix}' collides with active workspace '${active.dir}' ` +
-          `(derived prefix '${active.tagPrefix}'). A retired package's tagPrefix cannot belong to an active workspace.`,
+        `retiredPackages: tagPrefix '${retiredPackage.tagPrefix}' collides with active workspace '${activeWorkspace.dir}' ` +
+          `(derived prefix '${activeWorkspace.tagPrefix}'). A retired package's tagPrefix cannot belong to an active workspace.`,
       );
     }
   }
@@ -192,11 +192,11 @@ export function assertRetiredPackagesDoNotCollideWithActive(
 export function assertUniqueTagPrefixes(workspaces: readonly WorkspaceConfig[]): void {
   const pathsByPrefix = new Map<string, string[]>();
   for (const workspace of workspaces) {
-    const existing = pathsByPrefix.get(workspace.tagPrefix);
-    if (existing === undefined) {
+    const existingPaths = pathsByPrefix.get(workspace.tagPrefix);
+    if (existingPaths === undefined) {
       pathsByPrefix.set(workspace.tagPrefix, [workspace.workspacePath]);
     } else {
-      existing.push(workspace.workspacePath);
+      existingPaths.push(workspace.workspacePath);
     }
   }
 

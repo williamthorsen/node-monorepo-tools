@@ -21,28 +21,31 @@ const TAG_PREFIX_PATTERN = /^[\w.-]+$/;
  * repo root. Throws when the path isn't a directory, when the version file is missing or lacks a `version`, and when
  * the basename would not make a valid tag prefix.
  */
-export function deriveDirectoryConfig(declared: DeclaredDirectory, root: string = process.cwd()): DirectoryConfig {
-  const label = `releases.${declared.name}`;
-  if (statSync(path.resolve(root, declared.path), { throwIfNoEntry: false })?.isDirectory() !== true) {
+export function deriveDirectoryConfig(
+  declaredDirectory: DeclaredDirectory,
+  root: string = process.cwd(),
+): DirectoryConfig {
+  const label = `releases.${declaredDirectory.name}`;
+  if (statSync(path.resolve(root, declaredDirectory.path), { throwIfNoEntry: false })?.isDirectory() !== true) {
     throw new Error(
-      `${label}: path '${declared.path}' is not a directory; declare a directory that exists in the repo`,
+      `${label}: path '${declaredDirectory.path}' is not a directory; declare a directory that exists in the repo`,
     );
   }
 
-  const versionFile = resolveVersionFile(declared.path, root);
+  const versionFile = resolveVersionFile(declaredDirectory.path, root);
   assertVersionField(label, versionFile, root);
 
   const config: DirectoryConfig = {
-    name: declared.name,
-    path: declared.path,
+    name: declaredDirectory.name,
+    path: declaredDirectory.path,
     versionFile,
-    tagPrefix: declared.tagPrefix ?? deriveTagPrefix(label, declared.path),
+    tagPrefix: declaredDirectory.tagPrefix ?? deriveTagPrefix(label, declaredDirectory.path),
   };
-  if (declared.paths !== undefined) {
-    config.paths = [...declared.paths];
+  if (declaredDirectory.paths !== undefined) {
+    config.paths = [...declaredDirectory.paths];
   }
-  if (declared.legacyIdentities !== undefined) {
-    config.legacyIdentities = declared.legacyIdentities;
+  if (declaredDirectory.legacyIdentities !== undefined) {
+    config.legacyIdentities = declaredDirectory.legacyIdentities;
   }
   return config;
 }
@@ -58,13 +61,13 @@ function assertVersionField(label: string, versionFile: string, root: string): v
     );
   }
 
-  let parsed: unknown;
+  let parsedJson: unknown;
   try {
-    parsed = JSON.parse(readFileSync(absolutePath, 'utf8'));
+    parsedJson = JSON.parse(readFileSync(absolutePath, 'utf8'));
   } catch (error: unknown) {
     throw chainError(`${label}: failed to read ${versionFile}`, error);
   }
-  if (!isRecord(parsed) || typeof parsed['version'] !== 'string') {
+  if (!isRecord(parsedJson) || typeof parsedJson['version'] !== 'string') {
     throw new Error(`${label}: ${versionFile} does not contain a string 'version' field; add one`);
   }
 }
@@ -85,9 +88,9 @@ function deriveTagPrefix(label: string, directoryPath: string): string {
 
 /** Returns the repo-relative version file of a directory: its `package.json` when present, else its `version.json`. */
 function resolveVersionFile(directoryPath: string, root: string): string {
-  const packageJson = path.posix.join(directoryPath, 'package.json');
-  return existsSync(path.resolve(root, packageJson))
-    ? packageJson
+  const packageJsonPath = path.posix.join(directoryPath, 'package.json');
+  return existsSync(path.resolve(root, packageJsonPath))
+    ? packageJsonPath
     : path.posix.join(directoryPath, DIRECTORY_VERSION_FILE);
 }
 

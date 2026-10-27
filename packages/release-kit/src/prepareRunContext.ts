@@ -8,13 +8,13 @@ import type { DirectoryTarget, PackageTarget, ReleaseTarget } from './types.ts';
 
 /** Appends one planned release's tag, writes, removals, and modified files to the run's collection. */
 export function collect(
-  collected: CollectedReleases,
-  planned: { tag: string; writes: PlannedWrite[]; removals: string[]; modifiedFiles: string[] },
+  collectedReleases: CollectedReleases,
+  plannedRelease: { tag: string; writes: PlannedWrite[]; removals: string[]; modifiedFiles: string[] },
 ): void {
-  collected.tags.push(planned.tag);
-  collected.writes.push(...planned.writes);
-  collected.removals.push(...planned.removals);
-  collected.modifiedFiles.push(...planned.modifiedFiles);
+  collectedReleases.tags.push(plannedRelease.tag);
+  collectedReleases.writes.push(...plannedRelease.writes);
+  collectedReleases.removals.push(...plannedRelease.removals);
+  collectedReleases.modifiedFiles.push(...plannedRelease.modifiedFiles);
 }
 
 /** The tags, writes, removals, and modified files of the run's releases, in the order in which they were planned. */

@@ -55,7 +55,7 @@ export function planReleaseNotesPreviews(options: PlanReleaseNotesPreviewsOption
     warnings.push(describePreviewSkip(workspacePath, result.reason, result.version));
     return { writes: [], warnings };
   }
-  const { rendered } = result;
+  const { renderedReadme } = result;
 
   if (!readme.doesExist && !readme.unreadable) {
     warnings.push(
@@ -68,15 +68,15 @@ export function planReleaseNotesPreviews(options: PlanReleaseNotesPreviewsOption
   const writes: PlannedWrite[] = [];
 
   if (readme.doesExist) {
-    writes.push({ path: path.join(docsDir, `README.v${version}.md`), content: rendered.injectedReadme });
+    writes.push({ path: path.join(docsDir, `README.v${version}.md`), content: renderedReadme.injectedReadme });
   }
 
   // End the standalone preview with a trailing newline for consistency with markdown files.
   writes.push({
     path: path.join(docsDir, `RELEASE_NOTES.v${version}.md`),
-    content: rendered.releaseNotesMarkdown.endsWith('\n')
-      ? rendered.releaseNotesMarkdown
-      : `${rendered.releaseNotesMarkdown}\n`,
+    content: renderedReadme.releaseNotesMarkdown.endsWith('\n')
+      ? renderedReadme.releaseNotesMarkdown
+      : `${renderedReadme.releaseNotesMarkdown}\n`,
   });
 
   return { writes, warnings };

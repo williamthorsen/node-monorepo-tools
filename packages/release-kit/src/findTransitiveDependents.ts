@@ -2,8 +2,8 @@ import type { DependencyGraph } from './buildDependencyGraph.ts';
 
 /** Returns the start workspace `dir`s together with the `dir` of every workspace that depends on one, transitively. */
 export function findTransitiveDependents(graph: DependencyGraph, startDirs: Iterable<string>): Set<string> {
-  const found = new Set<string>(startDirs);
-  const queue = [...found];
+  const foundDirs = new Set<string>(startDirs);
+  const queue = [...foundDirs];
 
   while (queue.length > 0) {
     const dir = queue.shift();
@@ -14,11 +14,11 @@ export function findTransitiveDependents(graph: DependencyGraph, startDirs: Iter
 
     const dependents = graph.dependentsOf.get(packageName) ?? [];
     for (const dependent of dependents) {
-      if (found.has(dependent.id)) continue;
-      found.add(dependent.id);
+      if (foundDirs.has(dependent.id)) continue;
+      foundDirs.add(dependent.id);
       queue.push(dependent.id);
     }
   }
 
-  return found;
+  return foundDirs;
 }

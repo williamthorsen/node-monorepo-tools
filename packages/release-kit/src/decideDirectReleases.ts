@@ -27,13 +27,13 @@ export interface DirectReleases {
  * the targets from which the release starts.
  */
 export function decideDirectReleases(
-  planned: readonly MemberTarget[],
+  plannedTargets: readonly MemberTarget[],
   settings: TargetPrepareSettings,
   options: { shouldForce?: boolean; bumpOverride?: ReleaseType; setVersions?: ReadonlyMap<string, string> },
   startIds: ReadonlySet<string>,
 ): DirectReleases {
   const { shouldForce, bumpOverride, setVersions } = options;
-  const direct: DirectReleases = {
+  const directReleases: DirectReleases = {
     readings: new Map(),
     decisions: new Map(),
     bumps: new Map(),
@@ -42,13 +42,13 @@ export function decideDirectReleases(
   const hintState: BaselineHintState = { emitted: false };
   // The union of every planned workspace's derived and declared prefixes, so that the baseline hint doesn't count a
   // sibling's tags as undeclared candidates.
-  const knownPrefixes = planned.flatMap(getAllTagPrefixes);
+  const knownPrefixes = plannedTargets.flatMap(getAllTagPrefixes);
 
-  for (const target of planned) {
-    const { history, untagged } = runStage(describeStage(target), () => readTargetHistory(target, settings));
-    direct.readings.set(target.id, history);
-    if (untagged !== undefined) {
-      direct.untaggedBaselines.set(target.id, untagged);
+  for (const target of plannedTargets) {
+    const { history, untaggedBaseline } = runStage(describeStage(target), () => readTargetHistory(target, settings));
+    directReleases.readings.set(target.id, history);
+    if (untaggedBaseline !== undefined) {
+      directReleases.untaggedBaselines.set(target.id, untaggedBaseline);
     }
     if (history.previousTag === undefined && target.kind === 'package' && target.isWorkspace) {
       maybeEmitBaselineHint(target, knownPrefixes, hintState);
@@ -60,13 +60,13 @@ export function decideDirectReleases(
       bumpOverride,
       setVersion,
     });
-    direct.decisions.set(target.id, decision);
+    directReleases.decisions.set(target.id, decision);
     if (decision.outcome === 'skip') {
       continue;
     }
     // With `--set-version`, the release type is a sentinel: `newVersionOverride` takes precedence when propagation
     // computes dependent versions.
-    direct.bumps.set(
+    directReleases.bumps.set(
       target.id,
       decision.setVersion === undefined
         ? { releaseType: decision.releaseType }
@@ -74,7 +74,7 @@ export function decideDirectReleases(
     );
   }
 
-  return direct;
+  return directReleases;
 }
 
 /**
@@ -84,23 +84,27 @@ export function decideDirectReleases(
  * renders every entry in its window, so it records none, but its window still routes the scope that names it.
  */
 export function reportUnroutedEntryScopes(
-  planned: readonly MemberTarget[],
-  direct: DirectReleases,
+  plannedTargets: readonly MemberTarget[],
+  directReleases: DirectReleases,
   settings: TargetPrepareSettings,
   memberTargets: readonly MemberTarget[],
 ): void {
-  const releasing = planned.filter((target) => direct.decisions.get(target.id)?.outcome === 'release');
-  const windows = [...releasing, ...planned.filter((target) => !releasing.includes(target))].map((target) => ({
-    target,
-    history: readHistory(direct.readings, target),
-  }));
+  const releasingTargets = plannedTargets.filter(
+    (target) => directReleases.decisions.get(target.id)?.outcome === 'release',
+  );
+  const windows = [...releasingTargets, ...plannedTargets.filter((target) => !releasingTargets.includes(target))].map(
+    (target) => ({
+      target,
+      history: readHistory(directReleases.readings, target),
+    }),
+  );
   const findings = findUnroutedEntryScopes(
-    windows.map(({ target, history }) => ({ dir: target.id, commits: history.unreleased.commits })),
+    windows.map(({ target, history }) => ({ dir: target.id, commits: history.unreleasedReading.commits })),
     memberTargets.map((target) => target.id),
     settings.scopeAliases ?? {},
   );
   for (const { target, history } of windows) {
-    history.unreleased.diagnostics.unroutedEntryScopes = isRepoRootTarget(target)
+    history.unreleasedReading.diagnostics.unroutedEntryScopes = isRepoRootTarget(target)
       ? []
       : (findings.get(target.id) ?? []);
   }
@@ -134,10 +138,10 @@ function maybeEmitBaselineHint(
   if (candidates.length === 0) return;
 
   const totalTags = candidates.reduce((sum, candidate) => sum + candidate.tagCount, 0);
-  const example = candidates[0]?.exampleTags[0] ?? `${candidates[0]?.prefix ?? ''}?`;
+  const exampleTag = candidates[0]?.exampleTags[0] ?? `${candidates[0]?.prefix ?? ''}?`;
   process.stderr.write(
     `Hint: no baseline tag found for ${target.id} under '${target.tagPrefix}', but ` +
-      `${totalTags} candidate-shaped tags exist (e.g., ${example}). ` +
+      `${totalTags} candidate-shaped tags exist (e.g., ${exampleTag}). ` +
       "Run 'release-kit show-tag-prefixes' to check for undeclared legacy prefixes.\n",
   );
   state.emitted = true;

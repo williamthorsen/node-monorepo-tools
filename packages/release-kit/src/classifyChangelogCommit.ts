@@ -43,12 +43,12 @@ export function classifyChangelogCommit(
     return { kind: 'unparseable' };
   }
 
-  const parsed = parseCommitMessage(commit.message, commit.hash, workTypes, undefined, options);
-  if (parsed === undefined) {
+  const parsedCommit = parseCommitMessage(commit.message, commit.hash, workTypes, undefined, options);
+  if (parsedCommit === undefined) {
     return { kind: 'unparseable' };
   }
 
-  const config = workTypes[parsed.type];
+  const config = workTypes[parsedCommit.type];
   if (config === undefined) {
     return { kind: 'unparseable' };
   }
@@ -56,7 +56,7 @@ export function classifyChangelogCommit(
     return { kind: 'excluded' };
   }
 
-  return { kind: 'header', header: config.header, type: parsed.type, breaking: parsed.breaking };
+  return { kind: 'header', header: config.header, type: parsedCommit.type, breaking: parsedCommit.breaking };
 }
 
 /**
