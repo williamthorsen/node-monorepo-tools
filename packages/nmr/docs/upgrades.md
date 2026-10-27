@@ -40,11 +40,13 @@ export default defineConfig({
 });
 ```
 
-`defineConfig` supplies nmr's shared upgrade policy, so a repo's config contains only what is specific to that repo. The policy is a seven-day quarantine on brand-new releases and the pair of settings that report a dependency pinned to an exact version: Locked dependencies are included, and the range searched is `minor`. Any setting that a repo's config declares wins over nmr's default. Passing `undefined` clears a default rather than falling back to it; that is how a config hands the quarantine policy back to `pnpm-workspace.yaml`'s `minimumReleaseAge`. Clearing `mode` hands the range back to the upgrade tool's own default, which follows the range that each dependency declares.
+`defineConfig` supplies nmr's shared upgrade policy, so a repo's config contains only what is specific to that repo. The policy is the pair of settings that report a dependency pinned to an exact version: Locked dependencies are included, and the range searched is `minor`. Any setting that a repo's config declares wins over nmr's default. Passing `undefined` clears a default rather than falling back to it. Clearing `mode` hands the range back to the upgrade tool's own default, which follows the range that each dependency declares.
+
+The policy does not set `maturityPeriod`, so the quarantine on brand-new releases is pnpm's: The upgrade tool applies the `minimumReleaseAge` of `pnpm-workspace.yaml`, or pnpm 11's default when the file does not set one (under pnpm 10 or earlier, a workspace that does not set it is not quarantined), and the packages that its `minimumReleaseAgeExclude` lists skip the quarantine. A `maturityPeriod` in a repo's config replaces pnpm's period.
 
 Everything the [taze configuration](https://github.com/antfu-collective/taze#config-file) accepts is accepted here, with five exceptions that the upgrade tool does not read from any config file at all: `concurrency`, `githubActions`, `ignoreOtherWorkspaces`, `nodeVersion`, and `requestTimeout`. The tool's CLI writes a default for each of them over whatever the config declares ([taze#317](https://github.com/antfu-collective/taze/issues/317)), so the command line is the only place they can be set. nmr's ReadyUp kit warns when a repo's config declares one, and [request timeout](#request-timeout) below shows how to set it instead.
 
-> **Note:** Only this file activates nmr's upgrade policy. A repo without one gets neither the release quarantine nor the settings that report a dependency pinned to an exact version, and `nmr upgrade` reports nothing in a repo using pnpm's `savePrefix: ''`. nmr's ReadyUp kit warns when the file is missing.
+> **Note:** Only this file activates nmr's upgrade policy. A repo without one does not get the settings that report a dependency pinned to an exact version, and `nmr upgrade` reports nothing in a repo using pnpm's `savePrefix: ''`. nmr's ReadyUp kit warns when the file is missing.
 
 Two consequences of the `minor` range mode declared by the policy:
 
@@ -53,13 +55,13 @@ Two consequences of the `minor` range mode declared by the policy:
 
 ### Per-package maturity periods
 
-`packageMaturityPeriod` gives the packages that match a pattern a quarantine of their own, in days. Every other dependency keeps `maturityPeriod`. taze applies one maturity period to a whole run, so `nmr upgrade` runs it once for each entry and once more for every other dependency, each run headed on stderr by the patterns and the period that it covers. The command exits with the first non-zero exit code among the runs.
+`packageMaturityPeriod` gives the packages that match a pattern a quarantine of their own, in days. Every other dependency keeps `maturityPeriod` or, while that is unset, pnpm's `minimumReleaseAge`. taze applies one maturity period to a whole run, so `nmr upgrade` runs it once for each entry and once more for every other dependency, each run headed on stderr by the patterns and the period that it covers. The command exits with the first non-zero exit code among the runs.
 
 ```ts
 import { defineConfig } from '@williamthorsen/nmr/taze';
 
 export default defineConfig({
-  // Propose first-party releases after one day, and third-party ones after the policy's seven.
+  // Propose first-party releases after one day, and third-party ones after pnpm's `minimumReleaseAge`.
   packageMaturityPeriod: {
     '@williamthorsen/*': 1,
     readyup: 1,

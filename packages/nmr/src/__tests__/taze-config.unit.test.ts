@@ -4,7 +4,7 @@ import { defineConfig } from '../taze.ts';
 
 describe(defineConfig, () => {
   it("supplies nmr's shared upgrade policy when the repo declares none", () => {
-    expect(defineConfig({})).toStrictEqual({ includeLocked: true, maturityPeriod: 7, mode: 'minor' });
+    expect(defineConfig({})).toStrictEqual({ includeLocked: true, mode: 'minor' });
   });
 
   it("passes the repo's own settings through untouched", () => {
@@ -18,7 +18,6 @@ describe(defineConfig, () => {
 
     expect(config).toStrictEqual({
       includeLocked: true,
-      maturityPeriod: 7,
       mode: 'minor',
       packageMaturityPeriod: { '@williamthorsen/*': 1 },
     });
@@ -32,21 +31,13 @@ describe(defineConfig, () => {
     expect(defineConfig({ includeLocked: false }).includeLocked).toBe(false);
   });
 
-  it("lets a repo raise nmr's default", () => {
+  it('lets a repo set a maturity period', () => {
     expect(defineConfig({ maturityPeriod: 14 }).maturityPeriod).toBe(14);
   });
 
-  // The classic `||` defaulting bug: 0 is a meaningful value here (no soak at all), not an absent one.
+  // 0 disables the soak, whereas an unset period inherits pnpm's `minimumReleaseAge`.
   it('lets a repo disable the soak with 0', () => {
     expect(defineConfig({ maturityPeriod: 0 }).maturityPeriod).toBe(0);
-  });
-
-  // taze inherits pnpm's `minimumReleaseAge` only while `maturityPeriod` is nullish, so clearing the
-  // default hands the policy back to pnpm-workspace.yaml.
-  it('lets a repo clear the soak with an explicit undefined', () => {
-    const config = defineConfig({ maturityPeriod: undefined });
-
-    expect(config.maturityPeriod).toBeUndefined();
   });
 
   // taze defaults `mode` itself, so an `undefined` passed through would overwrite that default rather than defer
@@ -56,8 +47,8 @@ describe(defineConfig, () => {
   });
 
   it('does not mutate the shared policy across calls', () => {
-    defineConfig({ maturityPeriod: 0 });
+    defineConfig({ mode: 'patch' });
 
-    expect(defineConfig({}).maturityPeriod).toBe(7);
+    expect(defineConfig({}).mode).toBe('minor');
   });
 });
