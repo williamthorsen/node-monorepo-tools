@@ -197,9 +197,9 @@ export function formatCheckText(
     const scope = singleScope;
     const scopeResult = result[scope];
     lines.push(...formatScopeFindings(scopeResult, effectiveNow, style));
-    const actions = formatActionHints(result, scopes);
-    if (actions.length > 0) {
-      lines.push('', ...actions.split('\n').filter((l) => l.length > 0));
+    const actionHints = formatActionHints(result, scopes);
+    if (actionHints.length > 0) {
+      lines.push('', ...actionHints.split('\n').filter((l) => l.length > 0));
     }
     return lines.join('\n') + '\n';
   }
@@ -217,9 +217,9 @@ export function formatCheckText(
     lines.push('');
   }
 
-  const actions = formatActionHints(result, scopes);
-  if (actions.length > 0) {
-    lines.push(...actions.split('\n').filter((l) => l.length > 0));
+  const actionHints = formatActionHints(result, scopes);
+  if (actionHints.length > 0) {
+    lines.push(...actionHints.split('\n').filter((l) => l.length > 0));
   }
 
   return lines.join('\n') + '\n';

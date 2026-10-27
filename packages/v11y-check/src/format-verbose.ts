@@ -42,10 +42,10 @@ export function formatCheckVerboseText(
     formatScopeVerbose(scope, result[scope], effectiveNow, style, thresholds?.[scope]),
   );
 
-  const actions = formatActionHints(result, scopes);
+  const actionHints = formatActionHints(result, scopes);
   const body = sections.join('\n\n') + '\n';
-  if (actions.length === 0) return body;
-  return body + '\n' + actions + '\n';
+  if (actionHints.length === 0) return body;
+  return body + '\n' + actionHints + '\n';
 }
 
 /** Formats a threshold annotation for scope headers. Returns empty string for `low` or undefined threshold. */
@@ -97,8 +97,8 @@ function formatScopeVerbose(
 function formatUnallowedBlock(vulnerability: AuditResult, style: OutputStyle): string {
   const message = `${resolveDisplayId(vulnerability)}${formatSeveritySuffix(vulnerability.severity, style)}`;
   const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'failed', message)}`;
-  const detail = formatAdvisoryDetail(vulnerability, style);
-  return [headerLine, ...detail].join('\n');
+  const detailLines = formatAdvisoryDetail(vulnerability, style);
+  return [headerLine, ...detailLines].join('\n');
 }
 
 /** Formats an allowed vulnerability block with the `passed` marker plus reason/addedAt context. */
@@ -107,12 +107,12 @@ function formatAllowedBlock(vulnerability: AllowedVulnerability, now: Date, styl
   const message = `${resolveDisplayId(vulnerability)}${formatSeveritySuffix(vulnerability.severity, style)}${allowedSuffix}`;
   const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'passed', message)}`;
   const hasTitle = vulnerability.title !== undefined;
-  const detail = formatAdvisoryDetail(vulnerability, style);
+  const detailLines = formatAdvisoryDetail(vulnerability, style);
   if (vulnerability.reason !== undefined) {
     const reasonLineIndex = findReasonInsertionIndex(hasTitle);
-    detail.splice(reasonLineIndex, 0, `${buildDetailIndent(style)}reason: ${vulnerability.reason}`);
+    detailLines.splice(reasonLineIndex, 0, `${buildDetailIndent(style)}reason: ${vulnerability.reason}`);
   }
-  return [headerLine, ...detail].join('\n');
+  return [headerLine, ...detailLines].join('\n');
 }
 
 /** Formats a stale entry as a single line with the `stale` marker. */
@@ -124,8 +124,8 @@ function formatStaleLine(entry: StaleEntry, style: OutputStyle): string {
 function formatBelowThresholdBlock(vulnerability: AuditResult, style: OutputStyle): string {
   const message = `${resolveDisplayId(vulnerability)}${formatSeveritySuffix(vulnerability.severity, style)}  ignored (below threshold)`;
   const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'skipped', message)}`;
-  const detail = formatAdvisoryDetail(vulnerability, style);
-  return [headerLine, ...detail].join('\n');
+  const detailLines = formatAdvisoryDetail(vulnerability, style);
+  return [headerLine, ...detailLines].join('\n');
 }
 
 /** Builds an advisory's detail lines: title, paths, link, and description. */

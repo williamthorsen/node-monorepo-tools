@@ -54,8 +54,8 @@ export async function loadConfig(configPath?: string, cwd?: string): Promise<Loa
 
   const result = v11yCheckConfigSchema.safeParse(parsedConfig);
   if (!result.success) {
-    const issues = result.error.issues.map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`).join('\n');
-    throw new Error(`Invalid config in ${filePath}:\n${issues}`);
+    const issueText = result.error.issues.map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`).join('\n');
+    throw new Error(`Invalid config in ${filePath}:\n${issueText}`);
   }
 
   return { config: result.data, configDir, configFilePath: filePath, configSource: 'file' };
