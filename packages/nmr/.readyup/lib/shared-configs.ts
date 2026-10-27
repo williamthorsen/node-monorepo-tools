@@ -113,8 +113,8 @@ export function tazeConfigAvoidsClobberedOptions(cwd: string = process.cwd()): b
  * Checks that the repo's taze config is present and built on the shared config from nmr.
  *
  * Absence fails rather than skipping: taze does not read any config at all without one, so the repo
- * silently loses both the release-maturity soak and the pair of settings that report a dependency pinned to a bare
- * version. A config in one of the data-only forms fails the same way, being unable to call a factory.
+ * silently loses the pair of settings that report a dependency pinned to a bare version. A config in one of the
+ * data-only forms fails the same way, being unable to call a factory.
  *
  * @internal - Exported only to enable testing
  */
