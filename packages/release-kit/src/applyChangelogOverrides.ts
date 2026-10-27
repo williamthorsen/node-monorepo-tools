@@ -104,11 +104,11 @@ export function resolveOverrideKey(
     return { kind: 'ambiguous', hashes };
   }
 
-  const available = [...(positionsByHash.get(hash) ?? [])];
+  const availablePositions = [...(positionsByHash.get(hash) ?? [])];
   const positions =
     entry === undefined
-      ? available.toSorted((left, right) => (left ?? 0) - (right ?? 0))
-      : available.filter((position) => position === entry);
+      ? availablePositions.toSorted((left, right) => (left ?? 0) - (right ?? 0))
+      : availablePositions.filter((position) => position === entry);
   return positions.length === 0 ? { kind: 'none' } : { kind: 'items', hash, positions };
 }
 
@@ -219,11 +219,11 @@ function resolveOverrideKeys(
 
     const { hash, positions } = resolution;
     if (parseOverrideKey(overrideKey).entry === undefined && positions.length > 1) {
-      const fieldsSet = (['description', 'body'] as const).filter((field) => override[field] !== undefined);
-      if (fieldsSet.length > 0) {
+      const setFields = (['description', 'body'] as const).filter((field) => override[field] !== undefined);
+      if (setFields.length > 0) {
         const ordinalKeys = positions.map((position) => `${overrideKey}:${position}`).join(', ');
         errors.push(
-          `Override key '${overrideKey}' sets ${fieldsSet.join(' and ')} on a commit with several items; use ${ordinalKeys}`,
+          `Override key '${overrideKey}' sets ${setFields.join(' and ')} on a commit with several items; use ${ordinalKeys}`,
         );
         continue;
       }

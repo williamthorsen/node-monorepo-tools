@@ -23,7 +23,7 @@ export function makeReleaseHistory(stub: ReleaseHistoryStub = {}): ReleaseHistor
   return {
     previousTag: stub.previousTag,
     releasedEntries: stub.releasedEntries ?? [],
-    unreleased: {
+    unreleasedReading: {
       bump: stub.bump,
       commits,
       date: '2024-01-01',

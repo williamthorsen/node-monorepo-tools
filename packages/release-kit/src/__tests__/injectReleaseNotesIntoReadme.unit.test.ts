@@ -298,7 +298,7 @@ describe(renderInjectedReadmeFromEntries, () => {
 
     expect(result).toStrictEqual({
       status: 'rendered',
-      rendered: {
+      renderedReadme: {
         injectedReadme: expect.stringContaining('### Features'),
         releaseNotesMarkdown: '## Release notes — v1.2.3 (2024-01-01)\n\n### Features\n\n- Add widget',
       },

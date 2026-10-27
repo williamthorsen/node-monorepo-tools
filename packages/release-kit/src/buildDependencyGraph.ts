@@ -79,18 +79,18 @@ export function buildDependencyGraph(targets: readonly PackageTarget[]): Depende
         continue;
       }
 
-      const existing = dependentsOf.get(depName);
-      if (existing === undefined) {
+      const existingDependents = dependentsOf.get(depName);
+      if (existingDependents === undefined) {
         dependentsOf.set(depName, [target]);
       } else {
-        existing.push(target);
+        existingDependents.push(target);
       }
 
-      const forward = dependenciesOf.get(target.id);
-      if (forward === undefined) {
+      const forwardDependencies = dependenciesOf.get(target.id);
+      if (forwardDependencies === undefined) {
         dependenciesOf.set(target.id, new Set([depName]));
       } else {
-        forward.add(depName);
+        forwardDependencies.add(depName);
       }
     }
   }
@@ -107,16 +107,16 @@ function readPackageJsonSubset(filePath: string): PackageJsonSubset {
     throw chainError(`Failed to read ${filePath}`, error);
   }
 
-  let parsed: unknown;
+  let parsedJson: unknown;
   try {
-    parsed = JSON.parse(content);
+    parsedJson = JSON.parse(content);
   } catch (error: unknown) {
     throw chainError(`Failed to parse JSON in ${filePath}`, error);
   }
 
-  if (!isPackageJsonSubset(parsed)) {
+  if (!isPackageJsonSubset(parsedJson)) {
     throw new Error(`Invalid package.json at ${filePath}`);
   }
 
-  return parsed;
+  return parsedJson;
 }

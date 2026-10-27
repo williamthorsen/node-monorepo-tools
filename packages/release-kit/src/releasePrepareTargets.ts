@@ -182,7 +182,7 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
   // Warn once per root key that did not match in any target. Each workspace's apply already warned about its own
   // stale keys.
   const { overrideContext } = context;
-  for (const overrideKey of overrideContext.project.keys()) {
+  for (const overrideKey of overrideContext.projectOverrides.keys()) {
     if (!overrideContext.globalMatchedRootKeys.has(overrideKey)) {
       overrideContext.overrideWarnings.push(formatStaleOverrideKeyWarning(overrideKey));
     }

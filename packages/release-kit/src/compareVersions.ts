@@ -39,11 +39,11 @@ function parseCanonicalSemver(version: string): ParsedVersion {
  * list, ordered lexically among themselves. The comparator never throws.
  */
 export function compareVersionsDescending(a: string, b: string): number {
-  const aValid = semver.valid(a);
-  const bValid = semver.valid(b);
-  if (aValid && bValid) return semver.rcompare(aValid, bValid);
-  if (aValid) return -1;
-  if (bValid) return 1;
+  const aValidVersion = semver.valid(a);
+  const bValidVersion = semver.valid(b);
+  if (aValidVersion && bValidVersion) return semver.rcompare(aValidVersion, bValidVersion);
+  if (aValidVersion) return -1;
+  if (bValidVersion) return 1;
   if (a > b) return -1;
   if (a < b) return 1;
   return 0;
@@ -54,14 +54,14 @@ export function compareVersionsDescending(a: string, b: string): number {
  * unless both are canonical `N.N.N` semver.
  */
 export function isForwardVersion(current: string, target: string): boolean {
-  const currentParsed = parseCanonicalSemver(current);
-  const targetParsed = parseCanonicalSemver(target);
+  const currentParsedVersion = parseCanonicalSemver(current);
+  const targetParsedVersion = parseCanonicalSemver(target);
 
-  if (targetParsed.major !== currentParsed.major) {
-    return targetParsed.major > currentParsed.major;
+  if (targetParsedVersion.major !== currentParsedVersion.major) {
+    return targetParsedVersion.major > currentParsedVersion.major;
   }
-  if (targetParsed.minor !== currentParsed.minor) {
-    return targetParsed.minor > currentParsed.minor;
+  if (targetParsedVersion.minor !== currentParsedVersion.minor) {
+    return targetParsedVersion.minor > currentParsedVersion.minor;
   }
-  return targetParsed.patch > currentParsed.patch;
+  return targetParsedVersion.patch > currentParsedVersion.patch;
 }

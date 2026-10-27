@@ -62,7 +62,7 @@ describe(readReleaseHistory, () => {
         makeWindow('v1.0.0', ['#1 feat!: Old']),
       ]);
 
-      expect(readReleaseHistory(makeConfig(), OPTIONS).unreleased.bump).toBe('patch');
+      expect(readReleaseHistory(makeConfig(), OPTIONS).unreleasedReading.bump).toBe('patch');
     });
 
     it('follows the configured version patterns', () => {
@@ -73,7 +73,7 @@ describe(readReleaseHistory, () => {
         OPTIONS,
       );
 
-      expect(history.unreleased.bump).toBe('minor');
+      expect(history.unreleasedReading.bump).toBe('minor');
     });
   });
 
@@ -228,8 +228,8 @@ entries:
         setVersion: undefined,
       });
 
-      expect(history.unreleased.bump).toBe('patch');
-      expect(describeItems(history.unreleased.sections)).toStrictEqual([
+      expect(history.unreleasedReading.bump).toBe('patch');
+      expect(describeItems(history.unreleasedReading.sections)).toStrictEqual([
         "Key the check cache on the working tree's git tree id (#1078)",
       ]);
       expect(decision).toMatchObject({ outcome: 'release', releaseType: 'patch' });
@@ -315,7 +315,7 @@ entries:
 
       const history = readReleaseHistory({ ...makeConfig(), breakingPolicies: {} }, OPTIONS);
 
-      expect(history.unreleased.diagnostics.policyViolations).toStrictEqual([]);
+      expect(history.unreleasedReading.diagnostics.policyViolations).toStrictEqual([]);
     });
 
     it('reports nothing for a released window', () => {
@@ -324,7 +324,9 @@ entries:
         makeWindow('v1.0.0', ['#1 internal!: Refactor the cache']),
       ]);
 
-      expect(readReleaseHistory(makeConfig(), OPTIONS).unreleased.diagnostics.policyViolations).toStrictEqual([]);
+      expect(readReleaseHistory(makeConfig(), OPTIONS).unreleasedReading.diagnostics.policyViolations).toStrictEqual(
+        [],
+      );
     });
   });
 });
@@ -343,17 +345,17 @@ function readReleaseHistoryOf(windows: readonly ReleaseWindow[], scope: string):
 }
 
 /** Reads, for `scope`, a history whose only window is an unreleased one containing `messages`, oldest first. */
-function readRouted(messages: readonly string[], scope: string): ReleaseHistory['unreleased'] {
-  return readReleaseHistoryOf([makeWindow('unreleased', messages)], scope).unreleased;
+function readRouted(messages: readonly string[], scope: string): ReleaseHistory['unreleasedReading'] {
+  return readReleaseHistoryOf([makeWindow('unreleased', messages)], scope).unreleasedReading;
 }
 
 /** Reads a history whose only window is an unreleased one containing `messages`, oldest first. */
-function readUnreleased(messages: readonly string[]): ReturnType<typeof readReleaseHistory>['unreleased'] {
+function readUnreleased(messages: readonly string[]): ReturnType<typeof readReleaseHistory>['unreleasedReading'] {
   mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('unreleased', messages)]);
   return readReleaseHistory(
     { ...makeConfig(), breakingPolicies: DEFAULT_BREAKING_POLICIES, workTypes: DEFAULT_WORK_TYPES },
     OPTIONS,
-  ).unreleased;
+  ).unreleasedReading;
 }
 
 /** Returns the default configuration with a `core-alias` → `nmr-core` scope alias. */

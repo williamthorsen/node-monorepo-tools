@@ -64,12 +64,12 @@ function findCommitUnroutedScopes(
   for (const [index, entry] of reading.entries.entries()) {
     const scopes = new Set(entry.scopes);
     for (const scope of scopes) {
-      const resolved = scopeAliases[scope] ?? scope;
+      const resolvedScope = scopeAliases[scope] ?? scope;
       const isRouted =
-        resolved === '*' ||
-        windowDirs.has(resolved) ||
-        unreadDirs.has(resolved) ||
-        (resolved === 'root' && isRootReserved);
+        resolvedScope === '*' ||
+        windowDirs.has(resolvedScope) ||
+        unreadDirs.has(resolvedScope) ||
+        (resolvedScope === 'root' && isRootReserved);
       if (!isRouted) {
         findings.push({ commitHash: commit.hash, commitSubject: commit.subject, entryPosition: index + 1, scope });
       }
@@ -82,18 +82,18 @@ function findCommitUnroutedScopes(
 function indexCommits(
   windows: readonly WorkspaceWindow[],
 ): Map<string, { commit: RawCommit; windowDirs: Set<string> }> {
-  const index = new Map<string, { commit: RawCommit; windowDirs: Set<string> }>();
+  const commitsByHash = new Map<string, { commit: RawCommit; windowDirs: Set<string> }>();
   for (const window of windows) {
     for (const commit of window.commits) {
-      const indexed = index.get(commit.hash);
-      if (indexed === undefined) {
-        index.set(commit.hash, { commit, windowDirs: new Set([window.dir]) });
+      const indexedEntry = commitsByHash.get(commit.hash);
+      if (indexedEntry === undefined) {
+        commitsByHash.set(commit.hash, { commit, windowDirs: new Set([window.dir]) });
       } else {
-        indexed.windowDirs.add(window.dir);
+        indexedEntry.windowDirs.add(window.dir);
       }
     }
   }
-  return index;
+  return commitsByHash;
 }
 
 // endregion | Helpers

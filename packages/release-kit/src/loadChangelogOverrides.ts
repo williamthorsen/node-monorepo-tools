@@ -35,16 +35,16 @@ export function loadChangelogOverrides(path: string): LoadChangelogOverridesResu
     };
   }
 
-  let parsed: unknown;
+  let parsedJson: unknown;
   try {
-    parsed = JSON.parse(content);
+    parsedJson = JSON.parse(content);
   } catch (error: unknown) {
     return {
       errors: [`Failed to parse override file ${path}: ${describeError(error)}`],
     };
   }
 
-  const result = validateChangelogOverrides(parsed);
+  const result = validateChangelogOverrides(parsedJson);
   if (result.errors.length > 0) {
     return { errors: result.errors };
   }
@@ -72,19 +72,19 @@ export function parseOverrideKey(key: string): { hashPrefix: string; entry?: num
  * Each error names the offending key (e.g. `overrides['abc']: 'audience' must be one of …`) so that the user can find
  * it in the override file.
  */
-export function validateChangelogOverrides(raw: unknown): {
+export function validateChangelogOverrides(rawValue: unknown): {
   overrides: Map<string, ChangelogOverride>;
   errors: string[];
 } {
   const overrides = new Map<string, ChangelogOverride>();
   const errors: string[] = [];
 
-  if (!isRecord(raw)) {
+  if (!isRecord(rawValue)) {
     errors.push('Override file: top-level value must be an object keyed by commit hash');
     return { overrides, errors };
   }
 
-  for (const [key, rawEntry] of Object.entries(raw)) {
+  for (const [key, rawEntry] of Object.entries(rawValue)) {
     if (key === SCHEMA_KEY) {
       if (typeof rawEntry !== 'string') {
         errors.push(`Override file: '${SCHEMA_KEY}' must be a string`);
@@ -97,9 +97,9 @@ export function validateChangelogOverrides(raw: unknown): {
       );
       continue;
     }
-    const validated = validateSingleOverride(key, rawEntry, errors);
-    if (validated !== undefined) {
-      overrides.set(key, validated);
+    const validatedOverride = validateSingleOverride(key, rawEntry, errors);
+    if (validatedOverride !== undefined) {
+      overrides.set(key, validatedOverride);
     }
   }
 

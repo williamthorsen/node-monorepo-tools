@@ -17,20 +17,20 @@ import type { WorkspaceConfig } from './types.ts';
 export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
   const dir = basename(workspacePath);
   const packageJsonPath = `${workspacePath}/package.json`;
-  let parsed: unknown;
+  let parsedJson: unknown;
   try {
-    parsed = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+    parsedJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
   } catch (error) {
     throw chainError(`Failed to read ${packageJsonPath}`, error);
   }
-  const name = isRecord(parsed) ? parsed['name'] : undefined;
+  const name = isRecord(parsedJson) ? parsedJson['name'] : undefined;
 
   if (typeof name !== 'string' || name.length === 0) {
     throw new Error(`${packageJsonPath} is missing a 'name' field (required for tag derivation).`);
   }
 
   const unscopedName = stripNpmScope(name);
-  const isPublishable = isPublishableManifest(parsed);
+  const isPublishable = isPublishableManifest(parsedJson);
 
   return {
     dir,

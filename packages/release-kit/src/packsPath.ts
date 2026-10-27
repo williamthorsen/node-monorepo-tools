@@ -35,10 +35,10 @@ const GLOB_TOKEN_PATTERN = /\*\*\/|\*\*|\*|\?|[^*?]+/g;
 function compileEntry(entry: string): RegExp | undefined {
   if (entry.startsWith('!')) return undefined;
 
-  const normalized = entry.replace(/^\.?\//, '').replace(/\/+$/, '');
-  if (normalized === '') return undefined;
+  const normalizedEntry = entry.replace(/^\.?\//, '').replace(/\/+$/, '');
+  if (normalizedEntry === '') return undefined;
 
-  return new RegExp(`^${translateGlob(normalized)}$`);
+  return new RegExp(`^${translateGlob(normalizedEntry)}$`);
 }
 
 /** Narrows an `unknown` value to `string[]`. */

@@ -80,9 +80,9 @@ export function createGithubRelease(options: CreateGithubReleaseOptions): Create
 /** Outcome of a `createGithubReleases` invocation. */
 export interface CreateGithubReleasesOutcome {
   /** Tags for which a Release was created (or would be, under `--dry-run`). */
-  created: string[];
+  createdTags: string[];
   /** Tags that were skipped, paired with the discriminated reason for each skip. */
-  skipped: Array<{ tag: string; reason: CreateReleaseSkipReason }>;
+  skippedTags: Array<{ tag: string; reason: CreateReleaseSkipReason }>;
 }
 
 /** Creates a GitHub Release for each tag and records each skip with its reason; throws at once when `gh` fails. */
@@ -92,8 +92,8 @@ export function createGithubReleases(
   isDryRun: boolean,
   sectionOrder?: string[],
 ): CreateGithubReleasesOutcome {
-  const created: string[] = [];
-  const skipped: Array<{ tag: string; reason: CreateReleaseSkipReason }> = [];
+  const createdTags: string[] = [];
+  const skippedTags: Array<{ tag: string; reason: CreateReleaseSkipReason }> = [];
   for (const { tag, workspacePath } of tags) {
     const changelogJsonPath = join(workspacePath, changelogJsonOutputPath);
     const result = createGithubRelease({
@@ -103,10 +103,10 @@ export function createGithubReleases(
       ...(sectionOrder !== undefined && { sectionOrder }),
     });
     if (result.status === 'created') {
-      created.push(tag);
+      createdTags.push(tag);
     } else {
-      skipped.push({ tag, reason: result.reason });
+      skippedTags.push({ tag, reason: result.reason });
     }
   }
-  return { created, skipped };
+  return { createdTags, skippedTags };
 }

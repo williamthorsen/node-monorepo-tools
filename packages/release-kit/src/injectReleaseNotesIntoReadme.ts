@@ -24,7 +24,7 @@ export type RenderInjectedReadmeSkipReason = 'no-entry' | 'empty-body';
 
 /** Discriminated outcome of rendering release notes for a tag. */
 export type RenderInjectedReadmeResult =
-  | { status: 'rendered'; rendered: RenderedInjectedReadme }
+  | { status: 'rendered'; renderedReadme: RenderedInjectedReadme }
   | { status: 'skipped'; reason: RenderInjectedReadmeSkipReason; version: string };
 
 /**
@@ -69,7 +69,7 @@ export function renderInjectedReadmeFromEntries(
   const releaseNotesMarkdown = `${labeledHeading}\n\n${renderedSections.trimEnd()}`;
   const injectedReadme = injectSection(readme, 'release-notes', releaseNotesMarkdown);
 
-  return { status: 'rendered', rendered: { injectedReadme, releaseNotesMarkdown } };
+  return { status: 'rendered', renderedReadme: { injectedReadme, releaseNotesMarkdown } };
 }
 
 /**
@@ -103,7 +103,7 @@ export function renderInjectedReadme(
     return undefined;
   }
 
-  return result.rendered;
+  return result.renderedReadme;
 }
 
 /**
@@ -118,12 +118,12 @@ export function injectReleaseNotesIntoReadme(
 ): string | undefined {
   const originalReadme = readFileSync(readmePath, 'utf8');
 
-  const rendered = renderInjectedReadme(originalReadme, changelogJsonPath, tag, sectionOrder);
-  if (rendered === undefined) {
+  const renderResult = renderInjectedReadme(originalReadme, changelogJsonPath, tag, sectionOrder);
+  if (renderResult === undefined) {
     return undefined;
   }
 
-  writeFileSync(readmePath, rendered.injectedReadme, 'utf8');
+  writeFileSync(readmePath, renderResult.injectedReadme, 'utf8');
   return originalReadme;
 }
 

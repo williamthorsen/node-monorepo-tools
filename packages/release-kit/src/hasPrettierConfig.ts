@@ -28,8 +28,8 @@ function hasPrettierKeyInPackageJson(packageJsonPath: string): boolean {
   }
 
   try {
-    const parsed: unknown = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-    return isRecord(parsed) && 'prettier' in parsed;
+    const parsedJson: unknown = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+    return isRecord(parsedJson) && 'prettier' in parsedJson;
   } catch {
     return false;
   }

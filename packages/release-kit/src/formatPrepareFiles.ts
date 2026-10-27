@@ -43,11 +43,11 @@ export function formatChangelogFiles(
     if (preservation.preservedVersions.length > 0) {
       lines.push(dim(`${indent}    Kept from the existing changelog: ${preservation.preservedVersions.join(', ')}`));
     }
-    const dropped = preservation.droppedUnversionedHeadings;
-    if (dropped.length === 0) {
+    const droppedHeadings = preservation.droppedUnversionedHeadings;
+    if (droppedHeadings.length === 0) {
       continue;
     }
-    const message = `Dropped ${dropped.length} section${dropped.length === 1 ? '' : 's'} without a version: ${dropped.join(', ')}`;
+    const message = `Dropped ${droppedHeadings.length} section${droppedHeadings.length === 1 ? '' : 's'} without a version: ${droppedHeadings.join(', ')}`;
     lines.push(`${indent}    ${formatStatusLine(style, 'warning', message)}`);
   }
   const removedFiles = release.removedChangelogFiles ?? [];

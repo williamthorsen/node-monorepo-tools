@@ -71,7 +71,7 @@
           ]
         },
         {
-          "hash": "40404aa0",
+          "hash": "694186f4",
           "kind": "module",
           "path": "../src/changelogArchive.ts"
         },
@@ -86,7 +86,7 @@
           "path": "../src/init/parseJsonRecord.ts"
         },
         {
-          "hash": "1c9cbce9",
+          "hash": "2210df36",
           "kind": "module",
           "path": "../src/packsPath.ts"
         },
@@ -101,7 +101,7 @@
       "readyupVersion": "0.44.0",
       "source": "kits/default.ts",
       "sourceHash": "ad3666b8",
-      "targetHash": "35d9bb56"
+      "targetHash": "3e346ad1"
     },
     {
       "checklistChecks": [
@@ -145,7 +145,7 @@
           "path": "../src/init/hasProvenance.ts"
         },
         {
-          "hash": "3e39b9be",
+          "hash": "bb8746b3",
           "kind": "module",
           "path": "../src/npmRegistry.ts"
         },
@@ -160,7 +160,7 @@
       "readyupVersion": "0.44.0",
       "source": "kits/npm-auto-publish.ts",
       "sourceHash": "682fdd4a",
-      "targetHash": "fac6bc8b"
+      "targetHash": "84f31b6d"
     }
   ]
 }

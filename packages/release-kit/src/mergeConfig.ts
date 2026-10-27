@@ -48,18 +48,18 @@ export function mergeMonorepoConfig(
   userConfig: ReleaseKitConfig | undefined,
   rootPackage?: RootPackageInfo,
 ): MonorepoReleaseConfig {
-  const discovered = discoveredPaths.map((workspacePath) => deriveWorkspaceConfig(workspacePath));
+  const discoveredWorkspaces = discoveredPaths.map((workspacePath) => deriveWorkspaceConfig(workspacePath));
 
   // Detect duplicate tagPrefix values before filtering so that exclusions cannot hide collisions.
-  assertUniqueTagPrefixes(discovered);
+  assertUniqueTagPrefixes(discoveredWorkspaces);
 
   const {
     retained: workspaces,
-    excluded,
+    excluded: excludedWorkspaces,
     directories: declaredDirectories,
-    composite,
-  } = resolveReleaseDeclaration(discovered, userConfig);
-  const directories = declaredDirectories.map((declared) => deriveDirectoryConfig(declared));
+    composite: declaredComposite,
+  } = resolveReleaseDeclaration(discoveredWorkspaces, userConfig);
+  const directories = declaredDirectories.map((declaredDirectory) => deriveDirectoryConfig(declaredDirectory));
   for (const workspace of workspaces) {
     if (workspace.legacyIdentities !== undefined) {
       assertLegacyIdentityDoesNotMatchCurrent(
@@ -75,7 +75,7 @@ export function mergeMonorepoConfig(
     assertRetiredPackagesDoNotCollideWithActive(workspaces, userConfig.retiredPackages);
   }
 
-  const project = resolveProjectConfig(composite, rootPackage, workspaces);
+  const projectConfig = resolveProjectConfig(declaredComposite, rootPackage, workspaces);
 
   const workTypes = resolveWorkTypes(userConfig?.workTypes);
 
@@ -87,8 +87,8 @@ export function mergeMonorepoConfig(
 
   // Check shared version files first: A root directory beside a composite also collides on `v`, and the shared file
   // names the cause.
-  assertNoSharedVersionFiles(workspaces, directories, project);
-  assertNoTagPrefixCollisions(workspaces, directories, userConfig?.retiredPackages, project);
+  assertNoSharedVersionFiles(workspaces, directories, projectConfig);
+  assertNoTagPrefixCollisions(workspaces, directories, userConfig?.retiredPackages, projectConfig);
 
   const result: MonorepoReleaseConfig = {
     workspaces,
@@ -98,14 +98,14 @@ export function mergeMonorepoConfig(
     releaseNotes,
   };
 
-  if (excluded.length > 0) {
-    result.excludedWorkspaces = excluded;
+  if (excludedWorkspaces.length > 0) {
+    result.excludedWorkspaces = excludedWorkspaces;
   }
   if (directories.length > 0) {
     result.directories = directories;
   }
-  if (project !== undefined) {
-    result.project = project;
+  if (projectConfig !== undefined) {
+    result.project = projectConfig;
   }
 
   applyOptionalPassthroughFields(result, userConfig);
@@ -196,24 +196,24 @@ function applyOptionalPassthroughFields(
 }
 
 /** Merges user-provided changelog JSON config with defaults. */
-function mergeChangelogJsonConfig(partial: ReleaseKitConfig['changelogJson']): ChangelogJsonConfig {
-  if (partial === undefined) {
+function mergeChangelogJsonConfig(partialConfig: ReleaseKitConfig['changelogJson']): ChangelogJsonConfig {
+  if (partialConfig === undefined) {
     return { ...DEFAULT_CHANGELOG_JSON_CONFIG };
   }
   return {
-    enabled: partial.enabled ?? DEFAULT_CHANGELOG_JSON_CONFIG.enabled,
-    outputPath: partial.outputPath ?? DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
-    devOnlySections: partial.devOnlySections ?? [...DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections],
+    enabled: partialConfig.enabled ?? DEFAULT_CHANGELOG_JSON_CONFIG.enabled,
+    outputPath: partialConfig.outputPath ?? DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
+    devOnlySections: partialConfig.devOnlySections ?? [...DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections],
   };
 }
 
 /** Merges user-provided release notes config with defaults. */
-function mergeReleaseNotesConfig(partial: ReleaseKitConfig['releaseNotes']): ReleaseNotesConfig {
-  if (partial === undefined) {
+function mergeReleaseNotesConfig(partialConfig: ReleaseKitConfig['releaseNotes']): ReleaseNotesConfig {
+  if (partialConfig === undefined) {
     return { ...DEFAULT_RELEASE_NOTES_CONFIG };
   }
   return {
-    shouldInjectIntoReadme: partial.shouldInjectIntoReadme ?? DEFAULT_RELEASE_NOTES_CONFIG.shouldInjectIntoReadme,
+    shouldInjectIntoReadme: partialConfig.shouldInjectIntoReadme ?? DEFAULT_RELEASE_NOTES_CONFIG.shouldInjectIntoReadme,
   };
 }
 
@@ -229,15 +229,16 @@ function mergeReleaseNotesConfig(partial: ReleaseKitConfig['releaseNotes']): Rel
  * `workspaces` must be the post-exclusion set, so that the default `paths` cover only the workspaces that contribute.
  */
 function resolveProjectConfig(
-  composite: DeclaredComposite | undefined,
+  declaredComposite: DeclaredComposite | undefined,
   rootPackage: RootPackageInfo | undefined,
   workspaces: readonly WorkspaceConfig[],
 ): ResolvedProjectConfig | undefined {
-  if (composite === undefined) {
+  if (declaredComposite === undefined) {
     return undefined;
   }
 
-  const subject = composite.name === undefined ? 'project block' : `composite release '${composite.name}'`;
+  const subject =
+    declaredComposite.name === undefined ? 'project block' : `composite release '${declaredComposite.name}'`;
   if (rootPackage === undefined || !rootPackage.doesExist) {
     throw new Error(
       `${subject} requires a root ${ROOT_PACKAGE_JSON_PATH}; create one with a 'version' field at the repo root`,
@@ -250,10 +251,10 @@ function resolveProjectConfig(
   }
 
   return {
-    paths: composite.paths ?? workspaces.flatMap((workspace) => workspace.paths),
-    tagPrefix: composite.tagPrefix ?? DEFAULT_PROJECT_TAG_PREFIX,
-    ...(composite.name !== undefined && { name: composite.name }),
-    ...(composite.members !== undefined && { members: composite.members }),
+    paths: declaredComposite.paths ?? workspaces.flatMap((workspace) => workspace.paths),
+    tagPrefix: declaredComposite.tagPrefix ?? DEFAULT_PROJECT_TAG_PREFIX,
+    ...(declaredComposite.name !== undefined && { name: declaredComposite.name }),
+    ...(declaredComposite.members !== undefined && { members: declaredComposite.members }),
   };
 }
 

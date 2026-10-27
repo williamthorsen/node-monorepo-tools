@@ -7,7 +7,7 @@ const mockFindUntaggedBaseline = vi.hoisted(() => vi.fn());
 const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
 const mockPlanReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 const mockListArchiveFiles = vi.hoisted(() =>
-  vi.fn<(changelogDir: string) => Array<{ major: number; path: string }>>(),
+  vi.fn<(changelogDir: string) => Array<{ majorVersion: number; path: string }>>(),
 );
 
 vi.mock(import('node:fs'), () => ({
@@ -170,7 +170,7 @@ describe(readTargetHistory, () => {
     const untagged = { label: 'package', version: '1.0.0', tag: 'v1.0.0' };
     mockFindUntaggedBaseline.mockReturnValue(untagged);
 
-    expect(readTargetHistory(ROOT, SETTINGS).untagged).toBe(untagged);
+    expect(readTargetHistory(ROOT, SETTINGS).untaggedBaseline).toBe(untagged);
   });
 });
 
@@ -301,8 +301,8 @@ describe(planTargetRelease, () => {
 
   it('removes the existing archive files that the render does not produce', () => {
     mockListArchiveFiles.mockReturnValue([
-      { major: 1, path: 'packages/core/changelogs/CHANGELOG-v1.md' },
-      { major: 0, path: 'packages/core/changelogs/CHANGELOG-v0.md' },
+      { majorVersion: 1, path: 'packages/core/changelogs/CHANGELOG-v1.md' },
+      { majorVersion: 0, path: 'packages/core/changelogs/CHANGELOG-v0.md' },
     ]);
     const settings = { ...SETTINGS, changelogMarkdown: { keepVersions: 1 } };
 
@@ -416,7 +416,7 @@ describe(planTargetRelease, () => {
 
   it('applies the workspace override tier to a package and the root tier alone to a composite', () => {
     const overrideContext = makeOverrideContext();
-    overrideContext.perWorkspace.set('.', new Map([['abc1234', { audience: 'skip' }]]));
+    overrideContext.overridesByWorkspace.set('.', new Map([['abc1234', { audience: 'skip' }]]));
 
     planTargetRelease(
       makeArgs({ target: PROJECT, history: makeReleaseHistory({ ...FEATURE_HISTORY }), overrideContext }),
@@ -431,7 +431,7 @@ describe(planTargetRelease, () => {
 
   it('skips an item under the workspace tier of the package that it belongs to', () => {
     const overrideContext = makeOverrideContext();
-    overrideContext.perWorkspace.set('packages/core', new Map([['abc1234', { audience: 'skip' }]]));
+    overrideContext.overridesByWorkspace.set('packages/core', new Map([['abc1234', { audience: 'skip' }]]));
 
     planTargetRelease(makeArgs({ overrideContext }));
 
@@ -491,7 +491,12 @@ function makeArgs(overrides: Partial<PlanTargetReleaseArgs> = {}): PlanTargetRel
 
 /** Builds an override context without any overrides. */
 function makeOverrideContext(): OverrideContext {
-  return { project: new Map(), perWorkspace: new Map(), overrideWarnings: [], globalMatchedRootKeys: new Set() };
+  return {
+    projectOverrides: new Map(),
+    overridesByWorkspace: new Map(),
+    overrideWarnings: [],
+    globalMatchedRootKeys: new Set(),
+  };
 }
 
 // endregion | Helpers

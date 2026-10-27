@@ -22,16 +22,16 @@ export function applyWorkspaceOverrides(
   workspacePath: string | undefined,
   overrideContext: OverrideContext,
 ): ReturnType<typeof applyChangelogOverrides> {
-  const { project, perWorkspace, overrideWarnings, globalMatchedRootKeys } = overrideContext;
-  const workspaceOverrides = workspacePath === undefined ? undefined : perWorkspace.get(workspacePath);
-  const composed = composeOverrides(project, workspaceOverrides);
-  const applied = applyChangelogOverrides(newEntries, composed);
-  if (applied.errors.length > 0) {
-    throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);
+  const { projectOverrides, overridesByWorkspace, overrideWarnings, globalMatchedRootKeys } = overrideContext;
+  const workspaceOverrides = workspacePath === undefined ? undefined : overridesByWorkspace.get(workspacePath);
+  const composedOverrides = composeOverrides(projectOverrides, workspaceOverrides);
+  const appliedResult = applyChangelogOverrides(newEntries, composedOverrides);
+  if (appliedResult.errors.length > 0) {
+    throw new Error(`Changelog override application failed:\n  - ${appliedResult.errors.join('\n  - ')}`);
   }
-  overrideWarnings.push(...applied.warnings);
+  overrideWarnings.push(...appliedResult.warnings);
 
-  const matchedSet = new Set(applied.matchedKeys);
+  const matchedSet = new Set(appliedResult.matchedKeys);
   // Workspace tier: Every workspace key not in the matched set is stale here and now.
   if (workspaceOverrides !== undefined) {
     for (const key of workspaceOverrides.keys()) {
@@ -40,12 +40,13 @@ export function applyWorkspaceOverrides(
       }
     }
   }
-  // Root tier: A matched key that the workspace map lacks came from `project`, the only other source of `composed`.
-  for (const key of applied.matchedKeys) {
+  // Root tier: A matched key that the workspace map lacks came from `projectOverrides`, the only other source of
+  // `composedOverrides`.
+  for (const key of appliedResult.matchedKeys) {
     if (workspaceOverrides?.has(key)) continue;
     globalMatchedRootKeys.add(key);
   }
-  return applied;
+  return appliedResult;
 }
 
 /**
@@ -59,13 +60,13 @@ export function composeOverrides(
   rootEntries: Map<string, ChangelogOverride>,
   workspaceEntries: Map<string, ChangelogOverride> | undefined,
 ): Map<string, ChangelogOverride> {
-  const composed = new Map<string, ChangelogOverride>(rootEntries);
+  const composedOverrides = new Map<string, ChangelogOverride>(rootEntries);
   if (workspaceEntries !== undefined) {
     for (const [key, value] of workspaceEntries) {
-      composed.set(key, value);
+      composedOverrides.set(key, value);
     }
   }
-  return composed;
+  return composedOverrides;
 }
 
 /**
@@ -74,13 +75,13 @@ export function composeOverrides(
  * override file stops `prepare` before any workspace writes.
  */
 export function createOverrideContext(workspacePaths: readonly string[]): OverrideContext {
-  const result = loadOverridesForScopes({ project: '.', workspaces: [...workspacePaths] });
+  const result = loadOverridesForScopes({ projectPath: '.', workspaces: [...workspacePaths] });
   if (result.errors.length > 0) {
     throw new Error(`Failed to load changelog overrides:\n  - ${result.errors.join('\n  - ')}`);
   }
   return {
-    project: result.project,
-    perWorkspace: result.perWorkspace,
+    projectOverrides: result.projectOverrides,
+    overridesByWorkspace: result.overridesByWorkspace,
     overrideWarnings: [],
     globalMatchedRootKeys: new Set<string>(),
   };
@@ -92,19 +93,19 @@ export function createOverrideContext(workspacePaths: readonly string[]): Overri
  * yields an empty map.
  */
 export function loadOverridesForScopes(scopes: {
-  project?: string;
+  projectPath?: string;
   workspaces?: string[];
 }): LoadOverridesForScopesResult {
   const errors: string[] = [];
-  let project = new Map<string, ChangelogOverride>();
-  const perWorkspace = new Map<string, Map<string, ChangelogOverride>>();
+  let projectOverrides = new Map<string, ChangelogOverride>();
+  const overridesByWorkspace = new Map<string, Map<string, ChangelogOverride>>();
 
-  if (scopes.project !== undefined) {
-    const result = loadChangelogOverrides(resolveOverridePath(scopes.project));
+  if (scopes.projectPath !== undefined) {
+    const result = loadChangelogOverrides(resolveOverridePath(scopes.projectPath));
     if ('errors' in result) {
       errors.push(...result.errors);
     } else {
-      project = result.overrides;
+      projectOverrides = result.overrides;
     }
   }
 
@@ -114,19 +115,19 @@ export function loadOverridesForScopes(scopes: {
     if ('errors' in result) {
       errors.push(...result.errors);
     } else if (result.overrides.size > 0) {
-      perWorkspace.set(workspacePath, result.overrides);
+      overridesByWorkspace.set(workspacePath, result.overrides);
     }
   }
 
-  return { project, perWorkspace, errors };
+  return { projectOverrides, overridesByWorkspace, errors };
 }
 
 /** Result of {@link loadOverridesForScopes}: per-scope maps plus accumulated load/validation errors. */
 export interface LoadOverridesForScopesResult {
   /** Project-tier (root) overrides. Empty map when the project file is absent. */
-  project: Map<string, ChangelogOverride>;
+  projectOverrides: Map<string, ChangelogOverride>;
   /** Workspace-tier overrides keyed by `workspacePath` (e.g., `'packages/foo'`). Empty map when absent. */
-  perWorkspace: Map<string, Map<string, ChangelogOverride>>;
+  overridesByWorkspace: Map<string, Map<string, ChangelogOverride>>;
   /** All load and validation errors across every requested scope, prefixed with the offending file path. */
   errors: string[];
 }
@@ -138,8 +139,8 @@ export interface LoadOverridesForScopesResult {
  * that matches nothing in its own workspace is stale, and it is warned about at once rather than at the end of the run.
  */
 export interface OverrideContext {
-  project: Map<string, ChangelogOverride>;
-  perWorkspace: Map<string, Map<string, ChangelogOverride>>;
+  projectOverrides: Map<string, ChangelogOverride>;
+  overridesByWorkspace: Map<string, Map<string, ChangelogOverride>>;
   overrideWarnings: string[];
   globalMatchedRootKeys: Set<string>;
 }

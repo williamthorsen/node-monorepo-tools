@@ -37,17 +37,17 @@ export function planChangelogFiles(
   }
 
   const changelogFile = joinPath(changelogDir, 'CHANGELOG.md');
-  const preserved = planPreservedSections(changelogDir, entries);
+  const preservedPlan = planPreservedSections(changelogDir, entries);
   const keepVersions = settings.changelogMarkdown?.keepVersions;
-  const rendered = renderChangelogFiles(entries, {
+  const renderedFiles = renderChangelogFiles(entries, {
     sectionOrder,
-    preservedSections: preserved.sections,
+    preservedSections: preservedPlan.sections,
     ...(keepVersions !== undefined && { keepVersions }),
   });
-  writes.push({ path: changelogFile, content: rendered.main });
+  writes.push({ path: changelogFile, content: renderedFiles.main });
 
   const archiveFiles: string[] = [];
-  for (const { major, content } of rendered.archives) {
+  for (const { major, content } of renderedFiles.archives) {
     const path = joinPath(changelogDir, describeArchivePath(major));
     writes.push({ path, content });
     archiveFiles.push(path);
@@ -60,7 +60,7 @@ export function planChangelogFiles(
     changelogFiles: [changelogFile, ...archiveFiles],
     changelogJsonFiles,
     entries,
-    preservation: preserved.preservation,
+    preservation: preservedPlan.preservation,
     removals,
     writes,
   };

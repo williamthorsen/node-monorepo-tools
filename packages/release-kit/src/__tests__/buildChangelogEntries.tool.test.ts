@@ -18,7 +18,7 @@ describe(buildChangelogEntries, () => {
     const history = readReleaseHistory(CONFIG, { tagPrefixes: ['aws-v'], paths: ['aws'] });
     const { entries } = buildChangelogEntries(CONFIG, 'aws-v1.1.0', { tagPrefixes: ['aws-v'], paths: ['aws'] });
 
-    expect(history.unreleased.commits.map((commit) => commit.hash)).toStrictEqual([fixHash]);
+    expect(history.unreleasedReading.commits.map((commit) => commit.hash)).toStrictEqual([fixHash]);
     expect(summarize(entries)).toStrictEqual([
       { version: '1.1.0', descriptions: ['Retry the upload'] },
       { version: '1.0.0', descriptions: ['Add the handler'] },
@@ -81,7 +81,7 @@ describe(readReleaseHistory, () => {
     const repo = scaffoldGitRepo();
     seedTaggedBaseline(repo);
 
-    expect(readHistory(['arrays-v']).unreleased.bump).toBe('minor');
+    expect(readHistory(['arrays-v']).unreleasedReading.bump).toBe('minor');
   });
 
   it('returns an empty commit list and an undefined bump when HEAD is on the baseline tag', () => {
@@ -92,8 +92,8 @@ describe(readReleaseHistory, () => {
     const history = readHistory(['arrays-v']);
 
     expect(history.previousTag).toBe('arrays-v1.0.0');
-    expect(history.unreleased.commits).toStrictEqual([]);
-    expect(history.unreleased.bump).toBeUndefined();
+    expect(history.unreleasedReading.commits).toStrictEqual([]);
+    expect(history.unreleasedReading.bump).toBeUndefined();
   });
 
   it('returns every commit and an undefined previous tag when the repo does not contain a matching tag', () => {
@@ -141,7 +141,7 @@ describe(readReleaseHistory, () => {
     // The branch commit is older by commit date than the tag, and the tag does not contain it.
     expect(history.previousTag).toBe('arrays-v1.0.0');
     expect(subjects(history)).toStrictEqual(['Merge feat', '#2 feat: Branch work']);
-    expect(history.unreleased.bump).toBe('minor');
+    expect(history.unreleasedReading.bump).toBe('minor');
   });
 
   it('searches every listed prefix as a union', () => {
@@ -181,7 +181,7 @@ describe(readReleaseHistory, () => {
     const repo = scaffoldGitRepo();
     repo.commit('#1 feat: Add a thing\n\nAdds a thing.', { 'src/thing.ts': 'export const thing = 1;\n' });
 
-    const [commit] = readHistory(['arrays-v']).unreleased.commits;
+    const [commit] = readHistory(['arrays-v']).unreleasedReading.commits;
 
     expect(commit?.subject).toBe('#1 feat: Add a thing');
     expect(commit?.body).toBe('Adds a thing.');
@@ -214,11 +214,11 @@ describe(readReleaseHistory, () => {
     expect(summarize(toChangelogEntries(arrays, 'arrays-v1.0.0'))).toStrictEqual([
       { version: '1.0.0', descriptions: ['Breaks arrays.'] },
     ]);
-    expect(arrays.unreleased.bump).toBe('major');
+    expect(arrays.unreleasedReading.bump).toBe('major');
     expect(summarize(toChangelogEntries(strings, 'strings-v1.0.0'))).toStrictEqual([
       { version: '1.0.0', descriptions: ['Fixes strings.'] },
     ]);
-    expect(strings.unreleased.bump).toBe('patch');
+    expect(strings.unreleasedReading.bump).toBe('patch');
   });
 
   it('throws when the prefix array is empty', () => {
@@ -250,7 +250,7 @@ function seedTaggedBaseline(repo: GitRepoFixture): void {
 
 /** Lists the subjects of the unreleased commits. */
 function subjects(history: ReturnType<typeof readReleaseHistory>): string[] {
-  return history.unreleased.commits.map((commit) => commit.subject);
+  return history.unreleasedReading.commits.map((commit) => commit.subject);
 }
 
 /** Reduces entries to their versions and item descriptions. */

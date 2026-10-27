@@ -40,18 +40,18 @@ export type LoadValidatedConfigResult =
 export async function loadValidatedConfig(configPath?: string): Promise<LoadValidatedConfigResult> {
   const configFilePath = configPath ?? CONFIG_FILE_PATH;
 
-  let raw: unknown;
+  let rawConfig: unknown;
   try {
-    raw = await loadConfig(configPath);
+    rawConfig = await loadConfig(configPath);
   } catch (error: unknown) {
     return { status: 'invalid', configFilePath, problem: { kind: 'load', message: describeError(error) } };
   }
 
-  if (raw === undefined) {
+  if (rawConfig === undefined) {
     return { status: 'missing', configFilePath };
   }
 
-  const { config, errors, warnings } = validateConfig(raw);
+  const { config, errors, warnings } = validateConfig(rawConfig);
   if (errors.length > 0) {
     return { status: 'invalid', configFilePath, problem: { kind: 'validation', errors } };
   }

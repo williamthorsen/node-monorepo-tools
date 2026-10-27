@@ -494,7 +494,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       mockReadReleaseHistory.mockImplementation((_config: unknown, options: { tagPrefixes: readonly string[] }) => {
         const prefix = options.tagPrefixes[0] ?? '';
         const history = makeReleaseHistory({ previousTag: `${prefix}1.0.0`, bump: bumps[prefix] });
-        history.unreleased.commits = withBlock.includes(prefix) ? [blockCommit] : [];
+        history.unreleasedReading.commits = withBlock.includes(prefix) ? [blockCommit] : [];
         return history;
       });
     }

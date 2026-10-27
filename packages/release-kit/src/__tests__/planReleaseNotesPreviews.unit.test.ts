@@ -35,7 +35,7 @@ describe(planReleaseNotesPreviews, () => {
     mockReadFileSync.mockReturnValue('# Pkg\n');
     mockRenderInjectedReadmeFromEntries.mockReturnValue({
       status: 'rendered',
-      rendered: {
+      renderedReadme: {
         injectedReadme: '# Pkg\n### Features\n\n- X\n',
         releaseNotesMarkdown: '## Release notes — v1.2.3 (2024-01-01)\n\n### Features\n\n- X',
       },

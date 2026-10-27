@@ -73,18 +73,20 @@ function buildReleasedComposite(
   decision: ReleaseDecisionFields | undefined,
   history: ReleaseHistory,
 ): ReleasedCompositeResult {
-  const { unreleased } = history;
+  const { unreleasedReading } = history;
   const result: ReleasedCompositeResult = {
     ...fields,
     status: 'released',
     kind: 'composite',
-    parsedCommitCount: unreleased.parsedCommitCount,
+    parsedCommitCount: unreleasedReading.parsedCommitCount,
     releaseType: release.releaseType,
-    commits: unreleased.commits,
-    ...(unreleased.unparseableCommits !== undefined && { unparseableCommits: unreleased.unparseableCommits }),
+    commits: unreleasedReading.commits,
+    ...(unreleasedReading.unparseableCommits !== undefined && {
+      unparseableCommits: unreleasedReading.unparseableCommits,
+    }),
     ...(decision?.bumpOverride !== undefined && { bumpOverride: decision.bumpOverride }),
   };
-  attachChangelogDiagnostics(result, unreleased.diagnostics);
+  attachChangelogDiagnostics(result, unreleasedReading.diagnostics);
   return result;
 }
 
@@ -99,25 +101,25 @@ function buildReleasedDirectory(
   decision: ReleaseDecisionFields | undefined,
   history: ReleaseHistory,
 ): ReleasedDirectoryResult {
-  const { unreleased } = history;
+  const { unreleasedReading } = history;
   const setVersion = decision?.setVersion;
   const result: ReleasedDirectoryResult = {
     ...fields,
     status: 'released',
     kind: 'directory',
     name: target.id,
-    commits: unreleased.commits,
+    commits: unreleasedReading.commits,
     ...(setVersion === undefined && {
       releaseType: release.releaseType,
-      parsedCommitCount: unreleased.parsedCommitCount,
+      parsedCommitCount: unreleasedReading.parsedCommitCount,
     }),
     ...(decision?.bumpOverride !== undefined && { bumpOverride: decision.bumpOverride }),
     ...(setVersion !== undefined && { setVersion }),
   };
-  if (setVersion === undefined && unreleased.unparseableCommits !== undefined) {
-    result.unparseableCommits = unreleased.unparseableCommits;
+  if (setVersion === undefined && unreleasedReading.unparseableCommits !== undefined) {
+    result.unparseableCommits = unreleasedReading.unparseableCommits;
   }
-  attachChangelogDiagnostics(result, unreleased.diagnostics);
+  attachChangelogDiagnostics(result, unreleasedReading.diagnostics);
   return result;
 }
 
@@ -133,26 +135,26 @@ function buildReleasedPackage(
   decision: ReleaseDecisionFields | undefined,
   history: ReleaseHistory,
 ): ReleasedPackageResult {
-  const { unreleased } = history;
+  const { unreleasedReading } = history;
   const setVersion = decision?.setVersion;
   const hasParseCounts = decision !== undefined && setVersion === undefined;
   const result: ReleasedPackageResult = {
     ...fields,
     status: 'released',
     kind: 'package',
-    commits: unreleased.commits,
+    commits: unreleasedReading.commits,
     ...(target.isWorkspace && { name: target.id }),
     ...(setVersion === undefined && { releaseType: release.releaseType }),
-    ...(hasParseCounts && { parsedCommitCount: unreleased.parsedCommitCount }),
+    ...(hasParseCounts && { parsedCommitCount: unreleasedReading.parsedCommitCount }),
     ...(decision === undefined && { propagatedOnly: true as const }),
     ...(release.propagatedFrom !== undefined && { propagatedFrom: release.propagatedFrom }),
     ...(decision?.bumpOverride !== undefined && { bumpOverride: decision.bumpOverride }),
     ...(setVersion !== undefined && { setVersion }),
   };
-  if (setVersion === undefined && unreleased.unparseableCommits !== undefined) {
-    result.unparseableCommits = unreleased.unparseableCommits;
+  if (setVersion === undefined && unreleasedReading.unparseableCommits !== undefined) {
+    result.unparseableCommits = unreleasedReading.unparseableCommits;
   }
-  attachChangelogDiagnostics(result, unreleased.diagnostics);
+  attachChangelogDiagnostics(result, unreleasedReading.diagnostics);
   return result;
 }
 

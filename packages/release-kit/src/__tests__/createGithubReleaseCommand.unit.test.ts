@@ -309,8 +309,8 @@ describe(createGithubReleaseCommand, () => {
       { tag: 'extra-v0.1.0', kind: 'package', dir: 'extra', workspacePath: 'packages/extra', isPublishable: true },
     ]);
     mockCreateGithubReleases.mockReturnValue({
-      created: [],
-      skipped: [
+      createdTags: [],
+      skippedTags: [
         { tag: 'core-v1.3.0', reason: 'no-entry' },
         { tag: 'extra-v0.1.0', reason: 'no-entry' },
       ],
@@ -330,8 +330,8 @@ describe(createGithubReleaseCommand, () => {
       { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
     mockCreateGithubReleases.mockReturnValue({
-      created: [],
-      skipped: [{ tag: 'core-v1.3.0', reason: 'no-audience-content' }],
+      createdTags: [],
+      skippedTags: [{ tag: 'core-v1.3.0', reason: 'no-audience-content' }],
     });
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0'], RICH_STYLES, process.cwd());
@@ -348,8 +348,8 @@ describe(createGithubReleaseCommand, () => {
       { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
     mockCreateGithubReleases.mockReturnValue({
-      created: [],
-      skipped: [{ tag: 'core-v1.3.0', reason: 'empty-body' }],
+      createdTags: [],
+      skippedTags: [{ tag: 'core-v1.3.0', reason: 'empty-body' }],
     });
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0'], RICH_STYLES, process.cwd());
@@ -366,8 +366,8 @@ describe(createGithubReleaseCommand, () => {
       { tag: 'extra-v0.1.0', kind: 'package', dir: 'extra', workspacePath: 'packages/extra', isPublishable: true },
     ]);
     mockCreateGithubReleases.mockReturnValue({
-      created: ['core-v1.3.0'],
-      skipped: [{ tag: 'extra-v0.1.0', reason: 'no-entry' }],
+      createdTags: ['core-v1.3.0'],
+      skippedTags: [{ tag: 'extra-v0.1.0', reason: 'no-entry' }],
     });
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0'], RICH_STYLES, process.cwd());
@@ -379,8 +379,8 @@ describe(createGithubReleaseCommand, () => {
   it('does not exit when --tags is omitted and every tag is skipped', async () => {
     // When the user did not single out tags, an all-skipped outcome is informational, not a failure.
     mockCreateGithubReleases.mockReturnValue({
-      created: [],
-      skipped: [{ tag: 'v1.0.0', reason: 'no-audience-content' }],
+      createdTags: [],
+      skippedTags: [{ tag: 'v1.0.0', reason: 'no-audience-content' }],
     });
 
     await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
@@ -397,8 +397,8 @@ describe(createGithubReleaseCommand, () => {
       { tag: 'extra-v0.1.0', kind: 'package', dir: 'extra', workspacePath: 'packages/extra', isPublishable: true },
     ]);
     mockCreateGithubReleases.mockReturnValue({
-      created: ['core-v1.3.0'],
-      skipped: [{ tag: 'extra-v0.1.0', reason: 'no-audience-content' }],
+      createdTags: ['core-v1.3.0'],
+      skippedTags: [{ tag: 'extra-v0.1.0', reason: 'no-audience-content' }],
     });
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0'], RICH_STYLES, process.cwd());

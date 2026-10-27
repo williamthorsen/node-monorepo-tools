@@ -15,19 +15,19 @@ function closeMarker(key: string): string {
  * section (with markers) at the top of the content.
  */
 export function injectSection(content: string, key: string, injection: string): string {
-  const open = openMarker(key);
-  const close = closeMarker(key);
+  const openComment = openMarker(key);
+  const closeComment = closeMarker(key);
 
-  const openIndex = content.indexOf(open);
-  const closeIndex = content.indexOf(close);
+  const openIndex = content.indexOf(openComment);
+  const closeIndex = content.indexOf(closeComment);
 
   if (openIndex !== -1 && closeIndex !== -1 && closeIndex > openIndex) {
-    const before = content.slice(0, openIndex + open.length);
-    const after = content.slice(closeIndex);
-    return `${before}\n${injection}\n${after}`;
+    const contentBefore = content.slice(0, openIndex + openComment.length);
+    const contentAfter = content.slice(closeIndex);
+    return `${contentBefore}\n${injection}\n${contentAfter}`;
   }
 
-  const section = `${open}\n${injection}\n${close}`;
+  const section = `${openComment}\n${injection}\n${closeComment}`;
   if (content.length === 0) {
     return `${section}\n`;
   }

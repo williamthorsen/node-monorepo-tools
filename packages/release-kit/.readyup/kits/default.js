@@ -67,9 +67,9 @@ function packsPath(filesField, path) {
 var GLOB_TOKEN_PATTERN = /\*\*\/|\*\*|\*|\?|[^*?]+/g;
 function compileEntry(entry) {
   if (entry.startsWith("!")) return void 0;
-  const normalized = entry.replace(/^\.?\//, "").replace(/\/+$/, "");
-  if (normalized === "") return void 0;
-  return new RegExp(`^${translateGlob(normalized)}$`);
+  const normalizedEntry = entry.replace(/^\.?\//, "").replace(/\/+$/, "");
+  if (normalizedEntry === "") return void 0;
+  return new RegExp(`^${translateGlob(normalizedEntry)}$`);
 }
 function isStringArray(value) {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");

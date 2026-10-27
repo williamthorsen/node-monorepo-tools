@@ -35,11 +35,11 @@ export function readChangelogEntries(filePath: string): ChangelogEntry[] | undef
   }
   try {
     const content = readFileSync(filePath, 'utf8');
-    const parsed: unknown = JSON.parse(content);
-    if (!isUnknownArray(parsed)) {
+    const parsedJson: unknown = JSON.parse(content);
+    if (!isUnknownArray(parsedJson)) {
       return undefined;
     }
-    return parsed.filter(isChangelogEntry);
+    return parsedJson.filter(isChangelogEntry);
   } catch {
     return undefined;
   }

@@ -44,7 +44,7 @@ export function buildChangelogEntries(
   options: GenerateChangelogOptions,
 ): { entries: ChangelogEntry[]; diagnostics: ChangelogDiagnostics } {
   const history = readReleaseHistory(config, options);
-  return { entries: toChangelogEntries(history, tag), diagnostics: history.unreleased.diagnostics };
+  return { entries: toChangelogEntries(history, tag), diagnostics: history.unreleasedReading.diagnostics };
 }
 
 /**
@@ -84,7 +84,7 @@ export interface ReleaseHistory {
   previousTag: string | undefined;
   /** Entries of the released windows, newest first; a window that doesn't yield any item contributes none. */
   releasedEntries: ChangelogEntry[];
-  unreleased: UnreleasedWindowReading;
+  unreleasedReading: UnreleasedWindowReading;
 }
 
 /** The configuration that `readReleaseHistory` reads. */
@@ -106,12 +106,12 @@ export function stripGroupDecorations(group: string): string {
 
 /** Labels the unreleased window of `history` with `tag` and returns the entries of every window, newest first. */
 export function toChangelogEntries(history: ReleaseHistory, tag: string): ChangelogEntry[] {
-  const { unreleased } = history;
-  if (unreleased.sections.length === 0) {
+  const { unreleasedReading } = history;
+  if (unreleasedReading.sections.length === 0) {
     return [...history.releasedEntries];
   }
   return [
-    { version: extractVersion(tag), date: unreleased.date, sections: unreleased.sections },
+    { version: extractVersion(tag), date: unreleasedReading.date, sections: unreleasedReading.sections },
     ...history.releasedEntries,
   ];
 }
@@ -122,7 +122,7 @@ export function toChangelogEntries(history: ReleaseHistory, tag: string): Change
  * released entries.
  */
 export function toReleaseEntries(history: ReleaseHistory, tag: string, today: string): ChangelogEntry[] {
-  if (history.unreleased.sections.length === 0) {
+  if (history.unreleasedReading.sections.length === 0) {
     return [buildEmptyReleaseEntry(extractVersion(tag), today), ...history.releasedEntries];
   }
   return toChangelogEntries(history, tag);
@@ -225,10 +225,10 @@ function readCommit(
   const classification = classifyChangelogCommit(commit, context.workTypes, {
     breakingPolicies: context.breakingPolicies,
     ...(diagnostics !== undefined && {
-      onPolicyViolation: (violating, type, surface) => {
+      onPolicyViolation: (violatingCommit, type, surface) => {
         diagnostics.policyViolations.push({
-          commitHash: violating.hash,
-          commitSubject: violating.subject,
+          commitHash: violatingCommit.hash,
+          commitSubject: violatingCommit.subject,
           type,
           surface,
         });
@@ -257,21 +257,21 @@ function transformReleases(windows: readonly ReleaseWindow[], context: ReadConte
     unroutedEntryScopes: [],
   };
   const signals: BumpSignal[] = [];
-  const unparseable: RawCommit[] = [];
+  const unparseableCommits: RawCommit[] = [];
   let parsedCommitCount = 0;
 
   const sectionMap = new Map<string, ChangelogItem[]>();
   const unreleasedCommits = unreleasedWindow?.commits ?? [];
   for (const commit of unreleasedCommits) {
     const reading = readCommit(commit, context, diagnostics);
-    for (const derived of reading.items) {
-      appendItem(sectionMap, derived.header, derived.item);
-      signals.push(derived.signal);
+    for (const derivedItem of reading.items) {
+      appendItem(sectionMap, derivedItem.header, derivedItem.item);
+      signals.push(derivedItem.signal);
     }
     if (reading.items.length > 0) {
       parsedCommitCount += 1;
     } else if (reading.isUnparseable) {
-      unparseable.push(commit);
+      unparseableCommits.push(commit);
     }
   }
 
@@ -279,8 +279,8 @@ function transformReleases(windows: readonly ReleaseWindow[], context: ReadConte
   for (const release of windows.slice(1)) {
     const releaseSections = new Map<string, ChangelogItem[]>();
     for (const commit of release.commits) {
-      for (const derived of readCommit(commit, context, undefined).items) {
-        appendItem(releaseSections, derived.header, derived.item);
+      for (const derivedItem of readCommit(commit, context, undefined).items) {
+        appendItem(releaseSections, derivedItem.header, derivedItem.item);
       }
     }
     const sections = buildSections(releaseSections, context.devOnlySections);
@@ -292,14 +292,14 @@ function transformReleases(windows: readonly ReleaseWindow[], context: ReadConte
   return {
     previousTag: baselineWindow?.version,
     releasedEntries,
-    unreleased: {
+    unreleasedReading: {
       bump: determineBumpType(signals, context.workTypes, context.versionPatterns),
       commits: unreleasedCommits.filter((commit) => !isReleaseSubject(commit.subject)).toReversed(),
       date: formatDate(unreleasedWindow?.timestamp ?? Math.floor(Date.now() / 1_000)),
       diagnostics,
       parsedCommitCount,
       sections: buildSections(sectionMap, context.devOnlySections),
-      unparseableCommits: unparseable.length > 0 ? unparseable.toReversed() : undefined,
+      unparseableCommits: unparseableCommits.length > 0 ? unparseableCommits.toReversed() : undefined,
     },
   };
 }

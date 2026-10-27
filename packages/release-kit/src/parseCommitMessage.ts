@@ -139,15 +139,15 @@ export function evaluateBreakingPolicy(inputs: BreakingPolicyInputs): boolean {
  * Resolves a raw type string to its canonical type name using the record keys and aliases.
  */
 export function resolveType(rawType: string, workTypes: Record<string, WorkTypeConfig>): string | undefined {
-  const lowered = rawType.toLowerCase();
+  const loweredType = rawType.toLowerCase();
 
   for (const [key, config] of Object.entries(workTypes)) {
-    if (key === lowered) {
+    if (key === loweredType) {
       return key;
     }
     if (config.aliases !== undefined) {
       for (const alias of config.aliases) {
-        if (alias === lowered) {
+        if (alias === loweredType) {
           return key;
         }
       }

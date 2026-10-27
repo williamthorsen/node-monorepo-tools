@@ -30,17 +30,17 @@ export function readRootPackageVersion(): { doesExist: boolean; version: string 
     throw chainError(`Failed to read root ${ROOT_PACKAGE_JSON_PATH}`, error);
   }
 
-  let parsed: unknown;
+  let parsedJson: unknown;
   try {
-    parsed = JSON.parse(contents);
+    parsedJson = JSON.parse(contents);
   } catch (error: unknown) {
     throw chainError(`Failed to parse root ${ROOT_PACKAGE_JSON_PATH}`, error);
   }
 
-  if (!isRecord(parsed)) {
+  if (!isRecord(parsedJson)) {
     return { doesExist: true, version: undefined };
   }
-  return { doesExist: true, version: typeof parsed['version'] === 'string' ? parsed['version'] : undefined };
+  return { doesExist: true, version: typeof parsedJson['version'] === 'string' ? parsedJson['version'] : undefined };
 }
 
 /** The path where the consumer-facing config file is expected. */
@@ -67,16 +67,16 @@ export async function loadConfig(configPath?: string): Promise<unknown> {
 
   // Node type-strips `.ts` natively across this package's engines range, so the config does not need a transform
   // step or a loader dependency. `import()` takes a URL, not a path: A bare Windows path parses as a scheme.
-  const imported: unknown = await import(pathToFileURL(absoluteConfigPath).href);
+  const importedModule: unknown = await import(pathToFileURL(absoluteConfigPath).href);
 
   // `isRecord` narrows the namespace for property access. Because reading an undeclared export off it yields
   // `undefined`, the fallback does not need a membership check.
-  const resolved = isRecord(imported) ? (imported['default'] ?? imported['config']) : undefined;
-  if (resolved === undefined) {
+  const resolvedConfig = isRecord(importedModule) ? (importedModule['default'] ?? importedModule['config']) : undefined;
+  if (resolvedConfig === undefined) {
     throw new Error(
       'Config file must have a default export or a named `config` export (e.g., `export default { ... }` or `export const config = { ... }`)',
     );
   }
 
-  return resolved;
+  return resolvedConfig;
 }

@@ -14,10 +14,10 @@ export function detectPackageManager(): PackageManager {
 
   try {
     const content = readFileSync(packageJsonPath, 'utf8');
-    const parsed: unknown = JSON.parse(content);
+    const parsedJson: unknown = JSON.parse(content);
 
-    if (isRecord(parsed) && typeof parsed['packageManager'] === 'string') {
-      const [name, version] = parsed['packageManager'].split('@', 2);
+    if (isRecord(parsedJson) && typeof parsedJson['packageManager'] === 'string') {
+      const [name, version] = parsedJson['packageManager'].split('@', 2);
       if (name === 'pnpm' || name === 'npm') {
         return name;
       }
@@ -37,8 +37,8 @@ function isYarnBerry(version: string | undefined): boolean {
   if (version === undefined) {
     return false;
   }
-  const major = Number.parseInt(version, 10);
-  return !Number.isNaN(major) && major >= 2;
+  const majorVersion = Number.parseInt(version, 10);
+  return !Number.isNaN(majorVersion) && majorVersion >= 2;
 }
 
 /** Detects the package manager from the presence of lockfiles. */
