@@ -1,6 +1,7 @@
 import type { SpawnSyncOptions } from 'node:child_process';
 import { lstatSync, realpathSync } from 'node:fs';
 import path from 'node:path';
+import { stripVTControlCharacters } from 'node:util';
 
 import { captureStdio, createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
@@ -254,7 +255,8 @@ describe(runFmt, () => {
     trackDashLeadingFile(repositoryTree);
 
     await expect(runFmt(['--check', '--', DASH_LEADING_FILE], repositoryTree.dir)).resolves.toBe(1);
-    expect(captured.stderr).toContain(`[warn] ${DASH_LEADING_FILE}`);
+    // Strip the color that Prettier adds to its log tags when the environment forces it, as CI does.
+    expect(stripVTControlCharacters(captured.stderr)).toContain(`[warn] ${DASH_LEADING_FILE}`);
   });
 
   it.for([
