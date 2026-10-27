@@ -2,7 +2,7 @@
 
 What a published tarball includes, what each `.meta/changelog.json` item contains, how `CHANGELOG.md` archives older versions, which commits appear in a changelog, how a merge commit's change-record block becomes items, and how release notes are written into a README.
 
-npm doesn't include either `CHANGELOG.md` or `.meta/changelog.json` in a published tarball on its own. npm stopped including `CHANGELOG` automatically in npm 7, so a package that declares a `files` field publishes a changelog only when that field names `CHANGELOG.md` and `.meta/changelog.json`. release-kit's readyup kit reports a publishable workspace whose `files` field omits either, and, when [`changelogMarkdown.keepVersions`](#archived-versions) is set, one whose `files` field omits `changelogs/`.
+npm doesn't include either `CHANGELOG.md` or `.meta/changelog.json` in a published tarball on its own. npm stopped including `CHANGELOG` automatically in npm 7, so a package that declares a `files` field publishes a changelog only when that field names `CHANGELOG.md` and `.meta/changelog.json`. release-kit's readyup kit reports a publishable workspace whose `files` field omits either, and, when [`changelogMarkdown.keptVersionCount`](#archived-versions) is set, one whose `files` field omits `changelogs/`.
 
 ## `changelog.json` item schema
 
@@ -43,19 +43,19 @@ The label match is exact: `migration:` and `**Migration:**` are not recognized.
 
 ## Archived versions
 
-`changelogMarkdown.keepVersions` bounds `CHANGELOG.md`, which otherwise grows by one section per release. `.meta/changelog.json` is not affected: It contains every version whatever the option says.
+`changelogMarkdown.keptVersionCount` bounds `CHANGELOG.md`, which otherwise grows by one section per release. `.meta/changelog.json` is not affected: It contains every version whatever the option says.
 
 ```typescript
 export default defineConfig({
-  changelogMarkdown: { keepVersions: 20 },
+  changelogMarkdown: { keptVersionCount: 20 },
 });
 ```
 
 With the option set, `prepare` writes each changelog as follows:
 
-- **`CHANGELOG.md`** contains the newest `keepVersions` sections, counting [hand-written sections](#existing-changelogmd-sections), and a paragraph below its header that links to each archive file.
+- **`CHANGELOG.md`** contains as many of the newest sections as `keptVersionCount` names, counting [hand-written sections](#existing-changelogmd-sections), and a paragraph below its header that links to each archive file.
 - **`changelogs/CHANGELOG-v{major}.md`**, beside `CHANGELOG.md`, contains every older section of that major version, newest first, under the same header and footer. `0.x` versions share `CHANGELOG-v0.md`, and a prerelease belongs to its major.
-- **An archive file that the render no longer produces**, after `keepVersions` is raised or the option is removed: `prepare` deletes it and renders its sections in `CHANGELOG.md` again. Every section is therefore in exactly one file.
+- **An archive file that the render no longer produces**, after `keptVersionCount` is raised or the option is removed: `prepare` deletes it and renders its sections in `CHANGELOG.md` again. Every section is therefore in exactly one file.
 
 `prepare` regenerates the archive files on every release of the target, so an override applies to an archived version as it does to any other. A target that does not release keeps its unbounded `CHANGELOG.md` until its next release. The prepare report lists each archive file that it writes and each that it removes.
 

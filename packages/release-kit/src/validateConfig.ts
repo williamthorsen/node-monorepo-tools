@@ -69,6 +69,15 @@ function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecation
     cleaned['releaseNotes'] = releaseNotesCopy;
   }
 
+  if (isRecord(cleaned['changelogMarkdown']) && Object.hasOwn(cleaned['changelogMarkdown'], 'keepVersions')) {
+    errors.push(
+      'changelogMarkdown.keepVersions has been renamed. Rename it to changelogMarkdown.keptVersionCount in the config.',
+    );
+    const changelogMarkdownCopy = { ...cleaned['changelogMarkdown'] };
+    delete changelogMarkdownCopy['keepVersions'];
+    cleaned['changelogMarkdown'] = changelogMarkdownCopy;
+  }
+
   if (Array.isArray(cleaned['workspaces'])) {
     cleaned['workspaces'] = cleaned['workspaces'].map((ws: unknown, i: number): unknown => {
       if (!isRecord(ws)) return ws;

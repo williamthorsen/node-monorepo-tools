@@ -213,20 +213,20 @@ describe(renderChangelogFiles, () => {
     makeEntry('1.0.0', 'Features', [{ description: 'One' }]),
   ];
 
-  it('renders every section in the main file when keepVersions is omitted', () => {
+  it('renders every section in the main file when keptVersionCount is omitted', () => {
     const files = renderChangelogFiles(entries);
 
     expect(files).toStrictEqual({ main: renderChangelogMarkdown(entries), archives: [] });
   });
 
-  it('does not archive anything when keepVersions covers every section', () => {
-    const files = renderChangelogFiles(entries, { keepVersions: 4 });
+  it('does not archive anything when keptVersionCount covers every section', () => {
+    const files = renderChangelogFiles(entries, { keptVersionCount: 4 });
 
     expect(files).toStrictEqual({ main: renderChangelogMarkdown(entries), archives: [] });
   });
 
   it('keeps the newest sections in the main file and links to each archive below the header', () => {
-    const { main } = renderChangelogFiles(entries, { keepVersions: 1 });
+    const { main } = renderChangelogFiles(entries, { keptVersionCount: 1 });
 
     expect(main).toBe(
       [
@@ -249,7 +249,7 @@ describe(renderChangelogFiles, () => {
   });
 
   it('archives older sections by major, newest major first, each with the header and footer', () => {
-    const { archives } = renderChangelogFiles(entries, { keepVersions: 1 });
+    const { archives } = renderChangelogFiles(entries, { keptVersionCount: 1 });
 
     expect(archives.map(({ major }) => major)).toStrictEqual([3, 2, 1]);
     expect(archives[0]?.content).toBe(
@@ -270,9 +270,9 @@ describe(renderChangelogFiles, () => {
     );
   });
 
-  it('counts preserved sections toward keepVersions and archives them by major', () => {
+  it('counts preserved sections toward keptVersionCount and archives them by major', () => {
     const files = renderChangelogFiles(entries, {
-      keepVersions: 2,
+      keptVersionCount: 2,
       preservedSections: [
         { version: '3.2.0', text: '## 3.2.0\n\n- Hand-written' },
         { version: '0.9.0', text: '## 0.9.0\n\n- Early' },
@@ -292,7 +292,7 @@ describe(renderChangelogFiles, () => {
         makeEntry('2.0.0', 'Features', [{ description: 'Two' }]),
         makeEntry('2.0.0-beta.1', 'Features', [{ description: 'Beta' }]),
       ],
-      { keepVersions: 1 },
+      { keptVersionCount: 1 },
     );
 
     expect(archives).toHaveLength(1);

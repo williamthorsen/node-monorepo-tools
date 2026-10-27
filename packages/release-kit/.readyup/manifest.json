@@ -43,12 +43,12 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "ad3666b8",
+          "hash": "56566d0b",
           "kind": "module",
           "path": "kits/default.ts"
         },
         {
-          "hash": "45fc235f",
+          "hash": "dafe3ffb",
           "kind": "module",
           "path": "lib/changelog-checks.ts"
         },
@@ -100,8 +100,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.44.0",
       "source": "kits/default.ts",
-      "sourceHash": "ad3666b8",
-      "targetHash": "3e346ad1"
+      "sourceHash": "56566d0b",
+      "targetHash": "81c1567b"
     },
     {
       "checklistChecks": [

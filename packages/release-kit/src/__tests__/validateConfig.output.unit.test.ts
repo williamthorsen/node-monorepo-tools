@@ -51,19 +51,26 @@ describe(validateConfig, () => {
 
   describe('changelogMarkdown', () => {
     it('validates a changelogMarkdown object', () => {
-      const { config, errors } = validateConfig({ changelogMarkdown: { keepVersions: 10 } });
+      const { config, errors } = validateConfig({ changelogMarkdown: { keptVersionCount: 10 } });
       expect(errors).toStrictEqual([]);
-      expect(config.changelogMarkdown).toStrictEqual({ keepVersions: 10 });
+      expect(config.changelogMarkdown).toStrictEqual({ keptVersionCount: 10 });
     });
 
-    it('returns an error when keepVersions is less than 1', () => {
-      const { errors } = validateConfig({ changelogMarkdown: { keepVersions: 0 } });
-      expectErrorAtPath(errors, 'changelogMarkdown.keepVersions');
+    it('returns an error when keptVersionCount is less than 1', () => {
+      const { errors } = validateConfig({ changelogMarkdown: { keptVersionCount: 0 } });
+      expectErrorAtPath(errors, 'changelogMarkdown.keptVersionCount');
     });
 
-    it('returns an error when keepVersions is not an integer', () => {
-      const { errors } = validateConfig({ changelogMarkdown: { keepVersions: 2.5 } });
-      expectErrorAtPath(errors, 'changelogMarkdown.keepVersions');
+    it('returns an error when keptVersionCount is not an integer', () => {
+      const { errors } = validateConfig({ changelogMarkdown: { keptVersionCount: 2.5 } });
+      expectErrorAtPath(errors, 'changelogMarkdown.keptVersionCount');
+    });
+
+    it('returns a targeted migration error when keepVersions is set', () => {
+      const { errors } = validateConfig({ changelogMarkdown: { keepVersions: 5 } });
+      expect(errors).toStrictEqual([
+        'changelogMarkdown.keepVersions has been renamed. Rename it to changelogMarkdown.keptVersionCount in the config.',
+      ]);
     });
 
     it('returns an error for unknown changelogMarkdown fields', () => {

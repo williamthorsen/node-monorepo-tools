@@ -37,10 +37,10 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
 }));
 
 vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
-  // Archives the oldest entry under major 0 whenever `keepVersions` is set.
-  renderChangelogFiles: (entries: unknown[], options?: { keepVersions?: number }) => ({
+  // Archives the oldest entry under major 0 whenever `keptVersionCount` is set.
+  renderChangelogFiles: (entries: unknown[], options?: { keptVersionCount?: number }) => ({
     main: `md:${entries.length}`,
-    archives: options?.keepVersions === undefined ? [] : [{ major: 0, content: 'md:archive' }],
+    archives: options?.keptVersionCount === undefined ? [] : [{ major: 0, content: 'md:archive' }],
   }),
 }));
 
@@ -283,8 +283,8 @@ describe(planTargetRelease, () => {
     });
   });
 
-  it('writes the archive files beside CHANGELOG.md under keepVersions, leaving the changelog JSON unchanged', () => {
-    const settings = { ...SETTINGS, changelogMarkdown: { keepVersions: 1 } };
+  it('writes the archive files beside CHANGELOG.md under keptVersionCount, leaving the changelog JSON unchanged', () => {
+    const settings = { ...SETTINGS, changelogMarkdown: { keptVersionCount: 1 } };
 
     const planned = planTargetRelease(makeArgs({ settings }));
     const unbounded = planTargetRelease(makeArgs());
@@ -304,7 +304,7 @@ describe(planTargetRelease, () => {
       { majorVersion: 1, path: 'packages/core/changelogs/CHANGELOG-v1.md' },
       { majorVersion: 0, path: 'packages/core/changelogs/CHANGELOG-v0.md' },
     ]);
-    const settings = { ...SETTINGS, changelogMarkdown: { keepVersions: 1 } };
+    const settings = { ...SETTINGS, changelogMarkdown: { keptVersionCount: 1 } };
 
     const planned = planTargetRelease(makeArgs({ settings }));
 

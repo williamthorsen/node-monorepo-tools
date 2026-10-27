@@ -31,7 +31,7 @@ export interface RenderChangelogMarkdownOptions {
 /** Options for `renderChangelogFiles`. */
 export interface RenderChangelogFilesOptions extends RenderChangelogMarkdownOptions {
   /** How many of the newest sections the main file keeps; every section when omitted. Must be at least 1. */
-  keepVersions?: number;
+  keptVersionCount?: number;
 }
 
 /** A rendered archive file: the sections of one major version that the main file does not keep. */
@@ -49,9 +49,9 @@ export interface RenderedChangelogFiles {
 /**
  * Renders entries and preserved sections into `CHANGELOG.md` and its per-major archive files.
  *
- * The main file keeps the newest `keepVersions` sections, counting preserved sections, and links to each archive file
- * from a paragraph below its header. Each older section goes to the archive file of its major version. Every file
- * has the same header and footer.
+ * The main file keeps as many of the newest sections as `keptVersionCount` names, counting preserved sections, and
+ * links to each archive file from a paragraph below its header. Each older section goes to the archive file of its
+ * major version. Every file has the same header and footer.
  */
 export function renderChangelogFiles(
   entries: ChangelogEntry[],
@@ -62,14 +62,14 @@ export function renderChangelogFiles(
     options?.preservedSections ?? [],
   ).filter((section) => section.text.length > 0);
 
-  const keepVersions = options?.keepVersions;
-  if (keepVersions === undefined || sections.length <= keepVersions) {
+  const keptVersionCount = options?.keptVersionCount;
+  if (keptVersionCount === undefined || sections.length <= keptVersionCount) {
     return { main: renderFile(sections), archives: [] };
   }
 
-  const archived = groupByMajor(sections.slice(keepVersions));
+  const archived = groupByMajor(sections.slice(keptVersionCount));
   return {
-    main: renderFile(sections.slice(0, keepVersions), describeArchivePointer(archived.map(({ major }) => major))),
+    main: renderFile(sections.slice(0, keptVersionCount), describeArchivePointer(archived.map(({ major }) => major))),
     archives: archived.map(({ major, sections: majorSections }) => ({ major, content: renderFile(majorSections) })),
   };
 }

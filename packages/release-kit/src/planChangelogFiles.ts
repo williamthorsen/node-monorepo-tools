@@ -38,11 +38,11 @@ export function planChangelogFiles(
 
   const changelogFile = joinPath(changelogDir, 'CHANGELOG.md');
   const preservedPlan = planPreservedSections(changelogDir, entries);
-  const keepVersions = settings.changelogMarkdown?.keepVersions;
+  const keptVersionCount = settings.changelogMarkdown?.keptVersionCount;
   const renderedFiles = renderChangelogFiles(entries, {
     sectionOrder,
     preservedSections: preservedPlan.sections,
-    ...(keepVersions !== undefined && { keepVersions }),
+    ...(keptVersionCount !== undefined && { keptVersionCount }),
   });
   writes.push({ path: changelogFile, content: renderedFiles.main });
 

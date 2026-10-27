@@ -129,9 +129,9 @@ describe(mergeMonorepoConfig, () => {
   });
 
   it('passes through changelogMarkdown from config', () => {
-    const result = mergeMonorepoConfig(discoveredPaths, { changelogMarkdown: { keepVersions: 5 } });
+    const result = mergeMonorepoConfig(discoveredPaths, { changelogMarkdown: { keptVersionCount: 5 } });
 
-    expect(result.changelogMarkdown).toStrictEqual({ keepVersions: 5 });
+    expect(result.changelogMarkdown).toStrictEqual({ keptVersionCount: 5 });
   });
 
   it('omits changelogMarkdown when not configured', () => {
@@ -490,9 +490,9 @@ describe(mergeSinglePackageConfig, () => {
   });
 
   it('passes through changelogMarkdown from config', () => {
-    const result = mergeSinglePackageConfig({ changelogMarkdown: { keepVersions: 5 } });
+    const result = mergeSinglePackageConfig({ changelogMarkdown: { keptVersionCount: 5 } });
 
-    expect(result.changelogMarkdown).toStrictEqual({ keepVersions: 5 });
+    expect(result.changelogMarkdown).toStrictEqual({ keptVersionCount: 5 });
   });
 
   it('omits changelogMarkdown when not configured', () => {

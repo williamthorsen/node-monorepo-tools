@@ -105,7 +105,7 @@ function translateGlob(pattern) {
 function changelogArchivesAreEnabled() {
   const content = readFile(".config/release-kit.config.ts");
   if (content === void 0) return false;
-  return /changelogMarkdown\s*:\s*\{[^}]*keepVersions\s*:/.test(content);
+  return /changelogMarkdown\s*:\s*\{[^}]*keptVersionCount\s*:/.test(content);
 }
 function changelogJsonIsEnabled() {
   const content = readFile(".config/release-kit.config.ts");
@@ -405,7 +405,7 @@ var default_default = defineRdyKit({
           severity: "warn",
           skip: () => {
             if (!hasPublishablePackages()) return "no publishable packages";
-            return !changelogArchivesAreEnabled() && "changelogMarkdown.keepVersions is not set";
+            return !changelogArchivesAreEnabled() && "changelogMarkdown.keptVersionCount is not set";
           },
           check: () => packagesShipChangelogArchives(),
           fix: 'Add "changelogs/" to the files field of each affected package.json, so that the links from CHANGELOG.md to its archive files resolve in the published package'

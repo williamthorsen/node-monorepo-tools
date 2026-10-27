@@ -120,7 +120,7 @@ describe(changelogArchivesAreEnabled, () => {
     expect(changelogArchivesAreEnabled()).toBe(false);
   });
 
-  it('returns false when the config does not set keepVersions', () => {
+  it('returns false when the config does not set keptVersionCount', () => {
     scaffoldRepo({
       'package.json': '{"name":"solo"}',
       [CONFIG_PATH]: 'export default defineConfig({ changelogJson: { enabled: true } });\n',
@@ -129,10 +129,10 @@ describe(changelogArchivesAreEnabled, () => {
     expect(changelogArchivesAreEnabled()).toBe(false);
   });
 
-  it.each([['20'], ['KEEP_VERSIONS']])('returns true when the config sets keepVersions to %s', (value) => {
+  it.each([['20'], ['KEPT_VERSION_COUNT']])('returns true when the config sets keptVersionCount to %s', (value) => {
     scaffoldRepo({
       'package.json': '{"name":"solo"}',
-      [CONFIG_PATH]: `export default defineConfig({ changelogMarkdown: { keepVersions: ${value} } });\n`,
+      [CONFIG_PATH]: `export default defineConfig({ changelogMarkdown: { keptVersionCount: ${value} } });\n`,
     });
 
     expect(changelogArchivesAreEnabled()).toBe(true);

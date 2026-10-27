@@ -78,7 +78,7 @@ export interface ChangelogMarkdownConfig {
    * How many of the newest versioned sections `CHANGELOG.md` keeps; older sections go to per-major archive files
    * under `changelogs/`. When omitted, `CHANGELOG.md` keeps every section.
    */
-  keepVersions?: number;
+  keptVersionCount?: number;
 }
 
 /**
