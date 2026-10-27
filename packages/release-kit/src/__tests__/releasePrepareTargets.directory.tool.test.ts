@@ -17,7 +17,7 @@ vi.mock(import('../npmRegistry.ts'), () => ({
   lookUpNpmPackage: () => ({ status: 'published' }),
 }));
 
-const ROOT_PACKAGE = { exists: true, version: '0.9.0' };
+const ROOT_PACKAGE = { doesExist: true, version: '0.9.0' };
 
 describe('directory releases (tool)', () => {
   let tree: TempTree;

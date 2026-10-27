@@ -13,9 +13,9 @@ export const CANONICAL_SEMVER_PATTERN = /^\d+\.\d+\.\d+$/;
 
 export const prepareFlagSchema = {
   ...configFlagSchema,
-  dryRun: { long: '--dry-run', type: 'boolean' as const },
-  force: { long: '--force', type: 'boolean' as const },
-  noGitChecks: {
+  isDryRun: { long: '--dry-run', type: 'boolean' as const },
+  shouldForce: { long: '--force', type: 'boolean' as const },
+  shouldSkipGitChecks: {
     long: '--no-git-checks',
     type: 'boolean' as const,
     short: '-n',
@@ -23,20 +23,20 @@ export const prepareFlagSchema = {
   bump: { long: '--bump', type: 'string' as const },
   setVersion: { long: '--set-version', type: 'string' as const },
   only: { long: '--only', type: 'string' as const },
-  withReleaseNotes: { long: '--with-release-notes', type: 'boolean' as const },
+  shouldIncludeReleaseNotes: { long: '--with-release-notes', type: 'boolean' as const },
 };
 
 /** Parses CLI arguments into structured options. Prints a usage error and exits on invalid input. */
 export function parseArgs(argv: string[]): {
   configPath: string | undefined;
-  dryRun: boolean;
-  force: boolean;
-  noGitChecks: boolean;
+  isDryRun: boolean;
+  shouldForce: boolean;
+  shouldSkipGitChecks: boolean;
   bumpOverride: ReleaseType | undefined;
   only: string[] | undefined;
   /** The raw `--set-version` value, whose accepted form depends on the mode. */
   setVersion: string | undefined;
-  withReleaseNotes: boolean;
+  shouldIncludeReleaseNotes: boolean;
 } {
   const { flags } = parseArgsOrExit(argv, prepareFlagSchema);
 
@@ -56,13 +56,13 @@ export function parseArgs(argv: string[]): {
 
   return {
     configPath: flags.config,
-    dryRun: flags.dryRun,
-    force: flags.force,
-    noGitChecks: flags.noGitChecks,
+    isDryRun: flags.isDryRun,
+    shouldForce: flags.shouldForce,
+    shouldSkipGitChecks: flags.shouldSkipGitChecks,
     bumpOverride,
     only,
     setVersion: flags.setVersion,
-    withReleaseNotes: flags.withReleaseNotes,
+    shouldIncludeReleaseNotes: flags.shouldIncludeReleaseNotes,
   };
 }
 

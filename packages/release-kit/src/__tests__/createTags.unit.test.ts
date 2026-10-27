@@ -34,7 +34,9 @@ describe(createTags, () => {
       throw Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' });
     });
 
-    expect(() => createTags({ dryRun: false, noGitChecks: false, style: 'rich' })).toThrow('No tags file found at');
+    expect(() => createTags({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' })).toThrow(
+      'No tags file found at',
+    );
   });
 
   it('if the tags file is unreadable, reports the errno rather than reporting it missing', () => {
@@ -42,7 +44,7 @@ describe(createTags, () => {
       throw Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
     });
 
-    expect(() => createTags({ dryRun: false, noGitChecks: false, style: 'rich' })).toThrow(
+    expect(() => createTags({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' })).toThrow(
       'Cannot read the tags file at',
     );
   });
@@ -50,7 +52,7 @@ describe(createTags, () => {
   it('returns an empty array when the tags file is empty', () => {
     mockReadFileSync.mockReturnValue('');
 
-    const result = createTags({ dryRun: false, noGitChecks: false, style: 'rich' });
+    const result = createTags({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' });
 
     expect(result).toStrictEqual([]);
     expect(mockExecFileSync).not.toHaveBeenCalled();
@@ -59,7 +61,7 @@ describe(createTags, () => {
   it('returns an empty array when the tags file contains only whitespace', () => {
     mockReadFileSync.mockReturnValue('  \n  \n  ');
 
-    const result = createTags({ dryRun: false, noGitChecks: false, style: 'rich' });
+    const result = createTags({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' });
 
     expect(result).toStrictEqual([]);
   });
@@ -67,7 +69,7 @@ describe(createTags, () => {
   it('creates annotated tags for each entry in the tags file', () => {
     mockReadFileSync.mockReturnValue('release-kit-v2.1.0\ncore-v1.3.0\n');
 
-    const result = createTags({ dryRun: false, noGitChecks: true, style: 'rich' });
+    const result = createTags({ isDryRun: false, shouldSkipGitChecks: true, style: 'rich' });
 
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'git',
@@ -85,7 +87,7 @@ describe(createTags, () => {
   it('prints the created tags heading in normal mode', () => {
     mockReadFileSync.mockReturnValue('v1.0.0\n');
 
-    createTags({ dryRun: false, noGitChecks: true, style: 'rich' });
+    createTags({ isDryRun: false, shouldSkipGitChecks: true, style: 'rich' });
 
     expect(console.info).toHaveBeenCalledWith('Created tags:');
     expect(console.info).toHaveBeenCalledWith('🔖 v1.0.0');
@@ -94,8 +96,8 @@ describe(createTags, () => {
   it('prints each tag with the plain marker in the plain style', () => {
     mockReadFileSync.mockReturnValue('v1.0.0\n');
 
-    createTags({ dryRun: false, noGitChecks: true, style: 'plain' });
-    createTags({ dryRun: true, noGitChecks: true, style: 'plain' });
+    createTags({ isDryRun: false, shouldSkipGitChecks: true, style: 'plain' });
+    createTags({ isDryRun: true, shouldSkipGitChecks: true, style: 'plain' });
 
     expect(vi.mocked(console.info).mock.calls).toStrictEqual([
       ['Created tags:'],
@@ -108,7 +110,7 @@ describe(createTags, () => {
   it('prints the dry-run heading and does not create tags in dry-run mode', () => {
     mockReadFileSync.mockReturnValue('v1.0.0\nv2.0.0\n');
 
-    const result = createTags({ dryRun: true, noGitChecks: false, style: 'rich' });
+    const result = createTags({ isDryRun: true, shouldSkipGitChecks: false, style: 'rich' });
 
     expect(console.info).toHaveBeenCalledWith('[dry-run] Would create tags:');
     expect(console.info).toHaveBeenCalledWith('🔖 v1.0.0');
@@ -117,10 +119,10 @@ describe(createTags, () => {
     expect(result).toStrictEqual(['v1.0.0', 'v2.0.0']);
   });
 
-  it('checks for a clean working tree when not in dry-run or noGitChecks mode', () => {
+  it('checks for a clean working tree when not in dry-run or shouldSkipGitChecks mode', () => {
     mockReadFileSync.mockReturnValue('v1.0.0\n');
 
-    createTags({ dryRun: false, noGitChecks: false, style: 'rich' });
+    createTags({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('git', ['diff', '--quiet'], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
     expect(mockExecFileSync).toHaveBeenCalledWith('git', ['diff', '--quiet', '--cached'], {
@@ -136,7 +138,9 @@ describe(createTags, () => {
       }
     });
 
-    expect(() => createTags({ dryRun: false, noGitChecks: false, style: 'rich' })).toThrow('Working tree is dirty');
+    expect(() => createTags({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' })).toThrow(
+      'Working tree is dirty',
+    );
   });
 
   it('preserves the underlying error as the cause of the dirty-tree failure', () => {
@@ -148,15 +152,15 @@ describe(createTags, () => {
       }
     });
 
-    expect(() => createTags({ dryRun: false, noGitChecks: false, style: 'rich' })).toThrow(
+    expect(() => createTags({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' })).toThrow(
       expect.objectContaining({ cause: underlying }),
     );
   });
 
-  it('skips the dirty check when noGitChecks is true', () => {
+  it('skips the dirty check when shouldSkipGitChecks is true', () => {
     mockReadFileSync.mockReturnValue('v1.0.0\n');
 
-    createTags({ dryRun: false, noGitChecks: true, style: 'rich' });
+    createTags({ isDryRun: false, shouldSkipGitChecks: true, style: 'rich' });
 
     // The dirty check runs `git diff`, so if the mock did not receive any `diff` call, the check was skipped.
     const diffCalls = mockExecFileSync.mock.calls.filter(
@@ -165,10 +169,10 @@ describe(createTags, () => {
     expect(diffCalls).toHaveLength(0);
   });
 
-  it('skips the dirty check when dryRun is true', () => {
+  it('skips the dirty check when isDryRun is true', () => {
     mockReadFileSync.mockReturnValue('v1.0.0\n');
 
-    createTags({ dryRun: true, noGitChecks: false, style: 'rich' });
+    createTags({ isDryRun: true, shouldSkipGitChecks: false, style: 'rich' });
 
     expect(mockExecFileSync).not.toHaveBeenCalled();
   });
@@ -176,7 +180,7 @@ describe(createTags, () => {
   it('returns the list of tag names', () => {
     mockReadFileSync.mockReturnValue('alpha-v1.0.0\nbeta-v2.0.0\n');
 
-    const result = createTags({ dryRun: false, noGitChecks: true, style: 'rich' });
+    const result = createTags({ isDryRun: false, shouldSkipGitChecks: true, style: 'rich' });
 
     expect(result).toStrictEqual(['alpha-v1.0.0', 'beta-v2.0.0']);
   });
@@ -187,7 +191,7 @@ describe(createTags, () => {
       throw new Error('dirty');
     });
 
-    const result = createTags({ dryRun: false, noGitChecks: false, style: 'rich' });
+    const result = createTags({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' });
 
     expect(result).toStrictEqual([]);
     expect(mockExecFileSync).not.toHaveBeenCalled();
@@ -201,7 +205,9 @@ describe(createTags, () => {
       }
     });
 
-    expect(() => createTags({ dryRun: false, noGitChecks: true, style: 'rich' })).toThrow('tag already exists');
+    expect(() => createTags({ isDryRun: false, shouldSkipGitChecks: true, style: 'rich' })).toThrow(
+      'tag already exists',
+    );
 
     expect(console.warn).toHaveBeenCalledWith('Tags created before failure:');
     expect(console.warn).toHaveBeenCalledWith('  tag-a');
@@ -218,13 +224,15 @@ describe(createTags, () => {
       throw spawnError;
     });
 
-    expect(() => createTags({ dryRun: false, noGitChecks: false, style: 'rich' })).toThrow('spawn git ENOENT');
+    expect(() => createTags({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' })).toThrow(
+      'spawn git ENOENT',
+    );
   });
 
   it('deletes the tags file after successful tag creation', () => {
     mockReadFileSync.mockReturnValue('v1.0.0\n');
 
-    createTags({ dryRun: false, noGitChecks: true, style: 'rich' });
+    createTags({ isDryRun: false, shouldSkipGitChecks: true, style: 'rich' });
 
     expect(mockUnlinkSync).toHaveBeenCalledWith('tmp/.release-tags');
   });
@@ -232,7 +240,7 @@ describe(createTags, () => {
   it('deletes the summary file after successful tag creation', () => {
     mockReadFileSync.mockReturnValue('v1.0.0\n');
 
-    createTags({ dryRun: false, noGitChecks: true, style: 'rich' });
+    createTags({ isDryRun: false, shouldSkipGitChecks: true, style: 'rich' });
 
     expect(mockUnlinkSync).toHaveBeenCalledWith('tmp/.release-summary');
   });
@@ -240,7 +248,7 @@ describe(createTags, () => {
   it('does not delete the tags file in dry-run mode', () => {
     mockReadFileSync.mockReturnValue('v1.0.0\n');
 
-    createTags({ dryRun: true, noGitChecks: false, style: 'rich' });
+    createTags({ isDryRun: true, shouldSkipGitChecks: false, style: 'rich' });
 
     expect(mockUnlinkSync).not.toHaveBeenCalled();
   });
@@ -251,7 +259,7 @@ describe(createTags, () => {
       throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
     });
 
-    expect(() => createTags({ dryRun: false, noGitChecks: true, style: 'rich' })).not.toThrow();
+    expect(() => createTags({ isDryRun: false, shouldSkipGitChecks: true, style: 'rich' })).not.toThrow();
   });
 
   it('tolerates missing summary file on deletion', () => {
@@ -265,6 +273,6 @@ describe(createTags, () => {
       }
     });
 
-    expect(() => createTags({ dryRun: false, noGitChecks: true, style: 'rich' })).not.toThrow();
+    expect(() => createTags({ isDryRun: false, shouldSkipGitChecks: true, style: 'rich' })).not.toThrow();
   });
 });

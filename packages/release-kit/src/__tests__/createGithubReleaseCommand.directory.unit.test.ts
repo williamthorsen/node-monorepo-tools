@@ -42,7 +42,7 @@ vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
   return {
     ...original,
     loadConfig: mockLoadConfig,
-    readRootPackageVersion: () => ({ exists: true, version: '1.0.0' }),
+    readRootPackageVersion: () => ({ doesExist: true, version: '1.0.0' }),
   };
 });
 

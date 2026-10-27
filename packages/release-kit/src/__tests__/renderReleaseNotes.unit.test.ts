@@ -37,14 +37,14 @@ describe(renderReleaseNotesSingle, () => {
     );
   });
 
-  it('omits version heading when includeHeading is false', () => {
-    const result = renderReleaseNotesSingle(sampleEntry, { includeHeading: false });
+  it('omits version heading when shouldIncludeHeading is false', () => {
+    const result = renderReleaseNotesSingle(sampleEntry, { shouldIncludeHeading: false });
     expect(result).not.toContain('## 2.0.0');
     expect(result).toContain('### Features');
   });
 
-  it('does not produce a leading newline when includeHeading is false', () => {
-    const result = renderReleaseNotesSingle(sampleEntry, { includeHeading: false });
+  it('does not produce a leading newline when shouldIncludeHeading is false', () => {
+    const result = renderReleaseNotesSingle(sampleEntry, { shouldIncludeHeading: false });
     expect(result.startsWith('###')).toBe(true);
   });
 
@@ -140,7 +140,7 @@ describe(renderReleaseNotesSingle, () => {
           },
         ],
       };
-      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      const result = renderReleaseNotesSingle(entry, { shouldIncludeHeading: false });
       expect(result).toContain('- 🚨 **Breaking:** Redesign API');
     });
 
@@ -156,7 +156,7 @@ describe(renderReleaseNotesSingle, () => {
           },
         ],
       };
-      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      const result = renderReleaseNotesSingle(entry, { shouldIncludeHeading: false });
       expect(result).toBe('### Features\n\n- Add widget\n- 🚨 **Breaking:** Redesign API\n');
     });
 
@@ -172,7 +172,7 @@ describe(renderReleaseNotesSingle, () => {
           },
         ],
       };
-      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      const result = renderReleaseNotesSingle(entry, { shouldIncludeHeading: false });
       expect(result).not.toContain('🚨');
     });
 
@@ -192,7 +192,7 @@ describe(renderReleaseNotesSingle, () => {
           },
         ],
       };
-      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      const result = renderReleaseNotesSingle(entry, { shouldIncludeHeading: false });
       const expectedPrefix = `${CANONICAL_TAXONOMY.markers.breaking.emoji} **${CANONICAL_TAXONOMY.markers.breaking.label}:** `;
       expect(result).toContain(`- ${expectedPrefix}Redesign API`);
     });
@@ -215,7 +215,7 @@ describe(renderReleaseNotesSingle, () => {
           },
         ],
       };
-      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      const result = renderReleaseNotesSingle(entry, { shouldIncludeHeading: false });
       expect(result).toContain('- 🚨 **Breaking:** Drop legacy endpoint');
       expect(result).toContain('  The /v1 endpoint has been removed');
     });
@@ -234,7 +234,7 @@ describe(renderReleaseNotesSingle, () => {
           },
         ],
       };
-      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      const result = renderReleaseNotesSingle(entry, { shouldIncludeHeading: false });
       expect(result).toContain('- Add widget\n\n  Body paragraph explaining the feature.');
     });
 
@@ -250,7 +250,7 @@ describe(renderReleaseNotesSingle, () => {
           },
         ],
       };
-      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      const result = renderReleaseNotesSingle(entry, { shouldIncludeHeading: false });
       expect(result).toContain('- Add widget\n\n  First paragraph.\n\n  Second paragraph.');
     });
 
@@ -266,7 +266,7 @@ describe(renderReleaseNotesSingle, () => {
           },
         ],
       };
-      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      const result = renderReleaseNotesSingle(entry, { shouldIncludeHeading: false });
       expect(result).toBe('### Features\n\n- Plain item\n');
     });
 
@@ -286,7 +286,7 @@ describe(renderReleaseNotesSingle, () => {
           },
         ],
       };
-      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      const result = renderReleaseNotesSingle(entry, { shouldIncludeHeading: false });
       expect(result).toBe(
         '### Features\n\n- With body\n\n  A detailed explanation.\n\n- No body\n- Another with body\n\n  Another detail.\n',
       );

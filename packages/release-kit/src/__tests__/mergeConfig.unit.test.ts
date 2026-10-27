@@ -313,7 +313,7 @@ describe('mergeMonorepoConfig project block', () => {
   });
 
   it('resolves an empty project block to the default tagPrefix and the workspace-union paths', () => {
-    const result = mergeMonorepoConfig(discoveredPaths, { project: {} }, { exists: true, version: '0.9.0' });
+    const result = mergeMonorepoConfig(discoveredPaths, { project: {} }, { doesExist: true, version: '0.9.0' });
     expect(result.project).toStrictEqual({
       paths: ['packages/arrays/**', 'packages/strings/**'],
       tagPrefix: 'v',
@@ -324,7 +324,7 @@ describe('mergeMonorepoConfig project block', () => {
     const result = mergeMonorepoConfig(
       discoveredPaths,
       { project: {}, workspaces: [{ dir: 'strings', shouldExclude: true }] },
-      { exists: true, version: '0.9.0' },
+      { doesExist: true, version: '0.9.0' },
     );
     expect(result.project?.paths).toStrictEqual(['packages/arrays/**']);
   });
@@ -333,7 +333,7 @@ describe('mergeMonorepoConfig project block', () => {
     const result = mergeMonorepoConfig(
       discoveredPaths,
       { project: { paths: ['**'] } },
-      { exists: true, version: '0.9.0' },
+      { doesExist: true, version: '0.9.0' },
     );
     expect(result.project?.paths).toStrictEqual(['**']);
   });
@@ -342,7 +342,7 @@ describe('mergeMonorepoConfig project block', () => {
     const result = mergeMonorepoConfig(
       discoveredPaths,
       { project: { tagPrefix: 'release-v' } },
-      { exists: true, version: '0.9.0' },
+      { doesExist: true, version: '0.9.0' },
     );
     expect(result.project).toStrictEqual({
       paths: ['packages/arrays/**', 'packages/strings/**'],
@@ -351,15 +351,15 @@ describe('mergeMonorepoConfig project block', () => {
   });
 
   it('throws when project is configured but the root package.json is missing', () => {
-    expect(() => mergeMonorepoConfig(discoveredPaths, { project: {} }, { exists: false, version: undefined })).toThrow(
-      /project block requires a root package\.json/,
-    );
+    expect(() =>
+      mergeMonorepoConfig(discoveredPaths, { project: {} }, { doesExist: false, version: undefined }),
+    ).toThrow(/project block requires a root package\.json/);
   });
 
   it('throws when project is configured but the root package.json does not have a version field', () => {
-    expect(() => mergeMonorepoConfig(discoveredPaths, { project: {} }, { exists: true, version: undefined })).toThrow(
-      /add a 'version' field to the root package\.json/,
-    );
+    expect(() =>
+      mergeMonorepoConfig(discoveredPaths, { project: {} }, { doesExist: true, version: undefined }),
+    ).toThrow(/add a 'version' field to the root package\.json/);
   });
 
   it('throws when the caller does not supply rootPackage info alongside a project block', () => {
@@ -373,7 +373,11 @@ describe('mergeMonorepoConfig project block', () => {
       'packages/v-helpers': '@scope/v-helpers',
     });
     expect(() =>
-      mergeMonorepoConfig(['packages/v-helpers'], { project: { tagPrefix: 'v' } }, { exists: true, version: '0.9.0' }),
+      mergeMonorepoConfig(
+        ['packages/v-helpers'],
+        { project: { tagPrefix: 'v' } },
+        { doesExist: true, version: '0.9.0' },
+      ),
     ).toThrow(/Tag prefix collision/);
   });
 
@@ -386,7 +390,7 @@ describe('mergeMonorepoConfig project block', () => {
       mergeMonorepoConfig(
         ['packages/vue-helpers'],
         { project: { tagPrefix: 'v' } },
-        { exists: true, version: '0.9.0' },
+        { doesExist: true, version: '0.9.0' },
       ),
     ).toThrow(/Tag prefix collision: 'vue-helpers-v' .* and 'v' \(project\)/);
   });
@@ -399,7 +403,7 @@ describe('mergeMonorepoConfig project block', () => {
           workspaces: [{ dir: 'arrays', legacyIdentities: [{ name: '@old-scope/arrays', tagPrefix: 'release-v' }] }],
           project: { tagPrefix: 'release-v' },
         },
-        { exists: true, version: '0.9.0' },
+        { doesExist: true, version: '0.9.0' },
       ),
     ).toThrow(/Tag prefix collision: 'release-v'/);
   });
@@ -412,7 +416,7 @@ describe('mergeMonorepoConfig project block', () => {
           retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v' }],
           project: { tagPrefix: 'preflight-v' },
         },
-        { exists: true, version: '0.9.0' },
+        { doesExist: true, version: '0.9.0' },
       ),
     ).toThrow(/Tag prefix collision: 'preflight-v'/);
   });

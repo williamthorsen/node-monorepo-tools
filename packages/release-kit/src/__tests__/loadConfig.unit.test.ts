@@ -114,21 +114,21 @@ describe(readRootPackageVersion, () => {
     mockReadFileSync.mockReset();
   });
 
-  it('returns exists=false when the root package.json is missing', () => {
+  it('returns doesExist=false when the root package.json is missing', () => {
     mockExistsSync.mockReturnValue(false);
-    expect(readRootPackageVersion()).toStrictEqual({ exists: false, version: undefined });
+    expect(readRootPackageVersion()).toStrictEqual({ doesExist: false, version: undefined });
   });
 
   it('returns the version when the root package.json declares one', () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root', version: '1.2.3' }));
-    expect(readRootPackageVersion()).toStrictEqual({ exists: true, version: '1.2.3' });
+    expect(readRootPackageVersion()).toStrictEqual({ doesExist: true, version: '1.2.3' });
   });
 
   it('returns version=undefined when the root package.json does not have a version field', () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root' }));
-    expect(readRootPackageVersion()).toStrictEqual({ exists: true, version: undefined });
+    expect(readRootPackageVersion()).toStrictEqual({ doesExist: true, version: undefined });
   });
 
   it('throws an error when the root package.json contains invalid JSON', () => {

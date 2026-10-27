@@ -389,7 +389,7 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
 
     const rendered = renderReleaseNotesSingle(entry, {
       filter: matchesAudience('all'),
-      includeHeading: false,
+      shouldIncludeHeading: false,
       sectionOrder,
     });
 

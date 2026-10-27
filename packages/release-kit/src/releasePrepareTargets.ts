@@ -38,7 +38,7 @@ export interface TargetPrepareOptions {
    * Release even when the range since the last tag doesn't contain any commits or any bump-worthy commits.
    * Orthogonal to `bumpOverride`: When `bumpOverride` is not given, the release falls back to `patch`.
    */
-  force?: boolean;
+  shouldForce?: boolean;
   /** Level of the release, in place of the level that the changelog items call for; it doesn't trigger a release. */
   bumpOverride?: ReleaseType;
   /**
@@ -46,7 +46,7 @@ export interface TargetPrepareOptions {
    * `RELEASE_NOTES.v{version}.md`) from its changelog entries. Requires `changelogJson.enabled`; when disabled, the
    * plan records a warning and doesn't plan any previews.
    */
-  withReleaseNotes?: boolean;
+  shouldIncludeReleaseNotes?: boolean;
   /**
    * Ids of the targets from which the release starts; the run plans the named package targets and their transitive
    * dependents, and each named composite, which reads its own window. Present only for a narrowed run, which skips
@@ -55,7 +55,7 @@ export interface TargetPrepareOptions {
   only?: readonly string[];
   /**
    * Explicit versions (canonical `N.N.N`), keyed by package target id. Each named target starts the release and
-   * releases at its version, which takes precedence over `bumpOverride` and `force`.
+   * releases at its version, which takes precedence over `bumpOverride` and `shouldForce`.
    */
   setVersions?: ReadonlyMap<string, string>;
 }
@@ -77,7 +77,7 @@ const PREVIEWS_REQUIRE_JSON_WARNING =
  */
 export function releasePrepareTargets(config: TargetPrepareConfig, options: TargetPrepareOptions): ReleasePlan {
   const { settings } = config;
-  const { only, withReleaseNotes } = options;
+  const { only, shouldIncludeReleaseNotes } = options;
   const isSinglePackage = isSinglePackageTargets(config.targets);
   const memberTargets = config.targets.filter((target) => target.kind !== 'composite');
   const compositeTargets = config.targets.filter((target) => target.kind === 'composite');
@@ -91,7 +91,7 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
   const plannedIds = findTransitiveDependents(graph, startIds);
   const planned = memberTargets.filter((target) => plannedIds.has(target.id));
 
-  const arePreviewsBlocked = withReleaseNotes === true && !settings.changelogJson.enabled;
+  const arePreviewsBlocked = shouldIncludeReleaseNotes === true && !settings.changelogJson.enabled;
   if (arePreviewsBlocked && !isSinglePackage) {
     warnings.push(PREVIEWS_REQUIRE_JSON_WARNING);
   }
@@ -102,7 +102,7 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
     overrideContext: createOverrideContext(planned.flatMap(listOverrideDirectory)),
     sectionOrder: deriveSectionOrder(workTypes),
     dependenciesHeader: deriveDependenciesHeader(workTypes),
-    shouldPlanPreviews: withReleaseNotes === true && settings.changelogJson.enabled,
+    shouldPlanPreviews: shouldIncludeReleaseNotes === true && settings.changelogJson.enabled,
     today: new Date().toISOString().slice(0, 10),
   };
 

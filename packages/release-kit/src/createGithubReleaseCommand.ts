@@ -16,7 +16,7 @@ import type { ResolvedTag } from './resolveReleaseTags.ts';
 
 const createGithubReleaseFlagSchema = {
   ...configFlagSchema,
-  dryRun: { long: '--dry-run', type: 'boolean' as const },
+  isDryRun: { long: '--dry-run', type: 'boolean' as const },
   tags: { long: '--tags', type: 'string' as const },
 };
 
@@ -36,7 +36,7 @@ export async function createGithubReleaseCommand(
   const parsed = parseArgsOrExit(argv, createGithubReleaseFlagSchema);
   const configPath = resolveConfigFlag(parsed.flags.config, invocationDir);
 
-  const { dryRun } = parsed.flags;
+  const { isDryRun } = parsed.flags;
 
   const userConfig = await loadUsableConfig(styles.stderr, configPath);
 
@@ -60,7 +60,7 @@ export async function createGithubReleaseCommand(
 
   let outcome;
   try {
-    outcome = createGithubReleases(releasableTags, changelogJsonOutputPath, dryRun, sectionOrder);
+    outcome = createGithubReleases(releasableTags, changelogJsonOutputPath, isDryRun, sectionOrder);
   } catch (error: unknown) {
     reportError(`Failed to create GitHub Releases: ${describeError(error)}`);
     process.exit(1);

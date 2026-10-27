@@ -147,7 +147,7 @@ describe(generateCommand, () => {
     );
   });
 
-  it('with check, returns 0 without writing when the committed file matches', async () => {
+  it('with shouldCheck, returns 0 without writing when the committed file matches', async () => {
     const labels: LabelDefinition[] = [{ name: 'bug', color: 'd73a4a', description: 'Bug' }];
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({ repoLabels: { extends: ['common'] } });
@@ -157,13 +157,13 @@ describe(generateCommand, () => {
 
     mockReadFileSync.mockReturnValue(formatLabelsYaml(labels, new Map([['common', 'abc123']])));
 
-    const exitCode = await generateCommand({ check: true, styles: RICH_STYLES });
+    const exitCode = await generateCommand({ shouldCheck: true, styles: RICH_STYLES });
 
     expect(exitCode).toBe(0);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
-  it('with check, returns 1 when the committed file is stale', async () => {
+  it('with shouldCheck, returns 1 when the committed file is stale', async () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({ repoLabels: { extends: ['common'] } });
     mockResolveLabels.mockReturnValue([{ name: 'bug', color: 'd73a4a', description: 'Bug' }]);
@@ -171,14 +171,14 @@ describe(generateCommand, () => {
     mockReadFileSync.mockReturnValue('# outdated content\n');
     using capture = captureStdio();
 
-    const exitCode = await generateCommand({ check: true, styles: RICH_STYLES });
+    const exitCode = await generateCommand({ shouldCheck: true, styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('stale');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
-  it('with check, returns 1 when the committed file is missing', async () => {
+  it('with shouldCheck, returns 1 when the committed file is missing', async () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({ repoLabels: {} });
     mockResolveLabels.mockReturnValue([]);
@@ -187,7 +187,7 @@ describe(generateCommand, () => {
     });
     using capture = captureStdio();
 
-    const exitCode = await generateCommand({ check: true, styles: RICH_STYLES });
+    const exitCode = await generateCommand({ shouldCheck: true, styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('missing');

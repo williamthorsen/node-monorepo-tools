@@ -4,8 +4,8 @@ import type { PackageManager } from './detectPackageManager.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
 
 export interface PublishOptions {
-  dryRun: boolean;
-  provenance: boolean;
+  isDryRun: boolean;
+  shouldGenerateProvenance: boolean;
 }
 
 /** Publishes a single package by running `{pm} publish` from its workspace directory. */
@@ -14,12 +14,12 @@ export function publishPackage(
   packageManager: PackageManager,
   options: PublishOptions,
 ): void {
-  const { dryRun, provenance } = options;
+  const { isDryRun, shouldGenerateProvenance } = options;
   const executable = resolveExecutable(packageManager);
-  const args = buildPublishArgs(packageManager, { dryRun, provenance });
+  const args = buildPublishArgs(packageManager, { isDryRun, shouldGenerateProvenance });
 
   console.info(
-    `\n${dryRun ? '[dry-run] ' : ''}Running: ${executable} ${args.join(' ')} (cwd: ${resolvedTag.workspacePath})`,
+    `\n${isDryRun ? '[dry-run] ' : ''}Running: ${executable} ${args.join(' ')} (cwd: ${resolvedTag.workspacePath})`,
   );
   execFileSync(executable, args, { cwd: resolvedTag.workspacePath, stdio: 'inherit' });
 }
@@ -41,7 +41,7 @@ function resolveExecutable(packageManager: PackageManager): string {
 function buildPublishArgs(packageManager: PackageManager, options: PublishOptions): string[] {
   const args = packageManager === 'yarn-berry' ? ['npm', 'publish'] : ['publish'];
 
-  if (options.dryRun) {
+  if (options.isDryRun) {
     args.push('--dry-run');
   }
 
@@ -50,7 +50,7 @@ function buildPublishArgs(packageManager: PackageManager, options: PublishOption
   }
 
   // Classic yarn does not support --provenance
-  if (options.provenance && packageManager !== 'yarn') {
+  if (options.shouldGenerateProvenance && packageManager !== 'yarn') {
     args.push('--provenance');
   }
 

@@ -108,14 +108,14 @@ export function describeHistoryWindow(target: ReleaseTarget): GenerateChangelogO
 
 /**
  * Decides a target's direct release from its window: `setVersion` releases at that version, and otherwise the
- * window's bump, `force`, and `bumpOverride` decide as {@link decideRelease} states.
+ * window's bump, `shouldForce`, and `bumpOverride` decide as {@link decideRelease} states.
  */
 export function decideTargetRelease(
   target: ReleaseTarget,
   history: ReleaseHistory,
-  options: { force: boolean; bumpOverride: ReleaseType | undefined; setVersion: string | undefined },
+  options: { shouldForce: boolean; bumpOverride: ReleaseType | undefined; setVersion: string | undefined },
 ): TargetDecision {
-  const { force, bumpOverride, setVersion } = options;
+  const { shouldForce, bumpOverride, setVersion } = options;
   if (setVersion !== undefined) {
     return { outcome: 'release', releaseType: undefined, bumpOverride: undefined, setVersion };
   }
@@ -126,7 +126,7 @@ export function decideTargetRelease(
   const decision = decideRelease({
     naturalBump: history.unreleased.bump,
     commitCount: history.unreleased.commits.length,
-    force,
+    shouldForce,
     bumpOverride,
     skipReasons: {
       noCommits: `No commits${subject} ${since}. Pass --force to release at patch. Skipping.`,

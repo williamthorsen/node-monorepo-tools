@@ -20,8 +20,8 @@ import type { LabelDefinition } from './types.ts';
 interface InitOptions {
   /** Config file to read, relative to the working directory. Defaults to `CONFIG_FILE_PATH`. */
   configPath?: string;
-  dryRun: boolean;
-  force: boolean;
+  isDryRun: boolean;
+  shouldForce: boolean;
   styles: StreamStyles;
 }
 
@@ -38,14 +38,19 @@ const WORKFLOW_PATH = '.github/workflows/sync-labels.yaml';
  * `configPath` names the config to read. Because the command fails when the named config does not exist, it
  * reaches the scaffolding branch only under the default path, and that branch always writes to `CONFIG_FILE_PATH`.
  */
-export async function syncLabelsInitCommand({ configPath, dryRun, force, styles }: InitOptions): Promise<number> {
+export async function syncLabelsInitCommand({
+  configPath,
+  isDryRun,
+  shouldForce,
+  styles,
+}: InitOptions): Promise<number> {
   const configFilePath = configPath ?? CONFIG_FILE_PATH;
 
   if (checkRetiredSyncLabelsConfig(configPath)) {
     return 1;
   }
 
-  if (dryRun) {
+  if (isDryRun) {
     console.info('[dry-run mode]');
   }
 
@@ -73,8 +78,8 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
 
   // Always read a named path, so that the loader fails on one that does not exist rather than the
   // run silently taking the scaffolding branch.
-  const configExists = configPath !== undefined || existsSync(CONFIG_FILE_PATH);
-  const retiredNames = configExists ? await loadRetiredPackageNames(styles, configPath) : [];
+  const doesConfigExist = configPath !== undefined || existsSync(CONFIG_FILE_PATH);
+  const retiredNames = doesConfigExist ? await loadRetiredPackageNames(styles, configPath) : [];
   if (retiredNames === undefined) {
     return 1;
   }
@@ -90,10 +95,10 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
     process.stderr.write(`  ${describeError(error)}\n`);
     return 1;
   }
-  const workflowResult = writeFileWithCheck(WORKFLOW_PATH, workflow, { isDryRun: dryRun, shouldOverwrite: force });
-  reportWriteResult(workflowResult, dryRun, styles);
+  const workflowResult = writeFileWithCheck(WORKFLOW_PATH, workflow, { isDryRun, shouldOverwrite: shouldForce });
+  reportWriteResult(workflowResult, isDryRun, styles);
 
-  if (configExists) {
+  if (doesConfigExist) {
     console.info(`\n> ${configFilePath} already exists; add this block to the object passed to defineConfig:\n`);
     console.info(renderRepoLabelsBlock(scopeLabels));
 
@@ -113,17 +118,17 @@ export async function syncLabelsInitCommand({ configPath, dryRun, force, styles 
   }
 
   const configResult = writeFileWithCheck(CONFIG_FILE_PATH, repoLabelsConfigScript(scopeLabels), {
-    isDryRun: dryRun,
-    shouldOverwrite: force,
+    isDryRun,
+    shouldOverwrite: shouldForce,
   });
-  reportWriteResult(configResult, dryRun, styles);
+  reportWriteResult(configResult, isDryRun, styles);
 
   if (workflowResult.outcome === 'failed' || configResult.outcome === 'failed') {
     process.stderr.write('Failed to scaffold one or more files.\n');
     return 1;
   }
 
-  if (dryRun) {
+  if (isDryRun) {
     console.info(`\n> [dry-run] Would generate ${LABELS_OUTPUT_PATH}`);
   } else {
     console.info('\n> Generating labels');

@@ -77,7 +77,7 @@ describe(syncLabelsInitCommand, () => {
   it('returns 1 without writing when the retired sync-labels config exists', async () => {
     givenExistingFiles(RETIRED_SYNC_LABELS_CONFIG_PATH);
 
-    const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false, styles: SPLIT_STYLES });
+    const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(1);
     expect(mockReportError).toHaveBeenCalledWith(expect.stringContaining('no longer read'));
@@ -91,7 +91,7 @@ describe(syncLabelsInitCommand, () => {
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     using _silent = silenceConsole(['info']);
 
-    const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false, styles: SPLIT_STYLES });
+    const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(0);
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/sync-labels.yaml', expect.any(String), {
@@ -113,7 +113,7 @@ describe(syncLabelsInitCommand, () => {
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     using silent = silenceConsole(['info']);
 
-    const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false, styles: SPLIT_STYLES });
+    const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(0);
     expect(mockWriteFileWithCheck).toHaveBeenCalledTimes(1);
@@ -135,7 +135,7 @@ describe(syncLabelsInitCommand, () => {
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     using silent = silenceConsole(['info']);
 
-    await syncLabelsInitCommand({ dryRun: false, force: false, styles: SPLIT_STYLES });
+    await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(silent.info).toHaveBeenCalledWith(expect.stringContaining("'scope:preflight'"));
   });
@@ -149,8 +149,8 @@ describe(syncLabelsInitCommand, () => {
 
     const exitCode = await syncLabelsInitCommand({
       configPath: 'elsewhere/alternative.config.ts',
-      dryRun: false,
-      force: false,
+      isDryRun: false,
+      shouldForce: false,
       styles: SPLIT_STYLES,
     });
 
@@ -173,8 +173,8 @@ describe(syncLabelsInitCommand, () => {
 
     const exitCode = await syncLabelsInitCommand({
       configPath: 'elsewhere/absent.config.ts',
-      dryRun: false,
-      force: false,
+      isDryRun: false,
+      shouldForce: false,
       styles: SPLIT_STYLES,
     });
 
@@ -193,7 +193,7 @@ describe(syncLabelsInitCommand, () => {
     using _silent = silenceConsole(['info']);
     using _capture = captureStdio();
 
-    const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false, styles: SPLIT_STYLES });
+    const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(1);
     expect(mockPrintError).toHaveBeenCalledWith('bad config', 'plain');
@@ -207,7 +207,7 @@ describe(syncLabelsInitCommand, () => {
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     using _silent = silenceConsole(['info']);
 
-    const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false, styles: SPLIT_STYLES });
+    const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(0);
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith(
@@ -225,7 +225,7 @@ describe(syncLabelsInitCommand, () => {
     using _silent = silenceConsole(['info']);
     using _capture = captureStdio();
 
-    const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false, styles: SPLIT_STYLES });
+    const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(1);
   });
@@ -236,7 +236,7 @@ describe(syncLabelsInitCommand, () => {
     using _silent = silenceConsole(['info']);
     using capture = captureStdio();
 
-    const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false, styles: SPLIT_STYLES });
+    const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('No workspace package to label.');
@@ -249,7 +249,7 @@ describe(syncLabelsInitCommand, () => {
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     using _silent = silenceConsole(['info']);
 
-    const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false, styles: SPLIT_STYLES });
+    const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(1);
   });
@@ -261,7 +261,7 @@ describe(syncLabelsInitCommand, () => {
     using _silent = silenceConsole(['info']);
     using _capture = captureStdio();
 
-    const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false, styles: SPLIT_STYLES });
+    const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(1);
     expect(mockGenerateCommand).not.toHaveBeenCalled();
@@ -276,7 +276,7 @@ describe(syncLabelsInitCommand, () => {
     using _silent = silenceConsole(['info']);
     using capture = captureStdio();
 
-    const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false, styles: SPLIT_STYLES });
+    const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('/pkg/templates/sync-labels.yaml.template');
@@ -289,20 +289,20 @@ describe(syncLabelsInitCommand, () => {
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     using _silent = silenceConsole(['info']);
 
-    const exitCode = await syncLabelsInitCommand({ dryRun: true, force: false, styles: SPLIT_STYLES });
+    const exitCode = await syncLabelsInitCommand({ isDryRun: true, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(0);
     expect(mockGenerateCommand).not.toHaveBeenCalled();
   });
 
-  it('passes force as overwrite option to writeFileWithCheck', async () => {
+  it('passes shouldForce as shouldOverwrite to writeFileWithCheck', async () => {
     givenExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     mockGenerateCommand.mockResolvedValue(0);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     using _silent = silenceConsole(['info']);
 
-    await syncLabelsInitCommand({ dryRun: false, force: true, styles: SPLIT_STYLES });
+    await syncLabelsInitCommand({ isDryRun: false, shouldForce: true, styles: SPLIT_STYLES });
 
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
       isDryRun: false,
@@ -311,12 +311,12 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it.each([
-    { outcome: 'created', dryRun: false },
-    { outcome: 'overwritten', dryRun: false },
-    { outcome: 'overwritten', dryRun: true },
-    { outcome: 'up-to-date', dryRun: false },
-    { outcome: 'skipped', dryRun: false },
-  ])('calls reportWriteResult for $outcome outcome (dryRun=$dryRun)', async ({ outcome, dryRun }) => {
+    { outcome: 'created', isDryRun: false },
+    { outcome: 'overwritten', isDryRun: false },
+    { outcome: 'overwritten', isDryRun: true },
+    { outcome: 'up-to-date', isDryRun: false },
+    { outcome: 'skipped', isDryRun: false },
+  ])('calls reportWriteResult for $outcome outcome (isDryRun=$isDryRun)', async ({ outcome, isDryRun }) => {
     const result = { filePath: 'test/path', outcome };
     givenExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
@@ -324,9 +324,9 @@ describe(syncLabelsInitCommand, () => {
     mockWriteFileWithCheck.mockReturnValue(result);
     using _silent = silenceConsole(['info']);
 
-    await syncLabelsInitCommand({ dryRun, force: false, styles: SPLIT_STYLES });
+    await syncLabelsInitCommand({ isDryRun, shouldForce: false, styles: SPLIT_STYLES });
 
-    expect(mockReportWriteResult).toHaveBeenCalledWith(result, dryRun, SPLIT_STYLES);
+    expect(mockReportWriteResult).toHaveBeenCalledWith(result, isDryRun, SPLIT_STYLES);
     expect(mockReportWriteResult).toHaveBeenCalledTimes(2);
   });
 });

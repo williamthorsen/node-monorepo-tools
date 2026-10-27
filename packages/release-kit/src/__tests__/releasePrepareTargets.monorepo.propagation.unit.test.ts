@@ -307,7 +307,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       });
 
       const result = prepareMonorepo(config, {
-        force: true,
+        shouldForce: true,
         bumpOverride: 'minor',
         setVersions: new Map([['core', '3.0.0']]),
       });
@@ -361,7 +361,7 @@ describe('releasePrepareTargets for a monorepo', () => {
         'util-v': { previousTag: 'util-v0.1.0' },
       });
 
-      const result = prepareMonorepo(config, { only: ['core'], force: true });
+      const result = prepareMonorepo(config, { only: ['core'], shouldForce: true });
 
       expect(result.tags).toStrictEqual(['core-v1.0.1', 'app-v2.0.1', 'cli-v3.0.1']);
       expect(selectPackageResults(result).find((c) => c.name === 'app')).toMatchObject({ propagatedOnly: true });

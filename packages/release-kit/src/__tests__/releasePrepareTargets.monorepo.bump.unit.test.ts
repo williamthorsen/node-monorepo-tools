@@ -188,7 +188,7 @@ describe('releasePrepareTargets for a monorepo', () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = prepareMonorepo(config, { force: true });
+    const result = prepareMonorepo(config, { shouldForce: true });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(selectPackageResults(result)[0]).toMatchObject({
@@ -250,7 +250,7 @@ describe('releasePrepareTargets for a monorepo', () => {
     stubHistory({ previousTag: 'arrays-v1.0.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = prepareMonorepo(config, { force: true });
+    const result = prepareMonorepo(config, { shouldForce: true });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     const workspace = selectPackageResults(result)[0];
@@ -299,7 +299,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       return JSON.stringify({ version: '2.0.0' });
     });
 
-    const result = prepareMonorepo(config, { force: true });
+    const result = prepareMonorepo(config, { shouldForce: true });
 
     // arrays falls back to patch; strings keeps its natural minor.
     expect(result.tags).toStrictEqual(['arrays-v1.0.1', 'strings-v2.1.0']);
@@ -355,7 +355,7 @@ describe('releasePrepareTargets for a monorepo', () => {
     );
   });
 
-  it('bypasses the no-commits check when force is true', () => {
+  it('bypasses the no-commits check when shouldForce is true', () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -373,7 +373,7 @@ describe('releasePrepareTargets for a monorepo', () => {
     stubHistory({ previousTag: 'arrays-v1.0.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = prepareMonorepo(config, { force: true, bumpOverride: 'patch' });
+    const result = prepareMonorepo(config, { shouldForce: true, bumpOverride: 'patch' });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.0.1"');
@@ -418,7 +418,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       return JSON.stringify({ version: '2.0.0' });
     });
 
-    const result = prepareMonorepo(config, { force: true, bumpOverride: 'patch' });
+    const result = prepareMonorepo(config, { shouldForce: true, bumpOverride: 'patch' });
 
     // arrays is bumped via --force (0 commits); strings via its history's bump; both use bumpOverride: 'patch'
     expect(result.tags).toStrictEqual(['arrays-v1.0.1', 'strings-v2.0.1']);
@@ -442,7 +442,7 @@ describe('releasePrepareTargets for a monorepo', () => {
     stubHistory({ previousTag: 'arrays-v1.0.0', releasedEntries: [RELEASED_ENTRY] });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = prepareMonorepo(config, { force: true, bumpOverride: 'patch' });
+    const result = prepareMonorepo(config, { shouldForce: true, bumpOverride: 'patch' });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(mockWriteFileSync).not.toHaveBeenCalled();

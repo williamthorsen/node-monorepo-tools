@@ -32,25 +32,25 @@ describe(tagCommand, () => {
   it('delegates to createTags with default options', () => {
     tagCommand([], RICH_STYLES);
 
-    expect(mockCreateTags).toHaveBeenCalledWith({ dryRun: false, noGitChecks: false, style: 'rich' });
+    expect(mockCreateTags).toHaveBeenCalledWith({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' });
   });
 
-  it('passes dryRun when --dry-run is provided', () => {
+  it('passes isDryRun when --dry-run is provided', () => {
     tagCommand(['--dry-run'], RICH_STYLES);
 
-    expect(mockCreateTags).toHaveBeenCalledWith({ dryRun: true, noGitChecks: false, style: 'rich' });
+    expect(mockCreateTags).toHaveBeenCalledWith({ isDryRun: true, shouldSkipGitChecks: false, style: 'rich' });
   });
 
-  it('passes noGitChecks when --no-git-checks is provided', () => {
+  it('passes shouldSkipGitChecks when --no-git-checks is provided', () => {
     tagCommand(['--no-git-checks'], RICH_STYLES);
 
-    expect(mockCreateTags).toHaveBeenCalledWith({ dryRun: false, noGitChecks: true, style: 'rich' });
+    expect(mockCreateTags).toHaveBeenCalledWith({ isDryRun: false, shouldSkipGitChecks: true, style: 'rich' });
   });
 
   it('passes both flags when both are provided', () => {
     tagCommand(['--dry-run', '--no-git-checks'], RICH_STYLES);
 
-    expect(mockCreateTags).toHaveBeenCalledWith({ dryRun: true, noGitChecks: true, style: 'rich' });
+    expect(mockCreateTags).toHaveBeenCalledWith({ isDryRun: true, shouldSkipGitChecks: true, style: 'rich' });
   });
 
   it('exits with code 1 on unknown flags', async () => {

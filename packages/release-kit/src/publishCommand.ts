@@ -24,9 +24,9 @@ import type { ResolvedTag } from './resolveReleaseTags.ts';
 
 const publishFlagSchema = {
   ...configFlagSchema,
-  dryRun: { long: '--dry-run', type: 'boolean' as const },
-  noGitChecks: { long: '--no-git-checks', type: 'boolean' as const },
-  provenance: { long: '--provenance', type: 'boolean' as const },
+  isDryRun: { long: '--dry-run', type: 'boolean' as const },
+  shouldSkipGitChecks: { long: '--no-git-checks', type: 'boolean' as const },
+  shouldGenerateProvenance: { long: '--provenance', type: 'boolean' as const },
   tags: { long: '--tags', type: 'string' as const },
 };
 
@@ -39,12 +39,12 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
   const parsed = parseArgsOrExit(argv, publishFlagSchema);
   const configPath = resolveConfigFlag(parsed.flags.config, invocationDir);
 
-  const { dryRun, noGitChecks, provenance } = parsed.flags;
+  const { isDryRun, shouldSkipGitChecks, shouldGenerateProvenance } = parsed.flags;
 
   const userConfig = await loadUsableConfig(styles.stderr, configPath);
 
   // Run release-kit's own clean-tree check: `publishPackage` bypasses pnpm's, which would fail on the injected README.
-  if (!dryRun && !noGitChecks) {
+  if (!isDryRun && !shouldSkipGitChecks) {
     try {
       assertCleanWorkingTree();
     } catch (error: unknown) {
@@ -73,7 +73,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
 
   const shouldInject = releaseNotes.shouldInjectIntoReadme;
 
-  console.info(dryRun ? '[dry-run] Would publish:' : 'Publishing:');
+  console.info(isDryRun ? '[dry-run] Would publish:' : 'Publishing:');
   for (const { tag, workspacePath } of publishableTags) {
     console.info(`  ${tag} (${workspacePath})`);
   }
@@ -98,7 +98,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
       }
 
       try {
-        publishPackage(resolvedTag, packageManager, { dryRun, provenance });
+        publishPackage(resolvedTag, packageManager, { isDryRun, shouldGenerateProvenance });
         published.push(resolvedTag.tag);
       } finally {
         if (readmePath !== undefined && originalReadme !== undefined) {

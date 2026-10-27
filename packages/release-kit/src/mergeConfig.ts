@@ -162,7 +162,7 @@ export function resolveWorkTypes(userWorkTypes?: ReleaseKitConfig['workTypes']):
  * `mergeMonorepoConfig` does not perform any I/O.
  */
 export interface RootPackageInfo {
-  exists: boolean;
+  doesExist: boolean;
   version: string | undefined;
 }
 
@@ -238,7 +238,7 @@ function resolveProjectConfig(
   }
 
   const subject = composite.name === undefined ? 'project block' : `composite release '${composite.name}'`;
-  if (rootPackage === undefined || !rootPackage.exists) {
+  if (rootPackage === undefined || !rootPackage.doesExist) {
     throw new Error(
       `${subject} requires a root ${ROOT_PACKAGE_JSON_PATH}; create one with a 'version' field at the repo root`,
     );

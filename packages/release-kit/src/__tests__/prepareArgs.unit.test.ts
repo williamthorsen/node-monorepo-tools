@@ -49,7 +49,7 @@ describe(parseArgs, () => {
     // `--force` is a pure release trigger; runtime defaults the level to patch when
     // `--bump` is not supplied. Parsing must accept the flag without requiring `--bump`.
     const result = parseArgs(['--force']);
-    expect(result.force).toBe(true);
+    expect(result.shouldForce).toBe(true);
     expect(result.bumpOverride).toBeUndefined();
   });
 
@@ -72,26 +72,26 @@ describe(parseArgs, () => {
 
   it('parses --no-git-checks flag', () => {
     const result = parseArgs(['--no-git-checks']);
-    expect(result.noGitChecks).toBe(true);
+    expect(result.shouldSkipGitChecks).toBe(true);
   });
 
   it('parses -n as shorthand for --no-git-checks', () => {
     const result = parseArgs(['-n']);
-    expect(result.noGitChecks).toBe(true);
+    expect(result.shouldSkipGitChecks).toBe(true);
   });
 
-  it('defaults noGitChecks to false', () => {
+  it('defaults shouldSkipGitChecks to false', () => {
     const result = parseArgs([]);
-    expect(result.noGitChecks).toBe(false);
+    expect(result.shouldSkipGitChecks).toBe(false);
   });
 
   it('parses --with-release-notes flag', () => {
     const result = parseArgs(['--with-release-notes']);
-    expect(result.withReleaseNotes).toBe(true);
+    expect(result.shouldIncludeReleaseNotes).toBe(true);
   });
 
-  it('defaults withReleaseNotes to false', () => {
+  it('defaults shouldIncludeReleaseNotes to false', () => {
     const result = parseArgs([]);
-    expect(result.withReleaseNotes).toBe(false);
+    expect(result.shouldIncludeReleaseNotes).toBe(false);
   });
 });

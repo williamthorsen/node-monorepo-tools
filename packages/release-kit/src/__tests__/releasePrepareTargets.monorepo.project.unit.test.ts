@@ -308,7 +308,7 @@ describe('releasePrepareTargets for a monorepo', () => {
     it('invokes planReleaseNotesPreviews for each released workspace when enabled', () => {
       const config = setupArraysWithFeat();
 
-      prepareMonorepo(config, { withReleaseNotes: true });
+      prepareMonorepo(config, { shouldIncludeReleaseNotes: true });
 
       expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledTimes(1);
       expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledWith(
@@ -347,7 +347,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       using silent = silenceConsole(['warn']);
 
-      const plan = prepareMonorepo(config, { withReleaseNotes: true });
+      const plan = prepareMonorepo(config, { shouldIncludeReleaseNotes: true });
 
       expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
       expect(plan.warnings).toStrictEqual([
@@ -374,7 +374,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       stubHistory({ previousTag: 'arrays-v1.0.0' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
-      prepareMonorepo(config, { withReleaseNotes: true });
+      prepareMonorepo(config, { shouldIncludeReleaseNotes: true });
 
       expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
     });
@@ -387,7 +387,7 @@ describe('releasePrepareTargets for a monorepo', () => {
         warnings: [],
       });
 
-      const plan = prepareMonorepo(config, { withReleaseNotes: true });
+      const plan = prepareMonorepo(config, { shouldIncludeReleaseNotes: true });
 
       expect(plannedContent(plan, 'packages/arrays/docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
       expect(selectPackageResults(plan)[0]).toMatchObject({
@@ -407,7 +407,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       });
       mockExecFileSync.mockReturnValue('[]');
 
-      prepareMonorepo(config, { withReleaseNotes: true });
+      prepareMonorepo(config, { shouldIncludeReleaseNotes: true });
 
       expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledTimes(2);
       // Confirm each workspace received a preview call with the correct workspacePath and tag.

@@ -92,7 +92,7 @@ describe(prepareCommand, () => {
       expect.objectContaining({
         targets: expect.arrayContaining([expect.objectContaining({ tagPrefix: 'arrays-v' })]),
       }),
-      { force: false },
+      { shouldForce: false },
     );
   });
 
@@ -104,16 +104,16 @@ describe(prepareCommand, () => {
     expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
       expect.objectContaining({ targets: [expect.objectContaining({ id: '.', tagPrefix: 'v' })] }),
       {
-        force: false,
+        shouldForce: false,
       },
     );
   });
 
-  it('passes dryRun from --dry-run flag', async () => {
+  it('passes isDryRun from --dry-run flag', async () => {
     await prepareCommand(['--dry-run'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepareTargets).toHaveBeenCalledWith(expect.any(Object), {
-      force: false,
+      shouldForce: false,
     });
   });
 
@@ -121,7 +121,7 @@ describe(prepareCommand, () => {
     await prepareCommand(['--bump=minor'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepareTargets).toHaveBeenCalledWith(expect.any(Object), {
-      force: false,
+      shouldForce: false,
       bumpOverride: 'minor',
     });
   });
@@ -130,7 +130,7 @@ describe(prepareCommand, () => {
     await prepareCommand(['--force', '--bump=patch'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepareTargets).toHaveBeenCalledWith(expect.any(Object), {
-      force: true,
+      shouldForce: true,
       bumpOverride: 'patch',
     });
   });
@@ -142,7 +142,7 @@ describe(prepareCommand, () => {
       expect.objectContaining({
         targets: [expect.objectContaining({ id: 'arrays' }), expect.objectContaining({ id: 'strings' })],
       }),
-      { force: false, only: ['arrays'] },
+      { shouldForce: false, only: ['arrays'] },
     );
   });
 
@@ -168,7 +168,7 @@ describe(prepareCommand, () => {
 
     await prepareCommand(['--force'], RICH_STYLES, process.cwd());
 
-    expect(mockReleasePrepareTargets).toHaveBeenCalledWith(expect.any(Object), { force: true });
+    expect(mockReleasePrepareTargets).toHaveBeenCalledWith(expect.any(Object), { shouldForce: true });
   });
 
   it('passes --force --bump=X to a single-package release', async () => {
@@ -177,7 +177,7 @@ describe(prepareCommand, () => {
     await prepareCommand(['--force', '--bump=patch'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepareTargets).toHaveBeenCalledWith(expect.any(Object), {
-      force: true,
+      shouldForce: true,
       bumpOverride: 'patch',
     });
   });

@@ -13,7 +13,7 @@ import { resolveConfigFlag } from './resolveConfigFlag.ts';
 
 const pushFlagSchema = {
   ...configFlagSchema,
-  dryRun: { long: '--dry-run', type: 'boolean' as const },
+  isDryRun: { long: '--dry-run', type: 'boolean' as const },
   tags: { long: '--tags', type: 'string' as const },
   tagsOnly: { long: '--tags-only', type: 'boolean' as const },
 };
@@ -26,7 +26,7 @@ export async function pushCommand(argv: string[], styles: StreamStyles, invocati
   const parsed = parseArgsOrExit(argv, pushFlagSchema);
   const configPath = resolveConfigFlag(parsed.flags.config, invocationDir);
 
-  const { dryRun, tagsOnly } = parsed.flags;
+  const { isDryRun, tagsOnly } = parsed.flags;
 
   const userConfig = await loadUsableConfig(styles.stderr, configPath);
 
@@ -38,7 +38,7 @@ export async function pushCommand(argv: string[], styles: StreamStyles, invocati
     return;
   }
 
-  const prefix = dryRun ? '[dry-run] Would push' : 'Pushing';
+  const prefix = isDryRun ? '[dry-run] Would push' : 'Pushing';
   if (!tagsOnly) {
     console.info(`${prefix} branch and ${resolvedTags.length} tag(s):`);
   } else {
@@ -49,9 +49,9 @@ export async function pushCommand(argv: string[], styles: StreamStyles, invocati
   }
 
   try {
-    const steps = pushRelease(resolvedTags, { dryRun, tagsOnly });
+    const steps = pushRelease(resolvedTags, { isDryRun, tagsOnly });
 
-    if (dryRun) {
+    if (isDryRun) {
       for (const step of steps) {
         console.info(`[dry-run] ${step.command.join(' ')}`);
       }

@@ -5,10 +5,10 @@ import { createGithubReleaseWorkflow, publishWorkflow, releaseConfigScript, rele
 
 interface ScaffoldOptions {
   repoType: RepoType;
-  dryRun: boolean;
-  overwrite: boolean;
+  isDryRun: boolean;
+  shouldOverwrite: boolean;
   publishable: boolean;
-  withConfig: boolean;
+  shouldScaffoldConfig: boolean;
 }
 
 export const CREATE_GITHUB_RELEASE_WORKFLOW_PATH = '.github/workflows/create-github-release.yaml';
@@ -20,38 +20,38 @@ export const PUBLISHING_WORKFLOW_PATHS = [CREATE_GITHUB_RELEASE_WORKFLOW_PATH, P
 /** Scaffolds release-kit files for the target repo, returning a result for each file attempted. */
 export function scaffoldFiles({
   repoType,
-  dryRun,
-  overwrite,
+  isDryRun,
+  shouldOverwrite,
   publishable,
-  withConfig,
+  shouldScaffoldConfig,
 }: ScaffoldOptions): WriteResult[] {
   const results: WriteResult[] = [];
 
   if (publishable) {
     results.push(
       writeFileWithCheck(CREATE_GITHUB_RELEASE_WORKFLOW_PATH, createGithubReleaseWorkflow(repoType), {
-        isDryRun: dryRun,
-        shouldOverwrite: overwrite,
+        isDryRun,
+        shouldOverwrite,
       }),
       writeFileWithCheck(PUBLISH_WORKFLOW_PATH, publishWorkflow(repoType), {
-        isDryRun: dryRun,
-        shouldOverwrite: overwrite,
+        isDryRun,
+        shouldOverwrite,
       }),
     );
   }
 
   results.push(
     writeFileWithCheck('.github/workflows/release.yaml', releaseWorkflow(repoType), {
-      isDryRun: dryRun,
-      shouldOverwrite: overwrite,
+      isDryRun,
+      shouldOverwrite,
     }),
   );
 
-  if (withConfig) {
+  if (shouldScaffoldConfig) {
     results.push(
       writeFileWithCheck('.config/release-kit.config.ts', releaseConfigScript(repoType), {
-        isDryRun: dryRun,
-        shouldOverwrite: overwrite,
+        isDryRun,
+        shouldOverwrite,
       }),
     );
   }

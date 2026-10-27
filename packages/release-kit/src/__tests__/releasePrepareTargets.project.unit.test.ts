@@ -156,7 +156,7 @@ describe('releasePrepareTargets for a project composite', () => {
 
     const result = prepareProjectStage({
       config: makeConfig(),
-      options: { force: true },
+      options: { shouldForce: true },
       modifiedFiles,
       writes: [],
       tags,
@@ -182,7 +182,7 @@ describe('releasePrepareTargets for a project composite', () => {
 
     const result = prepareProjectStage({
       config: makeConfig(),
-      options: { force: true },
+      options: { shouldForce: true },
       modifiedFiles,
       writes: [],
       tags,
@@ -324,7 +324,7 @@ describe('releasePrepareTargets for a project composite', () => {
 
     const result = prepareProjectStage({
       config: makeConfig(),
-      options: { force: true, bumpOverride: 'patch' },
+      options: { shouldForce: true, bumpOverride: 'patch' },
       modifiedFiles,
       writes: [],
       tags,
@@ -396,7 +396,7 @@ describe('releasePrepareTargets for a project composite', () => {
 
     prepareProjectStage({
       config,
-      options: { withReleaseNotes: true },
+      options: { shouldIncludeReleaseNotes: true },
       modifiedFiles,
       writes: [],
       tags,

@@ -126,7 +126,7 @@ describe('releasePrepareTargets for a monorepo', () => {
     it('writes a synthetic Notes / Forced version bump entry when --force is used without any commits', () => {
       stubEmptyRange();
 
-      const result = prepareMonorepo(singleWorkspaceConfig(), { force: true });
+      const result = prepareMonorepo(singleWorkspaceConfig(), { shouldForce: true });
 
       expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
 
@@ -137,7 +137,7 @@ describe('releasePrepareTargets for a monorepo', () => {
     });
 
     it.each([
-      ['--force', { force: true }, '1.0.1'],
+      ['--force', { shouldForce: true }, '1.0.1'],
       ['--set-version', { setVersions: new Map([['arrays', '2.0.0']]) }, '2.0.0'],
     ])(
       "writes the synthetic entry under %s when the window has commits but doesn't yield an item",
@@ -165,7 +165,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       stubEmptyRange();
       stubHistory({ previousTag: 'arrays-v1.0.0', releasedEntries: [RELEASED_ENTRY] });
 
-      const result = prepareMonorepo(singleWorkspaceConfig(), { force: true, bumpOverride: 'minor' });
+      const result = prepareMonorepo(singleWorkspaceConfig(), { shouldForce: true, bumpOverride: 'minor' });
 
       expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledExactlyOnceWith('1.1.0', expect.any(String));
@@ -190,7 +190,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       stubEmptyRange();
 
       prepareMonorepo(singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
-        force: true,
+        shouldForce: true,
       });
 
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledTimes(1);
@@ -265,7 +265,7 @@ describe('releasePrepareTargets for a monorepo', () => {
 
       const result = prepareMonorepo(
         singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
-        { force: true },
+        { shouldForce: true },
       );
 
       expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
@@ -321,7 +321,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       mockExistsSync.mockReturnValue(false);
 
-      prepareMonorepo(config, { force: true });
+      prepareMonorepo(config, { shouldForce: true });
 
       // Three workspaces, all empty-range, all forced: each reads its history once, and each changelog
       // comes from the synthetic entry.
@@ -436,7 +436,7 @@ describe('releasePrepareTargets for a monorepo', () => {
     it('throws under --force', () => {
       const config = stubUntaggedWorkspaces();
 
-      expect(() => prepareMonorepo(config, { force: true })).toThrow('create tag core-v1.1.0');
+      expect(() => prepareMonorepo(config, { shouldForce: true })).toThrow('create tag core-v1.1.0');
     });
 
     it('throws under --set-version', () => {

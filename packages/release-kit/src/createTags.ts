@@ -7,8 +7,8 @@ import { RELEASE_GLYPHS } from './glyphs.ts';
 import { readReleaseTags, RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 
 export interface CreateTagsOptions {
-  dryRun: boolean;
-  noGitChecks: boolean;
+  isDryRun: boolean;
+  shouldSkipGitChecks: boolean;
   style: OutputStyle;
 }
 
@@ -17,7 +17,7 @@ export interface CreateTagsOptions {
  * files, and returns the tag names. In dry-run mode, it only lists the names.
  */
 export function createTags(options: CreateTagsOptions): string[] {
-  const { dryRun, noGitChecks, style } = options;
+  const { isDryRun, shouldSkipGitChecks, style } = options;
 
   const tags = readReleaseTags();
 
@@ -25,11 +25,11 @@ export function createTags(options: CreateTagsOptions): string[] {
     return [];
   }
 
-  if (!dryRun && !noGitChecks) {
+  if (!isDryRun && !shouldSkipGitChecks) {
     assertCleanWorkingTree();
   }
 
-  if (dryRun) {
+  if (isDryRun) {
     console.info('[dry-run] Would create tags:');
     for (const tag of tags) {
       console.info(formatGlyphLine(RELEASE_GLYPHS, style, 'tag', tag));

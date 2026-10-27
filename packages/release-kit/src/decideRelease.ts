@@ -7,7 +7,7 @@ export interface DecideReleaseArgs {
   /** The number of commits in the window, which selects the skip reason. */
   commitCount: number;
   /** True when `--force` was passed; treats absence of a natural bump as patch. Defaults to false. */
-  force?: boolean | undefined;
+  shouldForce?: boolean | undefined;
   /** Explicit `--bump=X` override. When set, the level is X regardless of the natural bump. */
   bumpOverride: ReleaseType | undefined;
   /**
@@ -31,9 +31,9 @@ export type DecideReleaseResult =
  * release, and `--force` triggers one without choosing a level.
  */
 export function decideRelease(args: DecideReleaseArgs): DecideReleaseResult {
-  const { naturalBump, commitCount, force = false, bumpOverride, skipReasons } = args;
+  const { naturalBump, commitCount, shouldForce = false, bumpOverride, skipReasons } = args;
 
-  if (naturalBump === undefined && !force) {
+  if (naturalBump === undefined && !shouldForce) {
     const skipReason = commitCount === 0 ? skipReasons.noCommits : skipReasons.noBumpWorthy;
     return { outcome: 'skip', skipReason };
   }

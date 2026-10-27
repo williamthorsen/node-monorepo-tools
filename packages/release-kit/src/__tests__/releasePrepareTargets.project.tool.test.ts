@@ -113,7 +113,7 @@ describe('project releases (tool)', () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {}, changelogJson: { enabled: false } },
-        { exists: true, version: '0.9.0' },
+        { doesExist: true, version: '0.9.0' },
       );
 
       const result = prepareAndApply(config, {});
@@ -168,7 +168,7 @@ describe('project releases (tool)', () => {
       run('git', ['commit', '--quiet', '-m', '## root|feat: Document the deployment runbook']);
 
       const discoveredPaths = ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'];
-      const rootPackage = { exists: true, version: '0.9.1' };
+      const rootPackage = { doesExist: true, version: '0.9.1' };
 
       // Default window (the workspace union) sees nothing, so the project stage skips.
       const defaultConfig = mergeMonorepoConfig(
@@ -211,7 +211,7 @@ describe('project releases (tool)', () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {}, changelogJson: { enabled: false } },
-        { exists: true, version: '0.9.1' },
+        { doesExist: true, version: '0.9.1' },
       );
 
       const skipped = selectCompositeResult(prepareMonorepo(config, {}));
@@ -221,7 +221,7 @@ describe('project releases (tool)', () => {
       expect(skipped.parsedCommitCount).toBe(0);
       expect(skipped.unparseableCommits?.map((commit) => commit.subject)).toStrictEqual(['Update notes']);
 
-      const forced = selectCompositeResult(prepareMonorepo(config, { force: true }));
+      const forced = selectCompositeResult(prepareMonorepo(config, { shouldForce: true }));
       assert(forced?.status === 'released', 'expected released project');
       expect(forced.releaseType).toBe('patch');
       expect(forced.tag).toBe('v0.9.2');
@@ -239,9 +239,9 @@ describe('project releases (tool)', () => {
       const forcedConfig = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {} },
-        { exists: true, version: '0.9.1' },
+        { doesExist: true, version: '0.9.1' },
       );
-      const forcedPlan = prepareAndApply(forcedConfig, { force: true });
+      const forcedPlan = prepareAndApply(forcedConfig, { shouldForce: true });
       const forced = selectCompositeResult(forcedPlan);
       assert(forced?.status === 'released', 'expected released project');
       expect(forced.tag).toBe('v0.9.2');
@@ -259,7 +259,7 @@ describe('project releases (tool)', () => {
       const nextConfig = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {} },
-        { exists: true, version: '0.9.2' },
+        { doesExist: true, version: '0.9.2' },
       );
       const next = selectCompositeResult(prepareAndApply(nextConfig, {}));
       assert(next?.status === 'released', 'expected released project');
@@ -295,7 +295,7 @@ describe('project releases (tool)', () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {}, changelogJson: { enabled: false } },
-        { exists: true, version: '0.9.1' },
+        { doesExist: true, version: '0.9.1' },
       );
 
       const project = selectCompositeResult(prepareMonorepo(config, {}));
@@ -323,7 +323,7 @@ describe('project releases (tool)', () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {}, changelogJson: { enabled: false } },
-        { exists: true, version: '1.0.0' },
+        { doesExist: true, version: '1.0.0' },
       );
 
       const result = prepareAndApply(config, { bumpOverride: 'major' });
@@ -341,7 +341,7 @@ describe('project releases (tool)', () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {}, changelogJson: { enabled: false } },
-        { exists: true, version: '0.9.0' },
+        { doesExist: true, version: '0.9.0' },
       );
 
       const result = prepareMonorepo(config, {});
@@ -367,7 +367,7 @@ describe('project releases (tool)', () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {} },
-        { exists: true, version: '0.9.0' },
+        { doesExist: true, version: '0.9.0' },
       );
 
       prepareAndApply(config, {});
@@ -386,10 +386,10 @@ describe('project releases (tool)', () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {} },
-        { exists: true, version: '0.9.0' },
+        { doesExist: true, version: '0.9.0' },
       );
 
-      prepareAndApply(config, { withReleaseNotes: true });
+      prepareAndApply(config, { shouldIncludeReleaseNotes: true });
 
       // The project preview file lives at root docs/.
       const previewPath = join(tree.dir, 'docs', 'RELEASE_NOTES.v0.10.0.md');
@@ -409,10 +409,10 @@ describe('project releases (tool)', () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {} },
-        { exists: true, version: '0.9.0' },
+        { doesExist: true, version: '0.9.0' },
       );
 
-      const result = prepareAndApply(config, { force: true });
+      const result = prepareAndApply(config, { shouldForce: true });
 
       // Under --force, the project releases at patch level.
       const project = selectCompositeResult(result);
@@ -477,10 +477,10 @@ describe('project releases (tool)', () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {} },
-        { exists: true, version: '0.9.0' },
+        { doesExist: true, version: '0.9.0' },
       );
 
-      prepareAndApply(config, { force: true });
+      prepareAndApply(config, { shouldForce: true });
 
       const written: Array<{ version: string; sections: Array<{ items: Array<{ description: string }> }> }> =
         JSON.parse(readFileSync(changelogJsonPath, 'utf8'));
@@ -547,7 +547,7 @@ describe('prepare atomicity (tool)', () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { changelogJson: { enabled: false } },
-        { exists: true, version: '0.9.0' },
+        { doesExist: true, version: '0.9.0' },
       );
 
       // The last workspace declares a package file that does not exist, so its bump throws

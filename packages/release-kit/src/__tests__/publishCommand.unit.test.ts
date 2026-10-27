@@ -53,7 +53,7 @@ vi.mock(import('../loadConfig.ts'), async () => {
     ...actual,
     loadConfig: mockLoadConfig,
     // `node:fs` is mocked above, so the real reader cannot read the root package.json.
-    readRootPackageVersion: () => ({ exists: true, version: '1.0.0' }),
+    readRootPackageVersion: () => ({ doesExist: true, version: '1.0.0' }),
   };
 });
 
@@ -101,17 +101,17 @@ describe(publishCommand, () => {
     expect(mockPublishPackage).toHaveBeenCalledWith(
       { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true },
       'npm',
-      expect.objectContaining({ dryRun: false, provenance: false }),
+      expect.objectContaining({ isDryRun: false, shouldGenerateProvenance: false }),
     );
   });
 
-  it('passes dryRun when --dry-run is provided', async () => {
+  it('passes isDryRun when --dry-run is provided', async () => {
     await publishCommand(['--dry-run'], RICH_STYLES, process.cwd());
 
     expect(mockPublishPackage).toHaveBeenCalledWith(
       expect.anything(),
       'npm',
-      expect.objectContaining({ dryRun: true, provenance: false }),
+      expect.objectContaining({ isDryRun: true, shouldGenerateProvenance: false }),
     );
   });
 
@@ -121,9 +121,9 @@ describe(publishCommand, () => {
     expect(mockPublishPackage).toHaveBeenCalledWith(
       expect.anything(),
       'npm',
-      expect.objectContaining({ dryRun: false, provenance: false }),
+      expect.objectContaining({ isDryRun: false, shouldGenerateProvenance: false }),
     );
-    expect(mockPublishPackage.mock.calls[0]?.[2]).not.toHaveProperty('noGitChecks');
+    expect(mockPublishPackage.mock.calls[0]?.[2]).not.toHaveProperty('shouldSkipGitChecks');
   });
 
   it('passes provenance when --provenance is provided', async () => {
@@ -132,7 +132,7 @@ describe(publishCommand, () => {
     expect(mockPublishPackage).toHaveBeenCalledWith(
       expect.anything(),
       'npm',
-      expect.objectContaining({ dryRun: false, provenance: true }),
+      expect.objectContaining({ isDryRun: false, shouldGenerateProvenance: true }),
     );
   });
 
@@ -174,7 +174,7 @@ describe(publishCommand, () => {
     expect(mockPublishPackage).toHaveBeenCalledWith(
       { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       'npm',
-      expect.objectContaining({ dryRun: false, provenance: false }),
+      expect.objectContaining({ isDryRun: false, shouldGenerateProvenance: false }),
     );
   });
 
@@ -190,7 +190,7 @@ describe(publishCommand, () => {
     expect(mockPublishPackage).toHaveBeenCalledWith(
       { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true },
       'npm',
-      expect.objectContaining({ dryRun: false, provenance: false }),
+      expect.objectContaining({ isDryRun: false, shouldGenerateProvenance: false }),
     );
   });
 
@@ -327,7 +327,7 @@ describe(publishCommand, () => {
           isPublishable: true,
         },
         'npm',
-        expect.objectContaining({ dryRun: false, provenance: false }),
+        expect.objectContaining({ isDryRun: false, shouldGenerateProvenance: false }),
       );
       expect(console.info).toHaveBeenCalledWith('  common-utils-v2.4.0 (packages/common-utils)');
       expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('basic-v1.0.0'));
@@ -415,7 +415,7 @@ describe(publishCommand, () => {
           isPublishable: true,
         },
         'npm',
-        expect.objectContaining({ dryRun: false, provenance: false }),
+        expect.objectContaining({ isDryRun: false, shouldGenerateProvenance: false }),
       );
     });
   });

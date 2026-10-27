@@ -85,7 +85,7 @@ export async function loadRepoLabelsConfig(
 /** Options for the `sync-labels generate` subcommand. */
 interface GenerateOptions {
   /** Compares the regenerated content against the committed file instead of writing. */
-  check?: boolean;
+  shouldCheck?: boolean;
   /** Config file to read, relative to the working directory. Defaults to `CONFIG_FILE_PATH`. */
   configPath?: string;
   styles: StreamStyles;
@@ -94,13 +94,13 @@ interface GenerateOptions {
 /**
  * Runs the `sync-labels generate` command and returns the process exit code.
  *
- * Writes `.github/labels.yaml` from the config's `repoLabels` block, or, with `check`, reports whether the committed
+ * Writes `.github/labels.yaml` from the config's `repoLabels` block, or, with `shouldCheck`, reports whether the committed
  * file is stale and writes nothing.
  *
  * The header names the config by its POSIX path relative to the working directory, the repo root, so that the file
  * does not depend on the invocation directory or on the machine on which the command ran.
  */
-export async function generateCommand({ check = false, configPath, styles }: GenerateOptions): Promise<number> {
+export async function generateCommand({ shouldCheck = false, configPath, styles }: GenerateOptions): Promise<number> {
   if (checkRetiredSyncLabelsConfig(configPath)) {
     return 1;
   }
@@ -127,7 +127,7 @@ export async function generateCommand({ check = false, configPath, styles }: Gen
 
   const content = formatLabelsYaml(labels, presetHashes, toRootRelativePosixPath(configPath ?? CONFIG_FILE_PATH));
 
-  if (check) {
+  if (shouldCheck) {
     return compareAgainstCommittedFile(content);
   }
 

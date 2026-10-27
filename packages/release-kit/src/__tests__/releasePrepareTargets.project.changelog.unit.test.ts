@@ -133,13 +133,13 @@ describe('releasePrepareTargets for a project composite', () => {
     it.each<[string, boolean]>([
       ['a natural release', false],
       ['--force', true],
-    ])('throws on %s when the root version is recorded but untagged', (_label, force) => {
+    ])('throws on %s when the root version is recorded but untagged', (_label, shouldForce) => {
       stubDefaultHistory();
       stubFiles({ './package.json': JSON.stringify({ version: '1.0.0' }), 'CHANGELOG.md': '## 1.0.0\n' });
       const writes: PlannedWrite[] = [];
 
       expect(() =>
-        prepareProjectStage({ config: makeConfig(), options: { force }, modifiedFiles: [], writes, tags: [] }),
+        prepareProjectStage({ config: makeConfig(), options: { shouldForce }, modifiedFiles: [], writes, tags: [] }),
       ).toThrow('  - project: 1.0.0 (create tag v1.0.0)');
       expect(writes).toStrictEqual([]);
     });
@@ -171,7 +171,7 @@ describe('releasePrepareTargets for a project composite', () => {
 
       const result = prepareProjectStage({
         config: makeConfig(),
-        options: { force: true },
+        options: { shouldForce: true },
         modifiedFiles,
         writes: [],
         tags,
@@ -209,7 +209,7 @@ describe('releasePrepareTargets for a project composite', () => {
 
       prepareProjectStage({
         config: makeConfig(),
-        options: { force: true },
+        options: { shouldForce: true },
         modifiedFiles: [],
         writes: [],
         tags: [],
@@ -227,7 +227,7 @@ describe('releasePrepareTargets for a project composite', () => {
 
       prepareProjectStage({
         config,
-        options: { force: true },
+        options: { shouldForce: true },
         modifiedFiles: [],
         writes: [],
         tags: [],
@@ -246,7 +246,7 @@ describe('releasePrepareTargets for a project composite', () => {
 
       prepareProjectStage({
         config,
-        options: { force: true },
+        options: { shouldForce: true },
         modifiedFiles: [],
         writes: [],
         tags: [],
@@ -276,7 +276,7 @@ describe('releasePrepareTargets for a project composite', () => {
 
       const result = prepareProjectStage({
         config: makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
-        options: { force: true },
+        options: { shouldForce: true },
         modifiedFiles,
         writes,
         tags,
@@ -299,7 +299,7 @@ describe('releasePrepareTargets for a project composite', () => {
 
       prepareProjectStage({
         config: makeConfig(),
-        options: { force: true },
+        options: { shouldForce: true },
         modifiedFiles: [],
         writes: [],
         tags: [],

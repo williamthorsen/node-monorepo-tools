@@ -5,7 +5,7 @@ import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
 
 export interface PushReleaseOptions {
-  dryRun?: boolean;
+  isDryRun?: boolean;
   tagsOnly?: boolean;
 }
 
@@ -22,7 +22,7 @@ export interface PushStep {
  * Returns the push steps, which it runs only outside dry-run mode.
  */
 export function pushRelease(resolvedTags: ResolvedTag[], options: PushReleaseOptions = {}): PushStep[] {
-  const { dryRun = false, tagsOnly = false } = options;
+  const { isDryRun = false, tagsOnly = false } = options;
 
   const steps: PushStep[] = [];
 
@@ -42,7 +42,7 @@ export function pushRelease(resolvedTags: ResolvedTag[], options: PushReleaseOpt
     steps.push({ type: 'tag', ref: tag, command });
   }
 
-  if (!dryRun) {
+  if (!isDryRun) {
     for (const step of steps) {
       execFileSync(step.command[0], step.command.slice(1), { stdio: 'inherit' });
     }

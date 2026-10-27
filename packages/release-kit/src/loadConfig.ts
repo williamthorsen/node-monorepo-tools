@@ -12,15 +12,15 @@ export const ROOT_PACKAGE_JSON_PATH = 'package.json';
 /**
  * Reads the root `package.json` and returns its `version` field.
  *
- * Returns `{ exists: false }` when the file is missing, `{ exists: true, version: undefined }`
- * when the file exists but does not have a `version` field, and `{ exists: true, version }`
+ * Returns `{ doesExist: false }` when the file is missing, `{ doesExist: true, version: undefined }`
+ * when the file exists but does not have a `version` field, and `{ doesExist: true, version }`
  * when both are present; `mergeMonorepoConfig` decides whether the situation is an error.
  * Throws when the file cannot be read or parsed.
  */
-export function readRootPackageVersion(): { exists: boolean; version: string | undefined } {
+export function readRootPackageVersion(): { doesExist: boolean; version: string | undefined } {
   const absolutePath = path.resolve(process.cwd(), ROOT_PACKAGE_JSON_PATH);
   if (!existsSync(absolutePath)) {
-    return { exists: false, version: undefined };
+    return { doesExist: false, version: undefined };
   }
 
   let contents: string;
@@ -38,9 +38,9 @@ export function readRootPackageVersion(): { exists: boolean; version: string | u
   }
 
   if (!isRecord(parsed)) {
-    return { exists: true, version: undefined };
+    return { doesExist: true, version: undefined };
   }
-  return { exists: true, version: typeof parsed['version'] === 'string' ? parsed['version'] : undefined };
+  return { doesExist: true, version: typeof parsed['version'] === 'string' ? parsed['version'] : undefined };
 }
 
 /** The path where the consumer-facing config file is expected. */
