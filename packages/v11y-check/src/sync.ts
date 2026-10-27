@@ -61,17 +61,17 @@ export function computeSyncDiff(
   const currentById = new Map(currentAllowlist.map((entry) => [entry.id, entry]));
   const auditById = new Map(auditResults.map((result) => [result.id, result]));
 
-  const added: AllowlistEntry[] = [];
-  const kept: AllowlistEntry[] = [];
-  const removed: AllowlistEntry[] = [];
+  const addedEntries: AllowlistEntry[] = [];
+  const keptEntries: AllowlistEntry[] = [];
+  const removedEntries: AllowlistEntry[] = [];
 
   const nowIso = formatUtcDatetime(now);
   for (const [id, result] of auditById) {
-    const existing = currentById.get(id);
-    if (existing !== undefined) {
-      kept.push(existing);
+    const existingEntry = currentById.get(id);
+    if (existingEntry !== undefined) {
+      keptEntries.push(existingEntry);
     } else {
-      added.push({
+      addedEntries.push({
         addedAt: nowIso,
         id: result.id,
         path: result.path,
@@ -83,11 +83,11 @@ export function computeSyncDiff(
 
   for (const [id, entry] of currentById) {
     if (!auditById.has(id)) {
-      removed.push(entry);
+      removedEntries.push(entry);
     }
   }
 
-  return { added, kept, removed };
+  return { added: addedEntries, kept: keptEntries, removed: removedEntries };
 }
 
 /**
@@ -100,12 +100,12 @@ export function buildUpdatedConfig(
   scope: AuditScope,
   newAllowlist: AllowlistEntry[],
 ): V11yCheckConfig {
-  const sorted = newAllowlist.toSorted((a, b) => a.id.localeCompare(b.id));
+  const sortedAllowlist = newAllowlist.toSorted((a, b) => a.id.localeCompare(b.id));
   return {
     ...config,
     [scope]: {
       ...config[scope],
-      allowlist: sorted,
+      allowlist: sortedAllowlist,
     },
   };
 }
@@ -116,13 +116,13 @@ export function buildUpdatedConfig(
  * Includes `$schema` when present.
  */
 export function serializeConfig(config: V11yCheckConfig): string {
-  const serializable = {
+  const serializableConfig = {
     ...(config.$schema !== undefined && { $schema: config.$schema }),
     dev: serializeScopeConfig(config.dev),
     prod: serializeScopeConfig(config.prod),
   };
 
-  return JSON.stringify(serializable, null, 2) + '\n';
+  return JSON.stringify(serializableConfig, null, 2) + '\n';
 }
 
 /**
@@ -137,8 +137,12 @@ export async function syncAllowlist(
   configFilePath: string,
   date?: Date,
 ): Promise<{ syncResult: SyncResult; updatedConfig: V11yCheckConfig }> {
-  const { added, kept, removed } = computeSyncDiff(config[scope].allowlist, auditResults, date);
-  const updatedConfig = buildUpdatedConfig(config, scope, [...kept, ...added]);
+  const {
+    added: addedEntries,
+    kept: keptEntries,
+    removed: removedEntries,
+  } = computeSyncDiff(config[scope].allowlist, auditResults, date);
+  const updatedConfig = buildUpdatedConfig(config, scope, [...keptEntries, ...addedEntries]);
 
   try {
     await writeFile(configFilePath, serializeConfig(updatedConfig), 'utf8');
@@ -147,7 +151,7 @@ export async function syncAllowlist(
   }
 
   return {
-    syncResult: { added, kept, removed, scope },
+    syncResult: { added: addedEntries, kept: keptEntries, removed: removedEntries, scope },
     updatedConfig,
   };
 }

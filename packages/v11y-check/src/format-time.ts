@@ -6,46 +6,47 @@
  * short intervals, and UTC calendar math for months and years.
  */
 export function formatRelativeTime(fromIso: string, now: Date): string {
-  const from = parseDateUtc(fromIso);
-  if (from === undefined) return '';
+  const fromDate = parseDateUtc(fromIso);
+  if (fromDate === undefined) return '';
 
-  const deltaMs = now.getTime() - from.getTime();
+  const deltaMs = now.getTime() - fromDate.getTime();
   if (deltaMs < 60_000) return 'just now';
 
-  const minutes = Math.floor(deltaMs / 60_000);
-  if (minutes < 60) return pluralize(minutes, 'minute');
+  const elapsedMinutes = Math.floor(deltaMs / 60_000);
+  if (elapsedMinutes < 60) return pluralize(elapsedMinutes, 'minute');
 
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return pluralize(hours, 'hour');
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return pluralize(elapsedHours, 'hour');
 
-  const days = Math.floor(hours / 24);
-  if (days === 1) return 'yesterday';
-  if (days < 7) return pluralize(days, 'day');
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  if (elapsedDays === 1) return 'yesterday';
+  if (elapsedDays < 7) return pluralize(elapsedDays, 'day');
 
-  const weeks = Math.floor(days / 7);
-  if (weeks < 5) return pluralize(weeks, 'week');
+  const elapsedWeeks = Math.floor(elapsedDays / 7);
+  if (elapsedWeeks < 5) return pluralize(elapsedWeeks, 'week');
 
-  const months = diffMonthsUtc(from, now);
-  if (months < 12) return pluralize(months, 'month');
+  const elapsedMonths = diffMonthsUtc(fromDate, now);
+  if (elapsedMonths < 12) return pluralize(elapsedMonths, 'month');
 
-  const years = Math.floor(months / 12);
-  return pluralize(years, 'year');
+  const elapsedYears = Math.floor(elapsedMonths / 12);
+  return pluralize(elapsedYears, 'year');
 }
 
 /** Parses a YYYY-MM-DD (or full ISO) string into a UTC Date; returns undefined if invalid. */
 function parseDateUtc(iso: string): Date | undefined {
   // ECMAScript parses date-only ISO strings (YYYY-MM-DD) and full ISO strings as UTC.
-  const parsed = new Date(iso);
-  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  const parsedDate = new Date(iso);
+  return Number.isNaN(parsedDate.getTime()) ? undefined : parsedDate;
 }
 
 /** Computes the number of whole months between two dates in UTC. */
-function diffMonthsUtc(from: Date, now: Date): number {
-  let months = (now.getUTCFullYear() - from.getUTCFullYear()) * 12 + (now.getUTCMonth() - from.getUTCMonth());
-  if (now.getUTCDate() < from.getUTCDate()) {
-    months -= 1;
+function diffMonthsUtc(fromDate: Date, now: Date): number {
+  let elapsedMonths =
+    (now.getUTCFullYear() - fromDate.getUTCFullYear()) * 12 + (now.getUTCMonth() - fromDate.getUTCMonth());
+  if (now.getUTCDate() < fromDate.getUTCDate()) {
+    elapsedMonths -= 1;
   }
-  return Math.max(0, months);
+  return Math.max(0, elapsedMonths);
 }
 
 /** Formats an integer count + unit, pluralizing with a simple `s`. */

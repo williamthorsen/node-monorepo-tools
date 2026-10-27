@@ -38,21 +38,21 @@ export async function loadConfig(configPath?: string, cwd?: string): Promise<Loa
     };
   }
 
-  let raw: string;
+  let rawContent: string;
   try {
-    raw = await readFile(filePath, 'utf8');
+    rawContent = await readFile(filePath, 'utf8');
   } catch {
     throw new Error(`Config file not found: ${filePath}`);
   }
 
-  let parsed: unknown;
+  let parsedConfig: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsedConfig = JSON.parse(rawContent);
   } catch {
     throw new Error(`Config file is not valid JSON: ${filePath}`);
   }
 
-  const result = v11yCheckConfigSchema.safeParse(parsed);
+  const result = v11yCheckConfigSchema.safeParse(parsedConfig);
   if (!result.success) {
     const issues = result.error.issues.map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`).join('\n');
     throw new Error(`Invalid config in ${filePath}:\n${issues}`);

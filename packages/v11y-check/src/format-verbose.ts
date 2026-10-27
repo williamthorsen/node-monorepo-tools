@@ -2,12 +2,12 @@ import { formatGlyphLine, type OutputStyle, wrapToWidth } from '@williamthorsen/
 
 import { formatActionHints } from './format-actions.ts';
 import {
-  type AllowedVuln,
+  type AllowedVulnerability,
   type CheckResult,
-  displayId,
   formatSeveritySuffix,
+  getSeverityIndicator,
+  resolveDisplayId,
   type ScopeCheckResult,
-  severityIndicator,
   type StaleEntry,
 } from './format-check.ts';
 import { formatRelativeTime } from './format-time.ts';
@@ -51,7 +51,7 @@ export function formatCheckVerboseText(
 /** Formats a threshold annotation for scope headers. Returns empty string for `low` or undefined threshold. */
 function formatThresholdSuffix(threshold: SeverityThreshold | undefined, style: OutputStyle): string {
   if (threshold === undefined || threshold === 'low') return '';
-  const indicator = severityIndicator(threshold, style);
+  const indicator = getSeverityIndicator(threshold, style);
   const indicatorPart = indicator.length > 0 ? `${indicator} ` : '';
   return ` (threshold: ${indicatorPart}${threshold})`;
 }
@@ -79,38 +79,38 @@ function formatScopeVerbose(
     return lines.join('\n');
   }
 
-  const blocks: string[] = Array.from(result.unallowed, (vuln) => formatUnallowedBlock(vuln, style));
-  for (const vuln of result.allowed) {
-    blocks.push(formatAllowedBlock(vuln, now, style));
+  const blocks: string[] = Array.from(result.unallowed, (vulnerability) => formatUnallowedBlock(vulnerability, style));
+  for (const vulnerability of result.allowed) {
+    blocks.push(formatAllowedBlock(vulnerability, now, style));
   }
   for (const entry of result.stale) {
     blocks.push(formatStaleLine(entry, style));
   }
-  for (const vuln of result.belowThreshold) {
-    blocks.push(formatBelowThresholdBlock(vuln, style));
+  for (const vulnerability of result.belowThreshold) {
+    blocks.push(formatBelowThresholdBlock(vulnerability, style));
   }
 
   return lines.concat(blocks.join('\n\n')).join('\n');
 }
 
 /** Formats an unallowed vulnerability block with the `failed` marker. */
-function formatUnallowedBlock(vuln: AuditResult, style: OutputStyle): string {
-  const message = `${displayId(vuln)}${formatSeveritySuffix(vuln.severity, style)}`;
+function formatUnallowedBlock(vulnerability: AuditResult, style: OutputStyle): string {
+  const message = `${resolveDisplayId(vulnerability)}${formatSeveritySuffix(vulnerability.severity, style)}`;
   const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'failed', message)}`;
-  const detail = formatAdvisoryDetail(vuln, style);
+  const detail = formatAdvisoryDetail(vulnerability, style);
   return [headerLine, ...detail].join('\n');
 }
 
 /** Formats an allowed vulnerability block with the `passed` marker plus reason/addedAt context. */
-function formatAllowedBlock(vuln: AllowedVuln, now: Date, style: OutputStyle): string {
-  const allowedSuffix = vuln.addedAt !== undefined ? formatAllowedSuffix(vuln.addedAt, now) : '';
-  const message = `${displayId(vuln)}${formatSeveritySuffix(vuln.severity, style)}${allowedSuffix}`;
+function formatAllowedBlock(vulnerability: AllowedVulnerability, now: Date, style: OutputStyle): string {
+  const allowedSuffix = vulnerability.addedAt !== undefined ? formatAllowedSuffix(vulnerability.addedAt, now) : '';
+  const message = `${resolveDisplayId(vulnerability)}${formatSeveritySuffix(vulnerability.severity, style)}${allowedSuffix}`;
   const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'passed', message)}`;
-  const hasTitle = vuln.title !== undefined;
-  const detail = formatAdvisoryDetail(vuln, style);
-  if (vuln.reason !== undefined) {
+  const hasTitle = vulnerability.title !== undefined;
+  const detail = formatAdvisoryDetail(vulnerability, style);
+  if (vulnerability.reason !== undefined) {
     const reasonLineIndex = findReasonInsertionIndex(hasTitle);
-    detail.splice(reasonLineIndex, 0, `${buildDetailIndent(style)}reason: ${vuln.reason}`);
+    detail.splice(reasonLineIndex, 0, `${buildDetailIndent(style)}reason: ${vulnerability.reason}`);
   }
   return [headerLine, ...detail].join('\n');
 }
@@ -121,16 +121,16 @@ function formatStaleLine(entry: StaleEntry, style: OutputStyle): string {
 }
 
 /** Formats a below-threshold vulnerability block with the `skipped` marker and "ignored (below threshold)" annotation. */
-function formatBelowThresholdBlock(vuln: AuditResult, style: OutputStyle): string {
-  const message = `${displayId(vuln)}${formatSeveritySuffix(vuln.severity, style)}  ignored (below threshold)`;
+function formatBelowThresholdBlock(vulnerability: AuditResult, style: OutputStyle): string {
+  const message = `${resolveDisplayId(vulnerability)}${formatSeveritySuffix(vulnerability.severity, style)}  ignored (below threshold)`;
   const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'skipped', message)}`;
-  const detail = formatAdvisoryDetail(vuln, style);
+  const detail = formatAdvisoryDetail(vulnerability, style);
   return [headerLine, ...detail].join('\n');
 }
 
 /** Builds an advisory's detail lines: title, paths, link, and description. */
 function formatAdvisoryDetail(
-  vuln: {
+  vulnerability: {
     description?: string | undefined;
     paths: string[];
     title?: string | undefined;
@@ -140,12 +140,12 @@ function formatAdvisoryDetail(
 ): string[] {
   const detailIndent = buildDetailIndent(style);
   const lines: string[] = [];
-  if (vuln.title !== undefined) {
-    lines.push(`${detailIndent}${vuln.title}`);
+  if (vulnerability.title !== undefined) {
+    lines.push(`${detailIndent}${vulnerability.title}`);
   }
-  lines.push(...formatPathsLines(vuln.paths, detailIndent), `${detailIndent}link: ${vuln.url}`);
-  if (vuln.description !== undefined) {
-    lines.push('', ...formatDescriptionLines(vuln.description, detailIndent));
+  lines.push(...formatPathsLines(vulnerability.paths, detailIndent), `${detailIndent}link: ${vulnerability.url}`);
+  if (vulnerability.description !== undefined) {
+    lines.push('', ...formatDescriptionLines(vulnerability.description, detailIndent));
   }
   return lines;
 }
@@ -178,9 +178,9 @@ function formatPathsLines(paths: string[], detailIndent: string): string[] {
 
 /** Builds the "allowed X ago (datetime)" suffix for entries with `addedAt`. */
 function formatAllowedSuffix(addedAt: string, now: Date): string {
-  const relative = formatRelativeTime(addedAt, now);
-  if (relative.length === 0) return `  allowed (${addedAt})`;
-  return `  allowed ${relative} (${addedAt})`;
+  const relativeTime = formatRelativeTime(addedAt, now);
+  if (relativeTime.length === 0) return `  allowed (${addedAt})`;
+  return `  allowed ${relativeTime} (${addedAt})`;
 }
 
 /** Wraps a description (possibly multi-paragraph) by display columns, indenting every line to the detail indent. */
@@ -191,8 +191,11 @@ function formatDescriptionLines(description: string, detailIndent: string): stri
   for (const paragraph of paragraphs) {
     if (isSeparatorNeeded) lines.push('');
     // `wrapToWidth` counts the indent inside `width`, and `WRAP_COLUMNS` is the width of the content alone.
-    const wrapped = wrapToWidth(paragraph, { indent: detailIndent.length, width: WRAP_COLUMNS + detailIndent.length });
-    if (wrapped !== '') lines.push(...wrapped.split('\n'));
+    const wrappedText = wrapToWidth(paragraph, {
+      indent: detailIndent.length,
+      width: WRAP_COLUMNS + detailIndent.length,
+    });
+    if (wrappedText !== '') lines.push(...wrappedText.split('\n'));
     isSeparatorNeeded = true;
   }
   return lines;

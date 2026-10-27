@@ -95,29 +95,29 @@ Options:
 /** Parses the flags shared by every subcommand but `init`. */
 function parseSharedFlags(flags: string[], styles: StreamStyles): CommandOptions {
   const flagSchema = {
-    config: { long: '--config', type: 'string' as const },
+    configPath: { long: '--config', type: 'string' as const },
     isDev: { long: '--dev', type: 'boolean' as const },
     isJson: { long: '--json', type: 'boolean' as const, short: '-j' },
     isProd: { long: '--prod', type: 'boolean' as const },
     verbose: { long: '--verbose', type: 'boolean' as const, short: '-v' },
   };
 
-  const { flags: parsed } = parseArgs(flags, flagSchema);
+  const { flags: parsedFlags } = parseArgs(flags, flagSchema);
 
-  if (parsed.isDev && parsed.isProd) {
+  if (parsedFlags.isDev && parsedFlags.isProd) {
     throw new Error('Cannot specify both --dev and --prod');
   }
 
   const scopes: AuditScope[] = [];
-  if (parsed.isDev) scopes.push('dev');
-  if (parsed.isProd) scopes.push('prod');
+  if (parsedFlags.isDev) scopes.push('dev');
+  if (parsedFlags.isProd) scopes.push('prod');
 
   return {
-    configPath: parsed.config,
-    isJson: parsed.isJson,
+    configPath: parsedFlags.configPath,
+    isJson: parsedFlags.isJson,
     scopes,
     styles,
-    verbose: parsed.verbose,
+    verbose: parsedFlags.verbose,
   };
 }
 
@@ -126,9 +126,9 @@ function findTypoMatch(input: string): string | undefined {
   if (input.length < MIN_PREFIX_LENGTH || input.startsWith('-')) {
     return undefined;
   }
-  for (const cmd of SUBCOMMANDS) {
-    if (cmd !== input && cmd.startsWith(input)) {
-      return cmd;
+  for (const subcommand of SUBCOMMANDS) {
+    if (subcommand !== input && subcommand.startsWith(input)) {
+      return subcommand;
     }
   }
   return undefined;
@@ -201,11 +201,11 @@ export async function routeCommand(args: string[]): Promise<number> {
 async function handleSubcommand(
   flags: string[],
   styles: StreamStyles,
-  handler: (options: CommandOptions) => Promise<number>,
-  helpFn: () => void = showHelp,
+  runSubcommand: (options: CommandOptions) => Promise<number>,
+  showSubcommandHelp: () => void = showHelp,
 ): Promise<number> {
   if (flags.some((f) => f === '--help' || f === '-h')) {
-    helpFn();
+    showSubcommandHelp();
     return 0;
   }
 
@@ -218,7 +218,7 @@ async function handleSubcommand(
   }
 
   try {
-    return await handler(options);
+    return await runSubcommand(options);
   } catch (error: unknown) {
     reportError(describeError(error));
     return 1;
@@ -237,15 +237,15 @@ function handleInit(flags: string[], styles: StreamStyles): number {
     shouldForce: { long: '--force', type: 'boolean' as const, short: '-f' },
   };
 
-  let parsed;
+  let parsedArgs;
   try {
-    parsed = parseArgs(flags, initFlagSchema);
+    parsedArgs = parseArgs(flags, initFlagSchema);
   } catch (error: unknown) {
     reportError(describeError(error));
     return 1;
   }
 
-  return initCommand({ isDryRun: parsed.flags.isDryRun, shouldForce: parsed.flags.shouldForce, styles });
+  return initCommand({ isDryRun: parsedArgs.flags.isDryRun, shouldForce: parsedArgs.flags.shouldForce, styles });
 }
 
 /** Handles the `update-templates` subcommand with its own flag set. */
@@ -259,13 +259,13 @@ function handleUpdateTemplates(flags: string[], styles: StreamStyles): number {
     isDryRun: { long: '--dry-run', type: 'boolean' as const, short: '-n' },
   };
 
-  let parsed;
+  let parsedArgs;
   try {
-    parsed = parseArgs(flags, updateTemplatesFlagSchema);
+    parsedArgs = parseArgs(flags, updateTemplatesFlagSchema);
   } catch (error: unknown) {
     reportError(describeError(error));
     return 1;
   }
 
-  return updateTemplatesCommand({ isDryRun: parsed.flags.isDryRun, styles });
+  return updateTemplatesCommand({ isDryRun: parsedArgs.flags.isDryRun, styles });
 }

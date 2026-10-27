@@ -5,7 +5,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { loadConfig, type LoadConfigResult } from './config.ts';
 import {
-  type AllowedVuln,
+  type AllowedVulnerability,
   type CheckResult,
   formatCheckJson,
   formatCheckText,
@@ -33,15 +33,15 @@ import {
  * Generates config, invokes audit-ci for each scope, and returns a combined exit code.
  */
 export async function auditCommand(options: CommandOptions): Promise<number> {
-  let loaded: LoadConfigResult;
+  let loadedConfigResult: LoadConfigResult;
   try {
-    loaded = await loadConfig(options.configPath);
+    loadedConfigResult = await loadConfig(options.configPath);
   } catch (error: unknown) {
     reportError(describeError(error));
     return 1;
   }
 
-  const { config } = loaded;
+  const { config } = loadedConfigResult;
   const scopes = options.scopes.length > 0 ? options.scopes : [...AUDIT_SCOPES];
 
   try {
@@ -63,13 +63,13 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
         }
 
         if (options.isJson) {
-          const parsed = parseAuditCiOutput(result.stdout);
-          for (const warning of parsed.warnings) {
+          const parsedOutput = parseAuditCiOutput(result.stdout);
+          for (const warning of parsedOutput.warnings) {
             process.stderr.write(`warning: ${warning}\n`);
           }
-          for (const r of parsed.results) {
-            if (allResults.every((existing) => existing.id !== r.id)) {
-              allResults.push(r);
+          for (const auditResult of parsedOutput.results) {
+            if (allResults.every((existingResult) => existingResult.id !== auditResult.id)) {
+              allResults.push(auditResult);
             }
           }
         } else {
@@ -109,15 +109,15 @@ const CHECK_SCOPE_ORDER: readonly AuditScope[] = ['prod', 'dev'];
  * Returns 1 when unallowed vulnerabilities exist.
  */
 export async function checkCommand(options: CommandOptions): Promise<number> {
-  let loaded: LoadConfigResult;
+  let loadedConfigResult: LoadConfigResult;
   try {
-    loaded = await loadConfig(options.configPath);
+    loadedConfigResult = await loadConfig(options.configPath);
   } catch (error: unknown) {
     reportError(describeError(error));
     return 1;
   }
 
-  const { config } = loaded;
+  const { config } = loadedConfigResult;
   const requestedScopes = options.scopes.length > 0 ? options.scopes : [...CHECK_SCOPE_ORDER];
   const scopes = CHECK_SCOPE_ORDER.filter((s) => requestedScopes.includes(s));
 
@@ -135,8 +135,8 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
         thresholds[scope] = effectiveThreshold;
 
         // Generate a stripped config (empty allowlist, low threshold) so that audit-ci reports all vulnerabilities.
-        const strippedScope = { ...scopeConfig, allowlist: [], severityThreshold: 'low' as const };
-        const strippedConfigPath = await generateAuditCiConfig(strippedScope, scope, tempDir);
+        const strippedScopeConfig = { ...scopeConfig, allowlist: [], severityThreshold: 'low' as const };
+        const strippedConfigPath = await generateAuditCiConfig(strippedScopeConfig, scope, tempDir);
 
         const reportOptions: { configPath: string; reportType?: 'full' } = { configPath: strippedConfigPath };
         if (options.verbose) {
@@ -155,14 +155,14 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
         const allowlistById = new Map<string, AllowlistEntry>(scopeConfig.allowlist.map((entry) => [entry.id, entry]));
         const scopeResult: ScopeCheckResult = { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
 
-        // Test the threshold before the allowlist: The threshold already excludes a below-threshold vuln from the
-        // pass/fail decision, so the check reports it as ignored even when the allowlist names it.
+        // Test the threshold before the allowlist: The threshold already excludes a below-threshold vulnerability from
+        // the pass/fail decision, so the check reports it as ignored even when the allowlist names it.
         for (const result of report.results) {
           if (!isSeverityAtOrAbove(result.severity, effectiveThreshold)) {
             scopeResult.belowThreshold.push(result);
           } else if (allowedIds.has(result.id)) {
             const entry = allowlistById.get(result.id);
-            scopeResult.allowed.push(buildAllowedVuln(result, entry));
+            scopeResult.allowed.push(buildAllowedVulnerability(result, entry));
           } else {
             scopeResult.unallowed.push(result);
           }
@@ -202,15 +202,15 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
  * creates one at the default path.
  */
 export async function syncCommand(options: CommandOptions): Promise<number> {
-  let loaded: LoadConfigResult;
+  let loadedConfigResult: LoadConfigResult;
   try {
-    loaded = await loadConfig(options.configPath);
+    loadedConfigResult = await loadConfig(options.configPath);
   } catch (error: unknown) {
     reportError(describeError(error));
     return 1;
   }
 
-  const { configSource } = loaded;
+  const { configSource } = loadedConfigResult;
 
   // When the config file doesn't exist, scaffold one first so that sync operates on a real file.
   if (configSource === 'defaults') {
@@ -219,19 +219,19 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
       reportError('Failed to create config file');
       return 1;
     }
-    loaded = await loadConfig(options.configPath);
+    loadedConfigResult = await loadConfig(options.configPath);
   }
 
-  let { config } = loaded;
-  const { configFilePath } = loaded;
+  let { config } = loadedConfigResult;
+  const { configFilePath } = loadedConfigResult;
   const scopes = options.scopes.length > 0 ? options.scopes : [...AUDIT_SCOPES];
 
   try {
     return await withTempDir(async (tempDir) => {
       for (const scope of scopes) {
         // Generate a config without the allowlist so that sync sees all vulnerabilities.
-        const strippedScope = { ...config[scope], allowlist: [] };
-        const strippedConfigPath = await generateAuditCiConfig(strippedScope, scope, tempDir);
+        const strippedScopeConfig = { ...config[scope], allowlist: [] };
+        const strippedConfigPath = await generateAuditCiConfig(strippedScopeConfig, scope, tempDir);
 
         const report = runReport({ configPath: strippedConfigPath });
         for (const warning of report.warnings) {
@@ -251,8 +251,8 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
       }
 
       if (configSource === 'defaults') {
-        const totalEntries = config.dev.allowlist.length + config.prod.allowlist.length;
-        process.stdout.write(`Created config at ${configFilePath} with ${totalEntries} allowed entries.\n`);
+        const allowedEntryCount = config.dev.allowlist.length + config.prod.allowlist.length;
+        process.stdout.write(`Created config at ${configFilePath} with ${allowedEntryCount} allowed entries.\n`);
       }
 
       return 0;
@@ -264,21 +264,21 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
 }
 
 // region | Helpers
-/** Merges an `AuditResult` with an `AllowlistEntry` into an `AllowedVuln`, omitting absent optional fields. */
-function buildAllowedVuln(result: AuditResult, entry: AllowlistEntry | undefined): AllowedVuln {
-  const allowed: AllowedVuln = {
+/** Merges an `AuditResult` with an `AllowlistEntry` into an `AllowedVulnerability`, omitting absent optional fields. */
+function buildAllowedVulnerability(result: AuditResult, entry: AllowlistEntry | undefined): AllowedVulnerability {
+  const allowedVulnerability: AllowedVulnerability = {
     id: result.id,
     path: result.path,
     paths: result.paths,
     url: result.url,
   };
-  if (result.ghsaId !== undefined) allowed.ghsaId = result.ghsaId;
-  if (result.severity !== undefined) allowed.severity = result.severity;
-  if (result.title !== undefined) allowed.title = result.title;
-  if (result.description !== undefined) allowed.description = result.description;
-  if (result.cvss !== undefined) allowed.cvss = result.cvss;
-  if (entry?.reason !== undefined) allowed.reason = entry.reason;
-  if (entry?.addedAt !== undefined) allowed.addedAt = entry.addedAt;
-  return allowed;
+  if (result.ghsaId !== undefined) allowedVulnerability.ghsaId = result.ghsaId;
+  if (result.severity !== undefined) allowedVulnerability.severity = result.severity;
+  if (result.title !== undefined) allowedVulnerability.title = result.title;
+  if (result.description !== undefined) allowedVulnerability.description = result.description;
+  if (result.cvss !== undefined) allowedVulnerability.cvss = result.cvss;
+  if (entry?.reason !== undefined) allowedVulnerability.reason = entry.reason;
+  if (entry?.addedAt !== undefined) allowedVulnerability.addedAt = entry.addedAt;
+  return allowedVulnerability;
 }
 // endregion | Helpers
