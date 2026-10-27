@@ -46,10 +46,10 @@ const TRACKED_FILES = {
 
 /** The stand-in for the Prettier CLI, and the file to which it appends one line per invocation. */
 const STUB_ENTRY = 'stub.cjs';
+const RECORD_ENTRY = 'calls.jsonl';
 
 /** A file name that Prettier reads as a cluster of short flags unless `--` precedes it. */
 const DASH_LEADING_FILE = '-lead.js';
-const RECORD_ENTRY = 'calls.jsonl';
 
 /**
  * These run the real Prettier, on which the design depends: An ignore file's patterns resolve relative
