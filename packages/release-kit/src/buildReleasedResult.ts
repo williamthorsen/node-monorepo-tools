@@ -114,7 +114,7 @@ function buildReleasedDirectory(
       parsedCommitCount: unreleasedReading.parsedCommitCount,
     }),
     ...(decision?.bumpOverride !== undefined && { bumpOverride: decision.bumpOverride }),
-    ...(setVersion !== undefined && { setVersion }),
+    ...(setVersion !== undefined && { versionOverride: setVersion }),
   };
   if (setVersion === undefined && unreleasedReading.unparseableCommits !== undefined) {
     result.unparseableCommits = unreleasedReading.unparseableCommits;
@@ -149,7 +149,7 @@ function buildReleasedPackage(
     ...(decision === undefined && { propagatedOnly: true as const }),
     ...(release.propagatedFrom !== undefined && { propagatedFrom: release.propagatedFrom }),
     ...(decision?.bumpOverride !== undefined && { bumpOverride: decision.bumpOverride }),
-    ...(setVersion !== undefined && { setVersion }),
+    ...(setVersion !== undefined && { versionOverride: setVersion }),
   };
   if (setVersion === undefined && unreleasedReading.unparseableCommits !== undefined) {
     result.unparseableCommits = unreleasedReading.unparseableCommits;

@@ -16,7 +16,7 @@ describe(resolveReleaseDeclaration, () => {
       }),
     );
 
-    expect(declaration.retained.map((workspace) => workspace.dir)).toStrictEqual(['core', 'cli']);
+    expect(declaration.retainedWorkspaces.map((workspace) => workspace.dir)).toStrictEqual(['core', 'cli']);
     expect(declaration.directories).toStrictEqual([
       { name: 'site', path: 'docs/site', paths: ['docs/site/**'] },
       { name: 'app', path: 'apps/devopticon', paths: ['apps/devopticon/**'], tagPrefix: 'app-v' },

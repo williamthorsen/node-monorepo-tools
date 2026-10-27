@@ -15,7 +15,7 @@ describe(reportPrepare, () => {
     const released = makeReleasedWorkspace({ unparseableCommits, policyViolations });
     // A version override does not have a release type.
     const { releaseType: _releaseType, ...untyped } = released;
-    const overridden: ReleasedPackageResult = { ...untyped, setVersion: '3.0.0' };
+    const overridden: ReleasedPackageResult = { ...untyped, versionOverride: '3.0.0' };
 
     // Together the fixtures populate every glyph-bearing branch of the formatter.
     const fixtures: Array<{ name: string; result: PrepareResult }> = [

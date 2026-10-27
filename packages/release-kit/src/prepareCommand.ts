@@ -94,8 +94,8 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
   const config = resolveTargetsOrExit(userConfig, workspaceDiscovery, onlyNames, setVersion);
   const targetOptions: TargetPrepareOptions = {
     ...options,
-    ...(onlyNames !== undefined && { only: onlyNames }),
-    ...(setVersion !== undefined && { setVersions: resolveSetVersions(setVersion, config.targets) }),
+    ...(onlyNames !== undefined && { onlyTargetIds: onlyNames }),
+    ...(setVersion !== undefined && { versionOverridesById: resolveSetVersions(setVersion, config.targets) }),
   };
   runAndReport(
     () => {

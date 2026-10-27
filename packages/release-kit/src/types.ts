@@ -78,7 +78,7 @@ export interface ChangelogMarkdownConfig {
    * How many of the newest versioned sections `CHANGELOG.md` keeps; older sections go to per-major archive files
    * under `changelogs/`. When omitted, `CHANGELOG.md` keeps every section.
    */
-  keepVersions?: number;
+  keptVersionCount?: number;
 }
 
 /**
@@ -267,7 +267,7 @@ export interface ReleasedPackageResult extends PackageResultFields, ReleaseField
   /** Present when propagation alone set the bump, the package's own commits having called for none. */
   propagatedOnly?: true;
   /** Present when the package was written via `--set-version`; the explicit version that was applied. */
-  setVersion?: string;
+  versionOverride?: string;
 }
 
 /** Result of a package target that skips: the diagnostic fields and a human-readable `skipReason`. */
@@ -305,7 +305,7 @@ export interface ReleasedDirectoryResult extends DirectoryResultFields, ReleaseF
   /** Raw commits of the directory's unreleased window. */
   commits: Commit[];
   /** Present when the directory was written via `--set-version`; the explicit version that was applied. */
-  setVersion?: string;
+  versionOverride?: string;
 }
 
 /** Result of a directory target that skips: the diagnostic fields and a human-readable `skipReason`. */

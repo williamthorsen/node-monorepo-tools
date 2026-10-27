@@ -352,7 +352,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     stubHistory({ previousTag: 'v0.5.0', commits: [['chore: unrelated change', 'abc123']] });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
-    const result = prepareSinglePackage(makeConfig(), { setVersion: '1.0.0' });
+    const result = prepareSinglePackage(makeConfig(), { versionOverride: '1.0.0' });
 
     expect(result.tags).toStrictEqual(['v1.0.0']);
     expect(selectPackageResults(result)).toHaveLength(1);
@@ -362,7 +362,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
       newVersion: '1.0.0',
       currentVersion: '0.5.0',
       tag: 'v1.0.0',
-      setVersion: '1.0.0',
+      versionOverride: '1.0.0',
     });
     assert(workspace?.status === 'released', 'expected released');
     expect(workspace.releaseType).toBeUndefined();
@@ -378,7 +378,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     });
     stubPackageVersion('0.5.0');
 
-    const result = prepareSinglePackage(makeConfig(), { setVersion: '1.0.0' });
+    const result = prepareSinglePackage(makeConfig(), { versionOverride: '1.0.0' });
 
     const workspace = selectPackageResults(result)[0];
     assert(workspace?.status === 'released', 'expected released');
@@ -393,7 +393,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     stubHistory({ previousTag: 'v0.5.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
-    const result = prepareSinglePackage(makeConfig(), { setVersion: '1.0.0' });
+    const result = prepareSinglePackage(makeConfig(), { versionOverride: '1.0.0' });
 
     const workspace = selectPackageResults(result)[0];
     assert(workspace?.status === 'released', 'expected released');
@@ -422,7 +422,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     stubHistory({ previousTag: 'v0.5.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
-    expect(() => prepareSinglePackage(makeConfig(), { setVersion: '0.3.0' })).toThrow(
+    expect(() => prepareSinglePackage(makeConfig(), { versionOverride: '0.3.0' })).toThrow(
       '--set-version 0.3.0 is not greater than current version 0.5.0',
     );
   });
@@ -431,7 +431,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     stubHistory({ previousTag: 'v0.5.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
-    expect(() => prepareSinglePackage(makeConfig(), { setVersion: '0.5.0' })).toThrow(
+    expect(() => prepareSinglePackage(makeConfig(), { versionOverride: '0.5.0' })).toThrow(
       '--set-version 0.5.0 is not greater than current version 0.5.0',
     );
   });
@@ -442,7 +442,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
       throw new Error('EACCES: permission denied');
     });
 
-    expect(() => prepareSinglePackage(makeConfig(), { setVersion: '1.0.0' })).toThrow(
+    expect(() => prepareSinglePackage(makeConfig(), { versionOverride: '1.0.0' })).toThrow(
       'Failed to read package.json: EACCES: permission denied',
     );
   });

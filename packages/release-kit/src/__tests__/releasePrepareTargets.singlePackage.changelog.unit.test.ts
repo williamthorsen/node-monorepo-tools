@@ -142,7 +142,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
 
     it.each([
       ['--force', { shouldForce: true }, '1.0.1'],
-      ['--set-version', { setVersion: '2.0.0' }, '2.0.0'],
+      ['--set-version', { versionOverride: '2.0.0' }, '2.0.0'],
     ])(
       "writes the synthetic entry under %s when the window has commits but doesn't yield an item",
       (_label, options, version) => {
@@ -228,7 +228,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     stubHistory({ previousTag: 'v0.5.0' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
-    const result = prepareSinglePackage(makeConfig(), { setVersion: '1.0.0' });
+    const result = prepareSinglePackage(makeConfig(), { versionOverride: '1.0.0' });
 
     expect(result.tags).toStrictEqual(['v1.0.0']);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -342,7 +342,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     it.each<[string, SinglePackageOptions]>([
       ['a natural release', {}],
       ['--force', { shouldForce: true }],
-      ['--set-version', { setVersion: '2.0.0' }],
+      ['--set-version', { versionOverride: '2.0.0' }],
     ])('throws on %s when the current version is recorded but untagged', (_label, options) => {
       stubHistory({ previousTag: 'v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
       stubFiles({ 'package.json': JSON.stringify({ version: '1.1.0' }), 'CHANGELOG.md': '## 1.1.0\n\n## 1.0.0\n' });

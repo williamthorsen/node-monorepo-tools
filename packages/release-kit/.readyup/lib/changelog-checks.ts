@@ -5,13 +5,13 @@ import { CHANGELOG_ARCHIVE_DIRECTORY } from '../../src/changelogArchive.ts';
 import { packsPath } from '../../src/packsPath.ts';
 
 /**
- * Checks whether the config sets `changelogMarkdown.keepVersions`, which moves older `CHANGELOG.md` sections into
+ * Checks whether the config sets `changelogMarkdown.keptVersionCount`, which moves older `CHANGELOG.md` sections into
  * archive files. Reads the raw config text, so a value set by an expression counts as set.
  */
 export function changelogArchivesAreEnabled(): boolean {
   const content = readFile('.config/release-kit.config.ts');
   if (content === undefined) return false;
-  return /changelogMarkdown\s*:\s*\{[^}]*keepVersions\s*:/.test(content);
+  return /changelogMarkdown\s*:\s*\{[^}]*keptVersionCount\s*:/.test(content);
 }
 
 /**

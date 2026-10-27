@@ -36,10 +36,10 @@ const publishFlagSchema = {
  * A relative `--config` resolves against `invocationDir`.
  */
 export async function publishCommand(argv: string[], styles: StreamStyles, invocationDir: string): Promise<void> {
-  const parsed = parseArgsOrExit(argv, publishFlagSchema);
-  const configPath = resolveConfigFlag(parsed.flags.config, invocationDir);
+  const parsedArgs = parseArgsOrExit(argv, publishFlagSchema);
+  const configPath = resolveConfigFlag(parsedArgs.flags.config, invocationDir);
 
-  const { isDryRun, shouldSkipGitChecks, shouldGenerateProvenance } = parsed.flags;
+  const { isDryRun, shouldSkipGitChecks, shouldGenerateProvenance } = parsedArgs.flags;
 
   const userConfig = await loadUsableConfig(styles.stderr, configPath);
 
@@ -53,7 +53,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
     }
   }
 
-  const requestedTags = parseRequestedTags(parsed.flags.tags);
+  const requestedTags = parseRequestedTags(parsedArgs.flags.tags);
 
   const resolvedTags = resolveCommandTags(requestedTags, userConfig);
 
@@ -78,7 +78,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
     console.info(`  ${tag} (${workspacePath})`);
   }
 
-  const published: string[] = [];
+  const publishedTags: string[] = [];
 
   try {
     for (const resolvedTag of publishableTags) {
@@ -99,7 +99,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
 
       try {
         publishPackage(resolvedTag, packageManager, { isDryRun, shouldGenerateProvenance });
-        published.push(resolvedTag.tag);
+        publishedTags.push(resolvedTag.tag);
       } finally {
         if (readmePath !== undefined && originalReadme !== undefined) {
           writeFileSync(readmePath, originalReadme, 'utf8');
@@ -107,9 +107,9 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
       }
     }
   } catch (error: unknown) {
-    if (published.length > 0) {
+    if (publishedTags.length > 0) {
       console.warn('Packages published before failure:');
-      for (const t of published) {
+      for (const t of publishedTags) {
         console.warn(`  ${t}`);
       }
     }
@@ -126,21 +126,21 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
  * implicit, unpublishable tags are dropped silently.
  */
 function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean): ResolvedTag[] {
-  const publishable: ResolvedTag[] = [];
-  const unpublishable: ResolvedTag[] = [];
+  const publishableTags: ResolvedTag[] = [];
+  const unpublishableTags: ResolvedTag[] = [];
   for (const tag of resolvedTags) {
-    (tag.isPublishable ? publishable : unpublishable).push(tag);
+    (tag.isPublishable ? publishableTags : unpublishableTags).push(tag);
   }
 
   // Warn only on explicit naming: An implicit HEAD scan routinely finds private-but-tagged workspaces, whereas
   // naming a tag signals that the user expected it to publish.
   if (isExplicit) {
-    for (const resolvedTag of unpublishable) {
+    for (const resolvedTag of unpublishableTags) {
       console.warn(formatPublishSkip(resolvedTag));
     }
   }
 
-  return publishable;
+  return publishableTags;
 }
 
 /** Formats the warning for a tag that `publish` skips, by what owns the tag. */

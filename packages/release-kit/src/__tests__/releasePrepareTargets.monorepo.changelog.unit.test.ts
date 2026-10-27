@@ -138,7 +138,7 @@ describe('releasePrepareTargets for a monorepo', () => {
 
     it.each([
       ['--force', { shouldForce: true }, '1.0.1'],
-      ['--set-version', { setVersions: new Map([['arrays', '2.0.0']]) }, '2.0.0'],
+      ['--set-version', { versionOverridesById: new Map([['arrays', '2.0.0']]) }, '2.0.0'],
     ])(
       "writes the synthetic entry under %s when the window has commits but doesn't yield an item",
       (_label, options, version) => {
@@ -445,7 +445,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       expect(() =>
         prepareMonorepo(
           { ...config, workspaces: [makeRoutedWorkspace('core')] },
-          { setVersions: new Map([['core', '3.0.0']]) },
+          { versionOverridesById: new Map([['core', '3.0.0']]) },
         ),
       ).toThrow('create tag core-v1.1.0');
     });

@@ -83,18 +83,20 @@ export function resolveReleaseTags(args?: ResolveReleaseTagsArgs): ResolvedTag[]
  * test form; resolved tags default to `isPublishable: true` in that case.
  */
 function resolveSinglePackageTags(tags: string[], singleWorkspace?: WorkspaceConfig): ResolvedTag[] {
-  const matched = tags.filter((tag) => VERSION_PATTERN.test(tag));
+  const matchedTags = tags.filter((tag) => VERSION_PATTERN.test(tag));
   const isPublishable = singleWorkspace?.isPublishable ?? true;
 
-  if (matched.length > 1) {
+  if (matchedTags.length > 1) {
     console.warn(
-      `Warning: Multiple version tags found on HEAD: ${matched.join(', ')}. ` +
+      `Warning: Multiple version tags found on HEAD: ${matchedTags.join(', ')}. ` +
         `Publishing the same package multiple times is almost certainly unintended. Using only the first tag.`,
     );
-    return matched.slice(0, 1).map((tag) => ({ tag, kind: 'package', dir: '.', workspacePath: '.', isPublishable }));
+    return matchedTags
+      .slice(0, 1)
+      .map((tag) => ({ tag, kind: 'package', dir: '.', workspacePath: '.', isPublishable }));
   }
 
-  return matched.map((tag) => ({ tag, kind: 'package', dir: '.', workspacePath: '.', isPublishable }));
+  return matchedTags.map((tag) => ({ tag, kind: 'package', dir: '.', workspacePath: '.', isPublishable }));
 }
 
 /**
@@ -112,21 +114,21 @@ function resolveMonorepoTags(
 ): ResolvedTag[] {
   const sortedWorkspaces = workspaces.toSorted((a, b) => b.tagPrefix.length - a.tagPrefix.length);
 
-  const resolved: ResolvedTag[] = [];
+  const resolvedTags: ResolvedTag[] = [];
 
   for (const tag of tags) {
-    const match = findMatchingWorkspace(tag, sortedWorkspaces);
+    const matchedWorkspace = findMatchingWorkspace(tag, sortedWorkspaces);
     const directory = directories.find((candidate) => hasVersionAfterPrefix(tag, candidate.tagPrefix));
-    if (match !== undefined) {
-      resolved.push({
+    if (matchedWorkspace !== undefined) {
+      resolvedTags.push({
         tag,
         kind: 'package',
-        dir: getTargetName(match),
-        workspacePath: match.workspacePath,
-        isPublishable: match.isPublishable,
+        dir: getTargetName(matchedWorkspace),
+        workspacePath: matchedWorkspace.workspacePath,
+        isPublishable: matchedWorkspace.isPublishable,
       });
     } else if (directory !== undefined) {
-      resolved.push({
+      resolvedTags.push({
         tag,
         kind: 'directory',
         dir: directory.name,
@@ -134,7 +136,7 @@ function resolveMonorepoTags(
         isPublishable: false,
       });
     } else if (project !== undefined && hasVersionAfterPrefix(tag, project.tagPrefix)) {
-      resolved.push({
+      resolvedTags.push({
         tag,
         kind: 'project',
         dir: project.name ?? PROJECT_TARGET_ID,
@@ -144,7 +146,7 @@ function resolveMonorepoTags(
     }
   }
 
-  return resolved;
+  return resolvedTags;
 }
 
 /**

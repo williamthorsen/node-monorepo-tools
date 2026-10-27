@@ -186,7 +186,7 @@ describe('releasePrepareTargets for a monorepo', () => {
         return JSON.stringify({ version: '1.0.0' });
       });
 
-      const result = prepareMonorepo(config, { only: ['arrays'] });
+      const result = prepareMonorepo(config, { onlyTargetIds: ['arrays'] });
 
       expect(selectCompositeResult(result)).toBeUndefined();
       expect(result.tags).toContain('arrays-v1.1.0');
@@ -223,7 +223,7 @@ describe('releasePrepareTargets for a monorepo', () => {
           if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
           return JSON.stringify({ version: '1.0.0' });
         });
-        return prepareMonorepo(config, { only });
+        return prepareMonorepo(config, { onlyTargetIds: only });
       }
 
       it('prepares the composite alone from its own window when --only names only it', () => {

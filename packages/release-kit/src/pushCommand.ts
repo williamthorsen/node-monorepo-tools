@@ -23,14 +23,14 @@ const pushFlagSchema = {
  * the release commit and each tag individually. A relative `--config` resolves against `invocationDir`.
  */
 export async function pushCommand(argv: string[], styles: StreamStyles, invocationDir: string): Promise<void> {
-  const parsed = parseArgsOrExit(argv, pushFlagSchema);
-  const configPath = resolveConfigFlag(parsed.flags.config, invocationDir);
+  const parsedArgs = parseArgsOrExit(argv, pushFlagSchema);
+  const configPath = resolveConfigFlag(parsedArgs.flags.config, invocationDir);
 
-  const { isDryRun, tagsOnly } = parsed.flags;
+  const { isDryRun, tagsOnly } = parsedArgs.flags;
 
   const userConfig = await loadUsableConfig(styles.stderr, configPath);
 
-  const requestedTags = parseRequestedTags(parsed.flags.tags);
+  const requestedTags = parseRequestedTags(parsedArgs.flags.tags);
 
   const resolvedTags = resolveCommandTags(requestedTags, userConfig);
 

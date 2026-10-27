@@ -29,10 +29,10 @@ export interface DirectReleases {
 export function decideDirectReleases(
   plannedTargets: readonly MemberTarget[],
   settings: TargetPrepareSettings,
-  options: { shouldForce?: boolean; bumpOverride?: ReleaseType; setVersions?: ReadonlyMap<string, string> },
+  options: { shouldForce?: boolean; bumpOverride?: ReleaseType; versionOverridesById?: ReadonlyMap<string, string> },
   startIds: ReadonlySet<string>,
 ): DirectReleases {
-  const { shouldForce, bumpOverride, setVersions } = options;
+  const { shouldForce, bumpOverride, versionOverridesById } = options;
   const directReleases: DirectReleases = {
     readings: new Map(),
     decisions: new Map(),
@@ -54,11 +54,11 @@ export function decideDirectReleases(
       maybeEmitBaselineHint(target, knownPrefixes, hintState);
     }
 
-    const setVersion = setVersions?.get(target.id);
+    const versionOverride = versionOverridesById?.get(target.id);
     const decision = decideTargetRelease(target, history, {
       shouldForce: shouldForce === true && startIds.has(target.id),
       bumpOverride,
-      setVersion,
+      setVersion: versionOverride,
     });
     directReleases.decisions.set(target.id, decision);
     if (decision.outcome === 'skip') {

@@ -29,9 +29,9 @@ export interface DeclaredDirectory {
 /** The release targets that a config declares over the discovered workspaces. */
 export interface ReleaseDeclaration {
   /** Retained workspaces in discovery order, each with its target name and legacy identities applied. */
-  retained: WorkspaceConfig[];
+  retainedWorkspaces: WorkspaceConfig[];
   /** Discovered workspaces that the config excludes, in discovery order. */
-  excluded: WorkspaceConfig[];
+  excludedWorkspaces: WorkspaceConfig[];
   /** Directories that `releases` entries declare as targets, in config order. */
   directories: DeclaredDirectory[];
   composite?: DeclaredComposite;
@@ -44,8 +44,8 @@ export function getTargetName(workspace: WorkspaceConfig): string {
 
 /** Normalizes a configured path to the repo-relative POSIX form of a discovered `workspacePath`. */
 export function normalizeWorkspacePath(configuredPath: string): string {
-  const normalized = path.posix.normalize(configuredPath.replaceAll('\\', '/'));
-  return normalized.replace(/^\.\//, '').replace(/\/+$/, '');
+  const normalizedPath = path.posix.normalize(configuredPath.replaceAll('\\', '/'));
+  return normalizedPath.replace(/^\.\//, '').replace(/\/+$/, '');
 }
 
 /**
@@ -86,10 +86,10 @@ function claimPath(
   claimedPath: string,
   kind: 'directory' | 'workspace',
 ): void {
-  const claimedBy = entryByPath.get(claimedPath);
-  if (claimedBy !== undefined) {
+  const claimingEntryName = entryByPath.get(claimedPath);
+  if (claimingEntryName !== undefined) {
     throw new Error(
-      `releases.${name}: ${kind} '${claimedPath}' is already declared by releases.${claimedBy}; declare each ${kind} once`,
+      `releases.${name}: ${kind} '${claimedPath}' is already declared by releases.${claimingEntryName}; declare each ${kind} once`,
     );
   }
   entryByPath.set(claimedPath, name);
@@ -121,12 +121,12 @@ function declareDirectory(name: string, entry: PathRelease, normalizedPath: stri
  */
 function resolveCompositeMembers(
   composite: { name: string; includes: readonly string[] },
-  retained: readonly WorkspaceConfig[],
-  excluded: readonly WorkspaceConfig[],
+  retainedWorkspaces: readonly WorkspaceConfig[],
+  excludedWorkspaces: readonly WorkspaceConfig[],
   directories: readonly DeclaredDirectory[],
 ): Array<{ name: string; paths: readonly string[] | undefined }> {
   const membersByName = new Map<string, { name: string; paths: readonly string[] | undefined }>([
-    ...retained.map(
+    ...retainedWorkspaces.map(
       (workspace) => [getTargetName(workspace), { name: getTargetName(workspace), paths: workspace.paths }] as const,
     ),
     ...directories.map((directory) => [directory.name, { name: directory.name, paths: directory.paths }] as const),
@@ -140,7 +140,7 @@ function resolveCompositeMembers(
     if (memberName === composite.name) {
       throw new Error(`${label} is the composite itself; a composite includes package and directory targets only`);
     }
-    if (excluded.some((workspace) => workspace.dir === memberName)) {
+    if (excludedWorkspaces.some((workspace) => workspace.dir === memberName)) {
       throw new Error(`${label} is excluded, so the composite cannot include it`);
     }
     throw new Error(`${label} is not a release target. Known targets: ${membersByName.keys().toArray().join(', ')}`);
@@ -154,18 +154,18 @@ function resolveLegacyBlocks(
   project: ProjectConfig | undefined,
 ): ReleaseDeclaration {
   const overridesByDir = new Map(overrides.map((override) => [override.dir, override]));
-  const retained: WorkspaceConfig[] = [];
-  const excluded: WorkspaceConfig[] = [];
+  const retainedWorkspaces: WorkspaceConfig[] = [];
+  const excludedWorkspaces: WorkspaceConfig[] = [];
   for (const workspace of workspaces) {
     const override = overridesByDir.get(workspace.dir);
     if (override?.shouldExclude === true) {
-      excluded.push(workspace);
+      excludedWorkspaces.push(workspace);
     } else {
-      retained.push(applyLegacyIdentities(workspace, override?.legacyIdentities));
+      retainedWorkspaces.push(applyLegacyIdentities(workspace, override?.legacyIdentities));
     }
   }
 
-  const declaration: ReleaseDeclaration = { retained, excluded, directories: [] };
+  const declaration: ReleaseDeclaration = { retainedWorkspaces, excludedWorkspaces, directories: [] };
   if (project !== undefined) {
     declaration.composite = {
       ...(project.paths !== undefined && { paths: [...project.paths] }),
@@ -187,7 +187,7 @@ function resolveReleasesBlock(
   const workspaceByDir = new Map(workspaces.map((workspace) => [workspace.dir, workspace]));
   const entryByPath = new Map<string, string>();
   const excludedPaths = new Set<string>();
-  const renamed = new Map<string, WorkspaceConfig>();
+  const renamedWorkspaces = new Map<string, WorkspaceConfig>();
   const directories: DeclaredDirectory[] = [];
   let composite: { name: string; includes: string[]; tagPrefix?: string } | undefined;
 
@@ -236,23 +236,26 @@ function resolveReleasesBlock(
       );
     }
     claimPath(entryByPath, name, workspace.workspacePath, 'workspace');
-    const named = applyLegacyIdentities(workspace, entry.legacyIdentities);
-    renamed.set(workspace.workspacePath, name === workspace.dir ? named : { ...named, targetName: name });
+    const identifiedWorkspace = applyLegacyIdentities(workspace, entry.legacyIdentities);
+    renamedWorkspaces.set(
+      workspace.workspacePath,
+      name === workspace.dir ? identifiedWorkspace : { ...identifiedWorkspace, targetName: name },
+    );
   }
 
-  const retained: WorkspaceConfig[] = [];
-  const excluded: WorkspaceConfig[] = [];
+  const retainedWorkspaces: WorkspaceConfig[] = [];
+  const excludedWorkspaces: WorkspaceConfig[] = [];
   for (const workspace of workspaces) {
     if (excludedPaths.has(workspace.workspacePath)) {
-      excluded.push(workspace);
+      excludedWorkspaces.push(workspace);
     } else {
-      retained.push(renamed.get(workspace.workspacePath) ?? workspace);
+      retainedWorkspaces.push(renamedWorkspaces.get(workspace.workspacePath) ?? workspace);
     }
   }
 
-  const declaration: ReleaseDeclaration = { retained, excluded, directories };
+  const declaration: ReleaseDeclaration = { retainedWorkspaces, excludedWorkspaces, directories };
   if (composite !== undefined) {
-    const members = resolveCompositeMembers(composite, retained, excluded, directories);
+    const members = resolveCompositeMembers(composite, retainedWorkspaces, excludedWorkspaces, directories);
     declaration.composite = {
       name: composite.name,
       members: members.map((member) => member.name),

@@ -176,7 +176,7 @@ describe(reportPrepare, () => {
             tag: 'arrays-v1.0.0',
             bumpedFiles: ['packages/arrays/package.json'],
             changelogFiles: ['packages/arrays/CHANGELOG.md'],
-            setVersion: '1.0.0',
+            versionOverride: '1.0.0',
           },
         ],
         tags: ['arrays-v1.0.0'],
@@ -203,7 +203,7 @@ describe(reportPrepare, () => {
             tag: 'core-v1.0.0',
             bumpedFiles: ['packages/core/package.json'],
             changelogFiles: ['packages/core/CHANGELOG.md'],
-            setVersion: '1.0.0',
+            versionOverride: '1.0.0',
           },
           {
             targetId: 'app',

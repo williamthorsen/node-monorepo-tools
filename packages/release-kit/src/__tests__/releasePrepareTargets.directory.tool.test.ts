@@ -69,7 +69,7 @@ describe('directory releases (tool)', () => {
     }
   }, 60_000);
 
-  it('archives older sections by major under keepVersions, and folds them back once the option is removed', () => {
+  it('archives older sections by major under keptVersionCount, and folds them back once the option is removed', () => {
     commit(
       tree,
       'apps/app/CHANGELOG.md',
@@ -80,7 +80,7 @@ describe('directory releases (tool)', () => {
     );
     const releases: ReleaseKitConfig['releases'] = { app: { path: 'apps/app' } };
 
-    const firstPlan = prepareAndApply(tree, { releases, changelogMarkdown: { keepVersions: 1 } }, {});
+    const firstPlan = prepareAndApply(tree, { releases, changelogMarkdown: { keptVersionCount: 1 } }, {});
 
     const bounded = tree.read('apps/app/CHANGELOG.md');
     expect(bounded).toContain('Earlier versions: [v0](changelogs/CHANGELOG-v0.md).');
@@ -166,7 +166,7 @@ describe('directory releases (tool)', () => {
     const plan = prepareAndApply(
       tree,
       { releases: { app: { path: 'apps/app' } } },
-      { only: ['app'], setVersions: new Map([['app', '2.0.0']]) },
+      { onlyTargetIds: ['app'], versionOverridesById: new Map([['app', '2.0.0']]) },
     );
 
     expect(plan.targets.map((result) => result.targetId)).toStrictEqual(['app']);

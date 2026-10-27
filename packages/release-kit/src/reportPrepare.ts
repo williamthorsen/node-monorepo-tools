@@ -65,8 +65,8 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
     return '';
   }
 
-  const since = workspace.previousTag === undefined ? 'the beginning' : workspace.previousTag;
-  lines.push(dim(`Found ${workspace.commitCount} commits since ${since}`));
+  const sinceLabel = workspace.previousTag === undefined ? 'the beginning' : workspace.previousTag;
+  lines.push(dim(`Found ${workspace.commitCount} commits since ${sinceLabel}`));
 
   if (workspace.parsedCommitCount !== undefined) {
     lines.push(dim(`  Parsed ${workspace.parsedCommitCount} typed commits`));
@@ -82,19 +82,19 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
     return lines.join('\n');
   }
 
-  if (workspace.setVersion !== undefined) {
-    lines.push(`  Using version override: ${workspace.setVersion}`);
+  if (workspace.versionOverride !== undefined) {
+    lines.push(`  Using version override: ${workspace.versionOverride}`);
   } else if (workspace.bumpOverride !== undefined) {
     lines.push(`  Using bump override: ${workspace.bumpOverride}`);
   }
 
   if (workspace.releaseType !== undefined) {
     lines.push(dim(`Bumping versions (${workspace.releaseType})...`));
-  } else if (workspace.setVersion !== undefined) {
+  } else if (workspace.versionOverride !== undefined) {
     lines.push(dim(`Bumping versions (version override)...`));
   }
 
-  if (workspace.setVersion !== undefined) {
+  if (workspace.versionOverride !== undefined) {
     lines.push(
       formatGlyphLine(
         RELEASE_GLYPHS,
@@ -179,8 +179,8 @@ function formatProjectSection(
 ): void {
   lines.push(`\n${sectionHeader(project.targetId === PROJECT_TARGET_ID ? 'project' : project.targetId)}`);
 
-  const since = project.previousTag === undefined ? '(no previous release found)' : `since ${project.previousTag}`;
-  lines.push(dim(`  Found ${project.commitCount} commits ${since}`));
+  const sinceLabel = project.previousTag === undefined ? '(no previous release found)' : `since ${project.previousTag}`;
+  lines.push(dim(`  Found ${project.commitCount} commits ${sinceLabel}`));
 
   formatPolicyViolations(lines, project.policyViolations, style, '  ');
 
@@ -239,8 +239,9 @@ function formatWorkspaceSection(
     lines.push(`\n${sectionHeader(workspace.name)}`);
   }
 
-  const since = workspace.previousTag === undefined ? '(no previous release found)' : `since ${workspace.previousTag}`;
-  lines.push(dim(`  Found ${workspace.commitCount} commits ${since}`));
+  const sinceLabel =
+    workspace.previousTag === undefined ? '(no previous release found)' : `since ${workspace.previousTag}`;
+  lines.push(dim(`  Found ${workspace.commitCount} commits ${sinceLabel}`));
 
   if (workspace.status === 'skipped') {
     formatUnparseableWarning(lines, workspace, style, '  ');
@@ -287,15 +288,15 @@ function formatCommitSummary(
 
 /** Appends the bump-override / set-version label and the "Bumping versions..." line. */
 function formatBumpLabels(lines: string[], workspace: ReleasedMemberResult, isPropagatedOnly: boolean): void {
-  if (workspace.setVersion !== undefined) {
-    lines.push(`  Using version override: ${workspace.setVersion}`);
+  if (workspace.versionOverride !== undefined) {
+    lines.push(`  Using version override: ${workspace.versionOverride}`);
   } else if (workspace.bumpOverride !== undefined && !isPropagatedOnly) {
     lines.push(`  Using bump override: ${workspace.bumpOverride}`);
   }
 
   if (workspace.releaseType !== undefined) {
     lines.push(dim(`  Bumping versions (${workspace.releaseType})...`));
-  } else if (workspace.setVersion !== undefined) {
+  } else if (workspace.versionOverride !== undefined) {
     lines.push(dim(`  Bumping versions (version override)...`));
   }
 }
@@ -309,7 +310,7 @@ function formatVersionLine(
   style: OutputStyle,
 ): void {
   const versions = `${workspace.currentVersion} → ${bold(workspace.newVersion)}`;
-  if (workspace.setVersion !== undefined) {
+  if (workspace.versionOverride !== undefined) {
     lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'bump', `${versions} (version override)`)}`);
   } else if (workspace.releaseType !== undefined) {
     const suffix = isPropagatedOnly ? formatPropagationSuffix(propagatedFrom) : '';

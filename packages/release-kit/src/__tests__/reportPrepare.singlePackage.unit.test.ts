@@ -233,7 +233,7 @@ describe(reportPrepare, () => {
             tag: 'v1.0.0',
             bumpedFiles: ['package.json'],
             changelogFiles: ['./CHANGELOG.md'],
-            setVersion: '1.0.0',
+            versionOverride: '1.0.0',
           },
         ],
         tags: ['v1.0.0'],

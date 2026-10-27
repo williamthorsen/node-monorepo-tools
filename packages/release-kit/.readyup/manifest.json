@@ -43,12 +43,12 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "ad3666b8",
+          "hash": "56566d0b",
           "kind": "module",
           "path": "kits/default.ts"
         },
         {
-          "hash": "45fc235f",
+          "hash": "dafe3ffb",
           "kind": "module",
           "path": "lib/changelog-checks.ts"
         },
@@ -76,12 +76,12 @@
           "path": "../src/changelogArchive.ts"
         },
         {
-          "hash": "43bb0452",
+          "hash": "7fdf7f1f",
           "kind": "module",
           "path": "../src/init/detectRepoType.ts"
         },
         {
-          "hash": "68354f97",
+          "hash": "9ca0f6bf",
           "kind": "module",
           "path": "../src/init/parseJsonRecord.ts"
         },
@@ -100,8 +100,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.44.0",
       "source": "kits/default.ts",
-      "sourceHash": "ad3666b8",
-      "targetHash": "3e346ad1"
+      "sourceHash": "56566d0b",
+      "targetHash": "b7869b5e"
     },
     {
       "checklistChecks": [

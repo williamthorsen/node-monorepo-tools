@@ -115,7 +115,7 @@ export const changelogJsonInputSchema = z
 /** Schema for the optional `changelogMarkdown` block (input shape, all fields optional). */
 export const changelogMarkdownInputSchema = z
   .object({
-    keepVersions: z.number().int().min(1).optional(),
+    keptVersionCount: z.number().int().min(1).optional(),
   })
   .strict();
 

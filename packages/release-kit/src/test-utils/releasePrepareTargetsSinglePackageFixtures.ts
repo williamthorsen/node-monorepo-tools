@@ -27,7 +27,9 @@ export type SinglePackageFixture = Omit<ReleaseSettings, 'releaseNotes'> &
   Pick<PackageTarget, 'tagPrefix' | 'versionFiles'>;
 
 /** Options of a single-package run, which names its one explicit version without a target id. */
-export type SinglePackageOptions = Omit<TargetPrepareOptions, 'only' | 'setVersions'> & { setVersion?: string };
+export type SinglePackageOptions = Omit<TargetPrepareOptions, 'onlyTargetIds' | 'versionOverridesById'> & {
+  versionOverride?: string;
+};
 
 /** Builds a single-package config tagged under `v`, with the changelog JSON disabled, overriding any field. */
 export function makeConfig(overrides?: Partial<SinglePackageFixture>): TargetPrepareConfig {
@@ -51,9 +53,9 @@ export function makeConfig(overrides?: Partial<SinglePackageFixture>): TargetPre
 
 /** Prepares a single-package release, passing an explicit version under the root target's id. */
 export function prepareSinglePackage(config: TargetPrepareConfig, options: SinglePackageOptions): ReleasePlan {
-  const { setVersion, ...rest } = options;
+  const { versionOverride, ...rest } = options;
   return releasePrepareTargets(config, {
     ...rest,
-    ...(setVersion !== undefined && { setVersions: new Map([['.', setVersion]]) }),
+    ...(versionOverride !== undefined && { versionOverridesById: new Map([['.', versionOverride]]) }),
   });
 }
