@@ -30,7 +30,7 @@ const DEFAULT_CONFIG_PATH = fileURLToPath(
  */
 const ARGUMENT_BUDGET_BYTES = 100_000;
 
-const USAGE = 'Usage: nmr-fmt (--check | --write) [--no-cache] [pathspec...]';
+const USAGE = 'Usage: nmr-fmt (--check | --write) [--no-cache] [--] [pathspec...]';
 
 export type FormatMode = 'check' | 'write';
 
@@ -47,7 +47,8 @@ const MODE_ARGS: Record<FormatMode, string[]> = {
  *
  * Trailing arguments are git pathspecs, not Prettier flags; an unrecognized option is rejected rather
  * than passed along, since git would read it as a pathspec matching nothing and the run would report
- * success over an empty selection.
+ * success over an empty selection. Every argument after `--` is a pathspec, even one that starts
+ * with `-`.
  */
 export async function runFmt(argv: string[], cwd: string = process.cwd()): Promise<number> {
   const parsedArgs = parseFmtArgs(argv);
@@ -124,13 +125,20 @@ export async function runFmt(argv: string[], cwd: string = process.cwd()): Promi
 type ParseArgsResult =
   { ok: true; mode: FormatMode; pathspecs: string[]; shouldBypassCache: boolean } | { ok: false; error: string };
 
-/** Reads the required mode flag and the optional cache bypass, and treats every remaining argument as a git pathspec. */
+/**
+ * Reads the required mode flag and the optional cache bypass, and treats every remaining argument as a git pathspec.
+ * `--` ends the options, so that every argument after it is a pathspec.
+ */
 function parseFmtArgs(argv: string[]): ParseArgsResult {
   let mode: FormatMode | undefined;
   let shouldBypassCache = false;
   const pathspecs: string[] = [];
 
-  for (const arg of argv) {
+  for (const [index, arg] of argv.entries()) {
+    if (arg === '--') {
+      pathspecs.push(...argv.slice(index + 1));
+      break;
+    }
     if (arg === '--no-cache') {
       shouldBypassCache = true;
       continue;
@@ -260,6 +268,8 @@ export function runPrettier(options: RunPrettierOptions): number {
       ? []
       : ['--cache', '--cache-strategy', 'content', '--cache-location', cacheLocation]),
     ...MODE_ARGS[mode],
+    // Keep Prettier from reading a file name that starts with `-` as a flag.
+    '--',
   ];
 
   let firstFailureStatus = 0;
