@@ -51,7 +51,7 @@ export default defineRdyKit({
           name: 'audit-ci configs are under .config/audit-ci/',
           severity: 'warn',
           quiet: true,
-          check: noLegacyAuditCiDirectory,
+          check: hasNoLegacyAuditCiDirectory,
           fix: 'Move audit-ci configs from .audit-ci/ to .config/audit-ci/ and update references',
         },
 
@@ -82,15 +82,15 @@ function getMinVersion(): string {
   // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
   // Defer the call into a function so that module load does not invoke the runtime stub (which throws):
   // This keeps the module importable in tests that bypass the compile step.
-  const picked = pickJson('../../package.json', ['version']);
-  if (typeof picked['version'] !== 'string') {
+  const pickedFields = pickJson('../../package.json', ['version']);
+  if (typeof pickedFields['version'] !== 'string') {
     throw new TypeError("v11y-check/package.json: 'version' must be a string");
   }
-  return picked['version'];
+  return pickedFields['version'];
 }
 
 /** Checks that the working directory does not contain a legacy `.audit-ci/` directory. */
-export function noLegacyAuditCiDirectory(): boolean {
+export function hasNoLegacyAuditCiDirectory(): boolean {
   return !existsSync(join(process.cwd(), '.audit-ci'));
 }
 

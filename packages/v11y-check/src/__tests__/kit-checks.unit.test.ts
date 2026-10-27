@@ -13,18 +13,18 @@ vi.mock(import('node:fs'), async (importOriginal) => {
   };
 });
 
-import { noLegacyAuditCiDirectory } from '../../.readyup/kits/default.ts';
+import { hasNoLegacyAuditCiDirectory } from '../../.readyup/kits/default.ts';
 
-describe(noLegacyAuditCiDirectory, () => {
+describe(hasNoLegacyAuditCiDirectory, () => {
   it('returns true when .audit-ci/ directory does not exist', () => {
     mockedExistsSync.mockReturnValue(false);
 
-    expect(noLegacyAuditCiDirectory()).toBe(true);
+    expect(hasNoLegacyAuditCiDirectory()).toBe(true);
   });
 
   it('returns false when .audit-ci/ directory exists', () => {
     mockedExistsSync.mockReturnValue(true);
 
-    expect(noLegacyAuditCiDirectory()).toBe(false);
+    expect(hasNoLegacyAuditCiDirectory()).toBe(false);
   });
 });
