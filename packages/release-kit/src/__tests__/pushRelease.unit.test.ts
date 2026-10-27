@@ -45,13 +45,13 @@ describe(pushRelease, () => {
   });
 
   it('does not execute git push in dry-run mode', () => {
-    pushRelease(TAGS, { dryRun: true });
+    pushRelease(TAGS, { isDryRun: true });
 
     expect(mockExecFileSync).not.toHaveBeenCalledWith('git', expect.arrayContaining(['push']), { stdio: 'inherit' });
   });
 
   it('still resolves branch name in dry-run mode', () => {
-    pushRelease(TAGS, { dryRun: true });
+    pushRelease(TAGS, { isDryRun: true });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('git', ['rev-parse', '--abbrev-ref', 'HEAD'], expect.any(Object));
   });
@@ -76,7 +76,7 @@ describe(pushRelease, () => {
   });
 
   it('returns steps without executing in dry-run mode', () => {
-    const steps = pushRelease(TAGS, { dryRun: true });
+    const steps = pushRelease(TAGS, { isDryRun: true });
 
     expect(steps).toHaveLength(3);
     expect(steps[0]).toStrictEqual({ type: 'branch', ref: 'main', command: ['git', 'push', 'origin', 'main'] });

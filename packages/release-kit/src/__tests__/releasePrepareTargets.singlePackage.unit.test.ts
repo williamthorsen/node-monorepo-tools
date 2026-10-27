@@ -254,7 +254,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
       });
       stubPackageVersion('1.0.0');
 
-      const result = prepareSinglePackage(makeConfig(), { force: true });
+      const result = prepareSinglePackage(makeConfig(), { shouldForce: true });
 
       expect(result.tags).toStrictEqual(['v1.0.1']);
       expect(selectPackageResults(result)[0]).toMatchObject({
@@ -451,7 +451,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     stubMinorRelease();
 
     prepareSinglePackage(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
-      withReleaseNotes: true,
+      shouldIncludeReleaseNotes: true,
     });
 
     expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledTimes(1);
@@ -469,7 +469,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     stubMinorRelease();
     using silent = silenceConsole(['warn']);
 
-    const plan = prepareSinglePackage(makeConfig(), { withReleaseNotes: true });
+    const plan = prepareSinglePackage(makeConfig(), { shouldIncludeReleaseNotes: true });
 
     expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
     expect(plan.warnings).toStrictEqual([
@@ -496,7 +496,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     const plan = prepareSinglePackage(
       makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
       {
-        withReleaseNotes: true,
+        shouldIncludeReleaseNotes: true,
       },
     );
 

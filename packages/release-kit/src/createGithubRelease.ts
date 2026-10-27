@@ -9,7 +9,7 @@ import { matchesAudience, renderReleaseNotesSingle } from './renderReleaseNotes.
 export interface CreateGithubReleaseOptions {
   tag: string;
   changelogJsonPath: string;
-  dryRun: boolean;
+  isDryRun: boolean;
   /** Section titles in priority order. When omitted, entry order is preserved. */
   sectionOrder?: string[];
 }
@@ -31,7 +31,7 @@ export type CreateReleaseResult = { status: 'created' } | { status: 'skipped'; r
  * body. Throws when `gh` fails, so that the caller does not exit 0 on a failed release.
  */
 export function createGithubRelease(options: CreateGithubReleaseOptions): CreateReleaseResult {
-  const { tag, changelogJsonPath, dryRun, sectionOrder } = options;
+  const { tag, changelogJsonPath, isDryRun, sectionOrder } = options;
 
   if (!existsSync(changelogJsonPath)) {
     console.warn(`Warning: ${changelogJsonPath} not found; skipping GitHub Release creation`);
@@ -58,7 +58,7 @@ export function createGithubRelease(options: CreateGithubReleaseOptions): Create
 
   const body = renderReleaseNotesSingle(entry, {
     filter: matchesAudience('all'),
-    includeHeading: false,
+    shouldIncludeHeading: false,
     ...(sectionOrder !== undefined && { sectionOrder }),
   });
 
@@ -68,7 +68,7 @@ export function createGithubRelease(options: CreateGithubReleaseOptions): Create
 
   const args = ['release', 'create', tag, '--title', tag, '--notes', body];
 
-  if (dryRun) {
+  if (isDryRun) {
     console.info(`[dry-run] Would run: gh ${args.join(' ')}`);
     return { status: 'created' };
   }
@@ -89,7 +89,7 @@ export interface CreateGithubReleasesOutcome {
 export function createGithubReleases(
   tags: Array<{ tag: string; workspacePath: string }>,
   changelogJsonOutputPath: string,
-  dryRun: boolean,
+  isDryRun: boolean,
   sectionOrder?: string[],
 ): CreateGithubReleasesOutcome {
   const created: string[] = [];
@@ -99,7 +99,7 @@ export function createGithubReleases(
     const result = createGithubRelease({
       tag,
       changelogJsonPath,
-      dryRun,
+      isDryRun,
       ...(sectionOrder !== undefined && { sectionOrder }),
     });
     if (result.status === 'created') {

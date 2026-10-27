@@ -37,27 +37,27 @@ import type { ReleaseTarget } from './types.ts';
 export async function prepareCommand(argv: string[], styles: StreamStyles, invocationDir: string): Promise<void> {
   const {
     configPath: configFlag,
-    dryRun,
-    force,
-    noGitChecks,
+    isDryRun,
+    shouldForce,
+    shouldSkipGitChecks,
     bumpOverride,
     only,
     setVersion,
-    withReleaseNotes,
+    shouldIncludeReleaseNotes,
   } = parseArgs(argv);
   const options = {
-    force,
+    shouldForce,
     ...(bumpOverride !== undefined && { bumpOverride }),
-    ...(withReleaseNotes && { withReleaseNotes: true }),
+    ...(shouldIncludeReleaseNotes && { shouldIncludeReleaseNotes: true }),
   };
 
-  if (dryRun) {
+  if (isDryRun) {
     console.info(
       `\n${formatGlyphLine(RELEASE_GLYPHS, styles.stdout, 'dryRun', 'DRY RUN: release-kit will not modify any files')}\n`,
     );
   }
 
-  if (!dryRun && !noGitChecks) {
+  if (!isDryRun && !shouldSkipGitChecks) {
     try {
       assertCleanWorkingTree();
     } catch (error: unknown) {
@@ -103,7 +103,7 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
       assertReleasesOnNpm(findReleasedPackagePaths(plan, config.targets));
       return plan;
     },
-    dryRun,
+    isDryRun,
     styles.stdout,
   );
 }
@@ -208,7 +208,7 @@ function listMemberIds(targets: readonly ReleaseTarget[]): string[] {
  * that the plan just wrote. Its failure leaves the release on disk and the tags file in place;
  * `release-kit commit` still proceeds.
  */
-function runAndReport(computePlan: () => ReleasePlan, dryRun: boolean, style: OutputStyle): void {
+function runAndReport(computePlan: () => ReleasePlan, isDryRun: boolean, style: OutputStyle): void {
   let plan: ReleasePlan;
   try {
     plan = computePlan();
@@ -218,7 +218,7 @@ function runAndReport(computePlan: () => ReleasePlan, dryRun: boolean, style: Ou
     process.exit(1);
   }
 
-  if (dryRun) {
+  if (isDryRun) {
     process.stdout.write(reportPrepare(plan, { applied: false, style }) + '\n');
     reportPlanFiles(plan, true);
     return;
@@ -269,12 +269,12 @@ function runFormatCommand(formatCommand: ReleasePlan['formatCommand']): string |
 }
 
 /** Reports the tags and summary files that the plan writes, in the prepare command's dim style. */
-function reportPlanFiles(plan: ReleasePlan, dryRun: boolean): void {
+function reportPlanFiles(plan: ReleasePlan, isDryRun: boolean): void {
   if (plan.tags.length === 0) {
     return;
   }
 
-  if (dryRun) {
+  if (isDryRun) {
     console.info(dim(`  [dry-run] Would write ${RELEASE_TAGS_FILE}: ${plan.tags.join(' ')}`));
     if (plan.summary.length > 0) {
       console.info(dim(`  [dry-run] Would write ${RELEASE_SUMMARY_FILE}`));

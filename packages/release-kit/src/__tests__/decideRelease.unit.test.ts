@@ -16,24 +16,24 @@ describe(decideRelease, () => {
   it.each<[string, Row, DecideReleaseResult]>([
     ['no commits, no flags', { commitCount: 0 }, SKIP_NO_COMMITS],
     ['no commits, --bump alone', { commitCount: 0, bumpOverride: 'minor' }, SKIP_NO_COMMITS],
-    ['no commits, --force alone', { commitCount: 0, force: true }, release('patch')],
-    ['no commits, --force --bump', { commitCount: 0, force: true, bumpOverride: 'major' }, release('major')],
+    ['no commits, --force alone', { commitCount: 0, shouldForce: true }, release('patch')],
+    ['no commits, --force --bump', { commitCount: 0, shouldForce: true, bumpOverride: 'major' }, release('major')],
     ['commits without a bump, no flags', { commitCount: 2 }, SKIP_NO_BUMP_WORTHY],
     ['commits without a bump, --bump alone', { commitCount: 2, bumpOverride: 'minor' }, SKIP_NO_BUMP_WORTHY],
-    ['commits without a bump, --force alone', { commitCount: 2, force: true }, release('patch')],
+    ['commits without a bump, --force alone', { commitCount: 2, shouldForce: true }, release('patch')],
     [
       'commits without a bump, --force --bump',
-      { commitCount: 2, force: true, bumpOverride: 'minor' },
+      { commitCount: 2, shouldForce: true, bumpOverride: 'minor' },
       release('minor'),
     ],
     ['a natural bump, no flags', { commitCount: 1, naturalBump: 'minor' }, release('minor')],
     ['a natural bump, --bump', { commitCount: 1, naturalBump: 'minor', bumpOverride: 'patch' }, release('patch')],
-    ['a natural bump, --force', { commitCount: 1, naturalBump: 'major', force: true }, release('major')],
+    ['a natural bump, --force', { commitCount: 1, naturalBump: 'major', shouldForce: true }, release('major')],
   ])('decides %s', (_label, row, expected) => {
     const result = decideRelease({
       naturalBump: row.naturalBump,
       commitCount: row.commitCount,
-      force: row.force,
+      shouldForce: row.shouldForce,
       bumpOverride: row.bumpOverride,
       skipReasons,
     });
@@ -48,7 +48,7 @@ describe(decideRelease, () => {
 interface Row {
   naturalBump?: ReleaseType;
   commitCount: number;
-  force?: boolean;
+  shouldForce?: boolean;
   bumpOverride?: ReleaseType;
 }
 

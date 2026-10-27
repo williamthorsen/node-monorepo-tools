@@ -56,7 +56,7 @@ export function reportPrepare(plan: PrepareResult, options: ReportPrepareOptions
 
 /** Formats output for a single-package release. */
 function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOptions): string {
-  const dryRun = !options.applied;
+  const isDryRun = !options.applied;
   const { style } = options;
   const lines: string[] = [];
   const workspace = result.targets[0];
@@ -116,11 +116,11 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
 
   formatChangeRecordWarnings(lines, workspace, style);
 
-  formatBumpFiles(lines, workspace, dryRun);
+  formatBumpFiles(lines, workspace, isDryRun);
 
   lines.push(dim('Generating changelogs...'));
-  formatChangelogFiles(lines, workspace, dryRun, style);
-  formatPreviewFiles(lines, workspace, dryRun);
+  formatChangelogFiles(lines, workspace, isDryRun, style);
+  formatPreviewFiles(lines, workspace, isDryRun);
 
   formatFormatCommand(lines, result, options);
 
@@ -136,15 +136,15 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
 
 /** Formats output for a monorepo release with multiple workspaces. */
 function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptions): string {
-  const dryRun = !options.applied;
+  const isDryRun = !options.applied;
   const { style } = options;
   const lines: string[] = [];
 
   for (const target of result.targets) {
     if (target.kind === 'composite') {
-      formatProjectSection(lines, target, dryRun, style);
+      formatProjectSection(lines, target, isDryRun, style);
     } else {
-      formatWorkspaceSection(lines, target, dryRun, style);
+      formatWorkspaceSection(lines, target, isDryRun, style);
     }
   }
 
@@ -174,7 +174,7 @@ function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptio
 function formatProjectSection(
   lines: string[],
   project: CompositePrepareResult,
-  dryRun: boolean,
+  isDryRun: boolean,
   style: OutputStyle,
 ): void {
   lines.push(`\n${sectionHeader(project.targetId === PROJECT_TARGET_ID ? 'project' : project.targetId)}`);
@@ -211,7 +211,7 @@ function formatProjectSection(
   );
 
   for (const file of project.bumpedFiles) {
-    if (dryRun) {
+    if (isDryRun) {
       lines.push(dim(`    [dry-run] Would bump ${file}`));
     } else {
       lines.push(dim(`    Bumped ${file}`));
@@ -219,8 +219,8 @@ function formatProjectSection(
   }
 
   lines.push(dim('  Generating changelogs...'));
-  formatChangelogFiles(lines, project, dryRun, style, '  ');
-  formatPreviewFiles(lines, project, dryRun, '  ');
+  formatChangelogFiles(lines, project, isDryRun, style, '  ');
+  formatPreviewFiles(lines, project, isDryRun, '  ');
 
   lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(tag))}`);
 }
@@ -232,7 +232,7 @@ type ReleasedMemberResult = ReleasedPackageResult | ReleasedDirectoryResult;
 function formatWorkspaceSection(
   lines: string[],
   workspace: PackagePrepareResult | DirectoryPrepareResult,
-  dryRun: boolean,
+  isDryRun: boolean,
   style: OutputStyle,
 ): void {
   if (workspace.name !== undefined) {
@@ -260,10 +260,10 @@ function formatWorkspaceSection(
   formatBumpLabels(lines, workspace, isPropagatedOnly);
   formatVersionLine(lines, workspace, propagatedFrom, isPropagatedOnly, style);
 
-  formatBumpFiles(lines, workspace, dryRun, '  ');
+  formatBumpFiles(lines, workspace, isDryRun, '  ');
   lines.push(dim('  Generating changelogs...'));
-  formatChangelogFiles(lines, workspace, dryRun, style, '  ');
-  formatPreviewFiles(lines, workspace, dryRun, '  ');
+  formatChangelogFiles(lines, workspace, isDryRun, style, '  ');
+  formatPreviewFiles(lines, workspace, isDryRun, '  ');
 
   lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(workspace.tag))}`);
 }

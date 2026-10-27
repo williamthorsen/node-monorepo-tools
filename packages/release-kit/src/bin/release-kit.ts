@@ -176,13 +176,13 @@ if (command === 'init') {
   enterRepoRootOrExit();
 
   const initFlagSchema = {
-    dryRun: { long: '--dry-run', type: 'boolean' as const },
-    force: { long: '--force', type: 'boolean' as const },
-    withConfig: { long: '--with-config', type: 'boolean' as const },
+    isDryRun: { long: '--dry-run', type: 'boolean' as const },
+    shouldForce: { long: '--force', type: 'boolean' as const },
+    shouldScaffoldConfig: { long: '--with-config', type: 'boolean' as const },
   };
 
-  const { dryRun, force, withConfig } = parseArgsOrExit(flags, initFlagSchema).flags;
-  const exitCode = initCommand({ dryRun, force, styles, withConfig });
+  const { isDryRun, shouldForce, shouldScaffoldConfig } = parseArgsOrExit(flags, initFlagSchema).flags;
+  const exitCode = initCommand({ isDryRun, shouldForce, styles, shouldScaffoldConfig });
   process.exit(exitCode);
 }
 
@@ -195,11 +195,11 @@ if (command === 'update-templates') {
   enterRepoRootOrExit();
 
   const updateTemplatesFlagSchema = {
-    dryRun: { long: '--dry-run', type: 'boolean' as const },
+    isDryRun: { long: '--dry-run', type: 'boolean' as const },
   };
 
-  const { dryRun } = parseArgsOrExit(flags, updateTemplatesFlagSchema).flags;
-  const exitCode = updateTemplatesCommand({ dryRun, styles });
+  const { isDryRun } = parseArgsOrExit(flags, updateTemplatesFlagSchema).flags;
+  const exitCode = updateTemplatesCommand({ isDryRun, styles });
   process.exit(exitCode);
 }
 
@@ -223,16 +223,16 @@ if (command === 'sync-labels') {
 
     const syncLabelsInitFlagSchema = {
       ...configFlagSchema,
-      dryRun: { long: '--dry-run', type: 'boolean' as const },
-      force: { long: '--force', type: 'boolean' as const },
+      isDryRun: { long: '--dry-run', type: 'boolean' as const },
+      shouldForce: { long: '--force', type: 'boolean' as const },
     };
 
-    const { config, dryRun, force } = parseArgsOrExit(subflags, syncLabelsInitFlagSchema).flags;
+    const { config, isDryRun, shouldForce } = parseArgsOrExit(subflags, syncLabelsInitFlagSchema).flags;
     const configPath = resolveConfigFlag(config, invocationDir);
     const exitCode = await syncLabelsInitCommand({
       ...(configPath !== undefined && { configPath }),
-      dryRun,
-      force,
+      isDryRun,
+      shouldForce,
       styles,
     });
     process.exit(exitCode);
@@ -248,12 +248,12 @@ if (command === 'sync-labels') {
 
     const generateFlagSchema = {
       ...configFlagSchema,
-      check: { long: '--check', type: 'boolean' as const },
+      shouldCheck: { long: '--check', type: 'boolean' as const },
     };
 
-    const { check, config } = parseArgsOrExit(subflags, generateFlagSchema).flags;
+    const { shouldCheck, config } = parseArgsOrExit(subflags, generateFlagSchema).flags;
     const configPath = resolveConfigFlag(config, invocationDir);
-    const exitCode = await generateCommand({ check, ...(configPath !== undefined && { configPath }), styles });
+    const exitCode = await generateCommand({ shouldCheck, ...(configPath !== undefined && { configPath }), styles });
     process.exit(exitCode);
   }
 

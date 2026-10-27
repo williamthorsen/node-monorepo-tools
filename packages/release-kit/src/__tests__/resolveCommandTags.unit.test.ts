@@ -93,7 +93,7 @@ describe(resolveCommandTags, () => {
       }
       throw new Error(`Unexpected workspace path: ${workspacePath}`);
     });
-    mockReadRootPackageVersion.mockReturnValue({ exists: true, version: '1.0.0' });
+    mockReadRootPackageVersion.mockReturnValue({ doesExist: true, version: '1.0.0' });
     void throwOnProcessExit();
     void silenceConsole(['warn']);
   });
@@ -371,7 +371,7 @@ describe(resolveCommandTags, () => {
     });
 
     it('exits with code 1 when the config fails the merge validation', async () => {
-      mockReadRootPackageVersion.mockReturnValue({ exists: false, version: undefined });
+      mockReadRootPackageVersion.mockReturnValue({ doesExist: false, version: undefined });
 
       const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined, { project: {} }));
 

@@ -90,7 +90,7 @@ describe(prepareCommand, () => {
     );
 
     expect(mockReleasePrepareTargets).toHaveBeenCalledWith(expect.any(Object), {
-      force: true,
+      shouldForce: true,
       bumpOverride: 'minor',
       setVersions: new Map([
         ['arrays', '1.0.0'],
@@ -150,31 +150,31 @@ describe(prepareCommand, () => {
     );
   });
 
-  it('forwards withReleaseNotes in monorepo mode when --with-release-notes is set', async () => {
+  it('forwards shouldIncludeReleaseNotes in monorepo mode when --with-release-notes is set', async () => {
     await prepareCommand(['--with-release-notes'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ withReleaseNotes: true }),
+      expect.objectContaining({ shouldIncludeReleaseNotes: true }),
     );
   });
 
-  it('forwards withReleaseNotes in single-package mode', async () => {
+  it('forwards shouldIncludeReleaseNotes in single-package mode', async () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
     await prepareCommand(['--with-release-notes'], RICH_STYLES, process.cwd());
 
     expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ withReleaseNotes: true }),
+      expect.objectContaining({ shouldIncludeReleaseNotes: true }),
     );
   });
 
-  it('omits withReleaseNotes from options when the flag is not set', async () => {
+  it('omits shouldIncludeReleaseNotes from options when the flag is not set', async () => {
     await prepareCommand([], RICH_STYLES, process.cwd());
 
     const callArgs = mockReleasePrepareTargets.mock.calls[0]?.[1];
-    expect(callArgs).not.toHaveProperty('withReleaseNotes');
+    expect(callArgs).not.toHaveProperty('shouldIncludeReleaseNotes');
   });
 
   describe('--only with a releases composite', () => {

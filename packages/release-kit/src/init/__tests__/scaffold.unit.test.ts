@@ -22,10 +22,10 @@ describe('scaffold', () => {
 
       const results = scaffoldFiles({
         repoType: 'single-package',
-        dryRun: false,
-        overwrite: false,
+        isDryRun: false,
+        shouldOverwrite: false,
         publishable: true,
-        withConfig: false,
+        shouldScaffoldConfig: false,
       });
 
       expect(results).toHaveLength(3);
@@ -59,10 +59,10 @@ describe('scaffold', () => {
 
       scaffoldFiles({
         repoType: 'monorepo',
-        dryRun: false,
-        overwrite: false,
+        isDryRun: false,
+        shouldOverwrite: false,
         publishable: true,
-        withConfig: false,
+        shouldScaffoldConfig: false,
       });
 
       const createReleaseCall = mockWriteFileWithCheck.mock.calls.find(
@@ -71,7 +71,7 @@ describe('scaffold', () => {
       expect(createReleaseCall?.[1]).toContain("'*-v[0-9]*.[0-9]*.[0-9]*'");
     });
 
-    it('creates workflow, publish, create-github-release, and config files when withConfig is true', () => {
+    it('creates workflow, publish, create-github-release, and config files when shouldScaffoldConfig is true', () => {
       mockWriteFileWithCheck
         .mockReturnValueOnce({ filePath: '.github/workflows/create-github-release.yaml', outcome: 'created' })
         .mockReturnValueOnce({ filePath: '.github/workflows/publish.yaml', outcome: 'created' })
@@ -80,10 +80,10 @@ describe('scaffold', () => {
 
       const results = scaffoldFiles({
         repoType: 'single-package',
-        dryRun: false,
-        overwrite: false,
+        isDryRun: false,
+        shouldOverwrite: false,
         publishable: true,
-        withConfig: true,
+        shouldScaffoldConfig: true,
       });
 
       expect(results.map((result) => result.filePath)).toStrictEqual([
@@ -94,7 +94,7 @@ describe('scaffold', () => {
       ]);
     });
 
-    it('returns skipped results when overwrite is false and files exist', () => {
+    it('returns skipped results when shouldOverwrite is false and files exist', () => {
       mockWriteFileWithCheck
         .mockReturnValueOnce({ filePath: '.github/workflows/create-github-release.yaml', outcome: 'skipped' })
         .mockReturnValueOnce({ filePath: '.github/workflows/publish.yaml', outcome: 'skipped' })
@@ -102,10 +102,10 @@ describe('scaffold', () => {
 
       const results = scaffoldFiles({
         repoType: 'single-package',
-        dryRun: false,
-        overwrite: false,
+        isDryRun: false,
+        shouldOverwrite: false,
         publishable: true,
-        withConfig: false,
+        shouldScaffoldConfig: false,
       });
 
       expect(results).toHaveLength(3);
@@ -117,7 +117,7 @@ describe('scaffold', () => {
       expect(results[2]).toStrictEqual({ filePath: '.github/workflows/release.yaml', outcome: 'skipped' });
     });
 
-    it('passes overwrite option to writeFileWithCheck', () => {
+    it('passes shouldOverwrite to writeFileWithCheck', () => {
       mockWriteFileWithCheck
         .mockReturnValueOnce({ filePath: '.github/workflows/create-github-release.yaml', outcome: 'overwritten' })
         .mockReturnValueOnce({ filePath: '.github/workflows/publish.yaml', outcome: 'overwritten' })
@@ -125,10 +125,10 @@ describe('scaffold', () => {
 
       scaffoldFiles({
         repoType: 'single-package',
-        dryRun: false,
-        overwrite: true,
+        isDryRun: false,
+        shouldOverwrite: true,
         publishable: true,
-        withConfig: false,
+        shouldScaffoldConfig: false,
       });
 
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith(
@@ -154,10 +154,10 @@ describe('scaffold', () => {
 
       const results = scaffoldFiles({
         repoType: 'single-package',
-        dryRun: true,
-        overwrite: false,
+        isDryRun: true,
+        shouldOverwrite: false,
         publishable: true,
-        withConfig: false,
+        shouldScaffoldConfig: false,
       });
 
       expect(results).toHaveLength(3);
@@ -183,10 +183,10 @@ describe('scaffold', () => {
 
       const results = scaffoldFiles({
         repoType: 'single-package',
-        dryRun: false,
-        overwrite: true,
+        isDryRun: false,
+        shouldOverwrite: true,
         publishable: false,
-        withConfig: true,
+        shouldScaffoldConfig: true,
       });
 
       expect(results.map((result) => result.filePath)).toStrictEqual([

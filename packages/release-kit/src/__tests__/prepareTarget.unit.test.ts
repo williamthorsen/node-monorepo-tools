@@ -175,7 +175,7 @@ describe(readTargetHistory, () => {
 });
 
 describe(decideTargetRelease, () => {
-  const noForce = { force: false, bumpOverride: undefined, setVersion: undefined };
+  const noForce = { shouldForce: false, bumpOverride: undefined, setVersion: undefined };
 
   it('names a workspace in its skip reason', () => {
     const decision = decideTargetRelease(CORE, makeReleaseHistory({ previousTag: 'core-v1.0.0' }), noForce);
@@ -200,7 +200,7 @@ describe(decideTargetRelease, () => {
 
   it('releases at the bump override under --force', () => {
     const decision = decideTargetRelease(CORE, makeReleaseHistory(), {
-      force: true,
+      shouldForce: true,
       bumpOverride: 'major',
       setVersion: undefined,
     });
@@ -215,7 +215,7 @@ describe(decideTargetRelease, () => {
 
   it('releases at an explicit version without deciding a level', () => {
     const decision = decideTargetRelease(CORE, makeReleaseHistory(), {
-      force: false,
+      shouldForce: false,
       bumpOverride: 'minor',
       setVersion: '3.0.0',
     });

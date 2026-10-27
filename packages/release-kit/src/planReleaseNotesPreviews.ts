@@ -57,7 +57,7 @@ export function planReleaseNotesPreviews(options: PlanReleaseNotesPreviewsOption
   }
   const { rendered } = result;
 
-  if (!readme.exists && !readme.unreadable) {
+  if (!readme.doesExist && !readme.unreadable) {
     warnings.push(
       `${readmePath} not found; skipping injected-README preview but still writing standalone release notes`,
     );
@@ -67,7 +67,7 @@ export function planReleaseNotesPreviews(options: PlanReleaseNotesPreviewsOption
   const docsDir = path.join(workspacePath, 'docs');
   const writes: PlannedWrite[] = [];
 
-  if (readme.exists) {
+  if (readme.doesExist) {
     writes.push({ path: path.join(docsDir, `README.v${version}.md`), content: rendered.injectedReadme });
   }
 
@@ -106,16 +106,16 @@ function describePreviewSkip(workspacePath: string, reason: RenderInjectedReadme
 function readWorkspaceReadme(
   readmePath: string,
   warnings: string[],
-): { content: string; exists: boolean; unreadable: boolean } {
+): { content: string; doesExist: boolean; unreadable: boolean } {
   if (!existsSync(readmePath)) {
-    return { content: '', exists: false, unreadable: false };
+    return { content: '', doesExist: false, unreadable: false };
   }
 
   try {
-    return { content: readFileSync(readmePath, 'utf8'), exists: true, unreadable: false };
+    return { content: readFileSync(readmePath, 'utf8'), doesExist: true, unreadable: false };
   } catch (error) {
     const message = describeError(error);
     warnings.push(`failed to read ${readmePath}: ${message}; skipping injected-README preview`);
-    return { content: '', exists: false, unreadable: true };
+    return { content: '', doesExist: false, unreadable: true };
   }
 }

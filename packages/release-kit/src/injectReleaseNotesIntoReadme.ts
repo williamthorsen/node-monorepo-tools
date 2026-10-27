@@ -53,7 +53,7 @@ export function renderInjectedReadmeFromEntries(
 
   const renderedSections = renderReleaseNotesSingle(entry, {
     filter: matchesAudience('all'),
-    includeHeading: false,
+    shouldIncludeHeading: false,
     ...(sectionOrder !== undefined && { sectionOrder }),
   });
 

@@ -95,7 +95,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     it('writes a synthetic Notes / Forced version bump entry when --force is used without any commits', () => {
       stubEmptyRange();
 
-      const result = prepareSinglePackage(makeConfig(), { force: true });
+      const result = prepareSinglePackage(makeConfig(), { shouldForce: true });
 
       expect(result.tags).toStrictEqual(['v1.0.1']);
       const workspace = selectPackageResults(result)[0];
@@ -125,7 +125,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     it('releases at the --bump level under --force --bump without any commits', () => {
       stubEmptyRange();
 
-      const result = prepareSinglePackage(makeConfig(), { force: true, bumpOverride: 'minor' });
+      const result = prepareSinglePackage(makeConfig(), { shouldForce: true, bumpOverride: 'minor' });
 
       expect(result.tags).toStrictEqual(['v1.1.0']);
       expect(selectPackageResults(result)[0]).toMatchObject({
@@ -141,7 +141,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     });
 
     it.each([
-      ['--force', { force: true }, '1.0.1'],
+      ['--force', { shouldForce: true }, '1.0.1'],
       ['--set-version', { setVersion: '2.0.0' }, '2.0.0'],
     ])(
       "writes the synthetic entry under %s when the window has commits but doesn't yield an item",
@@ -172,7 +172,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
       stubPackageVersion('1.0.0');
 
       prepareSinglePackage(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
-        force: true,
+        shouldForce: true,
       });
 
       expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
@@ -198,7 +198,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
       const result = prepareSinglePackage(
         makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
         {
-          force: true,
+          shouldForce: true,
         },
       );
 
@@ -217,7 +217,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
         changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
       });
 
-      const result = prepareSinglePackage(config, { force: true });
+      const result = prepareSinglePackage(config, { shouldForce: true });
 
       expect(result.formatCommand?.files).toContain('CHANGELOG.md');
       expect(result.formatCommand?.files).toContain('./.meta/changelog.json');
@@ -341,7 +341,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
   describe('untagged baseline', () => {
     it.each<[string, SinglePackageOptions]>([
       ['a natural release', {}],
-      ['--force', { force: true }],
+      ['--force', { shouldForce: true }],
       ['--set-version', { setVersion: '2.0.0' }],
     ])('throws on %s when the current version is recorded but untagged', (_label, options) => {
       stubHistory({ previousTag: 'v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });

@@ -15,10 +15,10 @@ import { formatPrivateWorkflowSkip, hasPublishablePackage } from './hasPublishab
 import { PUBLISHING_WORKFLOW_PATHS, scaffoldFiles } from './scaffold.ts';
 
 interface InitOptions {
-  dryRun: boolean;
-  force: boolean;
+  isDryRun: boolean;
+  shouldForce: boolean;
   styles: StreamStyles;
-  withConfig: boolean;
+  shouldScaffoldConfig: boolean;
 }
 
 /** Runs the eligibility checks, stopping at the first failure, and reports whether all passed. */
@@ -33,8 +33,8 @@ export function checkEligibility(styles: StreamStyles): boolean {
 }
 
 /** Runs the `release-kit init` command and returns the process exit code. */
-export function initCommand({ dryRun, force, styles, withConfig }: InitOptions): number {
-  if (dryRun) {
+export function initCommand({ isDryRun, shouldForce, styles, shouldScaffoldConfig }: InitOptions): number {
+  if (isDryRun) {
     console.info('[dry-run mode]');
   }
 
@@ -68,14 +68,14 @@ export function initCommand({ dryRun, force, styles, withConfig }: InitOptions):
 
   let results: WriteResult[];
   try {
-    results = scaffoldFiles({ repoType, dryRun, overwrite: force, publishable, withConfig });
+    results = scaffoldFiles({ repoType, isDryRun, shouldOverwrite: shouldForce, publishable, shouldScaffoldConfig });
   } catch (error: unknown) {
     printError(`Failed to scaffold files: ${describeError(error)}`, styles.stderr);
     return 1;
   }
 
   for (const result of results) {
-    reportWriteResult(result, dryRun, styles);
+    reportWriteResult(result, isDryRun, styles);
   }
 
   if (results.some((r) => r.outcome === 'failed')) {
@@ -83,16 +83,22 @@ export function initCommand({ dryRun, force, styles, withConfig }: InitOptions):
   }
 
   printStep('Next steps');
-  console.info(`\n${formatNextSteps({ publishable, withConfig })}\n`);
+  console.info(`\n${formatNextSteps({ publishable, shouldScaffoldConfig })}\n`);
 
   return 0;
 }
 
 // region | Helpers
 /** Formats the numbered next steps, leaving out the publishing steps when the repo does not publish any package. */
-function formatNextSteps({ publishable, withConfig }: { publishable: boolean; withConfig: boolean }): string {
+function formatNextSteps({
+  publishable,
+  shouldScaffoldConfig,
+}: {
+  publishable: boolean;
+  shouldScaffoldConfig: boolean;
+}): string {
   const steps = [
-    withConfig
+    shouldScaffoldConfig
       ? '(Optional) Customize .config/release-kit.config.ts.'
       : '(Optional) Run again with --with-config to scaffold config files.',
     ...(publishable ? ['If this is a private repo, remove provenance: true from .github/workflows/publish.yaml.'] : []),

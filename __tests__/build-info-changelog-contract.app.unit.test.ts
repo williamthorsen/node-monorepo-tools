@@ -36,7 +36,10 @@ describe('build-info reads the changelog.json that release-kit writes', () => {
 
     expect(releaseNotes).toStrictEqual({
       date: '2026-10-08',
-      markdown: renderReleaseNotesSingle(ENTRY, { filter: matchesAudience('all'), includeHeading: false }).trimEnd(),
+      markdown: renderReleaseNotesSingle(ENTRY, {
+        filter: matchesAudience('all'),
+        shouldIncludeHeading: false,
+      }).trimEnd(),
       sections: [
         {
           title: '🎉 Features',

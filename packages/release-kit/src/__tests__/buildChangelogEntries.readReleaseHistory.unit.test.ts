@@ -223,7 +223,7 @@ entries:
 
       const history = readReleaseHistoryOf([makeWindow('unreleased', [message])], 'nmr-core');
       const decision = decideTargetRelease(makeWorkspaceTarget('nmr-core'), history, {
-        force: false,
+        shouldForce: false,
         bumpOverride: undefined,
         setVersion: undefined,
       });

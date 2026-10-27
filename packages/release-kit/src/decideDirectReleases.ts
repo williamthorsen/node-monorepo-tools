@@ -23,16 +23,16 @@ export interface DirectReleases {
 }
 
 /**
- * Reads each planned package and directory target's history and decides its direct release. `force` applies only to
+ * Reads each planned package and directory target's history and decides its direct release. `shouldForce` applies only to
  * the targets from which the release starts.
  */
 export function decideDirectReleases(
   planned: readonly MemberTarget[],
   settings: TargetPrepareSettings,
-  options: { force?: boolean; bumpOverride?: ReleaseType; setVersions?: ReadonlyMap<string, string> },
+  options: { shouldForce?: boolean; bumpOverride?: ReleaseType; setVersions?: ReadonlyMap<string, string> },
   startIds: ReadonlySet<string>,
 ): DirectReleases {
-  const { force, bumpOverride, setVersions } = options;
+  const { shouldForce, bumpOverride, setVersions } = options;
   const direct: DirectReleases = {
     readings: new Map(),
     decisions: new Map(),
@@ -56,7 +56,7 @@ export function decideDirectReleases(
 
     const setVersion = setVersions?.get(target.id);
     const decision = decideTargetRelease(target, history, {
-      force: force === true && startIds.has(target.id),
+      shouldForce: shouldForce === true && startIds.has(target.id),
       bumpOverride,
       setVersion,
     });

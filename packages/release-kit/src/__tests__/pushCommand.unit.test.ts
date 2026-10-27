@@ -21,7 +21,7 @@ vi.mock(import('../resolveCommandTags.ts'), () => ({
 vi.mock(import('../loadConfig.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   loadConfig: mockLoadConfig,
-  readRootPackageVersion: () => ({ exists: true, version: '1.0.0' }),
+  readRootPackageVersion: () => ({ doesExist: true, version: '1.0.0' }),
 }));
 
 // The discovery-level mocks serve the tests that run the real `resolveCommandTags`.
@@ -76,19 +76,19 @@ describe(pushCommand, () => {
     await pushCommand([], RICH_STYLES, process.cwd());
 
     expect(mockResolveCommandTags).toHaveBeenCalledWith(undefined, undefined);
-    expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { dryRun: false, tagsOnly: false });
+    expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { isDryRun: false, tagsOnly: false });
   });
 
-  it('passes dryRun when --dry-run is provided', async () => {
+  it('passes isDryRun when --dry-run is provided', async () => {
     await pushCommand(['--dry-run'], RICH_STYLES, process.cwd());
 
-    expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { dryRun: true, tagsOnly: false });
+    expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { isDryRun: true, tagsOnly: false });
   });
 
   it('passes tagsOnly when --tags-only is provided', async () => {
     await pushCommand(['--tags-only'], RICH_STYLES, process.cwd());
 
-    expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { dryRun: false, tagsOnly: true });
+    expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { isDryRun: false, tagsOnly: true });
   });
 
   it('passes tags filter to resolveCommandTags', async () => {
@@ -101,7 +101,7 @@ describe(pushCommand, () => {
     await pushCommand(['--tags=core-v1.2.0', '--tags-only'], RICH_STYLES, process.cwd());
 
     expect(mockResolveCommandTags).toHaveBeenCalledWith(['core-v1.2.0'], undefined);
-    expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { dryRun: false, tagsOnly: true });
+    expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { isDryRun: false, tagsOnly: true });
   });
 
   it('propagates unknown-tag error from resolveCommandTags', async () => {
@@ -196,7 +196,7 @@ describe(pushCommand, () => {
       expect(silent.warn).toHaveBeenCalledWith(
         'Skipping cli-v0.5.0 (packages/cli): excluded by config (shouldExclude: true).',
       );
-      expect(mockPushRelease).toHaveBeenCalledWith([TAGS[0]], { dryRun: false, tagsOnly: false });
+      expect(mockPushRelease).toHaveBeenCalledWith([TAGS[0]], { isDryRun: false, tagsOnly: false });
     });
   });
 
@@ -233,7 +233,7 @@ describe(pushCommand, () => {
 
       await pushCommand([], RICH_STYLES, process.cwd());
 
-      expect(mockPushRelease).toHaveBeenCalledWith([...TAGS, PROJECT_TAG], { dryRun: false, tagsOnly: false });
+      expect(mockPushRelease).toHaveBeenCalledWith([...TAGS, PROJECT_TAG], { isDryRun: false, tagsOnly: false });
     });
 
     it('pushes the project tag when it is the only release tag', async () => {
@@ -248,7 +248,7 @@ describe(pushCommand, () => {
 
       await pushCommand([], RICH_STYLES, process.cwd());
 
-      expect(mockPushRelease).toHaveBeenCalledWith([PROJECT_TAG], { dryRun: false, tagsOnly: false });
+      expect(mockPushRelease).toHaveBeenCalledWith([PROJECT_TAG], { isDryRun: false, tagsOnly: false });
       expect(capture.stderrChunks.join('')).not.toContain('HEAD does not have any release tags');
     });
   });

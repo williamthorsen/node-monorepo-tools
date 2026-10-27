@@ -21,7 +21,7 @@ import { CREATE_GITHUB_RELEASE_WORKFLOW_PATH, PUBLISH_WORKFLOW_PATH, PUBLISHING_
 import { createGithubReleaseWorkflow, publishWorkflow, releaseWorkflow } from './templates.ts';
 
 interface UpdateTemplatesOptions {
-  dryRun: boolean;
+  isDryRun: boolean;
   styles: StreamStyles;
 }
 
@@ -34,8 +34,8 @@ const SYNC_LABELS_WORKFLOW_PATH = '.github/workflows/sync-labels.yaml';
  * `sync-labels.yaml` is refreshed only when it exists, as are the publishing workflows in a repo whose packages are
  * all private. Config files are never read or written.
  */
-export function updateTemplatesCommand({ dryRun, styles }: UpdateTemplatesOptions): number {
-  if (dryRun) {
+export function updateTemplatesCommand({ isDryRun, styles }: UpdateTemplatesOptions): number {
+  if (isDryRun) {
     console.info('[dry-run mode]');
   }
 
@@ -65,14 +65,14 @@ export function updateTemplatesCommand({ dryRun, styles }: UpdateTemplatesOption
     for (const filePath of skipped) {
       printSkip(formatPrivateWorkflowSkip(filePath), styles.stdout);
     }
-    results = files.map(([filePath, content]) => updateManagedFile(filePath, content, { isDryRun: dryRun }));
+    results = files.map(([filePath, content]) => updateManagedFile(filePath, content, { isDryRun }));
   } catch (error: unknown) {
     printError(`Failed to render workflows: ${describeError(error)}`, styles.stderr);
     return 1;
   }
 
   for (const result of results) {
-    reportTemplateUpdate(result, dryRun, styles);
+    reportTemplateUpdate(result, isDryRun, styles);
   }
 
   return results.some((result) => result.outcome === 'failed') ? 1 : 0;
@@ -90,7 +90,7 @@ function buildManagedFiles(
   const skipped: string[] = publishable ? [] : PUBLISHING_WORKFLOW_PATHS.filter((filePath) => !existsSync(filePath));
   const files: Array<[string, string]> = [
     [CREATE_GITHUB_RELEASE_WORKFLOW_PATH, createGithubReleaseWorkflow(repoType)],
-    [PUBLISH_WORKFLOW_PATH, publishWorkflow(repoType, { provenance: readProvenanceSetting() })],
+    [PUBLISH_WORKFLOW_PATH, publishWorkflow(repoType, { shouldGenerateProvenance: readProvenanceSetting() })],
     ['.github/workflows/release.yaml', releaseWorkflow(repoType)],
   ];
   if (existsSync(SYNC_LABELS_WORKFLOW_PATH)) {

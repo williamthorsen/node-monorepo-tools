@@ -6,7 +6,7 @@ import { GIT_OUTPUT_LIMIT_BYTES, hasErrnoCode, parseArgsOrExit } from '@williamt
 import { readReleaseTags, RELEASE_SUMMARY_FILE, resolveReleaseTagsPath } from './releaseFiles.ts';
 
 const commitFlagSchema = {
-  dryRun: { long: '--dry-run', type: 'boolean' as const },
+  isDryRun: { long: '--dry-run', type: 'boolean' as const },
 };
 
 /**
@@ -14,7 +14,7 @@ const commitFlagSchema = {
  * creates the release commit.
  */
 export function commitCommand(argv: string[]): void {
-  const dryRun = parseArgsOrExit(argv, commitFlagSchema).flags.dryRun;
+  const isDryRun = parseArgsOrExit(argv, commitFlagSchema).flags.isDryRun;
 
   const tags = readReleaseTags();
 
@@ -37,7 +37,7 @@ export function commitCommand(argv: string[]): void {
   const title = `release: ${tags.join(' ')}`;
   const message = summary.length > 0 ? `${title}\n\n${summary}` : title;
 
-  if (dryRun) {
+  if (isDryRun) {
     console.info('[dry-run] Would create commit with message:\n');
     console.info(message);
 

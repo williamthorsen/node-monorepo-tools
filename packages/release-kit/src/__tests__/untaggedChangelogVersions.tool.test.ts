@@ -64,7 +64,7 @@ describe('untagged changelog versions (tool)', () => {
     const config = mergeMonorepoConfig(
       ['packages/api'],
       { project: {}, changelogJson: { enabled: false } },
-      { exists: true, version: '1.3.0' },
+      { doesExist: true, version: '1.3.0' },
     );
 
     expect(() => releasePrepareTargets(projectMonorepoConfig(config), {})).toThrow(
@@ -72,7 +72,7 @@ describe('untagged changelog versions (tool)', () => {
     );
     git(tree, 'tag', 'api-v1.2.0');
 
-    expect(() => releasePrepareTargets(projectMonorepoConfig(config), { force: true })).toThrow(
+    expect(() => releasePrepareTargets(projectMonorepoConfig(config), { shouldForce: true })).toThrow(
       'project: 1.3.0 (create tag v1.3.0)',
     );
     git(tree, 'tag', 'v1.3.0');

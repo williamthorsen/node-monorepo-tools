@@ -52,7 +52,7 @@ describe(createGithubRelease, () => {
     const result = createGithubRelease({
       tag: 'v1.0.0',
       changelogJsonPath: join(tree.dir, 'nonexistent.json'),
-      dryRun: false,
+      isDryRun: false,
     });
     expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
     expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('not found'));
@@ -65,7 +65,7 @@ describe(createGithubRelease, () => {
     const result = createGithubRelease({
       tag: 'v1.0.0',
       changelogJsonPath,
-      dryRun: false,
+      isDryRun: false,
     });
     expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
     expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
@@ -78,7 +78,7 @@ describe(createGithubRelease, () => {
     const result = createGithubRelease({
       tag: 'v99.0.0',
       changelogJsonPath,
-      dryRun: false,
+      isDryRun: false,
     });
     expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
     expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('no changelog entry'));
@@ -91,7 +91,7 @@ describe(createGithubRelease, () => {
     const result = createGithubRelease({
       tag: 'v1.0.0',
       changelogJsonPath,
-      dryRun: true,
+      isDryRun: true,
     });
     expect(result).toStrictEqual({ status: 'created' });
     expect(mockedExecFileSync).not.toHaveBeenCalled();
@@ -104,7 +104,7 @@ describe(createGithubRelease, () => {
     createGithubRelease({
       tag: 'v1.0.0',
       changelogJsonPath,
-      dryRun: false,
+      isDryRun: false,
     });
 
     expect(mockedExecFileSync).toHaveBeenCalledWith(
@@ -120,7 +120,7 @@ describe(createGithubRelease, () => {
     createGithubRelease({
       tag: 'v1.0.0',
       changelogJsonPath,
-      dryRun: false,
+      isDryRun: false,
     });
 
     const callArgs = mockedExecFileSync.mock.calls[0];
@@ -142,7 +142,7 @@ describe(createGithubRelease, () => {
       createGithubRelease({
         tag: 'v1.0.0',
         changelogJsonPath,
-        dryRun: false,
+        isDryRun: false,
       }),
     ).toThrow('gh failed');
   });
@@ -165,7 +165,7 @@ describe(createGithubRelease, () => {
     const result = createGithubRelease({
       tag: 'v2.0.0',
       changelogJsonPath,
-      dryRun: false,
+      isDryRun: false,
     });
 
     expect(result).toStrictEqual({ status: 'skipped', reason: 'no-audience-content' });
@@ -184,7 +184,7 @@ describe(createGithubRelease, () => {
     const result = createGithubRelease({
       tag: 'v1.0.0',
       changelogJsonPath,
-      dryRun: false,
+      isDryRun: false,
     });
 
     expect(result).toStrictEqual({ status: 'skipped', reason: 'empty-body' });
@@ -198,7 +198,7 @@ describe(createGithubRelease, () => {
     createGithubRelease({
       tag: 'release-kit-v1.0.0',
       changelogJsonPath,
-      dryRun: false,
+      isDryRun: false,
     });
 
     expect(mockedExecFileSync).toHaveBeenCalledWith(
@@ -220,7 +220,7 @@ describe(createGithubRelease, () => {
     createGithubRelease({
       tag: 'v1.0.0',
       changelogJsonPath,
-      dryRun: true,
+      isDryRun: true,
       sectionOrder: ['Bug fixes', 'Features'],
     });
 
@@ -236,7 +236,7 @@ describe(createGithubRelease, () => {
     createGithubRelease({
       tag: 'v1.0.0',
       changelogJsonPath,
-      dryRun: true,
+      isDryRun: true,
     });
 
     const renderOptions = mockedRenderReleaseNotesSingle.mock.calls[0]?.[1];

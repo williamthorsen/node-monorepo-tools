@@ -7,11 +7,11 @@ import type { ReleasedPackageResult } from './types.ts';
 export function formatBumpFiles(
   lines: string[],
   workspace: Pick<ReleasedPackageResult, 'bumpedFiles'>,
-  dryRun: boolean,
+  isDryRun: boolean,
   indent = '',
 ): void {
   for (const file of workspace.bumpedFiles) {
-    if (dryRun) {
+    if (isDryRun) {
       lines.push(dim(`${indent}  [dry-run] Would bump ${file}`));
     } else {
       lines.push(dim(`${indent}  Bumped ${file}`));
@@ -26,12 +26,12 @@ export function formatBumpFiles(
 export function formatChangelogFiles(
   lines: string[],
   release: Pick<ReleasedPackageResult, 'changelogFiles' | 'changelogPreservation' | 'removedChangelogFiles'>,
-  dryRun: boolean,
+  isDryRun: boolean,
   style: OutputStyle,
   indent = '',
 ): void {
   for (const file of release.changelogFiles) {
-    if (dryRun) {
+    if (isDryRun) {
       lines.push(dim(`${indent}  [dry-run] Would generate changelog: ${file}`));
     } else {
       lines.push(dim(`${indent}  Generating changelog: ${file}`));
@@ -52,7 +52,7 @@ export function formatChangelogFiles(
   }
   const removedFiles = release.removedChangelogFiles ?? [];
   for (const file of removedFiles) {
-    if (dryRun) {
+    if (isDryRun) {
       lines.push(dim(`${indent}  [dry-run] Would remove changelog: ${file}`));
     } else {
       lines.push(dim(`${indent}  Removing changelog: ${file}`));
@@ -64,12 +64,12 @@ export function formatChangelogFiles(
 export function formatPreviewFiles(
   lines: string[],
   release: Pick<ReleasedPackageResult, 'previewFiles'>,
-  dryRun: boolean,
+  isDryRun: boolean,
   indent = '',
 ): void {
   const previewFiles = release.previewFiles ?? [];
   for (const file of previewFiles) {
-    if (dryRun) {
+    if (isDryRun) {
       lines.push(dim(`${indent}  [dry-run] Would write ${file}`));
     } else {
       lines.push(dim(`${indent}  Wrote ${file}`));

@@ -37,7 +37,7 @@ export function describeCompositeSkip(
 export function prepareComposite(
   composite: CompositeTarget,
   context: RunContext,
-  options: { force?: boolean; bumpOverride?: ReleaseType },
+  options: { shouldForce?: boolean; bumpOverride?: ReleaseType },
   collected: CollectedReleases,
   warnings: string[],
 ): TargetPrepareResult {
@@ -45,7 +45,7 @@ export function prepareComposite(
   assertTaggedBaseline([untagged]);
 
   const decision = decideTargetRelease(composite, history, {
-    force: options.force === true,
+    shouldForce: options.shouldForce === true,
     bumpOverride: options.bumpOverride,
     setVersion: undefined,
   });

@@ -76,7 +76,7 @@ describe(updateTemplatesCommand, () => {
   it('updates the three core workflows from the templates for the detected repo type', () => {
     using _silent = silenceConsole(['info']);
 
-    const exitCode = updateTemplatesCommand({ dryRun: false, styles: STYLES });
+    const exitCode = updateTemplatesCommand({ isDryRun: false, styles: STYLES });
 
     expect(exitCode).toBe(0);
     expect(listUpdates()).toStrictEqual([
@@ -91,7 +91,7 @@ describe(updateTemplatesCommand, () => {
     using _silent = silenceConsole(['info']);
     mockExistsSync.mockImplementation((path) => path === '.github/workflows/sync-labels.yaml');
 
-    updateTemplatesCommand({ dryRun: false, styles: STYLES });
+    updateTemplatesCommand({ isDryRun: false, styles: STYLES });
 
     expect(listUpdates()).toContainEqual(['.github/workflows/sync-labels.yaml', 'sync-labels workflow\n']);
   });
@@ -99,7 +99,7 @@ describe(updateTemplatesCommand, () => {
   it('does not create sync-labels.yaml when it is missing', () => {
     using _silent = silenceConsole(['info']);
 
-    updateTemplatesCommand({ dryRun: false, styles: STYLES });
+    updateTemplatesCommand({ isDryRun: false, styles: STYLES });
 
     expect(listUpdates().map(([filePath]) => filePath)).not.toContain('.github/workflows/sync-labels.yaml');
   });
@@ -108,7 +108,7 @@ describe(updateTemplatesCommand, () => {
     using _silent = silenceConsole(['info']);
     mockHasPublishablePackage.mockReturnValue(false);
 
-    const exitCode = updateTemplatesCommand({ dryRun: true, styles: STYLES });
+    const exitCode = updateTemplatesCommand({ isDryRun: true, styles: STYLES });
 
     expect(exitCode).toBe(0);
     expect(listUpdates().map(([filePath]) => filePath)).toStrictEqual(['.github/workflows/release.yaml']);
@@ -122,12 +122,12 @@ describe(updateTemplatesCommand, () => {
     using _silent = silenceConsole(['info']);
     mockHasPublishablePackage.mockReturnValue(false);
     mockExistsSync.mockImplementation((path) => path === '.github/workflows/publish.yaml');
-    mockReadFileSync.mockReturnValue(publishWorkflow('monorepo', { provenance: false }));
+    mockReadFileSync.mockReturnValue(publishWorkflow('monorepo', { shouldGenerateProvenance: false }));
 
-    updateTemplatesCommand({ dryRun: false, styles: STYLES });
+    updateTemplatesCommand({ isDryRun: false, styles: STYLES });
 
     expect(listUpdates()).toStrictEqual([
-      ['.github/workflows/publish.yaml', publishWorkflow('monorepo', { provenance: false })],
+      ['.github/workflows/publish.yaml', publishWorkflow('monorepo', { shouldGenerateProvenance: false })],
       ['.github/workflows/release.yaml', releaseWorkflow('monorepo')],
     ]);
     expect(mockPrintSkip.mock.calls).toStrictEqual([
@@ -138,7 +138,7 @@ describe(updateTemplatesCommand, () => {
   it('does not report a skip when a package is publishable', () => {
     using _silent = silenceConsole(['info']);
 
-    updateTemplatesCommand({ dryRun: false, styles: STYLES });
+    updateTemplatesCommand({ isDryRun: false, styles: STYLES });
 
     expect(mockPrintSkip).not.toHaveBeenCalled();
   });
@@ -146,13 +146,13 @@ describe(updateTemplatesCommand, () => {
   it('keeps provenance off when the existing publish workflow does not set it', () => {
     using _silent = silenceConsole(['info']);
     mockExistsSync.mockImplementation((path) => path === '.github/workflows/publish.yaml');
-    mockReadFileSync.mockReturnValue(publishWorkflow('monorepo', { provenance: false }));
+    mockReadFileSync.mockReturnValue(publishWorkflow('monorepo', { shouldGenerateProvenance: false }));
 
-    updateTemplatesCommand({ dryRun: false, styles: STYLES });
+    updateTemplatesCommand({ isDryRun: false, styles: STYLES });
 
     expect(listUpdates()).toContainEqual([
       '.github/workflows/publish.yaml',
-      publishWorkflow('monorepo', { provenance: false }),
+      publishWorkflow('monorepo', { shouldGenerateProvenance: false }),
     ]);
   });
 
@@ -161,7 +161,7 @@ describe(updateTemplatesCommand, () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('');
 
-    updateTemplatesCommand({ dryRun: false, styles: STYLES });
+    updateTemplatesCommand({ isDryRun: false, styles: STYLES });
 
     const touched = [
       ...listUpdates().map(([filePath]) => filePath),
@@ -170,10 +170,10 @@ describe(updateTemplatesCommand, () => {
     expect(touched.every((filePath) => filePath.startsWith('.github/workflows/'))).toBe(true);
   });
 
-  it('passes dryRun through to every update', () => {
+  it('passes isDryRun through to every update', () => {
     using _silent = silenceConsole(['info']);
 
-    updateTemplatesCommand({ dryRun: true, styles: STYLES });
+    updateTemplatesCommand({ isDryRun: true, styles: STYLES });
 
     for (const call of mockUpdateManagedFile.mock.calls) {
       expect(call[2]).toStrictEqual({ isDryRun: true });
@@ -188,14 +188,14 @@ describe(updateTemplatesCommand, () => {
       outcome: filePath.endsWith('release.yaml') ? 'failed' : 'updated',
     }));
 
-    expect(updateTemplatesCommand({ dryRun: false, styles: STYLES })).toBe(1);
+    expect(updateTemplatesCommand({ isDryRun: false, styles: STYLES })).toBe(1);
   });
 
   it('returns 1 without updating anything when an eligibility check fails', () => {
     using _silent = silenceConsole(['info']);
     mockUsesPnpm.mockReturnValue({ ok: false, message: 'pnpm not detected' });
 
-    expect(updateTemplatesCommand({ dryRun: false, styles: STYLES })).toBe(1);
+    expect(updateTemplatesCommand({ isDryRun: false, styles: STYLES })).toBe(1);
     expect(mockUpdateManagedFile).not.toHaveBeenCalled();
   });
 });

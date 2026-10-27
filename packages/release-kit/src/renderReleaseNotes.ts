@@ -13,7 +13,7 @@ export interface RenderOptions {
   /** Predicate to filter sections. When absent, all sections are included. */
   filter?: (section: ChangelogSection) => boolean;
   /** Whether to include the version/date heading. Defaults to `true`. */
-  includeHeading?: boolean;
+  shouldIncludeHeading?: boolean;
   /**
    * Section titles in desired priority order. Known titles are emitted first in this order;
    * titles not listed preserve their relative position after known ones. When absent, section
@@ -48,7 +48,7 @@ export function matchesAudience(audience: ChangelogAudience): (section: Changelo
  */
 export function renderReleaseNotesSingle(entry: ChangelogEntry, options?: RenderOptions): string {
   const filter = options?.filter;
-  const includeHeading = options?.includeHeading ?? true;
+  const shouldIncludeHeading = options?.shouldIncludeHeading ?? true;
   const sectionOrder = options?.sectionOrder;
 
   const filtered = filter !== undefined ? entry.sections.filter(filter) : entry.sections;
@@ -60,7 +60,7 @@ export function renderReleaseNotesSingle(entry: ChangelogEntry, options?: Render
 
   const lines: string[] = [];
 
-  if (includeHeading) {
+  if (shouldIncludeHeading) {
     lines.push(`## ${entry.version} — ${entry.date}`);
   }
 
