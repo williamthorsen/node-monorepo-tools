@@ -29,12 +29,12 @@ describe(syncLabelsCommand, () => {
 
   it('returns 1 with a migration message when the retired sync-labels config exists', () => {
     givenExistingFiles(RETIRED_SYNC_LABELS_CONFIG_PATH);
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const result = syncLabelsCommand();
 
     expect(result).toBe(1);
-    expect(capture.stderr).toContain('no longer read');
+    expect(stdioCapture.stderr).toContain('no longer read');
     expect(mockExecSync).not.toHaveBeenCalled();
   });
 
@@ -43,29 +43,29 @@ describe(syncLabelsCommand, () => {
       if (cmd === 'gh --version') throw new Error('command not found: gh');
       return Buffer.from('');
     });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const result = syncLabelsCommand();
 
     expect(result).toBe(1);
-    expect(capture.stderr).toContain('gh');
+    expect(stdioCapture.stderr).toContain('gh');
   });
 
   it('returns 1 when workflow file does not exist', () => {
     mockExecSync.mockReturnValue(Buffer.from('gh version 2.0.0'));
     mockExistsSync.mockReturnValue(false);
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const result = syncLabelsCommand();
 
     expect(result).toBe(1);
-    expect(capture.stderr).toContain('sync-labels.yaml');
+    expect(stdioCapture.stderr).toContain('sync-labels.yaml');
   });
 
   it('returns 0 and triggers workflow on success', () => {
     mockExecSync.mockReturnValue(Buffer.from(''));
     givenExistingFiles('.github/workflows/sync-labels.yaml');
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
 
     const result = syncLabelsCommand();
 
@@ -79,11 +79,11 @@ describe(syncLabelsCommand, () => {
       throw new Error('workflow dispatch failed');
     });
     givenExistingFiles('.github/workflows/sync-labels.yaml');
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const result = syncLabelsCommand();
 
     expect(result).toBe(1);
-    expect(capture.stderr).toContain('workflow dispatch failed');
+    expect(stdioCapture.stderr).toContain('workflow dispatch failed');
   });
 });

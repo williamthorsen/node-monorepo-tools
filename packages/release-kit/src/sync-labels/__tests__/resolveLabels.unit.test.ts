@@ -61,17 +61,17 @@ describe(resolveLabels, () => {
   });
 
   it('resolves a name shared by two presets to the later preset (last writer wins)', () => {
-    const recoloredBug: LabelDefinition = { ...bugLabel, color: 'ff0000' };
+    const recoloredBugLabel: LabelDefinition = { ...bugLabel, color: 'ff0000' };
     mockLoadPreset.mockImplementation((name: string) => {
       if (name === 'preset-a') return [bugLabel, featureLabel];
-      if (name === 'preset-b') return [recoloredBug];
+      if (name === 'preset-b') return [recoloredBugLabel];
       return [];
     });
 
     const config: RepoLabelsConfig = { extends: ['preset-a', 'preset-b'] };
     const result = resolveLabels(config);
 
-    expect(result).toStrictEqual([recoloredBug, featureLabel]);
+    expect(result).toStrictEqual([recoloredBugLabel, featureLabel]);
   });
 
   it('replaces a preset label with a local entry of the same name', () => {
@@ -87,17 +87,17 @@ describe(resolveLabels, () => {
   });
 
   it('resolves a later preset name that differs only in case to the later preset, keeping its spelling', () => {
-    const recasedBug: LabelDefinition = { ...bugLabel, name: 'Bug' };
+    const recasedBugLabel: LabelDefinition = { ...bugLabel, name: 'Bug' };
     mockLoadPreset.mockImplementation((name: string) => {
       if (name === 'preset-a') return [bugLabel, featureLabel];
-      if (name === 'preset-b') return [recasedBug];
+      if (name === 'preset-b') return [recasedBugLabel];
       return [];
     });
 
     const config: RepoLabelsConfig = { extends: ['preset-a', 'preset-b'] };
     const result = resolveLabels(config);
 
-    expect(result).toStrictEqual([recasedBug, featureLabel]);
+    expect(result).toStrictEqual([recasedBugLabel, featureLabel]);
   });
 
   it('replaces a preset label with a local entry whose name differs only in case, keeping the local spelling', () => {
@@ -304,9 +304,9 @@ describe(resolveLabels, () => {
       labels: { [docsLabel.name]: { color: docsLabel.color, description: docsLabel.description } },
     };
 
-    const result1 = resolveLabels(config);
-    const result2 = resolveLabels(config);
+    const firstResult = resolveLabels(config);
+    const secondResult = resolveLabels(config);
 
-    expect(result1).toStrictEqual(result2);
+    expect(firstResult).toStrictEqual(secondResult);
   });
 });
