@@ -41,8 +41,8 @@ function detectRepoType() {
   }
   if (existsSync("package.json")) {
     const manifestJson = readFileSync("package.json", "utf8");
-    const pkg = parseJsonRecord(manifestJson);
-    if (pkg !== void 0 && Array.isArray(pkg["workspaces"])) {
+    const packageJson = parseJsonRecord(manifestJson);
+    if (packageJson !== void 0 && Array.isArray(packageJson["workspaces"])) {
       return "monorepo";
     }
   }

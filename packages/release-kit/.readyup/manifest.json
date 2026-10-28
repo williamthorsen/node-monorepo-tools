@@ -76,7 +76,7 @@
           "path": "../src/changelogArchive.ts"
         },
         {
-          "hash": "7fdf7f1f",
+          "hash": "65fa2f33",
           "kind": "module",
           "path": "../src/init/detectRepoType.ts"
         },
@@ -101,7 +101,7 @@
       "readyupVersion": "0.44.0",
       "source": "kits/default.ts",
       "sourceHash": "56566d0b",
-      "targetHash": "b7869b5e"
+      "targetHash": "3f573ffb"
     },
     {
       "checklistChecks": [
