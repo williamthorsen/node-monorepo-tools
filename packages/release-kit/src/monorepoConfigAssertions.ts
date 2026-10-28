@@ -135,10 +135,10 @@ export function assertNoTagPrefixCollisions(
     });
   }
 
-  for (let i = 0; i < sources.length; i++) {
-    for (let j = i + 1; j < sources.length; j++) {
-      const a = sources[i];
-      const b = sources[j];
+  for (let aIndex = 0; aIndex < sources.length; aIndex++) {
+    for (let bIndex = aIndex + 1; bIndex < sources.length; bIndex++) {
+      const a = sources[aIndex];
+      const b = sources[bIndex];
       if (a === undefined || b === undefined || a.owner === b.owner) continue;
       if (isPrefixCollision(a.prefix, b.prefix)) {
         throw new Error(

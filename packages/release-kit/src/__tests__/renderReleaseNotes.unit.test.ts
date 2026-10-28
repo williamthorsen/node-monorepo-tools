@@ -112,8 +112,8 @@ describe(renderReleaseNotesSingle, () => {
         result.indexOf(heading),
       );
       expect(headingIndexes.every((index) => index >= 0)).toBe(true);
-      for (let i = 1; i < headingIndexes.length; i++) {
-        expect(headingIndexes[i]).toBeGreaterThan(headingIndexes[i - 1] ?? -1);
+      for (let index = 1; index < headingIndexes.length; index++) {
+        expect(headingIndexes[index]).toBeGreaterThan(headingIndexes[index - 1] ?? -1);
       }
     });
 

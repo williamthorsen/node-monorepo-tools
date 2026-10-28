@@ -135,11 +135,11 @@ function extractHeadingVersion(heading: string): string | undefined {
 
 /** Returns `lines` with its trailing blank lines removed. */
 function trimTrailingBlankLines(lines: readonly string[]): string[] {
-  let end = lines.length;
-  while (end > 0 && lines[end - 1]?.trim() === '') {
-    end--;
+  let endIndex = lines.length;
+  while (endIndex > 0 && lines[endIndex - 1]?.trim() === '') {
+    endIndex--;
   }
-  return lines.slice(0, end);
+  return lines.slice(0, endIndex);
 }
 
 /** Returns the open fence marker after `line`: opened, closed by a matching marker, or unchanged. */

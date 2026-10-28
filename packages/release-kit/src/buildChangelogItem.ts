@@ -181,32 +181,32 @@ function extractBody(message: string): string | undefined {
   const lines = message.split('\n').slice(1);
 
   // Skip leading blank lines.
-  let start = 0;
-  while (start < lines.length && (lines[start] ?? '').trim() === '') {
-    start += 1;
+  let startIndex = 0;
+  while (startIndex < lines.length && (lines[startIndex] ?? '').trim() === '') {
+    startIndex += 1;
   }
 
   // Walk backward, dropping blank lines and trailer-matching lines from the tail.
-  let end = lines.length;
-  while (end > start) {
-    const line = lines[end - 1] ?? '';
+  let endIndex = lines.length;
+  while (endIndex > startIndex) {
+    const line = lines[endIndex - 1] ?? '';
     const trimmedLine = line.trim();
     if (trimmedLine === '') {
-      end -= 1;
+      endIndex -= 1;
       continue;
     }
     if (TRAILER_PATTERNS.some((pattern) => pattern.test(trimmedLine))) {
-      end -= 1;
+      endIndex -= 1;
       continue;
     }
     break;
   }
 
-  if (end <= start) {
+  if (endIndex <= startIndex) {
     return undefined;
   }
 
-  return lines.slice(start, end).join('\n').trim();
+  return lines.slice(startIndex, endIndex).join('\n').trim();
 }
 
 /** Extracts the description from a commit subject: the text after its first `: `, capitalized. */
