@@ -75,7 +75,7 @@ vi.mock(import('../assertCleanWorkingTree.ts'), () => ({
 }));
 
 import { publishCommand } from '../publishCommand.ts';
-import { resolvedPackages } from '../test-utils/workspaceResolutions.ts';
+import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -97,7 +97,7 @@ describe(publishCommand, () => {
 
   describe('directory tag', () => {
     it('warns that a directory release is not published when --tags names its tag', async () => {
-      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
+      mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'app-v2.0.0', kind: 'directory', dir: 'app', workspacePath: 'apps/app', isPublishable: false },
       ]);

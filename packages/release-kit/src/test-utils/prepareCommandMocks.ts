@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 
 import type { ReleasePlan } from '../releasePlan.ts';
-import { resolvedPackages } from './workspaceResolutions.ts';
+import { makeResolvedPackages } from './workspaceResolutions.ts';
 
 // A test loads this module through `vi.hoisted`, before its `vi.mock` calls register, so the module imports nothing
 // under test: Such a module would bind the real dependencies.
@@ -21,7 +21,7 @@ export const mockWriteFileWithCheck = vi.fn();
  * package.json, an empty plan, created writes, and every package published.
  */
 export function applyPrepareCommandDefaults(): void {
-  mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/arrays', 'packages/strings']));
+  mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/arrays', 'packages/strings']));
   mockLoadConfig.mockResolvedValue(undefined);
   // Tests that exercise the project block override this to return a valid version.
   mockExistsSync.mockReturnValue(false);

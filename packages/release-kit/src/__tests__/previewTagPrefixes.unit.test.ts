@@ -30,7 +30,7 @@ vi.mock(import('../detectUndeclaredTagPrefixes.ts'), () => ({
 }));
 
 import { previewTagPrefixes } from '../previewTagPrefixes.ts';
-import { emptyWorkspace, resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
+import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 
 /** Builds a mock implementation for git invocations returning tag counts by prefix. */
 function setupTagCounts(tagsByPrefix: Record<string, string[]>): void {
@@ -53,7 +53,7 @@ describe(previewTagPrefixes, () => {
   });
 
   it('returns one row per discovered workspace with derived prefix and tag counts', () => {
-    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/arrays']));
+    mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/arrays']));
     mockDeriveWorkspaceConfig.mockImplementation((path: string) => {
       if (path === 'packages/core') return { tagPrefix: 'nmr-core-v' };
       if (path === 'packages/arrays') return { tagPrefix: 'arrays-v' };
@@ -89,7 +89,7 @@ describe(previewTagPrefixes, () => {
   });
 
   it('counts only tags whose suffix after the prefix is a complete SemVer version', () => {
-    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
+    mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'core-v' });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({
@@ -102,7 +102,7 @@ describe(previewTagPrefixes, () => {
   });
 
   it('records derivationError and continues when deriveWorkspaceConfig() throws for a workspace', () => {
-    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/good', 'packages/broken']));
+    mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/good', 'packages/broken']));
     mockDeriveWorkspaceConfig.mockImplementation((path: string) => {
       if (path === 'packages/good') return { tagPrefix: 'good-v' };
       throw new Error(`packages/broken/package.json is missing a 'name' field`);
@@ -120,7 +120,7 @@ describe(previewTagPrefixes, () => {
   });
 
   it('reports declared legacy prefixes with their tag counts', () => {
-    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
+    mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
     const config = {
       workspaces: [
         {
@@ -149,7 +149,7 @@ describe(previewTagPrefixes, () => {
   });
 
   it('reports legacy prefixes declared on a releases entry, matched by path', () => {
-    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/nmr-core']));
+    mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/nmr-core']));
     const config = {
       releases: {
         core: { path: './packages/nmr-core', legacyIdentities: [{ name: '@old/core', tagPrefix: 'core-v' }] },
@@ -165,7 +165,7 @@ describe(previewTagPrefixes, () => {
   });
 
   it('adds a row for each directory that a releases entry declares, recording a derivation failure on the row', () => {
-    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
+    mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'core-v' });
     mockDeriveDirectoryConfig.mockImplementation((declaredDirectory: { path: string; tagPrefix?: string }) => {
       if (declaredDirectory.path === 'apps/app') return { tagPrefix: declaredDirectory.tagPrefix };
@@ -197,7 +197,7 @@ describe(previewTagPrefixes, () => {
   });
 
   it('detects cross-workspace tag-prefix collisions', () => {
-    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/a-foo', 'packages/b-foo']));
+    mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/a-foo', 'packages/b-foo']));
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'foo-v' });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
@@ -210,7 +210,7 @@ describe(previewTagPrefixes, () => {
   });
 
   it('passes the union of derived and declared prefixes to detectUndeclaredTagPrefixes', () => {
-    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
+    mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
     const config = {
       workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@old-scope/core', tagPrefix: 'core-v' }] }],
     };
@@ -227,7 +227,7 @@ describe(previewTagPrefixes, () => {
     ['a releases composite', { releases: { suite: { includes: ['core'], tagPrefix: 'suite-v' } } }],
     ['a project block', { project: { tagPrefix: 'suite-v' } }],
   ])('passes the tag prefix of %s to detectUndeclaredTagPrefixes as known', (_label, config) => {
-    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
+    mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'core-v' });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
@@ -239,13 +239,13 @@ describe(previewTagPrefixes, () => {
 
   // An empty preview would show a clean table for a workspace whose manifest needs repairing.
   it("throws when the workspace doesn't resolve to any package", () => {
-    mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
+    mockDiscoverWorkspaces.mockReturnValue(makeEmptyWorkspace('all-excluded'));
 
     expect(() => previewTagPrefixes()).toThrow('No workspace package to preview.');
   });
 
   it('returns detection results as undeclaredCandidates in the preview', () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
     mockDetectUndeclared.mockReturnValue([
       { prefix: 'orphan-v', tagCount: 1, exampleTags: ['orphan-v1.0.0'], suggestedDir: 'orphan' },
     ]);
@@ -259,7 +259,7 @@ describe(previewTagPrefixes, () => {
   });
 
   it('returns declared retired packages with their tag counts and preserves successor when present', () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
     const config = {
       retiredPackages: [
         { name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup' },
@@ -281,7 +281,7 @@ describe(previewTagPrefixes, () => {
   });
 
   it('passes retired tagPrefixes to detectUndeclaredTagPrefixes as known', () => {
-    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
+    mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
     const config = {
       retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v' }],
     };
@@ -295,7 +295,7 @@ describe(previewTagPrefixes, () => {
   });
 
   it('returns an empty retiredPackages array when the config omits the field', () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
 

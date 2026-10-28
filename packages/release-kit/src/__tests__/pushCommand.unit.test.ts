@@ -40,7 +40,7 @@ vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
 
 import { pushCommand } from '../pushCommand.ts';
 import type { ResolvedTag } from '../resolveReleaseTags.ts';
-import { resolvedPackages } from '../test-utils/workspaceResolutions.ts';
+import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -174,7 +174,7 @@ describe(pushCommand, () => {
     it('does not push the tag of an excluded workspace and reports the skip', async () => {
       const actualModule = await vi.importActual<typeof import('../resolveCommandTags.ts')>('../resolveCommandTags.ts');
       mockResolveCommandTags.mockImplementation(actualModule.resolveCommandTags);
-      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/cli']));
+      mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/cli']));
       mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
         const dir = workspacePath.split('/').pop() ?? workspacePath;
         return {
@@ -212,7 +212,7 @@ describe(pushCommand, () => {
     beforeEach(async () => {
       const actualModule = await vi.importActual<typeof import('../resolveCommandTags.ts')>('../resolveCommandTags.ts');
       mockResolveCommandTags.mockImplementation(actualModule.resolveCommandTags);
-      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/cli']));
+      mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/cli']));
       mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
         const dir = workspacePath.split('/').pop() ?? workspacePath;
         return {

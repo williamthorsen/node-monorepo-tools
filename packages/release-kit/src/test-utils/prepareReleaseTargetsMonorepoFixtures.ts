@@ -17,6 +17,14 @@ export const workTypes: Record<string, WorkTypeConfig> = {
   fix: { header: 'Bug fixes' },
 };
 
+/** Returns the content that the plan intends to write to `path`, or undefined when the plan does not write it. */
+export function findPlannedContent(
+  plan: { writes: readonly { path: string; content: string }[] },
+  path: string,
+): string | undefined {
+  return plan.writes.find((write) => write.path === path)?.content;
+}
+
 /** Builds a monorepo config without any workspaces and the changelog JSON disabled, overriding any field. */
 export function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
   return {
@@ -39,14 +47,6 @@ export function makeRoutedWorkspace(dir: string): WorkspaceConfig {
     packageFiles: [`packages/${dir}/package.json`],
     paths: [`packages/${dir}/**`],
   };
-}
-
-/** Returns the content that the plan intends to write to `path`, or undefined when the plan does not write it. */
-export function plannedContent(
-  plan: { writes: readonly { path: string; content: string }[] },
-  path: string,
-): string | undefined {
-  return plan.writes.find((write) => write.path === path)?.content;
 }
 
 /** Prepares a monorepo release over the targets that the merged config projects onto. */

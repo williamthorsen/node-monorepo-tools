@@ -64,7 +64,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
 
 import { prepareCommand } from '../prepareCommand.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../releaseFiles.ts';
-import { emptyWorkspace, singlePackage } from '../test-utils/workspaceResolutions.ts';
+import { makeEmptyWorkspace, makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 import type { ReleasedPackageResult, SkippedPackageResult } from '../types.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
@@ -97,7 +97,7 @@ describe(prepareCommand, () => {
   });
 
   it('prepares the root target for a single-package repo', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
     await prepareCommand([], RICH_STYLES, process.cwd());
 
@@ -149,7 +149,7 @@ describe(prepareCommand, () => {
   // A workspace that doesn't resolve to any package is not single-package mode; reading it as one would prepare the
   // root as one package.
   it("exits with error when the workspace doesn't resolve to any package", async () => {
-    mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
+    mockDiscoverWorkspaces.mockReturnValue(makeEmptyWorkspace('all-excluded'));
 
     await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(stdioCapture.stderr).toContain('No workspace package to release.');
@@ -157,14 +157,14 @@ describe(prepareCommand, () => {
   });
 
   it('exits with error for --only on a single-package repo', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
     await expect(prepareCommand(['--only=foo'], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(stdioCapture.stderr).toContain('--only is only supported');
   });
 
   it('passes a bare --force to a single-package release', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
     await prepareCommand(['--force'], RICH_STYLES, process.cwd());
 
@@ -172,7 +172,7 @@ describe(prepareCommand, () => {
   });
 
   it('passes --force --bump=X to a single-package release', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
     await prepareCommand(['--force', '--bump=patch'], RICH_STYLES, process.cwd());
 
@@ -537,7 +537,7 @@ describe(prepareCommand, () => {
     });
 
     it('looks up the root package in a single-package release', async () => {
-      mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+      mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (filePath === 'package.json') {
           return JSON.stringify({ name: 'single-package' });

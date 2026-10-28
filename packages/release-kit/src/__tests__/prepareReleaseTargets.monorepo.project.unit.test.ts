@@ -82,7 +82,7 @@ import { selectCompositeResult, selectPackageResults } from '../test-utils/prepa
 import { makeReleaseHistory } from '../test-utils/releaseHistories.ts';
 import {
   makeConfig,
-  plannedContent,
+  findPlannedContent,
   prepareMonorepo,
   stubPropagationWorkspaces,
 } from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
@@ -389,7 +389,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
 
       const plan = prepareMonorepo(config, { shouldIncludeReleaseNotes: true });
 
-      expect(plannedContent(plan, 'packages/arrays/docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
+      expect(findPlannedContent(plan, 'packages/arrays/docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
       expect(selectPackageResults(plan)[0]).toMatchObject({
         previewFiles: ['packages/arrays/docs/RELEASE_NOTES.v1.1.0.md'],
       });

@@ -3,7 +3,7 @@ import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { describeEmptyWorkspace, discoverWorkspaces } from '../discoverWorkspaces.ts';
-import { emptyWorkspace } from '../test-utils/workspaceResolutions.ts';
+import { makeEmptyWorkspace } from '../test-utils/workspaceResolutions.ts';
 
 const PREFIX = 'release-kit-discover-workspaces-';
 
@@ -144,14 +144,14 @@ describe(discoverWorkspaces, () => {
 
 describe(describeEmptyWorkspace, () => {
   it('names the exclusions for all-excluded', () => {
-    const message = describeEmptyWorkspace(emptyWorkspace('all-excluded', ['packages/*', '!packages/*']));
+    const message = describeEmptyWorkspace(makeEmptyWorkspace('all-excluded', ['packages/*', '!packages/*']));
 
     expect(message).toContain('`packages/*`, `!packages/*`');
     expect(message).toContain('Drop or narrow the exclusion.');
   });
 
   it('names the `package.json` requirement for no-package', () => {
-    const message = describeEmptyWorkspace(emptyWorkspace('no-package', ['apps/*']));
+    const message = describeEmptyWorkspace(makeEmptyWorkspace('no-package', ['apps/*']));
 
     expect(message).toContain('`apps/*`');
     expect(message).toContain('`package.json`');
@@ -159,13 +159,13 @@ describe(describeEmptyWorkspace, () => {
 
   // YAML leaves an unquoted `!pkg` empty, and the `no-pattern` remedy is written for that case.
   it('counts the entries that YAML left empty rather than quoting them', () => {
-    expect(describeEmptyWorkspace(emptyWorkspace('no-pattern', ['', '']))).toContain(
+    expect(describeEmptyWorkspace(makeEmptyWorkspace('no-pattern', ['', '']))).toContain(
       'declares 2 entries that YAML left empty',
     );
   });
 
   it('names an emptied entry beside the patterns declared with it', () => {
-    expect(describeEmptyWorkspace(emptyWorkspace('no-package', ['packages/*', '']))).toContain(
+    expect(describeEmptyWorkspace(makeEmptyWorkspace('no-package', ['packages/*', '']))).toContain(
       'declares `packages/*`, beside 1 entry that YAML left empty',
     );
   });
@@ -173,14 +173,14 @@ describe(describeEmptyWorkspace, () => {
   // The resolver leaves the patterns empty for both, so neither message leads with the declared-patterns
   // clause that the other three share.
   it('names the syntax error for unreadable-manifest', () => {
-    const message = describeEmptyWorkspace(emptyWorkspace('unreadable-manifest', []));
+    const message = describeEmptyWorkspace(makeEmptyWorkspace('unreadable-manifest', []));
 
     expect(message).toContain('does not contain valid YAML');
     expect(message).toContain('Repair the syntax error');
   });
 
   it('names the required shape for unreadable-packages', () => {
-    const message = describeEmptyWorkspace(emptyWorkspace('unreadable-packages', []));
+    const message = describeEmptyWorkspace(makeEmptyWorkspace('unreadable-packages', []));
 
     expect(message).toContain('not a list of strings');
     expect(message).toContain('Make it a list whose every entry is a quoted pattern');

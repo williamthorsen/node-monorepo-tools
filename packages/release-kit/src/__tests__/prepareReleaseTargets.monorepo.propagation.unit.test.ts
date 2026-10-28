@@ -80,7 +80,7 @@ import { makeReleaseHistory } from '../test-utils/releaseHistories.ts';
 import {
   makeConfig,
   makeRoutedWorkspace,
-  plannedContent,
+  findPlannedContent,
   prepareMonorepo,
   stubPropagationWorkspaces,
   workTypes,
@@ -205,7 +205,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
       assert(coreResult?.status === 'released', 'expected released');
       expect(coreResult.releaseType).toBeUndefined();
       expect(result.tags).toStrictEqual(['core-v1.0.0']);
-      expect(plannedContent(result, 'packages/core/package.json')).toContain('"version": "1.0.0"');
+      expect(findPlannedContent(result, 'packages/core/package.json')).toContain('"version": "1.0.0"');
     });
 
     it("builds a --set-version changelog from the workspace's one history read, leaving the decision's counts off", () => {

@@ -41,7 +41,7 @@ vi.mock(import('../loadConfig.ts'), async (importOriginal) => ({
 import type { ReleaseKitConfig } from '../configSchema.ts';
 import { resolveCommandTags } from '../resolveCommandTags.ts';
 import type { ResolvedTag } from '../resolveReleaseTags.ts';
-import { emptyWorkspace, resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
+import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 import type { WorkspaceConfig } from '../types.ts';
 
 const EXCLUDE_CLI_CONFIG: ReleaseKitConfig = { workspaces: [{ dir: 'cli', shouldExclude: true }] };
@@ -79,7 +79,9 @@ describe(resolveCommandTags, () => {
 
   beforeEach(() => {
     stdioCapture = captureStdio();
-    mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/cli', 'packages/release-kit']));
+    mockDiscoverWorkspaces.mockReturnValue(
+      makeResolvedPackages(['packages/core', 'packages/cli', 'packages/release-kit']),
+    );
     mockResolveReleaseTags.mockReturnValue(TAGS);
     mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
       if (workspacePath === 'packages/core') {
@@ -127,7 +129,7 @@ describe(resolveCommandTags, () => {
   });
 
   it('derives the single workspace config and passes it to resolveReleaseTags in single-package mode', () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
     const singleWorkspace = makeWorkspace('root', 'v', '.');
     mockDeriveWorkspaceConfig.mockReset();
     mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
@@ -200,7 +202,7 @@ describe(resolveCommandTags, () => {
   // A workspace that does not resolve to any package is not single-package mode; reading it as one would release
   // the root as one package.
   it('exits with code 1 when the workspace does not resolve to any package', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
+    mockDiscoverWorkspaces.mockReturnValue(makeEmptyWorkspace('all-excluded'));
 
     const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined, undefined));
 
@@ -381,7 +383,7 @@ describe(resolveCommandTags, () => {
     });
 
     it('ignores the config in single-package mode', () => {
-      mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+      mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
       mockDeriveWorkspaceConfig.mockReturnValue(makeWorkspace('.', 'v', '.'));
       const singleTags: ResolvedTag[] = [
         { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true },

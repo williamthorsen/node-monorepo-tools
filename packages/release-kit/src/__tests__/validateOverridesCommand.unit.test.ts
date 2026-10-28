@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { enumerateReleaseWindows } from '../enumerateReleaseWindows.ts';
 import type { GenerateChangelogOptions } from '../generateChangelogs.ts';
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
-import { emptyWorkspace, resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
+import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 import type { ChangelogEntry } from '../types.ts';
 import { formatValidateOverridesResult, validateOverridesCommand } from '../validateOverridesCommand.ts';
 
@@ -122,7 +122,7 @@ describe(formatValidateOverridesResult, () => {
 describe(validateOverridesCommand, () => {
   it('returns exit 0 in a single-package layout without any overrides', async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: singlePackage,
+      discoverWorkspaces: makeSinglePackage,
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
       buildEntries: () => entriesFromHashes([]),
@@ -135,7 +135,7 @@ describe(validateOverridesCommand, () => {
   // the root's overrides alone.
   it("returns exit 2 when the workspace doesn't resolve to any package", async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: () => emptyWorkspace('all-excluded'),
+      discoverWorkspaces: () => makeEmptyWorkspace('all-excluded'),
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
       buildEntries: () => entriesFromHashes([]),
@@ -148,7 +148,7 @@ describe(validateOverridesCommand, () => {
 
   it('returns exit 1 when validation reports only warnings', async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: singlePackage,
+      discoverWorkspaces: makeSinglePackage,
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
       buildEntries: () => entriesFromHashes([]),
@@ -159,7 +159,7 @@ describe(validateOverridesCommand, () => {
 
   it('returns exit 2 when validation reports errors', async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: singlePackage,
+      discoverWorkspaces: makeSinglePackage,
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
       buildEntries: () => entriesFromHashes([]),
@@ -170,7 +170,7 @@ describe(validateOverridesCommand, () => {
 
   it('returns exit 2 with a config-load failure message', async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: singlePackage,
+      discoverWorkspaces: makeSinglePackage,
       loadValidatedConfig: () =>
         Promise.resolve({
           status: 'invalid',
@@ -186,7 +186,7 @@ describe(validateOverridesCommand, () => {
 
   it('returns exit 2 with an Invalid config message when the loaded config fails validation', async () => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: singlePackage,
+      discoverWorkspaces: makeSinglePackage,
       loadValidatedConfig: () =>
         Promise.resolve({
           status: 'invalid',
@@ -207,7 +207,7 @@ describe(validateOverridesCommand, () => {
     { label: 'a validation failure', problem: { kind: 'validation' as const, errors: ['Config must be an object'] } },
   ])('returns exit 2 on $label, so that the problem kind picks the message alone', async ({ problem }) => {
     const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: singlePackage,
+      discoverWorkspaces: makeSinglePackage,
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'invalid', configFilePath: '.config/release-kit.config.ts', problem }),
       validate: () => ({ errors: [], warnings: [] }),
@@ -218,7 +218,7 @@ describe(validateOverridesCommand, () => {
   it('passes a project-only scope to validate in single-package mode', async () => {
     let receivedCounts: { workspaces: number; projectItems: number } | undefined;
     await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: singlePackage,
+      discoverWorkspaces: makeSinglePackage,
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
       buildEntries: () => entriesFromHashes(['hash1', 'hash2']),
@@ -242,7 +242,7 @@ describe(validateOverridesCommand, () => {
     // unless the validator receives that release's window.
     let capturedHashes: readonly string[] = [];
     await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: singlePackage,
+      discoverWorkspaces: makeSinglePackage,
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
       buildEntries: () =>
@@ -266,7 +266,7 @@ describe(validateOverridesCommand, () => {
   it("delivers each item's entry position to the validator", async () => {
     let seenItems: unknown;
     await validateOverridesCommand(RICH_STYLES, undefined, {
-      discoverWorkspaces: singlePackage,
+      discoverWorkspaces: makeSinglePackage,
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
       buildEntries: () => [
@@ -307,12 +307,12 @@ describe(validateOverridesCommand, () => {
       tree.write('elsewhere/alternative.config.ts', 'export default { unknownField: true };');
 
       const namedResult = await validateOverridesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts', {
-        discoverWorkspaces: singlePackage,
+        discoverWorkspaces: makeSinglePackage,
         buildEntries: () => entriesFromHashes([]),
         validate: () => ({ errors: [], warnings: [] }),
       });
       const defaultedResult = await validateOverridesCommand(RICH_STYLES, undefined, {
-        discoverWorkspaces: singlePackage,
+        discoverWorkspaces: makeSinglePackage,
         buildEntries: () => entriesFromHashes([]),
         validate: () => ({ errors: [], warnings: [] }),
       });
@@ -324,7 +324,7 @@ describe(validateOverridesCommand, () => {
 
     it('returns exit 2 when the named file does not exist', async () => {
       const result = await validateOverridesCommand(RICH_STYLES, 'elsewhere/absent.config.ts', {
-        discoverWorkspaces: singlePackage,
+        discoverWorkspaces: makeSinglePackage,
         buildEntries: () => entriesFromHashes([]),
         validate: () => ({ errors: [], warnings: [] }),
       });
@@ -352,7 +352,7 @@ describe(validateOverridesCommand, () => {
       writeOverrides({ aabbcc12: { audience: 'skip' } });
 
       const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-        discoverWorkspaces: singlePackage,
+        discoverWorkspaces: makeSinglePackage,
         loadValidatedConfig: () =>
           Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
         buildEntries: () =>
@@ -371,7 +371,7 @@ describe(validateOverridesCommand, () => {
       writeOverrides({ deadbeef: { audience: 'skip' } });
 
       const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-        discoverWorkspaces: singlePackage,
+        discoverWorkspaces: makeSinglePackage,
         loadValidatedConfig: () =>
           Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
         buildEntries: () =>
@@ -390,7 +390,7 @@ describe(validateOverridesCommand, () => {
       writeOverrides({ aa: { audience: 'skip' } });
 
       const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-        discoverWorkspaces: singlePackage,
+        discoverWorkspaces: makeSinglePackage,
         loadValidatedConfig: () =>
           Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
         buildEntries: () =>
@@ -451,7 +451,7 @@ describe(validateOverridesCommand, () => {
       });
 
       const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-        discoverWorkspaces: singlePackage,
+        discoverWorkspaces: makeSinglePackage,
         loadValidatedConfig: () =>
           Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
       });
@@ -493,7 +493,7 @@ describe(validateOverridesCommand, () => {
       const calls: GenerateChangelogOptions[] = [];
 
       await validateOverridesCommand(RICH_STYLES, undefined, {
-        discoverWorkspaces: () => resolvedPackages(['packages/foo', 'packages/bar']),
+        discoverWorkspaces: () => makeResolvedPackages(['packages/foo', 'packages/bar']),
         loadValidatedConfig: () =>
           Promise.resolve({
             status: 'ok',
@@ -564,7 +564,7 @@ describe(validateOverridesCommand, () => {
       });
 
       const result = await validateOverridesCommand(RICH_STYLES, undefined, {
-        discoverWorkspaces: () => resolvedPackages(['packages/foo', 'packages/bar']),
+        discoverWorkspaces: () => makeResolvedPackages(['packages/foo', 'packages/bar']),
         loadValidatedConfig: () =>
           Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
       });
@@ -578,7 +578,7 @@ describe(validateOverridesCommand, () => {
       const calls: GenerateChangelogOptions[] = [];
 
       await validateOverridesCommand(RICH_STYLES, undefined, {
-        discoverWorkspaces: () => resolvedPackages(['packages/foo', 'packages/bar']),
+        discoverWorkspaces: () => makeResolvedPackages(['packages/foo', 'packages/bar']),
         loadValidatedConfig: () =>
           Promise.resolve({
             status: 'ok',

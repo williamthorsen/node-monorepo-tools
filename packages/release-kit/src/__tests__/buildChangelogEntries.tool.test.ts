@@ -125,13 +125,13 @@ describe(readReleaseHistory, () => {
   it('reports a branch commit merged after the baseline tag', () => {
     const repo = scaffoldGitRepo();
     repo.commit('#1 internal: Base', { 'src/base.ts': 'export const base = 0;\n' }, { date: '2026-01-01T00:00:00Z' });
-    repo.git('checkout', '--quiet', '-b', 'feat');
+    repo.runGit('checkout', '--quiet', '-b', 'feat');
     repo.commit(
       '#2 feat: Branch work',
       { 'src/branch.ts': 'export const branch = 1;\n' },
       { date: '2026-01-02T00:00:00Z' },
     );
-    repo.git('checkout', '--quiet', 'main');
+    repo.runGit('checkout', '--quiet', 'main');
     repo.commit('#3 fix: Mainline', { 'src/main.ts': 'export const main = 2;\n' }, { date: '2026-01-03T00:00:00Z' });
     repo.tag('arrays-v1.0.0');
     repo.merge('feat', 'Merge feat', { date: '2026-01-04T00:00:00Z' });

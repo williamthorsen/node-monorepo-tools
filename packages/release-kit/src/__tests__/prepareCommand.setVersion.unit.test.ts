@@ -62,7 +62,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
 });
 
 import { prepareCommand } from '../prepareCommand.ts';
-import { singlePackage } from '../test-utils/workspaceResolutions.ts';
+import { makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -132,7 +132,7 @@ describe(prepareCommand, () => {
   });
 
   it('rejects a version that is not canonical in single-package --set-version', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
     await expect(prepareCommand(['--set-version=1.0'], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(stdioCapture.stderr).toContain('Invalid --set-version value "1.0"');
@@ -140,7 +140,7 @@ describe(prepareCommand, () => {
   });
 
   it('passes the --set-version version under the root target in single-package mode', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
     await prepareCommand(['--set-version=1.2.3'], RICH_STYLES, process.cwd());
 
@@ -160,7 +160,7 @@ describe(prepareCommand, () => {
   });
 
   it('forwards shouldIncludeReleaseNotes in single-package mode', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
     await prepareCommand(['--with-release-notes'], RICH_STYLES, process.cwd());
 

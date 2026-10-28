@@ -75,7 +75,7 @@ vi.mock(import('../assertCleanWorkingTree.ts'), () => ({
 }));
 
 import { publishCommand } from '../publishCommand.ts';
-import { resolvedPackages } from '../test-utils/workspaceResolutions.ts';
+import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -103,7 +103,7 @@ describe(publishCommand, () => {
     });
 
     it('does not publish an excluded workspace and reports the skip', async () => {
-      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/legacy']));
+      mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/legacy']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
         { tag: 'legacy-v0.9.0', kind: 'package', dir: 'legacy', workspacePath: 'packages/legacy', isPublishable: true },

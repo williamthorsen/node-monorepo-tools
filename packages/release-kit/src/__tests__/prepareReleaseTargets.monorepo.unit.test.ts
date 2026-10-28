@@ -76,7 +76,11 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
 }));
 
 import { selectPackageResults } from '../test-utils/prepareResults.ts';
-import { makeConfig, plannedContent, prepareMonorepo } from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
+import {
+  makeConfig,
+  findPlannedContent,
+  prepareMonorepo,
+} from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
 
 describe('prepareReleaseTargets for a monorepo', () => {
   beforeEach(() => {
@@ -118,7 +122,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
       changelogFiles: ['packages/arrays/CHANGELOG.md'],
     });
 
-    expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
+    expect(findPlannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
 
     // Verify the history was read once, under the workspace's own tag prefixes and paths

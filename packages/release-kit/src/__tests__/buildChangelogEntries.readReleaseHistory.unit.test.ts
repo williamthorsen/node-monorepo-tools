@@ -2,7 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import type { ReleaseWindow } from '../enumerateReleaseWindows.ts';
-import { block, fakeHash, makeConfig, makeWindow, mergeMessage, OPTIONS } from '../test-utils/changelogCommits.ts';
+import {
+  wrapInChangeRecordFence,
+  makeFakeHash,
+  makeConfig,
+  makeWindow,
+  buildMergeMessage,
+  OPTIONS,
+} from '../test-utils/changelogCommits.ts';
 import { makeWorkspaceTarget } from '../test-utils/packageTargets.ts';
 import type { ChangelogSection } from '../types.ts';
 
@@ -32,10 +39,14 @@ describe(readReleaseHistory, () => {
     it.each([
       [
         'a `feat` entry under a `docs` title',
-        [mergeMessage('entries:\n  - type: feat\n    text: Adds.', '#1 docs: Guide')],
+        [buildMergeMessage('entries:\n  - type: feat\n    text: Adds.', '#1 docs: Guide')],
         'minor',
       ],
-      ['a breaking entry', [mergeMessage('entries:\n  - type: fix\n    breaking: true\n    text: Breaks.')], 'major'],
+      [
+        'a breaking entry',
+        [buildMergeMessage('entries:\n  - type: fix\n    breaking: true\n    text: Breaks.')],
+        'major',
+      ],
       ['a `feat!:` title', ['#1 feat!: Redesign API'], 'major'],
       ['the highest of several items', ['#1 fix: Patch', '#2 feat: Add', '#3 docs: Guide'], 'minor'],
       ['a `BREAKING CHANGE:` footer on a `feat` title', ['#1 feat: Add\n\nBREAKING CHANGE: removes /v1'], 'minor'],
@@ -49,7 +60,7 @@ describe(readReleaseHistory, () => {
       ['an excluded type', ['#1 fmt: Run prettier']],
       [
         'a block whose entries are all undeclared or excluded',
-        [mergeMessage('entries:\n  - type: chore\n    text: T.\n  - type: fmt\n    text: F.')],
+        [buildMergeMessage('entries:\n  - type: chore\n    text: T.\n  - type: fmt\n    text: F.')],
       ],
       ['no commits', []],
     ])('is undefined for %s', (_label, messages) => {
@@ -109,7 +120,7 @@ describe(readReleaseHistory, () => {
     it('counts the commits that yield at least one item', () => {
       const unreleasedReading = readUnreleased([
         '#1 feat: Add',
-        mergeMessage('entries:\n  - type: fix\n    text: A.\n  - type: tests\n    text: B.'),
+        buildMergeMessage('entries:\n  - type: fix\n    text: A.\n  - type: tests\n    text: B.'),
         '#3 fmt: Reformat',
         'Update readme',
       ]);
@@ -132,8 +143,8 @@ describe(readReleaseHistory, () => {
         'release: v1.1.0',
         "Merge branch 'main'",
         '#1 fmt: Reformat',
-        mergeMessage('entries:\n  - type: chore\n    text: Tidies.'),
-        `Squash the branch\n\n${block('entries: 3')}`,
+        buildMergeMessage('entries:\n  - type: chore\n    text: Tidies.'),
+        `Squash the branch\n\n${wrapInChangeRecordFence('entries: 3')}`,
       ]);
 
       expect(unreleasedReading.unparseableCommits).toBeUndefined();
@@ -142,7 +153,7 @@ describe(readReleaseHistory, () => {
   });
 
   describe('entry routing', () => {
-    const ROUTED_MESSAGE = mergeMessage(`
+    const ROUTED_MESSAGE = buildMergeMessage(`
 entries:
   - type: feat
     scopes: [nmr]
@@ -180,7 +191,7 @@ entries:
     });
 
     it('does not raise the bump for a breaking entry scoped to another workspace', () => {
-      const message = mergeMessage(`
+      const message = buildMergeMessage(`
 entries:
   - type: feat
     scopes: [release-kit]
@@ -197,7 +208,7 @@ entries:
 
     it('classifies a block commit whose entries are all routed to other workspaces by its title', () => {
       const unreleasedReading = readRouted(
-        [mergeMessage('entries:\n  - type: fix\n    scopes: [nmr]\n    text: A.')],
+        [buildMergeMessage('entries:\n  - type: fix\n    scopes: [nmr]\n    text: A.')],
         'arrays',
       );
 
@@ -208,7 +219,7 @@ entries:
     });
 
     it('releases a dependency whose source change has every entry scoped to its dependent', () => {
-      const message = mergeMessage(
+      const message = buildMergeMessage(
         `
 entries:
   - type: perf
@@ -238,7 +249,7 @@ entries:
     it('keeps a routed entry that yields no item from falling back to the title', () => {
       const unreleasedReading = readRouted(
         [
-          mergeMessage(
+          buildMergeMessage(
             'entries:\n  - type: fmt\n    scopes: [arrays]\n    text: Formats.\n  - type: feat\n    scopes: [nmr]\n    text: A.',
           ),
         ],
@@ -251,7 +262,7 @@ entries:
 
     it('reports an unticketed commit whose entries are all routed to other workspaces as unparseable', () => {
       const unreleasedReading = readRouted(
-        [mergeMessage('entries:\n  - type: feat\n    scopes: [nmr]\n    text: A.', 'Add the reader')],
+        [buildMergeMessage('entries:\n  - type: feat\n    scopes: [nmr]\n    text: A.', 'Add the reader')],
         'arrays',
       );
 
@@ -281,7 +292,7 @@ entries:
       const history = readReleaseHistoryOf(
         [
           makeWindow('unreleased', []),
-          makeWindow('v1.0.0', [mergeMessage('entries:\n  - type: fix\n    scopes: [nmr]\n    text: A.')]),
+          makeWindow('v1.0.0', [buildMergeMessage('entries:\n  - type: fix\n    scopes: [nmr]\n    text: A.')]),
         ],
         'arrays',
       );
@@ -304,7 +315,7 @@ entries:
       const [subject = ''] = message.split('\n', 1);
 
       expect(readUnreleased([message]).diagnostics.policyViolations).toStrictEqual([
-        { commitHash: fakeHash(0), commitSubject: subject, type, surface },
+        { commitHash: makeFakeHash(0), commitSubject: subject, type, surface },
       ]);
     });
 

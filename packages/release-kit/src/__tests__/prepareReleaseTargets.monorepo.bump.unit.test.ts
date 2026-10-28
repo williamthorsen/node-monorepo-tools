@@ -80,7 +80,7 @@ import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import { selectPackageResults } from '../test-utils/prepareResults.ts';
 import {
   makeConfig,
-  plannedContent,
+  findPlannedContent,
   prepareMonorepo,
   RELEASED_ENTRY,
 } from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
@@ -121,7 +121,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
 
     // Should use the override (minor) rather than the history's bump (patch)
-    expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
+    expect(findPlannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
     expect(selectPackageResults(result)[0]).toMatchObject({ releaseType: 'minor', bumpOverride: 'minor' });
 
     expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith(expect.any(String), [
@@ -376,7 +376,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
     const result = prepareMonorepo(config, { shouldForce: true, bumpOverride: 'patch' });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
-    expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.0.1"');
+    expect(findPlannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.0.1"');
     // Empty-range release: the synthetic "Notes / Forced version bump." entry stands in for
     // the release windows.
     expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledExactlyOnceWith('1.0.1', expect.any(String));

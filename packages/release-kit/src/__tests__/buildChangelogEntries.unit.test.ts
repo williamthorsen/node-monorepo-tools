@@ -2,7 +2,7 @@ import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
-import { fakeHash, makeCommit, makeConfig, makeWindow, OPTIONS } from '../test-utils/changelogCommits.ts';
+import { makeFakeHash, makeCommit, makeConfig, makeWindow, OPTIONS } from '../test-utils/changelogCommits.ts';
 
 const { mockEnumerateReleaseWindows, mockWriteFileSync } = await vi.hoisted(
   () => import('../test-utils/buildChangelogEntriesMocks.ts'),
@@ -142,7 +142,7 @@ describe(buildChangelogEntries, () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]?.version).toBe('1.0.0');
     expect(entries[0]?.sections).toStrictEqual([
-      { title: '🎉 Features', audience: 'all', items: [{ description: 'Add widget', hash: fakeHash(5) }] },
+      { title: '🎉 Features', audience: 'all', items: [{ description: 'Add widget', hash: makeFakeHash(5) }] },
     ]);
   });
 

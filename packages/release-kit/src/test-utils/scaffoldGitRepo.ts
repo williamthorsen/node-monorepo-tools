@@ -16,7 +16,7 @@ export interface GitRepoFixture {
   /** Writes the files, stages everything, commits, and returns the new commit's full hash. */
   commit: (message: string, files?: Record<string, string>, options?: CommitDate) => string;
   /** Runs a git command in the repository and returns its trimmed stdout. */
-  git: (...args: string[]) => string;
+  runGit: (...args: string[]) => string;
   /** Merges a branch without fast-forwarding, and returns the merge commit's full hash. */
   merge: (branch: string, message: string, options?: CommitDate) => string;
   /** Writes an annotated tag at HEAD, as `createTags.ts` does. */
@@ -64,7 +64,7 @@ export function scaffoldGitRepo(entries: Record<string, string> = {}): GitRepoFi
       runGit(['commit', '--quiet', '--allow-empty', '--message', message], options?.date);
       return runGit(['rev-parse', 'HEAD']);
     },
-    git: (...args) => runGit(args),
+    runGit: (...args) => runGit(args),
     merge: (branch, message, options) => {
       runGit(['merge', '--quiet', '--no-ff', branch, '--message', message], options?.date);
       return runGit(['rev-parse', 'HEAD']);
