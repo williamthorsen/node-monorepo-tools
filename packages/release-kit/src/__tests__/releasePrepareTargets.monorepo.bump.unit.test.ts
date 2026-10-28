@@ -154,16 +154,16 @@ describe('releasePrepareTargets for a monorepo', () => {
     const result = prepareMonorepo(config, {});
 
     expect(result.tags).toStrictEqual([]);
-    const workspace = selectPackageResults(result)[0];
-    expect(workspace).toMatchObject({
+    const workspaceResult = selectPackageResults(result)[0];
+    expect(workspaceResult).toMatchObject({
       status: 'skipped',
       commitCount: 1,
       parsedCommitCount: 0,
     });
-    assert(workspace?.status === 'skipped', 'expected skipped');
-    expect(workspace.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
-    expect(workspace.skipReason).toContain('Pass --force to release at patch');
-    expect(workspace.unparseableCommits).toStrictEqual(makeStubbedCommits([['chore: update deps', 'abc123']]));
+    assert(workspaceResult?.status === 'skipped', 'expected skipped');
+    expect(workspaceResult.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
+    expect(workspaceResult.skipReason).toContain('Pass --force to release at patch');
+    expect(workspaceResult.unparseableCommits).toStrictEqual(makeStubbedCommits([['chore: update deps', 'abc123']]));
   });
 
   it("falls back to patch when the history's commits don't call for a bump and --force is set", () => {
@@ -223,13 +223,13 @@ describe('releasePrepareTargets for a monorepo', () => {
     const result = prepareMonorepo(config, { bumpOverride: 'minor' });
 
     expect(result.tags).toStrictEqual([]);
-    const workspace = selectPackageResults(result)[0];
-    expect(workspace).toMatchObject({
+    const workspaceResult = selectPackageResults(result)[0];
+    expect(workspaceResult).toMatchObject({
       status: 'skipped',
       commitCount: 1,
     });
-    assert(workspace?.status === 'skipped', 'expected skipped');
-    expect(workspace.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
+    assert(workspaceResult?.status === 'skipped', 'expected skipped');
+    expect(workspaceResult.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
   });
 
   it('falls back to patch when --force is set without any commits (no --bump)', () => {
@@ -253,15 +253,15 @@ describe('releasePrepareTargets for a monorepo', () => {
     const result = prepareMonorepo(config, { shouldForce: true });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
-    const workspace = selectPackageResults(result)[0];
-    expect(workspace).toMatchObject({
+    const workspaceResult = selectPackageResults(result)[0];
+    expect(workspaceResult).toMatchObject({
       status: 'released',
       commitCount: 0,
       parsedCommitCount: 0,
       releaseType: 'patch',
     });
-    assert(workspace?.status === 'released', 'expected released');
-    expect(workspace.bumpOverride).toBeUndefined();
+    assert(workspaceResult?.status === 'released', 'expected released');
+    expect(workspaceResult.bumpOverride).toBeUndefined();
   });
 
   it('mixed-sibling case: --force alone uses natural bump for one workspace and patch fallback for another', () => {

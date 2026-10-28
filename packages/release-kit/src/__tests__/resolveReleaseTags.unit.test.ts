@@ -255,9 +255,9 @@ describe(resolveReleaseTags, () => {
 
     it('resolves the repo-root directory tag under its v prefix', () => {
       mockExecFileSync.mockReturnValue('v1.0.0\n');
-      const root = [{ name: 'repo', path: '.', versionFile: 'package.json', tagPrefix: 'v' }];
+      const rootDirectories = [{ name: 'repo', path: '.', versionFile: 'package.json', tagPrefix: 'v' }];
 
-      expect(resolveReleaseTags({ workspaces: [], directories: root })).toStrictEqual([
+      expect(resolveReleaseTags({ workspaces: [], directories: rootDirectories })).toStrictEqual([
         { tag: 'v1.0.0', kind: 'directory', dir: 'repo', workspacePath: '.', isPublishable: false },
       ]);
     });
@@ -290,14 +290,14 @@ describe(resolveReleaseTags, () => {
 
     it('uses singleWorkspace.isPublishable for single-package tags', () => {
       mockExecFileSync.mockReturnValue('v1.2.3\n');
-      const single = makeWorkspace({
+      const singleWorkspace = makeWorkspace({
         dir: 'root',
         tagPrefix: 'v',
         workspacePath: '.',
         isPublishable: false,
       });
 
-      expect(resolveReleaseTags({ singleWorkspace: single })).toStrictEqual([
+      expect(resolveReleaseTags({ singleWorkspace })).toStrictEqual([
         { tag: 'v1.2.3', kind: 'package', dir: '.', workspacePath: '.', isPublishable: false },
       ]);
     });

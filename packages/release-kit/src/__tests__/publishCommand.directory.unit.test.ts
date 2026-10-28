@@ -48,9 +48,9 @@ vi.mock(import('../publish.ts'), () => ({
 }));
 
 vi.mock(import('../loadConfig.ts'), async () => {
-  const actual = await vi.importActual<typeof import('../loadConfig.ts')>('../loadConfig.ts');
+  const actualModule = await vi.importActual<typeof import('../loadConfig.ts')>('../loadConfig.ts');
   return {
-    ...actual,
+    ...actualModule,
     loadConfig: mockLoadConfig,
     // `node:fs` is mocked above, so the real reader cannot read the root package.json.
     readRootPackageVersion: () => ({ doesExist: true, version: '1.0.0' }),
@@ -80,17 +80,17 @@ import { resolvedPackages } from '../test-utils/workspaceResolutions.ts';
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 describe(publishCommand, () => {
-  let capture: CapturedStdio;
+  let stdioCapture: CapturedStdio;
 
   beforeEach(() => {
-    capture = captureStdio();
+    stdioCapture = captureStdio();
     applyPublishCommandDefaults();
     void throwOnProcessExit();
     void silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {
-    capture[Symbol.dispose]();
+    stdioCapture[Symbol.dispose]();
     resetPublishCommandMocks();
     vi.restoreAllMocks();
   });

@@ -149,10 +149,10 @@ describe('releasePrepareTargets for a monorepo', () => {
       const result = prepareMonorepo(config, {});
 
       expect(selectCompositeResult(result)).toBeDefined();
-      const project = selectCompositeResult(result);
-      assert(project?.status === 'released', 'expected released project');
-      expect(project.tag).toBe('v0.10.0');
-      expect(project.releaseType).toBe('minor');
+      const projectResult = selectCompositeResult(result);
+      assert(projectResult?.status === 'released', 'expected released project');
+      expect(projectResult.tag).toBe('v0.10.0');
+      expect(projectResult.releaseType).toBe('minor');
       expect(result.tags).toContain('arrays-v1.1.0');
       expect(result.tags).toContain('v0.10.0');
       // The workspace and the project each read their history once.
@@ -200,7 +200,7 @@ describe('releasePrepareTargets for a monorepo', () => {
 
     describe('a named composite under --only', () => {
       /** Prepares one workspace and a composite named `suite` over it, both with a minor bump pending. */
-      function prepareNamed(only: string[]): ReturnType<typeof prepareMonorepo> {
+      function prepareNamed(onlyTargetIds: string[]): ReturnType<typeof prepareMonorepo> {
         const config = makeConfig({
           workspaces: [
             {
@@ -223,7 +223,7 @@ describe('releasePrepareTargets for a monorepo', () => {
           if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
           return JSON.stringify({ version: '1.0.0' });
         });
-        return prepareMonorepo(config, { onlyTargetIds: only });
+        return prepareMonorepo(config, { onlyTargetIds });
       }
 
       it('prepares the composite alone from its own window when --only names only it', () => {
@@ -276,10 +276,10 @@ describe('releasePrepareTargets for a monorepo', () => {
 
       const result = prepareMonorepo(config, {});
 
-      const formatCall = result.formatCommand?.command;
-      expect(formatCall).toContain('packages/arrays/package.json');
-      expect(formatCall).toContain('./package.json');
-      expect(formatCall).toContain('CHANGELOG.md');
+      const formatCommandString = result.formatCommand?.command;
+      expect(formatCommandString).toContain('packages/arrays/package.json');
+      expect(formatCommandString).toContain('./package.json');
+      expect(formatCommandString).toContain('CHANGELOG.md');
     });
   });
 
@@ -345,7 +345,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       });
       stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
-      using silent = silenceConsole(['warn']);
+      using silencedConsole = silenceConsole(['warn']);
 
       const plan = prepareMonorepo(config, { shouldIncludeReleaseNotes: true });
 
@@ -353,7 +353,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       expect(plan.warnings).toStrictEqual([
         '--with-release-notes requires changelogJson.enabled; skipping preview generation',
       ]);
-      expect(silent.warn).not.toHaveBeenCalled();
+      expect(silencedConsole.warn).not.toHaveBeenCalled();
     });
 
     it('does not invoke previews for skipped workspaces', () => {
@@ -442,40 +442,40 @@ describe('releasePrepareTargets for a monorepo', () => {
       const config = makeArraysConfig();
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
       // Make `readReleaseHistory` throw, which exercises the Phase 1 wrap inside `determineDirectBumps`.
-      const underlying = new Error('git rev-list failed: not a git repo');
+      const underlyingError = new Error('git rev-list failed: not a git repo');
       mockReadReleaseHistory.mockImplementation(() => {
-        throw underlying;
+        throw underlyingError;
       });
 
-      const wrapped = await captureError(() => prepareMonorepo(config, {}));
+      const wrappedError = await captureError(() => prepareMonorepo(config, {}));
 
-      expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*git rev-list failed: not a git repo$/);
+      expect(wrappedError.message).toMatch(/^workspace 'arrays' release stage: .*git rev-list failed: not a git repo$/);
       // `cause` is preserved through the chain: at minimum, an Error instance.
-      expect(wrapped.cause).toBeInstanceOf(Error);
+      expect(wrappedError.cause).toBeInstanceOf(Error);
     });
 
     it("wraps a Phase 3 (executeWorkspaceRelease) throw with the workspace's release-stage label", async () => {
       const config = makeArraysConfig();
       // Phase 1 succeeds. `renderChangelogMarkdown` (which `executeWorkspaceRelease` reaches)
       // throws, which exercises the Phase 3 wrap inside `executeReleaseSet`.
-      const underlying = new Error('markdown render failed');
+      const underlyingError = new Error('markdown render failed');
       stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add', 'abc123']], bump: 'minor' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       mockRenderChangelogMarkdown.mockImplementationOnce(() => {
-        throw underlying;
+        throw underlyingError;
       });
 
-      const wrapped = await captureError(() => prepareMonorepo(config, {}));
+      const wrappedError = await captureError(() => prepareMonorepo(config, {}));
 
-      expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*markdown render failed$/);
+      expect(wrappedError.message).toMatch(/^workspace 'arrays' release stage: .*markdown render failed$/);
       // `cause` is preserved through the chain: at minimum, an Error instance.
-      expect(wrapped.cause).toBeInstanceOf(Error);
+      expect(wrappedError.cause).toBeInstanceOf(Error);
     });
 
     it('wraps a project-stage throw with the project release-stage label', async () => {
       const config = makeArraysConfig({ project: { paths: ['packages/arrays/**'], tagPrefix: 'v' } });
       // The workspace stage's read succeeds; the project stage's read throws.
-      const underlying = new Error('git log failed on root');
+      const underlyingError = new Error('git log failed on root');
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
         return JSON.stringify({ version: '1.0.0' });
@@ -485,13 +485,13 @@ describe('releasePrepareTargets for a monorepo', () => {
           makeReleaseHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: ship', 'abc123']], bump: 'minor' }),
         )
         .mockImplementationOnce(() => {
-          throw underlying;
+          throw underlyingError;
         });
 
-      const wrapped = await captureError(() => prepareMonorepo(config, {}));
+      const wrappedError = await captureError(() => prepareMonorepo(config, {}));
 
-      expect(wrapped.message).toMatch(/^project release stage: .*git log failed on root$/);
-      expect(wrapped.cause).toBeInstanceOf(Error);
+      expect(wrappedError.message).toMatch(/^project release stage: .*git log failed on root$/);
+      expect(wrappedError.cause).toBeInstanceOf(Error);
     });
   });
 });

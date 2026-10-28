@@ -16,9 +16,9 @@ vi.mock(import('@williamthorsen/nmr-core'), () => ({
 }));
 
 vi.mock(import('../typeLabels.ts'), async (importOriginal) => {
-  const original = await importOriginal();
-  mockDeriveTypeLabels.mockImplementation(original.deriveTypeLabels);
-  return { ...original, deriveTypeLabels: mockDeriveTypeLabels };
+  const originalModule = await importOriginal();
+  mockDeriveTypeLabels.mockImplementation(originalModule.deriveTypeLabels);
+  return { ...originalModule, deriveTypeLabels: mockDeriveTypeLabels };
 });
 
 import { hashPreset, loadPreset } from '../presets.ts';
@@ -33,11 +33,11 @@ describe(hashPreset, () => {
   it('changes when the type labels change though the preset file does not', () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('- name: bug\n  color: d73a4a\n');
-    const before = hashPreset('common');
+    const hashBefore = hashPreset('common');
 
     mockDeriveTypeLabels.mockReturnValueOnce([{ name: 'novelty', color: 'ededed' }]);
 
-    expect(hashPreset('common')).not.toBe(before);
+    expect(hashPreset('common')).not.toBe(hashBefore);
   });
 
   it('throws when the preset file does not exist', () => {
@@ -60,13 +60,13 @@ describe(loadPreset, () => {
   });
 
   it('preserves the underlying error as the cause when the preset file cannot be read', () => {
-    const underlying = new Error('EACCES: permission denied');
+    const underlyingError = new Error('EACCES: permission denied');
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockImplementation(() => {
-      throw underlying;
+      throw underlyingError;
     });
 
-    expect(() => loadPreset('bad')).toThrow(expect.objectContaining({ cause: underlying }));
+    expect(() => loadPreset('bad')).toThrow(expect.objectContaining({ cause: underlyingError }));
   });
 
   it('throws when YAML content is not an array', () => {

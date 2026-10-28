@@ -48,9 +48,9 @@ vi.mock(import('../publish.ts'), () => ({
 }));
 
 vi.mock(import('../loadConfig.ts'), async () => {
-  const actual = await vi.importActual<typeof import('../loadConfig.ts')>('../loadConfig.ts');
+  const actualModule = await vi.importActual<typeof import('../loadConfig.ts')>('../loadConfig.ts');
   return {
-    ...actual,
+    ...actualModule,
     loadConfig: mockLoadConfig,
     // `node:fs` is mocked above, so the real reader cannot read the root package.json.
     readRootPackageVersion: () => ({ doesExist: true, version: '1.0.0' }),
@@ -80,17 +80,17 @@ import { resolvedPackages, singlePackage } from '../test-utils/workspaceResoluti
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 describe(publishCommand, () => {
-  let capture: CapturedStdio;
+  let stdioCapture: CapturedStdio;
 
   beforeEach(() => {
-    capture = captureStdio();
+    stdioCapture = captureStdio();
     applyPublishCommandDefaults();
     void throwOnProcessExit();
     void silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {
-    capture[Symbol.dispose]();
+    stdioCapture[Symbol.dispose]();
     resetPublishCommandMocks();
     vi.restoreAllMocks();
   });
@@ -140,7 +140,7 @@ describe(publishCommand, () => {
     const error = await captureError(ProcessExitError, () => publishCommand(['--unknown'], RICH_STYLES, process.cwd()));
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
+    expect(stdioCapture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
     expect(mockPublishPackage).not.toHaveBeenCalled();
   });
 
@@ -150,7 +150,7 @@ describe(publishCommand, () => {
     const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain(
+    expect(stdioCapture.stderrChunks).toContain(
       'Error: HEAD does not have any release tags. Create tags with `release-kit tag` first.\n',
     );
   });
@@ -205,7 +205,9 @@ describe(publishCommand, () => {
     );
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain('Error: Unknown tag "missing-v9.9.9" in --tags. Available: core-v1.3.0\n');
+    expect(stdioCapture.stderrChunks).toContain(
+      'Error: Unknown tag "missing-v9.9.9" in --tags. Available: core-v1.3.0\n',
+    );
   });
 
   it('exits with code 1 when --only is passed (flag removed)', async () => {
@@ -214,7 +216,7 @@ describe(publishCommand, () => {
     );
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain('Error: Unknown option: --only\n');
+    expect(stdioCapture.stderrChunks).toContain('Error: Unknown option: --only\n');
   });
 
   it('exits with code 1 when publishPackage throws', async () => {
@@ -225,7 +227,7 @@ describe(publishCommand, () => {
     const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain('Error: publish failed\n');
+    expect(stdioCapture.stderrChunks).toContain('Error: publish failed\n');
   });
 
   it('does not invoke any GitHub Release path during publish', async () => {
@@ -462,7 +464,7 @@ describe(publishCommand, () => {
       const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
       expect(error.code).toBe(1);
-      expect(capture.stderr).toContain('uncommitted changes');
+      expect(stdioCapture.stderr).toContain('uncommitted changes');
       expect(mockResolveReleaseTags).not.toHaveBeenCalled();
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });

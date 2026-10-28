@@ -40,14 +40,14 @@ describe(showTagPrefixesCommand, () => {
 
   it('renders a single-package row and exits 0 in single-package mode', async () => {
     mockDetectRepoType.mockReturnValue('single-package');
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES);
 
     expect(exitCode).toBe(0);
-    expect(capture.stdout).toContain('.');
-    expect(capture.stdout).toContain('v');
-    expect(capture.stdout).toContain('single-package mode');
+    expect(stdioCapture.stdout).toContain('.');
+    expect(stdioCapture.stdout).toContain('v');
+    expect(stdioCapture.stdout).toContain('single-package mode');
     expect(mockPreview).not.toHaveBeenCalled();
   });
 
@@ -55,7 +55,7 @@ describe(showTagPrefixesCommand, () => {
     const config = { workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@old/core', tagPrefix: 'core-v' }] }] };
     mockLoadValidatedConfig.mockResolvedValue({ status: 'ok', config, configFilePath: CONFIG_FILE_PATH, warnings: [] });
     mockPreview.mockReturnValue({ workspaces: [], collisions: [], undeclaredCandidates: [] });
-    using _capture = captureStdio();
+    using _stdioCapture = captureStdio();
 
     await showTagPrefixesCommand(RICH_STYLES);
 
@@ -64,7 +64,7 @@ describe(showTagPrefixesCommand, () => {
 
   it('forwards the config path to the loader ahead of the repo-type branch', async () => {
     mockDetectRepoType.mockReturnValue('single-package');
-    using _capture = captureStdio();
+    using _stdioCapture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts');
 
@@ -74,13 +74,13 @@ describe(showTagPrefixesCommand, () => {
 
   it('previews against derived defaults when the config file is missing', async () => {
     mockPreview.mockReturnValue({ workspaces: [], collisions: [], undeclaredCandidates: [] });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES);
 
     expect(exitCode).toBe(0);
     expect(mockPreview).toHaveBeenCalledWith(undefined);
-    expect(capture.stdout).toContain('Workspace tag prefixes:');
+    expect(stdioCapture.stdout).toContain('Workspace tag prefixes:');
   });
 
   it('exits 1, reports the problem, and does not print a preview when the config is unusable', async () => {
@@ -89,14 +89,14 @@ describe(showTagPrefixesCommand, () => {
       configFilePath: CONFIG_FILE_PATH,
       problem: { kind: 'validation', errors: ['workTypes: expected object'] },
     });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES);
 
     expect(exitCode).toBe(1);
-    expect(capture.stdout).toBe('');
-    expect(capture.stderrChunks).toContain('Invalid config:\n');
-    expect(capture.stderr).toContain('workTypes: expected object');
+    expect(stdioCapture.stdout).toBe('');
+    expect(stdioCapture.stderrChunks).toContain('Invalid config:\n');
+    expect(stdioCapture.stderr).toContain('workTypes: expected object');
     expect(mockPreview).not.toHaveBeenCalled();
   });
 
@@ -107,26 +107,26 @@ describe(showTagPrefixesCommand, () => {
       configFilePath: 'elsewhere/alternative.config.ts',
       problem: { kind: 'load', message: 'config read failure' },
     });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts');
 
     expect(exitCode).toBe(1);
-    expect(capture.stdout).toBe('');
-    expect(capture.stderr).toContain('Failed to load config: config read failure');
+    expect(stdioCapture.stdout).toBe('');
+    expect(stdioCapture.stderr).toContain('Failed to load config: config read failure');
   });
 
   it('exits 1 and reports when the preview itself fails', async () => {
     mockPreview.mockImplementation(() => {
       throw new Error('Failed to read pnpm-workspace.yaml');
     });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES);
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('Failed to read pnpm-workspace.yaml');
-    expect(capture.stderr).not.toContain('Failed to load config');
+    expect(stdioCapture.stderr).toContain('Failed to read pnpm-workspace.yaml');
+    expect(stdioCapture.stderr).not.toContain('Failed to load config');
   });
 
   it('exits 0 when every workspace derives a prefix and the preview does not report any collision or undeclared prefix', async () => {
@@ -144,14 +144,14 @@ describe(showTagPrefixesCommand, () => {
       collisions: [],
       undeclaredCandidates: [],
     });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES);
 
     expect(exitCode).toBe(0);
-    expect(capture.stdout).toContain('packages/core');
-    expect(capture.stdout).toContain("derived prefix 'nmr-core-v'");
-    expect(capture.stdout).toContain('2 tags');
+    expect(stdioCapture.stdout).toContain('packages/core');
+    expect(stdioCapture.stdout).toContain("derived prefix 'nmr-core-v'");
+    expect(stdioCapture.stdout).toContain('2 tags');
   });
 
   it('prints the declared legacy-prefix line with a recognized marker when tags exist', async () => {
@@ -169,11 +169,11 @@ describe(showTagPrefixesCommand, () => {
       collisions: [],
       undeclaredCandidates: [],
     });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     await showTagPrefixesCommand(RICH_STYLES);
 
-    expect(capture.stdout).toContain("3 legacy tags with 'core-v' prefix (recognized)");
+    expect(stdioCapture.stdout).toContain("3 legacy tags with 'core-v' prefix (recognized)");
   });
 
   it('notes declared-but-empty legacy prefixes', async () => {
@@ -191,11 +191,11 @@ describe(showTagPrefixesCommand, () => {
       collisions: [],
       undeclaredCandidates: [],
     });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     await showTagPrefixesCommand(RICH_STYLES);
 
-    expect(capture.stdout).toContain("recorded legacy prefix 'obsolete-v' does not have any tags");
+    expect(stdioCapture.stdout).toContain("recorded legacy prefix 'obsolete-v' does not have any tags");
   });
 
   it('exits 1 on derivation failure and prints the error', async () => {
@@ -213,56 +213,61 @@ describe(showTagPrefixesCommand, () => {
       collisions: [],
       undeclaredCandidates: [],
     });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES);
 
     expect(exitCode).toBe(1);
-    expect(capture.stdout).toContain('❌ derivation failed');
-    expect(capture.stdout).toContain("missing a 'name' field");
+    expect(stdioCapture.stdout).toContain('❌ derivation failed');
+    expect(stdioCapture.stdout).toContain("missing a 'name' field");
   });
 
   it.each([
-    { style: 'rich', failed: '❌', passed: '✅', warning: '🟠' },
-    { style: 'plain', failed: 'FAIL ', passed: 'PASS ', warning: 'WARN ' },
-  ] as const)('marks every status in the $style style of stdout', async ({ style, failed, passed, warning }) => {
-    const row = { dir: 'core', derivationError: null, legacyEntries: [] };
-    mockPreview.mockReturnValue({
-      workspaces: [
-        {
-          ...row,
-          workspacePath: 'packages/broken',
-          derivedPrefix: null,
-          derivationError: 'no name',
-          derivedTagCount: 0,
-        },
-        { ...row, workspacePath: 'packages/new', derivedPrefix: 'new-v', derivedTagCount: 0 },
-        {
-          ...row,
-          workspacePath: 'packages/core',
-          derivedPrefix: 'core-v',
-          derivedTagCount: 2,
-          legacyEntries: [
-            { prefix: 'old-v', tagCount: 3 },
-            { prefix: 'obsolete-v', tagCount: 0 },
-          ],
-        },
-      ],
-      collisions: [{ tagPrefix: 'core-v', workspacePaths: ['packages/core', 'packages/other'] }],
-      undeclaredCandidates: [],
-    });
-    using capture = captureStdio();
+    { style: 'rich', failedMarker: '❌', passedMarker: '✅', warningMarker: '🟠' },
+    { style: 'plain', failedMarker: 'FAIL ', passedMarker: 'PASS ', warningMarker: 'WARN ' },
+  ] as const)(
+    'marks every status in the $style style of stdout',
+    async ({ style, failedMarker, passedMarker, warningMarker }) => {
+      const row = { dir: 'core', derivationError: null, legacyEntries: [] };
+      mockPreview.mockReturnValue({
+        workspaces: [
+          {
+            ...row,
+            workspacePath: 'packages/broken',
+            derivedPrefix: null,
+            derivationError: 'no name',
+            derivedTagCount: 0,
+          },
+          { ...row, workspacePath: 'packages/new', derivedPrefix: 'new-v', derivedTagCount: 0 },
+          {
+            ...row,
+            workspacePath: 'packages/core',
+            derivedPrefix: 'core-v',
+            derivedTagCount: 2,
+            legacyEntries: [
+              { prefix: 'old-v', tagCount: 3 },
+              { prefix: 'obsolete-v', tagCount: 0 },
+            ],
+          },
+        ],
+        collisions: [{ tagPrefix: 'core-v', workspacePaths: ['packages/core', 'packages/other'] }],
+        undeclaredCandidates: [],
+      });
+      using stdioCapture = captureStdio();
 
-    await showTagPrefixesCommand({ stderr: 'rich', stdout: style });
+      await showTagPrefixesCommand({ stderr: 'rich', stdout: style });
 
-    expect(capture.stdout).toContain(`packages/broken: ${failed} derivation failed: no name`);
-    expect(capture.stdout).toContain(`derived prefix 'new-v', ${warning} no existing tags`);
-    expect(capture.stdout).toContain(`derived prefix 'core-v', ${passed} 2 tags`);
-    expect(capture.stdout).toContain(`      ${passed} 3 legacy tags with 'old-v' prefix (recognized)`);
-    expect(capture.stdout).toContain(`      ${warning} recorded legacy prefix 'obsolete-v' does not have any tags`);
-    expect(capture.stdout).toContain(`\n${failed} tag prefix collision: 'core-v' used by`);
-    expect(/\p{Extended_Pictographic}/u.test(capture.stdout)).toBe(style === 'rich');
-  });
+      expect(stdioCapture.stdout).toContain(`packages/broken: ${failedMarker} derivation failed: no name`);
+      expect(stdioCapture.stdout).toContain(`derived prefix 'new-v', ${warningMarker} no existing tags`);
+      expect(stdioCapture.stdout).toContain(`derived prefix 'core-v', ${passedMarker} 2 tags`);
+      expect(stdioCapture.stdout).toContain(`      ${passedMarker} 3 legacy tags with 'old-v' prefix (recognized)`);
+      expect(stdioCapture.stdout).toContain(
+        `      ${warningMarker} recorded legacy prefix 'obsolete-v' does not have any tags`,
+      );
+      expect(stdioCapture.stdout).toContain(`\n${failedMarker} tag prefix collision: 'core-v' used by`);
+      expect(/\p{Extended_Pictographic}/u.test(stdioCapture.stdout)).toBe(style === 'rich');
+    },
+  );
 
   it('exits 1 on collision and names the colliding workspaces', async () => {
     mockPreview.mockReturnValue({
@@ -287,13 +292,13 @@ describe(showTagPrefixesCommand, () => {
       collisions: [{ tagPrefix: 'foo-v', workspacePaths: ['packages/a-foo', 'packages/b-foo'] }],
       undeclaredCandidates: [],
     });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES);
 
     expect(exitCode).toBe(1);
-    expect(capture.stdout).toContain('tag prefix collision');
-    expect(capture.stdout).toContain('packages/a-foo, packages/b-foo');
+    expect(stdioCapture.stdout).toContain('tag prefix collision');
+    expect(stdioCapture.stdout).toContain('packages/a-foo, packages/b-foo');
   });
 
   it('prints the undeclared section with a copy-pasteable snippet and does not affect exit code', async () => {
@@ -313,18 +318,18 @@ describe(showTagPrefixesCommand, () => {
         { prefix: 'core-v', tagCount: 2, exampleTags: ['core-v0.2.7', 'core-v0.2.8'], suggestedDir: 'core' },
       ],
     });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES);
 
     expect(exitCode).toBe(0);
-    expect(capture.stdout).toContain('Undeclared tag prefixes');
-    expect(capture.stdout).toContain("'core-v'");
-    expect(capture.stdout).toContain('core-v0.2.7');
-    expect(capture.stdout).toContain("dir: 'core'");
-    expect(capture.stdout).toContain(
+    expect(stdioCapture.stdout).toContain('Undeclared tag prefixes');
+    expect(stdioCapture.stdout).toContain("'core-v'");
+    expect(stdioCapture.stdout).toContain('core-v0.2.7');
+    expect(stdioCapture.stdout).toContain("dir: 'core'");
+    expect(stdioCapture.stdout).toContain(
       "legacyIdentities: [{ name: 'TODO-fill-in-legacy-npm-name', tagPrefix: 'core-v' }]",
     );
-    expect(capture.stdout).toContain('TODO-fill-in-legacy-npm-name');
+    expect(stdioCapture.stdout).toContain('TODO-fill-in-legacy-npm-name');
   });
 });

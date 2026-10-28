@@ -79,11 +79,11 @@ describe(readReleaseTags, () => {
   });
 
   it('preserves the underlying error as the cause', () => {
-    const underlying = errnoError('EACCES: permission denied', 'EACCES');
+    const underlyingError = errnoError('EACCES: permission denied', 'EACCES');
     mockReadFileSync.mockImplementation(() => {
-      throw underlying;
+      throw underlyingError;
     });
 
-    expect(() => readReleaseTags()).toThrow(expect.objectContaining({ cause: underlying }));
+    expect(() => readReleaseTags()).toThrow(expect.objectContaining({ cause: underlyingError }));
   });
 });

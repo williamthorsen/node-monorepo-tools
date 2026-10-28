@@ -269,9 +269,9 @@ describe('releasePrepareTargets for a monorepo', () => {
       );
 
       expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
-      const workspace = selectPackageResults(result)[0];
-      assert(workspace?.status === 'released', 'expected released');
-      expect(workspace.changelogFiles).toStrictEqual(['packages/arrays/CHANGELOG.md']);
+      const workspaceResult = selectPackageResults(result)[0];
+      assert(workspaceResult?.status === 'released', 'expected released');
+      expect(workspaceResult.changelogFiles).toStrictEqual(['packages/arrays/CHANGELOG.md']);
 
       const changelogWrites = mockWriteFileSync.mock.calls.filter(
         (call: unknown[]) => call[0] === 'packages/arrays/CHANGELOG.md',

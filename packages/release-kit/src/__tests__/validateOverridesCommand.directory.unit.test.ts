@@ -25,7 +25,7 @@ describe(validateOverridesCommand, () => {
     it('validates a directory target under its own override file, reading its window and routing by its name', async () => {
       tree.write('apps/app/version.json', JSON.stringify({ version: '1.0.0' }));
       const calls: GenerateChangelogOptions[] = [];
-      let workspaceFiles: string[] = [];
+      let workspaceFilePaths: string[] = [];
 
       await validateOverridesCommand(RICH_STYLES, undefined, {
         discoverWorkspaces: () => resolvedPackages(['packages/foo']),
@@ -41,13 +41,13 @@ describe(validateOverridesCommand, () => {
           return [];
         },
         validate: (inputs) => {
-          workspaceFiles = (inputs.workspaces ?? []).map((scope) => scope.filePath);
+          workspaceFilePaths = (inputs.workspaces ?? []).map((scope) => scope.filePath);
           return { errors: [], warnings: [] };
         },
       });
 
       expect(calls.at(-1)).toStrictEqual({ tagPrefixes: ['app-v'], paths: ['apps/app/**'], scope: 'app' });
-      expect(workspaceFiles).toStrictEqual([
+      expect(workspaceFilePaths).toStrictEqual([
         'packages/foo/.meta/changelog-overrides.json',
         'apps/app/.meta/changelog-overrides.json',
       ]);

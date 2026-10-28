@@ -14,17 +14,17 @@ import { tagCommand } from '../tagCommand.ts';
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 describe(tagCommand, () => {
-  let capture: CapturedStdio;
+  let stdioCapture: CapturedStdio;
 
   beforeEach(() => {
-    capture = captureStdio();
+    stdioCapture = captureStdio();
     mockCreateTags.mockReturnValue([]);
     void throwOnProcessExit();
     void silenceConsole(['info']);
   });
 
   afterEach(() => {
-    capture[Symbol.dispose]();
+    stdioCapture[Symbol.dispose]();
     mockCreateTags.mockReset();
     vi.restoreAllMocks();
   });
@@ -57,7 +57,7 @@ describe(tagCommand, () => {
     const error = await captureError(ProcessExitError, () => tagCommand(['--unknown'], RICH_STYLES));
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
+    expect(stdioCapture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
     expect(mockCreateTags).not.toHaveBeenCalled();
   });
 
@@ -65,7 +65,7 @@ describe(tagCommand, () => {
     const error = await captureError(ProcessExitError, () => tagCommand(['--config', 'alt.config.ts'], RICH_STYLES));
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain('Error: Unknown option: --config\n');
+    expect(stdioCapture.stderrChunks).toContain('Error: Unknown option: --config\n');
   });
 
   it('exits with code 1 when createTags throws', async () => {
@@ -76,6 +76,6 @@ describe(tagCommand, () => {
     const error = await captureError(ProcessExitError, () => tagCommand([], RICH_STYLES));
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain('Error: No tags file found. Run `release-kit prepare` first.\n');
+    expect(stdioCapture.stderrChunks).toContain('Error: No tags file found. Run `release-kit prepare` first.\n');
   });
 });

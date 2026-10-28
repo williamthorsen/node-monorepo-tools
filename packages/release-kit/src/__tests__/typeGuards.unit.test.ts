@@ -20,7 +20,7 @@ describe(isRecord, () => {
   it('returns true for Object.create(null)', () => {
     // Object.create(null) produces a prototype-less object, tested separately
     // to avoid a type assertion in the parameterized array.
-    const nullProto: unknown = Object.create(null);
-    expect(isRecord(nullProto)).toBe(true);
+    const nullProtoObject: unknown = Object.create(null);
+    expect(isRecord(nullProtoObject)).toBe(true);
   });
 });

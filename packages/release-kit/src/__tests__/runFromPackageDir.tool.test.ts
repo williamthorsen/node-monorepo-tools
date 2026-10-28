@@ -18,14 +18,14 @@ describe('prepare run from a package directory', () => {
   it('reports the same release as a run from the monorepo root', async () => {
     const repo = seedMonorepo();
 
-    const fromPackage = await runDryPrepareFrom(`${repo.dir}/packages/pkg-a`);
-    const fromRoot = await runDryPrepareFrom(repo.dir);
+    const outputFromPackage = await runDryPrepareFrom(`${repo.dir}/packages/pkg-a`);
+    const outputFromRoot = await runDryPrepareFrom(repo.dir);
 
-    expect(fromPackage).toBe(fromRoot);
-    expect(fromRoot).toContain('pkg-a-v1.1.0');
-    expect(fromRoot).toContain('pkg-b-v1.0.1');
-    expect(fromRoot).toContain('Found 1 commits since pkg-a-v1.0.0');
-    expect(fromRoot).toContain('Found 1 commits since pkg-b-v1.0.0');
+    expect(outputFromPackage).toBe(outputFromRoot);
+    expect(outputFromRoot).toContain('pkg-a-v1.1.0');
+    expect(outputFromRoot).toContain('pkg-b-v1.0.1');
+    expect(outputFromRoot).toContain('Found 1 commits since pkg-a-v1.0.0');
+    expect(outputFromRoot).toContain('Found 1 commits since pkg-b-v1.0.0');
   });
 
   it('still releases a single-package repo as one package from its root', async () => {
@@ -46,9 +46,9 @@ describe('prepare run from a package directory', () => {
 async function runDryPrepareFrom(dir: string): Promise<string> {
   using _cwd = pointCwdAt(dir, { chdir: true });
   const { invocationDir } = enterRepoRoot();
-  using stdio = captureStdio({ includeConsole: true });
+  using stdioCapture = captureStdio({ includeConsole: true });
   await prepareCommand(['--dry-run'], PLAIN_STYLES, invocationDir);
-  return stdio.stdout;
+  return stdioCapture.stdout;
 }
 
 /** Builds a two-workspace monorepo with baseline tags and one commit touching each workspace since. */

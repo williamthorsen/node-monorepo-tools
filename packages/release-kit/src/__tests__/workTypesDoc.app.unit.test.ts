@@ -46,13 +46,13 @@ describe('docs/work-types.md "Work types and tiers" table alignment with DEFAULT
 // region | Helpers
 /** Parses the "Work types and tiers" table from docs/work-types.md and returns its rows. */
 function parseWorkTypesTable(): DocWorkTypeRow[] {
-  const heading = /^# Work types and tiers$/m.exec(docContent);
-  if (heading === null) {
+  const headingMatch = /^# Work types and tiers$/m.exec(docContent);
+  if (headingMatch === null) {
     throw new Error('docs/work-types.md is missing the "Work types and tiers" heading');
   }
 
-  const afterHeading = docContent.slice(heading.index);
-  const lines = afterHeading.split('\n');
+  const textAfterHeading = docContent.slice(headingMatch.index);
+  const lines = textAfterHeading.split('\n');
   const rows: DocWorkTypeRow[] = [];
   let inTable = false;
 

@@ -26,8 +26,8 @@ vi.mock(import('../../discoverWorkspaces.ts'), async (importOriginal) => ({
 }));
 
 vi.mock(import('../../loadConfig.ts'), async (importOriginal) => {
-  const original = await importOriginal();
-  return { ...original, loadConfig: mockLoadConfig };
+  const originalModule = await importOriginal();
+  return { ...originalModule, loadConfig: mockLoadConfig };
 });
 
 vi.mock(import('../../validateConfig.ts'), () => ({
@@ -35,8 +35,8 @@ vi.mock(import('../../validateConfig.ts'), () => ({
 }));
 
 vi.mock(import('../generateCommand.ts'), async (importOriginal) => {
-  const original = await importOriginal();
-  return { ...original, generateCommand: mockGenerateCommand };
+  const originalModule = await importOriginal();
+  return { ...originalModule, generateCommand: mockGenerateCommand };
 });
 
 vi.mock(import('../templates.ts'), async (importOriginal) => ({
@@ -89,7 +89,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/utils']));
     mockGenerateCommand.mockResolvedValue(0);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
 
     const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
@@ -111,7 +111,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
     givenValidConfig({});
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    using silent = silenceConsole(['info']);
+    using silencedConsole = silenceConsole(['info']);
 
     const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
@@ -122,7 +122,7 @@ describe(syncLabelsInitCommand, () => {
       expect.any(String),
       expect.any(Object),
     );
-    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining("'scope:core': { color: '00ff96'"));
+    expect(silencedConsole.info).toHaveBeenCalledWith(expect.stringContaining("'scope:core': { color: '00ff96'"));
     expect(mockGenerateCommand).not.toHaveBeenCalled();
   });
 
@@ -133,11 +133,11 @@ describe(syncLabelsInitCommand, () => {
       retiredPackages: [{ name: '@acme/preflight', tagPrefix: 'preflight-v' }],
     });
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    using silent = silenceConsole(['info']);
+    using silencedConsole = silenceConsole(['info']);
 
     await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
-    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining("'scope:preflight'"));
+    expect(silencedConsole.info).toHaveBeenCalledWith(expect.stringContaining("'scope:preflight'"));
   });
 
   it('reads the named config and names it in the paste instructions', async () => {
@@ -145,7 +145,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
     givenValidConfig({});
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    using silent = silenceConsole(['info']);
+    using silencedConsole = silenceConsole(['info']);
 
     const exitCode = await syncLabelsInitCommand({
       configPath: 'elsewhere/alternative.config.ts',
@@ -156,8 +156,10 @@ describe(syncLabelsInitCommand, () => {
 
     expect(exitCode).toBe(0);
     expect(mockLoadConfig).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
-    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining('elsewhere/alternative.config.ts already exists'));
-    expect(silent.info).toHaveBeenCalledWith(
+    expect(silencedConsole.info).toHaveBeenCalledWith(
+      expect.stringContaining('elsewhere/alternative.config.ts already exists'),
+    );
+    expect(silencedConsole.info).toHaveBeenCalledWith(
       expect.stringContaining('Paste the block above into elsewhere/alternative.config.ts'),
     );
     expect(mockWriteFileWithCheck).not.toHaveBeenCalledWith(CONFIG_FILE_PATH, expect.anything(), expect.anything());
@@ -168,8 +170,8 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
     mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    using _silent = silenceConsole(['info']);
-    using _capture = captureStdio();
+    using _silencedConsole = silenceConsole(['info']);
+    using _stdioCapture = captureStdio();
 
     const exitCode = await syncLabelsInitCommand({
       configPath: 'elsewhere/absent.config.ts',
@@ -190,8 +192,8 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
     mockLoadConfig.mockResolvedValue({ bad: true });
     mockValidateConfig.mockReturnValue({ config: {}, errors: ['bad config'], warnings: [] });
-    using _silent = silenceConsole(['info']);
-    using _capture = captureStdio();
+    using _silencedConsole = silenceConsole(['info']);
+    using _stdioCapture = captureStdio();
 
     const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
@@ -205,7 +207,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     mockGenerateCommand.mockResolvedValue(0);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
 
     const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
@@ -222,8 +224,8 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockImplementation(() => {
       throw new Error('filesystem error');
     });
-    using _silent = silenceConsole(['info']);
-    using _capture = captureStdio();
+    using _silencedConsole = silenceConsole(['info']);
+    using _stdioCapture = captureStdio();
 
     const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
@@ -233,13 +235,13 @@ describe(syncLabelsInitCommand, () => {
   it('returns 1 when the workspace does not resolve to any package', async () => {
     givenExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
-    using _silent = silenceConsole(['info']);
-    using capture = captureStdio();
+    using _silencedConsole = silenceConsole(['info']);
+    using stdioCapture = captureStdio();
 
     const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('No workspace package to label.');
+    expect(stdioCapture.stderr).toContain('No workspace package to label.');
   });
 
   it('returns 1 when generate fails', async () => {
@@ -247,7 +249,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     mockGenerateCommand.mockResolvedValue(1);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
 
     const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
@@ -258,8 +260,8 @@ describe(syncLabelsInitCommand, () => {
     givenExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'failed', filePath: 'some/file' });
-    using _silent = silenceConsole(['info']);
-    using _capture = captureStdio();
+    using _silencedConsole = silenceConsole(['info']);
+    using _stdioCapture = captureStdio();
 
     const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
@@ -273,13 +275,13 @@ describe(syncLabelsInitCommand, () => {
     mockReadSyncLabelsWorkflowTemplate.mockImplementation(() => {
       throw new Error('Failed to read bundled template at /pkg/templates/sync-labels.yaml.template: ENOENT');
     });
-    using _silent = silenceConsole(['info']);
-    using capture = captureStdio();
+    using _silencedConsole = silenceConsole(['info']);
+    using stdioCapture = captureStdio();
 
     const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('/pkg/templates/sync-labels.yaml.template');
+    expect(stdioCapture.stderr).toContain('/pkg/templates/sync-labels.yaml.template');
     expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
   });
 
@@ -287,7 +289,7 @@ describe(syncLabelsInitCommand, () => {
     givenExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
 
     const exitCode = await syncLabelsInitCommand({ isDryRun: true, shouldForce: false, styles: SPLIT_STYLES });
 
@@ -300,7 +302,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     mockGenerateCommand.mockResolvedValue(0);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
 
     await syncLabelsInitCommand({ isDryRun: false, shouldForce: true, styles: SPLIT_STYLES });
 
@@ -322,7 +324,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
     mockGenerateCommand.mockResolvedValue(0);
     mockWriteFileWithCheck.mockReturnValue(result);
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
 
     await syncLabelsInitCommand({ isDryRun, shouldForce: false, styles: SPLIT_STYLES });
 

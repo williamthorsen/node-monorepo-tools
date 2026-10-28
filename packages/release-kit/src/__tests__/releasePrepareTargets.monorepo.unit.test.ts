@@ -157,9 +157,9 @@ describe('releasePrepareTargets for a monorepo', () => {
       parsedCommitCount: 0,
       previousTag: 'arrays-v1.0.0',
     });
-    const [workspace] = selectPackageResults(result);
-    assert(workspace?.status === 'skipped', 'expected skipped');
-    expect(workspace.skipReason).toContain('No commits for arrays since arrays-v1.0.0');
+    const [workspaceResult] = selectPackageResults(result);
+    assert(workspaceResult?.status === 'skipped', 'expected skipped');
+    expect(workspaceResult.skipReason).toContain('No commits for arrays since arrays-v1.0.0');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     expect(result.writes).toStrictEqual([]);
     expect(listReadOptions()).toStrictEqual([

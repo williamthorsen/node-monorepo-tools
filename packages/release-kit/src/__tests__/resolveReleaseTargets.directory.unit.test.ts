@@ -24,15 +24,15 @@ describe(resolveReleaseTargets, () => {
     files.clear();
     mockExistsSync.mockImplementation((filePath: string) => files.has(toRelative(filePath)));
     mockReadFileSync.mockImplementation((filePath: string) => {
-      const relative = toRelative(filePath);
-      if (!files.has(relative)) {
-        throw new Error(`ENOENT: ${relative}`);
+      const relativePath = toRelative(filePath);
+      if (!files.has(relativePath)) {
+        throw new Error(`ENOENT: ${relativePath}`);
       }
-      return JSON.stringify(files.get(relative));
+      return JSON.stringify(files.get(relativePath));
     });
     mockStatSync.mockImplementation((filePath: string) => {
-      const relative = toRelative(filePath);
-      const isDirectory = relative === '' || files.keys().some((key) => key.startsWith(`${relative}/`));
+      const relativePath = toRelative(filePath);
+      const isDirectory = relativePath === '' || files.keys().some((key) => key.startsWith(`${relativePath}/`));
       return isDirectory ? { isDirectory: () => true } : undefined;
     });
   });
@@ -91,10 +91,10 @@ describe(resolveReleaseTargets, () => {
     });
 
     it("leaves every workspace's tag prefix unchanged", () => {
-      const withDirectory = resolveReleaseTargets({ releases: { repo: { path: '.' } } }, discovery);
-      const without = resolveReleaseTargets(undefined, discovery);
+      const resultWithDirectory = resolveReleaseTargets({ releases: { repo: { path: '.' } } }, discovery);
+      const resultWithoutDirectory = resolveReleaseTargets(undefined, discovery);
 
-      expect(withDirectory.targets[0]).toStrictEqual(without.targets[0]);
+      expect(resultWithDirectory.targets[0]).toStrictEqual(resultWithoutDirectory.targets[0]);
     });
 
     it.each([

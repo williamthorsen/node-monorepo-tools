@@ -24,11 +24,11 @@ vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
 
 // The declared directory exists only in the test, so its derivation is stubbed rather than read from disk.
 vi.mock(import('../deriveDirectoryConfig.ts'), () => ({
-  deriveDirectoryConfig: (declared: { name: string; path: string }) => ({
-    name: declared.name,
-    path: declared.path,
-    versionFile: `${declared.path}/version.json`,
-    paths: [`${declared.path}/**`],
+  deriveDirectoryConfig: (declaredDirectory: { name: string; path: string }) => ({
+    name: declaredDirectory.name,
+    path: declaredDirectory.path,
+    versionFile: `${declaredDirectory.path}/version.json`,
+    paths: [`${declaredDirectory.path}/**`],
     tagPrefix: 'app-v',
   }),
 }));
@@ -44,8 +44,8 @@ import type { ResolvedTag } from '../resolveReleaseTags.ts';
 import { emptyWorkspace, resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
 import type { WorkspaceConfig } from '../types.ts';
 
-const EXCLUDE_CLI: ReleaseKitConfig = { workspaces: [{ dir: 'cli', shouldExclude: true }] };
-const CLI_SKIP = 'Skipping cli-v0.5.0 (packages/cli): excluded by config (shouldExclude: true).';
+const EXCLUDE_CLI_CONFIG: ReleaseKitConfig = { workspaces: [{ dir: 'cli', shouldExclude: true }] };
+const CLI_SKIP_MESSAGE = 'Skipping cli-v0.5.0 (packages/cli): excluded by config (shouldExclude: true).';
 
 const TAGS: ResolvedTag[] = [
   { tag: 'nmr-core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -75,10 +75,10 @@ function makeWorkspace(dir: string, tagPrefix: string, workspacePath: string, is
 }
 
 describe(resolveCommandTags, () => {
-  let capture: CapturedStdio;
+  let stdioCapture: CapturedStdio;
 
   beforeEach(() => {
-    capture = captureStdio();
+    stdioCapture = captureStdio();
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core', 'packages/cli', 'packages/release-kit']));
     mockResolveReleaseTags.mockReturnValue(TAGS);
     mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
@@ -99,7 +99,7 @@ describe(resolveCommandTags, () => {
   });
 
   afterEach(() => {
-    capture[Symbol.dispose]();
+    stdioCapture[Symbol.dispose]();
     mockDiscoverWorkspaces.mockReset();
     mockResolveReleaseTags.mockReset();
     mockDeriveWorkspaceConfig.mockReset();
@@ -128,17 +128,17 @@ describe(resolveCommandTags, () => {
 
   it('derives the single workspace config and passes it to resolveReleaseTags in single-package mode', () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
-    const single = makeWorkspace('root', 'v', '.');
+    const singleWorkspace = makeWorkspace('root', 'v', '.');
     mockDeriveWorkspaceConfig.mockReset();
     mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
-      if (workspacePath === '.') return single;
+      if (workspacePath === '.') return singleWorkspace;
       throw new Error(`Unexpected workspace path: ${workspacePath}`);
     });
 
     resolveCommandTags(undefined, undefined);
 
     expect(mockDeriveWorkspaceConfig).toHaveBeenCalledWith('.');
-    expect(mockResolveReleaseTags).toHaveBeenCalledWith({ singleWorkspace: single });
+    expect(mockResolveReleaseTags).toHaveBeenCalledWith({ singleWorkspace });
   });
 
   it('returns only the filtered tag when a single-tag filter is provided', () => {
@@ -170,7 +170,7 @@ describe(resolveCommandTags, () => {
     );
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain(
+    expect(stdioCapture.stderrChunks).toContain(
       'Error: Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0\n',
     );
   });
@@ -181,7 +181,7 @@ describe(resolveCommandTags, () => {
     );
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain(
+    expect(stdioCapture.stderrChunks).toContain(
       'Error: Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0\n',
     );
   });
@@ -192,7 +192,7 @@ describe(resolveCommandTags, () => {
     const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined, undefined));
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain(
+    expect(stdioCapture.stderrChunks).toContain(
       'Error: HEAD does not have any release tags. Create tags with `release-kit tag` first.\n',
     );
   });
@@ -205,7 +205,7 @@ describe(resolveCommandTags, () => {
     const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined, undefined));
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks.join('')).toContain('No workspace package to tag.');
+    expect(stdioCapture.stderrChunks.join('')).toContain('No workspace package to tag.');
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });
 
@@ -217,7 +217,7 @@ describe(resolveCommandTags, () => {
     const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined, undefined));
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain('Error: Failed to discover workspaces: workspace read failure\n');
+    expect(stdioCapture.stderrChunks).toContain('Error: Failed to discover workspaces: workspace read failure\n');
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });
 
@@ -229,7 +229,7 @@ describe(resolveCommandTags, () => {
     const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined, undefined));
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain(
+    expect(stdioCapture.stderrChunks).toContain(
       "Error: Failed to resolve workspaces: packages/core/package.json is missing a 'name' field (required for tag derivation).\n",
     );
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
@@ -298,14 +298,14 @@ describe(resolveCommandTags, () => {
 
   describe('with workspace overrides', () => {
     it('drops the tag of an excluded workspace and warns about it', () => {
-      const result = resolveCommandTags(undefined, EXCLUDE_CLI);
+      const result = resolveCommandTags(undefined, EXCLUDE_CLI_CONFIG);
 
       expect(result).toStrictEqual(TAGS.filter((t) => t.dir !== 'cli'));
-      expect(console.warn).toHaveBeenCalledExactlyOnceWith(CLI_SKIP);
+      expect(console.warn).toHaveBeenCalledExactlyOnceWith(CLI_SKIP_MESSAGE);
     });
 
     it('matches tags against the retained workspaces followed by the excluded ones', () => {
-      resolveCommandTags(undefined, EXCLUDE_CLI);
+      resolveCommandTags(undefined, EXCLUDE_CLI_CONFIG);
 
       expect(mockResolveReleaseTags).toHaveBeenCalledWith({
         workspaces: [
@@ -318,15 +318,15 @@ describe(resolveCommandTags, () => {
     });
 
     it('skips an excluded tag named in --tags rather than rejecting it as unknown', () => {
-      const result = resolveCommandTags(['cli-v0.5.0', 'nmr-core-v1.3.0'], EXCLUDE_CLI);
+      const result = resolveCommandTags(['cli-v0.5.0', 'nmr-core-v1.3.0'], EXCLUDE_CLI_CONFIG);
 
       expect(result).toStrictEqual([TAGS[0]]);
-      expect(console.warn).toHaveBeenCalledExactlyOnceWith(CLI_SKIP);
-      expect(capture.stderrChunks.join('')).not.toContain('Unknown tag');
+      expect(console.warn).toHaveBeenCalledExactlyOnceWith(CLI_SKIP_MESSAGE);
+      expect(stdioCapture.stderrChunks.join('')).not.toContain('Unknown tag');
     });
 
     it('warns only about the excluded tags that --tags selects', () => {
-      resolveCommandTags(['nmr-core-v1.3.0'], EXCLUDE_CLI);
+      resolveCommandTags(['nmr-core-v1.3.0'], EXCLUDE_CLI_CONFIG);
 
       expect(console.warn).not.toHaveBeenCalled();
     });
@@ -334,11 +334,11 @@ describe(resolveCommandTags, () => {
     it('returns an empty list when every tag on HEAD belongs to an excluded workspace', () => {
       mockResolveReleaseTags.mockReturnValue([TAGS[1]]);
 
-      const result = resolveCommandTags(undefined, EXCLUDE_CLI);
+      const result = resolveCommandTags(undefined, EXCLUDE_CLI_CONFIG);
 
       expect(result).toStrictEqual([]);
-      expect(console.warn).toHaveBeenCalledExactlyOnceWith(CLI_SKIP);
-      expect(capture.stderrChunks.join('')).not.toContain('HEAD does not have any release tags');
+      expect(console.warn).toHaveBeenCalledExactlyOnceWith(CLI_SKIP_MESSAGE);
+      expect(stdioCapture.stderrChunks.join('')).not.toContain('HEAD does not have any release tags');
     });
 
     it('passes the project tagPrefix to resolveReleaseTags when the config declares a project block', () => {
@@ -359,7 +359,7 @@ describe(resolveCommandTags, () => {
       const result = resolveCommandTags(undefined, config);
 
       expect(result).toStrictEqual([PROJECT_TAG]);
-      expect(capture.stderrChunks.join('')).not.toContain('HEAD does not have any release tags');
+      expect(stdioCapture.stderrChunks.join('')).not.toContain('HEAD does not have any release tags');
     });
 
     it('accepts the project tag in --tags', () => {
@@ -376,7 +376,7 @@ describe(resolveCommandTags, () => {
       const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined, { project: {} }));
 
       expect(error.code).toBe(1);
-      expect(capture.stderrChunks.join('')).toContain('Error: Failed to resolve workspaces: ');
+      expect(stdioCapture.stderrChunks.join('')).toContain('Error: Failed to resolve workspaces: ');
       expect(mockResolveReleaseTags).not.toHaveBeenCalled();
     });
 

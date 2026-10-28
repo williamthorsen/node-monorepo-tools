@@ -17,8 +17,8 @@ const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 
 vi.mock(import('../../loadConfig.ts'), async (importOriginal) => {
-  const original = await importOriginal();
-  return { ...original, loadConfig: mockLoadConfig };
+  const originalModule = await importOriginal();
+  return { ...originalModule, loadConfig: mockLoadConfig };
 });
 
 vi.mock(import('../../validateConfig.ts'), () => ({
@@ -30,8 +30,8 @@ vi.mock(import('../resolveLabels.ts'), () => ({
 }));
 
 vi.mock(import('../presets.ts'), async (importOriginal) => {
-  const original = await importOriginal();
-  return { ...original, hashPreset: mockHashPreset };
+  const originalModule = await importOriginal();
+  return { ...originalModule, hashPreset: mockHashPreset };
 });
 
 vi.mock(import('node:fs'), () => ({
@@ -60,58 +60,58 @@ describe(generateCommand, () => {
 
   it('returns 1 with a migration message when the retired sync-labels config exists', async () => {
     mockExistsSync.mockImplementation((path: string) => path === RETIRED_SYNC_LABELS_CONFIG_PATH);
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('no longer read');
+    expect(stdioCapture.stderr).toContain('no longer read');
     expect(mockLoadConfig).not.toHaveBeenCalled();
   });
 
   it('returns 1 when the config file is missing', async () => {
     mockExistsSync.mockReturnValue(false);
     mockLoadConfig.mockResolvedValue(undefined);
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('Error: Config file not found');
+    expect(stdioCapture.stderr).toContain('Error: Config file not found');
   });
 
   it('returns 1 when config loading throws', async () => {
     mockExistsSync.mockReturnValue(false);
     mockLoadConfig.mockRejectedValue(new Error('parse failure'));
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('parse failure');
+    expect(stdioCapture.stderr).toContain('parse failure');
   });
 
   it('returns 1 and prints validation errors when the config is invalid', async () => {
     mockExistsSync.mockReturnValue(false);
     mockLoadConfig.mockResolvedValue({ repoLabels: { extends: 'common' } });
     mockValidateConfig.mockReturnValue({ config: {}, errors: ['repoLabels.extends: invalid'], warnings: [] });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('repoLabels.extends: invalid');
+    expect(stdioCapture.stderr).toContain('repoLabels.extends: invalid');
   });
 
   it('returns 1 when the config lacks a repoLabels block', async () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({});
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('repoLabels');
+    expect(stdioCapture.stderr).toContain('repoLabels');
   });
 
   it('returns 1 when label resolution throws', async () => {
@@ -120,12 +120,12 @@ describe(generateCommand, () => {
     mockResolveLabels.mockImplementation(() => {
       throw new Error("Label 'ghost' is set to null");
     });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain("Label 'ghost' is set to null");
+    expect(stdioCapture.stderr).toContain("Label 'ghost' is set to null");
   });
 
   it('writes labels file and returns 0 on success', async () => {
@@ -134,7 +134,7 @@ describe(generateCommand, () => {
     givenValidConfig({ repoLabels: { extends: ['common'] } });
     mockResolveLabels.mockReturnValue(labels);
     mockHashPreset.mockReturnValue('abc123');
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
 
     const exitCode = await generateCommand({ styles: RICH_STYLES });
 
@@ -153,7 +153,7 @@ describe(generateCommand, () => {
     givenValidConfig({ repoLabels: { extends: ['common'] } });
     mockResolveLabels.mockReturnValue(labels);
     mockHashPreset.mockReturnValue('abc123');
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
 
     mockReadFileSync.mockReturnValue(formatLabelsYaml(labels, new Map([['common', 'abc123']])));
 
@@ -169,12 +169,12 @@ describe(generateCommand, () => {
     mockResolveLabels.mockReturnValue([{ name: 'bug', color: 'd73a4a', description: 'Bug' }]);
     mockHashPreset.mockReturnValue('abc123');
     mockReadFileSync.mockReturnValue('# outdated content\n');
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ shouldCheck: true, styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('stale');
+    expect(stdioCapture.stderr).toContain('stale');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
@@ -185,12 +185,12 @@ describe(generateCommand, () => {
     mockReadFileSync.mockImplementation(() => {
       throw new Error('ENOENT');
     });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ shouldCheck: true, styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('missing');
+    expect(stdioCapture.stderr).toContain('missing');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
@@ -198,7 +198,7 @@ describe(generateCommand, () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({ repoLabels: {} });
     mockResolveLabels.mockReturnValue([]);
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
 
     const exitCode = await generateCommand({ configPath: 'elsewhere/alternative.config.ts', styles: RICH_STYLES });
 
@@ -215,7 +215,7 @@ describe(generateCommand, () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({ repoLabels: {} });
     mockResolveLabels.mockReturnValue([]);
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
 
     await generateCommand({
       configPath: path.join(process.cwd(), 'elsewhere/alternative.config.ts'),
@@ -233,7 +233,7 @@ describe(generateCommand, () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({ repoLabels: {} });
     mockResolveLabels.mockReturnValue([]);
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
 
     await generateCommand({
       configPath: path.join(path.dirname(process.cwd()), 'shared/release-kit.config.ts'),
@@ -251,7 +251,7 @@ describe(generateCommand, () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({ repoLabels: {} });
     mockResolveLabels.mockReturnValue([]);
-    using _silent = silenceConsole(['info']);
+    using _silencedConsole = silenceConsole(['info']);
 
     await generateCommand({ styles: RICH_STYLES });
 
@@ -265,33 +265,33 @@ describe(generateCommand, () => {
   it('names the config that the run read when it is missing', async () => {
     mockExistsSync.mockReturnValue(false);
     mockLoadConfig.mockResolvedValue(undefined);
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ configPath: 'elsewhere/alternative.config.ts', styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('Config file not found at elsewhere/alternative.config.ts');
+    expect(stdioCapture.stderr).toContain('Config file not found at elsewhere/alternative.config.ts');
   });
 
   it('names the config that the run read when it lacks a repoLabels block', async () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({});
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ configPath: 'elsewhere/alternative.config.ts', styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('block is missing from elsewhere/alternative.config.ts');
+    expect(stdioCapture.stderr).toContain('block is missing from elsewhere/alternative.config.ts');
   });
 
   it('names the config that the run read in the retired-config migration message', async () => {
     mockExistsSync.mockImplementation((path: string) => path === RETIRED_SYNC_LABELS_CONFIG_PATH);
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ configPath: 'elsewhere/alternative.config.ts', styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('elsewhere/alternative.config.ts');
+    expect(stdioCapture.stderr).toContain('elsewhere/alternative.config.ts');
   });
 
   it('returns 1 when file writing fails', async () => {
@@ -301,22 +301,22 @@ describe(generateCommand, () => {
     mockMkdirSync.mockImplementation(() => {
       throw new Error('EACCES');
     });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(capture.stderr).toContain('EACCES');
+    expect(stdioCapture.stderr).toContain('EACCES');
   });
 });
 
 describe(formatLabelsYaml, () => {
-  const noPresets = new Map<string, string>();
+  const noPresetHashes = new Map<string, string>();
 
   it('includes the generated header comment naming the unified config as source', () => {
     const labels: LabelDefinition[] = [{ name: 'bug', color: 'd73a4a', description: "Something isn't working" }];
 
-    const result = formatLabelsYaml(labels, noPresets);
+    const result = formatLabelsYaml(labels, noPresetHashes);
 
     expect(result).toContain('# Generated by release-kit sync-labels');
     expect(result).toContain('# Source: .config/release-kit.config.ts');
@@ -325,7 +325,7 @@ describe(formatLabelsYaml, () => {
   it('names the config path passed to it as source', () => {
     const labels: LabelDefinition[] = [{ name: 'bug', color: 'd73a4a', description: 'Bug' }];
 
-    const result = formatLabelsYaml(labels, noPresets, 'elsewhere/alternative.config.ts');
+    const result = formatLabelsYaml(labels, noPresetHashes, 'elsewhere/alternative.config.ts');
 
     expect(result).toContain('# Source: elsewhere/alternative.config.ts');
   });
@@ -359,7 +359,7 @@ describe(formatLabelsYaml, () => {
       { name: 'feature', color: '0075ca', description: 'New feature' },
     ];
 
-    const result = formatLabelsYaml(labels, noPresets);
+    const result = formatLabelsYaml(labels, noPresetHashes);
 
     expect(result).toContain('- name: bug');
     expect(result).toContain('  color: d73a4a');
@@ -371,7 +371,7 @@ describe(formatLabelsYaml, () => {
   it('declares an empty description for a label without one', () => {
     const labels: LabelDefinition[] = [{ name: 'scope:nmr', color: '00ff96' }];
 
-    const result = formatLabelsYaml(labels, noPresets);
+    const result = formatLabelsYaml(labels, noPresetHashes);
 
     expect(result).toContain("- name: scope:nmr\n  color: 00ff96\n  description: ''\n");
   });
@@ -382,7 +382,7 @@ describe(formatLabelsYaml, () => {
       { name: 'scope:old', color: '00ff96', description: 'Old package', archived: true },
     ];
 
-    const result = formatLabelsYaml(labels, noPresets);
+    const result = formatLabelsYaml(labels, noPresetHashes);
 
     expect(result).toContain(
       "- name: scope:basic\n  color: 00ff96\n  description: ''\n  archived: true\n" +
@@ -395,7 +395,7 @@ describe(formatLabelsYaml, () => {
       { name: 'scope:core', color: '00ff96', aliases: ['scope:basic', 'scope:base'], archived: true },
     ];
 
-    const result = formatLabelsYaml(labels, noPresets);
+    const result = formatLabelsYaml(labels, noPresetHashes);
 
     expect(result).toContain(
       "- name: scope:core\n  color: 00ff96\n  description: ''\n  aliases:\n    - scope:basic\n    - scope:base\n  archived: true\n",
@@ -406,7 +406,7 @@ describe(formatLabelsYaml, () => {
   it('writes an unmarked label without an archived key', () => {
     const labels: LabelDefinition[] = [{ name: 'bug', color: 'd73a4a', description: 'Bug' }];
 
-    const result = formatLabelsYaml(labels, noPresets);
+    const result = formatLabelsYaml(labels, noPresetHashes);
 
     expect(result).toBe(
       '# Generated by release-kit sync-labels — do not edit.\n' +
@@ -418,13 +418,13 @@ describe(formatLabelsYaml, () => {
   it('uses single quotes for values that need quoting', () => {
     const labels: LabelDefinition[] = [{ name: 'true', color: 'd73a4a', description: 'A boolean-like name' }];
 
-    const result = formatLabelsYaml(labels, noPresets);
+    const result = formatLabelsYaml(labels, noPresetHashes);
 
     expect(result).toContain("name: 'true'");
   });
 
   it('produces valid YAML with an empty labels array', () => {
-    const result = formatLabelsYaml([], noPresets);
+    const result = formatLabelsYaml([], noPresetHashes);
 
     expect(result).toContain('# Generated by release-kit sync-labels');
     expect(result).toContain('# Source: .config/release-kit.config.ts');
@@ -438,10 +438,10 @@ describe(formatLabelsYaml, () => {
       { name: 'feature', color: '0075ca', description: 'Feature' },
     ];
 
-    const result1 = formatLabelsYaml(labels, noPresets);
-    const result2 = formatLabelsYaml(labels, noPresets);
+    const firstResult = formatLabelsYaml(labels, noPresetHashes);
+    const secondResult = formatLabelsYaml(labels, noPresetHashes);
 
-    expect(result1).toBe(result2);
+    expect(firstResult).toBe(secondResult);
   });
 });
 

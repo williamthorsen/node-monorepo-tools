@@ -25,13 +25,13 @@ describe(releaseConfigScript, () => {
   });
 
   it('uses header field for work type labels', () => {
-    const mono = releaseConfigScript('monorepo');
-    const single = releaseConfigScript('single-package');
+    const monorepoScript = releaseConfigScript('monorepo');
+    const singlePackageScript = releaseConfigScript('single-package');
 
-    expect(mono).toContain('header:');
-    expect(single).toContain('header:');
-    expect(mono).not.toContain('heading:');
-    expect(single).not.toContain('heading:');
+    expect(monorepoScript).toContain('header:');
+    expect(singlePackageScript).toContain('header:');
+    expect(monorepoScript).not.toContain('heading:');
+    expect(singlePackageScript).not.toContain('heading:');
   });
 
   it.each(['monorepo', 'single-package'] as const)(
@@ -154,12 +154,12 @@ describe(releaseWorkflow, () => {
   );
 
   it('does not include version inputs', () => {
-    const mono = releaseWorkflow('monorepo');
-    const single = releaseWorkflow('single-package');
+    const monorepoWorkflow = releaseWorkflow('monorepo');
+    const singlePackageWorkflow = releaseWorkflow('single-package');
 
-    expect(mono).not.toContain('node-version:');
-    expect(single).not.toContain('node-version:');
-    expect(mono).not.toContain('pnpm-version:');
-    expect(single).not.toContain('pnpm-version:');
+    expect(monorepoWorkflow).not.toContain('node-version:');
+    expect(singlePackageWorkflow).not.toContain('node-version:');
+    expect(monorepoWorkflow).not.toContain('pnpm-version:');
+    expect(singlePackageWorkflow).not.toContain('pnpm-version:');
   });
 });

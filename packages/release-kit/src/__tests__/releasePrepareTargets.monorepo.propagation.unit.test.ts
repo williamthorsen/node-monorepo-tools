@@ -469,14 +469,14 @@ describe('releasePrepareTargets for a monorepo', () => {
 
       const result = prepareMonorepo(config, {});
 
-      const expected = [unroutedFinding(2, 'strings'), unroutedFinding(3, 'nothing')];
+      const expectedEntryScopes = [unroutedFinding(2, 'strings'), unroutedFinding(3, 'nothing')];
       expect(selectPackageResults(result).find((w) => w.name === 'arrays')).toMatchObject({
         status: 'released',
-        unroutedEntryScopes: expected,
+        unroutedEntryScopes: expectedEntryScopes,
       });
       expect(selectPackageResults(result).find((w) => w.name === 'core')).toMatchObject({
         status: 'skipped',
-        unroutedEntryScopes: expected,
+        unroutedEntryScopes: expectedEntryScopes,
       });
       expect(selectPackageResults(result).find((w) => w.name === 'strings')).not.toHaveProperty('unroutedEntryScopes');
     });
@@ -492,12 +492,12 @@ describe('releasePrepareTargets for a monorepo', () => {
       expect(selectPackageResults(result)[0]?.unroutedEntryScopes).toStrictEqual([unroutedFinding(3, 'nothing')]);
     });
 
-    /** Stubs each prefix's history with its bump, putting the block commit in the windows of `withBlock`. */
-    function stubWindows(bumps: Record<string, ReleaseType | undefined>, withBlock: readonly string[]): void {
+    /** Stubs each prefix's history with its bump, putting the block commit in the windows of `blockPrefixes`. */
+    function stubWindows(bumps: Record<string, ReleaseType | undefined>, blockPrefixes: readonly string[]): void {
       mockReadReleaseHistory.mockImplementation((_config: unknown, options: { tagPrefixes: readonly string[] }) => {
         const prefix = options.tagPrefixes[0] ?? '';
         const history = makeReleaseHistory({ previousTag: `${prefix}1.0.0`, bump: bumps[prefix] });
-        history.unreleasedReading.commits = withBlock.includes(prefix) ? [blockCommit] : [];
+        history.unreleasedReading.commits = blockPrefixes.includes(prefix) ? [blockCommit] : [];
         return history;
       });
     }

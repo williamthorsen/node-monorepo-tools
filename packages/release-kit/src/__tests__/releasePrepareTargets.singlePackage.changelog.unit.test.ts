@@ -98,10 +98,10 @@ describe('releasePrepareTargets for a single-package repo', () => {
       const result = prepareSinglePackage(makeConfig(), { shouldForce: true });
 
       expect(result.tags).toStrictEqual(['v1.0.1']);
-      const workspace = selectPackageResults(result)[0];
-      assert(workspace?.status === 'released', 'expected released');
-      expect(workspace.releaseType).toBe('patch');
-      expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
+      const packageResult = selectPackageResults(result)[0];
+      assert(packageResult?.status === 'released', 'expected released');
+      expect(packageResult.releaseType).toBe('patch');
+      expect(packageResult.changelogFiles).toStrictEqual(['CHANGELOG.md']);
 
       // The empty-range branch builds a synthetic entry and passes it to the markdown renderer;
       // assert on the entries that the renderer received rather than the literal file bytes
@@ -205,9 +205,9 @@ describe('releasePrepareTargets for a single-package repo', () => {
       expect(result.tags).toStrictEqual(['v1.0.1']);
       expect(mockWriteFileSync).not.toHaveBeenCalled();
       expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
-      const workspace = selectPackageResults(result)[0];
-      assert(workspace?.status === 'released', 'expected released');
-      expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
+      const packageResult = selectPackageResults(result)[0];
+      assert(packageResult?.status === 'released', 'expected released');
+      expect(packageResult.changelogFiles).toStrictEqual(['CHANGELOG.md']);
     });
 
     it('appends synthetic CHANGELOG.md and changelog.json paths to formatCommand.files', () => {
@@ -240,10 +240,10 @@ describe('releasePrepareTargets for a single-package repo', () => {
 
       const result = prepareSinglePackage(makeConfig(), {});
 
-      const workspace = selectPackageResults(result)[0];
-      expect(workspace?.malformedBlocks).toBeUndefined();
-      expect(workspace?.policyViolations).toBeUndefined();
-      expect(workspace?.undeclaredEntryTypes).toBeUndefined();
+      const packageResult = selectPackageResults(result)[0];
+      expect(packageResult?.malformedBlocks).toBeUndefined();
+      expect(packageResult?.policyViolations).toBeUndefined();
+      expect(packageResult?.undeclaredEntryTypes).toBeUndefined();
     });
 
     it("attaches the history's diagnostics to the released result", () => {

@@ -29,10 +29,10 @@ describe('directory releases (tool)', () => {
   it('releases a directory without a package.json from its version.json, writing its changelog in the directory', () => {
     const plan = prepareAndApply(tree, { releases: { app: { path: 'apps/app' } } }, {});
 
-    const app = selectResult(plan, 'app');
-    assert(app?.kind === 'directory' && app.status === 'released', 'expected a released directory');
-    expect(app.previousTag).toBe('app-v1.0.0');
-    expect(app.newVersion).toBe('1.1.0');
+    const appResult = selectResult(plan, 'app');
+    assert(appResult?.kind === 'directory' && appResult.status === 'released', 'expected a released directory');
+    expect(appResult.previousTag).toBe('app-v1.0.0');
+    expect(appResult.newVersion).toBe('1.1.0');
     expect(plan.tags).toStrictEqual(['core-v1.0.1', 'app-v1.1.0']);
     expect(tree.readJson('apps/app/version.json')).toStrictEqual({ version: '1.1.0' });
 
@@ -46,16 +46,16 @@ describe('directory releases (tool)', () => {
     commit(tree, 'packages/extra/package.json', JSON.stringify({ name: '@fixture/extra', version: '1.0.0' }), [
       '## extra|feat: Add the extra package',
     ]);
-    using stdio = captureStdio();
+    using stdioCapture = captureStdio();
 
     const plan = prepareAndApply(tree, { releases: { repo: { path: '.' } } }, {}, ['packages/core', 'packages/extra']);
 
     // The new workspace has no baseline tag of its own, so the run points at the legacy-prefix check.
-    expect(stdio.stderr).toContain("Hint: no baseline tag found for extra under 'extra-v'");
+    expect(stdioCapture.stderr).toContain("Hint: no baseline tag found for extra under 'extra-v'");
 
-    const repo = selectResult(plan, 'repo');
-    assert(repo?.kind === 'directory' && repo.status === 'released', 'expected a released root target');
-    expect(repo.tag).toBe('v0.10.0');
+    const repoResult = selectResult(plan, 'repo');
+    assert(repoResult?.kind === 'directory' && repoResult.status === 'released', 'expected a released root target');
+    expect(repoResult.tag).toBe('v0.10.0');
     expect(tree.readJson('package.json')).toMatchObject({ version: '0.10.0' });
 
     const changelog = tree.read('CHANGELOG.md');
@@ -82,10 +82,10 @@ describe('directory releases (tool)', () => {
 
     const firstPlan = prepareAndApply(tree, { releases, changelogMarkdown: { keptVersionCount: 1 } }, {});
 
-    const bounded = tree.read('apps/app/CHANGELOG.md');
-    expect(bounded).toContain('Earlier versions: [v0](changelogs/CHANGELOG-v0.md).');
-    expect(bounded).toMatch(/## 1\.1\.0 — /);
-    expect(bounded).not.toContain('Hand-written');
+    const boundedChangelog = tree.read('apps/app/CHANGELOG.md');
+    expect(boundedChangelog).toContain('Earlier versions: [v0](changelogs/CHANGELOG-v0.md).');
+    expect(boundedChangelog).toMatch(/## 1\.1\.0 — /);
+    expect(boundedChangelog).not.toContain('Hand-written');
     const archive = tree.read('apps/app/changelogs/CHANGELOG-v0.md');
     expect(archive).toContain('## 0.2.0\n\n- Hand-written two\n\n## 0.1.0\n\n- Hand-written one');
 
@@ -101,10 +101,10 @@ describe('directory releases (tool)', () => {
     expect(report).toContain('Would remove changelog: apps/app/changelogs/CHANGELOG-v0.md');
     withinFixture(tree, () => applyReleasePlan(plan));
 
-    const restored = tree.read('apps/app/CHANGELOG.md');
-    expect(restored).not.toContain('Earlier versions');
-    expect(restored).toContain('## 0.2.0\n\n- Hand-written two');
-    expect(restored).toContain('## 0.1.0\n\n- Hand-written one');
+    const restoredChangelog = tree.read('apps/app/CHANGELOG.md');
+    expect(restoredChangelog).not.toContain('Earlier versions');
+    expect(restoredChangelog).toContain('## 0.2.0\n\n- Hand-written two');
+    expect(restoredChangelog).toContain('## 0.1.0\n\n- Hand-written one');
     expect(tree.exists('apps/app/changelogs/CHANGELOG-v0.md')).toBe(false);
   }, 60_000);
 
@@ -123,9 +123,9 @@ describe('directory releases (tool)', () => {
 
     const plan = prepareAndApply(tree, { releases: { repo: { path: '.' } } }, {});
 
-    const repo = selectResult(plan, 'repo');
-    assert(repo?.kind === 'directory' && repo.status === 'released', 'expected a released root target');
-    expect(repo).not.toHaveProperty('unroutedEntryScopes');
+    const repoResult = selectResult(plan, 'repo');
+    assert(repoResult?.kind === 'directory' && repoResult.status === 'released', 'expected a released root target');
+    expect(repoResult).not.toHaveProperty('unroutedEntryScopes');
     expect(tree.read('CHANGELOG.md')).toContain('Adds the dark theme.');
   }, 60_000);
 
@@ -145,9 +145,9 @@ describe('directory releases (tool)', () => {
 
     const plan = prepareAndApply(tree, { releases: { app: { path: 'apps/app' } } }, {});
 
-    const core = selectResult(plan, 'core');
-    assert(core?.kind === 'package', 'expected the workspace result');
-    expect(core).not.toHaveProperty('unroutedEntryScopes');
+    const coreResult = selectResult(plan, 'core');
+    assert(coreResult?.kind === 'package', 'expected the workspace result');
+    expect(coreResult).not.toHaveProperty('unroutedEntryScopes');
     expect(tree.read('apps/app/CHANGELOG.md')).toContain('Shares the model with the app.');
     expect(tree.read('packages/core/CHANGELOG.md')).not.toContain('Shares the model with the app.');
   }, 60_000);
@@ -155,9 +155,9 @@ describe('directory releases (tool)', () => {
   it('lets a composite include a directory and read its commits', () => {
     const plan = prepareAndApply(tree, { releases: { app: { path: 'apps/app' }, suite: { includes: ['app'] } } }, {});
 
-    const suite = selectResult(plan, 'suite');
-    assert(suite?.kind === 'composite' && suite.status === 'released', 'expected a released composite');
-    expect(suite.tag).toBe('v0.10.0');
+    const suiteResult = selectResult(plan, 'suite');
+    assert(suiteResult?.kind === 'composite' && suiteResult.status === 'released', 'expected a released composite');
+    expect(suiteResult.tag).toBe('v0.10.0');
     expect(tree.read('CHANGELOG.md')).toContain('Add the settings screen');
     expect(tree.read('CHANGELOG.md')).not.toContain('Fix the parser');
   }, 60_000);
@@ -188,10 +188,10 @@ describe('directory releases (tool)', () => {
 // region | Helpers
 
 /** Commits one file in the fixture repo with the given message lines. */
-function commit(tree: TempTree, filePath: string, content: string, message: readonly string[]): void {
+function commit(tree: TempTree, filePath: string, content: string, messageLines: readonly string[]): void {
   tree.write(filePath, content);
   run(tree, 'git', ['add', '-A']);
-  run(tree, 'git', ['commit', '--quiet', ...message.flatMap((line) => ['-m', line])]);
+  run(tree, 'git', ['commit', '--quiet', ...messageLines.flatMap((line) => ['-m', line])]);
 }
 
 /** Computes the release plan in the fixture repo and applies it, as the CLI does. */

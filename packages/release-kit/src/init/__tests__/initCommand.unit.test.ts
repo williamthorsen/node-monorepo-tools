@@ -195,11 +195,11 @@ describe(initCommand, () => {
 
   it('includes provenance and trusted publisher hints in next steps', () => {
     setupPassingChecks();
-    using silent = silenceConsole(['info']);
+    using silencedConsole = silenceConsole(['info']);
 
     initCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
 
-    const allOutput = listConsoleLines(silent.info).join('\n');
+    const allOutput = listConsoleLines(silencedConsole.info).join('\n');
     expect(allOutput).toContain('If this is a private repo, remove provenance: true');
     expect(allOutput).toContain('trusted publisher');
   });
@@ -236,28 +236,28 @@ describe(initCommand, () => {
   it('omits the publishing steps from next steps when every package is private', () => {
     setupPassingChecks();
     mockHasPublishablePackage.mockReturnValue(false);
-    using silent = silenceConsole(['info']);
+    using silencedConsole = silenceConsole(['info']);
 
     initCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
 
-    expect(listConsoleLines(silent.info).join('\n')).toContain(
+    expect(listConsoleLines(silencedConsole.info).join('\n')).toContain(
       [
         '  1. (Optional) Run again with --with-config to scaffold config files.',
         '  2. Test by running: npx @williamthorsen/release-kit prepare --dry-run',
         '  3. Commit the generated files.',
       ].join('\n'),
     );
-    expect(listConsoleLines(silent.info).join('\n')).not.toContain('provenance');
-    expect(listConsoleLines(silent.info).join('\n')).not.toContain('trusted publisher');
+    expect(listConsoleLines(silencedConsole.info).join('\n')).not.toContain('provenance');
+    expect(listConsoleLines(silencedConsole.info).join('\n')).not.toContain('trusted publisher');
   });
 
   it('prints dry-run banner when isDryRun is true', () => {
     setupPassingChecks();
-    using silent = silenceConsole(['info']);
+    using silencedConsole = silenceConsole(['info']);
 
     initCommand({ isDryRun: true, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
 
-    expect(silent.info).toHaveBeenCalledWith('[dry-run mode]');
+    expect(silencedConsole.info).toHaveBeenCalledWith('[dry-run mode]');
   });
 
   it('passes detected repoType to scaffoldFiles', () => {

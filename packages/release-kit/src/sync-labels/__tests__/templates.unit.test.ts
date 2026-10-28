@@ -10,8 +10,8 @@ import { readSyncLabelsWorkflowTemplate, renderRepoLabelsBlock, repoLabelsConfig
 import type { LabelDefinition } from '../types.ts';
 
 vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
-  const actual = await importOriginal();
-  return { ...actual, findPackageRoot: vi.fn(actual.findPackageRoot) };
+  const actualModule = await importOriginal();
+  return { ...actualModule, findPackageRoot: vi.fn(actualModule.findPackageRoot) };
 });
 
 const TEMPLATE_PATH = join(import.meta.dirname, '..', '..', '..', 'templates', 'sync-labels.yaml.template');
