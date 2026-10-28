@@ -34,8 +34,8 @@ import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../
 
 /** Builds a mock implementation for git invocations returning tag counts by prefix. */
 function stubTagCounts(tagsByPrefix: Record<string, string[]>): void {
-  mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-    if (cmd !== 'git' || args[0] !== 'tag' || args[1] !== '--list') return '';
+  mockExecFileSync.mockImplementation((command: string, args: string[]) => {
+    if (command !== 'git' || args[0] !== 'tag' || args[1] !== '--list') return '';
     const matchArg = args[2] ?? '';
     const prefix = matchArg.endsWith('*') ? matchArg.slice(0, -1) : matchArg;
     const tags = tagsByPrefix[prefix] ?? [];

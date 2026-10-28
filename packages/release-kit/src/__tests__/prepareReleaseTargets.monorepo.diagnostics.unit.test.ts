@@ -93,8 +93,8 @@ describe('prepareReleaseTargets for a monorepo', () => {
     /** Configures mocks for a single workspace without a baseline tag and a commit that calls for a minor bump. */
     function stubNoBaseline(tagListOutput: string[]): void {
       stubHistory({ commits: [['feat: add', 'abc']], bump: 'minor' });
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'tag' && args[1] === '--list') {
+      mockExecFileSync.mockImplementation((command: string, args: string[]) => {
+        if (command === 'git' && args[0] === 'tag' && args[1] === '--list') {
           return tagListOutput.join('\n') + (tagListOutput.length > 0 ? '\n' : '');
         }
         return '';

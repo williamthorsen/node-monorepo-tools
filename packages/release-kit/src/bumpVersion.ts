@@ -15,21 +15,21 @@ export function bumpVersion(version: string, releaseType: ReleaseType): string {
     throw new Error(`Invalid semver version: '${version}'`);
   }
 
-  const majorNum = Number.parseInt(major, 10);
-  const minorNum = Number.parseInt(minor, 10);
-  const patchNum = Number.parseInt(patch, 10);
+  const majorNumber = Number.parseInt(major, 10);
+  const minorNumber = Number.parseInt(minor, 10);
+  const patchNumber = Number.parseInt(patch, 10);
 
   switch (releaseType) {
     case 'major':
       // Pre-1.0 packages are in "initial development" per semver; a breaking change
       // should not implicitly promote to 1.0.0. Collapse to a minor bump instead.
-      if (majorNum === 0) {
-        return `0.${minorNum + 1}.0`;
+      if (majorNumber === 0) {
+        return `0.${minorNumber + 1}.0`;
       }
-      return `${majorNum + 1}.0.0`;
+      return `${majorNumber + 1}.0.0`;
     case 'minor':
-      return `${majorNum}.${minorNum + 1}.0`;
+      return `${majorNumber}.${minorNumber + 1}.0`;
     case 'patch':
-      return `${majorNum}.${minorNum}.${patchNum + 1}`;
+      return `${majorNumber}.${minorNumber}.${patchNumber + 1}`;
   }
 }
