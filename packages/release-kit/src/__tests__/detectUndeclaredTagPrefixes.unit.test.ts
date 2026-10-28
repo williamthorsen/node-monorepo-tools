@@ -10,8 +10,8 @@ import { detectUndeclaredTagPrefixes } from '../detectUndeclaredTagPrefixes.ts';
 
 /** Configures the mock to return the given tags from `git tag --list`. */
 function stubTagList(tags: string[]): void {
-  mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-    if (cmd === 'git' && args[0] === 'tag' && args[1] === '--list') {
+  mockExecFileSync.mockImplementation((command: string, args: string[]) => {
+    if (command === 'git' && args[0] === 'tag' && args[1] === '--list') {
       return tags.join('\n') + (tags.length > 0 ? '\n' : '');
     }
     return '';

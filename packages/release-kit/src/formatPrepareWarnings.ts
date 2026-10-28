@@ -3,7 +3,7 @@ import { formatStatusLine, type OutputStyle, truncateToWidth } from '@williamtho
 import type { PolicyViolation, PrepareResult, ReleasedPackageResult } from './types.ts';
 
 /** The rendered width to which the report cuts a commit subject, wherever it prints one. */
-const SUBJECT_COLUMN_BUDGET = 72;
+const SUBJECT_BUDGET_COLUMNS = 72;
 
 /**
  * Appends warning lines for the change-record blocks that could not be read, the entries whose type is undeclared, and
@@ -128,7 +128,7 @@ export function formatWarnings(lines: string[], result: PrepareResult, style: Ou
 
 /** Cuts a commit subject to the report's column budget, marking the cut with `truncateToWidth`'s default ellipsis. */
 function truncateSubject(subject: string): string {
-  return truncateToWidth(subject, { width: SUBJECT_COLUMN_BUDGET });
+  return truncateToWidth(subject, { width: SUBJECT_BUDGET_COLUMNS });
 }
 
 // endregion | Helpers

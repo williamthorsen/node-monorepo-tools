@@ -17,8 +17,8 @@ export function detectRepoType(): RepoType {
 
   if (existsSync('package.json')) {
     const manifestJson = readFileSync('package.json', 'utf8');
-    const pkg = parseJsonRecord(manifestJson);
-    if (pkg !== undefined && Array.isArray(pkg['workspaces'])) {
+    const packageJson = parseJsonRecord(manifestJson);
+    if (packageJson !== undefined && Array.isArray(packageJson['workspaces'])) {
       return 'monorepo';
     }
   }

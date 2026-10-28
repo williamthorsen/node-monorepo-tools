@@ -277,8 +277,8 @@ function formatCommitSummary(
   isPropagatedOnly: boolean,
 ): void {
   if (isPropagatedOnly && propagatedFrom !== undefined) {
-    const depNames = propagatedFrom.map((p) => p.packageName).join(', ');
-    lines.push(dim(`  Bumped via dependency: ${depNames}`));
+    const dependencyNames = propagatedFrom.map((p) => p.packageName).join(', ');
+    lines.push(dim(`  Bumped via dependency: ${dependencyNames}`));
   } else if (workspace.parsedCommitCount !== undefined && workspace.parsedCommitCount > 0) {
     // Suppress "Parsed 0 typed commits", which says nothing about a forced release without a
     // parsed commit.

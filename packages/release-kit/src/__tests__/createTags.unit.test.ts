@@ -132,7 +132,7 @@ describe(createTags, () => {
 
   it('throws when the working tree is dirty', () => {
     mockReadFileSync.mockReturnValue('v1.0.0\n');
-    mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
+    mockExecFileSync.mockImplementation((_command: string, args: string[]) => {
       if (args[0] === 'diff') {
         throw new Error('exit code 1');
       }
@@ -146,7 +146,7 @@ describe(createTags, () => {
   it('preserves the underlying error as the cause of the dirty-tree failure', () => {
     const underlyingError = new Error('exit code 1');
     mockReadFileSync.mockReturnValue('v1.0.0\n');
-    mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
+    mockExecFileSync.mockImplementation((_command: string, args: string[]) => {
       if (args[0] === 'diff') {
         throw underlyingError;
       }
@@ -199,7 +199,7 @@ describe(createTags, () => {
 
   it('reports successfully created tags when a subsequent tag fails', () => {
     mockReadFileSync.mockReturnValue('tag-a\ntag-b\ntag-c\n');
-    mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
+    mockExecFileSync.mockImplementation((_command: string, args: string[]) => {
       if (args.includes('tag-b')) {
         throw new Error('tag already exists');
       }

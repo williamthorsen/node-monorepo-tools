@@ -39,8 +39,8 @@ describe(syncLabelsCommand, () => {
   });
 
   it('returns 1 when gh CLI is not available', () => {
-    mockExecSync.mockImplementation((cmd: string) => {
-      if (cmd === 'gh --version') throw new Error('command not found: gh');
+    mockExecSync.mockImplementation((command: string) => {
+      if (command === 'gh --version') throw new Error('command not found: gh');
       return Buffer.from('');
     });
     using stdioCapture = captureStdio();
@@ -74,8 +74,8 @@ describe(syncLabelsCommand, () => {
   });
 
   it('returns 1 when gh workflow run throws', () => {
-    mockExecSync.mockImplementation((cmd: string) => {
-      if (cmd === 'gh --version') return Buffer.from('gh version 2.0.0');
+    mockExecSync.mockImplementation((command: string) => {
+      if (command === 'gh --version') return Buffer.from('gh version 2.0.0');
       throw new Error('workflow dispatch failed');
     });
     stubExistingFiles('.github/workflows/sync-labels.yaml');

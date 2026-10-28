@@ -32,11 +32,15 @@ function isPackageJson(value: unknown): value is PackageJson {
  * contains, with two-space indentation and a trailing newline.
  */
 export function planVersionBump(packageFiles: readonly string[], releaseType: ReleaseType): VersionBumpPlan {
-  const { firstFile, firstPkg } = readPrimaryPackage(packageFiles);
-  const currentVersion = firstPkg.version;
+  const { firstFile, firstPackageJson } = readPrimaryPackage(packageFiles);
+  const currentVersion = firstPackageJson.version;
   const newVersion = bumpVersion(currentVersion, releaseType);
 
-  return { currentVersion, newVersion, writes: renderVersionWrites(packageFiles, firstFile, firstPkg, newVersion) };
+  return {
+    currentVersion,
+    newVersion,
+    writes: renderVersionWrites(packageFiles, firstFile, firstPackageJson, newVersion),
+  };
 }
 
 /**
@@ -45,45 +49,49 @@ export function planVersionBump(packageFiles: readonly string[], releaseType: Re
  * `newVersion` that is not greater than the current version.
  */
 export function planVersionSet(packageFiles: readonly string[], newVersion: string): VersionBumpPlan {
-  const { firstFile, firstPkg } = readPrimaryPackage(packageFiles);
-  const currentVersion = firstPkg.version;
+  const { firstFile, firstPackageJson } = readPrimaryPackage(packageFiles);
+  const currentVersion = firstPackageJson.version;
   if (!isForwardVersion(currentVersion, newVersion)) {
     throw new Error(`--set-version ${newVersion} is not greater than current version ${currentVersion}`);
   }
 
-  return { currentVersion, newVersion, writes: renderVersionWrites(packageFiles, firstFile, firstPkg, newVersion) };
+  return {
+    currentVersion,
+    newVersion,
+    writes: renderVersionWrites(packageFiles, firstFile, firstPackageJson, newVersion),
+  };
 }
 
 /** Reads a workspace's current version from its first package file, as the version planners do. */
 export function readCurrentVersion(packageFiles: readonly string[]): string {
-  return readPrimaryPackage(packageFiles).firstPkg.version;
+  return readPrimaryPackage(packageFiles).firstPackageJson.version;
 }
 
 /**
  * Reads the first package file, which supplies the pre-change version for the whole workspace. Throws if the list of
  * package files is empty.
  */
-function readPrimaryPackage(packageFiles: readonly string[]): { firstFile: string; firstPkg: PackageJson } {
+function readPrimaryPackage(packageFiles: readonly string[]): { firstFile: string; firstPackageJson: PackageJson } {
   const firstFile = packageFiles[0];
   if (firstFile === undefined) {
     throw new Error('No package files specified');
   }
 
-  return { firstFile, firstPkg: readPackageJson(firstFile) };
+  return { firstFile, firstPackageJson: readPackageJson(firstFile) };
 }
 
 /** Renders each package file's complete content with `version` set to `newVersion`. */
 function renderVersionWrites(
   packageFiles: readonly string[],
   firstFile: string,
-  firstPkg: PackageJson,
+  firstPackageJson: PackageJson,
   newVersion: string,
 ): PlannedWrite[] {
   return packageFiles.map((filePath) => {
-    const pkg = filePath === firstFile ? firstPkg : readPackageJson(filePath);
-    pkg.version = newVersion;
+    const packageJson = filePath === firstFile ? firstPackageJson : readPackageJson(filePath);
+    packageJson.version = newVersion;
 
-    return { path: filePath, content: JSON.stringify(pkg, null, 2) + '\n' };
+    return { path: filePath, content: JSON.stringify(packageJson, null, 2) + '\n' };
   });
 }
 

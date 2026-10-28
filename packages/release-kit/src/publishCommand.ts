@@ -109,8 +109,8 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
   } catch (error: unknown) {
     if (publishedTags.length > 0) {
       console.warn('Packages published before failure:');
-      for (const t of publishedTags) {
-        console.warn(`  ${t}`);
+      for (const tag of publishedTags) {
+        console.warn(`  ${tag}`);
       }
     }
     reportError(describeError(error));

@@ -55,42 +55,42 @@ export function buildDependencyGraph(targets: readonly PackageTarget[]): Depende
       continue;
     }
 
-    const pkg = readPackageJsonSubset(primaryPackageFile);
-    targetPackages.set(target, pkg);
+    const packageJson = readPackageJsonSubset(primaryPackageFile);
+    targetPackages.set(target, packageJson);
 
-    if (typeof pkg.version === 'string') {
-      dirToVersion.set(target.id, pkg.version);
+    if (typeof packageJson.version === 'string') {
+      dirToVersion.set(target.id, packageJson.version);
     }
 
-    if (pkg.name === undefined) {
+    if (packageJson.name === undefined) {
       continue;
     }
 
-    packageNameToDir.set(pkg.name, target.id);
-    dirToPackageName.set(target.id, pkg.name);
+    packageNameToDir.set(packageJson.name, target.id);
+    dirToPackageName.set(target.id, packageJson.name);
   }
 
   // Second pass: build the reverse and forward adjacency maps using cached package data.
-  for (const [target, pkg] of targetPackages) {
-    const allDeps = { ...pkg.dependencies, ...pkg.peerDependencies };
+  for (const [target, packageJson] of targetPackages) {
+    const allDependencies = { ...packageJson.dependencies, ...packageJson.peerDependencies };
 
-    for (const [depName, depVersion] of Object.entries(allDeps)) {
-      if (typeof depVersion !== 'string' || !depVersion.startsWith('workspace:')) {
+    for (const [dependencyName, dependencyVersion] of Object.entries(allDependencies)) {
+      if (typeof dependencyVersion !== 'string' || !dependencyVersion.startsWith('workspace:')) {
         continue;
       }
 
-      const existingDependents = dependentsOf.get(depName);
+      const existingDependents = dependentsOf.get(dependencyName);
       if (existingDependents === undefined) {
-        dependentsOf.set(depName, [target]);
+        dependentsOf.set(dependencyName, [target]);
       } else {
         existingDependents.push(target);
       }
 
       const forwardDependencies = dependenciesOf.get(target.id);
       if (forwardDependencies === undefined) {
-        dependenciesOf.set(target.id, new Set([depName]));
+        dependenciesOf.set(target.id, new Set([dependencyName]));
       } else {
-        forwardDependencies.add(depName);
+        forwardDependencies.add(dependencyName);
       }
     }
   }

@@ -33,7 +33,7 @@ export interface ReleaseWindow {
   /** The tag name for a released window, the caller's unreleased-tag name for the newest one. */
   version: string;
   /** Unix seconds: the tag's creation date for a released window, the clock for the unreleased one. */
-  timestamp: number;
+  timestampSec: number;
   /** Oldest first. */
   commits: RawCommit[];
 }
@@ -76,7 +76,7 @@ export function enumerateReleaseWindows(options: EnumerateReleaseWindowsOptions)
 
   const unreleasedWindow: ReleaseWindow = {
     version: unreleasedTag,
-    timestamp: Math.floor(now() / 1_000),
+    timestampSec: Math.floor(now() / 1_000),
     commits: [],
   };
 
@@ -88,7 +88,7 @@ export function enumerateReleaseWindows(options: EnumerateReleaseWindowsOptions)
   const boundaries = readTagBoundaries(tagPrefixes, ancestry.positionByHash);
   const releasedWindows: ReleaseWindow[] = boundaries.map((boundary) => ({
     version: boundary.tag,
-    timestamp: boundary.timestamp,
+    timestampSec: boundary.timestampSec,
     commits: [],
   }));
   const windowIndexByHash = claimAncestors(boundaries, ancestry.parentsByHash);
@@ -121,7 +121,7 @@ interface TagBoundary {
   position: number;
   tag: string;
   /** Unix seconds, from the tag's creation date. */
-  timestamp: number;
+  timestampSec: number;
 }
 
 /**
@@ -239,7 +239,7 @@ function readTagBoundaries(tagPrefixes: readonly string[], positionByHash: Reado
     const hash = dereferencedName || objectName;
     const position = positionByHash.get(hash);
     if (position !== undefined) {
-      boundaries.push({ hash, position, tag, timestamp: Number(creatorDate) });
+      boundaries.push({ hash, position, tag, timestampSec: Number(creatorDate) });
     }
   }
 

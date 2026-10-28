@@ -39,8 +39,12 @@ export function usesPnpm(): CheckResult {
   }
 
   const manifestJson = readFileSync('package.json', 'utf8');
-  const pkg = parseJsonRecord(manifestJson);
-  if (pkg !== undefined && typeof pkg['packageManager'] === 'string' && pkg['packageManager'].startsWith('pnpm')) {
+  const packageJson = parseJsonRecord(manifestJson);
+  if (
+    packageJson !== undefined &&
+    typeof packageJson['packageManager'] === 'string' &&
+    packageJson['packageManager'].startsWith('pnpm')
+  ) {
     return { ok: true };
   }
 

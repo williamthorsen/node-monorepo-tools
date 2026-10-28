@@ -10,8 +10,8 @@ export function buildSyntheticChangelogEntry(
   date: string,
   sectionTitle: string,
 ): ChangelogEntry {
-  const items: ChangelogItem[] = propagatedFrom.map((dep) => ({
-    description: `Bumped \`${dep.packageName}\` to ${dep.newVersion}`,
+  const items: ChangelogItem[] = propagatedFrom.map((dependency) => ({
+    description: `Bumped \`${dependency.packageName}\` to ${dependency.newVersion}`,
   }));
 
   return {

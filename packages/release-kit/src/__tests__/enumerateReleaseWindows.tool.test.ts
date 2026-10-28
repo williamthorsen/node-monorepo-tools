@@ -240,8 +240,8 @@ describe(enumerateReleaseWindows, () => {
       unreleasedTag: 'pkg-v1.0.1',
     });
 
-    expect(windows[0]?.timestamp).toBe(1_700_000_000);
-    expect(windows[1]?.timestamp).toBe(taggerSeconds);
+    expect(windows[0]?.timestampSec).toBe(1_700_000_000);
+    expect(windows[1]?.timestampSec).toBe(taggerSeconds);
   });
 
   it('throws when tagPrefixes is empty', () => {

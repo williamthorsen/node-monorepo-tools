@@ -85,21 +85,24 @@ function preprocessDeprecatedKeys(rawConfig: unknown): { cleanedInput: unknown; 
   }
 
   if (Array.isArray(cleanedInput['workspaces'])) {
-    cleanedInput['workspaces'] = cleanedInput['workspaces'].map((ws: unknown, i: number): unknown => {
-      if (!isRecord(ws)) return ws;
-      const wsCopy = { ...ws };
-      if (Object.hasOwn(wsCopy, 'tagPrefix')) {
-        const dir = typeof wsCopy['dir'] === 'string' && wsCopy['dir'] !== '' ? wsCopy['dir'] : '<dir>';
-        errors.push(`workspaces[${i}]: 'tagPrefix' is no longer supported; remove it to use the default '${dir}-v'`);
-        delete wsCopy['tagPrefix'];
-      }
-      if (Object.hasOwn(wsCopy, 'legacyTagPrefixes')) {
+    cleanedInput['workspaces'] = cleanedInput['workspaces'].map((workspace: unknown, index: number): unknown => {
+      if (!isRecord(workspace)) return workspace;
+      const workspaceCopy = { ...workspace };
+      if (Object.hasOwn(workspaceCopy, 'tagPrefix')) {
+        const dir =
+          typeof workspaceCopy['dir'] === 'string' && workspaceCopy['dir'] !== '' ? workspaceCopy['dir'] : '<dir>';
         errors.push(
-          `workspaces[${i}]: 'legacyTagPrefixes' is no longer supported; use 'legacyIdentities: [{ name, tagPrefix }, ...]' instead`,
+          `workspaces[${index}]: 'tagPrefix' is no longer supported; remove it to use the default '${dir}-v'`,
         );
-        delete wsCopy['legacyTagPrefixes'];
+        delete workspaceCopy['tagPrefix'];
       }
-      return wsCopy;
+      if (Object.hasOwn(workspaceCopy, 'legacyTagPrefixes')) {
+        errors.push(
+          `workspaces[${index}]: 'legacyTagPrefixes' is no longer supported; use 'legacyIdentities: [{ name, tagPrefix }, ...]' instead`,
+        );
+        delete workspaceCopy['legacyTagPrefixes'];
+      }
+      return workspaceCopy;
     });
   }
 

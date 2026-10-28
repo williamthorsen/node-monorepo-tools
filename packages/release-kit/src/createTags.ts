@@ -45,8 +45,8 @@ export function createTags(options: CreateTagsOptions): string[] {
     } catch (error: unknown) {
       if (createdTags.length > 0) {
         console.warn('Tags created before failure:');
-        for (const t of createdTags) {
-          console.warn(`  ${t}`);
+        for (const tag of createdTags) {
+          console.warn(`  ${tag}`);
         }
       }
       throw error;

@@ -12,7 +12,7 @@ import type {
 } from '../types.ts';
 
 /** The column budget to which `reportPrepare` cuts a commit subject. */
-const SUBJECT_COLUMN_BUDGET = 72;
+const SUBJECT_BUDGET_COLUMNS = 72;
 
 describe(reportPrepare, () => {
   describe('policy violations rendering', () => {
@@ -192,7 +192,7 @@ describe(reportPrepare, () => {
       const output = reportViolation(`internal!: ${'x'.repeat(80)}`);
 
       const subject = readViolationSubject(output);
-      expect(measureWidth(subject)).toBeLessThanOrEqual(SUBJECT_COLUMN_BUDGET);
+      expect(measureWidth(subject)).toBeLessThanOrEqual(SUBJECT_BUDGET_COLUMNS);
       expect(subject.endsWith('…')).toBe(true);
     });
 
@@ -200,7 +200,7 @@ describe(reportPrepare, () => {
       // 71 code units, which the budget admits, and 141 columns, which it does not.
       const output = reportViolation(`x${'発'.repeat(70)}`);
 
-      expect(measureWidth(readViolationSubject(output))).toBeLessThanOrEqual(SUBJECT_COLUMN_BUDGET);
+      expect(measureWidth(readViolationSubject(output))).toBeLessThanOrEqual(SUBJECT_BUDGET_COLUMNS);
     });
 
     it('cuts a subject at a grapheme boundary rather than inside an emoji sequence', () => {

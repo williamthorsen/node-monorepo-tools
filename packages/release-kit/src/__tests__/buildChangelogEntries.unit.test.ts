@@ -206,7 +206,7 @@ describe(buildChangelogEntries, () => {
     it("copies each commit's full hash into `ChangelogItem.hash`", () => {
       const hash = '8296231173de8be01977dabbe9c1c8e8e1234abc';
       mockEnumerateReleaseWindows.mockReturnValueOnce([
-        { version: 'v1.0.0', timestamp: 1_700_000_000, commits: [makeCommit('#1 feat: Add widget', hash)] },
+        { version: 'v1.0.0', timestampSec: 1_700_000_000, commits: [makeCommit('#1 feat: Add widget', hash)] },
       ]);
       const { entries } = buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
       expect(entries[0]?.sections[0]?.items[0]?.hash).toBe(hash);

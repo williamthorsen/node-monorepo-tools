@@ -37,8 +37,8 @@ export function makeFakeHash(index: number): string {
 }
 
 /** Builds a release window in which each commit's hash is `makeFakeHash` of its position. */
-export function makeWindow(version: string, messages: readonly string[], timestamp = 1_700_000_000): ReleaseWindow {
-  return { version, timestamp, commits: messages.map((message, index) => makeCommit(message, makeFakeHash(index))) };
+export function makeWindow(version: string, messages: readonly string[], timestampSec = 1_700_000_000): ReleaseWindow {
+  return { version, timestampSec, commits: messages.map((message, index) => makeCommit(message, makeFakeHash(index))) };
 }
 
 /** Wraps a YAML payload in a `change-record` fence. */

@@ -246,14 +246,14 @@ function planFormatCommand(
   configuredCommand: string | undefined,
   collectedReleases: CollectedReleases,
 ): ReleasePlan['formatCommand'] {
-  const formatCommandStr = configuredCommand ?? (hasPrettierConfig() ? 'npx prettier --write' : undefined);
+  const baseCommand = configuredCommand ?? (hasPrettierConfig() ? 'npx prettier --write' : undefined);
 
-  if (collectedReleases.tags.length === 0 || formatCommandStr === undefined) {
+  if (collectedReleases.tags.length === 0 || baseCommand === undefined) {
     return undefined;
   }
 
   const files = collectedReleases.modifiedFiles;
-  return { command: `${formatCommandStr} ${files.join(' ')}`, files };
+  return { command: `${baseCommand} ${files.join(' ')}`, files };
 }
 
 /**
