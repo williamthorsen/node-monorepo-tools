@@ -101,6 +101,11 @@ export function renderChangelogMarkdown(entries: ChangelogEntry[], options?: Ren
 
 // region | Helpers
 
+/** Terminates a preserved section's text with a newline, as a rendered entry's text is. */
+function appendTrailingNewline(section: VersionedMarkdownSection): VersionedMarkdownSection {
+  return { version: section.version, text: `${section.text}\n` };
+}
+
 /** Returns the paragraph that links to each archive file, newest major first. */
 function describeArchivePointer(majors: readonly number[]): string {
   const links = majors.map((major) => `[v${major}](${describeArchivePath(major)})`);
@@ -135,7 +140,7 @@ function interleavePreservedSections(
   preservedSections: readonly VersionedMarkdownSection[],
 ): VersionedMarkdownSection[] {
   const sortedSections = preservedSections.toSorted((a, b) => compareVersionsDescending(a.version, b.version));
-  const pendingSections = sortedSections.map(withTrailingNewline);
+  const pendingSections = sortedSections.map(appendTrailingNewline);
   const result: VersionedMarkdownSection[] = [];
   let index = 0;
   for (const part of renderedSections) {
@@ -167,11 +172,6 @@ function renderFile(sections: readonly VersionedMarkdownSection[], paragraph?: s
   }
   parts.push(CHANGELOG_FOOTER);
   return parts.join('\n\n') + '\n';
-}
-
-/** Terminates a preserved section's text with a newline, as a rendered entry's text is. */
-function withTrailingNewline(section: VersionedMarkdownSection): VersionedMarkdownSection {
-  return { version: section.version, text: `${section.text}\n` };
 }
 
 // endregion | Helpers

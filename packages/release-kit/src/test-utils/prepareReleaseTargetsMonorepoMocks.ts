@@ -1,11 +1,13 @@
 import { vi } from 'vitest';
 
-import type { ChangelogSection } from '../types.ts';
+import type { ChangelogEntry } from '../types.ts';
 import { makeReleaseHistory, type ReleaseHistoryStub } from './releaseHistories.ts';
 
 // A test loads this module through `vi.hoisted`, before its `vi.mock` calls register, so the module imports nothing
 // under test: Such a module would bind the real dependencies.
 
+export const mockBuildEmptyReleaseEntry = vi.fn();
+export const mockBuildSyntheticChangelogEntry = vi.fn();
 export const mockExecFileSync = vi.fn();
 export const mockExecSync = vi.fn();
 export const mockExistsSync = vi.fn();
@@ -18,27 +20,37 @@ export const mockRenderChangelogJson = vi.fn();
 export const mockRenderChangelogMarkdown = vi.fn();
 export const mockWriteFileSync = vi.fn();
 
-export const featureSection: ChangelogSection = {
-  title: 'Features',
-  audience: 'all',
-  items: [{ description: 'Add feature' }],
+/** The entry that the mocked `buildEmptyReleaseEntry` returns. */
+export const FORCED_BUMP_ENTRY: ChangelogEntry = {
+  version: '0.0.0',
+  date: '2024-01-01',
+  sections: [{ title: 'Notes', audience: 'dev', items: [{ description: 'Forced version bump.' }] }],
 };
 
 /**
- * Sets the defaults on which every single-package `releasePrepareTargets` suite builds: The renderers return fixed
- * content, and `existsSync` reports every path missing, so that synthetic writes skip reading an existing file.
+ * Sets the defaults on which every monorepo `prepareReleaseTargets` suite builds: Every scope reads an empty history,
+ * the synthetic constructor returns an empty stub entry, and the renderers return fixed content.
  */
-export function applyReleasePrepareTargetsSinglePackageDefaults(): void {
+export function applyPrepareReleaseTargetsMonorepoDefaults(): void {
+  mockReadReleaseHistory.mockReturnValue(makeReleaseHistory());
+  mockBuildSyntheticChangelogEntry.mockReturnValue({ version: '0.0.0', date: '2024-01-01', sections: [] });
+  mockBuildEmptyReleaseEntry.mockReturnValue(FORCED_BUMP_ENTRY);
   mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
   mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
   mockRenderChangelogJson.mockReturnValue('[]\n');
   mockPlanReleaseNotesPreviews.mockReturnValue({ writes: [], warnings: [] });
-  mockExistsSync.mockReturnValue(false);
+}
+
+/** Returns the options of every `readReleaseHistory` call, in call order. */
+export function listReadOptions(): unknown[] {
+  return mockReadReleaseHistory.mock.calls.map((call: unknown[]) => call[1]);
 }
 
 /** Resets every mock that this module exports. */
-export function resetReleasePrepareTargetsSinglePackageMocks(): void {
+export function resetPrepareReleaseTargetsMonorepoMocks(): void {
   for (const mock of [
+    mockBuildEmptyReleaseEntry,
+    mockBuildSyntheticChangelogEntry,
     mockExecFileSync,
     mockExecSync,
     mockExistsSync,
@@ -65,23 +77,15 @@ export function stubFiles(files: Record<string, string>): void {
   });
 }
 
-/** Stubs the history that `readReleaseHistory` returns. */
+/** Stubs the release history that `readReleaseHistory` returns for every scope. */
 export function stubHistory(stub: ReleaseHistoryStub): void {
   mockReadReleaseHistory.mockReturnValue(makeReleaseHistory(stub));
 }
 
-/** Stubs a history with one commit above v1.0.0 that calls for a minor bump, over a package at 1.0.0. */
-export function stubMinorRelease(): void {
-  stubHistory({
-    previousTag: 'v1.0.0',
-    commits: [['feat: add feature', 'abc123']],
-    bump: 'minor',
-    sections: [featureSection],
+/** Stubs the release history per scope, keyed by a tag prefix that `readReleaseHistory` receives. */
+export function stubHistoryByPrefix(stubs: Record<string, ReleaseHistoryStub>): void {
+  mockReadReleaseHistory.mockImplementation((_config: unknown, options: { tagPrefixes: readonly string[] }) => {
+    const stub = options.tagPrefixes.map((prefix) => stubs[prefix]).find((found) => found !== undefined);
+    return makeReleaseHistory(stub);
   });
-  stubPackageVersion('1.0.0');
-}
-
-/** Stubs every package file's content as a manifest at `version`. */
-export function stubPackageVersion(version: string): void {
-  mockReadFileSync.mockReturnValue(JSON.stringify({ version }));
 }

@@ -1,7 +1,12 @@
 import { writeFileWithCheck, type WriteResult } from '@williamthorsen/nmr-core';
 
 import type { RepoType } from './detectRepoType.ts';
-import { createGithubReleaseWorkflow, publishWorkflow, releaseConfigScript, releaseWorkflow } from './templates.ts';
+import {
+  renderCreateGithubReleaseWorkflow,
+  renderPublishWorkflow,
+  renderReleaseConfigScript,
+  renderReleaseWorkflow,
+} from './templates.ts';
 
 interface ScaffoldOptions {
   repoType: RepoType;
@@ -29,11 +34,11 @@ export function scaffoldFiles({
 
   if (publishable) {
     results.push(
-      writeFileWithCheck(CREATE_GITHUB_RELEASE_WORKFLOW_PATH, createGithubReleaseWorkflow(repoType), {
+      writeFileWithCheck(CREATE_GITHUB_RELEASE_WORKFLOW_PATH, renderCreateGithubReleaseWorkflow(repoType), {
         isDryRun,
         shouldOverwrite,
       }),
-      writeFileWithCheck(PUBLISH_WORKFLOW_PATH, publishWorkflow(repoType), {
+      writeFileWithCheck(PUBLISH_WORKFLOW_PATH, renderPublishWorkflow(repoType), {
         isDryRun,
         shouldOverwrite,
       }),
@@ -41,7 +46,7 @@ export function scaffoldFiles({
   }
 
   results.push(
-    writeFileWithCheck('.github/workflows/release.yaml', releaseWorkflow(repoType), {
+    writeFileWithCheck('.github/workflows/release.yaml', renderReleaseWorkflow(repoType), {
       isDryRun,
       shouldOverwrite,
     }),
@@ -49,7 +54,7 @@ export function scaffoldFiles({
 
   if (shouldScaffoldConfig) {
     results.push(
-      writeFileWithCheck('.config/release-kit.config.ts', releaseConfigScript(repoType), {
+      writeFileWithCheck('.config/release-kit.config.ts', renderReleaseConfigScript(repoType), {
         isDryRun,
         shouldOverwrite,
       }),

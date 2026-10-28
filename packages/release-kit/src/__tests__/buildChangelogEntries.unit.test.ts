@@ -21,8 +21,8 @@ vi.mock(import('node:fs'), () => ({
 import {
   buildChangelogEntries,
   readReleaseHistory,
-  toChangelogEntries,
-  toReleaseEntries,
+  convertToChangelogEntries,
+  convertToReleaseEntries,
 } from '../buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
 
@@ -300,7 +300,7 @@ describe(buildChangelogEntries, () => {
   });
 });
 
-describe(toChangelogEntries, () => {
+describe(convertToChangelogEntries, () => {
   beforeEach(() => {
     mockEnumerateReleaseWindows.mockReset();
   });
@@ -312,7 +312,10 @@ describe(toChangelogEntries, () => {
     ]);
     const history = readReleaseHistory(makeConfig(), OPTIONS);
 
-    expect(toChangelogEntries(history, 'v1.0.1').map((entry) => entry.version)).toStrictEqual(['1.0.1', '1.0.0']);
+    expect(convertToChangelogEntries(history, 'v1.0.1').map((entry) => entry.version)).toStrictEqual([
+      '1.0.1',
+      '1.0.0',
+    ]);
   });
 
   it('omits the unreleased window when it does not yield any item', () => {
@@ -322,11 +325,11 @@ describe(toChangelogEntries, () => {
     ]);
     const history = readReleaseHistory(makeConfig(), OPTIONS);
 
-    expect(toChangelogEntries(history, 'v1.0.1').map((entry) => entry.version)).toStrictEqual(['1.0.0']);
+    expect(convertToChangelogEntries(history, 'v1.0.1').map((entry) => entry.version)).toStrictEqual(['1.0.0']);
   });
 });
 
-describe(toReleaseEntries, () => {
+describe(convertToReleaseEntries, () => {
   beforeEach(() => {
     mockEnumerateReleaseWindows.mockReset();
   });
@@ -341,20 +344,22 @@ describe(toReleaseEntries, () => {
     ]);
     const history = readReleaseHistory(makeConfig(), OPTIONS);
 
-    const entries = toReleaseEntries(history, 'v1.0.1', '2026-09-23');
+    const entries = convertToReleaseEntries(history, 'v1.0.1', '2026-09-23');
 
     expect(entries).toStrictEqual([buildEmptyReleaseEntry('1.0.1', '2026-09-23'), ...history.releasedEntries]);
     expect(entries.map((entry) => entry.version)).toStrictEqual(['1.0.1', '1.0.0']);
   });
 
-  it('returns what `toChangelogEntries` returns for a window that yields items', () => {
+  it('returns what `convertToChangelogEntries` returns for a window that yields items', () => {
     mockEnumerateReleaseWindows.mockReturnValueOnce([
       makeWindow('unreleased', ['#2 fix: Current', '#3 fmt: Reformat']),
       makeWindow('v1.0.0', ['#1 feat: Old']),
     ]);
     const history = readReleaseHistory(makeConfig(), OPTIONS);
 
-    expect(toReleaseEntries(history, 'v1.0.1', '2026-09-23')).toStrictEqual(toChangelogEntries(history, 'v1.0.1'));
+    expect(convertToReleaseEntries(history, 'v1.0.1', '2026-09-23')).toStrictEqual(
+      convertToChangelogEntries(history, 'v1.0.1'),
+    );
   });
 });
 

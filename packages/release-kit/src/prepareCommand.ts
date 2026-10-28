@@ -16,7 +16,7 @@ import { loadValidatedConfig, reportConfigProblem, reportConfigWarnings } from '
 import { CANONICAL_SEMVER_PATTERN, parseArgs, parseSetVersions } from './prepareArgs.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 import { applyReleasePlan, type ReleasePlan } from './releasePlan.ts';
-import { releasePrepareTargets, type TargetPrepareOptions } from './releasePrepareTargets.ts';
+import { prepareReleaseTargets, type TargetPrepareOptions } from './prepareReleaseTargets.ts';
 import { reportPrepare } from './reportPrepare.ts';
 import { resolveConfigFlag } from './resolveConfigFlag.ts';
 import {
@@ -99,7 +99,7 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
   };
   runAndReport(
     () => {
-      const plan = releasePrepareTargets(config, targetOptions);
+      const plan = prepareReleaseTargets(config, targetOptions);
       assertReleasesOnNpm(findReleasedPackagePaths(plan, config.targets));
       return plan;
     },

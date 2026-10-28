@@ -2,7 +2,7 @@ import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  applyReleasePrepareTargetsSinglePackageDefaults,
+  applyPrepareReleaseTargetsSinglePackageDefaults,
   featureSection,
   mockExecFileSync,
   mockExecSync,
@@ -15,11 +15,11 @@ const {
   mockRenderChangelogJson,
   mockRenderChangelogMarkdown,
   mockWriteFileSync,
-  resetReleasePrepareTargetsSinglePackageMocks,
+  resetPrepareReleaseTargetsSinglePackageMocks,
   stubHistory,
   stubMinorRelease,
   stubPackageVersion,
-} = await vi.hoisted(() => import('../test-utils/releasePrepareTargetsSinglePackageMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsSinglePackageMocks.ts'));
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -73,16 +73,16 @@ import {
   makeConfig,
   prepareSinglePackage,
   type SinglePackageOptions,
-} from '../test-utils/releasePrepareTargetsSinglePackageFixtures.ts';
+} from '../test-utils/prepareReleaseTargetsSinglePackageFixtures.ts';
 import type { ChangelogEntry } from '../types.ts';
 
-describe('releasePrepareTargets for a single-package repo', () => {
+describe('prepareReleaseTargets for a single-package repo', () => {
   beforeEach(() => {
-    applyReleasePrepareTargetsSinglePackageDefaults();
+    applyPrepareReleaseTargetsSinglePackageDefaults();
   });
 
   afterEach(() => {
-    resetReleasePrepareTargetsSinglePackageMocks();
+    resetPrepareReleaseTargetsSinglePackageMocks();
     vi.restoreAllMocks();
   });
 

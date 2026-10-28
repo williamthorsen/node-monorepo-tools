@@ -8,7 +8,7 @@ import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import { mergeMonorepoConfig } from '../mergeConfig.ts';
 import { applyReleasePlan } from '../releasePlan.ts';
-import { releasePrepareTargets } from '../releasePrepareTargets.ts';
+import { prepareReleaseTargets } from '../prepareReleaseTargets.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import { selectCompositeResult } from '../test-utils/prepareResults.ts';
 
@@ -67,12 +67,12 @@ describe('untagged changelog versions (tool)', () => {
       { doesExist: true, version: '1.3.0' },
     );
 
-    expect(() => releasePrepareTargets(projectMonorepoConfig(config), {})).toThrow(
+    expect(() => prepareReleaseTargets(projectMonorepoConfig(config), {})).toThrow(
       "workspace 'api': 1.2.0 (create tag api-v1.2.0)",
     );
     git(tree, 'tag', 'api-v1.2.0');
 
-    expect(() => releasePrepareTargets(projectMonorepoConfig(config), { shouldForce: true })).toThrow(
+    expect(() => prepareReleaseTargets(projectMonorepoConfig(config), { shouldForce: true })).toThrow(
       'project: 1.3.0 (create tag v1.3.0)',
     );
     git(tree, 'tag', 'v1.3.0');
@@ -80,7 +80,7 @@ describe('untagged changelog versions (tool)', () => {
     tree.write('packages/api/widget.ts', 'export const widget = true;\n');
     commitAll(tree, '## api|feat: Add widget');
 
-    const plan = releasePrepareTargets(projectMonorepoConfig(config), {});
+    const plan = prepareReleaseTargets(projectMonorepoConfig(config), {});
     applyReleasePlan(plan);
 
     expect(plan.tags).toStrictEqual(['api-v1.3.0', 'v1.4.0']);

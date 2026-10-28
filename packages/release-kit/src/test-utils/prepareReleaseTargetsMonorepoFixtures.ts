@@ -1,9 +1,9 @@
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
 import type { ReleasePlan } from '../releasePlan.ts';
-import { releasePrepareTargets, type TargetPrepareOptions } from '../releasePrepareTargets.ts';
+import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import type { ChangelogEntry, MonorepoReleaseConfig, WorkspaceConfig, WorkTypeConfig } from '../types.ts';
-import { stubFiles } from './releasePrepareTargetsMonorepoMocks.ts';
+import { stubFiles } from './prepareReleaseTargetsMonorepoMocks.ts';
 
 /** An entry of a released window, which a history reports alongside its unreleased window. */
 export const RELEASED_ENTRY: ChangelogEntry = {
@@ -51,7 +51,7 @@ export function plannedContent(
 
 /** Prepares a monorepo release over the targets that the merged config projects onto. */
 export function prepareMonorepo(config: MonorepoReleaseConfig, options: TargetPrepareOptions): ReleasePlan {
-  return releasePrepareTargets(projectMonorepoConfig(config), options);
+  return prepareReleaseTargets(projectMonorepoConfig(config), options);
 }
 
 /** Stubs `core` 1.0.0 and `app` 2.0.0 depending on it, beside any other `files`, and returns their config. */

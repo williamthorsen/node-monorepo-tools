@@ -58,8 +58,8 @@ ${labelsBlock}
   },`;
 }
 
-/** Generates a new `.config/release-kit.config.ts` containing the `repoLabels` block. */
-export function repoLabelsConfigScript(scopeLabels: LabelDefinition[]): string {
+/** Renders a new `.config/release-kit.config.ts` containing the `repoLabels` block. */
+export function renderRepoLabelsConfigScript(scopeLabels: LabelDefinition[]): string {
   return `import { defineConfig } from '@williamthorsen/release-kit/config';
 
 export default defineConfig({

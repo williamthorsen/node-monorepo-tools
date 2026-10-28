@@ -11,6 +11,6 @@ export function dim(text: string, stream: NodeJS.WritableStream = process.stdout
 }
 
 /** Renders a section header for separating workspaces in CLI output. */
-export function sectionHeader(name: string): string {
+export function renderSectionHeader(name: string): string {
   return `━━━ ${name} ━━━`;
 }

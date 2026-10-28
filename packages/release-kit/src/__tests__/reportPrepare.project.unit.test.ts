@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bold, dim, sectionHeader } from '../format.ts';
+import { bold, dim, renderSectionHeader } from '../format.ts';
 import { reportPrepare } from '../reportPrepare.ts';
 import type { PrepareResult, ReleasedCompositeResult, ReleasedPackageResult } from '../types.ts';
 
@@ -45,7 +45,7 @@ describe(reportPrepare, () => {
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
-      expect(output).toContain(sectionHeader('project'));
+      expect(output).toContain(renderSectionHeader('project'));
       expect(output).toContain(`📦 0.9.0 → ${bold('0.10.0')} (minor)`);
       expect(output).toContain(`🔖 ${bold('v0.10.0')}`);
       // Tag summary still includes both per-workspace and project tags.
@@ -105,7 +105,7 @@ describe(reportPrepare, () => {
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
-      expect(output).not.toContain(sectionHeader('project'));
+      expect(output).not.toContain(renderSectionHeader('project'));
     });
 
     it('renders "(no previous release found)" when project.previousTag is undefined on a released project', () => {
@@ -180,8 +180,8 @@ describe(reportPrepare, () => {
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
-      expect(output).toContain(sectionHeader('suite'));
-      expect(output).not.toContain(sectionHeader('project'));
+      expect(output).toContain(renderSectionHeader('suite'));
+      expect(output).not.toContain(renderSectionHeader('project'));
     });
 
     it('renders a skipped project section as a header + commit count + skipReason', () => {
@@ -202,7 +202,7 @@ describe(reportPrepare, () => {
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
-      expect(output).toContain(sectionHeader('project'));
+      expect(output).toContain(renderSectionHeader('project'));
       expect(output).toContain(dim('  Found 0 commits since v0.9.0'));
       expect(output).toContain('⏩ No commits since v0.9.0. Pass --force to release at patch. Skipping.');
       // No version line, no bumped files, no changelog generation, no tag for a skipped project.
@@ -231,7 +231,7 @@ describe(reportPrepare, () => {
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
-      expect(output).toContain(sectionHeader('project'));
+      expect(output).toContain(renderSectionHeader('project'));
       expect(output).toContain(dim('  Found 1 commits since v0.9.0'));
       expect(output).toContain('⏩ No bump-worthy commits since v0.9.0');
       expect(output).toContain('🟠 1 commit could not be parsed\n');

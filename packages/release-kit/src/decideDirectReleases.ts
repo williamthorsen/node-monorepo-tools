@@ -51,7 +51,7 @@ export function decideDirectReleases(
       directReleases.untaggedBaselines.set(target.id, untaggedBaseline);
     }
     if (history.previousTag === undefined && target.kind === 'package' && target.isWorkspace) {
-      maybeEmitBaselineHint(target, knownPrefixes, hintState);
+      emitBaselineHintOnce(target, knownPrefixes, hintState);
     }
 
     const versionOverride = versionOverridesById?.get(target.id);
@@ -127,11 +127,7 @@ interface BaselineHintState {
  *
  * Prints at most once per prepare run. Does not affect exit code or bump behavior.
  */
-function maybeEmitBaselineHint(
-  target: PackageTarget,
-  knownPrefixes: readonly string[],
-  state: BaselineHintState,
-): void {
+function emitBaselineHintOnce(target: PackageTarget, knownPrefixes: readonly string[], state: BaselineHintState): void {
   if (state.emitted || (target.legacyIdentities?.length ?? 0) > 0) return;
 
   const candidates = detectUndeclaredTagPrefixes(knownPrefixes);

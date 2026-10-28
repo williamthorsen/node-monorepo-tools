@@ -14,7 +14,7 @@ import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mergeMonorepoConfig } from '../mergeConfig.ts';
 import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
-import { releasePrepareTargets, type TargetPrepareOptions } from '../releasePrepareTargets.ts';
+import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import { selectCompositeResult } from '../test-utils/prepareResults.ts';
 import type { MonorepoReleaseConfig } from '../types.ts';
@@ -586,5 +586,5 @@ function commitAll(tree: TempTree, message: string): void {
 
 /** Prepares a monorepo release over the targets that the merged config projects onto. */
 function prepareMonorepo(config: MonorepoReleaseConfig, options: TargetPrepareOptions): ReleasePlan {
-  return releasePrepareTargets(projectMonorepoConfig(config), options);
+  return prepareReleaseTargets(projectMonorepoConfig(config), options);
 }

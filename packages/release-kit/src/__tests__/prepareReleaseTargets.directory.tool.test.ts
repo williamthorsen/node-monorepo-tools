@@ -7,7 +7,7 @@ import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReleaseKitConfig } from '../configSchema.ts';
 import { mergeMonorepoConfig } from '../mergeConfig.ts';
 import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
-import { releasePrepareTargets, type TargetPrepareOptions } from '../releasePrepareTargets.ts';
+import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
 import { reportPrepare } from '../reportPrepare.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import type { TargetPrepareResult } from '../types.ts';
@@ -215,7 +215,7 @@ function prepare(userConfig: ReleaseKitConfig, options: TargetPrepareOptions, di
     { ...userConfig, changelogJson: { enabled: false } },
     ROOT_PACKAGE,
   );
-  return releasePrepareTargets(projectMonorepoConfig(config), options);
+  return prepareReleaseTargets(projectMonorepoConfig(config), options);
 }
 
 /** Runs a command in the fixture repo. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildChangelogEntries, readReleaseHistory, toChangelogEntries } from '../buildChangelogEntries.ts';
+import { buildChangelogEntries, readReleaseHistory, convertToChangelogEntries } from '../buildChangelogEntries.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
 import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
 import type { ChangelogEntry } from '../types.ts';
@@ -211,11 +211,11 @@ describe(readReleaseHistory, () => {
     const arraysReading = readRouted('arrays');
     const stringsReading = readRouted('strings');
 
-    expect(summarize(toChangelogEntries(arraysReading, 'arrays-v1.0.0'))).toStrictEqual([
+    expect(summarize(convertToChangelogEntries(arraysReading, 'arrays-v1.0.0'))).toStrictEqual([
       { version: '1.0.0', descriptions: ['Breaks arrays.'] },
     ]);
     expect(arraysReading.unreleasedReading.bump).toBe('major');
-    expect(summarize(toChangelogEntries(stringsReading, 'strings-v1.0.0'))).toStrictEqual([
+    expect(summarize(convertToChangelogEntries(stringsReading, 'strings-v1.0.0'))).toStrictEqual([
       { version: '1.0.0', descriptions: ['Fixes strings.'] },
     ]);
     expect(stringsReading.unreleasedReading.bump).toBe('patch');

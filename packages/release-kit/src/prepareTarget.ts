@@ -1,6 +1,6 @@
 import { findUntaggedBaseline, type UntaggedBaseline } from './assertTaggedBaseline.ts';
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
-import { readReleaseHistory, type ReleaseHistory, toReleaseEntries } from './buildChangelogEntries.ts';
+import { readReleaseHistory, type ReleaseHistory, convertToReleaseEntries } from './buildChangelogEntries.ts';
 import { buildPropagationEntries, buildReleasedResult, type TargetRelease } from './buildReleasedResult.ts';
 import { applyWorkspaceOverrides, type OverrideContext } from './changelogOverrides.ts';
 import { decideRelease } from './decideRelease.ts';
@@ -163,7 +163,7 @@ export function planTargetRelease(args: PlanTargetReleaseArgs): PlannedTargetRel
   const entries =
     decision === undefined
       ? buildPropagationEntries(target, release, bumpPlan.newVersion, today, args.dependenciesHeader)
-      : toReleaseEntries(history, tag, today);
+      : convertToReleaseEntries(history, tag, today);
   const overrideScope = describeOverrideScope(target);
   const appliedOverrides = applyWorkspaceOverrides(entries, overrideScope, overrideContext);
 

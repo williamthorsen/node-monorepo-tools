@@ -2,7 +2,7 @@ import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  applyReleasePrepareTargetsMonorepoDefaults,
+  applyPrepareReleaseTargetsMonorepoDefaults,
   mockBuildEmptyReleaseEntry,
   mockBuildSyntheticChangelogEntry,
   mockExecFileSync,
@@ -16,10 +16,10 @@ const {
   mockRenderChangelogJson,
   mockRenderChangelogMarkdown,
   mockWriteFileSync,
-  resetReleasePrepareTargetsMonorepoMocks,
+  resetPrepareReleaseTargetsMonorepoMocks,
   stubHistory,
   stubHistoryByPrefix,
-} = await vi.hoisted(() => import('../test-utils/releasePrepareTargetsMonorepoMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsMonorepoMocks.ts'));
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -41,7 +41,7 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
 }));
 
 // Stub the history reader and the changelog constructors and renderers. The default stubs return
-// deterministic values without reading git history or touching the filesystem; `toChangelogEntries`
+// deterministic values without reading git history or touching the filesystem; `convertToChangelogEntries`
 // stays real, so the planned changelog contains a history's sections, labeled with the new tag.
 vi.mock(import('../buildChangelogEntries.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -77,16 +77,16 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
 
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import { selectPackageResults } from '../test-utils/prepareResults.ts';
-import { makeConfig, prepareMonorepo } from '../test-utils/releasePrepareTargetsMonorepoFixtures.ts';
+import { makeConfig, prepareMonorepo } from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
 import type { MalformedChangeRecordBlock, PolicyViolation, UndeclaredEntryType, WorkspaceConfig } from '../types.ts';
 
-describe('releasePrepareTargets for a monorepo', () => {
+describe('prepareReleaseTargets for a monorepo', () => {
   beforeEach(() => {
-    applyReleasePrepareTargetsMonorepoDefaults();
+    applyPrepareReleaseTargetsMonorepoDefaults();
   });
 
   afterEach(() => {
-    resetReleasePrepareTargetsMonorepoMocks();
+    resetPrepareReleaseTargetsMonorepoMocks();
   });
 
   describe('opportunistic hint when baseline is missing', () => {

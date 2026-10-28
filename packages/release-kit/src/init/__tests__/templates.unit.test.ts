@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { createGithubReleaseWorkflow, publishWorkflow, releaseConfigScript, releaseWorkflow } from '../templates.ts';
+import {
+  renderCreateGithubReleaseWorkflow,
+  renderPublishWorkflow,
+  renderReleaseConfigScript,
+  renderReleaseWorkflow,
+} from '../templates.ts';
 
-describe(releaseConfigScript, () => {
+describe(renderReleaseConfigScript, () => {
   it('generates a defineConfig-wrapped config for monorepo type', () => {
-    const script = releaseConfigScript('monorepo');
+    const script = renderReleaseConfigScript('monorepo');
 
     expect(script).toContain("import { defineConfig } from '@williamthorsen/release-kit/config'");
     expect(script).toContain('workspaces:');
@@ -15,7 +20,7 @@ describe(releaseConfigScript, () => {
   });
 
   it('generates a defineConfig-wrapped config for single-package type', () => {
-    const script = releaseConfigScript('single-package');
+    const script = renderReleaseConfigScript('single-package');
 
     expect(script).toContain("import { defineConfig } from '@williamthorsen/release-kit/config'");
     expect(script).toContain('workTypes:');
@@ -25,8 +30,8 @@ describe(releaseConfigScript, () => {
   });
 
   it('uses header field for work type labels', () => {
-    const monorepoScript = releaseConfigScript('monorepo');
-    const singlePackageScript = releaseConfigScript('single-package');
+    const monorepoScript = renderReleaseConfigScript('monorepo');
+    const singlePackageScript = renderReleaseConfigScript('single-package');
 
     expect(monorepoScript).toContain('header:');
     expect(singlePackageScript).toContain('header:');
@@ -37,7 +42,7 @@ describe(releaseConfigScript, () => {
   it.each(['monorepo', 'single-package'] as const)(
     'scaffolds releaseNotes.shouldInjectIntoReadme as true (%s)',
     (repoType) => {
-      const script = releaseConfigScript(repoType);
+      const script = renderReleaseConfigScript(repoType);
 
       expect(script).toContain('releaseNotes: {');
       expect(script).toContain('shouldInjectIntoReadme: true');
@@ -45,9 +50,9 @@ describe(releaseConfigScript, () => {
   );
 });
 
-describe(publishWorkflow, () => {
+describe(renderPublishWorkflow, () => {
   it('generates a monorepo workflow with tightened tag pattern', () => {
-    const workflow = publishWorkflow('monorepo');
+    const workflow = renderPublishWorkflow('monorepo');
 
     expect(workflow).toContain("'*-v[0-9]*.[0-9]*.[0-9]*'");
     expect(workflow).not.toContain("- 'v[0-9]*.[0-9]*.[0-9]*'");
@@ -58,7 +63,7 @@ describe(publishWorkflow, () => {
   });
 
   it('generates a single-package workflow with v-prefixed tightened tag pattern', () => {
-    const workflow = publishWorkflow('single-package');
+    const workflow = renderPublishWorkflow('single-package');
 
     expect(workflow).toContain("'v[0-9]*.[0-9]*.[0-9]*'");
     expect(workflow).not.toContain("'*-v[0-9]*.[0-9]*.[0-9]*'");
@@ -69,14 +74,14 @@ describe(publishWorkflow, () => {
   });
 
   it.each(['monorepo', 'single-package'] as const)('defaults to provenance: true (%s)', (repoType) => {
-    const workflow = publishWorkflow(repoType);
+    const workflow = renderPublishWorkflow(repoType);
 
     expect(workflow).toContain('provenance: true');
     expect(workflow).not.toContain('provenance: false');
   });
 
   it.each(['monorepo', 'single-package'] as const)('omits provenance when provenance is false (%s)', (repoType) => {
-    const workflow = publishWorkflow(repoType, { shouldGenerateProvenance: false });
+    const workflow = renderPublishWorkflow(repoType, { shouldGenerateProvenance: false });
 
     expect(workflow).not.toContain('provenance');
     expect(workflow).toContain('    with:\n      tags: ${{ github.ref_name }}\n');
@@ -85,16 +90,16 @@ describe(publishWorkflow, () => {
   it.each(['monorepo', 'single-package'] as const)(
     'passes tags: ${{ github.ref_name }} to the reusable workflow (%s)',
     (repoType) => {
-      const workflow = publishWorkflow(repoType);
+      const workflow = renderPublishWorkflow(repoType);
 
       expect(workflow).toContain('tags: ${{ github.ref_name }}');
     },
   );
 });
 
-describe(createGithubReleaseWorkflow, () => {
+describe(renderCreateGithubReleaseWorkflow, () => {
   it('generates a monorepo workflow with the monorepo tag pattern', () => {
-    const workflow = createGithubReleaseWorkflow('monorepo');
+    const workflow = renderCreateGithubReleaseWorkflow('monorepo');
 
     expect(workflow).toContain("'*-v[0-9]*.[0-9]*.[0-9]*'");
     expect(workflow).not.toContain("- 'v[0-9]*.[0-9]*.[0-9]*'");
@@ -104,7 +109,7 @@ describe(createGithubReleaseWorkflow, () => {
   });
 
   it('generates a single-package workflow with the v-prefixed tag pattern', () => {
-    const workflow = createGithubReleaseWorkflow('single-package');
+    const workflow = renderCreateGithubReleaseWorkflow('single-package');
 
     expect(workflow).toContain("'v[0-9]*.[0-9]*.[0-9]*'");
     expect(workflow).not.toContain("'*-v[0-9]*.[0-9]*.[0-9]*'");
@@ -116,7 +121,7 @@ describe(createGithubReleaseWorkflow, () => {
   it.each(['monorepo', 'single-package'] as const)(
     'does not request id-token or packages permissions (%s)',
     (repoType) => {
-      const workflow = createGithubReleaseWorkflow(repoType);
+      const workflow = renderCreateGithubReleaseWorkflow(repoType);
 
       expect(workflow).not.toContain('id-token:');
       expect(workflow).not.toContain('packages:');
@@ -124,9 +129,9 @@ describe(createGithubReleaseWorkflow, () => {
   );
 });
 
-describe(releaseWorkflow, () => {
+describe(renderReleaseWorkflow, () => {
   it('generates a monorepo workflow with an only input and without a monorepo flag', () => {
-    const workflow = releaseWorkflow('monorepo');
+    const workflow = renderReleaseWorkflow('monorepo');
 
     expect(workflow).toContain('release.reusable.yaml@workflow/release-v1');
     expect(workflow).not.toContain('monorepo:');
@@ -135,7 +140,7 @@ describe(releaseWorkflow, () => {
   });
 
   it('generates a single-package workflow without only input', () => {
-    const workflow = releaseWorkflow('single-package');
+    const workflow = renderReleaseWorkflow('single-package');
 
     expect(workflow).toContain('release.reusable.yaml@workflow/release-v1');
     expect(workflow).not.toContain('monorepo:');
@@ -145,7 +150,7 @@ describe(releaseWorkflow, () => {
   it.each(['monorepo', 'single-package'] as const)(
     'offers auto as the default bump and passes it on as an empty bump (%s)',
     (repoType) => {
-      const workflow = releaseWorkflow(repoType);
+      const workflow = renderReleaseWorkflow(repoType);
 
       expect(workflow).toContain('default: auto\n        options:\n          - auto\n          - patch');
       expect(workflow).not.toContain("- ''");
@@ -154,8 +159,8 @@ describe(releaseWorkflow, () => {
   );
 
   it('does not include version inputs', () => {
-    const monorepoWorkflow = releaseWorkflow('monorepo');
-    const singlePackageWorkflow = releaseWorkflow('single-package');
+    const monorepoWorkflow = renderReleaseWorkflow('monorepo');
+    const singlePackageWorkflow = renderReleaseWorkflow('single-package');
 
     expect(monorepoWorkflow).not.toContain('node-version:');
     expect(singlePackageWorkflow).not.toContain('node-version:');

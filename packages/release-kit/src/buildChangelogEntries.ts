@@ -36,7 +36,7 @@ const CANONICAL_SECTION_ORDER: ReadonlyMap<string, number> = new Map(
 /**
  * Builds structured changelog entries from the release windows of git history, naming the unreleased window `tag`.
  *
- * Composes `readReleaseHistory` and `toChangelogEntries` for a caller that knows the tag before it reads.
+ * Composes `readReleaseHistory` and `convertToChangelogEntries` for a caller that knows the tag before it reads.
  */
 export function buildChangelogEntries(
   config: ReleaseHistoryConfig,
@@ -44,7 +44,46 @@ export function buildChangelogEntries(
   options: GenerateChangelogOptions,
 ): { entries: ChangelogEntry[]; diagnostics: ChangelogDiagnostics } {
   const history = readReleaseHistory(config, options);
-  return { entries: toChangelogEntries(history, tag), diagnostics: history.unreleasedReading.diagnostics };
+  return { entries: convertToChangelogEntries(history, tag), diagnostics: history.unreleasedReading.diagnostics };
+}
+
+/** Labels the unreleased window of `history` with `tag` and returns the entries of every window, newest first. */
+export function convertToChangelogEntries(history: ReleaseHistory, tag: string): ChangelogEntry[] {
+  const { unreleasedReading } = history;
+  if (unreleasedReading.sections.length === 0) {
+    return [...history.releasedEntries];
+  }
+  return [
+    { version: extractVersion(tag), date: unreleasedReading.date, sections: unreleasedReading.sections },
+    ...history.releasedEntries,
+  ];
+}
+
+/** One read of a scope's release windows. */
+export interface ReleaseHistory {
+  /** The newest matching tag that HEAD reaches; undefined when none does. */
+  previousTag: string | undefined;
+  /** Entries of the released windows, newest first; a window that doesn't yield any item contributes none. */
+  releasedEntries: ChangelogEntry[];
+  unreleasedReading: UnreleasedWindowReading;
+}
+
+/** The configuration that `readReleaseHistory` reads. */
+export type ReleaseHistoryConfig = Pick<
+  ReleaseSettings,
+  'breakingPolicies' | 'changelogJson' | 'scopeAliases' | 'versionPatterns' | 'workTypes'
+>;
+
+/**
+ * Returns the entries that a direct release tagged `tag` records: those of `convertToChangelogEntries`, or, when the
+ * unreleased window doesn't yield any item, the synthetic "Forced version bump." entry dated `today` ahead of the
+ * released entries.
+ */
+export function convertToReleaseEntries(history: ReleaseHistory, tag: string, today: string): ChangelogEntry[] {
+  if (history.unreleasedReading.sections.length === 0) {
+    return [buildEmptyReleaseEntry(extractVersion(tag), today), ...history.releasedEntries];
+  }
+  return convertToChangelogEntries(history, tag);
 }
 
 /**
@@ -78,21 +117,6 @@ export function readReleaseHistory(config: ReleaseHistoryConfig, options: Genera
   }
 }
 
-/** One read of a scope's release windows. */
-export interface ReleaseHistory {
-  /** The newest matching tag that HEAD reaches; undefined when none does. */
-  previousTag: string | undefined;
-  /** Entries of the released windows, newest first; a window that doesn't yield any item contributes none. */
-  releasedEntries: ChangelogEntry[];
-  unreleasedReading: UnreleasedWindowReading;
-}
-
-/** The configuration that `readReleaseHistory` reads. */
-export type ReleaseHistoryConfig = Pick<
-  ReleaseSettings,
-  'breakingPolicies' | 'changelogJson' | 'scopeAliases' | 'versionPatterns' | 'workTypes'
->;
-
 /**
  * Strips a section title down to its bare name.
  *
@@ -102,30 +126,6 @@ export type ReleaseHistoryConfig = Pick<
  */
 export function stripGroupDecorations(group: string): string {
   return stripEmojiPrefix(group);
-}
-
-/** Labels the unreleased window of `history` with `tag` and returns the entries of every window, newest first. */
-export function toChangelogEntries(history: ReleaseHistory, tag: string): ChangelogEntry[] {
-  const { unreleasedReading } = history;
-  if (unreleasedReading.sections.length === 0) {
-    return [...history.releasedEntries];
-  }
-  return [
-    { version: extractVersion(tag), date: unreleasedReading.date, sections: unreleasedReading.sections },
-    ...history.releasedEntries,
-  ];
-}
-
-/**
- * Returns the entries that a direct release tagged `tag` records: those of `toChangelogEntries`, or, when the
- * unreleased window doesn't yield any item, the synthetic "Forced version bump." entry dated `today` ahead of the
- * released entries.
- */
-export function toReleaseEntries(history: ReleaseHistory, tag: string, today: string): ChangelogEntry[] {
-  if (history.unreleasedReading.sections.length === 0) {
-    return [buildEmptyReleaseEntry(extractVersion(tag), today), ...history.releasedEntries];
-  }
-  return toChangelogEntries(history, tag);
 }
 
 /** The unreleased window: its changelog sections and commits, and the bump and diagnostics that they determine. */
@@ -173,18 +173,18 @@ function buildSections(
     });
   }
   // A stable sort keeps unknown sections, whose priority is `Infinity`, in encounter order.
-  return sections.toSorted((a, b) => canonicalSectionPriority(a.title) - canonicalSectionPriority(b.title));
-}
-
-/** Returns the canonical priority of a section title; an unknown title sorts last. */
-function canonicalSectionPriority(title: string): number {
-  const index = CANONICAL_SECTION_ORDER.get(stripGroupDecorations(title));
-  return index ?? Infinity;
+  return sections.toSorted((a, b) => getCanonicalSectionPriority(a.title) - getCanonicalSectionPriority(b.title));
 }
 
 /** Formats Unix seconds as an ISO calendar date. */
 function formatDate(timestamp: number): string {
   return new Date(timestamp * 1_000).toISOString().slice(0, 10);
+}
+
+/** Returns the canonical priority of a section title; an unknown title sorts last. */
+function getCanonicalSectionPriority(title: string): number {
+  const index = CANONICAL_SECTION_ORDER.get(stripGroupDecorations(title));
+  return index ?? Infinity;
 }
 
 /**

@@ -2,10 +2,10 @@ import type { ChangelogDiagnostics } from '../buildChangelogItem.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
 import type { ReleasePlan } from '../releasePlan.ts';
 import {
-  releasePrepareTargets,
+  prepareReleaseTargets,
   type TargetPrepareConfig,
   type TargetPrepareOptions,
-} from '../releasePrepareTargets.ts';
+} from '../prepareReleaseTargets.ts';
 import type { PackageTarget, ReleaseSettings, WorkTypeConfig } from '../types.ts';
 
 export const diagnostics: ChangelogDiagnostics = {
@@ -54,7 +54,7 @@ export function makeConfig(overrides?: Partial<SinglePackageFixture>): TargetPre
 /** Prepares a single-package release, passing an explicit version under the root target's id. */
 export function prepareSinglePackage(config: TargetPrepareConfig, options: SinglePackageOptions): ReleasePlan {
   const { versionOverride, ...rest } = options;
-  return releasePrepareTargets(config, {
+  return prepareReleaseTargets(config, {
     ...rest,
     ...(versionOverride !== undefined && { versionOverridesById: new Map([['.', versionOverride]]) }),
   });

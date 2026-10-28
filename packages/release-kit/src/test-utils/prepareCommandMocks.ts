@@ -13,7 +13,7 @@ export const mockExistsSync = vi.fn();
 export const mockLoadConfig = vi.fn();
 export const mockLookUpNpmPackage = vi.fn();
 export const mockReadFileSync = vi.fn();
-export const mockReleasePrepareTargets = vi.fn();
+export const mockPrepareReleaseTargets = vi.fn();
 export const mockWriteFileWithCheck = vi.fn();
 
 /**
@@ -34,7 +34,7 @@ export function applyPrepareCommandDefaults(): void {
     }
     throw new Error(`Unexpected readFileSync call for path: ${filePath}`);
   });
-  mockReleasePrepareTargets.mockReturnValue(makePrepareResult());
+  mockPrepareReleaseTargets.mockReturnValue(makePrepareResult());
   mockWriteFileWithCheck.mockImplementation((path: string) => ({ filePath: path, outcome: 'created' }));
   mockLookUpNpmPackage.mockReturnValue({ status: 'published' });
 }
@@ -61,7 +61,7 @@ export function resetPrepareCommandMocks(): void {
     mockLoadConfig,
     mockLookUpNpmPackage,
     mockReadFileSync,
-    mockReleasePrepareTargets,
+    mockPrepareReleaseTargets,
     mockWriteFileWithCheck,
   ]) {
     mock.mockReset();

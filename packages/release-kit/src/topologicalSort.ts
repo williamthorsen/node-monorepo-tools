@@ -7,7 +7,7 @@ import type { ReleaseEntry } from './propagateBumps.ts';
  * Uses Kahn's algorithm. Targets not in the release set are excluded. If the graph has
  * cycles, the remaining nodes are appended in arbitrary order and reported via `cyclicIds`.
  */
-export function topologicalSort(
+export function sortTopologically(
   releaseSet: Map<string, ReleaseEntry>,
   graph: DependencyGraph,
 ): { sortedIds: string[]; cyclicIds: string[] } {

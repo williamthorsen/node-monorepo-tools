@@ -3,7 +3,7 @@ import { WriteStream } from 'node:tty';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { bold, dim, sectionHeader } from '../format.ts';
+import { bold, dim, renderSectionHeader } from '../format.ts';
 
 /** SGR codes that open each style. The closing code is Node's choice, so these tests do not assert on it. */
 const BOLD_OPEN = '\u{1B}[1m';
@@ -73,13 +73,13 @@ describe('color-aware styling', () => {
   });
 });
 
-describe(sectionHeader, () => {
+describe(renderSectionHeader, () => {
   it('wraps the name in box-drawing rules', () => {
-    expect(sectionHeader('release-kit')).toBe('━━━ release-kit ━━━');
+    expect(renderSectionHeader('release-kit')).toBe('━━━ release-kit ━━━');
   });
 
   it('handles a short name', () => {
-    expect(sectionHeader('a')).toBe('━━━ a ━━━');
+    expect(renderSectionHeader('a')).toBe('━━━ a ━━━');
   });
 });
 
