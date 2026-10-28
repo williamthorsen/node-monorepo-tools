@@ -26,13 +26,13 @@ describe(findTransitiveDependents, () => {
 
 // region | Helpers
 /** Builds a graph of `@test/{dir}` packages from each dir's dependent dirs. */
-function makeGraph(dirs: string[], dependentDirsOf: Record<string, string[]>): DependencyGraph {
+function makeGraph(dirs: string[], dependentDirsByDir: Record<string, string[]>): DependencyGraph {
   return {
     packageNameToDir: new Map(dirs.map((dir) => [`@test/${dir}`, dir])),
     dirToPackageName: new Map(dirs.map((dir) => [dir, `@test/${dir}`])),
     dirToVersion: new Map(),
     dependentsOf: new Map(
-      Object.entries(dependentDirsOf).map(([dir, dependents]) => [
+      Object.entries(dependentDirsByDir).map(([dir, dependents]) => [
         `@test/${dir}`,
         dependents.map((dir) => makeWorkspaceTarget(dir)),
       ]),

@@ -340,14 +340,14 @@ function buildPublishableWorkspace(): Workspace {
 }
 
 /**
- * Finds a check by name among `siblings`, asserting it exists so that a rename fails loudly.
+ * Finds a check by name among `siblingChecks`, asserting it exists so that a rename fails loudly.
  *
  * The caller names the level to search rather than getting a tree walk. Reading the name of every check would invoke
  * the `@williamthorsen/release-kit >= x` name getter, whose compile-time-only `pickJson` throws against the
  * uncompiled source that this suite imports.
  */
-function findCheck(name: string, siblings: readonly RdyCheck[]): RdyCheck {
-  const check = siblings.find((candidate) => candidate.name === name);
+function findCheck(name: string, siblingChecks: readonly RdyCheck[]): RdyCheck {
+  const check = siblingChecks.find((candidate) => candidate.name === name);
   assert(check, `Expected a "${name}" check`);
   return check;
 }

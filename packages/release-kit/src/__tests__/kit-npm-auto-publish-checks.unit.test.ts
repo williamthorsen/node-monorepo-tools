@@ -102,13 +102,13 @@ describe(buildWorkspaceCheck, () => {
   });
 
   it('includes the scoped-name child only when the package name starts with @', () => {
-    const scoped = buildWorkspaceCheck(makeWorkspace({ isPackage: true, name: '@scope/example' }));
-    const unscoped = buildWorkspaceCheck(
+    const scopedCheck = buildWorkspaceCheck(makeWorkspace({ isPackage: true, name: '@scope/example' }));
+    const unscopedCheck = buildWorkspaceCheck(
       makeWorkspace({ isPackage: true, name: 'example', packageJson: { name: 'example' } }),
     );
 
-    const scopedChildren = listDeclaredChildren(scoped).map((c) => c.name);
-    const unscopedChildren = listDeclaredChildren(unscoped).map((c) => c.name);
+    const scopedChildren = listDeclaredChildren(scopedCheck).map((c) => c.name);
+    const unscopedChildren = listDeclaredChildren(unscopedCheck).map((c) => c.name);
 
     expect(scopedChildren).toContain('publishConfig.access is "public"');
     expect(unscopedChildren).not.toContain('publishConfig.access is "public"');
@@ -456,9 +456,9 @@ describe(parseGitHubOwnerRepo, () => {
 
 // region | Helpers
 
-/** Finds a check by name among `siblings`. */
-function findCheck(name: string, siblings: readonly RdyCheck[]): RdyCheck {
-  const check = siblings.find((candidate) => candidate.name === name);
+/** Finds a check by name among `siblingChecks`. */
+function findCheck(name: string, siblingChecks: readonly RdyCheck[]): RdyCheck {
+  const check = siblingChecks.find((candidate) => candidate.name === name);
   assert(check, `Expected a "${name}" check`);
   return check;
 }

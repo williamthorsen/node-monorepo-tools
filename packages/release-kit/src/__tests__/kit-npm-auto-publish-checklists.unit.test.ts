@@ -212,9 +212,9 @@ async function buildPackagesRows(): Promise<readonly RdyCheck[]> {
   return checks();
 }
 
-/** Finds a check by name among `siblings`. */
-function findCheck(name: string, siblings: readonly RdyCheck[]): RdyCheck {
-  const check = siblings.find((candidate) => candidate.name === name);
+/** Finds a check by name among `siblingChecks`. */
+function findCheck(name: string, siblingChecks: readonly RdyCheck[]): RdyCheck {
+  const check = siblingChecks.find((candidate) => candidate.name === name);
   assert(check, `Expected a "${name}" check`);
   return check;
 }
