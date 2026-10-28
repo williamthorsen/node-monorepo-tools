@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.19.8",
+    "date": "2026-10-28",
+    "sections": [
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Renames the values and helpers declared in v11y-check's tests and `src/test-utils` to follow the naming conventions, which require a value's name to end with its kind, a helper's name to lead with a verb, and abbreviations to be spelled out. (#1131)",
+            "hash": "bd0c26180b5d692ee2845eeea4a92a357027d7de",
+            "entry": 1
+          },
+          {
+            "description": "Replaces the `setupLoadConfig` and `setupTempDir` helpers, repeated in the `cli.audit`, `cli.check`, and `cli.sync` tests, with `buildLoadConfigResult` and `callWithFakeTempDir` in `src/test-utils/cli-fixtures.ts`. (#1131)",
+            "hash": "bd0c26180b5d692ee2845eeea4a92a357027d7de",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.19.7",
     "date": "2026-10-27",
     "sections": [

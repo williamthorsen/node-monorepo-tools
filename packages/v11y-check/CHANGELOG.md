@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.19.8 — 2026-10-28
+
+### 🧪 Tests
+
+- Renames the values and helpers declared in v11y-check's tests and `src/test-utils` to follow the naming conventions, which require a value's name to end with its kind, a helper's name to lead with a verb, and abbreviations to be spelled out. (#1131)
+- Replaces the `setupLoadConfig` and `setupTempDir` helpers, repeated in the `cli.audit`, `cli.check`, and `cli.sync` tests, with `buildLoadConfigResult` and `callWithFakeTempDir` in `src/test-utils/cli-fixtures.ts`. (#1131)
+
 ## 0.19.7 — 2026-10-27
 
 ### ♻️ Refactoring

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.53.1 — 2026-10-28
+
+### ♻️ Refactoring
+
+- Lead release-kit's function names with a transitive verb (#1137)
+
+  Renames the functions in `release-kit`'s source and tests so that each name starts with a transitive verb that states its action, such as `releasePrepareTargets` to `prepareReleaseTargets`, `releaseWorkflow` to `renderReleaseWorkflow`, and `topologicalSort` to `sortTopologically`. The exports of `.` and `./config` stay the same.
+
 ## 0.53.0 — 2026-10-27
 
 ### 🎉 Features

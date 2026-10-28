@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.53.1",
+    "date": "2026-10-28",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Lead release-kit's function names with a transitive verb (#1137)",
+            "body": "Renames the functions in `release-kit`'s source and tests so that each name starts with a transitive verb that states its action, such as `releasePrepareTargets` to `prepareReleaseTargets`, `releaseWorkflow` to `renderReleaseWorkflow`, and `topologicalSort` to `sortTopologically`. The exports of `.` and `./config` stay the same.",
+            "hash": "a84d9ce0652754a417b85c3f9cd14a6e400c7b51"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.53.0",
     "date": "2026-10-27",
     "sections": [

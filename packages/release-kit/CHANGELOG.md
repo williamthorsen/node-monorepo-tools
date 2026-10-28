@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## 16.0.0 — 2026-10-28
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Renames the `changelogMarkdown.keepVersions` config key to `changelogMarkdown.keptVersionCount` and makes config validation reject the old key with an error that names the replacement. (#1134)
+
+### ♻️ Refactoring
+
+- Renames the boolean options, fields, and parameters in `release-kit` to take an `is`, `has`, `does`, or `should` prefix, such as `dryRun` to `isDryRun` and `exists` to `doesExist`, and leaves every CLI flag spelling unchanged. (#1132)
+- Renames the values and type fields declared in `release-kit`'s source files from the first alphabetically through `prepareTarget.ts` so that each name ends with its kind, such as `parsedJson` for `parsed` and `unreleasedReading` for the history field `unreleased`, without changing behavior. (#1133)
+- Renames values and type fields across release-kit's source so that each name ends with its kind, such as `applied` to `appliedWrites` and `TargetPrepareOptions.only` to `onlyTargetIds`. (#1134)
+- Renames `release-kit`'s source functions and test helpers so that each name starts with a transitive verb that states its action, for example `releasePrepareTargets` to `prepareReleaseTargets` (with its module and test files), `publishWorkflow` to `renderPublishWorkflow`, and `toChangelogEntries` to `convertToChangelogEntries`, without changing the exports of `.` or `./config`. (#1137)
+- Renames identifiers in `release-kit` so that each measurement ends with its unit, such as `timestamp` becoming `timestampSec` on `ReleaseWindow` and `SUBJECT_COLUMN_BUDGET` becoming `SUBJECT_BUDGET_COLUMNS`, and so that obscure abbreviations are spelled out, such as `pkg` becoming `packageJson` and `dep` becoming `dependency`. (#1138)
+
+### 🧪 Tests
+
+- Renames the values declared in release-kit's `src/__tests__` files, from the first one alphabetically through `prepareCommand.unit.test.ts`, so that each name ends with its kind, such as `underlying` to `underlyingError` and `unreleased` to `unreleasedReading`. (#1135)
+- Suffixes the values declared in release-kit's remaining tests with their kind, such as `known` to `knownFlags`, `silent` to `silencedConsole`, and `actual` to `actualModule`, in the `src/__tests__` files after `prepareCommand.unit.test.ts` and the tests under `src/init/__tests__` and `src/sync-labels/__tests__`. (#1136)
+
 ## 15.0.3 — 2026-10-27
 
 ### ♻️ Refactoring

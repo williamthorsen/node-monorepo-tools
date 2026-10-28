@@ -1,5 +1,71 @@
 [
   {
+    "version": "16.0.0",
+    "date": "2026-10-28",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Renames the `changelogMarkdown.keepVersions` config key to `changelogMarkdown.keptVersionCount` and makes config validation reject the old key with an error that names the replacement. (#1134)",
+            "breaking": true,
+            "migration": "Rename `changelogMarkdown.keepVersions` to `changelogMarkdown.keptVersionCount` in `.config/release-kit.config.ts`, keeping the same value.",
+            "hash": "3d44603845a461295a5a62eee60cf151b5291f1a",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Renames the boolean options, fields, and parameters in `release-kit` to take an `is`, `has`, `does`, or `should` prefix, such as `dryRun` to `isDryRun` and `exists` to `doesExist`, and leaves every CLI flag spelling unchanged. (#1132)",
+            "hash": "dcb78f0657c580eb7c7be94859e4185ae9f3d3be",
+            "entry": 1
+          },
+          {
+            "description": "Renames the values and type fields declared in `release-kit`'s source files from the first alphabetically through `prepareTarget.ts` so that each name ends with its kind, such as `parsedJson` for `parsed` and `unreleasedReading` for the history field `unreleased`, without changing behavior. (#1133)",
+            "hash": "eae8b6458dca1927393d64626d4731fc7c9f9df1",
+            "entry": 1
+          },
+          {
+            "description": "Renames values and type fields across release-kit's source so that each name ends with its kind, such as `applied` to `appliedWrites` and `TargetPrepareOptions.only` to `onlyTargetIds`. (#1134)",
+            "hash": "3d44603845a461295a5a62eee60cf151b5291f1a",
+            "entry": 2
+          },
+          {
+            "description": "Renames `release-kit`'s source functions and test helpers so that each name starts with a transitive verb that states its action, for example `releasePrepareTargets` to `prepareReleaseTargets` (with its module and test files), `publishWorkflow` to `renderPublishWorkflow`, and `toChangelogEntries` to `convertToChangelogEntries`, without changing the exports of `.` or `./config`. (#1137)",
+            "hash": "a84d9ce0652754a417b85c3f9cd14a6e400c7b51",
+            "entry": 1
+          },
+          {
+            "description": "Renames identifiers in `release-kit` so that each measurement ends with its unit, such as `timestamp` becoming `timestampSec` on `ReleaseWindow` and `SUBJECT_COLUMN_BUDGET` becoming `SUBJECT_BUDGET_COLUMNS`, and so that obscure abbreviations are spelled out, such as `pkg` becoming `packageJson` and `dep` becoming `dependency`. (#1138)",
+            "hash": "f75938c0bfe9365a76b15aa6b4b9d195046c8c78",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Renames the values declared in release-kit's `src/__tests__` files, from the first one alphabetically through `prepareCommand.unit.test.ts`, so that each name ends with its kind, such as `underlying` to `underlyingError` and `unreleased` to `unreleasedReading`. (#1135)",
+            "hash": "b98d26e24e86835ce6edc78f53a964bcc84472fb",
+            "entry": 1
+          },
+          {
+            "description": "Suffixes the values declared in release-kit's remaining tests with their kind, such as `known` to `knownFlags`, `silent` to `silencedConsole`, and `actual` to `actualModule`, in the `src/__tests__` files after `prepareCommand.unit.test.ts` and the tests under `src/init/__tests__` and `src/sync-labels/__tests__`. (#1136)",
+            "hash": "1e947eb5c2d168ffd3d1cf9cf8b0b4e720eaf991",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "15.0.3",
     "date": "2026-10-27",
     "sections": [
