@@ -78,8 +78,8 @@ describe(readChangelogEntries, () => {
   });
 
   it('filters out invalid entries from the array', ({ tree }) => {
-    const mixed = [{ version: '1.0.0', date: '2024-01-01', sections: [] }, { invalid: true }, 'not-an-object'];
-    const changelogPath = tree.writeJson('changelog.json', mixed);
+    const mixedEntries = [{ version: '1.0.0', date: '2024-01-01', sections: [] }, { invalid: true }, 'not-an-object'];
+    const changelogPath = tree.writeJson('changelog.json', mixedEntries);
 
     const result = readChangelogEntries(changelogPath);
     expect(result).toHaveLength(1);

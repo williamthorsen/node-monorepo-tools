@@ -144,16 +144,16 @@ describe(createTags, () => {
   });
 
   it('preserves the underlying error as the cause of the dirty-tree failure', () => {
-    const underlying = new Error('exit code 1');
+    const underlyingError = new Error('exit code 1');
     mockReadFileSync.mockReturnValue('v1.0.0\n');
     mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
       if (args[0] === 'diff') {
-        throw underlying;
+        throw underlyingError;
       }
     });
 
     expect(() => createTags({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' })).toThrow(
-      expect.objectContaining({ cause: underlying }),
+      expect.objectContaining({ cause: underlyingError }),
     );
   });
 

@@ -319,9 +319,12 @@ describe(parseCommitMessage, () => {
 
   describe('configured work types', () => {
     it('resolves a type and alias that only the config declares', () => {
-      const custom: Record<string, WorkTypeConfig> = { ...workTypes, chore: { header: 'Chores', aliases: ['misc'] } };
+      const customWorkTypes: Record<string, WorkTypeConfig> = {
+        ...workTypes,
+        chore: { header: 'Chores', aliases: ['misc'] },
+      };
 
-      expect(parseCommitMessage('api|misc: tidy', 'cfg1', custom)).toStrictEqual({
+      expect(parseCommitMessage('api|misc: tidy', 'cfg1', customWorkTypes)).toStrictEqual({
         message: 'api|misc: tidy',
         hash: 'cfg1',
         type: 'chore',

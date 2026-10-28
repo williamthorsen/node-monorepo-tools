@@ -4,7 +4,7 @@ import type { RawCommit } from '../enumerateReleaseWindows.ts';
 import { findUnroutedEntryScopes, type WorkspaceWindow } from '../findUnroutedEntryScopes.ts';
 
 const SUBJECT = '#859 release-kit|feat: Route entries (#43)';
-const CONFIGURED = ['arrays', 'strings', 'numbers'];
+const CONFIGURED_SCOPES = ['arrays', 'strings', 'numbers'];
 
 describe(findUnroutedEntryScopes, () => {
   it('reports a scope naming a workspace outside the window and one naming nothing, under every window', () => {
@@ -12,16 +12,16 @@ describe(findUnroutedEntryScopes, () => {
 
     const findings = findUnroutedEntryScopes(
       [window('arrays', [commit]), window('strings', [commit]), window('numbers', [])],
-      CONFIGURED,
+      CONFIGURED_SCOPES,
       {},
     );
 
-    const expected = [
+    const expectedFindings = [
       { commitHash: 'a1', commitSubject: SUBJECT, entryPosition: 2, scope: 'numbers' },
       { commitHash: 'a1', commitSubject: SUBJECT, entryPosition: 3, scope: 'nothing' },
     ];
-    expect(findings.get('arrays')).toStrictEqual(expected);
-    expect(findings.get('strings')).toStrictEqual(expected);
+    expect(findings.get('arrays')).toStrictEqual(expectedFindings);
+    expect(findings.get('strings')).toStrictEqual(expectedFindings);
     expect(findings.has('numbers')).toBe(false);
   });
 
@@ -33,13 +33,13 @@ describe(findUnroutedEntryScopes, () => {
   ])('does not report %s', (_label, scopes) => {
     const commit = blockCommit('a1', [scopes]);
 
-    expect(findUnroutedEntryScopes([window('arrays', [commit])], CONFIGURED, {}).size).toBe(0);
+    expect(findUnroutedEntryScopes([window('arrays', [commit])], CONFIGURED_SCOPES, {}).size).toBe(0);
   });
 
   it('does not report a configured workspace that the run did not read', () => {
     const commit = blockCommit('a1', [['strings']]);
 
-    expect(findUnroutedEntryScopes([window('arrays', [commit])], CONFIGURED, {}).size).toBe(0);
+    expect(findUnroutedEntryScopes([window('arrays', [commit])], CONFIGURED_SCOPES, {}).size).toBe(0);
   });
 
   it('reports `root` as an out-of-window workspace when a workspace has that dir', () => {
@@ -53,7 +53,7 @@ describe(findUnroutedEntryScopes, () => {
   it('resolves a scope through the aliases before the check, reporting the declared scope', () => {
     const commit = blockCommit('a1', [['arr'], ['str']]);
 
-    const findings = findUnroutedEntryScopes([window('arrays', [commit]), window('strings', [])], CONFIGURED, {
+    const findings = findUnroutedEntryScopes([window('arrays', [commit]), window('strings', [])], CONFIGURED_SCOPES, {
       arr: 'arrays',
       str: 'strings',
     });
@@ -64,7 +64,7 @@ describe(findUnroutedEntryScopes, () => {
   it('reports a scope that an entry repeats once', () => {
     const commit = blockCommit('a1', [['nothing', 'nothing']]);
 
-    expect(findUnroutedEntryScopes([window('arrays', [commit])], CONFIGURED, {}).get('arrays')).toHaveLength(1);
+    expect(findUnroutedEntryScopes([window('arrays', [commit])], CONFIGURED_SCOPES, {}).get('arrays')).toHaveLength(1);
   });
 
   it.each([
@@ -73,7 +73,7 @@ describe(findUnroutedEntryScopes, () => {
     ['a block without entries', makeCommit('a1', SUBJECT, ['```change-record', 'entries: []', '```'].join('\n'))],
     ['a commit without a block', makeCommit('a1', '#1 feat: Add', '')],
   ])('skips %s', (_label, commit) => {
-    expect(findUnroutedEntryScopes([window('arrays', [commit])], CONFIGURED, {}).size).toBe(0);
+    expect(findUnroutedEntryScopes([window('arrays', [commit])], CONFIGURED_SCOPES, {}).size).toBe(0);
   });
 });
 

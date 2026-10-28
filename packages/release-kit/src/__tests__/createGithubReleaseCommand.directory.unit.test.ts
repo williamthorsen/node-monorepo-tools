@@ -38,9 +38,9 @@ vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
 }));
 
 vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
-  const original = await importOriginal();
+  const originalModule = await importOriginal();
   return {
-    ...original,
+    ...originalModule,
     loadConfig: mockLoadConfig,
     readRootPackageVersion: () => ({ doesExist: true, version: '1.0.0' }),
   };
@@ -52,17 +52,17 @@ import { resolvedPackages } from '../test-utils/workspaceResolutions.ts';
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 describe(createGithubReleaseCommand, () => {
-  let capture: CapturedStdio;
+  let stdioCapture: CapturedStdio;
 
   beforeEach(() => {
-    capture = captureStdio();
+    stdioCapture = captureStdio();
     applyCreateGithubReleaseCommandDefaults();
     void throwOnProcessExit();
     void silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {
-    capture[Symbol.dispose]();
+    stdioCapture[Symbol.dispose]();
     resetCreateGithubReleaseCommandMocks();
     vi.restoreAllMocks();
   });

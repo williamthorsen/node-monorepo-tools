@@ -192,13 +192,13 @@ describe(buildChangelogEntries, () => {
   });
 
   it('preserves the underlying error as the cause', () => {
-    const underlying = new Error('git log exited with code 1');
+    const underlyingError = new Error('git log exited with code 1');
     mockEnumerateReleaseWindows.mockImplementationOnce(() => {
-      throw underlying;
+      throw underlyingError;
     });
 
     expect(() => buildChangelogEntries(makeConfig(), 'v9.9.9', OPTIONS)).toThrow(
-      expect.objectContaining({ cause: underlying }),
+      expect.objectContaining({ cause: underlyingError }),
     );
   });
 
@@ -387,7 +387,7 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
 
     const sectionOrder = Object.values(DEFAULT_WORK_TYPES).map((config) => config.header);
 
-    const rendered = renderReleaseNotesSingle(entry, {
+    const renderedNotes = renderReleaseNotesSingle(entry, {
       filter: matchesAudience('all'),
       shouldIncludeHeading: false,
       sectionOrder,
@@ -396,18 +396,18 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
     // Public release notes: Features before Bug fixes (canonical Public-tier order), no Refactoring, no Formatting.
     // Emoji-tolerant matching: The contract is "a Features section appears before a Bug fixes section",
     // independent of the specific decorative emoji prefix in the header.
-    const bugFixesIndex = rendered.search(/### (?:\S+ )?Bug fixes\b/);
-    const featuresIndex = rendered.search(/### (?:\S+ )?Features\b/);
+    const bugFixesIndex = renderedNotes.search(/### (?:\S+ )?Bug fixes\b/);
+    const featuresIndex = renderedNotes.search(/### (?:\S+ )?Features\b/);
     expect(featuresIndex).toBeGreaterThanOrEqual(0);
     expect(bugFixesIndex).toBeGreaterThan(featuresIndex);
-    expect(rendered).not.toMatch(/### (?:\S+ )?Refactoring\b/);
-    expect(rendered).not.toMatch(/### (?:\S+ )?Formatting\b/);
+    expect(renderedNotes).not.toMatch(/### (?:\S+ )?Refactoring\b/);
+    expect(renderedNotes).not.toMatch(/### (?:\S+ )?Formatting\b/);
 
     // Body text renders as two-space-indented paragraphs under the bullet, and signed-off-by is stripped.
-    expect(rendered).toContain(
+    expect(renderedNotes).toContain(
       '- Fix crash on startup\n\n  Fixes a regression that crashed the app when the config file was missing.',
     );
-    expect(rendered).toContain('- Add widget API\n\n  Introduces a widget API for consumers.');
-    expect(rendered).not.toContain('Signed-off-by');
+    expect(renderedNotes).toContain('- Add widget API\n\n  Introduces a widget API for consumers.');
+    expect(renderedNotes).not.toContain('Signed-off-by');
   });
 });

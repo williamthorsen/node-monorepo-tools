@@ -15,13 +15,13 @@ const SESSION_GATE = 'npm session can answer trust queries';
 
 // Repo shapes that the discovery-dependent tests scaffold. Discovery reports the root alongside the members and returns
 // the matched directories sorted, which is the order every assertion below reads.
-const MONOREPO_PUBLISHING_NOTHING = {
+const NON_PUBLISHING_MONOREPO_ENTRIES = {
   'package.json': '{"name":"monorepo","private":true}',
   'pnpm-workspace.yaml': PNPM_WORKSPACE,
   'packages/private/package.json': '{"name":"@scope/private","private":true}',
 };
 
-const MONOREPO_WITH_PRIVATE_ROOT = {
+const PRIVATE_ROOT_MONOREPO_ENTRIES = {
   'package.json': '{"name":"monorepo","private":true}',
   'pnpm-workspace.yaml': PNPM_WORKSPACE,
   'packages/private/package.json': '{"name":"@scope/private","private":true}',
@@ -35,7 +35,7 @@ describe(selectProbeName, () => {
   // Because the private member sorts first, a checklist-membership filter would have picked it. Its row is skipped,
   // which would leave the probe's memoized answer unread and the round trip wasted.
   it('passes over a private member that sorts ahead of a publishable one', () => {
-    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
+    scaffoldRepo(PRIVATE_ROOT_MONOREPO_ENTRIES);
 
     expect(selectProbeName()).toBe('@scope/published');
   });
@@ -47,7 +47,7 @@ describe(selectProbeName, () => {
   });
 
   it('names nothing when every workspace is private', () => {
-    scaffoldRepo(MONOREPO_PUBLISHING_NOTHING);
+    scaffoldRepo(NON_PUBLISHING_MONOREPO_ENTRIES);
 
     expect(selectProbeName()).toBeUndefined();
   });
@@ -55,7 +55,7 @@ describe(selectProbeName, () => {
 
 describe(skipIfNothingPublishable, () => {
   it('returns false when at least one workspace is publishable', () => {
-    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
+    scaffoldRepo(PRIVATE_ROOT_MONOREPO_ENTRIES);
 
     expect(skipIfNothingPublishable()).toBe(false);
   });
@@ -63,7 +63,7 @@ describe(skipIfNothingPublishable, () => {
   // Discovery reports the root, so the private-root monorepo is the closest a repo comes to an empty list:
   // The list is never empty, and every entry in it is private.
   it('returns the skip reason when every workspace is private, the root included', () => {
-    scaffoldRepo(MONOREPO_PUBLISHING_NOTHING);
+    scaffoldRepo(NON_PUBLISHING_MONOREPO_ENTRIES);
 
     expect(skipIfNothingPublishable()).toBe('no publishable packages');
   });
@@ -80,13 +80,13 @@ describe('repo checklist', () => {
   });
 
   it('skips publish.yaml exists when the repo publishes nothing', () => {
-    scaffoldRepo(MONOREPO_PUBLISHING_NOTHING);
+    scaffoldRepo(NON_PUBLISHING_MONOREPO_ENTRIES);
 
     expect(findCheck('publish.yaml exists', findChecklist('repo').checks).skip?.()).toBe('no publishable packages');
   });
 
   it('runs publish.yaml exists when the repo publishes something', () => {
-    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
+    scaffoldRepo(PRIVATE_ROOT_MONOREPO_ENTRIES);
 
     expect(findCheck('publish.yaml exists', findChecklist('repo').checks).skip?.()).toBe(false);
   });
@@ -120,7 +120,7 @@ describe('packages checklist', () => {
   // `rdy compile` records these names in the published manifest, so they must not vary with the directory from which
   // the kit is imported.
   it('declares the same check names whatever the repo under check', () => {
-    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
+    scaffoldRepo(PRIVATE_ROOT_MONOREPO_ENTRIES);
     const monorepoNames = kit.checklists.map(listDeclaredNames);
     scaffoldRepo(SINGLE_PACKAGE_REPO);
     const singlePackageNames = kit.checklists.map(listDeclaredNames);
@@ -131,19 +131,19 @@ describe('packages checklist', () => {
   });
 
   it('skips the parent when the repo publishes nothing', () => {
-    scaffoldRepo(MONOREPO_PUBLISHING_NOTHING);
+    scaffoldRepo(NON_PUBLISHING_MONOREPO_ENTRIES);
 
     expect(findCheck(PACKAGES_PARENT, packagesChecklist.checks).skip?.()).toBe('no publishable packages');
   });
 
   it('runs the parent when the repo publishes something', () => {
-    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
+    scaffoldRepo(PRIVATE_ROOT_MONOREPO_ENTRIES);
 
     expect(findCheck(PACKAGES_PARENT, packagesChecklist.checks).skip?.()).toBe(false);
   });
 
   it('runs the npm session gate as a check rather than a precondition', async () => {
-    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
+    scaffoldRepo(PRIVATE_ROOT_MONOREPO_ENTRIES);
 
     expect(packagesChecklist.preconditions?.map((precondition) => precondition.name)).not.toContain(SESSION_GATE);
     expect((await buildPackagesRows())[0]?.name).toBe(SESSION_GATE);
@@ -151,7 +151,7 @@ describe('packages checklist', () => {
 
   // The parent's skip covers the gate, so a gate of its own would only repeat it.
   it('declares neither a skip nor any dependent check on the npm session gate', async () => {
-    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
+    scaffoldRepo(PRIVATE_ROOT_MONOREPO_ENTRIES);
 
     const gate = findCheck(SESSION_GATE, await buildPackagesRows());
 
@@ -162,7 +162,7 @@ describe('packages checklist', () => {
   // Asserted against the property descriptor because the remediation is the same however the session fails, so
   // nothing here should vary with what the check found.
   it('declares the npm session fix as a value, not an accessor', async () => {
-    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
+    scaffoldRepo(PRIVATE_ROOT_MONOREPO_ENTRIES);
 
     const descriptor = Object.getOwnPropertyDescriptor(findCheck(SESSION_GATE, await buildPackagesRows()), 'fix');
 
@@ -172,7 +172,7 @@ describe('packages checklist', () => {
   // A private member keeps its row. A private root does not: The row reports the workspace as skipped,
   // and the root is not a workspace that a consumer wrote.
   it('builds a check for every discovered member beside the npm session gate', async () => {
-    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
+    scaffoldRepo(PRIVATE_ROOT_MONOREPO_ENTRIES);
 
     expect((await buildPackagesRows()).map((check) => check.name)).toStrictEqual([
       SESSION_GATE,
@@ -182,7 +182,7 @@ describe('packages checklist', () => {
   });
 
   it('does not build any check for a private repo root', async () => {
-    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
+    scaffoldRepo(PRIVATE_ROOT_MONOREPO_ENTRIES);
 
     // Read the unfiltered list first, so that the root's absence below is the filter's doing rather than the tree's.
     expect(discoverWorkspaces().map((workspace) => workspace.name)).toContain('monorepo');

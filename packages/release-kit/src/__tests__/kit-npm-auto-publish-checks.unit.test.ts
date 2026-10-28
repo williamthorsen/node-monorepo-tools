@@ -16,10 +16,10 @@ import {
 import { listDeclaredChildren } from '../test-utils/listDeclaredChildren.ts';
 
 // Verbatim payloads from npm 11.16.0. Both commands write the envelope to stdout and exit nonzero.
-const WHOAMI_E401 =
+const WHOAMI_E401_STDOUT =
   '{"error":{"code":"E401","summary":"401 Unauthorized - GET https://registry.npmjs.org/-/whoami","detail":""}}';
-const TRUST_E401 = String.raw`{"error":{"code":"E401","summary":"401 Unauthorized - GET https://registry.npmjs.org/-/package/@williamthorsen%2frelease-kit/trust - {\"success\":false,\"error\":\"You must be logged in to publish packages.\"}","detail":""}}`;
-const TRUST_EOTP =
+const TRUST_E401_STDOUT = String.raw`{"error":{"code":"E401","summary":"401 Unauthorized - GET https://registry.npmjs.org/-/package/@williamthorsen%2frelease-kit/trust - {\"success\":false,\"error\":\"You must be logged in to publish packages.\"}","detail":""}}`;
+const TRUST_EOTP_STDOUT =
   '{"error":{"code":"EOTP","summary":"This operation requires a one-time password.","detail":"Enter one with your authenticator app."}}';
 
 const OWNER_REPO = 'williamthorsen/node-monorepo-tools';
@@ -28,8 +28,8 @@ const UNRESOLVED_REPO: OwnerRepo = { ok: false, detail: 'The repo does not have 
 const NO_GITHUB_REMOTE_FIX = 'Add an origin remote that points to the GitHub repo, then run this check again';
 const WORKFLOW_FILE = 'publish.yaml';
 
-const WORKFLOW_WITHOUT_PROVENANCE = 'jobs:\n  publish:\n    steps:\n      - run: npm publish\n';
-const WORKFLOW_WITH_PROVENANCE = `${WORKFLOW_WITHOUT_PROVENANCE}        with:\n          provenance: true\n`;
+const NO_PROVENANCE_WORKFLOW_CONTENT = 'jobs:\n  publish:\n    steps:\n      - run: npm publish\n';
+const PROVENANCE_WORKFLOW_CONTENT = `${NO_PROVENANCE_WORKFLOW_CONTENT}        with:\n          provenance: true\n`;
 
 describe(skipIfNotPublishable, () => {
   it('returns false for a publishable workspace (isPackage true)', () => {
@@ -129,10 +129,10 @@ describe(classifyNpmAuth, () => {
   });
 
   it('reports E401 as unauthenticated', () => {
-    const status = classifyNpmAuth({ exitOk: false, stdout: WHOAMI_E401 });
+    const authStatus = classifyNpmAuth({ exitOk: false, stdout: WHOAMI_E401_STDOUT });
 
-    expect(status.status).toBe('unauthenticated');
-    expect(status).toHaveProperty('detail', expect.stringContaining('E401'));
+    expect(authStatus.status).toBe('unauthenticated');
+    expect(authStatus).toHaveProperty('detail', expect.stringContaining('E401'));
   });
 
   it('reports ENEEDAUTH as unauthenticated', () => {
@@ -143,18 +143,18 @@ describe(classifyNpmAuth, () => {
 
   it('reports a network failure as unreachable', () => {
     const stdout = '{"error":{"code":"ENOTFOUND","summary":"request to https://registry.npmjs.org failed"}}';
-    const status = classifyNpmAuth({ exitOk: false, stdout });
+    const authStatus = classifyNpmAuth({ exitOk: false, stdout });
 
-    expect(status.status).toBe('unreachable');
-    expect(status).toHaveProperty('detail', expect.stringContaining('ENOTFOUND'));
+    expect(authStatus.status).toBe('unreachable');
+    expect(authStatus).toHaveProperty('detail', expect.stringContaining('ENOTFOUND'));
   });
 
   it('does not report an unrecognized error code as a missing login', () => {
     const stdout = '{"error":{"code":"E500","summary":"500 Internal Server Error"}}';
-    const status = classifyNpmAuth({ exitOk: false, stdout });
+    const authStatus = classifyNpmAuth({ exitOk: false, stdout });
 
-    expect(status.status).toBe('unreachable');
-    expect(status).toHaveProperty('detail', expect.stringContaining('500 Internal Server Error'));
+    expect(authStatus.status).toBe('unreachable');
+    expect(authStatus).toHaveProperty('detail', expect.stringContaining('500 Internal Server Error'));
   });
 
   it('reports an unreadable payload as unreachable', () => {
@@ -177,7 +177,7 @@ describe(classifyProvenanceSetting, () => {
   });
 
   it('reports an unidentified repo with the remote fix rather than the GitHub CLI fix', () => {
-    expect(classifyProvenanceSetting(WORKFLOW_WITH_PROVENANCE, UNRESOLVED_REPO)).toStrictEqual({
+    expect(classifyProvenanceSetting(PROVENANCE_WORKFLOW_CONTENT, UNRESOLVED_REPO)).toStrictEqual({
       ok: false,
       detail: 'The repo does not have a readable origin remote',
       fix: NO_GITHUB_REMOTE_FIX,
@@ -185,14 +185,14 @@ describe(classifyProvenanceSetting, () => {
   });
 
   it('reports an unreportable visibility', () => {
-    const outcome = classifyProvenanceSetting(WORKFLOW_WITH_PROVENANCE, 'unknown');
+    const outcome = classifyProvenanceSetting(PROVENANCE_WORKFLOW_CONTENT, 'unknown');
 
     expect(outcome.detail).toBe("The GitHub CLI could not report the repo's visibility");
     expect(outcome.fix).toBe('Install and authenticate the GitHub CLI: gh auth login');
   });
 
   it('reports a public repo whose workflow omits provenance', () => {
-    const outcome = classifyProvenanceSetting(WORKFLOW_WITHOUT_PROVENANCE, 'public');
+    const outcome = classifyProvenanceSetting(NO_PROVENANCE_WORKFLOW_CONTENT, 'public');
 
     expect(outcome.detail).toBe('The repo is public and publish.yaml does not set provenance: true');
     expect(outcome.fix).toBe(
@@ -201,35 +201,35 @@ describe(classifyProvenanceSetting, () => {
   });
 
   it('reports a private repo whose workflow sets provenance', () => {
-    const outcome = classifyProvenanceSetting(WORKFLOW_WITH_PROVENANCE, 'private');
+    const outcome = classifyProvenanceSetting(PROVENANCE_WORKFLOW_CONTENT, 'private');
 
     expect(outcome.detail).toBe('The repo is private and publish.yaml sets provenance: true');
     expect(outcome.fix).toBe('Make the GitHub repo public; OIDC publishing with provenance requires a public repo');
   });
 
   it('passes a public repo whose workflow sets provenance', () => {
-    expect(classifyProvenanceSetting(WORKFLOW_WITH_PROVENANCE, 'public')).toStrictEqual({ ok: true });
+    expect(classifyProvenanceSetting(PROVENANCE_WORKFLOW_CONTENT, 'public')).toStrictEqual({ ok: true });
   });
 
   it('passes a private repo whose workflow omits provenance', () => {
-    expect(classifyProvenanceSetting(WORKFLOW_WITHOUT_PROVENANCE, 'private')).toStrictEqual({ ok: true });
+    expect(classifyProvenanceSetting(NO_PROVENANCE_WORKFLOW_CONTENT, 'private')).toStrictEqual({ ok: true });
   });
 });
 
 describe(classifyTrustCapability, () => {
   it('reports an unauthenticated session as incapable, including its detail', () => {
-    const auth = classifyNpmAuth({ exitOk: false, stdout: WHOAMI_E401 });
+    const authStatus = classifyNpmAuth({ exitOk: false, stdout: WHOAMI_E401_STDOUT });
 
-    expect(classifyTrustCapability(auth, undefined)).toStrictEqual({
+    expect(classifyTrustCapability(authStatus, undefined)).toStrictEqual({
       ok: false,
       detail: expect.stringContaining('E401'),
     });
   });
 
   it('reports an unanswerable probe as incapable, including the probe detail', () => {
-    const probe = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP }, RESOLVED_REPO, WORKFLOW_FILE);
+    const probeResult = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP_STDOUT }, RESOLVED_REPO, WORKFLOW_FILE);
 
-    expect(classifyTrustCapability({ status: 'authenticated' }, probe)).toStrictEqual({
+    expect(classifyTrustCapability({ status: 'authenticated' }, probeResult)).toStrictEqual({
       ok: false,
       detail: expect.stringContaining('one-time password'),
     });
@@ -239,7 +239,7 @@ describe(classifyTrustCapability, () => {
     ['a configured publisher', { status: 'configured' } as const],
     ['no publisher at all', { status: 'not-configured' } as const],
     ['a package-specific failure', { status: 'error', detail: 'The npm trust query failed (E500): ' } as const],
-  ])('reports an authenticated session whose probe found %s as capable', (_label, probe) => {
+  ])('probeResult', (_label, probe) => {
     expect(classifyTrustCapability({ status: 'authenticated' }, probe)).toStrictEqual({ ok: true });
   });
 
@@ -251,11 +251,11 @@ describe(classifyTrustCapability, () => {
 });
 
 describe(classifyTrustQuery, () => {
-  const configured = { type: 'github', repository: OWNER_REPO, file: WORKFLOW_FILE };
+  const configuredRelationship = { type: 'github', repository: OWNER_REPO, file: WORKFLOW_FILE };
 
   it('reports a matching relationship as configured', () => {
     const result = classifyTrustQuery(
-      { exitOk: true, stdout: JSON.stringify(configured) },
+      { exitOk: true, stdout: JSON.stringify(configuredRelationship) },
       RESOLVED_REPO,
       WORKFLOW_FILE,
     );
@@ -264,9 +264,9 @@ describe(classifyTrustQuery, () => {
   });
 
   it('finds a match among several relationships', () => {
-    const others = { type: 'gitlab', repository: 'elsewhere/other', file: 'release.yaml' };
+    const otherRelationship = { type: 'gitlab', repository: 'elsewhere/other', file: 'release.yaml' };
     const result = classifyTrustQuery(
-      { exitOk: true, stdout: JSON.stringify([others, configured]) },
+      { exitOk: true, stdout: JSON.stringify([otherRelationship, configuredRelationship]) },
       RESOLVED_REPO,
       WORKFLOW_FILE,
     );
@@ -275,9 +275,9 @@ describe(classifyTrustQuery, () => {
   });
 
   it('reports a relationship pointing elsewhere as mismatched', () => {
-    const elsewhere = { type: 'github', repository: 'someone/else', file: WORKFLOW_FILE };
+    const elsewhereRelationship = { type: 'github', repository: 'someone/else', file: WORKFLOW_FILE };
     const result = classifyTrustQuery(
-      { exitOk: true, stdout: JSON.stringify(elsewhere) },
+      { exitOk: true, stdout: JSON.stringify(elsewhereRelationship) },
       RESOLVED_REPO,
       WORKFLOW_FILE,
     );
@@ -287,9 +287,9 @@ describe(classifyTrustQuery, () => {
   });
 
   it('names the workflow file when it is the only field that differs', () => {
-    const otherFile = { type: 'github', repository: OWNER_REPO, file: 'release.yaml' };
+    const otherFileRelationship = { type: 'github', repository: OWNER_REPO, file: 'release.yaml' };
     const result = classifyTrustQuery(
-      { exitOk: true, stdout: JSON.stringify(otherFile) },
+      { exitOk: true, stdout: JSON.stringify(otherFileRelationship) },
       RESOLVED_REPO,
       WORKFLOW_FILE,
     );
@@ -300,7 +300,7 @@ describe(classifyTrustQuery, () => {
 
   it('reports a relationship as a failed query when the repo is unidentified', () => {
     const result = classifyTrustQuery(
-      { exitOk: true, stdout: JSON.stringify(configured) },
+      { exitOk: true, stdout: JSON.stringify(configuredRelationship) },
       UNRESOLVED_REPO,
       WORKFLOW_FILE,
     );
@@ -334,14 +334,14 @@ describe(classifyTrustQuery, () => {
   });
 
   it('reports an authentication failure as unanswerable, not as an unconfigured publisher', () => {
-    const result = classifyTrustQuery({ exitOk: false, stdout: TRUST_E401 }, RESOLVED_REPO, WORKFLOW_FILE);
+    const result = classifyTrustQuery({ exitOk: false, stdout: TRUST_E401_STDOUT }, RESOLVED_REPO, WORKFLOW_FILE);
 
     expect(result.status).toBe('unanswerable');
     expect(result).toHaveProperty('detail', expect.stringContaining('E401'));
   });
 
   it('reports a missing one-time password as unanswerable', () => {
-    const result = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP }, RESOLVED_REPO, WORKFLOW_FILE);
+    const result = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP_STDOUT }, RESOLVED_REPO, WORKFLOW_FILE);
 
     expect(result.status).toBe('unanswerable');
     expect(result).toHaveProperty('detail', expect.stringContaining('one-time password'));

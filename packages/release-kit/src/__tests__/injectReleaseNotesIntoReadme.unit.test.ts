@@ -50,8 +50,8 @@ describe(injectReleaseNotesIntoReadme, () => {
   });
 
   function setupInjectionMocks(): void {
-    mockExistsSync.mockImplementation((p: string) => {
-      return typeof p === 'string' && (p.endsWith('README.md') || p.endsWith('changelog.json'));
+    mockExistsSync.mockImplementation((filePath: string) => {
+      return typeof filePath === 'string' && (filePath.endsWith('README.md') || filePath.endsWith('changelog.json'));
     });
     mockReadFileSync.mockReturnValue('# Original README\n');
     mockExtractVersion.mockReturnValue('1.0.0');
@@ -69,9 +69,9 @@ describe(injectReleaseNotesIntoReadme, () => {
   it('injects release notes and returns original content', () => {
     setupInjectionMocks();
 
-    const original = injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0');
+    const originalContent = injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0');
 
-    expect(original).toBe('# Original README\n');
+    expect(originalContent).toBe('# Original README\n');
     expect(mockWriteFileSync).toHaveBeenCalledTimes(1);
     const injectedContent = mockWriteFileSync.mock.calls[0]?.[1];
     expect(typeof injectedContent === 'string' && injectedContent).toContain('Features');
@@ -322,14 +322,14 @@ describe(renderInjectedReadmeFromEntries, () => {
   });
 
   it('reports a skip through its return value rather than the console', () => {
-    using silent = silenceConsole(['warn']);
+    using silencedConsole = silenceConsole(['warn']);
     mockRenderReleaseNotesSingle.mockReturnValue('');
 
     renderInjectedReadmeFromEntries('# Pkg\n', entries, 'pkg-v1.2.3');
     mockExtractVersion.mockReturnValue('9.9.9');
     renderInjectedReadmeFromEntries('# Pkg\n', entries, 'pkg-v9.9.9');
 
-    expect(silent.warn).not.toHaveBeenCalled();
+    expect(silencedConsole.warn).not.toHaveBeenCalled();
   });
 });
 

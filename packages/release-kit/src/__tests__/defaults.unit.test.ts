@@ -36,8 +36,8 @@ describe('DEFAULT_WORK_TYPES derivation from CANONICAL_TAXONOMY', () => {
     for (const entry of CANONICAL_TAXONOMY.types) {
       const config = DEFAULT_WORK_TYPES[entry.key];
       // An entry without aliases in the JSON doesn't have an `aliases` key at all on its canonical entry.
-      const expected = entry.aliases.length === 0 ? undefined : entry.aliases;
-      expect(config?.aliases, `aliases for "${entry.key}"`).toStrictEqual(expected);
+      const expectedAliases = entry.aliases.length === 0 ? undefined : entry.aliases;
+      expect(config?.aliases, `aliases for "${entry.key}"`).toStrictEqual(expectedAliases);
     }
   });
 
@@ -48,8 +48,8 @@ describe('DEFAULT_WORK_TYPES derivation from CANONICAL_TAXONOMY', () => {
   it('copies `excludedFromChangelog` from the JSON for every entry that declares it', () => {
     for (const entry of CANONICAL_TAXONOMY.types) {
       const config = DEFAULT_WORK_TYPES[entry.key];
-      const expected = entry.excludedFromChangelog === true || undefined;
-      expect(config?.excludedFromChangelog, `excludedFromChangelog for "${entry.key}"`).toBe(expected);
+      const expectedValue = entry.excludedFromChangelog === true || undefined;
+      expect(config?.excludedFromChangelog, `excludedFromChangelog for "${entry.key}"`).toBe(expectedValue);
     }
   });
 
@@ -63,12 +63,12 @@ describe('DEFAULT_WORK_TYPES derivation from CANONICAL_TAXONOMY', () => {
 
 describe('DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections derivation', () => {
   it('contains exactly internal and process entries (excluding excludedFromChangelog), in canonical order', () => {
-    const expected = CANONICAL_TAXONOMY.types
+    const expectedHeaders = CANONICAL_TAXONOMY.types
       .filter(
         (entry) => (entry.tier === 'internal' || entry.tier === 'process') && entry.excludedFromChangelog !== true,
       )
       .map((entry) => composeHeader(entry));
-    expect(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections).toStrictEqual(expected);
+    expect(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections).toStrictEqual(expectedHeaders);
   });
 
   it('excludes `fmt` (process, excludedFromChangelog) from devOnlySections', () => {
