@@ -12,20 +12,20 @@ describe(reportPrepare, () => {
       { commitHash: 'fed4321cba', commitSubject: 'feat!: drop the old API', type: 'feat', surface: 'prefix' },
     ];
     const formatCommand = { command: 'npx prettier --write package.json', files: ['package.json'] };
-    const released = makeReleasedWorkspace({ unparseableCommits, policyViolations });
+    const releasedWorkspace = makeReleasedWorkspace({ unparseableCommits, policyViolations });
     // A version override does not have a release type.
-    const { releaseType: _releaseType, ...untyped } = released;
-    const overridden: ReleasedPackageResult = { ...untyped, versionOverride: '3.0.0' };
+    const { releaseType: _releaseType, ...untypedWorkspace } = releasedWorkspace;
+    const overriddenWorkspace: ReleasedPackageResult = { ...untypedWorkspace, versionOverride: '3.0.0' };
 
     // Together the fixtures populate every glyph-bearing branch of the formatter.
     const fixtures: Array<{ name: string; result: PrepareResult }> = [
       {
         name: 'a released single package',
-        result: { targets: [released], tags: ['v1.0.1'], formatCommand, warnings: ['README.md not found'] },
+        result: { targets: [releasedWorkspace], tags: ['v1.0.1'], formatCommand, warnings: ['README.md not found'] },
       },
       {
         name: 'a single package released by version override',
-        result: { targets: [overridden], tags: ['v3.0.0'] },
+        result: { targets: [overriddenWorkspace], tags: ['v3.0.0'] },
       },
       {
         name: 'a skipped single package',
@@ -50,8 +50,8 @@ describe(reportPrepare, () => {
         name: 'a monorepo with released and skipped workspaces and a released project',
         result: {
           targets: [
-            { ...released, targetId: 'arrays', name: 'arrays', tag: 'arrays-v1.0.1' },
-            { ...overridden, targetId: 'strings', name: 'strings', tag: 'strings-v3.0.0' },
+            { ...releasedWorkspace, targetId: 'arrays', name: 'arrays', tag: 'arrays-v1.0.1' },
+            { ...overriddenWorkspace, targetId: 'strings', name: 'strings', tag: 'strings-v3.0.0' },
             {
               targetId: 'numbers',
               kind: 'package',
@@ -122,7 +122,7 @@ describe(reportPrepare, () => {
 
     it('replaces each glyph with its plain marker', () => {
       const result: PrepareResult = {
-        targets: [released],
+        targets: [releasedWorkspace],
         tags: ['v1.0.1'],
         formatCommand,
         warnings: ['README.md not found'],

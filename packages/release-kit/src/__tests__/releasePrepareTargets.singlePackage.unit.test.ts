@@ -94,8 +94,8 @@ describe('releasePrepareTargets for a single-package repo', () => {
     expect(result.tags).toStrictEqual(['v1.1.0']);
     expect(selectPackageResults(result)).toHaveLength(1);
 
-    const workspace = selectPackageResults(result)[0];
-    expect(workspace).toMatchObject({
+    const packageResult = selectPackageResults(result)[0];
+    expect(packageResult).toMatchObject({
       status: 'released',
       releaseType: 'minor',
       currentVersion: '1.0.0',
@@ -104,11 +104,11 @@ describe('releasePrepareTargets for a single-package repo', () => {
       commitCount: 1,
       parsedCommitCount: 1,
     });
-    expect(workspace?.name).toBeUndefined();
-    assert(workspace?.status === 'released', 'expected released');
-    expect(workspace.bumpedFiles).toStrictEqual(['package.json']);
-    expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
-    expect(workspace.bumpOverride).toBeUndefined();
+    expect(packageResult?.name).toBeUndefined();
+    assert(packageResult?.status === 'released', 'expected released');
+    expect(packageResult.bumpedFiles).toStrictEqual(['package.json']);
+    expect(packageResult.changelogFiles).toStrictEqual(['CHANGELOG.md']);
+    expect(packageResult.bumpOverride).toBeUndefined();
   });
 
   it('reads the release history once, for the configured tagPrefix', () => {
@@ -356,16 +356,16 @@ describe('releasePrepareTargets for a single-package repo', () => {
 
     expect(result.tags).toStrictEqual(['v1.0.0']);
     expect(selectPackageResults(result)).toHaveLength(1);
-    const workspace = selectPackageResults(result)[0];
-    expect(workspace).toMatchObject({
+    const packageResult = selectPackageResults(result)[0];
+    expect(packageResult).toMatchObject({
       status: 'released',
       newVersion: '1.0.0',
       currentVersion: '0.5.0',
       tag: 'v1.0.0',
       versionOverride: '1.0.0',
     });
-    assert(workspace?.status === 'released', 'expected released');
-    expect(workspace.releaseType).toBeUndefined();
+    assert(packageResult?.status === 'released', 'expected released');
+    expect(packageResult.releaseType).toBeUndefined();
     expect(plannedContent(result, 'package.json')).toContain('"version": "1.0.0"');
   });
 
@@ -380,13 +380,13 @@ describe('releasePrepareTargets for a single-package repo', () => {
 
     const result = prepareSinglePackage(makeConfig(), { versionOverride: '1.0.0' });
 
-    const workspace = selectPackageResults(result)[0];
-    assert(workspace?.status === 'released', 'expected released');
-    expect(workspace).toMatchObject(diagnostics);
-    expect(workspace.releaseType).toBeUndefined();
-    expect(workspace.parsedCommitCount).toBeUndefined();
-    expect(workspace.unparseableCommits).toBeUndefined();
-    expect(workspace.bumpOverride).toBeUndefined();
+    const packageResult = selectPackageResults(result)[0];
+    assert(packageResult?.status === 'released', 'expected released');
+    expect(packageResult).toMatchObject(diagnostics);
+    expect(packageResult.releaseType).toBeUndefined();
+    expect(packageResult.parsedCommitCount).toBeUndefined();
+    expect(packageResult.unparseableCommits).toBeUndefined();
+    expect(packageResult.bumpOverride).toBeUndefined();
   });
 
   it('writes a synthetic empty-range changelog when --set-version is used with zero commits', () => {
@@ -395,9 +395,9 @@ describe('releasePrepareTargets for a single-package repo', () => {
 
     const result = prepareSinglePackage(makeConfig(), { versionOverride: '1.0.0' });
 
-    const workspace = selectPackageResults(result)[0];
-    assert(workspace?.status === 'released', 'expected released');
-    expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
+    const packageResult = selectPackageResults(result)[0];
+    assert(packageResult?.status === 'released', 'expected released');
+    expect(packageResult.changelogFiles).toStrictEqual(['CHANGELOG.md']);
 
     // The empty-range branch builds the synthetic entry and passes it to the markdown
     // renderer; assert on the entries that the renderer received.
@@ -467,7 +467,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
 
   it('records a warning and skips preview generation when --with-release-notes is set but changelogJson is disabled', () => {
     stubMinorRelease();
-    using silent = silenceConsole(['warn']);
+    using silencedConsole = silenceConsole(['warn']);
 
     const plan = prepareSinglePackage(makeConfig(), { shouldIncludeReleaseNotes: true });
 
@@ -475,7 +475,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     expect(plan.warnings).toStrictEqual([
       '--with-release-notes requires changelogJson.enabled; skipping preview generation',
     ]);
-    expect(silent.warn).not.toHaveBeenCalled();
+    expect(silencedConsole.warn).not.toHaveBeenCalled();
   });
 
   it('does not call planReleaseNotesPreviews when --with-release-notes is not set', () => {

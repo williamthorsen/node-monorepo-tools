@@ -24,11 +24,11 @@ describe(resolveReleaseTargets, () => {
     files.clear();
     mockExistsSync.mockImplementation((filePath: string) => files.has(toRelative(filePath)));
     mockReadFileSync.mockImplementation((filePath: string) => {
-      const relative = toRelative(filePath);
-      if (!files.has(relative)) {
-        throw new Error(`ENOENT: ${relative}`);
+      const relativePath = toRelative(filePath);
+      if (!files.has(relativePath)) {
+        throw new Error(`ENOENT: ${relativePath}`);
       }
-      return JSON.stringify(files.get(relative));
+      return JSON.stringify(files.get(relativePath));
     });
   });
 
@@ -41,7 +41,7 @@ describe(resolveReleaseTargets, () => {
     it('projects one package target at the root that reads the whole history', () => {
       files.set('package.json', { name: 'solo', version: '1.0.0' });
 
-      const { targets } = resolveReleaseTargets(undefined, SINGLE);
+      const { targets } = resolveReleaseTargets(undefined, SINGLE_DISCOVERY);
 
       expect(targets).toStrictEqual([
         {
@@ -60,7 +60,7 @@ describe(resolveReleaseTargets, () => {
     it('records a private root package as not publishable', () => {
       files.set('package.json', { name: 'solo', private: true });
 
-      const [target] = resolveReleaseTargets(undefined, SINGLE).targets;
+      const [target] = resolveReleaseTargets(undefined, SINGLE_DISCOVERY).targets;
 
       expect(target?.isPublishable).toBe(false);
     });
@@ -68,7 +68,10 @@ describe(resolveReleaseTargets, () => {
     it('keeps the shared settings beside the target', () => {
       files.set('package.json', { name: 'solo' });
 
-      const { settings } = resolveReleaseTargets({ formatCommand: 'pnpm fmt', scopeAliases: { c: 'core' } }, SINGLE);
+      const { settings } = resolveReleaseTargets(
+        { formatCommand: 'pnpm fmt', scopeAliases: { c: 'core' } },
+        SINGLE_DISCOVERY,
+      );
 
       expect(settings).toMatchObject({
         changelogJson: DEFAULT_CHANGELOG_JSON_CONFIG,
@@ -79,7 +82,7 @@ describe(resolveReleaseTargets, () => {
     });
 
     it('rejects a project block with the single-package error', () => {
-      expect(() => resolveReleaseTargets({ project: {} }, SINGLE)).toThrow(
+      expect(() => resolveReleaseTargets({ project: {} }, SINGLE_DISCOVERY)).toThrow(
         'project block is not supported in single-package mode',
       );
     });
@@ -271,11 +274,11 @@ describe(resolveReleaseTargets, () => {
     it('yields the same targets as the workspaces block for the equivalent declaration', () => {
       const legacyIdentities = [{ name: '@scope/core', tagPrefix: 'core-v' }];
 
-      const fromReleases = resolveReleaseTargets(
+      const resultFromReleases = resolveReleaseTargets(
         { releases: { 'nmr-core': { path: 'packages/nmr-core', legacyIdentities }, scratch: false } },
         discovery,
       );
-      const fromWorkspaces = resolveReleaseTargets(
+      const resultFromWorkspaces = resolveReleaseTargets(
         {
           workspaces: [
             { dir: 'nmr-core', legacyIdentities },
@@ -285,7 +288,7 @@ describe(resolveReleaseTargets, () => {
         discovery,
       );
 
-      expect(fromReleases).toStrictEqual(fromWorkspaces);
+      expect(resultFromReleases).toStrictEqual(resultFromWorkspaces);
     });
 
     it.each([
@@ -349,7 +352,7 @@ describe(resolveReleaseTargets, () => {
     it('rejects releases in a single-package repo', () => {
       files.set('package.json', { name: 'solo', version: '1.0.0' });
 
-      expect(() => resolveReleaseTargets({ releases: { solo: false } }, SINGLE)).toThrow(
+      expect(() => resolveReleaseTargets({ releases: { solo: false } }, SINGLE_DISCOVERY)).toThrow(
         'releases block is not supported in single-package mode',
       );
     });
@@ -363,7 +366,7 @@ describe(resolveReleaseTargets, () => {
     });
 
     it.each<{ shape: string; config: ReleaseKitConfig | undefined; discovery: Discovery; expected: string[] }>([
-      { shape: 'single package', config: undefined, discovery: SINGLE, expected: ['v'] },
+      { shape: 'single package', config: undefined, discovery: SINGLE_DISCOVERY, expected: ['v'] },
       {
         shape: 'scoped and unscoped workspaces',
         config: undefined,
@@ -432,7 +435,7 @@ describe(isSinglePackageTargets, () => {
 
 type Discovery = Exclude<WorkspaceDiscovery, { kind: 'empty' }>;
 
-const SINGLE: Discovery = { kind: 'single-package' };
+const SINGLE_DISCOVERY: Discovery = { kind: 'single-package' };
 
 /** Builds a monorepo discovery of the given workspace paths. */
 function packages(...packageDirs: string[]): Discovery {

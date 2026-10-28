@@ -13,10 +13,10 @@ describe(prepareHelpText, () => {
 
   it('does not document any unrecognized --flag tokens', () => {
     // `--help` is documented but handled by the bin dispatcher, so it is not in the schema.
-    const known = new Set<string>([...Object.values(prepareFlagSchema).map((flag) => flag.long), '--help']);
-    const documented = prepareHelpText.match(/--[a-z][a-z-]*/g) ?? [];
-    for (const token of documented) {
-      expect(known).toContain(token);
+    const knownFlags = new Set<string>([...Object.values(prepareFlagSchema).map((flag) => flag.long), '--help']);
+    const documentedFlags = prepareHelpText.match(/--[a-z][a-z-]*/g) ?? [];
+    for (const token of documentedFlags) {
+      expect(knownFlags).toContain(token);
     }
   });
 
@@ -49,10 +49,10 @@ describe(prepareHelpText, () => {
 
 describe(showPrepareHelp, () => {
   it('prints the help text', () => {
-    using silent = silenceConsole(['info']);
+    using silencedConsole = silenceConsole(['info']);
 
     showPrepareHelp();
 
-    expect(silent.info).toHaveBeenCalledWith(prepareHelpText);
+    expect(silencedConsole.info).toHaveBeenCalledWith(prepareHelpText);
   });
 });

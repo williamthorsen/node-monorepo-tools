@@ -117,12 +117,12 @@ describe('releasePrepareTargets for a monorepo', () => {
         ],
       });
       setupNoBaseline(['core-v0.2.7', 'core-v0.2.8']);
-      using capture = captureStdio();
+      using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
 
-      expect(capture.stderrChunks).toHaveLength(1);
-      const message = capture.stderrChunks[0] ?? '';
+      expect(stdioCapture.stderrChunks).toHaveLength(1);
+      const message = stdioCapture.stderrChunks[0] ?? '';
       expect(message).toContain("no baseline tag found for core under 'nmr-core-v'");
       expect(message).toContain('candidate-shaped tags');
       expect(message).toContain('core-v0.2.7');
@@ -145,11 +145,11 @@ describe('releasePrepareTargets for a monorepo', () => {
         ],
       });
       setupNoBaseline(['core-v0.2.7']);
-      using capture = captureStdio();
+      using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
 
-      expect(capture.stderrChunks).toHaveLength(0);
+      expect(stdioCapture.stderrChunks).toHaveLength(0);
     });
 
     it("suppresses the hint when the repo doesn't have any candidate-shaped tags", () => {
@@ -167,11 +167,11 @@ describe('releasePrepareTargets for a monorepo', () => {
         ],
       });
       setupNoBaseline([]);
-      using capture = captureStdio();
+      using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
 
-      expect(capture.stderrChunks).toHaveLength(0);
+      expect(stdioCapture.stderrChunks).toHaveLength(0);
     });
 
     it("treats sibling workspaces' derived prefixes as known (not undeclared candidates)", () => {
@@ -201,11 +201,11 @@ describe('releasePrepareTargets for a monorepo', () => {
       });
       // Only tags in the repo belong to the sibling `arrays` workspace. `core` doesn't have a baseline.
       setupNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0']);
-      using capture = captureStdio();
+      using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
 
-      expect(capture.stderrChunks).toHaveLength(0);
+      expect(stdioCapture.stderrChunks).toHaveLength(0);
     });
 
     it("treats sibling workspaces' declared legacyIdentities as known", () => {
@@ -235,11 +235,11 @@ describe('releasePrepareTargets for a monorepo', () => {
         ],
       });
       setupNoBaseline(['arrays-v0.5.0', 'arrays-v0.6.0']);
-      using capture = captureStdio();
+      using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
 
-      expect(capture.stderrChunks).toHaveLength(0);
+      expect(stdioCapture.stderrChunks).toHaveLength(0);
     });
 
     it('prints at most one hint per prepare run even with multiple triggering workspaces', () => {
@@ -266,11 +266,11 @@ describe('releasePrepareTargets for a monorepo', () => {
         ],
       });
       setupNoBaseline(['core-v0.2.7', 'arrays-v0.1.0']);
-      using capture = captureStdio();
+      using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
 
-      expect(capture.stderrChunks).toHaveLength(1);
+      expect(stdioCapture.stderrChunks).toHaveLength(1);
     });
   });
 
@@ -293,7 +293,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       commitSubject: 'Squash',
       reason: '`entries` is not a list',
     };
-    const undeclared: UndeclaredEntryType = {
+    const undeclaredEntryType: UndeclaredEntryType = {
       commitHash: 'bbb2222',
       commitSubject: 'Merge PR',
       entryPosition: 2,
@@ -348,7 +348,7 @@ describe('releasePrepareTargets for a monorepo', () => {
         diagnostics: {
           malformedBlocks: [malformedBlock],
           policyViolations: [prefixViolation, entryViolation],
-          undeclaredEntryTypes: [undeclared],
+          undeclaredEntryTypes: [undeclaredEntryType],
         },
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
@@ -358,7 +358,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       expect(selectPackageResults(result)[0]).toMatchObject({
         status: 'released',
         malformedBlocks: [malformedBlock],
-        undeclaredEntryTypes: [undeclared],
+        undeclaredEntryTypes: [undeclaredEntryType],
         policyViolations: [prefixViolation, entryViolation],
       });
     });
@@ -371,7 +371,7 @@ describe('releasePrepareTargets for a monorepo', () => {
         diagnostics: {
           malformedBlocks: [malformedBlock],
           policyViolations: [entryViolation],
-          undeclaredEntryTypes: [undeclared],
+          undeclaredEntryTypes: [undeclaredEntryType],
         },
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
@@ -381,7 +381,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       expect(selectPackageResults(result)[0]).toMatchObject({
         status: 'skipped',
         malformedBlocks: [malformedBlock],
-        undeclaredEntryTypes: [undeclared],
+        undeclaredEntryTypes: [undeclaredEntryType],
         policyViolations: [entryViolation],
       });
     });
@@ -437,7 +437,7 @@ describe('releasePrepareTargets for a monorepo', () => {
           diagnostics: {
             malformedBlocks: [malformedBlock],
             policyViolations: [entryViolation],
-            undeclaredEntryTypes: [undeclared],
+            undeclaredEntryTypes: [undeclaredEntryType],
           },
         },
       });
@@ -463,7 +463,7 @@ describe('releasePrepareTargets for a monorepo', () => {
         ]),
         unparseableCommits: makeStubbedCommits([['tidy up', 'ccc3333']]),
         malformedBlocks: [malformedBlock],
-        undeclaredEntryTypes: [undeclared],
+        undeclaredEntryTypes: [undeclaredEntryType],
         policyViolations: [entryViolation],
         propagatedOnly: true,
       });

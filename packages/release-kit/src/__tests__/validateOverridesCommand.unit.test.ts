@@ -97,14 +97,14 @@ describe(formatValidateOverridesResult, () => {
   it('renders errors and warnings without a pictographic character in the plain style', () => {
     const findings = { errors: ['file.json: error a'], warnings: ['file.json: warn a'] };
 
-    const plain = formatValidateOverridesResult(findings, 'plain');
+    const plainResult = formatValidateOverridesResult(findings, 'plain');
 
     // The rich render proves that the fixture reaches both glyph-bearing branches.
     expect(formatValidateOverridesResult(findings, 'rich').message).toContain(
       '  ❌ file.json: error a\n  🟠 file.json: warn a',
     );
-    expect(plain.message).toContain('  FAIL  file.json: error a\n  WARN  file.json: warn a');
-    expect(plain.message).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(plainResult.message).toContain('  FAIL  file.json: error a\n  WARN  file.json: warn a');
+    expect(plainResult.message).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 
   it('pluralizes the summary line', () => {
@@ -216,21 +216,21 @@ describe(validateOverridesCommand, () => {
   });
 
   it('passes a project-only scope to validate in single-package mode', async () => {
-    let received: { workspaces: number; projectItems: number } | undefined;
+    let receivedCounts: { workspaces: number; projectItems: number } | undefined;
     await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: singlePackage,
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
       buildEntries: () => entriesFromHashes(['hash1', 'hash2']),
       validate: (inputs) => {
-        received = {
+        receivedCounts = {
           workspaces: inputs.workspaces?.length ?? 0,
           projectItems: inputs.project?.items?.length ?? 0,
         };
         return { errors: [], warnings: [] };
       },
     });
-    expect(received).toStrictEqual({ workspaces: 0, projectItems: 2 });
+    expect(receivedCounts).toStrictEqual({ workspaces: 0, projectItems: 2 });
   });
 
   // The validator's hash universe must be byte-equal to the one that `prepare` walks: the full
@@ -264,7 +264,7 @@ describe(validateOverridesCommand, () => {
   });
 
   it("delivers each item's entry position to the validator", async () => {
-    let captured: unknown;
+    let seenItems: unknown;
     await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: singlePackage,
       loadValidatedConfig: () =>
@@ -288,11 +288,11 @@ describe(validateOverridesCommand, () => {
         },
       ],
       validate: (inputs) => {
-        captured = inputs.project?.items;
+        seenItems = inputs.project?.items;
         return { errors: [], warnings: [] };
       },
     });
-    expect(captured).toStrictEqual([{ hash: 'abc111', entry: 1 }, { hash: 'abc111', entry: 2 }, { hash: 'def222' }]);
+    expect(seenItems).toStrictEqual([{ hash: 'abc111', entry: 1 }, { hash: 'abc111', entry: 2 }, { hash: 'def222' }]);
   });
 
   describe('reading the config file named by configPath', () => {
@@ -306,20 +306,20 @@ describe(validateOverridesCommand, () => {
     it('reads the named file rather than the default path', async () => {
       tree.write('elsewhere/alternative.config.ts', 'export default { unknownField: true };');
 
-      const named = await validateOverridesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts', {
+      const namedResult = await validateOverridesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts', {
         discoverWorkspaces: singlePackage,
         buildEntries: () => entriesFromHashes([]),
         validate: () => ({ errors: [], warnings: [] }),
       });
-      const defaulted = await validateOverridesCommand(RICH_STYLES, undefined, {
+      const defaultedResult = await validateOverridesCommand(RICH_STYLES, undefined, {
         discoverWorkspaces: singlePackage,
         buildEntries: () => entriesFromHashes([]),
         validate: () => ({ errors: [], warnings: [] }),
       });
 
-      expect(named.exitCode).toBe(2);
-      expect(named.message).toContain('unknownField');
-      expect(defaulted.exitCode).toBe(0);
+      expect(namedResult.exitCode).toBe(2);
+      expect(namedResult.message).toContain('unknownField');
+      expect(defaultedResult.exitCode).toBe(0);
     });
 
     it('returns exit 2 when the named file does not exist', async () => {

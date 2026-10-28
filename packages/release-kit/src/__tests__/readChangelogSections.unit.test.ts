@@ -18,17 +18,17 @@ describe(parseChangelogSections, () => {
     ['## v1.2.3', '1.2.3'],
     ['## [v2.0.0-beta.1](https://example.com/compare/v1.0.0...v2.0.0-beta.1) (2024-01-01)', '2.0.0-beta.1'],
   ])('reads the version from %j', (heading, version) => {
-    const { versionedSections: versioned } = parseChangelogSections(`${heading}\n\n- item\n`);
+    const { versionedSections } = parseChangelogSections(`${heading}\n\n- item\n`);
 
-    expect(versioned).toStrictEqual([{ version, text: `${heading}\n\n- item` }]);
+    expect(versionedSections).toStrictEqual([{ version, text: `${heading}\n\n- item` }]);
   });
 
   it('excludes the header above the first section and the footer comment', () => {
     const content = ['# Changelog', '', 'Intro.', '', '## 1.0.0', '', '- item', '', FOOTER, ''].join('\n');
 
-    const { versionedSections: versioned, unversionedHeadings } = parseChangelogSections(content);
+    const { versionedSections, unversionedHeadings } = parseChangelogSections(content);
 
-    expect(versioned).toStrictEqual([{ version: '1.0.0', text: '## 1.0.0\n\n- item' }]);
+    expect(versionedSections).toStrictEqual([{ version: '1.0.0', text: '## 1.0.0\n\n- item' }]);
     expect(unversionedHeadings).toStrictEqual([]);
   });
 
@@ -55,9 +55,9 @@ describe(parseChangelogSections, () => {
       'Prose.',
     ].join('\n');
 
-    const { versionedSections: versioned } = parseChangelogSections(`${text}\n\n\n## 1.0.0\n\n- item\n`);
+    const { versionedSections } = parseChangelogSections(`${text}\n\n\n## 1.0.0\n\n- item\n`);
 
-    expect(versioned).toStrictEqual([
+    expect(versionedSections).toStrictEqual([
       { version: '2.0.0', text },
       { version: '1.0.0', text: '## 1.0.0\n\n- item' },
     ]);
@@ -74,24 +74,22 @@ describe(parseChangelogSections, () => {
       '\n',
     );
 
-    const { versionedSections: versioned, unversionedHeadings } = parseChangelogSections(content);
+    const { versionedSections, unversionedHeadings } = parseChangelogSections(content);
 
-    expect(versioned.map((section) => section.version)).toStrictEqual(['1.0.0']);
+    expect(versionedSections.map((section) => section.version)).toStrictEqual(['1.0.0']);
     expect(unversionedHeadings).toStrictEqual(['## Unreleased', '## Notes']);
   });
 
   it('reads a version-like token in a non-release heading as a version', () => {
-    const { versionedSections: versioned } = parseChangelogSections('## Upgrading from 2.0.0\n\nSteps.\n');
+    const { versionedSections } = parseChangelogSections('## Upgrading from 2.0.0\n\nSteps.\n');
 
-    expect(versioned.map((section) => section.version)).toStrictEqual(['2.0.0']);
+    expect(versionedSections.map((section) => section.version)).toStrictEqual(['2.0.0']);
   });
 
   it('does not read a version from a longer dotted number or a date', () => {
-    const { versionedSections: versioned, unversionedHeadings } = parseChangelogSections(
-      '## Build 1.2.3.4\n\n## 2024-01-01\n',
-    );
+    const { versionedSections, unversionedHeadings } = parseChangelogSections('## Build 1.2.3.4\n\n## 2024-01-01\n');
 
-    expect(versioned).toStrictEqual([]);
+    expect(versionedSections).toStrictEqual([]);
     expect(unversionedHeadings).toStrictEqual(['## Build 1.2.3.4', '## 2024-01-01']);
   });
 });

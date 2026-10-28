@@ -7,9 +7,9 @@ const mockWriteFileWithCheck = vi.hoisted(() =>
 );
 
 vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
-  const actual = await importOriginal();
+  const actualModule = await importOriginal();
   return {
-    ...actual,
+    ...actualModule,
     writeFileWithCheck: mockWriteFileWithCheck,
   };
 });
@@ -63,9 +63,9 @@ describe(applyReleasePlan, () => {
   });
 
   it('returns the paths written, in order', () => {
-    const written = applyReleasePlan(makePlan());
+    const returnedPaths = applyReleasePlan(makePlan());
 
-    expect(written).toStrictEqual([
+    expect(returnedPaths).toStrictEqual([
       'packages/core/package.json',
       'packages/core/CHANGELOG.md',
       'tmp/.release-summary',
@@ -138,7 +138,7 @@ describe(applyReleasePlan, () => {
   });
 
   describe('with removals', () => {
-    const removal = 'packages/core/changelogs/CHANGELOG-v1.md';
+    const removalPath = 'packages/core/changelogs/CHANGELOG-v1.md';
 
     it('removes files after the content writes and before the summary and tags files', () => {
       const steps: string[] = [];
@@ -150,16 +150,16 @@ describe(applyReleasePlan, () => {
         steps.push(`remove ${filePath}`);
       });
 
-      const applied = applyReleasePlan(makePlan({ removals: [removal] }));
+      const appliedPaths = applyReleasePlan(makePlan({ removals: [removalPath] }));
 
       expect(steps).toStrictEqual([
         'write packages/core/package.json',
         'write packages/core/CHANGELOG.md',
-        `remove ${removal}`,
+        `remove ${removalPath}`,
         'write tmp/.release-summary',
         'write tmp/.release-tags',
       ]);
-      expect(applied).toContain(removal);
+      expect(appliedPaths).toContain(removalPath);
     });
 
     it('if a removal fails, reports the removal and the underlying error', () => {
@@ -167,18 +167,18 @@ describe(applyReleasePlan, () => {
         throw new Error('EACCES: permission denied');
       });
 
-      const message = captureApplyFailure(makePlan({ removals: [removal] }));
+      const message = captureApplyFailure(makePlan({ removals: [removalPath] }));
 
-      expect(message).toContain(`Failed to remove ${removal}: EACCES: permission denied`);
-      expect(message).toContain(`Not written:\n  ${removal}\n  tmp/.release-summary\n  tmp/.release-tags`);
+      expect(message).toContain(`Failed to remove ${removalPath}: EACCES: permission denied`);
+      expect(message).toContain(`Not written:\n  ${removalPath}\n  tmp/.release-summary\n  tmp/.release-tags`);
     });
 
     it('restores an applied removal from git when a later step fails', () => {
       failOn('tmp/.release-tags');
 
-      const message = captureApplyFailure(makePlan({ removals: [removal] }));
+      const message = captureApplyFailure(makePlan({ removals: [removalPath] }));
 
-      expect(message).toMatch(new RegExp(`git restore .*${removal.replaceAll('.', String.raw`\.`)}$`));
+      expect(message).toMatch(new RegExp(`git restore .*${removalPath.replaceAll('.', String.raw`\.`)}$`));
     });
   });
 });

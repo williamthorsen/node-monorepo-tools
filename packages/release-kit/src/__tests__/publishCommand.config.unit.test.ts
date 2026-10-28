@@ -48,9 +48,9 @@ vi.mock(import('../publish.ts'), () => ({
 }));
 
 vi.mock(import('../loadConfig.ts'), async () => {
-  const actual = await vi.importActual<typeof import('../loadConfig.ts')>('../loadConfig.ts');
+  const actualModule = await vi.importActual<typeof import('../loadConfig.ts')>('../loadConfig.ts');
   return {
-    ...actual,
+    ...actualModule,
     loadConfig: mockLoadConfig,
     // `node:fs` is mocked above, so the real reader cannot read the root package.json.
     readRootPackageVersion: () => ({ doesExist: true, version: '1.0.0' }),
@@ -80,17 +80,17 @@ import { resolvedPackages } from '../test-utils/workspaceResolutions.ts';
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 describe(publishCommand, () => {
-  let capture: CapturedStdio;
+  let stdioCapture: CapturedStdio;
 
   beforeEach(() => {
-    capture = captureStdio();
+    stdioCapture = captureStdio();
     applyPublishCommandDefaults();
     void throwOnProcessExit();
     void silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {
-    capture[Symbol.dispose]();
+    stdioCapture[Symbol.dispose]();
     resetPublishCommandMocks();
     vi.restoreAllMocks();
   });
@@ -135,7 +135,7 @@ describe(publishCommand, () => {
       );
 
       expect(error.code).toBe(1);
-      expect(capture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
+      expect(stdioCapture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
       expect(console.info).not.toHaveBeenCalledWith('Nothing to publish.');
     });
 
@@ -148,7 +148,7 @@ describe(publishCommand, () => {
       const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
       expect(error.code).toBe(1);
-      expect(capture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
+      expect(stdioCapture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
       expect(console.info).not.toHaveBeenCalledWith('Nothing to publish.');
     });
 
@@ -162,7 +162,7 @@ describe(publishCommand, () => {
       const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
       expect(error.code).toBe(1);
-      expect(capture.stderrChunks).toContain('Invalid config:\n');
+      expect(stdioCapture.stderrChunks).toContain('Invalid config:\n');
       expect(console.info).not.toHaveBeenCalledWith('Nothing to publish.');
     });
 
@@ -174,7 +174,7 @@ describe(publishCommand, () => {
       await publishCommand([], RICH_STYLES, process.cwd());
 
       expect(console.info).toHaveBeenCalledWith('Nothing to publish.');
-      expect(capture.stderr).toBe('');
+      expect(stdioCapture.stderr).toBe('');
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
@@ -186,7 +186,7 @@ describe(publishCommand, () => {
       );
 
       expect(error.code).toBe(1);
-      expect(capture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
+      expect(stdioCapture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
@@ -196,7 +196,7 @@ describe(publishCommand, () => {
       const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
       expect(error.code).toBe(1);
-      expect(capture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
+      expect(stdioCapture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
@@ -225,8 +225,8 @@ describe(publishCommand, () => {
       const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
 
       expect(error.code).toBe(1);
-      expect(capture.stderrChunks).toContain('Invalid config:\n');
-      expect(capture.stderrChunks).toContain("  ❌ Unknown field: 'bogus'\n");
+      expect(stdioCapture.stderrChunks).toContain('Invalid config:\n');
+      expect(stdioCapture.stderrChunks).toContain("  ❌ Unknown field: 'bogus'\n");
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
   });

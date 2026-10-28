@@ -5,15 +5,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OUTPUT_STYLE_ENV_VAR, resolveStylesOrExit } from '../resolveStylesOrExit.ts';
 
 describe(resolveStylesOrExit, () => {
-  let capture: CapturedStdio;
+  let stdioCapture: CapturedStdio;
 
   beforeEach(() => {
-    capture = captureStdio();
+    stdioCapture = captureStdio();
     void throwOnProcessExit();
   });
 
   afterEach(() => {
-    capture[Symbol.dispose]();
+    stdioCapture[Symbol.dispose]();
     vi.restoreAllMocks();
   });
 
@@ -54,7 +54,7 @@ describe(resolveStylesOrExit, () => {
       resolveStylesOrExit({ env: { [OUTPUT_STYLE_ENV_VAR]: 'loud' }, stderrIsTty: true, stdoutIsTty: true }),
     ).toThrow(ProcessExitError);
 
-    expect(capture.stderrChunks).toContain(
+    expect(stdioCapture.stderrChunks).toContain(
       'Error: RELEASE_KIT_OUTPUT_STYLE must be one of: auto, plain, rich (got "loud")\n',
     );
     expect(process.exit).toHaveBeenCalledWith(1);

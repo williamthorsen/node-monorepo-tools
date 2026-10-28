@@ -241,7 +241,7 @@ describe(reportPrepare, () => {
   });
 
   describe('existing changelog sections', () => {
-    const preservingRelease: ReleasedPackageResult = {
+    const preservingReleaseResult: ReleasedPackageResult = {
       targetId: '.',
       kind: 'package',
       status: 'released',
@@ -265,7 +265,7 @@ describe(reportPrepare, () => {
 
     it('lists the kept versions and warns about the dropped sections under each changelog file', () => {
       const output = reportPrepare(
-        { targets: [preservingRelease], tags: ['v1.1.0'] },
+        { targets: [preservingReleaseResult], tags: ['v1.1.0'] },
         { applied: false, style: 'plain' },
       );
 
@@ -280,19 +280,19 @@ describe(reportPrepare, () => {
     });
 
     it('lists archive files under the generated changelogs and removed archive files after them', () => {
-      const archivingRelease = {
-        ...preservingRelease,
+      const archivingReleaseResult = {
+        ...preservingReleaseResult,
         changelogFiles: ['CHANGELOG.md', 'changelogs/CHANGELOG-v0.md'],
         removedChangelogFiles: ['changelogs/CHANGELOG-v1.md'],
       };
-      const { changelogPreservation: _, ...withoutPreservation } = archivingRelease;
+      const { changelogPreservation: _, ...resultWithoutPreservation } = archivingReleaseResult;
 
       const dryRunOutput = reportPrepare(
-        { targets: [withoutPreservation], tags: ['v1.1.0'] },
+        { targets: [resultWithoutPreservation], tags: ['v1.1.0'] },
         { applied: false, style: 'plain' },
       );
       const appliedOutput = reportPrepare(
-        { targets: [withoutPreservation], tags: ['v1.1.0'] },
+        { targets: [resultWithoutPreservation], tags: ['v1.1.0'] },
         { applied: true, style: 'plain' },
       );
 
@@ -327,7 +327,7 @@ describe(reportPrepare, () => {
 
       const output = reportPrepare(
         {
-          targets: [{ ...preservingRelease, targetId: 'core', name: 'core' }, project],
+          targets: [{ ...preservingReleaseResult, targetId: 'core', name: 'core' }, project],
           tags: ['core-v1.1.0', 'v1.1.0'],
         },
         { applied: true, style: 'plain' },

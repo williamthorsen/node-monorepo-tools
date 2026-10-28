@@ -33,12 +33,12 @@ import { previewTagPrefixes } from '../previewTagPrefixes.ts';
 import { emptyWorkspace, resolvedPackages, singlePackage } from '../test-utils/workspaceResolutions.ts';
 
 /** Builds a mock implementation for git invocations returning tag counts by prefix. */
-function setupTagCounts(byPrefix: Record<string, string[]>): void {
+function setupTagCounts(tagsByPrefix: Record<string, string[]>): void {
   mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
     if (cmd !== 'git' || args[0] !== 'tag' || args[1] !== '--list') return '';
     const matchArg = args[2] ?? '';
     const prefix = matchArg.endsWith('*') ? matchArg.slice(0, -1) : matchArg;
-    const tags = byPrefix[prefix] ?? [];
+    const tags = tagsByPrefix[prefix] ?? [];
     return tags.join('\n') + (tags.length > 0 ? '\n' : '');
   });
 }
@@ -167,9 +167,9 @@ describe(previewTagPrefixes, () => {
   it('adds a row for each directory that a releases entry declares, recording a derivation failure on the row', () => {
     mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/core']));
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'core-v' });
-    mockDeriveDirectoryConfig.mockImplementation((declared: { path: string; tagPrefix?: string }) => {
-      if (declared.path === 'apps/app') return { tagPrefix: declared.tagPrefix };
-      throw new Error(`releases.docs: path '${declared.path}' is not a directory`);
+    mockDeriveDirectoryConfig.mockImplementation((declaredDirectory: { path: string; tagPrefix?: string }) => {
+      if (declaredDirectory.path === 'apps/app') return { tagPrefix: declaredDirectory.tagPrefix };
+      throw new Error(`releases.docs: path '${declaredDirectory.path}' is not a directory`);
     });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({ 'app-v': ['app-v1.0.0'] });

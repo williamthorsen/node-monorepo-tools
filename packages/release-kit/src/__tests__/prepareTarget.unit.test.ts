@@ -64,7 +64,7 @@ import type { ChangelogEntry, CompositeTarget, PackageTarget } from '../types.ts
 
 const SETTINGS: TargetPrepareSettings = { changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } };
 
-const ROOT: PackageTarget = {
+const ROOT_TARGET: PackageTarget = {
   id: '.',
   kind: 'package',
   isWorkspace: false,
@@ -75,7 +75,7 @@ const ROOT: PackageTarget = {
   isPublishable: true,
 };
 
-const CORE: PackageTarget = {
+const CORE_TARGET: PackageTarget = {
   id: 'core',
   kind: 'package',
   packageName: '@scope/core',
@@ -89,7 +89,7 @@ const CORE: PackageTarget = {
   isWorkspace: true,
 };
 
-const PROJECT: CompositeTarget = {
+const PROJECT_TARGET: CompositeTarget = {
   id: '',
   kind: 'composite',
   members: ['core'],
@@ -120,7 +120,7 @@ describe(readTargetHistory, () => {
   });
 
   it('reads a workspace under its current and legacy prefixes, its paths, and its routing scope', () => {
-    readTargetHistory(CORE, SETTINGS);
+    readTargetHistory(CORE_TARGET, SETTINGS);
 
     expect(mockReadReleaseHistory).toHaveBeenCalledWith(SETTINGS, {
       tagPrefixes: ['core-v', 'old-core-v'],
@@ -130,27 +130,27 @@ describe(readTargetHistory, () => {
   });
 
   it('routes a renamed workspace by its target name, not its directory', () => {
-    readTargetHistory({ ...CORE, id: 'kernel' }, SETTINGS);
+    readTargetHistory({ ...CORE_TARGET, id: 'kernel' }, SETTINGS);
 
     expect(mockReadReleaseHistory).toHaveBeenCalledWith(SETTINGS, expect.objectContaining({ scope: 'kernel' }));
   });
 
   it('reads the single-package root without paths or routing', () => {
-    readTargetHistory(ROOT, SETTINGS);
+    readTargetHistory(ROOT_TARGET, SETTINGS);
 
     expect(mockReadReleaseHistory).toHaveBeenCalledWith(SETTINGS, { tagPrefixes: ['v'] });
   });
 
   it('reads a composite under its paths without routing', () => {
-    readTargetHistory(PROJECT, SETTINGS);
+    readTargetHistory(PROJECT_TARGET, SETTINGS);
 
     expect(mockReadReleaseHistory).toHaveBeenCalledWith(SETTINGS, { tagPrefixes: ['v'], paths: ['packages/core/**'] });
   });
 
   it.each([
-    { target: ROOT, label: 'package' },
-    { target: CORE, label: "workspace 'core'" },
-    { target: PROJECT, label: 'project' },
+    { target: ROOT_TARGET, label: 'package' },
+    { target: CORE_TARGET, label: "workspace 'core'" },
+    { target: PROJECT_TARGET, label: 'project' },
   ])('checks the baseline of $label from its version files and changelog dir', ({ target, label }) => {
     readTargetHistory(target, SETTINGS);
 
@@ -167,18 +167,22 @@ describe(readTargetHistory, () => {
   });
 
   it('returns the untagged baseline that it finds', () => {
-    const untagged = { label: 'package', version: '1.0.0', tag: 'v1.0.0' };
-    mockFindUntaggedBaseline.mockReturnValue(untagged);
+    const untaggedBaseline = { label: 'package', version: '1.0.0', tag: 'v1.0.0' };
+    mockFindUntaggedBaseline.mockReturnValue(untaggedBaseline);
 
-    expect(readTargetHistory(ROOT, SETTINGS).untaggedBaseline).toBe(untagged);
+    expect(readTargetHistory(ROOT_TARGET, SETTINGS).untaggedBaseline).toBe(untaggedBaseline);
   });
 });
 
 describe(decideTargetRelease, () => {
-  const noForce = { shouldForce: false, bumpOverride: undefined, setVersion: undefined };
+  const noForceOptions = { shouldForce: false, bumpOverride: undefined, setVersion: undefined };
 
   it('names a workspace in its skip reason', () => {
-    const decision = decideTargetRelease(CORE, makeReleaseHistory({ previousTag: 'core-v1.0.0' }), noForce);
+    const decision = decideTargetRelease(
+      CORE_TARGET,
+      makeReleaseHistory({ previousTag: 'core-v1.0.0' }),
+      noForceOptions,
+    );
 
     expect(decision).toStrictEqual({
       outcome: 'skip',
@@ -186,10 +190,10 @@ describe(decideTargetRelease, () => {
     });
   });
 
-  it.each([ROOT, PROJECT])('leaves the $kind target unnamed in its skip reason', (target) => {
+  it.each([ROOT_TARGET, PROJECT_TARGET])('leaves the $kind target unnamed in its skip reason', (target) => {
     const history = makeReleaseHistory({ commits: [['chore: tidy', 'abc1234']] });
 
-    const decision = decideTargetRelease(target, history, noForce);
+    const decision = decideTargetRelease(target, history, noForceOptions);
 
     expect(decision).toStrictEqual({
       outcome: 'skip',
@@ -199,7 +203,7 @@ describe(decideTargetRelease, () => {
   });
 
   it('releases at the bump override under --force', () => {
-    const decision = decideTargetRelease(CORE, makeReleaseHistory(), {
+    const decision = decideTargetRelease(CORE_TARGET, makeReleaseHistory(), {
       shouldForce: true,
       bumpOverride: 'major',
       setVersion: undefined,
@@ -214,7 +218,7 @@ describe(decideTargetRelease, () => {
   });
 
   it('releases at an explicit version without deciding a level', () => {
-    const decision = decideTargetRelease(CORE, makeReleaseHistory(), {
+    const decision = decideTargetRelease(CORE_TARGET, makeReleaseHistory(), {
       shouldForce: false,
       bumpOverride: 'minor',
       setVersion: '3.0.0',
@@ -250,21 +254,21 @@ describe(planTargetRelease, () => {
   });
 
   it('plans a direct package release: bump, changelogs, tag, and result', () => {
-    const planned = planTargetRelease(makeArgs({ target: CORE }));
+    const plannedRelease = planTargetRelease(makeArgs({ target: CORE_TARGET }));
 
-    expect(planned.tag).toBe('core-v1.1.0');
-    expect(planned.writes.map((write) => write.path)).toStrictEqual([
+    expect(plannedRelease.tag).toBe('core-v1.1.0');
+    expect(plannedRelease.writes.map((write) => write.path)).toStrictEqual([
       'packages/core/package.json',
       'packages/core/.meta/changelog.json',
       'packages/core/CHANGELOG.md',
     ]);
-    expect(planned.modifiedFiles).toStrictEqual([
+    expect(plannedRelease.modifiedFiles).toStrictEqual([
       'packages/core/package.json',
       'packages/core/CHANGELOG.md',
       'packages/core/.meta/changelog.json',
     ]);
-    expect(planned.warnings).toStrictEqual([]);
-    expect(planned.result).toStrictEqual({
+    expect(plannedRelease.warnings).toStrictEqual([]);
+    expect(plannedRelease.result).toStrictEqual({
       targetId: 'core',
       status: 'released',
       kind: 'package',
@@ -286,17 +290,20 @@ describe(planTargetRelease, () => {
   it('writes the archive files beside CHANGELOG.md under keptVersionCount, leaving the changelog JSON unchanged', () => {
     const settings = { ...SETTINGS, changelogMarkdown: { keptVersionCount: 1 } };
 
-    const planned = planTargetRelease(makeArgs({ settings }));
-    const unbounded = planTargetRelease(makeArgs());
+    const plannedRelease = planTargetRelease(makeArgs({ settings }));
+    const unboundedRelease = planTargetRelease(makeArgs());
 
-    expect(planned.writes).toContainEqual({ path: 'packages/core/changelogs/CHANGELOG-v0.md', content: 'md:archive' });
-    expect(planned.result).toMatchObject({
+    expect(plannedRelease.writes).toContainEqual({
+      path: 'packages/core/changelogs/CHANGELOG-v0.md',
+      content: 'md:archive',
+    });
+    expect(plannedRelease.result).toMatchObject({
       changelogFiles: ['packages/core/CHANGELOG.md', 'packages/core/changelogs/CHANGELOG-v0.md'],
     });
-    expect(planned.modifiedFiles).toContain('packages/core/changelogs/CHANGELOG-v0.md');
-    const jsonWrite = (writes: Array<{ path: string }>) =>
+    expect(plannedRelease.modifiedFiles).toContain('packages/core/changelogs/CHANGELOG-v0.md');
+    const findJsonWrite = (writes: Array<{ path: string }>) =>
       writes.find((write) => write.path.endsWith('changelog.json'));
-    expect(jsonWrite(planned.writes)).toStrictEqual(jsonWrite(unbounded.writes));
+    expect(findJsonWrite(plannedRelease.writes)).toStrictEqual(findJsonWrite(unboundedRelease.writes));
   });
 
   it('removes the existing archive files that the render does not produce', () => {
@@ -306,21 +313,23 @@ describe(planTargetRelease, () => {
     ]);
     const settings = { ...SETTINGS, changelogMarkdown: { keptVersionCount: 1 } };
 
-    const planned = planTargetRelease(makeArgs({ settings }));
+    const plannedRelease = planTargetRelease(makeArgs({ settings }));
 
-    expect(planned.removals).toStrictEqual(['packages/core/changelogs/CHANGELOG-v1.md']);
-    expect(planned.result).toMatchObject({ removedChangelogFiles: ['packages/core/changelogs/CHANGELOG-v1.md'] });
-    expect(planned.modifiedFiles).not.toContain('packages/core/changelogs/CHANGELOG-v1.md');
+    expect(plannedRelease.removals).toStrictEqual(['packages/core/changelogs/CHANGELOG-v1.md']);
+    expect(plannedRelease.result).toMatchObject({
+      removedChangelogFiles: ['packages/core/changelogs/CHANGELOG-v1.md'],
+    });
+    expect(plannedRelease.modifiedFiles).not.toContain('packages/core/changelogs/CHANGELOG-v1.md');
   });
 
   it('names a renamed workspace by its target name', () => {
-    const { result } = planTargetRelease(makeArgs({ target: { ...CORE, id: 'kernel' } }));
+    const { result } = planTargetRelease(makeArgs({ target: { ...CORE_TARGET, id: 'kernel' } }));
 
     expect(result).toMatchObject({ targetId: 'kernel', name: 'kernel' });
   });
 
   it('omits the name of the single-package root', () => {
-    const { result } = planTargetRelease(makeArgs({ target: ROOT }));
+    const { result } = planTargetRelease(makeArgs({ target: ROOT_TARGET }));
 
     expect(result).not.toHaveProperty('name');
     expect(result.tag).toBe('v1.1.0');
@@ -353,7 +362,7 @@ describe(planTargetRelease, () => {
   it('plans a propagation-only release from one synthetic dependency entry', () => {
     const propagatedFrom = [{ packageName: '@scope/base', newVersion: '2.0.0' }];
 
-    const planned = planTargetRelease(
+    const plannedRelease = planTargetRelease(
       makeArgs({
         decision: undefined,
         release: { releaseType: 'patch', propagatedFrom },
@@ -370,18 +379,18 @@ describe(planTargetRelease, () => {
         ],
       },
     ]);
-    expect(planned.result).toMatchObject({
+    expect(plannedRelease.result).toMatchObject({
       propagatedOnly: true,
       propagatedFrom,
       releaseType: 'patch',
       commitCount: 1,
     });
-    expect(planned.result).not.toHaveProperty('parsedCommitCount');
+    expect(plannedRelease.result).not.toHaveProperty('parsedCommitCount');
   });
 
   it('plans a composite release with the composite result fields', () => {
     const { result, modifiedFiles } = planTargetRelease(
-      makeArgs({ target: PROJECT, history: makeReleaseHistory({ ...FEATURE_HISTORY, previousTag: 'v1.0.0' }) }),
+      makeArgs({ target: PROJECT_TARGET, history: makeReleaseHistory({ ...FEATURE_HISTORY, previousTag: 'v1.0.0' }) }),
     );
 
     expect(modifiedFiles).toStrictEqual(['./package.json', 'CHANGELOG.md', '.meta/changelog.json']);
@@ -404,14 +413,14 @@ describe(planTargetRelease, () => {
   });
 
   it('plans previews in the changelog dir when requested', () => {
-    const planned = planTargetRelease(makeArgs({ shouldPlanPreviews: true }));
+    const plannedRelease = planTargetRelease(makeArgs({ shouldPlanPreviews: true }));
 
     expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledWith(
       expect.objectContaining({ workspacePath: 'packages/core', tag: 'core-v1.1.0' }),
     );
-    expect(planned.writes.at(-1)?.path).toBe('docs/RELEASE_NOTES.md');
-    expect(planned.result.previewFiles).toStrictEqual(['docs/RELEASE_NOTES.md']);
-    expect(planned.warnings).toStrictEqual(['README.md not found']);
+    expect(plannedRelease.writes.at(-1)?.path).toBe('docs/RELEASE_NOTES.md');
+    expect(plannedRelease.result.previewFiles).toStrictEqual(['docs/RELEASE_NOTES.md']);
+    expect(plannedRelease.warnings).toStrictEqual(['README.md not found']);
   });
 
   it('applies the workspace override tier to a package and the root tier alone to a composite', () => {
@@ -419,7 +428,7 @@ describe(planTargetRelease, () => {
     overrideContext.overridesByWorkspace.set('.', new Map([['abc1234', { audience: 'skip' }]]));
 
     planTargetRelease(
-      makeArgs({ target: PROJECT, history: makeReleaseHistory({ ...FEATURE_HISTORY }), overrideContext }),
+      makeArgs({ target: PROJECT_TARGET, history: makeReleaseHistory({ ...FEATURE_HISTORY }), overrideContext }),
     );
 
     expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledWith(
@@ -444,7 +453,7 @@ describe(buildSkippedTargetResult, () => {
   const history = makeReleaseHistory({ previousTag: 'v1.0.0', commits: [['chore: tidy', 'abc1234']] });
 
   it('names a skipped workspace', () => {
-    expect(buildSkippedTargetResult(CORE, history, 'nothing')).toStrictEqual({
+    expect(buildSkippedTargetResult(CORE_TARGET, history, 'nothing')).toStrictEqual({
       targetId: 'core',
       status: 'skipped',
       kind: 'package',
@@ -457,11 +466,11 @@ describe(buildSkippedTargetResult, () => {
   });
 
   it('leaves the single-package root unnamed', () => {
-    expect(buildSkippedTargetResult(ROOT, history, 'nothing')).not.toHaveProperty('name');
+    expect(buildSkippedTargetResult(ROOT_TARGET, history, 'nothing')).not.toHaveProperty('name');
   });
 
   it('builds a skipped composite', () => {
-    expect(buildSkippedTargetResult(PROJECT, history, 'nothing')).toMatchObject({
+    expect(buildSkippedTargetResult(PROJECT_TARGET, history, 'nothing')).toMatchObject({
       targetId: '',
       kind: 'composite',
       status: 'skipped',
@@ -475,7 +484,7 @@ describe(buildSkippedTargetResult, () => {
 function makeArgs(overrides: Partial<PlanTargetReleaseArgs> = {}): PlanTargetReleaseArgs {
   const history: ReleaseHistory = makeReleaseHistory({ ...FEATURE_HISTORY });
   return {
-    target: CORE,
+    target: CORE_TARGET,
     settings: SETTINGS,
     release: { releaseType: 'minor' },
     decision: { outcome: 'release', releaseType: 'minor', bumpOverride: undefined, setVersion: undefined },

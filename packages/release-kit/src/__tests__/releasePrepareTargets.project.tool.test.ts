@@ -118,13 +118,13 @@ describe('project releases (tool)', () => {
 
       const result = prepareAndApply(config, {});
 
-      const project = selectCompositeResult(result);
-      assert(project?.status === 'released', 'expected released project');
-      expect(project.previousTag).toBe('v0.9.0');
+      const projectResult = selectCompositeResult(result);
+      assert(projectResult?.status === 'released', 'expected released project');
+      expect(projectResult.previousTag).toBe('v0.9.0');
       // 2 feat + 1 fix → minor bump → 0.10.0 (pre-1.0 collapse not relevant since feat is minor).
-      expect(project.releaseType).toBe('minor');
-      expect(project.newVersion).toBe('0.10.0');
-      expect(project.tag).toBe('v0.10.0');
+      expect(projectResult.releaseType).toBe('minor');
+      expect(projectResult.newVersion).toBe('0.10.0');
+      expect(projectResult.tag).toBe('v0.10.0');
 
       expect(result.tags).toContain('v0.10.0');
       expect(result.tags).toContain('pkg-a-v1.1.0');
@@ -186,11 +186,11 @@ describe('project releases (tool)', () => {
       );
       const result = prepareAndApply(wholeTreeConfig, {});
 
-      const project = selectCompositeResult(result);
-      assert(project?.status === 'released', 'expected released project');
-      expect(project.previousTag).toBe('v0.9.1');
-      expect(project.releaseType).toBe('minor');
-      expect(project.tag).toBe('v0.10.0');
+      const projectResult = selectCompositeResult(result);
+      assert(projectResult?.status === 'released', 'expected released project');
+      expect(projectResult.previousTag).toBe('v0.9.1');
+      expect(projectResult.releaseType).toBe('minor');
+      expect(projectResult.tag).toBe('v0.10.0');
 
       const rootPackageJson: { version: string } = JSON.parse(readFileSync(join(tree.dir, 'package.json'), 'utf8'));
       expect(rootPackageJson.version).toBe('0.10.0');
@@ -214,17 +214,17 @@ describe('project releases (tool)', () => {
         { doesExist: true, version: '0.9.1' },
       );
 
-      const skipped = selectCompositeResult(prepareMonorepo(config, {}));
-      assert(skipped?.status === 'skipped', 'expected skipped project');
-      expect(skipped.skipReason).toContain('No bump-worthy commits since v0.9.1');
-      expect(skipped.commitCount).toBe(2);
-      expect(skipped.parsedCommitCount).toBe(0);
-      expect(skipped.unparseableCommits?.map((commit) => commit.subject)).toStrictEqual(['Update notes']);
+      const skippedResult = selectCompositeResult(prepareMonorepo(config, {}));
+      assert(skippedResult?.status === 'skipped', 'expected skipped project');
+      expect(skippedResult.skipReason).toContain('No bump-worthy commits since v0.9.1');
+      expect(skippedResult.commitCount).toBe(2);
+      expect(skippedResult.parsedCommitCount).toBe(0);
+      expect(skippedResult.unparseableCommits?.map((commit) => commit.subject)).toStrictEqual(['Update notes']);
 
-      const forced = selectCompositeResult(prepareMonorepo(config, { shouldForce: true }));
-      assert(forced?.status === 'released', 'expected released project');
-      expect(forced.releaseType).toBe('patch');
-      expect(forced.tag).toBe('v0.9.2');
+      const forcedResult = selectCompositeResult(prepareMonorepo(config, { shouldForce: true }));
+      assert(forcedResult?.status === 'released', 'expected released project');
+      expect(forcedResult.releaseType).toBe('patch');
+      expect(forcedResult.tag).toBe('v0.9.2');
     });
   }, 60_000);
 
@@ -242,9 +242,9 @@ describe('project releases (tool)', () => {
         { doesExist: true, version: '0.9.1' },
       );
       const forcedPlan = prepareAndApply(forcedConfig, { shouldForce: true });
-      const forced = selectCompositeResult(forcedPlan);
-      assert(forced?.status === 'released', 'expected released project');
-      expect(forced.tag).toBe('v0.9.2');
+      const forcedResult = selectCompositeResult(forcedPlan);
+      assert(forcedResult?.status === 'released', 'expected released project');
+      expect(forcedResult.tag).toBe('v0.9.2');
       expect(readFileSync(join(tree.dir, 'CHANGELOG.md'), 'utf8')).toMatch(
         /## 0\.9\.2 — [\d-]+\n\n### Notes\n\n- Forced version bump\./,
       );
@@ -261,14 +261,14 @@ describe('project releases (tool)', () => {
         { project: {} },
         { doesExist: true, version: '0.9.2' },
       );
-      const next = selectCompositeResult(prepareAndApply(nextConfig, {}));
-      assert(next?.status === 'released', 'expected released project');
-      expect(next.tag).toBe('v0.10.0');
+      const nextResult = selectCompositeResult(prepareAndApply(nextConfig, {}));
+      assert(nextResult?.status === 'released', 'expected released project');
+      expect(nextResult.tag).toBe('v0.10.0');
 
-      const written: Array<{ version: string; sections: Array<{ items: Array<{ description: string }> }> }> =
+      const writtenEntries: Array<{ version: string; sections: Array<{ items: Array<{ description: string }> }> }> =
         JSON.parse(readFileSync(join(tree.dir, '.meta', 'changelog.json'), 'utf8'));
-      expect(written.map((entry) => entry.version)).toContain('0.10.0');
-      expect(written.find((entry) => entry.version === '0.9.2')?.sections[0]?.items).toStrictEqual([
+      expect(writtenEntries.map((entry) => entry.version)).toContain('0.10.0');
+      expect(writtenEntries.find((entry) => entry.version === '0.9.2')?.sections[0]?.items).toStrictEqual([
         { description: 'Forced version bump.' },
       ]);
     });
@@ -298,11 +298,11 @@ describe('project releases (tool)', () => {
         { doesExist: true, version: '0.9.1' },
       );
 
-      const project = selectCompositeResult(prepareMonorepo(config, {}));
-      assert(project?.status === 'released', 'expected released project');
-      expect(project.releaseType).toBe('minor');
-      expect(project.parsedCommitCount).toBe(1);
-      expect(project.tag).toBe('v0.10.0');
+      const projectResult = selectCompositeResult(prepareMonorepo(config, {}));
+      assert(projectResult?.status === 'released', 'expected released project');
+      expect(projectResult.releaseType).toBe('minor');
+      expect(projectResult.parsedCommitCount).toBe(1);
+      expect(projectResult.tag).toBe('v0.10.0');
     });
   }, 60_000);
 
@@ -328,10 +328,10 @@ describe('project releases (tool)', () => {
 
       const result = prepareAndApply(config, { bumpOverride: 'major' });
 
-      const project = selectCompositeResult(result);
-      assert(project?.status === 'released', 'expected released project');
-      expect(project.releaseType).toBe('major');
-      expect(project.newVersion).toBe('2.0.0');
+      const projectResult = selectCompositeResult(result);
+      assert(projectResult?.status === 'released', 'expected released project');
+      expect(projectResult.releaseType).toBe('major');
+      expect(projectResult.newVersion).toBe('2.0.0');
       expect(result.tags).toContain('v2.0.0');
     });
   }, 60_000);
@@ -346,9 +346,9 @@ describe('project releases (tool)', () => {
 
       const result = prepareMonorepo(config, {});
 
-      const project = selectCompositeResult(result);
-      assert(project?.status === 'released', 'expected released project');
-      expect(project.tag).toBe('v0.10.0');
+      const projectResult = selectCompositeResult(result);
+      assert(projectResult?.status === 'released', 'expected released project');
+      expect(projectResult.tag).toBe('v0.10.0');
       expect(result.tags).toContain('v0.10.0');
 
       // Planning alone writes nothing to disk.
@@ -362,7 +362,7 @@ describe('project releases (tool)', () => {
     withinFixture(tree.dir, () => {
       const changelogJsonPath = tree.write('.meta/changelog.json', '{this is not valid JSON');
 
-      using silent = silenceConsole(['warn']);
+      using silencedConsole = silenceConsole(['warn']);
 
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
@@ -372,12 +372,12 @@ describe('project releases (tool)', () => {
 
       prepareAndApply(config, {});
 
-      expect(listConsoleLines(silent.warn).join('\n')).toContain('could not parse existing');
+      expect(listConsoleLines(silencedConsole.warn).join('\n')).toContain('could not parse existing');
 
-      const written = readFileSync(changelogJsonPath, 'utf8');
-      const parsed: Array<{ version: string }> = JSON.parse(written);
-      expect(Array.isArray(parsed)).toBe(true);
-      expect(parsed.some((entry) => entry.version === '0.10.0')).toBe(true);
+      const writtenContent = readFileSync(changelogJsonPath, 'utf8');
+      const parsedEntries: Array<{ version: string }> = JSON.parse(writtenContent);
+      expect(Array.isArray(parsedEntries)).toBe(true);
+      expect(parsedEntries.some((entry) => entry.version === '0.10.0')).toBe(true);
     });
   }, 60_000);
 
@@ -415,12 +415,12 @@ describe('project releases (tool)', () => {
       const result = prepareAndApply(config, { shouldForce: true });
 
       // Under --force, the project releases at patch level.
-      const project = selectCompositeResult(result);
-      assert(project?.status === 'released', 'expected released project');
-      expect(project.previousTag).toBe('v0.9.0');
-      expect(project.commits).toHaveLength(0);
-      expect(project.releaseType).toBe('patch');
-      expect(project.newVersion).toBe('0.9.1');
+      const projectResult = selectCompositeResult(result);
+      assert(projectResult?.status === 'released', 'expected released project');
+      expect(projectResult.previousTag).toBe('v0.9.0');
+      expect(projectResult.commits).toHaveLength(0);
+      expect(projectResult.releaseType).toBe('patch');
+      expect(projectResult.newVersion).toBe('0.9.1');
 
       // `renderChangelogMarkdown` renders the root CHANGELOG.md, which leads with the
       // `# Changelog` header, with the version heading below it.
@@ -435,11 +435,11 @@ describe('project releases (tool)', () => {
       // Root .meta/changelog.json contains a corresponding canonical entry.
       const changelogJsonPath = join(tree.dir, '.meta', 'changelog.json');
       expect(existsSync(changelogJsonPath)).toBe(true);
-      const parsed: Array<{
+      const parsedEntries: Array<{
         version: string;
         sections: Array<{ title: string; audience: string; items: Array<{ description: string }> }>;
       }> = JSON.parse(readFileSync(changelogJsonPath, 'utf8'));
-      const entry = parsed.find((e) => e.version === '0.9.1');
+      const entry = parsedEntries.find((e) => e.version === '0.9.1');
       expect(entry).toBeDefined();
       expect(entry?.sections[0]).toMatchObject({
         title: 'Notes',
@@ -482,16 +482,16 @@ describe('project releases (tool)', () => {
 
       prepareAndApply(config, { shouldForce: true });
 
-      const written: Array<{ version: string; sections: Array<{ items: Array<{ description: string }> }> }> =
+      const writtenEntries: Array<{ version: string; sections: Array<{ items: Array<{ description: string }> }> }> =
         JSON.parse(readFileSync(changelogJsonPath, 'utf8'));
 
       // The prior entry survives.
-      const survivedPrior = written.find((e) => e.version === '0.8.0');
-      expect(survivedPrior).toBeDefined();
-      expect(survivedPrior?.sections[0]?.items[0]?.description).toBe('Historical entry that must not be lost.');
+      const survivedPriorEntry = writtenEntries.find((e) => e.version === '0.8.0');
+      expect(survivedPriorEntry).toBeDefined();
+      expect(survivedPriorEntry?.sections[0]?.items[0]?.description).toBe('Historical entry that must not be lost.');
 
       // The new synthetic entry is also present.
-      const newEntry = written.find((e) => e.version === '0.9.1');
+      const newEntry = writtenEntries.find((e) => e.version === '0.9.1');
       expect(newEntry).toBeDefined();
       expect(newEntry?.sections[0]?.items[0]?.description).toBe('Forced version bump.');
     });
@@ -507,18 +507,18 @@ describe('project releases (tool)', () => {
     tree.write('.config/release-kit.config.ts', 'export default { project: {} };\n');
 
     using _cwd = pointCwdAt(tree.dir, { chdir: true });
-    using capture = captureStdio();
-    const exit = throwOnProcessExit();
-    using _silent = silenceConsole(['info']);
+    using stdioCapture = captureStdio();
+    const mockedProcessExit = throwOnProcessExit();
+    using _silencedConsole = silenceConsole(['info']);
 
     try {
       await prepareCommand(['--only=pkg-a', '--no-git-checks'], RICH_STYLES, process.cwd());
     } finally {
-      exit[Symbol.dispose]();
+      mockedProcessExit[Symbol.dispose]();
     }
 
-    expect(capture.stderr).not.toContain('cannot be combined with a project release');
-    expect(capture.stdout).toContain('Project release skipped');
+    expect(stdioCapture.stderr).not.toContain('cannot be combined with a project release');
+    expect(stdioCapture.stdout).toContain('Project release skipped');
 
     // The project release did not run: the root version and root changelog are untouched.
     expect(existsSync(join(tree.dir, 'CHANGELOG.md'))).toBe(false);

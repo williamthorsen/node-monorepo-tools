@@ -13,7 +13,7 @@ describe(stripScope, () => {
     ['release-kit|feat!: Breaking change', 'feat!: Breaking change'],
     ['feat(parser)!: Breaking scoped', 'feat!: Breaking scoped'],
     ['TOOL-123 web|fix: Jira prefix', 'TOOL-123 fix: Jira prefix'],
-  ])('stripScope(%j) -> %j', (input, expected) => {
-    expect(stripScope(input)).toBe(expected);
+  ])('stripScope(%j) -> %j', (input, expectedMessage) => {
+    expect(stripScope(input)).toBe(expectedMessage);
   });
 });

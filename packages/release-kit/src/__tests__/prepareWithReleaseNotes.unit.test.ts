@@ -26,7 +26,7 @@ const changelogJsonFixture: ChangelogEntry[] = [
   },
 ];
 
-const readmeWithMarker = `# @scope/pkg
+const markedReadme = `# @scope/pkg
 
 Short description.
 
@@ -44,19 +44,19 @@ describe(planReleaseNotesPreviews, () => {
 
   beforeEach(() => {
     tree = disposeOnTestFinished(createTempTree({}, { prefix: 'prepare-with-release-notes-' }));
-    tree.write('README.md', readmeWithMarker);
+    tree.write('README.md', markedReadme);
   });
 
   /** Plans the previews for the fixture release, then applies them as the CLI boundary does. */
   function planAndApply(): void {
-    const previews = planReleaseNotesPreviews({
+    const previewsPlan = planReleaseNotesPreviews({
       workspacePath: tree.dir,
       tag: 'pkg-v2.4.0',
       entries: changelogJsonFixture,
       sectionOrder: ['Features', 'Bug fixes'],
     });
     applyReleasePlan({
-      writes: previews.writes,
+      writes: previewsPlan.writes,
       removals: [],
       tags: [],
       summary: '',

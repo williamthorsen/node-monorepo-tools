@@ -108,12 +108,12 @@ describe(renderReleaseNotesSingle, () => {
       const result = renderReleaseNotesSingle(entry, {
         sectionOrder: ['Bug fixes', 'Features'],
       });
-      const order = ['### Bug fixes', '### Features', '### Unknown2', '### Unknown1'].map((heading) =>
+      const headingIndexes = ['### Bug fixes', '### Features', '### Unknown2', '### Unknown1'].map((heading) =>
         result.indexOf(heading),
       );
-      expect(order.every((index) => index >= 0)).toBe(true);
-      for (let i = 1; i < order.length; i++) {
-        expect(order[i]).toBeGreaterThan(order[i - 1] ?? -1);
+      expect(headingIndexes.every((index) => index >= 0)).toBe(true);
+      for (let i = 1; i < headingIndexes.length; i++) {
+        expect(headingIndexes[i]).toBeGreaterThan(headingIndexes[i - 1] ?? -1);
       }
     });
 
