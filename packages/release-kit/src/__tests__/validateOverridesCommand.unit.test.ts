@@ -216,7 +216,7 @@ describe(validateOverridesCommand, () => {
   });
 
   it('passes a project-only scope to validate in single-package mode', async () => {
-    let receivedCounts: { workspaces: number; projectItems: number } | undefined;
+    let receivedCounts: { workspaceCount: number; projectItemCount: number } | undefined;
     await validateOverridesCommand(RICH_STYLES, undefined, {
       discoverWorkspaces: makeSinglePackage,
       loadValidatedConfig: () =>
@@ -224,13 +224,13 @@ describe(validateOverridesCommand, () => {
       buildEntries: () => buildEntriesFromHashes(['hash1', 'hash2']),
       validate: (inputs) => {
         receivedCounts = {
-          workspaces: inputs.workspaces?.length ?? 0,
-          projectItems: inputs.project?.items?.length ?? 0,
+          workspaceCount: inputs.workspaces?.length ?? 0,
+          projectItemCount: inputs.project?.items?.length ?? 0,
         };
         return { errors: [], warnings: [] };
       },
     });
-    expect(receivedCounts).toStrictEqual({ workspaces: 0, projectItems: 2 });
+    expect(receivedCounts).toStrictEqual({ workspaceCount: 0, projectItemCount: 2 });
   });
 
   // The validator's hash universe must be byte-equal to the one that `prepare` walks: the full
@@ -430,17 +430,17 @@ describe(validateOverridesCommand, () => {
       mockedEnumerateReleaseWindows.mockReturnValue([
         {
           version: 'unreleased',
-          timestamp: 1_720_000_000,
+          timestampSec: 1_720_000_000,
           commits: makeStubbedCommits([['#3 feat: unreleased feature', unreleasedHash]]),
         },
         {
           version: 'v2.0.0',
-          timestamp: 1_710_000_000,
+          timestampSec: 1_710_000_000,
           commits: makeStubbedCommits([['#2 feat: current feature', currentHash]]),
         },
         {
           version: 'v1.0.0',
-          timestamp: 1_700_000_000,
+          timestampSec: 1_700_000_000,
           commits: makeStubbedCommits([['#1 feat: past feature', pastHash]]),
         },
       ]);
@@ -554,7 +554,7 @@ describe(validateOverridesCommand, () => {
       mockedEnumerateReleaseWindows.mockReturnValue([
         {
           version: 'unreleased',
-          timestamp: 1_720_000_000,
+          timestampSec: 1_720_000_000,
           commits: [{ hash, subject: '#859 foo|feat: Route entries (#43)', body: '', message }],
         },
       ]);
