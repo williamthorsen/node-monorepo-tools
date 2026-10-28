@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 
 vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
-  const original = await importOriginal();
-  return { ...original, loadConfig: mockLoadConfig };
+  const originalModule = await importOriginal();
+  return { ...originalModule, loadConfig: mockLoadConfig };
 });
 
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
@@ -90,7 +90,7 @@ describe(loadValidatedConfig, () => {
   });
 
   it('writes nothing to either stream on any outcome', async () => {
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     mockLoadConfig.mockRejectedValue(new Error('config read failure'));
     await loadValidatedConfig();
@@ -104,47 +104,47 @@ describe(loadValidatedConfig, () => {
     });
     await loadValidatedConfig();
 
-    expect(capture.stderr).toBe('');
-    expect(capture.stdout).toBe('');
+    expect(stdioCapture.stderr).toBe('');
+    expect(stdioCapture.stdout).toBe('');
   });
 });
 
 describe(reportConfigProblem, () => {
   it('renders a load failure as a single error line', () => {
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     reportConfigProblem({ kind: 'load', message: 'config read failure' }, 'plain');
 
-    expect(capture.stderrChunks).toContain('Error: Failed to load config: config read failure\n');
+    expect(stdioCapture.stderrChunks).toContain('Error: Failed to load config: config read failure\n');
   });
 
   it('renders a validation failure as a header followed by one line per error', () => {
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     reportConfigProblem({ kind: 'validation', errors: ['first problem', 'second problem'] }, 'plain');
 
-    expect(capture.stderrChunks).toContain('Invalid config:\n');
-    expect(capture.stderr).toContain('first problem');
-    expect(capture.stderr).toContain('second problem');
+    expect(stdioCapture.stderrChunks).toContain('Invalid config:\n');
+    expect(stdioCapture.stderr).toContain('first problem');
+    expect(stdioCapture.stderr).toContain('second problem');
   });
 });
 
 describe(reportConfigWarnings, () => {
   it('renders one status line per warning', () => {
-    using silent = silenceConsole(['warn']);
+    using silencedConsole = silenceConsole(['warn']);
 
     reportConfigWarnings(['first warning', 'second warning'], 'plain');
 
-    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('first warning'));
-    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('second warning'));
+    expect(silencedConsole.warn).toHaveBeenCalledWith(expect.stringContaining('first warning'));
+    expect(silencedConsole.warn).toHaveBeenCalledWith(expect.stringContaining('second warning'));
   });
 
   it('writes nothing when the warnings list is empty', () => {
-    using silent = silenceConsole(['warn']);
+    using silencedConsole = silenceConsole(['warn']);
 
     reportConfigWarnings([], 'plain');
 
-    expect(silent.warn).not.toHaveBeenCalled();
+    expect(silencedConsole.warn).not.toHaveBeenCalled();
   });
 });
 
@@ -164,56 +164,56 @@ describe(loadUsableConfig, () => {
 
   it('returns undefined and writes nothing when the default config does not exist', async () => {
     mockLoadConfig.mockResolvedValue(undefined);
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     await expect(loadUsableConfig('plain')).resolves.toBeUndefined();
 
-    expect(capture.stderr).toBe('');
+    expect(stdioCapture.stderr).toBe('');
   });
 
   it('returns the validated config when it loads and validates', async () => {
     mockLoadConfig.mockResolvedValue({ formatCommand: 'pnpm run alt' });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
 
     await expect(loadUsableConfig('plain')).resolves.toStrictEqual({ formatCommand: 'pnpm run alt' });
 
-    expect(capture.stderr).toBe('');
+    expect(stdioCapture.stderr).toBe('');
   });
 
   it('exits 1 and reports when a named path does not exist', async () => {
     mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
     using _exit = throwOnProcessExit();
 
     const error = await captureError(ProcessExitError, () => loadUsableConfig('plain', 'elsewhere/absent.config.ts'));
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain(
+    expect(stdioCapture.stderrChunks).toContain(
       'Error: Failed to load config: Config file not found: /repo/elsewhere/absent.config.ts\n',
     );
   });
 
   it('exits 1 and reports when the default config exists and fails to load', async () => {
     mockLoadConfig.mockRejectedValue(new Error('Unexpected token in config'));
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
     using _exit = throwOnProcessExit();
 
     const error = await captureError(ProcessExitError, () => loadUsableConfig('plain'));
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
+    expect(stdioCapture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
   });
 
   it('exits 1 and reports when the default config fails validation', async () => {
     mockLoadConfig.mockResolvedValue({ workTypes: 'not-an-object' });
-    using capture = captureStdio();
+    using stdioCapture = captureStdio();
     using _exit = throwOnProcessExit();
 
     const error = await captureError(ProcessExitError, () => loadUsableConfig('plain'));
 
     expect(error.code).toBe(1);
-    expect(capture.stderrChunks).toContain('Invalid config:\n');
-    expect(capture.stderr).toContain('workTypes');
+    expect(stdioCapture.stderrChunks).toContain('Invalid config:\n');
+    expect(stdioCapture.stderr).toContain('workTypes');
   });
 
   it('reports each validation warning', async () => {
@@ -221,10 +221,10 @@ describe(loadUsableConfig, () => {
       changelogJson: { enabled: false },
       releaseNotes: { shouldInjectIntoReadme: true },
     });
-    using silent = silenceConsole(['warn']);
+    using silencedConsole = silenceConsole(['warn']);
 
     await loadUsableConfig('plain');
 
-    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('shouldInjectIntoReadme'));
+    expect(silencedConsole.warn).toHaveBeenCalledWith(expect.stringContaining('shouldInjectIntoReadme'));
   });
 });

@@ -23,9 +23,9 @@ const {
 }));
 
 vi.mock(import('readyup/check-utils'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('readyup/check-utils')>();
+  const actualModule = await importOriginal<typeof import('readyup/check-utils')>();
   return {
-    ...actual,
+    ...actualModule,
     discoverWorkspaces: mockedDiscoverWorkspaces,
     fileContains: mockedFileContains,
     fileExists: mockedFileExists,
@@ -126,11 +126,11 @@ describe('release-kit config gate', () => {
 
   // A nested check that repeats the gate's own skip reports the extra lines that the gate collapses.
   it('does not declare a skip on any nested check other than .github/labels.yaml exists', () => {
-    const skipping = listDeclaredChildren(getConfigGate())
+    const skippingNames = listDeclaredChildren(getConfigGate())
       .filter((check) => check.skip !== undefined)
       .map((check) => check.name);
 
-    expect(skipping).toStrictEqual(['.github/labels.yaml exists']);
+    expect(skippingNames).toStrictEqual(['.github/labels.yaml exists']);
   });
 
   it('skips .github/labels.yaml exists when the config does not declare a repoLabels block', () => {
@@ -195,22 +195,22 @@ describe('changelog packaging checks', () => {
   // The gate's own skip already covers the nested check; repeating it would report the duplicate lines against
   // which the config gate's tests guard.
   it('does not declare a skip on the nested check', () => {
-    const nested = findCheck(
+    const nestedCheck = findCheck(
       'published packages ship the changelog JSON',
       listDeclaredChildren(getChangelogJsonGate()),
     );
 
-    expect(nested.skip).toBeUndefined();
+    expect(nestedCheck.skip).toBeUndefined();
   });
 
   it('names the configured output path in the nested fix', () => {
     mockedReadFile.mockReturnValue('export default defineConfig({ changelogJson: { outputPath: "docs/cl.json" } });\n');
-    const nested = findCheck(
+    const nestedCheck = findCheck(
       'published packages ship the changelog JSON',
       listDeclaredChildren(getChangelogJsonGate()),
     );
 
-    expect(nested.fix).toBe('Add "docs/cl.json" to the files field of each affected package.json');
+    expect(nestedCheck.fix).toBe('Add "docs/cl.json" to the files field of each affected package.json');
   });
 });
 
@@ -340,14 +340,14 @@ function buildPublishableWorkspace(): Workspace {
 }
 
 /**
- * Finds a check by name among `siblings`, asserting it exists so that a rename fails loudly.
+ * Finds a check by name among `siblingChecks`, asserting it exists so that a rename fails loudly.
  *
  * The caller names the level to search rather than getting a tree walk. Reading the name of every check would invoke
  * the `@williamthorsen/release-kit >= x` name getter, whose compile-time-only `pickJson` throws against the
  * uncompiled source that this suite imports.
  */
-function findCheck(name: string, siblings: readonly RdyCheck[]): RdyCheck {
-  const check = siblings.find((candidate) => candidate.name === name);
+function findCheck(name: string, siblingChecks: readonly RdyCheck[]): RdyCheck {
+  const check = siblingChecks.find((candidate) => candidate.name === name);
   assert(check, `Expected a "${name}" check`);
   return check;
 }

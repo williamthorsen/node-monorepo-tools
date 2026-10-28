@@ -22,16 +22,16 @@ function errnoError(message: string, code: string): Error {
 }
 
 describe(commitCommand, () => {
-  let capture: CapturedStdio;
+  let stdioCapture: CapturedStdio;
 
   beforeEach(() => {
-    capture = captureStdio();
+    stdioCapture = captureStdio();
     void throwOnProcessExit();
     void silenceConsole(['info']);
   });
 
   afterEach(() => {
-    capture[Symbol.dispose]();
+    stdioCapture[Symbol.dispose]();
     mockReadFileSync.mockReset();
     mockExecFileSync.mockReset();
     vi.restoreAllMocks();
@@ -161,11 +161,11 @@ describe(commitCommand, () => {
 
   it('exits with error for unknown flags', () => {
     expect(() => commitCommand(['--unknown'])).toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Unknown option');
+    expect(stdioCapture.stderr).toContain('Unknown option');
   });
 
   it('rejects --config, because the command does not read any config', () => {
     expect(() => commitCommand(['--config', 'alt.config.ts'])).toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Unknown option: --config');
+    expect(stdioCapture.stderr).toContain('Unknown option: --config');
   });
 });

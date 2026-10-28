@@ -15,9 +15,9 @@ describe(buildDependencyGraph, () => {
   });
 
   it('builds a reverse dependency map for workspace dependencies', () => {
-    const compA = makeWorkspaceTarget('core');
-    const compB = makeWorkspaceTarget('release-kit');
-    const compC = makeWorkspaceTarget('preflight');
+    const coreTarget = makeWorkspaceTarget('core');
+    const releaseKitTarget = makeWorkspaceTarget('release-kit');
+    const preflightTarget = makeWorkspaceTarget('preflight');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -40,18 +40,18 @@ describe(buildDependencyGraph, () => {
       return '{}';
     });
 
-    const graph = buildDependencyGraph([compA, compB, compC]);
+    const graph = buildDependencyGraph([coreTarget, releaseKitTarget, preflightTarget]);
 
     expect(graph.packageNameToDir.get('@scope/core')).toBe('core');
     expect(graph.packageNameToDir.get('@scope/release-kit')).toBe('release-kit');
     expect(graph.dirToPackageName.get('core')).toBe('@scope/core');
     expect(graph.dirToPackageName.get('release-kit')).toBe('@scope/release-kit');
-    expect(graph.dependentsOf.get('@scope/core')).toStrictEqual([compB, compC]);
+    expect(graph.dependentsOf.get('@scope/core')).toStrictEqual([releaseKitTarget, preflightTarget]);
   });
 
   it('includes peerDependencies with workspace: protocol', () => {
-    const compA = makeWorkspaceTarget('core');
-    const compB = makeWorkspaceTarget('plugin');
+    const coreTarget = makeWorkspaceTarget('core');
+    const pluginTarget = makeWorkspaceTarget('plugin');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -67,14 +67,14 @@ describe(buildDependencyGraph, () => {
       return '{}';
     });
 
-    const graph = buildDependencyGraph([compA, compB]);
+    const graph = buildDependencyGraph([coreTarget, pluginTarget]);
 
-    expect(graph.dependentsOf.get('@scope/core')).toStrictEqual([compB]);
+    expect(graph.dependentsOf.get('@scope/core')).toStrictEqual([pluginTarget]);
   });
 
   it('ignores non-workspace dependencies', () => {
-    const compA = makeWorkspaceTarget('core');
-    const compB = makeWorkspaceTarget('app');
+    const coreTarget = makeWorkspaceTarget('core');
+    const appTarget = makeWorkspaceTarget('app');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -90,14 +90,14 @@ describe(buildDependencyGraph, () => {
       return '{}';
     });
 
-    const graph = buildDependencyGraph([compA, compB]);
+    const graph = buildDependencyGraph([coreTarget, appTarget]);
 
     expect(graph.dependentsOf.get('@scope/core')).toBeUndefined();
   });
 
   it('ignores devDependencies', () => {
-    const compA = makeWorkspaceTarget('core');
-    const compB = makeWorkspaceTarget('app');
+    const coreTarget = makeWorkspaceTarget('core');
+    const appTarget = makeWorkspaceTarget('app');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -113,15 +113,15 @@ describe(buildDependencyGraph, () => {
       return '{}';
     });
 
-    const graph = buildDependencyGraph([compA, compB]);
+    const graph = buildDependencyGraph([coreTarget, appTarget]);
 
     expect(graph.dependentsOf.get('@scope/core')).toBeUndefined();
   });
 
   it('handles transitive dependencies (A -> B -> C)', () => {
-    const compA = makeWorkspaceTarget('core');
-    const compB = makeWorkspaceTarget('middle');
-    const compC = makeWorkspaceTarget('app');
+    const coreTarget = makeWorkspaceTarget('core');
+    const middleTarget = makeWorkspaceTarget('middle');
+    const appTarget = makeWorkspaceTarget('app');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -144,10 +144,10 @@ describe(buildDependencyGraph, () => {
       return '{}';
     });
 
-    const graph = buildDependencyGraph([compA, compB, compC]);
+    const graph = buildDependencyGraph([coreTarget, middleTarget, appTarget]);
 
-    expect(graph.dependentsOf.get('@scope/core')).toStrictEqual([compB]);
-    expect(graph.dependentsOf.get('@scope/middle')).toStrictEqual([compC]);
+    expect(graph.dependentsOf.get('@scope/core')).toStrictEqual([middleTarget]);
+    expect(graph.dependentsOf.get('@scope/middle')).toStrictEqual([appTarget]);
   });
 
   it("records each workspace's version by dir", () => {
@@ -183,20 +183,20 @@ describe(buildDependencyGraph, () => {
   });
 
   it('returns empty maps when the workspaces do not have workspace dependencies', () => {
-    const comp = makeWorkspaceTarget('standalone');
+    const standaloneTarget = makeWorkspaceTarget('standalone');
 
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@scope/standalone', version: '1.0.0' }));
 
-    const graph = buildDependencyGraph([comp]);
+    const graph = buildDependencyGraph([standaloneTarget]);
 
     expect(graph.packageNameToDir.size).toBe(1);
     expect(graph.dependentsOf.size).toBe(0);
   });
 
   it('handles workspaces without packageFiles gracefully', () => {
-    const comp = makeWorkspaceTarget('empty', { versionFiles: [] });
+    const emptyTarget = makeWorkspaceTarget('empty', { versionFiles: [] });
 
-    const graph = buildDependencyGraph([comp]);
+    const graph = buildDependencyGraph([emptyTarget]);
 
     expect(graph.packageNameToDir.size).toBe(0);
     expect(graph.dependentsOf.size).toBe(0);
@@ -213,13 +213,13 @@ describe(buildDependencyGraph, () => {
   });
 
   it('preserves the underlying error as the cause when a package file cannot be read', () => {
-    const underlying = new Error('EACCES: permission denied');
+    const underlyingError = new Error('EACCES: permission denied');
     mockReadFileSync.mockImplementation(() => {
-      throw underlying;
+      throw underlyingError;
     });
 
     expect(() => buildDependencyGraph([makeWorkspaceTarget('core')])).toThrow(
-      expect.objectContaining({ cause: underlying }),
+      expect.objectContaining({ cause: underlyingError }),
     );
   });
 

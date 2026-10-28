@@ -26,17 +26,17 @@ function getChangelogSectionNames(): Set<string> {
 
 describe('devOnlySections drift detection', () => {
   const sectionNames = getChangelogSectionNames();
-  const devOnlySectionsBare = new Set(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections.map(stripGroupDecorations));
+  const devOnlyBareSections = new Set(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections.map(stripGroupDecorations));
 
   it('every devOnlySections default names a section that the taxonomy admits', () => {
-    for (const section of devOnlySectionsBare) {
+    for (const section of devOnlyBareSections) {
       expect(sectionNames, `devOnlySections entry "${section}" is not a work-type header`).toContain(section);
     }
   });
 
   it('every section is classified as either dev-only or all-audience', () => {
     for (const section of sectionNames) {
-      const isClassified = devOnlySectionsBare.has(section) || ALL_AUDIENCE_GROUPS.has(section);
+      const isClassified = devOnlyBareSections.has(section) || ALL_AUDIENCE_GROUPS.has(section);
       expect(
         isClassified,
         `Section "${section}" is not classified. Add it to devOnlySections defaults or ALL_AUDIENCE_GROUPS`,
@@ -45,7 +45,7 @@ describe('devOnlySections drift detection', () => {
   });
 
   it('a section does not appear in both devOnlySections and ALL_AUDIENCE_GROUPS', () => {
-    for (const section of devOnlySectionsBare) {
+    for (const section of devOnlyBareSections) {
       expect(
         ALL_AUDIENCE_GROUPS.has(section),
         `Section "${section}" appears in both devOnlySections and ALL_AUDIENCE_GROUPS`,

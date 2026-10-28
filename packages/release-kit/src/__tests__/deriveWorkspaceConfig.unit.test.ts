@@ -92,12 +92,14 @@ describe(deriveWorkspaceConfig, () => {
   });
 
   it('preserves the underlying error as the cause', () => {
-    const underlying = new Error('ENOENT: no such file or directory, open packages/missing/package.json');
+    const underlyingError = new Error('ENOENT: no such file or directory, open packages/missing/package.json');
     mockReadFileSync.mockImplementation(() => {
-      throw underlying;
+      throw underlyingError;
     });
 
-    expect(() => deriveWorkspaceConfig('packages/missing')).toThrow(expect.objectContaining({ cause: underlying }));
+    expect(() => deriveWorkspaceConfig('packages/missing')).toThrow(
+      expect.objectContaining({ cause: underlyingError }),
+    );
   });
 
   it('wraps JSON.parse errors with the workspace path for context', () => {

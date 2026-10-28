@@ -11,10 +11,10 @@ vi.mock(import('node:child_process'), () => ({
 }));
 
 vi.mock(import('../renderReleaseNotes.ts'), async () => {
-  const actual = await vi.importActual<typeof import('../renderReleaseNotes.ts')>('../renderReleaseNotes.ts');
+  const actualModule = await vi.importActual<typeof import('../renderReleaseNotes.ts')>('../renderReleaseNotes.ts');
   return {
-    ...actual,
-    renderReleaseNotesSingle: vi.fn(actual.renderReleaseNotesSingle),
+    ...actualModule,
+    renderReleaseNotesSingle: vi.fn(actualModule.renderReleaseNotesSingle),
   };
 });
 
@@ -48,19 +48,19 @@ describe(createGithubRelease, () => {
   });
 
   it('returns no-entry skip and warns when changelog.json does not exist', ({ tree }) => {
-    using silent = silenceConsole(['warn']);
+    using silencedConsole = silenceConsole(['warn']);
     const result = createGithubRelease({
       tag: 'v1.0.0',
       changelogJsonPath: join(tree.dir, 'nonexistent.json'),
       isDryRun: false,
     });
     expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
-    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('not found'));
+    expect(silencedConsole.warn).toHaveBeenCalledWith(expect.stringContaining('not found'));
   });
 
   it('returns no-entry skip and warns when changelog.json cannot be parsed', ({ tree }) => {
     const changelogJsonPath = tree.write('changelog.json', 'not valid json{{{');
-    using silent = silenceConsole(['warn']);
+    using silencedConsole = silenceConsole(['warn']);
 
     const result = createGithubRelease({
       tag: 'v1.0.0',
@@ -68,12 +68,12 @@ describe(createGithubRelease, () => {
       isDryRun: false,
     });
     expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
-    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
+    expect(silencedConsole.warn).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
   });
 
   it('returns no-entry skip and warns when version is not in changelog.json', ({ tree }) => {
     const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
-    using silent = silenceConsole(['warn']);
+    using silencedConsole = silenceConsole(['warn']);
 
     const result = createGithubRelease({
       tag: 'v99.0.0',
@@ -81,12 +81,12 @@ describe(createGithubRelease, () => {
       isDryRun: false,
     });
     expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
-    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('no changelog entry'));
+    expect(silencedConsole.warn).toHaveBeenCalledWith(expect.stringContaining('no changelog entry'));
   });
 
   it('logs the command in dry-run mode without executing', ({ tree }) => {
     const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
-    using silent = silenceConsole(['info']);
+    using silencedConsole = silenceConsole(['info']);
 
     const result = createGithubRelease({
       tag: 'v1.0.0',
@@ -95,7 +95,7 @@ describe(createGithubRelease, () => {
     });
     expect(result).toStrictEqual({ status: 'created' });
     expect(mockedExecFileSync).not.toHaveBeenCalled();
-    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining('[dry-run]'));
+    expect(silencedConsole.info).toHaveBeenCalledWith(expect.stringContaining('[dry-run]'));
   });
 
   it('calls gh CLI with correct arguments', ({ tree }) => {
@@ -149,7 +149,7 @@ describe(createGithubRelease, () => {
 
   it('skips release with reason no-audience-content when entry has only dev-audience sections', ({ tree }) => {
     mockedExecFileSync.mockClear();
-    using silent = silenceConsole(['warn']);
+    using silencedConsole = silenceConsole(['warn']);
     const devOnlyEntries: ChangelogEntry[] = [
       {
         version: '2.0.0',
@@ -172,12 +172,12 @@ describe(createGithubRelease, () => {
     expect(mockedExecFileSync).not.toHaveBeenCalled();
     // Intentional skips must stay silent at the lib layer; the per-tag info summary is the
     // command's responsibility and does not run through console.warn.
-    expect(silent.warn).not.toHaveBeenCalled();
+    expect(silencedConsole.warn).not.toHaveBeenCalled();
   });
 
   it('skips release with reason empty-body when rendered all-audience body is empty', ({ tree }) => {
     mockedExecFileSync.mockClear();
-    using silent = silenceConsole(['warn']);
+    using silencedConsole = silenceConsole(['warn']);
     const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
     mockedRenderReleaseNotesSingle.mockReturnValueOnce('   \n   ');
 
@@ -189,7 +189,7 @@ describe(createGithubRelease, () => {
 
     expect(result).toStrictEqual({ status: 'skipped', reason: 'empty-body' });
     expect(mockedExecFileSync).not.toHaveBeenCalled();
-    expect(silent.warn).not.toHaveBeenCalled();
+    expect(silencedConsole.warn).not.toHaveBeenCalled();
   });
 
   it('extracts version from prefixed tags and matches correct entry', ({ tree }) => {

@@ -48,10 +48,10 @@ describe('color-aware styling', () => {
     it.each(STYLED_STATES)('$name', ({ createStream, env }) => {
       stubEnv(env);
 
-      const styled = bold('hello', createStream());
+      const styledText = bold('hello', createStream());
 
-      expect(styled).toContain(BOLD_OPEN);
-      expect(styled).toContain('hello');
+      expect(styledText).toContain(BOLD_OPEN);
+      expect(styledText).toContain('hello');
     });
   });
 
@@ -65,10 +65,10 @@ describe('color-aware styling', () => {
     it.each(STYLED_STATES)('$name', ({ createStream, env }) => {
       stubEnv(env);
 
-      const styled = dim('hello', createStream());
+      const styledText = dim('hello', createStream());
 
-      expect(styled).toContain(DIM_OPEN);
-      expect(styled).toContain('hello');
+      expect(styledText).toContain(DIM_OPEN);
+      expect(styledText).toContain('hello');
     });
   });
 });

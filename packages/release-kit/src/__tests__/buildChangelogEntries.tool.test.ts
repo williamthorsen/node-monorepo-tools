@@ -208,17 +208,17 @@ describe(readReleaseHistory, () => {
       { 'packages/arrays/index.ts': 'export const a = 1;\n', 'packages/strings/index.ts': 'export const s = 1;\n' },
     );
 
-    const arrays = readRouted('arrays');
-    const strings = readRouted('strings');
+    const arraysReading = readRouted('arrays');
+    const stringsReading = readRouted('strings');
 
-    expect(summarize(toChangelogEntries(arrays, 'arrays-v1.0.0'))).toStrictEqual([
+    expect(summarize(toChangelogEntries(arraysReading, 'arrays-v1.0.0'))).toStrictEqual([
       { version: '1.0.0', descriptions: ['Breaks arrays.'] },
     ]);
-    expect(arrays.unreleasedReading.bump).toBe('major');
-    expect(summarize(toChangelogEntries(strings, 'strings-v1.0.0'))).toStrictEqual([
+    expect(arraysReading.unreleasedReading.bump).toBe('major');
+    expect(summarize(toChangelogEntries(stringsReading, 'strings-v1.0.0'))).toStrictEqual([
       { version: '1.0.0', descriptions: ['Fixes strings.'] },
     ]);
-    expect(strings.unreleasedReading.bump).toBe('patch');
+    expect(stringsReading.unreleasedReading.bump).toBe('patch');
   });
 
   it('throws when the prefix array is empty', () => {

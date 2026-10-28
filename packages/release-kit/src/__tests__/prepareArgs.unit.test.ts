@@ -5,28 +5,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs } from '../prepareArgs.ts';
 
 describe(parseArgs, () => {
-  let capture: CapturedStdio;
+  let stdioCapture: CapturedStdio;
 
   beforeEach(() => {
-    capture = captureStdio();
+    stdioCapture = captureStdio();
     void throwOnProcessExit();
     void silenceConsole(['info']);
   });
 
   afterEach(() => {
-    capture[Symbol.dispose]();
+    stdioCapture[Symbol.dispose]();
     vi.restoreAllMocks();
   });
 
   it('exits with an error for an invalid bump type', () => {
     expect(() => parseArgs(['--bump=invalid'])).toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Invalid bump type');
+    expect(stdioCapture.stderr).toContain('Invalid bump type');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('exits with an error for an unknown flag with the flag name in the message', () => {
     expect(() => parseArgs(['--foo'])).toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Unknown option: --foo');
+    expect(stdioCapture.stderr).toContain('Unknown option: --foo');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
@@ -41,7 +41,7 @@ describe(parseArgs, () => {
     // The bin dispatcher only intercepts bare `--help`/`-h`; it passes the `=value` form on to
     // parseArgs, which does not recognize `--help` as a flag.
     expect(() => parseArgs(['--help=value'])).toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Unknown option: --help');
+    expect(stdioCapture.stderr).toContain('Unknown option: --help');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
@@ -55,7 +55,7 @@ describe(parseArgs, () => {
 
   it('exits with an error when --only value is empty', () => {
     expect(() => parseArgs(['--only='])).toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Missing value for option: --only');
+    expect(stdioCapture.stderr).toContain('Missing value for option: --only');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
@@ -66,7 +66,7 @@ describe(parseArgs, () => {
 
   it('exits with an error when --set-version is empty', () => {
     expect(() => parseArgs(['--set-version='])).toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Missing value for option: --set-version');
+    expect(stdioCapture.stderr).toContain('Missing value for option: --set-version');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 

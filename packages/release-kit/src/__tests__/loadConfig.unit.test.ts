@@ -11,7 +11,7 @@ vi.mock(import('node:fs'), () => ({
 }));
 
 // The loader suite imports a real file from disk, so it needs the unmocked module that the suite below replaces.
-const actualFs = await vi.importActual<typeof import('node:fs')>('node:fs');
+const actualFsModule = await vi.importActual<typeof import('node:fs')>('node:fs');
 
 import { CONFIG_FILE_PATH, loadConfig, readRootPackageVersion } from '../loadConfig.ts';
 
@@ -26,7 +26,7 @@ describe(loadConfig, () => {
     cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tree.dir);
     // Delegate to the real `existsSync`, so that `loadConfig` reports a mistyped fixture path as a missing config rather
     // than as an opaque module-resolution failure from the import.
-    mockExistsSync.mockImplementation(actualFs.existsSync);
+    mockExistsSync.mockImplementation(actualFsModule.existsSync);
   });
 
   afterEach(() => {
@@ -146,12 +146,12 @@ describe(readRootPackageVersion, () => {
   });
 
   it('preserves the underlying error as the cause when the root package.json cannot be read', () => {
-    const underlying = new Error('permission denied');
+    const underlyingError = new Error('permission denied');
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockImplementation(() => {
-      throw underlying;
+      throw underlyingError;
     });
-    expect(() => readRootPackageVersion()).toThrow(expect.objectContaining({ cause: underlying }));
+    expect(() => readRootPackageVersion()).toThrow(expect.objectContaining({ cause: underlyingError }));
   });
 
   it('preserves the underlying error as the cause when the root package.json holds invalid JSON', () => {

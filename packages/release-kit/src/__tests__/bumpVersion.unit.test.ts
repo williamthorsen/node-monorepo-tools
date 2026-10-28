@@ -4,18 +4,18 @@ import { bumpVersion } from '../bumpVersion.ts';
 
 describe(bumpVersion, () => {
   it('bumps the patch version', () => {
-    const actual = bumpVersion('1.2.3', 'patch');
-    expect(actual).toBe('1.2.4');
+    const actualVersion = bumpVersion('1.2.3', 'patch');
+    expect(actualVersion).toBe('1.2.4');
   });
 
   it('bumps the minor version and resets patch', () => {
-    const actual = bumpVersion('1.2.3', 'minor');
-    expect(actual).toBe('1.3.0');
+    const actualVersion = bumpVersion('1.2.3', 'minor');
+    expect(actualVersion).toBe('1.3.0');
   });
 
   it('bumps the major version and resets minor and patch', () => {
-    const actual = bumpVersion('1.2.3', 'major');
-    expect(actual).toBe('2.0.0');
+    const actualVersion = bumpVersion('1.2.3', 'major');
+    expect(actualVersion).toBe('2.0.0');
   });
 
   it('handles version 0.0.0', () => {

@@ -43,9 +43,9 @@ vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
 }));
 
 vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../loadConfig.ts')>();
+  const actualModule = await importOriginal<typeof import('../loadConfig.ts')>();
   return {
-    ...actual,
+    ...actualModule,
     loadConfig: mockLoadConfig,
   };
 });
@@ -55,9 +55,9 @@ vi.mock(import('../releasePrepareTargets.ts'), () => ({
 }));
 
 vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
-  const actual = await importOriginal();
+  const actualModule = await importOriginal();
   return {
-    ...actual,
+    ...actualModule,
     writeFileWithCheck: mockWriteFileWithCheck,
   };
 });
@@ -70,17 +70,17 @@ import type { ReleasedPackageResult, SkippedPackageResult } from '../types.ts';
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 describe(prepareCommand, () => {
-  let capture: CapturedStdio;
+  let stdioCapture: CapturedStdio;
 
   beforeEach(() => {
-    capture = captureStdio();
+    stdioCapture = captureStdio();
     applyPrepareCommandDefaults();
     void throwOnProcessExit();
     void silenceConsole(['info']);
   });
 
   afterEach(() => {
-    capture[Symbol.dispose]();
+    stdioCapture[Symbol.dispose]();
     resetPrepareCommandMocks();
     vi.restoreAllMocks();
   });
@@ -152,7 +152,7 @@ describe(prepareCommand, () => {
     mockDiscoverWorkspaces.mockReturnValue(emptyWorkspace('all-excluded'));
 
     await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('No workspace package to release.');
+    expect(stdioCapture.stderr).toContain('No workspace package to release.');
     expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
   });
 
@@ -160,7 +160,7 @@ describe(prepareCommand, () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
     await expect(prepareCommand(['--only=foo'], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('--only is only supported');
+    expect(stdioCapture.stderr).toContain('--only is only supported');
   });
 
   it('passes a bare --force to a single-package release', async () => {
@@ -186,7 +186,7 @@ describe(prepareCommand, () => {
     await expect(prepareCommand(['--only=arrays,nonexistent'], RICH_STYLES, process.cwd())).rejects.toThrow(
       ProcessExitError,
     );
-    expect(capture.stderr).toContain('nonexistent');
+    expect(stdioCapture.stderr).toContain('nonexistent');
     expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
   });
 
@@ -194,8 +194,8 @@ describe(prepareCommand, () => {
     mockLoadConfig.mockRejectedValue(new Error('parse error'));
 
     await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Failed to load config');
-    expect(capture.stderr).toContain('parse error');
+    expect(stdioCapture.stderr).toContain('Failed to load config');
+    expect(stdioCapture.stderr).toContain('parse error');
   });
 
   it('forwards a relative --config to the loader resolved against the invocation directory', async () => {
@@ -220,8 +220,8 @@ describe(prepareCommand, () => {
     mockLoadConfig.mockResolvedValue({ unknownField: true });
 
     await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(capture.stderrChunks).toContain('Invalid config:\n');
-    expect(capture.stderr).toContain('unknownField');
+    expect(stdioCapture.stderrChunks).toContain('Invalid config:\n');
+    expect(stdioCapture.stderr).toContain('unknownField');
   });
 
   it('reports config errors in the style of stderr', async () => {
@@ -231,8 +231,8 @@ describe(prepareCommand, () => {
       ProcessExitError,
     );
 
-    expect(capture.stderr).toMatch(/^ {2}FAIL {2}.*unknownField/m);
-    expect(capture.stderr).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(stdioCapture.stderr).toMatch(/^ {2}FAIL {2}.*unknownField/m);
+    expect(stdioCapture.stderr).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 
   it('reports config warnings in the style of stderr', async () => {
@@ -240,11 +240,11 @@ describe(prepareCommand, () => {
       releaseNotes: { shouldInjectIntoReadme: true },
       changelogJson: { enabled: false },
     });
-    using silent = silenceConsole(['warn']);
+    using silencedConsole = silenceConsole(['warn']);
 
     await prepareCommand([], { stderr: 'plain', stdout: 'rich' }, process.cwd());
 
-    expect(silent.warn).toHaveBeenCalledWith(
+    expect(silencedConsole.warn).toHaveBeenCalledWith(
       expect.stringMatching(/^ {2}WARN {2}releaseNotes\.shouldInjectIntoReadme/),
     );
   });
@@ -314,8 +314,10 @@ describe(prepareCommand, () => {
     });
 
     await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(capture.stderrChunks).toContain("Error: workspace 'arrays' release stage: planVersionBump failed: ENOENT\n");
-    expect(capture.stderr).not.toContain('Error preparing release');
+    expect(stdioCapture.stderrChunks).toContain(
+      "Error: workspace 'arrays' release stage: planVersionBump failed: ENOENT\n",
+    );
+    expect(stdioCapture.stderr).not.toContain('Error preparing release');
   });
 
   it('reports that the working tree is unchanged when computation fails', async () => {
@@ -324,7 +326,9 @@ describe(prepareCommand, () => {
     });
 
     await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(capture.stderrChunks).toContain('The command did not write any files; the working tree is unchanged.\n');
+    expect(stdioCapture.stderrChunks).toContain(
+      'The command did not write any files; the working tree is unchanged.\n',
+    );
   });
 
   it('exits and names the written and unwritten files when the apply pass fails', async () => {
@@ -344,9 +348,9 @@ describe(prepareCommand, () => {
     );
 
     await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('permission denied');
-    expect(capture.stderr).toContain('packages/arrays/package.json');
-    expect(capture.stderr).toContain('Not written:');
+    expect(stdioCapture.stderr).toContain('permission denied');
+    expect(stdioCapture.stderr).toContain('packages/arrays/package.json');
+    expect(stdioCapture.stderr).toContain('Not written:');
   });
 
   it('leaves the release applied and the tags file written when the format command fails', async () => {
@@ -362,7 +366,7 @@ describe(prepareCommand, () => {
 
     await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0', expect.any(Object));
-    expect(capture.stderr).toContain('the release is prepared');
+    expect(stdioCapture.stderr).toContain('the release is prepared');
   });
 
   it('prints release tags file path when tags are produced', async () => {
@@ -423,7 +427,7 @@ describe(prepareCommand, () => {
 
     await prepareCommand([], RICH_STYLES, process.cwd());
 
-    expect(capture.stderr).toContain("Run 'release-kit commit'");
+    expect(stdioCapture.stderr).toContain("Run 'release-kit commit'");
   });
 
   it('does not print follow-up message during dry run', async () => {
@@ -431,7 +435,7 @@ describe(prepareCommand, () => {
 
     await prepareCommand(['--dry-run'], RICH_STYLES, process.cwd());
 
-    expect(capture.stderr).not.toContain("Run 'release-kit commit'");
+    expect(stdioCapture.stderr).not.toContain("Run 'release-kit commit'");
   });
 
   it('applies workspace exclusion from config', async () => {
@@ -454,7 +458,7 @@ describe(prepareCommand, () => {
 
     await prepareCommand([], RICH_STYLES, process.cwd());
 
-    expect(capture.stdout).not.toBe('');
+    expect(stdioCapture.stdout).not.toBe('');
   });
 
   it('exits with error when the working tree is dirty', async () => {
@@ -463,7 +467,7 @@ describe(prepareCommand, () => {
     });
 
     await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('uncommitted changes');
+    expect(stdioCapture.stderr).toContain('uncommitted changes');
   });
 
   it('skips the clean-tree check when --no-git-checks is provided', async () => {
@@ -511,10 +515,12 @@ describe(prepareCommand, () => {
 
       await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
       expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
-      expect(capture.stderrChunks.join('')).toContain(
+      expect(stdioCapture.stderrChunks.join('')).toContain(
         '@scope/arrays: run "npm publish --access public" from packages/arrays',
       );
-      expect(capture.stderrChunks).toContain('The command did not write any files; the working tree is unchanged.\n');
+      expect(stdioCapture.stderrChunks).toContain(
+        'The command did not write any files; the working tree is unchanged.\n',
+      );
     });
 
     it('refuses during a dry run as well', async () => {
@@ -527,7 +533,7 @@ describe(prepareCommand, () => {
       );
 
       await expect(prepareCommand(['--dry-run'], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-      expect(capture.stderrChunks.join('')).toContain('@scope/arrays: Cannot reach the npm registry (ENOTFOUND)');
+      expect(stdioCapture.stderrChunks.join('')).toContain('@scope/arrays: Cannot reach the npm registry (ENOTFOUND)');
     });
 
     it('looks up the root package in a single-package release', async () => {

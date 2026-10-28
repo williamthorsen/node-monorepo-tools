@@ -30,10 +30,10 @@ describe('changelog-overrides.json schema', () => {
   });
 
   it("declares exactly the loader's override fields, and at least one of them", () => {
-    const override = readPatternProperties(schema)[OVERRIDE_KEY_PATTERN.source];
-    expect(override).toMatchObject({ type: 'object', additionalProperties: false, minProperties: 1 });
-    assert(isRecord(override) && isRecord(override['properties']));
-    expect(Object.keys(override['properties']).toSorted()).toStrictEqual([...KNOWN_OVERRIDE_FIELDS].toSorted());
+    const overrideSchema = readPatternProperties(schema)[OVERRIDE_KEY_PATTERN.source];
+    expect(overrideSchema).toMatchObject({ type: 'object', additionalProperties: false, minProperties: 1 });
+    assert(isRecord(overrideSchema) && isRecord(overrideSchema['properties']));
+    expect(Object.keys(overrideSchema['properties']).toSorted()).toStrictEqual([...KNOWN_OVERRIDE_FIELDS].toSorted());
   });
 
   it('types each field as the loader does', () => {

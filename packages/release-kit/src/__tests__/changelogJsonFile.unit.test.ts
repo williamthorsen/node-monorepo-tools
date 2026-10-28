@@ -5,13 +5,13 @@ import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
 
 describe(renderChangelogJson, () => {
   it('orders entries newest-first regardless of input order', () => {
-    const rendered = renderChangelogJson([
+    const renderedJson = renderChangelogJson([
       { version: '1.0.0', date: '2024-01-01', sections: [] },
       { version: '2.0.0', date: '2024-02-01', sections: [] },
     ]);
 
-    const parsed: unknown = JSON.parse(rendered);
-    expect(parsed).toStrictEqual([
+    const parsedJson: unknown = JSON.parse(renderedJson);
+    expect(parsedJson).toStrictEqual([
       { version: '2.0.0', date: '2024-02-01', sections: [] },
       { version: '1.0.0', date: '2024-01-01', sections: [] },
     ]);

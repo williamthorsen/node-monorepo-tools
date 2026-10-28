@@ -107,20 +107,20 @@ describe(readReleaseHistory, () => {
 
   describe('parsed and unparseable commits', () => {
     it('counts the commits that yield at least one item', () => {
-      const unreleased = readUnreleased([
+      const unreleasedReading = readUnreleased([
         '#1 feat: Add',
         mergeMessage('entries:\n  - type: fix\n    text: A.\n  - type: tests\n    text: B.'),
         '#3 fmt: Reformat',
         'Update readme',
       ]);
 
-      expect(unreleased.parsedCommitCount).toBe(2);
+      expect(unreleasedReading.parsedCommitCount).toBe(2);
     });
 
     it('lists, newest first, the commits whose titles lack a ticket prefix or a resolvable type', () => {
-      const unreleased = readUnreleased(['Update readme', '#1 chore: Tidy', '#2 feat: Add', 'feat: Unticketed']);
+      const unreleasedReading = readUnreleased(['Update readme', '#1 chore: Tidy', '#2 feat: Add', 'feat: Unticketed']);
 
-      expect(unreleased.unparseableCommits?.map((commit) => commit.subject)).toStrictEqual([
+      expect(unreleasedReading.unparseableCommits?.map((commit) => commit.subject)).toStrictEqual([
         'feat: Unticketed',
         '#1 chore: Tidy',
         'Update readme',
@@ -128,7 +128,7 @@ describe(readReleaseHistory, () => {
     });
 
     it('does not list a commit for which an exclusion or a diagnostic accounts', () => {
-      const unreleased = readUnreleased([
+      const unreleasedReading = readUnreleased([
         'release: v1.1.0',
         "Merge branch 'main'",
         '#1 fmt: Reformat',
@@ -136,8 +136,8 @@ describe(readReleaseHistory, () => {
         `Squash the branch\n\n${block('entries: 3')}`,
       ]);
 
-      expect(unreleased.unparseableCommits).toBeUndefined();
-      expect(unreleased.parsedCommitCount).toBe(0);
+      expect(unreleasedReading.unparseableCommits).toBeUndefined();
+      expect(unreleasedReading.parsedCommitCount).toBe(0);
     });
   });
 
@@ -196,15 +196,15 @@ entries:
     });
 
     it('classifies a block commit whose entries are all routed to other workspaces by its title', () => {
-      const unreleased = readRouted(
+      const unreleasedReading = readRouted(
         [mergeMessage('entries:\n  - type: fix\n    scopes: [nmr]\n    text: A.')],
         'arrays',
       );
 
-      expect(unreleased.bump).toBe('minor');
-      expect(unreleased.parsedCommitCount).toBe(1);
-      expect(describeItems(unreleased.sections)).toStrictEqual(['Read the change record (#42)']);
-      expect(unreleased.unparseableCommits).toBeUndefined();
+      expect(unreleasedReading.bump).toBe('minor');
+      expect(unreleasedReading.parsedCommitCount).toBe(1);
+      expect(describeItems(unreleasedReading.sections)).toStrictEqual(['Read the change record (#42)']);
+      expect(unreleasedReading.unparseableCommits).toBeUndefined();
     });
 
     it('releases a dependency whose source change has every entry scoped to its dependent', () => {
@@ -236,7 +236,7 @@ entries:
     });
 
     it('keeps a routed entry that yields no item from falling back to the title', () => {
-      const unreleased = readRouted(
+      const unreleasedReading = readRouted(
         [
           mergeMessage(
             'entries:\n  - type: fmt\n    scopes: [arrays]\n    text: Formats.\n  - type: feat\n    scopes: [nmr]\n    text: A.',
@@ -245,18 +245,18 @@ entries:
         'arrays',
       );
 
-      expect(unreleased.bump).toBeUndefined();
-      expect(unreleased.sections).toStrictEqual([]);
+      expect(unreleasedReading.bump).toBeUndefined();
+      expect(unreleasedReading.sections).toStrictEqual([]);
     });
 
     it('reports an unticketed commit whose entries are all routed to other workspaces as unparseable', () => {
-      const unreleased = readRouted(
+      const unreleasedReading = readRouted(
         [mergeMessage('entries:\n  - type: feat\n    scopes: [nmr]\n    text: A.', 'Add the reader')],
         'arrays',
       );
 
-      expect(unreleased.bump).toBeUndefined();
-      expect(unreleased.unparseableCommits).toHaveLength(1);
+      expect(unreleasedReading.bump).toBeUndefined();
+      expect(unreleasedReading.unparseableCommits).toHaveLength(1);
     });
 
     it('keeps the item of a commit without a block', () => {

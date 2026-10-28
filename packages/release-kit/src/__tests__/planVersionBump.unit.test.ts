@@ -72,13 +72,13 @@ describe(planVersionBump, () => {
   });
 
   it('preserves the underlying error as the cause when a package file cannot be read', () => {
-    const underlying = new Error('EACCES: permission denied');
+    const underlyingError = new Error('EACCES: permission denied');
     mockReadFileSync.mockImplementation(() => {
-      throw underlying;
+      throw underlyingError;
     });
 
     expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(
-      expect.objectContaining({ cause: underlying }),
+      expect.objectContaining({ cause: underlyingError }),
     );
   });
 

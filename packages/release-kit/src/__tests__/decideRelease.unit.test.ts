@@ -9,17 +9,17 @@ const skipReasons = {
     'No bump-worthy commits since v1.0.0. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.',
 };
 
-const SKIP_NO_COMMITS: DecideReleaseResult = { outcome: 'skip', skipReason: skipReasons.noCommits };
-const SKIP_NO_BUMP_WORTHY: DecideReleaseResult = { outcome: 'skip', skipReason: skipReasons.noBumpWorthy };
+const SKIP_NO_COMMITS_RESULT: DecideReleaseResult = { outcome: 'skip', skipReason: skipReasons.noCommits };
+const SKIP_NO_BUMP_WORTHY_RESULT: DecideReleaseResult = { outcome: 'skip', skipReason: skipReasons.noBumpWorthy };
 
 describe(decideRelease, () => {
   it.each<[string, Row, DecideReleaseResult]>([
-    ['no commits, no flags', { commitCount: 0 }, SKIP_NO_COMMITS],
-    ['no commits, --bump alone', { commitCount: 0, bumpOverride: 'minor' }, SKIP_NO_COMMITS],
+    ['no commits, no flags', { commitCount: 0 }, SKIP_NO_COMMITS_RESULT],
+    ['no commits, --bump alone', { commitCount: 0, bumpOverride: 'minor' }, SKIP_NO_COMMITS_RESULT],
     ['no commits, --force alone', { commitCount: 0, shouldForce: true }, release('patch')],
     ['no commits, --force --bump', { commitCount: 0, shouldForce: true, bumpOverride: 'major' }, release('major')],
-    ['commits without a bump, no flags', { commitCount: 2 }, SKIP_NO_BUMP_WORTHY],
-    ['commits without a bump, --bump alone', { commitCount: 2, bumpOverride: 'minor' }, SKIP_NO_BUMP_WORTHY],
+    ['commits without a bump, no flags', { commitCount: 2 }, SKIP_NO_BUMP_WORTHY_RESULT],
+    ['commits without a bump, --bump alone', { commitCount: 2, bumpOverride: 'minor' }, SKIP_NO_BUMP_WORTHY_RESULT],
     ['commits without a bump, --force alone', { commitCount: 2, shouldForce: true }, release('patch')],
     [
       'commits without a bump, --force --bump',
@@ -29,7 +29,7 @@ describe(decideRelease, () => {
     ['a natural bump, no flags', { commitCount: 1, naturalBump: 'minor' }, release('minor')],
     ['a natural bump, --bump', { commitCount: 1, naturalBump: 'minor', bumpOverride: 'patch' }, release('patch')],
     ['a natural bump, --force', { commitCount: 1, naturalBump: 'major', shouldForce: true }, release('major')],
-  ])('decides %s', (_label, row, expected) => {
+  ])('decides %s', (_label, row, expectedResult) => {
     const result = decideRelease({
       naturalBump: row.naturalBump,
       commitCount: row.commitCount,
@@ -38,7 +38,7 @@ describe(decideRelease, () => {
       skipReasons,
     });
 
-    expect(result).toStrictEqual(expected);
+    expect(result).toStrictEqual(expectedResult);
   });
 });
 

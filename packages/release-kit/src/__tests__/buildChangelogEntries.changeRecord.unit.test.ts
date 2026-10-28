@@ -152,10 +152,10 @@ entries:
         ),
       ]);
 
-      const deprecated = entries[0]?.sections.find(
+      const deprecatedSection = entries[0]?.sections.find(
         (section) => section.title === DEFAULT_WORK_TYPES['deprecate']?.header,
       );
-      expect(deprecated?.items[0]).not.toHaveProperty('breaking');
+      expect(deprecatedSection?.items[0]).not.toHaveProperty('breaking');
       expect(diagnostics.policyViolations).toStrictEqual([
         {
           commitHash: fakeHash(0),

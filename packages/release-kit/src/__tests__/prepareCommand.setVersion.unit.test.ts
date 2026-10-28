@@ -42,9 +42,9 @@ vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
 }));
 
 vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../loadConfig.ts')>();
+  const actualModule = await importOriginal<typeof import('../loadConfig.ts')>();
   return {
-    ...actual,
+    ...actualModule,
     loadConfig: mockLoadConfig,
   };
 });
@@ -54,9 +54,9 @@ vi.mock(import('../releasePrepareTargets.ts'), () => ({
 }));
 
 vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
-  const actual = await importOriginal();
+  const actualModule = await importOriginal();
   return {
-    ...actual,
+    ...actualModule,
     writeFileWithCheck: mockWriteFileWithCheck,
   };
 });
@@ -67,17 +67,17 @@ import { singlePackage } from '../test-utils/workspaceResolutions.ts';
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 describe(prepareCommand, () => {
-  let capture: CapturedStdio;
+  let stdioCapture: CapturedStdio;
 
   beforeEach(() => {
-    capture = captureStdio();
+    stdioCapture = captureStdio();
     applyPrepareCommandDefaults();
     void throwOnProcessExit();
     void silenceConsole(['info']);
   });
 
   afterEach(() => {
-    capture[Symbol.dispose]();
+    stdioCapture[Symbol.dispose]();
     resetPrepareCommandMocks();
     vi.restoreAllMocks();
   });
@@ -110,8 +110,8 @@ describe(prepareCommand, () => {
     await expect(prepareCommand([`--set-version=${value}`], RICH_STYLES, process.cwd())).rejects.toThrow(
       ProcessExitError,
     );
-    expect(capture.stderr).toContain('Invalid --set-version entry');
-    expect(capture.stderr).toContain('<target>@N.N.N');
+    expect(stdioCapture.stderr).toContain('Invalid --set-version entry');
+    expect(stdioCapture.stderr).toContain('<target>@N.N.N');
     expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
   });
 
@@ -119,7 +119,7 @@ describe(prepareCommand, () => {
     await expect(prepareCommand(['--set-version=nonexistent@1.0.0'], RICH_STYLES, process.cwd())).rejects.toThrow(
       ProcessExitError,
     );
-    expect(capture.stderr).toContain('Unknown release target "nonexistent" in --set-version');
+    expect(stdioCapture.stderr).toContain('Unknown release target "nonexistent" in --set-version');
     expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
   });
 
@@ -127,7 +127,7 @@ describe(prepareCommand, () => {
     await expect(
       prepareCommand(['--set-version=arrays@1.0.0,arrays@2.0.0'], RICH_STYLES, process.cwd()),
     ).rejects.toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('names target "arrays" more than once');
+    expect(stdioCapture.stderr).toContain('names target "arrays" more than once');
     expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
   });
 
@@ -135,7 +135,7 @@ describe(prepareCommand, () => {
     mockDiscoverWorkspaces.mockReturnValue(singlePackage());
 
     await expect(prepareCommand(['--set-version=1.0'], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(capture.stderr).toContain('Invalid --set-version value "1.0"');
+    expect(stdioCapture.stderr).toContain('Invalid --set-version value "1.0"');
     expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
   });
 
@@ -205,7 +205,9 @@ describe(prepareCommand, () => {
       await expect(prepareCommand(['--only=nonexistent'], RICH_STYLES, process.cwd())).rejects.toThrow(
         ProcessExitError,
       );
-      expect(capture.stderr).toContain('Unknown release target "nonexistent". Known targets: arrays, strings, suite');
+      expect(stdioCapture.stderr).toContain(
+        'Unknown release target "nonexistent". Known targets: arrays, strings, suite',
+      );
     });
   });
 
@@ -245,7 +247,7 @@ describe(prepareCommand, () => {
       await expect(prepareCommand(['--only=nonexistent'], RICH_STYLES, process.cwd())).rejects.toThrow(
         ProcessExitError,
       );
-      expect(capture.stderr).toContain('nonexistent');
+      expect(stdioCapture.stderr).toContain('nonexistent');
       expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
     });
 
@@ -258,7 +260,7 @@ describe(prepareCommand, () => {
       await expect(prepareCommand(['--set-version=arrays@1.2.3'], RICH_STYLES, process.cwd())).rejects.toThrow(
         ProcessExitError,
       );
-      expect(capture.stderr).toContain('--set-version cannot be combined with a project release');
+      expect(stdioCapture.stderr).toContain('--set-version cannot be combined with a project release');
       expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
     });
 
@@ -266,7 +268,7 @@ describe(prepareCommand, () => {
       await expect(
         prepareCommand(['--set-version=arrays@1.2.3', '--only=arrays'], RICH_STYLES, process.cwd()),
       ).rejects.toThrow(ProcessExitError);
-      expect(capture.stderr).toContain('--set-version cannot be combined with a project release');
+      expect(stdioCapture.stderr).toContain('--set-version cannot be combined with a project release');
       expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
     });
   });

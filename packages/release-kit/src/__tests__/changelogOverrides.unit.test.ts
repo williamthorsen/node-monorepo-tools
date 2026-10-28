@@ -72,58 +72,60 @@ describe(loadOverridesForScopes, () => {
 
   it('aggregates errors across multiple malformed files into one report', () => {
     const projectRoot = join(tree.dir, 'project');
-    const workspaceA = join(tree.dir, 'packages/a');
-    const workspaceB = join(tree.dir, 'packages/b');
+    const aWorkspaceDir = join(tree.dir, 'packages/a');
+    const bWorkspaceDir = join(tree.dir, 'packages/b');
     tree.write('project/.meta/changelog-overrides.json', '{not-valid');
     tree.write('packages/a/.meta/changelog-overrides.json', '[]');
     tree.writeJson('packages/b/.meta/changelog-overrides.json', { beef01: { audience: 'skip' } });
 
     const result = loadOverridesForScopes({
       projectPath: projectRoot,
-      workspaces: [workspaceA, workspaceB],
+      workspaces: [aWorkspaceDir, bWorkspaceDir],
     });
     expect(result.errors.some((message) => message.includes('Failed to parse override file'))).toBe(true);
     expect(result.errors.some((message) => message.includes('top-level value must be an object'))).toBe(true);
     // The valid file is still loaded so that the report is comprehensive even when peers fail.
-    expect(result.overridesByWorkspace.get(workspaceB)?.get('beef01')).toStrictEqual({ audience: 'skip' });
+    expect(result.overridesByWorkspace.get(bWorkspaceDir)?.get('beef01')).toStrictEqual({ audience: 'skip' });
   });
 });
 
 describe(composeOverrides, () => {
   it('returns a fresh map containing only root entries when workspace is undefined', () => {
-    const root = new Map<string, ChangelogOverride>([
+    const rootOverrides = new Map<string, ChangelogOverride>([
       ['aaa', { audience: 'skip' }],
       ['bbb', { description: 'Replacement' }],
     ]);
-    const composed = composeOverrides(root, undefined);
-    expect(composed).not.toBe(root);
-    expect(composed.size).toBe(2);
-    expect(composed.get('aaa')).toStrictEqual({ audience: 'skip' });
-    expect(composed.get('bbb')).toStrictEqual({ description: 'Replacement' });
+    const composedOverrides = composeOverrides(rootOverrides, undefined);
+    expect(composedOverrides).not.toBe(rootOverrides);
+    expect(composedOverrides.size).toBe(2);
+    expect(composedOverrides.get('aaa')).toStrictEqual({ audience: 'skip' });
+    expect(composedOverrides.get('bbb')).toStrictEqual({ description: 'Replacement' });
   });
 
   it('shadows root entries on byte-equal keys (workspace wins, without a field-level merge)', () => {
-    const root = new Map<string, ChangelogOverride>([['aaa', { audience: 'skip', description: 'Root description' }]]);
-    const workspace = new Map<string, ChangelogOverride>([['aaa', { description: 'Workspace description' }]]);
-    const composed = composeOverrides(root, workspace);
+    const rootOverrides = new Map<string, ChangelogOverride>([
+      ['aaa', { audience: 'skip', description: 'Root description' }],
+    ]);
+    const workspaceOverrides = new Map<string, ChangelogOverride>([['aaa', { description: 'Workspace description' }]]);
+    const composedOverrides = composeOverrides(rootOverrides, workspaceOverrides);
     // The workspace entry replaces the root entry entirely: `audience` is gone.
-    expect(composed.get('aaa')).toStrictEqual({ description: 'Workspace description' });
+    expect(composedOverrides.get('aaa')).toStrictEqual({ description: 'Workspace description' });
   });
 
   it('preserves disjoint root entries when workspace adds new keys', () => {
-    const root = new Map<string, ChangelogOverride>([['aaa', { audience: 'skip' }]]);
-    const workspace = new Map<string, ChangelogOverride>([['bbb', { description: 'New' }]]);
-    const composed = composeOverrides(root, workspace);
-    expect(composed.get('aaa')).toStrictEqual({ audience: 'skip' });
-    expect(composed.get('bbb')).toStrictEqual({ description: 'New' });
+    const rootOverrides = new Map<string, ChangelogOverride>([['aaa', { audience: 'skip' }]]);
+    const workspaceOverrides = new Map<string, ChangelogOverride>([['bbb', { description: 'New' }]]);
+    const composedOverrides = composeOverrides(rootOverrides, workspaceOverrides);
+    expect(composedOverrides.get('aaa')).toStrictEqual({ audience: 'skip' });
+    expect(composedOverrides.get('bbb')).toStrictEqual({ description: 'New' });
   });
 
   it('does not mutate the input maps', () => {
-    const root = new Map<string, ChangelogOverride>([['aaa', { audience: 'skip' }]]);
-    const workspace = new Map<string, ChangelogOverride>([['aaa', { description: 'Override' }]]);
-    composeOverrides(root, workspace);
-    expect(root.get('aaa')).toStrictEqual({ audience: 'skip' });
-    expect(workspace.get('aaa')).toStrictEqual({ description: 'Override' });
+    const rootOverrides = new Map<string, ChangelogOverride>([['aaa', { audience: 'skip' }]]);
+    const workspaceOverrides = new Map<string, ChangelogOverride>([['aaa', { description: 'Override' }]]);
+    composeOverrides(rootOverrides, workspaceOverrides);
+    expect(rootOverrides.get('aaa')).toStrictEqual({ audience: 'skip' });
+    expect(workspaceOverrides.get('aaa')).toStrictEqual({ description: 'Override' });
   });
 });
 
@@ -143,12 +145,12 @@ describe(applyWorkspaceOverrides, () => {
   }
 
   function makeContext(
-    project: Map<string, ChangelogOverride>,
-    perWorkspace: Map<string, Map<string, ChangelogOverride>>,
+    projectOverrides: Map<string, ChangelogOverride>,
+    overridesByWorkspace: Map<string, Map<string, ChangelogOverride>>,
   ): OverrideContext {
     return {
-      projectOverrides: project,
-      overridesByWorkspace: perWorkspace,
+      projectOverrides,
+      overridesByWorkspace,
       overrideWarnings: [],
       globalMatchedRootKeys: new Set<string>(),
     };
@@ -157,8 +159,8 @@ describe(applyWorkspaceOverrides, () => {
   it('applies root-only overrides and tracks them in globalMatchedRootKeys', () => {
     const context = makeContext(new Map([['aaa1111', { audience: 'skip' }]]), new Map());
     const entries = [makeEntry(['aaa1111'])];
-    const applied = applyWorkspaceOverrides(entries, 'packages/foo', context);
-    expect(applied.entries[0]?.sections).toHaveLength(0);
+    const appliedResult = applyWorkspaceOverrides(entries, 'packages/foo', context);
+    expect(appliedResult.entries[0]?.sections).toHaveLength(0);
     expect(context.globalMatchedRootKeys).toStrictEqual(new Set(['aaa1111']));
     expect(context.overrideWarnings).toStrictEqual([]);
   });
@@ -169,8 +171,8 @@ describe(applyWorkspaceOverrides, () => {
       new Map([['packages/foo', new Map([['bbb2222', { description: 'Workspace override' }]])]]),
     );
     const entries = [makeEntry(['bbb2222'])];
-    const applied = applyWorkspaceOverrides(entries, 'packages/foo', context);
-    expect(applied.entries[0]?.sections[0]?.items[0]?.description).toBe('Workspace override');
+    const appliedResult = applyWorkspaceOverrides(entries, 'packages/foo', context);
+    expect(appliedResult.entries[0]?.sections[0]?.items[0]?.description).toBe('Workspace override');
     expect(context.globalMatchedRootKeys.size).toBe(0);
     expect(context.overrideWarnings).toStrictEqual([]);
   });
@@ -181,8 +183,8 @@ describe(applyWorkspaceOverrides, () => {
       new Map([['packages/foo', new Map([['bbb2222', { description: 'Workspace replacement' }]])]]),
     );
     const entries = [makeEntry(['aaa1111', 'bbb2222'])];
-    const applied = applyWorkspaceOverrides(entries, 'packages/foo', context);
-    const items = applied.entries[0]?.sections[0]?.items ?? [];
+    const appliedResult = applyWorkspaceOverrides(entries, 'packages/foo', context);
+    const items = appliedResult.entries[0]?.sections[0]?.items ?? [];
     expect(items).toHaveLength(1);
     expect(items[0]?.hash).toBe('bbb2222');
     expect(items[0]?.description).toBe('Workspace replacement');
@@ -196,9 +198,9 @@ describe(applyWorkspaceOverrides, () => {
       new Map([['packages/foo', new Map([['aaa1111', { description: 'Workspace description' }]])]]),
     );
     const entries = [makeEntry(['aaa1111'])];
-    const applied = applyWorkspaceOverrides(entries, 'packages/foo', context);
+    const appliedResult = applyWorkspaceOverrides(entries, 'packages/foo', context);
     // The workspace entry replaces the root entry entirely: `audience: 'skip'` is gone.
-    expect(applied.entries[0]?.sections[0]?.items[0]?.description).toBe('Workspace description');
+    expect(appliedResult.entries[0]?.sections[0]?.items[0]?.description).toBe('Workspace description');
     // The shadowed root key must NOT count as a global root match; otherwise an end-of-run
     // stale check would conclude that the root key matched somewhere.
     expect(context.globalMatchedRootKeys.size).toBe(0);
@@ -250,8 +252,8 @@ describe(applyWorkspaceOverrides, () => {
       new Map([['packages/foo', new Map([['bbb2222', { audience: 'skip' }]])]]),
     );
     const projectEntries = [makeEntry(['aaa1111', 'bbb2222'])];
-    const applied = applyChangelogOverrides(projectEntries, context.projectOverrides);
-    const remainingHashes = applied.entries[0]?.sections[0]?.items.map((item) => item.hash) ?? [];
+    const appliedResult = applyChangelogOverrides(projectEntries, context.projectOverrides);
+    const remainingHashes = appliedResult.entries[0]?.sections[0]?.items.map((item) => item.hash) ?? [];
     // aaa1111 is dropped via the root override; bbb2222 remains because the workspace file
     // does not apply at the project tier.
     expect(remainingHashes).toStrictEqual(['bbb2222']);

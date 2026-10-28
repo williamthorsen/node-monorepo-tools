@@ -122,10 +122,10 @@ describe(discoverWorkspaces, () => {
     // packages and got none, which is the condition worth reporting rather than releasing the root.
     it('reports no-pattern when every declared entry fails to become a positive pattern', () => {
       tree.write('pnpm-workspace.yaml', 'packages:\n  - !excluded\n');
-      using captured = captureWarnings();
+      using warningCapture = captureWarnings();
 
       expect(discoverWorkspaces(tree.dir)).toMatchObject({ cause: 'no-pattern', kind: 'empty' });
-      expect(captured.warnings).toMatchObject([{ code: 'TAG_RESOLVE_FAILED' }]);
+      expect(warningCapture.warnings).toMatchObject([{ code: 'TAG_RESOLVE_FAILED' }]);
     });
 
     // Reported rather than thrown, so that a caller composing a message is the one that decides the failure.
