@@ -1,7 +1,7 @@
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  applyReleasePrepareTargetsMonorepoDefaults,
+  applyPrepareReleaseTargetsMonorepoDefaults,
   listReadOptions,
   mockBuildEmptyReleaseEntry,
   mockBuildSyntheticChangelogEntry,
@@ -16,10 +16,10 @@ const {
   mockRenderChangelogJson,
   mockRenderChangelogMarkdown,
   mockWriteFileSync,
-  resetReleasePrepareTargetsMonorepoMocks,
+  resetPrepareReleaseTargetsMonorepoMocks,
   stubHistory,
   stubHistoryByPrefix,
-} = await vi.hoisted(() => import('../test-utils/releasePrepareTargetsMonorepoMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsMonorepoMocks.ts'));
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -41,7 +41,7 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
 }));
 
 // Stub the history reader and the changelog constructors and renderers. The default stubs return
-// deterministic values without reading git history or touching the filesystem; `toChangelogEntries`
+// deterministic values without reading git history or touching the filesystem; `convertToChangelogEntries`
 // stays real, so the planned changelog contains a history's sections, labeled with the new tag.
 vi.mock(import('../buildChangelogEntries.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -75,16 +75,20 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
   listArchiveFiles: () => [],
 }));
 
+import {
+  findPlannedContent,
+  makeConfig,
+  prepareMonorepo,
+} from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
 import { selectPackageResults } from '../test-utils/prepareResults.ts';
-import { makeConfig, plannedContent, prepareMonorepo } from '../test-utils/releasePrepareTargetsMonorepoFixtures.ts';
 
-describe('releasePrepareTargets for a monorepo', () => {
+describe('prepareReleaseTargets for a monorepo', () => {
   beforeEach(() => {
-    applyReleasePrepareTargetsMonorepoDefaults();
+    applyPrepareReleaseTargetsMonorepoDefaults();
   });
 
   afterEach(() => {
-    resetReleasePrepareTargetsMonorepoMocks();
+    resetPrepareReleaseTargetsMonorepoMocks();
   });
 
   it('processes a workspace that has commits', () => {
@@ -118,7 +122,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       changelogFiles: ['packages/arrays/CHANGELOG.md'],
     });
 
-    expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
+    expect(findPlannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
 
     // Verify the history was read once, under the workspace's own tag prefixes and paths

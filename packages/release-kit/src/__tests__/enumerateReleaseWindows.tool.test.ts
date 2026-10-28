@@ -28,9 +28,9 @@ function seedTwoReleases(repo: GitRepoFixture): void {
  */
 function seedMergedBranch(repo: GitRepoFixture): void {
   repo.commit('chore: base', { 'src/base.ts': 'export const base = 0;\n' }, { date: '2026-01-01T00:00:00Z' });
-  repo.git('checkout', '--quiet', '-b', 'feat');
+  repo.runGit('checkout', '--quiet', '-b', 'feat');
   repo.commit('feat: branch work', { 'src/branch.ts': 'export const branch = 1;\n' }, { date: '2026-01-02T00:00:00Z' });
-  repo.git('checkout', '--quiet', 'main');
+  repo.runGit('checkout', '--quiet', 'main');
   repo.commit('chore: mainline work', { 'src/main.ts': 'export const main = 2;\n' }, { date: '2026-01-03T00:00:00Z' });
   repo.tag('pkg-v1.0.0');
   repo.merge('feat', 'Merge feat', { date: '2026-01-04T00:00:00Z' });
@@ -84,10 +84,10 @@ describe(enumerateReleaseWindows, () => {
   it('drops a tag unreachable from HEAD', () => {
     const repo = scaffoldGitRepo();
     repo.commit('feat: first', { 'src/first.ts': 'export const first = 1;\n' });
-    repo.git('checkout', '--quiet', '-b', 'side');
+    repo.runGit('checkout', '--quiet', '-b', 'side');
     repo.commit('feat: sidelined', { 'src/side.ts': 'export const side = 1;\n' });
     repo.tag('pkg-v9.0.0');
-    repo.git('checkout', '--quiet', 'main');
+    repo.runGit('checkout', '--quiet', 'main');
     repo.commit('fix: second', { 'src/second.ts': 'export const second = 2;\n' });
 
     const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
@@ -232,7 +232,7 @@ describe(enumerateReleaseWindows, () => {
     repo.commit('feat: first', { 'src/first.ts': 'export const first = 1;\n' });
     repo.tag('pkg-v1.0.0');
     repo.commit('fix: second', { 'src/second.ts': 'export const second = 2;\n' });
-    const taggerSeconds = Number(repo.git('for-each-ref', '--format=%(creatordate:unix)', 'refs/tags/pkg-v1.0.0'));
+    const taggerSeconds = Number(repo.runGit('for-each-ref', '--format=%(creatordate:unix)', 'refs/tags/pkg-v1.0.0'));
 
     const windows = enumerateReleaseWindows({
       now: () => 1_700_000_000_500,

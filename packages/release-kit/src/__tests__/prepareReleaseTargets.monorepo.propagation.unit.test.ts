@@ -1,7 +1,7 @@
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  applyReleasePrepareTargetsMonorepoDefaults,
+  applyPrepareReleaseTargetsMonorepoDefaults,
   listReadOptions,
   mockBuildEmptyReleaseEntry,
   mockBuildSyntheticChangelogEntry,
@@ -16,10 +16,10 @@ const {
   mockRenderChangelogJson,
   mockRenderChangelogMarkdown,
   mockWriteFileSync,
-  resetReleasePrepareTargetsMonorepoMocks,
+  resetPrepareReleaseTargetsMonorepoMocks,
   stubHistory,
   stubHistoryByPrefix,
-} = await vi.hoisted(() => import('../test-utils/releasePrepareTargetsMonorepoMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsMonorepoMocks.ts'));
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -41,7 +41,7 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
 }));
 
 // Stub the history reader and the changelog constructors and renderers. The default stubs return
-// deterministic values without reading git history or touching the filesystem; `toChangelogEntries`
+// deterministic values without reading git history or touching the filesystem; `convertToChangelogEntries`
 // stays real, so the planned changelog contains a history's sections, labeled with the new tag.
 vi.mock(import('../buildChangelogEntries.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -75,25 +75,25 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
   listArchiveFiles: () => [],
 }));
 
-import { selectPackageResults } from '../test-utils/prepareResults.ts';
-import { makeReleaseHistory } from '../test-utils/releaseHistories.ts';
 import {
+  findPlannedContent,
   makeConfig,
   makeRoutedWorkspace,
-  plannedContent,
   prepareMonorepo,
   stubPropagationWorkspaces,
   workTypes,
-} from '../test-utils/releasePrepareTargetsMonorepoFixtures.ts';
+} from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
+import { selectPackageResults } from '../test-utils/prepareResults.ts';
+import { makeReleaseHistory } from '../test-utils/releaseHistories.ts';
 import type { ChangelogSection, MonorepoReleaseConfig, ReleaseType, UnroutedEntryScope } from '../types.ts';
 
-describe('releasePrepareTargets for a monorepo', () => {
+describe('prepareReleaseTargets for a monorepo', () => {
   beforeEach(() => {
-    applyReleasePrepareTargetsMonorepoDefaults();
+    applyPrepareReleaseTargetsMonorepoDefaults();
   });
 
   afterEach(() => {
-    resetReleasePrepareTargetsMonorepoMocks();
+    resetPrepareReleaseTargetsMonorepoMocks();
   });
 
   describe('dependency propagation', () => {
@@ -205,7 +205,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       assert(coreResult?.status === 'released', 'expected released');
       expect(coreResult.releaseType).toBeUndefined();
       expect(result.tags).toStrictEqual(['core-v1.0.0']);
-      expect(plannedContent(result, 'packages/core/package.json')).toContain('"version": "1.0.0"');
+      expect(findPlannedContent(result, 'packages/core/package.json')).toContain('"version": "1.0.0"');
     });
 
     it("builds a --set-version changelog from the workspace's one history read, leaving the decision's counts off", () => {
@@ -453,7 +453,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       body: '',
       message: blockMessage,
     };
-    const unroutedFinding = (entryPosition: number, scope: string): UnroutedEntryScope => ({
+    const buildUnroutedFinding = (entryPosition: number, scope: string): UnroutedEntryScope => ({
       commitHash: 'fff9999',
       commitSubject: blockCommit.subject,
       entryPosition,
@@ -469,7 +469,7 @@ describe('releasePrepareTargets for a monorepo', () => {
 
       const result = prepareMonorepo(config, {});
 
-      const expectedEntryScopes = [unroutedFinding(2, 'strings'), unroutedFinding(3, 'nothing')];
+      const expectedEntryScopes = [buildUnroutedFinding(2, 'strings'), buildUnroutedFinding(3, 'nothing')];
       expect(selectPackageResults(result).find((w) => w.name === 'arrays')).toMatchObject({
         status: 'released',
         unroutedEntryScopes: expectedEntryScopes,
@@ -489,7 +489,7 @@ describe('releasePrepareTargets for a monorepo', () => {
       const result = prepareMonorepo(config, { onlyTargetIds: ['arrays'] });
 
       expect(selectPackageResults(result).map((workspace) => workspace.name)).toStrictEqual(['arrays']);
-      expect(selectPackageResults(result)[0]?.unroutedEntryScopes).toStrictEqual([unroutedFinding(3, 'nothing')]);
+      expect(selectPackageResults(result)[0]?.unroutedEntryScopes).toStrictEqual([buildUnroutedFinding(3, 'nothing')]);
     });
 
     /** Stubs each prefix's history with its bump, putting the block commit in the windows of `blockPrefixes`. */

@@ -4,7 +4,7 @@ import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { GenerateChangelogOptions } from '../generateChangelogs.ts';
-import { resolvedPackages } from '../test-utils/workspaceResolutions.ts';
+import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 import { validateOverridesCommand } from '../validateOverridesCommand.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
@@ -28,7 +28,7 @@ describe(validateOverridesCommand, () => {
       let workspaceFilePaths: string[] = [];
 
       await validateOverridesCommand(RICH_STYLES, undefined, {
-        discoverWorkspaces: () => resolvedPackages(['packages/foo']),
+        discoverWorkspaces: () => makeResolvedPackages(['packages/foo']),
         loadValidatedConfig: () =>
           Promise.resolve({
             status: 'ok',

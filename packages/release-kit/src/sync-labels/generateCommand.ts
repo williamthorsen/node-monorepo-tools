@@ -125,7 +125,11 @@ export async function generateCommand({ shouldCheck = false, configPath, styles 
     presetHashes.set(presetName, hashPreset(presetName));
   }
 
-  const content = formatLabelsYaml(labels, presetHashes, toRootRelativePosixPath(configPath ?? CONFIG_FILE_PATH));
+  const content = formatLabelsYaml(
+    labels,
+    presetHashes,
+    convertToRootRelativePosixPath(configPath ?? CONFIG_FILE_PATH),
+  );
 
   if (shouldCheck) {
     return compareAgainstCommittedFile(content);
@@ -166,7 +170,7 @@ function compareAgainstCommittedFile(expectedContent: string): number {
 }
 
 /** Converts a path to POSIX form relative to the working directory; a path outside it keeps its `../` segments. */
-function toRootRelativePosixPath(filePath: string): string {
+function convertToRootRelativePosixPath(filePath: string): string {
   return path.relative(process.cwd(), path.resolve(filePath)).split(path.sep).join('/');
 }
 

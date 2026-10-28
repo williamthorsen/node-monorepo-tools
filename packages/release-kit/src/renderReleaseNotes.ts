@@ -23,12 +23,12 @@ export interface RenderOptions {
 }
 
 /** Matches every section. */
-function allSections() {
+function matchAllSections() {
   return true;
 }
 
 /** Matches the sections whose audience is `all`. */
-function publicSections(section: ChangelogSection) {
+function matchPublicSections(section: ChangelogSection) {
   return section.audience === 'all';
 }
 
@@ -39,7 +39,7 @@ function publicSections(section: ChangelogSection) {
  * `"dev"` matches all sections (developers see everything).
  */
 export function matchesAudience(audience: ChangelogAudience): (section: ChangelogSection) => boolean {
-  return audience === 'dev' ? allSections : publicSections;
+  return audience === 'dev' ? matchAllSections : matchPublicSections;
 }
 
 /**

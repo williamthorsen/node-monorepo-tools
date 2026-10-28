@@ -1,7 +1,7 @@
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  applyReleasePrepareTargetsProjectDefaults,
+  applyPrepareReleaseTargetsProjectDefaults,
   expectOneHistoryRead,
   mockCopyFileSync,
   mockExecFileSync,
@@ -16,10 +16,10 @@ const {
   mockRenderChangelogMarkdown,
   mockRmSync,
   mockWriteFileSync,
-  resetReleasePrepareTargetsProjectMocks,
+  resetPrepareReleaseTargetsProjectMocks,
   stubFiles,
   stubHistory,
-} = await vi.hoisted(() => import('../test-utils/releasePrepareTargetsProjectMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsProjectMocks.ts'));
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -75,15 +75,15 @@ import {
   RELEASED_ENTRY,
   stubDefaultHistory,
   UNDECLARED_ENTRY_TYPE,
-} from '../test-utils/releasePrepareTargetsProjectFixtures.ts';
+} from '../test-utils/prepareReleaseTargetsProjectFixtures.ts';
 
-describe('releasePrepareTargets for a project composite', () => {
+describe('prepareReleaseTargets for a project composite', () => {
   beforeEach(() => {
-    applyReleasePrepareTargetsProjectDefaults();
+    applyPrepareReleaseTargetsProjectDefaults();
   });
 
   afterEach(() => {
-    resetReleasePrepareTargetsProjectMocks();
+    resetPrepareReleaseTargetsProjectMocks();
   });
 
   describe('existing CHANGELOG.md sections', () => {

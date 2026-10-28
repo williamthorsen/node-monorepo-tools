@@ -47,7 +47,7 @@ vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
 });
 
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
-import { resolvedPackages } from '../test-utils/workspaceResolutions.ts';
+import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -76,7 +76,7 @@ describe(createGithubReleaseCommand, () => {
         workspacePath: 'apps/app',
         isPublishable: false,
       };
-      mockDiscoverWorkspaces.mockReturnValue(resolvedPackages(['packages/basic']));
+      mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([DIRECTORY_TAG]);
 
       await createGithubReleaseCommand([], RICH_STYLES, process.cwd());

@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-import { singlePackage } from './workspaceResolutions.ts';
+import { makeSinglePackage } from './workspaceResolutions.ts';
 
 export const mockAssertCleanWorkingTree = vi.fn();
 export const mockCreateGithubReleases = vi.fn();
@@ -20,7 +20,7 @@ export const mockWriteFileSync = vi.fn();
  * publishable `v1.0.0` tag, an empty valid config, and a package without a README.
  */
 export function applyPublishCommandDefaults(): void {
-  mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+  mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
   mockResolveReleaseTags.mockReturnValue([
     { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true },
   ]);

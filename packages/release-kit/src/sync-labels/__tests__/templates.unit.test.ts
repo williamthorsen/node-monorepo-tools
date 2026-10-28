@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { parse } from 'yaml';
 
 import { isRecord } from '../../typeGuards.ts';
-import { readSyncLabelsWorkflowTemplate, renderRepoLabelsBlock, repoLabelsConfigScript } from '../templates.ts';
+import { readSyncLabelsWorkflowTemplate, renderRepoLabelsBlock, renderRepoLabelsConfigScript } from '../templates.ts';
 import type { LabelDefinition } from '../types.ts';
 
 vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
@@ -123,9 +123,9 @@ describe(renderRepoLabelsBlock, () => {
   });
 });
 
-describe(repoLabelsConfigScript, () => {
+describe(renderRepoLabelsConfigScript, () => {
   it('wraps the repoLabels block in a defineConfig default export', () => {
-    const result = repoLabelsConfigScript([]);
+    const result = renderRepoLabelsConfigScript([]);
 
     expect(result).toContain("import { defineConfig } from '@williamthorsen/release-kit/config'");
     expect(result).toContain('export default defineConfig({');
@@ -136,7 +136,7 @@ describe(repoLabelsConfigScript, () => {
   it('embeds the rendered block verbatim', () => {
     const scopeLabels: LabelDefinition[] = [{ name: 'scope:root', color: '00ff96' }];
 
-    const result = repoLabelsConfigScript(scopeLabels);
+    const result = renderRepoLabelsConfigScript(scopeLabels);
 
     expect(result).toContain(renderRepoLabelsBlock(scopeLabels));
   });

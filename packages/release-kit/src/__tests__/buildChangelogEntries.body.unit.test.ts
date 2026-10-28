@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fakeHash, makeConfig, makeWindow, OPTIONS } from '../test-utils/changelogCommits.ts';
+import { makeConfig, makeFakeHash, makeWindow, OPTIONS } from '../test-utils/changelogCommits.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 const { mockEnumerateReleaseWindows, mockWriteFileSync } = await vi.hoisted(
@@ -34,7 +34,7 @@ describe(buildChangelogEntries, () => {
 
     it('omits body field when the commit does not have any body text', () => {
       const items = runAndReadItems('#1 feat: Add widget');
-      expect(items[0]).toStrictEqual({ description: 'Add widget', hash: fakeHash(0) });
+      expect(items[0]).toStrictEqual({ description: 'Add widget', hash: makeFakeHash(0) });
       expect(items[0]).not.toHaveProperty('body');
     });
 

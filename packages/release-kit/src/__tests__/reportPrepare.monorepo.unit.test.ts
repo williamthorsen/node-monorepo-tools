@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bold, dim, sectionHeader } from '../format.ts';
+import { bold, dim, renderSectionHeader } from '../format.ts';
 import { reportPrepare } from '../reportPrepare.ts';
 import type { PrepareResult } from '../types.ts';
 
@@ -58,8 +58,8 @@ describe(reportPrepare, () => {
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
-      expect(output).toContain(sectionHeader('arrays'));
-      expect(output).toContain(sectionHeader('strings'));
+      expect(output).toContain(renderSectionHeader('arrays'));
+      expect(output).toContain(renderSectionHeader('strings'));
       expect(output).toContain(`  🔖 ${bold('arrays-v1.1.0')}`);
       expect(output).toContain(`  🔖 ${bold('strings-v2.0.1')}`);
       expect(output).toContain('✅ Release preparation complete.');
@@ -155,8 +155,8 @@ describe(reportPrepare, () => {
 
       const output = reportPrepare(result, { applied: true, style: 'rich' });
 
-      expect(output).toContain(sectionHeader('arrays'));
-      expect(output).toContain(sectionHeader('strings'));
+      expect(output).toContain(renderSectionHeader('arrays'));
+      expect(output).toContain(renderSectionHeader('strings'));
       expect(output).toContain('  ⏩ No changes for strings since strings-v2.0.0. Skipping.');
       expect(output).toContain('✅ Release preparation complete.');
     });

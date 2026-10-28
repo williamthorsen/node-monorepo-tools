@@ -9,7 +9,7 @@ vi.mock(import('node:child_process'), () => ({
 import { detectUndeclaredTagPrefixes } from '../detectUndeclaredTagPrefixes.ts';
 
 /** Configures the mock to return the given tags from `git tag --list`. */
-function setupTagList(tags: string[]): void {
+function stubTagList(tags: string[]): void {
   mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
     if (cmd === 'git' && args[0] === 'tag' && args[1] === '--list') {
       return tags.join('\n') + (tags.length > 0 ? '\n' : '');
@@ -24,19 +24,19 @@ describe(detectUndeclaredTagPrefixes, () => {
   });
 
   it("returns an empty array when the repo doesn't have any tags", () => {
-    setupTagList([]);
+    stubTagList([]);
 
     expect(detectUndeclaredTagPrefixes(['core-v'])).toStrictEqual([]);
   });
 
   it('returns an empty array when every candidate prefix is known', () => {
-    setupTagList(['core-v1.0.0', 'core-v1.1.0', 'arrays-v0.1.0']);
+    stubTagList(['core-v1.0.0', 'core-v1.1.0', 'arrays-v0.1.0']);
 
     expect(detectUndeclaredTagPrefixes(['core-v', 'arrays-v'])).toStrictEqual([]);
   });
 
   it('returns one entry per undeclared prefix with accurate tag count', () => {
-    setupTagList(['core-v0.2.7', 'core-v0.2.8', 'arrays-v1.0.0']);
+    stubTagList(['core-v0.2.7', 'core-v0.2.8', 'arrays-v1.0.0']);
 
     const result = detectUndeclaredTagPrefixes(['arrays-v']);
 
@@ -51,7 +51,7 @@ describe(detectUndeclaredTagPrefixes, () => {
   });
 
   it('returns multiple entries sorted by prefix when several undeclared prefixes exist', () => {
-    setupTagList(['zeta-v1.0.0', 'alpha-v1.0.0', 'alpha-v1.1.0']);
+    stubTagList(['zeta-v1.0.0', 'alpha-v1.0.0', 'alpha-v1.1.0']);
 
     const result = detectUndeclaredTagPrefixes([]);
 
@@ -59,7 +59,7 @@ describe(detectUndeclaredTagPrefixes, () => {
   });
 
   it('caps exampleTags at the per-prefix limit', () => {
-    setupTagList(['core-v0.1.0', 'core-v0.2.0', 'core-v0.3.0', 'core-v0.4.0', 'core-v0.5.0']);
+    stubTagList(['core-v0.1.0', 'core-v0.2.0', 'core-v0.3.0', 'core-v0.4.0', 'core-v0.5.0']);
 
     const result = detectUndeclaredTagPrefixes([]);
 
@@ -69,7 +69,7 @@ describe(detectUndeclaredTagPrefixes, () => {
   });
 
   it('accepts tags with a pre-release suffix', () => {
-    setupTagList(['core-v1.0.0-beta.1', 'core-v1.0.0-rc.2']);
+    stubTagList(['core-v1.0.0-beta.1', 'core-v1.0.0-rc.2']);
 
     const result = detectUndeclaredTagPrefixes([]);
 
@@ -77,7 +77,7 @@ describe(detectUndeclaredTagPrefixes, () => {
   });
 
   it('ignores tags that do not match the candidate pattern', () => {
-    setupTagList(['release/v1', 'something-2.0', 'UPPER-v1.0.0', 'v1.0.0']);
+    stubTagList(['release/v1', 'something-2.0', 'UPPER-v1.0.0', 'v1.0.0']);
 
     expect(detectUndeclaredTagPrefixes([])).toStrictEqual([]);
   });
@@ -91,7 +91,7 @@ describe(detectUndeclaredTagPrefixes, () => {
   });
 
   it('derives suggestedDir by stripping the trailing -v from the prefix', () => {
-    setupTagList(['my-cool-package-v1.0.0']);
+    stubTagList(['my-cool-package-v1.0.0']);
 
     const result = detectUndeclaredTagPrefixes([]);
 

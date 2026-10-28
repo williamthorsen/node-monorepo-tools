@@ -90,7 +90,7 @@ export function parseCommitMessage(
  * policy applies. The engine strips ticket prefixes.
  */
 export function parseSubject(subject: string, workTypes: Record<string, WorkTypeConfig>): ChangeRecord | undefined {
-  const taxonomy = toTaxonomy(workTypes);
+  const taxonomy = adaptToTaxonomy(workTypes);
   for (const nodes of SUBJECT_TEMPLATES) {
     const record = parse(nodes, subject, taxonomy);
     if (record !== undefined) {
@@ -160,7 +160,7 @@ export function resolveType(rawType: string, workTypes: Record<string, WorkTypeC
 // region | Helpers
 
 /** Adapts configured work types to the engine's taxonomy; `parse` reads only keys and aliases, so the tier is empty. */
-function toTaxonomy(workTypes: Record<string, WorkTypeConfig>): Taxonomy {
+function adaptToTaxonomy(workTypes: Record<string, WorkTypeConfig>): Taxonomy {
   return {
     tiers: [],
     types: Object.entries(workTypes).map(([key, config]) => ({ aliases: config.aliases ?? [], key, tier: '' })),

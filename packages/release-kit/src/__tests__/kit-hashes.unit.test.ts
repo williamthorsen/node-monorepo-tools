@@ -14,7 +14,7 @@ import {
   RELEASE_WORKFLOW_HASH_SINGLE,
   SYNC_LABELS_WORKFLOW_HASH,
 } from '../../.readyup/lib/workflow-hashes.ts';
-import { createGithubReleaseWorkflow, publishWorkflow, releaseWorkflow } from '../init/templates.ts';
+import { renderCreateGithubReleaseWorkflow, renderPublishWorkflow, renderReleaseWorkflow } from '../init/templates.ts';
 import { hashPreset } from '../sync-labels/presets.ts';
 
 /**
@@ -31,48 +31,48 @@ describe('rdy kit hashes match their source artifacts', () => {
     expect(actualHash, `COMMON_PRESET_HASH is stale -- update it to: ${actualHash}`).toBe(COMMON_PRESET_HASH);
   });
 
-  it('CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO matches createGithubReleaseWorkflow("monorepo")', () => {
-    const actualHash = computeHash(createGithubReleaseWorkflow('monorepo'));
+  it('CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO matches renderCreateGithubReleaseWorkflow("monorepo")', () => {
+    const actualHash = computeHash(renderCreateGithubReleaseWorkflow('monorepo'));
 
     expect(actualHash, `CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO is stale -- update it to: ${actualHash}`).toBe(
       CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO,
     );
   });
 
-  it('CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE matches createGithubReleaseWorkflow("single-package")', () => {
-    const actualHash = computeHash(createGithubReleaseWorkflow('single-package'));
+  it('CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE matches renderCreateGithubReleaseWorkflow("single-package")', () => {
+    const actualHash = computeHash(renderCreateGithubReleaseWorkflow('single-package'));
 
     expect(actualHash, `CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE is stale -- update it to: ${actualHash}`).toBe(
       CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE,
     );
   });
 
-  it('PUBLISH_WORKFLOW_HASH_MONOREPO matches publishWorkflow("monorepo")', () => {
-    const actualHash = computeHash(publishWorkflow('monorepo'));
+  it('PUBLISH_WORKFLOW_HASH_MONOREPO matches renderPublishWorkflow("monorepo")', () => {
+    const actualHash = computeHash(renderPublishWorkflow('monorepo'));
 
     expect(actualHash, `PUBLISH_WORKFLOW_HASH_MONOREPO is stale -- update it to: ${actualHash}`).toBe(
       PUBLISH_WORKFLOW_HASH_MONOREPO,
     );
   });
 
-  it('PUBLISH_WORKFLOW_HASH_SINGLE matches publishWorkflow("single-package")', () => {
-    const actualHash = computeHash(publishWorkflow('single-package'));
+  it('PUBLISH_WORKFLOW_HASH_SINGLE matches renderPublishWorkflow("single-package")', () => {
+    const actualHash = computeHash(renderPublishWorkflow('single-package'));
 
     expect(actualHash, `PUBLISH_WORKFLOW_HASH_SINGLE is stale -- update it to: ${actualHash}`).toBe(
       PUBLISH_WORKFLOW_HASH_SINGLE,
     );
   });
 
-  it('RELEASE_WORKFLOW_HASH_MONOREPO matches releaseWorkflow("monorepo")', () => {
-    const actualHash = computeHash(releaseWorkflow('monorepo'));
+  it('RELEASE_WORKFLOW_HASH_MONOREPO matches renderReleaseWorkflow("monorepo")', () => {
+    const actualHash = computeHash(renderReleaseWorkflow('monorepo'));
 
     expect(actualHash, `RELEASE_WORKFLOW_HASH_MONOREPO is stale -- update it to: ${actualHash}`).toBe(
       RELEASE_WORKFLOW_HASH_MONOREPO,
     );
   });
 
-  it('RELEASE_WORKFLOW_HASH_SINGLE matches releaseWorkflow("single-package")', () => {
-    const actualHash = computeHash(releaseWorkflow('single-package'));
+  it('RELEASE_WORKFLOW_HASH_SINGLE matches renderReleaseWorkflow("single-package")', () => {
+    const actualHash = computeHash(renderReleaseWorkflow('single-package'));
 
     expect(actualHash, `RELEASE_WORKFLOW_HASH_SINGLE is stale -- update it to: ${actualHash}`).toBe(
       RELEASE_WORKFLOW_HASH_SINGLE,

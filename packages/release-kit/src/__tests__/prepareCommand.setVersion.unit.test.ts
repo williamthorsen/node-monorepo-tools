@@ -12,7 +12,7 @@ const {
   mockLoadConfig,
   mockLookUpNpmPackage,
   mockReadFileSync,
-  mockReleasePrepareTargets,
+  mockPrepareReleaseTargets,
   mockWriteFileWithCheck,
   resetPrepareCommandMocks,
 } = await vi.hoisted(() => import('../test-utils/prepareCommandMocks.ts'));
@@ -49,8 +49,8 @@ vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
   };
 });
 
-vi.mock(import('../releasePrepareTargets.ts'), () => ({
-  releasePrepareTargets: mockReleasePrepareTargets,
+vi.mock(import('../prepareReleaseTargets.ts'), () => ({
+  prepareReleaseTargets: mockPrepareReleaseTargets,
 }));
 
 vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
@@ -62,7 +62,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
 });
 
 import { prepareCommand } from '../prepareCommand.ts';
-import { singlePackage } from '../test-utils/workspaceResolutions.ts';
+import { makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -89,7 +89,7 @@ describe(prepareCommand, () => {
       process.cwd(),
     );
 
-    expect(mockReleasePrepareTargets).toHaveBeenCalledWith(expect.any(Object), {
+    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(expect.any(Object), {
       shouldForce: true,
       bumpOverride: 'minor',
       versionOverridesById: new Map([
@@ -112,7 +112,7 @@ describe(prepareCommand, () => {
     );
     expect(stdioCapture.stderr).toContain('Invalid --set-version entry');
     expect(stdioCapture.stderr).toContain('<target>@N.N.N');
-    expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
+    expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
   });
 
   it('rejects an unknown workspace in --set-version', async () => {
@@ -120,7 +120,7 @@ describe(prepareCommand, () => {
       ProcessExitError,
     );
     expect(stdioCapture.stderr).toContain('Unknown release target "nonexistent" in --set-version');
-    expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
+    expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
   });
 
   it('rejects a workspace that --set-version names twice', async () => {
@@ -128,23 +128,23 @@ describe(prepareCommand, () => {
       prepareCommand(['--set-version=arrays@1.0.0,arrays@2.0.0'], RICH_STYLES, process.cwd()),
     ).rejects.toThrow(ProcessExitError);
     expect(stdioCapture.stderr).toContain('names target "arrays" more than once');
-    expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
+    expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
   });
 
   it('rejects a version that is not canonical in single-package --set-version', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
     await expect(prepareCommand(['--set-version=1.0'], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
     expect(stdioCapture.stderr).toContain('Invalid --set-version value "1.0"');
-    expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
+    expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
   });
 
   it('passes the --set-version version under the root target in single-package mode', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
     await prepareCommand(['--set-version=1.2.3'], RICH_STYLES, process.cwd());
 
-    expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
+    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ versionOverridesById: new Map([['.', '1.2.3']]) }),
     );
@@ -153,18 +153,18 @@ describe(prepareCommand, () => {
   it('forwards shouldIncludeReleaseNotes in monorepo mode when --with-release-notes is set', async () => {
     await prepareCommand(['--with-release-notes'], RICH_STYLES, process.cwd());
 
-    expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
+    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ shouldIncludeReleaseNotes: true }),
     );
   });
 
   it('forwards shouldIncludeReleaseNotes in single-package mode', async () => {
-    mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+    mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
     await prepareCommand(['--with-release-notes'], RICH_STYLES, process.cwd());
 
-    expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
+    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ shouldIncludeReleaseNotes: true }),
     );
@@ -173,7 +173,7 @@ describe(prepareCommand, () => {
   it('omits shouldIncludeReleaseNotes from options when the flag is not set', async () => {
     await prepareCommand([], RICH_STYLES, process.cwd());
 
-    const callArgs = mockReleasePrepareTargets.mock.calls[0]?.[1];
+    const callArgs = mockPrepareReleaseTargets.mock.calls[0]?.[1];
     expect(callArgs).not.toHaveProperty('shouldIncludeReleaseNotes');
   });
 
@@ -195,7 +195,7 @@ describe(prepareCommand, () => {
     it('accepts the composite name and passes it through to the orchestrator', async () => {
       await prepareCommand(['--only=suite'], RICH_STYLES, process.cwd());
 
-      expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
+      expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
         expect.any(Object),
         expect.objectContaining({ onlyTargetIds: ['suite'] }),
       );
@@ -231,7 +231,7 @@ describe(prepareCommand, () => {
     it('accepts --only and passes the narrowing through to the orchestrator', async () => {
       await prepareCommand(['--only=arrays'], RICH_STYLES, process.cwd());
 
-      expect(mockReleasePrepareTargets).toHaveBeenCalledWith(
+      expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
         expect.any(Object),
         expect.objectContaining({ onlyTargetIds: ['arrays'] }),
       );
@@ -240,7 +240,7 @@ describe(prepareCommand, () => {
     it('omits the narrowing from the orchestrator options when --only is absent', async () => {
       await prepareCommand([], RICH_STYLES, process.cwd());
 
-      expect(mockReleasePrepareTargets.mock.calls[0]?.[1]).not.toHaveProperty('only');
+      expect(mockPrepareReleaseTargets.mock.calls[0]?.[1]).not.toHaveProperty('only');
     });
 
     it('still rejects --only with an unknown workspace name', async () => {
@@ -248,12 +248,12 @@ describe(prepareCommand, () => {
         ProcessExitError,
       );
       expect(stdioCapture.stderr).toContain('nonexistent');
-      expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
+      expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
     });
 
     it('runs normally without --only when project is configured', async () => {
       await prepareCommand([], RICH_STYLES, process.cwd());
-      expect(mockReleasePrepareTargets).toHaveBeenCalled();
+      expect(mockPrepareReleaseTargets).toHaveBeenCalled();
     });
 
     it('rejects --set-version with the project-aware error', async () => {
@@ -261,7 +261,7 @@ describe(prepareCommand, () => {
         ProcessExitError,
       );
       expect(stdioCapture.stderr).toContain('--set-version cannot be combined with a project release');
-      expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
+      expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
     });
 
     it('rejects --set-version + --only with the project-aware error', async () => {
@@ -269,7 +269,7 @@ describe(prepareCommand, () => {
         prepareCommand(['--set-version=arrays@1.2.3', '--only=arrays'], RICH_STYLES, process.cwd()),
       ).rejects.toThrow(ProcessExitError);
       expect(stdioCapture.stderr).toContain('--set-version cannot be combined with a project release');
-      expect(mockReleasePrepareTargets).not.toHaveBeenCalled();
+      expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
     });
   });
 });

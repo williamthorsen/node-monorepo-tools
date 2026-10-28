@@ -6,8 +6,8 @@ import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ReleaseKitConfig } from '../configSchema.ts';
 import { mergeMonorepoConfig } from '../mergeConfig.ts';
+import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
 import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
-import { releasePrepareTargets, type TargetPrepareOptions } from '../releasePrepareTargets.ts';
 import { reportPrepare } from '../reportPrepare.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import type { TargetPrepareResult } from '../types.ts';
@@ -23,7 +23,7 @@ describe('directory releases (tool)', () => {
   let tree: TempTree;
 
   beforeEach(() => {
-    tree = setupFixture();
+    tree = setUpFixture();
   });
 
   it('releases a directory without a package.json from its version.json, writing its changelog in the directory', () => {
@@ -215,7 +215,7 @@ function prepare(userConfig: ReleaseKitConfig, options: TargetPrepareOptions, di
     { ...userConfig, changelogJson: { enabled: false } },
     ROOT_PACKAGE,
   );
-  return releasePrepareTargets(projectMonorepoConfig(config), options);
+  return prepareReleaseTargets(projectMonorepoConfig(config), options);
 }
 
 /** Runs a command in the fixture repo. */
@@ -233,7 +233,7 @@ function selectResult(plan: ReleasePlan, id: string): TargetPrepareResult | unde
  * `version.json`, baseline tags for each and for the root, and since them a fix in the workspace, a feature in the
  * app, and a root-level commit.
  */
-function setupFixture(): TempTree {
+function setUpFixture(): TempTree {
   const tree = disposeOnTestFinished(createTempTree({}, { prefix: 'release-kit-directory-' }));
   run(tree, 'git', ['init', '--quiet', '--initial-branch=main']);
   run(tree, 'git', ['config', 'user.email', 'test@example.com']);

@@ -31,12 +31,12 @@ export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
   const presetNames = config.extends ?? [];
   for (const presetName of presetNames) {
     for (const label of loadPreset(presetName)) {
-      resolvedLabels.set(toLabelKey(label.name), label);
+      resolvedLabels.set(getLabelKey(label.name), label);
     }
   }
 
   for (const [name, spec] of labelEntries) {
-    const key = toLabelKey(name);
+    const key = getLabelKey(name);
     if (spec === null) {
       if (!resolvedLabels.has(key)) {
         throw new Error(
@@ -73,14 +73,14 @@ export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
 
 /** Describes each alias that matches a resolved label's name or an alias declared earlier. */
 function findAliasCollisions(labels: LabelDefinition[]): string[] {
-  const labelNamesByKey = new Map(labels.map((label) => [toLabelKey(label.name), label.name]));
+  const labelNamesByKey = new Map(labels.map((label) => [getLabelKey(label.name), label.name]));
   const aliasOwnersByKey = new Map<string, string>();
   const collisions: string[] = [];
 
   for (const label of labels) {
     const aliases = label.aliases ?? [];
     for (const alias of aliases) {
-      const key = toLabelKey(alias);
+      const key = getLabelKey(alias);
       const namedLabel = labelNamesByKey.get(key);
       const earlierOwner = aliasOwnersByKey.get(key);
       if (namedLabel !== undefined) {
@@ -98,20 +98,20 @@ function findAliasCollisions(labels: LabelDefinition[]): string[] {
 
 /** Groups names that share a label key, keeping only the groups of two or more. */
 function findCaseVariantGroups(names: string[]): string[][] {
-  return Map.groupBy(names, toLabelKey)
+  return Map.groupBy(names, getLabelKey)
     .values()
     .filter((group) => group.length > 1)
     .toArray();
 }
 
+/** Returns the key that identifies a label name, compared case-insensitively as GitHub and `github-label-sync` do. */
+function getLabelKey(name: string): string {
+  return name.toLowerCase();
+}
+
 /** Sorts labels alphabetically by name (case-insensitive). */
 function sortLabels(labels: LabelDefinition[]): LabelDefinition[] {
   return labels.toSorted((a, b) => a.name.localeCompare(b.name));
-}
-
-/** Returns the key that identifies a label name, compared case-insensitively as GitHub and `github-label-sync` do. */
-function toLabelKey(name: string): string {
-  return name.toLowerCase();
 }
 
 // endregion | Helpers

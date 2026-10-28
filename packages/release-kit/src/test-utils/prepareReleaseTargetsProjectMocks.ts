@@ -21,10 +21,10 @@ export const mockRmSync = vi.fn();
 export const mockWriteFileSync = vi.fn();
 
 /**
- * Sets the defaults on which every project-composite `releasePrepareTargets` suite builds: The renderers return fixed
+ * Sets the defaults on which every project-composite `prepareReleaseTargets` suite builds: The renderers return fixed
  * content, the root manifest is at 0.9.0, and every other path is missing.
  */
-export function applyReleasePrepareTargetsProjectDefaults(): void {
+export function applyPrepareReleaseTargetsProjectDefaults(): void {
   mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
   mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
   mockRenderChangelogJson.mockReturnValue('[]\n');
@@ -43,7 +43,7 @@ export function expectOneHistoryRead(config: MonorepoReleaseConfig, paths: strin
 }
 
 /** Resets every mock that this module exports. */
-export function resetReleasePrepareTargetsProjectMocks(): void {
+export function resetPrepareReleaseTargetsProjectMocks(): void {
   for (const mock of [
     mockCopyFileSync,
     mockExecFileSync,

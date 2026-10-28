@@ -6,7 +6,7 @@ import {
   STATUS_GLYPHS,
 } from '@williamthorsen/nmr-core';
 
-import { bold, dim, sectionHeader } from './format.ts';
+import { bold, dim, renderSectionHeader } from './format.ts';
 import { formatBumpFiles, formatChangelogFiles, formatPreviewFiles } from './formatPrepareFiles.ts';
 import {
   formatChangeRecordWarnings,
@@ -177,7 +177,7 @@ function formatProjectSection(
   isDryRun: boolean,
   style: OutputStyle,
 ): void {
-  lines.push(`\n${sectionHeader(project.targetId === PROJECT_TARGET_ID ? 'project' : project.targetId)}`);
+  lines.push(`\n${renderSectionHeader(project.targetId === PROJECT_TARGET_ID ? 'project' : project.targetId)}`);
 
   const sinceLabel = project.previousTag === undefined ? '(no previous release found)' : `since ${project.previousTag}`;
   lines.push(dim(`  Found ${project.commitCount} commits ${sinceLabel}`));
@@ -236,7 +236,7 @@ function formatWorkspaceSection(
   style: OutputStyle,
 ): void {
   if (workspace.name !== undefined) {
-    lines.push(`\n${sectionHeader(workspace.name)}`);
+    lines.push(`\n${renderSectionHeader(workspace.name)}`);
   }
 
   const sinceLabel =

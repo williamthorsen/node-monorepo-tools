@@ -96,7 +96,7 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     expect(internalBangCommit?.type).toBe('internal');
     expect(internalBangCommit?.breaking).toBe(false);
     expect(onPolicyViolation).toHaveBeenCalledWith(
-      expectedCommit('internal!: refactor helper', 'p12'),
+      buildExpectedCommit('internal!: refactor helper', 'p12'),
       'internal',
       'prefix',
     );
@@ -109,7 +109,7 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     expect(utilityBangCommit?.type).toBe('internal');
     expect(utilityBangCommit?.breaking).toBe(false);
     expect(onPolicyViolation).toHaveBeenCalledWith(
-      expectedCommit('utility!: refactor helper', 'p13'),
+      buildExpectedCommit('utility!: refactor helper', 'p13'),
       'internal',
       'prefix',
     );
@@ -150,7 +150,7 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     });
     expect(result?.type).toBe(canonicalType);
     expect(result?.breaking).toBe(false);
-    expect(onPolicyViolation).toHaveBeenCalledWith(expectedCommit(message, 'h'), canonicalType, 'prefix');
+    expect(onPolicyViolation).toHaveBeenCalledWith(buildExpectedCommit(message, 'h'), canonicalType, 'prefix');
   });
 
   it('accepts `BREAKING CHANGE:` body footer on an optional-policy type as a valid breaking signal', () => {
@@ -174,7 +174,7 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     });
     expect(result?.type).toBe('refactor');
     expect(result?.breaking).toBe(false);
-    expect(onPolicyViolation).toHaveBeenCalledWith(expectedCommit(message, 'p14'), 'refactor', 'body');
+    expect(onPolicyViolation).toHaveBeenCalledWith(buildExpectedCommit(message, 'p14'), 'refactor', 'body');
   });
 
   it('reports both prefix and body surfaces independently when both are present on a forbidden type', () => {
@@ -186,8 +186,8 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     });
     expect(result?.breaking).toBe(false);
     expect(onPolicyViolation).toHaveBeenCalledTimes(2);
-    expect(onPolicyViolation).toHaveBeenCalledWith(expectedCommit(message, 'p15'), 'refactor', 'prefix');
-    expect(onPolicyViolation).toHaveBeenCalledWith(expectedCommit(message, 'p15'), 'refactor', 'body');
+    expect(onPolicyViolation).toHaveBeenCalledWith(buildExpectedCommit(message, 'p15'), 'refactor', 'prefix');
+    expect(onPolicyViolation).toHaveBeenCalledWith(buildExpectedCommit(message, 'p15'), 'refactor', 'body');
   });
 
   it('does not invoke the policy callback for compliant commits', () => {
@@ -212,7 +212,7 @@ describe('parseCommitMessage `!` policy enforcement', () => {
 
 // region | Helpers
 /** Builds the `Commit` that the parser passes to the policy callback, whose subject is the message's first line. */
-function expectedCommit(message: string, hash: string): Commit {
+function buildExpectedCommit(message: string, hash: string): Commit {
   return { message, subject: message.split('\n', 1)[0] ?? '', hash };
 }
 // endregion | Helpers

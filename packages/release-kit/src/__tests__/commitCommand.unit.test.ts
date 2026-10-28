@@ -17,7 +17,7 @@ vi.mock(import('node:child_process'), () => ({
 import { commitCommand } from '../commitCommand.ts';
 
 /** Creates an Error with a `code` property, matching Node's ErrnoException shape. */
-function errnoError(message: string, code: string): Error {
+function createErrnoError(message: string, code: string): Error {
   return Object.assign(new Error(message), { code });
 }
 
@@ -62,7 +62,7 @@ describe(commitCommand, () => {
 
   it('if the tags file is missing, throws naming the resolved path', () => {
     mockReadFileSync.mockImplementation(() => {
-      throw errnoError('ENOENT: no such file or directory', 'ENOENT');
+      throw createErrnoError('ENOENT: no such file or directory', 'ENOENT');
     });
 
     expect(() => commitCommand([])).toThrow('No tags file found at');
@@ -70,7 +70,7 @@ describe(commitCommand, () => {
 
   it('if the tags file is unreadable, reports the errno rather than reporting it missing', () => {
     mockReadFileSync.mockImplementation(() => {
-      throw errnoError('EACCES: permission denied', 'EACCES');
+      throw createErrnoError('EACCES: permission denied', 'EACCES');
     });
 
     expect(() => commitCommand([])).toThrow('Cannot read the tags file at');
@@ -79,7 +79,7 @@ describe(commitCommand, () => {
   it('throws when tags file is empty', () => {
     mockReadFileSync.mockImplementation((path: string) => {
       if (path === 'tmp/.release-tags') return '  \n  ';
-      throw errnoError('ENOENT', 'ENOENT');
+      throw createErrnoError('ENOENT', 'ENOENT');
     });
 
     expect(() => commitCommand([])).toThrow('is empty. Run `release-kit prepare` first.');
@@ -88,7 +88,7 @@ describe(commitCommand, () => {
   it('falls back to empty body when summary file is missing', () => {
     mockReadFileSync.mockImplementation((path: string) => {
       if (path === 'tmp/.release-tags') return 'v1.0.0\n';
-      throw errnoError('ENOENT', 'ENOENT');
+      throw createErrnoError('ENOENT', 'ENOENT');
     });
 
     commitCommand([]);
@@ -102,7 +102,7 @@ describe(commitCommand, () => {
     mockReadFileSync.mockImplementation((path: string) => {
       if (path === 'tmp/.release-tags') return 'v1.0.0\n';
       if (path === 'tmp/.release-summary') return 'v1.0.0\n- feat: New feature';
-      throw errnoError('ENOENT', 'ENOENT');
+      throw createErrnoError('ENOENT', 'ENOENT');
     });
     mockExecFileSync.mockReturnValue('M package.json\n');
 
@@ -123,7 +123,7 @@ describe(commitCommand, () => {
     mockReadFileSync.mockImplementation((path: string) => {
       if (path === 'tmp/.release-tags') return 'v1.0.0\n';
       if (path === 'tmp/.release-summary') return '  \n  ';
-      throw errnoError('ENOENT', 'ENOENT');
+      throw createErrnoError('ENOENT', 'ENOENT');
     });
 
     commitCommand([]);
@@ -137,7 +137,7 @@ describe(commitCommand, () => {
     mockReadFileSync.mockImplementation((path: string) => {
       if (path === 'tmp/.release-tags') return 'v1.0.0\n';
       if (path === 'tmp/.release-summary') {
-        throw errnoError('EACCES: permission denied', 'EACCES');
+        throw createErrnoError('EACCES: permission denied', 'EACCES');
       }
       throw new Error('ENOENT');
     });
@@ -148,7 +148,7 @@ describe(commitCommand, () => {
   it('logs a diagnostic when dry-run git status fails', () => {
     mockReadFileSync.mockImplementation((path: string) => {
       if (path === 'tmp/.release-tags') return 'v1.0.0\n';
-      throw errnoError('ENOENT', 'ENOENT');
+      throw createErrnoError('ENOENT', 'ENOENT');
     });
     mockExecFileSync.mockImplementation(() => {
       throw new Error('git not found');

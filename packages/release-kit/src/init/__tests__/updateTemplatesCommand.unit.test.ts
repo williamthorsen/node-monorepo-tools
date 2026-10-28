@@ -4,7 +4,7 @@ import type { ManagedFileResult, StreamStyles } from '@williamthorsen/nmr-core';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createGithubReleaseWorkflow, publishWorkflow, releaseWorkflow } from '../templates.ts';
+import { renderCreateGithubReleaseWorkflow, renderPublishWorkflow, renderReleaseWorkflow } from '../templates.ts';
 
 const mockExistsSync = vi.hoisted(() => vi.fn<(path: PathLike) => boolean>());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -80,9 +80,9 @@ describe(updateTemplatesCommand, () => {
 
     expect(exitCode).toBe(0);
     expect(listUpdates()).toStrictEqual([
-      ['.github/workflows/create-github-release.yaml', createGithubReleaseWorkflow('monorepo')],
-      ['.github/workflows/publish.yaml', publishWorkflow('monorepo')],
-      ['.github/workflows/release.yaml', releaseWorkflow('monorepo')],
+      ['.github/workflows/create-github-release.yaml', renderCreateGithubReleaseWorkflow('monorepo')],
+      ['.github/workflows/publish.yaml', renderPublishWorkflow('monorepo')],
+      ['.github/workflows/release.yaml', renderReleaseWorkflow('monorepo')],
     ]);
     expect(mockReportTemplateUpdate).toHaveBeenCalledTimes(3);
   });
@@ -122,13 +122,13 @@ describe(updateTemplatesCommand, () => {
     using _silencedConsole = silenceConsole(['info']);
     mockHasPublishablePackage.mockReturnValue(false);
     mockExistsSync.mockImplementation((path) => path === '.github/workflows/publish.yaml');
-    mockReadFileSync.mockReturnValue(publishWorkflow('monorepo', { shouldGenerateProvenance: false }));
+    mockReadFileSync.mockReturnValue(renderPublishWorkflow('monorepo', { shouldGenerateProvenance: false }));
 
     updateTemplatesCommand({ isDryRun: false, styles: STYLES });
 
     expect(listUpdates()).toStrictEqual([
-      ['.github/workflows/publish.yaml', publishWorkflow('monorepo', { shouldGenerateProvenance: false })],
-      ['.github/workflows/release.yaml', releaseWorkflow('monorepo')],
+      ['.github/workflows/publish.yaml', renderPublishWorkflow('monorepo', { shouldGenerateProvenance: false })],
+      ['.github/workflows/release.yaml', renderReleaseWorkflow('monorepo')],
     ]);
     expect(mockPrintSkip.mock.calls).toStrictEqual([
       ['Skipping .github/workflows/create-github-release.yaml: every package is private', 'plain'],
@@ -146,13 +146,13 @@ describe(updateTemplatesCommand, () => {
   it('keeps provenance off when the existing publish workflow does not set it', () => {
     using _silencedConsole = silenceConsole(['info']);
     mockExistsSync.mockImplementation((path) => path === '.github/workflows/publish.yaml');
-    mockReadFileSync.mockReturnValue(publishWorkflow('monorepo', { shouldGenerateProvenance: false }));
+    mockReadFileSync.mockReturnValue(renderPublishWorkflow('monorepo', { shouldGenerateProvenance: false }));
 
     updateTemplatesCommand({ isDryRun: false, styles: STYLES });
 
     expect(listUpdates()).toContainEqual([
       '.github/workflows/publish.yaml',
-      publishWorkflow('monorepo', { shouldGenerateProvenance: false }),
+      renderPublishWorkflow('monorepo', { shouldGenerateProvenance: false }),
     ]);
   });
 

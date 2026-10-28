@@ -10,7 +10,7 @@ describe(resolveReleaseDeclaration, () => {
   it('declares a directory for a path that is not a discovered workspace, in config order', () => {
     const declaration = resolveReleaseDeclaration(
       WORKSPACES,
-      config({
+      wrapInConfig({
         site: { path: './docs/site/' },
         app: { path: 'apps/devopticon', tagPrefix: 'app-v' },
       }),
@@ -24,7 +24,7 @@ describe(resolveReleaseDeclaration, () => {
   });
 
   it('declares the repo root with a whole-repo window', () => {
-    const declaration = resolveReleaseDeclaration(WORKSPACES, config({ repo: { path: './' } }));
+    const declaration = resolveReleaseDeclaration(WORKSPACES, wrapInConfig({ repo: { path: './' } }));
 
     expect(declaration.directories).toStrictEqual([{ name: 'repo', path: '.' }]);
   });
@@ -34,7 +34,7 @@ describe(resolveReleaseDeclaration, () => {
 
     const [directory] = resolveReleaseDeclaration(
       WORKSPACES,
-      config({ app: { path: 'apps/app', legacyIdentities } }),
+      wrapInConfig({ app: { path: 'apps/app', legacyIdentities } }),
     ).directories;
 
     expect(directory?.legacyIdentities).toStrictEqual(legacyIdentities);
@@ -44,7 +44,7 @@ describe(resolveReleaseDeclaration, () => {
   it('lets a composite include a directory, whose window joins the union', () => {
     const { composite } = resolveReleaseDeclaration(
       WORKSPACES,
-      config({ app: { path: 'apps/app' }, suite: { includes: ['core', 'app'] } }),
+      wrapInConfig({ app: { path: 'apps/app' }, suite: { includes: ['core', 'app'] } }),
     );
 
     expect(composite).toStrictEqual({
@@ -87,17 +87,12 @@ describe(resolveReleaseDeclaration, () => {
   ] satisfies Array<[string, NonNullable<ReleaseKitConfig['releases']>, string]>)(
     'rejects %s',
     (_description, releases, message) => {
-      expect(() => resolveReleaseDeclaration(WORKSPACES, config(releases))).toThrow(message);
+      expect(() => resolveReleaseDeclaration(WORKSPACES, wrapInConfig(releases))).toThrow(message);
     },
   );
 });
 
 // region | Helpers
-
-/** Wraps a `releases` block in a config. */
-function config(releases: NonNullable<ReleaseKitConfig['releases']>): ReleaseKitConfig {
-  return { releases };
-}
 
 /** Builds the discovered workspace of `@test/{dir}` under `packages/{dir}`. */
 function makeWorkspace(dir: string): WorkspaceConfig {
@@ -110,6 +105,11 @@ function makeWorkspace(dir: string): WorkspaceConfig {
     packageFiles: [`packages/${dir}/package.json`],
     paths: [`packages/${dir}/**`],
   };
+}
+
+/** Wraps a `releases` block in a config. */
+function wrapInConfig(releases: NonNullable<ReleaseKitConfig['releases']>): ReleaseKitConfig {
+  return { releases };
 }
 
 // endregion | Helpers

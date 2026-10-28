@@ -71,7 +71,7 @@ export async function validateOverridesCommand(
 ): Promise<ValidateOverridesCommandResult> {
   const discover = dependencies.discoverWorkspaces ?? discoverWorkspaces;
   const load = dependencies.loadValidatedConfig ?? (() => loadValidatedConfig(configPath));
-  const buildEntries = dependencies.buildEntries ?? defaultBuildEntries;
+  const buildEntries = dependencies.buildEntries ?? buildEntriesByDefault;
   const validate = dependencies.validate ?? validateAllChangelogOverrides;
 
   const configResult = await load();
@@ -142,7 +142,7 @@ function pluralize(count: number, noun: string): string {
 }
 
 /** Builds changelog entries through `buildChangelogEntries` under a throwaway tag label. */
-function defaultBuildEntries(config: ReleaseHistoryConfig, options: GenerateChangelogOptions): ChangelogEntry[] {
+function buildEntriesByDefault(config: ReleaseHistoryConfig, options: GenerateChangelogOptions): ChangelogEntry[] {
   return buildChangelogEntries(config, SYNTHETIC_VALIDATE_TAG, options).entries;
 }
 

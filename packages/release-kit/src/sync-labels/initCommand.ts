@@ -12,7 +12,7 @@ import {
   buildScopeLabels,
   readSyncLabelsWorkflowTemplate,
   renderRepoLabelsBlock,
-  repoLabelsConfigScript,
+  renderRepoLabelsConfigScript,
 } from './templates.ts';
 import type { LabelDefinition } from './types.ts';
 
@@ -117,7 +117,7 @@ export async function syncLabelsInitCommand({
     return 0;
   }
 
-  const configResult = writeFileWithCheck(CONFIG_FILE_PATH, repoLabelsConfigScript(scopeLabels), {
+  const configResult = writeFileWithCheck(CONFIG_FILE_PATH, renderRepoLabelsConfigScript(scopeLabels), {
     isDryRun,
     shouldOverwrite: shouldForce,
   });
@@ -167,10 +167,10 @@ async function loadRetiredPackageNames(styles: StreamStyles, configPath?: string
   if (result.status === 'missing') {
     return [];
   }
-  return (result.config.retiredPackages ?? []).map((retired) => toUnscopedName(retired.name));
+  return (result.config.retiredPackages ?? []).map((retired) => stripNpmScope(retired.name));
 }
 
 /** Strips the npm scope from a package name (`@scope/name` → `name`). */
-function toUnscopedName(name: string): string {
+function stripNpmScope(name: string): string {
   return name.startsWith('@') ? name.slice(name.indexOf('/') + 1) : name;
 }

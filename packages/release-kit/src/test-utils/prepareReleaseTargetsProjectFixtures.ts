@@ -1,8 +1,8 @@
 import { assert } from 'vitest';
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
+import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
 import type { PlannedWrite } from '../releasePlan.ts';
-import { releasePrepareTargets, type TargetPrepareOptions } from '../releasePrepareTargets.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import type {
   ChangelogEntry,
@@ -14,9 +14,9 @@ import type {
   UndeclaredEntryType,
   WorkspaceConfig,
 } from '../types.ts';
+import { stubHistory } from './prepareReleaseTargetsProjectMocks.ts';
 import { selectCompositeResult } from './prepareResults.ts';
 import type { ReleaseHistoryStub } from './releaseHistories.ts';
-import { stubHistory } from './releasePrepareTargetsProjectMocks.ts';
 
 /** The unreleased window's sections in the default history. */
 export const UNRELEASED_SECTIONS: ChangelogSection[] = [
@@ -82,7 +82,7 @@ export function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): Monorepo
  */
 export function prepareProjectStage(args: ProjectStageArgs): CompositePrepareResult {
   const { targets, settings } = projectMonorepoConfig(args.config);
-  const plan = releasePrepareTargets(
+  const plan = prepareReleaseTargets(
     {
       targets: targets.filter((target) => target.kind === 'composite'),
       // A configured command makes the plan report its modified files.

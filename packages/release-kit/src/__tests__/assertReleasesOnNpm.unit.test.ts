@@ -90,10 +90,12 @@ describe(assertReleasesOnNpm, () => {
       detail: 'Cannot reach the npm registry (ENOTFOUND)',
     } satisfies NpmPackageLookup);
 
-    const action = () => assertReleasesOnNpm(['packages/arrays']);
+    const runAssertion = () => assertReleasesOnNpm(['packages/arrays']);
 
-    expect(action).toThrow('Could not confirm on npm:\n  - @scope/arrays: Cannot reach the npm registry (ENOTFOUND)');
-    expect(action).not.toThrow('npm publish');
+    expect(runAssertion).toThrow(
+      'Could not confirm on npm:\n  - @scope/arrays: Cannot reach the npm registry (ENOTFOUND)',
+    );
+    expect(runAssertion).not.toThrow('npm publish');
   });
 
   it('lists every failing package, unpublished and unconfirmed alike', () => {
@@ -101,9 +103,9 @@ describe(assertReleasesOnNpm, () => {
       name === '@scope/arrays' ? { status: 'unpublished' } : { status: 'unverifiable', detail: 'E500' },
     );
 
-    const action = () => assertReleasesOnNpm(['packages/arrays', 'packages/strings']);
+    const runAssertion = () => assertReleasesOnNpm(['packages/arrays', 'packages/strings']);
 
-    expect(action).toThrow('  - @scope/arrays: run "npm publish --access public" from packages/arrays');
-    expect(action).toThrow('  - @scope/strings: E500');
+    expect(runAssertion).toThrow('  - @scope/arrays: run "npm publish --access public" from packages/arrays');
+    expect(runAssertion).toThrow('  - @scope/strings: E500');
   });
 });

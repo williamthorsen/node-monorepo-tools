@@ -117,7 +117,7 @@ export function buildTitleItem(
   if (body !== undefined) {
     item.body = body;
   }
-  if (isParsedBreaking && subjectHasBreakingMarker(commit.message, workTypes)) {
+  if (isParsedBreaking && hasBreakingMarkerInSubject(commit.message, workTypes)) {
     item.breaking = true;
   }
   // Derive from the trailer-stripped body so that the migration comes from exactly the text in `body`.
@@ -217,6 +217,15 @@ function extractDescription(message: string): string {
 }
 
 /**
+ * Reports whether the commit subject contains the `!` breaking marker, as change-grammar reads it. The `BREAKING
+ * CHANGE:` body footer is not considered, and the marker alone does not make an item breaking: The commit's work-type
+ * policy must also permit `!` (see `buildTitleItem`).
+ */
+function hasBreakingMarkerInSubject(message: string, workTypes: Record<string, WorkTypeConfig>): boolean {
+  return parseSubject(message.split('\n', 1)[0] ?? '', workTypes)?.breaking === true;
+}
+
+/**
  * Reports whether an entry with `scopes` is routed to the workspace of `routing`: Its scopes are empty, contain `*`,
  * or name the workspace's scope once `scopeAliases` resolves them.
  */
@@ -228,15 +237,6 @@ function isRoutedTo(scopes: readonly string[], routing: EntryRouting): boolean {
     const resolvedScope = routing.scopeAliases[scope] ?? scope;
     return resolvedScope === '*' || resolvedScope === routing.scope;
   });
-}
-
-/**
- * Reports whether the commit subject contains the `!` breaking marker, as change-grammar reads it. The `BREAKING
- * CHANGE:` body footer is not considered, and the marker alone does not make an item breaking: The commit's work-type
- * policy must also permit `!` (see `buildTitleItem`).
- */
-function subjectHasBreakingMarker(message: string, workTypes: Record<string, WorkTypeConfig>): boolean {
-  return parseSubject(message.split('\n', 1)[0] ?? '', workTypes)?.breaking === true;
 }
 
 // endregion | Helpers

@@ -16,19 +16,31 @@ describe(decideRelease, () => {
   it.each<[string, Row, DecideReleaseResult]>([
     ['no commits, no flags', { commitCount: 0 }, SKIP_NO_COMMITS_RESULT],
     ['no commits, --bump alone', { commitCount: 0, bumpOverride: 'minor' }, SKIP_NO_COMMITS_RESULT],
-    ['no commits, --force alone', { commitCount: 0, shouldForce: true }, release('patch')],
-    ['no commits, --force --bump', { commitCount: 0, shouldForce: true, bumpOverride: 'major' }, release('major')],
+    ['no commits, --force alone', { commitCount: 0, shouldForce: true }, buildReleaseResult('patch')],
+    [
+      'no commits, --force --bump',
+      { commitCount: 0, shouldForce: true, bumpOverride: 'major' },
+      buildReleaseResult('major'),
+    ],
     ['commits without a bump, no flags', { commitCount: 2 }, SKIP_NO_BUMP_WORTHY_RESULT],
     ['commits without a bump, --bump alone', { commitCount: 2, bumpOverride: 'minor' }, SKIP_NO_BUMP_WORTHY_RESULT],
-    ['commits without a bump, --force alone', { commitCount: 2, shouldForce: true }, release('patch')],
+    ['commits without a bump, --force alone', { commitCount: 2, shouldForce: true }, buildReleaseResult('patch')],
     [
       'commits without a bump, --force --bump',
       { commitCount: 2, shouldForce: true, bumpOverride: 'minor' },
-      release('minor'),
+      buildReleaseResult('minor'),
     ],
-    ['a natural bump, no flags', { commitCount: 1, naturalBump: 'minor' }, release('minor')],
-    ['a natural bump, --bump', { commitCount: 1, naturalBump: 'minor', bumpOverride: 'patch' }, release('patch')],
-    ['a natural bump, --force', { commitCount: 1, naturalBump: 'major', shouldForce: true }, release('major')],
+    ['a natural bump, no flags', { commitCount: 1, naturalBump: 'minor' }, buildReleaseResult('minor')],
+    [
+      'a natural bump, --bump',
+      { commitCount: 1, naturalBump: 'minor', bumpOverride: 'patch' },
+      buildReleaseResult('patch'),
+    ],
+    [
+      'a natural bump, --force',
+      { commitCount: 1, naturalBump: 'major', shouldForce: true },
+      buildReleaseResult('major'),
+    ],
   ])('decides %s', (_label, row, expectedResult) => {
     const result = decideRelease({
       naturalBump: row.naturalBump,
@@ -53,7 +65,7 @@ interface Row {
 }
 
 /** Builds the release outcome at a level. */
-function release(releaseType: ReleaseType): DecideReleaseResult {
+function buildReleaseResult(releaseType: ReleaseType): DecideReleaseResult {
   return { outcome: 'release', releaseType };
 }
 

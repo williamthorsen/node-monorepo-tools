@@ -23,7 +23,7 @@ import { buildSkippedTargetResult, planTargetRelease, type TargetPrepareSettings
 import { propagateBumps } from './propagateBumps.ts';
 import type { ReleasePlan } from './releasePlan.ts';
 import { isSinglePackageTargets } from './resolveReleaseTargets.ts';
-import { topologicalSort } from './topologicalSort.ts';
+import { sortTopologically } from './topologicalSort.ts';
 import type { ReleaseTarget, ReleaseType, TargetPrepareResult } from './types.ts';
 
 /** The targets of a prepare run and the settings that they share. */
@@ -75,7 +75,7 @@ const PREVIEWS_REQUIRE_JSON_WARNING =
  * 5. Prepares each composite after every package target, unless `onlyTargetIds` narrowed the run without naming it.
  * 6. Renders the format command over the modified files.
  */
-export function releasePrepareTargets(config: TargetPrepareConfig, options: TargetPrepareOptions): ReleasePlan {
+export function prepareReleaseTargets(config: TargetPrepareConfig, options: TargetPrepareOptions): ReleasePlan {
   const { settings } = config;
   const { onlyTargetIds, shouldIncludeReleaseNotes } = options;
   const isSinglePackage = isSinglePackageTargets(config.targets);
@@ -121,7 +121,7 @@ export function releasePrepareTargets(config: TargetPrepareConfig, options: Targ
       .filter(([id]) => directReleases.bumps.has(id) || !releaseSet.has(id))
       .map(([, untagged]) => untagged),
   );
-  const { sortedIds, cyclicIds } = topologicalSort(releaseSet, graph);
+  const { sortedIds, cyclicIds } = sortTopologically(releaseSet, graph);
   if (cyclicIds.length > 0) {
     warnings.push(
       `Circular workspace dependencies detected among: ${cyclicIds.join(', ')}. ` +

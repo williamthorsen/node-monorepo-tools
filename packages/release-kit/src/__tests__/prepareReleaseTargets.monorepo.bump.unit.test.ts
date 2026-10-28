@@ -1,7 +1,7 @@
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  applyReleasePrepareTargetsMonorepoDefaults,
+  applyPrepareReleaseTargetsMonorepoDefaults,
   FORCED_BUMP_ENTRY,
   listReadOptions,
   mockBuildEmptyReleaseEntry,
@@ -17,10 +17,10 @@ const {
   mockRenderChangelogJson,
   mockRenderChangelogMarkdown,
   mockWriteFileSync,
-  resetReleasePrepareTargetsMonorepoMocks,
+  resetPrepareReleaseTargetsMonorepoMocks,
   stubHistory,
   stubHistoryByPrefix,
-} = await vi.hoisted(() => import('../test-utils/releasePrepareTargetsMonorepoMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsMonorepoMocks.ts'));
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -42,7 +42,7 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
 }));
 
 // Stub the history reader and the changelog constructors and renderers. The default stubs return
-// deterministic values without reading git history or touching the filesystem; `toChangelogEntries`
+// deterministic values without reading git history or touching the filesystem; `convertToChangelogEntries`
 // stays real, so the planned changelog contains a history's sections, labeled with the new tag.
 vi.mock(import('../buildChangelogEntries.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -77,22 +77,22 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
 }));
 
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
-import { selectPackageResults } from '../test-utils/prepareResults.ts';
 import {
+  findPlannedContent,
   makeConfig,
-  plannedContent,
   prepareMonorepo,
   RELEASED_ENTRY,
-} from '../test-utils/releasePrepareTargetsMonorepoFixtures.ts';
+} from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
+import { selectPackageResults } from '../test-utils/prepareResults.ts';
 import type { ChangelogSection } from '../types.ts';
 
-describe('releasePrepareTargets for a monorepo', () => {
+describe('prepareReleaseTargets for a monorepo', () => {
   beforeEach(() => {
-    applyReleasePrepareTargetsMonorepoDefaults();
+    applyPrepareReleaseTargetsMonorepoDefaults();
   });
 
   afterEach(() => {
-    resetReleasePrepareTargetsMonorepoMocks();
+    resetPrepareReleaseTargetsMonorepoMocks();
   });
 
   it("prefers bumpOverride over the history's bump and labels the changelog with the overridden tag", () => {
@@ -121,7 +121,7 @@ describe('releasePrepareTargets for a monorepo', () => {
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
 
     // Should use the override (minor) rather than the history's bump (patch)
-    expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
+    expect(findPlannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
     expect(selectPackageResults(result)[0]).toMatchObject({ releaseType: 'minor', bumpOverride: 'minor' });
 
     expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledExactlyOnceWith(expect.any(String), [
@@ -376,7 +376,7 @@ describe('releasePrepareTargets for a monorepo', () => {
     const result = prepareMonorepo(config, { shouldForce: true, bumpOverride: 'patch' });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
-    expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.0.1"');
+    expect(findPlannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.0.1"');
     // Empty-range release: the synthetic "Notes / Forced version bump." entry stands in for
     // the release windows.
     expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledExactlyOnceWith('1.0.1', expect.any(String));

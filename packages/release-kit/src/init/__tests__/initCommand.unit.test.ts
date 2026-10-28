@@ -48,7 +48,7 @@ import { initCommand } from '../initCommand.ts';
 const SPLIT_STYLES: StreamStyles = { stderr: 'plain', stdout: 'rich' };
 
 /** Configures every eligibility check to pass and the repo type as single-package. */
-function setupPassingChecks(): void {
+function stubPassingChecks(): void {
   mockIsGitRepo.mockReturnValue({ ok: true });
   mockHasPackageJson.mockReturnValue({ ok: true });
   mockUsesPnpm.mockReturnValue({ ok: true });
@@ -76,7 +76,7 @@ describe(initCommand, () => {
   });
 
   it('returns 0 on success', () => {
-    setupPassingChecks();
+    stubPassingChecks();
 
     const exitCode = initCommand({
       isDryRun: false,
@@ -90,7 +90,7 @@ describe(initCommand, () => {
   });
 
   it('passes the stdout style to every printSuccess call', () => {
-    setupPassingChecks();
+    stubPassingChecks();
 
     initCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
 
@@ -135,7 +135,7 @@ describe(initCommand, () => {
   });
 
   it('returns 1 when detectRepoType throws', () => {
-    setupPassingChecks();
+    stubPassingChecks();
     mockDetectRepoType.mockImplementation(() => {
       throw new Error('Cannot read package.json');
     });
@@ -153,7 +153,7 @@ describe(initCommand, () => {
   });
 
   it('returns 1 when scaffoldFiles throws', () => {
-    setupPassingChecks();
+    stubPassingChecks();
     mockScaffoldFiles.mockImplementation(() => {
       throw new Error('EACCES: permission denied');
     });
@@ -170,7 +170,7 @@ describe(initCommand, () => {
   });
 
   it('passes shouldForce as shouldOverwrite to scaffoldFiles', () => {
-    setupPassingChecks();
+    stubPassingChecks();
 
     initCommand({ isDryRun: false, shouldForce: true, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
 
@@ -178,7 +178,7 @@ describe(initCommand, () => {
   });
 
   it('passes shouldScaffoldConfig to scaffoldFiles', () => {
-    setupPassingChecks();
+    stubPassingChecks();
 
     initCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: true });
 
@@ -186,7 +186,7 @@ describe(initCommand, () => {
   });
 
   it('passes isDryRun to scaffoldFiles', () => {
-    setupPassingChecks();
+    stubPassingChecks();
 
     initCommand({ isDryRun: true, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
 
@@ -194,7 +194,7 @@ describe(initCommand, () => {
   });
 
   it('includes provenance and trusted publisher hints in next steps', () => {
-    setupPassingChecks();
+    stubPassingChecks();
     using silencedConsole = silenceConsole(['info']);
 
     initCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
@@ -205,7 +205,7 @@ describe(initCommand, () => {
   });
 
   it('passes publishable to scaffoldFiles', () => {
-    setupPassingChecks();
+    stubPassingChecks();
     mockHasPublishablePackage.mockReturnValue(false);
 
     initCommand({ isDryRun: false, shouldForce: true, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
@@ -214,7 +214,7 @@ describe(initCommand, () => {
   });
 
   it('reports each skipped publishing workflow when every package is private', () => {
-    setupPassingChecks();
+    stubPassingChecks();
     mockHasPublishablePackage.mockReturnValue(false);
 
     initCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
@@ -226,7 +226,7 @@ describe(initCommand, () => {
   });
 
   it('does not report a skip when a package is publishable', () => {
-    setupPassingChecks();
+    stubPassingChecks();
 
     initCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
 
@@ -234,7 +234,7 @@ describe(initCommand, () => {
   });
 
   it('omits the publishing steps from next steps when every package is private', () => {
-    setupPassingChecks();
+    stubPassingChecks();
     mockHasPublishablePackage.mockReturnValue(false);
     using silencedConsole = silenceConsole(['info']);
 
@@ -252,7 +252,7 @@ describe(initCommand, () => {
   });
 
   it('prints dry-run banner when isDryRun is true', () => {
-    setupPassingChecks();
+    stubPassingChecks();
     using silencedConsole = silenceConsole(['info']);
 
     initCommand({ isDryRun: true, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
@@ -261,7 +261,7 @@ describe(initCommand, () => {
   });
 
   it('passes detected repoType to scaffoldFiles', () => {
-    setupPassingChecks();
+    stubPassingChecks();
     mockDetectRepoType.mockReturnValue('monorepo');
 
     initCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
@@ -325,7 +325,7 @@ describe(initCommand, () => {
   });
 
   it('returns 1 when scaffoldFiles returns a failed result', () => {
-    setupPassingChecks();
+    stubPassingChecks();
     mockScaffoldFiles.mockReturnValue([{ filePath: '.github/workflows/release.yaml', outcome: 'failed' }]);
 
     const exitCode = initCommand({
@@ -346,7 +346,7 @@ describe(initCommand, () => {
     { outcome: 'skipped', isDryRun: false },
     { outcome: 'failed', isDryRun: false },
   ])('calls reportWriteResult for $outcome outcome (isDryRun=$isDryRun)', ({ outcome, isDryRun }) => {
-    setupPassingChecks();
+    stubPassingChecks();
     const result = { filePath: '.github/workflows/release.yaml', outcome };
     mockScaffoldFiles.mockReturnValue([result]);
 

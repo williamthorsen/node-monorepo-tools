@@ -2,7 +2,7 @@ import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
-import { fakeHash, makeCommit, makeConfig, makeWindow, OPTIONS } from '../test-utils/changelogCommits.ts';
+import { makeCommit, makeConfig, makeFakeHash, makeWindow, OPTIONS } from '../test-utils/changelogCommits.ts';
 
 const { mockEnumerateReleaseWindows, mockWriteFileSync } = await vi.hoisted(
   () => import('../test-utils/buildChangelogEntriesMocks.ts'),
@@ -20,9 +20,9 @@ vi.mock(import('node:fs'), () => ({
 
 import {
   buildChangelogEntries,
+  convertToChangelogEntries,
+  convertToReleaseEntries,
   readReleaseHistory,
-  toChangelogEntries,
-  toReleaseEntries,
 } from '../buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
 
@@ -142,7 +142,7 @@ describe(buildChangelogEntries, () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]?.version).toBe('1.0.0');
     expect(entries[0]?.sections).toStrictEqual([
-      { title: '🎉 Features', audience: 'all', items: [{ description: 'Add widget', hash: fakeHash(5) }] },
+      { title: '🎉 Features', audience: 'all', items: [{ description: 'Add widget', hash: makeFakeHash(5) }] },
     ]);
   });
 
@@ -300,7 +300,7 @@ describe(buildChangelogEntries, () => {
   });
 });
 
-describe(toChangelogEntries, () => {
+describe(convertToChangelogEntries, () => {
   beforeEach(() => {
     mockEnumerateReleaseWindows.mockReset();
   });
@@ -312,7 +312,10 @@ describe(toChangelogEntries, () => {
     ]);
     const history = readReleaseHistory(makeConfig(), OPTIONS);
 
-    expect(toChangelogEntries(history, 'v1.0.1').map((entry) => entry.version)).toStrictEqual(['1.0.1', '1.0.0']);
+    expect(convertToChangelogEntries(history, 'v1.0.1').map((entry) => entry.version)).toStrictEqual([
+      '1.0.1',
+      '1.0.0',
+    ]);
   });
 
   it('omits the unreleased window when it does not yield any item', () => {
@@ -322,11 +325,11 @@ describe(toChangelogEntries, () => {
     ]);
     const history = readReleaseHistory(makeConfig(), OPTIONS);
 
-    expect(toChangelogEntries(history, 'v1.0.1').map((entry) => entry.version)).toStrictEqual(['1.0.0']);
+    expect(convertToChangelogEntries(history, 'v1.0.1').map((entry) => entry.version)).toStrictEqual(['1.0.0']);
   });
 });
 
-describe(toReleaseEntries, () => {
+describe(convertToReleaseEntries, () => {
   beforeEach(() => {
     mockEnumerateReleaseWindows.mockReset();
   });
@@ -341,20 +344,22 @@ describe(toReleaseEntries, () => {
     ]);
     const history = readReleaseHistory(makeConfig(), OPTIONS);
 
-    const entries = toReleaseEntries(history, 'v1.0.1', '2026-09-23');
+    const entries = convertToReleaseEntries(history, 'v1.0.1', '2026-09-23');
 
     expect(entries).toStrictEqual([buildEmptyReleaseEntry('1.0.1', '2026-09-23'), ...history.releasedEntries]);
     expect(entries.map((entry) => entry.version)).toStrictEqual(['1.0.1', '1.0.0']);
   });
 
-  it('returns what `toChangelogEntries` returns for a window that yields items', () => {
+  it('returns what `convertToChangelogEntries` returns for a window that yields items', () => {
     mockEnumerateReleaseWindows.mockReturnValueOnce([
       makeWindow('unreleased', ['#2 fix: Current', '#3 fmt: Reformat']),
       makeWindow('v1.0.0', ['#1 feat: Old']),
     ]);
     const history = readReleaseHistory(makeConfig(), OPTIONS);
 
-    expect(toReleaseEntries(history, 'v1.0.1', '2026-09-23')).toStrictEqual(toChangelogEntries(history, 'v1.0.1'));
+    expect(convertToReleaseEntries(history, 'v1.0.1', '2026-09-23')).toStrictEqual(
+      convertToChangelogEntries(history, 'v1.0.1'),
+    );
   });
 });
 

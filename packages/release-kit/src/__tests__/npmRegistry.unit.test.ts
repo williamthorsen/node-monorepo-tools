@@ -38,7 +38,7 @@ describe(lookUpNpmPackage, () => {
 
   it('reports an E404 as unpublished', () => {
     mockExecFileSync.mockImplementation(() => {
-      throw failWith(errorPayload('E404', 'Not Found - GET https://registry.npmjs.org/@scope%2fpkg'));
+      throw buildNpmFailure(buildErrorPayload('E404', 'Not Found - GET https://registry.npmjs.org/@scope%2fpkg'));
     });
 
     expect(lookUpNpmPackage('@scope/pkg')).toStrictEqual({ status: 'unpublished' });
@@ -46,7 +46,7 @@ describe(lookUpNpmPackage, () => {
 
   it('reports an unreachable registry as unverifiable', () => {
     mockExecFileSync.mockImplementation(() => {
-      throw failWith(errorPayload('ENOTFOUND', 'getaddrinfo ENOTFOUND registry.npmjs.org'));
+      throw buildNpmFailure(buildErrorPayload('ENOTFOUND', 'getaddrinfo ENOTFOUND registry.npmjs.org'));
     });
 
     expect(lookUpNpmPackage('@scope/pkg')).toStrictEqual({
@@ -57,7 +57,7 @@ describe(lookUpNpmPackage, () => {
 
   it('reports a rejected session as unverifiable', () => {
     mockExecFileSync.mockImplementation(() => {
-      throw failWith(errorPayload('E401', '401 Unauthorized'));
+      throw buildNpmFailure(buildErrorPayload('E401', '401 Unauthorized'));
     });
 
     expect(lookUpNpmPackage('@scope/pkg')).toStrictEqual({
@@ -68,7 +68,7 @@ describe(lookUpNpmPackage, () => {
 
   it('reports any other npm error as unverifiable, with its code and summary', () => {
     mockExecFileSync.mockImplementation(() => {
-      throw failWith(errorPayload('E500', 'Internal Server Error'));
+      throw buildNpmFailure(buildErrorPayload('E500', 'Internal Server Error'));
     });
 
     expect(lookUpNpmPackage('@scope/pkg')).toStrictEqual({
@@ -79,7 +79,7 @@ describe(lookUpNpmPackage, () => {
 
   it('reports a failure without a readable payload as unverifiable', () => {
     mockExecFileSync.mockImplementation(() => {
-      throw failWith('');
+      throw buildNpmFailure('');
     });
 
     expect(lookUpNpmPackage('@scope/pkg')).toStrictEqual({
@@ -91,12 +91,12 @@ describe(lookUpNpmPackage, () => {
 
 // region | Helpers
 /** Builds npm's `--json` error envelope. */
-function errorPayload(code: string, summary: string): string {
+function buildErrorPayload(code: string, summary: string): string {
   return JSON.stringify({ error: { code, summary, detail: '' } });
 }
 
 /** Builds the error that `execFileSync` throws when npm exits non-zero, with npm's stdout attached. */
-function failWith(stdout: string): Error {
+function buildNpmFailure(stdout: string): Error {
   return Object.assign(new Error('Command failed: npm view'), { stdout });
 }
 // endregion | Helpers

@@ -18,7 +18,7 @@ import { hasProvenance } from './hasProvenance.ts';
 import { formatPrivateWorkflowSkip, hasPublishablePackage } from './hasPublishablePackage.ts';
 import { checkEligibility } from './initCommand.ts';
 import { CREATE_GITHUB_RELEASE_WORKFLOW_PATH, PUBLISH_WORKFLOW_PATH, PUBLISHING_WORKFLOW_PATHS } from './scaffold.ts';
-import { createGithubReleaseWorkflow, publishWorkflow, releaseWorkflow } from './templates.ts';
+import { renderCreateGithubReleaseWorkflow, renderPublishWorkflow, renderReleaseWorkflow } from './templates.ts';
 
 interface UpdateTemplatesOptions {
   isDryRun: boolean;
@@ -91,9 +91,9 @@ function buildManagedFiles(
     ? []
     : PUBLISHING_WORKFLOW_PATHS.filter((filePath) => !existsSync(filePath));
   const files: Array<[string, string]> = [
-    [CREATE_GITHUB_RELEASE_WORKFLOW_PATH, createGithubReleaseWorkflow(repoType)],
-    [PUBLISH_WORKFLOW_PATH, publishWorkflow(repoType, { shouldGenerateProvenance: readProvenanceSetting() })],
-    ['.github/workflows/release.yaml', releaseWorkflow(repoType)],
+    [CREATE_GITHUB_RELEASE_WORKFLOW_PATH, renderCreateGithubReleaseWorkflow(repoType)],
+    [PUBLISH_WORKFLOW_PATH, renderPublishWorkflow(repoType, { shouldGenerateProvenance: readProvenanceSetting() })],
+    ['.github/workflows/release.yaml', renderReleaseWorkflow(repoType)],
   ];
   if (existsSync(SYNC_LABELS_WORKFLOW_PATH)) {
     files.push([SYNC_LABELS_WORKFLOW_PATH, readSyncLabelsWorkflowTemplate()]);

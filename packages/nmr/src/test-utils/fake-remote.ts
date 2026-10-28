@@ -125,7 +125,7 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
       const wrapperPath = writeExecutable(tree, 'fake bin/ssh wrapper', [
         '#!/bin/sh',
         // Log each call on one line, although the script that it carries spans several.
-        `{ printf '%s' "$*" | tr '\\n' ' '; echo; } >> ${quoteForShell(wrapperLog)}`,
+        String.raw`{ printf '%s' "$*" | tr '\n' ' '; echo; } >> ${quoteForShell(wrapperLog)}`,
         `exec ${quoteForShell(path.join(binDir, 'ssh'))} "$@"`,
       ]);
 

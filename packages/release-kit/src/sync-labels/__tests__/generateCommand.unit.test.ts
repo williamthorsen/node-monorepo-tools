@@ -105,7 +105,7 @@ describe(generateCommand, () => {
 
   it('returns 1 when the config lacks a repoLabels block', async () => {
     mockExistsSync.mockReturnValue(false);
-    givenValidConfig({});
+    stubValidConfig({});
     using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ styles: RICH_STYLES });
@@ -116,7 +116,7 @@ describe(generateCommand, () => {
 
   it('returns 1 when label resolution throws', async () => {
     mockExistsSync.mockReturnValue(false);
-    givenValidConfig({ repoLabels: { extends: ['common'], labels: { ghost: null } } });
+    stubValidConfig({ repoLabels: { extends: ['common'], labels: { ghost: null } } });
     mockResolveLabels.mockImplementation(() => {
       throw new Error("Label 'ghost' is set to null");
     });
@@ -131,7 +131,7 @@ describe(generateCommand, () => {
   it('writes labels file and returns 0 on success', async () => {
     const labels: LabelDefinition[] = [{ name: 'bug', color: 'd73a4a', description: "Something isn't working" }];
     mockExistsSync.mockReturnValue(false);
-    givenValidConfig({ repoLabels: { extends: ['common'] } });
+    stubValidConfig({ repoLabels: { extends: ['common'] } });
     mockResolveLabels.mockReturnValue(labels);
     mockHashPreset.mockReturnValue('abc123');
     using _silencedConsole = silenceConsole(['info']);
@@ -150,7 +150,7 @@ describe(generateCommand, () => {
   it('with shouldCheck, returns 0 without writing when the committed file matches', async () => {
     const labels: LabelDefinition[] = [{ name: 'bug', color: 'd73a4a', description: 'Bug' }];
     mockExistsSync.mockReturnValue(false);
-    givenValidConfig({ repoLabels: { extends: ['common'] } });
+    stubValidConfig({ repoLabels: { extends: ['common'] } });
     mockResolveLabels.mockReturnValue(labels);
     mockHashPreset.mockReturnValue('abc123');
     using _silencedConsole = silenceConsole(['info']);
@@ -165,7 +165,7 @@ describe(generateCommand, () => {
 
   it('with shouldCheck, returns 1 when the committed file is stale', async () => {
     mockExistsSync.mockReturnValue(false);
-    givenValidConfig({ repoLabels: { extends: ['common'] } });
+    stubValidConfig({ repoLabels: { extends: ['common'] } });
     mockResolveLabels.mockReturnValue([{ name: 'bug', color: 'd73a4a', description: 'Bug' }]);
     mockHashPreset.mockReturnValue('abc123');
     mockReadFileSync.mockReturnValue('# outdated content\n');
@@ -180,7 +180,7 @@ describe(generateCommand, () => {
 
   it('with shouldCheck, returns 1 when the committed file is missing', async () => {
     mockExistsSync.mockReturnValue(false);
-    givenValidConfig({ repoLabels: {} });
+    stubValidConfig({ repoLabels: {} });
     mockResolveLabels.mockReturnValue([]);
     mockReadFileSync.mockImplementation(() => {
       throw new Error('ENOENT');
@@ -196,7 +196,7 @@ describe(generateCommand, () => {
 
   it('forwards configPath to the loader and names it in the generated header', async () => {
     mockExistsSync.mockReturnValue(false);
-    givenValidConfig({ repoLabels: {} });
+    stubValidConfig({ repoLabels: {} });
     mockResolveLabels.mockReturnValue([]);
     using _silencedConsole = silenceConsole(['info']);
 
@@ -213,7 +213,7 @@ describe(generateCommand, () => {
 
   it('names an absolute config path in the header relative to the working directory', async () => {
     mockExistsSync.mockReturnValue(false);
-    givenValidConfig({ repoLabels: {} });
+    stubValidConfig({ repoLabels: {} });
     mockResolveLabels.mockReturnValue([]);
     using _silencedConsole = silenceConsole(['info']);
 
@@ -231,7 +231,7 @@ describe(generateCommand, () => {
 
   it('names a config outside the working directory in the header by its ../ path', async () => {
     mockExistsSync.mockReturnValue(false);
-    givenValidConfig({ repoLabels: {} });
+    stubValidConfig({ repoLabels: {} });
     mockResolveLabels.mockReturnValue([]);
     using _silencedConsole = silenceConsole(['info']);
 
@@ -249,7 +249,7 @@ describe(generateCommand, () => {
 
   it('names the default config in the header when configPath is omitted', async () => {
     mockExistsSync.mockReturnValue(false);
-    givenValidConfig({ repoLabels: {} });
+    stubValidConfig({ repoLabels: {} });
     mockResolveLabels.mockReturnValue([]);
     using _silencedConsole = silenceConsole(['info']);
 
@@ -275,7 +275,7 @@ describe(generateCommand, () => {
 
   it('names the config that the run read when it lacks a repoLabels block', async () => {
     mockExistsSync.mockReturnValue(false);
-    givenValidConfig({});
+    stubValidConfig({});
     using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ configPath: 'elsewhere/alternative.config.ts', styles: RICH_STYLES });
@@ -296,7 +296,7 @@ describe(generateCommand, () => {
 
   it('returns 1 when file writing fails', async () => {
     mockExistsSync.mockReturnValue(false);
-    givenValidConfig({ repoLabels: {} });
+    stubValidConfig({ repoLabels: {} });
     mockResolveLabels.mockReturnValue([]);
     mockMkdirSync.mockImplementation(() => {
       throw new Error('EACCES');
@@ -448,7 +448,7 @@ describe(formatLabelsYaml, () => {
 // region | Helpers
 
 /** Configures a loadable config whose validation succeeds with the given typed config. */
-function givenValidConfig(config: Record<string, unknown>): void {
+function stubValidConfig(config: Record<string, unknown>): void {
   mockLoadConfig.mockResolvedValue(config);
   mockValidateConfig.mockReturnValue({ config, errors: [], warnings: [] });
 }

@@ -2,7 +2,7 @@ import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  applyReleasePrepareTargetsMonorepoDefaults,
+  applyPrepareReleaseTargetsMonorepoDefaults,
   mockBuildEmptyReleaseEntry,
   mockBuildSyntheticChangelogEntry,
   mockExecFileSync,
@@ -16,10 +16,10 @@ const {
   mockRenderChangelogJson,
   mockRenderChangelogMarkdown,
   mockWriteFileSync,
-  resetReleasePrepareTargetsMonorepoMocks,
+  resetPrepareReleaseTargetsMonorepoMocks,
   stubHistory,
   stubHistoryByPrefix,
-} = await vi.hoisted(() => import('../test-utils/releasePrepareTargetsMonorepoMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsMonorepoMocks.ts'));
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -41,7 +41,7 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
 }));
 
 // Stub the history reader and the changelog constructors and renderers. The default stubs return
-// deterministic values without reading git history or touching the filesystem; `toChangelogEntries`
+// deterministic values without reading git history or touching the filesystem; `convertToChangelogEntries`
 // stays real, so the planned changelog contains a history's sections, labeled with the new tag.
 vi.mock(import('../buildChangelogEntries.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -76,22 +76,22 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
 }));
 
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
+import { makeConfig, prepareMonorepo } from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
 import { selectPackageResults } from '../test-utils/prepareResults.ts';
-import { makeConfig, prepareMonorepo } from '../test-utils/releasePrepareTargetsMonorepoFixtures.ts';
 import type { MalformedChangeRecordBlock, PolicyViolation, UndeclaredEntryType, WorkspaceConfig } from '../types.ts';
 
-describe('releasePrepareTargets for a monorepo', () => {
+describe('prepareReleaseTargets for a monorepo', () => {
   beforeEach(() => {
-    applyReleasePrepareTargetsMonorepoDefaults();
+    applyPrepareReleaseTargetsMonorepoDefaults();
   });
 
   afterEach(() => {
-    resetReleasePrepareTargetsMonorepoMocks();
+    resetPrepareReleaseTargetsMonorepoMocks();
   });
 
   describe('opportunistic hint when baseline is missing', () => {
     /** Configures mocks for a single workspace without a baseline tag and a commit that calls for a minor bump. */
-    function setupNoBaseline(tagListOutput: string[]): void {
+    function stubNoBaseline(tagListOutput: string[]): void {
       stubHistory({ commits: [['feat: add', 'abc']], bump: 'minor' });
       mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
         if (cmd === 'git' && args[0] === 'tag' && args[1] === '--list') {
@@ -116,7 +116,7 @@ describe('releasePrepareTargets for a monorepo', () => {
           },
         ],
       });
-      setupNoBaseline(['core-v0.2.7', 'core-v0.2.8']);
+      stubNoBaseline(['core-v0.2.7', 'core-v0.2.8']);
       using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
@@ -144,7 +144,7 @@ describe('releasePrepareTargets for a monorepo', () => {
           },
         ],
       });
-      setupNoBaseline(['core-v0.2.7']);
+      stubNoBaseline(['core-v0.2.7']);
       using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
@@ -166,7 +166,7 @@ describe('releasePrepareTargets for a monorepo', () => {
           },
         ],
       });
-      setupNoBaseline([]);
+      stubNoBaseline([]);
       using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
@@ -200,7 +200,7 @@ describe('releasePrepareTargets for a monorepo', () => {
         ],
       });
       // Only tags in the repo belong to the sibling `arrays` workspace. `core` doesn't have a baseline.
-      setupNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0']);
+      stubNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0']);
       using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
@@ -234,7 +234,7 @@ describe('releasePrepareTargets for a monorepo', () => {
           },
         ],
       });
-      setupNoBaseline(['arrays-v0.5.0', 'arrays-v0.6.0']);
+      stubNoBaseline(['arrays-v0.5.0', 'arrays-v0.6.0']);
       using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
@@ -265,7 +265,7 @@ describe('releasePrepareTargets for a monorepo', () => {
           },
         ],
       });
-      setupNoBaseline(['core-v0.2.7', 'arrays-v0.1.0']);
+      stubNoBaseline(['core-v0.2.7', 'arrays-v0.1.0']);
       using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});

@@ -13,8 +13,8 @@ import {
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mergeMonorepoConfig } from '../mergeConfig.ts';
+import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
 import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
-import { releasePrepareTargets, type TargetPrepareOptions } from '../releasePrepareTargets.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import { selectCompositeResult } from '../test-utils/prepareResults.ts';
 import type { MonorepoReleaseConfig } from '../types.ts';
@@ -35,7 +35,7 @@ const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
  * Builds a temp git repo with three workspaces (`pkg-a`, `pkg-b`, `pkg-c`), a legacy `v0.9.0`
  * tag at the initial commit, and three feat/fix commits since (one per workspace).
  */
-function setupFixture(): TempTree {
+function setUpFixture(): TempTree {
   const tree = disposeOnTestFinished(createTempTree({}, { prefix: 'release-kit-project-' }));
   const run = (command: string, args: string[]): void => {
     execFileSync(command, args, { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -105,7 +105,7 @@ describe('project releases (tool)', () => {
   let tree: TempTree;
 
   beforeEach(() => {
-    tree = setupFixture();
+    tree = setUpFixture();
   });
 
   it('runs the project release alongside per-workspace releases and writes all artifacts', () => {
@@ -537,12 +537,12 @@ describe('prepare atomicity (tool)', () => {
   let tree: TempTree;
 
   beforeEach(() => {
-    tree = setupFixture();
+    tree = setUpFixture();
   });
 
   it('leaves the working tree untouched when a workspace fails partway through preparation', () => {
     withinFixture(tree.dir, () => {
-      expect(gitStatus(tree.dir)).toBe('');
+      expect(readGitStatus(tree.dir)).toBe('');
 
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
@@ -557,13 +557,13 @@ describe('prepare atomicity (tool)', () => {
       lastWorkspace.packageFiles = [...lastWorkspace.packageFiles, 'packages/pkg-c/missing.json'];
 
       expect(() => prepareAndApply(config, {})).toThrow('missing.json');
-      expect(gitStatus(tree.dir)).toBe('');
+      expect(readGitStatus(tree.dir)).toBe('');
     });
   }, 60_000);
 });
 
 /** Returns the porcelain status of the fixture repo, trimmed; empty when the tree is clean. */
-function gitStatus(repoDir: string): string {
+function readGitStatus(repoDir: string): string {
   return execFileSync('git', ['status', '--porcelain'], {
     cwd: repoDir,
     encoding: 'utf8',
@@ -586,5 +586,5 @@ function commitAll(tree: TempTree, message: string): void {
 
 /** Prepares a monorepo release over the targets that the merged config projects onto. */
 function prepareMonorepo(config: MonorepoReleaseConfig, options: TargetPrepareOptions): ReleasePlan {
-  return releasePrepareTargets(projectMonorepoConfig(config), options);
+  return prepareReleaseTargets(projectMonorepoConfig(config), options);
 }

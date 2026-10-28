@@ -1,9 +1,9 @@
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
+import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
 import type { ReleasePlan } from '../releasePlan.ts';
-import { releasePrepareTargets, type TargetPrepareOptions } from '../releasePrepareTargets.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import type { ChangelogEntry, MonorepoReleaseConfig, WorkspaceConfig, WorkTypeConfig } from '../types.ts';
-import { stubFiles } from './releasePrepareTargetsMonorepoMocks.ts';
+import { stubFiles } from './prepareReleaseTargetsMonorepoMocks.ts';
 
 /** An entry of a released window, which a history reports alongside its unreleased window. */
 export const RELEASED_ENTRY: ChangelogEntry = {
@@ -16,6 +16,14 @@ export const workTypes: Record<string, WorkTypeConfig> = {
   feat: { header: 'Features' },
   fix: { header: 'Bug fixes' },
 };
+
+/** Returns the content that the plan intends to write to `path`, or undefined when the plan does not write it. */
+export function findPlannedContent(
+  plan: { writes: readonly { path: string; content: string }[] },
+  path: string,
+): string | undefined {
+  return plan.writes.find((write) => write.path === path)?.content;
+}
 
 /** Builds a monorepo config without any workspaces and the changelog JSON disabled, overriding any field. */
 export function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
@@ -41,17 +49,9 @@ export function makeRoutedWorkspace(dir: string): WorkspaceConfig {
   };
 }
 
-/** Returns the content that the plan intends to write to `path`, or undefined when the plan does not write it. */
-export function plannedContent(
-  plan: { writes: readonly { path: string; content: string }[] },
-  path: string,
-): string | undefined {
-  return plan.writes.find((write) => write.path === path)?.content;
-}
-
 /** Prepares a monorepo release over the targets that the merged config projects onto. */
 export function prepareMonorepo(config: MonorepoReleaseConfig, options: TargetPrepareOptions): ReleasePlan {
-  return releasePrepareTargets(projectMonorepoConfig(config), options);
+  return prepareReleaseTargets(projectMonorepoConfig(config), options);
 }
 
 /** Stubs `core` 1.0.0 and `app` 2.0.0 depending on it, beside any other `files`, and returns their config. */

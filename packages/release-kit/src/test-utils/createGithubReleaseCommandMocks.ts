@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-import { singlePackage } from './workspaceResolutions.ts';
+import { makeSinglePackage } from './workspaceResolutions.ts';
 
 export const mockCreateGithubReleases = vi.fn();
 export const mockDeriveReleaseNotesConfig = vi.fn();
@@ -14,7 +14,7 @@ export const mockResolveReleaseTags = vi.fn();
  * one publishable `v1.0.0` tag, and a release that succeeds.
  */
 export function applyCreateGithubReleaseCommandDefaults(): void {
-  mockDiscoverWorkspaces.mockReturnValue(singlePackage());
+  mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
   mockResolveReleaseTags.mockReturnValue([
     { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true },
   ]);

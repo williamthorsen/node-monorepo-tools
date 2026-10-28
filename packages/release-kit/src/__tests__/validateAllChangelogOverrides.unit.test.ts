@@ -21,8 +21,8 @@ describe(validateAllChangelogOverrides, () => {
 
   it("doesn't report any findings when override files are absent (missing files are no-ops)", () => {
     const result = validateAllChangelogOverrides({
-      project: { filePath: join(tree.dir, 'missing-project.json'), items: toItems(['aaa1111']) },
-      workspaces: [{ filePath: join(tree.dir, 'missing-workspace.json'), items: toItems(['bbb2222']) }],
+      project: { filePath: join(tree.dir, 'missing-project.json'), items: buildOverrideItems(['aaa1111']) },
+      workspaces: [{ filePath: join(tree.dir, 'missing-workspace.json'), items: buildOverrideItems(['bbb2222']) }],
     });
     expect(result.errors).toStrictEqual([]);
     expect(result.warnings).toStrictEqual([]);
@@ -34,7 +34,7 @@ describe(validateAllChangelogOverrides, () => {
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFilePath },
-      workspaces: [{ filePath: workspaceFilePath, items: toItems(['aaa1111aaa', 'bbb2222bbb']) }],
+      workspaces: [{ filePath: workspaceFilePath, items: buildOverrideItems(['aaa1111aaa', 'bbb2222bbb']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -46,8 +46,8 @@ describe(validateAllChangelogOverrides, () => {
     const workspaceFilePath = tree.write('workspace-a/overrides.json', '[]');
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFilePath, items: toItems([]) },
-      workspaces: [{ filePath: workspaceFilePath, items: toItems([]) }],
+      project: { filePath: projectFilePath, items: buildOverrideItems([]) },
+      workspaces: [{ filePath: workspaceFilePath, items: buildOverrideItems([]) }],
     });
 
     expect(result.errors).toHaveLength(2);
@@ -61,7 +61,7 @@ describe(validateAllChangelogOverrides, () => {
     const projectFilePath = tree.writeJson('overrides.json', { abc: { unknown: true } });
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFilePath, items: toItems([]) },
+      project: { filePath: projectFilePath, items: buildOverrideItems([]) },
     });
 
     expect(result.errors).toHaveLength(1);
@@ -73,7 +73,7 @@ describe(validateAllChangelogOverrides, () => {
     const workspaceFilePath = tree.writeJson('workspace-a/overrides.json', { abc: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
-      workspaces: [{ filePath: workspaceFilePath, items: toItems(['abc111', 'abc222']) }],
+      workspaces: [{ filePath: workspaceFilePath, items: buildOverrideItems(['abc111', 'abc222']) }],
     });
 
     expect(result.errors).toHaveLength(1);
@@ -85,7 +85,7 @@ describe(validateAllChangelogOverrides, () => {
     const projectFilePath = tree.writeJson('overrides.json', { abc: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFilePath, items: toItems(['abc111', 'abc222']) },
+      project: { filePath: projectFilePath, items: buildOverrideItems(['abc111', 'abc222']) },
     });
 
     expect(result.errors).toHaveLength(1);
@@ -102,7 +102,7 @@ describe(validateAllChangelogOverrides, () => {
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFilePath },
-      workspaces: [{ filePath: workspaceFilePath, items: toItems(['abc111aaa', 'abc222bbb']) }],
+      workspaces: [{ filePath: workspaceFilePath, items: buildOverrideItems(['abc111aaa', 'abc222bbb']) }],
     });
 
     expect(result.errors).toHaveLength(1);
@@ -115,7 +115,7 @@ describe(validateAllChangelogOverrides, () => {
     const workspaceFilePath = tree.writeJson('workspace-a/overrides.json', { dead012: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
-      workspaces: [{ filePath: workspaceFilePath, items: toItems(['real0001', 'real0002']) }],
+      workspaces: [{ filePath: workspaceFilePath, items: buildOverrideItems(['real0001', 'real0002']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -131,7 +131,7 @@ describe(validateAllChangelogOverrides, () => {
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFilePath },
-      workspaces: [{ filePath: workspaceFilePath, items: toItems(['real1234']) }],
+      workspaces: [{ filePath: workspaceFilePath, items: buildOverrideItems(['real1234']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -149,8 +149,8 @@ describe(validateAllChangelogOverrides, () => {
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFilePath },
       workspaces: [
-        { filePath: aFilePath, items: toItems(['aaa1111ext']) },
-        { filePath: bFilePath, items: toItems(['unrelated']) },
+        { filePath: aFilePath, items: buildOverrideItems(['aaa1111ext']) },
+        { filePath: bFilePath, items: buildOverrideItems(['unrelated']) },
       ],
     });
 
@@ -163,8 +163,8 @@ describe(validateAllChangelogOverrides, () => {
     const workspaceFilePath = tree.write('workspace-a/overrides.json', '{}');
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFilePath, items: toItems(['aaa1111ext']) },
-      workspaces: [{ filePath: workspaceFilePath, items: toItems(['unrelated']) }],
+      project: { filePath: projectFilePath, items: buildOverrideItems(['aaa1111ext']) },
+      workspaces: [{ filePath: workspaceFilePath, items: buildOverrideItems(['unrelated']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -182,7 +182,7 @@ describe(validateAllChangelogOverrides, () => {
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFilePath },
-      workspaces: [{ filePath: workspaceFilePath, items: toItems(['aaa1111ext']) }],
+      workspaces: [{ filePath: workspaceFilePath, items: buildOverrideItems(['aaa1111ext']) }],
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -197,7 +197,7 @@ describe(validateAllChangelogOverrides, () => {
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFilePath },
-      workspaces: [{ filePath: workspaceFilePath, items: toItems(['abc111', 'abc222']) }],
+      workspaces: [{ filePath: workspaceFilePath, items: buildOverrideItems(['abc111', 'abc222']) }],
     });
 
     expect(result.errors).toHaveLength(1);
@@ -335,7 +335,7 @@ describe(validateAllChangelogOverrides, () => {
     });
 
     const result = validateAllChangelogOverrides({
-      project: { filePath: projectFilePath, items: toItems(['aaa1111ext']) },
+      project: { filePath: projectFilePath, items: buildOverrideItems(['aaa1111ext']) },
     });
 
     expect(result.errors).toStrictEqual([]);
@@ -347,7 +347,7 @@ describe(validateAllChangelogOverrides, () => {
 // region | Helpers
 
 /** Builds title-derived override target items from commit hashes. */
-function toItems(hashes: string[]): OverrideTargetItem[] {
+function buildOverrideItems(hashes: string[]): OverrideTargetItem[] {
   return hashes.map((hash) => ({ hash }));
 }
 

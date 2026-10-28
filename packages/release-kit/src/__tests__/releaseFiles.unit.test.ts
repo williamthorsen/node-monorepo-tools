@@ -11,7 +11,7 @@ vi.mock(import('node:fs'), () => ({
 import { readReleaseTags, RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE, resolveReleaseTagsPath } from '../releaseFiles.ts';
 
 /** Creates an Error with a `code` property, matching Node's ErrnoException shape. */
-function errnoError(message: string, code: string): Error {
+function createErrnoError(message: string, code: string): Error {
   return Object.assign(new Error(message), { code });
 }
 
@@ -52,7 +52,7 @@ describe(readReleaseTags, () => {
 
   it('if the file is missing, names the resolved path and directs the operator to prepare', () => {
     mockReadFileSync.mockImplementation(() => {
-      throw errnoError('ENOENT: no such file or directory', 'ENOENT');
+      throw createErrnoError('ENOENT: no such file or directory', 'ENOENT');
     });
 
     expect(() => readReleaseTags()).toThrow(
@@ -62,7 +62,7 @@ describe(readReleaseTags, () => {
 
   it('if the file is unreadable for another reason, reports the errno instead of reporting it missing', () => {
     mockReadFileSync.mockImplementation(() => {
-      throw errnoError('EACCES: permission denied', 'EACCES');
+      throw createErrnoError('EACCES: permission denied', 'EACCES');
     });
 
     expect(() => readReleaseTags()).toThrow(
@@ -79,7 +79,7 @@ describe(readReleaseTags, () => {
   });
 
   it('preserves the underlying error as the cause', () => {
-    const underlyingError = errnoError('EACCES: permission denied', 'EACCES');
+    const underlyingError = createErrnoError('EACCES: permission denied', 'EACCES');
     mockReadFileSync.mockImplementation(() => {
       throw underlyingError;
     });

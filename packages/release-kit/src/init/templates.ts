@@ -1,7 +1,7 @@
 import type { RepoType } from './detectRepoType.ts';
 
-/** Generates the `.config/release-kit.config.ts` starter config, with commented-out options to customize. */
-export function releaseConfigScript(repoType: RepoType): string {
+/** Renders the `.config/release-kit.config.ts` starter config, with commented-out options to customize. */
+export function renderReleaseConfigScript(repoType: RepoType): string {
   if (repoType === 'monorepo') {
     return `import { defineConfig } from '@williamthorsen/release-kit/config';
 
@@ -45,12 +45,12 @@ export default defineConfig({
 }
 
 /**
- * Generates the publish.yaml GitHub Actions entry-point workflow.
+ * Renders the publish.yaml GitHub Actions entry-point workflow.
  *
  * The caller's `permissions` block caps what the reusable workflow receives, so it must grant the `id-token: write`
  * that OIDC publishing needs. `shouldGenerateProvenance: false` omits the provenance input, which a private repo cannot use.
  */
-export function publishWorkflow(
+export function renderPublishWorkflow(
   repoType: RepoType,
   { shouldGenerateProvenance = true }: { shouldGenerateProvenance?: boolean } = {},
 ): string {
@@ -76,8 +76,8 @@ ${shouldGenerateProvenance ? '      provenance: true\n' : ''}      tags: \${{ gi
 `;
 }
 
-/** Generates the create-github-release.yaml GitHub Actions caller workflow. */
-export function createGithubReleaseWorkflow(repoType: RepoType): string {
+/** Renders the create-github-release.yaml GitHub Actions caller workflow. */
+export function renderCreateGithubReleaseWorkflow(repoType: RepoType): string {
   const tagPattern = repoType === 'monorepo' ? "'*-v[0-9]*.[0-9]*.[0-9]*'" : "'v[0-9]*.[0-9]*.[0-9]*'";
 
   return `# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
@@ -99,8 +99,8 @@ jobs:
 `;
 }
 
-/** Generates the release.yaml GitHub Actions workflow. */
-export function releaseWorkflow(repoType: RepoType): string {
+/** Renders the release.yaml GitHub Actions workflow. */
+export function renderReleaseWorkflow(repoType: RepoType): string {
   if (repoType === 'monorepo') {
     return `# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Release

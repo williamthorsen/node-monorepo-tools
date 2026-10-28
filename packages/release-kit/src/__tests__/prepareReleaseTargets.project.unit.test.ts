@@ -1,7 +1,7 @@
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  applyReleasePrepareTargetsProjectDefaults,
+  applyPrepareReleaseTargetsProjectDefaults,
   expectOneHistoryRead,
   mockCopyFileSync,
   mockExecFileSync,
@@ -16,9 +16,9 @@ const {
   mockRenderChangelogMarkdown,
   mockRmSync,
   mockWriteFileSync,
-  resetReleasePrepareTargetsProjectMocks,
+  resetPrepareReleaseTargetsProjectMocks,
   stubHistory,
-} = await vi.hoisted(() => import('../test-utils/releasePrepareTargetsProjectMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsProjectMocks.ts'));
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -75,16 +75,16 @@ import {
   stubDefaultHistory,
   UNDECLARED_ENTRY_TYPE,
   UNRELEASED_SECTIONS,
-} from '../test-utils/releasePrepareTargetsProjectFixtures.ts';
+} from '../test-utils/prepareReleaseTargetsProjectFixtures.ts';
 import type { ChangelogEntry } from '../types.ts';
 
-describe('releasePrepareTargets for a project composite', () => {
+describe('prepareReleaseTargets for a project composite', () => {
   beforeEach(() => {
-    applyReleasePrepareTargetsProjectDefaults();
+    applyPrepareReleaseTargetsProjectDefaults();
   });
 
   afterEach(() => {
-    resetReleasePrepareTargetsProjectMocks();
+    resetPrepareReleaseTargetsProjectMocks();
   });
 
   it("returns a structured skipped result when the window doesn't have any commits since the last project tag and --force is not set", () => {
@@ -243,7 +243,7 @@ describe('releasePrepareTargets for a project composite', () => {
     expect(modifiedFiles).toContain('CHANGELOG.md');
 
     // The plan contains the root package.json at the new version; planning doesn't write any file.
-    expect(plannedContent(writes, './package.json')).toContain('"version": "0.10.0"');
+    expect(findPlannedContent(writes, './package.json')).toContain('"version": "0.10.0"');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
 
     expectOneHistoryRead(config, ['packages/arrays/**', 'packages/strings/**']);
@@ -471,7 +471,7 @@ describe('releasePrepareTargets for a project composite', () => {
 
 // region | Helpers
 /** Returns the content that the staged writes intend for `path`, or undefined when the staged writes don't target it. */
-function plannedContent(writes: readonly PlannedWrite[], path: string): string | undefined {
+function findPlannedContent(writes: readonly PlannedWrite[], path: string): string | undefined {
   return writes.find((write) => write.path === path)?.content;
 }
 // endregion | Helpers

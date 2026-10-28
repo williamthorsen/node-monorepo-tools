@@ -2,7 +2,7 @@ import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  applyReleasePrepareTargetsSinglePackageDefaults,
+  applyPrepareReleaseTargetsSinglePackageDefaults,
   featureSection,
   mockExecFileSync,
   mockExecSync,
@@ -15,11 +15,11 @@ const {
   mockRenderChangelogJson,
   mockRenderChangelogMarkdown,
   mockWriteFileSync,
-  resetReleasePrepareTargetsSinglePackageMocks,
+  resetPrepareReleaseTargetsSinglePackageMocks,
   stubHistory,
   stubMinorRelease,
   stubPackageVersion,
-} = await vi.hoisted(() => import('../test-utils/releasePrepareTargetsSinglePackageMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsSinglePackageMocks.ts'));
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -66,23 +66,23 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
 }));
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
-import { selectPackageResults } from '../test-utils/prepareResults.ts';
-import type { ReleaseHistoryStub } from '../test-utils/releaseHistories.ts';
 import {
   diagnostics,
   makeConfig,
   prepareSinglePackage,
   type SinglePackageOptions,
-} from '../test-utils/releasePrepareTargetsSinglePackageFixtures.ts';
+} from '../test-utils/prepareReleaseTargetsSinglePackageFixtures.ts';
+import { selectPackageResults } from '../test-utils/prepareResults.ts';
+import type { ReleaseHistoryStub } from '../test-utils/releaseHistories.ts';
 import type { ChangelogEntry } from '../types.ts';
 
-describe('releasePrepareTargets for a single-package repo', () => {
+describe('prepareReleaseTargets for a single-package repo', () => {
   beforeEach(() => {
-    applyReleasePrepareTargetsSinglePackageDefaults();
+    applyPrepareReleaseTargetsSinglePackageDefaults();
   });
 
   afterEach(() => {
-    resetReleasePrepareTargetsSinglePackageMocks();
+    resetPrepareReleaseTargetsSinglePackageMocks();
     vi.restoreAllMocks();
   });
 
@@ -366,7 +366,7 @@ describe('releasePrepareTargets for a single-package repo', () => {
     });
     assert(packageResult?.status === 'released', 'expected released');
     expect(packageResult.releaseType).toBeUndefined();
-    expect(plannedContent(result, 'package.json')).toContain('"version": "1.0.0"');
+    expect(findPlannedContent(result, 'package.json')).toContain('"version": "1.0.0"');
   });
 
   it("attaches the history's diagnostics under --set-version, leaving the parse results off", () => {
@@ -500,14 +500,14 @@ describe('releasePrepareTargets for a single-package repo', () => {
       },
     );
 
-    expect(plannedContent(plan, 'docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
+    expect(findPlannedContent(plan, 'docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
     expect(selectPackageResults(plan)[0]).toMatchObject({ previewFiles: ['docs/RELEASE_NOTES.v1.1.0.md'] });
   });
 });
 
 // region | Helpers
 /** Returns the content that the plan intends to write to `path`, or undefined when the plan does not write it. */
-function plannedContent(
+function findPlannedContent(
   plan: { writes: readonly { path: string; content: string }[] },
   path: string,
 ): string | undefined {
