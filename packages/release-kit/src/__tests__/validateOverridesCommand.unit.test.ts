@@ -24,15 +24,15 @@ const mockedEnumerateReleaseWindows = vi.mocked(enumerateReleaseWindows);
 
 /**
  * Wraps a flat list of hashes into the minimal `ChangelogEntry[]` shape that the production
- * code's `flattenEntriesToHashes` walks. Use {@link entriesFromReleases} when a test needs to
+ * code's `flattenEntriesToHashes` walks. Use {@link buildEntriesFromReleases} when a test needs to
  * differentiate per-release groupings (e.g., past vs. unreleased).
  */
-function entriesFromHashes(hashes: string[]): ChangelogEntry[] {
-  return entriesFromReleases([{ version: '0.0.0-test', hashes }]);
+function buildEntriesFromHashes(hashes: string[]): ChangelogEntry[] {
+  return buildEntriesFromReleases([{ version: '0.0.0-test', hashes }]);
 }
 
 /** Builds a multi-release entry tree. Each spec becomes one `ChangelogEntry`. */
-function entriesFromReleases(specs: { version: string; hashes: string[] }[]): ChangelogEntry[] {
+function buildEntriesFromReleases(specs: { version: string; hashes: string[] }[]): ChangelogEntry[] {
   return specs.map((spec) => ({
     version: spec.version,
     date: '0000-00-00',
@@ -125,7 +125,7 @@ describe(validateOverridesCommand, () => {
       discoverWorkspaces: makeSinglePackage,
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
-      buildEntries: () => entriesFromHashes([]),
+      buildEntries: () => buildEntriesFromHashes([]),
       validate: () => ({ errors: [], warnings: [] }),
     });
     expect(result.exitCode).toBe(0);
@@ -138,7 +138,7 @@ describe(validateOverridesCommand, () => {
       discoverWorkspaces: () => makeEmptyWorkspace('all-excluded'),
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
-      buildEntries: () => entriesFromHashes([]),
+      buildEntries: () => buildEntriesFromHashes([]),
       validate: () => ({ errors: [], warnings: [] }),
     });
 
@@ -151,7 +151,7 @@ describe(validateOverridesCommand, () => {
       discoverWorkspaces: makeSinglePackage,
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
-      buildEntries: () => entriesFromHashes([]),
+      buildEntries: () => buildEntriesFromHashes([]),
       validate: () => ({ errors: [], warnings: ['file.json: stale key'] }),
     });
     expect(result.exitCode).toBe(1);
@@ -162,7 +162,7 @@ describe(validateOverridesCommand, () => {
       discoverWorkspaces: makeSinglePackage,
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
-      buildEntries: () => entriesFromHashes([]),
+      buildEntries: () => buildEntriesFromHashes([]),
       validate: () => ({ errors: ['file.json: ambiguous'], warnings: [] }),
     });
     expect(result.exitCode).toBe(2);
@@ -221,7 +221,7 @@ describe(validateOverridesCommand, () => {
       discoverWorkspaces: makeSinglePackage,
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
-      buildEntries: () => entriesFromHashes(['hash1', 'hash2']),
+      buildEntries: () => buildEntriesFromHashes(['hash1', 'hash2']),
       validate: (inputs) => {
         receivedCounts = {
           workspaces: inputs.workspaces?.length ?? 0,
@@ -246,7 +246,7 @@ describe(validateOverridesCommand, () => {
       loadValidatedConfig: () =>
         Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
       buildEntries: () =>
-        entriesFromReleases([
+        buildEntriesFromReleases([
           { version: '1.0.0', hashes: ['aabbcc1234567890aabbcc1234567890aabbcc12'] },
           { version: '2.0.0', hashes: ['ddeeff5678901234ddeeff5678901234ddeeff56'] },
           { version: 'validate-only', hashes: ['9988aabbccddeeff9988aabbccddeeff9988aabb'] },
@@ -308,12 +308,12 @@ describe(validateOverridesCommand, () => {
 
       const namedResult = await validateOverridesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts', {
         discoverWorkspaces: makeSinglePackage,
-        buildEntries: () => entriesFromHashes([]),
+        buildEntries: () => buildEntriesFromHashes([]),
         validate: () => ({ errors: [], warnings: [] }),
       });
       const defaultedResult = await validateOverridesCommand(RICH_STYLES, undefined, {
         discoverWorkspaces: makeSinglePackage,
-        buildEntries: () => entriesFromHashes([]),
+        buildEntries: () => buildEntriesFromHashes([]),
         validate: () => ({ errors: [], warnings: [] }),
       });
 
@@ -325,7 +325,7 @@ describe(validateOverridesCommand, () => {
     it('returns exit 2 when the named file does not exist', async () => {
       const result = await validateOverridesCommand(RICH_STYLES, 'elsewhere/absent.config.ts', {
         discoverWorkspaces: makeSinglePackage,
-        buildEntries: () => entriesFromHashes([]),
+        buildEntries: () => buildEntriesFromHashes([]),
         validate: () => ({ errors: [], warnings: [] }),
       });
 
@@ -356,7 +356,7 @@ describe(validateOverridesCommand, () => {
         loadValidatedConfig: () =>
           Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
         buildEntries: () =>
-          entriesFromReleases([
+          buildEntriesFromReleases([
             { version: '1.0.0', hashes: [pastHash] },
             { version: 'validate-only', hashes: [unreleasedHash] },
           ]),
@@ -375,7 +375,7 @@ describe(validateOverridesCommand, () => {
         loadValidatedConfig: () =>
           Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
         buildEntries: () =>
-          entriesFromReleases([
+          buildEntriesFromReleases([
             { version: '1.0.0', hashes: ['aabbcc1234567890aabbcc1234567890aabbcc12'] },
             { version: 'validate-only', hashes: ['9988aabbccddeeff9988aabbccddeeff9988aabb'] },
           ]),
@@ -394,7 +394,7 @@ describe(validateOverridesCommand, () => {
         loadValidatedConfig: () =>
           Promise.resolve({ status: 'missing', configFilePath: '.config/release-kit.config.ts' }),
         buildEntries: () =>
-          entriesFromReleases([
+          buildEntriesFromReleases([
             {
               version: '1.0.0',
               hashes: ['aabbcc1234567890aabbcc1234567890aabbcc12', 'aabbdd5678901234aabbdd5678901234aabbdd56'],

@@ -75,7 +75,7 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('returns 1 without writing when the retired sync-labels config exists', async () => {
-    givenExistingFiles(RETIRED_SYNC_LABELS_CONFIG_PATH);
+    stubExistingFiles(RETIRED_SYNC_LABELS_CONFIG_PATH);
 
     const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
@@ -85,7 +85,7 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('writes workflow and config, then generates, when the config does not exist', async () => {
-    givenExistingFiles();
+    stubExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/utils']));
     mockGenerateCommand.mockResolvedValue(0);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
@@ -107,9 +107,9 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('prints the repoLabels block instead of writing when the config already exists', async () => {
-    givenExistingFiles(CONFIG_FILE_PATH);
+    stubExistingFiles(CONFIG_FILE_PATH);
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
-    givenValidConfig({});
+    stubValidConfig({});
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     using silencedConsole = silenceConsole(['info']);
 
@@ -127,9 +127,9 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('seeds scope labels from retiredPackages when the config declares them', async () => {
-    givenExistingFiles(CONFIG_FILE_PATH);
+    stubExistingFiles(CONFIG_FILE_PATH);
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
-    givenValidConfig({
+    stubValidConfig({
       retiredPackages: [{ name: '@acme/preflight', tagPrefix: 'preflight-v' }],
     });
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
@@ -141,9 +141,9 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('reads the named config and names it in the paste instructions', async () => {
-    givenExistingFiles();
+    stubExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
-    givenValidConfig({});
+    stubValidConfig({});
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     using silencedConsole = silenceConsole(['info']);
 
@@ -166,7 +166,7 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('returns 1 rather than scaffolding when the named config does not exist', async () => {
-    givenExistingFiles();
+    stubExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
     mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
@@ -188,7 +188,7 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('returns 1 when the existing config fails validation', async () => {
-    givenExistingFiles(CONFIG_FILE_PATH);
+    stubExistingFiles(CONFIG_FILE_PATH);
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
     mockLoadConfig.mockResolvedValue({ bad: true });
     mockValidateConfig.mockReturnValue({ config: {}, errors: ['bad config'], warnings: [] });
@@ -203,7 +203,7 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('returns 0 on success for single-package repos', async () => {
-    givenExistingFiles();
+    stubExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
     mockGenerateCommand.mockResolvedValue(0);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
@@ -220,7 +220,7 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('returns 1 when workspace discovery throws', async () => {
-    givenExistingFiles();
+    stubExistingFiles();
     mockDiscoverWorkspaces.mockImplementation(() => {
       throw new Error('filesystem error');
     });
@@ -233,7 +233,7 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('returns 1 when the workspace does not resolve to any package', async () => {
-    givenExistingFiles();
+    stubExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(makeEmptyWorkspace('all-excluded'));
     using _silencedConsole = silenceConsole(['info']);
     using stdioCapture = captureStdio();
@@ -245,7 +245,7 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('returns 1 when generate fails', async () => {
-    givenExistingFiles();
+    stubExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
     mockGenerateCommand.mockResolvedValue(1);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
@@ -257,7 +257,7 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('returns 1 when scaffolding fails', async () => {
-    givenExistingFiles();
+    stubExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'failed', filePath: 'some/file' });
     using _silencedConsole = silenceConsole(['info']);
@@ -270,7 +270,7 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('returns 1 without writing when the workflow template cannot be read', async () => {
-    givenExistingFiles();
+    stubExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
     mockReadSyncLabelsWorkflowTemplate.mockImplementation(() => {
       throw new Error('Failed to read bundled template at /pkg/templates/sync-labels.yaml.template: ENOENT');
@@ -286,7 +286,7 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('skips generate in dry-run mode', async () => {
-    givenExistingFiles();
+    stubExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     using _silencedConsole = silenceConsole(['info']);
@@ -298,7 +298,7 @@ describe(syncLabelsInitCommand, () => {
   });
 
   it('passes shouldForce as shouldOverwrite to writeFileWithCheck', async () => {
-    givenExistingFiles();
+    stubExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
     mockGenerateCommand.mockResolvedValue(0);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
@@ -320,7 +320,7 @@ describe(syncLabelsInitCommand, () => {
     { outcome: 'skipped', isDryRun: false },
   ])('calls reportWriteResult for $outcome outcome (isDryRun=$isDryRun)', async ({ outcome, isDryRun }) => {
     const result = { filePath: 'test/path', outcome };
-    givenExistingFiles();
+    stubExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
     mockGenerateCommand.mockResolvedValue(0);
     mockWriteFileWithCheck.mockReturnValue(result);
@@ -379,12 +379,12 @@ describe(buildScopeLabels, () => {
 // region | Helpers
 
 /** Makes only the given repo files exist. */
-function givenExistingFiles(...paths: string[]): void {
+function stubExistingFiles(...paths: string[]): void {
   mockExistsSync.mockImplementation((path: string) => paths.includes(path));
 }
 
 /** Configures a loadable config whose validation succeeds with the given typed config. */
-function givenValidConfig(config: Record<string, unknown>): void {
+function stubValidConfig(config: Record<string, unknown>): void {
   mockLoadConfig.mockResolvedValue(config);
   mockValidateConfig.mockReturnValue({ config, errors: [], warnings: [] });
 }

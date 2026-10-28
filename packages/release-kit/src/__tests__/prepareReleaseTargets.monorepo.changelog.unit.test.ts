@@ -103,7 +103,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
     // "Notes / Forced version bump." entry stands in for that window.
 
     /** Builds a config whose one workspace is `arrays`. */
-    function singleWorkspaceConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
+    function buildSingleWorkspaceConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
       const workspace: WorkspaceConfig = {
         dir: 'arrays',
         name: '@test/arrays',
@@ -126,7 +126,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
     it('writes a synthetic Notes / Forced version bump entry when --force is used without any commits', () => {
       stubEmptyRange();
 
-      const result = prepareMonorepo(singleWorkspaceConfig(), { shouldForce: true });
+      const result = prepareMonorepo(buildSingleWorkspaceConfig(), { shouldForce: true });
 
       expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
 
@@ -151,7 +151,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
           ],
         });
 
-        const result = prepareMonorepo(singleWorkspaceConfig(), options);
+        const result = prepareMonorepo(buildSingleWorkspaceConfig(), options);
 
         expect(result.tags).toStrictEqual([`arrays-v${version}`]);
         expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledExactlyOnceWith(version, expect.any(String));
@@ -165,7 +165,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
       stubEmptyRange();
       stubHistory({ previousTag: 'arrays-v1.0.0', releasedEntries: [RELEASED_ENTRY] });
 
-      const result = prepareMonorepo(singleWorkspaceConfig(), { shouldForce: true, bumpOverride: 'minor' });
+      const result = prepareMonorepo(buildSingleWorkspaceConfig(), { shouldForce: true, bumpOverride: 'minor' });
 
       expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledExactlyOnceWith('1.1.0', expect.any(String));
@@ -179,7 +179,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
     it('skips an empty-range workspace when --bump=X is set without --force', () => {
       stubEmptyRange();
 
-      const result = prepareMonorepo(singleWorkspaceConfig(), { bumpOverride: 'minor' });
+      const result = prepareMonorepo(buildSingleWorkspaceConfig(), { bumpOverride: 'minor' });
 
       expect(result.tags).toStrictEqual([]);
       expect(selectPackageResults(result)[0]).toMatchObject({ status: 'skipped', commitCount: 0 });
@@ -189,9 +189,12 @@ describe('prepareReleaseTargets for a monorepo', () => {
     it('upserts a synthetic empty-range entry into changelog.json when enabled', () => {
       stubEmptyRange();
 
-      prepareMonorepo(singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
-        shouldForce: true,
-      });
+      prepareMonorepo(
+        buildSingleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
+        {
+          shouldForce: true,
+        },
+      );
 
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledTimes(1);
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledWith('1.0.1', expect.any(String));
@@ -222,7 +225,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
     });
 
     it('keeps workspaces with real commits on the release-window path (no regression)', () => {
-      const config = singleWorkspaceConfig();
+      const config = buildSingleWorkspaceConfig();
       const sections: ChangelogSection[] = [
         { title: 'Features', audience: 'all', items: [{ description: 'New utility', hash: 'abc123' }] },
       ];
@@ -248,7 +251,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
     it('does not write synthetic entries for workspaces correctly skipped (no commits, no --force)', () => {
       stubEmptyRange();
 
-      const result = prepareMonorepo(singleWorkspaceConfig(), {});
+      const result = prepareMonorepo(buildSingleWorkspaceConfig(), {});
 
       expect(result.tags).toStrictEqual([]);
       expect(selectPackageResults(result)[0]).toMatchObject({ status: 'skipped' });
@@ -264,7 +267,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
       stubEmptyRange();
 
       const result = prepareMonorepo(
-        singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
+        buildSingleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
         { shouldForce: true },
       );
 
@@ -499,7 +502,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
 
   describe('changelogJson.enabled gating', () => {
     /** Builds a config whose one workspace is `arrays`. */
-    function singleWorkspaceConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
+    function buildSingleWorkspaceConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
       const workspace: WorkspaceConfig = {
         dir: 'arrays',
         name: '@test/arrays',
@@ -523,7 +526,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
       stubFeatCommit();
 
       const plan = prepareMonorepo(
-        singleWorkspaceConfig({
+        buildSingleWorkspaceConfig({
           formatCommand: 'npx prettier --write',
           changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false },
         }),
@@ -539,7 +542,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
       stubFeatCommit();
 
       const plan = prepareMonorepo(
-        singleWorkspaceConfig({
+        buildSingleWorkspaceConfig({
           formatCommand: 'npx prettier --write',
           changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
         }),

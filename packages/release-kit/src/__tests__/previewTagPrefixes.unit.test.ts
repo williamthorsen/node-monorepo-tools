@@ -33,7 +33,7 @@ import { previewTagPrefixes } from '../previewTagPrefixes.ts';
 import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 
 /** Builds a mock implementation for git invocations returning tag counts by prefix. */
-function setupTagCounts(tagsByPrefix: Record<string, string[]>): void {
+function stubTagCounts(tagsByPrefix: Record<string, string[]>): void {
   mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
     if (cmd !== 'git' || args[0] !== 'tag' || args[1] !== '--list') return '';
     const matchArg = args[2] ?? '';
@@ -60,7 +60,7 @@ describe(previewTagPrefixes, () => {
       throw new Error(`unexpected path: ${path}`);
     });
     mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({
+    stubTagCounts({
       'nmr-core-v': ['nmr-core-v1.0.0', 'nmr-core-v1.1.0'],
       'arrays-v': ['arrays-v0.1.0'],
     });
@@ -92,7 +92,7 @@ describe(previewTagPrefixes, () => {
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'core-v' });
     mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({
+    stubTagCounts({
       'core-v': ['core-v1', 'core-v1.2', 'core-v1.2.0', 'core-v1.3.0-beta.1', 'core-vnext'],
     });
 
@@ -108,7 +108,7 @@ describe(previewTagPrefixes, () => {
       throw new Error(`packages/broken/package.json is missing a 'name' field`);
     });
     mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({});
+    stubTagCounts({});
 
     const result = previewTagPrefixes();
 
@@ -134,7 +134,7 @@ describe(previewTagPrefixes, () => {
     };
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
     mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({
+    stubTagCounts({
       'nmr-core-v': [],
       'core-v': ['core-v0.2.7', 'core-v0.2.8'],
       'old-core-v': [],
@@ -157,7 +157,7 @@ describe(previewTagPrefixes, () => {
     };
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
     mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({ 'nmr-core-v': [], 'core-v': ['core-v0.2.7'] });
+    stubTagCounts({ 'nmr-core-v': [], 'core-v': ['core-v0.2.7'] });
 
     const result = previewTagPrefixes(config);
 
@@ -172,7 +172,7 @@ describe(previewTagPrefixes, () => {
       throw new Error(`releases.docs: path '${declaredDirectory.path}' is not a directory`);
     });
     mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({ 'app-v': ['app-v1.0.0'] });
+    stubTagCounts({ 'app-v': ['app-v1.0.0'] });
 
     const result = previewTagPrefixes({
       releases: {
@@ -200,7 +200,7 @@ describe(previewTagPrefixes, () => {
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/a-foo', 'packages/b-foo']));
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'foo-v' });
     mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({});
+    stubTagCounts({});
 
     const result = previewTagPrefixes();
 
@@ -216,7 +216,7 @@ describe(previewTagPrefixes, () => {
     };
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
     mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({});
+    stubTagCounts({});
 
     previewTagPrefixes(config);
 
@@ -230,7 +230,7 @@ describe(previewTagPrefixes, () => {
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'core-v' });
     mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({});
+    stubTagCounts({});
 
     previewTagPrefixes(config);
 
@@ -249,7 +249,7 @@ describe(previewTagPrefixes, () => {
     mockDetectUndeclared.mockReturnValue([
       { prefix: 'orphan-v', tagCount: 1, exampleTags: ['orphan-v1.0.0'], suggestedDir: 'orphan' },
     ]);
-    setupTagCounts({});
+    stubTagCounts({});
 
     const result = previewTagPrefixes();
 
@@ -267,7 +267,7 @@ describe(previewTagPrefixes, () => {
       ],
     };
     mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({
+    stubTagCounts({
       'preflight-v': ['preflight-v1.0.0', 'preflight-v1.1.0', 'preflight-v2.0.0'],
       'dead-v': [],
     });
@@ -287,7 +287,7 @@ describe(previewTagPrefixes, () => {
     };
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
     mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({});
+    stubTagCounts({});
 
     previewTagPrefixes(config);
 
@@ -297,7 +297,7 @@ describe(previewTagPrefixes, () => {
   it('returns an empty retiredPackages array when the config omits the field', () => {
     mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
     mockDetectUndeclared.mockReturnValue([]);
-    setupTagCounts({});
+    stubTagCounts({});
 
     const result = previewTagPrefixes({});
 

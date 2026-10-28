@@ -22,16 +22,16 @@ const files = new Map<string, unknown>();
 describe(resolveReleaseTargets, () => {
   beforeEach(() => {
     files.clear();
-    mockExistsSync.mockImplementation((filePath: string) => files.has(toRelative(filePath)));
+    mockExistsSync.mockImplementation((filePath: string) => files.has(getRelativePath(filePath)));
     mockReadFileSync.mockImplementation((filePath: string) => {
-      const relativePath = toRelative(filePath);
+      const relativePath = getRelativePath(filePath);
       if (!files.has(relativePath)) {
         throw new Error(`ENOENT: ${relativePath}`);
       }
       return JSON.stringify(files.get(relativePath));
     });
     mockStatSync.mockImplementation((filePath: string) => {
-      const relativePath = toRelative(filePath);
+      const relativePath = getRelativePath(filePath);
       const isDirectory = relativePath === '' || files.keys().some((key) => key.startsWith(`${relativePath}/`));
       return isDirectory ? { isDirectory: () => true } : undefined;
     });
@@ -50,7 +50,7 @@ describe(resolveReleaseTargets, () => {
       files.set('apps/devopticon/version.json', { version: '1.2.0' });
     });
 
-    const discovery = packages('packages/cli');
+    const discovery = buildWorkspaceDiscovery('packages/cli');
 
     it('projects a directory after the workspaces and before the composite', () => {
       const { targets } = resolveReleaseTargets(
@@ -125,12 +125,12 @@ describe(resolveReleaseTargets, () => {
 // region | Helpers
 
 /** Builds a monorepo discovery of the given workspace paths. */
-function packages(...packageDirs: string[]): Exclude<WorkspaceDiscovery, { kind: 'empty' }> {
+function buildWorkspaceDiscovery(...packageDirs: string[]): Exclude<WorkspaceDiscovery, { kind: 'empty' }> {
   return { kind: 'packages', packageDirs, patterns: ['packages/*'] };
 }
 
 /** Maps an absolute path under the working directory to the repo-relative key of `files`. */
-function toRelative(filePath: string): string {
+function getRelativePath(filePath: string): string {
   return path.isAbsolute(filePath) ? path.relative(process.cwd(), filePath) : path.normalize(filePath);
 }
 

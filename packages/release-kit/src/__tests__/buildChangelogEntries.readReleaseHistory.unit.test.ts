@@ -280,7 +280,7 @@ entries:
         makeWindow('v1.0.0', [ROUTED_MESSAGE]),
       ]);
 
-      const history = readReleaseHistory(routedConfig(), { ...OPTIONS, scope: 'arrays' });
+      const history = readReleaseHistory(buildRoutedConfig(), { ...OPTIONS, scope: 'arrays' });
 
       expect(describeItems(history.releasedEntries[0]?.sections ?? [])).toStrictEqual([
         'Covers everything.',
@@ -344,6 +344,16 @@ entries:
 
 // region | Helpers
 
+/** Returns the default configuration with a `core-alias` → `nmr-core` scope alias. */
+function buildRoutedConfig(): Parameters<typeof readReleaseHistory>[0] {
+  return {
+    ...makeConfig(),
+    breakingPolicies: DEFAULT_BREAKING_POLICIES,
+    scopeAliases: { 'core-alias': 'nmr-core' },
+    workTypes: DEFAULT_WORK_TYPES,
+  };
+}
+
 /** Lists the item descriptions of `sections`, in section order. */
 function describeItems(sections: readonly ChangelogSection[]): string[] {
   return sections.flatMap((section) => section.items.map((item) => item.description));
@@ -352,7 +362,7 @@ function describeItems(sections: readonly ChangelogSection[]): string[] {
 /** Reads, for `scope`, a history made of `windows`, the unreleased one first. */
 function readReleaseHistoryOf(windows: readonly ReleaseWindow[], scope: string): ReleaseHistory {
   mockEnumerateReleaseWindows.mockReturnValueOnce([...windows]);
-  return readReleaseHistory(routedConfig(), { ...OPTIONS, scope });
+  return readReleaseHistory(buildRoutedConfig(), { ...OPTIONS, scope });
 }
 
 /** Reads, for `scope`, a history whose only window is an unreleased one containing `messages`, oldest first. */
@@ -367,16 +377,6 @@ function readUnreleased(messages: readonly string[]): ReturnType<typeof readRele
     { ...makeConfig(), breakingPolicies: DEFAULT_BREAKING_POLICIES, workTypes: DEFAULT_WORK_TYPES },
     OPTIONS,
   ).unreleasedReading;
-}
-
-/** Returns the default configuration with a `core-alias` → `nmr-core` scope alias. */
-function routedConfig(): Parameters<typeof readReleaseHistory>[0] {
-  return {
-    ...makeConfig(),
-    breakingPolicies: DEFAULT_BREAKING_POLICIES,
-    scopeAliases: { 'core-alias': 'nmr-core' },
-    workTypes: DEFAULT_WORK_TYPES,
-  };
 }
 
 // endregion | Helpers

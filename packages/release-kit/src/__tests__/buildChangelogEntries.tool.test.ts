@@ -74,7 +74,7 @@ describe(readReleaseHistory, () => {
     const history = readHistory(['arrays-v']);
 
     expect(history.previousTag).toBe('arrays-v1.0.0');
-    expect(subjects(history)).toStrictEqual(['#3 fix: Newest', '#2 feat: Newer']);
+    expect(listSubjects(history)).toStrictEqual(['#3 fix: Newest', '#2 feat: Newer']);
   });
 
   it('derives the bump from the unreleased items alone', () => {
@@ -105,7 +105,7 @@ describe(readReleaseHistory, () => {
     const history = readHistory(['arrays-v']);
 
     expect(history.previousTag).toBeUndefined();
-    expect(subjects(history)).toStrictEqual(['#2 fix: Second', '#1 feat: First']);
+    expect(listSubjects(history)).toStrictEqual(['#2 fix: Second', '#1 feat: First']);
   });
 
   it('names the newest matching tag when several are reachable', () => {
@@ -119,7 +119,7 @@ describe(readReleaseHistory, () => {
     const history = readHistory(['arrays-v']);
 
     expect(history.previousTag).toBe('arrays-v1.1.0');
-    expect(subjects(history)).toStrictEqual(['#3 fix: Third']);
+    expect(listSubjects(history)).toStrictEqual(['#3 fix: Third']);
   });
 
   it('reports a branch commit merged after the baseline tag', () => {
@@ -140,7 +140,7 @@ describe(readReleaseHistory, () => {
 
     // The branch commit is older by commit date than the tag, and the tag does not contain it.
     expect(history.previousTag).toBe('arrays-v1.0.0');
-    expect(subjects(history)).toStrictEqual(['Merge feat', '#2 feat: Branch work']);
+    expect(listSubjects(history)).toStrictEqual(['Merge feat', '#2 feat: Branch work']);
     expect(history.unreleasedReading.bump).toBe('minor');
   });
 
@@ -153,7 +153,7 @@ describe(readReleaseHistory, () => {
     const history = readHistory(['nmr-core-v', 'core-v']);
 
     expect(history.previousTag).toBe('core-v0.2.7');
-    expect(subjects(history)).toStrictEqual(['#2 fix: Second']);
+    expect(listSubjects(history)).toStrictEqual(['#2 fix: Second']);
   });
 
   it('filters out release commits', () => {
@@ -164,7 +164,7 @@ describe(readReleaseHistory, () => {
     repo.commit('release: arrays-v1.1.0 strings-v2.0.1', { 'CHANGELOG.md': '# Changelog\n' });
     repo.commit('#3 fix: Patch bug', { 'src/patch.ts': 'export const patch = 1;\n' });
 
-    expect(subjects(readHistory(['arrays-v']))).toStrictEqual(['#3 fix: Patch bug', '#2 feat: Add feature']);
+    expect(listSubjects(readHistory(['arrays-v']))).toStrictEqual(['#3 fix: Patch bug', '#2 feat: Add feature']);
   });
 
   it('restricts the commits to the given paths', () => {
@@ -174,7 +174,7 @@ describe(readReleaseHistory, () => {
     repo.commit('#2 feat: In scope', { 'packages/arrays/index.ts': 'export const a = 1;\n' });
     repo.commit('#3 feat: Out of scope', { 'packages/strings/index.ts': 'export const s = 1;\n' });
 
-    expect(subjects(readHistory(['arrays-v'], ['packages/arrays/**']))).toStrictEqual(['#2 feat: In scope']);
+    expect(listSubjects(readHistory(['arrays-v'], ['packages/arrays/**']))).toStrictEqual(['#2 feat: In scope']);
   });
 
   it('includes the body of a commit that has one', () => {
@@ -230,6 +230,11 @@ describe(readReleaseHistory, () => {
 
 // region | Helpers
 
+/** Lists the subjects of the unreleased commits. */
+function listSubjects(history: ReturnType<typeof readReleaseHistory>): string[] {
+  return history.unreleasedReading.commits.map((commit) => commit.subject);
+}
+
 /** Reads the history of the scaffolded repo under the default configuration. */
 function readHistory(tagPrefixes: readonly string[], paths?: readonly string[]): ReturnType<typeof readReleaseHistory> {
   return readReleaseHistory(CONFIG, { tagPrefixes, ...(paths !== undefined && { paths }) });
@@ -246,11 +251,6 @@ function seedTaggedBaseline(repo: GitRepoFixture): void {
   repo.tag('arrays-v1.0.0');
   repo.commit('#2 feat: Newer', { 'src/newer.ts': 'export const newer = 2;\n' });
   repo.commit('#3 fix: Newest', { 'src/newest.ts': 'export const newest = 3;\n' });
-}
-
-/** Lists the subjects of the unreleased commits. */
-function subjects(history: ReturnType<typeof readReleaseHistory>): string[] {
-  return history.unreleasedReading.commits.map((commit) => commit.subject);
 }
 
 /** Reduces entries to their versions and item descriptions. */

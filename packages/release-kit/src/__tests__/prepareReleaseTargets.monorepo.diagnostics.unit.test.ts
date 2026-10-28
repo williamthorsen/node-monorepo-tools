@@ -91,7 +91,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
 
   describe('opportunistic hint when baseline is missing', () => {
     /** Configures mocks for a single workspace without a baseline tag and a commit that calls for a minor bump. */
-    function setupNoBaseline(tagListOutput: string[]): void {
+    function stubNoBaseline(tagListOutput: string[]): void {
       stubHistory({ commits: [['feat: add', 'abc']], bump: 'minor' });
       mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
         if (cmd === 'git' && args[0] === 'tag' && args[1] === '--list') {
@@ -116,7 +116,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
           },
         ],
       });
-      setupNoBaseline(['core-v0.2.7', 'core-v0.2.8']);
+      stubNoBaseline(['core-v0.2.7', 'core-v0.2.8']);
       using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
@@ -144,7 +144,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
           },
         ],
       });
-      setupNoBaseline(['core-v0.2.7']);
+      stubNoBaseline(['core-v0.2.7']);
       using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
@@ -166,7 +166,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
           },
         ],
       });
-      setupNoBaseline([]);
+      stubNoBaseline([]);
       using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
@@ -200,7 +200,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
         ],
       });
       // Only tags in the repo belong to the sibling `arrays` workspace. `core` doesn't have a baseline.
-      setupNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0']);
+      stubNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0']);
       using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
@@ -234,7 +234,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
           },
         ],
       });
-      setupNoBaseline(['arrays-v0.5.0', 'arrays-v0.6.0']);
+      stubNoBaseline(['arrays-v0.5.0', 'arrays-v0.6.0']);
       using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});
@@ -265,7 +265,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
           },
         ],
       });
-      setupNoBaseline(['core-v0.2.7', 'arrays-v0.1.0']);
+      stubNoBaseline(['core-v0.2.7', 'arrays-v0.1.0']);
       using stdioCapture = captureStdio();
 
       prepareMonorepo(config, {});

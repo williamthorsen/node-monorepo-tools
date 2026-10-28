@@ -49,7 +49,7 @@ describe(injectReleaseNotesIntoReadme, () => {
     vi.restoreAllMocks();
   });
 
-  function setupInjectionMocks(): void {
+  function stubInjectionMocks(): void {
     mockExistsSync.mockImplementation((filePath: string) => {
       return typeof filePath === 'string' && (filePath.endsWith('README.md') || filePath.endsWith('changelog.json'));
     });
@@ -67,7 +67,7 @@ describe(injectReleaseNotesIntoReadme, () => {
   }
 
   it('injects release notes and returns original content', () => {
-    setupInjectionMocks();
+    stubInjectionMocks();
 
     const originalContent = injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0');
 
@@ -114,7 +114,7 @@ describe(injectReleaseNotesIntoReadme, () => {
   });
 
   it('returns undefined when all sections are dev-only', () => {
-    setupInjectionMocks();
+    stubInjectionMocks();
     mockRenderReleaseNotesSingle.mockReturnValue('');
 
     const result = injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0');
@@ -125,7 +125,7 @@ describe(injectReleaseNotesIntoReadme, () => {
   });
 
   it('forwards sectionOrder to renderReleaseNotesSingle when provided', () => {
-    setupInjectionMocks();
+    stubInjectionMocks();
 
     injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0', ['Bug fixes', 'Features']);
 
@@ -136,7 +136,7 @@ describe(injectReleaseNotesIntoReadme, () => {
   });
 
   it('omits sectionOrder from render options when not provided', () => {
-    setupInjectionMocks();
+    stubInjectionMocks();
 
     injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0');
 
@@ -161,7 +161,7 @@ describe(renderInjectedReadme, () => {
     vi.restoreAllMocks();
   });
 
-  function setupRenderMocks(): void {
+  function stubRenderMocks(): void {
     mockExistsSync.mockReturnValue(true);
     mockExtractVersion.mockReturnValue('1.2.3');
     mockReadChangelogEntries.mockReturnValue([
@@ -176,7 +176,7 @@ describe(renderInjectedReadme, () => {
   }
 
   it('returns both injected README and standalone release notes when markers are present', () => {
-    setupRenderMocks();
+    stubRenderMocks();
 
     const readme = '# Package\n\n<!-- section:release-notes --><!-- /section:release-notes -->\n\n## Installation\n';
     const result = renderInjectedReadme(readme, '/pkg/.meta/changelog.json', 'v1.2.3');
@@ -191,7 +191,7 @@ describe(renderInjectedReadme, () => {
   });
 
   it('prepends a release-notes section when markers are absent', () => {
-    setupRenderMocks();
+    stubRenderMocks();
 
     const readme = '# Package\n\n## Installation\n';
     const result = renderInjectedReadme(readme, '/pkg/.meta/changelog.json', 'v1.2.3');
@@ -239,7 +239,7 @@ describe(renderInjectedReadme, () => {
   });
 
   it('returns undefined when all sections are dev-only', () => {
-    setupRenderMocks();
+    stubRenderMocks();
     mockRenderReleaseNotesSingle.mockReturnValue('');
 
     const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
@@ -251,7 +251,7 @@ describe(renderInjectedReadme, () => {
   });
 
   it('forwards sectionOrder to the renderer when provided', () => {
-    setupRenderMocks();
+    stubRenderMocks();
 
     renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3', ['Bug fixes', 'Features']);
 
@@ -262,7 +262,7 @@ describe(renderInjectedReadme, () => {
   });
 
   it('omits sectionOrder from render options when not provided', () => {
-    setupRenderMocks();
+    stubRenderMocks();
 
     renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
 

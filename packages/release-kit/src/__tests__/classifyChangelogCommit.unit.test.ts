@@ -21,84 +21,84 @@ const EXCLUDED_TYPE_NAMES: string[] = Object.entries(DEFAULT_WORK_TYPES)
 describe(classifyChangelogCommit, () => {
   describe('every work type is classified under its declared header', () => {
     it.each(INCLUDED_TYPES)('"#1 %s: test" is classified as "%s"', (typeName, header) => {
-      expect(headerOf(`#1 ${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
+      expect(getHeader(`#1 ${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
     });
 
     it.each(INCLUDED_TYPES)('"PROJ-1 %s: test" is classified as "%s"', (typeName, header) => {
-      expect(headerOf(`PROJ-1 ${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
+      expect(getHeader(`PROJ-1 ${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
     });
 
     it.each(INCLUDED_TYPES)('"## %s: test" is classified as "%s"', (typeName, header) => {
-      expect(headerOf(`## ${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
+      expect(getHeader(`## ${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
     });
 
     it.each(INCLUDED_TYPES)('"#1.2 %s: test" (dot sub-ticket) is classified as "%s"', (typeName, header) => {
-      expect(headerOf(`#1.2 ${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
+      expect(getHeader(`#1.2 ${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
     });
 
     it.each(INCLUDED_TYPES)('"#1-2 %s: test" (dash sub-ticket) is classified as "%s"', (typeName, header) => {
-      expect(headerOf(`#1-2 ${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
+      expect(getHeader(`#1-2 ${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
     });
 
     it.each(INCLUDED_TYPES)('"#1 scope|%s: test" (pipe scope) is classified as "%s"', (typeName, header) => {
-      expect(headerOf(`#1 scope|${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
+      expect(getHeader(`#1 scope|${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
     });
 
     it.each(INCLUDED_TYPES)('"#1 *|%s: test" (structural scope) is classified as "%s"', (typeName, header) => {
-      expect(headerOf(`#1 *|${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
+      expect(getHeader(`#1 *|${typeName}: test`, DEFAULT_WORK_TYPES)).toBe(header);
     });
 
     it.each(INCLUDED_TYPES)('"#1 %s!: test" (breaking) is classified as "%s"', (typeName, header) => {
-      expect(headerOf(`#1 ${typeName}!: test`, DEFAULT_WORK_TYPES)).toBe(header);
+      expect(getHeader(`#1 ${typeName}!: test`, DEFAULT_WORK_TYPES)).toBe(header);
     });
 
     it.each(INCLUDED_TYPES)('"#1 scope|%s!: test" (pipe breaking) is classified as "%s"', (typeName, header) => {
-      expect(headerOf(`#1 scope|${typeName}!: test`, DEFAULT_WORK_TYPES)).toBe(header);
+      expect(getHeader(`#1 scope|${typeName}!: test`, DEFAULT_WORK_TYPES)).toBe(header);
     });
 
     it.each(INCLUDED_TYPES)('"#1 *|%s!: test" (structural breaking) is classified as "%s"', (typeName, header) => {
-      expect(headerOf(`#1 *|${typeName}!: test`, DEFAULT_WORK_TYPES)).toBe(header);
+      expect(getHeader(`#1 *|${typeName}!: test`, DEFAULT_WORK_TYPES)).toBe(header);
     });
   });
 
   describe('every subject form that `parseCommitMessage` accepts is classified under its section', () => {
     it('classifies a conventional-commit parenthesized scope', () => {
-      expect(headerOf('#1 fix(parser): Patch', DEFAULT_WORK_TYPES)).toBe(DEFAULT_WORK_TYPES['fix']?.header);
+      expect(getHeader('#1 fix(parser): Patch', DEFAULT_WORK_TYPES)).toBe(DEFAULT_WORK_TYPES['fix']?.header);
     });
 
     it('classifies a parenthesized scope with a breaking marker', () => {
-      expect(headerOf('#1 fix(parser)!: Patch', DEFAULT_WORK_TYPES)).toBe(DEFAULT_WORK_TYPES['fix']?.header);
+      expect(getHeader('#1 fix(parser)!: Patch', DEFAULT_WORK_TYPES)).toBe(DEFAULT_WORK_TYPES['fix']?.header);
     });
 
     it.each(['#1 FEAT: Shout', '#1 Feat: Title case'])('resolves the type case-insensitively in "%s"', (message) => {
-      expect(headerOf(message, DEFAULT_WORK_TYPES)).toBe(DEFAULT_WORK_TYPES['feat']?.header);
+      expect(getHeader(message, DEFAULT_WORK_TYPES)).toBe(DEFAULT_WORK_TYPES['feat']?.header);
     });
 
     it('rejects an excluded type under a parenthesized scope', () => {
-      expect(kindOf('#1 fmt(css): Run prettier', DEFAULT_WORK_TYPES)).toBe('excluded');
+      expect(getClassificationKind('#1 fmt(css): Run prettier', DEFAULT_WORK_TYPES)).toBe('excluded');
     });
   });
 
   describe('a header comes from the configured work types', () => {
     it('reads the header supplied by a consumer override', () => {
       const workTypes = { ...DEFAULT_WORK_TYPES, feat: { header: 'New stuff' } };
-      expect(headerOf('#1 feat: Add widget', workTypes)).toBe('New stuff');
+      expect(getHeader('#1 feat: Add widget', workTypes)).toBe('New stuff');
     });
 
     it('classifies a type added by a consumer', () => {
       const workTypes = { ...DEFAULT_WORK_TYPES, chore: { header: '🧹 Chores' } };
-      expect(headerOf('#1 chore: Tidy up', workTypes)).toBe('🧹 Chores');
+      expect(getHeader('#1 chore: Tidy up', workTypes)).toBe('🧹 Chores');
     });
 
     it('rejects a type that a consumer excludes from the changelog', () => {
       const workTypes = { ...DEFAULT_WORK_TYPES, docs: { header: '📚 Documentation', excludedFromChangelog: true } };
-      expect(kindOf('#1 docs: Update guide', workTypes)).toBe('excluded');
+      expect(getClassificationKind('#1 docs: Update guide', workTypes)).toBe('excluded');
     });
   });
 
   describe("excluded types don't appear in any changelog", () => {
     it.each(EXCLUDED_TYPE_NAMES)('"#1 %s: test" is rejected', (typeName) => {
-      expect(kindOf(`#1 ${typeName}: test`, DEFAULT_WORK_TYPES)).toBe('excluded');
+      expect(getClassificationKind(`#1 ${typeName}: test`, DEFAULT_WORK_TYPES)).toBe('excluded');
     });
 
     it.each([
@@ -109,7 +109,7 @@ describe(classifyChangelogCommit, () => {
       '## fmt: Ad-hoc formatting',
       'PROJ-1 fmt: Jira-style formatting',
     ])('rejects "%s"', (message) => {
-      expect(kindOf(message, DEFAULT_WORK_TYPES)).toBe('excluded');
+      expect(getClassificationKind(message, DEFAULT_WORK_TYPES)).toBe('excluded');
     });
   });
 
@@ -124,7 +124,7 @@ describe(classifyChangelogCommit, () => {
       '###feat: Not a synthetic ticket',
       'proj-1 feat: Lowercase Jira prefix',
     ])('rejects "%s"', (message) => {
-      expect(kindOf(message, DEFAULT_WORK_TYPES)).toBe('unparseable');
+      expect(getClassificationKind(message, DEFAULT_WORK_TYPES)).toBe('unparseable');
     });
   });
 
@@ -136,7 +136,7 @@ describe(classifyChangelogCommit, () => {
       'Merge branch "main" into feature',
       'Merge remote-tracking branch "origin/main"',
     ])('rejects "%s"', (message) => {
-      expect(kindOf(message, DEFAULT_WORK_TYPES)).toBe('excluded');
+      expect(getClassificationKind(message, DEFAULT_WORK_TYPES)).toBe('excluded');
     });
   });
 
@@ -148,23 +148,23 @@ describe(classifyChangelogCommit, () => {
       '#1 scope|chore: Rework build',
       'PROJ-1 chore: Rework build',
     ])('rejects "%s"', (message) => {
-      expect(kindOf(message, DEFAULT_WORK_TYPES)).toBe('unparseable');
+      expect(getClassificationKind(message, DEFAULT_WORK_TYPES)).toBe('unparseable');
     });
 
     it('rejects a ticketed subject without a type separator', () => {
-      expect(kindOf('#1 Add a widget', DEFAULT_WORK_TYPES)).toBe('unparseable');
+      expect(getClassificationKind('#1 Add a widget', DEFAULT_WORK_TYPES)).toBe('unparseable');
     });
   });
 
   describe('the subject alone decides', () => {
     it('classifies from the first line when a body follows', () => {
       const message = '#1 feat: Add widget\n\nA paragraph about the widget.';
-      expect(headerOf(message, DEFAULT_WORK_TYPES)).toBe(DEFAULT_WORK_TYPES['feat']?.header);
+      expect(getHeader(message, DEFAULT_WORK_TYPES)).toBe(DEFAULT_WORK_TYPES['feat']?.header);
     });
 
     it('ignores a `release:` line inside the body', () => {
       const message = '#1 feat: Add widget\n\nrelease: not a subject';
-      expect(headerOf(message, DEFAULT_WORK_TYPES)).toBe(DEFAULT_WORK_TYPES['feat']?.header);
+      expect(getHeader(message, DEFAULT_WORK_TYPES)).toBe(DEFAULT_WORK_TYPES['feat']?.header);
     });
   });
 
@@ -223,15 +223,18 @@ function classify(message: string, options?: Parameters<typeof classifyChangelog
   return classifyChangelogCommit({ hash: 'abc123', message }, DEFAULT_WORK_TYPES, options);
 }
 
-/** Returns the header of a message that classifies under one, and undefined otherwise. */
-function headerOf(message: string, workTypes: Record<string, WorkTypeConfig>): string | undefined {
-  const classification = classifyChangelogCommit({ hash: 'abc123', message }, workTypes);
-  return classification.kind === 'header' ? classification.header : undefined;
+/** Returns the kind of a message's classification. */
+function getClassificationKind(
+  message: string,
+  workTypes: Record<string, WorkTypeConfig>,
+): ChangelogClassification['kind'] {
+  return classifyChangelogCommit({ hash: 'abc123', message }, workTypes).kind;
 }
 
-/** Returns the kind of a message's classification. */
-function kindOf(message: string, workTypes: Record<string, WorkTypeConfig>): ChangelogClassification['kind'] {
-  return classifyChangelogCommit({ hash: 'abc123', message }, workTypes).kind;
+/** Returns the header of a message that classifies under one, and undefined otherwise. */
+function getHeader(message: string, workTypes: Record<string, WorkTypeConfig>): string | undefined {
+  const classification = classifyChangelogCommit({ hash: 'abc123', message }, workTypes);
+  return classification.kind === 'header' ? classification.header : undefined;
 }
 
 // endregion | Helpers

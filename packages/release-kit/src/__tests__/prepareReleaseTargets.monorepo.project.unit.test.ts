@@ -284,7 +284,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
   });
 
   describe('--with-release-notes flag', () => {
-    function setupArraysWithFeat(): MonorepoReleaseConfig {
+    function setUpArraysWithFeat(): MonorepoReleaseConfig {
       const config = makeConfig({
         workspaces: [
           {
@@ -306,7 +306,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
     }
 
     it('invokes planReleaseNotesPreviews for each released workspace when enabled', () => {
-      const config = setupArraysWithFeat();
+      const config = setUpArraysWithFeat();
 
       prepareMonorepo(config, { shouldIncludeReleaseNotes: true });
 
@@ -322,7 +322,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
     });
 
     it('does not invoke planReleaseNotesPreviews when the flag is not set', () => {
-      const config = setupArraysWithFeat();
+      const config = setUpArraysWithFeat();
 
       prepareMonorepo(config, {});
 
@@ -380,7 +380,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
     });
 
     it('includes the planned preview files in the plan', () => {
-      const config = setupArraysWithFeat();
+      const config = setUpArraysWithFeat();
 
       mockPlanReleaseNotesPreviews.mockReturnValue({
         writes: [{ path: 'packages/arrays/docs/RELEASE_NOTES.v1.1.0.md', content: '# Notes\n' }],

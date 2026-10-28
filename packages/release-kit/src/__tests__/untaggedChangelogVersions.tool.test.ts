@@ -56,7 +56,7 @@ describe('untagged changelog versions (tool)', () => {
   let tree: TempTree;
 
   beforeEach(() => {
-    tree = setupFixture();
+    tree = setUpFixture();
   });
 
   it('stops until every recorded current version is tagged, then keeps every version that the tags do not rebuild', () => {
@@ -70,12 +70,12 @@ describe('untagged changelog versions (tool)', () => {
     expect(() => prepareReleaseTargets(projectMonorepoConfig(config), {})).toThrow(
       "workspace 'api': 1.2.0 (create tag api-v1.2.0)",
     );
-    git(tree, 'tag', 'api-v1.2.0');
+    runGit(tree, 'tag', 'api-v1.2.0');
 
     expect(() => prepareReleaseTargets(projectMonorepoConfig(config), { shouldForce: true })).toThrow(
       'project: 1.3.0 (create tag v1.3.0)',
     );
-    git(tree, 'tag', 'v1.3.0');
+    runGit(tree, 'tag', 'v1.3.0');
 
     tree.write('packages/api/widget.ts', 'export const widget = true;\n');
     commitAll(tree, '## api|feat: Add widget');
@@ -121,13 +121,8 @@ describe('untagged changelog versions (tool)', () => {
 
 /** Stages every change and commits it with `message`. */
 function commitAll(tree: TempTree, message: string): void {
-  git(tree, 'add', '-A');
-  git(tree, 'commit', '--quiet', '--message', message);
-}
-
-/** Runs git in the fixture repo. */
-function git(tree: TempTree, ...args: string[]): void {
-  execFileSync('git', args, { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
+  runGit(tree, 'add', '-A');
+  runGit(tree, 'commit', '--quiet', '--message', message);
 }
 
 /** Returns the `##` headings of a changelog, in order. */
@@ -135,24 +130,29 @@ function listHeadings(content: string): string[] {
   return content.split('\n').filter((line) => line.startsWith('## '));
 }
 
+/** Runs git in the fixture repo. */
+function runGit(tree: TempTree, ...args: string[]): void {
+  execFileSync('git', args, { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
 /**
  * Builds a git repo with one workspace, `api`, whose released versions are recorded only in hand-written changelogs.
  * The one tag, `v1.0.9`, does not match any recorded version.
  */
-function setupFixture(): TempTree {
+function setUpFixture(): TempTree {
   const tree = disposeOnTestFinished(createTempTree({}, { prefix: 'release-kit-untagged-' }));
-  git(tree, 'init', '--quiet', '--initial-branch=main');
-  git(tree, 'config', 'user.email', 'test@example.com');
-  git(tree, 'config', 'user.name', 'Test User');
-  git(tree, 'config', 'commit.gpgsign', 'false');
-  git(tree, 'config', 'tag.gpgSign', 'false');
+  runGit(tree, 'init', '--quiet', '--initial-branch=main');
+  runGit(tree, 'config', 'user.email', 'test@example.com');
+  runGit(tree, 'config', 'user.name', 'Test User');
+  runGit(tree, 'config', 'commit.gpgsign', 'false');
+  runGit(tree, 'config', 'tag.gpgSign', 'false');
 
   tree.writeJson('package.json', { name: 'fixture-monorepo', version: '1.0.9', private: true });
   tree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n");
   tree.writeJson('packages/api/package.json', { name: '@fixture/api', version: '1.0.0' });
   tree.write('packages/api/index.ts', 'export const api = true;\n');
   commitAll(tree, 'chore: initial commit');
-  git(tree, 'tag', 'v1.0.9');
+  runGit(tree, 'tag', 'v1.0.9');
 
   for (const [index, subject] of [
     'feat: Add endpoint',

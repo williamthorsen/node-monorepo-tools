@@ -22,9 +22,9 @@ const files = new Map<string, unknown>();
 describe(resolveReleaseTargets, () => {
   beforeEach(() => {
     files.clear();
-    mockExistsSync.mockImplementation((filePath: string) => files.has(toRelative(filePath)));
+    mockExistsSync.mockImplementation((filePath: string) => files.has(getRelativePath(filePath)));
     mockReadFileSync.mockImplementation((filePath: string) => {
-      const relativePath = toRelative(filePath);
+      const relativePath = getRelativePath(filePath);
       if (!files.has(relativePath)) {
         throw new Error(`ENOENT: ${relativePath}`);
       }
@@ -96,7 +96,7 @@ describe(resolveReleaseTargets, () => {
     });
 
     it('projects one package target per workspace, in discovery order', () => {
-      const { targets } = resolveReleaseTargets(undefined, packages('packages/core', 'packages/cli'));
+      const { targets } = resolveReleaseTargets(undefined, buildWorkspaceDiscovery('packages/core', 'packages/cli'));
 
       expect(targets).toStrictEqual([
         {
@@ -129,7 +129,7 @@ describe(resolveReleaseTargets, () => {
     it('projects a workspace at the repo root with the paths that deriveWorkspaceConfig gives it', () => {
       files.set('package.json', { name: '@scope/root', version: '0.5.0' });
 
-      const { targets } = resolveReleaseTargets(undefined, packages('.', 'packages/core'));
+      const { targets } = resolveReleaseTargets(undefined, buildWorkspaceDiscovery('.', 'packages/core'));
 
       expect(targets[0]).toMatchObject({
         id: '.',
@@ -145,7 +145,7 @@ describe(resolveReleaseTargets, () => {
     it('drops an excluded workspace', () => {
       const { targets } = resolveReleaseTargets(
         { workspaces: [{ dir: 'cli', shouldExclude: true }] },
-        packages('packages/core', 'packages/cli'),
+        buildWorkspaceDiscovery('packages/core', 'packages/cli'),
       );
 
       expect(targets.map((target) => target.id)).toStrictEqual(['core']);
@@ -156,7 +156,7 @@ describe(resolveReleaseTargets, () => {
 
       const { targets } = resolveReleaseTargets(
         { workspaces: [{ dir: 'core', legacyIdentities }] },
-        packages('packages/core', 'packages/cli'),
+        buildWorkspaceDiscovery('packages/core', 'packages/cli'),
       );
 
       expect(targets[0]?.legacyIdentities).toStrictEqual(legacyIdentities);
@@ -166,7 +166,7 @@ describe(resolveReleaseTargets, () => {
     it('appends a composite for an empty project block, rolling up the retained workspaces', () => {
       const { targets } = resolveReleaseTargets(
         { project: {}, workspaces: [{ dir: 'cli', shouldExclude: true }] },
-        packages('packages/core', 'packages/cli'),
+        buildWorkspaceDiscovery('packages/core', 'packages/cli'),
       );
 
       expect(targets.at(-1)).toStrictEqual({
@@ -182,13 +182,19 @@ describe(resolveReleaseTargets, () => {
     });
 
     it('takes the composite commit window from project.paths', () => {
-      const { targets } = resolveReleaseTargets({ project: { paths: ['src/**'] } }, packages('packages/core'));
+      const { targets } = resolveReleaseTargets(
+        { project: { paths: ['src/**'] } },
+        buildWorkspaceDiscovery('packages/core'),
+      );
 
       expect(targets.at(-1)?.paths).toStrictEqual(['src/**']);
     });
 
     it('takes the composite tag prefix from project.tagPrefix', () => {
-      const { targets } = resolveReleaseTargets({ project: { tagPrefix: 'release-v' } }, packages('packages/core'));
+      const { targets } = resolveReleaseTargets(
+        { project: { tagPrefix: 'release-v' } },
+        buildWorkspaceDiscovery('packages/core'),
+      );
 
       expect(targets.at(-1)?.tagPrefix).toBe('release-v');
     });
@@ -196,7 +202,7 @@ describe(resolveReleaseTargets, () => {
     it('keeps the root package.json validation of a project block', () => {
       files.set('package.json', { name: 'root' });
 
-      expect(() => resolveReleaseTargets({ project: {} }, packages('packages/core'))).toThrow(
+      expect(() => resolveReleaseTargets({ project: {} }, buildWorkspaceDiscovery('packages/core'))).toThrow(
         "project block requires root package.json to have a 'version' field",
       );
     });
@@ -204,15 +210,15 @@ describe(resolveReleaseTargets, () => {
     it('keeps the collision checks of the merged config', () => {
       files.set('packages/other/package.json', { name: '@other/core' });
 
-      expect(() => resolveReleaseTargets(undefined, packages('packages/core', 'packages/other'))).toThrow(
-        "Duplicate tag prefix 'core-v'",
-      );
+      expect(() =>
+        resolveReleaseTargets(undefined, buildWorkspaceDiscovery('packages/core', 'packages/other')),
+      ).toThrow("Duplicate tag prefix 'core-v'");
     });
 
     it('rejects two workspaces that share a directory name, naming both paths', () => {
       files.set('apps/core/package.json', { name: '@scope/core-app' });
 
-      expect(() => resolveReleaseTargets(undefined, packages('packages/core', 'apps/core'))).toThrow(
+      expect(() => resolveReleaseTargets(undefined, buildWorkspaceDiscovery('packages/core', 'apps/core'))).toThrow(
         "Duplicate release target id 'core' for workspaces: packages/core, apps/core",
       );
     });
@@ -226,7 +232,7 @@ describe(resolveReleaseTargets, () => {
       files.set('packages/scratch/package.json', { name: 'scratch', private: true });
     });
 
-    const discovery = packages('packages/nmr-core', 'packages/cli', 'packages/scratch');
+    const discovery = buildWorkspaceDiscovery('packages/nmr-core', 'packages/cli', 'packages/scratch');
 
     it('names, excludes, and composes targets while deriving tag prefixes from the npm name', () => {
       const legacyIdentities = [{ name: '@scope/core', tagPrefix: 'core-v' }];
@@ -370,43 +376,43 @@ describe(resolveReleaseTargets, () => {
       {
         shape: 'scoped and unscoped workspaces',
         config: undefined,
-        discovery: packages('packages/scoped', 'packages/plain'),
+        discovery: buildWorkspaceDiscovery('packages/scoped', 'packages/plain'),
         expected: ['scoped-lib-v', 'plain-lib-v'],
       },
       {
         shape: 'a workspace at the repo root',
         config: undefined,
-        discovery: packages('.', 'packages/plain'),
+        discovery: buildWorkspaceDiscovery('.', 'packages/plain'),
         expected: ['root-pkg-v', 'plain-lib-v'],
       },
       {
         shape: 'an empty project block',
         config: { project: {} },
-        discovery: packages('packages/plain'),
+        discovery: buildWorkspaceDiscovery('packages/plain'),
         expected: ['plain-lib-v', 'v'],
       },
       {
         shape: 'a project block with paths',
         config: { project: { paths: ['**'] } },
-        discovery: packages('packages/plain'),
+        discovery: buildWorkspaceDiscovery('packages/plain'),
         expected: ['plain-lib-v', 'v'],
       },
       {
         shape: 'a project tag prefix',
         config: { project: { tagPrefix: 'project-v' } },
-        discovery: packages('packages/plain'),
+        discovery: buildWorkspaceDiscovery('packages/plain'),
         expected: ['plain-lib-v', 'project-v'],
       },
       {
         shape: 'an exclusion',
         config: { workspaces: [{ dir: 'scoped', shouldExclude: true }] },
-        discovery: packages('packages/scoped', 'packages/plain'),
+        discovery: buildWorkspaceDiscovery('packages/scoped', 'packages/plain'),
         expected: ['plain-lib-v'],
       },
       {
         shape: 'a legacy identity',
         config: { workspaces: [{ dir: 'plain', legacyIdentities: [{ name: 'old', tagPrefix: 'old-v' }] }] },
-        discovery: packages('packages/plain'),
+        discovery: buildWorkspaceDiscovery('packages/plain'),
         expected: ['plain-lib-v'],
       },
     ])('derives $expected for $shape', ({ config, discovery, expected }) => {
@@ -419,11 +425,11 @@ describe(resolveReleaseTargets, () => {
 
 describe(isSinglePackageTargets, () => {
   it('accepts the root package target alone', () => {
-    expect(isSinglePackageTargets([packageTarget({ id: '.' })])).toBe(true);
+    expect(isSinglePackageTargets([makePackageTarget({ id: '.' })])).toBe(true);
   });
 
   it('rejects a lone workspace target, even at the repo root', () => {
-    expect(isSinglePackageTargets([packageTarget({ id: '.', isWorkspace: true })])).toBe(false);
+    expect(isSinglePackageTargets([makePackageTarget({ id: '.', isWorkspace: true })])).toBe(false);
   });
 
   it('rejects an empty list', () => {
@@ -438,12 +444,17 @@ type Discovery = Exclude<WorkspaceDiscovery, { kind: 'empty' }>;
 const SINGLE_DISCOVERY: Discovery = { kind: 'single-package' };
 
 /** Builds a monorepo discovery of the given workspace paths. */
-function packages(...packageDirs: string[]): Discovery {
+function buildWorkspaceDiscovery(...packageDirs: string[]): Discovery {
   return { kind: 'packages', packageDirs, patterns: ['packages/*'] };
 }
 
+/** Maps an absolute path under the working directory to the repo-relative key of `files`. */
+function getRelativePath(filePath: string): string {
+  return path.isAbsolute(filePath) ? path.relative(process.cwd(), filePath) : path.normalize(filePath);
+}
+
 /** Builds a minimal package target, overriding the given fields. */
-function packageTarget(overrides: Partial<Extract<ReleaseTarget, { kind: 'package' }>>): ReleaseTarget {
+function makePackageTarget(overrides: Partial<Extract<ReleaseTarget, { kind: 'package' }>>): ReleaseTarget {
   return {
     id: 'pkg',
     kind: 'package',
@@ -455,11 +466,6 @@ function packageTarget(overrides: Partial<Extract<ReleaseTarget, { kind: 'packag
     isWorkspace: false,
     ...overrides,
   };
-}
-
-/** Maps an absolute path under the working directory to the repo-relative key of `files`. */
-function toRelative(filePath: string): string {
-  return path.isAbsolute(filePath) ? path.relative(process.cwd(), filePath) : path.normalize(filePath);
 }
 
 // endregion | Helpers

@@ -51,7 +51,7 @@ describe(planReleaseNotesPreviews, () => {
   });
 
   it('plans the injected-README preview and the standalone preview under docs/', () => {
-    const plan = planReleaseNotesPreviews(previewOptions());
+    const plan = planReleaseNotesPreviews(buildPreviewOptions());
 
     expect(plan.writes.map((write) => write.path)).toStrictEqual([
       'packages/a/docs/README.v1.2.3.md',
@@ -60,7 +60,7 @@ describe(planReleaseNotesPreviews, () => {
   });
 
   it('plans relative paths under docs/ for a workspace at the repo root', () => {
-    const plan = planReleaseNotesPreviews(previewOptions({ workspacePath: '.' }));
+    const plan = planReleaseNotesPreviews(buildPreviewOptions({ workspacePath: '.' }));
 
     expect(plan.writes.map((write) => write.path)).toStrictEqual([
       'docs/README.v1.2.3.md',
@@ -71,7 +71,7 @@ describe(planReleaseNotesPreviews, () => {
   it('renders from the supplied entries rather than from a changelog file', () => {
     const entries = [{ version: '1.2.3', date: '2024-01-01', sections: [] }];
 
-    planReleaseNotesPreviews(previewOptions({ entries }));
+    planReleaseNotesPreviews(buildPreviewOptions({ entries }));
 
     expect(mockRenderInjectedReadmeFromEntries).toHaveBeenCalledWith('# Pkg\n', entries, 'pkg-v1.2.3', ['Features']);
   });
@@ -79,7 +79,7 @@ describe(planReleaseNotesPreviews, () => {
   it('if the workspace does not have a README, plans only the standalone preview', () => {
     mockExistsSync.mockReturnValue(false);
 
-    const plan = planReleaseNotesPreviews(previewOptions());
+    const plan = planReleaseNotesPreviews(buildPreviewOptions());
 
     expect(plan.writes.map((write) => write.path)).toStrictEqual(['packages/a/docs/RELEASE_NOTES.v1.2.3.md']);
   });
@@ -87,7 +87,7 @@ describe(planReleaseNotesPreviews, () => {
   it('if the workspace does not have a README, warns that the injected preview was skipped', () => {
     mockExistsSync.mockReturnValue(false);
 
-    const plan = planReleaseNotesPreviews(previewOptions());
+    const plan = planReleaseNotesPreviews(buildPreviewOptions());
 
     expect(plan.warnings).toStrictEqual([
       'packages/a/README.md not found; skipping injected-README preview but still writing standalone release notes',
@@ -99,7 +99,7 @@ describe(planReleaseNotesPreviews, () => {
       throw new Error('EACCES: permission denied');
     });
 
-    const plan = planReleaseNotesPreviews(previewOptions());
+    const plan = planReleaseNotesPreviews(buildPreviewOptions());
 
     expect(plan.warnings).toStrictEqual([
       'failed to read packages/a/README.md: EACCES: permission denied; skipping injected-README preview',
@@ -109,7 +109,7 @@ describe(planReleaseNotesPreviews, () => {
   it('if the renderer does not report any content for the version, plans nothing', () => {
     mockRenderInjectedReadmeFromEntries.mockReturnValue({ status: 'skipped', reason: 'no-entry', version: '1.2.3' });
 
-    const plan = planReleaseNotesPreviews(previewOptions());
+    const plan = planReleaseNotesPreviews(buildPreviewOptions());
 
     expect(plan.writes).toStrictEqual([]);
   });
@@ -117,7 +117,7 @@ describe(planReleaseNotesPreviews, () => {
   it('if the changelog does not contain an entry for the version, warns naming the version', () => {
     mockRenderInjectedReadmeFromEntries.mockReturnValue({ status: 'skipped', reason: 'no-entry', version: '1.2.3' });
 
-    const plan = planReleaseNotesPreviews(previewOptions());
+    const plan = planReleaseNotesPreviews(buildPreviewOptions());
 
     expect(plan.warnings).toStrictEqual([
       'packages/a: no changelog entry for version 1.2.3; skipping release-notes previews',
@@ -127,7 +127,7 @@ describe(planReleaseNotesPreviews, () => {
   it('if the entry does not have any user-facing content, warns naming the version', () => {
     mockRenderInjectedReadmeFromEntries.mockReturnValue({ status: 'skipped', reason: 'empty-body', version: '1.2.3' });
 
-    const plan = planReleaseNotesPreviews(previewOptions());
+    const plan = planReleaseNotesPreviews(buildPreviewOptions());
 
     expect(plan.warnings).toStrictEqual([
       'packages/a: no user-facing release notes for version 1.2.3; skipping release-notes previews',
@@ -135,20 +135,20 @@ describe(planReleaseNotesPreviews, () => {
   });
 
   it('ends the standalone preview with a newline when the renderer omits one', () => {
-    const plan = planReleaseNotesPreviews(previewOptions());
+    const plan = planReleaseNotesPreviews(buildPreviewOptions());
 
     expect(plan.writes.at(-1)?.content).toBe('## Release notes — v1.2.3 (2024-01-01)\n\n### Features\n\n- X\n');
   });
 
   it('writes nothing', () => {
-    planReleaseNotesPreviews(previewOptions());
+    planReleaseNotesPreviews(buildPreviewOptions());
 
     expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
   });
 });
 
 /** Builds preview options, overriding any field of an otherwise minimal single-workspace run. */
-function previewOptions(
+function buildPreviewOptions(
   overrides: Partial<Parameters<typeof planReleaseNotesPreviews>[0]> = {},
 ): Parameters<typeof planReleaseNotesPreviews>[0] {
   return {

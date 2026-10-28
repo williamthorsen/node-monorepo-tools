@@ -8,14 +8,14 @@ describe(parseChangeRecordBlock, () => {
   });
 
   it('ignores a fence whose info string is not exactly `change-record`', () => {
-    const message = messageWith('```change-record-v2\nentries: []\n```\n\n```yaml\nentries: []\n```');
+    const message = buildMessageWithTail('```change-record-v2\nentries: []\n```\n\n```yaml\nentries: []\n```');
 
     expect(parseChangeRecordBlock(message)).toStrictEqual({ kind: 'absent' });
   });
 
   it('reads entries, `pr_number`, and `ticket_ref` from a merge-commit block', () => {
-    const message = messageWith(
-      block(`
+    const message = buildMessageWithTail(
+      wrapInChangeRecordFence(`
 pr_number: 42
 ticket_ref: '#867'
 entries:
@@ -48,8 +48,8 @@ entries:
   });
 
   it('reads the last block when the message contains several', () => {
-    const message = messageWith(
-      `${block('entries:\n  - type: fix\n    text: First.')}\n\n${block('entries:\n  - type: feat\n    text: Last.')}`,
+    const message = buildMessageWithTail(
+      `${wrapInChangeRecordFence('entries:\n  - type: fix\n    text: First.')}\n\n${wrapInChangeRecordFence('entries:\n  - type: feat\n    text: Last.')}`,
     );
 
     expect(parseChangeRecordBlock(message)).toStrictEqual({
@@ -59,7 +59,9 @@ entries:
   });
 
   it('reads a CRLF message', () => {
-    const message = messageWith(block('entries:\n  - type: fix\n    text: Done.')).replaceAll('\n', '\r\n');
+    const message = buildMessageWithTail(
+      wrapInChangeRecordFence('entries:\n  - type: fix\n    text: Done.'),
+    ).replaceAll('\n', '\r\n');
 
     expect(parseChangeRecordBlock(message)).toStrictEqual({
       kind: 'read',
@@ -68,7 +70,9 @@ entries:
   });
 
   it('keeps the entry text as written, apart from surrounding whitespace', () => {
-    const message = messageWith(block("entries:\n  - type: fix\n    text: '  lowercase start.  '"));
+    const message = buildMessageWithTail(
+      wrapInChangeRecordFence("entries:\n  - type: fix\n    text: '  lowercase start.  '"),
+    );
 
     expect(parseChangeRecordBlock(message)).toMatchObject({
       entries: [{ text: 'lowercase start.' }],
@@ -81,7 +85,7 @@ entries:
       ['null', 'pr_number: 7\nentries:'],
       ['empty', 'pr_number: 7\nentries: []'],
     ])('reads %s `entries` as an empty list', (_label, payload) => {
-      expect(parseChangeRecordBlock(messageWith(block(payload)))).toStrictEqual({
+      expect(parseChangeRecordBlock(buildMessageWithTail(wrapInChangeRecordFence(payload)))).toStrictEqual({
         kind: 'read',
         entries: [],
         prNumber: 7,
@@ -91,8 +95,8 @@ entries:
 
   describe('null-valued declared keys', () => {
     it('reads each null-valued declared key as absent', () => {
-      const message = messageWith(
-        block(`
+      const message = buildMessageWithTail(
+        wrapInChangeRecordFence(`
 pr_number:
 ticket_ref:
 entries:
@@ -111,8 +115,10 @@ entries:
     });
 
     it('ignores undeclared keys', () => {
-      const message = messageWith(
-        block('title: Something\nentries_commit: 123\nentries:\n  - type: fix\n    text: Done.\n    extra: [1]'),
+      const message = buildMessageWithTail(
+        wrapInChangeRecordFence(
+          'title: Something\nentries_commit: 123\nentries:\n  - type: fix\n    text: Done.\n    extra: [1]',
+        ),
       );
 
       expect(parseChangeRecordBlock(message)).toStrictEqual({
@@ -124,7 +130,7 @@ entries:
 
   describe('malformed blocks', () => {
     it('reports a block that never closes', () => {
-      const message = messageWith('```change-record\nentries: []\n');
+      const message = buildMessageWithTail('```change-record\nentries: []\n');
 
       expect(parseChangeRecordBlock(message)).toStrictEqual({
         kind: 'malformed',
@@ -133,7 +139,7 @@ entries:
     });
 
     it('reports a payload that is not valid YAML', () => {
-      const reading = parseChangeRecordBlock(messageWith(block('entries: [unclosed')));
+      const reading = parseChangeRecordBlock(buildMessageWithTail(wrapInChangeRecordFence('entries: [unclosed')));
 
       expect(reading.kind).toBe('malformed');
       expect(reading).toHaveProperty('reason', expect.stringMatching(/^the payload is not valid YAML: /));
@@ -177,11 +183,16 @@ entries:
       ['`pr_number` is fractional', 'pr_number: 4.5', '`pr_number` is not a positive integer'],
       ['`ticket_ref` is not a string', 'ticket_ref: 867', '`ticket_ref` is not a string'],
     ])('reports a block in which %s', (_label, payload, reason) => {
-      expect(parseChangeRecordBlock(messageWith(block(payload)))).toStrictEqual({ kind: 'malformed', reason });
+      expect(parseChangeRecordBlock(buildMessageWithTail(wrapInChangeRecordFence(payload)))).toStrictEqual({
+        kind: 'malformed',
+        reason,
+      });
     });
 
     it('reports the whole block when any one entry is defective', () => {
-      const message = messageWith(block('entries:\n  - type: feat\n    text: Good.\n  - type: fix'));
+      const message = buildMessageWithTail(
+        wrapInChangeRecordFence('entries:\n  - type: feat\n    text: Good.\n  - type: fix'),
+      );
 
       expect(parseChangeRecordBlock(message)).toStrictEqual({
         kind: 'malformed',
@@ -190,13 +201,17 @@ entries:
     });
 
     it('reads the last block even when an earlier one is malformed', () => {
-      const message = messageWith(`${block('entries: 3')}\n\n${block('entries:\n  - type: fix\n    text: Done.')}`);
+      const message = buildMessageWithTail(
+        `${wrapInChangeRecordFence('entries: 3')}\n\n${wrapInChangeRecordFence('entries:\n  - type: fix\n    text: Done.')}`,
+      );
 
       expect(parseChangeRecordBlock(message)).toMatchObject({ kind: 'read' });
     });
 
     it('reports the last block when it is malformed even though an earlier one reads', () => {
-      const message = messageWith(`${block('entries:\n  - type: fix\n    text: Done.')}\n\n${block('entries: 3')}`);
+      const message = buildMessageWithTail(
+        `${wrapInChangeRecordFence('entries:\n  - type: fix\n    text: Done.')}\n\n${wrapInChangeRecordFence('entries: 3')}`,
+      );
 
       expect(parseChangeRecordBlock(message)).toStrictEqual({ kind: 'malformed', reason: '`entries` is not a list' });
     });
@@ -205,7 +220,7 @@ entries:
 
 describe(stripChangeRecordBlocks, () => {
   it('removes every block, fences included, and keeps the other lines', () => {
-    const message = `Subject\n\nLede.\n\n${block('entries: []')}\n\n\`\`\`ts\nconst a = 1;\n\`\`\`\n\n${block('pr_number: 1')}`;
+    const message = `Subject\n\nLede.\n\n${wrapInChangeRecordFence('entries: []')}\n\n\`\`\`ts\nconst a = 1;\n\`\`\`\n\n${wrapInChangeRecordFence('pr_number: 1')}`;
 
     expect(stripChangeRecordBlocks(message)).toBe('Subject\n\nLede.\n\n\n```ts\nconst a = 1;\n```\n');
   });
@@ -217,14 +232,14 @@ describe(stripChangeRecordBlocks, () => {
 
 // region | Helpers
 
-/** Wraps a YAML payload in a `change-record` fence. */
-function block(payload: string): string {
-  return ['```change-record', payload.replace(/^\n/, '').replace(/\n$/, ''), '```'].join('\n');
+/** Builds a merge-commit message whose body ends with the given text. */
+function buildMessageWithTail(tail: string): string {
+  return `#867 release-kit|feat: Read the block (#42)\n\nLede paragraph.\n\n${tail}\n`;
 }
 
-/** Builds a merge-commit message whose body ends with the given text. */
-function messageWith(tail: string): string {
-  return `#867 release-kit|feat: Read the block (#42)\n\nLede paragraph.\n\n${tail}\n`;
+/** Wraps a YAML payload in a `change-record` fence. */
+function wrapInChangeRecordFence(payload: string): string {
+  return ['```change-record', payload.replace(/^\n/, '').replace(/\n$/, ''), '```'].join('\n');
 }
 
 // endregion | Helpers

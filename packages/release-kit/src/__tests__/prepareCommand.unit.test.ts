@@ -293,7 +293,7 @@ describe(prepareCommand, () => {
 
     await prepareCommand([], RICH_STYLES, process.cwd());
 
-    expect(writtenPaths()).toStrictEqual(['packages/arrays/package.json', RELEASE_TAGS_FILE]);
+    expect(listWrittenPaths()).toStrictEqual(['packages/arrays/package.json', RELEASE_TAGS_FILE]);
   });
 
   it('joins multiple tags with newlines in the release tags file', async () => {
@@ -564,6 +564,11 @@ describe(prepareCommand, () => {
 });
 
 // region | Helpers
+/** Returns the paths passed to `writeFileWithCheck`, in call order. */
+function listWrittenPaths(): string[] {
+  return mockWriteFileWithCheck.mock.calls.map((call: unknown[]) => String(call[0]));
+}
+
 /** Builds a released package result, named by workspace `dir` as in monorepo mode. */
 function makeReleasedResult(name?: string): ReleasedPackageResult {
   return {
@@ -591,10 +596,5 @@ function makeSkippedResult(name: string): SkippedPackageResult {
     parsedCommitCount: 0,
     skipReason: 'No commits',
   };
-}
-
-/** Returns the paths passed to `writeFileWithCheck`, in call order. */
-function writtenPaths(): string[] {
-  return mockWriteFileWithCheck.mock.calls.map((call: unknown[]) => String(call[0]));
 }
 // endregion | Helpers

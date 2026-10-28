@@ -453,7 +453,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
       body: '',
       message: blockMessage,
     };
-    const unroutedFinding = (entryPosition: number, scope: string): UnroutedEntryScope => ({
+    const buildUnroutedFinding = (entryPosition: number, scope: string): UnroutedEntryScope => ({
       commitHash: 'fff9999',
       commitSubject: blockCommit.subject,
       entryPosition,
@@ -469,7 +469,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
 
       const result = prepareMonorepo(config, {});
 
-      const expectedEntryScopes = [unroutedFinding(2, 'strings'), unroutedFinding(3, 'nothing')];
+      const expectedEntryScopes = [buildUnroutedFinding(2, 'strings'), buildUnroutedFinding(3, 'nothing')];
       expect(selectPackageResults(result).find((w) => w.name === 'arrays')).toMatchObject({
         status: 'released',
         unroutedEntryScopes: expectedEntryScopes,
@@ -489,7 +489,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
       const result = prepareMonorepo(config, { onlyTargetIds: ['arrays'] });
 
       expect(selectPackageResults(result).map((workspace) => workspace.name)).toStrictEqual(['arrays']);
-      expect(selectPackageResults(result)[0]?.unroutedEntryScopes).toStrictEqual([unroutedFinding(3, 'nothing')]);
+      expect(selectPackageResults(result)[0]?.unroutedEntryScopes).toStrictEqual([buildUnroutedFinding(3, 'nothing')]);
     });
 
     /** Stubs each prefix's history with its bump, putting the block commit in the windows of `blockPrefixes`. */

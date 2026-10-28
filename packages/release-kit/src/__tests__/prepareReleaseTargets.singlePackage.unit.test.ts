@@ -366,7 +366,7 @@ describe('prepareReleaseTargets for a single-package repo', () => {
     });
     assert(packageResult?.status === 'released', 'expected released');
     expect(packageResult.releaseType).toBeUndefined();
-    expect(plannedContent(result, 'package.json')).toContain('"version": "1.0.0"');
+    expect(findPlannedContent(result, 'package.json')).toContain('"version": "1.0.0"');
   });
 
   it("attaches the history's diagnostics under --set-version, leaving the parse results off", () => {
@@ -500,14 +500,14 @@ describe('prepareReleaseTargets for a single-package repo', () => {
       },
     );
 
-    expect(plannedContent(plan, 'docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
+    expect(findPlannedContent(plan, 'docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
     expect(selectPackageResults(plan)[0]).toMatchObject({ previewFiles: ['docs/RELEASE_NOTES.v1.1.0.md'] });
   });
 });
 
 // region | Helpers
 /** Returns the content that the plan intends to write to `path`, or undefined when the plan does not write it. */
-function plannedContent(
+function findPlannedContent(
   plan: { writes: readonly { path: string; content: string }[] },
   path: string,
 ): string | undefined {

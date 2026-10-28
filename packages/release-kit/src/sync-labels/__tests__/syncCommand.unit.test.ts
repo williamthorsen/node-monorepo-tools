@@ -17,7 +17,7 @@ import { RETIRED_SYNC_LABELS_CONFIG_PATH } from '../retiredConfig.ts';
 import { syncLabelsCommand } from '../syncCommand.ts';
 
 /** Makes only the given repo files exist. */
-function givenExistingFiles(...paths: string[]): void {
+function stubExistingFiles(...paths: string[]): void {
   mockExistsSync.mockImplementation((path: string) => paths.includes(path));
 }
 
@@ -28,7 +28,7 @@ describe(syncLabelsCommand, () => {
   });
 
   it('returns 1 with a migration message when the retired sync-labels config exists', () => {
-    givenExistingFiles(RETIRED_SYNC_LABELS_CONFIG_PATH);
+    stubExistingFiles(RETIRED_SYNC_LABELS_CONFIG_PATH);
     using stdioCapture = captureStdio();
 
     const result = syncLabelsCommand();
@@ -64,7 +64,7 @@ describe(syncLabelsCommand, () => {
 
   it('returns 0 and triggers workflow on success', () => {
     mockExecSync.mockReturnValue(Buffer.from(''));
-    givenExistingFiles('.github/workflows/sync-labels.yaml');
+    stubExistingFiles('.github/workflows/sync-labels.yaml');
     using _silencedConsole = silenceConsole(['info']);
 
     const result = syncLabelsCommand();
@@ -78,7 +78,7 @@ describe(syncLabelsCommand, () => {
       if (cmd === 'gh --version') return Buffer.from('gh version 2.0.0');
       throw new Error('workflow dispatch failed');
     });
-    givenExistingFiles('.github/workflows/sync-labels.yaml');
+    stubExistingFiles('.github/workflows/sync-labels.yaml');
     using stdioCapture = captureStdio();
 
     const result = syncLabelsCommand();

@@ -243,7 +243,7 @@ describe('prepareReleaseTargets for a project composite', () => {
     expect(modifiedFiles).toContain('CHANGELOG.md');
 
     // The plan contains the root package.json at the new version; planning doesn't write any file.
-    expect(plannedContent(writes, './package.json')).toContain('"version": "0.10.0"');
+    expect(findPlannedContent(writes, './package.json')).toContain('"version": "0.10.0"');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
 
     expectOneHistoryRead(config, ['packages/arrays/**', 'packages/strings/**']);
@@ -471,7 +471,7 @@ describe('prepareReleaseTargets for a project composite', () => {
 
 // region | Helpers
 /** Returns the content that the staged writes intend for `path`, or undefined when the staged writes don't target it. */
-function plannedContent(writes: readonly PlannedWrite[], path: string): string | undefined {
+function findPlannedContent(writes: readonly PlannedWrite[], path: string): string | undefined {
   return writes.find((write) => write.path === path)?.content;
 }
 // endregion | Helpers
