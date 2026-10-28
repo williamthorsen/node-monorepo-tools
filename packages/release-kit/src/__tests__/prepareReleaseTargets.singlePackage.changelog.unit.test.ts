@@ -66,13 +66,13 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
 }));
 import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
-import { selectPackageResults } from '../test-utils/prepareResults.ts';
 import {
   diagnostics,
   makeConfig,
   prepareSinglePackage,
   type SinglePackageOptions,
 } from '../test-utils/prepareReleaseTargetsSinglePackageFixtures.ts';
+import { selectPackageResults } from '../test-utils/prepareResults.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 describe('prepareReleaseTargets for a single-package repo', () => {

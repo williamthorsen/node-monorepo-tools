@@ -1,6 +1,6 @@
 import { findUntaggedBaseline, type UntaggedBaseline } from './assertTaggedBaseline.ts';
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
-import { readReleaseHistory, type ReleaseHistory, convertToReleaseEntries } from './buildChangelogEntries.ts';
+import { convertToReleaseEntries, readReleaseHistory, type ReleaseHistory } from './buildChangelogEntries.ts';
 import { buildPropagationEntries, buildReleasedResult, type TargetRelease } from './buildReleasedResult.ts';
 import { applyWorkspaceOverrides, type OverrideContext } from './changelogOverrides.ts';
 import { decideRelease } from './decideRelease.ts';

@@ -78,7 +78,6 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
 }));
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
-import { selectPackageResults } from '../test-utils/prepareResults.ts';
 import {
   makeConfig,
   makeRoutedWorkspace,
@@ -86,6 +85,7 @@ import {
   RELEASED_ENTRY,
   stubPropagationWorkspaces,
 } from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
+import { selectPackageResults } from '../test-utils/prepareResults.ts';
 import type { ChangelogSection, MonorepoReleaseConfig, WorkspaceConfig } from '../types.ts';
 
 describe('prepareReleaseTargets for a monorepo', () => {

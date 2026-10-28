@@ -13,8 +13,8 @@ import {
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mergeMonorepoConfig } from '../mergeConfig.ts';
-import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
 import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
+import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import { selectCompositeResult } from '../test-utils/prepareResults.ts';
 import type { MonorepoReleaseConfig } from '../types.ts';

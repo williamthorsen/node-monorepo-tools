@@ -1,8 +1,8 @@
 import { assert } from 'vitest';
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
-import type { PlannedWrite } from '../releasePlan.ts';
 import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
+import type { PlannedWrite } from '../releasePlan.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import type {
   ChangelogEntry,
@@ -14,9 +14,9 @@ import type {
   UndeclaredEntryType,
   WorkspaceConfig,
 } from '../types.ts';
+import { stubHistory } from './prepareReleaseTargetsProjectMocks.ts';
 import { selectCompositeResult } from './prepareResults.ts';
 import type { ReleaseHistoryStub } from './releaseHistories.ts';
-import { stubHistory } from './prepareReleaseTargetsProjectMocks.ts';
 
 /** The unreleased window's sections in the default history. */
 export const UNRELEASED_SECTIONS: ChangelogSection[] = [

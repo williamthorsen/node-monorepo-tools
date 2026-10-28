@@ -75,12 +75,12 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
   listArchiveFiles: () => [],
 }));
 
-import { selectPackageResults } from '../test-utils/prepareResults.ts';
 import {
-  makeConfig,
   findPlannedContent,
+  makeConfig,
   prepareMonorepo,
 } from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
+import { selectPackageResults } from '../test-utils/prepareResults.ts';
 
 describe('prepareReleaseTargets for a monorepo', () => {
   beforeEach(() => {

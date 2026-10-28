@@ -78,14 +78,14 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
 }));
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
-import { selectCompositeResult, selectPackageResults } from '../test-utils/prepareResults.ts';
-import { makeReleaseHistory } from '../test-utils/releaseHistories.ts';
 import {
-  makeConfig,
   findPlannedContent,
+  makeConfig,
   prepareMonorepo,
   stubPropagationWorkspaces,
 } from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
+import { selectCompositeResult, selectPackageResults } from '../test-utils/prepareResults.ts';
+import { makeReleaseHistory } from '../test-utils/releaseHistories.ts';
 import type { MonorepoReleaseConfig } from '../types.ts';
 
 describe('prepareReleaseTargets for a monorepo', () => {

@@ -2,7 +2,7 @@ import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
-import { makeFakeHash, makeCommit, makeConfig, makeWindow, OPTIONS } from '../test-utils/changelogCommits.ts';
+import { makeCommit, makeConfig, makeFakeHash, makeWindow, OPTIONS } from '../test-utils/changelogCommits.ts';
 
 const { mockEnumerateReleaseWindows, mockWriteFileSync } = await vi.hoisted(
   () => import('../test-utils/buildChangelogEntriesMocks.ts'),
@@ -20,9 +20,9 @@ vi.mock(import('node:fs'), () => ({
 
 import {
   buildChangelogEntries,
-  readReleaseHistory,
   convertToChangelogEntries,
   convertToReleaseEntries,
+  readReleaseHistory,
 } from '../buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
 

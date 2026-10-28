@@ -7,8 +7,8 @@ import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate
 import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import { mergeMonorepoConfig } from '../mergeConfig.ts';
-import { applyReleasePlan } from '../releasePlan.ts';
 import { prepareReleaseTargets } from '../prepareReleaseTargets.ts';
+import { applyReleasePlan } from '../releasePlan.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import { selectCompositeResult } from '../test-utils/prepareResults.ts';
 

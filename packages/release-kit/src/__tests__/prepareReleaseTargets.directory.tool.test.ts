@@ -6,8 +6,8 @@ import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ReleaseKitConfig } from '../configSchema.ts';
 import { mergeMonorepoConfig } from '../mergeConfig.ts';
-import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
 import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
+import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
 import { reportPrepare } from '../reportPrepare.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import type { TargetPrepareResult } from '../types.ts';

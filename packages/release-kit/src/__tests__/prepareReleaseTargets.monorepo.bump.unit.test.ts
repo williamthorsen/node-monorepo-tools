@@ -77,13 +77,13 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
 }));
 
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
-import { selectPackageResults } from '../test-utils/prepareResults.ts';
 import {
-  makeConfig,
   findPlannedContent,
+  makeConfig,
   prepareMonorepo,
   RELEASED_ENTRY,
 } from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
+import { selectPackageResults } from '../test-utils/prepareResults.ts';
 import type { ChangelogSection } from '../types.ts';
 
 describe('prepareReleaseTargets for a monorepo', () => {

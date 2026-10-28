@@ -3,12 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import type { ReleaseWindow } from '../enumerateReleaseWindows.ts';
 import {
-  wrapInChangeRecordFence,
-  makeFakeHash,
-  makeConfig,
-  makeWindow,
   buildMergeMessage,
+  makeConfig,
+  makeFakeHash,
+  makeWindow,
   OPTIONS,
+  wrapInChangeRecordFence,
 } from '../test-utils/changelogCommits.ts';
 import { makeWorkspaceTarget } from '../test-utils/packageTargets.ts';
 import type { ChangelogSection } from '../types.ts';

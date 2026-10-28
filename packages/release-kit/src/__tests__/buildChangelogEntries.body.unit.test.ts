@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { makeFakeHash, makeConfig, makeWindow, OPTIONS } from '../test-utils/changelogCommits.ts';
+import { makeConfig, makeFakeHash, makeWindow, OPTIONS } from '../test-utils/changelogCommits.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 const { mockEnumerateReleaseWindows, mockWriteFileSync } = await vi.hoisted(

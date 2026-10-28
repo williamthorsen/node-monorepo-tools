@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import {
-  wrapInChangeRecordFence,
-  makeFakeHash,
+  buildMergeMessage,
   makeConfig,
+  makeFakeHash,
   makeWindow,
   MERGE_SUBJECT,
-  buildMergeMessage,
   OPTIONS,
+  wrapInChangeRecordFence,
 } from '../test-utils/changelogCommits.ts';
 
 const { mockEnumerateReleaseWindows, mockWriteFileSync } = await vi.hoisted(

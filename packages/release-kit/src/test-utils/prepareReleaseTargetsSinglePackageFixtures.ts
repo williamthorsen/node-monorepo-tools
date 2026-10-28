@@ -1,11 +1,11 @@
 import type { ChangelogDiagnostics } from '../buildChangelogItem.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
-import type { ReleasePlan } from '../releasePlan.ts';
 import {
   prepareReleaseTargets,
   type TargetPrepareConfig,
   type TargetPrepareOptions,
 } from '../prepareReleaseTargets.ts';
+import type { ReleasePlan } from '../releasePlan.ts';
 import type { PackageTarget, ReleaseSettings, WorkTypeConfig } from '../types.ts';
 
 export const diagnostics: ChangelogDiagnostics = {

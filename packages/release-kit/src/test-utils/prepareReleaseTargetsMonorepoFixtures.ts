@@ -1,6 +1,6 @@
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
-import type { ReleasePlan } from '../releasePlan.ts';
 import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
+import type { ReleasePlan } from '../releasePlan.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import type { ChangelogEntry, MonorepoReleaseConfig, WorkspaceConfig, WorkTypeConfig } from '../types.ts';
 import { stubFiles } from './prepareReleaseTargetsMonorepoMocks.ts';

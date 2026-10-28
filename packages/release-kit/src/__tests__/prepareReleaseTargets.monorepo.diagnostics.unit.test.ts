@@ -76,8 +76,8 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
 }));
 
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
-import { selectPackageResults } from '../test-utils/prepareResults.ts';
 import { makeConfig, prepareMonorepo } from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
+import { selectPackageResults } from '../test-utils/prepareResults.ts';
 import type { MalformedChangeRecordBlock, PolicyViolation, UndeclaredEntryType, WorkspaceConfig } from '../types.ts';
 
 describe('prepareReleaseTargets for a monorepo', () => {
