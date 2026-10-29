@@ -190,7 +190,7 @@ describe(runTaze, () => {
       expect(received).toBe(shouldWrite);
     });
 
-    it.each(['--help', '-h', '--version', '-v'])('skips the check when taze is asked for %s', async (flag) => {
+    it.each(['--no-node-version', '--help', '-h', '--version', '-v'])('skips the check under %s', async (flag) => {
       let checkCount = 0;
 
       await runTaze([flag], {

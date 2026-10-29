@@ -94,6 +94,7 @@ nodejs 24.22.1 → 24.22.3 is available. Run with --write to update .tool-versio
 - A release is proposed once it is at least 24 hours old. The index dates a release by UTC day alone, so a release dated D is proposed from the start of D+2, UTC.
 - Only a plain `X.Y.Z` pin is checked, and only the first version on the `nodejs` line. Any other pin, such as `lts`, is skipped with a note.
 - A repo without `.tool-versions`, or without a `nodejs` entry in it, is skipped silently.
+- `--no-node-version`, which turns off taze's own checks of `.node-version` and `.nvmrc`, turns off this check too.
 - An unreachable index, or a file that cannot be read or written, produces a warning and does not fail the upgrade.
 - `--silent` suppresses the report but not the warnings. The report goes to stderr, so `--json` output is unaffected.
 

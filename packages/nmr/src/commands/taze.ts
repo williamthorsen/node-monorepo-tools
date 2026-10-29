@@ -34,8 +34,11 @@ const REQUEST_TIMEOUT_FLAGS = [REQUEST_TIMEOUT_FLAG, '--requestTimeout'];
  */
 const REQUEST_TIMEOUT_MS = 30_000;
 
-/** Flags with which taze prints its help or version and upgrades nothing, so the Node pin check is skipped. */
-const INFORMATIONAL_FLAGS = ['--help', '-h', '--version', '-v'];
+/**
+ * Flags that skip the Node pin check: taze's opt-out from its own Node version-file checks, and the flags with which
+ * taze prints its help or version and upgrades nothing.
+ */
+const NODE_PIN_SKIP_FLAGS = ['--no-node-version', '--help', '-h', '--version', '-v'];
 
 export interface SpawnOutcome {
   status: number | null;
@@ -106,7 +109,7 @@ export async function runTaze(args: string[], options: RunTazeOptions = {}): Pro
     return 1;
   }
 
-  if (readFlag(args, INFORMATIONAL_FLAGS) === undefined) {
+  if (readFlag(args, NODE_PIN_SKIP_FLAGS) === undefined) {
     try {
       await (options.checkNodePin ?? checkNodePinDefault)(resolveConfigDir(args), {
         isSilent: isSilent(args),
