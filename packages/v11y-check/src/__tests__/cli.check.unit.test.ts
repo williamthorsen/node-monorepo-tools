@@ -95,6 +95,19 @@ describe(checkCommand, () => {
     expect(capture.stdout).toContain('No known vulnerabilities found.');
   });
 
+  it('returns 1 and reports the failure when audit-ci fails to produce a report', async () => {
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
+    mocks.runReport.mockImplementation(() => {
+      throw new Error('audit-ci exited with status 1 without producing a report:\nError: spawn EPERM');
+    });
+
+    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
+
+    expect(exitCode).toBe(1);
+    expect(capture.stderr).toContain('spawn EPERM');
+    expect(capture.stdout).not.toContain('No known vulnerabilities found.');
+  });
+
   it('returns 1 when unallowed vulnerabilities exist', async () => {
     mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runReport.mockReturnValue({

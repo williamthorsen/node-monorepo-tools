@@ -352,6 +352,34 @@ describe(runReport, () => {
     expect(() => runReport({ configPath: '/cfg.json' })).toThrow('Failed to launch audit-ci');
   });
 
+  it('throws with the exit status and stderr when audit-ci exits non-zero without a report', () => {
+    mockSpawnSync.mockReturnValue(buildSpawnResult({ status: 1, stderr: 'Error: spawn EPERM\n' }));
+
+    expect(() => runReport({ configPath: '/cfg.json' })).toThrow(
+      'audit-ci exited with status 1 without producing a report:\nError: spawn EPERM',
+    );
+  });
+
+  it('throws without a stderr suffix when audit-ci writes no stderr', () => {
+    mockSpawnSync.mockReturnValue(buildSpawnResult({ status: 1 }));
+
+    expect(() => runReport({ configPath: '/cfg.json' })).toThrow(
+      /^audit-ci exited with status 1 without producing a report$/,
+    );
+  });
+
+  it('throws when audit-ci exits 0 with output that is not a JSON report', () => {
+    mockSpawnSync.mockReturnValue(buildSpawnResult({ stdout: 'Passed pnpm security audit.\n' }));
+
+    expect(() => runReport({ configPath: '/cfg.json' })).toThrow('exited with status 0 without producing a report');
+  });
+
+  it('names the signal when audit-ci is terminated', () => {
+    mockSpawnSync.mockReturnValue(buildSpawnResult({ status: null, signal: 'SIGKILL' }));
+
+    expect(() => runReport({ configPath: '/cfg.json' })).toThrow('was terminated by SIGKILL');
+  });
+
   it('appends --report-type full when reportType is "full"', () => {
     mockSpawnSync.mockReturnValue(buildSpawnResult({ stdout: '{}' }));
 

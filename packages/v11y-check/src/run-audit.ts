@@ -240,7 +240,12 @@ export interface ReportResult {
   warnings: string[];
 }
 
-/** Invokes audit-ci with JSON output, ignoring its exit code, and parses the advisories into `AuditResult` objects. */
+/**
+ * Invokes audit-ci with JSON output and parses the advisories into `AuditResult` objects.
+ *
+ * Decides on the output rather than the exit code, because audit-ci exits non-zero both when it finds vulnerabilities
+ * and when it cannot audit. Throws when stdout does not contain a JSON report.
+ */
 export function runReport({ configPath, cwd, reportType }: Omit<RunAuditOptions, 'isJson'>): ReportResult {
   const bin = resolveAuditCiBin();
   const args = ['--config', configPath, '--output-format', 'json'];
@@ -260,7 +265,30 @@ export function runReport({ configPath, cwd, reportType }: Omit<RunAuditOptions,
 
   const stdout = result.stdout;
   const stderr = result.stderr;
+  if (!containsJsonReport(stdout)) {
+    throw new Error(describeMissingReport(result.status, result.signal, stderr));
+  }
   const parseResult = parseAuditCiOutput(stdout);
 
   return { results: parseResult.results, stdout, stderr, warnings: parseResult.warnings };
 }
+
+// region | Helpers
+/** Checks whether audit-ci's stdout parses as a JSON object or array, the shapes in which it prints a report. */
+function containsJsonReport(stdout: string): boolean {
+  try {
+    return isObject(JSON.parse(stdout));
+  } catch {
+    return false;
+  }
+}
+
+/** Describes an audit-ci run that ended without a report, appending audit-ci's stderr when it wrote any. */
+function describeMissingReport(status: number | null, signal: NodeJS.Signals | null, stderr: string): string {
+  const ending =
+    status === null ? `was terminated by ${signal ?? 'an unknown signal'}` : `exited with status ${status}`;
+  const message = `audit-ci ${ending} without producing a report`;
+  const trimmedStderr = stderr.trim();
+  return trimmedStderr.length > 0 ? `${message}:\n${trimmedStderr}` : message;
+}
+// endregion | Helpers

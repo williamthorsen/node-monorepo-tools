@@ -213,4 +213,19 @@ describe(syncCommand, () => {
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('Failed to create config file');
   });
+
+  it('returns 1 without syncing any scope when a later scope fails to produce a report', async () => {
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
+    mocks.runReport
+      .mockReturnValueOnce({ results: [], stdout: '{}', stderr: '', warnings: [] })
+      .mockImplementationOnce(() => {
+        throw new Error('audit-ci exited with status 1 without producing a report');
+      });
+
+    const exitCode = await syncCommand(makeOptions({ scopes: ['prod', 'dev'] }));
+
+    expect(exitCode).toBe(1);
+    expect(capture.stderr).toContain('without producing a report');
+    expect(mocks.syncAllowlist).not.toHaveBeenCalled();
+  });
 });
