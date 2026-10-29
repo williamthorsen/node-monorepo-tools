@@ -4,10 +4,11 @@ import process from 'node:process';
 import type { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
-import { reportError } from '@williamthorsen/nmr-core';
+import { type OutputStyle, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { loadPackageMaturityPeriod } from './load-package-maturity-period.ts';
+import { checkNodePin as checkNodePinDefault, type CheckNodePinOptions } from './node-pin.ts';
 import { isSilent, readFlag } from './taze-args.ts';
 import { planTazePasses, type TazePass } from './taze-passes.ts';
 
@@ -33,12 +34,20 @@ const REQUEST_TIMEOUT_FLAGS = [REQUEST_TIMEOUT_FLAG, '--requestTimeout'];
  */
 const REQUEST_TIMEOUT_MS = 30_000;
 
+/**
+ * Flags that skip the Node pin check: taze's opt-out from its own Node version-file checks, and the flags with which
+ * taze prints its help or version and upgrades nothing.
+ */
+const NODE_PIN_SKIP_FLAGS = ['--no-node-version', '--help', '-h', '--version', '-v'];
+
 export interface SpawnOutcome {
   status: number | null;
   error?: Error | undefined;
 }
 
 export interface RunTazeOptions {
+  /** Checks the `.tool-versions` Node pin in a directory. Injected by tests. */
+  checkNodePin?: (dir: string, options: CheckNodePinOptions) => Promise<void>;
   /** Returns the `packageMaturityPeriod` that the taze config governing a directory declares. Injected by tests. */
   loadConfig?: (cwd: string) => Promise<unknown>;
   /** Resolves the absolute path of taze's CLI entry. Injected by tests. */
@@ -47,6 +56,8 @@ export interface RunTazeOptions {
   spawn?: (nodePath: string, argv: string[]) => SpawnOutcome;
   /** Stream that error output and pass headings are written to. Defaults to `process.stderr`. */
   stderr?: Writable;
+  /** Style of `stderr`, in which the Node pin check reports. Defaults to `'plain'`. */
+  stderrStyle?: OutputStyle;
 }
 
 /**
@@ -59,6 +70,10 @@ export interface RunTazeOptions {
  * Consumers depend on nmr, not on taze, so taze is transitive and its bin is absent from the consumer's
  * root `node_modules/.bin`. This launcher runs taze without that bin: pnpm links nmr's own bins into the
  * consumer root, and nmr resolves taze from the tree that it does control.
+ *
+ * Before the passes, checks the `nodejs` pin in the `.tool-versions` of the directory from which taze resolves its
+ * config, reporting a newer release in the pin's major line and rewriting the pin under `--write`. The check only
+ * warns on failure, so it does not affect the exit code.
  *
  * Every pass also receives a request timeout, unless `args` sets one. Neither other site can declare it: Because
  * an invocation's trailing arguments are appended to the resolved command string, the same flag in the `upgrade`
@@ -92,6 +107,19 @@ export async function runTaze(args: string[], options: RunTazeOptions = {}): Pro
   } catch (error: unknown) {
     reportError(`Could not read the taze config: ${describeError(error)}`, stderr);
     return 1;
+  }
+
+  if (readFlag(args, NODE_PIN_SKIP_FLAGS) === undefined) {
+    try {
+      await (options.checkNodePin ?? checkNodePinDefault)(resolveConfigDir(args), {
+        isSilent: isSilent(args),
+        shouldWrite: readFlag(args, ['--write', '-w']) !== undefined,
+        stderr,
+        style: options.stderrStyle ?? 'plain',
+      });
+    } catch (error: unknown) {
+      reportError(`Could not check the nodejs pin: ${describeError(error)}`, stderr);
+    }
   }
 
   const showHeadings = !isSilent(args);

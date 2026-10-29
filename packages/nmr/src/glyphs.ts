@@ -14,6 +14,7 @@ export const NMR_GLYPHS = defineGlyphSet({
   noop: { plain: 'NOOP', rich: '\u{26AA}' },
   overrides: { plain: '', rich: '\u{1F512}' },
   package: { plain: '', rich: '\u{1F4E6}' },
+  pin: { plain: '', rich: '\u{1F4CC}' },
   recording: { plain: '', rich: '\u{1F4BE}' },
 });
 
