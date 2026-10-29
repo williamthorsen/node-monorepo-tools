@@ -228,6 +228,8 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
 
   try {
     return await withTempDir(async (tempDir) => {
+      // Audit every scope before syncing any, because each sync writes the config file and a later audit may fail.
+      const scopeAudits: Array<{ auditResults: AuditResult[]; scope: AuditScope }> = [];
       for (const scope of scopes) {
         // Generate a config without the allowlist so that sync sees all vulnerabilities.
         const strippedScopeConfig = { ...config[scope], allowlist: [] };
@@ -237,7 +239,11 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
         for (const warning of report.warnings) {
           process.stderr.write(`warning: ${warning}\n`);
         }
-        const { syncResult, updatedConfig } = await syncAllowlist(config, scope, report.results, configFilePath);
+        scopeAudits.push({ auditResults: report.results, scope });
+      }
+
+      for (const { auditResults, scope } of scopeAudits) {
+        const { syncResult, updatedConfig } = await syncAllowlist(config, scope, auditResults, configFilePath);
         config = updatedConfig;
 
         if (options.isJson) {
