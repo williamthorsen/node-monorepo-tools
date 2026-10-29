@@ -4,6 +4,7 @@ import { PassThrough } from 'node:stream';
 
 import { describe, expect, it } from 'vitest';
 
+import type { CheckNodePinOptions } from '../node-pin.ts';
 import { resolveTazeCliPath, runTaze, type SpawnOutcome } from '../taze.ts';
 
 const FAKE_CLI_PATH = '/fake/taze/cli.mjs';
@@ -59,6 +60,7 @@ describe(runTaze, () => {
 
     await runTaze([], {
       loadConfig: noConfig,
+      checkNodePin: skipNodePin,
       resolveCliPath: () => '/fake/taze/cli.mjs',
       spawn: (nodePath) => {
         spawnedWith = nodePath;
@@ -72,6 +74,7 @@ describe(runTaze, () => {
   it("propagates taze's exit code", async () => {
     const exitCode = await runTaze([], {
       loadConfig: noConfig,
+      checkNodePin: skipNodePin,
       resolveCliPath: () => '/fake/taze/cli.mjs',
       spawn: () => ({ status: 3 }),
     });
@@ -83,6 +86,7 @@ describe(runTaze, () => {
     const { stderr, read } = captureStream();
 
     const exitCode = await runTaze([], {
+      checkNodePin: skipNodePin,
       resolveCliPath: () => {
         throw new Error("Cannot find package 'taze'");
       },
@@ -99,6 +103,7 @@ describe(runTaze, () => {
     let spawned = false;
 
     await runTaze([], {
+      checkNodePin: skipNodePin,
       resolveCliPath: () => {
         throw new Error("Cannot find package 'taze'");
       },
@@ -119,6 +124,7 @@ describe(runTaze, () => {
 
     const exitCode = await runTaze([], {
       loadConfig: noConfig,
+      checkNodePin: skipNodePin,
       resolveCliPath: () => '/fake/taze/cli.mjs',
       spawn: (): SpawnOutcome => ({ status: null, error: new Error('spawn ENOENT') }),
       stderr,
@@ -131,11 +137,89 @@ describe(runTaze, () => {
   it('falls back to a failing exit code when taze does not report a status', async () => {
     const exitCode = await runTaze([], {
       loadConfig: noConfig,
+      checkNodePin: skipNodePin,
       resolveCliPath: () => '/fake/taze/cli.mjs',
       spawn: () => ({ status: null }),
     });
 
     expect(exitCode).toBe(1);
+  });
+
+  describe('Node pin check', () => {
+    it('runs once per invocation, before the passes, with the config directory and the write flag', async () => {
+      const events: string[] = [];
+      const calls: Array<{ dir: string; options: CheckNodePinOptions }> = [];
+
+      await runTaze(['--cwd', 'some/dir', '--write'], {
+        checkNodePin: (dir, options) => {
+          events.push('check');
+          calls.push({ dir, options });
+          return Promise.resolve();
+        },
+        loadConfig: () => Promise.resolve({ '@acme/*': 1 }),
+        resolveCliPath: () => FAKE_CLI_PATH,
+        spawn: () => {
+          events.push('pass');
+          return { status: 0 };
+        },
+        stderr: captureStream().stderr,
+      });
+
+      expect(events).toStrictEqual(['check', 'pass', 'pass']);
+      expect(calls[0]?.dir).toBe(path.resolve('some/dir'));
+      expect(calls[0]?.options).toMatchObject({ isSilent: false, shouldWrite: true });
+    });
+
+    it.each([
+      [[], false],
+      [['-w'], true],
+      [['--', '--write'], false],
+    ])('reads the write flag from %j as %s', async (args: string[], shouldWrite: boolean) => {
+      let received: boolean | undefined;
+
+      await runTaze(args, {
+        checkNodePin: (_dir, options) => {
+          received = options.shouldWrite;
+          return Promise.resolve();
+        },
+        loadConfig: noConfig,
+        resolveCliPath: () => FAKE_CLI_PATH,
+        spawn: () => ({ status: 0 }),
+      });
+
+      expect(received).toBe(shouldWrite);
+    });
+
+    it.each(['--help', '-h', '--version', '-v'])('skips the check when taze is asked for %s', async (flag) => {
+      let checkCount = 0;
+
+      await runTaze([flag], {
+        checkNodePin: () => {
+          checkCount++;
+          return Promise.resolve();
+        },
+        loadConfig: noConfig,
+        resolveCliPath: () => FAKE_CLI_PATH,
+        spawn: () => ({ status: 0 }),
+      });
+
+      expect(checkCount).toBe(0);
+    });
+
+    it("reports a check that throws and keeps taze's exit code", async () => {
+      const { stderr, read } = captureStream();
+
+      const exitCode = await runTaze([], {
+        checkNodePin: () => Promise.reject(new Error('unexpected')),
+        loadConfig: noConfig,
+        resolveCliPath: () => FAKE_CLI_PATH,
+        spawn: () => ({ status: 0 }),
+        stderr,
+      });
+
+      expect(exitCode).toBe(0);
+      expect(read()).toContain('Could not check the nodejs pin: unexpected');
+    });
   });
 
   describe('with per-package maturity periods', () => {
@@ -185,6 +269,7 @@ describe(runTaze, () => {
 
       const exitCode = await runTaze([], {
         loadConfig: () => Promise.resolve({ a: 1 }),
+        checkNodePin: skipNodePin,
         resolveCliPath: () => FAKE_CLI_PATH,
         spawn: (): SpawnOutcome => {
           spawnCount += 1;
@@ -204,6 +289,7 @@ describe(runTaze, () => {
 
       const exitCode = await runTaze([], {
         loadConfig: () => Promise.resolve({ '/^@acme/': 1 }),
+        checkNodePin: skipNodePin,
         resolveCliPath: () => FAKE_CLI_PATH,
         spawn: () => {
           spawned = true;
@@ -223,6 +309,7 @@ describe(runTaze, () => {
 
       const exitCode = await runTaze([], {
         loadConfig: () => Promise.reject(new Error('broken config')),
+        checkNodePin: skipNodePin,
         resolveCliPath: () => FAKE_CLI_PATH,
         spawn: () => {
           spawned = true;
@@ -249,6 +336,7 @@ describe(runTaze, () => {
           loadedFrom = cwd;
           return Promise.resolve(undefined);
         },
+        checkNodePin: skipNodePin,
         resolveCliPath: () => FAKE_CLI_PATH,
         spawn: () => ({ status: 0 }),
       });
@@ -274,6 +362,7 @@ async function runCapturingArgv(args: string[]): Promise<string[]> {
 
   await runTaze(args, {
     loadConfig: noConfig,
+    checkNodePin: skipNodePin,
     resolveCliPath: () => FAKE_CLI_PATH,
     spawn: (_nodePath, argv) => {
       capturedArgs = argv;
@@ -311,6 +400,7 @@ async function runSplit(
 
   const exitCode = await runTaze(args, {
     loadConfig: () => Promise.resolve(packageMaturityPeriod),
+    checkNodePin: skipNodePin,
     resolveCliPath: () => FAKE_CLI_PATH,
     spawn: (_nodePath, argv) => {
       spawned.push(argv);
@@ -320,4 +410,9 @@ async function runSplit(
   });
 
   return { spawned, exitCode, read };
+}
+
+/** Stands in for the Node pin check, so that a test does not read `.tool-versions` or reach the network. */
+function skipNodePin(): Promise<void> {
+  return Promise.resolve();
 }
