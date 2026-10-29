@@ -1,6 +1,6 @@
 # Dependency upgrades
 
-What `nmr upgrade` covers from each scope, how to declare the upgrade policy and its ceilings, and the subcommands and binary that the upgrade chains run.
+What `nmr upgrade` covers from each scope, how to declare the upgrade policy and its ceilings, how it checks the Node version pin, and the subcommands and binary that the upgrade chains run.
 
 `nmr upgrade` reports the dependency upgrades available to the repo. What it covers depends on where it runs:
 
@@ -81,6 +81,22 @@ nmr upgrade --maturity-period 0
 
 Every other argument reaches every run, and `--include` and `--exclude` narrow each run as they narrow a single one. Because each run reports separately, `--json` prints one document per run, `--interactive` opens one selection per run, and `--install` installs after each run.
 
+## Node version pin
+
+Before taze runs, `nmr upgrade` checks the `nodejs` entry of `.tool-versions` in the directory from which taze reads its config: the monorepo root for `upgrade` and `root:upgrade` run there, and a package's own directory for a package-scoped run, which checks nothing unless the package has its own `.tool-versions`. It compares the pin with [Node's release index](https://nodejs.org/dist/index.json) and reports the newest release in the pin's major line:
+
+```text
+nodejs 24.22.1 → 24.22.3 is available. Run with --write to update .tool-versions.
+```
+
+`--write` rewrites that version and leaves the rest of the file unchanged. A newer major line is never proposed, whatever range mode the invocation passes: Changing majors is left to an edit of `.tool-versions`.
+
+- A release is proposed once it is at least 24 hours old. The index dates a release by UTC day alone, so a release dated D is proposed from the start of D+2, UTC.
+- Only a plain `X.Y.Z` pin is checked, and only the first version on the `nodejs` line. Any other pin, such as `lts`, is skipped with a note.
+- A repo without `.tool-versions`, or without a `nodejs` entry in it, is skipped silently.
+- An unreachable index, or a file that cannot be read or written, produces a warning and does not fail the upgrade.
+- `--silent` suppresses the report but not the warnings. The report goes to stderr, so `--json` output is unaffected.
+
 ## Request timeout
 
 Every `upgrade` script calls the upgrade tool with a 30-second request timeout, in place of the tool's own 5 seconds.
@@ -131,7 +147,7 @@ nmr report-overrides
 
 ## `nmr-taze`
 
-Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool, forwarding every argument to it and adding a 30-second request timeout, unless the invocation already includes one. When the taze config declares [per-package maturity periods](#per-package-maturity-periods), it runs taze once per period, adding to each run the filters and the period that confine it. Every `upgrade` chain ends with it, `root:upgrade` included; see [dependency upgrades](#dependency-upgrades) for the workflow, and [request timeout](#request-timeout) for why the timeout is set here.
+Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool, forwarding every argument to it and adding a 30-second request timeout, unless the invocation already includes one. When the taze config declares [per-package maturity periods](#per-package-maturity-periods), it runs taze once per period, adding to each run the filters and the period that confine it. Before the first run, it checks the [Node version pin](#node-version-pin). Every `upgrade` chain ends with it, `root:upgrade` included; see [dependency upgrades](#dependency-upgrades) for the workflow, and [request timeout](#request-timeout) for why the timeout is set here.
 
 Under pnpm's isolated `node_modules`, a transitive package's binary is absent from the consuming repo's `node_modules/.bin`, so a repo that depends on nmr cannot run `taze` directly. `nmr-taze` can, because nmr is a direct dependency, and it resolves the tool from the tree that nmr controls.
 

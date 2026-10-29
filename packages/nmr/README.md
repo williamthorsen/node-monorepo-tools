@@ -234,7 +234,7 @@ export default definePrettierConfig();
 
 ### Dependency upgrades
 
-`nmr upgrade` reports available dependency upgrades. A `taze.config.ts` at the monorepo root, built with the `defineConfig` exported by `@williamthorsen/nmr/taze`, declares the upgrade policy. [Dependency upgrades](docs/upgrades.md) covers what each invocation reaches, the policy and its ceilings, per-package maturity periods, and the request timeout.
+`nmr upgrade` reports available dependency upgrades, and newer releases in the major line of the `.tool-versions` Node pin. A `taze.config.ts` at the monorepo root, built with the `defineConfig` exported by `@williamthorsen/nmr/taze`, declares the upgrade policy. [Dependency upgrades](docs/upgrades.md) covers what each invocation reaches, the policy and its ceilings, per-package maturity periods, the Node version pin, and the request timeout.
 
 ### Workspace introspection
 
@@ -309,7 +309,7 @@ rdy list --from npm:@williamthorsen/nmr  # what nmr publishes
 - [Check-result cache](docs/check-cache.md): What is skipped, what a hit requires, and replaying, reading, and bypassing recorded runs
 - [Machine lock](docs/machine-lock.md): Which commands wait for one another, where the lock lives, and bypassing it
 - [Delegating to another machine](docs/delegate.md): The user config, `--delegate`, `--delegate-to`, `NMR_DELEGATE`, where a command runs, choosing among several hosts, what the host runs, and setting it up
-- [Dependency upgrades](docs/upgrades.md): `nmr upgrade`, the upgrade policy, `report-catalog`, `report-overrides`, and `nmr-taze`
+- [Dependency upgrades](docs/upgrades.md): `nmr upgrade`, the upgrade policy, the Node version pin, `report-catalog`, `report-overrides`, and `nmr-taze`
 - [Standalone utilities](docs/utilities.md): `nmr-actionlint`, `nmr-clean`, `nmr-compile`, `nmr-fmt`, `nmr-vitest`, and `ensure-prepublish-hooks`
 - [Shared Vitest config](docs/vitest.md): Test tiers, test selections, the conventions check, and customization
 - [Shared Prettier config](docs/prettier.md): What it formats and how to customize it
