@@ -46,7 +46,7 @@
   },
   "devDependencies": {
     "@williamthorsen/toolbelt.testing": "catalog:",
-    "eslint": "10.13.0",
+    "eslint": "10.14.0",
     "vite": "8.3.5",
     "vitest": "catalog:"
   },

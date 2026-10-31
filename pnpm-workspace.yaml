@@ -8,7 +8,7 @@ catalog:
   '@williamthorsen/toolbelt.packaging': 0.7.0
   '@williamthorsen/toolbelt.terminal': 0.3.0
   '@williamthorsen/toolbelt.testing': 0.8.0
-  '@williamthorsen/toolbelt.vitest': 0.13.0
+  '@williamthorsen/toolbelt.vitest': 0.13.1
   esbuild: 0.28.2
   prettier: 3.9.10
   readyup: 0.44.0

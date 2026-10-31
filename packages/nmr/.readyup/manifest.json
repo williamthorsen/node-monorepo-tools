@@ -10,7 +10,7 @@
         "@williamthorsen/toolbelt.objects": "4.4.0",
         "@williamthorsen/toolbelt.packaging": "0.7.0",
         "@williamthorsen/toolbelt.terminal": "0.3.0",
-        "ansi-regex": "6.4.0",
+        "ansi-regex": "6.5.0",
         "ansi-styles": "6.2.3",
         "cli-truncate": "6.1.1",
         "diff": "9.0.0",
