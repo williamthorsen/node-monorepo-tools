@@ -69,7 +69,8 @@ main() {
 
   confirm_publish
 
-  (cd "$tmp" && npm publish --access public)
+  # Publish from the caller's directory so that npm resolves the same Node as the preflight checks
+  npm publish "$tmp" --access public
   echo "$PROG: published $name@0.0.0" >&2
 }
 
