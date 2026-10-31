@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.54.0 — 2026-10-31
+
+### 🎉 Features
+
+- Adds a check of the `nodejs` pin in `.tool-versions` to `nmr upgrade`, which reports the newest release at least 24 hours old in the pin's major line and, under `--write`, rewrites the pin to it. (#1141)
+
 ## 0.53.1 — 2026-10-28
 
 ### ♻️ Refactoring

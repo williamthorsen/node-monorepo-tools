@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.19.9",
+    "date": "2026-10-31",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that `v11y check` and `v11y sync` treated an audit-ci run that ended without a JSON report as a clean audit, which made `check` pass and `sync` remove every allowlist entry as stale; both commands now exit 1 with an error that names audit-ci's exit status or signal and includes its stderr. (#1142)",
+            "hash": "577432f0b1a3388bf5c7b36b7645af148c89eefc",
+            "entry": 1
+          },
+          {
+            "description": "Fixes the issue that `v11y sync` left the earlier scopes' allowlist changes in the config file when the audit of a later scope failed. (#1142)",
+            "hash": "577432f0b1a3388bf5c7b36b7645af148c89eefc",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.19.8",
     "date": "2026-10-28",
     "sections": [

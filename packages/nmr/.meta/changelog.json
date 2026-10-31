@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.54.0",
+    "date": "2026-10-31",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Adds a check of the `nodejs` pin in `.tool-versions` to `nmr upgrade`, which reports the newest release at least 24 hours old in the pin's major line and, under `--write`, rewrites the pin to it. (#1141)",
+            "hash": "d6459b4f867e39162a3e41dd8639993b12ba579f",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.53.1",
     "date": "2026-10-28",
     "sections": [
