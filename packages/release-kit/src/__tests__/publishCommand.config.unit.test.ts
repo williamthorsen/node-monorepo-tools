@@ -20,9 +20,11 @@ const {
   resetPublishCommandMocks,
 } = await vi.hoisted(() => import('../test-utils/publishCommandMocks.ts'));
 
+const mockAssertTarballsComplete = vi.hoisted(() => vi.fn());
+
 // Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.
 vi.mock(import('../assertTarballsComplete.ts'), () => ({
-  assertTarballsComplete: vi.fn(),
+  assertTarballsComplete: mockAssertTarballsComplete,
 }));
 
 vi.mock(import('node:fs'), () => ({
@@ -97,10 +99,21 @@ describe(publishCommand, () => {
   afterEach(() => {
     stdioCapture[Symbol.dispose]();
     resetPublishCommandMocks();
+    mockAssertTarballsComplete.mockReset();
     vi.restoreAllMocks();
   });
 
   describe('config loading', () => {
+    it('passes the configured development conditions to the tarball check', async () => {
+      const config = { devExportConditions: ['nmr-source'] };
+      mockLoadConfig.mockResolvedValue(config);
+      mockValidateConfig.mockReturnValue({ config, errors: [], warnings: [] });
+
+      await publishCommand([], RICH_STYLES, process.cwd());
+
+      expect(mockAssertTarballsComplete).toHaveBeenCalledWith(expect.any(Array), ['nmr-source']);
+    });
+
     it('forwards --config to the loader resolved against the invocation directory', async () => {
       await publishCommand(['--config', 'elsewhere/alternative.config.ts'], RICH_STYLES, '/invoked/from');
 

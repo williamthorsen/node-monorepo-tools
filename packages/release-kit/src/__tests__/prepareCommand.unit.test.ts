@@ -1,5 +1,5 @@
 import type { StreamStyles } from '@williamthorsen/nmr-core';
-import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -18,9 +18,11 @@ const {
   resetPrepareCommandMocks,
 } = await vi.hoisted(() => import('../test-utils/prepareCommandMocks.ts'));
 
+const mockAssertTarballsComplete = vi.hoisted(() => vi.fn());
+
 // Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.
 vi.mock(import('../assertTarballsComplete.ts'), () => ({
-  assertTarballsComplete: vi.fn(),
+  assertTarballsComplete: mockAssertTarballsComplete,
 }));
 
 vi.mock(import('node:child_process'), () => ({
@@ -87,6 +89,7 @@ describe(prepareCommand, () => {
   afterEach(() => {
     stdioCapture[Symbol.dispose]();
     resetPrepareCommandMocks();
+    mockAssertTarballsComplete.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -564,6 +567,44 @@ describe(prepareCommand, () => {
       await prepareCommand([], RICH_STYLES, process.cwd());
 
       expect(mockLookUpNpmPackage).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('tarball check', () => {
+    it('checks the released workspaces with the configured development conditions', async () => {
+      mockLoadConfig.mockResolvedValue({ devExportConditions: ['nmr-source'] });
+      mockPrepareReleaseTargets.mockReturnValue(
+        makePrepareResult({
+          targets: [makeReleasedResult('arrays'), makeSkippedResult('strings')],
+          tags: ['arrays-v1.0.0'],
+        }),
+      );
+
+      await prepareCommand([], RICH_STYLES, process.cwd());
+
+      expect(mockAssertTarballsComplete).toHaveBeenCalledWith(['packages/arrays'], ['nmr-source']);
+    });
+
+    it('refuses without writing any file when a tarball lacks a manifest file', async () => {
+      mockAssertTarballsComplete.mockImplementation(() => {
+        throw new Error('Cannot release: The tarball of every package must contain each file that its manifest names.');
+      });
+      mockPrepareReleaseTargets.mockReturnValue(
+        makePrepareResult({
+          targets: [makeReleasedResult('arrays')],
+          tags: ['arrays-v1.0.0'],
+          writes: [{ path: 'packages/arrays/package.json', content: '{}\n' }],
+        }),
+      );
+
+      const error = await captureError(ProcessExitError, () => prepareCommand([], RICH_STYLES, process.cwd()));
+
+      expect(error.code).toBe(1);
+      expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
+      expect(stdioCapture.stderr).toContain('must contain each file that its manifest names');
+      expect(stdioCapture.stderrChunks).toContain(
+        'The command did not write any files; the working tree is unchanged.\n',
+      );
     });
   });
 });
