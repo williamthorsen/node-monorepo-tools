@@ -20,6 +20,11 @@ const {
   resetPublishCommandMocks,
 } = await vi.hoisted(() => import('../test-utils/publishCommandMocks.ts'));
 
+// Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.
+vi.mock(import('../assertTarballsComplete.ts'), () => ({
+  assertTarballsComplete: vi.fn(),
+}));
+
 vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));

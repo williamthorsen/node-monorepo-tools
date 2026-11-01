@@ -8,6 +8,7 @@ import { parseArgsOrExit, reportError, type StreamStyles } from '@williamthorsen
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
+import { assertTarballsComplete } from './assertTarballsComplete.ts';
 import { configFlagSchema } from './configFlagSchema.ts';
 import { deriveReleaseNotesConfig } from './deriveReleaseNotesConfig.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
@@ -31,9 +32,9 @@ const publishFlagSchema = {
 };
 
 /**
- * Orchestrates the CLI `publish` command: checks for a clean working tree, resolves the tags on HEAD, and publishes
- * each publishable one, injecting release notes into its README for the duration of the publish.
- * A relative `--config` resolves against `invocationDir`.
+ * Orchestrates the CLI `publish` command: checks for a clean working tree, resolves the tags on HEAD, checks the
+ * tarballs of the publishable ones from a clean checkout, and publishes each one, injecting release notes into its
+ * README for the duration of the publish. A relative `--config` resolves against `invocationDir`.
  */
 export async function publishCommand(argv: string[], styles: StreamStyles, invocationDir: string): Promise<void> {
   const parsedArgs = parseArgsOrExit(argv, publishFlagSchema);
@@ -66,6 +67,16 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
   if (publishableTags.length === 0) {
     console.info('Nothing to publish.');
     return;
+  }
+
+  try {
+    assertTarballsComplete(
+      publishableTags.map(({ workspacePath }) => workspacePath),
+      [],
+    );
+  } catch (error: unknown) {
+    reportError(describeError(error));
+    process.exit(1);
   }
 
   const packageManager = detectPackageManager();
