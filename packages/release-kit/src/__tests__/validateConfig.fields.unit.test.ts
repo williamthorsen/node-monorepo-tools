@@ -75,6 +75,17 @@ describe(validateConfig, () => {
   });
 
   describe('scalar fields', () => {
+    it('validates devExportConditions as an array of condition names', () => {
+      const { config, errors } = validateConfig({ devExportConditions: ['nmr-source'] });
+      expect(errors).toStrictEqual([]);
+      expect(config.devExportConditions).toStrictEqual(['nmr-source']);
+    });
+
+    it('returns an error when a devExportConditions entry is not a string', () => {
+      const { errors } = validateConfig({ devExportConditions: [42] });
+      expectErrorAtPath(errors, 'devExportConditions[0]');
+    });
+
     it('validates formatCommand as a string', () => {
       const { config, errors } = validateConfig({ formatCommand: 'pnpm run fmt' });
       expect(errors).toStrictEqual([]);

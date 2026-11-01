@@ -103,7 +103,7 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
       const plan = prepareReleaseTargets(config, targetOptions);
       const releasedPackagePaths = findReleasedPackagePaths(plan, config.targets);
       assertReleasesOnNpm(releasedPackagePaths);
-      assertTarballsComplete(releasedPackagePaths, []);
+      assertTarballsComplete(releasedPackagePaths, userConfig?.devExportConditions ?? []);
       return plan;
     },
     isDryRun,

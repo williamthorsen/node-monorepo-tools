@@ -72,7 +72,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
   try {
     assertTarballsComplete(
       publishableTags.map(({ workspacePath }) => workspacePath),
-      [],
+      userConfig?.devExportConditions ?? [],
     );
   } catch (error: unknown) {
     reportError(describeError(error));

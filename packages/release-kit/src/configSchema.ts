@@ -192,6 +192,7 @@ export const releaseKitConfigSchema = z
     breakingPolicies: z.record(z.string(), breakingPolicyValueSchema).optional(),
     changelogJson: changelogJsonInputSchema.optional(),
     changelogMarkdown: changelogMarkdownInputSchema.optional(),
+    devExportConditions: z.array(z.string().min(1)).optional(),
     formatCommand: z.string().min(1).optional(),
     project: projectConfigSchema.optional(),
     releaseNotes: releaseNotesInputSchema.optional(),
