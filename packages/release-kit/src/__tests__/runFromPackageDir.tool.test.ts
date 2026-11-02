@@ -8,6 +8,11 @@ import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitR
 import { PNPM_WORKSPACE } from '../test-utils/scaffoldRepo.ts';
 
 // The fixture packages exist only in the temp repo, so the npm check would refuse them; this suite stays off the network.
+// Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.
+vi.mock(import('../assertTarballsComplete.ts'), () => ({
+  assertTarballsComplete: vi.fn(),
+}));
+
 vi.mock(import('../npmRegistry.ts'), () => ({
   lookUpNpmPackage: () => ({ status: 'published' }),
 }));

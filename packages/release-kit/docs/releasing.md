@@ -63,6 +63,12 @@ release-kit prepare --bump=minor
 
 Before it writes any file, and in a dry run as well, `prepare` asks npm about each publishable package that the release includes, querying the registry that the package's `publishConfig.registry` names when it sets one. OIDC trusted publishing can't publish a package's first version, so `prepare` refuses to release a package that npm doesn't list, and names each one with its fix: Run `npm publish --access public` from the package's directory once, then register the package as a trusted publisher. The `npm-auto-publish` [readiness kit](readiness-checks.md) prints the `npm trust` command. `prepare` also refuses when it can't look a package up, such as when the registry is unreachable, and reports npm's error for that package.
 
+### Packages whose tarball would lack a manifest file
+
+Before it writes any file, and in a dry run as well, `prepare` packs each publishable package that the release includes as the publish workflow would: It clones HEAD into a temporary directory, runs the package manager's frozen install there, runs the package's `prepublishOnly` script when it declares one, and packs the package. Build output in the working tree therefore does not count, and the check adds the time of one install and one build to every release. `prepare` refuses the release when a tarball lacks a file named by the package's `main`, `types`, `bin`, or `exports`, and names each package with each missing path and the manifest field that names it. The usual fix is to build the files in the package's publish lifecycle, such as in a `prepack` script. A failed install or build in the clean checkout also refuses the release, with the failing step's output.
+
+A target under the `source` export condition is exempt, and so is a target under a condition listed in [`devExportConditions`](configuration.md#releasekitconfig-reference), which declares the conditions that resolve only inside the repo. [`publish`](publishing.md#tarball-check) runs the same check before it publishes any package.
+
 ### Previewing release notes with `--with-release-notes`
 
 `--with-release-notes` writes two versioned files per workspace after each workspace's `changelog.json` is produced:

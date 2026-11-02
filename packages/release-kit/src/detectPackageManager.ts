@@ -32,6 +32,13 @@ export function detectPackageManager(): PackageManager {
   return detectFromLockfile();
 }
 
+/** Maps a `PackageManager` value to its CLI executable name. */
+export function resolveExecutable(packageManager: PackageManager): string {
+  return packageManager === 'yarn-berry' ? 'yarn' : packageManager;
+}
+
+// region | Helpers
+
 /** Reports whether the version string indicates Yarn v2+. */
 function isYarnBerry(version: string | undefined): boolean {
   if (version === undefined) {
@@ -57,3 +64,5 @@ function detectFromLockfile(): PackageManager {
 
   return 'npm';
 }
+
+// endregion | Helpers

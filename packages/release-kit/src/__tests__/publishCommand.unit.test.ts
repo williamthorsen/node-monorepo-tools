@@ -20,6 +20,12 @@ const {
   resetPublishCommandMocks,
 } = await vi.hoisted(() => import('../test-utils/publishCommandMocks.ts'));
 
+const mockAssertTarballsComplete = vi.hoisted(() => vi.fn());
+
+vi.mock(import('../assertTarballsComplete.ts'), () => ({
+  assertTarballsComplete: mockAssertTarballsComplete,
+}));
+
 vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
@@ -92,6 +98,7 @@ describe(publishCommand, () => {
   afterEach(() => {
     stdioCapture[Symbol.dispose]();
     resetPublishCommandMocks();
+    mockAssertTarballsComplete.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -217,6 +224,24 @@ describe(publishCommand, () => {
 
     expect(error.code).toBe(1);
     expect(stdioCapture.stderrChunks).toContain('Error: Unknown option: --only\n');
+  });
+
+  it('checks the tarballs of the publishable tags', async () => {
+    await publishCommand([], RICH_STYLES, process.cwd());
+
+    expect(mockAssertTarballsComplete).toHaveBeenCalledWith(['.'], []);
+  });
+
+  it('exits with code 1 without publishing when a tarball lacks a manifest file', async () => {
+    mockAssertTarballsComplete.mockImplementation(() => {
+      throw new Error('Cannot release: The tarball of every package must contain each file that its manifest names.');
+    });
+
+    const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
+
+    expect(error.code).toBe(1);
+    expect(stdioCapture.stderr).toContain('must contain each file that its manifest names');
+    expect(mockPublishPackage).not.toHaveBeenCalled();
   });
 
   it('exits with code 1 when publishPackage throws', async () => {

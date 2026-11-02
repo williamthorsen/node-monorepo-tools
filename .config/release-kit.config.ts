@@ -1,6 +1,7 @@
 import { defineConfig } from '@williamthorsen/release-kit/config';
 
 export default defineConfig({
+  devExportConditions: ['nmr-source'],
   formatCommand: 'npx prettier --write',
   releaseNotes: {
     shouldInjectIntoReadme: true,

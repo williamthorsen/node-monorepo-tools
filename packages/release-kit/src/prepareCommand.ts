@@ -8,6 +8,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { assertReleasesOnNpm } from './assertReleasesOnNpm.ts';
+import { assertTarballsComplete } from './assertTarballsComplete.ts';
 import type { ReleaseKitConfig } from './configSchema.ts';
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
@@ -100,7 +101,9 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
   runAndReport(
     () => {
       const plan = prepareReleaseTargets(config, targetOptions);
-      assertReleasesOnNpm(findReleasedPackagePaths(plan, config.targets));
+      const releasedPackagePaths = findReleasedPackagePaths(plan, config.targets);
+      assertReleasesOnNpm(releasedPackagePaths);
+      assertTarballsComplete(releasedPackagePaths, userConfig?.devExportConditions ?? []);
       return plan;
     },
     isDryRun,

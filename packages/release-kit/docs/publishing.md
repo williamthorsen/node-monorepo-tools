@@ -23,6 +23,10 @@ Example warning when an explicit tag is unpublishable:
 Skipping basic-v1.0.0 (packages/basic): package.json#private is true.
 ```
 
+### Tarball check
+
+Before it publishes any package, and in a dry run as well, `publish` packs every publishable package from a clean checkout of HEAD and refuses when a tarball lacks a file that its manifest names. It is the same check that `prepare` runs; see [Packages whose tarball would lack a manifest file](releasing.md#packages-whose-tarball-would-lack-a-manifest-file).
+
 ## `release-kit create-github-release`
 
 Creates GitHub Releases from `changelog.json` for tags on HEAD. Independent of `npm publish`: Invoking this command creates Releases for publishable packages whether or not they were published to a registry. Private workspaces are skipped, and a project tag gets a Release (see [Publishability filter](#publishability-filter)).

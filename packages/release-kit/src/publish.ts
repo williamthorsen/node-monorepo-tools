@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-import type { PackageManager } from './detectPackageManager.ts';
+import { type PackageManager, resolveExecutable } from './detectPackageManager.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
 
 export interface PublishOptions {
@@ -22,14 +22,6 @@ export function publishPackage(
     `\n${isDryRun ? '[dry-run] ' : ''}Running: ${executable} ${args.join(' ')} (cwd: ${resolvedTag.workspacePath})`,
   );
   execFileSync(executable, args, { cwd: resolvedTag.workspacePath, stdio: 'inherit' });
-}
-
-/** Maps the `PackageManager` value to the actual CLI executable name. */
-function resolveExecutable(packageManager: PackageManager): string {
-  if (packageManager === 'yarn-berry') {
-    return 'yarn';
-  }
-  return packageManager;
 }
 
 /**
