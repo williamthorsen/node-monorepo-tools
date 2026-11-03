@@ -180,10 +180,10 @@ describe(acquireMachineLock, () => {
       command: 'test',
       dir: '/repo',
       env: {},
-      heartbeatIntervalMs: 1_000,
+      heartbeatIntervalMs: 1000,
       lockDir,
       pollIntervalMs: 10,
-      staleAfterMs: 5_000,
+      staleAfterMs: 5000,
       stderr: new PassThrough(),
       ...overrides,
     });
@@ -207,7 +207,7 @@ describe(resolveLockDir, () => {
   });
 
   it('returns a per-user directory under /tmp on POSIX', () => {
-    expect(resolveLockDir({ env: {}, platform: 'linux', uid: 1_001 })).toBe('/tmp/nmr-1001');
+    expect(resolveLockDir({ env: {}, platform: 'linux', uid: 1001 })).toBe('/tmp/nmr-1001');
   });
 
   it('returns a directory under the temp directory on Windows', () => {
@@ -248,7 +248,7 @@ function delay(ms: number): Promise<void> {
 
 /** Polls until `condition` holds, failing after two seconds. */
 async function waitFor(condition: () => boolean): Promise<void> {
-  const deadline = Date.now() + 2_000;
+  const deadline = Date.now() + 2000;
   while (!condition()) {
     if (Date.now() > deadline) throw new Error('Timed out waiting for condition');
     await delay(5);

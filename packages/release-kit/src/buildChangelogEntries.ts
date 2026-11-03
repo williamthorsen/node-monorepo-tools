@@ -178,7 +178,7 @@ function buildSections(
 
 /** Formats Unix seconds as an ISO calendar date. */
 function formatDate(timestampSec: number): string {
-  return new Date(timestampSec * 1_000).toISOString().slice(0, 10);
+  return new Date(timestampSec * 1000).toISOString().slice(0, 10);
 }
 
 /** Returns the canonical priority of a section title; an unknown title sorts last. */
@@ -299,7 +299,7 @@ function transformReleases(windows: readonly ReleaseWindow[], context: ReadConte
     unreleasedReading: {
       bump: determineBumpType(signals, context.workTypes, context.versionPatterns),
       commits: unreleasedCommits.filter((commit) => !isReleaseSubject(commit.subject)).toReversed(),
-      date: formatDate(unreleasedWindow?.timestampSec ?? Math.floor(Date.now() / 1_000)),
+      date: formatDate(unreleasedWindow?.timestampSec ?? Math.floor(Date.now() / 1000)),
       diagnostics,
       parsedCommitCount,
       sections: buildSections(sectionMap, context.devOnlySections),

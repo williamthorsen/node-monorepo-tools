@@ -30,12 +30,6 @@ vi.mock(import('typescript'), async (importOriginal) => {
   return { ...actual, createProgram };
 });
 
-/**
- * One edit to a package's `.config/nmr.config.ts`, applied to the tree so that a case can create, rewrite, or
- * delete it.
- */
-type ConfigStep = (tree: TempTree) => void;
-
 /** The package config read by a build, which several cases create, rewrite, or delete between runs. */
 const CONFIG_ENTRY = '.config/nmr.config.ts';
 
@@ -267,7 +261,7 @@ describe('buildPackage caching', () => {
     const digest = await readBuildDigest(tree.dir);
     assert(digest !== undefined);
     // A real emit of one file takes well under the threshold, so plant a slower one.
-    await writeEmitDuration(tree.dir, digest, 2_100);
+    await writeEmitDuration(tree.dir, digest, 2100);
 
     await buildPackage(tree.dir, { style: 'rich' });
 
@@ -277,7 +271,7 @@ describe('buildPackage caching', () => {
   });
 
   it.for([
-    ['recorded under another digest', async (tree: TempTree) => writeEmitDuration(tree.dir, 'an-old-digest', 2_100)],
+    ['recorded under another digest', async (tree: TempTree) => writeEmitDuration(tree.dir, 'an-old-digest', 2100)],
     [
       'under a second',
       async (tree: TempTree) => {
@@ -304,13 +298,13 @@ describe('buildPackage caching', () => {
       await buildPackage(tree.dir, { style: 'rich' });
       const digest = await readBuildDigest(tree.dir);
       assert(digest !== undefined);
-      await writeEmitDuration(tree.dir, digest, 2_100);
+      await writeEmitDuration(tree.dir, digest, 2100);
 
       await buildPackage(tree.dir, { style: 'rich' });
 
       expect(JSON.parse(fs.readFileSync(outcomeFile, 'utf8'))).toStrictEqual({
         kind: 'build-unchanged',
-        savedMs: 2_100,
+        savedMs: 2100,
         parentPid: process.ppid,
       });
     });
@@ -319,7 +313,7 @@ describe('buildPackage caching', () => {
       const outcomeFile = stubOutcomeFile(tree);
       scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
       await buildPackage(tree.dir, { style: 'rich' });
-      await writeEmitDuration(tree.dir, 'an-old-digest', 2_100);
+      await writeEmitDuration(tree.dir, 'an-old-digest', 2100);
 
       await buildPackage(tree.dir, { style: 'rich' });
 
@@ -338,6 +332,12 @@ describe('buildPackage caching', () => {
       expect(fs.existsSync(outcomeFile)).toBe(false);
     });
   });
+
+  /**
+   * One edit to a package's `.config/nmr.config.ts`, applied to the tree so that a case can create, rewrite, or
+   * delete it.
+   */
+  type ConfigStep = (tree: TempTree) => void;
 
   // Each row expresses the config edits as steps, so the parameterized body applies them without branching on
   // whether a config is present before or after.

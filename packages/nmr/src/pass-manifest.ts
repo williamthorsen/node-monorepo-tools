@@ -112,7 +112,7 @@ export async function writePassManifestEntry(options: {
 // region | Helpers
 
 /** Bounds a manifest well above the passes that any run reports. */
-const MAX_MANIFEST_ENTRIES = 1_000;
+const MAX_MANIFEST_ENTRIES = 1000;
 
 /** Returns why a manifest entry may not be recorded, or `undefined` when it may. */
 function findRejection(
@@ -161,10 +161,7 @@ function isRelativeScope(scope: string): boolean {
     return true;
   }
 
-  return (
-    !path.posix.isAbsolute(scope) &&
-    scope.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..')
-  );
+  return !path.posix.isAbsolute(scope) && scope.split('/').every((segment) => !['', '.', '..'].includes(segment));
 }
 
 // endregion | Helpers

@@ -230,7 +230,7 @@ async function recordCheckResult(monorepoRoot: string, anchorDir: string, comman
       commandString: `nmr ${command}`,
       nmrVersion: '1.0.0',
       nodeVersion: 'v24.0.0',
-      durationMs: 1_000,
+      durationMs: 1000,
       recordedAt: '2026-08-02T12:00:00.000Z',
       buildDigests: {},
     },
@@ -256,7 +256,7 @@ function scaffoldBuiltPackage(tree: TempTree, packageEntry: string): void {
     [`${packageEntry}/src/index.ts`]: 'export const value = 1;\n',
   });
   tree.write(resolveCacheEntry(tree, packageEntry), 'a-stale-digest');
-  tree.writeJson(resolveDurationEntry(tree, packageEntry), { token: 'a-stale-digest', value: { emitMs: 2_100 } });
+  tree.writeJson(resolveDurationEntry(tree, packageEntry), { token: 'a-stale-digest', value: { emitMs: 2100 } });
 }
 
 /** Writes an nmr config at the workspace root. */

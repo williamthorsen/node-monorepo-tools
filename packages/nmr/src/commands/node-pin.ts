@@ -18,7 +18,7 @@ const TOOL_VERSIONS_FILE = '.tool-versions';
  * Time after a release's UTC day begins before it is proposed. The index dates a release by day alone, so two days
  * from the start of that day is the earliest moment at which the release is certainly 24 hours old.
  */
-const SOAK_MS = 2 * 24 * 60 * 60 * 1_000;
+const SOAK_MS = 2 * 24 * 60 * 60 * 1000;
 
 const FETCH_TIMEOUT_MS = 10_000;
 

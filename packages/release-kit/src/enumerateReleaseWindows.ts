@@ -76,7 +76,7 @@ export function enumerateReleaseWindows(options: EnumerateReleaseWindowsOptions)
 
   const unreleasedWindow: ReleaseWindow = {
     version: unreleasedTag,
-    timestampSec: Math.floor(now() / 1_000),
+    timestampSec: Math.floor(now() / 1000),
     commits: [],
   };
 

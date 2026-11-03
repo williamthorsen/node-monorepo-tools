@@ -74,7 +74,7 @@ describe(runSteps, () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(Date.now() - startedAtMs).toBeLessThan(2_500);
+    expect(Date.now() - startedAtMs).toBeLessThan(2500);
   });
 
   it('prints a background step whole, after the foreground output during which it wrote', async () => {
@@ -121,7 +121,7 @@ describe(runSteps, () => {
     );
 
     expect(result.exitCode).toBe(143);
-    expect(Date.now() - startedAtMs).toBeLessThan(5_000);
+    expect(Date.now() - startedAtMs).toBeLessThan(5000);
   }, 30_000);
 
   // Emitting the event stands in for a signal sent to nmr's pid alone, which reaches nmr's listeners but no child.
@@ -137,7 +137,7 @@ describe(runSteps, () => {
     const result = await running;
 
     expect(result.exitCode).toBe(143);
-    expect(Date.now() - startedAtMs).toBeLessThan(5_000);
+    expect(Date.now() - startedAtMs).toBeLessThan(5000);
     expect(process.listenerCount('SIGTERM')).toBe(listenerCountBefore);
   }, 30_000);
 
@@ -147,7 +147,7 @@ describe(runSteps, () => {
 
       const result = await runSteps([step], undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
 
-      expect(result.statedOutcomes).toStrictEqual(new Map([[step, { kind: 'build-unchanged', savedMs: 2_100 }]]));
+      expect(result.statedOutcomes).toStrictEqual(new Map([[step, { kind: 'build-unchanged', savedMs: 2100 }]]));
     });
 
     // Where the shell replaces itself with the step's command, a child of that command has the shell's pid as its

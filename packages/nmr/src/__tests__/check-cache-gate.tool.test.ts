@@ -372,7 +372,7 @@ describe('the check-result cache gate', () => {
 
       expect(readOwnVerdict(await runNmr(`--json ${COMMAND}`, repo))).toMatchObject({
         outcome: 'passed',
-        stated: { kind: 'build-unchanged', savedMs: 2_100 },
+        stated: { kind: 'build-unchanged', savedMs: 2100 },
       });
     });
 

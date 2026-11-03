@@ -6,7 +6,7 @@ describe(formatDuration, () => {
   it.each([
     [0, '0s'],
     [300, '0.3s'],
-    [1_000, '1s'],
+    [1000, '1s'],
     [12_000, '12s'],
     [12_449, '12.4s'],
     [59_999, '59.9s'],
@@ -46,7 +46,7 @@ describe(formatSaving, () => {
 
   it('names the smallest saving that it will report', () => {
     // The clause starts appearing at the threshold, so it is the boundary that a reader notices.
-    expect(formatSaving(1_000)).toBe('saved ~1s');
+    expect(formatSaving(1000)).toBe('saved ~1s');
   });
 
   it.each([0, 1, 500, 999])('does not name a saving for %ims, which is under a second', (milliseconds) => {
@@ -54,7 +54,7 @@ describe(formatSaving, () => {
   });
 
   it('does not name a saving for a negative duration', () => {
-    expect(formatSaving(-1_000)).toBeUndefined();
+    expect(formatSaving(-1000)).toBeUndefined();
   });
 
   it.each([NaN, Infinity])('does not name a saving for the non-finite %d', (milliseconds) => {

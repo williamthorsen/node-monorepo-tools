@@ -280,7 +280,7 @@ describe(runCommand, () => {
           stdout: destination,
         });
         getChild().emit('exit', 0, null);
-        await vi.advanceTimersByTimeAsync(2_000);
+        await vi.advanceTimersByTimeAsync(2000);
         await pendingRun;
       }
 

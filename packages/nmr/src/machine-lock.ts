@@ -53,7 +53,7 @@ export const LOCK_TOKEN_ENV_VAR = 'NMR_MACHINE_LOCK_TOKEN';
 export const NO_LOCK_ENV_VAR = 'NMR_NO_LOCK';
 
 /** How often a waiter checks the lock again. */
-export const POLL_INTERVAL_MS = 1_000;
+export const POLL_INTERVAL_MS = 1000;
 
 /**
  * Age at which an unrefreshed lock file is abandoned. It covers a holder whose pid was reused by another process,

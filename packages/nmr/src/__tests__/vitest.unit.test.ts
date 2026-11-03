@@ -47,10 +47,10 @@ describe(defineVitestConfig, () => {
 
   // Distinct values rather than one, so that the assertion would catch a seam that set both budgets from either key.
   it('lets the project seam override both tier budgets', () => {
-    const projects = getProjects(defineVitestConfig({ project: { hookTimeout: 2_000, testTimeout: 1_000 } }));
+    const projects = getProjects(defineVitestConfig({ project: { hookTimeout: 2000, testTimeout: 1000 } }));
 
-    expect(projects.map((project) => project.test?.hookTimeout)).toStrictEqual(PROJECT_NAMES.map(() => 2_000));
-    expect(projects.map((project) => project.test?.testTimeout)).toStrictEqual(PROJECT_NAMES.map(() => 1_000));
+    expect(projects.map((project) => project.test?.hookTimeout)).toStrictEqual(PROJECT_NAMES.map(() => 2000));
+    expect(projects.map((project) => project.test?.testTimeout)).toStrictEqual(PROJECT_NAMES.map(() => 1000));
   });
 
   // Because neither has a script, nothing would report their absence at run time. An undeclared tier's files fall

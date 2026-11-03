@@ -13,7 +13,7 @@ const CLI_PATH = path.join(MONOREPO_ROOT, 'packages', 'nmr', 'dist', 'esm', 'cli
 const BIN_DIR = path.join(MONOREPO_ROOT, 'node_modules', '.bin');
 
 /** How long the first step waits before giving up, so that nothing it spawned outlives the test as an orphan. */
-const FIRST_STEP_WAIT_MS = 5_000;
+const FIRST_STEP_WAIT_MS = 5000;
 
 /** How long to wait for a marker before calling the step that writes it stalled. */
 const MARKER_TIMEOUT_MS = 20_000;

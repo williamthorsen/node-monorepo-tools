@@ -150,7 +150,7 @@ describe(assembleReplay, () => {
       commandString: options.command,
       nmrVersion: '0.0.0',
       nodeVersion: 'v22.0.0',
-      durationMs: 1_000,
+      durationMs: 1000,
       recordedAt: new Date().toISOString(),
       buildDigests: {},
       ...(options.hasRetention !== false && {

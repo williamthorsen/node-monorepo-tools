@@ -34,7 +34,7 @@ describe(readBuildDigest, () => {
 
   it('is unaffected by a recorded emit duration', async ({ packageDir }) => {
     await writeCacheEntry(resolveBuildCachePath(packageDir), 'a-build-digest');
-    await writeEmitDuration(packageDir, 'a-build-digest', 2_100);
+    await writeEmitDuration(packageDir, 'a-build-digest', 2100);
 
     await expect(readBuildDigest(packageDir)).resolves.toBe('a-build-digest');
   });
@@ -42,13 +42,13 @@ describe(readBuildDigest, () => {
 
 describe(readEmitDuration, () => {
   it('returns the duration recorded for the same digest', async ({ packageDir }) => {
-    await writeEmitDuration(packageDir, 'a-build-digest', 2_100);
+    await writeEmitDuration(packageDir, 'a-build-digest', 2100);
 
-    await expect(readEmitDuration(packageDir, 'a-build-digest')).resolves.toBe(2_100);
+    await expect(readEmitDuration(packageDir, 'a-build-digest')).resolves.toBe(2100);
   });
 
   it('returns undefined for a duration recorded under another digest', async ({ packageDir }) => {
-    await writeEmitDuration(packageDir, 'an-old-digest', 2_100);
+    await writeEmitDuration(packageDir, 'an-old-digest', 2100);
 
     await expect(readEmitDuration(packageDir, 'a-build-digest')).resolves.toBeUndefined();
   });

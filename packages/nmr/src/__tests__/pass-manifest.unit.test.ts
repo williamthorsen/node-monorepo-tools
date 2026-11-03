@@ -82,8 +82,8 @@ describe(validatePassManifest, () => {
   });
 
   it('rejects a manifest of more than 1,000 entries whole', () => {
-    expect(validate(Array.from({ length: 1_001 }, () => makeEntry()))).toStrictEqual([]);
-    expect(validate(Array.from({ length: 1_000 }, () => makeEntry()))).toHaveLength(1_000);
+    expect(validate(Array.from({ length: 1001 }, () => makeEntry()))).toStrictEqual([]);
+    expect(validate(Array.from({ length: 1000 }, () => makeEntry()))).toHaveLength(1000);
   });
 });
 
@@ -105,7 +105,7 @@ describe(writePassManifestEntry, () => {
         {
           command: 'test',
           commandString: 'vitest run',
-          durationMs: 1_200,
+          durationMs: 1200,
           replay: [{ command: 'test', excerpt: '3 passed', scope: 'a' }],
           scope: 'packages/a',
           treeHash: 'tree-id',
@@ -149,7 +149,7 @@ describe(writePassManifestEntry, () => {
       anchorDir: tree.dir,
       command: 'test',
       commandString: 'vitest run',
-      durationMs: 1_200,
+      durationMs: 1200,
       env: { [PASS_MANIFEST_DIR_ENV_VAR]: manifestDir },
       monorepoRoot: tree.dir,
       replay: [{ command: 'test', excerpt: '3 passed', scope: 'a' }],
@@ -172,7 +172,7 @@ function makeEntry(overrides: Record<string, unknown> = {}): Record<string, unkn
   return {
     command: 'test',
     commandString: 'vitest run',
-    durationMs: 1_200,
+    durationMs: 1200,
     replay: [{ command: 'test', excerpt: '3 passed', scope: 'repo' }],
     scope: '.',
     treeHash: TREE_ID,

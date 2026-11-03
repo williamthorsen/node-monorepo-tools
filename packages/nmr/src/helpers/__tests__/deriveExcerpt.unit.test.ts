@@ -98,14 +98,14 @@ describe(deriveExcerpt, () => {
   it('cuts an excerpt that would overrun the byte bound, marking the cut', () => {
     const excerpt = deriveExcerpt(`banner\n\n${'x'.repeat(200_000)}\n`);
 
-    expect(Buffer.byteLength(excerpt ?? '')).toBeLessThanOrEqual(2_048);
+    expect(Buffer.byteLength(excerpt ?? '')).toBeLessThanOrEqual(2048);
     expect(excerpt).toMatch(/…$/u);
   });
 
   it('cuts between code points, so a multi-byte character is never stored in halves', () => {
-    const excerpt = deriveExcerpt(`banner\n\n${'⏭'.repeat(2_000)}\n`) ?? '';
+    const excerpt = deriveExcerpt(`banner\n\n${'⏭'.repeat(2000)}\n`) ?? '';
 
     expect(excerpt).toBe(Buffer.from(excerpt).toString('utf8'));
-    expect(Buffer.byteLength(excerpt)).toBeLessThanOrEqual(2_048);
+    expect(Buffer.byteLength(excerpt)).toBeLessThanOrEqual(2048);
   });
 });

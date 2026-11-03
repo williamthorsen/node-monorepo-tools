@@ -2,12 +2,6 @@ import { type GlobOptionsWithoutFileTypes, globSync } from 'node:fs';
 import path from 'node:path';
 
 /**
- * Declares `followSymlinks`, which Node supports from v24.16.0, the version that this package's `engines`
- * requires, but which `@types/node` does not declare. Drop the intersection once it does.
- */
-type GlobOptions = GlobOptionsWithoutFileTypes & { followSymlinks?: boolean };
-
-/**
  * The manifest that marks a directory as a package. pnpm also recognizes `package.yaml` and
  * `package.json5`; nmr-core recognizes only this one.
  */
@@ -36,6 +30,12 @@ export function matchPackageDirs(
   includedPatterns: readonly string[],
   excludedPatterns: readonly string[],
 ): string[] {
+  /**
+   * Declares `followSymlinks`, which Node supports from v24.16.0, the version that this package's `engines`
+   * requires, but which `@types/node` does not declare. Drop the intersection once it does.
+   */
+  type GlobOptions = GlobOptionsWithoutFileTypes & { followSymlinks?: boolean };
+
   const options: GlobOptions = {
     cwd: monorepoRoot,
     exclude: [...excludedPatterns, ...ALWAYS_EXCLUDED_PATTERNS],

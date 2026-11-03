@@ -66,12 +66,12 @@ export function runHostSession(params: HostSessionParams): void {
   const LOCK_PATH = params.lockPath;
   const RECLAIM_GUARD_PATH = `${params.lockPath}.reclaim`;
   const HEARTBEAT_INTERVAL_MS = 10_000;
-  const POLL_INTERVAL_MS = 1_000;
+  const POLL_INTERVAL_MS = 1000;
   const RECLAIM_GUARD_STALE_AFTER_MS = 10_000;
   const OUTPUT_LIMIT_BYTES = 65_536;
   const COMMAND_NOT_FOUND_EXIT_CODE = 127;
   const DELEGATION_FAILURE_EXIT_CODE = 255;
-  const STOP_GRACE_MS = 5_000;
+  const STOP_GRACE_MS = 5000;
   const NODE_MODULES_DIR = path.join(params.rootDir, 'node_modules');
   /**
    * The bins fingerprint of the last successful install, kept with the install so that it goes when the install does.

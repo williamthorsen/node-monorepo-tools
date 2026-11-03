@@ -12,7 +12,7 @@ import type { OutputChannels } from './output-channel.ts';
 const SIGNAL_EXIT_BASE = 128;
 
 /** How long a completed command's pipes are given to drain before a descendant holding them open is abandoned. */
-const PIPE_DRAIN_GRACE_MS = 2_000;
+const PIPE_DRAIN_GRACE_MS = 2000;
 
 export interface RunCommandOptions {
   /** The channel on which each of the child's output streams runs. */

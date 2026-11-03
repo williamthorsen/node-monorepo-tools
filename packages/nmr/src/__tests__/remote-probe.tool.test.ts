@@ -59,7 +59,7 @@ describe('a lock probe of a fake host', () => {
 
   it('reports a lock that its holder stopped refreshing as free', async () => {
     const lockPath = writeLock(MACHINE_LOCK_PATH, { pid: process.pid });
-    const abandonedAt = new Date(Date.now() - STALE_AFTER_MS - 1_000);
+    const abandonedAt = new Date(Date.now() - STALE_AFTER_MS - 1000);
     fs.utimesSync(lockPath, abandonedAt, abandonedAt);
 
     await expect(probe('box')).resolves.toStrictEqual(report('free'));

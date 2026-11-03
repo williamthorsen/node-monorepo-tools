@@ -277,7 +277,7 @@ describe('a recording', () => {
       commandString: IDENTITY.commandString,
       nmrVersion: IDENTITY.nmrVersion,
       nodeVersion: IDENTITY.nodeVersion,
-      durationMs: 1_000,
+      durationMs: 1000,
       recordedAt: new Date().toISOString(),
       buildDigests: {},
     };

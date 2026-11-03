@@ -9,7 +9,7 @@ import { describe, expect, it as baseIt, vi } from 'vitest';
 import { OUTCOME_FILE_ENV_VAR, readStatedOutcome, writeStatedOutcome } from '../stated-outcome.ts';
 
 /** The process to which the planted records are stated. */
-const PARENT_PID = 4_242;
+const PARENT_PID = 4242;
 
 // eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
@@ -19,7 +19,7 @@ const it = baseIt.extend(
 
 describe(readStatedOutcome, () => {
   it.for([
-    { case: 'with a saving', outcome: { kind: 'build-unchanged', savedMs: 2_100 } as const },
+    { case: 'with a saving', outcome: { kind: 'build-unchanged', savedMs: 2100 } as const },
     { case: 'without a saving', outcome: { kind: 'build-unchanged' } as const },
   ])('reads back what writeStatedOutcome wrote, $case', async ({ outcome }, { tree }) => {
     const filePath = path.join(tree.dir, 'outcome.json');

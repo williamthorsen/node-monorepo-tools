@@ -74,10 +74,10 @@ describe(defineVitestConfig, () => {
 
   it('folds layers left to right, so a later layer wins on a scalar', () => {
     const projects = getProjects(
-      defineVitestConfig({ project: { testTimeout: 1_000 } }, { project: { testTimeout: 2_000 } }),
+      defineVitestConfig({ project: { testTimeout: 1000 } }, { project: { testTimeout: 2000 } }),
     );
 
-    expect(projects.map((project) => project.test?.testTimeout)).toStrictEqual(PROJECT_NAMES.map(() => 2_000));
+    expect(projects.map((project) => project.test?.testTimeout)).toStrictEqual(PROJECT_NAMES.map(() => 2000));
   });
 
   // Order decides which setup runs first. A shared layer's entry, which establishes the environment in which the
@@ -131,11 +131,11 @@ describe(defineVitestConfig, () => {
 
   it('applies a tier target after the same layer of uniform options', () => {
     const budgets = getTestTimeouts(
-      defineVitestConfig({ project: { testTimeout: 1_000 }, tiers: { tool: { testTimeout: 2_000 } } }),
+      defineVitestConfig({ project: { testTimeout: 1000 }, tiers: { tool: { testTimeout: 2000 } } }),
     );
 
-    expect(budgets.get('tool')).toBe(2_000);
-    expect(budgets.get('unit')).toBe(1_000);
+    expect(budgets.get('tool')).toBe(2000);
+    expect(budgets.get('unit')).toBe(1000);
   });
 
   // Locality beats specificity across layers: The nearer config wins even when the further one was specific.
@@ -153,9 +153,9 @@ describe(defineVitestConfig, () => {
   // A conditional layer is the idiom that a variadic signature invites, and the ternary's empty branch is `undefined`.
   // Every position is covered because the fold, the tier check, and the root merge each walk the list separately.
   it('skips an empty layer wherever it falls, so a conditional layer does not need a spread', () => {
-    const config = defineVitestConfig(undefined, { project: { testTimeout: 1_000 } }, undefined);
+    const config = defineVitestConfig(undefined, { project: { testTimeout: 1000 } }, undefined);
 
-    expect(getTestTimeouts(config).get('unit')).toBe(1_000);
+    expect(getTestTimeouts(config).get('unit')).toBe(1000);
     expect(config.test?.projects).toHaveLength(PROJECT_NAMES.length);
   });
 
@@ -179,7 +179,7 @@ describe(defineVitestConfig, () => {
     const build = () =>
       defineVitestConfig({
         // @ts-expect-error - the key does not name a tier; a JavaScript consumer can still write it
-        tiers: { toool: { testTimeout: 1_000 } },
+        tiers: { toool: { testTimeout: 1000 } },
       });
 
     expect(build).toThrow('Unknown tier "toool" in `tiers`. Valid tiers: unit, tool, localhost, remote.');

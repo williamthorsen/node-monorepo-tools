@@ -19,7 +19,7 @@ describe(renderVerdict, () => {
   });
 
   it('reports a failure with the exit code, which separates an interrupt from a real failure', () => {
-    const verdict = makeVerdict({ outcome: 'failed', durationMs: 1_200, exitCode: 130 });
+    const verdict = makeVerdict({ outcome: 'failed', durationMs: 1200, exitCode: 130 });
 
     expect(renderVerdict(verdict, 'rich')).toBe('❌ nmr-core: test: failed in 1.2s (exit 130)');
   });
@@ -28,7 +28,7 @@ describe(renderVerdict, () => {
     const passed = makeVerdict({ outcome: 'passed', durationMs: 64_000 });
     const failed = makeVerdict({
       outcome: 'failed',
-      durationMs: 1_200,
+      durationMs: 1200,
       exitCode: 255,
       detail: 'could not push to box',
     });
@@ -42,7 +42,7 @@ describe(renderVerdict, () => {
 
   it('marks the host of a delegated pass or failure with a glyph in rich output', () => {
     const passed = makeVerdict({ outcome: 'passed', durationMs: 64_000 });
-    const failed = makeVerdict({ outcome: 'failed', durationMs: 1_200, exitCode: 255 });
+    const failed = makeVerdict({ outcome: 'failed', durationMs: 1200, exitCode: 255 });
 
     expect(renderVerdict({ ...passed, host: 'box' }, 'rich')).toBe('✅ nmr-core: test: passed on 📡 box in 1m 4s');
     expect(renderVerdict({ ...failed, host: 'box' }, 'rich')).toBe(
@@ -213,7 +213,7 @@ describe(renderVerdict, () => {
   describe('a stated outcome', () => {
     it.each([
       {
-        savedMs: 2_100,
+        savedMs: 2100,
         expectedTail: 'passed in 0.3s — build skipped as unchanged, saved ~2.1s',
         scenario: 'a saving',
       },
@@ -256,7 +256,7 @@ describe(renderVerdict, () => {
       { expectedLine: 'PASS nmr-core: test: passed in 12s', outcome: { outcome: 'passed', durationMs: 12_000 } },
       {
         expectedLine: 'FAIL nmr-core: test: failed in 1.2s (exit 130)',
-        outcome: { outcome: 'failed', durationMs: 1_200, exitCode: 130 },
+        outcome: { outcome: 'failed', durationMs: 1200, exitCode: 130 },
       },
       {
         expectedLine: 'SKIP nmr-core: test: passed 4m ago on this tree, saved ~12s',
@@ -343,8 +343,8 @@ describe(serializeVerdict, () => {
         scenario: 'a pass with a stated outcome, its saving recorded whatever its size',
       },
       {
-        outcome: { outcome: 'failed', durationMs: 1_200, exitCode: 130 },
-        expectedRecord: { command: 'test', scope: 'nmr-core', outcome: 'failed', durationMs: 1_200, exitCode: 130 },
+        outcome: { outcome: 'failed', durationMs: 1200, exitCode: 130 },
+        expectedRecord: { command: 'test', scope: 'nmr-core', outcome: 'failed', durationMs: 1200, exitCode: 130 },
         scenario: 'a failure',
       },
       {
@@ -366,7 +366,7 @@ describe(serializeVerdict, () => {
 
     // A saving below the prose line's threshold for a clause is still a fact that the record contains.
     it('includes a saving that the prose line declines to name', () => {
-      const line = serializeVerdict(makeVerdict({ outcome: 'recalled', ageMs: 1_000, savedMs: 40 }));
+      const line = serializeVerdict(makeVerdict({ outcome: 'recalled', ageMs: 1000, savedMs: 40 }));
 
       expect(parseVerdict(line)).toMatchObject({ savedMs: 40 });
     });
@@ -424,8 +424,8 @@ describe(serializeVerdict, () => {
     it('cuts between code points, so a multi-byte excerpt is never left in halves', () => {
       const verdict = makeVerdict({
         outcome: 'recalled',
-        ageMs: 1_000,
-        savedMs: 1_000,
+        ageMs: 1000,
+        savedMs: 1000,
         replay: [{ command: 'test', excerpt: '⏭'.repeat(600), scope: 'nmr-core' }],
       });
       const line = serializeVerdict(verdict);
@@ -441,7 +441,7 @@ describe(serializeVerdict, () => {
         scope: 'nmr-core',
         outcome: 'passed',
         durationMs: 12_000,
-        detail: 'x'.repeat(2_000),
+        detail: 'x'.repeat(2000),
       };
       const line = serializeVerdict(verdict);
 
@@ -453,7 +453,7 @@ describe(serializeVerdict, () => {
       const parsedVerdict = parseVerdict(serializeVerdict(OVERSIZED_STRUCTURE));
 
       expect(parsedVerdict).not.toHaveProperty('replay');
-      expect(parsedVerdict).toMatchObject({ outcome: 'recalled', ageMs: 1_000, savedMs: 1_000 });
+      expect(parsedVerdict).toMatchObject({ outcome: 'recalled', ageMs: 1000, savedMs: 1000 });
     });
 
     // The scope and the command are the last fields that `serializeVerdict` drops from a record, and it does drop
@@ -561,8 +561,8 @@ const OVERSIZED_STRUCTURE: Verdict = {
   command: 'c'.repeat(240),
   scope: 's'.repeat(240),
   outcome: 'recalled',
-  ageMs: 1_000,
-  savedMs: 1_000,
+  ageMs: 1000,
+  savedMs: 1000,
   replay: [{ command: 'test', excerpt: 'Test Files 6 passed (6)', scope: 'nmr-core' }],
 };
 
