@@ -1,5 +1,32 @@
 [
   {
+    "version": "16.1.0",
+    "date": "2026-11-03",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Makes `prepare` and `publish` refuse a release, dry runs included, when a tarball packed from a clean checkout of HEAD lacks a file named by the package's `main`, `types`, `bin`, or `exports`, which keeps a package with missing build output from reaching the registry. (#1147)",
+            "hash": "c730654140e89d52ac7430987497d8b954fa7f00",
+            "entry": 1
+          },
+          {
+            "description": "Adds the `devExportConditions` config key, which lists the export conditions that resolve only inside the repo and whose targets the tarball check does not require, in addition to `source`. (#1147)",
+            "hash": "c730654140e89d52ac7430987497d8b954fa7f00",
+            "entry": 2
+          },
+          {
+            "description": "Adds a `content` label to the `common` label preset, for consumer-facing material such as copy, images, or displayed data rather than functionality. (#1150)",
+            "hash": "8c7b990041e5744c26547fe0ce8c9305f0f7c6f4",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "16.0.0",
     "date": "2026-10-28",
     "sections": [

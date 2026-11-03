@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 16.1.0 — 2026-11-03
+
+### 🎉 Features
+
+- Makes `prepare` and `publish` refuse a release, dry runs included, when a tarball packed from a clean checkout of HEAD lacks a file named by the package's `main`, `types`, `bin`, or `exports`, which keeps a package with missing build output from reaching the registry. (#1147)
+- Adds the `devExportConditions` config key, which lists the export conditions that resolve only inside the repo and whose targets the tarball check does not require, in addition to `source`. (#1147)
+- Adds a `content` label to the `common` label preset, for consumer-facing material such as copy, images, or displayed data rather than functionality. (#1150)
+
 ## 16.0.0 — 2026-10-28
 
 ### 🎉 Features
