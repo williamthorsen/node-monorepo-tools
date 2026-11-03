@@ -9,6 +9,9 @@
 - name: bug
   color: d73a4a
   description: "Something isn't working"
+- name: content
+  color: 0e8a16
+  description: Consumer-facing material, such as copy, images, or displayed data, rather than functionality
 - name: operational
   color: '000000'
   description: Actions outside the codebase

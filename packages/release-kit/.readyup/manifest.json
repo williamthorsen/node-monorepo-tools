@@ -58,7 +58,7 @@
           "path": "lib/config-checks.ts"
         },
         {
-          "hash": "13f15dfe",
+          "hash": "f652dae3",
           "kind": "module",
           "path": "lib/workflow-hashes.ts"
         },
@@ -101,7 +101,7 @@
       "readyupVersion": "0.44.0",
       "source": "kits/default.ts",
       "sourceHash": "56566d0b",
-      "targetHash": "43d5913f"
+      "targetHash": "75686ede"
     },
     {
       "checklistChecks": [
