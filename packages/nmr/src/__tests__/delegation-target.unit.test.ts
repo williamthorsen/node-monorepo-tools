@@ -12,6 +12,8 @@ const ALWAYS_CONFIG: UserConfig = { delegate: { hosts: ['imac2', 'imac3'], when:
 const HOSTS_ONLY_CONFIG: UserConfig = { delegate: { hosts: ['imac2'] } };
 const LOADED_ALWAYS: LoadedUserConfig = { config: ALWAYS_CONFIG, path: USER_CONFIG_PATH };
 
+const INSTALL_HOOKS = ['dependencies', 'install', 'postinstall', 'postprepare', 'preinstall', 'prepare', 'preprepare'];
+
 describe(resolveDelegationTarget, () => {
   describe('rule 1: --no-delegate', () => {
     it.for([
@@ -112,7 +114,46 @@ describe(resolveDelegationTarget, () => {
     });
   });
 
-  describe('rule 4: NMR_DELEGATE names hosts', () => {
+  describe('rule 4: a package install hook', () => {
+    it.for(
+      INSTALL_HOOKS.flatMap((hook) => [
+        { case: `NMR_DELEGATE from ${hook}`, env: { npm_lifecycle_event: hook }, envValue: 'box' },
+        { case: `the user config from ${hook}`, env: { npm_lifecycle_event: hook }, userConfig: ALWAYS_CONFIG },
+      ]),
+    )('runs here over $case', async (overrides) => {
+      await expect(resolve(overrides)).resolves.toStrictEqual({ kind: 'local' });
+    });
+
+    it.for([
+      { case: 'NMR_DELEGATE', envValue: 'box', expected: { kind: 'remote', hosts: ['box'], source: 'env' } },
+      {
+        case: 'the user config',
+        userConfig: ALWAYS_CONFIG,
+        expected: {
+          kind: 'remote',
+          hosts: ['imac2', 'imac3'],
+          source: 'config',
+          configPath: USER_CONFIG_PATH,
+          when: 'always',
+        },
+      },
+    ])('delegates per $case from any other package script', async ({ expected, ...overrides }) => {
+      await expect(resolve({ ...overrides, env: { npm_lifecycle_event: 'test' } })).resolves.toStrictEqual(expected);
+    });
+
+    it.for([
+      { case: '--delegate-to', flagValue: 'box' },
+      { case: '--delegate', envValue: 'box', shouldDelegate: true },
+    ])('delegates per $case from an install hook', async (overrides) => {
+      await expect(resolve({ ...overrides, env: { npm_lifecycle_event: 'postinstall' } })).resolves.toStrictEqual({
+        kind: 'remote',
+        hosts: ['box'],
+        source: 'flag',
+      });
+    });
+  });
+
+  describe('rule 5: NMR_DELEGATE names hosts', () => {
     it('delegates to its hosts over the user config', async () => {
       await expect(resolve({ envValue: 'box,spare', userConfig: ALWAYS_CONFIG })).resolves.toStrictEqual({
         kind: 'remote',
@@ -141,7 +182,7 @@ describe(resolveDelegationTarget, () => {
     });
   });
 
-  describe('rule 5: NMR_DELEGATE is set without a host', () => {
+  describe('rule 6: NMR_DELEGATE is set without a host', () => {
     it.for(['', ' , '])('runs here over the user config when the variable is %j', async (envValue) => {
       const readUserConfig = vi.fn(() => Promise.resolve(LOADED_ALWAYS));
 
@@ -150,7 +191,7 @@ describe(resolveDelegationTarget, () => {
     });
   });
 
-  describe("rule 6: the user config's when matches", () => {
+  describe("rule 7: the user config's when matches", () => {
     it('delegates every run under when: always', async () => {
       await expect(resolve({ userConfig: ALWAYS_CONFIG })).resolves.toStrictEqual({
         kind: 'remote',
@@ -213,6 +254,7 @@ describe(resolveDelegationTarget, () => {
       { case: 'a repo opt-out', isRepoOptedOut: true },
       { case: 'NMR_DELEGATE', envValue: 'box' },
       { case: 'an empty NMR_DELEGATE', envValue: '' },
+      { case: 'an install hook', env: { npm_lifecycle_event: 'postinstall' } },
       { case: 'CI', env: { CI: 'true' } },
       { case: 'a fan-out', isFanOut: true },
       { case: 'a tree-rewriting command', command: 'fmt' },

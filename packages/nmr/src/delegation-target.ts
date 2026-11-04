@@ -19,10 +19,11 @@ export type DelegationTarget =
  * 2. `--delegate-to` runs it on the hosts that it names, and `--delegate` on `NMR_DELEGATE`'s, or else the user
  *    config's.
  * 3. A repo config declaring `delegate: false` runs it here.
- * 4. `NMR_DELEGATE` naming hosts runs it on them.
- * 5. `NMR_DELEGATE` set without a host runs it here, which is how a step keeps to where its parent runs.
- * 6. The user config's `when` matching runs it on the config's hosts, unless `CI` is set or the invocation fans out.
- * 7. Otherwise, it runs here.
+ * 4. A package install hook, which `npm_lifecycle_event` names, runs it here.
+ * 5. `NMR_DELEGATE` naming hosts runs it on them.
+ * 6. `NMR_DELEGATE` set without a host runs it here, which is how a step keeps to where its parent runs.
+ * 7. The user config's `when` matching runs it on the config's hosts, unless `CI` is set or the invocation fans out.
+ * 8. Otherwise, it runs here.
  *
  * A command that rewrites the tree, or that runs until it is stopped, cannot be delegated, and neither can `--log`,
  * which reads this machine's recordings. Asked for by a flag, such an invocation is refused; asked for by the
@@ -59,6 +60,9 @@ export async function resolveDelegationTarget(options: {
   if (isRepoOptedOut) {
     return { kind: 'local' };
   }
+  if (isInstallHook(env)) {
+    return { kind: 'local' };
+  }
   if (envHosts !== undefined) {
     return isDelegable ? { kind: 'remote', hosts: envHosts, source: 'env' } : { kind: 'local' };
   }
@@ -83,6 +87,20 @@ export async function resolveDelegationTarget(options: {
 /** Names the user config in a message when the environment does not locate one. */
 const DEFAULT_USER_CONFIG_PATH = '~/.config/nmr/config.ts';
 
+/**
+ * Package lifecycle scripts that run during an install, while the manifest can be ahead of the lockfile, so that a
+ * host's frozen install of the snapshot fails.
+ */
+const INSTALL_HOOKS: ReadonlySet<string> = new Set([
+  'dependencies',
+  'install',
+  'postinstall',
+  'postprepare',
+  'preinstall',
+  'prepare',
+  'preprepare',
+]);
+
 /** Commands that rewrite the working tree or run until stopped, which a delegation could not report back. */
 const NON_DELEGABLE_BASE_COMMANDS = ['build', 'clean', 'compile', 'fix', 'fmt', 'lint', 'test:watch', 'upgrade'];
 
@@ -94,6 +112,11 @@ const NON_DELEGABLE_COMMANDS: ReadonlySet<string> = new Set([
 /** Reports whether an environment variable is set to a non-empty value. */
 function hasValue(value: string | undefined): boolean {
   return value !== undefined && value !== '';
+}
+
+/** Reports whether the invocation runs from a package install hook, which `npm_lifecycle_event` names. */
+function isInstallHook(env: NodeJS.ProcessEnv): boolean {
+  return INSTALL_HOOKS.has(env['npm_lifecycle_event'] ?? '');
 }
 
 /**
