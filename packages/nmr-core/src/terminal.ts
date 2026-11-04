@@ -3,6 +3,7 @@
 import process from 'node:process';
 import type { Writable } from 'node:stream';
 
+import { describeError, isError } from '@williamthorsen/toolbelt.errors';
 import {
   detectOutputStyle,
   type GlyphSet,
@@ -104,6 +105,16 @@ export function printSuccess(message: string, style: OutputStyle = detectStreamS
   console.info(`  ${formatStatusLine(style, 'passed', message)}`);
 }
 
+/**
+ * Writes an unexpected crash, a bug in the tool, as `<bin>: internal error: <message>` followed by the error's stack
+ * frames. A handled error goes through `reportError` instead, so that a reader can tell the two apart.
+ */
+export function reportCrash(bin: string, error: unknown, stream: Writable = process.stderr): void {
+  const frames = isError(error) && error.stack !== undefined ? extractStackFrames(error.stack) : '';
+  const header = `${bin}: internal error: ${describeError(error)}\n`;
+  stream.write(frames === '' ? header : `${header}${frames}\n`);
+}
+
 /** Writes the canonical `Error: <message>` line to `stream`, which an in-process CLI sets to its own `Writable`. */
 export function reportError(message: string, stream: Writable = process.stderr): void {
   stream.write(`${formatErrorLine(message)}\n`);
@@ -197,6 +208,13 @@ export function resolveStreamStyles(options: ResolveStreamStylesOptions): Stream
 /** Detects the style that the process environment calls for on one of its output streams. */
 function detectStreamStyle(stream: { readonly isTTY?: boolean | undefined }): OutputStyle {
   return detectOutputStyle({ env: process.env, isTty: stream.isTTY === true });
+}
+
+/** Returns the frame lines of a stack, from its first `at` line on, leaving out the `Name: message` header. */
+function extractStackFrames(stack: string): string {
+  const lines = stack.split('\n');
+  const firstFrameIndex = lines.findIndex((line) => /^\s+at /.test(line));
+  return firstFrameIndex === -1 ? '' : lines.slice(firstFrameIndex).join('\n');
 }
 
 /** Prefixes every line of `text` with `indent`. */

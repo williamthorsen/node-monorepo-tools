@@ -109,7 +109,7 @@
           "path": "../../nmr-core/dist/esm/helpers/workspace-patterns.js"
         },
         {
-          "hash": "dcd24627",
+          "hash": "a9c5081f",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/index.js"
         },
@@ -124,7 +124,7 @@
           "path": "../../nmr-core/dist/esm/runGit.js"
         },
         {
-          "hash": "46b44e18",
+          "hash": "c12942ea",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/terminal.js"
         },

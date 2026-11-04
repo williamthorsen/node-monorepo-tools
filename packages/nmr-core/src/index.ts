@@ -46,6 +46,7 @@ export {
   printSkip,
   printStep,
   printSuccess,
+  reportCrash,
   reportError,
   reportTemplateUpdate,
   reportWriteResult,
