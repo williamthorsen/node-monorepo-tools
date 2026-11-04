@@ -8,13 +8,13 @@
 import { parseArgsOrExit, reportError, resolveSelfVersion } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import { commitCommand } from '../commitCommand.ts';
-import { configFlagSchema } from '../configFlagSchema.ts';
-import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
-import { enterRepoRoot, type RepoLocation } from '../enterRepoRoot.ts';
-import { showInitHelp, showUpdateTemplatesHelp } from '../help/initHelp.ts';
-import { showOverridesHelp, showOverridesValidateHelp } from '../help/overridesHelp.ts';
-import { showPrepareHelp } from '../help/prepareHelp.ts';
+import { commitCommand } from './commitCommand.ts';
+import { configFlagSchema } from './configFlagSchema.ts';
+import { createGithubReleaseCommand } from './createGithubReleaseCommand.ts';
+import { enterRepoRoot, type RepoLocation } from './enterRepoRoot.ts';
+import { showInitHelp, showUpdateTemplatesHelp } from './help/initHelp.ts';
+import { showOverridesHelp, showOverridesValidateHelp } from './help/overridesHelp.ts';
+import { showPrepareHelp } from './help/prepareHelp.ts';
 import {
   showCommitHelp,
   showCreateGithubReleaseHelp,
@@ -22,27 +22,27 @@ import {
   showPushHelp,
   showShowTagPrefixesHelp,
   showTagHelp,
-} from '../help/releaseStepsHelp.ts';
+} from './help/releaseStepsHelp.ts';
 import {
   showSyncLabelsGenerateHelp,
   showSyncLabelsHelp,
   showSyncLabelsInitHelp,
   showSyncLabelsSyncHelp,
-} from '../help/syncLabelsHelp.ts';
-import { showUsage } from '../help/usage.ts';
-import { initCommand } from '../init/initCommand.ts';
-import { updateTemplatesCommand } from '../init/updateTemplatesCommand.ts';
-import { prepareCommand } from '../prepareCommand.ts';
-import { publishCommand } from '../publishCommand.ts';
-import { pushCommand } from '../pushCommand.ts';
-import { resolveConfigFlag } from '../resolveConfigFlag.ts';
-import { resolveStylesOrExit } from '../resolveStylesOrExit.ts';
-import { showTagPrefixesCommand } from '../showTagPrefixesCommand.ts';
-import { generateCommand } from '../sync-labels/generateCommand.ts';
-import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
-import { syncLabelsCommand } from '../sync-labels/syncCommand.ts';
-import { tagCommand } from '../tagCommand.ts';
-import { validateOverridesCommand } from '../validateOverridesCommand.ts';
+} from './help/syncLabelsHelp.ts';
+import { showUsage } from './help/usage.ts';
+import { initCommand } from './init/initCommand.ts';
+import { updateTemplatesCommand } from './init/updateTemplatesCommand.ts';
+import { prepareCommand } from './prepareCommand.ts';
+import { publishCommand } from './publishCommand.ts';
+import { pushCommand } from './pushCommand.ts';
+import { resolveConfigFlag } from './resolveConfigFlag.ts';
+import { resolveStylesOrExit } from './resolveStylesOrExit.ts';
+import { showTagPrefixesCommand } from './showTagPrefixesCommand.ts';
+import { generateCommand } from './sync-labels/generateCommand.ts';
+import { syncLabelsInitCommand } from './sync-labels/initCommand.ts';
+import { syncLabelsCommand } from './sync-labels/syncCommand.ts';
+import { tagCommand } from './tagCommand.ts';
+import { validateOverridesCommand } from './validateOverridesCommand.ts';
 
 const VERSION = resolveSelfVersion(import.meta.url);
 

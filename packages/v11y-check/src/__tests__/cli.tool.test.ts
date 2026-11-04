@@ -3,9 +3,9 @@ import path from 'node:path';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
-// `v11y.ts` sets `process.exitCode` and returns, so that output drains before exit. These tests spawn the built bin to
+// `cli.ts` sets `process.exitCode` and returns, so that output drains before exit. These tests spawn the built bin to
 // observe its exit code and that it terminates promptly.
-const BIN_PATH = path.resolve(import.meta.dirname, '..', '..', '..', 'dist', 'esm', 'bin', 'v11y.js');
+const BIN_PATH = path.resolve(import.meta.dirname, '..', '..', 'dist', 'esm', 'cli.js');
 
 describe('v11y bin process exit', () => {
   beforeAll(() => {
