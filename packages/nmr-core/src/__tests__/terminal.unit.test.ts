@@ -13,6 +13,7 @@ import {
   printError,
   printSkip,
   printSuccess,
+  reportCrash,
   reportError,
   reportTemplateUpdate,
   reportWriteResult,
@@ -179,6 +180,47 @@ describe('print helpers', () => {
 
       expect(silent.info).toHaveBeenCalledWith(plain);
     });
+  });
+});
+
+describe(reportCrash, () => {
+  it('writes the internal-error header followed by the stack frames, without repeating the message', () => {
+    const error = new TypeError('cannot read x');
+    error.stack = 'TypeError: cannot read x\n    at first (a.js:1:1)\n    at second (b.js:2:2)';
+
+    const writtenReport = reportCrashToString('tool', error);
+
+    expect(writtenReport).toBe(
+      'tool: internal error: cannot read x\n    at first (a.js:1:1)\n    at second (b.js:2:2)\n',
+    );
+  });
+
+  it('keeps every line of a message that spans several lines', () => {
+    const error = new Error('first line\nsecond line');
+    error.stack = 'Error: first line\nsecond line\n    at first (a.js:1:1)';
+
+    const writtenReport = reportCrashToString('tool', error);
+
+    expect(writtenReport).toBe('tool: internal error: first line\nsecond line\n    at first (a.js:1:1)\n');
+  });
+
+  it('writes the header alone for an error whose stack has no frames', () => {
+    const error = new Error('no frames');
+    error.stack = 'Error: no frames';
+
+    expect(reportCrashToString('tool', error)).toBe('tool: internal error: no frames\n');
+  });
+
+  it('writes the header alone for a thrown non-Error', () => {
+    expect(reportCrashToString('tool', 'just a string')).toBe('tool: internal error: just a string\n');
+  });
+
+  it('writes to stderr by default', () => {
+    using capture = captureStdio();
+
+    reportCrash('tool', 'boom');
+
+    expect(capture.stderrChunks).toContain('tool: internal error: boom\n');
   });
 });
 
@@ -435,6 +477,19 @@ describe(resolveStreamStyles, () => {
 /** Returns the style that a helper given the wrong stream's style would print in. */
 function getOtherStyle(style: OutputStyle): OutputStyle {
   return style === 'plain' ? 'rich' : 'plain';
+}
+
+/** Runs `reportCrash` against a collecting stream and returns everything that it wrote. */
+function reportCrashToString(bin: string, error: unknown): string {
+  const chunks: Buffer[] = [];
+  const stream = new PassThrough();
+  stream.on('data', (chunk: Buffer) => {
+    chunks.push(chunk);
+  });
+
+  reportCrash(bin, error, stream);
+
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 /** Sets a stream's `isTTY` until disposed, then restores the property as it was. */
