@@ -46,13 +46,15 @@ The first rule that applies decides where a command runs:
 | 1   | `--no-delegate`                                                                         | Here                                                                                                               |
 | 2   | `--delegate` or `--delegate-to`                                                         | On a host; a command that cannot be delegated, or a tree that cannot be snapshotted, is refused                    |
 | 3   | The repo config declares `delegate: false`                                              | Here                                                                                                               |
-| 4   | `NMR_DELEGATE` names hosts                                                              | On a host; a command that cannot be delegated runs here, and a tree that cannot be snapshotted, here with one line |
-| 5   | `NMR_DELEGATE` is set but does not name a host                                          | Here                                                                                                               |
-| 6   | The user config's `when` matches, `CI` is unset, and the invocation is not `-F` or `-R` | On a host, as for rule 4; here with one line when no host answers                                                  |
-| 7   | Otherwise                                                                               | Here                                                                                                               |
+| 4   | `npm_lifecycle_event` names a package install hook, such as `postinstall`               | Here                                                                                                               |
+| 5   | `NMR_DELEGATE` names hosts                                                              | On a host; a command that cannot be delegated runs here, and a tree that cannot be snapshotted, here with one line |
+| 6   | `NMR_DELEGATE` is set but does not name a host                                          | Here                                                                                                               |
+| 7   | The user config's `when` matches, `CI` is unset, and the invocation is not `-F` or `-R` | On a host, as for rule 5; here with one line when no host answers                                                  |
+| 8   | Otherwise                                                                               | Here                                                                                                               |
 
-- **A step and a `-F` or `-R` child run where their parent runs.** nmr gives every process that it starts an empty `NMR_DELEGATE`, which rule 5 reads as "here"; the run on a host already passes `--no-delegate`, so a host does not apply its own user config. A git hook that an agent's command starts is an agent run.
+- **A step and a `-F` or `-R` child run where their parent runs.** nmr gives every process that it starts an empty `NMR_DELEGATE`, which rule 6 reads as "here"; the run on a host already passes `--no-delegate`, so a host does not apply its own user config. A git hook that an agent's command starts is an agent run.
 - **A repo whose checks must run on the machine that has the tree** declares `delegate: false` in `.config/nmr.config.ts`, the only value that the repo config accepts for the key. It outranks `NMR_DELEGATE` and the user config, but not a flag.
+- **A command in a package install hook runs here unless a flag asks otherwise.** During `pnpm add`, a hook such as `postinstall` sees a manifest that its lockfile does not match yet, and the host's frozen install of that tree fails. A command in any other `package.json` script, such as `test`, delegates as usual.
 - **`NMR_DEBUG=1` names what sent a command to a host**, such as `delegating ci per ~/.config/nmr/config.ts (when: agent)`, `per NMR_DELEGATE`, or `per --delegate-to`.
 
 ### Choosing among several hosts
