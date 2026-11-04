@@ -5,7 +5,7 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it } from 'vitest';
 
-const BIN_PATH = path.resolve(import.meta.dirname, '..', 'release-kit.ts');
+const BIN_PATH = path.resolve(import.meta.dirname, '..', 'cli.ts');
 
 const HELP_INVOCATIONS = [
   ['--help'],
