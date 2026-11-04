@@ -22,7 +22,7 @@
   "license": "ISC",
   "author": "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
   "sideEffects": [
-    "./dist/esm/bin/*.js"
+    "./dist/esm/cli.js"
   ],
   "type": "module",
   "exports": {

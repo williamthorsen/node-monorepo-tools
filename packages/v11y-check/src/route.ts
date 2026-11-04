@@ -3,11 +3,11 @@ import process from 'node:process';
 import { parseArgs, reportError, resolveSelfVersion, type StreamStyles } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import { auditCommand, checkCommand, syncCommand } from '../commands.ts';
-import { initCommand } from '../init/initCommand.ts';
-import { updateTemplatesCommand } from '../init/updateTemplatesCommand.ts';
-import { OUTPUT_STYLE_ENV_VAR, resolveStyles } from '../resolveStyles.ts';
-import type { AuditScope, CommandOptions } from '../types.ts';
+import { auditCommand, checkCommand, syncCommand } from './commands.ts';
+import { initCommand } from './init/initCommand.ts';
+import { updateTemplatesCommand } from './init/updateTemplatesCommand.ts';
+import { OUTPUT_STYLE_ENV_VAR, resolveStyles } from './resolveStyles.ts';
+import type { AuditScope, CommandOptions } from './types.ts';
 
 const VERSION = resolveSelfVersion(import.meta.url);
 
