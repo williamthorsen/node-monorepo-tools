@@ -185,8 +185,10 @@ describe('print helpers', () => {
 
 describe(reportCrash, () => {
   it('writes the internal-error header followed by the stack frames, without repeating the message', () => {
-    const error = new TypeError('cannot read x');
-    error.stack = 'TypeError: cannot read x\n    at first (a.js:1:1)\n    at second (b.js:2:2)';
+    const error = buildErrorWithStack(
+      new TypeError('cannot read x'),
+      'TypeError: cannot read x\n    at first (a.js:1:1)\n    at second (b.js:2:2)',
+    );
 
     const writtenReport = reportCrashToString('tool', error);
 
@@ -196,8 +198,10 @@ describe(reportCrash, () => {
   });
 
   it('keeps every line of a message that spans several lines', () => {
-    const error = new Error('first line\nsecond line');
-    error.stack = 'Error: first line\nsecond line\n    at first (a.js:1:1)';
+    const error = buildErrorWithStack(
+      new Error('first line\nsecond line'),
+      'Error: first line\nsecond line\n    at first (a.js:1:1)',
+    );
 
     const writtenReport = reportCrashToString('tool', error);
 
@@ -205,8 +209,7 @@ describe(reportCrash, () => {
   });
 
   it('writes the header alone for an error whose stack has no frames', () => {
-    const error = new Error('no frames');
-    error.stack = 'Error: no frames';
+    const error = buildErrorWithStack(new Error('no frames'), 'Error: no frames');
 
     expect(reportCrashToString('tool', error)).toBe('tool: internal error: no frames\n');
   });
@@ -474,6 +477,12 @@ describe(resolveStreamStyles, () => {
 });
 
 // region | Helpers
+/** Replaces an error's stack with `stack`, so that a test controls the frames that the reporter sees. */
+function buildErrorWithStack(error: Error, stack: string): Error {
+  Object.defineProperty(error, 'stack', { value: stack });
+  return error;
+}
+
 /** Returns the style that a helper given the wrong stream's style would print in. */
 function getOtherStyle(style: OutputStyle): OutputStyle {
   return style === 'plain' ? 'rich' : 'plain';
