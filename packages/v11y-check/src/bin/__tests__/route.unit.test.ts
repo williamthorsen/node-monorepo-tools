@@ -2,12 +2,12 @@ import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished, listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { auditCommand, checkCommand, syncCommand } from '../../cli.ts';
+import { auditCommand, checkCommand, syncCommand } from '../../commands.ts';
 import { initCommand } from '../../init/initCommand.ts';
 import { updateTemplatesCommand } from '../../init/updateTemplatesCommand.ts';
 import { routeCommand } from '../route.ts';
 
-vi.mock(import('../../cli.ts'), () => ({
+vi.mock(import('../../commands.ts'), () => ({
   auditCommand: vi.fn().mockResolvedValue(0),
   checkCommand: vi.fn().mockResolvedValue(0),
   syncCommand: vi.fn().mockResolvedValue(0),

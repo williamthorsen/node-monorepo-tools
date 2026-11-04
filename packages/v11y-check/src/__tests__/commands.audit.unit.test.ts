@@ -1,7 +1,7 @@
 import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { auditCommand } from '../cli.ts';
+import { auditCommand } from '../commands.ts';
 import type { LoadConfigResult } from '../config.ts';
 import { buildLoadConfigResult, callWithFakeTempDir, makeOptions } from '../test-utils/cli-fixtures.ts';
 
