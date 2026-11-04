@@ -12,17 +12,16 @@ describe(reportCliFailure, () => {
     expect(writtenReport).toBe('Error: Invalid nmr config at /repo/.config/nmr.config.ts: nope\n');
   });
 
-  it('reports nmr’s own fault with the stack from which a report of one starts', () => {
+  it('reports nmr’s own fault as an internal error, with the stack from which a report of one starts', () => {
     const writtenReport = reportToString(new Error('unhandled script origin'));
 
-    expect(writtenReport).toContain('unhandled script origin');
-    expect(writtenReport).toContain('    at ');
+    expect(writtenReport).toMatch(/^nmr: internal error: unhandled script origin\n {4}at /);
   });
 
-  it('describes a thrown non-Error, which does not have a stack to report', () => {
+  it('reports a thrown non-Error as an internal error without a stack', () => {
     const writtenReport = reportToString('just a string');
 
-    expect(writtenReport).toBe('just a string\n');
+    expect(writtenReport).toBe('nmr: internal error: just a string\n');
   });
 });
 
