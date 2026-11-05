@@ -1,6 +1,8 @@
 import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
+import { UserError } from '@williamthorsen/nmr-core';
+
 import { CONFIG_TIERS, type ConfigTier, validateConfig } from './config-validation.ts';
 import { resolveConfigPath } from './helpers/config-path.ts';
 import { escapeControlCharacters } from './helpers/escapeControlCharacters.ts';
@@ -10,7 +12,6 @@ import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scr
 import { describeScript } from './resolver.ts';
 import { readSelfReference, readStepListSelfReference, type SelfReference, type SelfReferenceScope } from './steps.ts';
 import type { NmrConfig } from './types.ts';
-import { UserError } from './UserError.ts';
 
 /** The config fields that declare scripts, each with the scope in which its entries resolve. */
 const SCRIPT_FIELDS: ReadonlyArray<{ field: 'rootScripts' | 'workspaceScripts'; scope: SelfReferenceScope }> = [

@@ -4,9 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
+import { UserError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
-
-import { UserError } from '../UserError.ts';
 
 /** A program that `nmr-actionlint` downloads rather than takes from `PATH`. */
 export type WorkflowTool = 'actionlint' | 'shellcheck';
@@ -119,7 +118,7 @@ export async function ensureTool(tool: WorkflowTool, options: EnsureToolOptions)
     const archive = await download(asset.url, options.fetch ?? globalThis.fetch);
     const actualSha256 = createHash('sha256').update(archive).digest('hex');
     if (actualSha256 !== asset.sha256) {
-      throw new Error(`Checksum mismatch for ${asset.url}: expected sha256 ${asset.sha256}, got ${actualSha256}`);
+      throw new UserError(`Checksum mismatch for ${asset.url}: expected sha256 ${asset.sha256}, got ${actualSha256}`);
     }
 
     const archivePath = path.join(scratchDir, 'archive.tar.gz');
@@ -160,7 +159,7 @@ function createCacheRoot(cacheRoot: string): void {
   try {
     fs.mkdirSync(cacheRoot, { recursive: true });
   } catch (error: unknown) {
-    throw new Error(`Cannot create the tool cache at ${cacheRoot}`, { cause: error });
+    throw new UserError(`Cannot create the tool cache at ${cacheRoot}: ${describeError(error)}`, { cause: error });
   }
 }
 
@@ -170,10 +169,10 @@ async function download(url: string, fetchImpl: FetchFunction): Promise<Buffer> 
   try {
     response = await fetchImpl(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
   } catch (error: unknown) {
-    throw new Error(`Cannot download ${url}: ${describeError(error)}`, { cause: error });
+    throw new UserError(`Cannot download ${url}: ${describeError(error)}`, { cause: error });
   }
   if (!response.ok) {
-    throw new Error(`Cannot download ${url}: HTTP ${response.status}`);
+    throw new UserError(`Cannot download ${url}: HTTP ${response.status}`);
   }
   return Buffer.from(await response.arrayBuffer());
 }
@@ -182,10 +181,10 @@ async function download(url: string, fetchImpl: FetchFunction): Promise<Buffer> 
 function extractMember(archivePath: string, extractDir: string, member: string): void {
   const result = spawnSync('tar', ['-xzf', archivePath, '-C', extractDir, member], { encoding: 'utf8' });
   if (result.error !== undefined) {
-    throw new Error(`Cannot run tar to extract ${member}: ${result.error.message}`, { cause: result.error });
+    throw new UserError(`Cannot run tar to extract ${member}: ${result.error.message}`, { cause: result.error });
   }
   if (result.status !== 0) {
-    throw new Error(`tar could not extract ${member} from ${archivePath}: ${result.stderr.trim()}`);
+    throw new UserError(`tar could not extract ${member} from ${archivePath}: ${result.stderr.trim()}`);
   }
 }
 
@@ -195,7 +194,9 @@ function publishStage(stageDir: string, targetDir: string, binaryPath: string): 
     fs.renameSync(stageDir, targetDir);
   } catch (error: unknown) {
     if (!fs.existsSync(binaryPath)) {
-      throw error;
+      throw new UserError(`Cannot move the downloaded tool into ${targetDir}: ${describeError(error)}`, {
+        cause: error,
+      });
     }
   }
 }

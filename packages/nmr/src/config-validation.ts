@@ -1,3 +1,5 @@
+import { UserError } from '@williamthorsen/nmr-core';
+
 import { assertResolvableCheckCacheCommands } from './config-check-cache.ts';
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import { findUnexpressibleToken } from './steps.ts';
@@ -10,7 +12,6 @@ import type {
   SelfHostedRunnerConfig,
   StepSpec,
 } from './types.ts';
-import { UserError } from './UserError.ts';
 import { formatVerbosityRejection, isCommandVerbosity } from './verbosity.ts';
 
 /**

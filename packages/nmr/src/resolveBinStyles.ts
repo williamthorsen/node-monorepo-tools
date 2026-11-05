@@ -1,9 +1,8 @@
 import process from 'node:process';
 
-import { describeInvalidOutputStyle, type StreamStyles } from '@williamthorsen/nmr-core';
+import { describeInvalidOutputStyle, type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 
 import { resolveOutputStyles } from './output-style.ts';
-import { UserError } from './UserError.ts';
 
 /**
  * Resolves the style of the running process's own output streams, and rejects a variable that does not name any

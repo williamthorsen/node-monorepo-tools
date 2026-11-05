@@ -2,12 +2,12 @@ import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { isBuiltin } from 'node:module';
 import path from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
 import { findDirectoryChainMatch } from '@williamthorsen/toolbelt.filesystem';
 import type { Plugin } from 'vite';
 
 import { parsePackageJson } from './helpers/package-json.ts';
 import { isObject } from './helpers/type-guards.ts';
-import { UserError } from './UserError.ts';
 
 /** Conditions honoured while walking an `exports` map, whichever environment is resolving. */
 const SHARED_CONDITIONS = ['module', 'import', 'development', 'default'];

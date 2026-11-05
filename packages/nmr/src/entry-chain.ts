@@ -1,8 +1,9 @@
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
+
 import { isObject } from './helpers/type-guards.ts';
-import { UserError } from './UserError.ts';
 
 /**
  * Carries the entries that a run is inside, from the outermost inward, down to every process that it spawns. An

@@ -1,8 +1,8 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { UserError } from '../../UserError.ts';
 import { readPackageJson } from '../package-json.ts';
 
 describe(readPackageJson, () => {

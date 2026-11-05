@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished, makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import * as ts from 'typescript';
@@ -161,9 +162,10 @@ describe('buildPackage emit correctness', () => {
       'index.ts': `import { missing } from '~/nonexistent.ts';\nexport const value = missing;\n`,
     });
 
-    await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow(
-      /could not resolve aliased import '~\/nonexistent\.ts'/,
-    );
+    const build = buildPackage(tree.dir, { style: 'rich' });
+
+    await expect(build).rejects.toThrow(/could not resolve aliased import '~\/nonexistent\.ts'/);
+    await expect(build).rejects.toBeInstanceOf(UserError);
   });
 
   it('emits declaration files under outDir even when tsconfig sets declarationDir', async ({ tree }) => {
@@ -327,9 +329,10 @@ describe('buildPackage with an alias target outside the package source tree', ()
     // `src/`; without `paths` it is unresolvable, so the emitted specifier would fail at runtime.
     const packageDir = scaffoldRootEscapingAliasPackage(tree);
 
-    await expect(buildPackage(packageDir, { style: 'rich' })).rejects.toThrow(
-      /aliased import '~\/rootFile\.ts' from .* resolves to .*rootFile\.ts/,
-    );
+    const build = buildPackage(packageDir, { style: 'rich' });
+
+    await expect(build).rejects.toThrow(/aliased import '~\/rootFile\.ts' from .* resolves to .*rootFile\.ts/);
+    await expect(build).rejects.toBeInstanceOf(UserError);
   });
 
   it('fails the build when an escaping alias resolves only through baseUrl, which Node ignores', async ({ tree }) => {

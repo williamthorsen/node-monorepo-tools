@@ -109,12 +109,12 @@
           "path": "../../nmr-core/dist/esm/helpers/workspace-patterns.js"
         },
         {
-          "hash": "a9c5081f",
+          "hash": "8fe9a346",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/index.js"
         },
         {
-          "hash": "a2053951",
+          "hash": "de51ceb3",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/parseArgs.js"
         },
@@ -124,7 +124,7 @@
           "path": "../../nmr-core/dist/esm/runGit.js"
         },
         {
-          "hash": "c12942ea",
+          "hash": "6f46d90a",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/terminal.js"
         },
@@ -137,6 +137,11 @@
           "hash": "5ae3e980",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/updateManagedFile.js"
+        },
+        {
+          "hash": "e02e0a74",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/UserError.js"
         },
         {
           "hash": "00d00fae",
@@ -217,17 +222,17 @@
           ]
         },
         {
-          "hash": "19b57f2e",
+          "hash": "578af9fd",
           "kind": "module",
           "path": "../src/config-check-cache.ts"
         },
         {
-          "hash": "2cfe8c2e",
+          "hash": "fa9330c5",
           "kind": "module",
           "path": "../src/config-validation.ts"
         },
         {
-          "hash": "5b589c7e",
+          "hash": "4240e226",
           "kind": "module",
           "path": "../src/config.ts"
         },
@@ -262,7 +267,7 @@
           "path": "../src/helpers/hook-name.ts"
         },
         {
-          "hash": "8850834f",
+          "hash": "7fb6c09d",
           "kind": "module",
           "path": "../src/helpers/package-json.ts"
         },
@@ -302,11 +307,6 @@
           "path": "../src/tiers.ts"
         },
         {
-          "hash": "faad986a",
-          "kind": "module",
-          "path": "../src/UserError.ts"
-        },
-        {
           "hash": "ecf8a873",
           "kind": "module",
           "path": "../src/verbosity.ts"
@@ -317,7 +317,7 @@
           "path": "../src/workspace-globs.ts"
         },
         {
-          "hash": "922e7155",
+          "hash": "770e4f3a",
           "kind": "module",
           "path": "../src/workspace.ts"
         }
@@ -327,7 +327,7 @@
       "readyupVersion": "0.44.0",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "5689b2d3"
+      "targetHash": "36391af8"
     }
   ]
 }

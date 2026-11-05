@@ -16,6 +16,7 @@ import {
 } from '@williamthorsen/toolbelt.terminal/candidate';
 
 import type { ManagedFileResult } from './updateManagedFile.ts';
+import { UserError } from './UserError.ts';
 import type { WriteResult } from './writeFileWithCheck.ts';
 
 export type {
@@ -118,6 +119,19 @@ export function reportCrash(bin: string, error: unknown, stream: Writable = proc
 /** Writes the canonical `Error: <message>` line to `stream`, which an in-process CLI sets to its own `Writable`. */
 export function reportError(message: string, stream: Writable = process.stderr): void {
   stream.write(`${formatErrorLine(message)}\n`);
+}
+
+/**
+ * Writes a failure that reached a CLI's last-resort handler: a `UserError` as `Error: <message>`, and anything else
+ * as an internal error through `reportCrash`.
+ */
+export function reportFailure(bin: string, error: unknown, stream: Writable = process.stderr): void {
+  if (error instanceof UserError) {
+    reportError(describeError(error), stream);
+    return;
+  }
+
+  reportCrash(bin, error, stream);
 }
 
 /**

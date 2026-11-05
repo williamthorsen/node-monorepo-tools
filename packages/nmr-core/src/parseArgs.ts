@@ -2,6 +2,7 @@ import process from 'node:process';
 import { parseArgs as nodeParseArgs } from 'node:util';
 
 import { reportError } from './terminal.ts';
+import { UserError } from './UserError.ts';
 
 /** Schema entry describing a single CLI flag. */
 export interface FlagDefinition {
@@ -43,7 +44,7 @@ const initialFlagValues: Record<FlagDefinition['type'], false | undefined> = { b
  * positional value for `'unexpected-positional'`. Its `message` is composed from those fields, so error
  * wording is uniform across every kind.
  */
-export class ParseError extends Error {
+export class ParseError extends UserError {
   readonly kind: ParseErrorKind;
   readonly flag: string;
 

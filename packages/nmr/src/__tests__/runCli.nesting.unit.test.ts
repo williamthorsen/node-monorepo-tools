@@ -1,6 +1,7 @@
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
 import type { TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
@@ -20,7 +21,6 @@ import {
   writeConfig,
   writePackageScripts,
 } from '../test-utils/run-cli-harness.ts';
-import { UserError } from '../UserError.ts';
 
 vi.mock(import('../runner.ts'), async (importOriginal) => ({
   ...(await importOriginal()),

@@ -3,6 +3,7 @@ import { ProcessExitError, throwOnProcessExit } from '@williamthorsen/toolbelt.v
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { type FlagSchema, parseArgs, parseArgsOrExit, ParseError, type ParseErrorKind } from '../parseArgs.ts';
+import { UserError } from '../UserError.ts';
 
 const emptySchema = {} satisfies FlagSchema;
 
@@ -195,6 +196,15 @@ describe(parseArgs, () => {
     it('throws unknown-flag for an unknown flag inside a cluster', async () => {
       await expectParseError(['-ax'], clusterSchema, 'unknown-flag', '-x');
     });
+  });
+});
+
+describe(ParseError, () => {
+  it('is a UserError, so that a last-resort handler reports it as a handled error', async () => {
+    const error = await expectParseError(['--unknown'], mixedSchema, 'unknown-flag', '--unknown');
+
+    expect(error).toBeInstanceOf(UserError);
+    expect(error.name).toBe('ParseError');
   });
 });
 

@@ -1,9 +1,8 @@
-import { formatGlyphLine, type OutputStyle } from '@williamthorsen/nmr-core';
+import { formatGlyphLine, type OutputStyle, UserError } from '@williamthorsen/nmr-core';
 
 import { NMR_GLYPHS } from '../glyphs.ts';
 import { getPnpmOverrides, readPackageJson } from '../helpers/package-json.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
-import { UserError } from '../UserError.ts';
 import { readWorkspaceOverrides } from '../workspace.ts';
 
 /**

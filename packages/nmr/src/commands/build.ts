@@ -9,8 +9,10 @@ import {
   readCacheEntry,
   startTimer,
   STATUS_GLYPHS,
+  UserError,
   writeCacheEntry,
 } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 import { glob } from 'glob';
 import type * as TypeScript from 'typescript';
 
@@ -252,7 +254,7 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
 /** Throws with formatted diagnostics when the compiler skipped an emit. */
 function assertEmitSucceeded(result: TypeScript.EmitResult): void {
   if (result.emitSkipped) {
-    throw new Error(`nmr-compile: emit failed.\n${formatDiagnostics(result.diagnostics)}`);
+    throw new UserError(`nmr-compile: emit failed.\n${formatDiagnostics(result.diagnostics)}`);
   }
 }
 
@@ -314,7 +316,7 @@ function resolveEmitDir(packageDir: string, outdir: string): string {
     relativePathFromPackage.startsWith('..') ||
     path.isAbsolute(relativePathFromPackage)
   ) {
-    throw new Error(
+    throw new UserError(
       `nmr-compile: refusing to build into '${outdir}', which does not resolve inside the package. ` +
         'The build replaces its output directory on each emit, so the directory must be below the package root.',
     );
@@ -344,7 +346,9 @@ async function swapIntoPlace(emitDir: string, scratchDirs: ScratchDirs): Promise
     if (hadPreviousOutput && !existsSync(emitDir)) {
       await rename(scratchDirs.previousDir, emitDir);
     }
-    throw error;
+    throw new UserError(`nmr-compile: failed to move the built output into ${emitDir}: ${describeError(error)}`, {
+      cause: error,
+    });
   }
 
   await discardScratchDirs(scratchDirs);
@@ -367,12 +371,12 @@ function synthesizeCompilerOptions(packageDir: string, outdir: string): TypeScri
   const configPath = path.join(packageDir, 'tsconfig.json');
   const configFile = ts.readConfigFile(configPath, (fileName) => ts.sys.readFile(fileName));
   if (configFile.error) {
-    throw new Error(`nmr-compile: failed to read ${configPath}.\n${formatDiagnostics([configFile.error])}`);
+    throw new UserError(`nmr-compile: failed to read ${configPath}.\n${formatDiagnostics([configFile.error])}`);
   }
 
   const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, packageDir);
   if (parsedConfig.errors.length > 0) {
-    throw new Error(`nmr-compile: failed to parse ${configPath}.\n${formatDiagnostics(parsedConfig.errors)}`);
+    throw new UserError(`nmr-compile: failed to parse ${configPath}.\n${formatDiagnostics(parsedConfig.errors)}`);
   }
 
   const resolvedOutDir = path.resolve(packageDir, outdir);

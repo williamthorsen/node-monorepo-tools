@@ -1,6 +1,7 @@
 import process from 'node:process';
 
-import { reportCliFailure } from './reportCliFailure.ts';
+import { reportFailure } from '@williamthorsen/nmr-core';
+
 import { runCli } from './runCli.ts';
 
 try {
@@ -13,6 +14,6 @@ try {
   });
   process.exitCode = exitCode;
 } catch (error: unknown) {
-  reportCliFailure(error, process.stderr);
+  reportFailure('nmr', error);
   process.exitCode = 1;
 }

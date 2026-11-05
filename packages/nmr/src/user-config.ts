@@ -2,10 +2,11 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { UserError } from '@williamthorsen/nmr-core';
+
 import { assertRecognizedKeys } from './config-validation.ts';
 import { isObject } from './helpers/type-guards.ts';
 import type { HostList } from './remote-run.ts';
-import { UserError } from './UserError.ts';
 
 /** The values that `delegate.when` accepts, each naming the runs that delegate without being asked. */
 export const DELEGATE_WHEN_VALUES = ['agent', 'always'] as const;
