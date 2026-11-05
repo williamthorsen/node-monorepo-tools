@@ -1,6 +1,13 @@
 import process from 'node:process';
 
-import { parseArgs, reportError, resolveSelfVersion, type StreamStyles, UserError } from '@williamthorsen/nmr-core';
+import {
+  isAnticipatedFailure,
+  parseArgs,
+  reportError,
+  resolveSelfVersion,
+  type StreamStyles,
+  UserError,
+} from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { auditCommand, checkCommand, syncCommand } from './commands.ts';
@@ -268,9 +275,9 @@ function handleUpdateTemplates(flags: string[], styles: StreamStyles): number {
 
 // region | Helpers
 
-/** Reports a `UserError` and returns exit code 1, and rethrows anything else for the crash handler in `cli.ts`. */
+/** Reports an anticipated failure and returns exit code 1; rethrows anything else for the handler in `cli.ts`. */
 function reportUserError(error: unknown): number {
-  if (!(error instanceof UserError)) {
+  if (!isAnticipatedFailure(error)) {
     throw error;
   }
   reportError(describeError(error));

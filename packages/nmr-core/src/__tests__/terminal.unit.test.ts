@@ -236,6 +236,17 @@ describe(reportFailure, () => {
     expect(writtenReport).toBe('Error: Config file not found: /repo/tool.json\n');
   });
 
+  it('reports a Node system error as its message alone', () => {
+    const systemError = Object.assign(new Error("EACCES: permission denied, open '/repo/CHANGELOG.md'"), {
+      code: 'EACCES',
+      syscall: 'open',
+    });
+
+    expect(reportFailureToString('tool', systemError)).toBe(
+      "Error: EACCES: permission denied, open '/repo/CHANGELOG.md'\n",
+    );
+  });
+
   it('reports any other error as an internal error, with its stack frames', () => {
     const writtenReport = reportFailureToString('tool', new Error('unhandled script origin'));
 

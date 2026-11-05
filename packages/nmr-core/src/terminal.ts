@@ -15,8 +15,8 @@ import {
   type StatusGlyphName,
 } from '@williamthorsen/toolbelt.terminal/candidate';
 
+import { isAnticipatedFailure } from './isAnticipatedFailure.ts';
 import type { ManagedFileResult } from './updateManagedFile.ts';
-import { UserError } from './UserError.ts';
 import type { WriteResult } from './writeFileWithCheck.ts';
 
 export type {
@@ -122,11 +122,11 @@ export function reportError(message: string, stream: Writable = process.stderr):
 }
 
 /**
- * Writes a failure that reached a CLI's last-resort handler: a `UserError` as `Error: <message>`, and anything else
- * as an internal error through `reportCrash`.
+ * Writes a failure that reached a CLI's last-resort handler: an anticipated failure (see `isAnticipatedFailure`) as
+ * `Error: <message>`, and anything else as an internal error through `reportCrash`.
  */
 export function reportFailure(bin: string, error: unknown, stream: Writable = process.stderr): void {
-  if (error instanceof UserError) {
+  if (isAnticipatedFailure(error)) {
     reportError(describeError(error), stream);
     return;
   }
