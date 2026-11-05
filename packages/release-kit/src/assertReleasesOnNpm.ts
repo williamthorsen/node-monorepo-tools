@@ -6,6 +6,7 @@ import { UserError } from '@williamthorsen/nmr-core';
 import { isPublishableManifest } from './isPublishableManifest.ts';
 import { lookUpNpmPackage } from './npmRegistry.ts';
 import { isRecord } from './typeGuards.ts';
+import { chainUserError } from './user-error-chaining.ts';
 
 /**
  * Throws when npm doesn't list, or can't confirm, a publishable package among the given workspaces.
@@ -47,7 +48,13 @@ interface NpmCandidate {
 
 /** Reads a workspace's `package.json` into a candidate for the npm lookup, or returns undefined when it is private. */
 function buildNpmCandidate(workspacePath: string): NpmCandidate | undefined {
-  const manifest: unknown = JSON.parse(readFileSync(join(workspacePath, 'package.json'), 'utf8'));
+  const manifestPath = join(workspacePath, 'package.json');
+  let manifest: unknown;
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  } catch (error: unknown) {
+    throw chainUserError(`Failed to parse ${manifestPath}`, error);
+  }
   if (!isRecord(manifest) || !isPublishableManifest(manifest) || typeof manifest['name'] !== 'string') {
     return undefined;
   }

@@ -1,4 +1,10 @@
-import { formatErrorLine, formatStatusLine, type OutputStyle, type StreamStyles } from '@williamthorsen/nmr-core';
+import {
+  formatErrorLine,
+  formatStatusLine,
+  isAnticipatedFailure,
+  type OutputStyle,
+  type StreamStyles,
+} from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { buildChangelogEntries, type ReleaseHistoryConfig } from './buildChangelogEntries.ts';
@@ -84,6 +90,9 @@ export async function validateOverridesCommand(
   try {
     workspace = discover();
   } catch (error: unknown) {
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
     return { exitCode: 2, message: formatErrorLine(`Failed to discover workspaces: ${describeError(error)}`) };
   }
 
@@ -98,6 +107,9 @@ export async function validateOverridesCommand(
   try {
     inputs = buildValidationInputs(resolveReleaseTargets(userConfig, workspace), buildEntries);
   } catch (error: unknown) {
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
     return { exitCode: 2, message: formatErrorLine(`Failed to resolve overrides scope: ${describeError(error)}`) };
   }
 

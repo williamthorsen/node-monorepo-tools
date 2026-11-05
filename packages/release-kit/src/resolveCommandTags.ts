@@ -2,7 +2,6 @@
 /* eslint unicorn/no-process-exit: off */
 
 import { reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import type { ReleaseKitConfig } from './configSchema.ts';
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
@@ -12,7 +11,7 @@ import { readRootPackageVersion } from './loadConfig.ts';
 import { mergeMonorepoConfig } from './mergeConfig.ts';
 import { type ResolvedTag, resolveReleaseTags } from './resolveReleaseTags.ts';
 import type { DirectoryConfig, ResolvedProjectConfig, WorkspaceConfig } from './types.ts';
-
+import { prefixUserError } from './user-error-chaining.ts';
 /**
  * Discovers workspaces, resolves release tags from HEAD, validates `--tags` names against the full resolved tag
  * names (e.g., `nmr-core-v1.3.0`), and returns the filtered tag list. Exits with an error message on any validation
@@ -40,8 +39,7 @@ export function resolveCommandTags(
   try {
     workspace = discoverWorkspaces();
   } catch (error: unknown) {
-    reportError(`Failed to discover workspaces: ${describeError(error)}`);
-    process.exit(1);
+    throw prefixUserError('Failed to discover workspaces', error);
   }
 
   if (workspace.kind === 'empty') {
@@ -67,8 +65,7 @@ export function resolveCommandTags(
       excludedPaths = new Set(excludedWorkspaces.map((excludedWorkspace) => excludedWorkspace.workspacePath));
     }
   } catch (error: unknown) {
-    reportError(`Failed to resolve workspaces: ${describeError(error)}`);
-    process.exit(1);
+    throw prefixUserError('Failed to resolve workspaces', error);
   }
 
   // Resolve tags from HEAD. The try block above sets exactly one of workspaces/singleWorkspace.

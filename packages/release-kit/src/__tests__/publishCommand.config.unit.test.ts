@@ -1,4 +1,4 @@
-import type { StreamStyles } from '@williamthorsen/nmr-core';
+import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -276,10 +276,10 @@ describe(publishCommand, () => {
       mockResolveReadmePath.mockReturnValue('/pkg/README.md');
       mockInjectReleaseNotesIntoReadme.mockReturnValue('# Original README\n');
       mockPublishPackage.mockImplementation(() => {
-        throw new Error('publish failed');
+        throw new UserError('publish failed');
       });
 
-      await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
+      await captureError(UserError, () => publishCommand([], RICH_STYLES, process.cwd()));
       expect(mockWriteFileSync).toHaveBeenCalledWith('/pkg/README.md', '# Original README\n', 'utf8');
     });
 

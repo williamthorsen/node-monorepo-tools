@@ -1,4 +1,4 @@
-import type { StreamStyles } from '@williamthorsen/nmr-core';
+import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -253,15 +253,13 @@ describe(pushCommand, () => {
     });
   });
 
-  it('exits with code 1 when pushRelease throws', async () => {
+  it('rethrows the UserError when pushRelease throws', async () => {
     mockPushRelease.mockImplementation(() => {
-      throw new Error('push failed');
+      throw new UserError('push failed');
     });
 
-    const error = await captureError(ProcessExitError, () => pushCommand([], RICH_STYLES, process.cwd()));
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Error: push failed\n');
+    const error = await captureError(UserError, () => pushCommand([], RICH_STYLES, process.cwd()));
+    expect(error.message).toBe('push failed');
   });
 
   it('skips pushRelease when resolveCommandTags does not resolve any tags', async () => {

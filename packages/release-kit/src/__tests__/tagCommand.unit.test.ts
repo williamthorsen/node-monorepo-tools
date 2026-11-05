@@ -1,4 +1,4 @@
-import type { StreamStyles } from '@williamthorsen/nmr-core';
+import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -68,14 +68,12 @@ describe(tagCommand, () => {
     expect(stdioCapture.stderrChunks).toContain('Error: Unknown option: --config\n');
   });
 
-  it('exits with code 1 when createTags throws', async () => {
+  it('rethrows the UserError when createTags throws', async () => {
     mockCreateTags.mockImplementation(() => {
-      throw new Error('No tags file found. Run `release-kit prepare` first.');
+      throw new UserError('No tags file found. Run `release-kit prepare` first.');
     });
 
-    const error = await captureError(ProcessExitError, () => tagCommand([], RICH_STYLES));
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Error: No tags file found. Run `release-kit prepare` first.\n');
+    const error = await captureError(UserError, () => tagCommand([], RICH_STYLES));
+    expect(error.message).toBe('No tags file found. Run `release-kit prepare` first.');
   });
 });

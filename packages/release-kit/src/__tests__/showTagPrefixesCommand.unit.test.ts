@@ -1,5 +1,5 @@
-import type { StreamStyles } from '@williamthorsen/nmr-core';
-import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
+import { captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPreview = vi.hoisted(() => vi.fn());
@@ -118,7 +118,7 @@ describe(showTagPrefixesCommand, () => {
 
   it('exits 1 and reports when the preview itself fails', async () => {
     mockPreview.mockImplementation(() => {
-      throw new Error('Failed to read pnpm-workspace.yaml');
+      throw new UserError('Failed to read pnpm-workspace.yaml');
     });
     using stdioCapture = captureStdio();
 
@@ -127,6 +127,15 @@ describe(showTagPrefixesCommand, () => {
     expect(exitCode).toBe(1);
     expect(stdioCapture.stderr).toContain('Failed to read pnpm-workspace.yaml');
     expect(stdioCapture.stderr).not.toContain('Failed to load config');
+  });
+
+  it('rethrows a crash in the preview unchanged', async () => {
+    const crash = new TypeError('Cannot read properties of undefined');
+    mockPreview.mockImplementation(() => {
+      throw crash;
+    });
+
+    await expect(captureError(TypeError, () => showTagPrefixesCommand(RICH_STYLES))).resolves.toBe(crash);
   });
 
   it('exits 0 when every workspace derives a prefix and the preview does not report any collision or undeclared prefix', async () => {

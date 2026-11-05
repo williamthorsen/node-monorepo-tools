@@ -1,4 +1,5 @@
-import type { StreamStyles } from '@williamthorsen/nmr-core';
+import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
+import { captureError } from '@williamthorsen/toolbelt.testing/candidate';
 import { listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -34,7 +35,8 @@ vi.mock(import('../hasPublishablePackage.ts'), async (importOriginal) => ({
   hasPublishablePackage: mockHasPublishablePackage,
 }));
 
-vi.mock(import('@williamthorsen/nmr-core'), () => ({
+vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => ({
+  ...(await importOriginal()),
   printError: mockPrintError,
   printSkip: mockPrintSkip,
   printStep: mockPrintStep,
@@ -119,7 +121,7 @@ describe(initCommand, () => {
 
   it('returns 1 when an eligibility check throws', () => {
     mockIsGitRepo.mockImplementation(() => {
-      throw new Error('unexpected filesystem error');
+      throw new UserError('unexpected filesystem error');
     });
 
     const exitCode = initCommand({
@@ -134,10 +136,23 @@ describe(initCommand, () => {
     expect(mockScaffoldFiles).not.toHaveBeenCalled();
   });
 
+  it('rethrows a crash in an eligibility check unchanged', async () => {
+    const crash = new TypeError('Cannot read properties of undefined');
+    mockIsGitRepo.mockImplementation(() => {
+      throw crash;
+    });
+
+    await expect(
+      captureError(TypeError, () =>
+        initCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: false }),
+      ),
+    ).resolves.toBe(crash);
+  });
+
   it('returns 1 when detectRepoType throws', () => {
     stubPassingChecks();
     mockDetectRepoType.mockImplementation(() => {
-      throw new Error('Cannot read package.json');
+      throw new UserError('Cannot read package.json');
     });
 
     const exitCode = initCommand({
@@ -155,7 +170,7 @@ describe(initCommand, () => {
   it('returns 1 when scaffoldFiles throws', () => {
     stubPassingChecks();
     mockScaffoldFiles.mockImplementation(() => {
-      throw new Error('EACCES: permission denied');
+      throw new UserError('EACCES: permission denied');
     });
 
     const exitCode = initCommand({

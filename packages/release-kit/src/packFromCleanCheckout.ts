@@ -7,6 +7,7 @@ import { UserError } from '@williamthorsen/nmr-core';
 
 import { type PackageManager, resolveExecutable } from './detectPackageManager.ts';
 import { isRecord } from './typeGuards.ts';
+import { chainUserError } from './user-error-chaining.ts';
 
 /**
  * Packs each workspace as the publish environment would and returns each one's tarball entries, keyed by workspace
@@ -79,7 +80,13 @@ const PACKAGE_MANAGER_COMMANDS: Record<
 
 /** Reports whether the package in `packageDir` declares a `prepublishOnly` script. */
 function declaresPrepublishOnly(packageDir: string): boolean {
-  const manifest: unknown = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'));
+  const manifestPath = join(packageDir, 'package.json');
+  let manifest: unknown;
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  } catch (error: unknown) {
+    throw chainUserError(`Failed to parse ${manifestPath}`, error);
+  }
   const scripts = isRecord(manifest) ? manifest['scripts'] : undefined;
   return isRecord(scripts) && typeof scripts['prepublishOnly'] === 'string';
 }

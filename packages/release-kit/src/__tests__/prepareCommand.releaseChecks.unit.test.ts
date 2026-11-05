@@ -1,6 +1,6 @@
-import type { StreamStyles } from '@williamthorsen/nmr-core';
+import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -117,14 +117,11 @@ describe(prepareCommand, () => {
         }),
       );
 
-      await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
+      const error = await captureError(UserError, () => prepareCommand([], RICH_STYLES, process.cwd()));
+
       expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
-      expect(stdioCapture.stderrChunks.join('')).toContain(
-        '@scope/arrays: run "npm publish --access public" from packages/arrays',
-      );
-      expect(stdioCapture.stderrChunks).toContain(
-        'The command did not write any files; the working tree is unchanged.\n',
-      );
+      expect(error.message).toContain('@scope/arrays: run "npm publish --access public" from packages/arrays');
+      expect(error.message.endsWith('The command did not write any files; the working tree is unchanged.')).toBe(true);
     });
 
     it('refuses during a dry run as well', async () => {
@@ -136,8 +133,9 @@ describe(prepareCommand, () => {
         makePrepareResult({ targets: [makeReleasedResult('arrays')], tags: ['arrays-v1.0.0'] }),
       );
 
-      await expect(prepareCommand(['--dry-run'], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-      expect(stdioCapture.stderrChunks.join('')).toContain('@scope/arrays: Cannot reach the npm registry (ENOTFOUND)');
+      const error = await captureError(UserError, () => prepareCommand(['--dry-run'], RICH_STYLES, process.cwd()));
+
+      expect(error.message).toContain('@scope/arrays: Cannot reach the npm registry (ENOTFOUND)');
     });
 
     it('looks up the root package in a single-package release', async () => {
@@ -183,7 +181,9 @@ describe(prepareCommand, () => {
 
     it('refuses without writing any file when a tarball lacks a manifest file', async () => {
       mockAssertTarballsComplete.mockImplementation(() => {
-        throw new Error('Cannot release: The tarball of every package must contain each file that its manifest names.');
+        throw new UserError(
+          'Cannot release: The tarball of every package must contain each file that its manifest names.',
+        );
       });
       mockPrepareReleaseTargets.mockReturnValue(
         makePrepareResult({
@@ -193,14 +193,11 @@ describe(prepareCommand, () => {
         }),
       );
 
-      const error = await captureError(ProcessExitError, () => prepareCommand([], RICH_STYLES, process.cwd()));
+      const error = await captureError(UserError, () => prepareCommand([], RICH_STYLES, process.cwd()));
 
-      expect(error.code).toBe(1);
       expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
-      expect(stdioCapture.stderr).toContain('must contain each file that its manifest names');
-      expect(stdioCapture.stderrChunks).toContain(
-        'The command did not write any files; the working tree is unchanged.\n',
-      );
+      expect(error.message).toContain('must contain each file that its manifest names');
+      expect(error.message.endsWith('The command did not write any files; the working tree is unchanged.')).toBe(true);
     });
   });
 });

@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { type OutputStyle, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
+import { isAnticipatedFailure, type OutputStyle, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 import { stringify } from 'yaml';
 
@@ -114,6 +114,9 @@ export async function generateCommand({ shouldCheck = false, configPath, styles 
   try {
     labels = resolveLabels(repoLabels);
   } catch (error: unknown) {
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
     const message = describeError(error);
     reportError(`Failed to resolve labels: ${message}`);
     return 1;

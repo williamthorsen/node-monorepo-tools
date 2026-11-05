@@ -1,6 +1,11 @@
 import { existsSync } from 'node:fs';
 
-import { reportWriteResult, type StreamStyles, writeFileWithCheck } from '@williamthorsen/nmr-core';
+import {
+  isAnticipatedFailure,
+  reportWriteResult,
+  type StreamStyles,
+  writeFileWithCheck,
+} from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from '../discoverWorkspaces.ts';
@@ -60,6 +65,9 @@ export async function syncLabelsInitCommand({
   try {
     workspace = discoverWorkspaces();
   } catch (error: unknown) {
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
     const message = describeError(error);
     process.stderr.write(`  Failed to discover workspaces: ${message}\n`);
     return 1;
@@ -92,6 +100,9 @@ export async function syncLabelsInitCommand({
   try {
     workflow = readSyncLabelsWorkflowTemplate();
   } catch (error: unknown) {
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
     process.stderr.write(`  ${describeError(error)}\n`);
     return 1;
   }

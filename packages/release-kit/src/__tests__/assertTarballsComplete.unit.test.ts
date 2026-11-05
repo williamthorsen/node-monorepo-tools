@@ -76,6 +76,14 @@ describe(assertTarballsComplete, () => {
     );
   });
 
+  it('throws a UserError naming the manifest when a package.json does not parse', async () => {
+    mockReadFileSync.mockReturnValue('{ not json');
+
+    const error = await captureError(UserError, () => assertTarballsComplete(['packages/broken'], [], pack));
+
+    expect(error.message).toMatch(/^Failed to parse packages\/broken\/package\.json: /);
+  });
+
   it('does not pack a private package', () => {
     assertTarballsComplete(['packages/complete', 'packages/internal'], [], pack);
 

@@ -1,5 +1,5 @@
-import type { StreamStyles } from '@williamthorsen/nmr-core';
-import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
+import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -312,30 +312,33 @@ describe(prepareCommand, () => {
     );
   });
 
-  it('prints stage-attributed errors with the canonical Error prefix and without the "Error preparing release:" wrapper', async () => {
+  it('rethrows a failed computation as a UserError that ends with the note that the working tree is unchanged', async () => {
     mockPrepareReleaseTargets.mockImplementation(() => {
-      throw new Error("workspace 'arrays' release stage: planVersionBump failed: ENOENT");
+      throw new UserError("workspace 'arrays' release stage: planVersionBump failed: ENOENT");
     });
 
-    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(stdioCapture.stderrChunks).toContain(
-      "Error: workspace 'arrays' release stage: planVersionBump failed: ENOENT\n",
+    const error = await captureError(UserError, () => prepareCommand([], RICH_STYLES, process.cwd()));
+
+    expect(error.message).toBe(
+      "workspace 'arrays' release stage: planVersionBump failed: ENOENT\n" +
+        'The command did not write any files; the working tree is unchanged.',
     );
-    expect(stdioCapture.stderr).not.toContain('Error preparing release');
+    expect(stdioCapture.stderr).toBe('');
   });
 
-  it('reports that the working tree is unchanged when computation fails', async () => {
+  it('writes the unchanged-tree note and rethrows a crash in computation unchanged', async () => {
+    const crash = new TypeError('Cannot read properties of undefined');
     mockPrepareReleaseTargets.mockImplementation(() => {
-      throw new Error("workspace 'arrays' release stage: ENOBUFS");
+      throw crash;
     });
 
-    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(stdioCapture.stderrChunks).toContain(
+    await expect(captureError(TypeError, () => prepareCommand([], RICH_STYLES, process.cwd()))).resolves.toBe(crash);
+    expect(stdioCapture.stderrChunks).toStrictEqual([
       'The command did not write any files; the working tree is unchanged.\n',
-    );
+    ]);
   });
 
-  it('exits and names the written and unwritten files when the apply pass fails', async () => {
+  it('throws, naming the written and unwritten files, when the apply pass fails', async () => {
     mockPrepareReleaseTargets.mockReturnValue(
       makePrepareResult({
         tags: ['arrays-v1.0.0'],
@@ -351,10 +354,11 @@ describe(prepareCommand, () => {
         : { filePath: path, outcome: 'created' },
     );
 
-    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(stdioCapture.stderr).toContain('permission denied');
-    expect(stdioCapture.stderr).toContain('packages/arrays/package.json');
-    expect(stdioCapture.stderr).toContain('Not written:');
+    const error = await captureError(UserError, () => prepareCommand([], RICH_STYLES, process.cwd()));
+
+    expect(error.message).toContain('permission denied');
+    expect(error.message).toContain('packages/arrays/package.json');
+    expect(error.message).toContain('Not written:');
   });
 
   it('leaves the release applied and the tags file written when the format command fails', async () => {
@@ -465,13 +469,13 @@ describe(prepareCommand, () => {
     expect(stdioCapture.stdout).not.toBe('');
   });
 
-  it('exits with error when the working tree is dirty', async () => {
+  it('throws a UserError when the working tree is dirty', async () => {
     mockAssertCleanWorkingTree.mockImplementation(() => {
-      throw new Error('Working tree has uncommitted changes.');
+      throw new UserError('Working tree has uncommitted changes.');
     });
 
-    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(stdioCapture.stderr).toContain('uncommitted changes');
+    const error = await captureError(UserError, () => prepareCommand([], RICH_STYLES, process.cwd()));
+    expect(error.message).toContain('uncommitted changes');
   });
 
   it('skips the clean-tree check when --no-git-checks is provided', async () => {

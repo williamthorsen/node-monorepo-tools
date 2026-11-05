@@ -1,4 +1,4 @@
-import { UserError } from '@williamthorsen/nmr-core';
+import { isAnticipatedFailure, UserError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 /**
@@ -15,9 +15,9 @@ export function chainUserError(message: string, cause: unknown): UserError {
 }
 
 /**
- * Prefixes a `UserError` with `<message>: ` and returns any other value unchanged, so that a crash keeps its own stack
- * when rethrown.
+ * Prefixes an anticipated failure (see `isAnticipatedFailure`) with `<message>: ` as a `UserError`, and returns any
+ * other value unchanged, so that a crash keeps its own stack when rethrown.
  */
 export function prefixUserError(message: string, error: unknown): unknown {
-  return error instanceof UserError ? chainUserError(message, error) : error;
+  return isAnticipatedFailure(error) ? chainUserError(message, error) : error;
 }
