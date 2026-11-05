@@ -22,15 +22,14 @@ describe('every bin shim has the canonical body', () => {
     expect(shims.length).toBeGreaterThan(1);
   });
 
+  // An empty list leaves the reference empty, which the test above reports.
   const [referenceShim] = shims;
+  const referenceBody = referenceShim === undefined ? '' : normalizeShim(referenceShim);
 
   it.each(shims.map((shimPath) => [path.relative(monorepoRoot, shimPath), shimPath] as const))(
     '%s',
     (_label, shimPath) => {
-      expect(referenceShim).toBeDefined();
-      if (referenceShim === undefined) return;
-
-      expect(normalizeShim(shimPath)).toBe(normalizeShim(referenceShim));
+      expect(normalizeShim(shimPath)).toBe(referenceBody);
     },
   );
 });
