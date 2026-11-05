@@ -48,6 +48,7 @@ export {
   printSuccess,
   reportCrash,
   reportError,
+  reportFailure,
   reportTemplateUpdate,
   reportWriteResult,
   resolveStreamStyles,
@@ -60,4 +61,5 @@ export type { ManagedFileOutcome, ManagedFileResult } from './updateManagedFile.
 export { updateManagedFile } from './updateManagedFile.ts';
 export type { WriteOutcome, WriteResult } from './writeFileWithCheck.ts';
 export { writeFileWithCheck } from './writeFileWithCheck.ts';
+export { UserError } from './UserError.ts';
 export { findPackageRoot, resolveSelfVersion } from '@williamthorsen/toolbelt.packaging/candidate';

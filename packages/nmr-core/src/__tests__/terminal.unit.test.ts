@@ -15,6 +15,7 @@ import {
   printSuccess,
   reportCrash,
   reportError,
+  reportFailure,
   reportTemplateUpdate,
   reportWriteResult,
   resolveStreamStyles,
@@ -22,6 +23,7 @@ import {
   type StatusGlyphName,
 } from '../terminal.ts';
 import type { ManagedFileResult } from '../updateManagedFile.ts';
+import { UserError } from '../UserError.ts';
 import type { WriteResult } from '../writeFileWithCheck.ts';
 
 describe(formatErrorLine, () => {
@@ -224,6 +226,32 @@ describe(reportCrash, () => {
     reportCrash('tool', 'boom');
 
     expect(capture.stderrChunks).toContain('tool: internal error: boom\n');
+  });
+});
+
+describe(reportFailure, () => {
+  it('reports a user error as its message alone', () => {
+    const writtenReport = reportFailureToString('tool', new UserError('Config file not found: /repo/tool.json'));
+
+    expect(writtenReport).toBe('Error: Config file not found: /repo/tool.json\n');
+  });
+
+  it('reports any other error as an internal error, with its stack frames', () => {
+    const writtenReport = reportFailureToString('tool', new Error('unhandled script origin'));
+
+    expect(writtenReport).toMatch(/^tool: internal error: unhandled script origin\n {4}at /);
+  });
+
+  it('reports a thrown non-Error as an internal error without frames', () => {
+    expect(reportFailureToString('tool', 'just a string')).toBe('tool: internal error: just a string\n');
+  });
+
+  it('writes to stderr by default', () => {
+    using capture = captureStdio();
+
+    reportFailure('tool', new UserError('boom'));
+
+    expect(capture.stderrChunks).toContain('Error: boom\n');
   });
 });
 
@@ -497,6 +525,19 @@ function reportCrashToString(bin: string, error: unknown): string {
   });
 
   reportCrash(bin, error, stream);
+
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+/** Runs `reportFailure` against a collecting stream and returns everything that it wrote. */
+function reportFailureToString(bin: string, error: unknown): string {
+  const chunks: Buffer[] = [];
+  const stream = new PassThrough();
+  stream.on('data', (chunk: Buffer) => {
+    chunks.push(chunk);
+  });
+
+  reportFailure(bin, error, stream);
 
   return Buffer.concat(chunks).toString('utf8');
 }
