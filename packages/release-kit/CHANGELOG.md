@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 16.1.1 — 2026-11-05
+
+### 🐛 Bug fixes
+
+- Fixes the issue that the bin scripts of `nmr`, `release-kit`, and `v11y-check` reported every error other than missing build output as `<bin>: failed to load: <message>` without a stack, which hid where the fault occurred. (#1157)
+
+### ♻️ Refactoring
+
+- Moves the CLI entries of `release-kit` and `v11y-check` from `src/bin/` to `src/cli.ts`, matching the layout of `nmr`, and renames the command module previously at `v11y-check`'s `src/cli.ts` to `src/commands.ts`. (#1154)
+
 ## 16.1.0 — 2026-11-03
 
 ### 🎉 Features

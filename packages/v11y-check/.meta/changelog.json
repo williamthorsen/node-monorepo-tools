@@ -1,5 +1,49 @@
 [
   {
+    "version": "0.20.0",
+    "date": "2026-11-05",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Adds the error's stack frames to the report that `v11y` prints for an unexpected crash, and labels the report `v11y: internal error: <message>` in place of `v11y: unexpected error: <message>`. (#1153)",
+            "hash": "0289c032b00438984efcf7466f2b3055b4dbc546",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that the `nmr` sub-bins, such as `nmr-compile` and `nmr-fmt`, and the `v11y` subcommands reported an unexpected crash as a handled `Error: <message>` line, rather than as `<bin>: internal error: <message>` with its stack frames. (#1157)",
+            "hash": "ef1ed5f50bf0b01f19b6d6fe82a40322a8286002",
+            "entry": 1
+          },
+          {
+            "description": "Fixes the issue that the bin scripts of `nmr`, `release-kit`, and `v11y-check` reported every error other than missing build output as `<bin>: failed to load: <message>` without a stack, which hid where the fault occurred. (#1157)",
+            "hash": "ef1ed5f50bf0b01f19b6d6fe82a40322a8286002",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Moves the CLI entries of `release-kit` and `v11y-check` from `src/bin/` to `src/cli.ts`, matching the layout of `nmr`, and renames the command module previously at `v11y-check`'s `src/cli.ts` to `src/commands.ts`. (#1154)",
+            "hash": "8ec4abd71b8952d9bee798031bd336c386fa7cf1",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.19.9",
     "date": "2026-10-31",
     "sections": [

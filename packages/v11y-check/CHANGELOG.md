@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.20.0 — 2026-11-05
+
+### 🎉 Features
+
+- Adds the error's stack frames to the report that `v11y` prints for an unexpected crash, and labels the report `v11y: internal error: <message>` in place of `v11y: unexpected error: <message>`. (#1153)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that the `nmr` sub-bins, such as `nmr-compile` and `nmr-fmt`, and the `v11y` subcommands reported an unexpected crash as a handled `Error: <message>` line, rather than as `<bin>: internal error: <message>` with its stack frames. (#1157)
+- Fixes the issue that the bin scripts of `nmr`, `release-kit`, and `v11y-check` reported every error other than missing build output as `<bin>: failed to load: <message>` without a stack, which hid where the fault occurred. (#1157)
+
+### ♻️ Refactoring
+
+- Moves the CLI entries of `release-kit` and `v11y-check` from `src/bin/` to `src/cli.ts`, matching the layout of `nmr`, and renames the command module previously at `v11y-check`'s `src/cli.ts` to `src/commands.ts`. (#1154)
+
 ## 0.19.9 — 2026-10-31
 
 ### 🐛 Bug fixes

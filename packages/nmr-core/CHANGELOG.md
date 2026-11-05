@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.15.0 — 2026-11-05
+
+### 🎉 Features
+
+- Adds `reportCrash` to `@williamthorsen/nmr-core`, which writes `<bin>: internal error: <message>` followed by the error's stack frames, so that a CLI can report a crash differently from a handled error written by `reportError`. (#1153)
+
+### 🏗️ Internal features
+
+- Adds `UserError` and `reportFailure` to `@williamthorsen/nmr-core` so that a CLI's last-resort handler prints an anticipated failure as `Error: <message>` and anything else as an internal error, and makes `ParseError` extend `UserError`. (#1157)
+
 ## 0.14.0 — 2026-10-27
 
 ### 🎉 Features

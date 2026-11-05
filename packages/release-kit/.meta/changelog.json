@@ -1,5 +1,33 @@
 [
   {
+    "version": "16.1.1",
+    "date": "2026-11-05",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that the bin scripts of `nmr`, `release-kit`, and `v11y-check` reported every error other than missing build output as `<bin>: failed to load: <message>` without a stack, which hid where the fault occurred. (#1157)",
+            "hash": "ef1ed5f50bf0b01f19b6d6fe82a40322a8286002",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Moves the CLI entries of `release-kit` and `v11y-check` from `src/bin/` to `src/cli.ts`, matching the layout of `nmr`, and renames the command module previously at `v11y-check`'s `src/cli.ts` to `src/commands.ts`. (#1154)",
+            "hash": "8ec4abd71b8952d9bee798031bd336c386fa7cf1",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "16.1.0",
     "date": "2026-11-03",
     "sections": [

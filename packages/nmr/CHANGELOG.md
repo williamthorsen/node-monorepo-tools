@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.54.1 — 2026-11-05
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `pnpm add` failed when an install hook such as `postinstall` ran an nmr command delegated by `NMR_DELEGATE` or the user config, because the host's frozen install rejected a manifest that was ahead of its lockfile, by making nmr run such a command on this machine unless `--delegate` or `--delegate-to` is passed. (#1151)
+- Fixes the issue that `nmr` printed an unexpected crash as its raw stack, whose first line, `Error: <message>`, read the same as a handled error; it now prints `nmr: internal error: <message>` followed by the stack frames, and still prints an error caused by the user's own config as `Error: <message>`. (#1153)
+- Fixes the issue that the `nmr` sub-bins, such as `nmr-compile` and `nmr-fmt`, and the `v11y` subcommands reported an unexpected crash as a handled `Error: <message>` line, rather than as `<bin>: internal error: <message>` with its stack frames. (#1157)
+- Fixes the issue that the bin scripts of `nmr`, `release-kit`, and `v11y-check` reported every error other than missing build output as `<bin>: failed to load: <message>` without a stack, which hid where the fault occurred. (#1157)
+
 ## 0.54.0 — 2026-10-31
 
 ### 🎉 Features

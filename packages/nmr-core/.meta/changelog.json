@@ -1,5 +1,33 @@
 [
   {
+    "version": "0.15.0",
+    "date": "2026-11-05",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Adds `reportCrash` to `@williamthorsen/nmr-core`, which writes `<bin>: internal error: <message>` followed by the error's stack frames, so that a CLI can report a crash differently from a handled error written by `reportError`. (#1153)",
+            "hash": "0289c032b00438984efcf7466f2b3055b4dbc546",
+            "entry": 3
+          }
+        ]
+      },
+      {
+        "title": "🏗️ Internal features",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Adds `UserError` and `reportFailure` to `@williamthorsen/nmr-core` so that a CLI's last-resort handler prints an anticipated failure as `Error: <message>` and anything else as an internal error, and makes `ParseError` extend `UserError`. (#1157)",
+            "hash": "ef1ed5f50bf0b01f19b6d6fe82a40322a8286002",
+            "entry": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.14.0",
     "date": "2026-10-27",
     "sections": [
