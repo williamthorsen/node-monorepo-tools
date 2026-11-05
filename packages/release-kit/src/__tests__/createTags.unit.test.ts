@@ -1,4 +1,4 @@
-import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES, UserError } from '@williamthorsen/nmr-core';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -208,6 +208,7 @@ describe(createTags, () => {
     expect(() => createTags({ isDryRun: false, shouldSkipGitChecks: true, style: 'rich' })).toThrow(
       'tag already exists',
     );
+    expect(() => createTags({ isDryRun: false, shouldSkipGitChecks: true, style: 'rich' })).toThrow(UserError);
 
     expect(console.warn).toHaveBeenCalledWith('Tags created before failure:');
     expect(console.warn).toHaveBeenCalledWith('  tag-a');
@@ -227,6 +228,7 @@ describe(createTags, () => {
     expect(() => createTags({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' })).toThrow(
       'spawn git ENOENT',
     );
+    expect(() => createTags({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' })).toThrow(UserError);
   });
 
   it('deletes the tags file after successful tag creation', () => {

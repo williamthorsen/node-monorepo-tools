@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
+
 import { isPublishableManifest } from './isPublishableManifest.ts';
 import { lookUpNpmPackage } from './npmRegistry.ts';
 import { isRecord } from './typeGuards.ts';
@@ -33,7 +35,7 @@ export function assertReleasesOnNpm(workspacePaths: readonly string[]): void {
     return;
   }
 
-  throw new Error(describeRefusal(unpublishedCandidates, unverifiableCandidates));
+  throw new UserError(describeRefusal(unpublishedCandidates, unverifiableCandidates));
 }
 
 // region | Helpers

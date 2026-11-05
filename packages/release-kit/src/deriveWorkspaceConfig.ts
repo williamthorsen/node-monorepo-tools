@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 
-import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
+import { UserError } from '@williamthorsen/nmr-core';
 
 import { isPublishableManifest } from './isPublishableManifest.ts';
 import { isRecord } from './typeGuards.ts';
 import type { WorkspaceConfig } from './types.ts';
+import { chainUserError } from './user-error-chaining.ts';
 
 /**
  * Derives a workspace configuration from a workspace-relative path.
@@ -21,12 +22,12 @@ export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
   try {
     parsedJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
   } catch (error) {
-    throw chainError(`Failed to read ${packageJsonPath}`, error);
+    throw chainUserError(`Failed to read ${packageJsonPath}`, error);
   }
   const name = isRecord(parsedJson) ? parsedJson['name'] : undefined;
 
   if (typeof name !== 'string' || name.length === 0) {
-    throw new Error(`${packageJsonPath} is missing a 'name' field (required for tag derivation).`);
+    throw new UserError(`${packageJsonPath} is missing a 'name' field (required for tag derivation).`);
   }
 
   const unscopedName = stripNpmScope(name);

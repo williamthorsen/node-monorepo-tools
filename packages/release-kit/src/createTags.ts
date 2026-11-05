@@ -1,10 +1,17 @@
 import { execFileSync } from 'node:child_process';
 
-import { formatGlyphLine, GIT_OUTPUT_LIMIT_BYTES, hasErrnoCode, type OutputStyle } from '@williamthorsen/nmr-core';
+import {
+  formatGlyphLine,
+  GIT_OUTPUT_LIMIT_BYTES,
+  hasErrnoCode,
+  type OutputStyle,
+  UserError,
+} from '@williamthorsen/nmr-core';
 
 import { deleteFileIfExists } from './deleteFileIfExists.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
 import { readReleaseTags, RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
+import { asUserError } from './user-error-chaining.ts';
 
 export interface CreateTagsOptions {
   isDryRun: boolean;
@@ -43,13 +50,14 @@ export function createTags(options: CreateTagsOptions): string[] {
       execFileSync('git', ['tag', '-a', tag, '-m', tag], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
       createdTags.push(tag);
     } catch (error: unknown) {
+      const failure = asUserError(error);
       if (createdTags.length > 0) {
         console.warn('Tags created before failure:');
         for (const tag of createdTags) {
           console.warn(`  ${tag}`);
         }
       }
-      throw error;
+      throw failure;
     }
   }
 
@@ -71,9 +79,9 @@ function assertCleanWorkingTree(): void {
     execFileSync('git', ['diff', '--quiet', '--cached'], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
   } catch (error: unknown) {
     if (hasErrnoCode(error, 'ENOENT')) {
-      throw error;
+      throw asUserError(error);
     }
-    throw new Error(
+    throw new UserError(
       'Working tree is dirty. Commit or stash changes before tagging, or use `--no-git-checks` to skip this check.',
       { cause: error },
     );

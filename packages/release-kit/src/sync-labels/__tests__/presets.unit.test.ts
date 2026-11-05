@@ -11,7 +11,8 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock(import('@williamthorsen/nmr-core'), () => ({
+vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => ({
+  ...(await importOriginal()),
   findPackageRoot: mockFindPackageRoot,
 }));
 

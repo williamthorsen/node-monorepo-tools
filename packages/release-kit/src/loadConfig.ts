@@ -2,9 +2,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
+import { UserError } from '@williamthorsen/nmr-core';
 
 import { isRecord } from './typeGuards.ts';
+import { chainUserError } from './user-error-chaining.ts';
 
 /** Path of the root `package.json` consulted when validating a `project` block. */
 export const ROOT_PACKAGE_JSON_PATH = 'package.json';
@@ -27,14 +28,14 @@ export function readRootPackageVersion(): { doesExist: boolean; version: string 
   try {
     contents = readFileSync(absolutePath, 'utf8');
   } catch (error: unknown) {
-    throw chainError(`Failed to read root ${ROOT_PACKAGE_JSON_PATH}`, error);
+    throw chainUserError(`Failed to read root ${ROOT_PACKAGE_JSON_PATH}`, error);
   }
 
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(contents);
   } catch (error: unknown) {
-    throw chainError(`Failed to parse root ${ROOT_PACKAGE_JSON_PATH}`, error);
+    throw chainUserError(`Failed to parse root ${ROOT_PACKAGE_JSON_PATH}`, error);
   }
 
   if (!isRecord(parsedJson)) {
@@ -62,7 +63,7 @@ export async function loadConfig(configPath?: string): Promise<unknown> {
     if (configPath === undefined) {
       return undefined;
     }
-    throw new Error(`Config file not found: ${absoluteConfigPath}`);
+    throw new UserError(`Config file not found: ${absoluteConfigPath}`);
   }
 
   // Node type-strips `.ts` natively across this package's engines range, so the config does not need a transform
@@ -73,7 +74,7 @@ export async function loadConfig(configPath?: string): Promise<unknown> {
   // `undefined`, the fallback does not need a membership check.
   const resolvedConfig = isRecord(importedModule) ? (importedModule['default'] ?? importedModule['config']) : undefined;
   if (resolvedConfig === undefined) {
-    throw new Error(
+    throw new UserError(
       'Config file must have a default export or a named `config` export (e.g., `export default { ... }` or `export const config = { ... }`)',
     );
   }

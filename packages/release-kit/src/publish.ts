@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 
 import { type PackageManager, resolveExecutable } from './detectPackageManager.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
+import { asUserError } from './user-error-chaining.ts';
 
 export interface PublishOptions {
   isDryRun: boolean;
@@ -21,7 +22,11 @@ export function publishPackage(
   console.info(
     `\n${isDryRun ? '[dry-run] ' : ''}Running: ${executable} ${args.join(' ')} (cwd: ${resolvedTag.workspacePath})`,
   );
-  execFileSync(executable, args, { cwd: resolvedTag.workspacePath, stdio: 'inherit' });
+  try {
+    execFileSync(executable, args, { cwd: resolvedTag.workspacePath, stdio: 'inherit' });
+  } catch (error: unknown) {
+    throw asUserError(error);
+  }
 }
 
 /**

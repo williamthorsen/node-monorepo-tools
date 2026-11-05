@@ -3,6 +3,8 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
+
 import { type PackageManager, resolveExecutable } from './detectPackageManager.ts';
 import { isRecord } from './typeGuards.ts';
 
@@ -87,7 +89,7 @@ function findTarball(packDir: string, workspacePath: string): string {
   const tarballs = readdirSync(packDir).filter((name) => name.endsWith('.tgz'));
   const [tarball] = tarballs;
   if (tarballs.length !== 1 || tarball === undefined) {
-    throw new Error(`Could not pack ${workspacePath}: expected one tarball, found ${tarballs.length}.`);
+    throw new UserError(`Could not pack ${workspacePath}: expected one tarball, found ${tarballs.length}.`);
   }
   return join(packDir, tarball);
 }
@@ -110,7 +112,7 @@ function runStep(step: string, command: string, args: readonly string[], cwd: st
 
   const outcome = result.error === undefined ? `exited with status ${result.status}` : result.error.message;
   const output = [result.stdout, result.stderr].filter((text) => text !== '').join('\n');
-  throw new Error(
+  throw new UserError(
     `Could not ${step}: \`${[command, ...args].join(' ')}\` ${outcome}.${output === '' ? '' : `\n${output}`}`,
   );
 }

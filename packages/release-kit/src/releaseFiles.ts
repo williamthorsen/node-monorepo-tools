@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { hasErrnoCode } from '@williamthorsen/nmr-core';
+import { hasErrnoCode, UserError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 /**
@@ -37,7 +37,7 @@ export function readReleaseTags(): string[] {
   try {
     content = readFileSync(RELEASE_TAGS_FILE, 'utf8');
   } catch (error: unknown) {
-    throw new Error(describeTagsReadFailure(error), { cause: error });
+    throw new UserError(describeTagsReadFailure(error), { cause: error });
   }
 
   return content

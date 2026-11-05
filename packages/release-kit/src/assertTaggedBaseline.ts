@@ -1,5 +1,7 @@
 import { join } from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
+
 import { resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import { readChangelogEntries } from './changelogJsonUtils.ts';
 import { readCurrentVersion } from './planVersionBump.ts';
@@ -33,7 +35,7 @@ export function assertTaggedBaseline(findings: ReadonlyArray<UntaggedBaseline | 
   const untaggedFindings = findings.filter((finding) => finding !== undefined);
   if (untaggedFindings.length === 0) return;
   const lines = untaggedFindings.map(({ label, version, tag }) => `  - ${label}: ${version} (create tag ${tag})`);
-  throw new Error(
+  throw new UserError(
     [
       'The current version is recorded in the changelog, but its tag is not the previous tag reachable from HEAD:',
       ...lines,

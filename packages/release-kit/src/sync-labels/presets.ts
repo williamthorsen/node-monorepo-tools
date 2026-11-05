@@ -3,11 +3,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
-import { findPackageRoot } from '@williamthorsen/nmr-core';
-import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
+import { findPackageRoot, UserError } from '@williamthorsen/nmr-core';
 import { parse } from 'yaml';
 
 import { isRecord } from '../typeGuards.ts';
+import { chainUserError } from '../user-error-chaining.ts';
 import { deriveTypeLabels } from './typeLabels.ts';
 import type { LabelDefinition } from './types.ts';
 
@@ -31,25 +31,25 @@ export function loadPreset(presetName: string): LabelDefinition[] {
   const presetPath = resolvePresetPath(presetName);
 
   if (!existsSync(presetPath)) {
-    throw new Error(`Unknown preset "${presetName}". The file ${presetPath} does not exist`);
+    throw new UserError(`Unknown preset "${presetName}". The file ${presetPath} does not exist`);
   }
 
   let content: string;
   try {
     content = readFileSync(presetPath, 'utf8');
   } catch (error: unknown) {
-    throw chainError(`Failed to read preset "${presetName}"`, error);
+    throw chainUserError(`Failed to read preset "${presetName}"`, error);
   }
 
   const parsedYaml: unknown = parse(content);
   if (!Array.isArray(parsedYaml)) {
-    throw new TypeError(`Preset "${presetName}" must be a YAML array of label definitions`);
+    throw new UserError(`Preset "${presetName}" must be a YAML array of label definitions`);
   }
 
   const labels: LabelDefinition[] = [];
   for (const entry of parsedYaml) {
     if (!isRecord(entry)) {
-      throw new Error(`Preset "${presetName}" contains an invalid label entry: ${JSON.stringify(entry)}`);
+      throw new UserError(`Preset "${presetName}" contains an invalid label entry: ${JSON.stringify(entry)}`);
     }
     // `description` is optional here as it is in the `repoLabels.labels` record,
     // so that a preset can define bare labels rather than restating each name.
@@ -59,7 +59,7 @@ export function loadPreset(presetName: string): LabelDefinition[] {
       typeof color !== 'string' ||
       (description !== undefined && typeof description !== 'string')
     ) {
-      throw new TypeError(`Preset "${presetName}" contains a label with invalid fields: ${JSON.stringify(entry)}`);
+      throw new UserError(`Preset "${presetName}" contains a label with invalid fields: ${JSON.stringify(entry)}`);
     }
     labels.push({ name, color, ...(description !== undefined && { description }) });
   }

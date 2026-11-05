@@ -1,10 +1,12 @@
+import { UserError } from '@williamthorsen/nmr-core';
+
 import type { ReleaseType } from './types.ts';
 
 /** Bumps a `major.minor.patch` version by the release type; throws on a version of any other form. */
 export function bumpVersion(version: string, releaseType: ReleaseType): string {
   const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
   if (!match) {
-    throw new Error(`Invalid semver version: '${version}'`);
+    throw new UserError(`Invalid semver version: '${version}'`);
   }
 
   const major = match[1];
@@ -12,7 +14,7 @@ export function bumpVersion(version: string, releaseType: ReleaseType): string {
   const patch = match[3];
 
   if (major === undefined || minor === undefined || patch === undefined) {
-    throw new Error(`Invalid semver version: '${version}'`);
+    throw new UserError(`Invalid semver version: '${version}'`);
   }
 
   const majorNumber = Number.parseInt(major, 10);

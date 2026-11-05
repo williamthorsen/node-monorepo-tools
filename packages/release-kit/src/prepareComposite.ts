@@ -1,3 +1,5 @@
+import { UserError } from '@williamthorsen/nmr-core';
+
 import { assertTaggedBaseline } from './assertTaggedBaseline.ts';
 import { collect, type CollectedReleases, type RunContext } from './prepareRunContext.ts';
 import {
@@ -53,7 +55,7 @@ export function prepareComposite(
     return buildSkippedTargetResult(compositeTarget, history, decision.skipReason);
   }
   if (decision.setVersion !== undefined) {
-    throw new Error('A composite target cannot take --set-version');
+    throw new UserError('A composite target cannot take --set-version');
   }
 
   const plannedRelease = planTargetRelease({

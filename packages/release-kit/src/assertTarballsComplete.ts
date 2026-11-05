@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { detectPackageManager } from './detectPackageManager.ts';
@@ -39,7 +40,10 @@ export function assertTarballsComplete(
       detectPackageManager(),
     );
   } catch (error: unknown) {
-    throw new Error(
+    if (!(error instanceof UserError)) {
+      throw error;
+    }
+    throw new UserError(
       `Cannot release: The packages could not be packed from a clean checkout of HEAD.\n${describeError(error)}`,
       { cause: error },
     );
@@ -56,7 +60,7 @@ export function assertTarballsComplete(
     return;
   }
 
-  throw new Error(describeRefusal(incompletePackages));
+  throw new UserError(describeRefusal(incompletePackages));
 }
 
 // region | Helpers

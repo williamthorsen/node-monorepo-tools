@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
 import { findMonorepoRoot } from '@williamthorsen/nmr-core/workspace';
 
 /** The directory from which `release-kit` was invoked, and the repo root in which it now runs. */
@@ -19,7 +20,7 @@ export function enterRepoRoot(startDir: string = process.cwd()): RepoLocation {
   const invocationDir = path.resolve(startDir);
   const root = findMonorepoRoot(invocationDir) ?? findSinglePackageRoot(invocationDir);
   if (root === undefined) {
-    throw new Error(
+    throw new UserError(
       `No repo root found from ${invocationDir}: expected a pnpm-workspace.yaml in it or any parent directory, ` +
         'or a package.json in it. Run release-kit from inside a monorepo or at the root of a single-package repo.',
     );

@@ -1,5 +1,7 @@
 import path from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
+
 import type { PathRelease, ProjectConfig, ReleaseKitConfig } from './configSchema.ts';
 import type { WorkspaceConfig } from './types.ts';
 
@@ -88,7 +90,7 @@ function claimPath(
 ): void {
   const claimingEntryName = entryByPath.get(claimedPath);
   if (claimingEntryName !== undefined) {
-    throw new Error(
+    throw new UserError(
       `releases.${name}: ${kind} '${claimedPath}' is already declared by releases.${claimingEntryName}; declare each ${kind} once`,
     );
   }
@@ -101,7 +103,9 @@ function claimPath(
  */
 function declareDirectory(name: string, entry: PathRelease, normalizedPath: string): DeclaredDirectory {
   if (path.posix.isAbsolute(normalizedPath) || normalizedPath === '..' || normalizedPath.startsWith('../')) {
-    throw new Error(`releases.${name}: path '${entry.path}' is outside the repo; declare a repo-relative directory`);
+    throw new UserError(
+      `releases.${name}: path '${entry.path}' is outside the repo; declare a repo-relative directory`,
+    );
   }
   const isRoot = normalizedPath === '.' || normalizedPath === '';
   return {
@@ -138,12 +142,14 @@ function resolveCompositeMembers(
     }
     const label = `releases.${composite.name}.includes: '${memberName}'`;
     if (memberName === composite.name) {
-      throw new Error(`${label} is the composite itself; a composite includes package and directory targets only`);
+      throw new UserError(`${label} is the composite itself; a composite includes package and directory targets only`);
     }
     if (excludedWorkspaces.some((workspace) => workspace.dir === memberName)) {
-      throw new Error(`${label} is excluded, so the composite cannot include it`);
+      throw new UserError(`${label} is excluded, so the composite cannot include it`);
     }
-    throw new Error(`${label} is not a release target. Known targets: ${membersByName.keys().toArray().join(', ')}`);
+    throw new UserError(
+      `${label} is not a release target. Known targets: ${membersByName.keys().toArray().join(', ')}`,
+    );
   });
 }
 
@@ -194,7 +200,7 @@ function resolveReleasesBlock(
   for (const [name, entry] of Object.entries(releases)) {
     if (entry !== false && 'includes' in entry) {
       if (composite !== undefined) {
-        throw new Error(
+        throw new UserError(
           `releases declares more than one composite ('${composite.name}', '${name}'); ` +
             'a composite is versioned by the root package.json, which only one composite can own',
         );
@@ -210,7 +216,7 @@ function resolveReleasesBlock(
     if (entry === false) {
       const workspace = workspaceByDir.get(name);
       if (workspace === undefined) {
-        throw new Error(
+        throw new UserError(
           `releases.${name}: false excludes a discovered workspace by its directory name, and no workspace is named '${name}'. ` +
             `Known workspaces: ${workspaceByDir.keys().toArray().join(', ')}`,
         );
@@ -230,7 +236,7 @@ function resolveReleasesBlock(
     }
 
     if (entry.tagPrefix !== undefined) {
-      throw new Error(
+      throw new UserError(
         `releases.${name}: tagPrefix applies only to a directory target, and '${workspace.workspacePath}' is a workspace, ` +
           "whose tag prefix derives from its package name; declare the workspace's earlier prefixes in legacyIdentities",
       );

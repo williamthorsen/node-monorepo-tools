@@ -1,4 +1,5 @@
-import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { UserError } from '@williamthorsen/nmr-core';
+import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { assertTarballsComplete } from '../assertTarballsComplete.ts';
@@ -91,11 +92,22 @@ describe(assertTarballsComplete, () => {
 
   it('refuses with the failing step when the packages cannot be packed', () => {
     const failingPack = vi.fn(() => {
-      throw new Error('Could not install dependencies: `pnpm install` exited with status 1.');
+      throw new UserError('Could not install dependencies: `pnpm install` exited with status 1.');
     });
 
     expect(() => assertTarballsComplete(['packages/complete'], [], failingPack)).toThrow(
       'Cannot release: The packages could not be packed from a clean checkout of HEAD.\nCould not install dependencies',
     );
+  });
+
+  it('rethrows a crash in packing unchanged', async () => {
+    const crash = new TypeError('Cannot read properties of undefined');
+    const crashingPack = vi.fn(() => {
+      throw crash;
+    });
+
+    await expect(
+      captureError(TypeError, () => assertTarballsComplete(['packages/complete'], [], crashingPack)),
+    ).resolves.toBe(crash);
   });
 });

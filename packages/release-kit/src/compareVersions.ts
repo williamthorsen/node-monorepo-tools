@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import semver from 'semver';
 
 /** Canonical semver regex used to validate `N.N.N` strings (no pre-release or build metadata). */
@@ -17,7 +18,7 @@ interface ParsedVersion {
 function parseCanonicalSemver(version: string): ParsedVersion {
   const match = version.match(CANONICAL_SEMVER_PATTERN);
   if (!match) {
-    throw new Error(`Invalid semver version: '${version}'`);
+    throw new UserError(`Invalid semver version: '${version}'`);
   }
 
   // A match always fills all three groups; the defaults only satisfy the type checker.
