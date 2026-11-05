@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { UserError } from '../../UserError.ts';
 import { ensureTool, resolveToolPlatform, TOOL_PINS, type ToolPins } from '../workflow-tools.ts';
 
 describe(ensureTool, () => {

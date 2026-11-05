@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { Writable } from 'node:stream';
 
-import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
+import { type OutputStyle, STATUS_GLYPHS, UserError } from '@williamthorsen/nmr-core';
 
 import { resolveConfigPath } from './helpers/config-path.ts';
 import { escapeControlCharacters } from './helpers/escapeControlCharacters.ts';
@@ -18,7 +18,6 @@ import {
 } from './resolver.ts';
 import { findNmrCrossing, readSoleNmrCommand, renderChain } from './steps.ts';
 import type { NmrConfig } from './types.ts';
-import { UserError } from './UserError.ts';
 
 /** The consequence of a crossing, which every origin's line reports before naming its remedy. */
 const CROSSING_CONSEQUENCE = "so nmr handles the nested run's output as a tool's.";

@@ -1,9 +1,9 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { describe, expect, it, vi } from 'vitest';
 
 import { resolveDelegationTarget } from '../delegation-target.ts';
 import { DELEGATE_ENV_VAR } from '../remote-run.ts';
 import type { LoadedUserConfig, UserConfig } from '../user-config.ts';
-import { UserError } from '../UserError.ts';
 
 const USER_CONFIG_PATH = '/home/me/.config/nmr/config.ts';
 

@@ -2,6 +2,8 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
+
 import { describeSignalExitCode } from '../child-process.ts';
 import { ensureTool, type WorkflowTool } from './workflow-tools.ts';
 
@@ -47,7 +49,7 @@ export async function runActionlint(
     monorepoRoot,
   );
   if (outcome.error !== undefined) {
-    throw new Error(`Cannot run actionlint: ${outcome.error.message}`, { cause: outcome.error });
+    throw new UserError(`Cannot run actionlint: ${outcome.error.message}`, { cause: outcome.error });
   }
   if (outcome.signal !== null) {
     return describeSignalExitCode(outcome.signal);

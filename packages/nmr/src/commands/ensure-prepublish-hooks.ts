@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
+import { type OutputStyle, STATUS_GLYPHS, UserError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { readPackageJson } from '../helpers/package-json.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
@@ -126,10 +127,15 @@ export function reportPrepublishHooks(
 function addPrepublishOnly(packageDir: string, command: string): void {
   const filePath = path.join(packageDir, 'package.json');
   const rawText = readFileSync(filePath, 'utf8');
-  const parsedManifest: unknown = JSON.parse(rawText);
+  let parsedManifest: unknown;
+  try {
+    parsedManifest = JSON.parse(rawText);
+  } catch (error: unknown) {
+    throw new UserError(`Invalid package.json in ${packageDir}: ${describeError(error)}`, { cause: error });
+  }
 
   if (!isObject(parsedManifest)) {
-    throw new TypeError(`Invalid package.json in ${packageDir}: expected an object`);
+    throw new UserError(`Invalid package.json in ${packageDir}: expected an object`);
   }
 
   const scripts = isObject(parsedManifest['scripts']) ? parsedManifest['scripts'] : {};

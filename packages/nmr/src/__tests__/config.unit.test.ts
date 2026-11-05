@@ -1,11 +1,11 @@
 import path from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
 import { loadConfig, loadRootConfig, loadWorkspaceConfig } from '../config.ts';
-import { UserError } from '../UserError.ts';
 
 // eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(

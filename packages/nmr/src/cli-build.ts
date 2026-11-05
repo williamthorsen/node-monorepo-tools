@@ -3,8 +3,7 @@
 // that of any package that does not depend on nmr-core. Each passes `--conditions nmr-source`, which lets the
 // compiler import `@williamthorsen/nmr-core` before nmr-core's own `dist` exists.
 
-import { reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors';
+import { reportFailure } from '@williamthorsen/nmr-core';
 
 import { buildPackage } from './commands/build.ts';
 import { loadWorkspaceConfig } from './config.ts';
@@ -22,7 +21,7 @@ try {
     style: stdout,
     ...(build?.extraIgnorePatterns !== undefined && { extraIgnorePatterns: build.extraIgnorePatterns }),
   });
-} catch (error) {
-  reportError(describeError(error));
+} catch (error: unknown) {
+  reportFailure('nmr-compile', error);
   process.exitCode = 1;
 }

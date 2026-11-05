@@ -1,5 +1,7 @@
 import path from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
+
 import { formatDiagnostics, getCompiler } from './compiler.ts';
 import { isRelativeSpecifier } from './rewrite-specifiers.ts';
 
@@ -26,7 +28,7 @@ export function resolveTsconfigChain(packageDir: string, configFileName = 'tscon
 
     const configFile = ts.readConfigFile(normalizedPath, (fileName) => ts.sys.readFile(fileName));
     if (configFile.error) {
-      throw new Error(`nmr-compile: failed to read ${normalizedPath}.\n${formatDiagnostics([configFile.error])}`);
+      throw new UserError(`nmr-compile: failed to read ${normalizedPath}.\n${formatDiagnostics([configFile.error])}`);
     }
 
     for (const entry of normalizeExtendsField(configFile.config)) {
@@ -73,7 +75,7 @@ function resolveExtendsTarget(extendsEntry: string, fromConfigPath: string): str
     if (ts.sys.fileExists(withJsonExtension)) {
       return withJsonExtension;
     }
-    throw new Error(`nmr-compile: ${fromConfigPath} extends '${extendsEntry}', which does not exist.`);
+    throw new UserError(`nmr-compile: ${fromConfigPath} extends '${extendsEntry}', which does not exist.`);
   }
 
   // A package that does not declare an `exports` map is reachable only at its `tsconfig.json` path,
@@ -82,7 +84,7 @@ function resolveExtendsTarget(extendsEntry: string, fromConfigPath: string): str
     resolvePackageSpecifier(extendsEntry, fromConfigPath) ??
     resolvePackageSpecifier(`${extendsEntry}/tsconfig.json`, fromConfigPath);
   if (resolvedPath === undefined) {
-    throw new Error(`nmr-compile: ${fromConfigPath} extends '${extendsEntry}', which does not resolve to a file.`);
+    throw new UserError(`nmr-compile: ${fromConfigPath} extends '${extendsEntry}', which does not resolve to a file.`);
   }
   return resolvedPath;
 }

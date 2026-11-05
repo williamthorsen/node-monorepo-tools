@@ -1,5 +1,4 @@
-import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors';
+import { parseArgsOrExit, reportFailure } from '@williamthorsen/nmr-core';
 
 import { DEFAULT_HOOK, ensurePrepublishHooks, reportPrepublishHooks } from './commands/ensure-prepublish-hooks.ts';
 import { resolveBinStyles } from './resolveBinStyles.ts';
@@ -26,7 +25,7 @@ try {
   if (result.hasFailures) {
     process.exitCode = 1;
   }
-} catch (error) {
-  reportError(describeError(error));
+} catch (error: unknown) {
+  reportFailure('ensure-prepublish-hooks', error);
   process.exitCode = 1;
 }

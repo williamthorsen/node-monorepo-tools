@@ -1,4 +1,4 @@
-import { hasErrnoCode } from '@williamthorsen/nmr-core';
+import { hasErrnoCode, UserError } from '@williamthorsen/nmr-core';
 import type * as TypeScript from 'typescript';
 
 const MINIMUM_TYPESCRIPT_MAJOR = 5;
@@ -29,7 +29,7 @@ export function assertSupportedTypeScript(): void {
   const tooOld =
     major < MINIMUM_TYPESCRIPT_MAJOR || (major === MINIMUM_TYPESCRIPT_MAJOR && minor < MINIMUM_TYPESCRIPT_MINOR);
   if (tooOld || major >= UNSUPPORTED_TYPESCRIPT_MAJOR) {
-    throw new Error(
+    throw new UserError(
       `nmr-compile requires TypeScript ${SUPPORTED_TYPESCRIPT_RANGE}, but found ` +
         `${typeof version === 'string' ? version : 'a version without the compiler API'}. ${INSTALL_TYPESCRIPT_GUIDANCE}`,
     );
@@ -67,7 +67,7 @@ export async function loadCompiler(loadTypeScript: () => Promise<typeof TypeScri
     ts = await loadTypeScript();
   } catch (error) {
     if (hasErrnoCode(error, 'ERR_MODULE_NOT_FOUND') && error.message.includes("'typescript'")) {
-      throw new Error(
+      throw new UserError(
         `nmr-compile requires TypeScript ${SUPPORTED_TYPESCRIPT_RANGE}, but 'typescript' could not be resolved. ` +
           INSTALL_TYPESCRIPT_GUIDANCE,
         { cause: error },

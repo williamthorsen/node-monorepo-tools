@@ -7829,10 +7829,15 @@ function readWorkspaceManifest(monorepoRoot) {
   }
 }
 
-// src/UserError.ts
+// ../nmr-core/dist/esm/hasErrnoCode.js
+function hasErrnoCode(error, code) {
+  return isError(error) && "code" in error && error.code === code;
+}
+
+// ../nmr-core/dist/esm/UserError.js
 var UserError = class extends Error {
-  constructor(message) {
-    super(message);
+  constructor(message, options) {
+    super(message, options);
     this.name = "UserError";
   }
 };
@@ -8025,11 +8030,6 @@ function isHookName(key) {
 
 // src/resolver.ts
 import { readFileSync as readFileSync2 } from "node:fs";
-
-// ../nmr-core/dist/esm/hasErrnoCode.js
-function hasErrnoCode(error, code) {
-  return isError(error) && "code" in error && error.code === code;
-}
 
 // src/helpers/package-json.ts
 import path5 from "node:path";

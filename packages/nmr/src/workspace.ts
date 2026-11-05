@@ -1,7 +1,5 @@
 import { findMonorepoRoot as findMonorepoRootOrNothing, resolveWorkspace } from '@williamthorsen/nmr-core/workspace';
 
-import { UserError } from './UserError.ts';
-
 /** The manifest whose presence marks a directory as the monorepo root. */
 const WORKSPACE_MANIFEST = 'pnpm-workspace.yaml';
 
@@ -12,6 +10,7 @@ export {
   readWorkspacePackageNames,
   resolveWorkspace,
 } from '@williamthorsen/nmr-core/workspace';
+import { UserError } from '@williamthorsen/nmr-core';
 
 /**
  * Finds the monorepo root by walking up from `startDir` to find `pnpm-workspace.yaml`.

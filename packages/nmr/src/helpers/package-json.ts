@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import { UserError } from '../UserError.ts';
 import { isMonorepoRoot } from '../workspace.ts';
 import { CONFIG_RELATIVE_PATH } from './config-path.ts';
 import { readStringValues } from './readStringValues.ts';

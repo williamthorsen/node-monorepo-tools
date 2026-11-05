@@ -59,7 +59,7 @@ export {
 export { startTimer } from './timer.ts';
 export type { ManagedFileOutcome, ManagedFileResult } from './updateManagedFile.ts';
 export { updateManagedFile } from './updateManagedFile.ts';
+export { UserError } from './UserError.ts';
 export type { WriteOutcome, WriteResult } from './writeFileWithCheck.ts';
 export { writeFileWithCheck } from './writeFileWithCheck.ts';
-export { UserError } from './UserError.ts';
 export { findPackageRoot, resolveSelfVersion } from '@williamthorsen/toolbelt.packaging/candidate';

@@ -1,7 +1,7 @@
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
-import { formatGlyphLine, type OutputStyle } from '@williamthorsen/nmr-core';
+import { formatGlyphLine, type OutputStyle, UserError } from '@williamthorsen/nmr-core';
 
 import { removeCheckCache } from '../check-cache-entries.ts';
 import { loadRootConfig } from '../config.ts';
@@ -139,7 +139,9 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
       channels: { stderr: resolveChannel(process.stderr, false), stdout: resolveChannel(process.stdout, false) },
     });
     if (exitCode !== 0) {
-      throw new Error(`nmr-clean: \`${command}\` failed in ${path.basename(packageDir)} with exit code ${exitCode}.`);
+      throw new UserError(
+        `nmr-clean: \`${command}\` failed in ${path.basename(packageDir)} with exit code ${exitCode}.`,
+      );
     }
     cleanedCount++;
   }

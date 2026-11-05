@@ -1,5 +1,4 @@
-import { reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors';
+import { reportFailure } from '@williamthorsen/nmr-core';
 
 import { reportOverrides } from './commands/report-overrides.ts';
 import { resolveBinStyles } from './resolveBinStyles.ts';
@@ -9,7 +8,7 @@ try {
   const monorepoRoot = findMonorepoRoot();
   // The report goes to stderr, so it takes that stream's style.
   reportOverrides(monorepoRoot, resolveBinStyles().stderr);
-} catch (error) {
-  reportError(describeError(error));
+} catch (error: unknown) {
+  reportFailure('nmr-report-overrides', error);
   process.exitCode = 1;
 }
