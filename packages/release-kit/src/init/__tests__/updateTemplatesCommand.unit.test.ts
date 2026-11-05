@@ -1,6 +1,7 @@
 import type { PathLike } from 'node:fs';
 
-import type { ManagedFileResult, StreamStyles } from '@williamthorsen/nmr-core';
+import { type ManagedFileResult, type StreamStyles, UserError } from '@williamthorsen/nmr-core';
+import { captureError } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -45,7 +46,8 @@ vi.mock(import('../../sync-labels/templates.ts'), async (importOriginal) => ({
   readSyncLabelsWorkflowTemplate: mockReadSyncLabelsWorkflowTemplate,
 }));
 
-vi.mock(import('@williamthorsen/nmr-core'), () => ({
+vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => ({
+  ...(await importOriginal()),
   printError: vi.fn(),
   printSkip: mockPrintSkip,
   printStep: vi.fn(),
@@ -179,6 +181,28 @@ describe(updateTemplatesCommand, () => {
       expect(call[2]).toStrictEqual({ isDryRun: true });
     }
     expect(mockReportTemplateUpdate).toHaveBeenCalledWith(expect.anything(), true, STYLES);
+  });
+
+  it('returns 1 without updating anything when detecting the repo type fails', () => {
+    using _silencedConsole = silenceConsole(['info']);
+    mockDetectRepoType.mockImplementation(() => {
+      throw new UserError('Cannot read package.json');
+    });
+
+    expect(updateTemplatesCommand({ isDryRun: false, styles: STYLES })).toBe(1);
+    expect(mockUpdateManagedFile).not.toHaveBeenCalled();
+  });
+
+  it('rethrows a crash in detecting the repo type unchanged', async () => {
+    using _silencedConsole = silenceConsole(['info']);
+    const crash = new TypeError('Cannot read properties of undefined');
+    mockDetectRepoType.mockImplementation(() => {
+      throw crash;
+    });
+
+    const error = await captureError(TypeError, () => updateTemplatesCommand({ isDryRun: false, styles: STYLES }));
+
+    expect(error).toBe(crash);
   });
 
   it('returns 1 when any update fails', () => {
