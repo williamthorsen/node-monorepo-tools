@@ -1,6 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 
+import { UserError } from '@williamthorsen/nmr-core';
+
 import type { AuditResult } from './types.ts';
 
 /** Resolves the audit-ci binary path from node_modules. */
@@ -216,7 +218,7 @@ export function runAudit({ configPath, cwd, isJson }: RunAuditOptions): AuditRun
   });
 
   if (result.error) {
-    throw new Error(`Failed to launch audit-ci: ${result.error.message}`);
+    throw new UserError(`Failed to launch audit-ci: ${result.error.message}`);
   }
 
   const stdout = result.stdout;
@@ -260,13 +262,13 @@ export function runReport({ configPath, cwd, reportType }: Omit<RunAuditOptions,
   });
 
   if (result.error) {
-    throw new Error(`Failed to launch audit-ci: ${result.error.message}`);
+    throw new UserError(`Failed to launch audit-ci: ${result.error.message}`);
   }
 
   const stdout = result.stdout;
   const stderr = result.stderr;
   if (!containsJsonReport(stdout)) {
-    throw new Error(describeMissingReport(result.status, result.signal, stderr));
+    throw new UserError(describeMissingReport(result.status, result.signal, stderr));
   }
   const parseResult = parseAuditCiOutput(stdout);
 

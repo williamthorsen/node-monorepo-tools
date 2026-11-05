@@ -2,6 +2,8 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
+
 import { DEFAULT_CONFIG, type V11yCheckConfig, v11yCheckConfigSchema } from './types.ts';
 
 /** Default config file path, relative to the working directory. */
@@ -42,20 +44,20 @@ export async function loadConfig(configPath?: string, cwd?: string): Promise<Loa
   try {
     rawContent = await readFile(filePath, 'utf8');
   } catch {
-    throw new Error(`Config file not found: ${filePath}`);
+    throw new UserError(`Config file not found: ${filePath}`);
   }
 
   let parsedConfig: unknown;
   try {
     parsedConfig = JSON.parse(rawContent);
   } catch {
-    throw new Error(`Config file is not valid JSON: ${filePath}`);
+    throw new UserError(`Config file is not valid JSON: ${filePath}`);
   }
 
   const result = v11yCheckConfigSchema.safeParse(parsedConfig);
   if (!result.success) {
     const issueText = result.error.issues.map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`).join('\n');
-    throw new Error(`Invalid config in ${filePath}:\n${issueText}`);
+    throw new UserError(`Invalid config in ${filePath}:\n${issueText}`);
   }
 
   return { config: result.data, configDir, configFilePath: filePath, configSource: 'file' };

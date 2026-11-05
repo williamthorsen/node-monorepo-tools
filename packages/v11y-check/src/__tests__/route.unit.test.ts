@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished, listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -145,6 +146,32 @@ describe(routeCommand, () => {
 
     expect(exitCode).toBe(1);
     expect(stdio.stderr).toContain('Cannot specify both --dev and --prod');
+  });
+
+  it('reports a UserError from a subcommand as a handled error and returns 1', async () => {
+    vi.mocked(syncCommand).mockRejectedValueOnce(new UserError('Config file not found: /repo/v11y.json'));
+    using stdio = captureStdio();
+
+    const exitCode = await routeCommand(['sync']);
+
+    expect(exitCode).toBe(1);
+    expect(stdio.stderr).toBe('Error: Config file not found: /repo/v11y.json\n');
+  });
+
+  it('rethrows an unexpected error from a subcommand for the crash handler', async () => {
+    const crash = new TypeError('cannot read x');
+    vi.mocked(checkCommand).mockRejectedValueOnce(crash);
+
+    await expect(routeCommand(['check'])).rejects.toBe(crash);
+  });
+
+  it('reports an unknown flag to init as a handled error and returns 1', async () => {
+    using stdio = captureStdio();
+
+    const exitCode = await routeCommand(['init', '--bogus']);
+
+    expect(exitCode).toBe(1);
+    expect(stdio.stderr).toBe('Error: Unknown option: --bogus\n');
   });
 
   it('returns 0 for sync --help', async () => {

@@ -1,6 +1,6 @@
 import process from 'node:process';
 
-import { parseArgs, reportError, resolveSelfVersion, type StreamStyles } from '@williamthorsen/nmr-core';
+import { parseArgs, reportError, resolveSelfVersion, type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { auditCommand, checkCommand, syncCommand } from './commands.ts';
@@ -105,7 +105,7 @@ function parseSharedFlags(flags: string[], styles: StreamStyles): CommandOptions
   const { flags: parsedFlags } = parseArgs(flags, flagSchema);
 
   if (parsedFlags.isDev && parsedFlags.isProd) {
-    throw new Error('Cannot specify both --dev and --prod');
+    throw new UserError('Cannot specify both --dev and --prod');
   }
 
   const scopes: AuditScope[] = [];
@@ -213,15 +213,13 @@ async function handleSubcommand(
   try {
     options = parseSharedFlags(flags, styles);
   } catch (error: unknown) {
-    reportError(describeError(error));
-    return 1;
+    return reportUserError(error);
   }
 
   try {
     return await runSubcommand(options);
   } catch (error: unknown) {
-    reportError(describeError(error));
-    return 1;
+    return reportUserError(error);
   }
 }
 
@@ -241,8 +239,7 @@ function handleInit(flags: string[], styles: StreamStyles): number {
   try {
     parsedArgs = parseArgs(flags, initFlagSchema);
   } catch (error: unknown) {
-    reportError(describeError(error));
-    return 1;
+    return reportUserError(error);
   }
 
   return initCommand({ isDryRun: parsedArgs.flags.isDryRun, shouldForce: parsedArgs.flags.shouldForce, styles });
@@ -263,9 +260,21 @@ function handleUpdateTemplates(flags: string[], styles: StreamStyles): number {
   try {
     parsedArgs = parseArgs(flags, updateTemplatesFlagSchema);
   } catch (error: unknown) {
-    reportError(describeError(error));
-    return 1;
+    return reportUserError(error);
   }
 
   return updateTemplatesCommand({ isDryRun: parsedArgs.flags.isDryRun, styles });
 }
+
+// region | Helpers
+
+/** Reports a `UserError` and returns exit code 1, and rethrows anything else for the crash handler in `cli.ts`. */
+function reportUserError(error: unknown): number {
+  if (!(error instanceof UserError)) {
+    throw error;
+  }
+  reportError(describeError(error));
+  return 1;
+}
+
+// endregion | Helpers
