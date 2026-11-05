@@ -11,7 +11,7 @@ catalog:
   '@williamthorsen/toolbelt.vitest': 0.13.1
   esbuild: 0.28.2
   prettier: 3.9.10
-  readyup: 0.44.0
+  readyup: 0.45.0
   vitest: 5.1.0
   yaml: 2.9.1
 

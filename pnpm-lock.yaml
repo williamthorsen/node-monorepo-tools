@@ -192,8 +192,8 @@ catalogs:
       specifier: 3.9.10
       version: 3.9.10
     readyup:
-      specifier: 0.44.0
-      version: 0.44.0
+      specifier: 0.45.0
+      version: 0.45.0
     vitest:
       specifier: 5.1.0
       version: 5.1.0
@@ -222,7 +222,7 @@ importers:
         version: 1.6.28(@typescript-eslint/eslint-plugin@8.72.1(@typescript-eslint/parser@8.72.1(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3)(vitest@5.1.0)
       '@williamthorsen/eslint-config-typescript':
         specifier: 20.2.0
-        version: 20.2.0(@typescript-eslint/utils@8.72.1(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(@vitest/eslint-plugin@1.6.28(@typescript-eslint/eslint-plugin@8.72.1(@typescript-eslint/parser@8.72.1(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3)(vitest@5.1.0))(eslint-plugin-jsx-a11y@6.10.2(eslint@10.14.0(jiti@2.7.0)))(eslint-plugin-react-hooks@7.1.1(eslint@10.14.0(jiti@2.7.0)))(eslint-plugin-react@7.37.5(eslint@10.14.0(jiti@2.7.0)))(eslint@10.14.0(jiti@2.7.0))(readyup@0.44.0(esbuild@0.28.2))(typescript@6.0.3)
+        version: 20.2.0(@typescript-eslint/utils@8.72.1(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(@vitest/eslint-plugin@1.6.28(@typescript-eslint/eslint-plugin@8.72.1(@typescript-eslint/parser@8.72.1(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3)(vitest@5.1.0))(eslint-plugin-jsx-a11y@6.10.2(eslint@10.14.0(jiti@2.7.0)))(eslint-plugin-react-hooks@7.1.1(eslint@10.14.0(jiti@2.7.0)))(eslint-plugin-react@7.37.5(eslint@10.14.0(jiti@2.7.0)))(eslint@10.14.0(jiti@2.7.0))(readyup@0.45.0(esbuild@0.28.2))(typescript@6.0.3)
       '@williamthorsen/nmr':
         specifier: workspace:*
         version: link:packages/nmr
@@ -246,7 +246,7 @@ importers:
         version: 0.13.1(vitest@5.1.0)
       '@williamthorsen/tsconfig':
         specifier: 0.12.1
-        version: 0.12.1(readyup@0.44.0(esbuild@0.28.2))
+        version: 0.12.1(readyup@0.45.0(esbuild@0.28.2))
       codeassembly:
         specifier: 0.20.0
         version: 0.20.0(esbuild@0.28.2)
@@ -270,7 +270,7 @@ importers:
         version: 3.9.10
       readyup:
         specifier: 'catalog:'
-        version: 0.44.0(esbuild@0.28.2)
+        version: 0.45.0(esbuild@0.28.2)
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -380,7 +380,7 @@ importers:
         version: 0.28.2
       readyup:
         specifier: 'catalog:'
-        version: 0.44.0(esbuild@0.28.2)
+        version: 0.45.0(esbuild@0.28.2)
       tinyglobby:
         specifier: 0.2.17
         version: 0.2.17
@@ -475,7 +475,7 @@ importers:
         version: 0.28.2
       readyup:
         specifier: 'catalog:'
-        version: 0.44.0(esbuild@0.28.2)
+        version: 0.45.0(esbuild@0.28.2)
       smol-toml:
         specifier: 1.9.1
         version: 1.9.1
@@ -512,7 +512,7 @@ importers:
         version: 0.28.2
       readyup:
         specifier: 'catalog:'
-        version: 0.44.0(esbuild@0.28.2)
+        version: 0.45.0(esbuild@0.28.2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@24.19.2)(@vitest/coverage-v8@5.1.0)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
@@ -1397,8 +1397,8 @@ packages:
     resolution: {integrity: sha512-LQDYMoL+qA+ui01VHke2oMLkrcZeaeiC4Do/3Y2AAaIyTU7RpKN2lvc5X5Rph9DF9Ns4+5aEXuVSQ4iWr6Y/+w==}
     engines: {node: '>=24.0.0'}
 
-  '@williamthorsen/toolbelt.strings@8.1.0':
-    resolution: {integrity: sha512-GsnIt4LIgUOPchUbhi6fXfp4gyeCgS/wU50m4XamxNXNo/LcFATUmdgzD2Yhgrh0hBfL7UpzfanC+LQa+zkrWA==}
+  '@williamthorsen/toolbelt.strings@8.2.0':
+    resolution: {integrity: sha512-I0KY52+7XNptoTHHUyKqWjfkOYv0vEBVKyu26TYWAQMnfpoFgvZB4J/VpVJf16Ory2x7CR7gqTx+QaYu3mDzlw==}
     engines: {node: '>=24.0.0'}
 
   '@williamthorsen/toolbelt.terminal@0.3.0':
@@ -2814,8 +2814,8 @@ packages:
     resolution: {integrity: sha512-7KA6+N9IGat52d83dvxnApAWN+MtVb1MiVuMR/cf1O4kYsJG+g/Aav0AHcHKsb6StinayfPLne0+fMX2sOzAKg==}
     engines: {node: '>=6'}
 
-  readyup@0.44.0:
-    resolution: {integrity: sha512-7XlBllkBmaVv0vJ2xTPV9AVX6pLYQRPjuj82Iu+OMnPux3zijpV0kUAgREsRtGYpOq8FotUOevD5UM2Z3JGGQw==}
+  readyup@0.45.0:
+    resolution: {integrity: sha512-2R0p3bUY26NCNql/BP1AeGc4DdIJvcP2iamhI7zXCkMav4bLmEMvjAyNs8+voDMVZ2P7fsuI72kI53kil6xIJw==}
     engines: {node: '>=24'}
     hasBin: true
     peerDependencies:
@@ -3947,7 +3947,7 @@ snapshots:
 
   '@williamthorsen/change-grammar@0.3.0': {}
 
-  '@williamthorsen/eslint-config-typescript@20.2.0(@typescript-eslint/utils@8.72.1(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(@vitest/eslint-plugin@1.6.28(@typescript-eslint/eslint-plugin@8.72.1(@typescript-eslint/parser@8.72.1(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3)(vitest@5.1.0))(eslint-plugin-jsx-a11y@6.10.2(eslint@10.14.0(jiti@2.7.0)))(eslint-plugin-react-hooks@7.1.1(eslint@10.14.0(jiti@2.7.0)))(eslint-plugin-react@7.37.5(eslint@10.14.0(jiti@2.7.0)))(eslint@10.14.0(jiti@2.7.0))(readyup@0.44.0(esbuild@0.28.2))(typescript@6.0.3)':
+  '@williamthorsen/eslint-config-typescript@20.2.0(@typescript-eslint/utils@8.72.1(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(@vitest/eslint-plugin@1.6.28(@typescript-eslint/eslint-plugin@8.72.1(@typescript-eslint/parser@8.72.1(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3)(vitest@5.1.0))(eslint-plugin-jsx-a11y@6.10.2(eslint@10.14.0(jiti@2.7.0)))(eslint-plugin-react-hooks@7.1.1(eslint@10.14.0(jiti@2.7.0)))(eslint-plugin-react@7.37.5(eslint@10.14.0(jiti@2.7.0)))(eslint@10.14.0(jiti@2.7.0))(readyup@0.45.0(esbuild@0.28.2))(typescript@6.0.3)':
     dependencies:
       '@eslint-community/eslint-plugin-eslint-comments': 4.8.1(eslint@10.14.0(jiti@2.7.0))
       '@eslint/js': 10.0.1(eslint@10.14.0(jiti@2.7.0))
@@ -3971,7 +3971,7 @@ snapshots:
       eslint-plugin-jsx-a11y: 6.10.2(eslint@10.14.0(jiti@2.7.0))
       eslint-plugin-react: 7.37.5(eslint@10.14.0(jiti@2.7.0))
       eslint-plugin-react-hooks: 7.1.1(eslint@10.14.0(jiti@2.7.0))
-      readyup: 0.44.0(esbuild@0.28.2)
+      readyup: 0.45.0(esbuild@0.28.2)
     transitivePeerDependencies:
       - '@eslint/json'
       - eslint-import-resolver-node
@@ -4032,7 +4032,7 @@ snapshots:
 
   '@williamthorsen/toolbelt.sets@3.1.0': {}
 
-  '@williamthorsen/toolbelt.strings@8.1.0':
+  '@williamthorsen/toolbelt.strings@8.2.0':
     dependencies:
       '@williamthorsen/toolbelt.arrays': 6.4.0
       '@williamthorsen/toolbelt.numbers': 7.3.0
@@ -4054,9 +4054,9 @@ snapshots:
       '@williamthorsen/toolbelt.objects': 4.4.0
       vitest: 5.1.0(@types/node@24.19.2)(@vitest/coverage-v8@5.1.0)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
 
-  '@williamthorsen/tsconfig@0.12.1(readyup@0.44.0(esbuild@0.28.2))':
+  '@williamthorsen/tsconfig@0.12.1(readyup@0.45.0(esbuild@0.28.2))':
     optionalDependencies:
-      readyup: 0.44.0(esbuild@0.28.2)
+      readyup: 0.45.0(esbuild@0.28.2)
 
   acorn-jsx@5.3.2(acorn@8.19.0):
     dependencies:
@@ -5647,11 +5647,11 @@ snapshots:
 
   readline-transform@1.0.0: {}
 
-  readyup@0.44.0(esbuild@0.28.2):
+  readyup@0.45.0(esbuild@0.28.2):
     dependencies:
       '@williamthorsen/toolbelt.errors': 0.9.0
       '@williamthorsen/toolbelt.packaging': 0.7.0
-      '@williamthorsen/toolbelt.strings': 8.1.0
+      '@williamthorsen/toolbelt.strings': 8.2.0
       '@williamthorsen/toolbelt.terminal': 0.3.0
       ansi-styles: 7.0.0
       es-module-lexer: 3.0.4
