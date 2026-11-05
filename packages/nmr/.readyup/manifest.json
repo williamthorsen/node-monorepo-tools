@@ -109,9 +109,14 @@
           "path": "../../nmr-core/dist/esm/helpers/workspace-patterns.js"
         },
         {
-          "hash": "8fe9a346",
+          "hash": "76923c93",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/index.js"
+        },
+        {
+          "hash": "85d76864",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/isAnticipatedFailure.js"
         },
         {
           "hash": "de51ceb3",
@@ -124,7 +129,7 @@
           "path": "../../nmr-core/dist/esm/runGit.js"
         },
         {
-          "hash": "6f46d90a",
+          "hash": "01ad20df",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/terminal.js"
         },
