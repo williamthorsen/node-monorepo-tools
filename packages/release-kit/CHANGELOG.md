@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 16.1.2 — 2026-11-06
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `release-kit` printed a bug in its own code as an ordinary `Error: <message>`, which it now prints as `release-kit: internal error: <message>` followed by the stack, while a failure in the user's input, config, or environment, including a failed `git`, `gh`, or `npm` call, keeps the `Error: <message>` form. (#1158)
+
 ## 16.1.1 — 2026-11-05
 
 ### 🐛 Bug fixes

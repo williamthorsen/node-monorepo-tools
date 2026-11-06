@@ -1,5 +1,22 @@
 [
   {
+    "version": "16.1.2",
+    "date": "2026-11-06",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that `release-kit` printed a bug in its own code as an ordinary `Error: <message>`, which it now prints as `release-kit: internal error: <message>` followed by the stack, while a failure in the user's input, config, or environment, including a failed `git`, `gh`, or `npm` call, keeps the `Error: <message>` form. (#1158)",
+            "hash": "3a62cc768b23f37156c846f32fd4acaa70f7f931",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "16.1.1",
     "date": "2026-11-05",
     "sections": [

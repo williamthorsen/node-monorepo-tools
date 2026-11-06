@@ -7,7 +7,7 @@
           "checklist": "release-kit",
           "checks": [
             "@williamthorsen/release-kit in devDependencies",
-            "@williamthorsen/release-kit >= 16.1.1",
+            "@williamthorsen/release-kit >= 16.1.2",
             "release.yaml workflow exists",
             "release.yaml matches template",
             "release.yaml does not reference deprecated tag ref",
@@ -63,7 +63,7 @@
           "path": "lib/workflow-hashes.ts"
         },
         {
-          "hash": "1c9904c3",
+          "hash": "ff1fde3d",
           "kind": "inline",
           "path": "../package.json",
           "paths": [
@@ -101,7 +101,7 @@
       "readyupVersion": "0.45.0",
       "source": "kits/default.ts",
       "sourceHash": "56566d0b",
-      "targetHash": "070a29f8"
+      "targetHash": "6a43de10"
     },
     {
       "checklistChecks": [

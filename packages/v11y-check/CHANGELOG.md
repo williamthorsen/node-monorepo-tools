@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.20.1 — 2026-11-06
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `nmr` and `v11y-check` printed a Node system error, such as `EACCES` or `ENOENT`, as an internal error with a stack trace rather than as `Error: <message>`. (#1158)
+
 ## 0.20.0 — 2026-11-05
 
 ### 🎉 Features

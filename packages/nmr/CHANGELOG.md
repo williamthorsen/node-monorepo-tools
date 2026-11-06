@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.55.0 — 2026-11-06
+
+### 🎉 Features
+
+- Adds the built-in root command `lint:shell`, which runs the new `nmr-shellcheck` bin to lint every tracked `*.sh` file with nmr's pinned shellcheck and passes without downloading shellcheck when the repo does not track any. (#1161)
+- Adds a warning to nmr's readyup kit that reports a `lint:shell` entry in `.config/nmr.config.ts`, which overrides the built-in command, and directs the repo to delete the entry. (#1161)
+
+### 🐛 Bug fixes
+
+- Adopt the crash convention in release-kit (#1158)
+
+  Makes `release-kit` report a bug in its own code as `release-kit: internal error: <message>` followed by the stack, rather than as the `Error: <message>` line that it keeps for a failure in the user's input, config, or environment. The same change makes `nmr` and `v11y-check` print a Node system error, such as `EACCES` or `ENOENT`, as `Error: <message>` rather than as an internal error.
+
 ## 0.54.1 — 2026-11-05
 
 ### 🐛 Bug fixes
