@@ -7691,6 +7691,7 @@ function buildRootScripts(workspaceGlobs) {
     "fmt:check": "nmr-fmt --check",
     lint: "eslint --fix .",
     "lint:check": "eslint .",
+    "lint:shell": "nmr-shellcheck",
     "lint:strict": "strict-lint",
     "lint:workflows": "nmr-actionlint",
     // The audit takes seconds and `ci` takes minutes, so the cheap gate fails first. The audit reads the
@@ -7880,6 +7881,8 @@ var INSTALL_LIFECYCLE_SCRIPTS = [
 ];
 var LEFTHOOK_CHECK_INSTALL_PATTERN = /\blefthook\s+check-install\b/;
 var LEFTHOOK_INSTALL_PATTERN = /\blefthook\s+install\b/;
+var LINT_SHELL_KEY_PATTERN = /['"]lint:shell['"]\s*:/;
+var NMR_CONFIG_PATH = ".config/nmr.config.ts";
 var rootScriptChecks = [
   {
     name: "root package.json has no nmr-provided scripts",
@@ -7887,6 +7890,13 @@ var rootScriptChecks = [
     quiet: true,
     check: noRedundantRootScripts,
     fix: "Remove scripts from root package.json that nmr provides as built-in root scripts, and invoke them through nmr directly"
+  },
+  {
+    name: ".config/nmr.config.ts does not override lint:shell",
+    severity: "warn",
+    quiet: true,
+    check: () => noLintShellOverride(),
+    fix: "Delete the `lint:shell` entry from `rootScripts` in .config/nmr.config.ts, because nmr provides `lint:shell` as a built-in root command that passes when the repo does not track any shell script"
   }
 ];
 var gitHookChecks = [
@@ -7914,6 +7924,11 @@ var legacyRunnerChecks = [
     fix: 'Remove "ws" script entries and replace any "pnpm run ws" invocations with nmr in each packages/*/package.json'
   }
 ];
+function noLintShellOverride(cwd = process.cwd()) {
+  const content = readFileIn(cwd, NMR_CONFIG_PATH);
+  if (content === void 0 || !LINT_SHELL_KEY_PATTERN.test(content)) return true;
+  return { ok: false, detail: `${NMR_CONFIG_PATH}: rootScripts.lint:shell` };
+}
 function noUnguardedLefthookInstall(cwd = process.cwd()) {
   const scripts = readRootScripts(cwd);
   const unguardedScripts = INSTALL_LIFECYCLE_SCRIPTS.flatMap((name) => {

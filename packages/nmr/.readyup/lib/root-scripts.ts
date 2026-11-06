@@ -22,6 +22,10 @@ const LEFTHOOK_CHECK_INSTALL_PATTERN = /\blefthook\s+check-install\b/;
 
 const LEFTHOOK_INSTALL_PATTERN = /\blefthook\s+install\b/;
 
+const LINT_SHELL_KEY_PATTERN = /['"]lint:shell['"]\s*:/;
+
+const NMR_CONFIG_PATH = '.config/nmr.config.ts';
+
 export const rootScriptChecks: RdyCheck[] = [
   {
     name: 'root package.json has no nmr-provided scripts',
@@ -29,6 +33,13 @@ export const rootScriptChecks: RdyCheck[] = [
     quiet: true,
     check: noRedundantRootScripts,
     fix: 'Remove scripts from root package.json that nmr provides as built-in root scripts, and invoke them through nmr directly',
+  },
+  {
+    name: '.config/nmr.config.ts does not override lint:shell',
+    severity: 'warn',
+    quiet: true,
+    check: () => noLintShellOverride(),
+    fix: 'Delete the `lint:shell` entry from `rootScripts` in .config/nmr.config.ts, because nmr provides `lint:shell` as a built-in root command that passes when the repo does not track any shell script',
   },
 ];
 
@@ -58,6 +69,18 @@ export const legacyRunnerChecks: RdyCheck[] = [
     fix: 'Remove "ws" script entries and replace any "pnpm run ws" invocations with nmr in each packages/*/package.json',
   },
 ];
+
+/**
+ * Checks that the repo's nmr config does not declare a `lint:shell` key, which would override the built-in. The
+ * config is matched as text, so a key built at runtime is not seen.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function noLintShellOverride(cwd: string = process.cwd()): boolean | CheckOutcome {
+  const content = readFileIn(cwd, NMR_CONFIG_PATH);
+  if (content === undefined || !LINT_SHELL_KEY_PATTERN.test(content)) return true;
+  return { ok: false, detail: `${NMR_CONFIG_PATH}: rootScripts.lint:shell` };
+}
 
 /**
  * Checks that the root scripts that `pnpm install` runs do not invoke `lefthook install` without
