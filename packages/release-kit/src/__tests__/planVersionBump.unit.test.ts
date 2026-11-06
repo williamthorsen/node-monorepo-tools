@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -66,6 +67,7 @@ describe(planVersionBump, () => {
       throw new Error('EACCES: permission denied');
     });
 
+    expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(UserError);
     expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(
       'Failed to read packages/a/package.json: EACCES: permission denied',
     );
@@ -77,6 +79,7 @@ describe(planVersionBump, () => {
       throw underlyingError;
     });
 
+    expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(UserError);
     expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(
       expect.objectContaining({ cause: underlyingError }),
     );
@@ -85,6 +88,7 @@ describe(planVersionBump, () => {
   it('names the package file containing invalid JSON', () => {
     mockReadFileSync.mockReturnValue('{ not valid json');
 
+    expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(UserError);
     expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(
       /^Failed to parse JSON in packages\/a\/package\.json: /,
     );
@@ -93,6 +97,7 @@ describe(planVersionBump, () => {
   it('preserves the underlying error as the cause when a package file contains invalid JSON', () => {
     mockReadFileSync.mockReturnValue('{ not valid json');
 
+    expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(UserError);
     expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(
       expect.objectContaining({ cause: expect.any(SyntaxError) }),
     );
@@ -139,6 +144,7 @@ describe(planVersionSet, () => {
   it('throws when the requested version is lower than the current version', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
+    expect(() => planVersionSet(['packages/a/package.json'], '0.3.0')).toThrow(UserError);
     expect(() => planVersionSet(['packages/a/package.json'], '0.3.0')).toThrow(
       '--set-version 0.3.0 is not greater than current version 0.5.0',
     );
@@ -147,6 +153,7 @@ describe(planVersionSet, () => {
   it('throws when the requested version equals the current version', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
+    expect(() => planVersionSet(['packages/a/package.json'], '0.5.0')).toThrow(UserError);
     expect(() => planVersionSet(['packages/a/package.json'], '0.5.0')).toThrow(
       '--set-version 0.5.0 is not greater than current version 0.5.0',
     );
@@ -155,6 +162,7 @@ describe(planVersionSet, () => {
   it('names the package file when it does not declare a version to compare against', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg' }));
 
+    expect(() => planVersionSet(['packages/a/package.json'], '1.0.0')).toThrow(UserError);
     expect(() => planVersionSet(['packages/a/package.json'], '1.0.0')).toThrow(
       "No valid 'version' field found in packages/a/package.json",
     );

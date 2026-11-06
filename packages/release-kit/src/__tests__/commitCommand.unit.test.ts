@@ -1,4 +1,4 @@
-import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES, UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -65,6 +65,7 @@ describe(commitCommand, () => {
       throw createErrnoError('ENOENT: no such file or directory', 'ENOENT');
     });
 
+    expect(() => commitCommand([])).toThrow(UserError);
     expect(() => commitCommand([])).toThrow('No tags file found at');
   });
 
@@ -73,6 +74,7 @@ describe(commitCommand, () => {
       throw createErrnoError('EACCES: permission denied', 'EACCES');
     });
 
+    expect(() => commitCommand([])).toThrow(UserError);
     expect(() => commitCommand([])).toThrow('Cannot read the tags file at');
   });
 
@@ -82,6 +84,7 @@ describe(commitCommand, () => {
       throw createErrnoError('ENOENT', 'ENOENT');
     });
 
+    expect(() => commitCommand([])).toThrow(UserError);
     expect(() => commitCommand([])).toThrow('is empty. Run `release-kit prepare` first.');
   });
 
@@ -142,6 +145,7 @@ describe(commitCommand, () => {
       throw new Error('ENOENT');
     });
 
+    expect(() => commitCommand([])).toThrow(UserError);
     expect(() => commitCommand([])).toThrow('EACCES: permission denied');
   });
 

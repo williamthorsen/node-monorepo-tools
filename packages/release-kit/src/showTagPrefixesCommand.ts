@@ -1,5 +1,10 @@
-import { formatStatusLine, type OutputStyle, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors';
+import {
+  formatStatusLine,
+  isAnticipatedFailure,
+  type OutputStyle,
+  reportError,
+  type StreamStyles,
+} from '@williamthorsen/nmr-core';
 
 import { detectRepoType } from './init/detectRepoType.ts';
 import { loadValidatedConfig, reportConfigProblem } from './loadValidatedConfig.ts';
@@ -32,7 +37,10 @@ export async function showTagPrefixesCommand(styles: StreamStyles, configPath?: 
   try {
     preview = previewTagPrefixes(result.status === 'ok' ? result.config : undefined);
   } catch (error: unknown) {
-    reportError(describeError(error));
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
+    reportError(error.message);
     return 1;
   }
 

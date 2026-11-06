@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 
 import {
+  isAnticipatedFailure,
   type ManagedFileResult,
   printError,
   printSkip,
@@ -43,6 +44,9 @@ export function updateTemplatesCommand({ isDryRun, styles }: UpdateTemplatesOpti
   try {
     eligible = checkEligibility(styles);
   } catch (error: unknown) {
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
     printError(`Eligibility check failed: ${describeError(error)}`, styles.stderr);
     return 1;
   }
@@ -53,6 +57,9 @@ export function updateTemplatesCommand({ isDryRun, styles }: UpdateTemplatesOpti
   try {
     repoType = detectRepoType();
   } catch (error: unknown) {
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
     printError(`Failed to detect repo type: ${describeError(error)}`, styles.stderr);
     return 1;
   }
@@ -67,6 +74,9 @@ export function updateTemplatesCommand({ isDryRun, styles }: UpdateTemplatesOpti
     }
     results = files.map(([filePath, content]) => updateManagedFile(filePath, content, { isDryRun }));
   } catch (error: unknown) {
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
     printError(`Failed to render workflows: ${describeError(error)}`, styles.stderr);
     return 1;
   }

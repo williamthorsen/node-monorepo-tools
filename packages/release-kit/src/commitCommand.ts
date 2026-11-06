@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-import { GIT_OUTPUT_LIMIT_BYTES, hasErrnoCode, parseArgsOrExit } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES, hasErrnoCode, parseArgsOrExit, UserError } from '@williamthorsen/nmr-core';
 
 import { readReleaseTags, RELEASE_SUMMARY_FILE, resolveReleaseTagsPath } from './releaseFiles.ts';
+import { asUserError } from './user-error-chaining.ts';
 
 const commitFlagSchema = {
   isDryRun: { long: '--dry-run', type: 'boolean' as const },
@@ -19,7 +20,7 @@ export function commitCommand(argv: string[]): void {
   const tags = readReleaseTags();
 
   if (tags.length === 0) {
-    throw new Error(`Tags file at ${resolveReleaseTagsPath()} is empty. Run \`release-kit prepare\` first.`);
+    throw new UserError(`Tags file at ${resolveReleaseTagsPath()} is empty. Run \`release-kit prepare\` first.`);
   }
 
   // The summary file is absent when every released target lacks commits, as in a propagation-only release.
@@ -30,7 +31,7 @@ export function commitCommand(argv: string[]): void {
     if (hasErrnoCode(error, 'ENOENT')) {
       // Missing summary is acceptable.
     } else {
-      throw error;
+      throw asUserError(error);
     }
   }
 
@@ -57,8 +58,12 @@ export function commitCommand(argv: string[]): void {
     return;
   }
 
-  execFileSync('git', ['add', '-A'], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
-  execFileSync('git', ['commit', '-m', message], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
+  try {
+    execFileSync('git', ['add', '-A'], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
+    execFileSync('git', ['commit', '-m', message], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
+  } catch (error: unknown) {
+    throw asUserError(error);
+  }
 
   console.info(`Created release commit: ${title}`);
 }

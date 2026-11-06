@@ -5,6 +5,7 @@ import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 import { getTargetName } from './resolveReleaseDeclaration.ts';
 import { PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
 import type { DirectoryConfig, ResolvedProjectConfig, WorkspaceConfig } from './types.ts';
+import { asUserError } from './user-error-chaining.ts';
 
 export interface ResolvedTag {
   tag: string;
@@ -57,10 +58,15 @@ type ResolveReleaseTagsArgs =
  * `isPublishable: true`. Production callers should pass one of the named forms.
  */
 export function resolveReleaseTags(args?: ResolveReleaseTagsArgs): ResolvedTag[] {
-  const output = execFileSync('git', ['tag', '--points-at', 'HEAD'], {
-    encoding: 'utf8',
-    maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
-  });
+  let output: string;
+  try {
+    output = execFileSync('git', ['tag', '--points-at', 'HEAD'], {
+      encoding: 'utf8',
+      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
+    });
+  } catch (error: unknown) {
+    throw asUserError(error);
+  }
 
   const tags = output
     .split('\n')

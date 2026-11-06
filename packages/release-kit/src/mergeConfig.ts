@@ -1,3 +1,5 @@
+import { UserError } from '@williamthorsen/nmr-core';
+
 import type { ReleaseKitConfig } from './configSchema.ts';
 import {
   DEFAULT_CHANGELOG_JSON_CONFIG,
@@ -121,10 +123,10 @@ export function mergeMonorepoConfig(
  */
 export function mergeSinglePackageConfig(userConfig: ReleaseKitConfig | undefined): ReleaseSettings {
   if (userConfig?.project !== undefined) {
-    throw new Error('project block is not supported in single-package mode');
+    throw new UserError('project block is not supported in single-package mode');
   }
   if (userConfig?.releases !== undefined) {
-    throw new Error('releases block is not supported in single-package mode');
+    throw new UserError('releases block is not supported in single-package mode');
   }
 
   const workTypes = resolveWorkTypes(userConfig?.workTypes);
@@ -240,12 +242,12 @@ function resolveProjectConfig(
   const subject =
     declaredComposite.name === undefined ? 'project block' : `composite release '${declaredComposite.name}'`;
   if (rootPackage === undefined || !rootPackage.doesExist) {
-    throw new Error(
+    throw new UserError(
       `${subject} requires a root ${ROOT_PACKAGE_JSON_PATH}; create one with a 'version' field at the repo root`,
     );
   }
   if (rootPackage.version === undefined) {
-    throw new Error(
+    throw new UserError(
       `${subject} requires root ${ROOT_PACKAGE_JSON_PATH} to have a 'version' field; add a 'version' field to the root package.json`,
     );
   }

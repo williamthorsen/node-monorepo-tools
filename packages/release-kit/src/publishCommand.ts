@@ -1,11 +1,7 @@
-/* eslint n/no-process-exit: off */
-/* eslint unicorn/no-process-exit: off */
-
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { parseArgsOrExit, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors';
+import { parseArgsOrExit, type StreamStyles } from '@williamthorsen/nmr-core';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { assertTarballsComplete } from './assertTarballsComplete.ts';
@@ -46,12 +42,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
 
   // Run release-kit's own clean-tree check: `publishPackage` bypasses pnpm's, which would fail on the injected README.
   if (!isDryRun && !shouldSkipGitChecks) {
-    try {
-      assertCleanWorkingTree();
-    } catch (error: unknown) {
-      reportError(describeError(error));
-      process.exit(1);
-    }
+    assertCleanWorkingTree();
   }
 
   const requestedTags = parseRequestedTags(parsedArgs.flags.tags);
@@ -69,15 +60,10 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
     return;
   }
 
-  try {
-    assertTarballsComplete(
-      publishableTags.map(({ workspacePath }) => workspacePath),
-      userConfig?.devExportConditions ?? [],
-    );
-  } catch (error: unknown) {
-    reportError(describeError(error));
-    process.exit(1);
-  }
+  assertTarballsComplete(
+    publishableTags.map(({ workspacePath }) => workspacePath),
+    userConfig?.devExportConditions ?? [],
+  );
 
   const packageManager = detectPackageManager();
   const { releaseNotes, changelogJsonOutputPath, sectionOrder } = deriveReleaseNotesConfig(userConfig);
@@ -124,8 +110,7 @@ export async function publishCommand(argv: string[], styles: StreamStyles, invoc
         console.warn(`  ${tag}`);
       }
     }
-    reportError(describeError(error));
-    process.exit(1);
+    throw error;
   }
 }
 

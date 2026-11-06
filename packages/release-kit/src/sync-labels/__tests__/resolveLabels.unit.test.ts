@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { RepoLabelsConfig } from '../../configSchema.ts';
@@ -122,6 +123,7 @@ describe(resolveLabels, () => {
       },
     };
 
+    expect(() => resolveLabels(config)).toThrow(UserError);
     expect(() => resolveLabels(config)).toThrow("'bug' and 'Bug'; 'feature' and 'FEATURE'");
   });
 
@@ -133,6 +135,7 @@ describe(resolveLabels, () => {
       labels: { bug: null, Bug: { color: 'ff0000' } },
     };
 
+    expect(() => resolveLabels(config)).toThrow(UserError);
     expect(() => resolveLabels(config)).toThrow("'bug' and 'Bug'");
   });
 
@@ -163,6 +166,7 @@ describe(resolveLabels, () => {
   it('throws when an alias names its own label in another case', () => {
     const config: RepoLabelsConfig = { labels: { 'scope:core': { color: '00ff96', aliases: ['Scope:Core'] } } };
 
+    expect(() => resolveLabels(config)).toThrow(UserError);
     expect(() => resolveLabels(config)).toThrow(
       "'scope:core' declares alias 'Scope:Core', which names the label 'scope:core'",
     );
@@ -176,6 +180,7 @@ describe(resolveLabels, () => {
       },
     };
 
+    expect(() => resolveLabels(config)).toThrow(UserError);
     expect(() => resolveLabels(config)).toThrow(
       "'scope:core' declares alias 'scope:basic', which names the label 'scope:basic'",
     );
@@ -189,6 +194,7 @@ describe(resolveLabels, () => {
       labels: { 'type:bug': { color: 'd73a4a', aliases: ['bug'] } },
     };
 
+    expect(() => resolveLabels(config)).toThrow(UserError);
     expect(() => resolveLabels(config)).toThrow("'type:bug' declares alias 'bug', which names the label 'bug'");
   });
 
@@ -200,6 +206,7 @@ describe(resolveLabels, () => {
       },
     };
 
+    expect(() => resolveLabels(config)).toThrow(UserError);
     expect(() => resolveLabels(config)).toThrow("'scope:b' declares alias 'Scope:Old', which 'scope:a' also declares");
   });
 
@@ -208,6 +215,7 @@ describe(resolveLabels, () => {
       labels: { 'scope:a': { color: '00ff96', aliases: ['scope:old', 'scope:old'] } },
     };
 
+    expect(() => resolveLabels(config)).toThrow(UserError);
     expect(() => resolveLabels(config)).toThrow("'scope:a' declares alias 'scope:old', which 'scope:a' also declares");
   });
 
@@ -219,6 +227,7 @@ describe(resolveLabels, () => {
       },
     };
 
+    expect(() => resolveLabels(config)).toThrow(UserError);
     expect(() => resolveLabels(config)).toThrow(
       "'scope:a' declares alias 'scope:a', which names the label 'scope:a'; 'scope:b' declares alias 'scope:a', which names the label 'scope:a'",
     );
@@ -293,6 +302,7 @@ describe(resolveLabels, () => {
       labels: { bug: null },
     };
 
+    expect(() => resolveLabels(config)).toThrow(UserError);
     expect(() => resolveLabels(config)).toThrow(/Label 'bug' is set to null/);
   });
 

@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process';
 
 import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
-import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { matchesTagPrefix } from './matchesTagPrefix.ts';
+import { chainUserError } from './user-error-chaining.ts';
 
 /**
  * Unit separator (U+001F) delimiting the fields of one git output record.
@@ -255,7 +255,7 @@ function runGit(args: readonly string[], description: string): string {
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
   } catch (error: unknown) {
-    throw chainError(`Failed to run ${description}`, error);
+    throw chainUserError(`Failed to run ${description}`, error);
   }
 }
 

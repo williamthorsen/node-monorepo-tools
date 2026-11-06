@@ -1,8 +1,4 @@
-/* eslint n/no-process-exit: off */
-/* eslint unicorn/no-process-exit: off */
-
-import { parseArgsOrExit, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors';
+import { parseArgsOrExit, type StreamStyles } from '@williamthorsen/nmr-core';
 
 import { configFlagSchema } from './configFlagSchema.ts';
 import { loadUsableConfig } from './loadValidatedConfig.ts';
@@ -48,16 +44,11 @@ export async function pushCommand(argv: string[], styles: StreamStyles, invocati
     console.info(`  ${tag}`);
   }
 
-  try {
-    const steps = pushRelease(resolvedTags, { isDryRun, tagsOnly });
+  const steps = pushRelease(resolvedTags, { isDryRun, tagsOnly });
 
-    if (isDryRun) {
-      for (const step of steps) {
-        console.info(`[dry-run] ${step.command.join(' ')}`);
-      }
+  if (isDryRun) {
+    for (const step of steps) {
+      console.info(`[dry-run] ${step.command.join(' ')}`);
     }
-  } catch (error: unknown) {
-    reportError(describeError(error));
-    process.exit(1);
   }
 }

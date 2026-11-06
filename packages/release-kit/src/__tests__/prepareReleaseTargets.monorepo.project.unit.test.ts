@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { captureError } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -442,7 +443,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
       const config = makeArraysConfig();
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
       // Make `readReleaseHistory` throw, which exercises the Phase 1 wrap inside `determineDirectBumps`.
-      const underlyingError = new Error('git rev-list failed: not a git repo');
+      const underlyingError = new UserError('git rev-list failed: not a git repo');
       mockReadReleaseHistory.mockImplementation(() => {
         throw underlyingError;
       });
@@ -458,7 +459,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
       const config = makeArraysConfig();
       // Phase 1 succeeds. `renderChangelogMarkdown` (which `executeWorkspaceRelease` reaches)
       // throws, which exercises the Phase 3 wrap inside `executeReleaseSet`.
-      const underlyingError = new Error('markdown render failed');
+      const underlyingError = new UserError('markdown render failed');
       stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add', 'abc123']], bump: 'minor' });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       mockRenderChangelogMarkdown.mockImplementationOnce(() => {
@@ -475,7 +476,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
     it('wraps a project-stage throw with the project release-stage label', async () => {
       const config = makeArraysConfig({ project: { paths: ['packages/arrays/**'], tagPrefix: 'v' } });
       // The workspace stage's read succeeds; the project stage's read throws.
-      const underlyingError = new Error('git log failed on root');
+      const underlyingError = new UserError('git log failed on root');
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
         return JSON.stringify({ version: '1.0.0' });
@@ -492,6 +493,17 @@ describe('prepareReleaseTargets for a monorepo', () => {
 
       expect(wrappedError.message).toMatch(/^project release stage: .*git log failed on root$/);
       expect(wrappedError.cause).toBeInstanceOf(Error);
+    });
+
+    it('rethrows a crash inside a stage unchanged, so that it keeps its own stack', async () => {
+      const config = makeArraysConfig();
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
+      const crash = new TypeError('Cannot read properties of undefined');
+      mockReadReleaseHistory.mockImplementation(() => {
+        throw crash;
+      });
+
+      await expect(captureError(TypeError, () => prepareMonorepo(config, {}))).resolves.toBe(crash);
     });
   });
 });

@@ -1,7 +1,7 @@
 import path from 'node:path';
 
-import type { StreamStyles } from '@williamthorsen/nmr-core';
-import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
+import { captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -118,7 +118,7 @@ describe(generateCommand, () => {
     mockExistsSync.mockReturnValue(false);
     stubValidConfig({ repoLabels: { extends: ['common'], labels: { ghost: null } } });
     mockResolveLabels.mockImplementation(() => {
-      throw new Error("Label 'ghost' is set to null");
+      throw new UserError("Label 'ghost' is set to null");
     });
     using stdioCapture = captureStdio();
 
@@ -126,6 +126,17 @@ describe(generateCommand, () => {
 
     expect(exitCode).toBe(1);
     expect(stdioCapture.stderr).toContain("Label 'ghost' is set to null");
+  });
+
+  it('rethrows a crash in label resolution unchanged', async () => {
+    mockExistsSync.mockReturnValue(false);
+    stubValidConfig({ repoLabels: { extends: ['common'], labels: {} } });
+    const crash = new TypeError('Cannot read properties of undefined');
+    mockResolveLabels.mockImplementation(() => {
+      throw crash;
+    });
+
+    await expect(captureError(TypeError, () => generateCommand({ styles: RICH_STYLES }))).resolves.toBe(crash);
   });
 
   it('writes labels file and returns 0 on success', async () => {

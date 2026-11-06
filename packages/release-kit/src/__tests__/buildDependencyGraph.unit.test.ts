@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -207,6 +208,7 @@ describe(buildDependencyGraph, () => {
       throw new Error('EACCES: permission denied');
     });
 
+    expect(() => buildDependencyGraph([makeWorkspaceTarget('core')])).toThrow(UserError);
     expect(() => buildDependencyGraph([makeWorkspaceTarget('core')])).toThrow(
       'Failed to read packages/core/package.json: EACCES: permission denied',
     );
@@ -218,6 +220,7 @@ describe(buildDependencyGraph, () => {
       throw underlyingError;
     });
 
+    expect(() => buildDependencyGraph([makeWorkspaceTarget('core')])).toThrow(UserError);
     expect(() => buildDependencyGraph([makeWorkspaceTarget('core')])).toThrow(
       expect.objectContaining({ cause: underlyingError }),
     );
@@ -226,6 +229,7 @@ describe(buildDependencyGraph, () => {
   it('names the package file containing invalid JSON', () => {
     mockReadFileSync.mockReturnValue('{ not valid json');
 
+    expect(() => buildDependencyGraph([makeWorkspaceTarget('core')])).toThrow(UserError);
     expect(() => buildDependencyGraph([makeWorkspaceTarget('core')])).toThrow(
       /^Failed to parse JSON in packages\/core\/package\.json: /,
     );
@@ -234,6 +238,7 @@ describe(buildDependencyGraph, () => {
   it('preserves the underlying error as the cause when a package file contains invalid JSON', () => {
     mockReadFileSync.mockReturnValue('{ not valid json');
 
+    expect(() => buildDependencyGraph([makeWorkspaceTarget('core')])).toThrow(UserError);
     expect(() => buildDependencyGraph([makeWorkspaceTarget('core')])).toThrow(
       expect.objectContaining({ cause: expect.any(SyntaxError) }),
     );

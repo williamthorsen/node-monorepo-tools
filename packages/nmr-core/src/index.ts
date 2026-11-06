@@ -15,6 +15,7 @@ export { GIT_OUTPUT_LIMIT_BYTES } from './gitOutputLimit.ts';
 export { hasErrnoCode } from './hasErrnoCode.ts';
 export type { WorkingTreeHashResult } from './hashWorkingTree.ts';
 export { hashWorkingTree, readHeadSha } from './hashWorkingTree.ts';
+export { isAnticipatedFailure } from './isAnticipatedFailure.ts';
 export type {
   FlagDefinition,
   FlagSchema,

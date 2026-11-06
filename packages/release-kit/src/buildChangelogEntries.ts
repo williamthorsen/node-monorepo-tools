@@ -1,5 +1,3 @@
-import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
-
 import {
   buildEntryItem,
   buildTitleItem,
@@ -18,6 +16,7 @@ import type { GenerateChangelogOptions } from './generateChangelogs.ts';
 import { parseChangeRecordBlock } from './parseChangeRecordBlock.ts';
 import { stripEmojiPrefix } from './stripEmojiPrefix.ts';
 import type { ChangelogEntry, ChangelogItem, ChangelogSection, ReleaseSettings, ReleaseType } from './types.ts';
+import { prefixUserError } from './user-error-chaining.ts';
 
 /** Placeholder version for the unreleased window, whose tag is unknown until its bump is decided. */
 const UNRELEASED_TAG = 'unreleased';
@@ -113,7 +112,7 @@ export function readReleaseHistory(config: ReleaseHistoryConfig, options: Genera
     };
     return transformReleases(windows, context);
   } catch (error: unknown) {
-    throw chainError(`Failed to read the release history for ${options.tagPrefixes.join(', ')}`, error);
+    throw prefixUserError(`Failed to read the release history for ${options.tagPrefixes.join(', ')}`, error);
   }
 }
 

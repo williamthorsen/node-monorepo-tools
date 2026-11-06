@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it } from 'vitest';
@@ -85,6 +86,7 @@ describe(deriveDirectoryConfig, () => {
   ])('rejects %s', (_description, entries, directoryPath, message) => {
     const root = makeTree(entries);
 
+    expect(() => deriveDirectoryConfig(declare('app', directoryPath), root)).toThrow(UserError);
     expect(() => deriveDirectoryConfig(declare('app', directoryPath), root)).toThrow(message);
   });
 });

@@ -1,3 +1,5 @@
+import { UserError } from '@williamthorsen/nmr-core';
+import { captureError } from '@williamthorsen/toolbelt.testing/candidate';
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
@@ -181,18 +183,31 @@ describe(buildChangelogEntries, () => {
     expect(mockEnumerateReleaseWindows).toHaveBeenCalledWith({ tagPrefixes: ['v'], unreleasedTag: 'unreleased' });
   });
 
-  it('wraps thrown errors from the helper with the tag prefixes that it read', () => {
+  it('wraps a UserError from the helper with the tag prefixes that it read', async () => {
     mockEnumerateReleaseWindows.mockImplementationOnce(() => {
-      throw new Error('git log exited with code 1');
+      throw new UserError('git log exited with code 1');
     });
 
-    expect(() => buildChangelogEntries(makeConfig(), 'v9.9.9', { tagPrefixes: ['v', 'old-v'] })).toThrow(
-      'Failed to read the release history for v, old-v: git log exited with code 1',
+    const error = await captureError(UserError, () =>
+      buildChangelogEntries(makeConfig(), 'v9.9.9', { tagPrefixes: ['v', 'old-v'] }),
+    );
+
+    expect(error.message).toBe('Failed to read the release history for v, old-v: git log exited with code 1');
+  });
+
+  it('rethrows any other error from the helper unchanged', async () => {
+    const crash = new TypeError('Cannot read properties of undefined');
+    mockEnumerateReleaseWindows.mockImplementationOnce(() => {
+      throw crash;
+    });
+
+    await expect(captureError(TypeError, () => buildChangelogEntries(makeConfig(), 'v9.9.9', OPTIONS))).resolves.toBe(
+      crash,
     );
   });
 
   it('preserves the underlying error as the cause', () => {
-    const underlyingError = new Error('git log exited with code 1');
+    const underlyingError = new UserError('git log exited with code 1');
     mockEnumerateReleaseWindows.mockImplementationOnce(() => {
       throw underlyingError;
     });

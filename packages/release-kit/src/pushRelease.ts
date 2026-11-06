@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 
 import type { ResolvedTag } from './resolveReleaseTags.ts';
+import { asUserError } from './user-error-chaining.ts';
 
 export interface PushReleaseOptions {
   isDryRun?: boolean;
@@ -27,11 +28,16 @@ export function pushRelease(resolvedTags: ResolvedTag[], options: PushReleaseOpt
   const steps: PushStep[] = [];
 
   if (!tagsOnly) {
-    const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-      encoding: 'utf8',
-      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
+    let branch: string;
+    try {
+      branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+        encoding: 'utf8',
+        maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }).trim();
+    } catch (error: unknown) {
+      throw asUserError(error);
+    }
 
     const command = ['git', 'push', 'origin', branch] as const;
     steps.push({ type: 'branch', ref: branch, command });
@@ -44,7 +50,11 @@ export function pushRelease(resolvedTags: ResolvedTag[], options: PushReleaseOpt
 
   if (!isDryRun) {
     for (const step of steps) {
-      execFileSync(step.command[0], step.command.slice(1), { stdio: 'inherit' });
+      try {
+        execFileSync(step.command[0], step.command.slice(1), { stdio: 'inherit' });
+      } catch (error: unknown) {
+        throw asUserError(error);
+      }
     }
   }
 

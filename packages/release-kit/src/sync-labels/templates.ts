@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 
 import { findPackageRoot } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { chainUserError } from '../user-error-chaining.ts';
 import type { LabelDefinition } from './types.ts';
 
 /** Reads the bundled caller workflow for `sync-labels`. Throws if the template cannot be read. */
@@ -12,7 +12,7 @@ export function readSyncLabelsWorkflowTemplate(): string {
   try {
     return readFileSync(templatePath, 'utf8');
   } catch (error: unknown) {
-    throw new Error(`Failed to read bundled template at ${templatePath}: ${describeError(error)}`, { cause: error });
+    throw chainUserError(`Failed to read bundled template at ${templatePath}`, error);
   }
 }
 

@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 
+import { UserError } from '@williamthorsen/nmr-core';
+
 import type { ReleaseKitConfig } from './configSchema.ts';
 import type { WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { isPublishableManifest } from './isPublishableManifest.ts';
@@ -87,7 +89,7 @@ function assertUniqueTargetIds(targets: readonly ReleaseTarget[]): void {
   }
   for (const [id, paths] of pathsById) {
     if (paths.length > 1) {
-      throw new Error(`Duplicate release target id '${id}' for workspaces: ${paths.join(', ')}`);
+      throw new UserError(`Duplicate release target id '${id}' for workspaces: ${paths.join(', ')}`);
     }
   }
 }

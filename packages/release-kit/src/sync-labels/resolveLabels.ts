@@ -1,3 +1,5 @@
+import { UserError } from '@williamthorsen/nmr-core';
+
 import type { RepoLabelsConfig } from '../configSchema.ts';
 import { loadPreset } from './presets.ts';
 import type { LabelDefinition } from './types.ts';
@@ -21,7 +23,7 @@ export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
   const caseVariantGroups = findCaseVariantGroups(labelEntries.map(([name]) => name));
   if (caseVariantGroups.length > 0) {
     const groupList = caseVariantGroups.map((group) => group.map((name) => `'${name}'`).join(' and ')).join('; ');
-    throw new Error(
+    throw new UserError(
       `Keys in 'labels' differ only in case, which GitHub treats as the same label: ${groupList}. Keep one entry per label.`,
     );
   }
@@ -39,7 +41,7 @@ export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
     const key = getLabelKey(name);
     if (spec === null) {
       if (!resolvedLabels.has(key)) {
-        throw new Error(
+        throw new UserError(
           `Label '${name}' is set to null (remove), but the presets in 'extends' don't define it. Fix the name or delete the entry.`,
         );
       }
@@ -61,7 +63,7 @@ export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
 
   const aliasCollisions = findAliasCollisions(labels);
   if (aliasCollisions.length > 0) {
-    throw new Error(
+    throw new UserError(
       `Aliases must name labels that are not declared and must not repeat, or the sync merges one label into another and deletes it: ${aliasCollisions.join('; ')}.`,
     );
   }

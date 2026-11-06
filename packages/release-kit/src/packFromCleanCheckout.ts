@@ -3,8 +3,11 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
+
 import { type PackageManager, resolveExecutable } from './detectPackageManager.ts';
 import { isRecord } from './typeGuards.ts';
+import { chainUserError } from './user-error-chaining.ts';
 
 /**
  * Packs each workspace as the publish environment would and returns each one's tarball entries, keyed by workspace
@@ -77,7 +80,13 @@ const PACKAGE_MANAGER_COMMANDS: Record<
 
 /** Reports whether the package in `packageDir` declares a `prepublishOnly` script. */
 function declaresPrepublishOnly(packageDir: string): boolean {
-  const manifest: unknown = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'));
+  const manifestPath = join(packageDir, 'package.json');
+  let manifest: unknown;
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  } catch (error: unknown) {
+    throw chainUserError(`Failed to parse ${manifestPath}`, error);
+  }
   const scripts = isRecord(manifest) ? manifest['scripts'] : undefined;
   return isRecord(scripts) && typeof scripts['prepublishOnly'] === 'string';
 }
@@ -87,7 +96,7 @@ function findTarball(packDir: string, workspacePath: string): string {
   const tarballs = readdirSync(packDir).filter((name) => name.endsWith('.tgz'));
   const [tarball] = tarballs;
   if (tarballs.length !== 1 || tarball === undefined) {
-    throw new Error(`Could not pack ${workspacePath}: expected one tarball, found ${tarballs.length}.`);
+    throw new UserError(`Could not pack ${workspacePath}: expected one tarball, found ${tarballs.length}.`);
   }
   return join(packDir, tarball);
 }
@@ -110,7 +119,7 @@ function runStep(step: string, command: string, args: readonly string[], cwd: st
 
   const outcome = result.error === undefined ? `exited with status ${result.status}` : result.error.message;
   const output = [result.stdout, result.stderr].filter((text) => text !== '').join('\n');
-  throw new Error(
+  throw new UserError(
     `Could not ${step}: \`${[command, ...args].join(' ')}\` ${outcome}.${output === '' ? '' : `\n${output}`}`,
   );
 }

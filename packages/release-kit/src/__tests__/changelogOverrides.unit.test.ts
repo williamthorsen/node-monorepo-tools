@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -219,6 +220,7 @@ describe(applyWorkspaceOverrides, () => {
         sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Item', hash: 'aaa1111', entry: 1 }] }],
       },
     ];
+    expect(() => applyWorkspaceOverrides(entries, 'packages/foo', context)).toThrow(UserError);
     expect(() => applyWorkspaceOverrides(entries, 'packages/foo', context)).toThrow(
       "Override keys 'aaa1111' and 'aaa1111:1' both match the item at aaa1111:1; keep one",
     );
@@ -272,12 +274,14 @@ describe(createOverrideContext, () => {
     const workspacePath = 'packages/bad';
     tree.write(`${workspacePath}/.meta/changelog-overrides.json`, '{not-valid');
 
+    expect(() => createOverrideContext([workspacePath])).toThrow(UserError);
     expect(() => createOverrideContext([workspacePath])).toThrow(/Failed to load changelog overrides/);
   });
 
   it('aborts with a combined error when the project file is malformed', () => {
     tree.write('.meta/changelog-overrides.json', '[]');
 
+    expect(() => createOverrideContext([])).toThrow(UserError);
     expect(() => createOverrideContext([])).toThrow(/Failed to load changelog overrides/);
   });
 

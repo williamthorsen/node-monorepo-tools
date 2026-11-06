@@ -1,4 +1,4 @@
-import { writeFileWithCheck } from '@williamthorsen/nmr-core';
+import { UserError, writeFileWithCheck } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { deleteFileIfExists } from './deleteFileIfExists.ts';
@@ -62,7 +62,9 @@ export function applyReleasePlan(plan: ReleasePlan): string[] {
 
     if (outcome.outcome === 'failed') {
       const unwrittenPaths = orderedSteps.slice(index).map((pending) => pending.path);
-      throw new Error(describeApplyFailure({ failedStep: step, error: outcome.error, appliedWrites, unwrittenPaths }));
+      throw new UserError(
+        describeApplyFailure({ failedStep: step, error: outcome.error, appliedWrites, unwrittenPaths }),
+      );
     }
 
     appliedWrites.push({ path: step.path, created: outcome.outcome === 'created' });

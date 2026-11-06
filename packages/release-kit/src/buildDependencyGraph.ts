@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 
-import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
+import { UserError } from '@williamthorsen/nmr-core';
 
 import type { PackageTarget } from './types.ts';
+import { chainUserError } from './user-error-chaining.ts';
 
 /** Identities, current versions, and `workspace:` dependency edges of the package targets. */
 export interface DependencyGraph {
@@ -104,18 +105,18 @@ function readPackageJsonSubset(filePath: string): PackageJsonSubset {
   try {
     content = readFileSync(filePath, 'utf8');
   } catch (error: unknown) {
-    throw chainError(`Failed to read ${filePath}`, error);
+    throw chainUserError(`Failed to read ${filePath}`, error);
   }
 
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(content);
   } catch (error: unknown) {
-    throw chainError(`Failed to parse JSON in ${filePath}`, error);
+    throw chainUserError(`Failed to parse JSON in ${filePath}`, error);
   }
 
   if (!isPackageJsonSubset(parsedJson)) {
-    throw new Error(`Invalid package.json at ${filePath}`);
+    throw new UserError(`Invalid package.json at ${filePath}`);
   }
 
   return parsedJson;

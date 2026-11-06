@@ -1,4 +1,4 @@
-import type { StreamStyles } from '@williamthorsen/nmr-core';
+import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -232,27 +232,25 @@ describe(publishCommand, () => {
     expect(mockAssertTarballsComplete).toHaveBeenCalledWith(['.'], []);
   });
 
-  it('exits with code 1 without publishing when a tarball lacks a manifest file', async () => {
+  it('throws without publishing when a tarball lacks a manifest file', async () => {
     mockAssertTarballsComplete.mockImplementation(() => {
-      throw new Error('Cannot release: The tarball of every package must contain each file that its manifest names.');
+      throw new UserError(
+        'Cannot release: The tarball of every package must contain each file that its manifest names.',
+      );
     });
 
-    const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderr).toContain('must contain each file that its manifest names');
+    const error = await captureError(UserError, () => publishCommand([], RICH_STYLES, process.cwd()));
+    expect(error.message).toContain('must contain each file that its manifest names');
     expect(mockPublishPackage).not.toHaveBeenCalled();
   });
 
-  it('exits with code 1 when publishPackage throws', async () => {
+  it('rethrows the UserError when publishPackage throws', async () => {
     mockPublishPackage.mockImplementation(() => {
-      throw new Error('publish failed');
+      throw new UserError('publish failed');
     });
 
-    const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Error: publish failed\n');
+    const error = await captureError(UserError, () => publishCommand([], RICH_STYLES, process.cwd()));
+    expect(error.message).toBe('publish failed');
   });
 
   it('does not invoke any GitHub Release path during publish', async () => {
@@ -321,11 +319,11 @@ describe(publishCommand, () => {
     ]);
     mockPublishPackage.mockImplementation((resolvedTag: { tag: string }) => {
       if (resolvedTag.tag === 'release-kit-v2.1.0') {
-        throw new Error('publish failed');
+        throw new UserError('publish failed');
       }
     });
 
-    await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
+    await captureError(UserError, () => publishCommand([], RICH_STYLES, process.cwd()));
     expect(console.warn).toHaveBeenCalledWith('Packages published before failure:');
     expect(console.warn).toHaveBeenCalledWith('  core-v1.3.0');
   });
@@ -481,15 +479,13 @@ describe(publishCommand, () => {
   });
 
   describe('clean-tree gate', () => {
-    it('exits with error when the working tree is dirty', async () => {
+    it('throws a UserError when the working tree is dirty', async () => {
       mockAssertCleanWorkingTree.mockImplementation(() => {
-        throw new Error('Working tree has uncommitted changes.');
+        throw new UserError('Working tree has uncommitted changes.');
       });
 
-      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
-
-      expect(error.code).toBe(1);
-      expect(stdioCapture.stderr).toContain('uncommitted changes');
+      const error = await captureError(UserError, () => publishCommand([], RICH_STYLES, process.cwd()));
+      expect(error.message).toContain('uncommitted changes');
       expect(mockResolveReleaseTags).not.toHaveBeenCalled();
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });

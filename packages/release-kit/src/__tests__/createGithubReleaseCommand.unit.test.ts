@@ -1,4 +1,4 @@
-import type { StreamStyles } from '@williamthorsen/nmr-core';
+import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -287,17 +287,13 @@ describe(createGithubReleaseCommand, () => {
     expect(stdioCapture.stderrChunks).toContain('Error: Unknown tag "core-v9.9.9" in --tags. Available: core-v1.3.0\n');
   });
 
-  it('exits with code 1 when discoverWorkspaces throws', async () => {
+  it('rethrows the UserError when discoverWorkspaces throws', async () => {
     mockDiscoverWorkspaces.mockImplementation(() => {
-      throw new Error('discovery failed');
+      throw new UserError('discovery failed');
     });
 
-    const error = await captureError(ProcessExitError, () =>
-      createGithubReleaseCommand([], RICH_STYLES, process.cwd()),
-    );
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Error: Failed to discover workspaces: discovery failed\n');
+    const error = await captureError(UserError, () => createGithubReleaseCommand([], RICH_STYLES, process.cwd()));
+    expect(error.message).toBe('Failed to discover workspaces: discovery failed');
   });
 
   it('does not exit when --tags is explicit and every skip is no-entry', async () => {
@@ -409,17 +405,13 @@ describe(createGithubReleaseCommand, () => {
     );
   });
 
-  it('exits with code 1 when createGithubReleases throws', async () => {
+  it('rethrows the UserError when createGithubReleases throws', async () => {
     mockCreateGithubReleases.mockImplementation(() => {
-      throw new Error('gh release failed');
+      throw new UserError('gh release failed');
     });
 
-    const error = await captureError(ProcessExitError, () =>
-      createGithubReleaseCommand([], RICH_STYLES, process.cwd()),
-    );
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Error: Failed to create GitHub Releases: gh release failed\n');
+    const error = await captureError(UserError, () => createGithubReleaseCommand([], RICH_STYLES, process.cwd()));
+    expect(error.message).toBe('Failed to create GitHub Releases: gh release failed');
   });
 
   describe('publishability filter', () => {

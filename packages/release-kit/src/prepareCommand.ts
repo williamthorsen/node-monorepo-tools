@@ -3,7 +3,14 @@
 
 import { execSync } from 'node:child_process';
 
-import { formatGlyphLine, type OutputStyle, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
+import {
+  formatGlyphLine,
+  isAnticipatedFailure,
+  type OutputStyle,
+  reportError,
+  type StreamStyles,
+  UserError,
+} from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
@@ -28,6 +35,10 @@ import {
   SINGLE_PACKAGE_TARGET_ID,
 } from './resolveReleaseTargets.ts';
 import type { ReleaseTarget } from './types.ts';
+import { prefixUserError } from './user-error-chaining.ts';
+
+/** Follows a failure to compute the release plan, which happens before `prepare` writes anything. */
+const UNCHANGED_TREE_NOTE = 'The command did not write any files; the working tree is unchanged.';
 
 /**
  * Orchestrates the CLI `prepare` command: checks the working tree, loads and validates the config, discovers the
@@ -59,12 +70,7 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
   }
 
   if (!isDryRun && !shouldSkipGitChecks) {
-    try {
-      assertCleanWorkingTree();
-    } catch (error: unknown) {
-      reportError(describeError(error));
-      process.exit(1);
-    }
+    assertCleanWorkingTree();
   }
 
   const configResult = await loadValidatedConfig(resolveConfigFlag(configFlag, invocationDir));
@@ -83,8 +89,7 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
   try {
     workspaceDiscovery = discoverWorkspaces();
   } catch (error: unknown) {
-    reportError(`Failed to discover workspaces: ${describeError(error)}`);
-    process.exit(1);
+    throw prefixUserError('Failed to discover workspaces', error);
   }
 
   if (workspaceDiscovery.kind === 'empty') {
@@ -126,7 +131,8 @@ function findReleasedPackagePaths(plan: ReleasePlan, targets: readonly ReleaseTa
 /**
  * Resolves the release targets of the discovered repo shape, checking `--only` and `--set-version` against them.
  * Prints a usage error and exits on a flag that the shape rejects or a name that it lacks. A monorepo's config-merge
- * error is reported and exits; a single-package config-merge error propagates.
+ * error is rethrown with the `Failed to resolve workspaces` prefix; a single-package config-merge error propagates
+ * unchanged.
  */
 function resolveTargetsOrExit(
   userConfig: ReleaseKitConfig | undefined,
@@ -152,8 +158,7 @@ function resolveTargetsOrExit(
   try {
     config = resolveReleaseTargets(userConfig, discovery);
   } catch (error: unknown) {
-    reportError(`Failed to resolve workspaces: ${describeError(error)}`);
-    process.exit(1);
+    throw prefixUserError('Failed to resolve workspaces', error);
   }
 
   // A project release derives its bump from the commits of every contributing workspace, and `prepare` doesn't accept
@@ -216,9 +221,11 @@ function runAndReport(computePlan: () => ReleasePlan, isDryRun: boolean, style: 
   try {
     plan = computePlan();
   } catch (error: unknown) {
-    reportError(describeError(error));
-    process.stderr.write('The command did not write any files; the working tree is unchanged.\n');
-    process.exit(1);
+    if (isAnticipatedFailure(error)) {
+      throw new UserError(`${error.message}\n${UNCHANGED_TREE_NOTE}`, { cause: error });
+    }
+    process.stderr.write(`${UNCHANGED_TREE_NOTE}\n`);
+    throw error;
   }
 
   if (isDryRun) {
@@ -227,12 +234,7 @@ function runAndReport(computePlan: () => ReleasePlan, isDryRun: boolean, style: 
     return;
   }
 
-  try {
-    applyReleasePlan(plan);
-  } catch (error: unknown) {
-    reportError(describeError(error));
-    process.exit(1);
-  }
+  applyReleasePlan(plan);
 
   const formatError = runFormatCommand(plan.formatCommand);
 

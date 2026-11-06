@@ -1,11 +1,12 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
+import { UserError } from '@williamthorsen/nmr-core';
 
 import type { DeclaredDirectory } from './resolveReleaseDeclaration.ts';
 import { isRecord } from './typeGuards.ts';
 import type { DirectoryConfig } from './types.ts';
+import { chainUserError } from './user-error-chaining.ts';
 
 /** Name of the version file of a directory that doesn't contain a `package.json`. */
 export const DIRECTORY_VERSION_FILE = 'version.json';
@@ -27,7 +28,7 @@ export function deriveDirectoryConfig(
 ): DirectoryConfig {
   const label = `releases.${declaredDirectory.name}`;
   if (statSync(path.resolve(root, declaredDirectory.path), { throwIfNoEntry: false })?.isDirectory() !== true) {
-    throw new Error(
+    throw new UserError(
       `${label}: path '${declaredDirectory.path}' is not a directory; declare a directory that exists in the repo`,
     );
   }
@@ -56,7 +57,7 @@ export function deriveDirectoryConfig(
 function assertVersionField(label: string, versionFile: string, root: string): void {
   const absolutePath = path.resolve(root, versionFile);
   if (!existsSync(absolutePath)) {
-    throw new Error(
+    throw new UserError(
       `${label}: ${versionFile} not found; create it with the directory's current version, such as { "version": "0.0.0" }`,
     );
   }
@@ -65,10 +66,10 @@ function assertVersionField(label: string, versionFile: string, root: string): v
   try {
     parsedJson = JSON.parse(readFileSync(absolutePath, 'utf8'));
   } catch (error: unknown) {
-    throw chainError(`${label}: failed to read ${versionFile}`, error);
+    throw chainUserError(`${label}: failed to read ${versionFile}`, error);
   }
   if (!isRecord(parsedJson) || typeof parsedJson['version'] !== 'string') {
-    throw new Error(`${label}: ${versionFile} does not contain a string 'version' field; add one`);
+    throw new UserError(`${label}: ${versionFile} does not contain a string 'version' field; add one`);
   }
 }
 
@@ -79,7 +80,7 @@ function deriveTagPrefix(label: string, directoryPath: string): string {
   }
   const basename = path.posix.basename(directoryPath);
   if (!TAG_PREFIX_PATTERN.test(basename)) {
-    throw new Error(
+    throw new UserError(
       `${label}: the directory name '${basename}' cannot form a tag prefix; set tagPrefix, such as '${basename.replaceAll(/[^\w.-]+/g, '-')}-v'`,
     );
   }

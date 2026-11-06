@@ -1,5 +1,7 @@
 import path from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
+
 import { applyChangelogOverrides, formatStaleOverrideKeyWarning } from './applyChangelogOverrides.ts';
 import { loadChangelogOverrides } from './loadChangelogOverrides.ts';
 import type { ChangelogEntry, ChangelogOverride } from './types.ts';
@@ -27,7 +29,7 @@ export function applyWorkspaceOverrides(
   const composedOverrides = composeOverrides(projectOverrides, workspaceOverrides);
   const appliedResult = applyChangelogOverrides(newEntries, composedOverrides);
   if (appliedResult.errors.length > 0) {
-    throw new Error(`Changelog override application failed:\n  - ${appliedResult.errors.join('\n  - ')}`);
+    throw new UserError(`Changelog override application failed:\n  - ${appliedResult.errors.join('\n  - ')}`);
   }
   overrideWarnings.push(...appliedResult.warnings);
 
@@ -77,7 +79,7 @@ export function composeOverrides(
 export function createOverrideContext(workspacePaths: readonly string[]): OverrideContext {
   const result = loadOverridesForScopes({ projectPath: '.', workspaces: [...workspacePaths] });
   if (result.errors.length > 0) {
-    throw new Error(`Failed to load changelog overrides:\n  - ${result.errors.join('\n  - ')}`);
+    throw new UserError(`Failed to load changelog overrides:\n  - ${result.errors.join('\n  - ')}`);
   }
   return {
     projectOverrides: result.projectOverrides,

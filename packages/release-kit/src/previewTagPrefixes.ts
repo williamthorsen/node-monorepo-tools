@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { basename } from 'node:path';
 
-import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES, UserError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './configSchema.ts';
@@ -71,7 +71,7 @@ export interface TagPrefixPreview {
 export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview {
   const workspace = discoverWorkspaces();
   if (workspace.kind === 'empty') {
-    throw new Error(`No workspace package to preview. ${describeEmptyWorkspace(workspace)}`);
+    throw new UserError(`No workspace package to preview. ${describeEmptyWorkspace(workspace)}`);
   }
 
   const workspacePaths = workspace.kind === 'packages' ? workspace.packageDirs : [];

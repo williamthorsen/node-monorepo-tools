@@ -1,8 +1,4 @@
-/* eslint n/no-process-exit: off */
-/* eslint unicorn/no-process-exit: off */
-
-import { parseArgsOrExit, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors';
+import { parseArgsOrExit, type StreamStyles } from '@williamthorsen/nmr-core';
 
 import { configFlagSchema } from './configFlagSchema.ts';
 import { createGithubReleases } from './createGithubRelease.ts';
@@ -13,7 +9,7 @@ import { parseRequestedTags } from './parseRequestedTags.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
 import { resolveConfigFlag } from './resolveConfigFlag.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
-
+import { prefixUserError } from './user-error-chaining.ts';
 const createGithubReleaseFlagSchema = {
   ...configFlagSchema,
   isDryRun: { long: '--dry-run', type: 'boolean' as const },
@@ -62,8 +58,7 @@ export async function createGithubReleaseCommand(
   try {
     outcome = createGithubReleases(releasableTags, changelogJsonOutputPath, isDryRun, sectionOrder);
   } catch (error: unknown) {
-    reportError(`Failed to create GitHub Releases: ${describeError(error)}`);
-    process.exit(1);
+    throw prefixUserError('Failed to create GitHub Releases', error);
   }
 
   // Treat every skip as informational: `resolveCommandTags` has already rejected an unknown tag, so a `no-entry` tag

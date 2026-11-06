@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it } from 'vitest';
@@ -47,6 +48,7 @@ describe(enterRepoRoot, () => {
     expect(() => enterRepoRoot()).toThrow(
       `No repo root found from ${dir}: expected a pnpm-workspace.yaml in it or any parent directory, or a package.json in it.`,
     );
+    expect(() => enterRepoRoot()).toThrow(UserError);
     expect(process.cwd()).toBe(dir);
   });
 });

@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
 
-import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
+import { UserError } from '@williamthorsen/nmr-core';
 
 import { bumpVersion } from './bumpVersion.ts';
 import { isForwardVersion } from './compareVersions.ts';
 import type { PlannedWrite } from './releasePlan.ts';
 import type { ReleaseType } from './types.ts';
+import { chainUserError } from './user-error-chaining.ts';
 
 interface PackageJson {
   [key: string]: unknown;
@@ -52,7 +53,7 @@ export function planVersionSet(packageFiles: readonly string[], newVersion: stri
   const { firstFile, firstPackageJson } = readPrimaryPackage(packageFiles);
   const currentVersion = firstPackageJson.version;
   if (!isForwardVersion(currentVersion, newVersion)) {
-    throw new Error(`--set-version ${newVersion} is not greater than current version ${currentVersion}`);
+    throw new UserError(`--set-version ${newVersion} is not greater than current version ${currentVersion}`);
   }
 
   return {
@@ -104,18 +105,18 @@ function readPackageJson(filePath: string): PackageJson {
   try {
     content = readFileSync(filePath, 'utf8');
   } catch (error: unknown) {
-    throw chainError(`Failed to read ${filePath}`, error);
+    throw chainUserError(`Failed to read ${filePath}`, error);
   }
 
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(content);
   } catch (error: unknown) {
-    throw chainError(`Failed to parse JSON in ${filePath}`, error);
+    throw chainUserError(`Failed to parse JSON in ${filePath}`, error);
   }
 
   if (!isPackageJson(parsedJson)) {
-    throw new Error(`No valid 'version' field found in ${filePath}`);
+    throw new UserError(`No valid 'version' field found in ${filePath}`);
   }
 
   return parsedJson;

@@ -1,10 +1,9 @@
-import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
-
 import type { ReleaseHistory } from './buildChangelogEntries.ts';
 import type { OverrideContext } from './changelogOverrides.ts';
 import { isRepoRoot, type TargetPrepareSettings } from './prepareTarget.ts';
 import type { PlannedWrite } from './releasePlan.ts';
 import type { DirectoryTarget, PackageTarget, ReleaseTarget } from './types.ts';
+import { prefixUserError } from './user-error-chaining.ts';
 
 /** Appends one planned release's tag, writes, removals, and modified files to the run's collection. */
 export function collect(
@@ -72,6 +71,6 @@ export function runStage<T>(stage: string | undefined, fn: () => T): T {
   try {
     return fn();
   } catch (error) {
-    throw chainError(stage, error);
+    throw prefixUserError(stage, error);
   }
 }

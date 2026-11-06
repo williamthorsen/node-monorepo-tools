@@ -1,3 +1,5 @@
+import { UserError } from '@williamthorsen/nmr-core';
+
 import type { LegacyIdentity, RetiredPackage } from './configSchema.ts';
 import { ROOT_PACKAGE_JSON_PATH } from './loadConfig.ts';
 import { getTargetName, normalizeWorkspacePath } from './resolveReleaseDeclaration.ts';
@@ -19,7 +21,7 @@ export function assertLegacyIdentityDoesNotMatchCurrent(
 ): void {
   for (const identity of legacyIdentities) {
     if (identity.name === currentName && identity.tagPrefix === currentTagPrefix) {
-      throw new Error(
+      throw new UserError(
         `Workspace '${dir}': legacyIdentities must not match the current identity ` +
           `(name='${currentName}', tagPrefix='${currentTagPrefix}'). ` +
           'The current identity is always searched; listing it again is a no-op.',
@@ -61,7 +63,7 @@ export function assertNoSharedVersionFiles(
   for (const [index, directory] of directories.entries()) {
     const peer = owners.slice(index + 1).find((owner) => owner.versionFiles.includes(directory.versionFile));
     if (peer !== undefined) {
-      throw new Error(
+      throw new UserError(
         `directory release '${directory.name}' and ${peer.label} share the version file '${directory.versionFile}', ` +
           "so each release would overwrite the other's version and changelog; declare only one of them",
       );
@@ -141,7 +143,7 @@ export function assertNoTagPrefixCollisions(
       const b = sources[bIndex];
       if (a === undefined || b === undefined || a.owner === b.owner) continue;
       if (isPrefixCollision(a.prefix, b.prefix)) {
-        throw new Error(
+        throw new UserError(
           `Tag prefix collision: '${a.prefix}' (${a.label}) and '${b.prefix}' (${b.label}). ` +
             'One prefix is identical to or a strict prefix of the other; ' +
             'a tag under the longer prefix can then match the shorter one and be counted among its releases.',
@@ -170,7 +172,7 @@ export function assertRetiredPackagesDoNotCollideWithActive(
   for (const retiredPackage of retiredPackages) {
     const activeWorkspace = workspaceByDerivedPrefix.get(retiredPackage.tagPrefix);
     if (activeWorkspace !== undefined) {
-      throw new Error(
+      throw new UserError(
         `retiredPackages: tagPrefix '${retiredPackage.tagPrefix}' collides with active workspace '${activeWorkspace.dir}' ` +
           `(derived prefix '${activeWorkspace.tagPrefix}'). A retired package's tagPrefix cannot belong to an active workspace.`,
       );
@@ -202,7 +204,7 @@ export function assertUniqueTagPrefixes(workspaces: readonly WorkspaceConfig[]):
 
   for (const [prefix, paths] of pathsByPrefix) {
     if (paths.length > 1) {
-      throw new Error(`Duplicate tag prefix '${prefix}' for workspaces: ${paths.join(', ')}`);
+      throw new UserError(`Duplicate tag prefix '${prefix}' for workspaces: ${paths.join(', ')}`);
     }
   }
 }

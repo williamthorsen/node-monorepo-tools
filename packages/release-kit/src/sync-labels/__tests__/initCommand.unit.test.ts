@@ -1,5 +1,5 @@
-import type { StreamStyles } from '@williamthorsen/nmr-core';
-import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
+import { captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -44,7 +44,8 @@ vi.mock(import('../templates.ts'), async (importOriginal) => ({
   readSyncLabelsWorkflowTemplate: mockReadSyncLabelsWorkflowTemplate,
 }));
 
-vi.mock(import('@williamthorsen/nmr-core'), () => ({
+vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => ({
+  ...(await importOriginal()),
   printError: mockPrintError,
   reportError: mockReportError,
   reportWriteResult: mockReportWriteResult,
@@ -222,7 +223,7 @@ describe(syncLabelsInitCommand, () => {
   it('returns 1 when workspace discovery throws', async () => {
     stubExistingFiles();
     mockDiscoverWorkspaces.mockImplementation(() => {
-      throw new Error('filesystem error');
+      throw new UserError('filesystem error');
     });
     using _silencedConsole = silenceConsole(['info']);
     using _stdioCapture = captureStdio();
@@ -230,6 +231,21 @@ describe(syncLabelsInitCommand, () => {
     const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(1);
+  });
+
+  it('rethrows a crash in workspace discovery unchanged', async () => {
+    stubExistingFiles();
+    const crash = new TypeError('Cannot read properties of undefined');
+    mockDiscoverWorkspaces.mockImplementation(() => {
+      throw crash;
+    });
+    using _silencedConsole = silenceConsole(['info']);
+
+    await expect(
+      captureError(TypeError, () =>
+        syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES }),
+      ),
+    ).resolves.toBe(crash);
   });
 
   it('returns 1 when the workspace does not resolve to any package', async () => {
@@ -273,7 +289,7 @@ describe(syncLabelsInitCommand, () => {
     stubExistingFiles();
     mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
     mockReadSyncLabelsWorkflowTemplate.mockImplementation(() => {
-      throw new Error('Failed to read bundled template at /pkg/templates/sync-labels.yaml.template: ENOENT');
+      throw new UserError('Failed to read bundled template at /pkg/templates/sync-labels.yaml.template: ENOENT');
     });
     using _silencedConsole = silenceConsole(['info']);
     using stdioCapture = captureStdio();

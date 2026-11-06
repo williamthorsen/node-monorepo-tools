@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -211,28 +212,24 @@ describe(resolveCommandTags, () => {
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });
 
-  it('exits with code 1 when discoverWorkspaces throws', async () => {
+  it('rethrows the UserError when discoverWorkspaces throws', async () => {
     mockDiscoverWorkspaces.mockImplementation(() => {
-      throw new Error('workspace read failure');
+      throw new UserError('workspace read failure');
     });
 
-    const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined, undefined));
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Error: Failed to discover workspaces: workspace read failure\n');
+    const error = await captureError(UserError, () => resolveCommandTags(undefined, undefined));
+    expect(error.message).toBe('Failed to discover workspaces: workspace read failure');
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });
 
-  it('exits with code 1 when deriveWorkspaceConfig() throws for a missing package name', async () => {
+  it('rethrows the UserError when deriveWorkspaceConfig() throws for a missing package name', async () => {
     mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
-      throw new Error(`${workspacePath}/package.json is missing a 'name' field (required for tag derivation).`);
+      throw new UserError(`${workspacePath}/package.json is missing a 'name' field (required for tag derivation).`);
     });
 
-    const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined, undefined));
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain(
-      "Error: Failed to resolve workspaces: packages/core/package.json is missing a 'name' field (required for tag derivation).\n",
+    const error = await captureError(UserError, () => resolveCommandTags(undefined, undefined));
+    expect(error.message).toBe(
+      "Failed to resolve workspaces: packages/core/package.json is missing a 'name' field (required for tag derivation).",
     );
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });
@@ -372,13 +369,11 @@ describe(resolveCommandTags, () => {
       expect(result).toStrictEqual([PROJECT_TAG]);
     });
 
-    it('exits with code 1 when the config fails the merge validation', async () => {
+    it('rethrows the UserError when the config fails the merge validation', async () => {
       mockReadRootPackageVersion.mockReturnValue({ doesExist: false, version: undefined });
 
-      const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined, { project: {} }));
-
-      expect(error.code).toBe(1);
-      expect(stdioCapture.stderrChunks.join('')).toContain('Error: Failed to resolve workspaces: ');
+      const error = await captureError(UserError, () => resolveCommandTags(undefined, { project: {} }));
+      expect(error.message).toMatch(/^Failed to resolve workspaces: /);
       expect(mockResolveReleaseTags).not.toHaveBeenCalled();
     });
 

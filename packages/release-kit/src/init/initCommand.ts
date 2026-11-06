@@ -1,4 +1,5 @@
 import {
+  isAnticipatedFailure,
   printError,
   printSkip,
   printStep,
@@ -42,6 +43,9 @@ export function initCommand({ isDryRun, shouldForce, styles, shouldScaffoldConfi
   try {
     eligible = checkEligibility(styles);
   } catch (error: unknown) {
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
     printError(`Eligibility check failed: ${describeError(error)}`, styles.stderr);
     return 1;
   }
@@ -52,6 +56,9 @@ export function initCommand({ isDryRun, shouldForce, styles, shouldScaffoldConfi
   try {
     repoType = detectRepoType();
   } catch (error: unknown) {
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
     printError(`Failed to detect repo type: ${describeError(error)}`, styles.stderr);
     return 1;
   }
@@ -70,6 +77,9 @@ export function initCommand({ isDryRun, shouldForce, styles, shouldScaffoldConfi
   try {
     results = scaffoldFiles({ repoType, isDryRun, shouldOverwrite: shouldForce, publishable, shouldScaffoldConfig });
   } catch (error: unknown) {
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
     printError(`Failed to scaffold files: ${describeError(error)}`, styles.stderr);
     return 1;
   }

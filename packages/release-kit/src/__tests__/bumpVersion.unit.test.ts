@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
 import { bumpVersion } from '../bumpVersion.ts';
@@ -53,14 +54,17 @@ describe(bumpVersion, () => {
   });
 
   it('throws for an invalid version string', () => {
+    expect(() => bumpVersion('invalid', 'patch')).toThrow(UserError);
     expect(() => bumpVersion('invalid', 'patch')).toThrow("Invalid semver version: 'invalid'");
   });
 
   it('throws for a version with a pre-release suffix', () => {
+    expect(() => bumpVersion('1.2.3-beta.1', 'patch')).toThrow(UserError);
     expect(() => bumpVersion('1.2.3-beta.1', 'patch')).toThrow("Invalid semver version: '1.2.3-beta.1'");
   });
 
   it('throws for an empty string', () => {
+    expect(() => bumpVersion('', 'patch')).toThrow(UserError);
     expect(() => bumpVersion('', 'patch')).toThrow("Invalid semver version: ''");
   });
 });

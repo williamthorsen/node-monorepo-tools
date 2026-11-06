@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { isAnticipatedFailure, UserError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { detectPackageManager } from './detectPackageManager.ts';
@@ -8,6 +9,7 @@ import { findMissingManifestPaths, type MissingManifestPath } from './findMissin
 import { isPublishableManifest } from './isPublishableManifest.ts';
 import { packFromCleanCheckout } from './packFromCleanCheckout.ts';
 import { isRecord } from './typeGuards.ts';
+import { chainUserError } from './user-error-chaining.ts';
 
 /**
  * Throws when the tarball of a publishable package among the given workspaces would lack a file that its manifest
@@ -39,7 +41,10 @@ export function assertTarballsComplete(
       detectPackageManager(),
     );
   } catch (error: unknown) {
-    throw new Error(
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
+    throw new UserError(
       `Cannot release: The packages could not be packed from a clean checkout of HEAD.\n${describeError(error)}`,
       { cause: error },
     );
@@ -56,7 +61,7 @@ export function assertTarballsComplete(
     return;
   }
 
-  throw new Error(describeRefusal(incompletePackages));
+  throw new UserError(describeRefusal(incompletePackages));
 }
 
 // region | Helpers
@@ -90,7 +95,13 @@ function describeRefusal(
 
 /** Reads a workspace's `package.json`, returning an empty record when it is not an object. */
 function readManifest(workspacePath: string): Record<string, unknown> {
-  const manifest: unknown = JSON.parse(readFileSync(join(workspacePath, 'package.json'), 'utf8'));
+  const manifestPath = join(workspacePath, 'package.json');
+  let manifest: unknown;
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  } catch (error: unknown) {
+    throw chainUserError(`Failed to parse ${manifestPath}`, error);
+  }
   return isRecord(manifest) ? manifest : {};
 }
 

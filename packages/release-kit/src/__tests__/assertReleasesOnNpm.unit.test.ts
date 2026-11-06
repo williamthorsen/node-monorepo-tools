@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { assertReleasesOnNpm } from '../assertReleasesOnNpm.ts';
@@ -72,6 +73,7 @@ describe(assertReleasesOnNpm, () => {
   it('names each unpublished package with the command that publishes it', () => {
     mockLookUpNpmPackage.mockReturnValue({ status: 'unpublished' } satisfies NpmPackageLookup);
 
+    expect(() => assertReleasesOnNpm(['packages/arrays', 'packages/strings'])).toThrow(UserError);
     expect(() => assertReleasesOnNpm(['packages/arrays', 'packages/strings'])).toThrow(
       [
         'Cannot prepare the release: npm must already have every package that the release publishes.',
@@ -92,6 +94,7 @@ describe(assertReleasesOnNpm, () => {
 
     const runAssertion = () => assertReleasesOnNpm(['packages/arrays']);
 
+    expect(runAssertion).toThrow(UserError);
     expect(runAssertion).toThrow(
       'Could not confirm on npm:\n  - @scope/arrays: Cannot reach the npm registry (ENOTFOUND)',
     );
@@ -105,6 +108,7 @@ describe(assertReleasesOnNpm, () => {
 
     const runAssertion = () => assertReleasesOnNpm(['packages/arrays', 'packages/strings']);
 
+    expect(runAssertion).toThrow(UserError);
     expect(runAssertion).toThrow('  - @scope/arrays: run "npm publish --access public" from packages/arrays');
     expect(runAssertion).toThrow('  - @scope/strings: E500');
   });

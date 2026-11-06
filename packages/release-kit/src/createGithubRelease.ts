@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { extractVersion, readChangelogEntries } from './changelogJsonUtils.ts';
 import { matchesAudience, renderReleaseNotesSingle } from './renderReleaseNotes.ts';
+import { asUserError } from './user-error-chaining.ts';
 
 /** Options for creating a GitHub Release. */
 export interface CreateGithubReleaseOptions {
@@ -73,7 +74,11 @@ export function createGithubRelease(options: CreateGithubReleaseOptions): Create
     return { status: 'created' };
   }
 
-  execFileSync('gh', args, { stdio: 'inherit' });
+  try {
+    execFileSync('gh', args, { stdio: 'inherit' });
+  } catch (error: unknown) {
+    throw asUserError(error);
+  }
   return { status: 'created' };
 }
 
