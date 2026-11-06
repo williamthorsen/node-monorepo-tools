@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
 import { isForwardVersion } from '../compareVersions.ts';
@@ -40,18 +41,22 @@ describe(isForwardVersion, () => {
   });
 
   it('throws when the current version has a pre-release suffix', () => {
+    expect(() => isForwardVersion('1.0.0-alpha', '1.0.0')).toThrow(UserError);
     expect(() => isForwardVersion('1.0.0-alpha', '1.0.0')).toThrow("Invalid semver version: '1.0.0-alpha'");
   });
 
   it('throws when the target version has a pre-release suffix', () => {
+    expect(() => isForwardVersion('1.0.0', '1.0.0-beta')).toThrow(UserError);
     expect(() => isForwardVersion('1.0.0', '1.0.0-beta')).toThrow("Invalid semver version: '1.0.0-beta'");
   });
 
   it('throws when a version is non-canonical (two-component)', () => {
+    expect(() => isForwardVersion('1.0', '1.0.1')).toThrow(UserError);
     expect(() => isForwardVersion('1.0', '1.0.1')).toThrow("Invalid semver version: '1.0'");
   });
 
   it('throws when a version is empty', () => {
+    expect(() => isForwardVersion('', '1.0.0')).toThrow(UserError);
     expect(() => isForwardVersion('', '1.0.0')).toThrow("Invalid semver version: ''");
   });
 });

@@ -131,7 +131,8 @@ function findReleasedPackagePaths(plan: ReleasePlan, targets: readonly ReleaseTa
 /**
  * Resolves the release targets of the discovered repo shape, checking `--only` and `--set-version` against them.
  * Prints a usage error and exits on a flag that the shape rejects or a name that it lacks. A monorepo's config-merge
- * error is reported and exits; a single-package config-merge error propagates.
+ * error is rethrown with the `Failed to resolve workspaces` prefix; a single-package config-merge error propagates
+ * unchanged.
  */
 function resolveTargetsOrExit(
   userConfig: ReleaseKitConfig | undefined,

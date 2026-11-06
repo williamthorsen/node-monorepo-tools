@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -60,6 +61,7 @@ describe(deriveWorkspaceConfig, () => {
   it('throws a descriptive error when package.json does not have a name field', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
+    expect(() => deriveWorkspaceConfig('packages/bad')).toThrow(UserError);
     expect(() => deriveWorkspaceConfig('packages/bad')).toThrow(
       "packages/bad/package.json is missing a 'name' field (required for tag derivation).",
     );
@@ -68,6 +70,7 @@ describe(deriveWorkspaceConfig, () => {
   it('throws when package.json name field is an empty string', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '' }));
 
+    expect(() => deriveWorkspaceConfig('packages/empty')).toThrow(UserError);
     expect(() => deriveWorkspaceConfig('packages/empty')).toThrow(
       "packages/empty/package.json is missing a 'name' field (required for tag derivation).",
     );
@@ -76,6 +79,7 @@ describe(deriveWorkspaceConfig, () => {
   it('throws when package.json name field is not a string', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 123 }));
 
+    expect(() => deriveWorkspaceConfig('packages/invalid')).toThrow(UserError);
     expect(() => deriveWorkspaceConfig('packages/invalid')).toThrow(
       "packages/invalid/package.json is missing a 'name' field (required for tag derivation).",
     );
@@ -86,6 +90,7 @@ describe(deriveWorkspaceConfig, () => {
       throw new Error('ENOENT: no such file or directory, open packages/missing/package.json');
     });
 
+    expect(() => deriveWorkspaceConfig('packages/missing')).toThrow(UserError);
     expect(() => deriveWorkspaceConfig('packages/missing')).toThrow(
       'Failed to read packages/missing/package.json: ENOENT: no such file or directory, open packages/missing/package.json',
     );
@@ -97,6 +102,7 @@ describe(deriveWorkspaceConfig, () => {
       throw underlyingError;
     });
 
+    expect(() => deriveWorkspaceConfig('packages/missing')).toThrow(UserError);
     expect(() => deriveWorkspaceConfig('packages/missing')).toThrow(
       expect.objectContaining({ cause: underlyingError }),
     );
@@ -105,6 +111,7 @@ describe(deriveWorkspaceConfig, () => {
   it('wraps JSON.parse errors with the workspace path for context', () => {
     mockReadFileSync.mockReturnValue('not json');
 
+    expect(() => deriveWorkspaceConfig('packages/malformed')).toThrow(UserError);
     expect(() => deriveWorkspaceConfig('packages/malformed')).toThrow(
       /^Failed to read packages\/malformed\/package\.json: /,
     );

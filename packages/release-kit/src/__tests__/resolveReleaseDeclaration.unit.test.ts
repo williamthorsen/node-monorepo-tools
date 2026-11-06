@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
 import type { ReleaseKitConfig } from '../configSchema.ts';
@@ -87,6 +88,7 @@ describe(resolveReleaseDeclaration, () => {
   ] satisfies Array<[string, NonNullable<ReleaseKitConfig['releases']>, string]>)(
     'rejects %s',
     (_description, releases, message) => {
+      expect(() => resolveReleaseDeclaration(WORKSPACES, wrapInConfig(releases))).toThrow(UserError);
       expect(() => resolveReleaseDeclaration(WORKSPACES, wrapInConfig(releases))).toThrow(message);
     },
   );

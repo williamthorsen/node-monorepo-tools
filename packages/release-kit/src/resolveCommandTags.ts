@@ -14,10 +14,10 @@ import type { DirectoryConfig, ResolvedProjectConfig, WorkspaceConfig } from './
 import { prefixUserError } from './user-error-chaining.ts';
 /**
  * Discovers workspaces, resolves release tags from HEAD, validates `--tags` names against the full resolved tag
- * names (e.g., `nmr-core-v1.3.0`), and returns the filtered tag list. Exits with an error message on any validation
- * failure, including a workspace whose `package.json` does not have a `name` field, a config that
- * `mergeMonorepoConfig` rejects, and a workspace that does not resolve to any package, which is not single-package
- * mode.
+ * names (e.g., `nmr-core-v1.3.0`), and returns the filtered tag list. Throws a `UserError` when workspace discovery
+ * fails, when a workspace's `package.json` does not have a `name` field, and when `mergeMonorepoConfig` rejects the
+ * config. Exits with an error message on any other validation failure, including a workspace that does not resolve to
+ * any package, which is not single-package mode.
  *
  * In monorepo mode the workspace list is `userConfig` merged over the discovered workspaces, as `prepare` builds it,
  * and each directory target and a declared composite (a `project` block or a `releases` composite) contribute their

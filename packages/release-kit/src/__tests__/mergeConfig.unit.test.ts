@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExistsSync = vi.hoisted(() => vi.fn());
@@ -146,6 +147,7 @@ describe(mergeMonorepoConfig, () => {
       'packages/b-foo': '@b/foo',
     });
 
+    expect(() => mergeMonorepoConfig(['packages/a-foo', 'packages/b-foo'], undefined)).toThrow(UserError);
     expect(() => mergeMonorepoConfig(['packages/a-foo', 'packages/b-foo'], undefined)).toThrow(
       "Duplicate tag prefix 'foo-v' for workspaces: packages/a-foo, packages/b-foo",
     );
@@ -207,7 +209,7 @@ describe(mergeMonorepoConfig, () => {
   });
 
   it('throws when a legacyIdentities entry matches both the current name and tagPrefix', () => {
-    expect(() =>
+    const run = (): unknown =>
       mergeMonorepoConfig(discoveredPaths, {
         workspaces: [
           {
@@ -215,8 +217,10 @@ describe(mergeMonorepoConfig, () => {
             legacyIdentities: [{ name: '@scope/arrays', tagPrefix: 'arrays-v' }],
           },
         ],
-      }),
-    ).toThrow(
+      });
+
+    expect(run).toThrow(UserError);
+    expect(run).toThrow(
       "Workspace 'arrays': legacyIdentities must not match the current identity (name='@scope/arrays', tagPrefix='arrays-v')",
     );
   });
@@ -252,11 +256,13 @@ describe(mergeMonorepoConfig, () => {
   });
 
   it('throws when a retiredPackages entry tagPrefix matches an active workspace derived prefix', () => {
-    expect(() =>
+    const run = (): unknown =>
       mergeMonorepoConfig(discoveredPaths, {
         retiredPackages: [{ name: '@old-scope/arrays', tagPrefix: 'arrays-v' }],
-      }),
-    ).toThrow(
+      });
+
+    expect(run).toThrow(UserError);
+    expect(run).toThrow(
       "retiredPackages: tagPrefix 'arrays-v' collides with active workspace 'arrays' (derived prefix 'arrays-v'). A retired package's tagPrefix cannot belong to an active workspace.",
     );
   });
@@ -287,6 +293,9 @@ describe(mergeMonorepoConfig, () => {
       'packages/c-foo': '@c/foo',
     });
 
+    expect(() => mergeMonorepoConfig(['packages/a-foo', 'packages/b-foo', 'packages/c-foo'], undefined)).toThrow(
+      UserError,
+    );
     expect(() => mergeMonorepoConfig(['packages/a-foo', 'packages/b-foo', 'packages/c-foo'], undefined)).toThrow(
       "Duplicate tag prefix 'foo-v' for workspaces: packages/a-foo, packages/b-foo, packages/c-foo",
     );
@@ -351,18 +360,23 @@ describe('mergeMonorepoConfig project block', () => {
   });
 
   it('throws when project is configured but the root package.json is missing', () => {
-    expect(() =>
-      mergeMonorepoConfig(discoveredPaths, { project: {} }, { doesExist: false, version: undefined }),
-    ).toThrow(/project block requires a root package\.json/);
+    const run = (): unknown =>
+      mergeMonorepoConfig(discoveredPaths, { project: {} }, { doesExist: false, version: undefined });
+
+    expect(run).toThrow(UserError);
+    expect(run).toThrow(/project block requires a root package\.json/);
   });
 
   it('throws when project is configured but the root package.json does not have a version field', () => {
-    expect(() =>
-      mergeMonorepoConfig(discoveredPaths, { project: {} }, { doesExist: true, version: undefined }),
-    ).toThrow(/add a 'version' field to the root package\.json/);
+    const run = (): unknown =>
+      mergeMonorepoConfig(discoveredPaths, { project: {} }, { doesExist: true, version: undefined });
+
+    expect(run).toThrow(UserError);
+    expect(run).toThrow(/add a 'version' field to the root package\.json/);
   });
 
   it('throws when the caller does not supply rootPackage info alongside a project block', () => {
+    expect(() => mergeMonorepoConfig(discoveredPaths, { project: {} })).toThrow(UserError);
     expect(() => mergeMonorepoConfig(discoveredPaths, { project: {} })).toThrow(
       /project block requires a root package\.json/,
     );
@@ -372,13 +386,15 @@ describe('mergeMonorepoConfig project block', () => {
     mockPackageNames({
       'packages/v-helpers': '@scope/v-helpers',
     });
-    expect(() =>
+    const run = (): unknown =>
       mergeMonorepoConfig(
         ['packages/v-helpers'],
         { project: { tagPrefix: 'v' } },
         { doesExist: true, version: '0.9.0' },
-      ),
-    ).toThrow(/Tag prefix collision/);
+      );
+
+    expect(run).toThrow(UserError);
+    expect(run).toThrow(/Tag prefix collision/);
   });
 
   it('rejects a project tagPrefix that strict-prefix-collides with a workspace prefix', () => {
@@ -444,6 +460,7 @@ describe(mergeSinglePackageConfig, () => {
   });
 
   it('rejects a configured project block in single-package mode', () => {
+    expect(() => mergeSinglePackageConfig({ project: {} })).toThrow(UserError);
     expect(() => mergeSinglePackageConfig({ project: {} })).toThrow(
       'project block is not supported in single-package mode',
     );

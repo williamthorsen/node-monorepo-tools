@@ -1,4 +1,4 @@
-import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES, UserError } from '@williamthorsen/nmr-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
@@ -17,12 +17,14 @@ describe(assertCleanWorkingTree, () => {
   it('throws when the working tree has uncommitted changes', () => {
     mockExecFileSync.mockReturnValue(' M packages/release-kit/package.json\n');
 
+    expect(() => assertCleanWorkingTree()).toThrow(UserError);
     expect(() => assertCleanWorkingTree()).toThrow(/working tree has uncommitted changes/i);
   });
 
   it('includes --no-git-checks hint in the error message', () => {
     mockExecFileSync.mockReturnValue(' M package.json\n');
 
+    expect(() => assertCleanWorkingTree()).toThrow(UserError);
     expect(() => assertCleanWorkingTree()).toThrow(/--no-git-checks/);
   });
 

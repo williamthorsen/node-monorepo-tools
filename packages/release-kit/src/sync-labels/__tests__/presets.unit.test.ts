@@ -1,4 +1,5 @@
 import { CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
+import { UserError } from '@williamthorsen/nmr-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockExistsSync = vi.hoisted(() => vi.fn());
@@ -44,6 +45,7 @@ describe(hashPreset, () => {
   it('throws when the preset file does not exist', () => {
     mockExistsSync.mockReturnValue(false);
 
+    expect(() => hashPreset('nonexistent')).toThrow(UserError);
     expect(() => hashPreset('nonexistent')).toThrow(/Unknown preset "nonexistent"/);
   });
 });
@@ -57,6 +59,7 @@ describe(loadPreset, () => {
   it('throws when the preset file does not exist', () => {
     mockExistsSync.mockReturnValue(false);
 
+    expect(() => loadPreset('nonexistent')).toThrow(UserError);
     expect(() => loadPreset('nonexistent')).toThrow(/Unknown preset "nonexistent"/);
   });
 
@@ -67,6 +70,7 @@ describe(loadPreset, () => {
       throw underlyingError;
     });
 
+    expect(() => loadPreset('bad')).toThrow(UserError);
     expect(() => loadPreset('bad')).toThrow(expect.objectContaining({ cause: underlyingError }));
   });
 
@@ -74,6 +78,7 @@ describe(loadPreset, () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('key: value\n');
 
+    expect(() => loadPreset('bad')).toThrow(UserError);
     expect(() => loadPreset('bad')).toThrow(/must be a YAML array/);
   });
 
@@ -81,6 +86,7 @@ describe(loadPreset, () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('- not-an-object\n');
 
+    expect(() => loadPreset('bad')).toThrow(UserError);
     expect(() => loadPreset('bad')).toThrow(/invalid label entry/);
   });
 
@@ -88,6 +94,7 @@ describe(loadPreset, () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('- name: 123\n  color: abc\n  description: desc\n');
 
+    expect(() => loadPreset('bad')).toThrow(UserError);
     expect(() => loadPreset('bad')).toThrow(/invalid fields/);
   });
 
@@ -95,6 +102,7 @@ describe(loadPreset, () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('- name: bug\n  description: Something broken\n');
 
+    expect(() => loadPreset('bad')).toThrow(UserError);
     expect(() => loadPreset('bad')).toThrow(/invalid fields/);
   });
 
@@ -102,6 +110,7 @@ describe(loadPreset, () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('- name: bug\n  color: d73a4a\n  description: 123\n');
 
+    expect(() => loadPreset('bad')).toThrow(UserError);
     expect(() => loadPreset('bad')).toThrow(/invalid fields/);
   });
 
@@ -142,6 +151,7 @@ describe(loadPreset, () => {
       throw new Error('EACCES');
     });
 
+    expect(() => loadPreset('bad')).toThrow(UserError);
     expect(() => loadPreset('bad')).toThrow(/Failed to read preset "bad"/);
   });
 });

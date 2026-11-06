@@ -1,3 +1,4 @@
+import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
@@ -76,6 +77,7 @@ describe(loadConfig, () => {
   it('throws when the module has neither a default nor a named config export', async () => {
     writeConfig('export const unrelated = true;');
 
+    await expect(loadConfig()).rejects.toThrow(UserError);
     await expect(loadConfig()).rejects.toThrow('must have a default export or a named `config` export');
   });
 
@@ -97,6 +99,7 @@ describe(loadConfig, () => {
   });
 
   it('rejects with the resolved path when the named path does not exist', async () => {
+    await expect(loadConfig('elsewhere/absent.config.ts')).rejects.toThrow(UserError);
     await expect(loadConfig('elsewhere/absent.config.ts')).rejects.toThrow(
       `Config file not found: ${tree.resolve('elsewhere/absent.config.ts')}`,
     );
@@ -134,6 +137,7 @@ describe(readRootPackageVersion, () => {
   it('throws an error when the root package.json contains invalid JSON', () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('{ not valid json');
+    expect(() => readRootPackageVersion()).toThrow(UserError);
     expect(() => readRootPackageVersion()).toThrow(/Failed to parse root package\.json/);
   });
 
@@ -142,6 +146,7 @@ describe(readRootPackageVersion, () => {
     mockReadFileSync.mockImplementation(() => {
       throw new Error('permission denied');
     });
+    expect(() => readRootPackageVersion()).toThrow(UserError);
     expect(() => readRootPackageVersion()).toThrow(/Failed to read root package\.json/);
   });
 
@@ -151,12 +156,14 @@ describe(readRootPackageVersion, () => {
     mockReadFileSync.mockImplementation(() => {
       throw underlyingError;
     });
+    expect(() => readRootPackageVersion()).toThrow(UserError);
     expect(() => readRootPackageVersion()).toThrow(expect.objectContaining({ cause: underlyingError }));
   });
 
   it('preserves the underlying error as the cause when the root package.json holds invalid JSON', () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('{ not valid json');
+    expect(() => readRootPackageVersion()).toThrow(UserError);
     expect(() => readRootPackageVersion()).toThrow(expect.objectContaining({ cause: expect.any(SyntaxError) }));
   });
 });

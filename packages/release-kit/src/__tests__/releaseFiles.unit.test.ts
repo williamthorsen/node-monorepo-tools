@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -55,6 +56,7 @@ describe(readReleaseTags, () => {
       throw createErrnoError('ENOENT: no such file or directory', 'ENOENT');
     });
 
+    expect(() => readReleaseTags()).toThrow(UserError);
     expect(() => readReleaseTags()).toThrow(
       `No tags file found at ${resolve('tmp/.release-tags')}. Run \`release-kit prepare\` first.`,
     );
@@ -65,6 +67,7 @@ describe(readReleaseTags, () => {
       throw createErrnoError('EACCES: permission denied', 'EACCES');
     });
 
+    expect(() => readReleaseTags()).toThrow(UserError);
     expect(() => readReleaseTags()).toThrow(
       `Cannot read the tags file at ${resolve('tmp/.release-tags')}: EACCES: permission denied`,
     );
@@ -75,6 +78,7 @@ describe(readReleaseTags, () => {
       throw new Error('something else went wrong');
     });
 
+    expect(() => readReleaseTags()).toThrow(UserError);
     expect(() => readReleaseTags()).toThrow('Cannot read the tags file at');
   });
 
@@ -84,6 +88,7 @@ describe(readReleaseTags, () => {
       throw underlyingError;
     });
 
+    expect(() => readReleaseTags()).toThrow(UserError);
     expect(() => readReleaseTags()).toThrow(expect.objectContaining({ cause: underlyingError }));
   });
 });

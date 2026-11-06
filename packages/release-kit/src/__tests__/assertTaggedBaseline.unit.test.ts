@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -75,13 +76,15 @@ describe(assertTaggedBaseline, () => {
   });
 
   it('names every target, version, and tag to create in one error', () => {
-    expect(() =>
+    const run = (): unknown =>
       assertTaggedBaseline([
         { label: "workspace 'api'", version: '1.3.0', tag: 'api-v1.3.0' },
         undefined,
         { label: 'project', version: '2.0.0', tag: 'v2.0.0' },
-      ]),
-    ).toThrow(
+      ]);
+
+    expect(run).toThrow(UserError);
+    expect(run).toThrow(
       [
         'The current version is recorded in the changelog, but its tag is not the previous tag reachable from HEAD:',
         "  - workspace 'api': 1.3.0 (create tag api-v1.3.0)",
