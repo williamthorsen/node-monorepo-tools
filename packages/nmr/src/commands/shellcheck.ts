@@ -34,7 +34,7 @@ export async function runShellcheck(
 ): Promise<number> {
   const shellcheckArgs = args.length > 0 ? [...args] : listPresentScripts(monorepoRoot, options.listFiles);
   if (shellcheckArgs.length === 0) {
-    console.info('No shell scripts to lint: the repo does not track any *.sh file.');
+    console.info('No shell scripts to lint: the working tree does not contain any tracked *.sh file.');
     return 0;
   }
 

@@ -22,7 +22,9 @@ describe(runShellcheck, () => {
     const exitCode = await runShellcheck(tree.dir, [], { ensure, listFiles: () => [], spawn });
 
     expect(exitCode).toBe(0);
-    expect(silent.info).toHaveBeenCalledWith('No shell scripts to lint: the repo does not track any *.sh file.');
+    expect(silent.info).toHaveBeenCalledWith(
+      'No shell scripts to lint: the working tree does not contain any tracked *.sh file.',
+    );
     expect(ensure).not.toHaveBeenCalled();
     expect(spawn).not.toHaveBeenCalled();
   });
