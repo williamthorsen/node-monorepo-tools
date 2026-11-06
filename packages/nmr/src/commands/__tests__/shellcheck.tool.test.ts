@@ -20,7 +20,7 @@ describe(runShellcheck, () => {
     const exitCode = await runShellcheck(tree.dir, [], { ensure: () => Promise.reject(new Error('not expected')) });
 
     expect(exitCode).toBe(0);
-    expect(silent.info).toHaveBeenCalledOnce();
+    expect(silent.info).toHaveBeenCalledTimes(1);
   });
 
   it("runs shellcheck over the repo's tracked scripts, nested ones included, and returns its status", async () => {

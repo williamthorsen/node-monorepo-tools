@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { noLintShellOverride } from '../../.readyup/lib/root-scripts.ts';
-import { buildRepo } from '../test-utils/fixture-repo.ts';
 import { findKitCheck } from '../test-utils/findKitCheck.ts';
+import { buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 
 describe(noLintShellOverride, () => {
