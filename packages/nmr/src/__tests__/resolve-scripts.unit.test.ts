@@ -118,6 +118,7 @@ describe(getDefaultRootScripts, () => {
       'fix:check': ['fmt:check', 'lint:check'],
       fmt: 'nmr-fmt --write',
       'fmt:check': 'nmr-fmt --check',
+      'lint:shell': 'nmr-shellcheck',
       'lint:workflows': 'nmr-actionlint',
       'report-overrides': 'nmr-report-overrides',
       'root:check': [

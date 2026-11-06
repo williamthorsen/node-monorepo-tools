@@ -178,6 +178,10 @@ const ROOT_CHAINS: readonly ChainRow[] = [
     chain: 'eslint .',
   },
   {
+    command: 'lint:shell',
+    chain: 'nmr-shellcheck',
+  },
+  {
     command: 'lint:strict',
     chain: 'strict-lint',
   },

@@ -33,6 +33,7 @@ export const DEFAULT_CACHEABLE_COMMANDS = [
   'fix:check',
   'fmt:check',
   'lint:check',
+  'lint:shell',
   'lint:strict',
   'lint:workflows',
   'root:check',

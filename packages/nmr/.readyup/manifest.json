@@ -38,6 +38,7 @@
             "eslint >= 10.0.0",
             "@williamthorsen/strict-lint >= 9.3.0",
             "root package.json has no nmr-provided scripts",
+            ".config/nmr.config.ts does not override lint:shell",
             "no root install script runs lefthook install unguarded",
             "all workspace packages can build",
             "every bin target is a committed wrapper",
@@ -189,7 +190,7 @@
           "path": "lib/repo-files.ts"
         },
         {
-          "hash": "2a90a1d3",
+          "hash": "a62f92eb",
           "kind": "module",
           "path": "lib/root-scripts.ts"
         },
@@ -242,7 +243,7 @@
           "path": "../src/config.ts"
         },
         {
-          "hash": "b8e98c81",
+          "hash": "463c7bbd",
           "kind": "module",
           "path": "../src/default-scripts.ts"
         },
@@ -332,7 +333,7 @@
       "readyupVersion": "0.45.0",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "04e5d541"
+      "targetHash": "d1aafd57"
     }
   ]
 }

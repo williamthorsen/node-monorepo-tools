@@ -109,6 +109,7 @@ export function buildRootScripts(workspaceGlobs: readonly string[]): ScriptRegis
     'fmt:check': 'nmr-fmt --check',
     lint: 'eslint --fix .',
     'lint:check': 'eslint .',
+    'lint:shell': 'nmr-shellcheck',
     'lint:strict': 'strict-lint',
     'lint:workflows': 'nmr-actionlint',
     // The audit takes seconds and `ci` takes minutes, so the cheap gate fails first. The audit reads the

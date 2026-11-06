@@ -1,6 +1,6 @@
 # Standalone utilities
 
-The binaries behind nmr's default `clean`, `compile`, `fmt`, `lint:workflows`, and package `test` commands, and a check for the `prepublishOnly` hooks of publishable packages.
+The binaries behind nmr's default `clean`, `compile`, `fmt`, `lint:shell`, `lint:workflows`, and package `test` commands, and a check for the `prepublishOnly` hooks of publishable packages.
 
 ## `nmr-actionlint`
 
@@ -72,6 +72,14 @@ Pass `--no-cache`, or set `NMR_NO_CACHE=1`, to run uncached. `nmr --no-cache fmt
 
 ```bash
 nmr-fmt --check --no-cache
+```
+
+## `nmr-shellcheck`
+
+Lint the monorepo's tracked `*.sh` files with the pinned shellcheck binary, passing when the repo does not track any. Any arguments replace the file list and reach shellcheck as given. This is the default root `lint:shell` script; [Shell lint](scripts.md#shell-lint) covers its behavior.
+
+```bash
+nmr-shellcheck
 ```
 
 ## `nmr-vitest`
