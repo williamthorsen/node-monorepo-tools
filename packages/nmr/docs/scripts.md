@@ -202,6 +202,10 @@ The result does not depend on what the machine has installed. nmr pins actionlin
 
 The supported platforms are macOS and Linux on x64 and arm64; on any other, the command fails and names the platform. actionlint reads its own configuration from `.github/actionlint.yaml`, through which a repo can ignore a finding.
 
+### Shell lint
+
+`lint:shell`, a root command, lints every `*.sh` file that git tracks under the monorepo root with [shellcheck](https://www.shellcheck.net/) and fails on any finding. A repo that does not track any `*.sh` file passes without downloading shellcheck, and a tracked file that is missing from the working tree is skipped. The command runs `nmr-shellcheck`, whose trailing arguments replace the file list, so `nmr lint:shell scripts/release.sh` lints that file alone. It uses the shellcheck that [Workflow lint](#workflow-lint) pins, downloads, and caches. Neither `check`, `check:strict`, nor `root:check` runs it.
+
 ### Root-only
 
 The `root:`-prefixed commands operate on root-level code only (not workspace packages).
