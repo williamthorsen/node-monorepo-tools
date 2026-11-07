@@ -1,6 +1,7 @@
 import { UserError } from '@williamthorsen/nmr-core';
+import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
@@ -97,7 +98,6 @@ describe(resolveCommandTags, () => {
       throw new Error(`Unexpected workspace path: ${workspacePath}`);
     });
     mockReadRootPackageVersion.mockReturnValue({ doesExist: true, version: '1.0.0' });
-    void throwOnProcessExit();
     void silenceConsole(['warn']);
   });
 
@@ -167,48 +167,38 @@ describe(resolveCommandTags, () => {
     ]);
   });
 
-  it('exits with code 1 when the first tag in the filter is unknown', async () => {
-    const error = await captureError(ProcessExitError, () =>
-      resolveCommandTags(['missing-v9.9.9', 'nmr-core-v1.3.0'], undefined),
-    );
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain(
-      'Error: Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0\n',
+  it('throws a UsageError when the first tag in the filter is unknown', () => {
+    expect(() => resolveCommandTags(['missing-v9.9.9', 'nmr-core-v1.3.0'], undefined)).toThrow(
+      new UsageError(
+        'Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0',
+      ),
     );
   });
 
-  it('exits with code 1 when the second tag in the filter is unknown', async () => {
-    const error = await captureError(ProcessExitError, () =>
-      resolveCommandTags(['nmr-core-v1.3.0', 'missing-v9.9.9'], undefined),
-    );
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain(
-      'Error: Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0\n',
+  it('throws a UsageError when the second tag in the filter is unknown', () => {
+    expect(() => resolveCommandTags(['nmr-core-v1.3.0', 'missing-v9.9.9'], undefined)).toThrow(
+      new UsageError(
+        'Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0',
+      ),
     );
   });
 
-  it('exits with code 1 when it does not find any release tags on HEAD', async () => {
+  it('throws a UserError when it does not find any release tags on HEAD', () => {
     mockResolveReleaseTags.mockReturnValue([]);
 
-    const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined, undefined));
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain(
-      'Error: HEAD does not have any release tags. Create tags with `release-kit tag` first.\n',
+    expect(() => resolveCommandTags(undefined, undefined)).toThrow(
+      new UserError('HEAD does not have any release tags. Create tags with `release-kit tag` first.'),
     );
   });
 
   // A workspace that does not resolve to any package is not single-package mode; reading it as one would release
   // the root as one package.
-  it('exits with code 1 when the workspace does not resolve to any package', async () => {
+  it('throws a UserError when the workspace does not resolve to any package', async () => {
     mockDiscoverWorkspaces.mockReturnValue(makeEmptyWorkspace('all-excluded'));
 
-    const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined, undefined));
+    const error = await captureError(UserError, () => resolveCommandTags(undefined, undefined));
 
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks.join('')).toContain('No workspace package to tag.');
+    expect(error.message).toContain('No workspace package to tag.');
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });
 

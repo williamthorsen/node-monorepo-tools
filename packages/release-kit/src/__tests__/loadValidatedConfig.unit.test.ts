@@ -1,5 +1,5 @@
 import { captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockLoadConfig = vi.hoisted(() => vi.fn());
@@ -11,6 +11,7 @@ vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
 
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
 import {
+  ConfigProblemError,
   loadUsableConfig,
   loadValidatedConfig,
   reportConfigProblem,
@@ -180,40 +181,32 @@ describe(loadUsableConfig, () => {
     expect(stdioCapture.stderr).toBe('');
   });
 
-  it('exits 1 and reports when a named path does not exist', async () => {
+  it('throws a load problem when a named path does not exist', async () => {
     mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
-    using stdioCapture = captureStdio();
-    using _exit = throwOnProcessExit();
 
-    const error = await captureError(ProcessExitError, () => loadUsableConfig('plain', 'elsewhere/absent.config.ts'));
+    const error = await captureError(ConfigProblemError, () => loadUsableConfig('plain', 'elsewhere/absent.config.ts'));
 
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain(
-      'Error: Failed to load config: Config file not found: /repo/elsewhere/absent.config.ts\n',
-    );
+    expect(error.problem).toStrictEqual({
+      kind: 'load',
+      message: 'Config file not found: /repo/elsewhere/absent.config.ts',
+    });
   });
 
-  it('exits 1 and reports when the default config exists and fails to load', async () => {
+  it('throws a load problem when the default config exists and fails to load', async () => {
     mockLoadConfig.mockRejectedValue(new Error('Unexpected token in config'));
-    using stdioCapture = captureStdio();
-    using _exit = throwOnProcessExit();
 
-    const error = await captureError(ProcessExitError, () => loadUsableConfig('plain'));
+    const error = await captureError(ConfigProblemError, () => loadUsableConfig('plain'));
 
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
+    expect(error.problem).toStrictEqual({ kind: 'load', message: 'Unexpected token in config' });
   });
 
-  it('exits 1 and reports when the default config fails validation', async () => {
+  it('throws a validation problem when the default config fails validation', async () => {
     mockLoadConfig.mockResolvedValue({ workTypes: 'not-an-object' });
-    using stdioCapture = captureStdio();
-    using _exit = throwOnProcessExit();
 
-    const error = await captureError(ProcessExitError, () => loadUsableConfig('plain'));
+    const error = await captureError(ConfigProblemError, () => loadUsableConfig('plain'));
 
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Invalid config:\n');
-    expect(stdioCapture.stderr).toContain('workTypes');
+    expect(error.problem.kind).toBe('validation');
+    expect(JSON.stringify(error.problem)).toContain('workTypes');
   });
 
   it('reports each validation warning', async () => {

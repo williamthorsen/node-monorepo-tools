@@ -1,6 +1,7 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
+import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -67,6 +68,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
   };
 });
 
+import { ConfigProblemError } from '../loadValidatedConfig.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../releaseFiles.ts';
 import { makeEmptyWorkspace, makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
@@ -79,7 +81,6 @@ describe(prepareCommand, () => {
   beforeEach(() => {
     stdioCapture = captureStdio();
     applyPrepareCommandDefaults();
-    void throwOnProcessExit();
     void silenceConsole(['info']);
   });
 
@@ -152,19 +153,20 @@ describe(prepareCommand, () => {
 
   // A workspace that doesn't resolve to any package is not single-package mode; reading it as one would prepare the
   // root as one package.
-  it("exits with error when the workspace doesn't resolve to any package", async () => {
+  it("throws a UserError when the workspace doesn't resolve to any package", async () => {
     mockDiscoverWorkspaces.mockReturnValue(makeEmptyWorkspace('all-excluded'));
 
-    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(stdioCapture.stderr).toContain('No workspace package to release.');
+    const error = await captureError(UserError, () => prepareCommand([], RICH_STYLES, process.cwd()));
+    expect(error.message).toContain('No workspace package to release.');
     expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
   });
 
-  it('exits with error for --only on a single-package repo', async () => {
+  it('throws a UsageError for --only on a single-package repo', async () => {
     mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
-    await expect(prepareCommand(['--only=foo'], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(stdioCapture.stderr).toContain('--only is only supported');
+    await expect(prepareCommand(['--only=foo'], RICH_STYLES, process.cwd())).rejects.toThrow(
+      new UsageError('--only is only supported for monorepo configurations'),
+    );
   });
 
   it('passes a bare --force to a single-package release', async () => {
@@ -186,20 +188,19 @@ describe(prepareCommand, () => {
     });
   });
 
-  it('exits with error for --only with an unknown workspace name in monorepo mode', async () => {
-    await expect(prepareCommand(['--only=arrays,nonexistent'], RICH_STYLES, process.cwd())).rejects.toThrow(
-      ProcessExitError,
+  it('throws a UsageError for --only with an unknown workspace name in monorepo mode', async () => {
+    const error = await captureError(UsageError, () =>
+      prepareCommand(['--only=arrays,nonexistent'], RICH_STYLES, process.cwd()),
     );
-    expect(stdioCapture.stderr).toContain('nonexistent');
+    expect(error.message).toContain('Unknown release target "nonexistent"');
     expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
   });
 
-  it('exits with error when loadConfig throws', async () => {
+  it('throws a load problem when loadConfig throws', async () => {
     mockLoadConfig.mockRejectedValue(new Error('parse error'));
 
-    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(stdioCapture.stderr).toContain('Failed to load config');
-    expect(stdioCapture.stderr).toContain('parse error');
+    const error = await captureError(ConfigProblemError, () => prepareCommand([], RICH_STYLES, process.cwd()));
+    expect(error.problem).toStrictEqual({ kind: 'load', message: 'parse error' });
   });
 
   it('forwards a relative --config to the loader resolved against the invocation directory', async () => {
@@ -220,23 +221,12 @@ describe(prepareCommand, () => {
     expect(mockLoadConfig).toHaveBeenCalledWith(undefined);
   });
 
-  it('exits with error when config is invalid', async () => {
+  it('throws a validation problem when config is invalid', async () => {
     mockLoadConfig.mockResolvedValue({ unknownField: true });
 
-    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(stdioCapture.stderrChunks).toContain('Invalid config:\n');
-    expect(stdioCapture.stderr).toContain('unknownField');
-  });
-
-  it('reports config errors in the style of stderr', async () => {
-    mockLoadConfig.mockResolvedValue({ unknownField: true });
-
-    await expect(prepareCommand([], { stderr: 'plain', stdout: 'rich' }, process.cwd())).rejects.toThrow(
-      ProcessExitError,
-    );
-
-    expect(stdioCapture.stderr).toMatch(/^ {2}FAIL {2}.*unknownField/m);
-    expect(stdioCapture.stderr).not.toMatch(/\p{Extended_Pictographic}/u);
+    const error = await captureError(ConfigProblemError, () => prepareCommand([], RICH_STYLES, process.cwd()));
+    expect(error.problem.kind).toBe('validation');
+    expect(JSON.stringify(error.problem)).toContain('unknownField');
   });
 
   it('reports config warnings in the style of stderr', async () => {
@@ -372,9 +362,9 @@ describe(prepareCommand, () => {
       throw new Error('prettier exited with code 2');
     });
 
-    await expect(prepareCommand([], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
+    const error = await captureError(UserError, () => prepareCommand([], RICH_STYLES, process.cwd()));
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0', expect.any(Object));
-    expect(stdioCapture.stderr).toContain('the release is prepared');
+    expect(error.message).toContain('the release is prepared');
   });
 
   it('prints release tags file path when tags are produced', async () => {

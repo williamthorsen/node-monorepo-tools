@@ -1,6 +1,3 @@
-/* eslint n/no-process-exit: off */
-/* eslint unicorn/no-process-exit: off */
-
 import { formatStatusLine, type OutputStyle, printError, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
@@ -14,6 +11,17 @@ import { validateConfig } from './validateConfig.ts';
  * The distinction exists so that a caller can render the two differently. Every caller aborts on either.
  */
 export type ConfigProblem = { kind: 'load'; message: string } | { kind: 'validation'; errors: string[] };
+
+/** Reports a config file that a CLI command cannot use, carrying the problem for `reportConfigProblem` to render. */
+export class ConfigProblemError extends Error {
+  readonly problem: ConfigProblem;
+
+  constructor(problem: ConfigProblem) {
+    super('Invalid config');
+    this.name = 'ConfigProblemError';
+    this.problem = problem;
+  }
+}
 
 /**
  * Outcome of loading and validating the consumer config file. `missing` is not an error here; the caller decides
@@ -63,7 +71,7 @@ export async function loadValidatedConfig(configPath?: string): Promise<LoadVali
  * Loads and validates the config for a CLI command, returning it, or `undefined` when the default config file does
  * not exist.
  *
- * Reports an unusable config to stderr and exits 1, whether the file failed to load or failed validation, and
+ * Throws a `ConfigProblemError` for an unusable config, whether the file failed to load or failed validation, and
  * whether it was named by the caller or the default one. Validation warnings print to stderr.
  */
 export async function loadUsableConfig(
@@ -72,8 +80,7 @@ export async function loadUsableConfig(
 ): Promise<ReleaseKitConfig | undefined> {
   const result = await loadValidatedConfig(configPath);
   if (result.status === 'invalid') {
-    reportConfigProblem(result.problem, stderrStyle);
-    process.exit(1);
+    throw new ConfigProblemError(result.problem);
   }
 
   if (result.status === 'missing') {

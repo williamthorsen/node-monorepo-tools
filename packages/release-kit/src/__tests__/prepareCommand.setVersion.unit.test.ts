@@ -1,6 +1,7 @@
 import type { StreamStyles } from '@williamthorsen/nmr-core';
-import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { UsageError } from '@williamthorsen/nmr-core/cli';
+import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -77,7 +78,6 @@ describe(prepareCommand, () => {
   beforeEach(() => {
     stdioCapture = captureStdio();
     applyPrepareCommandDefaults();
-    void throwOnProcessExit();
     void silenceConsole(['info']);
   });
 
@@ -112,35 +112,37 @@ describe(prepareCommand, () => {
     ['an empty workspace name', '@1.0.0'],
     ['an empty entry', 'arrays@1.0.0,'],
   ])('rejects %s in monorepo --set-version, naming the expected form', async (_label, value) => {
-    await expect(prepareCommand([`--set-version=${value}`], RICH_STYLES, process.cwd())).rejects.toThrow(
-      ProcessExitError,
+    const error = await captureError(UsageError, () =>
+      prepareCommand([`--set-version=${value}`], RICH_STYLES, process.cwd()),
     );
-    expect(stdioCapture.stderr).toContain('Invalid --set-version entry');
-    expect(stdioCapture.stderr).toContain('<target>@N.N.N');
+    expect(error.message).toContain('Invalid --set-version entry');
+    expect(error.message).toContain('<target>@N.N.N');
     expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
   });
 
   it('rejects an unknown workspace in --set-version', async () => {
-    await expect(prepareCommand(['--set-version=nonexistent@1.0.0'], RICH_STYLES, process.cwd())).rejects.toThrow(
-      ProcessExitError,
+    const error = await captureError(UsageError, () =>
+      prepareCommand(['--set-version=nonexistent@1.0.0'], RICH_STYLES, process.cwd()),
     );
-    expect(stdioCapture.stderr).toContain('Unknown release target "nonexistent" in --set-version');
+    expect(error.message).toContain('Unknown release target "nonexistent" in --set-version');
     expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
   });
 
   it('rejects a workspace that --set-version names twice', async () => {
-    await expect(
+    const error = await captureError(UsageError, () =>
       prepareCommand(['--set-version=arrays@1.0.0,arrays@2.0.0'], RICH_STYLES, process.cwd()),
-    ).rejects.toThrow(ProcessExitError);
-    expect(stdioCapture.stderr).toContain('names target "arrays" more than once');
+    );
+    expect(error.message).toContain('names target "arrays" more than once');
     expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
   });
 
   it('rejects a version that is not canonical in single-package --set-version', async () => {
     mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
-    await expect(prepareCommand(['--set-version=1.0'], RICH_STYLES, process.cwd())).rejects.toThrow(ProcessExitError);
-    expect(stdioCapture.stderr).toContain('Invalid --set-version value "1.0"');
+    const error = await captureError(UsageError, () =>
+      prepareCommand(['--set-version=1.0'], RICH_STYLES, process.cwd()),
+    );
+    expect(error.message).toContain('Invalid --set-version value "1.0"');
     expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
   });
 
@@ -207,12 +209,10 @@ describe(prepareCommand, () => {
     });
 
     it('rejects an unknown name, listing every selectable target', async () => {
-      await expect(prepareCommand(['--only=nonexistent'], RICH_STYLES, process.cwd())).rejects.toThrow(
-        ProcessExitError,
+      const error = await captureError(UsageError, () =>
+        prepareCommand(['--only=nonexistent'], RICH_STYLES, process.cwd()),
       );
-      expect(stdioCapture.stderr).toContain(
-        'Unknown release target "nonexistent". Known targets: arrays, strings, suite',
-      );
+      expect(error.message).toContain('Unknown release target "nonexistent". Known targets: arrays, strings, suite');
     });
   });
 
@@ -249,10 +249,10 @@ describe(prepareCommand, () => {
     });
 
     it('still rejects --only with an unknown workspace name', async () => {
-      await expect(prepareCommand(['--only=nonexistent'], RICH_STYLES, process.cwd())).rejects.toThrow(
-        ProcessExitError,
+      const error = await captureError(UsageError, () =>
+        prepareCommand(['--only=nonexistent'], RICH_STYLES, process.cwd()),
       );
-      expect(stdioCapture.stderr).toContain('nonexistent');
+      expect(error.message).toContain('nonexistent');
       expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
     });
 
@@ -262,18 +262,18 @@ describe(prepareCommand, () => {
     });
 
     it('rejects --set-version with the project-aware error', async () => {
-      await expect(prepareCommand(['--set-version=arrays@1.2.3'], RICH_STYLES, process.cwd())).rejects.toThrow(
-        ProcessExitError,
+      const error = await captureError(UsageError, () =>
+        prepareCommand(['--set-version=arrays@1.2.3'], RICH_STYLES, process.cwd()),
       );
-      expect(stdioCapture.stderr).toContain('--set-version cannot be combined with a project release');
+      expect(error.message).toContain('--set-version cannot be combined with a project release');
       expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
     });
 
     it('rejects --set-version + --only with the project-aware error', async () => {
-      await expect(
+      const error = await captureError(UsageError, () =>
         prepareCommand(['--set-version=arrays@1.2.3', '--only=arrays'], RICH_STYLES, process.cwd()),
-      ).rejects.toThrow(ProcessExitError);
-      expect(stdioCapture.stderr).toContain('--set-version cannot be combined with a project release');
+      );
+      expect(error.message).toContain('--set-version cannot be combined with a project release');
       expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
     });
   });

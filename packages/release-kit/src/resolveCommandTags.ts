@@ -1,7 +1,5 @@
-/* eslint n/no-process-exit: off */
-/* eslint unicorn/no-process-exit: off */
-
-import { reportError } from '@williamthorsen/nmr-core';
+import { UserError } from '@williamthorsen/nmr-core';
+import { UsageError } from '@williamthorsen/nmr-core/cli';
 
 import type { ReleaseKitConfig } from './configSchema.ts';
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
@@ -15,9 +13,9 @@ import { prefixUserError } from './user-error-chaining.ts';
 /**
  * Discovers workspaces, resolves release tags from HEAD, validates `--tags` names against the full resolved tag
  * names (e.g., `nmr-core-v1.3.0`), and returns the filtered tag list. Throws a `UserError` when workspace discovery
- * fails, when a workspace's `package.json` does not have a `name` field, and when `mergeMonorepoConfig` rejects the
- * config. Exits with an error message on any other validation failure, including a workspace that does not resolve to
- * any package, which is not single-package mode.
+ * fails, when a workspace's `package.json` does not have a `name` field, when `mergeMonorepoConfig` rejects the
+ * config, when the workspace does not resolve to any package (which is not single-package mode), and when HEAD does
+ * not have any release tags; throws a `UsageError` for a `--tags` name that HEAD lacks.
  *
  * In monorepo mode the workspace list is `userConfig` merged over the discovered workspaces, as `prepare` builds it,
  * and each directory target and a declared composite (a `project` block or a `releases` composite) contribute their
@@ -43,8 +41,7 @@ export function resolveCommandTags(
   }
 
   if (workspace.kind === 'empty') {
-    reportError(`No workspace package to tag. ${describeEmptyWorkspace(workspace)}`);
-    process.exit(1);
+    throw new UserError(`No workspace package to tag. ${describeEmptyWorkspace(workspace)}`);
   }
 
   let workspaces: WorkspaceConfig[] | undefined;
@@ -79,8 +76,7 @@ export function resolveCommandTags(
   }
 
   if (resolvedTags.length === 0) {
-    reportError('HEAD does not have any release tags. Create tags with `release-kit tag` first.');
-    process.exit(1);
+    throw new UserError('HEAD does not have any release tags. Create tags with `release-kit tag` first.');
   }
 
   // Validate --tags against resolved tag names (full tag name, not dir).
@@ -91,8 +87,7 @@ export function resolveCommandTags(
         continue;
       }
 
-      reportError(`Unknown tag "${name}" in --tags. Available: ${availableTagNames.join(', ')}`);
-      process.exit(1);
+      throw new UsageError(`Unknown tag "${name}" in --tags. Available: ${availableTagNames.join(', ')}`);
     }
     resolvedTags = resolvedTags.filter((t) => tags.includes(t.tag));
   }

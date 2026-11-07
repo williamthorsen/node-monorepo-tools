@@ -1,3 +1,4 @@
+import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -18,10 +19,8 @@ describe(parseArgs, () => {
     vi.restoreAllMocks();
   });
 
-  it('exits with an error for an invalid bump type', () => {
-    expect(() => parseArgs(['--bump=invalid'])).toThrow(ProcessExitError);
-    expect(stdioCapture.stderr).toContain('Invalid bump type');
-    expect(process.exit).toHaveBeenCalledWith(1);
+  it('throws a UsageError for an invalid bump type', () => {
+    expect(() => parseArgs(['--bump=invalid'])).toThrow(UsageError);
   });
 
   it('exits with an error for an unknown flag with the flag name in the message', () => {

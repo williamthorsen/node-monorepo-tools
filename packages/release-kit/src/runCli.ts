@@ -34,7 +34,7 @@ import { prepareCommand } from './prepareCommand.ts';
 import { publishCommand } from './publishCommand.ts';
 import { pushCommand } from './pushCommand.ts';
 import { resolveConfigFlag } from './resolveConfigFlag.ts';
-import { resolveStylesOrExit } from './resolveStylesOrExit.ts';
+import { resolveStyles } from './resolveStyles.ts';
 import { showTagPrefixesCommand } from './showTagPrefixesCommand.ts';
 import { generateCommand } from './sync-labels/generateCommand.ts';
 import { syncLabelsInitCommand } from './sync-labels/initCommand.ts';
@@ -64,7 +64,7 @@ export async function runCli(args: string[]): Promise<void> {
 
   const flags = args.slice(1);
 
-  const styles = resolveStylesOrExit({
+  const styles = resolveStyles({
     env: process.env,
     stderrIsTty: process.stderr.isTTY,
     stdoutIsTty: process.stdout.isTTY,

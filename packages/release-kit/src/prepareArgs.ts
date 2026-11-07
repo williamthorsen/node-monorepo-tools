@@ -1,7 +1,5 @@
-/* eslint n/no-process-exit: off */
-/* eslint unicorn/no-process-exit: off */
-
-import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit } from '@williamthorsen/nmr-core';
+import { UsageError } from '@williamthorsen/nmr-core/cli';
 
 import { configFlagSchema } from './configFlagSchema.ts';
 import type { ReleaseType } from './types.ts';
@@ -26,7 +24,7 @@ export const prepareFlagSchema = {
   shouldIncludeReleaseNotes: { long: '--with-release-notes', type: 'boolean' as const },
 };
 
-/** Parses CLI arguments into structured options. Prints a usage error and exits on invalid input. */
+/** Parses CLI arguments into structured options, throwing a `UsageError` for an invalid `--bump`. */
 export function parseArgs(argv: string[]): {
   configPath: string | undefined;
   isDryRun: boolean;
@@ -43,8 +41,7 @@ export function parseArgs(argv: string[]): {
   let bumpOverride: ReleaseType | undefined;
   if (flags.bump !== undefined) {
     if (!isReleaseType(flags.bump)) {
-      reportError(`Invalid bump type "${flags.bump}". Must be one of: ${VALID_BUMP_TYPES.join(', ')}`);
-      process.exit(1);
+      throw new UsageError(`Invalid bump type "${flags.bump}". Must be one of: ${VALID_BUMP_TYPES.join(', ')}`);
     }
     bumpOverride = flags.bump;
   }
@@ -68,7 +65,7 @@ export function parseArgs(argv: string[]): {
 
 /**
  * Parses a monorepo `--set-version` value, a comma-separated list of `<target>@N.N.N` entries, into versions keyed by
- * target name. Prints a usage error and exits on a malformed entry, an unknown target, or a repeated one.
+ * target name. Throws a `UsageError` for a malformed entry, an unknown target, or a repeated one.
  */
 export function parseSetVersions(value: string, knownNames: readonly string[]): Map<string, string> {
   const setVersions = new Map<string, string>();
@@ -77,19 +74,18 @@ export function parseSetVersions(value: string, knownNames: readonly string[]): 
     const name = entry.slice(0, Math.max(0, separatorIndex));
     const version = entry.slice(separatorIndex + 1);
     if (separatorIndex <= 0 || !CANONICAL_SEMVER_PATTERN.test(version)) {
-      reportError(
+      throw new UsageError(
         `Invalid --set-version entry "${entry}". In monorepo mode, each entry must be <target>@N.N.N ` +
           '(canonical semver, no pre-release suffix), e.g. --set-version=arrays@1.0.0.',
       );
-      process.exit(1);
     }
     if (!knownNames.includes(name)) {
-      reportError(`Unknown release target "${name}" in --set-version. Known targets: ${knownNames.join(', ')}`);
-      process.exit(1);
+      throw new UsageError(
+        `Unknown release target "${name}" in --set-version. Known targets: ${knownNames.join(', ')}`,
+      );
     }
     if (setVersions.has(name)) {
-      reportError(`--set-version names target "${name}" more than once`);
-      process.exit(1);
+      throw new UsageError(`--set-version names target "${name}" more than once`);
     }
     setVersions.set(name, version);
   }

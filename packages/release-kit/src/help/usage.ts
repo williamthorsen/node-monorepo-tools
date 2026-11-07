@@ -1,4 +1,4 @@
-import { OUTPUT_STYLE_ENV_VAR } from '../resolveStylesOrExit.ts';
+import { OUTPUT_STYLE_ENV_VAR } from '../resolveStyles.ts';
 
 /** Prints the top-level usage text. */
 export function showUsage(): void {
