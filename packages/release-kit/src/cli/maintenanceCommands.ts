@@ -1,5 +1,7 @@
 import process from 'node:process';
 
+import { createCli } from '@williamthorsen/nmr-core/cli';
+
 import { enterRepoRoot } from '../enterRepoRoot.ts';
 import { initCommand } from '../init/initCommand.ts';
 import { updateTemplatesCommand } from '../init/updateTemplatesCommand.ts';
@@ -8,7 +10,9 @@ import { generateCommand } from '../sync-labels/generateCommand.ts';
 import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
 import { syncLabelsCommand } from '../sync-labels/syncCommand.ts';
 import { validateOverridesCommand } from '../validateOverridesCommand.ts';
-import { CONFIG_FLAG, defineCommand, defineGroup, runReportingFailures } from './commandKit.ts';
+import { type CommandContext, CONFIG_FLAG, runReportingFailures } from './commandKit.ts';
+
+const { defineCommand, defineGroup } = createCli<CommandContext>();
 
 export const showTagPrefixes = defineCommand({
   summary: 'Show derived and declared legacy tag prefixes per workspace',

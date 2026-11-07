@@ -1,5 +1,5 @@
 import { isAnticipatedFailure, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
-import { createCli, type FlagSchema } from '@williamthorsen/nmr-core/cli';
+import type { FlagSchema } from '@williamthorsen/nmr-core/cli';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { ConfigProblemError, reportConfigProblem } from '../loadValidatedConfig.ts';
@@ -8,8 +8,6 @@ import { ConfigProblemError, reportConfigProblem } from '../loadValidatedConfig.
 export interface CommandContext {
   styles: StreamStyles;
 }
-
-export const { defineCommand, defineGroup } = createCli<CommandContext>();
 
 /** The `--config` flag of every command that reads the config file. */
 export const CONFIG_FLAG = {

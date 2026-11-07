@@ -1,3 +1,5 @@
+import { createCli } from '@williamthorsen/nmr-core/cli';
+
 import { commitCommand } from '../commitCommand.ts';
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
 import { enterRepoRoot } from '../enterRepoRoot.ts';
@@ -6,7 +8,9 @@ import { prepareCommand } from '../prepareCommand.ts';
 import { publishCommand } from '../publishCommand.ts';
 import { pushCommand } from '../pushCommand.ts';
 import { tagCommand } from '../tagCommand.ts';
-import { CONFIG_FLAG, defineCommand, runReportingFailures } from './commandKit.ts';
+import { type CommandContext, CONFIG_FLAG, runReportingFailures } from './commandKit.ts';
+
+const { defineCommand } = createCli<CommandContext>();
 
 const TAGS_FLAG = {
   type: 'string',
