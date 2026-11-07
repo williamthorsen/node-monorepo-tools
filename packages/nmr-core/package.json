@@ -27,6 +27,11 @@
       "types": "./dist/esm/index.d.ts",
       "default": "./dist/esm/index.js"
     },
+    "./cli": {
+      "nmr-source": "./src/cli.ts",
+      "types": "./dist/esm/cli.d.ts",
+      "default": "./dist/esm/cli.js"
+    },
     "./workspace": {
       "nmr-source": "./src/workspace.ts",
       "types": "./dist/esm/workspace.d.ts",
@@ -42,6 +47,7 @@
     "prepare": "node --conditions nmr-source ../nmr/src/cli-build.ts"
   },
   "dependencies": {
+    "@williamthorsen/toolbelt.cli": "catalog:",
     "@williamthorsen/toolbelt.datetime": "catalog:",
     "@williamthorsen/toolbelt.errors": "catalog:",
     "@williamthorsen/toolbelt.filesystem": "catalog:",
