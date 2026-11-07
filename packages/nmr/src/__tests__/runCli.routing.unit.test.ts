@@ -90,7 +90,7 @@ describe(runCli, () => {
       const { exitCode, stderr } = await runNmrReadingStderr(['bulid'], tree.dir);
 
       expect(exitCode).toBe(2);
-      expect(stderr).toBe("Error: Unknown command: bulid\nDid you mean 'build'?\nTry 'nmr --help'.\n");
+      expect(stderr).toBe("nmr: Unknown command: bulid\nDid you mean 'build'?\nTry 'nmr --help'.\n");
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
 

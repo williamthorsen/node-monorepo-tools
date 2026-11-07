@@ -13,7 +13,9 @@ describe('ensure-prepublish-hooks', () => {
     const result = runBin(['--bogus']);
 
     expect(result.status).toBe(2);
-    expect(result.stderr).toBe("Error: Unknown option: --bogus\nTry 'ensure-prepublish-hooks --help'.\n");
+    expect(result.stderr).toBe(
+      "ensure-prepublish-hooks: Unknown option: --bogus\nTry 'ensure-prepublish-hooks --help'.\n",
+    );
   });
 
   it('prints help from the flag definitions', () => {

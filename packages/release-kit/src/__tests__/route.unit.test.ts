@@ -239,7 +239,7 @@ describe(routeCommand, () => {
 
       await expect(routeCommand(args)).resolves.toBe(2);
 
-      expect(stdio.stderr).toBe(`Error: ${message}\nTry '${scope} --help'.\n`);
+      expect(stdio.stderr).toBe(`release-kit: ${message}\nTry '${scope} --help'.\n`);
       expectNoCommandRan();
     });
 
@@ -260,7 +260,7 @@ describe(routeCommand, () => {
 
       await expect(routeCommand(['prepare', '--only=a'])).resolves.toBe(2);
       expect(stdio.stderr).toBe(
-        "Error: --only is only supported for monorepo configurations\nTry 'release-kit prepare --help'.\n",
+        "release-kit: --only is only supported for monorepo configurations\nTry 'release-kit prepare --help'.\n",
       );
     });
 
@@ -272,7 +272,7 @@ describe(routeCommand, () => {
 
         await expect(routeCommand(args)).resolves.toBe(2);
         expect(stdio.stderr).toContain(
-          'Error: RELEASE_KIT_OUTPUT_STYLE must be one of: auto, plain, rich (got "loud")',
+          'release-kit: RELEASE_KIT_OUTPUT_STYLE must be one of: auto, plain, rich (got "loud")',
         );
         expectNoCommandRan();
       },

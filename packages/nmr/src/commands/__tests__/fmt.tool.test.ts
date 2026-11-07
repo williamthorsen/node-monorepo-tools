@@ -227,7 +227,7 @@ describe(runFmt, () => {
 
   it('rejects a bare invocation rather than defaulting to a mutation', async ({ captured, repositoryTree }) => {
     await expect(runFmt([], repositoryTree.dir)).resolves.toBe(2);
-    expect(captured.stderr).toBe("Error: Pass --check or --write.\nTry 'nmr-fmt --help'.\n");
+    expect(captured.stderr).toBe("nmr-fmt: Pass --check or --write.\nTry 'nmr-fmt --help'.\n");
   });
 
   it('rejects both modes at once', async ({ captured, repositoryTree }) => {

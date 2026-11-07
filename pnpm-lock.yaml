@@ -165,8 +165,8 @@ settings:
 catalogs:
   default:
     '@williamthorsen/toolbelt.cli':
-      specifier: 0.7.1
-      version: 0.7.1
+      specifier: 0.8.0
+      version: 0.8.0
     '@williamthorsen/toolbelt.datetime':
       specifier: 4.1.0
       version: 4.1.0
@@ -237,7 +237,7 @@ importers:
         version: 14.2.1(eslint@10.14.0(jiti@2.7.0))
       '@williamthorsen/toolbelt.cli':
         specifier: 'catalog:'
-        version: 0.7.1
+        version: 0.8.0
       '@williamthorsen/toolbelt.errors':
         specifier: 'catalog:'
         version: 0.9.0
@@ -407,7 +407,7 @@ importers:
     dependencies:
       '@williamthorsen/toolbelt.cli':
         specifier: 'catalog:'
-        version: 0.7.1
+        version: 0.8.0
       '@williamthorsen/toolbelt.datetime':
         specifier: 'catalog:'
         version: 4.1.0
@@ -1362,8 +1362,12 @@ packages:
     resolution: {integrity: sha512-OM+Pvl/CUFZiIjI3VitCObJUvkkAFBmXQEZBpMzoD0aXLV01OfZi9bZhcNhIRQrWxRZ4owhbiTrvJ/64Hl75ng==}
     engines: {node: '>=24.0.0'}
 
-  '@williamthorsen/toolbelt.cli@0.7.1':
-    resolution: {integrity: sha512-Dg87tFESYxcisy+ue4uwSFx5sWrUAhki1CUKo8cYXiRc09eJSCdANUpQTyHiREKm6INMCjQPIMKnZN09E0RLIQ==}
+  '@williamthorsen/toolbelt.arrays@6.4.1':
+    resolution: {integrity: sha512-P2Und156n4N3AvfDs44VUOXB24ZbTSfycIhOJcienZw4Q0zzU0fsm99mNpFnbkqoCR6ZV10c7bRV6YpNSlUk1Q==}
+    engines: {node: '>=24.0.0'}
+
+  '@williamthorsen/toolbelt.cli@0.8.0':
+    resolution: {integrity: sha512-+zkrTzhlIF8+AkMf/d7NV1dVJL8BZTBMYCR/T9AS42rpEaWASrJ928LmsZpHjZII6qZCNpDLezFNnzvvnJkpvA==}
     engines: {node: '>=24.0.0'}
 
   '@williamthorsen/toolbelt.datetime@4.1.0':
@@ -1394,6 +1398,10 @@ packages:
     resolution: {integrity: sha512-7+9P0cvI3b+IkhQfUlpc20QOG8vcWKA5c5rJDEzM5t/eaRe5KBhuK1YFBtuZitJETqHdV0f6t80MLDWkocEkqQ==}
     engines: {node: '>=24.0.0'}
 
+  '@williamthorsen/toolbelt.numbers@7.3.1':
+    resolution: {integrity: sha512-Ez1idA57YcYQM8iWrzT4VYbIGBbg9mGsl9321Pmiv4vLAdqrl0udtW+r5KzEhMRfHxpjRM5nLkPyfTOF97ATJQ==}
+    engines: {node: '>=24.0.0'}
+
   '@williamthorsen/toolbelt.objects@4.4.0':
     resolution: {integrity: sha512-5YZQasGgCAPEDNKO9G8UhKCpq+bdU1h5iKi/Ic6BPWiBSXeRxWnx8KKZ0fpow1I50fdhuOE40h0+v1DfZGCRKw==}
     engines: {node: '>=24.0.0'}
@@ -1412,6 +1420,10 @@ packages:
 
   '@williamthorsen/toolbelt.strings@8.2.0':
     resolution: {integrity: sha512-I0KY52+7XNptoTHHUyKqWjfkOYv0vEBVKyu26TYWAQMnfpoFgvZB4J/VpVJf16Ory2x7CR7gqTx+QaYu3mDzlw==}
+    engines: {node: '>=24.0.0'}
+
+  '@williamthorsen/toolbelt.strings@8.2.1':
+    resolution: {integrity: sha512-VrAIZJSy1uc0gai3ljtv/d1Hz2jze1y7OGHQXVhkxnZYNMgP/fwB/7rWtOd6/IlvDD/WWglXU/oxxGnHZ6f9LQ==}
     engines: {node: '>=24.0.0'}
 
   '@williamthorsen/toolbelt.terminal@0.3.0':
@@ -4012,10 +4024,15 @@ snapshots:
       '@williamthorsen/toolbelt.guards': 4.2.0
       '@williamthorsen/toolbelt.numbers': 7.3.0
 
-  '@williamthorsen/toolbelt.cli@0.7.1':
+  '@williamthorsen/toolbelt.arrays@6.4.1':
+    dependencies:
+      '@williamthorsen/toolbelt.guards': 4.2.0
+      '@williamthorsen/toolbelt.numbers': 7.3.1
+
+  '@williamthorsen/toolbelt.cli@0.8.0':
     dependencies:
       '@williamthorsen/toolbelt.errors': 0.9.0
-      '@williamthorsen/toolbelt.strings': 8.2.0
+      '@williamthorsen/toolbelt.strings': 8.2.1
 
   '@williamthorsen/toolbelt.datetime@4.1.0':
     dependencies:
@@ -4037,6 +4054,8 @@ snapshots:
 
   '@williamthorsen/toolbelt.numbers@7.3.0': {}
 
+  '@williamthorsen/toolbelt.numbers@7.3.1': {}
+
   '@williamthorsen/toolbelt.objects@4.4.0': {}
 
   '@williamthorsen/toolbelt.packaging@0.6.3':
@@ -4054,6 +4073,12 @@ snapshots:
     dependencies:
       '@williamthorsen/toolbelt.arrays': 6.4.0
       '@williamthorsen/toolbelt.numbers': 7.3.0
+      '@williamthorsen/toolbelt.sets': 3.1.0
+
+  '@williamthorsen/toolbelt.strings@8.2.1':
+    dependencies:
+      '@williamthorsen/toolbelt.arrays': 6.4.1
+      '@williamthorsen/toolbelt.numbers': 7.3.1
       '@williamthorsen/toolbelt.sets': 3.1.0
 
   '@williamthorsen/toolbelt.terminal@0.3.0':
