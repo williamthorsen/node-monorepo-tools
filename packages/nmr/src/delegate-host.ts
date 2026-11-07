@@ -3,6 +3,7 @@ import { Writable } from 'node:stream';
 
 import { reportError, startTimer } from '@williamthorsen/nmr-core';
 
+import { NMR_BIN } from './bins.ts';
 import { NO_CACHE_ENV_VAR, resolveRunId, writeDebugNote } from './check-cache.ts';
 import { buildChildEnv, buildRemoteEnv } from './child-env.ts';
 import { resolveDelegationTarget } from './delegation-target.ts';
@@ -78,7 +79,7 @@ export async function resolveExecutionTarget(invocation: Invocation): Promise<Ph
     shouldDelegate: parsedArgs.shouldDelegate,
   });
   if (target.kind === 'refused') {
-    reportError(target.error, stderr);
+    reportError(NMR_BIN, target.error, stderr);
     return { settled: true, result: { exitCode: USAGE_EXIT_CODE } };
   }
   if (target.kind === 'remote') {
@@ -222,7 +223,7 @@ async function delegate(options: {
   const snapshot = createSnapshot(cwd, env);
   if (!snapshot.ok && snapshot.isUnsupported) {
     if (target.source === 'flag') {
-      reportError(`Cannot delegate to ${listedHosts}: ${snapshot.reason}`, stderr);
+      reportError(NMR_BIN, `Cannot delegate to ${listedHosts}: ${snapshot.reason}`, stderr);
       return { kind: 'refused', exitCode: 1 };
     }
     stderr.write(formatRunHereLine(command, listedHosts, snapshot.reason));

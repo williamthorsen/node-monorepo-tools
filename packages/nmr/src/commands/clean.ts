@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { formatGlyphLine, type OutputStyle, UserError } from '@williamthorsen/nmr-core';
 
+import { NMR_CLEAN_BIN } from '../bins.ts';
 import { removeCheckCache } from '../check-cache-entries.ts';
 import { loadRootConfig } from '../config.ts';
 import { findContainingPackageDir } from '../context.ts';
@@ -136,12 +137,11 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
 
     const command = applyDevBin(resolvedCommand, config.devBin, monorepoRoot);
     const { exitCode } = await runCommand(command, packageDir, {
+      bin: NMR_CLEAN_BIN,
       channels: { stderr: resolveChannel(process.stderr, false), stdout: resolveChannel(process.stdout, false) },
     });
     if (exitCode !== 0) {
-      throw new UserError(
-        `nmr-clean: \`${command}\` failed in ${path.basename(packageDir)} with exit code ${exitCode}.`,
-      );
+      throw new UserError(`\`${command}\` failed in ${path.basename(packageDir)} with exit code ${exitCode}.`);
     }
     cleanedCount++;
   }

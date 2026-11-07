@@ -254,7 +254,7 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
 /** Throws with formatted diagnostics when the compiler skipped an emit. */
 function assertEmitSucceeded(result: TypeScript.EmitResult): void {
   if (result.emitSkipped) {
-    throw new UserError(`nmr-compile: emit failed.\n${formatDiagnostics(result.diagnostics)}`);
+    throw new UserError(`emit failed.\n${formatDiagnostics(result.diagnostics)}`);
   }
 }
 
@@ -317,7 +317,7 @@ function resolveEmitDir(packageDir: string, outdir: string): string {
     path.isAbsolute(relativePathFromPackage)
   ) {
     throw new UserError(
-      `nmr-compile: refusing to build into '${outdir}', which does not resolve inside the package. ` +
+      `refusing to build into '${outdir}', which does not resolve inside the package. ` +
         'The build replaces its output directory on each emit, so the directory must be below the package root.',
     );
   }
@@ -346,7 +346,7 @@ async function swapIntoPlace(emitDir: string, scratchDirs: ScratchDirs): Promise
     if (hadPreviousOutput && !existsSync(emitDir)) {
       await rename(scratchDirs.previousDir, emitDir);
     }
-    throw new UserError(`nmr-compile: failed to move the built output into ${emitDir}: ${describeError(error)}`, {
+    throw new UserError(`failed to move the built output into ${emitDir}: ${describeError(error)}`, {
       cause: error,
     });
   }
@@ -371,12 +371,12 @@ function synthesizeCompilerOptions(packageDir: string, outdir: string): TypeScri
   const configPath = path.join(packageDir, 'tsconfig.json');
   const configFile = ts.readConfigFile(configPath, (fileName) => ts.sys.readFile(fileName));
   if (configFile.error) {
-    throw new UserError(`nmr-compile: failed to read ${configPath}.\n${formatDiagnostics([configFile.error])}`);
+    throw new UserError(`failed to read ${configPath}.\n${formatDiagnostics([configFile.error])}`);
   }
 
   const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, packageDir);
   if (parsedConfig.errors.length > 0) {
-    throw new UserError(`nmr-compile: failed to parse ${configPath}.\n${formatDiagnostics(parsedConfig.errors)}`);
+    throw new UserError(`failed to parse ${configPath}.\n${formatDiagnostics(parsedConfig.errors)}`);
   }
 
   const resolvedOutDir = path.resolve(packageDir, outdir);
@@ -409,7 +409,7 @@ function writeStagedOutput(stagedFiles: Map<string, StagedFile>, emitDir: string
   for (const [fileName, file] of stagedFiles) {
     if (!isWithin(emitDir, fileName)) {
       throw new Error(
-        `nmr-compile: the compiler emitted ${fileName}, which is outside the output directory ${emitDir}. ` +
+        `the compiler emitted ${fileName}, which is outside the output directory ${emitDir}. ` +
           "Verify the resolved tsconfig's 'outDir' and 'declarationDir'.",
       );
     }

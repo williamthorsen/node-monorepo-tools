@@ -49,7 +49,7 @@ describe('release-kit bin outside a repo', () => {
     const result = runBinOutsideRepo(['show-tag-prefixes']);
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toMatch(/^Error: No repo root found from /);
+    expect(result.stderr).toMatch(/^release-kit: No repo root found from /);
     expect(result.stderr).not.toContain('internal error');
   });
 });

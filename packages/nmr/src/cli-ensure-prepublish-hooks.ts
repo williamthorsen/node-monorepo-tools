@@ -3,6 +3,7 @@ import process from 'node:process';
 import { reportFailure } from '@williamthorsen/nmr-core';
 import { defineCommand, runCli } from '@williamthorsen/nmr-core/cli';
 
+import { ENSURE_PREPUBLISH_HOOKS_BIN } from './bins.ts';
 import { DEFAULT_HOOK, ensurePrepublishHooks, reportPrepublishHooks } from './commands/ensure-prepublish-hooks.ts';
 import { resolveBinStyles } from './resolveBinStyles.ts';
 import { findMonorepoRoot } from './workspace.ts';
@@ -33,11 +34,11 @@ const command = defineCommand({
 
 try {
   process.exitCode = await runCli(process.argv.slice(2), command, {
-    name: 'ensure-prepublish-hooks',
+    name: ENSURE_PREPUBLISH_HOOKS_BIN,
     stdout: process.stdout,
     stderr: process.stderr,
   });
 } catch (error: unknown) {
-  reportFailure('ensure-prepublish-hooks', error);
+  reportFailure(ENSURE_PREPUBLISH_HOOKS_BIN, error);
   process.exitCode = 1;
 }

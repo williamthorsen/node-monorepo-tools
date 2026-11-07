@@ -4,13 +4,14 @@ import process from 'node:process';
 
 import { reportCrash } from '@williamthorsen/nmr-core';
 
+import { BIN } from './bin.ts';
 import { routeCommand } from './route.ts';
 
 let exitCode: number;
 try {
   exitCode = await routeCommand(process.argv.slice(2));
 } catch (error: unknown) {
-  reportCrash('v11y', error);
+  reportCrash(BIN, error);
   exitCode = 1;
 }
 process.exitCode = exitCode;

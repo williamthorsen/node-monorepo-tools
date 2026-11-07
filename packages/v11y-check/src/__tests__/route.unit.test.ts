@@ -161,7 +161,7 @@ describe(routeCommand, () => {
       const exitCode = await routeCommand(['sync']);
 
       expect(exitCode).toBe(1);
-      expect(stdio.stderr).toBe('Error: Config file not found: /repo/v11y.json\n');
+      expect(stdio.stderr).toBe('v11y: Config file not found: /repo/v11y.json\n');
     });
 
     it('rethrows an unexpected error from a command for the crash handler', async () => {

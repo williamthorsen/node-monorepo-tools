@@ -30,7 +30,7 @@ export function assertSupportedTypeScript(): void {
     major < MINIMUM_TYPESCRIPT_MAJOR || (major === MINIMUM_TYPESCRIPT_MAJOR && minor < MINIMUM_TYPESCRIPT_MINOR);
   if (tooOld || major >= UNSUPPORTED_TYPESCRIPT_MAJOR) {
     throw new UserError(
-      `nmr-compile requires TypeScript ${SUPPORTED_TYPESCRIPT_RANGE}, but found ` +
+      `requires TypeScript ${SUPPORTED_TYPESCRIPT_RANGE}, but found ` +
         `${typeof version === 'string' ? version : 'a version without the compiler API'}. ${INSTALL_TYPESCRIPT_GUIDANCE}`,
     );
   }
@@ -49,7 +49,7 @@ export function formatDiagnostics(diagnostics: readonly TypeScript.Diagnostic[])
 /** Returns the compiler API that `loadCompiler` loaded, throwing when it has not run. */
 export function getCompiler(): typeof TypeScript {
   if (ts === undefined) {
-    throw new Error('nmr-compile: the compiler is not loaded; call loadCompiler first.');
+    throw new Error('the compiler is not loaded; call loadCompiler first.');
   }
   return ts;
 }
@@ -68,7 +68,7 @@ export async function loadCompiler(loadTypeScript: () => Promise<typeof TypeScri
   } catch (error) {
     if (hasErrnoCode(error, 'ERR_MODULE_NOT_FOUND') && error.message.includes("'typescript'")) {
       throw new UserError(
-        `nmr-compile requires TypeScript ${SUPPORTED_TYPESCRIPT_RANGE}, but 'typescript' could not be resolved. ` +
+        `requires TypeScript ${SUPPORTED_TYPESCRIPT_RANGE}, but 'typescript' could not be resolved. ` +
           INSTALL_TYPESCRIPT_GUIDANCE,
         { cause: error },
       );

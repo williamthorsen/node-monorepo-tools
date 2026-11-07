@@ -4,6 +4,7 @@ import { reportError } from '@williamthorsen/nmr-core';
 import { runCli as runRouter } from '@williamthorsen/nmr-core/cli';
 
 import { prependBinDirs } from './bin-path.ts';
+import { NMR_BIN } from './bins.ts';
 import { NO_CACHE_ENV_VAR, resolveRunId, RUN_ID_ENV_VAR } from './check-cache.ts';
 import { openGate, runGated } from './check-cache-gate.ts';
 import { reportRecording } from './check-cache-record.ts';
@@ -59,7 +60,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const { args, cwd, env, stdout, stderr } = options;
   const reading = readInvocationFlags(args);
   const firstPass = reading.ok ? reading.parsedArgs : undefined;
-  const routerOptions = { name: 'nmr', context: undefined, stdout, stderr, baseDir: cwd, version: () => VERSION };
+  const routerOptions = { name: NMR_BIN, context: undefined, stdout, stderr, baseDir: cwd, version: () => VERSION };
 
   // `--version` does not load the config, so that it answers outside a monorepo as well.
   if (firstPass?.shouldShowVersion === true && !firstPass.shouldShowHelp) {
@@ -152,6 +153,7 @@ async function planRun(invocation: Invocation, target: ExecutionTarget): Promise
     verbosity: invocation.verbosity,
   });
   const runOptions: RunStepsOptions = {
+    bin: NMR_BIN,
     quiet,
     stdout,
     stderr,
@@ -199,7 +201,7 @@ async function planRun(invocation: Invocation, target: ExecutionTarget): Promise
       parsedArgs.shouldDelegate && parsedArgs.delegateHosts === undefined
         ? `. \`${command}\` is not a command; name a host with ${DELEGATE_TO_FLAG} ${command}`
         : '';
-    reportError(`Unknown command: ${command}${delegateToHint}`, stderr);
+    reportError(NMR_BIN, `Unknown command: ${command}${delegateToHint}`, stderr);
     return { settled: true, result: { exitCode: USAGE_EXIT_CODE, isUnknownCommand: true } };
   }
 

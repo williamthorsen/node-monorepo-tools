@@ -7,6 +7,7 @@ import {
 } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { BIN } from './bin.ts';
 import { buildChangelogEntries, type ReleaseHistoryConfig } from './buildChangelogEntries.ts';
 import { resolveOverridePath } from './changelogOverrides.ts';
 import type { ReleaseKitConfig } from './configSchema.ts';
@@ -93,13 +94,13 @@ export async function validateOverridesCommand(
     if (!isAnticipatedFailure(error)) {
       throw error;
     }
-    return { exitCode: 2, message: formatErrorLine(`Failed to discover workspaces: ${describeError(error)}`) };
+    return { exitCode: 2, message: formatErrorLine(BIN, `Failed to discover workspaces: ${describeError(error)}`) };
   }
 
   if (workspace.kind === 'empty') {
     return {
       exitCode: 2,
-      message: formatErrorLine(`No workspace package to validate. ${describeEmptyWorkspace(workspace)}`),
+      message: formatErrorLine(BIN, `No workspace package to validate. ${describeEmptyWorkspace(workspace)}`),
     };
   }
 
@@ -110,7 +111,7 @@ export async function validateOverridesCommand(
     if (!isAnticipatedFailure(error)) {
       throw error;
     }
-    return { exitCode: 2, message: formatErrorLine(`Failed to resolve overrides scope: ${describeError(error)}`) };
+    return { exitCode: 2, message: formatErrorLine(BIN, `Failed to resolve overrides scope: ${describeError(error)}`) };
   }
 
   const result = validate(inputs);
@@ -183,7 +184,7 @@ function flattenEntriesToItems(entries: readonly ChangelogEntry[]): OverrideTarg
  */
 function formatConfigProblem(problem: ConfigProblem): string {
   return problem.kind === 'load'
-    ? formatErrorLine(`Failed to load config: ${problem.message}`)
+    ? formatErrorLine(BIN, `Failed to load config: ${problem.message}`)
     : `Invalid config:\n  - ${problem.errors.join('\n  - ')}`;
 }
 

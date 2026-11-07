@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import { formatGlyphLine, type OutputStyle, reportError } from '@williamthorsen/nmr-core';
 
+import { NMR_BIN } from './bins.ts';
 import type { TreeSnapshot } from './check-cache.ts';
 import { resolveCacheKey } from './check-cache-gate.ts';
 import { reportNmrCrossing } from './crossing-diagnostics.ts';
@@ -56,7 +57,7 @@ export function assembleChain(options: {
   // same way.
   const bindResult = bindPassthrough(substitutedSteps, parsedArgs.passthrough, command);
   if (!bindResult.ok) {
-    reportError(bindResult.error, stderr);
+    reportError(NMR_BIN, bindResult.error, stderr);
     return { settled: true, result: { exitCode: USAGE_EXIT_CODE } };
   }
 

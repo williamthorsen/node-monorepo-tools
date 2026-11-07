@@ -3,7 +3,7 @@ import { isError } from '@williamthorsen/toolbelt.errors';
 import { UserError } from './UserError.ts';
 
 /**
- * Reports whether a thrown value is a failure that a CLI reports as `Error: <message>` rather than as an internal
+ * Reports whether a thrown value is a failure that a CLI reports as `<bin>: <message>` rather than as an internal
  * error: a `UserError`, or a Node system error such as `EACCES` or `ENOENT`, which comes from the environment.
  */
 export function isAnticipatedFailure(error: unknown): error is Error {

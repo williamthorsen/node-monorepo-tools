@@ -61,7 +61,7 @@ describe('nmr-vitest without a resolvable vitest', () => {
     // pnpm points NODE_PATH at the repo's store, through which the child would otherwise resolve this repo's copy.
     const run = runNmrVitestCli(tree.dir, ['run'], { NODE_PATH: undefined });
 
-    expect(run.stderr).toContain('nmr-vitest: requires Vitest >=4.0.0 <6');
+    expect(run.stderr).toMatch(/^nmr-vitest: requires Vitest >=4\.0\.0 <6/);
     expect(run.status).toBe(1);
   });
 });

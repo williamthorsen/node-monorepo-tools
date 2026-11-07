@@ -5,11 +5,12 @@ import process from 'node:process';
 
 import { reportFailure } from '@williamthorsen/nmr-core';
 
+import { BIN } from './bin.ts';
 import { routeCommand } from './route.ts';
 
 try {
   process.exitCode = await routeCommand(process.argv.slice(2));
 } catch (error: unknown) {
-  reportFailure('release-kit', error);
+  reportFailure(BIN, error);
   process.exitCode = 1;
 }

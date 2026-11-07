@@ -59,9 +59,12 @@ export interface StreamStyles {
   readonly stdout: OutputStyle;
 }
 
-/** Renders the canonical `Error: <message>` line, without a trailing newline, for a caller that needs it as a value. */
-export function formatErrorLine(message: string): string {
-  return `Error: ${message}`;
+/**
+ * Renders the canonical `<bin>: <message>` error line, without a trailing newline, for a caller that needs it as a
+ * value.
+ */
+export function formatErrorLine(bin: string, message: string): string {
+  return `${bin}: ${message}`;
 }
 
 /**
@@ -112,22 +115,25 @@ export function printSuccess(message: string, style: OutputStyle = detectStreamS
  */
 export function reportCrash(bin: string, error: unknown, stream: Writable = process.stderr): void {
   const frames = isError(error) && error.stack !== undefined ? extractStackFrames(error.stack) : '';
-  const header = `${bin}: internal error: ${describeError(error)}\n`;
+  const header = `${formatErrorLine(bin, `internal error: ${describeError(error)}`)}\n`;
   stream.write(frames === '' ? header : `${header}${frames}\n`);
 }
 
-/** Writes the canonical `Error: <message>` line to `stream`, which an in-process CLI sets to its own `Writable`. */
-export function reportError(message: string, stream: Writable = process.stderr): void {
-  stream.write(`${formatErrorLine(message)}\n`);
+/**
+ * Writes the canonical `<bin>: <message>` error line to `stream`, which an in-process CLI sets to its own
+ * `Writable`.
+ */
+export function reportError(bin: string, message: string, stream: Writable = process.stderr): void {
+  stream.write(`${formatErrorLine(bin, message)}\n`);
 }
 
 /**
  * Writes a failure that reached a CLI's last-resort handler: an anticipated failure (see `isAnticipatedFailure`) as
- * `Error: <message>`, and anything else as an internal error through `reportCrash`.
+ * `<bin>: <message>`, and anything else as an internal error through `reportCrash`.
  */
 export function reportFailure(bin: string, error: unknown, stream: Writable = process.stderr): void {
   if (isAnticipatedFailure(error)) {
-    reportError(describeError(error), stream);
+    reportError(bin, describeError(error), stream);
     return;
   }
 

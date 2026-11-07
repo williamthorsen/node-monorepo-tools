@@ -81,7 +81,7 @@ describe(syncLabelsInitCommand, () => {
     const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(mockReportError).toHaveBeenCalledWith(expect.stringContaining('no longer read'));
+    expect(mockReportError).toHaveBeenCalledWith('release-kit', expect.stringContaining('no longer read'));
     expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
   });
 
@@ -183,6 +183,7 @@ describe(syncLabelsInitCommand, () => {
 
     expect(exitCode).toBe(1);
     expect(mockReportError).toHaveBeenCalledWith(
+      'release-kit',
       expect.stringContaining('Config file not found: /repo/elsewhere/absent.config.ts'),
     );
     expect(mockWriteFileWithCheck).not.toHaveBeenCalledWith(CONFIG_FILE_PATH, expect.anything(), expect.anything());

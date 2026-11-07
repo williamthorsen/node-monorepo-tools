@@ -215,7 +215,9 @@ describe(runFmt, () => {
 
   it('fails when the caller named paths that matched nothing', async ({ captured, repositoryTree }) => {
     await expect(runFmt(['--check', 'nothing-matches-this'], repositoryTree.dir)).resolves.toBe(1);
-    expect(captured.stderr).toContain('the pathspecs did not match any file that git lists: nothing-matches-this');
+    expect(captured.stderr).toBe(
+      'nmr-fmt: the pathspecs did not match any file that git lists: nothing-matches-this\n',
+    );
   });
 
   it('passes quietly when run without pathspecs in a repository that has nothing to format', async () => {

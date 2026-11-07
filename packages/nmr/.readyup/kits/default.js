@@ -8122,11 +8122,11 @@ function formatMalformedScript(dir, key, value) {
   return `${rejection} A step list belongs in \`${CONFIG_RELATIVE_PATH}\` under \`${field}\`.`;
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.7.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/parseArgs.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.8.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/parseArgs.js
 import path6 from "node:path";
 import process2 from "node:process";
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.7.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/UsageError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.8.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/UsageError.js
 var UsageError = class extends Error {
   constructor(message, options) {
     super(message, options);
@@ -8134,7 +8134,7 @@ var UsageError = class extends Error {
   }
 };
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.7.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/ParseError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.8.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/ParseError.js
 var ParseError = class extends UsageError {
   kind;
   token;
@@ -8146,12 +8146,12 @@ var ParseError = class extends UsageError {
   }
 };
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.7.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/resolveLongName.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.8.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/resolveLongName.js
 function resolveLongName(key, definition) {
   return definition.long ?? key.replaceAll(/[A-Z]/g, (capital) => `-${capital.toLowerCase()}`);
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.7.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/tokenizeArgs.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.8.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/tokenizeArgs.js
 import { parseArgs as nodeParseArgs } from "node:util";
 function tokenizeArgs(argv, schema, extraBooleans = []) {
   const nodeOptions = {};
@@ -8181,7 +8181,7 @@ function findFlagEntry(flagsByName, token) {
   return entry.definition.short === token.rawName.slice(1) ? entry : void 0;
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.7.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/validateSpec.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.8.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/validateSpec.js
 var CAMEL_CASE_KEY = /^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]+)*$/;
 function validateSpec(spec) {
   validateFlags(spec.flags ?? {});
@@ -8262,7 +8262,7 @@ function validateOperands(operands) {
   }
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.7.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/parseArgs.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.8.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/parseArgs.js
 function parseArgs(argv, spec, options = {}) {
   validateSpec(spec);
   return parseValidatedArgs(argv, spec, options);

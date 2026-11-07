@@ -5,6 +5,7 @@
 
 import { reportFailure } from '@williamthorsen/nmr-core';
 
+import { NMR_COMPILE_BIN } from './bins.ts';
 import { buildPackage } from './commands/build.ts';
 import { loadWorkspaceConfig } from './config.ts';
 import { resolveBinStyles } from './resolveBinStyles.ts';
@@ -22,6 +23,6 @@ try {
     ...(build?.extraIgnorePatterns !== undefined && { extraIgnorePatterns: build.extraIgnorePatterns }),
   });
 } catch (error: unknown) {
-  reportFailure('nmr-compile', error);
+  reportFailure(NMR_COMPILE_BIN, error);
   process.exitCode = 1;
 }

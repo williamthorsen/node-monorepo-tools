@@ -10,6 +10,7 @@ import { reportError } from '@williamthorsen/nmr-core';
 import { defineCommand, runCli, UsageError } from '@williamthorsen/nmr-core/cli';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { NMR_FMT_BIN } from '../bins.ts';
 import { isObject } from '../helpers/type-guards.ts';
 import { prepareFmtCache } from './fmt-cache.ts';
 import { resolveFormatTargets } from './format-targets.ts';
@@ -70,7 +71,7 @@ export async function runFmt(argv: string[], cwd: string = process.cwd()): Promi
     },
   });
 
-  return runCli(argv, command, { name: 'nmr-fmt', stdout: process.stdout, stderr: process.stderr, baseDir: cwd });
+  return runCli(argv, command, { name: NMR_FMT_BIN, stdout: process.stdout, stderr: process.stderr, baseDir: cwd });
 }
 
 /** What one formatter run does, and the paths that it is limited to. */
@@ -84,7 +85,7 @@ interface FormatRequest {
 async function formatFiles(request: FormatRequest, cwd: string): Promise<number> {
   const resolvedTargets = resolveFormatTargets(cwd, request.pathspecs);
   if (!resolvedTargets.ok) {
-    reportError(`nmr-fmt: ${resolvedTargets.error}`);
+    reportError(NMR_FMT_BIN, resolvedTargets.error);
     return 1;
   }
 
@@ -100,7 +101,7 @@ async function formatFiles(request: FormatRequest, cwd: string): Promise<number>
 
     // Pathspecs for which git listed nothing selected nothing, which a clean run would otherwise look exactly like.
     if (excludedFiles.length === 0 && unreadableFiles.length === 0) {
-      reportError(`nmr-fmt: the pathspecs did not match any file that git lists: ${request.pathspecs.join(', ')}`);
+      reportError(NMR_FMT_BIN, `the pathspecs did not match any file that git lists: ${request.pathspecs.join(', ')}`);
       return 1;
     }
 
@@ -114,13 +115,13 @@ async function formatFiles(request: FormatRequest, cwd: string): Promise<number>
 
   const cli = resolvePrettierCli(cwd);
   if (!cli.ok) {
-    reportError(`nmr-fmt: ${cli.error}`);
+    reportError(NMR_FMT_BIN, cli.error);
     return 1;
   }
 
   const repositoryConfig = await findRepositoryConfig(cli.manifestPath, cwd);
   if (!repositoryConfig.ok) {
-    reportError(`nmr-fmt: ${repositoryConfig.error}`);
+    reportError(NMR_FMT_BIN, repositoryConfig.error);
     return 1;
   }
 
@@ -260,7 +261,7 @@ export function runPrettier(options: RunPrettierOptions): number {
     const result = spawnSync(process.execPath, [...prettierArgs, ...batch], { cwd, stdio: 'inherit' });
 
     if (result.error) {
-      reportError(`nmr-fmt: could not run \`${PRETTIER_PACKAGE}\` (${result.error.message}).`);
+      reportError(NMR_FMT_BIN, `could not run \`${PRETTIER_PACKAGE}\` (${result.error.message}).`);
       return 1;
     }
 

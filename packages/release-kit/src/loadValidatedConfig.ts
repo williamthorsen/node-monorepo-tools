@@ -1,6 +1,7 @@
 import { formatStatusLine, type OutputStyle, printError, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { BIN } from './bin.ts';
 import type { ReleaseKitConfig } from './configSchema.ts';
 import { CONFIG_FILE_PATH, loadConfig } from './loadConfig.ts';
 import { validateConfig } from './validateConfig.ts';
@@ -94,7 +95,7 @@ export async function loadUsableConfig(
 /** Writes a config problem to stderr in the form used by every CLI command. */
 export function reportConfigProblem(problem: ConfigProblem, stderrStyle: OutputStyle): void {
   if (problem.kind === 'load') {
-    reportError(`Failed to load config: ${problem.message}`);
+    reportError(BIN, `Failed to load config: ${problem.message}`);
     return;
   }
 

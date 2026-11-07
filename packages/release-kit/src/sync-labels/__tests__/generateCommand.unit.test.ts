@@ -77,7 +77,7 @@ describe(generateCommand, () => {
     const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(stdioCapture.stderr).toContain('Error: Config file not found');
+    expect(stdioCapture.stderr).toContain('release-kit: Config file not found');
   });
 
   it('returns 1 when config loading throws', async () => {

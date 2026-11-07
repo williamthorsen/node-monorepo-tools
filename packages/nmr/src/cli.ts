@@ -2,6 +2,7 @@ import process from 'node:process';
 
 import { reportFailure } from '@williamthorsen/nmr-core';
 
+import { NMR_BIN } from './bins.ts';
 import { runCli } from './runCli.ts';
 
 try {
@@ -14,6 +15,6 @@ try {
   });
   process.exitCode = exitCode;
 } catch (error: unknown) {
-  reportFailure('nmr', error);
+  reportFailure(NMR_BIN, error);
   process.exitCode = 1;
 }

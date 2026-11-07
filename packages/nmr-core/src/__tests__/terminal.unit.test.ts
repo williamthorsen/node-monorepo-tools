@@ -27,8 +27,8 @@ import { UserError } from '../UserError.ts';
 import type { WriteResult } from '../writeFileWithCheck.ts';
 
 describe(formatErrorLine, () => {
-  it('renders the canonical Error line without a trailing newline', () => {
-    expect(formatErrorLine('something went wrong')).toBe('Error: something went wrong');
+  it('renders the message prefixed with the bin, without a trailing newline', () => {
+    expect(formatErrorLine('tool', 'something went wrong')).toBe('tool: something went wrong');
   });
 });
 
@@ -230,20 +230,20 @@ describe(reportCrash, () => {
 });
 
 describe(reportFailure, () => {
-  it('reports a user error as its message alone', () => {
+  it('reports a user error as its message, prefixed with the bin', () => {
     const writtenReport = reportFailureToString('tool', new UserError('Config file not found: /repo/tool.json'));
 
-    expect(writtenReport).toBe('Error: Config file not found: /repo/tool.json\n');
+    expect(writtenReport).toBe('tool: Config file not found: /repo/tool.json\n');
   });
 
-  it('reports a Node system error as its message alone', () => {
+  it('reports a Node system error as its message, prefixed with the bin', () => {
     const systemError = Object.assign(new Error("EACCES: permission denied, open '/repo/CHANGELOG.md'"), {
       code: 'EACCES',
       syscall: 'open',
     });
 
     expect(reportFailureToString('tool', systemError)).toBe(
-      "Error: EACCES: permission denied, open '/repo/CHANGELOG.md'\n",
+      "tool: EACCES: permission denied, open '/repo/CHANGELOG.md'\n",
     );
   });
 
@@ -262,17 +262,17 @@ describe(reportFailure, () => {
 
     reportFailure('tool', new UserError('boom'));
 
-    expect(capture.stderrChunks).toContain('Error: boom\n');
+    expect(capture.stderrChunks).toContain('tool: boom\n');
   });
 });
 
 describe(reportError, () => {
-  it('writes a canonical Error line with a trailing newline to stderr by default', () => {
+  it('writes the message prefixed with the bin, with a trailing newline, to stderr by default', () => {
     using capture = captureStdio();
 
-    reportError('something went wrong');
+    reportError('tool', 'something went wrong');
 
-    expect(capture.stderrChunks).toContain('Error: something went wrong\n');
+    expect(capture.stderrChunks).toContain('tool: something went wrong\n');
   });
 
   it('writes to a provided stream instead of stderr', () => {
@@ -280,9 +280,9 @@ describe(reportError, () => {
     const stream = new PassThrough();
     const writeSpy = vi.spyOn(stream, 'write');
 
-    reportError('something went wrong', stream);
+    reportError('tool', 'something went wrong', stream);
 
-    expect(writeSpy).toHaveBeenCalledWith('Error: something went wrong\n');
+    expect(writeSpy).toHaveBeenCalledWith('tool: something went wrong\n');
     expect(capture.stderr).toBe('');
   });
 });

@@ -6,6 +6,7 @@ import {
   type StreamStyles,
 } from '@williamthorsen/nmr-core';
 
+import { BIN } from './bin.ts';
 import { detectRepoType } from './init/detectRepoType.ts';
 import { loadValidatedConfig, reportConfigProblem } from './loadValidatedConfig.ts';
 import { previewTagPrefixes, type TagPrefixPreview, type TagPrefixPreviewRow } from './previewTagPrefixes.ts';
@@ -40,7 +41,7 @@ export async function showTagPrefixesCommand(styles: StreamStyles, configPath?: 
     if (!isAnticipatedFailure(error)) {
       throw error;
     }
-    reportError(error.message);
+    reportError(BIN, error.message);
     return 1;
   }
 

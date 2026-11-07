@@ -7,6 +7,7 @@ import process from 'node:process';
 import { reportError } from '@williamthorsen/nmr-core';
 import { findMonorepoRoot as findMonorepoRootOrNothing } from '@williamthorsen/nmr-core/workspace';
 
+import { NMR_VITEST_BIN } from '../bins.ts';
 import { describeSignalExitCode } from '../child-process.ts';
 import { isObject } from '../helpers/type-guards.ts';
 import { omitOutcomeFile } from '../stated-outcome.ts';
@@ -25,7 +26,7 @@ const CONFIG_EXTENSIONS = ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'];
 export function runNmrVitest(argv: string[], cwd: string = process.cwd()): number {
   const cli = resolveVitestCli(cwd);
   if (!cli.ok) {
-    reportError(`nmr-vitest: ${cli.error}`);
+    reportError(NMR_VITEST_BIN, cli.error);
     return 1;
   }
 
@@ -37,7 +38,7 @@ export function runNmrVitest(argv: string[], cwd: string = process.cwd()): numbe
   });
 
   if (result.error) {
-    reportError(`nmr-vitest: could not run \`${VITEST_PACKAGE}\` (${result.error.message}).`);
+    reportError(NMR_VITEST_BIN, `could not run \`${VITEST_PACKAGE}\` (${result.error.message}).`);
     return 1;
   }
 

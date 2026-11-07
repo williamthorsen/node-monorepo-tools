@@ -89,7 +89,7 @@ describe('nmr CLI', () => {
         });
 
         expect(result.status).toBe(1);
-        expect(result.stderr).toContain('Error: Invalid nmr config at');
+        expect(result.stderr).toContain('nmr: Invalid nmr config at');
         expect(result.stderr).not.toContain('    at ');
       } finally {
         rmSync(repo, { recursive: true, force: true });

@@ -179,7 +179,7 @@ function resolveSpecifierReplacement(
   const resolvedModule = ts.resolveModuleName(specifier, sourceContainingFile, compilerOptions, ts.sys).resolvedModule;
   if (!resolvedModule) {
     throw new UserError(
-      `nmr-compile: could not resolve aliased import '${specifier}' from ${sourceContainingFile}. ` +
+      `could not resolve aliased import '${specifier}' from ${sourceContainingFile}. ` +
         `Verify the tsconfig 'paths' mapping and that the target file exists.`,
     );
   }
@@ -202,7 +202,7 @@ function resolveSpecifierReplacement(
       return undefined;
     }
     throw new UserError(
-      `nmr-compile: aliased import '${specifier}' from ${sourceContainingFile} resolves to ` +
+      `aliased import '${specifier}' from ${sourceContainingFile} resolves to ` +
         `${resolvedModule.resolvedFileName}, outside the package source root ${sourceRoot}, and does not resolve ` +
         `the way Node will at runtime, which ignores tsconfig 'paths', 'baseUrl', and 'rootDirs'. The ` +
         `emitted specifier would fail at runtime; re-anchor the alias inside the package.`,
