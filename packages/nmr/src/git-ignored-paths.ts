@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { runGit } from '@williamthorsen/nmr-core';
 
 /**
  * Lists the untracked paths that git ignores under `dir`, relative to it and POSIX-separated, sorted. An ignored
@@ -9,13 +9,12 @@ import { spawnSync } from 'node:child_process';
  * excluding these paths over-reports rather than hides a path.
  */
 export function listGitIgnoredPaths(dir: string): string[] {
-  const result = spawnSync(
-    'git',
+  const result = runGit(
     ['ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--directory', '--no-empty-directory'],
-    { cwd: dir, encoding: 'utf8' },
+    dir,
   );
 
-  if (result.error !== undefined || result.status !== 0) return [];
+  if (!result.ok) return [];
 
   return result.stdout
     .split('\0')
