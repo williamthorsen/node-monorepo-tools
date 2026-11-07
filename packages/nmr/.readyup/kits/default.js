@@ -117,17 +117,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path8) {
-      const ctrl = callVisitor(key, node, visitor, path8);
+    function visit_(key, node, visitor, path9) {
+      const ctrl = callVisitor(key, node, visitor, path9);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path8, ctrl);
-        return visit_(key, ctrl, visitor, path8);
+        replaceNode(key, path9, ctrl);
+        return visit_(key, ctrl, visitor, path9);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path8 = Object.freeze(path8.concat(node));
+          path9 = Object.freeze(path9.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = visit_(i, node.items[i], visitor, path8);
+            const ci = visit_(i, node.items[i], visitor, path9);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -138,13 +138,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path8 = Object.freeze(path8.concat(node));
-          const ck = visit_("key", node.key, visitor, path8);
+          path9 = Object.freeze(path9.concat(node));
+          const ck = visit_("key", node.key, visitor, path9);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = visit_("value", node.value, visitor, path8);
+          const cv = visit_("value", node.value, visitor, path9);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -165,17 +165,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path8) {
-      const ctrl = await callVisitor(key, node, visitor, path8);
+    async function visitAsync_(key, node, visitor, path9) {
+      const ctrl = await callVisitor(key, node, visitor, path9);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path8, ctrl);
-        return visitAsync_(key, ctrl, visitor, path8);
+        replaceNode(key, path9, ctrl);
+        return visitAsync_(key, ctrl, visitor, path9);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path8 = Object.freeze(path8.concat(node));
+          path9 = Object.freeze(path9.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = await visitAsync_(i, node.items[i], visitor, path8);
+            const ci = await visitAsync_(i, node.items[i], visitor, path9);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -186,13 +186,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path8 = Object.freeze(path8.concat(node));
-          const ck = await visitAsync_("key", node.key, visitor, path8);
+          path9 = Object.freeze(path9.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path9);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = await visitAsync_("value", node.value, visitor, path8);
+          const cv = await visitAsync_("value", node.value, visitor, path9);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -219,23 +219,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path8) {
+    function callVisitor(key, node, visitor, path9) {
       if (typeof visitor === "function")
-        return visitor(key, node, path8);
+        return visitor(key, node, path9);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path8);
+        return visitor.Map?.(key, node, path9);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path8);
+        return visitor.Seq?.(key, node, path9);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path8);
+        return visitor.Pair?.(key, node, path9);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path8);
+        return visitor.Scalar?.(key, node, path9);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path8);
+        return visitor.Alias?.(key, node, path9);
       return void 0;
     }
-    function replaceNode(key, path8, node) {
-      const parent = path8[path8.length - 1];
+    function replaceNode(key, path9, node) {
+      const parent = path9[path9.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node;
       } else if (identity.isPair(parent)) {
@@ -847,10 +847,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path8, value) {
+    function collectionFromPath(schema, path9, value) {
       let v = value;
-      for (let i = path8.length - 1; i >= 0; --i) {
-        const k = path8[i];
+      for (let i = path9.length - 1; i >= 0; --i) {
+        const k = path9[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -869,7 +869,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path8) => path8 == null || typeof path8 === "object" && !!path8[Symbol.iterator]().next().done;
+    var isEmptyPath = (path9) => path9 == null || typeof path9 === "object" && !!path9[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -899,11 +899,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path8, value) {
-        if (isEmptyPath(path8))
+      addIn(path9, value) {
+        if (isEmptyPath(path9))
           this.add(value);
         else {
-          const [key, ...rest] = path8;
+          const [key, ...rest] = path9;
           const node = this.get(key, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
@@ -917,8 +917,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path8) {
-        const [key, ...rest] = path8;
+      deleteIn(path9) {
+        const [key, ...rest] = path9;
         if (rest.length === 0)
           return this.delete(key);
         const node = this.get(key, true);
@@ -932,8 +932,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path8, keepScalar) {
-        const [key, ...rest] = path8;
+      getIn(path9, keepScalar) {
+        const [key, ...rest] = path9;
         const node = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
@@ -951,8 +951,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path8) {
-        const [key, ...rest] = path8;
+      hasIn(path9) {
+        const [key, ...rest] = path9;
         if (rest.length === 0)
           return this.has(key);
         const node = this.get(key, true);
@@ -962,8 +962,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path8, value) {
-        const [key, ...rest] = path8;
+      setIn(path9, value) {
+        const [key, ...rest] = path9;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -3478,9 +3478,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path8, value) {
+      addIn(path9, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path8, value);
+          this.contents.addIn(path9, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -3555,14 +3555,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path8) {
-        if (Collection.isEmptyPath(path8)) {
+      deleteIn(path9) {
+        if (Collection.isEmptyPath(path9)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path8) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path9) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3577,10 +3577,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path8, keepScalar) {
-        if (Collection.isEmptyPath(path8))
+      getIn(path9, keepScalar) {
+        if (Collection.isEmptyPath(path9))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path8, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path9, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -3591,10 +3591,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path8) {
-        if (Collection.isEmptyPath(path8))
+      hasIn(path9) {
+        if (Collection.isEmptyPath(path9))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path8) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path9) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -3611,13 +3611,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path8, value) {
-        if (Collection.isEmptyPath(path8)) {
+      setIn(path9, value) {
+        if (Collection.isEmptyPath(path9)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path8), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path9), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path8, value);
+          this.contents.setIn(path9, value);
         }
       }
       /**
@@ -5578,9 +5578,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path8) => {
+    visit.itemAtPath = (cst, path9) => {
       let item = cst;
-      for (const [field, index] of path8) {
+      for (const [field, index] of path9) {
         const tok = item?.[field];
         if (tok && "items" in tok) {
           item = tok.items[index];
@@ -5589,23 +5589,23 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path8) => {
-      const parent = visit.itemAtPath(cst, path8.slice(0, -1));
-      const field = path8[path8.length - 1][0];
+    visit.parentCollection = (cst, path9) => {
+      const parent = visit.itemAtPath(cst, path9.slice(0, -1));
+      const field = path9[path9.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path8, item, visitor) {
-      let ctrl = visitor(item, path8);
+    function _visit(path9, item, visitor) {
+      let ctrl = visitor(item, path9);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path8.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path9.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5616,10 +5616,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item, path8);
+            ctrl = ctrl(item, path9);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item, path8) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item, path9) : ctrl;
     }
     exports.visit = visit;
   }
@@ -7416,11 +7416,11 @@ function discoverWorkspacesOrFailure(filter) {
   }
 }
 function findFiles(patterns, cwd) {
-  return globSync(patterns, { cwd, exclude: (path8) => SCAN_EXCLUDE_DIRS.has(basename(path8)) }).map((path8) => path8.split(sep).join("/")).toSorted();
+  return globSync(patterns, { cwd, exclude: (path9) => SCAN_EXCLUDE_DIRS.has(basename(path9)) }).map((path9) => path9.split(sep).join("/")).toSorted();
 }
 function formatPaths(paths) {
   return `${paths.length} found:
-${paths.map((path8) => `      ${path8}`).join("\n")}`;
+${paths.map((path9) => `      ${path9}`).join("\n")}`;
 }
 function importsSharedExport(content, exportName, moduleSpecifier) {
   if (content === void 0) return false;
@@ -8070,9 +8070,10 @@ function isHookName(key) {
 }
 
 // src/resolver.ts
-import { readFileSync as readFileSync2 } from "node:fs";
+import { readFileSync as readFileSync3 } from "node:fs";
 
 // src/helpers/package-json.ts
+import { readFileSync as readFileSync2 } from "node:fs";
 import path5 from "node:path";
 
 // src/helpers/config-path.ts
@@ -8084,6 +8085,15 @@ function resolveConfigPath(baseDir) {
   return path4.join(baseDir, CONFIG_DIR, CONFIG_FILENAME);
 }
 
+// src/helpers/readStringValues.ts
+function readStringValues(record) {
+  const result = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (typeof value === "string") result[key] = value;
+  }
+  return result;
+}
+
 // src/helpers/type-guards.ts
 function isObject2(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -8093,6 +8103,42 @@ function isStringRecord(value) {
 }
 
 // src/helpers/package-json.ts
+var DEPENDENCY_FIELDS = [
+  "dependencies",
+  "devDependencies",
+  "optionalDependencies",
+  "peerDependencies"
+];
+function readPackageJson2(dir) {
+  const file = resolvePackageJsonPath(dir);
+  const parsedManifest = parsePackageJson(readFileSync2(file, "utf8"), file);
+  if (!isObject2(parsedManifest)) {
+    throw new UserError(`Invalid package.json in ${dir}: expected an object`);
+  }
+  const packageJson = {};
+  if (typeof parsedManifest["name"] === "string") packageJson.name = parsedManifest["name"];
+  if (parsedManifest["private"] === true) packageJson.private = true;
+  if (typeof parsedManifest["version"] === "string") packageJson.version = parsedManifest["version"];
+  if (typeof parsedManifest["packageManager"] === "string") {
+    packageJson.packageManager = parsedManifest["packageManager"];
+  }
+  if (isObject2(parsedManifest["scripts"])) {
+    packageJson.scripts = readScriptRecord(dir, parsedManifest["scripts"]);
+  }
+  if (isObject2(parsedManifest["pnpm"])) {
+    const pnpm = parsedManifest["pnpm"];
+    if (isObject2(pnpm["overrides"])) {
+      packageJson.pnpm = { overrides: pnpm["overrides"] };
+    }
+  }
+  for (const field of DEPENDENCY_FIELDS) {
+    const declaredDependencies = parsedManifest[field];
+    if (isObject2(declaredDependencies)) {
+      packageJson[field] = readStringValues(declaredDependencies);
+    }
+  }
+  return packageJson;
+}
 function parsePackageJson(rawText, file) {
   try {
     return JSON.parse(rawText);
@@ -8607,7 +8653,7 @@ function readPackageJsonScripts(packageDir) {
   const file = resolvePackageJsonPath(packageDir);
   let rawText;
   try {
-    rawText = readFileSync2(file, "utf8");
+    rawText = readFileSync3(file, "utf8");
   } catch (error) {
     if (hasErrnoCode(error, "ENOENT")) {
       return void 0;
@@ -9765,8 +9811,8 @@ function everyViteConfigHasVitestConfig() {
   return { ok: false, detail: formatPaths(unpairedConfigs) };
 }
 function noReExportOnlyVitestConfigs(cwd = process.cwd()) {
-  const nonRootConfigs = findFiles([`**/${VITEST_CONFIG_PATTERN}`], cwd).filter((path8) => path8.includes("/"));
-  const reExports = nonRootConfigs.filter((path8) => isOwnedByReExportCheck(cwd, path8));
+  const nonRootConfigs = findFiles([`**/${VITEST_CONFIG_PATTERN}`], cwd).filter((path9) => path9.includes("/"));
+  const reExports = nonRootConfigs.filter((path9) => isOwnedByReExportCheck(cwd, path9));
   if (reExports.length === 0) return true;
   return { ok: false, detail: formatPaths(reExports) };
 }
@@ -9841,14 +9887,108 @@ function isReExportOnly(content) {
 import { existsSync as existsSync5, readdirSync as readdirSync4 } from "node:fs";
 import { join as join5 } from "node:path";
 import { fileExists as fileExists3, readFile as readFile5 } from "readyup/check-utils";
+
+// src/commands/ensure-prepublish-hooks.ts
+import { readFileSync as readFileSync4, writeFileSync } from "node:fs";
+import path8 from "node:path";
+var DEFAULT_HOOK = "nmr build";
+function ensurePrepublishHooks(monorepoRoot, options) {
+  const hookCommand = options.command ?? DEFAULT_HOOK;
+  const packageDirs = getWorkspacePackageDirs(monorepoRoot);
+  const packages = [];
+  for (const packageDir of packageDirs) {
+    const packageJson = readPackageJson2(packageDir);
+    const packageName = packageJson.name ?? path8.basename(packageDir);
+    const isPrivate = packageJson.private === true;
+    if (isPrivate) {
+      packages.push({
+        packageName,
+        packageDir,
+        isPrivate: true,
+        prepublishOnly: packageJson.scripts?.["prepublishOnly"],
+        action: "ok"
+      });
+      continue;
+    }
+    const existingHook = packageJson.scripts?.["prepublishOnly"];
+    if (existingHook) {
+      packages.push({
+        packageName,
+        packageDir,
+        isPrivate: false,
+        prepublishOnly: existingHook,
+        action: "ok"
+      });
+      continue;
+    }
+    if (options.shouldFix) {
+      const action = options.isDryRun ? "would-fix" : "fixed";
+      if (!options.isDryRun) {
+        addPrepublishOnly(packageDir, hookCommand);
+      }
+      packages.push({
+        packageName,
+        packageDir,
+        isPrivate: false,
+        prepublishOnly: void 0,
+        action
+      });
+    } else {
+      packages.push({
+        packageName,
+        packageDir,
+        isPrivate: false,
+        prepublishOnly: void 0,
+        action: "missing"
+      });
+    }
+  }
+  const hasFailures = packages.some((p) => p.action === "missing");
+  return { packages, hasFailures };
+}
+function addPrepublishOnly(packageDir, command) {
+  const filePath = path8.join(packageDir, "package.json");
+  const rawText = readFileSync4(filePath, "utf8");
+  let parsedManifest;
+  try {
+    parsedManifest = JSON.parse(rawText);
+  } catch (error) {
+    throw new UserError(`Invalid package.json in ${packageDir}: ${describeError(error)}`, { cause: error });
+  }
+  if (!isObject2(parsedManifest)) {
+    throw new UserError(`Invalid package.json in ${packageDir}: expected an object`);
+  }
+  const scripts = isObject2(parsedManifest["scripts"]) ? parsedManifest["scripts"] : {};
+  scripts["prepublishOnly"] = command;
+  parsedManifest["scripts"] = scripts;
+  writeFileSync(filePath, JSON.stringify(parsedManifest, null, 2) + "\n", "utf8");
+}
+
+// .readyup/lib/workspace-build.ts
 var buildReadinessChecks = [
   {
     name: "all workspace packages can build",
     severity: "warn",
     check: allWorkspacePackagesCanBuild,
     fix: `Add "build": ":" to packages that don't need a build, or ensure packages that use the default nmr build have a tsconfig.json and a src/ directory`
+  },
+  {
+    name: "every publishable package declares prepublishOnly",
+    severity: "warn",
+    check: everyPublishablePackageDeclaresPrepublishOnly,
+    fix: 'Add "prepublishOnly": "nmr build" to the scripts of each listed package, or run ensure-prepublish-hooks --fix. A package without it publishes without its build output'
   }
 ];
+function everyPublishablePackageDeclaresPrepublishOnly() {
+  try {
+    const { packages } = ensurePrepublishHooks(process.cwd(), { shouldFix: false, isDryRun: false });
+    const offenders = packages.filter((packageStatus) => packageStatus.action === "missing").map((packageStatus) => packageStatus.packageName);
+    if (offenders.length === 0) return true;
+    return { ok: false, detail: formatPaths(offenders) };
+  } catch (error) {
+    return { ok: false, detail: describeError(error) };
+  }
+}
 function allWorkspacePackagesCanBuild() {
   const packagesDir = join5(process.cwd(), "packages");
   if (!existsSync5(packagesDir)) return true;

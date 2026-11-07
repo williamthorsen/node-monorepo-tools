@@ -46,6 +46,7 @@
             ".config/nmr.config.ts does not override lint:shell",
             "no root install script runs lefthook install unguarded",
             "all workspace packages can build",
+            "every publishable package declares prepublishOnly",
             "every bin target is a committed wrapper",
             "every bin wrapper's build-output target is covered by files",
             "no retired Vitest config variants",
@@ -220,7 +221,7 @@
           "path": "lib/vitest.ts"
         },
         {
-          "hash": "00130733",
+          "hash": "8c3ba269",
           "kind": "module",
           "path": "lib/workspace-build.ts"
         },
@@ -231,6 +232,11 @@
           "paths": [
             "version"
           ]
+        },
+        {
+          "hash": "37b0bf7b",
+          "kind": "module",
+          "path": "../src/commands/ensure-prepublish-hooks.ts"
         },
         {
           "hash": "578af9fd",
@@ -288,6 +294,11 @@
           "path": "../src/helpers/readStringValues.ts"
         },
         {
+          "hash": "e4cc5c20",
+          "kind": "module",
+          "path": "../src/helpers/reportClosing.ts"
+        },
+        {
           "hash": "56d2bb48",
           "kind": "module",
           "path": "../src/helpers/type-guards.ts"
@@ -343,7 +354,7 @@
       "readyupVersion": "0.45.0",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "731709e1"
+      "targetHash": "293ae948"
     }
   ]
 }
