@@ -8394,11 +8394,9 @@ function readInvocationFlags(args) {
       if (!(error instanceof ParseError)) {
         throw error;
       }
-      const helpIndex = HELP_SPELLINGS.has(error.token) ? remaining.indexOf(error.token) : -1;
-      if (error.kind !== "unknown-flag" || helpIndex === -1) {
+      if (error.kind !== "unknown-flag" || !HELP_SPELLINGS.has(error.token) || !removeHelpFlag(remaining, error.token)) {
         return { ok: false };
       }
-      remaining.splice(helpIndex, 1);
       shouldShowHelp = true;
     }
   }
@@ -8430,6 +8428,37 @@ var READER_FLAGS = {
   ...NMR_FLAGS,
   version: { type: "boolean", description: "Print the version", short: "V" }
 };
+function isBooleanCluster(arg) {
+  if (!/^-[^-]./.test(arg)) {
+    return false;
+  }
+  const booleanShorts = /* @__PURE__ */ new Set(["h", "V"]);
+  for (const definition of Object.values(NMR_FLAGS)) {
+    if (definition.type === "boolean" && "short" in definition) {
+      booleanShorts.add(definition.short);
+    }
+  }
+  for (const letter of arg.slice(1)) {
+    if (!booleanShorts.has(letter)) {
+      return false;
+    }
+  }
+  return true;
+}
+function removeHelpFlag(args, token) {
+  const index = args.indexOf(token);
+  if (index !== -1) {
+    args.splice(index, 1);
+    return true;
+  }
+  const clusterIndex = args.findIndex((arg) => isBooleanCluster(arg) && arg.includes("h"));
+  const cluster = args[clusterIndex];
+  if (cluster === void 0) {
+    return false;
+  }
+  args[clusterIndex] = cluster.replace("h", "");
+  return true;
+}
 
 // src/steps.ts
 var LAUNCHERS = /* @__PURE__ */ new Map([

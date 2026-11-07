@@ -52,8 +52,8 @@ describe(runCli, () => {
       },
     );
 
-    it('lists the root commands under -w from a package', async ({ tree }) => {
-      const { stdout } = await runNmrReadingStdout(['-w', '--help'], tree.resolve('packages/my-pkg'));
+    it.for([['-w', '--help'], ['-wh']])('lists the root commands under %j from a package', async (args, { tree }) => {
+      const { stdout } = await runNmrReadingStdout(args, tree.resolve('packages/my-pkg'));
 
       expect(readCommandsBlock(stdout)).toContain('report-overrides');
       expect(stdout).toContain('Workspace commands:');

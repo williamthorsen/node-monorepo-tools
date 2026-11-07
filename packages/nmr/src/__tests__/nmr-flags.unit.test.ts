@@ -57,6 +57,19 @@ describe(readInvocationFlags, () => {
     expect(reading.ok && reading.parsedArgs.isWorkspaceRoot).toBe(true);
   });
 
+  it.for([['-wh'], ['-hw'], ['-qwh', 'build']])('reads a help flag clustered with other flags in %j', (args) => {
+    const reading = readInvocationFlags(args);
+
+    expect(reading.ok && [reading.parsedArgs.shouldShowHelp, reading.parsedArgs.isWorkspaceRoot]).toStrictEqual([
+      true,
+      true,
+    ]);
+  });
+
+  it('does not take a filter value that contains h for a help cluster', () => {
+    expect(readInvocationFlags(['-F', '-hw'])).toStrictEqual({ ok: false });
+  });
+
   it('stops at the command, leaving a flag after it to the command', () => {
     const reading = readInvocationFlags(['build', '-q']);
 

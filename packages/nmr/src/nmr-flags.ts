@@ -95,11 +95,13 @@ export function readInvocationFlags(args: readonly string[]): FlagReading {
       if (!(error instanceof ParseError)) {
         throw error;
       }
-      const helpIndex = HELP_SPELLINGS.has(error.token) ? remaining.indexOf(error.token) : -1;
-      if (error.kind !== 'unknown-flag' || helpIndex === -1) {
+      if (
+        error.kind !== 'unknown-flag' ||
+        !HELP_SPELLINGS.has(error.token) ||
+        !removeHelpFlag(remaining, error.token)
+      ) {
         return { ok: false };
       }
-      remaining.splice(helpIndex, 1);
       shouldShowHelp = true;
     }
   }
@@ -146,6 +148,49 @@ const READER_FLAGS = {
   ...NMR_FLAGS,
   version: { type: 'boolean', description: 'Print the version', short: 'V' },
 } satisfies FlagSchema;
+
+/** Reports whether an argument clusters short flags that take no value, the reserved help and version included. */
+function isBooleanCluster(arg: string): boolean {
+  if (!/^-[^-]./.test(arg)) {
+    return false;
+  }
+
+  const booleanShorts = new Set(['h', 'V']);
+  for (const definition of Object.values(NMR_FLAGS)) {
+    if (definition.type === 'boolean' && 'short' in definition) {
+      booleanShorts.add(definition.short);
+    }
+  }
+
+  for (const letter of arg.slice(1)) {
+    if (!booleanShorts.has(letter)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Removes the help flag that the parser rejected from `args`: the whole argument when it is one, or else its `h`
+ * from the first cluster of boolean short flags that contains one, such as `-wh`. Reports whether it found the flag.
+ */
+function removeHelpFlag(args: string[], token: string): boolean {
+  const index = args.indexOf(token);
+  if (index !== -1) {
+    args.splice(index, 1);
+    return true;
+  }
+
+  const clusterIndex = args.findIndex((arg) => isBooleanCluster(arg) && arg.includes('h'));
+  const cluster = args[clusterIndex];
+  if (cluster === undefined) {
+    return false;
+  }
+
+  args[clusterIndex] = cluster.replace('h', '');
+  return true;
+}
 
 /** Converts a camel-case flag key to the kebab-case long name that the router derives from it. */
 function toKebabCase(key: string): string {
