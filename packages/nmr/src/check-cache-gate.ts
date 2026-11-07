@@ -17,6 +17,7 @@ import { recordPass } from './check-cache-record.ts';
 import { addLockEnv, takeMachineLock } from './child-env.ts';
 import { runPlanOnHost } from './delegate-host.ts';
 import { type RunPlan, VERSION } from './invocation.ts';
+import { formatFlagSpelling } from './nmr-flags.ts';
 import { resolveChannel } from './output-channel.ts';
 import { writePassManifestEntry } from './pass-manifest.ts';
 import { runSteps } from './runner.ts';
@@ -53,7 +54,7 @@ export function openGate(options: {
 
   // A `--no-cache` past the command name is an argument to that command, and is passed on as one. Without this
   // warning, the developer would believe that the bypass happened.
-  if (passthrough.includes('--no-cache')) {
+  if (passthrough.includes(formatFlagSpelling('noCache'))) {
     stderr.write(`${formatMisplacedNoCacheWarning(command, style)}\n`);
   }
   if (passthrough.length > 0) {

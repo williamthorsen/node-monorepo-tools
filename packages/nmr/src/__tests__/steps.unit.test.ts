@@ -223,6 +223,21 @@ describe(readNmrStep, () => {
       expectedStep: { command: 'test', isDelegate: true, isRecursive: false, isWorkspaceRoot: false },
       scenario: 'a --filter delegate, whose fan-out is not a recursive one',
     },
+    {
+      argv: ['nmr', '--filter=core', 'test'],
+      expectedStep: { command: 'test', isDelegate: true, isRecursive: false, isWorkspaceRoot: false },
+      scenario: 'an assigned --filter',
+    },
+    {
+      argv: ['nmr', '--output-style', 'plain', 'build'],
+      expectedStep: { command: 'build', isDelegate: false, isRecursive: false, isWorkspaceRoot: false },
+      scenario: 'an --output-style value, which is not the command',
+    },
+    {
+      argv: ['nmr', '--delegate-to', 'box', 'build'],
+      expectedStep: { command: 'build', isDelegate: false, isRecursive: false, isWorkspaceRoot: false },
+      scenario: 'a --delegate-to host, which is not the command',
+    },
   ])('reads the command behind $scenario', ({ argv, expectedStep }) => {
     expect(readNmrStep(composeStep(argv))).toStrictEqual(expectedStep);
   });
@@ -230,6 +245,7 @@ describe(readNmrStep, () => {
   it.each([
     { argv: ['nmr'], scenario: 'a step without a command' },
     { argv: ['nmr', '-R'], scenario: 'a delegate without a command' },
+    { argv: ['nmr', '-?', 'build'], scenario: 'a flag that nmr does not accept' },
     { argv: ['pnpm', '--recursive', 'exec', 'nmr', 'test'], scenario: 'a step spawning something other than nmr' },
   ])('reports nothing for $scenario', ({ argv }) => {
     expect(readNmrStep(composeStep(argv))).toBeUndefined();
