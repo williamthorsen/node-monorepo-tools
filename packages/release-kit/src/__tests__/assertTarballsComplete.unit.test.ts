@@ -70,6 +70,12 @@ describe(assertTarballsComplete, () => {
     );
   });
 
+  it('names the prepublishOnly build as the usual fix', () => {
+    expect(() => assertTarballsComplete(['packages/incomplete'], ['nmr-source'], pack)).toThrow(
+      'Build these files in the package\'s prepublishOnly script, usually "prepublishOnly": "nmr build".',
+    );
+  });
+
   it('checks a condition that the config does not list as a development condition', () => {
     expect(() => assertTarballsComplete(['packages/incomplete'], [], pack)).toThrow(
       './src/index.ts (exports["."].nmr-source)',
