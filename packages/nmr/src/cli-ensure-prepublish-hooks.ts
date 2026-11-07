@@ -1,30 +1,42 @@
-import { parseArgsOrExit, reportFailure } from '@williamthorsen/nmr-core';
+import process from 'node:process';
+
+import { reportFailure } from '@williamthorsen/nmr-core';
+import { defineCommand, runCli } from '@williamthorsen/nmr-core/cli';
 
 import { DEFAULT_HOOK, ensurePrepublishHooks, reportPrepublishHooks } from './commands/ensure-prepublish-hooks.ts';
 import { resolveBinStyles } from './resolveBinStyles.ts';
 import { findMonorepoRoot } from './workspace.ts';
 
-const flagSchema = {
-  shouldFix: { long: '--fix', type: 'boolean' as const },
-  isDryRun: { long: '--dry-run', type: 'boolean' as const },
-  command: { long: '--command', type: 'string' as const },
-};
+const command = defineCommand({
+  summary: 'Check that every publishable workspace package has a prepublishOnly script',
+  flags: {
+    fix: { type: 'boolean', description: 'Add the script to each publishable package that lacks it' },
+    dryRun: { type: 'boolean', description: 'With --fix, report the packages that it would change without writing' },
+    command: {
+      type: 'string',
+      description: `The command that the script runs (default: ${DEFAULT_HOOK})`,
+      valueHint: 'command',
+    },
+  },
+  run: ({ flags }) => {
+    // Resolve the styles ahead of the work, so that a variable that does not name a style is rejected before `--fix`
+    // writes anything.
+    const styles = resolveBinStyles();
+    const options = { shouldFix: flags.fix, isDryRun: flags.dryRun, ...(flags.command && { command: flags.command }) };
+    const result = ensurePrepublishHooks(findMonorepoRoot(), options);
 
-const { shouldFix, isDryRun, command } = parseArgsOrExit(process.argv.slice(2), flagSchema).flags;
+    reportPrepublishHooks(result, flags.command ?? DEFAULT_HOOK, styles.stdout);
+
+    return result.hasFailures ? 1 : 0;
+  },
+});
 
 try {
-  // Resolve the styles ahead of the work, so that a variable that does not name a style is rejected before `--fix`
-  // writes anything.
-  const { stdout } = resolveBinStyles();
-  const monorepoRoot = findMonorepoRoot();
-  const options = command ? { shouldFix, isDryRun, command } : { shouldFix, isDryRun };
-  const result = ensurePrepublishHooks(monorepoRoot, options);
-
-  reportPrepublishHooks(result, command ?? DEFAULT_HOOK, stdout);
-
-  if (result.hasFailures) {
-    process.exitCode = 1;
-  }
+  process.exitCode = await runCli(process.argv.slice(2), command, {
+    name: 'ensure-prepublish-hooks',
+    stdout: process.stdout,
+    stderr: process.stderr,
+  });
 } catch (error: unknown) {
   reportFailure('ensure-prepublish-hooks', error);
   process.exitCode = 1;

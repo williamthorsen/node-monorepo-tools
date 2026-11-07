@@ -225,16 +225,22 @@ describe(runFmt, () => {
     await expect(runFmt(['--check'], empty.dir)).resolves.toBe(0);
   });
 
-  it('rejects a bare invocation rather than defaulting to a mutation', async ({ repositoryTree }) => {
-    await expect(runFmt([], repositoryTree.dir)).resolves.toBe(1);
+  it('rejects a bare invocation rather than defaulting to a mutation', async ({ captured, repositoryTree }) => {
+    await expect(runFmt([], repositoryTree.dir)).resolves.toBe(2);
+    expect(captured.stderr).toBe("Error: Pass --check or --write.\nTry 'nmr-fmt --help'.\n");
+  });
+
+  it('rejects both modes at once', async ({ captured, repositoryTree }) => {
+    await expect(runFmt(['--check', '--write'], repositoryTree.dir)).resolves.toBe(2);
+    expect(captured.stderr).toContain('Pass --check or --write, not both.');
   });
 
   it('rejects an unrecognized option rather than handing it to git as a pathspec', async ({ repositoryTree }) => {
-    await expect(runFmt(['--check', '--log-level', 'warn'], repositoryTree.dir)).resolves.toBe(1);
+    await expect(runFmt(['--check', '--log-level', 'warn'], repositoryTree.dir)).resolves.toBe(2);
   });
 
   it('rejects an unrecognized option that comes before --', async ({ repositoryTree }) => {
-    await expect(runFmt(['--check', '--bogus', '--', 'packages'], repositoryTree.dir)).resolves.toBe(1);
+    await expect(runFmt(['--check', '--bogus', '--', 'packages'], repositoryTree.dir)).resolves.toBe(2);
   });
 
   it('constrains the run to the pathspecs after --', async ({ repositoryTree }) => {
@@ -244,7 +250,7 @@ describe(runFmt, () => {
   });
 
   it('reads every argument after -- as a pathspec, a mode flag included', async ({ captured, repositoryTree }) => {
-    await expect(runFmt(['--', '--check'], repositoryTree.dir)).resolves.toBe(1);
+    await expect(runFmt(['--', '--check'], repositoryTree.dir)).resolves.toBe(2);
     expect(captured.stderr).toContain('Pass --check or --write.');
   });
 

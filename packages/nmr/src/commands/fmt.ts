@@ -7,6 +7,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { reportError } from '@williamthorsen/nmr-core';
+import { defineCommand, runCli, UsageError } from '@williamthorsen/nmr-core/cli';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { isObject } from '../helpers/type-guards.ts';
@@ -30,8 +31,6 @@ const DEFAULT_CONFIG_PATH = fileURLToPath(
  */
 const ARGUMENT_BUDGET_BYTES = 100_000;
 
-const USAGE = 'Usage: nmr-fmt (--check | --write) [--no-cache] [--] [pathspec...]';
-
 export type FormatMode = 'check' | 'write';
 
 /** `--write` keeps `--list-different` so that a write run still names the files that it changed. */
@@ -41,9 +40,9 @@ const MODE_ARGS: Record<FormatMode, string[]> = {
 };
 
 /**
- * Formats or checks the files that git reports for `cwd`, and returns the exit code to report. A repository
- * without a Prettier config of its own is formatted with the house config. The run uses Prettier's content-keyed
- * cache unless `--no-cache` or `NMR_NO_CACHE=1` bypasses it.
+ * Runs `nmr-fmt` against `argv` and returns the exit code to report: It formats or checks the files that git
+ * reports for `cwd`. A repository without a Prettier config of its own is formatted with the house config. The run
+ * uses Prettier's content-keyed cache unless `--no-cache` or `NMR_NO_CACHE=1` bypasses it.
  *
  * Trailing arguments are git pathspecs, not Prettier flags; an unrecognized option is rejected rather
  * than passed along, since git would read it as a pathspec matching nothing and the run would report
@@ -51,14 +50,39 @@ const MODE_ARGS: Record<FormatMode, string[]> = {
  * with `-`.
  */
 export async function runFmt(argv: string[], cwd: string = process.cwd()): Promise<number> {
-  const parsedArgs = parseFmtArgs(argv);
-  if (!parsedArgs.ok) {
-    reportError(`nmr-fmt: ${parsedArgs.error}`);
-    process.stderr.write(`${USAGE}\n`);
-    return 1;
-  }
+  const command = defineCommand({
+    summary: 'Format or check the files that git lists',
+    flags: {
+      check: { type: 'boolean', description: 'Report the files that are not formatted, without changing them' },
+      write: { type: 'boolean', description: 'Format the files in place, naming each one that changes' },
+      noCache: { type: 'boolean', description: "Ignore Prettier's cache of files that already passed" },
+    },
+    operands: [{ name: 'pathspec', description: 'Git pathspecs that limit the files', optional: true, variadic: true }],
+    run: ({ flags, operands }) => {
+      if (flags.check === flags.write) {
+        throw new UsageError(flags.check ? 'Pass --check or --write, not both.' : 'Pass --check or --write.');
+      }
 
-  const resolvedTargets = resolveFormatTargets(cwd, parsedArgs.pathspecs);
+      return formatFiles(
+        { mode: flags.check ? 'check' : 'write', pathspecs: operands.pathspec, shouldBypassCache: flags.noCache },
+        cwd,
+      );
+    },
+  });
+
+  return runCli(argv, command, { name: 'nmr-fmt', stdout: process.stdout, stderr: process.stderr, baseDir: cwd });
+}
+
+/** What one formatter run does, and the paths that it is limited to. */
+interface FormatRequest {
+  mode: FormatMode;
+  pathspecs: string[];
+  shouldBypassCache: boolean;
+}
+
+/** Formats or checks the files that git reports for `cwd`, as `runFmt` describes, and returns the exit code. */
+async function formatFiles(request: FormatRequest, cwd: string): Promise<number> {
+  const resolvedTargets = resolveFormatTargets(cwd, request.pathspecs);
   if (!resolvedTargets.ok) {
     reportError(`nmr-fmt: ${resolvedTargets.error}`);
     return 1;
@@ -72,11 +96,11 @@ export async function runFmt(argv: string[], cwd: string = process.cwd()): Promi
 
   // Prettier run without file arguments would read stdin and fail, so an empty selection never reaches it.
   if (files.length === 0) {
-    if (parsedArgs.pathspecs.length === 0) return 0;
+    if (request.pathspecs.length === 0) return 0;
 
     // Pathspecs for which git listed nothing selected nothing, which a clean run would otherwise look exactly like.
     if (excludedFiles.length === 0 && unreadableFiles.length === 0) {
-      reportError(`nmr-fmt: the pathspecs did not match any file that git lists: ${parsedArgs.pathspecs.join(', ')}`);
+      reportError(`nmr-fmt: the pathspecs did not match any file that git lists: ${request.pathspecs.join(', ')}`);
       return 1;
     }
 
@@ -104,7 +128,7 @@ export async function runFmt(argv: string[], cwd: string = process.cwd()): Promi
     cwd,
     env: process.env,
     repositoryRoot,
-    shouldBypassCache: parsedArgs.shouldBypassCache,
+    shouldBypassCache: request.shouldBypassCache,
   });
   // The cache only saves work, so a failure to prepare it must never fail the run.
   if (cache.kind === 'failed') {
@@ -115,53 +139,11 @@ export async function runFmt(argv: string[], cwd: string = process.cwd()): Promi
     cacheLocation: cache.kind === 'cached' ? cache.location : undefined,
     cliPath: cli.cliPath,
     configPath: repositoryConfig.found ? undefined : DEFAULT_CONFIG_PATH,
-    mode: parsedArgs.mode,
+    mode: request.mode,
     files,
     ignorePaths,
     cwd,
   });
-}
-
-type ParseArgsResult =
-  { ok: true; mode: FormatMode; pathspecs: string[]; shouldBypassCache: boolean } | { ok: false; error: string };
-
-/**
- * Reads the required mode flag and the optional cache bypass, and treats every remaining argument as a git pathspec.
- * `--` ends the options, so that every argument after it is a pathspec.
- */
-function parseFmtArgs(argv: string[]): ParseArgsResult {
-  let mode: FormatMode | undefined;
-  let shouldBypassCache = false;
-  const pathspecs: string[] = [];
-
-  for (const [index, arg] of argv.entries()) {
-    if (arg === '--') {
-      pathspecs.push(...argv.slice(index + 1));
-      break;
-    }
-    if (arg === '--no-cache') {
-      shouldBypassCache = true;
-      continue;
-    }
-    if (arg === '--check' || arg === '--write') {
-      const requestedMode: FormatMode = arg === '--check' ? 'check' : 'write';
-      if (mode !== undefined && mode !== requestedMode) {
-        return { ok: false, error: 'Pass --check or --write, not both.' };
-      }
-      mode = requestedMode;
-      continue;
-    }
-    if (arg.startsWith('-')) {
-      return { ok: false, error: `Unknown option: ${arg}` };
-    }
-    pathspecs.push(arg);
-  }
-
-  if (mode === undefined) {
-    return { ok: false, error: 'Pass --check or --write.' };
-  }
-
-  return { ok: true, mode, pathspecs, shouldBypassCache };
 }
 
 /**
