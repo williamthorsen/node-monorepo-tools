@@ -18,7 +18,7 @@ import { type Verdict, writeVerdict } from './verdict.ts';
  * output stream resolves to. Reports the first value that cannot be read.
  *
  * The style is resolved here rather than beside its use, so that a value that does not name a style is rejected
- * at the same point as an unreadable variable, which is ahead of `--version` and of the config load.
+ * at the same point as an unreadable variable, which is before any command runs.
  */
 export function readPresentation(options: {
   env: NodeJS.ProcessEnv;
