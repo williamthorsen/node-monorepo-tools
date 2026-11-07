@@ -33,8 +33,10 @@ const it = baseIt.extend(
 );
 
 /**
- * Guards nmr's git calls: Each one goes through nmr-core's `runGit`, which applies `GIT_OUTPUT_LIMIT_BYTES`, so
- * that a large repository does not fail with ENOBUFS.
+ * Guards nmr's buffered git calls: Each one goes through nmr-core's `runGit`, which applies
+ * `GIT_OUTPUT_LIMIT_BYTES`, so that a large repository does not fail with ENOBUFS. The guard detects a spawn that
+ * names git literally and a private `runGit`. Streaming runners such as `runProcess` and `runPhase` read into
+ * bounded buffers, cannot fail with ENOBUFS, and are outside its concern.
  */
 describe('the nmr git-call boundary', () => {
   it('leaves only the allowed files running git themselves', () => {
