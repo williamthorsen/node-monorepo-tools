@@ -193,7 +193,7 @@ The `RELEASE_KIT_OUTPUT_STYLE` environment variable sets the style for every com
 | `plain` | Print plain on both streams.                                             |
 | `rich`  | Print rich on both streams, even in a pipe or under CI.                  |
 
-Any other value is a usage error: release-kit reports it and exits with code 1.
+Any other value is a usage error: release-kit reports it and exits with code 2.
 
 The variable outranks detection. Under `auto`, release-kit defers to detection, which reads `CI`, then the stream, then `TERM`. A stream is plain when any of these holds, and rich otherwise:
 
