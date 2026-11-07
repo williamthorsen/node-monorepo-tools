@@ -16,6 +16,8 @@ export { hasErrnoCode } from './hasErrnoCode.ts';
 export type { WorkingTreeHashResult } from './hashWorkingTree.ts';
 export { hashWorkingTree, readHeadSha } from './hashWorkingTree.ts';
 export { isAnticipatedFailure } from './isAnticipatedFailure.ts';
+export type { GitResult } from './runGit.ts';
+export { runGit } from './runGit.ts';
 export type {
   GlyphSet,
   InvalidOutputStyle,
