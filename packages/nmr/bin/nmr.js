@@ -11,5 +11,5 @@ try {
     const frames = firstFrame === -1 ? '' : `${lines.slice(firstFrame).join('\n')}\n`;
     process.stderr.write(`nmr: internal error: ${message}\n${frames}`);
   }
-  process.exit(1);
+  process.exitCode = 1;
 }
