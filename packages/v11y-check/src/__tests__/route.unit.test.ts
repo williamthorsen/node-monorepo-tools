@@ -1,6 +1,9 @@
+import path from 'node:path';
+import process from 'node:process';
+
 import { UserError } from '@williamthorsen/nmr-core';
 import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished, listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { auditCommand, checkCommand, syncCommand } from '../commands.ts';
@@ -28,267 +31,77 @@ describe(routeCommand, () => {
     vi.unstubAllEnvs();
   });
 
-  it('returns 0 for --version', async () => {
-    const exitCode = await routeCommand(['--version']);
-    expect(exitCode).toBe(0);
-  });
+  describe('dispatch', () => {
+    it('dispatches flag-only args to checkCommand', async () => {
+      await routeCommand(['--json']);
+      expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ isJson: true, scopes: [], verbose: false }));
+    });
 
-  it('returns 0 for -V', async () => {
-    const exitCode = await routeCommand(['-V']);
-    expect(exitCode).toBe(0);
-  });
+    it('dispatches empty args to checkCommand', async () => {
+      await routeCommand([]);
+      expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ isJson: false, scopes: [], verbose: false }));
+    });
 
-  it('returns 0 for --help', async () => {
-    const exitCode = await routeCommand(['--help']);
-    expect(exitCode).toBe(0);
-  });
+    it.each([
+      [['check', '--dev'], ['dev']],
+      [['check', '--prod'], ['prod']],
+      [['--dev'], ['dev']],
+    ])('dispatches %j to checkCommand with scopes %j', async (args, scopes) => {
+      await routeCommand(args);
+      expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes }));
+    });
 
-  it('returns 0 for -h', async () => {
-    const exitCode = await routeCommand(['-h']);
-    expect(exitCode).toBe(0);
-  });
+    it.each([['--verbose'], ['-v']])('forwards %s to checkCommand', async (flag) => {
+      await routeCommand([flag]);
+      expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ verbose: true }));
+    });
 
-  it('dispatches to checkCommand when the args are empty', async () => {
-    await routeCommand([]);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));
-  });
+    it('forwards -j to checkCommand as JSON output', async () => {
+      await routeCommand(['check', '-j']);
+      expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ isJson: true }));
+    });
 
-  it('dispatches --raw to auditCommand', async () => {
-    await routeCommand(['--raw']);
-    expect(auditCommand).toHaveBeenCalled();
-  });
+    it.each([['--config'], ['-c']])('forwards an absolute path given to %s', async (flag) => {
+      await routeCommand([flag, '/custom/audit.json']);
+      expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ configPath: '/custom/audit.json' }));
+    });
 
-  it('dispatches --raw --dev to auditCommand with scopes ["dev"]', async () => {
-    await routeCommand(['--raw', '--dev']);
-    expect(auditCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['dev'] }));
-  });
-
-  it('dispatches --raw --prod to auditCommand with scopes ["prod"]', async () => {
-    await routeCommand(['--raw', '--prod']);
-    expect(auditCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['prod'] }));
-  });
-
-  it('returns 1 for "report" (removed subcommand)', async () => {
-    using stdio = captureStdio();
-
-    const exitCode = await routeCommand(['report']);
-
-    expect(exitCode).toBe(1);
-    expect(stdio.stderr).toContain("Unknown command 'report'.");
-  });
-
-  it('returns 1 for "generate" (removed subcommand)', async () => {
-    using stdio = captureStdio();
-
-    const exitCode = await routeCommand(['generate']);
-
-    expect(exitCode).toBe(1);
-    expect(stdio.stderr).toContain("Unknown command 'generate'.");
-  });
-
-  it('dispatches "check" to checkCommand', async () => {
-    await routeCommand(['check']);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));
-  });
-
-  it('dispatches "check --json" to checkCommand with isJson: true', async () => {
-    await routeCommand(['check', '--json']);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ isJson: true, scopes: [] }));
-  });
-
-  it('dispatches "check --dev" to checkCommand with scopes ["dev"]', async () => {
-    await routeCommand(['check', '--dev']);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['dev'] }));
-  });
-
-  it('dispatches "sync" to syncCommand', async () => {
-    await routeCommand(['sync']);
-    expect(syncCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));
-  });
-
-  it('dispatches "sync --dev" with scopes ["dev"]', async () => {
-    await routeCommand(['sync', '--dev']);
-    expect(syncCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['dev'] }));
-  });
-
-  it('dispatches "init" to initCommand', async () => {
-    await routeCommand(['init']);
-    expect(initCommand).toHaveBeenCalled();
-  });
-
-  it('dispatches flag-only args to checkCommand', async () => {
-    await routeCommand(['--json']);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ isJson: true }));
-  });
-
-  it('returns 1 for unknown command with typo match', async () => {
-    using stdio = captureStdio();
-
-    const exitCode = await routeCommand(['syn']);
-
-    expect(exitCode).toBe(1);
-    expect(stdio.stderr).toContain("Unknown command 'syn'. Did you mean 'v11y sync'?");
-  });
-
-  it('returns 1 for unknown positional argument', async () => {
-    using stdio = captureStdio();
-
-    const exitCode = await routeCommand(['foo']);
-
-    expect(exitCode).toBe(1);
-    expect(stdio.stderr).toContain("Unknown command 'foo'.");
-  });
-
-  it('returns 1 when --dev and --prod are both specified', async () => {
-    using stdio = captureStdio();
-
-    const exitCode = await routeCommand(['--dev', '--prod']);
-
-    expect(exitCode).toBe(1);
-    expect(stdio.stderr).toContain('Cannot specify both --dev and --prod');
-  });
-
-  it('reports a UserError from a subcommand as a handled error and returns 1', async () => {
-    vi.mocked(syncCommand).mockRejectedValueOnce(new UserError('Config file not found: /repo/v11y.json'));
-    using stdio = captureStdio();
-
-    const exitCode = await routeCommand(['sync']);
-
-    expect(exitCode).toBe(1);
-    expect(stdio.stderr).toBe('Error: Config file not found: /repo/v11y.json\n');
-  });
-
-  it('rethrows an unexpected error from a subcommand for the crash handler', async () => {
-    const crash = new TypeError('cannot read x');
-    vi.mocked(checkCommand).mockRejectedValueOnce(crash);
-
-    await expect(routeCommand(['check'])).rejects.toBe(crash);
-  });
-
-  it('reports an unknown flag to init as a handled error and returns 1', async () => {
-    using stdio = captureStdio();
-
-    const exitCode = await routeCommand(['init', '--bogus']);
-
-    expect(exitCode).toBe(1);
-    expect(stdio.stderr).toBe('Error: Unknown option: --bogus\n');
-  });
-
-  it('returns 0 for sync --help', async () => {
-    const exitCode = await routeCommand(['sync', '--help']);
-    expect(exitCode).toBe(0);
-    expect(syncCommand).not.toHaveBeenCalled();
-  });
-
-  it('returns 0 for init --help', async () => {
-    const exitCode = await routeCommand(['init', '--help']);
-    expect(exitCode).toBe(0);
-    expect(initCommand).not.toHaveBeenCalled();
-  });
-
-  it('forwards --config flag to checkCommand', async () => {
-    await routeCommand(['--config', '/custom/audit.json']);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ configPath: '/custom/audit.json' }));
-  });
-
-  it('forwards --verbose flag to checkCommand', async () => {
-    await routeCommand(['--verbose']);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ verbose: true }));
-  });
-
-  it('forwards -v short flag to checkCommand', async () => {
-    await routeCommand(['-v']);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ verbose: true }));
-  });
-
-  it('defaults verbose to false when the flag is not provided', async () => {
-    await routeCommand([]);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ verbose: false }));
-  });
-
-  it('composes --verbose with --json', async () => {
-    await routeCommand(['--verbose', '--json']);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ isJson: true, verbose: true }));
-  });
-
-  it('composes --verbose with --dev', async () => {
-    await routeCommand(['--verbose', '--dev']);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['dev'], verbose: true }));
-  });
-
-  it('composes --verbose with --prod', async () => {
-    await routeCommand(['--verbose', '--prod']);
-    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['prod'], verbose: true }));
-  });
-
-  it('composes --verbose with --config', async () => {
-    await routeCommand(['--verbose', '--config', '/custom/audit.json']);
-    expect(checkCommand).toHaveBeenCalledWith(
-      expect.objectContaining({ configPath: '/custom/audit.json', verbose: true }),
-    );
-  });
-
-  it('forwards --dry-run flag to initCommand', async () => {
-    await routeCommand(['init', '--dry-run']);
-    expect(initCommand).toHaveBeenCalledWith(expect.objectContaining({ isDryRun: true, shouldForce: false }));
-  });
-
-  it('forwards --force flag to initCommand', async () => {
-    await routeCommand(['init', '--force']);
-    expect(initCommand).toHaveBeenCalledWith(expect.objectContaining({ isDryRun: false, shouldForce: true }));
-  });
-
-  it.each([
-    [[], false],
-    [['--dry-run'], true],
-    [['-n'], true],
-  ])('dispatches "update-templates" with args %j to updateTemplatesCommand (isDryRun: %s)', async (flags, dryRun) => {
-    await routeCommand(['update-templates', ...flags]);
-    expect(updateTemplatesCommand).toHaveBeenCalledWith(expect.objectContaining({ isDryRun: dryRun }));
-  });
-
-  it('returns 0 for update-templates --help without updating anything', async () => {
-    using _silencedConsole = silenceConsole(['info']);
-
-    const exitCode = await routeCommand(['update-templates', '--help']);
-
-    expect(exitCode).toBe(0);
-    expect(updateTemplatesCommand).not.toHaveBeenCalled();
-  });
-
-  it('rejects --force on update-templates', async () => {
-    using _capture = captureStdio();
-
-    await expect(routeCommand(['update-templates', '--force'])).resolves.toBe(1);
-    expect(updateTemplatesCommand).not.toHaveBeenCalled();
-  });
-
-  it('states the output-style variable and its three values in --help', async () => {
-    const silencedConsole = disposeOnTestFinished(silenceConsole(['info']));
-
-    await routeCommand(['--help']);
-
-    const helpText = listConsoleLines(silencedConsole.info).join('\n');
-    expect(helpText).toContain('V11Y_CHECK_OUTPUT_STYLE');
-    expect(helpText).toMatch(/auto.*plain.*rich/);
-  });
-
-  it.each(['plain', 'rich'] as const)(
-    'passes the %s style resolved from the variable to checkCommand',
-    async (setting) => {
-      vi.stubEnv('V11Y_CHECK_OUTPUT_STYLE', setting);
-
-      await routeCommand(['check']);
-
+    it('resolves a relative --config path against the working directory', async () => {
+      await routeCommand(['-c', 'audit.json']);
       expect(checkCommand).toHaveBeenCalledWith(
-        expect.objectContaining({ styles: { stderr: setting, stdout: setting } }),
+        expect.objectContaining({ configPath: path.resolve(process.cwd(), 'audit.json') }),
       );
-    },
-  );
+    });
 
-  it.each(['plain', 'rich'] as const)(
-    'passes the %s style resolved from the variable to initCommand',
-    async (setting) => {
+    it('dispatches "run-audit-ci --dev" to auditCommand with scopes ["dev"]', async () => {
+      await routeCommand(['run-audit-ci', '--dev']);
+      expect(auditCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['dev'], verbose: false }));
+      expect(checkCommand).not.toHaveBeenCalled();
+    });
+
+    it('dispatches "sync --json --prod" to syncCommand', async () => {
+      await routeCommand(['sync', '--json', '--prod']);
+      expect(syncCommand).toHaveBeenCalledWith(expect.objectContaining({ isJson: true, scopes: ['prod'] }));
+    });
+
+    it.each([
+      [[], false, false],
+      [['--dry-run'], true, false],
+      [['-n', '-f'], true, true],
+    ])('dispatches "init" with %j (isDryRun: %s, shouldForce: %s)', async (flags, isDryRun, shouldForce) => {
+      await routeCommand(['init', ...flags]);
+      expect(initCommand).toHaveBeenCalledWith(expect.objectContaining({ isDryRun, shouldForce }));
+    });
+
+    it.each([
+      [[], false],
+      [['-n'], true],
+    ])('dispatches "update-templates" with %j (isDryRun: %s)', async (flags, isDryRun) => {
+      await routeCommand(['update-templates', ...flags]);
+      expect(updateTemplatesCommand).toHaveBeenCalledWith(expect.objectContaining({ isDryRun }));
+    });
+
+    it.each(['plain', 'rich'] as const)('passes the %s style resolved from the variable', async (setting) => {
       vi.stubEnv('V11Y_CHECK_OUTPUT_STYLE', setting);
 
       await routeCommand(['init']);
@@ -296,23 +109,145 @@ describe(routeCommand, () => {
       expect(initCommand).toHaveBeenCalledWith(
         expect.objectContaining({ styles: { stderr: setting, stdout: setting } }),
       );
-    },
-  );
+    });
+  });
 
-  it.each([['check'], ['init'], ['sync'], ['--raw'], []])(
-    'returns 1 with the shared usage error for args %j when the variable does not name a style',
-    async (...args) => {
-      const capture = disposeOnTestFinished(captureStdio());
-      vi.stubEnv('V11Y_CHECK_OUTPUT_STYLE', 'loud');
+  describe('usage errors', () => {
+    it.each([
+      [['--raw'], 'Error: Unknown option: --raw', "Try 'v11y check --help'."],
+      [['sync', '--verbose'], 'Error: Unknown option: --verbose', "Try 'v11y sync --help'."],
+      [['update-templates', '--force'], 'Error: Unknown option: --force', "Try 'v11y update-templates --help'."],
+      [['--dev', '--prod'], 'Error: Cannot specify both --dev and --prod', "Try 'v11y check --help'."],
+      [['report'], 'Error: Unknown command: report', "Try 'v11y --help'."],
+    ])('exits 2 for %j', async (args, error, pointer) => {
+      const stdio = disposeOnTestFinished(captureStdio());
 
       const exitCode = await routeCommand(args);
 
+      expect(exitCode).toBe(2);
+      expect(stdio.stderr).toBe(`${error}\n${pointer}\n`);
+      expectNoCommandRan();
+    });
+
+    it('suggests the nearest command for a typo', async () => {
+      const stdio = disposeOnTestFinished(captureStdio());
+
+      const exitCode = await routeCommand(['chek']);
+
+      expect(exitCode).toBe(2);
+      expect(stdio.stderr).toContain("Did you mean 'check'?");
+    });
+
+    it.each([[[]], [['init']], [['run-audit-ci']]])(
+      'exits 2 for %j when the output-style variable does not name a style',
+      async (args) => {
+        const stdio = disposeOnTestFinished(captureStdio());
+        vi.stubEnv('V11Y_CHECK_OUTPUT_STYLE', 'loud');
+
+        const exitCode = await routeCommand(args);
+
+        expect(exitCode).toBe(2);
+        expect(stdio.stderr).toContain('Error: V11Y_CHECK_OUTPUT_STYLE must be one of: auto, plain, rich (got "loud")');
+        expectNoCommandRan();
+      },
+    );
+  });
+
+  describe('failures', () => {
+    it('reports a UserError from a command and exits 1', async () => {
+      vi.mocked(syncCommand).mockRejectedValueOnce(new UserError('Config file not found: /repo/v11y.json'));
+      const stdio = disposeOnTestFinished(captureStdio());
+
+      const exitCode = await routeCommand(['sync']);
+
       expect(exitCode).toBe(1);
-      expect(capture.stderr).toContain('V11Y_CHECK_OUTPUT_STYLE must be one of: auto, plain, rich (got "loud")');
-      expect(auditCommand).not.toHaveBeenCalled();
-      expect(checkCommand).not.toHaveBeenCalled();
-      expect(initCommand).not.toHaveBeenCalled();
-      expect(syncCommand).not.toHaveBeenCalled();
-    },
-  );
+      expect(stdio.stderr).toBe('Error: Config file not found: /repo/v11y.json\n');
+    });
+
+    it('rethrows an unexpected error from a command for the crash handler', async () => {
+      const crash = new TypeError('cannot read x');
+      vi.mocked(checkCommand).mockRejectedValueOnce(crash);
+
+      await expect(routeCommand(['check'])).rejects.toBe(crash);
+    });
+  });
+
+  describe('help and version', () => {
+    it.each([['--version'], ['-V']])('prints the version for %s', async (flag) => {
+      const stdio = disposeOnTestFinished(captureStdio());
+
+      const exitCode = await routeCommand([flag]);
+
+      expect(exitCode).toBe(0);
+      expect(stdio.stdout).toMatch(/^\d+\.\d+\.\d+/);
+    });
+
+    it('lists every command, the output-style variable, and its three values in the root help', async () => {
+      const stdio = disposeOnTestFinished(captureStdio());
+
+      const exitCode = await routeCommand(['-h']);
+
+      expect(exitCode).toBe(0);
+      for (const command of ['check', 'run-audit-ci', 'sync', 'init', 'update-templates']) {
+        expect(stdio.stdout).toContain(`  ${command} `);
+      }
+      expect(stdio.stdout).toContain('V11Y_CHECK_OUTPUT_STYLE');
+      expect(stdio.stdout).toMatch(/auto.*plain.*rich/);
+    });
+
+    it.each([
+      ['check', ['--config', '--dev', '--prod', '--json', '--verbose']],
+      ['run-audit-ci', ['--config', '--dev', '--prod', '--json']],
+      ['sync', ['--config', '--dev', '--prod', '--json']],
+      ['init', ['--dry-run', '--force']],
+      ['update-templates', ['--dry-run']],
+    ])('prints the options of %s on its own help page', async (command, options) => {
+      const stdio = disposeOnTestFinished(captureStdio());
+
+      const exitCode = await routeCommand([command, '--help']);
+
+      expect(exitCode).toBe(0);
+      expect(stdio.stdout).toContain(`Usage: v11y ${command} [options]`);
+      for (const option of options) {
+        expect(stdio.stdout).toContain(option);
+      }
+      expectNoCommandRan();
+    });
+
+    it('omits --verbose from the help of sync', async () => {
+      const stdio = disposeOnTestFinished(captureStdio());
+
+      await routeCommand(['sync', '--help']);
+
+      expect(stdio.stdout).not.toContain('--verbose');
+    });
+
+    it('prints the root help under an invalid output-style variable', async () => {
+      const stdio = disposeOnTestFinished(captureStdio());
+      vi.stubEnv('V11Y_CHECK_OUTPUT_STYLE', 'loud');
+
+      await expect(routeCommand(['--help'])).resolves.toBe(0);
+      expect(stdio.stdout).toContain('Usage: v11y');
+    });
+
+    it("exits 2 for a command's help under an invalid output-style variable", async () => {
+      disposeOnTestFinished(captureStdio());
+      vi.stubEnv('V11Y_CHECK_OUTPUT_STYLE', 'loud');
+
+      await expect(routeCommand(['sync', '--help'])).resolves.toBe(2);
+    });
+  });
 });
+
+// region | Helpers
+
+/** Asserts that the router did not reach any command. */
+function expectNoCommandRan(): void {
+  expect(auditCommand).not.toHaveBeenCalled();
+  expect(checkCommand).not.toHaveBeenCalled();
+  expect(initCommand).not.toHaveBeenCalled();
+  expect(syncCommand).not.toHaveBeenCalled();
+  expect(updateTemplatesCommand).not.toHaveBeenCalled();
+}
+
+// endregion | Helpers

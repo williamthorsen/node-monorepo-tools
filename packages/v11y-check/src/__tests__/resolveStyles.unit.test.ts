@@ -1,3 +1,4 @@
+import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -46,12 +47,10 @@ describe(resolveStyles, () => {
     expect(styles).toStrictEqual({ stderr: 'plain', stdout: 'rich' });
   });
 
-  it('prints the shared usage error and returns undefined on any other value', () => {
-    const styles = resolveStyles({ env: { [OUTPUT_STYLE_ENV_VAR]: 'loud' }, stderrIsTty: true, stdoutIsTty: true });
-
-    expect(styles).toBeUndefined();
-    expect(capture.stderrChunks).toContain(
-      'Error: V11Y_CHECK_OUTPUT_STYLE must be one of: auto, plain, rich (got "loud")\n',
-    );
+  it('throws the shared usage error, without writing to stderr, on any other value', () => {
+    expect(() =>
+      resolveStyles({ env: { [OUTPUT_STYLE_ENV_VAR]: 'loud' }, stderrIsTty: true, stdoutIsTty: true }),
+    ).toThrow(new UsageError('V11Y_CHECK_OUTPUT_STYLE must be one of: auto, plain, rich (got "loud")'));
+    expect(capture.stderrChunks).toStrictEqual([]);
   });
 });
