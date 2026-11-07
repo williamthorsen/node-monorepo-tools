@@ -26,7 +26,7 @@ describe('release-kit entry', () => {
     expect(process.exitCode).toBe(1);
   });
 
-  it('reports a UserError as `Error: <message>`, and exits 1', async () => {
+  it('reports a UserError as `release-kit: <message>`, and exits 1', async () => {
     // Import the class from the registry that `cli.ts` loads, which `vi.resetModules` replaces between tests.
     const { UserError } = await import('@williamthorsen/nmr-core');
     mockRouteCommand.mockRejectedValue(new UserError('Failed to discover workspaces: no pnpm-workspace.yaml'));
@@ -34,7 +34,7 @@ describe('release-kit entry', () => {
 
     await import('../cli.ts');
 
-    expect(capture.stderr).toBe('Error: Failed to discover workspaces: no pnpm-workspace.yaml\n');
+    expect(capture.stderr).toBe('release-kit: Failed to discover workspaces: no pnpm-workspace.yaml\n');
     expect(process.exitCode).toBe(1);
   });
 

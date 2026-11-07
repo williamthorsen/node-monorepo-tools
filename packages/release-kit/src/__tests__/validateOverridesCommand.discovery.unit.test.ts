@@ -16,7 +16,7 @@ describe('validateOverridesCommand workspace discovery', () => {
     );
 
     expect(result.exitCode).toBe(2);
-    expect(result.message).toBe('Error: Failed to discover workspaces: pnpm-workspace.yaml is unreadable');
+    expect(result.message).toBe('release-kit: Failed to discover workspaces: pnpm-workspace.yaml is unreadable');
   });
 
   it('rethrows a crash in workspace discovery', async () => {

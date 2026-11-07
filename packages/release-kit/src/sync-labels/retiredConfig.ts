@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 
 import { reportError } from '@williamthorsen/nmr-core';
 
+import { BIN } from '../bin.ts';
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
 
 /** Path of the retired standalone sync-labels config file. */
@@ -20,6 +21,7 @@ export function checkRetiredSyncLabelsConfig(configPath: string = CONFIG_FILE_PA
     return false;
   }
   reportError(
+    BIN,
     `${RETIRED_SYNC_LABELS_CONFIG_PATH} is no longer read. Move its labels into the \`repoLabels\` block of ${configPath} (presets move to \`repoLabels.extends\`; each label becomes a \`'name': { color, description }\` entry under \`repoLabels.labels\`), then delete the file.`,
   );
   return true;

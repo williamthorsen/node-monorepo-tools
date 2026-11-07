@@ -114,11 +114,11 @@ describe(routeCommand, () => {
 
   describe('usage errors', () => {
     it.each([
-      [['--raw'], 'Error: Unknown option: --raw', "Try 'v11y check --help'."],
-      [['sync', '--verbose'], 'Error: Unknown option: --verbose', "Try 'v11y sync --help'."],
-      [['update-templates', '--force'], 'Error: Unknown option: --force', "Try 'v11y update-templates --help'."],
-      [['--dev', '--prod'], 'Error: Cannot specify both --dev and --prod', "Try 'v11y check --help'."],
-      [['report'], 'Error: Unknown command: report', "Try 'v11y --help'."],
+      [['--raw'], 'v11y: Unknown option: --raw', "Try 'v11y check --help'."],
+      [['sync', '--verbose'], 'v11y: Unknown option: --verbose', "Try 'v11y sync --help'."],
+      [['update-templates', '--force'], 'v11y: Unknown option: --force', "Try 'v11y update-templates --help'."],
+      [['--dev', '--prod'], 'v11y: Cannot specify both --dev and --prod', "Try 'v11y check --help'."],
+      [['report'], 'v11y: Unknown command: report', "Try 'v11y --help'."],
     ])('exits 2 for %j', async (args, error, pointer) => {
       const stdio = disposeOnTestFinished(captureStdio());
 
@@ -147,7 +147,7 @@ describe(routeCommand, () => {
         const exitCode = await routeCommand(args);
 
         expect(exitCode).toBe(2);
-        expect(stdio.stderr).toContain('Error: V11Y_CHECK_OUTPUT_STYLE must be one of: auto, plain, rich (got "loud")');
+        expect(stdio.stderr).toContain('v11y: V11Y_CHECK_OUTPUT_STYLE must be one of: auto, plain, rich (got "loud")');
         expectNoCommandRan();
       },
     );
@@ -161,7 +161,7 @@ describe(routeCommand, () => {
       const exitCode = await routeCommand(['sync']);
 
       expect(exitCode).toBe(1);
-      expect(stdio.stderr).toBe('Error: Config file not found: /repo/v11y.json\n');
+      expect(stdio.stderr).toBe('v11y: Config file not found: /repo/v11y.json\n');
     });
 
     it('rethrows an unexpected error from a command for the crash handler', async () => {

@@ -21,7 +21,7 @@ describe(buildPackage, () => {
     await expect(
       buildPackage(tree.dir, { style: 'plain', loadTypeScript: () => Promise.reject(missing) }),
     ).rejects.toThrow(
-      "nmr-compile requires TypeScript >=5.7 <7, but 'typescript' could not be resolved. Install a version in that range as the 'typescript' peer dependency.",
+      "requires TypeScript >=5.7 <7, but 'typescript' could not be resolved. Install a version in that range as the 'typescript' peer dependency.",
     );
   });
 

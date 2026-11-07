@@ -2,6 +2,7 @@ import type { Writable } from 'node:stream';
 
 import { reportError } from '@williamthorsen/nmr-core';
 
+import { NMR_BIN } from './bins.ts';
 import type { ResolvedContext } from './context.ts';
 import { type FilterSelection, readFilterSelection } from './helpers/filter-selection.ts';
 import { findClosestName } from './helpers/findClosestName.ts';
@@ -107,7 +108,7 @@ export async function runDelegation(options: {
 
   const refusal = findEmptySelectionRefusal({ context, parsedArgs, selection });
   if (refusal !== undefined) {
-    reportError(refusal, stderr);
+    reportError(NMR_BIN, refusal, stderr);
     return { exitCode: 1 };
   }
 

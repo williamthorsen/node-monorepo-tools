@@ -180,7 +180,7 @@ describe(validateOverridesCommand, () => {
       validate: () => ({ errors: [], warnings: [] }),
     });
     expect(result.exitCode).toBe(2);
-    expect(result.message).toContain('Error: Failed to load config');
+    expect(result.message).toContain('release-kit: Failed to load config');
     expect(result.message).toContain('boom');
   });
 

@@ -48,10 +48,10 @@ describe('nmr CLI', () => {
     expect(exitCode).toBe(2);
   });
 
-  it('exits 2 with a canonical Error line when -F is missing its argument', async () => {
+  it('exits 2 with a canonical error line when -F is missing its argument', async () => {
     const { stderr, exitCode } = await runNmr('-F');
     expect(exitCode).toBe(2);
-    expect(stderr).toContain('Error: Missing value for option: -F');
+    expect(stderr).toContain('nmr: Missing value for option: -F');
   });
 
   // The bin (`cli.ts`) sets `process.exitCode` and returns rather than calling `process.exit()`, so that output
@@ -89,7 +89,7 @@ describe('nmr CLI', () => {
         });
 
         expect(result.status).toBe(1);
-        expect(result.stderr).toContain('Error: Invalid nmr config at');
+        expect(result.stderr).toContain('nmr: Invalid nmr config at');
         expect(result.stderr).not.toContain('    at ');
       } finally {
         rmSync(repo, { recursive: true, force: true });
@@ -232,7 +232,7 @@ describe('nmr CLI', () => {
     it('still exits with error for unknown command when quiet', async () => {
       const { stderr, exitCode } = await runNmr('--quiet nonexistent-command');
       expect(exitCode).toBe(2);
-      expect(stderr).toContain('Error: Unknown command');
+      expect(stderr).toContain('nmr: Unknown command');
     });
   });
 

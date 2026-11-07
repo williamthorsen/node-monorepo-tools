@@ -239,7 +239,7 @@ describe(routeCommand, () => {
 
       await expect(routeCommand(args)).resolves.toBe(2);
 
-      expect(stdio.stderr).toBe(`Error: ${message}\nTry '${scope} --help'.\n`);
+      expect(stdio.stderr).toBe(`release-kit: ${message}\nTry '${scope} --help'.\n`);
       expectNoCommandRan();
     });
 
@@ -260,7 +260,7 @@ describe(routeCommand, () => {
 
       await expect(routeCommand(['prepare', '--only=a'])).resolves.toBe(2);
       expect(stdio.stderr).toBe(
-        "Error: --only is only supported for monorepo configurations\nTry 'release-kit prepare --help'.\n",
+        "release-kit: --only is only supported for monorepo configurations\nTry 'release-kit prepare --help'.\n",
       );
     });
 
@@ -272,7 +272,7 @@ describe(routeCommand, () => {
 
         await expect(routeCommand(args)).resolves.toBe(2);
         expect(stdio.stderr).toContain(
-          'Error: RELEASE_KIT_OUTPUT_STYLE must be one of: auto, plain, rich (got "loud")',
+          'release-kit: RELEASE_KIT_OUTPUT_STYLE must be one of: auto, plain, rich (got "loud")',
         );
         expectNoCommandRan();
       },
@@ -280,14 +280,14 @@ describe(routeCommand, () => {
   });
 
   describe('failures', () => {
-    it('reports a config that fails to load as `Error: Failed to load config:`, and exits 1', async () => {
+    it('reports a config that fails to load as `release-kit: Failed to load config:`, and exits 1', async () => {
       vi.mocked(pushCommand).mockRejectedValueOnce(
         new ConfigProblemError({ kind: 'load', message: 'Config file not found: /repo/absent.config.ts' }),
       );
       const stdio = disposeOnTestFinished(captureStdio());
 
       await expect(routeCommand(['push'])).resolves.toBe(1);
-      expect(stdio.stderr).toBe('Error: Failed to load config: Config file not found: /repo/absent.config.ts\n');
+      expect(stdio.stderr).toBe('release-kit: Failed to load config: Config file not found: /repo/absent.config.ts\n');
     });
 
     it('reports an invalid config line by line in the style of stderr, and exits 1', async () => {
@@ -306,7 +306,7 @@ describe(routeCommand, () => {
       const stdio = disposeOnTestFinished(captureStdio());
 
       await expect(routeCommand(['publish'])).resolves.toBe(1);
-      expect(stdio.stderr).toBe('Error: HEAD does not have any release tags.\n');
+      expect(stdio.stderr).toBe('release-kit: HEAD does not have any release tags.\n');
     });
 
     it('rethrows an unexpected error from a command for the crash handler', async () => {

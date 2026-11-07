@@ -3,6 +3,7 @@ import process from 'node:process';
 import { reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { BIN } from './bin.ts';
 import { loadConfig, type LoadConfigResult } from './config.ts';
 import {
   type AllowedVulnerability,
@@ -37,7 +38,7 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
   try {
     loadedConfigResult = await loadConfig(options.configPath);
   } catch (error: unknown) {
-    reportError(describeError(error));
+    reportError(BIN, describeError(error));
     return 1;
   }
 
@@ -93,7 +94,7 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
       return exitCode;
     });
   } catch (error: unknown) {
-    reportError(describeError(error));
+    reportError(BIN, describeError(error));
     return 1;
   }
 }
@@ -113,7 +114,7 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
   try {
     loadedConfigResult = await loadConfig(options.configPath);
   } catch (error: unknown) {
-    reportError(describeError(error));
+    reportError(BIN, describeError(error));
     return 1;
   }
 
@@ -189,7 +190,7 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
       return hasUnallowed ? 1 : 0;
     });
   } catch (error: unknown) {
-    reportError(describeError(error));
+    reportError(BIN, describeError(error));
     return 1;
   }
 }
@@ -206,7 +207,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
   try {
     loadedConfigResult = await loadConfig(options.configPath);
   } catch (error: unknown) {
-    reportError(describeError(error));
+    reportError(BIN, describeError(error));
     return 1;
   }
 
@@ -216,7 +217,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
   if (configSource === 'defaults') {
     const { configResult } = scaffoldConfig({ isDryRun: false });
     if (configResult.outcome === 'failed') {
-      reportError('Failed to create config file');
+      reportError(BIN, 'Failed to create config file');
       return 1;
     }
     loadedConfigResult = await loadConfig(options.configPath);
@@ -264,7 +265,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
       return 0;
     });
   } catch (error: unknown) {
-    reportError(describeError(error));
+    reportError(BIN, describeError(error));
     return 1;
   }
 }

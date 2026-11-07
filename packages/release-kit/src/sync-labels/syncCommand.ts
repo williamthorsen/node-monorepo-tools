@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { GIT_OUTPUT_LIMIT_BYTES, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { BIN } from '../bin.ts';
 import { checkRetiredSyncLabelsConfig } from './retiredConfig.ts';
 
 /** Workflow file that must exist before triggering. */
@@ -28,12 +29,12 @@ export function syncLabelsCommand(): number {
   }
 
   if (!checkGhAvailable()) {
-    reportError('The `gh` CLI is not installed or not in PATH. Install it from https://cli.github.com/');
+    reportError(BIN, 'The `gh` CLI is not installed or not in PATH. Install it from https://cli.github.com/');
     return 1;
   }
 
   if (!existsSync(WORKFLOW_FILE)) {
-    reportError(`${WORKFLOW_FILE} not found. Run \`release-kit sync-labels init\` first.`);
+    reportError(BIN, `${WORKFLOW_FILE} not found. Run \`release-kit sync-labels init\` first.`);
     return 1;
   }
 
@@ -41,7 +42,7 @@ export function syncLabelsCommand(): number {
     execSync('gh workflow run sync-labels.yaml', { stdio: 'inherit' });
   } catch (error: unknown) {
     const message = describeError(error);
-    reportError(`Failed to trigger workflow: ${message}`);
+    reportError(BIN, `Failed to trigger workflow: ${message}`);
     return 1;
   }
 

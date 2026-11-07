@@ -39,6 +39,7 @@ describe(runSteps, () => {
       stubSequence([0, 0, 0]);
 
       const result = await runSteps([STRUCTURAL_STEP, OPAQUE_STEP, STRUCTURAL_STEP], undefined, {
+        bin: 'nmr',
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -51,6 +52,7 @@ describe(runSteps, () => {
       stubSequence([0, 2, 0]);
 
       const result = await runSteps([STRUCTURAL_STEP, OPAQUE_STEP, STRUCTURAL_STEP], undefined, {
+        bin: 'nmr',
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -63,6 +65,7 @@ describe(runSteps, () => {
       stubSequence([0, 0]);
 
       await runSteps([OPAQUE_STEP, STRUCTURAL_STEP], undefined, {
+        bin: 'nmr',
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -73,7 +76,11 @@ describe(runSteps, () => {
     it('given an empty step list, exits 0 without spawning', async () => {
       stubSequence([]);
 
-      const result = await runSteps([], undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
+      const result = await runSteps([], undefined, {
+        bin: 'nmr',
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
 
       expect(result).toStrictEqual({ exitCode: 0 });
       expect(mockedSpawn).not.toHaveBeenCalled();
@@ -84,7 +91,7 @@ describe(runSteps, () => {
     it('hands an opaque step to a shell as one command line', async () => {
       stubSequence([0]);
 
-      await runSteps([OPAQUE_STEP], '/repo', { stderr: new PassThrough(), stdout: new PassThrough() });
+      await runSteps([OPAQUE_STEP], '/repo', { bin: 'nmr', stderr: new PassThrough(), stdout: new PassThrough() });
 
       expect(mockedSpawn.mock.calls[0]?.slice(0, 2)).toStrictEqual(['eslint .', []]);
       expect(mockedSpawn.mock.calls[0]?.[2]).toMatchObject({ cwd: '/repo', shell: true });
@@ -94,6 +101,7 @@ describe(runSteps, () => {
       stubSequence([0]);
 
       await runSteps([{ kind: 'structural', argv: ['nmr', 'test', '-t', 'a b'] }], '/repo', {
+        bin: 'nmr',
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -111,6 +119,7 @@ describe(runSteps, () => {
       stubSequence([0]);
 
       await runSteps([STRUCTURAL_STEP], undefined, {
+        bin: 'nmr',
         quiet: isQuiet,
         stderr: Object.assign(new PassThrough(), { fd: 1 }),
         stdout: Object.assign(new PassThrough(), { fd: 1 }),
@@ -122,7 +131,11 @@ describe(runSteps, () => {
     it('falls back to a pipe for a structural step when the stream does not have a descriptor', async () => {
       stubSequence([0]);
 
-      await runSteps([STRUCTURAL_STEP], undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
+      await runSteps([STRUCTURAL_STEP], undefined, {
+        bin: 'nmr',
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
 
       expect(readStdioFromCall().slice(1)).toStrictEqual(['pipe', 'pipe']);
     });
@@ -131,6 +144,7 @@ describe(runSteps, () => {
       stubSequence([0]);
 
       await runSteps([OPAQUE_STEP], undefined, {
+        bin: 'nmr',
         quiet: true,
         stderr: createTerminalStream(),
         stdout: createTerminalStream(),
@@ -146,7 +160,7 @@ describe(runSteps, () => {
     ])('given $scenario, gives the child stdin $expectedStdin', async ({ expectedStdin, step }) => {
       stubSequence([0]);
 
-      await runSteps([step], undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
+      await runSteps([step], undefined, { bin: 'nmr', stderr: new PassThrough(), stdout: new PassThrough() });
 
       expect(readStdioFromCall()[0]).toBe(expectedStdin);
     });
@@ -159,6 +173,7 @@ describe(runSteps, () => {
       stubSequence([0, 0]);
 
       await runSteps([BACKGROUND_STEP, STRUCTURAL_STEP], undefined, {
+        bin: 'nmr',
         stderr: createTerminalStream(),
         stdout: createTerminalStream(),
       });
@@ -176,6 +191,7 @@ describe(runSteps, () => {
       stubSequence([0, 0]);
 
       await runSteps([BACKGROUND_STEP, STRUCTURAL_STEP], undefined, {
+        bin: 'nmr',
         env: { PATH: '/bin', ...env },
         stderr: createTerminalStream(),
         stdout: stdout(),
@@ -190,7 +206,7 @@ describe(runSteps, () => {
       const stdout = new PassThrough();
       const received = collect(stdout);
 
-      await runSteps([BACKGROUND_STEP, OPAQUE_STEP], undefined, { stderr: new PassThrough(), stdout });
+      await runSteps([BACKGROUND_STEP, OPAQUE_STEP], undefined, { bin: 'nmr', stderr: new PassThrough(), stdout });
 
       expect(received().toString('utf8')).toBe('foreground\nbackground\n');
     });
@@ -199,6 +215,7 @@ describe(runSteps, () => {
       stubSequence([3, 0]);
 
       const result = await runSteps([BACKGROUND_STEP, STRUCTURAL_STEP], undefined, {
+        bin: 'nmr',
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -210,6 +227,7 @@ describe(runSteps, () => {
       stubSequence([3, 2]);
 
       const result = await runSteps([BACKGROUND_STEP, STRUCTURAL_STEP], undefined, {
+        bin: 'nmr',
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -223,6 +241,7 @@ describe(runSteps, () => {
       stubSequence([0], [{ stderr: 'a warning\n', stdout: 'a summary\n' }]);
 
       const result = await runSteps([OPAQUE_STEP], undefined, {
+        bin: 'nmr',
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -235,6 +254,7 @@ describe(runSteps, () => {
       stubSequence([0, 0], [{ stdout: 'first\n' }, { stdout: 'second\n' }]);
 
       const result = await runSteps([OPAQUE_STEP, { kind: 'opaque', command: 'vitest' }], undefined, {
+        bin: 'nmr',
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -248,6 +268,7 @@ describe(runSteps, () => {
       stubSequence([0, 0], [{ stdout: 'a constituent verdict\n' }, { stdout: 'another verdict\n' }]);
 
       const result = await runSteps([STRUCTURAL_STEP, STRUCTURAL_STEP], undefined, {
+        bin: 'nmr',
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -265,7 +286,7 @@ describe(runSteps, () => {
           { kind: 'structural', argv: ['nmr', 'check:post'] },
         ],
         undefined,
-        { stderr: new PassThrough(), stdout: new PassThrough() },
+        { bin: 'nmr', stderr: new PassThrough(), stdout: new PassThrough() },
       );
 
       expect(result.retainedOutput?.stdout.toString('utf8')).toBe('the command\n');
@@ -275,6 +296,7 @@ describe(runSteps, () => {
       stubSequence([0], [{ stdout: 'a summary\n' }]);
 
       const result = await runSteps([OPAQUE_STEP], undefined, {
+        bin: 'nmr',
         stderr: createTerminalStream(),
         stdout: createTerminalStream(),
       });
@@ -303,6 +325,7 @@ describe(runSteps, () => {
       });
 
       const result = await runSteps([OPAQUE_STEP, { kind: 'opaque', command: 'vitest' }], undefined, {
+        bin: 'nmr',
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -314,6 +337,7 @@ describe(runSteps, () => {
       stubSequence([1], [{ stdout: 'the failure\n' }]);
 
       const result = await runSteps([OPAQUE_STEP], undefined, {
+        bin: 'nmr',
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -345,6 +369,7 @@ describe(runSteps, () => {
       });
 
       await runSteps([STRUCTURAL_STEP], undefined, {
+        bin: 'nmr',
         quiet: true,
         stderr: new PassThrough(),
         stdout: destination,
@@ -376,6 +401,7 @@ describe(runSteps, () => {
       });
 
       const result = await runSteps([OPAQUE_STEP, { kind: 'opaque', command: 'vitest' }], undefined, {
+        bin: 'nmr',
         quiet: true,
         stderr: errorStream,
         stdout: new PassThrough(),
@@ -402,6 +428,7 @@ describe(runSteps, () => {
       });
 
       const result = await runSteps([STRUCTURAL_STEP, OPAQUE_STEP], undefined, {
+        bin: 'nmr',
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });

@@ -4,6 +4,7 @@ import { isAnticipatedFailure, reportError, resolveSelfVersion, type StreamStyle
 import { createCli, type FlagSchema, runCli, UsageError } from '@williamthorsen/nmr-core/cli';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { BIN } from './bin.ts';
 import { auditCommand, checkCommand, syncCommand } from './commands.ts';
 import { initCommand } from './init/initCommand.ts';
 import { updateTemplatesCommand } from './init/updateTemplatesCommand.ts';
@@ -15,7 +16,7 @@ const VERSION = resolveSelfVersion(import.meta.url);
 /** Runs the `v11y` command tree against the arguments and resolves to the exit code. */
 export async function routeCommand(args: string[]): Promise<number> {
   return runCli(args, ROOT, {
-    name: 'v11y',
+    name: BIN,
     context: { env: process.env, stderrIsTty: process.stderr.isTTY, stdoutIsTty: process.stdout.isTTY },
     stdout: process.stdout,
     stderr: process.stderr,
@@ -140,7 +141,10 @@ function buildCommandOptions(
   return { configPath: flags.config, isJson: flags.json, scopes, styles, verbose };
 }
 
-/** Runs a command, reporting an anticipated failure as `Error: <message>` with exit code 1 and rethrowing anything else. */
+/**
+ * Runs a command, reporting an anticipated failure as `<bin>: <message>` with exit code 1 and rethrowing anything
+ * else.
+ */
 async function runReportingFailures(runCommand: () => number | Promise<number>): Promise<number> {
   try {
     return await runCommand();
@@ -148,7 +152,7 @@ async function runReportingFailures(runCommand: () => number | Promise<number>):
     if (!isAnticipatedFailure(error)) {
       throw error;
     }
-    reportError(describeError(error));
+    reportError(BIN, describeError(error));
     return 1;
   }
 }

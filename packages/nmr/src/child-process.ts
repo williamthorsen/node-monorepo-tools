@@ -15,6 +15,8 @@ const SIGNAL_EXIT_BASE = 128;
 const PIPE_DRAIN_GRACE_MS = 2000;
 
 export interface RunCommandOptions {
+  /** The bin under which this process runs, which names it in a spawn-failure report. */
+  bin: string;
   /** The channel on which each of the child's output streams runs. */
   channels: OutputChannels;
   /** When true, suppresses output on success and writes captured output to stderr on failure. */
@@ -75,7 +77,7 @@ export function startSpawned(
     env,
   });
 
-  return { child, result: collectResult(child, { quiet, stderr, stdout }) };
+  return { child, result: collectResult(child, { bin: options.bin, quiet, stderr, stdout }) };
 }
 
 // region | Helpers
@@ -164,7 +166,7 @@ function captureStream(
 /** Captures a spawned child's piped streams and resolves with how it ended and what it wrote. */
 async function collectResult(
   child: ChildProcess,
-  { quiet, stderr, stdout }: { quiet: boolean; stderr: Writable; stdout: Writable },
+  { bin, quiet, stderr, stdout }: { bin: string; quiet: boolean; stderr: Writable; stdout: Writable },
 ): Promise<RunCommandResult> {
   // A stream handed to the child as a descriptor is null here, and nmr never sees a byte of it.
   const stdoutCapture = child.stdout === null ? undefined : captureStream(child.stdout, quiet ? undefined : stdout);
@@ -187,7 +189,7 @@ async function collectResult(
   // A spawn failure does not have any captured output to forward, so quiet mode reports it rather than exiting 1
   // in silence.
   if (result.outcome === 'spawn-failed') {
-    reportError(result.error.message, stderr);
+    reportError(bin, result.error.message, stderr);
     return result;
   }
 

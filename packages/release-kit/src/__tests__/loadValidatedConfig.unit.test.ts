@@ -116,7 +116,7 @@ describe(reportConfigProblem, () => {
 
     reportConfigProblem({ kind: 'load', message: 'config read failure' }, 'plain');
 
-    expect(stdioCapture.stderrChunks).toContain('Error: Failed to load config: config read failure\n');
+    expect(stdioCapture.stderrChunks).toContain('release-kit: Failed to load config: config read failure\n');
   });
 
   it('renders a validation failure as a header followed by one line per error', () => {

@@ -2,6 +2,7 @@ import { isAnticipatedFailure, reportError, type StreamStyles } from '@williamth
 import type { FlagSchema } from '@williamthorsen/nmr-core/cli';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { BIN } from '../bin.ts';
 import { ConfigProblemError, reportConfigProblem } from '../loadValidatedConfig.ts';
 
 /** The context that every `release-kit` command receives from the root group. */
@@ -21,7 +22,7 @@ export const CONFIG_FLAG = {
 
 /**
  * Runs a command and resolves to its exit code, 0 when it returns nothing. Reports an unusable config in its own form
- * and any other anticipated failure as `Error: <message>`, each with exit code 1, and rethrows anything else.
+ * and any other anticipated failure as `<bin>: <message>`, each with exit code 1, and rethrows anything else.
  */
 export async function runReportingFailures(
   styles: StreamStyles,
@@ -37,7 +38,7 @@ export async function runReportingFailures(
     if (!isAnticipatedFailure(error)) {
       throw error;
     }
-    reportError(describeError(error));
+    reportError(BIN, describeError(error));
     return 1;
   }
 }

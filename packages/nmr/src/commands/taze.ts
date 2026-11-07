@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { type OutputStyle, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { NMR_TAZE_BIN } from '../bins.ts';
 import { loadPackageMaturityPeriod } from './load-package-maturity-period.ts';
 import { checkNodePin as checkNodePinDefault, type CheckNodePinOptions } from './node-pin.ts';
 import { isSilent, readFlag } from './taze-args.ts';
@@ -95,6 +96,7 @@ export async function runTaze(args: string[], options: RunTazeOptions = {}): Pro
   } catch (error: unknown) {
     const detail = describeError(error);
     reportError(
+      NMR_TAZE_BIN,
       `Could not resolve '${TAZE_CLI_SPECIFIER}' from nmr's dependencies. Reinstall the workspace to restore it. (${detail})`,
       stderr,
     );
@@ -105,7 +107,7 @@ export async function runTaze(args: string[], options: RunTazeOptions = {}): Pro
   try {
     passes = planTazePasses(args, await loadConfig(resolveConfigDir(args)));
   } catch (error: unknown) {
-    reportError(`Could not read the taze config: ${describeError(error)}`, stderr);
+    reportError(NMR_TAZE_BIN, `Could not read the taze config: ${describeError(error)}`, stderr);
     return 1;
   }
 
@@ -118,7 +120,7 @@ export async function runTaze(args: string[], options: RunTazeOptions = {}): Pro
         style: options.stderrStyle ?? 'plain',
       });
     } catch (error: unknown) {
-      reportError(`Could not check the nodejs pin: ${describeError(error)}`, stderr);
+      reportError(NMR_TAZE_BIN, `Could not check the nodejs pin: ${describeError(error)}`, stderr);
     }
   }
 
@@ -131,7 +133,7 @@ export async function runTaze(args: string[], options: RunTazeOptions = {}): Pro
     // Report a spawn failure rather than collapse it into a bare 1, because it does not yield any exit
     // status to propagate.
     if (outcome.error) {
-      reportError(`Failed to run taze: ${outcome.error.message}`, stderr);
+      reportError(NMR_TAZE_BIN, `Failed to run taze: ${outcome.error.message}`, stderr);
       return 1;
     }
 

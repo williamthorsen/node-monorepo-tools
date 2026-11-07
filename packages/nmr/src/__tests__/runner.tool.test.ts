@@ -34,7 +34,7 @@ describe(runCommand, () => {
     const result = await runCommand(
       `"${process.execPath}" -e "process.stdout.write('a'.repeat(${PRODUCED_BYTES}))"`,
       undefined,
-      { channels: PIPED_CHANNELS, stderr: new PassThrough(), stdout: destination },
+      { bin: 'nmr', channels: PIPED_CHANNELS, stderr: new PassThrough(), stdout: destination },
     );
 
     expect(result).toMatchObject({ exitCode: 0, outcome: 'exited' });
@@ -49,6 +49,7 @@ describe(runCommand, () => {
 
     // `sleep` inherits the pipe and outlives the shell, so the pipe never closes on its own.
     const result = await runCommand('sleep 20 & echo ready', undefined, {
+      bin: 'nmr',
       channels: PIPED_CHANNELS,
       stderr: new PassThrough(),
       stdout: destination,
@@ -67,10 +68,7 @@ describe(runSteps, () => {
     const result = await runSteps(
       [background(nodeStep('setTimeout(() => {}, 1500)')), nodeStep('setTimeout(() => {}, 1500)')],
       undefined,
-      {
-        stderr: new PassThrough(),
-        stdout: new PassThrough(),
-      },
+      { bin: 'nmr', stderr: new PassThrough(), stdout: new PassThrough() },
     );
 
     expect(result.exitCode).toBe(0);
@@ -87,7 +85,7 @@ describe(runSteps, () => {
         nodeStep(`console.log('fg-a'); setTimeout(() => console.log('fg-b'), 600)`),
       ],
       undefined,
-      { stderr: new PassThrough(), stdout },
+      { bin: 'nmr', stderr: new PassThrough(), stdout },
     );
 
     expect(received().toString('utf8')).toBe('fg-a\nfg-b\nbg-a\nbg-b\n');
@@ -104,7 +102,7 @@ describe(runSteps, () => {
         nodeStep(`console.log('never')`),
       ],
       undefined,
-      { stderr: new PassThrough(), stdout },
+      { bin: 'nmr', stderr: new PassThrough(), stdout },
     );
 
     expect(result.exitCode).toBe(2);
@@ -117,7 +115,7 @@ describe(runSteps, () => {
     const result = await runSteps(
       [background(nodeStep('setTimeout(() => {}, 20000)')), nodeStep(`process.kill(process.pid, 'SIGTERM')`)],
       undefined,
-      { stderr: new PassThrough(), stdout: new PassThrough() },
+      { bin: 'nmr', stderr: new PassThrough(), stdout: new PassThrough() },
     );
 
     expect(result.exitCode).toBe(143);
@@ -131,7 +129,7 @@ describe(runSteps, () => {
     const running = runSteps(
       [background(nodeStep('setTimeout(() => {}, 20000)')), nodeStep('setTimeout(() => {}, 20000)')],
       undefined,
-      { stderr: new PassThrough(), stdout: new PassThrough() },
+      { bin: 'nmr', stderr: new PassThrough(), stdout: new PassThrough() },
     );
     setTimeout(() => process.emit('SIGTERM', 'SIGTERM'), 500);
     const result = await running;
@@ -145,7 +143,11 @@ describe(runSteps, () => {
     it('returns the outcome that an opaque step stated, keyed by the step', async () => {
       const step = opaqueNodeStep(STATE_OUTCOME_SCRIPT);
 
-      const result = await runSteps([step], undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
+      const result = await runSteps([step], undefined, {
+        bin: 'nmr',
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
 
       expect(result.statedOutcomes).toStrictEqual(new Map([[step, { kind: 'build-unchanged', savedMs: 2100 }]]));
     });
@@ -156,6 +158,7 @@ describe(runSteps, () => {
       const spawnScript = `require('node:child_process').execFileSync(process.execPath, ['-e', process.env.NEXT_SCRIPT])`;
 
       const result = await runSteps([opaqueNodeStep(spawnScript)], undefined, {
+        bin: 'nmr',
         env: {
           ...process.env,
           NEXT_SCRIPT: `process.env.NEXT_SCRIPT = process.env.LAST_SCRIPT; ${spawnScript}`,
@@ -170,6 +173,7 @@ describe(runSteps, () => {
 
     it('returns none for a step that states nothing', async () => {
       const result = await runSteps([opaqueNodeStep('')], undefined, {
+        bin: 'nmr',
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -179,6 +183,7 @@ describe(runSteps, () => {
 
     it('returns none for a step that stated an outcome and then failed', async () => {
       const result = await runSteps([opaqueNodeStep(`${STATE_OUTCOME_SCRIPT}; process.exit(3)`)], undefined, {
+        bin: 'nmr',
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -191,7 +196,11 @@ describe(runSteps, () => {
       const stdout = new PassThrough();
       const received = collect(stdout);
 
-      await runSteps([nodeStep(PRINT_OUTCOME_FILE_SCRIPT)], undefined, { stderr: new PassThrough(), stdout });
+      await runSteps([nodeStep(PRINT_OUTCOME_FILE_SCRIPT)], undefined, {
+        bin: 'nmr',
+        stderr: new PassThrough(),
+        stdout,
+      });
 
       expect(received().toString('utf8').trim()).toBe('unset');
     });
@@ -202,6 +211,7 @@ describe(runSteps, () => {
       const inheritedFile = path.join(os.tmpdir(), 'nmr-outcome-inherited.json');
 
       const result = await runSteps([opaqueNodeStep(PRINT_OUTCOME_FILE_SCRIPT)], undefined, {
+        bin: 'nmr',
         env: { ...process.env, [OUTCOME_FILE_ENV_VAR]: inheritedFile },
         stderr: new PassThrough(),
         stdout,

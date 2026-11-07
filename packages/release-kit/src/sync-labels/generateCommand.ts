@@ -5,6 +5,7 @@ import { isAnticipatedFailure, type OutputStyle, reportError, type StreamStyles 
 import { describeError } from '@williamthorsen/toolbelt.errors';
 import { stringify } from 'yaml';
 
+import { BIN } from '../bin.ts';
 import type { RepoLabelsConfig } from '../configSchema.ts';
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
 import { loadValidatedConfig, reportConfigProblem } from '../loadValidatedConfig.ts';
@@ -64,7 +65,7 @@ export async function loadRepoLabelsConfig(
   const result = await loadValidatedConfig(configPath);
 
   if (result.status === 'missing') {
-    reportError(`Config file not found at ${result.configFilePath}. Run \`release-kit sync-labels init\` first.`);
+    reportError(BIN, `Config file not found at ${result.configFilePath}. Run \`release-kit sync-labels init\` first.`);
     return undefined;
   }
   if (result.status === 'invalid') {
@@ -74,6 +75,7 @@ export async function loadRepoLabelsConfig(
 
   if (result.config.repoLabels === undefined) {
     reportError(
+      BIN,
       `The \`repoLabels\` block is missing from ${result.configFilePath}. Run \`release-kit sync-labels init\` to seed one.`,
     );
     return undefined;
@@ -118,7 +120,7 @@ export async function generateCommand({ shouldCheck = false, configPath, styles 
       throw error;
     }
     const message = describeError(error);
-    reportError(`Failed to resolve labels: ${message}`);
+    reportError(BIN, `Failed to resolve labels: ${message}`);
     return 1;
   }
 
@@ -143,7 +145,7 @@ export async function generateCommand({ shouldCheck = false, configPath, styles 
     writeFileSync(LABELS_OUTPUT_PATH, content, 'utf8');
   } catch (error: unknown) {
     const message = describeError(error);
-    reportError(`Failed to write ${LABELS_OUTPUT_PATH}: ${message}`);
+    reportError(BIN, `Failed to write ${LABELS_OUTPUT_PATH}: ${message}`);
     return 1;
   }
 
@@ -159,12 +161,15 @@ function compareAgainstCommittedFile(expectedContent: string): number {
   try {
     existingContent = readFileSync(LABELS_OUTPUT_PATH, 'utf8');
   } catch {
-    reportError(`${LABELS_OUTPUT_PATH} is missing. Run \`release-kit sync-labels generate\` and commit the result.`);
+    reportError(
+      BIN,
+      `${LABELS_OUTPUT_PATH} is missing. Run \`release-kit sync-labels generate\` and commit the result.`,
+    );
     return 1;
   }
 
   if (existingContent !== expectedContent) {
-    reportError(`${LABELS_OUTPUT_PATH} is stale. Run \`release-kit sync-labels generate\` and commit the result.`);
+    reportError(BIN, `${LABELS_OUTPUT_PATH} is stale. Run \`release-kit sync-labels generate\` and commit the result.`);
     return 1;
   }
 

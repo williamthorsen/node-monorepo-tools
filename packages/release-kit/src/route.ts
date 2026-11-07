@@ -3,6 +3,7 @@ import process from 'node:process';
 import { resolveSelfVersion } from '@williamthorsen/nmr-core';
 import { createCli, runCli } from '@williamthorsen/nmr-core/cli';
 
+import { BIN } from './bin.ts';
 import type { CommandContext } from './cli/commandKit.ts';
 import { init, overrides, showTagPrefixes, syncLabels, updateTemplates } from './cli/maintenanceCommands.ts';
 import { commit, createGithubRelease, prepare, publish, push, tag } from './cli/releaseCommands.ts';
@@ -13,7 +14,7 @@ const VERSION = resolveSelfVersion(import.meta.url);
 /** Runs the `release-kit` command tree against the arguments and resolves to the exit code. */
 export async function routeCommand(args: string[]): Promise<number> {
   return runCli(args, ROOT, {
-    name: 'release-kit',
+    name: BIN,
     context: { env: process.env, stderrIsTty: process.stderr.isTTY, stdoutIsTty: process.stdout.isTTY },
     stdout: process.stdout,
     stderr: process.stderr,

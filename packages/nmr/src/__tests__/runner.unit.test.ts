@@ -31,6 +31,7 @@ describe(runCommand, () => {
       const getChild = stubSpawn();
 
       const pendingRun = runCommand('cmd', undefined, {
+        bin: 'nmr',
         channels: { stderr: 2, stdout: 'pipe' },
         stderr: new PassThrough(),
         stdout: new PassThrough(),
@@ -45,6 +46,7 @@ describe(runCommand, () => {
       const getChild = stubSpawn();
 
       const pendingRun = runCommand('cmd', undefined, {
+        bin: 'nmr',
         channels: { stderr: 'pipe', stdout: 1 },
         stderr: new PassThrough(),
         stdout: new PassThrough(),
@@ -59,6 +61,7 @@ describe(runCommand, () => {
       const getChild = stubSpawn();
 
       const pendingRun = runCommand('cmd', undefined, {
+        bin: 'nmr',
         channels: PIPED_CHANNELS,
         stderr: new PassThrough(),
         stdout: new PassThrough(),
@@ -73,6 +76,7 @@ describe(runCommand, () => {
       const getChild = stubSpawn();
 
       const pendingRun = runCommand('echo $FOO', '/tmp', {
+        bin: 'nmr',
         channels: PIPED_CHANNELS,
         env: { FOO: 'bar' },
         stderr: new PassThrough(),
@@ -92,6 +96,7 @@ describe(runCommand, () => {
       const received = collect(destination);
 
       const pendingRun = runCommand('cmd', undefined, {
+        bin: 'nmr',
         channels: PIPED_CHANNELS,
         stderr: new PassThrough(),
         stdout: destination,
@@ -111,6 +116,7 @@ describe(runCommand, () => {
       const { release, stream } = createBlockingStream();
 
       const pendingRun = runCommand('cmd', undefined, {
+        bin: 'nmr',
         channels: PIPED_CHANNELS,
         stderr: new PassThrough(),
         stdout: stream,
@@ -137,6 +143,7 @@ describe(runCommand, () => {
       const destination = new PassThrough();
 
       const pendingRun = runCommand('cmd', undefined, {
+        bin: 'nmr',
         channels: PIPED_CHANNELS,
         stderr: new PassThrough(),
         stdout: destination,
@@ -155,6 +162,7 @@ describe(runCommand, () => {
       const producedBuffer = Buffer.alloc(3_000_000, 'a');
 
       const pendingRun = runCommand('cmd', undefined, {
+        bin: 'nmr',
         channels: PIPED_CHANNELS,
         stderr: new PassThrough(),
         stdout: destination,
@@ -177,6 +185,7 @@ describe(runCommand, () => {
       const destination = new PassThrough();
 
       const pendingRun = runCommand('cmd', undefined, {
+        bin: 'nmr',
         channels: PIPED_CHANNELS,
         stderr: new PassThrough(),
         stdout: destination,
@@ -203,6 +212,7 @@ describe(runCommand, () => {
       const getChild = stubSpawn();
 
       const pendingRun = runCommand('failing-command', undefined, {
+        bin: 'nmr',
         channels: PIPED_CHANNELS,
         stderr: new PassThrough(),
         stdout: new PassThrough(),
@@ -216,6 +226,7 @@ describe(runCommand, () => {
       const getChild = stubSpawn();
 
       const pendingRun = runCommand('killed-command', undefined, {
+        bin: 'nmr',
         channels: PIPED_CHANNELS,
         stderr: new PassThrough(),
         stdout: new PassThrough(),
@@ -225,12 +236,13 @@ describe(runCommand, () => {
       await expect(pendingRun).resolves.toMatchObject({ exitCode: 143, outcome: 'signaled', signal: 'SIGTERM' });
     });
 
-    it('when the spawn fails, returns 1 and writes the error line to the error stream', async () => {
+    it("when the spawn fails, returns 1 and writes the error line, prefixed with the caller's bin, to the error stream", async () => {
       const getChild = stubSpawn();
       const errorStream = new PassThrough();
       const reported = collect(errorStream);
 
       const pendingRun = runCommand('nonexistent-bin', undefined, {
+        bin: 'nmr-clean',
         channels: PIPED_CHANNELS,
         stderr: errorStream,
         stdout: new PassThrough(),
@@ -240,7 +252,7 @@ describe(runCommand, () => {
       await flushEventLoop();
 
       expect(result).toMatchObject({ exitCode: 1, outcome: 'spawn-failed' });
-      expect(reported().toString('utf8')).toBe('Error: spawn /bin/sh ENOENT\n');
+      expect(reported().toString('utf8')).toBe('nmr-clean: spawn /bin/sh ENOENT\n');
     });
 
     it('when a descendant holds the pipe open, resolves on the exit status after the grace period', async () => {
@@ -249,6 +261,7 @@ describe(runCommand, () => {
       const received = collect(destination);
 
       const pendingRun = runCommand('cmd', undefined, {
+        bin: 'nmr',
         channels: PIPED_CHANNELS,
         stderr: new PassThrough(),
         stdout: destination,
@@ -275,6 +288,7 @@ describe(runCommand, () => {
       for (let run = 0; run < 3; run++) {
         const getChild = stubSpawn();
         const pendingRun = runCommand('cmd', undefined, {
+          bin: 'nmr',
           channels: PIPED_CHANNELS,
           stderr: new PassThrough(),
           stdout: destination,
@@ -297,6 +311,7 @@ describe(runCommand, () => {
       const reported = collect(errorStream);
 
       const pendingRun = runCommand('cmd', undefined, {
+        bin: 'nmr',
         channels: PIPED_CHANNELS,
         quiet: true,
         stderr: errorStream,
@@ -317,6 +332,7 @@ describe(runCommand, () => {
       const reported = collect(errorStream);
 
       const pendingRun = runCommand('lint', undefined, {
+        bin: 'nmr',
         channels: PIPED_CHANNELS,
         quiet: true,
         stderr: errorStream,
