@@ -12,6 +12,8 @@ export interface DelegationHolder {
 
 /** What the host session needs, sent to it as JSON. Every directory is relative to the checkout. */
 export interface HostSessionParams {
+  /** The `maxBuffer` for the session's git calls; the session is sent as source, so it cannot import the constant. */
+  gitOutputLimitBytes: number;
   holder: DelegationHolder;
   lockPath: string;
   /** Begins each record line on stderr; it contains a per-delegation nonce, so that a command cannot forge one. */
@@ -254,6 +256,7 @@ export function runHostSession(params: HostSessionParams): void {
       listing = childProcess.execFileSync('git', ['ls-files', '-z', '--', '*package.json'], {
         cwd: params.rootDir,
         encoding: 'utf8',
+        maxBuffer: params.gitOutputLimitBytes,
         stdio: ['ignore', 'pipe', 'ignore'],
       });
     } catch {
