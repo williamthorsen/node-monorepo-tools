@@ -7,6 +7,7 @@ export default defineRdyConfig({
     'npm:@williamthorsen/eslint-config-typescript',
     'npm:@williamthorsen/nmr',
     'npm:@williamthorsen/release-kit',
+    'npm:@williamthorsen/toolbelt.cli',
     'npm:@williamthorsen/toolbelt.errors',
     'npm:@williamthorsen/toolbelt.filesystem',
     'npm:@williamthorsen/toolbelt.testing',

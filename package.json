@@ -36,6 +36,7 @@
     "@williamthorsen/nmr": "workspace:*",
     "@williamthorsen/release-kit": "workspace:*",
     "@williamthorsen/strict-lint": "14.2.1",
+    "@williamthorsen/toolbelt.cli": "catalog:",
     "@williamthorsen/toolbelt.errors": "catalog:",
     "@williamthorsen/toolbelt.filesystem": "catalog:",
     "@williamthorsen/toolbelt.testing": "catalog:",

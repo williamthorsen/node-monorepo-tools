@@ -10,30 +10,30 @@ interface Boundary {
   dependency: string;
   /** The one module that imports the dependency. */
   importer: string;
-  /** The one manifest that declares the dependency. */
-  declarer: string;
+  /** The manifests that declare the dependency: nmr-core's, and the root's when ReadyUp runs the dependency's kit. */
+  declarers: string[];
 }
 
 const BOUNDARIES: Boundary[] = [
   {
     dependency: '@williamthorsen/toolbelt.cli',
     importer: 'packages/nmr-core/src/cli.ts',
-    declarer: 'packages/nmr-core/package.json',
+    declarers: ['package.json', 'packages/nmr-core/package.json'],
   },
   {
     dependency: '@williamthorsen/toolbelt.datetime',
     importer: 'packages/nmr-core/src/timer.ts',
-    declarer: 'packages/nmr-core/package.json',
+    declarers: ['packages/nmr-core/package.json'],
   },
   {
     dependency: '@williamthorsen/toolbelt.packaging',
     importer: 'packages/nmr-core/src/index.ts',
-    declarer: 'packages/nmr-core/package.json',
+    declarers: ['packages/nmr-core/package.json'],
   },
   {
     dependency: '@williamthorsen/toolbelt.terminal',
     importer: 'packages/nmr-core/src/terminal.ts',
-    declarer: 'packages/nmr-core/package.json',
+    declarers: ['packages/nmr-core/package.json'],
   },
 ];
 
@@ -53,15 +53,15 @@ const it = baseIt.extend(
 
 /**
  * Guards the boundary around each experimental toolbelt API: A change to that API is repaired in one module
- * only while that module is its sole importer and nmr-core its sole declarer.
+ * only while that module is its sole importer and nmr-core the only package that declares it.
  */
-describe.for(BOUNDARIES)('the $dependency boundary', ({ dependency, importer, declarer }) => {
+describe.for(BOUNDARIES)('the $dependency boundary', ({ dependency, importer, declarers }) => {
   it("has nmr-core's wrapper module as its only importer", () => {
     expect(findImporters(monorepoRoot, dependency)).toStrictEqual([importer]);
   });
 
-  it('has nmr-core as its only declarer', () => {
-    expect(findDeclarers(monorepoRoot, dependency)).toStrictEqual([declarer]);
+  it('has nmr-core as the only package that declares it', () => {
+    expect(findDeclarers(monorepoRoot, dependency)).toStrictEqual(declarers);
   });
 });
 
