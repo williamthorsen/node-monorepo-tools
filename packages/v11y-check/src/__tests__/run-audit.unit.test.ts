@@ -414,6 +414,15 @@ describe(resolveAuditCiBin, () => {
 
 // region | Helpers
 
+/** Builds audit-ci output for a single lodash advisory with the given findings. */
+function buildLodashOutput(findings: Array<{ paths: string[] }>): string {
+  return JSON.stringify({
+    advisories: {
+      '1234': { id: 1234, module_name: 'lodash', url: 'https://github.com/advisories/GHSA-1234', findings },
+    },
+  });
+}
+
 function buildSpawnResult(overrides: Partial<SpawnSyncReturns<string>> = {}): SpawnSyncReturns<string> {
   return {
     pid: 1234,
@@ -426,15 +435,4 @@ function buildSpawnResult(overrides: Partial<SpawnSyncReturns<string>> = {}): Sp
   };
 }
 
-// endregion | Helpers
-
-// region | Helpers
-/** Builds audit-ci output for a single lodash advisory with the given findings. */
-function buildLodashOutput(findings: Array<{ paths: string[] }>): string {
-  return JSON.stringify({
-    advisories: {
-      '1234': { id: 1234, module_name: 'lodash', url: 'https://github.com/advisories/GHSA-1234', findings },
-    },
-  });
-}
 // endregion | Helpers

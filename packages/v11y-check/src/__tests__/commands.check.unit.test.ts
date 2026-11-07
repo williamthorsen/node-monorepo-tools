@@ -154,7 +154,6 @@ describe(checkCommand, () => {
           {
             addedAt: '2026-04-01T00:00:00.000Z',
             id: 'GHSA-enriched',
-
             reason: 'Accepted risk',
             url: 'https://example.com/enriched',
           },
@@ -209,7 +208,6 @@ describe(checkCommand, () => {
         allowlist: [
           {
             id: 'GHSA-ghsa-test',
-
             url: 'https://example.com/ghsa-test',
           },
         ],
@@ -368,7 +366,6 @@ describe(checkCommand, () => {
           {
             addedAt: '2026-04-01T00:00:00.000Z',
             id: 'GHSA-allowed',
-
             reason: 'Accepted',
             url: 'https://example.com/allowed',
           },
