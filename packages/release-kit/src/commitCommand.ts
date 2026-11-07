@@ -1,22 +1,20 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-import { GIT_OUTPUT_LIMIT_BYTES, hasErrnoCode, parseArgsOrExit, UserError } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES, hasErrnoCode, UserError } from '@williamthorsen/nmr-core';
 
 import { readReleaseTags, RELEASE_SUMMARY_FILE, resolveReleaseTagsPath } from './releaseFiles.ts';
 import { asUserError } from './user-error-chaining.ts';
 
-const commitFlagSchema = {
-  isDryRun: { long: '--dry-run', type: 'boolean' as const },
-};
+export interface CommitCommandOptions {
+  isDryRun: boolean;
+}
 
 /**
  * Runs the CLI `commit` command: reads the tags and summary files written by `prepare`, stages all changes, and
  * creates the release commit.
  */
-export function commitCommand(argv: string[]): void {
-  const isDryRun = parseArgsOrExit(argv, commitFlagSchema).flags.isDryRun;
-
+export function commitCommand({ isDryRun }: CommitCommandOptions): void {
   const tags = readReleaseTags();
 
   if (tags.length === 0) {

@@ -47,6 +47,7 @@ vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
 });
 
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
+import { makeCreateGithubReleaseOptions } from '../test-utils/commandOptions.ts';
 import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
@@ -79,7 +80,7 @@ describe(createGithubReleaseCommand, () => {
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([DIRECTORY_TAG]);
 
-      await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+      await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
       expect(console.warn).not.toHaveBeenCalled();
       expect(mockCreateGithubReleases).toHaveBeenCalledWith([DIRECTORY_TAG], '.meta/changelog.json', false, [

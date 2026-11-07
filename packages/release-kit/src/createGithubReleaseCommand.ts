@@ -1,44 +1,36 @@
-import { parseArgsOrExit, type StreamStyles } from '@williamthorsen/nmr-core';
+import type { StreamStyles } from '@williamthorsen/nmr-core';
 
-import { configFlagSchema } from './configFlagSchema.ts';
 import { createGithubReleases } from './createGithubRelease.ts';
 import { deriveReleaseNotesConfig } from './deriveReleaseNotesConfig.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
 import { loadUsableConfig } from './loadValidatedConfig.ts';
-import { parseRequestedTags } from './parseRequestedTags.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
-import { resolveConfigFlag } from './resolveConfigFlag.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
 import { prefixUserError } from './user-error-chaining.ts';
-const createGithubReleaseFlagSchema = {
-  ...configFlagSchema,
-  isDryRun: { long: '--dry-run', type: 'boolean' as const },
-  tags: { long: '--tags', type: 'string' as const },
-};
+export interface CreateGithubReleaseCommandOptions {
+  configPath: string | undefined;
+  isDryRun: boolean;
+  /** The tag names that `--tags` selects, or `undefined` for every release tag on HEAD. */
+  tags: string[] | undefined;
+  styles: StreamStyles;
+}
 
 /**
  * Runs the CLI `create-github-release` command: creates GitHub Releases from `changelog.json` for the tags on HEAD, or
  * a comma-separated `--tags` subset, without publishing to npm.
  *
  * A private workspace's tag is skipped with a warning and doesn't get a Release; an all-private tag set is a clean
- * no-op. A project tag gets a Release whatever the root `package.json#private` says. A relative `--config` resolves
- * against `invocationDir`.
+ * no-op. A project tag gets a Release whatever the root `package.json#private` says.
  */
-export async function createGithubReleaseCommand(
-  argv: string[],
-  styles: StreamStyles,
-  invocationDir: string,
-): Promise<void> {
-  const parsedArgs = parseArgsOrExit(argv, createGithubReleaseFlagSchema);
-  const configPath = resolveConfigFlag(parsedArgs.flags.config, invocationDir);
-
-  const { isDryRun } = parsedArgs.flags;
-
+export async function createGithubReleaseCommand({
+  configPath,
+  isDryRun,
+  tags,
+  styles,
+}: CreateGithubReleaseCommandOptions): Promise<void> {
   const userConfig = await loadUsableConfig(styles.stderr, configPath);
 
-  const requestedTags = parseRequestedTags(parsedArgs.flags.tags);
-
-  const resolvedTags = resolveCommandTags(requestedTags, userConfig);
+  const resolvedTags = resolveCommandTags(tags, userConfig);
 
   // A private package is versioned and tagged but doesn't get a GitHub Release.
   const releasableTags = resolvedTags.filter(isReleasable);

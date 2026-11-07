@@ -80,6 +80,7 @@ vi.mock(import('../assertCleanWorkingTree.ts'), () => ({
 }));
 
 import { publishCommand } from '../publishCommand.ts';
+import { makePublishOptions } from '../test-utils/commandOptions.ts';
 import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
@@ -107,7 +108,7 @@ describe(publishCommand, () => {
         { tag: 'app-v2.0.0', kind: 'directory', dir: 'app', workspacePath: 'apps/app', isPublishable: false },
       ]);
 
-      await publishCommand(['--tags=app-v2.0.0'], RICH_STYLES, process.cwd());
+      await publishCommand(makePublishOptions({ tags: ['app-v2.0.0'], styles: RICH_STYLES }));
 
       expect(console.warn).toHaveBeenCalledExactlyOnceWith(
         "Skipping app-v2.0.0: directory release 'app' is not published to a registry.",

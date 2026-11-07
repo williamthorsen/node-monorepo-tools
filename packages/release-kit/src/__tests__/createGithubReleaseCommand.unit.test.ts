@@ -1,6 +1,7 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
+import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -47,6 +48,8 @@ vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
 });
 
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
+import { ConfigProblemError } from '../loadValidatedConfig.ts';
+import { makeCreateGithubReleaseOptions } from '../test-utils/commandOptions.ts';
 import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
@@ -57,7 +60,6 @@ describe(createGithubReleaseCommand, () => {
   beforeEach(() => {
     stdioCapture = captureStdio();
     applyCreateGithubReleaseCommandDefaults();
-    void throwOnProcessExit();
     void silenceConsole(['info', 'warn']);
   });
 
@@ -68,7 +70,7 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('creates GitHub Releases for all tags on HEAD when --tags is omitted', async () => {
-    await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+    await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
     expect(mockCreateGithubReleases).toHaveBeenCalledWith(
       [{ tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true }],
@@ -79,7 +81,7 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('passes --dry-run to createGithubReleases', async () => {
-    await createGithubReleaseCommand(['--dry-run'], RICH_STYLES, process.cwd());
+    await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ isDryRun: true, styles: RICH_STYLES }));
 
     expect(mockCreateGithubReleases).toHaveBeenCalledWith(
       expect.anything(),
@@ -102,7 +104,7 @@ describe(createGithubReleaseCommand, () => {
       },
     ]);
 
-    await createGithubReleaseCommand(['--tags=core-v1.3.0'], RICH_STYLES, process.cwd());
+    await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ tags: ['core-v1.3.0'], styles: RICH_STYLES }));
 
     expect(mockCreateGithubReleases).toHaveBeenCalledWith(
       [{ tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true }],
@@ -128,7 +130,9 @@ describe(createGithubReleaseCommand, () => {
       { tag: 'extra-v0.1.0', kind: 'package', dir: 'extra', workspacePath: 'packages/extra', isPublishable: true },
     ]);
 
-    await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0'], RICH_STYLES, process.cwd());
+    await createGithubReleaseCommand(
+      makeCreateGithubReleaseOptions({ tags: ['core-v1.3.0', 'extra-v0.1.0'], styles: RICH_STYLES }),
+    );
 
     expect(mockCreateGithubReleases).toHaveBeenCalledWith(
       [
@@ -141,27 +145,22 @@ describe(createGithubReleaseCommand, () => {
     );
   });
 
-  it('exits with code 1 on unknown flags', async () => {
-    const error = await captureError(ProcessExitError, () =>
-      createGithubReleaseCommand(['--unknown'], RICH_STYLES, process.cwd()),
-    );
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
-  });
-
   it('exits with code 1 for a named config that fails to load before an all-private tag set returns', async () => {
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: false },
     ]);
     mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
 
-    const error = await captureError(ProcessExitError, () =>
-      createGithubReleaseCommand(['--config', 'elsewhere/absent.config.ts'], RICH_STYLES, process.cwd()),
+    const error = await captureError(ConfigProblemError, () =>
+      createGithubReleaseCommand(
+        makeCreateGithubReleaseOptions({ configPath: '/repo/elsewhere/absent.config.ts', styles: RICH_STYLES }),
+      ),
     );
 
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
+    expect(error.problem).toStrictEqual({
+      kind: 'load',
+      message: 'Config file not found: /repo/elsewhere/absent.config.ts',
+    });
     expect(mockCreateGithubReleases).not.toHaveBeenCalled();
   });
 
@@ -171,12 +170,11 @@ describe(createGithubReleaseCommand, () => {
     ]);
     mockLoadConfig.mockRejectedValue(new Error('Unexpected token in config'));
 
-    const error = await captureError(ProcessExitError, () =>
-      createGithubReleaseCommand([], RICH_STYLES, process.cwd()),
+    const error = await captureError(ConfigProblemError, () =>
+      createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES })),
     );
 
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
+    expect(error.problem).toStrictEqual({ kind: 'load', message: 'Unexpected token in config' });
     expect(mockCreateGithubReleases).not.toHaveBeenCalled();
   });
 
@@ -186,17 +184,21 @@ describe(createGithubReleaseCommand, () => {
     ]);
     mockLoadConfig.mockResolvedValue({ workTypes: 'not-an-object' });
 
-    const error = await captureError(ProcessExitError, () =>
-      createGithubReleaseCommand([], RICH_STYLES, process.cwd()),
+    const error = await captureError(ConfigProblemError, () =>
+      createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES })),
     );
 
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Invalid config:\n');
+    expect(error.problem.kind).toBe('validation');
     expect(mockCreateGithubReleases).not.toHaveBeenCalled();
   });
 
-  it('loads a named --config once, resolved against the invocation directory', async () => {
-    await createGithubReleaseCommand(['--config', 'elsewhere/alternative.config.ts'], RICH_STYLES, '/invoked/from');
+  it('loads a named --config once', async () => {
+    await createGithubReleaseCommand(
+      makeCreateGithubReleaseOptions({
+        configPath: '/invoked/from/elsewhere/alternative.config.ts',
+        styles: RICH_STYLES,
+      }),
+    );
 
     expect(mockLoadConfig).toHaveBeenCalledExactlyOnceWith('/invoked/from/elsewhere/alternative.config.ts');
   });
@@ -204,7 +206,7 @@ describe(createGithubReleaseCommand, () => {
   it('derives release-notes settings from the loaded config', async () => {
     mockLoadConfig.mockResolvedValue({ changelogJson: { outputPath: 'custom/changelog.json' } });
 
-    await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+    await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
     expect(mockLoadConfig).toHaveBeenCalledTimes(1);
     expect(mockDeriveReleaseNotesConfig).toHaveBeenCalledWith({
@@ -218,7 +220,7 @@ describe(createGithubReleaseCommand, () => {
       releaseNotes: { shouldInjectIntoReadme: true },
     });
 
-    await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+    await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
     const warnings = vi
       .mocked(console.warn)
@@ -234,7 +236,7 @@ describe(createGithubReleaseCommand, () => {
     ]);
     mockLoadConfig.mockResolvedValue({ workspaces: [{ dir: 'legacy', shouldExclude: true }] });
 
-    await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+    await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
     expect(console.warn).toHaveBeenCalledWith(
       'Skipping legacy-v0.9.0 (packages/legacy): excluded by config (shouldExclude: true).',
@@ -254,7 +256,7 @@ describe(createGithubReleaseCommand, () => {
     ]);
     mockLoadConfig.mockResolvedValue({ workspaces: [{ dir: 'legacy', shouldExclude: true }] });
 
-    await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+    await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
     expect(mockCreateGithubReleases).not.toHaveBeenCalled();
     expect(stdioCapture.stderr).toBe('');
@@ -263,14 +265,11 @@ describe(createGithubReleaseCommand, () => {
   it('exits with code 1 when it does not find any release tags on HEAD', async () => {
     mockResolveReleaseTags.mockReturnValue([]);
 
-    const error = await captureError(ProcessExitError, () =>
-      createGithubReleaseCommand([], RICH_STYLES, process.cwd()),
+    const error = await captureError(UserError, () =>
+      createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES })),
     );
 
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain(
-      'Error: HEAD does not have any release tags. Create tags with `release-kit tag` first.\n',
-    );
+    expect(error.message).toBe('HEAD does not have any release tags. Create tags with `release-kit tag` first.');
   });
 
   it('exits with code 1 when --tags references an unmatched tag', async () => {
@@ -279,12 +278,11 @@ describe(createGithubReleaseCommand, () => {
       { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
 
-    const error = await captureError(ProcessExitError, () =>
-      createGithubReleaseCommand(['--tags=core-v9.9.9'], RICH_STYLES, process.cwd()),
+    const error = await captureError(UsageError, () =>
+      createGithubReleaseCommand(makeCreateGithubReleaseOptions({ tags: ['core-v9.9.9'], styles: RICH_STYLES })),
     );
 
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Error: Unknown tag "core-v9.9.9" in --tags. Available: core-v1.3.0\n');
+    expect(error.message).toBe('Unknown tag "core-v9.9.9" in --tags. Available: core-v1.3.0');
   });
 
   it('rethrows the UserError when discoverWorkspaces throws', async () => {
@@ -292,7 +290,9 @@ describe(createGithubReleaseCommand, () => {
       throw new UserError('discovery failed');
     });
 
-    const error = await captureError(UserError, () => createGithubReleaseCommand([], RICH_STYLES, process.cwd()));
+    const error = await captureError(UserError, () =>
+      createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES })),
+    );
     expect(error.message).toBe('Failed to discover workspaces: discovery failed');
   });
 
@@ -312,7 +312,9 @@ describe(createGithubReleaseCommand, () => {
       ],
     });
 
-    await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0'], RICH_STYLES, process.cwd());
+    await createGithubReleaseCommand(
+      makeCreateGithubReleaseOptions({ tags: ['core-v1.3.0', 'extra-v0.1.0'], styles: RICH_STYLES }),
+    );
 
     expect(stdioCapture.stderr).toBe('');
     expect(console.info).toHaveBeenCalledWith(
@@ -330,7 +332,7 @@ describe(createGithubReleaseCommand, () => {
       skippedTags: [{ tag: 'core-v1.3.0', reason: 'no-audience-content' }],
     });
 
-    await createGithubReleaseCommand(['--tags=core-v1.3.0'], RICH_STYLES, process.cwd());
+    await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ tags: ['core-v1.3.0'], styles: RICH_STYLES }));
 
     expect(stdioCapture.stderr).toBe('');
     expect(console.info).toHaveBeenCalledWith(
@@ -348,7 +350,7 @@ describe(createGithubReleaseCommand, () => {
       skippedTags: [{ tag: 'core-v1.3.0', reason: 'empty-body' }],
     });
 
-    await createGithubReleaseCommand(['--tags=core-v1.3.0'], RICH_STYLES, process.cwd());
+    await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ tags: ['core-v1.3.0'], styles: RICH_STYLES }));
 
     expect(stdioCapture.stderr).toBe('');
     expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) without releasable content: core-v1.3.0 (empty-body).');
@@ -366,7 +368,9 @@ describe(createGithubReleaseCommand, () => {
       skippedTags: [{ tag: 'extra-v0.1.0', reason: 'no-entry' }],
     });
 
-    await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0'], RICH_STYLES, process.cwd());
+    await createGithubReleaseCommand(
+      makeCreateGithubReleaseOptions({ tags: ['core-v1.3.0', 'extra-v0.1.0'], styles: RICH_STYLES }),
+    );
 
     expect(stdioCapture.stderr).toBe('');
     expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) without releasable content: extra-v0.1.0 (no-entry).');
@@ -379,7 +383,7 @@ describe(createGithubReleaseCommand, () => {
       skippedTags: [{ tag: 'v1.0.0', reason: 'no-audience-content' }],
     });
 
-    await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+    await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
     expect(console.info).toHaveBeenCalledWith(
       'Skipped 1 tag(s) without releasable content: v1.0.0 (no-audience-content).',
@@ -397,7 +401,9 @@ describe(createGithubReleaseCommand, () => {
       skippedTags: [{ tag: 'extra-v0.1.0', reason: 'no-audience-content' }],
     });
 
-    await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0'], RICH_STYLES, process.cwd());
+    await createGithubReleaseCommand(
+      makeCreateGithubReleaseOptions({ tags: ['core-v1.3.0', 'extra-v0.1.0'], styles: RICH_STYLES }),
+    );
 
     expect(stdioCapture.stderr).toBe('');
     expect(console.info).toHaveBeenCalledWith(
@@ -410,7 +416,9 @@ describe(createGithubReleaseCommand, () => {
       throw new UserError('gh release failed');
     });
 
-    const error = await captureError(UserError, () => createGithubReleaseCommand([], RICH_STYLES, process.cwd()));
+    const error = await captureError(UserError, () =>
+      createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES })),
+    );
     expect(error.message).toBe('Failed to create GitHub Releases: gh release failed');
   });
 
@@ -421,7 +429,7 @@ describe(createGithubReleaseCommand, () => {
         { tag: 'basic-v1.0.0', kind: 'package', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
       ]);
 
-      await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+      await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
       expect(console.warn).toHaveBeenCalledWith(
         'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
@@ -435,7 +443,7 @@ describe(createGithubReleaseCommand, () => {
         { tag: 'basic-v1.0.0', kind: 'package', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
       ]);
 
-      await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+      await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
       expect(mockDeriveReleaseNotesConfig).not.toHaveBeenCalled();
       expect(stdioCapture.stderr).toBe('');
@@ -448,7 +456,7 @@ describe(createGithubReleaseCommand, () => {
         { tag: 'basic-v1.0.0', kind: 'package', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
       ]);
 
-      await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+      await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
       expect(console.warn).toHaveBeenCalledWith(
         'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
@@ -470,7 +478,7 @@ describe(createGithubReleaseCommand, () => {
       mockResolveReleaseTags.mockReturnValue([PROJECT_TAG]);
       mockLoadConfig.mockResolvedValue({ project: {} });
 
-      await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+      await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
       expect(console.warn).not.toHaveBeenCalled();
       expect(mockCreateGithubReleases).toHaveBeenCalledWith([PROJECT_TAG], '.meta/changelog.json', false, [
@@ -487,7 +495,7 @@ describe(createGithubReleaseCommand, () => {
       ]);
       mockLoadConfig.mockResolvedValue({ project: {} });
 
-      await createGithubReleaseCommand([], RICH_STYLES, process.cwd());
+      await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
       expect(console.warn).toHaveBeenCalledExactlyOnceWith(
         'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
@@ -500,24 +508,13 @@ describe(createGithubReleaseCommand, () => {
   });
 
   describe('--tags parsing', () => {
-    it('rejects --tags= (empty value) with a missing-value error', async () => {
-      // The shared parseArgs helper rejects an empty `--flag=` value before the command sees it.
-      const error = await captureError(ProcessExitError, () =>
-        createGithubReleaseCommand(['--tags='], RICH_STYLES, process.cwd()),
-      );
-
-      expect(error.code).toBe(1);
-      expect(stdioCapture.stderrChunks).toContain('Error: Missing value for option: --tags\n');
-      expect(mockCreateGithubReleases).not.toHaveBeenCalled();
-    });
-
     it('drops empty segments from --tags=foo, (trailing comma)', async () => {
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       ]);
 
-      await createGithubReleaseCommand(['--tags=core-v1.3.0,'], RICH_STYLES, process.cwd());
+      await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ tags: ['core-v1.3.0'], styles: RICH_STYLES }));
 
       expect(mockCreateGithubReleases).toHaveBeenCalledWith(
         [{ tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true }],
@@ -528,7 +525,7 @@ describe(createGithubReleaseCommand, () => {
     });
 
     it('does not filter on --tags=, (only commas), preserving all HEAD tags', async () => {
-      await createGithubReleaseCommand(['--tags=,,'], RICH_STYLES, process.cwd());
+      await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
       expect(mockCreateGithubReleases).toHaveBeenCalledWith(
         [{ tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true }],

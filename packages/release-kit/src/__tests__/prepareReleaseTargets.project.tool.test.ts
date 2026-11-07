@@ -16,6 +16,7 @@ import { mergeMonorepoConfig } from '../mergeConfig.ts';
 import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
 import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
+import { makePrepareOptions } from '../test-utils/commandOptions.ts';
 import { selectCompositeResult } from '../test-utils/prepareResults.ts';
 import type { MonorepoReleaseConfig } from '../types.ts';
 
@@ -517,7 +518,9 @@ describe('project releases (tool)', () => {
     using _silencedConsole = silenceConsole(['info']);
 
     try {
-      await prepareCommand(['--only=pkg-a', '--no-git-checks'], RICH_STYLES, process.cwd());
+      await prepareCommand(
+        makePrepareOptions({ onlyNames: ['pkg-a'], shouldSkipGitChecks: true, styles: RICH_STYLES }),
+      );
     } finally {
       mockedProcessExit[Symbol.dispose]();
     }

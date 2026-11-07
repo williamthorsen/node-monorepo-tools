@@ -1,16 +1,13 @@
-/* eslint n/no-process-exit: off */
-/* eslint unicorn/no-process-exit: off */
-
 import { execSync } from 'node:child_process';
 
 import {
   formatGlyphLine,
   isAnticipatedFailure,
   type OutputStyle,
-  reportError,
   type StreamStyles,
   UserError,
 } from '@williamthorsen/nmr-core';
+import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
@@ -20,13 +17,12 @@ import type { ReleaseKitConfig } from './configSchema.ts';
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
-import { loadValidatedConfig, reportConfigProblem, reportConfigWarnings } from './loadValidatedConfig.ts';
-import { CANONICAL_SEMVER_PATTERN, parseArgs, parseSetVersions } from './prepareArgs.ts';
+import { ConfigProblemError, loadValidatedConfig, reportConfigWarnings } from './loadValidatedConfig.ts';
+import { CANONICAL_SEMVER_PATTERN, parseSetVersions } from './prepareArgs.ts';
 import { prepareReleaseTargets, type TargetPrepareOptions } from './prepareReleaseTargets.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 import { applyReleasePlan, type ReleasePlan } from './releasePlan.ts';
 import { reportPrepare } from './reportPrepare.ts';
-import { resolveConfigFlag } from './resolveConfigFlag.ts';
 import {
   isSinglePackageTargets,
   PROJECT_TARGET_ID,
@@ -34,29 +30,41 @@ import {
   resolveReleaseTargets,
   SINGLE_PACKAGE_TARGET_ID,
 } from './resolveReleaseTargets.ts';
-import type { ReleaseTarget } from './types.ts';
+import type { ReleaseTarget, ReleaseType } from './types.ts';
 import { prefixUserError } from './user-error-chaining.ts';
 
 /** Follows a failure to compute the release plan, which happens before `prepare` writes anything. */
 const UNCHANGED_TREE_NOTE = 'The command did not write any files; the working tree is unchanged.';
 
+export interface PrepareCommandOptions {
+  bumpOverride: ReleaseType | undefined;
+  configPath: string | undefined;
+  isDryRun: boolean;
+  /** The release targets that `--only` names, or `undefined` to release every target that has changes. */
+  onlyNames: string[] | undefined;
+  /** The raw `--set-version` value, whose accepted form depends on the mode. */
+  setVersion: string | undefined;
+  shouldForce: boolean;
+  shouldIncludeReleaseNotes: boolean;
+  shouldSkipGitChecks: boolean;
+  styles: StreamStyles;
+}
+
 /**
  * Orchestrates the CLI `prepare` command: checks the working tree, loads and validates the config, discovers the
  * workspaces, and prepares the release over the targets of the repo shape.
- *
- * A relative `--config` resolves against `invocationDir`.
  */
-export async function prepareCommand(argv: string[], styles: StreamStyles, invocationDir: string): Promise<void> {
-  const {
-    configPath: configFlag,
-    isDryRun,
-    shouldForce,
-    shouldSkipGitChecks,
-    bumpOverride,
-    onlyNames,
-    setVersion,
-    shouldIncludeReleaseNotes,
-  } = parseArgs(argv);
+export async function prepareCommand({
+  bumpOverride,
+  configPath,
+  isDryRun,
+  onlyNames,
+  setVersion,
+  shouldForce,
+  shouldIncludeReleaseNotes,
+  shouldSkipGitChecks,
+  styles,
+}: PrepareCommandOptions): Promise<void> {
   const options = {
     shouldForce,
     ...(bumpOverride !== undefined && { bumpOverride }),
@@ -73,10 +81,9 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
     assertCleanWorkingTree();
   }
 
-  const configResult = await loadValidatedConfig(resolveConfigFlag(configFlag, invocationDir));
+  const configResult = await loadValidatedConfig(configPath);
   if (configResult.status === 'invalid') {
-    reportConfigProblem(configResult.problem, styles.stderr);
-    process.exit(1);
+    throw new ConfigProblemError(configResult.problem);
   }
 
   let userConfig: ReleaseKitConfig | undefined;
@@ -93,11 +100,10 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
   }
 
   if (workspaceDiscovery.kind === 'empty') {
-    reportError(`No workspace package to release. ${describeEmptyWorkspace(workspaceDiscovery)}`);
-    process.exit(1);
+    throw new UserError(`No workspace package to release. ${describeEmptyWorkspace(workspaceDiscovery)}`);
   }
 
-  const config = resolveTargetsOrExit(userConfig, workspaceDiscovery, onlyNames, setVersion);
+  const config = resolveSelectedTargets(userConfig, workspaceDiscovery, onlyNames, setVersion);
   const targetOptions: TargetPrepareOptions = {
     ...options,
     ...(onlyNames !== undefined && { onlyTargetIds: onlyNames }),
@@ -130,11 +136,11 @@ function findReleasedPackagePaths(plan: ReleasePlan, targets: readonly ReleaseTa
 
 /**
  * Resolves the release targets of the discovered repo shape, checking `--only` and `--set-version` against them.
- * Prints a usage error and exits on a flag that the shape rejects or a name that it lacks. A monorepo's config-merge
+ * Throws a `UsageError` for a flag that the shape rejects or a name that it lacks. A monorepo's config-merge
  * error is rethrown with the `Failed to resolve workspaces` prefix; a single-package config-merge error propagates
  * unchanged.
  */
-function resolveTargetsOrExit(
+function resolveSelectedTargets(
   userConfig: ReleaseKitConfig | undefined,
   discovery: Exclude<WorkspaceDiscovery, { kind: 'empty' }>,
   onlyNames: string[] | undefined,
@@ -142,14 +148,12 @@ function resolveTargetsOrExit(
 ): ResolvedReleaseTargets {
   if (discovery.kind === 'single-package') {
     if (onlyNames !== undefined) {
-      reportError('--only is only supported for monorepo configurations');
-      process.exit(1);
+      throw new UsageError('--only is only supported for monorepo configurations');
     }
     if (setVersion !== undefined && !CANONICAL_SEMVER_PATTERN.test(setVersion)) {
-      reportError(
+      throw new UsageError(
         `Invalid --set-version value "${setVersion}". Must be canonical semver (N.N.N, no pre-release suffix).`,
       );
-      process.exit(1);
     }
     return resolveReleaseTargets(userConfig, discovery);
   }
@@ -165,12 +169,11 @@ function resolveTargetsOrExit(
   // any flag that overrides the project version, so `--set-version`, which sets individual workspaces' versions, does
   // not compose with it.
   if (setVersion !== undefined && config.targets.some((target) => target.kind === 'composite')) {
-    reportError(
+    throw new UsageError(
       '--set-version cannot be combined with a project release. ' +
         "--set-version sets individual workspaces' versions; a project release rolls up every " +
         'contributing workspace. To use --set-version, run on a config without a `project` block or a `releases` composite.',
     );
-    process.exit(1);
   }
 
   const knownNames = listSelectableIds(config.targets);
@@ -180,8 +183,7 @@ function resolveTargetsOrExit(
       continue;
     }
 
-    reportError(`Unknown release target "${name}". Known targets: ${knownNames.join(', ')}`);
-    process.exit(1);
+    throw new UsageError(`Unknown release target "${name}". Known targets: ${knownNames.join(', ')}`);
   }
 
   return config;
@@ -247,11 +249,10 @@ function runAndReport(computePlan: () => ReleasePlan, isDryRun: boolean, style: 
     return;
   }
 
-  reportError(
+  throw new UserError(
     `The format command failed, but the release is prepared and ${RELEASE_TAGS_FILE} is written. ` +
       `Format the release files and run 'release-kit commit'.`,
   );
-  process.exit(1);
 }
 
 /**

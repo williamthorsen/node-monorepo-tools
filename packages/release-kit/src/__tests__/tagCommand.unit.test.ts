@@ -1,6 +1,6 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreateTags = vi.hoisted(() => vi.fn());
@@ -10,6 +10,7 @@ vi.mock(import('../createTags.ts'), () => ({
 }));
 
 import { tagCommand } from '../tagCommand.ts';
+import { makeTagOptions } from '../test-utils/commandOptions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -19,7 +20,6 @@ describe(tagCommand, () => {
   beforeEach(() => {
     stdioCapture = captureStdio();
     mockCreateTags.mockReturnValue([]);
-    void throwOnProcessExit();
     void silenceConsole(['info']);
   });
 
@@ -30,42 +30,27 @@ describe(tagCommand, () => {
   });
 
   it('delegates to createTags with default options', () => {
-    tagCommand([], RICH_STYLES);
+    tagCommand(makeTagOptions({ styles: RICH_STYLES }));
 
     expect(mockCreateTags).toHaveBeenCalledWith({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' });
   });
 
   it('passes isDryRun when --dry-run is provided', () => {
-    tagCommand(['--dry-run'], RICH_STYLES);
+    tagCommand(makeTagOptions({ isDryRun: true, styles: RICH_STYLES }));
 
     expect(mockCreateTags).toHaveBeenCalledWith({ isDryRun: true, shouldSkipGitChecks: false, style: 'rich' });
   });
 
   it('passes shouldSkipGitChecks when --no-git-checks is provided', () => {
-    tagCommand(['--no-git-checks'], RICH_STYLES);
+    tagCommand(makeTagOptions({ shouldSkipGitChecks: true, styles: RICH_STYLES }));
 
     expect(mockCreateTags).toHaveBeenCalledWith({ isDryRun: false, shouldSkipGitChecks: true, style: 'rich' });
   });
 
   it('passes both flags when both are provided', () => {
-    tagCommand(['--dry-run', '--no-git-checks'], RICH_STYLES);
+    tagCommand(makeTagOptions({ isDryRun: true, shouldSkipGitChecks: true, styles: RICH_STYLES }));
 
     expect(mockCreateTags).toHaveBeenCalledWith({ isDryRun: true, shouldSkipGitChecks: true, style: 'rich' });
-  });
-
-  it('exits with code 1 on unknown flags', async () => {
-    const error = await captureError(ProcessExitError, () => tagCommand(['--unknown'], RICH_STYLES));
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
-    expect(mockCreateTags).not.toHaveBeenCalled();
-  });
-
-  it('rejects --config, because the command does not read any config', async () => {
-    const error = await captureError(ProcessExitError, () => tagCommand(['--config', 'alt.config.ts'], RICH_STYLES));
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Error: Unknown option: --config\n');
   });
 
   it('rethrows the UserError when createTags throws', async () => {
@@ -73,7 +58,7 @@ describe(tagCommand, () => {
       throw new UserError('No tags file found. Run `release-kit prepare` first.');
     });
 
-    const error = await captureError(UserError, () => tagCommand([], RICH_STYLES));
+    const error = await captureError(UserError, () => tagCommand(makeTagOptions({ styles: RICH_STYLES })));
     expect(error.message).toBe('No tags file found. Run `release-kit prepare` first.');
   });
 });
