@@ -16,6 +16,11 @@ interface Boundary {
 
 const BOUNDARIES: Boundary[] = [
   {
+    dependency: '@williamthorsen/toolbelt.cli',
+    importer: 'packages/nmr-core/src/cli.ts',
+    declarer: 'packages/nmr-core/package.json',
+  },
+  {
     dependency: '@williamthorsen/toolbelt.datetime',
     importer: 'packages/nmr-core/src/timer.ts',
     declarer: 'packages/nmr-core/package.json',
