@@ -1,6 +1,6 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -81,7 +81,9 @@ vi.mock(import('../assertCleanWorkingTree.ts'), () => ({
   assertCleanWorkingTree: mockAssertCleanWorkingTree,
 }));
 
+import { ConfigProblemError } from '../loadValidatedConfig.ts';
 import { publishCommand } from '../publishCommand.ts';
+import { makePublishOptions } from '../test-utils/commandOptions.ts';
 import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
@@ -92,7 +94,6 @@ describe(publishCommand, () => {
   beforeEach(() => {
     stdioCapture = captureStdio();
     applyPublishCommandDefaults();
-    void throwOnProcessExit();
     void silenceConsole(['info', 'warn']);
   });
 
@@ -109,13 +110,15 @@ describe(publishCommand, () => {
       mockLoadConfig.mockResolvedValue(config);
       mockValidateConfig.mockReturnValue({ config, errors: [], warnings: [] });
 
-      await publishCommand([], RICH_STYLES, process.cwd());
+      await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
       expect(mockAssertTarballsComplete).toHaveBeenCalledWith(expect.any(Array), ['nmr-source']);
     });
 
-    it('forwards --config to the loader resolved against the invocation directory', async () => {
-      await publishCommand(['--config', 'elsewhere/alternative.config.ts'], RICH_STYLES, '/invoked/from');
+    it('forwards --config to the loader', async () => {
+      await publishCommand(
+        makePublishOptions({ configPath: '/invoked/from/elsewhere/alternative.config.ts', styles: RICH_STYLES }),
+      );
 
       expect(mockLoadConfig).toHaveBeenCalledExactlyOnceWith('/invoked/from/elsewhere/alternative.config.ts');
     });
@@ -130,7 +133,7 @@ describe(publishCommand, () => {
       mockLoadConfig.mockResolvedValue(config);
       mockValidateConfig.mockReturnValue({ config, errors: [], warnings: [] });
 
-      await publishCommand([], RICH_STYLES, process.cwd());
+      await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
       expect(console.warn).toHaveBeenCalledWith(
         'Skipping legacy-v0.9.0 (packages/legacy): excluded by config (shouldExclude: true).',
@@ -148,12 +151,14 @@ describe(publishCommand, () => {
       ]);
       mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
 
-      const error = await captureError(ProcessExitError, () =>
-        publishCommand(['--config', 'elsewhere/absent.config.ts'], RICH_STYLES, process.cwd()),
+      const error = await captureError(ConfigProblemError, () =>
+        publishCommand(makePublishOptions({ configPath: '/repo/elsewhere/absent.config.ts', styles: RICH_STYLES })),
       );
 
-      expect(error.code).toBe(1);
-      expect(stdioCapture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
+      expect(error.problem).toStrictEqual({
+        kind: 'load',
+        message: 'Config file not found: /repo/elsewhere/absent.config.ts',
+      });
       expect(console.info).not.toHaveBeenCalledWith('Nothing to publish.');
     });
 
@@ -163,10 +168,11 @@ describe(publishCommand, () => {
       ]);
       mockLoadConfig.mockRejectedValue(new Error('Unexpected token in config'));
 
-      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
+      const error = await captureError(ConfigProblemError, () =>
+        publishCommand(makePublishOptions({ styles: RICH_STYLES })),
+      );
 
-      expect(error.code).toBe(1);
-      expect(stdioCapture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
+      expect(error.problem).toStrictEqual({ kind: 'load', message: 'Unexpected token in config' });
       expect(console.info).not.toHaveBeenCalledWith('Nothing to publish.');
     });
 
@@ -177,10 +183,11 @@ describe(publishCommand, () => {
       mockLoadConfig.mockResolvedValue({ bogus: 123 });
       mockValidateConfig.mockReturnValue({ config: {}, errors: ["Unknown field: 'bogus'"], warnings: [] });
 
-      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
+      const error = await captureError(ConfigProblemError, () =>
+        publishCommand(makePublishOptions({ styles: RICH_STYLES })),
+      );
 
-      expect(error.code).toBe(1);
-      expect(stdioCapture.stderrChunks).toContain('Invalid config:\n');
+      expect(error.problem.kind).toBe('validation');
       expect(console.info).not.toHaveBeenCalledWith('Nothing to publish.');
     });
 
@@ -189,7 +196,7 @@ describe(publishCommand, () => {
         { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: false },
       ]);
 
-      await publishCommand([], RICH_STYLES, process.cwd());
+      await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
       expect(console.info).toHaveBeenCalledWith('Nothing to publish.');
       expect(stdioCapture.stderr).toBe('');
@@ -199,22 +206,25 @@ describe(publishCommand, () => {
     it('exits with code 1 rather than falling back to defaults when a named config fails to load', async () => {
       mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
 
-      const error = await captureError(ProcessExitError, () =>
-        publishCommand(['--config', 'elsewhere/absent.config.ts'], RICH_STYLES, process.cwd()),
+      const error = await captureError(ConfigProblemError, () =>
+        publishCommand(makePublishOptions({ configPath: '/repo/elsewhere/absent.config.ts', styles: RICH_STYLES })),
       );
 
-      expect(error.code).toBe(1);
-      expect(stdioCapture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
+      expect(error.problem).toStrictEqual({
+        kind: 'load',
+        message: 'Config file not found: /repo/elsewhere/absent.config.ts',
+      });
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
     it('exits with code 1 rather than falling back to defaults when the default config fails to load', async () => {
       mockLoadConfig.mockRejectedValue(new Error('Unexpected token in config'));
 
-      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
+      const error = await captureError(ConfigProblemError, () =>
+        publishCommand(makePublishOptions({ styles: RICH_STYLES })),
+      );
 
-      expect(error.code).toBe(1);
-      expect(stdioCapture.stderrChunks).toContain('Error: Failed to load config: Unexpected token in config\n');
+      expect(error.problem).toStrictEqual({ kind: 'load', message: 'Unexpected token in config' });
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
@@ -226,7 +236,7 @@ describe(publishCommand, () => {
         warnings: ['releaseNotes.shouldInjectIntoReadme is enabled but changelogJson.enabled is false'],
       });
 
-      await publishCommand([], RICH_STYLES, process.cwd());
+      await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
       expect(mockLoadConfig).toHaveBeenCalledTimes(1);
       expect(console.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('shouldInjectIntoReadme'));
@@ -240,11 +250,11 @@ describe(publishCommand, () => {
         warnings: [],
       });
 
-      const error = await captureError(ProcessExitError, () => publishCommand([], RICH_STYLES, process.cwd()));
+      const error = await captureError(ConfigProblemError, () =>
+        publishCommand(makePublishOptions({ styles: RICH_STYLES })),
+      );
 
-      expect(error.code).toBe(1);
-      expect(stdioCapture.stderrChunks).toContain('Invalid config:\n');
-      expect(stdioCapture.stderrChunks).toContain("  ❌ Unknown field: 'bogus'\n");
+      expect(error.problem).toStrictEqual({ kind: 'validation', errors: ["Unknown field: 'bogus'"] });
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
   });
@@ -265,7 +275,7 @@ describe(publishCommand, () => {
       mockResolveReadmePath.mockReturnValue('/pkg/README.md');
       mockInjectReleaseNotesIntoReadme.mockReturnValue('# Original README\n');
 
-      await publishCommand([], RICH_STYLES, process.cwd());
+      await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
       expect(mockInjectReleaseNotesIntoReadme).toHaveBeenCalledTimes(1);
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);
@@ -279,14 +289,14 @@ describe(publishCommand, () => {
         throw new UserError('publish failed');
       });
 
-      await captureError(UserError, () => publishCommand([], RICH_STYLES, process.cwd()));
+      await captureError(UserError, () => publishCommand(makePublishOptions({ styles: RICH_STYLES })));
       expect(mockWriteFileSync).toHaveBeenCalledWith('/pkg/README.md', '# Original README\n', 'utf8');
     });
 
     it('skips injection when resolveReadmePath returns undefined', async () => {
       mockResolveReadmePath.mockReturnValue(undefined);
 
-      await publishCommand([], RICH_STYLES, process.cwd());
+      await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
       expect(mockInjectReleaseNotesIntoReadme).not.toHaveBeenCalled();
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);
@@ -296,7 +306,7 @@ describe(publishCommand, () => {
       mockResolveReadmePath.mockReturnValue('/pkg/README.md');
       mockInjectReleaseNotesIntoReadme.mockReturnValue(undefined);
 
-      await publishCommand([], RICH_STYLES, process.cwd());
+      await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
       expect(mockInjectReleaseNotesIntoReadme).toHaveBeenCalledTimes(1);
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);
@@ -312,7 +322,7 @@ describe(publishCommand, () => {
         warnings: [],
       });
 
-      await publishCommand([], RICH_STYLES, process.cwd());
+      await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
       expect(mockResolveReadmePath).not.toHaveBeenCalled();
       expect(mockInjectReleaseNotesIntoReadme).not.toHaveBeenCalled();

@@ -1,34 +1,26 @@
-import { parseArgsOrExit, type StreamStyles } from '@williamthorsen/nmr-core';
+import type { StreamStyles } from '@williamthorsen/nmr-core';
 
-import { configFlagSchema } from './configFlagSchema.ts';
 import { loadUsableConfig } from './loadValidatedConfig.ts';
-import { parseRequestedTags } from './parseRequestedTags.ts';
 import { pushRelease } from './pushRelease.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
-import { resolveConfigFlag } from './resolveConfigFlag.ts';
 
-const pushFlagSchema = {
-  ...configFlagSchema,
-  isDryRun: { long: '--dry-run', type: 'boolean' as const },
-  tags: { long: '--tags', type: 'string' as const },
-  tagsOnly: { long: '--tags-only', type: 'boolean' as const },
-};
+export interface PushCommandOptions {
+  configPath: string | undefined;
+  isDryRun: boolean;
+  /** The tag names that `--tags` selects, or `undefined` to push every release tag on HEAD. */
+  tags: string[] | undefined;
+  tagsOnly: boolean;
+  styles: StreamStyles;
+}
 
 /**
- * Orchestrates the CLI `push` command: parses flags, loads the config, resolves tags from HEAD, and pushes
- * the release commit and each tag individually. A relative `--config` resolves against `invocationDir`.
+ * Orchestrates the CLI `push` command: loads the config, resolves tags from HEAD, and pushes the release commit and
+ * each tag individually.
  */
-export async function pushCommand(argv: string[], styles: StreamStyles, invocationDir: string): Promise<void> {
-  const parsedArgs = parseArgsOrExit(argv, pushFlagSchema);
-  const configPath = resolveConfigFlag(parsedArgs.flags.config, invocationDir);
-
-  const { isDryRun, tagsOnly } = parsedArgs.flags;
-
+export async function pushCommand({ configPath, isDryRun, tags, tagsOnly, styles }: PushCommandOptions): Promise<void> {
   const userConfig = await loadUsableConfig(styles.stderr, configPath);
 
-  const requestedTags = parseRequestedTags(parsedArgs.flags.tags);
-
-  const resolvedTags = resolveCommandTags(requestedTags, userConfig);
+  const resolvedTags = resolveCommandTags(tags, userConfig);
 
   if (resolvedTags.length === 0) {
     return;

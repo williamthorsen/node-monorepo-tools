@@ -70,6 +70,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
 });
 
 import { prepareCommand } from '../prepareCommand.ts';
+import { makePrepareOptions } from '../test-utils/commandOptions.ts';
 import { makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 import type { ReleasedPackageResult, SkippedPackageResult } from '../types.ts';
 
@@ -101,7 +102,7 @@ describe(prepareCommand, () => {
         }),
       );
 
-      await prepareCommand([], RICH_STYLES, process.cwd());
+      await prepareCommand(makePrepareOptions({ styles: RICH_STYLES }));
 
       expect(mockLookUpNpmPackage).toHaveBeenCalledTimes(1);
       expect(mockLookUpNpmPackage).toHaveBeenCalledWith('@scope/arrays', undefined);
@@ -117,7 +118,7 @@ describe(prepareCommand, () => {
         }),
       );
 
-      const error = await captureError(UserError, () => prepareCommand([], RICH_STYLES, process.cwd()));
+      const error = await captureError(UserError, () => prepareCommand(makePrepareOptions({ styles: RICH_STYLES })));
 
       expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
       expect(error.message).toContain('@scope/arrays: run "npm publish --access public" from packages/arrays');
@@ -133,7 +134,9 @@ describe(prepareCommand, () => {
         makePrepareResult({ targets: [makeReleasedResult('arrays')], tags: ['arrays-v1.0.0'] }),
       );
 
-      const error = await captureError(UserError, () => prepareCommand(['--dry-run'], RICH_STYLES, process.cwd()));
+      const error = await captureError(UserError, () =>
+        prepareCommand(makePrepareOptions({ isDryRun: true, styles: RICH_STYLES })),
+      );
 
       expect(error.message).toContain('@scope/arrays: Cannot reach the npm registry (ENOTFOUND)');
     });
@@ -150,7 +153,7 @@ describe(prepareCommand, () => {
         makePrepareResult({ targets: [makeReleasedResult()], tags: ['v1.0.0'] }),
       );
 
-      await prepareCommand([], RICH_STYLES, process.cwd());
+      await prepareCommand(makePrepareOptions({ styles: RICH_STYLES }));
 
       expect(mockLookUpNpmPackage).toHaveBeenCalledWith('single-package', undefined);
     });
@@ -158,7 +161,7 @@ describe(prepareCommand, () => {
     it('does not call the registry when the plan does not release anything', async () => {
       mockPrepareReleaseTargets.mockReturnValue(makePrepareResult({ targets: [makeSkippedResult('arrays')] }));
 
-      await prepareCommand([], RICH_STYLES, process.cwd());
+      await prepareCommand(makePrepareOptions({ styles: RICH_STYLES }));
 
       expect(mockLookUpNpmPackage).not.toHaveBeenCalled();
     });
@@ -174,7 +177,7 @@ describe(prepareCommand, () => {
         }),
       );
 
-      await prepareCommand([], RICH_STYLES, process.cwd());
+      await prepareCommand(makePrepareOptions({ styles: RICH_STYLES }));
 
       expect(mockAssertTarballsComplete).toHaveBeenCalledWith(['packages/arrays'], ['nmr-source']);
     });
@@ -193,7 +196,7 @@ describe(prepareCommand, () => {
         }),
       );
 
-      const error = await captureError(UserError, () => prepareCommand([], RICH_STYLES, process.cwd()));
+      const error = await captureError(UserError, () => prepareCommand(makePrepareOptions({ styles: RICH_STYLES })));
 
       expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
       expect(error.message).toContain('must contain each file that its manifest names');

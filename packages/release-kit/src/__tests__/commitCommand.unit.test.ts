@@ -1,6 +1,6 @@
 import { GIT_OUTPUT_LIMIT_BYTES, UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -15,6 +15,7 @@ vi.mock(import('node:child_process'), () => ({
 }));
 
 import { commitCommand } from '../commitCommand.ts';
+import { makeCommitOptions } from '../test-utils/commandOptions.ts';
 
 /** Creates an Error with a `code` property, matching Node's ErrnoException shape. */
 function createErrnoError(message: string, code: string): Error {
@@ -26,7 +27,6 @@ describe(commitCommand, () => {
 
   beforeEach(() => {
     stdioCapture = captureStdio();
-    void throwOnProcessExit();
     void silenceConsole(['info']);
   });
 
@@ -45,7 +45,7 @@ describe(commitCommand, () => {
       throw new Error('ENOENT');
     });
 
-    commitCommand([]);
+    commitCommand(makeCommitOptions());
 
     expect(mockExecFileSync).toHaveBeenCalledWith('git', ['add', '-A'], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
     expect(mockExecFileSync).toHaveBeenCalledWith(
@@ -65,8 +65,8 @@ describe(commitCommand, () => {
       throw createErrnoError('ENOENT: no such file or directory', 'ENOENT');
     });
 
-    expect(() => commitCommand([])).toThrow(UserError);
-    expect(() => commitCommand([])).toThrow('No tags file found at');
+    expect(() => commitCommand(makeCommitOptions())).toThrow(UserError);
+    expect(() => commitCommand(makeCommitOptions())).toThrow('No tags file found at');
   });
 
   it('if the tags file is unreadable, reports the errno rather than reporting it missing', () => {
@@ -74,8 +74,8 @@ describe(commitCommand, () => {
       throw createErrnoError('EACCES: permission denied', 'EACCES');
     });
 
-    expect(() => commitCommand([])).toThrow(UserError);
-    expect(() => commitCommand([])).toThrow('Cannot read the tags file at');
+    expect(() => commitCommand(makeCommitOptions())).toThrow(UserError);
+    expect(() => commitCommand(makeCommitOptions())).toThrow('Cannot read the tags file at');
   });
 
   it('throws when tags file is empty', () => {
@@ -84,8 +84,8 @@ describe(commitCommand, () => {
       throw createErrnoError('ENOENT', 'ENOENT');
     });
 
-    expect(() => commitCommand([])).toThrow(UserError);
-    expect(() => commitCommand([])).toThrow('is empty. Run `release-kit prepare` first.');
+    expect(() => commitCommand(makeCommitOptions())).toThrow(UserError);
+    expect(() => commitCommand(makeCommitOptions())).toThrow('is empty. Run `release-kit prepare` first.');
   });
 
   it('falls back to empty body when summary file is missing', () => {
@@ -94,7 +94,7 @@ describe(commitCommand, () => {
       throw createErrnoError('ENOENT', 'ENOENT');
     });
 
-    commitCommand([]);
+    commitCommand(makeCommitOptions());
 
     expect(mockExecFileSync).toHaveBeenCalledWith('git', ['commit', '-m', 'release: v1.0.0'], {
       maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
@@ -109,7 +109,7 @@ describe(commitCommand, () => {
     });
     mockExecFileSync.mockReturnValue('M package.json\n');
 
-    commitCommand(['--dry-run']);
+    commitCommand(makeCommitOptions({ isDryRun: true }));
 
     expect(console.info).toHaveBeenCalledWith('[dry-run] Would create commit with message:\n');
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('release: v1.0.0'));
@@ -129,7 +129,7 @@ describe(commitCommand, () => {
       throw createErrnoError('ENOENT', 'ENOENT');
     });
 
-    commitCommand([]);
+    commitCommand(makeCommitOptions());
 
     expect(mockExecFileSync).toHaveBeenCalledWith('git', ['commit', '-m', 'release: v1.0.0'], {
       maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
@@ -145,8 +145,8 @@ describe(commitCommand, () => {
       throw new Error('ENOENT');
     });
 
-    expect(() => commitCommand([])).toThrow(UserError);
-    expect(() => commitCommand([])).toThrow('EACCES: permission denied');
+    expect(() => commitCommand(makeCommitOptions())).toThrow(UserError);
+    expect(() => commitCommand(makeCommitOptions())).toThrow('EACCES: permission denied');
   });
 
   it('logs a diagnostic when dry-run git status fails', () => {
@@ -158,18 +158,8 @@ describe(commitCommand, () => {
       throw new Error('git not found');
     });
 
-    commitCommand(['--dry-run']);
+    commitCommand(makeCommitOptions({ isDryRun: true }));
 
     expect(console.info).toHaveBeenCalledWith('(Could not determine uncommitted changes)');
-  });
-
-  it('exits with error for unknown flags', () => {
-    expect(() => commitCommand(['--unknown'])).toThrow(ProcessExitError);
-    expect(stdioCapture.stderr).toContain('Unknown option');
-  });
-
-  it('rejects --config, because the command does not read any config', () => {
-    expect(() => commitCommand(['--config', 'alt.config.ts'])).toThrow(ProcessExitError);
-    expect(stdioCapture.stderr).toContain('Unknown option: --config');
   });
 });

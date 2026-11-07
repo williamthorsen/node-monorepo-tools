@@ -68,6 +68,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
 });
 
 import { prepareCommand } from '../prepareCommand.ts';
+import { makePrepareOptions } from '../test-utils/commandOptions.ts';
 import { makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
@@ -89,9 +90,12 @@ describe(prepareCommand, () => {
 
   it('passes each --set-version entry to the orchestrator, keyed by workspace, without --only', async () => {
     await prepareCommand(
-      ['--set-version=arrays@1.0.0,strings@2.0.0', '--force', '--bump=minor'],
-      RICH_STYLES,
-      process.cwd(),
+      makePrepareOptions({
+        setVersion: 'arrays@1.0.0,strings@2.0.0',
+        shouldForce: true,
+        bumpOverride: 'minor',
+        styles: RICH_STYLES,
+      }),
     );
 
     expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(expect.any(Object), {
@@ -113,7 +117,7 @@ describe(prepareCommand, () => {
     ['an empty entry', 'arrays@1.0.0,'],
   ])('rejects %s in monorepo --set-version, naming the expected form', async (_label, value) => {
     const error = await captureError(UsageError, () =>
-      prepareCommand([`--set-version=${value}`], RICH_STYLES, process.cwd()),
+      prepareCommand(makePrepareOptions({ setVersion: value, styles: RICH_STYLES })),
     );
     expect(error.message).toContain('Invalid --set-version entry');
     expect(error.message).toContain('<target>@N.N.N');
@@ -122,7 +126,7 @@ describe(prepareCommand, () => {
 
   it('rejects an unknown workspace in --set-version', async () => {
     const error = await captureError(UsageError, () =>
-      prepareCommand(['--set-version=nonexistent@1.0.0'], RICH_STYLES, process.cwd()),
+      prepareCommand(makePrepareOptions({ setVersion: 'nonexistent@1.0.0', styles: RICH_STYLES })),
     );
     expect(error.message).toContain('Unknown release target "nonexistent" in --set-version');
     expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
@@ -130,7 +134,7 @@ describe(prepareCommand, () => {
 
   it('rejects a workspace that --set-version names twice', async () => {
     const error = await captureError(UsageError, () =>
-      prepareCommand(['--set-version=arrays@1.0.0,arrays@2.0.0'], RICH_STYLES, process.cwd()),
+      prepareCommand(makePrepareOptions({ setVersion: 'arrays@1.0.0,arrays@2.0.0', styles: RICH_STYLES })),
     );
     expect(error.message).toContain('names target "arrays" more than once');
     expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
@@ -140,7 +144,7 @@ describe(prepareCommand, () => {
     mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
     const error = await captureError(UsageError, () =>
-      prepareCommand(['--set-version=1.0'], RICH_STYLES, process.cwd()),
+      prepareCommand(makePrepareOptions({ setVersion: '1.0', styles: RICH_STYLES })),
     );
     expect(error.message).toContain('Invalid --set-version value "1.0"');
     expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
@@ -149,7 +153,7 @@ describe(prepareCommand, () => {
   it('passes the --set-version version under the root target in single-package mode', async () => {
     mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
-    await prepareCommand(['--set-version=1.2.3'], RICH_STYLES, process.cwd());
+    await prepareCommand(makePrepareOptions({ setVersion: '1.2.3', styles: RICH_STYLES }));
 
     expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
       expect.any(Object),
@@ -158,7 +162,7 @@ describe(prepareCommand, () => {
   });
 
   it('forwards shouldIncludeReleaseNotes in monorepo mode when --with-release-notes is set', async () => {
-    await prepareCommand(['--with-release-notes'], RICH_STYLES, process.cwd());
+    await prepareCommand(makePrepareOptions({ shouldIncludeReleaseNotes: true, styles: RICH_STYLES }));
 
     expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
       expect.any(Object),
@@ -169,7 +173,7 @@ describe(prepareCommand, () => {
   it('forwards shouldIncludeReleaseNotes in single-package mode', async () => {
     mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
 
-    await prepareCommand(['--with-release-notes'], RICH_STYLES, process.cwd());
+    await prepareCommand(makePrepareOptions({ shouldIncludeReleaseNotes: true, styles: RICH_STYLES }));
 
     expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
       expect.any(Object),
@@ -178,7 +182,7 @@ describe(prepareCommand, () => {
   });
 
   it('omits shouldIncludeReleaseNotes from options when the flag is not set', async () => {
-    await prepareCommand([], RICH_STYLES, process.cwd());
+    await prepareCommand(makePrepareOptions({ styles: RICH_STYLES }));
 
     const callArgs = mockPrepareReleaseTargets.mock.calls[0]?.[1];
     expect(callArgs).not.toHaveProperty('shouldIncludeReleaseNotes');
@@ -200,7 +204,7 @@ describe(prepareCommand, () => {
     });
 
     it('accepts the composite name and passes it through to the orchestrator', async () => {
-      await prepareCommand(['--only=suite'], RICH_STYLES, process.cwd());
+      await prepareCommand(makePrepareOptions({ onlyNames: ['suite'], styles: RICH_STYLES }));
 
       expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
         expect.any(Object),
@@ -210,7 +214,7 @@ describe(prepareCommand, () => {
 
     it('rejects an unknown name, listing every selectable target', async () => {
       const error = await captureError(UsageError, () =>
-        prepareCommand(['--only=nonexistent'], RICH_STYLES, process.cwd()),
+        prepareCommand(makePrepareOptions({ onlyNames: ['nonexistent'], styles: RICH_STYLES })),
       );
       expect(error.message).toContain('Unknown release target "nonexistent". Known targets: arrays, strings, suite');
     });
@@ -234,7 +238,7 @@ describe(prepareCommand, () => {
     });
 
     it('accepts --only and passes the narrowing through to the orchestrator', async () => {
-      await prepareCommand(['--only=arrays'], RICH_STYLES, process.cwd());
+      await prepareCommand(makePrepareOptions({ onlyNames: ['arrays'], styles: RICH_STYLES }));
 
       expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
         expect.any(Object),
@@ -243,27 +247,27 @@ describe(prepareCommand, () => {
     });
 
     it('omits the narrowing from the orchestrator options when --only is absent', async () => {
-      await prepareCommand([], RICH_STYLES, process.cwd());
+      await prepareCommand(makePrepareOptions({ styles: RICH_STYLES }));
 
       expect(mockPrepareReleaseTargets.mock.calls[0]?.[1]).not.toHaveProperty('only');
     });
 
     it('still rejects --only with an unknown workspace name', async () => {
       const error = await captureError(UsageError, () =>
-        prepareCommand(['--only=nonexistent'], RICH_STYLES, process.cwd()),
+        prepareCommand(makePrepareOptions({ onlyNames: ['nonexistent'], styles: RICH_STYLES })),
       );
       expect(error.message).toContain('nonexistent');
       expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
     });
 
     it('runs normally without --only when project is configured', async () => {
-      await prepareCommand([], RICH_STYLES, process.cwd());
+      await prepareCommand(makePrepareOptions({ styles: RICH_STYLES }));
       expect(mockPrepareReleaseTargets).toHaveBeenCalled();
     });
 
     it('rejects --set-version with the project-aware error', async () => {
       const error = await captureError(UsageError, () =>
-        prepareCommand(['--set-version=arrays@1.2.3'], RICH_STYLES, process.cwd()),
+        prepareCommand(makePrepareOptions({ setVersion: 'arrays@1.2.3', styles: RICH_STYLES })),
       );
       expect(error.message).toContain('--set-version cannot be combined with a project release');
       expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();
@@ -271,7 +275,7 @@ describe(prepareCommand, () => {
 
     it('rejects --set-version + --only with the project-aware error', async () => {
       const error = await captureError(UsageError, () =>
-        prepareCommand(['--set-version=arrays@1.2.3', '--only=arrays'], RICH_STYLES, process.cwd()),
+        prepareCommand(makePrepareOptions({ setVersion: 'arrays@1.2.3', onlyNames: ['arrays'], styles: RICH_STYLES })),
       );
       expect(error.message).toContain('--set-version cannot be combined with a project release');
       expect(mockPrepareReleaseTargets).not.toHaveBeenCalled();

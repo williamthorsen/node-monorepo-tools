@@ -1,6 +1,7 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
+import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPushRelease = vi.hoisted(() => vi.fn());
@@ -38,8 +39,10 @@ vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
   deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
 
+import { ConfigProblemError } from '../loadValidatedConfig.ts';
 import { pushCommand } from '../pushCommand.ts';
 import type { ResolvedTag } from '../resolveReleaseTags.ts';
+import { makePushOptions } from '../test-utils/commandOptions.ts';
 import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
@@ -57,7 +60,6 @@ describe(pushCommand, () => {
     mockResolveCommandTags.mockReturnValue(TAGS);
     mockPushRelease.mockReturnValue([]);
     mockLoadConfig.mockResolvedValue(undefined);
-    void throwOnProcessExit();
     void silenceConsole(['info']);
   });
 
@@ -73,32 +75,32 @@ describe(pushCommand, () => {
   });
 
   it('delegates to pushRelease with default options', async () => {
-    await pushCommand([], RICH_STYLES, process.cwd());
+    await pushCommand(makePushOptions({ styles: RICH_STYLES }));
 
     expect(mockResolveCommandTags).toHaveBeenCalledWith(undefined, undefined);
     expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { isDryRun: false, tagsOnly: false });
   });
 
   it('passes isDryRun when --dry-run is provided', async () => {
-    await pushCommand(['--dry-run'], RICH_STYLES, process.cwd());
+    await pushCommand(makePushOptions({ isDryRun: true, styles: RICH_STYLES }));
 
     expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { isDryRun: true, tagsOnly: false });
   });
 
   it('passes tagsOnly when --tags-only is provided', async () => {
-    await pushCommand(['--tags-only'], RICH_STYLES, process.cwd());
+    await pushCommand(makePushOptions({ tagsOnly: true, styles: RICH_STYLES }));
 
     expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { isDryRun: false, tagsOnly: true });
   });
 
   it('passes tags filter to resolveCommandTags', async () => {
-    await pushCommand(['--tags=core-v1.2.0,cli-v0.5.0'], RICH_STYLES, process.cwd());
+    await pushCommand(makePushOptions({ tags: ['core-v1.2.0', 'cli-v0.5.0'], styles: RICH_STYLES }));
 
     expect(mockResolveCommandTags).toHaveBeenCalledWith(['core-v1.2.0', 'cli-v0.5.0'], undefined);
   });
 
   it('combines --tags with --tags-only to push only the tag subset', async () => {
-    await pushCommand(['--tags=core-v1.2.0', '--tags-only'], RICH_STYLES, process.cwd());
+    await pushCommand(makePushOptions({ tags: ['core-v1.2.0'], tagsOnly: true, styles: RICH_STYLES }));
 
     expect(mockResolveCommandTags).toHaveBeenCalledWith(['core-v1.2.0'], undefined);
     expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { isDryRun: false, tagsOnly: true });
@@ -106,35 +108,20 @@ describe(pushCommand, () => {
 
   it('propagates unknown-tag error from resolveCommandTags', async () => {
     mockResolveCommandTags.mockImplementation(() => {
-      throw new ProcessExitError(1);
+      throw new UsageError('Unknown tag "missing-v9.9.9" in --tags. Available: core-v1.2.0');
     });
 
-    const error = await captureError(ProcessExitError, () =>
-      pushCommand(['--tags=missing-v9.9.9'], RICH_STYLES, process.cwd()),
+    await expect(pushCommand(makePushOptions({ tags: ['missing-v9.9.9'], styles: RICH_STYLES }))).rejects.toThrow(
+      UsageError,
     );
-
-    expect(error.code).toBe(1);
-    expect(mockPushRelease).not.toHaveBeenCalled();
-  });
-
-  it('exits with code 1 when --only is passed (flag removed)', async () => {
-    const error = await captureError(ProcessExitError, () => pushCommand(['--only=core'], RICH_STYLES, process.cwd()));
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Error: Unknown option: --only\n');
-  });
-
-  it('exits with code 1 on unknown flags', async () => {
-    const error = await captureError(ProcessExitError, () => pushCommand(['--unknown'], RICH_STYLES, process.cwd()));
-
-    expect(error.code).toBe(1);
-    expect(stdioCapture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
     expect(mockPushRelease).not.toHaveBeenCalled();
   });
 
   describe('config loading', () => {
-    it('loads a named --config once, resolved against the invocation directory', async () => {
-      await pushCommand(['--config', 'elsewhere/alternative.config.ts'], RICH_STYLES, '/invoked/from');
+    it('loads a named --config once', async () => {
+      await pushCommand(
+        makePushOptions({ configPath: '/invoked/from/elsewhere/alternative.config.ts', styles: RICH_STYLES }),
+      );
 
       expect(mockLoadConfig).toHaveBeenCalledExactlyOnceWith('/invoked/from/elsewhere/alternative.config.ts');
     });
@@ -143,7 +130,7 @@ describe(pushCommand, () => {
       const config = { workspaces: [{ dir: 'cli', shouldExclude: true }] };
       mockLoadConfig.mockResolvedValue(config);
 
-      await pushCommand([], RICH_STYLES, process.cwd());
+      await pushCommand(makePushOptions({ styles: RICH_STYLES }));
 
       expect(mockResolveCommandTags).toHaveBeenCalledWith(undefined, config);
     });
@@ -151,12 +138,14 @@ describe(pushCommand, () => {
     it('exits with code 1 before resolving tags when a named config fails to load', async () => {
       mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
 
-      const error = await captureError(ProcessExitError, () =>
-        pushCommand(['--config', 'elsewhere/absent.config.ts'], RICH_STYLES, process.cwd()),
+      const error = await captureError(ConfigProblemError, () =>
+        pushCommand(makePushOptions({ configPath: '/repo/elsewhere/absent.config.ts', styles: RICH_STYLES })),
       );
 
-      expect(error.code).toBe(1);
-      expect(stdioCapture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
+      expect(error.problem).toStrictEqual({
+        kind: 'load',
+        message: 'Config file not found: /repo/elsewhere/absent.config.ts',
+      });
       expect(mockResolveCommandTags).not.toHaveBeenCalled();
       expect(mockPushRelease).not.toHaveBeenCalled();
     });
@@ -164,10 +153,9 @@ describe(pushCommand, () => {
     it('exits with code 1 when the default config fails validation', async () => {
       mockLoadConfig.mockResolvedValue({ workTypes: 'not-an-object' });
 
-      const error = await captureError(ProcessExitError, () => pushCommand([], RICH_STYLES, process.cwd()));
+      const error = await captureError(ConfigProblemError, () => pushCommand(makePushOptions({ styles: RICH_STYLES })));
 
-      expect(error.code).toBe(1);
-      expect(stdioCapture.stderrChunks).toContain('Invalid config:\n');
+      expect(error.problem.kind).toBe('validation');
       expect(mockPushRelease).not.toHaveBeenCalled();
     });
 
@@ -191,7 +179,7 @@ describe(pushCommand, () => {
       mockLoadConfig.mockResolvedValue({ workspaces: [{ dir: 'cli', shouldExclude: true }] });
       using silencedConsole = silenceConsole(['warn']);
 
-      await pushCommand([], RICH_STYLES, process.cwd());
+      await pushCommand(makePushOptions({ styles: RICH_STYLES }));
 
       expect(silencedConsole.warn).toHaveBeenCalledWith(
         'Skipping cli-v0.5.0 (packages/cli): excluded by config (shouldExclude: true).',
@@ -231,7 +219,7 @@ describe(pushCommand, () => {
       mockResolveReleaseTags.mockReturnValue([...TAGS, PROJECT_TAG]);
       mockLoadConfig.mockResolvedValue({ project: {} });
 
-      await pushCommand([], RICH_STYLES, process.cwd());
+      await pushCommand(makePushOptions({ styles: RICH_STYLES }));
 
       expect(mockPushRelease).toHaveBeenCalledWith([...TAGS, PROJECT_TAG], { isDryRun: false, tagsOnly: false });
     });
@@ -246,7 +234,7 @@ describe(pushCommand, () => {
         ],
       });
 
-      await pushCommand([], RICH_STYLES, process.cwd());
+      await pushCommand(makePushOptions({ styles: RICH_STYLES }));
 
       expect(mockPushRelease).toHaveBeenCalledWith([PROJECT_TAG], { isDryRun: false, tagsOnly: false });
       expect(stdioCapture.stderrChunks.join('')).not.toContain('HEAD does not have any release tags');
@@ -258,14 +246,14 @@ describe(pushCommand, () => {
       throw new UserError('push failed');
     });
 
-    const error = await captureError(UserError, () => pushCommand([], RICH_STYLES, process.cwd()));
+    const error = await captureError(UserError, () => pushCommand(makePushOptions({ styles: RICH_STYLES })));
     expect(error.message).toBe('push failed');
   });
 
   it('skips pushRelease when resolveCommandTags does not resolve any tags', async () => {
     mockResolveCommandTags.mockReturnValue([]);
 
-    await pushCommand([], RICH_STYLES, process.cwd());
+    await pushCommand(makePushOptions({ styles: RICH_STYLES }));
 
     expect(mockPushRelease).not.toHaveBeenCalled();
   });

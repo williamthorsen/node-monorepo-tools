@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { enterRepoRoot } from '../enterRepoRoot.ts';
 import { prepareCommand } from '../prepareCommand.ts';
+import { makePrepareOptions } from '../test-utils/commandOptions.ts';
 import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
 import { PNPM_WORKSPACE } from '../test-utils/scaffoldRepo.ts';
 
@@ -50,9 +51,9 @@ describe('prepare run from a package directory', () => {
 /** Runs `prepare --dry-run` as the bin does, entering the repo root from `dir`, and returns its stdout. */
 async function runDryPrepareFrom(dir: string): Promise<string> {
   using _cwd = pointCwdAt(dir, { chdir: true });
-  const { invocationDir } = enterRepoRoot();
+  enterRepoRoot();
   using stdioCapture = captureStdio({ includeConsole: true });
-  await prepareCommand(['--dry-run'], PLAIN_STYLES, invocationDir);
+  await prepareCommand(makePrepareOptions({ isDryRun: true, styles: PLAIN_STYLES }));
   return stdioCapture.stdout;
 }
 

@@ -18,12 +18,11 @@ import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } f
 import { dim } from './format.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
 import { ConfigProblemError, loadValidatedConfig, reportConfigWarnings } from './loadValidatedConfig.ts';
-import { CANONICAL_SEMVER_PATTERN, parseArgs, parseSetVersions } from './prepareArgs.ts';
+import { CANONICAL_SEMVER_PATTERN, parseSetVersions } from './prepareArgs.ts';
 import { prepareReleaseTargets, type TargetPrepareOptions } from './prepareReleaseTargets.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 import { applyReleasePlan, type ReleasePlan } from './releasePlan.ts';
 import { reportPrepare } from './reportPrepare.ts';
-import { resolveConfigFlag } from './resolveConfigFlag.ts';
 import {
   isSinglePackageTargets,
   PROJECT_TARGET_ID,
@@ -31,29 +30,41 @@ import {
   resolveReleaseTargets,
   SINGLE_PACKAGE_TARGET_ID,
 } from './resolveReleaseTargets.ts';
-import type { ReleaseTarget } from './types.ts';
+import type { ReleaseTarget, ReleaseType } from './types.ts';
 import { prefixUserError } from './user-error-chaining.ts';
 
 /** Follows a failure to compute the release plan, which happens before `prepare` writes anything. */
 const UNCHANGED_TREE_NOTE = 'The command did not write any files; the working tree is unchanged.';
 
+export interface PrepareCommandOptions {
+  bumpOverride: ReleaseType | undefined;
+  configPath: string | undefined;
+  isDryRun: boolean;
+  /** The release targets that `--only` names, or `undefined` to release every target that has changes. */
+  onlyNames: string[] | undefined;
+  /** The raw `--set-version` value, whose accepted form depends on the mode. */
+  setVersion: string | undefined;
+  shouldForce: boolean;
+  shouldIncludeReleaseNotes: boolean;
+  shouldSkipGitChecks: boolean;
+  styles: StreamStyles;
+}
+
 /**
  * Orchestrates the CLI `prepare` command: checks the working tree, loads and validates the config, discovers the
  * workspaces, and prepares the release over the targets of the repo shape.
- *
- * A relative `--config` resolves against `invocationDir`.
  */
-export async function prepareCommand(argv: string[], styles: StreamStyles, invocationDir: string): Promise<void> {
-  const {
-    configPath: configFlag,
-    isDryRun,
-    shouldForce,
-    shouldSkipGitChecks,
-    bumpOverride,
-    onlyNames,
-    setVersion,
-    shouldIncludeReleaseNotes,
-  } = parseArgs(argv);
+export async function prepareCommand({
+  bumpOverride,
+  configPath,
+  isDryRun,
+  onlyNames,
+  setVersion,
+  shouldForce,
+  shouldIncludeReleaseNotes,
+  shouldSkipGitChecks,
+  styles,
+}: PrepareCommandOptions): Promise<void> {
   const options = {
     shouldForce,
     ...(bumpOverride !== undefined && { bumpOverride }),
@@ -70,7 +81,7 @@ export async function prepareCommand(argv: string[], styles: StreamStyles, invoc
     assertCleanWorkingTree();
   }
 
-  const configResult = await loadValidatedConfig(resolveConfigFlag(configFlag, invocationDir));
+  const configResult = await loadValidatedConfig(configPath);
   if (configResult.status === 'invalid') {
     throw new ConfigProblemError(configResult.problem);
   }

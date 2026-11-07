@@ -1,11 +1,10 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { parseArgsOrExit, type StreamStyles } from '@williamthorsen/nmr-core';
+import type { StreamStyles } from '@williamthorsen/nmr-core';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { assertTarballsComplete } from './assertTarballsComplete.ts';
-import { configFlagSchema } from './configFlagSchema.ts';
 import { deriveReleaseNotesConfig } from './deriveReleaseNotesConfig.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
 import { formatDirectoryPublishSkip } from './formatDirectoryPublishSkip.ts';
@@ -13,39 +12,39 @@ import { formatPrivateSkip } from './formatPrivateSkip.ts';
 import { formatProjectPublishSkip } from './formatProjectPublishSkip.ts';
 import { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
 import { loadUsableConfig } from './loadValidatedConfig.ts';
-import { parseRequestedTags } from './parseRequestedTags.ts';
 import { publishPackage } from './publish.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
-import { resolveConfigFlag } from './resolveConfigFlag.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
 
-const publishFlagSchema = {
-  ...configFlagSchema,
-  isDryRun: { long: '--dry-run', type: 'boolean' as const },
-  shouldSkipGitChecks: { long: '--no-git-checks', type: 'boolean' as const },
-  shouldGenerateProvenance: { long: '--provenance', type: 'boolean' as const },
-  tags: { long: '--tags', type: 'string' as const },
-};
+export interface PublishCommandOptions {
+  configPath: string | undefined;
+  isDryRun: boolean;
+  shouldGenerateProvenance: boolean;
+  shouldSkipGitChecks: boolean;
+  /** The tag names that `--tags` selects, or `undefined` to publish every publishable release tag on HEAD. */
+  tags: string[] | undefined;
+  styles: StreamStyles;
+}
 
 /**
  * Orchestrates the CLI `publish` command: checks for a clean working tree, resolves the tags on HEAD, checks the
  * tarballs of the publishable ones from a clean checkout, and publishes each one, injecting release notes into its
- * README for the duration of the publish. A relative `--config` resolves against `invocationDir`.
+ * README for the duration of the publish.
  */
-export async function publishCommand(argv: string[], styles: StreamStyles, invocationDir: string): Promise<void> {
-  const parsedArgs = parseArgsOrExit(argv, publishFlagSchema);
-  const configPath = resolveConfigFlag(parsedArgs.flags.config, invocationDir);
-
-  const { isDryRun, shouldSkipGitChecks, shouldGenerateProvenance } = parsedArgs.flags;
-
+export async function publishCommand({
+  configPath,
+  isDryRun,
+  shouldGenerateProvenance,
+  shouldSkipGitChecks,
+  tags: requestedTags,
+  styles,
+}: PublishCommandOptions): Promise<void> {
   const userConfig = await loadUsableConfig(styles.stderr, configPath);
 
   // Run release-kit's own clean-tree check: `publishPackage` bypasses pnpm's, which would fail on the injected README.
   if (!isDryRun && !shouldSkipGitChecks) {
     assertCleanWorkingTree();
   }
-
-  const requestedTags = parseRequestedTags(parsedArgs.flags.tags);
 
   const resolvedTags = resolveCommandTags(requestedTags, userConfig);
 

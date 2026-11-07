@@ -3,21 +3,21 @@ import process from 'node:process';
 import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mockRunCli = vi.hoisted(() => vi.fn());
+const mockRouteCommand = vi.hoisted(() => vi.fn());
 
-vi.mock(import('../runCli.ts'), () => ({
-  runCli: mockRunCli,
+vi.mock(import('../route.ts'), () => ({
+  routeCommand: mockRouteCommand,
 }));
 
 describe('release-kit entry', () => {
   afterEach(() => {
     process.exitCode = undefined;
-    mockRunCli.mockReset();
+    mockRouteCommand.mockReset();
     vi.resetModules();
   });
 
   it('reports a crash as an internal error with its stack frames, and exits 1', async () => {
-    mockRunCli.mockRejectedValue(new TypeError('Cannot read properties of undefined'));
+    mockRouteCommand.mockRejectedValue(new TypeError('Cannot read properties of undefined'));
     using capture = captureStdio();
 
     await import('../cli.ts');
@@ -29,7 +29,7 @@ describe('release-kit entry', () => {
   it('reports a UserError as `Error: <message>`, and exits 1', async () => {
     // Import the class from the registry that `cli.ts` loads, which `vi.resetModules` replaces between tests.
     const { UserError } = await import('@williamthorsen/nmr-core');
-    mockRunCli.mockRejectedValue(new UserError('Failed to discover workspaces: no pnpm-workspace.yaml'));
+    mockRouteCommand.mockRejectedValue(new UserError('Failed to discover workspaces: no pnpm-workspace.yaml'));
     using capture = captureStdio();
 
     await import('../cli.ts');
@@ -38,13 +38,13 @@ describe('release-kit entry', () => {
     expect(process.exitCode).toBe(1);
   });
 
-  it('passes the arguments after the script path to the dispatch', async () => {
-    mockRunCli.mockResolvedValue(undefined);
+  it('passes the arguments after the script path to the router and exits with its code', async () => {
+    mockRouteCommand.mockResolvedValue(2);
     vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'release-kit', 'tag', '--dry-run']);
 
     await import('../cli.ts');
 
-    expect(mockRunCli).toHaveBeenCalledWith(['tag', '--dry-run']);
-    expect(process.exitCode).toBeUndefined();
+    expect(mockRouteCommand).toHaveBeenCalledWith(['tag', '--dry-run']);
+    expect(process.exitCode).toBe(2);
   });
 });

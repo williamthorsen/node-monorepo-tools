@@ -12,13 +12,11 @@ const HELP_INVOCATIONS = [
   ['commit', '--help'],
   ['create-github-release', '--help'],
   ['init', '--help'],
-  ['overrides'],
   ['overrides', 'validate', '--help'],
   ['prepare', '--help'],
   ['publish', '--help'],
   ['push', '--help'],
   ['show-tag-prefixes', '--help'],
-  ['sync-labels'],
   ['sync-labels', 'generate', '--help'],
   ['sync-labels', 'init', '--help'],
   ['sync-labels', 'sync', '--help'],
@@ -38,6 +36,13 @@ describe('release-kit bin outside a repo', () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('Usage: release-kit');
+  });
+
+  it.each([['overrides'], ['sync-labels']])('rejects %s without a command as a usage error', (...args) => {
+    const result = runBinOutsideRepo(args);
+
+    expect(result.status).toBe(2);
+    expect(result.stderr).toBe(`Error: A command is required.\nTry 'release-kit ${args[0]} --help'.\n`);
   });
 
   it('fails a command with the message naming what it looked for', () => {
