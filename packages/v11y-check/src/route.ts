@@ -1,287 +1,156 @@
 import process from 'node:process';
 
-import {
-  isAnticipatedFailure,
-  parseArgs,
-  reportError,
-  resolveSelfVersion,
-  type StreamStyles,
-  UserError,
-} from '@williamthorsen/nmr-core';
+import { isAnticipatedFailure, reportError, resolveSelfVersion, type StreamStyles } from '@williamthorsen/nmr-core';
+import { createCli, type FlagSchema, runCli, UsageError } from '@williamthorsen/nmr-core/cli';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { auditCommand, checkCommand, syncCommand } from './commands.ts';
 import { initCommand } from './init/initCommand.ts';
 import { updateTemplatesCommand } from './init/updateTemplatesCommand.ts';
-import { OUTPUT_STYLE_ENV_VAR, resolveStyles } from './resolveStyles.ts';
+import { OUTPUT_STYLE_ENV_VAR, resolveStyles, type ResolveStylesOptions } from './resolveStyles.ts';
 import type { AuditScope, CommandOptions } from './types.ts';
 
 const VERSION = resolveSelfVersion(import.meta.url);
 
-const SUBCOMMANDS = ['check', 'init', 'sync', 'update-templates'];
-const MIN_PREFIX_LENGTH = 3;
-
-/** Prints the top-level usage. */
-function showHelp(): void {
-  console.info(`
-Usage: v11y [options]
-       v11y <command> [options]
-
-Commands:
-  check (default)      Grouped vulnerability check with severity indicators
-  sync                 Synchronize allowlists with current audit findings
-  init                 Scaffold a starter config file and GitHub Actions workflow
-  update-templates     Update the scaffolded workflow to the current template
-
-Scope options:
-  --dev                Target dev dependencies only
-  --prod               Target production dependencies only
-
-Other options:
-  --config <path>      Path to config file (default: .config/v11y-check.config.json)
-  --json               Output results as JSON
-  --raw                Run raw audit-ci passthrough
-  --verbose, -v        Show detailed per-vulnerability output
-  --help, -h           Show this help message
-  --version, -V        Show version number
-
-Environment:
-  ${OUTPUT_STYLE_ENV_VAR}
-                       Output style: auto (default), plain, or rich. auto prints plain,
-                       without emoji, when CI is set or the stream is not a terminal.
-`);
-}
-
-/** Prints the usage of `v11y init`. */
-function showInitHelp(): void {
-  console.info(`
-Usage: v11y init [options]
-
-Scaffold a starter config file and GitHub Actions workflow.
-
-Options:
-  --dry-run, -n   Preview changes without writing files
-  --force, -f     Overwrite an existing workflow (an existing config is never overwritten)
-  --help, -h      Show this help message
-`);
-}
-
-/** Prints the usage of `v11y sync`. */
-function showSyncHelp(): void {
-  console.info(`
-Usage: v11y sync [options]
-
-Synchronize allowlists with current audit findings.
-
-Scope options:
-  --dev              Target dev dependencies only
-  --prod             Target production dependencies only
-
-Other options:
-  --config <path>    Path to config file (default: .config/v11y-check.config.json)
-  --json             Output results as JSON
-  --help, -h         Show this help message
-`);
-}
-
-/** Prints the usage of `v11y update-templates`. */
-function showUpdateTemplatesHelp(): void {
-  console.info(`
-Usage: v11y update-templates [options]
-
-Update .github/workflows/audit.yaml to the template of the installed version,
-showing what changed. Creates the workflow when it is missing. Never touches
-the config file.
-
-Options:
-  --dry-run, -n   Preview changes without writing files
-  --help, -h      Show this help message
-`);
-}
-
-/** Parses the flags shared by every subcommand but `init`. */
-function parseSharedFlags(flags: string[], styles: StreamStyles): CommandOptions {
-  const flagSchema = {
-    configPath: { long: '--config', type: 'string' as const },
-    isDev: { long: '--dev', type: 'boolean' as const },
-    isJson: { long: '--json', type: 'boolean' as const, short: '-j' },
-    isProd: { long: '--prod', type: 'boolean' as const },
-    verbose: { long: '--verbose', type: 'boolean' as const, short: '-v' },
-  };
-
-  const { flags: parsedFlags } = parseArgs(flags, flagSchema);
-
-  if (parsedFlags.isDev && parsedFlags.isProd) {
-    throw new UserError('Cannot specify both --dev and --prod');
-  }
-
-  const scopes: AuditScope[] = [];
-  if (parsedFlags.isDev) scopes.push('dev');
-  if (parsedFlags.isProd) scopes.push('prod');
-
-  return {
-    configPath: parsedFlags.configPath,
-    isJson: parsedFlags.isJson,
-    scopes,
-    styles,
-    verbose: parsedFlags.verbose,
-  };
-}
-
-/** Finds the subcommand that a positional argument abbreviates, if any. */
-function findTypoMatch(input: string): string | undefined {
-  if (input.length < MIN_PREFIX_LENGTH || input.startsWith('-')) {
-    return undefined;
-  }
-  for (const subcommand of SUBCOMMANDS) {
-    if (subcommand !== input && subcommand.startsWith(input)) {
-      return subcommand;
-    }
-  }
-  return undefined;
-}
-
-/**
- * Routes CLI arguments to the appropriate subcommand.
- *
- * Returns a numeric exit code: 0 for success, 1 for errors.
- */
+/** Runs the `v11y` command tree against the arguments and resolves to the exit code. */
 export async function routeCommand(args: string[]): Promise<number> {
-  const command = args[0];
-
-  if (command === '--help' || command === '-h') {
-    showHelp();
-    return 0;
-  }
-
-  if (command === '--version' || command === '-V') {
-    console.info(VERSION);
-    return 0;
-  }
-
-  const styles = resolveStyles({
-    env: process.env,
-    stderrIsTty: process.stderr.isTTY,
-    stdoutIsTty: process.stdout.isTTY,
+  return runCli(args, ROOT, {
+    name: 'v11y',
+    context: { env: process.env, stderrIsTty: process.stderr.isTTY, stdoutIsTty: process.stdout.isTTY },
+    stdout: process.stdout,
+    stderr: process.stderr,
+    version: () => VERSION,
   });
-  if (styles === undefined) {
-    return 1;
-  }
-
-  if (command === 'check') {
-    return handleSubcommand(args.slice(1), styles, checkCommand);
-  }
-
-  if (command === 'init') {
-    return handleInit(args.slice(1), styles);
-  }
-
-  if (command === 'sync') {
-    return handleSubcommand(args.slice(1), styles, syncCommand, showSyncHelp);
-  }
-
-  if (command === 'update-templates') {
-    return handleUpdateTemplates(args.slice(1), styles);
-  }
-
-  // A positional argument that doesn't name a subcommand is an error, never input to the default command.
-  if (command !== undefined && !command.startsWith('-')) {
-    const typoMatch = findTypoMatch(command);
-    if (typoMatch !== undefined) {
-      reportError(`Unknown command '${command}'. Did you mean 'v11y ${typoMatch}'?`);
-      return 1;
-    }
-    reportError(`Unknown command '${command}'.`);
-    return 1;
-  }
-
-  if (args.includes('--raw')) {
-    const filteredArgs = args.filter((a) => a !== '--raw');
-    return handleSubcommand(filteredArgs, styles, auditCommand);
-  }
-
-  // Default (no args or flag-only args): grouped check command.
-  return handleSubcommand(args, styles, checkCommand);
 }
 
-/** Parses shared flags and dispatches to a subcommand handler. */
-async function handleSubcommand(
-  flags: string[],
-  styles: StreamStyles,
-  runSubcommand: (options: CommandOptions) => Promise<number>,
-  showSubcommandHelp: () => void = showHelp,
-): Promise<number> {
-  if (flags.some((f) => f === '--help' || f === '-h')) {
-    showSubcommandHelp();
-    return 0;
-  }
-
-  let options: CommandOptions;
-  try {
-    options = parseSharedFlags(flags, styles);
-  } catch (error: unknown) {
-    return reportUserError(error);
-  }
-
-  try {
-    return await runSubcommand(options);
-  } catch (error: unknown) {
-    return reportUserError(error);
-  }
+interface CommandContext {
+  styles: StreamStyles;
 }
 
-/** Handles the `init` subcommand with its own flag set. */
-function handleInit(flags: string[], styles: StreamStyles): number {
-  if (flags.some((f) => f === '--help' || f === '-h')) {
-    showInitHelp();
-    return 0;
-  }
+const { defineGroup } = createCli<ResolveStylesOptions>();
+const { defineCommand } = createCli<CommandContext>();
 
-  const initFlagSchema = {
-    isDryRun: { long: '--dry-run', type: 'boolean' as const, short: '-n' },
-    shouldForce: { long: '--force', type: 'boolean' as const, short: '-f' },
-  };
+/** The flags of every command that audits a dependency scope. */
+const SCOPE_FLAGS = {
+  config: {
+    type: 'path',
+    description: 'Path to config file (default: .config/v11y-check.config.json)',
+    short: 'c',
+    valueHint: 'path',
+  },
+  dev: { type: 'boolean', description: 'Target dev dependencies only' },
+  prod: { type: 'boolean', description: 'Target production dependencies only' },
+  json: { type: 'boolean', description: 'Output results as JSON', short: 'j' },
+} satisfies FlagSchema;
 
-  let parsedArgs;
-  try {
-    parsedArgs = parseArgs(flags, initFlagSchema);
-  } catch (error: unknown) {
-    return reportUserError(error);
-  }
+const DRY_RUN_FLAG = {
+  type: 'boolean',
+  description: 'Preview changes without writing files',
+  short: 'n',
+} satisfies FlagSchema[string];
 
-  return initCommand({ isDryRun: parsedArgs.flags.isDryRun, shouldForce: parsedArgs.flags.shouldForce, styles });
-}
+const check = defineCommand({
+  summary: 'Grouped vulnerability check with severity indicators',
+  flags: {
+    ...SCOPE_FLAGS,
+    verbose: { type: 'boolean', description: 'Show detailed per-vulnerability output', short: 'v' },
+  },
+  run: ({ flags, context }) =>
+    runReportingFailures(() => checkCommand(buildCommandOptions(flags, context.styles, flags.verbose))),
+});
 
-/** Handles the `update-templates` subcommand with its own flag set. */
-function handleUpdateTemplates(flags: string[], styles: StreamStyles): number {
-  if (flags.some((f) => f === '--help' || f === '-h')) {
-    showUpdateTemplatesHelp();
-    return 0;
-  }
+const runAuditCi = defineCommand({
+  summary: 'Run audit-ci against the generated config and print its own output',
+  flags: SCOPE_FLAGS,
+  run: ({ flags, context }) =>
+    runReportingFailures(() => auditCommand(buildCommandOptions(flags, context.styles, false))),
+});
 
-  const updateTemplatesFlagSchema = {
-    isDryRun: { long: '--dry-run', type: 'boolean' as const, short: '-n' },
-  };
+const sync = defineCommand({
+  summary: 'Synchronize allowlists with current audit findings',
+  flags: SCOPE_FLAGS,
+  run: ({ flags, context }) =>
+    runReportingFailures(() => syncCommand(buildCommandOptions(flags, context.styles, false))),
+});
 
-  let parsedArgs;
-  try {
-    parsedArgs = parseArgs(flags, updateTemplatesFlagSchema);
-  } catch (error: unknown) {
-    return reportUserError(error);
-  }
+const init = defineCommand({
+  summary: 'Scaffold a starter config file and GitHub Actions workflow',
+  flags: {
+    dryRun: DRY_RUN_FLAG,
+    force: {
+      type: 'boolean',
+      description: 'Overwrite an existing workflow (an existing config is never overwritten)',
+      short: 'f',
+    },
+  },
+  run: ({ flags, context }) =>
+    runReportingFailures(() =>
+      initCommand({ isDryRun: flags.dryRun, shouldForce: flags.force, styles: context.styles }),
+    ),
+});
 
-  return updateTemplatesCommand({ isDryRun: parsedArgs.flags.isDryRun, styles });
-}
+const updateTemplates = defineCommand({
+  summary: 'Update the scaffolded workflow to the current template',
+  description:
+    'Update .github/workflows/audit.yaml to the template of the installed version, showing what changed. Creates the workflow when it is missing. Never touches the config file.',
+  flags: { dryRun: DRY_RUN_FLAG },
+  run: ({ flags, context }) =>
+    runReportingFailures(() => updateTemplatesCommand({ isDryRun: flags.dryRun, styles: context.styles })),
+});
+
+const ROOT = defineGroup({
+  summary: 'Check dependencies for vulnerabilities against an allowlist',
+  defaultCommand: 'check',
+  deriveContext: (_flags, context): CommandContext => ({ styles: resolveStyles(context) }),
+  commands: {
+    check,
+    'run-audit-ci': runAuditCi,
+    sync,
+    init,
+    'update-templates': updateTemplates,
+  },
+  epilog: `Environment:
+  ${OUTPUT_STYLE_ENV_VAR}
+      Output style: auto (default), plain, or rich. auto prints plain, without emoji,
+      when CI is set or the stream is not a terminal.
+
+Examples:
+  v11y                          Check both scopes
+  v11y --prod --verbose         Check production dependencies, with per-vulnerability detail
+  v11y run-audit-ci --prod      Print audit-ci's own report for production dependencies
+  v11y sync --dev               Update the dev allowlist to the current findings`,
+});
 
 // region | Helpers
 
-/** Reports an anticipated failure and returns exit code 1; rethrows anything else for the handler in `cli.ts`. */
-function reportUserError(error: unknown): number {
-  if (!isAnticipatedFailure(error)) {
-    throw error;
+/** Builds a command's options from the scope flags, rejecting `--dev` with `--prod`. */
+function buildCommandOptions(
+  flags: { config: string | undefined; dev: boolean; json: boolean; prod: boolean },
+  styles: StreamStyles,
+  verbose: boolean,
+): CommandOptions {
+  if (flags.dev && flags.prod) {
+    throw new UsageError('Cannot specify both --dev and --prod');
   }
-  reportError(describeError(error));
-  return 1;
+
+  const scopes: AuditScope[] = [];
+  if (flags.dev) scopes.push('dev');
+  if (flags.prod) scopes.push('prod');
+
+  return { configPath: flags.config, isJson: flags.json, scopes, styles, verbose };
+}
+
+/** Runs a command, reporting an anticipated failure as `Error: <message>` with exit code 1 and rethrowing anything else. */
+async function runReportingFailures(runCommand: () => number | Promise<number>): Promise<number> {
+  try {
+    return await runCommand();
+  } catch (error: unknown) {
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
+    reportError(describeError(error));
+    return 1;
+  }
 }
 
 // endregion | Helpers
