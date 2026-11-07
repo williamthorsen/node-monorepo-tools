@@ -22,7 +22,7 @@ export interface EnsurePrepublishHooksResult {
   hasFailures: boolean;
 }
 
-export const DEFAULT_HOOK = 'npm run build';
+export const DEFAULT_HOOK = 'nmr build';
 
 /**
  * Checks (and optionally fixes) whether all publishable workspace packages

@@ -69,7 +69,7 @@ describe(ensurePrepublishHooks, () => {
       expect(fixedPackage?.action).toBe('fixed');
 
       const writtenManifest = readPackageJson(tree.resolve('packages/lib-a'));
-      expect(writtenManifest.scripts?.['prepublishOnly']).toBe('npm run build');
+      expect(writtenManifest.scripts?.['prepublishOnly']).toBe('nmr build');
     });
 
     it('creates scripts object if missing', ({ tree }) => {
@@ -78,7 +78,7 @@ describe(ensurePrepublishHooks, () => {
       ensurePrepublishHooks(tree.dir, { shouldFix: true, isDryRun: false });
 
       const writtenManifest = readPackageJson(tree.resolve('packages/lib-a'));
-      expect(writtenManifest.scripts).toStrictEqual({ prepublishOnly: 'npm run build' });
+      expect(writtenManifest.scripts).toStrictEqual({ prepublishOnly: 'nmr build' });
     });
 
     it('uses custom command when provided', ({ tree }) => {
@@ -171,8 +171,8 @@ describe(reportPrepublishHooks, () => {
   });
 
   it.each([
-    { expectedLine: 'PASS a: prepublishOnly = "npm run build"', style: 'plain' },
-    { expectedLine: '✅ a: prepublishOnly = "npm run build"', style: 'rich' },
+    { expectedLine: 'PASS a: prepublishOnly = "nmr build"', style: 'plain' },
+    { expectedLine: '✅ a: prepublishOnly = "nmr build"', style: 'rich' },
   ] as const)('opens a $style line on the status marker', ({ expectedLine, style }) => {
     using silent = silenceConsole(['info']);
 
@@ -187,7 +187,7 @@ describe(reportPrepublishHooks, () => {
 
     reportPrepublishHooks(buildResult([buildStatus('a', 'would-fix')]), DEFAULT_HOOK, 'plain');
 
-    expect(silent.info).toHaveBeenCalledWith('~ a: would add prepublishOnly = "npm run build"');
+    expect(silent.info).toHaveBeenCalledWith('~ a: would add prepublishOnly = "nmr build"');
   });
 });
 

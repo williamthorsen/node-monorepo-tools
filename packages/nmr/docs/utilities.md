@@ -100,8 +100,8 @@ Verify that all publishable workspace packages have a `prepublishOnly` script. E
 ensure-prepublish-hooks
 ```
 
-| Flag                  | Description                   | Default           |
-| --------------------- | ----------------------------- | ----------------- |
-| `--fix`               | Add missing hooks             | —                 |
-| `--dry-run`           | Preview what `--fix` would do | —                 |
-| `--command <command>` | Custom hook command           | `"npm run build"` |
+| Flag                  | Description                   | Default       |
+| --------------------- | ----------------------------- | ------------- |
+| `--fix`               | Add missing hooks             | —             |
+| `--dry-run`           | Preview what `--fix` would do | —             |
+| `--command <command>` | Custom hook command           | `"nmr build"` |
