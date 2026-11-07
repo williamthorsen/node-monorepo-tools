@@ -28,8 +28,8 @@ npx v11y-check init
 # Sync allowlists with current findings
 npx v11y-check sync
 
-# Raw audit-ci passthrough
-npx v11y-check --raw
+# Print audit-ci's own report
+npx v11y-check run-audit-ci
 ```
 
 The tool does not require a config file. When `.config/v11y-check.config.json` is absent, the tool uses built-in defaults: `severityThreshold: 'moderate'` for dev, `severityThreshold: 'low'` for prod, and empty allowlists.
@@ -69,51 +69,113 @@ The source-of-truth config lives at `.config/v11y-check.config.json`:
 
 ### Output style
 
-The `V11Y_CHECK_OUTPUT_STYLE` environment variable sets the style for every command, `init` included: `rich` marks each finding with an emoji, such as ❌ or ✅, and `plain` prints a word in its place, such as `FAIL` or `PASS`, which a reader of a log can search for. `auto`, the default, defers to detection. Any other value is a usage error that exits with code 1.
+The `V11Y_CHECK_OUTPUT_STYLE` environment variable sets the style for every command, `init` included: `rich` marks each finding with an emoji, such as ❌ or ✅, and `plain` prints a word in its place, such as `FAIL` or `PASS`, which a reader of a log can search for. `auto`, the default, defers to detection. Any other value is a usage error that exits with code 2.
 
 Detection decides stdout and stderr separately. A stream is plain when `CI` is set to anything other than an empty string or `false`, when the stream is not a terminal, or when `TERM` is `linux`; otherwise it is rich. `--json` output does not contain any emoji in either style.
 
 ## CLI reference
 
 ```
-Usage: v11y [options]
-       v11y <command> [options]
+Usage: v11y [options] [<command>]
+
+Check dependencies for vulnerabilities against an allowlist
 
 Commands:
-  check (default)      Grouped vulnerability check with severity indicators
-  sync                 Synchronize allowlists with current audit findings
-  init                 Scaffold a starter config file and GitHub Actions workflow
-  update-templates     Update the scaffolded workflow to the current template
+  check             Grouped vulnerability check with severity indicators (default)
+  run-audit-ci      Run audit-ci against the generated config and print its own output
+  sync              Synchronize allowlists with current audit findings
+  init              Scaffold a starter config file and GitHub Actions workflow
+  update-templates  Update the scaffolded workflow to the current template
 
-Scope options:
-  --dev                Target dev dependencies only
-  --prod               Target production dependencies only
+Options:
+  -h, --help        Print this help
+  -V, --version     Print the version
 
-Other options:
-  --config <path>      Path to config file (default: .config/v11y-check.config.json)
-  --json               Output results as JSON
-  --raw                Run raw audit-ci passthrough
-  --verbose, -v        Show detailed per-vulnerability output
-  --help, -h           Show this help message
-  --version, -V        Show version number
+Run 'v11y <command> --help' for a command's options.
 
 Environment:
   V11Y_CHECK_OUTPUT_STYLE
-                       Output style: auto (default), plain, or rich. auto prints plain,
-                       without emoji, when CI is set or the stream is not a terminal.
+      Output style: auto (default), plain, or rich. auto prints plain, without emoji,
+      when CI is set or the stream is not a terminal.
+
+Examples:
+  v11y                          Check both scopes
+  v11y --prod --verbose         Check production dependencies, with per-vulnerability detail
+  v11y run-audit-ci --prod      Print audit-ci's own report for production dependencies
+  v11y sync --dev               Update the dev allowlist to the current findings
 ```
 
-### Init options
+Every usage error, such as an unknown command or option, exits with code 2.
+
+### `check`
 
 ```
-  --dry-run, -n   Preview changes without writing files
-  --force, -f     Overwrite an existing workflow (an existing config is never overwritten)
+Usage: v11y check [options]
+
+Grouped vulnerability check with severity indicators
+
+Options:
+  -c, --config <path>  Path to config file (default: .config/v11y-check.config.json)
+      --dev            Target dev dependencies only
+      --prod           Target production dependencies only
+  -j, --json           Output results as JSON
+  -v, --verbose        Show detailed per-vulnerability output
+  -h, --help           Print this help
 ```
 
-### Update-templates options
+### `run-audit-ci`
 
 ```
-  --dry-run, -n   Preview changes without writing files
+Usage: v11y run-audit-ci [options]
+
+Run audit-ci against the generated config and print its own output
+
+Options:
+  -c, --config <path>  Path to config file (default: .config/v11y-check.config.json)
+      --dev            Target dev dependencies only
+      --prod           Target production dependencies only
+  -j, --json           Output results as JSON
+  -h, --help           Print this help
+```
+
+### `sync`
+
+```
+Usage: v11y sync [options]
+
+Synchronize allowlists with current audit findings
+
+Options:
+  -c, --config <path>  Path to config file (default: .config/v11y-check.config.json)
+      --dev            Target dev dependencies only
+      --prod           Target production dependencies only
+  -j, --json           Output results as JSON
+  -h, --help           Print this help
+```
+
+### `init`
+
+```
+Usage: v11y init [options]
+
+Scaffold a starter config file and GitHub Actions workflow
+
+Options:
+  -n, --dry-run  Preview changes without writing files
+  -f, --force    Overwrite an existing workflow (an existing config is never overwritten)
+  -h, --help     Print this help
+```
+
+### `update-templates`
+
+```
+Usage: v11y update-templates [options]
+
+Update .github/workflows/audit.yaml to the template of the installed version, showing what changed. Creates the workflow when it is missing. Never touches the config file.
+
+Options:
+  -n, --dry-run  Preview changes without writing files
+  -h, --help     Print this help
 ```
 
 ### JSON output shape
