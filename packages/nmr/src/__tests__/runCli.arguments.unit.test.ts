@@ -167,7 +167,7 @@ describe(runCli, () => {
 
       const { exitCode, stderr } = await runNmrReadingStderr(['verify', 'src/'], tree.dir);
 
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
       expect(readStepsFromCall()).toBeUndefined();
       expect(stderr).toContain('`verify` does not take trailing arguments');
     });
@@ -186,7 +186,7 @@ describe(runCli, () => {
 
       const { exitCode, stderr } = await runNmrReadingStderr(['--log', 'verify', 'src/'], tree.dir);
 
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
       expect(stderr).toContain('`verify` does not take trailing arguments');
     });
 
@@ -221,7 +221,7 @@ describe(runCli, () => {
     it('refuses a tree-rewriting command under --delegate-to and runs nothing', async ({ tree }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(['--delegate-to', 'box', 'fmt'], tree.dir);
 
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
       expect(stderr).toContain('`fmt` cannot be delegated');
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
@@ -229,8 +229,8 @@ describe(runCli, () => {
     it('rejects --delegate-to without a host', async ({ tree }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(['--delegate-to'], tree.dir);
 
-      expect(exitCode).toBe(1);
-      expect(stderr).toContain('--delegate-to requires a host argument');
+      expect(exitCode).toBe(2);
+      expect(stderr).toContain('Missing value for option: --delegate-to');
     });
 
     it('refuses --delegate-to outside a git repository', async ({ tree }) => {
@@ -250,18 +250,18 @@ describe(runCli, () => {
       expect(stderr).toContain('Cannot delegate to box: not a git repository');
     });
 
-    it('refuses --delegate=<hosts>, naming --delegate-to', async ({ tree }) => {
+    it('refuses --delegate=<hosts> as a value given to a boolean flag', async ({ tree }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(['--delegate=box', 'typecheck'], tree.dir);
 
-      expect(exitCode).toBe(1);
-      expect(stderr).toContain('--delegate does not take a value; name hosts with --delegate-to box');
+      expect(exitCode).toBe(2);
+      expect(stderr).toContain('--delegate');
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
 
     it('refuses bare --delegate when nothing names a host, naming --delegate-to', async ({ tree }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(['--delegate', 'typecheck'], tree.dir);
 
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
       expect(stderr).toContain('--delegate needs hosts');
       expect(stderr).toContain('--delegate-to <host,...>');
       expect(mockedRunSteps).not.toHaveBeenCalled();
@@ -272,7 +272,7 @@ describe(runCli, () => {
         [DELEGATE_ENV_VAR]: 'box',
       });
 
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
       expect(stderr).toContain('Unknown command: box. `box` is not a command; name a host with --delegate-to box');
     });
 
@@ -457,7 +457,7 @@ describe(runCli, () => {
 
       const { exitCode, stderr } = await runNmrReadingStderr(['verify', '-q'], tree.dir);
 
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
       expect(stderr).toContain(`${HINT_TAIL} \`nmr -q verify\``);
     });
 

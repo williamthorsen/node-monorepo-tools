@@ -7,7 +7,7 @@ import { type FilterSelection, readFilterSelection } from './helpers/filter-sele
 import { findClosestName } from './helpers/findClosestName.ts';
 import { renderQuotedList } from './helpers/renderQuotedList.ts';
 import { RUN_IF_PRESENT_ENV_VAR, type RunCliResult } from './invocation.ts';
-import type { ParsedArgs } from './invocation-args.ts';
+import type { ParsedArgs } from './nmr-flags.ts';
 import { buildRootRegistry, buildWorkspaceRegistry, readPackageJsonScripts } from './resolver.ts';
 import { runSteps, type RunStepsOptions } from './runner.ts';
 import type { Step } from './steps.ts';
@@ -61,18 +61,23 @@ export function composeDelegation(options: {
 }
 
 /**
- * Reports whether any scope that a delegation can select defines the command. A package config does not define
+ * Lists every command that a scope which a delegation can select defines. A package config does not define
  * scripts, so the root config's registries and each `package.json` cover every scope.
  */
-export function isDefinedInAnyScope(command: string, context: ResolvedContext): boolean {
-  const registries = [buildRootRegistry(context.config, context.monorepoRoot), buildWorkspaceRegistry(context.config)];
-  if (registries.some((registry) => Object.hasOwn(registry, command))) {
-    return true;
+export function listDefinedCommands(context: ResolvedContext): Set<string> {
+  const names = new Set([
+    ...Object.keys(buildRootRegistry(context.config, context.monorepoRoot)),
+    ...Object.keys(buildWorkspaceRegistry(context.config)),
+  ]);
+  const scopeDirs = [context.monorepoRoot, ...context.workspacePackageDirs];
+  for (const dir of scopeDirs) {
+    const scripts = readPackageJsonScripts(dir) ?? {};
+    for (const name of Object.keys(scripts)) {
+      names.add(name);
+    }
   }
 
-  return [context.monorepoRoot, ...context.workspacePackageDirs].some((dir) =>
-    Object.hasOwn(readPackageJsonScripts(dir) ?? {}, command),
-  );
+  return names;
 }
 
 /**

@@ -7,8 +7,16 @@ import { NO_CACHE_ENV_VAR, resolveRunId, writeDebugNote } from './check-cache.ts
 import { buildChildEnv, buildRemoteEnv } from './child-env.ts';
 import { resolveDelegationTarget } from './delegation-target.ts';
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
-import type { ExecutionTarget, Invocation, PhaseResult, RunCliResult, RunPlan } from './invocation.ts';
-import { isDelegationFlag, type ParsedArgs } from './invocation-args.ts';
+import {
+  type ExecutionTarget,
+  type Invocation,
+  type PhaseResult,
+  type RunCliResult,
+  type RunPlan,
+  USAGE_EXIT_CODE,
+} from './invocation.ts';
+import { isDelegationFlag } from './invocation-args.ts';
+import type { ParsedArgs } from './nmr-flags.ts';
 import { reportVerdict } from './presentation.ts';
 import { chooseHost, type HostChoice, probeHost, type ProbeResult } from './remote-probe.ts';
 import {
@@ -71,7 +79,7 @@ export async function resolveExecutionTarget(invocation: Invocation): Promise<Ph
   });
   if (target.kind === 'refused') {
     reportError(target.error, stderr);
-    return { settled: true, result: { exitCode: 1 } };
+    return { settled: true, result: { exitCode: USAGE_EXIT_CODE } };
   }
   if (target.kind === 'remote') {
     writeDebugNote(`delegating ${command} per ${describeDelegationSource(target, parsedArgs, env)}`, env, stderr);

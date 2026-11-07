@@ -80,9 +80,8 @@ describe(runCli, () => {
     });
 
     it.for([
-      { args: ['--version'], scenario: 'the version flag' },
-      { args: ['--help'], scenario: 'the help flag' },
       { args: ['build'], scenario: 'a command' },
+      { args: ['-F', 'my-pkg', 'build'], scenario: 'a filtered command' },
     ])('given an unrecognized inherited value, rejects $scenario before doing anything', async ({ args }, { tree }) => {
       const stdout = new PassThrough();
       const writtenChunks: Buffer[] = [];
@@ -98,7 +97,7 @@ describe(runCli, () => {
         stdout,
       });
 
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
       expect(Buffer.concat(writtenChunks)).toHaveLength(0);
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
@@ -212,9 +211,8 @@ describe(runCli, () => {
     });
 
     it.for([
-      { args: ['--version'], scenario: 'the version flag' },
-      { args: ['--help'], scenario: 'the help flag' },
       { args: ['build'], scenario: 'a command' },
+      { args: ['-F', 'my-pkg', 'build'], scenario: 'a filtered command' },
     ])('given an unrecognized inherited value, rejects $scenario before doing anything', async ({ args }, { tree }) => {
       const stdout = new PassThrough();
       const writtenChunks: Buffer[] = [];
@@ -230,7 +228,7 @@ describe(runCli, () => {
         stdout,
       });
 
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
       expect(Buffer.concat(writtenChunks)).toHaveLength(0);
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
@@ -285,14 +283,13 @@ describe(runCli, () => {
     ])('rejects $scenario', async ({ args }, { tree }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(args, tree.dir);
 
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
       expect(stderr).toContain(OUTPUT_STYLE_FLAG);
     });
 
     it.for([
-      { args: ['--version'], scenario: 'the version flag' },
-      { args: ['--help'], scenario: 'the help flag' },
       { args: ['build'], scenario: 'a command' },
+      { args: ['-F', 'my-pkg', 'build'], scenario: 'a filtered command' },
     ])('given an unrecognized inherited value, rejects $scenario before doing anything', async ({ args }, { tree }) => {
       const stdout = new PassThrough();
       const writtenChunks: Buffer[] = [];
@@ -308,15 +305,31 @@ describe(runCli, () => {
         stdout,
       });
 
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
       expect(Buffer.concat(writtenChunks)).toHaveLength(0);
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
 
+    // The router answers help and the version before it reads nmr's flags, so neither reads a presentation value.
+    it.for([['--help'], ['--version']])(
+      'answers %s without reading an unrecognized inherited value',
+      async (args, { tree }) => {
+        const { exitCode } = await runCli({
+          args,
+          cwd: tree.dir,
+          env: { [OUTPUT_STYLE_ENV_VAR]: 'fancy' },
+          stderr: new PassThrough(),
+          stdout: new PassThrough(),
+        });
+
+        expect(exitCode).toBe(0);
+      },
+    );
+
     it('names the flag and every accepted value when it rejects the flag', async ({ tree }) => {
       const { exitCode, stderr } = await runNmrReadingStderr([OUTPUT_STYLE_FLAG, 'fancy', 'fix'], tree.dir);
 
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
       expect(stderr).toContain(OUTPUT_STYLE_FLAG);
       expect(stderr).toContain('auto, plain, rich');
     });

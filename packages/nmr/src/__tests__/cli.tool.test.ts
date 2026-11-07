@@ -27,12 +27,12 @@ describe('nmr CLI', () => {
     const { stdout, exitCode } = await runNmr('--help');
     expect(exitCode).toBe(0);
     expect(stdout).toContain('Usage: nmr');
+    expect(stdout).toContain('Commands:');
     expect(stdout).toContain('Workspace commands:');
-    expect(stdout).toContain('Root commands:');
   });
 
-  it('shows help with -? flag', async () => {
-    const { stdout, exitCode } = await runNmr('-?');
+  it('shows help with -h flag', async () => {
+    const { stdout, exitCode } = await runNmr('-h');
     expect(exitCode).toBe(0);
     expect(stdout).toContain('Usage: nmr');
   });
@@ -45,13 +45,13 @@ describe('nmr CLI', () => {
 
   it('exits with error for unknown command', async () => {
     const { exitCode } = await runNmr('nonexistent-command');
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(2);
   });
 
-  it('exits 1 with a canonical Error line when -F is missing its argument', async () => {
+  it('exits 2 with a canonical Error line when -F is missing its argument', async () => {
     const { stderr, exitCode } = await runNmr('-F');
-    expect(exitCode).toBe(1);
-    expect(stderr).toContain('Error: -F/--filter requires a pattern argument');
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain('Error: Missing value for option: -F');
   });
 
   // The bin (`cli.ts`) sets `process.exitCode` and returns rather than calling `process.exit()`, so that output
@@ -96,14 +96,14 @@ describe('nmr CLI', () => {
       }
     });
 
-    it('exits 1 for an unknown command', () => {
+    it('exits 2 for an unknown command', () => {
       const result = spawnSync('node', [CLI_PATH, 'definitely-not-a-real-command'], {
         cwd: MONOREPO_ROOT,
         encoding: 'utf8',
         env: readAmbientEnv(),
         timeout: 15_000,
       });
-      expect(result.status).toBe(1);
+      expect(result.status).toBe(2);
     });
   });
 
@@ -178,9 +178,9 @@ describe('nmr CLI', () => {
       expect(stderr).toBe('');
     });
 
-    it('still exits 1 for unknown command when not set', async () => {
+    it('still exits 2 for unknown command when not set', async () => {
       const { exitCode } = await runNmr('nonexistent-command');
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
     });
   });
 
@@ -231,7 +231,7 @@ describe('nmr CLI', () => {
 
     it('still exits with error for unknown command when quiet', async () => {
       const { stderr, exitCode } = await runNmr('--quiet nonexistent-command');
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
       expect(stderr).toContain('Error: Unknown command');
     });
   });

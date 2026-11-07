@@ -215,9 +215,9 @@ describe(runCli, () => {
     it('rejects an empty pattern as it rejects a missing one', async ({ tree }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-F', '', 'build'], tree.dir);
 
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
       expect(readStepsFromCall()).toBeUndefined();
-      expect(stderr).toContain('-F/--filter requires a pattern argument');
+      expect(stderr).toContain('Missing value for option: -F');
     });
 
     it('asks pnpm what the pattern selects, from the monorepo root in which the delegate runs', async ({ tree }) => {

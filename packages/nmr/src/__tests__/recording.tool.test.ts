@@ -153,7 +153,7 @@ describe('a run printed by --log', () => {
   it('names the flag when a command does not follow it', async () => {
     const { exitCode, stderr } = await runNmr('--log');
 
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(2);
     expect(stderr).toContain('--log requires a command name');
   });
 

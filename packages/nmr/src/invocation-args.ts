@@ -1,32 +1,11 @@
 import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
 import { renderQuotedList } from './helpers/renderQuotedList.ts';
-import { OUTPUT_STYLE_FLAG } from './output-style.ts';
-import { DELEGATE_FLAG, DELEGATE_TO_FLAG, NO_DELEGATE_FLAG } from './remote-run.ts';
+import { formatFlagSpelling, formatShortSpelling, NMR_FLAGS, type NmrFlagKey } from './nmr-flags.ts';
 import { quoteToken } from './shell-syntax.ts';
 
-/** Every spelling of the flag that takes a workspace filter pattern. */
-const FILTER_FLAGS = new Set(['-F', '--filter']);
-
-/** Every spelling of a boolean flag, paired with the field that it sets. */
-const BOOLEAN_FLAGS = new Map<string, BooleanFlagName>([
-  ['-?', 'shouldShowHelp'],
-  [DELEGATE_FLAG, 'shouldDelegate'],
-  ['--help', 'shouldShowHelp'],
-  ['--json', 'shouldEmitJson'],
-  ['--log', 'shouldPrintLog'],
-  ['--no-cache', 'shouldBypassCache'],
-  [NO_DELEGATE_FLAG, 'shouldRunLocally'],
-  ['--no-lock', 'shouldBypassLock'],
-  ['-q', 'quiet'],
-  ['--quiet', 'quiet'],
-  ['-R', 'recursive'],
-  ['--recursive', 'recursive'],
-  ['-V', 'shouldShowVersion'],
-  ['--version', 'shouldShowVersion'],
-  ['-w', 'isWorkspaceRoot'],
-  ['--workspace-root', 'isWorkspaceRoot'],
-]);
+/** The flags that select delegation, in any spelling. */
+const DELEGATION_FLAG_KEYS: readonly NmrFlagKey[] = ['delegate', 'delegateTo', 'noDelegate'];
 
 /**
  * Renders the hint for nmr flags written after the command name, or `undefined` when the arguments do not
@@ -60,224 +39,54 @@ export function formatMisplacedFlagHint(
 
 /** Reports whether an argument is one of nmr's delegation flags, in any spelling. */
 export function isDelegationFlag(arg: string): boolean {
-  return (
-    arg === DELEGATE_FLAG ||
-    arg === DELEGATE_TO_FLAG ||
-    arg === NO_DELEGATE_FLAG ||
-    arg.startsWith(`${DELEGATE_FLAG}=`) ||
-    arg.startsWith(`${DELEGATE_TO_FLAG}=`)
-  );
-}
-
-/** Parses the CLI arguments into nmr's flags, the command name, and the arguments passed through to it. */
-export function parseArgs(args: string[]): ParseResult {
-  const parsedArgs: ParsedArgs = {
-    isWorkspaceRoot: false,
-    quiet: false,
-    recursive: false,
-    shouldBypassCache: false,
-    shouldBypassLock: false,
-    shouldDelegate: false,
-    shouldEmitJson: false,
-    shouldPrintLog: false,
-    shouldRunLocally: false,
-    shouldShowHelp: false,
-    shouldShowVersion: false,
-    passthrough: [],
-  };
-
-  let index = 0;
-  while (index < args.length) {
-    const arg = args[index];
-    if (arg === undefined) break;
-
-    if (FILTER_FLAGS.has(arg)) {
-      index++;
-      const filterValue = args[index];
-      // An empty pattern is rejected with a missing one: composition reads a filter for its truth, so an
-      // empty one would run the command unfiltered rather than in the scopes that the invocation asked for.
-      if (!filterValue) {
-        return { ok: false, error: '-F/--filter requires a pattern argument' };
-      }
-      parsedArgs.filter = filterValue;
-      index++;
-      continue;
-    }
-
-    const booleanFlag = BOOLEAN_FLAGS.get(arg);
-    if (booleanFlag !== undefined) {
-      parsedArgs[booleanFlag] = true;
-      index++;
-      continue;
-    }
-
-    // An assigned value names hosts, which belong to `--delegate-to`.
-    if (arg.startsWith(`${DELEGATE_FLAG}=`)) {
-      const value = arg.slice(DELEGATE_FLAG.length + 1);
-      return {
-        ok: false,
-        error: `${DELEGATE_FLAG} does not take a value; name hosts with ${DELEGATE_TO_FLAG} ${value}`,
-      };
-    }
-
-    const styleArgument = readOutputStyleArgument(args, index);
-    if (styleArgument !== undefined) {
-      if (!styleArgument.ok) {
-        return styleArgument;
-      }
-      parsedArgs.outputStyle = styleArgument.value;
-      index += styleArgument.consumedCount;
-      continue;
-    }
-
-    const delegateArgument = readDelegateArgument(args, index);
-    if (delegateArgument !== undefined) {
-      if (!delegateArgument.ok) {
-        return delegateArgument;
-      }
-      parsedArgs.delegateHosts = delegateArgument.value;
-      index += delegateArgument.consumedCount;
-      continue;
-    }
-
-    parsedArgs.command = arg;
-    parsedArgs.passthrough = args.slice(index + 1);
-    break;
-  }
-
-  const error = findArgError(parsedArgs);
-
-  return error === undefined ? { ok: true, parsedArgs } : { ok: false, error };
-}
-
-/** @internal */
-export interface ParsedArgs {
-  /** The comma-separated hosts that `--delegate-to` names, as written. */
-  delegateHosts?: string;
-  filter?: string;
-  isWorkspaceRoot: boolean;
-  /** The flag's value as it was written, which the style resolver rather than the parser narrows. */
-  outputStyle?: string;
-  quiet: boolean;
-  recursive: boolean;
-  shouldBypassCache: boolean;
-  shouldBypassLock: boolean;
-  /** Set by `--delegate`, which leaves the hosts to `NMR_DELEGATE` or the user config. */
-  shouldDelegate: boolean;
-  shouldEmitJson: boolean;
-  shouldPrintLog: boolean;
-  shouldRunLocally: boolean;
-  shouldShowHelp: boolean;
-  shouldShowVersion: boolean;
-  command?: string;
-  passthrough: string[];
+  return DELEGATION_FLAG_KEYS.some((key) => {
+    const spelling = formatFlagSpelling(key);
+    return arg === spelling || arg.startsWith(`${spelling}=`);
+  });
 }
 
 // region | Helpers
 
-/** A field that a flag sets by being written, none of which takes a value of its own. */
-type BooleanFlagName =
-  | 'isWorkspaceRoot'
-  | 'quiet'
-  | 'recursive'
-  | 'shouldBypassCache'
-  | 'shouldBypassLock'
-  | 'shouldDelegate'
-  | 'shouldEmitJson'
-  | 'shouldPrintLog'
-  | 'shouldRunLocally'
-  | 'shouldShowHelp'
-  | 'shouldShowVersion';
-
-/** What a flag that takes a value was given, and how many arguments it spent, or why it did not have a value. */
-type FlagValueRead = { ok: true; value: string; consumedCount: number } | { ok: false; error: string };
-
-type ParseResult = { ok: true; parsedArgs: ParsedArgs } | { ok: false; error: string };
-
-/**
- * Returns what is wrong with a parsed invocation, or `undefined` when nothing is.
- *
- * `--log` names what to print rather than what to run, so an invocation that passes it without a command has
- * asked for nothing; the help text answers a different question and is not a stand-in for the flag's own grammar.
- */
-function findArgError(parsedArgs: ParsedArgs): string | undefined {
-  if (
-    parsedArgs.shouldPrintLog &&
-    parsedArgs.command === undefined &&
-    !parsedArgs.shouldShowHelp &&
-    !parsedArgs.shouldShowVersion
-  ) {
-    return '--log requires a command name: `nmr --log <command>`';
+/** Returns the key of the nmr flag that an argument names, by its long name, its assignment, or its short name. */
+function findFlagKey(arg: string): NmrFlagKey | undefined {
+  const name = arg.split('=', 1)[0] ?? arg;
+  for (const key of Object.keys(NMR_FLAGS)) {
+    if (!isNmrFlagKey(key)) continue;
+    if (name === formatFlagSpelling(key) || arg === formatShortSpelling(key)) {
+      return key;
+    }
   }
 
   return undefined;
 }
 
-/**
- * Returns the hosts that `--delegate-to` at `index` names, or `undefined` when the argument is not the flag. Both
- * spellings are read, as for `--output-style`, and an empty value is rejected with a missing one.
- */
-function readDelegateArgument(args: readonly string[], index: number): FlagValueRead | undefined {
-  return readFlagValue(args, index, DELEGATE_TO_FLAG, 'a host argument');
-}
-
-/**
- * Returns what the flag at `index` names when it is `flag`, in either the `--flag value` or the `--flag=value`
- * spelling, or `undefined` when the argument is a different one. An empty value is rejected with a missing one.
- */
-function readFlagValue(
-  args: readonly string[],
-  index: number,
-  flag: string,
-  requirement: string,
-): FlagValueRead | undefined {
-  const arg = args[index] ?? '';
-  const assignment = arg.startsWith(`${flag}=`) ? arg.slice(flag.length + 1) : undefined;
-  if (arg !== flag && assignment === undefined) {
-    return undefined;
-  }
-
-  const value = assignment ?? args[index + 1];
-  if (!value) {
-    return { ok: false, error: `${flag} requires ${requirement}` };
-  }
-
-  return { ok: true, value, consumedCount: assignment === undefined ? 2 : 1 };
+/** Narrows an object key of `NMR_FLAGS` to the key type that `Object.keys` cannot infer. */
+function isNmrFlagKey(key: string): key is NmrFlagKey {
+  return Object.hasOwn(NMR_FLAGS, key);
 }
 
 /**
  * Returns how many arguments the nmr flag at `index` spans, or `undefined` when the argument is not one that the
- * hint moves. Help and version are not moved: before the command, either one shows nmr's own output in place of
- * the run.
+ * parser would accept as an nmr flag with its value.
  */
 function readMisplacedFlagLength(args: readonly string[], index: number): number | undefined {
   const arg = args[index] ?? '';
-
-  if (FILTER_FLAGS.has(arg)) {
-    // An empty pattern is not one that the parser accepts, so the flag does not have a value to move.
-    return (args[index + 1] ?? '') === '' ? undefined : 2;
+  const key = findFlagKey(arg);
+  if (key === undefined) {
+    return undefined;
   }
 
-  const booleanFlag = BOOLEAN_FLAGS.get(arg);
-  if (booleanFlag !== undefined) {
-    return booleanFlag === 'shouldShowHelp' || booleanFlag === 'shouldShowVersion' ? undefined : 1;
+  const isAssignment = arg.includes('=');
+  if (NMR_FLAGS[key].type === 'boolean') {
+    return isAssignment ? undefined : 1;
   }
 
-  const valueArgument = readOutputStyleArgument(args, index) ?? readDelegateArgument(args, index);
+  if (isAssignment) {
+    return arg.slice(arg.indexOf('=') + 1) === '' ? undefined : 1;
+  }
 
-  return valueArgument?.ok === true ? valueArgument.consumedCount : undefined;
-}
-
-/**
- * Returns what `--output-style` at `index` names, or `undefined` when the argument is not the flag.
- *
- * Both spellings are read, so neither `--output-style plain` nor `--output-style=plain` is taken for the
- * command name. An empty value is rejected with a missing one: nmr-core reads `''` as absent, which would
- * leave the flag naming whatever the variable or detection chose rather than what the invocation asked for.
- * The value itself is left to the resolver, which rejects it in the words that nmr's siblings use.
- */
-function readOutputStyleArgument(args: readonly string[], index: number): FlagValueRead | undefined {
-  return readFlagValue(args, index, OUTPUT_STYLE_FLAG, 'a value argument: auto, plain, or rich');
+  // An empty value is not one that the parser accepts, so the flag does not have a value to move.
+  return (args[index + 1] ?? '') === '' ? undefined : 2;
 }
 
 /**
