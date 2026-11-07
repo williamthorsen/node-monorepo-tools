@@ -52,12 +52,12 @@
     "allowlistEntry": {
       "type": "object",
       "description": "A single allowlisted advisory with metadata for traceability.",
-      "required": ["id", "path", "url"],
+      "required": ["id", "url"],
       "additionalProperties": false,
       "properties": {
         "addedAt": {
           "type": "string",
-          "description": "ISO date (YYYY-MM-DD) when the entry was added. Populated automatically by `v11y sync`."
+          "description": "ISO 8601 UTC datetime when the entry was added (older YYYY-MM-DD values are accepted). Populated automatically by `v11y sync`."
         },
         "id": {
           "type": "string",
@@ -65,7 +65,8 @@
         },
         "path": {
           "type": "string",
-          "description": "Dependency path where the vulnerability was found."
+          "description": "Deprecated and ignored: An entry accepts its advisory by ID, and `v11y sync` removes this field.",
+          "deprecationMessage": "Ignored by v11y-check; `v11y sync` removes it."
         },
         "reason": {
           "type": "string",

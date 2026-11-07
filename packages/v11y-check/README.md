@@ -47,7 +47,6 @@ The source-of-truth config lives at `.config/v11y-check.config.json`:
       {
         "addedAt": "2026-04-15T09:30:00.000Z",
         "id": "GHSA-1234-5678-abcd",
-        "path": "lodash",
         "reason": "Accepted risk: no user input reaches this path",
         "url": "https://github.com/advisories/GHSA-1234-5678-abcd"
       }
@@ -65,7 +64,7 @@ The source-of-truth config lives at `.config/v11y-check.config.json`:
 - **`$schema`** (optional): JSON Schema URL for editor autocomplete and validation. Automatically included by `init` and `sync`.
 - **`dev`** / **`prod`**: Scope-specific settings:
   - **`severityThreshold`** (optional): Fail on advisories at or above this severity. Valid values: `'low'`, `'moderate'`, `'high'`, `'critical'`. When omitted, audit-ci uses its own defaults.
-  - **`allowlist`**: Typed advisory entries with `id`, `path`, `url`, and optional `reason` and `addedAt`. `addedAt` is an ISO 8601 UTC datetime (e.g., `2026-04-15T09:30:00.000Z`) populated automatically by `v11y sync` on new entries; existing entries retain whatever value they had. Older `YYYY-MM-DD` values are still accepted.
+  - **`allowlist`**: Typed advisory entries with `id`, `url`, and optional `reason` and `addedAt`. An entry accepts its advisory by ID, whatever dependency chain brings the advisory in: `v11y check` shows the chains through which each advisory currently arrives, and `v11y sync` lists them for each advisory that it adds. A `path` written by an older version is ignored, and `v11y sync` removes it. `addedAt` is an ISO 8601 UTC datetime (e.g., `2026-04-15T09:30:00.000Z`) populated automatically by `v11y sync` on new entries; existing entries retain whatever value they had. Older `YYYY-MM-DD` values are still accepted.
 
 ### Output style
 

@@ -6,7 +6,6 @@
       {
         "addedAt": "2026-11-05T08:54:48.509Z",
         "id": "1244623",
-        "path": ".>@vitest/eslint-plugin>@typescript-eslint/utils>eslint>@eslint/config-array>minimatch",
         "reason": "Added by v11y sync at 2026-11-05 08:54:48 UTC",
         "url": "https://github.com/advisories/GHSA-g3hv-75wg-m249"
       }
