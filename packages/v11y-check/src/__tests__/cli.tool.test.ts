@@ -20,11 +20,11 @@ describe('v11y bin process exit', () => {
     expect(result.status).toBe(0);
   });
 
-  it('exits 1 for an unknown command', () => {
+  it('exits 2 for an unknown command', () => {
     const result = spawnSync('node', [BIN_PATH, 'definitely-not-a-real-command'], {
       timeout: 15_000,
       encoding: 'utf8',
     });
-    expect(result.status).toBe(1);
+    expect(result.status).toBe(2);
   });
 });
