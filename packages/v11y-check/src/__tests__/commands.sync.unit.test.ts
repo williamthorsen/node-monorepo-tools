@@ -109,29 +109,38 @@ describe(syncCommand, () => {
     mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
     mocks.syncAllowlist.mockResolvedValue({
-      syncResult: { added: ['a'], kept: [], removed: ['b', 'c'], scope: 'dev' },
+      syncResult: {
+        added: [{ id: 'GHSA-a', paths: ['x>a'], url: 'https://example.com/a' }],
+        kept: [],
+        removed: [
+          { id: 'GHSA-b', url: 'https://example.com/b' },
+          { id: 'GHSA-c', url: 'https://example.com/c' },
+        ],
+        scope: 'dev',
+      },
       updatedConfig: makeConfig(),
     });
 
     await syncCommand(makeOptions({ scopes: ['dev'] }));
 
     expect(capture.stdout).toContain('--- dev ---');
-    expect(capture.stdout).toContain('added: 1');
-    expect(capture.stdout).toContain('removed: 2');
+    expect(capture.stdout).toContain('added: 1\n    GHSA-a\n      x>a\n');
+    expect(capture.stdout).toContain('removed: 2\n    GHSA-b\n    GHSA-c\n');
   });
 
-  it('prints JSON in json mode', async () => {
+  it('prints JSON in json mode, with the chains of each added entry', async () => {
+    const addedEntry = { id: 'GHSA-a', paths: ['x>a', 'y>a'], url: 'https://example.com/a' };
     mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
     mocks.syncAllowlist.mockResolvedValue({
-      syncResult: { added: [], kept: [], removed: [], scope: 'dev' },
+      syncResult: { added: [addedEntry], kept: [], removed: [], scope: 'dev' },
       updatedConfig: makeConfig(),
     });
 
     await syncCommand(makeOptions({ isJson: true, scopes: ['dev'] }));
 
     const parsedOutput: unknown = JSON.parse(capture.stdout);
-    expect(parsedOutput).toStrictEqual(expect.objectContaining({ added: [], kept: [], removed: [] }));
+    expect(parsedOutput).toStrictEqual(expect.objectContaining({ added: [addedEntry], kept: [], removed: [] }));
   });
 
   it('reports config creation when source is defaults', async () => {
