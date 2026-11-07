@@ -44,7 +44,8 @@
     "dist"
   ],
   "scripts": {
-    "prepare": "node --conditions nmr-source ../nmr/src/cli-build.ts"
+    "prepare": "node --conditions nmr-source ../nmr/src/cli-build.ts",
+    "prepublishOnly": "nmr build"
   },
   "dependencies": {
     "@williamthorsen/toolbelt.cli": "catalog:",
