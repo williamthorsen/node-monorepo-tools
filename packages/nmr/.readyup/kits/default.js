@@ -117,17 +117,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path7) {
-      const ctrl = callVisitor(key, node, visitor, path7);
+    function visit_(key, node, visitor, path8) {
+      const ctrl = callVisitor(key, node, visitor, path8);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path7, ctrl);
-        return visit_(key, ctrl, visitor, path7);
+        replaceNode(key, path8, ctrl);
+        return visit_(key, ctrl, visitor, path8);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path7 = Object.freeze(path7.concat(node));
+          path8 = Object.freeze(path8.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = visit_(i, node.items[i], visitor, path7);
+            const ci = visit_(i, node.items[i], visitor, path8);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -138,13 +138,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path7 = Object.freeze(path7.concat(node));
-          const ck = visit_("key", node.key, visitor, path7);
+          path8 = Object.freeze(path8.concat(node));
+          const ck = visit_("key", node.key, visitor, path8);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = visit_("value", node.value, visitor, path7);
+          const cv = visit_("value", node.value, visitor, path8);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -165,17 +165,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path7) {
-      const ctrl = await callVisitor(key, node, visitor, path7);
+    async function visitAsync_(key, node, visitor, path8) {
+      const ctrl = await callVisitor(key, node, visitor, path8);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path7, ctrl);
-        return visitAsync_(key, ctrl, visitor, path7);
+        replaceNode(key, path8, ctrl);
+        return visitAsync_(key, ctrl, visitor, path8);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path7 = Object.freeze(path7.concat(node));
+          path8 = Object.freeze(path8.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = await visitAsync_(i, node.items[i], visitor, path7);
+            const ci = await visitAsync_(i, node.items[i], visitor, path8);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -186,13 +186,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path7 = Object.freeze(path7.concat(node));
-          const ck = await visitAsync_("key", node.key, visitor, path7);
+          path8 = Object.freeze(path8.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path8);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = await visitAsync_("value", node.value, visitor, path7);
+          const cv = await visitAsync_("value", node.value, visitor, path8);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -219,23 +219,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path7) {
+    function callVisitor(key, node, visitor, path8) {
       if (typeof visitor === "function")
-        return visitor(key, node, path7);
+        return visitor(key, node, path8);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path7);
+        return visitor.Map?.(key, node, path8);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path7);
+        return visitor.Seq?.(key, node, path8);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path7);
+        return visitor.Pair?.(key, node, path8);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path7);
+        return visitor.Scalar?.(key, node, path8);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path7);
+        return visitor.Alias?.(key, node, path8);
       return void 0;
     }
-    function replaceNode(key, path7, node) {
-      const parent = path7[path7.length - 1];
+    function replaceNode(key, path8, node) {
+      const parent = path8[path8.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node;
       } else if (identity.isPair(parent)) {
@@ -847,10 +847,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path7, value) {
+    function collectionFromPath(schema, path8, value) {
       let v = value;
-      for (let i = path7.length - 1; i >= 0; --i) {
-        const k = path7[i];
+      for (let i = path8.length - 1; i >= 0; --i) {
+        const k = path8[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -869,7 +869,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path7) => path7 == null || typeof path7 === "object" && !!path7[Symbol.iterator]().next().done;
+    var isEmptyPath = (path8) => path8 == null || typeof path8 === "object" && !!path8[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -899,11 +899,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path7, value) {
-        if (isEmptyPath(path7))
+      addIn(path8, value) {
+        if (isEmptyPath(path8))
           this.add(value);
         else {
-          const [key, ...rest] = path7;
+          const [key, ...rest] = path8;
           const node = this.get(key, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
@@ -917,8 +917,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path7) {
-        const [key, ...rest] = path7;
+      deleteIn(path8) {
+        const [key, ...rest] = path8;
         if (rest.length === 0)
           return this.delete(key);
         const node = this.get(key, true);
@@ -932,8 +932,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path7, keepScalar) {
-        const [key, ...rest] = path7;
+      getIn(path8, keepScalar) {
+        const [key, ...rest] = path8;
         const node = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
@@ -951,8 +951,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path7) {
-        const [key, ...rest] = path7;
+      hasIn(path8) {
+        const [key, ...rest] = path8;
         if (rest.length === 0)
           return this.has(key);
         const node = this.get(key, true);
@@ -962,8 +962,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path7, value) {
-        const [key, ...rest] = path7;
+      setIn(path8, value) {
+        const [key, ...rest] = path8;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -3478,9 +3478,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path7, value) {
+      addIn(path8, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path7, value);
+          this.contents.addIn(path8, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -3555,14 +3555,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path7) {
-        if (Collection.isEmptyPath(path7)) {
+      deleteIn(path8) {
+        if (Collection.isEmptyPath(path8)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path7) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path8) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3577,10 +3577,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path7, keepScalar) {
-        if (Collection.isEmptyPath(path7))
+      getIn(path8, keepScalar) {
+        if (Collection.isEmptyPath(path8))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path7, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path8, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -3591,10 +3591,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path7) {
-        if (Collection.isEmptyPath(path7))
+      hasIn(path8) {
+        if (Collection.isEmptyPath(path8))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path7) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path8) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -3611,13 +3611,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path7, value) {
-        if (Collection.isEmptyPath(path7)) {
+      setIn(path8, value) {
+        if (Collection.isEmptyPath(path8)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path7), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path8), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path7, value);
+          this.contents.setIn(path8, value);
         }
       }
       /**
@@ -5578,9 +5578,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path7) => {
+    visit.itemAtPath = (cst, path8) => {
       let item = cst;
-      for (const [field, index] of path7) {
+      for (const [field, index] of path8) {
         const tok = item?.[field];
         if (tok && "items" in tok) {
           item = tok.items[index];
@@ -5589,23 +5589,23 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path7) => {
-      const parent = visit.itemAtPath(cst, path7.slice(0, -1));
-      const field = path7[path7.length - 1][0];
+    visit.parentCollection = (cst, path8) => {
+      const parent = visit.itemAtPath(cst, path8.slice(0, -1));
+      const field = path8[path8.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path7, item, visitor) {
-      let ctrl = visitor(item, path7);
+    function _visit(path8, item, visitor) {
+      let ctrl = visitor(item, path8);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path7.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path8.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5616,10 +5616,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item, path7);
+            ctrl = ctrl(item, path8);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item, path7) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item, path8) : ctrl;
     }
     exports.visit = visit;
   }
@@ -7416,11 +7416,11 @@ function discoverWorkspacesOrFailure(filter) {
   }
 }
 function findFiles(patterns, cwd) {
-  return globSync(patterns, { cwd, exclude: (path7) => SCAN_EXCLUDE_DIRS.has(basename(path7)) }).map((path7) => path7.split(sep).join("/")).toSorted();
+  return globSync(patterns, { cwd, exclude: (path8) => SCAN_EXCLUDE_DIRS.has(basename(path8)) }).map((path8) => path8.split(sep).join("/")).toSorted();
 }
 function formatPaths(paths) {
   return `${paths.length} found:
-${paths.map((path7) => `      ${path7}`).join("\n")}`;
+${paths.map((path8) => `      ${path8}`).join("\n")}`;
 }
 function importsSharedExport(content, exportName, moduleSpecifier) {
   if (content === void 0) return false;
@@ -8096,6 +8096,370 @@ function formatMalformedScript(dir, key, value) {
   return `${rejection} A step list belongs in \`${CONFIG_RELATIVE_PATH}\` under \`${field}\`.`;
 }
 
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.7.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/parseArgs.js
+import path6 from "node:path";
+import process2 from "node:process";
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.7.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/UsageError.js
+var UsageError = class extends Error {
+  constructor(message, options) {
+    super(message, options);
+    this.name = "UsageError";
+  }
+};
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.7.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/ParseError.js
+var ParseError = class extends UsageError {
+  kind;
+  token;
+  constructor(kind, token, message, options) {
+    super(message, options);
+    this.name = "ParseError";
+    this.kind = kind;
+    this.token = token;
+  }
+};
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.7.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/resolveLongName.js
+function resolveLongName(key, definition) {
+  return definition.long ?? key.replaceAll(/[A-Z]/g, (capital) => `-${capital.toLowerCase()}`);
+}
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.7.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/tokenizeArgs.js
+import { parseArgs as nodeParseArgs } from "node:util";
+function tokenizeArgs(argv, schema, extraBooleans = []) {
+  const nodeOptions = {};
+  const flagsByName = /* @__PURE__ */ new Map();
+  for (const [key, definition] of Object.entries(schema)) {
+    const name = resolveLongName(key, definition);
+    const type = definition.type === "boolean" ? "boolean" : "string";
+    nodeOptions[name] = definition.short === void 0 ? { type } : { type, short: definition.short };
+    flagsByName.set(name, { key, definition });
+  }
+  for (const { long, short } of extraBooleans) {
+    nodeOptions[long] = { type: "boolean", short };
+  }
+  const { tokens } = nodeParseArgs({
+    args: [...argv],
+    options: nodeOptions,
+    strict: false,
+    allowPositionals: true,
+    tokens: true
+  });
+  return { tokens, flagsByName };
+}
+function findFlagEntry(flagsByName, token) {
+  const entry = flagsByName.get(token.name);
+  if (entry === void 0 || token.rawName.startsWith("--"))
+    return entry;
+  return entry.definition.short === token.rawName.slice(1) ? entry : void 0;
+}
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.7.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/validateSpec.js
+var CAMEL_CASE_KEY = /^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]+)*$/;
+function validateSpec(spec) {
+  validateFlags(spec.flags ?? {});
+  validateOperands(spec.operands ?? []);
+}
+function validateFlags(flags) {
+  const longNames = /* @__PURE__ */ new Set(["help"]);
+  const shortNames = /* @__PURE__ */ new Set(["h"]);
+  for (const [key, definition] of Object.entries(flags)) {
+    if (definition.long === void 0 && !CAMEL_CASE_KEY.test(key)) {
+      throw new Error(`Flag key '${key}' must be camelCase or declare 'long'.`);
+    }
+    if (definition.long !== void 0 && (definition.long === "" || definition.long.startsWith("-"))) {
+      throw new Error(`Flag '${key}' declares a long name that is empty or starts with a dash: '${definition.long}'.`);
+    }
+    const longName = resolveLongName(key, definition);
+    if (longNames.has(longName)) {
+      throw new Error(`Flag '${key}' reuses the long name --${longName}, which is reserved or already declared.`);
+    }
+    longNames.add(longName);
+    if (definition.short !== void 0) {
+      if (definition.short.length !== 1 || definition.short === "-") {
+        throw new Error(`Flag '${key}' must declare 'short' as one character other than a dash.`);
+      }
+      if (shortNames.has(definition.short)) {
+        throw new Error(`Flag '${key}' reuses the short name -${definition.short}, which is reserved or already declared.`);
+      }
+      shortNames.add(definition.short);
+    }
+    validateFlagFields(key, definition);
+  }
+}
+function validateFlagFields(key, definition) {
+  if (definition.type === "boolean") {
+    if (definition.valueHint !== void 0)
+      throw new Error(`Boolean flag '${key}' cannot declare 'valueHint'.`);
+    if (definition.parse !== void 0)
+      throw new Error(`Boolean flag '${key}' cannot declare 'parse'.`);
+    if ("default" in definition && typeof definition.default !== "boolean") {
+      throw new Error(`Boolean flag '${key}' must declare a boolean 'default'.`);
+    }
+    if (definition.multiple === true)
+      throw new Error(`Boolean flag '${key}' cannot declare 'multiple'.`);
+  }
+  if (definition.multiple === true && "default" in definition) {
+    throw new Error(`Flag '${key}' declares 'multiple', which does not take a 'default'.`);
+  }
+  const { choices } = definition;
+  if (choices === void 0)
+    return;
+  if (definition.type !== "string")
+    throw new Error(`Flag '${key}' declares 'choices', which only a string flag takes.`);
+  if (choices.length === 0)
+    throw new Error(`Flag '${key}' declares empty 'choices'.`);
+  if ("default" in definition && (typeof definition.default !== "string" || !choices.includes(definition.default))) {
+    throw new Error(`Flag '${key}' declares a 'default' that is not one of its 'choices'.`);
+  }
+}
+function validateOperands(operands) {
+  const names = /* @__PURE__ */ new Set();
+  let hasOptional = false;
+  for (const [index, operand] of operands.entries()) {
+    if (operand.name === "")
+      throw new Error(`Operand ${index + 1} has an empty name.`);
+    if (names.has(operand.name))
+      throw new Error(`Operand name '${operand.name}' is declared twice.`);
+    names.add(operand.name);
+    if (operand.optional === true) {
+      hasOptional = true;
+    } else if (hasOptional) {
+      throw new Error(`Required operand '${operand.name}' follows an optional one.`);
+    }
+    if (operand.variadic === true && index !== operands.length - 1) {
+      throw new Error(`Variadic operand '${operand.name}' must be the last operand.`);
+    }
+    if (operand.choices?.length === 0)
+      throw new Error(`Operand '${operand.name}' declares empty 'choices'.`);
+  }
+}
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.7.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/parseArgs.js
+function parseArgs(argv, spec, options = {}) {
+  validateSpec(spec);
+  return parseValidatedArgs(argv, spec, options);
+}
+function parseValidatedArgs(argv, spec, options = {}) {
+  const schema = spec.flags ?? {};
+  const operandDefinitions = spec.operands ?? [];
+  const baseDir = options.baseDir ?? process2.cwd();
+  const stopAtPositional = options.stopAtPositional === true || options.stopAtUnclaimedFlag === true;
+  const { tokens, flagsByName } = tokenizeArgs(argv, schema);
+  const flags = {};
+  for (const [key, definition] of Object.entries(schema)) {
+    flags[key] = "default" in definition ? definition.default : initialValue(definition);
+  }
+  const positionals = [];
+  let rest = [];
+  let previousIndex = -1;
+  let precedingInArgument = 0;
+  for (const token of tokens) {
+    if (token.kind === "option") {
+      precedingInArgument = token.index === previousIndex ? precedingInArgument + 1 : 0;
+      previousIndex = token.index;
+    }
+    if (stopAtPositional && token.kind !== "option") {
+      rest = argv.slice(token.index);
+      break;
+    }
+    if (token.kind === "option-terminator")
+      continue;
+    if (token.kind === "positional") {
+      acceptPositional(token.value, positionals, operandDefinitions);
+      continue;
+    }
+    const entry = findFlagEntry(flagsByName, token);
+    if (entry === void 0) {
+      if (options.stopAtUnclaimedFlag === true) {
+        rest = splitAtOption(argv, token.index, precedingInArgument);
+        break;
+      }
+      throw new ParseError("unknown-flag", token.rawName, `Unknown option: ${token.rawName}`);
+    }
+    const value = readFlagValue(token, entry.key, entry.definition, baseDir);
+    const collected = flags[entry.key];
+    if (entry.definition.multiple === true && Array.isArray(collected)) {
+      collected.push(value);
+    } else {
+      flags[entry.key] = value;
+    }
+  }
+  const operands = assignOperands(positionals, operandDefinitions);
+  return { flags, operands, rest };
+}
+function acceptPositional(value, positionals, definitions) {
+  const last = definitions.at(-1);
+  const overflow = last?.variadic === true ? last : void 0;
+  const definition = positionals.length < definitions.length ? definitions[positionals.length] : overflow;
+  if (definition === void 0) {
+    throw new ParseError("unexpected-positional", value, `Unexpected positional argument: ${value}`);
+  }
+  checkChoice(value, definition.choices, `<${definition.name}>`);
+  positionals.push(value);
+}
+function assignOperands(positionals, definitions) {
+  const operands = {};
+  for (const [index, definition] of definitions.entries()) {
+    const value = definition.variadic === true ? positionals.slice(index) : positionals[index];
+    const isAbsent = value === void 0 || Array.isArray(value) && value.length === 0;
+    if (isAbsent && definition.optional !== true) {
+      const label = `<${definition.name}>`;
+      throw new ParseError("missing-operand", label, `Missing argument: ${label}`);
+    }
+    operands[definition.name] = value;
+  }
+  return operands;
+}
+function initialValue(definition) {
+  if (definition.multiple === true)
+    return [];
+  return definition.type === "boolean" ? false : void 0;
+}
+function checkChoice(value, choices, label) {
+  if (choices === void 0 || choices.includes(value))
+    return;
+  throw new ParseError("invalid-choice", value, `Invalid value for ${label}: ${value}. Expected one of: ${choices.join(", ")}`);
+}
+function readFlagValue(token, key, definition, baseDir) {
+  if (definition.type === "boolean") {
+    if (token.value !== void 0) {
+      throw new ParseError("unexpected-value", token.rawName, `Option does not accept a value: ${token.rawName}`);
+    }
+    return true;
+  }
+  const { value } = token;
+  if (value === void 0 || value === "" || token.inlineValue !== true && value.startsWith("-") && value !== "-") {
+    throw new ParseError("missing-value", token.rawName, `Missing value for option: ${token.rawName}`);
+  }
+  const label = `--${resolveLongName(key, definition)}`;
+  checkChoice(value, definition.choices, label);
+  const raw = definition.type === "path" ? path6.resolve(baseDir, value) : value;
+  if (definition.parse === void 0)
+    return raw;
+  try {
+    return definition.parse(raw);
+  } catch (error) {
+    const reason = describeError(error);
+    throw new ParseError("invalid-value", value, `Invalid value for ${label}: ${value}. ${reason}`, { cause: error });
+  }
+}
+function splitAtOption(argv, index, precedingInArgument) {
+  const argument = argv[index];
+  if (argument === void 0 || precedingInArgument === 0)
+    return argv.slice(index);
+  return [`-${argument.slice(1 + precedingInArgument)}`, ...argv.slice(index + 1)];
+}
+
+// src/nmr-flags.ts
+var NMR_FLAGS = {
+  delegate: {
+    type: "boolean",
+    description: "Run over SSH on the first free host that NMR_DELEGATE or the user config names"
+  },
+  delegateTo: {
+    type: "string",
+    description: "Run over SSH on the first free of <hosts>, comma-separated",
+    valueHint: "hosts"
+  },
+  filter: {
+    type: "string",
+    description: "Run command in packages whose manifest name matches",
+    short: "F",
+    valueHint: "pattern"
+  },
+  json: { type: "boolean", description: "Report one JSON object per command, withholding command output" },
+  log: { type: "boolean", description: "Print the recorded run instead of running (up to 256 KiB)" },
+  noCache: { type: "boolean", description: "Run even if this tree already passed; record the result" },
+  noDelegate: { type: "boolean", description: "Run here, whatever NMR_DELEGATE or the user config says" },
+  noLock: { type: "boolean", description: "Run without waiting for another heavy command on this machine" },
+  outputStyle: {
+    type: "string",
+    description: "Output style: auto (default), plain, or rich",
+    valueHint: "auto|plain|rich"
+  },
+  quiet: { type: "boolean", description: "Suppress command output, keeping nmr's verdicts", short: "q" },
+  recursive: { type: "boolean", description: "Run command in all packages", short: "R" },
+  workspaceRoot: { type: "boolean", description: "Use root scripts, running at the monorepo root", short: "w" }
+};
+function readInvocationFlags(args) {
+  const remaining = [...args];
+  let shouldShowHelp = false;
+  for (; ; ) {
+    try {
+      const parsed = parseArgs(remaining, { flags: READER_FLAGS }, { stopAtPositional: true });
+      return { ok: true, parsedArgs: { ...toParsedArgs(parsed.flags, parsed.rest), shouldShowHelp } };
+    } catch (error) {
+      if (!(error instanceof ParseError)) {
+        throw error;
+      }
+      if (error.kind !== "unknown-flag" || !HELP_SPELLINGS.has(error.token) || !removeHelpFlag(remaining, error.token)) {
+        return { ok: false };
+      }
+      shouldShowHelp = true;
+    }
+  }
+}
+function toParsedArgs(flags, rest) {
+  const [first, ...remaining] = rest;
+  const hasCommand = first !== void 0 && first !== "--";
+  return {
+    ...flags.delegateTo !== void 0 && { delegateHosts: flags.delegateTo },
+    ...flags.filter !== void 0 && { filter: flags.filter },
+    isWorkspaceRoot: flags.workspaceRoot,
+    ...flags.outputStyle !== void 0 && { outputStyle: flags.outputStyle },
+    quiet: flags.quiet,
+    recursive: flags.recursive,
+    shouldBypassCache: flags.noCache,
+    shouldBypassLock: flags.noLock,
+    shouldDelegate: flags.delegate,
+    shouldEmitJson: flags.json,
+    shouldPrintLog: flags.log,
+    shouldRunLocally: flags.noDelegate,
+    shouldShowHelp: false,
+    shouldShowVersion: flags.version ?? false,
+    ...hasCommand && { command: first },
+    passthrough: hasCommand ? remaining : []
+  };
+}
+var HELP_SPELLINGS = /* @__PURE__ */ new Set(["--help", "-h"]);
+var READER_FLAGS = {
+  ...NMR_FLAGS,
+  version: { type: "boolean", description: "Print the version", short: "V" }
+};
+function isBooleanCluster(arg) {
+  if (!/^-[^-]./.test(arg)) {
+    return false;
+  }
+  const booleanShorts = /* @__PURE__ */ new Set(["h", "V"]);
+  for (const definition of Object.values(NMR_FLAGS)) {
+    if (definition.type === "boolean" && "short" in definition) {
+      booleanShorts.add(definition.short);
+    }
+  }
+  for (const letter of arg.slice(1)) {
+    if (!booleanShorts.has(letter)) {
+      return false;
+    }
+  }
+  return true;
+}
+function removeHelpFlag(args, token) {
+  const index = args.indexOf(token);
+  if (index !== -1) {
+    args.splice(index, 1);
+    return true;
+  }
+  const clusterIndex = args.findIndex((arg) => isBooleanCluster(arg) && arg.includes("h"));
+  const cluster = args[clusterIndex];
+  if (cluster === void 0) {
+    return false;
+  }
+  args[clusterIndex] = cluster.replace("h", "");
+  return true;
+}
+
 // src/steps.ts
 var LAUNCHERS = /* @__PURE__ */ new Map([
   ["bun", /* @__PURE__ */ new Set(["x"])],
@@ -8191,39 +8555,12 @@ function readNmrTail(segment) {
   return rest[nmrIndex] === "nmr" ? { launcher: head, launcherArgs: rest.slice(0, nmrIndex), tail: rest.slice(nmrIndex + 1) } : void 0;
 }
 function readNmrTarget(tokens) {
-  let isDelegate = false;
-  let isRecursive = false;
-  let isWorkspaceRoot = false;
-  let index = 0;
-  while (index < tokens.length) {
-    const token = tokens[index] ?? "";
-    switch (token) {
-      // The pattern is the flag's value, and reading it as a command name would name whichever package it
-      // selects rather than the command that every selected scope runs.
-      case "-F":
-      case "--filter":
-        isDelegate = true;
-        index += 2;
-        break;
-      case "-R":
-      case "--recursive":
-        isDelegate = true;
-        isRecursive = true;
-        index += 1;
-        break;
-      case "-w":
-      case "--workspace-root":
-        isWorkspaceRoot = true;
-        index += 1;
-        break;
-      default:
-        if (!token.startsWith("-")) {
-          return { command: token, isDelegate, isRecursive, isWorkspaceRoot };
-        }
-        index += 1;
-    }
+  const reading = readInvocationFlags(tokens);
+  if (!reading.ok || reading.parsedArgs.command === void 0) {
+    return void 0;
   }
-  return void 0;
+  const { command, filter, isWorkspaceRoot, recursive } = reading.parsedArgs;
+  return { command, isDelegate: filter !== void 0 || recursive, isRecursive: recursive, isWorkspaceRoot };
 }
 
 // src/resolver.ts
@@ -8638,7 +8975,7 @@ function formatSelfReferenceRemedy(options) {
 
 // src/tiers.ts
 import { readdirSync as readdirSync2 } from "node:fs";
-import path6 from "node:path";
+import path7 from "node:path";
 
 // src/git-ignored-paths.ts
 import { spawnSync } from "node:child_process";
@@ -8669,7 +9006,7 @@ function findUntieredTestFiles(rootDir, options = {}) {
 }
 function hasTierInfix(filePath) {
   const tiers = TIER_NAMES;
-  return tiers.includes(path6.basename(filePath).split(".").at(-3) ?? "");
+  return tiers.includes(path7.basename(filePath).split(".").at(-3) ?? "");
 }
 var TEST_COLLECTION_EXCLUDE = [".git", "coverage", "dist", "node_modules"];
 var TIER_NAMES = ["unit", "tool", "localhost", "remote"];
@@ -8679,7 +9016,7 @@ function collectTestFiles(dir, relativeDir, isInTestDir, context) {
     const relativePath = relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
     if (entry.isDirectory()) {
       if (context.pruned.has(entry.name) || context.ignoredPaths.has(`${relativePath}/`)) continue;
-      collectTestFiles(path6.join(dir, entry.name), relativePath, isInTestDir || entry.name === TEST_DIR, context);
+      collectTestFiles(path7.join(dir, entry.name), relativePath, isInTestDir || entry.name === TEST_DIR, context);
     } else if (isInTestDir !== context.misplaced && TEST_FILE_PATTERN.test(entry.name) && !context.ignoredPaths.has(relativePath)) {
       context.foundPaths.push(relativePath);
     }
@@ -9404,8 +9741,8 @@ function everyViteConfigHasVitestConfig() {
   return { ok: false, detail: formatPaths(unpairedConfigs) };
 }
 function noReExportOnlyVitestConfigs(cwd = process.cwd()) {
-  const nonRootConfigs = findFiles([`**/${VITEST_CONFIG_PATTERN}`], cwd).filter((path7) => path7.includes("/"));
-  const reExports = nonRootConfigs.filter((path7) => isOwnedByReExportCheck(cwd, path7));
+  const nonRootConfigs = findFiles([`**/${VITEST_CONFIG_PATTERN}`], cwd).filter((path8) => path8.includes("/"));
+  const reExports = nonRootConfigs.filter((path8) => isOwnedByReExportCheck(cwd, path8));
   if (reExports.length === 0) return true;
   return { ok: false, detail: formatPaths(reExports) };
 }

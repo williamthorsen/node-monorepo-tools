@@ -11,6 +11,7 @@ import { PASS_MANIFEST_DIR_ENV_VAR, writeDebugNote } from './check-cache.ts';
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
 import { quoteForShell } from './helpers/quoteForShell.ts';
 import { STALE_AFTER_MS } from './machine-lock.ts';
+import { formatFlagSpelling } from './nmr-flags.ts';
 import { CHECKOUT_LOCK_PATH, type SessionPhase, type SessionRecord } from './remote-host-session.ts';
 import { composeSessionScript, createSessionDemultiplexer, formatDelegationWaitingLine } from './remote-session.ts';
 
@@ -18,16 +19,16 @@ import { composeSessionScript, createSessionDemultiplexer, formatDelegationWaiti
 export const DELEGATE_ENV_VAR = 'NMR_DELEGATE';
 
 /** The flag that runs the command on a host that `NMR_DELEGATE` or the user config names. */
-export const DELEGATE_FLAG = '--delegate';
+export const DELEGATE_FLAG = formatFlagSpelling('delegate');
 
 /** The flag that names the hosts on which to run the command. */
-export const DELEGATE_TO_FLAG = '--delegate-to';
+export const DELEGATE_TO_FLAG = formatFlagSpelling('delegateTo');
 
 /** The exit status of a delegation that failed outside its command, which matches `ssh`'s own. */
 export const DELEGATION_FAILURE_EXIT_CODE = 255;
 
 /** The flag that runs the command here, whatever `NMR_DELEGATE` or the user config says. */
-export const NO_DELEGATE_FLAG = '--no-delegate';
+export const NO_DELEGATE_FLAG = formatFlagSpelling('noDelegate');
 
 /** Names the ssh command that the environment supplies, which git and nmr run in place of plain `ssh`. */
 export const SSH_COMMAND_ENV_VAR = 'GIT_SSH_COMMAND';

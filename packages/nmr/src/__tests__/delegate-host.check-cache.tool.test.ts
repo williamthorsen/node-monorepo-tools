@@ -146,7 +146,7 @@ describe('a delegation behind the check-result cache', () => {
   it('reports an unknown command here without contacting the host', async () => {
     const result = await runNmr(['--delegate-to', 'box', 'ghost']);
 
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain('Unknown command: ghost');
     expect(remote.readPnpmLog()).toStrictEqual([]);
   });

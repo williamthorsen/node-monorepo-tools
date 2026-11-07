@@ -9,7 +9,7 @@ import { NMR_GLYPHS } from './glyphs.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import { quoteForShell } from './helpers/quoteForShell.ts';
 import { wrapWithHooks } from './hooks.ts';
-import type { Invocation, PhaseResult, RunPlan } from './invocation.ts';
+import { type Invocation, type PhaseResult, type RunPlan, USAGE_EXIT_CODE } from './invocation.ts';
 import { reportVerdict } from './presentation.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import { applyDevBinToSteps, type ResolvedScript } from './resolver.ts';
@@ -57,7 +57,7 @@ export function assembleChain(options: {
   const bindResult = bindPassthrough(substitutedSteps, parsedArgs.passthrough, command);
   if (!bindResult.ok) {
     reportError(bindResult.error, stderr);
-    return { settled: true, result: { exitCode: 1 } };
+    return { settled: true, result: { exitCode: USAGE_EXIT_CODE } };
   }
 
   const mainSteps = bindResult.steps;

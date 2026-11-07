@@ -17,15 +17,6 @@ export type { WorkingTreeHashResult } from './hashWorkingTree.ts';
 export { hashWorkingTree, readHeadSha } from './hashWorkingTree.ts';
 export { isAnticipatedFailure } from './isAnticipatedFailure.ts';
 export type {
-  FlagDefinition,
-  FlagSchema,
-  ParseArgsOptions,
-  ParsedArgs,
-  ParsedFlags,
-  ParseErrorKind,
-} from './parseArgs.ts';
-export { parseArgs, parseArgsOrExit, ParseError } from './parseArgs.ts';
-export type {
   GlyphSet,
   InvalidOutputStyle,
   OutputStyle,

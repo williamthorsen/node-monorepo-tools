@@ -1,7 +1,7 @@
-import path from 'node:path';
 import type { Writable } from 'node:stream';
 
 import { reportError } from '@williamthorsen/nmr-core';
+import { runCli as runRouter } from '@williamthorsen/nmr-core/cli';
 
 import { prependBinDirs } from './bin-path.ts';
 import { NO_CACHE_ENV_VAR, resolveRunId, RUN_ID_ENV_VAR } from './check-cache.ts';
@@ -12,8 +12,7 @@ import { resolveContext } from './context.ts';
 import { assertNoSelfReference } from './crossing-diagnostics.ts';
 import { resolveExecutionTarget, runInvocationOnHost } from './delegate-host.ts';
 import { enterChain } from './entry-chain.ts';
-import { composeDelegation, isDefinedInAnyScope, runDelegation } from './fan-out.ts';
-import { generateHelp } from './help.ts';
+import { composeDelegation, runDelegation } from './fan-out.ts';
 import {
   type ExecutionTarget,
   type Invocation,
@@ -22,14 +21,15 @@ import {
   type RunCliResult,
   type RunPlan,
   type SettledResult,
+  USAGE_EXIT_CODE,
   VERSION,
 } from './invocation.ts';
-import { formatMisplacedFlagHint, parseArgs } from './invocation-args.ts';
-import { isTerminalStream } from './output-style.ts';
-import { readPresentation, reportVerdict, resolveReportingVerbosity } from './presentation.ts';
+import { formatMisplacedFlagHint } from './invocation-args.ts';
+import { readInvocationFlags } from './nmr-flags.ts';
+import { reportVerdict } from './presentation.ts';
 import { DELEGATE_TO_FLAG } from './remote-run.ts';
-import { resolveReportFormat } from './report-format.ts';
 import { buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
+import { buildRoot, buildVersionRoot } from './route.ts';
 import { assembleChain, formatOverrideNotice } from './run-chain.ts';
 import type { RunStepsOptions } from './runner.ts';
 
@@ -51,18 +51,47 @@ export interface RunCliOptions {
  * Executes the nmr CLI flow in-process and returns the resulting exit code.
  * Does not hold global state, does not read `process.*` globals, and never calls `process.exit`.
  *
+ * nmr's flags decide which commands the tree holds, so a first pass reads them before the router parses them again.
+ *
  * @internal
  */
 export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
-  const established = await establishInvocation(options);
-  if (established.settled) {
-    return { exitCode: established.result.exitCode };
-  }
-  const invocation = established.value;
+  const { args, cwd, env, stdout, stderr } = options;
+  const reading = readInvocationFlags(args);
+  const firstPass = reading.ok ? reading.parsedArgs : undefined;
+  const routerOptions = { name: 'nmr', context: undefined, stdout, stderr, baseDir: cwd, version: () => VERSION };
 
+  // `--version` does not load the config, so that it answers outside a monorepo as well.
+  if (firstPass?.shouldShowVersion === true && !firstPass.shouldShowHelp) {
+    return { exitCode: await runRouter(args, buildVersionRoot(), routerOptions) };
+  }
+
+  const context = await resolveContext(cwd);
+  const root = buildRoot({
+    context,
+    cwd,
+    env,
+    firstPass,
+    runInvocation: (invocation) => runInvocation(invocation, options),
+    stderr,
+    stdout,
+  });
+
+  // An invocation that names nothing to run is a request for the listing.
+  const isBare =
+    firstPass !== undefined && firstPass.command === undefined && !firstPass.shouldPrintLog && !args.includes('--');
+  const routedArgs = isBare ? [...args, '--help'] : args;
+
+  return { exitCode: await runRouter(routedArgs, root, routerOptions) };
+}
+
+/**
+ * Runs an invocation that reached a command, and hints at nmr flags written after the command name when it fails.
+ */
+async function runInvocation(invocation: Invocation, options: RunCliOptions): Promise<number> {
   const resolvedTarget = await resolveExecutionTarget(invocation);
   if (resolvedTarget.settled) {
-    return { exitCode: resolvedTarget.result.exitCode };
+    return resolvedTarget.result.exitCode;
   }
   let target = resolvedTarget.value;
 
@@ -71,7 +100,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   if (target.kind === 'remote' && (filter !== undefined || recursive)) {
     const delegated = await runInvocationOnHost(invocation, target);
     if (delegated !== undefined) {
-      return delegated;
+      return delegated.exitCode;
     }
     target = { kind: 'local' };
   }
@@ -87,82 +116,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     }
   }
 
-  return { exitCode };
-}
-
-/**
- * Reads the arguments, the presentation sources, and the context, and settles every invocation that does not reach
- * a command: an unreadable argument or presentation source, `--version`, and `--help`.
- */
-async function establishInvocation(options: RunCliOptions): Promise<PhaseResult<Invocation>> {
-  const { args, cwd, env, stdout, stderr } = options;
-
-  const parseResult = parseArgs(args);
-  if (!parseResult.ok) {
-    reportError(parseResult.error, stderr);
-    return { settled: true, result: { exitCode: 1 } };
-  }
-  const { parsedArgs } = parseResult;
-
-  // Read the presentation sources ahead of every other outcome, `--version` and `--help` included, so that an
-  // invalid value fails every invocation alike. The config's own levels resolve later: `--version` does not load
-  // the config.
-  const presentationRead = readPresentation({
-    env,
-    flagValue: parsedArgs.outputStyle,
-    stderrIsTty: isTerminalStream(stderr),
-    stdoutIsTty: isTerminalStream(stdout),
-  });
-  if (!presentationRead.ok) {
-    reportError(presentationRead.error, stderr);
-    return { settled: true, result: { exitCode: 1 } };
-  }
-  const { styles } = presentationRead;
-
-  if (parsedArgs.shouldShowVersion) {
-    stdout.write(`${VERSION}\n`);
-    return { settled: true, result: { exitCode: 0 } };
-  }
-
-  const context = await resolveContext(cwd);
-
-  const format = resolveReportFormat({ envFormat: presentationRead.format, hasJsonFlag: parsedArgs.shouldEmitJson });
-  const verbosity = resolveReportingVerbosity({
-    env,
-    envVerbosity: presentationRead.verbosity,
-    format,
-    output: context.config.output,
-    hasQuietFlag: parsedArgs.quiet,
-  });
-
-  const shouldUseRoot = parsedArgs.isWorkspaceRoot || context.isRoot;
-
-  // Anchors registry resolution and execution alike: a script runs in the directory to which its registry belongs.
-  const anchorDir = shouldUseRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
-
-  if (parsedArgs.shouldShowHelp || !parsedArgs.command) {
-    stdout.write(`${generateHelp(context.config, context.monorepoRoot, anchorDir, shouldUseRoot)}\n`);
-    return { settled: true, result: { exitCode: 0 } };
-  }
-
-  return {
-    settled: false,
-    value: {
-      anchorDir,
-      command: parsedArgs.command,
-      context,
-      cwd,
-      env,
-      format,
-      parsedArgs,
-      scope: path.basename(anchorDir),
-      shouldUseRoot,
-      stderr,
-      stdout,
-      styles,
-      verbosity,
-    },
-  };
+  return exitCode;
 }
 
 /**
@@ -218,10 +172,7 @@ async function planRun(invocation: Invocation, target: ExecutionTarget): Promise
       await lock?.release();
     }
 
-    return {
-      settled: true,
-      result: { ...result, isUnknownCommand: result.exitCode !== 0 && !isDefinedInAnyScope(command, context) },
-    };
+    return { settled: true, result };
   }
 
   const registry = invocation.shouldUseRoot
@@ -249,7 +200,7 @@ async function planRun(invocation: Invocation, target: ExecutionTarget): Promise
         ? `. \`${command}\` is not a command; name a host with ${DELEGATE_TO_FLAG} ${command}`
         : '';
     reportError(`Unknown command: ${command}${delegateToHint}`, stderr);
-    return { settled: true, result: { exitCode: 1, isUnknownCommand: true } };
+    return { settled: true, result: { exitCode: USAGE_EXIT_CODE, isUnknownCommand: true } };
   }
 
   // A `--log` runs nothing, so it cannot re-enter anything.

@@ -6,7 +6,7 @@ delivery: ambient
 
 # nmr: agent guidance
 
-- Use `nmr <command>`, not `pnpm run <command>`, for anything nmr provides. Run bare `nmr` to list every command and the shell command to which it resolves; a wrong guess reports only `Unknown command`, without a list.
+- Use `nmr <command>`, not `pnpm run <command>`, for anything nmr provides. Run bare `nmr` to list every command and the shell command to which it resolves; a wrong guess reports `Unknown command`, a `Did you mean` line when a command is close, and `Try 'nmr --help'.`, without a list, and exits 2.
 - Scope follows cwd, and bare `nmr` lists both registries: From the repo root a command covers root files and every workspace; from inside a package, that package alone. `nmr -F <pkg> <command>` targets one package from anywhere; `nmr root:<command>` targets root files alone, which isolates a failure to root code.
 - Never `npx nmr`: Inside a git worktree it can resolve a different nmr from outside the tree. Fall back to `pnpm exec nmr`.
 - `nmr ci` runs what a code-quality workflow runs (build, then strict checks) and not the dependency audit, which belongs to a workflow of its own; `nmr prepush` runs the audit first, then `ci`, so a vulnerability stops the run before the long gate. Neither installs or binds a git hook.

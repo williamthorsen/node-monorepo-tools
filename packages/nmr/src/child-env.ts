@@ -17,6 +17,7 @@ import {
   type MachineLock,
   NO_LOCK_ENV_VAR,
 } from './machine-lock.ts';
+import { formatFlagSpelling } from './nmr-flags.ts';
 import { OUTPUT_STYLE_ENV_VAR } from './output-style.ts';
 import { DELEGATE_ENV_VAR } from './remote-run.ts';
 import { REPORT_FORMAT_ENV_VAR, type ReportFormat } from './report-format.ts';
@@ -112,7 +113,7 @@ export async function takeMachineLock(invocation: Invocation): Promise<MachineLo
     return undefined;
   }
 
-  if (parsedArgs.passthrough.includes('--no-lock')) {
+  if (parsedArgs.passthrough.includes(formatFlagSpelling('noLock'))) {
     stderr.write(`${formatMisplacedNoLockWarning(command, styles.stderr)}\n`);
   }
 

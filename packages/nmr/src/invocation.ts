@@ -5,7 +5,7 @@ import { resolveSelfVersion, type StreamStyles } from '@williamthorsen/nmr-core'
 import type { TreeSnapshot } from './check-cache.ts';
 import type { ResolvedContext } from './context.ts';
 import type { DelegationTarget } from './delegation-target.ts';
-import type { ParsedArgs } from './invocation-args.ts';
+import type { ParsedArgs } from './nmr-flags.ts';
 import type { ReportFormat } from './report-format.ts';
 import type { RunStepsOptions } from './runner.ts';
 import type { Step } from './steps.ts';
@@ -63,5 +63,8 @@ export interface RunPlan {
 
 /** An invocation's exit code, and whether it failed because its command is not defined in any scope that it reaches. */
 export type SettledResult = RunCliResult & { isUnknownCommand?: boolean };
+
+/** The exit status of an invocation that nmr refuses as written, which matches the router's for a usage error. */
+export const USAGE_EXIT_CODE = 2;
 
 export const VERSION = resolveSelfVersion(import.meta.url);

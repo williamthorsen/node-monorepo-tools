@@ -1,3 +1,4 @@
+import { readInvocationFlags } from './nmr-flags.ts';
 import {
   dropLeadingAssignments,
   isShellSafeToken,
@@ -302,6 +303,7 @@ function readLauncherScope(
   }
 
   for (const token of launcherArgs) {
+    // rdy-ignore-next-line toolbelt.cli/no-hand-rolled-flag-scan -- reads pnpm's flags in a launcher step, not nmr's
     if (token === '-r' || token === '--recursive') {
       scope.isDelegate = true;
       scope.isRecursive = true;
@@ -352,48 +354,19 @@ function readNmrTail(
 
 /**
  * Returns what the tokens following `nmr` ask of it: the command they name, and the flags that decide which
- * scopes run it. Reports nothing for tokens that do not name a command.
+ * scopes run it. Reports nothing for tokens that do not name a command, or whose nmr flags do not parse.
  *
- * The one reader of nmr's own flag grammar, shared by the argv of a structural step and the shell segment of an
- * opaque one, so the two cannot drift apart.
+ * Reads nmr's flags through the schema that the CLI parses, so that a step and an invocation read alike.
  */
 function readNmrTarget(tokens: readonly string[]): NmrStepTarget | undefined {
-  let isDelegate = false;
-  let isRecursive = false;
-  let isWorkspaceRoot = false;
-  let index = 0;
-
-  while (index < tokens.length) {
-    const token = tokens[index] ?? '';
-
-    switch (token) {
-      // The pattern is the flag's value, and reading it as a command name would name whichever package it
-      // selects rather than the command that every selected scope runs.
-      case '-F':
-      case '--filter':
-        isDelegate = true;
-        index += 2;
-        break;
-      case '-R':
-      case '--recursive':
-        isDelegate = true;
-        isRecursive = true;
-        index += 1;
-        break;
-      case '-w':
-      case '--workspace-root':
-        isWorkspaceRoot = true;
-        index += 1;
-        break;
-      default:
-        if (!token.startsWith('-')) {
-          return { command: token, isDelegate, isRecursive, isWorkspaceRoot };
-        }
-        index += 1;
-    }
+  const reading = readInvocationFlags(tokens);
+  if (!reading.ok || reading.parsedArgs.command === undefined) {
+    return undefined;
   }
 
-  return undefined;
+  const { command, filter, isWorkspaceRoot, recursive } = reading.parsedArgs;
+
+  return { command, isDelegate: filter !== undefined || recursive, isRecursive: recursive, isWorkspaceRoot };
 }
 
 /** Renders one step as the text that a shell runs. */

@@ -1,5 +1,5 @@
 import { isHookName } from './helpers/hook-name.ts';
-import { OUTPUT_STYLE_ENV_VAR, OUTPUT_STYLE_FLAG } from './output-style.ts';
+import { OUTPUT_STYLE_ENV_VAR } from './output-style.ts';
 import { DELEGATE_ENV_VAR } from './remote-run.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import {
@@ -35,91 +35,70 @@ const LIFECYCLE_SCRIPT_NAMES: ReadonlySet<string> = new Set([
   'version',
 ]);
 
+/** What nmr's help lists for one scope: each command that it runs, and the text that follows the options. */
+export interface HelpListing {
+  /** Each command's name, paired with the summary that the `Commands:` block shows for it. */
+  commands: Array<[name: string, summary: string]>;
+  epilog: string;
+}
+
 /**
- * Generates the help text for the `nmr` CLI. Renders the names from the
- * workspace and root registries, excluding hooks (`*:pre`, `*:post`), and
- * the scripts that the package at `packageDir` adds to them.
+ * Describes nmr's help for the scope anchored at `packageDir`: the active registry's commands, less hooks
+ * (`*:pre`, `*:post`), then the scripts that the package's `package.json` adds to them, each summarized by the
+ * shell command to which it resolves.
  *
- * When `packageDir` is provided, tier-3 entries from that package's
- * `package.json:scripts` that match a registry name in the active section
- * are inlined as overrides: The registry value is replaced with the
- * override value and the row's command name is suffixed with `*`. The
- * active section is the root section when `shouldUseRoot` is true (root cwd
- * or `-w`), otherwise the workspace section. A footnote is appended once
- * if any override marker was rendered.
- *
- * Every other entry, a hook included, is listed under `Package scripts:`
- * unless it is an npm or pnpm lifecycle script or the active registry
- * contains its name.
+ * The active registry is the root's when `shouldUseRoot` is true (root cwd or `-w`), and the workspace's otherwise.
+ * A `package.json` entry that matches an active registry name replaces that row's value and marks it with `*`, which
+ * a footnote explains. Every other entry, a hook included, is listed unless it is an npm or pnpm lifecycle script.
+ * The epilog lists the inactive registry, the environment variables, and the files that nmr reads.
  */
-export function generateHelp(
+export function describeHelp(
   config: NmrConfig,
   monorepoRoot: string,
   packageDir: string | undefined,
   shouldUseRoot: boolean,
-): string {
-  const lines: string[] = [
-    'Usage: nmr [flags] <command> [args...]',
-    '',
-    'Flags:',
-    '  -F, --filter <pattern>      Run command in packages whose manifest name matches',
-    '  -R, --recursive             Run command in all packages',
-    '  -w, --workspace-root        Use root scripts, running at the monorepo root',
-    "  -q, --quiet                 Suppress command output, keeping nmr's verdicts",
-    '      --delegate              Run over SSH on the first free host that NMR_DELEGATE or the user config names',
-    '      --delegate-to <hosts>   Run over SSH on the first free of <hosts>, comma-separated',
-    '      --json                  Report one JSON object per command, withholding command output',
-    '      --log                   Print the recorded run instead of running (up to 256 KiB)',
-    '      --no-cache              Run even if this tree already passed; record the result',
-    '      --no-delegate           Run here, whatever NMR_DELEGATE or the user config says',
-    '      --no-lock               Run without waiting for another heavy command on this machine',
-    `      ${OUTPUT_STYLE_FLAG} <style>  Output style: auto (default), plain, or rich`,
-    '  -?, --help                  Show this help',
-    '  -V, --version               Show version number',
-    '',
-    'Environment:',
-    `  ${DELEGATE_ENV_VAR}                Hosts on which to run each command that can be delegated,`,
-    '                              comma-separated; nmr runs on the first free one',
-    `  ${OUTPUT_STYLE_ENV_VAR}            Output style: auto (default), plain, or rich. auto prints`,
-    '                              plain, without emoji, when CI is set or the stream is not a terminal.',
-    '',
-    'Files:',
-    "  ~/.config/nmr/config.ts     User config: this machine's delegation hosts, and when to use them",
-    '                              ($XDG_CONFIG_HOME/nmr/config.ts when that is set)',
-    '                              A command that it sends runs here when no host answers',
-    '',
-    'Workspace commands:',
-  ];
-
+): HelpListing {
   const packageScripts = packageDir === undefined ? {} : readRunnableScripts(packageDir);
-  const overrides = collectOverrides(packageScripts);
+  const fullActiveRegistry = shouldUseRoot ? buildRootRegistry(config, monorepoRoot) : buildWorkspaceRegistry(config);
 
-  let hadOverride = false;
-
-  const workspaceRegistry = filterHooks(buildWorkspaceRegistry(config));
-  const workspaceMarkedNames = !shouldUseRoot ? applyOverrides(workspaceRegistry, overrides) : new Set<string>();
-  if (workspaceMarkedNames.size > 0) hadOverride = true;
-  formatRegistry(workspaceRegistry, workspaceMarkedNames, lines);
-
-  lines.push('', 'Root commands:');
-  const rootRegistry = filterHooks(buildRootRegistry(config, monorepoRoot));
-  const rootMarkedNames = shouldUseRoot ? applyOverrides(rootRegistry, overrides) : new Set<string>();
-  if (rootMarkedNames.size > 0) hadOverride = true;
-  formatRegistry(rootRegistry, rootMarkedNames, lines);
-
-  const activeRegistry = shouldUseRoot ? buildRootRegistry(config, monorepoRoot) : buildWorkspaceRegistry(config);
-  const unregisteredScripts = collectUnregisteredScripts(packageScripts, activeRegistry);
-  if (Object.keys(unregisteredScripts).length > 0) {
-    lines.push('', 'Package scripts:');
-    formatRegistry(unregisteredScripts, new Set<string>(), lines);
+  const activeRegistry = filterHooks(fullActiveRegistry);
+  const markedNames = applyOverrides(activeRegistry, collectOverrides(packageScripts));
+  const commands: Array<[string, string]> = Object.entries(activeRegistry).map(([name, value]) => [
+    name,
+    `${describeScript(value)}${markedNames.has(name) ? ' *' : ''}`,
+  ]);
+  const unregisteredScripts = collectUnregisteredScripts(packageScripts, fullActiveRegistry);
+  for (const [name, value] of Object.entries(unregisteredScripts)) {
+    commands.push([name, describeScript(value)]);
   }
 
-  if (hadOverride) {
+  const inactiveRegistry = filterHooks(
+    shouldUseRoot ? buildWorkspaceRegistry(config) : buildRootRegistry(config, monorepoRoot),
+  );
+  const lines = [...ENVIRONMENT_AND_FILES_LINES, '', shouldUseRoot ? 'Workspace commands:' : 'Root commands:'];
+  formatRegistry(inactiveRegistry, new Set<string>(), lines);
+  if (markedNames.size > 0) {
     lines.push('', '* Overridden by package.json');
   }
 
-  return lines.join('\n');
+  return { commands, epilog: lines.join('\n') };
 }
+
+// region | Helpers
+
+/** The environment variables and files that nmr reads, which help lists after its options. */
+const ENVIRONMENT_AND_FILES_LINES: readonly string[] = [
+  'Environment:',
+  `  ${DELEGATE_ENV_VAR}                Hosts on which to run each command that can be delegated,`,
+  '                              comma-separated; nmr runs on the first free one',
+  `  ${OUTPUT_STYLE_ENV_VAR}            Output style: auto (default), plain, or rich. auto prints`,
+  '                              plain, without emoji, when CI is set or the stream is not a terminal.',
+  '',
+  'Files:',
+  "  ~/.config/nmr/config.ts     User config: this machine's delegation hosts, and when to use them",
+  '                              ($XDG_CONFIG_HOME/nmr/config.ts when that is set)',
+  '                              A command that it sends runs here when no host answers',
+];
 
 /**
  * Selects the hook-free entries of `packageScripts` as candidate overrides; `applyOverrides` decides which entries
@@ -212,3 +191,5 @@ function formatRegistry(registry: ScriptRegistry, markedNames: Set<string>, line
     lines.push(`  ${(key + marker).padEnd(padWidth)} ${describeScript(value)}`);
   }
 }
+
+// endregion | Helpers

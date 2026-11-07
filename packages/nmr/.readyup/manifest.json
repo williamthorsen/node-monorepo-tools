@@ -3,12 +3,17 @@
   "kits": [
     {
       "bundledDependencies": {
+        "@williamthorsen/toolbelt.arrays": "6.4.0",
+        "@williamthorsen/toolbelt.cli": "0.7.1",
         "@williamthorsen/toolbelt.datetime": "4.1.0",
         "@williamthorsen/toolbelt.errors": "0.9.0",
         "@williamthorsen/toolbelt.filesystem": "0.10.0",
+        "@williamthorsen/toolbelt.guards": "4.2.0",
         "@williamthorsen/toolbelt.numbers": "7.3.0",
         "@williamthorsen/toolbelt.objects": "4.4.0",
         "@williamthorsen/toolbelt.packaging": "0.7.0",
+        "@williamthorsen/toolbelt.sets": "3.1.0",
+        "@williamthorsen/toolbelt.strings": "8.2.0",
         "@williamthorsen/toolbelt.terminal": "0.3.0",
         "ansi-regex": "6.5.0",
         "ansi-styles": "6.2.3",
@@ -80,6 +85,11 @@
           "path": "../../nmr-core/dist/esm/cache-store.js"
         },
         {
+          "hash": "d2edf9e9",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/cli.js"
+        },
+        {
           "hash": "bc0baa4a",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/collectChangedPaths.js"
@@ -110,7 +120,7 @@
           "path": "../../nmr-core/dist/esm/helpers/workspace-patterns.js"
         },
         {
-          "hash": "76923c93",
+          "hash": "aa44f174",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/index.js"
         },
@@ -118,11 +128,6 @@
           "hash": "85d76864",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/isAnticipatedFailure.js"
-        },
-        {
-          "hash": "de51ceb3",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/parseArgs.js"
         },
         {
           "hash": "9104fb90",
@@ -288,6 +293,11 @@
           "path": "../src/helpers/type-guards.ts"
         },
         {
+          "hash": "77f6bb50",
+          "kind": "module",
+          "path": "../src/nmr-flags.ts"
+        },
+        {
           "hash": "78ca6bd4",
           "kind": "module",
           "path": "../src/resolve-scripts.ts"
@@ -303,7 +313,7 @@
           "path": "../src/shell-syntax.ts"
         },
         {
-          "hash": "a1b70d65",
+          "hash": "1146fc58",
           "kind": "module",
           "path": "../src/steps.ts"
         },
@@ -333,7 +343,7 @@
       "readyupVersion": "0.45.0",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "6eb9c2b5"
+      "targetHash": "d6067aa7"
     }
   ]
 }

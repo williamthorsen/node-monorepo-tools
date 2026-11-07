@@ -2,6 +2,8 @@ import type { Writable } from 'node:stream';
 
 import { resolveStreamStyles, type StreamStyleResolution } from '@williamthorsen/nmr-core';
 
+import { formatFlagSpelling } from './nmr-flags.ts';
+
 /**
  * Reports whether a stream is backed by a terminal, which detection reads when the flag and `NMR_OUTPUT_STYLE`
  * do not name a style. A stream without an `isTTY` property is not one.
@@ -25,7 +27,7 @@ export const OUTPUT_STYLE_ENV_VAR = 'NMR_OUTPUT_STYLE';
  *
  * Only `nmr` accepts it. A standalone bin reads the variable, which `nmr <command>` exports to it.
  */
-export const OUTPUT_STYLE_FLAG = '--output-style';
+export const OUTPUT_STYLE_FLAG = formatFlagSpelling('outputStyle');
 
 /**
  * Resolves the style of each output stream: the flag, then `NMR_OUTPUT_STYLE`, then detection from `CI`, the
