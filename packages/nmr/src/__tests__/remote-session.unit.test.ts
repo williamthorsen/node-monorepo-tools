@@ -1,5 +1,6 @@
 import { PassThrough } from 'node:stream';
 
+import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
 import { STALE_AFTER_MS } from '../machine-lock.ts';
@@ -13,6 +14,7 @@ describe(composeSessionScript, () => {
     const script = composeSessionScript({
       checkoutDir: `"$HOME"/'repo'`,
       params: {
+        gitOutputLimitBytes: GIT_OUTPUT_LIMIT_BYTES,
         holder: { command: 'test', dir: '/repo', pid: 1 },
         lockPath: CHECKOUT_LOCK_PATH,
         marker: MARKER,

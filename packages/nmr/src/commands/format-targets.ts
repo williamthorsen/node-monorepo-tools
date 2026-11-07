@@ -1,8 +1,7 @@
-import { spawnSync } from 'node:child_process';
 import { lstatSync } from 'node:fs';
 import path from 'node:path';
 
-import { hasErrnoCode } from '@williamthorsen/nmr-core';
+import { hasErrnoCode, runGit } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 /** The ignore file that Prettier reads but does not discover hierarchically. */
@@ -141,27 +140,6 @@ function classifyListedFile(cwd: string, file: string): ListedFileStatus {
     if (code !== undefined) return { kind: 'unreadable', code };
     return { kind: 'failed', error: `could not stat ${file}: ${describeError(error)}` };
   }
-}
-
-/**
- * Runs git and returns its stdout, or the reason it failed. A failure must never read as an empty file
- * list: Reporting success over a list that nothing produced is the silent-green failure that this command
- * exists to prevent.
- *
- * Invoked without a shell, because pathspecs originate in user input.
- */
-function runGit(args: string[], cwd: string): { ok: true; stdout: string } | { ok: false; error: string } {
-  const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
-
-  if (result.error) {
-    return { ok: false, error: result.error.message };
-  }
-  if (result.status !== 0) {
-    const stderr = result.stderr.trim();
-    return { ok: false, error: stderr || `\`git ${args.join(' ')}\` failed with exit code ${result.status}.` };
-  }
-
-  return { ok: true, stdout: result.stdout };
 }
 
 /** Splits `-z` output, dropping the trailing empty element left behind by the final separator. */

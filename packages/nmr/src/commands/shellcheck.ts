@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { UserError } from '@williamthorsen/nmr-core';
+import { runGit, UserError } from '@williamthorsen/nmr-core';
 
 import { describeSignalExitCode } from '../child-process.ts';
 import { ensureTool, type WorkflowTool } from './workflow-tools.ts';
@@ -57,12 +57,9 @@ export async function runShellcheck(
  * reaches every directory.
  */
 export function listTrackedScripts(monorepoRoot: string): string[] {
-  const result = spawnSync('git', ['ls-files', '-z', '--', '*.sh'], { cwd: monorepoRoot, encoding: 'utf8' });
-  if (result.error !== undefined) {
-    throw new UserError(`Cannot list tracked shell scripts: ${result.error.message}`, { cause: result.error });
-  }
-  if (result.status !== 0) {
-    throw new UserError(`Cannot list tracked shell scripts: ${result.stderr.trim()}`);
+  const result = runGit(['ls-files', '-z', '--', '*.sh'], monorepoRoot);
+  if (!result.ok) {
+    throw new UserError(`Cannot list tracked shell scripts: ${result.error}`);
   }
   return result.stdout.split('\0').filter((file) => file !== '');
 }

@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
+import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -365,6 +366,7 @@ describe('a delegated run on a fake host', () => {
     const script = composeSessionScript({
       checkoutDir: quoteForShell(checkoutDir()),
       params: {
+        gitOutputLimitBytes: GIT_OUTPUT_LIMIT_BYTES,
         holder: { command: 'test', dir: repo, pid: process.pid },
         lockPath: CHECKOUT_LOCK_PATH,
         marker: '__NMR_DELEGATE_test__',

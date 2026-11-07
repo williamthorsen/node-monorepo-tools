@@ -1,9 +1,8 @@
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
+import { runGit } from '@williamthorsen/nmr-core';
 
 /** A commit that records the working tree, or why one could not be made. */
 export type SnapshotResult =
@@ -19,7 +18,7 @@ export type SnapshotResult =
  * refused: Its content is in a repository that the snapshot does not include.
  */
 export function createSnapshot(cwd: string, env: NodeJS.ProcessEnv): SnapshotResult {
-  const toplevelResult = runGit(['rev-parse', '--show-toplevel'], cwd, env);
+  const toplevelResult = runGit(['rev-parse', '--show-toplevel'], cwd, undefined, env);
   if (!toplevelResult.ok) {
     return { ok: false, isUnsupported: true, reason: `not a git repository: ${toplevelResult.error}` };
   }
@@ -29,7 +28,7 @@ export function createSnapshot(cwd: string, env: NodeJS.ProcessEnv): SnapshotRes
     return { ok: false, isUnsupported: true, reason: 'the repository declares submodules' };
   }
 
-  const indexPathResult = runGit(['rev-parse', '--git-path', 'index'], toplevel, env);
+  const indexPathResult = runGit(['rev-parse', '--git-path', 'index'], toplevel, undefined, env);
   if (!indexPathResult.ok) {
     return { ok: false, isUnsupported: false, reason: indexPathResult.error };
   }
@@ -45,12 +44,12 @@ export function createSnapshot(cwd: string, env: NodeJS.ProcessEnv): SnapshotRes
     }
     const indexEnv = { ...env, GIT_INDEX_FILE: tempIndex };
 
-    const addResult = runGit(['add', '--all'], toplevel, indexEnv);
+    const addResult = runGit(['add', '--all'], toplevel, undefined, indexEnv);
     if (!addResult.ok) {
       return { ok: false, isUnsupported: false, reason: addResult.error };
     }
 
-    const stageResult = runGit(['ls-files', '--stage', '-z'], toplevel, indexEnv);
+    const stageResult = runGit(['ls-files', '--stage', '-z'], toplevel, undefined, indexEnv);
     if (!stageResult.ok) {
       return { ok: false, isUnsupported: false, reason: stageResult.error };
     }
@@ -58,18 +57,20 @@ export function createSnapshot(cwd: string, env: NodeJS.ProcessEnv): SnapshotRes
       return { ok: false, isUnsupported: true, reason: 'the working tree contains a submodule or a nested repository' };
     }
 
-    const treeResult = runGit(['write-tree'], toplevel, indexEnv);
+    const treeResult = runGit(['write-tree'], toplevel, undefined, indexEnv);
     if (!treeResult.ok) {
       return { ok: false, isUnsupported: false, reason: treeResult.error };
     }
 
-    const headResult = runGit(['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'], toplevel, env);
+    const headResult = runGit(['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'], toplevel, undefined, env);
     const parentArgs = headResult.ok ? ['-p', headResult.stdout.trim()] : [];
     const treeId = treeResult.stdout.trim();
-    const commitResult = runGit(['commit-tree', treeId, ...parentArgs, '-m', 'nmr delegate snapshot'], toplevel, {
-      ...env,
-      ...SNAPSHOT_IDENTITY_ENV,
-    });
+    const commitResult = runGit(
+      ['commit-tree', treeId, ...parentArgs, '-m', 'nmr delegate snapshot'],
+      toplevel,
+      undefined,
+      { ...env, ...SNAPSHOT_IDENTITY_ENV },
+    );
     if (!commitResult.ok) {
       return { ok: false, isUnsupported: false, reason: commitResult.error };
     }
@@ -101,23 +102,6 @@ function copyIndex(source: string, destination: string): void {
   fs.copyFileSync(source, destination);
   const { atime, mtime } = fs.statSync(source);
   fs.utimesSync(destination, atime, mtime);
-}
-
-/** Runs git and returns its stdout, or the reason that it failed. */
-function runGit(
-  args: readonly string[],
-  cwd: string,
-  env: NodeJS.ProcessEnv,
-): { ok: true; stdout: string } | { ok: false; error: string } {
-  const result = spawnSync('git', args, { cwd, encoding: 'utf8', env, maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
-  if (result.error !== undefined) {
-    return { ok: false, error: result.error.message };
-  }
-  if (result.status !== 0) {
-    return { ok: false, error: result.stderr.trim() || `git ${args[0] ?? ''} exited ${result.status ?? 'abnormally'}` };
-  }
-
-  return { ok: true, stdout: result.stdout };
 }
 
 // endregion | Helpers

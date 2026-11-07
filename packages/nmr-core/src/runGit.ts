@@ -9,19 +9,30 @@ export type GitResult<T> = { ok: true; stdout: T } | { ok: false; error: string 
  * Runs git and returns its stdout as text, or the reason it failed. A failure must never read as empty output: An
  * unreported change would leave a caller certifying content that is no longer there.
  */
-export function runGit(args: string[], cwd: string, input?: string): GitResult<string> {
-  const result = runGitForBytes(args, cwd, input === undefined ? undefined : Buffer.from(input, 'utf8'));
+export function runGit(
+  args: readonly string[],
+  cwd: string,
+  input?: string,
+  env?: NodeJS.ProcessEnv,
+): GitResult<string> {
+  const result = runGitForBytes(args, cwd, input === undefined ? undefined : Buffer.from(input, 'utf8'), env);
   return result.ok ? { ok: true, stdout: result.stdout.toString('utf8') } : result;
 }
 
 /**
  * Runs git without a shell, so that a shell never interprets any part of a path or revision, and returns its raw
- * stdout. `GIT_OPTIONAL_LOCKS=0` stops `git status` from writing its refreshed stat data back to the index.
+ * stdout. Git runs in `env`, or in `process.env` when `env` is absent. `GIT_OPTIONAL_LOCKS=0` stops `git status`
+ * from writing its refreshed stat data back to the index.
  */
-export function runGitForBytes(args: string[], cwd: string, input?: Buffer): GitResult<Buffer> {
+export function runGitForBytes(
+  args: readonly string[],
+  cwd: string,
+  input?: Buffer,
+  env?: NodeJS.ProcessEnv,
+): GitResult<Buffer> {
   const result = spawnSync('git', args, {
     cwd,
-    env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
+    env: { ...(env ?? process.env), GIT_OPTIONAL_LOCKS: '0' },
     input,
     maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
   });

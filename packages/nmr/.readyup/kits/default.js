@@ -7830,9 +7830,35 @@ function readWorkspaceManifest(monorepoRoot) {
   }
 }
 
+// ../nmr-core/dist/esm/gitOutputLimit.js
+var GIT_OUTPUT_LIMIT_BYTES = 64 * 1024 * 1024;
+
 // ../nmr-core/dist/esm/hasErrnoCode.js
 function hasErrnoCode(error, code) {
   return isError(error) && "code" in error && error.code === code;
+}
+
+// ../nmr-core/dist/esm/runGit.js
+import { spawnSync } from "node:child_process";
+function runGit(args, cwd, input, env) {
+  const result = runGitForBytes(args, cwd, input === void 0 ? void 0 : Buffer.from(input, "utf8"), env);
+  return result.ok ? { ok: true, stdout: result.stdout.toString("utf8") } : result;
+}
+function runGitForBytes(args, cwd, input, env) {
+  const result = spawnSync("git", args, {
+    cwd,
+    env: { ...env ?? process.env, GIT_OPTIONAL_LOCKS: "0" },
+    input,
+    maxBuffer: GIT_OUTPUT_LIMIT_BYTES
+  });
+  if (result.error) {
+    return { ok: false, error: result.error.message };
+  }
+  if (result.status !== 0) {
+    const stderr = result.stderr.toString("utf8").trim();
+    return { ok: false, error: stderr || `\`git ${args.join(" ")}\` failed with exit code ${result.status}.` };
+  }
+  return { ok: true, stdout: result.stdout };
 }
 
 // ../nmr-core/dist/esm/UserError.js
@@ -8978,14 +9004,12 @@ import { readdirSync as readdirSync2 } from "node:fs";
 import path7 from "node:path";
 
 // src/git-ignored-paths.ts
-import { spawnSync } from "node:child_process";
 function listGitIgnoredPaths(dir) {
-  const result = spawnSync(
-    "git",
+  const result = runGit(
     ["ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory", "--no-empty-directory"],
-    { cwd: dir, encoding: "utf8" }
+    dir
   );
-  if (result.error !== void 0 || result.status !== 0) return [];
+  if (!result.ok) return [];
   return result.stdout.split("\0").filter((entry) => entry !== "").toSorted();
 }
 

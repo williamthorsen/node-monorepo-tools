@@ -5,7 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import type { Writable } from 'node:stream';
 
-import { type OutputStyle, startTimer, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT_BYTES, type OutputStyle, startTimer, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
 import { PASS_MANIFEST_DIR_ENV_VAR, writeDebugNote } from './check-cache.ts';
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
@@ -201,6 +201,7 @@ export async function runRemotely(options: {
   const script = composeSessionScript({
     checkoutDir,
     params: {
+      gitOutputLimitBytes: GIT_OUTPUT_LIMIT_BYTES,
       holder: { command, dir: cwd, pid: process.pid },
       lockPath: CHECKOUT_LOCK_PATH,
       marker,
