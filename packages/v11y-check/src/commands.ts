@@ -12,6 +12,7 @@ import {
   formatCheckText,
   type ScopeCheckResult,
 } from './format-check.ts';
+import { formatSyncResult } from './format-sync.ts';
 import { formatCheckVerboseText } from './format-verbose.ts';
 import { generateAuditCiConfig } from './generate.ts';
 import { scaffoldConfig } from './init/scaffold.ts';
@@ -250,10 +251,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
         if (options.isJson) {
           process.stdout.write(JSON.stringify(syncResult, null, 2) + '\n');
         } else {
-          process.stdout.write(`\n--- ${scope} ---\n`);
-          process.stdout.write(`  added: ${syncResult.added.length}\n`);
-          process.stdout.write(`  kept: ${syncResult.kept.length}\n`);
-          process.stdout.write(`  removed: ${syncResult.removed.length}\n`);
+          process.stdout.write(formatSyncResult(syncResult));
         }
       }
 

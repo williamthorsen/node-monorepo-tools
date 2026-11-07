@@ -18,8 +18,8 @@ describe(buildFlatConfig, () => {
   it('flattens allowlist entries to an array of IDs', () => {
     const scopeConfig: ScopeConfig = {
       allowlist: [
-        { id: 'GHSA-1234', path: 'lodash', url: 'https://example.com/1' },
-        { id: 'GHSA-5678', path: 'express', url: 'https://example.com/2' },
+        { id: 'GHSA-1234', url: 'https://example.com/1' },
+        { id: 'GHSA-5678', url: 'https://example.com/2' },
       ],
       severityThreshold: 'moderate',
     };
@@ -87,7 +87,7 @@ describe(generateAuditCiConfig, () => {
 
   it('round-trips: config values appear in generated JSON', async ({ tree }) => {
     const scopeConfig: ScopeConfig = {
-      allowlist: [{ id: 'GHSA-abcd', path: 'pkg', url: 'https://example.com' }],
+      allowlist: [{ id: 'GHSA-abcd', url: 'https://example.com' }],
       severityThreshold: 'critical',
     };
     const outputPath = await generateAuditCiConfig(scopeConfig, 'dev', tree.dir);

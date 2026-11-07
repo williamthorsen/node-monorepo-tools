@@ -39,9 +39,10 @@ export interface ParseResult {
 /**
  * Parses audit-ci JSON output into typed audit results.
  *
- * Extracts advisories from the JSON, mapping each to an `AuditResult` with
- * the first discovered dependency path. Returns warnings when input is
- * non-empty but not parseable.
+ * Extracts advisories from the JSON, mapping each to an `AuditResult` whose
+ * dependency paths are sorted, so that the result does not depend on the order
+ * in which audit-ci reports them. Returns warnings when input is non-empty but
+ * not parseable.
  */
 export function parseAuditCiOutput(jsonString: string): ParseResult {
   const warnings: string[] = [];
@@ -134,21 +135,11 @@ function extractAdvisories(parsedOutput: unknown): AuditCiAdvisory[] {
   return [];
 }
 
-/** Extracts all dependency paths across an advisory's findings, deduplicated in insertion order. */
+/** Extracts all dependency paths across an advisory's findings, deduplicated and sorted. */
 function extractPaths(advisory: AuditCiAdvisory): string[] {
-  const seenPaths = new Set<string>();
-  const orderedPaths: string[] = [];
-  for (const finding of advisory.findings) {
-    for (const pathValue of finding.paths) {
-      if (seenPaths.has(pathValue)) {
-        continue;
-      }
-
-      seenPaths.add(pathValue);
-      orderedPaths.push(pathValue);
-    }
-  }
-  return orderedPaths;
+  const uniquePaths = new Set(advisory.findings.flatMap((finding) => finding.paths));
+  // Compare by code unit so that the order does not depend on the locale.
+  return [...uniquePaths].toSorted();
 }
 
 /** Result of extracting stale entries, including any warnings. */

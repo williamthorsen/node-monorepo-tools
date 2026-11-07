@@ -189,21 +189,19 @@ describe(parseAuditCiOutput, () => {
     expect(results[0]?.paths).toStrictEqual([]);
   });
 
-  it('collects all paths from multiple findings, deduplicated in insertion order', () => {
-    const json = JSON.stringify({
-      advisories: {
-        '1234': {
-          id: 1234,
-          module_name: 'lodash',
-          url: 'https://github.com/advisories/GHSA-1234',
-          findings: [{ paths: ['a>b>lodash', 'c>lodash'] }, { paths: ['c>lodash', 'd>lodash'] }],
-        },
-      },
-    });
+  it('collects all paths from multiple findings, deduplicated and sorted', () => {
+    const json = buildLodashOutput([{ paths: ['d>lodash', 'c>lodash'] }, { paths: ['c>lodash', 'a>b>lodash'] }]);
 
     const { results } = parseAuditCiOutput(json);
     expect(results[0]?.paths).toStrictEqual(['a>b>lodash', 'c>lodash', 'd>lodash']);
     expect(results[0]?.path).toBe('a>b>lodash');
+  });
+
+  it('returns the same result whatever order audit-ci reports the paths in', () => {
+    const forward = buildLodashOutput([{ paths: ['a>lodash', 'B>lodash'] }, { paths: ['c>lodash'] }]);
+    const reversed = buildLodashOutput([{ paths: ['c>lodash'] }, { paths: ['B>lodash', 'a>lodash'] }]);
+
+    expect(parseAuditCiOutput(reversed).results).toStrictEqual(parseAuditCiOutput(forward).results);
   });
 
   it('returns title, overview as description, and cvss when present in advisory', () => {
@@ -415,6 +413,15 @@ describe(resolveAuditCiBin, () => {
 });
 
 // region | Helpers
+
+/** Builds audit-ci output for a single lodash advisory with the given findings. */
+function buildLodashOutput(findings: Array<{ paths: string[] }>): string {
+  return JSON.stringify({
+    advisories: {
+      '1234': { id: 1234, module_name: 'lodash', url: 'https://github.com/advisories/GHSA-1234', findings },
+    },
+  });
+}
 
 function buildSpawnResult(overrides: Partial<SpawnSyncReturns<string>> = {}): SpawnSyncReturns<string> {
   return {

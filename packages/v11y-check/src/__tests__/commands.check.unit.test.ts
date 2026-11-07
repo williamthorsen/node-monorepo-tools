@@ -128,7 +128,7 @@ describe(checkCommand, () => {
   it('classifies allowed vulnerabilities correctly', async () => {
     const config = makeConfig({
       dev: {
-        allowlist: [{ id: 'GHSA-ok', path: 'safe-pkg', url: 'https://example.com/ok' }],
+        allowlist: [{ id: 'GHSA-ok', url: 'https://example.com/ok' }],
       },
     });
     mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
@@ -154,7 +154,6 @@ describe(checkCommand, () => {
           {
             addedAt: '2026-04-01T00:00:00.000Z',
             id: 'GHSA-enriched',
-            path: 'pkg',
             reason: 'Accepted risk',
             url: 'https://example.com/enriched',
           },
@@ -209,7 +208,6 @@ describe(checkCommand, () => {
         allowlist: [
           {
             id: 'GHSA-ghsa-test',
-            path: 'pkg',
             url: 'https://example.com/ghsa-test',
           },
         ],
@@ -252,7 +250,7 @@ describe(checkCommand, () => {
   it('detects stale allowlist entries and returns 0', async () => {
     const config = makeConfig({
       prod: {
-        allowlist: [{ id: 'GHSA-stale', path: 'gone-pkg', url: 'https://example.com/stale' }],
+        allowlist: [{ id: 'GHSA-stale', url: 'https://example.com/stale' }],
       },
     });
     mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
@@ -294,7 +292,7 @@ describe(checkCommand, () => {
   it('displays prod before dev even when scopes are passed in reverse order', async () => {
     const config = makeConfig({
       prod: {
-        allowlist: [{ id: 'GHSA-prod-entry', path: 'pkg', url: 'https://example.com/prod' }],
+        allowlist: [{ id: 'GHSA-prod-entry', url: 'https://example.com/prod' }],
       },
     });
     mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
@@ -368,7 +366,6 @@ describe(checkCommand, () => {
           {
             addedAt: '2026-04-01T00:00:00.000Z',
             id: 'GHSA-allowed',
-            path: 'pkg',
             reason: 'Accepted',
             url: 'https://example.com/allowed',
           },
@@ -406,7 +403,7 @@ describe(checkCommand, () => {
   ])('renders %s text output in the style resolved for stdout', async (_format, verbose) => {
     const config = makeConfig({
       prod: {
-        allowlist: [{ id: 'GHSA-allowed', path: 'pkg', url: 'https://example.com/allowed' }],
+        allowlist: [{ id: 'GHSA-allowed', url: 'https://example.com/allowed' }],
       },
     });
     mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
@@ -463,7 +460,7 @@ describe(checkCommand, () => {
   it('classifies an allowlisted vulnerability as belowThreshold when its severity is below the threshold', async () => {
     const config = makeConfig({
       prod: {
-        allowlist: [{ id: 'GHSA-low', path: 'pkg', url: 'https://example.com/low' }],
+        allowlist: [{ id: 'GHSA-low', url: 'https://example.com/low' }],
         severityThreshold: 'high',
       },
     });
@@ -512,9 +509,7 @@ describe(checkCommand, () => {
   it('renders verbose JSON output when both verbose and isJson are true', async () => {
     const config = makeConfig({
       prod: {
-        allowlist: [
-          { addedAt: '2026-04-01T00:00:00.000Z', id: 'GHSA-1', path: 'pkg', reason: 'r', url: 'https://example.com/1' },
-        ],
+        allowlist: [{ addedAt: '2026-04-01T00:00:00.000Z', id: 'GHSA-1', reason: 'r', url: 'https://example.com/1' }],
       },
     });
     mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
