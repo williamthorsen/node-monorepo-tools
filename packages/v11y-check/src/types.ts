@@ -19,20 +19,22 @@ export type SeverityThreshold = (typeof SEVERITY_THRESHOLDS)[number];
 
 // -- Allowlist entry --
 
-/** A single allowlisted advisory with metadata for traceability. */
+/** A single allowlisted advisory, accepted by ID, with metadata for traceability. */
 export interface AllowlistEntry {
   addedAt?: string | undefined;
   id: string;
-  path: string;
   reason?: string | undefined;
   url: string;
 }
 
-/** Zod schema for an allowlist entry. */
+/**
+ * Zod schema for an allowlist entry.
+ *
+ * Strips unknown keys rather than rejecting them, so that an entry written with the deprecated `path` still loads.
+ */
 export const allowlistEntrySchema = z.object({
   addedAt: z.string().optional(),
   id: z.string(),
-  path: z.string(),
   reason: z.string().optional(),
   url: z.string(),
 });

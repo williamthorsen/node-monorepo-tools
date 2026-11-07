@@ -24,7 +24,7 @@ describe('generate -> sync cycle', () => {
       dev: { severityThreshold: 'high', allowlist: [] },
       prod: {
         severityThreshold: 'moderate',
-        allowlist: [{ id: 'GHSA-stale', path: 'old-pkg', reason: 'will be removed', url: 'https://example.com/stale' }],
+        allowlist: [{ id: 'GHSA-stale', reason: 'will be removed', url: 'https://example.com/stale' }],
       },
     };
     const configFilePath = tree.writeJson(CONFIG_ENTRY, initialConfig);

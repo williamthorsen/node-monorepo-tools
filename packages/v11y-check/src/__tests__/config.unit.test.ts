@@ -21,7 +21,7 @@ describe(loadConfig, () => {
       dev: { severityThreshold: 'high', allowlist: [] },
       prod: {
         severityThreshold: 'moderate',
-        allowlist: [{ id: 'GHSA-1234', path: 'lodash', url: 'https://example.com' }],
+        allowlist: [{ id: 'GHSA-1234', url: 'https://example.com' }],
       },
     };
     tree.writeJson(CONFIG_ENTRY, config);
@@ -31,6 +31,22 @@ describe(loadConfig, () => {
     expect(result.config.prod.allowlist).toHaveLength(1);
     expect(result.configDir).toBe(tree.resolve('.config'));
     expect(result.configSource).toBe('file');
+  });
+
+  it('loads an entry that contains the deprecated path and discards the path', async ({ tree }) => {
+    const entry = {
+      addedAt: '2026-01-01T00:00:00.000Z',
+      id: 'GHSA-1234',
+      path: 'a>lodash',
+      reason: 'ok',
+      url: 'https://x',
+    };
+    tree.writeJson(CONFIG_ENTRY, { dev: { allowlist: [entry] }, prod: { allowlist: [] } });
+
+    const result = await loadConfig(undefined, tree.dir);
+    expect(result.config.dev.allowlist).toStrictEqual([
+      { addedAt: '2026-01-01T00:00:00.000Z', id: 'GHSA-1234', reason: 'ok', url: 'https://x' },
+    ]);
   });
 
   it('returns defaults when the config file does not exist and the caller does not give an explicit path', async ({

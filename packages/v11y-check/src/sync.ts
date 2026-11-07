@@ -25,7 +25,6 @@ function serializeEntry(entry: AllowlistEntry): Record<string, string> {
   return {
     ...(entry.addedAt !== undefined && { addedAt: entry.addedAt }),
     id: entry.id,
-    path: entry.path,
     ...(entry.reason !== undefined && { reason: entry.reason }),
     url: entry.url,
   };
@@ -39,9 +38,14 @@ function serializeScopeConfig(scopeConfig: ScopeConfig): Record<string, unknown>
   };
 }
 
+/** An allowlist entry that sync added, with the dependency chains through which the advisory currently arrives. */
+export interface AddedEntry extends AllowlistEntry {
+  paths: string[];
+}
+
 /** Result of a sync operation for a single scope. */
 export interface SyncResult {
-  added: AllowlistEntry[];
+  added: AddedEntry[];
   kept: AllowlistEntry[];
   removed: AllowlistEntry[];
   scope: AuditScope;
@@ -50,19 +54,19 @@ export interface SyncResult {
 /**
  * Computes the updated allowlist by diffing audit results against the current entries.
  *
- * New advisories are added with an auto-populated reason. Resolved advisories are removed.
+ * New advisories are added with an auto-populated reason and their current chains. Resolved advisories are removed.
  * Existing entries are kept unchanged.
  */
 export function computeSyncDiff(
   currentAllowlist: AllowlistEntry[],
   auditResults: AuditResult[],
   date?: Date,
-): { added: AllowlistEntry[]; kept: AllowlistEntry[]; removed: AllowlistEntry[] } {
+): { added: AddedEntry[]; kept: AllowlistEntry[]; removed: AllowlistEntry[] } {
   const now = date ?? new Date();
   const currentById = new Map(currentAllowlist.map((entry) => [entry.id, entry]));
   const auditById = new Map(auditResults.map((result) => [result.id, result]));
 
-  const addedEntries: AllowlistEntry[] = [];
+  const addedEntries: AddedEntry[] = [];
   const keptEntries: AllowlistEntry[] = [];
   const removedEntries: AllowlistEntry[] = [];
 
@@ -75,7 +79,7 @@ export function computeSyncDiff(
       addedEntries.push({
         addedAt: nowIso,
         id: result.id,
-        path: result.path,
+        paths: result.paths,
         reason: `Added by v11y sync at ${formatFriendlyUtc(now)}`,
         url: result.url,
       });
@@ -143,7 +147,7 @@ export async function syncAllowlist(
     kept: keptEntries,
     removed: removedEntries,
   } = computeSyncDiff(config[scope].allowlist, auditResults, date);
-  const updatedConfig = buildUpdatedConfig(config, scope, [...keptEntries, ...addedEntries]);
+  const updatedConfig = buildUpdatedConfig(config, scope, [...keptEntries, ...addedEntries.map(toAllowlistEntry)]);
 
   try {
     await writeFile(configFilePath, serializeConfig(updatedConfig), 'utf8');
@@ -156,3 +160,15 @@ export async function syncAllowlist(
     updatedConfig,
   };
 }
+
+// region | Helpers
+/** Drops the report-only `paths` from an added entry, leaving what the config stores. */
+function toAllowlistEntry(entry: AddedEntry): AllowlistEntry {
+  return {
+    ...(entry.addedAt !== undefined && { addedAt: entry.addedAt }),
+    id: entry.id,
+    ...(entry.reason !== undefined && { reason: entry.reason }),
+    url: entry.url,
+  };
+}
+// endregion | Helpers

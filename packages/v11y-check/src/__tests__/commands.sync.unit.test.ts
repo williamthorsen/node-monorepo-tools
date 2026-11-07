@@ -86,7 +86,7 @@ describe(syncCommand, () => {
 
   it('uses a stripped (empty) allowlist config when invoking runReport', async () => {
     const config = makeConfig({
-      dev: { allowlist: [{ id: 'GHSA-existing', path: 'pkg', url: 'https://example.com' }] },
+      dev: { allowlist: [{ id: 'GHSA-existing', url: 'https://example.com' }] },
     });
     mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
