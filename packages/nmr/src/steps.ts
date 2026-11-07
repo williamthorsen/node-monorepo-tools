@@ -303,6 +303,7 @@ function readLauncherScope(
   }
 
   for (const token of launcherArgs) {
+    // rdy-ignore-next-line toolbelt.cli/no-hand-rolled-flag-scan -- reads pnpm's flags in a launcher step, not nmr's
     if (token === '-r' || token === '--recursive') {
       scope.isDelegate = true;
       scope.isRecursive = true;

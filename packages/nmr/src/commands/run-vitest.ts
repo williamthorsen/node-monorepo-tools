@@ -81,6 +81,7 @@ function findConfigFile(dir: string, stems: string[]): string | undefined {
 function namesConfig(argv: string[]): boolean {
   for (const arg of argv) {
     if (arg === '--') return false;
+    // rdy-ignore-next-line toolbelt.cli/no-hand-rolled-flag-scan -- reads Vitest's flags in the arguments that nmr-vitest forwards
     if (arg === '--config' || arg === '-c' || arg.startsWith('--config=')) return true;
   }
   return false;
