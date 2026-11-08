@@ -1,10 +1,9 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-import { UserError } from '@williamthorsen/nmr-core';
+import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
 import type { DeclaredDirectory } from './resolveReleaseDeclaration.ts';
-import { isRecord } from './typeGuards.ts';
 import type { DirectoryConfig } from './types.ts';
 import { chainUserError } from './user-error-chaining.ts';
 

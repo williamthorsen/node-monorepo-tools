@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-import { isRecord } from './typeGuards.ts';
+import { isRecord } from '@williamthorsen/nmr-core';
 
 // npm error codes that mean the caller does not have any usable registry credentials.
 export const AUTH_ERROR_CODES: ReadonlySet<string> = new Set(['E401', 'ENEEDAUTH']);

@@ -1,4 +1,4 @@
-import { isRecord } from './typeGuards.ts';
+import { isRecord } from '@williamthorsen/nmr-core';
 
 /** A path that a manifest names but the tarball lacks, with the manifest location that names it. */
 export interface MissingManifestPath {

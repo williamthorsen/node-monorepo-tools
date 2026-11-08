@@ -1,14 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { isAnticipatedFailure, UserError } from '@williamthorsen/nmr-core';
+import { isAnticipatedFailure, isRecord, UserError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { detectPackageManager } from './detectPackageManager.ts';
 import { findMissingManifestPaths, type MissingManifestPath } from './findMissingManifestPaths.ts';
 import { isPublishableManifest } from './isPublishableManifest.ts';
 import { packFromCleanCheckout } from './packFromCleanCheckout.ts';
-import { isRecord } from './typeGuards.ts';
 import { chainUserError } from './user-error-chaining.ts';
 
 /**

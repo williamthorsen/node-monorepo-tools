@@ -1,4 +1,4 @@
-import { isRecord } from './typeGuards.ts';
+import { isRecord } from '@williamthorsen/nmr-core';
 
 /** Reports whether a parsed `package.json` can be published: its `private` field is absent or `false`. */
 export function isPublishableManifest(manifest: unknown): boolean {

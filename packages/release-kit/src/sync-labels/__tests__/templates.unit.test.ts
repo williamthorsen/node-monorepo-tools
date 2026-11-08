@@ -1,11 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { findPackageRoot } from '@williamthorsen/nmr-core';
+import { findPackageRoot, isRecord } from '@williamthorsen/nmr-core';
 import { describe, expect, it, vi } from 'vitest';
 import { parse } from 'yaml';
 
-import { isRecord } from '../../typeGuards.ts';
 import { readSyncLabelsWorkflowTemplate, renderRepoLabelsBlock, renderRepoLabelsConfigScript } from '../templates.ts';
 import type { LabelDefinition } from '../types.ts';
 

@@ -2,9 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { UserError } from '@williamthorsen/nmr-core';
+import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
-import { isRecord } from './typeGuards.ts';
 import { chainUserError } from './user-error-chaining.ts';
 
 /** Path of the root `package.json` consulted when validating a `project` block. */

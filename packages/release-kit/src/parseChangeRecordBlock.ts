@@ -1,6 +1,5 @@
+import { isRecord } from '@williamthorsen/nmr-core';
 import { parseDocument } from 'yaml';
-
-import { isRecord } from './typeGuards.ts';
 
 /**
  * Reads the last `change-record` block in a commit message into the change entries that it records.

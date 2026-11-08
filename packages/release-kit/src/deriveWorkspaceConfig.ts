@@ -1,10 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 
-import { UserError } from '@williamthorsen/nmr-core';
+import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
 import { isPublishableManifest } from './isPublishableManifest.ts';
-import { isRecord } from './typeGuards.ts';
 import type { WorkspaceConfig } from './types.ts';
 import { chainUserError } from './user-error-chaining.ts';
 

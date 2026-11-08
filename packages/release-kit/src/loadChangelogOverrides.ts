@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 
+import { isRecord } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import { isRecord } from './typeGuards.ts';
 import type { ChangelogOverride } from './types.ts';
 
 /** Allowed audience values declared in the on-disk override format (full forward-compatible vocabulary). */

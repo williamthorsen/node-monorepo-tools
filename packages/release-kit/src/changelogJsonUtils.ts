@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 
-import { isRecord, isUnknownArray } from './typeGuards.ts';
+import { isRecord } from '@williamthorsen/nmr-core';
+
+import { isUnknownArray } from './typeGuards.ts';
 import type { ChangelogEntry } from './types.ts';
 
 /**

@@ -3,10 +3,9 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { UserError } from '@williamthorsen/nmr-core';
+import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
 import { type PackageManager, resolveExecutable } from './detectPackageManager.ts';
-import { isRecord } from './typeGuards.ts';
 import { chainUserError } from './user-error-chaining.ts';
 
 /**
