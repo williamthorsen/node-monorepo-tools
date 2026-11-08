@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -7,7 +7,7 @@ import { isRecord } from '../packages/nmr-core/src/portable/isRecord.ts';
 
 const repoRoot = resolve(import.meta.dirname, '..');
 const schemaPaths = listPublishedSchemaPaths();
-const referencingPaths = ['.config', '.meta'].flatMap((directory) => listJsonPaths(join(repoRoot, directory)));
+const referencingPaths = listReferencingDirectories().flatMap(listJsonPaths);
 
 // eslint-disable-next-line unicorn/prefer-https -- draft-07's meta-schema $id is canonically http; it identifies the schema, it is not fetched
 const DRAFT_07_URI = 'http://json-schema.org/draft-07/schema#';
@@ -131,6 +131,17 @@ function listPublishedSchemaPaths(): string[] {
       }
     })
     .toSorted();
+}
+
+/** Returns the absolute paths of the root `.config` and `.meta` directories and of every `packages/*\/.meta`. */
+function listReferencingDirectories(): string[] {
+  const packagesDirectory = join(repoRoot, 'packages');
+  const packageMetaDirectories = readdirSync(packagesDirectory, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(packagesDirectory, entry.name, '.meta'))
+    .filter((directory) => existsSync(directory))
+    .toSorted();
+  return [join(repoRoot, '.config'), join(repoRoot, '.meta'), ...packageMetaDirectories];
 }
 
 /** Reports whether a `$schema` value names a schema of this repo: a relative path, or a URL into this repo. */
