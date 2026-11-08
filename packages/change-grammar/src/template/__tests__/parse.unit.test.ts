@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import { normalizeChangeRecord } from '../../record/tokens.ts';
+import type { ChangeRecord, Taxonomy } from '../../record/types.ts';
 import { compileTemplate } from '../compile-template.ts';
 import { parse } from '../parse.ts';
 import { render } from '../render.ts';
 import { TEMPLATE_CATALOGUE } from '../templates.ts';
-import { normalizeChangeRecord } from '../tokens.ts';
-import type { ChangeRecord, Taxonomy } from '../types.ts';
 
 const TAXONOMY: Taxonomy = {
   tiers: ['public', 'internal', 'process'],

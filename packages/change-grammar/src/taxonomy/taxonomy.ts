@@ -1,4 +1,4 @@
-import type { CanonicalTaxonomy } from './types.ts';
+import type { CanonicalTaxonomy } from '../record/types.ts';
 
 /** The work-type taxonomy shared by every tool that reads or writes the change grammar. */
 export const CANONICAL_TAXONOMY: CanonicalTaxonomy = {

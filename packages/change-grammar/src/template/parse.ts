@@ -1,6 +1,6 @@
+import { BREAKING_MARKER, normalizeChangeRecord } from '../record/tokens.ts';
+import type { ChangeRecord, Taxonomy } from '../record/types.ts';
 import { flattenTemplate, namesToken, type TemplateNode, type TokenNode } from './compile-template.ts';
-import { BREAKING_MARKER, normalizeChangeRecord } from './tokens.ts';
-import type { ChangeRecord, Taxonomy } from './types.ts';
 
 /**
  * Resolves a spelled type to the key of the taxonomy entry that declares it as its key or as an alias, comparing both

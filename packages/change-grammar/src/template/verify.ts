@@ -1,3 +1,5 @@
+import type { TokenName } from '../record/tokens.ts';
+import type { ChangeRecord, Taxonomy } from '../record/types.ts';
 import {
   type FlatNode,
   flattenTemplate,
@@ -7,8 +9,6 @@ import {
 } from './compile-template.ts';
 import { parse } from './parse.ts';
 import { render } from './render.ts';
-import type { TokenName } from './tokens.ts';
-import type { ChangeRecord, Taxonomy } from './types.ts';
 
 /**
  * Reports each record shape admitted by the template's optional groups whose render does not read back as that record,

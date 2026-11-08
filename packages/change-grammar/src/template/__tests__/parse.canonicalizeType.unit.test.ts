@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import type { Taxonomy } from '../../record/types.ts';
 import { canonicalizeType } from '../parse.ts';
-import type { Taxonomy } from '../types.ts';
 
 const LOWERCASE_TAXONOMY: Taxonomy = {
   tiers: ['public'],

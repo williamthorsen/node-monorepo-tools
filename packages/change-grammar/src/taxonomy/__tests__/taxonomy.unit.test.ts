@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { compileTemplate } from '../compile-template.ts';
-import { parse } from '../parse.ts';
+import type { Taxonomy } from '../../record/types.ts';
+import { validate } from '../../record/validate.ts';
+import { compileTemplate } from '../../template/compile-template.ts';
+import { parse } from '../../template/parse.ts';
+import { TEMPLATE_CATALOGUE } from '../../template/templates.ts';
+import { verify } from '../../template/verify.ts';
 import { CANONICAL_TAXONOMY } from '../taxonomy.ts';
-import { TEMPLATE_CATALOGUE } from '../templates.ts';
-import type { Taxonomy } from '../types.ts';
-import { validate } from '../validate.ts';
-import { verify } from '../verify.ts';
 
 describe('CANONICAL_TAXONOMY', () => {
   it('serves as the engine taxonomy', () => {
