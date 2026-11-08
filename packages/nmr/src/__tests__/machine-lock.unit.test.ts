@@ -6,7 +6,7 @@ import { PassThrough } from 'node:stream';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   acquireMachineLock,
@@ -58,7 +58,9 @@ describe(acquireMachineLock, () => {
 
     const second = acquire({ stderr: stderr.stream });
     await waitFor(() => stderr.read().includes('waiting'));
-    await delay(50);
+    // Only elapsed time shows that further polls print nothing.
+    // eslint-disable-next-line sky-pilot/no-real-time-sleep -- the absence of output needs a real window
+    await new Promise((resolve) => setTimeout(resolve, 50));
     await first.release();
     const secondLock = await second;
 
@@ -241,18 +243,14 @@ function captureStream(): { read: () => string; stream: PassThrough } {
   return { read: () => output, stream };
 }
 
-/** Resolves after `ms` milliseconds. */
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /** Polls until `condition` holds, failing after two seconds. */
 async function waitFor(condition: () => boolean): Promise<void> {
-  const deadline = Date.now() + 2000;
-  while (!condition()) {
-    if (Date.now() > deadline) throw new Error('Timed out waiting for condition');
-    await delay(5);
-  }
+  await vi.waitFor(
+    () => {
+      if (!condition()) throw new Error('Timed out waiting for condition');
+    },
+    { interval: 5, timeout: 2000 },
+  );
 }
 
 // endregion | Helpers

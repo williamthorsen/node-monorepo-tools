@@ -7,7 +7,7 @@ import { PassThrough } from 'node:stream';
 import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { quoteForShell } from '../helpers/quoteForShell.ts';
 import { STALE_AFTER_MS } from '../machine-lock.ts';
@@ -493,11 +493,12 @@ function runGit(cwd: string, args: string[]): string {
 
 /** Polls `condition` until it holds, failing after five seconds. */
 async function waitFor(condition: () => boolean): Promise<void> {
-  const deadline = Date.now() + 5000;
-  while (!condition()) {
-    if (Date.now() > deadline) throw new Error('timed out waiting for a condition');
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
+  await vi.waitFor(
+    () => {
+      if (!condition()) throw new Error('timed out waiting for a condition');
+    },
+    { interval: 25, timeout: 5000 },
+  );
 }
 
 // endregion | Helpers
