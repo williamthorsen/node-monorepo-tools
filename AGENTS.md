@@ -53,6 +53,11 @@ Packages live under `packages/`:
 
 - A file that a package scaffolds into a consumer repo and that takes no parameter ships verbatim under the package's `templates/`, which its `package.json` `"files"` lists; one that varies by a parameter, such as the repo type, is rendered by a function. The kit hashes and `__tests__/dogfooded-workflows.app.unit.test.ts` compare the shipped bytes in either form
 
+### Published JSON Schemas
+
+- A schema under `packages/*/schemas/` is hand-written draft-07 and ships through `"files"`; a unit test in its package guards it against drift from the code that reads the file that it describes. `__tests__/published-schemas.app.unit.test.ts` and `__tests__/published-schemas.app.tool.test.ts` hold every schema to the rest of the standard
+- No schema declares `$id`: Every `$ref` is internal, so resolution does not need one, and a version-pinned `$id` would have to be rewritten in each release commit, which release-kit does not do
+
 ### Agent guidance
 
 - `postinstall` runs `codeassembly sync --warn-only`, which writes the gitignored per-harness local guidance file containing the ambient rulebooks that this repo declares; `--warn-only` keeps a sync failure from breaking the install
