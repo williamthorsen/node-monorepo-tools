@@ -125,4 +125,6 @@ Consumers reference it from the top of their `.meta/label-map.json`:
 }
 ```
 
+change-grammar also ships the schema in its package. A project that lists `@williamthorsen/change-grammar` as a direct devDependency can reference the installed version as `../node_modules/@williamthorsen/change-grammar/schemas/label-map.json`, relative to `.meta/label-map.json`. release-kit depends on change-grammar, but pnpm links only direct dependencies into a project's `node_modules`, so the path does not resolve through release-kit alone; the URL works either way.
+
 Earlier releases published the same schema from release-kit, and URLs under existing `release-kit-v*` tags keep resolving. release-kit does not generate `.meta/label-map.json`; change-grammar's `deriveLabelMap` derives one from the taxonomy, the workspace scopes, and the caller's statement of whether the repo is a monorepo, which decides the `root` scope.

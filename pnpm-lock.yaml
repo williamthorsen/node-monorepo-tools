@@ -516,6 +516,9 @@ importers:
       '@williamthorsen/toolbelt.vitest':
         specifier: 'catalog:'
         version: 0.13.1(vitest@5.1.0)
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
       esbuild:
         specifier: 'catalog:'
         version: 0.28.2

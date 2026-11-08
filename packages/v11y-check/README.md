@@ -61,7 +61,7 @@ The source-of-truth config lives at `.config/v11y-check.config.json`:
 
 ### Fields
 
-- **`$schema`** (optional): JSON Schema URL for editor autocomplete and validation. Automatically included by `init` and `sync`.
+- **`$schema`** (optional): JSON Schema URL for editor autocomplete and validation. Automatically included by `init` and `sync`. The package also ships the schema, so a project that lists `v11y-check` as a direct dependency can reference the installed version by a path relative to the config file instead: `../node_modules/v11y-check/schemas/config.json`. pnpm links only direct dependencies into a project's `node_modules`, so the path does not resolve when v11y-check runs through `pnpm dlx` or `npx`.
 - **`dev`** / **`prod`**: Scope-specific settings:
   - **`severityThreshold`** (optional): Fail on advisories at or above this severity. Valid values: `'low'`, `'moderate'`, `'high'`, `'critical'`. When omitted, audit-ci uses its own defaults.
   - **`allowlist`**: Typed advisory entries with `id`, `url`, and optional `reason` and `addedAt`. An entry accepts its advisory by ID, whatever dependency chain brings the advisory in: `v11y check` shows the chains through which each advisory currently arrives, and `v11y sync` lists them for each advisory that it adds. A `path` written by an older version is ignored, and `v11y sync` removes it. `addedAt` is an ISO 8601 UTC datetime (e.g., `2026-04-15T09:30:00.000Z`) populated automatically by `v11y sync` on new entries; existing entries retain whatever value they had. Older `YYYY-MM-DD` values are still accepted.
@@ -248,5 +248,5 @@ To migrate an existing config:
 
 1. Remove the `outDir` field.
 2. Replace severity booleans with `severityThreshold` in each scope.
-3. Optionally add a `$schema` field set to `https://github.com/williamthorsen/node-monorepo-tools/raw/v11y-check-v<version>/packages/v11y-check/schemas/config.json`, with `<version>` replaced by the installed v11y-check version.
+3. Optionally add a `$schema` field set to `https://github.com/williamthorsen/node-monorepo-tools/raw/v11y-check-v<version>/packages/v11y-check/schemas/config.json`, with `<version>` replaced by the installed v11y-check version, or to the `node_modules` path that [Fields](#fields) gives.
 4. Delete any generated `audit-ci.*.json` files that were in the config directory.

@@ -42,6 +42,7 @@
     "CHANGELOG.md",
     "bin",
     "dist",
+    "schemas",
     "templates"
   ],
   "scripts": {
@@ -60,6 +61,7 @@
     "@williamthorsen/toolbelt.filesystem": "catalog:",
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
+    "ajv": "8.20.0",
     "esbuild": "catalog:",
     "readyup": "catalog:",
     "vitest": "catalog:"

@@ -11,44 +11,15 @@
       "description": "JSON Schema reference for editor support."
     },
     "dev": {
-      "$ref": "#/$defs/scopeConfig",
+      "$ref": "#/definitions/scopeConfig",
       "description": "Configuration for development dependency auditing."
     },
     "prod": {
-      "$ref": "#/$defs/scopeConfig",
+      "$ref": "#/definitions/scopeConfig",
       "description": "Configuration for production dependency auditing."
     }
   },
-  "not": {
-    "anyOf": [
-      { "required": ["outDir"] },
-      {
-        "properties": {
-          "dev": {
-            "anyOf": [
-              { "required": ["critical"] },
-              { "required": ["high"] },
-              { "required": ["low"] },
-              { "required": ["moderate"] }
-            ]
-          }
-        }
-      },
-      {
-        "properties": {
-          "prod": {
-            "anyOf": [
-              { "required": ["critical"] },
-              { "required": ["high"] },
-              { "required": ["low"] },
-              { "required": ["moderate"] }
-            ]
-          }
-        }
-      }
-    ]
-  },
-  "$defs": {
+  "definitions": {
     "allowlistEntry": {
       "type": "object",
       "description": "A single allowlisted advisory with metadata for traceability.",
@@ -87,7 +58,9 @@
         "allowlist": {
           "type": "array",
           "description": "Advisories that are accepted and should not cause audit failure.",
-          "items": { "$ref": "#/$defs/allowlistEntry" }
+          "items": {
+            "$ref": "#/definitions/allowlistEntry"
+          }
         },
         "severityThreshold": {
           "type": "string",
