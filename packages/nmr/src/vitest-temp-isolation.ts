@@ -60,7 +60,9 @@ function isProcessGone(pid: number): boolean {
  * place, because a failed sweep leaves the state that the run found, whereas a thrown error would stop every run.
  */
 function removeOrphanedRunDirs(baseDir: string): void {
-  for (const entry of fs.readdirSync(baseDir, { withFileTypes: true })) {
+  const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+
+  for (const entry of entries) {
     const pidText = RUN_DIR_PATTERN.exec(entry.name)?.[1];
     if (!entry.isDirectory() || pidText === undefined || !isProcessGone(Number(pidText))) continue;
 

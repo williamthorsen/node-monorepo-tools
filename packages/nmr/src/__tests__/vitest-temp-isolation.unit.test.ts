@@ -11,7 +11,7 @@ const DEAD_PID = 101;
 const LIVE_PID = 102;
 const FOREIGN_PID = 103;
 
-describe('setup', () => {
+describe(setup, () => {
   let base: TempTree;
 
   beforeEach(() => {
@@ -31,13 +31,13 @@ describe('setup', () => {
 
     expect(runDir).toBeDefined();
     expect(path.dirname(runDir ?? '')).toBe(base.dir);
-    expect(path.basename(runDir ?? '')).toMatch(new RegExp(String.raw`^nmr-vitest-${process.pid}-.`));
+    expect(path.basename(runDir ?? '')).toMatch(new RegExp(`^nmr-vitest-${process.pid}-.`));
   });
 
   it('removes the run directory and restores TMPDIR at teardown', () => {
     const teardown = setup();
     const runDir = process.env['TMPDIR'] ?? '';
-    fs.writeFileSync(path.join(runDir, 'leftover.txt'), 'left by a test');
+    base.write(`${path.basename(runDir)}/leftover.txt`, 'left by a test');
 
     teardown();
 
