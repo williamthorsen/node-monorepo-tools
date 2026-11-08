@@ -63,6 +63,16 @@ export interface VitestConfigOptions {
   shouldIsolateGit?: boolean;
 
   /**
+   * Loads nmr's temp-isolation global setup into the root config. Defaults to `true`. The setup gives the run a
+   * directory of its own under the temp directory in effect at startup, points `TMPDIR` at it for every worker and
+   * every process that a test spawns, and removes it when the run ends, along with any that an interrupted run left
+   * behind. Vitest runs a project's own `globalSetup` before the root's, so one that a layer adds through `project`
+   * runs outside the run directory. Turn the isolation off only when a suite must leave files in the ambient temp
+   * directory after the run.
+   */
+  shouldIsolateTempDir?: boolean;
+
+  /**
    * Resolves a package whose files are outside every `node_modules` through its `source` export condition, so a
    * suite runs without a prior build. Defaults to `true`. A package that does not declare a `source` condition is
    * unaffected, and so is every package under `node_modules`, which Node resolves and to which the condition never
@@ -112,12 +122,10 @@ const TIERED_PATTERNS = NAMED_TIERS.flatMap(buildTierPatterns);
  */
 const TIER_TIMEOUT_MS = 30_000;
 
-/**
- * nmr's git-isolation setup file, resolved beside this module and with this module's own extension, so that a
- * consumer importing the compiled `.js` twin and nmr's own tests importing this file as `.ts` both resolve to a
- * file that exists.
- */
-const GIT_ISOLATION_SETUP_FILE = resolveGitIsolationSetupFile();
+// nmr's setup files, resolved beside this module and with this module's own extension, so that a consumer importing
+// the compiled `.js` twin and nmr's own tests importing this file as `.ts` both resolve to a file that exists.
+const GIT_ISOLATION_SETUP_FILE = resolveSiblingModule('vitest-git-isolation');
+const TEMP_ISOLATION_SETUP_FILE = resolveSiblingModule('vitest-temp-isolation');
 
 // Vite's own defaults for each environment. Because Vite lets a supplied `conditions` array replace its defaults
 // rather than extend them, emitting them here keeps `module` reachable once a layer adds a condition of its own: A
@@ -152,6 +160,7 @@ const RECOGNIZED_OPTIONS: Record<keyof VitestConfigOptions, true> = {
   project: true,
   root: true,
   shouldIsolateGit: true,
+  shouldIsolateTempDir: true,
   shouldResolveFromSource: true,
   testCollectionExclude: true,
   tiers: true,
@@ -259,6 +268,7 @@ function buildConfig(
         include: coverageInclude,
         provider: 'v8',
       },
+      ...(resolveFlag(layers, 'shouldIsolateTempDir', true) && { globalSetup: [TEMP_ISOLATION_SETUP_FILE] }),
       passWithNoTests: true, // `nmr test:tool` fans out over packages without any tool-tier tests
       projects: buildProjects(layers, projectExclude, projectRoot, ignoredPathsRoot),
       silent: 'passed-only', // see logs from failing tests only
@@ -453,7 +463,7 @@ function formatOptionKeys(keys: readonly string[]): string {
  */
 function resolveFlag(
   layers: readonly VitestConfigOptions[],
-  name: 'shouldIsolateGit' | 'shouldResolveFromSource' | 'tsconfigPaths',
+  name: 'shouldIsolateGit' | 'shouldIsolateTempDir' | 'shouldResolveFromSource' | 'tsconfigPaths',
   isOnByDefault: boolean,
 ): boolean {
   let resolvedFlag = isOnByDefault;
@@ -467,11 +477,11 @@ function resolveFlag(
 }
 
 /**
- * Locates the setup file published beside this module. The extension is read from the resolved filesystem path
- * rather than from `import.meta.url`, which Vite may supply with a version query appended.
+ * Locates a module published beside this one, by its basename. The extension is read from the resolved filesystem
+ * path rather than from `import.meta.url`, which Vite may supply with a version query appended.
  */
-function resolveGitIsolationSetupFile(): string {
+function resolveSiblingModule(basename: string): string {
   const thisFile = fileURLToPath(import.meta.url);
 
-  return path.join(path.dirname(thisFile), `vitest-git-isolation${path.extname(thisFile)}`);
+  return path.join(path.dirname(thisFile), `${basename}${path.extname(thisFile)}`);
 }

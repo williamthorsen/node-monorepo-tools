@@ -11,6 +11,7 @@ import {
   getProjects,
   GIT_ISOLATION_SETUP_FILE,
   PROJECT_NAMES,
+  TEMP_ISOLATION_SETUP_FILE,
   TIERED_PATTERNS,
 } from '../test-utils/vitest-config-fixtures.ts';
 import { defineRootVitestConfig, defineVitestConfig, type VitestConfigOptions } from '../vitest.ts';
@@ -197,6 +198,18 @@ describe(defineRootVitestConfig, () => {
       expect(project.test?.setupFiles).toStrictEqual([GIT_ISOLATION_SETUP_FILE, './shared.ts']);
       expect(project.root).toBe(workspaceTree.dir);
     }
+  });
+
+  it('gives the run its own temp directory through a root global setup', ({ workspaceTree }) => {
+    const config = defineRootVitestConfig({ monorepoRoot: workspaceTree.dir });
+
+    expect(config.test?.globalSetup).toStrictEqual([TEMP_ISOLATION_SETUP_FILE]);
+  });
+
+  it('does not declare a global setup when shouldIsolateTempDir is off', ({ workspaceTree }) => {
+    const config = defineRootVitestConfig({ monorepoRoot: workspaceTree.dir, shouldIsolateTempDir: false });
+
+    expect(config.test?.globalSetup).toBeUndefined();
   });
 
   // A shared layer describes settings, not which repo they belong to, so the root has to be set on the config file's
