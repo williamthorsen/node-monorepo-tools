@@ -3,6 +3,24 @@ import { BREAKING_MARKER, normalizeChangeRecord } from './tokens.ts';
 import type { ChangeRecord, Taxonomy } from './types.ts';
 
 /**
+ * Resolves a spelled type to the key of the taxonomy entry that declares it as its key or as an alias, comparing both
+ * sides without regard to case. Returns the key as the taxonomy spells it, or `undefined` for a spelling that the
+ * taxonomy does not declare.
+ */
+export function canonicalizeType(spelling: string, taxonomy: Taxonomy): string | undefined {
+  const lowered = spelling.toLowerCase();
+  for (const entry of taxonomy.types) {
+    if (entry.key.toLowerCase() === lowered) {
+      return entry.key;
+    }
+    if ((entry.aliases ?? []).some((alias) => alias.toLowerCase() === lowered)) {
+      return entry.key;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Inverts a template: reads a rendered surface string back into the record that produced it, or reports the string as
  * unmatched. It compiles the same node tree that `render` walks, so the two stay inverses of each other.
  *
@@ -107,20 +125,6 @@ function buildTypeAlternation(taxonomy: Taxonomy): string {
     .toSorted((a, b) => b.length - a.length || a.localeCompare(b))
     .map(toEitherCaseSource)
     .join('|');
-}
-
-/** Resolves a spelled type to its canonical key, ignoring case. */
-function canonicalizeType(spelling: string, taxonomy: Taxonomy): string | undefined {
-  const lowered = spelling.toLowerCase();
-  for (const entry of taxonomy.types) {
-    if (entry.key.toLowerCase() === lowered) {
-      return entry.key;
-    }
-    if ((entry.aliases ?? []).some((alias) => alias.toLowerCase() === lowered)) {
-      return entry.key;
-    }
-  }
-  return undefined;
 }
 
 /** The record field written by each capturing token, `{type}` and `{breaking}` excepted; both need resolution first. */

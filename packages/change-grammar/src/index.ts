@@ -5,7 +5,7 @@ export { compileTemplate } from './compile-template.ts';
 export { consolidate } from './consolidate.ts';
 export type { LabelMap } from './derive-label-map.ts';
 export { deriveLabelMap } from './derive-label-map.ts';
-export { parse, TICKET_PREFIX_PATTERNS } from './parse.ts';
+export { canonicalizeType, parse, TICKET_PREFIX_PATTERNS } from './parse.ts';
 export { render } from './render.ts';
 export { CANONICAL_TAXONOMY } from './taxonomy.ts';
 export type { ConventionName } from './templates.ts';

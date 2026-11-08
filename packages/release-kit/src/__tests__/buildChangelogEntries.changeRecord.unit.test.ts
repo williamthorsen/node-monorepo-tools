@@ -111,6 +111,24 @@ entries:
       expect(entries[0]?.sections[0]?.title).toBe(DEFAULT_WORK_TYPES['feat']?.header);
     });
 
+    it.each(['feat', 'feature'])(
+      'resolves an entry type `%s` to a configured key and alias that contain an uppercase letter',
+      (type) => {
+        mockEnumerateReleaseWindows.mockReturnValueOnce([
+          makeWindow('v1.1.0', [buildMergeMessage(`entries:\n  - type: ${type}\n    text: Adds a thing.`)]),
+        ]);
+
+        const { entries, diagnostics } = buildChangelogEntries(
+          { ...makeConfig(), breakingPolicies: {}, workTypes: { Feat: { aliases: ['Feature'], header: 'Features' } } },
+          'v1.1.0',
+          OPTIONS,
+        );
+
+        expect(entries[0]?.sections[0]?.title).toBe('Features');
+        expect(diagnostics.undeclaredEntryTypes).toStrictEqual([]);
+      },
+    );
+
     it('bypasses the ticket-prefix and title-type gates', () => {
       const message = [
         'Squash the branch',

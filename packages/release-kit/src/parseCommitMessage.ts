@@ -1,5 +1,6 @@
 import {
   type BreakingPolicy,
+  canonicalizeType,
   type ChangeRecord,
   compileTemplate,
   parse,
@@ -135,26 +136,9 @@ export function evaluateBreakingPolicy(inputs: BreakingPolicyInputs): boolean {
   return hasPrefixBreaking || hasFooterBreaking;
 }
 
-/**
- * Resolves a raw type string to its canonical type name using the record keys and aliases.
- */
+/** Resolves a raw type string to its canonical type name through change-grammar, ignoring case on both sides. */
 export function resolveType(rawType: string, workTypes: Record<string, WorkTypeConfig>): string | undefined {
-  const loweredType = rawType.toLowerCase();
-
-  for (const [key, config] of Object.entries(workTypes)) {
-    if (key === loweredType) {
-      return key;
-    }
-    if (config.aliases !== undefined) {
-      for (const alias of config.aliases) {
-        if (alias === loweredType) {
-          return key;
-        }
-      }
-    }
-  }
-
-  return undefined;
+  return canonicalizeType(rawType, adaptToTaxonomy(workTypes));
 }
 
 // region | Helpers
