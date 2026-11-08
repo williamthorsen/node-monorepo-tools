@@ -1,4 +1,4 @@
-import { compactRecord } from '../portable/compactRecord.ts';
+import { compactRecord } from '../../portable/compactRecord.ts';
 import { readEnv } from './readEnv.ts';
 import type { HostEnv, HostFacts } from './types.ts';
 

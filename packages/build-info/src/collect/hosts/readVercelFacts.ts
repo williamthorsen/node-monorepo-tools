@@ -1,4 +1,4 @@
-import { compactRecord } from '../portable/compactRecord.ts';
+import { compactRecord } from '../../portable/compactRecord.ts';
 import { parseRepositoryUrl } from '../sources/parseRepositoryUrl.ts';
 import { parsePullRequestNumber } from './parsePullRequestNumber.ts';
 import { readEnv } from './readEnv.ts';
