@@ -13,29 +13,19 @@ const BOUNDARY_RULES = [
   'no-restricted-imports',
 ];
 
-/**
- * A source breaking every boundary rule at once. It is linted under a path already on disk because the TypeScript
- * project service resolves the file before ESLint reaches it, and refuses a path that it cannot find.
- */
-const VIOLATING_SOURCE = [
-  "import { readFile } from 'node:fs/promises';",
-  '',
-  "import { parse } from 'yaml';",
-  '',
-  "import { PACKAGE_NAME } from '../../nmr-core/src/index.ts';",
-  '',
-  'export function probe(): unknown[] {',
-  '  return [readFile, parse, PACKAGE_NAME, process.env.HOME];',
-  '}',
-  '',
-].join('\n');
-
 describe('the change-grammar lint boundary', () => {
-  it('reports each boundary rule for a source that breaks them all', { timeout: 60_000 }, async () => {
-    const reported = await lintUnder(path.join(REPO_ROOT, 'packages', 'change-grammar', 'src', 'index.ts'));
+  it.each([
+    ['the entry point', path.join('src', 'index.ts')],
+    ['a module in a role directory', path.join('src', 'record', 'tokens.ts')],
+  ])(
+    'reports each boundary rule for a source that breaks them all, linted as %s',
+    { timeout: 60_000 },
+    async (_, file) => {
+      const reported = await lintUnder(path.join(REPO_ROOT, 'packages', 'change-grammar', file));
 
-    expect(reported).toStrictEqual(BOUNDARY_RULES);
-  });
+      expect(reported).toStrictEqual(BOUNDARY_RULES);
+    },
+  );
 
   it('applies inside the package alone', { timeout: 60_000 }, async () => {
     const reported = await lintUnder(path.join(REPO_ROOT, 'packages', 'nmr-core', 'src', 'index.ts'));
@@ -46,10 +36,34 @@ describe('the change-grammar lint boundary', () => {
 
 // region | Helpers
 
+/**
+ * Builds a source breaking every boundary rule at once, its relative import resolving outside the package from
+ * `filePath`. It is linted under a path already on disk because the TypeScript project service resolves the file
+ * before ESLint reaches it, and refuses a path that it cannot find.
+ */
+function buildViolatingSource(filePath: string): string {
+  const outsideModule = path.relative(
+    path.dirname(filePath),
+    path.join(REPO_ROOT, 'packages', 'nmr-core', 'src', 'index.ts'),
+  );
+  return [
+    "import { readFile } from 'node:fs/promises';",
+    '',
+    "import { parse } from 'yaml';",
+    '',
+    `import { PACKAGE_NAME } from '${outsideModule}';`,
+    '',
+    'export function probe(): unknown[] {',
+    '  return [readFile, parse, PACKAGE_NAME, process.env.HOME];',
+    '}',
+    '',
+  ].join('\n');
+}
+
 /** Lints the violating source as though it were the file at `filePath`, reporting which boundary rules fired. */
 async function lintUnder(filePath: string): Promise<string[]> {
   const eslint = new ESLint({ cwd: REPO_ROOT });
-  const [result] = await eslint.lintText(VIOLATING_SOURCE, { filePath });
+  const [result] = await eslint.lintText(buildViolatingSource(filePath), { filePath });
   const fired = new Set(result?.messages.map((message) => message.ruleId));
   return BOUNDARY_RULES.filter((rule) => fired.has(rule));
 }
