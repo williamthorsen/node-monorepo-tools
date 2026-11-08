@@ -42,6 +42,7 @@
     "CHANGELOG.md",
     "bin",
     "dist",
+    "schemas",
     "templates"
   ],
   "scripts": {
