@@ -7518,7 +7518,7 @@ function readWrapperTarget(cwd, workspace, entry) {
 // .readyup/lib/root-scripts.ts
 import { existsSync as existsSync2, readdirSync } from "node:fs";
 import { join as join2 } from "node:path";
-import { fileExists, isRecord as isRecord2, readFile as readFile2, readPackageJson } from "readyup/check-utils";
+import { fileExists, isRecord as isRecord3, readFile as readFile2, readPackageJson } from "readyup/check-utils";
 
 // src/shell-syntax.ts
 var ENV_ASSIGNMENT = /^\w+=/;
@@ -7768,6 +7768,11 @@ function buildManifestPattern(pattern) {
   return `${pattern.replace(/\/?$/, "")}/${MANIFEST_FILENAME}`;
 }
 
+// ../nmr-core/dist/esm/isRecord.js
+function isRecord2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 // ../nmr-core/dist/esm/workspace.js
 var WORKSPACE_MANIFEST_FILENAME = "pnpm-workspace.yaml";
 function isMonorepoRoot(dir) {
@@ -7804,7 +7809,7 @@ function diagnoseEmptyCause(monorepoRoot, patterns) {
   return "no-package";
 }
 function readDeclaredPackages(parsedManifest) {
-  if (!isObject(parsedManifest))
+  if (!isRecord2(parsedManifest))
     return { kind: "absent" };
   const packages = parsedManifest["packages"];
   if (packages === void 0 || packages === null)
@@ -7814,9 +7819,6 @@ function readDeclaredPackages(parsedManifest) {
   if (!packages.every((entry) => typeof entry === "string"))
     return { kind: "unreadable" };
   return packages.length === 0 ? { kind: "absent" } : { kind: "patterns", patterns: packages };
-}
-function isObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function readWorkspaceManifest(monorepoRoot) {
   const workspaceManifestPath = path2.join(monorepoRoot, WORKSPACE_MANIFEST_FILENAME);
@@ -7970,7 +7972,7 @@ function noRedundantRootScripts() {
   const pkg = readPackageJson();
   if (!pkg) return true;
   const scripts = pkg["scripts"];
-  if (!isRecord2(scripts)) return true;
+  if (!isRecord3(scripts)) return true;
   const builtInNames = Object.keys(getDefaultRootScripts(process.cwd()));
   const redundantNames = Object.keys(scripts).filter((name) => builtInNames.includes(name));
   if (redundantNames.length === 0) return true;
@@ -8007,13 +8009,13 @@ function readRootScripts(cwd) {
   } catch {
     return {};
   }
-  if (!isRecord2(parsedManifest)) return {};
+  if (!isRecord3(parsedManifest)) return {};
   const scripts = parsedManifest["scripts"];
-  return isRecord2(scripts) ? scripts : {};
+  return isRecord3(scripts) ? scripts : {};
 }
 
 // .readyup/lib/self-hosted-runner.ts
-import { isRecord as isRecord4 } from "readyup/check-utils";
+import { isRecord as isRecord5 } from "readyup/check-utils";
 
 // src/config.ts
 import { existsSync as existsSync3 } from "node:fs";
@@ -8094,14 +8096,6 @@ function readStringValues(record) {
   return result;
 }
 
-// src/helpers/type-guards.ts
-function isObject2(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function isStringRecord(value) {
-  return isObject2(value) && Object.values(value).every((entry) => typeof entry === "string");
-}
-
 // src/helpers/package-json.ts
 var DEPENDENCY_FIELDS = [
   "dependencies",
@@ -8112,7 +8106,7 @@ var DEPENDENCY_FIELDS = [
 function readPackageJson2(dir) {
   const file = resolvePackageJsonPath(dir);
   const parsedManifest = parsePackageJson(readFileSync2(file, "utf8"), file);
-  if (!isObject2(parsedManifest)) {
+  if (!isRecord2(parsedManifest)) {
     throw new UserError(`Invalid package.json in ${dir}: expected an object`);
   }
   const packageJson = {};
@@ -8122,18 +8116,18 @@ function readPackageJson2(dir) {
   if (typeof parsedManifest["packageManager"] === "string") {
     packageJson.packageManager = parsedManifest["packageManager"];
   }
-  if (isObject2(parsedManifest["scripts"])) {
+  if (isRecord2(parsedManifest["scripts"])) {
     packageJson.scripts = readScriptRecord(dir, parsedManifest["scripts"]);
   }
-  if (isObject2(parsedManifest["pnpm"])) {
+  if (isRecord2(parsedManifest["pnpm"])) {
     const pnpm = parsedManifest["pnpm"];
-    if (isObject2(pnpm["overrides"])) {
+    if (isRecord2(pnpm["overrides"])) {
       packageJson.pnpm = { overrides: pnpm["overrides"] };
     }
   }
   for (const field of DEPENDENCY_FIELDS) {
     const declaredDependencies = parsedManifest[field];
-    if (isObject2(declaredDependencies)) {
+    if (isRecord2(declaredDependencies)) {
       packageJson[field] = readStringValues(declaredDependencies);
     }
   }
@@ -8661,9 +8655,9 @@ function readPackageJsonScripts(packageDir) {
     throw error;
   }
   const parsedManifest = parsePackageJson(rawText, file);
-  if (!isObject2(parsedManifest)) return void 0;
+  if (!isRecord2(parsedManifest)) return void 0;
   const scripts = parsedManifest["scripts"];
-  if (!isObject2(scripts)) return void 0;
+  if (!isRecord2(scripts)) return void 0;
   return readScriptRecord(packageDir, scripts);
 }
 function buildWorkspaceRegistry(config) {
@@ -8739,6 +8733,11 @@ function readPackageScripts(packageDir) {
   }
 }
 
+// src/helpers/type-guards.ts
+function isStringRecord(value) {
+  return isRecord2(value) && Object.values(value).every((entry) => typeof entry === "string");
+}
+
 // src/verbosity.ts
 var COMMAND_VERBOSITIES = ["full", "quiet"];
 function formatVerbosityRejection(source, value) {
@@ -8779,7 +8778,7 @@ function assertRecognizedKeys(value, recognizedKeys, configPath, prefix = "") {
   );
 }
 function validateConfig(value, configPath, baseDir) {
-  if (!isObject2(value)) {
+  if (!isRecord2(value)) {
     throw new UserError(`Invalid nmr config at ${configPath}: expected an object, got ${typeof value}`);
   }
   assertRecognizedKeys(value, RECOGNIZED_KEYS, configPath);
@@ -8835,7 +8834,7 @@ function isOptionalBoolean(value) {
   return value === void 0 || typeof value === "boolean";
 }
 function isScriptRecord(value) {
-  if (!isObject2(value)) return false;
+  if (!isRecord2(value)) return false;
   for (const v of Object.values(value)) {
     if (typeof v === "string") continue;
     if (!Array.isArray(v) || !v.every(isScriptElement)) return false;
@@ -8844,7 +8843,7 @@ function isScriptRecord(value) {
 }
 function isScriptElement(value) {
   if (typeof value === "string") return true;
-  if (!isObject2(value) || typeof value["run"] !== "string") return false;
+  if (!isRecord2(value) || typeof value["run"] !== "string") return false;
   return isOptionalBoolean(value["shouldDeclineArguments"]) && isOptionalBoolean(value["shouldRunInBackground"]);
 }
 function isStringArray(value) {
@@ -8855,7 +8854,7 @@ function validateBuildField(value, configPath) {
   if (build === void 0) {
     return void 0;
   }
-  if (!isObject2(build)) {
+  if (!isRecord2(build)) {
     throw new UserError(`Invalid nmr config at ${configPath}: \`build\` must be an object`);
   }
   assertRecognizedKeys(build, RECOGNIZED_BUILD_KEYS, configPath, "build.");
@@ -8870,7 +8869,7 @@ function validateCheckCacheField(value, configPath) {
   if (checkCache === void 0) {
     return void 0;
   }
-  if (!isObject2(checkCache)) {
+  if (!isRecord2(checkCache)) {
     throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache\` must be an object`);
   }
   assertRecognizedKeys(checkCache, RECOGNIZED_CHECK_CACHE_KEYS, configPath, "checkCache.");
@@ -8907,7 +8906,7 @@ function validateOutputField(value, configPath) {
   if (output === void 0) {
     return void 0;
   }
-  if (!isObject2(output)) {
+  if (!isRecord2(output)) {
     throw new UserError(`Invalid nmr config at ${configPath}: \`output\` must be an object`);
   }
   assertRecognizedKeys(output, RECOGNIZED_OUTPUT_KEYS, configPath, "output.");
@@ -8936,7 +8935,7 @@ function validateSelfHostedRunnerField(value, configPath) {
   if (selfHostedRunner === void 0) {
     return void 0;
   }
-  if (!isObject2(selfHostedRunner)) {
+  if (!isRecord2(selfHostedRunner)) {
     throw new UserError(`Invalid nmr config at ${configPath}: \`selfHostedRunner\` must be an object`);
   }
   assertRecognizedKeys(selfHostedRunner, RECOGNIZED_SELF_HOSTED_RUNNER_KEYS, configPath, "selfHostedRunner.");
@@ -8996,7 +8995,7 @@ async function loadConfig(baseDir) {
     return {};
   }
   const importedModule = await import(pathToFileURL(configPath).href);
-  const loadedConfig = isObject2(importedModule) ? importedModule["default"] : void 0;
+  const loadedConfig = isRecord2(importedModule) ? importedModule["default"] : void 0;
   return validateConfig(loadedConfig, configPath, baseDir);
 }
 async function loadRootConfig(monorepoRoot) {
@@ -9108,16 +9107,16 @@ var import_yaml2 = __toESM(require_dist(), 1);
 import { execFile } from "node:child_process";
 import { existsSync as existsSync4, readdirSync as readdirSync3 } from "node:fs";
 import { join as join3, posix as posix2 } from "node:path";
-import { isRecord as isRecord3, readFile as readFile3 } from "readyup/check-utils";
+import { isRecord as isRecord4, readFile as readFile3 } from "readyup/check-utils";
 var CODE_QUALITY_WORKFLOW = "williamthorsen/.github/.github/workflows/code-quality-pnpm-workflow.yaml";
 var MIN_CODE_QUALITY_MAJOR = 8;
 var GH_TIMEOUT_MS = 15e3;
 var IMAGE_ABSENT_PROGRAM_PATTERN = /(?:^|[\s;&|(])(corepack|gh|node|npm|npx|pnpm)(?=\s|$)/gm;
 var NEVER_INSTALLED_PROGRAMS = /* @__PURE__ */ new Set(["corepack", "gh"]);
 function countOnlineSelfHostedRunners(response) {
-  if (!isRecord3(response) || !Array.isArray(response["runners"])) return 0;
+  if (!isRecord4(response) || !Array.isArray(response["runners"])) return 0;
   return response["runners"].filter(
-    (runner) => isRecord3(runner) && runner["status"] === "online" && Array.isArray(runner["labels"]) && runner["labels"].some((label) => isRecord3(label) && label["name"] === "self-hosted")
+    (runner) => isRecord4(runner) && runner["status"] === "online" && Array.isArray(runner["labels"]) && runner["labels"].some((label) => isRecord4(label) && label["name"] === "self-hosted")
   ).length;
 }
 function describeGhFailure(result, context) {
@@ -9144,7 +9143,7 @@ function findCodeQualityCallerDefects(workflows) {
         );
       }
       const inputs = job["with"];
-      if (isRecord3(inputs) && inputs["runs-on"] !== void 0) {
+      if (isRecord4(inputs) && inputs["runs-on"] !== void 0) {
         defects.push(`${file} job ${jobName} passes runs-on, which overrides CI_RUNS_ON`);
       }
     }
@@ -9160,7 +9159,7 @@ function findImageIncompatibleSteps(workflows) {
       if (!Array.isArray(steps)) continue;
       const installed = /* @__PURE__ */ new Set();
       for (const [index, step] of steps.entries()) {
-        if (!isRecord3(step)) continue;
+        if (!isRecord4(step)) continue;
         const stepLabel = typeof step["name"] === "string" ? step["name"] : `step ${index + 1}`;
         const run = step["run"];
         if (typeof run === "string") {
@@ -9191,14 +9190,14 @@ async function readOrganizationValue(nameWithOwner, cwd, runGh) {
   const result = await runGh(["api", `repos/${nameWithOwner}/actions/organization-variables`], cwd);
   if (!result.ok) return void 0;
   const response = parseJson(result.stdout);
-  if (!isRecord3(response) || !Array.isArray(response["variables"])) return void 0;
+  if (!isRecord4(response) || !Array.isArray(response["variables"])) return void 0;
   const variable = response["variables"].find(
-    (entry) => isRecord3(entry) && entry["name"] === "CI_RUNS_ON"
+    (entry) => isRecord4(entry) && entry["name"] === "CI_RUNS_ON"
   );
   return readVariableValue(variable);
 }
 function readVariableValue(variable) {
-  return isRecord3(variable) && typeof variable["value"] === "string" ? variable["value"] : void 0;
+  return isRecord4(variable) && typeof variable["value"] === "string" ? variable["value"] : void 0;
 }
 function readWorkflows(cwd) {
   const dir = join3(cwd, ".github", "workflows");
@@ -9212,9 +9211,9 @@ function readWorkflows(cwd) {
     } catch {
       continue;
     }
-    if (!isRecord3(document) || !isRecord3(document["jobs"])) continue;
+    if (!isRecord4(document) || !isRecord4(document["jobs"])) continue;
     const jobs = Object.entries(document["jobs"]).filter(
-      (entry) => isRecord3(entry[1])
+      (entry) => isRecord4(entry[1])
     );
     workflows.push({ file: posix2.join(".github/workflows", file), jobs });
   }
@@ -9248,7 +9247,7 @@ function readInstalledPrograms(step) {
   if (action === "actions/setup-node") return ["node"];
   if (action === "pnpm/action-setup") return ["pnpm"];
   if (action !== "pnpm/setup") return [];
-  const inputs = isRecord3(step["with"]) ? step["with"] : {};
+  const inputs = isRecord4(step["with"]) ? step["with"] : {};
   const runtime = inputs["runtime"];
   const installsNode = typeof runtime === "string" ? /^node\b/.test(runtime) : String(inputs["node-version-file"]) !== "false";
   return installsNode ? ["pnpm", "node"] : ["pnpm"];
@@ -9326,7 +9325,7 @@ async function readGitHubFacts(cwd, runGh = runGhCommand) {
   const repo = await runGh(["repo", "view", "--json", "nameWithOwner,visibility"], cwd);
   if (!repo.ok) return { skip: describeGhFailure(repo, "cannot resolve this repo on GitHub") };
   const repoView = parseJson(repo.stdout);
-  if (!isRecord4(repoView) || typeof repoView["nameWithOwner"] !== "string") {
+  if (!isRecord5(repoView) || typeof repoView["nameWithOwner"] !== "string") {
     return { skip: "gh repo view returned an unexpected shape" };
   }
   const nameWithOwner = repoView["nameWithOwner"];
@@ -9425,7 +9424,7 @@ import {
 // .readyup/lib/catalog.ts
 import { posix as posix3 } from "node:path";
 var import_yaml3 = __toESM(require_dist(), 1);
-import { isRecord as isRecord5 } from "readyup/check-utils";
+import { isRecord as isRecord6 } from "readyup/check-utils";
 var CATALOGUE_CHECKED_FIELDS = ["dependencies", "devDependencies", "optionalDependencies"];
 var PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:/i;
 function cataloguedDependenciesUseCatalog() {
@@ -9443,7 +9442,7 @@ function findLiteralCataloguedSpecifiers(workspace, names) {
   const manifestPath = posix3.join(workspace.dir, "package.json");
   return CATALOGUE_CHECKED_FIELDS.flatMap((field) => {
     const declared = workspace.packageJson[field];
-    if (!isRecord5(declared)) return [];
+    if (!isRecord6(declared)) return [];
     return Object.entries(declared).flatMap(
       ([name, specifier]) => names.has(name) && typeof specifier === "string" && !PROTOCOL_PATTERN.test(specifier) ? { manifestPath, name, specifier } : []
     );
@@ -9458,14 +9457,14 @@ function readCataloguedNames(cwd) {
   } catch (error) {
     return { ok: false, detail: `cannot parse pnpm-workspace.yaml: ${describeError(error)}` };
   }
-  if (!isRecord5(workspaceManifest)) return { ok: true, names: /* @__PURE__ */ new Set() };
+  if (!isRecord6(workspaceManifest)) return { ok: true, names: /* @__PURE__ */ new Set() };
   const namedCatalogs = workspaceManifest["catalogs"];
-  const catalogs = [workspaceManifest["catalog"], ...isRecord5(namedCatalogs) ? Object.values(namedCatalogs) : []];
-  return { ok: true, names: new Set(catalogs.filter(isRecord5).flatMap((catalog) => Object.keys(catalog))) };
+  const catalogs = [workspaceManifest["catalog"], ...isRecord6(namedCatalogs) ? Object.values(namedCatalogs) : []];
+  return { ok: true, names: new Set(catalogs.filter(isRecord6).flatMap((catalog) => Object.keys(catalog))) };
 }
 
 // .readyup/lib/manifest-fields.ts
-import { isRecord as isRecord6 } from "readyup/check-utils";
+import { isRecord as isRecord7 } from "readyup/check-utils";
 function noPnpmFieldInPackageJson(cwd = process.cwd()) {
   const declaringFiles = findFiles(["**/package.json"], cwd).flatMap((relativePath) => {
     const keys = readPnpmFieldKeys(readFileIn(cwd, relativePath));
@@ -9486,7 +9485,7 @@ function declaresWorkspacesField(content) {
   if (content === void 0) return false;
   try {
     const parsedManifest = JSON.parse(content);
-    return isRecord6(parsedManifest) && "workspaces" in parsedManifest;
+    return isRecord7(parsedManifest) && "workspaces" in parsedManifest;
   } catch {
     return false;
   }
@@ -9499,9 +9498,9 @@ function readPnpmFieldKeys(content) {
   } catch {
     return void 0;
   }
-  if (!isRecord6(parsedManifest)) return void 0;
+  if (!isRecord7(parsedManifest)) return void 0;
   const pnpm = parsedManifest["pnpm"];
-  return isRecord6(pnpm) ? Object.keys(pnpm).toSorted() : void 0;
+  return isRecord7(pnpm) ? Object.keys(pnpm).toSorted() : void 0;
 }
 
 // .readyup/lib/setup.ts
@@ -9628,7 +9627,7 @@ function toolVersionsHasNoPnpm() {
 }
 
 // .readyup/lib/shared-configs.ts
-import { isRecord as isRecord7 } from "readyup/check-utils";
+import { isRecord as isRecord8 } from "readyup/check-utils";
 var SHARED_PRETTIER_MODULE = "@williamthorsen/nmr/prettier";
 var INERT_PRETTIER_CONFIGS = [".prettierrc", ".prettierrc.{json,json5,yaml,yml,toml}"];
 var SHARED_TAZE_MODULE = "@williamthorsen/nmr/taze";
@@ -9722,7 +9721,7 @@ function hasPrettierConfigKey(cwd) {
   if (manifest === void 0) return false;
   try {
     const parsedManifest = JSON.parse(manifest);
-    return isRecord7(parsedManifest) && parsedManifest["prettier"] !== void 0;
+    return isRecord8(parsedManifest) && parsedManifest["prettier"] !== void 0;
   } catch {
     return false;
   }
@@ -9955,10 +9954,10 @@ function addPrepublishOnly(packageDir, command) {
   } catch (error) {
     throw new UserError(`Invalid package.json in ${packageDir}: ${describeError(error)}`, { cause: error });
   }
-  if (!isObject2(parsedManifest)) {
+  if (!isRecord2(parsedManifest)) {
     throw new UserError(`Invalid package.json in ${packageDir}: expected an object`);
   }
-  const scripts = isObject2(parsedManifest["scripts"]) ? parsedManifest["scripts"] : {};
+  const scripts = isRecord2(parsedManifest["scripts"]) ? parsedManifest["scripts"] : {};
   scripts["prepublishOnly"] = command;
   parsedManifest["scripts"] = scripts;
   writeFileSync(filePath, JSON.stringify(parsedManifest, null, 2) + "\n", "utf8");

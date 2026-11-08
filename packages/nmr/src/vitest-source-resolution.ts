@@ -2,12 +2,11 @@ import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { isBuiltin } from 'node:module';
 import path from 'node:path';
 
-import { UserError } from '@williamthorsen/nmr-core';
+import { isRecord, UserError } from '@williamthorsen/nmr-core';
 import { findDirectoryChainMatch } from '@williamthorsen/toolbelt.filesystem';
 import type { Plugin } from 'vite';
 
 import { parsePackageJson } from './helpers/package-json.ts';
-import { isObject } from './helpers/type-guards.ts';
 
 /** Conditions honoured while walking an `exports` map, whichever environment is resolving. */
 const SHARED_CONDITIONS = ['module', 'import', 'development', 'default'];
@@ -96,7 +95,7 @@ export function resolveSourceTarget(
   if (packageDir === undefined || isInsideNodeModules(packageDir)) return undefined;
 
   const manifest = readManifest(packageDir, context.manifests);
-  if (!isObject(manifest)) return undefined;
+  if (!isRecord(manifest)) return undefined;
 
   const matchedSubpath = matchSubpath(manifest['exports'], parsedSpecifier.subpath);
   if (!matchedSubpath) return undefined;
@@ -163,7 +162,7 @@ function findSelfReferenceDir(name: string, fromDir: string): string | undefined
     if (existsSync(file)) {
       const parsedManifest = parsePackageJson(readFileSync(file, 'utf8'), file);
 
-      return isObject(parsedManifest) && parsedManifest['name'] === name && parsedManifest['exports'] !== undefined
+      return isRecord(parsedManifest) && parsedManifest['name'] === name && parsedManifest['exports'] !== undefined
         ? dir
         : undefined;
     }
@@ -233,7 +232,7 @@ function isInsideNodeModules(dir: string): boolean {
 function matchSubpath(exportsValue: unknown, subpath: string): { value: unknown; wildcard?: string } | undefined {
   if (exportsValue === undefined) return undefined;
 
-  if (!isObject(exportsValue) || Object.keys(exportsValue).every((key) => !key.startsWith('.'))) {
+  if (!isRecord(exportsValue) || Object.keys(exportsValue).every((key) => !key.startsWith('.'))) {
     return subpath === '.' ? { value: exportsValue } : undefined;
   }
 
@@ -320,7 +319,7 @@ function selectTarget(
     return undefined;
   }
 
-  if (!isObject(value)) return undefined;
+  if (!isRecord(value)) return undefined;
 
   const source = value[SOURCE_CONDITION];
   if (source !== undefined) {

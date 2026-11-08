@@ -1,11 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { UserError } from '@williamthorsen/nmr-core';
+import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
 import { isPublishableManifest } from './isPublishableManifest.ts';
 import { lookUpNpmPackage } from './npmRegistry.ts';
-import { isRecord } from './typeGuards.ts';
 import { chainUserError } from './user-error-chaining.ts';
 
 /**

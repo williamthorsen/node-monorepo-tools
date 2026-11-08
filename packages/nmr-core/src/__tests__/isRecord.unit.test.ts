@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isRecord } from '../typeGuards.ts';
+import { isRecord } from '../isRecord.ts';
 
 describe(isRecord, () => {
   it.each([

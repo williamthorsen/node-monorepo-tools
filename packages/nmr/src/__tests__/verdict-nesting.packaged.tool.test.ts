@@ -1,5 +1,6 @@
 import { PassThrough } from 'node:stream';
 
+import { isRecord } from '@williamthorsen/nmr-core';
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
@@ -126,11 +127,6 @@ describe('reporting through a real chain', () => {
 });
 
 // region | Helpers
-
-/** Reports whether a parsed line is a JSON object, as every record that nmr emits is. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 /**
  * Parses every line that a machine-readable run wrote to stdout, throwing on one that is not a JSON object.

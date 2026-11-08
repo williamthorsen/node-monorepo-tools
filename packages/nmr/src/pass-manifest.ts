@@ -4,12 +4,12 @@ import path from 'node:path';
 import process from 'node:process';
 import type { Writable } from 'node:stream';
 
+import { isRecord } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { isCacheableCommand, PASS_MANIFEST_DIR_ENV_VAR, writeDebugNote } from './check-cache.ts';
 import { isReplayLine, type ReplayLine } from './check-cache-entries.ts';
 import { MAX_EXCERPT_BYTES } from './helpers/deriveExcerpt.ts';
-import { isObject } from './helpers/type-guards.ts';
 import type { CheckCacheConfig } from './types.ts';
 
 /**
@@ -143,7 +143,7 @@ function findRejection(
 /** Narrows a parsed manifest entry. */
 function isPassManifestEntry(value: unknown): value is PassManifestEntry {
   return (
-    isObject(value) &&
+    isRecord(value) &&
     typeof value['command'] === 'string' &&
     typeof value['commandString'] === 'string' &&
     typeof value['durationMs'] === 'number' &&

@@ -121,7 +121,7 @@
           "path": "../../nmr-core/dist/esm/helpers/workspace-patterns.js"
         },
         {
-          "hash": "4f4fdaf9",
+          "hash": "45962e9b",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/index.js"
         },
@@ -129,6 +129,11 @@
           "hash": "85d76864",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/isAnticipatedFailure.js"
+        },
+        {
+          "hash": "1d74f646",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/isRecord.js"
         },
         {
           "hash": "6734717f",
@@ -156,7 +161,7 @@
           "path": "../../nmr-core/dist/esm/UserError.js"
         },
         {
-          "hash": "00d00fae",
+          "hash": "f332f658",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/workspace.js"
         },
@@ -234,7 +239,7 @@
           ]
         },
         {
-          "hash": "37b0bf7b",
+          "hash": "eb0306ed",
           "kind": "module",
           "path": "../src/commands/ensure-prepublish-hooks.ts"
         },
@@ -244,12 +249,12 @@
           "path": "../src/config-check-cache.ts"
         },
         {
-          "hash": "fa9330c5",
+          "hash": "378fb666",
           "kind": "module",
           "path": "../src/config-validation.ts"
         },
         {
-          "hash": "4240e226",
+          "hash": "8cb3c082",
           "kind": "module",
           "path": "../src/config.ts"
         },
@@ -284,7 +289,7 @@
           "path": "../src/helpers/hook-name.ts"
         },
         {
-          "hash": "7fb6c09d",
+          "hash": "62caa37e",
           "kind": "module",
           "path": "../src/helpers/package-json.ts"
         },
@@ -299,7 +304,7 @@
           "path": "../src/helpers/reportClosing.ts"
         },
         {
-          "hash": "56d2bb48",
+          "hash": "3f8448c9",
           "kind": "module",
           "path": "../src/helpers/type-guards.ts"
         },
@@ -314,7 +319,7 @@
           "path": "../src/resolve-scripts.ts"
         },
         {
-          "hash": "15247f0e",
+          "hash": "5112becc",
           "kind": "module",
           "path": "../src/resolver.ts"
         },
@@ -354,7 +359,7 @@
       "readyupVersion": "0.45.0",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "293ae948"
+      "targetHash": "21b7d5e6"
     }
   ]
 }

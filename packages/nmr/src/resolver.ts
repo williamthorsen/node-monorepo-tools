@@ -1,10 +1,9 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { hasErrnoCode } from '@williamthorsen/nmr-core';
+import { hasErrnoCode, isRecord } from '@williamthorsen/nmr-core';
 
 import { parsePackageJson, readScriptRecord, resolvePackageJsonPath } from './helpers/package-json.ts';
-import { isObject } from './helpers/type-guards.ts';
 import {
   getDefaultRootScripts,
   getDefaultWorkspaceScripts,
@@ -157,10 +156,10 @@ export function readPackageJsonScripts(packageDir: string): Record<string, strin
   }
 
   const parsedManifest = parsePackageJson(rawText, file);
-  if (!isObject(parsedManifest)) return undefined;
+  if (!isRecord(parsedManifest)) return undefined;
 
   const scripts = parsedManifest['scripts'];
-  if (!isObject(scripts)) return undefined;
+  if (!isRecord(scripts)) return undefined;
 
   return readScriptRecord(packageDir, scripts);
 }

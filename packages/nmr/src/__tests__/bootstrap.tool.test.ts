@@ -2,11 +2,12 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { isRecord } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import * as ts from 'typescript';
 import { assert, describe, expect, it } from 'vitest';
 
-import { isObject, isStringRecord } from '../helpers/type-guards.ts';
+import { isStringRecord } from '../helpers/type-guards.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
 
 /**
@@ -212,13 +213,13 @@ function isPackageSpecifier(specifier: string, packageName: string): boolean {
 function readNmrCoreWiring(): NmrCoreWiring {
   const malformedMessage = `${NMR_CORE_MANIFEST} lacks the exports and scripts on which the bootstrap depends`;
   const parsedManifest: unknown = JSON.parse(readFileSync(NMR_CORE_MANIFEST, 'utf8'));
-  if (!isObject(parsedManifest)) {
+  if (!isRecord(parsedManifest)) {
     throw new Error(malformedMessage);
   }
 
   const exportMap: unknown = parsedManifest['exports'];
   const scripts: unknown = parsedManifest['scripts'];
-  if (!isObject(exportMap) || !isObject(scripts)) {
+  if (!isRecord(exportMap) || !isRecord(scripts)) {
     throw new Error(malformedMessage);
   }
 
@@ -275,7 +276,7 @@ function getModuleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
 function readWorkspacePackageNames(): string[] {
   return getWorkspacePackageDirs(findMonorepoRoot(import.meta.dirname)).map((dir) => {
     const parsedManifest: unknown = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
-    if (!isObject(parsedManifest) || typeof parsedManifest['name'] !== 'string') {
+    if (!isRecord(parsedManifest) || typeof parsedManifest['name'] !== 'string') {
       throw new Error(`${dir} does not contain a package.json that declares a name`);
     }
     return parsedManifest['name'];
@@ -286,17 +287,17 @@ function readWorkspacePackageNames(): string[] {
 function readWorkspacePrepares(): WorkspacePrepare[] {
   return getWorkspacePackageDirs(findMonorepoRoot(import.meta.dirname)).flatMap((dir) => {
     const parsedManifest: unknown = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
-    if (!isObject(parsedManifest) || typeof parsedManifest['name'] !== 'string') {
+    if (!isRecord(parsedManifest) || typeof parsedManifest['name'] !== 'string') {
       throw new Error(`${dir} does not contain a package.json that declares a name`);
     }
     const { dependencies, devDependencies, name, scripts } = parsedManifest;
-    const prepareScript = isObject(scripts) ? scripts['prepare'] : undefined;
+    const prepareScript = isRecord(scripts) ? scripts['prepare'] : undefined;
     if (name === NMR_CORE_SPECIFIER || typeof prepareScript !== 'string') {
       return [];
     }
 
     const dependsOnNmrCore = [dependencies, devDependencies].some(
-      (group) => isObject(group) && Object.hasOwn(group, NMR_CORE_SPECIFIER),
+      (group) => isRecord(group) && Object.hasOwn(group, NMR_CORE_SPECIFIER),
     );
     return { dependsOnNmrCore, name, prepareScript };
   });

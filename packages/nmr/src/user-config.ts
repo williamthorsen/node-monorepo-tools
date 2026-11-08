@@ -2,10 +2,9 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { UserError } from '@williamthorsen/nmr-core';
+import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
 import { assertRecognizedKeys } from './config-validation.ts';
-import { isObject } from './helpers/type-guards.ts';
 import type { HostList } from './remote-run.ts';
 
 /** The values that `delegate.when` accepts, each naming the runs that delegate without being asked. */
@@ -48,7 +47,7 @@ export async function loadUserConfig(env: NodeJS.ProcessEnv): Promise<LoadedUser
   }
 
   const importedModule: unknown = await import(pathToFileURL(configPath).href);
-  const loadedConfig = isObject(importedModule) ? importedModule['default'] : undefined;
+  const loadedConfig = isRecord(importedModule) ? importedModule['default'] : undefined;
 
   return { config: validateUserConfig(loadedConfig, configPath), path: configPath };
 }
@@ -102,7 +101,7 @@ function validateDelegateField(value: Record<string, unknown>, configPath: strin
   if (delegate === undefined) {
     return undefined;
   }
-  if (!isObject(delegate)) {
+  if (!isRecord(delegate)) {
     throw new UserError(`Invalid nmr config at ${configPath}: \`delegate\` must be an object`);
   }
   assertRecognizedKeys(delegate, RECOGNIZED_DELEGATE_KEYS, configPath, 'delegate.');
@@ -146,7 +145,7 @@ function validateHosts(value: unknown, configPath: string): HostList {
 
 /** Validates that a loaded value conforms to the `UserConfig` shape. */
 function validateUserConfig(value: unknown, configPath: string): UserConfig {
-  if (!isObject(value)) {
+  if (!isRecord(value)) {
     throw new UserError(`Invalid nmr config at ${configPath}: expected an object, got ${typeof value}`);
   }
   assertRecognizedKeys(value, RECOGNIZED_KEYS, configPath);

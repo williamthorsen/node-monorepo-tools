@@ -1,7 +1,8 @@
 import path from 'node:path';
 
+import { isRecord } from '@williamthorsen/nmr-core';
+
 import { quoteForShell } from './helpers/quoteForShell.ts';
-import { isObject } from './helpers/type-guards.ts';
 import { LOCK_DIR_ENV_VAR, LOCK_FILE, STALE_AFTER_MS } from './machine-lock.ts';
 import { CHECKOUT_LOCK_PATH } from './remote-host-session.ts';
 import { type HostProbeParams, probeHostLocks } from './remote-probe-host.ts';
@@ -154,7 +155,7 @@ export function selectHost(hosts: HostList, results: ReadonlyMap<string, ProbeRe
 function readBusyField(line: string): boolean | undefined {
   try {
     const value: unknown = JSON.parse(line);
-    return isObject(value) && typeof value['busy'] === 'boolean' ? value['busy'] : undefined;
+    return isRecord(value) && typeof value['busy'] === 'boolean' ? value['busy'] : undefined;
   } catch {
     return undefined;
   }

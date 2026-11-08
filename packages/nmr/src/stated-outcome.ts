@@ -1,9 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import process from 'node:process';
 
+import { isRecord } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
-
-import { isObject } from './helpers/type-guards.ts';
 
 /**
  * Names the file in which an nmr bin states its own outcome to the nmr process that runs it. nmr sets it for each
@@ -104,12 +103,12 @@ interface StatedOutcomeRecord extends StatedOutcome {
 
 /** Reports whether an error is the one that reading a file that does not exist throws. */
 function isMissingFileError(error: unknown): boolean {
-  return isObject(error) && error['code'] === 'ENOENT';
+  return isRecord(error) && error['code'] === 'ENOENT';
 }
 
 /** Narrows a parsed record to a stated outcome of a kind that this nmr renders. */
 function isStatedOutcome(value: unknown): value is StatedOutcomeRecord {
-  if (!isObject(value) || value['kind'] !== 'build-unchanged' || !Number.isSafeInteger(value['parentPid'])) {
+  if (!isRecord(value) || value['kind'] !== 'build-unchanged' || !Number.isSafeInteger(value['parentPid'])) {
     return false;
   }
 

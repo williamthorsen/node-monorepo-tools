@@ -1,10 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { isRecord } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
 import { type BuildConfig, type CheckCacheConfig, defineConfig, type NmrConfig } from '../defineConfig.ts';
-import { isObject } from '../helpers/type-guards.ts';
 
 /** The entry module's basename. The `./config` subpath's targets are this name with the built extensions. */
 const ENTRY_BASENAME = 'defineConfig';
@@ -83,7 +83,7 @@ describe(defineConfig, () => {
 describe('the ./config subpath', () => {
   it('targets the entry module and its declarations', () => {
     const manifest: unknown = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
-    const exportsMap = isObject(manifest) && isObject(manifest['exports']) ? manifest['exports'] : {};
+    const exportsMap = isRecord(manifest) && isRecord(manifest['exports']) ? manifest['exports'] : {};
 
     expect(exportsMap['./config']).toStrictEqual({
       types: `./dist/esm/${ENTRY_BASENAME}.d.ts`,

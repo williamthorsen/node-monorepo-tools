@@ -3,11 +3,10 @@ import path from 'node:path';
 import process from 'node:process';
 import type { Writable } from 'node:stream';
 
-import { formatGlyphLine, type OutputStyle } from '@williamthorsen/nmr-core';
+import { formatGlyphLine, isRecord, type OutputStyle } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { NMR_GLYPHS } from '../glyphs.ts';
-import { isObject } from '../helpers/type-guards.ts';
 
 /** Node's release index, which lists every release with its version and its UTC release day. */
 export const NODE_RELEASE_INDEX_URL = 'https://nodejs.org/dist/index.json';
@@ -120,7 +119,7 @@ export function selectNodeUpgrade(pin: string, releases: readonly unknown[], now
   let bestVersion: string | undefined;
 
   for (const release of releases) {
-    if (!isObject(release)) continue;
+    if (!isRecord(release)) continue;
     const { date, version } = release;
     if (typeof version !== 'string' || typeof date !== 'string' || !RELEASE_DATE_PATTERN.test(date)) continue;
 
@@ -168,7 +167,7 @@ function findNodePin(content: string): { start: number; version: string } | unde
 
 /** Reports whether `error` is a filesystem error for a path that does not exist. */
 function isMissingFileError(error: unknown): boolean {
-  return isObject(error) && error['code'] === 'ENOENT';
+  return isRecord(error) && error['code'] === 'ENOENT';
 }
 
 /** Splits a plain `X.Y.Z` version into its numeric parts. */

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { isRecord } from './typeGuards.ts';
+import { isRecord } from '@williamthorsen/nmr-core';
 
 /**
  * Detects whether the repo has a Prettier configuration.

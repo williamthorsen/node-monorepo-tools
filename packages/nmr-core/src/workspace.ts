@@ -5,6 +5,7 @@ import { findDirectoryChainMatch } from '@williamthorsen/toolbelt.filesystem';
 import { parse } from 'yaml';
 
 import { matchPackageDirs, resolvePackageDirs, splitWorkspacePatterns } from './helpers/workspace-patterns.ts';
+import { isRecord } from './isRecord.ts';
 
 const PACKAGE_MANIFEST_FILENAME = 'package.json';
 
@@ -58,13 +59,13 @@ export function isMonorepoRoot(dir: string): boolean {
  */
 export function readWorkspaceOverrides(monorepoRoot: string): Record<string, string> | undefined {
   const manifestReadResult = readWorkspaceManifest(monorepoRoot);
-  if (manifestReadResult.kind !== 'parsed' || !isObject(manifestReadResult.value)) {
+  if (manifestReadResult.kind !== 'parsed' || !isRecord(manifestReadResult.value)) {
     return undefined;
   }
 
   const overrides = manifestReadResult.value['overrides'];
 
-  return isObject(overrides) ? readStringValues(overrides) : undefined;
+  return isRecord(overrides) ? readStringValues(overrides) : undefined;
 }
 
 /**
@@ -81,7 +82,7 @@ export function readWorkspacePackageNames(packageDirs: readonly string[]): strin
     } catch {
       continue;
     }
-    if (isObject(parsedManifest) && typeof parsedManifest['name'] === 'string') {
+    if (isRecord(parsedManifest) && typeof parsedManifest['name'] === 'string') {
       names.push(parsedManifest['name']);
     }
   }
@@ -151,7 +152,7 @@ type PackagesRead = { kind: 'absent' } | { kind: 'patterns'; patterns: string[] 
  * unreadable one.
  */
 function readDeclaredPackages(parsedManifest: unknown): PackagesRead {
-  if (!isObject(parsedManifest)) return { kind: 'absent' };
+  if (!isRecord(parsedManifest)) return { kind: 'absent' };
 
   const packages = parsedManifest['packages'];
   if (packages === undefined || packages === null) return { kind: 'absent' };
@@ -159,11 +160,6 @@ function readDeclaredPackages(parsedManifest: unknown): PackagesRead {
   if (!packages.every((entry): entry is string => typeof entry === 'string')) return { kind: 'unreadable' };
 
   return packages.length === 0 ? { kind: 'absent' } : { kind: 'patterns', patterns: packages };
-}
-
-/** Narrows an unknown value to a record, which is the shape that a parsed manifest has to have to be read. */
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**

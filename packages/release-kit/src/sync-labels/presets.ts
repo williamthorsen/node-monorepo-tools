@@ -3,10 +3,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
-import { findPackageRoot, UserError } from '@williamthorsen/nmr-core';
+import { findPackageRoot, isRecord, UserError } from '@williamthorsen/nmr-core';
 import { parse } from 'yaml';
 
-import { isRecord } from '../typeGuards.ts';
 import { chainUserError } from '../user-error-chaining.ts';
 import { deriveTypeLabels } from './typeLabels.ts';
 import type { LabelDefinition } from './types.ts';

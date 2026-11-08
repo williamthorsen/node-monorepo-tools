@@ -1,4 +1,4 @@
-import { isRecord } from '../typeGuards.ts';
+import { isRecord } from '@williamthorsen/nmr-core';
 
 /** Parses a JSON string, returning the result if it is a plain object and `undefined` otherwise. */
 export function parseJsonRecord(jsonText: string): Record<string, unknown> | undefined {
