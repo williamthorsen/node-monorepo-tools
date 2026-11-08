@@ -1,20 +1,19 @@
 import { isTokenName, type TokenName } from './tokens.ts';
 
+/** The outcome of compiling a template: its nodes, or the message naming the template and its defect. */
+export type CompileResult = { defect: string } | { nodes: TemplateNode[] };
+
 /**
- * Compiles a template string into the node tree that `render` and `parse` both walk.
- *
- * `[` opens an optional group and `]` closes it; groups nest. A backslash escapes `[`, `]`, or another backslash into
- * literal text. A `{...}` run naming a declared token compiles to a token node; any other `{...}` run stays literal, so
- * a misspelled token shows up in rendered output rather than vanishing.
+ * Compiles a template string into the node tree that `render` and `parse` both walk, as `tryCompileTemplate` describes.
  *
  * Throws when the brackets do not balance, naming the template and the defect.
  */
 export function compileTemplate(template: string): TemplateNode[] {
-  const { index, nodes } = compileNodes(template, 0, false);
-  if (index < template.length) {
-    throw new Error(`Unmatched "]" in template ${JSON.stringify(template)}.`);
+  const result = tryCompileTemplate(template);
+  if ('defect' in result) {
+    throw new Error(result.defect);
   }
-  return nodes;
+  return result.nodes;
 }
 
 /** A template node with the groups flattened away. */
@@ -59,13 +58,33 @@ export interface TokenNode {
   name: TokenName;
 }
 
+/**
+ * Compiles a template string into the node tree that `render` and `parse` both walk, returning the defect instead of
+ * throwing when the brackets do not balance.
+ *
+ * `[` opens an optional group and `]` closes it; groups nest. A backslash escapes `[`, `]`, or another backslash into
+ * literal text. A `{...}` run naming a declared token compiles to a token node; any other `{...}` run stays literal, so
+ * a misspelled token shows up in rendered output rather than vanishing.
+ */
+export function tryCompileTemplate(template: string): CompileResult {
+  const run = compileNodes(template, 0, false);
+  if ('defect' in run) {
+    return run;
+  }
+  if (run.index < template.length) {
+    return { defect: `Unmatched "]" in template ${JSON.stringify(template)}.` };
+  }
+  return { nodes: run.nodes };
+}
+
 // region | Helpers
 
 /**
  * Compiles the nodes from `start` until the template ends or, inside a group, until the group's `]`. Reports the index
- * of the character that stopped it, which is how the caller tells a closed group from an unclosed one.
+ * of the character that stopped it, which is how the caller tells a closed group from an unclosed one, or the defect of
+ * an unclosed group at any depth.
  */
-function compileNodes(template: string, start: number, insideGroup: boolean): CompiledRun {
+function compileNodes(template: string, start: number, insideGroup: boolean): CompiledRun | { defect: string } {
   const nodes: TemplateNode[] = [];
   let literal = '';
   let index = start;
@@ -92,8 +111,11 @@ function compileNodes(template: string, start: number, insideGroup: boolean): Co
     if (char === '[') {
       flushLiteral();
       const group = compileNodes(template, index + 1, true);
+      if ('defect' in group) {
+        return group;
+      }
       if (group.index >= template.length) {
-        throw new Error(`Unclosed "[" group in template ${JSON.stringify(template)}.`);
+        return { defect: `Unclosed "[" group in template ${JSON.stringify(template)}.` };
       }
       nodes.push({ children: group.nodes, kind: 'group' });
       index = group.index + 1;

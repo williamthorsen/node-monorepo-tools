@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { compileTemplate } from '../compile-template.ts';
+import { compileTemplate, tryCompileTemplate } from '../compile-template.ts';
 
 describe(compileTemplate, () => {
   it('compiles a template without markup to one literal node', () => {
@@ -80,5 +80,27 @@ describe(compileTemplate, () => {
 
   it('refuses an unmatched closing bracket, naming the template', () => {
     expect(() => compileTemplate('{title}]')).toThrow(/Unmatched "\]" in template "\{title\}\]"/);
+  });
+});
+
+describe(tryCompileTemplate, () => {
+  it('returns the nodes of a template that compiles', () => {
+    expect(tryCompileTemplate('{title}')).toStrictEqual({ nodes: [{ kind: 'token', name: 'title' }] });
+  });
+
+  it('returns the defect of an unclosed group', () => {
+    expect(tryCompileTemplate('[{scope}|{title}')).toStrictEqual({
+      defect: 'Unclosed "[" group in template "[{scope}|{title}".',
+    });
+  });
+
+  it('returns the defect of an unclosed group nested inside another group', () => {
+    expect(tryCompileTemplate('[[{scope}|]{type}')).toStrictEqual({
+      defect: 'Unclosed "[" group in template "[[{scope}|]{type}".',
+    });
+  });
+
+  it('returns the defect of an unmatched closing bracket', () => {
+    expect(tryCompileTemplate('{title}]')).toStrictEqual({ defect: 'Unmatched "]" in template "{title}]".' });
   });
 });
