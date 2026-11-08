@@ -1,5 +1,22 @@
 [
   {
+    "version": "17.0.1",
+    "date": "2026-11-08",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that `release-kit` did not match a change-record entry's type to a configured work-type key or alias that contains an uppercase letter. (#1216)",
+            "hash": "78108625e45ee74cb473b9a15104ef4d58698f5b",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "17.0.0",
     "date": "2026-11-08",
     "sections": [

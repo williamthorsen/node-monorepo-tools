@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 17.0.1 — 2026-11-08
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `release-kit` did not match a change-record entry's type to a configured work-type key or alias that contains an uppercase letter. (#1216)
+
 ## 17.0.0 — 2026-11-08
 
 ### 🎉 Features

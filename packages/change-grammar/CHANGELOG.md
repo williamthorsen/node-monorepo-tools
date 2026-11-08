@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.4.0 — 2026-11-08
+
+### 🎉 Features
+
+- Exports `canonicalizeType` from `@williamthorsen/change-grammar`, which resolves a type spelling to the key of the taxonomy entry that declares it as a key or an alias, ignoring case on both sides. (#1216)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `findLossyRenders` threw an uncaught `SyntaxError` for a template that repeats a token, such as `{scope}: {scope}`, and returned lossy-render warnings for other templates that `verify` refuses on a structural rule, such as `{scope}{title}`. (#1211)
+
+### ♻️ Refactoring
+
+- Replaces the four private template-tree walks in `parse.ts`, `render.ts`, and `verify.ts` with a shared `flattenTemplate` and `namesToken` in `compile-template.ts`, so that a new node kind needs a change in one walk rather than four. (#1212)
+- Adds an internal `tryCompileTemplate` that returns a template's bracket defect instead of throwing it, and has `verify` and `findLossyRenders` read that defect, which removes their `try`/`catch` blocks, the lint suppression and `rdy-ignore` comment in `verify`, and its unreachable fallback message. (#1213)
+- Adds a `does` prefix to the verb-led boolean names in `change-grammar`'s parse, render, and verify modules, so that `doesNameBreaking`, `doesNameType`, and `doesRenderMarker` no longer read as function calls. (#1214)
+- Moves the modules of `change-grammar`'s `src/` into `template/`, `record/`, and `taxonomy/` directories, each with a `__tests__/` beside its code, and regroups the `index.ts` barrel by directory without changing what it exports. (#1218)
+
+### 🧪 Tests
+
+- Removes the two `verify` tests that repeated rows of the configured-template table in `verify.unit.test.ts`, and appends each test's reason to the name of the row that covers the same template. (#1215)
+- Replaces the tests in `label-map-schema.unit.test.ts` that restated the contents of `schemas/label-map.json` with cases that check that the schema rejects a label map with an extra top-level key through `additionalProperties` and one without `scopes` through `required`. (#1217)
+- Extends `lint-boundary.tool.test.ts` to lint its violating source as `src/record/tokens.ts` as well as `src/index.ts`, which fails the test if the boundary stops covering the files in the role directories. (#1218)
+
+### 📚 Documentation
+
+- Documents that `parse` throws a `SyntaxError` for a template that names a token more than once. (#1211)
+
 ## 0.3.1 — 2026-11-08
 
 ### 📚 Documentation

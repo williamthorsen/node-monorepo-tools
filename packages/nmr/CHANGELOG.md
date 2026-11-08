@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.0.0 — 2026-11-08
+
+### 🧪 Tests
+
+- Replaces the hand-written deadline loops in nmr's polling test helpers with `vi.waitFor` at the same interval and timeout, and keeps the one 50 ms real-time wait in `machine-lock.unit.test.ts` under a line-level disable of `sky-pilot/no-real-time-sleep`, because only elapsed time shows that further polls print nothing. (#1220)
+
 ## 0.56.0 — 2026-11-08
 
 ### 🎉 Features
