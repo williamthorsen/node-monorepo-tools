@@ -57,10 +57,17 @@ describe(parseRepositoryUrl, () => {
     });
   });
 
-  it.each([undefined, 42, '', 'app', 'https://github.com/app', './local/path', { type: 'git' }])(
-    'returns undefined for %o',
-    (value) => {
-      expect(parseRepositoryUrl(value)).toBeUndefined();
-    },
-  );
+  it.each([
+    undefined,
+    42,
+    '',
+    'app',
+    'https://github.com/app',
+    './local/path',
+    'file:///acme/app',
+    'not a url',
+    { type: 'git' },
+  ])('returns undefined for %o', (value) => {
+    expect(parseRepositoryUrl(value)).toBeUndefined();
+  });
 });

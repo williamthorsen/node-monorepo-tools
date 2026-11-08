@@ -69,12 +69,13 @@ function parseUrl(value: string): { host: string; repoPath: string } | undefined
     return { host: scpLike[1], repoPath: scpLike[2] };
   }
 
+  let url: URL;
   try {
-    const url = new URL(value.replace(/^git\+/, ''));
-    return url.hostname.length > 0 ? { host: url.hostname, repoPath: url.pathname } : undefined;
+    url = new URL(value.replace(/^git\+/, ''));
   } catch {
     return undefined;
   }
+  return url.hostname.length > 0 ? { host: url.hostname, repoPath: url.pathname } : undefined;
 }
 
 // endregion | Helpers
