@@ -87,7 +87,7 @@ function describeRefusal(
   }
 
   sections.push(
-    'Build these files in the package\'s publish lifecycle, such as in a "prepack" script. ' +
+    'Build these files in the package\'s prepublishOnly script, usually "prepublishOnly": "nmr build". ' +
       'If an export condition is for development only, list it in the "devExportConditions" config key.',
   );
   return sections.join('\n\n');
