@@ -108,18 +108,23 @@ In a repo that has not declared the check, [nmr's readyup kit](../README.md#conf
 
 ## What the config supplies
 
-Two settings that a workspace test runner needs almost universally are part of what the factory produces, so a config file declares neither:
+Three settings that a workspace test runner needs almost universally are part of what the factory produces, so a config file declares none of them:
 
 - **A package outside `node_modules` resolves from source.** Because a cross-package import resolves to the dependency's `.ts` rather than its `dist/`, through the `source` condition declared by its `exports` map, a suite runs without a prior build. The reach is what the boundary names: a workspace package, or one linked into the repo from elsewhere, whose real path is outside every `node_modules`. A package that does not declare a `source` condition is unaffected, and so is every package under `node_modules`, whatever its `exports` map declares.
 - **Git subprocesses are isolated.** Every project loads a setup file that points `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_SYSTEM` at the null device, sets `GIT_CONFIG_NOSYSTEM` and `GIT_ATTR_NOSYSTEM`, and injects `core.excludesFile`, `core.attributesFile`, and `maintenance.auto=false` through `GIT_CONFIG_COUNT` and its key/value pairs, so a test that spawns `git` reads neither the developer's identity, nor a signing config that can block on a passphrase, nor their global ignore rules and attributes, and a command such as `git commit` does not start a detached `git maintenance` process that could still be writing under `.git` when the test removes the repository. Those last two need a step of their own: Because neither path is config-derived, git resolves each from `$XDG_CONFIG_HOME/git/`, or from `~/.config/git/` when that variable is unset, whatever the config variables say. `GIT_CONFIG_GLOBAL` already replaces `$XDG_CONFIG_HOME/git/config`; those two are the rest of what that directory supplies. The system attributes file at `$(prefix)/etc/gitattributes` is not named by any config variable at all, which is what `GIT_ATTR_NOSYSTEM` covers. Redirecting `XDG_CONFIG_HOME` would cover the per-user pair as well, but the setup file does not redirect it, because other tools spawned by a test read that variable for configuration of their own: pnpm fails to start under `XDG_CONFIG_HOME=/dev/null`. An injected key outranks repository-local config, so a repository setting its own `core.excludesFile` is overridden under the isolation; a test needing its own value passes it on the invocation as `git -c core.excludesFile=...`, which outranks the injection. The setup file leads each project's `setupFiles`, ahead of every entry that the layers add, because a shared setup establishes the environment in which the rest run.
+- **Each run has its own temp directory.** The root config loads a global setup that creates a run directory named `nmr-vitest-<pid>-…` under the temp directory in effect at startup, points `TMPDIR` at it, and removes it when the run ends, whether its tests pass or fail. Every worker and every process that a test spawns inherits the variable, so scratch files that a test does not clean up stay out of the shared temp directory, where they would otherwise accumulate across runs and repositories until a tmpfs with a fixed inode count has none left. A run stopped by a signal skips global teardown, so the setup first removes each run directory whose process has exited, and leaves those whose process is still running. Vitest runs a project's own `globalSetup` before the root's, so one that a layer adds through `project` runs outside the run directory.
 
-Both defaults exist because omitting either is silent rather than loud: The tiers still exist and the suite still runs green, testing `dist/` and the developer's git identity instead. Turn either off through its own option, which folds across layers like any other, the last layer to declare it winning:
+The first two defaults exist because omitting either is silent rather than loud: The tiers still exist and the suite still runs green, testing `dist/` and the developer's git identity instead. The third exists because a leak shows up only once the temp directory is full, in whatever command next writes to it. Turn any of them off through its own option, which folds across layers like any other, the last layer to declare it winning:
 
 ```ts
-export default defineVitestConfig({ shouldIsolateGit: false, shouldResolveFromSource: false });
+export default defineVitestConfig({
+  shouldIsolateGit: false,
+  shouldIsolateTempDir: false,
+  shouldResolveFromSource: false,
+});
 ```
 
-`shouldResolveFromSource: false` is for a repo whose own packages declare a `source` condition that it does not want in tests; `shouldIsolateGit: false` is for a suite meant to read the developer's own git configuration.
+`shouldResolveFromSource: false` is for a repo whose own packages declare a `source` condition that it does not want in tests; `shouldIsolateGit: false` is for a suite meant to read the developer's own git configuration; `shouldIsolateTempDir: false` is for a suite whose files must outlive the run in the ambient temp directory.
 
 **Vite replaces its condition defaults rather than extending them.** A config writing `conditions: ['my-condition']` by hand therefore drops `module`, so a dependency exposing a `module` entry falls through to whatever its `exports` lists next. A replaced list still resolves `node` and `development` under Vitest, which is why nothing in a test run reports the loss. Because the factory emits Vite's defaults for each environment, whichever way `shouldResolveFromSource` is set, a layer adding a condition extends a complete list rather than replacing one.
 
@@ -157,7 +162,7 @@ export default defineVitestConfig({ tsconfigPaths: true });
 
 It folds across layers like the other two, the last layer to declare it winning. It does not need an `ssr` counterpart the way a condition does: Because Vite keeps this setting outside its per-environment resolve options, the single key applies to the environment through which a test's own imports resolve.
 
-**It is an opt-in because its silent direction is the reverse of the two defaults'.** Leaving it off fails loudly, with an unresolved import naming the specifier. Turning it on is the silent direction, for a repo that declares `paths` for `tsc` alone: A specifier that resolved through a package's `exports` starts resolving through the alias instead, and nothing in the run reports the switch. A repo that does not declare `paths` is unaffected either way.
+**It is an opt-in because its silent direction is the reverse of the defaults'.** Leaving it off fails loudly, with an unresolved import naming the specifier. Turning it on is the silent direction, for a repo that declares `paths` for `tsc` alone: A specifier that resolved through a package's `exports` starts resolving through the alias instead, and nothing in the run reports the switch. A repo that does not declare `paths` is unaffected either way.
 
 **It requires Vite 8**, the version that introduced `resolve.tsconfigPaths`. nmr declares `vite` as an optional peer at `>=8.0.0 <9`, so a repo that declares a stale `vite` of its own sees a warning at install time. That check does not apply to a repo that does not declare `vite` itself, whose Vite is the one that Vitest brings in: a dependency under Vitest 4 and an auto-installed peer under Vitest 5. Both majors accept Vite 6 and 7: On those, the emitted key does nothing and the aliased import fails exactly as it would with the flag off.
 
@@ -223,7 +228,7 @@ Order matters for `setupFiles`, because a shared setup file establishes the envi
 
 **Do not merge two returned configs.** `mergeConfig(defineVitestConfig(), defineVitestConfig(mine))` looks like the idiomatic recovery and fails at startup: Both sides declare the same four project names, which Vitest rejects with `Project name "unit" ... is not unique`. Layers merge the factory's inputs instead, which is why they yield four projects however many fold.
 
-A config file that omits the shared layer still loses those settings, silently -- Vitest's own resolution contract, not something the factory can intercept. Guard it with a test that fails when a package's suite goes missing, which also catches a shared `exclude` pattern that excludes one package's tests. Source resolution and git isolation do not need such a guard: The factory supplies both, so a config file cannot omit them by forgetting a layer.
+A config file that omits the shared layer still loses those settings, silently -- Vitest's own resolution contract, not something the factory can intercept. Guard it with a test that fails when a package's suite goes missing, which also catches a shared `exclude` pattern that excludes one package's tests. Source resolution, git isolation, and temp-directory isolation do not need such a guard: The factory supplies all three, so a config file cannot omit them by forgetting a layer.
 
 ## What the config excludes
 
