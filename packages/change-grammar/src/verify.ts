@@ -1,9 +1,9 @@
 import {
-  compileTemplate,
   type FlatNode,
   flattenTemplate,
   type GroupNode,
   type TemplateNode,
+  tryCompileTemplate,
 } from './compile-template.ts';
 import { parse } from './parse.ts';
 import { render } from './render.ts';
@@ -21,13 +21,12 @@ import type { ChangeRecord, Taxonomy } from './types.ts';
  * such as one that names a token twice, since `verify` reports either.
  */
 export function findLossyRenders(template: string, taxonomy: Taxonomy): string[] {
-  let nodes: TemplateNode[];
-  try {
-    nodes = compileTemplate(template);
-  } catch {
+  const result = tryCompileTemplate(template);
+  if ('defect' in result) {
     return [];
   }
 
+  const { nodes } = result;
   const flattened = flattenTemplate(nodes);
   if (findStructuralDefects(template, nodes, flattened).length > 0) {
     return [];
@@ -65,14 +64,12 @@ export function findLossyRenders(template: string, taxonomy: Taxonomy): string[]
  * indistinguishable from a ticket reference, and the template is accepted.
  */
 export function verify(template: string, taxonomy: Taxonomy): string[] {
-  let nodes: TemplateNode[];
-  try {
-    nodes = compileTemplate(template);
-  } catch (error) {
-    // eslint-disable-next-line no-restricted-syntax -- The package does not depend on any other package, so neither suggested helper is available.
-    return [error instanceof Error ? error.message : `Template ${JSON.stringify(template)} could not be compiled.`]; // rdy-ignore toolbelt.errors/no-inline-description
+  const result = tryCompileTemplate(template);
+  if ('defect' in result) {
+    return [result.defect];
   }
 
+  const { nodes } = result;
   const flattened = flattenTemplate(nodes);
   const defects = findStructuralDefects(template, nodes, flattened);
   return defects.length > 0 ? defects : findRoundTripDefects(template, nodes, flattened, taxonomy);

@@ -126,10 +126,14 @@ describe(verify, () => {
       expect(defects.some((defect) => defect.includes('not distinguishable'))).toBe(true);
     });
 
-    it('refuses a template whose brackets do not balance', () => {
+    it('refuses a template with an unclosed group', () => {
       expect(verify('[{scope}|{type}: {title}', TAXONOMY)).toStrictEqual([
         'Unclosed "[" group in template "[{scope}|{type}: {title}".',
       ]);
+    });
+
+    it('refuses a template with an unmatched closing bracket', () => {
+      expect(verify('{type}: {title}]', TAXONOMY)).toStrictEqual(['Unmatched "]" in template "{type}: {title}]".']);
     });
 
     it('keeps {type}{breaking} out of the adjacency rule, since three conventions place them together', () => {
