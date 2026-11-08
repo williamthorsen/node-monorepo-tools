@@ -15,7 +15,7 @@ describe(runActionlint, () => {
   });
 
   it('passes without fetching any tool when the repo does not have a workflows directory', async () => {
-    const ensure = vi.fn<(tool: WorkflowTool, cacheRoot: string) => Promise<string>>();
+    const ensure = vi.fn<(tool: WorkflowTool, cacheRoots: readonly [string, ...string[]]) => Promise<string>>();
     const spawn = vi.fn<(file: string, args: string[], cwd: string) => ActionlintOutcome>();
 
     using silent = silenceConsole(['info']);
@@ -29,20 +29,23 @@ describe(runActionlint, () => {
 
   it('runs the pinned actionlint from the root with the pinned shellcheck and returns its status', async () => {
     tree.write('.github/workflows/ci.yaml', 'on: push\n');
-    const ensure = vi.fn((tool: WorkflowTool, cacheRoot: string) => Promise.resolve(path.join(cacheRoot, tool)));
+    const ensure = vi.fn<(tool: WorkflowTool, cacheRoots: readonly [string, ...string[]]) => Promise<string>>((tool) =>
+      Promise.resolve(path.join('/cache', tool)),
+    );
     const spawn = vi.fn((): ActionlintOutcome => ({ signal: null, status: 1 }));
 
     const exitCode = await runActionlint(tree.dir, ['.github/workflows/ci.yaml'], { ensure, spawn });
 
-    const cacheRoot = path.join(tree.dir, 'node_modules', '.cache', 'nmr-tools');
+    // The machine root depends on the developer's HOME, so only the worktree root, which is last, is asserted.
+    const worktreeRoot = path.join(tree.dir, 'node_modules', '.cache', 'nmr-tools');
     expect(exitCode).toBe(1);
-    expect(ensure.mock.calls).toStrictEqual([
-      ['actionlint', cacheRoot],
-      ['shellcheck', cacheRoot],
+    expect(ensure.mock.calls.map(([tool, roots]) => [tool, roots.at(-1)])).toStrictEqual([
+      ['actionlint', worktreeRoot],
+      ['shellcheck', worktreeRoot],
     ]);
     expect(spawn).toHaveBeenCalledWith(
-      path.join(cacheRoot, 'actionlint'),
-      [`-shellcheck=${path.join(cacheRoot, 'shellcheck')}`, '-pyflakes=', '.github/workflows/ci.yaml'],
+      path.join('/cache', 'actionlint'),
+      [`-shellcheck=${path.join('/cache', 'shellcheck')}`, '-pyflakes=', '.github/workflows/ci.yaml'],
       tree.dir,
     );
   });

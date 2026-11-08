@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
 import { assertRecognizedKeys } from './config-validation.ts';
+import { resolveXdgBaseDir } from './helpers/resolveXdgBaseDir.ts';
 import type { HostList } from './remote-run.ts';
 
 /** The values that `delegate.when` accepts, each naming the runs that delegate without being asked. */
@@ -58,17 +59,8 @@ export async function loadUserConfig(env: NodeJS.ProcessEnv): Promise<LoadedUser
  * under `HOME`'s `.config`. Returns `undefined` when `env` names neither.
  */
 export function resolveUserConfigPath(env: NodeJS.ProcessEnv): string | undefined {
-  const configHome = env['XDG_CONFIG_HOME'];
-  if (configHome !== undefined && path.isAbsolute(configHome)) {
-    return path.join(configHome, USER_CONFIG_RELATIVE_PATH);
-  }
-
-  const home = env['HOME'];
-  if (home !== undefined && path.isAbsolute(home)) {
-    return path.join(home, '.config', USER_CONFIG_RELATIVE_PATH);
-  }
-
-  return undefined;
+  const configHome = resolveXdgBaseDir(env, 'XDG_CONFIG_HOME', '.config');
+  return configHome === undefined ? undefined : path.join(configHome, USER_CONFIG_RELATIVE_PATH);
 }
 
 /** The machine-level settings that `$XDG_CONFIG_HOME/nmr/config.ts` declares. */

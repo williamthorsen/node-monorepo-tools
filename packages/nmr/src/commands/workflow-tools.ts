@@ -7,6 +7,8 @@ import process from 'node:process';
 import { UserError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { resolveXdgBaseDir } from '../helpers/resolveXdgBaseDir.ts';
+
 /** A program that `nmr-actionlint` downloads rather than takes from `PATH`. */
 export type WorkflowTool = 'actionlint' | 'shellcheck';
 
@@ -26,8 +28,11 @@ export type ToolPins = Record<WorkflowTool, ToolPin>;
 export type FetchFunction = (url: string, init?: RequestInit) => Promise<Response>;
 
 export interface EnsureToolOptions {
-  /** Directory under which each tool version is cached in a directory of its own. */
-  cacheRoot: string;
+  /**
+   * Directories under which each tool version is cached in a directory of its own, in lookup order. A miss installs
+   * into the first one that can be written.
+   */
+  cacheRoots: readonly [string, ...string[]];
   arch?: string;
   fetch?: FetchFunction;
   pins?: ToolPins;
@@ -94,7 +99,8 @@ export const TOOL_PINS: ToolPins = {
 };
 
 /**
- * Returns the path of the tool's pinned binary, downloading, verifying, and caching it first on a cache miss.
+ * Returns the path of the tool's pinned binary, taking the first one cached under any of the roots, and otherwise
+ * downloading, verifying, and caching it under the first root that can be written.
  *
  * A failure at any step leaves the cache without the tool, and a concurrent run never sees a partial binary: The
  * binary is assembled in a scratch directory beside its target and renamed into place only once verified.
@@ -102,17 +108,17 @@ export const TOOL_PINS: ToolPins = {
 export async function ensureTool(tool: WorkflowTool, options: EnsureToolOptions): Promise<string> {
   const pin = (options.pins ?? TOOL_PINS)[tool];
   const asset = pin.assets[resolveToolPlatform(options.platform ?? process.platform, options.arch ?? process.arch)];
-  const targetDir = path.join(options.cacheRoot, `${tool}-${pin.version}`);
-  const binaryPath = path.join(targetDir, tool);
+  const versionDir = `${tool}-${pin.version}`;
 
-  if (fs.existsSync(binaryPath)) {
-    return binaryPath;
+  for (const cacheRoot of options.cacheRoots) {
+    const cachedPath = path.join(cacheRoot, versionDir, tool);
+    if (fs.existsSync(cachedPath)) {
+      return cachedPath;
+    }
   }
 
-  createCacheRoot(options.cacheRoot);
-  const scratchDir = `${targetDir}.tmp-${process.pid}`;
-  fs.rmSync(scratchDir, { force: true, recursive: true });
-  fs.mkdirSync(scratchDir);
+  const { scratchDir, targetDir } = createScratchDir(options.cacheRoots, versionDir);
+  const binaryPath = path.join(targetDir, tool);
 
   try {
     const archive = await download(asset.url, options.fetch ?? globalThis.fetch);
@@ -140,6 +146,19 @@ export async function ensureTool(tool: WorkflowTool, options: EnsureToolOptions)
   return binaryPath;
 }
 
+/**
+ * Returns the roots under which the pinned tools are cached, in lookup order: the machine cache under the XDG cache
+ * home, when `env` resolves one, then `node_modules/.cache/nmr-tools` at the monorepo root.
+ */
+export function resolveToolCacheRoots(
+  monorepoRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): [string, ...string[]] {
+  const worktreeRoot = path.join(monorepoRoot, 'node_modules', '.cache', 'nmr-tools');
+  const cacheHome = resolveXdgBaseDir(env, 'XDG_CACHE_HOME', '.cache');
+  return cacheHome === undefined ? [worktreeRoot] : [path.join(cacheHome, 'nmr', 'tools'), worktreeRoot];
+}
+
 /** Maps Node's platform and architecture onto a supported pair, rejecting every other pair. */
 export function resolveToolPlatform(platform: NodeJS.Platform, arch: string): ToolPlatform {
   const key = `${platform}-${arch}`;
@@ -154,13 +173,29 @@ export function resolveToolPlatform(platform: NodeJS.Platform, arch: string): To
 
 // region | Helpers
 
-/** Creates the cache root, naming it in the error when it cannot be created. */
-function createCacheRoot(cacheRoot: string): void {
-  try {
-    fs.mkdirSync(cacheRoot, { recursive: true });
-  } catch (error: unknown) {
-    throw new UserError(`Cannot create the tool cache at ${cacheRoot}: ${describeError(error)}`, { cause: error });
+/**
+ * Creates a unique scratch directory beside the version's target directory under the first root that can be written,
+ * naming the last root in the error when none can.
+ */
+function createScratchDir(
+  cacheRoots: readonly [string, ...string[]],
+  versionDir: string,
+): { scratchDir: string; targetDir: string } {
+  let lastError: unknown;
+  for (const cacheRoot of cacheRoots) {
+    const targetDir = path.join(cacheRoot, versionDir);
+    try {
+      fs.mkdirSync(cacheRoot, { recursive: true });
+      return { scratchDir: fs.mkdtempSync(`${targetDir}.tmp-`), targetDir };
+    } catch (error: unknown) {
+      lastError = error;
+    }
   }
+
+  const lastRoot = cacheRoots.at(-1) ?? cacheRoots[0];
+  throw new UserError(`Cannot create the tool cache at ${lastRoot}: ${describeError(lastError)}`, {
+    cause: lastError,
+  });
 }
 
 /** Fetches the archive at a URL, naming the URL in any failure. */

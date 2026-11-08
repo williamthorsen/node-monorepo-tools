@@ -5,7 +5,7 @@ import path from 'node:path';
 import { runGit, UserError } from '@williamthorsen/nmr-core';
 
 import { describeSignalExitCode } from '../child-process.ts';
-import { ensureTool, type WorkflowTool } from './workflow-tools.ts';
+import { ensureTool, resolveToolCacheRoots, type WorkflowTool } from './workflow-tools.ts';
 
 /** How a spawned shellcheck ended. */
 export interface ShellcheckOutcome {
@@ -15,9 +15,9 @@ export interface ShellcheckOutcome {
 }
 
 export interface RunShellcheckOptions {
-  /** Directory under which the pinned tools are cached; defaults to `node_modules/.cache/nmr-tools` at the root. */
-  cacheRoot?: string;
-  ensure?: (tool: WorkflowTool, cacheRoot: string) => Promise<string>;
+  /** Directories under which the pinned tools are cached, in lookup order; defaults to `resolveToolCacheRoots`. */
+  cacheRoots?: readonly [string, ...string[]];
+  ensure?: (tool: WorkflowTool, cacheRoots: readonly [string, ...string[]]) => Promise<string>;
   /** Lists the tracked `*.sh` files under the root, relative to it. */
   listFiles?: (monorepoRoot: string) => string[];
   spawn?: (file: string, args: string[], cwd: string) => ShellcheckOutcome;
@@ -38,9 +38,9 @@ export async function runShellcheck(
     return 0;
   }
 
-  const cacheRoot = options.cacheRoot ?? path.join(monorepoRoot, 'node_modules', '.cache', 'nmr-tools');
-  const ensure = options.ensure ?? ((tool, root) => ensureTool(tool, { cacheRoot: root }));
-  const shellcheckPath = await ensure('shellcheck', cacheRoot);
+  const cacheRoots = options.cacheRoots ?? resolveToolCacheRoots(monorepoRoot);
+  const ensure = options.ensure ?? ((tool, roots) => ensureTool(tool, { cacheRoots: roots }));
+  const shellcheckPath = await ensure('shellcheck', cacheRoots);
 
   const outcome = (options.spawn ?? spawnInherited)(shellcheckPath, shellcheckArgs, monorepoRoot);
   if (outcome.error !== undefined) {
