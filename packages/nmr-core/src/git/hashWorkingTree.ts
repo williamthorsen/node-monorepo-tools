@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { hasErrnoCode } from '../errors/hasErrnoCode.ts';
 import { collectChangedPaths } from './collectChangedPaths.ts';
 import {
   type GitObjectFormat,
@@ -13,7 +14,6 @@ import {
   serializeTreeObject,
   TREE_MODE,
 } from './gitObjects.ts';
-import { hasErrnoCode } from './hasErrnoCode.ts';
 import { runGit, runGitForBytes } from './runGit.ts';
 
 /**

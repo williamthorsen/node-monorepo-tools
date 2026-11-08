@@ -1,5 +1,5 @@
 export const PACKAGE_NAME = '@williamthorsen/nmr-core';
-export type { CacheDirRef, CacheEntryRef } from './cache-store.ts';
+export type { CacheDirRef, CacheEntryRef } from './cache/cache-store.ts';
 export {
   readCacheEntry,
   readGuardedCacheEntry,
@@ -10,15 +10,21 @@ export {
   resolveCacheEntryPath,
   writeCacheEntry,
   writeGuardedCacheEntry,
-} from './cache-store.ts';
-export { GIT_OUTPUT_LIMIT_BYTES } from './gitOutputLimit.ts';
-export { hasErrnoCode } from './hasErrnoCode.ts';
-export type { WorkingTreeHashResult } from './hashWorkingTree.ts';
-export { hashWorkingTree, readHeadSha } from './hashWorkingTree.ts';
-export { isAnticipatedFailure } from './isAnticipatedFailure.ts';
-export { isRecord } from './isRecord.ts';
-export type { GitResult } from './runGit.ts';
-export { runGit } from './runGit.ts';
+} from './cache/cache-store.ts';
+export { hasErrnoCode } from './errors/hasErrnoCode.ts';
+export { isAnticipatedFailure } from './errors/isAnticipatedFailure.ts';
+export { UserError } from './errors/UserError.ts';
+export { reportTemplateUpdate, reportWriteResult } from './files/report-write-outcomes.ts';
+export type { ManagedFileOutcome, ManagedFileResult } from './files/updateManagedFile.ts';
+export { updateManagedFile } from './files/updateManagedFile.ts';
+export type { WriteOutcome, WriteResult } from './files/writeFileWithCheck.ts';
+export { writeFileWithCheck } from './files/writeFileWithCheck.ts';
+export { GIT_OUTPUT_LIMIT_BYTES } from './git/gitOutputLimit.ts';
+export type { WorkingTreeHashResult } from './git/hashWorkingTree.ts';
+export { hashWorkingTree, readHeadSha } from './git/hashWorkingTree.ts';
+export type { GitResult } from './git/runGit.ts';
+export { runGit } from './git/runGit.ts';
+export { isRecord } from './portable/isRecord.ts';
 export type {
   GlyphSet,
   InvalidOutputStyle,
@@ -44,17 +50,10 @@ export {
   reportCrash,
   reportError,
   reportFailure,
-  reportTemplateUpdate,
-  reportWriteResult,
   resolveStreamStyles,
   STATUS_GLYPHS,
   truncateToWidth,
   wrapToWidth,
 } from './terminal.ts';
 export { startTimer } from './timer.ts';
-export type { ManagedFileOutcome, ManagedFileResult } from './updateManagedFile.ts';
-export { updateManagedFile } from './updateManagedFile.ts';
-export { UserError } from './UserError.ts';
-export type { WriteOutcome, WriteResult } from './writeFileWithCheck.ts';
-export { writeFileWithCheck } from './writeFileWithCheck.ts';
 export { findPackageRoot, resolveSelfVersion } from '@williamthorsen/toolbelt.packaging/candidate';
