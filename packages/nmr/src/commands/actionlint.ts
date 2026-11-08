@@ -5,7 +5,7 @@ import path from 'node:path';
 import { UserError } from '@williamthorsen/nmr-core';
 
 import { describeSignalExitCode } from '../child-process.ts';
-import { ensureTool, type WorkflowTool } from './workflow-tools.ts';
+import { ensureTool, resolveToolCacheRoots, type WorkflowTool } from './workflow-tools.ts';
 
 /** How a spawned actionlint ended. */
 export interface ActionlintOutcome {
@@ -15,9 +15,9 @@ export interface ActionlintOutcome {
 }
 
 export interface RunActionlintOptions {
-  /** Directory under which the pinned tools are cached; defaults to `node_modules/.cache/nmr-tools` at the root. */
-  cacheRoot?: string;
-  ensure?: (tool: WorkflowTool, cacheRoot: string) => Promise<string>;
+  /** Directories under which the pinned tools are cached, in lookup order; defaults to `resolveToolCacheRoots`. */
+  cacheRoots?: readonly [string, ...string[]];
+  ensure?: (tool: WorkflowTool, cacheRoots: readonly [string, ...string[]]) => Promise<string>;
   spawn?: (file: string, args: string[], cwd: string) => ActionlintOutcome;
 }
 
@@ -38,10 +38,10 @@ export async function runActionlint(
     return 0;
   }
 
-  const cacheRoot = options.cacheRoot ?? path.join(monorepoRoot, 'node_modules', '.cache', 'nmr-tools');
-  const ensure = options.ensure ?? ((tool, root) => ensureTool(tool, { cacheRoot: root }));
-  const actionlintPath = await ensure('actionlint', cacheRoot);
-  const shellcheckPath = await ensure('shellcheck', cacheRoot);
+  const cacheRoots = options.cacheRoots ?? resolveToolCacheRoots(monorepoRoot);
+  const ensure = options.ensure ?? ((tool, roots) => ensureTool(tool, { cacheRoots: roots }));
+  const actionlintPath = await ensure('actionlint', cacheRoots);
+  const shellcheckPath = await ensure('shellcheck', cacheRoots);
 
   const outcome = (options.spawn ?? spawnInherited)(
     actionlintPath,

@@ -6,42 +6,68 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ensureTool, resolveToolPlatform, TOOL_PINS, type ToolPins } from '../workflow-tools.ts';
+import { ensureTool, resolveToolCacheRoots, resolveToolPlatform, TOOL_PINS, type ToolPins } from '../workflow-tools.ts';
 
 describe(ensureTool, () => {
   let tree: TempTree;
   let cacheRoot: string;
+  let cacheRoots: [string, string];
 
   beforeEach(() => {
     tree = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-workflow-tools-test-' }));
     cacheRoot = path.join(tree.dir, 'cache');
+    cacheRoots = [cacheRoot, path.join(tree.dir, 'fallback')];
   });
 
-  it('returns a cached binary without downloading', async () => {
+  it('returns a binary cached under the first root without downloading', async () => {
     tree.write('cache/actionlint-1.7.12/actionlint', '#!/bin/sh\n');
     const fetch = vi.fn<typeof globalThis.fetch>();
 
-    const binaryPath = await ensureTool('actionlint', { arch: 'arm64', cacheRoot, fetch, platform: 'darwin' });
+    const binaryPath = await ensureTool('actionlint', { arch: 'arm64', cacheRoots, fetch, platform: 'darwin' });
 
     expect(binaryPath).toBe(path.join(cacheRoot, 'actionlint-1.7.12', 'actionlint'));
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('rejects an archive whose checksum does not match the pin and caches nothing', async () => {
+  it('returns a binary cached only under a later root without downloading', async () => {
+    tree.write('fallback/actionlint-1.7.12/actionlint', '#!/bin/sh\n');
+    const fetch = vi.fn<typeof globalThis.fetch>();
+
+    const binaryPath = await ensureTool('actionlint', { arch: 'arm64', cacheRoots, fetch, platform: 'darwin' });
+
+    expect(binaryPath).toBe(path.join(tree.dir, 'fallback', 'actionlint-1.7.12', 'actionlint'));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects an archive whose checksum does not match the pin and caches nothing under any root', async () => {
+    tree.write('blocker', '');
     const pins = buildPins(sha256Of('the pinned archive'));
     const fetch = vi.fn(() => Promise.resolve(new Response('a tampered archive')));
+    // A first root under a regular file cannot be created, so the install falls back to the second.
+    const roots: [string, string] = [path.join(tree.dir, 'blocker', 'cache'), cacheRoot];
 
-    await expect(ensureTool('actionlint', { arch: 'x64', cacheRoot, fetch, pins, platform: 'linux' })).rejects.toThrow(
-      /^Checksum mismatch for https:\/\/example\.test\/actionlint\.tar\.gz/,
-    );
+    await expect(
+      ensureTool('actionlint', { arch: 'x64', cacheRoots: roots, fetch, pins, platform: 'linux' }),
+    ).rejects.toThrow(/^Checksum mismatch for https:\/\/example\.test\/actionlint\.tar\.gz/);
     expect(tree.list('cache')).toStrictEqual([]);
+  });
+
+  it('names the last root when no root can be created', async () => {
+    tree.write('blocker', '');
+    const roots: [string, string] = [path.join(tree.dir, 'blocker', 'a'), path.join(tree.dir, 'blocker', 'b')];
+    const fetch = vi.fn<typeof globalThis.fetch>();
+
+    await expect(
+      ensureTool('actionlint', { arch: 'x64', cacheRoots: roots, fetch, pins: buildPins('0'), platform: 'linux' }),
+    ).rejects.toThrow(`Cannot create the tool cache at ${roots[1]}: `);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('names the URL and the status of a failed download', async () => {
     const fetch = vi.fn(() => Promise.resolve(new Response('', { status: 404 })));
 
     await expect(
-      ensureTool('actionlint', { arch: 'x64', cacheRoot, fetch, pins: buildPins('0'), platform: 'linux' }),
+      ensureTool('actionlint', { arch: 'x64', cacheRoots, fetch, pins: buildPins('0'), platform: 'linux' }),
     ).rejects.toThrow('Cannot download https://example.test/actionlint.tar.gz: HTTP 404');
     expect(tree.list('cache')).toStrictEqual([]);
   });
@@ -50,8 +76,30 @@ describe(ensureTool, () => {
     const fetch = vi.fn(() => Promise.reject(new Error('getaddrinfo ENOTFOUND example.test')));
 
     await expect(
-      ensureTool('actionlint', { arch: 'x64', cacheRoot, fetch, pins: buildPins('0'), platform: 'linux' }),
+      ensureTool('actionlint', { arch: 'x64', cacheRoots, fetch, pins: buildPins('0'), platform: 'linux' }),
     ).rejects.toThrow('Cannot download https://example.test/actionlint.tar.gz: getaddrinfo ENOTFOUND example.test');
+  });
+});
+
+describe(resolveToolCacheRoots, () => {
+  const worktreeRoot = path.join('/repo', 'node_modules', '.cache', 'nmr-tools');
+
+  it('puts the machine cache under XDG_CACHE_HOME before the worktree cache', () => {
+    expect(resolveToolCacheRoots('/repo', { HOME: '/home/dev', XDG_CACHE_HOME: '/var/cache/dev' })).toStrictEqual([
+      path.join('/var/cache/dev', 'nmr', 'tools'),
+      worktreeRoot,
+    ]);
+  });
+
+  it('puts the machine cache under HOME when XDG_CACHE_HOME is unset', () => {
+    expect(resolveToolCacheRoots('/repo', { HOME: '/home/dev' })).toStrictEqual([
+      path.join('/home/dev', '.cache', 'nmr', 'tools'),
+      worktreeRoot,
+    ]);
+  });
+
+  it('returns the worktree cache alone when the environment names neither', () => {
+    expect(resolveToolCacheRoots('/repo', {})).toStrictEqual([worktreeRoot]);
   });
 });
 

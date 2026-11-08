@@ -15,7 +15,7 @@ describe(runShellcheck, () => {
   });
 
   it('passes without fetching shellcheck when the repo does not track any shell script', async () => {
-    const ensure = vi.fn<(tool: WorkflowTool, cacheRoot: string) => Promise<string>>();
+    const ensure = vi.fn<(tool: WorkflowTool, cacheRoots: readonly [string, ...string[]]) => Promise<string>>();
     const spawn = vi.fn<(file: string, args: string[], cwd: string) => ShellcheckOutcome>();
 
     using silent = silenceConsole(['info']);
@@ -32,7 +32,9 @@ describe(runShellcheck, () => {
   it('runs the pinned shellcheck from the root over the tracked scripts and returns its status', async () => {
     tree.write('build.sh', '#!/bin/sh\n');
     tree.write('scripts/deploy.sh', '#!/bin/sh\n');
-    const ensure = vi.fn((tool: WorkflowTool, cacheRoot: string) => Promise.resolve(path.join(cacheRoot, tool)));
+    const ensure = vi.fn<(tool: WorkflowTool, cacheRoots: readonly [string, ...string[]]) => Promise<string>>((tool) =>
+      Promise.resolve(path.join('/cache', tool)),
+    );
     const spawn = vi.fn((): ShellcheckOutcome => ({ signal: null, status: 1 }));
 
     const exitCode = await runShellcheck(tree.dir, [], {
@@ -41,10 +43,13 @@ describe(runShellcheck, () => {
       spawn,
     });
 
-    const cacheRoot = path.join(tree.dir, 'node_modules', '.cache', 'nmr-tools');
+    // The machine root depends on the developer's HOME, so only the worktree root, which is last, is asserted.
+    const worktreeRoot = path.join(tree.dir, 'node_modules', '.cache', 'nmr-tools');
     expect(exitCode).toBe(1);
-    expect(ensure.mock.calls).toStrictEqual([['shellcheck', cacheRoot]]);
-    expect(spawn).toHaveBeenCalledWith(path.join(cacheRoot, 'shellcheck'), ['build.sh', 'scripts/deploy.sh'], tree.dir);
+    expect(ensure.mock.calls.map(([tool, roots]) => [tool, roots.at(-1)])).toStrictEqual([
+      ['shellcheck', worktreeRoot],
+    ]);
+    expect(spawn).toHaveBeenCalledWith(path.join('/cache', 'shellcheck'), ['build.sh', 'scripts/deploy.sh'], tree.dir);
   });
 
   it('skips a tracked script that is missing from the working tree', async () => {

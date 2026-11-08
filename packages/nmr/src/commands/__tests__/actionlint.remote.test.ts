@@ -49,7 +49,7 @@ describe(runActionlint, () => {
   it('downloads the pinned tools and reports a shellcheck finding in a run block', async () => {
     tree.write('.github/workflows/build.yaml', SC2016_WORKFLOW);
 
-    const exitCode = await runActionlint(tree.dir, [], { cacheRoot, spawn: spawnCapturing });
+    const exitCode = await runActionlint(tree.dir, [], { cacheRoots: [cacheRoot], spawn: spawnCapturing });
 
     expect(exitCode).toBe(1);
     expect(output).toContain('SC2016');
@@ -58,7 +58,7 @@ describe(runActionlint, () => {
   it('passes a workflow without findings', async () => {
     tree.write('.github/workflows/build.yaml', CLEAN_WORKFLOW);
 
-    const exitCode = await runActionlint(tree.dir, [], { cacheRoot, spawn: spawnCapturing });
+    const exitCode = await runActionlint(tree.dir, [], { cacheRoots: [cacheRoot], spawn: spawnCapturing });
 
     expect(output).toBe('');
     expect(exitCode).toBe(0);
