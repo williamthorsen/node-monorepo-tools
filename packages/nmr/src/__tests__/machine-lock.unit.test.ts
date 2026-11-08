@@ -6,7 +6,7 @@ import { PassThrough } from 'node:stream';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   acquireMachineLock,
@@ -248,11 +248,12 @@ function delay(ms: number): Promise<void> {
 
 /** Polls until `condition` holds, failing after two seconds. */
 async function waitFor(condition: () => boolean): Promise<void> {
-  const deadline = Date.now() + 2000;
-  while (!condition()) {
-    if (Date.now() > deadline) throw new Error('Timed out waiting for condition');
-    await delay(5);
-  }
+  await vi.waitFor(
+    () => {
+      if (!condition()) throw new Error('Timed out waiting for condition');
+    },
+    { interval: 5, timeout: 2000 },
+  );
 }
 
 // endregion | Helpers

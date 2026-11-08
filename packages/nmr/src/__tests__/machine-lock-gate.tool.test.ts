@@ -6,7 +6,7 @@ import { PassThrough } from 'node:stream';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { acquireMachineLock, LOCK_DIR_ENV_VAR, LOCK_TOKEN_ENV_VAR, NO_LOCK_ENV_VAR } from '../machine-lock.ts';
 import type { ScriptValue } from '../resolve-scripts.ts';
@@ -214,11 +214,12 @@ function runGit(cwd: string, args: string[]): void {
 
 /** Polls until `condition` holds, failing after five seconds. */
 async function waitFor(condition: () => boolean): Promise<void> {
-  const deadline = Date.now() + 5000;
-  while (!condition()) {
-    if (Date.now() > deadline) throw new Error('Timed out waiting for condition');
-    await new Promise((resolve) => setTimeout(resolve, 5));
-  }
+  await vi.waitFor(
+    () => {
+      if (!condition()) throw new Error('Timed out waiting for condition');
+    },
+    { interval: 5, timeout: 5000 },
+  );
 }
 
 // endregion | Helpers

@@ -4,7 +4,7 @@ import process from 'node:process';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, describe, expect, it as baseIt } from 'vitest';
+import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
@@ -112,14 +112,12 @@ function waitForExit(target: ChildProcess): Promise<number | null> {
 
 /** Resolves once the entry exists, so that the signal arrives while the first step is running rather than before it. */
 async function waitForMarker(tree: TempTree, entryPath: string): Promise<void> {
-  const deadlineMs = Date.now() + MARKER_TIMEOUT_MS;
-
-  while (Date.now() < deadlineMs) {
-    if (tree.exists(entryPath)) return;
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-
-  throw new Error(`the first step never wrote ${entryPath}`);
+  await vi.waitFor(
+    () => {
+      if (!tree.exists(entryPath)) throw new Error(`the first step never wrote ${entryPath}`);
+    },
+    { interval: 25, timeout: MARKER_TIMEOUT_MS },
+  );
 }
 
 // endregion | Helpers
