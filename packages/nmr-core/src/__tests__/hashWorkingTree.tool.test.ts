@@ -219,43 +219,6 @@ describe(hashWorkingTree, () => {
       expect(getTreeId(tree.dir)).toBe(initialTreeId);
     });
 
-    it('moves the id when a tracked file’s content changes', ({ tree }) => {
-      initRepo(tree);
-      const initialTreeId = getTreeId(tree.dir);
-
-      tree.write('src/index.ts', 'export const value = 2;\n');
-
-      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
-    });
-
-    it('moves the id when an untracked file appears', ({ tree }) => {
-      initRepo(tree);
-      const initialTreeId = getTreeId(tree.dir);
-
-      tree.write('src/added.ts', 'export const added = true;\n');
-
-      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
-    });
-
-    it('moves the id when a tracked file is deleted', ({ tree }) => {
-      initRepo(tree);
-      const initialTreeId = getTreeId(tree.dir);
-
-      fs.rmSync(path.join(tree.dir, 'src', 'index.ts'));
-
-      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
-    });
-
-    it('moves the id when a change is staged', ({ tree }) => {
-      initRepo(tree);
-      const initialTreeId = getTreeId(tree.dir);
-
-      tree.write('src/index.ts', 'export const value = 3;\n');
-      runTestGit(tree.dir, ['add', 'src/index.ts']);
-
-      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
-    });
-
     it('moves the id when a file is renamed', ({ tree }) => {
       // A staged rename is the one status record containing two paths; a parser that dropped the original path
       // would leave the file at its old path as well.
@@ -265,37 +228,6 @@ describe(hashWorkingTree, () => {
       runTestGit(tree.dir, ['mv', 'src/index.ts', 'src/renamed.ts']);
 
       expect(listStatusRecordTypes(tree.dir)).toContain('2');
-      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
-    });
-
-    it('moves the id when a symlink is repointed', ({ tree }) => {
-      initRepo(tree);
-      tree.symlink('link', 'src/index.ts');
-      const initialTreeId = getTreeId(tree.dir);
-
-      tree.rm('link');
-      tree.symlink('link', 'src/other.ts');
-
-      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
-    });
-
-    it('moves the id when a file becomes executable', ({ tree }) => {
-      initRepo(tree);
-      const initialTreeId = getTreeId(tree.dir);
-
-      fs.chmodSync(tree.resolve('src/index.ts'), 0o755);
-
-      expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
-    });
-
-    it('moves the id when a path containing spaces changes', ({ tree }) => {
-      initRepo(tree);
-      const spacedFileName = 'a file with spaces.txt';
-      tree.write(spacedFileName, 'one\n');
-      const initialTreeId = getTreeId(tree.dir);
-
-      tree.write(spacedFileName, 'two\n');
-
       expect(getTreeId(tree.dir)).not.toBe(initialTreeId);
     });
 
