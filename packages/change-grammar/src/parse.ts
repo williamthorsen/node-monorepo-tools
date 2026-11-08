@@ -17,6 +17,8 @@ import type { ChangeRecord, Taxonomy } from './types.ts';
  *
  * A template naming `{type}` matches only a subject that names a declared type. When the template does not name
  * `{ticket_ref}`, `parse` first strips any `TICKET_PREFIX_PATTERNS` prefix from the subject.
+ *
+ * Throws a `SyntaxError` for a template that names a token more than once, which `verify` refuses.
  */
 export function parse(nodes: readonly TemplateNode[], subject: string, taxonomy: Taxonomy): ChangeRecord | undefined {
   const options: PatternOptions = {
