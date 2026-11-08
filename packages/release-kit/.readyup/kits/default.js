@@ -18,7 +18,7 @@ import {
 // src/init/detectRepoType.ts
 import { existsSync, readFileSync } from "node:fs";
 
-// src/typeGuards.ts
+// ../nmr-core/dist/esm/isRecord.js
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
