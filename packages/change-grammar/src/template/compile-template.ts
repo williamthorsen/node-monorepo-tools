@@ -1,4 +1,4 @@
-import { isTokenName, type TokenName } from './tokens.ts';
+import { isTokenName, type TokenName } from '../record/tokens.ts';
 
 /** The outcome of compiling a template: its nodes, or the message naming the template and its defect. */
 export type CompileResult = { defect: string } | { nodes: TemplateNode[] };

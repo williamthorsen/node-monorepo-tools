@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import type { ChangeRecord } from '../../record/types.ts';
 import { compileTemplate } from '../compile-template.ts';
 import { render } from '../render.ts';
 import { type ConventionName, TEMPLATE_CATALOGUE } from '../templates.ts';
-import type { ChangeRecord } from '../types.ts';
 
 const TITLE = 'Add foo';
 

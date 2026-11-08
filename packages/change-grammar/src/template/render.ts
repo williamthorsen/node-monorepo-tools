@@ -1,6 +1,6 @@
+import { BREAKING_MARKER, normalizeChangeRecord, type TokenName } from '../record/tokens.ts';
+import type { ChangeRecord } from '../record/types.ts';
 import { namesToken, type TemplateNode } from './compile-template.ts';
-import { BREAKING_MARKER, normalizeChangeRecord, type TokenName } from './tokens.ts';
-import type { ChangeRecord } from './types.ts';
 
 /**
  * Renders compiled template nodes against a record, producing the surface string.

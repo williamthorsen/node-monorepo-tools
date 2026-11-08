@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import type { Taxonomy } from '../../record/types.ts';
 import { TEMPLATE_CATALOGUE } from '../templates.ts';
-import type { Taxonomy } from '../types.ts';
 import { findLossyRenders, verify } from '../verify.ts';
 
 const TAXONOMY: Taxonomy = {

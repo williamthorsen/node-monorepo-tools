@@ -1,5 +1,5 @@
-import { ROOT_SCOPE } from './tokens.ts';
-import type { CanonicalWorkTypeEntry } from './types.ts';
+import { ROOT_SCOPE } from '../record/tokens.ts';
+import type { CanonicalWorkTypeEntry } from '../record/types.ts';
 
 /**
  * Maps each work type to its tracker label and each workspace to its scope label, in the order given. Adds `root` after

@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { deriveLabelMap } from '../derive-label-map.ts';
 import { CANONICAL_TAXONOMY } from '../taxonomy.ts';
 
-const schemaPath = path.resolve(import.meta.dirname, '..', '..', 'schemas', 'label-map.json');
+const schemaPath = path.resolve(import.meta.dirname, '..', '..', '..', 'schemas', 'label-map.json');
 
 describe('label-map.json schema', () => {
   const validateLabelMap = new Ajv({ strict: true }).compile(JSON.parse(readFileSync(schemaPath, 'utf8')));
