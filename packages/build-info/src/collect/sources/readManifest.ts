@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { isRecord } from '../portable/isRecord.ts';
+import { isRecord } from '../../portable/isRecord.ts';
 
 /** The fields of a `package.json` that identify a build. */
 export interface Manifest {

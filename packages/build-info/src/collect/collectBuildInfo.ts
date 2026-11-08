@@ -1,7 +1,7 @@
 import type { BuildInfo } from '../contract/types.ts';
+import { compactRecord } from '../portable/compactRecord.ts';
 import { readHostFacts } from './hosts/readHostFacts.ts';
 import type { HostEnv, HostFacts } from './hosts/types.ts';
-import { compactRecord } from './portable/compactRecord.ts';
 import { findReleaseNotes } from './readReleaseNotes.ts';
 import { parseRepositoryUrl } from './sources/parseRepositoryUrl.ts';
 import { type GitFacts, readGitFacts } from './sources/readGitFacts.ts';

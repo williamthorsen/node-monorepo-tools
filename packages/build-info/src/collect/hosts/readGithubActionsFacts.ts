@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 
-import { compactRecord } from '../portable/compactRecord.ts';
-import { isRecord } from '../portable/isRecord.ts';
+import { compactRecord } from '../../portable/compactRecord.ts';
+import { isRecord } from '../../portable/isRecord.ts';
 import { parsePullRequestNumber } from './parsePullRequestNumber.ts';
 import { readEnv } from './readEnv.ts';
 import type { HostEnv, HostFacts } from './types.ts';

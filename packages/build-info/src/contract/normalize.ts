@@ -1,3 +1,4 @@
+import { isRecord } from '../portable/isRecord.ts';
 import { InvalidBuildInfoError } from './InvalidBuildInfoError.ts';
 import {
   BUILD_HOSTS,
@@ -49,11 +50,6 @@ function assignIfPresent<T, K extends keyof T>(target: T, key: K, value: T[K] | 
   if (value !== undefined) {
     target[key] = value;
   }
-}
-
-/** Reports whether the value is a plain object, excluding `null` and arrays. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** Appends an array index to a field path, as in `sections[0]`. */
