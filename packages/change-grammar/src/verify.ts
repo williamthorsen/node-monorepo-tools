@@ -11,7 +11,8 @@ import type { ChangeRecord, Taxonomy } from './types.ts';
  *
  * A shape fills every token outside the groups, fills `{type}` whenever the template names it, and is tried with and
  * without the breaking marker when the template can carry one. A typeless record is excluded because the type-required
- * rule already refuses it. Returns an empty list for a template that does not compile, which `verify` reports.
+ * rule already refuses it. Returns an empty list for a template that does not compile or that breaks a structural rule,
+ * such as one that names a token twice, since `verify` reports either.
  */
 export function findLossyRenders(template: string, taxonomy: Taxonomy): string[] {
   let nodes: TemplateNode[];
@@ -21,11 +22,12 @@ export function findLossyRenders(template: string, taxonomy: Taxonomy): string[]
     return [];
   }
 
-  const named = new Set(
-    flattenTemplate(nodes)
-      .filter((node) => node.kind === 'token')
-      .map((node) => node.name),
-  );
+  const flattened = flattenTemplate(nodes);
+  if (findStructuralDefects(template, nodes, flattened).length > 0) {
+    return [];
+  }
+
+  const named = new Set(flattened.filter((node) => node.kind === 'token').map((node) => node.name));
   const optional = [...collectGroupedTokens(nodes)].filter((name) => name !== 'breaking' && name !== 'type');
   const markerStates = named.has('breaking') || named.has('type') ? [false, true] : [false];
 
@@ -66,12 +68,7 @@ export function verify(template: string, taxonomy: Taxonomy): string[] {
   }
 
   const flattened = flattenTemplate(nodes);
-  const defects = [
-    ...findAdjacentTokenDefects(template, flattened),
-    ...findRepeatedTokenDefects(template, flattened),
-    ...findGroupBoundaryDefects(template, nodes),
-    ...findBreakingMarkerDefects(template, flattened),
-  ];
+  const defects = findStructuralDefects(template, nodes, flattened);
   return defects.length > 0 ? defects : findRoundTripDefects(template, nodes, flattened, taxonomy);
 }
 
@@ -265,6 +262,20 @@ function findRoundTripDefects(
     }
   }
   return defects;
+}
+
+/** Reports every breach of the structural rules, which hold whatever the values are. */
+function findStructuralDefects(
+  template: string,
+  nodes: readonly TemplateNode[],
+  flattened: readonly FlatNode[],
+): string[] {
+  return [
+    ...findAdjacentTokenDefects(template, flattened),
+    ...findRepeatedTokenDefects(template, flattened),
+    ...findGroupBoundaryDefects(template, nodes),
+    ...findBreakingMarkerDefects(template, flattened),
+  ];
 }
 
 /** A template node with the groups flattened away. */

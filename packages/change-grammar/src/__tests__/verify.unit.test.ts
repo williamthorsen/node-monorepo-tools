@@ -52,6 +52,16 @@ describe(findLossyRenders, () => {
   it('does not warn on a template that does not compile, which verify refuses', () => {
     expect(findLossyRenders('[{scope}|{type}: {title}', TAXONOMY)).toStrictEqual([]);
   });
+
+  it.each([
+    ['repeats a token', '{scope}: {scope}'],
+    ['repeats a token inside and outside a group', '[{scope}: ]{scope} {title}'],
+    ['places two tokens without a literal between them', '{scope}{title}'],
+    ['opens a group with the text before it', '{type}: [: {scope}]{title}'],
+  ])('does not warn on a template that %s, which verify refuses', (_defect, template) => {
+    expect(verify(template, TAXONOMY)).not.toStrictEqual([]);
+    expect(findLossyRenders(template, TAXONOMY)).toStrictEqual([]);
+  });
 });
 
 describe(verify, () => {
