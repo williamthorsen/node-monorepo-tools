@@ -3,10 +3,10 @@
   "kits": [
     {
       "bundledDependencies": {
-        "@williamthorsen/toolbelt.datetime": "4.1.0",
+        "@williamthorsen/toolbelt.datetime": "4.1.1",
         "@williamthorsen/toolbelt.errors": "0.9.0",
         "@williamthorsen/toolbelt.filesystem": "0.10.0",
-        "@williamthorsen/toolbelt.numbers": "7.3.0",
+        "@williamthorsen/toolbelt.numbers": "7.3.1",
         "@williamthorsen/toolbelt.objects": "4.4.0",
         "@williamthorsen/toolbelt.packaging": "0.7.0",
         "@williamthorsen/toolbelt.terminal": "0.3.0",
@@ -199,10 +199,10 @@
     },
     {
       "bundledDependencies": {
-        "@williamthorsen/toolbelt.datetime": "4.1.0",
+        "@williamthorsen/toolbelt.datetime": "4.1.1",
         "@williamthorsen/toolbelt.errors": "0.9.0",
         "@williamthorsen/toolbelt.filesystem": "0.10.0",
-        "@williamthorsen/toolbelt.numbers": "7.3.0",
+        "@williamthorsen/toolbelt.numbers": "7.3.1",
         "@williamthorsen/toolbelt.objects": "4.4.0",
         "@williamthorsen/toolbelt.packaging": "0.7.0",
         "@williamthorsen/toolbelt.terminal": "0.3.0",
