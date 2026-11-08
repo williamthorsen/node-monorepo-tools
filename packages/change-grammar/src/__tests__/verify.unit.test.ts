@@ -70,24 +70,16 @@ describe(verify, () => {
       expect(verify(template, TAXONOMY)).toStrictEqual([]);
     });
 
-    it.each([
-      '{title}',
-      '[[{scope}|]{type}: ]{title}',
-      '[{scope}|{type}: ]{title}',
-      '[{ticket_ref} ]{title}',
-      '[{ticket_ref} ][[{scope}|]{type}: ]{title}[ (#{pr_number})]',
-      '[{ticket_ref} ][{scope}|{type}: ]{title}[ (#{pr_number})]',
-      '[{ticket_ref} ][{scope}|][{type}: ]{title}[ (#{pr_number})]',
-    ])('accepts the configured template %s', (template) => {
+    it.each<[string, string]>([
+      ['{title}', ''],
+      ['[[{scope}|]{type}: ]{title}', ''],
+      ['[{scope}|{type}: ]{title}', ', whose scope group drops the type along with the scope'],
+      ['[{ticket_ref} ]{title}', ', whose ambiguity depends on the values'],
+      ['[{ticket_ref} ][[{scope}|]{type}: ]{title}[ (#{pr_number})]', ''],
+      ['[{ticket_ref} ][{scope}|{type}: ]{title}[ (#{pr_number})]', ''],
+      ['[{ticket_ref} ][{scope}|][{type}: ]{title}[ (#{pr_number})]', ''],
+    ])('accepts the configured template %s%s', (template) => {
       expect(verify(template, TAXONOMY)).toStrictEqual([]);
-    });
-
-    it('accepts a template whose ambiguity depends on the values, since #1638 inverts it', () => {
-      expect(verify('[{ticket_ref} ]{title}', TAXONOMY)).toStrictEqual([]);
-    });
-
-    it('accepts a template whose scope group contains the type, whose drop leaves nothing to read back', () => {
-      expect(verify('[{scope}|{type}: ]{title}', TAXONOMY)).toStrictEqual([]);
     });
   });
 
