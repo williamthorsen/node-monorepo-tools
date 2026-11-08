@@ -162,6 +162,8 @@ An override file references it from its top-level `$schema` key:
 }
 ```
 
+release-kit also ships the schema in its package. A project that lists `@williamthorsen/release-kit` as a direct dependency can reference the installed version by a path relative to the override file: `../node_modules/@williamthorsen/release-kit/schemas/changelog-overrides.json` from `.meta/changelog-overrides.json`, and `../../../node_modules/@williamthorsen/release-kit/schemas/changelog-overrides.json` from a workspace's `packages/<ws>/.meta/changelog-overrides.json`. pnpm links only direct dependencies into a project's `node_modules`, so the path does not resolve when release-kit runs through `pnpm dlx` or `npx`.
+
 The schema states the key form and the entry fields. It accepts `audience` values `'all'` and `'dev'`, which the file format declares; the loader still rejects them (see below).
 
 ## Audience semantics: v1 supports `'skip'` only

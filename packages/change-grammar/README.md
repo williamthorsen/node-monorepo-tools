@@ -38,3 +38,5 @@ The package publishes a JSON Schema for label-map files, which a file references
 ```text
 https://github.com/williamthorsen/node-monorepo-tools/raw/change-grammar-v<version>/packages/change-grammar/schemas/label-map.json
 ```
+
+The package also ships the schema, so a project that lists `@williamthorsen/change-grammar` as a direct dependency can reference the installed version by a path relative to the file, such as `../node_modules/@williamthorsen/change-grammar/schemas/label-map.json` from `.meta/label-map.json`. pnpm links only direct dependencies into a project's `node_modules`, so the path does not resolve when the package arrives through another package, such as release-kit.
