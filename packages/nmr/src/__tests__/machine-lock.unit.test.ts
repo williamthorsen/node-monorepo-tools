@@ -58,7 +58,9 @@ describe(acquireMachineLock, () => {
 
     const second = acquire({ stderr: stderr.stream });
     await waitFor(() => stderr.read().includes('waiting'));
-    await delay(50);
+    // Only elapsed time shows that further polls print nothing.
+    // eslint-disable-next-line sky-pilot/no-real-time-sleep -- the absence of output needs a real window
+    await new Promise((resolve) => setTimeout(resolve, 50));
     await first.release();
     const secondLock = await second;
 
@@ -239,11 +241,6 @@ function captureStream(): { read: () => string; stream: PassThrough } {
   });
 
   return { read: () => output, stream };
-}
-
-/** Resolves after `ms` milliseconds. */
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Polls until `condition` holds, failing after two seconds. */
