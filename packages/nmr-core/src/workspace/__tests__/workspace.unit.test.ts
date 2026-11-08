@@ -13,7 +13,7 @@ import {
 } from '../workspace.ts';
 
 // The monorepo root is two levels up from packages/nmr-core
-const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
+const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..', '..');
 const NMR_CORE_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'nmr-core');
 
 const TEMP_DIR_PREFIX = 'nmr-core-workspace-test-';

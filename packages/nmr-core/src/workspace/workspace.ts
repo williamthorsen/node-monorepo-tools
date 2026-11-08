@@ -4,8 +4,8 @@ import path from 'node:path';
 import { findDirectoryChainMatch } from '@williamthorsen/toolbelt.filesystem';
 import { parse } from 'yaml';
 
-import { matchPackageDirs, resolvePackageDirs, splitWorkspacePatterns } from './helpers/workspace-patterns.ts';
-import { isRecord } from './isRecord.ts';
+import { isRecord } from '../portable/isRecord.ts';
+import { matchPackageDirs, resolvePackageDirs, splitWorkspacePatterns } from './workspace-patterns.ts';
 
 const PACKAGE_MANIFEST_FILENAME = 'package.json';
 

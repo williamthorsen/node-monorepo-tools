@@ -33,9 +33,9 @@
       "default": "./dist/esm/cli.js"
     },
     "./workspace": {
-      "nmr-source": "./src/workspace.ts",
-      "types": "./dist/esm/workspace.d.ts",
-      "default": "./dist/esm/workspace.js"
+      "nmr-source": "./src/workspace/workspace.ts",
+      "types": "./dist/esm/workspace/workspace.d.ts",
+      "default": "./dist/esm/workspace/workspace.js"
     }
   },
   "files": [

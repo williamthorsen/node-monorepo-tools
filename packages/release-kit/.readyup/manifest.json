@@ -64,55 +64,70 @@
         {
           "hash": "bf29a9a3",
           "kind": "module",
-          "path": "../../nmr-core/dist/esm/cache-store.js"
-        },
-        {
-          "hash": "bc0baa4a",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/collectChangedPaths.js"
-        },
-        {
-          "hash": "70d519e7",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/gitObjects.js"
-        },
-        {
-          "hash": "d5a89448",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/gitOutputLimit.js"
+          "path": "../../nmr-core/dist/esm/cache/cache-store.js"
         },
         {
           "hash": "6b7d0243",
           "kind": "module",
-          "path": "../../nmr-core/dist/esm/hasErrnoCode.js"
-        },
-        {
-          "hash": "0d7b3f7c",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/hashWorkingTree.js"
-        },
-        {
-          "hash": "45962e9b",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/index.js"
+          "path": "../../nmr-core/dist/esm/errors/hasErrnoCode.js"
         },
         {
           "hash": "85d76864",
           "kind": "module",
-          "path": "../../nmr-core/dist/esm/isAnticipatedFailure.js"
+          "path": "../../nmr-core/dist/esm/errors/isAnticipatedFailure.js"
         },
         {
-          "hash": "1d74f646",
+          "hash": "e02e0a74",
           "kind": "module",
-          "path": "../../nmr-core/dist/esm/isRecord.js"
+          "path": "../../nmr-core/dist/esm/errors/UserError.js"
+        },
+        {
+          "hash": "5ae3e980",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/files/updateManagedFile.js"
+        },
+        {
+          "hash": "d377c37c",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/files/writeFileWithCheck.js"
+        },
+        {
+          "hash": "bc0baa4a",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/git/collectChangedPaths.js"
+        },
+        {
+          "hash": "70d519e7",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/git/gitObjects.js"
+        },
+        {
+          "hash": "d5a89448",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/git/gitOutputLimit.js"
+        },
+        {
+          "hash": "62be92c4",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/git/hashWorkingTree.js"
         },
         {
           "hash": "6734717f",
           "kind": "module",
-          "path": "../../nmr-core/dist/esm/runGit.js"
+          "path": "../../nmr-core/dist/esm/git/runGit.js"
         },
         {
-          "hash": "d058e842",
+          "hash": "e894c608",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/index.js"
+        },
+        {
+          "hash": "1d74f646",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/portable/isRecord.js"
+        },
+        {
+          "hash": "999adfeb",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/terminal.js"
         },
@@ -120,21 +135,6 @@
           "hash": "85afaf3e",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/timer.js"
-        },
-        {
-          "hash": "5ae3e980",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/updateManagedFile.js"
-        },
-        {
-          "hash": "e02e0a74",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/UserError.js"
-        },
-        {
-          "hash": "d377c37c",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/writeFileWithCheck.js"
         },
         {
           "hash": "56566d0b",
@@ -190,7 +190,7 @@
       "readyupVersion": "0.45.0",
       "source": "kits/default.ts",
       "sourceHash": "56566d0b",
-      "targetHash": "71f9758e"
+      "targetHash": "3fba6c4a"
     },
     {
       "bundledDependencies": {
@@ -240,55 +240,70 @@
         {
           "hash": "bf29a9a3",
           "kind": "module",
-          "path": "../../nmr-core/dist/esm/cache-store.js"
-        },
-        {
-          "hash": "bc0baa4a",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/collectChangedPaths.js"
-        },
-        {
-          "hash": "70d519e7",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/gitObjects.js"
-        },
-        {
-          "hash": "d5a89448",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/gitOutputLimit.js"
+          "path": "../../nmr-core/dist/esm/cache/cache-store.js"
         },
         {
           "hash": "6b7d0243",
           "kind": "module",
-          "path": "../../nmr-core/dist/esm/hasErrnoCode.js"
-        },
-        {
-          "hash": "0d7b3f7c",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/hashWorkingTree.js"
-        },
-        {
-          "hash": "45962e9b",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/index.js"
+          "path": "../../nmr-core/dist/esm/errors/hasErrnoCode.js"
         },
         {
           "hash": "85d76864",
           "kind": "module",
-          "path": "../../nmr-core/dist/esm/isAnticipatedFailure.js"
+          "path": "../../nmr-core/dist/esm/errors/isAnticipatedFailure.js"
         },
         {
-          "hash": "1d74f646",
+          "hash": "e02e0a74",
           "kind": "module",
-          "path": "../../nmr-core/dist/esm/isRecord.js"
+          "path": "../../nmr-core/dist/esm/errors/UserError.js"
+        },
+        {
+          "hash": "5ae3e980",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/files/updateManagedFile.js"
+        },
+        {
+          "hash": "d377c37c",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/files/writeFileWithCheck.js"
+        },
+        {
+          "hash": "bc0baa4a",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/git/collectChangedPaths.js"
+        },
+        {
+          "hash": "70d519e7",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/git/gitObjects.js"
+        },
+        {
+          "hash": "d5a89448",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/git/gitOutputLimit.js"
+        },
+        {
+          "hash": "62be92c4",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/git/hashWorkingTree.js"
         },
         {
           "hash": "6734717f",
           "kind": "module",
-          "path": "../../nmr-core/dist/esm/runGit.js"
+          "path": "../../nmr-core/dist/esm/git/runGit.js"
         },
         {
-          "hash": "d058e842",
+          "hash": "e894c608",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/index.js"
+        },
+        {
+          "hash": "1d74f646",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/portable/isRecord.js"
+        },
+        {
+          "hash": "999adfeb",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/terminal.js"
         },
@@ -296,21 +311,6 @@
           "hash": "85afaf3e",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/timer.js"
-        },
-        {
-          "hash": "5ae3e980",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/updateManagedFile.js"
-        },
-        {
-          "hash": "e02e0a74",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/UserError.js"
-        },
-        {
-          "hash": "d377c37c",
-          "kind": "module",
-          "path": "../../nmr-core/dist/esm/writeFileWithCheck.js"
         },
         {
           "hash": "682fdd4a",
@@ -338,7 +338,7 @@
       "readyupVersion": "0.45.0",
       "source": "kits/npm-auto-publish.ts",
       "sourceHash": "682fdd4a",
-      "targetHash": "7f703dfd"
+      "targetHash": "bdd314ac"
     }
   ]
 }

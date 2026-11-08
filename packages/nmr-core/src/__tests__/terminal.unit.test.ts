@@ -4,6 +4,9 @@ import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { UserError } from '../errors/UserError.ts';
+import type { ManagedFileResult } from '../files/updateManagedFile.ts';
+import type { WriteResult } from '../files/writeFileWithCheck.ts';
 import {
   defineGlyphSet,
   formatErrorLine,
@@ -22,9 +25,6 @@ import {
   STATUS_GLYPHS,
   type StatusGlyphName,
 } from '../terminal.ts';
-import type { ManagedFileResult } from '../updateManagedFile.ts';
-import { UserError } from '../UserError.ts';
-import type { WriteResult } from '../writeFileWithCheck.ts';
 
 describe(formatErrorLine, () => {
   it('renders the message prefixed with the bin, without a trailing newline', () => {

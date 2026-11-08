@@ -15,9 +15,9 @@ import {
   type StatusGlyphName,
 } from '@williamthorsen/toolbelt.terminal/candidate';
 
-import { isAnticipatedFailure } from './isAnticipatedFailure.ts';
-import type { ManagedFileResult } from './updateManagedFile.ts';
-import type { WriteResult } from './writeFileWithCheck.ts';
+import { isAnticipatedFailure } from './errors/isAnticipatedFailure.ts';
+import type { ManagedFileResult } from './files/updateManagedFile.ts';
+import type { WriteResult } from './files/writeFileWithCheck.ts';
 
 export type {
   GlyphSet,

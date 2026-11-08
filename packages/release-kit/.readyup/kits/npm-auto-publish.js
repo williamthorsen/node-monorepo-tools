@@ -20,7 +20,7 @@ import {
 // src/npmRegistry.ts
 import { execFileSync } from "node:child_process";
 
-// ../nmr-core/dist/esm/isRecord.js
+// ../nmr-core/dist/esm/portable/isRecord.js
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

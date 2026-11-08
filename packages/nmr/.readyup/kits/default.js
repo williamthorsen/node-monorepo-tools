@@ -7725,12 +7725,17 @@ function buildRootScripts(workspaceGlobs) {
   };
 }
 
-// ../nmr-core/dist/esm/workspace.js
+// ../nmr-core/dist/esm/workspace/workspace.js
 import { existsSync, readFileSync } from "node:fs";
 import path2 from "node:path";
 var import_yaml = __toESM(require_dist(), 1);
 
-// ../nmr-core/dist/esm/helpers/workspace-patterns.js
+// ../nmr-core/dist/esm/portable/isRecord.js
+function isRecord2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// ../nmr-core/dist/esm/workspace/workspace-patterns.js
 import { globSync as globSync2 } from "node:fs";
 import path from "node:path";
 var MANIFEST_FILENAME = "package.json";
@@ -7768,12 +7773,7 @@ function buildManifestPattern(pattern) {
   return `${pattern.replace(/\/?$/, "")}/${MANIFEST_FILENAME}`;
 }
 
-// ../nmr-core/dist/esm/isRecord.js
-function isRecord2(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-// ../nmr-core/dist/esm/workspace.js
+// ../nmr-core/dist/esm/workspace/workspace.js
 var WORKSPACE_MANIFEST_FILENAME = "pnpm-workspace.yaml";
 function isMonorepoRoot(dir) {
   return existsSync(path2.join(dir, WORKSPACE_MANIFEST_FILENAME));
@@ -7832,15 +7832,23 @@ function readWorkspaceManifest(monorepoRoot) {
   }
 }
 
-// ../nmr-core/dist/esm/gitOutputLimit.js
-var GIT_OUTPUT_LIMIT_BYTES = 64 * 1024 * 1024;
-
-// ../nmr-core/dist/esm/hasErrnoCode.js
+// ../nmr-core/dist/esm/errors/hasErrnoCode.js
 function hasErrnoCode(error, code) {
   return isError(error) && "code" in error && error.code === code;
 }
 
-// ../nmr-core/dist/esm/runGit.js
+// ../nmr-core/dist/esm/errors/UserError.js
+var UserError = class extends Error {
+  constructor(message, options) {
+    super(message, options);
+    this.name = "UserError";
+  }
+};
+
+// ../nmr-core/dist/esm/git/gitOutputLimit.js
+var GIT_OUTPUT_LIMIT_BYTES = 64 * 1024 * 1024;
+
+// ../nmr-core/dist/esm/git/runGit.js
 import { spawnSync } from "node:child_process";
 function runGit(args, cwd, input, env) {
   const result = runGitForBytes(args, cwd, input === void 0 ? void 0 : Buffer.from(input, "utf8"), env);
@@ -7862,14 +7870,6 @@ function runGitForBytes(args, cwd, input, env) {
   }
   return { ok: true, stdout: result.stdout };
 }
-
-// ../nmr-core/dist/esm/UserError.js
-var UserError = class extends Error {
-  constructor(message, options) {
-    super(message, options);
-    this.name = "UserError";
-  }
-};
 
 // src/workspace.ts
 var WORKSPACE_MANIFEST = "pnpm-workspace.yaml";
