@@ -14,6 +14,7 @@ export {
 export { hasErrnoCode } from './errors/hasErrnoCode.ts';
 export { isAnticipatedFailure } from './errors/isAnticipatedFailure.ts';
 export { UserError } from './errors/UserError.ts';
+export { reportTemplateUpdate, reportWriteResult } from './files/report-write-outcomes.ts';
 export type { ManagedFileOutcome, ManagedFileResult } from './files/updateManagedFile.ts';
 export { updateManagedFile } from './files/updateManagedFile.ts';
 export type { WriteOutcome, WriteResult } from './files/writeFileWithCheck.ts';
@@ -49,8 +50,6 @@ export {
   reportCrash,
   reportError,
   reportFailure,
-  reportTemplateUpdate,
-  reportWriteResult,
   resolveStreamStyles,
   STATUS_GLYPHS,
   truncateToWidth,

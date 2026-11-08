@@ -82,6 +82,11 @@
           "path": "../../nmr-core/dist/esm/errors/UserError.js"
         },
         {
+          "hash": "77aa59f7",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/files/report-write-outcomes.js"
+        },
+        {
           "hash": "5ae3e980",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/files/updateManagedFile.js"
@@ -117,7 +122,7 @@
           "path": "../../nmr-core/dist/esm/git/runGit.js"
         },
         {
-          "hash": "e894c608",
+          "hash": "fe9fd44c",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/index.js"
         },
@@ -127,7 +132,7 @@
           "path": "../../nmr-core/dist/esm/portable/isRecord.js"
         },
         {
-          "hash": "999adfeb",
+          "hash": "b88a9126",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/terminal.js"
         },
@@ -258,6 +263,11 @@
           "path": "../../nmr-core/dist/esm/errors/UserError.js"
         },
         {
+          "hash": "77aa59f7",
+          "kind": "module",
+          "path": "../../nmr-core/dist/esm/files/report-write-outcomes.js"
+        },
+        {
           "hash": "5ae3e980",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/files/updateManagedFile.js"
@@ -293,7 +303,7 @@
           "path": "../../nmr-core/dist/esm/git/runGit.js"
         },
         {
-          "hash": "e894c608",
+          "hash": "fe9fd44c",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/index.js"
         },
@@ -303,7 +313,7 @@
           "path": "../../nmr-core/dist/esm/portable/isRecord.js"
         },
         {
-          "hash": "999adfeb",
+          "hash": "b88a9126",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/terminal.js"
         },
