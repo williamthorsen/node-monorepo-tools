@@ -23,10 +23,10 @@ import type { ChangeRecord, Taxonomy } from './types.ts';
 export function parse(nodes: readonly TemplateNode[], subject: string, taxonomy: Taxonomy): ChangeRecord | undefined {
   const options: PatternOptions = {
     delimiters: mapScopeDelimiters(nodes),
-    namesBreaking: namesToken(nodes, 'breaking'),
+    doesNameBreaking: namesToken(nodes, 'breaking'),
     typeAlternation: buildTypeAlternation(taxonomy),
   };
-  const namesType = namesToken(nodes, 'type');
+  const doesNameType = namesToken(nodes, 'type');
   const prepared = namesToken(nodes, 'ticket_ref') ? subject : stripTicketPrefix(subject);
 
   const match = new RegExp(`^${buildPattern(nodes, options)}$`).exec(prepared);
@@ -53,7 +53,7 @@ export function parse(nodes: readonly TemplateNode[], subject: string, taxonomy:
     record.type = canonical;
   }
 
-  return namesType && record.type === undefined ? undefined : normalizeChangeRecord(record);
+  return doesNameType && record.type === undefined ? undefined : normalizeChangeRecord(record);
 }
 
 /** The ticket-reference forms stripped from a subject whose template does not name `{ticket_ref}`. */
@@ -93,7 +93,7 @@ function buildTokenPattern(node: TokenNode, options: PatternOptions): string {
       return '(?<title>.+?)';
     case 'type':
       // When the template does not name `{breaking}`, the marker follows the type, exactly as `render` writes it.
-      return options.namesBreaking
+      return options.doesNameBreaking
         ? `(?<type>${options.typeAlternation})`
         : `(?<type>${options.typeAlternation})(?<breaking>${escapeForPattern(BREAKING_MARKER)})?`;
   }
@@ -178,7 +178,7 @@ function mapScopeDelimiters(nodes: readonly TemplateNode[]): ReadonlyMap<TokenNo
 /** What pattern construction needs beyond the nodes themselves. */
 interface PatternOptions {
   delimiters: ReadonlyMap<TokenNode, string>;
-  namesBreaking: boolean;
+  doesNameBreaking: boolean;
   typeAlternation: string;
 }
 

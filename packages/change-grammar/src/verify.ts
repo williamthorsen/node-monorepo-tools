@@ -241,8 +241,8 @@ function findRoundTripDefects(
   taxonomy: Taxonomy,
 ): string[] {
   const named = new Set(flattened.filter((node) => node.kind === 'token').map((node) => node.name));
-  const carriesMarker = named.has('breaking') || named.has('type');
-  const markerStates = carriesMarker ? [false, true] : [false];
+  const doesRenderMarker = named.has('breaking') || named.has('type');
+  const markerStates = doesRenderMarker ? [false, true] : [false];
 
   const passes: Array<ReadonlySet<TokenName>> = [named];
   for (const vanishing of mapDroppableTokens(nodes).values()) {

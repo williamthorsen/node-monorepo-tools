@@ -22,30 +22,30 @@ export function render(nodes: readonly TemplateNode[], record: ChangeRecord): st
 // region | Helpers
 
 /** Reports whether a token directly inside `nodes`, `{breaking}` excepted, resolves empty. */
-function hasEmptyDirectToken(nodes: readonly TemplateNode[], record: ChangeRecord, marksBreaking: boolean): boolean {
+function hasEmptyDirectToken(nodes: readonly TemplateNode[], record: ChangeRecord, doesNameBreaking: boolean): boolean {
   return nodes.some(
     (node) =>
-      node.kind === 'token' && node.name !== 'breaking' && resolveToken(record, node.name, marksBreaking) === '',
+      node.kind === 'token' && node.name !== 'breaking' && resolveToken(record, node.name, doesNameBreaking) === '',
   );
 }
 
 /** Walks one run of nodes, dropping each group that has an empty direct token other than `{breaking}`. */
-function renderNodes(nodes: readonly TemplateNode[], record: ChangeRecord, marksBreaking: boolean): string {
+function renderNodes(nodes: readonly TemplateNode[], record: ChangeRecord, doesNameBreaking: boolean): string {
   let rendered = '';
   for (const node of nodes) {
     if (node.kind === 'literal') {
       rendered += node.text;
     } else if (node.kind === 'token') {
-      rendered += resolveToken(record, node.name, marksBreaking);
-    } else if (!hasEmptyDirectToken(node.children, record, marksBreaking)) {
-      rendered += renderNodes(node.children, record, marksBreaking);
+      rendered += resolveToken(record, node.name, doesNameBreaking);
+    } else if (!hasEmptyDirectToken(node.children, record, doesNameBreaking)) {
+      rendered += renderNodes(node.children, record, doesNameBreaking);
     }
   }
   return rendered;
 }
 
 /** Resolves one token against the record, empty when the record omits the field that it names. */
-function resolveToken(record: ChangeRecord, name: TokenName, marksBreaking: boolean): string {
+function resolveToken(record: ChangeRecord, name: TokenName, doesNameBreaking: boolean): string {
   switch (name) {
     case 'breaking':
       return record.breaking === true ? BREAKING_MARKER : '';
@@ -58,16 +58,16 @@ function resolveToken(record: ChangeRecord, name: TokenName, marksBreaking: bool
     case 'title':
       return record.title ?? '';
     case 'type':
-      return resolveTypeToken(record, marksBreaking);
+      return resolveTypeToken(record, doesNameBreaking);
   }
 }
 
 /** Resolves `{type}`, appending the marker when the template does not name `{breaking}` to render it. */
-function resolveTypeToken(record: ChangeRecord, marksBreaking: boolean): string {
+function resolveTypeToken(record: ChangeRecord, doesNameBreaking: boolean): string {
   if (record.type === undefined) {
     return '';
   }
-  return !marksBreaking && record.breaking === true ? `${record.type}${BREAKING_MARKER}` : record.type;
+  return !doesNameBreaking && record.breaking === true ? `${record.type}${BREAKING_MARKER}` : record.type;
 }
 
 // endregion | Helpers
