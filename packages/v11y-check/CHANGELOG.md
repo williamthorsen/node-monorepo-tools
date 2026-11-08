@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.21.0 — 2026-11-08
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Makes every usage error of `v11y` exit with code 2 instead of 1 and print an `Error` line followed by a `Try` line, including an unknown command or option, `--dev` combined with `--prod`, and an invalid `V11Y_CHECK_OUTPUT_STYLE`. (#1185)
+- Adds a help page for each `v11y` command, including `check` and `run-audit-ci`, generated from the command's option definitions. (#1185)
+- Adds `-c` as the short form of the `--config` option of `v11y`. (#1185)
+- 🚨 **Breaking:** Route release-kit commands through toolbelt.cli (#1186)
+
+  Routes `release-kit`'s commands through the shared `toolbelt.cli` command parser, which renders each command's help from its option definitions and reports a usage error with a `Try '... --help'` line and exit code 2 instead of exit code 1. Also makes a bare `release-kit`, `release-kit overrides`, or `release-kit sync-labels` report "A command is required." and exit 2 instead of printing help and exiting 0.
+
+- Prefixes each handled error line written by `nmr` and its other bins, `release-kit`, and `v11y-check` with the name of the program that wrote it, as `<bin>: <message>` in place of `Error: <message>`, for usage errors such as an unknown command or option as well, and names `v11y` for both of the bins in `v11y-check`. (#1190)
+- Extends the `v11y sync` text report to list each added advisory with the dependency chains through which it currently arrives, and each removed advisory by ID, and adds those chains as `paths` on each added entry in `--json` output. (#1191)
+
+### 🪦 Removed
+
+- 🚨 **Breaking:** Replaces the `--raw` flag of `v11y` with the `run-audit-ci` subcommand, which runs audit-ci against the generated config and prints audit-ci's own report. (#1185)
+- 🚨 **Breaking:** Removes the `--verbose` option of `v11y sync`, which the command accepted and ignored. (#1185)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that the `path` stored in a `v11y-check` allowlist entry kept naming the dependency chain from the audit that added the entry after the dependency tree changed: `v11y sync` no longer writes `path` and drops it from existing entries, the config loader ignores it, and the JSON Schema marks it deprecated. (#1191)
+- Fixes the issue that `v11y check` could show a different dependency chain for an advisory between runs on the same dependency tree, by sorting each advisory's chains. (#1191)
+- Fixes the issue that the `v11y-check` npm package didn't include `schemas/config.json`, because the package's `files` list omitted the `schemas` directory. (#1206)
+- Fixes the issue that `v11y-check`'s config schema declared draft-07 but defined its subschemas under `$defs`, a keyword from draft 2019-09, by moving them to draft-07's `definitions`. (#1206)
+
+### 🧪 Tests
+
+- Adds a unit test that compares `v11y-check`'s config JSON Schema with `v11yCheckConfigSchema` and uses Ajv to check that the schema accepts the default config, the `init` template, and the repo's own config. (#1206)
+
+### 📚 Documentation
+
+- Documents for each shipped JSON Schema the `node_modules` path, such as `../node_modules/v11y-check/schemas/config.json`, that a project listing the package as a direct dependency can use as `$schema`, and states that the path does not resolve when the package is installed through another package or run through `pnpm dlx` or `npx`. (#1206)
+
 ## 0.20.1 — 2026-11-06
 
 ### 🐛 Bug fixes

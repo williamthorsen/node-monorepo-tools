@@ -1,5 +1,93 @@
 [
   {
+    "version": "0.16.0",
+    "date": "2026-11-08",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Prefix handled error lines with the program's bin (#1190)",
+            "body": "Changes the handled error lines that nmr, release-kit, and v11y-check write from `Error: <message>` to `<bin>: <message>`, so that a line in combined output names the program that wrote it. It covers usage errors as well, by upgrading `@williamthorsen/toolbelt.cli` to 0.8.0, whose router writes the same prefix.",
+            "hash": "b7634734032c508e45388b7752b7b6905071273e"
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Apply the git output limit to nmr's buffered git calls (#1188)",
+            "body": "Fixes the issue that several of nmr's git calls ran with Node's default 1 MiB output buffer instead of nmr-core's 64 MiB git output limit, which made them fail with `ENOBUFS` once a repository's file listing grew large enough. Applies the limit to every buffered git call that nmr makes outside test code, including the call made on the host during a delegated run.",
+            "hash": "ce72ce80b1af8e4dd30227a013a77fb680d8c006"
+          }
+        ]
+      },
+      {
+        "title": "🏗️ Internal features",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Adds the `@williamthorsen/nmr-core/cli` subpath, which re-exports the parser, help renderer, and router of `@williamthorsen/toolbelt.cli/candidate` 0.7.1 under toolbelt's own names, separate from the nmr-core root entry, whose own `parseArgs`, `ParseError`, and `FlagDefinition` use the same names. (#1184)",
+            "hash": "9ab86d20562bb131b185a5c1a7ac566734f88a1e",
+            "entry": 1
+          },
+          {
+            "description": "Removes `parseArgs`, `parseArgsOrExit`, `ParseError`, and their types from the root entry of `@williamthorsen/nmr-core`. (#1187)",
+            "migration": "Import `parseArgs` and `ParseError` from `@williamthorsen/nmr-core/cli` and replace `parseArgsOrExit` with that entry's `runCli` and `UsageError`, noting that its `parseArgs` takes the schema wrapped as `{ flags: schema }` and returns the remaining arguments as `rest` rather than `positionals`.",
+            "hash": "da4f5491167e75cf8da00495e60b41d74030b4b6",
+            "entry": 7
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Replaces nmr's `isObject`, release-kit's `isRecord`, and the private copies in nmr-core's `workspace.ts` and an nmr test with one `isRecord` guard exported from the root entry of `@williamthorsen/nmr-core`. (#1194)",
+            "hash": "6c66148170145ccf5628c95d27e7783ef26d97e9",
+            "entry": 1
+          },
+          {
+            "description": "Groups `nmr-core`'s modules into role directories and moves `reportWriteResult` and `reportTemplateUpdate` from `terminal.ts` into `files/report-write-outcomes.ts`, so that `terminal.ts` no longer imports the file-writing modules. (#1196)",
+            "hash": "bddeaf8cdad251c681808688be3d459c60fc2bdb",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Adds `collectChangedPaths.unit.test.ts`, which covers each record type that `collectChangedPaths` accepts, including paths that contain spaces and both paths of a rename, and each record that it refuses: a submodule record, an unrecognized record type, a truncated record, an empty path, and a rename without an original path. (#1189)",
+            "hash": "735c147c11f711ed5dbc62d7a2b340c524783cc5",
+            "entry": 1
+          },
+          {
+            "description": "Deletes the `hashWorkingTree` tests for a modified file, a staged change, an untracked file, a deleted file, a repointed symlink, a mode change, and a path containing spaces, each of which repeated a `REFERENCE_CASES` entry that compares the id with git's own tree id. (#1195)",
+            "hash": "a7e9d524fdfc97334e67759e565ca624567fd627",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "⚙️ Tooling",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Adds `\"prepublishOnly\": \"nmr build\"` to `@williamthorsen/nmr-core`, the one publishable package in this repo that the new check reported. (#1192)",
+            "hash": "26b1795ea3f0fa43ca5e3d6e294acfa72f4bb68d",
+            "entry": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.15.1",
     "date": "2026-11-06",
     "sections": [

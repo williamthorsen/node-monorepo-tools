@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.3.1",
+    "date": "2026-11-08",
+    "sections": [
+      {
+        "title": "📚 Documentation",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Documents for each shipped JSON Schema the `node_modules` path, such as `../node_modules/v11y-check/schemas/config.json`, that a project listing the package as a direct dependency can use as `$schema`, and states that the path does not resolve when the package is installed through another package or run through `pnpm dlx` or `npx`. (#1206)",
+            "hash": "cf19a9037ab15a24548ecc9cebe27c06f262ad6a",
+            "entry": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.3.0",
     "date": "2026-10-23",
     "sections": [

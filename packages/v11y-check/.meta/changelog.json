@@ -1,5 +1,118 @@
 [
   {
+    "version": "0.21.0",
+    "date": "2026-11-08",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Makes every usage error of `v11y` exit with code 2 instead of 1 and print an `Error` line followed by a `Try` line, including an unknown command or option, `--dev` combined with `--prod`, and an invalid `V11Y_CHECK_OUTPUT_STYLE`. (#1185)",
+            "breaking": true,
+            "migration": "Update any script that reads exit code 1 from `v11y` as a usage error to read code 2 instead, and keep its handling of code 1, which a command that fails while it runs still returns.",
+            "hash": "92c1a5ba3da09f7902fc68ff176296183cded2b6",
+            "entry": 3
+          },
+          {
+            "description": "Adds a help page for each `v11y` command, including `check` and `run-audit-ci`, generated from the command's option definitions. (#1185)",
+            "hash": "92c1a5ba3da09f7902fc68ff176296183cded2b6",
+            "entry": 4
+          },
+          {
+            "description": "Adds `-c` as the short form of the `--config` option of `v11y`. (#1185)",
+            "hash": "92c1a5ba3da09f7902fc68ff176296183cded2b6",
+            "entry": 5
+          },
+          {
+            "description": "Route release-kit commands through toolbelt.cli (#1186)",
+            "body": "Routes `release-kit`'s commands through the shared `toolbelt.cli` command parser, which renders each command's help from its option definitions and reports a usage error with a `Try '... --help'` line and exit code 2 instead of exit code 1. Also makes a bare `release-kit`, `release-kit overrides`, or `release-kit sync-labels` report \"A command is required.\" and exit 2 instead of printing help and exiting 0.",
+            "breaking": true,
+            "hash": "343c0f97b212aa710c49baf61fce118256da6db7"
+          },
+          {
+            "description": "Prefixes each handled error line written by `nmr` and its other bins, `release-kit`, and `v11y-check` with the name of the program that wrote it, as `<bin>: <message>` in place of `Error: <message>`, for usage errors such as an unknown command or option as well, and names `v11y` for both of the bins in `v11y-check`. (#1190)",
+            "hash": "b7634734032c508e45388b7752b7b6905071273e",
+            "entry": 1
+          },
+          {
+            "description": "Extends the `v11y sync` text report to list each added advisory with the dependency chains through which it currently arrives, and each removed advisory by ID, and adds those chains as `paths` on each added entry in `--json` output. (#1191)",
+            "hash": "e4682d49e3a9e36f232b342e6c51929c8c19b719",
+            "entry": 3
+          }
+        ]
+      },
+      {
+        "title": "🪦 Removed",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Replaces the `--raw` flag of `v11y` with the `run-audit-ci` subcommand, which runs audit-ci against the generated config and prints audit-ci's own report. (#1185)",
+            "breaking": true,
+            "migration": "Replace `v11y --raw` with `v11y run-audit-ci`, keeping any `--config`, `--dev`, `--prod`, or `--json` flags; `--raw` is now an unknown option and exits with code 2.",
+            "hash": "92c1a5ba3da09f7902fc68ff176296183cded2b6",
+            "entry": 1
+          },
+          {
+            "description": "Removes the `--verbose` option of `v11y sync`, which the command accepted and ignored. (#1185)",
+            "breaking": true,
+            "migration": "Remove `--verbose` from every `v11y sync` call, because the option is now a usage error.",
+            "hash": "92c1a5ba3da09f7902fc68ff176296183cded2b6",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that the `path` stored in a `v11y-check` allowlist entry kept naming the dependency chain from the audit that added the entry after the dependency tree changed: `v11y sync` no longer writes `path` and drops it from existing entries, the config loader ignores it, and the JSON Schema marks it deprecated. (#1191)",
+            "hash": "e4682d49e3a9e36f232b342e6c51929c8c19b719",
+            "entry": 1
+          },
+          {
+            "description": "Fixes the issue that `v11y check` could show a different dependency chain for an advisory between runs on the same dependency tree, by sorting each advisory's chains. (#1191)",
+            "hash": "e4682d49e3a9e36f232b342e6c51929c8c19b719",
+            "entry": 2
+          },
+          {
+            "description": "Fixes the issue that the `v11y-check` npm package didn't include `schemas/config.json`, because the package's `files` list omitted the `schemas` directory. (#1206)",
+            "hash": "cf19a9037ab15a24548ecc9cebe27c06f262ad6a",
+            "entry": 1
+          },
+          {
+            "description": "Fixes the issue that `v11y-check`'s config schema declared draft-07 but defined its subschemas under `$defs`, a keyword from draft 2019-09, by moving them to draft-07's `definitions`. (#1206)",
+            "hash": "cf19a9037ab15a24548ecc9cebe27c06f262ad6a",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Adds a unit test that compares `v11y-check`'s config JSON Schema with `v11yCheckConfigSchema` and uses Ajv to check that the schema accepts the default config, the `init` template, and the repo's own config. (#1206)",
+            "hash": "cf19a9037ab15a24548ecc9cebe27c06f262ad6a",
+            "entry": 4
+          }
+        ]
+      },
+      {
+        "title": "📚 Documentation",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Documents for each shipped JSON Schema the `node_modules` path, such as `../node_modules/v11y-check/schemas/config.json`, that a project listing the package as a direct dependency can use as `$schema`, and states that the path does not resolve when the package is installed through another package or run through `pnpm dlx` or `npx`. (#1206)",
+            "hash": "cf19a9037ab15a24548ecc9cebe27c06f262ad6a",
+            "entry": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.20.1",
     "date": "2026-11-06",
     "sections": [

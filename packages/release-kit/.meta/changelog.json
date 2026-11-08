@@ -1,5 +1,67 @@
 [
   {
+    "version": "17.0.0",
+    "date": "2026-11-08",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Routes `release-kit` commands through the `toolbelt.cli` command parser, which renders help from each command's options and makes a usage error, such as an invalid `RELEASE_KIT_OUTPUT_STYLE` or a stray argument to `sync-labels sync`, exit 2 with a `Try` line instead of exit 1, and makes a bare `release-kit`, `release-kit overrides`, or `release-kit sync-labels` exit 2 instead of printing help and exiting 0. (#1186)",
+            "breaking": true,
+            "migration": "Update any script that checks for exit code 1 from a `release-kit` usage error to check for 2, and replace a bare `release-kit`, `release-kit overrides`, or `release-kit sync-labels` with the same command followed by `--help`; note that `release-kit overrides validate` already exits 2 for a schema or parse error, so a script cannot tell that error from a usage error by its exit code alone.",
+            "hash": "343c0f97b212aa710c49baf61fce118256da6db7",
+            "entry": 1
+          },
+          {
+            "description": "Prefixes each handled error line written by `nmr` and its other bins, `release-kit`, and `v11y-check` with the name of the program that wrote it, as `<bin>: <message>` in place of `Error: <message>`, for usage errors such as an unknown command or option as well, and names `v11y` for both of the bins in `v11y-check`. (#1190)",
+            "hash": "b7634734032c508e45388b7752b7b6905071273e",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that the tarball refusal from `release-kit prepare` and `release-kit publish` pointed to a `prepack` script, even though the check builds the package through its `prepublishOnly` script, and makes the refusal and `docs/releasing.md` name `\"prepublishOnly\": \"nmr build\"` instead. (#1193)",
+            "hash": "916c4dcf90766d43721feaad4d6d443f89533902",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Replaces nmr's `isObject`, release-kit's `isRecord`, and the private copies in nmr-core's `workspace.ts` and an nmr test with one `isRecord` guard exported from the root entry of `@williamthorsen/nmr-core`. (#1194)",
+            "hash": "6c66148170145ccf5628c95d27e7783ef26d97e9",
+            "entry": 1
+          },
+          {
+            "description": "Group nmr-core's source by role (#1196)",
+            "body": "Groups `nmr-core`'s source modules into `cache`, `errors`, `files`, `git`, `portable`, and `workspace` directories by role, retiring `helpers/`, and moves the write-outcome reporters out of `terminal.ts` into `files/report-write-outcomes.ts`. The package's exports, including the `./workspace` subpath, resolve to the same modules at their new paths.",
+            "hash": "bddeaf8cdad251c681808688be3d459c60fc2bdb"
+          }
+        ]
+      },
+      {
+        "title": "📚 Documentation",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Documents for each shipped JSON Schema the `node_modules` path, such as `../node_modules/v11y-check/schemas/config.json`, that a project listing the package as a direct dependency can use as `$schema`, and states that the path does not resolve when the package is installed through another package or run through `pnpm dlx` or `npx`. (#1206)",
+            "hash": "cf19a9037ab15a24548ecc9cebe27c06f262ad6a",
+            "entry": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "16.1.2",
     "date": "2026-11-06",
     "sections": [

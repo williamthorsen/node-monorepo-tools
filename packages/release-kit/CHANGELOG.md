@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## 17.0.0 — 2026-11-08
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Routes `release-kit` commands through the `toolbelt.cli` command parser, which renders help from each command's options and makes a usage error, such as an invalid `RELEASE_KIT_OUTPUT_STYLE` or a stray argument to `sync-labels sync`, exit 2 with a `Try` line instead of exit 1, and makes a bare `release-kit`, `release-kit overrides`, or `release-kit sync-labels` exit 2 instead of printing help and exiting 0. (#1186)
+- Prefixes each handled error line written by `nmr` and its other bins, `release-kit`, and `v11y-check` with the name of the program that wrote it, as `<bin>: <message>` in place of `Error: <message>`, for usage errors such as an unknown command or option as well, and names `v11y` for both of the bins in `v11y-check`. (#1190)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that the tarball refusal from `release-kit prepare` and `release-kit publish` pointed to a `prepack` script, even though the check builds the package through its `prepublishOnly` script, and makes the refusal and `docs/releasing.md` name `"prepublishOnly": "nmr build"` instead. (#1193)
+
+### ♻️ Refactoring
+
+- Replaces nmr's `isObject`, release-kit's `isRecord`, and the private copies in nmr-core's `workspace.ts` and an nmr test with one `isRecord` guard exported from the root entry of `@williamthorsen/nmr-core`. (#1194)
+- Group nmr-core's source by role (#1196)
+
+  Groups `nmr-core`'s source modules into `cache`, `errors`, `files`, `git`, `portable`, and `workspace` directories by role, retiring `helpers/`, and moves the write-outcome reporters out of `terminal.ts` into `files/report-write-outcomes.ts`. The package's exports, including the `./workspace` subpath, resolve to the same modules at their new paths.
+
+### 📚 Documentation
+
+- Documents for each shipped JSON Schema the `node_modules` path, such as `../node_modules/v11y-check/schemas/config.json`, that a project listing the package as a direct dependency can use as `$schema`, and states that the path does not resolve when the package is installed through another package or run through `pnpm dlx` or `npx`. (#1206)
+
 ## 16.1.2 — 2026-11-06
 
 ### 🐛 Bug fixes

@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.56.0 — 2026-11-08
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Route release-kit commands through toolbelt.cli (#1186)
+
+  Routes `release-kit`'s commands through the shared `toolbelt.cli` command parser, which renders each command's help from its option definitions and reports a usage error with a `Try '... --help'` line and exit code 2 instead of exit code 1. Also makes a bare `release-kit`, `release-kit overrides`, or `release-kit sync-labels` report "A command is required." and exit 2 instead of printing help and exiting 0.
+
+- Changes the exit code of a usage error in `nmr`, `nmr-fmt`, and `ensure-prepublish-hooks` from 1 to 2, which covers an unknown flag in each, and in `nmr` an invalid `--output-style`, `NMR_COMMAND_VERBOSITY`, `NMR_REPORT_FORMAT`, or `NMR_OUTPUT_STYLE` value and `nmr --log` given without a command. (#1187)
+- Adds a `Did you mean` line to the `Unknown command` error of `nmr` when a defined command is close to the name typed, followed by `Try 'nmr --help'.` (#1187)
+- Generates `nmr --help` from nmr's flag definitions, listing the commands of the current scope under `Commands:` and those of the other scope after the environment variables and files, and adds `-h` as a short help flag. (#1187)
+- Adds `--help` to `nmr-fmt` and `ensure-prepublish-hooks`, each generated from the command's flag definitions. (#1187)
+- Prefixes each handled error line written by `nmr` and its other bins, `release-kit`, and `v11y-check` with the name of the program that wrote it, as `<bin>: <message>` in place of `Error: <message>`, for usage errors such as an unknown command or option as well, and names `v11y` for both of the bins in `v11y-check`. (#1190)
+- Adds the warn-level check `every publishable package declares prepublishOnly` to nmr's ReadyUp kit, which lists each non-private workspace package that does not declare a `prepublishOnly` script, since a package without one publishes without its build output. (#1192)
+- Adds the `shouldIsolateTempDir` option to `defineVitestConfig` and `defineRootVitestConfig`, on by default, which loads a global setup that points `TMPDIR` at a directory of the run's own, removes it when the run ends, and first removes any such directory left by a run that a signal stopped. (#1208)
+- Makes `nmr-actionlint` and `nmr-shellcheck` cache the pinned actionlint and shellcheck once per machine under `$XDG_CACHE_HOME/nmr/tools/` (default `~/.cache/nmr/tools/`), so that `lint:workflows` and `lint:shell` in a new worktree reuse the copy that another worktree downloaded and fall back to the monorepo-root `node_modules/.cache/nmr-tools/` when the machine cache cannot be written. (#1210)
+
+### 🪦 Removed
+
+- Removes `-?` as a help flag of `nmr`, which now rejects it as an unknown flag. (#1187)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that nmr read the value of a value-taking flag in an `nmr` step of a script, such as `--output-style plain` or `--delegate-to box`, as the step's command. (#1187)
+- Fixes the issue that `nmr fmt`, `nmr lint:shell`, and a delegated run failed with `ENOBUFS` once git's file listing exceeded Node's 1 MiB default output buffer, and that nmr's Vitest config and test-tier check then dropped the list of git-ignored paths without reporting an error. (#1188)
+- Fixes the issue that `ensure-prepublish-hooks --fix` wrote `npm run build` as the default `prepublishOnly` hook, which fails at publish time in an nmr repo because its packages do not declare a `build` script, and makes `nmr build` the default. (#1192)
+
+### ♻️ Refactoring
+
+- Replaces nmr's `isObject`, release-kit's `isRecord`, and the private copies in nmr-core's `workspace.ts` and an nmr test with one `isRecord` guard exported from the root entry of `@williamthorsen/nmr-core`. (#1194)
+- Group nmr-core's source by role (#1196)
+
+  Groups `nmr-core`'s source modules into `cache`, `errors`, `files`, `git`, `portable`, and `workspace` directories by role, retiring `helpers/`, and moves the write-outcome reporters out of `terminal.ts` into `files/report-write-outcomes.ts`. The package's exports, including the `./workspace` subpath, resolve to the same modules at their new paths.
+
 ## 0.55.0 — 2026-11-06
 
 ### 🎉 Features

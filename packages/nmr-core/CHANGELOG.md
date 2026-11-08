@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.16.0 — 2026-11-08
+
+### 🎉 Features
+
+- Prefix handled error lines with the program's bin (#1190)
+
+  Changes the handled error lines that nmr, release-kit, and v11y-check write from `Error: <message>` to `<bin>: <message>`, so that a line in combined output names the program that wrote it. It covers usage errors as well, by upgrading `@williamthorsen/toolbelt.cli` to 0.8.0, whose router writes the same prefix.
+
+### 🐛 Bug fixes
+
+- Apply the git output limit to nmr's buffered git calls (#1188)
+
+  Fixes the issue that several of nmr's git calls ran with Node's default 1 MiB output buffer instead of nmr-core's 64 MiB git output limit, which made them fail with `ENOBUFS` once a repository's file listing grew large enough. Applies the limit to every buffered git call that nmr makes outside test code, including the call made on the host during a delegated run.
+
+### 🏗️ Internal features
+
+- Adds the `@williamthorsen/nmr-core/cli` subpath, which re-exports the parser, help renderer, and router of `@williamthorsen/toolbelt.cli/candidate` 0.7.1 under toolbelt's own names, separate from the nmr-core root entry, whose own `parseArgs`, `ParseError`, and `FlagDefinition` use the same names. (#1184)
+- Removes `parseArgs`, `parseArgsOrExit`, `ParseError`, and their types from the root entry of `@williamthorsen/nmr-core`. (#1187)
+
+### ♻️ Refactoring
+
+- Replaces nmr's `isObject`, release-kit's `isRecord`, and the private copies in nmr-core's `workspace.ts` and an nmr test with one `isRecord` guard exported from the root entry of `@williamthorsen/nmr-core`. (#1194)
+- Groups `nmr-core`'s modules into role directories and moves `reportWriteResult` and `reportTemplateUpdate` from `terminal.ts` into `files/report-write-outcomes.ts`, so that `terminal.ts` no longer imports the file-writing modules. (#1196)
+
+### 🧪 Tests
+
+- Adds `collectChangedPaths.unit.test.ts`, which covers each record type that `collectChangedPaths` accepts, including paths that contain spaces and both paths of a rename, and each record that it refuses: a submodule record, an unrecognized record type, a truncated record, an empty path, and a rename without an original path. (#1189)
+- Deletes the `hashWorkingTree` tests for a modified file, a staged change, an untracked file, a deleted file, a repointed symlink, a mode change, and a path containing spaces, each of which repeated a `REFERENCE_CASES` entry that compares the id with git's own tree id. (#1195)
+
+### ⚙️ Tooling
+
+- Adds `"prepublishOnly": "nmr build"` to `@williamthorsen/nmr-core`, the one publishable package in this repo that the new check reported. (#1192)
+
 ## 0.15.1 — 2026-11-06
 
 ### 🐛 Bug fixes

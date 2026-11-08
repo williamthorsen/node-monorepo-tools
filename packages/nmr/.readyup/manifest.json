@@ -32,7 +32,7 @@
           "checklist": "nmr",
           "checks": [
             "@williamthorsen/nmr in devDependencies",
-            "@williamthorsen/nmr >= 0.55.0",
+            "@williamthorsen/nmr >= 0.56.0",
             "pnpm-workspace.yaml exists",
             "catalogued dependencies use catalog:",
             "package.json has packageManager field",
@@ -236,7 +236,7 @@
           "path": "lib/workspace-build.ts"
         },
         {
-          "hash": "f22b8da5",
+          "hash": "4a3da7d3",
           "kind": "inline",
           "path": "../package.json",
           "paths": [
@@ -364,7 +364,7 @@
       "readyupVersion": "0.45.0",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "54a15dfa"
+      "targetHash": "10c013df"
     }
   ]
 }
