@@ -51,12 +51,13 @@ function readEventPayload(eventPath: string | undefined): Record<string, unknown
   if (eventPath === undefined) {
     return undefined;
   }
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(readFileSync(eventPath, 'utf8'));
-    return isRecord(parsed) ? parsed : undefined;
+    parsed = JSON.parse(readFileSync(eventPath, 'utf8'));
   } catch {
     return undefined;
   }
+  return isRecord(parsed) ? parsed : undefined;
 }
 
 /**

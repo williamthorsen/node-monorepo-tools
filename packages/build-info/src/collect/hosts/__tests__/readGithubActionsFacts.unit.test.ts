@@ -86,6 +86,14 @@ describe(readGithubActionsFacts, () => {
     expect(facts?.commit).toStrictEqual({ sha: PUSH_SHA, ref: 'main' });
   });
 
+  it('reports preview when the event payload is not an object', () => {
+    using tree = createTempTree({ 'event.json': '42' }, { prefix: 'build-info-github-event-' });
+    const facts = readGithubActionsFacts({ ...GITHUB_ENV, GITHUB_EVENT_PATH: path.join(tree.dir, 'event.json') });
+
+    expect(facts?.environment).toBe('preview');
+    expect(facts?.commit).toStrictEqual({ sha: PUSH_SHA, ref: 'main' });
+  });
+
   it('omits the merge commit on a pull request whose payload is unreadable', () => {
     const facts = readGithubActionsFacts({ ...PULL_REQUEST_ENV, GITHUB_EVENT_PATH: '' });
 
