@@ -6,12 +6,11 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { reportError } from '@williamthorsen/nmr-core';
+import { isRecord, reportError } from '@williamthorsen/nmr-core';
 import { defineCommand, runCli, UsageError } from '@williamthorsen/nmr-core/cli';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { NMR_FMT_BIN } from '../bins.ts';
-import { isObject } from '../helpers/type-guards.ts';
 import { prepareFmtCache } from './fmt-cache.ts';
 import { resolveFormatTargets } from './format-targets.ts';
 
@@ -170,10 +169,10 @@ function resolvePrettierCli(
   if (manifestPath === undefined) return missingResult;
 
   const manifest: unknown = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  if (!isObject(manifest)) return missingResult;
+  if (!isRecord(manifest)) return missingResult;
 
   // Prettier declares a lone CLI, as a bare path in 3.x and as a named map in some releases.
-  const bin = isObject(manifest['bin']) ? manifest['bin'][PRETTIER_PACKAGE] : manifest['bin'];
+  const bin = isRecord(manifest['bin']) ? manifest['bin'][PRETTIER_PACKAGE] : manifest['bin'];
   if (typeof bin !== 'string') return missingResult;
 
   return { ok: true, cliPath: path.resolve(path.dirname(manifestPath), bin), manifestPath };
@@ -189,7 +188,7 @@ async function findRepositoryConfig(
 ): Promise<{ ok: true; found: boolean } | { ok: false; error: string }> {
   try {
     const prettier: unknown = createRequire(manifestPath)(PRETTIER_PACKAGE);
-    const resolveConfigFile = isObject(prettier) ? prettier['resolveConfigFile'] : undefined;
+    const resolveConfigFile = isRecord(prettier) ? prettier['resolveConfigFile'] : undefined;
     if (typeof resolveConfigFile !== 'function') {
       return {
         ok: false,

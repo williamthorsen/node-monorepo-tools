@@ -2,13 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
+import { isRecord } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { NO_CACHE_ENV_VAR, PASS_MANIFEST_DIR_ENV_VAR } from '../check-cache.ts';
 import { readCheckCacheEntry, removeCheckCache } from '../check-cache-entries.ts';
-import { isObject } from '../helpers/type-guards.ts';
 import { OUTPUT_STYLE_ENV_VAR } from '../output-style.ts';
 import { runCli } from '../runCli.ts';
 import { writeBuildDigest } from '../test-utils/check-cache-gate-fixtures.ts';
@@ -256,7 +256,7 @@ describe('a delegation behind the check-result cache', () => {
       return fs
         .readdirSync(manifestDir)
         .map((name): unknown => JSON.parse(fs.readFileSync(path.join(manifestDir, name), 'utf8')))
-        .filter((entry) => isObject(entry));
+        .filter((entry) => isRecord(entry));
     }
   });
 

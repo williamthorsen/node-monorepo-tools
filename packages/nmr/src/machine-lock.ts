@@ -6,9 +6,7 @@ import process from 'node:process';
 import type { Writable } from 'node:stream';
 import { setTimeout as delay } from 'node:timers/promises';
 
-import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
-
-import { isObject } from './helpers/type-guards.ts';
+import { isRecord, type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
 /** Serializes reclaims of a stale lock, so that one waiter's reclaim cannot remove the lock that another just took. */
 const RECLAIM_GUARD = 'heavy.lock.reclaim';
@@ -249,7 +247,7 @@ function formatWaitingLine(holder: HolderRecord | undefined, lockPath: string): 
 /** Narrows the parsed lock file to a holder record. */
 function isHolderRecord(value: unknown): value is HolderRecord {
   return (
-    isObject(value) &&
+    isRecord(value) &&
     typeof value['command'] === 'string' &&
     typeof value['dir'] === 'string' &&
     typeof value['pid'] === 'number' &&
@@ -306,7 +304,7 @@ function parseHolder(content: string): HolderRecord | undefined {
 
 /** Returns the `code` of a Node system error, or `undefined` for anything else. */
 function readErrorCode(error: unknown): string | undefined {
-  return isObject(error) && typeof error['code'] === 'string' ? error['code'] : undefined;
+  return isRecord(error) && typeof error['code'] === 'string' ? error['code'] : undefined;
 }
 
 /** Reads the lock file, or returns `undefined` when it does not exist. */

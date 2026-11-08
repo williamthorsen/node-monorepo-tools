@@ -2,11 +2,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { isRecord } from '@williamthorsen/nmr-core';
 import { defaultExclude, mergeConfig, type TestProjectInlineConfiguration, type ViteUserConfig } from 'vitest/config';
 import type { InlineConfig, ProjectConfig } from 'vitest/node';
 
 import { listGitIgnoredPaths } from './git-ignored-paths.ts';
-import { isObject } from './helpers/type-guards.ts';
 import { ALL_TEST_PATTERNS, buildTierPatterns, TEST_COLLECTION_EXCLUDE, TIER_NAMES, type TierName } from './tiers.ts';
 import { deriveDefaultMaxWorkers, readMaxWorkersFlag } from './vitest-max-workers.ts';
 import { createSourceResolutionPlugin } from './vitest-source-resolution.ts';
@@ -206,7 +206,7 @@ export function defineRootVitestConfig(...layers: RootConfigLayers): ViteUserCon
   // Reading through `unknown` keeps the check live: The declared type alone would make it statically dead. A relative
   // path would resolve against the working directory, which this option exists to avoid.
   const lastLayer: unknown = layers.at(-1);
-  const monorepoRoot: unknown = isObject(lastLayer) ? lastLayer['monorepoRoot'] : undefined;
+  const monorepoRoot: unknown = isRecord(lastLayer) ? lastLayer['monorepoRoot'] : undefined;
 
   if (typeof monorepoRoot !== 'string' || !path.isAbsolute(monorepoRoot)) {
     throw new TypeError(MISSING_MONOREPO_ROOT);

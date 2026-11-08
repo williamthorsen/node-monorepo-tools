@@ -3,6 +3,7 @@ import type { Writable } from 'node:stream';
 
 import {
   type CacheEntryRef,
+  isRecord,
   readCacheEntry,
   readJsonCacheEntry,
   removeCacheDir,
@@ -13,7 +14,7 @@ import {
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { writeDebugNote } from './check-cache.ts';
-import { isObject, isStringRecord } from './helpers/type-guards.ts';
+import { isStringRecord } from './helpers/type-guards.ts';
 
 /** A recorded pass: what ran, on which tree, and how long it took. */
 export interface CheckCacheEntry {
@@ -170,7 +171,7 @@ export async function removeCheckCache(scopeDir: string): Promise<void> {
 /** Narrows a recorded replay line, whose three fields a rendered line uses in full. */
 export function isReplayLine(value: unknown): value is ReplayLine {
   return (
-    isObject(value) &&
+    isRecord(value) &&
     typeof value['command'] === 'string' &&
     typeof value['excerpt'] === 'string' &&
     typeof value['scope'] === 'string'
@@ -201,7 +202,7 @@ type ParsedCheckCacheEntry = Omit<CheckCacheEntry, 'retention'> & { retention?: 
  * pass beneath it stands.
  */
 function isParsedCheckCacheEntry(value: unknown): value is ParsedCheckCacheEntry {
-  if (!isObject(value)) {
+  if (!isRecord(value)) {
     return false;
   }
 
@@ -222,7 +223,7 @@ function isParsedCheckCacheEntry(value: unknown): value is ParsedCheckCacheEntry
 /** Narrows recorded retention, so that an entry claiming an excerpt that it cannot produce reads as a miss. */
 function isRetention(value: unknown): value is Retention {
   return (
-    isObject(value) &&
+    isRecord(value) &&
     typeof value['key'] === 'string' &&
     typeof value['runId'] === 'string' &&
     Array.isArray(value['replay']) &&

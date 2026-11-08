@@ -1,12 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { type OutputStyle, STATUS_GLYPHS, UserError } from '@williamthorsen/nmr-core';
+import { isRecord, type OutputStyle, STATUS_GLYPHS, UserError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { readPackageJson } from '../helpers/package-json.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
-import { isObject } from '../helpers/type-guards.ts';
 import { getWorkspacePackageDirs } from '../workspace.ts';
 
 export interface PackageHookStatus {
@@ -134,11 +133,11 @@ function addPrepublishOnly(packageDir: string, command: string): void {
     throw new UserError(`Invalid package.json in ${packageDir}: ${describeError(error)}`, { cause: error });
   }
 
-  if (!isObject(parsedManifest)) {
+  if (!isRecord(parsedManifest)) {
     throw new UserError(`Invalid package.json in ${packageDir}: expected an object`);
   }
 
-  const scripts = isObject(parsedManifest['scripts']) ? parsedManifest['scripts'] : {};
+  const scripts = isRecord(parsedManifest['scripts']) ? parsedManifest['scripts'] : {};
   scripts['prepublishOnly'] = command;
   parsedManifest['scripts'] = scripts;
 

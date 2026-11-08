@@ -1,8 +1,8 @@
+import { isRecord } from '@williamthorsen/nmr-core';
 import { describe, expect, it, vi } from 'vitest';
 import type { ViteUserConfig } from 'vitest/config';
 
 import { listGitIgnoredPaths } from '../git-ignored-paths.ts';
-import { isObject } from '../helpers/type-guards.ts';
 import {
   CLIENT_CONDITIONS,
   getProjects,
@@ -267,7 +267,7 @@ describe(defineVitestConfig, () => {
 /** Names every plugin declared by a config, so that an assertion can check one without running Vite. */
 function getPluginNames(config: ViteUserConfig): string[] {
   return (config.plugins ?? []).flatMap((plugin) =>
-    isObject(plugin) && typeof plugin.name === 'string' ? plugin.name : [],
+    isRecord(plugin) && typeof plugin.name === 'string' ? plugin.name : [],
   );
 }
 

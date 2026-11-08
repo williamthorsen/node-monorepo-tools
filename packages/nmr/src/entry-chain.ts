@@ -1,9 +1,7 @@
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
 
-import { UserError } from '@williamthorsen/nmr-core';
-
-import { isObject } from './helpers/type-guards.ts';
+import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
 /**
  * Carries the entries that a run is inside, from the outermost inward, down to every process that it spawns. An
@@ -84,7 +82,7 @@ function formatReentryError(chain: readonly ChainEntry[], monorepoRoot: string):
 
 /** Reports whether a value is a chain entry. */
 function isChainEntry(value: unknown): value is ChainEntry {
-  return isObject(value) && typeof value['command'] === 'string' && typeof value['dir'] === 'string';
+  return isRecord(value) && typeof value['command'] === 'string' && typeof value['dir'] === 'string';
 }
 
 /** Reads an inherited chain, an unset or empty value as an empty one, or returns `undefined` for a malformed one. */

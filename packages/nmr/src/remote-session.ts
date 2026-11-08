@@ -1,7 +1,8 @@
 import { Writable } from 'node:stream';
 
+import { isRecord } from '@williamthorsen/nmr-core';
+
 import { quoteForShell } from './helpers/quoteForShell.ts';
-import { isObject } from './helpers/type-guards.ts';
 import {
   type DelegationHolder,
   type HostSessionParams,
@@ -147,7 +148,7 @@ export function createSessionDemultiplexer(options: {
     } catch {
       return 'other';
     }
-    if (!isObject(value) || value['kind'] !== 'passes') {
+    if (!isRecord(value) || value['kind'] !== 'passes') {
       return 'other';
     }
     const entries = value['entries'];
@@ -184,7 +185,7 @@ const NEWLINE = 0x0a;
 /** Narrows a record's holder. */
 function isDelegationHolder(value: unknown): value is DelegationHolder {
   return (
-    isObject(value) &&
+    isRecord(value) &&
     typeof value['command'] === 'string' &&
     typeof value['dir'] === 'string' &&
     typeof value['pid'] === 'number'
@@ -193,7 +194,7 @@ function isDelegationHolder(value: unknown): value is DelegationHolder {
 
 /** Narrows a parsed line to a session record. */
 function isSessionRecord(value: unknown): value is SessionRecord {
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   switch (value['kind']) {
     case 'failed':
       return (

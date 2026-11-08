@@ -4,12 +4,11 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
 
-import { reportError } from '@williamthorsen/nmr-core';
+import { isRecord, reportError } from '@williamthorsen/nmr-core';
 import { findMonorepoRoot as findMonorepoRootOrNothing } from '@williamthorsen/nmr-core/workspace';
 
 import { NMR_VITEST_BIN } from '../bins.ts';
 import { describeSignalExitCode } from '../child-process.ts';
-import { isObject } from '../helpers/type-guards.ts';
 import { omitOutcomeFile } from '../stated-outcome.ts';
 
 const VITEST_PACKAGE = 'vitest';
@@ -106,7 +105,7 @@ function resolveVitestCli(cwd: string): { ok: true; cliPath: string } | { ok: fa
   }
 
   const manifest: unknown = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  const bin = isObject(manifest) && isObject(manifest['bin']) ? manifest['bin'][VITEST_PACKAGE] : undefined;
+  const bin = isRecord(manifest) && isRecord(manifest['bin']) ? manifest['bin'][VITEST_PACKAGE] : undefined;
   if (typeof bin !== 'string') {
     return { ok: false, error: `\`${VITEST_PACKAGE}\` at ${path.dirname(manifestPath)} does not declare a CLI.` };
   }

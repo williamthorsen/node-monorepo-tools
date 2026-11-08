@@ -3,7 +3,7 @@ import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-import { isObject } from './type-guards.ts';
+import { isRecord } from '@williamthorsen/nmr-core';
 
 /** What a scope writes when the delegate runs in it, distinctive enough not to be mistaken for pnpm's own output. */
 const SELECTION_MARKER = 'nmr-selected-scope';
@@ -104,7 +104,7 @@ export interface SelectionProbe {
 
 /** Reports whether a listing entry is the monorepo root, whose path pnpm reports with symbolic links resolved. */
 function isRootEntry(entry: unknown, monorepoRoot: string): boolean {
-  if (!isObject(entry) || typeof entry['path'] !== 'string') {
+  if (!isRecord(entry) || typeof entry['path'] !== 'string') {
     return false;
   }
 

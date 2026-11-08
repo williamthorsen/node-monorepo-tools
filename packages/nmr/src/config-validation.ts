@@ -1,7 +1,7 @@
-import { UserError } from '@williamthorsen/nmr-core';
+import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
 import { assertResolvableCheckCacheCommands } from './config-check-cache.ts';
-import { isObject, isStringRecord } from './helpers/type-guards.ts';
+import { isStringRecord } from './helpers/type-guards.ts';
 import { findUnexpressibleToken } from './steps.ts';
 import type {
   BuildConfig,
@@ -67,7 +67,7 @@ export function assertRecognizedKeys(value: object, recognizedKeys: string[], co
 
 /** Validates that a loaded value conforms to the expected `NmrConfig` shape. */
 export function validateConfig(value: unknown, configPath: string, baseDir: string): NmrConfig {
-  if (!isObject(value)) {
+  if (!isRecord(value)) {
     throw new UserError(`Invalid nmr config at ${configPath}: expected an object, got ${typeof value}`);
   }
   assertRecognizedKeys(value, RECOGNIZED_KEYS, configPath);
@@ -168,7 +168,7 @@ function isOptionalBoolean(value: unknown): value is boolean | undefined {
 
 /** Narrows an unknown value to a record of script entries. */
 function isScriptRecord(value: unknown): value is Record<string, ScriptValue> {
-  if (!isObject(value)) return false;
+  if (!isRecord(value)) return false;
   for (const v of Object.values(value)) {
     if (typeof v === 'string') continue;
     if (!Array.isArray(v) || !v.every(isScriptElement)) return false;
@@ -179,7 +179,7 @@ function isScriptRecord(value: unknown): value is Record<string, ScriptValue> {
 /** Narrows an unknown value to a composite element: the bare instruction, or the spec that also declares. */
 function isScriptElement(value: unknown): value is string | StepSpec {
   if (typeof value === 'string') return true;
-  if (!isObject(value) || typeof value['run'] !== 'string') return false;
+  if (!isRecord(value) || typeof value['run'] !== 'string') return false;
 
   return isOptionalBoolean(value['shouldDeclineArguments']) && isOptionalBoolean(value['shouldRunInBackground']);
 }
@@ -195,7 +195,7 @@ function validateBuildField(value: Record<string, unknown>, configPath: string):
   if (build === undefined) {
     return undefined;
   }
-  if (!isObject(build)) {
+  if (!isRecord(build)) {
     throw new UserError(`Invalid nmr config at ${configPath}: \`build\` must be an object`);
   }
   assertRecognizedKeys(build, RECOGNIZED_BUILD_KEYS, configPath, 'build.');
@@ -214,7 +214,7 @@ function validateCheckCacheField(value: Record<string, unknown>, configPath: str
   if (checkCache === undefined) {
     return undefined;
   }
-  if (!isObject(checkCache)) {
+  if (!isRecord(checkCache)) {
     throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache\` must be an object`);
   }
   assertRecognizedKeys(checkCache, RECOGNIZED_CHECK_CACHE_KEYS, configPath, 'checkCache.');
@@ -264,7 +264,7 @@ function validateOutputField(value: Record<string, unknown>, configPath: string)
   if (output === undefined) {
     return undefined;
   }
-  if (!isObject(output)) {
+  if (!isRecord(output)) {
     throw new UserError(`Invalid nmr config at ${configPath}: \`output\` must be an object`);
   }
   assertRecognizedKeys(output, RECOGNIZED_OUTPUT_KEYS, configPath, 'output.');
@@ -303,7 +303,7 @@ function validateSelfHostedRunnerField(
   if (selfHostedRunner === undefined) {
     return undefined;
   }
-  if (!isObject(selfHostedRunner)) {
+  if (!isRecord(selfHostedRunner)) {
     throw new UserError(`Invalid nmr config at ${configPath}: \`selfHostedRunner\` must be an object`);
   }
   assertRecognizedKeys(selfHostedRunner, RECOGNIZED_SELF_HOSTED_RUNNER_KEYS, configPath, 'selfHostedRunner.');
