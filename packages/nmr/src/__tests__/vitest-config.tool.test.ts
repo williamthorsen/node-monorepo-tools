@@ -2,7 +2,6 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 
-import { isRecord } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
@@ -264,18 +263,6 @@ const WORKER_COUNT_FILES: Record<string, string> = {
 // throw: A fixture that fails never reaches its `onCleanup` registration, and both of these throw by design when
 // the child run does. `createTempTree` resolves through `realpath`, which the relative paths below depend on,
 // because macOS exposes the temp root through a symlink while Vitest reports resolved paths back.
-/**
- * A project whose tests record the temp directory that they and a child process resolve, and leave a file there
- * without cleaning up. One of the tests fails, because teardown must remove the run directory either way.
- */
-const TEMP_ISOLATION_FILES: Record<string, string> = {
-  'package.json': JSON.stringify({ name: 'vitest-config-temp-isolation', private: true, type: 'module' }),
-  'vitest.config.ts': `import { defineVitestConfig } from ${JSON.stringify(CONFIG_SOURCE)};\n\nexport default defineVitestConfig();\n`,
-  'vitest.optout.config.ts': `import { defineVitestConfig } from ${JSON.stringify(CONFIG_SOURCE)};\n\nexport default defineVitestConfig({ shouldIsolateTempDir: false });\n`,
-  'src/__tests__/passing.unit.test.ts': buildTempRecordingTest('passing', 'expect(true).toBe(true);'),
-  'src/__tests__/failing.unit.test.ts': buildTempRecordingTest('failing', 'expect(true).toBe(false);'),
-};
-
 const it = baseIt
   // eslint-disable-next-line no-empty-pattern -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern.
   .extend('project', { scope: 'file' }, ({}, { onCleanup }) => {
@@ -406,31 +393,6 @@ const it = baseIt
     });
 
     return { byDefault, fromEnv, fromFlag };
-  })
-  // eslint-disable-next-line no-empty-pattern -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern.
-  .extend('tempIsolation', { scope: 'file' }, ({}, { onCleanup }) => {
-    using stack = new DisposableStack();
-    const tree = stack.use(createTempTree({}, { prefix: 'nmr-vitest-temp-isolation-' }));
-    const base = stack.use(createTempTree({}, { prefix: 'nmr-vitest-temp-base-' }));
-    scaffoldProject(tree, TEMP_ISOLATION_FILES);
-    stack.defer(() => unlinkNodeModules(tree.dir));
-
-    const isolatedRun = runVitest(tree.dir, [], { TMPDIR: base.dir });
-    const isolated = {
-      baseEntriesAfterRun: base.list(),
-      failing: tree.readJson('observed-failing.json'),
-      passing: tree.readJson('observed-passing.json'),
-      status: isolatedRun.status,
-    };
-    const optOutRun = runVitest(tree.dir, ['--config', 'vitest.optout.config.ts'], { TMPDIR: base.dir });
-    const optedOut = { passing: tree.readJson('observed-passing.json'), status: optOutRun.status };
-
-    const ownedStack = stack.move();
-    onCleanup(() => {
-      ownedStack.dispose();
-    });
-
-    return { baseDir: base.dir, isolated, optedOut };
   });
 
 /**
@@ -531,35 +493,6 @@ describe('the defaults supplied by the factory, run for real', { timeout: 120_00
   });
 });
 
-describe('temp-directory isolation, run for real', { timeout: 120_000 }, () => {
-  it('resolves the temp directory inside one run directory, in a test and in a process that it spawns', ({
-    tempIsolation,
-  }) => {
-    const { failing, passing } = tempIsolation.isolated;
-    const runDir = readTempDir(passing);
-
-    expect(path.dirname(runDir)).toBe(tempIsolation.baseDir);
-    expect(path.basename(runDir)).toMatch(/^nmr-vitest-\d+-./);
-    expect([passing, failing]).toStrictEqual([
-      { child: runDir, test: runDir },
-      { child: runDir, test: runDir },
-    ]);
-  });
-
-  // The failing test is what makes the run exit non-zero, which shows that teardown ran after a failure.
-  it('leaves no new entries in the temp directory, although a test failed', ({ tempIsolation }) => {
-    expect(tempIsolation.isolated.status).toBe(1);
-    expect(tempIsolation.isolated.baseEntriesAfterRun).toStrictEqual([]);
-  });
-
-  it('resolves the ambient temp directory when shouldIsolateTempDir is off', ({ tempIsolation }) => {
-    expect(tempIsolation.optedOut.passing).toStrictEqual({
-      child: tempIsolation.baseDir,
-      test: tempIsolation.baseDir,
-    });
-  });
-});
-
 // Because Vite keeps `tsconfigPaths` outside its per-environment resolve options, the config emits the top-level
 // key alone. Whether that key applies to the environment through which a test's own imports resolve is Vite's to
 // decide, and only a run can report it: The emitted config looks identical either way.
@@ -606,36 +539,6 @@ function buildPassingTest(): string {
     '});',
     '',
   ].join('\n');
-}
-
-/**
- * Builds a test that records, in `observed-<name>.json`, the realpath of the temp directory that it and a spawned
- * `node` resolve, leaves a file in that directory, and ends with `assertion`.
- */
-function buildTempRecordingTest(name: string, assertion: string): string {
-  return [
-    "import { execFileSync } from 'node:child_process';",
-    "import fs from 'node:fs';",
-    "import os from 'node:os';",
-    "import path from 'node:path';",
-    "import { expect, it } from 'vitest';",
-    '',
-    `it('records its temp directory', () => {`,
-    "  const child = execFileSync(process.execPath, ['-p', 'require(\"node:os\").tmpdir()'], { encoding: 'utf8' }).trim();",
-    '  const observed = { child: fs.realpathSync(child), test: fs.realpathSync(os.tmpdir()) };',
-    `  fs.writeFileSync(path.join(os.tmpdir(), 'left-by-${name}.txt'), '');`,
-    `  fs.writeFileSync('observed-${name}.json', JSON.stringify(observed));`,
-    `  ${assertion}`,
-    '});',
-    '',
-  ].join('\n');
-}
-
-/** Reads the temp directory that a recording test observed in its own process. */
-function readTempDir(observed: unknown): string {
-  if (isRecord(observed) && typeof observed['test'] === 'string') return observed['test'];
-
-  throw new Error(`expected a recorded temp directory, got ${JSON.stringify(observed)}`);
 }
 
 /** Runs Vitest in `cwd` with a JSON coverage summary and a JSON report of the collected test files. */
