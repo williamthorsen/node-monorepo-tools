@@ -1,5 +1,5 @@
-import type { TemplateNode, TokenNode } from './compile-template.ts';
-import { BREAKING_MARKER, normalizeChangeRecord, type TokenName } from './tokens.ts';
+import { flattenTemplate, namesToken, type TemplateNode, type TokenNode } from './compile-template.ts';
+import { BREAKING_MARKER, normalizeChangeRecord } from './tokens.ts';
 import type { ChangeRecord, Taxonomy } from './types.ts';
 
 /**
@@ -154,25 +154,13 @@ function escapeForPattern(text: string): string {
   return text.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
-/** Collects the nodes in document order, a group's children standing in for the group. */
-function flatten(nodes: readonly TemplateNode[], into: TemplateNode[]): void {
-  for (const node of nodes) {
-    if (node.kind === 'group') {
-      flatten(node.children, into);
-    } else {
-      into.push(node);
-    }
-  }
-}
-
 /**
  * Records, for each `{scope}` token, the first character of the next literal text in document order. That character is
  * the delimiter that the template itself places after the scope, and bounding the scope by it keeps a scope containing
  * spaces or a `*` from matching the rest of the subject.
  */
 function mapScopeDelimiters(nodes: readonly TemplateNode[]): ReadonlyMap<TokenNode, string> {
-  const flattened: TemplateNode[] = [];
-  flatten(nodes, flattened);
+  const flattened = flattenTemplate(nodes);
 
   const delimiters = new Map<TokenNode, string>();
   for (const [index, node] of flattened.entries()) {
@@ -185,16 +173,6 @@ function mapScopeDelimiters(nodes: readonly TemplateNode[]): ReadonlyMap<TokenNo
     }
   }
   return delimiters;
-}
-
-/** Reports whether the template names `token` anywhere, at any depth. */
-function namesToken(nodes: readonly TemplateNode[], token: TokenName): boolean {
-  return nodes.some((node) => {
-    if (node.kind === 'token') {
-      return node.name === token;
-    }
-    return node.kind === 'group' && namesToken(node.children, token);
-  });
 }
 
 /** What pattern construction needs beyond the nodes themselves. */

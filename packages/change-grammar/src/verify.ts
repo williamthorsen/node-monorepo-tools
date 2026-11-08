@@ -1,4 +1,10 @@
-import { compileTemplate, type GroupNode, type TemplateNode } from './compile-template.ts';
+import {
+  compileTemplate,
+  type FlatNode,
+  flattenTemplate,
+  type GroupNode,
+  type TemplateNode,
+} from './compile-template.ts';
 import { parse } from './parse.ts';
 import { render } from './render.ts';
 import type { TokenName } from './tokens.ts';
@@ -276,22 +282,6 @@ function findStructuralDefects(
     ...findGroupBoundaryDefects(template, nodes),
     ...findBreakingMarkerDefects(template, flattened),
   ];
-}
-
-/** A template node with the groups flattened away. */
-type FlatNode = Exclude<TemplateNode, GroupNode>;
-
-/** Flattens the tree to document order, a group's children standing in for the group. */
-function flattenTemplate(nodes: readonly TemplateNode[]): FlatNode[] {
-  const flattened: FlatNode[] = [];
-  for (const node of nodes) {
-    if (node.kind === 'group') {
-      flattened.push(...flattenTemplate(node.children));
-    } else {
-      flattened.push(node);
-    }
-  }
-  return flattened;
 }
 
 /** The tokens whose values are free text, so either edge of one may spell the breaking marker. */

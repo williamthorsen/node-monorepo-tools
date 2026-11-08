@@ -17,6 +17,22 @@ export function compileTemplate(template: string): TemplateNode[] {
   return nodes;
 }
 
+/** A template node with the groups flattened away. */
+export type FlatNode = Exclude<TemplateNode, GroupNode>;
+
+/** Flattens the tree to document order, a group's children standing in for the group. */
+export function flattenTemplate(nodes: readonly TemplateNode[]): FlatNode[] {
+  const flattened: FlatNode[] = [];
+  for (const node of nodes) {
+    if (node.kind === 'group') {
+      flattened.push(...flattenTemplate(node.children));
+    } else {
+      flattened.push(node);
+    }
+  }
+  return flattened;
+}
+
 /** An optional group, rendered or dropped as a whole. */
 export interface GroupNode {
   children: TemplateNode[];
@@ -27,6 +43,11 @@ export interface GroupNode {
 export interface LiteralNode {
   kind: 'literal';
   text: string;
+}
+
+/** Reports whether the template names `token` anywhere, at any depth. */
+export function namesToken(nodes: readonly TemplateNode[], token: TokenName): boolean {
+  return flattenTemplate(nodes).some((node) => node.kind === 'token' && node.name === token);
 }
 
 /** One node of a compiled template. */

@@ -1,4 +1,4 @@
-import type { TemplateNode } from './compile-template.ts';
+import { namesToken, type TemplateNode } from './compile-template.ts';
 import { BREAKING_MARKER, normalizeChangeRecord, type TokenName } from './tokens.ts';
 import type { ChangeRecord } from './types.ts';
 
@@ -16,7 +16,7 @@ import type { ChangeRecord } from './types.ts';
  */
 export function render(nodes: readonly TemplateNode[], record: ChangeRecord): string {
   const normalized = normalizeChangeRecord(record);
-  return renderNodes(nodes, normalized, namesBreakingToken(nodes));
+  return renderNodes(nodes, normalized, namesToken(nodes, 'breaking'));
 }
 
 // region | Helpers
@@ -27,16 +27,6 @@ function hasEmptyDirectToken(nodes: readonly TemplateNode[], record: ChangeRecor
     (node) =>
       node.kind === 'token' && node.name !== 'breaking' && resolveToken(record, node.name, marksBreaking) === '',
   );
-}
-
-/** Reports whether the template names `{breaking}` anywhere, at any depth. */
-function namesBreakingToken(nodes: readonly TemplateNode[]): boolean {
-  return nodes.some((node) => {
-    if (node.kind === 'token') {
-      return node.name === 'breaking';
-    }
-    return node.kind === 'group' && namesBreakingToken(node.children);
-  });
 }
 
 /** Walks one run of nodes, dropping each group that has an empty direct token other than `{breaking}`. */
