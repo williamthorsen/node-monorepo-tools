@@ -8,6 +8,7 @@ import type { TestProjectConfiguration, TestProjectInlineConfiguration, ViteUser
 export const CLIENT_CONDITIONS = [...defaultClientConditions];
 
 export const GIT_ISOLATION_SETUP_FILE = fileURLToPath(new URL('../vitest-git-isolation.ts', import.meta.url));
+export const TEMP_ISOLATION_SETUP_FILE = fileURLToPath(new URL('../vitest-temp-isolation.ts', import.meta.url));
 
 /** Every project declared by the shared config, in the order it emits them: the residual, then the ladder. */
 export const PROJECT_NAMES = ['unit', 'tool', 'localhost', 'remote'];

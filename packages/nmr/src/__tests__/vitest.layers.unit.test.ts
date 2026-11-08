@@ -222,7 +222,8 @@ describe(defineVitestConfig, () => {
 
     expect(build).toThrow(
       'Invalid Vitest config: unrecognized option `tsconfigPath`. Recognized: `project`, `root`, ' +
-        '`shouldIsolateGit`, `shouldResolveFromSource`, `testCollectionExclude`, `tiers`, `tsconfigPaths`.',
+        '`shouldIsolateGit`, `shouldIsolateTempDir`, `shouldResolveFromSource`, `testCollectionExclude`, `tiers`, ' +
+        '`tsconfigPaths`.',
     );
   });
 

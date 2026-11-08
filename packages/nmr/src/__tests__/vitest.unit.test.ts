@@ -9,6 +9,7 @@ import {
   GIT_ISOLATION_SETUP_FILE,
   PROJECT_NAMES,
   SERVER_CONDITIONS,
+  TEMP_ISOLATION_SETUP_FILE,
   TIERED_PATTERNS,
 } from '../test-utils/vitest-config-fixtures.ts';
 import { defineVitestConfig } from '../vitest.ts';
@@ -62,11 +63,13 @@ describe(defineVitestConfig, () => {
     expect(names).toContain('remote');
   });
 
-  it('keeps per-project options out of the root test block', () => {
+  // `globalSetup` is a per-project option that the root project runs too, once for the whole run.
+  it('keeps per-project options other than the global setup out of the root test block', () => {
     const rootTest = defineVitestConfig().test ?? {};
 
     expect(Object.keys(rootTest).toSorted()).toStrictEqual([
       'coverage',
+      'globalSetup',
       'passWithNoTests',
       'projects',
       'silent',
@@ -252,6 +255,26 @@ describe(defineVitestConfig, () => {
     );
 
     expect(projects.map((project) => project.test?.setupFiles)).toStrictEqual(PROJECT_NAMES.map(() => ['./setup.ts']));
+  });
+
+  // A root entry runs once per run; one in every project would give the run one directory per project.
+  it('gives the run its own temp directory through a root global setup alone', () => {
+    const config = defineVitestConfig();
+
+    expect(config.test?.globalSetup).toStrictEqual([TEMP_ISOLATION_SETUP_FILE]);
+    expect(getProjects(config).map((project) => project.test?.globalSetup)).toStrictEqual(
+      PROJECT_NAMES.map(() => undefined),
+    );
+  });
+
+  it('does not declare a global setup when shouldIsolateTempDir is off', () => {
+    expect(defineVitestConfig({ shouldIsolateTempDir: false }).test?.globalSetup).toBeUndefined();
+  });
+
+  it('lets a later layer turn shouldIsolateTempDir back on', () => {
+    const config = defineVitestConfig({ shouldIsolateTempDir: false }, { shouldIsolateTempDir: true });
+
+    expect(config.test?.globalSetup).toStrictEqual([TEMP_ISOLATION_SETUP_FILE]);
   });
 
   it.for(['shouldIsolateGit', 'shouldResolveFromSource'] as const)('lets a later layer turn %s back on', (flag) => {
