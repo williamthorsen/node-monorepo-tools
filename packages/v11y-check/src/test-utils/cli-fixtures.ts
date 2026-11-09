@@ -1,5 +1,32 @@
+import { type Mock, vi } from 'vitest';
+
+import type { CommandDependencies } from '../commands.ts';
 import type { ConfigSource, LoadConfigResult } from '../config.ts';
 import type { CommandOptions, V11yCheckConfig } from '../types.ts';
+
+/** The command dependencies as mocks, which a test primes and inspects. */
+export type FakeCommandDependencies = { [Key in keyof CommandDependencies]: Mock<CommandDependencies[Key]> };
+
+/**
+ * Builds mock command dependencies that use a fake temp directory, write the audit-ci config to a fake path, and
+ * scaffold a config successfully, with any given fakes in place of the defaults.
+ */
+export function buildFakeCommandDependencies(overrides?: Partial<FakeCommandDependencies>): FakeCommandDependencies {
+  return {
+    generateAuditCiConfig: vi
+      .fn<CommandDependencies['generateAuditCiConfig']>()
+      .mockResolvedValue('/fake/tmp/audit-ci.json'),
+    loadConfig: vi.fn<CommandDependencies['loadConfig']>(),
+    runAudit: vi.fn<CommandDependencies['runAudit']>(),
+    runReport: vi.fn<CommandDependencies['runReport']>(),
+    scaffoldConfig: vi
+      .fn<CommandDependencies['scaffoldConfig']>()
+      .mockReturnValue({ configResult: { filePath: '.config/v11y-check.config.json', outcome: 'created' } }),
+    syncAllowlist: vi.fn<CommandDependencies['syncAllowlist']>(),
+    withTempDir: vi.fn<CommandDependencies['withTempDir']>().mockImplementation(callWithFakeTempDir),
+    ...overrides,
+  };
+}
 
 /** Builds the result of loading the config, or `makeConfig()` when none is given, from a fake config directory. */
 export function buildLoadConfigResult(config?: V11yCheckConfig, source: ConfigSource = 'file'): LoadConfigResult {
@@ -12,7 +39,7 @@ export function buildLoadConfigResult(config?: V11yCheckConfig, source: ConfigSo
 }
 
 /** Calls the callback with a fake temp-directory path, standing in for `withTempDir`. */
-export async function callWithFakeTempDir(callback: (dir: string) => Promise<unknown>): Promise<unknown> {
+export async function callWithFakeTempDir<T>(callback: (dir: string) => Promise<T>): Promise<T> {
   return callback('/fake/tmp');
 }
 
