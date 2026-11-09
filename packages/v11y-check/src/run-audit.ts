@@ -3,7 +3,7 @@ import process from 'node:process';
 import { UserError } from '@williamthorsen/nmr-core';
 import { z } from 'zod';
 
-import { runAuditCi } from './audit-ci-runner.ts';
+import { type AuditCiRunner, runAuditCi } from './audit-ci-runner.ts';
 import type { AuditResult } from './types.ts';
 
 const auditCiAdvisorySchema = z.object({
@@ -206,11 +206,14 @@ export interface AuditRunResult {
  * otherwise audit-ci uses its default text format. Stale overrides are
  * detected from JSON output and returned.
  */
-export function runAudit({ configPath, cwd, isJson }: RunAuditOptions): AuditRunResult {
+export function runAudit(
+  { configPath, cwd, isJson }: RunAuditOptions,
+  runner: AuditCiRunner = runAuditCi,
+): AuditRunResult {
   const outputFormat = isJson ? 'json' : 'text';
   const args = ['--config', configPath, '--output-format', outputFormat];
 
-  const result = runAuditCi(args, cwd ?? process.cwd());
+  const result = runner(args, cwd ?? process.cwd());
 
   if (result.error) {
     throw new UserError(`Failed to launch audit-ci: ${result.error.message}`);
@@ -243,13 +246,16 @@ export interface ReportResult {
  * Decides on the output rather than the exit code, because audit-ci exits non-zero both when it finds vulnerabilities
  * and when it cannot audit. Throws when stdout does not contain a JSON report.
  */
-export function runReport({ configPath, cwd, reportType }: Omit<RunAuditOptions, 'isJson'>): ReportResult {
+export function runReport(
+  { configPath, cwd, reportType }: Omit<RunAuditOptions, 'isJson'>,
+  runner: AuditCiRunner = runAuditCi,
+): ReportResult {
   const args = ['--config', configPath, '--output-format', 'json'];
   if (reportType === 'full') {
     args.push('--report-type', 'full');
   }
 
-  const result = runAuditCi(args, cwd ?? process.cwd());
+  const result = runner(args, cwd ?? process.cwd());
 
   if (result.error) {
     throw new UserError(`Failed to launch audit-ci: ${result.error.message}`);
