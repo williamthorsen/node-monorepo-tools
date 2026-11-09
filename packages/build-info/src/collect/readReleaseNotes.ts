@@ -42,7 +42,7 @@ export function findReleaseNotes(cwd: string, version: string): BuildInfo['relea
 /**
  * Returns every version's public release notes, newest first. Reads `.meta/changelog.json` when it is present and well
  * formed, keeping the sections whose audience is `all` and omitting a version that has none; otherwise reads every
- * version section of `CHANGELOG.md`, unfiltered.
+ * version section of `CHANGELOG.md`, unfiltered. Throws when a changelog exists but cannot be read.
  */
 export function readReleaseNotes({ cwd = process.cwd() }: ReadReleaseNotesOptions = {}): ReleaseNotesEntry[] {
   const jsonEntries = readChangelogJson(cwd);
@@ -125,6 +125,11 @@ function isChangelogJsonEntry(value: unknown): value is ChangelogJsonEntry {
   );
 }
 
+/** Reports whether a read error means that the file is missing, including a path under a non-directory. */
+function isMissingFileError(error: unknown): boolean {
+  return isRecord(error) && (error['code'] === 'ENOENT' || error['code'] === 'ENOTDIR');
+}
+
 /**
  * Reads the well-formed entries of `.meta/changelog.json`, or `undefined` when the file is missing or does not hold an
  * array. A malformed entry is skipped.
@@ -161,7 +166,10 @@ function readChangelogMarkdown(cwd: string): ReleaseNotesEntry[] {
   });
 }
 
-/** Reads and parses a JSON file, or returns `undefined` when it is missing or unparseable. */
+/**
+ * Reads and parses a JSON file, or returns `undefined` when it is missing or unparseable; throws on any other read
+ * error.
+ */
 function readJson(filePath: string): unknown {
   const content = readText(filePath);
   if (content === undefined) {
@@ -174,12 +182,15 @@ function readJson(filePath: string): unknown {
   }
 }
 
-/** Reads a text file, or returns `undefined` when it cannot be read. */
+/** Reads a text file, or returns `undefined` when it is missing; throws on any other read error. */
 function readText(filePath: string): string | undefined {
   try {
     return readFileSync(filePath, 'utf8');
-  } catch {
-    return undefined;
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return undefined;
+    }
+    throw error;
   }
 }
 
