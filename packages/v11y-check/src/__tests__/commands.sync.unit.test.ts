@@ -223,6 +223,18 @@ describe(syncCommand, () => {
     expect(capture.stderr).toContain('Failed to create config file');
   });
 
+  it('reports the failure and returns 1 when reloading the scaffolded config fails', async () => {
+    mocks.loadConfig
+      .mockResolvedValueOnce(buildLoadConfigResult(makeConfig(), 'defaults'))
+      .mockRejectedValueOnce(new Error('Scaffolded config is invalid'));
+
+    const exitCode = await syncCommand(makeOptions({ scopes: ['dev'] }));
+
+    expect(exitCode).toBe(1);
+    expect(capture.stderr).toContain('v11y: Scaffolded config is invalid');
+    expect(mocks.runReport).not.toHaveBeenCalled();
+  });
+
   it('returns 1 without syncing any scope when a later scope fails to produce a report', async () => {
     mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runReport

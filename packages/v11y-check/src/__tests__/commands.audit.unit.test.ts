@@ -85,6 +85,17 @@ describe(auditCommand, () => {
     expect(capture.stderr).toContain('Config not found');
   });
 
+  it('reports the failure and returns 1 when generating the audit-ci config fails', async () => {
+    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
+    mocks.generateAuditCiConfig.mockRejectedValue(new Error('Cannot write audit-ci config'));
+
+    const exitCode = await auditCommand(makeOptions({ scopes: ['dev'] }));
+
+    expect(exitCode).toBe(1);
+    expect(capture.stderr).toContain('v11y: Cannot write audit-ci config');
+    expect(mocks.runAudit).not.toHaveBeenCalled();
+  });
+
   it('forwards stale entry warnings to stderr', async () => {
     mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
     mocks.runAudit.mockReturnValue({
