@@ -7,8 +7,6 @@ import { formatRelativeTime } from './format-time.ts';
 import { formatMarkedLine, measureRowMarkerColumn, V11Y_GLYPHS, type V11yGlyphName } from './glyphs.ts';
 import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 
-// -- Display constants --
-
 const SCOPE_GLYPH_NAMES: Record<AuditScope, V11yGlyphName> = {
   dev: 'scopeDev',
   prod: 'scopeProd',
@@ -19,8 +17,6 @@ const MARKER_INDENT = '  ';
 
 /** Target width, in display columns, of a wrapped description line's content. */
 const WRAP_COLUMNS = 72;
-
-// -- Text formatter --
 
 /** Formats the verbose per-vulnerability check output as text. */
 export function formatCheckVerboseText(
@@ -41,12 +37,100 @@ export function formatCheckVerboseText(
   return body + '\n' + actionHints + '\n';
 }
 
-/** Formats a threshold annotation for scope headers. Returns empty string for `low` or undefined threshold. */
-function formatThresholdSuffix(threshold: SeverityThreshold | undefined, style: OutputStyle): string {
-  if (threshold === undefined || threshold === 'low') return '';
-  const indicator = getSeverityIndicator(threshold, style);
-  const indicatorPart = indicator.length > 0 ? `${indicator} ` : '';
-  return ` (threshold: ${indicatorPart}${threshold})`;
+// region | Helpers
+/** Builds the indentation that puts an entry's detail lines under the text that follows its row marker. */
+function buildDetailIndent(style: OutputStyle): string {
+  return ' '.repeat(MARKER_INDENT.length + measureRowMarkerColumn(style) + 1);
+}
+
+/**
+ * Finds the index at which to insert the `reason:` line, so that the block reads: header, title, reason, paths,
+ * link, description.
+ */
+function findReasonInsertionIndex(hasTitle: boolean): number {
+  return hasTitle ? 1 : 0;
+}
+
+/** Builds an advisory's detail lines: title, paths, link, and description. */
+function formatAdvisoryDetail(
+  vulnerability: {
+    description?: string | undefined;
+    paths: string[];
+    title?: string | undefined;
+    url: string;
+  },
+  style: OutputStyle,
+): string[] {
+  const detailIndent = buildDetailIndent(style);
+  const lines: string[] = [];
+  if (vulnerability.title !== undefined) {
+    lines.push(`${detailIndent}${vulnerability.title}`);
+  }
+  lines.push(...formatPathsLines(vulnerability.paths, detailIndent), `${detailIndent}link: ${vulnerability.url}`);
+  if (vulnerability.description !== undefined) {
+    lines.push('', ...formatDescriptionLines(vulnerability.description, detailIndent));
+  }
+  return lines;
+}
+
+/** Formats an allowed vulnerability block with the `passed` marker plus reason/addedAt context. */
+function formatAllowedBlock(vulnerability: AllowedVulnerability, now: Date, style: OutputStyle): string {
+  const allowedSuffix = vulnerability.addedAt !== undefined ? formatAllowedSuffix(vulnerability.addedAt, now) : '';
+  const message = `${resolveDisplayId(vulnerability)}${formatSeveritySuffix(vulnerability.severity, style)}${allowedSuffix}`;
+  const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'passed', message)}`;
+  const hasTitle = vulnerability.title !== undefined;
+  const detailLines = formatAdvisoryDetail(vulnerability, style);
+  if (vulnerability.reason !== undefined) {
+    const reasonLineIndex = findReasonInsertionIndex(hasTitle);
+    detailLines.splice(reasonLineIndex, 0, `${buildDetailIndent(style)}reason: ${vulnerability.reason}`);
+  }
+  return [headerLine, ...detailLines].join('\n');
+}
+
+/** Builds the "allowed X ago (datetime)" suffix for entries with `addedAt`. */
+function formatAllowedSuffix(addedAt: string, now: Date): string {
+  const relativeTime = formatRelativeTime(addedAt, now);
+  if (relativeTime.length === 0) return `  allowed (${addedAt})`;
+  return `  allowed ${relativeTime} (${addedAt})`;
+}
+
+/** Formats a below-threshold vulnerability block with the `skipped` marker and "ignored (below threshold)" annotation. */
+function formatBelowThresholdBlock(vulnerability: AuditResult, style: OutputStyle): string {
+  const message = `${resolveDisplayId(vulnerability)}${formatSeveritySuffix(vulnerability.severity, style)}  ignored (below threshold)`;
+  const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'skipped', message)}`;
+  const detailLines = formatAdvisoryDetail(vulnerability, style);
+  return [headerLine, ...detailLines].join('\n');
+}
+
+/** Wraps a description (possibly multi-paragraph) by display columns, indenting every line to the detail indent. */
+function formatDescriptionLines(description: string, detailIndent: string): string[] {
+  const paragraphs = description.split(/\n\s*\n/);
+  const lines: string[] = [];
+  let isSeparatorNeeded = false;
+  for (const paragraph of paragraphs) {
+    if (isSeparatorNeeded) lines.push('');
+    // `wrapToWidth` counts the indent inside `width`, and `WRAP_COLUMNS` is the width of the content alone.
+    const wrappedText = wrapToWidth(paragraph, {
+      indent: detailIndent.length,
+      width: WRAP_COLUMNS + detailIndent.length,
+    });
+    if (wrappedText !== '') lines.push(...wrappedText.split('\n'));
+    isSeparatorNeeded = true;
+  }
+  return lines;
+}
+
+/** Builds `path:` or `paths:` lines for a single or multiple paths. */
+function formatPathsLines(paths: string[], detailIndent: string): string[] {
+  if (paths.length === 0) return [];
+  if (paths.length === 1) {
+    return [`${detailIndent}path: ${paths[0]}`];
+  }
+  const lines = [`${detailIndent}paths:`];
+  for (const pathValue of paths) {
+    lines.push(`${detailIndent}  - ${pathValue}`);
+  }
+  return lines;
 }
 
 /** Formats a single scope's verbose check results. */
@@ -86,6 +170,19 @@ function formatScopeVerbose(
   return lines.concat(blocks.join('\n\n')).join('\n');
 }
 
+/** Formats a stale entry as a single line with the `stale` marker. */
+function formatStaleLine(entry: StaleEntry, style: OutputStyle): string {
+  return `${MARKER_INDENT}${formatMarkedLine(style, 'stale', `${entry.id}  not needed`)}`;
+}
+
+/** Formats a threshold annotation for scope headers. Returns empty string for `low` or undefined threshold. */
+function formatThresholdSuffix(threshold: SeverityThreshold | undefined, style: OutputStyle): string {
+  if (threshold === undefined || threshold === 'low') return '';
+  const indicator = getSeverityIndicator(threshold, style);
+  const indicatorPart = indicator.length > 0 ? `${indicator} ` : '';
+  return ` (threshold: ${indicatorPart}${threshold})`;
+}
+
 /** Formats an unallowed vulnerability block with the `failed` marker. */
 function formatUnallowedBlock(vulnerability: AuditResult, style: OutputStyle): string {
   const message = `${resolveDisplayId(vulnerability)}${formatSeveritySuffix(vulnerability.severity, style)}`;
@@ -93,103 +190,4 @@ function formatUnallowedBlock(vulnerability: AuditResult, style: OutputStyle): s
   const detailLines = formatAdvisoryDetail(vulnerability, style);
   return [headerLine, ...detailLines].join('\n');
 }
-
-/** Formats an allowed vulnerability block with the `passed` marker plus reason/addedAt context. */
-function formatAllowedBlock(vulnerability: AllowedVulnerability, now: Date, style: OutputStyle): string {
-  const allowedSuffix = vulnerability.addedAt !== undefined ? formatAllowedSuffix(vulnerability.addedAt, now) : '';
-  const message = `${resolveDisplayId(vulnerability)}${formatSeveritySuffix(vulnerability.severity, style)}${allowedSuffix}`;
-  const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'passed', message)}`;
-  const hasTitle = vulnerability.title !== undefined;
-  const detailLines = formatAdvisoryDetail(vulnerability, style);
-  if (vulnerability.reason !== undefined) {
-    const reasonLineIndex = findReasonInsertionIndex(hasTitle);
-    detailLines.splice(reasonLineIndex, 0, `${buildDetailIndent(style)}reason: ${vulnerability.reason}`);
-  }
-  return [headerLine, ...detailLines].join('\n');
-}
-
-/** Formats a stale entry as a single line with the `stale` marker. */
-function formatStaleLine(entry: StaleEntry, style: OutputStyle): string {
-  return `${MARKER_INDENT}${formatMarkedLine(style, 'stale', `${entry.id}  not needed`)}`;
-}
-
-/** Formats a below-threshold vulnerability block with the `skipped` marker and "ignored (below threshold)" annotation. */
-function formatBelowThresholdBlock(vulnerability: AuditResult, style: OutputStyle): string {
-  const message = `${resolveDisplayId(vulnerability)}${formatSeveritySuffix(vulnerability.severity, style)}  ignored (below threshold)`;
-  const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'skipped', message)}`;
-  const detailLines = formatAdvisoryDetail(vulnerability, style);
-  return [headerLine, ...detailLines].join('\n');
-}
-
-/** Builds an advisory's detail lines: title, paths, link, and description. */
-function formatAdvisoryDetail(
-  vulnerability: {
-    description?: string | undefined;
-    paths: string[];
-    title?: string | undefined;
-    url: string;
-  },
-  style: OutputStyle,
-): string[] {
-  const detailIndent = buildDetailIndent(style);
-  const lines: string[] = [];
-  if (vulnerability.title !== undefined) {
-    lines.push(`${detailIndent}${vulnerability.title}`);
-  }
-  lines.push(...formatPathsLines(vulnerability.paths, detailIndent), `${detailIndent}link: ${vulnerability.url}`);
-  if (vulnerability.description !== undefined) {
-    lines.push('', ...formatDescriptionLines(vulnerability.description, detailIndent));
-  }
-  return lines;
-}
-
-/** Builds the indentation that puts an entry's detail lines under the text that follows its row marker. */
-function buildDetailIndent(style: OutputStyle): string {
-  return ' '.repeat(MARKER_INDENT.length + measureRowMarkerColumn(style) + 1);
-}
-
-/**
- * Finds the index at which to insert the `reason:` line, so that the block reads: header, title, reason, paths,
- * link, description.
- */
-function findReasonInsertionIndex(hasTitle: boolean): number {
-  return hasTitle ? 1 : 0;
-}
-
-/** Builds `path:` or `paths:` lines for a single or multiple paths. */
-function formatPathsLines(paths: string[], detailIndent: string): string[] {
-  if (paths.length === 0) return [];
-  if (paths.length === 1) {
-    return [`${detailIndent}path: ${paths[0]}`];
-  }
-  const lines = [`${detailIndent}paths:`];
-  for (const pathValue of paths) {
-    lines.push(`${detailIndent}  - ${pathValue}`);
-  }
-  return lines;
-}
-
-/** Builds the "allowed X ago (datetime)" suffix for entries with `addedAt`. */
-function formatAllowedSuffix(addedAt: string, now: Date): string {
-  const relativeTime = formatRelativeTime(addedAt, now);
-  if (relativeTime.length === 0) return `  allowed (${addedAt})`;
-  return `  allowed ${relativeTime} (${addedAt})`;
-}
-
-/** Wraps a description (possibly multi-paragraph) by display columns, indenting every line to the detail indent. */
-function formatDescriptionLines(description: string, detailIndent: string): string[] {
-  const paragraphs = description.split(/\n\s*\n/);
-  const lines: string[] = [];
-  let isSeparatorNeeded = false;
-  for (const paragraph of paragraphs) {
-    if (isSeparatorNeeded) lines.push('');
-    // `wrapToWidth` counts the indent inside `width`, and `WRAP_COLUMNS` is the width of the content alone.
-    const wrappedText = wrapToWidth(paragraph, {
-      indent: detailIndent.length,
-      width: WRAP_COLUMNS + detailIndent.length,
-    });
-    if (wrappedText !== '') lines.push(...wrappedText.split('\n'));
-    isSeparatorNeeded = true;
-  }
-  return lines;
-}
+// endregion | Helpers

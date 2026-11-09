@@ -23,7 +23,17 @@ const auditCiAdvisorySchema = z.object({
   url: z.string(),
 });
 
+// region | Types
 type AuditCiAdvisory = z.infer<typeof auditCiAdvisorySchema>;
+
+/** Result from a normal audit run. */
+export interface AuditRunResult {
+  exitCode: number;
+  staleEntries: string[];
+  stdout: string;
+  stderr: string;
+  warnings: string[];
+}
 
 /** Advisories extracted from audit-ci output, with a warning for each entry that does not parse. */
 interface ExtractedAdvisories {
@@ -35,6 +45,54 @@ interface ExtractedAdvisories {
 export interface ParseResult {
   results: AuditResult[];
   warnings: string[];
+}
+
+/** Result from a report-mode audit run. */
+export interface ReportResult {
+  results: AuditResult[];
+  stdout: string;
+  stderr: string;
+  warnings: string[];
+}
+
+/** Options for running audit-ci. */
+interface RunAuditOptions {
+  configPath: string;
+  cwd?: string;
+  isJson?: boolean;
+  reportType?: 'full';
+}
+
+/** Result of extracting stale entries, including any warnings. */
+export interface StaleEntriesResult {
+  entries: string[];
+  warnings: string[];
+}
+// endregion | Types
+
+/** Extracts stale allowlist entries from audit-ci JSON output. */
+export function extractStaleEntries(jsonString: string): StaleEntriesResult {
+  const warnings: string[] = [];
+
+  let parsedOutput: unknown;
+  try {
+    parsedOutput = JSON.parse(jsonString);
+  } catch {
+    if (jsonString.trim().length > 0) {
+      warnings.push(`Failed to parse audit-ci output as JSON for stale entry detection (${jsonString.length} bytes)`);
+    }
+    return { entries: [], warnings };
+  }
+
+  if (typeof parsedOutput !== 'object' || parsedOutput === null) return { entries: [], warnings };
+  if (!('allowlistedAdvisoriesNotFound' in parsedOutput)) return { entries: [], warnings };
+
+  const notFoundEntries = parsedOutput.allowlistedAdvisoriesNotFound;
+  if (Array.isArray(notFoundEntries)) {
+    return { entries: notFoundEntries.filter((item): item is string => typeof item === 'string'), warnings };
+  }
+
+  return { entries: [], warnings };
 }
 
 /**
@@ -96,109 +154,6 @@ export function parseAuditCiOutput(jsonString: string): ParseResult {
   return { results, warnings };
 }
 
-/** Narrows an unknown value to a non-null object. */
-function isObject(value: unknown): value is object {
-  return typeof value === 'object' && value !== null;
-}
-
-/** Parses each entry of an object's `advisories` record, warning on each entry that does not match the schema. */
-function collectAdvisories(candidate: object): ExtractedAdvisories {
-  if (!('advisories' in candidate) || !isObject(candidate.advisories)) {
-    return { advisories: [], warnings: [] };
-  }
-  const advisories: AuditCiAdvisory[] = [];
-  const warnings: string[] = [];
-  for (const [key, entry] of Object.entries(candidate.advisories)) {
-    const parsed = auditCiAdvisorySchema.safeParse(entry);
-    if (parsed.success) {
-      advisories.push(parsed.data);
-    } else {
-      warnings.push(`Skipped malformed audit-ci advisory ${key}: ${summarizeIssues(parsed.error)}`);
-    }
-  }
-  return { advisories, warnings };
-}
-
-/** Extracts advisory objects from various audit-ci output shapes. */
-function extractAdvisories(parsedOutput: unknown): ExtractedAdvisories {
-  if (typeof parsedOutput !== 'object' || parsedOutput === null) return { advisories: [], warnings: [] };
-
-  // Shape: { advisories: { [id]: advisory } }
-  if ('advisories' in parsedOutput) {
-    return collectAdvisories(parsedOutput);
-  }
-
-  // Shape: array of objects with an advisories field
-  if (Array.isArray(parsedOutput)) {
-    const advisories: AuditCiAdvisory[] = [];
-    const warnings: string[] = [];
-    for (const item of parsedOutput) {
-      if (!isObject(item)) continue;
-      const collected = collectAdvisories(item);
-      advisories.push(...collected.advisories);
-      warnings.push(...collected.warnings);
-    }
-    return { advisories, warnings };
-  }
-
-  return { advisories: [], warnings: [] };
-}
-
-/** Extracts all dependency paths across an advisory's findings, deduplicated and sorted. */
-function extractPaths(advisory: AuditCiAdvisory): string[] {
-  const uniquePaths = new Set(advisory.findings.flatMap((finding) => finding.paths));
-  // Compare by code unit so that the order does not depend on the locale.
-  return [...uniquePaths].toSorted();
-}
-
-/** Result of extracting stale entries, including any warnings. */
-export interface StaleEntriesResult {
-  entries: string[];
-  warnings: string[];
-}
-
-/** Extracts stale allowlist entries from audit-ci JSON output. */
-export function extractStaleEntries(jsonString: string): StaleEntriesResult {
-  const warnings: string[] = [];
-
-  let parsedOutput: unknown;
-  try {
-    parsedOutput = JSON.parse(jsonString);
-  } catch {
-    if (jsonString.trim().length > 0) {
-      warnings.push(`Failed to parse audit-ci output as JSON for stale entry detection (${jsonString.length} bytes)`);
-    }
-    return { entries: [], warnings };
-  }
-
-  if (typeof parsedOutput !== 'object' || parsedOutput === null) return { entries: [], warnings };
-  if (!('allowlistedAdvisoriesNotFound' in parsedOutput)) return { entries: [], warnings };
-
-  const notFoundEntries = parsedOutput.allowlistedAdvisoriesNotFound;
-  if (Array.isArray(notFoundEntries)) {
-    return { entries: notFoundEntries.filter((item): item is string => typeof item === 'string'), warnings };
-  }
-
-  return { entries: [], warnings };
-}
-
-/** Options for running audit-ci. */
-interface RunAuditOptions {
-  configPath: string;
-  cwd?: string;
-  isJson?: boolean;
-  reportType?: 'full';
-}
-
-/** Result from a normal audit run. */
-export interface AuditRunResult {
-  exitCode: number;
-  staleEntries: string[];
-  stdout: string;
-  stderr: string;
-  warnings: string[];
-}
-
 /**
  * Invokes audit-ci with the given config file in normal (CI) mode.
  *
@@ -230,14 +185,6 @@ export function runAudit(
     stderr,
     warnings: staleResult.warnings,
   };
-}
-
-/** Result from a report-mode audit run. */
-export interface ReportResult {
-  results: AuditResult[];
-  stdout: string;
-  stderr: string;
-  warnings: string[];
 }
 
 /**
@@ -285,6 +232,24 @@ function buildCvss(cvss: NonNullable<AuditCiAdvisory['cvss']>): NonNullable<Audi
   return result;
 }
 
+/** Parses each entry of an object's `advisories` record, warning on each entry that does not match the schema. */
+function collectAdvisories(candidate: object): ExtractedAdvisories {
+  if (!('advisories' in candidate) || !isObject(candidate.advisories)) {
+    return { advisories: [], warnings: [] };
+  }
+  const advisories: AuditCiAdvisory[] = [];
+  const warnings: string[] = [];
+  for (const [key, entry] of Object.entries(candidate.advisories)) {
+    const parsed = auditCiAdvisorySchema.safeParse(entry);
+    if (parsed.success) {
+      advisories.push(parsed.data);
+    } else {
+      warnings.push(`Skipped malformed audit-ci advisory ${key}: ${summarizeIssues(parsed.error)}`);
+    }
+  }
+  return { advisories, warnings };
+}
+
 /** Checks whether audit-ci's stdout parses as a JSON object or array, the shapes in which it prints a report. */
 function containsJsonReport(stdout: string): boolean {
   try {
@@ -301,6 +266,43 @@ function describeMissingReport(status: number | null, signal: NodeJS.Signals | n
   const message = `audit-ci ${ending} without producing a report`;
   const trimmedStderr = stderr.trim();
   return trimmedStderr.length > 0 ? `${message}:\n${trimmedStderr}` : message;
+}
+
+/** Extracts advisory objects from various audit-ci output shapes. */
+function extractAdvisories(parsedOutput: unknown): ExtractedAdvisories {
+  if (typeof parsedOutput !== 'object' || parsedOutput === null) return { advisories: [], warnings: [] };
+
+  // Shape: { advisories: { [id]: advisory } }
+  if ('advisories' in parsedOutput) {
+    return collectAdvisories(parsedOutput);
+  }
+
+  // Shape: array of objects with an advisories field
+  if (Array.isArray(parsedOutput)) {
+    const advisories: AuditCiAdvisory[] = [];
+    const warnings: string[] = [];
+    for (const item of parsedOutput) {
+      if (!isObject(item)) continue;
+      const collected = collectAdvisories(item);
+      advisories.push(...collected.advisories);
+      warnings.push(...collected.warnings);
+    }
+    return { advisories, warnings };
+  }
+
+  return { advisories: [], warnings: [] };
+}
+
+/** Extracts all dependency paths across an advisory's findings, deduplicated and sorted. */
+function extractPaths(advisory: AuditCiAdvisory): string[] {
+  const uniquePaths = new Set(advisory.findings.flatMap((finding) => finding.paths));
+  // Compare by code unit so that the order does not depend on the locale.
+  return [...uniquePaths].toSorted();
+}
+
+/** Narrows an unknown value to a non-null object. */
+function isObject(value: unknown): value is object {
+  return typeof value === 'object' && value !== null;
 }
 
 /** Summarizes a schema error's issues on one line, each as its field path and message. */

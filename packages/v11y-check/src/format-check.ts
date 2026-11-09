@@ -7,8 +7,6 @@ import { formatRelativeTime } from './format-time.ts';
 import { formatMarkedLine, V11Y_GLYPHS, type V11yGlyphName } from './glyphs.ts';
 import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 
-// -- Severity indicator --
-
 const SEVERITY_GLYPH_NAMES: Record<string, V11yGlyphName> = {
   critical: 'severityHigh',
   high: 'severityHigh',
@@ -16,22 +14,6 @@ const SEVERITY_GLYPH_NAMES: Record<string, V11yGlyphName> = {
   low: 'severityLow',
   moderate: 'severityModerate',
 };
-
-/** Maps a severity string to its indicator in a style: a colored circle when rich, nothing when plain. */
-export function getSeverityIndicator(severity: string | undefined, style: OutputStyle): string {
-  if (severity === undefined) return '';
-  const name = SEVERITY_GLYPH_NAMES[severity];
-  return name === undefined ? '' : V11Y_GLYPHS[style][name].text;
-}
-
-// region | Display ID helper
-/** Resolves the best display ID for a vulnerability: GHSA ID if available, otherwise the numeric ID. */
-export function resolveDisplayId(vulnerability: { ghsaId?: string | undefined; id: string }): string {
-  return vulnerability.ghsaId ?? vulnerability.id;
-}
-// endregion | Display ID helper
-
-// -- Scope labels --
 
 const SCOPE_GLYPH_NAMES: Record<AuditScope, V11yGlyphName> = {
   dev: 'scopeDev',
@@ -43,94 +25,14 @@ const SCOPE_NAMES: Record<AuditScope, string> = {
   prod: 'prod',
 };
 
-// -- Text formatter --
-
-/** Formats a threshold annotation, e.g. `(threshold: 🟠 moderate)`. Returns empty string for `low` threshold. */
-function formatThresholdAnnotation(threshold: SeverityThreshold | undefined, style: OutputStyle): string {
-  if (threshold === undefined || threshold === 'low') return '';
-  const indicator = getSeverityIndicator(threshold, style);
-  const indicatorPart = indicator.length > 0 ? `${indicator} ` : '';
-  return `(threshold: ${indicatorPart}${threshold})`;
-}
-
-/** Builds the intro banner reflecting the scopes being audited. */
-function formatIntroBanner(
-  scopes: AuditScope[],
-  style: OutputStyle,
-  thresholds?: Partial<Record<AuditScope, SeverityThreshold>>,
-): string {
-  const firstScope = scopes[0];
-  // `firstScope` is always defined here; the guard narrows for TypeScript.
-  if (scopes.length === 1 && firstScope !== undefined) {
-    const annotation = formatThresholdAnnotation(thresholds?.[firstScope], style);
-    const message = `Auditing ${SCOPE_NAMES[firstScope]} dependencies${annotation && ` ${annotation}`} ...`;
-    return formatGlyphLine(V11Y_GLYPHS, style, 'audit', message);
+/** Formats check results as a JSON string with a top-level `summary` block derived from the result. */
+export function formatCheckJson(result: CheckResult, scopes: AuditScope[]): string {
+  const output: Record<string, unknown> = {};
+  for (const scope of scopes) {
+    output[scope] = result[scope];
   }
-  return formatGlyphLine(V11Y_GLYPHS, style, 'audit', 'Auditing dependencies ...');
-}
-
-/** Builds the severity suffix for a finding line, e.g. `  🔴 critical`. */
-export function formatSeveritySuffix(severity: string | undefined, style: OutputStyle): string {
-  if (severity === undefined || severity === '') return '';
-  const emoji = getSeverityIndicator(severity, style);
-  const emojiPart = emoji.length > 0 ? `${emoji} ` : '';
-  return `  ${emojiPart}${severity}`;
-}
-
-/** Builds the "allowed since X ago (datetime)" suffix for entries with `addedAt`. */
-function formatAllowedSuffix(addedAt: string, now: Date): string {
-  const relativeTime = formatRelativeTime(addedAt, now);
-  if (relativeTime.length === 0) return ` \u{2022} allowed (${addedAt})`;
-  return ` \u{2022} allowed since ${relativeTime} (${addedAt})`;
-}
-
-/** Formats a single unallowed vulnerability as a bullet line. */
-function formatUnallowedLine(vulnerability: AuditResult, style: OutputStyle): string {
-  const message = `${resolveDisplayId(vulnerability)}: ${vulnerability.path}${formatSeveritySuffix(vulnerability.severity, style)}`;
-  return `  \u{2022} ${formatMarkedLine(style, 'failed', message)}`;
-}
-
-/** Formats a single allowed vulnerability as a bullet line. */
-function formatAllowedLine(vulnerability: AllowedVulnerability, now: Date, style: OutputStyle): string {
-  const suffix = vulnerability.addedAt !== undefined ? formatAllowedSuffix(vulnerability.addedAt, now) : '';
-  const message = `${resolveDisplayId(vulnerability)}: ${vulnerability.path}${formatSeveritySuffix(vulnerability.severity, style)}${suffix}`;
-  return `  \u{2022} ${formatMarkedLine(style, 'passed', message)}`;
-}
-
-/** Formats a single stale entry as a bullet line. */
-function formatStaleLine(entry: StaleEntry, style: OutputStyle): string {
-  return `  \u{2022} ${formatMarkedLine(style, 'stale', `${entry.id} \u{2022} not needed`)}`;
-}
-
-/** Formats a single below-threshold vulnerability as a bullet line. */
-function formatBelowThresholdLine(vulnerability: AuditResult, style: OutputStyle): string {
-  const message = `${resolveDisplayId(vulnerability)}: ${vulnerability.path}${formatSeveritySuffix(vulnerability.severity, style)} \u{2022} ignored`;
-  return `  \u{2022} ${formatMarkedLine(style, 'skipped', message)}`;
-}
-
-/** Checks whether a scope has any findings. */
-function hasFindings(result: ScopeCheckResult): boolean {
-  return (
-    result.unallowed.length > 0 ||
-    result.allowed.length > 0 ||
-    result.stale.length > 0 ||
-    result.belowThreshold.length > 0
-  );
-}
-
-/** Formats a scope's finding lines (without scope header). */
-function formatScopeFindings(result: ScopeCheckResult, now: Date, style: OutputStyle): string[] {
-  const lines: string[] = Array.from(result.unallowed, (vulnerability) => formatUnallowedLine(vulnerability, style));
-  for (const vulnerability of result.allowed) {
-    lines.push(formatAllowedLine(vulnerability, now, style));
-  }
-  for (const entry of result.stale) {
-    lines.push(formatStaleLine(entry, style));
-  }
-  for (const vulnerability of result.belowThreshold) {
-    lines.push(formatBelowThresholdLine(vulnerability, style));
-  }
-  return lines;
+  output['summary'] = deriveSummary(result, scopes);
+  return JSON.stringify(output, null, 2) + '\n';
 }
 
 /**
@@ -190,14 +92,104 @@ export function formatCheckText(
   return lines.join('\n') + '\n';
 }
 
-// -- JSON formatter --
-
-/** Formats check results as a JSON string with a top-level `summary` block derived from the result. */
-export function formatCheckJson(result: CheckResult, scopes: AuditScope[]): string {
-  const output: Record<string, unknown> = {};
-  for (const scope of scopes) {
-    output[scope] = result[scope];
-  }
-  output['summary'] = deriveSummary(result, scopes);
-  return JSON.stringify(output, null, 2) + '\n';
+/** Builds the severity suffix for a finding line, e.g. `  🔴 critical`. */
+export function formatSeveritySuffix(severity: string | undefined, style: OutputStyle): string {
+  if (severity === undefined || severity === '') return '';
+  const emoji = getSeverityIndicator(severity, style);
+  const emojiPart = emoji.length > 0 ? `${emoji} ` : '';
+  return `  ${emojiPart}${severity}`;
 }
+
+/** Maps a severity string to its indicator in a style: a colored circle when rich, nothing when plain. */
+export function getSeverityIndicator(severity: string | undefined, style: OutputStyle): string {
+  if (severity === undefined) return '';
+  const name = SEVERITY_GLYPH_NAMES[severity];
+  return name === undefined ? '' : V11Y_GLYPHS[style][name].text;
+}
+
+/** Resolves the best display ID for a vulnerability: GHSA ID if available, otherwise the numeric ID. */
+export function resolveDisplayId(vulnerability: { ghsaId?: string | undefined; id: string }): string {
+  return vulnerability.ghsaId ?? vulnerability.id;
+}
+
+// region | Helpers
+/** Formats a single allowed vulnerability as a bullet line. */
+function formatAllowedLine(vulnerability: AllowedVulnerability, now: Date, style: OutputStyle): string {
+  const suffix = vulnerability.addedAt !== undefined ? formatAllowedSuffix(vulnerability.addedAt, now) : '';
+  const message = `${resolveDisplayId(vulnerability)}: ${vulnerability.path}${formatSeveritySuffix(vulnerability.severity, style)}${suffix}`;
+  return `  \u{2022} ${formatMarkedLine(style, 'passed', message)}`;
+}
+
+/** Builds the "allowed since X ago (datetime)" suffix for entries with `addedAt`. */
+function formatAllowedSuffix(addedAt: string, now: Date): string {
+  const relativeTime = formatRelativeTime(addedAt, now);
+  if (relativeTime.length === 0) return ` \u{2022} allowed (${addedAt})`;
+  return ` \u{2022} allowed since ${relativeTime} (${addedAt})`;
+}
+
+/** Formats a single below-threshold vulnerability as a bullet line. */
+function formatBelowThresholdLine(vulnerability: AuditResult, style: OutputStyle): string {
+  const message = `${resolveDisplayId(vulnerability)}: ${vulnerability.path}${formatSeveritySuffix(vulnerability.severity, style)} \u{2022} ignored`;
+  return `  \u{2022} ${formatMarkedLine(style, 'skipped', message)}`;
+}
+
+/** Builds the intro banner reflecting the scopes being audited. */
+function formatIntroBanner(
+  scopes: AuditScope[],
+  style: OutputStyle,
+  thresholds?: Partial<Record<AuditScope, SeverityThreshold>>,
+): string {
+  const firstScope = scopes[0];
+  // `firstScope` is always defined here; the guard narrows for TypeScript.
+  if (scopes.length === 1 && firstScope !== undefined) {
+    const annotation = formatThresholdAnnotation(thresholds?.[firstScope], style);
+    const message = `Auditing ${SCOPE_NAMES[firstScope]} dependencies${annotation && ` ${annotation}`} ...`;
+    return formatGlyphLine(V11Y_GLYPHS, style, 'audit', message);
+  }
+  return formatGlyphLine(V11Y_GLYPHS, style, 'audit', 'Auditing dependencies ...');
+}
+
+/** Formats a scope's finding lines (without scope header). */
+function formatScopeFindings(result: ScopeCheckResult, now: Date, style: OutputStyle): string[] {
+  const lines: string[] = Array.from(result.unallowed, (vulnerability) => formatUnallowedLine(vulnerability, style));
+  for (const vulnerability of result.allowed) {
+    lines.push(formatAllowedLine(vulnerability, now, style));
+  }
+  for (const entry of result.stale) {
+    lines.push(formatStaleLine(entry, style));
+  }
+  for (const vulnerability of result.belowThreshold) {
+    lines.push(formatBelowThresholdLine(vulnerability, style));
+  }
+  return lines;
+}
+
+/** Formats a single stale entry as a bullet line. */
+function formatStaleLine(entry: StaleEntry, style: OutputStyle): string {
+  return `  \u{2022} ${formatMarkedLine(style, 'stale', `${entry.id} \u{2022} not needed`)}`;
+}
+
+/** Formats a threshold annotation, e.g. `(threshold: 🟠 moderate)`. Returns empty string for `low` threshold. */
+function formatThresholdAnnotation(threshold: SeverityThreshold | undefined, style: OutputStyle): string {
+  if (threshold === undefined || threshold === 'low') return '';
+  const indicator = getSeverityIndicator(threshold, style);
+  const indicatorPart = indicator.length > 0 ? `${indicator} ` : '';
+  return `(threshold: ${indicatorPart}${threshold})`;
+}
+
+/** Formats a single unallowed vulnerability as a bullet line. */
+function formatUnallowedLine(vulnerability: AuditResult, style: OutputStyle): string {
+  const message = `${resolveDisplayId(vulnerability)}: ${vulnerability.path}${formatSeveritySuffix(vulnerability.severity, style)}`;
+  return `  \u{2022} ${formatMarkedLine(style, 'failed', message)}`;
+}
+
+/** Checks whether a scope has any findings. */
+function hasFindings(result: ScopeCheckResult): boolean {
+  return (
+    result.unallowed.length > 0 ||
+    result.allowed.length > 0 ||
+    result.stale.length > 0 ||
+    result.belowThreshold.length > 0
+  );
+}
+// endregion | Helpers
