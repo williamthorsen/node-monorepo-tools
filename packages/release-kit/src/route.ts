@@ -1,15 +1,17 @@
 import process from 'node:process';
 
 import { resolveSelfVersion } from '@williamthorsen/nmr-core';
-import { createCli, runCli } from '@williamthorsen/nmr-core/cli';
+import { type CliStyleContext, createCli, resolveCliStyles, runCli } from '@williamthorsen/nmr-core/cli';
 
 import { BIN } from './bin.ts';
 import type { CommandContext } from './cli/commandKit.ts';
 import { init, overrides, showTagPrefixes, syncLabels, updateTemplates } from './cli/maintenanceCommands.ts';
 import { commit, createGithubRelease, prepare, publish, push, tag } from './cli/releaseCommands.ts';
-import { OUTPUT_STYLE_ENV_VAR, resolveStyles, type ResolveStylesOptions } from './resolveStyles.ts';
 
 const VERSION = resolveSelfVersion(import.meta.url);
+
+/** The environment variable that sets the caller's standing style preference: `auto`, `plain`, or `rich`. */
+const OUTPUT_STYLE_ENV_VAR = 'RELEASE_KIT_OUTPUT_STYLE';
 
 /** Runs the `release-kit` command tree against the arguments and resolves to the exit code. */
 export async function routeCommand(args: string[]): Promise<number> {
@@ -22,11 +24,13 @@ export async function routeCommand(args: string[]): Promise<number> {
   });
 }
 
-const { defineGroup } = createCli<ResolveStylesOptions>();
+const { defineGroup } = createCli<CliStyleContext>();
 
 const ROOT = defineGroup({
   summary: 'Version-bumping and changelog-generation toolkit for release workflows',
-  deriveContext: (_flags, context): CommandContext => ({ styles: resolveStyles(context) }),
+  deriveContext: (_flags, context): CommandContext => ({
+    styles: resolveCliStyles({ ...context, envVar: OUTPUT_STYLE_ENV_VAR }),
+  }),
   commands: {
     prepare,
     commit,

@@ -1,17 +1,26 @@
 import process from 'node:process';
 
 import { isAnticipatedFailure, reportError, resolveSelfVersion, type StreamStyles } from '@williamthorsen/nmr-core';
-import { createCli, type FlagSchema, runCli, UsageError } from '@williamthorsen/nmr-core/cli';
+import {
+  type CliStyleContext,
+  createCli,
+  type FlagSchema,
+  resolveCliStyles,
+  runCli,
+  UsageError,
+} from '@williamthorsen/nmr-core/cli';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { BIN } from './bin.ts';
 import { auditCommand, checkCommand, syncCommand } from './commands.ts';
 import { initCommand } from './init/initCommand.ts';
 import { updateTemplatesCommand } from './init/updateTemplatesCommand.ts';
-import { OUTPUT_STYLE_ENV_VAR, resolveStyles, type ResolveStylesOptions } from './resolveStyles.ts';
 import type { AuditScope, CommandOptions } from './types.ts';
 
 const VERSION = resolveSelfVersion(import.meta.url);
+
+/** The environment variable that sets the caller's standing style preference: `auto`, `plain`, or `rich`. */
+const OUTPUT_STYLE_ENV_VAR = 'V11Y_CHECK_OUTPUT_STYLE';
 
 /** Runs the `v11y` command tree against the arguments and resolves to the exit code. */
 export async function routeCommand(args: string[]): Promise<number> {
@@ -28,7 +37,7 @@ interface CommandContext {
   styles: StreamStyles;
 }
 
-const { defineGroup } = createCli<ResolveStylesOptions>();
+const { defineGroup } = createCli<CliStyleContext>();
 const { defineCommand } = createCli<CommandContext>();
 
 /** The flags of every command that audits a dependency scope. */
@@ -102,7 +111,9 @@ const updateTemplates = defineCommand({
 const ROOT = defineGroup({
   summary: 'Check dependencies for vulnerabilities against an allowlist',
   defaultCommand: 'check',
-  deriveContext: (_flags, context): CommandContext => ({ styles: resolveStyles(context) }),
+  deriveContext: (_flags, context): CommandContext => ({
+    styles: resolveCliStyles({ ...context, envVar: OUTPUT_STYLE_ENV_VAR }),
+  }),
   commands: {
     check,
     'run-audit-ci': runAuditCi,
