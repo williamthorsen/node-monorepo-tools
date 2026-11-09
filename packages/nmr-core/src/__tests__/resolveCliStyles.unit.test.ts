@@ -1,10 +1,11 @@
-import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { OUTPUT_STYLE_ENV_VAR, resolveStyles } from '../resolveStyles.ts';
+import { resolveCliStyles, UsageError } from '../cli.ts';
 
-describe(resolveStyles, () => {
+const ENV_VAR = 'EXAMPLE_OUTPUT_STYLE';
+
+describe(resolveCliStyles, () => {
   let capture: CapturedStdio;
 
   beforeEach(() => {
@@ -16,20 +17,21 @@ describe(resolveStyles, () => {
   });
 
   it('detects the style of each stream separately when the variable is unset', () => {
-    const styles = resolveStyles({ env: {}, stderrIsTty: true, stdoutIsTty: false });
+    const styles = resolveCliStyles({ env: {}, envVar: ENV_VAR, stderrIsTty: true, stdoutIsTty: false });
 
     expect(styles).toStrictEqual({ stderr: 'rich', stdout: 'plain' });
   });
 
   it('resolves both streams to plain when CI is set', () => {
-    const styles = resolveStyles({ env: { CI: 'true' }, stderrIsTty: true, stdoutIsTty: true });
+    const styles = resolveCliStyles({ env: { CI: 'true' }, envVar: ENV_VAR, stderrIsTty: true, stdoutIsTty: true });
 
     expect(styles).toStrictEqual({ stderr: 'plain', stdout: 'plain' });
   });
 
   it.each(['plain', 'rich'] as const)('lets %s outrank detection on both streams', (setting) => {
-    const styles = resolveStyles({
-      env: { CI: 'true', [OUTPUT_STYLE_ENV_VAR]: setting },
+    const styles = resolveCliStyles({
+      env: { CI: 'true', [ENV_VAR]: setting },
+      envVar: ENV_VAR,
       stderrIsTty: true,
       stdoutIsTty: false,
     });
@@ -38,8 +40,9 @@ describe(resolveStyles, () => {
   });
 
   it('defers to detection when the variable is auto', () => {
-    const styles = resolveStyles({
-      env: { [OUTPUT_STYLE_ENV_VAR]: 'auto' },
+    const styles = resolveCliStyles({
+      env: { [ENV_VAR]: 'auto' },
+      envVar: ENV_VAR,
       stderrIsTty: false,
       stdoutIsTty: true,
     });
@@ -47,10 +50,10 @@ describe(resolveStyles, () => {
     expect(styles).toStrictEqual({ stderr: 'plain', stdout: 'rich' });
   });
 
-  it('throws the shared usage error, without writing to stderr, on any other value', () => {
+  it('throws a UsageError naming the variable and the accepted values, without writing to stderr, on any other value', () => {
     expect(() =>
-      resolveStyles({ env: { [OUTPUT_STYLE_ENV_VAR]: 'loud' }, stderrIsTty: true, stdoutIsTty: true }),
-    ).toThrow(new UsageError('V11Y_CHECK_OUTPUT_STYLE must be one of: auto, plain, rich (got "loud")'));
+      resolveCliStyles({ env: { [ENV_VAR]: 'loud' }, envVar: ENV_VAR, stderrIsTty: true, stdoutIsTty: true }),
+    ).toThrow(new UsageError('EXAMPLE_OUTPUT_STYLE must be one of: auto, plain, rich (got "loud")'));
     expect(capture.stderrChunks).toStrictEqual([]);
   });
 });
