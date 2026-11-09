@@ -2,9 +2,9 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { resolveAuditCiBin, runAuditCi } from '../audit-ci-runner.ts';
+import { resolveAuditCiBin, runAuditCi } from '../runAuditCi.ts';
 
-const PACKAGE_DIR = path.resolve(import.meta.dirname, '..', '..');
+const PACKAGE_DIR = path.resolve(import.meta.dirname, '..', '..', '..', '..');
 
 describe(resolveAuditCiBin, () => {
   it('returns a non-empty path to the audit-ci bin', () => {
