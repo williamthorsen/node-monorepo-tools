@@ -18,13 +18,16 @@ interface UpdateTemplatesOptions {
  *
  * Brings the scaffolded audit workflow up to date with the bundled template; the config file is never read or written.
  */
-export function updateTemplatesCommand({ isDryRun, styles }: UpdateTemplatesOptions): number {
+export function updateTemplatesCommand(
+  { isDryRun, styles }: UpdateTemplatesOptions,
+  dependencies: UpdateTemplatesDependencies = defaultUpdateTemplatesDependencies,
+): number {
   if (isDryRun) {
     console.info('[dry-run mode]');
   }
 
   printStep('Updating workflows');
-  const template = readWorkflowTemplate();
+  const template = dependencies.readWorkflowTemplate();
   const result: ManagedFileResult =
     'error' in template
       ? { filePath: WORKFLOW_PATH, outcome: 'failed', error: template.error }
@@ -33,3 +36,11 @@ export function updateTemplatesCommand({ isDryRun, styles }: UpdateTemplatesOpti
 
   return result.outcome === 'failed' ? 1 : 0;
 }
+
+/** Functions through which `updateTemplatesCommand` reads the bundled workflow template. */
+export interface UpdateTemplatesDependencies {
+  readWorkflowTemplate: typeof readWorkflowTemplate;
+}
+
+/** The real implementations of the `updateTemplatesCommand` dependencies. */
+export const defaultUpdateTemplatesDependencies: UpdateTemplatesDependencies = { readWorkflowTemplate };

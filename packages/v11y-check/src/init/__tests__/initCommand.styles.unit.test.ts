@@ -2,17 +2,12 @@ import { printError, reportWriteResult, type StreamStyles, type WriteResult } fr
 import { disposeOnTestFinished, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { initCommand } from '../initCommand.ts';
-import { scaffoldFiles } from '../scaffold.ts';
+import { initCommand, type InitDependencies } from '../initCommand.ts';
 
 vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => ({
   ...(await importOriginal()),
   printError: vi.fn(),
   reportWriteResult: vi.fn(),
-}));
-
-vi.mock(import('../scaffold.ts'), () => ({
-  scaffoldFiles: vi.fn(),
 }));
 
 // Each stream gets a different style so that an assertion fails if a helper receives the other stream's.
@@ -32,9 +27,9 @@ describe(initCommand, () => {
       { filePath: '.config/v11y-check.config.json', outcome: 'created' },
       { filePath: '.github/workflows/audit.yaml', outcome: 'skipped' },
     ];
-    vi.mocked(scaffoldFiles).mockReturnValue(results);
+    const scaffoldFiles = vi.fn<InitDependencies['scaffoldFiles']>().mockReturnValue(results);
 
-    initCommand({ isDryRun: false, shouldForce: false, styles: STYLES });
+    initCommand({ isDryRun: false, shouldForce: false, styles: STYLES }, { scaffoldFiles });
 
     expect(reportWriteResult).toHaveBeenCalledTimes(2);
     expect(reportWriteResult).toHaveBeenNthCalledWith(1, results[0], false, STYLES);
@@ -42,11 +37,11 @@ describe(initCommand, () => {
   });
 
   it('passes the resolved stderr style to printError when scaffolding throws', () => {
-    vi.mocked(scaffoldFiles).mockImplementation(() => {
+    const scaffoldFiles = vi.fn<InitDependencies['scaffoldFiles']>().mockImplementation(() => {
       throw new Error('disk full');
     });
 
-    const exitCode = initCommand({ isDryRun: false, shouldForce: false, styles: STYLES });
+    const exitCode = initCommand({ isDryRun: false, shouldForce: false, styles: STYLES }, { scaffoldFiles });
 
     expect(exitCode).toBe(1);
     expect(printError).toHaveBeenCalledWith('Failed to scaffold files: disk full', 'plain');
