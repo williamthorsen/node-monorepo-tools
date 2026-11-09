@@ -1,13 +1,11 @@
 import path from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { isBuildInfo } from '../../contract/parse.ts';
-import { collectBuildInfo } from '../collectBuildInfo.ts';
-import { readGitFacts } from '../sources/readGitFacts.ts';
-
-vi.mock(import('../sources/readGitFacts.ts'), () => ({ readGitFacts: vi.fn(() => ({})) }));
+import { collectBuildInfoWith } from '../collectBuildInfo.ts';
+import type { GitFacts } from '../sources/readGitFacts.ts';
 
 const FIXTURES_DIR = path.join(import.meta.dirname, 'fixtures');
 const BARE_APP = path.join(FIXTURES_DIR, 'app-bare');
@@ -29,13 +27,9 @@ const GIT_FACTS = {
   remoteUrl: 'git@gitlab.com:acme/remote.git',
 };
 
-describe(collectBuildInfo, () => {
-  afterEach(() => {
-    vi.mocked(readGitFacts).mockReset().mockReturnValue({});
-  });
-
+describe(collectBuildInfoWith, () => {
   it('fills the commit, repository, and deployment from Vercel variables without git', () => {
-    const info = collectBuildInfo({
+    const info = collectBuildInfoWith(fakeGitReader({}), {
       cwd: MARKDOWN_APP,
       now: NOW,
       env: {
@@ -70,9 +64,9 @@ describe(collectBuildInfo, () => {
   });
 
   it('adds git time and dirty state to an EAS commit, taking the repository from the manifest', () => {
-    vi.mocked(readGitFacts).mockReturnValue({ ...GIT_FACTS, dirty: true });
+    const readGit = fakeGitReader({ ...GIT_FACTS, dirty: true });
 
-    const info = collectBuildInfo({
+    const info = collectBuildInfoWith(readGit, {
       cwd: JSON_APP,
       now: NOW,
       env: { EAS_BUILD: 'true', EAS_BUILD_PROFILE: 'preview', EAS_BUILD_GIT_COMMIT_HASH: SHA, EAS_BUILD_ID: 'b-1' },
@@ -88,13 +82,13 @@ describe(collectBuildInfo, () => {
   });
 
   it('reports a GitHub Actions push build', () => {
-    vi.mocked(readGitFacts).mockReturnValue(GIT_FACTS);
+    const readGit = fakeGitReader(GIT_FACTS);
     using tree = createTempTree(
       { 'event.json': JSON.stringify({ repository: { default_branch: 'main' } }) },
       { prefix: 'build-info-collect-' },
     );
 
-    const info = collectBuildInfo({
+    const info = collectBuildInfoWith(readGit, {
       cwd: BARE_APP,
       now: NOW,
       env: {
@@ -118,9 +112,9 @@ describe(collectBuildInfo, () => {
   });
 
   it('keeps only the host commit when git reports a different HEAD', () => {
-    vi.mocked(readGitFacts).mockReturnValue({ ...GIT_FACTS, sha: OTHER_SHA, message: 'Merge abc into def' });
+    const readGit = fakeGitReader({ ...GIT_FACTS, sha: OTHER_SHA, message: 'Merge abc into def' });
 
-    const info = collectBuildInfo({
+    const info = collectBuildInfoWith(readGit, {
       cwd: BARE_APP,
       now: NOW,
       env: { GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'push', GITHUB_SHA: SHA, GITHUB_REF_NAME: 'feature' },
@@ -130,9 +124,9 @@ describe(collectBuildInfo, () => {
   });
 
   it('omits the commit sha on a pull request whose payload does not name the head', () => {
-    vi.mocked(readGitFacts).mockReturnValue({ ...GIT_FACTS, sha: OTHER_SHA, message: 'Merge abc into def' });
+    const readGit = fakeGitReader({ ...GIT_FACTS, sha: OTHER_SHA, message: 'Merge abc into def' });
 
-    const info = collectBuildInfo({
+    const info = collectBuildInfoWith(readGit, {
       cwd: BARE_APP,
       now: NOW,
       env: {
@@ -148,10 +142,11 @@ describe(collectBuildInfo, () => {
   });
 
   it('takes the commit from git and the repository from the git remote on a local build', () => {
-    vi.mocked(readGitFacts).mockReturnValue(GIT_FACTS);
+    const readGit = fakeGitReader(GIT_FACTS);
 
-    const info = collectBuildInfo({ cwd: MARKDOWN_APP, now: NOW, env: { NODE_ENV: 'production' } });
+    const info = collectBuildInfoWith(readGit, { cwd: MARKDOWN_APP, now: NOW, env: { NODE_ENV: 'production' } });
 
+    expect(readGit).toHaveBeenCalledWith(MARKDOWN_APP);
     expect(info.host).toBe('local');
     expect(info.environment).toBe('production');
     expect(info.commit).toStrictEqual({ ...omitRemote(GIT_FACTS), shortSha: 'abc1234' });
@@ -165,14 +160,14 @@ describe(collectBuildInfo, () => {
   });
 
   it('reports an unknown CI host', () => {
-    const info = collectBuildInfo({ cwd: BARE_APP, now: NOW, env: { CI: 'true' } });
+    const info = collectBuildInfoWith(fakeGitReader({}), { cwd: BARE_APP, now: NOW, env: { CI: 'true' } });
 
     expect(info.host).toBe('unknown');
     expect(isBuildInfo(info)).toBe(true);
   });
 
   it('omits the commit, repository, and release notes without git or a changelog', () => {
-    expect(collectBuildInfo({ cwd: BARE_APP, now: NOW, env: {} })).toStrictEqual({
+    expect(collectBuildInfoWith(fakeGitReader({}), { cwd: BARE_APP, now: NOW, env: {} })).toStrictEqual({
       schemaVersion: 1,
       name: 'fixture-app',
       version: '0.7.0',
@@ -184,18 +179,20 @@ describe(collectBuildInfo, () => {
   });
 
   it('does not run git when shouldReadGit is false', () => {
-    vi.mocked(readGitFacts).mockReturnValue(GIT_FACTS);
+    const readGit = fakeGitReader(GIT_FACTS);
 
-    const info = collectBuildInfo({ cwd: BARE_APP, env: {}, shouldReadGit: false });
+    const info = collectBuildInfoWith(readGit, { cwd: BARE_APP, env: {}, shouldReadGit: false });
 
-    expect(readGitFacts).not.toHaveBeenCalled();
+    expect(readGit).not.toHaveBeenCalled();
     expect(info.commit).toBeUndefined();
   });
 
   it('defaults the build time to the time of the call', () => {
     vi.useFakeTimers({ now: NOW });
     try {
-      expect(collectBuildInfo({ cwd: BARE_APP, env: {} }).buildTime).toBe('2026-10-08T06:29:41.000Z');
+      expect(collectBuildInfoWith(fakeGitReader({}), { cwd: BARE_APP, env: {} }).buildTime).toBe(
+        '2026-10-08T06:29:41.000Z',
+      );
     } finally {
       vi.useRealTimers();
     }
@@ -203,6 +200,11 @@ describe(collectBuildInfo, () => {
 });
 
 // region | Helpers
+
+/** Returns a git reader that reports `facts` for any directory. */
+function fakeGitReader(facts: GitFacts) {
+  return vi.fn<(cwd: string) => GitFacts>(() => facts);
+}
 
 /** Returns the git facts without the remote, which the commit does not report. */
 function omitRemote({ remoteUrl: _remoteUrl, ...facts }: typeof GIT_FACTS): Omit<typeof GIT_FACTS, 'remoteUrl'> {
