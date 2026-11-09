@@ -2,10 +2,10 @@ import type { BuildInfo } from '../contract/types.ts';
 import { compactRecord } from '../portable/compactRecord.ts';
 import { readHostFacts } from './hosts/readHostFacts.ts';
 import type { HostEnv, HostFacts } from './hosts/types.ts';
-import { findReleaseNotes } from './readReleaseNotes.ts';
 import { parseRepositoryUrl } from './sources/parseRepositoryUrl.ts';
 import { type GitFacts, readGitFacts } from './sources/readGitFacts.ts';
 import { readManifest } from './sources/readManifest.ts';
+import { findReleaseNotes } from './sources/readReleaseNotes.ts';
 
 /** Options of `collectBuildInfo`. */
 export interface CollectBuildInfoOptions {

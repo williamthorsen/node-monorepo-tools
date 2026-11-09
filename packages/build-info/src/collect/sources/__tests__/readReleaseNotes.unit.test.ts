@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { findReleaseNotes, readReleaseNotes } from '../readReleaseNotes.ts';
 
-const FIXTURES_DIR = path.join(import.meta.dirname, 'fixtures');
+const FIXTURES_DIR = path.join(import.meta.dirname, '../../__tests__/fixtures');
 const BARE_APP = path.join(FIXTURES_DIR, 'app-bare');
 const JSON_APP = path.join(FIXTURES_DIR, 'app-with-changelog-json');
 const MARKDOWN_APP = path.join(FIXTURES_DIR, 'app-with-changelog-md');

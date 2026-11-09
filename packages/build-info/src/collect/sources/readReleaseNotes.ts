@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import type { BuildInfo } from '../contract/types.ts';
-import { isRecord } from '../portable/isRecord.ts';
+import type { BuildInfo } from '../../contract/types.ts';
+import { isRecord } from '../../portable/isRecord.ts';
 
 /** One version's release notes. */
 export type ReleaseNotesEntry = NonNullable<BuildInfo['releaseNotes']> & { version: string };
