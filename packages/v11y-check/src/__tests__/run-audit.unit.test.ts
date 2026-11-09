@@ -1,12 +1,9 @@
-import type { SpawnSyncReturns } from 'node:child_process';
+import process from 'node:process';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { extractStaleEntries, parseAuditCiOutput } from '../run-audit.ts';
-
-// Left bare: `spawnSync` is overloaded, and a type argument would collapse `Mock<T>` to the last overload, which
-// the module's declared shape then rejects.
-const mockSpawnSync = vi.hoisted(() => vi.fn());
+import type { AuditCiRunner, AuditCiRunResult } from '../audit-ci-runner.ts';
+import { extractStaleEntries, parseAuditCiOutput, runAudit, runReport } from '../run-audit.ts';
 
 const wellFormedAdvisory = {
   id: 1234,
@@ -15,15 +12,7 @@ const wellFormedAdvisory = {
   findings: [{ paths: ['lodash'] }],
 };
 
-vi.mock(import('node:child_process'), () => ({
-  spawnSync: mockSpawnSync,
-}));
-
 describe(parseAuditCiOutput, () => {
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('parses advisories from a flat advisories object', () => {
     const json = JSON.stringify({
       advisories: {
@@ -313,10 +302,6 @@ describe(parseAuditCiOutput, () => {
 });
 
 describe(extractStaleEntries, () => {
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('extracts stale entries from allowlistedAdvisoriesNotFound', () => {
     const json = JSON.stringify({
       allowlistedAdvisoriesNotFound: ['GHSA-old1', 'GHSA-old2'],
@@ -343,55 +328,45 @@ describe(extractStaleEntries, () => {
   });
 });
 
-const { resolveAuditCiBin, runAudit, runReport } = await import('../run-audit.ts');
-
 describe(runAudit, () => {
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
+  it('passes --config and --output-format json to the runner when isJson is true', () => {
+    const runner = buildRunner({ stdout: '{}' });
 
-  it('passes --config and --output-format json when isJson is true', () => {
-    mockSpawnSync.mockReturnValue(buildSpawnResult({ stdout: '{}' }));
+    runAudit({ configPath: '/path/to/config.json', cwd: '/repo', isJson: true }, runner);
 
-    runAudit({ configPath: '/path/to/config.json', isJson: true });
-
-    const args = mockSpawnSync.mock.calls[0]?.[1];
-    expect(args).toContain('--config');
-    expect(args).toContain('/path/to/config.json');
-    expect(args).toContain('--output-format');
-    expect(args).toContain('json');
+    expect(runner).toHaveBeenCalledWith(['--config', '/path/to/config.json', '--output-format', 'json'], '/repo');
   });
 
   it('passes --output-format text when isJson is false', () => {
-    mockSpawnSync.mockReturnValue(buildSpawnResult());
+    const runner = buildRunner();
 
-    runAudit({ configPath: '/path/to/config.json', isJson: false });
+    runAudit({ configPath: '/path/to/config.json', cwd: '/repo', isJson: false }, runner);
 
-    const args = mockSpawnSync.mock.calls[0]?.[1];
-    expect(args).toContain('--output-format');
-    expect(args).toContain('text');
+    expect(runner).toHaveBeenCalledWith(['--config', '/path/to/config.json', '--output-format', 'text'], '/repo');
   });
 
-  it('returns the exit code from spawnSync', () => {
-    mockSpawnSync.mockReturnValue(buildSpawnResult({ status: 7 }));
+  it('runs in the current directory when cwd is not given', () => {
+    const runner = buildRunner();
 
-    const result = runAudit({ configPath: '/cfg.json' });
+    runAudit({ configPath: '/cfg.json' }, runner);
+
+    expect(runner).toHaveBeenCalledWith(['--config', '/cfg.json', '--output-format', 'text'], process.cwd());
+  });
+
+  it("returns the runner's exit status", () => {
+    const result = runAudit({ configPath: '/cfg.json' }, buildRunner({ status: 7 }));
 
     expect(result.exitCode).toBe(7);
   });
 
-  it('throws on spawn failure', () => {
-    mockSpawnSync.mockReturnValue(buildSpawnResult({ status: null, error: new Error('ENOENT') }));
+  it('throws when audit-ci cannot be launched', () => {
+    const runner = buildRunner({ status: null, error: new Error('ENOENT') });
 
-    expect(() => runAudit({ configPath: '/cfg.json' })).toThrow('Failed to launch audit-ci');
+    expect(() => runAudit({ configPath: '/cfg.json' }, runner)).toThrow('Failed to launch audit-ci');
   });
 });
 
 describe(runReport, () => {
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('returns parsed results regardless of exit code', () => {
     const advisoryOutput = JSON.stringify({
       advisories: {
@@ -404,79 +379,63 @@ describe(runReport, () => {
       },
     });
 
-    mockSpawnSync.mockReturnValue(buildSpawnResult({ status: 1, stdout: advisoryOutput }));
-
-    const report = runReport({ configPath: '/cfg.json' });
+    const report = runReport({ configPath: '/cfg.json' }, buildRunner({ status: 1, stdout: advisoryOutput }));
 
     expect(report.results).toHaveLength(1);
     expect(report.results[0]?.id).toBe('GHSA-abc');
   });
 
-  it('throws on spawn failure', () => {
-    mockSpawnSync.mockReturnValue(buildSpawnResult({ status: null, error: new Error('ENOENT') }));
+  it('throws when audit-ci cannot be launched', () => {
+    const runner = buildRunner({ status: null, error: new Error('ENOENT') });
 
-    expect(() => runReport({ configPath: '/cfg.json' })).toThrow('Failed to launch audit-ci');
+    expect(() => runReport({ configPath: '/cfg.json' }, runner)).toThrow('Failed to launch audit-ci');
   });
 
   it('throws with the exit status and stderr when audit-ci exits non-zero without a report', () => {
-    mockSpawnSync.mockReturnValue(buildSpawnResult({ status: 1, stderr: 'Error: spawn EPERM\n' }));
+    const runner = buildRunner({ status: 1, stderr: 'Error: spawn EPERM\n' });
 
-    expect(() => runReport({ configPath: '/cfg.json' })).toThrow(
+    expect(() => runReport({ configPath: '/cfg.json' }, runner)).toThrow(
       'audit-ci exited with status 1 without producing a report:\nError: spawn EPERM',
     );
   });
 
   it('throws without a stderr suffix when audit-ci writes no stderr', () => {
-    mockSpawnSync.mockReturnValue(buildSpawnResult({ status: 1 }));
-
-    expect(() => runReport({ configPath: '/cfg.json' })).toThrow(
+    expect(() => runReport({ configPath: '/cfg.json' }, buildRunner({ status: 1 }))).toThrow(
       /^audit-ci exited with status 1 without producing a report$/,
     );
   });
 
   it('throws when audit-ci exits 0 with output that is not a JSON report', () => {
-    mockSpawnSync.mockReturnValue(buildSpawnResult({ stdout: 'Passed pnpm security audit.\n' }));
+    const runner = buildRunner({ stdout: 'Passed pnpm security audit.\n' });
 
-    expect(() => runReport({ configPath: '/cfg.json' })).toThrow('exited with status 0 without producing a report');
-  });
-
-  it('names the signal when audit-ci is terminated', () => {
-    mockSpawnSync.mockReturnValue(buildSpawnResult({ status: null, signal: 'SIGKILL' }));
-
-    expect(() => runReport({ configPath: '/cfg.json' })).toThrow('was terminated by SIGKILL');
-  });
-
-  it('appends --report-type full when reportType is "full"', () => {
-    mockSpawnSync.mockReturnValue(buildSpawnResult({ stdout: '{}' }));
-
-    runReport({ configPath: '/cfg.json', reportType: 'full' });
-
-    const args = mockSpawnSync.mock.calls[0]?.[1];
-    expect(args).toStrictEqual(
-      expect.arrayContaining(['--config', '/cfg.json', '--output-format', 'json', '--report-type', 'full']),
+    expect(() => runReport({ configPath: '/cfg.json' }, runner)).toThrow(
+      'exited with status 0 without producing a report',
     );
   });
 
-  it('omits --report-type when reportType is not specified', () => {
-    mockSpawnSync.mockReturnValue(buildSpawnResult({ stdout: '{}' }));
+  it('names the signal when audit-ci is terminated', () => {
+    const runner = buildRunner({ status: null, signal: 'SIGKILL' });
 
-    runReport({ configPath: '/cfg.json' });
-
-    const args = mockSpawnSync.mock.calls[0]?.[1];
-    expect(args).not.toContain('--report-type');
-  });
-});
-
-describe(resolveAuditCiBin, () => {
-  afterEach(() => {
-    vi.clearAllMocks();
+    expect(() => runReport({ configPath: '/cfg.json' }, runner)).toThrow('was terminated by SIGKILL');
   });
 
-  it('returns a non-empty path to the audit-ci bin', () => {
-    // audit-ci resolves in this environment, so the assertion accepts either branch's path.
-    const result = resolveAuditCiBin();
-    expect(result).toBeTypeOf('string');
-    expect(result.length).toBeGreaterThan(0);
+  it('appends --report-type full when reportType is "full"', () => {
+    const runner = buildRunner({ stdout: '{}' });
+
+    runReport({ configPath: '/cfg.json', cwd: '/repo', reportType: 'full' }, runner);
+
+    expect(runner).toHaveBeenCalledWith(
+      ['--config', '/cfg.json', '--output-format', 'json', '--report-type', 'full'],
+      '/repo',
+    );
+  });
+
+  it('omits --report-type and runs in the current directory by default', () => {
+    const runner = buildRunner({ stdout: '{}' });
+
+    runReport({ configPath: '/cfg.json' }, runner);
+
+    expect(runner).toHaveBeenCalledWith(['--config', '/cfg.json', '--output-format', 'json'], process.cwd());
   });
 });
 
@@ -491,16 +450,9 @@ function buildLodashOutput(findings: Array<{ paths: string[] }>): string {
   });
 }
 
-function buildSpawnResult(overrides: Partial<SpawnSyncReturns<string>> = {}): SpawnSyncReturns<string> {
-  return {
-    pid: 1234,
-    output: [null, '', ''],
-    stdout: '',
-    stderr: '',
-    status: 0,
-    signal: null,
-    ...overrides,
-  };
+/** Builds a fake runner that returns a successful run with the given overrides. */
+function buildRunner(overrides: Partial<AuditCiRunResult> = {}) {
+  return vi.fn<AuditCiRunner>(() => ({ signal: null, status: 0, stderr: '', stdout: '', ...overrides }));
 }
 
 // endregion | Helpers

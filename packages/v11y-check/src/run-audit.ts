@@ -1,23 +1,10 @@
-import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 
 import { UserError } from '@williamthorsen/nmr-core';
 import { z } from 'zod';
 
+import { type AuditCiRunner, runAuditCi } from './audit-ci-runner.ts';
 import type { AuditResult } from './types.ts';
-
-/** Resolves the audit-ci binary path from node_modules. */
-export function resolveAuditCiBin(): string {
-  try {
-    const resolvedUrl = import.meta.resolve('audit-ci');
-    const modulePath = new URL(resolvedUrl).pathname;
-    // audit-ci v7 publishes its CLI at dist/bin.js
-    const packageDir = modulePath.replace(/\/dist\/.*$/, '');
-    return `${packageDir}/dist/bin.js`;
-  } catch {
-    return 'audit-ci';
-  }
-}
 
 const auditCiAdvisorySchema = z.object({
   cvss: absentWhenNull(
@@ -219,16 +206,14 @@ export interface AuditRunResult {
  * otherwise audit-ci uses its default text format. Stale overrides are
  * detected from JSON output and returned.
  */
-export function runAudit({ configPath, cwd, isJson }: RunAuditOptions): AuditRunResult {
-  const bin = resolveAuditCiBin();
+export function runAudit(
+  { configPath, cwd, isJson }: RunAuditOptions,
+  runner: AuditCiRunner = runAuditCi,
+): AuditRunResult {
   const outputFormat = isJson ? 'json' : 'text';
   const args = ['--config', configPath, '--output-format', outputFormat];
 
-  const result = spawnSync(process.execPath, [bin, ...args], {
-    cwd: cwd ?? process.cwd(),
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const result = runner(args, cwd ?? process.cwd());
 
   if (result.error) {
     throw new UserError(`Failed to launch audit-ci: ${result.error.message}`);
@@ -261,18 +246,16 @@ export interface ReportResult {
  * Decides on the output rather than the exit code, because audit-ci exits non-zero both when it finds vulnerabilities
  * and when it cannot audit. Throws when stdout does not contain a JSON report.
  */
-export function runReport({ configPath, cwd, reportType }: Omit<RunAuditOptions, 'isJson'>): ReportResult {
-  const bin = resolveAuditCiBin();
+export function runReport(
+  { configPath, cwd, reportType }: Omit<RunAuditOptions, 'isJson'>,
+  runner: AuditCiRunner = runAuditCi,
+): ReportResult {
   const args = ['--config', configPath, '--output-format', 'json'];
   if (reportType === 'full') {
     args.push('--report-type', 'full');
   }
 
-  const result = spawnSync(process.execPath, [bin, ...args], {
-    cwd: cwd ?? process.cwd(),
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const result = runner(args, cwd ?? process.cwd());
 
   if (result.error) {
     throw new UserError(`Failed to launch audit-ci: ${result.error.message}`);
