@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatCheckJson } from '../format-check.ts';
+import { formatCheckJson } from '../check.ts';
 import { makeCheckResult } from '../test-utils/check-result-fixtures.ts';
 
 describe(formatCheckJson, () => {

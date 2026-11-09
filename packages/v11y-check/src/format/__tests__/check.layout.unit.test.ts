@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatCheckText, getSeverityIndicator } from '../format-check.ts';
+import { formatCheckText, getSeverityIndicator } from '../check.ts';
 import { buildPopulatedCheckResult } from '../test-utils/buildPopulatedCheckResult.ts';
 import { makeCheckResult } from '../test-utils/check-result-fixtures.ts';
 

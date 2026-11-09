@@ -1,7 +1,7 @@
 import type { OutputStyle } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
-import { formatCheckVerboseText } from '../format-verbose.ts';
+import { formatCheckVerboseText } from '../formatCheckVerboseText.ts';
 import { buildPopulatedCheckResult } from '../test-utils/buildPopulatedCheckResult.ts';
 import { makeCheckResult } from '../test-utils/check-result-fixtures.ts';
 

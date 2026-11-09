@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatActionHints } from '../format-actions.ts';
+import { formatActionHints } from '../formatActionHints.ts';
 import { makeCheckResult } from '../test-utils/check-result-fixtures.ts';
 
 describe(formatActionHints, () => {

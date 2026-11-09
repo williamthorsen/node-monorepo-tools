@@ -1,5 +1,5 @@
-import type { CheckResult } from './check-result.ts';
-import type { AuditScope } from './types.ts';
+import type { CheckResult } from '../check-result.ts';
+import type { AuditScope } from '../types.ts';
 
 /** Status discriminant exposing the most severe finding category in a check result. */
 export type CheckSummaryStatus = 'vulnerabilities-found' | 'suppressed-vulnerabilities' | 'stale-overrides' | 'none';

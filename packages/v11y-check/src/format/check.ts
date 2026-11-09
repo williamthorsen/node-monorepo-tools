@@ -1,11 +1,11 @@
 import { formatGlyphLine, type OutputStyle } from '@williamthorsen/nmr-core';
 
-import type { AllowedVulnerability, CheckResult, ScopeCheckResult, StaleEntry } from './check-result.ts';
-import { formatActionHints } from './format-actions.ts';
-import { deriveSummary } from './format-summary.ts';
-import { formatRelativeTime } from './format-time.ts';
+import type { AllowedVulnerability, CheckResult, ScopeCheckResult, StaleEntry } from '../check-result.ts';
+import type { AuditResult, AuditScope, SeverityThreshold } from '../types.ts';
+import { deriveSummary } from './deriveSummary.ts';
+import { formatActionHints } from './formatActionHints.ts';
+import { formatRelativeTime } from './formatRelativeTime.ts';
 import { formatMarkedLine, V11Y_GLYPHS, type V11yGlyphName } from './glyphs.ts';
-import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 
 const SEVERITY_GLYPH_NAMES: Record<string, V11yGlyphName> = {
   critical: 'severityHigh',
