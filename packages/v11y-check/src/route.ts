@@ -23,8 +23,8 @@ const VERSION = resolveSelfVersion(import.meta.url);
 const OUTPUT_STYLE_ENV_VAR = 'V11Y_CHECK_OUTPUT_STYLE';
 
 /** Runs the `v11y` command tree against the arguments and resolves to the exit code. */
-export async function routeCommand(args: string[]): Promise<number> {
-  return runCli(args, ROOT, {
+export async function routeCommand(args: string[], commands: RouteCommands = defaultRouteCommands): Promise<number> {
+  return runCli(args, buildCommandTree(commands), {
     name: BIN,
     context: { env: process.env, stderrIsTty: process.stderr.isTTY, stdoutIsTty: process.stdout.isTTY },
     stdout: process.stdout,
@@ -32,6 +32,24 @@ export async function routeCommand(args: string[]): Promise<number> {
     version: () => VERSION,
   });
 }
+
+/** The commands to which `routeCommand` dispatches. */
+export interface RouteCommands {
+  auditCommand: typeof auditCommand;
+  checkCommand: typeof checkCommand;
+  initCommand: typeof initCommand;
+  syncCommand: typeof syncCommand;
+  updateTemplatesCommand: typeof updateTemplatesCommand;
+}
+
+/** The real implementations of the commands. */
+export const defaultRouteCommands: RouteCommands = {
+  auditCommand,
+  checkCommand,
+  initCommand,
+  syncCommand,
+  updateTemplatesCommand,
+};
 
 interface CommandContext {
   styles: StreamStyles;
@@ -59,69 +77,8 @@ const DRY_RUN_FLAG = {
   short: 'n',
 } satisfies FlagSchema[string];
 
-const check = defineCommand({
-  summary: 'Grouped vulnerability check with severity indicators',
-  flags: {
-    ...SCOPE_FLAGS,
-    verbose: { type: 'boolean', description: 'Show detailed per-vulnerability output', short: 'v' },
-  },
-  run: ({ flags, context }) =>
-    runReportingFailures(() => checkCommand(buildCommandOptions(flags, context.styles, flags.verbose))),
-});
-
-const runAuditCi = defineCommand({
-  summary: 'Run audit-ci against the generated config and print its own output',
-  flags: SCOPE_FLAGS,
-  run: ({ flags, context }) =>
-    runReportingFailures(() => auditCommand(buildCommandOptions(flags, context.styles, false))),
-});
-
-const sync = defineCommand({
-  summary: 'Synchronize allowlists with current audit findings',
-  flags: SCOPE_FLAGS,
-  run: ({ flags, context }) =>
-    runReportingFailures(() => syncCommand(buildCommandOptions(flags, context.styles, false))),
-});
-
-const init = defineCommand({
-  summary: 'Scaffold a starter config file and GitHub Actions workflow',
-  flags: {
-    dryRun: DRY_RUN_FLAG,
-    force: {
-      type: 'boolean',
-      description: 'Overwrite an existing workflow (an existing config is never overwritten)',
-      short: 'f',
-    },
-  },
-  run: ({ flags, context }) =>
-    runReportingFailures(() =>
-      initCommand({ isDryRun: flags.dryRun, shouldForce: flags.force, styles: context.styles }),
-    ),
-});
-
-const updateTemplates = defineCommand({
-  summary: 'Update the scaffolded workflow to the current template',
-  description:
-    'Update .github/workflows/audit.yaml to the template of the installed version, showing what changed. Creates the workflow when it is missing. Never touches the config file.',
-  flags: { dryRun: DRY_RUN_FLAG },
-  run: ({ flags, context }) =>
-    runReportingFailures(() => updateTemplatesCommand({ isDryRun: flags.dryRun, styles: context.styles })),
-});
-
-const ROOT = defineGroup({
-  summary: 'Check dependencies for vulnerabilities against an allowlist',
-  defaultCommand: 'check',
-  deriveContext: (_flags, context): CommandContext => ({
-    styles: resolveCliStyles({ ...context, envVar: OUTPUT_STYLE_ENV_VAR }),
-  }),
-  commands: {
-    check,
-    'run-audit-ci': runAuditCi,
-    sync,
-    init,
-    'update-templates': updateTemplates,
-  },
-  epilog: `Environment:
+/** The root help's closing text, which documents the output-style variable and shows example invocations. */
+const EPILOG = `Environment:
   ${OUTPUT_STYLE_ENV_VAR}
       Output style: auto (default), plain, or rich. auto prints plain, without emoji,
       when CI is set or the stream is not a terminal.
@@ -130,8 +87,7 @@ Examples:
   v11y                          Check both scopes
   v11y --prod --verbose         Check production dependencies, with per-vulnerability detail
   v11y run-audit-ci --prod      Print audit-ci's own report for production dependencies
-  v11y sync --dev               Update the dev allowlist to the current findings`,
-});
+  v11y sync --dev               Update the dev allowlist to the current findings`;
 
 // region | Helpers
 
@@ -150,6 +106,74 @@ function buildCommandOptions(
   if (flags.prod) scopes.push('prod');
 
   return { configPath: flags.config, isJson: flags.json, scopes, styles, verbose };
+}
+
+/** Builds the `v11y` command tree, whose commands dispatch to the given implementations. */
+function buildCommandTree(commands: RouteCommands) {
+  const check = defineCommand({
+    summary: 'Grouped vulnerability check with severity indicators',
+    flags: {
+      ...SCOPE_FLAGS,
+      verbose: { type: 'boolean', description: 'Show detailed per-vulnerability output', short: 'v' },
+    },
+    run: ({ flags, context }) =>
+      runReportingFailures(() => commands.checkCommand(buildCommandOptions(flags, context.styles, flags.verbose))),
+  });
+
+  const runAuditCi = defineCommand({
+    summary: 'Run audit-ci against the generated config and print its own output',
+    flags: SCOPE_FLAGS,
+    run: ({ flags, context }) =>
+      runReportingFailures(() => commands.auditCommand(buildCommandOptions(flags, context.styles, false))),
+  });
+
+  const sync = defineCommand({
+    summary: 'Synchronize allowlists with current audit findings',
+    flags: SCOPE_FLAGS,
+    run: ({ flags, context }) =>
+      runReportingFailures(() => commands.syncCommand(buildCommandOptions(flags, context.styles, false))),
+  });
+
+  const init = defineCommand({
+    summary: 'Scaffold a starter config file and GitHub Actions workflow',
+    flags: {
+      dryRun: DRY_RUN_FLAG,
+      force: {
+        type: 'boolean',
+        description: 'Overwrite an existing workflow (an existing config is never overwritten)',
+        short: 'f',
+      },
+    },
+    run: ({ flags, context }) =>
+      runReportingFailures(() =>
+        commands.initCommand({ isDryRun: flags.dryRun, shouldForce: flags.force, styles: context.styles }),
+      ),
+  });
+
+  const updateTemplates = defineCommand({
+    summary: 'Update the scaffolded workflow to the current template',
+    description:
+      'Update .github/workflows/audit.yaml to the template of the installed version, showing what changed. Creates the workflow when it is missing. Never touches the config file.',
+    flags: { dryRun: DRY_RUN_FLAG },
+    run: ({ flags, context }) =>
+      runReportingFailures(() => commands.updateTemplatesCommand({ isDryRun: flags.dryRun, styles: context.styles })),
+  });
+
+  return defineGroup({
+    summary: 'Check dependencies for vulnerabilities against an allowlist',
+    defaultCommand: 'check',
+    deriveContext: (_flags, context): CommandContext => ({
+      styles: resolveCliStyles({ ...context, envVar: OUTPUT_STYLE_ENV_VAR }),
+    }),
+    commands: {
+      check,
+      'run-audit-ci': runAuditCi,
+      sync,
+      init,
+      'update-templates': updateTemplates,
+    },
+    epilog: EPILOG,
+  });
 }
 
 /**
