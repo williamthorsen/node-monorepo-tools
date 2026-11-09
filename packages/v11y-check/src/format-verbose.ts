@@ -1,15 +1,8 @@
 import { formatGlyphLine, type OutputStyle, wrapToWidth } from '@williamthorsen/nmr-core';
 
+import type { AllowedVulnerability, CheckResult, ScopeCheckResult, StaleEntry } from './check-result.ts';
 import { formatActionHints } from './format-actions.ts';
-import {
-  type AllowedVulnerability,
-  type CheckResult,
-  formatSeveritySuffix,
-  getSeverityIndicator,
-  resolveDisplayId,
-  type ScopeCheckResult,
-  type StaleEntry,
-} from './format-check.ts';
+import { formatSeveritySuffix, getSeverityIndicator, resolveDisplayId } from './format-check.ts';
 import { formatRelativeTime } from './format-time.ts';
 import { formatMarkedLine, measureRowMarkerColumn, V11Y_GLYPHS, type V11yGlyphName } from './glyphs.ts';
 import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';

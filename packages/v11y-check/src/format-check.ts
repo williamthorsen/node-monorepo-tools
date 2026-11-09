@@ -1,46 +1,11 @@
 import { formatGlyphLine, type OutputStyle } from '@williamthorsen/nmr-core';
 
+import type { AllowedVulnerability, CheckResult, ScopeCheckResult, StaleEntry } from './check-result.ts';
 import { formatActionHints } from './format-actions.ts';
 import { deriveSummary } from './format-summary.ts';
 import { formatRelativeTime } from './format-time.ts';
 import { formatMarkedLine, V11Y_GLYPHS, type V11yGlyphName } from './glyphs.ts';
 import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
-
-// region | Types
-/** An audit finding that the allowlist admits, with the entry's reason and date. */
-export interface AllowedVulnerability {
-  addedAt?: string | undefined;
-  cvss?: { score?: number; vectorString?: string } | undefined;
-  description?: string | undefined;
-  ghsaId?: string | undefined;
-  id: string;
-  path: string;
-  paths: string[];
-  reason?: string | undefined;
-  severity?: string | undefined;
-  title?: string | undefined;
-  url: string;
-}
-
-/** An allowlist entry whose ID no longer appears in audit results. */
-export interface StaleEntry {
-  id: string;
-}
-
-/** Check results for a single scope. */
-export interface ScopeCheckResult {
-  allowed: AllowedVulnerability[];
-  belowThreshold: AuditResult[];
-  stale: StaleEntry[];
-  unallowed: AuditResult[];
-}
-
-/** Aggregated check results across scopes. */
-export interface CheckResult {
-  dev: ScopeCheckResult;
-  prod: ScopeCheckResult;
-}
-// endregion | Types
 
 // -- Severity indicator --
 

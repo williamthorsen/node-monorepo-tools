@@ -1,4 +1,4 @@
-import type { CheckResult, ScopeCheckResult } from '../format-check.ts';
+import type { CheckResult, ScopeCheckResult } from '../check-result.ts';
 
 /**
  * Builds a check result that exercises every branch of both text formatters: Each scope contains an unallowed, an

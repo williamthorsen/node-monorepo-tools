@@ -125,7 +125,7 @@ describe(checkCommand, () => {
     expect(capture.stdout).toContain('GHSA-bad');
   });
 
-  it('classifies allowed vulnerabilities correctly', async () => {
+  it('returns 0 when the allowlist admits every vulnerability', async () => {
     const config = makeConfig({
       dev: {
         allowlist: [{ id: 'GHSA-ok', url: 'https://example.com/ok' }],
@@ -145,61 +145,6 @@ describe(checkCommand, () => {
 
     expect(exitCode).toBe(0);
     expect(capture.stdout).toContain('\u{2705}');
-  });
-
-  it('populates allowed entries with advisory fields from the audit result and metadata from the allowlist entry', async () => {
-    const config = makeConfig({
-      prod: {
-        allowlist: [
-          {
-            addedAt: '2026-04-01T00:00:00.000Z',
-            id: 'GHSA-enriched',
-            reason: 'Accepted risk',
-            url: 'https://example.com/enriched',
-          },
-        ],
-      },
-    });
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
-    mocks.runReport.mockReturnValue({
-      results: [
-        {
-          cvss: { score: 7.5 },
-          description: 'Detailed description',
-          id: 'GHSA-enriched',
-          path: 'pkg',
-          paths: ['pkg', 'root>pkg'],
-          severity: 'high',
-          title: 'Prototype pollution',
-          url: 'https://example.com/enriched',
-        },
-      ],
-      stdout: '',
-      stderr: '',
-      warnings: [],
-    });
-
-    await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
-
-    const parsedOutput: unknown = JSON.parse(capture.stdout);
-    expect(parsedOutput).toStrictEqual(
-      expect.objectContaining({
-        prod: expect.objectContaining({
-          allowed: [
-            expect.objectContaining({
-              addedAt: '2026-04-01T00:00:00.000Z',
-              cvss: { score: 7.5 },
-              description: 'Detailed description',
-              id: 'GHSA-enriched',
-              paths: ['pkg', 'root>pkg'],
-              reason: 'Accepted risk',
-              severity: 'high',
-              title: 'Prototype pollution',
-            }),
-          ],
-        }),
-      }),
-    );
   });
 
   it('propagates ghsaId from audit result to allowed entry in JSON output', async () => {
@@ -422,7 +367,7 @@ describe(checkCommand, () => {
     expect(capture.stdout).toContain('PASS  GHSA-allowed');
   });
 
-  it('classifies below-threshold vulnerabilities separately and returns 0', async () => {
+  it('returns 0 when every vulnerability is below the threshold', async () => {
     const config = makeConfig({
       prod: {
         allowlist: [],
@@ -440,51 +385,9 @@ describe(checkCommand, () => {
       warnings: [],
     });
 
-    const exitCode = await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
+    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
 
     expect(exitCode).toBe(0);
-    const parsedOutput: unknown = JSON.parse(capture.stdout);
-    expect(parsedOutput).toStrictEqual(
-      expect.objectContaining({
-        prod: expect.objectContaining({
-          belowThreshold: expect.arrayContaining([
-            expect.objectContaining({ id: 'GHSA-low' }),
-            expect.objectContaining({ id: 'GHSA-moderate' }),
-          ]),
-          unallowed: [],
-        }),
-      }),
-    );
-  });
-
-  it('classifies an allowlisted vulnerability as belowThreshold when its severity is below the threshold', async () => {
-    const config = makeConfig({
-      prod: {
-        allowlist: [{ id: 'GHSA-low', url: 'https://example.com/low' }],
-        severityThreshold: 'high',
-      },
-    });
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
-    mocks.runReport.mockReturnValue({
-      results: [{ id: 'GHSA-low', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/low' }],
-      stdout: '',
-      stderr: '',
-      warnings: [],
-    });
-
-    const exitCode = await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
-
-    expect(exitCode).toBe(0);
-    const parsedOutput: unknown = JSON.parse(capture.stdout);
-    expect(parsedOutput).toStrictEqual(
-      expect.objectContaining({
-        prod: expect.objectContaining({
-          allowed: [],
-          belowThreshold: [expect.objectContaining({ id: 'GHSA-low' })],
-          stale: [],
-        }),
-      }),
-    );
   });
 
   it('always passes severityThreshold "low" to generateAuditCiConfig regardless of config threshold', async () => {

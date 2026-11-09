@@ -1,4 +1,4 @@
-import type { CheckResult } from './format-check.ts';
+import type { CheckResult } from './check-result.ts';
 import type { AuditScope } from './types.ts';
 
 /** Status discriminant exposing the most severe finding category in a check result. */

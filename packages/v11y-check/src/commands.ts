@@ -4,14 +4,9 @@ import { reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { BIN } from './bin.ts';
+import { type CheckResult, classifyScopeResults, resolveSeverityThreshold } from './check-result.ts';
 import { loadConfig, type LoadConfigResult } from './config.ts';
-import {
-  type AllowedVulnerability,
-  type CheckResult,
-  formatCheckJson,
-  formatCheckText,
-  type ScopeCheckResult,
-} from './format-check.ts';
+import { formatCheckJson, formatCheckText } from './format-check.ts';
 import { formatSyncResult } from './format-sync.ts';
 import { formatCheckVerboseText } from './format-verbose.ts';
 import { generateAuditCiConfig } from './generate.ts';
@@ -20,12 +15,10 @@ import { parseAuditCiOutput, runAudit, runReport } from './run-audit.ts';
 import { syncAllowlist } from './sync.ts';
 import { withTempDir } from './tmp.ts';
 import {
-  type AllowlistEntry,
   AUDIT_SCOPES,
   type AuditResult,
   type AuditScope,
   type CommandOptions,
-  isSeverityAtOrAbove,
   type SeverityThreshold,
 } from './types.ts';
 
@@ -107,8 +100,7 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
 
     for (const scope of scopes) {
       const scopeConfig = config[scope];
-      const effectiveThreshold = scopeConfig.severityThreshold ?? 'low';
-      thresholds[scope] = effectiveThreshold;
+      thresholds[scope] = resolveSeverityThreshold(scopeConfig);
 
       // Generate a stripped config (empty allowlist, low threshold) so that audit-ci reports all vulnerabilities.
       const strippedScopeConfig = { ...scopeConfig, allowlist: [], severityThreshold: 'low' as const };
@@ -126,31 +118,7 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
         process.stderr.write(report.stderr);
       }
 
-      const allowedIds = new Set(scopeConfig.allowlist.map((entry) => entry.id));
-      const foundIds = new Set(report.results.map((r) => r.id));
-      const allowlistById = new Map<string, AllowlistEntry>(scopeConfig.allowlist.map((entry) => [entry.id, entry]));
-      const scopeResult: ScopeCheckResult = { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
-
-      // Test the threshold before the allowlist: The threshold already excludes a below-threshold vulnerability from
-      // the pass/fail decision, so the check reports it as ignored even when the allowlist names it.
-      for (const result of report.results) {
-        if (!isSeverityAtOrAbove(result.severity, effectiveThreshold)) {
-          scopeResult.belowThreshold.push(result);
-        } else if (allowedIds.has(result.id)) {
-          const entry = allowlistById.get(result.id);
-          scopeResult.allowed.push(buildAllowedVulnerability(result, entry));
-        } else {
-          scopeResult.unallowed.push(result);
-        }
-      }
-
-      for (const entry of scopeConfig.allowlist) {
-        if (!foundIds.has(entry.id)) {
-          scopeResult.stale.push({ id: entry.id });
-        }
-      }
-
-      checkResult[scope] = scopeResult;
+      checkResult[scope] = classifyScopeResults(report.results, scopeConfig);
     }
 
     if (options.verbose && !options.isJson) {
@@ -227,24 +195,6 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
 }
 
 // region | Helpers
-/** Merges an `AuditResult` with an `AllowlistEntry` into an `AllowedVulnerability`, omitting absent optional fields. */
-function buildAllowedVulnerability(result: AuditResult, entry: AllowlistEntry | undefined): AllowedVulnerability {
-  const allowedVulnerability: AllowedVulnerability = {
-    id: result.id,
-    path: result.path,
-    paths: result.paths,
-    url: result.url,
-  };
-  if (result.ghsaId !== undefined) allowedVulnerability.ghsaId = result.ghsaId;
-  if (result.severity !== undefined) allowedVulnerability.severity = result.severity;
-  if (result.title !== undefined) allowedVulnerability.title = result.title;
-  if (result.description !== undefined) allowedVulnerability.description = result.description;
-  if (result.cvss !== undefined) allowedVulnerability.cvss = result.cvss;
-  if (entry?.reason !== undefined) allowedVulnerability.reason = entry.reason;
-  if (entry?.addedAt !== undefined) allowedVulnerability.addedAt = entry.addedAt;
-  return allowedVulnerability;
-}
-
 /**
  * Loads the config and runs the body with it in a temporary directory, reporting any error as `<bin>: <message>` with
  * exit code 1.
