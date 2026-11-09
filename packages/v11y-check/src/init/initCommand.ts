@@ -15,7 +15,10 @@ interface InitOptions {
  * Scaffolds the starter config file and the GitHub Actions workflow, then prints next steps.
  * Returns the process exit code (0 for success, 1 if any write failed).
  */
-export function initCommand({ isDryRun, shouldForce, styles }: InitOptions): number {
+export function initCommand(
+  { isDryRun, shouldForce, styles }: InitOptions,
+  dependencies: InitDependencies = defaultInitDependencies,
+): number {
   if (isDryRun) {
     console.info('[dry-run mode]');
   }
@@ -23,7 +26,7 @@ export function initCommand({ isDryRun, shouldForce, styles }: InitOptions): num
   printStep('Scaffolding files');
   let results: ReturnType<typeof scaffoldFiles>;
   try {
-    results = scaffoldFiles({ isDryRun, shouldForce });
+    results = dependencies.scaffoldFiles({ isDryRun, shouldForce });
   } catch (error: unknown) {
     printError(`Failed to scaffold files: ${describeError(error)}`, styles.stderr);
     return 1;
@@ -48,3 +51,11 @@ export function initCommand({ isDryRun, shouldForce, styles }: InitOptions): num
 
   return 0;
 }
+
+/** Functions through which `initCommand` writes the scaffolded files. */
+export interface InitDependencies {
+  scaffoldFiles: typeof scaffoldFiles;
+}
+
+/** The real implementations of the `initCommand` dependencies. */
+export const defaultInitDependencies: InitDependencies = { scaffoldFiles };
