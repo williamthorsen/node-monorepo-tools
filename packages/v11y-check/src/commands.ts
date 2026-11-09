@@ -148,6 +148,7 @@ export interface CommandDependencies {
   runReport: typeof runReport;
   scaffoldConfig: typeof scaffoldConfig;
   syncAllowlist: typeof syncAllowlist;
+  // Narrowed to the commands' number-returning use, because a vitest `Mock` cannot represent the generic signature.
   withTempDir: (fn: (tempDir: string) => Promise<number>) => Promise<number>;
 }
 
