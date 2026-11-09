@@ -1,6 +1,9 @@
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 
+/** Runs audit-ci with the given arguments in the given directory. */
+export type AuditCiRunner = (args: readonly string[], cwd: string) => AuditCiRunResult;
+
 /** Result of one audit-ci run. */
 export interface AuditCiRunResult {
   error?: Error;
@@ -9,9 +12,6 @@ export interface AuditCiRunResult {
   stderr: string;
   stdout: string;
 }
-
-/** Runs audit-ci with the given arguments in the given directory. */
-export type AuditCiRunner = (args: readonly string[], cwd: string) => AuditCiRunResult;
 
 /** Resolves the audit-ci binary path from node_modules. */
 export function resolveAuditCiBin(): string {
