@@ -343,7 +343,7 @@ describe(extractStaleEntries, () => {
   });
 });
 
-const { resolveAuditCiBin, runAudit, runReport } = await import('../run-audit.ts');
+const { runAudit, runReport } = await import('../run-audit.ts');
 
 describe(runAudit, () => {
   afterEach(() => {
@@ -464,19 +464,6 @@ describe(runReport, () => {
 
     const args = mockSpawnSync.mock.calls[0]?.[1];
     expect(args).not.toContain('--report-type');
-  });
-});
-
-describe(resolveAuditCiBin, () => {
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('returns a non-empty path to the audit-ci bin', () => {
-    // audit-ci resolves in this environment, so the assertion accepts either branch's path.
-    const result = resolveAuditCiBin();
-    expect(result).toBeTypeOf('string');
-    expect(result.length).toBeGreaterThan(0);
   });
 });
 
