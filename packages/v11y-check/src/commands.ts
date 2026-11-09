@@ -27,16 +27,19 @@ import {
  *
  * Generates config, invokes audit-ci for each scope, and returns a combined exit code.
  */
-export async function auditCommand(options: CommandOptions): Promise<number> {
-  return runInCommandEnvelope(options.configPath, async ({ config }, tempDir) => {
+export async function auditCommand(
+  options: CommandOptions,
+  dependencies: CommandDependencies = defaultCommandDependencies,
+): Promise<number> {
+  return runInCommandEnvelope(options.configPath, dependencies, async ({ config }, tempDir) => {
     const scopes = options.scopes.length > 0 ? options.scopes : [...AUDIT_SCOPES];
     let exitCode = 0;
     const allResults: AuditResult[] = [];
 
     for (const scope of scopes) {
-      const configPath = await generateAuditCiConfig(config[scope], scope, tempDir);
+      const configPath = await dependencies.generateAuditCiConfig(config[scope], scope, tempDir);
 
-      const result = runAudit({ configPath, isJson: options.isJson });
+      const result = dependencies.runAudit({ configPath, isJson: options.isJson });
 
       for (const warning of result.warnings) {
         process.stderr.write(`warning: ${warning}\n`);
@@ -88,8 +91,11 @@ const CHECK_SCOPE_ORDER: readonly AuditScope[] = ['prod', 'dev'];
  * the config allowlist, detects stale entries, and produces grouped output.
  * Returns 1 when unallowed vulnerabilities exist.
  */
-export async function checkCommand(options: CommandOptions): Promise<number> {
-  return runInCommandEnvelope(options.configPath, async ({ config }, tempDir) => {
+export async function checkCommand(
+  options: CommandOptions,
+  dependencies: CommandDependencies = defaultCommandDependencies,
+): Promise<number> {
+  return runInCommandEnvelope(options.configPath, dependencies, async ({ config }, tempDir) => {
     const requestedScopes = options.scopes.length > 0 ? options.scopes : [...CHECK_SCOPE_ORDER];
     const scopes = CHECK_SCOPE_ORDER.filter((s) => requestedScopes.includes(s));
     const checkResult: CheckResult = {
@@ -104,13 +110,13 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
 
       // Generate a stripped config (empty allowlist, low threshold) so that audit-ci reports all vulnerabilities.
       const strippedScopeConfig = { ...scopeConfig, allowlist: [], severityThreshold: 'low' as const };
-      const strippedConfigPath = await generateAuditCiConfig(strippedScopeConfig, scope, tempDir);
+      const strippedConfigPath = await dependencies.generateAuditCiConfig(strippedScopeConfig, scope, tempDir);
 
       const reportOptions: { configPath: string; reportType?: 'full' } = { configPath: strippedConfigPath };
       if (options.verbose) {
         reportOptions.reportType = 'full';
       }
-      const report = runReport(reportOptions);
+      const report = dependencies.runReport(reportOptions);
       for (const warning of report.warnings) {
         process.stderr.write(`warning: ${warning}\n`);
       }
@@ -134,6 +140,28 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
   });
 }
 
+/** Functions through which the commands load config, run audit-ci, and write files, replaceable in tests. */
+export interface CommandDependencies {
+  generateAuditCiConfig: typeof generateAuditCiConfig;
+  loadConfig: typeof loadConfig;
+  runAudit: typeof runAudit;
+  runReport: typeof runReport;
+  scaffoldConfig: typeof scaffoldConfig;
+  syncAllowlist: typeof syncAllowlist;
+  withTempDir: typeof withTempDir;
+}
+
+/** The real implementations of the command dependencies. */
+export const defaultCommandDependencies: CommandDependencies = {
+  generateAuditCiConfig,
+  loadConfig,
+  runAudit,
+  runReport,
+  scaffoldConfig,
+  syncAllowlist,
+  withTempDir,
+};
+
 /**
  * Runs the `sync` subcommand.
  *
@@ -141,19 +169,22 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
  * the allowlist to match current findings. When the config file doesn't exist,
  * creates one at the default path.
  */
-export async function syncCommand(options: CommandOptions): Promise<number> {
-  return runInCommandEnvelope(options.configPath, async (initialConfigResult, tempDir) => {
+export async function syncCommand(
+  options: CommandOptions,
+  dependencies: CommandDependencies = defaultCommandDependencies,
+): Promise<number> {
+  return runInCommandEnvelope(options.configPath, dependencies, async (initialConfigResult, tempDir) => {
     const { configSource } = initialConfigResult;
     let loadedConfigResult = initialConfigResult;
 
     // When the config file doesn't exist, scaffold one first so that sync operates on a real file.
     if (configSource === 'defaults') {
-      const { configResult } = scaffoldConfig({ isDryRun: false });
+      const { configResult } = dependencies.scaffoldConfig({ isDryRun: false });
       if (configResult.outcome === 'failed') {
         reportError(BIN, 'Failed to create config file');
         return 1;
       }
-      loadedConfigResult = await loadConfig(options.configPath);
+      loadedConfigResult = await dependencies.loadConfig(options.configPath);
     }
 
     let { config } = loadedConfigResult;
@@ -165,9 +196,9 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
     for (const scope of scopes) {
       // Generate a config without the allowlist so that sync sees all vulnerabilities.
       const strippedScopeConfig = { ...config[scope], allowlist: [] };
-      const strippedConfigPath = await generateAuditCiConfig(strippedScopeConfig, scope, tempDir);
+      const strippedConfigPath = await dependencies.generateAuditCiConfig(strippedScopeConfig, scope, tempDir);
 
-      const report = runReport({ configPath: strippedConfigPath });
+      const report = dependencies.runReport({ configPath: strippedConfigPath });
       for (const warning of report.warnings) {
         process.stderr.write(`warning: ${warning}\n`);
       }
@@ -175,7 +206,12 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
     }
 
     for (const { auditResults, scope } of scopeAudits) {
-      const { syncResult, updatedConfig } = await syncAllowlist(config, scope, auditResults, configFilePath);
+      const { syncResult, updatedConfig } = await dependencies.syncAllowlist(
+        config,
+        scope,
+        auditResults,
+        configFilePath,
+      );
       config = updatedConfig;
 
       if (options.isJson) {
@@ -201,11 +237,12 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
  */
 async function runInCommandEnvelope(
   configPath: string | undefined,
+  dependencies: CommandDependencies,
   body: (loadedConfigResult: LoadConfigResult, tempDir: string) => Promise<number>,
 ): Promise<number> {
   try {
-    const loadedConfigResult = await loadConfig(configPath);
-    return await withTempDir((tempDir) => body(loadedConfigResult, tempDir));
+    const loadedConfigResult = await dependencies.loadConfig(configPath);
+    return await dependencies.withTempDir((tempDir) => body(loadedConfigResult, tempDir));
   } catch (error: unknown) {
     reportError(BIN, describeError(error));
     return 1;
