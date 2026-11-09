@@ -1,5 +1,6 @@
 import path from 'node:path';
 
+import { describeError, isError } from '@williamthorsen/toolbelt.errors';
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
@@ -58,14 +59,49 @@ describe(loadConfig, () => {
     expect(result.configFilePath).toBe(path.resolve(tree.dir, CONFIG_ENTRY));
   });
 
-  it('throws when an explicit config path does not exist', async ({ tree }) => {
-    await expect(loadConfig('nonexistent.json', tree.dir)).rejects.toThrow(/Config file not found/);
+  it('reports a missing explicit config path as not found and names the fix', async ({ tree }) => {
+    const error = await captureRejection(loadConfig('nonexistent.json', tree.dir));
+
+    expect(error.message).toMatch(/^Config file not found: /);
+    expect(error.message).toContain('v11y init');
+    expect(error.message).toContain('--config');
   });
 
-  it('throws when the config file is not valid JSON', async ({ tree }) => {
-    tree.write(CONFIG_ENTRY, 'not json');
+  it('reports a config path under a regular file as not found', async ({ tree }) => {
+    tree.write('file.txt', '');
 
-    await expect(loadConfig(undefined, tree.dir)).rejects.toThrow(/not valid JSON/);
+    const error = await captureRejection(loadConfig('file.txt/config.json', tree.dir));
+
+    expect(error.message).toMatch(/^Config file not found: /);
+  });
+
+  it('reports an explicit config path that is a directory as a read failure with its cause', async ({ tree }) => {
+    tree.mkdir('config-dir');
+
+    const error = await captureRejection(loadConfig('config-dir', tree.dir));
+
+    expect(error.message).toMatch(/^Could not read config file .*config-dir: /);
+    expect(error.message).toContain('EISDIR');
+    expect(error.cause).toBeInstanceOf(Error);
+  });
+
+  it('reports a directory at the default config path as a read failure', async ({ tree }) => {
+    tree.mkdir(CONFIG_ENTRY);
+
+    const error = await captureRejection(loadConfig(undefined, tree.dir));
+
+    expect(error.message).toMatch(/^Could not read config file /);
+    expect(error.message).toContain('EISDIR');
+  });
+
+  it('includes the parser message when the config file is not valid JSON', async ({ tree }) => {
+    tree.write(CONFIG_ENTRY, 'not json');
+    const parserMessage = readParserMessage('not json');
+
+    const error = await captureRejection(loadConfig(undefined, tree.dir));
+
+    expect(error.message).toMatch(/not valid JSON/);
+    expect(error.message).toContain(parserMessage);
   });
 
   it('throws when the config fails schema validation', async ({ tree }) => {
@@ -132,3 +168,28 @@ describe(loadConfig, () => {
     expect(result.config.$schema).toBe('https://example.com/schema.json');
   });
 });
+
+// region | Helpers
+
+/** Awaits a promise that must reject with an error, and returns that error. */
+async function captureRejection(promise: Promise<unknown>): Promise<Error> {
+  try {
+    await promise;
+  } catch (error: unknown) {
+    if (isError(error)) return error;
+    throw new Error(`Expected an Error, got ${describeError(error)}`, { cause: error });
+  }
+  throw new Error('Expected the promise to reject');
+}
+
+/** Returns the message that `JSON.parse` reports for the given text. */
+function readParserMessage(text: string): string {
+  try {
+    JSON.parse(text);
+  } catch (error: unknown) {
+    return describeError(error);
+  }
+  throw new Error(`Expected ${text} to be invalid JSON`);
+}
+
+// endregion | Helpers
