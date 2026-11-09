@@ -93,6 +93,21 @@ describe(findReleaseNotes, () => {
 
     expect(findReleaseNotes(tree.dir, '0.7.0')).toStrictEqual({ markdown: '- Adds the widget.' });
   });
+
+  it('treats a changelog path under a non-directory as missing', () => {
+    using tree = createTempTree(
+      { '.meta': '', 'CHANGELOG.md': '## 0.7.0\n\n- Adds the widget.\n' },
+      { prefix: 'build-info-release-notes-' },
+    );
+
+    expect(findReleaseNotes(tree.dir, '0.7.0')).toStrictEqual({ markdown: '- Adds the widget.' });
+  });
+
+  it.each(['.meta/changelog.json', 'CHANGELOG.md'])('throws when %s exists but cannot be read', (changelogPath) => {
+    using tree = createTempTree({ [`${changelogPath}/`]: '' }, { prefix: 'build-info-release-notes-' });
+
+    expect(() => findReleaseNotes(tree.dir, '0.7.0')).toThrow(expect.objectContaining({ code: 'EISDIR' }));
+  });
 });
 
 describe(readReleaseNotes, () => {
@@ -117,5 +132,11 @@ describe(readReleaseNotes, () => {
 
   it('returns an empty list without a changelog', () => {
     expect(readReleaseNotes({ cwd: BARE_APP })).toStrictEqual([]);
+  });
+
+  it('throws when CHANGELOG.md exists but cannot be read', () => {
+    using tree = createTempTree({ 'CHANGELOG.md/': '' }, { prefix: 'build-info-release-notes-' });
+
+    expect(() => readReleaseNotes({ cwd: tree.dir })).toThrow(expect.objectContaining({ code: 'EISDIR' }));
   });
 });

@@ -21,7 +21,7 @@ export interface CollectBuildInfoOptions {
 
 /**
  * Collects the `BuildInfo` of the build running in `cwd`. Throws when `package.json` is missing or lacks a name or
- * version; a git failure only leaves git's fields absent.
+ * version, or when a changelog exists but cannot be read; a git failure only leaves git's fields absent.
  *
  * - Vercel, when `VERCEL=1`: environment from `VERCEL_TARGET_ENV`, else `VERCEL_ENV`; commit from
  *   `VERCEL_GIT_COMMIT_*`; repository from `VERCEL_GIT_PROVIDER`, `VERCEL_GIT_REPO_OWNER`, and `VERCEL_GIT_REPO_SLUG`;
