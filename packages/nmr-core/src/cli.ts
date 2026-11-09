@@ -1,4 +1,5 @@
-// Command-line parsing, help, routing, and output-style resolution for the repo's CLIs, and the repo's only importer of `@williamthorsen/toolbelt.cli`.
+// Command-line parsing, help, routing, and output-style resolution for the repo's CLIs, and the repo's only importer
+// of `@williamthorsen/toolbelt.cli`.
 
 import { UsageError } from '@williamthorsen/toolbelt.cli/candidate';
 
