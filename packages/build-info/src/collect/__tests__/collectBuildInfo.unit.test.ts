@@ -183,10 +183,10 @@ describe(collectBuildInfo, () => {
     });
   });
 
-  it('does not run git when readGit is false', () => {
+  it('does not run git when shouldReadGit is false', () => {
     vi.mocked(readGitFacts).mockReturnValue(GIT_FACTS);
 
-    const info = collectBuildInfo({ cwd: BARE_APP, env: {}, readGit: false });
+    const info = collectBuildInfo({ cwd: BARE_APP, env: {}, shouldReadGit: false });
 
     expect(readGitFacts).not.toHaveBeenCalled();
     expect(info.commit).toBeUndefined();

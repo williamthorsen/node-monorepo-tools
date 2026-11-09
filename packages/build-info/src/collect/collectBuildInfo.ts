@@ -16,7 +16,7 @@ export interface CollectBuildInfoOptions {
   /** The build time. Defaults to the time of the call. */
   now?: Date;
   /** Whether to run git for the fields that the host leaves empty. Defaults to `true`. */
-  readGit?: boolean;
+  shouldReadGit?: boolean;
 }
 
 /**
@@ -44,11 +44,11 @@ export function collectBuildInfo({
   cwd = process.cwd(),
   env = process.env,
   now,
-  readGit = true,
+  shouldReadGit = true,
 }: CollectBuildInfoOptions = {}): BuildInfo {
   const manifest = readManifest(cwd);
   const host = readHostFacts(env);
-  const git = readGit ? readGitFacts(cwd) : {};
+  const git = shouldReadGit ? readGitFacts(cwd) : {};
 
   return {
     schemaVersion: 1,
