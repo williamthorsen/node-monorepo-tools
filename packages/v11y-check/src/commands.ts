@@ -140,7 +140,7 @@ export async function checkCommand(
   });
 }
 
-/** Functions through which the commands load config, run audit-ci, and write files, replaceable in tests. */
+/** Functions through which the commands load config, run audit-ci, and write files. */
 export interface CommandDependencies {
   generateAuditCiConfig: typeof generateAuditCiConfig;
   loadConfig: typeof loadConfig;
@@ -148,7 +148,7 @@ export interface CommandDependencies {
   runReport: typeof runReport;
   scaffoldConfig: typeof scaffoldConfig;
   syncAllowlist: typeof syncAllowlist;
-  withTempDir: typeof withTempDir;
+  withTempDir: (fn: (tempDir: string) => Promise<number>) => Promise<number>;
 }
 
 /** The real implementations of the command dependencies. */

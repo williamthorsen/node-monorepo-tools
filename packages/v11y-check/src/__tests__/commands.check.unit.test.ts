@@ -1,107 +1,56 @@
 import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { checkCommand } from '../commands.ts';
-import type { LoadConfigResult } from '../config.ts';
-import { buildLoadConfigResult, callWithFakeTempDir, makeConfig, makeOptions } from '../test-utils/cli-fixtures.ts';
-
-const mocks = vi.hoisted(() => ({
-  generateAuditCiConfig: vi.fn<() => Promise<string>>(),
-  loadConfig: vi.fn<() => Promise<LoadConfigResult>>(),
-  runAudit: vi.fn(),
-  runReport: vi.fn(),
-  scaffoldConfig: vi.fn(),
-  syncAllowlist: vi.fn(),
-  withTempDir: vi.fn(),
-}));
-
-vi.mock(import('../config.ts'), () => ({
-  loadConfig: mocks.loadConfig,
-}));
-
-vi.mock(import('../init/scaffold.ts'), () => ({
-  scaffoldConfig: mocks.scaffoldConfig,
-}));
-
-vi.mock(import('../generate.ts'), () => ({
-  generateAuditCiConfig: mocks.generateAuditCiConfig,
-}));
-
-vi.mock(import('../run-audit.ts'), async (importOriginal) => {
-  const actualModule = await importOriginal<typeof import('../run-audit.ts')>();
-  return {
-    ...actualModule,
-    runAudit: mocks.runAudit,
-    runReport: mocks.runReport,
-  };
-});
-
-vi.mock(import('../sync.ts'), async (importOriginal) => {
-  const actualModule = await importOriginal<typeof import('../sync.ts')>();
-  return {
-    ...actualModule,
-    syncAllowlist: mocks.syncAllowlist,
-  };
-});
-
-vi.mock(import('../tmp.ts'), () => ({
-  withTempDir: mocks.withTempDir,
-}));
-
-// -- Suite setup --
-
-/**
- * Opens a stdio capture and primes the mocks on which the command under test depends. The suite registers it, so that
- * every hook in this file is inside a describe.
- */
-function primeSuite(): CapturedStdio {
-  const capture = captureStdio();
-  mocks.withTempDir.mockImplementation(callWithFakeTempDir);
-  mocks.generateAuditCiConfig.mockResolvedValue('/fake/tmp/audit-ci.json');
-  mocks.scaffoldConfig.mockReturnValue({ configResult: { outcome: 'created' } });
-  return capture;
-}
+import {
+  buildFakeCommandDependencies,
+  buildLoadConfigResult,
+  type FakeCommandDependencies,
+  makeConfig,
+  makeOptions,
+} from '../test-utils/cli-fixtures.ts';
 
 // -- checkCommand --
 
 describe(checkCommand, () => {
   let capture: CapturedStdio;
+  let dependencies: FakeCommandDependencies;
 
   beforeEach(() => {
-    capture = primeSuite();
+    capture = captureStdio();
+    dependencies = buildFakeCommandDependencies();
   });
 
   afterEach(() => {
     capture[Symbol.dispose]();
-    vi.clearAllMocks();
   });
 
   it('returns 1 when config loading fails', async () => {
-    mocks.loadConfig.mockRejectedValue(new Error('Config not found'));
+    dependencies.loadConfig.mockRejectedValue(new Error('Config not found'));
 
-    const exitCode = await checkCommand(makeOptions());
+    const exitCode = await checkCommand(makeOptions(), dependencies);
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('Config not found');
   });
 
   it('returns 0 when the report does not contain any vulnerabilities', async () => {
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
-    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult());
+    dependencies.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
-    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
+    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }), dependencies);
 
     expect(exitCode).toBe(0);
     expect(capture.stdout).toContain('No known vulnerabilities found.');
   });
 
   it('returns 1 and reports the failure when audit-ci fails to produce a report', async () => {
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
-    mocks.runReport.mockImplementation(() => {
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult());
+    dependencies.runReport.mockImplementation(() => {
       throw new Error('audit-ci exited with status 1 without producing a report:\nError: spawn EPERM');
     });
 
-    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
+    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }), dependencies);
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('spawn EPERM');
@@ -109,8 +58,8 @@ describe(checkCommand, () => {
   });
 
   it('returns 1 when unallowed vulnerabilities exist', async () => {
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
-    mocks.runReport.mockReturnValue({
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult());
+    dependencies.runReport.mockReturnValue({
       results: [
         { id: 'GHSA-bad', path: 'bad-pkg', paths: ['bad-pkg'], severity: 'high', url: 'https://example.com/bad' },
       ],
@@ -119,7 +68,7 @@ describe(checkCommand, () => {
       warnings: [],
     });
 
-    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
+    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }), dependencies);
 
     expect(exitCode).toBe(1);
     expect(capture.stdout).toContain('GHSA-bad');
@@ -131,8 +80,8 @@ describe(checkCommand, () => {
         allowlist: [{ id: 'GHSA-ok', url: 'https://example.com/ok' }],
       },
     });
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
-    mocks.runReport.mockReturnValue({
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
+    dependencies.runReport.mockReturnValue({
       results: [
         { id: 'GHSA-ok', path: 'safe-pkg', paths: ['safe-pkg'], severity: 'moderate', url: 'https://example.com/ok' },
       ],
@@ -141,7 +90,7 @@ describe(checkCommand, () => {
       warnings: [],
     });
 
-    const exitCode = await checkCommand(makeOptions({ scopes: ['dev'] }));
+    const exitCode = await checkCommand(makeOptions({ scopes: ['dev'] }), dependencies);
 
     expect(exitCode).toBe(0);
     expect(capture.stdout).toContain('\u{2705}');
@@ -158,8 +107,8 @@ describe(checkCommand, () => {
         ],
       },
     });
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
-    mocks.runReport.mockReturnValue({
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
+    dependencies.runReport.mockReturnValue({
       results: [
         {
           ghsaId: 'GHSA-ghsa-test',
@@ -175,7 +124,7 @@ describe(checkCommand, () => {
       warnings: [],
     });
 
-    await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
+    await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }), dependencies);
 
     const parsedOutput: unknown = JSON.parse(capture.stdout);
     expect(parsedOutput).toStrictEqual(
@@ -198,10 +147,10 @@ describe(checkCommand, () => {
         allowlist: [{ id: 'GHSA-stale', url: 'https://example.com/stale' }],
       },
     });
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
-    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
+    dependencies.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
-    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
+    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }), dependencies);
 
     expect(exitCode).toBe(0);
     expect(capture.stdout).toContain('GHSA-stale');
@@ -209,27 +158,27 @@ describe(checkCommand, () => {
   });
 
   it('outputs JSON when the isJson option is true', async () => {
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
-    mocks.runReport.mockReturnValue({
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult());
+    dependencies.runReport.mockReturnValue({
       results: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/1' }],
       stdout: '',
       stderr: '',
       warnings: [],
     });
 
-    await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }));
+    await checkCommand(makeOptions({ isJson: true, scopes: ['prod'] }), dependencies);
 
     const parsedOutput: unknown = JSON.parse(capture.stdout);
     expect(parsedOutput).toHaveProperty('prod');
   });
 
   it('checks both scopes when none are specified', async () => {
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
-    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult());
+    dependencies.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
-    await checkCommand(makeOptions());
+    await checkCommand(makeOptions(), dependencies);
 
-    expect(mocks.runReport).toHaveBeenCalledTimes(2);
+    expect(dependencies.runReport).toHaveBeenCalledTimes(2);
     expect(capture.stdout).toContain('Auditing dependencies');
     expect(capture.stdout).toContain('No known vulnerabilities found.');
   });
@@ -240,15 +189,15 @@ describe(checkCommand, () => {
         allowlist: [{ id: 'GHSA-prod-entry', url: 'https://example.com/prod' }],
       },
     });
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
-    mocks.runReport.mockReturnValue({
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
+    dependencies.runReport.mockReturnValue({
       results: [{ id: 'GHSA-prod-entry', path: 'pkg', paths: ['pkg'], url: 'https://example.com/prod' }],
       stdout: '',
       stderr: '',
       warnings: [],
     });
 
-    await checkCommand(makeOptions({ scopes: ['dev', 'prod'] }));
+    await checkCommand(makeOptions({ scopes: ['dev', 'prod'] }), dependencies);
 
     const prodIndex = capture.stdout.indexOf('\u{1F4E6} prod:');
     const devIndex = capture.stdout.indexOf('\u{1F527} dev:');
@@ -258,49 +207,49 @@ describe(checkCommand, () => {
   });
 
   it('forwards report stderr to process stderr', async () => {
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
-    mocks.runReport.mockReturnValue({
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult());
+    dependencies.runReport.mockReturnValue({
       results: [],
       stdout: '',
       stderr: 'audit-ci diagnostic output',
       warnings: [],
     });
 
-    await checkCommand(makeOptions({ scopes: ['prod'] }));
+    await checkCommand(makeOptions({ scopes: ['prod'] }), dependencies);
 
     expect(capture.stderr).toContain('audit-ci diagnostic output');
   });
 
   it('forwards report warnings to stderr', async () => {
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
-    mocks.runReport.mockReturnValue({
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult());
+    dependencies.runReport.mockReturnValue({
       results: [],
       stdout: '',
       stderr: '',
       warnings: ['Parse warning'],
     });
 
-    await checkCommand(makeOptions({ scopes: ['prod'] }));
+    await checkCommand(makeOptions({ scopes: ['prod'] }), dependencies);
 
     expect(capture.stderr).toContain('warning: Parse warning');
   });
 
   it('invokes runReport with reportType "full" when verbose is true', async () => {
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
-    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult());
+    dependencies.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
-    await checkCommand(makeOptions({ scopes: ['prod'], verbose: true }));
+    await checkCommand(makeOptions({ scopes: ['prod'], verbose: true }), dependencies);
 
-    expect(mocks.runReport).toHaveBeenCalledWith(expect.objectContaining({ reportType: 'full' }));
+    expect(dependencies.runReport).toHaveBeenCalledWith(expect.objectContaining({ reportType: 'full' }));
   });
 
   it('omits reportType when verbose is false', async () => {
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult());
-    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult());
+    dependencies.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
-    await checkCommand(makeOptions({ scopes: ['prod'] }));
+    await checkCommand(makeOptions({ scopes: ['prod'] }), dependencies);
 
-    const call = mocks.runReport.mock.calls[0]?.[0];
+    const call = dependencies.runReport.mock.calls[0]?.[0];
     expect(call).not.toHaveProperty('reportType');
   });
 
@@ -317,8 +266,8 @@ describe(checkCommand, () => {
         ],
       },
     });
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
-    mocks.runReport.mockReturnValue({
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
+    dependencies.runReport.mockReturnValue({
       results: [
         {
           description: 'Detailed description',
@@ -335,7 +284,7 @@ describe(checkCommand, () => {
       warnings: [],
     });
 
-    await checkCommand(makeOptions({ scopes: ['prod'], verbose: true }));
+    await checkCommand(makeOptions({ scopes: ['prod'], verbose: true }), dependencies);
 
     expect(capture.stdout).toContain('\u{2705} GHSA-allowed');
     expect(capture.stdout).toContain('Example title');
@@ -351,8 +300,8 @@ describe(checkCommand, () => {
         allowlist: [{ id: 'GHSA-allowed', url: 'https://example.com/allowed' }],
       },
     });
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
-    mocks.runReport.mockReturnValue({
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
+    dependencies.runReport.mockReturnValue({
       results: [
         { id: 'GHSA-allowed', path: 'pkg', paths: ['pkg'], severity: 'moderate', url: 'https://example.com/allowed' },
       ],
@@ -362,7 +311,10 @@ describe(checkCommand, () => {
     });
 
     // Each stream gets a different style, so the assertion fails if the formatter receives the other stream's.
-    await checkCommand(makeOptions({ scopes: ['prod'], styles: { stderr: 'rich', stdout: 'plain' }, verbose }));
+    await checkCommand(
+      makeOptions({ scopes: ['prod'], styles: { stderr: 'rich', stdout: 'plain' }, verbose }),
+      dependencies,
+    );
 
     expect(capture.stdout).toContain('PASS  GHSA-allowed');
   });
@@ -374,8 +326,8 @@ describe(checkCommand, () => {
         severityThreshold: 'high',
       },
     });
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
-    mocks.runReport.mockReturnValue({
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
+    dependencies.runReport.mockReturnValue({
       results: [
         { id: 'GHSA-low', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/low' },
         { id: 'GHSA-moderate', path: 'pkg2', paths: ['pkg2'], severity: 'moderate', url: 'https://example.com/mod' },
@@ -385,7 +337,7 @@ describe(checkCommand, () => {
       warnings: [],
     });
 
-    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
+    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }), dependencies);
 
     expect(exitCode).toBe(0);
   });
@@ -397,12 +349,12 @@ describe(checkCommand, () => {
         severityThreshold: 'high',
       },
     });
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
-    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
+    dependencies.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
-    await checkCommand(makeOptions({ scopes: ['prod'] }));
+    await checkCommand(makeOptions({ scopes: ['prod'] }), dependencies);
 
-    expect(mocks.generateAuditCiConfig).toHaveBeenCalledWith(
+    expect(dependencies.generateAuditCiConfig).toHaveBeenCalledWith(
       expect.objectContaining({ severityThreshold: 'low' }),
       'prod',
       expect.any(String),
@@ -415,8 +367,8 @@ describe(checkCommand, () => {
         allowlist: [{ addedAt: '2026-04-01T00:00:00.000Z', id: 'GHSA-1', reason: 'r', url: 'https://example.com/1' }],
       },
     });
-    mocks.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
-    mocks.runReport.mockReturnValue({
+    dependencies.loadConfig.mockResolvedValue(buildLoadConfigResult(config));
+    dependencies.runReport.mockReturnValue({
       results: [
         {
           cvss: { score: 7.5 },
@@ -434,7 +386,7 @@ describe(checkCommand, () => {
       warnings: [],
     });
 
-    await checkCommand(makeOptions({ isJson: true, scopes: ['prod'], verbose: true }));
+    await checkCommand(makeOptions({ isJson: true, scopes: ['prod'], verbose: true }), dependencies);
 
     const parsedOutput: unknown = JSON.parse(capture.stdout);
     expect(parsedOutput).toStrictEqual(
