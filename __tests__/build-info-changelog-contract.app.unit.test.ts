@@ -32,7 +32,7 @@ describe('build-info reads the changelog.json that release-kit writes', () => {
       { prefix: 'build-info-changelog-contract-' },
     );
 
-    const { releaseNotes } = collectBuildInfo({ cwd: tree.dir, env: {}, readGit: false });
+    const { releaseNotes } = collectBuildInfo({ cwd: tree.dir, env: {}, shouldReadGit: false });
 
     expect(releaseNotes).toStrictEqual({
       date: '2026-10-08',

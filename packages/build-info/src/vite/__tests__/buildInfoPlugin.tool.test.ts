@@ -15,7 +15,7 @@ describe(buildInfoPlugin, () => {
       configFile: false,
       logLevel: 'silent',
       root: APP_DIR,
-      plugins: [buildInfoPlugin({ cwd: APP_DIR, env: {}, now: NOW, readGit: false })],
+      plugins: [buildInfoPlugin({ cwd: APP_DIR, env: {}, now: NOW, shouldReadGit: false })],
       build: {
         lib: { entry: path.join(APP_DIR, 'main.ts'), formats: ['es'], fileName: 'main' },
         write: false,
