@@ -2,8 +2,8 @@ import process from 'node:process';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import type { AuditCiRunner, AuditCiRunResult } from '../audit-ci-runner.ts';
 import { extractStaleEntries, parseAuditCiOutput, runAudit, runReport } from '../run-audit.ts';
+import type { AuditCiRunner, AuditCiRunResult } from '../runAuditCi.ts';
 
 const wellFormedAdvisory = {
   id: 1234,

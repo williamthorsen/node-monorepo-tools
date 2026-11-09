@@ -1,4 +1,4 @@
-import type { SyncResult } from './sync.ts';
+import type { SyncResult } from '../sync.ts';
 
 /** Formats one scope's sync result as text, listing each added advisory with its current chains and each removed one. */
 export function formatSyncResult(syncResult: SyncResult): string {

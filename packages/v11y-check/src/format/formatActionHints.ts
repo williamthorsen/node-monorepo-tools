@@ -1,5 +1,5 @@
-import type { CheckResult } from './check-result.ts';
-import type { AuditScope } from './types.ts';
+import type { CheckResult } from '../check-result.ts';
+import type { AuditScope } from '../types.ts';
 
 const ADD_SYNC_HINT = 'Run `v11y sync` to add the listed vulnerabilities to the allowlist.';
 const REMOVE_SYNC_HINT = 'Run `v11y sync` to remove stale allowlist entries.';

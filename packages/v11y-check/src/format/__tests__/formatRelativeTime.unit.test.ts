@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatRelativeTime } from '../format-time.ts';
+import { formatRelativeTime } from '../formatRelativeTime.ts';
 
 describe(formatRelativeTime, () => {
   const nowDate = new Date('2026-04-15T12:00:00Z');

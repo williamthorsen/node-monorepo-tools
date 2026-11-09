@@ -3,8 +3,8 @@ import process from 'node:process';
 import { UserError } from '@williamthorsen/nmr-core';
 import { z } from 'zod';
 
-import { type AuditCiRunner, runAuditCi } from './audit-ci-runner.ts';
-import type { AuditResult } from './types.ts';
+import type { AuditResult } from '../../types.ts';
+import { type AuditCiRunner, runAuditCi } from './runAuditCi.ts';
 
 const auditCiAdvisorySchema = z.object({
   cvss: absentWhenNull(

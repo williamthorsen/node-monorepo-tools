@@ -1,4 +1,4 @@
-import type { CheckResult, ScopeCheckResult } from '../check-result.ts';
+import type { CheckResult, ScopeCheckResult } from '../../check-result.ts';
 
 /** Builds a scope result that does not contain any entries. */
 export function buildEmptyScopeResult(): ScopeCheckResult {

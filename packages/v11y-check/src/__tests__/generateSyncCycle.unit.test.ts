@@ -5,8 +5,8 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
+import { generateAuditCiConfig } from '../clients/audit-ci/generateAuditCiConfig.ts';
 import { loadConfig } from '../config.ts';
-import { generateAuditCiConfig } from '../generate.ts';
 import { buildUpdatedConfig, computeSyncDiff, serializeConfig } from '../sync.ts';
 import type { AuditResult, V11yCheckConfig } from '../types.ts';
 

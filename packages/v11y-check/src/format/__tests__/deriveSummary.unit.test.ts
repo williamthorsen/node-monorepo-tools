@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { deriveSummary } from '../format-summary.ts';
+import type { AuditResult } from '../../types.ts';
+import { deriveSummary } from '../deriveSummary.ts';
 import { buildEmptyScopeResult, makeCheckResult } from '../test-utils/check-result-fixtures.ts';
-import type { AuditResult } from '../types.ts';
 
 // -- deriveSummary --
 

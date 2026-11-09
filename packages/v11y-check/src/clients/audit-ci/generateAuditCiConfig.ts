@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import type { AuditScope, ScopeConfig } from './types.ts';
+import type { AuditScope, ScopeConfig } from '../../types.ts';
 
 /** Flat JSON shape that audit-ci expects as its config file. */
 interface AuditCiFlatConfig {

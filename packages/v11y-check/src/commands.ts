@@ -5,13 +5,13 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { BIN } from './bin.ts';
 import { type CheckResult, classifyScopeResults, resolveSeverityThreshold } from './check-result.ts';
+import { generateAuditCiConfig } from './clients/audit-ci/generateAuditCiConfig.ts';
+import { parseAuditCiOutput, runAudit, runReport } from './clients/audit-ci/run-audit.ts';
 import { loadConfig, type LoadConfigResult } from './config.ts';
-import { formatCheckJson, formatCheckText } from './format-check.ts';
-import { formatSyncResult } from './format-sync.ts';
-import { formatCheckVerboseText } from './format-verbose.ts';
-import { generateAuditCiConfig } from './generate.ts';
+import { formatCheckJson, formatCheckText } from './format/check.ts';
+import { formatCheckVerboseText } from './format/formatCheckVerboseText.ts';
+import { formatSyncResult } from './format/formatSyncResult.ts';
 import { scaffoldConfig } from './init/scaffold.ts';
-import { parseAuditCiOutput, runAudit, runReport } from './run-audit.ts';
 import { syncAllowlist } from './sync.ts';
 import { withTempDir } from './tmp.ts';
 import {

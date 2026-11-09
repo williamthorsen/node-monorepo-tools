@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatSyncResult } from '../format-sync.ts';
+import { formatSyncResult } from '../formatSyncResult.ts';
 
 describe(formatSyncResult, () => {
   it('lists each added advisory with its chains and each removed advisory by ID', () => {

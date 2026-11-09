@@ -1589,12 +1589,12 @@ rejections:
     rule-version: '2'
     file: packages/v11y-check/src/__tests__/commands.check.unit.test.ts
     phrase: No known vulnerabilities found.
-    ground: assertion literal quoting the program's printed string at format-check.ts; change it only together with that site
+    ground: assertion literal quoting the program's printed string at format/check.ts; change it only together with that site
   - rule: negative-quantifier
     rule-version: '2'
     file: packages/v11y-check/src/__tests__/format-check.unit.test.ts
     phrase: No known vulnerabilities found.
-    ground: a quotation or assertion of the program's printed string at format-check.ts; change it only together with that site
+    ground: a quotation or assertion of the program's printed string at format/check.ts; change it only together with that site
   - rule: negative-quantifier
     rule-version: '2'
     file: packages/v11y-check/src/__tests__/format-verbose.unit.test.ts
@@ -1612,7 +1612,7 @@ rejections:
     ground: a verbless label comment, which does not contain a verb to negate
   - rule: negative-quantifier
     rule-version: '2'
-    file: packages/v11y-check/src/format-check.ts
+    file: packages/v11y-check/src/format/check.ts
     phrase: No known vulnerabilities found.
     ground: a verbless status line printed by the program, which the label exemption covers; the author rejected the same shape in nmr's 'No publishable packages found.', and a repair would change CLI output that the tests assert on
   - rule: negative-quantifier
@@ -1622,7 +1622,7 @@ rejections:
     ground: 'not prose: a fixture that reproduces the system error message'
   - rule: negative-quantifier
     rule-version: '2'
-    file: packages/v11y-check/src/test-utils/buildPopulatedCheckResult.ts
+    file: packages/v11y-check/src/format/test-utils/buildPopulatedCheckResult.ts
     phrase: No fix is published.
     ground: "not prose: a fixture's `reason` data value"
   - rule: plain-speech
@@ -3162,7 +3162,7 @@ rejections:
     ground: "not the construction: 'match' is the sentence's own verb"
   - rule: reduced-object-relative
     rule-version: '1'
-    file: packages/v11y-check/src/format-check.ts
+    file: packages/v11y-check/src/format/check.ts
     phrase: known vulnerabilities found
     ground: "not the construction: 'found' is a participle in a verbless status line"
   - rule: reduced-object-relative
