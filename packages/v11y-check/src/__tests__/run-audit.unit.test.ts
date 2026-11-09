@@ -8,6 +8,13 @@ import { extractStaleEntries, parseAuditCiOutput } from '../run-audit.ts';
 // the module's declared shape then rejects.
 const mockSpawnSync = vi.hoisted(() => vi.fn());
 
+const wellFormedAdvisory = {
+  id: 1234,
+  module_name: 'lodash',
+  url: 'https://github.com/advisories/GHSA-1234',
+  findings: [{ paths: ['lodash'] }],
+};
+
 vi.mock(import('node:child_process'), () => ({
   spawnSync: mockSpawnSync,
 }));
@@ -241,6 +248,67 @@ describe(parseAuditCiOutput, () => {
     expect(results[0]).not.toHaveProperty('title');
     expect(results[0]).not.toHaveProperty('description');
     expect(results[0]).not.toHaveProperty('cvss');
+  });
+
+  it('treats a null optional field as absent and reports the advisory', () => {
+    const json = JSON.stringify({
+      advisories: {
+        '1234': {
+          ...wellFormedAdvisory,
+          cvss: { score: 0, vectorString: null },
+          overview: null,
+        },
+      },
+    });
+
+    const { results, warnings } = parseAuditCiOutput(json);
+    expect(warnings).toStrictEqual([]);
+    expect(results[0]?.cvss).toStrictEqual({ score: 0 });
+    expect(results[0]).not.toHaveProperty('description');
+  });
+
+  it('warns on an advisory whose findings is not an array and still reports the well-formed one', () => {
+    const json = JSON.stringify({
+      advisories: {
+        '1234': wellFormedAdvisory,
+        '5678': { ...wellFormedAdvisory, id: 5678, findings: 'lodash' },
+      },
+    });
+
+    const { results, warnings } = parseAuditCiOutput(json);
+    expect(results.map((result) => result.id)).toStrictEqual(['1234']);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/^Skipped malformed audit-ci advisory 5678: findings: /);
+  });
+
+  it('warns on an advisory whose cvss has the wrong shape', () => {
+    const json = JSON.stringify({
+      advisories: { '1234': { ...wellFormedAdvisory, cvss: { score: 'high' } } },
+    });
+
+    const { results, warnings } = parseAuditCiOutput(json);
+    expect(results).toStrictEqual([]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/^Skipped malformed audit-ci advisory 1234: cvss\.score: /);
+  });
+
+  it('warns on an advisory without module_name', () => {
+    const { module_name: _omitted, ...withoutModuleName } = wellFormedAdvisory;
+    const json = JSON.stringify({ advisories: { '1234': withoutModuleName } });
+
+    const { results, warnings } = parseAuditCiOutput(json);
+    expect(results).toStrictEqual([]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/^Skipped malformed audit-ci advisory 1234: module_name: /);
+  });
+
+  it('warns on a non-object advisory entry in the array-of-objects shape', () => {
+    const json = JSON.stringify([{ advisories: { '1234': wellFormedAdvisory, '5678': 'not an advisory' } }]);
+
+    const { results, warnings } = parseAuditCiOutput(json);
+    expect(results.map((result) => result.id)).toStrictEqual(['1234']);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/^Skipped malformed audit-ci advisory 5678: /);
   });
 });
 
