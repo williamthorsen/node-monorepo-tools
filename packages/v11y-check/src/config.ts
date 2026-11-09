@@ -2,7 +2,8 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { UserError } from '@williamthorsen/nmr-core';
+import { hasErrnoCode, UserError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { DEFAULT_CONFIG, type V11yCheckConfig, v11yCheckConfigSchema } from './types.ts';
 
@@ -43,15 +44,21 @@ export async function loadConfig(configPath?: string, cwd?: string): Promise<Loa
   let rawContent: string;
   try {
     rawContent = await readFile(filePath, 'utf8');
-  } catch {
-    throw new UserError(`Config file not found: ${filePath}`);
+  } catch (error: unknown) {
+    if (hasErrnoCode(error, 'ENOENT') || hasErrnoCode(error, 'ENOTDIR')) {
+      throw new UserError(
+        `Config file not found: ${filePath}\nRun 'v11y init' to create it, or pass --config with the path of an existing file.`,
+        { cause: error },
+      );
+    }
+    throw new UserError(`Could not read config file ${filePath}: ${describeError(error)}`, { cause: error });
   }
 
   let parsedConfig: unknown;
   try {
     parsedConfig = JSON.parse(rawContent);
-  } catch {
-    throw new UserError(`Config file is not valid JSON: ${filePath}`);
+  } catch (error: unknown) {
+    throw new UserError(`Config file is not valid JSON: ${filePath}: ${describeError(error)}`, { cause: error });
   }
 
   const result = v11yCheckConfigSchema.safeParse(parsedConfig);
