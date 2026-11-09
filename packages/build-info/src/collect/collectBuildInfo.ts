@@ -40,15 +40,18 @@ export interface CollectBuildInfoOptions {
  * `origin` remote. Release notes are the public sections of the manifest version's entry in `.meta/changelog.json`, or,
  * when that file lacks the version, its section of `CHANGELOG.md`.
  */
-export function collectBuildInfo({
-  cwd = process.cwd(),
-  env = process.env,
-  now,
-  shouldReadGit = true,
-}: CollectBuildInfoOptions = {}): BuildInfo {
+export function collectBuildInfo(options: CollectBuildInfoOptions = {}): BuildInfo {
+  return collectBuildInfoWith(readGitFacts, options);
+}
+
+/** Collects the `BuildInfo` as `collectBuildInfo` does, reading git through `readGit`. */
+export function collectBuildInfoWith(
+  readGit: (cwd: string) => GitFacts,
+  { cwd = process.cwd(), env = process.env, now, shouldReadGit = true }: CollectBuildInfoOptions = {},
+): BuildInfo {
   const manifest = readManifest(cwd);
   const host = readHostFacts(env);
-  const git = shouldReadGit ? readGitFacts(cwd) : {};
+  const git = shouldReadGit ? readGit(cwd) : {};
 
   return {
     schemaVersion: 1,
