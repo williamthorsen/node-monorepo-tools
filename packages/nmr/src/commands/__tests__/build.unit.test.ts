@@ -1,8 +1,12 @@
-import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { beforeAll, describe, expect, it as baseIt } from 'vitest';
+import fs from 'node:fs';
 
-import { buildPackage, computeBuildHash } from '../build.ts';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { disposeOnTestFinished, makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeAll, beforeEach, describe, expect, it as baseIt } from 'vitest';
+
+import { OUTCOME_FILE_ENV_VAR } from '../../stated-outcome.ts';
+import { buildPackage, computeBuildHash, reportUnchangedBuild } from '../build.ts';
+import { resolveEmitDurationPath, writeEmitDuration } from '../build-output.ts';
 import { loadCompiler } from '../compiler.ts';
 import { resolveTsconfigChain } from '../tsconfig-chain.ts';
 
@@ -126,3 +130,77 @@ describe(computeBuildHash, () => {
     expect(afterHash).not.toBe(beforeHash);
   });
 });
+
+describe(reportUnchangedBuild, () => {
+  const DIGEST = 'the-current-digest';
+
+  beforeEach(() => {
+    disposeOnTestFinished(silenceConsole(['info']));
+  });
+
+  it('names the saving when the emit recorded for the digest took at least a second', async ({ tree }) => {
+    const packageDir = scaffoldCacheRoot(tree);
+    await writeEmitDuration(packageDir, DIGEST, 2100);
+
+    await reportUnchangedBuild(packageDir, DIGEST, 'plain', {});
+
+    expect(console.info).toHaveBeenCalledWith(
+      expect.stringMatching(/pkg: No changes detected\. Skipping build, saved ~2\.1s\.$/),
+    );
+  });
+
+  it.for([
+    ['recorded under another digest', (packageDir: string) => writeEmitDuration(packageDir, 'an-old-digest', 2100)],
+    ['under a second', (packageDir: string) => writeEmitDuration(packageDir, DIGEST, 900)],
+    ['missing', async () => {}],
+  ] as const)('omits the saving when the recorded duration is %s', async ([, plantDuration], { tree }) => {
+    const packageDir = scaffoldCacheRoot(tree);
+    await plantDuration(packageDir);
+
+    await reportUnchangedBuild(packageDir, DIGEST, 'plain', {});
+
+    expect(console.info).toHaveBeenCalledWith(expect.stringMatching(/No changes detected\. Skipping build\.$/));
+  });
+
+  it('states a hit with the saving recorded for the digest', async ({ tree }) => {
+    const packageDir = scaffoldCacheRoot(tree);
+    const outcomeFile = tree.resolve('outcome.json');
+    await writeEmitDuration(packageDir, DIGEST, 2100);
+
+    await reportUnchangedBuild(packageDir, DIGEST, 'plain', { [OUTCOME_FILE_ENV_VAR]: outcomeFile });
+
+    expect(JSON.parse(fs.readFileSync(outcomeFile, 'utf8'))).toStrictEqual({
+      kind: 'build-unchanged',
+      savedMs: 2100,
+      parentPid: process.ppid,
+    });
+  });
+
+  it('states a hit without a saving when none was recorded for the digest', async ({ tree }) => {
+    const packageDir = scaffoldCacheRoot(tree);
+    const outcomeFile = tree.resolve('outcome.json');
+    await writeEmitDuration(packageDir, 'an-old-digest', 2100);
+
+    await reportUnchangedBuild(packageDir, DIGEST, 'plain', { [OUTCOME_FILE_ENV_VAR]: outcomeFile });
+
+    expect(JSON.parse(fs.readFileSync(outcomeFile, 'utf8'))).toStrictEqual({
+      kind: 'build-unchanged',
+      parentPid: process.ppid,
+    });
+  });
+});
+
+// region | Helpers
+
+/**
+ * Creates a package directory with its own `node_modules`, so that the emit-duration entry resolves inside the tree,
+ * and returns its path.
+ */
+function scaffoldCacheRoot(tree: TempTree): string {
+  tree.mkdir('pkg/node_modules');
+  const packageDir = tree.resolve('pkg');
+  expect(resolveEmitDurationPath(packageDir).startsWith(packageDir)).toBe(true);
+  return packageDir;
+}
+
+// endregion | Helpers

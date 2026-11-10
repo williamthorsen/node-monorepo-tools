@@ -9,14 +9,7 @@ import { afterEach, assert, beforeEach, describe, expect, it as baseIt, onTestFi
 
 import { OUTCOME_FILE_ENV_VAR } from '../../stated-outcome.ts';
 import { buildPackage } from '../build.ts';
-import {
-  readBuildDigest,
-  readEmitDuration,
-  resolveBuildCachePath,
-  resolveEmitDurationPath,
-  resolveScratchDirs,
-  writeEmitDuration,
-} from '../build-output.ts';
+import { readBuildDigest, readEmitDuration, resolveBuildCachePath, resolveScratchDirs } from '../build-output.ts';
 import { countBuilds, listEmitted, readOutput, scaffoldPackage } from '../test-utils/build-fixtures.ts';
 
 // Default the compiler API to the real implementation so that the regression suite compiles for real;
@@ -255,82 +248,13 @@ describe('buildPackage caching', () => {
     await expect(readEmitDuration(tree.dir, digest)).resolves.toBeGreaterThanOrEqual(0);
   });
 
-  it('names the saving on a skip whose recorded emit took at least a second', async ({ tree }) => {
+  it('states nothing when the build runs', async ({ tree }) => {
+    const outcomeFile = stubOutcomeFile(tree);
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
-    const digest = await readBuildDigest(tree.dir);
-    assert(digest !== undefined);
-    // A real emit of one file takes well under the threshold, so plant a slower one.
-    await writeEmitDuration(tree.dir, digest, 2100);
 
     await buildPackage(tree.dir, { style: 'rich' });
 
-    expect(console.info).toHaveBeenCalledWith(
-      expect.stringMatching(/No changes detected\. Skipping build, saved ~2\.1s\.$/),
-    );
-  });
-
-  it.for([
-    ['recorded under another digest', async (tree: TempTree) => writeEmitDuration(tree.dir, 'an-old-digest', 2100)],
-    [
-      'under a second',
-      async (tree: TempTree) => {
-        const digest = await readBuildDigest(tree.dir);
-        assert(digest !== undefined);
-        await writeEmitDuration(tree.dir, digest, 900);
-      },
-    ],
-    ['missing', (tree: TempTree) => tree.rm(path.relative(tree.dir, resolveEmitDurationPath(tree.dir)))],
-  ] as const)('omits the saving when the recorded duration is %s', async ([, plantDuration], { tree }) => {
-    scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
-    await plantDuration(tree);
-
-    await buildPackage(tree.dir, { style: 'rich' });
-
-    expect(console.info).toHaveBeenCalledWith(expect.stringMatching(/No changes detected\. Skipping build\.$/));
-  });
-
-  describe('the stated outcome', () => {
-    it('states a hit with the saving recorded for the current inputs', async ({ tree }) => {
-      const outcomeFile = stubOutcomeFile(tree);
-      scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-      await buildPackage(tree.dir, { style: 'rich' });
-      const digest = await readBuildDigest(tree.dir);
-      assert(digest !== undefined);
-      await writeEmitDuration(tree.dir, digest, 2100);
-
-      await buildPackage(tree.dir, { style: 'rich' });
-
-      expect(JSON.parse(fs.readFileSync(outcomeFile, 'utf8'))).toStrictEqual({
-        kind: 'build-unchanged',
-        savedMs: 2100,
-        parentPid: process.ppid,
-      });
-    });
-
-    it('states a hit without a saving when none was recorded for the current inputs', async ({ tree }) => {
-      const outcomeFile = stubOutcomeFile(tree);
-      scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-      await buildPackage(tree.dir, { style: 'rich' });
-      await writeEmitDuration(tree.dir, 'an-old-digest', 2100);
-
-      await buildPackage(tree.dir, { style: 'rich' });
-
-      expect(JSON.parse(fs.readFileSync(outcomeFile, 'utf8'))).toStrictEqual({
-        kind: 'build-unchanged',
-        parentPid: process.ppid,
-      });
-    });
-
-    it('states nothing when the build runs', async ({ tree }) => {
-      const outcomeFile = stubOutcomeFile(tree);
-      scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-
-      await buildPackage(tree.dir, { style: 'rich' });
-
-      expect(fs.existsSync(outcomeFile)).toBe(false);
-    });
+    expect(fs.existsSync(outcomeFile)).toBe(false);
   });
 
   /**
