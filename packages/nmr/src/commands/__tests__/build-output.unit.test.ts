@@ -7,6 +7,7 @@ import {
   readBuildDigest,
   readEmitDuration,
   resolveBuildCachePath,
+  resolveEntryPoints,
   resolveToolchainFingerprint,
   writeEmitDuration,
 } from '../build-output.ts';
@@ -55,6 +56,75 @@ describe(readEmitDuration, () => {
 
   it('returns undefined when no duration was recorded', async ({ packageDir }) => {
     await expect(readEmitDuration(packageDir, 'a-build-digest')).resolves.toBeUndefined();
+  });
+});
+
+describe(resolveEntryPoints, () => {
+  it('selects the .ts and .tsx files under src/ by default', async ({ packageDir, tree }) => {
+    tree.writeAll({
+      'consumer/lib/other.ts': '',
+      'consumer/src/index.ts': '',
+      'consumer/src/notes.md': '',
+      'consumer/src/view.tsx': '',
+    });
+
+    const entryPoints = await resolveEntryPoints(packageDir);
+
+    expect(entryPoints.toSorted()).toStrictEqual(['src/index.ts', 'src/view.tsx']);
+  });
+
+  // `for` rather than `each`: Only `for` hands the fixture context to the case body.
+  it.for(['__fixtures__', '__mocks__', '__tests__', 'test-utils'])(
+    'excludes %s/ by default',
+    async (directory, { packageDir, tree }) => {
+      tree.writeAll({
+        'consumer/src/index.ts': '',
+        [`consumer/src/${directory}/helper.ts`]: '',
+      });
+
+      await expect(resolveEntryPoints(packageDir)).resolves.toStrictEqual(['src/index.ts']);
+    },
+  );
+
+  it('replaces the default ignore set when given `ignorePatterns`', async ({ packageDir, tree }) => {
+    tree.writeAll({
+      'consumer/src/index.ts': '',
+      'consumer/src/test-utils/helper.ts': '',
+    });
+
+    const entryPoints = await resolveEntryPoints(packageDir, { ignorePatterns: [] });
+
+    expect(entryPoints.toSorted()).toStrictEqual(['src/index.ts', 'src/test-utils/helper.ts']);
+  });
+
+  it('adds `extraIgnorePatterns` to the default ignore set', async ({ packageDir, tree }) => {
+    tree.writeAll({
+      'consumer/src/index.ts': '',
+      'consumer/src/internal/helper.ts': '',
+      'consumer/src/test-utils/helper.ts': '',
+    });
+
+    const entryPoints = await resolveEntryPoints(packageDir, { extraIgnorePatterns: ['**/internal/**'] });
+
+    expect(entryPoints).toStrictEqual(['src/index.ts']);
+  });
+
+  it('adds `extraIgnorePatterns` to an `ignorePatterns` override rather than to the default', async ({
+    packageDir,
+    tree,
+  }) => {
+    tree.writeAll({
+      'consumer/src/index.ts': '',
+      'consumer/src/internal/helper.ts': '',
+      'consumer/src/test-utils/helper.ts': '',
+    });
+
+    const entryPoints = await resolveEntryPoints(packageDir, {
+      ignorePatterns: [],
+      extraIgnorePatterns: ['**/internal/**'],
+    });
+
+    expect(entryPoints.toSorted()).toStrictEqual(['src/index.ts', 'src/test-utils/helper.ts']);
   });
 });
 

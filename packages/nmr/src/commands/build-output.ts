@@ -27,7 +27,7 @@ export interface ScratchDirs {
   stagingDir: string;
 }
 
-export const DEFAULT_ENTRY_GLOBS = ['src/**/*.{ts,tsx}'];
+const DEFAULT_ENTRY_GLOBS = ['src/**/*.{ts,tsx}'];
 
 /**
  * Directories holding test scaffolding rather than published code, excluded from entry-point selection so that a
@@ -38,7 +38,7 @@ export const DEFAULT_ENTRY_GLOBS = ['src/**/*.{ts,tsx}'];
  * surviving entry points import, which keeps a production module that uses a helper from emitting a dangling
  * specifier. Widening this list can therefore only drop files that production code does not import.
  */
-export const DEFAULT_IGNORE_PATTERNS = ['**/__fixtures__/**', '**/__mocks__/**', '**/__tests__/**', '**/test-utils/**'];
+const DEFAULT_IGNORE_PATTERNS = ['**/__fixtures__/**', '**/__mocks__/**', '**/__tests__/**', '**/test-utils/**'];
 
 export const DEFAULT_OUTDIR = 'dist/esm/';
 
@@ -52,17 +52,15 @@ const BUILD_CACHE_TOOL = 'nmr-compile';
 const SELF_DIR = findPackageRoot(import.meta.url);
 
 /**
- * Reports whether the output that a build of `packageDir` would produce is currently on disk. Applies the build's
- * own rule, on the same options that the build was given, so a caller probing for output and the build deciding
- * whether to rebuild cannot disagree: A package whose entry points emit nothing does not expect any output, and
- * reports present. Passing options that the build was not given would make the two disagree.
+ * Reports whether the output that a build of `packageDir` would produce is currently on disk. Selects entry points
+ * through `resolveEntryPoints` and tests them through `hasExpectedBuildOutput`, as the build does, so a caller
+ * probing for output and the build deciding whether to rebuild cannot disagree: A package whose entry points emit
+ * nothing does not expect any output, and reports present. Passing options that the build was not given would make
+ * the two disagree.
  */
 export async function hasBuildOutput(packageDir: string, options: BuildOptions = {}): Promise<boolean> {
   const outdir = options.outdir ?? DEFAULT_OUTDIR;
-  const entryPoints = await glob(options.entryGlobs ?? DEFAULT_ENTRY_GLOBS, {
-    cwd: packageDir,
-    ignore: [...(options.ignorePatterns ?? DEFAULT_IGNORE_PATTERNS), ...(options.extraIgnorePatterns ?? [])],
-  });
+  const entryPoints = await resolveEntryPoints(packageDir, options);
 
   return hasExpectedBuildOutput(packageDir, outdir, entryPoints);
 }
@@ -136,6 +134,14 @@ export function resolveEmitDurationPath(packageDir: string): string {
     scopeDir: absolutePackageDir,
     slug: path.basename(absolutePackageDir),
     extension: '.duration.json',
+  });
+}
+
+/** Selects the entry points that a build of `packageDir` compiles, as paths relative to `packageDir`. */
+export async function resolveEntryPoints(packageDir: string, options: BuildOptions = {}): Promise<string[]> {
+  return glob(options.entryGlobs ?? DEFAULT_ENTRY_GLOBS, {
+    cwd: packageDir,
+    ignore: [...(options.ignorePatterns ?? DEFAULT_IGNORE_PATTERNS), ...(options.extraIgnorePatterns ?? [])],
   });
 }
 

@@ -13,7 +13,6 @@ import {
   writeCacheEntry,
 } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
-import { glob } from 'glob';
 import type * as TypeScript from 'typescript';
 
 import { NMR_GLYPHS } from '../glyphs.ts';
@@ -22,12 +21,11 @@ import { formatSaving } from '../helpers/duration.ts';
 import { writeStatedOutcome } from '../stated-outcome.ts';
 import {
   type BuildOptions,
-  DEFAULT_ENTRY_GLOBS,
-  DEFAULT_IGNORE_PATTERNS,
   DEFAULT_OUTDIR,
   hasExpectedBuildOutput,
   readEmitDuration,
   resolveBuildCachePath,
+  resolveEntryPoints,
   resolveScratchDirs,
   resolveToolchainFingerprint,
   type ScratchDirs,
@@ -93,10 +91,7 @@ export async function buildPackage(packageDir: string, options: BuildPackageOpti
   const emitDir = resolveEmitDir(packageDir, outdir);
   const emitConfig: EmitConfig = { outdir, declaration: true, rewriteRelativeImportExtensions: true };
 
-  const entryPoints = await glob(options.entryGlobs ?? DEFAULT_ENTRY_GLOBS, {
-    cwd: packageDir,
-    ignore: [...(options.ignorePatterns ?? DEFAULT_IGNORE_PATTERNS), ...(options.extraIgnorePatterns ?? [])],
-  });
+  const entryPoints = await resolveEntryPoints(packageDir, options);
   // The build adds the config file to the digest only when the file exists: `computeBuildHash` reads every
   // listed file, so an unconditional entry would fail every package that has none. Conditional entry still
   // covers all three edits, because the file's path is hashed alongside its contents -- creating or deleting

@@ -383,21 +383,6 @@ describe('buildPackage entry-point selection', () => {
     vi.mocked(ts.createProgram).mockClear();
   });
 
-  // `for` rather than `each`: Only `for` hands the fixture context to the case body.
-  it.for(['__fixtures__', '__mocks__', '__tests__', 'test-utils'])(
-    'excludes %s/ from the default entry points',
-    async (directory, { tree }) => {
-      scaffoldPackage(tree, {
-        'index.ts': 'export const value = 1;\n',
-        [`${directory}/helper.ts`]: 'export const helper = 1;\n',
-      });
-
-      await buildPackage(tree.dir, { style: 'rich' });
-
-      expect(listEmitted(tree)).toStrictEqual(['index.d.ts', 'index.js']);
-    },
-  );
-
   it('emits a helper that production code imports, despite the ignore', async ({ tree }) => {
     // The ignore selects entry points; the compiler still emits whatever they reach. Suppressing a reachable
     // file would leave index.js importing a specifier that was never written.
@@ -411,17 +396,6 @@ describe('buildPackage entry-point selection', () => {
     expect(listEmitted(tree)).toContain('test-utils/helper.js');
   });
 
-  it('replaces the default ignore set when given `ignorePatterns`', async ({ tree }) => {
-    scaffoldPackage(tree, {
-      'index.ts': 'export const value = 1;\n',
-      'test-utils/helper.ts': 'export const helper = 1;\n',
-    });
-
-    await buildPackage(tree.dir, { style: 'rich', ignorePatterns: [] });
-
-    expect(listEmitted(tree)).toContain('test-utils/helper.js');
-  });
-
   it('adds to the effective ignore set when given `extraIgnorePatterns`', async ({ tree }) => {
     scaffoldPackage(tree, {
       'index.ts': 'export const value = 1;\n',
@@ -431,26 +405,6 @@ describe('buildPackage entry-point selection', () => {
     await buildPackage(tree.dir, { style: 'rich', extraIgnorePatterns: ['**/internal/**'] });
 
     expect(listEmitted(tree)).toStrictEqual(['index.d.ts', 'index.js']);
-  });
-
-  it('composes `extraIgnorePatterns` onto an `ignorePatterns` override rather than onto the default', async ({
-    tree,
-  }) => {
-    scaffoldPackage(tree, {
-      'index.ts': 'export const value = 1;\n',
-      'internal/helper.ts': 'export const helper = 1;\n',
-      'test-utils/helper.ts': 'export const helper = 1;\n',
-    });
-
-    // `ignorePatterns: []` drops the defaults, so test-utils/ returns as an entry point; the extras apply on top.
-    await buildPackage(tree.dir, { style: 'rich', ignorePatterns: [], extraIgnorePatterns: ['**/internal/**'] });
-
-    expect(listEmitted(tree)).toStrictEqual([
-      'index.d.ts',
-      'index.js',
-      'test-utils/helper.d.ts',
-      'test-utils/helper.js',
-    ]);
   });
 });
 
