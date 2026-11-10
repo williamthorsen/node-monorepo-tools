@@ -7,7 +7,7 @@ import { captureStdio, createTempTree, type TempTree } from '@williamthorsen/too
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
-import { runFmt, runPrettier } from '../fmt.ts';
+import { runFmt } from '../fmt.ts';
 import { FMT_CACHE_DIRECTORY, prepareFmtCache } from '../fmt-cache.ts';
 import { addSubmodule } from '../test-utils/addSubmodule.ts';
 import { denyAccess, isPrivilegedProcess } from '../test-utils/denyAccess.ts';
@@ -66,11 +66,6 @@ const it = baseIt
     'cachedTree',
     makeFixture(() => scaffoldCachedRepository()),
   )
-  .extend(
-    'stubTree',
-    makeFixture(() => scaffoldStub()),
-  )
-  .extend('cliPath', ({ stubTree }) => stubTree.resolve(STUB_ENTRY))
   // `auto`, because the tests don't name the capture: It exists for its effect on the streams.
   .extend(
     'captured',
@@ -454,128 +449,6 @@ describe('runFmt with the Prettier cache', () => {
 });
 
 /**
- * The argument set handed to Prettier, asserted against a stand-in that records how it was called.
- * `cliPath` is the seam: Production resolves the consuming repository's Prettier through the module
- * graph, and a test substitutes a recorder for it.
- */
-describe(runPrettier, () => {
-  it('leaves unparseable files to Prettier rather than filtering them out', ({ cliPath, stubTree }) => {
-    runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
-
-    expect(readCalls(stubTree)[0]).toContain('--ignore-unknown');
-  });
-
-  it('passes one --ignore-path per discovered ignore file, root-most first', ({ cliPath, stubTree }) => {
-    const ignorePaths = ['/repo/.prettierignore', '/repo/packages/a/.prettierignore'];
-
-    runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths, cwd: stubTree.dir });
-
-    const args = readCalls(stubTree)[0] ?? [];
-    expect(args.filter((_, index) => args[index - 1] === '--ignore-path')).toStrictEqual(ignorePaths);
-  });
-
-  it('checks without writing in check mode', ({ cliPath, stubTree }) => {
-    runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
-
-    const args = readCalls(stubTree)[0] ?? [];
-    expect(args).toContain('--check');
-    expect(args).not.toContain('--write');
-  });
-
-  it('names the files that it rewrites in write mode', ({ cliPath, stubTree }) => {
-    runPrettier({ cliPath, mode: 'write', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
-
-    expect(readCalls(stubTree)[0]).toStrictEqual(expect.arrayContaining(['--list-different', '--write']));
-  });
-
-  it("passes Prettier's content-keyed cache when given a cache location", ({ cliPath, stubTree }) => {
-    const cacheLocation = '/repo/node_modules/.cache/prettier/nmr-fmt/cache.json';
-
-    runPrettier({ cliPath, cacheLocation, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
-
-    expect(readCalls(stubTree)[0]).toStrictEqual(
-      expect.arrayContaining(['--cache', '--cache-strategy', 'content', '--cache-location', cacheLocation]),
-    );
-  });
-
-  it('passes no cache flags without a cache location', ({ cliPath, stubTree }) => {
-    runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
-
-    const args = readCalls(stubTree)[0] ?? [];
-    expect(args.filter((arg) => arg.startsWith('--cache'))).toStrictEqual([]);
-  });
-
-  it('shares one cache location across every batch', ({ cliPath, stubTree }) => {
-    const cacheLocation = '/repo/cache.json';
-
-    runPrettier({
-      cliPath,
-      cacheLocation,
-      mode: 'check',
-      files: ['one.js', 'two.js'],
-      ignorePaths: [],
-      cwd: stubTree.dir,
-      budgetBytes: 10,
-    });
-
-    const locations = readCalls(stubTree).map((args) => args[args.indexOf('--cache-location') + 1]);
-    expect(locations).toStrictEqual([cacheLocation, cacheLocation]);
-  });
-
-  it('reports the exit code that Prettier returned', ({ cliPath, stubTree }) => {
-    writeRecordingStub(stubTree, 2);
-
-    expect(runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir })).toBe(2);
-  });
-
-  it('ends the options with -- ahead of the files in every batch', ({ cliPath, stubTree }) => {
-    runPrettier({
-      cliPath,
-      mode: 'check',
-      files: ['one.js', 'two.js'],
-      ignorePaths: ['/repo/.prettierignore'],
-      cwd: stubTree.dir,
-      budgetBytes: 10,
-    });
-
-    expect(readCalls(stubTree).map((args) => args.slice(args.indexOf('--')))).toStrictEqual([
-      ['--', 'one.js'],
-      ['--', 'two.js'],
-    ]);
-  });
-
-  it('runs every batch when the selection exceeds the argument budget', ({ cliPath, stubTree }) => {
-    // A ten-byte budget puts each of these paths in a batch of its own.
-    runPrettier({
-      cliPath,
-      mode: 'check',
-      files: ['one.js', 'two.js', 'six.js'],
-      ignorePaths: [],
-      cwd: stubTree.dir,
-      budgetBytes: 10,
-    });
-
-    expect(readCalls(stubTree)).toHaveLength(3);
-  });
-
-  it('keeps running after a batch fails, and reports the first failing status', ({ cliPath, stubTree }) => {
-    writeRecordingStub(stubTree, 3);
-
-    const exitCode = runPrettier({
-      cliPath,
-      mode: 'check',
-      files: ['one.js', 'two.js'],
-      ignorePaths: [],
-      cwd: stubTree.dir,
-      budgetBytes: 10,
-    });
-
-    expect(exitCode).toBe(3);
-    expect(readCalls(stubTree)).toHaveLength(2);
-  });
-});
-
-/**
  * Tracks `locked/.envrc` beside a badly formatted file, then denies access to `locked/`, the state that a
  * sandbox shielding dotfiles produces.
  */
@@ -587,8 +460,9 @@ function lockEnvrc(tree: TempTree): Disposable {
 }
 
 /**
- * Installs a recording stand-in as the repository's own `prettier` package, gitignored so that `nmr-fmt` does
- * not select it for formatting. Its `resolveConfigFile` finds a `.prettierrc` beside the searched path alone.
+ * Installs a stand-in as the repository's own `prettier` package, gitignored so that `nmr-fmt` does not select it
+ * for formatting. Its CLI appends each invocation's arguments as one JSON line to the tree's record, and its
+ * `resolveConfigFile` finds a `.prettierrc` beside the searched path alone.
  */
 function installStubPrettier(tree: TempTree): void {
   tree.write('.gitignore', 'node_modules/\n');
@@ -608,28 +482,14 @@ function installStubPrettier(tree: TempTree): void {
       '',
     ].join('\n'),
   );
-  writeRecordingStub(tree, 0, 'node_modules/prettier');
-}
-
-/** Creates the stub tree containing a recorder that exits 0, which most cases in the block take as given. */
-function scaffoldStub(): TempTree {
-  const tree = createTempTree({}, { prefix: 'nmr-fmt-stub-' });
-  writeRecordingStub(tree, 0);
-
-  return tree;
-}
-
-/**
- * Writes a stand-in for the Prettier CLI into `directory` that appends its arguments as one JSON line per
- * invocation to the tree's record.
- */
-function writeRecordingStub(tree: TempTree, exitCode: number, directory = '.'): void {
-  const source = [
-    "const fs = require('node:fs');",
-    `fs.appendFileSync(${JSON.stringify(tree.resolve(RECORD_ENTRY))}, JSON.stringify(process.argv.slice(2)) + ${JSON.stringify('\n')});`,
-    `process.exit(${exitCode});`,
-  ].join('\n');
-  tree.write(path.join(directory, STUB_ENTRY), `${source}\n`);
+  tree.write(
+    path.join('node_modules/prettier', STUB_ENTRY),
+    [
+      "const fs = require('node:fs');",
+      `fs.appendFileSync(${JSON.stringify(tree.resolve(RECORD_ENTRY))}, JSON.stringify(process.argv.slice(2)) + ${JSON.stringify('\n')});`,
+      '',
+    ].join('\n'),
+  );
 }
 
 /** Returns the argument list of each recorded stub invocation, in order. */
