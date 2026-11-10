@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
-import process from 'node:process';
 
 import {
   formatGlyphLine,
@@ -13,17 +12,13 @@ import {
   UserError,
   writeCacheEntry,
 } from '@williamthorsen/nmr-core';
-import { defineCommand, runCli } from '@williamthorsen/nmr-core/cli';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 import { glob } from 'glob';
 import type * as TypeScript from 'typescript';
 
-import { NMR_COMPILE_BIN } from '../bins.ts';
-import { loadWorkspaceConfig } from '../config.ts';
 import { NMR_GLYPHS } from '../glyphs.ts';
 import { resolveConfigPath } from '../helpers/config-path.ts';
 import { formatSaving } from '../helpers/duration.ts';
-import { resolveBinStyles } from '../resolveBinStyles.ts';
 import { writeStatedOutcome } from '../stated-outcome.ts';
 import {
   type BuildOptions,
@@ -481,33 +476,6 @@ export async function reportUnchangedBuild(
 }
 
 // endregion | Cache
-
-/**
- * Runs `nmr-compile` against `argv` for the package at `packageDir` and returns the exit code to report. The command
- * takes neither an option nor an operand, so anything but `--help` is a usage error and compiles nothing.
- */
-export async function runCompile(argv: string[], packageDir: string): Promise<number> {
-  const command = defineCommand({
-    summary: "Compile the package's src tree to dist/esm",
-    run: async () => {
-      const { stdout } = resolveBinStyles();
-      const { build } = await loadWorkspaceConfig(packageDir);
-
-      await buildPackage(packageDir, {
-        style: stdout,
-        ...(build?.extraIgnorePatterns !== undefined && { extraIgnorePatterns: build.extraIgnorePatterns }),
-      });
-      return 0;
-    },
-  });
-
-  return runCli(argv, command, {
-    name: NMR_COMPILE_BIN,
-    stdout: process.stdout,
-    stderr: process.stderr,
-    baseDir: packageDir,
-  });
-}
 
 // region | Helpers
 

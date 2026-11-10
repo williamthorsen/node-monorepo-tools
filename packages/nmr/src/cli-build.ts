@@ -8,7 +8,7 @@ import process from 'node:process';
 import { reportFailure } from '@williamthorsen/nmr-core';
 
 import { NMR_COMPILE_BIN } from './bins.ts';
-import { runCompile } from './commands/build.ts';
+import { runCompile } from './commands/compile.ts';
 
 try {
   // `nmr-compile` always runs with the package directory as its working directory, which therefore contains the
