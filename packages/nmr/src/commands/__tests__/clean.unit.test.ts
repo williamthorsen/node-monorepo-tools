@@ -6,6 +6,7 @@ import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { readCheckCacheEntry } from '../../check-cache-entries.ts';
+import { OUTPUT_STYLE_ENV_VAR } from '../../output-style.ts';
 import { cleanFrom, cleanPackage, runClean } from '../clean.ts';
 import {
   cleanCollecting,
@@ -68,6 +69,10 @@ describe(cleanPackage, () => {
 });
 
 describe(runClean, () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it.for(['--help', '-h'])('answers %s with help and removes nothing', async (flag, { tree }) => {
     const { aDir } = scaffoldWorkspace(tree);
     await recordCheckResult(tree.dir, tree.dir, 'check');
@@ -110,6 +115,8 @@ describe(runClean, () => {
 
   it('prints the report of a one-package clean without a closing line', async ({ tree }) => {
     const { aDir } = scaffoldWorkspace(tree);
+    // Pin the style, because an `nmr test` at a terminal exports the rich style, which outranks terminal detection.
+    vi.stubEnv(OUTPUT_STYLE_ENV_VAR, 'plain');
     using captured = captureStdio({ includeConsole: true, isTty: false });
 
     await runClean([], tree.resolve(aDir));

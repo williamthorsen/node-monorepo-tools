@@ -2,8 +2,9 @@ import path from 'node:path';
 
 import { captureStdio, createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { describe, expect, it as baseIt } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
+import { OUTPUT_STYLE_ENV_VAR } from '../../output-style.ts';
 import { runClean } from '../clean.ts';
 import { cleanCollecting, hasOutput, scaffoldWorkspace } from '../test-utils/clean-fixtures.ts';
 
@@ -39,6 +40,15 @@ describe('cleanFrom with a clean override', () => {
 });
 
 describe(runClean, () => {
+  beforeEach(() => {
+    // Pin the style, because an `nmr test` at a terminal exports the rich style, which outranks terminal detection.
+    vi.stubEnv(OUTPUT_STYLE_ENV_VAR, 'plain');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("prints the report in the order of the sweep, with an override's output in its package's place", async ({
     tree,
   }) => {
