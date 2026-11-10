@@ -1,9 +1,14 @@
-import { formatGlyphLine, type OutputStyle, UserError } from '@williamthorsen/nmr-core';
+import process from 'node:process';
 
+import { formatGlyphLine, type OutputStyle, UserError } from '@williamthorsen/nmr-core';
+import { defineCommand, runCli } from '@williamthorsen/nmr-core/cli';
+
+import { NMR_REPORT_OVERRIDES_BIN } from '../bins.ts';
 import { NMR_GLYPHS } from '../glyphs.ts';
 import { getPnpmOverrides, readPackageJson } from '../helpers/package-json.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
-import { readWorkspaceOverrides } from '../workspace.ts';
+import { resolveBinStyles } from '../resolveBinStyles.ts';
+import { findMonorepoRoot, readWorkspaceOverrides } from '../workspace.ts';
 
 /**
  * Reports the pnpm dependency overrides declared in the monorepo root's `pnpm-workspace.yaml`, and rejects a
@@ -24,6 +29,28 @@ export function reportOverrides(monorepoRoot: string, style: OutputStyle): void 
   }
 
   rejectLegacyOverrides(monorepoRoot);
+}
+
+/**
+ * Runs `nmr-report-overrides` against `argv` for the monorepo containing `cwd` and returns the exit code to report.
+ * The command takes neither an option nor an operand, so anything but `--help` is a usage error and reports nothing.
+ */
+export async function runReportOverrides(argv: string[], cwd: string): Promise<number> {
+  const command = defineCommand({
+    summary: 'Report the pnpm overrides that the monorepo declares',
+    run: () => {
+      // The report goes to stderr, so it takes that stream's style.
+      reportOverrides(findMonorepoRoot(cwd), resolveBinStyles().stderr);
+      return 0;
+    },
+  });
+
+  return runCli(argv, command, {
+    name: NMR_REPORT_OVERRIDES_BIN,
+    stdout: process.stdout,
+    stderr: process.stderr,
+    baseDir: cwd,
+  });
 }
 
 // region | Helpers

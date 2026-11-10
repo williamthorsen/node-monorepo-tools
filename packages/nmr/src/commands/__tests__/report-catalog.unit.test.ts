@@ -1,8 +1,8 @@
-import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureStdio, createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished, listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { reportCatalog } from '../report-catalog.ts';
+import { reportCatalog, runReportCatalog } from '../report-catalog.ts';
 
 describe(reportCatalog, () => {
   let tree: TempTree;
@@ -128,4 +128,42 @@ describe(reportCatalog, () => {
   }
 
   // endregion | Helpers
+});
+
+describe(runReportCatalog, () => {
+  let packageDir: string;
+
+  beforeEach(() => {
+    // A package with a catalogued dependency, so that a run which reached the report would print it.
+    const tree = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-report-catalog-argv-test-' }));
+    tree.write('pnpm-workspace.yaml', 'packages:\n  - packages/*\n');
+    tree.write('packages/a/package.json', JSON.stringify({ name: 'a', dependencies: { zod: 'catalog:' } }));
+    packageDir = tree.resolve('packages', 'a');
+  });
+
+  it.for(['--help', '-h'])('answers %s with help and does not report', async (flag) => {
+    using captured = captureStdio();
+
+    await expect(runReportCatalog([flag], packageDir)).resolves.toBe(0);
+
+    expect(captured.stdout).toContain('Usage: nmr-report-catalog');
+    expect(captured.stderr).toBe('');
+  });
+
+  it.for(['--bogus', 'packages'])('rejects %s as a usage error and does not report', async (argument) => {
+    using captured = captureStdio();
+
+    await expect(runReportCatalog([argument], packageDir)).resolves.toBe(2);
+
+    expect(captured.stderr).not.toContain('zod');
+    expect(captured.stderr).toContain("Try 'nmr-report-catalog --help'.");
+  });
+
+  it('reports when given no arguments', async () => {
+    using silent = silenceConsole(['warn']);
+
+    await expect(runReportCatalog([], packageDir)).resolves.toBe(0);
+
+    expect(silent.warn).toHaveBeenCalledWith('- zod → catalog:');
+  });
 });

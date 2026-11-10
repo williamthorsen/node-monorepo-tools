@@ -1,8 +1,8 @@
-import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureStdio, createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { reportOverrides } from '../report-overrides.ts';
+import { reportOverrides, runReportOverrides } from '../report-overrides.ts';
 
 describe(reportOverrides, () => {
   let tree: TempTree;
@@ -144,4 +144,49 @@ describe(reportOverrides, () => {
   }
 
   // endregion | Helpers
+});
+
+describe(runReportOverrides, () => {
+  let tree: TempTree;
+
+  beforeEach(() => {
+    // A declared override, so that a run which reached the report would print it.
+    tree = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-report-overrides-argv-test-' }));
+    tree.write('package.json', JSON.stringify({ name: 'test', version: '1.0.0' }));
+    tree.write('pnpm-workspace.yaml', 'overrides:\n  some-package: 1.2.3\n');
+  });
+
+  it.for(['--help', '-h'])('answers %s with help and does not report', async (flag) => {
+    using captured = captureStdio();
+
+    await expect(runReportOverrides([flag], tree.dir)).resolves.toBe(0);
+
+    expect(captured.stdout).toContain('Usage: nmr-report-overrides');
+    expect(captured.stderr).toBe('');
+  });
+
+  it.for(['--bogus', 'packages'])('rejects %s as a usage error and does not report', async (argument) => {
+    using captured = captureStdio();
+
+    await expect(runReportOverrides([argument], tree.dir)).resolves.toBe(2);
+
+    expect(captured.stderr).not.toContain('some-package');
+    expect(captured.stderr).toContain("Try 'nmr-report-overrides --help'.");
+  });
+
+  it('reports the overrides of the monorepo containing the directory when given no arguments', async () => {
+    const packageDir = tree.mkdir('packages/a');
+    using silent = silenceConsole(['warn']);
+
+    await expect(runReportOverrides([], packageDir)).resolves.toBe(0);
+
+    expect(silent.warn).toHaveBeenCalledWith('- some-package → 1.2.3');
+  });
+
+  it('lets a legacy overrides block fail past the parser rather than as a usage error', async () => {
+    tree.write('package.json', JSON.stringify({ name: 'test', pnpm: { overrides: { 'legacy-package': '0.1.0' } } }));
+    using _silent = silenceConsole(['warn']);
+
+    await expect(runReportOverrides([], tree.dir)).rejects.toThrow(/legacy-package/);
+  });
 });
