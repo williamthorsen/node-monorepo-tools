@@ -30,15 +30,19 @@
   color: fbca04
   description: Further information is needed
 
-# Priority
-- name: 'priority:critical'
+# Urgency
+- name: 'urgency:critical'
   color: b60205
-- name: 'priority:high'
+  aliases: ['priority:critical']
+- name: 'urgency:high'
   color: d93f0b
-- name: 'priority:medium'
+  aliases: ['priority:high']
+- name: 'urgency:medium'
   color: fbca04
-- name: 'priority:low'
+  aliases: ['priority:medium']
+- name: 'urgency:low'
   color: cfd3d7
+  aliases: ['priority:low']
 
 # Status
 - name: 'status:blocked'

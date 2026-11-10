@@ -6,6 +6,7 @@ import { findPackageRoot } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
 import { loadPreset } from '../presets.ts';
+import { resolveLabels } from '../resolveLabels.ts';
 
 const presetsDir = resolve(findPackageRoot(import.meta.url), 'presets', 'labels');
 const presetNames = readdirSync(presetsDir)
@@ -34,5 +35,9 @@ describe('bundled label presets', () => {
   it.each(presetNames)('preset "%s" defines each label name only once, ignoring case', (presetName) => {
     const lowercasedNames = loadPreset(presetName).map((label) => label.name.toLowerCase());
     expect([...new Set(lowercasedNames)]).toStrictEqual(lowercasedNames);
+  });
+
+  it.each(presetNames)('preset "%s" declares only aliases that name labels outside it', (presetName) => {
+    expect(() => resolveLabels({ extends: [presetName] })).not.toThrow();
   });
 });
