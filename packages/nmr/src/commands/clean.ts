@@ -10,7 +10,7 @@ import { findContainingPackageDir } from '../context.ts';
 import { NMR_GLYPHS } from '../glyphs.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
 import { resolveChannel } from '../output-channel.ts';
-import { applyDevBin, buildWorkspaceRegistry, resolveScript } from '../resolver.ts';
+import { buildWorkspaceRegistry, resolveScript } from '../resolver.ts';
 import { runCommand } from '../runner.ts';
 import { renderChain } from '../steps.ts';
 import type { NmrConfig } from '../types.ts';
@@ -105,11 +105,6 @@ function describeSweep(cleanedCount: number, skippedCount: number): string {
  * binary per package fails partway through and leaves most packages uncleaned; one process resolves its
  * imports up front and is unaffected when they are deleted afterwards. Spawning an override is safe,
  * because an override is an ordinary command that does not load that output.
- *
- * `devBin` substitution therefore belongs on the spawn path alone, applied to the resolved script only after
- * it is known not to be the built-in. Because this process is already whichever build `devBin` selects,
- * rewriting the built-in into a dev binary would spawn the same code per package and forfeit the
- * single-process guarantee.
  */
 async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string[], style: OutputStyle): Promise<void> {
   const config: NmrConfig = await loadRootConfig(monorepoRoot);
@@ -135,13 +130,12 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
       continue;
     }
 
-    const command = applyDevBin(resolvedCommand, config.devBin, monorepoRoot);
-    const { exitCode } = await runCommand(command, packageDir, {
+    const { exitCode } = await runCommand(resolvedCommand, packageDir, {
       bin: NMR_CLEAN_BIN,
       channels: { stderr: resolveChannel(process.stderr, false), stdout: resolveChannel(process.stdout, false) },
     });
     if (exitCode !== 0) {
-      throw new UserError(`\`${command}\` failed in ${path.basename(packageDir)} with exit code ${exitCode}.`);
+      throw new UserError(`\`${resolvedCommand}\` failed in ${path.basename(packageDir)} with exit code ${exitCode}.`);
     }
     cleanedCount++;
   }

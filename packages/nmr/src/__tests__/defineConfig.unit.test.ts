@@ -51,16 +51,6 @@ describe(defineConfig, () => {
     });
   });
 
-  it('accepts a config with devBin', () => {
-    const config = defineConfig({
-      devBin: {
-        'my-cli': 'tsx packages/my-cli/src/cli.ts',
-      },
-    });
-
-    expect(config.devBin).toStrictEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
-  });
-
   it('rejects a key not declared by the config shape', () => {
     const config = defineConfig({
       // @ts-expect-error -- unrecognized config key

@@ -338,21 +338,6 @@ describe('the check-result cache gate', () => {
       expect(stderr).toContain('install fingerprint');
     });
 
-    it('runs the command every time when devBin substitutes a different binary', async () => {
-      // The substitute is built from somewhere the tree hash does not describe, so a pass by it is not a pass
-      // by the command that the key names.
-      writeConfig(workspace, log, {
-        command: 'stand-in',
-        devBin: { 'stand-in': `sh -c 'echo ran >> ${log}'` },
-      });
-
-      await runNmr(COMMAND, repo);
-      const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
-
-      expect(countRuns(workspace)).toBe(2);
-      expect(stderr).toContain('devBin substituted');
-    });
-
     it('says why a run missed when asked', async () => {
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
 

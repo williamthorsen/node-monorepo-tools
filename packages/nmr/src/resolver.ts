@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-import path from 'node:path';
 
 import { hasErrnoCode, isRecord } from '@williamthorsen/nmr-core';
 
@@ -14,70 +13,6 @@ import {
 import { composeNmrStep, readSelfReference, type SelfReferenceScope, type Step } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 import { isMonorepoRoot } from './workspace.ts';
-
-/**
- * Replaces the first token of a command with a `devBin` substitute.
- * Relative paths in the replacement are resolved from `monorepoRoot`.
- */
-export function applyDevBin(command: string, devBin: Record<string, string> | undefined, monorepoRoot: string): string {
-  if (!devBin) {
-    return command;
-  }
-
-  const spaceIndex = command.indexOf(' ');
-  const firstToken = spaceIndex === -1 ? command : command.slice(0, spaceIndex);
-  const restOfCommand = spaceIndex === -1 ? '' : command.slice(spaceIndex);
-
-  const replacement = devBin[firstToken];
-  if (replacement === undefined) {
-    return command;
-  }
-
-  const resolvedReplacement = resolveReplacementPaths(replacement, monorepoRoot);
-  return resolvedReplacement + restOfCommand;
-}
-
-/**
- * Applies a `devBin` substitution to each opaque step, leaving nmr's own compositions alone.
- *
- * A structural step names a command that nmr resolves for itself, so substituting its first token would replace
- * the `nmr` that runs the composite rather than the leaf tool that `devBin` documents replacing.
- */
-export function applyDevBinToSteps(
-  steps: readonly Step[],
-  devBin: Record<string, string> | undefined,
-  monorepoRoot: string,
-): readonly Step[] {
-  if (!devBin) {
-    return steps;
-  }
-
-  return steps.map((step) =>
-    step.kind === 'opaque' ? { kind: 'opaque', command: applyDevBin(step.command, devBin, monorepoRoot) } : step,
-  );
-}
-
-/**
- * Resolves relative paths in a replacement command against `monorepoRoot`.
- * The first token (the runner binary) is left as-is; subsequent tokens
- * that contain `/` and don't start with `-` are resolved.
- *
- * Limitations: Any non-flag token containing `/` is treated as a path,
- * which may incorrectly resolve URL-like values or glob patterns.
- * Tokens using `--flag=path` syntax are skipped entirely because the
- * leading `-` excludes them; use the spaced form `--flag path` instead.
- */
-function resolveReplacementPaths(replacement: string, monorepoRoot: string): string {
-  const tokens = replacement.split(' ');
-  return tokens
-    .map((token, index) => {
-      if (index === 0) return token;
-      if (token.startsWith('-')) return token;
-      if (!token.includes('/')) return token;
-      return path.resolve(monorepoRoot, token);
-    })
-    .join(' ');
-}
 
 /**
  * Where a resolved script was read from.

@@ -13,7 +13,7 @@ import { wrapWithHooks } from './hooks.ts';
 import { type Invocation, type PhaseResult, type RunPlan, USAGE_EXIT_CODE } from './invocation.ts';
 import { reportVerdict } from './presentation.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
-import { applyDevBinToSteps, type ResolvedScript } from './resolver.ts';
+import type { ResolvedScript } from './resolver.ts';
 import { dropRecursiveSteps, renderChain, type Step } from './steps.ts';
 import type { NoOpReason } from './verdict.ts';
 
@@ -50,12 +50,9 @@ export function assembleChain(options: {
     return { settled: true, result: { exitCode: 0 } };
   }
 
-  const substitutedSteps = applyDevBinToSteps(runnableSteps, context.config.devBin, context.monorepoRoot);
-  const substitutedCommand = renderChain(substitutedSteps);
-
   // Ahead of the recording branch as well as the run, so that `--log` and a run reject an unroutable argument the
   // same way.
-  const bindResult = bindPassthrough(substitutedSteps, parsedArgs.passthrough, command);
+  const bindResult = bindPassthrough(runnableSteps, parsedArgs.passthrough, command);
   if (!bindResult.ok) {
     reportError(NMR_BIN, bindResult.error, stderr);
     return { settled: true, result: { exitCode: USAGE_EXIT_CODE } };
@@ -93,7 +90,6 @@ export function assembleChain(options: {
     monorepoRoot: context.monorepoRoot,
     snapshot,
     stderr,
-    substitution: substitutedCommand === resolvedCommand ? undefined : substitutedCommand,
   });
 
   return { settled: false, value: { commandString: fullCommand, key, ownSteps: mainSteps, steps: fullSteps } };

@@ -135,13 +135,11 @@ export function writeConfig(
   options: {
     checkCache?: Record<string, unknown>;
     command?: ScriptValue;
-    devBin?: Record<string, string>;
     extraRootScripts?: Record<string, ScriptValue>;
   } = {},
 ): void {
   const config = {
     ...(options.checkCache && { checkCache: options.checkCache }),
-    ...(options.devBin && { devBin: options.devBin }),
     rootScripts: {
       [COMMAND]: options.command ?? `echo ran >> ${log}`,
       ...options.extraRootScripts,

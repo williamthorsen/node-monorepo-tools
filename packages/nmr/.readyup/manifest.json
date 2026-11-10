@@ -254,12 +254,12 @@
           "path": "../src/config-check-cache.ts"
         },
         {
-          "hash": "378fb666",
+          "hash": "d25aef4f",
           "kind": "module",
           "path": "../src/config-validation.ts"
         },
         {
-          "hash": "8cb3c082",
+          "hash": "d345a285",
           "kind": "module",
           "path": "../src/config.ts"
         },
@@ -309,11 +309,6 @@
           "path": "../src/helpers/reportClosing.ts"
         },
         {
-          "hash": "3f8448c9",
-          "kind": "module",
-          "path": "../src/helpers/type-guards.ts"
-        },
-        {
           "hash": "77f6bb50",
           "kind": "module",
           "path": "../src/nmr-flags.ts"
@@ -324,7 +319,7 @@
           "path": "../src/resolve-scripts.ts"
         },
         {
-          "hash": "5112becc",
+          "hash": "0112952e",
           "kind": "module",
           "path": "../src/resolver.ts"
         },
@@ -364,7 +359,7 @@
       "readyupVersion": "0.45.0",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "5818d99b"
+      "targetHash": "a7ae36f9"
     }
   ]
 }

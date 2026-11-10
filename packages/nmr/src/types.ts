@@ -68,7 +68,6 @@ export interface NmrConfig {
    * config says. A delegation flag still sends a run elsewhere.
    */
   delegate?: false;
-  devBin?: Record<string, string>;
   output?: OutputConfig;
   workspaceScripts?: Record<string, ScriptValue>;
   rootScripts?: Record<string, ScriptValue>;

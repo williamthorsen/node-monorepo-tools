@@ -68,7 +68,7 @@ export function withLockBypass(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return { [NO_LOCK_ENV_VAR]: '1', ...env };
 }
 
-/** Writes a monorepo-root config, which is the only tier that accepts `devBin` and the script registries. */
+/** Writes a monorepo-root config, which is the only tier that accepts the script registries. */
 export function writeConfig(tree: TempTree, config: Record<string, unknown>): void {
   tree.write('.config/nmr.config.ts', `export default ${JSON.stringify(config)};\n`);
 }

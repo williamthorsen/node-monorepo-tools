@@ -79,7 +79,7 @@ The line names the declaration to which it is an edit (the file, the field, and 
 
 One kind of `package.json` entry is resolved in its own file: an entry whose whole value is `nmr <name>`, without flags, arguments, assignments, or a launcher, where `<name>` is a script in the same `package.json` that runs a command other than nmr and does not have a `:pre` or `:post` hook. Replace the entry's value with that command, and delete the script: `"build:pre": "nmr compile:ports"` beside `"compile:ports": "node scripts/compile-ports.ts"` becomes `"build:pre": "node scripts/compile-ports.ts"`. Keep the script when the registry also defines `<name>`, because the script then overrides nmr's own command. The script must come from the same file: Inlining a command that resolves from the registry would copy nmr's own command text into the package, where nmr's later changes do not reach it.
 
-nmr recognizes `nmr` in command position: at the start of a step, after an unquoted `&&`, `||`, `;`, `|`, or a newline, past any leading `NAME=value` assignments, and behind `npx`, `bunx`, or an `exec`, `dlx`, or `x` subcommand of `npm`, `pnpm`, `yarn`, or `bun`. This line reports a boundary rather than enforcing a rule: It covers a step that nmr runs as written, and only the reporting of the nested run is degraded. The line is also partial in three ways: a value-taking flag standing immediately before the program name hides it (`npx -p foo nmr`), a launcher outside that set goes unreported, and a `devBin` substitution that introduces `nmr` itself is not reported, the line being an edit to a declaration rather than to a substitution.
+nmr recognizes `nmr` in command position: at the start of a step, after an unquoted `&&`, `||`, `;`, `|`, or a newline, past any leading `NAME=value` assignments, and behind `npx`, `bunx`, or an `exec`, `dlx`, or `x` subcommand of `npm`, `pnpm`, `yarn`, or `bun`. This line reports a boundary rather than enforcing a rule: It covers a step that nmr runs as written, and only the reporting of the nested run is degraded. The line is also partial in two ways: a value-taking flag standing immediately before the program name hides it (`npx -p foo nmr`), and a launcher outside that set goes unreported.
 
 A [self-referential entry](#three-tier-override-system), in `package.json` or in `.config/nmr.config.ts`, is the shape that nmr cannot run as written, and it is rejected rather than reported. The same recognition finds it, so the same residuals apply: What goes unrecognized there re-enters nmr once, and the run then fails with an error naming the command and the directory that it re-entered.
 
@@ -125,7 +125,6 @@ A minimal `.config/nmr.config.ts` is in the [README](../README.md#configuration)
 | `delegate`         | `false`                                                                       | Keeps every check on the machine that has the tree, whatever `NMR_DELEGATE` or the [user config](delegate.md#the-user-config) says; a delegation flag still sends a run elsewhere (root config only)                                                                                                                                         |
 | `workspaceScripts` | `Record<string, ScriptValue>`                                                 | Scripts added or overridden in the workspace registry (tier 2)                                                                                                                                                                                                                                                                               |
 | `rootScripts`      | `Record<string, ScriptValue>`                                                 | Scripts added or overridden in the root registry (tier 2)                                                                                                                                                                                                                                                                                    |
-| `devBin`           | `Record<string, string>`                                                      | Map binary names to source-repo replacement commands                                                                                                                                                                                                                                                                                         |
 | `output`           | `{ commandVerbosity?: CommandVerbosity; extraAgentEnvVars?: string[] }`       | How loudly runs report command output; see [configuring](reporting.md#configuring)                                                                                                                                                                                                                                                           |
 | `selfHostedRunner` | `{ exempt: string }`                                                          | Why a qualifying repo keeps CI off the self-hosted runners; stops [nmr's readyup kit](../README.md#conformance-checks) from recommending `CI_RUNS_ON` (root config only). The reason is structural: a circular dependency, a platform or capacity the runners lack, or network reach. A missing tool is installed by a workflow step instead |
 
@@ -135,7 +134,7 @@ Each field belongs to exactly one tier, and nmr loads from a config only the fie
 
 ### Package-level configuration
 
-A package may have its own `.config/nmr.config.ts`, which `nmr-compile` reads from the package that it is compiling. This tier honors `build` alone; declaring `workspaceScripts`, `rootScripts`, or `devBin` there fails with a message naming them, rather than being quietly ignored: Those belong in the monorepo-root config, and a package that appeared to set them would otherwise build on settings that nothing applied. The monorepo-root config has the mirror restriction: `build` there fails the same way, since only a package's own config affects the compile.
+A package may have its own `.config/nmr.config.ts`, which `nmr-compile` reads from the package that it is compiling. This tier honors `build` alone; declaring `workspaceScripts`, `rootScripts`, or any other root-config field there fails with a message naming them, rather than being quietly ignored: Those belong in the monorepo-root config, and a package that appeared to set them would otherwise build on settings that nothing applied. The monorepo-root config has the mirror restriction: `build` there fails the same way, since only a package's own config affects the compile.
 
 ```ts
 // packages/my-package/.config/nmr.config.ts
@@ -150,23 +149,29 @@ export default defineConfig({
 
 > **Building nmr from source:** A config file that has to load while nmr itself is being built (before its `dist` exists) must use the type-only form, `import type { NmrConfig } from '@williamthorsen/nmr/config'` with `satisfies NmrConfig`, which does not produce a runtime import. `defineConfig` is unavailable at that moment, because it resolves through nmr's build output. Every other config, including every consumer's, imports nmr from an installed tarball that contains `dist`, and can use `defineConfig` freely.
 
-### `devBin`: source-repo binary substitution
+### Running a workspace bin from source
 
-During development of a CLI tool inside the monorepo, the published binary may not reflect the latest source changes. `devBin` maps a binary name to a replacement command that runs from source:
+A script that runs a bin built in this monorepo runs its build output, which can lag the source or be missing before the first build. To run the source instead, override the script whose value runs the bin, and call `node` on the bin's source file: Node runs TypeScript directly.
+
+A resolved script runs in the directory of its scope: A root script runs from the monorepo root, so a path relative to the root works there, and a workspace script runs in each package's directory, so the config builds an absolute path from `import.meta.dirname`, the config's own `.config` directory.
 
 ```ts
+// .config/nmr.config.ts
+import { defineConfig } from '@williamthorsen/nmr/config';
+
+const myCli = `${import.meta.dirname}/../packages/my-cli/src/cli.ts`;
+
 export default defineConfig({
-  devBin: {
-    'my-cli': 'tsx packages/my-cli/src/cli.ts',
+  rootScripts: {
+    'build:post': 'node packages/my-cli/src/cli.ts compile',
+  },
+  workspaceScripts: {
+    lint: `node "${myCli}" lint`,
   },
 });
 ```
 
-When nmr resolves a command whose first token matches a `devBin` key, it replaces that token with the mapped command. Arguments are preserved. Relative paths in the replacement are resolved from the monorepo root.
-
-For example, if a workspace script resolves to `my-cli --verbose`, nmr rewrites it to `tsx /absolute/path/to/packages/my-cli/src/cli.ts --verbose`.
-
-> **Note:** Path resolution uses a heuristic: Any non-flag token containing `/` is treated as a relative path. This works well for typical dev-tool commands but may incorrectly resolve URL-like values or glob patterns. Flags using `--flag=value` syntax are not resolved; use the spaced form `--flag value` for paths that need resolution.
+A package's own `package.json` script outranks the config (tier 3), so a package script that runs the bin is changed in that `package.json`.
 
 ## Default commands
 

@@ -1,8 +1,9 @@
+import { chmodSync } from 'node:fs';
 import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { describe, expect, it as baseIt } from 'vitest';
+import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { readCheckCacheEntry, writeCheckCacheEntry } from '../../check-cache-entries.ts';
 import { resolveBuildCachePath, resolveEmitDurationPath } from '../build-output.ts';
@@ -65,6 +66,10 @@ describe(cleanPackage, () => {
 });
 
 describe(runClean, () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('cleans every workspace package when run from the monorepo root', async ({ tree }) => {
     const { aDir, bDir } = scaffoldWorkspace(tree);
 
@@ -118,10 +123,12 @@ describe(runClean, () => {
     await expect(runClean(tree.dir, 'rich')).rejects.toThrow(/exit code 3/);
   });
 
-  it('cleans in-process even when devBin names the built-in clean', async ({ tree }) => {
-    // The substitute fails if spawned, so a clean sweep proves that it was not.
+  it('cleans the built-in in-process rather than spawning nmr-clean per package', async ({ tree }) => {
+    // The stub fails if spawned, so a clean sweep proves that it was not.
     const { aDir, bDir } = scaffoldWorkspace(tree);
-    scaffoldConfig(tree, { devBin: { 'nmr-clean': 'exit 7' } });
+    tree.write('stub-bin/nmr-clean', '#!/bin/sh\nexit 7\n');
+    chmodSync(tree.resolve('stub-bin/nmr-clean'), 0o755);
+    vi.stubEnv('PATH', `${tree.resolve('stub-bin')}${path.delimiter}${process.env['PATH'] ?? ''}`);
 
     await runClean(tree.dir, 'rich');
 
@@ -257,11 +264,6 @@ function scaffoldBuiltPackage(tree: TempTree, packageEntry: string): void {
   });
   tree.write(resolveCacheEntry(tree, packageEntry), 'a-stale-digest');
   tree.writeJson(resolveDurationEntry(tree, packageEntry), { token: 'a-stale-digest', value: { emitMs: 2100 } });
-}
-
-/** Writes an nmr config at the workspace root. */
-function scaffoldConfig(tree: TempTree, config: Record<string, unknown>): void {
-  tree.write('.config/nmr.config.ts', `export default ${JSON.stringify(config)};\n`);
 }
 
 /** Writes a pnpm workspace root containing two built packages, and returns their tree-relative entries. */
