@@ -204,6 +204,16 @@ async function findRepositoryConfig(
   }
 }
 
+/**
+ * How a spawned Prettier process ended.
+ *
+ * @internal
+ */
+export interface PrettierOutcome {
+  error?: Error | undefined;
+  status: number | null;
+}
+
 /** @internal */
 export interface RunPrettierOptions {
   cliPath: string;
@@ -217,6 +227,8 @@ export interface RunPrettierOptions {
   cwd: string;
   /** Overridable so that the multi-batch path is reachable without a fixture that hits the real ceiling. */
   budgetBytes?: number;
+  /** Runs the Prettier CLI as `file` with `args` in `cwd`. */
+  spawn?: (file: string, args: string[], cwd: string) => PrettierOutcome;
 }
 
 /**
@@ -238,6 +250,7 @@ export function runPrettier(options: RunPrettierOptions): number {
     ignorePaths,
     cwd,
     budgetBytes = ARGUMENT_BUDGET_BYTES,
+    spawn = spawnInherited,
   } = options;
 
   const prettierArgs = [
@@ -257,7 +270,7 @@ export function runPrettier(options: RunPrettierOptions): number {
   let firstFailureStatus = 0;
 
   for (const batch of batchWithinBudget(files, budgetBytes)) {
-    const result = spawnSync(process.execPath, [...prettierArgs, ...batch], { cwd, stdio: 'inherit' });
+    const result = spawn(process.execPath, [...prettierArgs, ...batch], cwd);
 
     if (result.error) {
       reportError(NMR_FMT_BIN, `could not run \`${PRETTIER_PACKAGE}\` (${result.error.message}).`);
@@ -303,4 +316,10 @@ function resolveFrom(parent: string, specifier: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** Runs `file` with `args` in `cwd`, handing the child this process's stdio. */
+function spawnInherited(file: string, args: string[], cwd: string): PrettierOutcome {
+  const { error, status } = spawnSync(file, args, { cwd, stdio: 'inherit' });
+  return { error, status };
 }
