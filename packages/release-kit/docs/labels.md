@@ -38,6 +38,8 @@ The `common` preset defines a label for every work type in change-grammar's taxo
 
 The bundled file's `confidence:` family grades how advisable a recommendation is, for example one that a triage of spike findings turns into a ticket: `confidence:high` is clearly worth doing, `confidence:medium` is worth doing but arguable, and `confidence:low` is not worth a ticket now.
 
+The `urgency:` family states how soon an item needs attention, apart from how valuable it is, which the `value:` family states. Its labels replace the earlier `priority:` family and name the old labels in `aliases`, so a repository that has `priority:` labels has them renamed in place by the first sync after it regenerates `.github/labels.yaml` (see [Renaming a label](#renaming-a-label)).
+
 Names match case-insensitively, as GitHub matches them: `Bug` in the `labels` record replaces a preset's `bug`, and `Bug: null` removes it. A label takes the spelling of the last layer to write it.
 
 `description` is optional throughout, in a preset as in the `labels` record, and `sync-labels init` generates none for a scope label. The generated file spells an absent description `''` because `github-label-sync` reads an omitted description as "leave the label's current one alone"; the empty form clears it. Because a scope label without a description groups compactly in GitHub's label list, release-kit's readyup kit warns about each `scope:` label in the generated file that has one.
@@ -70,7 +72,7 @@ labels: {
 
 The sync renames an existing label that an alias names, in place, rather than deleting it and creating a new one, so the label stays on the issues and pull requests that have it. The dry-run **Label diff** lists the rename. When the repository has both the old name and the new one, the sync adds the new label to every issue and pull request that has the old one, then deletes the old label. A label that an alias names is not reported as undeclared.
 
-`aliases` is set only in the `labels` record, not in a preset, and it takes at least one name. Names match case-insensitively. An alias must not name a label that the config resolves, including the label that declares it, and must not appear twice: Either would make the sync merge one declared label into another and delete it. To rename a preset's label, remove it with `null` and alias it from the new entry:
+`aliases` is set in a preset or in the `labels` record, and it takes at least one name. A `labels` entry that replaces a preset's label replaces its aliases too, so an entry that restates such a label without them stops the rename. Names match case-insensitively. An alias must not name a label that the config resolves, including the label that declares it, and must not appear twice: Either would make the sync merge one declared label into another and delete it. To rename a preset's label, remove it with `null` and alias it from the new entry:
 
 ```typescript
 labels: {
