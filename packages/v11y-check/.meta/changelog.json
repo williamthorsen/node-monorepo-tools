@@ -1,5 +1,84 @@
 [
   {
+    "version": "1.0.1",
+    "date": "2026-11-10",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that `v11y-check` crashed on an audit-ci advisory whose `findings` was not an array and reported wrong-typed advisory fields unchecked, by skipping each malformed advisory with the warning \"Skipped malformed audit-ci advisory {key}: {issues}\" and still reporting the well-formed ones. (#1245)",
+            "hash": "6bf95d91d8901ee0f238641ddf279894bc922c9f",
+            "entry": 1
+          },
+          {
+            "description": "Fixes the issue that `v11y-check` reported any unreadable config path, such as a directory, as \"Config file not found\" and dropped the parser's message from an invalid-JSON error; both errors now include the underlying cause, and the not-found error names `v11y init` and `--config` as the fix. (#1247)",
+            "hash": "e125ec062d41707990ae8e716a8e31bdbd50bcc8",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Extracts the audit-ci spawn and bin resolution in `v11y-check` into `audit-ci-runner.ts` and makes the runner an optional second parameter of `runAudit` and `runReport`, so that `run-audit.unit.test.ts` passes a fake runner instead of mocking `node:child_process`. (#1246)",
+            "hash": "3d2128838f9b6f79809ea52d0c07c4e5ed2ca903",
+            "entry": 1
+          },
+          {
+            "description": "Replaces the duplicate `resolveStyles` modules in `release-kit` and `v11y-check` with `resolveCliStyles` from `@williamthorsen/nmr-core/cli`, which each package's `route.ts` calls with its own output-style environment variable. (#1248)",
+            "hash": "c5f4ac68360ce550a7e53006a2a633b79f179f5f",
+            "entry": 1
+          },
+          {
+            "description": "Extracts the config-load, temp-dir, and error-reporting steps repeated in `auditCommand`, `checkCommand`, and `syncCommand` into `runInCommandEnvelope`, which also handles the config reload that `syncCommand` performs after it scaffolds a config and reports a failure there with exit code 1. (#1249)",
+            "hash": "2f82b8f2222192c84d85778e57b43fdc86cfd628",
+            "entry": 1
+          },
+          {
+            "description": "Extracts the threshold, allowlist, and stale-entry classification from `checkCommand` into `classifyScopeResults` in the new `check-result.ts`, which also takes over the check-result types from `format-check.ts`, so that `check-result.unit.test.ts` tests the classification without mocking the audit run. (#1250)",
+            "hash": "e7f0c9d2b82894112f801f0e64f68658d012aa16",
+            "entry": 1
+          },
+          {
+            "description": "Adds a `CommandDependencies` parameter to `auditCommand`, `checkCommand`, and `syncCommand`, which defaults to `defaultCommandDependencies`, so that a caller can replace config loading, the audit-ci runs, allowlist sync, and temp-directory handling without module mocks. (#1252)",
+            "hash": "98f54797fe6cb0c824fe254f2fe8babdb06579b6",
+            "entry": 1
+          },
+          {
+            "description": "Reorders `run-audit.ts`, `format-check.ts`, and `format-verbose.ts` so that each module lists its exports before its helpers and keeps every helper in one alphabetized Helpers region, and removes the inline section headings and the separate Display ID helper region. (#1253)",
+            "hash": "5ceaeaac2fd3eee6ae978f59763f59ccbdc02d5c",
+            "entry": 1
+          },
+          {
+            "description": "Moves the formatting modules of `v11y-check` into `src/format/` and its audit-ci adapters into `src/clients/audit-ci/`, with their tests beside them, and renames most moved files for their main export. (#1254)",
+            "hash": "97da87ed4fc659375c6ded97f8f769c7bd52061c",
+            "entry": 1
+          },
+          {
+            "description": "Makes `routeCommand` take the commands to which it dispatches, and makes `initCommand` and `updateTemplatesCommand` take the scaffolding functions that they call, each as a parameter that defaults to the real implementation, so that the tests in `route.unit.test.ts`, `initCommand.styles.unit.test.ts`, and `updateTemplatesCommand.unit.test.ts` pass fakes instead of mocking repository modules by path. (#1255)",
+            "hash": "2d2401e9564dec877bcf629632fc61ca23a033eb",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Replaces the `vi.mock` setup that the audit, check, and sync command tests each duplicated with fakes built by `buildFakeCommandDependencies` in `test-utils/cli-fixtures.ts`. (#1252)",
+            "hash": "98f54797fe6cb0c824fe254f2fe8babdb06579b6",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "1.0.0",
     "date": "2026-11-08",
     "sections": [{ "title": "Notes", "audience": "dev", "items": [{ "description": "Forced version bump." }] }]

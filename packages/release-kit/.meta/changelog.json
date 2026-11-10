@@ -1,5 +1,35 @@
 [
   {
+    "version": "18.0.0",
+    "date": "2026-11-10",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Renames the `common` label preset's `priority:critical`, `priority:high`, `priority:medium`, and `priority:low` labels to `urgency:*`, and declares each old name as an alias so that `release-kit sync-labels` renames a repository's existing labels in place and keeps them on their issues and pull requests. (#1270)",
+            "breaking": true,
+            "migration": "Replace each `priority:*` name in the `repoLabels.labels` record and in any tool that reads labels by name with its `urgency:*` counterpart, then run `release-kit sync-labels generate`; a `priority:*` entry set to `null` now fails generation as a dangling `null`, and a `labels` entry that restates an `urgency:*` label without `aliases` stops the rename.",
+            "hash": "c3da65d2eef59ae0ce5a9087bddbc6bea888c771",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Replaces the duplicate `resolveStyles` modules in `release-kit` and `v11y-check` with `resolveCliStyles` from `@williamthorsen/nmr-core/cli`, which each package's `route.ts` calls with its own output-style environment variable. (#1248)",
+            "hash": "c5f4ac68360ce550a7e53006a2a633b79f179f5f",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "17.0.1",
     "date": "2026-11-08",
     "sections": [

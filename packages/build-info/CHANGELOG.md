@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.4.0 — 2026-11-10
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Renames the `readGit` option of `collectBuildInfo` and `buildInfoPlugin` to `shouldReadGit`, following the package's convention for boolean options, such as `shouldShowEnvironment`. (#1232)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `readReleaseNotes` and `collectBuildInfo` in `@williamthorsen/build-info` returned empty release notes without any error when `CHANGELOG.md` or `.meta/changelog.json` existed but could not be read, such as a file without read permission or a directory at that path; both now throw the read error and treat only a missing changelog as absent. (#1234)
+
+### ♻️ Refactoring
+
+- Moves `isRecord` and `compactRecord` from `src/collect/portable` to `src/portable` in `build-info`, which lets `contract/normalize.ts` import `isRecord` within the lint boundary that excludes `collect` and drop its duplicate copy. (#1229)
+- Narrows the `try` blocks in `readEventPayload` and `parseUrl` to the calls that can throw, and moves the `isRecord` and hostname checks after the `catch`. (#1230)
+- Extracts `collectBuildInfoWith`, which takes the git reader as a parameter, from `collectBuildInfo` so that its unit tests pass a fake reader instead of mocking `readGitFacts` with `vi.mock`. (#1233)
+- Moves `readReleaseNotes.ts` and its unit test into `packages/build-info/src/collect/sources/`, beside the other sources that `collectBuildInfo` reads, while `./collect` keeps the same exports. (#1235)
+
+### 🧪 Tests
+
+- Moves the Vite plugin test to the `tool` tier by renaming it to `buildInfoPlugin.tool.test.ts`, because the test makes Vite run a library build in-process. (#1231)
+
 ## 0.3.0 — 2026-10-22
 
 ### 🎉 Features

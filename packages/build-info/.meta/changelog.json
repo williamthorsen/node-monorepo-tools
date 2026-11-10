@@ -1,5 +1,72 @@
 [
   {
+    "version": "0.4.0",
+    "date": "2026-11-10",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Renames the `readGit` option of `collectBuildInfo` and `buildInfoPlugin` to `shouldReadGit`, following the package's convention for boolean options, such as `shouldShowEnvironment`. (#1232)",
+            "breaking": true,
+            "migration": "Replace `readGit` with `shouldReadGit` in the options passed to `collectBuildInfo` or `buildInfoPlugin`, because both functions now ignore a leftover `readGit: false` and run git.",
+            "hash": "12ba1ad3b26b393fc286023761e0f57918aa8652",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that `readReleaseNotes` and `collectBuildInfo` in `@williamthorsen/build-info` returned empty release notes without any error when `CHANGELOG.md` or `.meta/changelog.json` existed but could not be read, such as a file without read permission or a directory at that path; both now throw the read error and treat only a missing changelog as absent. (#1234)",
+            "hash": "81ed2614bfeea06e575bdb891fbc3871a18f3990",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Moves `isRecord` and `compactRecord` from `src/collect/portable` to `src/portable` in `build-info`, which lets `contract/normalize.ts` import `isRecord` within the lint boundary that excludes `collect` and drop its duplicate copy. (#1229)",
+            "hash": "eea9add158d91107660b957e0055157d3e016d33",
+            "entry": 1
+          },
+          {
+            "description": "Narrows the `try` blocks in `readEventPayload` and `parseUrl` to the calls that can throw, and moves the `isRecord` and hostname checks after the `catch`. (#1230)",
+            "hash": "243d47a5c1db2142fed93ac4258e9820856d6c62",
+            "entry": 1
+          },
+          {
+            "description": "Extracts `collectBuildInfoWith`, which takes the git reader as a parameter, from `collectBuildInfo` so that its unit tests pass a fake reader instead of mocking `readGitFacts` with `vi.mock`. (#1233)",
+            "hash": "af08df4ef03bba9ec2d063a6d57f20d0229adaa1",
+            "entry": 1
+          },
+          {
+            "description": "Moves `readReleaseNotes.ts` and its unit test into `packages/build-info/src/collect/sources/`, beside the other sources that `collectBuildInfo` reads, while `./collect` keeps the same exports. (#1235)",
+            "hash": "809033bf666cc29a6c4a52545dfba6a14a112efa",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Moves the Vite plugin test to the `tool` tier by renaming it to `buildInfoPlugin.tool.test.ts`, because the test makes Vite run a library build in-process. (#1231)",
+            "hash": "cd2c987f45a467c062e80c4a11f874da0b24cf71",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.3.0",
     "date": "2026-10-22",
     "sections": [

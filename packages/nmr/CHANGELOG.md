@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.0.0 — 2026-11-10
+
+### 🪦 Removed
+
+- 🚨 **Breaking:** Removes the `devBin` root-config field of `@williamthorsen/nmr`, which replaced the first token of a resolved command with a command that ran a bin from source. (#1269)
+
+### ♻️ Refactoring
+
+- Move the duplicated output-style resolver into nmr-core's cli entry (#1248)
+
+  Replaces the duplicate `resolveStyles` modules in `release-kit` and `v11y-check` with one `resolveCliStyles` function, exported from `@williamthorsen/nmr-core/cli`. Each package still reads its own `RELEASE_KIT_OUTPUT_STYLE` or `V11Y_CHECK_OUTPUT_STYLE` variable and still reports a usage error for a value other than `auto`, `plain`, or `rich`.
+
 ## 1.0.0 — 2026-11-08
 
 ### 🧪 Tests

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.16.1 — 2026-11-10
+
+### ♻️ Refactoring
+
+- Replaces the duplicate `resolveStyles` modules in `release-kit` and `v11y-check` with `resolveCliStyles` from `@williamthorsen/nmr-core/cli`, which each package's `route.ts` calls with its own output-style environment variable. (#1248)
+
 ## 0.16.0 — 2026-11-08
 
 ### 🎉 Features

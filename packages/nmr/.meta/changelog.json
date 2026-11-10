@@ -1,5 +1,35 @@
 [
   {
+    "version": "2.0.0",
+    "date": "2026-11-10",
+    "sections": [
+      {
+        "title": "🪦 Removed",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Removes the `devBin` root-config field of `@williamthorsen/nmr`, which replaced the first token of a resolved command with a command that ran a bin from source. (#1269)",
+            "breaking": true,
+            "migration": "Replace each `devBin` entry by overriding the script that runs the bin in `rootScripts` or `workspaceScripts` with `node <path to the bin's source>`, and build an absolute path for a workspace script, because nmr no longer resolves relative paths from the monorepo root and a workspace script runs in each package's directory; a `package.json` script that runs the bin outranks the config, so change it in that `package.json`.",
+            "hash": "5a95865afe2560a4bb9e3f66448bd68f6a32c312",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Move the duplicated output-style resolver into nmr-core's cli entry (#1248)",
+            "body": "Replaces the duplicate `resolveStyles` modules in `release-kit` and `v11y-check` with one `resolveCliStyles` function, exported from `@williamthorsen/nmr-core/cli`. Each package still reads its own `RELEASE_KIT_OUTPUT_STYLE` or `V11Y_CHECK_OUTPUT_STYLE` variable and still reports a usage error for a value other than `auto`, `plain`, or `rich`.",
+            "hash": "c5f4ac68360ce550a7e53006a2a633b79f179f5f"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "1.0.0",
     "date": "2026-11-08",
     "sections": [

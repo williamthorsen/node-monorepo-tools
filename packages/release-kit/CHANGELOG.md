@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 18.0.0 — 2026-11-10
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Renames the `common` label preset's `priority:critical`, `priority:high`, `priority:medium`, and `priority:low` labels to `urgency:*`, and declares each old name as an alias so that `release-kit sync-labels` renames a repository's existing labels in place and keeps them on their issues and pull requests. (#1270)
+
+### ♻️ Refactoring
+
+- Replaces the duplicate `resolveStyles` modules in `release-kit` and `v11y-check` with `resolveCliStyles` from `@williamthorsen/nmr-core/cli`, which each package's `route.ts` calls with its own output-style environment variable. (#1248)
+
 ## 17.0.1 — 2026-11-08
 
 ### 🐛 Bug fixes

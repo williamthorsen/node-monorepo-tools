@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.16.1",
+    "date": "2026-11-10",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Replaces the duplicate `resolveStyles` modules in `release-kit` and `v11y-check` with `resolveCliStyles` from `@williamthorsen/nmr-core/cli`, which each package's `route.ts` calls with its own output-style environment variable. (#1248)",
+            "hash": "c5f4ac68360ce550a7e53006a2a633b79f179f5f",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.16.0",
     "date": "2026-11-08",
     "sections": [
