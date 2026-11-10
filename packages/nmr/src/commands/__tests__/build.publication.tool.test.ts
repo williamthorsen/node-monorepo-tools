@@ -3,9 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished, makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import * as ts from 'typescript';
-import { afterEach, assert, beforeEach, describe, expect, it as baseIt, onTestFinished, vi } from 'vitest';
+import { afterEach, assert, describe, expect, it as baseIt, onTestFinished, vi } from 'vitest';
 
 import { OUTCOME_FILE_ENV_VAR } from '../../stated-outcome.ts';
 import { buildPackage } from '../build.ts';
@@ -33,10 +33,6 @@ const it = baseIt.extend(
 );
 
 describe('buildPackage output-directory ownership', () => {
-  beforeEach(() => {
-    disposeOnTestFinished(silenceConsole(['info']));
-  });
-
   afterEach(() => {
     vi.mocked(ts.createProgram).mockClear();
   });
@@ -46,11 +42,11 @@ describe('buildPackage output-directory ownership', () => {
       'index.ts': 'export const value = 1;\n',
       'obsolete.ts': 'export const obsolete = 1;\n',
     });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
     expect(listEmitted(tree)).toContain('obsolete.js');
 
     tree.rm('src/obsolete.ts');
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(listEmitted(tree)).toStrictEqual(['index.d.ts', 'index.js']);
   });
@@ -61,10 +57,10 @@ describe('buildPackage output-directory ownership', () => {
       'index.ts': 'export const value = 1;\n',
       'test-utils/helper.ts': 'export const helper = 1;\n',
     });
-    await buildPackage(tree.dir, { style: 'rich', ignorePatterns: [] });
+    await buildPackage(tree.dir, { ignorePatterns: [] });
     expect(listEmitted(tree)).toContain('test-utils/helper.js');
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(listEmitted(tree)).toStrictEqual(['index.d.ts', 'index.js']);
   });
@@ -73,9 +69,7 @@ describe('buildPackage output-directory ownership', () => {
   it.for(['.', '../escape'])('refuses to build into %s and removes nothing', async (outdir, { tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
 
-    await expect(buildPackage(tree.dir, { style: 'rich', outdir })).rejects.toThrow(
-      /does not resolve inside the package/,
-    );
+    await expect(buildPackage(tree.dir, { outdir })).rejects.toThrow(/does not resolve inside the package/);
 
     expect(tree.exists('src/index.ts')).toBe(true);
   });
@@ -83,44 +77,40 @@ describe('buildPackage output-directory ownership', () => {
   it('builds a package lacking entry points without touching an absent output directory', async ({ tree }) => {
     scaffoldPackage(tree, { '__tests__/index.test.ts': 'export const covered = 1;\n' });
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(tree.exists('dist')).toBe(false);
   });
 });
 
 describe('buildPackage atomic publication', () => {
-  beforeEach(() => {
-    disposeOnTestFinished(silenceConsole(['info']));
-  });
-
   afterEach(() => {
     vi.mocked(ts.createProgram).mockClear();
   });
 
   it('leaves the previous output intact when the specifier rewrite fails', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
     const publishedOutput = readOutput(tree, 'index.js');
 
     // An alias whose target does not exist survives the emit and fails in the rewrite pass, which is the furthest point
     // a build can fail: everything the publish needs has already been produced.
     tree.write('src/index.ts', `import { missing } from '~/nonexistent.ts';\nexport const value = missing;\n`);
-    await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow(/could not resolve aliased import/);
+    await expect(buildPackage(tree.dir)).rejects.toThrow(/could not resolve aliased import/);
 
     expect(readOutput(tree, 'index.js')).toBe(publishedOutput);
   });
 
   it('leaves the previous output intact when writing the staged output fails', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
     const publishedOutput = readOutput(tree, 'index.js');
 
     tree.write('src/index.ts', 'export const value = 2;\n');
     const writeFile = vi.spyOn(ts.sys, 'writeFile').mockImplementationOnce(() => {
       throw new Error('ENOSPC: no space left on device');
     });
-    await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow('ENOSPC');
+    await expect(buildPackage(tree.dir)).rejects.toThrow('ENOSPC');
     writeFile.mockRestore();
 
     expect(readOutput(tree, 'index.js')).toBe(publishedOutput);
@@ -128,7 +118,7 @@ describe('buildPackage atomic publication', () => {
 
   it('leaves the previous output intact when the emit reports itself skipped', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
     const publishedOutput = readOutput(tree, 'index.js');
 
     tree.write('src/index.ts', 'export const value = 2;\n');
@@ -139,14 +129,14 @@ describe('buildPackage atomic publication', () => {
       ...compile(...args),
       emit: () => ({ diagnostics: [], emitSkipped: true }),
     }));
-    await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow(/emit failed/);
+    await expect(buildPackage(tree.dir)).rejects.toThrow(/emit failed/);
 
     expect(readOutput(tree, 'index.js')).toBe(publishedOutput);
   });
 
   it('leaves the previous output intact when the declarations emit reports itself skipped', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
     const publishedOutput = readOutput(tree, 'index.js');
 
     tree.write('src/index.ts', 'export const value = 2;\n');
@@ -159,32 +149,32 @@ describe('buildPackage atomic publication', () => {
         ...compile(...args),
         emit: () => ({ diagnostics: [], emitSkipped: true }),
       }));
-    await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow(/emit failed/);
+    await expect(buildPackage(tree.dir)).rejects.toThrow(/emit failed/);
 
     expect(readOutput(tree, 'index.js')).toBe(publishedOutput);
   });
 
   it('clears a scratch directory on a build that skips', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     tree.mkdir(resolveStagingEntry(tree));
 
     // Inputs are unchanged, so this run never reaches the emit -- the one path without another sweeper.
-    await buildPackage(tree.dir, { style: 'rich' });
+    const outcome = await buildPackage(tree.dir);
 
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('⏩'));
+    expect(outcome.kind).toBe('unchanged');
     expect(listScratch(tree)).toStrictEqual([]);
   });
 
   it('clears a scratch directory left behind by a killed run', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     tree.write(`${resolveStagingEntry(tree)}/orphan.js`, 'export const orphan = 1;\n');
 
     tree.write('src/index.ts', 'export const value = 2;\n');
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     // The orphan is gone rather than published: A fixed scratch name is cleared before use, so nothing
     // accumulates and a sweep does not have to tell an orphan from a directory that another build is
@@ -195,10 +185,6 @@ describe('buildPackage atomic publication', () => {
 });
 
 describe('buildPackage caching', () => {
-  beforeEach(() => {
-    disposeOnTestFinished(silenceConsole(['info']));
-  });
-
   afterEach(() => {
     // Clear call history but keep the real default implementation for the next test.
     vi.mocked(ts.createProgram).mockClear();
@@ -210,28 +196,27 @@ describe('buildPackage caching', () => {
       'helper.ts': 'export const helper = 1;\n',
     });
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(readOutput(tree, 'index.js')).toContain('./helper.js');
   });
 
   it('writes a cache file and skips an unchanged rebuild', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
     expect(tree.exists(resolveCacheEntry(tree))).toBe(true);
 
-    // Only the second (unchanged) build logs "No changes detected"; the first logs "Changes detected".
-    await buildPackage(tree.dir, { style: 'rich' });
+    const outcome = await buildPackage(tree.dir);
 
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('No changes detected'));
+    expect(outcome.kind).toBe('unchanged');
   });
 
   it('produces the same digest on an unchanged rebuild, which skips', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
     const firstDigest = await readBuildDigest(tree.dir);
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(firstDigest).toBeDefined();
     await expect(readBuildDigest(tree.dir)).resolves.toBe(firstDigest);
@@ -241,7 +226,7 @@ describe('buildPackage caching', () => {
   it('records the emit duration under the digest of the build that it timed', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     const digest = await readBuildDigest(tree.dir);
     assert(digest !== undefined);
@@ -252,7 +237,7 @@ describe('buildPackage caching', () => {
     const outcomeFile = stubOutcomeFile(tree);
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(fs.existsSync(outcomeFile)).toBe(false);
   });
@@ -280,19 +265,19 @@ describe('buildPackage caching', () => {
   ] as const)('rebuilds after %s the package config', async ([, setUpConfig, changeConfig], { tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
     setUpConfig(tree);
-    await buildPackage(tree.dir, { style: 'rich' });
-    vi.mocked(console.info).mockClear();
+    await buildPackage(tree.dir);
 
     changeConfig(tree);
-    await buildPackage(tree.dir, { style: 'rich' });
+    const onProgress = vi.fn();
+    await buildPackage(tree.dir, { onProgress });
 
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Changes detected'));
+    expect(onProgress.mock.calls).toStrictEqual([[{ kind: 'inputs-changed' }]]);
   });
 
   it('writes the cache under node_modules/.cache/nmr-compile, never inside dist', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(resolveBuildCachePath(tree.dir)).toContain(path.join('node_modules', '.cache', 'nmr-compile'));
     expect(tree.exists(resolveCacheEntry(tree))).toBe(true);
@@ -301,13 +286,13 @@ describe('buildPackage caching', () => {
 
   it('rebuilds when the output directory has been deleted', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     // The cache lives outside `dist`, so wiping the output leaves the digest intact. Skipping here would
     // leave an empty `dist`, and pack an empty tarball, without error.
     tree.rm('dist');
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(countBuilds()).toBe(2);
     expect(tree.exists('dist/esm/index.js')).toBe(true);
@@ -315,13 +300,13 @@ describe('buildPackage caching', () => {
 
   it('rebuilds when the output directory survives but has been emptied', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     for (const entry of tree.list('dist/esm')) {
       tree.rm(`dist/esm/${entry}`);
     }
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(countBuilds()).toBe(2);
     expect(tree.exists('dist/esm/index.js')).toBe(true);
@@ -329,12 +314,13 @@ describe('buildPackage caching', () => {
 
   it('reports missing output rather than changed inputs when the output is gone', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
     tree.rm('dist');
+    const onProgress = vi.fn();
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir, { onProgress });
 
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Build output is missing'));
+    expect(onProgress.mock.calls).toStrictEqual([[{ kind: 'output-missing' }]]);
   });
 
   it('skips a package whose sources are all declaration files instead of reporting missing output', async ({
@@ -342,12 +328,13 @@ describe('buildPackage caching', () => {
   }) => {
     // A `.d.ts` file matches the entry glob but emits nothing, so the build never creates an outdir.
     scaffoldPackage(tree, { 'ambient.d.ts': 'export declare const value: number;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
+    const onProgress = vi.fn();
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    const outcome = await buildPackage(tree.dir, { onProgress });
 
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('No changes detected'));
-    expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Build output is missing'));
+    expect(outcome.kind).toBe('unchanged');
+    expect(onProgress).not.toHaveBeenCalled();
   });
 
   it('skips a package whose sources are all ignored instead of reporting missing output', async ({ tree }) => {
@@ -355,21 +342,26 @@ describe('buildPackage caching', () => {
     // points, so it emits nothing and its outdir never exists. That absence is not deleted output,
     // and must not be mistaken for it on every subsequent run.
     scaffoldPackage(tree, { '__tests__/index.test.ts': 'export const covered = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
+    const onProgress = vi.fn();
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    const outcome = await buildPackage(tree.dir, { onProgress });
 
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('No changes detected'));
-    expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Build output is missing'));
+    expect(outcome.kind).toBe('unchanged');
+    expect(onProgress).not.toHaveBeenCalled();
   });
 
-  it('reports the package directory name and the package icon when changes are detected', async ({ tree }) => {
+  it('reports changed inputs before the compile begins', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
+    const onProgress = vi.fn();
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir, { onProgress });
 
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('📦'));
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining(path.basename(tree.dir)));
+    const [progressOrder] = onProgress.mock.invocationCallOrder;
+    const [compileOrder] = vi.mocked(ts.createProgram).mock.invocationCallOrder;
+    expect(onProgress.mock.calls).toStrictEqual([[{ kind: 'inputs-changed' }]]);
+    assert(progressOrder !== undefined && compileOrder !== undefined);
+    expect(progressOrder).toBeLessThan(compileOrder);
   });
 
   it('does not write the build cache when the compile fails', async ({ tree }) => {
@@ -378,7 +370,7 @@ describe('buildPackage caching', () => {
       throw new Error('compile failed');
     });
 
-    await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow('compile failed');
+    await expect(buildPackage(tree.dir)).rejects.toThrow('compile failed');
 
     expect(tree.exists(resolveCacheEntry(tree))).toBe(false);
   });
@@ -388,11 +380,11 @@ describe('buildPackage caching', () => {
     vi.mocked(ts.createProgram).mockImplementationOnce(() => {
       throw new Error('transient failure');
     });
-    await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow('transient failure');
+    await expect(buildPackage(tree.dir)).rejects.toThrow('transient failure');
 
     // Sources are unchanged: A cache poisoned by the failed run would make this skip the compile.
     // Instead it must re-attempt, and with the transient failure gone, produce output and cache it.
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(countBuilds()).toBe(2);
     expect(tree.exists('dist/esm/index.js')).toBe(true);
@@ -401,7 +393,7 @@ describe('buildPackage caching', () => {
 
   it('preserves an existing cache when a changed-source rebuild fails', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
     const lastGoodDigest = tree.read(resolveCacheEntry(tree));
 
     // A changed source forces the rebuild to be attempted rather than skipped; make that rebuild fail.
@@ -409,63 +401,51 @@ describe('buildPackage caching', () => {
     vi.mocked(ts.createProgram).mockImplementationOnce(() => {
       throw new Error('rebuild failed');
     });
-    await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow('rebuild failed');
+    await expect(buildPackage(tree.dir)).rejects.toThrow('rebuild failed');
 
     expect(tree.read(resolveCacheEntry(tree))).toBe(lastGoodDigest);
 
     // With the failure gone, the next run rebuilds the changed source and refreshes the cache.
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
     expect(readOutput(tree, 'index.js')).toContain('value = 2');
     expect(tree.read(resolveCacheEntry(tree))).not.toBe(lastGoodDigest);
   });
 });
 
-describe('buildPackage closing statement', () => {
-  beforeEach(() => {
-    disposeOnTestFinished(silenceConsole(['info']));
-  });
-
+describe('buildPackage outcome', () => {
   afterEach(() => {
     vi.mocked(ts.createProgram).mockClear();
   });
 
-  it('closes the build with the count of files it published', async ({ tree }) => {
+  it('returns the count of files that the build published', async ({ tree }) => {
     // Two sources, each emitting a `.js` and a `.d.ts`.
     scaffoldPackage(tree, {
       'index.ts': `export { helper } from './helper.ts';\n`,
       'helper.ts': 'export const helper = 1;\n',
     });
 
-    await buildPackage(tree.dir, { style: 'rich' });
-
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Compiled 4 files to dist/esm.'));
+    await expect(buildPackage(tree.dir)).resolves.toStrictEqual({
+      kind: 'emitted',
+      fileCount: 4,
+      outdir: 'dist/esm/',
+    });
   });
 
   it('names the resolved outdir rather than the default', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
 
-    await buildPackage(tree.dir, { style: 'rich', outdir: 'build' });
-
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Compiled 2 files to build.'));
+    await expect(buildPackage(tree.dir, { outdir: 'build' })).resolves.toStrictEqual({
+      kind: 'emitted',
+      fileCount: 2,
+      outdir: 'build',
+    });
   });
 
-  it('closes a package whose entry points emit nothing, which said nothing before', async ({ tree }) => {
+  it('returns an emit of no files for a package whose entry points emit nothing', async ({ tree }) => {
     // A `src` tree of declaration files alone is an entry point for which the compiler does not emit any output.
     scaffoldPackage(tree, { 'types.d.ts': 'export type Value = number;\n' });
 
-    await buildPackage(tree.dir, { style: 'rich' });
-
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Did not emit any output.'));
-  });
-
-  it('leaves the skip path to its own conclusion', async ({ tree }) => {
-    scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(tree.dir, { style: 'rich' });
-    vi.mocked(console.info).mockClear();
-
-    await buildPackage(tree.dir, { style: 'rich' });
-
-    expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Compiled'));
+    await expect(buildPackage(tree.dir)).resolves.toMatchObject({ kind: 'emitted', fileCount: 0 });
   });
 });
 

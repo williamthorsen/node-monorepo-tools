@@ -84,10 +84,18 @@ describe('nmr-compile', () => {
     { marker: '📦 ', style: 'rich' },
   ])('reports its build in the $style that the variable names', ({ marker, style }, { tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
+    const packageName = path.basename(tree.dir);
 
-    const lines = runCompile(tree.dir, { [OUTPUT_STYLE_ENV_VAR]: style }).split('\n');
+    const lines = runCompile(tree.dir, { [OUTPUT_STYLE_ENV_VAR]: style })
+      .trimEnd()
+      .split('\n');
 
-    expect(lines).toContain(`${marker}${path.basename(tree.dir)}: Changes detected.`);
+    // Assert the whole of stdout, so that the closing line's wiring, stream, and place after the progress line are
+    // covered: `buildPackage` returns the outcome, and only the bin prints it.
+    expect(lines).toStrictEqual([
+      `${marker}${packageName}: Changes detected.`,
+      `${marker}${packageName}: Compiled 2 files to dist/esm.`,
+    ]);
   });
 
   it('exits 1 on an unknown style name, in the words with which every nmr package rejects one', ({ tree }) => {

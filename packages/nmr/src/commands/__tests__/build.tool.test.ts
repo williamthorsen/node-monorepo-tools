@@ -1,8 +1,8 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished, makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import * as ts from 'typescript';
-import { afterEach, assert, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
+import { afterEach, assert, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { buildPackage } from '../build.ts';
 import {
@@ -72,12 +72,7 @@ const it = baseIt
         ].join('\n') + '\n',
     });
 
-    // Silence the console for the compile alone. A file-scoped silencer would hand its call history to every later
-    // per-test spy, which is what the caching block's negative `console.info` assertions read.
-    {
-      using _silent = silenceConsole(['info']);
-      await buildPackage(tree.dir, { style: 'rich' });
-    }
+    await buildPackage(tree.dir);
 
     const ownedStack = stack.move();
     onCleanup(() => {
@@ -131,10 +126,6 @@ describe('buildPackage regression suite', () => {
 });
 
 describe('buildPackage emit correctness', () => {
-  beforeEach(() => {
-    disposeOnTestFinished(silenceConsole(['info']));
-  });
-
   afterEach(() => {
     vi.mocked(ts.createProgram).mockClear();
   });
@@ -142,7 +133,7 @@ describe('buildPackage emit correctness', () => {
   it('parses each source once across the two programs', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     // Object identity is the only reliable signal: `structureIsReused` reports the module resolutions alone,
     // and reads `2` whether or not the source files are shared. The whole set is asserted because the `lib.*`
@@ -162,7 +153,7 @@ describe('buildPackage emit correctness', () => {
       'index.ts': `import { missing } from '~/nonexistent.ts';\nexport const value = missing;\n`,
     });
 
-    const build = buildPackage(tree.dir, { style: 'rich' });
+    const build = buildPackage(tree.dir);
 
     await expect(build).rejects.toThrow(/could not resolve aliased import '~\/nonexistent\.ts'/);
     await expect(build).rejects.toBeInstanceOf(UserError);
@@ -178,7 +169,7 @@ describe('buildPackage emit correctness', () => {
       { declarationDir: './types' },
     );
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(tree.exists('dist/esm/index.d.ts')).toBe(true);
     expect(tree.exists('types/index.d.ts')).toBe(false);
@@ -194,7 +185,7 @@ describe('buildPackage emit correctness', () => {
     const tsModule: { versionMajorMinor: string } = ts;
     const versionSpy = vi.spyOn(tsModule, 'versionMajorMinor', 'get').mockReturnValue('5.6');
     try {
-      await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow(/requires TypeScript >=5\.7/);
+      await expect(buildPackage(tree.dir)).rejects.toThrow(/requires TypeScript >=5\.7/);
     } finally {
       versionSpy.mockRestore();
     }
@@ -207,7 +198,7 @@ describe('buildPackage emit correctness', () => {
     const tsModule: { versionMajorMinor: string } = ts;
     const versionSpy = vi.spyOn(tsModule, 'versionMajorMinor', 'get').mockReturnValue('7.0');
     try {
-      await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow(/requires TypeScript >=5\.7 <7/);
+      await expect(buildPackage(tree.dir)).rejects.toThrow(/requires TypeScript >=5\.7 <7/);
     } finally {
       versionSpy.mockRestore();
     }
@@ -219,7 +210,7 @@ describe('buildPackage emit correctness', () => {
       'index.ts': `export type Wrapped = { value: import('~/helper.ts').Thing };\n`,
     });
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     const declaration = readOutput(tree, 'index.d.ts');
     expect(declaration).toMatch(/import\(["']\.\/helper\.js["']\)\.Thing/);
@@ -229,10 +220,6 @@ describe('buildPackage emit correctness', () => {
 });
 
 describe('buildPackage comment retention', () => {
-  beforeEach(() => {
-    disposeOnTestFinished(silenceConsole(['info']));
-  });
-
   afterEach(() => {
     vi.mocked(ts.createProgram).mockClear();
   });
@@ -240,7 +227,7 @@ describe('buildPackage comment retention', () => {
   it('keeps doc comments in the declarations emitted by a comment-stripping package', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': COMMENTED_SOURCE }, { removeComments: true });
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     const declaration = readOutput(tree, 'index.d.ts');
     expect(declaration).toContain('/** Adds two numbers. */');
@@ -250,7 +237,7 @@ describe('buildPackage comment retention', () => {
   it('strips every script comment but the license banner when the package sets removeComments', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': COMMENTED_SOURCE }, { removeComments: true });
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     const script = readOutput(tree, 'index.js');
     expect(script).toContain('/*! @license Fixture 1.0 */');
@@ -263,7 +250,7 @@ describe('buildPackage comment retention', () => {
   it('keeps script comments when the package leaves removeComments unset', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': COMMENTED_SOURCE });
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(readOutput(tree, 'index.js')).toContain('/** Adds two numbers. */');
     expect(readOutput(tree, 'index.js')).toContain('Sum before returning');
@@ -272,10 +259,6 @@ describe('buildPackage comment retention', () => {
 });
 
 describe('buildPackage with extends-inherited tsconfig paths', () => {
-  beforeEach(() => {
-    disposeOnTestFinished(silenceConsole(['info']));
-  });
-
   afterEach(() => {
     vi.mocked(ts.createProgram).mockClear();
   });
@@ -283,7 +266,7 @@ describe('buildPackage with extends-inherited tsconfig paths', () => {
   it('rewrites a base-config-inherited paths alias to a relative .js specifier in both outputs', async ({ tree }) => {
     const packageDir = scaffoldExtendedBasePackage(tree);
 
-    await buildPackage(packageDir, { style: 'rich' });
+    await buildPackage(packageDir);
 
     const js = tree.read('pkg/dist/esm/index.js');
     const dts = tree.read('pkg/dist/esm/index.d.ts');
@@ -296,30 +279,26 @@ describe('buildPackage with extends-inherited tsconfig paths', () => {
   it('resolves a base-config-inherited alias relative to a nested importing file', async ({ tree }) => {
     const packageDir = scaffoldExtendedBasePackage(tree);
 
-    await buildPackage(packageDir, { style: 'rich' });
+    await buildPackage(packageDir);
 
     expect(tree.read('pkg/dist/esm/nested/leaf.js')).toMatch(/from ["']\.\.\/helper\.js["']/);
   });
 
   it('rebuilds when a base config in the extends chain changes', async ({ tree }) => {
     const packageDir = scaffoldExtendedBasePackage(tree);
-    await buildPackage(packageDir, { style: 'rich' });
+    await buildPackage(packageDir);
 
     // Change only the base config; the package's own tsconfig and sources stay byte-identical, so a
     // cache that ignored the extends chain would skip this rebuild and leave stale output in place.
     tree.write('tsconfig.base.json', tree.read('tsconfig.base.json').replace('"ES2022"', '"ES2021"'));
 
-    await buildPackage(packageDir, { style: 'rich' });
+    await buildPackage(packageDir);
 
     expect(countBuilds()).toBe(2);
   });
 });
 
 describe('buildPackage with an alias target outside the package source tree', () => {
-  beforeEach(() => {
-    disposeOnTestFinished(silenceConsole(['info']));
-  });
-
   afterEach(() => {
     vi.mocked(ts.createProgram).mockClear();
   });
@@ -329,7 +308,7 @@ describe('buildPackage with an alias target outside the package source tree', ()
     // `src/`; without `paths` it is unresolvable, so the emitted specifier would fail at runtime.
     const packageDir = scaffoldRootEscapingAliasPackage(tree);
 
-    const build = buildPackage(packageDir, { style: 'rich' });
+    const build = buildPackage(packageDir);
 
     await expect(build).rejects.toThrow(/aliased import '~\/rootFile\.ts' from .* resolves to .*rootFile\.ts/);
     await expect(build).rejects.toBeInstanceOf(UserError);
@@ -340,7 +319,7 @@ describe('buildPackage with an alias target outside the package source tree', ()
     // would resolve it and emit it verbatim, and then Node, ignoring `baseUrl`, throws at runtime.
     const packageDir = scaffoldBaseUrlReachableEscapingAliasPackage(tree);
 
-    await expect(buildPackage(packageDir, { style: 'rich' })).rejects.toThrow(
+    await expect(buildPackage(packageDir)).rejects.toThrow(
       /aliased import 'packages\/foo\/src\/x\.ts' from .* resolves to .*x\.ts/,
     );
   });
@@ -368,17 +347,13 @@ describe('buildPackage with an alias target outside the package source tree', ()
       }),
     });
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(readOutput(tree, 'index.js')).toMatch(/from ["']lodash-es["']/);
   });
 });
 
 describe('buildPackage entry-point selection', () => {
-  beforeEach(() => {
-    disposeOnTestFinished(silenceConsole(['info']));
-  });
-
   afterEach(() => {
     vi.mocked(ts.createProgram).mockClear();
   });
@@ -391,7 +366,7 @@ describe('buildPackage entry-point selection', () => {
       'test-utils/helper.ts': 'export const helper = 1;\n',
     });
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(listEmitted(tree)).toContain('test-utils/helper.js');
   });
@@ -402,17 +377,13 @@ describe('buildPackage entry-point selection', () => {
       'internal/helper.ts': 'export const helper = 1;\n',
     });
 
-    await buildPackage(tree.dir, { style: 'rich', extraIgnorePatterns: ['**/internal/**'] });
+    await buildPackage(tree.dir, { extraIgnorePatterns: ['**/internal/**'] });
 
     expect(listEmitted(tree)).toStrictEqual(['index.d.ts', 'index.js']);
   });
 });
 
 describe('buildPackage with .tsx sources', () => {
-  beforeEach(() => {
-    disposeOnTestFinished(silenceConsole(['info']));
-  });
-
   afterEach(() => {
     vi.mocked(ts.createProgram).mockClear();
   });
@@ -423,7 +394,7 @@ describe('buildPackage with .tsx sources', () => {
   it('emits .js and .d.ts for a .tsx entry point that nothing imports', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n', 'view.tsx': VIEW_SOURCE }, { jsx: 'react-jsx' });
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(listEmitted(tree)).toStrictEqual(['index.d.ts', 'index.js', 'view.d.ts', 'view.js']);
   });
@@ -431,7 +402,7 @@ describe('buildPackage with .tsx sources', () => {
   it('compiles JSX with the transform that the package tsconfig names', async ({ tree }) => {
     scaffoldPackage(tree, { 'view.tsx': VIEW_SOURCE }, { jsx: 'react-jsx' });
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(readOutput(tree, 'view.js')).toMatch(/from ["']react\/jsx-runtime["']/);
   });
@@ -443,7 +414,7 @@ describe('buildPackage with .tsx sources', () => {
       { jsx: 'react-jsx' },
     );
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     for (const output of ['index.js', 'index.d.ts']) {
       expect(readOutput(tree, output)).toMatch(/from ["']\.\/view\.js["']/);
@@ -460,7 +431,7 @@ describe('buildPackage with .tsx sources', () => {
       { jsx: 'react-jsx' },
     );
 
-    await buildPackage(tree.dir, { style: 'rich' });
+    await buildPackage(tree.dir);
 
     expect(readOutput(tree, 'nested/panel.js')).toMatch(/from ["']\.\.\/view\.js["']/);
     expect(readOutput(tree, 'nested/panel.js')).not.toContain('~/');
