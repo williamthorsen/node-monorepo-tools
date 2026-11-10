@@ -1,9 +1,15 @@
+import process from 'node:process';
+
 import { formatGlyphLine, type OutputStyle } from '@williamthorsen/nmr-core';
+import { defineCommand, runCli } from '@williamthorsen/nmr-core/cli';
+
+import { NMR_REPORT_CATALOG_BIN } from '../bins.ts';
 
 import { findContainingPackageDir } from '../context.ts';
 import { NMR_GLYPHS } from '../glyphs.ts';
 import { DEPENDENCY_FIELDS, readPackageJson } from '../helpers/package-json.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
+import { resolveBinStyles } from '../resolveBinStyles.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
 
 /** The protocol marking a specifier whose version comes from a `pnpm-workspace.yaml` catalog. */
@@ -12,6 +18,28 @@ const CATALOG_PROTOCOL = 'catalog:';
 interface CataloguedDependency {
   name: string;
   specifier: string;
+}
+
+/**
+ * Runs `nmr-report-catalog` against `argv` from `cwd` and returns the exit code to report. The command takes neither
+ * an option nor an operand, so anything but `--help` is a usage error and reports nothing.
+ */
+export async function runReportCatalog(argv: string[], cwd: string): Promise<number> {
+  const command = defineCommand({
+    summary: 'Report the catalogued dependencies that a package-scoped upgrade does not read',
+    run: () => {
+      // The report goes to stderr, so it takes that stream's style.
+      reportCatalog(cwd, resolveBinStyles().stderr);
+      return 0;
+    },
+  });
+
+  return runCli(argv, command, {
+    name: NMR_REPORT_CATALOG_BIN,
+    stdout: process.stdout,
+    stderr: process.stderr,
+    baseDir: cwd,
+  });
 }
 
 /**
