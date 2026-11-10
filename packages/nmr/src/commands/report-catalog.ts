@@ -4,7 +4,6 @@ import { formatGlyphLine, type OutputStyle } from '@williamthorsen/nmr-core';
 import { defineCommand, runCli } from '@williamthorsen/nmr-core/cli';
 
 import { NMR_REPORT_CATALOG_BIN } from '../bins.ts';
-
 import { findContainingPackageDir } from '../context.ts';
 import { NMR_GLYPHS } from '../glyphs.ts';
 import { DEPENDENCY_FIELDS, readPackageJson } from '../helpers/package-json.ts';

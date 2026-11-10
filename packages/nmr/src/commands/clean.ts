@@ -1,6 +1,5 @@
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
-
 import process from 'node:process';
 
 import { formatGlyphLine, type OutputStyle, UserError } from '@williamthorsen/nmr-core';
