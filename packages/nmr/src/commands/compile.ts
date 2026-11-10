@@ -1,3 +1,4 @@
+import path from 'node:path';
 import process from 'node:process';
 
 import { defineCommand, runCli } from '@williamthorsen/nmr-core/cli';
@@ -6,6 +7,7 @@ import { NMR_COMPILE_BIN } from '../bins.ts';
 import { loadWorkspaceConfig } from '../config.ts';
 import { resolveBinStyles } from '../resolveBinStyles.ts';
 import { buildPackage } from './build.ts';
+import { renderBuildOutcome, renderBuildProgress } from './build-report.ts';
 
 /**
  * Runs `nmr-compile` against `argv` for the package at `packageDir` and returns the exit code to report. The command
@@ -18,10 +20,15 @@ export async function runCompile(argv: string[], packageDir: string): Promise<nu
       const { stdout } = resolveBinStyles();
       const { build } = await loadWorkspaceConfig(packageDir);
 
-      await buildPackage(packageDir, {
-        style: stdout,
+      const packageName = path.basename(packageDir);
+
+      const outcome = await buildPackage(packageDir, {
+        onProgress: (progress) => {
+          console.info(renderBuildProgress(progress, packageName, stdout));
+        },
         ...(build?.extraIgnorePatterns !== undefined && { extraIgnorePatterns: build.extraIgnorePatterns }),
       });
+      console.info(renderBuildOutcome(outcome, packageName, stdout));
       return 0;
     },
   });

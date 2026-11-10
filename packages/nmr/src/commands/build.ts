@@ -3,21 +3,11 @@ import { existsSync } from 'node:fs';
 import { readFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 
-import {
-  formatGlyphLine,
-  type OutputStyle,
-  readCacheEntry,
-  startTimer,
-  STATUS_GLYPHS,
-  UserError,
-  writeCacheEntry,
-} from '@williamthorsen/nmr-core';
+import { readCacheEntry, startTimer, UserError, writeCacheEntry } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 import type * as TypeScript from 'typescript';
 
-import { NMR_GLYPHS } from '../glyphs.ts';
 import { resolveConfigPath } from '../helpers/config-path.ts';
-import { formatSaving } from '../helpers/duration.ts';
 import { writeStatedOutcome } from '../stated-outcome.ts';
 import {
   type BuildOptions,
@@ -55,9 +45,10 @@ export interface BuildToolchain {
   fingerprint: string;
 }
 
-/** What a build needs beyond its sources: the options shaping the emit, and the style in which it reports. */
+/** What a build needs beyond its sources: the options shaping the emit, and a listener for its progress. */
 export interface BuildPackageOptions extends BuildOptions {
-  style: OutputStyle;
+  /** Called before the emit begins, so that a caller can report the build ahead of a slow compile. */
+  onProgress?: (progress: BuildProgress) => void;
   /**
    * Overridable so that a missing `typescript` peer is reachable without uninstalling it.
    *
@@ -91,7 +82,7 @@ const SOURCE_ROOT = 'src';
  * current inputs rather than an accumulation of every build that ever ran. Assets belong outside it, or in a
  * `build:post` hook, which runs after the output is published.
  */
-export async function buildPackage(packageDir: string, options: BuildPackageOptions): Promise<void> {
+export async function buildPackage(packageDir: string, options: BuildPackageOptions = {}): Promise<BuildOutcome> {
   await loadCompiler(options.loadTypeScript);
   assertSupportedTypeScript();
 
@@ -118,22 +109,24 @@ export async function buildPackage(packageDir: string, options: BuildPackageOpti
     fingerprint: await resolveToolchainFingerprint(packageDir),
   };
 
-  const { changed, currentHash } = await detectBuildChanges(
+  const { reason, currentHash } = await detectBuildChanges(
     packageDir,
     [...entryPoints, ...dependencies],
     emitConfig,
     toolchain,
     cachePath,
     hasExpectedBuildOutput(packageDir, outdir, entryPoints),
-    options.style,
   );
-  if (!changed) {
+  if (reason === 'unchanged') {
     // The only path that never reaches `emitPackage`, and so the only one on which a scratch directory left
     // by a run killed mid-publish survives -- as far as a `prepublishOnly` build, which skips on unchanged
     // inputs and would pack it.
     await discardScratchDirs(resolveScratchDirs(emitDir));
-    return;
+    const savedMs = await recordUnchangedBuild(packageDir, currentHash, process.env);
+    return { kind: 'unchanged', ...(savedMs !== undefined && { savedMs }) };
   }
+
+  options.onProgress?.({ kind: reason });
 
   const readEmitMs = startTimer();
   const emittedFileCount = await emitPackage(packageDir, entryPoints, outdir);
@@ -145,15 +138,7 @@ export async function buildPackage(packageDir: string, options: BuildPackageOpti
   await writeCacheEntry(cachePath, currentHash);
   await writeEmitDuration(packageDir, currentHash, emitMs);
 
-  // Report after the digest is written, so that the line describes a build that completed and was recorded.
-  console.info(
-    formatGlyphLine(
-      NMR_GLYPHS,
-      options.style,
-      'package',
-      `${path.basename(packageDir)}: ${describeEmit(emittedFileCount, outdir)}`,
-    ),
-  );
+  return { kind: 'emitted', fileCount: emittedFileCount, outdir };
 }
 
 /**
@@ -427,9 +412,9 @@ function writeStagedOutput(stagedFiles: Map<string, StagedFile>, emitDir: string
 // region | Cache
 
 /**
- * Compares the current input digest against the cached one, reporting whether a build is needed and
- * returning the freshly computed digest. Emits the status line but does not write the cache, so that
- * the caller can persist the digest only after a successful build.
+ * Compares the current input digest against the cached one, returning why a build is needed, or that it is not,
+ * with the freshly computed digest. Does not write the cache, so that the caller can persist the digest only after
+ * a successful build.
  *
  * Unchanged inputs alone do not justify a skip: The cache lives outside `dist`, so wiping the output
  * leaves the digest intact and a digest-only check would skip the build and leave `dist` empty. A
@@ -442,56 +427,29 @@ async function detectBuildChanges(
   toolchain: BuildToolchain,
   cachePath: string,
   isOutputPresent: boolean,
-  style: OutputStyle,
-): Promise<{ changed: boolean; currentHash: string }> {
-  const packageName = path.basename(packageDir);
+): Promise<{ reason: 'unchanged' | BuildProgress['kind']; currentHash: string }> {
   const previousHash = await readCacheEntry(cachePath);
   const currentHash = await computeBuildHash(packageDir, files, emitConfig, toolchain);
 
-  if (previousHash === currentHash) {
-    if (isOutputPresent) {
-      await reportUnchangedBuild(packageDir, currentHash, style, process.env);
-      return { changed: false, currentHash };
-    }
-    console.info(formatGlyphLine(NMR_GLYPHS, style, 'package', `${packageName}: Build output is missing. Rebuilding.`));
-    return { changed: true, currentHash };
+  if (previousHash !== currentHash) {
+    return { reason: 'inputs-changed', currentHash };
   }
 
-  console.info(formatGlyphLine(NMR_GLYPHS, style, 'package', `${packageName}: Changes detected.`));
-  return { changed: true, currentHash };
+  return { reason: isOutputPresent ? 'unchanged' : 'output-missing', currentHash };
 }
 
 /**
- * Reports a build skipped on unchanged inputs: states the `build-unchanged` outcome with the emit time recorded under
- * `digest`, and prints the skip line, which names the saving when `formatSaving` finds it worth naming.
+ * Records a build skipped on unchanged inputs: states the `build-unchanged` outcome with the emit time recorded under
+ * `digest`, and returns that time, which is absent when none was recorded.
  */
-export async function reportUnchangedBuild(
+export async function recordUnchangedBuild(
   packageDir: string,
   digest: string,
-  style: OutputStyle,
   env: NodeJS.ProcessEnv,
-): Promise<void> {
+): Promise<number | undefined> {
   const savedMs = await readEmitDuration(packageDir, digest);
   await writeStatedOutcome(env, { kind: 'build-unchanged', ...(savedMs !== undefined && { savedMs }) });
-  const saving = formatSaving(savedMs ?? 0);
-  const savingClause = saving === undefined ? '' : `, ${saving}`;
-  console.info(
-    `${STATUS_GLYPHS[style].skipped.text} ${path.basename(packageDir)}: No changes detected. Skipping build${savingClause}.`,
-  );
+  return savedMs;
 }
 
 // endregion | Cache
-
-// region | Helpers
-
-/** Describes the outcome of an emit: the files that it published, or their absence. */
-function describeEmit(fileCount: number, outdir: string): string {
-  if (fileCount === 0) {
-    return 'Did not emit any output.';
-  }
-
-  // Always plural: Every emitting source yields a `.js` and a `.d.ts`, so the count is never one.
-  return `Compiled ${fileCount} files to ${outdir.replace(/\/+$/u, '')}.`;
-}
-
-// endregion | Helpers

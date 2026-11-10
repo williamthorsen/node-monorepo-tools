@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished, makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { beforeAll, beforeEach, describe, expect, it as baseIt } from 'vitest';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeAll, describe, expect, it as baseIt } from 'vitest';
 
 import { OUTCOME_FILE_ENV_VAR } from '../../stated-outcome.ts';
-import { buildPackage, computeBuildHash, reportUnchangedBuild } from '../build.ts';
+import { buildPackage, computeBuildHash, recordUnchangedBuild } from '../build.ts';
 import { resolveEmitDurationPath, writeEmitDuration } from '../build-output.ts';
 import { loadCompiler } from '../compiler.ts';
 import { resolveTsconfigChain } from '../tsconfig-chain.ts';
@@ -22,9 +22,7 @@ describe(buildPackage, () => {
       code: 'ERR_MODULE_NOT_FOUND',
     });
 
-    await expect(
-      buildPackage(tree.dir, { style: 'plain', loadTypeScript: () => Promise.reject(missing) }),
-    ).rejects.toThrow(
+    await expect(buildPackage(tree.dir, { loadTypeScript: () => Promise.reject(missing) })).rejects.toThrow(
       "requires TypeScript >=5.7 <7, but 'typescript' could not be resolved. Install a version in that range as the 'typescript' peer dependency.",
     );
   });
@@ -34,9 +32,7 @@ describe(buildPackage, () => {
       code: 'ERR_MODULE_NOT_FOUND',
     });
 
-    await expect(
-      buildPackage(tree.dir, { style: 'plain', loadTypeScript: () => Promise.reject(failure) }),
-    ).rejects.toBe(failure);
+    await expect(buildPackage(tree.dir, { loadTypeScript: () => Promise.reject(failure) })).rejects.toBe(failure);
   });
 });
 
@@ -131,35 +127,24 @@ describe(computeBuildHash, () => {
   });
 });
 
-describe(reportUnchangedBuild, () => {
+describe(recordUnchangedBuild, () => {
   const DIGEST = 'the-current-digest';
 
-  beforeEach(() => {
-    disposeOnTestFinished(silenceConsole(['info']));
-  });
-
-  it('names the saving when the emit recorded for the digest took at least a second', async ({ tree }) => {
+  it('returns the emit time recorded for the digest', async ({ tree }) => {
     const packageDir = scaffoldCacheRoot(tree);
     await writeEmitDuration(packageDir, DIGEST, 2100);
 
-    await reportUnchangedBuild(packageDir, DIGEST, 'plain', {});
-
-    expect(console.info).toHaveBeenCalledWith(
-      expect.stringMatching(/pkg: No changes detected\. Skipping build, saved ~2\.1s\.$/),
-    );
+    await expect(recordUnchangedBuild(packageDir, DIGEST, {})).resolves.toBe(2100);
   });
 
   it.for([
     ['recorded under another digest', (packageDir: string) => writeEmitDuration(packageDir, 'an-old-digest', 2100)],
-    ['under a second', (packageDir: string) => writeEmitDuration(packageDir, DIGEST, 900)],
     ['missing', async () => {}],
-  ] as const)('omits the saving when the recorded duration is %s', async ([, plantDuration], { tree }) => {
+  ] as const)('returns no emit time when the recorded duration is %s', async ([, plantDuration], { tree }) => {
     const packageDir = scaffoldCacheRoot(tree);
     await plantDuration(packageDir);
 
-    await reportUnchangedBuild(packageDir, DIGEST, 'plain', {});
-
-    expect(console.info).toHaveBeenCalledWith(expect.stringMatching(/No changes detected\. Skipping build\.$/));
+    await expect(recordUnchangedBuild(packageDir, DIGEST, {})).resolves.toBeUndefined();
   });
 
   it('states a hit with the saving recorded for the digest', async ({ tree }) => {
@@ -167,7 +152,7 @@ describe(reportUnchangedBuild, () => {
     const outcomeFile = tree.resolve('outcome.json');
     await writeEmitDuration(packageDir, DIGEST, 2100);
 
-    await reportUnchangedBuild(packageDir, DIGEST, 'plain', { [OUTCOME_FILE_ENV_VAR]: outcomeFile });
+    await recordUnchangedBuild(packageDir, DIGEST, { [OUTCOME_FILE_ENV_VAR]: outcomeFile });
 
     expect(JSON.parse(fs.readFileSync(outcomeFile, 'utf8'))).toStrictEqual({
       kind: 'build-unchanged',
@@ -181,7 +166,7 @@ describe(reportUnchangedBuild, () => {
     const outcomeFile = tree.resolve('outcome.json');
     await writeEmitDuration(packageDir, 'an-old-digest', 2100);
 
-    await reportUnchangedBuild(packageDir, DIGEST, 'plain', { [OUTCOME_FILE_ENV_VAR]: outcomeFile });
+    await recordUnchangedBuild(packageDir, DIGEST, { [OUTCOME_FILE_ENV_VAR]: outcomeFile });
 
     expect(JSON.parse(fs.readFileSync(outcomeFile, 'utf8'))).toStrictEqual({
       kind: 'build-unchanged',
