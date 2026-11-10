@@ -6,6 +6,7 @@ import { CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
 import { findPackageRoot, isRecord, UserError } from '@williamthorsen/nmr-core';
 import { parse } from 'yaml';
 
+import { labelSpecSchema } from '../configSchema.ts';
 import { chainUserError } from '../user-error-chaining.ts';
 import { deriveTypeLabels } from './typeLabels.ts';
 import type { LabelDefinition } from './types.ts';
@@ -22,7 +23,8 @@ export function hashPreset(presetName: string): string {
 
 /**
  * Loads a named preset from the bundled YAML files. The `common` preset also defines the label of every work type in
- * change-grammar's taxonomy, ahead of the labels in its file.
+ * change-grammar's taxonomy, ahead of the labels in its file. An entry may declare `aliases`, the old names that the
+ * sync renames to the label.
  *
  * Throws if the preset does not exist or has invalid content.
  */
@@ -50,17 +52,25 @@ export function loadPreset(presetName: string): LabelDefinition[] {
     if (!isRecord(entry)) {
       throw new UserError(`Preset "${presetName}" contains an invalid label entry: ${JSON.stringify(entry)}`);
     }
-    // `description` is optional here as it is in the `repoLabels.labels` record,
+    // `description` and `aliases` are optional here as they are in the `repoLabels.labels` record,
     // so that a preset can define bare labels rather than restating each name.
-    const { color, description, name } = entry;
+    const { aliases: rawAliases, color, description, name } = entry;
+    const aliasesResult = labelSpecSchema.shape.aliases.safeParse(rawAliases);
     if (
       typeof name !== 'string' ||
       typeof color !== 'string' ||
-      (description !== undefined && typeof description !== 'string')
+      (description !== undefined && typeof description !== 'string') ||
+      !aliasesResult.success
     ) {
       throw new UserError(`Preset "${presetName}" contains a label with invalid fields: ${JSON.stringify(entry)}`);
     }
-    labels.push({ name, color, ...(description !== undefined && { description }) });
+    const aliases = aliasesResult.data;
+    labels.push({
+      name,
+      color,
+      ...(description !== undefined && { description }),
+      ...(aliases !== undefined && { aliases }),
+    });
   }
 
   return presetName === TYPE_LABELS_PRESET ? [...deriveTypeLabels(CANONICAL_TAXONOMY), ...labels] : labels;
