@@ -41,7 +41,9 @@ export type CleanOutcome =
 /** A step of a clean, reported as soon as it completes. */
 export type CleanProgress = { kind: 'check-results-removed' } | { kind: 'package-cleaned'; packageDir: string };
 
+/** What a clean needs from its caller: a listener for its progress, and the streams for an override's output. */
 export interface CleanOptions {
+  /** Called after each step completes, so that a caller can report it before a later override runs or fails. */
   onProgress?: (progress: CleanProgress) => void;
   /** The stream to which a package's own `clean` override writes its errors. */
   stderr: Writable;
