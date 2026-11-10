@@ -114,6 +114,26 @@ describe(loadPreset, () => {
     expect(() => loadPreset('bad')).toThrow(/invalid fields/);
   });
 
+  it.each([
+    ['a string', '  aliases: priority:high\n'],
+    ['an empty array', '  aliases: []\n'],
+    ['a non-string entry', '  aliases:\n    - 123\n'],
+    ['an empty-string entry', "  aliases:\n    - ''\n"],
+  ])('throws when aliases is %s', (_case, aliasesYaml) => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(`- name: urgency:high\n  color: d93f0b\n${aliasesYaml}`);
+
+    expect(() => loadPreset('bad')).toThrow(UserError);
+    expect(() => loadPreset('bad')).toThrow(/invalid fields/);
+  });
+
+  it('returns the aliases of an entry that declares them', () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue('- name: urgency:high\n  color: d93f0b\n  aliases:\n    - priority:high\n');
+
+    expect(loadPreset('custom')).toStrictEqual([{ name: 'urgency:high', color: 'd93f0b', aliases: ['priority:high'] }]);
+  });
+
   it('omits the description key for an entry that declares none', () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('- name: scope:nmr\n  color: 00ff96\n');

@@ -15,6 +15,7 @@ import { resolveLabels } from '../resolveLabels.ts';
 const bugLabel: LabelDefinition = { name: 'bug', color: 'd73a4a', description: "Something isn't working" };
 const featureLabel: LabelDefinition = { name: 'feature', color: '0075ca', description: 'New feature' };
 const docsLabel: LabelDefinition = { name: 'documentation', color: 'a2eeef', description: 'Docs' };
+const urgencyLabel: LabelDefinition = { name: 'urgency:high', color: 'd93f0b', aliases: ['priority:high'] };
 
 describe(resolveLabels, () => {
   afterEach(() => {
@@ -196,6 +197,34 @@ describe(resolveLabels, () => {
 
     expect(() => resolveLabels(config)).toThrow(UserError);
     expect(() => resolveLabels(config)).toThrow("'type:bug' declares alias 'bug', which names the label 'bug'");
+  });
+
+  it('carries the aliases of a preset label', () => {
+    mockLoadPreset.mockReturnValue([urgencyLabel]);
+
+    const result = resolveLabels({ extends: ['common'] });
+
+    expect(result).toStrictEqual([urgencyLabel]);
+  });
+
+  it('drops the aliases of a preset label that a local entry replaces', () => {
+    mockLoadPreset.mockReturnValue([urgencyLabel]);
+
+    const config: RepoLabelsConfig = { extends: ['common'], labels: { 'urgency:high': { color: 'ff0000' } } };
+    const result = resolveLabels(config);
+
+    expect(result).toStrictEqual([{ name: 'urgency:high', color: 'ff0000' }]);
+  });
+
+  it('throws when a preset alias names a local label', () => {
+    mockLoadPreset.mockReturnValue([urgencyLabel]);
+
+    const config: RepoLabelsConfig = { extends: ['common'], labels: { 'priority:high': { color: 'd93f0b' } } };
+
+    expect(() => resolveLabels(config)).toThrow(UserError);
+    expect(() => resolveLabels(config)).toThrow(
+      "'urgency:high' declares alias 'priority:high', which names the label 'priority:high'",
+    );
   });
 
   it('throws when two labels declare the same alias', () => {
