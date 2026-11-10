@@ -34,45 +34,10 @@ const BUILT_IN_CLEAN = 'nmr-clean';
 const OUTPUT_ROOT = 'dist';
 
 /**
- * Removes a package's build output and the build-cache entries that describe it, so the package does not keep
- * any state that would make the next build skip. Removal is idempotent: An already-clean package is a silent
- * no-op.
- */
-export async function cleanPackage(packageDir: string, style: OutputStyle): Promise<void> {
-  await rm(path.resolve(packageDir, OUTPUT_ROOT), { recursive: true, force: true });
-  await rm(resolveBuildCachePath(packageDir), { force: true });
-  await rm(resolveEmitDurationPath(packageDir), { force: true });
-
-  console.info(
-    formatGlyphLine(NMR_GLYPHS, style, 'clean', `${path.basename(packageDir)}: Removed build output and cache.`),
-  );
-}
-
-/**
- * Runs `nmr-clean` against `argv` from `cwd` and returns the exit code to report. The command takes neither an
- * option nor an operand, so anything but `--help` is a usage error and removes nothing.
- */
-export async function runClean(argv: string[], cwd: string): Promise<number> {
-  const command = defineCommand({
-    summary: 'Remove the build output and build cache of this package, or of every package from the monorepo root',
-    run: async () => {
-      await cleanFrom(cwd, resolveBinStyles().stdout);
-      return 0;
-    },
-  });
-
-  return runCli(argv, command, { name: NMR_CLEAN_BIN, stdout: process.stdout, stderr: process.stderr, baseDir: cwd });
-}
-
-/**
  * Cleans the package containing `cwd`, or every workspace package when run from the monorepo root.
  *
- * From within a package this is the built-in clean itself: `nmr` has already resolved `clean` to this bin
+ * From within a package this is the built-in clean itself: `nmr` has already resolved `clean` to `nmr-clean`
  * before invoking it, so resolving again would apply the package's own override twice.
- *
- * This is the default `clean` script, and it is published as a bin because, under pnpm's isolated layout,
- * `pnpm exec` resolves only the bins of the consuming project's direct dependencies: pnpm links nmr's own bins
- * into the consumer's `node_modules/.bin`, but not the bins of nmr's dependencies.
  */
 export async function cleanFrom(cwd: string, style: OutputStyle): Promise<void> {
   let monorepoRoot: string;
@@ -97,6 +62,41 @@ export async function cleanFrom(cwd: string, style: OutputStyle): Promise<void> 
   }
 
   await sweepWorkspace(monorepoRoot, workspacePackageDirs, style);
+}
+
+/**
+ * Removes a package's build output and the build-cache entries that describe it, so the package does not keep
+ * any state that would make the next build skip. Removal is idempotent: An already-clean package is a silent
+ * no-op.
+ */
+export async function cleanPackage(packageDir: string, style: OutputStyle): Promise<void> {
+  await rm(path.resolve(packageDir, OUTPUT_ROOT), { recursive: true, force: true });
+  await rm(resolveBuildCachePath(packageDir), { force: true });
+  await rm(resolveEmitDurationPath(packageDir), { force: true });
+
+  console.info(
+    formatGlyphLine(NMR_GLYPHS, style, 'clean', `${path.basename(packageDir)}: Removed build output and cache.`),
+  );
+}
+
+/**
+ * Runs `nmr-clean` against `argv` from `cwd` and returns the exit code to report. The command takes neither an
+ * option nor an operand, so anything but `--help` is a usage error and removes nothing.
+ *
+ * This is the default `clean` script, and it is published as a bin because, under pnpm's isolated layout,
+ * `pnpm exec` resolves only the bins of the consuming project's direct dependencies: pnpm links nmr's own bins
+ * into the consumer's `node_modules/.bin`, but not the bins of nmr's dependencies.
+ */
+export async function runClean(argv: string[], cwd: string): Promise<number> {
+  const command = defineCommand({
+    summary: 'Remove the build output and build cache of this package, or of every package from the monorepo root',
+    run: async () => {
+      await cleanFrom(cwd, resolveBinStyles().stdout);
+      return 0;
+    },
+  });
+
+  return runCli(argv, command, { name: NMR_CLEAN_BIN, stdout: process.stdout, stderr: process.stderr, baseDir: cwd });
 }
 
 // region | Helpers

@@ -12,6 +12,27 @@ import { resolveBinStyles } from '../resolveBinStyles.ts';
 import { findMonorepoRoot, readWorkspaceOverrides } from '../workspace.ts';
 
 /**
+ * Reports the pnpm dependency overrides declared in the monorepo root's `pnpm-workspace.yaml`, and rejects a
+ * `pnpm.overrides` block left behind in the root `package.json`.
+ */
+export function reportOverrides(monorepoRoot: string, style: OutputStyle): void {
+  const declaredOverrides = listEntries(readWorkspaceOverrides(monorepoRoot));
+
+  if (declaredOverrides.length > 0) {
+    console.warn(formatGlyphLine(NMR_GLYPHS, style, 'overrides', 'WARN: pnpm overrides are active:'));
+    for (const [name, version] of declaredOverrides) {
+      console.warn(`- ${name} → ${version}`);
+    }
+    reportClosing(
+      formatGlyphLine(NMR_GLYPHS, style, 'overrides', describeOverrides(declaredOverrides.length)),
+      console.warn,
+    );
+  }
+
+  rejectLegacyOverrides(monorepoRoot);
+}
+
+/**
  * Runs `nmr-report-overrides` against `argv` for the monorepo containing `cwd` and returns the exit code to report.
  * The command takes neither an option nor an operand, so anything but `--help` is a usage error and reports nothing.
  */
@@ -31,27 +52,6 @@ export async function runReportOverrides(argv: string[], cwd: string): Promise<n
     stderr: process.stderr,
     baseDir: cwd,
   });
-}
-
-/**
- * Reports the pnpm dependency overrides declared in the monorepo root's `pnpm-workspace.yaml`, and rejects a
- * `pnpm.overrides` block left behind in the root `package.json`.
- */
-export function reportOverrides(monorepoRoot: string, style: OutputStyle): void {
-  const declaredOverrides = listEntries(readWorkspaceOverrides(monorepoRoot));
-
-  if (declaredOverrides.length > 0) {
-    console.warn(formatGlyphLine(NMR_GLYPHS, style, 'overrides', 'WARN: pnpm overrides are active:'));
-    for (const [name, version] of declaredOverrides) {
-      console.warn(`- ${name} → ${version}`);
-    }
-    reportClosing(
-      formatGlyphLine(NMR_GLYPHS, style, 'overrides', describeOverrides(declaredOverrides.length)),
-      console.warn,
-    );
-  }
-
-  rejectLegacyOverrides(monorepoRoot);
 }
 
 // region | Helpers
