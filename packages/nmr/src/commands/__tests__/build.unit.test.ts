@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 
-import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureStdio, createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished, makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeAll, beforeEach, describe, expect, it as baseIt } from 'vitest';
 
 import { OUTCOME_FILE_ENV_VAR } from '../../stated-outcome.ts';
-import { buildPackage, computeBuildHash, reportUnchangedBuild } from '../build.ts';
+import { buildPackage, computeBuildHash, reportUnchangedBuild, runCompile } from '../build.ts';
 import { resolveEmitDurationPath, writeEmitDuration } from '../build-output.ts';
 import { loadCompiler } from '../compiler.ts';
 import { resolveTsconfigChain } from '../tsconfig-chain.ts';
@@ -187,6 +187,35 @@ describe(reportUnchangedBuild, () => {
       kind: 'build-unchanged',
       parentPid: process.ppid,
     });
+  });
+});
+
+describe(runCompile, () => {
+  beforeEach(({ tree }) => {
+    // A compilable package, so that a run which reached the build would emit `dist`.
+    tree.writeAll({
+      'package.json': JSON.stringify({ name: 'fixture', type: 'module' }),
+      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'NodeNext', strict: true }, include: ['src/'] }),
+      'src/index.ts': 'export const value = 1;\n',
+    });
+  });
+
+  it.for(['--help', '-h'])('answers %s with help and compiles nothing', async (flag, { tree }) => {
+    using captured = captureStdio();
+
+    await expect(runCompile([flag], tree.dir)).resolves.toBe(0);
+
+    expect(captured.stdout).toContain('Usage: nmr-compile');
+    expect(tree.exists('dist')).toBe(false);
+  });
+
+  it.for(['--bogus', 'src'])('rejects %s as a usage error and compiles nothing', async (argument, { tree }) => {
+    using captured = captureStdio();
+
+    await expect(runCompile([argument], tree.dir)).resolves.toBe(2);
+
+    expect(captured.stderr).toContain("Try 'nmr-compile --help'.");
+    expect(tree.exists('dist')).toBe(false);
   });
 });
 
