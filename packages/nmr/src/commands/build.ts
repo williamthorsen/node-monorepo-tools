@@ -36,6 +36,16 @@ import { isWithin, rewriteSpecifiers } from './rewrite-specifiers.ts';
 import { resolveTsconfigChain } from './tsconfig-chain.ts';
 
 /**
+ * How a build ended: skipped because its inputs and output were unchanged, with the emit time recorded for those
+ * inputs when one was; or emitted, with the count of files that it published to `outdir`.
+ */
+export type BuildOutcome =
+  { kind: 'unchanged'; savedMs?: number } | { kind: 'emitted'; fileCount: number; outdir: string };
+
+/** Why a build is about to emit: its inputs changed, or its inputs match the cache and its output is missing. */
+export type BuildProgress = { kind: 'inputs-changed' } | { kind: 'output-missing' };
+
+/**
  * The toolchain from which a build's emit comes: the resolved compiler and the nmr running it. `computeBuildHash`
  * folds both into the build hash, because the same sources can compile to different output under a different
  * compiler or nmr.
