@@ -39,7 +39,7 @@ export async function loadConfig(baseDir: string): Promise<NmrConfig> {
 }
 
 /**
- * Loads the monorepo-root `.config/nmr.config.ts`, the tier that feeds script resolution and `devBin`.
+ * Loads the monorepo-root `.config/nmr.config.ts`, the tier that feeds script resolution.
  * Returns an empty config if the file doesn't exist.
  *
  * Throws on a recognized key that this tier does not honor. `build` governs one package's compile, which reads the

@@ -24,32 +24,11 @@ describe(loadConfig, () => {
     expect(config).toStrictEqual({});
   });
 
-  it('loads a config with a valid devBin mapping', async ({ tree }) => {
-    writeConfig(tree, `export default { devBin: { 'my-cli': 'tsx packages/my-cli/src/cli.ts' } };`);
-
-    const config = await loadConfig(tree.dir);
-    expect(config.devBin).toStrictEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
-  });
-
   // The CLI boundary reads the class, not the message, to print a config error without a stack trace.
   it('rejects an invalid config as a UserError', async ({ tree }) => {
-    writeConfig(tree, `export default { devBin: { 'my-cli': 123 } };`);
+    writeConfig(tree, `export default { build: { extraIgnorePatterns: [7] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(UserError);
-  });
-
-  it('throws when devBin contains a non-string value', async ({ tree }) => {
-    writeConfig(tree, `export default { devBin: { 'my-cli': 123 } };`);
-
-    await expect(loadConfig(tree.dir)).rejects.toThrow('`devBin` must be a Record<string, string>');
-  });
-
-  it('loads a config without devBin (backward compatibility)', async ({ tree }) => {
-    writeConfig(tree, `export default { workspaceScripts: { hello: 'echo hello' } };`);
-
-    const config = await loadConfig(tree.dir);
-    expect(config.devBin).toBeUndefined();
-    expect(config.workspaceScripts).toStrictEqual({ hello: 'echo hello' });
   });
 
   it('loads build.extraIgnorePatterns', async ({ tree }) => {
@@ -76,7 +55,7 @@ describe(loadConfig, () => {
     writeConfig(tree, `export default { bild: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
-      'unrecognized key `bild`. Recognized: `build`, `checkCache`, `delegate`, `devBin`, `output`, `rootScripts`, ' +
+      'unrecognized key `bild`. Recognized: `build`, `checkCache`, `delegate`, `output`, `rootScripts`, ' +
         '`selfHostedRunner`, `workspaceScripts`.',
     );
   });
@@ -282,12 +261,9 @@ describe(loadWorkspaceConfig, () => {
 
   it('throws naming every root-tier key that the package config declares', async ({ tree }) => {
     // Silently dropping these would leave the package running on settings that its own config appears to set.
-    writeConfig(
-      tree,
-      `export default { rootScripts: { a: 'x' }, devBin: { b: 'y' }, output: { commandVerbosity: 'quiet' }, build: {} };`,
-    );
+    writeConfig(tree, `export default { rootScripts: { a: 'x' }, output: { commandVerbosity: 'quiet' }, build: {} };`);
 
-    await expect(loadWorkspaceConfig(tree.dir)).rejects.toThrow('not devBin, output, rootScripts');
+    await expect(loadWorkspaceConfig(tree.dir)).rejects.toThrow('not output, rootScripts');
   });
 
   it('throws when the package config declares delegate, which only the root config accepts', async ({ tree }) => {
@@ -312,12 +288,19 @@ describe(loadRootConfig, () => {
     await expect(loadRootConfig(tree.dir)).resolves.toStrictEqual({});
   });
 
-  it('loads the script and devBin keys the root tier honors', async ({ tree }) => {
-    writeConfig(tree, `export default { rootScripts: { a: 'x' }, workspaceScripts: { b: 'y' }, devBin: { c: 'z' } };`);
+  it('loads the script keys the root tier honors', async ({ tree }) => {
+    writeConfig(tree, `export default { rootScripts: { a: 'x' }, workspaceScripts: { b: 'y' } };`);
 
     const config = await loadRootConfig(tree.dir);
 
     expect(config.rootScripts).toStrictEqual({ a: 'x' });
+    expect(config.workspaceScripts).toStrictEqual({ b: 'y' });
+  });
+
+  it('rejects devBin as an unrecognized key', async ({ tree }) => {
+    writeConfig(tree, `export default { devBin: { c: 'z' } };`);
+
+    await expect(loadRootConfig(tree.dir)).rejects.toThrow('unrecognized key `devBin`');
   });
 
   it('loads output, which the root tier honors', async ({ tree }) => {
@@ -381,7 +364,7 @@ describe(loadRootConfig, () => {
     writeConfig(tree, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     await expect(loadRootConfig(tree.dir)).rejects.toThrow(
-      'honors checkCache, delegate, devBin, output, rootScripts, selfHostedRunner, workspaceScripts alone, not build. ' +
+      'honors checkCache, delegate, output, rootScripts, selfHostedRunner, workspaceScripts alone, not build. ' +
         "Move those keys to the package's own config.",
     );
   });

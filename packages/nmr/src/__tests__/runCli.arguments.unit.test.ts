@@ -501,29 +501,4 @@ describe(runCli, () => {
       expect(stderr).not.toContain(HINT_TAIL);
     });
   });
-
-  describe('devBin substitution', () => {
-    it('substitutes a leaf tool, which is the case that docs/scripts.md documents', async ({ tree }) => {
-      writeConfig(tree, { devBin: { eslint: 'node ./scripts/eslint.js' } });
-
-      await runNmr(['lint'], tree.dir);
-
-      expect(readStepsFromCall()).toStrictEqual([
-        { kind: 'opaque', command: `node ${path.join(tree.dir, 'scripts/eslint.js')} --fix .` },
-      ]);
-    });
-
-    // A composite's first position is nmr's own, not a leaf tool's: substituting it would replace one link of a
-    // chain and leave the rest running the published binary.
-    it('leaves a composite alone, whose first token is the nmr that runs it', async ({ tree }) => {
-      writeConfig(tree, { devBin: { nmr: 'node ./cli.js' } });
-
-      await runNmr(['fix'], tree.dir);
-
-      expect(readStepsFromCall()).toStrictEqual([
-        { kind: 'structural', argv: ['nmr', 'lint'] },
-        { kind: 'structural', argv: ['nmr', 'fmt'] },
-      ]);
-    });
-  });
 });

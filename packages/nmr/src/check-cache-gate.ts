@@ -73,8 +73,6 @@ export function openGate(options: {
 
 /**
  * Computes the key under which this invocation would be recorded, or `undefined` when the cache does not apply.
- * The cache does not apply to a `devBin` substitution: the substitute is built from a location that the tree id
- * does not describe, so a pass by it is not a pass by the command that the key names.
  */
 export function resolveCacheKey(options: {
   anchorDir: string;
@@ -84,14 +82,9 @@ export function resolveCacheKey(options: {
   monorepoRoot: string;
   snapshot: TreeSnapshot | undefined;
   stderr: Writable;
-  substitution: string | undefined;
 }): string | undefined {
-  const { env, snapshot, stderr, substitution } = options;
+  const { env, snapshot, stderr } = options;
   if (snapshot === undefined) {
-    return undefined;
-  }
-  if (substitution !== undefined) {
-    writeDebugNote(`gate disabled: devBin substituted \`${substitution}\``, env, stderr);
     return undefined;
   }
 

@@ -63,7 +63,6 @@ The gate never wrongly skips. When it cannot be sure, it does nothing and the co
 - When the monorepo root is not the git toplevel.
 - When a changed path cannot be read, contains a newline or bytes that are not UTF-8, or is neither a file nor a symlink (an untracked nested repository, for instance).
 - When the repository does not have a pnpm install to fingerprint.
-- Under a `devBin` substitution, which runs a binary built from a location that the tree id does not describe.
 - For any invocation carrying arguments after the command name, and for every step below it: the arguments narrow what runs, and a step served from a recorded pass is a step that did not.
 
 `NMR_DEBUG=1` reports why a run did not skip and why the cache did not apply.

@@ -63,7 +63,7 @@ export function assertNoSelfReference(options: {
  *
  * Ahead of the gate, so that a command that usually skips still reports its crossing. A `--log` reports
  * none, running nothing that could cross. Reads the resolved steps rather than the full chain: the line names
- * a declaration to edit, and a hook, a passthrough, and a `devBin` substitution are none.
+ * a declaration to edit, and neither a hook nor a passthrough is one.
  */
 export function reportNmrCrossing(options: {
   config: NmrConfig;

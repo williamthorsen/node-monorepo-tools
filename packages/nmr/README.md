@@ -141,7 +141,7 @@ export default defineConfig({
 });
 ```
 
-[Scripts and configuration](docs/scripts.md#configuration) lists every `defineConfig` field and covers package-level configuration and `devBin`.
+[Scripts and configuration](docs/scripts.md#configuration) lists every `defineConfig` field, covers package-level configuration, and shows how to run a workspace bin from source.
 
 ## What nmr reports
 
@@ -304,7 +304,7 @@ rdy list --from npm:@williamthorsen/nmr  # what nmr publishes
 
 ## Documentation
 
-- [Scripts and configuration](docs/scripts.md): Override tiers, script values, hooks, `defineConfig` fields, `devBin`, and the default commands
+- [Scripts and configuration](docs/scripts.md): Override tiers, script values, hooks, `defineConfig` fields, running a workspace bin from source, and the default commands
 - [What nmr reports](docs/reporting.md): Verdicts, `--json`, output style, and verbosity
 - [Check-result cache](docs/check-cache.md): What is skipped, what a hit requires, and replaying, reading, and bypassing recorded runs
 - [Machine lock](docs/machine-lock.md): Which commands wait for one another, where the lock lives, and bypassing it

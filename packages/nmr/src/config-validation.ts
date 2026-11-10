@@ -1,7 +1,6 @@
 import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
 import { assertResolvableCheckCacheCommands } from './config-check-cache.ts';
-import { isStringRecord } from './helpers/type-guards.ts';
 import { findUnexpressibleToken } from './steps.ts';
 import type {
   BuildConfig,
@@ -21,7 +20,7 @@ import { formatVerbosityRejection, isCommandVerbosity } from './verbosity.ts';
 export const CONFIG_TIERS: Record<'root' | 'workspace', ConfigTier> = {
   root: {
     label: 'a monorepo-root config',
-    honoredKeys: ['checkCache', 'delegate', 'devBin', 'output', 'rootScripts', 'selfHostedRunner', 'workspaceScripts'],
+    honoredKeys: ['checkCache', 'delegate', 'output', 'rootScripts', 'selfHostedRunner', 'workspaceScripts'],
     elsewhere: "the package's own config",
   },
   workspace: {
@@ -81,9 +80,6 @@ export function validateConfig(value: unknown, configPath: string, baseDir: stri
   if (checkCache) config.checkCache = checkCache;
 
   if (value['delegate'] !== undefined) config.delegate = validateDelegateField(value['delegate'], configPath);
-
-  const devBin = validateStringRecordField(value, 'devBin', configPath);
-  if (devBin) config.devBin = devBin;
 
   const output = validateOutputField(value, configPath);
   if (output) config.output = output;
@@ -338,21 +334,6 @@ function validateScriptField(
   }
   assertValidElements(scripts, fieldName, configPath);
   return scripts;
-}
-
-/** Validates and extracts a `Record<string, string>` field from the raw config object. */
-function validateStringRecordField(
-  value: Record<string, unknown>,
-  fieldName: string,
-  configPath: string,
-): Record<string, string> | undefined {
-  if (!Object.hasOwn(value, fieldName) || value[fieldName] === undefined) {
-    return undefined;
-  }
-  if (!isStringRecord(value[fieldName])) {
-    throw new UserError(`Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string>`);
-  }
-  return value[fieldName];
 }
 
 // endregion | Helpers

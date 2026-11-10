@@ -8733,11 +8733,6 @@ function readPackageScripts(packageDir) {
   }
 }
 
-// src/helpers/type-guards.ts
-function isStringRecord(value) {
-  return isRecord2(value) && Object.values(value).every((entry) => typeof entry === "string");
-}
-
 // src/verbosity.ts
 var COMMAND_VERBOSITIES = ["full", "quiet"];
 function formatVerbosityRejection(source, value) {
@@ -8752,7 +8747,7 @@ function isCommandVerbosity(value) {
 var CONFIG_TIERS = {
   root: {
     label: "a monorepo-root config",
-    honoredKeys: ["checkCache", "delegate", "devBin", "output", "rootScripts", "selfHostedRunner", "workspaceScripts"],
+    honoredKeys: ["checkCache", "delegate", "output", "rootScripts", "selfHostedRunner", "workspaceScripts"],
     elsewhere: "the package's own config"
   },
   workspace: {
@@ -8788,8 +8783,6 @@ function validateConfig(value, configPath, baseDir) {
   const checkCache = validateCheckCacheField(value, configPath);
   if (checkCache) config.checkCache = checkCache;
   if (value["delegate"] !== void 0) config.delegate = validateDelegateField(value["delegate"], configPath);
-  const devBin = validateStringRecordField(value, "devBin", configPath);
-  if (devBin) config.devBin = devBin;
   const output = validateOutputField(value, configPath);
   if (output) config.output = output;
   const workspaceScripts2 = validateScriptField(value, "workspaceScripts", configPath);
@@ -8959,15 +8952,6 @@ function validateScriptField(value, fieldName, configPath) {
   }
   assertValidElements(scripts, fieldName, configPath);
   return scripts;
-}
-function validateStringRecordField(value, fieldName, configPath) {
-  if (!Object.hasOwn(value, fieldName) || value[fieldName] === void 0) {
-    return void 0;
-  }
-  if (!isStringRecord(value[fieldName])) {
-    throw new UserError(`Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string>`);
-  }
-  return value[fieldName];
 }
 
 // src/helpers/escapeControlCharacters.ts
