@@ -21,12 +21,6 @@ export interface BuildOptions {
   outdir?: string;
 }
 
-/** The pair of directories through which a build publishes, both siblings of the emit directory. */
-export interface ScratchDirs {
-  previousDir: string;
-  stagingDir: string;
-}
-
 const DEFAULT_ENTRY_GLOBS = ['src/**/*.{ts,tsx}'];
 
 /**
@@ -143,27 +137,6 @@ export async function resolveEntryPoints(packageDir: string, options: BuildOptio
     cwd: packageDir,
     ignore: [...(options.ignorePatterns ?? DEFAULT_IGNORE_PATTERNS), ...(options.extraIgnorePatterns ?? [])],
   });
-}
-
-/**
- * Resolves the two scratch directories through which a build publishes: `staging`, which the emit is written to,
- * and `previous`, which the outgoing output is renamed aside to. Both are siblings of the emit directory, so a
- * rename between them never crosses a filesystem, and both are dot-prefixed so that a leftover stays out of the
- * globs that select sources.
- *
- * The names are fixed rather than unique because the build removes both before use. A unique name would need a
- * sweep to accomplish that removal, and a sweep cannot tell a directory orphaned by a killed run from one that a
- * concurrent build is still writing. Because a directory left behind by a failed build is cleared the same way,
- * the failure path does not need any cleanup of its own.
- */
-export function resolveScratchDirs(emitDir: string): ScratchDirs {
-  const parent = path.dirname(emitDir);
-  const name = path.basename(emitDir);
-
-  return {
-    previousDir: path.join(parent, `.${name}.previous`),
-    stagingDir: path.join(parent, `.${name}.staging`),
-  };
 }
 
 /**

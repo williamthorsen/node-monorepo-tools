@@ -1,10 +1,9 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { readFile, rename, rm } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { readCacheEntry, startTimer, UserError, writeCacheEntry } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors';
 import type * as TypeScript from 'typescript';
 
 import { resolveConfigPath } from '../helpers/config-path.ts';
@@ -16,13 +15,12 @@ import {
   readEmitDuration,
   resolveBuildCachePath,
   resolveEntryPoints,
-  resolveScratchDirs,
   resolveToolchainFingerprint,
-  type ScratchDirs,
   writeEmitDuration,
 } from './build-output.ts';
 import { assertSupportedTypeScript, formatDiagnostics, getCompiler, loadCompiler } from './compiler.ts';
-import { isWithin, rewriteSpecifiers } from './rewrite-specifiers.ts';
+import { discardScratchDirs, publishOutput, removeScratchDirs, type StagedFile } from './publish-output.ts';
+import { rewriteSpecifiers } from './rewrite-specifiers.ts';
 import { resolveTsconfigChain } from './tsconfig-chain.ts';
 
 /**
@@ -62,12 +60,6 @@ interface EmitConfig {
   outdir: string;
   declaration: true;
   rewriteRelativeImportExtensions: true;
-}
-
-/** One file emitted by the compiler, kept in memory until the whole emit is ready to publish. */
-interface StagedFile {
-  text: string;
-  writeByteOrderMark: boolean;
 }
 
 const SOURCE_ROOT = 'src';
@@ -121,7 +113,7 @@ export async function buildPackage(packageDir: string, options: BuildPackageOpti
     // The only path that never reaches `emitPackage`, and so the only one on which a scratch directory left
     // by a run killed mid-publish survives -- as far as a `prepublishOnly` build, which skips on unchanged
     // inputs and would pack it.
-    await discardScratchDirs(resolveScratchDirs(emitDir));
+    await discardScratchDirs(emitDir);
     const savedMs = await recordUnchangedBuild(packageDir, currentHash, process.env);
     return { kind: 'unchanged', ...(savedMs !== undefined && { savedMs }) };
   }
@@ -171,16 +163,15 @@ export async function computeBuildHash(
 
 /**
  * Runs two TypeScript program emits, `.js` and then `.d.ts`, rewrites relative `.ts` specifiers and tsconfig
- * `paths` aliases to runnable relative `.js` specifiers, and publishes the result atomically: Both emits are
- * buffered in memory, written to a staging directory, and swapped into place by rename.
+ * `paths` aliases to runnable relative `.js` specifiers, and hands the result, buffered in memory, to
+ * `publishOutput`.
  *
  * The scripts emit runs under the package's own `removeComments` and the declarations emit forces it off, so
  * `.d.ts` files keep their doc comments whatever a package does with its `.js`. Both programs read through
  * one caching host, which parses the file set once.
  *
- * Because every throw precedes the first rename, a failed build leaves the previous output exactly as it was.
- * The output directory is never observed mid-write: It contains the previous build or the new one, and is
- * absent only between the two renames. Throws with formatted diagnostics when either program cannot be emitted.
+ * A failed compile or rewrite throws before anything is published, so it leaves the previous output exactly as
+ * it was. Throws with formatted diagnostics when either program cannot be emitted.
  *
  * Returns how many files it published, which is zero for a package whose entry points emit nothing.
  */
@@ -190,12 +181,10 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
   const rootNames = entryPoints.map((entry) => path.resolve(packageDir, entry));
   const sourceRoot = path.resolve(packageDir, SOURCE_ROOT);
   const emitDir = resolveEmitDir(packageDir, outdir);
-  const scratchDirs = resolveScratchDirs(emitDir);
 
-  // Clear scratch first, so that every path out of this function starts without a leftover scratch directory.
-  // Clearing inside the staging step instead would let the empty-emit return below leave a leftover in place,
-  // and a later build that skips on unchanged inputs would publish it.
-  await removeScratchDirs(scratchDirs);
+  // Clear scratch first, so that every path out of this function, a failed compile included, starts without a
+  // leftover scratch directory that a later build skipping on unchanged inputs would publish.
+  await removeScratchDirs(emitDir);
 
   // Buffer rather than write: The compiler's own `writeFile` would put the emit under `emitDir`, which
   // still contains the previous build, and anything may read it while this one runs.
@@ -228,17 +217,7 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
     stagedFiles.set(fileName, { ...file, text: rewriteSpecifiers(fileName, file.text, compilerOptions, sourceRoot) });
   }
 
-  // An emit that produces nothing has nothing to publish, and swapping an empty directory into place would
-  // leave a `dist` behind for a package whose entry points do not emit any output.
-  if (stagedFiles.size === 0) {
-    await rm(emitDir, { force: true, recursive: true });
-    return 0;
-  }
-
-  writeStagedOutput(stagedFiles, emitDir, scratchDirs.stagingDir);
-  await swapIntoPlace(emitDir, scratchDirs);
-
-  return stagedFiles.size;
+  return publishOutput(emitDir, stagedFiles);
 }
 
 /** Throws with formatted diagnostics when the compiler skipped an emit. */
@@ -274,25 +253,6 @@ function createCachingCompilerHost(compilerOptions: TypeScript.CompilerOptions):
 }
 
 /**
- * Removes both scratch directories without failing the caller. `force` suppresses only a missing top-level
- * path and `rm` does not retry, so a removal racing another build's leaves `ENOTEMPTY`, `EBUSY`, and `EPERM`
- * live.
- */
-async function discardScratchDirs(scratchDirs: ScratchDirs): Promise<void> {
-  try {
-    await removeScratchDirs(scratchDirs);
-  } catch {
-    // The removal is advisory: A directory that survives is cleared by the next emit or the next skip.
-  }
-}
-
-/** Removes both scratch directories, tolerating their absence. */
-async function removeScratchDirs(scratchDirs: ScratchDirs): Promise<void> {
-  await rm(scratchDirs.previousDir, { force: true, recursive: true });
-  await rm(scratchDirs.stagingDir, { force: true, recursive: true });
-}
-
-/**
  * Resolves the emit directory, refusing one that is not strictly inside the package. The build replaces this
  * directory wholesale on every emit, so an `outdir` of `.` or `../sibling` would take the package's own
  * sources with it. A caller that misconfigures it has to hear about it rather than lose a tree.
@@ -313,35 +273,6 @@ function resolveEmitDir(packageDir: string, outdir: string): string {
   }
 
   return resolvedDir;
-}
-
-/**
- * Publishes the staged output by rename: It moves the outgoing directory aside, moves staging into its place,
- * and discards the outgoing copy. The output directory is therefore absent only between the two renames, rather
- * than for the duration of an emit.
- *
- * If the second rename fails, the outgoing directory is moved back, so a half-completed swap never leaves the
- * package without any output at all.
- */
-async function swapIntoPlace(emitDir: string, scratchDirs: ScratchDirs): Promise<void> {
-  const hadPreviousOutput = existsSync(emitDir);
-  if (hadPreviousOutput) {
-    await rename(emitDir, scratchDirs.previousDir);
-  }
-
-  try {
-    await rename(scratchDirs.stagingDir, emitDir);
-  } catch (error: unknown) {
-    // Restore only when `previousDir` contains the outgoing output and nothing has since taken its place.
-    if (hadPreviousOutput && !existsSync(emitDir)) {
-      await rename(scratchDirs.previousDir, emitDir);
-    }
-    throw new UserError(`failed to move the built output into ${emitDir}: ${describeError(error)}`, {
-      cause: error,
-    });
-  }
-
-  await discardScratchDirs(scratchDirs);
 }
 
 /**
@@ -383,28 +314,6 @@ function synthesizeCompilerOptions(packageDir: string, outdir: string): TypeScri
     declarationMap: false,
     noEmitOnError: false,
   };
-}
-
-/**
- * Writes every emitted file into the staging directory, at its path relative to the emit directory for which it
- * was emitted. `ts.sys.writeFile` does the writing, so the byte-order mark that the compiler asked for survives
- * and intermediate directories appear exactly as a direct emit would have created them.
- *
- * A file outside the emit directory fails the build. Because `synthesizeCompilerOptions` pins `outDir` and
- * `declarationDir` to the same directory, this is unreachable -- which is the point: Mapping the path across
- * would otherwise discard, in silence, a file that a direct emit would have written.
- */
-function writeStagedOutput(stagedFiles: Map<string, StagedFile>, emitDir: string, stagingDir: string): void {
-  const ts = getCompiler();
-  for (const [fileName, file] of stagedFiles) {
-    if (!isWithin(emitDir, fileName)) {
-      throw new Error(
-        `the compiler emitted ${fileName}, which is outside the output directory ${emitDir}. ` +
-          "Verify the resolved tsconfig's 'outDir' and 'declarationDir'.",
-      );
-    }
-    ts.sys.writeFile(path.join(stagingDir, path.relative(emitDir, fileName)), file.text, file.writeByteOrderMark);
-  }
 }
 
 // endregion | Emit

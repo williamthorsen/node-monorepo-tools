@@ -9,7 +9,8 @@ import { afterEach, assert, describe, expect, it as baseIt, onTestFinished, vi }
 
 import { OUTCOME_FILE_ENV_VAR } from '../../stated-outcome.ts';
 import { buildPackage } from '../build.ts';
-import { readBuildDigest, readEmitDuration, resolveBuildCachePath, resolveScratchDirs } from '../build-output.ts';
+import { readBuildDigest, readEmitDuration, resolveBuildCachePath } from '../build-output.ts';
+import { resolveScratchDirs } from '../publish-output.ts';
 import { countBuilds, listEmitted, readOutput, scaffoldPackage } from '../test-utils/build-fixtures.ts';
 
 // Default the compiler API to the real implementation so that the regression suite compiles for real;
