@@ -1,7 +1,10 @@
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
+import process from 'node:process';
+
 import { formatGlyphLine, type OutputStyle, UserError } from '@williamthorsen/nmr-core';
+import { defineCommand, runCli } from '@williamthorsen/nmr-core/cli';
 
 import { NMR_CLEAN_BIN } from '../bins.ts';
 import { removeCheckCache } from '../check-cache-entries.ts';
@@ -10,6 +13,7 @@ import { findContainingPackageDir } from '../context.ts';
 import { NMR_GLYPHS } from '../glyphs.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
 import { resolveChannel } from '../output-channel.ts';
+import { resolveBinStyles } from '../resolveBinStyles.ts';
 import { buildWorkspaceRegistry, resolveScript } from '../resolver.ts';
 import { runCommand } from '../runner.ts';
 import { renderChain } from '../steps.ts';
@@ -45,6 +49,22 @@ export async function cleanPackage(packageDir: string, style: OutputStyle): Prom
 }
 
 /**
+ * Runs `nmr-clean` against `argv` from `cwd` and returns the exit code to report. The command takes neither an
+ * option nor an operand, so anything but `--help` is a usage error and removes nothing.
+ */
+export async function runClean(argv: string[], cwd: string): Promise<number> {
+  const command = defineCommand({
+    summary: 'Remove the build output and build cache of this package, or of every package from the monorepo root',
+    run: async () => {
+      await cleanFrom(cwd, resolveBinStyles().stdout);
+      return 0;
+    },
+  });
+
+  return runCli(argv, command, { name: NMR_CLEAN_BIN, stdout: process.stdout, stderr: process.stderr, baseDir: cwd });
+}
+
+/**
  * Cleans the package containing `cwd`, or every workspace package when run from the monorepo root.
  *
  * From within a package this is the built-in clean itself: `nmr` has already resolved `clean` to this bin
@@ -54,7 +74,7 @@ export async function cleanPackage(packageDir: string, style: OutputStyle): Prom
  * `pnpm exec` resolves only the bins of the consuming project's direct dependencies: pnpm links nmr's own bins
  * into the consumer's `node_modules/.bin`, but not the bins of nmr's dependencies.
  */
-export async function runClean(cwd: string, style: OutputStyle): Promise<void> {
+export async function cleanFrom(cwd: string, style: OutputStyle): Promise<void> {
   let monorepoRoot: string;
   try {
     monorepoRoot = findMonorepoRoot(cwd);
