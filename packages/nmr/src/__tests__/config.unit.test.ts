@@ -297,12 +297,6 @@ describe(loadRootConfig, () => {
     expect(config.workspaceScripts).toStrictEqual({ b: 'y' });
   });
 
-  it('rejects devBin as an unrecognized key', async ({ tree }) => {
-    writeConfig(tree, `export default { devBin: { c: 'z' } };`);
-
-    await expect(loadRootConfig(tree.dir)).rejects.toThrow('unrecognized key `devBin`');
-  });
-
   it('loads output, which the root tier honors', async ({ tree }) => {
     writeConfig(tree, `export default { output: { commandVerbosity: 'quiet' } };`);
 

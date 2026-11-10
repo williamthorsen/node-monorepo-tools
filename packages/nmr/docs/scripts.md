@@ -166,7 +166,7 @@ export default defineConfig({
     'build:post': 'node packages/my-cli/src/cli.ts compile',
   },
   workspaceScripts: {
-    lint: `node ${myCli} lint`,
+    lint: `node "${myCli}" lint`,
   },
 });
 ```
