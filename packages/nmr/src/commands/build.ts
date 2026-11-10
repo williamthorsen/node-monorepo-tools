@@ -445,13 +445,7 @@ async function detectBuildChanges(
 
   if (previousHash === currentHash) {
     if (isOutputPresent) {
-      const savedMs = await readEmitDuration(packageDir, currentHash);
-      await writeStatedOutcome(process.env, { kind: 'build-unchanged', ...(savedMs !== undefined && { savedMs }) });
-      const saving = formatSaving(savedMs ?? 0);
-      const savingClause = saving === undefined ? '' : `, ${saving}`;
-      console.info(
-        `${STATUS_GLYPHS[style].skipped.text} ${packageName}: No changes detected. Skipping build${savingClause}.`,
-      );
+      await reportUnchangedBuild(packageDir, currentHash, style, process.env);
       return { changed: false, currentHash };
     }
     console.info(formatGlyphLine(NMR_GLYPHS, style, 'package', `${packageName}: Build output is missing. Rebuilding.`));
@@ -460,6 +454,25 @@ async function detectBuildChanges(
 
   console.info(formatGlyphLine(NMR_GLYPHS, style, 'package', `${packageName}: Changes detected.`));
   return { changed: true, currentHash };
+}
+
+/**
+ * Reports a build skipped on unchanged inputs: states the `build-unchanged` outcome with the emit time recorded under
+ * `digest`, and prints the skip line, which names the saving when `formatSaving` finds it worth naming.
+ */
+export async function reportUnchangedBuild(
+  packageDir: string,
+  digest: string,
+  style: OutputStyle,
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
+  const savedMs = await readEmitDuration(packageDir, digest);
+  await writeStatedOutcome(env, { kind: 'build-unchanged', ...(savedMs !== undefined && { savedMs }) });
+  const saving = formatSaving(savedMs ?? 0);
+  const savingClause = saving === undefined ? '' : `, ${saving}`;
+  console.info(
+    `${STATUS_GLYPHS[style].skipped.text} ${path.basename(packageDir)}: No changes detected. Skipping build${savingClause}.`,
+  );
 }
 
 // endregion | Cache
