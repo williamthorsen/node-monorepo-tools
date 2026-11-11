@@ -6,11 +6,13 @@ import { type CommandNode, createCli, type ParsedFlags, UsageError } from '@will
 import type { ResolvedContext } from './context.ts';
 import { listDefinedCommands } from './fan-out.ts';
 import { describeHelp } from './help.ts';
+import type { ReadFilterSelection } from './helpers/filter-selection.ts';
 import { type Invocation, RUN_IF_PRESENT_ENV_VAR } from './invocation.ts';
 import { NMR_FLAGS, type ParsedArgs, toParsedArgs } from './nmr-flags.ts';
 import { isTerminalStream } from './output-style.ts';
 import { readPresentation, resolveReportingVerbosity } from './presentation.ts';
 import { resolveReportFormat } from './report-format.ts';
+import type { RunSteps } from './runner.ts';
 
 /** What the command tree of one invocation is built from. */
 export interface RouteInput {
@@ -19,8 +21,10 @@ export interface RouteInput {
   env: NodeJS.ProcessEnv;
   /** The invocation's flags as the first pass read them, or `undefined` when they do not parse. */
   firstPass: ParsedArgs | undefined;
+  readFilterSelection: ReadFilterSelection;
   /** Runs an invocation that reached a command and resolves to its exit code. */
   runInvocation: (invocation: Invocation) => Promise<number>;
+  runSteps: RunSteps;
   stderr: Writable;
   stdout: Writable;
 }
@@ -97,7 +101,7 @@ function defineScriptCommand(name: string, summary: string, input: RouteInput): 
  * name a setting and a `--log` that does not name a command.
  */
 function deriveInvocation(flags: ParsedFlags<typeof NMR_FLAGS>, input: RouteInput): InvocationBase {
-  const { context, cwd, env, firstPass, stderr, stdout } = input;
+  const { context, cwd, env, firstPass, readFilterSelection, runSteps, stderr, stdout } = input;
   const parsedArgs = toParsedArgs(flags, []);
 
   const presentationRead = readPresentation({
@@ -133,6 +137,8 @@ function deriveInvocation(flags: ParsedFlags<typeof NMR_FLAGS>, input: RouteInpu
     env,
     format,
     parsedArgs,
+    readFilterSelection,
+    runSteps,
     scope: path.basename(anchorDir),
     shouldUseRoot,
     stderr,

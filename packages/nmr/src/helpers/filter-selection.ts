@@ -90,6 +90,9 @@ export function interpretDelegateProbe(probe: SelectionProbe): FilterSelection {
 /** What a `-F` pattern selected, as far as pnpm could be asked. `multiple` is two or more packages beside the root. */
 export type FilterSelection = 'empty' | 'multiple' | 'single' | 'unresolved';
 
+/** Reads what a `-F` pattern selects, as `readFilterSelection` does: the form in which a caller receives it. */
+export type ReadFilterSelection = typeof readFilterSelection;
+
 /** What a listing proves, `root-only` being the reading that only the delegate can settle. */
 export type ProbeReading = FilterSelection | 'root-only';
 

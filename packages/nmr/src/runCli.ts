@@ -16,6 +16,10 @@ import { DELEGATE_TO_FLAG } from './delegation/remote-run.ts';
 import { enterChain } from './entry-chain.ts';
 import { composeDelegation, runDelegation } from './fan-out.ts';
 import {
+  type ReadFilterSelection,
+  readFilterSelection as readFilterSelectionDefault,
+} from './helpers/filter-selection.ts';
+import {
   type ExecutionTarget,
   type Invocation,
   type PhaseResult,
@@ -32,7 +36,7 @@ import { reportVerdict } from './presentation.ts';
 import { buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
 import { buildRoot, buildVersionRoot } from './route.ts';
 import { assembleChain, formatOverrideNotice } from './run-chain.ts';
-import type { RunStepsOptions } from './runner.ts';
+import { type RunSteps, runSteps as runStepsDefault, type RunStepsOptions } from './runner.ts';
 
 /** @internal */
 export interface RunCliOptions {
@@ -42,6 +46,10 @@ export interface RunCliOptions {
   cwd: string;
   /** Environment from which `runCli` reads its settings, and the base of the one that its children inherit. */
   env: NodeJS.ProcessEnv;
+  /** Reads what a `-F` pattern selects; defaults to `readFilterSelection`, which asks pnpm. */
+  readFilterSelection?: ReadFilterSelection;
+  /** Runs a step list; defaults to `runSteps`. */
+  runSteps?: RunSteps;
   /** Stream for normal output: help, version, verdicts, recordings, and override notices. */
   stdout: Writable;
   /** Stream for errors, warnings, and debug notes. */
@@ -57,7 +65,15 @@ export interface RunCliOptions {
  * @internal
  */
 export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
-  const { args, cwd, env, stdout, stderr } = options;
+  const {
+    args,
+    cwd,
+    env,
+    readFilterSelection = readFilterSelectionDefault,
+    runSteps = runStepsDefault,
+    stdout,
+    stderr,
+  } = options;
   const reading = readInvocationFlags(args);
   const firstPass = reading.ok ? reading.parsedArgs : undefined;
   const routerOptions = { name: NMR_BIN, context: undefined, stdout, stderr, baseDir: cwd, version: () => VERSION };
@@ -73,7 +89,9 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     cwd,
     env,
     firstPass,
+    readFilterSelection,
     runInvocation: (invocation) => runInvocation(invocation, options),
+    runSteps,
     stderr,
     stdout,
   });
@@ -169,7 +187,15 @@ async function planRun(invocation: Invocation, target: ExecutionTarget): Promise
     let result: RunCliResult;
     try {
       const heldDelegation = { ...delegation, env: addLockEnv(delegation.env, lock) };
-      result = await runDelegation({ context, delegation: heldDelegation, parsedArgs, runOptions, stderr });
+      result = await runDelegation({
+        context,
+        delegation: heldDelegation,
+        parsedArgs,
+        readFilterSelection: invocation.readFilterSelection,
+        runOptions,
+        runSteps: invocation.runSteps,
+        stderr,
+      });
     } finally {
       await lock?.release();
     }

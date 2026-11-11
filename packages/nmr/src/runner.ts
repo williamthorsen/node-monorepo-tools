@@ -39,6 +39,9 @@ export interface RunStepsResult {
   statedOutcomes?: Map<Step, StatedOutcome>;
 }
 
+/** Runs a step list, as `runSteps` does: the form in which a caller receives it. */
+export type RunSteps = typeof runSteps;
+
 /**
  * Runs a step list in order and resolves once one fails or all have run, implementing the `&&` semantics that
  * nmr promises: The first non-zero exit ends the sequence and is the code returned.

@@ -5,9 +5,10 @@ import { resolveSelfVersion, type StreamStyles } from '@williamthorsen/nmr-core'
 import type { TreeSnapshot } from './check-cache/check-cache.ts';
 import type { ResolvedContext } from './context.ts';
 import type { DelegationTarget } from './delegation/delegation-target.ts';
+import type { ReadFilterSelection } from './helpers/filter-selection.ts';
 import type { ParsedArgs } from './nmr-flags.ts';
 import type { ReportFormat } from './report-format.ts';
-import type { RunStepsOptions } from './runner.ts';
+import type { RunSteps, RunStepsOptions } from './runner.ts';
 import type { Step } from './steps.ts';
 import type { CommandVerbosity } from './verbosity.ts';
 
@@ -20,6 +21,8 @@ export interface Invocation {
   env: NodeJS.ProcessEnv;
   format: ReportFormat;
   parsedArgs: ParsedArgs;
+  readFilterSelection: ReadFilterSelection;
+  runSteps: RunSteps;
   scope: string;
   shouldUseRoot: boolean;
   stderr: Writable;
