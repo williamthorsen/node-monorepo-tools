@@ -40,6 +40,8 @@ The bundled file's `confidence:` family grades how advisable a recommendation is
 
 The `urgency:` family states how soon an item needs attention, apart from how valuable it is, which the `value:` family states. Its labels replace the earlier `priority:` family and name the old labels in `aliases`, so a repository that has `priority:` labels has them renamed in place by the first sync after it regenerates `.github/labels.yaml` (see [Renaming a label](#renaming-a-label)).
 
+The `status:` family marks where an item stands in its work: `status:in-progress` once work on it has started, `status:blocked` while it waits on another item, and `status:on-hold` while it is deliberately paused.
+
 Names match case-insensitively, as GitHub matches them: `Bug` in the `labels` record replaces a preset's `bug`, and `Bug: null` removes it. A label takes the spelling of the last layer to write it.
 
 `description` is optional throughout, in a preset as in the `labels` record, and `sync-labels init` generates none for a scope label. The generated file spells an absent description `''` because `github-label-sync` reads an omitted description as "leave the label's current one alone"; the empty form clears it. Because a scope label without a description groups compactly in GitHub's label list, release-kit's readyup kit warns about each `scope:` label in the generated file that has one.
