@@ -1,9 +1,10 @@
 import { chmodSync } from 'node:fs';
+import path from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { describe, expect, it } from 'vitest';
 
-import { findPackageManifest } from '../package-manifest.ts';
+import { findPackageManifest, resolveDeclaredCli } from '../package-manifest.ts';
 import { isPrivilegedProcess } from '../test-utils/denyAccess.ts';
 
 /** A name that no store contains, so that pnpm's `NODE_PATH` cannot resolve it either. */
@@ -76,5 +77,25 @@ describe(findPackageManifest, () => {
 
     expect(lookup).toMatchObject({ kind: 'broken' });
     expect(lookup.kind === 'broken' && lookup.cause).toContain(tree.resolve(DEPENDENCY_MANIFEST));
+  });
+});
+
+describe(resolveDeclaredCli, () => {
+  const manifestPath = path.join('/store', 'dep', 'package.json');
+
+  it.each([
+    ['a bare path', 'bin/cli.js'],
+    ['a map keyed by the package name', { other: 'bin/other.js', dep: 'bin/cli.js' }],
+  ])('resolves %s against the manifest directory', (_shape, bin) => {
+    expect(resolveDeclaredCli({ bin }, manifestPath, 'dep')).toBe(path.join('/store', 'dep', 'bin', 'cli.js'));
+  });
+
+  it.each([
+    ['a map without the package name', { bin: { other: 'bin/other.js' } }],
+    ['a non-string entry', { bin: { dep: 1 } }],
+    ['a missing bin', { name: 'dep' }],
+    ['a manifest that is not a record', ['bin/cli.js']],
+  ])('returns undefined for %s', (_shape, manifest) => {
+    expect(resolveDeclaredCli(manifest, manifestPath, 'dep')).toBeUndefined();
   });
 });

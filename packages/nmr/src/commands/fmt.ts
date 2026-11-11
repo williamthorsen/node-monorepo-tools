@@ -11,7 +11,12 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { NMR_FMT_BIN } from '../bins.ts';
 import { prepareFmtCache } from './fmt-cache.ts';
 import { resolveFormatTargets } from './format-targets.ts';
-import { BROKEN_MANIFEST_FIX, findPackageManifest, type ManifestLookup } from './package-manifest.ts';
+import {
+  BROKEN_MANIFEST_FIX,
+  findPackageManifest,
+  type ManifestLookup,
+  resolveDeclaredCli,
+} from './package-manifest.ts';
 import { resolveInheritedExitCode, type SpawnInherited, spawnInherited } from './spawn-inherited.ts';
 
 const PRETTIER_PACKAGE = 'prettier';
@@ -194,18 +199,16 @@ function resolvePrettierCli(
     };
   }
 
-  // Prettier declares a lone CLI, as a bare path in 3.x and as a named map in some releases.
   const { manifest, manifestPath } = lookup;
-  const declaredBin = isRecord(manifest) ? manifest['bin'] : undefined;
-  const bin = isRecord(declaredBin) ? declaredBin[PRETTIER_PACKAGE] : declaredBin;
-  if (typeof bin !== 'string') {
+  const cliPath = resolveDeclaredCli(manifest, manifestPath, PRETTIER_PACKAGE);
+  if (cliPath === undefined) {
     return {
       ok: false,
       error: `\`${PRETTIER_PACKAGE}\` at ${path.dirname(manifestPath)} does not declare a CLI. ${copy.reinstallStep}`,
     };
   }
 
-  return { ok: true, cliPath: path.resolve(path.dirname(manifestPath), bin), manifestPath };
+  return { ok: true, cliPath, manifestPath };
 }
 
 /**

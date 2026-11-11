@@ -137,4 +137,15 @@ describe(runNmrVitest, () => {
       `nmr-vitest: \`vitest\` at ${tree.resolve('node_modules/vitest')} does not declare a CLI. Reinstall the \`vitest\` peer dependency.`,
     );
   });
+
+  it('runs the CLI that a Vitest manifest declares as a bare path', () => {
+    using tree = createTempTree(
+      { 'package.json': '{}\n', 'node_modules/vitest/package.json': '{"name":"vitest","bin":"vitest.mjs"}\n' },
+      { prefix: 'nmr-vitest-bare-bin-' },
+    );
+
+    runNmrVitest(['run'], tree.dir);
+
+    expect(vi.mocked(spawnSync).mock.lastCall?.[1]?.[0]).toBe(tree.resolve('node_modules/vitest/vitest.mjs'));
+  });
 });

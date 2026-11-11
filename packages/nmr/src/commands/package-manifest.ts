@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import path from 'node:path';
 
-import { hasErrnoCode } from '@williamthorsen/nmr-core';
+import { hasErrnoCode, isRecord } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 /** The fix for a broken lookup, whose cause can name the manifest of the resolving package as well as the tool's. */
@@ -36,6 +37,17 @@ export function findPackageManifest(parent: string, packageName: string): Manife
 /** What a lookup of a package's manifest found: the parsed manifest, no installed package, or a broken one. */
 export type ManifestLookup =
   { kind: 'found'; manifestPath: string; manifest: unknown } | { kind: 'absent' } | { kind: 'broken'; cause: string };
+
+/**
+ * Returns the absolute path of the CLI that the manifest at `manifestPath` declares for `packageName`, or `undefined`
+ * when it does not declare one. `bin` may be a bare path, which names the package's lone CLI, or a map keyed by
+ * command name.
+ */
+export function resolveDeclaredCli(manifest: unknown, manifestPath: string, packageName: string): string | undefined {
+  const declaredBin = isRecord(manifest) ? manifest['bin'] : undefined;
+  const bin = isRecord(declaredBin) ? declaredBin[packageName] : declaredBin;
+  return typeof bin === 'string' ? path.resolve(path.dirname(manifestPath), bin) : undefined;
+}
 
 // region | Helpers
 
