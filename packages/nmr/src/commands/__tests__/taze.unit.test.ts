@@ -1,11 +1,13 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import { describe, expect, it } from 'vitest';
 
 import type { CheckNodePinOptions } from '../node-pin.ts';
-import { resolveTazeCliPath, runTaze, type SpawnOutcome } from '../taze.ts';
+import type { InheritedOutcome } from '../spawn-inherited.ts';
+import { resolveTazeCliPath, runTaze } from '../taze.ts';
 
 const FAKE_CLI_PATH = '/fake/taze/cli.mjs';
 
@@ -64,7 +66,7 @@ describe(runTaze, () => {
       resolveCliPath: () => '/fake/taze/cli.mjs',
       spawn: (nodePath) => {
         spawnedWith = nodePath;
-        return { status: 0 };
+        return { signal: null, status: 0 };
       },
     });
 
@@ -76,7 +78,7 @@ describe(runTaze, () => {
       loadConfig: noConfig,
       checkNodePin: skipNodePin,
       resolveCliPath: () => '/fake/taze/cli.mjs',
-      spawn: () => ({ status: 3 }),
+      spawn: () => ({ signal: null, status: 3 }),
     });
 
     expect(exitCode).toBe(3);
@@ -90,7 +92,7 @@ describe(runTaze, () => {
       resolveCliPath: () => {
         throw new Error("Cannot find package 'taze'");
       },
-      spawn: () => ({ status: 0 }),
+      spawn: () => ({ signal: null, status: 0 }),
       stderr,
     });
 
@@ -109,7 +111,7 @@ describe(runTaze, () => {
       },
       spawn: () => {
         spawned = true;
-        return { status: 0 };
+        return { signal: null, status: 0 };
       },
       stderr: captureStream().stderr,
     });
@@ -126,7 +128,7 @@ describe(runTaze, () => {
       loadConfig: noConfig,
       checkNodePin: skipNodePin,
       resolveCliPath: () => '/fake/taze/cli.mjs',
-      spawn: (): SpawnOutcome => ({ status: null, error: new Error('spawn ENOENT') }),
+      spawn: (): InheritedOutcome => ({ error: new Error('spawn ENOENT'), signal: null, status: null }),
       stderr,
     });
 
@@ -134,15 +136,15 @@ describe(runTaze, () => {
     expect(read()).toContain('Failed to run taze: spawn ENOENT');
   });
 
-  it('falls back to a failing exit code when taze does not report a status', async () => {
+  it('reports a taze killed by a signal as 128 plus the signal number', async () => {
     const exitCode = await runTaze([], {
       loadConfig: noConfig,
       checkNodePin: skipNodePin,
       resolveCliPath: () => '/fake/taze/cli.mjs',
-      spawn: () => ({ status: null }),
+      spawn: () => ({ signal: 'SIGKILL', status: null }),
     });
 
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(128 + os.constants.signals.SIGKILL);
   });
 
   describe('Node pin check', () => {
@@ -160,7 +162,7 @@ describe(runTaze, () => {
         resolveCliPath: () => FAKE_CLI_PATH,
         spawn: () => {
           events.push('pass');
-          return { status: 0 };
+          return { signal: null, status: 0 };
         },
         stderr: captureStream().stderr,
       });
@@ -184,7 +186,7 @@ describe(runTaze, () => {
         },
         loadConfig: noConfig,
         resolveCliPath: () => FAKE_CLI_PATH,
-        spawn: () => ({ status: 0 }),
+        spawn: () => ({ signal: null, status: 0 }),
       });
 
       expect(received).toBe(shouldWrite);
@@ -200,7 +202,7 @@ describe(runTaze, () => {
         },
         loadConfig: noConfig,
         resolveCliPath: () => FAKE_CLI_PATH,
-        spawn: () => ({ status: 0 }),
+        spawn: () => ({ signal: null, status: 0 }),
       });
 
       expect(checkCount).toBe(0);
@@ -213,7 +215,7 @@ describe(runTaze, () => {
         checkNodePin: () => Promise.reject(new Error('unexpected')),
         loadConfig: noConfig,
         resolveCliPath: () => FAKE_CLI_PATH,
-        spawn: () => ({ status: 0 }),
+        spawn: () => ({ signal: null, status: 0 }),
         stderr,
       });
 
@@ -271,9 +273,9 @@ describe(runTaze, () => {
         loadConfig: () => Promise.resolve({ a: 1 }),
         checkNodePin: skipNodePin,
         resolveCliPath: () => FAKE_CLI_PATH,
-        spawn: (): SpawnOutcome => {
+        spawn: (): InheritedOutcome => {
           spawnCount += 1;
-          return { status: null, error: new Error('spawn ENOENT') };
+          return { error: new Error('spawn ENOENT'), signal: null, status: null };
         },
         stderr,
       });
@@ -293,7 +295,7 @@ describe(runTaze, () => {
         resolveCliPath: () => FAKE_CLI_PATH,
         spawn: () => {
           spawned = true;
-          return { status: 0 };
+          return { signal: null, status: 0 };
         },
         stderr,
       });
@@ -313,7 +315,7 @@ describe(runTaze, () => {
         resolveCliPath: () => FAKE_CLI_PATH,
         spawn: () => {
           spawned = true;
-          return { status: 0 };
+          return { signal: null, status: 0 };
         },
         stderr,
       });
@@ -338,7 +340,7 @@ describe(runTaze, () => {
         },
         checkNodePin: skipNodePin,
         resolveCliPath: () => FAKE_CLI_PATH,
-        spawn: () => ({ status: 0 }),
+        spawn: () => ({ signal: null, status: 0 }),
       });
 
       expect(loadedFrom).toBe(path.resolve(dir));
@@ -365,8 +367,8 @@ async function runCapturingArgv(args: string[]): Promise<string[]> {
     checkNodePin: skipNodePin,
     resolveCliPath: () => FAKE_CLI_PATH,
     spawn: (_nodePath, argv) => {
-      capturedArgs = argv;
-      return { status: 0 };
+      capturedArgs = [...argv];
+      return { signal: null, status: 0 };
     },
   });
 
@@ -403,8 +405,8 @@ async function runSplit(
     checkNodePin: skipNodePin,
     resolveCliPath: () => FAKE_CLI_PATH,
     spawn: (_nodePath, argv) => {
-      spawned.push(argv);
-      return { status: statuses[spawned.length - 1] ?? 0 };
+      spawned.push([...argv]);
+      return { signal: null, status: statuses[spawned.length - 1] ?? 0 };
     },
     stderr,
   });
