@@ -49,6 +49,9 @@ const TRACKED_FILES = {
 const STUB_ENTRY = 'stub.cjs';
 const RECORD_ENTRY = 'calls.jsonl';
 
+/** Source that Prettier rewrites under any config. */
+const BADLY_FORMATTED = 'const  badly   =  1\n';
+
 /** A file name that Prettier reads as a cluster of short flags unless `--` precedes it. */
 const DASH_LEADING_FILE = '-lead.js';
 
@@ -285,6 +288,33 @@ describe(runFmt, () => {
     expect(repositoryTree.exists('node_modules')).toBe(false);
     await expect(runFmt(['--write'], repositoryTree.dir)).resolves.toBe(0);
     expect(repositoryTree.read('packages/a/unprotected.js')).toBe('const badly = 1;\n');
+  });
+
+  it("fails, naming the manifest, rather than falling back to nmr's Prettier when the repository's is broken", async ({
+    captured,
+    repositoryTree,
+  }) => {
+    installRepositoryPrettierManifest(repositoryTree, '{\n');
+
+    await expect(runFmt(['--write'], repositoryTree.dir)).resolves.toBe(1);
+    // An unchanged file shows that nmr's own Prettier did not format in the broken copy's place.
+    expect(repositoryTree.read('packages/a/unprotected.js')).toBe(BADLY_FORMATTED);
+    expect(captured.stderr).toContain(
+      `nmr-fmt: \`prettier\` could not be loaded from this repository: Invalid package config ${repositoryTree.resolve('node_modules/prettier/package.json')}`,
+    );
+    expect(captured.stderr).toContain('Repair that manifest, or reinstall the package that contains it.');
+  });
+
+  it("names the repository's reinstall step when its Prettier manifest does not declare a CLI", async ({
+    captured,
+    repositoryTree,
+  }) => {
+    installRepositoryPrettierManifest(repositoryTree, '{"name":"prettier"}\n');
+
+    await expect(runFmt(['--check'], repositoryTree.dir)).resolves.toBe(1);
+    expect(captured.stderr).toContain(
+      `nmr-fmt: \`prettier\` at ${repositoryTree.resolve('node_modules/prettier')} does not declare a CLI. Reinstall this repository's \`prettier\` dependency.`,
+    );
   });
 
   it('formats with the house config, shell scripts included, when the repository does not have a config', async ({
@@ -535,6 +565,14 @@ function scaffoldRepository(files: Record<string, string>): TempTree {
   runGitOrThrow(['add', '--all'], tree.dir);
 
   return tree;
+}
+
+/** Installs a repository Prettier whose manifest is `manifest`, beside a tracked, badly formatted file. */
+function installRepositoryPrettierManifest(tree: TempTree, manifest: string): void {
+  tree.write('.gitignore', 'node_modules/\n');
+  tree.write('node_modules/prettier/package.json', manifest);
+  tree.write('packages/a/unprotected.js', BADLY_FORMATTED);
+  runGitOrThrow(['add', '--all'], tree.dir);
 }
 
 /** Tracks a badly formatted file whose name starts with `-`. */

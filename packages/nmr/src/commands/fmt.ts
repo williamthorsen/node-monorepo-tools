@@ -1,5 +1,4 @@
 import { Buffer } from 'node:buffer';
-import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
@@ -12,6 +11,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { NMR_FMT_BIN } from '../bins.ts';
 import { prepareFmtCache } from './fmt-cache.ts';
 import { resolveFormatTargets } from './format-targets.ts';
+import { BROKEN_MANIFEST_FIX, findPackageManifest, type ManifestLookup } from './package-manifest.ts';
 import { resolveInheritedExitCode, type SpawnInherited, spawnInherited } from './spawn-inherited.ts';
 
 const PRETTIER_PACKAGE = 'prettier';
@@ -146,6 +146,13 @@ async function formatFiles(request: FormatRequest, cwd: string): Promise<number>
   });
 }
 
+/** The copy of Prettier whose manifest a lookup reached, with the words that name it in an error. */
+interface PrettierCopy {
+  lookup: ManifestLookup;
+  origin: string;
+  reinstallStep: string;
+}
+
 /**
  * Locates the Prettier CLI, preferring the copy that `cwd` resolves over the one installed with nmr.
  *
@@ -163,17 +170,40 @@ function resolvePrettierCli(
     error: `\`${PRETTIER_PACKAGE}\` could not be resolved from this repository or from nmr's own installation, which declares it as a dependency. Reinstall \`@williamthorsen/nmr\`.`,
   };
 
-  const manifestPath =
-    resolveFrom(path.join(cwd, 'package.json'), `${PRETTIER_PACKAGE}/package.json`) ??
-    resolveFrom(import.meta.url, `${PRETTIER_PACKAGE}/package.json`);
-  if (manifestPath === undefined) return missingResult;
+  // Only an absent repository copy gives way to nmr's, so that nmr's copy never formats in place of a broken one.
+  const repositoryLookup = findPackageManifest(path.join(cwd, 'package.json'), PRETTIER_PACKAGE);
+  const copy: PrettierCopy =
+    repositoryLookup.kind === 'absent'
+      ? {
+          lookup: findPackageManifest(import.meta.url, PRETTIER_PACKAGE),
+          origin: "nmr's installation",
+          reinstallStep: 'Reinstall `@williamthorsen/nmr`.',
+        }
+      : {
+          lookup: repositoryLookup,
+          origin: 'this repository',
+          reinstallStep: `Reinstall this repository's \`${PRETTIER_PACKAGE}\` dependency.`,
+        };
 
-  const manifest: unknown = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  if (!isRecord(manifest)) return missingResult;
+  const { lookup } = copy;
+  if (lookup.kind === 'absent') return missingResult;
+  if (lookup.kind === 'broken') {
+    return {
+      ok: false,
+      error: `\`${PRETTIER_PACKAGE}\` could not be loaded from ${copy.origin}: ${lookup.cause}. ${BROKEN_MANIFEST_FIX}`,
+    };
+  }
 
   // Prettier declares a lone CLI, as a bare path in 3.x and as a named map in some releases.
-  const bin = isRecord(manifest['bin']) ? manifest['bin'][PRETTIER_PACKAGE] : manifest['bin'];
-  if (typeof bin !== 'string') return missingResult;
+  const { manifest, manifestPath } = lookup;
+  const declaredBin = isRecord(manifest) ? manifest['bin'] : undefined;
+  const bin = isRecord(declaredBin) ? declaredBin[PRETTIER_PACKAGE] : declaredBin;
+  if (typeof bin !== 'string') {
+    return {
+      ok: false,
+      error: `\`${PRETTIER_PACKAGE}\` at ${path.dirname(manifestPath)} does not declare a CLI. ${copy.reinstallStep}`,
+    };
+  }
 
   return { ok: true, cliPath: path.resolve(path.dirname(manifestPath), bin), manifestPath };
 }
@@ -297,13 +327,4 @@ function batchWithinBudget(files: string[], budgetBytes: number): string[][] {
   if (batch.length > 0) batches.push(batch);
 
   return batches;
-}
-
-/** Resolves `specifier` as a module importing from `parent` would, or returns `undefined` when it cannot. */
-function resolveFrom(parent: string, specifier: string): string | undefined {
-  try {
-    return createRequire(parent).resolve(specifier);
-  } catch {
-    return undefined;
-  }
 }

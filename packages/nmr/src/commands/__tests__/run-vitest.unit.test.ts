@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 
-import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureStdio, createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { OUTCOME_FILE_ENV_VAR } from '../../stated-outcome.ts';
@@ -106,5 +106,35 @@ describe(runNmrVitest, () => {
     runNmrVitest(['run'], import.meta.dirname);
 
     expect(vi.mocked(spawnSync).mock.lastCall?.[2]?.env).not.toHaveProperty(OUTCOME_FILE_ENV_VAR);
+  });
+
+  it('fails without running Vitest, naming the manifest and the fix, when the Vitest manifest is malformed', () => {
+    using tree = createTempTree(
+      { 'package.json': '{}\n', 'node_modules/vitest/package.json': '{\n' },
+      { prefix: 'nmr-vitest-broken-' },
+    );
+    using captured = captureStdio();
+    const callsBefore = vi.mocked(spawnSync).mock.calls.length;
+
+    expect(runNmrVitest(['run'], tree.dir)).toBe(1);
+    expect(vi.mocked(spawnSync)).toHaveBeenCalledTimes(callsBefore);
+    expect(captured.stderr).toMatch(/^nmr-vitest: /);
+    expect(captured.stderr).toContain(tree.resolve('node_modules/vitest/package.json'));
+    expect(captured.stderr).toContain('Repair that manifest');
+  });
+
+  it('fails without running Vitest, naming the reinstall step, when the Vitest manifest does not declare a CLI', () => {
+    using tree = createTempTree(
+      { 'package.json': '{}\n', 'node_modules/vitest/package.json': '{"name":"vitest"}\n' },
+      { prefix: 'nmr-vitest-no-cli-' },
+    );
+    using captured = captureStdio();
+    const callsBefore = vi.mocked(spawnSync).mock.calls.length;
+
+    expect(runNmrVitest(['run'], tree.dir)).toBe(1);
+    expect(vi.mocked(spawnSync)).toHaveBeenCalledTimes(callsBefore);
+    expect(captured.stderr).toContain(
+      `nmr-vitest: \`vitest\` at ${tree.resolve('node_modules/vitest')} does not declare a CLI. Reinstall the \`vitest\` peer dependency.`,
+    );
   });
 });

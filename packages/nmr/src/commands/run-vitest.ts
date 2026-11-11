@@ -1,5 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -8,6 +7,7 @@ import { findMonorepoRoot as findMonorepoRootOrNothing } from '@williamthorsen/n
 
 import { NMR_VITEST_BIN } from '../bins.ts';
 import { omitOutcomeFile } from '../stated-outcome.ts';
+import { BROKEN_MANIFEST_FIX, findPackageManifest } from './package-manifest.ts';
 import { resolveInheritedExitCode, spawnInherited } from './spawn-inherited.ts';
 
 const VITEST_PACKAGE = 'vitest';
@@ -94,17 +94,22 @@ function resolveVitestCli(cwd: string): { ok: true; cliPath: string } | { ok: fa
     error: `requires Vitest ${SUPPORTED_VITEST_RANGE}, but \`${VITEST_PACKAGE}\` could not be resolved from ${cwd}. Install a version in that range as the \`${VITEST_PACKAGE}\` peer dependency.`,
   };
 
-  let manifestPath: string;
-  try {
-    manifestPath = createRequire(path.join(cwd, 'package.json')).resolve(`${VITEST_PACKAGE}/package.json`);
-  } catch {
-    return missingResult;
+  const lookup = findPackageManifest(path.join(cwd, 'package.json'), VITEST_PACKAGE);
+  if (lookup.kind === 'absent') return missingResult;
+  if (lookup.kind === 'broken') {
+    return {
+      ok: false,
+      error: `\`${VITEST_PACKAGE}\` could not be loaded from ${cwd}: ${lookup.cause}. ${BROKEN_MANIFEST_FIX}`,
+    };
   }
 
-  const manifest: unknown = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const { manifest, manifestPath } = lookup;
   const bin = isRecord(manifest) && isRecord(manifest['bin']) ? manifest['bin'][VITEST_PACKAGE] : undefined;
   if (typeof bin !== 'string') {
-    return { ok: false, error: `\`${VITEST_PACKAGE}\` at ${path.dirname(manifestPath)} does not declare a CLI.` };
+    return {
+      ok: false,
+      error: `\`${VITEST_PACKAGE}\` at ${path.dirname(manifestPath)} does not declare a CLI. Reinstall the \`${VITEST_PACKAGE}\` peer dependency.`,
+    };
   }
 
   return { ok: true, cliPath: path.resolve(path.dirname(manifestPath), bin) };
