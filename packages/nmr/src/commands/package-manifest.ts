@@ -13,6 +13,7 @@ export const BROKEN_MANIFEST_FIX = 'Repair that manifest, or reinstall the packa
  * Only `MODULE_NOT_FOUND` means that the package is absent: Node rejects an installed package whose manifest is
  * malformed or unreadable with another code, and the message of that error, which `cause` repeats, names the
  * manifest at fault. A failure to read or parse the manifest after resolution prefixes `cause` with its path.
+ * `cause` does not end with a period, so that a caller can end the sentence that it composes around it.
  */
 export function findPackageManifest(parent: string, packageName: string): ManifestLookup {
   let manifestPath: string;
@@ -20,7 +21,7 @@ export function findPackageManifest(parent: string, packageName: string): Manife
     manifestPath = createRequire(parent).resolve(`${packageName}/package.json`);
   } catch (error) {
     if (hasErrnoCode(error, 'MODULE_NOT_FOUND')) return { kind: 'absent' };
-    return { kind: 'broken', cause: describeError(error) };
+    return { kind: 'broken', cause: describeCause(error) };
   }
 
   try {
@@ -28,10 +29,19 @@ export function findPackageManifest(parent: string, packageName: string): Manife
     const source = readFileSync(manifestPath, 'utf8').replace(/^\u{FEFF}/u, '');
     return { kind: 'found', manifestPath, manifest: JSON.parse(source) };
   } catch (error) {
-    return { kind: 'broken', cause: `${manifestPath}: ${describeError(error)}` };
+    return { kind: 'broken', cause: `${manifestPath}: ${describeCause(error)}` };
   }
 }
 
 /** What a lookup of a package's manifest found: the parsed manifest, no installed package, or a broken one. */
 export type ManifestLookup =
   { kind: 'found'; manifestPath: string; manifest: unknown } | { kind: 'absent' } | { kind: 'broken'; cause: string };
+
+// region | Helpers
+
+/** Describes `error` without a closing period. */
+function describeCause(error: unknown): string {
+  return describeError(error).replace(/\.$/, '');
+}
+
+// endregion | Helpers

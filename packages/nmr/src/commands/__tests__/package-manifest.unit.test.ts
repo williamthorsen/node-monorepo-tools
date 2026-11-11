@@ -50,6 +50,7 @@ describe(findPackageManifest, () => {
 
     expect(lookup).toMatchObject({ kind: 'broken' });
     expect(lookup.kind === 'broken' && lookup.cause).toContain(tree.resolve(DEPENDENCY_MANIFEST));
+    expect(lookup.kind === 'broken' && lookup.cause).not.toMatch(/\.$/);
   });
 
   it("reports a malformed manifest of the resolving package as broken, naming that package's manifest", () => {
