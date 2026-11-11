@@ -27,7 +27,6 @@ const TRACKED_FILES = {
   'packages/b/ok.js': 'const ok = 1;\n',
 };
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => scaffoldRepository(TRACKED_FILES)),

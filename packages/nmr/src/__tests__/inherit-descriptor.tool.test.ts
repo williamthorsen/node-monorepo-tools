@@ -24,7 +24,6 @@ const PROBE = String.raw`node -e "process.stdout.write('TTY:' + (process.stdout.
  */
 const STDIN_PROBE = String.raw`node -e "process.stdout.write('STDIN:' + (process.stdin.isTTY === true) + '\n')"`;
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   { scope: 'file' },

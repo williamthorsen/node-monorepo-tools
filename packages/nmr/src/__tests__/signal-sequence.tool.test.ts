@@ -18,7 +18,6 @@ const FIRST_STEP_WAIT_MS = 5000;
 /** How long to wait for a marker before calling the step that writes it stalled. */
 const MARKER_TIMEOUT_MS = 20_000;
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() =>

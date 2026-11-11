@@ -19,7 +19,6 @@ import {
 
 const TOOL = 'test-tool';
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({}, { prefix: 'nmr-cache-store-' })),

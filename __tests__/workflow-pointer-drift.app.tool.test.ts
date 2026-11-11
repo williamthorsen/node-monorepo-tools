@@ -18,7 +18,6 @@ const AUDIT_PATH = '.github/workflows/audit.reusable.yaml';
 const AUDIT_TAG = 'workflow/audit-v1';
 const SCRIPT_PATH = path.join(import.meta.dirname, '..', 'scripts', 'check-workflow-pointer-drift.ts');
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({}, { prefix: 'pointer-drift-' })),

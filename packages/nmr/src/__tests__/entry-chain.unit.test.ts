@@ -8,7 +8,6 @@ import { describe, expect, it as baseIt } from 'vitest';
 
 import { enterChain, ENTRY_CHAIN_ENV_VAR } from '../entry-chain.ts';
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({ 'packages/my-pkg/package.json': '{}' }, { prefix: 'nmr-entry-chain-' })),

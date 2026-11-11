@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { runGit } from '../runGit.ts';
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({}, { prefix: 'nmr-run-git-' })),

@@ -23,7 +23,7 @@ const REPO_FILES: Record<string, string> = {
   'packages/b/src/__tests__/beta.unit.test.ts': buildPassingTest(),
 };
 
-// eslint-disable-next-line no-empty-pattern, vitest/consistent-test-it -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern, and the rule reads this builder call as a top-level test.
+// eslint-disable-next-line no-empty-pattern -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern, and the rule reads this builder call as a top-level test.
 const it = baseIt.extend('run', { scope: 'file' }, ({}, { onCleanup }) => {
   using stack = new DisposableStack();
   const tree = stack.use(createTempTree({}, { prefix: 'nmr-vitest-repo-' }));

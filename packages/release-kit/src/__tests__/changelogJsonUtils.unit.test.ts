@@ -7,7 +7,6 @@ import { describe, expect, it as baseIt } from 'vitest';
 import { extractVersion, isChangelogEntry, readChangelogEntries } from '../changelogJsonUtils.ts';
 import type { ChangelogEntry } from '../types.ts';
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({}, { prefix: 'test-read-entries-' })),

@@ -12,7 +12,6 @@ import type { AuditResult, V11yCheckConfig } from '../types.ts';
 
 const CONFIG_ENTRY = '.config/v11y-check.config.json';
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({ '.config/': '' }, { prefix: 'v11y-check-integration-' })),

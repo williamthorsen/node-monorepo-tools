@@ -11,7 +11,6 @@ const NON_WORKSPACE_DIR = import.meta.dirname;
 /** The footnote that explains the marker on an overridden row. */
 const OVERRIDE_FOOTNOTE = '* Overridden by package.json';
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({}, { prefix: 'nmr-help-test-' })),

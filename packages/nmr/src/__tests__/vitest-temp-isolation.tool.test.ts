@@ -23,7 +23,7 @@ const TEMP_ISOLATION_FILES: Record<string, string> = {
 // The builder owns both trees through a `DisposableStack` and transfers them only past the last statement that can
 // throw. `createTempTree` resolves through `realpath`, so the base directory compares equal to the realpaths that
 // the recording tests report.
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
+
 const it = baseIt
   // eslint-disable-next-line no-empty-pattern -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern.
   .extend('tempIsolation', { scope: 'file' }, ({}, { onCleanup }) => {

@@ -10,7 +10,6 @@ import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { runCli } from '../runCli.ts';
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   { scope: 'file' },

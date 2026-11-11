@@ -4,7 +4,6 @@ import { describe, expect, it as baseIt } from 'vitest';
 
 import { loadPackageMaturityPeriod } from '../load-package-maturity-period.ts';
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({}, { prefix: 'nmr-taze-config-' })),

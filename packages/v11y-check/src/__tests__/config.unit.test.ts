@@ -10,7 +10,6 @@ import { DEFAULT_CONFIG } from '../types.ts';
 
 const CONFIG_ENTRY = '.config/v11y-check.config.json';
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({}, { prefix: 'v11y-check-config-test-' })),

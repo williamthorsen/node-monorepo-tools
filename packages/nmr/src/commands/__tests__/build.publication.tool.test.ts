@@ -27,7 +27,6 @@ vi.mock(import('typescript'), async (importOriginal) => {
 /** The package config read by a build, which several cases create, rewrite, or delete between runs. */
 const CONFIG_ENTRY = '.config/nmr.config.ts';
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({}, { prefix: 'nmr-build-' })),

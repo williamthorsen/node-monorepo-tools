@@ -45,7 +45,6 @@ const PRUNED = new Set(['.git', 'coverage', 'dist', 'node_modules']);
 
 const monorepoRoot = findMonorepoRoot(import.meta.dirname);
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({}, { prefix: 'nmr-candidate-boundary-' })),

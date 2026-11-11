@@ -45,7 +45,7 @@ const REPO_FILES: Record<string, string> = {
 
 // The tree is owned through a `DisposableStack` and transferred only past the last statement that can throw.
 // Because this fixture is built to observe a failing child run, such a run is reported rather than thrown on.
-// eslint-disable-next-line no-empty-pattern, vitest/consistent-test-it -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern, and the rule reads this builder call as a top-level test.
+// eslint-disable-next-line no-empty-pattern -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern, and the rule reads this builder call as a top-level test.
 const it = baseIt.extend('run', { scope: 'file' }, ({}, { onCleanup }) => {
   using stack = new DisposableStack();
   const tree = stack.use(createTempTree({}, { prefix: 'nmr-conventions-repo-' }));

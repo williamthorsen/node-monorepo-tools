@@ -22,7 +22,6 @@ function makeAuditResult(overrides: Partial<AuditResult> & Pick<AuditResult, 'id
 
 const fixedDate = new Date('2025-06-15T00:00:00Z');
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({}, { prefix: 'v11y-check-sync-test-' })),

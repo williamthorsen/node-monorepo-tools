@@ -11,7 +11,6 @@ import { OUTCOME_FILE_ENV_VAR, readStatedOutcome, writeStatedOutcome } from '../
 /** The process to which the planted records are stated. */
 const PARENT_PID = 4242;
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({}, { prefix: 'nmr-stated-outcome-' })),

@@ -12,7 +12,6 @@ const SHIM_SOURCE = readFileSync(
   'utf8',
 );
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({ 'bin/v11y.js': SHIM_SOURCE, 'package.json': '{ "type": "module" }\n' })),
