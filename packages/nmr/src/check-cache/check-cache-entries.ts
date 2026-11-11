@@ -13,8 +13,8 @@ import {
 } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { isStringRecord } from '../helpers/type-guards.ts';
 import { writeDebugNote } from './check-cache.ts';
-import { isStringRecord } from './helpers/type-guards.ts';
 
 /** A recorded pass: what ran, on which tree, and how long it took. */
 export interface CheckCacheEntry {

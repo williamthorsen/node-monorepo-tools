@@ -5,9 +5,9 @@ import { runCli as runRouter } from '@williamthorsen/nmr-core/cli';
 
 import { prependBinDirs } from './bin-path.ts';
 import { NMR_BIN } from './bins.ts';
-import { NO_CACHE_ENV_VAR, resolveRunId, RUN_ID_ENV_VAR } from './check-cache.ts';
-import { openGate, runGated } from './check-cache-gate.ts';
-import { reportRecording } from './check-cache-record.ts';
+import { NO_CACHE_ENV_VAR, resolveRunId, RUN_ID_ENV_VAR } from './check-cache/check-cache.ts';
+import { openGate, runGated } from './check-cache/check-cache-gate.ts';
+import { reportRecording } from './check-cache/check-cache-record.ts';
 import { addLockEnv, buildChildEnv, takeMachineLock } from './child-env.ts';
 import { resolveContext } from './context.ts';
 import { assertNoSelfReference } from './crossing-diagnostics.ts';

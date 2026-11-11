@@ -3,6 +3,12 @@ import type { Writable } from 'node:stream';
 
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { deriveExcerpt } from '../helpers/deriveExcerpt.ts';
+import { composeTranscript } from '../helpers/transcript.ts';
+import { RUN_IF_PRESENT_ENV_VAR, type RunCliResult, type RunPlan, VERSION } from '../invocation.ts';
+import type { RetainedOutput } from '../runner.ts';
+import type { Step } from '../steps.ts';
+import type { NmrConfig } from '../types.ts';
 import { isCacheableCommand, resolveTreeSnapshot, type TreeSnapshot, writeDebugNote } from './check-cache.ts';
 import { type BuildOutputState, findStaleBuildOutput, readBuildOutputState } from './check-cache-build-output.ts';
 import {
@@ -14,15 +20,9 @@ import {
   writeCheckCacheEntry,
 } from './check-cache-entries.ts';
 import { CURRENT_RUNTIME } from './check-cache-key.ts';
-import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
-import { composeTranscript } from './helpers/transcript.ts';
-import { RUN_IF_PRESENT_ENV_VAR, type RunCliResult, type RunPlan, VERSION } from './invocation.ts';
 import { writePassManifestEntry } from './pass-manifest.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import { assembleReplay } from './replay-assembly.ts';
-import type { RetainedOutput } from './runner.ts';
-import type { Step } from './steps.ts';
-import type { NmrConfig } from './types.ts';
 
 /**
  * Records a pass that `host` earned, unless a pass earned here under the same key would still be recalled, because

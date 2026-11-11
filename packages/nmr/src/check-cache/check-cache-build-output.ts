@@ -1,12 +1,12 @@
 import path from 'node:path';
 
-import { hasBuildOutput, readBuildDigest } from './commands/build-output.ts';
-import { loadWorkspaceConfig } from './config.ts';
-import { getDefaultWorkspaceScripts, type ScriptRegistry } from './resolve-scripts.ts';
-import { buildWorkspaceRegistry, resolveScript } from './resolver.ts';
-import { renderChain } from './steps.ts';
-import type { NmrConfig } from './types.ts';
-import { getWorkspacePackageDirs } from './workspace.ts';
+import { hasBuildOutput, readBuildDigest } from '../commands/build-output.ts';
+import { loadWorkspaceConfig } from '../config.ts';
+import { getDefaultWorkspaceScripts, type ScriptRegistry } from '../resolve-scripts.ts';
+import { buildWorkspaceRegistry, resolveScript } from '../resolver.ts';
+import { renderChain } from '../steps.ts';
+import type { NmrConfig } from '../types.ts';
+import { getWorkspacePackageDirs } from '../workspace.ts';
 
 /** What nmr's own build has left on disk across the workspace. */
 export interface BuildOutputState {

@@ -14,7 +14,7 @@ import {
   scaffoldRepo,
   writeBuildDigest,
   writeConfig,
-} from '../test-utils/check-cache-gate-fixtures.ts';
+} from '../../test-utils/check-cache-gate-fixtures.ts';
 
 describe('the check-result cache gate', () => {
   let workspace: TempTree;

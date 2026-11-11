@@ -6,7 +6,6 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { writeCheckCacheEntry } from '../check-cache-entries.ts';
 import {
   COMMAND,
   countCacheEntries,
@@ -18,7 +17,8 @@ import {
   scaffoldRepo,
   writeConfig,
   writeNmrShim,
-} from '../test-utils/check-cache-gate-fixtures.ts';
+} from '../../test-utils/check-cache-gate-fixtures.ts';
+import { writeCheckCacheEntry } from '../check-cache-entries.ts';
 
 describe('the check-result cache gate', () => {
   let workspace: TempTree;

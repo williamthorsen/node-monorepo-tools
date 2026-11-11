@@ -6,9 +6,9 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { runCli } from '../../runCli.ts';
+import { readAmbientEnv } from '../../test-utils/readAmbientEnv.ts';
 import { readCheckCacheEntry } from '../check-cache-entries.ts';
-import { runCli } from '../runCli.ts';
-import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
 // A composite admits only what its own run certified, so an assembly here is also the proof that the witness
 // was passed to a real child through the environment of a real spawn. Those children run the built `nmr` on

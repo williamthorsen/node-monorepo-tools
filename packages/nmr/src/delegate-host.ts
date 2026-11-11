@@ -4,7 +4,7 @@ import { Writable } from 'node:stream';
 import { reportError, startTimer } from '@williamthorsen/nmr-core';
 
 import { NMR_BIN } from './bins.ts';
-import { NO_CACHE_ENV_VAR, resolveRunId, writeDebugNote } from './check-cache.ts';
+import { NO_CACHE_ENV_VAR, resolveRunId, writeDebugNote } from './check-cache/check-cache.ts';
 import { buildChildEnv, buildRemoteEnv } from './child-env.ts';
 import { resolveDelegationTarget } from './delegation-target.ts';
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';

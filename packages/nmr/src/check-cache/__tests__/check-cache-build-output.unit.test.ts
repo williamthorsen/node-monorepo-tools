@@ -4,8 +4,8 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { resolveBuildCachePath } from '../../commands/build-output.ts';
 import { findStaleBuildOutput, readBuildOutputState } from '../check-cache-build-output.ts';
-import { resolveBuildCachePath } from '../commands/build-output.ts';
 
 describe('check-cache', () => {
   let tree: TempTree;

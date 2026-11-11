@@ -2,6 +2,17 @@ import type { Writable } from 'node:stream';
 
 import { type OutputStyle, startTimer } from '@williamthorsen/nmr-core';
 
+import { addLockEnv, takeMachineLock } from '../child-env.ts';
+import { runPlanOnHost } from '../delegate-host.ts';
+import { type RunPlan, VERSION } from '../invocation.ts';
+import { formatFlagSpelling } from '../nmr-flags.ts';
+import { resolveChannel } from '../output-channel.ts';
+import { runSteps } from '../runner.ts';
+import { splitSegments } from '../shell-syntax.ts';
+import type { StatedOutcome } from '../stated-outcome.ts';
+import type { Step } from '../steps.ts';
+import type { NmrConfig } from '../types.ts';
+import type { VerdictOutcome } from '../verdict.ts';
 import {
   formatMisplacedNoCacheWarning,
   isCacheableCommand,
@@ -14,18 +25,7 @@ import { type Gate, recordDelegatedPass } from './check-cache-delegation.ts';
 import { certifyRetention, type CheckCacheEntry, readCheckCacheEntry, type ReplayLine } from './check-cache-entries.ts';
 import { computeCacheKey, computeRetentionKey } from './check-cache-key.ts';
 import { recordPass } from './check-cache-record.ts';
-import { addLockEnv, takeMachineLock } from './child-env.ts';
-import { runPlanOnHost } from './delegate-host.ts';
-import { type RunPlan, VERSION } from './invocation.ts';
-import { formatFlagSpelling } from './nmr-flags.ts';
-import { resolveChannel } from './output-channel.ts';
 import { writePassManifestEntry } from './pass-manifest.ts';
-import { runSteps } from './runner.ts';
-import { splitSegments } from './shell-syntax.ts';
-import type { StatedOutcome } from './stated-outcome.ts';
-import type { Step } from './steps.ts';
-import type { NmrConfig } from './types.ts';
-import type { VerdictOutcome } from './verdict.ts';
 
 /**
  * Decides whether the check-result cache covers this invocation, and takes the tree snapshot on which it would

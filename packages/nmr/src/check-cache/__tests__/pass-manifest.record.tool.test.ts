@@ -4,7 +4,6 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { PASS_MANIFEST_DIR_ENV_VAR } from '../check-cache.ts';
 import {
   COMMAND,
   countRuns,
@@ -12,7 +11,8 @@ import {
   runNmr,
   scaffoldRepo,
   writeConfig,
-} from '../test-utils/check-cache-gate-fixtures.ts';
+} from '../../test-utils/check-cache-gate-fixtures.ts';
+import { PASS_MANIFEST_DIR_ENV_VAR } from '../check-cache.ts';
 
 describe('the pass manifest', () => {
   let workspace: TempTree;

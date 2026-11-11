@@ -1,8 +1,8 @@
 import { formatGlyphLine, type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
+import { NMR_GLYPHS } from '../glyphs.ts';
+import { formatDuration } from '../helpers/duration.ts';
 import { type CheckCacheEntry, readCheckCacheEntry, readTranscript } from './check-cache-entries.ts';
-import { NMR_GLYPHS } from './glyphs.ts';
-import { formatDuration } from './helpers/duration.ts';
 
 /**
  * What this invocation would be recorded under, insofar as an entry records the same facts. A mismatch is read

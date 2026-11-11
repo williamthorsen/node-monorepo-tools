@@ -5,8 +5,8 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { MAX_EXCERPT_BYTES } from '../../helpers/deriveExcerpt.ts';
 import { DEBUG_ENV_VAR, PASS_MANIFEST_DIR_ENV_VAR } from '../check-cache.ts';
-import { MAX_EXCERPT_BYTES } from '../helpers/deriveExcerpt.ts';
 import { type PassManifestEntry, validatePassManifest, writePassManifestEntry } from '../pass-manifest.ts';
 
 const ROOT = '/repo';

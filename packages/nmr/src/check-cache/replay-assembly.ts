@@ -1,6 +1,6 @@
+import { readNmrStep, type Step } from '../steps.ts';
+import { getWorkspacePackageDirs } from '../workspace.ts';
 import { readCheckCacheEntry, type ReplayLine } from './check-cache-entries.ts';
-import { readNmrStep, type Step } from './steps.ts';
-import { getWorkspacePackageDirs } from './workspace.ts';
 
 /**
  * Assembles what a composite's skip replays: the excerpts recorded by its constituents, in the order in which

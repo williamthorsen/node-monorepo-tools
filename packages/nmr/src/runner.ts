@@ -5,7 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import type { Writable } from 'node:stream';
 
-import { writeDebugNote } from './check-cache.ts';
+import { writeDebugNote } from './check-cache/check-cache.ts';
 import {
   describeSignalExitCode,
   type RunCommandOptions,

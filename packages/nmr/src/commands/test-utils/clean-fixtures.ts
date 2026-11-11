@@ -3,7 +3,7 @@ import { PassThrough } from 'node:stream';
 
 import type { TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 
-import { writeCheckCacheEntry } from '../../check-cache-entries.ts';
+import { writeCheckCacheEntry } from '../../check-cache/check-cache-entries.ts';
 import { resolveBuildCachePath, resolveEmitDurationPath } from '../build-output.ts';
 import { cleanFrom, type CleanOutcome, type CleanProgress } from '../clean.ts';
 

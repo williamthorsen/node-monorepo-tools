@@ -1,10 +1,10 @@
 import { UserError } from '@williamthorsen/nmr-core';
 
-import { findClosestName } from './helpers/findClosestName.ts';
-import { isHookName } from './helpers/hook-name.ts';
-import { buildRootRegistry, buildWorkspaceRegistry, readPackageJsonScripts } from './resolver.ts';
-import type { NmrConfig } from './types.ts';
-import { getWorkspacePackageDirs, isMonorepoRoot } from './workspace.ts';
+import { findClosestName } from '../helpers/findClosestName.ts';
+import { isHookName } from '../helpers/hook-name.ts';
+import { buildRootRegistry, buildWorkspaceRegistry, readPackageJsonScripts } from '../resolver.ts';
+import type { NmrConfig } from '../types.ts';
+import { getWorkspacePackageDirs, isMonorepoRoot } from '../workspace.ts';
 
 /**
  * Rejects a `checkCache` name that does not resolve to any command. Both fields are read by name alone, so a

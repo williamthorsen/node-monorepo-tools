@@ -8673,7 +8673,7 @@ function buildRootRegistry(config, monorepoRoot) {
   };
 }
 
-// src/config-check-cache.ts
+// src/check-cache/config-check-cache.ts
 function assertResolvableCheckCacheCommands(config, configPath, baseDir) {
   const { checkCache } = config;
   if (checkCache === void 0 || !isMonorepoRoot(baseDir)) {

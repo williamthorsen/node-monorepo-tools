@@ -2,10 +2,10 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { REPORT_FORMAT_ENV_VAR } from '../../report-format.ts';
+import { COMMAND_VERBOSITY_ENV_VAR } from '../../verbosity.ts';
 import type { TreeSnapshot } from '../check-cache.ts';
 import { computeCacheKey, computeRetentionKey } from '../check-cache-key.ts';
-import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
-import { COMMAND_VERBOSITY_ENV_VAR } from '../verbosity.ts';
 
 const SNAPSHOT: TreeSnapshot = { treeId: 'tree-id', headSha: 'head-sha' };
 

@@ -7,7 +7,7 @@ import {
   RUN_ID_ENV_VAR,
   TREE_SNAPSHOT_ENV_VAR,
   type TreeSnapshot,
-} from './check-cache.ts';
+} from './check-cache/check-cache.ts';
 import type { Invocation } from './invocation.ts';
 import {
   acquireMachineLock,

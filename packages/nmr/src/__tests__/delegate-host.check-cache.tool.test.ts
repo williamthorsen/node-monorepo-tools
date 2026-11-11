@@ -7,8 +7,8 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { NO_CACHE_ENV_VAR, PASS_MANIFEST_DIR_ENV_VAR } from '../check-cache.ts';
-import { readCheckCacheEntry, removeCheckCache } from '../check-cache-entries.ts';
+import { NO_CACHE_ENV_VAR, PASS_MANIFEST_DIR_ENV_VAR } from '../check-cache/check-cache.ts';
+import { readCheckCacheEntry, removeCheckCache } from '../check-cache/check-cache-entries.ts';
 import { OUTPUT_STYLE_ENV_VAR } from '../output-style.ts';
 import { runCli } from '../runCli.ts';
 import { writeBuildDigest } from '../test-utils/check-cache-gate-fixtures.ts';

@@ -1,13 +1,13 @@
 import path from 'node:path';
 
+import type { HostRunResult } from '../delegate-host.ts';
+import { type RunPlan, VERSION } from '../invocation.ts';
+import type { OutputChannels } from '../output-channel.ts';
 import { resolveTreeSnapshot, type TreeSnapshot, writeDebugNote } from './check-cache.ts';
 import type { BuildOutputState } from './check-cache-build-output.ts';
 import type { ReplayLine, Retention } from './check-cache-entries.ts';
 import { computeCacheKey, computeRetentionKey } from './check-cache-key.ts';
 import { recordHostPass } from './check-cache-record.ts';
-import type { HostRunResult } from './delegate-host.ts';
-import { type RunPlan, VERSION } from './invocation.ts';
-import type { OutputChannels } from './output-channel.ts';
 import { formatManifestScope, type PassManifestEntry, validatePassManifest } from './pass-manifest.ts';
 
 /** What the check-result cache gates a run on: the key, the tree, and the build output that the run saw. */

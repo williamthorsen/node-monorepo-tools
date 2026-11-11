@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import { NO_CACHE_ENV_VAR } from '../check-cache.ts';
+import { NO_CACHE_ENV_VAR } from '../check-cache/check-cache.ts';
 
 /** The directory, relative to the repository root, holding one Prettier cache file per scope. */
 export const FMT_CACHE_DIRECTORY = path.join('node_modules', '.cache', 'prettier', 'nmr-fmt');

@@ -7,7 +7,7 @@ import type { Writable } from 'node:stream';
 
 import { GIT_OUTPUT_LIMIT_BYTES, type OutputStyle, startTimer, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
-import { PASS_MANIFEST_DIR_ENV_VAR, writeDebugNote } from './check-cache.ts';
+import { PASS_MANIFEST_DIR_ENV_VAR, writeDebugNote } from './check-cache/check-cache.ts';
 import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
 import { quoteForShell } from './helpers/quoteForShell.ts';
 import { STALE_AFTER_MS } from './machine-lock.ts';
