@@ -7,13 +7,13 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { DEBUG_ENV_VAR, NO_CACHE_ENV_VAR, TREE_SNAPSHOT_ENV_VAR } from '../check-cache/check-cache.ts';
-import { NO_LOCK_ENV_VAR } from '../machine-lock.ts';
-import { OUTPUT_STYLE_ENV_VAR } from '../output-style.ts';
+import { DEBUG_ENV_VAR, NO_CACHE_ENV_VAR, TREE_SNAPSHOT_ENV_VAR } from '../../check-cache/check-cache.ts';
+import { NO_LOCK_ENV_VAR } from '../../machine-lock.ts';
+import { OUTPUT_STYLE_ENV_VAR } from '../../output-style.ts';
+import { runCli } from '../../runCli.ts';
+import { initRepo } from '../../test-utils/initRepo.ts';
 import { DELEGATE_ENV_VAR } from '../remote-run.ts';
-import { runCli } from '../runCli.ts';
 import { createFakeRemote, type FakeRemote } from '../test-utils/fake-remote.ts';
-import { initRepo } from '../test-utils/initRepo.ts';
 
 describe('nmr with a delegation host', () => {
   let workspace: TempTree;

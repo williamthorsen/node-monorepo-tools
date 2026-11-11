@@ -6,7 +6,7 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { STALE_AFTER_MS } from '../machine-lock.ts';
+import { STALE_AFTER_MS } from '../../machine-lock.ts';
 import { CHECKOUT_LOCK_PATH } from '../remote-host-session.ts';
 import { probeHost, type ProbeReport, type ProbeResult } from '../remote-probe.ts';
 import { createFakeRemote, type FakeRemote } from '../test-utils/fake-remote.ts';

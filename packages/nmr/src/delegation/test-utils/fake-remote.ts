@@ -4,9 +4,9 @@ import process from 'node:process';
 
 import type { TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 
-import { quoteForShell } from '../helpers/quoteForShell.ts';
+import { quoteForShell } from '../../helpers/quoteForShell.ts';
+import { readAmbientEnv } from '../../test-utils/readAmbientEnv.ts';
 import { SSH_COMMAND_ENV_VAR } from '../remote-run.ts';
-import { readAmbientEnv } from './readAmbientEnv.ts';
 
 /** A host simulated on this machine: an `ssh` and a `pnpm` that run the host's side locally, and their logs. */
 export interface FakeRemote {

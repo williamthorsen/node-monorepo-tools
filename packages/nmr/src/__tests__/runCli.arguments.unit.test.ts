@@ -3,8 +3,8 @@ import path from 'node:path';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
+import { DELEGATE_ENV_VAR } from '../delegation/remote-run.ts';
 import { type FilterSelection, readFilterSelection } from '../helpers/filter-selection.ts';
-import { DELEGATE_ENV_VAR } from '../remote-run.ts';
 import { runCli } from '../runCli.ts';
 import { runSteps } from '../runner.ts';
 import { renderChain } from '../steps.ts';

@@ -7,13 +7,13 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { NO_CACHE_ENV_VAR, PASS_MANIFEST_DIR_ENV_VAR } from '../check-cache/check-cache.ts';
-import { readCheckCacheEntry, removeCheckCache } from '../check-cache/check-cache-entries.ts';
-import { OUTPUT_STYLE_ENV_VAR } from '../output-style.ts';
-import { runCli } from '../runCli.ts';
-import { writeBuildDigest } from '../test-utils/check-cache-gate-fixtures.ts';
+import { NO_CACHE_ENV_VAR, PASS_MANIFEST_DIR_ENV_VAR } from '../../check-cache/check-cache.ts';
+import { readCheckCacheEntry, removeCheckCache } from '../../check-cache/check-cache-entries.ts';
+import { OUTPUT_STYLE_ENV_VAR } from '../../output-style.ts';
+import { runCli } from '../../runCli.ts';
+import { writeBuildDigest } from '../../test-utils/check-cache-gate-fixtures.ts';
+import { initRepo } from '../../test-utils/initRepo.ts';
 import { createFakeRemote, type FakeRemote } from '../test-utils/fake-remote.ts';
-import { initRepo } from '../test-utils/initRepo.ts';
 
 describe('a delegation behind the check-result cache', () => {
   let workspace: TempTree;

@@ -13,7 +13,7 @@ const SCANNED_DIR = 'packages/nmr/src';
  * The files that may run git themselves. `runHostSession` is sent to the host as source, so it cannot import
  * `runGit`; its caller passes it `GIT_OUTPUT_LIMIT_BYTES` instead.
  */
-const ALLOWED_FILES = ['packages/nmr/src/remote-host-session.ts'];
+const ALLOWED_FILES = ['packages/nmr/src/delegation/remote-host-session.ts'];
 
 /** A direct spawn of git, or a private git runner. */
 const GIT_CALL_PATTERN =

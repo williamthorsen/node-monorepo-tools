@@ -3,7 +3,7 @@ import type { Writable } from 'node:stream';
 import { type OutputStyle, startTimer } from '@williamthorsen/nmr-core';
 
 import { addLockEnv, takeMachineLock } from '../child-env.ts';
-import { runPlanOnHost } from '../delegate-host.ts';
+import { runPlanOnHost } from '../delegation/delegate-host.ts';
 import { type RunPlan, VERSION } from '../invocation.ts';
 import { formatFlagSpelling } from '../nmr-flags.ts';
 import { resolveChannel } from '../output-channel.ts';

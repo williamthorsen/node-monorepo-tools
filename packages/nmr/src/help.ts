@@ -1,6 +1,6 @@
+import { DELEGATE_ENV_VAR } from './delegation/remote-run.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import { OUTPUT_STYLE_ENV_VAR } from './output-style.ts';
-import { DELEGATE_ENV_VAR } from './remote-run.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import {
   buildRootRegistry,

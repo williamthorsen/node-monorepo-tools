@@ -4,8 +4,8 @@ import { pathToFileURL } from 'node:url';
 
 import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
-import { assertRecognizedKeys } from './config-validation.ts';
-import { resolveXdgBaseDir } from './helpers/resolveXdgBaseDir.ts';
+import { assertRecognizedKeys } from '../config-validation.ts';
+import { resolveXdgBaseDir } from '../helpers/resolveXdgBaseDir.ts';
 import type { HostList } from './remote-run.ts';
 
 /** The values that `delegate.when` accepts, each naming the runs that delegate without being asked. */

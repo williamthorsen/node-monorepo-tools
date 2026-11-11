@@ -2,7 +2,7 @@ import { Writable } from 'node:stream';
 
 import { isRecord } from '@williamthorsen/nmr-core';
 
-import { quoteForShell } from './helpers/quoteForShell.ts';
+import { quoteForShell } from '../helpers/quoteForShell.ts';
 import {
   type DelegationHolder,
   type HostSessionParams,

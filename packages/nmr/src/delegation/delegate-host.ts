@@ -3,11 +3,10 @@ import { Writable } from 'node:stream';
 
 import { reportError, startTimer } from '@williamthorsen/nmr-core';
 
-import { NMR_BIN } from './bins.ts';
-import { NO_CACHE_ENV_VAR, resolveRunId, writeDebugNote } from './check-cache/check-cache.ts';
-import { buildChildEnv, buildRemoteEnv } from './child-env.ts';
-import { resolveDelegationTarget } from './delegation-target.ts';
-import { type BoundedBuffer, createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
+import { NMR_BIN } from '../bins.ts';
+import { NO_CACHE_ENV_VAR, resolveRunId, writeDebugNote } from '../check-cache/check-cache.ts';
+import { buildChildEnv, buildRemoteEnv } from '../child-env.ts';
+import { type BoundedBuffer, createBoundedBuffer } from '../helpers/createBoundedBuffer.ts';
 import {
   type ExecutionTarget,
   type Invocation,
@@ -15,10 +14,13 @@ import {
   type RunCliResult,
   type RunPlan,
   USAGE_EXIT_CODE,
-} from './invocation.ts';
-import { isDelegationFlag } from './invocation-args.ts';
-import type { ParsedArgs } from './nmr-flags.ts';
-import { reportVerdict } from './presentation.ts';
+} from '../invocation.ts';
+import { isDelegationFlag } from '../invocation-args.ts';
+import type { ParsedArgs } from '../nmr-flags.ts';
+import { reportVerdict } from '../presentation.ts';
+import type { RetainedOutput } from '../runner.ts';
+import type { VerdictOutcome } from '../verdict.ts';
+import { resolveDelegationTarget } from './delegation-target.ts';
 import { chooseHost, type HostChoice, probeHost, type ProbeResult } from './remote-probe.ts';
 import {
   DELEGATE_ENV_VAR,
@@ -32,9 +34,7 @@ import {
   runRemotely,
 } from './remote-run.ts';
 import { createSnapshot } from './remote-snapshot.ts';
-import type { RetainedOutput } from './runner.ts';
 import { formatDisplayPath, loadUserConfig } from './user-config.ts';
-import type { VerdictOutcome } from './verdict.ts';
 
 /** How a run on the host ended, or that the invocation runs here after all. */
 export type HostRunResult =

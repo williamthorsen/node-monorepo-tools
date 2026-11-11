@@ -3,7 +3,7 @@ import { PassThrough } from 'node:stream';
 import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
-import { STALE_AFTER_MS } from '../machine-lock.ts';
+import { STALE_AFTER_MS } from '../../machine-lock.ts';
 import { CHECKOUT_LOCK_PATH, type SessionRecord } from '../remote-host-session.ts';
 import { composeSessionScript, createSessionDemultiplexer, formatDelegationWaitingLine } from '../remote-session.ts';
 

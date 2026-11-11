@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import type { HostRunResult } from '../delegate-host.ts';
+import type { HostRunResult } from '../delegation/delegate-host.ts';
 import { type RunPlan, VERSION } from '../invocation.ts';
 import type { OutputChannels } from '../output-channel.ts';
 import { resolveTreeSnapshot, type TreeSnapshot, writeDebugNote } from './check-cache.ts';

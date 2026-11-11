@@ -11,7 +11,8 @@ import { reportRecording } from './check-cache/check-cache-record.ts';
 import { addLockEnv, buildChildEnv, takeMachineLock } from './child-env.ts';
 import { resolveContext } from './context.ts';
 import { assertNoSelfReference } from './crossing-diagnostics.ts';
-import { resolveExecutionTarget, runInvocationOnHost } from './delegate-host.ts';
+import { resolveExecutionTarget, runInvocationOnHost } from './delegation/delegate-host.ts';
+import { DELEGATE_TO_FLAG } from './delegation/remote-run.ts';
 import { enterChain } from './entry-chain.ts';
 import { composeDelegation, runDelegation } from './fan-out.ts';
 import {
@@ -28,7 +29,6 @@ import {
 import { formatMisplacedFlagHint } from './invocation-args.ts';
 import { readInvocationFlags } from './nmr-flags.ts';
 import { reportVerdict } from './presentation.ts';
-import { DELEGATE_TO_FLAG } from './remote-run.ts';
 import { buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
 import { buildRoot, buildVersionRoot } from './route.ts';
 import { assembleChain, formatOverrideNotice } from './run-chain.ts';

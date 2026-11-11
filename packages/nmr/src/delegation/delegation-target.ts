@@ -1,6 +1,6 @@
+import { hasAgentMarker } from '../verbosity.ts';
 import { DELEGATE_ENV_VAR, DELEGATE_FLAG, DELEGATE_TO_FLAG, type HostList } from './remote-run.ts';
 import { type DelegateWhen, formatDisplayPath, type LoadedUserConfig, resolveUserConfigPath } from './user-config.ts';
-import { hasAgentMarker } from './verbosity.ts';
 
 /**
  * Where a delegation runs, or why the invocation cannot run where it asked to. A delegation that the user config

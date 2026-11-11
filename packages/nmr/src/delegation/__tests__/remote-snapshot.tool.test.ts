@@ -8,9 +8,9 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { addSubmodule } from '../commands/test-utils/addSubmodule.ts';
+import { addSubmodule } from '../../commands/test-utils/addSubmodule.ts';
+import { initRepo } from '../../test-utils/initRepo.ts';
 import { createSnapshot } from '../remote-snapshot.ts';
-import { initRepo } from '../test-utils/initRepo.ts';
 
 describe(createSnapshot, () => {
   let workspace: TempTree;
