@@ -122,4 +122,19 @@ describe(runNmrVitest, () => {
     expect(captured.stderr).toContain(tree.resolve('node_modules/vitest/package.json'));
     expect(captured.stderr).toContain('Repair that manifest');
   });
+
+  it('fails without running Vitest, naming the reinstall step, when the Vitest manifest does not declare a CLI', () => {
+    using tree = createTempTree(
+      { 'package.json': '{}\n', 'node_modules/vitest/package.json': '{"name":"vitest"}\n' },
+      { prefix: 'nmr-vitest-no-cli-' },
+    );
+    using captured = captureStdio();
+    const callsBefore = vi.mocked(spawnSync).mock.calls.length;
+
+    expect(runNmrVitest(['run'], tree.dir)).toBe(1);
+    expect(vi.mocked(spawnSync)).toHaveBeenCalledTimes(callsBefore);
+    expect(captured.stderr).toContain(
+      `nmr-vitest: \`vitest\` at ${tree.resolve('node_modules/vitest')} does not declare a CLI. Reinstall the \`vitest\` peer dependency.`,
+    );
+  });
 });
