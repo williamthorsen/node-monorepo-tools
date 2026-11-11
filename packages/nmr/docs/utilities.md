@@ -48,6 +48,8 @@ Format, or check the formatting of, the files that git reports for the working d
 
 A repo's own copy must be Prettier 3.0.0 or later. The design requires `--ignore-path` to honour every flag rather than only the last, so that a repository-root ignore file passed alongside a package-level one is not silently dropped, and 2.x honoured only the final flag.
 
+A long file list is split into batches that Prettier runs one after another. The exit status is that of the first batch that fails, or 128 plus the signal number when a signal ends that batch.
+
 ```bash
 nmr-fmt --check
 nmr-fmt --write packages/nmr
