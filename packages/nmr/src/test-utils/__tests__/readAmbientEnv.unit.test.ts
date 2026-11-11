@@ -2,7 +2,12 @@ import { readdirSync } from 'node:fs';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DEBUG_ENV_VAR, NO_CACHE_ENV_VAR, RUN_ID_ENV_VAR, TREE_SNAPSHOT_ENV_VAR } from '../../check-cache.ts';
+import {
+  DEBUG_ENV_VAR,
+  NO_CACHE_ENV_VAR,
+  RUN_ID_ENV_VAR,
+  TREE_SNAPSHOT_ENV_VAR,
+} from '../../check-cache/check-cache.ts';
 import { RUN_IF_PRESENT_ENV_VAR } from '../../invocation.ts';
 import { OUTPUT_STYLE_ENV_VAR } from '../../output-style.ts';
 import { REPORT_FORMAT_ENV_VAR } from '../../report-format.ts';

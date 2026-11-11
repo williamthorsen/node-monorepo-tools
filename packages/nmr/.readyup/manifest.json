@@ -244,17 +244,17 @@
           ]
         },
         {
+          "hash": "a34d9027",
+          "kind": "module",
+          "path": "../src/check-cache/config-check-cache.ts"
+        },
+        {
           "hash": "eb0306ed",
           "kind": "module",
           "path": "../src/commands/ensure-prepublish-hooks.ts"
         },
         {
-          "hash": "578af9fd",
-          "kind": "module",
-          "path": "../src/config-check-cache.ts"
-        },
-        {
-          "hash": "d25aef4f",
+          "hash": "0555552a",
           "kind": "module",
           "path": "../src/config-validation.ts"
         },
@@ -359,7 +359,7 @@
       "readyupVersion": "0.45.1",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "8eca943d"
+      "targetHash": "75d28fc2"
     }
   ]
 }

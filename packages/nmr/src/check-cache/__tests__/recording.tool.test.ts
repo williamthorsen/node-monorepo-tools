@@ -1,0 +1,250 @@
+import { execFileSync } from 'node:child_process';
+import { closeSync, openSync } from 'node:fs';
+import { devNull } from 'node:os';
+import path from 'node:path';
+import { PassThrough } from 'node:stream';
+
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { RUN_IF_PRESENT_ENV_VAR } from '../../invocation.ts';
+import { runCli } from '../../runCli.ts';
+import { readAmbientEnv } from '../../test-utils/readAmbientEnv.ts';
+
+/** The cacheable command driven by every test; the fixture maps it to a script whose output is recognizable. */
+const COMMAND = 'typecheck';
+
+/** What the fixture's command writes, and so what a recording of it has to print back. */
+const OUTPUT = 'checked 12 files';
+
+/**
+ * A composite from which the package-free fixture drops a step: `test` resolves to a root step beside a `-R`
+ * one, and the workspace that this fixture declares does not contain any package for the fan-out to reach.
+ */
+const FANNED_COMMAND = 'test';
+
+/** The constituent that survives the drop, which a recording of the composite has to name as the chain. */
+const SURVIVING_STEP = 'root:test';
+
+/** The run log, which is beside the repository rather than inside it. */
+const LOG_ENTRY = 'log.txt';
+
+describe('a run printed by --log', () => {
+  let workspace: TempTree;
+  let repo: string;
+  let log: string;
+
+  beforeEach(() => {
+    workspace = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-log-' }));
+    repo = workspace.resolve('repo');
+    // A log inside the repository would be an untracked file, so every run would change the tree against which the
+    // run is recorded.
+    log = workspace.resolve(LOG_ENTRY);
+    scaffoldRepo(workspace, log);
+  });
+
+  describe('given a pass recorded on this tree', () => {
+    beforeEach(async () => {
+      await runNmr(COMMAND);
+    });
+
+    it('prints what the run wrote', async () => {
+      const { exitCode, stdout } = await runNmr(`--log ${COMMAND}`);
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain(OUTPUT);
+    });
+
+    it('leads with the instant, the duration, and the command string that produced it', async () => {
+      const { stdout } = await runNmr(`--log ${COMMAND}`);
+
+      expect(stdout).toMatch(
+        new RegExp(String.raw`^${path.basename(repo)}: ${COMMAND} — recorded \d{4}-.*ago\), ran in .*\n\$ .*echo`, 'u'),
+      );
+    });
+
+    it('runs nothing and does not report a verdict', async () => {
+      const { stdout } = await runNmr(`--log ${COMMAND}`);
+
+      expect(countRuns()).toBe(1);
+      expect(stdout).not.toContain('passed');
+    });
+
+    // The retention key certifies that a recording describes this presentation environment, which is what a
+    // replayed excerpt is held to and what a dated recording is not.
+    it('prints a recording made under another presentation environment', async () => {
+      const { exitCode, stdout } = await runNmr(`--log ${COMMAND}`, { COLUMNS: '40', TERM: 'dumb' });
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain(OUTPUT);
+    });
+
+    it('refuses once the tree has moved, naming the tree rather than printing the recording', async () => {
+      workspace.write('repo/src/index.ts', 'export const value = 2;\n');
+
+      const { exitCode, stderr, stdout } = await runNmr(`--log ${COMMAND}`);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('on a tree that this is not');
+      expect(stdout).toBe('');
+    });
+  });
+
+  // The fan-out step is dropped before the chain is rendered, and the recording contains the rendering. A filter
+  // applied after it would leave the recording naming a step that the run never took.
+  it('records the chain that the run took, the dropped fan-out step left out of it', async () => {
+    await runNmr(FANNED_COMMAND);
+
+    const { exitCode, stdout } = await runNmr(`--log ${FANNED_COMMAND}`);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain(`$ nmr ${SURVIVING_STEP}`);
+    expect(stdout).not.toContain('-R');
+  });
+
+  it('refuses when nothing has recorded a pass', async () => {
+    const { exitCode, stderr, stdout } = await runNmr(`--log ${COMMAND}`);
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('nothing has recorded a pass');
+    expect(stdout).toBe('');
+  });
+
+  it('refuses for a command outside the cacheable set', async () => {
+    const { exitCode, stderr } = await runNmr('--log fmt');
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('outside the check-result cache');
+  });
+
+  it('refuses when the run wrote to a terminal, retaining nothing', async () => {
+    // A terminal on the null device, so that what the child writes there does not reach the worker's stdout.
+    const terminalFd = openSync(devNull, 'w');
+    try {
+      await runNmr(COMMAND, {}, { terminalFd });
+    } finally {
+      closeSync(terminalFd);
+    }
+
+    const { exitCode, stderr } = await runNmr(`--log ${COMMAND}`);
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('retained none');
+  });
+
+  // A fan-out asks every selected scope, and the delegate marks the scopes to which it fanned out.
+  it('reports a gap without failing under a delegate', async () => {
+    const { exitCode, stderr } = await runNmr(`--log ${COMMAND}`, { [RUN_IF_PRESENT_ENV_VAR]: '1' });
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toContain('nothing has recorded a pass');
+  });
+
+  // The refusal points at NMR_DEBUG, so the gate has to have written a note for every reason the cache does not apply.
+  it('reports why the cache did not apply to a command with arguments', async () => {
+    const { exitCode, stderr } = await runNmr(`--log ${COMMAND} --project unit`, { NMR_DEBUG: '1' });
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain(`gate disabled: ${COMMAND} was passed arguments`);
+    expect(stderr).toContain('does not apply here');
+  });
+
+  it('names the flag when a command does not follow it', async () => {
+    const { exitCode, stderr } = await runNmr('--log');
+
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain('--log requires a command name');
+  });
+
+  // region | Helpers
+
+  /** Counts how many times the fixture's command has actually run. */
+  function countRuns(): number {
+    return workspace.exists(LOG_ENTRY) ? workspace.read(LOG_ENTRY).trim().split('\n').length : 0;
+  }
+
+  /** Runs the CLI in-process in the fixture repo and returns what it wrote to each stream. */
+  async function runNmr(
+    argString: string,
+    extraEnv: Record<string, string> = {},
+    options: { terminalFd?: number } = {},
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    const stdout = buildDestination(new PassThrough(), options.terminalFd);
+    const stderr = buildDestination(new PassThrough(), options.terminalFd);
+    stdout.on('data', (chunk: Buffer) => {
+      stdoutChunks.push(chunk);
+    });
+    stderr.on('data', (chunk: Buffer) => {
+      stderrChunks.push(chunk);
+    });
+
+    const { exitCode } = await runCli({
+      args: argString.split(/\s+/u).filter((argument) => argument.length > 0),
+      cwd: repo,
+      env: { ...readAmbientEnv(), ...extraEnv },
+      stdout,
+      stderr,
+    });
+
+    return {
+      exitCode,
+      stdout: Buffer.concat(stdoutChunks).toString('utf8'),
+      stderr: Buffer.concat(stderrChunks).toString('utf8'),
+    };
+  }
+
+  // endregion | Helpers
+});
+
+// region | Helpers
+
+/**
+ * Decorates a destination as a terminal on the given descriptor, so the runner hands the child that descriptor
+ * and nmr sees none of what flows through it. Left undecorated, the stream does not have a descriptor and is
+ * piped.
+ */
+function buildDestination(stream: PassThrough, terminalFd: number | undefined): PassThrough {
+  return terminalFd === undefined ? stream : Object.assign(stream, { fd: terminalFd, isTTY: true });
+}
+
+/** Runs git in `cwd`, discarding its output. */
+function runGit(cwd: string, args: string[]): void {
+  execFileSync('git', args, { cwd, stdio: 'ignore' });
+}
+
+/**
+ * Writes a committed git repository under `repo/` in the workspace, containing the pnpm files that the install
+ * fingerprint reads and a config mapping the cacheable command to a script that both records its run and
+ * writes a recognizable line.
+ */
+function scaffoldRepo(workspace: TempTree, log: string): void {
+  const config = {
+    rootScripts: {
+      [COMMAND]: `echo ran >> ${log} && echo '${OUTPUT}'`,
+      [SURVIVING_STEP]: `echo '${OUTPUT}'`,
+    },
+  };
+
+  workspace.writeAll({
+    'repo/.config/nmr.config.ts': `export default ${JSON.stringify(config)};\n`,
+    'repo/.gitignore': 'node_modules/\ndist/\n',
+    'repo/node_modules/.modules.yaml': 'hoistPattern:\n  - "types"\n',
+    'repo/node_modules/.pnpm/lock.yaml': 'lockfileVersion: "9.0"\n',
+    'repo/package.json': JSON.stringify({ name: 'log-root', private: true }),
+    'repo/pnpm-workspace.yaml': 'packages:\n  - "packages/*"\n',
+    'repo/src/index.ts': 'export const value = 1;\n',
+  });
+
+  const repo = workspace.resolve('repo');
+  runGit(repo, ['init', '--initial-branch=main']);
+  runGit(repo, ['config', 'user.email', 'fixture@example.com']);
+  runGit(repo, ['config', 'user.name', 'Fixture']);
+  runGit(repo, ['config', 'commit.gpgsign', 'false']);
+  runGit(repo, ['add', '--all']);
+  runGit(repo, ['commit', '--message', 'initial']);
+}
+
+// endregion | Helpers

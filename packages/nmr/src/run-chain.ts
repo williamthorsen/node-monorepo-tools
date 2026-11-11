@@ -3,8 +3,8 @@ import path from 'node:path';
 import { formatGlyphLine, type OutputStyle, reportError } from '@williamthorsen/nmr-core';
 
 import { NMR_BIN } from './bins.ts';
-import type { TreeSnapshot } from './check-cache.ts';
-import { resolveCacheKey } from './check-cache-gate.ts';
+import type { TreeSnapshot } from './check-cache/check-cache.ts';
+import { resolveCacheKey } from './check-cache/check-cache-gate.ts';
 import { reportNmrCrossing } from './crossing-diagnostics.ts';
 import { NMR_GLYPHS } from './glyphs.ts';
 import { isHookName } from './helpers/hook-name.ts';

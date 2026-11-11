@@ -5,7 +5,7 @@ import { captureStdio, createTempTree } from '@williamthorsen/toolbelt.testing/c
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 
-import { readCheckCacheEntry } from '../../check-cache-entries.ts';
+import { readCheckCacheEntry } from '../../check-cache/check-cache-entries.ts';
 import { OUTPUT_STYLE_ENV_VAR } from '../../output-style.ts';
 import { cleanFrom, cleanPackage, runClean } from '../clean.ts';
 import {

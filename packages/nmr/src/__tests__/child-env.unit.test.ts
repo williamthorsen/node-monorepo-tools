@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildChildEnv, buildRemoteEnv } from '../child-env.ts';
-import { DELEGATE_ENV_VAR } from '../remote-run.ts';
+import { DELEGATE_ENV_VAR } from '../delegation/remote-run.ts';
 import { OUTCOME_FILE_ENV_VAR } from '../stated-outcome.ts';
 
 describe(buildChildEnv, () => {

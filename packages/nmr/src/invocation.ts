@@ -2,9 +2,9 @@ import type { Writable } from 'node:stream';
 
 import { resolveSelfVersion, type StreamStyles } from '@williamthorsen/nmr-core';
 
-import type { TreeSnapshot } from './check-cache.ts';
+import type { TreeSnapshot } from './check-cache/check-cache.ts';
 import type { ResolvedContext } from './context.ts';
-import type { DelegationTarget } from './delegation-target.ts';
+import type { DelegationTarget } from './delegation/delegation-target.ts';
 import type { ParsedArgs } from './nmr-flags.ts';
 import type { ReportFormat } from './report-format.ts';
 import type { RunStepsOptions } from './runner.ts';

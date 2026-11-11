@@ -5,7 +5,7 @@ import { PassThrough } from 'node:stream';
 
 import type { TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 
-import { type CheckCacheEntry, readCheckCacheEntry } from '../check-cache-entries.ts';
+import { type CheckCacheEntry, readCheckCacheEntry } from '../check-cache/check-cache-entries.ts';
 import { resolveBuildCachePath } from '../commands/build-output.ts';
 import type { ScriptValue } from '../resolve-scripts.ts';
 import { runCli } from '../runCli.ts';

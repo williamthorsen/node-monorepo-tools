@@ -7,7 +7,8 @@ import {
   RUN_ID_ENV_VAR,
   TREE_SNAPSHOT_ENV_VAR,
   type TreeSnapshot,
-} from './check-cache.ts';
+} from './check-cache/check-cache.ts';
+import { DELEGATE_ENV_VAR } from './delegation/remote-run.ts';
 import type { Invocation } from './invocation.ts';
 import {
   acquireMachineLock,
@@ -19,7 +20,6 @@ import {
 } from './machine-lock.ts';
 import { formatFlagSpelling } from './nmr-flags.ts';
 import { OUTPUT_STYLE_ENV_VAR } from './output-style.ts';
-import { DELEGATE_ENV_VAR } from './remote-run.ts';
 import { REPORT_FORMAT_ENV_VAR, type ReportFormat } from './report-format.ts';
 import { COMMAND_VERBOSITY_ENV_VAR, type CommandVerbosity } from './verbosity.ts';
 

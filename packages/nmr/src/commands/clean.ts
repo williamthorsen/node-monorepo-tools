@@ -7,7 +7,7 @@ import { UserError } from '@williamthorsen/nmr-core';
 import { defineCommand, runCli } from '@williamthorsen/nmr-core/cli';
 
 import { NMR_CLEAN_BIN } from '../bins.ts';
-import { removeCheckCache } from '../check-cache-entries.ts';
+import { removeCheckCache } from '../check-cache/check-cache-entries.ts';
 import { loadRootConfig } from '../config.ts';
 import { findContainingPackageDir } from '../context.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
