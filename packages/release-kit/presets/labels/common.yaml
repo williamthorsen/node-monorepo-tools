@@ -47,6 +47,8 @@
 # Status
 - name: 'status:blocked'
   color: b83280
+- name: 'status:in-progress'
+  color: f472b6
 - name: 'status:on-hold'
   color: fbcfe8
 
