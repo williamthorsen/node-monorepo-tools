@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -8,8 +7,8 @@ import { isRecord, reportError } from '@williamthorsen/nmr-core';
 import { findMonorepoRoot as findMonorepoRootOrNothing } from '@williamthorsen/nmr-core/workspace';
 
 import { NMR_VITEST_BIN } from '../bins.ts';
-import { describeSignalExitCode } from '../child-process.ts';
 import { omitOutcomeFile } from '../stated-outcome.ts';
+import { resolveInheritedExitCode, spawnInherited } from './spawn-inherited.ts';
 
 const VITEST_PACKAGE = 'vitest';
 
@@ -30,10 +29,9 @@ export function runNmrVitest(argv: string[], cwd: string = process.cwd()): numbe
   }
 
   // A test that runs an nmr bin in-process is not the step's bin, so the suite must not inherit the step's file.
-  const result = spawnSync(process.execPath, [cli.cliPath, ...chooseVitestConfigArgs(argv, cwd)], {
+  const result = spawnInherited(process.execPath, [cli.cliPath, ...chooseVitestConfigArgs(argv, cwd)], {
     cwd,
     env: omitOutcomeFile(process.env),
-    stdio: 'inherit',
   });
 
   if (result.error) {
@@ -41,8 +39,7 @@ export function runNmrVitest(argv: string[], cwd: string = process.cwd()): numbe
     return 1;
   }
 
-  if (result.signal !== null) return describeSignalExitCode(result.signal);
-  return result.status ?? 1;
+  return resolveInheritedExitCode(result);
 }
 
 /**
