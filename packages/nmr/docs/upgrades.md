@@ -152,6 +152,8 @@ Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool
 
 Under pnpm's isolated `node_modules`, a transitive package's binary is absent from the consuming repo's `node_modules/.bin`, so a repo that depends on nmr cannot run `taze` directly. `nmr-taze` can, because nmr is a direct dependency, and it resolves the tool from the tree that nmr controls.
 
+Its exit status is that of the first taze run that fails, or 128 plus the signal number when a signal ends that run.
+
 ```bash
 nmr-taze --recursive
 ```

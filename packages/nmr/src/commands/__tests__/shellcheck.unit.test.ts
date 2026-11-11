@@ -4,7 +4,8 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { runShellcheck, type ShellcheckOutcome } from '../shellcheck.ts';
+import { runShellcheck } from '../shellcheck.ts';
+import type { InheritedOutcome, SpawnInherited } from '../spawn-inherited.ts';
 import type { WorkflowTool } from '../workflow-tools.ts';
 
 describe(runShellcheck, () => {
@@ -16,7 +17,7 @@ describe(runShellcheck, () => {
 
   it('passes without fetching shellcheck when the repo does not track any shell script', async () => {
     const ensure = vi.fn<(tool: WorkflowTool, cacheRoots: readonly [string, ...string[]]) => Promise<string>>();
-    const spawn = vi.fn<(file: string, args: string[], cwd: string) => ShellcheckOutcome>();
+    const spawn = vi.fn<SpawnInherited>();
 
     using silent = silenceConsole(['info']);
     const exitCode = await runShellcheck(tree.dir, [], { ensure, listFiles: () => [], spawn });
@@ -35,7 +36,7 @@ describe(runShellcheck, () => {
     const ensure = vi.fn<(tool: WorkflowTool, cacheRoots: readonly [string, ...string[]]) => Promise<string>>((tool) =>
       Promise.resolve(path.join('/cache', tool)),
     );
-    const spawn = vi.fn((): ShellcheckOutcome => ({ signal: null, status: 1 }));
+    const spawn = vi.fn((): InheritedOutcome => ({ signal: null, status: 1 }));
 
     const exitCode = await runShellcheck(tree.dir, [], {
       ensure,
@@ -49,12 +50,14 @@ describe(runShellcheck, () => {
     expect(ensure.mock.calls.map(([tool, roots]) => [tool, roots.at(-1)])).toStrictEqual([
       ['shellcheck', worktreeRoot],
     ]);
-    expect(spawn).toHaveBeenCalledWith(path.join('/cache', 'shellcheck'), ['build.sh', 'scripts/deploy.sh'], tree.dir);
+    expect(spawn).toHaveBeenCalledWith(path.join('/cache', 'shellcheck'), ['build.sh', 'scripts/deploy.sh'], {
+      cwd: tree.dir,
+    });
   });
 
   it('skips a tracked script that is missing from the working tree', async () => {
     tree.write('kept.sh', '#!/bin/sh\n');
-    const spawn = vi.fn((): ShellcheckOutcome => ({ signal: null, status: 0 }));
+    const spawn = vi.fn((): InheritedOutcome => ({ signal: null, status: 0 }));
 
     await runShellcheck(tree.dir, [], {
       ensure: (tool) => Promise.resolve(tool),
@@ -62,11 +65,11 @@ describe(runShellcheck, () => {
       spawn,
     });
 
-    expect(spawn).toHaveBeenCalledWith('shellcheck', ['kept.sh'], tree.dir);
+    expect(spawn).toHaveBeenCalledWith('shellcheck', ['kept.sh'], { cwd: tree.dir });
   });
 
   it('passes when every tracked script is missing from the working tree', async () => {
-    const spawn = vi.fn<(file: string, args: string[], cwd: string) => ShellcheckOutcome>();
+    const spawn = vi.fn<SpawnInherited>();
 
     using _silent = silenceConsole(['info']);
     const exitCode = await runShellcheck(tree.dir, [], { listFiles: () => ['deleted.sh'], spawn });
@@ -77,7 +80,7 @@ describe(runShellcheck, () => {
 
   it('passes the invocation arguments in place of the file list', async () => {
     const listFiles = vi.fn(() => ['build.sh']);
-    const spawn = vi.fn((): ShellcheckOutcome => ({ signal: null, status: 0 }));
+    const spawn = vi.fn((): InheritedOutcome => ({ signal: null, status: 0 }));
 
     await runShellcheck(tree.dir, ['--severity=warning', 'scripts/x.sh'], {
       ensure: (tool) => Promise.resolve(tool),
@@ -86,11 +89,11 @@ describe(runShellcheck, () => {
     });
 
     expect(listFiles).not.toHaveBeenCalled();
-    expect(spawn).toHaveBeenCalledWith('shellcheck', ['--severity=warning', 'scripts/x.sh'], tree.dir);
+    expect(spawn).toHaveBeenCalledWith('shellcheck', ['--severity=warning', 'scripts/x.sh'], { cwd: tree.dir });
   });
 
   it('reports a death by signal as the shell would', async () => {
-    const spawn = vi.fn((): ShellcheckOutcome => ({ signal: 'SIGTERM', status: null }));
+    const spawn = vi.fn((): InheritedOutcome => ({ signal: 'SIGTERM', status: null }));
 
     await expect(runShellcheck(tree.dir, ['x.sh'], { ensure: (tool) => Promise.resolve(tool), spawn })).resolves.toBe(
       143,
@@ -98,7 +101,7 @@ describe(runShellcheck, () => {
   });
 
   it('throws when shellcheck cannot be started', async () => {
-    const spawn = vi.fn((): ShellcheckOutcome => ({ error: new Error('spawn EACCES'), signal: null, status: null }));
+    const spawn = vi.fn((): InheritedOutcome => ({ error: new Error('spawn EACCES'), signal: null, status: null }));
 
     await expect(runShellcheck(tree.dir, ['x.sh'], { ensure: (tool) => Promise.resolve(tool), spawn })).rejects.toThrow(
       'Cannot run shellcheck: spawn EACCES',

@@ -1,5 +1,4 @@
 import { Buffer } from 'node:buffer';
-import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -13,6 +12,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { NMR_FMT_BIN } from '../bins.ts';
 import { prepareFmtCache } from './fmt-cache.ts';
 import { resolveFormatTargets } from './format-targets.ts';
+import { resolveInheritedExitCode, type SpawnInherited, spawnInherited } from './spawn-inherited.ts';
 
 const PRETTIER_PACKAGE = 'prettier';
 
@@ -204,16 +204,6 @@ async function findRepositoryConfig(
   }
 }
 
-/**
- * How a spawned Prettier process ended.
- *
- * @internal
- */
-export interface PrettierOutcome {
-  error?: Error | undefined;
-  status: number | null;
-}
-
 /** @internal */
 export interface RunPrettierOptions {
   cliPath: string;
@@ -227,8 +217,8 @@ export interface RunPrettierOptions {
   cwd: string;
   /** Overridable so that the multi-batch path is reachable without a fixture that hits the real ceiling. */
   budgetBytes?: number;
-  /** Runs the Prettier CLI as `file` with `args` in `cwd`. */
-  spawn?: (file: string, args: string[], cwd: string) => PrettierOutcome;
+  /** Runs the Prettier CLI on the caller's stdio. */
+  spawn?: SpawnInherited;
 }
 
 /**
@@ -270,14 +260,14 @@ export function runPrettier(options: RunPrettierOptions): number {
   let firstFailureStatus = 0;
 
   for (const batch of batchWithinBudget(files, budgetBytes)) {
-    const result = spawn(process.execPath, [...prettierArgs, ...batch], cwd);
+    const result = spawn(process.execPath, [...prettierArgs, ...batch], { cwd });
 
     if (result.error) {
       reportError(NMR_FMT_BIN, `could not run \`${PRETTIER_PACKAGE}\` (${result.error.message}).`);
       return 1;
     }
 
-    const status = result.status ?? 1;
+    const status = resolveInheritedExitCode(result);
     if (status !== 0 && firstFailureStatus === 0) {
       firstFailureStatus = status;
     }
@@ -316,10 +306,4 @@ function resolveFrom(parent: string, specifier: string): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-/** Runs `file` with `args` in `cwd`, handing the child this process's stdio. */
-function spawnInherited(file: string, args: string[], cwd: string): PrettierOutcome {
-  const { error, status } = spawnSync(file, args, { cwd, stdio: 'inherit' });
-  return { error, status };
 }

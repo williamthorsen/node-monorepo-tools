@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
 import type { Writable } from 'node:stream';
@@ -10,6 +9,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { NMR_TAZE_BIN } from '../bins.ts';
 import { loadPackageMaturityPeriod } from './load-package-maturity-period.ts';
 import { checkNodePin as checkNodePinDefault, type CheckNodePinOptions } from './node-pin.ts';
+import { resolveInheritedExitCode, type SpawnInherited, spawnInherited } from './spawn-inherited.ts';
 import { isSilent, readFlag } from './taze-args.ts';
 import { planTazePasses, type TazePass } from './taze-passes.ts';
 
@@ -41,11 +41,6 @@ const REQUEST_TIMEOUT_MS = 30_000;
  */
 const NODE_PIN_SKIP_FLAGS = ['--no-node-version', '--help', '-h', '--version', '-v'];
 
-export interface SpawnOutcome {
-  status: number | null;
-  error?: Error | undefined;
-}
-
 export interface RunTazeOptions {
   /** Checks the `.tool-versions` Node pin in a directory. Injected by tests. */
   checkNodePin?: (dir: string, options: CheckNodePinOptions) => Promise<void>;
@@ -53,8 +48,11 @@ export interface RunTazeOptions {
   loadConfig?: (cwd: string) => Promise<unknown>;
   /** Resolves the absolute path of taze's CLI entry. Injected by tests. */
   resolveCliPath?: () => string;
-  /** Runs the CLI and reports how it exited. Injected by tests. */
-  spawn?: (nodePath: string, argv: string[]) => SpawnOutcome;
+  /**
+   * Runs the CLI on the caller's stdio, so that taze's progress rendering, cursor restore, and `--interactive` mode
+   * see the caller's TTY. Injected by tests.
+   */
+  spawn?: SpawnInherited;
   /** Stream that error output and pass headings are written to. Defaults to `process.stderr`. */
   stderr?: Writable;
   /** Style of `stderr`, in which the Node pin check reports. Defaults to `'plain'`. */
@@ -87,7 +85,7 @@ export interface RunTazeOptions {
 export async function runTaze(args: string[], options: RunTazeOptions = {}): Promise<number> {
   const stderr = options.stderr ?? process.stderr;
   const resolveCliPath = options.resolveCliPath ?? resolveTazeCliPath;
-  const spawn = options.spawn ?? spawnNode;
+  const spawn = options.spawn ?? spawnInherited;
   const loadConfig = options.loadConfig ?? loadPackageMaturityPeriod;
 
   let cliPath: string;
@@ -137,7 +135,7 @@ export async function runTaze(args: string[], options: RunTazeOptions = {}): Pro
       return 1;
     }
 
-    const status = outcome.status ?? 1;
+    const status = resolveInheritedExitCode(outcome);
     if (exitCode === 0) exitCode = status;
   }
 
@@ -159,15 +157,6 @@ function composeRequestTimeoutArgs(args: readonly string[]): string[] {
 /** Returns the directory from which taze resolves its config: the invocation's `--cwd`, else the current one. */
 function resolveConfigDir(args: readonly string[]): string {
   return path.resolve(readFlag(args, ['--cwd', '-C'])?.value ?? '.');
-}
-
-/**
- * Runs a Node script as a child process. stdio is inherited so that taze's progress rendering, cursor
- * restore, and `--interactive` mode all see the caller's TTY.
- */
-function spawnNode(nodePath: string, argv: string[]): SpawnOutcome {
-  const result = spawnSync(nodePath, argv, { stdio: 'inherit' });
-  return { status: result.status, error: result.error };
 }
 
 // endregion | Helpers

@@ -1,9 +1,11 @@
+import os from 'node:os';
 import process from 'node:process';
 
 import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { describe, expect, it, vi } from 'vitest';
 
-import { type PrettierOutcome, runPrettier, type RunPrettierOptions } from '../fmt.ts';
+import { runPrettier, type RunPrettierOptions } from '../fmt.ts';
+import type { InheritedOutcome, SpawnInherited } from '../spawn-inherited.ts';
 
 const CLI_PATH = '/prettier/bin.cjs';
 const CWD = '/repo';
@@ -14,7 +16,7 @@ describe(runPrettier, () => {
 
     runPrettier(buildOptions({ spawn }));
 
-    expect(spawn).toHaveBeenCalledWith(process.execPath, expect.arrayContaining([CLI_PATH, 'a.js']), CWD);
+    expect(spawn).toHaveBeenCalledWith(process.execPath, expect.arrayContaining([CLI_PATH, 'a.js']), { cwd: CWD });
     expect(readArgs(spawn)[0]?.[0]).toBe(CLI_PATH);
   });
 
@@ -131,14 +133,14 @@ describe(runPrettier, () => {
   });
 
   it('reports the exit code that Prettier returned', () => {
-    const spawn = createSpawn({ status: 2 });
+    const spawn = createSpawn({ signal: null, status: 2 });
 
     expect(runPrettier(buildOptions({ spawn }))).toBe(2);
   });
 
   it('keeps running after a batch fails, and reports the first failing status', () => {
     const spawn = createSpawn();
-    spawn.mockReturnValueOnce({ status: 3 }).mockReturnValueOnce({ status: 4 });
+    spawn.mockReturnValueOnce({ signal: null, status: 3 }).mockReturnValueOnce({ signal: null, status: 4 });
 
     const exitCode = runPrettier(buildOptions({ budgetBytes: 10, files: ['one.js', 'two.js'], spawn }));
 
@@ -146,15 +148,15 @@ describe(runPrettier, () => {
     expect(spawn).toHaveBeenCalledTimes(2);
   });
 
-  it('fails when Prettier ends without a status, as it does when a signal kills it', () => {
-    const spawn = createSpawn({ status: null });
+  it('reports a Prettier killed by a signal as 128 plus the signal number', () => {
+    const spawn = createSpawn({ signal: 'SIGKILL', status: null });
 
-    expect(runPrettier(buildOptions({ spawn }))).toBe(1);
+    expect(runPrettier(buildOptions({ spawn }))).toBe(128 + os.constants.signals.SIGKILL);
   });
 
   it('fails, naming the cause, when Prettier cannot be started, and runs no further batch', () => {
     using captured = captureStdio();
-    const spawn = createSpawn({ error: new Error('spawn ENOENT'), status: null });
+    const spawn = createSpawn({ error: new Error('spawn ENOENT'), signal: null, status: null });
 
     const exitCode = runPrettier(buildOptions({ budgetBytes: 10, files: ['one.js', 'two.js'], spawn }));
 
@@ -172,13 +174,13 @@ function buildOptions(overrides: Partial<RunPrettierOptions>): RunPrettierOption
 }
 
 /** Creates a spawn fake that records each call and returns `outcome`, a clean exit by default. */
-function createSpawn(outcome?: PrettierOutcome) {
-  return vi.fn((_file: string, _args: string[], _cwd: string): PrettierOutcome => outcome ?? { status: 0 });
+function createSpawn(outcome?: InheritedOutcome) {
+  return vi.fn<SpawnInherited>(() => outcome ?? { signal: null, status: 0 });
 }
 
 /** Returns the argument list of each recorded spawn call, in order. */
 function readArgs(spawn: ReturnType<typeof createSpawn>): string[][] {
-  return spawn.mock.calls.map(([, args]) => args);
+  return spawn.mock.calls.map(([, args]) => [...args]);
 }
 
 // endregion | Helpers
