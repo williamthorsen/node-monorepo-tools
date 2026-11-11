@@ -1,4 +1,8 @@
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { it as baseIt } from 'vitest';
+
+import { createRunCliHarness } from './run-cli-harness.ts';
 
 /** Creates a temporary pnpm workspace that contains one package, `my-pkg`. */
 export function createWorkspaceTree(): TempTree {
@@ -7,3 +11,11 @@ export function createWorkspaceTree(): TempTree {
     { prefix: 'nmr-runcli-' },
   );
 }
+
+/** Provides each test with a workspace `tree` and an `nmr` harness whose fakes start fresh. */
+export const it = baseIt
+  .extend(
+    'tree',
+    makeFixture(() => createWorkspaceTree()),
+  )
+  .extend('nmr', () => createRunCliHarness());

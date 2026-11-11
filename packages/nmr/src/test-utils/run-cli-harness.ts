@@ -1,17 +1,73 @@
 import { PassThrough } from 'node:stream';
 
 import type { TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { vi } from 'vitest';
+import { type Mock, vi } from 'vitest';
 
 import { type ChainEntry, ENTRY_CHAIN_ENV_VAR } from '../entry-chain.ts';
+import type { ReadFilterSelection } from '../helpers/filter-selection.ts';
 import { NO_LOCK_ENV_VAR } from '../machine-lock.ts';
-import { runCli } from '../runCli.ts';
-import { runSteps } from '../runner.ts';
+import { runCli, type RunCliOptions } from '../runCli.ts';
+import { type RunSteps, runSteps } from '../runner.ts';
 import type { Step } from '../steps.ts';
+
+/** Runs `runCli` in-process against fakes of the runner and the filter probe, which a test stubs and reads. */
+export interface RunCliHarness {
+  /** The fakes, for a test that calls `runCli` with streams of its own. */
+  deps: Required<Pick<RunCliOptions, 'readFilterSelection' | 'runSteps'>>;
+  /** Reads the entry chain from the environment passed to the first `runSteps` call. */
+  readChainFromCall: () => unknown;
+  /** Answers `'single'` by default: The probe spawns pnpm, which a unit test neither has nor needs. */
+  readFilterSelection: Mock<ReadFilterSelection>;
+  /** Reads the step list passed to the first `runSteps` call. */
+  readStepsFromCall: () => readonly Step[] | undefined;
+  /** Runs the CLI against `cwd`, discarding both output streams. */
+  run: (args: string[], cwd: string, env?: NodeJS.ProcessEnv) => Promise<{ exitCode: number }>;
+  /** Runs the CLI against `cwd`, returning what it wrote to stderr. */
+  runReadingStderr: (
+    args: string[],
+    cwd: string,
+    env?: NodeJS.ProcessEnv,
+  ) => Promise<{ exitCode: number; stderr: string }>;
+  /** Runs the CLI against `cwd`, returning what it wrote to stdout. */
+  runReadingStdout: (
+    args: string[],
+    cwd: string,
+    env?: NodeJS.ProcessEnv,
+  ) => Promise<{ exitCode: number; stdout: string }>;
+  /** Resolves `{ exitCode: 0 }` by default. */
+  runSteps: Mock<RunSteps>;
+}
 
 /** Builds an environment that carries an inherited entry chain. */
 export function composeChainEnv(chain: readonly ChainEntry[]): NodeJS.ProcessEnv {
   return { [ENTRY_CHAIN_ENV_VAR]: JSON.stringify(chain) };
+}
+
+/** Builds a harness whose fakes have not been called. */
+export function createRunCliHarness(): RunCliHarness {
+  const runStepsFake = vi.fn<RunSteps>().mockResolvedValue({ exitCode: 0 });
+  const readFilterSelectionFake = vi.fn<ReadFilterSelection>().mockReturnValue('single');
+  const deps = { readFilterSelection: readFilterSelectionFake, runSteps: runStepsFake };
+
+  return {
+    deps,
+    readChainFromCall: (): unknown => JSON.parse(runStepsFake.mock.calls[0]?.[2].env?.[ENTRY_CHAIN_ENV_VAR] ?? 'null'),
+    readFilterSelection: readFilterSelectionFake,
+    readStepsFromCall: () => runStepsFake.mock.calls[0]?.[0],
+    run: async (args, cwd, env = {}) => {
+      const { exitCode } = await runCapturing({ args, cwd, deps, env });
+      return { exitCode };
+    },
+    runReadingStderr: async (args, cwd, env = {}) => {
+      const { exitCode, stderr } = await runCapturing({ args, cwd, deps, env });
+      return { exitCode, stderr };
+    },
+    runReadingStdout: async (args, cwd, env = {}) => {
+      const { exitCode, stdout } = await runCapturing({ args, cwd, deps, env });
+      return { exitCode, stdout };
+    },
+    runSteps: runStepsFake,
+  };
 }
 
 /** Reads the entry chain from the environment passed to the runner, which the calling suite has mocked. */
@@ -77,3 +133,34 @@ export function writeConfig(tree: TempTree, config: Record<string, unknown>): vo
 export function writePackageScripts(tree: TempTree, scripts: Record<string, string>): void {
   tree.writeJson('package.json', { scripts });
 }
+
+// region | Helpers
+
+/** Runs the CLI in-process with the lock bypass, collecting what it wrote to each stream. */
+async function runCapturing(options: {
+  args: string[];
+  cwd: string;
+  deps: RunCliHarness['deps'];
+  env: NodeJS.ProcessEnv;
+}): Promise<{ exitCode: number; stderr: string; stdout: string }> {
+  const { args, cwd, deps, env } = options;
+  const stderr = new PassThrough();
+  const stdout = new PassThrough();
+  const readStderr = collectText(stderr);
+  const readStdout = collectText(stdout);
+
+  const { exitCode } = await runCli({ args, cwd, env: withLockBypass(env), ...deps, stderr, stdout });
+
+  return { exitCode, stderr: readStderr(), stdout: readStdout() };
+}
+
+/** Collects everything written to a stream, read back as UTF-8. */
+function collectText(stream: PassThrough): () => string {
+  const chunks: Buffer[] = [];
+  stream.on('data', (chunk: Buffer) => {
+    chunks.push(chunk);
+  });
+  return () => Buffer.concat(chunks).toString('utf8');
+}
+
+// endregion | Helpers
