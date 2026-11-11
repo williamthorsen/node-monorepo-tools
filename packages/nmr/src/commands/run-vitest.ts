@@ -2,12 +2,12 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-import { isRecord, reportError } from '@williamthorsen/nmr-core';
+import { reportError } from '@williamthorsen/nmr-core';
 import { findMonorepoRoot as findMonorepoRootOrNothing } from '@williamthorsen/nmr-core/workspace';
 
 import { NMR_VITEST_BIN } from '../bins.ts';
 import { omitOutcomeFile } from '../stated-outcome.ts';
-import { BROKEN_MANIFEST_FIX, findPackageManifest } from './package-manifest.ts';
+import { BROKEN_MANIFEST_FIX, findPackageManifest, resolveDeclaredCli } from './package-manifest.ts';
 import { resolveInheritedExitCode, spawnInherited } from './spawn-inherited.ts';
 
 const VITEST_PACKAGE = 'vitest';
@@ -104,15 +104,15 @@ function resolveVitestCli(cwd: string): { ok: true; cliPath: string } | { ok: fa
   }
 
   const { manifest, manifestPath } = lookup;
-  const bin = isRecord(manifest) && isRecord(manifest['bin']) ? manifest['bin'][VITEST_PACKAGE] : undefined;
-  if (typeof bin !== 'string') {
+  const cliPath = resolveDeclaredCli(manifest, manifestPath, VITEST_PACKAGE);
+  if (cliPath === undefined) {
     return {
       ok: false,
       error: `\`${VITEST_PACKAGE}\` at ${path.dirname(manifestPath)} does not declare a CLI. Reinstall the \`${VITEST_PACKAGE}\` peer dependency.`,
     };
   }
 
-  return { ok: true, cliPath: path.resolve(path.dirname(manifestPath), bin) };
+  return { ok: true, cliPath };
 }
 
 // endregion | Helpers
