@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 18.1.0 — 2026-11-11
+
+### 🎉 Features
+
+- Adds the `status:in-progress` label to the common label preset of `release-kit sync-labels`, for an issue on which work has started, beside the existing `status:blocked` and `status:on-hold`. (#1280)
+
 ## 18.0.0 — 2026-11-10
 
 ### 🎉 Features

@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.0.1 — 2026-11-11
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `nmr-clean`, `nmr-compile`, `nmr-report-catalog`, and `nmr-report-overrides` ignored their arguments, so `--help` or a mistyped option ran the command, and `nmr-clean --help` removed build output instead of printing usage. (#1273)
+
+### ♻️ Refactoring
+
+- Adds an optional `spawn` adapter to `runPrettier` in `packages/nmr/src/commands/fmt.ts`, which defaults to `spawnSync` with inherited stdio, so that a test can replace the Prettier process without mocking `node:child_process`. (#1271)
+- Extracts the unchanged-build skip report from `detectBuildChanges` into the exported `reportUnchangedBuild`, which takes the environment as a parameter rather than reading `process.env`. (#1272)
+- Replaces the copies of the entry-point `glob` call in `buildPackage` and `hasBuildOutput` with one function, `resolveEntryPoints` in `build-output.ts`, so the build and the check cache's probe for build output cannot select different files. (#1274)
+- Moves the printing of the build's progress and outcome lines from `buildPackage` to `nmr-compile`, which renders the `BuildOutcome` returned by `buildPackage` and the events from its new `onProgress` callback through `build-report.ts`. (#1277)
+- Moves the emit's staging, swap by rename, and scratch-directory handling from `build.ts` and `build-output.ts` into `publish-output.ts`, which `build.ts` now calls with the emit directory. (#1278)
+- Makes `cleanFrom` in `clean.ts` return a `CleanOutcome` and report each completed step through an `onProgress` callback rather than print, leaving `runClean` as the only function that prints, through the renderers in the new `clean-report.ts`. (#1279)
+
+### 🧪 Tests
+
+- Moves the `runPrettier` cases from `fmt.tool.test.ts` to a new `fmt.unit.test.ts` that asserts on the invocations recorded by a spawn fake, and adds cases for a spawn error and for a Prettier process killed by a signal. (#1271)
+- Replaces six skip-report cases in `build.publication.tool.test.ts`, each of which compiled a package to seed the cache, with unit tests of `reportUnchangedBuild` in `build.unit.test.ts` that write the recorded emit duration directly. (#1272)
+- Tests `resolveEntryPoints` directly in `build-output.unit.test.ts` and removes the tool-tier tests in `build.tool.test.ts` that checked the same default exclusions, `ignorePatterns` override, and `extraIgnorePatterns` composition through a full build. (#1274)
+
 ## 2.0.0 — 2026-11-10
 
 ### 🪦 Removed

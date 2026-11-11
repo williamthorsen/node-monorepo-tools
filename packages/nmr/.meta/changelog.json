@@ -1,5 +1,79 @@
 [
   {
+    "version": "2.0.1",
+    "date": "2026-11-11",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that `nmr-clean`, `nmr-compile`, `nmr-report-catalog`, and `nmr-report-overrides` ignored their arguments, so `--help` or a mistyped option ran the command, and `nmr-clean --help` removed build output instead of printing usage. (#1273)",
+            "hash": "a4bfd2bc9c298a919c15070bae4437188c0edb37",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Adds an optional `spawn` adapter to `runPrettier` in `packages/nmr/src/commands/fmt.ts`, which defaults to `spawnSync` with inherited stdio, so that a test can replace the Prettier process without mocking `node:child_process`. (#1271)",
+            "hash": "18227bf9c7d8fb0fb11bf3382602be131603419a",
+            "entry": 1
+          },
+          {
+            "description": "Extracts the unchanged-build skip report from `detectBuildChanges` into the exported `reportUnchangedBuild`, which takes the environment as a parameter rather than reading `process.env`. (#1272)",
+            "hash": "7708c82fe5b528709dd3c822c1449b6a843292c4",
+            "entry": 1
+          },
+          {
+            "description": "Replaces the copies of the entry-point `glob` call in `buildPackage` and `hasBuildOutput` with one function, `resolveEntryPoints` in `build-output.ts`, so the build and the check cache's probe for build output cannot select different files. (#1274)",
+            "hash": "aadd160714f8a4b00aa9965897b97fb15ee8500b",
+            "entry": 1
+          },
+          {
+            "description": "Moves the printing of the build's progress and outcome lines from `buildPackage` to `nmr-compile`, which renders the `BuildOutcome` returned by `buildPackage` and the events from its new `onProgress` callback through `build-report.ts`. (#1277)",
+            "hash": "7204e9ebbb7ef2d60f0ddf74a1ea4de4b62e50c0",
+            "entry": 1
+          },
+          {
+            "description": "Moves the emit's staging, swap by rename, and scratch-directory handling from `build.ts` and `build-output.ts` into `publish-output.ts`, which `build.ts` now calls with the emit directory. (#1278)",
+            "hash": "27bc6915156ae739206679b977baf91267f73fa9",
+            "entry": 1
+          },
+          {
+            "description": "Makes `cleanFrom` in `clean.ts` return a `CleanOutcome` and report each completed step through an `onProgress` callback rather than print, leaving `runClean` as the only function that prints, through the renderers in the new `clean-report.ts`. (#1279)",
+            "hash": "5188dd2411cd737d337ae8bf232fc68d5bc911c6",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Moves the `runPrettier` cases from `fmt.tool.test.ts` to a new `fmt.unit.test.ts` that asserts on the invocations recorded by a spawn fake, and adds cases for a spawn error and for a Prettier process killed by a signal. (#1271)",
+            "hash": "18227bf9c7d8fb0fb11bf3382602be131603419a",
+            "entry": 2
+          },
+          {
+            "description": "Replaces six skip-report cases in `build.publication.tool.test.ts`, each of which compiled a package to seed the cache, with unit tests of `reportUnchangedBuild` in `build.unit.test.ts` that write the recorded emit duration directly. (#1272)",
+            "hash": "7708c82fe5b528709dd3c822c1449b6a843292c4",
+            "entry": 2
+          },
+          {
+            "description": "Tests `resolveEntryPoints` directly in `build-output.unit.test.ts` and removes the tool-tier tests in `build.tool.test.ts` that checked the same default exclusions, `ignorePatterns` override, and `extraIgnorePatterns` composition through a full build. (#1274)",
+            "hash": "aadd160714f8a4b00aa9965897b97fb15ee8500b",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "2.0.0",
     "date": "2026-11-10",
     "sections": [

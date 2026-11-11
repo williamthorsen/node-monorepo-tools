@@ -1,5 +1,22 @@
 [
   {
+    "version": "18.1.0",
+    "date": "2026-11-11",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Adds the `status:in-progress` label to the common label preset of `release-kit sync-labels`, for an issue on which work has started, beside the existing `status:blocked` and `status:on-hold`. (#1280)",
+            "hash": "38095fca900f5e66f77b491e2b36c9e1326d0289",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "18.0.0",
     "date": "2026-11-10",
     "sections": [
