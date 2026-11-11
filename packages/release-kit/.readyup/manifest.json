@@ -157,7 +157,7 @@
           "path": "lib/config-checks.ts"
         },
         {
-          "hash": "70e95528",
+          "hash": "9a4023ad",
           "kind": "module",
           "path": "lib/workflow-hashes.ts"
         },
@@ -195,7 +195,7 @@
       "readyupVersion": "0.45.0",
       "source": "kits/default.ts",
       "sourceHash": "56566d0b",
-      "targetHash": "f1bc2e7d"
+      "targetHash": "7dc0f818"
     },
     {
       "bundledDependencies": {
