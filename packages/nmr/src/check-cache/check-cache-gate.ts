@@ -7,7 +7,6 @@ import { runPlanOnHost } from '../delegation/delegate-host.ts';
 import { type RunPlan, VERSION } from '../invocation.ts';
 import { formatFlagSpelling } from '../nmr-flags.ts';
 import { resolveChannel } from '../output-channel.ts';
-import { runSteps } from '../runner.ts';
 import { splitSegments } from '../shell-syntax.ts';
 import type { StatedOutcome } from '../stated-outcome.ts';
 import type { Step } from '../steps.ts';
@@ -160,7 +159,11 @@ export async function runGated(plan: RunPlan): Promise<GatedResult> {
 
     const runOptions = { ...plan.runOptions, env: addLockEnv(plan.runOptions.env ?? env, lock) };
     const readElapsedMs = startTimer();
-    const { exitCode, retainedOutput, statedOutcomes } = await runSteps(plan.steps, anchorDir, runOptions);
+    const { exitCode, retainedOutput, statedOutcomes } = await plan.invocation.runSteps(
+      plan.steps,
+      anchorDir,
+      runOptions,
+    );
     const durationMs = readElapsedMs();
 
     if (exitCode === 0 && gate !== undefined) {

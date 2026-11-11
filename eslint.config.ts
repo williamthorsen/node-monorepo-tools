@@ -61,6 +61,8 @@ const config = defineConfig([
   defineConfig({
     files: ['**/*.test.ts', '**/*.test.tsx'],
     extends: [await createConfig.vitest()],
+    // A suite that takes its `it` from a shared fixture module is still a test file to the plugin's rules.
+    settings: { vitest: { vitestImports: [/\/run-cli-fixtures\.ts$/] } },
     rules: {
       // Assertions here run through helpers named `expectX` and `assertX`; without these patterns the rule reports
       // every test that uses one. `expect*` subsumes plain `expect`.

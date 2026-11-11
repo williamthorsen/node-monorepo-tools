@@ -4,13 +4,13 @@ import { reportError } from '@williamthorsen/nmr-core';
 
 import { NMR_BIN } from './bins.ts';
 import type { ResolvedContext } from './context.ts';
-import { type FilterSelection, readFilterSelection } from './helpers/filter-selection.ts';
+import type { FilterSelection, ReadFilterSelection } from './helpers/filter-selection.ts';
 import { findClosestName } from './helpers/findClosestName.ts';
 import { renderQuotedList } from './helpers/renderQuotedList.ts';
 import { RUN_IF_PRESENT_ENV_VAR, type RunCliResult } from './invocation.ts';
 import type { ParsedArgs } from './nmr-flags.ts';
 import { buildRootRegistry, buildWorkspaceRegistry, readPackageJsonScripts } from './resolver.ts';
-import { runSteps, type RunStepsOptions } from './runner.ts';
+import type { RunSteps, RunStepsOptions } from './runner.ts';
 import type { Step } from './steps.ts';
 import { readWorkspacePackageNames, resolveWorkspace } from './workspace.ts';
 
@@ -98,10 +98,12 @@ export async function runDelegation(options: {
   context: ResolvedContext;
   delegation: { env: NodeJS.ProcessEnv; step: Extract<Step, { kind: 'structural' }> };
   parsedArgs: ParsedArgs;
+  readFilterSelection: ReadFilterSelection;
   runOptions: RunStepsOptions;
+  runSteps: RunSteps;
   stderr: Writable;
 }): Promise<RunCliResult> {
-  const { context, delegation, parsedArgs, runOptions, stderr } = options;
+  const { context, delegation, parsedArgs, readFilterSelection, runOptions, runSteps, stderr } = options;
 
   const selection =
     parsedArgs.filter === undefined ? undefined : readFilterSelection(parsedArgs.filter, context.monorepoRoot);

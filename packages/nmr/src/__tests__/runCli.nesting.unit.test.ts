@@ -3,52 +3,15 @@ import path from 'node:path';
 
 import { UserError } from '@williamthorsen/nmr-core';
 import type { TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
+import { describe, expect } from 'vitest';
 
 import { ENTRY_CHAIN_ENV_VAR } from '../entry-chain.ts';
-import { readFilterSelection } from '../helpers/filter-selection.ts';
 import { OUTPUT_STYLE_FLAG } from '../output-style.ts';
 import { runCli } from '../runCli.ts';
-import { runSteps } from '../runner.ts';
-import { createWorkspaceTree } from '../test-utils/run-cli-fixtures.ts';
-import {
-  composeChainEnv,
-  readChainFromCall,
-  readStepsFromCall,
-  runNmr,
-  runNmrReadingStderr,
-  writeConfig,
-  writePackageScripts,
-} from '../test-utils/run-cli-harness.ts';
-
-vi.mock(import('../runner.ts'), async (importOriginal) => ({
-  ...(await importOriginal()),
-  runSteps: vi.fn(),
-}));
-
-// The probe spawns pnpm, which a unit test neither has nor needs: its answer is the input to the gate.
-vi.mock(import('../helpers/filter-selection.ts'), async (importOriginal) => ({
-  ...(await importOriginal()),
-  readFilterSelection: vi.fn(),
-}));
-
-const mockedRunSteps = vi.mocked(runSteps);
-const mockedReadFilterSelection = vi.mocked(readFilterSelection);
-
-const it = baseIt.extend(
-  'tree',
-  makeFixture(() => createWorkspaceTree()),
-);
+import { it } from '../test-utils/run-cli-fixtures.ts';
+import { composeChainEnv, writeConfig, writePackageScripts } from '../test-utils/run-cli-harness.ts';
 
 describe(runCli, () => {
-  beforeEach(() => {
-    mockedRunSteps.mockReset();
-    mockedRunSteps.mockResolvedValue({ exitCode: 0 });
-    mockedReadFilterSelection.mockReset();
-    mockedReadFilterSelection.mockReturnValue('single');
-  });
-
   describe('the shelled-nmr boundary', () => {
     // The remedy follows from where the step was declared, so each origin gets the edit that resolves it.
     it.for([
@@ -101,10 +64,10 @@ describe(runCli, () => {
       },
     ])(
       'given $scenario, names the site and the edit that resolves it',
-      async ({ command, expectedMessage, setup }, { tree }) => {
+      async ({ command, expectedMessage, setup }, { nmr, tree }) => {
         setup(tree);
 
-        const { stderr } = await runNmrReadingStderr([command], tree.dir);
+        const { stderr } = await nmr.runReadingStderr([command], tree.dir);
 
         expect(stderr.trim()).toBe(expectedMessage);
       },
@@ -122,10 +85,10 @@ describe(runCli, () => {
         scenario: 'a leaf script that overrides a registry command',
         scripts: { 'build:pre': 'nmr lint', lint: 'eslint src' },
       },
-    ])('given a hook naming $scenario, prescribes inlining it', async ({ expectedRemedy, scripts }, { tree }) => {
+    ])('given a hook naming $scenario, prescribes inlining it', async ({ expectedRemedy, scripts }, { nmr, tree }) => {
       writePackageScripts(tree, scripts);
 
-      const { stderr } = await runNmrReadingStderr(['build:pre'], tree.dir);
+      const { stderr } = await nmr.runReadingStderr(['build:pre'], tree.dir);
 
       expect(stderr.trim()).toBe(
         `WARN package.json: \`scripts.build:pre\` reaches nmr through a shell (\`${scripts['build:pre']}\`), ` +
@@ -148,10 +111,10 @@ describe(runCli, () => {
         scenario: 'names a script that has a post-hook',
         scripts: { 'build:pre': 'nmr ports', ports: 'tsx p.ts', 'ports:post': 'echo post' },
       },
-    ])('given a hook that $scenario, keeps the step-list remedy', async ({ scripts }, { tree }) => {
+    ])('given a hook that $scenario, keeps the step-list remedy', async ({ scripts }, { nmr, tree }) => {
       writePackageScripts(tree, scripts);
 
-      const { stderr } = await runNmrReadingStderr(['build:pre'], tree.dir);
+      const { stderr } = await nmr.runReadingStderr(['build:pre'], tree.dir);
 
       expect(stderr).toContain('A `package.json` script cannot contain a step list: define `build:pre`');
       expect(stderr).not.toContain('Replace the value');
@@ -180,27 +143,27 @@ describe(runCli, () => {
       },
     ])(
       'given a hook declared by $scenario, does not name a hook below it',
-      async ({ expectedMessage, setup }, { tree }) => {
+      async ({ expectedMessage, setup }, { nmr, tree }) => {
         setup(tree);
 
-        const { stderr } = await runNmrReadingStderr(['probe:post'], tree.dir);
+        const { stderr } = await nmr.runReadingStderr(['probe:post'], tree.dir);
 
         expect(stderr.trim()).toBe(expectedMessage);
       },
     );
 
-    it('opens the warning in emoji when the invocation asked for rich', async ({ tree }) => {
+    it('opens the warning in emoji when the invocation asked for rich', async ({ nmr, tree }) => {
       writeConfig(tree, { rootScripts: { probe: 'nmr fmt' } });
 
-      const { stderr } = await runNmrReadingStderr([OUTPUT_STYLE_FLAG, 'rich', 'probe'], tree.dir);
+      const { stderr } = await nmr.runReadingStderr([OUTPUT_STYLE_FLAG, 'rich', 'probe'], tree.dir);
 
       expect(stderr.startsWith('🟠 ')).toBe(true);
     });
 
-    it('prints it on one line', async ({ tree }) => {
+    it('prints it on one line', async ({ nmr, tree }) => {
       writeConfig(tree, { rootScripts: { probe: 'nmr fmt' } });
 
-      const { stderr } = await runNmrReadingStderr(['probe'], tree.dir);
+      const { stderr } = await nmr.runReadingStderr(['probe'], tree.dir);
 
       expect(stderr.split('\n').filter((line) => line.length > 0)).toHaveLength(1);
     });
@@ -208,26 +171,26 @@ describe(runCli, () => {
     it.for([
       { args: ['-q', 'probe'], scenario: 'the -q flag' },
       { args: ['probe'], env: { NMR_COMMAND_VERBOSITY: 'quiet' }, scenario: 'an inherited verbosity' },
-    ])('reports it although $scenario made the run quiet', async ({ args, env }, { tree }) => {
+    ])('reports it although $scenario made the run quiet', async ({ args, env }, { nmr, tree }) => {
       writeConfig(tree, { rootScripts: { probe: 'nmr fmt' } });
 
-      const { stderr } = await runNmrReadingStderr(args, tree.dir, env);
+      const { stderr } = await nmr.runReadingStderr(args, tree.dir, env);
 
       expect(stderr).toContain('reaches nmr through a shell');
     });
 
-    it('leaves the exit code alone', async ({ tree }) => {
+    it('leaves the exit code alone', async ({ nmr, tree }) => {
       writeConfig(tree, { rootScripts: { probe: 'nmr fmt' } });
 
-      const { exitCode } = await runNmrReadingStderr(['probe'], tree.dir);
+      const { exitCode } = await nmr.runReadingStderr(['probe'], tree.dir);
 
       expect(exitCode).toBe(0);
     });
 
-    it('reports a step reaching nmr through a launcher', async ({ tree }) => {
+    it('reports a step reaching nmr through a launcher', async ({ nmr, tree }) => {
       writeConfig(tree, { rootScripts: { probe: 'pnpm --recursive exec nmr build' } });
 
-      const { stderr } = await runNmrReadingStderr(['probe'], tree.dir);
+      const { stderr } = await nmr.runReadingStderr(['probe'], tree.dir);
 
       expect(stderr).toContain('reaches nmr through a shell');
     });
@@ -236,10 +199,10 @@ describe(runCli, () => {
       { args: ['fix'], scenario: 'a step list' },
       { args: ['-R', 'build'], scenario: 'the recursive delegate' },
       { args: ['-F', 'my-pkg', 'build'], scenario: 'the filter delegate' },
-    ])('given $scenario, reports nothing', async ({ args }, { tree }) => {
+    ])('given $scenario, reports nothing', async ({ args }, { nmr, tree }) => {
       writeConfig(tree, { rootScripts: { build: 'pnpm --recursive exec nmr build' } });
 
-      const { stderr } = await runNmrReadingStderr(args, tree.dir);
+      const { stderr } = await nmr.runReadingStderr(args, tree.dir);
 
       expect(stderr).toBe('');
     });
@@ -284,21 +247,24 @@ describe(runCli, () => {
       },
     ])(
       'given one $scenario, names the site and the edit that resolves it',
-      async ({ expectedMessage, scripts }, { tree }) => {
+      async ({ expectedMessage, scripts }, { nmr, tree }) => {
         writePackageScripts(tree, scripts);
         const command = Object.keys(scripts)[0] ?? '';
 
-        await expect(runNmr([command], tree.dir)).rejects.toThrow(new UserError(expectedMessage));
+        await expect(nmr.run([command], tree.dir)).rejects.toThrow(new UserError(expectedMessage));
       },
     );
 
-    it('rejects a package entry that chains steps onto sending its own command to every package', async ({ tree }) => {
+    it('rejects a package entry that chains steps onto sending its own command to every package', async ({
+      nmr,
+      tree,
+    }) => {
       tree.writeJson('packages/my-pkg/package.json', {
         name: 'my-pkg',
         scripts: { build: 'nmr -R build && rdy compile' },
       });
 
-      await expect(runNmr(['build'], path.join(tree.dir, 'packages/my-pkg'))).rejects.toThrow(
+      await expect(nmr.run(['build'], path.join(tree.dir, 'packages/my-pkg'))).rejects.toThrow(
         new UserError(
           'packages/my-pkg/package.json: `scripts.build` re-invokes `nmr build` (`nmr -R build && rdy compile`), ' +
             'so nmr cannot run the steps that it chains. ' +
@@ -307,18 +273,18 @@ describe(runCli, () => {
       );
     });
 
-    it('runs nothing', async ({ tree }) => {
+    it('runs nothing', async ({ nmr, tree }) => {
       writePackageScripts(tree, { build: 'nmr build && rdy compile' });
 
-      await expect(runNmr(['build'], tree.dir)).rejects.toThrow(UserError);
-      expect(mockedRunSteps).not.toHaveBeenCalled();
+      await expect(nmr.run(['build'], tree.dir)).rejects.toThrow(UserError);
+      expect(nmr.runSteps).not.toHaveBeenCalled();
     });
 
     // `--log` reads a recording rather than running one, so a step of the entry cannot go missing.
-    it('is not rejected when the invocation only reads a recording', async ({ tree }) => {
+    it('is not rejected when the invocation only reads a recording', async ({ nmr, tree }) => {
       writePackageScripts(tree, { build: 'nmr build && rdy compile' });
 
-      const { stderr } = await runNmrReadingStderr(['--log', 'build'], tree.dir);
+      const { stderr } = await nmr.runReadingStderr(['--log', 'build'], tree.dir);
 
       expect(stderr).not.toContain('re-invokes');
     });
@@ -326,24 +292,25 @@ describe(runCli, () => {
     it.for([
       { scenario: 'standing alone', scripts: { build: 'nmr build' } },
       { scenario: 'with trailing arguments, which do not declare a step', scripts: { build: 'nmr build --verbose' } },
-    ])('reports nothing for one $scenario, running the registry entry instead', async ({ scripts }, { tree }) => {
+    ])('reports nothing for one $scenario, running the registry entry instead', async ({ scripts }, { nmr, tree }) => {
       writePackageScripts(tree, scripts);
 
-      const { exitCode, stderr } = await runNmrReadingStderr(['build'], tree.dir);
+      const { exitCode, stderr } = await nmr.runReadingStderr(['build'], tree.dir);
 
       expect(stderr).toBe('');
       expect(exitCode).toBe(0);
-      expect(readStepsFromCall()).toStrictEqual([{ kind: 'structural', argv: ['nmr', '-R', 'build'] }]);
+      expect(nmr.readStepsFromCall()).toStrictEqual([{ kind: 'structural', argv: ['nmr', '-R', 'build'] }]);
     });
 
     // nmr does not wrap a hook in hooks of its own, so naming `lint:post:pre` would name a script that never
     // runs.
     it('tells a rejected hook to keep its steps, since it does not have a script below it to move them to', async ({
+      nmr,
       tree,
     }) => {
       writePackageScripts(tree, { 'lint:post': 'nmr lint:post && rdy compile' });
 
-      await expect(runNmr(['lint:post'], tree.dir)).rejects.toThrow(
+      await expect(nmr.run(['lint:post'], tree.dir)).rejects.toThrow(
         new UserError(
           'package.json: `scripts.lint:post` re-invokes `nmr lint:post` (`nmr lint:post && rdy compile`), ' +
             'so nmr cannot run the steps that it chains. ' +
@@ -355,13 +322,14 @@ describe(runCli, () => {
     // Because the default registry does not define any hooks, a dropped hook is the common case rather than an
     // edge case.
     it('wraps a rejected hook that the registry does not define, so that its own process reports it', async ({
+      nmr,
       tree,
     }) => {
       writePackageScripts(tree, { 'lint:post': 'nmr lint:post && rdy compile' });
 
-      const { exitCode } = await runNmrReadingStderr(['lint'], tree.dir);
+      const { exitCode } = await nmr.runReadingStderr(['lint'], tree.dir);
 
-      expect(readStepsFromCall()).toStrictEqual([
+      expect(nmr.readStepsFromCall()).toStrictEqual([
         { kind: 'opaque', command: 'eslint --fix .' },
         { kind: 'structural', argv: ['nmr', 'lint:post'] },
       ]);
@@ -371,47 +339,48 @@ describe(runCli, () => {
 
   describe('the entry chain', () => {
     it('rejects a command that an ancestor is already running in the same directory, running nothing', async ({
+      nmr,
       tree,
     }) => {
       const env = composeChainEnv([{ command: 'build', dir: realpathSync(tree.dir) }]);
 
-      await expect(runNmr(['build'], tree.dir, env)).rejects.toThrow('nmr re-entered `build` in root');
-      expect(mockedRunSteps).not.toHaveBeenCalled();
+      await expect(nmr.run(['build'], tree.dir, env)).rejects.toThrow('nmr re-entered `build` in root');
+      expect(nmr.runSteps).not.toHaveBeenCalled();
     });
 
-    it('passes the inherited chain and its own entry to the steps that it runs', async ({ tree }) => {
+    it('passes the inherited chain and its own entry to the steps that it runs', async ({ nmr, tree }) => {
       const inherited = [{ command: 'test', dir: realpathSync(tree.dir) }];
 
-      await runNmr(['build'], tree.dir, composeChainEnv(inherited));
+      await nmr.run(['build'], tree.dir, composeChainEnv(inherited));
 
-      expect(readChainFromCall()).toStrictEqual([...inherited, { command: 'build', dir: realpathSync(tree.dir) }]);
+      expect(nmr.readChainFromCall()).toStrictEqual([...inherited, { command: 'build', dir: realpathSync(tree.dir) }]);
     });
 
     // The root's own `build` entry spawns `nmr -R build` in the root, which only hands the command to pnpm.
     it.for([
       { args: ['-R', 'build'], scenario: 'a fan-out' },
       { args: ['-F', 'my-pkg', 'build'], scenario: 'a filter' },
-    ])('neither checks nor extends the chain for $scenario', async ({ args }, { tree }) => {
+    ])('neither checks nor extends the chain for $scenario', async ({ args }, { nmr, tree }) => {
       const inherited = [{ command: 'build', dir: realpathSync(tree.dir) }];
 
-      await runNmr(args, tree.dir, composeChainEnv(inherited));
+      await nmr.run(args, tree.dir, composeChainEnv(inherited));
 
-      expect(readChainFromCall()).toStrictEqual(inherited);
+      expect(nmr.readChainFromCall()).toStrictEqual(inherited);
     });
 
-    it('does not reject an invocation that only reads a recording', async ({ tree }) => {
+    it('does not reject an invocation that only reads a recording', async ({ nmr, tree }) => {
       const env = composeChainEnv([{ command: 'build', dir: realpathSync(tree.dir) }]);
 
-      const { stderr } = await runNmrReadingStderr(['--log', 'build'], tree.dir, env);
+      const { stderr } = await nmr.runReadingStderr(['--log', 'build'], tree.dir, env);
 
       expect(stderr).not.toContain('re-entered');
     });
 
-    it('rejects a malformed chain only where it would be read', async ({ tree }) => {
+    it('rejects a malformed chain only where it would be read', async ({ nmr, tree }) => {
       const env = { [ENTRY_CHAIN_ENV_VAR]: 'not a chain' };
 
-      await expect(runNmr(['build'], tree.dir, env)).rejects.toThrow(ENTRY_CHAIN_ENV_VAR);
-      await expect(runNmr(['--help'], tree.dir, env)).resolves.toStrictEqual({ exitCode: 0 });
+      await expect(nmr.run(['build'], tree.dir, env)).rejects.toThrow(ENTRY_CHAIN_ENV_VAR);
+      await expect(nmr.run(['--help'], tree.dir, env)).resolves.toStrictEqual({ exitCode: 0 });
     });
   });
 });
