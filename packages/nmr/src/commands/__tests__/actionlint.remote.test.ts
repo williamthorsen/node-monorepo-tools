@@ -4,7 +4,8 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { type ActionlintOutcome, runActionlint } from '../actionlint.ts';
+import { runActionlint } from '../actionlint.ts';
+import type { InheritedOutcome, SpawnInheritedOptions } from '../spawn-inherited.ts';
 
 const CLEAN_WORKFLOW = `on: push
 jobs:
@@ -67,8 +68,12 @@ describe(runActionlint, () => {
   // region | Helpers
 
   /** Runs actionlint with its output piped into `output` rather than onto the worker's descriptors. */
-  function spawnCapturing(file: string, args: string[], cwd: string): ActionlintOutcome {
-    const result = spawnSync(file, ['-no-color', ...args], { cwd, encoding: 'utf8', stdio: 'pipe' });
+  function spawnCapturing(
+    file: string,
+    args: readonly string[],
+    options: SpawnInheritedOptions = {},
+  ): InheritedOutcome {
+    const result = spawnSync(file, ['-no-color', ...args], { cwd: options.cwd, encoding: 'utf8', stdio: 'pipe' });
     output = `${result.stdout}${result.stderr}`;
     return { error: result.error, signal: result.signal, status: result.status };
   }

@@ -4,7 +4,8 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { type ActionlintOutcome, buildActionlintArgs, runActionlint } from '../actionlint.ts';
+import { buildActionlintArgs, runActionlint } from '../actionlint.ts';
+import type { InheritedOutcome, SpawnInherited } from '../spawn-inherited.ts';
 import type { WorkflowTool } from '../workflow-tools.ts';
 
 describe(runActionlint, () => {
@@ -16,7 +17,7 @@ describe(runActionlint, () => {
 
   it('passes without fetching any tool when the repo does not have a workflows directory', async () => {
     const ensure = vi.fn<(tool: WorkflowTool, cacheRoots: readonly [string, ...string[]]) => Promise<string>>();
-    const spawn = vi.fn<(file: string, args: string[], cwd: string) => ActionlintOutcome>();
+    const spawn = vi.fn<SpawnInherited>();
 
     using silent = silenceConsole(['info']);
     const exitCode = await runActionlint(tree.dir, [], { ensure, spawn });
@@ -32,7 +33,7 @@ describe(runActionlint, () => {
     const ensure = vi.fn<(tool: WorkflowTool, cacheRoots: readonly [string, ...string[]]) => Promise<string>>((tool) =>
       Promise.resolve(path.join('/cache', tool)),
     );
-    const spawn = vi.fn((): ActionlintOutcome => ({ signal: null, status: 1 }));
+    const spawn = vi.fn((): InheritedOutcome => ({ signal: null, status: 1 }));
 
     const exitCode = await runActionlint(tree.dir, ['.github/workflows/ci.yaml'], { ensure, spawn });
 
@@ -46,14 +47,14 @@ describe(runActionlint, () => {
     expect(spawn).toHaveBeenCalledWith(
       path.join('/cache', 'actionlint'),
       [`-shellcheck=${path.join('/cache', 'shellcheck')}`, '-pyflakes=', '.github/workflows/ci.yaml'],
-      tree.dir,
+      { cwd: tree.dir },
     );
   });
 
   it('reports a death by signal as the shell would', async () => {
     tree.write('.github/workflows/ci.yaml', 'on: push\n');
     const ensure = vi.fn((tool: WorkflowTool) => Promise.resolve(tool));
-    const spawn = vi.fn((): ActionlintOutcome => ({ signal: 'SIGTERM', status: null }));
+    const spawn = vi.fn((): InheritedOutcome => ({ signal: 'SIGTERM', status: null }));
 
     await expect(runActionlint(tree.dir, [], { ensure, spawn })).resolves.toBe(143);
   });
@@ -61,7 +62,7 @@ describe(runActionlint, () => {
   it('throws when actionlint cannot be started', async () => {
     tree.write('.github/workflows/ci.yaml', 'on: push\n');
     const ensure = vi.fn((tool: WorkflowTool) => Promise.resolve(tool));
-    const spawn = vi.fn((): ActionlintOutcome => ({ error: new Error('spawn EACCES'), signal: null, status: null }));
+    const spawn = vi.fn((): InheritedOutcome => ({ error: new Error('spawn EACCES'), signal: null, status: null }));
 
     await expect(runActionlint(tree.dir, [], { ensure, spawn })).rejects.toThrow('Cannot run actionlint: spawn EACCES');
   });

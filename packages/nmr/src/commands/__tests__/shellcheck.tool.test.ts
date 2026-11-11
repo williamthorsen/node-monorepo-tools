@@ -3,7 +3,8 @@ import { disposeOnTestFinished, silenceConsole } from '@williamthorsen/toolbelt.
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { initRepo } from '../../test-utils/initRepo.ts';
-import { listTrackedScripts, runShellcheck, type ShellcheckOutcome } from '../shellcheck.ts';
+import { listTrackedScripts, runShellcheck } from '../shellcheck.ts';
+import type { InheritedOutcome } from '../spawn-inherited.ts';
 
 describe(runShellcheck, () => {
   let tree: TempTree;
@@ -33,8 +34,8 @@ describe(runShellcheck, () => {
 
     const exitCode = await runShellcheck(tree.dir, [], {
       ensure: () => Promise.resolve('shellcheck'),
-      spawn: (_file, args): ShellcheckOutcome => {
-        calls.push(args);
+      spawn: (_file, args): InheritedOutcome => {
+        calls.push([...args]);
         return { signal: null, status: 1 };
       },
     });

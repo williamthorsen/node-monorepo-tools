@@ -1,18 +1,10 @@
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
 import { runGit, UserError } from '@williamthorsen/nmr-core';
 
-import { describeSignalExitCode } from '../child-process.ts';
+import { resolveInheritedExitCode, type SpawnInherited, spawnInherited } from './spawn-inherited.ts';
 import { ensureTool, resolveToolCacheRoots, type WorkflowTool } from './workflow-tools.ts';
-
-/** How a spawned shellcheck ended. */
-export interface ShellcheckOutcome {
-  error?: Error | undefined;
-  signal: NodeJS.Signals | null;
-  status: number | null;
-}
 
 export interface RunShellcheckOptions {
   /** Directories under which the pinned tools are cached, in lookup order; defaults to `resolveToolCacheRoots`. */
@@ -20,7 +12,7 @@ export interface RunShellcheckOptions {
   ensure?: (tool: WorkflowTool, cacheRoots: readonly [string, ...string[]]) => Promise<string>;
   /** Lists the tracked `*.sh` files under the root, relative to it. */
   listFiles?: (monorepoRoot: string) => string[];
-  spawn?: (file: string, args: string[], cwd: string) => ShellcheckOutcome;
+  spawn?: SpawnInherited;
 }
 
 /**
@@ -42,14 +34,11 @@ export async function runShellcheck(
   const ensure = options.ensure ?? ((tool, roots) => ensureTool(tool, { cacheRoots: roots }));
   const shellcheckPath = await ensure('shellcheck', cacheRoots);
 
-  const outcome = (options.spawn ?? spawnInherited)(shellcheckPath, shellcheckArgs, monorepoRoot);
+  const outcome = (options.spawn ?? spawnInherited)(shellcheckPath, shellcheckArgs, { cwd: monorepoRoot });
   if (outcome.error !== undefined) {
     throw new UserError(`Cannot run shellcheck: ${outcome.error.message}`, { cause: outcome.error });
   }
-  if (outcome.signal !== null) {
-    return describeSignalExitCode(outcome.signal);
-  }
-  return outcome.status ?? 1;
+  return resolveInheritedExitCode(outcome);
 }
 
 /**
@@ -69,12 +58,6 @@ export function listTrackedScripts(monorepoRoot: string): string[] {
 /** Lists the tracked scripts that exist on disk, so that a deletion not yet staged does not fail the run. */
 function listPresentScripts(monorepoRoot: string, listFiles = listTrackedScripts): string[] {
   return listFiles(monorepoRoot).filter((file) => fs.existsSync(path.join(monorepoRoot, file)));
-}
-
-/** Runs a program on the caller's terminal, so that shellcheck colors its findings when stdout is one. */
-function spawnInherited(file: string, args: string[], cwd: string): ShellcheckOutcome {
-  const result = spawnSync(file, args, { cwd, stdio: 'inherit' });
-  return { error: result.error, signal: result.signal, status: result.status };
 }
 
 // endregion | Helpers
