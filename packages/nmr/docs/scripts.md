@@ -41,6 +41,17 @@ A script value is a string or an array of steps. Only the built-in defaults and 
 
 Each array element is a command name, optionally preceded by nmr's own flags, split on whitespace: `-R test` runs the element in every package, the way `nmr -R test` does. An element containing a quoted argument or shell syntax is rejected when the config loads: Name that command as a script of its own and reference the name.
 
+#### Package order in a fan-out
+
+An `-R` or `-F` fan-out of `build` runs the packages in topological order, so that each package builds after its workspace dependencies. Every other fan-out passes `--no-sort` to pnpm and starts each package's command without waiting for its dependencies to finish theirs: `test`, the `test:*` commands, and `typecheck` read the `dist` that an earlier `build` wrote, not anything that the same command writes in another package. A command that does read what its dependencies' runs of it produce, such as a code generator whose output a dependent package imports, keeps the order once `fanOut.extraSortedCommands` lists it:
+
+```ts
+// .config/nmr.config.ts
+export default defineConfig({ fanOut: { extraSortedCommands: ['generate'] } });
+```
+
+The list adds to `build` and cannot remove it, and a name in it that does not resolve to any command fails when the config loads.
+
 #### Running a step in the background
 
 A composite runs its steps in series. An element declared with `shouldRunInBackground` starts and is left running while the steps after it run:
@@ -125,6 +136,7 @@ A minimal `.config/nmr.config.ts` is in the [README](../README.md#configuration)
 | `delegate`         | `false`                                                                       | Keeps every check on the machine that has the tree, whatever `NMR_DELEGATE` or the [user config](delegate.md#the-user-config) says; a delegation flag still sends a run elsewhere (root config only)                                                                                                                                         |
 | `workspaceScripts` | `Record<string, ScriptValue>`                                                 | Scripts added or overridden in the workspace registry (tier 2)                                                                                                                                                                                                                                                                               |
 | `rootScripts`      | `Record<string, ScriptValue>`                                                 | Scripts added or overridden in the root registry (tier 2)                                                                                                                                                                                                                                                                                    |
+| `fanOut`           | `{ extraSortedCommands?: string[] }`                                          | Commands whose fan-out runs packages in topological order, besides `build`; see [package order in a fan-out](#package-order-in-a-fan-out) (root config only)                                                                                                                                                                                 |
 | `output`           | `{ commandVerbosity?: CommandVerbosity; extraAgentEnvVars?: string[] }`       | How loudly runs report command output; see [configuring](reporting.md#configuring)                                                                                                                                                                                                                                                           |
 | `selfHostedRunner` | `{ exempt: string }`                                                          | Why a qualifying repo keeps CI off the self-hosted runners; stops [nmr's readyup kit](../README.md#conformance-checks) from recommending `CI_RUNS_ON` (root config only). The reason is structural: a circular dependency, a platform or capacity the runners lack, or network reach. A missing tool is installed by a workflow step instead |
 
