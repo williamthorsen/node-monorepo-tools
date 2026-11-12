@@ -37,7 +37,7 @@ function keepsPipefail(shell: string): boolean {
 function listOverridesDroppingPipefail(workflow: Record<string, unknown>): string[] {
   const shells = listJobs(workflow).flatMap((job) => [
     readDefaultShell(job),
-    ...listSteps(job).map((step) => step['shell']),
+    ...listSteps(job).map((step) => step.shell),
   ]);
 
   return shells.filter((shell) => typeof shell === 'string').filter((shell) => !keepsPipefail(shell));
