@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
@@ -7,6 +6,7 @@ import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { runCli } from '../../runCli.ts';
+import { initRepo } from '../../test-utils/initRepo.ts';
 import { readAmbientEnv } from '../../test-utils/readAmbientEnv.ts';
 import { readCheckCacheEntry } from '../check-cache-entries.ts';
 
@@ -121,11 +121,6 @@ describe('a composite’s assembled replay', () => {
 
 // region | Helpers
 
-/** Runs git in `cwd`, discarding its output. */
-function runGit(cwd: string, args: string[]): void {
-  execFileSync('git', args, { cwd, stdio: 'ignore' });
-}
-
 /**
  * Writes a committed pnpm workspace inside a git repository: the pnpm files that the install fingerprint reads,
  * and a cacheable composite whose two cacheable constituents each print one line.
@@ -152,12 +147,7 @@ function scaffoldRepo(tree: TempTree): void {
   });
 
   const repo = tree.dir;
-  runGit(repo, ['init', '--initial-branch=main']);
-  runGit(repo, ['config', 'user.email', 'fixture@example.com']);
-  runGit(repo, ['config', 'user.name', 'Fixture']);
-  runGit(repo, ['config', 'commit.gpgsign', 'false']);
-  runGit(repo, ['add', '--all']);
-  runGit(repo, ['commit', '--message', 'initial']);
+  initRepo(repo);
 }
 
 // endregion | Helpers

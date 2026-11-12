@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { closeSync, openSync } from 'node:fs';
 import { devNull } from 'node:os';
 import path from 'node:path';
@@ -10,6 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { RUN_IF_PRESENT_ENV_VAR } from '../../invocation.ts';
 import { runCli } from '../../runCli.ts';
+import { initRepo } from '../../test-utils/initRepo.ts';
 import { readAmbientEnv } from '../../test-utils/readAmbientEnv.ts';
 
 /** The cacheable command driven by every test; the fixture maps it to a script whose output is recognizable. */
@@ -210,11 +210,6 @@ function buildDestination(stream: PassThrough, terminalFd: number | undefined): 
   return terminalFd === undefined ? stream : Object.assign(stream, { fd: terminalFd, isTTY: true });
 }
 
-/** Runs git in `cwd`, discarding its output. */
-function runGit(cwd: string, args: string[]): void {
-  execFileSync('git', args, { cwd, stdio: 'ignore' });
-}
-
 /**
  * Writes a committed git repository under `repo/` in the workspace, containing the pnpm files that the install
  * fingerprint reads and a config mapping the cacheable command to a script that both records its run and
@@ -239,12 +234,7 @@ function scaffoldRepo(workspace: TempTree, log: string): void {
   });
 
   const repo = workspace.resolve('repo');
-  runGit(repo, ['init', '--initial-branch=main']);
-  runGit(repo, ['config', 'user.email', 'fixture@example.com']);
-  runGit(repo, ['config', 'user.name', 'Fixture']);
-  runGit(repo, ['config', 'commit.gpgsign', 'false']);
-  runGit(repo, ['add', '--all']);
-  runGit(repo, ['commit', '--message', 'initial']);
+  initRepo(repo);
 }
 
 // endregion | Helpers
