@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { planTazePasses } from '../taze-passes.ts';
+import { planTazePasses } from '../planTazePasses.ts';
 
 describe(planTazePasses, () => {
   it('returns the invocation as a single pass when the config declares no per-package period', () => {

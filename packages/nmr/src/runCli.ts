@@ -3,7 +3,6 @@ import type { Writable } from 'node:stream';
 import { reportError } from '@williamthorsen/nmr-core';
 import { runCli as runRouter } from '@williamthorsen/nmr-core/cli';
 
-import { prependBinDirs } from './bin-path.ts';
 import { NMR_BIN } from './bins.ts';
 import {
   GIT_TREE_READER,
@@ -39,6 +38,7 @@ import {
 } from './invocation.ts';
 import { formatMisplacedFlagHint } from './invocation-args.ts';
 import { readInvocationFlags } from './nmr-flags.ts';
+import { prependBinDirs } from './prependBinDirs.ts';
 import { reportVerdict } from './presentation.ts';
 import { buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
 import { buildRoot, buildVersionRoot } from './route.ts';

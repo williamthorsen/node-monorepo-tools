@@ -1,6 +1,6 @@
 import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
-import { assertResolvableCheckCacheCommands } from './check-cache/config-check-cache.ts';
+import { assertResolvableCheckCacheCommands } from './check-cache/assertResolvableCheckCacheCommands.ts';
 import { findUnexpressibleToken } from './steps.ts';
 import type {
   BuildConfig,

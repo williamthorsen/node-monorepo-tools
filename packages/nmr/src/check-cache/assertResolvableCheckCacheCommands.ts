@@ -1,7 +1,7 @@
 import { UserError } from '@williamthorsen/nmr-core';
 
 import { findClosestName } from '../helpers/findClosestName.ts';
-import { isHookName } from '../helpers/hook-name.ts';
+import { isHookName } from '../helpers/isHookName.ts';
 import { buildRootRegistry, buildWorkspaceRegistry, readPackageJsonScripts } from '../resolver.ts';
 import type { NmrConfig } from '../types.ts';
 import { getWorkspacePackageDirs, isMonorepoRoot } from '../workspace.ts';

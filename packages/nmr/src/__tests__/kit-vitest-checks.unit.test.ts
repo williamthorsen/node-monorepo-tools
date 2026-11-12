@@ -17,7 +17,7 @@ import { buildMonorepo, buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 
 // Keep the sweep from spawning git, which would lift this file out of the unit tier.
-vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: () => [] }));
+vi.mock(import('../listGitIgnoredPaths.ts'), () => ({ listGitIgnoredPaths: () => [] }));
 
 const SHARED_CONFIG =
   "import { defineVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineVitestConfig();\n";

@@ -244,9 +244,9 @@
           ]
         },
         {
-          "hash": "a34d9027",
+          "hash": "70cb6947",
           "kind": "module",
-          "path": "../src/check-cache/config-check-cache.ts"
+          "path": "../src/check-cache/assertResolvableCheckCacheCommands.ts"
         },
         {
           "hash": "eb0306ed",
@@ -254,12 +254,12 @@
           "path": "../src/commands/ensure-prepublish-hooks.ts"
         },
         {
-          "hash": "0555552a",
+          "hash": "e26a8822",
           "kind": "module",
           "path": "../src/config-validation.ts"
         },
         {
-          "hash": "f5e9e2fd",
+          "hash": "6df8ab2e",
           "kind": "module",
           "path": "../src/config.ts"
         },
@@ -267,11 +267,6 @@
           "hash": "463c7bbd",
           "kind": "module",
           "path": "../src/default-scripts.ts"
-        },
-        {
-          "hash": "b58621ab",
-          "kind": "module",
-          "path": "../src/git-ignored-paths.ts"
         },
         {
           "hash": "ae257d50",
@@ -289,14 +284,14 @@
           "path": "../src/helpers/findClosestName.ts"
         },
         {
-          "hash": "3efe4131",
-          "kind": "module",
-          "path": "../src/helpers/hook-name.ts"
-        },
-        {
           "hash": "d6455b2e",
           "kind": "module",
           "path": "../src/helpers/importConfigDefault.ts"
+        },
+        {
+          "hash": "3efe4131",
+          "kind": "module",
+          "path": "../src/helpers/isHookName.ts"
         },
         {
           "hash": "62caa37e",
@@ -314,12 +309,17 @@
           "path": "../src/helpers/reportClosing.ts"
         },
         {
+          "hash": "b58621ab",
+          "kind": "module",
+          "path": "../src/listGitIgnoredPaths.ts"
+        },
+        {
           "hash": "77f6bb50",
           "kind": "module",
           "path": "../src/nmr-flags.ts"
         },
         {
-          "hash": "78ca6bd4",
+          "hash": "7e6066dd",
           "kind": "module",
           "path": "../src/resolve-scripts.ts"
         },
@@ -339,19 +339,19 @@
           "path": "../src/steps.ts"
         },
         {
-          "hash": "d8368f1a",
+          "hash": "b82cfdf6",
           "kind": "module",
           "path": "../src/tiers.ts"
+        },
+        {
+          "hash": "f08b6ff3",
+          "kind": "module",
+          "path": "../src/toWorkspacePackageGlobs.ts"
         },
         {
           "hash": "ecf8a873",
           "kind": "module",
           "path": "../src/verbosity.ts"
-        },
-        {
-          "hash": "f08b6ff3",
-          "kind": "module",
-          "path": "../src/workspace-globs.ts"
         },
         {
           "hash": "770e4f3a",
@@ -364,7 +364,7 @@
       "readyupVersion": "0.45.1",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "51e36551"
+      "targetHash": "dfd91d02"
     }
   ]
 }

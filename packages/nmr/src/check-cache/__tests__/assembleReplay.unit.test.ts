@@ -5,8 +5,8 @@ import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { composeNmrStep, type Step } from '../../steps.ts';
+import { assembleReplay } from '../assembleReplay.ts';
 import { type CheckCacheEntry, type ReplayLine, writeCheckCacheEntry } from '../check-cache-entries.ts';
-import { assembleReplay } from '../replay-assembly.ts';
 
 /** The tree described by every admissible entry in these tests. */
 const TREE_HASH = 'tree-hash';

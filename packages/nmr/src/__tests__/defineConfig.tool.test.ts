@@ -27,7 +27,7 @@ const ERASABLE_IMPORT = "import type { NmrConfig } from './types.ts';";
 const RETAINING_IMPORT = "import { type NmrConfig } from './types.ts';";
 
 /** A value import, which type stripping does not erase. Stands in for any sibling that the entry might one day import. */
-const VALUE_IMPORT = "import { isStringRecord } from './helpers/type-guards.ts';";
+const VALUE_IMPORT = "import { isStringRecord } from './helpers/isStringRecord.ts';";
 
 describe('the ./config entry under Node type stripping', () => {
   it('loads without any other module on disk', () => {

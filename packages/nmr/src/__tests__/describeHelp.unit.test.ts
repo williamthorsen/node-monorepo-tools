@@ -2,7 +2,7 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
-import { describeHelp } from '../help.ts';
+import { describeHelp } from '../describeHelp.ts';
 import { buildMonorepo } from '../test-utils/fixture-repo.ts';
 
 /** A directory without `pnpm-workspace.yaml`, for which the root lint commands do not exclude anything. */

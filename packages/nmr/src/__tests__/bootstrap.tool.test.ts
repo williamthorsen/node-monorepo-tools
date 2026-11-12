@@ -7,7 +7,7 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import * as ts from 'typescript';
 import { assert, describe, expect, it } from 'vitest';
 
-import { isStringRecord } from '../helpers/type-guards.ts';
+import { isStringRecord } from '../helpers/isStringRecord.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
 
 /**

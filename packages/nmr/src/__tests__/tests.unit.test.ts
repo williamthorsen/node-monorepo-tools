@@ -7,7 +7,7 @@ import { describe, expect, it as baseIt, vi } from 'vitest';
 import { checkTestFileConventions, reportTestFileConventions } from '../tests.ts';
 
 // Keep the sweep from spawning git, which would move this file out of the unit tier.
-vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: () => [] }));
+vi.mock(import('../listGitIgnoredPaths.ts'), () => ({ listGitIgnoredPaths: () => [] }));
 
 // Derived from this file's own location rather than from the function under test, so that the assertion has an
 // independent source for where the root is.

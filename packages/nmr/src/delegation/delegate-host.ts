@@ -21,7 +21,7 @@ import type { ParsedArgs } from '../nmr-flags.ts';
 import { reportVerdict } from '../presentation.ts';
 import type { RetainedOutput } from '../runner.ts';
 import type { VerdictOutcome } from '../verdict.ts';
-import { resolveDelegationTarget } from './delegation-target.ts';
+import { createSnapshot } from './createSnapshot.ts';
 import { chooseHost, type HostChoice, probeHost, type ProbeResult } from './remote-probe.ts';
 import {
   DELEGATE_ENV_VAR,
@@ -34,7 +34,7 @@ import {
   readLastLine,
   runRemotely,
 } from './remote-run.ts';
-import { createSnapshot } from './remote-snapshot.ts';
+import { resolveDelegationTarget } from './resolveDelegationTarget.ts';
 import { formatDisplayPath, loadUserConfig } from './user-config.ts';
 
 /** How a run on the host ended, or that the invocation runs here after all. */

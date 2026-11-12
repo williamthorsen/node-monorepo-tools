@@ -13,7 +13,7 @@ import { OUTPUT_STYLE_ENV_VAR } from '../../output-style.ts';
 import { runCli } from '../../runCli.ts';
 import { initRepo } from '../../test-utils/initRepo.ts';
 import { DELEGATE_ENV_VAR } from '../remote-run.ts';
-import { createFakeRemote, type FakeRemote } from '../test-utils/fake-remote.ts';
+import { createFakeRemote, type FakeRemote } from '../test-utils/createFakeRemote.ts';
 
 describe('nmr with a delegation host', () => {
   let workspace: TempTree;

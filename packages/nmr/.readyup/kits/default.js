@@ -7725,9 +7725,15 @@ function buildRootScripts(workspaceGlobs) {
   };
 }
 
+// src/toWorkspacePackageGlobs.ts
+import path from "node:path";
+function toWorkspacePackageGlobs(monorepoRoot, packageDirs) {
+  return packageDirs.map((dir) => path.relative(monorepoRoot, dir).split(path.sep).join("/")).filter((relativeDir) => relativeDir !== "").map((relativeDir) => `${relativeDir}/**`).toSorted();
+}
+
 // ../nmr-core/dist/esm/workspace/workspace.js
 import { existsSync, readFileSync } from "node:fs";
-import path2 from "node:path";
+import path3 from "node:path";
 var import_yaml = __toESM(require_dist(), 1);
 
 // ../nmr-core/dist/esm/portable/isRecord.js
@@ -7737,7 +7743,7 @@ function isRecord2(value) {
 
 // ../nmr-core/dist/esm/workspace/workspace-patterns.js
 import { globSync as globSync2 } from "node:fs";
-import path from "node:path";
+import path2 from "node:path";
 var MANIFEST_FILENAME = "package.json";
 var ALWAYS_EXCLUDED_PATTERNS = ["**/node_modules/**"];
 function matchPackageDirs(monorepoRoot, includedPatterns, excludedPatterns) {
@@ -7747,7 +7753,7 @@ function matchPackageDirs(monorepoRoot, includedPatterns, excludedPatterns) {
     followSymlinks: true
   };
   const matches = globSync2([...includedPatterns], options);
-  const dirs = matches.map((match) => path.dirname(path.resolve(monorepoRoot, match)));
+  const dirs = matches.map((match) => path2.dirname(path2.resolve(monorepoRoot, match)));
   return [...new Set(dirs)].toSorted();
 }
 function resolvePackageDirs(monorepoRoot, patterns) {
@@ -7776,7 +7782,7 @@ function buildManifestPattern(pattern) {
 // ../nmr-core/dist/esm/workspace/workspace.js
 var WORKSPACE_MANIFEST_FILENAME = "pnpm-workspace.yaml";
 function isMonorepoRoot(dir) {
-  return existsSync(path2.join(dir, WORKSPACE_MANIFEST_FILENAME));
+  return existsSync(path3.join(dir, WORKSPACE_MANIFEST_FILENAME));
 }
 function resolveWorkspace(monorepoRoot) {
   const manifestReadResult = readWorkspaceManifest(monorepoRoot);
@@ -7821,7 +7827,7 @@ function readDeclaredPackages(parsedManifest) {
   return packages.length === 0 ? { kind: "absent" } : { kind: "patterns", patterns: packages };
 }
 function readWorkspaceManifest(monorepoRoot) {
-  const workspaceManifestPath = path2.join(monorepoRoot, WORKSPACE_MANIFEST_FILENAME);
+  const workspaceManifestPath = path3.join(monorepoRoot, WORKSPACE_MANIFEST_FILENAME);
   if (!existsSync(workspaceManifestPath)) {
     return { kind: "absent" };
   }
@@ -7879,12 +7885,6 @@ function getWorkspacePackageDirs(monorepoRoot) {
     throw new UserError(`Not a monorepo root: no ${WORKSPACE_MANIFEST} in ${monorepoRoot}`);
   }
   return resolution.kind === "packages" ? resolution.packageDirs : [];
-}
-
-// src/workspace-globs.ts
-import path3 from "node:path";
-function toWorkspacePackageGlobs(monorepoRoot, packageDirs) {
-  return packageDirs.map((dir) => path3.relative(monorepoRoot, dir).split(path3.sep).join("/")).filter((relativeDir) => relativeDir !== "").map((relativeDir) => `${relativeDir}/**`).toSorted();
 }
 
 // src/resolve-scripts.ts
@@ -8065,7 +8065,7 @@ function readCell(row, index) {
   return value;
 }
 
-// src/helpers/hook-name.ts
+// src/helpers/isHookName.ts
 function isHookName(key) {
   return key.length > 4 && key.endsWith(":pre") || key.length > 5 && key.endsWith(":post");
 }
@@ -8672,7 +8672,7 @@ function buildRootRegistry(config, monorepoRoot) {
   };
 }
 
-// src/check-cache/config-check-cache.ts
+// src/check-cache/assertResolvableCheckCacheCommands.ts
 function assertResolvableCheckCacheCommands(config, configPath, baseDir) {
   const { checkCache } = config;
   if (checkCache === void 0 || !isMonorepoRoot(baseDir)) {
@@ -9068,7 +9068,7 @@ function formatSelfReferenceRemedy(options) {
 import { readdirSync as readdirSync2 } from "node:fs";
 import path7 from "node:path";
 
-// src/git-ignored-paths.ts
+// src/listGitIgnoredPaths.ts
 function listGitIgnoredPaths(dir) {
   const result = runGit(
     ["ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory", "--no-empty-directory"],

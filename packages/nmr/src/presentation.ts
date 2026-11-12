@@ -2,7 +2,7 @@ import type { Writable } from 'node:stream';
 
 import { describeInvalidOutputStyle, type OutputStyle, type StreamStyles } from '@williamthorsen/nmr-core';
 
-import { isHookName } from './helpers/hook-name.ts';
+import { isHookName } from './helpers/isHookName.ts';
 import { resolveOutputStyles } from './output-style.ts';
 import { readReportFormatEnv, type ReportFormat } from './report-format.ts';
 import {

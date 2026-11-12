@@ -7,7 +7,7 @@ import type { TreeSnapshot } from './check-cache/check-cache.ts';
 import { resolveCacheKey } from './check-cache/check-cache-gate.ts';
 import { reportNmrCrossing } from './crossing-diagnostics.ts';
 import { NMR_GLYPHS } from './glyphs.ts';
-import { isHookName } from './helpers/hook-name.ts';
+import { isHookName } from './helpers/isHookName.ts';
 import { quoteForShell } from './helpers/quoteForShell.ts';
 import { wrapWithHooks } from './hooks.ts';
 import { type Invocation, type PhaseResult, type RunPlan, USAGE_EXIT_CODE } from './invocation.ts';
