@@ -9,6 +9,8 @@ import { defineCommand, runCli, UsageError } from '@williamthorsen/nmr-core/cli'
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { NMR_FMT_BIN } from '../bins.ts';
+import { NO_CACHE_ENV_VAR } from '../check-cache/check-cache.ts';
+import { readEnvSwitch } from '../env-switch.ts';
 import { prepareFmtCache } from './fmt-cache.ts';
 import { resolveFormatTargets } from './format-targets.ts';
 import {
@@ -47,14 +49,19 @@ const MODE_ARGS: Record<FormatMode, string[]> = {
 /**
  * Runs `nmr-fmt` against `argv` and returns the exit code to report: It formats or checks the files that git
  * reports for `cwd`. A repository without a Prettier config of its own is formatted with the house config. The run
- * uses Prettier's content-keyed cache unless `--no-cache` or `NMR_NO_CACHE=1` bypasses it.
+ * uses Prettier's content-keyed cache unless `--no-cache` or `NMR_NO_CACHE=1` bypasses it, and an `NMR_NO_CACHE`
+ * that is neither on nor off is rejected as a usage error.
  *
  * Trailing arguments are git pathspecs, not Prettier flags; an unrecognized option is rejected rather
  * than passed along, since git would read it as a pathspec matching nothing and the run would report
  * success over an empty selection. Every argument after `--` is a pathspec, even one that starts
  * with `-`.
  */
-export async function runFmt(argv: string[], cwd: string = process.cwd()): Promise<number> {
+export async function runFmt(
+  argv: string[],
+  cwd: string = process.cwd(),
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<number> {
   const command = defineCommand({
     summary: 'Format or check the files that git lists',
     flags: {
@@ -67,9 +74,17 @@ export async function runFmt(argv: string[], cwd: string = process.cwd()): Promi
       if (flags.check === flags.write) {
         throw new UsageError(flags.check ? 'Pass --check or --write, not both.' : 'Pass --check or --write.');
       }
+      const noCache = readEnvSwitch(env, NO_CACHE_ENV_VAR);
+      if (!noCache.ok) {
+        throw new UsageError(noCache.error);
+      }
 
       return formatFiles(
-        { mode: flags.check ? 'check' : 'write', pathspecs: operands.pathspec, shouldBypassCache: flags.noCache },
+        {
+          mode: flags.check ? 'check' : 'write',
+          pathspecs: operands.pathspec,
+          shouldBypassCache: flags.noCache || noCache.isOn,
+        },
         cwd,
       );
     },
