@@ -1,9 +1,13 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
 
-const workflowsDir = join(import.meta.dirname, '..', '.github', 'workflows');
+import {
+  listJobs,
+  listReusableWorkflows,
+  listSteps,
+  readJob,
+  readReusableWorkflow,
+  type WorkflowStep,
+} from '../test-utils/workflows.ts';
 
 const PNPM_WORKFLOWS = ['audit', 'create-github-release', 'publish', 'release'];
 
@@ -21,12 +25,13 @@ const NPM_INVOCATION_PATTERN = /(?:^|[\s;&|(])(?:npm|npx)\s/m;
 
 describe('every reusable workflow that installs pnpm uses pnpm/setup', () => {
   it.each(PNPM_WORKFLOWS)('%s.reusable.yaml', (name) => {
-    const content = readWorkflow(name);
+    const steps = listWorkflowSteps(readReusableWorkflow(name));
 
-    expect(content, 'set pnpm up with `pnpm/setup`, which supersedes `pnpm/action-setup`').toMatch(
-      /uses:\s*pnpm\/setup@/,
-    );
-    expect(content, '`pnpm/action-setup` is superseded').not.toMatch(/uses:\s*pnpm\/action-setup@/);
+    expect(
+      findSteps(steps, 'pnpm/setup'),
+      'set pnpm up with `pnpm/setup`, which supersedes `pnpm/action-setup`',
+    ).not.toHaveLength(0);
+    expect(findSteps(steps, 'pnpm/action-setup'), '`pnpm/action-setup` is superseded').toHaveLength(0);
   });
 });
 
@@ -40,13 +45,14 @@ describe('every reusable workflow that installs pnpm uses pnpm/setup', () => {
  */
 describe('workflows whose runtime comes from pnpm/setup invoke neither npm nor npx', () => {
   it.each(PNPM_RUNTIME_WORKFLOWS)('%s.reusable.yaml', (name) => {
-    const content = readWorkflow(name);
+    const steps = listWorkflowSteps(readReusableWorkflow(name));
 
-    expect(content, 'the single `pnpm/setup` step supplies both pnpm and the runtime').not.toMatch(
-      /uses:\s*actions\/setup-node@/,
-    );
     expect(
-      collectRunCommands(content),
+      findSteps(steps, 'actions/setup-node'),
+      'the single `pnpm/setup` step supplies both pnpm and the runtime',
+    ).toHaveLength(0);
+    expect(
+      collectRunCommands(steps),
       '`pnpm/setup` does not install `npm` or `npx`, so either falls through to the runner image at an uncontrolled version; reach a package binary with `pnpm exec` and an uninstalled one with `pnpm dlx`',
     ).not.toMatch(NPM_INVOCATION_PATTERN);
   });
@@ -62,44 +68,46 @@ describe('workflows whose runtime comes from pnpm/setup invoke neither npm nor n
 describe('reusable workflows do not invoke corepack', () => {
   it.each(listReusableWorkflows())('%s.reusable.yaml', (name) => {
     expect(
-      collectRunCommands(readWorkflow(name)),
+      collectRunCommands(listWorkflowSteps(readReusableWorkflow(name))),
       'Node 25 and later do not bundle `corepack`; neutralize Corepack with the `COREPACK_ENABLE_STRICT` environment variable instead',
     ).not.toMatch(COREPACK_INVOCATION_PATTERN);
   });
 });
 
 describe('release.reusable.yaml takes its runtime from actions/setup-node', () => {
+  const releaseSteps = listSteps(readJob(readReusableWorkflow('release'), 'release'));
+
   it('retains the step that supplies npm and npx', () => {
     expect(
-      readWorkflow('release'),
+      findSteps(releaseSteps, 'actions/setup-node'),
       '`release-kit prepare` spawns `npx prettier`, and the consumer path runs `npm install --global`',
-    ).toMatch(/uses:\s*actions\/setup-node@/);
+    ).not.toHaveLength(0);
   });
 
   it('keeps pnpm/setup from installing Node.js from a version file', () => {
     expect(
-      readStepInputs(readWorkflow('release'), 'pnpm/setup'),
+      String(findSteps(releaseSteps, 'pnpm/setup')[0]?.with?.['node-version-file']),
       'without `node-version-file: false`, `pnpm/setup` installs the Node.js version in `.tool-versions` ahead of `actions/setup-node`',
-    ).toMatch(/^\s*node-version-file:\s*false\s*$/m);
+    ).toBe('false');
   });
 
   it('runs no Node.js tool before actions/setup-node installs one', () => {
     expect(
-      collectRunCommands(sliceWorkflowBefore(readWorkflow('release'), /^\s*uses:\s*actions\/setup-node@/)),
+      collectRunCommands(listStepsBefore(releaseSteps, (step) => isActionStep(step, 'actions/setup-node'))),
       'a self-hosted runner image does not include Node.js, so a `node`, `npm`, `npx`, `corepack`, or `pnpm` call ahead of `actions/setup-node` fails the job',
     ).not.toMatch(NODE_TOOL_INVOCATION_PATTERN);
   });
 
   it('keeps actions/setup-node from acting on the packageManager field', () => {
     expect(
-      readStepInputs(readWorkflow('release'), 'actions/setup-node'),
+      String(findSteps(releaseSteps, 'actions/setup-node')[0]?.with?.['package-manager-cache']),
       'without `package-manager-cache: false`, `actions/setup-node` turns on caching when `packageManager` names npm',
-    ).toMatch(/^\s*package-manager-cache:\s*false\s*$/m);
+    ).toBe('false');
   });
 
   it('leaves package.json unmodified before release preparation', () => {
     expect(
-      collectRunCommands(sliceWorkflowBefore(readWorkflow('release'), /^\s*- name:\s*Run release preparation\s*$/)),
+      collectRunCommands(listStepsBefore(releaseSteps, (step) => step.name === 'Run release preparation')),
       '`release-kit commit` stages every change, so a rewritten `package.json` lands in the release commit',
     ).not.toMatch(/package\.json/);
   });
@@ -108,94 +116,41 @@ describe('release.reusable.yaml takes its runtime from actions/setup-node', () =
 // region | Helpers
 
 /**
- * Collects the shell text of every `run:` step, with comment lines dropped.
+ * Collects the shell text of the steps' `run:` scripts, with comment lines dropped.
  *
  * A `run:` value is what a step executes; `description:` and `name:` values elsewhere in a workflow
  * mention npm without invoking it.
  */
-function collectRunCommands(content: string): string {
-  const lines = content.split('\n');
-  const commands: string[] = [];
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const match = /^(\s*)run:\s*(.*)$/.exec(lines[index] ?? '');
-    if (match === null) {
-      continue;
-    }
-
-    const indent = match[1] ?? '';
-    const inlineBody = match[2] ?? '';
-    if (inlineBody !== '' && !inlineBody.startsWith('|') && !inlineBody.startsWith('>')) {
-      commands.push(inlineBody);
-    }
-
-    // Collect a block scalar's body or a plain scalar's continuation lines, both indented past `run:`.
-    for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
-      const line = lines[cursor] ?? '';
-      if (line.trim() !== '' && !line.startsWith(`${indent} `)) {
-        break;
-      }
-      commands.push(line);
-    }
-  }
-
-  return commands.filter((line) => !/^\s*#/.test(line)).join('\n');
+function collectRunCommands(steps: WorkflowStep[]): string {
+  return steps
+    .flatMap((step) => step.run?.split('\n') ?? [])
+    .filter((line) => !/^\s*#/.test(line))
+    .join('\n');
 }
 
-/** Lists the base name of every `*.reusable.yaml` workflow, the form that `readWorkflow` takes. */
-function listReusableWorkflows(): string[] {
-  return readdirSync(workflowsDir)
-    .filter((entry) => entry.endsWith('.reusable.yaml'))
-    .map((entry) => entry.replace(/\.reusable\.yaml$/, ''))
-    .toSorted();
+/** Lists the steps that use the action, at any version. */
+function findSteps(steps: WorkflowStep[], action: string): WorkflowStep[] {
+  return steps.filter((step) => isActionStep(step, action));
 }
 
-/** Returns the `with:` block of the first step that uses the action, or an empty string when no step uses it. */
-function readStepInputs(content: string, action: string): string {
-  const lines = content.split('\n');
-  const usesIndex = lines.findIndex((line) => line.trim().startsWith(`uses: ${action}@`));
-  if (usesIndex === -1) {
-    return '';
-  }
-
-  const stepIndent = (/^(\s*)/.exec(lines[usesIndex] ?? '')?.[1] ?? '').length;
-  const inputs: string[] = [];
-  let isInWith = false;
-  const stepLines = lines.slice(usesIndex + 1);
-  for (const line of stepLines) {
-    if (line.trim() === '') {
-      continue;
-    }
-    const indent = (/^(\s*)/.exec(line)?.[1] ?? '').length;
-    if (indent < stepIndent || line.trimStart().startsWith('- ')) {
-      break;
-    }
-    if (indent === stepIndent) {
-      isInWith = line.trim() === 'with:';
-      continue;
-    }
-    if (isInWith) {
-      inputs.push(line);
-    }
-  }
-
-  return inputs.join('\n');
+/** Reports whether the step uses the action, at any version. */
+function isActionStep(step: WorkflowStep, action: string): boolean {
+  return step.uses?.startsWith(`${action}@`) ?? false;
 }
 
-/** Reads `<name>.reusable.yaml` from the workflows directory. */
-function readWorkflow(name: string): string {
-  return readFileSync(join(workflowsDir, `${name}.reusable.yaml`), 'utf8');
-}
-
-/** Returns the workflow text that precedes the first line matching the marker, and throws when no line matches. */
-function sliceWorkflowBefore(content: string, marker: RegExp): string {
-  const lines = content.split('\n');
-  const markerIndex = lines.findIndex((line) => marker.test(line));
+/** Returns the steps that precede the first step matching the predicate, and throws when no step matches. */
+function listStepsBefore(steps: WorkflowStep[], isMarker: (step: WorkflowStep) => boolean): WorkflowStep[] {
+  const markerIndex = steps.findIndex(isMarker);
   if (markerIndex === -1) {
-    throw new Error(`No line matches ${String(marker)}`);
+    throw new Error('No step matches the marker');
   }
 
-  return lines.slice(0, markerIndex).join('\n');
+  return steps.slice(0, markerIndex);
+}
+
+/** Lists the steps of every job in the workflow. */
+function listWorkflowSteps(workflow: Record<string, unknown>): WorkflowStep[] {
+  return listJobs(workflow).flatMap(listSteps);
 }
 
 // endregion | Helpers
