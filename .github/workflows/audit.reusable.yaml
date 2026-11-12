@@ -37,6 +37,10 @@ permissions:
   issues: write
   pull-requests: write
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   pr-audit:
     if: github.event_name == 'pull_request'

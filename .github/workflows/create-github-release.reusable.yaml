@@ -45,6 +45,10 @@ on:
 permissions:
   contents: write
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   create-github-release:
     name: Create GitHub Release

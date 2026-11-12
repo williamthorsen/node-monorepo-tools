@@ -31,6 +31,10 @@ on:
 
 # Permissions are declared by the caller.
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   sync:
     runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
