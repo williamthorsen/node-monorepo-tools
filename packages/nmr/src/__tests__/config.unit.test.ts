@@ -514,7 +514,7 @@ describe('self-referencing script entries', () => {
   });
 });
 
-describe('checkCache command resolution', () => {
+describe('config command-name resolution', () => {
   it('accepts a name declared by the repo config', async ({ tree }) => {
     makeMonorepoRoot(tree);
     writeConfig(
