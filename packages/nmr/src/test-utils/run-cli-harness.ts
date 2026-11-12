@@ -3,6 +3,7 @@ import { PassThrough } from 'node:stream';
 import type { TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { type Mock, vi } from 'vitest';
 
+import type { TreeReader } from '../check-cache/check-cache.ts';
 import { type ChainEntry, ENTRY_CHAIN_ENV_VAR } from '../entry-chain.ts';
 import type { ReadFilterSelection } from '../helpers/filter-selection.ts';
 import { NO_LOCK_ENV_VAR } from '../machine-lock.ts';
@@ -13,13 +14,15 @@ import type { Step } from '../steps.ts';
 /** Runs `runCli` in-process against fakes of the runner and the filter probe, which a test stubs and reads. */
 export interface RunCliHarness {
   /** The fakes, for a test that calls `runCli` with streams of its own. */
-  deps: Required<Pick<RunCliOptions, 'readFilterSelection' | 'runSteps'>>;
+  deps: Required<Pick<RunCliOptions, 'readFilterSelection' | 'readTree' | 'runSteps'>>;
   /** Reads the entry chain from the environment passed to the first `runSteps` call. */
   readChainFromCall: () => unknown;
   /** Answers `'single'` by default: The probe spawns pnpm, which a unit test neither has nor needs. */
   readFilterSelection: Mock<ReadFilterSelection>;
   /** Reads the step list passed to the first `runSteps` call. */
   readStepsFromCall: () => readonly Step[] | undefined;
+  /** Answers that the tree is not a git repository by default: A unit test does not spawn git. */
+  readTree: { [K in keyof TreeReader]: Mock<TreeReader[K]> };
   /** Runs the CLI against `cwd`, discarding both output streams. */
   run: (args: string[], cwd: string, env?: NodeJS.ProcessEnv) => Promise<{ exitCode: number }>;
   /** Runs the CLI against `cwd`, returning what it wrote to stderr. */
@@ -47,13 +50,20 @@ export function composeChainEnv(chain: readonly ChainEntry[]): NodeJS.ProcessEnv
 export function createRunCliHarness(): RunCliHarness {
   const runStepsFake = vi.fn<RunSteps>().mockResolvedValue({ exitCode: 0 });
   const readFilterSelectionFake = vi.fn<ReadFilterSelection>().mockReturnValue('single');
-  const deps = { readFilterSelection: readFilterSelectionFake, runSteps: runStepsFake };
+  const readTreeFake = {
+    hashWorkingTree: vi
+      .fn<TreeReader['hashWorkingTree']>()
+      .mockReturnValue({ ok: false, reason: 'not a git repository: fake tree reader' }),
+    readHeadSha: vi.fn<TreeReader['readHeadSha']>().mockReturnValue(undefined),
+  };
+  const deps = { readFilterSelection: readFilterSelectionFake, readTree: readTreeFake, runSteps: runStepsFake };
 
   return {
     deps,
     readChainFromCall: (): unknown => JSON.parse(runStepsFake.mock.calls[0]?.[2].env?.[ENTRY_CHAIN_ENV_VAR] ?? 'null'),
     readFilterSelection: readFilterSelectionFake,
     readStepsFromCall: () => runStepsFake.mock.calls[0]?.[0],
+    readTree: readTreeFake,
     run: async (args, cwd, env = {}) => {
       const { exitCode } = await runCapturing({ args, cwd, deps, env });
       return { exitCode };

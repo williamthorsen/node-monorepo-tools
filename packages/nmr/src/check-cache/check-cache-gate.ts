@@ -16,6 +16,7 @@ import {
   formatMisplacedNoCacheWarning,
   isCacheableCommand,
   resolveTreeSnapshot,
+  type TreeReader,
   type TreeSnapshot,
   writeDebugNote,
 } from './check-cache.ts';
@@ -42,10 +43,11 @@ export function openGate(options: {
   env: NodeJS.ProcessEnv;
   monorepoRoot: string;
   passthrough: string[];
+  readTree: TreeReader;
   stderr: Writable;
   style: OutputStyle;
 }): TreeSnapshot | undefined {
-  const { command, config, env, monorepoRoot, passthrough, stderr, style } = options;
+  const { command, config, env, monorepoRoot, passthrough, readTree, stderr, style } = options;
 
   if (!isCacheableCommand(config.checkCache, command)) {
     return undefined;
@@ -61,7 +63,7 @@ export function openGate(options: {
     return undefined;
   }
 
-  const snapshot = resolveTreeSnapshot({ monorepoRoot, env });
+  const snapshot = resolveTreeSnapshot({ monorepoRoot, env, readTree });
   if (!snapshot.ok) {
     writeDebugNote(`gate disabled: ${snapshot.reason}`, env, stderr);
     return undefined;
@@ -178,6 +180,7 @@ export async function runGated(plan: RunPlan): Promise<GatedResult> {
         key: gate.key,
         monorepoRoot,
         ownSteps: plan.ownSteps,
+        readTree: plan.invocation.readTree,
         retainedOutput,
         retentionKey: gate.retentionKey,
         runId: plan.runId,

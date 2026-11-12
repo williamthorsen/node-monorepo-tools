@@ -5,7 +5,13 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 
-import { encodeTreeSnapshot, resolveTreeSnapshot, TREE_SNAPSHOT_ENV_VAR, type TreeSnapshot } from '../check-cache.ts';
+import {
+  encodeTreeSnapshot,
+  GIT_TREE_READER,
+  resolveTreeSnapshot,
+  TREE_SNAPSHOT_ENV_VAR,
+  type TreeSnapshot,
+} from '../check-cache.ts';
 
 const it = baseIt.extend(
   'tree',
@@ -25,6 +31,7 @@ describe(resolveTreeSnapshot, () => {
     const resolution = resolveTreeSnapshot({
       monorepoRoot: tree.dir,
       env: { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) },
+      readTree: GIT_TREE_READER,
     });
 
     expect(resolution).toStrictEqual({ ok: true, snapshot });
@@ -41,6 +48,7 @@ describe(resolveTreeSnapshot, () => {
     const resolution = resolveTreeSnapshot({
       monorepoRoot: tree.dir,
       env: { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(staleSnapshot) },
+      readTree: GIT_TREE_READER,
     });
 
     expect(resolution).toMatchObject({ ok: true });
@@ -50,7 +58,7 @@ describe(resolveTreeSnapshot, () => {
   it('hashes the tree itself when it has not inherited a snapshot from a parent', ({ tree }) => {
     initRepo(tree);
 
-    expect(resolveTreeSnapshot({ monorepoRoot: tree.dir, env: {} })).toMatchObject({
+    expect(resolveTreeSnapshot({ monorepoRoot: tree.dir, env: {}, readTree: GIT_TREE_READER })).toMatchObject({
       ok: true,
       snapshot: { headSha: readHeadSha(tree.dir) },
     });
@@ -59,14 +67,16 @@ describe(resolveTreeSnapshot, () => {
   it('ignores a malformed inherited snapshot rather than gating on it', ({ tree }) => {
     const env = { [TREE_SNAPSHOT_ENV_VAR]: 'nonsense' };
 
-    expect(resolveTreeSnapshot({ monorepoRoot: tree.dir, env })).toMatchObject({ ok: false });
+    expect(resolveTreeSnapshot({ monorepoRoot: tree.dir, env, readTree: GIT_TREE_READER })).toMatchObject({
+      ok: false,
+    });
   });
 
   it('refuses outside a git repository, which is what disables the gate', ({ tree }) => {
     // Stop git's upward search at the fixture, so that git cannot find a repository that contains the temp root.
     vi.stubEnv('GIT_CEILING_DIRECTORIES', path.dirname(tree.dir));
 
-    expect(resolveTreeSnapshot({ monorepoRoot: tree.dir, env: {} })).toStrictEqual({
+    expect(resolveTreeSnapshot({ monorepoRoot: tree.dir, env: {}, readTree: GIT_TREE_READER })).toStrictEqual({
       ok: false,
       reason: expect.stringContaining('not a git repository'),
     });
@@ -78,7 +88,7 @@ describe(resolveTreeSnapshot, () => {
     initRepo(tree);
     const nestedDir = tree.mkdir('monorepo');
 
-    expect(resolveTreeSnapshot({ monorepoRoot: nestedDir, env: {} })).toStrictEqual({
+    expect(resolveTreeSnapshot({ monorepoRoot: nestedDir, env: {}, readTree: GIT_TREE_READER })).toStrictEqual({
       ok: false,
       reason: expect.stringContaining('not the git toplevel'),
     });

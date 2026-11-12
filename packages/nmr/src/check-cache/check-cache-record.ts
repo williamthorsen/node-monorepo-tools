@@ -10,7 +10,13 @@ import { RUN_IF_PRESENT_ENV_VAR, type RunCliResult, type RunPlan, VERSION } from
 import type { RetainedOutput } from '../runner.ts';
 import type { Step } from '../steps.ts';
 import type { NmrConfig } from '../types.ts';
-import { isCacheableCommand, resolveTreeSnapshot, type TreeSnapshot, writeDebugNote } from './check-cache.ts';
+import {
+  isCacheableCommand,
+  resolveTreeSnapshot,
+  type TreeReader,
+  type TreeSnapshot,
+  writeDebugNote,
+} from './check-cache.ts';
 import { type BuildOutputState, findStaleBuildOutput, readBuildOutputState } from './check-cache-build-output.ts';
 import {
   type CheckCacheEntry,
@@ -107,6 +113,7 @@ export async function recordPass(options: {
   monorepoRoot: string;
   retainedOutput: RetainedOutput | undefined;
   ownSteps: readonly Step[];
+  readTree: TreeReader;
   retentionKey: string;
   runId: string;
   snapshot: TreeSnapshot;
@@ -115,7 +122,7 @@ export async function recordPass(options: {
   const { anchorDir, command, env, monorepoRoot, snapshot, stderr } = options;
 
   // Hashed afresh rather than inherited: an inherited snapshot is the observation that this is meant to re-test.
-  const currentRead = resolveTreeSnapshot({ monorepoRoot, env: {} });
+  const currentRead = resolveTreeSnapshot({ monorepoRoot, env: {}, readTree: options.readTree });
   if (!currentRead.ok) {
     writeDebugNote(`not recording ${command}: ${currentRead.reason}`, env, stderr);
     return;

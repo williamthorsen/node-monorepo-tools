@@ -14,6 +14,15 @@ export interface TreeSnapshot {
   headSha: string;
 }
 
+/** The git reads behind a tree snapshot, which a test replaces with a fake. */
+export interface TreeReader {
+  hashWorkingTree: typeof hashWorkingTree;
+  readHeadSha: typeof readHeadSha;
+}
+
+/** The tree reader that asks git. */
+export const GIT_TREE_READER: TreeReader = { hashWorkingTree, readHeadSha };
+
 /** Set to `1` to hear why the gate did not skip, or why it is disabled. */
 export const DEBUG_ENV_VAR = 'NMR_DEBUG';
 
@@ -134,16 +143,20 @@ export function resolveRunId(env: NodeJS.ProcessEnv): string {
 export function resolveTreeSnapshot(options: {
   monorepoRoot: string;
   env: NodeJS.ProcessEnv;
+  readTree: TreeReader;
 }): { ok: true; snapshot: TreeSnapshot } | { ok: false; reason: string } {
   // An inherited snapshot is trusted only while HEAD points to the commit that it pointed to when the snapshot
   // was taken. A process that outlives the run that spawned it keeps the variable in its environment, and would
   // otherwise gate a later invocation on an observation of a tree that has since moved on.
   const inheritedSnapshot = decodeTreeSnapshot(options.env[TREE_SNAPSHOT_ENV_VAR]);
-  if (inheritedSnapshot !== undefined && readHeadSha(options.monorepoRoot) === inheritedSnapshot.headSha) {
+  if (
+    inheritedSnapshot !== undefined &&
+    options.readTree.readHeadSha(options.monorepoRoot) === inheritedSnapshot.headSha
+  ) {
     return { ok: true, snapshot: inheritedSnapshot };
   }
 
-  const hashedTree = hashWorkingTree(options.monorepoRoot);
+  const hashedTree = options.readTree.hashWorkingTree(options.monorepoRoot);
   if (!hashedTree.ok) {
     return hashedTree;
   }

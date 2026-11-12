@@ -3,7 +3,7 @@ import type { Writable } from 'node:stream';
 
 import { type CommandNode, createCli, type ParsedFlags, UsageError } from '@williamthorsen/nmr-core/cli';
 
-import { DEBUG_ENV_VAR, NO_CACHE_ENV_VAR } from './check-cache/check-cache.ts';
+import { DEBUG_ENV_VAR, NO_CACHE_ENV_VAR, type TreeReader } from './check-cache/check-cache.ts';
 import type { ResolvedContext } from './context.ts';
 import { readEnvSwitch, readEnvSwitches } from './env-switch.ts';
 import { listDefinedCommands } from './fan-out.ts';
@@ -28,6 +28,7 @@ export interface RouteInput {
   /** The invocation's flags as the first pass read them, or `undefined` when they do not parse. */
   firstPass: ParsedArgs | undefined;
   readFilterSelection: ReadFilterSelection;
+  readTree: TreeReader;
   /** Runs an invocation that reached a command and resolves to its exit code. */
   runInvocation: (invocation: Invocation) => Promise<number>;
   runSteps: RunSteps;
@@ -112,7 +113,7 @@ function defineScriptCommand(name: string, summary: string, input: RouteInput): 
  * name a command.
  */
 function deriveInvocation(flags: ParsedFlags<typeof NMR_FLAGS>, input: RouteInput): InvocationBase {
-  const { context, cwd, env, firstPass, readFilterSelection, runSteps, stderr, stdout } = input;
+  const { context, cwd, env, firstPass, readFilterSelection, readTree, runSteps, stderr, stdout } = input;
   const parsedArgs = toParsedArgs(flags, []);
 
   const presentationRead = readPresentation({
@@ -154,6 +155,7 @@ function deriveInvocation(flags: ParsedFlags<typeof NMR_FLAGS>, input: RouteInpu
     format,
     parsedArgs,
     readFilterSelection,
+    readTree,
     runSteps,
     scope: path.basename(anchorDir),
     shouldUseRoot,
