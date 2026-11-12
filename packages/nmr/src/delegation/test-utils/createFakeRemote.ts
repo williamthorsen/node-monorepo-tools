@@ -45,9 +45,10 @@ export interface FakeRemote {
  * directory, the bins in its `node_modules/.bin`, and the content of `probe.txt` when there is one, then prints to both
  * streams. These variables steer it: `FAKE_INSTALL_STATUS` and `FAKE_RUN_STATUS` set exit statuses;
  * `FAKE_INSTALL_SLEEP` and `FAKE_RUN_SLEEP` make the install or the run write its pid to `FAKE_INSTALL_PIDFILE` or
- * `FAKE_RUN_PIDFILE` and sleep; `FAKE_INSTALL_NOISE` makes the install print that many lines and then
- * `last install line`; `FAKE_RUN_MANIFEST`, a JSON array, makes the run write each element as an entry file into the
- * pass manifest; and `FAKE_RUN_TERM_DELAY` makes the run take that many seconds to exit on `SIGTERM`.
+ * `FAKE_RUN_PIDFILE` and sleep; `FAKE_INSTALL_OUTPUT` makes the install print that line; `FAKE_INSTALL_NOISE` makes
+ * the install print that many lines and then `last install line`; `FAKE_RUN_MANIFEST`, a JSON array, makes the run
+ * write each element as an entry file into the pass manifest; and `FAKE_RUN_TERM_DELAY` makes the run take that many
+ * seconds to exit on `SIGTERM`.
  */
 export function createFakeRemote(tree: TempTree): FakeRemote {
   const binDir = tree.mkdir('fake-bin');
@@ -90,6 +91,7 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
     '    echo "state=$state" >> "$FAKE_PNPM_LOG"',
     '    if [ -n "$FAKE_INSTALL_REAL" ]; then exec "$FAKE_INSTALL_REAL" "$@"; fi',
     '    mkdir -p node_modules && : > node_modules/.pnpm-workspace-state-v1.json',
+    '    if [ -n "$FAKE_INSTALL_OUTPUT" ]; then printf "%s\\n" "$FAKE_INSTALL_OUTPUT"; fi',
     '    if [ -n "$FAKE_INSTALL_NOISE" ]; then yes "install progress" | head -n "$FAKE_INSTALL_NOISE"; echo "last install line"; fi',
     '    if [ -n "$FAKE_INSTALL_SLEEP" ]; then echo $$ > "$FAKE_INSTALL_PIDFILE"; sleep "$FAKE_INSTALL_SLEEP"; fi',
     '    exit "${FAKE_INSTALL_STATUS:-0}" ;;',

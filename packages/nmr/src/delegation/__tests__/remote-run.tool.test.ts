@@ -116,6 +116,19 @@ describe('a delegated run on a fake host', () => {
     });
   });
 
+  it("checks the host's filesystem after a step that reports it full, and only then", async () => {
+    await delegate(['test'], { FAKE_INSTALL_STATUS: '1' });
+    const callsWithoutReport = remote.readSshLog().length;
+    const full = await delegate(['test'], {
+      FAKE_INSTALL_OUTPUT: 'ERR_PNPM_ENOSPC: No space left on device',
+      FAKE_INSTALL_STATUS: '1',
+    });
+
+    // The fake host's filesystem is not full, so the check finds nothing to add to the message.
+    expect(full.outcome).toMatchObject({ ok: false, phase: 'install', message: 'could not install on box' });
+    expect(remote.readSshLog().length - callsWithoutReport).toBe(callsWithoutReport + 1);
+  });
+
   it('reports in full a failed phase whose output exceeds a pipe buffer', async () => {
     const result = await delegate(['test'], { FAKE_INSTALL_NOISE: '20000', FAKE_INSTALL_STATUS: '1' });
 

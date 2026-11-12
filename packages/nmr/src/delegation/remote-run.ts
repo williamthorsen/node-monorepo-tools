@@ -12,6 +12,7 @@ import { type BoundedBuffer, createBoundedBuffer } from '../helpers/createBounde
 import { quoteForShell } from '../helpers/quoteForShell.ts';
 import { STALE_AFTER_MS } from '../machine-lock.ts';
 import { formatFlagSpelling } from '../nmr-flags.ts';
+import { appendFilesystemReason } from './host-filesystem.ts';
 import { CHECKOUT_LOCK_PATH, type SessionPhase, type SessionRecord } from './remote-host-session.ts';
 import { composeSessionScript, createSessionDemultiplexer, formatDelegationWaitingLine } from './remote-session.ts';
 import { CHECKOUT_STAMP_PATH, composeCheckoutRemovalScript } from './removeStaleCheckouts.ts';
@@ -157,6 +158,10 @@ export async function runRemotely(options: {
   } = options;
   const checkoutPath = deriveCheckoutPath(os.hostname(), snapshot.toplevel);
   const checkoutDir = `"$HOME"/${quoteForShell(checkoutPath)}`;
+  /** Runs a script on the host, for the check that follows a step that reports a full filesystem. */
+  function runOnHost(script: string): Promise<{ exitCode: number; output: string }> {
+    return runSsh(host, script, env);
+  }
   const removal = composeCheckoutRemovalScript({
     checkoutsDir: CHECKOUTS_DIR,
     lockPath: CHECKOUT_LOCK_PATH,
@@ -175,10 +180,13 @@ export async function runRemotely(options: {
     env,
   );
   if (prepare.exitCode !== 0) {
+    const isUnreachable = prepare.exitCode === DELEGATION_FAILURE_EXIT_CODE;
     return {
       ok: false,
-      isUnreachable: prepare.exitCode === DELEGATION_FAILURE_EXIT_CODE,
-      message: `could not prepare ${host}`,
+      isUnreachable,
+      message: isUnreachable
+        ? `could not prepare ${host}`
+        : await appendFilesystemReason(`could not prepare ${host}`, prepare.output, runOnHost),
       output: prepare.output,
       phase: 'prepare',
       waitedMs: 0,
@@ -201,7 +209,8 @@ export async function runRemotely(options: {
     { cwd: snapshot.toplevel, env: { ...env, [SSH_COMMAND_ENV_VAR]: composeGitSshCommand(env) } },
   );
   if (push.exitCode !== 0) {
-    return { ok: false, message: `could not push to ${host}`, output: push.output, phase: 'push', waitedMs: 0 };
+    const message = await appendFilesystemReason(`could not push to ${host}`, push.output, runOnHost);
+    return { ok: false, message, output: push.output, phase: 'push', waitedMs: 0 };
   }
 
   const nonce = randomUUID();
@@ -258,7 +267,8 @@ export async function runRemotely(options: {
 
   if (failure !== undefined) {
     const output = [demultiplexer.readOutput(), failure.output].filter((text) => text !== '').join('\n');
-    return { ok: false, message: describeFailedPhase(failure, host), output, phase: failure.phase, waitedMs };
+    const message = await appendFilesystemReason(describeFailedPhase(failure, host), output, runOnHost);
+    return { ok: false, message, output, phase: failure.phase, waitedMs };
   }
   if (!demultiplexer.hasStarted()) {
     return {
