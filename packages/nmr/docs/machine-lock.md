@@ -46,10 +46,10 @@ A holder removes the lock when its command ends, whether the command passed or f
 
 ## Bypassing the lock
 
-| Step                      | Effect                                                     |
-| ------------------------- | ---------------------------------------------------------- |
-| `nmr --no-lock <command>` | Runs without waiting. Applies to the whole chain.          |
-| `NMR_NO_LOCK=1`           | The same, for every nmr invocation that sees the variable. |
+| Step                      | Effect                                                                                                                                               |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nmr --no-lock <command>` | Runs without waiting. Applies to the whole chain.                                                                                                    |
+| `NMR_NO_LOCK=1`           | The same, for every nmr invocation that sees the variable. [Environment switches](scripts.md#environment-switches) lists the values that it accepts. |
 
 `--no-lock` belongs before the command name. After it, it is an argument to the command rather than a flag to nmr; nmr reports this rather than silently ignoring the bypass.
 

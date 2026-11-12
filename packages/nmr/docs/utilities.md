@@ -70,7 +70,7 @@ A file that git ignores is never formatted, even when named directly. Because tr
 
 A cached entry is reused only while the Prettier version, the Node version, the resolved Prettier options, and the repository's lockfile are all unchanged. Prettier's own key covers the first three. It does not cover plugin code, so each cache file's name also contains a fingerprint of the root's lockfile, and a dependency change, a plugin upgrade included, starts a fresh cache. `nmr-fmt` deletes cache files with an outdated fingerprint, and it discards a cache file that is not valid JSON rather than letting Prettier fail on it. A failure to prepare the cache prints a warning and leaves the run uncached; it never fails the run.
 
-Pass `--no-cache`, or set `NMR_NO_CACHE=1`, to run uncached. `nmr --no-cache fmt:check` sets that variable, so it bypasses both nmr's [check cache](check-cache.md) and this one. Because the fingerprint makes a cache from an earlier lockfile harmless, CI can restore the whole `node_modules/.cache/prettier/nmr-fmt/` directory under a fallback key.
+Pass `--no-cache`, or set `NMR_NO_CACHE=1`, to run uncached; [environment switches](scripts.md#environment-switches) lists the values that the variable accepts. `nmr --no-cache fmt:check` sets that variable, so it bypasses both nmr's [check cache](check-cache.md) and this one. Because the fingerprint makes a cache from an earlier lockfile harmless, CI can restore the whole `node_modules/.cache/prettier/nmr-fmt/` directory under a fallback key.
 
 ```bash
 nmr-fmt --check --no-cache

@@ -132,6 +132,10 @@ All fields are optional. [Script values](#script-values) describes `ScriptValue`
 
 Each field belongs to exactly one tier, and nmr loads from a config only the fields that its tier honors: `build` in a package config, every other field in the monorepo-root config. Declaring a field at the wrong tier fails with a message naming it and where it goes, as does a key that nmr does not recognize at all: A typo cannot degrade into a setting that silently applies nowhere.
 
+### Environment switches
+
+`NMR_DEBUG`, `NMR_NO_CACHE`, `NMR_NO_LOCK`, and `NMR_RUN_IF_PRESENT` are on/off switches. Each is on when set to `1`, and off when set to `0`, set to an empty value, or unset. Any other value, such as `true`, makes nmr exit 2 before it runs a command, with a message that names the variable, its value, and the accepted values; `nmr-fmt` rejects such an `NMR_NO_CACHE` the same way. What each switch does is in [check-result cache](check-cache.md) (`NMR_DEBUG`, `NMR_NO_CACHE`) and [machine lock](machine-lock.md) (`NMR_NO_LOCK`); nmr sets `NMR_RUN_IF_PRESENT` itself, for the runs that it fans out.
+
 ### Package-level configuration
 
 A package may have its own `.config/nmr.config.ts`, which `nmr-compile` reads from the package that it is compiling. This tier honors `build` alone; declaring `workspaceScripts`, `rootScripts`, or any other root-config field there fails with a message naming them, rather than being quietly ignored: Those belong in the monorepo-root config, and a package that appeared to set them would otherwise build on settings that nothing applied. The monorepo-root config has the mirror restriction: `build` there fails the same way, since only a package's own config affects the compile.

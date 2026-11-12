@@ -65,7 +65,7 @@ The gate never wrongly skips. When it cannot be sure, it does nothing and the co
 - When the repository does not have a pnpm install to fingerprint.
 - For any invocation carrying arguments after the command name, and for every step below it: the arguments narrow what runs, and a step served from a recorded pass is a step that did not.
 
-`NMR_DEBUG=1` reports why a run did not skip and why the cache did not apply.
+`NMR_DEBUG=1` reports why a run did not skip and why the cache did not apply. [Environment switches](scripts.md#environment-switches) lists the values that `NMR_DEBUG` accepts.
 
 ## Delegated passes
 
@@ -154,12 +154,12 @@ $ nmr --log test
 
 Try these in order; the first is almost always the right one.
 
-| Step                                   | Effect                                                                       |
-| -------------------------------------- | ---------------------------------------------------------------------------- |
-| `nmr --no-cache <command>`             | Runs the command, then records the fresh result. Applies to the whole chain. |
-| `NMR_NO_CACHE=1`                       | The same, for every nmr invocation in the shell.                             |
-| `rm -rf node_modules/.cache/nmr-check` | Forgets every recorded pass, leaving build output alone.                     |
-| `nmr clean`                            | Forgets every recorded pass and removes build output, at any scope.          |
+| Step                                   | Effect                                                                                                                                     |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `nmr --no-cache <command>`             | Runs the command, then records the fresh result. Applies to the whole chain.                                                               |
+| `NMR_NO_CACHE=1`                       | The same, for every nmr invocation in the shell. [Environment switches](scripts.md#environment-switches) lists the values that it accepts. |
+| `rm -rf node_modules/.cache/nmr-check` | Forgets every recorded pass, leaving build output alone.                                                                                   |
+| `nmr clean`                            | Forgets every recorded pass and removes build output, at any scope.                                                                        |
 
 `--no-cache` and `NMR_NO_CACHE=1` also bypass the Prettier cache that `nmr-fmt` keeps, because nmr exports `NMR_NO_CACHE=1` to the commands that it runs. nmr exports it too when a command is given trailing arguments, so `nmr fmt:check <pathspec>` runs uncached. See [`nmr-fmt`'s cache](utilities.md#cache).
 
