@@ -37,6 +37,10 @@ permissions:
   issues: write
   pull-requests: write
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   pr-audit:
     if: github.event_name == 'pull_request'
@@ -105,7 +109,8 @@ jobs:
         if: steps.audit.outcome == 'failure'
         run: |
           PR_BODY=$(gh pr view "${{ github.event.pull_request.number }}" --json body --jq .body)
-          if echo "$PR_BODY" | grep -qF '- [x] Audit failures have been reviewed'; then
+          # `--` ends option parsing before the leading `-`. A pipe into `grep -q` fails under `pipefail` when grep exits before the writer finishes.
+          if grep -qF -- '- [x] Audit failures have been reviewed' <<<"$PR_BODY"; then
             echo "Audit failures acknowledged via PR checkbox."
           else
             echo "::error::Audit failed and has not been acknowledged. Add '- [x] Audit failures have been reviewed' to the PR description."
@@ -211,7 +216,7 @@ jobs:
           if [ -z "$ISSUE_NUMBER" ]; then
             ISSUE_NUMBER=$(gh issue create \
               --title "$TITLE" \
-              --body "Awaiting first audit run." | grep -oE '[0-9]+$')
+              --body "Awaiting first audit run." | grep -oE '[0-9]+$') || ISSUE_NUMBER=""
           fi
           if [ -z "$ISSUE_NUMBER" ]; then
             echo "::error::Failed to create or find the standing audit issue."

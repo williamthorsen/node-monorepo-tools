@@ -47,6 +47,10 @@ permissions:
   id-token: write
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   publish:
     name: Publish
