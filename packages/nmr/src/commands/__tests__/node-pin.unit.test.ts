@@ -4,7 +4,7 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it } from 'vitest';
 
-import { checkNodePin, type CheckNodePinOptions, selectNodeUpgrade } from '../node-pin.ts';
+import { checkNodePin, type CheckNodePinOptions, selectNodeUpgradeCandidates } from '../node-pin.ts';
 
 const NOW = new Date('2026-10-29T12:00:00Z');
 
@@ -17,26 +17,28 @@ const RELEASES = [
   { version: 'v22.30.0', date: '2026-10-15', lts: 'Jod' },
 ];
 
-describe(selectNodeUpgrade, () => {
-  it('returns the newest release in the pin major line that is at least 24 hours old', () => {
-    expect(selectNodeUpgrade('24.22.1', RELEASES, NOW)).toBe('24.22.3');
+describe(selectNodeUpgradeCandidates, () => {
+  it('returns every release in the pin major line that is newer and at least 24 hours old, newest first', () => {
+    expect(selectNodeUpgradeCandidates('24.22.1', RELEASES, NOW)).toStrictEqual(['24.22.3', '24.22.2']);
   });
 
   it('never proposes a release in a newer major line', () => {
-    expect(selectNodeUpgrade('24.22.1', [{ version: 'v26.1.0', date: '2026-10-01' }], NOW)).toBeUndefined();
+    expect(selectNodeUpgradeCandidates('24.22.1', [{ version: 'v26.1.0', date: '2026-10-01' }], NOW)).toStrictEqual([]);
   });
 
-  it('returns undefined when the pin is current or ahead of every release in its line', () => {
-    expect(selectNodeUpgrade('24.22.3', RELEASES, NOW)).toBeUndefined();
-    expect(selectNodeUpgrade('24.99.0', RELEASES, NOW)).toBeUndefined();
+  it('returns nothing when the pin is current or ahead of every release in its line', () => {
+    expect(selectNodeUpgradeCandidates('24.22.3', RELEASES, NOW)).toStrictEqual([]);
+    expect(selectNodeUpgradeCandidates('24.99.0', RELEASES, NOW)).toStrictEqual([]);
   });
 
   // The index dates a release by UTC day alone, so a release dated D is certainly 24 hours old from D+2 00:00 UTC.
   it('proposes a release from the start of the second UTC day after its date, and not a moment before', () => {
     const releases = [{ version: 'v24.23.0', date: '2026-10-28' }];
 
-    expect(selectNodeUpgrade('24.22.1', releases, new Date('2026-10-30T00:00:00Z'))).toBe('24.23.0');
-    expect(selectNodeUpgrade('24.22.1', releases, new Date('2026-10-29T23:59:59.999Z'))).toBeUndefined();
+    expect(selectNodeUpgradeCandidates('24.22.1', releases, new Date('2026-10-30T00:00:00Z'))).toStrictEqual([
+      '24.23.0',
+    ]);
+    expect(selectNodeUpgradeCandidates('24.22.1', releases, new Date('2026-10-29T23:59:59.999Z'))).toStrictEqual([]);
   });
 
   it('ignores entries without a plain version or a YYYY-MM-DD date', () => {
@@ -48,7 +50,7 @@ describe(selectNodeUpgrade, () => {
       { version: 'v24.22.2', date: '2026-10-10' },
     ];
 
-    expect(selectNodeUpgrade('24.22.1', releases, NOW)).toBe('24.22.2');
+    expect(selectNodeUpgradeCandidates('24.22.1', releases, NOW)).toStrictEqual(['24.22.2']);
   });
 });
 
@@ -123,6 +125,51 @@ describe(checkNodePin, () => {
     expect(output).toContain('did not return a list of releases');
   });
 
+  it('proposes the newest defined release and reports a newer undefined one as held back', async () => {
+    const tree = disposeOnTestFinished(createTempTree({ '.tool-versions': 'nodejs 24.22.1\n' }));
+
+    const output = await runCheck(tree.dir, { isNodeBuildDefined: definedOnly('24.22.2') });
+
+    expect(output).toContain('nodejs 24.22.1 → 24.22.2 is available');
+    expect(output).toContain('nodejs 24.22.3 is held back: node-build does not define it yet.');
+  });
+
+  it('writes the newest defined release under --write, never an undefined one', async () => {
+    const tree = disposeOnTestFinished(createTempTree({ '.tool-versions': 'nodejs 24.22.1\n' }));
+
+    const output = await runCheck(tree.dir, { isNodeBuildDefined: definedOnly('24.22.2'), shouldWrite: true });
+
+    expect(output).toContain('Updated nodejs 24.22.1 → 24.22.2');
+    expect(output).toContain('nodejs 24.22.3 is held back');
+    expect(tree.read('.tool-versions')).toBe('nodejs 24.22.2\n');
+  });
+
+  it('reports only the held-back release and leaves the file unchanged when no newer release is defined', async () => {
+    const tree = disposeOnTestFinished(createTempTree({ '.tool-versions': 'nodejs 24.22.2\n' }));
+
+    const output = await runCheck(tree.dir, { isNodeBuildDefined: definedOnly(), shouldWrite: true });
+
+    expect(output).not.toContain('Updated');
+    expect(output).toContain('nodejs 24.22.3 is held back');
+    expect(tree.read('.tool-versions')).toBe('nodejs 24.22.2\n');
+  });
+
+  it('warns and does not write when the node-build definitions cannot be read', async () => {
+    const tree = disposeOnTestFinished(createTempTree({ '.tool-versions': 'nodejs 24.22.1\n' }));
+
+    const output = await runCheck(tree.dir, {
+      isNodeBuildDefined: () => Promise.reject(new Error('HTTP 503')),
+      isSilent: true,
+      shouldWrite: true,
+    });
+
+    expect(output).toContain('WARN: Could not check the nodejs pin');
+    expect(output).toContain('node-build');
+    expect(output).toContain('HTTP 503');
+    expect(output).not.toContain('Updated');
+    expect(tree.read('.tool-versions')).toBe('nodejs 24.22.1\n');
+  });
+
   it('suppresses the report but not a warning when silent', async () => {
     const tree = disposeOnTestFinished(createTempTree({ '.tool-versions': 'nodejs 24.22.1\n' }));
 
@@ -135,6 +182,11 @@ describe(checkNodePin, () => {
 
 // region | Helpers
 
+/** Returns a node-build probe that defines only `versions`. */
+function definedOnly(...versions: string[]): (version: string) => Promise<boolean> {
+  return (version) => Promise.resolve(versions.includes(version));
+}
+
 /** Runs the check against `dir` with the fixture releases and a fixed clock, returning what it wrote to stderr. */
 async function runCheck(dir: string, overrides: Partial<CheckNodePinOptions> = {}): Promise<string> {
   const stderr = new PassThrough();
@@ -145,6 +197,7 @@ async function runCheck(dir: string, overrides: Partial<CheckNodePinOptions> = {
 
   await checkNodePin(dir, {
     fetchReleases: () => Promise.resolve(RELEASES),
+    isNodeBuildDefined: () => Promise.resolve(true),
     isSilent: false,
     now: NOW,
     shouldWrite: false,
