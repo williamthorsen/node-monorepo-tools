@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.0.2 — 2026-11-12
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `nmr-fmt` and `nmr-taze` exited with 1 when a signal ended Prettier or taze, and makes each exit with 128 plus the signal number, as the other commands that nmr runs already did. (#1281)
+- Fixes the issue that `nmr-fmt` formatted with nmr's own copy of Prettier when the repository's copy had a malformed or unreadable manifest, and makes `nmr-fmt` fail with an error that names that manifest instead. (#1282)
+- Fixes the issue that `nmr-vitest` reported a Vitest whose manifest is malformed or unreadable as not installed, and makes `nmr-vitest` name that manifest and the repair instead. (#1282)
+- Fixes the issue that `nmr-fmt` and `nmr-vitest` crashed on a Prettier or Vitest manifest that starts with a byte-order mark, which Node accepts. (#1282)
+- Fixes the issue that a `.config/nmr.config.ts` or `~/.config/nmr/config.ts` that failed to parse or threw while loading crashed `nmr` with an internal error that did not name the file, and makes `nmr` report an error that names the config and, for a syntax error, the file and line that Node reports, including those of a module that the config imports. (#1296)
+- Fixes the issue that `nmr` read any value of `NMR_DEBUG`, `NMR_NO_CACHE`, `NMR_NO_LOCK`, or `NMR_RUN_IF_PRESENT` other than `1`, such as `true`, as off without reporting it, by making `nmr` and `nmr-fmt` exit 2 with a message that names the variable and the values that it accepts. (#1297)
+- Fixes the issue that `nmr upgrade --write` rewrote the `nodejs` pin in `.tool-versions` to a release that asdf could not install yet, by limiting the check to releases that node-build defines and reporting a newer release without a definition as held back. (#1300)
+
+### ♻️ Refactoring
+
+- Replaces the copies of the inherited-stdio spawn and exit-code mapping in `nmr-actionlint`, `nmr-shellcheck`, and `nmr-vitest` with the shared `spawnInherited` and `resolveInheritedExitCode` in `spawn-inherited.ts`, so that the copies can no longer change independently. (#1281)
+- Replaces the separate `bin` parsing in `resolveVitestCli` and `resolvePrettierCli` with one `resolveDeclaredCli` in `package-manifest.ts`, which takes `bin` either as a bare path or as a map keyed by the package name, so `nmr-vitest` now also accepts a Vitest manifest whose `bin` is a bare path. (#1283)
+- Groups nmr's check-cache modules under `packages/nmr/src/check-cache/` and its delegation modules under `packages/nmr/src/delegation/`, each directory containing its own tests in `__tests__/`. (#1293)
+- Makes `runCli` accept `runSteps` and `readFilterSelection` as optional dependencies that default to the real functions, and passes them on the `Invocation` to fan-out and the check-cache gate, which no longer import the real functions. (#1295)
+
+### 🧪 Tests
+
+- Adds `createRunCliHarness` and a shared `it` in `test-utils/run-cli-fixtures.ts` that gives each test a workspace `tree` and fresh fakes, and moves the five `runCli` unit suites onto them, so that the suites no longer depend on the file layout of the modules that they used to mock. (#1295)
+- Covers each decision branch of the check-cache gate with unit suites for lookup, recording, scope, and the command's own stated outcome, which inject a fake tree reader through a new `readTree` option on `runCli`, and removes the tool cases that they supersede, including `check-cache-gate.build-output.tool.test.ts`. (#1298)
+
 ## 2.0.1 — 2026-11-11
 
 ### 🐛 Bug fixes
