@@ -11,7 +11,7 @@ export const AGENT_ENV_VARS = ['CLAUDECODE', 'ROVODEV_CLI', 'ROVO_CLI'] as const
  * The points on the loudness ladder. Both are spelled out rather than leaving `full` implicit in the variable's
  * absence, so that a repo-level default is overridable from the environment in either direction.
  */
-export const COMMAND_VERBOSITIES = ['full', 'quiet'] as const;
+const COMMAND_VERBOSITIES = ['full', 'quiet'] as const;
 
 /**
  * Passes the resolved verbosity down the chain of spawned processes, so that `-q` applies to every process rather

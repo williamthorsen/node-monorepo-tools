@@ -1,18 +1,4 @@
 /**
- * Renders the rejection of a value off the format ladder, naming where it was written. Every source that
- * accepts a format renders through this, so two of them can never come to name different ladders.
- */
-export function formatReportFormatRejection(source: string, value: string): string {
-  return `${source} is \`${value}\`, which is not one of: ${REPORT_FORMATS.join(', ')}`;
-}
-
-/** Narrows a raw value to a point on the format ladder. */
-export function isReportFormat(value: string): value is ReportFormat {
-  const names: readonly string[] = REPORT_FORMATS;
-  return names.includes(value);
-}
-
-/**
  * Reads the format that the environment names. An unrecognized value is returned as an error, which keeps a
  * misspelling from going unnoticed for the life of the shell.
  *
@@ -42,7 +28,7 @@ export const REPORT_FORMAT_ENV_VAR = 'NMR_REPORT_FORMAT';
  * The points on the format ladder. `text` is a named point, so that one invocation can override a format
  * exported for the shell in either direction.
  */
-export const REPORT_FORMATS = ['text', 'json'] as const;
+const REPORT_FORMATS = ['text', 'json'] as const;
 
 /** How nmr renders its own verdicts, which is never the output of the commands that it runs. */
 export type ReportFormat = (typeof REPORT_FORMATS)[number];
@@ -68,3 +54,21 @@ export interface ResolveReportFormatOptions {
   envFormat: ReportFormat | undefined;
   hasJsonFlag: boolean;
 }
+
+// region | Helpers
+
+/**
+ * Renders the rejection of a value off the format ladder, naming where it was written. Every source that
+ * accepts a format renders through this, so two of them can never come to name different ladders.
+ */
+function formatReportFormatRejection(source: string, value: string): string {
+  return `${source} is \`${value}\`, which is not one of: ${REPORT_FORMATS.join(', ')}`;
+}
+
+/** Narrows a raw value to a point on the format ladder. */
+function isReportFormat(value: string): value is ReportFormat {
+  const names: readonly string[] = REPORT_FORMATS;
+  return names.includes(value);
+}
+
+// endregion | Helpers
