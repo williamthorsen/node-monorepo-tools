@@ -5,7 +5,7 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { listGitIgnoredPaths } from '../git-ignored-paths.ts';
+import { listGitIgnoredPaths } from '../listGitIgnoredPaths.ts';
 import { buildRepo } from '../test-utils/fixture-repo.ts';
 import { stageFixtureFiles } from '../test-utils/stageFixtureFiles.ts';
 

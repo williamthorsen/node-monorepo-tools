@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { prependBinDirs } from '../bin-path.ts';
+import { prependBinDirs } from '../prependBinDirs.ts';
 
 const ROOT = path.resolve('/repo');
 const PACKAGE = path.join(ROOT, 'packages/my-pkg');

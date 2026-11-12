@@ -2,7 +2,7 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
-import { loadPackageMaturityPeriod } from '../load-package-maturity-period.ts';
+import { loadPackageMaturityPeriod } from '../loadPackageMaturityPeriod.ts';
 
 const it = baseIt.extend(
   'tree',

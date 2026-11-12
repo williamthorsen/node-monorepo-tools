@@ -14,7 +14,7 @@ import {
 } from '../tiers.ts';
 
 // Keep the sweep from spawning git, which would move this file out of the unit tier.
-vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: () => [] }));
+vi.mock(import('../listGitIgnoredPaths.ts'), () => ({ listGitIgnoredPaths: () => [] }));
 
 // Each file stands for a boundary that the walk has to get right.
 const FIXTURE_FILES = [

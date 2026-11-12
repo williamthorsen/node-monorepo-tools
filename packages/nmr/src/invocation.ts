@@ -4,7 +4,7 @@ import { resolveSelfVersion, type StreamStyles } from '@williamthorsen/nmr-core'
 
 import type { TreeReader, TreeSnapshot } from './check-cache/check-cache.ts';
 import type { ResolvedContext } from './context.ts';
-import type { DelegationTarget } from './delegation/delegation-target.ts';
+import type { DelegationTarget } from './delegation/resolveDelegationTarget.ts';
 import type { ReadFilterSelection } from './helpers/filter-selection.ts';
 import type { ParsedArgs } from './nmr-flags.ts';
 import type { ReportFormat } from './report-format.ts';

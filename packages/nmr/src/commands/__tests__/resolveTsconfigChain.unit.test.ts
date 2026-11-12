@@ -3,7 +3,7 @@ import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeAll, describe, expect, it as baseIt } from 'vitest';
 
 import { loadCompiler } from '../compiler.ts';
-import { resolveTsconfigChain } from '../tsconfig-chain.ts';
+import { resolveTsconfigChain } from '../resolveTsconfigChain.ts';
 
 const it = baseIt.extend(
   'tree',

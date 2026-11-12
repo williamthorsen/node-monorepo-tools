@@ -5,7 +5,7 @@ import { type OutputStyle, STATUS_GLYPHS, UserError } from '@williamthorsen/nmr-
 
 import { resolveConfigPath } from './helpers/config-path.ts';
 import { escapeControlCharacters } from './helpers/escapeControlCharacters.ts';
-import { isHookName } from './helpers/hook-name.ts';
+import { isHookName } from './helpers/isHookName.ts';
 import { resolvePackageJsonPath } from './helpers/package-json.ts';
 import { hasRunnableHook } from './hooks.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';

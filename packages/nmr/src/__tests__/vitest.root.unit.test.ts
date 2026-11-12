@@ -5,7 +5,7 @@ import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { globSync } from 'tinyglobby';
 import { afterEach, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
-import { listGitIgnoredPaths } from '../git-ignored-paths.ts';
+import { listGitIgnoredPaths } from '../listGitIgnoredPaths.ts';
 import {
   CLIENT_CONDITIONS,
   getProjects,
@@ -17,7 +17,7 @@ import {
 import { defineRootVitestConfig, defineVitestConfig, type VitestConfigOptions } from '../vitest.ts';
 
 // Keep the config from spawning git, which would move this file out of the unit tier.
-vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: vi.fn(() => []) }));
+vi.mock(import('../listGitIgnoredPaths.ts'), () => ({ listGitIgnoredPaths: vi.fn(() => []) }));
 
 // Files in the fixture tree, each chosen for a tier boundary that the config has to get right.
 const FIXTURE_FILES = [
@@ -248,7 +248,7 @@ describe('worker count', () => {
     process.argv = [...originalArgv.slice(0, 2), 'run'];
   });
 
-  // Restore the machine spies; `restoreAllMocks` leaves the `git-ignored-paths.ts` module mock in place.
+  // Restore the machine spies; `restoreAllMocks` leaves the `listGitIgnoredPaths.ts` module mock in place.
   afterEach(() => {
     vi.restoreAllMocks();
     process.argv = originalArgv;

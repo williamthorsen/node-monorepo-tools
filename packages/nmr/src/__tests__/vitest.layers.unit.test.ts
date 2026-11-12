@@ -11,7 +11,7 @@ import {
 import { defineVitestConfig } from '../vitest.ts';
 
 // Keep the config from spawning git, which would move this file out of the unit tier.
-vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: vi.fn(() => []) }));
+vi.mock(import('../listGitIgnoredPaths.ts'), () => ({ listGitIgnoredPaths: vi.fn(() => []) }));
 
 describe(defineVitestConfig, () => {
   // `shouldResolveFromSource` and `shouldIsolateGit` default on, so one case covers both directions for each.

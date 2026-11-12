@@ -6,12 +6,12 @@ import { isRecord } from '@williamthorsen/nmr-core';
 import { defaultExclude, mergeConfig, type TestProjectInlineConfiguration, type ViteUserConfig } from 'vitest/config';
 import type { InlineConfig, ProjectConfig } from 'vitest/node';
 
-import { listGitIgnoredPaths } from './git-ignored-paths.ts';
+import { listGitIgnoredPaths } from './listGitIgnoredPaths.ts';
 import { ALL_TEST_PATTERNS, buildTierPatterns, TEST_COLLECTION_EXCLUDE, TIER_NAMES, type TierName } from './tiers.ts';
+import { toWorkspacePackageGlobs } from './toWorkspacePackageGlobs.ts';
 import { deriveDefaultMaxWorkers, readMaxWorkersFlag } from './vitest-max-workers.ts';
 import { createSourceResolutionPlugin } from './vitest-source-resolution.ts';
 import { getWorkspacePackageDirs } from './workspace.ts';
-import { toWorkspacePackageGlobs } from './workspace-globs.ts';
 
 export type { TierName } from './tiers.ts';
 

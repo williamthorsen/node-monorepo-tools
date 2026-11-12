@@ -7,11 +7,11 @@ import { type OutputStyle, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { NMR_TAZE_BIN } from '../bins.ts';
-import { loadPackageMaturityPeriod } from './load-package-maturity-period.ts';
+import { loadPackageMaturityPeriod } from './loadPackageMaturityPeriod.ts';
 import { checkNodePin as checkNodePinDefault, type CheckNodePinOptions } from './node-pin.ts';
+import { planTazePasses, type TazePass } from './planTazePasses.ts';
 import { resolveInheritedExitCode, type SpawnInherited, spawnInherited } from './spawn-inherited.ts';
 import { isSilent, readFlag } from './taze-args.ts';
-import { planTazePasses, type TazePass } from './taze-passes.ts';
 
 /**
  * taze's declared CLI export, which is the module imported by taze's own `bin/taze.mjs`. Resolving it

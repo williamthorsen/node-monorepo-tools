@@ -12,13 +12,13 @@ import { NMR_FMT_BIN } from '../bins.ts';
 import { NO_CACHE_ENV_VAR } from '../check-cache/check-cache.ts';
 import { readEnvSwitch } from '../env-switch.ts';
 import { prepareFmtCache } from './fmt-cache.ts';
-import { resolveFormatTargets } from './format-targets.ts';
 import {
   BROKEN_MANIFEST_FIX,
   findPackageManifest,
   type ManifestLookup,
   resolveDeclaredCli,
 } from './package-manifest.ts';
+import { resolveFormatTargets } from './resolveFormatTargets.ts';
 import { resolveInheritedExitCode, type SpawnInherited, spawnInherited } from './spawn-inherited.ts';
 
 const PRETTIER_PACKAGE = 'prettier';

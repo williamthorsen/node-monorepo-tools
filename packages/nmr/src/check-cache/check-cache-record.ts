@@ -10,6 +10,7 @@ import { RUN_IF_PRESENT_ENV_VAR, type RunCliResult, type RunPlan, VERSION } from
 import type { RetainedOutput } from '../runner.ts';
 import type { Step } from '../steps.ts';
 import type { NmrConfig } from '../types.ts';
+import { assembleReplay } from './assembleReplay.ts';
 import {
   isCacheableCommand,
   resolveTreeSnapshot,
@@ -29,7 +30,6 @@ import {
 import { CURRENT_RUNTIME } from './check-cache-key.ts';
 import { writePassManifestEntry } from './pass-manifest.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
-import { assembleReplay } from './replay-assembly.ts';
 
 /**
  * Records a pass that `host` earned, unless a pass earned here under the same key would still be recalled, because

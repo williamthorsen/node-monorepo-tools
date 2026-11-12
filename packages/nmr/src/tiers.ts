@@ -1,7 +1,7 @@
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
 
-import { listGitIgnoredPaths } from './git-ignored-paths.ts';
+import { listGitIgnoredPaths } from './listGitIgnoredPaths.ts';
 
 /**
  * The directory scope from which every project in the shared config collects. A test file outside one runs nowhere.

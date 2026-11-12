@@ -8,7 +8,7 @@ import { OUTCOME_FILE_ENV_VAR } from '../../stated-outcome.ts';
 import { buildPackage, computeBuildHash, recordUnchangedBuild } from '../build.ts';
 import { resolveEmitDurationPath, writeEmitDuration } from '../build-output.ts';
 import { loadCompiler } from '../compiler.ts';
-import { resolveTsconfigChain } from '../tsconfig-chain.ts';
+import { resolveTsconfigChain } from '../resolveTsconfigChain.ts';
 
 const it = baseIt.extend(
   'tree',

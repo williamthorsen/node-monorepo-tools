@@ -20,8 +20,8 @@ import {
 } from './build-output.ts';
 import { assertSupportedTypeScript, formatDiagnostics, getCompiler, loadCompiler } from './compiler.ts';
 import { discardScratchDirs, publishOutput, removeScratchDirs, type StagedFile } from './publish-output.ts';
+import { resolveTsconfigChain } from './resolveTsconfigChain.ts';
 import { rewriteSpecifiers } from './rewrite-specifiers.ts';
-import { resolveTsconfigChain } from './tsconfig-chain.ts';
 
 /**
  * How a build ended: skipped because its inputs and output were unchanged, with the emit time recorded for those

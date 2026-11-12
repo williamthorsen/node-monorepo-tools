@@ -4,8 +4,8 @@ import { isRecord } from '@williamthorsen/nmr-core';
 
 import { quoteForShell } from '../helpers/quoteForShell.ts';
 import { LOCK_DIR_ENV_VAR, LOCK_FILE, STALE_AFTER_MS } from '../machine-lock.ts';
+import { type HostProbeParams, probeHostLocks } from './probeHostLocks.ts';
 import { CHECKOUT_LOCK_PATH } from './remote-host-session.ts';
-import { type HostProbeParams, probeHostLocks } from './remote-probe-host.ts';
 import { DELEGATION_FAILURE_EXIT_CODE, type HostList, readLastLine, runSsh } from './remote-run.ts';
 
 /**

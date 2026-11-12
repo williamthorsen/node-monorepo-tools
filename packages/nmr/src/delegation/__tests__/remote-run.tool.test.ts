@@ -12,11 +12,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { quoteForShell } from '../../helpers/quoteForShell.ts';
 import { STALE_AFTER_MS } from '../../machine-lock.ts';
 import { initRepo } from '../../test-utils/initRepo.ts';
+import { createSnapshot } from '../createSnapshot.ts';
 import { CHECKOUT_LOCK_PATH } from '../remote-host-session.ts';
 import { deriveCheckoutPath, runRemotely, wrapRemoteScript } from '../remote-run.ts';
 import { composeSessionScript } from '../remote-session.ts';
-import { createSnapshot } from '../remote-snapshot.ts';
-import { createFakeRemote, type FakeRemote } from '../test-utils/fake-remote.ts';
+import { createFakeRemote, type FakeRemote } from '../test-utils/createFakeRemote.ts';
 
 describe('a delegated run on a fake host', () => {
   let workspace: TempTree;

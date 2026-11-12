@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { addSubmodule } from '../../commands/test-utils/addSubmodule.ts';
 import { initRepo } from '../../test-utils/initRepo.ts';
-import { createSnapshot } from '../remote-snapshot.ts';
+import { createSnapshot } from '../createSnapshot.ts';
 
 describe(createSnapshot, () => {
   let workspace: TempTree;

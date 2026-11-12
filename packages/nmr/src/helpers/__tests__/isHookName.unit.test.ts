@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isHookName } from '../hook-name.ts';
+import { isHookName } from '../isHookName.ts';
 
 describe(isHookName, () => {
   it.each(['build:pre', 'build:post', 'test:pre', 'test:post', 'some:nested:post', 'x:pre', 'x:post'])(

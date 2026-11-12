@@ -13,7 +13,7 @@ import {
 } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import { isStringRecord } from '../helpers/type-guards.ts';
+import { isStringRecord } from '../helpers/isStringRecord.ts';
 import { writeDebugNote } from './check-cache.ts';
 
 /** A recorded pass: what ran, on which tree, and how long it took. */

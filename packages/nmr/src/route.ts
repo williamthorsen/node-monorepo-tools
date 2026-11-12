@@ -5,9 +5,9 @@ import { type CommandNode, createCli, type ParsedFlags, UsageError } from '@will
 
 import { DEBUG_ENV_VAR, NO_CACHE_ENV_VAR, type TreeReader } from './check-cache/check-cache.ts';
 import type { ResolvedContext } from './context.ts';
+import { describeHelp } from './describeHelp.ts';
 import { readEnvSwitch, readEnvSwitches } from './env-switch.ts';
 import { listDefinedCommands } from './fan-out.ts';
-import { describeHelp } from './help.ts';
 import type { ReadFilterSelection } from './helpers/filter-selection.ts';
 import { type Invocation, RUN_IF_PRESENT_ENV_VAR } from './invocation.ts';
 import { NO_LOCK_ENV_VAR } from './machine-lock.ts';

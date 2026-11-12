@@ -21,11 +21,11 @@ import {
   writeDebugNote,
 } from './check-cache.ts';
 import { type BuildOutputState, findStaleBuildOutput, readBuildOutputState } from './check-cache-build-output.ts';
-import { type Gate, recordDelegatedPass } from './check-cache-delegation.ts';
 import { certifyRetention, type CheckCacheEntry, readCheckCacheEntry, type ReplayLine } from './check-cache-entries.ts';
 import { computeCacheKey, computeRetentionKey } from './check-cache-key.ts';
 import { recordPass } from './check-cache-record.ts';
 import { writePassManifestEntry } from './pass-manifest.ts';
+import { type Gate, recordDelegatedPass } from './recordDelegatedPass.ts';
 
 /**
  * Decides whether the check-result cache covers this invocation, and takes the tree snapshot on which it would

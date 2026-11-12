@@ -5,7 +5,7 @@ import type { Writable } from 'node:stream';
 import { hashWorkingTree, type OutputStyle, readHeadSha, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
 import { isEnvSwitchOn } from '../env-switch.ts';
-import { isHookName } from '../helpers/hook-name.ts';
+import { isHookName } from '../helpers/isHookName.ts';
 import type { CheckCacheConfig } from '../types.ts';
 
 /** One working tree, observed once per top-level invocation and shared with every process below it. */

@@ -2,7 +2,7 @@ import { isRecord } from '@williamthorsen/nmr-core';
 import { describe, expect, it, vi } from 'vitest';
 import type { ViteUserConfig } from 'vitest/config';
 
-import { listGitIgnoredPaths } from '../git-ignored-paths.ts';
+import { listGitIgnoredPaths } from '../listGitIgnoredPaths.ts';
 import {
   CLIENT_CONDITIONS,
   getProjects,
@@ -15,7 +15,7 @@ import {
 import { defineVitestConfig } from '../vitest.ts';
 
 // Keep the config from spawning git, which would move this file out of the unit tier.
-vi.mock(import('../git-ignored-paths.ts'), () => ({ listGitIgnoredPaths: vi.fn(() => []) }));
+vi.mock(import('../listGitIgnoredPaths.ts'), () => ({ listGitIgnoredPaths: vi.fn(() => []) }));
 
 /** The plugin that the config emits to resolve the `source` condition, named as the config names it. */
 const SOURCE_RESOLUTION_PLUGIN = 'nmr:resolve-from-source';
