@@ -79,12 +79,13 @@ describe('the build bootstrap', () => {
   });
 
   it('runs from a prepare that nmr-core is built before, or that reads its source', () => {
-    // pnpm orders `prepare` by workspace dependency, so a package that does not depend on nmr-core runs it
-    // alongside nmr-core's and can reach nmr-core before its `dist` exists.
+    // pnpm orders `prepare` by workspace dependency, so a package that does not depend on nmr-core, directly or
+    // through another workspace package, runs it alongside nmr-core's and can reach nmr-core before its `dist`
+    // exists.
     const unordered = readWorkspacePrepares().filter(
-      ({ dependsOnNmrCore, prepareScript }) =>
+      ({ isOrderedAfterNmrCore, prepareScript }) =>
         prepareScript.includes('cli-build.ts') &&
-        !dependsOnNmrCore &&
+        !isOrderedAfterNmrCore &&
         !prepareScript.includes(`--conditions ${SOURCE_CONDITION}`),
     );
 
@@ -158,7 +159,7 @@ interface WorkspaceImport {
 }
 
 interface WorkspacePrepare {
-  dependsOnNmrCore: boolean;
+  isOrderedAfterNmrCore: boolean;
   name: string;
   prepareScript: string;
 }
@@ -204,6 +205,26 @@ function collectWorkspaceImports(): WorkspaceImport[] {
 /** Reports whether `specifier` names `packageName` itself or one of its subpath exports. */
 function isPackageSpecifier(specifier: string, packageName: string): boolean {
   return specifier === packageName || specifier.startsWith(`${packageName}/`);
+}
+
+/** Reports whether nmr-core is among the workspace packages on which `name` depends, directly or transitively. */
+function reachesNmrCore(name: string, dependencyNamesByName: Map<string, string[]>): boolean {
+  const seenNames = new Set<string>();
+  const queue = [...(dependencyNamesByName.get(name) ?? [])];
+
+  while (queue.length > 0) {
+    const current = queue.pop();
+    if (current === undefined || seenNames.has(current)) {
+      continue;
+    }
+    if (current === NMR_CORE_SPECIFIER) {
+      return true;
+    }
+    seenNames.add(current);
+    queue.push(...(dependencyNamesByName.get(current) ?? []));
+  }
+
+  return false;
 }
 
 /**
@@ -283,23 +304,30 @@ function readWorkspacePackageNames(): string[] {
   });
 }
 
-/** Returns each workspace package's `prepare` script, and whether the package depends on nmr-core. */
+/**
+ * Returns each workspace package's `prepare` script, and whether the package depends on nmr-core directly or
+ * through other workspace packages.
+ */
 function readWorkspacePrepares(): WorkspacePrepare[] {
-  return getWorkspacePackageDirs(findMonorepoRoot(import.meta.dirname)).flatMap((dir) => {
+  const manifests = getWorkspacePackageDirs(findMonorepoRoot(import.meta.dirname)).map((dir) => {
     const parsedManifest: unknown = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
     if (!isRecord(parsedManifest) || typeof parsedManifest['name'] !== 'string') {
       throw new Error(`${dir} does not contain a package.json that declares a name`);
     }
     const { dependencies, devDependencies, name, scripts } = parsedManifest;
+    const dependencyNames = [dependencies, devDependencies].flatMap((group) =>
+      isRecord(group) ? Object.keys(group).filter((key) => WORKSPACE_PACKAGE_NAMES.includes(key)) : [],
+    );
     const prepareScript = isRecord(scripts) ? scripts['prepare'] : undefined;
+    return { dependencyNames, name, prepareScript };
+  });
+  const dependencyNamesByName = new Map(manifests.map(({ dependencyNames, name }) => [name, dependencyNames]));
+
+  return manifests.flatMap(({ name, prepareScript }) => {
     if (name === NMR_CORE_SPECIFIER || typeof prepareScript !== 'string') {
       return [];
     }
-
-    const dependsOnNmrCore = [dependencies, devDependencies].some(
-      (group) => isRecord(group) && Object.hasOwn(group, NMR_CORE_SPECIFIER),
-    );
-    return { dependsOnNmrCore, name, prepareScript };
+    return { isOrderedAfterNmrCore: reachesNmrCore(name, dependencyNamesByName), name, prepareScript };
   });
 }
 

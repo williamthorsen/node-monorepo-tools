@@ -41,7 +41,7 @@
     "dist"
   ],
   "scripts": {
-    "prepare": "node --conditions nmr-source ../nmr/src/cli-build.ts",
+    "prepare": "node ../nmr/src/cli-build.ts",
     "prepublishOnly": "nmr build"
   },
   "devDependencies": {
