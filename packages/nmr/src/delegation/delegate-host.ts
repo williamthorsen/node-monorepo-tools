@@ -35,7 +35,7 @@ import {
   runRemotely,
 } from './remote-run.ts';
 import { resolveDelegationTarget } from './resolveDelegationTarget.ts';
-import { formatDisplayPath, loadUserConfig } from './user-config.ts';
+import { DEFAULT_REMOVE_CHECKOUTS_AFTER_DAYS, formatDisplayPath, loadUserConfig } from './user-config.ts';
 
 /** How a run on the host ended, or that the invocation runs here after all. */
 export type HostRunResult =
@@ -146,6 +146,8 @@ export async function runPlanOnHost(plan: RunPlan, target: RemoteTarget): Promis
 /** A target that names its candidate hosts. */
 type RemoteTarget = Extract<ExecutionTarget, { kind: 'remote' }>;
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 /** Describes a probe's result for a debug note. */
 const PROBE_RESULT_PHRASES: Readonly<Record<ProbeResult, string>> = {
   busy: 'is busy',
@@ -241,6 +243,7 @@ async function delegate(options: {
   const { host } = choice;
 
   const retained = { stderr: createBoundedBuffer(), stdout: createBoundedBuffer() };
+  const removeCheckoutsAfterMs = snapshot.ok ? await readRemoveCheckoutsAfterMs(env) : null;
   const result = snapshot.ok
     ? await runRemotely({
         command,
@@ -250,6 +253,7 @@ async function delegate(options: {
         monorepoRoot: context.monorepoRoot,
         nmrArgs: composeForwardedArgs(command, parsedArgs),
         remoteEnv,
+        removeCheckoutsAfterMs,
         snapshot,
         stderr: createTee(stderr, retained.stderr),
         stdout: createTee(stdout, retained.stdout),
@@ -291,6 +295,17 @@ async function delegate(options: {
 /** Renders the line that says that a command runs here rather than on the hosts that a default named, and why. */
 function formatRunHereLine(command: string, listedHosts: string, reason: string): string {
   return `nmr: running ${command} here rather than on ${listedHosts}: ${reason}\n`;
+}
+
+/**
+ * Returns the age past which a delegation removes the host's unused checkouts, from the user config or its default,
+ * or `null` when the user config keeps them. The user config applies however the delegation was requested.
+ */
+async function readRemoveCheckoutsAfterMs(env: NodeJS.ProcessEnv): Promise<number | null> {
+  const days =
+    (await loadUserConfig(env))?.config.delegate?.removeCheckoutsAfterDays ?? DEFAULT_REMOVE_CHECKOUTS_AFTER_DAYS;
+
+  return days === false ? null : days * MS_PER_DAY;
 }
 
 /**

@@ -14,6 +14,10 @@ import { STALE_AFTER_MS } from '../machine-lock.ts';
 import { formatFlagSpelling } from '../nmr-flags.ts';
 import { CHECKOUT_LOCK_PATH, type SessionPhase, type SessionRecord } from './remote-host-session.ts';
 import { composeSessionScript, createSessionDemultiplexer, formatDelegationWaitingLine } from './remote-session.ts';
+import { CHECKOUT_STAMP_PATH, composeCheckoutRemovalScript } from './removeStaleCheckouts.ts';
+
+/** The directory on the host, relative to its home directory, that contains one directory per checkout key. */
+export const CHECKOUTS_DIR = '.cache/nmr/delegate';
 
 /** Names the hosts to which nmr delegates a command when the invocation does not say otherwise. */
 export const DELEGATE_ENV_VAR = 'NMR_DELEGATE';
@@ -77,16 +81,19 @@ export function composeSshArgv(env: NodeJS.ProcessEnv, host: string, remoteComma
     : ['/bin/sh', '-c', `${sshCommand} "$@"`, sshCommand, ...sshArgs];
 }
 
+/** Returns the key of the checkout on the host that serves the worktree at `toplevel` on the machine `hostname`. */
+export function deriveCheckoutKey(hostname: string, toplevel: string): string {
+  return createHash('sha256').update(`${hostname}\0${toplevel}`).digest('hex').slice(0, 16);
+}
+
 /**
- * Returns the checkout's path on the host, relative to its home directory: a key derived from this machine and the
- * repository, followed by the repository's own directory name, which nmr on the host reports as the root's scope.
+ * Returns the checkout's path on the host, relative to its home directory: the checkout's key, followed by the
+ * repository's own directory name, which nmr on the host reports as the root's scope.
  *
  * @internal
  */
 export function deriveCheckoutPath(hostname: string, toplevel: string): string {
-  const key = createHash('sha256').update(`${hostname}\0${toplevel}`).digest('hex').slice(0, 16);
-
-  return path.posix.join('.cache/nmr/delegate', key, path.basename(toplevel));
+  return path.posix.join(CHECKOUTS_DIR, deriveCheckoutKey(hostname, toplevel), path.basename(toplevel));
 }
 
 /**
@@ -115,11 +122,12 @@ export function readLastLine(output: string): string {
  * Runs an nmr invocation on `host` against a snapshot of the local working tree, streaming the command's output to
  * `stdout` and `stderr` and returning its exit status.
  *
- * The host keeps one checkout per local repository and host name, under `~/.cache/nmr/delegate/`, so concurrent
+ * The host keeps one checkout per worktree on each delegating machine, under `~/.cache/nmr/delegate/`, so concurrent
  * delegations from different worktrees do not share a checkout, and `node_modules` and build output persist
- * between runs. Check out, install, and run take one connection, whose session holds the checkout's lock, so that two
- * delegations from one worktree run one after the other; what a phase other than `run` prints is returned rather than
- * streamed, because it matters only when the phase fails.
+ * between runs. Before the push, the delegation removes the host's other checkouts that have not been used for
+ * longer than `removeCheckoutsAfterMs`, unless it is `null`. Check out, install, and run take one connection, whose
+ * session holds the checkout's lock, so that two delegations from one worktree run one after the other; what a phase
+ * other than `run` prints is returned rather than streamed, because it matters only when the phase fails.
  */
 export async function runRemotely(options: {
   command: string;
@@ -129,17 +137,41 @@ export async function runRemotely(options: {
   monorepoRoot: string;
   nmrArgs: readonly string[];
   remoteEnv: Readonly<Record<string, string>>;
+  removeCheckoutsAfterMs: number | null;
   snapshot: { sha: string; toplevel: string };
   stderr: Writable;
   stdout: Writable;
 }): Promise<RemoteRunResult> {
-  const { command, cwd, env, host, monorepoRoot, nmrArgs, remoteEnv, snapshot, stderr, stdout } = options;
+  const {
+    command,
+    cwd,
+    env,
+    host,
+    monorepoRoot,
+    nmrArgs,
+    remoteEnv,
+    removeCheckoutsAfterMs,
+    snapshot,
+    stderr,
+    stdout,
+  } = options;
   const checkoutPath = deriveCheckoutPath(os.hostname(), snapshot.toplevel);
   const checkoutDir = `"$HOME"/${quoteForShell(checkoutPath)}`;
+  const removal = composeCheckoutRemovalScript({
+    checkoutsDir: CHECKOUTS_DIR,
+    lockPath: CHECKOUT_LOCK_PATH,
+    ownKey: deriveCheckoutKey(os.hostname(), snapshot.toplevel),
+    removeAfterMs: removeCheckoutsAfterMs,
+    staleAfterMs: STALE_AFTER_MS,
+    stampPath: CHECKOUT_STAMP_PATH,
+  });
 
+  // The removal runs first, because a host whose filesystem is full can neither create a checkout nor receive the
+  // push. Neither it nor the stamp, which a full filesystem may refuse, fails the step.
   const prepare = await runSsh(
     host,
-    `mkdir -p ${checkoutDir} && cd ${checkoutDir} && { [ -d .git ] || git init --quiet; }`,
+    `{ ${removal} || :; }; mkdir -p ${checkoutDir} && cd ${checkoutDir} && { [ -d .git ] || git init --quiet; } && ` +
+      `{ touch ${quoteForShell(CHECKOUT_STAMP_PATH)} || :; }`,
     env,
   );
   if (prepare.exitCode !== 0) {
