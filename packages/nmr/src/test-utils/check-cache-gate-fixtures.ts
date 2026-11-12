@@ -3,19 +3,45 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import type { TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { it as baseIt } from 'vitest';
 
 import { type CheckCacheEntry, readCheckCacheEntry } from '../check-cache/check-cache-entries.ts';
 import { resolveBuildCachePath } from '../commands/build-output.ts';
 import type { ScriptValue } from '../resolve-scripts.ts';
 import { runCli } from '../runCli.ts';
 import { readAmbientEnv } from './readAmbientEnv.ts';
+import { createRunCliHarness, type RunCliHarness } from './run-cli-harness.ts';
 
 /** The cacheable command driven by every test; the fixture maps it to a script whose runs are countable. */
 export const COMMAND = 'typecheck';
 
 /** The run log, which is beside the repository rather than inside it. */
 export const LOG_ENTRY = 'log.txt';
+
+/** The commit that the fake tree reader reports as `HEAD`. */
+export const FAKE_HEAD_SHA = 'a'.repeat(40);
+
+/**
+ * Provides each test with a `workspace` scaffolded without git, the `repo` inside it, and an `nmr` harness whose
+ * tree reader reports `repo` as a git toplevel whose tree is `tree-1`.
+ */
+export const it = baseIt
+  .extend(
+    'workspace',
+    makeFixture(() => {
+      const workspace = createTempTree({}, { prefix: 'nmr-gate-unit-' });
+      scaffoldTree(workspace, workspace.resolve(LOG_ENTRY));
+      return workspace;
+    }),
+  )
+  .extend('repo', ({ workspace }) => workspace.resolve('repo'))
+  .extend('nmr', ({ repo }) => {
+    const harness = createRunCliHarness();
+    stubTree(harness, repo, 'tree-1');
+    return harness;
+  });
 
 /** Counts the entries that the cache currently stores for the fixture repository. */
 export function countCacheEntries(workspace: TempTree): number {
@@ -88,11 +114,26 @@ export async function runNmr(
 }
 
 /**
- * Writes a committed pnpm workspace under `repo/` in the workspace tree: one built package, the pnpm files that
- * the install fingerprint reads, and a config mapping the cacheable command to a script that appends one line
- * per run. `bin/` and the run log are beside it, outside the repository.
+ * Writes the workspace that `scaffoldTree` writes, as a committed git repository. `bin/` and the run log are beside
+ * it, outside the repository.
  */
 export function scaffoldRepo(workspace: TempTree, log: string): void {
+  scaffoldTree(workspace, log);
+
+  const repo = workspace.resolve('repo');
+  runGit(repo, ['init', '--initial-branch=main']);
+  runGit(repo, ['config', 'user.email', 'fixture@example.com']);
+  runGit(repo, ['config', 'user.name', 'Fixture']);
+  runGit(repo, ['config', 'commit.gpgsign', 'false']);
+  runGit(repo, ['add', '--all']);
+  runGit(repo, ['commit', '--message', 'initial']);
+}
+
+/**
+ * Writes a pnpm workspace under `repo/` in the workspace tree: one built package, the pnpm files that the install
+ * fingerprint reads, and a config mapping the cacheable command to a script that appends one line per run.
+ */
+export function scaffoldTree(workspace: TempTree, log: string): void {
   workspace.writeAll({
     'repo/.gitignore': 'node_modules/\ndist/\n',
     'repo/node_modules/.modules.yaml': 'hoistPattern:\n  - "types"\n',
@@ -108,14 +149,17 @@ export function scaffoldRepo(workspace: TempTree, log: string): void {
   writeBuildDigest(workspace, 'repo/packages/a', 'digest-from-this-tree');
 
   writeConfig(workspace, log);
+}
 
-  const repo = workspace.resolve('repo');
-  runGit(repo, ['init', '--initial-branch=main']);
-  runGit(repo, ['config', 'user.email', 'fixture@example.com']);
-  runGit(repo, ['config', 'user.name', 'Fixture']);
-  runGit(repo, ['config', 'commit.gpgsign', 'false']);
-  runGit(repo, ['add', '--all']);
-  runGit(repo, ['commit', '--message', 'initial']);
+/** Makes the harness's tree reader report `repo` as a git toplevel whose working tree is `treeId`. */
+export function stubTree(harness: RunCliHarness, repo: string, treeId: string): void {
+  harness.readTree.hashWorkingTree.mockReturnValue({
+    ok: true,
+    headSha: FAKE_HEAD_SHA,
+    toplevel: fs.realpathSync(repo),
+    treeId,
+  });
+  harness.readTree.readHeadSha.mockReturnValue(FAKE_HEAD_SHA);
 }
 
 /** Writes the digest that a build of the package at `packageEntry` would have left beside its output. */
