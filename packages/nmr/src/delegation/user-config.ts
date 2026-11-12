@@ -13,6 +13,9 @@ const DELEGATE_WHEN_VALUES = ['agent', 'always'] as const;
 
 export type DelegateWhen = (typeof DELEGATE_WHEN_VALUES)[number];
 
+/** The age, in days, past which a delegation removes a host's unused checkouts when the user config does not set one. */
+export const DEFAULT_REMOVE_CHECKOUTS_AFTER_DAYS = 7;
+
 /**
  * Renders a path for a message, with `~` standing for the home directory that `env` names when the path lies under
  * it.
@@ -70,6 +73,8 @@ export interface UserConfig {
 /** This machine's delegation hosts, and which runs delegate to them without being asked. */
 export interface UserDelegateConfig {
   hosts: HostList;
+  /** The age, in days, past which a delegation removes the host's unused checkouts; `false` keeps them. */
+  removeCheckoutsAfterDays?: number | false;
   when?: DelegateWhen;
 }
 
@@ -78,7 +83,7 @@ export interface UserDelegateConfig {
 const USER_CONFIG_RELATIVE_PATH = path.join('nmr', 'config.ts');
 
 const RECOGNIZED_KEYS = ['delegate'];
-const RECOGNIZED_DELEGATE_KEYS = ['hosts', 'when'];
+const RECOGNIZED_DELEGATE_KEYS = ['hosts', 'removeCheckoutsAfterDays', 'when'];
 
 /** Narrows a raw value to one of the values that `delegate.when` accepts. */
 function isDelegateWhen(value: unknown): value is DelegateWhen {
@@ -98,10 +103,12 @@ function validateDelegateField(value: Record<string, unknown>, configPath: strin
   assertRecognizedKeys(delegate, RECOGNIZED_DELEGATE_KEYS, configPath, 'delegate.');
 
   const hosts = validateHosts(delegate['hosts'], configPath);
+  const removeCheckoutsAfterDays = validateRemoveCheckoutsAfterDays(delegate['removeCheckoutsAfterDays'], configPath);
+  const removal = removeCheckoutsAfterDays === undefined ? {} : { removeCheckoutsAfterDays };
 
   const when: unknown = delegate['when'];
   if (when === undefined) {
-    return { hosts };
+    return { hosts, ...removal };
   }
   if (!isDelegateWhen(when)) {
     const renderedValue = typeof when === 'string' ? when : JSON.stringify(when);
@@ -111,7 +118,7 @@ function validateDelegateField(value: Record<string, unknown>, configPath: strin
     );
   }
 
-  return { hosts, when };
+  return { hosts, ...removal, when };
 }
 
 /**
@@ -132,6 +139,18 @@ function validateHosts(value: unknown, configPath: string): HostList {
   }
 
   return [first, ...rest];
+}
+
+/** Validates `delegate.removeCheckoutsAfterDays`: a positive, finite number of days, or `false`. */
+function validateRemoveCheckoutsAfterDays(value: unknown, configPath: string): number | false | undefined {
+  if (value === undefined || value === false || (typeof value === 'number' && Number.isFinite(value) && value > 0)) {
+    return value;
+  }
+
+  throw new UserError(
+    `Invalid nmr config at ${configPath}: \`delegate.removeCheckoutsAfterDays\` must be a positive number of days, ` +
+      'or `false` to keep every checkout',
+  );
 }
 
 /** Validates that a loaded value conforms to the `UserConfig` shape. */
