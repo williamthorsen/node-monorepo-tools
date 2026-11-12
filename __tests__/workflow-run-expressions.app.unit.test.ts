@@ -34,14 +34,14 @@ describe('workflows pass values to shell steps through env', () => {
 function listRunExpressions(workflow: Record<string, unknown>): { step: unknown; expression: string }[] {
   return listJobs(workflow).flatMap((job) =>
     listSteps(job).flatMap((step) => {
-      const run = step['run'];
+      const run = step.run;
       if (typeof run !== 'string') {
         return [];
       }
 
       return run
         .matchAll(/\$\{\{.*?\}\}/gs)
-        .map((match) => ({ step: step['name'], expression: match[0] }))
+        .map((match) => ({ step: step.name, expression: match[0] }))
         .toArray();
     }),
   );

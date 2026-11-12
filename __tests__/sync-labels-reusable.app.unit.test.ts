@@ -1,14 +1,11 @@
-import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join } from 'node:path';
 import { runInThisContext } from 'node:vm';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { parse } from 'yaml';
 
-const workflowPath = join(import.meta.dirname, '..', '.github', 'workflows', 'sync-labels.reusable.yaml');
+import { listSteps, readJob, readReusableWorkflow } from '../test-utils/workflows.ts';
 
 /** Path from which the engine reads the labels file without the archived mark. */
 const ENGINE_CONFIG_PATH = '${{ runner.temp }}/labels.engine.yaml';
@@ -26,14 +23,6 @@ interface DeclaredLabel {
   archived?: true;
 }
 
-/** A workflow step, limited to the keys that these tests read. */
-interface WorkflowStep {
-  name?: string;
-  run?: string;
-  uses?: string;
-  with?: Record<string, boolean | string>;
-}
-
 /** Signature of a script that `actions/github-script` runs, limited to the parameters that this one reads. */
 type GithubScript = (
   github: ReturnType<typeof createGithubMock>,
@@ -42,7 +31,7 @@ type GithubScript = (
   require: NodeJS.Require,
 ) => Promise<void>;
 
-const steps = readSteps();
+const steps = listSteps(readJob(readReusableWorkflow('sync-labels'), 'sync'));
 
 describe('sync-labels.reusable.yaml hands the engine a labels file without the archived mark', () => {
   it('points the engine at the stripped copy', () => {
@@ -309,24 +298,6 @@ function loadScript(stepName: string): GithubScript {
   // The compiled source is the step's script wrapped as `actions/github-script` wraps it; its type is not inferable.
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- `runInThisContext` returns `any`.
   return runInThisContext(`(async (github, context, core, require) => {\n${script}\n})`);
-}
-
-/** Reads the steps of the workflow's single job. */
-function readSteps(): WorkflowStep[] {
-  const workflow: unknown = parse(readFileSync(workflowPath, 'utf8'));
-  if (!isWorkflow(workflow)) {
-    throw new Error('sync-labels.reusable.yaml does not define a `sync` job with steps');
-  }
-  return workflow.jobs.sync.steps;
-}
-
-/** Narrows a parsed workflow to the shape that `readSteps` reads. */
-function isWorkflow(value: unknown): value is { jobs: { sync: { steps: WorkflowStep[] } } } {
-  if (typeof value !== 'object' || value === null || !('jobs' in value)) return false;
-  const { jobs } = value;
-  if (typeof jobs !== 'object' || jobs === null || !('sync' in jobs)) return false;
-  const { sync } = jobs;
-  return typeof sync === 'object' && sync !== null && 'steps' in sync && Array.isArray(sync.steps);
 }
 
 // endregion | Helpers
