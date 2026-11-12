@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -11,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { acquireMachineLock, LOCK_DIR_ENV_VAR, LOCK_TOKEN_ENV_VAR, NO_LOCK_ENV_VAR } from '../machine-lock.ts';
 import type { ScriptValue } from '../resolve-scripts.ts';
 import { runCli } from '../runCli.ts';
+import { initRepo } from '../test-utils/initRepo.ts';
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
 /** How long each fixture run holds the lock: long enough for a second run to start while it does. */
@@ -183,12 +183,7 @@ describe('the machine lock in a run', () => {
     });
 
     const repo = fs.realpathSync(workspace.resolve(name));
-    runGit(repo, ['init', '--initial-branch=main']);
-    runGit(repo, ['config', 'user.email', 'fixture@example.com']);
-    runGit(repo, ['config', 'user.name', 'Fixture']);
-    runGit(repo, ['config', 'commit.gpgsign', 'false']);
-    runGit(repo, ['add', '--all']);
-    runGit(repo, ['commit', '--message', 'initial']);
+    initRepo(repo);
 
     return repo;
   }
@@ -205,11 +200,6 @@ function captureStream(): { read: () => string; stream: PassThrough } {
   });
 
   return { read: () => output, stream };
-}
-
-/** Runs git in `cwd`, discarding its output. */
-function runGit(cwd: string, args: string[]): void {
-  execFileSync('git', args, { cwd, stdio: 'ignore' });
 }
 
 /** Polls until `condition` holds, failing after five seconds. */

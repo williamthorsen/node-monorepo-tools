@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
-import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 
+import { initRepo } from '../../test-utils/initRepo.ts';
 import {
   encodeTreeSnapshot,
   GIT_TREE_READER,
@@ -15,7 +16,7 @@ import {
 
 const it = baseIt.extend(
   'tree',
-  makeFixture(() => createTempTree({}, { prefix: 'nmr-snapshot-' })),
+  makeFixture(() => createTempTree({ 'src/index.ts': 'export const value = 1;\n' }, { prefix: 'nmr-snapshot-' })),
 );
 
 describe(resolveTreeSnapshot, () => {
@@ -25,7 +26,7 @@ describe(resolveTreeSnapshot, () => {
 
   it('takes the snapshot that a parent process already observed', ({ tree }) => {
     // One invocation hashes the tree once; every process below it gates on that same observation.
-    initRepo(tree);
+    initRepo(tree.dir);
     const snapshot: TreeSnapshot = { treeId: 'tree-id', headSha: readHeadSha(tree.dir) };
 
     const resolution = resolveTreeSnapshot({
@@ -40,7 +41,7 @@ describe(resolveTreeSnapshot, () => {
   it('retakes the snapshot when HEAD has moved since the parent observed it', ({ tree }) => {
     // A process outliving the run that spawned it keeps the variable. Gating a later invocation on
     // an observation of a tree that has since been committed over is the one way this cache wrongly skips.
-    initRepo(tree);
+    initRepo(tree.dir);
     const staleSnapshot: TreeSnapshot = { treeId: 'tree-id', headSha: readHeadSha(tree.dir) };
     tree.write('src/index.ts', 'export const value = 2;\n');
     commitAll(tree.dir, 'second');
@@ -56,7 +57,7 @@ describe(resolveTreeSnapshot, () => {
   });
 
   it('hashes the tree itself when it has not inherited a snapshot from a parent', ({ tree }) => {
-    initRepo(tree);
+    initRepo(tree.dir);
 
     expect(resolveTreeSnapshot({ monorepoRoot: tree.dir, env: {}, readTree: GIT_TREE_READER })).toMatchObject({
       ok: true,
@@ -85,7 +86,7 @@ describe(resolveTreeSnapshot, () => {
   it('refuses when the monorepo root is not the git toplevel', ({ tree }) => {
     // A repository that contains the monorepo in a subdirectory has content outside it that the checks may still
     // read, and a hash covering more than the monorepo would change for edits that cannot affect it.
-    initRepo(tree);
+    initRepo(tree.dir);
     const nestedDir = tree.mkdir('monorepo');
 
     expect(resolveTreeSnapshot({ monorepoRoot: nestedDir, env: {}, readTree: GIT_TREE_READER })).toStrictEqual({
@@ -111,17 +112,6 @@ function runGit(cwd: string, args: string[]): string {
 /** Returns the commit that HEAD names in the fixture. */
 function readHeadSha(repo: string): string {
   return runGit(repo, ['rev-parse', 'HEAD']).trim();
-}
-
-/** Writes a committed fixture repository containing one source file. */
-function initRepo(tree: TempTree): void {
-  runGit(tree.dir, ['init', '--initial-branch=main']);
-  runGit(tree.dir, ['config', 'user.email', 'fixture@example.com']);
-  runGit(tree.dir, ['config', 'user.name', 'Fixture']);
-  runGit(tree.dir, ['config', 'commit.gpgsign', 'false']);
-
-  tree.write('src/index.ts', 'export const value = 1;\n');
-  commitAll(tree.dir, 'initial');
 }
 
 // endregion | Helpers

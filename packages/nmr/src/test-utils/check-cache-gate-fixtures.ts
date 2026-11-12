@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -11,6 +10,7 @@ import { type CheckCacheEntry, readCheckCacheEntry } from '../check-cache/check-
 import { resolveBuildCachePath } from '../commands/build-output.ts';
 import type { ScriptValue } from '../resolve-scripts.ts';
 import { runCli } from '../runCli.ts';
+import { initRepo } from './initRepo.ts';
 import { readAmbientEnv } from './readAmbientEnv.ts';
 import { createRunCliHarness, type RunCliHarness } from './run-cli-harness.ts';
 
@@ -105,12 +105,7 @@ export function scaffoldRepo(workspace: TempTree, log: string): void {
   scaffoldTree(workspace, log);
 
   const repo = workspace.resolve('repo');
-  runGit(repo, ['init', '--initial-branch=main']);
-  runGit(repo, ['config', 'user.email', 'fixture@example.com']);
-  runGit(repo, ['config', 'user.name', 'Fixture']);
-  runGit(repo, ['config', 'commit.gpgsign', 'false']);
-  runGit(repo, ['add', '--all']);
-  runGit(repo, ['commit', '--message', 'initial']);
+  initRepo(repo);
 }
 
 /** Makes the harness's tree reader report `repo` as a git toplevel whose working tree is `treeId`. */
@@ -189,11 +184,6 @@ function readLog(workspace: TempTree): string[] {
     .read(LOG_ENTRY)
     .split('\n')
     .filter((line) => line.length > 0);
-}
-
-/** Runs git in `cwd`, discarding its output. */
-function runGit(cwd: string, args: string[]): void {
-  execFileSync('git', args, { cwd, stdio: 'ignore' });
 }
 
 /**
