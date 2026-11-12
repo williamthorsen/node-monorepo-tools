@@ -92,10 +92,16 @@ nodejs 24.22.1 → 24.22.3 is available. Run with --write to update .tool-versio
 `--write` rewrites that version and leaves the rest of the file unchanged. A newer major line is never proposed, whatever range mode the invocation passes: Changing majors is left to an edit of `.tool-versions`.
 
 - A release is proposed once it is at least 24 hours old. The index dates a release by UTC day alone, so a release dated D is proposed from the start of D+2, UTC.
+- A release is proposed only once [node-build](https://github.com/nodenv/node-build/tree/main/share/node-build) defines it on its `main` branch, which asdf-nodejs installs from. node-build adds definitions by hand, some time after the index lists a release. When a newer release lacks a definition, the check proposes the newest release that has one and reports the newer one as held back:
+
+  ```text
+  nodejs 24.22.3 is held back: node-build does not define it yet.
+  ```
+
 - Only a plain `X.Y.Z` pin is checked, and only the first version on the `nodejs` line. Any other pin, such as `lts`, is skipped with a note.
 - A repo without `.tool-versions`, or without a `nodejs` entry in it, is skipped silently.
 - `--no-node-version`, which turns off taze's own checks of `.node-version` and `.nvmrc`, turns off this check too.
-- An unreachable index, or a file that cannot be read or written, produces a warning and does not fail the upgrade.
+- An unreachable index, node-build definitions that cannot be read, or a file that cannot be read or written produces a warning and does not fail the upgrade. The check writes nothing when it cannot read the definitions.
 - `--silent` suppresses the report but not the warnings. The report goes to stderr, so `--json` output is unaffected.
 
 ## Request timeout
