@@ -69,6 +69,22 @@ describe(loadUserConfig, () => {
     expect(loaded?.config).toStrictEqual({ delegate: { hosts: ['imac2'] } });
   });
 
+  it.for([
+    { scenario: 'a number of days', value: '3.5', expected: 3.5 },
+    { scenario: 'false', value: 'false', expected: false },
+  ])('loads removeCheckoutsAfterDays given $scenario, with or without when', async ({ expected, value }, { tree }) => {
+    writeUserConfig(tree, `export default { delegate: { hosts: ['imac2'], removeCheckoutsAfterDays: ${value} } };`);
+    const withoutWhen = await loadUserConfig({ XDG_CONFIG_HOME: tree.dir });
+    writeUserConfig(
+      tree,
+      `export default { delegate: { hosts: ['imac2'], removeCheckoutsAfterDays: ${value}, when: 'agent' } };`,
+    );
+    const withWhen = await loadUserConfig({ XDG_CONFIG_HOME: tree.dir });
+
+    expect(withoutWhen?.config.delegate?.removeCheckoutsAfterDays).toBe(expected);
+    expect(withWhen?.config.delegate?.removeCheckoutsAfterDays).toBe(expected);
+  });
+
   it('trims host names and drops repeats', async ({ tree }) => {
     writeUserConfig(tree, `export default { delegate: { hosts: [' imac2 ', 'imac3', 'imac2'], when: 'always' } };`);
 
@@ -111,7 +127,9 @@ describe(loadUserConfig, () => {
     {
       scenario: 'an unknown delegate key',
       source: `export default { delegate: { hosts: ['imac2'], mode: 'agent' } };`,
-      message: 'unrecognized key `delegate.mode`. Recognized: `delegate.hosts`, `delegate.when`.',
+      message:
+        'unrecognized key `delegate.mode`. Recognized: `delegate.hosts`, `delegate.removeCheckoutsAfterDays`, ' +
+        '`delegate.when`.',
     },
     {
       scenario: 'when without hosts',
@@ -143,6 +161,12 @@ describe(loadUserConfig, () => {
       source: `export default { delegate: { hosts: ['imac2'], when: 'ci' } };`,
       message: '`delegate.when` is `ci`, which is not one of: agent, always',
     },
+    ...['0', '-1', 'true', "'7d'", 'Infinity', 'Number.NaN'].map((value) => ({
+      scenario: `a removeCheckoutsAfterDays of ${value}`,
+      source: `export default { delegate: { hosts: ['imac2'], removeCheckoutsAfterDays: ${value} } };`,
+      message:
+        '`delegate.removeCheckoutsAfterDays` must be a positive number of days, or `false` to keep every checkout',
+    })),
   ])('throws naming the file and the key given $scenario', async ({ message, source }, { tree }) => {
     writeUserConfig(tree, source);
     const configPath = path.join(tree.dir, 'nmr', 'config.ts');

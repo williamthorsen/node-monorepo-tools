@@ -12,18 +12,19 @@ A machine that runs several worktrees' checks at once runs out of memory, and th
 
 ## The user config
 
-`~/.config/nmr/config.ts`, or `$XDG_CONFIG_HOME/nmr/config.ts` when `XDG_CONFIG_HOME` is set, declares this machine's hosts and when to delegate to them without being asked. It honors one key, `delegate`:
+`~/.config/nmr/config.ts`, or `$XDG_CONFIG_HOME/nmr/config.ts` when `XDG_CONFIG_HOME` is set, declares this machine's hosts, when to delegate to them without being asked, and how long a host keeps an unused checkout. It honors one key, `delegate`:
 
 ```ts
 export default {
-  delegate: { hosts: ['imac2', 'imac3'], when: 'agent' },
+  delegate: { hosts: ['imac2', 'imac3'], removeCheckoutsAfterDays: 14, when: 'agent' },
 };
 ```
 
 - **`hosts`** lists the hosts in order of preference. It is required whenever `delegate` is present.
+- **`removeCheckoutsAfterDays`** sets how long a checkout on a host may go unused before a delegation from this machine removes it, in days; `false` keeps every checkout. It defaults to 7. See [unused checkouts](#unused-checkouts).
 - **`when`** turns on delegation by default: `'agent'` for every run whose environment contains an agent-harness marker, the variables that also select [quiet output](reporting.md#configuring), extended by the repo's `output.extraAgentEnvVars`; `'always'` for every run. Without `when`, nmr delegates only on request, and `hosts` serves `--delegate`.
 
-nmr reads the file only when a decision reaches it, and an unrecognized key, a malformed `hosts`, or an unknown `when` fails that run with an error naming the file and the key. The file cannot import anything from a repo, so it is a plain object rather than a `defineConfig` call. When a directory above it contains a `package.json` without `"type"`, such as a stray `~/package.json`, Node warns on every load that the file's module type is not specified; a `~/.config/nmr/package.json` containing `{ "type": "module" }` silences it.
+nmr reads the file when a run reaches rule 7 of [choosing where a command runs](#choosing-where-a-command-runs), and for every delegation, however it was requested, to learn `removeCheckoutsAfterDays`; a run that an earlier rule keeps here does not read it. An unrecognized key, a malformed `hosts`, or an unknown `when` fails that run with an error naming the file and the key. The file cannot import anything from a repo, so it is a plain object rather than a `defineConfig` call. When a directory above it contains a `package.json` without `"type"`, such as a stray `~/package.json`, Node warns on every load that the file's module type is not specified; a `~/.config/nmr/package.json` containing `{ "type": "module" }` silences it.
 
 A pass that a host earns satisfies a later delegation to that host, but not a run here: Under `when`, a run that `--no-delegate` keeps here re-runs a check that the host already passed. See [consulting the cache first](#consulting-the-cache-first).
 
@@ -100,10 +101,20 @@ $ nmr --delegate-to imac2 ci
 
 nmr records the working tree as it is on disk as a commit: tracked changes, staged or not, and untracked files that git does not ignore. This is the tree that a local run checks. The commit is built in a temporary index, so the repository's index, refs, and stash do not change.
 
-nmr pushes the commit to a checkout on the host under `~/.cache/nmr/delegate/`, without running the repository's `pre-push` hook, then runs `pnpm install --frozen-lockfile` and the command from the directory that corresponds to the local one, with nmr's own flags as they were given. The host keeps one checkout for each repository on each machine that delegates to it, so concurrent delegations from different worktrees do not share one, and `node_modules` and build output persist between runs. When the workspace packages' `bin` entries differ from those of the checkout's last successful install, nmr first removes pnpm's workspace state, so that the install links the new bins, which an unchanged lockfile would otherwise let pnpm skip; that install reruns the workspace's `prepare` scripts. nmr does not remove these checkouts.
+nmr pushes the commit to a checkout on the host under `~/.cache/nmr/delegate/`, without running the repository's `pre-push` hook, then runs `pnpm install --frozen-lockfile` and the command from the directory that corresponds to the local one, with nmr's own flags as they were given. The host keeps one checkout for each worktree on each machine that delegates to it, so concurrent delegations from different worktrees do not share one, and `node_modules` and build output persist between runs. When the workspace packages' `bin` entries differ from those of the checkout's last successful install, nmr first removes pnpm's workspace state, so that the install links the new bins, which an unchanged lockfile would otherwise let pnpm skip; that install reruns the workspace's `prepare` scripts.
 
 - **Ignored files stay here.** A command that needs a gitignored file, such as a local `.env`, does not find it on the host.
 - **A repository with submodules cannot be delegated**, nor can a tree containing a nested repository, because the snapshot does not include their content. A delegation flag refuses such a tree; under `NMR_DELEGATE` or the user config, the command runs here, and nmr prints one line saying why.
+
+### Unused checkouts
+
+A worktree adds a checkout on each host to which it delegates, with its own `node_modules`, so the checkouts accumulate as worktrees come and go. Before it pushes, each delegation removes the host's other checkouts that have not been used for longer than the delegating machine's `removeCheckoutsAfterDays`, whichever machine created them:
+
+- **A checkout's last use** is the last delegation to it. A checkout made by an nmr that does not record its use is dated by its last check out.
+- **A checkout in use is kept**: one whose lock, described below, has a live holder, whatever its age. The delegation's own checkout is never removed.
+- **The delegation does not wait for the deletion.** It moves each checkout aside at once and deletes it in the background, so a delegation that starts later creates a fresh checkout and installs it from scratch.
+- **The removal runs before the push**, so a host whose filesystem the checkouts have filled recovers without anyone deleting files by hand: The delegation that removes the checkouts may still fail, and the next one finds the room. Removal never fails a delegation.
+- **Each machine applies its own age.** A machine whose user config says `false` removes nothing, while another machine delegating to the same host still removes the checkouts that are older than its own age.
 
 Delegations from the same worktree share its checkout on the host, so they run one at a time. A delegation that starts while another holds the checkout waits for it, saying so on stderr, then runs:
 
@@ -128,7 +139,13 @@ A failure of the delegation itself, rather than of the command, exits 255, the s
 ❌ my-repo: ci: failed on 📡 imac2 in 10.0s (exit 255) — could not prepare imac2
 ```
 
-The steps are `prepare`, which reaches the host and creates the checkout, `push`, `check out`, and `install`. A connection lost while the command runs is reported as `lost connection to <host>`.
+The steps are `prepare`, which reaches the host, removes its [unused checkouts](#unused-checkouts), and creates the checkout, `push`, `check out`, and `install`. A connection lost while the command runs is reported as `lost connection to <host>`.
+
+A step that fails with `No space left on device` reports which resource the host's filesystem has run out of, because a write fails the same way for both:
+
+```console
+❌ my-repo: ci: failed on 📡 imac2 in 3.1s (exit 255) — could not push to imac2: the host's filesystem has run out of inodes
+```
 
 ### When no host answers
 

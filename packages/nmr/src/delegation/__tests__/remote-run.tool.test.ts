@@ -14,9 +14,12 @@ import { STALE_AFTER_MS } from '../../machine-lock.ts';
 import { initRepo } from '../../test-utils/initRepo.ts';
 import { createSnapshot } from '../createSnapshot.ts';
 import { CHECKOUT_LOCK_PATH } from '../remote-host-session.ts';
-import { deriveCheckoutPath, runRemotely, wrapRemoteScript } from '../remote-run.ts';
+import { CHECKOUTS_DIR, deriveCheckoutPath, runRemotely, wrapRemoteScript } from '../remote-run.ts';
 import { composeSessionScript } from '../remote-session.ts';
+import { CHECKOUT_STAMP_PATH } from '../removeStaleCheckouts.ts';
 import { createFakeRemote, type FakeRemote } from '../test-utils/createFakeRemote.ts';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 describe('a delegated run on a fake host', () => {
   let workspace: TempTree;
@@ -111,6 +114,19 @@ describe('a delegated run on a fake host', () => {
       phase: 'install',
       message: expect.stringContaining('PATH'),
     });
+  });
+
+  it("checks the host's filesystem after a step that reports it full, and only then", async () => {
+    await delegate(['test'], { FAKE_INSTALL_STATUS: '1' });
+    const callsWithoutReport = remote.readSshLog().length;
+    const full = await delegate(['test'], {
+      FAKE_INSTALL_OUTPUT: 'ERR_PNPM_ENOSPC: No space left on device',
+      FAKE_INSTALL_STATUS: '1',
+    });
+
+    // The fake host's filesystem is not full, so the check finds nothing to add to the message.
+    expect(full.outcome).toMatchObject({ ok: false, phase: 'install', message: 'could not install on box' });
+    expect(remote.readSshLog().length - callsWithoutReport).toBe(callsWithoutReport + 1);
   });
 
   it('reports in full a failed phase whose output exceeds a pipe buffer', async () => {
@@ -340,6 +356,39 @@ describe('a delegated run on a fake host', () => {
     });
   });
 
+  describe('unused checkouts on the host', () => {
+    it('are removed before the push once they are older than the age, and its own checkout is stamped', async () => {
+      const aged = addSiblingCheckout('aged', 8);
+      const fresh = addSiblingCheckout('fresh', 1);
+
+      const result = await delegate(['test'], {}, repo, 'box', 7 * DAY_MS);
+
+      expect(result.outcome).toMatchObject({ ok: true, exitCode: 0 });
+      expect(fs.existsSync(aged)).toBe(false);
+      expect(fs.existsSync(fresh)).toBe(true);
+      expect(Date.now() - fs.statSync(path.join(checkoutDir(), CHECKOUT_STAMP_PATH)).mtimeMs).toBeLessThan(60_000);
+    });
+
+    it('are kept when removal is disabled, and its own checkout is still stamped', async () => {
+      const aged = addSiblingCheckout('aged', 365);
+
+      const result = await delegate(['test'], {}, repo, 'box', null);
+
+      expect(result.outcome).toMatchObject({ ok: true, exitCode: 0 });
+      expect(fs.existsSync(aged)).toBe(true);
+      expect(fs.existsSync(path.join(checkoutDir(), CHECKOUT_STAMP_PATH))).toBe(true);
+    });
+
+    /** Creates another machine's checkout on the fake host, last used `ageDays` ago, and returns its key directory. */
+    function addSiblingCheckout(key: string, ageDays: number): string {
+      const stamp = workspace.write(`fake-home/${CHECKOUTS_DIR}/${key}/repo/${CHECKOUT_STAMP_PATH}`, '');
+      const time = new Date(Date.now() - ageDays * DAY_MS);
+      fs.utimesSync(stamp, time, time);
+
+      return path.join(remote.home, CHECKOUTS_DIR, key);
+    }
+  });
+
   /** Returns the host's checkout of the repo, which the fake home contains. */
   function checkoutDir(): string {
     return path.join(remote.home, deriveCheckoutPath(os.hostname(), repo));
@@ -400,7 +449,13 @@ describe('a delegated run on a fake host', () => {
   }
 
   /** Snapshots the repo and delegates `nmrArgs` to `host`, capturing both streams. */
-  async function delegate(nmrArgs: string[], extraEnv: Record<string, string> = {}, cwd = repo, host = 'box') {
+  async function delegate(
+    nmrArgs: string[],
+    extraEnv: Record<string, string> = {},
+    cwd = repo,
+    host = 'box',
+    removeCheckoutsAfterMs: number | null = null,
+  ) {
     const env = remote.buildEnv(extraEnv);
     const snapshot = createSnapshot(cwd, env);
     if (!snapshot.ok) throw new Error(snapshot.reason);
@@ -415,6 +470,7 @@ describe('a delegated run on a fake host', () => {
       monorepoRoot: repo,
       nmrArgs,
       remoteEnv: { NMR_OUTPUT_STYLE: 'plain' },
+      removeCheckoutsAfterMs,
       snapshot,
       stderr: stderr.stream,
       stdout: stdout.stream,
