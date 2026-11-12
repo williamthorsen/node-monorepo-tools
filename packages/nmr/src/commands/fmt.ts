@@ -86,6 +86,7 @@ export async function runFmt(
           shouldBypassCache: flags.noCache || noCache.isOn,
         },
         cwd,
+        env,
       );
     },
   });
@@ -101,7 +102,7 @@ interface FormatRequest {
 }
 
 /** Formats or checks the files that git reports for `cwd`, as `runFmt` describes, and returns the exit code. */
-async function formatFiles(request: FormatRequest, cwd: string): Promise<number> {
+async function formatFiles(request: FormatRequest, cwd: string, env: NodeJS.ProcessEnv): Promise<number> {
   const resolvedTargets = resolveFormatTargets(cwd, request.pathspecs);
   if (!resolvedTargets.ok) {
     reportError(NMR_FMT_BIN, resolvedTargets.error);
@@ -146,7 +147,7 @@ async function formatFiles(request: FormatRequest, cwd: string): Promise<number>
 
   const cache = prepareFmtCache({
     cwd,
-    env: process.env,
+    env,
     repositoryRoot,
     shouldBypassCache: request.shouldBypassCache,
   });
