@@ -301,6 +301,9 @@ importers:
 
   packages/build-info:
     devDependencies:
+      '@williamthorsen/nmr':
+        specifier: workspace:*
+        version: link:../nmr
       '@williamthorsen/toolbelt.testing':
         specifier: 'catalog:'
         version: 0.8.1
@@ -326,6 +329,9 @@ importers:
       '@types/react-dom':
         specifier: 19.3.0
         version: 19.3.0(@types/react@19.3.0)
+      '@williamthorsen/nmr':
+        specifier: workspace:*
+        version: link:../nmr
       react:
         specifier: 19.3.1
         version: 19.3.1
@@ -338,6 +344,9 @@ importers:
 
   packages/change-grammar:
     devDependencies:
+      '@williamthorsen/nmr':
+        specifier: workspace:*
+        version: link:../nmr
       ajv:
         specifier: 8.20.0
         version: 8.20.0
@@ -467,6 +476,9 @@ importers:
       '@types/semver':
         specifier: 7.8.0
         version: 7.8.0
+      '@williamthorsen/nmr':
+        specifier: workspace:*
+        version: link:../nmr
       '@williamthorsen/toolbelt.filesystem':
         specifier: 'catalog:'
         version: 0.10.1
@@ -507,6 +519,9 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
     devDependencies:
+      '@williamthorsen/nmr':
+        specifier: workspace:*
+        version: link:../nmr
       '@williamthorsen/toolbelt.filesystem':
         specifier: 'catalog:'
         version: 0.10.1

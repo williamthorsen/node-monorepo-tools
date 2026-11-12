@@ -38,6 +38,7 @@
     "prepublishOnly": "nmr build"
   },
   "devDependencies": {
+    "@williamthorsen/nmr": "workspace:*",
     "ajv": "8.20.0",
     "eslint": "10.14.0",
     "vitest": "catalog:"
