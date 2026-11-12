@@ -1,39 +1,38 @@
 import { UserError } from '@williamthorsen/nmr-core';
 
-import { findClosestName } from '../helpers/findClosestName.ts';
-import { isHookName } from '../helpers/isHookName.ts';
-import { buildRootRegistry, buildWorkspaceRegistry, readPackageJsonScripts } from '../resolver.ts';
-import type { NmrConfig } from '../types.ts';
-import { getWorkspacePackageDirs, isMonorepoRoot } from '../workspace.ts';
+import { findClosestName } from './helpers/findClosestName.ts';
+import { isHookName } from './helpers/isHookName.ts';
+import { buildRootRegistry, buildWorkspaceRegistry, readPackageJsonScripts } from './resolver.ts';
+import type { NmrConfig } from './types.ts';
+import { getWorkspacePackageDirs, isMonorepoRoot } from './workspace.ts';
 
 /**
- * Rejects a `checkCache` name that does not resolve to any command. Both fields are read by name alone, so a
- * misspelt entry is inert: The command that it meant to name goes on running, indistinguishable from one that
- * cannot be cached at all.
+ * Rejects a name in a config list of command names (`checkCache.excludeCommands`, `checkCache.extraCommands`,
+ * `fanOut.extraSortedCommands`) that does not resolve to any command. Each list is read by name alone, so a
+ * misspelt entry is inert: The command that it meant to name goes on running as though the list did not mention
+ * it.
  *
- * Because the test is resolvability rather than membership of the cacheable set, an `excludeCommands` entry
- * written against a name that a later release moves out of the defaults remains valid.
+ * Because the test is resolvability rather than membership of the set that a list adjusts, an entry written
+ * against a name that a later release moves into or out of the defaults remains valid.
  *
  * Reads nothing while every name resolves in the merged registries, and reads a package's own `scripts` only
  * once a name is missing from them: Those are a resolution tier of their own; a name declared only there is
  * valid.
  *
- * Does nothing outside a monorepo root, where `checkCache` is a key that this tier does not honor. `assertTierKeys`
+ * Does nothing outside a monorepo root, where these keys are ones that the tier does not honor. `assertTierKeys`
  * reports that, and of the two messages it is the one that names the real mistake.
  */
-export function assertResolvableCheckCacheCommands(config: NmrConfig, configPath: string, baseDir: string): void {
-  const { checkCache } = config;
-  if (checkCache === undefined || !isMonorepoRoot(baseDir)) {
+export function assertResolvableCommandLists(config: NmrConfig, configPath: string, baseDir: string): void {
+  const entries = listCommandEntries(config);
+  if (entries.length === 0 || !isMonorepoRoot(baseDir)) {
     return;
   }
 
-  const fields = ['excludeCommands', 'extraCommands'] as const;
-  const entries = fields.flatMap((field) => (checkCache[field] ?? []).map((command) => ({ command, field })));
-
-  const hook = entries.find(({ command }) => isHookName(command));
+  // A hook is never gated on its own, so a `checkCache` entry naming one cannot take effect.
+  const hook = entries.find(({ command, fieldPath }) => fieldPath.startsWith('checkCache.') && isHookName(command));
   if (hook !== undefined) {
     throw new UserError(
-      `Invalid nmr config at ${configPath}: \`checkCache.${hook.field}\` names the hook \`${hook.command}\`, ` +
+      `Invalid nmr config at ${configPath}: \`${hook.fieldPath}\` names the hook \`${hook.command}\`, ` +
         'which is never gated on its own: It runs as part of the chain of the command that it wraps.',
     );
   }
@@ -55,12 +54,26 @@ export function assertResolvableCheckCacheCommands(config: NmrConfig, configPath
 
   const closestName = findClosestName(unresolvableEntry.command, [...registeredNames, ...declaredNames]);
   throw new UserError(
-    `Invalid nmr config at ${configPath}: \`checkCache.${unresolvableEntry.field}\` does not name any command: ` +
+    `Invalid nmr config at ${configPath}: \`${unresolvableEntry.fieldPath}\` does not name any command: ` +
       `\`${unresolvableEntry.command}\`.${closestName === undefined ? '' : ` Did you mean \`${closestName}\`?`}`,
   );
 }
 
 // region | Helpers
+
+/** Lists every command name that the config's command-name lists declare, each with the path of its list. */
+function listCommandEntries(config: NmrConfig): Array<{ command: string; fieldPath: string }> {
+  const checkCacheFields = ['excludeCommands', 'extraCommands'] as const;
+  return [
+    ...checkCacheFields.flatMap((field) =>
+      (config.checkCache?.[field] ?? []).map((command) => ({ command, fieldPath: `checkCache.${field}` })),
+    ),
+    ...(config.fanOut?.extraSortedCommands ?? []).map((command) => ({
+      command,
+      fieldPath: 'fanOut.extraSortedCommands',
+    })),
+  ];
+}
 
 /**
  * Collects the command names declared by the workspace's `package.json` files, the resolution tier that the

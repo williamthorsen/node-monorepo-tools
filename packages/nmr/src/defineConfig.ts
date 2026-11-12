@@ -9,6 +9,7 @@ export type {
   BuildConfig,
   CheckCacheConfig,
   CommandVerbosity,
+  FanOutConfig,
   NmrConfig,
   OutputConfig,
   ScriptValue,

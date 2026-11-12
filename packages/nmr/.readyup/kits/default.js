@@ -8672,18 +8672,16 @@ function buildRootRegistry(config, monorepoRoot) {
   };
 }
 
-// src/check-cache/assertResolvableCheckCacheCommands.ts
-function assertResolvableCheckCacheCommands(config, configPath, baseDir) {
-  const { checkCache } = config;
-  if (checkCache === void 0 || !isMonorepoRoot(baseDir)) {
+// src/assertResolvableCommandLists.ts
+function assertResolvableCommandLists(config, configPath, baseDir) {
+  const entries = listCommandEntries(config);
+  if (entries.length === 0 || !isMonorepoRoot(baseDir)) {
     return;
   }
-  const fields = ["excludeCommands", "extraCommands"];
-  const entries = fields.flatMap((field) => (checkCache[field] ?? []).map((command) => ({ command, field })));
-  const hook = entries.find(({ command }) => isHookName(command));
+  const hook = entries.find(({ command, fieldPath }) => fieldPath.startsWith("checkCache.") && isHookName(command));
   if (hook !== void 0) {
     throw new UserError(
-      `Invalid nmr config at ${configPath}: \`checkCache.${hook.field}\` names the hook \`${hook.command}\`, which is never gated on its own: It runs as part of the chain of the command that it wraps.`
+      `Invalid nmr config at ${configPath}: \`${hook.fieldPath}\` names the hook \`${hook.command}\`, which is never gated on its own: It runs as part of the chain of the command that it wraps.`
     );
   }
   const registeredNames = /* @__PURE__ */ new Set([
@@ -8701,8 +8699,20 @@ function assertResolvableCheckCacheCommands(config, configPath, baseDir) {
   }
   const closestName = findClosestName(unresolvableEntry.command, [...registeredNames, ...declaredNames]);
   throw new UserError(
-    `Invalid nmr config at ${configPath}: \`checkCache.${unresolvableEntry.field}\` does not name any command: \`${unresolvableEntry.command}\`.${closestName === void 0 ? "" : ` Did you mean \`${closestName}\`?`}`
+    `Invalid nmr config at ${configPath}: \`${unresolvableEntry.fieldPath}\` does not name any command: \`${unresolvableEntry.command}\`.${closestName === void 0 ? "" : ` Did you mean \`${closestName}\`?`}`
   );
+}
+function listCommandEntries(config) {
+  const checkCacheFields = ["excludeCommands", "extraCommands"];
+  return [
+    ...checkCacheFields.flatMap(
+      (field) => (config.checkCache?.[field] ?? []).map((command) => ({ command, fieldPath: `checkCache.${field}` }))
+    ),
+    ...(config.fanOut?.extraSortedCommands ?? []).map((command) => ({
+      command,
+      fieldPath: "fanOut.extraSortedCommands"
+    }))
+  ];
 }
 function readDeclaredScriptNames(monorepoRoot) {
   let packageDirs;
@@ -8746,7 +8756,7 @@ function isCommandVerbosity(value) {
 var CONFIG_TIERS = {
   root: {
     label: "a monorepo-root config",
-    honoredKeys: ["checkCache", "delegate", "output", "rootScripts", "selfHostedRunner", "workspaceScripts"],
+    honoredKeys: ["checkCache", "delegate", "fanOut", "output", "rootScripts", "selfHostedRunner", "workspaceScripts"],
     elsewhere: "the package's own config"
   },
   workspace: {
@@ -8758,6 +8768,7 @@ var CONFIG_TIERS = {
 var RECOGNIZED_KEYS = [...CONFIG_TIERS.root.honoredKeys, ...CONFIG_TIERS.workspace.honoredKeys];
 var RECOGNIZED_BUILD_KEYS = ["extraIgnorePatterns"];
 var RECOGNIZED_CHECK_CACHE_KEYS = ["enabled", "excludeCommands", "extraCommands"];
+var RECOGNIZED_FAN_OUT_KEYS = ["extraSortedCommands"];
 var RECOGNIZED_OUTPUT_KEYS = ["commandVerbosity", "extraAgentEnvVars"];
 var RECOGNIZED_SELF_HOSTED_RUNNER_KEYS = ["exempt"];
 var RECOGNIZED_STEP_KEYS = ["run", "shouldDeclineArguments", "shouldRunInBackground"];
@@ -8782,6 +8793,8 @@ function validateConfig(value, configPath, baseDir) {
   const checkCache = validateCheckCacheField(value, configPath);
   if (checkCache) config.checkCache = checkCache;
   if (value["delegate"] !== void 0) config.delegate = validateDelegateField(value["delegate"], configPath);
+  const fanOut = validateFanOutField(value, configPath);
+  if (fanOut) config.fanOut = fanOut;
   const output = validateOutputField(value, configPath);
   if (output) config.output = output;
   const workspaceScripts2 = validateScriptField(value, "workspaceScripts", configPath);
@@ -8790,7 +8803,7 @@ function validateConfig(value, configPath, baseDir) {
   if (rootScripts) config.rootScripts = rootScripts;
   const selfHostedRunner = validateSelfHostedRunnerField(value, configPath);
   if (selfHostedRunner) config.selfHostedRunner = selfHostedRunner;
-  assertResolvableCheckCacheCommands(config, configPath, baseDir);
+  assertResolvableCommandLists(config, configPath, baseDir);
   return config;
 }
 function assertNoRetiredKeys(value, retiredKeys, configPath, prefix) {
@@ -8892,6 +8905,24 @@ function validateDelegateField(delegate, configPath) {
   throw new UserError(
     `Invalid nmr config at ${configPath}: \`delegate\` accepts only \`false\`, which keeps the repo's checks on the machine that has the tree. Hosts and \`when\` belong in the user config, \`~/.config/nmr/config.ts\`.`
   );
+}
+function validateFanOutField(value, configPath) {
+  const fanOut = value["fanOut"];
+  if (fanOut === void 0) {
+    return void 0;
+  }
+  if (!isRecord2(fanOut)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`fanOut\` must be an object`);
+  }
+  assertRecognizedKeys(fanOut, RECOGNIZED_FAN_OUT_KEYS, configPath, "fanOut.");
+  const extraSortedCommands = fanOut["extraSortedCommands"];
+  if (extraSortedCommands === void 0) {
+    return {};
+  }
+  if (!isStringArray(extraSortedCommands)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`fanOut.extraSortedCommands\` must be a string[]`);
+  }
+  return { extraSortedCommands };
 }
 function validateOutputField(value, configPath) {
   const output = value["output"];

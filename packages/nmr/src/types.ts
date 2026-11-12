@@ -35,6 +35,18 @@ export interface CheckCacheConfig {
   extraCommands?: string[];
 }
 
+/** Fan-out settings honored at the monorepo root. */
+export interface FanOutConfig {
+  /**
+   * Command names added to the set whose `-R` and `-F` fan-outs run packages in topological order, which holds
+   * `build` by default; every other fan-out starts each package without waiting for its workspace dependencies.
+   * Extends rather than replaces, so that declaring one command cannot drop `build`. List a command whose run in a
+   * package reads what the same command produces in that package's workspace dependencies. Every name has to
+   * resolve to a command, because a misspelt entry would otherwise be inert.
+   */
+  extraSortedCommands?: string[];
+}
+
 /** Self-hosted runner settings honored at the monorepo root, read by nmr's readyup kit. */
 export interface SelfHostedRunnerConfig {
   /**
@@ -68,6 +80,7 @@ export interface NmrConfig {
    * config says. A delegation flag still sends a run elsewhere.
    */
   delegate?: false;
+  fanOut?: FanOutConfig;
   output?: OutputConfig;
   workspaceScripts?: Record<string, ScriptValue>;
   rootScripts?: Record<string, ScriptValue>;

@@ -1,10 +1,11 @@
 import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
-import { assertResolvableCheckCacheCommands } from './check-cache/assertResolvableCheckCacheCommands.ts';
+import { assertResolvableCommandLists } from './assertResolvableCommandLists.ts';
 import { findUnexpressibleToken } from './steps.ts';
 import type {
   BuildConfig,
   CheckCacheConfig,
+  FanOutConfig,
   NmrConfig,
   OutputConfig,
   ScriptValue,
@@ -20,7 +21,7 @@ import { formatVerbosityRejection, isCommandVerbosity } from './verbosity.ts';
 export const CONFIG_TIERS: Record<'root' | 'workspace', ConfigTier> = {
   root: {
     label: 'a monorepo-root config',
-    honoredKeys: ['checkCache', 'delegate', 'output', 'rootScripts', 'selfHostedRunner', 'workspaceScripts'],
+    honoredKeys: ['checkCache', 'delegate', 'fanOut', 'output', 'rootScripts', 'selfHostedRunner', 'workspaceScripts'],
     elsewhere: "the package's own config",
   },
   workspace: {
@@ -41,6 +42,7 @@ export interface ConfigTier {
 const RECOGNIZED_KEYS = [...CONFIG_TIERS.root.honoredKeys, ...CONFIG_TIERS.workspace.honoredKeys];
 const RECOGNIZED_BUILD_KEYS = ['extraIgnorePatterns'];
 const RECOGNIZED_CHECK_CACHE_KEYS = ['enabled', 'excludeCommands', 'extraCommands'];
+const RECOGNIZED_FAN_OUT_KEYS = ['extraSortedCommands'];
 const RECOGNIZED_OUTPUT_KEYS = ['commandVerbosity', 'extraAgentEnvVars'];
 const RECOGNIZED_SELF_HOSTED_RUNNER_KEYS = ['exempt'];
 const RECOGNIZED_STEP_KEYS = ['run', 'shouldDeclineArguments', 'shouldRunInBackground'];
@@ -81,6 +83,9 @@ export function validateConfig(value: unknown, configPath: string, baseDir: stri
 
   if (value['delegate'] !== undefined) config.delegate = validateDelegateField(value['delegate'], configPath);
 
+  const fanOut = validateFanOutField(value, configPath);
+  if (fanOut) config.fanOut = fanOut;
+
   const output = validateOutputField(value, configPath);
   if (output) config.output = output;
 
@@ -94,7 +99,7 @@ export function validateConfig(value: unknown, configPath: string, baseDir: stri
   if (selfHostedRunner) config.selfHostedRunner = selfHostedRunner;
 
   // Run last, because it resolves the names against the registries to which the script fields above contribute.
-  assertResolvableCheckCacheCommands(config, configPath, baseDir);
+  assertResolvableCommandLists(config, configPath, baseDir);
 
   return config;
 }
@@ -252,6 +257,28 @@ function validateDelegateField(delegate: unknown, configPath: string): false {
     `Invalid nmr config at ${configPath}: \`delegate\` accepts only \`false\`, which keeps the repo's checks on the ` +
       'machine that has the tree. Hosts and `when` belong in the user config, `~/.config/nmr/config.ts`.',
   );
+}
+
+/** Validates and extracts the `fanOut` field from the raw config object. */
+function validateFanOutField(value: Record<string, unknown>, configPath: string): FanOutConfig | undefined {
+  const fanOut: unknown = value['fanOut'];
+  if (fanOut === undefined) {
+    return undefined;
+  }
+  if (!isRecord(fanOut)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`fanOut\` must be an object`);
+  }
+  assertRecognizedKeys(fanOut, RECOGNIZED_FAN_OUT_KEYS, configPath, 'fanOut.');
+
+  const extraSortedCommands: unknown = fanOut['extraSortedCommands'];
+  if (extraSortedCommands === undefined) {
+    return {};
+  }
+  if (!isStringArray(extraSortedCommands)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`fanOut.extraSortedCommands\` must be a string[]`);
+  }
+
+  return { extraSortedCommands };
 }
 
 /** Validates and extracts the `output` field from the raw config object. */

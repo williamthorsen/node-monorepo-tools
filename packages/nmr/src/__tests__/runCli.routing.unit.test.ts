@@ -98,7 +98,7 @@ describe(runCli, () => {
 
       expect(exitCode).toBe(0);
       expect(nmr.readStepsFromCall()).toStrictEqual([
-        { kind: 'structural', argv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'only-here'] },
+        { kind: 'structural', argv: ['pnpm', '--filter', 'my-pkg', '--no-sort', 'exec', 'nmr', 'only-here'] },
       ]);
     });
 
