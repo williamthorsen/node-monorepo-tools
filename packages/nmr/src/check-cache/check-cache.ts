@@ -4,6 +4,7 @@ import type { Writable } from 'node:stream';
 
 import { hashWorkingTree, type OutputStyle, readHeadSha, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
+import { isEnvSwitchOn } from '../env-switch.ts';
 import { isHookName } from '../helpers/hook-name.ts';
 import type { CheckCacheConfig } from '../types.ts';
 
@@ -166,7 +167,7 @@ export function resolveTreeSnapshot(options: {
  * output of the command that did run.
  */
 export function writeDebugNote(message: string, env: NodeJS.ProcessEnv, stderr: Writable): void {
-  if (env[DEBUG_ENV_VAR] === '1') {
+  if (isEnvSwitchOn(env, DEBUG_ENV_VAR)) {
     stderr.write(`nmr check-cache: ${message}\n`);
   }
 }

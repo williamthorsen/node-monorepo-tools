@@ -5,6 +5,7 @@ import path from 'node:path';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { NO_CACHE_ENV_VAR } from '../check-cache/check-cache.ts';
+import { isEnvSwitchOn } from '../env-switch.ts';
 
 /** The directory, relative to the repository root, holding one Prettier cache file per scope. */
 export const FMT_CACHE_DIRECTORY = path.join('node_modules', '.cache', 'prettier', 'nmr-fmt');
@@ -39,7 +40,7 @@ export type PrepareFmtCacheResult =
  */
 export function prepareFmtCache(options: PrepareFmtCacheOptions): PrepareFmtCacheResult {
   const { cwd, env, repositoryRoot, shouldBypassCache } = options;
-  if (shouldBypassCache || env[NO_CACHE_ENV_VAR] === '1') return { kind: 'uncached' };
+  if (shouldBypassCache || isEnvSwitchOn(env, NO_CACHE_ENV_VAR)) return { kind: 'uncached' };
 
   try {
     // Creating `node_modules` in a repository that was never installed would leave an untracked directory behind.
