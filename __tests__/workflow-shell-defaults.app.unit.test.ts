@@ -1,18 +1,9 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
-import { parse } from 'yaml';
 
 import { isRecord } from '../packages/nmr-core/src/portable/isRecord.ts';
+import { listJobs, listShellStepWorkflows, listSteps } from '../test-utils/workflows.ts';
 
-const workflowsDir = join(import.meta.dirname, '..', '.github', 'workflows');
-
-const SHELL_STEP_WORKFLOWS = readdirSync(workflowsDir)
-  .filter((entry) => /\.ya?ml$/.test(entry))
-  .toSorted()
-  .map((entry) => ({ entry, workflow: readWorkflow(entry) }))
-  .filter(({ workflow }) => listJobs(workflow).some((job) => listSteps(job).some((step) => 'run' in step)));
+const SHELL_STEP_WORKFLOWS = listShellStepWorkflows();
 
 /**
  * Guards every workflow that has a `run:` step against GitHub's implicit shell, `bash -e {0}`, which omits `pipefail`
@@ -42,12 +33,6 @@ function keepsPipefail(shell: string): boolean {
   return shell === 'bash' || /\bpipefail\b/.test(shell);
 }
 
-/** Lists the jobs of a parsed workflow. */
-function listJobs(workflow: Record<string, unknown>): Record<string, unknown>[] {
-  const jobs = workflow['jobs'];
-  return isRecord(jobs) ? Object.values(jobs).filter(isRecord) : [];
-}
-
 /** Lists the job- and step-level `shell:` values that run without `pipefail`. */
 function listOverridesDroppingPipefail(workflow: Record<string, unknown>): string[] {
   const shells = listJobs(workflow).flatMap((job) => [
@@ -58,12 +43,6 @@ function listOverridesDroppingPipefail(workflow: Record<string, unknown>): strin
   return shells.filter((shell) => typeof shell === 'string').filter((shell) => !keepsPipefail(shell));
 }
 
-/** Lists the steps of a parsed job. */
-function listSteps(job: Record<string, unknown>): Record<string, unknown>[] {
-  const steps = job['steps'];
-  return Array.isArray(steps) ? steps.filter(isRecord) : [];
-}
-
 /** Returns the `defaults.run.shell` value of a workflow or a job, or `undefined` when it does not set one. */
 function readDefaultShell(node: Record<string, unknown>): unknown {
   const defaults = node['defaults'];
@@ -72,16 +51,6 @@ function readDefaultShell(node: Record<string, unknown>): unknown {
   }
 
   return defaults['run']['shell'];
-}
-
-/** Reads and parses a workflow file, and throws when its top level is not a mapping. */
-function readWorkflow(entry: string): Record<string, unknown> {
-  const parsed: unknown = parse(readFileSync(join(workflowsDir, entry), 'utf8'));
-  if (!isRecord(parsed)) {
-    throw new Error(`${entry} does not parse to a mapping`);
-  }
-
-  return parsed;
 }
 
 // endregion | Helpers
