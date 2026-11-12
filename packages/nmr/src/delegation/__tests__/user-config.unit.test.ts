@@ -41,6 +41,17 @@ describe(loadUserConfig, () => {
     await expect(loadUserConfig({})).resolves.toBeUndefined();
   });
 
+  it('rejects a config that fails to parse as a UserError that names the file', async ({ tree }) => {
+    writeUserConfig(tree, `export default { delegate: {`);
+
+    await expect(loadUserConfig({ XDG_CONFIG_HOME: tree.dir })).rejects.toThrow(
+      expect.objectContaining({
+        message: expect.stringContaining(`Cannot load nmr config at ${tree.resolve('nmr/config.ts')}`),
+        name: 'UserError',
+      }),
+    );
+  });
+
   it('loads hosts and when, with the path from which it read them', async ({ tree }) => {
     writeUserConfig(tree, `export default { delegate: { hosts: ['imac2', 'imac3'], when: 'agent' } };`);
 
