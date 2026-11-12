@@ -244,9 +244,9 @@
           ]
         },
         {
-          "hash": "70cb6947",
+          "hash": "9219d11c",
           "kind": "module",
-          "path": "../src/check-cache/assertResolvableCheckCacheCommands.ts"
+          "path": "../src/assertResolvableCommandLists.ts"
         },
         {
           "hash": "eb0306ed",
@@ -254,7 +254,7 @@
           "path": "../src/commands/ensure-prepublish-hooks.ts"
         },
         {
-          "hash": "e26a8822",
+          "hash": "8c3aa404",
           "kind": "module",
           "path": "../src/config-validation.ts"
         },
@@ -364,7 +364,7 @@
       "readyupVersion": "0.45.1",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "dfd91d02"
+      "targetHash": "5784da3a"
     }
   ]
 }
