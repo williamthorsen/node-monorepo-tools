@@ -9,7 +9,7 @@ import { isRecord } from '../packages/nmr-core/src/portable/isRecord.ts';
 const workflowsDir = join(import.meta.dirname, '..', '.github', 'workflows');
 
 const SHELL_STEP_WORKFLOWS = readdirSync(workflowsDir)
-  .filter((entry) => entry.endsWith('.yaml'))
+  .filter((entry) => /\.ya?ml$/.test(entry))
   .toSorted()
   .map((entry) => ({ entry, workflow: readWorkflow(entry) }))
   .filter(({ workflow }) => listJobs(workflow).some((job) => listSteps(job).some((step) => 'run' in step)));
