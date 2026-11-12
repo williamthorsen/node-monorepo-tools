@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.2.0 — 2026-11-12
+
+### 🎉 Features
+
+- Makes each `nmr` delegation remove, before it pushes, the host's other checkouts that have gone unused for longer than the new user-config key `delegate.removeCheckoutsAfterDays` allows (7 days by default, `false` to keep them), while keeping any checkout whose lock has a live holder. (#1317)
+- Adds to the failure message of a delegation step that fails with `No space left on device` whether the host's filesystem ran out of inodes or of space. (#1317)
+
 ## 2.1.0 — 2026-11-12
 
 ### 🎉 Features

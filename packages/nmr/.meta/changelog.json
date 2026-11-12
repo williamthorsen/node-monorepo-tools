@@ -1,5 +1,27 @@
 [
   {
+    "version": "2.2.0",
+    "date": "2026-11-12",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Makes each `nmr` delegation remove, before it pushes, the host's other checkouts that have gone unused for longer than the new user-config key `delegate.removeCheckoutsAfterDays` allows (7 days by default, `false` to keep them), while keeping any checkout whose lock has a live holder. (#1317)",
+            "hash": "529687fecf5111851cb369c5ee9554d9711dad62",
+            "entry": 1
+          },
+          {
+            "description": "Adds to the failure message of a delegation step that fails with `No space left on device` whether the host's filesystem ran out of inodes or of space. (#1317)",
+            "hash": "529687fecf5111851cb369c5ee9554d9711dad62",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "2.1.0",
     "date": "2026-11-12",
     "sections": [
