@@ -191,7 +191,7 @@ async function planRun(invocation: Invocation, target: ExecutionTarget): Promise
   };
 
   // -F and -R: delegate to pnpm, which runs one nmr per scope that it selects
-  const delegation = composeDelegation({ childEnv, command, parsedArgs });
+  const delegation = composeDelegation({ childEnv, command, config: context.config, parsedArgs });
   if (delegation !== undefined) {
     // The delegating process holds the lock for the whole fan-out, so that the scopes that pnpm runs in parallel
     // do not wait on one another.

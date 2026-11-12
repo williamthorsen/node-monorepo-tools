@@ -12,6 +12,7 @@ import type { ParsedArgs } from './nmr-flags.ts';
 import { buildRootRegistry, buildWorkspaceRegistry, readPackageJsonScripts } from './resolver.ts';
 import type { RunSteps, RunStepsOptions } from './runner.ts';
 import type { Step } from './steps.ts';
+import type { NmrConfig } from './types.ts';
 import { readWorkspacePackageNames, resolveWorkspace } from './workspace.ts';
 
 /**
@@ -19,6 +20,9 @@ import { readWorkspacePackageNames, resolveWorkspace } from './workspace.ts';
  * contain any package.
  */
 const RECURSIVE_REJECTION = '-R/--recursive did not match any workspace:';
+
+/** The commands whose fan-out runs packages in topological order whatever the config adds. */
+const DEFAULT_SORTED_COMMANDS: ReadonlySet<string> = new Set(['build']);
 
 /**
  * Composes the delegation that an `-F` or `-R` calls for, or `undefined` when the invocation runs here.
@@ -30,13 +34,19 @@ const RECURSIVE_REJECTION = '-R/--recursive did not match any workspace:';
  *
  * A `--log` fan-out surveys the scopes selected, so a scope with nothing to show is a gap in the survey rather
  * than a failure of it, however that scope was selected.
+ *
+ * pnpm runs the selected packages in topological order unless told otherwise, which holds each package's run until
+ * its workspace dependencies have finished theirs. Only a command that reads what its dependencies' runs produce
+ * needs that, so the order is kept for `build` and for the commands in `fanOut.extraSortedCommands`, and every
+ * other fan-out runs with `--no-sort`.
  */
 export function composeDelegation(options: {
   childEnv: NodeJS.ProcessEnv;
   command: string;
+  config: NmrConfig;
   parsedArgs: ParsedArgs;
 }): { env: NodeJS.ProcessEnv; step: Extract<Step, { kind: 'structural' }> } | undefined {
-  const { childEnv, command, parsedArgs } = options;
+  const { childEnv, command, config, parsedArgs } = options;
 
   let scope: string[] | undefined;
   let shouldRunIfPresent = parsedArgs.shouldPrintLog;
@@ -50,13 +60,14 @@ export function composeDelegation(options: {
     return undefined;
   }
 
+  const sortFlags = isSortedCommand(command, config) ? [] : ['--no-sort'];
   const flags = parsedArgs.shouldPrintLog ? ['--log'] : [];
 
   return {
     env: shouldRunIfPresent ? { ...childEnv, [RUN_IF_PRESENT_ENV_VAR]: '1' } : childEnv,
     step: {
       kind: 'structural',
-      argv: ['pnpm', ...scope, 'exec', 'nmr', ...flags, command, ...parsedArgs.passthrough],
+      argv: ['pnpm', ...scope, ...sortFlags, 'exec', 'nmr', ...flags, command, ...parsedArgs.passthrough],
     },
   };
 }
@@ -281,6 +292,11 @@ function formatEmptyFilterError(pattern: string, names: readonly string[]): stri
 /** Returns the rejection that leads a filter's line, naming the pattern that selected nothing. */
 function formatFilterRejection(pattern: string): string {
   return `-F/--filter did not match any workspace: \`${pattern}\`.`;
+}
+
+/** Reports whether a fan-out of `command` must run packages in topological order. */
+function isSortedCommand(command: string, config: NmrConfig): boolean {
+  return DEFAULT_SORTED_COMMANDS.has(command) || (config.fanOut?.extraSortedCommands ?? []).includes(command);
 }
 
 /**

@@ -9,7 +9,7 @@ import { LOCK_DIR_ENV_VAR, LOCK_TOKEN_ENV_VAR, NO_LOCK_ENV_VAR } from '../machin
 import { runCli } from '../runCli.ts';
 import { renderChain } from '../steps.ts';
 import { it as sharedIt } from '../test-utils/run-cli-fixtures.ts';
-import { writePackageScripts } from '../test-utils/run-cli-harness.ts';
+import { writeConfig, writePackageScripts } from '../test-utils/run-cli-harness.ts';
 
 const it = sharedIt
   .extend(
@@ -76,18 +76,59 @@ describe(runCli, () => {
       },
       {
         args: ['-F', 'my-pkg', 'test', '--reporter=json'],
-        expectedArgv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'test', '--reporter=json'],
+        expectedArgv: ['pnpm', '--filter', 'my-pkg', '--no-sort', 'exec', 'nmr', 'test', '--reporter=json'],
         scenario: 'a passthrough argument that does not need quoting',
       },
       {
         args: ['-F', 'my-pkg', 'test', '-t', 'a b'],
-        expectedArgv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'test', '-t', 'a b'],
+        expectedArgv: ['pnpm', '--filter', 'my-pkg', '--no-sort', 'exec', 'nmr', 'test', '-t', 'a b'],
         scenario: 'a passthrough argument containing a space',
       },
     ])('given $scenario, delegates through pnpm as argv tokens', async ({ args, expectedArgv }, { nmr, tree }) => {
       await nmr.run(args, tree.dir);
 
       expect(nmr.readStepsFromCall()).toStrictEqual([{ kind: 'structural', argv: expectedArgv }]);
+    });
+
+    describe('topological order', () => {
+      it.for([
+        { args: ['-R', 'build'], scope: ['--recursive'] },
+        { args: ['-F', 'my-pkg', 'build'], scope: ['--filter', 'my-pkg'] },
+      ])('keeps the order for `$args`', async ({ args, scope }, { nmr, tree }) => {
+        await nmr.run(args, tree.dir);
+
+        expect(nmr.readStepsFromCall()?.[0]).toMatchObject({ argv: ['pnpm', ...scope, 'exec', 'nmr', 'build'] });
+      });
+
+      it.for([
+        { args: ['-R', 'test'], scope: ['--recursive'], command: 'test' },
+        { args: ['-R', 'typecheck'], scope: ['--recursive'], command: 'typecheck' },
+        { args: ['-F', 'my-pkg', 'test:unit'], scope: ['--filter', 'my-pkg'], command: 'test:unit' },
+      ])('drops the order for `$args`', async ({ args, command, scope }, { nmr, tree }) => {
+        await nmr.run(args, tree.dir);
+
+        expect(nmr.readStepsFromCall()?.[0]).toMatchObject({
+          argv: ['pnpm', ...scope, '--no-sort', 'exec', 'nmr', command],
+        });
+      });
+
+      it('keeps the order for a command that fanOut.extraSortedCommands lists', async ({ nmr, tree }) => {
+        writeConfig(tree, { fanOut: { extraSortedCommands: ['typecheck'] } });
+
+        await nmr.run(['-R', 'typecheck'], tree.dir);
+
+        expect(nmr.readStepsFromCall()?.[0]).toMatchObject({
+          argv: ['pnpm', '--recursive', 'exec', 'nmr', 'typecheck'],
+        });
+      });
+
+      it('keeps the order for build when fanOut.extraSortedCommands lists other commands', async ({ nmr, tree }) => {
+        writeConfig(tree, { fanOut: { extraSortedCommands: ['typecheck'] } });
+
+        await nmr.run(['-R', 'build'], tree.dir);
+
+        expect(nmr.readStepsFromCall()?.[0]).toMatchObject({ argv: ['pnpm', '--recursive', 'exec', 'nmr', 'build'] });
+      });
     });
 
     // A delegate spawns `pnpm`, not `nmr`, and still inherits: a step's kind follows from how nmr composed it.
@@ -100,7 +141,9 @@ describe(runCli, () => {
     it('renders the delegate to the chain string that it had as one shell command', async ({ nmr, tree }) => {
       await nmr.run(['-F', './packages/*', 'test', '-t', 'a b'], tree.dir);
 
-      expect(renderChain(nmr.readStepsFromCall() ?? [])).toBe("pnpm --filter './packages/*' exec nmr test -t 'a b'");
+      expect(renderChain(nmr.readStepsFromCall() ?? [])).toBe(
+        "pnpm --filter './packages/*' --no-sort exec nmr test -t 'a b'",
+      );
     });
 
     it('runs the delegate from the monorepo root', async ({ nmr, tree }) => {
@@ -124,13 +167,16 @@ describe(runCli, () => {
     it.for([
       {
         args: ['-F', 'my-pkg', '--log', 'test'],
-        expectedStep: { kind: 'structural', argv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', '--log', 'test'] },
+        expectedStep: {
+          kind: 'structural',
+          argv: ['pnpm', '--filter', 'my-pkg', '--no-sort', 'exec', 'nmr', '--log', 'test'],
+        },
       },
       {
         args: ['-R', '--log', 'test'],
         expectedStep: {
           kind: 'structural',
-          argv: ['pnpm', '--recursive', 'exec', 'nmr', '--log', 'test'],
+          argv: ['pnpm', '--recursive', '--no-sort', 'exec', 'nmr', '--log', 'test'],
           shouldWithholdInput: true,
         },
       },
