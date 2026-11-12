@@ -33,7 +33,7 @@
     "dist"
   ],
   "scripts": {
-    "prepare": "node --conditions nmr-source ../nmr/src/cli-build.ts",
+    "prepare": "node ../nmr/src/cli-build.ts",
     "prepublishOnly": "nmr build"
   },
   "dependencies": {
@@ -42,6 +42,7 @@
   "devDependencies": {
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "@williamthorsen/nmr": "workspace:*",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "vitest": "catalog:"

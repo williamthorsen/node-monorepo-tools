@@ -150,7 +150,8 @@ export async function resolveEntryPoints(packageDir: string, options: BuildOptio
  * rebuild on every invocation and change the fingerprint that every other package reads.
  *
  * Because the fingerprint names the nmr that produced the output, not the sources in `src`, a package compiled by
- * the pre-rebuild binary keeps the old fingerprint and rebuilds on the next run.
+ * the pre-rebuild binary keeps the old fingerprint and rebuilds on the next run; a workspace that orders nmr's
+ * build ahead of the packages that it compiles avoids that rebuild.
  */
 export async function resolveToolchainFingerprint(packageDir: string, selfDir: string = SELF_DIR): Promise<string> {
   if (!isSameDir(packageDir, selfDir)) {

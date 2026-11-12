@@ -58,6 +58,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@williamthorsen/nmr": "workspace:*",
     "@williamthorsen/toolbelt.filesystem": "catalog:",
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",

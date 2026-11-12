@@ -41,10 +41,11 @@
     "dist"
   ],
   "scripts": {
-    "prepare": "node --conditions nmr-source ../nmr/src/cli-build.ts",
+    "prepare": "node ../nmr/src/cli-build.ts",
     "prepublishOnly": "nmr build"
   },
   "devDependencies": {
+    "@williamthorsen/nmr": "workspace:*",
     "@williamthorsen/toolbelt.testing": "catalog:",
     "eslint": "10.14.0",
     "vite": "8.3.7",
