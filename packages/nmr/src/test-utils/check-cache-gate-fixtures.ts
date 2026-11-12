@@ -59,17 +59,6 @@ export async function readEntry(repo: string): Promise<CheckCacheEntry | undefin
   return readCheckCacheEntry({ anchorDir: repo, command: COMMAND, monorepoRoot: repo });
 }
 
-/** Returns the lines appended by the fixture's scripts, one per run. */
-export function readLog(workspace: TempTree): string[] {
-  if (!workspace.exists(LOG_ENTRY)) {
-    return [];
-  }
-  return workspace
-    .read(LOG_ENTRY)
-    .split('\n')
-    .filter((line) => line.length > 0);
-}
-
 /**
  * Runs the CLI in-process against the fixture. The check-result-cache variables are stripped from the ambient
  * environment first: This suite may itself be running under `nmr test`, whose snapshot would otherwise be
@@ -189,6 +178,17 @@ export function writeNmrShim(workspace: TempTree, log: string, output?: string):
  */
 function buildDestination(stream: PassThrough, terminalFd: number | undefined): PassThrough {
   return terminalFd === undefined ? stream : Object.assign(stream, { fd: terminalFd, isTTY: true });
+}
+
+/** Returns the lines appended by the fixture's scripts, one per run. */
+function readLog(workspace: TempTree): string[] {
+  if (!workspace.exists(LOG_ENTRY)) {
+    return [];
+  }
+  return workspace
+    .read(LOG_ENTRY)
+    .split('\n')
+    .filter((line) => line.length > 0);
 }
 
 /** Runs git in `cwd`, discarding its output. */
