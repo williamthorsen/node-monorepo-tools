@@ -9,7 +9,7 @@ import { resolveXdgBaseDir } from '../helpers/resolveXdgBaseDir.ts';
 import type { HostList } from './remote-run.ts';
 
 /** The values that `delegate.when` accepts, each naming the runs that delegate without being asked. */
-export const DELEGATE_WHEN_VALUES = ['agent', 'always'] as const;
+const DELEGATE_WHEN_VALUES = ['agent', 'always'] as const;
 
 export type DelegateWhen = (typeof DELEGATE_WHEN_VALUES)[number];
 

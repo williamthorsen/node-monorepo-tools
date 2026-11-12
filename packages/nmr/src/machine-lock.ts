@@ -17,7 +17,7 @@ const RECLAIM_GUARD = 'heavy.lock.reclaim';
 const RECLAIM_GUARD_STALE_AFTER_MS = 10_000;
 
 /** How often a holder refreshes the lock file's mtime. */
-export const HEARTBEAT_INTERVAL_MS = 10_000;
+const HEARTBEAT_INTERVAL_MS = 10_000;
 
 /**
  * The commands that take the machine lock: the ones whose memory peak makes two concurrent runs slower than two in
@@ -53,7 +53,7 @@ export const LOCK_TOKEN_ENV_VAR = 'NMR_MACHINE_LOCK_TOKEN';
 export const NO_LOCK_ENV_VAR = 'NMR_NO_LOCK';
 
 /** How often a waiter checks the lock again. */
-export const POLL_INTERVAL_MS = 1000;
+const POLL_INTERVAL_MS = 1000;
 
 /**
  * Age at which an unrefreshed lock file is abandoned. It covers a holder whose pid was reused by another process,
