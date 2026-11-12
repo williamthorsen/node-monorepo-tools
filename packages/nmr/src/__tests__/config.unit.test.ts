@@ -65,7 +65,7 @@ describe(loadConfig, () => {
     writeConfig(tree, `export default { bild: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
-      'unrecognized key `bild`. Recognized: `build`, `checkCache`, `delegate`, `output`, `rootScripts`, ' +
+      'unrecognized key `bild`. Recognized: `build`, `checkCache`, `delegate`, `fanOut`, `output`, `rootScripts`, ' +
         '`selfHostedRunner`, `workspaceScripts`.',
     );
   });
@@ -291,6 +291,12 @@ describe(loadWorkspaceConfig, () => {
 
     await expect(loadWorkspaceConfig(tree.dir)).rejects.toThrow('not selfHostedRunner');
   });
+
+  it('throws when the package config declares fanOut, which only the root config accepts', async ({ tree }) => {
+    writeConfig(tree, `export default { fanOut: { extraSortedCommands: ['build'] } };`);
+
+    await expect(loadWorkspaceConfig(tree.dir)).rejects.toThrow('not fanOut');
+  });
 });
 
 describe(loadRootConfig, () => {
@@ -321,6 +327,24 @@ describe(loadRootConfig, () => {
     const config = await loadRootConfig(tree.dir);
 
     expect(config.checkCache).toStrictEqual({ excludeCommands: ['test:coverage'] });
+  });
+
+  it('loads fanOut, which the root tier honors', async ({ tree }) => {
+    writeConfig(tree, `export default { fanOut: { extraSortedCommands: ['typecheck'] } };`);
+
+    const config = await loadRootConfig(tree.dir);
+
+    expect(config.fanOut).toStrictEqual({ extraSortedCommands: ['typecheck'] });
+  });
+
+  it.for([
+    ['is not an object', `true`, '`fanOut` must be an object'],
+    ['declares an unrecognized subkey', `{ sortedCommands: [] }`, 'unrecognized key `fanOut.sortedCommands`'],
+    ['lists a non-string', `{ extraSortedCommands: ['build', 7] }`, '`fanOut.extraSortedCommands` must be a string[]'],
+  ])('throws when fanOut %s', async ([, value, message], { tree }) => {
+    writeConfig(tree, `export default { fanOut: ${value} };`);
+
+    await expect(loadRootConfig(tree.dir)).rejects.toThrow(message);
   });
 
   it('loads selfHostedRunner, which the root tier honors', async ({ tree }) => {
@@ -368,7 +392,7 @@ describe(loadRootConfig, () => {
     writeConfig(tree, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     await expect(loadRootConfig(tree.dir)).rejects.toThrow(
-      'honors checkCache, delegate, output, rootScripts, selfHostedRunner, workspaceScripts alone, not build. ' +
+      'honors checkCache, delegate, fanOut, output, rootScripts, selfHostedRunner, workspaceScripts alone, not build. ' +
         "Move those keys to the package's own config.",
     );
   });
@@ -575,6 +599,25 @@ describe('checkCache command resolution', () => {
     );
   });
 
+  it('rejects an extraSortedCommands name that does not match any command', async ({ tree }) => {
+    makeMonorepoRoot(tree);
+    writeConfig(tree, `export default { fanOut: { extraSortedCommands: ['nonesuch-command'] } };`);
+
+    await expect(loadConfig(tree.dir)).rejects.toThrow(
+      '`fanOut.extraSortedCommands` does not name any command: `nonesuch-command`',
+    );
+  });
+
+  it('accepts an extraSortedCommands name that only a package.json declares', async ({ tree }) => {
+    makeMonorepoRoot(tree);
+    writePackage(tree, 'core', { 'generate:types': 'node generate.js' });
+    writeConfig(tree, `export default { fanOut: { extraSortedCommands: ['generate:types'] } };`);
+
+    const config = await loadConfig(tree.dir);
+
+    expect(config.fanOut).toStrictEqual({ extraSortedCommands: ['generate:types'] });
+  });
+
   it('names the closest command in the rejection', async ({ tree }) => {
     makeMonorepoRoot(tree);
     writeConfig(tree, `export default { checkCache: { extraCommands: ['typechek'] } };`);
@@ -599,7 +642,7 @@ describe('checkCache command resolution', () => {
 
 // region | Helpers
 
-/** Turns the tree into a monorepo root, the only tier at which `checkCache` names are resolved. */
+/** Turns the tree into a monorepo root, the only tier at which config command names are resolved. */
 function makeMonorepoRoot(tree: TempTree): void {
   tree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n");
 }
