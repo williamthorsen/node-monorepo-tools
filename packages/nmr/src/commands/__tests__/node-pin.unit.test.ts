@@ -2,9 +2,14 @@ import { PassThrough } from 'node:stream';
 
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { checkNodePin, type CheckNodePinOptions, selectNodeUpgradeCandidates } from '../node-pin.ts';
+import {
+  checkNodePin,
+  type CheckNodePinOptions,
+  NODE_BUILD_DEFINITION_URL,
+  selectNodeUpgradeCandidates,
+} from '../node-pin.ts';
 
 const NOW = new Date('2026-10-29T12:00:00Z');
 
@@ -170,6 +175,42 @@ describe(checkNodePin, () => {
     expect(tree.read('.tool-versions')).toBe('nodejs 24.22.1\n');
   });
 
+  describe('default node-build probe', () => {
+    it('sends a HEAD request for the definition file and treats 200 as defined', async () => {
+      const tree = disposeOnTestFinished(createTempTree({ '.tool-versions': 'nodejs 24.22.2\n' }));
+      using fetchSpy = stubFetchStatus(200);
+
+      const output = await runCheckWithDefaultProbe(tree.dir);
+
+      expect(output).toContain('nodejs 24.22.2 → 24.22.3 is available');
+      expect(fetchSpy).toHaveBeenCalledExactlyOnceWith(
+        `${NODE_BUILD_DEFINITION_URL}24.22.3`,
+        expect.objectContaining({ method: 'HEAD' }),
+      );
+    });
+
+    it('treats 404 as undefined and holds the release back', async () => {
+      const tree = disposeOnTestFinished(createTempTree({ '.tool-versions': 'nodejs 24.22.2\n' }));
+      using _fetchSpy = stubFetchStatus(404);
+
+      const output = await runCheckWithDefaultProbe(tree.dir, { shouldWrite: true });
+
+      expect(output).toContain('nodejs 24.22.3 is held back');
+      expect(tree.read('.tool-versions')).toBe('nodejs 24.22.2\n');
+    });
+
+    it('warns and does not write on any other status', async () => {
+      const tree = disposeOnTestFinished(createTempTree({ '.tool-versions': 'nodejs 24.22.2\n' }));
+      using _fetchSpy = stubFetchStatus(503);
+
+      const output = await runCheckWithDefaultProbe(tree.dir, { shouldWrite: true });
+
+      expect(output).toContain('WARN: Could not check the nodejs pin');
+      expect(output).toContain('HTTP 503');
+      expect(tree.read('.tool-versions')).toBe('nodejs 24.22.2\n');
+    });
+  });
+
   it('suppresses the report but not a warning when silent', async () => {
     const tree = disposeOnTestFinished(createTempTree({ '.tool-versions': 'nodejs 24.22.1\n' }));
 
@@ -189,6 +230,19 @@ function definedOnly(...versions: string[]): (version: string) => Promise<boolea
 
 /** Runs the check against `dir` with the fixture releases and a fixed clock, returning what it wrote to stderr. */
 async function runCheck(dir: string, overrides: Partial<CheckNodePinOptions> = {}): Promise<string> {
+  return captureCheck(dir, { isNodeBuildDefined: () => Promise.resolve(true), ...overrides });
+}
+
+/** Runs the check as `runCheck` does, but through the production node-build probe. */
+async function runCheckWithDefaultProbe(
+  dir: string,
+  overrides: Partial<Omit<CheckNodePinOptions, 'isNodeBuildDefined'>> = {},
+): Promise<string> {
+  return captureCheck(dir, overrides);
+}
+
+/** Runs the check with the fixture releases, a fixed clock, and `overrides`, returning what it wrote to stderr. */
+async function captureCheck(dir: string, overrides: Partial<CheckNodePinOptions>): Promise<string> {
   const stderr = new PassThrough();
   const chunks: string[] = [];
   stderr.on('data', (chunk: Buffer) => {
@@ -197,7 +251,6 @@ async function runCheck(dir: string, overrides: Partial<CheckNodePinOptions> = {
 
   await checkNodePin(dir, {
     fetchReleases: () => Promise.resolve(RELEASES),
-    isNodeBuildDefined: () => Promise.resolve(true),
     isSilent: false,
     now: NOW,
     shouldWrite: false,
@@ -207,6 +260,11 @@ async function runCheck(dir: string, overrides: Partial<CheckNodePinOptions> = {
   });
 
   return chunks.join('');
+}
+
+/** Replaces `fetch` with one that answers every request with `status`, until the returned spy is disposed. */
+function stubFetchStatus(status: number) {
+  return vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status }));
 }
 
 // endregion | Helpers
