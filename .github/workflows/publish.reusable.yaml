@@ -78,7 +78,15 @@ jobs:
         run: pnpm --filter @williamthorsen/release-kit... run prepare
 
       - name: Publish
+        env:
+          PROVENANCE: ${{ inputs.provenance }}
+          TAGS: ${{ inputs.tags }}
         run: |
-          pnpm exec release-kit publish \
-            ${{ inputs.provenance && '--provenance' || '' }} \
-            ${{ inputs.tags != '' && format('--tags="{0}"', inputs.tags) || '' }}
+          args=()
+          if [ "$PROVENANCE" = "true" ]; then
+            args+=("--provenance")
+          fi
+          if [ -n "$TAGS" ]; then
+            args+=("--tags=$TAGS")
+          fi
+          pnpm exec release-kit publish "${args[@]}"

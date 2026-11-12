@@ -80,4 +80,5 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm exec release-kit create-github-release --tags "${{ inputs.tag }}"
+          TAG: ${{ inputs.tag }}
+        run: pnpm exec release-kit create-github-release --tags "$TAG"
