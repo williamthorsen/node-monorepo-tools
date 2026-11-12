@@ -106,6 +106,7 @@ describe('the check-result cache gate', () => {
       const { stderr } = await nmr.runReadingStderr(['fmt', '--no-cache'], repo);
 
       expect(stderr).not.toContain('nmr --no-cache fmt');
+      expect(stderr).not.toContain('Did you mean');
     });
   });
 
