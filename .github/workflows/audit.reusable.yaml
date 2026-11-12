@@ -60,8 +60,10 @@ jobs:
 
       - name: Build PR comment
         id: comment
+        env:
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
         run: |
-          if [ "${{ steps.audit.outcome }}" = "success" ]; then
+          if [ "$AUDIT_OUTCOME" = "success" ]; then
             {
               echo 'body<<AUDIT_EOF'
               echo '## Dependency audit'
@@ -108,7 +110,7 @@ jobs:
       - name: Check acknowledgment
         if: steps.audit.outcome == 'failure'
         run: |
-          PR_BODY=$(gh pr view "${{ github.event.pull_request.number }}" --json body --jq .body)
+          PR_BODY=$(gh pr view "$PR_NUMBER" --json body --jq .body)
           # `--` ends option parsing before the leading `-`. A pipe into `grep -q` fails under `pipefail` when grep exits before the writer finishes.
           if grep -qF -- '- [x] Audit failures have been reviewed' <<<"$PR_BODY"; then
             echo "Audit failures acknowledged via PR checkbox."
@@ -118,6 +120,7 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
 
   scheduled-audit:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -229,8 +232,9 @@ jobs:
 
       - name: Update issue title and body
         run: |
-          gh issue edit "${{ steps.find-issue.outputs.number }}" --title "$TITLE" --body "$ISSUE_BODY"
+          gh issue edit "$ISSUE_NUMBER" --title "$TITLE" --body "$ISSUE_BODY"
         env:
           GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.find-issue.outputs.number }}
           TITLE: ${{ steps.title.outputs.title }}
           ISSUE_BODY: ${{ steps.issue.outputs.body }}

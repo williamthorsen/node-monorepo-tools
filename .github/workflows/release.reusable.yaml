@@ -110,21 +110,24 @@ jobs:
         if: ${{ env.BUILD_LOCAL == 'true' }}
         run: npm link --workspace packages/release-kit
 
+      # `inputs.prepare-command` is a command by design, so it alone is substituted into the script.
       - name: Run release preparation
+        env:
+          ONLY: ${{ inputs.only }}
+          BUMP: ${{ inputs.bump }}
+          FORCE: ${{ inputs.force }}
         run: |
-          ARGS=""
-          if [ -n "${{ inputs.only }}" ]; then
-            ARGS="$ARGS --only=${{ inputs.only }}"
+          args=()
+          if [ -n "$ONLY" ]; then
+            args+=("--only=$ONLY")
           fi
-          if [ -n "${{ inputs.bump }}" ]; then
-            ARGS="$ARGS --bump=${{ inputs.bump }}"
+          if [ -n "$BUMP" ]; then
+            args+=("--bump=$BUMP")
           fi
-          if [ "${{ inputs.force }}" = "true" ]; then
-            ARGS="$ARGS --force"
+          if [ "$FORCE" = "true" ]; then
+            args+=("--force")
           fi
-          # `$ARGS` stays unquoted so that each flag reaches the command as its own argument.
-          # shellcheck disable=SC2086
-          ${{ inputs.prepare-command }} $ARGS
+          ${{ inputs.prepare-command }} "${args[@]}"
 
       - name: Check for changes
         id: check
@@ -151,6 +154,8 @@ jobs:
 
       - name: Commit, tag, and push
         if: steps.check.outputs.changed == 'true'
+        env:
+          TAGS: ${{ steps.tags.outputs.tags }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -159,6 +164,7 @@ jobs:
           release-kit tag --no-git-checks
 
           git push origin HEAD
-          for tag in ${{ steps.tags.outputs.tags }}; do
+          read -ra tags <<<"$TAGS"
+          for tag in "${tags[@]}"; do
             git push --no-follow-tags origin "$tag"
           done
