@@ -44,7 +44,7 @@ export async function recordDelegatedPass(
   }
 
   // Hashed afresh rather than inherited: an inherited snapshot is the observation that this is meant to re-test.
-  const currentRead = resolveTreeSnapshot({ monorepoRoot, env: {} });
+  const currentRead = resolveTreeSnapshot({ monorepoRoot, env: {}, readTree: plan.invocation.readTree });
   if (!currentRead.ok) {
     writeDebugNote(`not recording ${command}: ${currentRead.reason}`, env, stderr);
     return;

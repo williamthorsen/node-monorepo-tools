@@ -5,7 +5,13 @@ import { runCli as runRouter } from '@williamthorsen/nmr-core/cli';
 
 import { prependBinDirs } from './bin-path.ts';
 import { NMR_BIN } from './bins.ts';
-import { NO_CACHE_ENV_VAR, resolveRunId, RUN_ID_ENV_VAR } from './check-cache/check-cache.ts';
+import {
+  GIT_TREE_READER,
+  NO_CACHE_ENV_VAR,
+  resolveRunId,
+  RUN_ID_ENV_VAR,
+  type TreeReader,
+} from './check-cache/check-cache.ts';
 import { openGate, runGated } from './check-cache/check-cache-gate.ts';
 import { reportRecording } from './check-cache/check-cache-record.ts';
 import { addLockEnv, buildChildEnv, takeMachineLock } from './child-env.ts';
@@ -49,6 +55,8 @@ export interface RunCliOptions {
   env: NodeJS.ProcessEnv;
   /** Reads what a `-F` pattern selects; defaults to `readFilterSelection`, which asks pnpm. */
   readFilterSelection?: ReadFilterSelection;
+  /** Reads the working tree that the check-result cache gates on; defaults to `GIT_TREE_READER`, which asks git. */
+  readTree?: TreeReader;
   /** Runs a step list; defaults to `runSteps`. */
   runSteps?: RunSteps;
   /** Stream for normal output: help, version, verdicts, recordings, and override notices. */
@@ -71,6 +79,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     cwd,
     env,
     readFilterSelection = readFilterSelectionDefault,
+    readTree = GIT_TREE_READER,
     runSteps = runStepsDefault,
     stdout,
     stderr,
@@ -91,6 +100,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     env,
     firstPass,
     readFilterSelection,
+    readTree,
     runInvocation: (invocation) => runInvocation(invocation, options),
     runSteps,
     stderr,
@@ -154,6 +164,7 @@ async function planRun(invocation: Invocation, target: ExecutionTarget): Promise
     env,
     monorepoRoot: context.monorepoRoot,
     passthrough: parsedArgs.passthrough,
+    readTree: invocation.readTree,
     stderr,
     style: styles.stderr,
   });

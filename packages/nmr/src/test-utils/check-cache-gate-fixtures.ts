@@ -3,16 +3,42 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import type { TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { it as baseIt } from 'vitest';
 
 import { type CheckCacheEntry, readCheckCacheEntry } from '../check-cache/check-cache-entries.ts';
 import { resolveBuildCachePath } from '../commands/build-output.ts';
 import type { ScriptValue } from '../resolve-scripts.ts';
 import { runCli } from '../runCli.ts';
 import { readAmbientEnv } from './readAmbientEnv.ts';
+import { createRunCliHarness, type RunCliHarness } from './run-cli-harness.ts';
 
 /** The cacheable command driven by every test; the fixture maps it to a script whose runs are countable. */
 export const COMMAND = 'typecheck';
+
+/** The commit that the fake tree reader reports as `HEAD`. */
+export const FAKE_HEAD_SHA = 'a'.repeat(40);
+
+/**
+ * Provides each test with a `workspace` scaffolded without git, the `repo` inside it, and an `nmr` harness whose
+ * tree reader reports `repo` as a git toplevel whose tree is `tree-1`.
+ */
+export const it = baseIt
+  .extend(
+    'workspace',
+    makeFixture(() => {
+      const workspace = createTempTree({}, { prefix: 'nmr-gate-unit-' });
+      scaffoldTree(workspace, workspace.resolve(LOG_ENTRY));
+      return workspace;
+    }),
+  )
+  .extend('repo', ({ workspace }) => workspace.resolve('repo'))
+  .extend('nmr', ({ repo }) => {
+    const harness = createRunCliHarness();
+    stubTree(harness, repo, 'tree-1');
+    return harness;
+  });
 
 /** The run log, which is beside the repository rather than inside it. */
 export const LOG_ENTRY = 'log.txt';
@@ -31,22 +57,6 @@ export function countRuns(workspace: TempTree): number {
 /** Reads the entry that the fixture's runs record for the cacheable command at the repository root. */
 export async function readEntry(repo: string): Promise<CheckCacheEntry | undefined> {
   return readCheckCacheEntry({ anchorDir: repo, command: COMMAND, monorepoRoot: repo });
-}
-
-/** Returns the lines appended by the fixture's scripts, one per run. */
-export function readLog(workspace: TempTree): string[] {
-  if (!workspace.exists(LOG_ENTRY)) {
-    return [];
-  }
-  return workspace
-    .read(LOG_ENTRY)
-    .split('\n')
-    .filter((line) => line.length > 0);
-}
-
-/** Renders a shell command standing in for a concurrent build of the fixture's one covered package. */
-export function rebuildDigest(repo: string, digest: string): string {
-  return `echo ${digest} > ${resolveBuildCachePath(path.join(repo, 'packages', 'a'))}`;
 }
 
 /**
@@ -88,26 +98,11 @@ export async function runNmr(
 }
 
 /**
- * Writes a committed pnpm workspace under `repo/` in the workspace tree: one built package, the pnpm files that
- * the install fingerprint reads, and a config mapping the cacheable command to a script that appends one line
- * per run. `bin/` and the run log are beside it, outside the repository.
+ * Writes the workspace that `scaffoldTree` writes, as a committed git repository. `bin/` and the run log are beside
+ * it, outside the repository.
  */
 export function scaffoldRepo(workspace: TempTree, log: string): void {
-  workspace.writeAll({
-    'repo/.gitignore': 'node_modules/\ndist/\n',
-    'repo/node_modules/.modules.yaml': 'hoistPattern:\n  - "types"\n',
-    'repo/node_modules/.pnpm/lock.yaml': 'lockfileVersion: "9.0"\n',
-    'repo/package.json': JSON.stringify({ name: 'gate-root', private: true }),
-    'repo/packages/a/dist/esm/index.js': 'export const value = 1;\n',
-    'repo/packages/a/package.json': JSON.stringify({ name: 'a', type: 'module' }),
-    'repo/packages/a/src/index.ts': 'export const value = 1;\n',
-    'repo/pnpm-workspace.yaml': 'packages:\n  - "packages/*"\n',
-    'repo/src/index.ts': 'export const value = 1;\n',
-    'repo/tools/': '',
-  });
-  writeBuildDigest(workspace, 'repo/packages/a', 'digest-from-this-tree');
-
-  writeConfig(workspace, log);
+  scaffoldTree(workspace, log);
 
   const repo = workspace.resolve('repo');
   runGit(repo, ['init', '--initial-branch=main']);
@@ -116,6 +111,17 @@ export function scaffoldRepo(workspace: TempTree, log: string): void {
   runGit(repo, ['config', 'commit.gpgsign', 'false']);
   runGit(repo, ['add', '--all']);
   runGit(repo, ['commit', '--message', 'initial']);
+}
+
+/** Makes the harness's tree reader report `repo` as a git toplevel whose working tree is `treeId`. */
+export function stubTree(harness: RunCliHarness, repo: string, treeId: string): void {
+  harness.readTree.hashWorkingTree.mockReturnValue({
+    ok: true,
+    headSha: FAKE_HEAD_SHA,
+    toplevel: fs.realpathSync(repo),
+    treeId,
+  });
+  harness.readTree.readHeadSha.mockReturnValue(FAKE_HEAD_SHA);
 }
 
 /** Writes the digest that a build of the package at `packageEntry` would have left beside its output. */
@@ -174,9 +180,42 @@ function buildDestination(stream: PassThrough, terminalFd: number | undefined): 
   return terminalFd === undefined ? stream : Object.assign(stream, { fd: terminalFd, isTTY: true });
 }
 
+/** Returns the lines appended by the fixture's scripts, one per run. */
+function readLog(workspace: TempTree): string[] {
+  if (!workspace.exists(LOG_ENTRY)) {
+    return [];
+  }
+  return workspace
+    .read(LOG_ENTRY)
+    .split('\n')
+    .filter((line) => line.length > 0);
+}
+
 /** Runs git in `cwd`, discarding its output. */
 function runGit(cwd: string, args: string[]): void {
   execFileSync('git', args, { cwd, stdio: 'ignore' });
+}
+
+/**
+ * Writes a pnpm workspace under `repo/` in the workspace tree: one built package, the pnpm files that the install
+ * fingerprint reads, and a config mapping the cacheable command to a script that appends one line per run.
+ */
+function scaffoldTree(workspace: TempTree, log: string): void {
+  workspace.writeAll({
+    'repo/.gitignore': 'node_modules/\ndist/\n',
+    'repo/node_modules/.modules.yaml': 'hoistPattern:\n  - "types"\n',
+    'repo/node_modules/.pnpm/lock.yaml': 'lockfileVersion: "9.0"\n',
+    'repo/package.json': JSON.stringify({ name: 'gate-root', private: true }),
+    'repo/packages/a/dist/esm/index.js': 'export const value = 1;\n',
+    'repo/packages/a/package.json': JSON.stringify({ name: 'a', type: 'module' }),
+    'repo/packages/a/src/index.ts': 'export const value = 1;\n',
+    'repo/pnpm-workspace.yaml': 'packages:\n  - "packages/*"\n',
+    'repo/src/index.ts': 'export const value = 1;\n',
+    'repo/tools/': '',
+  });
+  writeBuildDigest(workspace, 'repo/packages/a', 'digest-from-this-tree');
+
+  writeConfig(workspace, log);
 }
 
 // endregion | Helpers
