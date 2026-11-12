@@ -8975,24 +8975,27 @@ async function importConfigDefault(configPath) {
   try {
     importedModule = await import(pathToFileURL(configPath).href);
   } catch (error) {
-    const line = readSyntaxErrorLine(error, configPath);
-    const location = line === void 0 ? configPath : `${configPath}:${line}`;
-    throw new UserError(`Cannot load nmr config at ${location}: ${describeError(error)}. Fix the file and rerun.`, {
-      cause: error
-    });
+    const location = readSyntaxErrorLocation(error);
+    const isInConfig = location !== void 0 && isConfigFile(location.file, configPath);
+    const configLocation = isInConfig ? `${configPath}:${location.line}` : configPath;
+    const foreignLocation = location === void 0 || isInConfig ? "" : `${location.file}:${location.line}: `;
+    throw new UserError(
+      `Cannot load nmr config at ${configLocation}: ${foreignLocation}${describeError(error)}. Fix the file and rerun.`,
+      { cause: error }
+    );
   }
   return isRecord2(importedModule) ? importedModule["default"] : void 0;
 }
-function readSyntaxErrorLine(error, configPath) {
+function isConfigFile(file, configPath) {
+  return file === configPath || file === resolveRealPath(configPath);
+}
+function readSyntaxErrorLocation(error) {
   if (!isError(error) || error.stack === void 0) {
     return void 0;
   }
   const match = /^(?<file>.+):(?<line>\d+)$/u.exec(error.stack.split("\n", 1)[0] ?? "");
   const { file, line } = match?.groups ?? {};
-  if (file === void 0 || line === void 0) {
-    return void 0;
-  }
-  return file === configPath || file === resolveRealPath(configPath) ? line : void 0;
+  return file === void 0 || line === void 0 ? void 0 : { file, line };
 }
 function resolveRealPath(filePath) {
   try {

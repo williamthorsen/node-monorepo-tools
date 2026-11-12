@@ -14,7 +14,16 @@ const UNTERMINATED_CONFIG = `const unused = 1;\nexport default { delegate: false
 
 const it = baseIt.extend(
   'tree',
-  makeFixture(() => createTempTree({ 'real/config.ts': UNTERMINATED_CONFIG }, { prefix: 'nmr-import-config-' })),
+  makeFixture(() =>
+    createTempTree(
+      {
+        'importer/config.ts': `import { delegate } from './settings.ts';\nexport default { delegate };\n`,
+        'importer/settings.ts': `export const delegate = false;\nexport const unused = { a: 1\n`,
+        'real/config.ts': UNTERMINATED_CONFIG,
+      },
+      { prefix: 'nmr-import-config-' },
+    ),
+  ),
 );
 
 // Node's own loader, which Vitest replaces in-process, is what names the line of a parse error.
@@ -36,6 +45,15 @@ describe('importConfigDefault under Node', () => {
 
     expect(readLoadErrorMessage(linkedPath)).toMatch(
       new RegExp(`^Cannot load nmr config at ${escapeRegExp(linkedPath)}:2: `, 'u'),
+    );
+  });
+
+  it('names the imported module and its line when the parse error lies there', ({ tree }) => {
+    const configPath = tree.resolve('importer/config.ts');
+    const settingsPath = tree.resolve('importer/settings.ts');
+
+    expect(readLoadErrorMessage(configPath)).toMatch(
+      new RegExp(`^Cannot load nmr config at ${escapeRegExp(configPath)}: ${escapeRegExp(settingsPath)}:2: `, 'u'),
     );
   });
 });

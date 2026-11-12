@@ -294,7 +294,7 @@
           "path": "../src/helpers/hook-name.ts"
         },
         {
-          "hash": "167dd7c4",
+          "hash": "d6455b2e",
           "kind": "module",
           "path": "../src/helpers/importConfigDefault.ts"
         },
@@ -364,7 +364,7 @@
       "readyupVersion": "0.45.1",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "e095e107"
+      "targetHash": "91dcb4e0"
     }
   ]
 }
