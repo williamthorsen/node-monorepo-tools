@@ -5,8 +5,8 @@
 export const ENV_SWITCH_VALUES = ['0', '1'] as const;
 
 /**
- * Reports whether a switch is on. A value that the switch does not accept reads as off: The entry point of each bin
- * rejects one before any command runs, through `readEnvSwitch`.
+ * Reports whether a switch is on. A value that the switch does not accept reads as off: nmr and `nmr-fmt` reject
+ * one at entry, through `readEnvSwitch`, before any command runs.
  */
 export function isEnvSwitchOn(env: NodeJS.ProcessEnv, name: string): boolean {
   return env[name] === '1';
