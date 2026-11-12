@@ -6,6 +6,7 @@ import { reportError, startTimer } from '@williamthorsen/nmr-core';
 import { NMR_BIN } from '../bins.ts';
 import { NO_CACHE_ENV_VAR, resolveRunId, writeDebugNote } from '../check-cache/check-cache.ts';
 import { buildChildEnv, buildRemoteEnv } from '../child-env.ts';
+import { isEnvSwitchOn } from '../env-switch.ts';
 import { type BoundedBuffer, createBoundedBuffer } from '../helpers/createBoundedBuffer.ts';
 import {
   type ExecutionTarget,
@@ -105,7 +106,7 @@ export async function runInvocationOnHost(
     format,
     passthrough: parsedArgs.passthrough,
     runId: resolveRunId(env),
-    shouldBypassCache: parsedArgs.shouldBypassCache || env[NO_CACHE_ENV_VAR] === '1',
+    shouldBypassCache: parsedArgs.shouldBypassCache || isEnvSwitchOn(env, NO_CACHE_ENV_VAR),
     shouldBypassLock: parsedArgs.shouldBypassLock,
     snapshot: undefined,
     styles,

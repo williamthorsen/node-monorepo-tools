@@ -183,7 +183,7 @@ $ nmr check
 nmr: waiting for test in /Users/me/repos/other-repo (pid 41872) to finish
 ```
 
-The lock lives in `/tmp/nmr-<uid>/`, or in `NMR_LOCK_DIR`; a sandboxed session needs write access to it. `nmr --no-lock <command>` or `NMR_NO_LOCK=1` runs without waiting. [Machine lock](docs/machine-lock.md) covers which commands take it, nesting and fan-outs, reclaiming a lock that its holder left behind, and CI.
+The lock lives in `/tmp/nmr-<uid>/`, or in `NMR_LOCK_DIR`; a sandboxed session needs write access to it. `nmr --no-lock <command>` or `NMR_NO_LOCK=1` runs without waiting; [environment switches](docs/scripts.md#environment-switches) lists the values that the variable accepts. [Machine lock](docs/machine-lock.md) covers which commands take it, nesting and fan-outs, reclaiming a lock that its holder left behind, and CI.
 
 ## Delegating to another machine
 

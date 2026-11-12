@@ -4,11 +4,22 @@ import process from 'node:process';
 import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { describe, expect, it, vi } from 'vitest';
 
-import { runPrettier, type RunPrettierOptions } from '../fmt.ts';
+import { runFmt, runPrettier, type RunPrettierOptions } from '../fmt.ts';
 import type { InheritedOutcome, SpawnInherited } from '../spawn-inherited.ts';
 
 const CLI_PATH = '/prettier/bin.cjs';
 const CWD = '/repo';
+
+describe(runFmt, () => {
+  it('rejects an NMR_NO_CACHE that is neither on nor off before reading any file', async () => {
+    using captured = captureStdio();
+
+    const exitCode = await runFmt(['--check'], CWD, { NMR_NO_CACHE: 'true' });
+
+    expect(exitCode).toBe(2);
+    expect(captured.stderr).toContain('NMR_NO_CACHE is `true`, which is not one of: 0, 1 (unset or empty is off)');
+  });
+});
 
 describe(runPrettier, () => {
   it("runs the CLI under this process's Node in the given directory", () => {

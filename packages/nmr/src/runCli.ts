@@ -14,6 +14,7 @@ import { assertNoSelfReference } from './crossing-diagnostics.ts';
 import { resolveExecutionTarget, runInvocationOnHost } from './delegation/delegate-host.ts';
 import { DELEGATE_TO_FLAG } from './delegation/remote-run.ts';
 import { enterChain } from './entry-chain.ts';
+import { isEnvSwitchOn } from './env-switch.ts';
 import { composeDelegation, runDelegation } from './fan-out.ts';
 import {
   type ReadFilterSelection,
@@ -157,7 +158,7 @@ async function planRun(invocation: Invocation, target: ExecutionTarget): Promise
     style: styles.stderr,
   });
 
-  const shouldBypassCache = parsedArgs.shouldBypassCache || env[NO_CACHE_ENV_VAR] === '1';
+  const shouldBypassCache = parsedArgs.shouldBypassCache || isEnvSwitchOn(env, NO_CACHE_ENV_VAR);
   const runId = resolveRunId(env);
   const childEnv = buildChildEnv({
     env,
@@ -219,7 +220,7 @@ async function planRun(invocation: Invocation, target: ExecutionTarget): Promise
   const resolvedScript = resolveScript(command, registry, anchorDir, parsedArgs.isWorkspaceRoot);
 
   if (!resolvedScript) {
-    if (env[RUN_IF_PRESENT_ENV_VAR] === '1') {
+    if (isEnvSwitchOn(env, RUN_IF_PRESENT_ENV_VAR)) {
       return { settled: true, result: { exitCode: 0 } };
     }
     // A host name after bare `--delegate` reads as the command, and it belongs to `--delegate-to`.

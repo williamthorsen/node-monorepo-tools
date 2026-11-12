@@ -8,6 +8,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 import { isRecord, type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
+import { isEnvSwitchOn } from './env-switch.ts';
+
 /** Serializes reclaims of a stale lock, so that one waiter's reclaim cannot remove the lock that another just took. */
 const RECLAIM_GUARD = 'heavy.lock.reclaim';
 
@@ -104,7 +106,7 @@ export async function acquireMachineLock(options: {
 }): Promise<MachineLock> {
   const { command, dir, env, stderr } = options;
 
-  if (env[NO_LOCK_ENV_VAR] === '1') {
+  if (isEnvSwitchOn(env, NO_LOCK_ENV_VAR)) {
     return createHoldFreeLock({ isChainUnlocked: true, waited: false });
   }
 

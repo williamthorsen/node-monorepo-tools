@@ -3,16 +3,22 @@ import type { Writable } from 'node:stream';
 
 import { type CommandNode, createCli, type ParsedFlags, UsageError } from '@williamthorsen/nmr-core/cli';
 
+import { DEBUG_ENV_VAR, NO_CACHE_ENV_VAR } from './check-cache/check-cache.ts';
 import type { ResolvedContext } from './context.ts';
+import { readEnvSwitch, readEnvSwitches } from './env-switch.ts';
 import { listDefinedCommands } from './fan-out.ts';
 import { describeHelp } from './help.ts';
 import type { ReadFilterSelection } from './helpers/filter-selection.ts';
 import { type Invocation, RUN_IF_PRESENT_ENV_VAR } from './invocation.ts';
+import { NO_LOCK_ENV_VAR } from './machine-lock.ts';
 import { NMR_FLAGS, type ParsedArgs, toParsedArgs } from './nmr-flags.ts';
 import { isTerminalStream } from './output-style.ts';
 import { readPresentation, resolveReportingVerbosity } from './presentation.ts';
 import { resolveReportFormat } from './report-format.ts';
 import type { RunSteps } from './runner.ts';
+
+/** The on/off switches that nmr reads from the environment, which it validates before any command runs. */
+const ENV_SWITCH_NAMES = [DEBUG_ENV_VAR, NO_CACHE_ENV_VAR, NO_LOCK_ENV_VAR, RUN_IF_PRESENT_ENV_VAR] as const;
 
 /** What the command tree of one invocation is built from. */
 export interface RouteInput {
@@ -57,8 +63,12 @@ export function buildRoot(input: RouteInput): CommandNode<undefined> {
 
   const command = firstPass?.command;
   if (command !== undefined && !firstPass?.shouldShowHelp && !Object.hasOwn(commands, command)) {
+    // An unreadable `NMR_RUN_IF_PRESENT` adds the command too, so that `deriveInvocation` rejects the value rather
+    // than the router reporting the command as unknown.
+    const runIfPresent = readEnvSwitch(env, RUN_IF_PRESENT_ENV_VAR);
     const isAnsweredByNmr =
-      env[RUN_IF_PRESENT_ENV_VAR] === '1' ||
+      !runIfPresent.ok ||
+      runIfPresent.isOn ||
       (firstPass?.shouldDelegate === true && firstPass.delegateHosts === undefined) ||
       listDefinedCommands(context).has(command);
     if (isAnsweredByNmr) {
@@ -97,8 +107,9 @@ function defineScriptCommand(name: string, summary: string, input: RouteInput): 
 }
 
 /**
- * Reads the presentation sources and resolves where the invocation runs, rejecting a presentation value that does not
- * name a setting and a `--log` that does not name a command.
+ * Reads the presentation sources and the environment switches and resolves where the invocation runs, rejecting a
+ * presentation value that does not name a setting, a switch that is neither on nor off, and a `--log` that does not
+ * name a command.
  */
 function deriveInvocation(flags: ParsedFlags<typeof NMR_FLAGS>, input: RouteInput): InvocationBase {
   const { context, cwd, env, firstPass, readFilterSelection, runSteps, stderr, stdout } = input;
@@ -112,6 +123,11 @@ function deriveInvocation(flags: ParsedFlags<typeof NMR_FLAGS>, input: RouteInpu
   });
   if (!presentationRead.ok) {
     throw new UsageError(presentationRead.error);
+  }
+
+  const switchError = readEnvSwitches(env, ENV_SWITCH_NAMES);
+  if (switchError !== undefined) {
+    throw new UsageError(switchError);
   }
 
   // `--log` names what to print rather than what to run, so without a command it has asked for nothing.

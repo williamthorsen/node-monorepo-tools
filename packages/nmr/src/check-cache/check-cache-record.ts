@@ -3,6 +3,7 @@ import type { Writable } from 'node:stream';
 
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { isEnvSwitchOn } from '../env-switch.ts';
 import { deriveExcerpt } from '../helpers/deriveExcerpt.ts';
 import { composeTranscript } from '../helpers/transcript.ts';
 import { RUN_IF_PRESENT_ENV_VAR, type RunCliResult, type RunPlan, VERSION } from '../invocation.ts';
@@ -216,7 +217,7 @@ export async function reportRecording(plan: RunPlan): Promise<RunCliResult> {
 
   if (!lookup.ok) {
     stderr.write(`${renderRefusal({ command, refusal: lookup.refusal, scope, style: styles.stderr })}\n`);
-    return { exitCode: env[RUN_IF_PRESENT_ENV_VAR] === '1' ? 0 : 1 };
+    return { exitCode: isEnvSwitchOn(env, RUN_IF_PRESENT_ENV_VAR) ? 0 : 1 };
   }
 
   stdout.write(renderRecording({ command, recording: lookup.recording, scope, style: styles.stdout }));

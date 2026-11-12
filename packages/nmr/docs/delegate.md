@@ -55,7 +55,7 @@ The first rule that applies decides where a command runs:
 - **A step and a `-F` or `-R` child run where their parent runs.** nmr gives every process that it starts an empty `NMR_DELEGATE`, which rule 6 reads as "here"; the run on a host already passes `--no-delegate`, so a host does not apply its own user config. A git hook that an agent's command starts is an agent run.
 - **A repo whose checks must run on the machine that has the tree** declares `delegate: false` in `.config/nmr.config.ts`, the only value that the repo config accepts for the key. It outranks `NMR_DELEGATE` and the user config, but not a flag.
 - **A command in a package install hook runs here unless a flag asks otherwise.** During `pnpm add`, a hook such as `postinstall` sees a manifest that its lockfile does not match yet, and the host's frozen install of that tree fails. A command in any other `package.json` script, such as `test`, delegates as usual.
-- **`NMR_DEBUG=1` names what sent a command to a host**, such as `delegating ci per ~/.config/nmr/config.ts (when: agent)`, `per NMR_DELEGATE`, or `per --delegate-to`.
+- **`NMR_DEBUG=1` names what sent a command to a host**, such as `delegating ci per ~/.config/nmr/config.ts (when: agent)`, `per NMR_DELEGATE`, or `per --delegate-to`. [Environment switches](scripts.md#environment-switches) lists the values that `NMR_DEBUG` accepts.
 
 ### Choosing among several hosts
 
@@ -92,7 +92,7 @@ $ nmr --delegate-to imac2 ci
 - **A pass earned on a host is recorded here** with that host, and a later delegation whose list includes that host recalls it as `passed 4m ago on imac2`, without asking any host whether it is free. A run here, or a delegation to other hosts, does not recall it. `nmr --log <command>` prints the output that the host sent back, under a header that names the host.
 - **A delegated composite records its constituents' passes too**, as the host reports them, so `nmr --delegate-to imac2 check` after `nmr --delegate-to imac2 ci` recalls without contacting the host, and a recall of `ci` replays its constituents' excerpts. A composite that the host itself recalled records only its own pass, and a `-F` or `-R` delegation does not record any pass; [delegated passes](check-cache.md#delegated-passes) has the rules.
 - **Only a miss reaches the host**, and it does not take the [machine lock](machine-lock.md) here.
-- **`--no-cache` and `NMR_NO_CACHE=1` skip the lookup** and reach the host, where they bypass its cache too.
+- **`--no-cache` and `NMR_NO_CACHE=1` skip the lookup** and reach the host, where they bypass its cache too. [Environment switches](scripts.md#environment-switches) lists the values that `NMR_NO_CACHE` accepts.
 - **An invocation that nmr settles while planning**, such as an unknown command or an empty override, settles here without contacting the host.
 - **A `-F` or `-R` invocation is sent whole**, without consulting this machine's cache, and the host fans it out.
 
