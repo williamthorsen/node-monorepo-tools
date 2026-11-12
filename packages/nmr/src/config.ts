@@ -1,12 +1,12 @@
 import { existsSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
 
-import { isRecord, UserError } from '@williamthorsen/nmr-core';
+import { UserError } from '@williamthorsen/nmr-core';
 
 import { CONFIG_TIERS, type ConfigTier, validateConfig } from './config-validation.ts';
 import { resolveConfigPath } from './helpers/config-path.ts';
 import { escapeControlCharacters } from './helpers/escapeControlCharacters.ts';
 import { isHookName } from './helpers/hook-name.ts';
+import { importConfigDefault } from './helpers/importConfigDefault.ts';
 import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scripts.ts';
 import { describeScript } from './resolver.ts';
 import { readSelfReference, readStepListSelfReference, type SelfReference, type SelfReferenceScope } from './steps.ts';
@@ -30,10 +30,7 @@ export async function loadConfig(baseDir: string): Promise<NmrConfig> {
     return {};
   }
 
-  // Node type-strips `.ts` natively at this package's engines floor, so the config does not need a transform
-  // step or a loader dependency. `import()` takes a URL, not a path: A bare Windows path parses as a scheme.
-  const importedModule: unknown = await import(pathToFileURL(configPath).href);
-  const loadedConfig = isRecord(importedModule) ? importedModule['default'] : undefined;
+  const loadedConfig = await importConfigDefault(configPath);
 
   return validateConfig(loadedConfig, configPath, baseDir);
 }

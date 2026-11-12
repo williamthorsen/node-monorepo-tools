@@ -259,7 +259,7 @@
           "path": "../src/config-validation.ts"
         },
         {
-          "hash": "d345a285",
+          "hash": "f5e9e2fd",
           "kind": "module",
           "path": "../src/config.ts"
         },
@@ -292,6 +292,11 @@
           "hash": "3efe4131",
           "kind": "module",
           "path": "../src/helpers/hook-name.ts"
+        },
+        {
+          "hash": "167dd7c4",
+          "kind": "module",
+          "path": "../src/helpers/importConfigDefault.ts"
         },
         {
           "hash": "62caa37e",
@@ -359,7 +364,7 @@
       "readyupVersion": "0.45.1",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "75d28fc2"
+      "targetHash": "e095e107"
     }
   ]
 }

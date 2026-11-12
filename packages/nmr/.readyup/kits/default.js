@@ -8019,7 +8019,6 @@ import { isRecord as isRecord5 } from "readyup/check-utils";
 
 // src/config.ts
 import { existsSync as existsSync3 } from "node:fs";
-import { pathToFileURL } from "node:url";
 
 // src/helpers/findClosestName.ts
 function findClosestName(name, candidates) {
@@ -8968,6 +8967,41 @@ function escapeControlCharacters(text) {
   return escapedText;
 }
 
+// src/helpers/importConfigDefault.ts
+import { realpathSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+async function importConfigDefault(configPath) {
+  let importedModule;
+  try {
+    importedModule = await import(pathToFileURL(configPath).href);
+  } catch (error) {
+    const line = readSyntaxErrorLine(error, configPath);
+    const location = line === void 0 ? configPath : `${configPath}:${line}`;
+    throw new UserError(`Cannot load nmr config at ${location}: ${describeError(error)}. Fix the file and rerun.`, {
+      cause: error
+    });
+  }
+  return isRecord2(importedModule) ? importedModule["default"] : void 0;
+}
+function readSyntaxErrorLine(error, configPath) {
+  if (!isError(error) || error.stack === void 0) {
+    return void 0;
+  }
+  const match = /^(?<file>.+):(?<line>\d+)$/u.exec(error.stack.split("\n", 1)[0] ?? "");
+  const { file, line } = match?.groups ?? {};
+  if (file === void 0 || line === void 0) {
+    return void 0;
+  }
+  return file === configPath || file === resolveRealPath(configPath) ? line : void 0;
+}
+function resolveRealPath(filePath) {
+  try {
+    return realpathSync(filePath);
+  } catch {
+    return void 0;
+  }
+}
+
 // src/config.ts
 var SCRIPT_FIELDS = [
   { field: "rootScripts", scope: "root" },
@@ -8978,8 +9012,7 @@ async function loadConfig(baseDir) {
   if (!existsSync3(configPath)) {
     return {};
   }
-  const importedModule = await import(pathToFileURL(configPath).href);
-  const loadedConfig = isRecord2(importedModule) ? importedModule["default"] : void 0;
+  const loadedConfig = await importConfigDefault(configPath);
   return validateConfig(loadedConfig, configPath, baseDir);
 }
 async function loadRootConfig(monorepoRoot) {

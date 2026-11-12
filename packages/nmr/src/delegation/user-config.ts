@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 
 import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
 import { assertRecognizedKeys } from '../config-validation.ts';
+import { importConfigDefault } from '../helpers/importConfigDefault.ts';
 import { resolveXdgBaseDir } from '../helpers/resolveXdgBaseDir.ts';
 import type { HostList } from './remote-run.ts';
 
@@ -47,8 +47,7 @@ export async function loadUserConfig(env: NodeJS.ProcessEnv): Promise<LoadedUser
     return undefined;
   }
 
-  const importedModule: unknown = await import(pathToFileURL(configPath).href);
-  const loadedConfig = isRecord(importedModule) ? importedModule['default'] : undefined;
+  const loadedConfig = await importConfigDefault(configPath);
 
   return { config: validateUserConfig(loadedConfig, configPath), path: configPath };
 }

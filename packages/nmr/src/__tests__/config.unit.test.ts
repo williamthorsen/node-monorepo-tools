@@ -30,6 +30,17 @@ describe(loadConfig, () => {
     await expect(loadConfig(tree.dir)).rejects.toThrow(UserError);
   });
 
+  it('rejects a config that fails to parse as a UserError that names the file', async ({ tree }) => {
+    writeConfig(tree, `export default { build: {`);
+
+    await expect(loadConfig(tree.dir)).rejects.toThrow(
+      expect.objectContaining({
+        message: expect.stringContaining(`Cannot load nmr config at ${tree.resolve('.config/nmr.config.ts')}`),
+        name: 'UserError',
+      }),
+    );
+  });
+
   it('loads build.extraIgnorePatterns', async ({ tree }) => {
     writeConfig(tree, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
