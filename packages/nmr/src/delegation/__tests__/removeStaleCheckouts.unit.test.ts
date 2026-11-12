@@ -110,8 +110,23 @@ describe(removeStaleCheckouts, () => {
     expect(hasCheckout(tree, 'old')).toBe(true);
   });
 
-  it('deletes what an interrupted removal left in .removing', async ({ tree }) => {
-    tree.write('home/.cache/nmr/delegate/.removing/leftover/file', '');
+  it('moves a checkout aside by renaming it, which does not need a new inode', ({ tree }) => {
+    addCheckout(tree, 'old', { ageDays: 30 });
+    const { ino } = fs.statSync(tree.resolve('home/.cache/nmr/delegate/old'));
+
+    vi.stubEnv('HOME', tree.resolve('home'));
+    removeStaleCheckouts(PARAMS);
+    const entries = fs.readdirSync(tree.resolve('home/.cache/nmr/delegate'));
+
+    // The detached `rm` may already have deleted the moved directory; when it has not, it is the original inode.
+    for (const name of entries) {
+      expect(name).toMatch(/^\.removing-/);
+      expect(fs.statSync(tree.resolve('home/.cache/nmr/delegate', name)).ino).toBe(ino);
+    }
+  });
+
+  it('deletes what an interrupted removal left', async ({ tree }) => {
+    tree.write('home/.cache/nmr/delegate/.removing-leftover/repo/file', '');
 
     run(tree);
 
@@ -151,7 +166,10 @@ async function expectRemoved(tree: TempTree, keys: string[]): Promise<void> {
     expect(hasCheckout(tree, key)).toBe(false);
   }
   await vi.waitFor(() => {
-    expect(fs.existsSync(tree.resolve('home/.cache/nmr/delegate/.removing'))).toBe(false);
+    const names = fs.existsSync(tree.resolve('home/.cache/nmr/delegate'))
+      ? fs.readdirSync(tree.resolve('home/.cache/nmr/delegate'))
+      : [];
+    expect(names.filter((name) => name.startsWith('.removing-'))).toStrictEqual([]);
   });
 }
 

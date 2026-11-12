@@ -32,9 +32,11 @@ export function composeCheckoutRemovalScript(params: CheckoutRemovalParams): str
  * `removeAfterMs` and whose lock does not have a live holder. A checkout's last use is the newest mtime of its stamp,
  * `.git/index`, and `.git/HEAD`, so that a checkout made by an nmr that does not write the stamp still has one.
  *
- * Each checkout is renamed into `.removing/` at once, so that a delegation that starts later creates a fresh one, and
- * a detached `rm` then deletes `.removing/`, so that the delegation does not wait for it. An entry that cannot be
- * read or moved is skipped. It is sent as source, so it refers to nothing outside its own body.
+ * Each checkout is renamed at once to a `.removing-` sibling, which needs no new inode, so that removal works on a
+ * filesystem without any free inodes and a delegation that starts later creates a fresh checkout. A detached `rm`
+ * then deletes every `.removing-` sibling, including those that an interrupted removal left, so that the delegation
+ * does not wait for it. An entry that cannot be read or moved is skipped. It is sent as source, so it refers to
+ * nothing outside its own body.
  *
  * @internal
  */
@@ -49,7 +51,7 @@ export function removeStaleCheckouts(params: CheckoutRemovalParams): void {
   if (removeAfterMs === null) return;
 
   const rootDir = path.join(os.homedir(), params.checkoutsDir);
-  const removingDir = path.join(rootDir, '.removing');
+  const REMOVING_PREFIX = '.removing-';
   const now = Date.now();
 
   for (const key of readNames(rootDir)) {
@@ -64,15 +66,17 @@ export function removeStaleCheckouts(params: CheckoutRemovalParams): void {
     if (isLockHeld(path.join(checkoutDir, params.lockPath))) continue;
 
     try {
-      fs.mkdirSync(removingDir, { recursive: true });
-      fs.renameSync(keyDir, path.join(removingDir, crypto.randomUUID()));
+      fs.renameSync(keyDir, path.join(rootDir, `${REMOVING_PREFIX}${crypto.randomUUID()}`));
     } catch {
       // Another delegation moved it first, or the directory cannot be moved.
     }
   }
 
-  if (fs.existsSync(removingDir)) {
-    childProcess.spawn('rm', ['-rf', removingDir], { detached: true, stdio: 'ignore' }).unref();
+  const moved = readNames(rootDir)
+    .filter((name) => name.startsWith(REMOVING_PREFIX))
+    .map((name) => path.join(rootDir, name));
+  if (moved.length > 0) {
+    childProcess.spawn('rm', ['-rf', ...moved], { detached: true, stdio: 'ignore' }).unref();
   }
 
   /** Reports whether a lock file exists and has a live holder, by the checkout lock's own staleness rules. */
