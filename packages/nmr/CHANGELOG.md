@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.1.0 — 2026-11-12
+
+### 🎉 Features
+
+- Adds the `fanOut.extraSortedCommands` root-config key, which lists commands besides `build` whose fan-out keeps the topological order, and nmr rejects a name in it that does not resolve to any command when it loads the config. (#1306)
+
+### ⚡ Performance
+
+- Drops pnpm's topological sort, which runs each package only after its workspace dependencies finish, from every `-R` and `-F` fan-out except one of `build`, so that `nmr test`, the `test:*` commands, and `nmr typecheck` start each package without waiting for its workspace dependencies. (#1306)
+
+### ♻️ Refactoring
+
+- Renames each single-export module in `packages/nmr/src` after its main export, such as `bin-path.ts` to `prependBinDirs.ts`, and renames the test files that matched the old names. (#1303)
+- Stops exporting seven values from `nmr`'s source modules, among them `REPORT_FORMATS`, `COMMAND_VERBOSITIES`, and the machine lock's `POLL_INTERVAL_MS`, because only the module that defines each one reads it. (#1305)
+
+### 🧪 Tests
+
+- Replaces the hand-copied git setup in the nmr tool tests and fixtures, and the local `initRepo` that shadowed the shared helper in `check-cache.tool.test.ts`, with calls to `test-utils/initRepo.ts`. (#1304)
+
 ## 2.0.3 — 2026-11-12
 
 ### ⚙️ Tooling

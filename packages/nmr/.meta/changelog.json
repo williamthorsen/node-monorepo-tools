@@ -1,5 +1,60 @@
 [
   {
+    "version": "2.1.0",
+    "date": "2026-11-12",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Adds the `fanOut.extraSortedCommands` root-config key, which lists commands besides `build` whose fan-out keeps the topological order, and nmr rejects a name in it that does not resolve to any command when it loads the config. (#1306)",
+            "hash": "01a2cf5ec7b3a64da280a9053c1d608e8594e3f8",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "⚡ Performance",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Drops pnpm's topological sort, which runs each package only after its workspace dependencies finish, from every `-R` and `-F` fan-out except one of `build`, so that `nmr test`, the `test:*` commands, and `nmr typecheck` start each package without waiting for its workspace dependencies. (#1306)",
+            "hash": "01a2cf5ec7b3a64da280a9053c1d608e8594e3f8",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Renames each single-export module in `packages/nmr/src` after its main export, such as `bin-path.ts` to `prependBinDirs.ts`, and renames the test files that matched the old names. (#1303)",
+            "hash": "5e1b404c4aa76defaf9d3921b3b88d7266a57297",
+            "entry": 1
+          },
+          {
+            "description": "Stops exporting seven values from `nmr`'s source modules, among them `REPORT_FORMATS`, `COMMAND_VERBOSITIES`, and the machine lock's `POLL_INTERVAL_MS`, because only the module that defines each one reads it. (#1305)",
+            "hash": "fa7addca5299b46f5e8a40663cae8e8c56b4547d",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Replaces the hand-copied git setup in the nmr tool tests and fixtures, and the local `initRepo` that shadowed the shared helper in `check-cache.tool.test.ts`, with calls to `test-utils/initRepo.ts`. (#1304)",
+            "hash": "20121aef0112f24b64880b68675d6cdcea6066a0",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "2.0.3",
     "date": "2026-11-12",
     "sections": [
