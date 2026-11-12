@@ -24,21 +24,23 @@ export function composeFilesystemCheckScript(): string {
 
 /**
  * Names the resource that the host's filesystem has run out of, from what `composeFilesystemCheckScript` printed, or
- * returns `undefined` when neither count is zero or the output does not include them.
+ * returns `undefined` when neither is exhausted or the output does not include the counts. A filesystem that reports
+ * a total of zero inodes, as btrfs does, allocates them as it goes, so it cannot run out of them.
  */
 export function describeExhaustedResource(output: string): string | undefined {
   const counts = output
     .split('\n')
     .map(parseCounts)
     .findLast((value) => value !== undefined);
-  if (counts?.ffree === 0) return "the host's filesystem has run out of inodes";
+  if (counts !== undefined && counts.files > 0 && counts.ffree === 0)
+    return "the host's filesystem has run out of inodes";
   if (counts?.bavail === 0) return "the host's filesystem has run out of space";
   return undefined;
 }
 
 /**
- * Runs on the host and prints, as one JSON line, the free inodes and the blocks available to this user on the
- * filesystem that holds the home directory. It is sent as source, so it refers to nothing outside its own body.
+ * Runs on the host and prints, as one JSON line, the total and free inodes and the blocks available to this user on
+ * the filesystem that holds the home directory. It is sent as source, so it refers to nothing outside its own body.
  *
  * @internal
  */
@@ -46,8 +48,8 @@ export function readHostFilesystem(): void {
   const fs = process.getBuiltinModule('node:fs');
   const os = process.getBuiltinModule('node:os');
 
-  const { bavail, ffree } = fs.statfsSync(os.homedir());
-  process.stdout.write(`${JSON.stringify({ bavail, ffree })}\n`);
+  const { bavail, ffree, files } = fs.statfsSync(os.homedir());
+  process.stdout.write(`${JSON.stringify({ bavail, ffree, files })}\n`);
 }
 
 // region | Helpers
@@ -55,13 +57,16 @@ export function readHostFilesystem(): void {
 /** Matches what a process prints when a write fails because its filesystem is full. */
 const FULL_FILESYSTEM_PATTERN = /no space left on device|ENOSPC/i;
 
-/** Parses a line of the check's output, or returns `undefined` for a line that does not contain both counts. */
-function parseCounts(line: string): { bavail: number; ffree: number } | undefined {
+/** Parses a line of the check's output, or returns `undefined` for a line that does not contain every count. */
+function parseCounts(line: string): { bavail: number; ffree: number; files: number } | undefined {
   try {
     const value: unknown = JSON.parse(line);
-    if (typeof value !== 'object' || value === null || !('bavail' in value) || !('ffree' in value)) return undefined;
-    const { bavail, ffree } = value;
-    return typeof bavail === 'number' && typeof ffree === 'number' ? { bavail, ffree } : undefined;
+    if (typeof value !== 'object' || value === null) return undefined;
+    if (!('bavail' in value) || !('ffree' in value) || !('files' in value)) return undefined;
+    const { bavail, ffree, files } = value;
+    return typeof bavail === 'number' && typeof ffree === 'number' && typeof files === 'number'
+      ? { bavail, ffree, files }
+      : undefined;
   } catch {
     return undefined;
   }

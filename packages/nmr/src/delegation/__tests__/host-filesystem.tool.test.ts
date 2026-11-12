@@ -9,6 +9,10 @@ describe(composeFilesystemCheckScript, () => {
     const result = spawnSync('/bin/sh', ['-c', composeFilesystemCheckScript()], { encoding: 'utf8' });
 
     expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout)).toStrictEqual({ bavail: expect.any(Number), ffree: expect.any(Number) });
+    expect(JSON.parse(result.stdout)).toStrictEqual({
+      bavail: expect.any(Number),
+      ffree: expect.any(Number),
+      files: expect.any(Number),
+    });
   });
 });
