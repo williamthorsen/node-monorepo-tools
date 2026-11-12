@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.2.2 — 2026-11-12
+
+### ⚙️ Tooling
+
+- Declares `@williamthorsen/nmr` as a `workspace:*` devDependency of every workspace package but nmr and nmr-core, so that pnpm builds nmr first and a package's build cannot load `packages/nmr/dist` while nmr is replacing it, and adds a root unit test that fails when a package omits the declaration. (#1302)
+- Drops `--conditions nmr-source` from the `prepare` scripts of `build-info`, `build-info-react`, and `change-grammar`, which pnpm now runs after nmr-core is built because each package depends on nmr-core through nmr. (#1302)
+
 ## 0.2.1 — 2026-11-10
 
 ### 📦 Dependencies

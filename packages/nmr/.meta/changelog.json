@@ -1,5 +1,22 @@
 [
   {
+    "version": "2.0.3",
+    "date": "2026-11-12",
+    "sections": [
+      {
+        "title": "⚙️ Tooling",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Drops `--conditions nmr-source` from the `prepare` scripts of `build-info`, `build-info-react`, and `change-grammar`, which pnpm now runs after nmr-core is built because each package depends on nmr-core through nmr. (#1302)",
+            "hash": "9316254f051da705a8d588fad273e3a837501594",
+            "entry": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "2.0.2",
     "date": "2026-11-12",
     "sections": [

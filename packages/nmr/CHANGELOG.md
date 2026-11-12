@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.0.3 — 2026-11-12
+
+### ⚙️ Tooling
+
+- Drops `--conditions nmr-source` from the `prepare` scripts of `build-info`, `build-info-react`, and `change-grammar`, which pnpm now runs after nmr-core is built because each package depends on nmr-core through nmr. (#1302)
+
 ## 2.0.2 — 2026-11-12
 
 ### 🐛 Bug fixes

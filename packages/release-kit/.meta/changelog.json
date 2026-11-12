@@ -1,5 +1,22 @@
 [
   {
+    "version": "18.1.1",
+    "date": "2026-11-12",
+    "sections": [
+      {
+        "title": "⚙️ Tooling",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Declares `@williamthorsen/nmr` as a `workspace:*` devDependency of every workspace package but nmr and nmr-core, so that pnpm builds nmr first and a package's build cannot load `packages/nmr/dist` while nmr is replacing it, and adds a root unit test that fails when a package omits the declaration. (#1302)",
+            "hash": "9316254f051da705a8d588fad273e3a837501594",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "18.1.0",
     "date": "2026-11-11",
     "sections": [
