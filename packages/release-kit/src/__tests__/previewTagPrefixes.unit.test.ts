@@ -55,8 +55,8 @@ describe(previewTagPrefixes, () => {
   it('returns one row per discovered workspace with derived prefix and tag counts', () => {
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/arrays']));
     mockDeriveWorkspaceConfig.mockImplementation((path: string) => {
-      if (path === 'packages/core') return { tagPrefix: 'nmr-core-v' };
-      if (path === 'packages/arrays') return { tagPrefix: 'arrays-v' };
+      if (path === 'packages/core') return { name: '@scope/nmr-core', tagPrefix: 'nmr-core-v' };
+      if (path === 'packages/arrays') return { name: '@scope/arrays', tagPrefix: 'arrays-v' };
       throw new Error(`unexpected path: ${path}`);
     });
     mockDetectUndeclared.mockReturnValue([]);
@@ -71,6 +71,7 @@ describe(previewTagPrefixes, () => {
       {
         workspacePath: 'packages/core',
         dir: 'core',
+        name: '@scope/nmr-core',
         derivedPrefix: 'nmr-core-v',
         derivationError: null,
         derivedTagCount: 2,
@@ -79,6 +80,7 @@ describe(previewTagPrefixes, () => {
       {
         workspacePath: 'packages/arrays',
         dir: 'arrays',
+        name: '@scope/arrays',
         derivedPrefix: 'arrays-v',
         derivationError: null,
         derivedTagCount: 1,
@@ -115,11 +117,12 @@ describe(previewTagPrefixes, () => {
     expect(result.workspaces[0]?.derivedPrefix).toBe('good-v');
     expect(result.workspaces[0]?.derivationError).toBeNull();
     expect(result.workspaces[1]?.derivedPrefix).toBeNull();
+    expect(result.workspaces[1]?.name).toBeNull();
     expect(result.workspaces[1]?.derivationError).toContain("missing a 'name' field");
     expect(result.workspaces[1]?.derivedTagCount).toBe(0);
   });
 
-  it('reports declared legacy prefixes with their tag counts', () => {
+  it('reports declared legacy prefixes with their identity names and tag counts', () => {
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
     const config = {
       workspaces: [
@@ -143,8 +146,8 @@ describe(previewTagPrefixes, () => {
     const result = previewTagPrefixes(config);
 
     expect(result.workspaces[0]?.legacyEntries).toStrictEqual([
-      { prefix: 'core-v', tagCount: 2 },
-      { prefix: 'old-core-v', tagCount: 0 },
+      { name: '@old-scope/core', prefix: 'core-v', tagCount: 2 },
+      { name: '@older-scope/core', prefix: 'old-core-v', tagCount: 0 },
     ]);
   });
 
@@ -161,16 +164,20 @@ describe(previewTagPrefixes, () => {
 
     const result = previewTagPrefixes(config);
 
-    expect(result.workspaces[0]?.legacyEntries).toStrictEqual([{ prefix: 'core-v', tagCount: 1 }]);
+    expect(result.workspaces[0]?.legacyEntries).toStrictEqual([{ name: '@old/core', prefix: 'core-v', tagCount: 1 }]);
   });
 
-  it('adds a row for each directory that a releases entry declares, recording a derivation failure on the row', () => {
+  it('adds a row named by its releases key for each directory that a releases entry declares, recording a derivation failure on the row', () => {
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
-    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'core-v' });
-    mockDeriveDirectoryConfig.mockImplementation((declaredDirectory: { path: string; tagPrefix?: string }) => {
-      if (declaredDirectory.path === 'apps/app') return { tagPrefix: declaredDirectory.tagPrefix };
-      throw new Error(`releases.docs: path '${declaredDirectory.path}' is not a directory`);
-    });
+    mockDeriveWorkspaceConfig.mockReturnValue({ name: '@scope/core', tagPrefix: 'core-v' });
+    mockDeriveDirectoryConfig.mockImplementation(
+      (declaredDirectory: { name: string; path: string; tagPrefix?: string }) => {
+        if (declaredDirectory.path === 'apps/app') {
+          return { name: declaredDirectory.name, tagPrefix: declaredDirectory.tagPrefix };
+        }
+        throw new Error(`releases.docs: path '${declaredDirectory.path}' is not a directory`);
+      },
+    );
     mockDetectUndeclared.mockReturnValue([]);
     stubTagCounts({ 'app-v': ['app-v1.0.0'] });
 
@@ -183,15 +190,16 @@ describe(previewTagPrefixes, () => {
     });
 
     expect(
-      result.workspaces.map(({ workspacePath, derivedPrefix, derivedTagCount }) => [
+      result.workspaces.map(({ workspacePath, name, derivedPrefix, derivedTagCount }) => [
         workspacePath,
+        name,
         derivedPrefix,
         derivedTagCount,
       ]),
     ).toStrictEqual([
-      ['packages/core', 'core-v', 0],
-      ['apps/app', 'app-v', 1],
-      ['docs', null, 0],
+      ['packages/core', '@scope/core', 'core-v', 0],
+      ['apps/app', 'app', 'app-v', 1],
+      ['docs', 'docs', null, 0],
     ]);
     expect(result.workspaces[2]?.derivationError).toContain('is not a directory');
   });
