@@ -144,9 +144,10 @@ export function decideTargetRelease(
  * Plans a target's release: the version bump, the changelogs, and the release-notes previews, and builds its result.
  *
  * The changelog entries come from the target's release windows, with the synthetic "Forced version bump." entry for a
- * window that doesn't yield any item, or, for a release that propagation alone set, from one synthetic entry listing
- * the dependencies. Overrides apply before `changelog.json` and `CHANGELOG.md` render from the merged set, and
- * `CHANGELOG.md` keeps the existing sections whose versions the merged set lacks.
+ * window that doesn't yield any item, or, for a release that propagation alone set, from the window's entries with the
+ * dependencies added to the new version's entry, or one synthetic entry listing them when the window doesn't yield any
+ * item. Overrides apply before `changelog.json` and `CHANGELOG.md` render from the merged set, and `CHANGELOG.md`
+ * keeps the existing sections whose versions the merged set lacks.
  */
 export function planTargetRelease(args: PlanTargetReleaseArgs): PlannedTargetRelease {
   const { target, settings, release, decision, history, overrideContext, sectionOrder, shouldPlanPreviews, today } =
