@@ -5,7 +5,7 @@ const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 const mockExtractVersion = vi.hoisted(() => vi.fn());
-const mockReadChangelogEntries = vi.hoisted(() => vi.fn());
+const mockLoadChangelogEntries = vi.hoisted(() => vi.fn());
 const mockMatchesAudience = vi.hoisted(() => vi.fn());
 const mockRenderReleaseNotesSingle = vi.hoisted(() => vi.fn());
 
@@ -17,7 +17,7 @@ vi.mock(import('node:fs'), () => ({
 
 vi.mock(import('../changelogJsonUtils.ts'), () => ({
   extractVersion: mockExtractVersion,
-  readChangelogEntries: mockReadChangelogEntries,
+  loadChangelogEntries: mockLoadChangelogEntries,
 }));
 
 vi.mock(import('../renderReleaseNotes.ts'), () => ({
@@ -34,16 +34,12 @@ import {
 import type { ChangelogEntry } from '../types.ts';
 
 describe(injectReleaseNotesIntoReadme, () => {
-  beforeEach(() => {
-    void silenceConsole(['warn']);
-  });
-
   afterEach(() => {
     mockExistsSync.mockReset();
     mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
     mockExtractVersion.mockReset();
-    mockReadChangelogEntries.mockReset();
+    mockLoadChangelogEntries.mockReset();
     mockMatchesAudience.mockReset();
     mockRenderReleaseNotesSingle.mockReset();
     vi.restoreAllMocks();
@@ -55,13 +51,16 @@ describe(injectReleaseNotesIntoReadme, () => {
     });
     mockReadFileSync.mockReturnValue('# Original README\n');
     mockExtractVersion.mockReturnValue('1.0.0');
-    mockReadChangelogEntries.mockReturnValue([
-      {
-        version: '1.0.0',
-        date: '2024-01-01',
-        sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Add widget' }] }],
-      },
-    ]);
+    mockLoadChangelogEntries.mockReturnValue({
+      status: 'loaded',
+      entries: [
+        {
+          version: '1.0.0',
+          date: '2024-01-01',
+          sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Add widget' }] }],
+        },
+      ],
+    });
     mockMatchesAudience.mockReturnValue(() => true);
     mockRenderReleaseNotesSingle.mockReturnValue('### Features\n\n- Add widget\n');
   }
@@ -69,58 +68,56 @@ describe(injectReleaseNotesIntoReadme, () => {
   it('injects release notes and returns original content', () => {
     stubInjectionMocks();
 
-    const originalContent = injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0');
+    const result = injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0');
 
-    expect(originalContent).toBe('# Original README\n');
+    expect(result).toStrictEqual({ status: 'injected', originalReadme: '# Original README\n' });
     expect(mockWriteFileSync).toHaveBeenCalledTimes(1);
     const injectedContent = mockWriteFileSync.mock.calls[0]?.[1];
     expect(typeof injectedContent === 'string' && injectedContent).toContain('Features');
   });
 
-  it('returns undefined when changelog.json is missing', () => {
-    mockExistsSync.mockReturnValue(false);
-
-    const result = injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0');
-
-    expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('not found; skipping README injection'));
-    expect(mockWriteFileSync).not.toHaveBeenCalled();
-  });
-
-  it('returns undefined when changelog.json is malformed', () => {
-    mockExistsSync.mockReturnValue(true);
+  it('returns a missing-file skip when changelog.json is missing', () => {
     mockReadFileSync.mockReturnValue('# README\n');
-    mockExtractVersion.mockReturnValue('1.0.0');
-    mockReadChangelogEntries.mockReturnValue(undefined);
+    mockLoadChangelogEntries.mockReturnValue({ status: 'missing' });
 
     const result = injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0');
 
-    expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
+    expect(result).toStrictEqual({ status: 'skipped', skip: { reason: 'missing-file' } });
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
-  it('returns undefined when the changelog does not contain an entry matching the tag version', () => {
+  it('returns an unreadable-file skip when changelog.json is malformed', () => {
+    mockReadFileSync.mockReturnValue('# README\n');
+    mockLoadChangelogEntries.mockReturnValue({ status: 'unreadable' });
+
+    const result = injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0');
+
+    expect(result).toStrictEqual({ status: 'skipped', skip: { reason: 'unreadable-file' } });
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it('returns a no-entry skip when the changelog does not contain an entry matching the tag version', () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('# README\n');
     mockExtractVersion.mockReturnValue('99.0.0');
-    mockReadChangelogEntries.mockReturnValue([{ version: '1.0.0', date: '2024-01-01', sections: [] }]);
+    mockLoadChangelogEntries.mockReturnValue({
+      status: 'loaded',
+      entries: [{ version: '1.0.0', date: '2024-01-01', sections: [] }],
+    });
 
     const result = injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v99.0.0');
 
-    expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('no changelog entry for version 99.0.0'));
+    expect(result).toStrictEqual({ status: 'skipped', skip: { reason: 'no-entry', version: '99.0.0' } });
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
-  it('returns undefined when all sections are dev-only', () => {
+  it('returns an empty-body skip when all sections are dev-only', () => {
     stubInjectionMocks();
     mockRenderReleaseNotesSingle.mockReturnValue('');
 
     const result = injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0');
 
-    expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('no user-facing release notes'));
+    expect(result).toStrictEqual({ status: 'skipped', skip: { reason: 'empty-body', version: '1.0.0' } });
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
@@ -146,16 +143,12 @@ describe(injectReleaseNotesIntoReadme, () => {
 });
 
 describe(renderInjectedReadme, () => {
-  beforeEach(() => {
-    void silenceConsole(['warn']);
-  });
-
   afterEach(() => {
     mockExistsSync.mockReset();
     mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
     mockExtractVersion.mockReset();
-    mockReadChangelogEntries.mockReset();
+    mockLoadChangelogEntries.mockReset();
     mockMatchesAudience.mockReset();
     mockRenderReleaseNotesSingle.mockReset();
     vi.restoreAllMocks();
@@ -164,13 +157,16 @@ describe(renderInjectedReadme, () => {
   function stubRenderMocks(): void {
     mockExistsSync.mockReturnValue(true);
     mockExtractVersion.mockReturnValue('1.2.3');
-    mockReadChangelogEntries.mockReturnValue([
-      {
-        version: '1.2.3',
-        date: '2024-01-01',
-        sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Add widget' }] }],
-      },
-    ]);
+    mockLoadChangelogEntries.mockReturnValue({
+      status: 'loaded',
+      entries: [
+        {
+          version: '1.2.3',
+          date: '2024-01-01',
+          sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Add widget' }] }],
+        },
+      ],
+    });
     mockMatchesAudience.mockReturnValue(() => true);
     mockRenderReleaseNotesSingle.mockReturnValue('### Features\n\n- Add widget\n');
   }
@@ -181,11 +177,14 @@ describe(renderInjectedReadme, () => {
     const readme = '# Package\n\n<!-- section:release-notes --><!-- /section:release-notes -->\n\n## Installation\n';
     const result = renderInjectedReadme(readme, '/pkg/.meta/changelog.json', 'v1.2.3');
 
-    expect(result).toBeDefined();
-    expect(result?.injectedReadme).toContain('## Release notes — v1.2.3 (2024-01-01)');
-    expect(result?.injectedReadme).toContain('### Features');
-    expect(result?.injectedReadme).toContain('## Installation');
-    expect(result?.releaseNotesMarkdown).toBe('## Release notes — v1.2.3 (2024-01-01)\n\n### Features\n\n- Add widget');
+    expect(result.status).toBe('rendered');
+    const rendered = result.status === 'rendered' ? result.renderedReadme : undefined;
+    expect(rendered?.injectedReadme).toContain('## Release notes — v1.2.3 (2024-01-01)');
+    expect(rendered?.injectedReadme).toContain('### Features');
+    expect(rendered?.injectedReadme).toContain('## Installation');
+    expect(rendered?.releaseNotesMarkdown).toBe(
+      '## Release notes — v1.2.3 (2024-01-01)\n\n### Features\n\n- Add widget',
+    );
     // The wrapper does not write; neither does the pure renderer.
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
@@ -196,58 +195,48 @@ describe(renderInjectedReadme, () => {
     const readme = '# Package\n\n## Installation\n';
     const result = renderInjectedReadme(readme, '/pkg/.meta/changelog.json', 'v1.2.3');
 
-    expect(result).toBeDefined();
-    expect(result?.injectedReadme.startsWith('<!-- section:release-notes -->')).toBe(true);
-    expect(result?.injectedReadme).toContain('# Package');
+    expect(result.status).toBe('rendered');
+    const rendered = result.status === 'rendered' ? result.renderedReadme : undefined;
+    expect(rendered?.injectedReadme.startsWith('<!-- section:release-notes -->')).toBe(true);
+    expect(rendered?.injectedReadme).toContain('# Package');
   });
 
-  it('returns undefined when changelog.json does not exist', () => {
-    mockExistsSync.mockReturnValue(false);
+  it('returns a missing-file skip when changelog.json does not exist', () => {
+    mockLoadChangelogEntries.mockReturnValue({ status: 'missing' });
 
     const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
 
-    expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(
-      'Warning: /pkg/.meta/changelog.json not found; skipping README injection',
-    );
+    expect(result).toStrictEqual({ status: 'skipped', skip: { reason: 'missing-file' } });
   });
 
-  it('returns undefined when changelog.json is unparseable', () => {
-    mockExistsSync.mockReturnValue(true);
-    mockExtractVersion.mockReturnValue('1.2.3');
-    mockReadChangelogEntries.mockReturnValue(undefined);
+  it('returns an unreadable-file skip when changelog.json is unparseable', () => {
+    mockLoadChangelogEntries.mockReturnValue({ status: 'unreadable' });
 
     const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
 
-    expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(
-      'Warning: could not parse /pkg/.meta/changelog.json; skipping README injection',
-    );
+    expect(result).toStrictEqual({ status: 'skipped', skip: { reason: 'unreadable-file' } });
   });
 
-  it('returns undefined when the changelog does not contain an entry matching the version', () => {
+  it('returns a no-entry skip when the changelog does not contain an entry matching the version', () => {
     mockExistsSync.mockReturnValue(true);
     mockExtractVersion.mockReturnValue('9.9.9');
-    mockReadChangelogEntries.mockReturnValue([{ version: '1.0.0', date: '2024-01-01', sections: [] }]);
+    mockLoadChangelogEntries.mockReturnValue({
+      status: 'loaded',
+      entries: [{ version: '1.0.0', date: '2024-01-01', sections: [] }],
+    });
 
     const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v9.9.9');
 
-    expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(
-      'Warning: no changelog entry for version 9.9.9; skipping README injection',
-    );
+    expect(result).toStrictEqual({ status: 'skipped', skip: { reason: 'no-entry', version: '9.9.9' } });
   });
 
-  it('returns undefined when all sections are dev-only', () => {
+  it('returns an empty-body skip when all sections are dev-only', () => {
     stubRenderMocks();
     mockRenderReleaseNotesSingle.mockReturnValue('');
 
     const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
 
-    expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(
-      'Warning: no user-facing release notes for version 1.2.3; skipping README injection',
-    );
+    expect(result).toStrictEqual({ status: 'skipped', skip: { reason: 'empty-body', version: '1.2.3' } });
   });
 
   it('forwards sectionOrder to the renderer when provided', () => {

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { extractVersion, readChangelogEntries } from './changelogJsonUtils.ts';
+import { extractVersion, loadChangelogEntries } from './changelogJsonUtils.ts';
 import { injectSection } from './injectSection.ts';
 import { matchesAudience, renderReleaseNotesSingle } from './renderReleaseNotes.ts';
 import type { ChangelogEntry } from './types.ts';
@@ -72,59 +72,66 @@ export function renderInjectedReadmeFromEntries(
   return { status: 'rendered', renderedReadme: { injectedReadme, releaseNotesMarkdown } };
 }
 
+/** Why `renderInjectedReadme` did not render a README, with the version when the reason concerns one. */
+export type ReadmeInjectionSkip =
+  { reason: 'missing-file' | 'unreadable-file' } | { reason: RenderInjectedReadmeSkipReason; version: string };
+
+/** Discriminated outcome of rendering release notes from a saved `changelog.json`. */
+export type RenderInjectedReadmeFromFileResult =
+  { status: 'rendered'; renderedReadme: RenderedInjectedReadme } | { status: 'skipped'; skip: ReadmeInjectionSkip };
+
+/** Discriminated outcome of injecting release notes into a README file. */
+export type InjectReleaseNotesResult =
+  { status: 'injected'; originalReadme: string } | { status: 'skipped'; skip: ReadmeInjectionSkip };
+
 /**
  * Path-taking wrapper over {@link renderInjectedReadmeFromEntries} for callers rendering from a
  * saved `changelog.json`, such as the publish-time injection flow.
  *
- * Adds the two skip conditions that only a file can present: The changelog is missing, or it does
- * not parse. Warns on every skip, its own and the renderer's alike, because the publish path does
- * not have any other channel for the message.
+ * Adds the two skip conditions that only a file can present: The changelog is missing, or it cannot
+ * be read as entries.
  */
 export function renderInjectedReadme(
   readme: string,
   changelogJsonPath: string,
   tag: string,
   sectionOrder?: string[],
-): RenderedInjectedReadme | undefined {
-  if (!existsSync(changelogJsonPath)) {
-    console.warn(`Warning: ${changelogJsonPath} not found; skipping README injection`);
-    return undefined;
+): RenderInjectedReadmeFromFileResult {
+  const loaded = loadChangelogEntries(changelogJsonPath);
+  if (loaded.status === 'missing') {
+    return { status: 'skipped', skip: { reason: 'missing-file' } };
+  }
+  if (loaded.status === 'unreadable') {
+    return { status: 'skipped', skip: { reason: 'unreadable-file' } };
   }
 
-  const entries = readChangelogEntries(changelogJsonPath);
-  if (entries === undefined) {
-    console.warn(`Warning: could not parse ${changelogJsonPath}; skipping README injection`);
-    return undefined;
-  }
-
-  const result = renderInjectedReadmeFromEntries(readme, entries, tag, sectionOrder);
+  const result = renderInjectedReadmeFromEntries(readme, loaded.entries, tag, sectionOrder);
   if (result.status === 'skipped') {
-    console.warn(`Warning: ${describeRenderSkip(result.reason, result.version)}; skipping README injection`);
-    return undefined;
+    return { status: 'skipped', skip: { reason: result.reason, version: result.version } };
   }
 
-  return result.renderedReadme;
+  return result;
 }
 
 /**
- * Injects release notes into a README file, returning the original content for restoration, or `undefined` when
- * injection was skipped.
+ * Injects release notes into a README file, returning the original content for restoration, or the skip when
+ * injection did not happen.
  */
 export function injectReleaseNotesIntoReadme(
   readmePath: string,
   changelogJsonPath: string,
   tag: string,
   sectionOrder?: string[],
-): string | undefined {
+): InjectReleaseNotesResult {
   const originalReadme = readFileSync(readmePath, 'utf8');
 
   const renderResult = renderInjectedReadme(originalReadme, changelogJsonPath, tag, sectionOrder);
-  if (renderResult === undefined) {
-    return undefined;
+  if (renderResult.status === 'skipped') {
+    return renderResult;
   }
 
-  writeFileSync(readmePath, renderResult.injectedReadme, 'utf8');
-  return originalReadme;
+  writeFileSync(readmePath, renderResult.renderedReadme.injectedReadme, 'utf8');
+  return { status: 'injected', originalReadme };
 }
 
 /** Returns the path of a workspace's `README.md`, or `undefined` when it has none. */
@@ -132,14 +139,3 @@ export function resolveReadmePath(workspacePath: string): string | undefined {
   const readmePath = join(workspacePath, 'README.md');
   return existsSync(readmePath) ? readmePath : undefined;
 }
-
-// region | Helpers
-
-/** Describes a render skip as a phrase naming the reason and the version to which it applies. */
-function describeRenderSkip(reason: RenderInjectedReadmeSkipReason, version: string): string {
-  return reason === 'no-entry'
-    ? `no changelog entry for version ${version}`
-    : `no user-facing release notes for version ${version}`;
-}
-
-// endregion | Helpers
