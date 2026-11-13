@@ -209,6 +209,11 @@ function isMissingFileError(error: unknown): boolean {
   return isRecord(error) && error['code'] === 'ENOENT';
 }
 
+/** Splits a plain `X.Y.Z` version into its numeric parts. */
+function parseVersion(version: string): number[] {
+  return version.split('.').map(Number);
+}
+
 /**
  * Reports whether node-build defines `version`, from the status of a HEAD request for its definition file. Throws on
  * a network failure or on a status other than 200 or 404.
@@ -221,11 +226,6 @@ async function requestNodeBuildDefinition(version: string): Promise<boolean> {
   if (response.status === 404) return false;
   if (response.status !== 200) throw new Error(`HTTP ${response.status}`);
   return true;
-}
-
-/** Splits a plain `X.Y.Z` version into its numeric parts. */
-function parseVersion(version: string): number[] {
-  return version.split('.').map(Number);
 }
 
 // endregion | Helpers

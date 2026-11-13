@@ -167,6 +167,14 @@ function isOptionalBoolean(value: unknown): value is boolean | undefined {
   return value === undefined || typeof value === 'boolean';
 }
 
+/** Narrows an unknown value to a composite element: the bare instruction, or the spec that also declares. */
+function isScriptElement(value: unknown): value is string | StepSpec {
+  if (typeof value === 'string') return true;
+  if (!isRecord(value) || typeof value['run'] !== 'string') return false;
+
+  return isOptionalBoolean(value['shouldDeclineArguments']) && isOptionalBoolean(value['shouldRunInBackground']);
+}
+
 /** Narrows an unknown value to a record of script entries. */
 function isScriptRecord(value: unknown): value is Record<string, ScriptValue> {
   if (!isRecord(value)) return false;
@@ -175,14 +183,6 @@ function isScriptRecord(value: unknown): value is Record<string, ScriptValue> {
     if (!Array.isArray(v) || !v.every(isScriptElement)) return false;
   }
   return true;
-}
-
-/** Narrows an unknown value to a composite element: the bare instruction, or the spec that also declares. */
-function isScriptElement(value: unknown): value is string | StepSpec {
-  if (typeof value === 'string') return true;
-  if (!isRecord(value) || typeof value['run'] !== 'string') return false;
-
-  return isOptionalBoolean(value['shouldDeclineArguments']) && isOptionalBoolean(value['shouldRunInBackground']);
 }
 
 /** Narrows an unknown value to an array of plain strings. */
@@ -317,6 +317,27 @@ function validateOutputField(value: Record<string, unknown>, configPath: string)
   return config;
 }
 
+/** Validates and extracts a single script-record field from the raw config object. */
+function validateScriptField(
+  value: Record<string, unknown>,
+  fieldName: string,
+  configPath: string,
+): Record<string, ScriptValue> | undefined {
+  if (!Object.hasOwn(value, fieldName) || value[fieldName] === undefined) {
+    return undefined;
+  }
+  const scripts = value[fieldName];
+  if (!isScriptRecord(scripts)) {
+    throw new UserError(
+      `Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string | element[]>, ` +
+        'where an element is a command string or ' +
+        '`{ run: string, shouldDeclineArguments?: boolean, shouldRunInBackground?: boolean }`',
+    );
+  }
+  assertValidElements(scripts, fieldName, configPath);
+  return scripts;
+}
+
 /** Validates and extracts the `selfHostedRunner` field from the raw config object. */
 function validateSelfHostedRunnerField(
   value: Record<string, unknown>,
@@ -340,27 +361,6 @@ function validateSelfHostedRunnerField(
   }
 
   return { exempt };
-}
-
-/** Validates and extracts a single script-record field from the raw config object. */
-function validateScriptField(
-  value: Record<string, unknown>,
-  fieldName: string,
-  configPath: string,
-): Record<string, ScriptValue> | undefined {
-  if (!Object.hasOwn(value, fieldName) || value[fieldName] === undefined) {
-    return undefined;
-  }
-  const scripts = value[fieldName];
-  if (!isScriptRecord(scripts)) {
-    throw new UserError(
-      `Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string | element[]>, ` +
-        'where an element is a command string or ' +
-        '`{ run: string, shouldDeclineArguments?: boolean, shouldRunInBackground?: boolean }`',
-    );
-  }
-  assertValidElements(scripts, fieldName, configPath);
-  return scripts;
 }
 
 // endregion | Helpers

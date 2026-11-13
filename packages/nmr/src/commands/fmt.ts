@@ -101,156 +101,11 @@ interface FormatRequest {
   shouldBypassCache: boolean;
 }
 
-/** Formats or checks the files that git reports for `cwd`, as `runFmt` describes, and returns the exit code. */
-async function formatFiles(request: FormatRequest, cwd: string, env: NodeJS.ProcessEnv): Promise<number> {
-  const resolvedTargets = resolveFormatTargets(cwd, request.pathspecs);
-  if (!resolvedTargets.ok) {
-    reportError(NMR_FMT_BIN, resolvedTargets.error);
-    return 1;
-  }
-
-  const { excludedFiles, files, ignorePaths, repositoryRoot, unreadableFiles } = resolvedTargets.targets;
-  // Name each skipped path, so that a passing check does not hide the files that it never read.
-  for (const { file, code } of unreadableFiles) {
-    process.stderr.write(`nmr-fmt: skipped ${file}, which cannot be read (${code})\n`);
-  }
-
-  // Prettier run without file arguments would read stdin and fail, so an empty selection never reaches it.
-  if (files.length === 0) {
-    if (request.pathspecs.length === 0) return 0;
-
-    // Pathspecs for which git listed nothing selected nothing, which a clean run would otherwise look exactly like.
-    if (excludedFiles.length === 0 && unreadableFiles.length === 0) {
-      reportError(NMR_FMT_BIN, `the pathspecs did not match any file that git lists: ${request.pathspecs.join(', ')}`);
-      return 1;
-    }
-
-    if (excludedFiles.length > 0) {
-      process.stderr.write(
-        `nmr-fmt: nothing to format; skipped paths that are not regular files: ${excludedFiles.join(', ')}\n`,
-      );
-    }
-    return 0;
-  }
-
-  const cli = resolvePrettierCli(cwd);
-  if (!cli.ok) {
-    reportError(NMR_FMT_BIN, cli.error);
-    return 1;
-  }
-
-  const repositoryConfig = await findRepositoryConfig(cli.manifestPath, cwd);
-  if (!repositoryConfig.ok) {
-    reportError(NMR_FMT_BIN, repositoryConfig.error);
-    return 1;
-  }
-
-  const cache = prepareFmtCache({
-    cwd,
-    env,
-    repositoryRoot,
-    shouldBypassCache: request.shouldBypassCache,
-  });
-  // The cache only saves work, so a failure to prepare it must never fail the run.
-  if (cache.kind === 'failed') {
-    process.stderr.write(`nmr-fmt: running without the Prettier cache: ${cache.reason}\n`);
-  }
-
-  return runPrettier({
-    cacheLocation: cache.kind === 'cached' ? cache.location : undefined,
-    cliPath: cli.cliPath,
-    configPath: repositoryConfig.found ? undefined : DEFAULT_CONFIG_PATH,
-    mode: request.mode,
-    files,
-    ignorePaths,
-    cwd,
-  });
-}
-
 /** The copy of Prettier whose manifest a lookup reached, with the words that name it in an error. */
 interface PrettierCopy {
   lookup: ManifestLookup;
   origin: string;
   reinstallStep: string;
-}
-
-/**
- * Locates the Prettier CLI, preferring the copy that `cwd` resolves over the one installed with nmr.
- *
- * A repository that installs its own Prettier gets that copy, so that the formatter is the one that its editor
- * and pre-commit hook also run: Another version would reformat files that the editor then reformats back. A
- * repository without one, such as one running nmr through `pnpm dlx`, gets nmr's own dependency. Resolution
- * goes through the module graph rather than PATH, because under pnpm's isolated layout the `prettier` first on
- * PATH need not be the one on which the repository depends.
- */
-function resolvePrettierCli(
-  cwd: string,
-): { ok: true; cliPath: string; manifestPath: string } | { ok: false; error: string } {
-  const missingResult = {
-    ok: false as const,
-    error: `\`${PRETTIER_PACKAGE}\` could not be resolved from this repository or from nmr's own installation, which declares it as a dependency. Reinstall \`@williamthorsen/nmr\`.`,
-  };
-
-  // Only an absent repository copy gives way to nmr's, so that nmr's copy never formats in place of a broken one.
-  const repositoryLookup = findPackageManifest(path.join(cwd, 'package.json'), PRETTIER_PACKAGE);
-  const copy: PrettierCopy =
-    repositoryLookup.kind === 'absent'
-      ? {
-          lookup: findPackageManifest(import.meta.url, PRETTIER_PACKAGE),
-          origin: "nmr's installation",
-          reinstallStep: 'Reinstall `@williamthorsen/nmr`.',
-        }
-      : {
-          lookup: repositoryLookup,
-          origin: 'this repository',
-          reinstallStep: `Reinstall this repository's \`${PRETTIER_PACKAGE}\` dependency.`,
-        };
-
-  const { lookup } = copy;
-  if (lookup.kind === 'absent') return missingResult;
-  if (lookup.kind === 'broken') {
-    return {
-      ok: false,
-      error: `\`${PRETTIER_PACKAGE}\` could not be loaded from ${copy.origin}: ${lookup.cause}. ${BROKEN_MANIFEST_FIX}`,
-    };
-  }
-
-  const { manifest, manifestPath } = lookup;
-  const cliPath = resolveDeclaredCli(manifest, manifestPath, PRETTIER_PACKAGE);
-  if (cliPath === undefined) {
-    return {
-      ok: false,
-      error: `\`${PRETTIER_PACKAGE}\` at ${path.dirname(manifestPath)} does not declare a CLI. ${copy.reinstallStep}`,
-    };
-  }
-
-  return { ok: true, cliPath, manifestPath };
-}
-
-/**
- * Reports whether Prettier finds a config of its own searching from `cwd`, asking the copy that will format so
- * that discovery and formatting agree on which config forms count.
- */
-async function findRepositoryConfig(
-  manifestPath: string,
-  cwd: string,
-): Promise<{ ok: true; found: boolean } | { ok: false; error: string }> {
-  try {
-    const prettier: unknown = createRequire(manifestPath)(PRETTIER_PACKAGE);
-    const resolveConfigFile = isRecord(prettier) ? prettier['resolveConfigFile'] : undefined;
-    if (typeof resolveConfigFile !== 'function') {
-      return {
-        ok: false,
-        error: `\`${PRETTIER_PACKAGE}\` at ${path.dirname(manifestPath)} does not export \`resolveConfigFile\`.`,
-      };
-    }
-
-    // Prettier searches from the directory containing the path, which need not exist.
-    const configFile: unknown = await Reflect.apply(resolveConfigFile, undefined, [path.join(cwd, 'placeholder')]);
-    return { ok: true, found: configFile !== null };
-  } catch (error) {
-    return { ok: false, error: `could not search for a Prettier config: ${describeError(error)}` };
-  }
 }
 
 /** @internal */
@@ -325,6 +180,8 @@ export function runPrettier(options: RunPrettierOptions): number {
   return firstFailureStatus;
 }
 
+// region | Helpers
+
 /** Groups paths into batches whose combined byte length stays within `budgetBytes`. */
 function batchWithinBudget(files: string[], budgetBytes: number): string[][] {
   const batches: string[][] = [];
@@ -347,3 +204,150 @@ function batchWithinBudget(files: string[], budgetBytes: number): string[][] {
 
   return batches;
 }
+
+/**
+ * Reports whether Prettier finds a config of its own searching from `cwd`, asking the copy that will format so
+ * that discovery and formatting agree on which config forms count.
+ */
+async function findRepositoryConfig(
+  manifestPath: string,
+  cwd: string,
+): Promise<{ ok: true; found: boolean } | { ok: false; error: string }> {
+  try {
+    const prettier: unknown = createRequire(manifestPath)(PRETTIER_PACKAGE);
+    const resolveConfigFile = isRecord(prettier) ? prettier['resolveConfigFile'] : undefined;
+    if (typeof resolveConfigFile !== 'function') {
+      return {
+        ok: false,
+        error: `\`${PRETTIER_PACKAGE}\` at ${path.dirname(manifestPath)} does not export \`resolveConfigFile\`.`,
+      };
+    }
+
+    // Prettier searches from the directory containing the path, which need not exist.
+    const configFile: unknown = await Reflect.apply(resolveConfigFile, undefined, [path.join(cwd, 'placeholder')]);
+    return { ok: true, found: configFile !== null };
+  } catch (error) {
+    return { ok: false, error: `could not search for a Prettier config: ${describeError(error)}` };
+  }
+}
+
+/** Formats or checks the files that git reports for `cwd`, as `runFmt` describes, and returns the exit code. */
+async function formatFiles(request: FormatRequest, cwd: string, env: NodeJS.ProcessEnv): Promise<number> {
+  const resolvedTargets = resolveFormatTargets(cwd, request.pathspecs);
+  if (!resolvedTargets.ok) {
+    reportError(NMR_FMT_BIN, resolvedTargets.error);
+    return 1;
+  }
+
+  const { excludedFiles, files, ignorePaths, repositoryRoot, unreadableFiles } = resolvedTargets.targets;
+  // Name each skipped path, so that a passing check does not hide the files that it never read.
+  for (const { file, code } of unreadableFiles) {
+    process.stderr.write(`nmr-fmt: skipped ${file}, which cannot be read (${code})\n`);
+  }
+
+  // Prettier run without file arguments would read stdin and fail, so an empty selection never reaches it.
+  if (files.length === 0) {
+    if (request.pathspecs.length === 0) return 0;
+
+    // Pathspecs for which git listed nothing selected nothing, which a clean run would otherwise look exactly like.
+    if (excludedFiles.length === 0 && unreadableFiles.length === 0) {
+      reportError(NMR_FMT_BIN, `the pathspecs did not match any file that git lists: ${request.pathspecs.join(', ')}`);
+      return 1;
+    }
+
+    if (excludedFiles.length > 0) {
+      process.stderr.write(
+        `nmr-fmt: nothing to format; skipped paths that are not regular files: ${excludedFiles.join(', ')}\n`,
+      );
+    }
+    return 0;
+  }
+
+  const cli = resolvePrettierCli(cwd);
+  if (!cli.ok) {
+    reportError(NMR_FMT_BIN, cli.error);
+    return 1;
+  }
+
+  const repositoryConfig = await findRepositoryConfig(cli.manifestPath, cwd);
+  if (!repositoryConfig.ok) {
+    reportError(NMR_FMT_BIN, repositoryConfig.error);
+    return 1;
+  }
+
+  const cache = prepareFmtCache({
+    cwd,
+    env,
+    repositoryRoot,
+    shouldBypassCache: request.shouldBypassCache,
+  });
+  // The cache only saves work, so a failure to prepare it must never fail the run.
+  if (cache.kind === 'failed') {
+    process.stderr.write(`nmr-fmt: running without the Prettier cache: ${cache.reason}\n`);
+  }
+
+  return runPrettier({
+    cacheLocation: cache.kind === 'cached' ? cache.location : undefined,
+    cliPath: cli.cliPath,
+    configPath: repositoryConfig.found ? undefined : DEFAULT_CONFIG_PATH,
+    mode: request.mode,
+    files,
+    ignorePaths,
+    cwd,
+  });
+}
+
+/**
+ * Locates the Prettier CLI, preferring the copy that `cwd` resolves over the one installed with nmr.
+ *
+ * A repository that installs its own Prettier gets that copy, so that the formatter is the one that its editor
+ * and pre-commit hook also run: Another version would reformat files that the editor then reformats back. A
+ * repository without one, such as one running nmr through `pnpm dlx`, gets nmr's own dependency. Resolution
+ * goes through the module graph rather than PATH, because under pnpm's isolated layout the `prettier` first on
+ * PATH need not be the one on which the repository depends.
+ */
+function resolvePrettierCli(
+  cwd: string,
+): { ok: true; cliPath: string; manifestPath: string } | { ok: false; error: string } {
+  const missingResult = {
+    ok: false as const,
+    error: `\`${PRETTIER_PACKAGE}\` could not be resolved from this repository or from nmr's own installation, which declares it as a dependency. Reinstall \`@williamthorsen/nmr\`.`,
+  };
+
+  // Only an absent repository copy gives way to nmr's, so that nmr's copy never formats in place of a broken one.
+  const repositoryLookup = findPackageManifest(path.join(cwd, 'package.json'), PRETTIER_PACKAGE);
+  const copy: PrettierCopy =
+    repositoryLookup.kind === 'absent'
+      ? {
+          lookup: findPackageManifest(import.meta.url, PRETTIER_PACKAGE),
+          origin: "nmr's installation",
+          reinstallStep: 'Reinstall `@williamthorsen/nmr`.',
+        }
+      : {
+          lookup: repositoryLookup,
+          origin: 'this repository',
+          reinstallStep: `Reinstall this repository's \`${PRETTIER_PACKAGE}\` dependency.`,
+        };
+
+  const { lookup } = copy;
+  if (lookup.kind === 'absent') return missingResult;
+  if (lookup.kind === 'broken') {
+    return {
+      ok: false,
+      error: `\`${PRETTIER_PACKAGE}\` could not be loaded from ${copy.origin}: ${lookup.cause}. ${BROKEN_MANIFEST_FIX}`,
+    };
+  }
+
+  const { manifest, manifestPath } = lookup;
+  const cliPath = resolveDeclaredCli(manifest, manifestPath, PRETTIER_PACKAGE);
+  if (cliPath === undefined) {
+    return {
+      ok: false,
+      error: `\`${PRETTIER_PACKAGE}\` at ${path.dirname(manifestPath)} does not declare a CLI. ${copy.reinstallStep}`,
+    };
+  }
+
+  return { ok: true, cliPath, manifestPath };
+}
+
+// endregion | Helpers

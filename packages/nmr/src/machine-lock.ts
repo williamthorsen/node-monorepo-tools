@@ -258,20 +258,6 @@ function isHolderRecord(value: unknown): value is HolderRecord {
   );
 }
 
-/**
- * Reports whether an ancestor nmr process holds the lock. An inherited token counts only while the lock file still
- * contains it: A process that outlived the run that spawned it must not skip a lock that someone else now holds.
- */
-async function isUnderAncestorHold(lockDir: string, env: NodeJS.ProcessEnv): Promise<boolean> {
-  const inheritedToken = env[LOCK_TOKEN_ENV_VAR];
-  if (inheritedToken === undefined || inheritedToken === '') {
-    return false;
-  }
-
-  const state = await readLockState(path.join(lockDir, LOCK_FILE));
-  return state?.holder?.token === inheritedToken;
-}
-
 /** Reports whether a holder's process has exited. A process that this one may not signal still exists. */
 function isProcessGone(pid: number): boolean {
   try {
@@ -292,6 +278,20 @@ function isStale(state: LockState, staleAfterMs: number): boolean {
   }
 
   return state.holder !== undefined && isProcessGone(state.holder.pid);
+}
+
+/**
+ * Reports whether an ancestor nmr process holds the lock. An inherited token counts only while the lock file still
+ * contains it: A process that outlived the run that spawned it must not skip a lock that someone else now holds.
+ */
+async function isUnderAncestorHold(lockDir: string, env: NodeJS.ProcessEnv): Promise<boolean> {
+  const inheritedToken = env[LOCK_TOKEN_ENV_VAR];
+  if (inheritedToken === undefined || inheritedToken === '') {
+    return false;
+  }
+
+  const state = await readLockState(path.join(lockDir, LOCK_FILE));
+  return state?.holder?.token === inheritedToken;
 }
 
 /** Parses the lock file's content, or returns `undefined` when it is not a holder record. */

@@ -115,38 +115,31 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   return { exitCode: await runRouter(routedArgs, root, routerOptions) };
 }
 
-/**
- * Runs an invocation that reached a command, and hints at nmr flags written after the command name when it fails.
- */
-async function runInvocation(invocation: Invocation, options: RunCliOptions): Promise<number> {
-  const resolvedTarget = await resolveExecutionTarget(invocation);
-  if (resolvedTarget.settled) {
-    return resolvedTarget.result.exitCode;
-  }
-  let target = resolvedTarget.value;
+// region | Helpers
 
-  // A fan-out does not have a gate of its own to consult, so the host receives it whole and fans it out there.
-  const { filter, recursive } = invocation.parsedArgs;
-  if (target.kind === 'remote' && (filter !== undefined || recursive)) {
-    const delegated = await runInvocationOnHost(invocation, target);
-    if (delegated !== undefined) {
-      return delegated.exitCode;
-    }
-    target = { kind: 'local' };
+/** Runs a plan behind the check-result cache and reports its verdict, or prints its recording under `--log`. */
+async function executePlan(plan: RunPlan): Promise<SettledResult> {
+  const { command, format, parsedArgs, scope, stdout, styles } = plan.invocation;
+
+  // A `--log` needs the key for the whole chain, and returns before any hook, verdict, or cache write.
+  if (parsedArgs.shouldPrintLog) {
+    return reportRecording(plan);
   }
 
-  const planned = await planRun(invocation, target);
-  const { exitCode, isUnknownCommand = false } = planned.settled ? planned.result : await executePlan(planned.value);
+  const { exitCode, host, outcome } = await runGated(plan);
 
-  // A process that nmr started did not receive its arguments from the user, and its parent reports the hint once.
-  if (exitCode !== 0 && !isUnknownCommand && isTopLevelInvocation(options.env)) {
-    const hint = formatMisplacedFlagHint(options.args, invocation.parsedArgs.passthrough, invocation.styles.stderr);
-    if (hint !== undefined) {
-      options.stderr.write(`${hint}\n`);
-    }
+  if (outcome !== undefined) {
+    reportVerdict({ command, ...(host !== undefined && { host }), scope, ...outcome }, stdout, format, styles.stdout);
   }
 
-  return exitCode;
+  return { exitCode };
+}
+
+/** Reports whether the user typed this invocation, rather than an nmr process starting it. */
+function isTopLevelInvocation(env: NodeJS.ProcessEnv): boolean {
+  const runId = env[RUN_ID_ENV_VAR];
+
+  return runId === undefined || runId === '';
 }
 
 /**
@@ -276,31 +269,38 @@ async function planRun(invocation: Invocation, target: ExecutionTarget): Promise
   };
 }
 
-/** Runs a plan behind the check-result cache and reports its verdict, or prints its recording under `--log`. */
-async function executePlan(plan: RunPlan): Promise<SettledResult> {
-  const { command, format, parsedArgs, scope, stdout, styles } = plan.invocation;
+/**
+ * Runs an invocation that reached a command, and hints at nmr flags written after the command name when it fails.
+ */
+async function runInvocation(invocation: Invocation, options: RunCliOptions): Promise<number> {
+  const resolvedTarget = await resolveExecutionTarget(invocation);
+  if (resolvedTarget.settled) {
+    return resolvedTarget.result.exitCode;
+  }
+  let target = resolvedTarget.value;
 
-  // A `--log` needs the key for the whole chain, and returns before any hook, verdict, or cache write.
-  if (parsedArgs.shouldPrintLog) {
-    return reportRecording(plan);
+  // A fan-out does not have a gate of its own to consult, so the host receives it whole and fans it out there.
+  const { filter, recursive } = invocation.parsedArgs;
+  if (target.kind === 'remote' && (filter !== undefined || recursive)) {
+    const delegated = await runInvocationOnHost(invocation, target);
+    if (delegated !== undefined) {
+      return delegated.exitCode;
+    }
+    target = { kind: 'local' };
   }
 
-  const { exitCode, host, outcome } = await runGated(plan);
+  const planned = await planRun(invocation, target);
+  const { exitCode, isUnknownCommand = false } = planned.settled ? planned.result : await executePlan(planned.value);
 
-  if (outcome !== undefined) {
-    reportVerdict({ command, ...(host !== undefined && { host }), scope, ...outcome }, stdout, format, styles.stdout);
+  // A process that nmr started did not receive its arguments from the user, and its parent reports the hint once.
+  if (exitCode !== 0 && !isUnknownCommand && isTopLevelInvocation(options.env)) {
+    const hint = formatMisplacedFlagHint(options.args, invocation.parsedArgs.passthrough, invocation.styles.stderr);
+    if (hint !== undefined) {
+      options.stderr.write(`${hint}\n`);
+    }
   }
 
-  return { exitCode };
-}
-
-// region | Helpers
-
-/** Reports whether the user typed this invocation, rather than an nmr process starting it. */
-function isTopLevelInvocation(env: NodeJS.ProcessEnv): boolean {
-  const runId = env[RUN_ID_ENV_VAR];
-
-  return runId === undefined || runId === '';
+  return exitCode;
 }
 
 // endregion | Helpers

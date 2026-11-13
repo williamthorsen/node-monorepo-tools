@@ -142,14 +142,14 @@ function classifyListedFile(cwd: string, file: string): ListedFileStatus {
   }
 }
 
-/** Splits `-z` output, dropping the trailing empty element left behind by the final separator. */
-function splitNulSeparated(output: string): string[] {
-  return output.split('\0').filter((entry) => entry !== '');
-}
-
 /** Removes repeated entries; `--cached --others` can list the same path twice for an unmerged entry. */
 function dedupe(items: string[]): string[] {
   return [...new Set(items)];
+}
+
+/** Splits `-z` output, dropping the trailing empty element left behind by the final separator. */
+function splitNulSeparated(output: string): string[] {
+  return output.split('\0').filter((entry) => entry !== '');
 }
 
 // endregion | Helpers

@@ -57,21 +57,6 @@ export function describeScript(script: ScriptValue): string {
 }
 
 /**
- * Renders one composite element for help output, naming each declaration that it makes so that two composites
- * that run a step differently do not read alike.
- */
-function describeElement(element: string | StepSpec): string {
-  if (typeof element === 'string') {
-    return element;
-  }
-  const notes = [
-    ...(element.shouldRunInBackground === true ? ['background'] : []),
-    ...(element.shouldDeclineArguments === true ? ['no args'] : []),
-  ];
-  return notes.length === 0 ? element.run : `${element.run} (${notes.join(', ')})`;
-}
-
-/**
  * Reads a package.json's `scripts`, rejecting any value that is not a string.
  *
  * npm and pnpm read a script as a string too, so a value of any other type is malformed however it got there.
@@ -200,6 +185,21 @@ export function resolveScript(
 }
 
 // region | Helpers
+
+/**
+ * Renders one composite element for help output, naming each declaration that it makes so that two composites
+ * that run a step differently do not read alike.
+ */
+function describeElement(element: string | StepSpec): string {
+  if (typeof element === 'string') {
+    return element;
+  }
+  const notes = [
+    ...(element.shouldRunInBackground === true ? ['background'] : []),
+    ...(element.shouldDeclineArguments === true ? ['no args'] : []),
+  ];
+  return notes.length === 0 ? element.run : `${element.run} (${notes.join(', ')})`;
+}
 
 /** Returns the scope in which a `package.json` entry in `packageDir` resolves. */
 function readPackageScope(packageDir: string): SelfReferenceScope {

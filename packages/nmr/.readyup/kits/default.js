@@ -8632,16 +8632,6 @@ function readNmrTarget(tokens) {
 function describeScript(script) {
   return typeof script === "string" ? script : `[${script.map(describeElement).join(", ")}]`;
 }
-function describeElement(element) {
-  if (typeof element === "string") {
-    return element;
-  }
-  const notes = [
-    ...element.shouldRunInBackground === true ? ["background"] : [],
-    ...element.shouldDeclineArguments === true ? ["no args"] : []
-  ];
-  return notes.length === 0 ? element.run : `${element.run} (${notes.join(", ")})`;
-}
 function readPackageJsonScripts(packageDir) {
   const file = resolvePackageJsonPath(packageDir);
   let rawText;
@@ -8670,6 +8660,16 @@ function buildRootRegistry(config, monorepoRoot) {
     ...getDefaultRootScripts(monorepoRoot),
     ...config.rootScripts
   };
+}
+function describeElement(element) {
+  if (typeof element === "string") {
+    return element;
+  }
+  const notes = [
+    ...element.shouldRunInBackground === true ? ["background"] : [],
+    ...element.shouldDeclineArguments === true ? ["no args"] : []
+  ];
+  return notes.length === 0 ? element.run : `${element.run} (${notes.join(", ")})`;
 }
 
 // src/assertResolvableCommandLists.ts
@@ -8838,6 +8838,11 @@ function formatKeyList(keys, prefix) {
 function isOptionalBoolean(value) {
   return value === void 0 || typeof value === "boolean";
 }
+function isScriptElement(value) {
+  if (typeof value === "string") return true;
+  if (!isRecord2(value) || typeof value["run"] !== "string") return false;
+  return isOptionalBoolean(value["shouldDeclineArguments"]) && isOptionalBoolean(value["shouldRunInBackground"]);
+}
 function isScriptRecord(value) {
   if (!isRecord2(value)) return false;
   for (const v of Object.values(value)) {
@@ -8845,11 +8850,6 @@ function isScriptRecord(value) {
     if (!Array.isArray(v) || !v.every(isScriptElement)) return false;
   }
   return true;
-}
-function isScriptElement(value) {
-  if (typeof value === "string") return true;
-  if (!isRecord2(value) || typeof value["run"] !== "string") return false;
-  return isOptionalBoolean(value["shouldDeclineArguments"]) && isOptionalBoolean(value["shouldRunInBackground"]);
 }
 function isStringArray(value) {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -8953,6 +8953,19 @@ function validateOutputField(value, configPath) {
   }
   return config;
 }
+function validateScriptField(value, fieldName, configPath) {
+  if (!Object.hasOwn(value, fieldName) || value[fieldName] === void 0) {
+    return void 0;
+  }
+  const scripts = value[fieldName];
+  if (!isScriptRecord(scripts)) {
+    throw new UserError(
+      `Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string | element[]>, where an element is a command string or \`{ run: string, shouldDeclineArguments?: boolean, shouldRunInBackground?: boolean }\``
+    );
+  }
+  assertValidElements(scripts, fieldName, configPath);
+  return scripts;
+}
 function validateSelfHostedRunnerField(value, configPath) {
   const selfHostedRunner = value["selfHostedRunner"];
   if (selfHostedRunner === void 0) {
@@ -8969,19 +8982,6 @@ function validateSelfHostedRunnerField(value, configPath) {
     );
   }
   return { exempt };
-}
-function validateScriptField(value, fieldName, configPath) {
-  if (!Object.hasOwn(value, fieldName) || value[fieldName] === void 0) {
-    return void 0;
-  }
-  const scripts = value[fieldName];
-  if (!isScriptRecord(scripts)) {
-    throw new UserError(
-      `Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string | element[]>, where an element is a command string or \`{ run: string, shouldDeclineArguments?: boolean, shouldRunInBackground?: boolean }\``
-    );
-  }
-  assertValidElements(scripts, fieldName, configPath);
-  return scripts;
 }
 
 // src/helpers/escapeControlCharacters.ts
