@@ -25,14 +25,14 @@ export interface SessionDemultiplexer {
 }
 
 /**
- * Composes the script that runs the host session from the checkout. `checkoutDir` is a shell expression, so that it
- * can name the host's home directory.
+ * Composes the script that runs the host session from the checkout, passing it the shell's `PATH` for the processes
+ * that it starts. `checkoutDir` is a shell expression, so that it can name the host's home directory.
  */
 export function composeSessionScript(options: { checkoutDir: string; params: HostSessionParams }): string {
   const { checkoutDir, params } = options;
   const source = `(${runHostSession.toString()})(JSON.parse(process.argv[1]));`;
 
-  return `cd ${checkoutDir} && exec node -e ${quoteForShell(source)} ${quoteForShell(JSON.stringify(params))}`;
+  return `cd ${checkoutDir} && exec node -e ${quoteForShell(source)} ${quoteForShell(JSON.stringify(params))} "$PATH"`;
 }
 
 /**

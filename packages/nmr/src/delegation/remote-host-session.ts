@@ -52,6 +52,10 @@ export type SessionRecord =
  * out the snapshot, installs, runs nmr, and reports the passes that nmr wrote to the pass manifest. It is sent as
  * source, so it refers to nothing outside its own body.
  *
+ * Every process that the session starts runs on the login shell's `PATH`, which the session script passes as the
+ * argument after `params`: A version manager's `node` shim puts the `bin` directory of the Node that it chose before
+ * the checkout in front of the session's own `PATH`, and the snapshot may pin another.
+ *
  * The lock follows the machine lock's rules: A waiter reclaims it at once when the holder's pid is gone, and once the
  * holder has stopped refreshing it for a minute otherwise. When the session's stdin ends, which the local `ssh` causes
  * by exiting, the session stops its current phase's process group, releases the lock, and exits.
@@ -89,6 +93,9 @@ export function runHostSession(params: HostSessionParams): void {
     token: string;
   }
 
+  const loginPath = process.argv[2] || process.env['PATH'];
+  const childEnv: NodeJS.ProcessEnv = { ...process.env, PATH: loginPath };
+
   const token = crypto.randomUUID();
   let isHolding = false;
   let activeChild: ReturnType<typeof childProcess.spawn> | undefined;
@@ -107,7 +114,7 @@ export function runHostSession(params: HostSessionParams): void {
       ['checkout', '--quiet', '--force', '--detach', params.sha],
       ['clean', '--force', '-d', '--quiet'],
     ]) {
-      const result = await runPhase('git', args, '.', process.env);
+      const result = await runPhase('git', args, '.', childEnv);
       if (isStopping) return;
       if (result.exitCode !== 0) {
         fail('check out', result);
@@ -120,7 +127,7 @@ export function runHostSession(params: HostSessionParams): void {
       removeWorkspaceState();
     }
     const install = await runPhase('pnpm', ['install', '--frozen-lockfile'], params.rootDir, {
-      ...process.env,
+      ...childEnv,
       CI: 'true',
     });
     if (isStopping) return;
@@ -140,7 +147,7 @@ export function runHostSession(params: HostSessionParams): void {
     const child = childProcess.spawn('pnpm', ['exec', 'nmr', '--no-delegate', ...params.nmrArgs], {
       cwd: params.runDir,
       detached: true,
-      env: { ...process.env, ...params.remoteEnv, ...manifestEnv },
+      env: { ...childEnv, ...params.remoteEnv, ...manifestEnv },
       stdio: ['ignore', 'inherit', 'inherit'],
     });
     activeChild = child;
