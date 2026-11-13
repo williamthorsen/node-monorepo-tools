@@ -12,7 +12,7 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-import { renderExpectedPublishWorkflow } from '../renderManagedWorkflows.ts';
+import { renderExpectedPublishWorkflow } from '../managed-workflows.ts';
 
 describe(renderExpectedPublishWorkflow, () => {
   afterEach(() => {

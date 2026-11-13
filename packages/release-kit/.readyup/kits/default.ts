@@ -27,7 +27,7 @@ import {
   renderExpectedCreateGithubReleaseWorkflow,
   renderExpectedPublishWorkflow,
   renderExpectedReleaseWorkflow,
-} from '../../src/init/renderManagedWorkflows.ts';
+} from '../../src/init/managed-workflows.ts';
 import {
   changelogArchivesAreEnabled,
   changelogJsonIsEnabled,

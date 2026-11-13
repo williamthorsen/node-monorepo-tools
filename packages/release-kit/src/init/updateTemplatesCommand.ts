@@ -21,7 +21,7 @@ import {
   renderExpectedCreateGithubReleaseWorkflow,
   renderExpectedPublishWorkflow,
   renderExpectedReleaseWorkflow,
-} from './renderManagedWorkflows.ts';
+} from './managed-workflows.ts';
 import { CREATE_GITHUB_RELEASE_WORKFLOW_PATH, PUBLISH_WORKFLOW_PATH, PUBLISHING_WORKFLOW_PATHS } from './scaffold.ts';
 
 interface UpdateTemplatesOptions {

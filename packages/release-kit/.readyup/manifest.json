@@ -140,7 +140,7 @@
           "path": "../../nmr-core/dist/esm/timer.js"
         },
         {
-          "hash": "f1d9ec3b",
+          "hash": "ee8d2dc8",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -188,14 +188,14 @@
           "path": "../src/init/hasProvenance.ts"
         },
         {
+          "hash": "3238f7e0",
+          "kind": "module",
+          "path": "../src/init/managed-workflows.ts"
+        },
+        {
           "hash": "133be525",
           "kind": "module",
           "path": "../src/init/parseJsonRecord.ts"
-        },
-        {
-          "hash": "3238f7e0",
-          "kind": "module",
-          "path": "../src/init/renderManagedWorkflows.ts"
         },
         {
           "hash": "5950f562",
@@ -217,8 +217,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.46.2",
       "source": "kits/default.ts",
-      "sourceHash": "f1d9ec3b",
-      "targetHash": "1bceb32f"
+      "sourceHash": "ee8d2dc8",
+      "targetHash": "92e9a8b8"
     },
     {
       "bundledDependencies": {

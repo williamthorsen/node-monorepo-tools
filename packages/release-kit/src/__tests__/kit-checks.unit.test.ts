@@ -41,7 +41,7 @@ vi.mock(import('../init/detectRepoType.ts'), () => ({
   detectRepoType: mockedDetectRepoType,
 }));
 
-vi.mock(import('../init/renderManagedWorkflows.ts'), () => ({
+vi.mock(import('../init/managed-workflows.ts'), () => ({
   renderExpectedCreateGithubReleaseWorkflow: (repoType: RepoType) => `create-github-release for ${repoType}`,
   renderExpectedPublishWorkflow: (repoType: RepoType) => `publish for ${repoType}`,
   renderExpectedReleaseWorkflow: (repoType: RepoType) => `release for ${repoType}`,

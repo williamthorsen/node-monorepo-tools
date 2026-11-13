@@ -471,7 +471,7 @@ function detectRepoType() {
   return "single-package";
 }
 
-// src/init/renderManagedWorkflows.ts
+// src/init/managed-workflows.ts
 import { existsSync as existsSync3, readFileSync as readFileSync3 } from "node:fs";
 
 // src/init/hasProvenance.ts
@@ -600,7 +600,7 @@ jobs:
 // src/init/scaffold.ts
 var PUBLISH_WORKFLOW_PATH = ".github/workflows/publish.yaml";
 
-// src/init/renderManagedWorkflows.ts
+// src/init/managed-workflows.ts
 function renderExpectedCreateGithubReleaseWorkflow(repoType) {
   return renderCreateGithubReleaseWorkflow(repoType);
 }
