@@ -294,13 +294,6 @@ export default defineRdyKit({
           check: () => fileDoesNotContain('.github/workflows/sync-labels.yaml', /@sync-labels-workflow-v[0-9]/),
           fix: 'Update sync-labels.yaml to use @workflow/sync-labels-v1 (run `release-kit update-templates` to regenerate, or replace the ref manually)',
         },
-        {
-          name: 'retired .config/sync-labels.config.ts is absent',
-          severity: 'error',
-          quiet: true,
-          check: () => !fileExists('.config/sync-labels.config.ts'),
-          fix: 'Move the labels into the repoLabels block of .config/release-kit.config.ts, then delete .config/sync-labels.config.ts',
-        },
       ],
     },
   ],

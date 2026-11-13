@@ -12,7 +12,6 @@ import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } f
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
 import { loadValidatedConfig, reportConfigProblem } from '../loadValidatedConfig.ts';
 import { generateCommand, LABELS_OUTPUT_PATH } from './generateCommand.ts';
-import { checkRetiredSyncLabelsConfig } from './retiredConfig.ts';
 import {
   buildScopeLabels,
   readSyncLabelsWorkflowTemplate,
@@ -50,10 +49,6 @@ export async function syncLabelsInitCommand({
   styles,
 }: InitOptions): Promise<number> {
   const configFilePath = configPath ?? CONFIG_FILE_PATH;
-
-  if (checkRetiredSyncLabelsConfig(configPath)) {
-    return 1;
-  }
 
   if (isDryRun) {
     console.info('[dry-run mode]');

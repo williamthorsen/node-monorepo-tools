@@ -11,7 +11,6 @@ import { CONFIG_FILE_PATH } from '../loadConfig.ts';
 import { loadValidatedConfig, reportConfigProblem } from '../loadValidatedConfig.ts';
 import { hashPreset } from './presets.ts';
 import { resolveLabels } from './resolveLabels.ts';
-import { checkRetiredSyncLabelsConfig } from './retiredConfig.ts';
 import type { LabelDefinition } from './types.ts';
 
 /** Output path for the generated labels file. */
@@ -103,10 +102,6 @@ interface GenerateOptions {
  * does not depend on the invocation directory or on the machine on which the command ran.
  */
 export async function generateCommand({ shouldCheck = false, configPath, styles }: GenerateOptions): Promise<number> {
-  if (checkRetiredSyncLabelsConfig(configPath)) {
-    return 1;
-  }
-
   const repoLabels = await loadRepoLabelsConfig(styles.stderr, configPath);
   if (repoLabels === undefined) {
     return 1;

@@ -3077,11 +3077,6 @@ rejections:
     ground: "not the construction: 'found' is a participle"
   - rule: reduced-object-relative
     rule-version: '1'
-    file: packages/release-kit/src/sync-labels/retiredConfig.ts
-    phrase: case the caller must abort
-    ground: an adjunct after 'in which case'; the gap does not fill an argument position
-  - rule: reduced-object-relative
-    rule-version: '1'
     file: packages/release-kit/src/sync-labels/templates.ts
     phrase: retired scopes would single
     ground: "not the construction: 'retired' is an adjective and 'the retired scopes' is the subject of 'would single'"

@@ -42,7 +42,6 @@ vi.mock(import('node:fs'), () => ({
 }));
 
 import { formatLabelsYaml, generateCommand, LABELS_OUTPUT_PATH } from '../generateCommand.ts';
-import { RETIRED_SYNC_LABELS_CONFIG_PATH } from '../retiredConfig.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -56,17 +55,6 @@ describe(generateCommand, () => {
     mockMkdirSync.mockReset();
     mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
-  });
-
-  it('returns 1 with a migration message when the retired sync-labels config exists', async () => {
-    mockExistsSync.mockImplementation((path: string) => path === RETIRED_SYNC_LABELS_CONFIG_PATH);
-    using stdioCapture = captureStdio();
-
-    const exitCode = await generateCommand({ styles: RICH_STYLES });
-
-    expect(exitCode).toBe(1);
-    expect(stdioCapture.stderr).toContain('no longer read');
-    expect(mockLoadConfig).not.toHaveBeenCalled();
   });
 
   it('returns 1 when the config file is missing', async () => {
@@ -293,16 +281,6 @@ describe(generateCommand, () => {
 
     expect(exitCode).toBe(1);
     expect(stdioCapture.stderr).toContain('block is missing from elsewhere/alternative.config.ts');
-  });
-
-  it('names the config that the run read in the retired-config migration message', async () => {
-    mockExistsSync.mockImplementation((path: string) => path === RETIRED_SYNC_LABELS_CONFIG_PATH);
-    using stdioCapture = captureStdio();
-
-    const exitCode = await generateCommand({ configPath: 'elsewhere/alternative.config.ts', styles: RICH_STYLES });
-
-    expect(exitCode).toBe(1);
-    expect(stdioCapture.stderr).toContain('elsewhere/alternative.config.ts');
   });
 
   it('returns 1 when file writing fails', async () => {
