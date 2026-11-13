@@ -51,7 +51,7 @@ Packages live under `packages/`:
 
 ### Scaffolded artifacts
 
-- A file that a package scaffolds into a consumer repo and that takes no parameter ships verbatim under the package's `templates/`, which its `package.json` `"files"` lists; one that varies by a parameter, such as the repo type, is rendered by a function. The kit hashes and `__tests__/dogfooded-workflows.app.unit.test.ts` compare the shipped bytes in either form
+- A file that a package scaffolds into a consumer repo and that takes no parameter ships verbatim under the package's `templates/`, which its `package.json` `"files"` lists; one that varies by a parameter, such as the repo type, is rendered by a function. A package's readyup kit compares a consumer's rendered file with the output of the function that renders it, and a verbatim file by hash; `__tests__/dogfooded-workflows.app.unit.test.ts` compares this repo's own copies with the shipped bytes in both forms
 
 ### Published JSON Schemas
 
