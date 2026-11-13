@@ -23,7 +23,7 @@ const it = baseIt.extend(
 );
 
 describe(checkWorkflowPointerDrift, () => {
-  it('reports a tag that lacks no commit touching its workflow as current', () => {
+  it('reports a tag that has every commit touching its workflow as current', () => {
     const report = check(createFakeGit({ listPointerTags: () => [AUDIT_TAG] }));
 
     expect(report.statuses).toStrictEqual([{ kind: 'current', tag: AUDIT_TAG }]);

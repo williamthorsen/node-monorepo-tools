@@ -74,7 +74,11 @@ describe(createGitAdapter, () => {
 });
 
 describe('the command', () => {
-  it('fails on a drifted tag, and writes the report to stdout and the job summary', ({ repo, tree }) => {
+  it('fails on a drifted tag and an invalid holds file, and writes the report to stdout and the job summary', ({
+    repo,
+    tree,
+  }) => {
+    repo.tree.write('.config/workflow-pointer-holds.json', '[{ "tag": ');
     const summaryPath = path.join(tree.dir, 'summary.md');
 
     const result = spawnSync(process.execPath, [SCRIPT_PATH, 'main'], {
@@ -85,6 +89,7 @@ describe('the command', () => {
 
     expect(result.status).toBe(1);
     expect(result.stdout).toContain('- ❌ `workflow/audit-v1` lacks 2 commit(s) that touch its workflow:');
+    expect(result.stdout).toContain('- The holds file is not valid JSON: SyntaxError');
     expect(readFileSync(summaryPath, 'utf8')).toBe(result.stdout);
   });
 });
