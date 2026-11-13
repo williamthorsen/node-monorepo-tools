@@ -1,8 +1,14 @@
 import { attachChangelogDiagnostics } from './attachChangelogDiagnostics.ts';
-import type { ReleaseHistory } from './buildChangelogEntries.ts';
+import {
+  convertToChangelogEntries,
+  type ReleaseHistory,
+  sortSectionsCanonically,
+  stripGroupDecorations,
+} from './buildChangelogEntries.ts';
 import { buildSyntheticChangelogEntry } from './buildSyntheticChangelogEntry.ts';
 import type {
   ChangelogEntry,
+  ChangelogSection,
   DirectoryTarget,
   PropagationSource,
   ReleasedCompositeResult,
@@ -32,18 +38,35 @@ type ReleaseResultFields = Omit<
   'commits' | 'kind' | 'parsedCommitCount' | 'releaseType' | 'status'
 >;
 
-/** Builds the one synthetic entry of a release that propagation alone set, under the dependencies header. */
+/** The inputs from which `buildPropagationEntries` builds a propagated release's entries. */
+export interface PropagationEntryArgs {
+  history: ReleaseHistory;
+  tag: string;
+  newVersion: string;
+  today: string;
+  dependenciesHeader: string;
+}
+
+/**
+ * Builds the entries of a release that propagation alone set: the window's own entries with the dependencies added to
+ * the new version's section under the dependencies header, or, when the window doesn't yield any item, the one
+ * synthetic entry under that header.
+ */
 export function buildPropagationEntries(
   target: ReleaseTarget,
   release: TargetRelease,
-  newVersion: string,
-  today: string,
-  dependenciesHeader: string,
+  args: PropagationEntryArgs,
 ): ChangelogEntry[] {
   if (release.propagatedFrom === undefined) {
     throw new Error(`Workspace '${target.id}' has neither a direct release nor a propagation source`);
   }
-  return [buildSyntheticChangelogEntry(release.propagatedFrom, newVersion, today, dependenciesHeader)];
+  const { history, tag, newVersion, today, dependenciesHeader } = args;
+  const synthetic = buildSyntheticChangelogEntry(release.propagatedFrom, newVersion, today, dependenciesHeader);
+  const [newEntry, ...releasedEntries] = convertToChangelogEntries(history, tag);
+  if (history.unreleasedReading.sections.length === 0 || newEntry === undefined) {
+    return [synthetic];
+  }
+  return [{ ...newEntry, sections: mergeSections(newEntry.sections, synthetic.sections) }, ...releasedEntries];
 }
 
 /** Builds the released result of a target from the plan's fields, by the target's kind. */
@@ -158,4 +181,20 @@ function buildReleasedPackage(
   return result;
 }
 
+/** Merges `added` into `sections`, appending the items of a section whose bare title matches an existing one. */
+function mergeSections(sections: readonly ChangelogSection[], added: readonly ChangelogSection[]): ChangelogSection[] {
+  const merged = [...sections];
+  for (const section of added) {
+    const index = merged.findIndex(
+      (existing) => stripGroupDecorations(existing.title) === stripGroupDecorations(section.title),
+    );
+    const existing = merged[index];
+    if (existing === undefined) {
+      merged.push(section);
+    } else {
+      merged[index] = { ...existing, items: [...existing.items, ...section.items] };
+    }
+  }
+  return sortSectionsCanonically(merged);
+}
 // endregion | Helpers

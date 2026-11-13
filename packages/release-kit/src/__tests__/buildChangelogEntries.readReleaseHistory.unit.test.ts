@@ -50,7 +50,7 @@ describe(readReleaseHistory, () => {
       ['a `feat!:` title', ['#1 feat!: Redesign API'], 'major'],
       ['the highest of several items', ['#1 fix: Patch', '#2 feat: Add', '#3 docs: Guide'], 'minor'],
       ['a `BREAKING CHANGE:` footer on a `feat` title', ['#1 feat: Add\n\nBREAKING CHANGE: removes /v1'], 'minor'],
-      ['a dev-only section', ['#1 tests: Cover the parser'], 'patch'],
+      ['a dev-only section of a bumping type', ['#1 refactor: Split the parser'], 'patch'],
     ])('is the maximum over the items for %s', (_label, messages, bump) => {
       expect(readUnreleased(messages).bump).toBe(bump);
     });
@@ -58,6 +58,7 @@ describe(readReleaseHistory, () => {
     it.each([
       ['an unticketed `feat`', ['feat: Add widget']],
       ['an excluded type', ['#1 fmt: Run prettier']],
+      ['a non-bumping type', ['#1 tests: Cover the parser']],
       [
         'a block whose entries are all undeclared or excluded',
         [buildMergeMessage('entries:\n  - type: chore\n    text: T.\n  - type: fmt\n    text: F.')],

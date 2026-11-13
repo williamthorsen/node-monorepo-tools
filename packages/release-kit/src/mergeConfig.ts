@@ -38,7 +38,8 @@ import type {
  *   directories that `releases` declares resolve through `deriveDirectoryConfig` into `directories`, which must not
  *   share a version file with any other target.
  * - `workTypes`: Shallow merge; consumer entries override or add to defaults by key.
- * - `versionPatterns`: Consumer value replaces defaults entirely.
+ * - `versionPatterns`: Consumer value replaces defaults entirely, except that an omitted `none` takes its default in
+ *   `determineBumpType`.
  * - Pass-through fields (see `applyOptionalPassthroughFields`): Consumer value wins.
  * - `project`: Present iff the config declares a composite. Resolves `tagPrefix` to `DEFAULT_PROJECT_TAG_PREFIX` and
  *   `paths` to the union of its members' `paths` when omitted. Requires `rootPackage` to be passed and to contain a

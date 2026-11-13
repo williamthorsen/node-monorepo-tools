@@ -393,8 +393,9 @@ export interface WorkTypeConfig {
 }
 
 /**
- * Defines which commit types trigger major or minor version bumps.
- * Any recognized commit type not listed defaults to a patch bump.
+ * Defines which commit types trigger major or minor version bumps, and which trigger none.
+ * Any recognized commit type not listed in `major`, `minor`, or `none` (the default list when omitted) defaults to a
+ * patch bump.
  * The sentinel `'!'` in `major` means "any breaking commit triggers a major bump".
  */
 export interface VersionPatterns {
@@ -402,6 +403,11 @@ export interface VersionPatterns {
   major: string[];
   /** Commit types that trigger a minor bump. */
   minor: string[];
+  /**
+   * Commit types that do not trigger a bump unless breaking. Defaults to `DEFAULT_VERSION_PATTERNS.none` when omitted;
+   * `[]` gives every unlisted type a patch bump.
+   */
+  none?: string[] | undefined;
 }
 
 /** A raw commit from the git log. */

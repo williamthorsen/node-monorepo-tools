@@ -108,6 +108,14 @@ const FEATURE_HISTORY = {
   sections: [{ title: 'Features', audience: 'all' as const, items: [{ description: 'Ship it', hash: 'abc1234' }] }],
 };
 
+const TESTS_ONLY_HISTORY = {
+  previousTag: 'core-v1.0.0',
+  commits: [['tests: Cover the parser', 'abc1234']] as const,
+  sections: [
+    { title: 'Tests', audience: 'dev' as const, items: [{ description: 'Cover the parser', hash: 'abc1234' }] },
+  ],
+};
+
 describe(readTargetHistory, () => {
   beforeEach(() => {
     mockReadReleaseHistory.mockReturnValue(makeReleaseHistory({ previousTag: 'core-v1.0.0' }));
@@ -199,6 +207,16 @@ describe(decideTargetRelease, () => {
       outcome: 'skip',
       skipReason:
         'No bump-worthy commits (no previous release found). Pass --force to release at patch (or --force --bump=X for a different level). Skipping.',
+    });
+  });
+
+  it('skips a window whose items do not call for a bump', () => {
+    const decision = decideTargetRelease(CORE_TARGET, makeReleaseHistory(TESTS_ONLY_HISTORY), noForceOptions);
+
+    expect(decision).toStrictEqual({
+      outcome: 'skip',
+      skipReason:
+        'No bump-worthy commits for core since core-v1.0.0. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.',
     });
   });
 
@@ -357,6 +375,20 @@ describe(planTargetRelease, () => {
     expect(result).not.toHaveProperty('releaseType');
     expect(result).not.toHaveProperty('parsedCommitCount');
     expect(result).not.toHaveProperty('unparseableCommits');
+  });
+
+  it('records the items of a forced release whose items do not call for a bump', () => {
+    planTargetRelease(
+      makeArgs({
+        release: { releaseType: 'patch' },
+        decision: { outcome: 'release', releaseType: 'patch', bumpOverride: undefined, setVersion: undefined },
+        history: makeReleaseHistory(TESTS_ONLY_HISTORY),
+      }),
+    );
+
+    expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledWith('packages/core/.meta/changelog.json', [
+      { version: '1.0.1', date: '2024-01-01', sections: TESTS_ONLY_HISTORY.sections },
+    ]);
   });
 
   it('plans a propagation-only release from one synthetic dependency entry', () => {

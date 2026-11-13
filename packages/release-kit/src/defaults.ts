@@ -48,10 +48,11 @@ export const DEFAULT_BREAKING_POLICIES: Record<string, BreakingPolicy> = Object.
   CANONICAL_TAXONOMY.types.map((entry) => [entry.key, entry.breakingPolicy]),
 );
 
-/** Default version bump patterns. */
-export const DEFAULT_VERSION_PATTERNS: VersionPatterns = {
+/** Default version bump patterns. The `none` types do not change the code that a consumer runs. */
+export const DEFAULT_VERSION_PATTERNS: VersionPatterns & { none: string[] } = {
   major: ['!'],
   minor: ['feat'],
+  none: ['ai', 'ci', 'docs', 'tests', 'tooling'],
 };
 
 /** Default configuration for structured changelog JSON generation. */

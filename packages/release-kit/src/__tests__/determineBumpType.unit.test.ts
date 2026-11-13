@@ -95,4 +95,48 @@ describe(determineBumpType, () => {
     const result = determineBumpType(commits, workTypes, customPatterns);
     expect(result).toBe('patch');
   });
+
+  describe('non-bumping types', () => {
+    it('returns undefined when every commit has a type that the default `none` lists', () => {
+      const commits = [makeCommit({ type: 'docs' }), makeCommit({ type: 'docs' })];
+      const result = determineBumpType(commits, workTypes, versionPatterns);
+      expect(result).toBeUndefined();
+    });
+
+    it('returns patch for a non-bumping type alongside a fix', () => {
+      const commits = [makeCommit({ type: 'docs' }), makeCommit({ type: 'fix' })];
+      const result = determineBumpType(commits, workTypes, versionPatterns);
+      expect(result).toBe('patch');
+    });
+
+    it('returns patch for a type that the default `none` does not list', () => {
+      const commits = [makeCommit({ type: 'refactor' })];
+      const result = determineBumpType(commits, workTypes, versionPatterns);
+      expect(result).toBe('patch');
+    });
+
+    it('returns major for a breaking commit of a non-bumping type', () => {
+      const commits = [makeCommit({ type: 'docs', breaking: true })];
+      const result = determineBumpType(commits, workTypes, versionPatterns);
+      expect(result).toBe('major');
+    });
+
+    it('applies the default `none` when the patterns omit it', () => {
+      const commits = [makeCommit({ type: 'docs' })];
+      const result = determineBumpType(commits, workTypes, { major: ['!'], minor: ['feat'] });
+      expect(result).toBeUndefined();
+    });
+
+    it('returns patch for every unlisted type when `none` is empty', () => {
+      const commits = [makeCommit({ type: 'docs' })];
+      const result = determineBumpType(commits, workTypes, { major: ['!'], minor: ['feat'], none: [] });
+      expect(result).toBe('patch');
+    });
+
+    it('gives a type listed in both `minor` and `none` the minor bump', () => {
+      const commits = [makeCommit({ type: 'docs' })];
+      const result = determineBumpType(commits, workTypes, { major: ['!'], minor: ['docs'], none: ['docs'] });
+      expect(result).toBe('minor');
+    });
+  });
 });

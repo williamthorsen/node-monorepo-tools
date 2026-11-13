@@ -116,6 +116,11 @@ export function readReleaseHistory(config: ReleaseHistoryConfig, options: Genera
   }
 }
 
+/** Returns `sections` in canonical order; a stable sort keeps unknown sections, which sort last, in encounter order. */
+export function sortSectionsCanonically(sections: readonly ChangelogSection[]): ChangelogSection[] {
+  return sections.toSorted((a, b) => getCanonicalSectionPriority(a.title) - getCanonicalSectionPriority(b.title));
+}
+
 /**
  * Strips a section title down to its bare name.
  *
@@ -171,8 +176,7 @@ function buildSections(
       items,
     });
   }
-  // A stable sort keeps unknown sections, whose priority is `Infinity`, in encounter order.
-  return sections.toSorted((a, b) => getCanonicalSectionPriority(a.title) - getCanonicalSectionPriority(b.title));
+  return sortSectionsCanonically(sections);
 }
 
 /** Formats Unix seconds as an ISO calendar date. */

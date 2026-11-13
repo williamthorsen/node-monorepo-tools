@@ -135,11 +135,12 @@ export const workTypeConfigSchema = z
   })
   .strict();
 
-/** Schema for the `versionPatterns` block. Both arrays are required when the field is provided. */
+/** Schema for the `versionPatterns` block. `major` and `minor` are required when the field is provided. */
 export const versionPatternsSchema = z
   .object({
     major: z.array(z.string()),
     minor: z.array(z.string()),
+    none: z.array(z.string()).optional(),
   })
   .strict();
 
