@@ -104,14 +104,14 @@ function commitAll(repo: string, message: string): void {
   runGit(repo, ['commit', '--message', message]);
 }
 
-/** Runs git in `cwd` and returns its stdout. */
-function runGit(cwd: string, args: string[]): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-}
-
 /** Returns the commit that HEAD names in the fixture. */
 function readHeadSha(repo: string): string {
   return runGit(repo, ['rev-parse', 'HEAD']).trim();
+}
+
+/** Runs git in `cwd` and returns its stdout. */
+function runGit(cwd: string, args: string[]): string {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 // endregion | Helpers

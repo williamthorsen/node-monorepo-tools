@@ -358,22 +358,7 @@ describe(resolveTazeCliPath, () => {
   });
 });
 
-/** Runs `runTaze` against a stubbed CLI path and spawn, returning the argv that the spawn received. */
-async function runCapturingArgv(args: string[]): Promise<string[]> {
-  let capturedArgs: string[] = [];
-
-  await runTaze(args, {
-    loadConfig: noConfig,
-    checkNodePin: skipNodePin,
-    resolveCliPath: () => FAKE_CLI_PATH,
-    spawn: (_nodePath, argv) => {
-      capturedArgs = [...argv];
-      return { signal: null, status: 0 };
-    },
-  });
-
-  return capturedArgs;
-}
+// region | Helpers
 
 /** Returns a writable stream plus a reader for everything written to it. */
 function captureStream(): { stderr: PassThrough; read: () => string } {
@@ -389,6 +374,23 @@ function captureStream(): { stderr: PassThrough; read: () => string } {
 /** Returns no per-package maturity periods, as a repo without the key does. */
 function noConfig(): Promise<unknown> {
   return Promise.resolve(undefined);
+}
+
+/** Runs `runTaze` against a stubbed CLI path and spawn, returning the argv that the spawn received. */
+async function runCapturingArgv(args: string[]): Promise<string[]> {
+  let capturedArgs: string[] = [];
+
+  await runTaze(args, {
+    loadConfig: noConfig,
+    checkNodePin: skipNodePin,
+    resolveCliPath: () => FAKE_CLI_PATH,
+    spawn: (_nodePath, argv) => {
+      capturedArgs = [...argv];
+      return { signal: null, status: 0 };
+    },
+  });
+
+  return capturedArgs;
 }
 
 /** Runs `runTaze` with `packageMaturityPeriod`, returning each pass's argv, the exit code, and a stderr reader. */
@@ -418,3 +420,5 @@ async function runSplit(
 function skipNodePin(): Promise<void> {
   return Promise.resolve();
 }
+
+// endregion | Helpers

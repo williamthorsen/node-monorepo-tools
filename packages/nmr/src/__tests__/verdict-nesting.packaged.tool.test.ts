@@ -147,6 +147,24 @@ function parseRecords(stdout: string): Record<string, unknown>[] {
     });
 }
 
+/** Reads the command named by each verdict line, in the order the lines arrived. */
+function readVerdictCommands(stdout: string): string[] {
+  return stdout
+    .split('\n')
+    .map((line) => /^\S+ [^:]+: (?<command>\S+): (?:passed|failed|skipped)/u.exec(line))
+    .filter((match) => match !== null)
+    .map((match) => match.groups?.['command'] ?? '');
+}
+
+/** Reads the marker with which each verdict line opens, in the order the lines arrived. */
+function readVerdictMarkers(stdout: string): string[] {
+  return stdout
+    .split('\n')
+    .map((line) => /^(?<marker>\S+) [^:]+: \S+: (?:passed|failed|skipped)/u.exec(line))
+    .filter((match) => match !== null)
+    .map((match) => match.groups?.['marker'] ?? '');
+}
+
 /**
  * Runs the CLI in-process against `cwd`, returning what it and every process below it wrote to each stream.
  * The overrides are added to the ambient environment, which has nmr's own variables stripped from it.
@@ -175,24 +193,6 @@ async function runNmr(
     stderr: Buffer.concat(errorChunks).toString('utf8'),
     stdout: Buffer.concat(chunks).toString('utf8'),
   };
-}
-
-/** Reads the command named by each verdict line, in the order the lines arrived. */
-function readVerdictCommands(stdout: string): string[] {
-  return stdout
-    .split('\n')
-    .map((line) => /^\S+ [^:]+: (?<command>\S+): (?:passed|failed|skipped)/u.exec(line))
-    .filter((match) => match !== null)
-    .map((match) => match.groups?.['command'] ?? '');
-}
-
-/** Reads the marker with which each verdict line opens, in the order the lines arrived. */
-function readVerdictMarkers(stdout: string): string[] {
-  return stdout
-    .split('\n')
-    .map((line) => /^(?<marker>\S+) [^:]+: \S+: (?:passed|failed|skipped)/u.exec(line))
-    .filter((match) => match !== null)
-    .map((match) => match.groups?.['marker'] ?? '');
 }
 
 // endregion | Helpers

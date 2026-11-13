@@ -31,6 +31,17 @@ describe('published tarball', () => {
 
 // region | Helpers
 
+/** Narrows `pnpm pack --json` output to the one field that this test reads. */
+function isPackReport(value: unknown): value is { files: Array<{ path: string }> } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'files' in value &&
+    Array.isArray(value.files) &&
+    value.files.every((file: unknown) => typeof file === 'object' && file !== null && 'path' in file)
+  );
+}
+
 /**
  * Returns the package-root-relative paths that `pnpm pack` would publish. Scripts are skipped so that `prepare` does
  * not compile the package: Nothing asserted here reads `dist`, and building it would rewrite the working tree as a
@@ -50,17 +61,6 @@ function listPackedPaths(): Array<string> {
     throw new Error(`pnpm pack --json did not return a file list: ${stdout}`);
   }
   return parsedReport.files.map((file) => file.path);
-}
-
-/** Narrows `pnpm pack --json` output to the one field that this test reads. */
-function isPackReport(value: unknown): value is { files: Array<{ path: string }> } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'files' in value &&
-    Array.isArray(value.files) &&
-    value.files.every((file: unknown) => typeof file === 'object' && file !== null && 'path' in file)
-  );
 }
 
 // endregion | Helpers

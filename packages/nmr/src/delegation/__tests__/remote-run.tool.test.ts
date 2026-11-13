@@ -531,20 +531,15 @@ function isAlive(pid: number): boolean {
   }
 }
 
-/** Returns the value that the fake `pnpm` logged under `name`. */
-function readLogged(log: readonly string[], name: string): string {
-  return log.find((line) => line.startsWith(`${name}=`))?.slice(name.length + 1) ?? '';
-}
-
 /** Returns the pid of a process that has exited. */
 function readExitedPid(): number {
   const child = spawnSync('true');
   return child.pid;
 }
 
-/** Returns, for each install, whether the fake `pnpm` found pnpm's workspace state file. */
-function readStates(log: readonly string[]): string[] {
-  return log.filter((line) => line.startsWith('state=')).map((line) => line.slice('state='.length));
+/** Returns the value that the fake `pnpm` logged under `name`. */
+function readLogged(log: readonly string[], name: string): string {
+  return log.find((line) => line.startsWith(`${name}=`))?.slice(name.length + 1) ?? '';
 }
 
 /** Reads everything that delegation must not change: the index file, every ref, and the stash list. */
@@ -555,6 +550,11 @@ function readRepoState(repo: string): { index: string; refs: string; stash: stri
     stash: runGit(repo, ['stash', 'list']),
     status: runGit(repo, ['status', '--porcelain']),
   };
+}
+
+/** Returns, for each install, whether the fake `pnpm` found pnpm's workspace state file. */
+function readStates(log: readonly string[]): string[] {
+  return log.filter((line) => line.startsWith('state=')).map((line) => line.slice('state='.length));
 }
 
 /** Runs git in `cwd` and returns its stdout. */

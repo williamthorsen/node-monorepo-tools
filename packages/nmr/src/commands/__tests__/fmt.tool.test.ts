@@ -478,15 +478,14 @@ describe('runFmt with the Prettier cache', () => {
   });
 });
 
-/**
- * Tracks `locked/.envrc` beside a badly formatted file, then denies access to `locked/`, the state that a
- * sandbox shielding dotfiles produces.
- */
-function lockEnvrc(tree: TempTree): Disposable {
-  tree.write('locked/.envrc', 'export SECRET=1\n');
-  tree.write('packages/a/unprotected.js', 'const  badly   =  1\n');
+// region | Helpers
+
+/** Installs a repository Prettier whose manifest is `manifest`, beside a tracked, badly formatted file. */
+function installRepositoryPrettierManifest(tree: TempTree, manifest: string): void {
+  tree.write('.gitignore', 'node_modules/\n');
+  tree.write('node_modules/prettier/package.json', manifest);
+  tree.write('packages/a/unprotected.js', BADLY_FORMATTED);
   runGitOrThrow(['add', '--all'], tree.dir);
-  return denyAccess(tree.resolve('locked'));
 }
 
 /**
@@ -522,6 +521,22 @@ function installStubPrettier(tree: TempTree): void {
   );
 }
 
+/** Returns the names of the files in the cache directory, or none when the directory does not exist. */
+function listCacheFiles(tree: TempTree): string[] {
+  return tree.exists(FMT_CACHE_DIRECTORY) ? tree.list(FMT_CACHE_DIRECTORY) : [];
+}
+
+/**
+ * Tracks `locked/.envrc` beside a badly formatted file, then denies access to `locked/`, the state that a
+ * sandbox shielding dotfiles produces.
+ */
+function lockEnvrc(tree: TempTree): Disposable {
+  tree.write('locked/.envrc', 'export SECRET=1\n');
+  tree.write('packages/a/unprotected.js', 'const  badly   =  1\n');
+  runGitOrThrow(['add', '--all'], tree.dir);
+  return denyAccess(tree.resolve('locked'));
+}
+
 /** Returns the argument list of each recorded stub invocation, in order. */
 function readCalls(tree: TempTree): string[][] {
   if (!tree.exists(RECORD_ENTRY)) return [];
@@ -536,11 +551,6 @@ function readCalls(tree: TempTree): string[][] {
   }
 
   return calls;
-}
-
-/** Returns the names of the files in the cache directory, or none when the directory does not exist. */
-function listCacheFiles(tree: TempTree): string[] {
-  return tree.exists(FMT_CACHE_DIRECTORY) ? tree.list(FMT_CACHE_DIRECTORY) : [];
 }
 
 /**
@@ -567,14 +577,6 @@ function scaffoldRepository(files: Record<string, string>): TempTree {
   return tree;
 }
 
-/** Installs a repository Prettier whose manifest is `manifest`, beside a tracked, badly formatted file. */
-function installRepositoryPrettierManifest(tree: TempTree, manifest: string): void {
-  tree.write('.gitignore', 'node_modules/\n');
-  tree.write('node_modules/prettier/package.json', manifest);
-  tree.write('packages/a/unprotected.js', BADLY_FORMATTED);
-  runGitOrThrow(['add', '--all'], tree.dir);
-}
-
 /** Tracks a badly formatted file whose name starts with `-`. */
 function trackDashLeadingFile(tree: TempTree): void {
   tree.write(DASH_LEADING_FILE, 'const  badly   =  1\n');
@@ -590,3 +592,5 @@ function trackSymlinks(tree: TempTree): void {
   tree.symlink('packages/a/linked-dir', '..');
   runGitOrThrow(['add', '--all'], tree.dir);
 }
+
+// endregion | Helpers
