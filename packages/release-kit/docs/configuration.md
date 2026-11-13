@@ -143,7 +143,7 @@ Validation rules:
 - Full-tuple `(name, tagPrefix)` duplicates within `retiredPackages` are rejected.
 - Two entries sharing the same `tagPrefix` but different `name`s are accepted: Such a pair documents a package renamed within the repo before being retired.
 
-`show-tag-prefixes` currently does not render a dedicated "Retired packages" section (deferred). Declaring a retired entry is verifiable by confirming that its `tagPrefix` stops appearing under "Undeclared tag prefixes" in the `show-tag-prefixes` output.
+`show-tag-prefixes` lists each retired entry under "Retired packages", with its tag count and successor.
 
 ## Tag prefix collisions
 
@@ -160,13 +160,13 @@ The rule is enforced at config load; the resulting error identifies both collidi
 
 ## `release-kit show-tag-prefixes`
 
-Prints a per-workspace table of derived tag prefixes, tag counts, and declared legacy prefixes, with a row for each directory target. Also reports any release-shaped tag prefix in the repo that is neither a derived prefix nor declared via `legacyIdentities`, along with a copy-pasteable `workspaces: [...]` config snippet. The snippet uses a `TODO-fill-in-legacy-npm-name` placeholder for each identity's `name`; replace it with the package's prior npm name before pasting.
+Prints one block per workspace and directory target, titled with its path and its package name or `releases` key, with its derived tag prefix and each declared legacy identity, their tag counts, and a status. Prefixes and counts are aligned in columns across the whole output. A "Retired packages" section follows when the config declares `retiredPackages`. An "Undeclared tag prefixes" section always follows: It reports any release-shaped tag prefix in the repo that is neither derived nor declared, along with a copy-pasteable `workspaces: [...]` config snippet, or `(none)`. The snippet uses a `TODO-fill-in-legacy-npm-name` placeholder for each identity's `name`; replace it with the package's prior npm name before pasting. When a derived prefix does not have any tags yet, a closing note explains that `release-kit tag` creates the first tag from the tags file that `release-kit prepare` writes.
 
 Exits `0` when every workspace derives a prefix and the workspaces' prefixes don't collide; exits `1` on any derivation failure or collision. Undeclared candidates do not affect the exit code; the `legacy tag prefixes are declared` readyup check reports them as a warning.
 
 When a config file exists and either fails to load or fails schema validation, the command reports the failure on stderr and exits `1` without printing a preview, because a config that cannot be read leaves the declared-versus-undeclared verdict wrong in the one dimension on which the command exists to report. That holds on the default path and under `--config`, and in single-package mode as well as monorepo mode. An absent default config is a supported state and still previews against derived defaults.
 
-In single-package mode, prints a single row with `workspacePath = .` and `derivedPrefix = v`; legacy entries and undeclared-candidate scanning are not applicable.
+In single-package mode, prints a single block for `.` with the derived prefix `v`; legacy entries and undeclared-candidate scanning are not applicable.
 
 ## `VersionPatterns`
 

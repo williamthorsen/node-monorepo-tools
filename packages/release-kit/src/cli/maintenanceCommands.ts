@@ -17,7 +17,7 @@ const { defineCommand, defineGroup } = createCli<CommandContext>();
 export const showTagPrefixes = defineCommand({
   summary: 'Show derived and declared legacy tag prefixes per workspace',
   description:
-    'Print a per-workspace table of derived tag prefixes, tag counts, and declared legacy tag prefixes. Reports any release-shaped tags whose prefix is neither a derived prefix nor declared in `legacyIdentities`, with a copy-pasteable config snippet.',
+    'Print one block per workspace with its derived tag prefix, declared legacy identities, and tag counts, followed by the declared retired packages. Reports any release-shaped tags whose prefix is neither derived nor declared, with a copy-pasteable config snippet.',
   flags: CONFIG_FLAG,
   run: ({ flags, context }) =>
     runReportingFailures(context.styles, () => {

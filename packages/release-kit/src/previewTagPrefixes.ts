@@ -19,6 +19,11 @@ export interface TagPrefixPreviewRow {
   workspacePath: string;
   /** Directory basename (e.g., `core`). */
   dir: string;
+  /**
+   * The workspace's `package.json` name or the directory target's `releases` key; `null` when a workspace's derivation
+   * failed.
+   */
+  name: string | null;
   /** The derived tag prefix, or `null` when derivation failed. */
   derivedPrefix: string | null;
   /** Human-readable reason derivation failed, or `null` when it succeeded. */
@@ -29,8 +34,9 @@ export interface TagPrefixPreviewRow {
   legacyEntries: LegacyTagPrefixEntry[];
 }
 
-/** A single declared legacy prefix and its tag count. */
+/** A single declared legacy identity's prefix and its tag count. */
 export interface LegacyTagPrefixEntry {
+  name: string;
   prefix: string;
   tagCount: number;
 }
@@ -79,7 +85,7 @@ export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview 
 
   const workspaces: TagPrefixPreviewRow[] = [
     ...Array.from(workspacePaths, (workspacePath) =>
-      buildPreviewRow(workspacePath, () => deriveWorkspaceConfig(workspacePath).tagPrefix, overridesByPath),
+      buildPreviewRow(workspacePath, null, () => deriveWorkspaceConfig(workspacePath), overridesByPath),
     ),
     ...buildDirectoryRows(config, workspacePaths, overridesByPath),
   ];
@@ -139,21 +145,28 @@ function buildDirectoryRows(
       path: directoryPath,
       ...(entry.tagPrefix !== undefined && { tagPrefix: entry.tagPrefix }),
     };
-    return [buildPreviewRow(directoryPath, () => deriveDirectoryConfig(declaredDirectory).tagPrefix, overridesByPath)];
+    return [buildPreviewRow(directoryPath, name, () => deriveDirectoryConfig(declaredDirectory), overridesByPath)];
   });
 }
 
-/** Constructs a single target's preview row, catching a failure of `derivePrefix` per row. */
+/**
+ * Constructs a single target's preview row, catching a failure of `deriveTarget` per row. `knownName` is the name that
+ * the title keeps when derivation fails.
+ */
 function buildPreviewRow(
   workspacePath: string,
-  derivePrefix: () => string,
+  knownName: string | null,
+  deriveTarget: () => { name: string; tagPrefix: string },
   overridesByPath: Map<string, LegacyIdentity[]>,
 ): TagPrefixPreviewRow {
   const dir = basename(workspacePath);
+  let name = knownName;
   let derivedPrefix: string | null = null;
   let derivationError: string | null = null;
   try {
-    derivedPrefix = derivePrefix();
+    const target = deriveTarget();
+    name = target.name;
+    derivedPrefix = target.tagPrefix;
   } catch (error: unknown) {
     derivationError = describeError(error);
   }
@@ -162,6 +175,7 @@ function buildPreviewRow(
 
   const declaredIdentities = overridesByPath.get(workspacePath) ?? [];
   const legacyEntries: LegacyTagPrefixEntry[] = declaredIdentities.map((identity) => ({
+    name: identity.name,
     prefix: identity.tagPrefix,
     tagCount: countTagsMatching(identity.tagPrefix),
   }));
@@ -169,6 +183,7 @@ function buildPreviewRow(
   return {
     workspacePath,
     dir,
+    name,
     derivedPrefix,
     derivationError,
     derivedTagCount,
