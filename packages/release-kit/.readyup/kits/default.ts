@@ -24,6 +24,11 @@ import {
 
 import { detectRepoType } from '../../src/init/detectRepoType.ts';
 import {
+  renderExpectedCreateGithubReleaseWorkflow,
+  renderExpectedPublishWorkflow,
+  renderExpectedReleaseWorkflow,
+} from '../../src/init/managed-workflows.ts';
+import {
   changelogArchivesAreEnabled,
   changelogJsonIsEnabled,
   packagesShipChangelog,
@@ -39,16 +44,8 @@ import {
   releaseNotesInjectsIntoReadme,
   scopeLabelsHaveNoDescriptions,
 } from '../lib/config-checks.ts';
-import {
-  COMMON_PRESET_HASH,
-  CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO,
-  CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE,
-  PUBLISH_WORKFLOW_HASH_MONOREPO,
-  PUBLISH_WORKFLOW_HASH_SINGLE,
-  RELEASE_WORKFLOW_HASH_MONOREPO,
-  RELEASE_WORKFLOW_HASH_SINGLE,
-  SYNC_LABELS_WORKFLOW_HASH,
-} from '../lib/workflow-hashes.ts';
+import { fileMatchesTemplate } from '../lib/template-checks.ts';
+import { COMMON_PRESET_HASH, SYNC_LABELS_WORKFLOW_HASH } from '../lib/workflow-hashes.ts';
 
 /** Returns the minimum release-kit version that a consuming repo must declare. */
 function getMinVersion(): string {
@@ -102,11 +99,8 @@ export default defineRdyKit({
             {
               name: 'release.yaml matches template',
               severity: 'warn',
-              check: () => {
-                const hash =
-                  detectRepoType() === 'monorepo' ? RELEASE_WORKFLOW_HASH_MONOREPO : RELEASE_WORKFLOW_HASH_SINGLE;
-                return fileMatchesHash('.github/workflows/release.yaml', hash);
-              },
+              check: () =>
+                fileMatchesTemplate('.github/workflows/release.yaml', renderExpectedReleaseWorkflow(detectRepoType())),
               fix: 'Run `release-kit update-templates` to regenerate release.yaml from the current template',
             },
             {
@@ -128,11 +122,8 @@ export default defineRdyKit({
             {
               name: 'publish.yaml matches template',
               severity: 'warn',
-              check: () => {
-                const hash =
-                  detectRepoType() === 'monorepo' ? PUBLISH_WORKFLOW_HASH_MONOREPO : PUBLISH_WORKFLOW_HASH_SINGLE;
-                return fileMatchesHash('.github/workflows/publish.yaml', hash);
-              },
+              check: () =>
+                fileMatchesTemplate('.github/workflows/publish.yaml', renderExpectedPublishWorkflow(detectRepoType())),
               fix: 'Run `release-kit update-templates` to regenerate publish.yaml from the current template',
             },
             {
@@ -150,13 +141,11 @@ export default defineRdyKit({
           skip: () =>
             !fileExists('.github/workflows/create-github-release.yaml') &&
             'no create-github-release workflow (GitHub Releases not adopted)',
-          check: () => {
-            const hash =
-              detectRepoType() === 'monorepo'
-                ? CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO
-                : CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE;
-            return fileMatchesHash('.github/workflows/create-github-release.yaml', hash);
-          },
+          check: () =>
+            fileMatchesTemplate(
+              '.github/workflows/create-github-release.yaml',
+              renderExpectedCreateGithubReleaseWorkflow(detectRepoType()),
+            ),
           fix: 'Run `release-kit update-templates` to regenerate create-github-release.yaml from the current template',
         },
         {

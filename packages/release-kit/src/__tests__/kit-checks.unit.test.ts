@@ -1,4 +1,4 @@
-import { isFlatChecklist, type RdyCheck } from 'readyup';
+import { type CheckOutcome, isFlatChecklist, type RdyCheck } from 'readyup';
 import type { Workspace } from 'readyup/check-utils';
 import { assert, describe, expect, it, vi } from 'vitest';
 
@@ -10,6 +10,7 @@ const {
   mockedFileContains,
   mockedFileExists,
   mockedFileMatchesHash,
+  mockedFileMatchesTemplate,
   mockedHasDevDependency,
   mockedReadFile,
 } = vi.hoisted(() => ({
@@ -18,6 +19,7 @@ const {
   mockedFileContains: vi.fn<(path: string, pattern: RegExp | string) => boolean>(),
   mockedFileExists: vi.fn<(path: string) => boolean>(),
   mockedFileMatchesHash: vi.fn<(path: string, expectedHash: string) => boolean>(),
+  mockedFileMatchesTemplate: vi.fn<(path: string, expected: string) => CheckOutcome>(),
   mockedHasDevDependency: vi.fn<(name: string) => boolean>(),
   mockedReadFile: vi.fn<(path: string) => string | undefined>(),
 }));
@@ -39,12 +41,18 @@ vi.mock(import('../init/detectRepoType.ts'), () => ({
   detectRepoType: mockedDetectRepoType,
 }));
 
+vi.mock(import('../init/managed-workflows.ts'), () => ({
+  renderExpectedCreateGithubReleaseWorkflow: (repoType: RepoType) => `create-github-release for ${repoType}`,
+  renderExpectedPublishWorkflow: (repoType: RepoType) => `publish for ${repoType}`,
+  renderExpectedReleaseWorkflow: (repoType: RepoType) => `release for ${repoType}`,
+}));
+
+vi.mock(import('../../.readyup/lib/template-checks.ts'), () => ({
+  fileMatchesTemplate: mockedFileMatchesTemplate,
+}));
+
 import kit from '../../.readyup/kits/default.ts';
 import { configFileExportsConfig, scopeLabelsHaveNoDescriptions } from '../../.readyup/lib/config-checks.ts';
-import {
-  CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO,
-  CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE,
-} from '../../.readyup/lib/workflow-hashes.ts';
 import { listDeclaredChildren } from '../test-utils/listDeclaredChildren.ts';
 
 const CHANGELOG_CHECK = 'published packages ship CHANGELOG.md';
@@ -273,16 +281,24 @@ describe(CREATE_GITHUB_RELEASE_CHECK, () => {
 
     expect(getCreateGithubReleaseCheck().skip?.()).toBe(false);
   });
+});
+
+describe('workflow template checks', () => {
+  const outcome: CheckOutcome = { ok: false, detail: 'differs' };
 
   it.each([
-    ['monorepo', CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO],
-    ['single-package', CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE],
-  ] as const)('reports drift against the %s hash', (repoType, hash) => {
-    mockedDetectRepoType.mockReturnValue(repoType);
-    mockedFileMatchesHash.mockReturnValue(false);
+    ['create-github-release', getCreateGithubReleaseCheck, CREATE_GITHUB_RELEASE_PATH],
+    ['publish', getPublishTemplateCheck, '.github/workflows/publish.yaml'],
+    ['release', getReleaseTemplateCheck, '.github/workflows/release.yaml'],
+  ] as const)('compares %s.yaml with the template rendered for each repo type', (workflow, getCheck, path) => {
+    mockedFileMatchesTemplate.mockReturnValue(outcome);
 
-    expect(getCreateGithubReleaseCheck().check()).toBe(false);
-    expect(mockedFileMatchesHash).toHaveBeenLastCalledWith(CREATE_GITHUB_RELEASE_PATH, hash);
+    for (const repoType of ['monorepo', 'single-package'] as const) {
+      mockedDetectRepoType.mockReturnValue(repoType);
+
+      expect(getCheck().check()).toBe(outcome);
+      expect(mockedFileMatchesTemplate).toHaveBeenLastCalledWith(path, `${workflow} for ${repoType}`);
+    }
   });
 });
 
@@ -399,6 +415,11 @@ function getCreateGithubReleaseCheck(): RdyCheck {
   return findCheck(CREATE_GITHUB_RELEASE_CHECK, getReleaseKitChecks());
 }
 
+/** Returns the check comparing an installed `publish.yaml` against its template. */
+function getPublishTemplateCheck(): RdyCheck {
+  return findCheck('publish.yaml matches template', listDeclaredChildren(getPublishWorkflowCheck()));
+}
+
 /** Returns the check reporting a publishing repo that has not installed `publish.yaml`. */
 function getPublishWorkflowCheck(): RdyCheck {
   return findCheck(PUBLISH_WORKFLOW_CHECK, getReleaseKitChecks());
@@ -414,6 +435,14 @@ function getReleaseKitChecks(): readonly RdyCheck[] {
   const checklist = kit.checklists.find((candidate) => candidate.name === 'release-kit');
   assert(checklist && isFlatChecklist(checklist), 'Expected the kit to contain a flat `release-kit` checklist');
   return checklist.checks;
+}
+
+/** Returns the check comparing an installed `release.yaml` against its template. */
+function getReleaseTemplateCheck(): RdyCheck {
+  return findCheck(
+    'release.yaml matches template',
+    listDeclaredChildren(findCheck('release.yaml workflow exists', getReleaseKitChecks())),
+  );
 }
 
 // endregion | Helpers
