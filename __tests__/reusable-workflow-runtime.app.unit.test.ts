@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { isRecord } from '../packages/nmr-core/src/portable/isRecord.ts';
 import {
   listJobs,
   listReusableWorkflows,
@@ -10,6 +11,17 @@ import {
 } from '../test-utils/workflows.ts';
 
 const PNPM_WORKFLOWS = ['audit', 'create-github-release', 'publish', 'release'];
+
+/** The action whose step installs Node.js in each workflow that installs pnpm. */
+const NODE_SETUP_ACTIONS: Record<string, string> = {
+  audit: 'pnpm/setup',
+  'create-github-release': 'pnpm/setup',
+  publish: 'pnpm/setup',
+  release: 'actions/setup-node',
+};
+
+/** Workflows that take a `node-version` input. */
+const NODE_VERSION_INPUT_WORKFLOWS = ['create-github-release', 'publish'];
 
 /** Workflows whose Node.js runtime comes from `pnpm/setup`, which does not install `npm`, `npx`, or `corepack`. */
 const PNPM_RUNTIME_WORKFLOWS = ['audit', 'create-github-release', 'publish'];
@@ -72,6 +84,35 @@ describe('reusable workflows do not invoke corepack', () => {
       'Node 25 and later do not bundle `corepack`; neutralize Corepack with the `COREPACK_ENABLE_STRICT` environment variable instead',
     ).not.toMatch(COREPACK_INVOCATION_PATTERN);
   });
+});
+
+describe('reusable workflows install the Node.js version that the caller pins', () => {
+  it.each(Object.entries(NODE_SETUP_ACTIONS))('%s.reusable.yaml reads .tool-versions through %s', (name, action) => {
+    const steps = findSteps(listWorkflowSteps(readReusableWorkflow(name)), action);
+
+    expect(steps).not.toHaveLength(0);
+    for (const step of steps) {
+      expect(step.with?.['node-version-file'], 'a caller that moves its pin would otherwise run another Node.js').toBe(
+        '.tool-versions',
+      );
+      expect(step.with?.['node-version'], 'a literal version outranks the file').toBeUndefined();
+      expect(readRuntime(step), 'a version in `runtime` outranks the file').not.toMatch(/^node@/);
+    }
+  });
+
+  it.each(NODE_VERSION_INPUT_WORKFLOWS)(
+    '%s.reusable.yaml overrides .tool-versions only with a set node-version input',
+    (name) => {
+      const workflow = readReusableWorkflow(name);
+      const input = readWorkflowCallInputs(workflow)['node-version'];
+
+      expect(isRecord(input) ? input['default'] : undefined, 'a default would outrank `.tool-versions`').toBe('');
+      const setupSteps = findSteps(listWorkflowSteps(workflow), 'pnpm/setup');
+      for (const step of setupSteps) {
+        expect(readRuntime(step)).toContain('inputs.node-version');
+      }
+    },
+  );
 });
 
 describe('release.reusable.yaml takes its runtime from actions/setup-node', () => {
@@ -151,6 +192,20 @@ function listStepsBefore(steps: WorkflowStep[], isMarker: (step: WorkflowStep) =
 /** Lists the steps of every job in the workflow. */
 function listWorkflowSteps(workflow: Record<string, unknown>): WorkflowStep[] {
   return listJobs(workflow).flatMap(listSteps);
+}
+
+/** Returns the step's `runtime` input, or an empty string when it is not a string. */
+function readRuntime(step: WorkflowStep): string {
+  const runtime = step.with?.['runtime'];
+  return typeof runtime === 'string' ? runtime : '';
+}
+
+/** Returns the `workflow_call` inputs that the workflow declares. */
+function readWorkflowCallInputs(workflow: Record<string, unknown>): Record<string, unknown> {
+  const on = workflow['on'];
+  const call = isRecord(on) ? on['workflow_call'] : undefined;
+  const inputs = isRecord(call) ? call['inputs'] : undefined;
+  return isRecord(inputs) ? inputs : {};
 }
 
 // endregion | Helpers

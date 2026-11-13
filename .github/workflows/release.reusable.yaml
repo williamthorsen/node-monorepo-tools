@@ -12,6 +12,8 @@ name: 'Reusable: Release'
 #
 # When running in the `williamthorsen/node-monorepo-tools` repo, the workflow builds release-kit from source.
 #
+# Consumer prerequisite: a `nodejs` entry in `.tool-versions`, which names the Node.js version to install.
+#
 # Runner: the caller's `CI_RUNS_ON` variable selects the runner of every job,
 # defaulting to `ubuntu-latest`; see "Runner selection" in the workflows README.
 #
@@ -88,7 +90,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version-file: .tool-versions
           package-manager-cache: false
 
       # npm 11 resolves the binaries of scoped packages unreliably through `npm exec` and `npx`. Install globally to put

@@ -15,8 +15,10 @@ name: 'Reusable: Publish'
 # that the workspace-linked binary is ready before `pnpm exec` invokes it.
 # The calling workflow must grant `id-token: write` and `contents: read` permissions.
 #
-# Consumer prerequisite: a `devEngines.packageManager` or `packageManager` field
-# pinning pnpm 11 or newer, which is the range that `pnpm/setup` installs.
+# Consumer prerequisites: a `nodejs` entry in `.tool-versions`, which names the
+# Node.js version to install unless the `node-version` input overrides it, and a
+# `devEngines.packageManager` or `packageManager` field pinning pnpm 11 or newer,
+# which is the range that `pnpm/setup` installs.
 #
 # Usage:
 #   jobs:
@@ -27,10 +29,10 @@ on:
   workflow_call:
     inputs:
       node-version:
-        description: 'Node.js version to use for publishing'
+        description: 'Node.js version to install in place of the one that `.tool-versions` pins'
         required: false
         type: string
-        default: '24'
+        default: ''
       provenance:
         description: 'Generate npm provenance attestations (requires a public repo)'
         required: false
@@ -65,7 +67,8 @@ jobs:
       - name: Set up pnpm and Node.js
         uses: pnpm/setup@v3
         with:
-          runtime: node@${{ inputs.node-version }}
+          runtime: node${{ inputs.node-version != '' && format('@{0}', inputs.node-version) || '' }}
+          node-version-file: .tool-versions
           cache: true
           install: false
 

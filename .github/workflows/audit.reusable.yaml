@@ -16,10 +16,11 @@ name: 'Reusable: Dependency audit'
 # in vulnerability detection.
 #
 # Consumer prerequisites: `.config/v11y-check.config.json` (allowlist and scope
-# configuration), and a `devEngines.packageManager` or `packageManager` field
-# pinning pnpm 11 or newer, which is the range that `pnpm/setup` installs. The
-# audit-ci configs are generated transiently at runtime and need not exist as
-# permanent files.
+# configuration), a `nodejs` entry in `.tool-versions`, which names the Node.js
+# version to install, and a `devEngines.packageManager` or `packageManager`
+# field pinning pnpm 11 or newer, which is the range that `pnpm/setup` installs.
+# The audit-ci configs are generated transiently at runtime and need not exist
+# as permanent files.
 #
 # Runner: the caller's `CI_RUNS_ON` variable selects the runner of every job,
 # defaulting to `ubuntu-latest`; see "Runner selection" in the workflows README.
@@ -50,7 +51,8 @@ jobs:
 
       - uses: pnpm/setup@v3
         with:
-          runtime: node@24
+          runtime: node
+          node-version-file: .tool-versions
           install: false
 
       - name: Run prod audit
@@ -130,7 +132,8 @@ jobs:
 
       - uses: pnpm/setup@v3
         with:
-          runtime: node@24
+          runtime: node
+          node-version-file: .tool-versions
           install: false
 
       # The bare invocation emits its own `-- 📦 prod --` and `-- 🔧 dev --` group headers, which divide the issue body.
