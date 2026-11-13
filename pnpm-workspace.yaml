@@ -2,16 +2,16 @@ packages:
   - packages/*
 
 catalog:
-  '@williamthorsen/toolbelt.cli': 0.9.0
-  '@williamthorsen/toolbelt.datetime': 4.1.4
+  '@williamthorsen/toolbelt.cli': 0.10.0
+  '@williamthorsen/toolbelt.datetime': 4.1.5
   '@williamthorsen/toolbelt.errors': 0.10.1
-  '@williamthorsen/toolbelt.filesystem': 0.10.3
-  '@williamthorsen/toolbelt.packaging': 0.7.3
+  '@williamthorsen/toolbelt.filesystem': 0.11.0
+  '@williamthorsen/toolbelt.packaging': 0.8.0
   '@williamthorsen/toolbelt.terminal': 0.3.1
   '@williamthorsen/toolbelt.testing': 0.8.3
   '@williamthorsen/toolbelt.vitest': 0.13.5
   esbuild: 0.28.2
-  prettier: 3.10.0
+  prettier: 3.10.1
   readyup: 0.46.2
   vitest: 5.1.0
   yaml: 2.9.1
