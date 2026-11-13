@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 
 import {
   isAnticipatedFailure,
@@ -15,11 +15,14 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { readSyncLabelsWorkflowTemplate } from '../sync-labels/templates.ts';
 import { detectRepoType, type RepoType } from './detectRepoType.ts';
-import { hasProvenance } from './hasProvenance.ts';
 import { formatPrivateWorkflowSkip, hasPublishablePackage } from './hasPublishablePackage.ts';
 import { checkEligibility } from './initCommand.ts';
+import {
+  renderExpectedCreateGithubReleaseWorkflow,
+  renderExpectedPublishWorkflow,
+  renderExpectedReleaseWorkflow,
+} from './renderManagedWorkflows.ts';
 import { CREATE_GITHUB_RELEASE_WORKFLOW_PATH, PUBLISH_WORKFLOW_PATH, PUBLISHING_WORKFLOW_PATHS } from './scaffold.ts';
-import { renderCreateGithubReleaseWorkflow, renderPublishWorkflow, renderReleaseWorkflow } from './templates.ts';
 
 interface UpdateTemplatesOptions {
   isDryRun: boolean;
@@ -101,19 +104,13 @@ function buildManagedFiles(
     ? []
     : PUBLISHING_WORKFLOW_PATHS.filter((filePath) => !existsSync(filePath));
   const files: Array<[string, string]> = [
-    [CREATE_GITHUB_RELEASE_WORKFLOW_PATH, renderCreateGithubReleaseWorkflow(repoType)],
-    [PUBLISH_WORKFLOW_PATH, renderPublishWorkflow(repoType, { shouldGenerateProvenance: readProvenanceSetting() })],
-    ['.github/workflows/release.yaml', renderReleaseWorkflow(repoType)],
+    [CREATE_GITHUB_RELEASE_WORKFLOW_PATH, renderExpectedCreateGithubReleaseWorkflow(repoType)],
+    [PUBLISH_WORKFLOW_PATH, renderExpectedPublishWorkflow(repoType)],
+    ['.github/workflows/release.yaml', renderExpectedReleaseWorkflow(repoType)],
   ];
   if (existsSync(SYNC_LABELS_WORKFLOW_PATH)) {
     files.push([SYNC_LABELS_WORKFLOW_PATH, readSyncLabelsWorkflowTemplate()]);
   }
   return { files: files.filter(([filePath]) => !skippedPaths.includes(filePath)), skippedPaths };
-}
-
-/** Reads whether the existing publish workflow enables provenance, defaulting to `true` when the file is missing. */
-function readProvenanceSetting(): boolean {
-  if (!existsSync(PUBLISH_WORKFLOW_PATH)) return true;
-  return hasProvenance(readFileSync(PUBLISH_WORKFLOW_PATH, 'utf8'));
 }
 // endregion | Helpers
