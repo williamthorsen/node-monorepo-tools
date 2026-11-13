@@ -1,16 +1,21 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { StreamStyles } from '@williamthorsen/nmr-core';
+import { formatStatusLine, type StreamStyles } from '@williamthorsen/nmr-core';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { assertTarballsComplete } from './assertTarballsComplete.ts';
+import { describeChangelogFileProblem } from './changelogJsonUtils.ts';
 import { deriveReleaseNotesConfig } from './deriveReleaseNotesConfig.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
 import { formatDirectoryPublishSkip } from './formatDirectoryPublishSkip.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
 import { formatProjectPublishSkip } from './formatProjectPublishSkip.ts';
-import { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
+import {
+  injectReleaseNotesIntoReadme,
+  type ReadmeInjectionSkip,
+  resolveReadmePath,
+} from './injectReleaseNotesIntoReadme.ts';
 import { loadUsableConfig } from './loadValidatedConfig.ts';
 import { publishPackage } from './publish.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
@@ -84,12 +89,14 @@ export async function publishCommand({
       if (shouldInject) {
         readmePath = resolveReadmePath(resolvedTag.workspacePath);
         if (readmePath !== undefined) {
-          originalReadme = injectReleaseNotesIntoReadme(
-            readmePath,
-            join(resolvedTag.workspacePath, changelogJsonOutputPath),
-            resolvedTag.tag,
-            sectionOrder,
-          );
+          const changelogJsonPath = join(resolvedTag.workspacePath, changelogJsonOutputPath);
+          const injection = injectReleaseNotesIntoReadme(readmePath, changelogJsonPath, resolvedTag.tag, sectionOrder);
+          if (injection.status === 'injected') {
+            originalReadme = injection.originalReadme;
+          } else {
+            const message = formatInjectionSkip(resolvedTag, changelogJsonPath, injection.skip);
+            console.warn(`  ${formatStatusLine(styles.stderr, 'warning', message)}`);
+          }
         }
       }
 
@@ -110,6 +117,22 @@ export async function publishCommand({
       }
     }
     throw error;
+  }
+}
+
+// region | Helpers
+
+/** Describes why README injection was skipped, as a phrase naming the file or the version to which it applies. */
+function describeInjectionSkip(changelogJsonPath: string, skip: ReadmeInjectionSkip): string {
+  switch (skip.reason) {
+    case 'missing-file':
+      return describeChangelogFileProblem('missing', changelogJsonPath);
+    case 'unreadable-file':
+      return describeChangelogFileProblem('unreadable', changelogJsonPath);
+    case 'no-entry':
+      return `no changelog entry for version ${skip.version}`;
+    case 'empty-body':
+      return `no user-facing release notes for version ${skip.version}`;
   }
 }
 
@@ -138,6 +161,11 @@ function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean)
   return publishableTags;
 }
 
+/** Formats the warning for a README injection that `publish` skipped, naming the tag, its workspace, and the reason. */
+function formatInjectionSkip(resolvedTag: ResolvedTag, changelogJsonPath: string, skip: ReadmeInjectionSkip): string {
+  return `Skipping README injection for ${resolvedTag.tag} (${resolvedTag.workspacePath}): ${describeInjectionSkip(changelogJsonPath, skip)}`;
+}
+
 /** Formats the warning for a tag that `publish` skips, by what owns the tag. */
 function formatPublishSkip(resolvedTag: ResolvedTag): string {
   switch (resolvedTag.kind) {
@@ -149,3 +177,5 @@ function formatPublishSkip(resolvedTag: ResolvedTag): string {
       return formatPrivateSkip(resolvedTag);
   }
 }
+
+// endregion | Helpers

@@ -20,7 +20,7 @@ vi.mock(import('../renderReleaseNotes.ts'), async () => {
 
 const { execFileSync } = await import('node:child_process');
 const { renderReleaseNotesSingle } = await import('../renderReleaseNotes.ts');
-const { createGithubRelease } = await import('../createGithubRelease.ts');
+const { createGithubRelease, createGithubReleases } = await import('../createGithubRelease.ts');
 
 const mockedExecFileSync = vi.mocked(execFileSync);
 const mockedRenderReleaseNotesSingle = vi.mocked(renderReleaseNotesSingle);
@@ -46,18 +46,18 @@ describe(createGithubRelease, () => {
     mockedRenderReleaseNotesSingle.mockClear();
   });
 
-  it('returns no-entry skip and warns when changelog.json does not exist', ({ tree }) => {
+  it('returns a missing-file skip without warning when changelog.json does not exist', ({ tree }) => {
     using silencedConsole = silenceConsole(['warn']);
     const result = createGithubRelease({
       tag: 'v1.0.0',
       changelogJsonPath: join(tree.dir, 'nonexistent.json'),
       isDryRun: false,
     });
-    expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
-    expect(silencedConsole.warn).toHaveBeenCalledWith(expect.stringContaining('not found'));
+    expect(result).toStrictEqual({ status: 'skipped', reason: 'missing-file' });
+    expect(silencedConsole.warn).not.toHaveBeenCalled();
   });
 
-  it('returns no-entry skip and warns when changelog.json cannot be parsed', ({ tree }) => {
+  it('returns an unreadable-file skip without warning when changelog.json cannot be parsed', ({ tree }) => {
     const changelogJsonPath = tree.write('changelog.json', 'not valid json{{{');
     using silencedConsole = silenceConsole(['warn']);
 
@@ -66,11 +66,11 @@ describe(createGithubRelease, () => {
       changelogJsonPath,
       isDryRun: false,
     });
-    expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
-    expect(silencedConsole.warn).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
+    expect(result).toStrictEqual({ status: 'skipped', reason: 'unreadable-file' });
+    expect(silencedConsole.warn).not.toHaveBeenCalled();
   });
 
-  it('returns no-entry skip and warns when version is not in changelog.json', ({ tree }) => {
+  it('returns a no-entry skip without warning when version is not in changelog.json', ({ tree }) => {
     const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
     using silencedConsole = silenceConsole(['warn']);
 
@@ -80,7 +80,7 @@ describe(createGithubRelease, () => {
       isDryRun: false,
     });
     expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
-    expect(silencedConsole.warn).toHaveBeenCalledWith(expect.stringContaining('no changelog entry'));
+    expect(silencedConsole.warn).not.toHaveBeenCalled();
   });
 
   it('logs the command in dry-run mode without executing', ({ tree }) => {
@@ -240,5 +240,36 @@ describe(createGithubRelease, () => {
 
     const renderOptions = mockedRenderReleaseNotesSingle.mock.calls[0]?.[1];
     expect(renderOptions).not.toHaveProperty('sectionOrder');
+  });
+});
+
+describe(createGithubReleases, () => {
+  it('records each skip with its reason and the changelog path read for it', ({ tree }) => {
+    tree.write('packages/broken/.meta/changelog.json', '{bad json');
+
+    const outcome = createGithubReleases(
+      [
+        { tag: 'missing-v1.0.0', workspacePath: join(tree.dir, 'packages/missing') },
+        { tag: 'broken-v1.0.0', workspacePath: join(tree.dir, 'packages/broken') },
+      ],
+      '.meta/changelog.json',
+      false,
+    );
+
+    expect(outcome).toStrictEqual({
+      createdTags: [],
+      skippedTags: [
+        {
+          tag: 'missing-v1.0.0',
+          reason: 'missing-file',
+          changelogJsonPath: join(tree.dir, 'packages/missing/.meta/changelog.json'),
+        },
+        {
+          tag: 'broken-v1.0.0',
+          reason: 'unreadable-file',
+          changelogJsonPath: join(tree.dir, 'packages/broken/.meta/changelog.json'),
+        },
+      ],
+    });
   });
 });

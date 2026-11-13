@@ -1,4 +1,4 @@
-import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
+import { formatStatusLine, type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
@@ -52,6 +52,7 @@ import { ConfigProblemError } from '../loadValidatedConfig.ts';
 import { makeCreateGithubReleaseOptions } from '../test-utils/commandOptions.ts';
 import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
+const PLAIN_STYLES: StreamStyles = { stderr: 'plain', stdout: 'plain' };
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 describe(createGithubReleaseCommand, () => {
@@ -320,6 +321,53 @@ describe(createGithubReleaseCommand, () => {
     expect(console.info).toHaveBeenCalledWith(
       'Skipped 2 tag(s) without releasable content: core-v1.3.0 (no-entry), extra-v0.1.0 (no-entry).',
     );
+  });
+
+  it('warns on stderr for a missing or unreadable changelog and leaves it out of the summary', async () => {
+    mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/extra', 'packages/more']));
+    mockResolveReleaseTags.mockReturnValue([
+      { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+      { tag: 'extra-v0.1.0', kind: 'package', dir: 'extra', workspacePath: 'packages/extra', isPublishable: true },
+      { tag: 'more-v2.0.0', kind: 'package', dir: 'more', workspacePath: 'packages/more', isPublishable: true },
+    ]);
+    mockCreateGithubReleases.mockReturnValue({
+      createdTags: [],
+      skippedTags: [
+        { tag: 'core-v1.3.0', reason: 'missing-file', changelogJsonPath: 'packages/core/.meta/changelog.json' },
+        { tag: 'extra-v0.1.0', reason: 'unreadable-file', changelogJsonPath: 'packages/extra/.meta/changelog.json' },
+        { tag: 'more-v2.0.0', reason: 'no-entry', changelogJsonPath: 'packages/more/.meta/changelog.json' },
+      ],
+    });
+
+    await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: PLAIN_STYLES }));
+
+    expect(vi.mocked(console.warn).mock.calls).toStrictEqual([
+      [
+        `  ${formatStatusLine('plain', 'warning', 'Skipping GitHub Release for core-v1.3.0: packages/core/.meta/changelog.json not found')}`,
+      ],
+      [
+        `  ${formatStatusLine('plain', 'warning', 'Skipping GitHub Release for extra-v0.1.0: could not parse packages/extra/.meta/changelog.json')}`,
+      ],
+    ]);
+    expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) without releasable content: more-v2.0.0 (no-entry).');
+  });
+
+  it('does not print a summary when every skip concerns the changelog file', async () => {
+    mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
+    mockResolveReleaseTags.mockReturnValue([
+      { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+    ]);
+    mockCreateGithubReleases.mockReturnValue({
+      createdTags: [],
+      skippedTags: [
+        { tag: 'core-v1.3.0', reason: 'missing-file', changelogJsonPath: 'packages/core/.meta/changelog.json' },
+      ],
+    });
+
+    await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: PLAIN_STYLES }));
+
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Skipped'));
   });
 
   it('exits 0 when --tags is explicit and every skip is no-audience-content', async () => {

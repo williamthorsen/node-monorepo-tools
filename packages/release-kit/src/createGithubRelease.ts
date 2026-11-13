@@ -1,8 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { extractVersion, readChangelogEntries } from './changelogJsonUtils.ts';
+import { extractVersion, loadChangelogEntries } from './changelogJsonUtils.ts';
 import { matchesAudience, renderReleaseNotesSingle } from './renderReleaseNotes.ts';
 import { asUserError } from './user-error-chaining.ts';
 
@@ -16,10 +15,11 @@ export interface CreateGithubReleaseOptions {
 }
 
 /**
- * Why a tag was skipped. `'no-entry'` covers every case of missing data (no changelog file, unparseable JSON, no entry
- * for the version); the warnings that `createGithubRelease` prints tell them apart.
+ * Why a tag was skipped. `'missing-file'` and `'unreadable-file'` concern the `changelog.json` itself; the others mean
+ * that the file does not contain releasable content for the tag.
  */
-export type CreateReleaseSkipReason = 'no-entry' | 'no-audience-content' | 'empty-body';
+export type CreateReleaseSkipReason =
+  'missing-file' | 'unreadable-file' | 'no-entry' | 'no-audience-content' | 'empty-body';
 
 /** Discriminated outcome of attempting to create a single GitHub Release. */
 export type CreateReleaseResult = { status: 'created' } | { status: 'skipped'; reason: CreateReleaseSkipReason };
@@ -28,28 +28,23 @@ export type CreateReleaseResult = { status: 'created' } | { status: 'skipped'; r
  * Creates a GitHub Release for a tag through the `gh` CLI, with the all-audience notes of the tag's `changelog.json`
  * entry as its body.
  *
- * Returns a skip when the entry is missing (with a warning), doesn't have any all-audience content, or renders an empty
- * body. Throws when `gh` fails, so that the caller does not exit 0 on a failed release.
+ * Returns a skip when the changelog is missing or unreadable, the entry is missing, doesn't have any all-audience
+ * content, or renders an empty body. Throws when `gh` fails, so that the caller does not exit 0 on a failed release.
  */
 export function createGithubRelease(options: CreateGithubReleaseOptions): CreateReleaseResult {
   const { tag, changelogJsonPath, isDryRun, sectionOrder } = options;
 
-  if (!existsSync(changelogJsonPath)) {
-    console.warn(`Warning: ${changelogJsonPath} not found; skipping GitHub Release creation`);
-    return { status: 'skipped', reason: 'no-entry' };
+  const loaded = loadChangelogEntries(changelogJsonPath);
+  if (loaded.status === 'missing') {
+    return { status: 'skipped', reason: 'missing-file' };
+  }
+  if (loaded.status === 'unreadable') {
+    return { status: 'skipped', reason: 'unreadable-file' };
   }
 
   const version = extractVersion(tag);
-  const entries = readChangelogEntries(changelogJsonPath);
-
-  if (entries === undefined) {
-    console.warn(`Warning: could not parse ${changelogJsonPath}; skipping GitHub Release creation`);
-    return { status: 'skipped', reason: 'no-entry' };
-  }
-
-  const entry = entries.find((e) => e.version === version);
+  const entry = loaded.entries.find((e) => e.version === version);
   if (entry === undefined) {
-    console.warn(`Warning: no changelog entry for version ${version}; skipping GitHub Release creation`);
     return { status: 'skipped', reason: 'no-entry' };
   }
 
@@ -86,8 +81,15 @@ export function createGithubRelease(options: CreateGithubReleaseOptions): Create
 export interface CreateGithubReleasesOutcome {
   /** Tags for which a Release was created (or would be, under `--dry-run`). */
   createdTags: string[];
-  /** Tags that were skipped, paired with the discriminated reason for each skip. */
-  skippedTags: Array<{ tag: string; reason: CreateReleaseSkipReason }>;
+  /** Tags that were skipped, each with the reason and the `changelog.json` path that was read for it. */
+  skippedTags: SkippedReleaseTag[];
+}
+
+/** A tag that `createGithubReleases` skipped. */
+export interface SkippedReleaseTag {
+  tag: string;
+  reason: CreateReleaseSkipReason;
+  changelogJsonPath: string;
 }
 
 /** Creates a GitHub Release for each tag and records each skip with its reason; throws at once when `gh` fails. */
@@ -98,7 +100,7 @@ export function createGithubReleases(
   sectionOrder?: string[],
 ): CreateGithubReleasesOutcome {
   const createdTags: string[] = [];
-  const skippedTags: Array<{ tag: string; reason: CreateReleaseSkipReason }> = [];
+  const skippedTags: SkippedReleaseTag[] = [];
   for (const { tag, workspacePath } of tags) {
     const changelogJsonPath = join(workspacePath, changelogJsonOutputPath);
     const result = createGithubRelease({
@@ -110,7 +112,7 @@ export function createGithubReleases(
     if (result.status === 'created') {
       createdTags.push(tag);
     } else {
-      skippedTags.push({ tag, reason: result.reason });
+      skippedTags.push({ tag, reason: result.reason, changelogJsonPath });
     }
   }
   return { createdTags, skippedTags };

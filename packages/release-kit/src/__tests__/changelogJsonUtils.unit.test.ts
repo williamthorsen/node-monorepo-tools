@@ -4,7 +4,13 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
-import { extractVersion, isChangelogEntry, readChangelogEntries } from '../changelogJsonUtils.ts';
+import {
+  describeChangelogFileProblem,
+  extractVersion,
+  isChangelogEntry,
+  loadChangelogEntries,
+  readChangelogEntries,
+} from '../changelogJsonUtils.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 const it = baseIt.extend(
@@ -47,6 +53,49 @@ describe(extractVersion, () => {
 
   it('preserves pre-release suffix', () => {
     expect(extractVersion('v1.0.0-beta.1')).toBe('1.0.0-beta.1');
+  });
+});
+
+describe(describeChangelogFileProblem, () => {
+  it('names a missing file as not found', () => {
+    expect(describeChangelogFileProblem('missing', '.meta/changelog.json')).toBe('.meta/changelog.json not found');
+  });
+
+  it('names an unreadable file as unparseable', () => {
+    expect(describeChangelogFileProblem('unreadable', '.meta/changelog.json')).toBe(
+      'could not parse .meta/changelog.json',
+    );
+  });
+});
+
+describe(loadChangelogEntries, () => {
+  it('reports a missing file as missing', ({ tree }) => {
+    expect(loadChangelogEntries(join(tree.dir, 'missing.json'))).toStrictEqual({ status: 'missing' });
+  });
+
+  it('returns the valid entries of a changelog JSON file', ({ tree }) => {
+    const entries: ChangelogEntry[] = [{ version: '1.0.0', date: '2024-01-01', sections: [] }];
+    const changelogPath = tree.writeJson('changelog.json', [...entries, { invalid: true }]);
+
+    expect(loadChangelogEntries(changelogPath)).toStrictEqual({ status: 'loaded', entries });
+  });
+
+  it('reports malformed JSON as unreadable', ({ tree }) => {
+    const changelogPath = tree.write('changelog.json', '{bad json');
+
+    expect(loadChangelogEntries(changelogPath)).toStrictEqual({ status: 'unreadable' });
+  });
+
+  it('reports non-array JSON as unreadable', ({ tree }) => {
+    const changelogPath = tree.write('changelog.json', '{"not": "array"}');
+
+    expect(loadChangelogEntries(changelogPath)).toStrictEqual({ status: 'unreadable' });
+  });
+
+  it('reports a path that cannot be read as a file as unreadable', ({ tree }) => {
+    const directoryPath = tree.write('changelog.json/placeholder', '');
+
+    expect(loadChangelogEntries(join(directoryPath, '..'))).toStrictEqual({ status: 'unreadable' });
   });
 });
 

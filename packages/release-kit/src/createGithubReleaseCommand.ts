@@ -1,6 +1,7 @@
-import type { StreamStyles } from '@williamthorsen/nmr-core';
+import { formatStatusLine, type StreamStyles } from '@williamthorsen/nmr-core';
 
-import { createGithubReleases } from './createGithubRelease.ts';
+import { describeChangelogFileProblem } from './changelogJsonUtils.ts';
+import { createGithubReleases, type SkippedReleaseTag } from './createGithubRelease.ts';
 import { deriveReleaseNotesConfig } from './deriveReleaseNotesConfig.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
 import { loadUsableConfig } from './loadValidatedConfig.ts';
@@ -53,16 +54,40 @@ export async function createGithubReleaseCommand({
     throw prefixUserError('Failed to create GitHub Releases', error);
   }
 
-  // Treat every skip as informational: `resolveCommandTags` has already rejected an unknown tag, so a `no-entry` tag
-  // exists in git and doesn't have any releasable content.
-  if (outcome.skippedTags.length === 0) {
+  const contentSkips: SkippedReleaseTag[] = [];
+  for (const skippedTag of outcome.skippedTags) {
+    const fileProblem = describeFileProblem(skippedTag);
+    if (fileProblem === undefined) {
+      contentSkips.push(skippedTag);
+    } else {
+      console.warn(
+        `  ${formatStatusLine(styles.stderr, 'warning', `Skipping GitHub Release for ${skippedTag.tag}: ${fileProblem}`)}`,
+      );
+    }
+  }
+
+  // `resolveCommandTags` has already rejected an unknown tag, so a tag skipped here exists in git and doesn't have any
+  // releasable content.
+  if (contentSkips.length === 0) {
     return;
   }
-  const formattedSkips = outcome.skippedTags.map((s) => `${s.tag} (${s.reason})`).join(', ');
-  console.info(`Skipped ${outcome.skippedTags.length} tag(s) without releasable content: ${formattedSkips}.`);
+  const formattedSkips = contentSkips.map((s) => `${s.tag} (${s.reason})`).join(', ');
+  console.info(`Skipped ${contentSkips.length} tag(s) without releasable content: ${formattedSkips}.`);
 }
 
 // region | Helpers
+
+/** Describes a skip caused by the `changelog.json` itself, or returns `undefined` for a skip caused by its content. */
+function describeFileProblem(skippedTag: SkippedReleaseTag): string | undefined {
+  switch (skippedTag.reason) {
+    case 'missing-file':
+      return describeChangelogFileProblem('missing', skippedTag.changelogJsonPath);
+    case 'unreadable-file':
+      return describeChangelogFileProblem('unreadable', skippedTag.changelogJsonPath);
+    default:
+      return undefined;
+  }
+}
 
 /**
  * Reports whether the tag gets a GitHub Release: a directory or project tag always does, and a package tag when it is
