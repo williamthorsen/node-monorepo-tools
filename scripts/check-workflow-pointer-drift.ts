@@ -32,18 +32,26 @@ export interface DriftReport {
   statuses: PointerStatus[];
 }
 
+/** The git queries that the check makes, bound to one repository. */
+export interface PointerDriftGit {
+  isPresentAt(ref: string, filePath: string): boolean;
+  listCommitsTouching(revisions: string[], filePath: string): string[];
+  listPointerTags(): string[];
+  resolvesToCommit(revision: string): boolean;
+}
+
 const HOLDS_PATH = '.config/workflow-pointer-holds.json';
 const POINTER_TAG_PATTERN = /^workflow\/(?<name>.+)-v\d+$/;
 
-/** Compares every `workflow/*` tag in `repoDir` against `mainRef`, applying `holds`. */
+/** Compares every `workflow/*` tag that `git` lists against `mainRef`, applying `holds`. */
 export function checkWorkflowPointerDrift(options: {
+  git: PointerDriftGit;
   holds: PointerHold[];
   mainRef: string;
-  repoDir: string;
 }): DriftReport {
-  const { holds, mainRef, repoDir } = options;
-  const tags = listPointerTags(repoDir);
-  const holdErrors = validateHolds(repoDir, holds, tags);
+  const { git, holds, mainRef } = options;
+  const tags = git.listPointerTags();
+  const holdErrors = validateHolds(git, holds, tags);
   const holdsByTag = new Map(holds.map((hold) => [hold.tag, hold]));
 
   const statuses = tags.map((tag): PointerStatus => {
@@ -53,27 +61,37 @@ export function checkWorkflowPointerDrift(options: {
     }
 
     const workflowPath = `.github/workflows/${name}.reusable.yaml`;
-    if (!isPresentAt(repoDir, mainRef, workflowPath)) {
+    if (!git.isPresentAt(mainRef, workflowPath)) {
       return { kind: 'orphaned', tag, workflowPath };
     }
 
-    const missingCommits = listCommitsTouching(repoDir, [mainRef, `^${tag}`], workflowPath);
+    const missingCommits = git.listCommitsTouching([mainRef, `^${tag}`], workflowPath);
     if (missingCommits.length === 0) {
       return { kind: 'current', tag };
     }
 
     const hold = holdsByTag.get(tag);
-    if (hold === undefined || !resolvesToCommit(repoDir, hold.through)) {
+    if (hold === undefined || !git.resolvesToCommit(hold.through)) {
       return { kind: 'drifted', tag, missingCommits };
     }
 
-    const unheldCommits = listCommitsTouching(repoDir, [mainRef, `^${tag}`, `^${hold.through}`], workflowPath);
+    const unheldCommits = git.listCommitsTouching([mainRef, `^${tag}`, `^${hold.through}`], workflowPath);
     return unheldCommits.length === 0
       ? { kind: 'held', tag, hold }
       : { kind: 'drifted', tag, missingCommits: unheldCommits };
   });
 
   return { holdErrors, statuses };
+}
+
+/** Builds the adapter that runs git in `repoDir`. */
+export function createGitAdapter(repoDir: string): PointerDriftGit {
+  return {
+    isPresentAt: (ref, filePath) => isPresentAt(repoDir, ref, filePath),
+    listCommitsTouching: (revisions, filePath) => listCommitsTouching(repoDir, revisions, filePath),
+    listPointerTags: () => listPointerTags(repoDir),
+    resolvesToCommit: (revision) => resolvesToCommit(repoDir, revision),
+  };
 }
 
 /** Renders the report as Markdown, suitable for both stdout and a job summary. */
@@ -125,6 +143,18 @@ export function parseHolds(value: unknown): { errors: string[]; holds: PointerHo
     }
   }
   return { errors, holds };
+}
+
+/** Reads and parses the holds file; a missing file holds nothing. */
+export function readHolds(filePath: string): { errors: string[]; holds: PointerHold[] } {
+  if (!existsSync(filePath)) {
+    return { errors: [], holds: [] };
+  }
+  try {
+    return parseHolds(JSON.parse(readFileSync(filePath, 'utf8')));
+  } catch (error) {
+    return { errors: [`The holds file is not valid JSON: ${String(error)}`], holds: [] };
+  }
 }
 
 if (import.meta.main) {
@@ -189,7 +219,7 @@ function main(): void {
   const mainRef = process.argv[2] ?? 'origin/main';
   const { errors, holds } = readHolds(path.join(repoDir, HOLDS_PATH));
 
-  const report = checkWorkflowPointerDrift({ holds, mainRef, repoDir });
+  const report = checkWorkflowPointerDrift({ git: createGitAdapter(repoDir), holds, mainRef });
   report.holdErrors.unshift(...errors);
 
   const markdown = formatDriftReport(report);
@@ -201,18 +231,6 @@ function main(): void {
 
   if (isFailing(report)) {
     process.exitCode = 1;
-  }
-}
-
-/** Reads and parses the holds file; a missing file holds nothing. */
-function readHolds(filePath: string): { errors: string[]; holds: PointerHold[] } {
-  if (!existsSync(filePath)) {
-    return { errors: [], holds: [] };
-  }
-  try {
-    return parseHolds(JSON.parse(readFileSync(filePath, 'utf8')));
-  } catch (error) {
-    return { errors: [`The holds file is not valid JSON: ${String(error)}`], holds: [] };
   }
 }
 
@@ -232,7 +250,7 @@ function succeeds(repoDir: string, args: string[]): boolean {
 }
 
 /** Returns a message for each hold that names an unknown tag, a commit that does not resolve, or a tag held twice. */
-function validateHolds(repoDir: string, holds: PointerHold[], tags: string[]): string[] {
+function validateHolds(git: PointerDriftGit, holds: PointerHold[], tags: string[]): string[] {
   const errors: string[] = [];
   const seen = new Set<string>();
   for (const hold of holds) {
@@ -243,7 +261,7 @@ function validateHolds(repoDir: string, holds: PointerHold[], tags: string[]): s
     if (!tags.includes(hold.tag)) {
       errors.push(`\`${hold.tag}\` is not a \`workflow/*\` tag.`);
     }
-    if (!resolvesToCommit(repoDir, hold.through)) {
+    if (!git.resolvesToCommit(hold.through)) {
       errors.push(`\`${hold.tag}\`'s \`through\` (\`${hold.through}\`) does not name a commit.`);
     }
   }

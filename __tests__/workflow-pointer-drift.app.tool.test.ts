@@ -8,6 +8,7 @@ import { describe, expect, it as baseIt } from 'vitest';
 
 import {
   checkWorkflowPointerDrift,
+  createGitAdapter,
   formatDriftReport,
   isFailing,
   parseHolds,
@@ -218,7 +219,7 @@ describe(formatDriftReport, () => {
 
 /** Runs the check against the fixture's `main`. */
 function check(tree: TempTree, holds: PointerHold[] = []) {
-  return checkWorkflowPointerDrift({ holds, mainRef: 'main', repoDir: tree.dir });
+  return checkWorkflowPointerDrift({ git: createGitAdapter(tree.dir), holds, mainRef: 'main' });
 }
 
 /** Writes `content` to `filePath`, commits it, and returns the commit's SHA. */
