@@ -1,4 +1,4 @@
-import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
+import { formatStatusLine, type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -86,6 +86,7 @@ import { publishCommand } from '../publishCommand.ts';
 import { makePublishOptions } from '../test-utils/commandOptions.ts';
 import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
+const PLAIN_STYLES: StreamStyles = { stderr: 'plain', stdout: 'plain' };
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 describe(publishCommand, () => {
@@ -273,7 +274,7 @@ describe(publishCommand, () => {
 
     it('injects before publish and restores after', async () => {
       mockResolveReadmePath.mockReturnValue('/pkg/README.md');
-      mockInjectReleaseNotesIntoReadme.mockReturnValue('# Original README\n');
+      mockInjectReleaseNotesIntoReadme.mockReturnValue({ status: 'injected', originalReadme: '# Original README\n' });
 
       await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
@@ -284,7 +285,7 @@ describe(publishCommand, () => {
 
     it('restores README when publishPackage throws', async () => {
       mockResolveReadmePath.mockReturnValue('/pkg/README.md');
-      mockInjectReleaseNotesIntoReadme.mockReturnValue('# Original README\n');
+      mockInjectReleaseNotesIntoReadme.mockReturnValue({ status: 'injected', originalReadme: '# Original README\n' });
       mockPublishPackage.mockImplementation(() => {
         throw new UserError('publish failed');
       });
@@ -302,15 +303,31 @@ describe(publishCommand, () => {
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);
     });
 
-    it('skips restore when injectReleaseNotesIntoReadme returns undefined', async () => {
+    it('skips restore and still publishes when injection is skipped', async () => {
       mockResolveReadmePath.mockReturnValue('/pkg/README.md');
-      mockInjectReleaseNotesIntoReadme.mockReturnValue(undefined);
+      mockInjectReleaseNotesIntoReadme.mockReturnValue({ status: 'skipped', skip: { reason: 'missing-file' } });
 
       await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
       expect(mockInjectReleaseNotesIntoReadme).toHaveBeenCalledTimes(1);
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);
       expect(mockWriteFileSync).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [{ reason: 'missing-file' }, '.meta/changelog.json not found'],
+      [{ reason: 'unreadable-file' }, 'could not parse .meta/changelog.json'],
+      [{ reason: 'no-entry', version: '1.0.0' }, 'no changelog entry for version 1.0.0'],
+      [{ reason: 'empty-body', version: '1.0.0' }, 'no user-facing release notes for version 1.0.0'],
+    ])('warns on stderr, naming the tag, the workspace, and the reason, for a %o skip', async (skip, reasonText) => {
+      mockResolveReadmePath.mockReturnValue('/pkg/README.md');
+      mockInjectReleaseNotesIntoReadme.mockReturnValue({ status: 'skipped', skip });
+
+      await publishCommand(makePublishOptions({ styles: PLAIN_STYLES }));
+
+      expect(console.warn).toHaveBeenCalledWith(
+        `  ${formatStatusLine('plain', 'warning', `Skipping README injection for v1.0.0 (.): ${reasonText}`)}`,
+      );
     });
 
     it('skips injection when shouldInjectIntoReadme is false', async () => {
