@@ -181,6 +181,7 @@ export default defineRdyKit({
             {
               name: 'releaseNotes.shouldInjectIntoReadme is true',
               severity: 'warn',
+              skip: () => !hasPublishablePackages() && 'no publishable packages',
               check: () => releaseNotesInjectsIntoReadme(),
               fix: 'Set releaseNotes.shouldInjectIntoReadme to true in .config/release-kit.config.ts',
               checks: [

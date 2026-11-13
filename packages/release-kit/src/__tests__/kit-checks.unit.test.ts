@@ -54,6 +54,8 @@ const CONFIG_GATE = '.config/release-kit.config.ts exports a config';
 const CREATE_GITHUB_RELEASE_CHECK = 'create-github-release.yaml matches template';
 const CREATE_GITHUB_RELEASE_PATH = '.github/workflows/create-github-release.yaml';
 const LABELS_FILE_CHECK = '.github/labels.yaml exists';
+const PUBLISH_WORKFLOW_CHECK = 'publish.yaml workflow exists';
+const README_INJECTION_CHECK = 'releaseNotes.shouldInjectIntoReadme is true';
 const SCOPE_DESCRIPTION_CHECK = 'scope labels in .github/labels.yaml have no description';
 
 describe(configFileExportsConfig, () => {
@@ -125,12 +127,12 @@ describe('release-kit config gate', () => {
   });
 
   // A nested check that repeats the gate's own skip reports the extra lines that the gate collapses.
-  it('does not declare a skip on any nested check other than .github/labels.yaml exists', () => {
+  it('declares a skip only on the nested checks that have a condition of their own', () => {
     const skippingNames = listDeclaredChildren(getConfigGate())
       .filter((check) => check.skip !== undefined)
       .map((check) => check.name);
 
-    expect(skippingNames).toStrictEqual(['.github/labels.yaml exists']);
+    expect(skippingNames).toStrictEqual([README_INJECTION_CHECK, LABELS_FILE_CHECK]);
   });
 
   it('skips .github/labels.yaml exists when the config does not declare a repoLabels block', () => {
@@ -211,6 +213,26 @@ describe('changelog packaging checks', () => {
     );
 
     expect(nestedCheck.fix).toBe('Add "docs/cl.json" to the files field of each affected package.json');
+  });
+});
+
+describe('publish-gated checks', () => {
+  it.each([
+    [PUBLISH_WORKFLOW_CHECK, () => getPublishWorkflowCheck()],
+    [README_INJECTION_CHECK, () => getReadmeInjectionCheck()],
+  ])('skips %s when the repo publishes nothing', (_label, getCheck) => {
+    mockedDiscoverWorkspaces.mockReturnValue([]);
+
+    expect(getCheck().skip?.()).toBe('no publishable packages');
+  });
+
+  it.each([
+    [PUBLISH_WORKFLOW_CHECK, () => getPublishWorkflowCheck()],
+    [README_INJECTION_CHECK, () => getReadmeInjectionCheck()],
+  ])('runs %s when the repo publishes a package', (_label, getCheck) => {
+    mockedDiscoverWorkspaces.mockReturnValue([buildPublishableWorkspace()]);
+
+    expect(getCheck().skip?.()).toBe(false);
   });
 });
 
@@ -375,6 +397,16 @@ function getConfigGate(): RdyCheck {
 /** Returns the check comparing an installed `create-github-release.yaml` against its template. */
 function getCreateGithubReleaseCheck(): RdyCheck {
   return findCheck(CREATE_GITHUB_RELEASE_CHECK, getReleaseKitChecks());
+}
+
+/** Returns the check reporting a publishing repo that has not installed `publish.yaml`. */
+function getPublishWorkflowCheck(): RdyCheck {
+  return findCheck(PUBLISH_WORKFLOW_CHECK, getReleaseKitChecks());
+}
+
+/** Returns the check beneath which the README release-notes marker check is nested. */
+function getReadmeInjectionCheck(): RdyCheck {
+  return findCheck(README_INJECTION_CHECK, listDeclaredChildren(getConfigGate()));
 }
 
 /** Returns the top-level checks of the kit's `release-kit` checklist. */
