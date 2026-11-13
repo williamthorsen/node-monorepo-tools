@@ -4,7 +4,13 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
-import { extractVersion, isChangelogEntry, loadChangelogEntries, readChangelogEntries } from '../changelogJsonUtils.ts';
+import {
+  describeChangelogFileProblem,
+  extractVersion,
+  isChangelogEntry,
+  loadChangelogEntries,
+  readChangelogEntries,
+} from '../changelogJsonUtils.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 const it = baseIt.extend(
@@ -47,6 +53,18 @@ describe(extractVersion, () => {
 
   it('preserves pre-release suffix', () => {
     expect(extractVersion('v1.0.0-beta.1')).toBe('1.0.0-beta.1');
+  });
+});
+
+describe(describeChangelogFileProblem, () => {
+  it('names a missing file as not found', () => {
+    expect(describeChangelogFileProblem('missing', '.meta/changelog.json')).toBe('.meta/changelog.json not found');
+  });
+
+  it('names an unreadable file as unparseable', () => {
+    expect(describeChangelogFileProblem('unreadable', '.meta/changelog.json')).toBe(
+      'could not parse .meta/changelog.json',
+    );
   });
 });
 

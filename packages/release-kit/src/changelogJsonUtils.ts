@@ -31,6 +31,11 @@ export function extractVersion(tag: string): string {
 export type ChangelogLoadResult =
   { status: 'loaded'; entries: ChangelogEntry[] } | { status: 'missing' } | { status: 'unreadable' };
 
+/** Describes a changelog JSON file that could not be loaded, as a phrase naming the file. */
+export function describeChangelogFileProblem(status: 'missing' | 'unreadable', filePath: string): string {
+  return status === 'missing' ? `${filePath} not found` : `could not parse ${filePath}`;
+}
+
 /**
  * Loads the changelog entries in a JSON file. A file that cannot be read, is not valid JSON, or doesn't contain an
  * array is `unreadable`.

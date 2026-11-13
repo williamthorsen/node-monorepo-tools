@@ -5,6 +5,7 @@ import { formatStatusLine, type StreamStyles } from '@williamthorsen/nmr-core';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { assertTarballsComplete } from './assertTarballsComplete.ts';
+import { describeChangelogFileProblem } from './changelogJsonUtils.ts';
 import { deriveReleaseNotesConfig } from './deriveReleaseNotesConfig.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
 import { formatDirectoryPublishSkip } from './formatDirectoryPublishSkip.ts';
@@ -125,9 +126,9 @@ export async function publishCommand({
 function describeInjectionSkip(changelogJsonPath: string, skip: ReadmeInjectionSkip): string {
   switch (skip.reason) {
     case 'missing-file':
-      return `${changelogJsonPath} not found`;
+      return describeChangelogFileProblem('missing', changelogJsonPath);
     case 'unreadable-file':
-      return `could not parse ${changelogJsonPath}`;
+      return describeChangelogFileProblem('unreadable', changelogJsonPath);
     case 'no-entry':
       return `no changelog entry for version ${skip.version}`;
     case 'empty-body':

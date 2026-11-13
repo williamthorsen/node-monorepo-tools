@@ -1,5 +1,6 @@
 import { formatStatusLine, type StreamStyles } from '@williamthorsen/nmr-core';
 
+import { describeChangelogFileProblem } from './changelogJsonUtils.ts';
 import { createGithubReleases, type SkippedReleaseTag } from './createGithubRelease.ts';
 import { deriveReleaseNotesConfig } from './deriveReleaseNotesConfig.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
@@ -80,9 +81,9 @@ export async function createGithubReleaseCommand({
 function describeFileProblem(skippedTag: SkippedReleaseTag): string | undefined {
   switch (skippedTag.reason) {
     case 'missing-file':
-      return `${skippedTag.changelogJsonPath} not found`;
+      return describeChangelogFileProblem('missing', skippedTag.changelogJsonPath);
     case 'unreadable-file':
-      return `could not parse ${skippedTag.changelogJsonPath}`;
+      return describeChangelogFileProblem('unreadable', skippedTag.changelogJsonPath);
     default:
       return undefined;
   }
