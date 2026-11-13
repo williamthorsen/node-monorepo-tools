@@ -50,8 +50,7 @@
             "@changesets/cli not in devDependencies",
             "sync-labels.yaml workflow exists",
             "sync-labels.yaml matches template",
-            "sync-labels.yaml does not reference deprecated tag ref",
-            "retired .config/sync-labels.config.ts is absent"
+            "sync-labels.yaml does not reference deprecated tag ref"
           ]
         }
       ],
@@ -141,7 +140,7 @@
           "path": "../../nmr-core/dist/esm/timer.js"
         },
         {
-          "hash": "56566d0b",
+          "hash": "13cd58d5",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -193,8 +192,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.46.2",
       "source": "kits/default.ts",
-      "sourceHash": "56566d0b",
-      "targetHash": "4c40db3d"
+      "sourceHash": "13cd58d5",
+      "targetHash": "99c25afc"
     },
     {
       "bundledDependencies": {
