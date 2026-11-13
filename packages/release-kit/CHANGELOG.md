@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## 18.2.0 — 2026-11-13
+
+### 🎉 Features
+
+- Changes `release-kit show-tag-prefixes` to print one block per target that lists the derived prefix and each declared legacy identity with their tag counts in aligned columns, and to print the "Undeclared tag prefixes" section on every run, showing `(none)` when the scan does not find any candidates. (#1332)
+- Adds a "Retired packages" section to `release-kit show-tag-prefixes`, which lists each entry declared in `retiredPackages` with its tag prefix, tag count, name, and successor. (#1332)
+- Adds a closing note to `release-kit show-tag-prefixes` when a derived prefix does not have any tags yet, which explains that `release-kit tag` creates the first tag from the tags file that `release-kit prepare` writes. (#1332)
+- Makes the template checks for `release.yaml`, `publish.yaml`, and `create-github-release.yaml` report the differing hunks, and distinguish a missing file from an unreadable one, rather than report only that a hash differs. (#1336)
+
+### 🪦 Removed
+
+- Removes the check for the retired `.config/sync-labels.config.ts`, which made `sync-labels init`, `generate`, and `sync` exit with an error and made the release-kit readyup kit fail while the file existed. (#1333)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `release-kit`'s ReadyUp kit reported the warning `releaseNotes.shouldInjectIntoReadme is true`, which the consumer could not clear, in a repo without any publishable package, by making the check skip with the reason `no publishable packages`. (#1334)
+- Fixes the issue that the `publish.yaml matches template` check in `rdy run --from npm:@williamthorsen/release-kit` failed a `publish.yaml` that omits provenance, a setting that `release-kit update-templates` preserves. (#1336)
+
 ## 18.1.1 — 2026-11-12
 
 ### ⚙️ Tooling

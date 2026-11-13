@@ -1,5 +1,65 @@
 [
   {
+    "version": "18.2.0",
+    "date": "2026-11-13",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Changes `release-kit show-tag-prefixes` to print one block per target that lists the derived prefix and each declared legacy identity with their tag counts in aligned columns, and to print the \"Undeclared tag prefixes\" section on every run, showing `(none)` when the scan does not find any candidates. (#1332)",
+            "hash": "922840c35de35880bf94c1d80af695466bb3acdf",
+            "entry": 1
+          },
+          {
+            "description": "Adds a \"Retired packages\" section to `release-kit show-tag-prefixes`, which lists each entry declared in `retiredPackages` with its tag prefix, tag count, name, and successor. (#1332)",
+            "hash": "922840c35de35880bf94c1d80af695466bb3acdf",
+            "entry": 2
+          },
+          {
+            "description": "Adds a closing note to `release-kit show-tag-prefixes` when a derived prefix does not have any tags yet, which explains that `release-kit tag` creates the first tag from the tags file that `release-kit prepare` writes. (#1332)",
+            "hash": "922840c35de35880bf94c1d80af695466bb3acdf",
+            "entry": 3
+          },
+          {
+            "description": "Makes the template checks for `release.yaml`, `publish.yaml`, and `create-github-release.yaml` report the differing hunks, and distinguish a missing file from an unreadable one, rather than report only that a hash differs. (#1336)",
+            "hash": "3712b6bd3f448345ba13f72617477bd72d0590e7",
+            "entry": 2
+          }
+        ]
+      },
+      {
+        "title": "🪦 Removed",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Removes the check for the retired `.config/sync-labels.config.ts`, which made `sync-labels init`, `generate`, and `sync` exit with an error and made the release-kit readyup kit fail while the file existed. (#1333)",
+            "migration": "Move any labels left in `.config/sync-labels.config.ts` into the `repoLabels` block of `.config/release-kit.config.ts` and delete the file before upgrading, because release-kit now ignores that file without reporting it.",
+            "hash": "d9837a02487d9dddfe84ba4463b6993a7ff8b3a3",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that `release-kit`'s ReadyUp kit reported the warning `releaseNotes.shouldInjectIntoReadme is true`, which the consumer could not clear, in a repo without any publishable package, by making the check skip with the reason `no publishable packages`. (#1334)",
+            "hash": "ddb5d2048b0598d776a54b8a85d167558d834d7c",
+            "entry": 1
+          },
+          {
+            "description": "Fixes the issue that the `publish.yaml matches template` check in `rdy run --from npm:@williamthorsen/release-kit` failed a `publish.yaml` that omits provenance, a setting that `release-kit update-templates` preserves. (#1336)",
+            "hash": "3712b6bd3f448345ba13f72617477bd72d0590e7",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "18.1.1",
     "date": "2026-11-12",
     "sections": [

@@ -1,5 +1,22 @@
 [
   {
+    "version": "2.2.1",
+    "date": "2026-11-13",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fixes the issue that a delegated `nmr` run on a host whose Node comes from a version manager's shims ran on the Node chosen before the checkout, rather than the one pinned by the snapshot, on the first delegation from a clone and the first after a repo changed its pin. (#1337)",
+            "hash": "eb9f33c1b5cc919e00f7d33927899c48dbe7c3f7",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "2.2.0",
     "date": "2026-11-12",
     "sections": [

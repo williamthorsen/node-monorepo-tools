@@ -810,7 +810,7 @@ var SYNC_LABELS_WORKFLOW_HASH = "0a88829d154c0de7cdd4246fede99e9311a89ab4199034d
 
 // .readyup/kits/default.ts
 function getMinVersion() {
-  const picked = { "version": "18.1.1" };
+  const picked = { "version": "18.2.0" };
   if (typeof picked["version"] !== "string") {
     throw new TypeError("release-kit/package.json: 'version' must be a string");
   }

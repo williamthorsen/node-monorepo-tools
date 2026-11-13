@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.2.1 — 2026-11-13
+
+### 🐛 Bug fixes
+
+- Fixes the issue that a delegated `nmr` run on a host whose Node comes from a version manager's shims ran on the Node chosen before the checkout, rather than the one pinned by the snapshot, on the first delegation from a clone and the first after a repo changed its pin. (#1337)
+
 ## 2.2.0 — 2026-11-12
 
 ### 🎉 Features
