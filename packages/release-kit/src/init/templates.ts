@@ -18,7 +18,7 @@ export default defineConfig({
   // Formatting: prettier is auto-detected. Set formatCommand to override.
 
   // Uncomment to override the default version patterns:
-  // versionPatterns: { major: ['!'], minor: ['feat', 'feature'] },
+  // versionPatterns: { major: ['!'], minor: ['feat', 'feature'], none: ['ai', 'ci', 'docs', 'tests', 'tooling'] },
 
   // Uncomment to add custom work types (merged with defaults):
   // workTypes: { perf: { header: 'Performance' } },
@@ -36,7 +36,7 @@ export default defineConfig({
   // Formatting: prettier is auto-detected. Set formatCommand to override.
 
   // Uncomment to override the default version patterns:
-  // versionPatterns: { major: ['!'], minor: ['feat', 'feature'] },
+  // versionPatterns: { major: ['!'], minor: ['feat', 'feature'], none: ['ai', 'ci', 'docs', 'tests', 'tooling'] },
 
   // Uncomment to add custom work types (merged with defaults):
   // workTypes: { perf: { header: 'Performance' } },

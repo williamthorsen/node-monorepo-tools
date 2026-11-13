@@ -28,6 +28,8 @@ release-kit reads the taxonomy from `CANONICAL_TAXONOMY` in [`@williamthorsen/ch
 - **`internal`**: Dev-only. `internal`-tier sections appear in dev changelogs but not in public-facing release notes.
 - **`process`**: Dev-only. Same audience treatment as `internal`.
 
+Tiers decide the audience, not the bump: [`versionPatterns`](configuration.md#versionpatterns) decides which types bump and which don't, and by default some `internal`- and `process`-tier types bump patch while others don't bump at all.
+
 Section render order is **tier order (`public` → `internal` → `process`), then row order within tier**. It comes from the declaration order of `CANONICAL_TAXONOMY`: `CANONICAL_SECTION_ORDER` in `buildChangelogEntries.ts` indexes each header by its row, and `transformReleases` sorts a release's sections by that index whatever order the commits arrived in.
 
 ## Subject forms

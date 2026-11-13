@@ -105,7 +105,7 @@ export default defineConfig({
   formatCommand: 'npx prettier --write',
 
   // Override the default version patterns
-  versionPatterns: { major: ['!'], minor: ['feat', 'feature'] },
+  versionPatterns: { major: ['!'], minor: ['feat', 'feature'], none: ['ai', 'ci', 'docs', 'tests', 'tooling'] },
 
   // Add or override work types (merged with defaults by key)
   workTypes: { perf: { header: 'Performance' } },

@@ -22,7 +22,7 @@ The two paths differ in what an absent file means. An absent default path means 
 | `workspaces`          | `WorkspaceOverride[]`                       | Override or exclude discovered workspaces (matched by `dir`)                                                                                                                                                                                                                             |
 | `devExportConditions` | `string[]`                                  | Export conditions that resolve only inside the repo, such as one that points at unpublished source; the [tarball check](releasing.md#packages-whose-tarball-would-lack-a-manifest-file) does not require their targets in the tarball. `source` is exempt without being listed           |
 | `formatCommand`       | `string`                                    | Shell command to run after changelog generation; modified file paths are appended as arguments                                                                                                                                                                                           |
-| `versionPatterns`     | `VersionPatterns`                           | Rules for which commit types trigger major/minor bumps                                                                                                                                                                                                                                   |
+| `versionPatterns`     | `VersionPatterns`                           | Rules for which commit types trigger major, minor, or no bumps                                                                                                                                                                                                                           |
 | `scopeAliases`        | `Record<string, string>`                    | Maps shorthand scope names to canonical names in commit titles and in change-record entry `scopes`, which [route items to workspaces](changelogs.md#routing-to-workspaces). A renamed workspace directory or [release target](#releases) needs an entry from its old name to its new one |
 | `workTypes`           | `Record<string, WorkTypeConfig>`            | Work type definitions, merged with defaults by key                                                                                                                                                                                                                                       |
 | `breakingPolicies`    | `Record<string, 'forbidden' \| 'optional'>` | Per-type `!`-policy lookup. Defaults to `DEFAULT_BREAKING_POLICIES`. Replaces the default entirely when provided. Set to `{}` to disable enforcement                                                                                                                                     |
@@ -170,16 +170,25 @@ In single-package mode, prints a single block for `.` with the derived prefix `v
 
 ## `VersionPatterns`
 
-Defines which work types trigger major or minor bumps. `prepare` applies it to each changelog item of the unreleased window and takes the highest level. An item of a type not listed bumps patch.
+Defines which work types trigger major or minor bumps, and which trigger none. `prepare` applies it to each changelog item of the unreleased window and takes the highest level. An item of a type that `none` lists doesn't bump, and an item of any other type not listed bumps patch. A window whose items don't call for any bump doesn't release unless `--force` is passed, and its items wait in the unreleased window for the next release.
 
 ```typescript
 interface VersionPatterns {
   major: string[]; // Patterns triggering a major bump ('!' = any breaking change)
   minor: string[]; // Commit types triggering a minor bump
+  none?: string[]; // Commit types triggering no bump unless breaking
 }
 ```
 
-Default: `{ major: ['!'], minor: ['feat'] }`
+Default: `{ major: ['!'], minor: ['feat'], none: ['ai', 'ci', 'docs', 'tests', 'tooling'] }`
+
+The default `none` types don't change the code that a consumer runs. `refactor`, `internal`, and `deps` bump patch, because they change shipped code or installed dependencies. A `docs` change to a file that the package publishes reaches the registry with the next release.
+
+A config that sets `versionPatterns` replaces `major` and `minor`, but an omitted `none` keeps the default list. To give every type not listed in `major` or `minor` a patch bump, as release-kit did before `none` existed, set `none: []`:
+
+```typescript
+versionPatterns: { major: ['!'], minor: ['feat'], none: [] },
+```
 
 ## Output style
 
