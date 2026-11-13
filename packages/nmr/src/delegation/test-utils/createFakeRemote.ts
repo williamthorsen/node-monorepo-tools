@@ -13,6 +13,11 @@ export interface FakeRemote {
   /** Gives `host` a home of its own, in place of the shared one, and returns it. */
   addHost: (host: string) => string;
   /**
+   * Makes `node` on the host a shim that puts a directory in front of `PATH` and then runs this machine's Node, as a
+   * version manager's shim does, and returns that directory.
+   */
+  addNodeShim: () => string;
+  /**
    * Creates an ssh wrapper that logs each call's arguments and runs the fake `ssh`, and returns a `GIT_SSH_COMMAND`
    * that names it through shell quoting, with an option whose value contains a space.
    */
@@ -39,16 +44,16 @@ export interface FakeRemote {
  * every `NMR_*` variable, as `ssh` forwards none of the local environment, and then sets `NMR_LOCK_DIR` to the
  * directory `nmr-lock` in the host's home, so that each host has a machine lock of its own.
  *
- * The fake `pnpm` logs each call. Its `install` logs, as `state=present` or `state=absent`, whether pnpm's workspace
- * state file exists, then writes that file as pnpm does; with `FAKE_INSTALL_REAL` naming a pnpm, it runs that pnpm
- * instead. Its `exec` logs the directory, the arguments, the output style, nmr's own variables, the files in the
- * directory, the bins in its `node_modules/.bin`, and the content of `probe.txt` when there is one, then prints to both
- * streams. These variables steer it: `FAKE_INSTALL_STATUS` and `FAKE_RUN_STATUS` set exit statuses;
- * `FAKE_INSTALL_SLEEP` and `FAKE_RUN_SLEEP` make the install or the run write its pid to `FAKE_INSTALL_PIDFILE` or
- * `FAKE_RUN_PIDFILE` and sleep; `FAKE_INSTALL_OUTPUT` makes the install print that line; `FAKE_INSTALL_NOISE` makes
- * the install print that many lines and then `last install line`; `FAKE_RUN_MANIFEST`, a JSON array, makes the run
- * write each element as an entry file into the pass manifest; and `FAKE_RUN_TERM_DELAY` makes the run take that many
- * seconds to exit on `SIGTERM`.
+ * The fake `pnpm` logs each call. Its `install` logs its `PATH` as `path-install`, and, as `state=present` or
+ * `state=absent`, whether pnpm's workspace state file exists, then writes that file as pnpm does; with
+ * `FAKE_INSTALL_REAL` naming a pnpm, it runs that pnpm instead. Its `exec` logs the directory, its `PATH` as
+ * `path-run`, the arguments, the output style, nmr's own variables, the files in the directory, the bins in its
+ * `node_modules/.bin`, and the content of `probe.txt` when there is one, then prints to both streams. These variables
+ * steer it: `FAKE_INSTALL_STATUS` and `FAKE_RUN_STATUS` set exit statuses; `FAKE_INSTALL_SLEEP` and `FAKE_RUN_SLEEP`
+ * make the install or the run write its pid to `FAKE_INSTALL_PIDFILE` or `FAKE_RUN_PIDFILE` and sleep;
+ * `FAKE_INSTALL_OUTPUT` makes the install print that line; `FAKE_INSTALL_NOISE` makes the install print that many lines
+ * and then `last install line`; `FAKE_RUN_MANIFEST`, a JSON array, makes the run write each element as an entry file
+ * into the pass manifest; and `FAKE_RUN_TERM_DELAY` makes the run take that many seconds to exit on `SIGTERM`.
  */
 export function createFakeRemote(tree: TempTree): FakeRemote {
   const binDir = tree.mkdir('fake-bin');
@@ -87,6 +92,7 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
     'case "$1" in',
     '  install)',
     '    echo "install $*" >> "$FAKE_PNPM_LOG"',
+    '    echo "path-install=$PATH" >> "$FAKE_PNPM_LOG"',
     '    if ls node_modules/.pnpm-workspace-state*.json >/dev/null 2>&1; then state=present; else state=absent; fi',
     '    echo "state=$state" >> "$FAKE_PNPM_LOG"',
     '    if [ -n "$FAKE_INSTALL_REAL" ]; then exec "$FAKE_INSTALL_REAL" "$@"; fi',
@@ -99,6 +105,7 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
     '    shift 2',
     '    {',
     '      echo "cwd=$(pwd)"',
+    '      echo "path-run=$PATH"',
     '      echo "args=$*"',
     '      echo "style=$NMR_OUTPUT_STYLE"',
     '      echo "env=no-cache:${NMR_NO_CACHE-unset} debug:${NMR_DEBUG-unset} run-id:${NMR_RUN_ID:+set} snapshot:${NMR_TREE_SNAPSHOT:+set} lock-token:${NMR_LOCK_TOKEN:+set} no-lock:${NMR_NO_LOCK-unset}"',
@@ -122,6 +129,17 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
 
   return {
     addHost: (host) => tree.mkdir(`fake-home/hosts/${host}`),
+    addNodeShim: () => {
+      const shimDir = tree.mkdir('version-manager/node-bin');
+      writeExecutable(tree, 'fake-bin/node', [
+        '#!/bin/sh',
+        `PATH=${quoteForShell(shimDir)}:$PATH`,
+        'export PATH',
+        `exec ${quoteForShell(process.execPath)} "$@"`,
+      ]);
+
+      return shimDir;
+    },
     addSshWrapper: () => {
       const wrapperLog = tree.resolve('ssh-wrapper.log');
       const wrapperPath = writeExecutable(tree, 'fake bin/ssh wrapper', [

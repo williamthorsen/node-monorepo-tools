@@ -51,6 +51,21 @@ describe('a delegated run on a fake host', () => {
     expect(readLogged(log, 'files')).not.toContain('ignored.log');
   });
 
+  it("runs the install and the command on the login shell's PATH, not on the one that the host's node shim set", async () => {
+    const shimDir = remote.addNodeShim();
+    const fakeBinDir = path.dirname(remote.buildEnv()['FAKE_LOGIN_SHELL'] ?? '');
+
+    const result = await delegate(['test']);
+
+    expect(result.outcome).toMatchObject({ ok: true, exitCode: 0 });
+    const log = remote.readPnpmLog();
+    for (const name of ['path-install', 'path-run']) {
+      const entries = readLogged(log, name).split(path.delimiter);
+      expect(entries).toContain(fakeBinDir);
+      expect(entries).not.toContain(shimDir);
+    }
+  });
+
   it("returns the command's own exit status", async () => {
     const result = await delegate(['test'], { FAKE_RUN_STATUS: '3' });
 

@@ -10,7 +10,7 @@ import { composeSessionScript, createSessionDemultiplexer, formatDelegationWaiti
 const MARKER = '__NMR_DELEGATE_abc__';
 
 describe(composeSessionScript, () => {
-  it('runs the host session with node from the checkout, passing its parameters as one quoted argument', () => {
+  it("runs the host session with node from the checkout, passing its parameters and the shell's PATH", () => {
     const script = composeSessionScript({
       checkoutDir: `"$HOME"/'repo'`,
       params: {
@@ -32,6 +32,7 @@ describe(composeSessionScript, () => {
 
     expect(script).toMatch(/^cd "\$HOME"\/'repo' && exec node -e '\(function runHostSession\(/);
     expect(script).toContain(String.raw`"nmrArgs":["it'\''s"]`);
+    expect(script).toMatch(/}' "\$PATH"$/);
   });
 });
 
