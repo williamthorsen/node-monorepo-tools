@@ -59,7 +59,7 @@ describe('a delegated run on a fake host', () => {
 
     expect(result.outcome).toMatchObject({ ok: true, exitCode: 0 });
     const log = remote.readPnpmLog();
-    for (const name of ['install-path', 'run-path']) {
+    for (const name of ['path-install', 'path-run']) {
       const entries = readLogged(log, name).split(path.delimiter);
       expect(entries).toContain(fakeBinDir);
       expect(entries).not.toContain(shimDir);
