@@ -12,7 +12,7 @@ export interface DecideReleaseArgs {
   bumpOverride: ReleaseType | undefined;
   /**
    * Skip wordings to use when the window doesn't contain any commits (`noCommits`) or when it contains commits but none
-   * yields a changelog item (`noBumpWorthy`). Each path passes its own pre-rendered wordings.
+   * calls for a bump (`noBumpWorthy`). Each path passes its own pre-rendered wordings.
    */
   skipReasons: {
     noCommits: string;

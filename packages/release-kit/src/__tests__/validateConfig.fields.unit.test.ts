@@ -13,6 +13,21 @@ describe(validateConfig, () => {
       expect(config.versionPatterns).toStrictEqual({ major: ['!'], minor: ['feat'] });
     });
 
+    it('validates a versionPatterns object with `none`', () => {
+      const { config, errors } = validateConfig({
+        versionPatterns: { major: ['!'], minor: ['feat'], none: [] },
+      });
+      expect(errors).toStrictEqual([]);
+      expect(config.versionPatterns).toStrictEqual({ major: ['!'], minor: ['feat'], none: [] });
+    });
+
+    it('returns an error when none is not a string array', () => {
+      const { errors } = validateConfig({
+        versionPatterns: { major: ['!'], minor: ['feat'], none: 'docs' },
+      });
+      expectErrorAtPath(errors, 'versionPatterns.none');
+    });
+
     it('returns an error when major is not a string array', () => {
       const { errors } = validateConfig({
         versionPatterns: { major: 'invalid', minor: ['feat'] },

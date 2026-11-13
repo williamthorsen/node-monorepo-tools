@@ -1,3 +1,4 @@
+import { DEFAULT_VERSION_PATTERNS } from './defaults.ts';
 import type { ReleaseType, VersionPatterns, WorkTypeConfig } from './types.ts';
 
 /** The part of a changelog item or parsed commit that decides its bump: its resolved work type and breaking flag. */
@@ -18,7 +19,8 @@ const RELEASE_PRIORITY: Record<ReleaseType, number> = {
  *
  * Uses `versionPatterns` to decide which types trigger major/minor bumps.
  * The `'!'` sentinel in `versionPatterns.major` means "any breaking change triggers major".
- * Any recognized type not listed in major or minor patterns defaults to patch.
+ * A recognized type listed in `versionPatterns.none` (the default list when omitted) triggers no bump; any other
+ * recognized type not listed in major or minor patterns defaults to patch.
  */
 export function determineBumpType(
   changes: readonly BumpSignal[],
@@ -26,6 +28,7 @@ export function determineBumpType(
   versionPatterns: VersionPatterns,
 ): ReleaseType | undefined {
   const knownTypes = new Set(Object.keys(workTypes));
+  const nonBumpingTypes = new Set(versionPatterns.none ?? DEFAULT_VERSION_PATTERNS.none);
 
   let highestPriority = 0;
   let result: ReleaseType | undefined;
@@ -44,6 +47,8 @@ export function determineBumpType(
       bump = 'major';
     } else if (versionPatterns.minor.includes(change.type)) {
       bump = 'minor';
+    } else if (nonBumpingTypes.has(change.type)) {
+      continue;
     } else {
       bump = 'patch';
     }
