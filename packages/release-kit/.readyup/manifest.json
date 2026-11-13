@@ -140,7 +140,7 @@
           "path": "../../nmr-core/dist/esm/timer.js"
         },
         {
-          "hash": "9506bc03",
+          "hash": "f1d9ec3b",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -155,7 +155,12 @@
           "path": "lib/config-checks.ts"
         },
         {
-          "hash": "9a4023ad",
+          "hash": "70633d7f",
+          "kind": "module",
+          "path": "lib/template-checks.ts"
+        },
+        {
+          "hash": "ec55cfef",
           "kind": "module",
           "path": "lib/workflow-hashes.ts"
         },
@@ -178,9 +183,29 @@
           "path": "../src/init/detectRepoType.ts"
         },
         {
+          "hash": "d360febf",
+          "kind": "module",
+          "path": "../src/init/hasProvenance.ts"
+        },
+        {
           "hash": "133be525",
           "kind": "module",
           "path": "../src/init/parseJsonRecord.ts"
+        },
+        {
+          "hash": "3238f7e0",
+          "kind": "module",
+          "path": "../src/init/renderManagedWorkflows.ts"
+        },
+        {
+          "hash": "5950f562",
+          "kind": "module",
+          "path": "../src/init/scaffold.ts"
+        },
+        {
+          "hash": "e10ddb57",
+          "kind": "module",
+          "path": "../src/init/templates.ts"
         },
         {
           "hash": "2210df36",
@@ -192,8 +217,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.46.2",
       "source": "kits/default.ts",
-      "sourceHash": "9506bc03",
-      "targetHash": "15bcb462"
+      "sourceHash": "f1d9ec3b",
+      "targetHash": "1bceb32f"
     },
     {
       "bundledDependencies": {
