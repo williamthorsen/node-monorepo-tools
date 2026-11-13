@@ -172,6 +172,79 @@ describe('prepareReleaseTargets for a monorepo', () => {
       expect(mockBuildSyntheticChangelogEntry.mock.calls[0]?.[3]).toBe('📦 Deps');
     });
 
+    describe('when the propagated workspace has items of its own', () => {
+      const testsSection: ChangelogSection = {
+        title: '🧪 Tests',
+        audience: 'dev',
+        items: [{ description: 'Cover the parser' }],
+      };
+      const releasedEntry = { version: '2.0.0', date: '2023-12-01', sections: [testsSection] };
+
+      beforeEach(() => {
+        mockBuildSyntheticChangelogEntry.mockReturnValue({
+          version: '2.0.1',
+          date: '2024-01-01',
+          sections: [{ title: '📦 Dependencies', audience: 'dev', items: [{ description: 'Bumped core' }] }],
+        });
+      });
+
+      it("records the window's items with the dependencies in the new version's entry", () => {
+        const config = stubPropagationWorkspaces();
+        stubHistoryByPrefix({
+          'core-v': { previousTag: 'core-v1.0.0', commits: [['fix: bug fix', 'abc123']], bump: 'patch' },
+          'app-v': {
+            previousTag: 'app-v2.0.0',
+            commits: [['tests: cover the parser', 'def456']],
+            sections: [testsSection],
+            releasedEntries: [releasedEntry],
+          },
+        });
+
+        const result = prepareMonorepo(config, {});
+
+        expect(selectPackageResults(result).find((c) => c.name === 'app')).toMatchObject({
+          status: 'released',
+          newVersion: '2.0.1',
+          propagatedOnly: true,
+        });
+        expect(findAppEntries()).toStrictEqual([
+          {
+            version: '2.0.1',
+            date: '2024-01-01',
+            sections: [
+              testsSection,
+              { title: '📦 Dependencies', audience: 'dev', items: [{ description: 'Bumped core' }] },
+            ],
+          },
+          releasedEntry,
+        ]);
+      });
+
+      it('appends the dependencies to a dependencies section that the window already has', () => {
+        const config = stubPropagationWorkspaces();
+        const depsSection: ChangelogSection = {
+          title: '📦 Dependencies',
+          audience: 'dev',
+          items: [{ description: 'Upgrade zod' }],
+        };
+        stubHistoryByPrefix({
+          'core-v': { previousTag: 'core-v1.0.0', commits: [['fix: bug fix', 'abc123']], bump: 'patch' },
+          'app-v': {
+            previousTag: 'app-v2.0.0',
+            commits: [['tests: cover', 'def456']],
+            sections: [depsSection, testsSection],
+          },
+        });
+
+        prepareMonorepo(config, {});
+
+        expect(findAppEntries()[0]).toHaveProperty('sections', [
+          testsSection,
+          { ...depsSection, items: [{ description: 'Upgrade zod' }, { description: 'Bumped core' }] },
+        ]);
+      });
+    });
+
     it('does not propagate to workspaces excluded from config.workspaces', () => {
       // Only `core` is in the config; `app`, which depends on it, is not.
       const config = makeConfig({ workspaces: [makeRoutedWorkspace('core')] });
@@ -503,3 +576,23 @@ describe('prepareReleaseTargets for a monorepo', () => {
     }
   });
 });
+
+// region | Helpers
+
+/** Returns the entries that the mocked Markdown renderer received for the `app` workspace's 2.0.1 release. */
+function findAppEntries(): unknown[] {
+  for (const args of mockRenderChangelogMarkdown.mock.calls) {
+    const entries: unknown = args[0];
+    if (Array.isArray(entries) && isEntryForVersion(entries[0], '2.0.1')) {
+      return entries;
+    }
+  }
+  assert.fail('expected a changelog render for app 2.0.1');
+}
+
+/** Reports whether `value` is a changelog entry of `version`. */
+function isEntryForVersion(value: unknown, version: string): boolean {
+  return typeof value === 'object' && value !== null && 'version' in value && value.version === version;
+}
+
+// endregion | Helpers

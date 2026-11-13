@@ -162,7 +162,13 @@ export function planTargetRelease(args: PlanTargetReleaseArgs): PlannedTargetRel
 
   const entries =
     decision === undefined
-      ? buildPropagationEntries(target, release, bumpPlan.newVersion, today, args.dependenciesHeader)
+      ? buildPropagationEntries(target, release, {
+          history,
+          tag,
+          newVersion: bumpPlan.newVersion,
+          today,
+          dependenciesHeader: args.dependenciesHeader,
+        })
       : convertToReleaseEntries(history, tag, today);
   const overrideScope = describeOverrideScope(target);
   const appliedOverrides = applyWorkspaceOverrides(entries, overrideScope, overrideContext);
