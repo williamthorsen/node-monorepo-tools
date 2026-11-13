@@ -1,10 +1,12 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { findMonorepoRoot } from '@williamthorsen/nmr/workspace';
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
+
+import { listFiles } from '../test-utils/listFiles.ts';
 
 /** The source tree whose git calls go through nmr-core's `runGit`, relative to the monorepo root. */
 const SCANNED_DIR = 'packages/nmr/src';
@@ -71,21 +73,10 @@ describe(findGitCallers, () => {
 
 /** Lists the scanned source files under `rootDir` that run git themselves, as sorted root-relative paths. */
 function findGitCallers(rootDir: string): string[] {
-  return listFiles(rootDir, SCANNED_DIR)
+  return listFiles(rootDir, PRUNED, SCANNED_DIR)
     .filter((file) => SOURCE_FILE_PATTERN.test(file))
     .filter((file) => GIT_CALL_PATTERN.test(readFileSync(path.join(rootDir, file), 'utf8')))
     .toSorted();
-}
-
-/** Walks `relativeDir` under `rootDir`, returning every file outside the pruned directories as a root-relative POSIX path. */
-function listFiles(rootDir: string, relativeDir: string): string[] {
-  return readdirSync(path.join(rootDir, relativeDir), { withFileTypes: true }).flatMap((entry) => {
-    const relativePath = path.posix.join(relativeDir, entry.name);
-    if (entry.isDirectory()) {
-      return PRUNED.has(entry.name) ? [] : listFiles(rootDir, relativePath);
-    }
-    return entry.isFile() ? relativePath : [];
-  });
 }
 
 // endregion | Helpers

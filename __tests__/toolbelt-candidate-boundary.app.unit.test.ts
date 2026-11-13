@@ -1,10 +1,12 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { findMonorepoRoot } from '@williamthorsen/nmr/workspace';
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
+
+import { listFiles } from '../test-utils/listFiles.ts';
 
 interface Boundary {
   dependency: string;
@@ -123,7 +125,7 @@ function declaresDependency(manifest: unknown, dependency: string): boolean {
 
 /** Lists the manifests under `rootDir` that declare the dependency, as sorted root-relative paths. */
 function findDeclarers(rootDir: string, dependency: string): string[] {
-  return listFiles(rootDir)
+  return listFiles(rootDir, PRUNED)
     .filter((file) => path.basename(file) === 'package.json')
     .filter((file) => declaresDependency(JSON.parse(readFileSync(path.join(rootDir, file), 'utf8')), dependency))
     .toSorted();
@@ -132,7 +134,7 @@ function findDeclarers(rootDir: string, dependency: string): string[] {
 /** Lists the source files under `rootDir` that name the dependency in a specifier, as sorted root-relative paths. */
 function findImporters(rootDir: string, dependency: string): string[] {
   const specifierPattern = buildSpecifierPattern(dependency);
-  return listFiles(rootDir)
+  return listFiles(rootDir, PRUNED)
     .filter((file) => SOURCE_FILE_PATTERN.test(file))
     .filter((file) => specifierPattern.test(readFileSync(path.join(rootDir, file), 'utf8')))
     .toSorted();
@@ -141,17 +143,6 @@ function findImporters(rootDir: string, dependency: string): string[] {
 /** Narrows a parsed JSON value to an object whose properties can be read. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
-}
-
-/** Walks `rootDir`, returning every file outside the pruned directories as a root-relative POSIX path. */
-function listFiles(rootDir: string, relativeDir = ''): string[] {
-  return readdirSync(path.join(rootDir, relativeDir), { withFileTypes: true }).flatMap((entry) => {
-    const relativePath = path.posix.join(relativeDir, entry.name);
-    if (entry.isDirectory()) {
-      return PRUNED.has(entry.name) ? [] : listFiles(rootDir, relativePath);
-    }
-    return entry.isFile() ? relativePath : [];
-  });
 }
 
 // endregion | Helpers
