@@ -27,22 +27,35 @@ export function extractVersion(tag: string): string {
   return match?.[1] ?? tag;
 }
 
+/** Outcome of loading a changelog JSON file, telling a missing file apart from one that cannot be read as entries. */
+export type ChangelogLoadResult =
+  { status: 'loaded'; entries: ChangelogEntry[] } | { status: 'missing' } | { status: 'unreadable' };
+
 /**
- * Reads the changelog entries in a JSON file; undefined when the file is missing or unreadable, or doesn't contain an
- * array.
+ * Loads the changelog entries in a JSON file. A file that cannot be read, is not valid JSON, or doesn't contain an
+ * array is `unreadable`.
  */
-export function readChangelogEntries(filePath: string): ChangelogEntry[] | undefined {
+export function loadChangelogEntries(filePath: string): ChangelogLoadResult {
   if (!existsSync(filePath)) {
-    return undefined;
+    return { status: 'missing' };
   }
   try {
     const content = readFileSync(filePath, 'utf8');
     const parsedJson: unknown = JSON.parse(content);
     if (!isUnknownArray(parsedJson)) {
-      return undefined;
+      return { status: 'unreadable' };
     }
-    return parsedJson.filter(isChangelogEntry);
+    return { status: 'loaded', entries: parsedJson.filter(isChangelogEntry) };
   } catch {
-    return undefined;
+    return { status: 'unreadable' };
   }
+}
+
+/**
+ * Reads the changelog entries in a JSON file; undefined when the file is missing or unreadable, or doesn't contain an
+ * array.
+ */
+export function readChangelogEntries(filePath: string): ChangelogEntry[] | undefined {
+  const result = loadChangelogEntries(filePath);
+  return result.status === 'loaded' ? result.entries : undefined;
 }
