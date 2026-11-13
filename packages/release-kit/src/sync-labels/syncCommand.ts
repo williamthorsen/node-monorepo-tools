@@ -5,7 +5,6 @@ import { GIT_OUTPUT_LIMIT_BYTES, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { BIN } from '../bin.ts';
-import { checkRetiredSyncLabelsConfig } from './retiredConfig.ts';
 
 /** Workflow file that must exist before triggering. */
 const WORKFLOW_FILE = '.github/workflows/sync-labels.yaml';
@@ -24,10 +23,6 @@ function checkGhAvailable(): boolean {
  * Runs the `sync-labels sync` subcommand, which triggers the sync-labels workflow, and returns the process exit code.
  */
 export function syncLabelsCommand(): number {
-  if (checkRetiredSyncLabelsConfig()) {
-    return 1;
-  }
-
   if (!checkGhAvailable()) {
     reportError(BIN, 'The `gh` CLI is not installed or not in PATH. Install it from https://cli.github.com/');
     return 1;

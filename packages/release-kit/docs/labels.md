@@ -10,8 +10,6 @@ Manages GitHub label definitions via the `repoLabels` block of `.config/release-
 
 `init` and `generate` accept `--config <path>` to read a config elsewhere; `sync` reads none and rejects the flag. Under `--config`, `init` reads the named file and prints the block for manual paste, and fails when that file does not exist rather than scaffolding one, so its write target stays `.config/release-kit.config.ts`. See [Config file location](configuration.md#config-file-location).
 
-Every `sync-labels` subcommand refuses to run while the retired `.config/sync-labels.config.ts` is present, so that custom labels cannot be silently dropped mid-migration, and the refusal names what to move and where.
-
 ### Label configuration
 
 ```typescript

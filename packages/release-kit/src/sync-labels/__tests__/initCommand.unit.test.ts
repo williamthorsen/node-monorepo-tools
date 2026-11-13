@@ -55,7 +55,6 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => ({
 import { CONFIG_FILE_PATH } from '../../loadConfig.ts';
 import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../../test-utils/workspaceResolutions.ts';
 import { syncLabelsInitCommand } from '../initCommand.ts';
-import { RETIRED_SYNC_LABELS_CONFIG_PATH } from '../retiredConfig.ts';
 import { buildScopeLabels } from '../templates.ts';
 
 // The streams differ so that a helper given the other stream's style fails its assertion.
@@ -73,16 +72,6 @@ describe(syncLabelsInitCommand, () => {
     mockReportWriteResult.mockReset();
     mockValidateConfig.mockReset();
     mockWriteFileWithCheck.mockReset();
-  });
-
-  it('returns 1 without writing when the retired sync-labels config exists', async () => {
-    stubExistingFiles(RETIRED_SYNC_LABELS_CONFIG_PATH);
-
-    const exitCode = await syncLabelsInitCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES });
-
-    expect(exitCode).toBe(1);
-    expect(mockReportError).toHaveBeenCalledWith('release-kit', expect.stringContaining('no longer read'));
-    expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
   });
 
   it('writes workflow and config, then generates, when the config does not exist', async () => {

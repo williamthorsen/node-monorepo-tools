@@ -13,7 +13,6 @@ vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
 }));
 
-import { RETIRED_SYNC_LABELS_CONFIG_PATH } from '../retiredConfig.ts';
 import { syncLabelsCommand } from '../syncCommand.ts';
 
 /** Makes only the given repo files exist. */
@@ -25,17 +24,6 @@ describe(syncLabelsCommand, () => {
   afterEach(() => {
     mockExecSync.mockReset();
     mockExistsSync.mockReset();
-  });
-
-  it('returns 1 with a migration message when the retired sync-labels config exists', () => {
-    stubExistingFiles(RETIRED_SYNC_LABELS_CONFIG_PATH);
-    using stdioCapture = captureStdio();
-
-    const result = syncLabelsCommand();
-
-    expect(result).toBe(1);
-    expect(stdioCapture.stderr).toContain('no longer read');
-    expect(mockExecSync).not.toHaveBeenCalled();
   });
 
   it('returns 1 when gh CLI is not available', () => {
