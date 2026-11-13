@@ -96,7 +96,7 @@ describe('reusable workflows install the Node.js version that the caller pins', 
         '.tool-versions',
       );
       expect(step.with?.['node-version'], 'a literal version outranks the file').toBeUndefined();
-      expect(readRuntime(step), 'a version in `runtime` outranks the file').not.toMatch(/^node@\d/);
+      expect(readRuntime(step), 'a version in `runtime` outranks the file').not.toMatch(/^node@/);
     }
   });
 
